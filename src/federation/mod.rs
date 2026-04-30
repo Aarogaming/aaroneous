@@ -24,6 +24,7 @@ pub mod specialists;
 pub mod bootstrap;
 pub mod deployment_examples;
 pub mod cli;
+pub mod runtime;
 
 pub use specialist::{Specialist, SpecialistId, SpecialistConfig, SpecialistRegistry, SpecialistContext, Decision, DelegateRequest, Conflict, ProposedAction, SystemResources, UserState, ExecutionStatus, ExecutionResult, ProposalPriority};
 pub use sentinel::{Sentinel, SentinelConfig, ArbitrationResult};
@@ -34,6 +35,7 @@ pub use agent_bridge::{SpecialistAgentBridge, agent_name_to_specialist_id};
 pub use specialists::Visionary;
 pub use bootstrap::{SpecialistModule, DeploymentTarget, Manifest, DeploymentConfig, BootstrapResult, BootstrapSystem};
 pub use cli::{Command, AaroneosCLI, CLIResult, InitArgs, ExpandArgs, PortableArgs, StatusArgs};
+pub use runtime::{HiveRuntime, ModelManager, ExecutionMetrics, SpecialistHealth, HealthStatus, RuntimeStats, HealthReport, LoadedModel};
 
 #[cfg(test)]
 mod tests;
