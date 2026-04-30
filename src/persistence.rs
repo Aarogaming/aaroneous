@@ -254,8 +254,20 @@ impl PersistenceManager {
         genome: &SpecialistGenome,
         soul: &SpecialistSoul,
     ) -> SqlResult<()> {
-        let genetics_json = serde_json::to_string(genome).unwrap_or_default();
-        let soul_json = serde_json::to_string(soul).unwrap_or_default();
+        let genetics_json = match serde_json::to_string(genome) {
+            Ok(json) => json,
+            Err(e) => {
+                tracing::warn!("Failed to serialize specialist genome: {}", e);
+                return Err(rusqlite::Error::InvalidQuery);
+            }
+        };
+        let soul_json = match serde_json::to_string(soul) {
+            Ok(json) => json,
+            Err(e) => {
+                tracing::warn!("Failed to serialize specialist soul: {}", e);
+                return Err(rusqlite::Error::InvalidQuery);
+            }
+        };
         let now = chrono::Utc::now().to_rfc3339();
 
         self.db.execute(
@@ -337,7 +349,13 @@ impl PersistenceManager {
         skill_id: &str,
         skill: &Skill,
     ) -> SqlResult<()> {
-        let skill_json = serde_json::to_string(skill).unwrap_or_default();
+        let skill_json = match serde_json::to_string(skill) {
+            Ok(json) => json,
+            Err(e) => {
+                tracing::warn!("Failed to serialize skill {}: {}", skill_id, e);
+                return Err(rusqlite::Error::InvalidQuery);
+            }
+        };
         let now = chrono::Utc::now().to_rfc3339();
 
         self.db.execute(

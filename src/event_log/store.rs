@@ -171,9 +171,10 @@ impl EventLogStore {
         let (earliest_timestamp, latest_timestamp) = if events.is_empty() {
             (0, 0)
         } else {
+            // Safe: we checked is_empty() above, so first() and last() won't be None
             (
-                events.first().unwrap().timestamp,
-                events.last().unwrap().timestamp,
+                events.first().expect("verified non-empty").timestamp,
+                events.last().expect("verified non-empty").timestamp,
             )
         };
 

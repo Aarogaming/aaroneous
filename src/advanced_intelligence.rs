@@ -51,7 +51,22 @@ impl MetricStatistics {
         let std_dev = variance.sqrt();
 
         let mut sorted = points.to_vec();
-        sorted.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        // Sort with NaN handling - NaNs sort to end (considered "equal" to other NaNs)
+        sorted.sort_by(|a, b| {
+            match a.partial_cmp(b) {
+                Some(ord) => ord,
+                None => {
+                    // NaN comparison - treat NaN as equal (stable sort)
+                    if a.is_nan() && b.is_nan() {
+                        std::cmp::Ordering::Equal
+                    } else if a.is_nan() {
+                        std::cmp::Ordering::Greater // Push NaN to end
+                    } else {
+                        std::cmp::Ordering::Less // b is NaN
+                    }
+                }
+            }
+        });
 
         let p50_idx = sorted.len() / 2;
         let p95_idx = (sorted.len() as f32 * 0.95) as usize;

@@ -148,12 +148,27 @@ impl ClusterManager {
             return Err("No healthy nodes available".to_string());
         }
 
-        // Select node with least load
+        // Select node with least load (with NaN-safe comparison)
         let node = healthy
             .iter()
-            .min_by(|a, b| a.current_load.partial_cmp(&b.current_load).unwrap())
-            .cloned()
-            .unwrap();
+            .min_by(|a, b| {
+                match a.current_load.partial_cmp(&b.current_load) {
+                    Some(ord) => ord,
+                    None => {
+                        // NaN load - shouldn't happen but handle gracefully
+                        // Treat NaN as "very high load" to avoid selection
+                        if a.current_load.is_nan() && b.current_load.is_nan() {
+                            std::cmp::Ordering::Equal
+                        } else if a.current_load.is_nan() {
+                            std::cmp::Ordering::Greater
+                        } else {
+                            std::cmp::Ordering::Less
+                        }
+                    }
+                }
+            })
+            .ok_or_else(|| "Failed to select minimum load node".to_string())?
+            .clone();
 
         Ok(node)
     }
@@ -239,9 +254,23 @@ impl LoadBalancer {
             LoadBalancingStrategy::LeastLoaded => {
                 let node = healthy
                     .iter()
-                    .min_by(|a, b| a.current_load.partial_cmp(&b.current_load).unwrap())
-                    .cloned()
-                    .unwrap();
+                    .min_by(|a, b| {
+                        match a.current_load.partial_cmp(&b.current_load) {
+                            Some(ord) => ord,
+                            None => {
+                                // NaN load handling
+                                if a.current_load.is_nan() && b.current_load.is_nan() {
+                                    std::cmp::Ordering::Equal
+                                } else if a.current_load.is_nan() {
+                                    std::cmp::Ordering::Greater
+                                } else {
+                                    std::cmp::Ordering::Less
+                                }
+                            }
+                        }
+                    })
+                    .ok_or_else(|| "No minimum load node found".to_string())?
+                    .clone();
                 Ok(node)
             }
             LoadBalancingStrategy::Random => {
