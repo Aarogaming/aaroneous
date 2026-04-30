@@ -22,6 +22,7 @@ pub mod conflict_resolution;
 pub mod agent_bridge;
 pub mod specialists;
 pub mod bootstrap;
+pub mod deployment_examples;
 
 pub use specialist::{Specialist, SpecialistId, SpecialistConfig, SpecialistRegistry, SpecialistContext, Decision, DelegateRequest, Conflict, ProposedAction, SystemResources, UserState, ExecutionStatus, ExecutionResult, ProposalPriority};
 pub use sentinel::{Sentinel, SentinelConfig, ArbitrationResult};
