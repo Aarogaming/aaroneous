@@ -16,6 +16,7 @@ pub mod engine;
 pub mod mutations;
 pub mod snapshot;
 pub mod election;
+pub mod integration_tests;
 
 pub use types::*;
 pub use log::RaftLog;

@@ -84,6 +84,11 @@ impl RaftNode {
         self.log.clone()
     }
 
+    /// Get cluster configuration
+    pub fn get_config(&self) -> RaftConfig {
+        self.config.clone()
+    }
+
     /// Update term and reset vote
     pub fn update_term(&self, new_term: Term) -> Result<(), String> {
         let mut persistent = self.persistent.write()
