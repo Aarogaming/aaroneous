@@ -191,8 +191,8 @@ pub struct FusionSuggestion {
 
 impl FusionSuggestion {
     pub fn new(
-        skill_id_1: String,
-        skill_id_2: String,
+        skill_id_1: &str,
+        skill_id_2: &str,
         compat: f64,
         name: String,
         properties: Vec<String>,
@@ -207,8 +207,8 @@ impl FusionSuggestion {
         };
         
         Self {
-            skill_id_1,
-            skill_id_2,
+            skill_id_1: skill_id_1.to_string(),
+            skill_id_2: skill_id_2.to_string(),
             skill_id_3: None,
             compatibility_score: compat,
             expected_name: name,
@@ -283,8 +283,8 @@ impl SkillFusionEngine {
                     let power_improvement = self.calculate_power_improvement(skill1, skill2, &compat);
                     
                     suggestions.push(FusionSuggestion::new(
-                        skill1.skill_id.clone(),
-                        skill2.skill_id.clone(),
+                        &skill1.skill_id,
+                        &skill2.skill_id,
                         compat.overall_score,
                         fused_name,
                         properties,
