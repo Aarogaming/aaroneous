@@ -15,12 +15,76 @@
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::sync::Arc;
+use tokio::sync::Mutex;
 
 use crate::federation::specialist::{
     Specialist, SpecialistId, SpecialistContext, SpecialistError, ProposedAction,
     Decision, DelegateRequest, DelegateResponse, Conflict, NegotiationResult,
     ResourceRequest, ProposalPriority, ExecutionResult, ExecutionStatus, SpecialistCapability,
 };
+
+/// Learning data for Omnipresent specialist
+#[derive(Debug, Clone)]
+pub struct OmnipresentLearningData {
+    pub success_count: u32,
+    pub failure_count: u32,
+    pub total_executions: u32,
+    pub confidence_score: f32,
+    pub execution_history: Vec<bool>, // Track last 20 executions
+    pub last_updated: u64,
+}
+
+impl OmnipresentLearningData {
+    pub fn new() -> Self {
+        Self {
+            success_count: 0,
+            failure_count: 0,
+            total_executions: 0,
+            confidence_score: 0.5, // Start neutral
+            execution_history: vec![],
+            last_updated: 0,
+        }
+    }
+
+    pub fn record_result(&mut self, success: bool) {
+        if success {
+            self.success_count += 1;
+        } else {
+            self.failure_count += 1;
+        }
+        self.total_executions += 1;
+
+        // Keep last 20 executions
+        self.execution_history.push(success);
+        if self.execution_history.len() > 20 {
+            self.execution_history.remove(0);
+        }
+
+        // Update confidence score based on recent history
+        if self.total_executions > 0 {
+            self.confidence_score =
+                (self.success_count as f32) / (self.total_executions as f32);
+        }
+
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+        self.last_updated = now;
+    }
+
+    pub fn get_proposal_confidence(&self) -> f32 {
+        self.confidence_score
+    }
+
+    pub fn get_success_rate(&self) -> f32 {
+        if self.total_executions == 0 {
+            return 0.0;
+        }
+        (self.success_count as f32) / (self.total_executions as f32) * 100.0
+    }
+}
 
 /// Device in the network
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -108,6 +172,7 @@ pub struct Omnipresent {
     pub devices: HashMap<String, Device>,
     pub sync_history: Vec<String>,
     pub bandwidth_available_mbps: u32,
+    pub learning: Arc<Mutex<OmnipresentLearningData>>,
 }
 
 impl Omnipresent {
@@ -124,6 +189,7 @@ impl Omnipresent {
             devices: HashMap::new(),
             sync_history: vec![],
             bandwidth_available_mbps: 100,
+            learning: Arc::new(Mutex::new(OmnipresentLearningData::new())),
         }
     }
 
@@ -223,7 +289,15 @@ impl Specialist for Omnipresent {
         }
 
         let device_count = self.devices.len() as f32;
-        let confidence = if conflicts.is_empty() { 0.75 } else { 0.90 };
+        let base_confidence = if conflicts.is_empty() { 0.75 } else { 0.90 };
+
+        // Get learned confidence from history
+        let learning = self.learning.lock().await;
+        let learned_confidence = learning.get_proposal_confidence();
+        drop(learning);
+
+        // Blend base confidence (70%) with learned confidence (30%)
+        let confidence = (base_confidence * 0.7) + (learned_confidence * 0.3);
 
         Ok(vec![ProposedAction {
             id: format!("omnipresent-sync-{}", uuid()),
@@ -261,7 +335,7 @@ impl Specialist for Omnipresent {
             sync_bandwidth
         );
 
-        Ok(ExecutionResult {
+        let result = ExecutionResult {
             specialist: SpecialistId::Omnipresent,
             proposal_id: decision.proposal_id.clone(),
             status: ExecutionStatus::Success,
@@ -269,7 +343,16 @@ impl Specialist for Omnipresent {
             resources_used: decision.allocated_resources.clone(),
             duration_ms: 1500,
             error: None,
-        })
+        };
+
+        // Record execution result for learning
+        let success = result.status == ExecutionStatus::Success;
+        {
+            let mut learning = self.learning.lock().await;
+            learning.record_result(success);
+        } // Lock released here
+
+        Ok(result)
     }
 
     /// Delegate Intent adaptation to device-specific handlers

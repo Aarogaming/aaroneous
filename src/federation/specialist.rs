@@ -100,6 +100,7 @@ pub trait Specialist: Send + Sync {
     /// 
     /// Called when Sentinel decides this specialist should act.
     /// Specialist commits to the decision and reports results (top-down signal).
+    /// REVIVED: Specialists use interior mutability (Mutex) to learn from results
     async fn execute(&self, decision: &Decision) -> Result<ExecutionResult, SpecialistError>;
 
     /// Delegate work to another specialist

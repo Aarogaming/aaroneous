@@ -15,12 +15,74 @@
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::sync::Arc;
+use tokio::sync::Mutex;
 
 use crate::federation::specialist::{
     Specialist, SpecialistId, SpecialistContext, SpecialistError, ProposedAction,
     Decision, DelegateRequest, DelegateResponse, Conflict, NegotiationResult,
     ResourceRequest, ProposalPriority, ExecutionResult, ExecutionStatus, SpecialistCapability,
 };
+
+/// Learning data for Phygital specialist
+#[derive(Debug, Clone)]
+pub struct PhygitalLearningData {
+    pub success_count: u32,
+    pub failure_count: u32,
+    pub total_executions: u32,
+    pub confidence_score: f32,
+    pub execution_history: Vec<bool>,
+    pub last_updated: u64,
+}
+
+impl PhygitalLearningData {
+    pub fn new() -> Self {
+        Self {
+            success_count: 0,
+            failure_count: 0,
+            total_executions: 0,
+            confidence_score: 0.5,
+            execution_history: vec![],
+            last_updated: 0,
+        }
+    }
+
+    pub fn record_result(&mut self, success: bool) {
+        if success {
+            self.success_count += 1;
+        } else {
+            self.failure_count += 1;
+        }
+        self.total_executions += 1;
+
+        self.execution_history.push(success);
+        if self.execution_history.len() > 20 {
+            self.execution_history.remove(0);
+        }
+
+        if self.total_executions > 0 {
+            self.confidence_score =
+                (self.success_count as f32) / (self.total_executions as f32);
+        }
+
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+        self.last_updated = now;
+    }
+
+    pub fn get_proposal_confidence(&self) -> f32 {
+        self.confidence_score
+    }
+
+    pub fn get_success_rate(&self) -> f32 {
+        if self.total_executions == 0 {
+            return 0.0;
+        }
+        (self.success_count as f32) / (self.total_executions as f32) * 100.0
+    }
+}
 
 /// AR/VR device detected
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -104,6 +166,7 @@ pub struct Phygital {
     pub prototypes: HashMap<String, SpatialPrototype>,
     pub frame_state_history: Vec<ARFrameState>,
     pub gpu_headroom_percent: f32,
+    pub learning: Arc<Mutex<PhygitalLearningData>>,
 }
 
 impl Phygital {
@@ -115,6 +178,7 @@ impl Phygital {
             prototypes: HashMap::new(),
             frame_state_history: vec![],
             gpu_headroom_percent: 30.0,
+            learning: Arc::new(Mutex::new(PhygitalLearningData::new())),
         }
     }
 
@@ -269,7 +333,15 @@ impl Specialist for Phygital {
             .map(|d| format!("{:?}", d))
             .unwrap_or_else(|| "Mobile".to_string());
 
-        let confidence = 0.8 + (self.gpu_headroom_percent / 100.0) * 0.2;
+        let base_confidence = 0.8 + (self.gpu_headroom_percent / 100.0) * 0.2;
+
+        // Get learned confidence from history
+        let learning = self.learning.lock().await;
+        let learned_confidence = learning.get_proposal_confidence();
+        drop(learning);
+
+        // Blend base confidence (70%) with learned confidence (30%)
+        let confidence = (base_confidence * 0.7) + (learned_confidence * 0.3);
 
         Ok(vec![ProposedAction {
             id: format!("phygital-render-{}", uuid()),
@@ -316,7 +388,7 @@ impl Specialist for Phygital {
                 .unwrap_or(60)
         );
 
-        Ok(ExecutionResult {
+        let result = ExecutionResult {
             specialist: SpecialistId::Phygital,
             proposal_id: decision.proposal_id.clone(),
             status: ExecutionStatus::Success,
@@ -324,7 +396,16 @@ impl Specialist for Phygital {
             resources_used: decision.allocated_resources.clone(),
             duration_ms: 2500,
             error: None,
-        })
+        };
+
+        // Record execution result for learning
+        let success = result.status == ExecutionStatus::Success;
+        {
+            let mut learning = self.learning.lock().await;
+            learning.record_result(success);
+        } // Lock released here
+
+        Ok(result)
     }
 
     /// Delegate to device-specific rendering handlers

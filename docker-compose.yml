@@ -1,0 +1,254 @@
+version: '3.8'
+
+services:
+  # PostgreSQL DNA Bank
+  database:
+    image: postgres:15-alpine
+    container_name: aaroneous-db
+    environment:
+      POSTGRES_USER: aaroneous
+      POSTGRES_PASSWORD: aaroneous_secure_password_123
+      POSTGRES_DB: aaroneous_federation
+      POSTGRES_INITDB_ARGS: >
+        -c max_connections=200
+        -c shared_buffers=256MB
+        -c effective_cache_size=1GB
+        -c maintenance_work_mem=64MB
+        -c checkpoint_completion_target=0.9
+        -c wal_buffers=16MB
+        -c default_statistics_target=100
+        -c random_page_cost=1.1
+        -c effective_io_concurrency=200
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aaroneous"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - aaroneous-network
+    restart: unless-stopped
+
+  # Redis Cache for audit logs
+  cache:
+    image: redis:7-alpine
+    container_name: aaroneous-cache
+    command: >
+      redis-server
+      --maxmemory 2gb
+      --maxmemory-policy allkeys-lru
+      --appendonly yes
+      --appendfsync everysec
+      --databases 16
+      --timeout 300
+      --tcp-keepalive 60
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - aaroneous-network
+    restart: unless-stopped
+
+  # Prometheus for metrics
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: aaroneous-prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=30d'
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    depends_on:
+      - aaroneous
+    networks:
+      - aaroneous-network
+    restart: unless-stopped
+
+  # Grafana for dashboards
+  grafana:
+    image: grafana/grafana:latest
+    container_name: aaroneous-grafana
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: false
+      GF_INSTALL_PLUGINS: grafana-piechart-panel
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources
+    depends_on:
+      - prometheus
+    networks:
+      - aaroneous-network
+    restart: unless-stopped
+
+  # Aaroneous Federation Core
+  aaroneous:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - RUST_VERSION=1.70
+        - FEATURES=federation,optimization,enterprise
+    container_name: aaroneous-federation
+    environment:
+      # Logging
+      RUST_LOG: "aaroneous=info,federation=debug"
+      LOG_LEVEL: info
+      
+      # Database
+      DATABASE_URL: postgresql://aaroneous:aaroneous_secure_password_123@database:5432/aaroneous_federation
+      DATABASE_MAX_CONNECTIONS: 50
+      DATABASE_SSL: false
+      
+      # Cache
+      REDIS_URL: redis://cache:6379/0
+      REDIS_POOL_SIZE: 50
+      CACHE_TTL: 3600
+      
+      # Metrics
+      METRICS_ENABLED: "true"
+      METRICS_PORT: 8001
+      METRICS_INTERVAL_SECS: 60
+      
+      # Federation
+      FEDERATION_MODE: multi-hive
+      FEDERATION_ENABLED: "true"
+      CONSENSUS_THRESHOLD: 66
+      PEER_DISCOVERY: "true"
+      
+      # Specialist configuration
+      SPECIALIST_SENTINEL_ENABLED: "true"
+      SPECIALIST_SENTINEL_INSTANCES: 3
+      SPECIALIST_VISIONARY_ENABLED: "true"
+      SPECIALIST_OMNIPRESENT_ENABLED: "true"
+      SPECIALIST_SYMBIOTIC_ENABLED: "true"
+      SPECIALIST_PHYGITAL_ENABLED: "true"
+      SPECIALIST_ARCHIVIST_ENABLED: "true"
+      
+      # Optimization
+      QUANTIZATION_ENABLED: "true"
+      QUANTIZATION_PRECISION: fp16
+      GPU_ACCELERATION_ENABLED: "false"  # Set to true if GPU available
+      CACHE_WARMING_ENABLED: "true"
+      BATCH_PROCESSING_ENABLED: "true"
+      KERNEL_FUSION_ENABLED: "true"
+      MEMORY_POOLING_ENABLED: "true"
+      
+      # Audit & Compliance
+      AUDIT_LOG_ENABLED: "true"
+      AUDIT_LOG_RETENTION_DAYS: 90
+      COMPLIANCE_ENABLED: "true"
+      COMPLIANCE_FRAMEWORKS: "gdpr,hipaa,soc2"
+      
+      # Security
+      TLS_ENABLED: "false"  # Set to true with cert files for production
+      RATE_LIMITING_ENABLED: "true"
+      RATE_LIMIT_RPS: 1000
+      
+      # Performance tuning
+      MAX_PROPOSAL_QUEUE: 10000
+      MAX_AUDIT_EVENTS: 100000
+      DNA_BANK_BATCH_SIZE: 1000
+      LEADER_ELECTION_TIMEOUT_MS: 5000
+      
+    ports:
+      - "8001:8001"    # API
+      - "8002:8002"    # Metrics
+      - "8003:8003"    # Admin
+    volumes:
+      - ./models:/data/models
+      - ./dna_bank:/data/dna_bank
+      - ./logs:/data/logs
+      - ./config.toml:/app/config.toml:ro
+    depends_on:
+      database:
+        condition: service_healthy
+      cache:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - aaroneous-network
+    restart: unless-stopped
+
+  # Optional: Jaeger for distributed tracing
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: aaroneous-jaeger
+    ports:
+      - "16686:16686"  # UI
+      - "14268:14268"  # Collector
+    environment:
+      COLLECTOR_ZIPKIN_HTTP_PORT: 9411
+    networks:
+      - aaroneous-network
+    restart: unless-stopped
+
+  # Optional: ELK Stack for centralized logging
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.0.0
+    container_name: aaroneous-elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ports:
+      - "9200:9200"
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    networks:
+      - aaroneous-network
+    restart: unless-stopped
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.0.0
+    container_name: aaroneous-kibana
+    ports:
+      - "5601:5601"
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    depends_on:
+      - elasticsearch
+    networks:
+      - aaroneous-network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local
+  elasticsearch_data:
+    driver: local
+
+networks:
+  aaroneous-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16

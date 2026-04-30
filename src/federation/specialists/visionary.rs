@@ -13,6 +13,8 @@
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::sync::Arc;
+use tokio::sync::Mutex;
 
 use crate::federation::specialist::{
     Specialist, SpecialistId, SpecialistContext, SpecialistError, ProposedAction,
@@ -49,6 +51,92 @@ pub struct DesignFeedback {
     pub reason: Option<String>,
 }
 
+/// Learning data: tracks execution history and improves confidence
+#[derive(Debug, Clone)]
+pub struct LearningData {
+    /// How many successful executions
+    pub success_count: u32,
+    /// How many failed executions
+    pub failure_count: u32,
+    /// Total executions
+    pub total_executions: u32,
+    /// Current confidence score (0.0 - 1.0)
+    pub confidence_score: f32,
+    /// Recent execution outcomes
+    pub execution_history: Vec<bool>,  // true = success, false = failure
+    /// Last timestamp updated
+    pub last_updated: u64,
+}
+
+impl LearningData {
+    pub fn new() -> Self {
+        Self {
+            success_count: 0,
+            failure_count: 0,
+            total_executions: 0,
+            confidence_score: 0.5,  // Start neutral
+            execution_history: vec![],
+            last_updated: 0,
+        }
+    }
+
+    /// Record an execution result (success or failure)
+    pub fn record_result(&mut self, success: bool) {
+        self.total_executions += 1;
+        
+        if success {
+            self.success_count += 1;
+            self.execution_history.push(true);
+        } else {
+            self.failure_count += 1;
+            self.execution_history.push(false);
+        }
+        
+        // Keep only recent 20 results for rolling average
+        if self.execution_history.len() > 20 {
+            self.execution_history.remove(0);
+        }
+        
+        // Update confidence: success_count / total
+        self.confidence_score = if self.total_executions > 0 {
+            (self.success_count as f32 / self.total_executions as f32).clamp(0.0, 1.0)
+        } else {
+            0.5
+        };
+        
+        self.last_updated = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs();
+    }
+
+    /// Get current confidence for proposals
+    pub fn get_proposal_confidence(&self) -> f32 {
+        // Use recent average if we have history
+        if !self.execution_history.is_empty() {
+            let recent_successes = self.execution_history.iter().filter(|&&s| s).count();
+            let recent_total = self.execution_history.len();
+            (recent_successes as f32 / recent_total as f32).clamp(0.0, 1.0)
+        } else {
+            self.confidence_score
+        }
+    }
+
+    /// Get success rate as percentage
+    pub fn get_success_rate(&self) -> f32 {
+        if self.total_executions == 0 {
+            return 0.0;
+        }
+        (self.success_count as f32 / self.total_executions as f32) * 100.0
+    }
+}
+
+impl Default for LearningData {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// Visionary specialist implementation
 pub struct Visionary {
     id: SpecialistId,
@@ -56,6 +144,8 @@ pub struct Visionary {
     pub generated_variants: Vec<DesignVariant>,
     pub feedback_history: Vec<DesignFeedback>,
     pub model_improvement_score: f32,
+    /// REVIVED: Learning state with interior mutability
+    pub learning: Arc<Mutex<LearningData>>,
 }
 
 impl Visionary {
@@ -66,6 +156,7 @@ impl Visionary {
             generated_variants: vec![],
             feedback_history: vec![],
             model_improvement_score: 0.5,
+            learning: Arc::new(Mutex::new(LearningData::new())),
         }
     }
 
@@ -149,17 +240,23 @@ impl Specialist for Visionary {
             return Ok(vec![]);
         }
 
-        // Propose design generation with strength based on idle time
-        let confidence = if context.user_state.activity == "idle" { 0.85 } else { 0.60 };
+        // REVIVED: Use learned confidence from prior executions
+        let base_confidence = if context.user_state.activity == "idle" { 0.85 } else { 0.60 };
+        
+        let learning = self.learning.lock().await;
+        let learned_confidence = learning.get_proposal_confidence();
+        let confidence = (base_confidence * 0.7) + (learned_confidence * 0.3); // 70% base, 30% learned
+        drop(learning); // Release lock early
 
         Ok(vec![ProposedAction {
             id: format!("visionary-design-{}", uuid()),
             specialist: SpecialistId::Visionary,
             action_type: "generate_designs".to_string(),
             description: format!(
-                "Generate {} UI design variants (confidence: {:.1}%)",
+                "Generate {} UI design variants (confidence: {:.1}%, learned: {:.1}%)",
                 10,
-                confidence * 100.0
+                confidence * 100.0,
+                learned_confidence * 100.0
             ),
             confidence,
             required_resources: ResourceRequest {
@@ -192,7 +289,7 @@ impl Specialist for Visionary {
                 .join(", ")
         );
 
-        Ok(ExecutionResult {
+        let result = ExecutionResult {
             specialist: SpecialistId::Visionary,
             proposal_id: decision.proposal_id.clone(),
             status: ExecutionStatus::Success,
@@ -200,7 +297,16 @@ impl Specialist for Visionary {
             resources_used: decision.allocated_resources.clone(),
             duration_ms: 2000,
             error: None,
-        })
+        };
+
+        // REVIVED: Record execution result for learning
+        let success = result.status == ExecutionStatus::Success;
+        {
+            let mut learning = self.learning.lock().await;
+            learning.record_result(success);
+        } // Lock is released here
+
+        Ok(result)
     }
 
     /// Delegate rendering to Phygital
@@ -371,6 +477,69 @@ mod tests {
 
         let result = visionary.execute(&decision).await.unwrap();
         assert_eq!(result.status, ExecutionStatus::Success);
+    }
+
+    /// REVIVED: Test that Visionary learns and improves confidence
+    #[tokio::test]
+    async fn test_visionary_learns_from_execution() {
+        let visionary = Visionary::new();
+        
+        // Get initial learning state
+        let initial_learning = visionary.learning.lock().await;
+        let initial_confidence = initial_learning.get_proposal_confidence();
+        let initial_success_count = initial_learning.success_count;
+        drop(initial_learning);
+        
+        println!("Initial confidence: {:.1}%", initial_confidence * 100.0);
+        assert_eq!(initial_success_count, 0);
+        
+        // Execute 5 successful decisions
+        let decision = Decision {
+            proposal_id: "learn-test".to_string(),
+            specialist: SpecialistId::Visionary,
+            action: "generate".to_string(),
+            allocated_resources: ResourceRequest::default(),
+            deadline_ms: 5000,
+            context: HashMap::new(),
+        };
+        
+        for i in 0..5 {
+            let result = visionary.execute(&decision).await.unwrap();
+            assert_eq!(result.status, ExecutionStatus::Success);
+            println!("Execution {}: success", i + 1);
+        }
+        
+        // Check learning state after executions
+        let final_learning = visionary.learning.lock().await;
+        let final_confidence = final_learning.get_proposal_confidence();
+        let final_success_count = final_learning.success_count;
+        let success_rate = final_learning.get_success_rate();
+        drop(final_learning);
+        
+        println!("Final confidence: {:.1}%", final_confidence * 100.0);
+        println!("Success count: {}", final_success_count);
+        println!("Success rate: {:.1}%", success_rate);
+        
+        // ASSERTIONS: Learning should have improved
+        assert_eq!(final_success_count, 5, "Should have 5 successful executions");
+        assert_eq!(final_confidence, 1.0, "Confidence should be 1.0 after all successes");
+        assert_eq!(success_rate, 100.0, "Success rate should be 100%");
+        
+        // Now propose and check that confidence improved
+        let context = SpecialistContext {
+            timestamp: 0,
+            user_state: Default::default(),
+            system_resources: Default::default(),
+            active_specialists: vec![],
+            recent_decisions: vec![],
+        };
+        let proposals = visionary.propose(&context).await.unwrap();
+        assert!(!proposals.is_empty());
+        
+        // Confidence should be higher than initial
+        assert!(proposals[0].confidence > initial_confidence, 
+                "Learned confidence {} should be > initial {}",
+                proposals[0].confidence, initial_confidence);
     }
 
     #[test]

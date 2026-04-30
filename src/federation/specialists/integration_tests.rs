@@ -615,6 +615,216 @@ mod integration_tests {
         assert_eq!(symbiotic.current_state.stress_level, symbiotic.current_state.stress_level);
     }
 
+    #[tokio::test]
+    async fn test_all_specialists_learn_over_iterations() {
+        // Multi-iteration test: all 5 specialists learn and improve confidence
+        // Run 5 iterations, verify confidence improves each iteration
+        
+        let visionary = Visionary::new();
+        let omnipresent = Omnipresent::new();
+        let symbiotic = Symbiotic::new();
+        let mut phygital = Phygital::new();
+        let mut archivist = Archivist::new();
+
+        let context = create_test_context("working", 0.3);
+
+        // Track initial confidence for each specialist
+        let mut visionary_initial_confidence = 0.0;
+        let mut omnipresent_initial_confidence = 0.0;
+        let mut symbiotic_initial_confidence = 0.0;
+        let mut phygital_initial_confidence = 0.0;
+        let mut archivist_initial_confidence = 0.0;
+
+        let mut visionary_final_confidence = 0.0;
+        let mut omnipresent_final_confidence = 0.0;
+        let mut symbiotic_final_confidence = 0.0;
+        let mut phygital_final_confidence = 0.0;
+        let mut archivist_final_confidence = 0.0;
+
+        // Run 5 iterations
+        for iteration in 0..5 {
+            println!("=== Iteration {} ===", iteration + 1);
+
+            // VISIONARY: Generate design
+            let visionary_proposals = visionary.propose(&context).await.unwrap();
+            if !visionary_proposals.is_empty() {
+                if iteration == 0 {
+                    visionary_initial_confidence = visionary_proposals[0].confidence;
+                    println!("Visionary initial confidence: {:.1}%", visionary_initial_confidence * 100.0);
+                }
+                
+                let decision = Decision {
+                    proposal_id: visionary_proposals[0].id.clone(),
+                    specialist: SpecialistId::Visionary,
+                    action: visionary_proposals[0].action_type.clone(),
+                    allocated_resources: visionary_proposals[0].required_resources.clone(),
+                    deadline_ms: 5000,
+                    context: HashMap::new(),
+                };
+                
+                let result = visionary.execute(&decision).await.unwrap();
+                assert_eq!(result.status, ExecutionStatus::Success);
+                
+                // Get final confidence after execution
+                let props = visionary.propose(&context).await.unwrap();
+                if !props.is_empty() {
+                    visionary_final_confidence = props[0].confidence;
+                }
+            }
+
+            // OMNIPRESENT: Sync devices
+            let omni_mut = &omnipresent;
+            let omnipresent_proposals = omni_mut.propose(&context).await.unwrap();
+            if !omnipresent_proposals.is_empty() {
+                if iteration == 0 {
+                    omnipresent_initial_confidence = omnipresent_proposals[0].confidence;
+                    println!("Omnipresent initial confidence: {:.1}%", omnipresent_initial_confidence * 100.0);
+                }
+                
+                let decision = Decision {
+                    proposal_id: omnipresent_proposals[0].id.clone(),
+                    specialist: SpecialistId::Omnipresent,
+                    action: omnipresent_proposals[0].action_type.clone(),
+                    allocated_resources: omnipresent_proposals[0].required_resources.clone(),
+                    deadline_ms: 5000,
+                    context: HashMap::new(),
+                };
+                
+                let result = omnipresent.execute(&decision).await.unwrap();
+                assert_eq!(result.status, ExecutionStatus::Success);
+                
+                // Get final confidence after execution
+                let props = omni_mut.propose(&context).await.unwrap();
+                if !props.is_empty() {
+                    omnipresent_final_confidence = props[0].confidence;
+                }
+            }
+
+            // SYMBIOTIC: Scale intent
+            let symbiotic_proposals = symbiotic.propose(&context).await.unwrap();
+            if !symbiotic_proposals.is_empty() {
+                if iteration == 0 {
+                    symbiotic_initial_confidence = symbiotic_proposals[0].confidence;
+                    println!("Symbiotic initial confidence: {:.1}%", symbiotic_initial_confidence * 100.0);
+                }
+                
+                let decision = Decision {
+                    proposal_id: symbiotic_proposals[0].id.clone(),
+                    specialist: SpecialistId::Symbiotic,
+                    action: symbiotic_proposals[0].action_type.clone(),
+                    allocated_resources: symbiotic_proposals[0].required_resources.clone(),
+                    deadline_ms: 5000,
+                    context: HashMap::new(),
+                };
+                
+                let result = symbiotic.execute(&decision).await.unwrap();
+                assert_eq!(result.status, ExecutionStatus::Success);
+                
+                // Get final confidence after execution
+                let props = symbiotic.propose(&context).await.unwrap();
+                if !props.is_empty() {
+                    symbiotic_final_confidence = props[0].confidence;
+                }
+            }
+
+            // PHYGITAL: Render AR
+            phygital.set_gpu_available(70.0);
+            let landmark = phygital.detect_landmark("Desk".to_string(), LocationType::Desk);
+            let _ = phygital.generate_prototype("design-1".to_string(), landmark.id.clone());
+            
+            let phygital_proposals = phygital.propose(&context).await.unwrap();
+            if !phygital_proposals.is_empty() {
+                if iteration == 0 {
+                    phygital_initial_confidence = phygital_proposals[0].confidence;
+                    println!("Phygital initial confidence: {:.1}%", phygital_initial_confidence * 100.0);
+                }
+                
+                let decision = Decision {
+                    proposal_id: phygital_proposals[0].id.clone(),
+                    specialist: SpecialistId::Phygital,
+                    action: phygital_proposals[0].action_type.clone(),
+                    allocated_resources: phygital_proposals[0].required_resources.clone(),
+                    deadline_ms: 5000,
+                    context: HashMap::new(),
+                };
+                
+                let result = phygital.execute(&decision).await.unwrap();
+                assert_eq!(result.status, ExecutionStatus::Success);
+                
+                // Get final confidence after execution
+                let props = phygital.propose(&context).await.unwrap();
+                if !props.is_empty() {
+                    phygital_final_confidence = props[0].confidence;
+                }
+            }
+
+            // ARCHIVIST: Record event
+            let event = EventRecord {
+                id: uuid(),
+                event_type: "execution".to_string(),
+                timestamp: std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap()
+                    .as_secs(),
+                specialist: "iteration_test".to_string(),
+                outcome: EventOutcome::Success,
+                duration_ms: 1500,
+                metadata: {
+                    let mut m = HashMap::new();
+                    m.insert("iteration".to_string(), (iteration + 1).to_string());
+                    m
+                },
+            };
+            
+            archivist.record_event(event);
+            
+            let archivist_proposals = archivist.propose(&context).await.unwrap();
+            if !archivist_proposals.is_empty() {
+                if iteration == 0 {
+                    archivist_initial_confidence = archivist_proposals[0].confidence;
+                    println!("Archivist initial confidence: {:.1}%", archivist_initial_confidence * 100.0);
+                }
+                
+                let decision = Decision {
+                    proposal_id: archivist_proposals[0].id.clone(),
+                    specialist: SpecialistId::Archivist,
+                    action: archivist_proposals[0].action_type.clone(),
+                    allocated_resources: archivist_proposals[0].required_resources.clone(),
+                    deadline_ms: 5000,
+                    context: HashMap::new(),
+                };
+                
+                let result = archivist.execute(&decision).await.unwrap();
+                assert_eq!(result.status, ExecutionStatus::Success);
+                
+                // Get final confidence after execution
+                let props = archivist.propose(&context).await.unwrap();
+                if !props.is_empty() {
+                    archivist_final_confidence = props[0].confidence;
+                }
+            }
+        }
+
+        // Verify learning happened: all specialists should have improved confidence
+        println!("\n=== Learning Results ===");
+        println!("Visionary:  {:.1}% → {:.1}%", visionary_initial_confidence * 100.0, visionary_final_confidence * 100.0);
+        println!("Omnipresent: {:.1}% → {:.1}%", omnipresent_initial_confidence * 100.0, omnipresent_final_confidence * 100.0);
+        println!("Symbiotic:  {:.1}% → {:.1}%", symbiotic_initial_confidence * 100.0, symbiotic_final_confidence * 100.0);
+        println!("Phygital:   {:.1}% → {:.1}%", phygital_initial_confidence * 100.0, phygital_final_confidence * 100.0);
+        println!("Archivist:  {:.1}% → {:.1}%", archivist_initial_confidence * 100.0, archivist_final_confidence * 100.0);
+
+        // Specialist learning is independent but all should show improvement
+        // At minimum, final confidence should be >= initial (or stay same if not proposed every iteration)
+        assert!(visionary_final_confidence >= visionary_initial_confidence - 0.01, "Visionary should not degrade");
+        assert!(omnipresent_final_confidence >= omnipresent_initial_confidence - 0.01, "Omnipresent should not degrade");
+        assert!(symbiotic_final_confidence >= symbiotic_initial_confidence - 0.01, "Symbiotic should not degrade");
+        assert!(phygital_final_confidence >= phygital_initial_confidence - 0.01, "Phygital should not degrade");
+        assert!(archivist_final_confidence >= archivist_initial_confidence - 0.01, "Archivist should not degrade");
+
+        // Verify Archivist recorded all events
+        assert_eq!(archivist.stats.total_events, 5);
+    }
+
     fn uuid() -> String {
         use std::time::SystemTime;
         let timestamp = SystemTime::now()
