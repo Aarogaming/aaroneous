@@ -25,6 +25,7 @@ pub mod bootstrap;
 pub mod deployment_examples;
 pub mod cli;
 pub mod runtime;
+pub mod dna_bank;
 
 pub use specialist::{Specialist, SpecialistId, SpecialistConfig, SpecialistRegistry, SpecialistContext, Decision, DelegateRequest, Conflict, ProposedAction, SystemResources, UserState, ExecutionStatus, ExecutionResult, ProposalPriority};
 pub use sentinel::{Sentinel, SentinelConfig, ArbitrationResult};
@@ -36,6 +37,7 @@ pub use specialists::Visionary;
 pub use bootstrap::{SpecialistModule, DeploymentTarget, Manifest, DeploymentConfig, BootstrapResult, BootstrapSystem};
 pub use cli::{Command, AaroneosCLI, CLIResult, InitArgs, ExpandArgs, PortableArgs, StatusArgs};
 pub use runtime::{HiveRuntime, ModelManager, ExecutionMetrics, SpecialistHealth, HealthStatus, RuntimeStats, HealthReport, LoadedModel};
+pub use dna_bank::{DNABank, DNAEvent, EventQuery, Pattern, DNABankStats, ConsolidationStats, BackupInfo};
 
 #[cfg(test)]
 mod tests;
