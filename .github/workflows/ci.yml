@@ -32,11 +32,14 @@ jobs:
         with:
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.toml') }}
 
-      - name: Check compilation
-        run: cargo check --lib --all-targets
+      - name: Check compilation (lib + tests + examples)
+        run: cargo check --lib --tests --examples
 
       - name: Build library
         run: cargo build --lib
+
+      - name: Check P2P feature compiles
+        run: cargo check --lib --features p2p-iroh
 
       - name: Run federation specialist tests
         run: cargo test --lib federation::specialists --no-fail-fast

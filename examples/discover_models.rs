@@ -6,7 +6,7 @@ use a_run::{ModelEnvironmentDetector, ModelLoader};
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     println!("\n🔍 Aaroneous Model Discovery & Environment Detection\n");
-    println!("=".repeat(70));
+    println!("{}", "=".repeat(70));
 
     // Step 1: Detect model environments
     println!("\n📱 Step 1: Detecting model loading software...\n");
@@ -72,7 +72,7 @@ async fn main() -> anyhow::Result<()> {
         println!("Install one of these to get started.\n");
     }
 
-    println!("=".repeat(70));
+    println!("{}", "=".repeat(70));
     println!("\n💡 Next steps:");
     println!("   • Download a model using your software");
     println!("   • Run: cargo run --example discover_models");
