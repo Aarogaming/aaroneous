@@ -1,1 +1,31 @@
-/target
+# Build artifacts
+/target/
+/src/target/
+Cargo.lock
+
+# Database files
+*.db
+hive.db
+
+# Test and build outputs
+test_*.txt
+build_output.txt
+test_results.txt
+test_full.txt
+
+# IDE and editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Temporary files
+*.tmp
+*.log
+/cache/
+/logs/
+
+# OS specific
+thumbs.db
