@@ -77,9 +77,7 @@ impl McpService {
         let mut caps = Vec::new();
 
         for domain in domains.values() {
-            for cap in domain.list() {
-                caps.push(cap.clone());
-            }
+            caps.extend(domain.list().into_iter().cloned());
         }
 
         caps
@@ -89,7 +87,7 @@ impl McpService {
     pub async fn list_domain_capabilities(&self, domain: &str) -> Option<Vec<Capability>> {
         let domains = self.domains.read().await;
         domains.get(domain).map(|d| {
-            d.list().iter().map(|c| (*c).clone()).collect()
+            d.list().into_iter().cloned().collect()
         })
     }
 
