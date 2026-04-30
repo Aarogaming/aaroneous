@@ -59,6 +59,7 @@ pub mod raft_consensus;
 pub mod agentic_players;
 pub mod wasm_ebus_bridge;
 pub mod hid_driver;
+pub mod federation;
 #[cfg(test)]
 mod integration_tests_phase2;
 mod specialist_memory_tests;
