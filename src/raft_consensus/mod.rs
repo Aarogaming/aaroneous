@@ -28,6 +28,12 @@ pub use election::{ElectionTimeout, HeartbeatTimer, ElectionOutcome, handle_requ
 // Specific types for replication
 pub use types::{ReplicationResult, AppendEntriesRpc, AppendEntriesResponse};
 
+// Mutation types
+pub use mutations::{
+    is_quorum, ClientCommand, MutationRequest, MutationTracker, MutationState,
+    calculate_new_commit_index,
+};
+
 use std::time::Duration;
 
 /// Default election timeout range (ms)
