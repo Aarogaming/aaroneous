@@ -137,6 +137,28 @@ impl Default for LearningData {
     }
 }
 
+impl crate::federation::learn_persist::PersistableLearning for LearningData {
+    fn snapshot(&self) -> crate::federation::learn_persist::LearningSnapshot {
+        crate::federation::learn_persist::LearningSnapshot {
+            success_count: self.success_count,
+            failure_count: self.failure_count,
+            total_executions: self.total_executions,
+            confidence_score: self.confidence_score,
+            execution_history: self.execution_history.clone(),
+            last_updated: self.last_updated,
+        }
+    }
+
+    fn restore_from(&mut self, snapshot: crate::federation::learn_persist::LearningSnapshot) {
+        self.success_count = snapshot.success_count;
+        self.failure_count = snapshot.failure_count;
+        self.total_executions = snapshot.total_executions;
+        self.confidence_score = snapshot.confidence_score;
+        self.execution_history = snapshot.execution_history;
+        self.last_updated = snapshot.last_updated;
+    }
+}
+
 /// Visionary specialist implementation
 pub struct Visionary {
     id: SpecialistId,
@@ -149,6 +171,10 @@ pub struct Visionary {
 }
 
 impl Visionary {
+    /// Canonical name used as the persistence key in `specialist_learning.specialist_kind`.
+    /// Stable across versions so historical learning state remains addressable.
+    pub const PERSISTENCE_KEY: &'static str = "Visionary";
+
     pub fn new() -> Self {
         Self {
             id: SpecialistId::Visionary,
@@ -158,6 +184,31 @@ impl Visionary {
             model_improvement_score: 0.5,
             learning: Arc::new(Mutex::new(LearningData::new())),
         }
+    }
+
+    /// Save this specialist's current learning state to a persistence manager.
+    ///
+    /// Locks the in-memory `LearningData` long enough to take a snapshot,
+    /// then releases the lock before doing the SQL write. Cheap to call
+    /// frequently because SQLite handles concurrent connections well.
+    pub async fn save_learning_to(
+        &self,
+        pm: &crate::persistence::PersistenceManager,
+    ) -> Result<(), crate::federation::learn_persist::LearnPersistError> {
+        let learning = self.learning.lock().await;
+        crate::federation::learn_persist::save_learning(pm, Self::PERSISTENCE_KEY, &*learning)
+    }
+
+    /// Load learning state from persistence into this specialist.
+    ///
+    /// Returns `Ok(true)` if state was loaded, `Ok(false)` if no prior state
+    /// existed (in which case the specialist keeps its current in-memory state).
+    pub async fn load_learning_from(
+        &self,
+        pm: &crate::persistence::PersistenceManager,
+    ) -> Result<bool, crate::federation::learn_persist::LearnPersistError> {
+        let mut learning = self.learning.lock().await;
+        crate::federation::learn_persist::load_learning(pm, Self::PERSISTENCE_KEY, &mut *learning)
     }
 
     /// Generate design variants based on aesthetic engrams
@@ -548,5 +599,174 @@ mod tests {
         let capabilities = visionary.capabilities();
         assert_eq!(capabilities.len(), 3);
         assert!(capabilities.iter().any(|c| c.name == "design_generation"));
+    }
+
+    // ============================================================
+    // End-to-end persistence test
+    //
+    // This is the test that proves learning is actually persistent:
+    //   1. Specialist A learns from 5 successful executions
+    //   2. State saved to SQLite
+    //   3. Specialist A is dropped entirely (simulates restart)
+    //   4. Brand-new Specialist B loads from SQLite
+    //   5. Specialist B has the same learning state as A had
+    // ============================================================
+
+    #[tokio::test]
+    async fn test_learning_persists_across_specialist_restart() {
+        use crate::persistence::PersistenceManager;
+
+        // In-memory SQLite gives us isolation per test, no temp files
+        let pm = PersistenceManager::new(":memory:").expect("open in-memory db");
+
+        // === Phase 1: First specialist learns from 5 successful executions ===
+        let initial_success_count: u32;
+        let initial_confidence: f32;
+        let initial_history_len: usize;
+
+        {
+            let visionary = Visionary::new();
+
+            // Sanity: brand-new specialist has no learning yet
+            {
+                let learning = visionary.learning.lock().await;
+                assert_eq!(learning.total_executions, 0, "fresh specialist has no executions");
+            }
+
+            // Execute 5 successful decisions
+            for i in 0..5 {
+                let decision = Decision {
+                    proposal_id: format!("proposal-{}", i),
+                    specialist: SpecialistId::Visionary,
+                    action: "generate_design".to_string(),
+                    allocated_resources: ResourceRequest::default(),
+                    deadline_ms: 5000,
+                    context: std::collections::HashMap::new(),
+                };
+                let result = visionary.execute(&decision).await.unwrap();
+                assert_eq!(result.status, ExecutionStatus::Success);
+            }
+
+            // Snapshot the in-memory state we expect to recover later
+            {
+                let learning = visionary.learning.lock().await;
+                initial_success_count = learning.success_count;
+                initial_confidence = learning.confidence_score;
+                initial_history_len = learning.execution_history.len();
+
+                assert_eq!(initial_success_count, 5, "should have 5 successes");
+                assert_eq!(learning.total_executions, 5);
+                assert!(initial_confidence > 0.5, "confidence should improve from neutral");
+            }
+
+            // Save to persistence
+            visionary
+                .save_learning_to(&pm)
+                .await
+                .expect("save should succeed");
+
+            // Specialist drops at end of this scope, simulating process exit
+        }
+
+        // === Phase 2: Brand-new specialist loads from persistence ===
+        let revived = Visionary::new();
+
+        // Sanity: revived specialist has neutral state in memory
+        {
+            let learning = revived.learning.lock().await;
+            assert_eq!(learning.total_executions, 0, "fresh specialist starts neutral");
+            assert_eq!(learning.success_count, 0);
+        }
+
+        // Load from SQLite
+        let loaded = revived
+            .load_learning_from(&pm)
+            .await
+            .expect("load should succeed");
+        assert!(loaded, "should report true: prior state was saved");
+
+        // Verify the revived specialist has the SAME learning as the original
+        {
+            let learning = revived.learning.lock().await;
+            assert_eq!(
+                learning.success_count, initial_success_count,
+                "success_count should be preserved across restart"
+            );
+            assert_eq!(learning.total_executions, 5);
+            assert_eq!(learning.failure_count, 0);
+            assert!(
+                (learning.confidence_score - initial_confidence).abs() < 1e-6,
+                "confidence should be preserved (got {}, expected {})",
+                learning.confidence_score,
+                initial_confidence
+            );
+            assert_eq!(
+                learning.execution_history.len(),
+                initial_history_len,
+                "history length should be preserved"
+            );
+            assert!(
+                learning.execution_history.iter().all(|&s| s),
+                "all 5 executions were successful, history should reflect that"
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn test_load_returns_false_when_nothing_persisted() {
+        use crate::persistence::PersistenceManager;
+
+        let pm = PersistenceManager::new(":memory:").unwrap();
+        let visionary = Visionary::new();
+
+        let loaded = visionary.load_learning_from(&pm).await.unwrap();
+        assert!(!loaded, "load should return false for unsaved specialist");
+
+        // Specialist should still have its neutral state
+        let learning = visionary.learning.lock().await;
+        assert_eq!(learning.total_executions, 0);
+    }
+
+    #[tokio::test]
+    async fn test_save_then_continue_learning_then_save_again() {
+        use crate::persistence::PersistenceManager;
+
+        let pm = PersistenceManager::new(":memory:").unwrap();
+        let visionary = Visionary::new();
+
+        // Learn from 3 executions, save
+        for i in 0..3 {
+            let decision = Decision {
+                proposal_id: format!("p{}", i),
+                specialist: SpecialistId::Visionary,
+                action: "generate_design".to_string(),
+                allocated_resources: ResourceRequest::default(),
+                deadline_ms: 5000,
+                context: std::collections::HashMap::new(),
+            };
+            visionary.execute(&decision).await.unwrap();
+        }
+        visionary.save_learning_to(&pm).await.unwrap();
+
+        // Continue learning from 2 more, save again
+        for i in 3..5 {
+            let decision = Decision {
+                proposal_id: format!("p{}", i),
+                specialist: SpecialistId::Visionary,
+                action: "generate_design".to_string(),
+                allocated_resources: ResourceRequest::default(),
+                deadline_ms: 5000,
+                context: std::collections::HashMap::new(),
+            };
+            visionary.execute(&decision).await.unwrap();
+        }
+        visionary.save_learning_to(&pm).await.unwrap();
+
+        // Reload into a fresh specialist - should have all 5 executions
+        let revived = Visionary::new();
+        revived.load_learning_from(&pm).await.unwrap();
+        let learning = revived.learning.lock().await;
+        assert_eq!(learning.total_executions, 5);
+        assert_eq!(learning.success_count, 5);
     }
 }

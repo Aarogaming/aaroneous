@@ -85,6 +85,28 @@ impl PhygitalLearningData {
     }
 }
 
+impl crate::federation::learn_persist::PersistableLearning for PhygitalLearningData {
+    fn snapshot(&self) -> crate::federation::learn_persist::LearningSnapshot {
+        crate::federation::learn_persist::LearningSnapshot {
+            success_count: self.success_count,
+            failure_count: self.failure_count,
+            total_executions: self.total_executions,
+            confidence_score: self.confidence_score,
+            execution_history: self.execution_history.clone(),
+            last_updated: self.last_updated,
+        }
+    }
+
+    fn restore_from(&mut self, s: crate::federation::learn_persist::LearningSnapshot) {
+        self.success_count = s.success_count;
+        self.failure_count = s.failure_count;
+        self.total_executions = s.total_executions;
+        self.confidence_score = s.confidence_score;
+        self.execution_history = s.execution_history;
+        self.last_updated = s.last_updated;
+    }
+}
+
 /// AR/VR device detected
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum SpatialDevice {
@@ -174,6 +196,9 @@ pub struct Phygital {
 }
 
 impl Phygital {
+    /// Canonical name used as the persistence key in `specialist_learning.specialist_kind`.
+    pub const PERSISTENCE_KEY: &'static str = "Phygital";
+
     pub fn new() -> Self {
         Self {
             id: SpecialistId::Phygital,
@@ -185,6 +210,24 @@ impl Phygital {
             learning: Arc::new(Mutex::new(PhygitalLearningData::new())),
             ar_provider: None,
         }
+    }
+
+    /// Save this specialist's current learning state to a persistence manager.
+    pub async fn save_learning_to(
+        &self,
+        pm: &crate::persistence::PersistenceManager,
+    ) -> Result<(), crate::federation::learn_persist::LearnPersistError> {
+        let learning = self.learning.lock().await;
+        crate::federation::learn_persist::save_learning(pm, Self::PERSISTENCE_KEY, &*learning)
+    }
+
+    /// Load learning state from persistence into this specialist.
+    pub async fn load_learning_from(
+        &self,
+        pm: &crate::persistence::PersistenceManager,
+    ) -> Result<bool, crate::federation::learn_persist::LearnPersistError> {
+        let mut learning = self.learning.lock().await;
+        crate::federation::learn_persist::load_learning(pm, Self::PERSISTENCE_KEY, &mut *learning)
     }
 
     /// Detect and attach an OpenXR runtime

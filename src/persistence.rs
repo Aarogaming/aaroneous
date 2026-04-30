@@ -219,6 +219,21 @@ impl PersistenceManager {
                  FOREIGN KEY (specialist_id) REFERENCES specialists(id) ON DELETE CASCADE
              );
 
+             -- Specialist learning state (federation specialists' confidence tracking)
+             -- One row per (specialist_kind), holds the aggregate learning counters
+             -- plus a JSON-serialized rolling execution history.
+             CREATE TABLE IF NOT EXISTS specialist_learning (
+                 specialist_kind TEXT PRIMARY KEY,
+                 success_count INTEGER NOT NULL DEFAULT 0,
+                 failure_count INTEGER NOT NULL DEFAULT 0,
+                 total_executions INTEGER NOT NULL DEFAULT 0,
+                 confidence_score REAL NOT NULL DEFAULT 0.5,
+                 execution_history_json TEXT NOT NULL DEFAULT '[]',
+                 last_updated INTEGER NOT NULL DEFAULT 0,
+                 created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                 updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+             );
+
              -- Indexes for performance
              CREATE INDEX IF NOT EXISTS idx_specialists_rank ON specialists(rank);
              CREATE INDEX IF NOT EXISTS idx_specialists_updated ON specialists(updated_at);
@@ -234,6 +249,7 @@ impl PersistenceManager {
              CREATE INDEX IF NOT EXISTS idx_strategy_specialist ON strategies(specialist_id);
              CREATE INDEX IF NOT EXISTS idx_goal_specialist ON goals(specialist_id);
              CREATE INDEX IF NOT EXISTS idx_goal_status ON goals(status);
+             CREATE INDEX IF NOT EXISTS idx_specialist_learning_updated ON specialist_learning(updated_at);
              "
         )?;
         Ok(())
@@ -608,6 +624,103 @@ impl PersistenceManager {
             total_events: total_events as u32,
         })
     }
+
+    // ---------------------------------------------------------------
+    // Federation specialist learning state persistence
+    // ---------------------------------------------------------------
+
+    /// Save (or upsert) a specialist's learning state.
+    ///
+    /// `specialist_kind` is the canonical name of the specialist (e.g.
+    /// "Visionary", "Omnipresent"). One row per kind. Subsequent calls
+    /// overwrite the previous values.
+    pub fn save_learning_state(&self, record: &LearningStateRecord) -> SqlResult<()> {
+        let now_ts = chrono::Utc::now().to_rfc3339();
+        self.db.execute(
+            "INSERT INTO specialist_learning (
+                specialist_kind, success_count, failure_count, total_executions,
+                confidence_score, execution_history_json, last_updated,
+                created_at, updated_at
+             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?8)
+             ON CONFLICT(specialist_kind) DO UPDATE SET
+                success_count = excluded.success_count,
+                failure_count = excluded.failure_count,
+                total_executions = excluded.total_executions,
+                confidence_score = excluded.confidence_score,
+                execution_history_json = excluded.execution_history_json,
+                last_updated = excluded.last_updated,
+                updated_at = excluded.updated_at",
+            params![
+                record.specialist_kind,
+                record.success_count as i64,
+                record.failure_count as i64,
+                record.total_executions as i64,
+                record.confidence_score as f64,
+                record.execution_history_json,
+                record.last_updated as i64,
+                now_ts,
+            ],
+        )?;
+        Ok(())
+    }
+
+    /// Load a specialist's learning state, or `None` if it has never been saved.
+    pub fn load_learning_state(
+        &self,
+        specialist_kind: &str,
+    ) -> SqlResult<Option<LearningStateRecord>> {
+        self.db
+            .query_row(
+                "SELECT specialist_kind, success_count, failure_count, total_executions,
+                        confidence_score, execution_history_json, last_updated
+                 FROM specialist_learning
+                 WHERE specialist_kind = ?1",
+                params![specialist_kind],
+                |row| {
+                    Ok(LearningStateRecord {
+                        specialist_kind: row.get(0)?,
+                        success_count: row.get::<_, i64>(1)? as u32,
+                        failure_count: row.get::<_, i64>(2)? as u32,
+                        total_executions: row.get::<_, i64>(3)? as u32,
+                        confidence_score: row.get::<_, f64>(4)? as f32,
+                        execution_history_json: row.get(5)?,
+                        last_updated: row.get::<_, i64>(6)? as u64,
+                    })
+                },
+            )
+            .optional()
+    }
+
+    /// List every saved specialist learning state (handy for diagnostics)
+    pub fn list_learning_states(&self) -> SqlResult<Vec<LearningStateRecord>> {
+        let mut stmt = self.db.prepare(
+            "SELECT specialist_kind, success_count, failure_count, total_executions,
+                    confidence_score, execution_history_json, last_updated
+             FROM specialist_learning
+             ORDER BY specialist_kind",
+        )?;
+        let rows = stmt.query_map([], |row| {
+            Ok(LearningStateRecord {
+                specialist_kind: row.get(0)?,
+                success_count: row.get::<_, i64>(1)? as u32,
+                failure_count: row.get::<_, i64>(2)? as u32,
+                total_executions: row.get::<_, i64>(3)? as u32,
+                confidence_score: row.get::<_, f64>(4)? as f32,
+                execution_history_json: row.get(5)?,
+                last_updated: row.get::<_, i64>(6)? as u64,
+            })
+        })?;
+        rows.collect()
+    }
+
+    /// Delete a specialist's learning state (e.g., for "reset" semantics)
+    pub fn delete_learning_state(&self, specialist_kind: &str) -> SqlResult<()> {
+        self.db.execute(
+            "DELETE FROM specialist_learning WHERE specialist_kind = ?1",
+            params![specialist_kind],
+        )?;
+        Ok(())
+    }
 }
 
 // Data structures for persistence
@@ -651,6 +764,41 @@ pub struct EventRecord {
     pub quality_score: f64,
     pub description: String,
     pub timestamp: i64,
+}
+
+/// Persisted learning state for a federation specialist.
+///
+/// Mirrors the in-memory `LearningData` struct (one variant per specialist),
+/// but flattened into a serializable record. The rolling execution history
+/// is stored as JSON because SQLite has no native array type.
+#[derive(Debug, Clone, PartialEq)]
+pub struct LearningStateRecord {
+    /// Canonical specialist name ("Visionary", "Omnipresent", etc.)
+    pub specialist_kind: String,
+    pub success_count: u32,
+    pub failure_count: u32,
+    pub total_executions: u32,
+    pub confidence_score: f32,
+    /// JSON-encoded `Vec<bool>` of recent execution outcomes
+    pub execution_history_json: String,
+    pub last_updated: u64,
+}
+
+impl LearningStateRecord {
+    /// Convenience: build from raw fields with empty history.
+    /// Most callers should use the From/Into impls in the federation module
+    /// rather than constructing this directly.
+    pub fn new_empty(specialist_kind: impl Into<String>) -> Self {
+        Self {
+            specialist_kind: specialist_kind.into(),
+            success_count: 0,
+            failure_count: 0,
+            total_executions: 0,
+            confidence_score: 0.5,
+            execution_history_json: "[]".to_string(),
+            last_updated: 0,
+        }
+    }
 }
 
 #[derive(Debug, Clone)]

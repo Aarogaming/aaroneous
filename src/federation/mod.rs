@@ -32,6 +32,7 @@ pub mod enterprise;
 pub mod p2p;
 pub mod biometric;
 pub mod ar;
+pub mod learn_persist;
 
 pub use specialist::{Specialist, SpecialistId, SpecialistConfig, SpecialistRegistry, SpecialistContext, Decision, DelegateRequest, Conflict, ProposedAction, SystemResources, UserState, ExecutionStatus, ExecutionResult, ProposalPriority};
 pub use sentinel::{Sentinel, SentinelConfig, ArbitrationResult};
@@ -71,6 +72,10 @@ pub use biometric::{
     BleError, DeviceFilter, BiometricStream, StandardServices,
 };
 pub use ar::{ArProvider, ArSystemInfo, ArSessionState, ArError, FormFactor as ArFormFactor, ViewConfiguration as ArViewConfiguration};
+pub use learn_persist::{
+    LearningSnapshot, PersistableLearning, LearnPersistError,
+    save_learning, load_learning,
+};
 
 #[cfg(test)]
 mod tests;
