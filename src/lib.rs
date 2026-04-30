@@ -53,6 +53,7 @@ pub mod enterprise_monitoring;
 pub mod enterprise_scaling;
 pub mod advanced_intelligence;
 pub mod mcp_bridge;
+pub mod mcp_service;
 pub mod event_log;
 #[cfg(test)]
 mod integration_tests_phase2;
@@ -114,5 +115,6 @@ pub use enterprise_scaling::{ClusterNode, ClusterConfig, ClusterManager, Cluster
 pub use enterprise_scaling::NodeStatus as ClusterNodeStatus;
 pub use advanced_intelligence::{TimeSeriesPoint, MetricStatistics, AnomalyDetection, AnomalySeverity, AnomalyDetector, Forecast, ForecastTrend, Forecaster, ScalingDecision, ScalingAction, ScalingUrgency, AutoScaler, SelfHealingAction, HealingActionType, HealingSeverity, SelfHealingEngine, OptimizationRecommendation, OptimizationCategory, DifficultyLevel, OptimizationEngine};
 pub use mcp_bridge::{McpServer, McpClient, McpMessage, McpCapability, McpRequest, McpResponse};
+pub use mcp_service::{McpService, ServiceConfig, Capability, CapabilityDomain, CapabilityResult, Transport, AuthProvider, ApiKeyAuth, OAuth2Auth, HttpServer, RestApi};
 pub use event_log::{EventLog, FederationEvent, EventType, Operation, EventLogStore, EventLogReplicator, EventLogStats, CompactionResult};
 pub use shared_memory::SharedMemorySynapse;
