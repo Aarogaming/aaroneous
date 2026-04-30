@@ -38,8 +38,17 @@ jobs:
       - name: Build library
         run: cargo build --lib
 
-      - name: Check P2P feature compiles
+      - name: Check p2p-iroh feature compiles
         run: cargo check --lib --features p2p-iroh
+
+      - name: Check biometric-ble feature compiles
+        run: cargo check --lib --features biometric-ble
+
+      - name: Check ar-openxr feature compiles
+        run: cargo check --lib --features ar-openxr
+
+      - name: Check all features compile together
+        run: cargo check --lib --features real-integrations
 
       - name: Run federation specialist tests
         run: cargo test --lib federation::specialists --no-fail-fast

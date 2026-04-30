@@ -31,6 +31,7 @@ pub mod multi_hive;
 pub mod enterprise;
 pub mod p2p;
 pub mod biometric;
+pub mod ar;
 
 pub use specialist::{Specialist, SpecialistId, SpecialistConfig, SpecialistRegistry, SpecialistContext, Decision, DelegateRequest, Conflict, ProposedAction, SystemResources, UserState, ExecutionStatus, ExecutionResult, ProposalPriority};
 pub use sentinel::{Sentinel, SentinelConfig, ArbitrationResult};
@@ -69,6 +70,7 @@ pub use biometric::{
     BiometricProvider, BiometricDevice, BiometricSample, BiometricKind,
     BleError, DeviceFilter, BiometricStream, StandardServices,
 };
+pub use ar::{ArProvider, ArSystemInfo, ArSessionState, ArError, FormFactor as ArFormFactor, ViewConfiguration as ArViewConfiguration};
 
 #[cfg(test)]
 mod tests;

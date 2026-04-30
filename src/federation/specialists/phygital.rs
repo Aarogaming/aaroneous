@@ -23,6 +23,7 @@ use crate::federation::specialist::{
     Decision, DelegateRequest, DelegateResponse, Conflict, NegotiationResult,
     ResourceRequest, ProposalPriority, ExecutionResult, ExecutionStatus, SpecialistCapability,
 };
+use crate::federation::ar::{ArProvider, ArError, ArSessionState};
 
 /// Learning data for Phygital specialist
 #[derive(Debug, Clone)]
@@ -167,6 +168,9 @@ pub struct Phygital {
     pub frame_state_history: Vec<ARFrameState>,
     pub gpu_headroom_percent: f32,
     pub learning: Arc<Mutex<PhygitalLearningData>>,
+    /// Optional real AR provider via OpenXR. When `Some`, hardware detection
+    /// uses real OpenXR queries instead of `cfg!()` heuristics.
+    pub ar_provider: Option<Arc<ArProvider>>,
 }
 
 impl Phygital {
@@ -179,6 +183,98 @@ impl Phygital {
             frame_state_history: vec![],
             gpu_headroom_percent: 30.0,
             learning: Arc::new(Mutex::new(PhygitalLearningData::new())),
+            ar_provider: None,
+        }
+    }
+
+    /// Detect and attach an OpenXR runtime
+    ///
+    /// After this call, `detect_ar_hardware_real()` will use real OpenXR
+    /// queries instead of OS-based heuristics.
+    pub async fn with_ar(mut self) -> Result<Self, ArError> {
+        let provider = ArProvider::detect().await?;
+        self.ar_provider = Some(Arc::new(provider));
+        Ok(self)
+    }
+
+    /// Attach an already-spawned AR provider
+    pub fn attach_ar(&mut self, provider: Arc<ArProvider>) {
+        self.ar_provider = Some(provider);
+    }
+
+    /// Returns true if an AR provider is attached
+    pub fn has_ar(&self) -> bool {
+        self.ar_provider.is_some()
+    }
+
+    /// Returns true if a real OpenXR runtime is available (only meaningful
+    /// when an AR provider is attached)
+    pub fn has_runtime(&self) -> bool {
+        self.ar_provider
+            .as_ref()
+            .map(|p| p.is_runtime_available())
+            .unwrap_or(false)
+    }
+
+    /// Real AR hardware detection via OpenXR
+    ///
+    /// Queries the attached AR provider for actual hardware.
+    /// Returns `ArError::NoRuntime` if no provider is attached or no runtime
+    /// is installed. On success, populates `detected_devices` based on the
+    /// classified system.
+    pub fn detect_ar_hardware_real(&mut self) -> Result<Option<SpatialDevice>, ArError> {
+        let Some(provider) = &self.ar_provider else {
+            return Err(ArError::FeatureNotEnabled);
+        };
+
+        if !provider.is_runtime_available() {
+            return Err(ArError::NoRuntime);
+        }
+
+        let info = provider.system_info()?;
+        let detected = match info.classify_spatial_device() {
+            Some("HoloLens2") => Some(SpatialDevice::HoloLens2),
+            Some("HoloLens3") => Some(SpatialDevice::HoloLens3),
+            Some("MagicLeap") => Some(SpatialDevice::MagicLeap),
+            Some("AppleVisionPro") => Some(SpatialDevice::AppleVisionPro),
+            Some("MetaQuest3") => Some(SpatialDevice::MetaQuest3),
+            Some("ARKit") => Some(SpatialDevice::ARKit),
+            Some("ARCore") => Some(SpatialDevice::ARCore),
+            _ => None,
+        };
+
+        if let Some(device) = detected.clone() {
+            // Replace detected_devices with the real one (don't accumulate
+            // across calls - the runtime tells the truth)
+            self.detected_devices.clear();
+            self.detected_devices.push(device);
+        }
+
+        Ok(detected)
+    }
+
+    /// Begin an AR session via OpenXR (state-tracking only - no rendering)
+    pub async fn begin_ar_session(&self) -> Result<(), ArError> {
+        let Some(provider) = &self.ar_provider else {
+            return Err(ArError::FeatureNotEnabled);
+        };
+        provider.begin_session().await
+    }
+
+    /// End the current AR session
+    pub async fn end_ar_session(&self) -> Result<(), ArError> {
+        let Some(provider) = &self.ar_provider else {
+            return Err(ArError::FeatureNotEnabled);
+        };
+        provider.end_session().await
+    }
+
+    /// Get the current AR session state
+    pub async fn ar_session_state(&self) -> Option<ArSessionState> {
+        if let Some(provider) = &self.ar_provider {
+            Some(provider.session_state().await)
+        } else {
+            None
         }
     }
 
@@ -643,5 +739,89 @@ mod tests {
     fn test_location_types() {
         assert_eq!(LocationType::Desk, LocationType::Desk);
         assert_ne!(LocationType::Desk, LocationType::Kitchen);
+    }
+
+    // === OpenXR AR integration tests ===
+
+    #[tokio::test]
+    async fn test_no_ar_provider_by_default() {
+        let phygital = Phygital::new();
+        assert!(!phygital.has_ar());
+        assert!(!phygital.has_runtime());
+    }
+
+    #[tokio::test]
+    async fn test_with_ar_attaches_provider() {
+        let phygital = Phygital::new()
+            .with_ar()
+            .await
+            .expect("AR provider detect should succeed (returns Ok even without runtime)");
+        assert!(phygital.has_ar());
+        // has_runtime() depends on whether a runtime is actually installed
+    }
+
+    #[tokio::test]
+    async fn test_detect_ar_hardware_real_without_provider() {
+        let mut phygital = Phygital::new();
+        let result = phygital.detect_ar_hardware_real();
+        assert!(matches!(result, Err(crate::federation::ar::ArError::FeatureNotEnabled)));
+    }
+
+    #[tokio::test]
+    async fn test_begin_ar_session_without_provider_errors() {
+        let phygital = Phygital::new();
+        let result = phygital.begin_ar_session().await;
+        assert!(matches!(result, Err(crate::federation::ar::ArError::FeatureNotEnabled)));
+    }
+
+    #[tokio::test]
+    async fn test_end_ar_session_without_provider_errors() {
+        let phygital = Phygital::new();
+        let result = phygital.end_ar_session().await;
+        assert!(matches!(result, Err(crate::federation::ar::ArError::FeatureNotEnabled)));
+    }
+
+    #[tokio::test]
+    async fn test_ar_session_state_without_provider_returns_none() {
+        let phygital = Phygital::new();
+        let state = phygital.ar_session_state().await;
+        assert!(state.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_with_ar_provider_and_no_runtime_errors_on_detect() {
+        let mut phygital = Phygital::new()
+            .with_ar()
+            .await
+            .expect("AR provider detect should succeed");
+
+        // Without a real runtime, detect_ar_hardware_real should return NoRuntime
+        if !phygital.has_runtime() {
+            let result = phygital.detect_ar_hardware_real();
+            assert!(matches!(result, Err(crate::federation::ar::ArError::NoRuntime)));
+        }
+    }
+
+    /// Integration test: only meaningful with real OpenXR runtime
+    #[tokio::test]
+    #[ignore = "requires real OpenXR runtime"]
+    async fn test_detect_ar_with_real_runtime() {
+        let mut phygital = match Phygital::new().with_ar().await {
+            Ok(p) => p,
+            Err(_) => return, // No AR available - skip
+        };
+
+        if !phygital.has_runtime() {
+            return; // No runtime - skip
+        }
+
+        match phygital.detect_ar_hardware_real() {
+            Ok(Some(device)) => {
+                println!("Detected real AR device: {:?}", device);
+                assert_eq!(phygital.detected_devices.len(), 1);
+            }
+            Ok(None) => println!("Runtime present but unrecognized system"),
+            Err(e) => println!("Detection error: {} (acceptable without HMD)", e),
+        }
     }
 }

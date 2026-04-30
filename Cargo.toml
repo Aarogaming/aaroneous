@@ -64,4 +64,8 @@ btleplug = { version = "0.12", optional = true }
 # futures: stream handling for BLE notifications
 futures = { version = "0.3", optional = true }
 # openxr: AR/VR runtime bindings for Phygital spatial rendering
-openxr = { version = "0.19", optional = true }
+# Uses default features ("loaded" + "libloading") so the OpenXR loader is
+# loaded at runtime via libloading. No `openxr.lib` linking required at
+# build time. The runtime is queried via the standard OpenXR loader on
+# the system, returning errors gracefully if no runtime is installed.
+openxr = { version = "0.21", optional = true }
