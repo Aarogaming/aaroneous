@@ -30,6 +30,7 @@ pub mod optimization;
 pub mod multi_hive;
 pub mod enterprise;
 pub mod p2p;
+pub mod biometric;
 
 pub use specialist::{Specialist, SpecialistId, SpecialistConfig, SpecialistRegistry, SpecialistContext, Decision, DelegateRequest, Conflict, ProposedAction, SystemResources, UserState, ExecutionStatus, ExecutionResult, ProposalPriority};
 pub use sentinel::{Sentinel, SentinelConfig, ArbitrationResult};
@@ -64,6 +65,10 @@ pub use enterprise::{
     EnterpriseContext,
 };
 pub use p2p::{P2pNode, P2pNodeId, P2pError, SyncMessage};
+pub use biometric::{
+    BiometricProvider, BiometricDevice, BiometricSample, BiometricKind,
+    BleError, DeviceFilter, BiometricStream, StandardServices,
+};
 
 #[cfg(test)]
 mod tests;

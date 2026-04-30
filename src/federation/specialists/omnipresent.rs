@@ -345,10 +345,14 @@ impl Omnipresent {
         drifted
     }
 
-    /// Check for version conflicts between devices
+    /// Check for version conflicts between devices.
+    ///
+    /// Devices are sorted by ID first to ensure deterministic conflict ordering
+    /// (otherwise HashMap iteration order makes tests flaky).
     pub fn detect_sync_conflicts(&self) -> Vec<SyncConflict> {
         let mut conflicts = vec![];
-        let devices: Vec<_> = self.devices.values().collect();
+        let mut devices: Vec<_> = self.devices.values().collect();
+        devices.sort_by(|a, b| a.id.cmp(&b.id));
 
         for i in 0..devices.len() {
             for j in (i + 1)..devices.len() {

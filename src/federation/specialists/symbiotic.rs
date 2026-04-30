@@ -17,12 +17,17 @@ use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
 use std::sync::Arc;
+use std::time::Duration;
 use tokio::sync::Mutex;
 
 use crate::federation::specialist::{
     Specialist, SpecialistId, SpecialistContext, SpecialistError, ProposedAction,
     Decision, DelegateRequest, DelegateResponse, Conflict, NegotiationResult,
     ResourceRequest, ProposalPriority, ExecutionResult, ExecutionStatus, SpecialistCapability,
+};
+use crate::federation::biometric::{
+    BiometricProvider, BiometricDevice, BiometricSample, BiometricKind,
+    DeviceFilter, BleError,
 };
 
 /// Learning data for Symbiotic specialist
@@ -104,6 +109,8 @@ pub enum WearableType {
     Whoop,
     Garmin,
     Fitbit,
+    /// Standard BLE HR Service device (Polar, Wahoo, generic chest straps)
+    Generic,
 }
 
 /// Classified user state from biometrics
@@ -152,6 +159,12 @@ pub struct Symbiotic {
     pub state_history: VecDeque<UserBiometricState>,
     pub max_history_size: usize,
     pub learning: Arc<Mutex<SymbioticLearningData>>,
+    /// Optional real biometric provider. When `Some`, scan/connect operations
+    /// use real BLE (or stub) hardware. When `None`, only manually-ingested
+    /// readings via `ingest_biometric()` are processed.
+    pub biometric_provider: Option<Arc<BiometricProvider>>,
+    /// Map from BLE device ID to our logical wearable type
+    pub wearable_map: std::collections::HashMap<String, WearableType>,
 }
 
 impl Symbiotic {
@@ -170,6 +183,110 @@ impl Symbiotic {
             state_history: VecDeque::new(),
             max_history_size: 1000,
             learning: Arc::new(Mutex::new(SymbioticLearningData::new())),
+            biometric_provider: None,
+            wearable_map: std::collections::HashMap::new(),
+        }
+    }
+
+    /// Spawn a biometric provider and attach it to this specialist
+    ///
+    /// After this call, the specialist can scan for and connect to real BLE
+    /// wearables (when the `biometric-ble` feature is enabled), or use the
+    /// stub provider for testing.
+    pub async fn with_biometrics(mut self) -> Result<Self, BleError> {
+        let provider = BiometricProvider::spawn().await?;
+        self.biometric_provider = Some(Arc::new(provider));
+        Ok(self)
+    }
+
+    /// Attach an already-spawned provider (advanced usage)
+    pub fn attach_biometrics(&mut self, provider: Arc<BiometricProvider>) {
+        self.biometric_provider = Some(provider);
+    }
+
+    /// Returns true if a biometric provider is attached
+    pub fn has_biometrics(&self) -> bool {
+        self.biometric_provider.is_some()
+    }
+
+    /// Scan for nearby BLE wearables
+    ///
+    /// Returns an empty vec if no provider is attached.
+    pub async fn scan_wearables(
+        &self,
+        duration: Duration,
+    ) -> Result<Vec<BiometricDevice>, BleError> {
+        let Some(provider) = &self.biometric_provider else {
+            return Ok(vec![]);
+        };
+        let filter = DeviceFilter::heart_rate_monitors();
+        provider.scan_filtered(duration, filter).await
+    }
+
+    /// Register a known wearable: connect and tag it with a `WearableType`
+    pub async fn register_wearable(
+        &mut self,
+        device_id: &str,
+        wearable_type: WearableType,
+    ) -> Result<(), BleError> {
+        let Some(provider) = &self.biometric_provider else {
+            return Err(BleError::FeatureNotEnabled);
+        };
+        provider.connect(device_id).await?;
+        self.wearable_map
+            .insert(device_id.to_string(), wearable_type);
+        Ok(())
+    }
+
+    /// Convert an incoming `BiometricSample` from the provider into our
+    /// internal `BiometricReading` and ingest it.
+    ///
+    /// This is the bridge between the BLE-level sample format and the
+    /// specialist's biometric state model. Only HR samples create new readings;
+    /// other sample kinds (battery, etc.) are tracked separately if needed.
+    pub fn ingest_sample(&mut self, sample: BiometricSample) {
+        let wearable_type = self
+            .wearable_map
+            .get(&sample.device_id)
+            .cloned()
+            .unwrap_or(WearableType::Generic);
+
+        match sample.kind {
+            BiometricKind::HeartRate => {
+                // Try to extract HRV from the raw payload if present
+                let hrv = sample
+                    .raw_payload
+                    .as_ref()
+                    .and_then(|payload| {
+                        crate::federation::biometric::services::parse_heart_rate_measurement(
+                            payload,
+                        )
+                        .ok()
+                    })
+                    .and_then(|parsed| parsed.rmssd_ms())
+                    .unwrap_or(50.0) as f32;
+
+                let reading = BiometricReading {
+                    timestamp: sample.timestamp,
+                    heart_rate: sample.value as u32,
+                    heart_rate_variability: hrv,
+                    skin_temperature: 36.5, // Not provided by HR-only devices
+                    activity_level: 0.0,
+                    sleep_debt_hours: 0.0,
+                    device_type: wearable_type,
+                };
+                self.ingest_biometric(reading);
+            }
+            // Other sample kinds: log but don't synthesize a full reading
+            BiometricKind::HeartRateVariability
+            | BiometricKind::BatteryLevel
+            | BiometricKind::SkinTemperature
+            | BiometricKind::StepDelta
+            | BiometricKind::OxygenSaturation
+            | BiometricKind::Generic => {
+                // These will be incorporated in a future enrichment pass.
+                // For now, we just don't update the state.
+            }
         }
     }
 
@@ -708,5 +825,109 @@ mod tests {
         assert_eq!(capabilities.len(), 3);
         assert!(capabilities.iter().any(|c| c.name == "biometric_polling"));
         assert!(capabilities.iter().any(|c| c.name == "stress_classification"));
+    }
+
+    // === BLE biometric integration tests ===
+
+    #[tokio::test]
+    async fn test_no_biometric_provider_by_default() {
+        let symbiotic = Symbiotic::new();
+        assert!(!symbiotic.has_biometrics());
+    }
+
+    #[tokio::test]
+    async fn test_with_biometrics_attaches_provider() {
+        let symbiotic = Symbiotic::new()
+            .with_biometrics()
+            .await
+            .expect("biometric provider spawn should succeed");
+        assert!(symbiotic.has_biometrics());
+    }
+
+    #[tokio::test]
+    async fn test_scan_wearables_without_provider_returns_empty() {
+        let symbiotic = Symbiotic::new(); // no provider
+        let wearables = symbiotic
+            .scan_wearables(Duration::from_millis(100))
+            .await
+            .expect("scan without provider should be a graceful no-op");
+        assert!(wearables.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_register_wearable_without_provider_errors() {
+        let mut symbiotic = Symbiotic::new();
+        let result = symbiotic
+            .register_wearable("dev1", WearableType::AppleWatch)
+            .await;
+        assert!(matches!(result, Err(BleError::FeatureNotEnabled)));
+    }
+
+    #[tokio::test]
+    async fn test_ingest_sample_heart_rate() {
+        let mut symbiotic = Symbiotic::new();
+        let baseline_count = symbiotic.biometric_history.len();
+
+        let sample = BiometricSample::heart_rate("dev1".to_string(), 75);
+        symbiotic.ingest_sample(sample);
+
+        assert_eq!(symbiotic.biometric_history.len(), baseline_count + 1);
+        let last = symbiotic.biometric_history.back().unwrap();
+        assert_eq!(last.heart_rate, 75);
+    }
+
+    #[tokio::test]
+    async fn test_ingest_sample_with_known_wearable() {
+        let mut symbiotic = Symbiotic::new();
+        symbiotic
+            .wearable_map
+            .insert("dev1".to_string(), WearableType::AppleWatch);
+
+        let sample = BiometricSample::heart_rate("dev1".to_string(), 80);
+        symbiotic.ingest_sample(sample);
+
+        let last = symbiotic.biometric_history.back().unwrap();
+        assert_eq!(last.device_type, WearableType::AppleWatch);
+    }
+
+    #[tokio::test]
+    async fn test_ingest_sample_unknown_device_uses_generic() {
+        let mut symbiotic = Symbiotic::new();
+        let sample = BiometricSample::heart_rate("unknown-dev".to_string(), 65);
+        symbiotic.ingest_sample(sample);
+
+        let last = symbiotic.biometric_history.back().unwrap();
+        assert_eq!(last.device_type, WearableType::Generic);
+    }
+
+    #[tokio::test]
+    async fn test_ingest_sample_extracts_hrv_from_payload() {
+        let mut symbiotic = Symbiotic::new();
+        // Build a real HR measurement payload with RR intervals to exercise HRV parsing
+        // Flags = 0x10 (RR present), HR = 60, RR = [1024, 1126]
+        let payload = vec![0x10, 60, 0x00, 0x04, 0x66, 0x04];
+        let sample = BiometricSample {
+            timestamp: 0,
+            device_id: "polar".to_string(),
+            kind: BiometricKind::HeartRate,
+            value: 60.0,
+            raw_payload: Some(payload),
+        };
+        symbiotic.ingest_sample(sample);
+
+        let last = symbiotic.biometric_history.back().unwrap();
+        assert_eq!(last.heart_rate, 60);
+        // HRV should be > 0 since RRs differ
+        assert!(last.heart_rate_variability > 0.0);
+    }
+
+    #[tokio::test]
+    async fn test_ingest_sample_battery_does_not_create_reading() {
+        let mut symbiotic = Symbiotic::new();
+        let baseline = symbiotic.biometric_history.len();
+        let sample = BiometricSample::battery("dev1".to_string(), 85);
+        symbiotic.ingest_sample(sample);
+        // Battery samples should NOT add to biometric_history (only HR does)
+        assert_eq!(symbiotic.biometric_history.len(), baseline);
     }
 }
