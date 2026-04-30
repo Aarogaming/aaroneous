@@ -10,6 +10,9 @@ pub mod quantization;
 pub mod gpu_acceleration;
 pub mod cache_warming;
 pub mod batch_processing;
+pub mod kernel_fusion;
+pub mod memory_pooling;
+pub mod sparse_optimization;
 
 pub use quantization::{
     QuantizationType, QuantizationStrategy, QuantizationConfig, QuantizedModel,
