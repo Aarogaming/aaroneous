@@ -1,0 +1,16 @@
+[package]
+name = "tensor_forge"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+memmap2 = "0.9"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+anyhow = "1.0"
+# Custom binary writing logic is better for our 'Surgery' approach
+# rather than high-level crates that might not support raw splicing.
+
