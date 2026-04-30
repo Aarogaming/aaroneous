@@ -21,6 +21,7 @@ shared_memory = "0.12.4"
 strum = { version = "0.26", features = ["derive"] }
 strum_macros = "0.26"
 tokio = { version = "1.52.1", features = ["rt", "time", "full", "sync", "tracing"] }
+axum = "0.7"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json", "fmt"] }
 uuid = { version = "1.0", features = ["v4", "serde"] }

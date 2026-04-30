@@ -1,20 +1,74 @@
 use serde::{Deserialize, Serialize};
 use std::net::SocketAddr;
+use std::sync::Arc;
+use axum::{
+    extract::{State, Path, Json},
+    http::StatusCode,
+    routing::{get, post},
+    Router,
+};
+use uuid::Uuid;
+
+/// Shared application state for HTTP handlers
+#[derive(Clone)]
+pub struct AppState {
+    pub service: Arc<crate::mcp_service::McpService>,
+}
 
 /// HTTP Server for REST API
 pub struct HttpServer {
     addr: SocketAddr,
+    state: Option<AppState>,
 }
 
 impl HttpServer {
     /// Create new HTTP server
     pub fn new(addr: SocketAddr) -> Self {
-        Self { addr }
+        Self { 
+            addr,
+            state: None,
+        }
+    }
+
+    /// Set the MCP service state
+    pub fn with_service(mut self, service: Arc<crate::mcp_service::McpService>) -> Self {
+        self.state = Some(AppState {
+            service,
+        });
+        self
     }
 
     /// Get server address
     pub fn addr(&self) -> SocketAddr {
         self.addr
+    }
+
+    /// Build and start the HTTP server (async)
+    pub async fn run(self) -> Result<(), Box<dyn std::error::Error>> {
+        let state = self.state.ok_or("No MCP service provided")?;
+
+        // Build router with all endpoints
+        let app = Router::new()
+            // Health check
+            .route("/health", get(health_check))
+            // Status endpoint
+            .route("/status", get(service_status))
+            // Capabilities
+            .route("/api/v1/capabilities", get(list_capabilities))
+            .route("/api/v1/capabilities/:id", get(get_capability))
+            // Call capability
+            .route("/api/v1/call", post(call_capability))
+            // OpenAPI spec
+            .route("/api/v1/openapi.json", get(openapi_spec))
+            .with_state(state);
+
+        // Create TCP listener
+        let listener = tokio::net::TcpListener::bind(self.addr).await?;
+        tracing::info!("HTTP server listening on {}", self.addr);
+
+        // Run server
+        axum::serve(listener, app).await?;
+        Ok(())
     }
 }
 
@@ -140,6 +194,108 @@ pub struct RateLimitInfo {
     pub current_rps: u32,
     /// Seconds remaining in window
     pub window_remaining_secs: u32,
+}
+
+/// HTTP Handler functions
+
+/// Health check endpoint
+async fn health_check(State(state): State<AppState>) -> Json<HealthResponse> {
+    let now = chrono::Utc::now();
+    Json(HealthResponse {
+        status: "healthy".to_string(),
+        name: "Aaroneous MCP Service".to_string(),
+        version: "2.0.0".to_string(),
+        uptime_secs: 0, // Would track actual uptime
+        endpoints: vec![
+            "/health".to_string(),
+            "/status".to_string(),
+            "/api/v1/capabilities".to_string(),
+            "/api/v1/call".to_string(),
+            "/api/v1/openapi.json".to_string(),
+        ],
+        requests_total: 0, // Would track actual requests
+        errors_total: 0,
+        timestamp: now.to_rfc3339(),
+    })
+}
+
+/// Service status endpoint
+async fn service_status(State(state): State<AppState>) -> Json<StatusResponse> {
+    Json(StatusResponse {
+        federation_status: "active".to_string(),
+        active_nodes: 1,
+        total_events: 0,
+        log_size_bytes: 0,
+        active_transports: vec!["http".to_string()],
+        rate_limit_info: RateLimitInfo {
+            limit_rps: 1000,
+            current_rps: 0,
+            window_remaining_secs: 60,
+        },
+    })
+}
+
+/// List all capabilities
+async fn list_capabilities(State(state): State<AppState>) -> Json<Vec<crate::mcp_service::Capability>> {
+    let caps = tokio::task::block_in_place(|| {
+        tokio::runtime::Handle::current().block_on(async {
+            state.service.list_capabilities().await
+        })
+    });
+    Json(caps)
+}
+
+/// Get specific capability
+async fn get_capability(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+) -> Result<Json<crate::mcp_service::Capability>, (StatusCode, String)> {
+    let cap = tokio::task::block_in_place(|| {
+        tokio::runtime::Handle::current().block_on(async {
+            state.service.get_capability(&id).await
+        })
+    });
+    
+    cap.ok_or_else(|| (
+        StatusCode::NOT_FOUND,
+        format!("Capability '{}' not found", id),
+    ))
+    .map(Json)
+}
+
+/// Call a capability
+async fn call_capability(
+    State(state): State<AppState>,
+    Json(req): Json<CallRequest>,
+) -> Json<CallResponse> {
+    let request_id = Uuid::new_v4().to_string();
+    let start = std::time::Instant::now();
+    
+    // In a real implementation, we would:
+    // 1. Look up the capability by ID
+    // 2. Execute it with the provided params
+    // 3. Return the result
+    
+    let latency_ms = start.elapsed().as_millis() as u32;
+    
+    Json(CallResponse {
+        request_id,
+        status: "success".to_string(),
+        result: serde_json::json!({"message": "Capability execution placeholder"}),
+        latency_ms,
+        error: None,
+    })
+}
+
+/// Get OpenAPI spec
+async fn openapi_spec(State(state): State<AppState>) -> Json<serde_json::Value> {
+    let caps = tokio::task::block_in_place(|| {
+        tokio::runtime::Handle::current().block_on(async {
+            state.service.list_capabilities().await
+        })
+    });
+    
+    Json(OpenApiGenerator::generate_spec(&caps))
 }
 
 /// OpenAPI documentation generator
