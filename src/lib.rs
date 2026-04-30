@@ -52,6 +52,7 @@ pub mod enterprise_rbac;
 pub mod enterprise_monitoring;
 pub mod enterprise_scaling;
 pub mod advanced_intelligence;
+pub mod mcp_bridge;
 #[cfg(test)]
 mod integration_tests_phase2;
 mod specialist_memory_tests;
@@ -111,4 +112,5 @@ pub use enterprise_monitoring::CacheStats as MonitoringCacheStats;
 pub use enterprise_scaling::{ClusterNode, ClusterConfig, ClusterManager, ClusterStatus, LoadBalancingStrategy, LoadBalancer, ReplicaSet, ReplicationManager, BackupConfig, BackupManager, BackupMetadata, BackupStatus, SLAMetrics};
 pub use enterprise_scaling::NodeStatus as ClusterNodeStatus;
 pub use advanced_intelligence::{TimeSeriesPoint, MetricStatistics, AnomalyDetection, AnomalySeverity, AnomalyDetector, Forecast, ForecastTrend, Forecaster, ScalingDecision, ScalingAction, ScalingUrgency, AutoScaler, SelfHealingAction, HealingActionType, HealingSeverity, SelfHealingEngine, OptimizationRecommendation, OptimizationCategory, DifficultyLevel, OptimizationEngine};
+pub use mcp_bridge::{McpServer, McpClient, McpMessage, McpCapability, McpRequest, McpResponse};
 pub use shared_memory::SharedMemorySynapse;
