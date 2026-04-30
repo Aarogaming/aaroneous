@@ -56,6 +56,7 @@ pub mod mcp_bridge;
 pub mod mcp_service;
 pub mod event_log;
 pub mod raft_consensus;
+pub mod agentic_players;
 #[cfg(test)]
 mod integration_tests_phase2;
 mod specialist_memory_tests;
@@ -119,4 +120,5 @@ pub use mcp_bridge::{McpServer, McpClient, McpMessage, McpCapability, McpRequest
 pub use mcp_service::{McpService, ServiceConfig, Capability, CapabilityDomain, CapabilityResult, Transport, AuthProvider, ApiKeyAuth, OAuth2Auth, HttpServer, RestApi};
 pub use event_log::{EventLog, FederationEvent, EventType, Operation, EventLogStore, EventLogReplicator, EventLogStats, CompactionResult};
 pub use raft_consensus::{RaftNode, RaftLog, RaftEngine, RaftState, RaftConfig, LogEntry, Term, LogIndex, NodeId, PersistentState, VolatileState, AppendEntriesRpc, RequestVoteRpc, Snapshot, ApplyCommand};
+pub use agentic_players::{Observation, GameState, PlayerAction, InferredIntent, DecisionRule, PlayStyle, HumanizationPatterns, PlayerPolicy, EmulationStats, GameEpisode, Insight};
 pub use shared_memory::SharedMemorySynapse;
