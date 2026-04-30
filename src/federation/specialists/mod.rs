@@ -16,6 +16,8 @@ pub mod symbiotic;
 pub mod phygital;
 pub mod archivist;
 
+pub mod integration_tests;
+
 pub use visionary::Visionary;
 pub use omnipresent::Omnipresent;
 pub use symbiotic::Symbiotic;
