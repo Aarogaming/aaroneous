@@ -23,6 +23,10 @@ use crate::federation::specialist::{
     Decision, DelegateRequest, DelegateResponse, Conflict, NegotiationResult,
     ResourceRequest, ProposalPriority, ExecutionResult, ExecutionStatus, SpecialistCapability,
 };
+use crate::federation::p2p::{P2pNode, P2pNodeId, SyncMessage};
+
+/// ALPN identifier for Aaroneous Intent sync protocol
+pub const AARONEOUS_SYNC_ALPN: &[u8] = b"aaroneous/sync/v1";
 
 /// Learning data for Omnipresent specialist
 #[derive(Debug, Clone)]
@@ -173,6 +177,12 @@ pub struct Omnipresent {
     pub sync_history: Vec<String>,
     pub bandwidth_available_mbps: u32,
     pub learning: Arc<Mutex<OmnipresentLearningData>>,
+    /// Optional real P2P node. When `Some`, sync operations use real Iroh
+    /// (or stub) P2P networking. When `None`, only in-memory device tracking
+    /// is performed (suitable for tests and offline development).
+    pub p2p_node: Option<Arc<P2pNode>>,
+    /// Map from logical device ID to its P2P endpoint ID (when P2P is active)
+    pub device_endpoints: HashMap<String, P2pNodeId>,
 }
 
 impl Omnipresent {
@@ -190,7 +200,123 @@ impl Omnipresent {
             sync_history: vec![],
             bandwidth_available_mbps: 100,
             learning: Arc::new(Mutex::new(OmnipresentLearningData::new())),
+            p2p_node: None,
+            device_endpoints: HashMap::new(),
         }
+    }
+
+    /// Spawn a P2P node and attach it to this specialist
+    ///
+    /// After this call, sync operations will use real P2P networking
+    /// (via Iroh when the `p2p-iroh` feature is enabled, or stub otherwise).
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the P2P node fails to spawn (network issues,
+    /// permission errors, etc.)
+    pub async fn with_p2p(mut self) -> Result<Self, crate::federation::p2p::P2pError> {
+        let node = P2pNode::spawn(AARONEOUS_SYNC_ALPN).await?;
+        self.p2p_node = Some(Arc::new(node));
+        Ok(self)
+    }
+
+    /// Attach an already-spawned P2P node (useful for sharing a node
+    /// between multiple specialists or for advanced configuration)
+    pub fn attach_p2p(&mut self, node: Arc<P2pNode>) {
+        self.p2p_node = Some(node);
+    }
+
+    /// Returns true if a P2P node is attached
+    pub fn has_p2p(&self) -> bool {
+        self.p2p_node.is_some()
+    }
+
+    /// Get this node's P2P endpoint ID (if P2P is attached)
+    pub fn p2p_endpoint_id(&self) -> Option<P2pNodeId> {
+        self.p2p_node.as_ref().map(|n| n.endpoint_id().clone())
+    }
+
+    /// Register a device with an associated P2P endpoint ID
+    ///
+    /// This binds a logical device to a P2P node so future sync operations
+    /// can address it by `device.id` while the P2P layer uses the endpoint ID.
+    pub fn register_device_with_endpoint(
+        &mut self,
+        device: Device,
+        endpoint_id: P2pNodeId,
+    ) {
+        let device_id = device.id.clone();
+        self.devices.insert(device_id.clone(), device);
+        self.device_endpoints.insert(device_id, endpoint_id);
+    }
+
+    /// Sync Intent to a specific device via P2P
+    ///
+    /// Returns the number of bytes sent. If no P2P node is attached, returns 0.
+    pub async fn sync_to_device(
+        &self,
+        device_id: &str,
+        intent_version: u32,
+        intent_payload: Vec<u8>,
+    ) -> Result<usize, crate::federation::p2p::P2pError> {
+        let Some(node) = &self.p2p_node else {
+            return Ok(0);
+        };
+
+        let Some(endpoint) = self.device_endpoints.get(device_id) else {
+            return Err(crate::federation::p2p::P2pError::InvalidEndpoint(format!(
+                "no endpoint registered for device {}",
+                device_id
+            )));
+        };
+
+        let payload_len = intent_payload.len();
+        let msg = SyncMessage::full_state(node.endpoint_id().clone(), intent_version, intent_payload);
+        node.send(endpoint, msg).await?;
+        Ok(payload_len)
+    }
+
+    /// Broadcast Intent to all registered devices via P2P
+    ///
+    /// Returns the number of devices the broadcast was sent to.
+    pub async fn broadcast_intent(
+        &self,
+        intent_version: u32,
+        intent_payload: Vec<u8>,
+    ) -> Result<usize, crate::federation::p2p::P2pError> {
+        let Some(node) = &self.p2p_node else {
+            return Ok(0);
+        };
+
+        let endpoints: Vec<P2pNodeId> = self.device_endpoints.values().cloned().collect();
+        if endpoints.is_empty() {
+            return Ok(0);
+        }
+
+        let msg = SyncMessage::full_state(node.endpoint_id().clone(), intent_version, intent_payload);
+        node.broadcast(&endpoints, msg).await
+    }
+
+    /// Send heartbeat to all devices to detect drift
+    pub async fn heartbeat_all(&self) -> Result<usize, crate::federation::p2p::P2pError> {
+        let Some(node) = &self.p2p_node else {
+            return Ok(0);
+        };
+
+        let endpoints: Vec<P2pNodeId> = self.device_endpoints.values().cloned().collect();
+        if endpoints.is_empty() {
+            return Ok(0);
+        }
+
+        let intent_version = self
+            .devices
+            .values()
+            .map(|d| d.intent_version)
+            .max()
+            .unwrap_or(0);
+
+        let msg = SyncMessage::heartbeat(node.endpoint_id().clone(), intent_version);
+        node.broadcast(&endpoints, msg).await
     }
 
     /// Register a device to the mesh
@@ -609,5 +735,115 @@ mod tests {
         let capabilities = omnipresent.capabilities();
         assert_eq!(capabilities.len(), 3);
         assert!(capabilities.iter().any(|c| c.name == "device_sync"));
+    }
+
+    // === P2P integration tests ===
+
+    #[tokio::test]
+    async fn test_no_p2p_node_by_default() {
+        let omnipresent = Omnipresent::new();
+        assert!(!omnipresent.has_p2p());
+        assert!(omnipresent.p2p_endpoint_id().is_none());
+    }
+
+    #[tokio::test]
+    async fn test_with_p2p_attaches_node() {
+        let omnipresent = Omnipresent::new()
+            .with_p2p()
+            .await
+            .expect("p2p spawn should succeed");
+
+        assert!(omnipresent.has_p2p());
+        let endpoint = omnipresent.p2p_endpoint_id();
+        assert!(endpoint.is_some(), "endpoint id should be present after attaching p2p");
+    }
+
+    #[tokio::test]
+    async fn test_register_device_with_endpoint() {
+        let mut omnipresent = Omnipresent::new()
+            .with_p2p()
+            .await
+            .expect("p2p spawn should succeed");
+
+        let device = Device {
+            id: "phone-1".to_string(),
+            name: "iPhone".to_string(),
+            device_type: DeviceType::Phone,
+            last_seen: 0,
+            intent_version: 1,
+            is_online: true,
+        };
+        let endpoint = P2pNodeId::random();
+
+        omnipresent.register_device_with_endpoint(device, endpoint.clone());
+
+        assert_eq!(omnipresent.devices.len(), 1);
+        assert_eq!(omnipresent.device_endpoints.len(), 1);
+        assert_eq!(omnipresent.device_endpoints.get("phone-1"), Some(&endpoint));
+    }
+
+    #[tokio::test]
+    async fn test_sync_to_device_without_p2p_returns_zero() {
+        let omnipresent = Omnipresent::new(); // no p2p attached
+
+        let bytes_sent = omnipresent
+            .sync_to_device("phone-1", 1, vec![1, 2, 3])
+            .await
+            .expect("should not error when p2p is absent");
+
+        assert_eq!(bytes_sent, 0);
+    }
+
+    #[tokio::test]
+    async fn test_sync_to_unknown_device_errors() {
+        let omnipresent = Omnipresent::new()
+            .with_p2p()
+            .await
+            .expect("p2p spawn");
+
+        let result = omnipresent
+            .sync_to_device("unknown-device", 1, vec![1, 2, 3])
+            .await;
+
+        assert!(matches!(
+            result,
+            Err(crate::federation::p2p::P2pError::InvalidEndpoint(_))
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_broadcast_intent_with_no_devices_returns_zero() {
+        let omnipresent = Omnipresent::new()
+            .with_p2p()
+            .await
+            .expect("p2p spawn");
+
+        let n = omnipresent
+            .broadcast_intent(1, vec![1, 2, 3])
+            .await
+            .expect("broadcast with no devices should succeed");
+
+        assert_eq!(n, 0);
+    }
+
+    #[tokio::test]
+    async fn test_broadcast_intent_without_p2p_returns_zero() {
+        let omnipresent = Omnipresent::new(); // no p2p
+        let n = omnipresent
+            .broadcast_intent(1, vec![1, 2, 3])
+            .await
+            .expect("broadcast without p2p should succeed");
+        assert_eq!(n, 0);
+    }
+
+    #[tokio::test]
+    async fn test_heartbeat_all_with_no_devices() {
+        let omnipresent = Omnipresent::new()
+            .with_p2p()
+            .await
+            .expect("p2p spawn");
+
+        let n = omnipresent.heartbeat_all().await.expect("heartbeat should succeed");
+        assert_eq!(n, 0);
     }
 }
