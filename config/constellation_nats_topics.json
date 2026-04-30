@@ -1,0 +1,351 @@
+{
+  "schema_version": "1.0",
+  "timestamp": "2026-04-28T17:00:00Z",
+  "description": "Omni Constellation NATS Topic Architecture - Real-time updates across federation",
+  "root_topic": "federation.constellation",
+  "architecture": {
+    "pattern": "event_sourcing_with_snapshot_optimization",
+    "update_model": "eventual_consistency_with_consensus",
+    "persistence": "constellation_snapshots_in_config",
+    "real_time_sync": "nats_message_bus"
+  },
+  "topic_hierarchy": {
+    "federation.constellation.events": {
+      "description": "All constellation state changes",
+      "publisher": "omni",
+      "subscribers": ["odin", "merlin", "ariel", "hephaestus", "argus", "dionysus"],
+      "retention_policy": "24_hours",
+      "persistence": "stream_with_backpressure"
+    },
+    "federation.constellation.node_updates": {
+      "description": "Individual node changes (creation, status, priority, metadata)",
+      "publisher": "omni",
+      "subscribers": ["all_agents"],
+      "topic_pattern": "federation.constellation.node_updates.{node_type}",
+      "subtopics": {
+        "federation.constellation.node_updates.feature": {
+          "payload": "feature_node_event"
+        },
+        "federation.constellation.node_updates.bug": {
+          "payload": "bug_node_event"
+        },
+        "federation.constellation.node_updates.roadmap": {
+          "payload": "roadmap_node_event"
+        },
+        "federation.constellation.node_updates.decision": {
+          "payload": "decision_node_event"
+        },
+        "federation.constellation.node_updates.lore": {
+          "payload": "lore_node_event"
+        },
+        "federation.constellation.node_updates.architecture": {
+          "payload": "architecture_node_event"
+        },
+        "federation.constellation.node_updates.incident": {
+          "payload": "incident_node_event"
+        },
+        "federation.constellation.node_updates.reference": {
+          "payload": "reference_node_event"
+        },
+        "federation.constellation.node_updates.resource": {
+          "payload": "resource_node_event"
+        },
+        "federation.constellation.node_updates.testcase": {
+          "payload": "testcase_node_event"
+        }
+      }
+    },
+    "federation.constellation.cluster_updates": {
+      "description": "Cluster formation, dissolution, membership changes",
+      "publisher": "omni",
+      "subscribers": ["odin", "merlin", "ariel", "argus"],
+      "payload": {
+        "cluster_id": "string",
+        "event": "formed|member_added|member_removed|dissolved",
+        "cluster_type": "domain|temporal|feature_family|crisis|discovery",
+        "timestamp": "ISO8601"
+      }
+    },
+    "federation.constellation.relationship_updates": {
+      "description": "New/changed relationships between nodes",
+      "publisher": "omni",
+      "subscribers": ["all_agents"],
+      "payload": {
+        "source_node_id": "string",
+        "target_node_id": "string",
+        "relationship_type": "depends_on|blocks|implements|documents|relates_to|validates_by|caused_by",
+        "event": "created|modified|removed",
+        "timestamp": "ISO8601"
+      }
+    },
+    "federation.constellation.spatial_updates": {
+      "description": "Node repositioning in 3D space",
+      "publisher": "omni",
+      "subscribers": ["visualization_clients"],
+      "payload": {
+        "node_id": "string",
+        "old_position": {"x": "float", "y": "float", "z": "float"},
+        "new_position": {"x": "float", "y": "float", "z": "float"},
+        "reason": "status_change|priority_escalation|time_progression|manual_adjustment",
+        "animation_duration_ms": "integer"
+      }
+    },
+    "federation.constellation.version_snapshots": {
+      "description": "Periodic version snapshots for disaster recovery",
+      "publisher": "omni",
+      "subscribers": ["backup_systems", "archive_systems"],
+      "payload": "full_constellation_snapshot",
+      "retention_policy": "keep_all",
+      "compression": "gzip_for_large_payloads"
+    },
+    "federation.constellation.queries": {
+      "description": "Query requests and responses for constellation knowledge",
+      "publisher": "all_agents",
+      "subscribers": ["omni"],
+      "topic_pattern": "federation.constellation.queries.{query_type}",
+      "request_reply": true,
+      "timeout_ms": 5000,
+      "subtopics": {
+        "federation.constellation.queries.current_roadmap": {
+          "requester": "odin",
+          "response": "nodes_with_roadmap_type_in_present_snapshot"
+        },
+        "federation.constellation.queries.blocking_issues": {
+          "requester": "hephaestus",
+          "response": "critical_bugs_blocking_features"
+        },
+        "federation.constellation.queries.completed_work": {
+          "requester": "ariel",
+          "response": "nodes_moved_to_past_snapshot"
+        },
+        "federation.constellation.queries.test_repository": {
+          "requester": "dionysus",
+          "response": "testcase_nodes_with_easter_egg_access",
+          "access_control": "dionysus_only"
+        },
+        "federation.constellation.queries.future_vision": {
+          "requester": "odin",
+          "response": "planned_nodes_in_future_snapshot"
+        },
+        "federation.constellation.queries.architecture_decisions": {
+          "requester": "merlin",
+          "response": "decision_and_architecture_nodes"
+        },
+        "federation.constellation.queries.incident_history": {
+          "requester": "argus",
+          "response": "incident_nodes_with_timestamps"
+        },
+        "federation.constellation.queries.my_domain": {
+          "requester": "any_specialist_agent",
+          "response": "nodes_relevant_to_agent_domain",
+          "parameter": "domain"
+        }
+      }
+    },
+    "federation.constellation.sync": {
+      "description": "Synchronization and consistency checks",
+      "publisher": "omni",
+      "subscribers": ["backup_systems"],
+      "subtopics": {
+        "federation.constellation.sync.checksum": {
+          "payload": "merkle_tree_root_of_constellation_state"
+        },
+        "federation.constellation.sync.request": {
+          "payload": "request_full_resynchronization"
+        },
+        "federation.constellation.sync.response": {
+          "payload": "full_constellation_snapshot"
+        }
+      }
+    },
+    "federation.constellation.analytics": {
+      "description": "Metrics and analytics about constellation state",
+      "publisher": "omni",
+      "subscribers": ["analytics_dashboards"],
+      "topic_pattern": "federation.constellation.analytics.{metric_type}",
+      "subtopics": {
+        "federation.constellation.analytics.node_velocity": {
+          "payload": "nodes_changing_per_hour"
+        },
+        "federation.constellation.analytics.cluster_health": {
+          "payload": "cluster_stability_and_cohesion_scores"
+        },
+        "federation.constellation.analytics.domain_distribution": {
+          "payload": "node_count_by_domain"
+        },
+        "federation.constellation.analytics.temporal_balance": {
+          "payload": "nodes_per_phase_past_present_future"
+        }
+      }
+    },
+    "federation.constellation.notifications": {
+      "description": "Important events requiring agent attention",
+      "publisher": "omni",
+      "subscribers": ["relevant_agents"],
+      "subtopics": {
+        "federation.constellation.notifications.critical_bug": {
+          "recipients": ["hephaestus", "argus", "dionysus"],
+          "severity": "critical"
+        },
+        "federation.constellation.notifications.blocking_issue": {
+          "recipients": ["hephaestus", "odin"],
+          "severity": "high"
+        },
+        "federation.constellation.notifications.discovery": {
+          "recipients": ["merlin", "dionysus"],
+          "severity": "medium",
+          "narrative": "new_lore_discovered"
+        },
+        "federation.constellation.notifications.roadmap_change": {
+          "recipients": ["odin", "all_agents"],
+          "severity": "medium"
+        },
+        "federation.constellation.notifications.decision_made": {
+          "recipients": ["all_agents"],
+          "severity": "medium"
+        }
+      }
+    }
+  },
+  "message_formats": {
+    "node_event": {
+      "event_id": "uuid",
+      "node_id": "string",
+      "node_type": "feature|bug|roadmap|decision|lore|architecture|incident|reference|resource|testcase",
+      "event_type": "created|updated|status_changed|priority_changed|relationship_added|archived",
+      "previous_state": "constellation_node_object_or_null",
+      "new_state": "constellation_node_object",
+      "timestamp": "ISO8601",
+      "triggered_by": "agent_id",
+      "version": "integer"
+    },
+    "cluster_event": {
+      "event_id": "uuid",
+      "cluster_id": "string",
+      "cluster_type": "domain|temporal|feature_family|crisis|discovery",
+      "event_type": "formed|member_added|member_removed|dissolved",
+      "affected_nodes": ["node_id_array"],
+      "timestamp": "ISO8601",
+      "triggered_by": "omni"
+    },
+    "query_request": {
+      "request_id": "uuid",
+      "query_type": "string",
+      "filters": "constellation_query_object",
+      "requested_by": "agent_id",
+      "timestamp": "ISO8601",
+      "reply_to": "nats_reply_subject"
+    },
+    "query_response": {
+      "request_id": "uuid",
+      "result_count": "integer",
+      "nodes": "constellation_node_array",
+      "timestamp": "ISO8601",
+      "response_time_ms": "integer"
+    }
+  },
+  "publishing_patterns": {
+    "publish_on_node_creation": {
+      "topic": "federation.constellation.events",
+      "subtopic": "federation.constellation.node_updates.{node_type}",
+      "payload": "node_event"
+    },
+    "publish_on_status_change": {
+      "topic": "federation.constellation.events",
+      "subtopic": "federation.constellation.node_updates.{node_type}",
+      "extra_topic": "federation.constellation.spatial_updates",
+      "payload": "node_event + spatial_update"
+    },
+    "publish_on_cluster_change": {
+      "topic": "federation.constellation.cluster_updates",
+      "payload": "cluster_event"
+    },
+    "publish_periodic_snapshot": {
+      "topic": "federation.constellation.version_snapshots",
+      "interval_seconds": 3600,
+      "payload": "full_constellation_snapshot"
+    },
+    "publish_analytics": {
+      "topic": "federation.constellation.analytics.*",
+      "interval_seconds": 300,
+      "payload": "metric_data"
+    }
+  },
+  "consumer_patterns": {
+    "odin_consumer": {
+      "subscriptions": [
+        "federation.constellation.node_updates.roadmap",
+        "federation.constellation.node_updates.decision",
+        "federation.constellation.notifications.roadmap_change"
+      ],
+      "use_case": "strategic_planning_and_vision"
+    },
+    "merlin_consumer": {
+      "subscriptions": [
+        "federation.constellation.node_updates.decision",
+        "federation.constellation.node_updates.architecture",
+        "federation.constellation.node_updates.reference",
+        "federation.constellation.notifications.discovery"
+      ],
+      "use_case": "pattern_synthesis_and_knowledge_discovery"
+    },
+    "hephaestus_consumer": {
+      "subscriptions": [
+        "federation.constellation.node_updates.feature",
+        "federation.constellation.node_updates.bug",
+        "federation.constellation.notifications.critical_bug",
+        "federation.constellation.notifications.blocking_issue"
+      ],
+      "use_case": "manufacturing_and_execution"
+    },
+    "ariel_consumer": {
+      "subscriptions": [
+        "federation.constellation.events",
+        "federation.constellation.cluster_updates",
+        "federation.constellation.analytics.*"
+      ],
+      "use_case": "observing_system_evolution"
+    },
+    "argus_consumer": {
+      "subscriptions": [
+        "federation.constellation.node_updates.incident",
+        "federation.constellation.node_updates.bug",
+        "federation.constellation.notifications.critical_bug",
+        "federation.constellation.queries.incident_history"
+      ],
+      "use_case": "security_and_incident_tracking"
+    },
+    "dionysus_consumer": {
+      "subscriptions": [
+        "federation.constellation.node_updates.testcase",
+        "federation.constellation.notifications.discovery",
+        "federation.constellation.queries.test_repository"
+      ],
+      "access_control": "requires_dionysus_authorization",
+      "use_case": "educational_study_and_test_management"
+    }
+  },
+  "backpressure_and_flow_control": {
+    "max_pending_messages": 10000,
+    "batch_size": 100,
+    "batch_timeout_ms": 1000,
+    "slow_consumer_policy": "push_back_and_notify",
+    "overflow_handling": "drop_oldest_or_error_on_critical"
+  },
+  "consistency_guarantees": {
+    "delivery_semantics": "at_least_once",
+    "ordering_guarantee": "per_node_id_and_per_cluster_id",
+    "idempotency": "event_id_based_deduplication",
+    "conflict_resolution": "timestamp_and_version_based"
+  },
+  "testing_topics": {
+    "federation.constellation.test_channel": {
+      "description": "Test events for integration tests",
+      "retention_policy": "1_hour"
+    },
+    "federation.constellation.chaos_events": {
+      "description": "Chaos engineering events for resilience testing",
+      "retention_policy": "1_hour"
+    }
+  }
+}

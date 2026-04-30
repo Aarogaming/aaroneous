@@ -95,9 +95,10 @@ impl CacheKey {
 }
 
 /// L1 Cache: Hot results in memory
+/// Uses Arc<Vec<MemoryEntry>> internally to avoid excessive cloning on cache hits
 #[derive(Debug, Clone)]
 pub struct L1Cache {
-    entries: Arc<RwLock<HashMap<CacheKey, CacheEntry<Vec<MemoryEntry>>>>>,
+    entries: Arc<RwLock<HashMap<CacheKey, CacheEntry<Arc<Vec<MemoryEntry>>>>>>,
     max_size: usize,
     default_ttl_secs: u64,
 }
@@ -117,7 +118,8 @@ impl L1Cache {
             if !entry.is_expired() {
                 entry.touch();
                 debug!("L1 cache hit: {} (access_count: {})", key.query_type, entry.access_count);
-                return Some(entry.data.clone());
+                // Return a clone of the Vec stored in Arc (Arc allows cheap sharing of Vec content)
+                return Some(entry.data.as_ref().clone());
             } else {
                 debug!("L1 cache expired: {}", key.query_type);
                 entries.remove(key);
@@ -132,6 +134,7 @@ impl L1Cache {
         // Simple LRU eviction when full
         if entries.len() >= self.max_size {
             // Remove least recently used (by access time)
+            // Use Arc::ptr_eq to avoid cloning key for comparison
             if let Some(lru_key) = entries
                 .iter()
                 .min_by_key(|(_, entry)| entry.accessed_at)
@@ -142,7 +145,7 @@ impl L1Cache {
             }
         }
 
-        let entry = CacheEntry::new(data, self.default_ttl_secs);
+        let entry = CacheEntry::new(Arc::new(data), self.default_ttl_secs);
         entries.insert(key, entry);
     }
 

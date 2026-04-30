@@ -1,0 +1,16 @@
+{
+  "chromosome_id": "core-v1",
+  "phenotype": {
+    "role": "AlphaNode",
+    "enforced_enzymes": [
+      {"name": "nat_bridge", "hash": "70fe5af18c8f804a2e071fed22f72327f7beb59acdb905a476acbd40cb5513ee"},
+      {"name": "thought_kernel", "hash": "ec614427643249d67a927ad5ad5b19e71d56eb3f3ec4d63c58ff0a5f2b17033c"},
+      {"name": "tensor_forge", "hash": "b75872377e2b5fe391b4c168d1184c6be24ea362de63f788875c6493eccb55e2"},
+      {"name": "sensor_node", "hash": "4cdca60ca840f3de4f4a4b12649ac05136f2637971f729b1075639492834e3d2"}
+    ]
+  },
+  "genetics": {
+    "VRAM_LIMIT": 8192,
+    "CORE_AFFINITY": [0, 1]
+  }
+}

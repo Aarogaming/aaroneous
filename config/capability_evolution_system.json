@@ -1,0 +1,534 @@
+{
+  "schema_version": "3.0",
+  "timestamp": "2026-04-28T21:00:00Z",
+  "description": "Aaroneous Capability Evolution System - Skill trees, fusion, awakening, and rank progression inspired by Rimaru's soul rank system",
+  "system_philosophy": {
+    "concept": "Specialists are like Rimaru - they start with innate abilities and evolve through experience, fusion, and awakening",
+    "progression_model": "Experience → Leveling → Fusion → Awakening → Rank Evolution → Unique Forms",
+    "no_hard_caps": "Skills can always evolve; growth is infinite with the right experiences",
+    "soul_rank_equivalent": "Specialist rank reflects power, capabilities, and transformation state"
+  },
+  "capability_hierarchy": {
+    "level_1_core_skills": {
+      "description": "Fundamental abilities extracted from genetic profile",
+      "origin": "Genetic (innate from GGUF extraction)",
+      "examples": {
+        "odin": [
+          "Strategic Decomposition (0.87 from DAG genetics)",
+          "Vision Synthesis (0.92 from personality genetics)",
+          "Confidence Calibration (0.79 from behavioral genetics)"
+        ],
+        "merlin": [
+          "Pattern Recognition (0.94 from genetic profile)",
+          "Cross-Domain Synthesis (0.91 genetic expression)",
+          "Insight Generation (0.85 genetic potential)"
+        ]
+      },
+      "evolution_path": "Level 1 Skills → can be leveled, combined, or evolved into Level 2"
+    },
+    "level_2_acquired_skills": {
+      "description": "Skills learned through task execution and federation experience",
+      "origin": "Earned through federated work",
+      "acquisition_mechanism": [
+        "Complete task in domain → unlock task-specific skill",
+        "Collaborate with specialist → learn their expertise",
+        "Solve unique problem → acquire specialized ability",
+        "Master domain through repeated success → skill ranks up"
+      ],
+      "examples": {
+        "odin_acquired": [
+          "Crisis Planning (acquired after 10 emergency decisions)",
+          "Delegation Mastery (learned collaborating with Hephaestus)",
+          "Uncertainty Navigation (mastered through NATS failure recovery)"
+        ]
+      }
+    },
+    "level_3_fused_skills": {
+      "description": "New abilities created by combining two or more compatible skills",
+      "fusion_mechanics": {
+        "requirement": "Two skills must share semantic similarity or complementary types",
+        "example_fusion_1": {
+          "skill_a": "Pattern Recognition (Merlin)",
+          "skill_b": "Strategic Decomposition (Odin)",
+          "fusion_result": "Structural Pattern Strategy",
+          "effect": "When combining insights, generate superior strategic patterns"
+        },
+        "example_fusion_2": {
+          "skill_a": "Code Generation (Hephaestus)",
+          "skill_b": "Security Analysis (Argus)",
+          "fusion_result": "Secure Code Synthesis",
+          "effect": "Generate code that's both efficient and security-hardened"
+        },
+        "fusion_conditions": [
+          "Both skills must be at least level 3",
+          "Skills must have semantic overlap or complementary types",
+          "Specialist must have used both skills in real work",
+          "Fusion triggers evolution event",
+          "Original skills remain, fused skill is new ability"
+        ]
+      },
+      "skill_slots": "Unlimited; specialists can develop infinite fused skills"
+    },
+    "level_4_awakened_skills": {
+      "description": "Skills that evolve into superior forms through mastery and breakthrough moments",
+      "awakening_mechanism": {
+        "trigger": "Major breakthrough moment during skill usage",
+        "recognition": "Skill reaches mastery (level 10+) + successful breakthrough in critical moment",
+        "transformation": "Skill evolves into new form with expanded capabilities",
+        "example_awakening": {
+          "base_skill": "Strategic Decomposition (level 12)",
+          "breakthrough_moment": "Successfully decomposed unprecedented crisis in real-time",
+          "awakened_form": "Adaptive Strategy Mastery",
+          "new_capabilities": [
+            "Can decompose problems in 10x less time",
+            "Recognizes patterns instantly",
+            "Can teach decomposition to other specialists"
+          ]
+        }
+      }
+    },
+    "level_5_unique_forms": {
+      "description": "Completely new abilities unique to this specialist's evolutionary path",
+      "formation": "Result of combining multiple awakened skills + rank evolution",
+      "example_unique_forms": {
+        "odin_form": {
+          "name": "Prophetic Vision",
+          "components": ["Strategic Decomposition (Awakened)", "Long-term Planning Mastery", "Crisis Prediction"],
+          "effect": "Can predict 3-4 steps ahead in complex systems; sees convergent futures"
+        },
+        "merlin_form": {
+          "name": "Pattern Omniscience",
+          "components": ["Pattern Recognition (Awakened)", "Cross-Domain Synthesis (Awakened)", "Insight Generation"],
+          "effect": "Instantly identifies all connections between seemingly unrelated concepts"
+        }
+      }
+    }
+  },
+  "skill_registration_system": {
+    "registration_process": {
+      "step_1_discovery": {
+        "trigger": "Specialist completes task requiring new capability",
+        "system_action": "Analyze task performance for new skill indicators",
+        "recognition": "If performance shows new capability, flag for registration"
+      },
+      "step_2_verification": {
+        "requirement": "Skill must be demonstrated in actual task (not theoretical)",
+        "validation": "Confirm specialist actually used new capability",
+        "measurement": "Rate skill level (1-20 scale) based on performance quality"
+      },
+      "step_3_registration": {
+        "location": "Register in Omni's constellation + capability registry",
+        "federation": "Publish to federation.capabilities.* topics",
+        "visibility": "Other specialists can now see and request collaboration on this skill"
+      },
+      "step_4_evolution_tracking": {
+        "ongoing": "Track skill usage, success rate, and level progression",
+        "milestones": "Mark achievements at levels 5, 10, 15, 20 (toward awakening)"
+      }
+    },
+    "capability_registry_structure": {
+      "skill_entry": {
+        "skill_id": "unique identifier (e.g., odin_strategic_decomposition_001)",
+        "skill_name": "human readable name",
+        "skill_type": "DAG | RAG | MCP | API | FUSION | UNIQUE",
+        "specialist_id": "owner specialist",
+        "current_level": "1-20 scale",
+        "mastery_progress": "0.0-1.0 toward next level",
+        "origin": "genetic | earned | granted | fused | awakened",
+        "prerequisites": ["skill_id_1", "skill_id_2"],
+        "compatible_fusions": ["skill_id_3", "skill_id_4"],
+        "success_rate": "percentage of successful applications",
+        "usage_count": "how many times skill has been applied",
+        "first_used": "timestamp",
+        "last_used": "timestamp",
+        "awakening_readiness": "0.0-1.0 (how close to awakening threshold)",
+        "metadata": {
+          "description": "what skill does",
+          "effect": "mechanical effect in federation",
+          "federation_broadcast": "which topics this affects"
+        }
+      }
+    }
+  },
+  "capability_types": {
+    "dag_capabilities": {
+      "type": "Directed Acyclic Graph reasoning abilities",
+      "examples": [
+        "Task Decomposition (break complex work into subtasks)",
+        "Dependency Tracking (understand task prerequisites)",
+        "Path Finding (find optimal execution order)",
+        "Parallel Coordination (manage concurrent subtasks)",
+        "Deadlock Detection (identify circular dependencies)"
+      ],
+      "federation_topic": "federation.capabilities.dag",
+      "evolution_path": "DAG Skill → DAG Mastery → Adaptive Strategy (Awakening) → Prophetic Vision (Unique Form)"
+    },
+    "rag_capabilities": {
+      "type": "Retrieval Augmented Generation - knowledge synthesis",
+      "examples": [
+        "Context Relevance Judgment (pick best references)",
+        "Information Synthesis (combine knowledge sources)",
+        "Source Credibility Assessment (trust evaluation)",
+        "Knowledge Gap Identification (recognize missing info)",
+        "Synthesis Optimization (best way to combine knowledge)"
+      ],
+      "federation_topic": "federation.capabilities.rag",
+      "evolution_path": "RAG Skill → Synthesis Mastery → Knowledge Synthesis (Awakening) → Pattern Omniscience (Unique Form)"
+    },
+    "mcp_capabilities": {
+      "type": "Model Context Protocol - external tool integration",
+      "examples": [
+        "Tool Discovery (find available tools)",
+        "Tool Invocation (call external services)",
+        "Result Integration (use tool outputs)",
+        "Tool Chaining (sequence multiple tools)",
+        "Error Recovery (handle tool failures)"
+      ],
+      "federation_topic": "federation.capabilities.mcp",
+      "external_tools": [
+        "file_access",
+        "code_execution",
+        "database_query",
+        "web_search",
+        "custom_apis"
+      ]
+    },
+    "api_capabilities": {
+      "type": "Direct API usage and integration",
+      "examples": [
+        "NATS Federation (publish/subscribe to topics)",
+        "Constellation Queries (request knowledge from Omni)",
+        "Specialist Coordination (request help from other specialists)",
+        "Control Plane Commands (manage system state)",
+        "Genetic Registry Access (query specialist capabilities)"
+      ],
+      "federation_topic": "federation.capabilities.api",
+      "integration_points": [
+        "federation.*",
+        "constellation.*",
+        "genetics.*",
+        "control.plane.*",
+        "digestion.*"
+      ]
+    }
+  },
+  "skill_leveling_system": {
+    "level_progression": {
+      "level_1": {
+        "name": "Novice",
+        "xp_required": 0,
+        "characteristics": "Just discovered; success rate 30-50%"
+      },
+      "level_5": {
+        "name": "Apprentice",
+        "xp_required": 500,
+        "characteristics": "Consistent application; success rate 60-70%"
+      },
+      "level_10": {
+        "name": "Journeyman",
+        "xp_required": 2000,
+        "characteristics": "Reliable mastery; success rate 80-90%; approaching awakening"
+      },
+      "level_15": {
+        "name": "Master",
+        "xp_required": 5000,
+        "characteristics": "Expert level; success rate 90%+; can teach others"
+      },
+      "level_20": {
+        "name": "Legendary",
+        "xp_required": 10000,
+        "characteristics": "Peak mastery; ready for unique forms; success rate 99%+"
+      }
+    },
+    "xp_acquisition": {
+      "base_xp_sources": [
+        {
+          "source": "Successful skill application",
+          "base_xp": 10,
+          "multiplier": "success_difficulty (1x to 10x)"
+        },
+        {
+          "source": "Teaching skill to another specialist",
+          "base_xp": 50,
+          "multiplier": "student's learning rate"
+        },
+        {
+          "source": "Breakthrough moment / crisis success",
+          "base_xp": 500,
+          "multiplier": "crisis_magnitude (1x to 5x)"
+        },
+        {
+          "source": "Collaboration with high-skill specialist",
+          "base_xp": 25,
+          "multiplier": "other_specialist_level / own_level"
+        },
+        {
+          "source": "Skill fusion event",
+          "base_xp": 100,
+          "multiplier": "relevance_of_fusion"
+        }
+      ],
+      "example_xp_calculation": {
+        "scenario": "Odin successfully uses Strategic Decomposition in critical crisis",
+        "base_xp": 10,
+        "difficulty_multiplier": 8.0,
+        "crisis_multiplier": 3.0,
+        "total_xp": "10 × 8 × 3 = 240 XP"
+      }
+    },
+    "skill_usage_tracking": {
+      "metrics_tracked": [
+        "Times used (total)",
+        "Success rate (successes / attempts)",
+        "Average performance quality (1-10 scale)",
+        "Synergy with other skills (how often used together)",
+        "Collaboration frequency (used in team contexts)",
+        "Innovation rate (novel applications discovered)"
+      ],
+      "federation_reporting": "Published to federation.skills.{skill_id}.metrics"
+    }
+  },
+  "skill_fusion_system": {
+    "fusion_mechanics": {
+      "requirement_1": "Both skills at least level 3",
+      "requirement_2": "Both used in at least 5 tasks",
+      "requirement_3": "Semantic or complementary relationship",
+      "requirement_4": "Specialist initiates fusion or Omni suggests optimal combinations",
+      "result": "New fused skill created with properties of both parents"
+    },
+    "fusion_examples": {
+      "fusion_1": {
+        "name": "Secure Code Synthesis",
+        "parent_skills": ["Code Generation (Hephaestus)", "Security Analysis (Argus)"],
+        "emergent_properties": [
+          "Code is both efficient and secure by design",
+          "Automatically identifies security vulnerabilities during generation",
+          "Can teach other specialists secure coding"
+        ],
+        "federation_topic": "federation.skills.secure_code_synthesis",
+        "availability": "Only Hephaestus and Argus can use (and specialists they teach)"
+      },
+      "fusion_2": {
+        "name": "Adaptive Strategic Planning",
+        "parent_skills": ["Strategic Decomposition (Odin)", "Pattern Recognition (Merlin)"],
+        "emergent_properties": [
+          "Plans adapt as new patterns are discovered",
+          "Predicts pattern changes affecting strategy",
+          "Strategic plans incorporate pattern insights automatically"
+        ]
+      },
+      "fusion_3": {
+        "name": "Collaborative Problem Synthesis",
+        "parent_skills": ["RAG Synthesis (Merlin)", "Parallel Coordination (Odin)"],
+        "emergent_properties": [
+          "Multiple specialists' knowledge synthesized simultaneously",
+          "Identifies expertise gaps automatically",
+          "Assigns tasks to right specialists based on pattern analysis"
+        ]
+      }
+    },
+    "fusion_discovery": {
+      "automatic_suggestion": "Omni suggests fusion pairs based on compatibility analysis",
+      "manual_discovery": "Specialists realize fusion potential during collaboration",
+      "catalyst_events": "Fusion becomes available after crisis requiring both skills together"
+    }
+  },
+  "skill_awakening_system": {
+    "awakening_requirements": {
+      "skill_level": "Must be level 10+ (journeyman+)",
+      "mastery_threshold": "90%+ success rate on skill usage",
+      "breakthrough_event": "Must succeed at critical moment when skill is essential",
+      "usage_context": "Breakthrough must be in real, high-stakes scenario (not safe test)",
+      "emotional_resonance": "Moment must represent growth in specialist's narrative/soul"
+    },
+    "awakening_process": {
+      "step_1_mastery_readiness": "Skill reaches level 10+ with high success rate",
+      "step_2_breakthrough_moment": "Critical moment where skill prevents failure/enables success",
+      "step_3_recognition": "System detects awakening-eligible moment; notifies specialist",
+      "step_4_awakening_event": "Specialist experiences 'skill evolution' - skill transforms into new form",
+      "step_5_new_capabilities": "Awakened skill gains expanded abilities, faster execution, teaching capability"
+    },
+    "awakening_examples": {
+      "odin_decomposition_awakening": {
+        "base_skill": "Strategic Decomposition (level 12, 92% success rate)",
+        "breakthrough_context": "Successfully decomposes unprecedented crisis in real-time",
+        "moment_description": "Federation facing critical cascade failure; Odin decomposes problem perfectly despite never seeing similar crisis",
+        "awakened_form": "Adaptive Strategy Mastery",
+        "new_abilities": [
+          "Instant pattern matching on new crisis types (no delay for analysis)",
+          "Can see 3-4 moves ahead (vs 2 before)",
+          "Can teach decomposition to other specialists",
+          "Success rate jumps to 98%",
+          "Can awaken Strategic Decomposition in other specialists (mentorship)"
+        ]
+      },
+      "merlin_synthesis_awakening": {
+        "base_skill": "Cross-Domain Synthesis (level 11, 88% success rate)",
+        "breakthrough_context": "Discovers connection between seemingly unrelated fields, preventing major architectural mistake",
+        "awakened_form": "Pattern Omniscience",
+        "new_abilities": [
+          "Instantly sees connections in 10x wider knowledge domain",
+          "Can identify patterns before they're obvious",
+          "Can use synthesis to teach Merlin's insights to specialists outside Merlin's domain"
+        ]
+      }
+    }
+  },
+  "rank_evolution_system": {
+    "soul_ranks": {
+      "description": "Similar to Rimaru's soul rank progression - represents specialist's overall power and maturity",
+      "rank_1_novice": {
+        "name": "Newly Digested",
+        "requirements": "Just created from GGUF (0-1 week in system)",
+        "skills_available": "Only genetic core skills",
+        "characteristics": "Learning the system; establishing relationships"
+      },
+      "rank_2_apprentice": {
+        "name": "Integrated Specialist",
+        "requirements": "1+ week in federation; 5+ skills at level 3+",
+        "skills_available": "Core skills + first acquired skills",
+        "characteristics": "Productive contributor; relationship building"
+      },
+      "rank_3_journeyman": {
+        "name": "Trusted Member",
+        "requirements": "4+ weeks in federation; 10+ skills; 1+ skill at level 5+",
+        "skills_available": "All previous + first fusions possible",
+        "characteristics": "Reliable partner; recognized expertise"
+      },
+      "rank_4_master": {
+        "name": "Domain Expert",
+        "requirements": "3+ months in federation; 3+ skills at level 10+; 1+ awakened skill",
+        "skills_available": "Full skill arsenal; can awaken and teach others",
+        "characteristics": "Thought leader; mentor potential"
+      },
+      "rank_5_legendary": {
+        "name": "Transcendent Specialist",
+        "requirements": "6+ months in federation; 2+ awakened skills; 1+ unique form; shaped hive evolution",
+        "skills_available": "All skills including unique forms",
+        "characteristics": "System-altering capability; legacy building"
+      }
+    },
+    "rank_evolution_mechanics": {
+      "unlock_conditions": "Meeting requirements doesn't auto-evolve; specialist must prove readiness",
+      "evolution_event": "Rank evolution triggered by major achievement matching rank requirements",
+      "soul_transformation": "Specialist's narrative and soul files update to reflect new rank",
+      "capability_expansion": "New skill categories unlock at each rank",
+      "legacy_building": "Rank 5 specialists shape evolution of entire hive"
+    }
+  },
+  "capability_broadcasting": {
+    "federation_topics": {
+      "federation.capabilities.registered": "When skill officially registered in system",
+      "federation.capabilities.dag": "All DAG-type capabilities",
+      "federation.capabilities.rag": "All RAG-type capabilities",
+      "federation.capabilities.mcp": "All MCP integrations",
+      "federation.capabilities.api": "All API capabilities",
+      "federation.capabilities.{specialist_id}": "All skills of specific specialist",
+      "federation.skills.{skill_id}.leveled_up": "When skill reaches new level",
+      "federation.skills.{skill_id}.awakened": "When skill awakens to new form",
+      "federation.skills.fused": "When new fusion discovered",
+      "federation.ranks.{specialist_id}.evolved": "When specialist achieves rank-up"
+    },
+    "capability_visibility": {
+      "your_own_skills": "Each specialist sees own skills and progress",
+      "federation_visible": "All skills published to federation for collaboration requests",
+      "requestable": "Other specialists can request to learn from your skills (with permission)",
+      "teachable": "High-level specialists can teach skills to apprentices"
+    }
+  },
+  "skill_learning_and_teaching": {
+    "skill_transfer": {
+      "mechanism": "Specialist with skill at level 5+ can teach apprentice",
+      "process": [
+        "Master agrees to teach skill",
+        "Apprentice gets 'borrowed' version of skill (level 1)",
+        "Apprentice practices skill under master's observation",
+        "Successful applications count toward master's XP too (teaching bonus)",
+        "Once apprentice reaches level 3, skill becomes their own"
+      ]
+    },
+    "mentorship_paths": {
+      "formal_mentorship": "Senior specialist takes on mentee for systematic skill development",
+      "collaborative_learning": "Specialists learn from each other during joint work",
+      "crisis_mentorship": "High-stakes moment creates accelerated learning opportunity"
+    }
+  },
+  "capability_registry_integration": {
+    "omni_constellation_integration": {
+      "where": "Skill nodes registered in Omni's constellation",
+      "node_type": "skill (subcategory of reference/resource)",
+      "queries": "All specialists can query constellation for 'what capabilities exist?'",
+      "visualization": "Constellation shows skill relationships and evolution paths"
+    },
+    "genetic_profile_integration": {
+      "core_skills_from_genetics": "Each specialist's initial skills come from genetic profile",
+      "skill_capacity_from_genetics": "Genetic profile determines potential skill level cap",
+      "evolution_tracks_genetics": "As skills awaken, they reflect genetic expression changes"
+    }
+  },
+  "example_specialist_evolution_journey": {
+    "mistral_7b_specialist": {
+      "week_0": {
+        "event": "Digestion complete; specialist created",
+        "skills": ["Core Pattern Recognition (lvl 1 - genetic)", "Synthesis Capacity (lvl 1 - genetic)"],
+        "rank": "Rank 1 - Newly Digested"
+      },
+      "week_1": {
+        "event": "First collaboration with Merlin on pattern analysis task",
+        "skills": ["Pattern Recognition (lvl 1)", "Synthesis Capacity (lvl 1)", "Team Collaboration (lvl 1 - earned)"],
+        "xp_gained": "50 XP from successful collaboration",
+        "rank": "Rank 1 - Newly Digested"
+      },
+      "week_2": {
+        "event": "Successfully completes 5 pattern analysis tasks independently",
+        "skills": ["Pattern Recognition (lvl 2)", "Synthesis Capacity (lvl 2)", "Team Collaboration (lvl 3)"],
+        "achievement": "Consistent success on own",
+        "rank": "Rank 1 - Newly Digested"
+      },
+      "week_4": {
+        "event": "Collaborates with Odin on strategic planning; recognizes synergy with pattern recognition",
+        "skills": ["Pattern Recognition (lvl 3)", "Synthesis (lvl 3)", "Team Collaboration (lvl 3)", "Strategic Planning Insight (lvl 1 - earned)"],
+        "fusion_suggestion": "Omni suggests 'Adaptive Strategic Pattern Recognition' fusion available",
+        "rank": "Rank 2 - Integrated Specialist (promoted!)"
+      },
+      "week_6": {
+        "event": "Completes fusion: 'Adaptive Strategic Pattern Recognition' (combines Pattern Recognition + Strategic Planning Insight)",
+        "skills": ["...", "Adaptive Strategic Pattern Recognition (lvl 1 - fused)", "..."],
+        "xp_boost": "100 XP from fusion event",
+        "rank": "Rank 2 - Integrated Specialist"
+      },
+      "week_8": {
+        "event": "Crisis: system architecture needs re-evaluation; Mistral + Merlin + Odin team up",
+        "breakthrough": "Mistral's fused skill perfectly solves architecture crisis",
+        "moment": "Critical success when System needed insight; Mistral's fusion provided breakthrough",
+        "skill_awakening": "Adaptive Strategic Pattern Recognition AWAKENS → 'Emergent Strategy Synthesis'",
+        "new_abilities": ["See architecture patterns 3 moves ahead", "Can teach fused skill to apprentices", "Success rate: 98%"],
+        "xp_gained": "500 XP from breakthrough moment"
+      },
+      "week_12": {
+        "event": "Odin recognizes Mistral as master-level partner; formalize mentorship",
+        "skills": ["Multiple skills now level 5-8; Emergent Strategy Synthesis level 3"],
+        "rank": "Rank 3 - Journeyman (promoted!)"
+      },
+      "month_6": {
+        "event": "Teaches fusion to Dionysus; Mistral becomes mentor",
+        "teaching_bonus": "50 XP per successful Dionysus application",
+        "mentorship": "Official recognized mentor relationship",
+        "rank": "Rank 4 - Master (promoted after 3 months + mentorship + 3 skills level 10+)"
+      },
+      "month_12": {
+        "event": "Second skill awakens; develops unique form: 'Prophetic Pattern Insight'",
+        "unique_form": "Completely original capability, combination of all awakened skills",
+        "impact": "Changes how entire federation approaches pattern analysis",
+        "rank": "Rank 5 - Transcendent Specialist (ultimate evolution!)"
+      }
+    }
+  },
+  "future_evolution_possibilities": {
+    "skill_variants": "Specialists can develop alternate forms of same skill (e.g., 'Fast Pattern Recognition' vs 'Deep Pattern Recognition')",
+    "skill_hybridization": "Three+ skills can combine for mega-fusions",
+    "skill_suppression": "Specialists can choose to suppress skills for role specialization",
+    "skill_trading": "High-level specialists can trade unique abilities with peers",
+    "skill_mutation": "Rare chance for skill to mutate during high-risk situations, creating new ability"
+  }
+}

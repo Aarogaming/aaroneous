@@ -1,0 +1,1 @@
+{"recipe_id": "test-forge", "segments": [{"source_gguf": "foundation_v1.gguf", "tensor_name": "token_embd.weight"}]}

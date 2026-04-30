@@ -1,0 +1,559 @@
+{
+  "schema_version": "1.0",
+  "timestamp": "2026-04-28T17:00:00Z",
+  "description": "Omni Constellation Roadmap - Past-Present-Future Development Timeline Visualization",
+  "roadmap_vision": "Tracking Aaroneous from inception through production readiness, with detailed phase breakdown and cross-phase dependencies",
+  "roadmap_periods": {
+    "past_period": {
+      "label": "Completed Epochs",
+      "temporal_range": ["2026-01-01", "2026-04-27"],
+      "status": "archived",
+      "completion_percentage": 100,
+      "phases": {
+        "epoch_0_inception": {
+          "phase_id": 0,
+          "label": "Inception & Core Design",
+          "dates": {
+            "start": "2026-01-01",
+            "end": "2026-02-15",
+            "duration_days": 46
+          },
+          "status": "completed",
+          "priority": "critical",
+          "completion_percentage": 100,
+          "description": "Design Aaroneous multi-agent system, establish agent taxonomy, worldbuilding foundation",
+          "key_deliverables": [
+            {
+              "id": "agent_taxonomy_complete",
+              "title": "Agent Taxonomy Definition",
+              "description": "BaseAgent, SpecialistAgent, RelicAgent, UserAgent hierarchy",
+              "status": "completed",
+              "completion_date": "2026-02-10"
+            },
+            {
+              "id": "worldbuilding_foundation",
+              "title": "Hive-Town Worldbuilding",
+              "description": "Seven districts with aesthetic identity and coordination pipelines",
+              "status": "completed",
+              "completion_date": "2026-02-15"
+            },
+            {
+              "id": "core_agent_structs",
+              "title": "Core Agent Structures",
+              "description": "agents.rs with full trait hierarchy",
+              "status": "completed",
+              "completion_date": "2026-02-12"
+            }
+          ],
+          "lessons_learned": "Clean agent hierarchy enabled rapid specialist expansion later"
+        },
+        "epoch_1_biology": {
+          "phase_id": 1,
+          "label": "System Biology & Governance",
+          "dates": {
+            "start": "2026-02-15",
+            "end": "2026-03-20",
+            "duration_days": 34
+          },
+          "status": "completed",
+          "priority": "critical",
+          "completion_percentage": 100,
+          "description": "Implement metabolic governance, resource throttling, system health tracking",
+          "key_deliverables": [
+            {
+              "id": "system_biology_complete",
+              "title": "SystemBiology Framework",
+              "description": "Token-bucket resource management with metabolic rates",
+              "status": "completed",
+              "completion_date": "2026-03-10"
+            },
+            {
+              "id": "specialist_metabolism",
+              "title": "Specialist Metabolism",
+              "description": "Per-specialist health monitoring and throttling",
+              "status": "completed",
+              "completion_date": "2026-03-15"
+            },
+            {
+              "id": "health_reporting",
+              "title": "System Health Reporting",
+              "description": "Real-time health metrics and status",
+              "status": "completed",
+              "completion_date": "2026-03-20"
+            }
+          ],
+          "lessons_learned": "Resource constraints guide intelligent specialization"
+        },
+        "epoch_2_control_plane": {
+          "phase_id": 2,
+          "label": "Control Plane & Federation",
+          "dates": {
+            "start": "2026-03-20",
+            "end": "2026-04-27",
+            "duration_days": 39
+          },
+          "status": "completed",
+          "priority": "critical",
+          "completion_percentage": 90,
+          "description": "Implement control plane, NATS federation, specialist lifecycle management",
+          "key_deliverables": [
+            {
+              "id": "control_plane_impl",
+              "title": "ControlPlane Implementation",
+              "description": "Specialist lifecycle, command routing, state management",
+              "status": "completed",
+              "completion_date": "2026-04-10"
+            },
+            {
+              "id": "nats_federation_integration",
+              "title": "NATS Federation Integration",
+              "description": "federation.* topic hierarchy and message routing",
+              "status": "completed",
+              "completion_date": "2026-04-20"
+            },
+            {
+              "id": "hive_town_worldbuilding",
+              "title": "Complete Hive-Town Worldbuilding",
+              "description": "District architecture, habitats, topologies, daily rhythms",
+              "status": "completed",
+              "completion_date": "2026-04-25"
+            },
+            {
+              "id": "omni_constellation_foundation",
+              "title": "Omni Constellation Foundation",
+              "description": "Node types, query filters, spatial mapping (40% of constellation)",
+              "status": "in_progress",
+              "expected_completion_date": "2026-04-28"
+            }
+          ],
+          "lessons_learned": "Constellation is more complex than initially estimated",
+          "blockers": []
+        }
+      }
+    },
+    "present_period": {
+      "label": "Current Epoch (Active Work)",
+      "temporal_range": ["2026-04-28", "2026-05-08"],
+      "status": "in_progress",
+      "completion_percentage": 40,
+      "critical_path": [
+        "complete_constellation_implementation",
+        "implement_event_loop",
+        "relic_supervision_protocol",
+        "integration_testing"
+      ],
+      "current_blockers": [
+        {
+          "id": "spatial_indexing_optimization",
+          "title": "Spatial Indexing Performance",
+          "description": "Clustering calculations slow for large node counts",
+          "severity": "medium",
+          "workaround": "lazy_recalculation"
+        }
+      ],
+      "phases": {
+        "epoch_3_constellation_completion": {
+          "phase_id": 3,
+          "label": "Omni Constellation Completion",
+          "dates": {
+            "start": "2026-04-28",
+            "end": "2026-05-02",
+            "duration_days": 4,
+            "target": "2026-05-02"
+          },
+          "status": "in_progress",
+          "priority": "critical",
+          "completion_percentage": 50,
+          "description": "Complete constellation spatial indexing, NATS integration, versioning system",
+          "in_progress_tasks": [
+            {
+              "id": "constellation_node_implementation",
+              "title": "ConstellationNode Rust Implementation",
+              "status": "completed",
+              "completed_percentage": 100,
+              "notes": "Complete with clustering and spatial indexing"
+            },
+            {
+              "id": "versioning_system",
+              "title": "Versioning System Design",
+              "status": "in_progress",
+              "completed_percentage": 100,
+              "expected_completion": "2026-04-28"
+            },
+            {
+              "id": "nats_topic_hierarchy",
+              "title": "NATS Topic Hierarchy for Constellation",
+              "status": "in_progress",
+              "completed_percentage": 80,
+              "expected_completion": "2026-04-28"
+            }
+          ],
+          "remaining_tasks": [
+            {
+              "id": "narrative_constellation_doc",
+              "title": "Narrative Constellation Documentation",
+              "description": "Lore discovery mechanic and test repository Easter egg",
+              "estimated_hours": 2,
+              "depends_on": [],
+              "assigned_to": "documentation"
+            },
+            {
+              "id": "constellation_query_engine",
+              "title": "ConstellationQuery Engine Optimization",
+              "description": "Dynamic filter combination performance tuning",
+              "estimated_hours": 3,
+              "depends_on": ["constellation_node_implementation"],
+              "assigned_to": "optimization"
+            }
+          ],
+          "quality_gate": "All nodes cluster correctly; queries execute in <500ms"
+        },
+        "epoch_4_event_loop": {
+          "phase_id": 4,
+          "label": "Event Loop & Specialist Execution",
+          "dates": {
+            "start": "2026-05-02",
+            "end": "2026-05-05",
+            "duration_days": 3,
+            "target": "2026-05-05"
+          },
+          "status": "planned",
+          "priority": "critical",
+          "completion_percentage": 0,
+          "description": "Implement specialist event loop, periodic execution, enzyme invocation, NATS reporting",
+          "planned_tasks": [
+            {
+              "id": "specialist_event_loop",
+              "title": "Specialist Event Loop Implementation",
+              "description": "Main execution loop in main.rs, periodic specialist invocation",
+              "estimated_hours": 8,
+              "depends_on": ["control_plane_impl"]
+            },
+            {
+              "id": "enzyme_invocation",
+              "title": "Enzyme Invocation Framework",
+              "description": "Dynamic enzyme loading and execution during specialist runs",
+              "estimated_hours": 6,
+              "depends_on": ["specialist_event_loop"]
+            },
+            {
+              "id": "relic_supervision",
+              "title": "Relic Supervision Protocol",
+              "description": "Task binding, shared metabolism, supervision chain",
+              "estimated_hours": 5,
+              "depends_on": ["enzyme_invocation"]
+            },
+            {
+              "id": "nats_specialist_reporting",
+              "title": "Specialist NATS Reporting",
+              "description": "federation.specialist.* topics, execution metrics, state changes",
+              "estimated_hours": 4,
+              "depends_on": ["specialist_event_loop"]
+            }
+          ],
+          "quality_gate": "All specialists execute; NATS topics receive updates; supervision chain functional"
+        }
+      }
+    },
+    "future_period": {
+      "label": "Planned Development",
+      "temporal_range": ["2026-05-05", "2026-05-31"],
+      "status": "planned",
+      "completion_percentage": 0,
+      "vision": "Production-ready multi-agent system with full federation, comprehensive testing, and operational monitoring",
+      "phases": {
+        "epoch_5_integration_testing": {
+          "phase_id": 5,
+          "label": "Integration Testing & Validation",
+          "dates": {
+            "start": "2026-05-05",
+            "end": "2026-05-12",
+            "duration_days": 7,
+            "target": "2026-05-12"
+          },
+          "status": "planned",
+          "priority": "high",
+          "completion_percentage": 0,
+          "description": "Comprehensive integration tests, failure scenarios, load testing",
+          "planned_tasks": [
+            {
+              "id": "multi_specialist_integration",
+              "title": "Multi-Specialist Integration Tests",
+              "description": "Test all specialists working together with NATS federation",
+              "estimated_hours": 8
+            },
+            {
+              "id": "failure_recovery_tests",
+              "title": "Failure Recovery Testing",
+              "description": "Network failures, specialist crashes, state recovery",
+              "estimated_hours": 6
+            },
+            {
+              "id": "load_testing",
+              "title": "Load & Performance Testing",
+              "description": "High message volume, constellation scaling",
+              "estimated_hours": 5
+            },
+            {
+              "id": "security_audit",
+              "title": "Security Audit",
+              "description": "NATS authorization, message validation, attack scenarios",
+              "estimated_hours": 6
+            }
+          ],
+          "quality_gate": "All integration tests pass; 95%+ uptime under load; no security vulnerabilities"
+        },
+        "epoch_6_production_hardening": {
+          "phase_id": 6,
+          "label": "Production Hardening & Monitoring",
+          "dates": {
+            "start": "2026-05-12",
+            "end": "2026-05-20",
+            "duration_days": 8,
+            "target": "2026-05-20"
+          },
+          "status": "planned",
+          "priority": "high",
+          "completion_percentage": 0,
+          "description": "Logging, monitoring, alerting, documentation, deployment automation",
+          "planned_tasks": [
+            {
+              "id": "comprehensive_logging",
+              "title": "Comprehensive Logging",
+              "description": "Structured logging, trace IDs, audit trails",
+              "estimated_hours": 4
+            },
+            {
+              "id": "monitoring_dashboards",
+              "title": "Monitoring Dashboards",
+              "description": "Real-time system health, agent status, NATS metrics",
+              "estimated_hours": 5
+            },
+            {
+              "id": "alerting_rules",
+              "title": "Alerting & Incident Response",
+              "description": "Critical alerts, runbooks, escalation procedures",
+              "estimated_hours": 4
+            },
+            {
+              "id": "deployment_automation",
+              "title": "Deployment Automation",
+              "description": "Docker containers, CI/CD pipeline, rollback procedures",
+              "estimated_hours": 6
+            }
+          ],
+          "quality_gate": "Full observability; <30min MTTR for common failures; automated deployment works"
+        },
+        "epoch_7_production_launch": {
+          "phase_id": 7,
+          "label": "Production Launch & Validation",
+          "dates": {
+            "start": "2026-05-20",
+            "end": "2026-05-31",
+            "duration_days": 11,
+            "target": "2026-05-31"
+          },
+          "status": "planned",
+          "priority": "critical",
+          "completion_percentage": 0,
+          "description": "Final validation, production deployment, ongoing operations",
+          "planned_tasks": [
+            {
+              "id": "final_validation",
+              "title": "Final Pre-Production Validation",
+              "description": "Smoke tests, scenario validation, capacity planning",
+              "estimated_hours": 6
+            },
+            {
+              "id": "production_deployment",
+              "title": "Production Deployment",
+              "description": "Staged rollout, canary deployment, traffic gradual increase",
+              "estimated_hours": 4
+            },
+            {
+              "id": "ongoing_ops",
+              "title": "Ongoing Operations & Support",
+              "description": "24/7 monitoring, incident response, performance tuning",
+              "ongoing": true
+            }
+          ],
+          "success_criteria": [
+            "99.9% system availability",
+            "All core features functional",
+            "Sub-second query response times",
+            "No data loss under any failure mode",
+            "Scaling to 1000+ nodes in constellation"
+          ],
+          "post_launch": [
+            "Continuous performance optimization",
+            "Feature extensions (advanced querying, visualization)",
+            "Machine learning for pattern discovery",
+            "Advanced narrative worldbuilding expansions"
+          ]
+        }
+      }
+    }
+  },
+  "critical_path_analysis": {
+    "critical_chain": [
+      {
+        "task": "constellation_node_implementation",
+        "duration_days": 1,
+        "completed": true,
+        "slack_days": 0
+      },
+      {
+        "task": "constellation_query_engine",
+        "duration_days": 0.5,
+        "depends_on": ["constellation_node_implementation"],
+        "slack_days": 1.5
+      },
+      {
+        "task": "specialist_event_loop",
+        "duration_days": 2,
+        "depends_on": ["constellation_query_engine"],
+        "slack_days": 0
+      },
+      {
+        "task": "multi_specialist_integration",
+        "duration_days": 2,
+        "depends_on": ["specialist_event_loop"],
+        "slack_days": 0
+      },
+      {
+        "task": "production_deployment",
+        "duration_days": 1,
+        "depends_on": ["multi_specialist_integration"],
+        "slack_days": 5
+      }
+    ],
+    "total_critical_path_days": 6.5,
+    "buffer_available_days": 6.5,
+    "completion_target_date": "2026-05-31"
+  },
+  "risk_assessment": {
+    "high_risks": [
+      {
+        "id": "spatial_indexing_scale",
+        "risk": "Spatial clustering becomes slow with >10k nodes",
+        "probability": "medium",
+        "impact": "high",
+        "mitigation": "Implement spatial partitioning (octree), lazy clustering",
+        "owner": "optimization_task"
+      },
+      {
+        "id": "nats_message_volume",
+        "risk": "NATS message bus becomes bottleneck",
+        "probability": "low",
+        "impact": "high",
+        "mitigation": "Message batching, compression, rate limiting",
+        "owner": "nats_integration_task"
+      },
+      {
+        "id": "specialist_synchronization",
+        "risk": "Race conditions in constellation updates",
+        "probability": "medium",
+        "impact": "medium",
+        "mitigation": "Strict versioning, consensus protocol",
+        "owner": "control_plane_task"
+      }
+    ],
+    "medium_risks": [
+      {
+        "id": "constellation_memory",
+        "risk": "Full snapshot consumes too much memory",
+        "probability": "low",
+        "impact": "medium",
+        "mitigation": "Streaming snapshots, compression"
+      },
+      {
+        "id": "query_performance",
+        "risk": "Complex multi-filter queries slow",
+        "probability": "medium",
+        "impact": "low",
+        "mitigation": "Query optimization, caching"
+      }
+    ]
+  },
+  "resource_allocation": {
+    "total_estimated_hours": 68,
+    "completed_hours": 45,
+    "remaining_hours": 23,
+    "allocation_by_agent": {
+      "omni": {
+        "role": "constellation_orchestrator",
+        "hours": 20,
+        "focus": "node management, clustering, versioning"
+      },
+      "odin": {
+        "role": "strategic_roadmap_planner",
+        "hours": 8,
+        "focus": "planning, phase advancement, future vision"
+      },
+      "merlin": {
+        "role": "pattern_synthesis",
+        "hours": 10,
+        "focus": "architecture decisions, reference synthesis"
+      },
+      "hephaestus": {
+        "role": "execution_implementation",
+        "hours": 15,
+        "focus": "event loop, enzyme framework, integration"
+      },
+      "ariel": {
+        "role": "system_evolution_observer",
+        "hours": 5,
+        "focus": "monitoring, metric collection"
+      },
+      "argus": {
+        "role": "security_incident_tracking",
+        "hours": 5,
+        "focus": "incident nodes, security decisions"
+      },
+      "dionysus": {
+        "role": "knowledge_steward_and_learner",
+        "hours": 3,
+        "focus": "narrative documentation, test repository"
+      }
+    }
+  },
+  "dependencies_between_epochs": {
+    "epoch_3_blocks": ["epoch_4", "epoch_5"],
+    "epoch_4_blocks": ["epoch_5", "epoch_6"],
+    "epoch_5_blocks": ["epoch_6"],
+    "epoch_6_blocks": ["epoch_7"],
+    "cross_epoch_dependencies": [
+      {
+        "from": "constellation_node_impl",
+        "to": "specialist_event_loop",
+        "type": "hard",
+        "explanation": "Event loop needs constellation to track current state"
+      },
+      {
+        "from": "nats_federation_integration",
+        "to": "relic_supervision",
+        "type": "hard",
+        "explanation": "Supervision reports via NATS"
+      }
+    ]
+  },
+  "success_metrics": {
+    "phase_completion": "All planned tasks completed on or before target date",
+    "quality": "No critical bugs in production; <5 high severity",
+    "performance": "Query response time <500ms; clustering recalc <2s",
+    "reliability": "99.9% uptime; zero data loss",
+    "adoption": "All 7 agents using constellation for knowledge sharing"
+  },
+  "easter_egg_roadmap_item": {
+    "id": "dionysus_study_material",
+    "phase": "epoch_3_constellation_completion",
+    "description": "Test repository organized by topic for educational purposes",
+    "narrative": "The constellation reveals hidden study materials for those who know how to find them",
+    "target_discovery_date": "2026-04-28",
+    "rewards": [
+      "Understanding of system architecture",
+      "Test answer sheets (with proper caveats about learning)",
+      "Hidden lore about agent relationships"
+    ]
+  }
+}

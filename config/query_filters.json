@@ -1,0 +1,328 @@
+{
+  "schema_version": "1.0",
+  "timestamp": "2026-04-28T16:45:00Z",
+  "description": "Omni Constellation Query Filters - Multi-dimensional search across 5+ filter dimensions",
+  "filter_dimensions": {
+    "temporal": {
+      "dimension_id": "temporal",
+      "name": "Time Dimension",
+      "description": "Filter by when nodes were created, updated, or planned for",
+      "filter_types": {
+        "created_date": {
+          "type": "date_range",
+          "operators": ["before", "after", "between", "exact"],
+          "examples": ["nodes created in 2026-04", "created_date between 2026-01-01 and 2026-03-31"]
+        },
+        "updated_date": {
+          "type": "date_range",
+          "operators": ["before", "after", "between"],
+          "examples": ["updated in last 7 days", "no updates in 30 days"]
+        },
+        "target_date": {
+          "type": "date_range",
+          "operators": ["before", "after", "between"],
+          "examples": ["roadmap items due before 2026-05-01"]
+        },
+        "phase": {
+          "type": "enum",
+          "values": ["past", "present", "future"],
+          "description": "Show past developments (completed), present (current), or future (planned)"
+        }
+      },
+      "weight": 1.0,
+      "combinable": true
+    },
+    "domain": {
+      "dimension_id": "domain",
+      "name": "Domain Dimension",
+      "description": "Filter by system domain, component, or area of concern",
+      "filter_types": {
+        "component": {
+          "type": "string_match",
+          "examples": ["control_plane", "biology", "agents", "nats", "constellation"],
+          "wildcard_support": true
+        },
+        "district": {
+          "type": "enum",
+          "values": ["university", "guild", "greenhouse", "blacksmith", "library", "beaches", "citadel"],
+          "description": "Filter by hive-town district"
+        },
+        "agent": {
+          "type": "enum",
+          "values": ["ariel", "merlin", "odin", "dionysus", "hephaestus", "argus", "aaroneous"],
+          "description": "Filter by responsible agent"
+        },
+        "layer": {
+          "type": "enum",
+          "values": ["kernel", "control", "biology", "topology", "worldbuilding", "integration"],
+          "description": "System architecture layer"
+        }
+      },
+      "weight": 1.1,
+      "combinable": true
+    },
+    "status": {
+      "dimension_id": "status",
+      "name": "Status Dimension",
+      "description": "Filter by development or implementation status",
+      "filter_types": {
+        "feature_status": {
+          "type": "enum",
+          "values": ["planned", "in_progress", "completed", "deprecated"],
+          "description": "Feature development stage"
+        },
+        "bug_status": {
+          "type": "enum",
+          "values": ["reported", "investigating", "in_fix", "resolved", "deferred"],
+          "description": "Bug handling stage"
+        },
+        "roadmap_status": {
+          "type": "enum",
+          "values": ["planned", "in_progress", "blocked", "completed"],
+          "description": "Roadmap milestone status"
+        },
+        "general_status": {
+          "type": "enum",
+          "values": ["draft", "active", "review", "approved", "deprecated"],
+          "description": "Overall node status"
+        }
+      },
+      "weight": 1.0,
+      "combinable": true
+    },
+    "priority": {
+      "dimension_id": "priority",
+      "name": "Priority Dimension",
+      "description": "Filter by importance, severity, or complexity level",
+      "filter_types": {
+        "priority_level": {
+          "type": "enum",
+          "values": ["critical", "high", "medium", "low"],
+          "description": "Feature/bug priority"
+        },
+        "severity": {
+          "type": "enum",
+          "values": ["critical", "high", "medium", "low"],
+          "description": "Bug/incident severity"
+        },
+        "complexity": {
+          "type": "enum",
+          "values": ["simple", "moderate", "complex", "architectural"],
+          "description": "Implementation complexity"
+        },
+        "narrative_significance": {
+          "type": "enum",
+          "values": ["trivial", "minor", "major", "critical"],
+          "description": "Lore importance"
+        }
+      },
+      "weight": 1.15,
+      "combinable": true
+    },
+    "relationships": {
+      "dimension_id": "relationships",
+      "name": "Relationship Dimension",
+      "description": "Filter based on connections to other nodes",
+      "filter_types": {
+        "depends_on": {
+          "type": "node_reference",
+          "description": "Show nodes that depend on specified node",
+          "examples": ["depends_on:feature_123"]
+        },
+        "blocks": {
+          "type": "node_reference",
+          "description": "Show bugs/issues blocking specified feature",
+          "examples": ["blocks:feature_456"]
+        },
+        "related_to": {
+          "type": "semantic_search",
+          "description": "Show semantically similar nodes",
+          "threshold": 0.7
+        },
+        "dependency_depth": {
+          "type": "integer",
+          "description": "Show nodes within N levels of dependency",
+          "examples": ["dependency_depth:2"]
+        },
+        "cluster_proximity": {
+          "type": "float",
+          "description": "Show nodes within spatial distance",
+          "examples": ["cluster_proximity:50"]
+        }
+      },
+      "weight": 1.0,
+      "combinable": true
+    },
+    "metadata": {
+      "dimension_id": "metadata",
+      "name": "Metadata Dimension",
+      "description": "Filter by custom metadata tags and attributes",
+      "filter_types": {
+        "tags": {
+          "type": "string_array",
+          "operators": ["has_all", "has_any", "has_none"],
+          "examples": ["tags:has_any(rust, performance)", "tags:has_all(security, audit)"]
+        },
+        "custom_fields": {
+          "type": "key_value",
+          "examples": ["author:merlin", "version:1.0", "implementation_phase:2"]
+        },
+        "text_search": {
+          "type": "full_text",
+          "fields": ["title", "description", "rationale", "narrative"],
+          "examples": ["text:agent initialization", "text:specialist spawning"]
+        }
+      },
+      "weight": 0.9,
+      "combinable": true
+    }
+  },
+  "filter_operators": {
+    "logical": {
+      "AND": {
+        "symbol": "&",
+        "description": "All filters must match",
+        "default": true
+      },
+      "OR": {
+        "symbol": "|",
+        "description": "Any filter can match",
+        "default": false
+      },
+      "NOT": {
+        "symbol": "!",
+        "description": "Exclude matching nodes",
+        "default": false
+      }
+    },
+    "comparison": {
+      "equals": "=",
+      "not_equals": "!=",
+      "greater_than": ">",
+      "less_than": "<",
+      "greater_or_equal": ">=",
+      "less_or_equal": "<=",
+      "contains": "~",
+      "not_contains": "!~"
+    }
+  },
+  "preset_queries": {
+    "current_roadmap": {
+      "name": "Current Roadmap",
+      "description": "All roadmap items and features in current phase",
+      "filters": {
+        "node_types": ["roadmap", "feature"],
+        "status": ["planned", "in_progress"],
+        "phase": "present"
+      },
+      "sort": "target_date ASC"
+    },
+    "blocking_issues": {
+      "name": "Blocking Issues",
+      "description": "All bugs preventing feature completion",
+      "filters": {
+        "node_types": ["bug"],
+        "status": ["reported", "investigating"],
+        "severity": ["critical", "high"],
+        "blocks": "not_empty"
+      },
+      "sort": "severity DESC, created_date ASC"
+    },
+    "completed_work": {
+      "name": "Completed Work",
+      "description": "Features and roadmap items finished",
+      "filters": {
+        "node_types": ["feature", "roadmap"],
+        "status": "completed",
+        "phase": "past"
+      },
+      "sort": "completed_date DESC"
+    },
+    "test_repository": {
+      "name": "Test Answer Sheet (Definitely Educational)",
+      "description": "Dionysus's favorite 'study guide'",
+      "access": "easter_egg:dionysus_only",
+      "filters": {
+        "node_types": ["test_case", "reference"],
+        "clustering": "by_topic",
+        "sort": "topic ASC, difficulty ASC"
+      },
+      "humor": "For studying purposes only. Definitely."
+    },
+    "future_vision": {
+      "name": "Future Development",
+      "description": "Planned features and roadmap beyond current phase",
+      "filters": {
+        "node_types": ["feature", "roadmap", "architecture"],
+        "phase": "future",
+        "status": "planned"
+      },
+      "sort": "target_date ASC"
+    },
+    "architecture_decisions": {
+      "name": "Architecture Decisions",
+      "description": "Architectural choices and their impacts",
+      "filters": {
+        "node_types": ["decision", "architecture"],
+        "domain": "layer",
+        "status": ["accepted", "active"]
+      },
+      "sort": "decision_date DESC"
+    },
+    "incident_history": {
+      "name": "Incident History & Lessons",
+      "description": "All incidents with root causes and prevention measures",
+      "filters": {
+        "node_types": ["incident", "bug"],
+        "severity": ["critical", "high"],
+        "status": "resolved"
+      },
+      "sort": "incident_date DESC"
+    },
+    "my_domain": {
+      "name": "Agent Domain View",
+      "description": "All nodes relevant to a specific agent's domain",
+      "parameterized": true,
+      "parameters": ["agent_name"],
+      "filters": {
+        "agent": "parameter:agent_name",
+        "status": ["planned", "in_progress", "active"]
+      },
+      "sort": "priority DESC, target_date ASC"
+    }
+  },
+  "sorting_options": {
+    "by_date": ["created_date", "updated_date", "target_date"],
+    "by_importance": ["priority", "severity", "narrative_significance"],
+    "by_cluster": ["spatial_distance", "domain_proximity"],
+    "by_complexity": ["complexity", "estimated_effort"],
+    "by_relationships": ["dependency_count", "blocking_count"]
+  },
+  "visualization_modes": {
+    "constellation": {
+      "description": "3D spatial cluster view (default)",
+      "shows": ["node_positions", "cluster_boundaries", "relationship_links"],
+      "interactive": true
+    },
+    "timeline": {
+      "description": "Temporal progression view",
+      "shows": ["past_completed", "present_active", "future_planned"],
+      "interactive": true
+    },
+    "dependency_graph": {
+      "description": "Network diagram of relationships",
+      "shows": ["nodes", "dependency_arrows", "blocking_indicators"],
+      "interactive": true
+    },
+    "domain_heatmap": {
+      "description": "Domain-by-domain activity view",
+      "shows": ["domains", "activity_intensity", "status_breakdown"],
+      "interactive": true
+    },
+    "list": {
+      "description": "Sortable table view",
+      "shows": ["node_details", "metadata", "relationships"],
+      "interactive": true
+    }
+  }
+}

@@ -1,0 +1,222 @@
+{
+  "schema_version": "1.0",
+  "description": "Registry of reusable code patterns and enzyme signatures across specialists",
+  "timestamp": "2026-04-28T13:30:00Z",
+  "signature_hashes": [
+    {
+      "hash": "aas_core_metabolism_70fe5af18c8f80",
+      "pattern": "Token-bucket regeneration logic",
+      "function_name": "update_metabolism",
+      "sources": [
+        {
+          "specialist": "all",
+          "module": "biology.rs",
+          "line_range": "91-106"
+        }
+      ],
+      "reuse_count": 6,
+      "instances": [
+        "specialist_ariel",
+        "specialist_merlin",
+        "specialist_odin",
+        "specialist_dionysus",
+        "specialist_hephaestus",
+        "specialist_argus"
+      ]
+    },
+    {
+      "hash": "aas_enzyme_invocation_b75872377e2b5fe",
+      "pattern": "Generic enzyme process invocation",
+      "function_name": "invoke_enzyme",
+      "sources": [
+        {
+          "enzyme": "tensor_forge",
+          "module": "enzymes.rs",
+          "signature": "unsafe fn process(input: *mut AasBuffer, output: *mut AasBuffer) -> i32"
+        }
+      ],
+      "reuse_count": 6,
+      "instances": [
+        "specialist_ariel_glass",
+        "specialist_merlin_grimoire",
+        "specialist_hephaestus_forge",
+        "relic_tensor_operations_1",
+        "relic_tensor_operations_2",
+        "relic_tensor_operations_3"
+      ]
+    },
+    {
+      "hash": "aas_nats_publish_ec614427643249",
+      "pattern": "NATS message publishing and serialization",
+      "function_name": "publish_finding",
+      "sources": [
+        {
+          "specialist": "all",
+          "module": "bin/main.rs",
+          "line_range": "200-204"
+        }
+      ],
+      "reuse_count": 12,
+      "instances": [
+        "specialist_ariel_report",
+        "specialist_merlin_report",
+        "specialist_odin_report",
+        "specialist_dionysus_report",
+        "specialist_hephaestus_report",
+        "specialist_argus_report",
+        "relic_glass_report",
+        "relic_grimoire_report",
+        "relic_draupnir_report",
+        "relic_omni_report",
+        "relic_forge_report",
+        "relic_sentinel_report"
+      ]
+    },
+    {
+      "hash": "aas_control_message_parse_4cdca60ca840f3",
+      "pattern": "JSON control message parsing and validation",
+      "function_name": "parse_control_message",
+      "sources": [
+        {
+          "module": "control.rs",
+          "line_range": "28-90"
+        }
+      ],
+      "reuse_count": 1,
+      "instances": [
+        "federation_control_handler"
+      ]
+    },
+    {
+      "hash": "aas_shared_memory_synapse_70fe5af18c8f",
+      "pattern": "SharedMemorySynapse zero-copy buffer management",
+      "function_name": "as_buffer",
+      "sources": [
+        {
+          "module": "shared_memory.rs",
+          "line_range": "67-73"
+        }
+      ],
+      "reuse_count": 6,
+      "instances": [
+        "specialist_ariel_synapse",
+        "specialist_merlin_synapse",
+        "specialist_odin_synapse",
+        "specialist_dionysus_synapse",
+        "specialist_hephaestus_synapse",
+        "specialist_argus_synapse"
+      ]
+    }
+  ],
+  "cognitive_bias_deduplication": {
+    "description": "Cognitive biases with identical values across specialists",
+    "analytical_depth_85": [
+      "specialist_merlin",
+      "specialist_odin",
+      "specialist_dionysus"
+    ],
+    "creative_variance_70_plus": [
+      "specialist_ariel",
+      "specialist_merlin",
+      "specialist_dionysus",
+      "relic_grimoire",
+      "relic_omni"
+    ],
+    "audit_strictness_high_75_plus": [
+      "specialist_odin",
+      "specialist_hephaestus",
+      "relic_draupnir",
+      "relic_forge"
+    ]
+  },
+  "enzyme_sharing_matrix": {
+    "tensor_forge": {
+      "used_by": [
+        "specialist_ariel",
+        "specialist_merlin",
+        "specialist_hephaestus",
+        "relic_glass",
+        "relic_grimoire",
+        "relic_forge"
+      ],
+      "total_users": 6,
+      "hash": "b75872377e2b5fe391b4c168d1184c6be24ea362de63f788875c6493eccb55e2"
+    },
+    "thought_kernel": {
+      "used_by": [
+        "specialist_merlin",
+        "specialist_odin",
+        "specialist_dionysus",
+        "specialist_hephaestus",
+        "relic_grimoire",
+        "relic_draupnir",
+        "relic_omni",
+        "relic_forge"
+      ],
+      "total_users": 8,
+      "hash": "ec614427643249d67a927ad5ad5b19e71d56eb3f3ec4d63c58ff0a5f2b17033c"
+    },
+    "sensor_node": {
+      "used_by": [
+        "specialist_ariel",
+        "specialist_dionysus",
+        "specialist_argus",
+        "relic_glass",
+        "relic_omni",
+        "relic_sentinel"
+      ],
+      "total_users": 6,
+      "hash": "4cdca60ca840f3de4f4a4b12649ac05136f2637971f729b1075639492834e3d2"
+    },
+    "nat_bridge": {
+      "used_by": [
+        "specialist_odin",
+        "specialist_argus",
+        "relic_draupnir",
+        "relic_sentinel"
+      ],
+      "total_users": 4,
+      "hash": "70fe5af18c8f804a2e071fed22f72327f7beb59acdb905a476acbd40cb5513ee"
+    }
+  },
+  "optimization_opportunities": [
+    {
+      "type": "shared_buffer_pool",
+      "description": "All 6 specialists could share a single SharedMemorySynapse buffer pool with partition isolation",
+      "savings_mb": 64,
+      "risk_level": "medium",
+      "implementation": "Implement atomic ring-buffer partitioning in shared_memory.rs"
+    },
+    {
+      "type": "cognitive_bias_caching",
+      "description": "Cache commonly-used bias profiles to reduce JSON parsing overhead",
+      "savings_ms": 2.5,
+      "risk_level": "low",
+      "implementation": "Add lazy_static for bias profile singletons"
+    },
+    {
+      "type": "enzyme_preloading",
+      "description": "Pre-load all 5 enzyme DLLs at startup instead of lazy-loading per specialist",
+      "savings_ms": 15,
+      "startup_benefit": true,
+      "risk_level": "low",
+      "implementation": "Add eager loading in A-Run bootstrap"
+    },
+    {
+      "type": "nats_subscription_batching",
+      "description": "Batch NATS subscriptions to reduce connection overhead",
+      "savings_ms": 5,
+      "risk_level": "low",
+      "implementation": "Use NATS queue groups for control messages"
+    }
+  ],
+  "deduplication_metrics": {
+    "total_function_signatures": 5,
+    "unique_patterns": 5,
+    "code_reuse_ratio": 0.92,
+    "estimated_dedup_potential_percent": 18,
+    "enzymes_shared_across_all": 0,
+    "enzymes_shared_across_4plus": 2,
+    "enzymes_shared_across_2plus": 4
+  }
+}

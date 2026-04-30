@@ -1,0 +1,291 @@
+{
+  "schema_version": "1.0",
+  "timestamp": "2026-04-28T17:00:00Z",
+  "description": "Omni Constellation Spatial Mapping - Translating semantic similarity to 3D coordinates",
+  "spatial_system": {
+    "coordinate_space": {
+      "dimensions": 3,
+      "origin": [0, 0, 0],
+      "scale": "semantic_units",
+      "bounds": {
+        "x": [-1000, 1000],
+        "y": [-1000, 1000],
+        "z": [-1000, 1000]
+      }
+    },
+    "clustering_algorithm": {
+      "name": "Semantic-Spatial Clustering",
+      "method": "multi_factor_gravity_simulation",
+      "description": "Nodes repel/attract based on semantic similarity, domain proximity, temporal phase, and relationship density"
+    }
+  },
+  "dimension_mapping": {
+    "x_axis": {
+      "name": "Domain Spectrum",
+      "range": [-1000, 1000],
+      "poles": {
+        "negative": "Theoretical/Knowledge (Merlin's Library)",
+        "positive": "Practical/Execution (Hephaestus's Blacksmith)"
+      },
+      "zones": {
+        "library": [-1000, -600],
+        "university": [-600, -200],
+        "guild": [200, 600],
+        "blacksmith": [600, 1000],
+        "greenhouse": [100, 500],
+        "beaches": [-100, 400],
+        "citadel": [-300, 300]
+      }
+    },
+    "y_axis": {
+      "name": "Temporal Phase",
+      "range": [-1000, 1000],
+      "poles": {
+        "negative": "Past (Historical/Completed)",
+        "positive": "Future (Planned/Vision)"
+      },
+      "zones": {
+        "ancient_history": [-1000, -700],
+        "past_developments": [-700, -300],
+        "present_active": [-300, 300],
+        "near_future": [300, 700],
+        "distant_future": [700, 1000]
+      }
+    },
+    "z_axis": {
+      "name": "Priority/Visibility",
+      "range": [-1000, 1000],
+      "poles": {
+        "negative": "Hidden/Low Priority (Background noise)",
+        "positive": "Critical/Visible (Central focus)"
+      },
+      "zones": {
+        "archived": [-1000, -600],
+        "deferred": [-600, -200],
+        "normal_priority": [-200, 200],
+        "high_priority": [200, 600],
+        "critical": [600, 1000]
+      }
+    }
+  },
+  "semantic_similarity_vectors": {
+    "domain_vectors": {
+      "control_plane": [0, 0, 200],
+      "agent_system": [50, 0, 180],
+      "biology_metabolism": [-100, 50, 150],
+      "nats_federation": [-50, 0, 170],
+      "constellation": [-300, 0, 300],
+      "worldbuilding": [-400, -50, 100],
+      "testing": [200, 100, 100],
+      "documentation": [-350, -100, 80],
+      "security": [-50, -100, 250],
+      "performance": [150, -50, 180],
+      "user_interface": [400, 0, 150],
+      "data_storage": [-250, 50, 120]
+    },
+    "semantic_distance_formula": {
+      "description": "Calculate distance between two nodes based on multiple factors",
+      "formula": "sqrt((x2-x1)^2 + (y2-y1)^2 + (z2-z1)^2 + clustering_factors)",
+      "clustering_factors": {
+        "semantic_similarity": "cosine_distance * weight_0.3",
+        "domain_proximity": "categorical_distance * weight_0.25",
+        "temporal_alignment": "phase_distance * weight_0.25",
+        "relationship_strength": "inverse_distance(dependency_links) * weight_0.2"
+      }
+    }
+  },
+  "node_positioning_rules": {
+    "feature_nodes": {
+      "base_x": "domain_vector_x",
+      "base_y": "status_to_temporal_y",
+      "base_z": "priority_to_z",
+      "clustering_attraction": 0.8,
+      "repulsion_force": 0.3,
+      "status_mapping": {
+        "planned": -300,
+        "in_progress": 100,
+        "completed": -800
+      },
+      "priority_mapping": {
+        "critical": 800,
+        "high": 500,
+        "medium": 100,
+        "low": -200
+      }
+    },
+    "bug_nodes": {
+      "base_x": "blocking_feature_x +/- 100",
+      "base_y": "discovery_date_y",
+      "base_z": "severity_to_z",
+      "clustering_attraction": 0.9,
+      "repulsion_force": 0.5,
+      "severity_mapping": {
+        "critical": 900,
+        "high": 600,
+        "medium": 200,
+        "low": -100
+      }
+    },
+    "lore_nodes": {
+      "base_x": "agent_location_x -350",
+      "base_y": "discovery_date_y -200",
+      "base_z": "narrative_significance_to_z",
+      "clustering_attraction": 0.6,
+      "repulsion_force": 0.2,
+      "narrative_mapping": {
+        "critical": 700,
+        "major": 400,
+        "minor": 0,
+        "trivial": -500
+      }
+    },
+    "architecture_nodes": {
+      "base_x": "layer_specificity_x",
+      "base_y": 0,
+      "base_z": "implementation_status_to_z",
+      "clustering_attraction": 0.75,
+      "repulsion_force": 0.4
+    },
+    "roadmap_nodes": {
+      "base_x": 0,
+      "base_y": "target_date_to_y",
+      "base_z": "phase_completion_to_z",
+      "clustering_attraction": 1.0,
+      "repulsion_force": 0.2,
+      "phase_mapping": {
+        1: -500,
+        2: 0,
+        3: 300,
+        4: 700,
+        5: 1000
+      }
+    }
+  },
+  "cluster_emergence": {
+    "cluster_detection_algorithm": "spatial_density_based",
+    "clustering_threshold": 150,
+    "minimum_cluster_size": 3,
+    "cluster_types": {
+      "domain_clusters": {
+        "description": "Nodes grouped by operational domain",
+        "formation_rule": "same_domain_within_distance_200"
+      },
+      "temporal_clusters": {
+        "description": "Nodes grouped by development phase",
+        "formation_rule": "same_phase_within_distance_250"
+      },
+      "feature_family_clusters": {
+        "description": "Related features forming cohesive groups",
+        "formation_rule": "dependency_chain_within_distance_180"
+      },
+      "crisis_clusters": {
+        "description": "Bugs and related issues clustering around blocking points",
+        "formation_rule": "high_severity_blocking_within_distance_150"
+      },
+      "discovery_clusters": {
+        "description": "Lore and narrative nodes forming story arcs",
+        "formation_rule": "same_agent_same_district_within_distance_100"
+      }
+    }
+  },
+  "dynamic_repositioning": {
+    "trigger_events": {
+      "node_status_change": {
+        "description": "Node moves when status changes (e.g., planned→in_progress)",
+        "animation_speed_ms": 500
+      },
+      "new_relationship": {
+        "description": "Nodes attract when dependency/relationship added",
+        "animation_speed_ms": 800
+      },
+      "time_progression": {
+        "description": "Nodes move forward in temporal axis as time passes",
+        "animation_speed_ms": 2000
+      },
+      "priority_escalation": {
+        "description": "Nodes move up z-axis when priority increases",
+        "animation_speed_ms": 600
+      }
+    }
+  },
+  "navigation_metaphors": {
+    "solar_system": {
+      "sun": "central_consensus_point",
+      "planets": "major_clusters",
+      "moons": "sub-clusters",
+      "asteroids": "isolated_nodes",
+      "comets": "rapid_change_nodes"
+    },
+    "galaxy": {
+      "galactic_center": "core_architecture_nodes",
+      "spiral_arms": "temporal_development_phases",
+      "nebulae": "emerging_feature_clusters",
+      "dark_matter": "hidden_lore_nodes"
+    }
+  },
+  "special_locations": {
+    "center": {
+      "coordinates": [0, 0, 0],
+      "name": "The Consensus Point",
+      "significance": "Central agreed-upon state of the system",
+      "gravitational_pull": 0.8
+    },
+    "library_sector": {
+      "coordinates": [-800, 0, 300],
+      "name": "Merlin's Knowledge Core",
+      "significance": "All theoretical knowledge and synthesis",
+      "notable_clusters": ["architecture", "decisions", "references"]
+    },
+    "workshop_sector": {
+      "coordinates": [800, 0, 400],
+      "name": "Hephaestus's Creation Forge",
+      "significance": "All manufacturing and execution nodes",
+      "notable_clusters": ["features_in_progress", "completed_artifacts"]
+    },
+    "future_horizon": {
+      "coordinates": [0, 900, 600],
+      "name": "The Vision Space",
+      "significance": "Planned future developments",
+      "gravitational_pull": 0.5
+    },
+    "history_archives": {
+      "coordinates": [0, -900, 200],
+      "name": "The Past Records",
+      "significance": "Completed work and historical context",
+      "gravitational_pull": 0.3
+    },
+    "lore_deep_space": {
+      "coordinates": [-500, -400, -600],
+      "name": "Dionysus's Hidden Stories",
+      "significance": "In-universe narrative and Easter eggs",
+      "discovery_reward": "Narrative richness and worldbuilding depth"
+    }
+  },
+  "example_positioning": {
+    "current_feature_cluster": {
+      "center": [150, 80, 350],
+      "radius": 200,
+      "nodes": ["event_loop_feature", "specialist_spawning", "relic_binding"],
+      "description": "Current phase features in mid-implementation"
+    },
+    "blocking_bugs_cluster": {
+      "center": [-100, 20, 800],
+      "radius": 150,
+      "nodes": ["critical_bug_1", "critical_bug_2", "blocking_architecture"],
+      "description": "High-priority issues preventing progress"
+    },
+    "past_completed_cluster": {
+      "center": [0, -700, 150],
+      "radius": 300,
+      "nodes": ["phase1_complete", "agent_taxonomy_done", "worldbuilding_done"],
+      "description": "Historical completed milestones"
+    },
+    "dionysus_test_cluster": {
+      "center": [-450, 150, 900],
+      "radius": 100,
+      "nodes": ["test_answer_1", "test_answer_2", "study_guide"],
+      "description": "Definitely educational nodes for Dionysus (wink)",
+      "access": "easter_egg:hidden"
+    }
+  }
+}

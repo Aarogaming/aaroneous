@@ -1,0 +1,357 @@
+{
+  "schema_version": "1.0",
+  "timestamp": "2026-04-28T19:00:00Z",
+  "description": "Genetic Extraction Pipeline Configuration - Orchestrates GGUF analysis workflow",
+  "pipeline_overview": {
+    "objective": "Extract 5000 genetic loci from each of 5 GGUF models",
+    "total_models": 5,
+    "total_loci_target": 25000,
+    "sequential_time_estimate_minutes": 420,
+    "parallel_time_estimate_minutes": 120,
+    "total_data_processed_gb": 133.5
+  },
+  "model_queue": [
+    {
+      "queue_position": 1,
+      "model_name": "Qwen3-Next-80B",
+      "file_path": "D:\\Aaroneous\\genetics\\gguf_sources\\qwen3-next-80b.gguf",
+      "size_gb": 45.16,
+      "parameters": 80000000000,
+      "estimated_extraction_minutes": 135,
+      "priority": "critical",
+      "specialist_role": "Odin (Strategic Planner)",
+      "genetic_focus": [
+        "DAG decomposition depth",
+        "Strategic vision",
+        "Long-term planning",
+        "Reasoning capability"
+      ],
+      "extraction_stages": {
+        "structural_analysis_minutes": 15,
+        "behavioral_profiling_minutes": 60,
+        "dag_rag_analysis_minutes": 45,
+        "encoding_minutes": 15
+      }
+    },
+    {
+      "queue_position": 2,
+      "model_name": "Hermes-4-70B",
+      "file_path": "D:\\Aaroneous\\genetics\\gguf_sources\\hermes-4-70b.gguf",
+      "size_gb": 39.6,
+      "parameters": 70000000000,
+      "estimated_extraction_minutes": 125,
+      "priority": "critical",
+      "specialist_role": "Merlin (Pattern Synthesizer)",
+      "genetic_focus": [
+        "Pattern recognition",
+        "Cross-domain synthesis",
+        "Information integration",
+        "Abstraction ability"
+      ],
+      "extraction_stages": {
+        "structural_analysis_minutes": 15,
+        "behavioral_profiling_minutes": 55,
+        "dag_rag_analysis_minutes": 40,
+        "encoding_minutes": 15
+      }
+    },
+    {
+      "queue_position": 3,
+      "model_name": "Qwen3-Coder-30B",
+      "file_path": "D:\\Aaroneous\\genetics\\gguf_sources\\qwen3-coder-30b.gguf",
+      "size_gb": 17.35,
+      "parameters": 30000000000,
+      "estimated_extraction_minutes": 52,
+      "priority": "high",
+      "specialist_role": "Hephaestus (Executor) + Code Specialization",
+      "genetic_focus": [
+        "Code generation traits",
+        "Implementation detail tracking",
+        "Task focus",
+        "Instruction adherence"
+      ],
+      "extraction_stages": {
+        "structural_analysis_minutes": 8,
+        "behavioral_profiling_minutes": 25,
+        "dag_rag_analysis_minutes": 15,
+        "encoding_minutes": 4
+      }
+    },
+    {
+      "queue_position": 4,
+      "model_name": "GLM-4.7-Flash",
+      "file_path": "D:\\Aaroneous\\genetics\\gguf_sources\\glm-4.7-flash.gguf",
+      "size_gb": 16.89,
+      "parameters": 14000000000,
+      "estimated_extraction_minutes": 52,
+      "priority": "high",
+      "specialist_role": "Architectural Diversity & Optimization",
+      "genetic_focus": [
+        "Fast inference traits",
+        "Attention pattern diversity",
+        "Non-transformer mechanisms",
+        "Instruction optimization"
+      ],
+      "extraction_stages": {
+        "structural_analysis_minutes": 8,
+        "behavioral_profiling_minutes": 25,
+        "dag_rag_analysis_minutes": 15,
+        "encoding_minutes": 4
+      }
+    },
+    {
+      "queue_position": 5,
+      "model_name": "Gemma-3-27B",
+      "file_path": "D:\\Aaroneous\\genetics\\gguf_sources\\gemma-3-27b.gguf",
+      "size_gb": 14.5,
+      "parameters": 27000000000,
+      "estimated_extraction_minutes": 60,
+      "priority": "high",
+      "specialist_role": "Dionysus (Learner) + Modern Architecture",
+      "genetic_focus": [
+        "Learning agility",
+        "Curiosity traits",
+        "Modern architecture features",
+        "Cross-domain synthesis"
+      ],
+      "extraction_stages": {
+        "structural_analysis_minutes": 10,
+        "behavioral_profiling_minutes": 30,
+        "dag_rag_analysis_minutes": 15,
+        "encoding_minutes": 5
+      }
+    }
+  ],
+  "extraction_stages": {
+    "stage_1_structural_analysis": {
+      "description": "Extract genetic information from model weights and architecture",
+      "parallel": true,
+      "produces": "3500_loci per model",
+      "techniques": [
+        {
+          "name": "attention_weight_analysis",
+          "target_loci_count": 1200,
+          "process": "Extract multi-head attention patterns from weight matrices"
+        },
+        {
+          "name": "layer_genetic_extraction",
+          "target_loci_count": 800,
+          "process": "Analyze per-layer feed-forward and transformation patterns"
+        },
+        {
+          "name": "embedding_space_analysis",
+          "target_loci_count": 600,
+          "process": "Map token embedding geometry and relationships"
+        },
+        {
+          "name": "bias_identification",
+          "target_loci_count": 400,
+          "process": "Extract systematic biases from weight distributions"
+        },
+        {
+          "name": "residual_analysis",
+          "target_loci_count": 500,
+          "process": "Analyze skip connection patterns and gradient flow"
+        }
+      ]
+    },
+    "stage_2_behavioral_profiling": {
+      "description": "Run model on diverse test suite and extract behavioral genetics",
+      "parallel": false,
+      "produces": "2000_loci per model",
+      "test_suite": {
+        "total_tests": 400,
+        "domains": [
+          "reasoning_and_logic",
+          "factual_knowledge",
+          "creative_tasks",
+          "mathematical_problems",
+          "code_generation",
+          "conversation_and_dialogue",
+          "instruction_following",
+          "multi_step_reasoning"
+        ],
+        "examples_per_domain": 50,
+        "data_collection": [
+          "response_length_distribution",
+          "confidence_expression",
+          "error_recovery_patterns",
+          "output_consistency",
+          "creativity_metrics"
+        ]
+      }
+    },
+    "stage_3_dag_rag_analysis": {
+      "description": "Study complex-thought patterns specific to DAG and RAG",
+      "parallel": false,
+      "produces": "1500_loci per model",
+      "dag_measurements": [
+        "decomposition_granularity",
+        "dependency_awareness",
+        "intermediate_representation_quality",
+        "path_exploration_tendency"
+      ],
+      "rag_measurements": [
+        "context_relevance_judgment",
+        "synthesis_methodology",
+        "source_prioritization",
+        "information_integration_quality"
+      ]
+    },
+    "stage_4_genetic_encoding": {
+      "description": "Normalize measurements and assign to genetic loci",
+      "parallel": true,
+      "produces": "5000_loci per model (complete genome)",
+      "operations": [
+        "normalize_all_measurements_to_0.0_1.0",
+        "assign_to_genetic_loci_ids",
+        "initialize_epigenetic_state",
+        "calculate_genetic_distances",
+        "generate_quality_metrics"
+      ]
+    }
+  },
+  "resource_requirements": {
+    "disk_space": {
+      "gguf_sources": 133.5,
+      "extracted_profiles": 15,
+      "working_space": 20,
+      "total_required_gb": 170
+    },
+    "memory": {
+      "structural_analysis_gb": 12,
+      "behavioral_profiling_gb": 8,
+      "dag_rag_analysis_gb": 8,
+      "encoding_gb": 4,
+      "peak_required_gb": 16
+    },
+    "compute": {
+      "gpu_acceleration": "recommended",
+      "cpu_cores": "4+ recommended",
+      "parallel_workers": "up to 4"
+    }
+  },
+  "quality_gates": {
+    "per_model_checks": [
+      {
+        "check": "loci_value_bounds",
+        "requirement": "All loci in [0.0, 1.0]",
+        "fail_action": "REJECT model"
+      },
+      {
+        "check": "loci_count",
+        "requirement": "Exactly 5000 loci",
+        "fail_action": "REJECT model"
+      },
+      {
+        "check": "category_distribution",
+        "requirement": "All 8 categories represented",
+        "fail_action": "WARN and re-extract"
+      },
+      {
+        "check": "epigenetic_consistency",
+        "requirement": "Markers consistent with expressed traits",
+        "fail_action": "WARN and adjust"
+      }
+    ],
+    "population_checks": [
+      {
+        "check": "genetic_diversity",
+        "requirement": "Average distance > 0.30",
+        "fail_action": "WARN - may have redundancy"
+      },
+      {
+        "check": "architectural_coverage",
+        "requirement": "4+ distinct families represented",
+        "fail_action": "WARN - limited diversity"
+      }
+    ]
+  },
+  "output_structure": {
+    "extracted_profiles": {
+      "location": "D:\\Aaroneous\\genetics\\extracted_profiles",
+      "files": [
+        {
+          "name": "qwen3-next-80b.genetics.json",
+          "size_mb": 3,
+          "contents": "5000 genetic loci + epigenetic state"
+        },
+        {
+          "name": "hermes-4-70b.genetics.json",
+          "size_mb": 3,
+          "contents": "5000 genetic loci + epigenetic state"
+        },
+        {
+          "name": "qwen3-coder-30b.genetics.json",
+          "size_mb": 3,
+          "contents": "5000 genetic loci + epigenetic state"
+        },
+        {
+          "name": "glm-4.7-flash.genetics.json",
+          "size_mb": 3,
+          "contents": "5000 genetic loci + epigenetic state"
+        },
+        {
+          "name": "gemma-3-27b.genetics.json",
+          "size_mb": 3,
+          "contents": "5000 genetic loci + epigenetic state"
+        }
+      ]
+    },
+    "genetics_index": {
+      "file": "D:\\Aaroneous\\genetics\\genetics_index.json",
+      "contents": "Fast lookup index of all profiles",
+      "size_mb": 1
+    },
+    "breeding_recommendations": {
+      "file": "D:\\Aaroneous\\genetics\\breeding_recommendations.json",
+      "contents": "Suggested pairs for creating specialists",
+      "size_mb": 2
+    },
+    "specialist_profiles": {
+      "location": "D:\\Aaroneous\\genetics\\specialist_genetic_profiles",
+      "files": [
+        "odin.genetics.json",
+        "merlin.genetics.json",
+        "hephaestus.genetics.json",
+        "ariel.genetics.json",
+        "argus.genetics.json",
+        "dionysus.genetics.json",
+        "omni.genetics.json"
+      ]
+    },
+    "analysis_reports": {
+      "location": "D:\\Aaroneous\\genetics\\analysis_reports",
+      "files": [
+        "extraction_summary.md",
+        "genetic_distances.json",
+        "specialization_markers.json",
+        "dag_rag_patterns.json",
+        "breeding_strategy.md"
+      ]
+    }
+  },
+  "execution_commands": {
+    "import_models": "powershell -ExecutionPolicy Bypass -File D:\\Aaroneous\\scripts\\import_gguf_models.ps1",
+    "start_extraction": "aaroneous extract-genetics --pipeline-config D:\\Aaroneous\\config\\extraction_pipeline.json",
+    "monitor_progress": "aaroneous monitor-genetics --output-dir D:\\Aaroneous\\genetics",
+    "analyze_profiles": "aaroneous analyze-genetics --input-dir D:\\Aaroneous\\genetics\\extracted_profiles",
+    "create_specialists": "aaroneous assign-specialists --genetic-profiles D:\\Aaroneous\\genetics\\extracted_profiles"
+  },
+  "success_metrics": {
+    "extraction_success": "All 5 models extract without errors",
+    "profile_validity": "All 25,000 loci validate quality gates",
+    "genetic_diversity": "Genetic distance matrix shows >0.30 avg distance",
+    "specialist_readiness": "All 7 specialists have valid genetic profiles",
+    "dag_rag_validation": "DAG/RAG genetics correlate with behavioral patterns"
+  },
+  "timeline": {
+    "import_phase": "10 minutes",
+    "extraction_sequential": "420-480 minutes (7-8 hours)",
+    "extraction_parallel_4x": "120-150 minutes (2-2.5 hours)",
+    "analysis_phase": "30 minutes",
+    "specialist_creation": "30 minutes",
+    "validation": "60 minutes",
+    "total_wall_clock": "4.5-8 hours depending on parallelization"
+  }
+}

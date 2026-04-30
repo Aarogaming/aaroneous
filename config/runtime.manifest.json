@@ -1,0 +1,155 @@
+{
+  "schema_version": "1.0",
+  "runtime_version": "v0.1.0-epoch6",
+  "product": "Aaroneous Agent-Zero",
+  "designation": "Binary-Native Synthetic Intelligence Hive",
+  "bootstrap": {
+    "entry_point": "D:\\Aaroneous\\bin\\a-run.exe",
+    "service_name": "AaroneousARun",
+    "service_display_name": "Aaroneous Hive Orchestrator",
+    "startup_type": "auto",
+    "run_as": "LocalSystem"
+  },
+  "directories": {
+    "workspace_root": "D:\\Aaroneous",
+    "binary_dir": "D:\\Aaroneous\\bin",
+    "source_dir": "D:\\Aaroneous\\src",
+    "chromosome_dir": "D:\\Aaroneous\\chromosomes",
+    "cache_dir": "D:\\Aaroneous\\cache",
+    "registry_dir": "D:\\Aaroneous\\registry",
+    "config_dir": "D:\\Aaroneous\\config",
+    "data_dir": "D:\\Aaroneous\\data",
+    "logs_dir": "D:\\Aaroneous\\logs",
+    "test_dir": "D:\\Aaroneous\\tests"
+  },
+  "dependencies": {
+    "nats_broker": {
+      "executable": "nats-server.exe",
+      "default_url": "localhost:4222",
+      "connection_timeout_secs": 15,
+      "auto_start": false,
+      "required": true
+    },
+    "rust_runtime": {
+      "required_version": "1.70+",
+      "features": ["tokio", "async", "wasm"]
+    }
+  },
+  "chromosome_manifest": {
+    "description": "Compiled enzyme binaries (immutable, hashed)",
+    "enzymes": [
+      {
+        "name": "nat_bridge",
+        "file": "nat_bridge.dll",
+        "hash": "70fe5af18c8f804a2e071fed22f72327f7beb59acdb905a476acbd40cb5513ee",
+        "version": "1.0.0"
+      },
+      {
+        "name": "tensor_forge",
+        "file": "tensor_forge.dll",
+        "hash": "b75872377e2b5fe391b4c168d1184c6be24ea362de63f788875c6493eccb55e2",
+        "version": "1.0.0"
+      },
+      {
+        "name": "thought_kernel",
+        "file": "thought_kernel.dll",
+        "hash": "ec614427643249d67a927ad5ad5b19e71d56eb3f3ec4d63c58ff0a5f2b17033c",
+        "version": "1.0.0"
+      },
+      {
+        "name": "sensor_node",
+        "file": "sensor_node.dll",
+        "hash": "4cdca60ca840f3de4f4a4b12649ac05136f2637971f729b1075639492834e3d2",
+        "version": "1.0.0"
+      },
+      {
+        "name": "wasm_enzyme",
+        "file": "wasm_enzyme.wasm",
+        "hash": "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
+        "version": "1.0.0"
+      }
+    ]
+  },
+  "hox_phenotype_registry": {
+    "baseline": "D:\\Aaroneous\\registry\\hox_map.json",
+    "specialists": [
+      "D:\\Aaroneous\\registry\\hox_specialist_ariel.json",
+      "D:\\Aaroneous\\registry\\hox_specialist_merlin.json",
+      "D:\\Aaroneous\\registry\\hox_specialist_odin.json",
+      "D:\\Aaroneous\\registry\\hox_specialist_dionysus.json",
+      "D:\\Aaroneous\\registry\\hox_specialist_hephaestus.json",
+      "D:\\Aaroneous\\registry\\hox_specialist_argus.json"
+    ],
+    "relics": [
+      "D:\\Aaroneous\\registry\\hox_relic_glass.json",
+      "D:\\Aaroneous\\registry\\hox_relic_grimoire.json",
+      "D:\\Aaroneous\\registry\\hox_relic_draupnir.json",
+      "D:\\Aaroneous\\registry\\hox_relic_omni.json",
+      "D:\\Aaroneous\\registry\\hox_relic_forge.json",
+      "D:\\Aaroneous\\registry\\hox_relic_sentinel.json"
+    ]
+  },
+  "configuration_files": {
+    "spectrum_config": "D:\\Aaroneous\\config\\spectrum_config.json",
+    "specialist_registry": "D:\\Aaroneous\\config\\specialist_registry.json",
+    "resource_profiles": "D:\\Aaroneous\\config\\resource_profiles.json",
+    "spatial_layout": "D:\\Aaroneous\\config\\spatial_layout.json"
+  },
+  "logging": {
+    "level": "info",
+    "output_dir": "D:\\Aaroneous\\logs",
+    "files": {
+      "core": "arun_core.log",
+      "specialist": "specialist_{name}.log",
+      "enzyme": "enzyme_errors.log",
+      "federation_bus": "federation_bus.log",
+      "user_activity": "user_activity.log"
+    },
+    "retention_days": 30,
+    "rotation_size_mb": 100
+  },
+  "health_checks": {
+    "startup_checks": [
+      "verify_cargo_build",
+      "verify_hox_files_exist",
+      "verify_chromosome_hashes",
+      "verify_nats_accessibility",
+      "verify_directories_writable"
+    ],
+    "runtime_checks": [
+      "heartbeat_emission",
+      "enzyme_health",
+      "specialist_responsiveness",
+      "memory_limits",
+      "nats_connectivity"
+    ]
+  },
+  "security_ops": {
+    "enzyme_checksum_validation": true,
+    "hox_file_integrity_check": true,
+    "nats_message_validation": true,
+    "user_permission_enforcement": true,
+    "session_token_expiration": 3600,
+    "max_session_age_secs": 86400
+  },
+  "performance_tuning": {
+    "shared_memory_synapse_size": 65536,
+    "token_bucket_max_tokens": 100,
+    "default_expression_rate": 1.0,
+    "specialist_spawn_stagger_ms": 300,
+    "heartbeat_interval_secs": 5
+  },
+  "error_recovery": {
+    "enzyme_failure_action": "degrade_gracefully",
+    "specialist_crash_action": "attempt_restart",
+    "max_restart_attempts": 3,
+    "restart_backoff_ms": 1000,
+    "nats_connection_retry_secs": [5, 10, 30, 60]
+  },
+  "metadata": {
+    "created_date": "2026-04-28T13:00:00Z",
+    "last_modified": "2026-04-28T13:00:00Z",
+    "maintainer": "OpenCode",
+    "support_url": "https://github.com/anomalyco/opencode"
+  }
+}

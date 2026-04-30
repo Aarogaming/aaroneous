@@ -1,0 +1,377 @@
+{
+  "schema_version": "1.0",
+  "timestamp": "2026-04-28T15:30:00Z",
+  "description": "NATS topic hierarchy organized by district with inter-district communication routes",
+  "nats_district_root": "federation.district",
+  "district_topics": {
+    "university": {
+      "root": "federation.district.university",
+      "channels": {
+        "research": {
+          "topic": "federation.district.university.research",
+          "purpose": "Experiential learning and discovery discussions",
+          "subscribers": ["dionysus", "students", "visiting_scholars"],
+          "publishers": ["dionysus", "ariel"]
+        },
+        "gatherings": {
+          "topic": "federation.district.university.gatherings",
+          "purpose": "Social events, symposiums, study groups",
+          "subscribers": ["all_agents_on_rotation"],
+          "publishers": ["dionysus"]
+        },
+        "experimental": {
+          "topic": "federation.district.university.experimental",
+          "purpose": "Prototype testing and learning experiments",
+          "subscribers": ["dionysus", "ariel", "merlin"],
+          "publishers": ["dionysus"]
+        },
+        "archive": {
+          "topic": "federation.district.university.archive",
+          "purpose": "Student memories and experiential records",
+          "subscribers": ["dionysus", "merlin"],
+          "publishers": ["dionysus", "omni"]
+        }
+      }
+    },
+    "guild": {
+      "root": "federation.district.guild",
+      "channels": {
+        "warroom": {
+          "topic": "federation.district.guild.warroom",
+          "purpose": "Strategic planning and command decisions",
+          "subscribers": ["odin", "merlin"],
+          "publishers": ["odin", "draupnir"]
+        },
+        "commands": {
+          "topic": "federation.district.guild.commands",
+          "purpose": "Orders for specialists and resource allocation",
+          "subscribers": ["all_agents"],
+          "publishers": ["odin", "draupnir"]
+        },
+        "quests": {
+          "topic": "federation.district.guild.quests",
+          "purpose": "Task assignments and bounty board updates",
+          "subscribers": ["all_specialists"],
+          "publishers": ["odin"]
+        },
+        "reports": {
+          "topic": "federation.district.guild.reports",
+          "purpose": "Agent status updates and task completion reports",
+          "subscribers": ["odin", "merlin"],
+          "publishers": ["all_agents"]
+        }
+      }
+    },
+    "greenhouse": {
+      "root": "federation.district.greenhouse",
+      "channels": {
+        "studio": {
+          "topic": "federation.district.greenhouse.studio",
+          "purpose": "UI/UX design work and aesthetic decisions",
+          "subscribers": ["ariel", "glass"],
+          "publishers": ["ariel", "glass"]
+        },
+        "visitors": {
+          "topic": "federation.district.greenhouse.visitors",
+          "purpose": "User research and feedback collection",
+          "subscribers": ["ariel", "glass"],
+          "publishers": ["ariel", "user_agents"]
+        },
+        "beauty": {
+          "topic": "federation.district.greenhouse.beauty",
+          "purpose": "Aesthetic principles and design philosophy",
+          "subscribers": ["ariel", "merlin"],
+          "publishers": ["ariel"]
+        },
+        "growth": {
+          "topic": "federation.district.greenhouse.growth",
+          "purpose": "Development and improvement tracking",
+          "subscribers": ["ariel", "glass"],
+          "publishers": ["ariel"]
+        }
+      }
+    },
+    "blacksmith": {
+      "root": "federation.district.blacksmith",
+      "channels": {
+        "forge": {
+          "topic": "federation.district.blacksmith.forge",
+          "purpose": "Manufacturing operations and artifact creation",
+          "subscribers": ["hephaestus", "odin"],
+          "publishers": ["hephaestus", "forge"]
+        },
+        "control": {
+          "topic": "federation.district.blacksmith.control",
+          "purpose": "Quality control and validation",
+          "subscribers": ["hephaestus"],
+          "publishers": ["hephaestus", "forge"]
+        },
+        "blueprints": {
+          "topic": "federation.district.blacksmith.blueprints",
+          "purpose": "Design specifications and technical plans",
+          "subscribers": ["hephaestus", "merlin"],
+          "publishers": ["hephaestus", "merlin"]
+        },
+        "inventory": {
+          "topic": "federation.district.blacksmith.inventory",
+          "purpose": "Materials and tool tracking",
+          "subscribers": ["hephaestus", "odin"],
+          "publishers": ["hephaestus", "draupnir"]
+        }
+      }
+    },
+    "library": {
+      "root": "federation.district.library",
+      "channels": {
+        "stacks": {
+          "topic": "federation.district.library.stacks",
+          "purpose": "Core knowledge repository and research resources",
+          "subscribers": ["merlin", "dionysus", "odin"],
+          "publishers": ["merlin", "grimoire"]
+        },
+        "discoveries": {
+          "topic": "federation.district.library.discoveries",
+          "purpose": "New patterns found and synthesis announcements",
+          "subscribers": ["all_agents"],
+          "publishers": ["merlin", "grimoire"]
+        },
+        "visions": {
+          "topic": "federation.district.library.visions",
+          "purpose": "Prophecies and future pattern predictions",
+          "subscribers": ["all_agents"],
+          "publishers": ["merlin"]
+        },
+        "synthesis": {
+          "topic": "federation.district.library.synthesis",
+          "purpose": "Cross-domain knowledge integration",
+          "subscribers": ["merlin", "all_agents"],
+          "publishers": ["merlin", "grimoire"]
+        }
+      }
+    },
+    "beaches": {
+      "root": "federation.district.beaches",
+      "channels": {
+        "observatory": {
+          "topic": "federation.district.beaches.observatory",
+          "purpose": "System-wide observation and monitoring",
+          "subscribers": ["ariel", "merlin", "all_agents"],
+          "publishers": ["ariel"]
+        },
+        "watchpoints": {
+          "topic": "federation.district.beaches.watchpoints",
+          "purpose": "Early warning signs and horizon scanning",
+          "subscribers": ["merlin", "odin"],
+          "publishers": ["ariel"]
+        },
+        "emergence": {
+          "topic": "federation.district.beaches.emergence",
+          "purpose": "Detecting what's coming; boundary conditions",
+          "subscribers": ["merlin", "ariel"],
+          "publishers": ["ariel"]
+        },
+        "clarity": {
+          "topic": "federation.district.beaches.clarity",
+          "purpose": "Clear thinking space; reflection logs",
+          "subscribers": ["merlin", "ariel", "dionysus"],
+          "publishers": ["ariel"]
+        }
+      }
+    },
+    "citadel": {
+      "root": "federation.district.citadel",
+      "channels": {
+        "command": {
+          "topic": "federation.district.citadel.command",
+          "purpose": "Security commands and threat response",
+          "subscribers": ["argus", "sentinel"],
+          "publishers": ["argus", "sentinel"]
+        },
+        "alerts": {
+          "topic": "federation.district.citadel.alerts",
+          "purpose": "Security threats and anomalies",
+          "subscribers": ["all_agents"],
+          "publishers": ["argus", "sentinel"]
+        },
+        "barriers": {
+          "topic": "federation.district.citadel.barriers",
+          "purpose": "Boundary protection and access control",
+          "subscribers": ["argus", "all_agents"],
+          "publishers": ["argus", "sentinel"]
+        },
+        "audit": {
+          "topic": "federation.district.citadel.audit",
+          "purpose": "Security audit trail and incident logs",
+          "subscribers": ["argus"],
+          "publishers": ["argus", "sentinel"]
+        }
+      }
+    }
+  },
+  "inter_district_routes": {
+    "knowledge_flow": {
+      "name": "Knowledge Distribution Pipeline",
+      "route": "library → university → greenhouse → blacksmith → guild",
+      "primary_topic": "federation.knowledge.flow",
+      "secondary_topics": [
+        "federation.library.discoveries",
+        "federation.university.research",
+        "federation.greenhouse.beauty",
+        "federation.blacksmith.blueprints",
+        "federation.guild.strategy"
+      ],
+      "agents_involved": ["merlin", "dionysus", "ariel", "hephaestus", "odin"],
+      "pattern": "Research → Learning → Design → Manufacturing → Execution"
+    },
+    "feedback_loop": {
+      "name": "User Feedback Circuit",
+      "route": "guild → blacksmith → greenhouse → university → library",
+      "primary_topic": "federation.feedback.loop",
+      "secondary_topics": [
+        "federation.guild.reports",
+        "federation.blacksmith.control",
+        "federation.greenhouse.visitors",
+        "federation.university.experimental",
+        "federation.library.discoveries"
+      ],
+      "agents_involved": ["odin", "hephaestus", "ariel", "dionysus", "merlin"],
+      "pattern": "Execution Results → Quality → User Experience → Learning → Knowledge Update"
+    },
+    "strategic_coordination": {
+      "name": "Command and Control Network",
+      "route": "guild ↔ all_districts",
+      "primary_topic": "federation.command.hub",
+      "secondary_topics": [
+        "federation.guild.commands",
+        "federation.guild.warroom",
+        "federation.guild.reports"
+      ],
+      "agents_involved": ["odin", "draupnir", "all_agents"],
+      "pattern": "Central coordination with distributed execution"
+    },
+    "security_circuit": {
+      "name": "Protective Surveillance Network",
+      "route": "citadel → all_districts",
+      "primary_topic": "federation.security.net",
+      "secondary_topics": [
+        "federation.citadel.command",
+        "federation.citadel.alerts",
+        "federation.citadel.barriers"
+      ],
+      "agents_involved": ["argus", "sentinel", "all_agents"],
+      "pattern": "Continuous monitoring with rapid response"
+    },
+    "exploration_circuit": {
+      "name": "Wandering Discovery Network",
+      "route": "library ↔ university ↔ greenhouse ↔ beaches ↔ blacksmith",
+      "primary_topic": "federation.exploration.path",
+      "secondary_topics": [
+        "federation.library.visions",
+        "federation.university.experimental",
+        "federation.greenhouse.growth",
+        "federation.beaches.emergence",
+        "federation.blacksmith.blueprints"
+      ],
+      "agents_involved": ["merlin", "ariel", "dionysus"],
+      "pattern": "Research → Learning → Design → Observation → Manufacturing"
+    }
+  },
+  "district_summary_topics": {
+    "federation.district.university.summary": {
+      "frequency": "every_1_hour",
+      "content": "Daily learning activity, student count, discoveries made",
+      "publisher": "dionysus"
+    },
+    "federation.district.guild.summary": {
+      "frequency": "every_30_minutes",
+      "content": "Active orders, completion status, resource allocation",
+      "publisher": "odin"
+    },
+    "federation.district.greenhouse.summary": {
+      "frequency": "every_2_hours",
+      "content": "Current design projects, user testing results, aesthetic metrics",
+      "publisher": "ariel"
+    },
+    "federation.district.blacksmith.summary": {
+      "frequency": "every_1_hour",
+      "content": "Manufacturing throughput, quality metrics, inventory status",
+      "publisher": "hephaestus"
+    },
+    "federation.district.library.summary": {
+      "frequency": "every_4_hours",
+      "content": "Knowledge synthesis progress, pattern discoveries, prophecy status",
+      "publisher": "merlin"
+    },
+    "federation.district.beaches.summary": {
+      "frequency": "continuous",
+      "content": "System observations, anomalies detected, clarity metrics",
+      "publisher": "ariel"
+    },
+    "federation.district.citadel.summary": {
+      "frequency": "every_15_minutes",
+      "content": "Threat level, incidents detected, security status",
+      "publisher": "argus"
+    }
+  },
+  "cross_district_collaboration_topics": {
+    "merlin_advisory": {
+      "topic": "federation.advisory.merlin",
+      "frequency": "on_demand",
+      "purpose": "Merlin offers cross-district pattern insights",
+      "subscribers": ["all_agents"]
+    },
+    "odin_command": {
+      "topic": "federation.command.odin",
+      "frequency": "regularly",
+      "purpose": "Odin issues strategic directives",
+      "subscribers": ["all_agents"]
+    },
+    "ariel_observation": {
+      "topic": "federation.observation.ariel",
+      "frequency": "continuous",
+      "purpose": "Ariel shares observations from beaches/greenhouse",
+      "subscribers": ["merlin", "odin", "all_agents"]
+    },
+    "dionysus_gathering": {
+      "topic": "federation.gathering.dionysus",
+      "frequency": "weekly",
+      "purpose": "Dionysus announces community events and learning opportunities",
+      "subscribers": ["all_agents"]
+    },
+    "hephaestus_delivery": {
+      "topic": "federation.delivery.hephaestus",
+      "frequency": "regularly",
+      "purpose": "Hephaestus announces completed artifacts",
+      "subscribers": ["odin", "all_agents"]
+    },
+    "argus_alert": {
+      "topic": "federation.alert.argus",
+      "frequency": "on_threat",
+      "purpose": "Argus broadcasts security alerts",
+      "subscribers": ["all_agents"]
+    }
+  },
+  "district_mesh_network": {
+    "description": "How districts communicate with each other",
+    "primary_hub": "federation.district.guild.warroom",
+    "secondary_hubs": [
+      "federation.district.library.synthesis",
+      "federation.district.citadel.command",
+      "federation.district.university.archive"
+    ],
+    "peer_connections": {
+      "university_library": "knowledge_exchange",
+      "library_greenhouse": "aesthetic_wisdom",
+      "greenhouse_beaches": "clarity_observation",
+      "beaches_citadel": "threat_awareness",
+      "citadel_guild": "security_coordination",
+      "guild_blacksmith": "order_execution",
+      "blacksmith_library": "design_consultation"
+    },
+    "message_routing_optimization": {
+      "local_first": "Messages stay within district unless cross-district route required",
+      "hub_relay": "Cross-district messages route through nearest hub",
+      "emergency_bypass": "Security alerts bypass normal routing for immediate delivery"
+    }
+  }
+}

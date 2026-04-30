@@ -1,0 +1,153 @@
+{
+  "schema_version": "1.0",
+  "boot_stagger_ms": {
+    "min": 100,
+    "max": 1000,
+    "default": 500,
+    "current": 300,
+    "description": "Delay between specialist task spawns to prevent resource contention during boot"
+  },
+  "nats_connect_timeout_secs": {
+    "min": 5,
+    "max": 60,
+    "default": 10,
+    "current": 15,
+    "description": "Timeout for initial NATS broker connection"
+  },
+  "heartbeat_interval_secs": {
+    "min": 1,
+    "max": 30,
+    "default": 5,
+    "current": 5,
+    "description": "Federation heartbeat emission frequency"
+  },
+  "learning_rate_spectrum": {
+    "thought": {
+      "base": 0.05,
+      "growth": 1.2,
+      "description": "Real-time execution specialists (Ariel, Glass, Forge, Sentinel)"
+    },
+    "memory": {
+      "base": 0.02,
+      "growth": 1.5,
+      "description": "Long-form synthesis specialists (Merlin, Grimoire, Odin, Draupnir, Dionysus, Omni)"
+    }
+  },
+  "specialist_profiles": {
+    "ariel": {
+      "role": "thought",
+      "domain": "UserInterface",
+      "interval_ms": 20000,
+      "persona": "Creative, intuitive, and empathetic",
+      "startup_order": 1,
+      "critical": false,
+      "max_parallel_relics": 1
+    },
+    "merlin": {
+      "role": "memory",
+      "domain": "Knowledge",
+      "interval_ms": 25000,
+      "persona": "Prophetic and visionary",
+      "startup_order": 2,
+      "critical": false,
+      "max_parallel_relics": 1
+    },
+    "odin": {
+      "role": "memory",
+      "domain": "Leadership",
+      "interval_ms": 30000,
+      "persona": "All-seeing and cunning",
+      "startup_order": 3,
+      "critical": false,
+      "max_parallel_relics": 1
+    },
+    "dionysus": {
+      "role": "memory",
+      "domain": "Experience",
+      "interval_ms": 35000,
+      "persona": "Exploratory and sensory",
+      "startup_order": 4,
+      "critical": false,
+      "max_parallel_relics": 1
+    },
+    "hephaestus": {
+      "role": "thought",
+      "domain": "Manufacturing",
+      "interval_ms": 22000,
+      "persona": "Methodical and constructive",
+      "startup_order": 5,
+      "critical": true,
+      "max_parallel_relics": 1
+    },
+    "argus": {
+      "role": "thought",
+      "domain": "Security",
+      "interval_ms": 15000,
+      "persona": "Vigilant and scrutinizing",
+      "startup_order": 0,
+      "critical": true,
+      "max_parallel_relics": 1
+    }
+  },
+  "relic_profiles": {
+    "glass": {
+      "supervisor": "ariel",
+      "role": "Visual Operator",
+      "interval_multiplier": 0.9,
+      "shared_metabolism": true
+    },
+    "grimoire": {
+      "supervisor": "merlin",
+      "role": "Prophetic Index",
+      "interval_multiplier": 1.12,
+      "shared_metabolism": true
+    },
+    "draupnir": {
+      "supervisor": "odin",
+      "role": "Resource Allocator",
+      "interval_multiplier": 1.07,
+      "shared_metabolism": true
+    },
+    "omni": {
+      "supervisor": "dionysus",
+      "role": "Memory Librarian",
+      "interval_multiplier": 1.14,
+      "shared_metabolism": true
+    },
+    "forge": {
+      "supervisor": "hephaestus",
+      "role": "Manufacturing Executor",
+      "interval_multiplier": 1.0,
+      "shared_metabolism": true
+    },
+    "sentinel": {
+      "supervisor": "argus",
+      "role": "Threat Monitor",
+      "interval_multiplier": 0.8,
+      "shared_metabolism": true
+    }
+  },
+  "bootstrap_specialists": [
+    "argus",
+    "hephaestus"
+  ],
+  "lazy_load_specialists": [
+    "ariel",
+    "merlin",
+    "odin",
+    "dionysus"
+  ],
+  "metabolic_parameters": {
+    "min_expression_rate": 0.0,
+    "max_expression_rate": 1.0,
+    "normal_threshold": 0.7,
+    "metabolic_threshold": 0.3,
+    "default_expression_rate": 1.0
+  },
+  "error_handling": {
+    "enzyme_failure_action": "degrade_gracefully",
+    "relic_failure_action": "attempt_restart",
+    "max_restart_attempts": 3,
+    "restart_backoff_ms": 1000
+  }
+}

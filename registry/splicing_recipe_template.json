@@ -1,0 +1,22 @@
+{
+  "recipe_id": "hybrid-alpha-v1",
+  "base_architecture": "llama",
+  "segments": [
+    {
+      "source_gguf": "D:\\AaroneousAutomationSuite\\genome\\foundation_v1.gguf",
+      "start_layer": 0,
+      "end_layer": 10,
+      "target_offset": 0
+    },
+    {
+      "source_gguf": "D:\\AaroneousAutomationSuite\\genome\\specialist_v1.gguf",
+      "start_layer": 11,
+      "end_layer": 20,
+      "target_offset": 11
+    }
+  ],
+  "overrides": {
+    "general.name": "Aaroneous Hybrid Alpha",
+    "aas.hox.role": "AlphaNode"
+  }
+}

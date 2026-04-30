@@ -1,0 +1,141 @@
+{
+  "schema_version": "1.0",
+  "data_ingestion": {
+    "description": "Data Ingestion & Distillation Pipeline Configuration",
+    "enabled": true,
+    "storage": {
+      "resource_manager_enabled": true,
+      "resource_manager_path_prefix": "data",
+      "inbox": {
+        "description": "User-facing input directory (non-destructive copy source)",
+        "path": "D:\\Aaroneous\\data\\inbox",
+        "auto_create": true,
+        "scan_interval_ms": 2000,
+        "max_file_size_mb": 512
+      },
+      "processing": {
+        "description": "Temporary processing location during classification/distillation",
+        "path": "D:\\Aaroneous\\data\\processing",
+        "auto_create": true,
+        "cleanup_after_distillation": true
+      },
+      "processed": {
+        "description": "Archive of successfully ingested files (non-destructive copy destination)",
+        "path": "D:\\Aaroneous\\data\\processed",
+        "auto_create": true,
+        "retention_days": 90,
+        "versioning": true
+      },
+      "analytics": {
+        "description": "Parquet store for telemetry and analytical data",
+        "path": "D:\\Aaroneous\\data\\analytics",
+        "auto_create": true,
+        "parquet_compression": "snappy"
+      },
+      "failed": {
+        "description": "Files that failed ingestion (for debugging)",
+        "path": "D:\\Aaroneous\\data\\failed",
+        "auto_create": true,
+        "retention_days": 30
+      }
+    },
+    "file_watcher": {
+      "enabled": true,
+      "strategy": "async_notify",
+      "poll_interval_ms": 1000,
+      "recursive": true,
+      "follow_symlinks": false
+    },
+    "supported_formats": {
+      "text": [
+        "json",
+        "jsonl",
+        "csv",
+        "tsv",
+        "txt",
+        "md",
+        "markdown",
+        "log",
+        "xml",
+        "yaml",
+        "yml"
+      ],
+      "binary": [
+        "gguf",
+        "parquet",
+        "sqlite",
+        "db"
+      ],
+      "archives": [
+        "zip",
+        "tar",
+        "gz",
+        "tgz"
+      ],
+      "universal_inclusion": true,
+      "max_supported_extensions": 256
+    },
+    "classification": {
+      "strategy": "hybrid",
+      "semantic_analysis": {
+        "enabled": true,
+        "keyword_extraction": true,
+        "domain_detection": true,
+        "content_sampling": 50000
+      },
+      "structural_analysis": {
+        "enabled": true,
+        "schema_inference": true,
+        "metadata_extraction": true
+      },
+      "embedding_model": {
+        "enabled": false,
+        "model_type": "local_gguf",
+        "placeholder": "Will integrate with self-digestion GGUF models if available"
+      }
+    },
+    "capability_matching": {
+      "strategy": "semantic_similarity",
+      "match_threshold": 0.6,
+      "top_matches": 5,
+      "auto_assign_single_match": true,
+      "suggest_multi_specialist": true
+    },
+    "distillation": {
+      "enabled": true,
+      "xp_generation": "direct",
+      "quality_score_calc": "semantic_match_confidence",
+      "difficulty_multiplier": "data_complexity",
+      "collaboration_detection": true,
+      "broadcast_to_federation": true,
+      "nats_topic_prefix": "federation.ingestion"
+    },
+    "event_generation": {
+      "enabled": true,
+      "event_type": "SkillExecutionEvent",
+      "auto_create_events": true,
+      "require_human_approval": false,
+      "batch_processing": true,
+      "batch_size": 10
+    },
+    "monitoring": {
+      "enabled": true,
+      "metrics_collection": true,
+      "log_level": "info",
+      "dashboard_updates_per_second": 2,
+      "health_check_interval_secs": 30
+    },
+    "performance": {
+      "max_concurrent_ingestions": 4,
+      "max_concurrent_classifications": 8,
+      "content_sample_size_bytes": 51200,
+      "timeout_per_file_secs": 300
+    },
+    "security": {
+      "validate_checksums": true,
+      "quarantine_suspicious_files": true,
+      "max_file_size_mb": 512,
+      "allowed_users": ["*"]
+    }
+  }
+}

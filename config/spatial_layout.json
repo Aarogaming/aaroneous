@@ -1,0 +1,151 @@
+{
+  "schema_version": "1.0",
+  "description": "Federation topology and specialist positioning for the Aaroneous hive",
+  "coordinate_system": "3D Euclidean (x, y, z meters)",
+  "federation_map": {
+    "aaroneous_core": {
+      "position": [0, 0, 0],
+      "role": "Central Orchestrator (Agent-Zero)",
+      "type": "kernel",
+      "description": "Aaroneous A-Run kernel - orchestrates all specialists and relics"
+    },
+    "ariel_station": {
+      "position": [25, 0, 0],
+      "role": "UI/UX Domain",
+      "type": "specialist",
+      "specialist": "ariel",
+      "relic": "glass",
+      "description": "User experience and interface design hub"
+    },
+    "merlin_observatory": {
+      "position": [-25, 0, 10],
+      "role": "Knowledge Domain",
+      "type": "specialist",
+      "specialist": "merlin",
+      "relic": "grimoire",
+      "description": "Knowledge synthesis and prophetic intelligence"
+    },
+    "odin_chamber": {
+      "position": [0, 25, 15],
+      "role": "Leadership Domain",
+      "type": "specialist",
+      "specialist": "odin",
+      "relic": "draupnir",
+      "description": "Strategic orchestration and resource allocation"
+    },
+    "dionysus_garden": {
+      "position": [-25, 25, 0],
+      "role": "Experience Domain",
+      "type": "specialist",
+      "specialist": "dionysus",
+      "relic": "omni",
+      "description": "Experience curation and memory management"
+    },
+    "hephaestus_forge": {
+      "position": [25, 25, -10],
+      "role": "Manufacturing Domain",
+      "type": "specialist",
+      "specialist": "hephaestus",
+      "relic": "forge",
+      "description": "Manufacturing and synthesis execution"
+    },
+    "argus_citadel": {
+      "position": [0, -25, 20],
+      "role": "Security Domain",
+      "type": "specialist",
+      "specialist": "argus",
+      "relic": "sentinel",
+      "description": "Security monitoring and threat detection"
+    }
+  },
+  "communication_routes": {
+    "aaroneous_to_all_specialists": {
+      "description": "Broadcast control messages to all specialists",
+      "medium": "NATS federation.control.*"
+    },
+    "specialist_peer_communication": {
+      "description": "Specialists coordinate with each other",
+      "medium": "NATS federation.specialist.<name>.request"
+    },
+    "relic_to_specialist": {
+      "description": "Relic reports to supervisor specialist",
+      "medium": "Internal task channel (same tokio task)"
+    },
+    "specialist_to_relic": {
+      "description": "Specialist directs relic activities",
+      "medium": "Internal task channel (same tokio task)"
+    }
+  },
+  "distance_matrix": {
+    "description": "Approximate communication distances (lower = more direct)",
+    "aaroneous_to_ariel": 25.0,
+    "aaroneous_to_merlin": 27.95,
+    "aaroneous_to_odin": 25.0,
+    "aaroneous_to_dionysus": 35.36,
+    "aaroneous_to_hephaestus": 34.01,
+    "aaroneous_to_argus": 25.0,
+    "ariel_to_merlin": 50.0,
+    "ariel_to_odin": 35.36,
+    "ariel_to_dionysus": 50.0,
+    "ariel_to_hephaestus": 25.0,
+    "ariel_to_argus": 50.99,
+    "merlin_to_odin": 43.01,
+    "merlin_to_dionysus": 25.0,
+    "merlin_to_hephaestus": 58.31,
+    "merlin_to_argus": 50.99,
+    "odin_to_dionysus": 25.0,
+    "odin_to_hephaestus": 35.36,
+    "odin_to_argus": 40.31,
+    "dionysus_to_hephaestus": 25.0,
+    "dionysus_to_argus": 69.41,
+    "hephaestus_to_argus": 58.31
+  },
+  "latency_profiles": {
+    "intra_task": {
+      "description": "Specialist to supervised relic (same tokio task)",
+      "latency_ms": 0.1,
+      "bandwidth_mbps": 10000
+    },
+    "shared_memory": {
+      "description": "Via SharedMemorySynapse (mmap buffers)",
+      "latency_ms": 0.5,
+      "bandwidth_mbps": 5000
+    },
+    "nats_local": {
+      "description": "NATS messages on localhost",
+      "latency_ms": 2.0,
+      "bandwidth_mbps": 1000
+    },
+    "nats_network": {
+      "description": "NATS messages across network",
+      "latency_ms": 10.0,
+      "bandwidth_mbps": 100
+    }
+  },
+  "federation_zones": {
+    "critical_zone": {
+      "specialists": ["argus", "hephaestus"],
+      "priority": "critical",
+      "always_active": true,
+      "description": "Security and manufacturing - never throttled below 0.3 expression_rate"
+    },
+    "interactive_zone": {
+      "specialists": ["ariel"],
+      "priority": "high",
+      "always_active": false,
+      "description": "User-facing - responsive to UI events"
+    },
+    "synthesis_zone": {
+      "specialists": ["merlin", "odin", "dionysus"],
+      "priority": "normal",
+      "always_active": false,
+      "description": "Knowledge and leadership - can be paused during system stress"
+    }
+  },
+  "failover_topology": {
+    "primary_authority": "aaroneous_core",
+    "secondary_authorities": ["argus_citadel"],
+    "recovery_order": ["argus", "hephaestus", "ariel", "merlin", "odin", "dionysus"],
+    "cascading_shutdown": "reverse_order"
+  }
+}

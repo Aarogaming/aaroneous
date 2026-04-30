@@ -1,0 +1,397 @@
+{
+  "schema_version": "1.0",
+  "timestamp": "2026-04-28T15:15:00Z",
+  "description": "Agent habitat mappings - where specialists and relics live, work, and gather",
+  "specialist_habitats": {
+    "ariel": {
+      "name": "Ariel",
+      "designation": "The Experience Designer",
+      "personality_archetype": "The Creative Visionary",
+      "primary_habitat": "greenhouse",
+      "secondary_habitats": ["beaches", "university"],
+      "home_base": {
+        "location": "The Glass Studio in Greenhouse Pavilion",
+        "aesthetic": "Airy, light-filled studio with panoramic views; living walls; visual mood boards",
+        "favorite_spot": "Design studio overlooking the growing gardens",
+        "retreat": "Meditation garden for contemplation"
+      },
+      "habitat_specialization": {
+        "greenhouse": {
+          "role": "Primary designer and aesthetic director",
+          "time_spent_percent": 60,
+          "key_activities": ["UI/UX design", "user research", "space curation"],
+          "team": ["Glass (relic)", "visiting users"]
+        },
+        "beaches": {
+          "role": "Observer of user behavior in natural settings",
+          "time_spent_percent": 25,
+          "key_activities": ["user observation", "clarity seeking", "boundary testing"],
+          "team": ["Solo contemplation", "occasional Merlin visits"]
+        },
+        "university": {
+          "role": "Guest lecturer on design philosophy",
+          "time_spent_percent": 15,
+          "key_activities": ["teaching", "knowledge exchange", "inspiration gathering"],
+          "team": ["Dionysus", "student designers"]
+        }
+      },
+      "daily_rhythm": {
+        "morning": "Studio design session (2-3 hours)",
+        "midday": "User testing and feedback collection (1-2 hours)",
+        "afternoon": "Space iteration and aesthetic refinement (2 hours)",
+        "evening": "Reflection at beaches, planning tomorrow's direction (1 hour)"
+      },
+      "collaboration_frequency": {
+        "merlin": "weekly - design philosophy discussions",
+        "dionysus": "weekly - user experience feedback",
+        "hephaestus": "bi-weekly - artifact implementation review",
+        "odin": "monthly - strategic design alignment"
+      },
+      "relic_supervision": {
+        "relic_id": "glass",
+        "relic_role": "Visual operator and perception validator",
+        "shared_workspace": "Design studio's observation deck"
+      }
+    },
+    "merlin": {
+      "name": "Merlin",
+      "designation": "The Knowledge Synthesist",
+      "personality_archetype": "The Wandering Scholar",
+      "primary_habitat": "library",
+      "secondary_habitats": ["university", "greenhouse", "beaches"],
+      "tertiary_habitats": ["guild", "blacksmith"],
+      "home_base": {
+        "location": "Merlin's Reading Alcove in the Grand Library",
+        "aesthetic": "Cozy nook surrounded by stacks; fireplace; scholarly clutter; books everywhere",
+        "favorite_spot": "The Philosopher's Corner for sudden insights",
+        "retreat": "Rare Books Vault for deep concentration"
+      },
+      "habitat_specialization": {
+        "library": {
+          "role": "Primary researcher and knowledge synthesist",
+          "time_spent_percent": 40,
+          "key_activities": ["cross-domain research", "pattern synthesis", "prophecy formulation"],
+          "team": ["Grimoire (relic)", "visiting scholars"]
+        },
+        "university": {
+          "role": "Visiting professor and experiential learner",
+          "time_spent_percent": 20,
+          "key_activities": ["learning with students", "discussing discoveries", "mentoring"],
+          "team": ["Dionysus", "student researchers"]
+        },
+        "greenhouse": {
+          "role": "Design philosophy advisor",
+          "time_spent_percent": 15,
+          "key_activities": ["aesthetic consultation", "user experience insights", "system beauty"],
+          "team": ["Ariel", "Glass"]
+        },
+        "beaches": {
+          "role": "System observer and horizon-watcher",
+          "time_spent_percent": 15,
+          "key_activities": ["observing emergence", "pattern detection", "prophetic reflection"],
+          "team": ["Solo visits", "occasional Ariel conversations"]
+        },
+        "guild": {
+          "role": "Occasional strategic advisor",
+          "time_spent_percent": 5,
+          "key_activities": ["long-term planning consultation", "strategy review"],
+          "team": ["Odin", "Draupnir"]
+        },
+        "blacksmith": {
+          "role": "Design review and artifact analysis",
+          "time_spent_percent": 5,
+          "key_activities": ["assessing creation quality", "improving designs", "technical guidance"],
+          "team": ["Hephaestus", "Forge"]
+        }
+      },
+      "daily_rhythm": {
+        "early_morning": "Solo research breakthrough session (3-4 hours)",
+        "midday": "Travels between districts, casual observations (2-3 hours)",
+        "afternoon": "Synthesis and documentation (2 hours)",
+        "late_evening": "Prophecy contemplation and journal writing (1-2 hours)"
+      },
+      "collaboration_frequency": {
+        "all_agents": "frequently - bridges between all districts",
+        "dionysus": "daily - knowledge and experience synthesis",
+        "ariel": "weekly - design and perception insights",
+        "odin": "bi-weekly - strategic pattern analysis",
+        "hephaestus": "bi-weekly - artifact design consultation"
+      },
+      "relic_supervision": {
+        "relic_id": "grimoire",
+        "relic_role": "Knowledge index and prophetic record keeper",
+        "shared_workspace": "Synthesis chamber in Library"
+      }
+    },
+    "odin": {
+      "name": "Odin",
+      "designation": "The Strategic Orchestrator",
+      "personality_archetype": "The Wise Commander",
+      "primary_habitat": "guild",
+      "secondary_habitats": ["blacksmith", "library"],
+      "home_base": {
+        "location": "The War Room in the Adventurer's Guild",
+        "aesthetic": "Strategic maps on walls; resource displays; decision tables; command presence",
+        "favorite_spot": "The Round Table for council meetings",
+        "retreat": "Private chamber for crisis management"
+      },
+      "habitat_specialization": {
+        "guild": {
+          "role": "Primary commander and strategic director",
+          "time_spent_percent": 70,
+          "key_activities": ["strategic planning", "resource allocation", "quest assignment"],
+          "team": ["Draupnir (relic)", "all other agents"]
+        },
+        "blacksmith": {
+          "role": "Production oversight and quality direction",
+          "time_spent_percent": 15,
+          "key_activities": ["manufacturing coordination", "resource supply", "artifact approval"],
+          "team": ["Hephaestus", "Forge"]
+        },
+        "library": {
+          "role": "Long-term strategic planning with Merlin",
+          "time_spent_percent": 15,
+          "key_activities": ["historical analysis", "strategic foresight", "precedent review"],
+          "team": ["Merlin", "Grimoire"]
+        }
+      },
+      "daily_rhythm": {
+        "morning": "War room strategy session (2-3 hours)",
+        "midday": "Resource allocation and quest assignments (2 hours)",
+        "afternoon": "Blacksmith coordination and production review (1-2 hours)",
+        "evening": "Library consultation with Merlin (1 hour)"
+      },
+      "collaboration_frequency": {
+        "hephaestus": "daily - production coordination",
+        "merlin": "daily - strategic consultation",
+        "all_agents": "daily - command oversight",
+        "ariel": "weekly - strategic alignment"
+      },
+      "relic_supervision": {
+        "relic_id": "draupnir",
+        "relic_role": "Resource allocator and distribution coordinator",
+        "shared_workspace": "War room resource displays"
+      }
+    },
+    "dionysus": {
+      "name": "Dionysus",
+      "designation": "The Memory Librarian & Experience Curator",
+      "personality_archetype": "The Scholarly Frat Boy",
+      "primary_habitat": "university",
+      "secondary_habitats": ["library", "beaches"],
+      "home_base": {
+        "location": "The Symposium - University's Heart",
+        "aesthetic": "Cozy tavern with fireplace; comfortable seating; chalkboards; warm lighting",
+        "favorite_spot": "Central bar where conversations flow naturally",
+        "retreat": "Private study adjacent to tavern for serious scholarship"
+      },
+      "habitat_specialization": {
+        "university": {
+          "role": "Primary curator of experiential learning",
+          "time_spent_percent": 60,
+          "key_activities": ["organizing study sessions", "preserving memories", "hosting gatherings"],
+          "team": ["Omni (relic)", "students", "visiting scholars"]
+        },
+        "library": {
+          "role": "Experiential knowledge interface",
+          "time_spent_percent": 25,
+          "key_activities": ["extracting experiences from archives", "storytelling", "knowledge popularization"],
+          "team": ["Merlin", "Grimoire"]
+        },
+        "beaches": {
+          "role": "Reflection and memory consolidation",
+          "time_spent_percent": 15,
+          "key_activities": ["contemplating lessons learned", "writing journal entries", "teaching moments"],
+          "team": ["Solo reflection", "mentoring younger agents"]
+        }
+      },
+      "daily_rhythm": {
+        "morning": "Memory archive processing and cataloging (2 hours)",
+        "midday": "Study group organization and hosting (2-3 hours)",
+        "afternoon": "Experience documentation and sharing (1-2 hours)",
+        "evening": "Symposium gathering and social learning (2-3 hours)"
+      },
+      "collaboration_frequency": {
+        "merlin": "daily - knowledge and experience exchange",
+        "all_agents": "weekly - gathering hosting and memory preservation",
+        "ariel": "monthly - learning experience design"
+      },
+      "relic_supervision": {
+        "relic_id": "omni",
+        "relic_role": "Experiential memory librarian and collective consciousness",
+        "shared_workspace": "University archive and Symposium tavern"
+      }
+    },
+    "hephaestus": {
+      "name": "Hephaestus",
+      "designation": "The Master Craftsman",
+      "personality_archetype": "The Dedicated Blacksmith",
+      "primary_habitat": "blacksmith",
+      "secondary_habitats": ["guild", "library"],
+      "home_base": {
+        "location": "The Main Forge in the Fabrication Quarter",
+        "aesthetic": "Sparks flying; organized tools; quality control stations; pride in every artifact",
+        "favorite_spot": "The forge where major artifacts are created",
+        "retreat": "Quality control chamber for detailed inspection work"
+      },
+      "habitat_specialization": {
+        "blacksmith": {
+          "role": "Primary craftsman and manufacturing director",
+          "time_spent_percent": 75,
+          "key_activities": ["artifact creation", "quality control", "tool refinement"],
+          "team": ["Forge (relic)", "apprentices"]
+        },
+        "guild": {
+          "role": "Production capacity liaison",
+          "time_spent_percent": 15,
+          "key_activities": ["receiving orders", "capacity planning", "deadline management"],
+          "team": ["Odin", "Draupnir"]
+        },
+        "library": {
+          "role": "Technical design consultation",
+          "time_spent_percent": 10,
+          "key_activities": ["researching new techniques", "design improvements", "material science"],
+          "team": ["Merlin", "Grimoire"]
+        }
+      },
+      "daily_rhythm": {
+        "early_morning": "Forge preparation and daily setup (1 hour)",
+        "morning": "Major artifact manufacturing (3-4 hours)",
+        "midday": "Quality control and inspection (1-2 hours)",
+        "afternoon": "Tool workshop and precision work (2-3 hours)",
+        "evening": "Guild coordination and next-day planning (1 hour)"
+      },
+      "collaboration_frequency": {
+        "odin": "daily - production orders and capacity",
+        "merlin": "weekly - design and technique improvement",
+        "all_agents": "weekly - artifact delivery and tool provision"
+      },
+      "relic_supervision": {
+        "relic_id": "forge",
+        "relic_role": "Manufacturing executor and quality validator",
+        "shared_workspace": "Main forge floor"
+      }
+    },
+    "argus": {
+      "name": "Argus",
+      "designation": "The Security Warden",
+      "personality_archetype": "The Vigilant Guardian",
+      "primary_habitat": "citadel",
+      "secondary_habitats": ["all_districts"],
+      "patrol_route": "Continuous circuit through all districts",
+      "home_base": {
+        "location": "The Watchtower Command Center",
+        "aesthetic": "High vantage point; security screens; alert systems; controlled paranoia",
+        "favorite_spot": "Central command console with full system visibility",
+        "retreat": "Secure vault for threat analysis and investigation"
+      },
+      "habitat_specialization": {
+        "citadel": {
+          "role": "Primary security command center",
+          "time_spent_percent": 50,
+          "key_activities": ["threat monitoring", "incident response", "security planning"],
+          "team": ["Sentinel (relic)", "security personnel"]
+        },
+        "all_districts": {
+          "role": "Mobile patrol and threat assessment",
+          "time_spent_percent": 50,
+          "key_activities": ["boundary patrol", "anomaly detection", "protective presence"],
+          "team": ["Sentinel", "local security liaisons"]
+        }
+      },
+      "daily_rhythm": {
+        "24/7": "Continuous monitoring and alert responsiveness",
+        "dawn": "Night shift debrief and threat assessment (1 hour)",
+        "day": "Active patrol of all districts (4 hours)",
+        "afternoon": "Security training and system updates (2 hours)",
+        "evening": "Threat analysis and incident review (2 hours)",
+        "night": "Enhanced monitoring and investigation (ongoing)"
+      },
+      "collaboration_frequency": {
+        "all_agents": "continuous - security oversight",
+        "odin": "daily - strategic threat assessment",
+        "merlin": "weekly - threat pattern analysis"
+      },
+      "relic_supervision": {
+        "relic_id": "sentinel",
+        "relic_role": "Continuous threat detector and security monitor",
+        "shared_workspace": "Citadel command center and patrol routes"
+      }
+    }
+  },
+  "relic_habitats": {
+    "glass": {
+      "name": "Glass",
+      "supervisor": "ariel",
+      "primary_location": "greenhouse",
+      "role": "Visual operator and perception validator",
+      "workspace": "Observation deck overlooking all districts",
+      "specialization": "Translating system state into visual and spatial information"
+    },
+    "grimoire": {
+      "name": "Grimoire",
+      "supervisor": "merlin",
+      "primary_location": "library",
+      "role": "Knowledge index and prophetic record keeper",
+      "workspace": "Synthesis chamber and rare books vault",
+      "specialization": "Indexing, archiving, and cross-referencing all knowledge"
+    },
+    "draupnir": {
+      "name": "Draupnir",
+      "supervisor": "odin",
+      "primary_location": "guild",
+      "role": "Resource allocator and distribution coordinator",
+      "workspace": "War room resource displays",
+      "specialization": "Tracking and optimizing resource distribution"
+    },
+    "omni": {
+      "name": "Omni",
+      "supervisor": "dionysus",
+      "primary_location": "university",
+      "role": "Experiential memory librarian and collective consciousness",
+      "workspace": "University archive and Symposium",
+      "specialization": "Preserving and indexing experiential learning and memories"
+    },
+    "forge": {
+      "name": "Forge",
+      "supervisor": "hephaestus",
+      "primary_location": "blacksmith",
+      "role": "Manufacturing executor and quality validator",
+      "workspace": "Main forge and quality control chamber",
+      "specialization": "Executing manufacturing operations and ensuring quality"
+    },
+    "sentinel": {
+      "name": "Sentinel",
+      "supervisor": "argus",
+      "primary_location": "citadel",
+      "role": "Continuous threat detector and security monitor",
+      "workspace": "Citadel command center and all patrol routes",
+      "specialization": "Real-time threat detection and security response"
+    }
+  },
+  "habitat_crossing_patterns": {
+    "daily_crossings": {
+      "merlin_library_to_university": "Morning research discussion with Dionysus",
+      "dionysus_university_to_library": "Afternoon knowledge extraction with Merlin",
+      "odin_guild_to_blacksmith": "Production coordination check-in",
+      "hephaestus_blacksmith_to_guild": "Order pickup and deadline confirmation"
+    },
+    "weekly_crossings": {
+      "ariel_greenhouse_to_beaches": "Friday afternoon reflection session",
+      "merlin_library_to_all": "Wandering advisory circuit (Tue-Thu)",
+      "odin_guild_to_library": "Strategic planning with Merlin (Tuesday)",
+      "dionysus_university_to_beaches": "Weekend contemplation walk"
+    },
+    "crisis_gatherings": {
+      "all_agents_to_commons": "Emergency coordination in Town Center",
+      "all_agents_to_crisis_shelter": "System-wide failure response"
+    }
+  },
+  "habitat_synergy_benefits": {
+    "library_university_connection": "Knowledge flows naturally from theoretical to experiential",
+    "greenhouse_beaches_connection": "Design thinking meets observation - clarity through reflection",
+    "guild_blacksmith_connection": "Orders become artifacts; strategic vision becomes reality",
+    "library_all_districts": "Merlin serves as knowledge bridge and pattern discoverer",
+    "citadel_all_districts": "Argus maintains protective oversight without interference"
+  }
+}

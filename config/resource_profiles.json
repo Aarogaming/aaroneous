@@ -1,0 +1,139 @@
+{
+  "schema_version": "1.0",
+  "description": "Resource allocation profiles for specialist VRAM, GPU, and CPU strategies",
+  "resource_tiers": {
+    "MINIMAL": {
+      "gpu_layers": 4,
+      "context_size": 1024,
+      "vram_mb": 1024,
+      "cpu_affinity_cores": 1,
+      "priority": "low",
+      "use_case": "Emergency throttle / reduced operations"
+    },
+    "STANDARD": {
+      "gpu_layers": 8,
+      "context_size": 2048,
+      "vram_mb": 2048,
+      "cpu_affinity_cores": 2,
+      "priority": "normal",
+      "use_case": "Normal specialist operation"
+    },
+    "OPTIMIZED": {
+      "gpu_layers": 16,
+      "context_size": 4096,
+      "vram_mb": 4096,
+      "cpu_affinity_cores": 4,
+      "priority": "high",
+      "use_case": "High-demand synthesis (Merlin, Odin)"
+    },
+    "INTENSIVE": {
+      "gpu_layers": 24,
+      "context_size": 8192,
+      "vram_mb": 6144,
+      "cpu_affinity_cores": 8,
+      "priority": "critical",
+      "use_case": "Manufacturing and knowledge indexing (Hephaestus, Grimoire)"
+    }
+  },
+  "specialist_allocations": {
+    "ariel": {
+      "tier": "STANDARD",
+      "gpu_layers": 8,
+      "context_size": 2048,
+      "vram_mb": 2048,
+      "cpu_affinity": [0],
+      "enzyme_subset": ["sensor_node", "tensor_forge"],
+      "memory_budget_mb": 50
+    },
+    "merlin": {
+      "tier": "OPTIMIZED",
+      "gpu_layers": 16,
+      "context_size": 4096,
+      "vram_mb": 4096,
+      "cpu_affinity": [1],
+      "enzyme_subset": ["thought_kernel", "tensor_forge"],
+      "memory_budget_mb": 75
+    },
+    "odin": {
+      "tier": "OPTIMIZED",
+      "gpu_layers": 16,
+      "context_size": 4096,
+      "vram_mb": 4096,
+      "cpu_affinity": [2],
+      "enzyme_subset": ["thought_kernel", "nat_bridge"],
+      "memory_budget_mb": 65
+    },
+    "dionysus": {
+      "tier": "STANDARD",
+      "gpu_layers": 8,
+      "context_size": 2048,
+      "vram_mb": 2048,
+      "cpu_affinity": [3],
+      "enzyme_subset": ["sensor_node", "thought_kernel"],
+      "memory_budget_mb": 60
+    },
+    "hephaestus": {
+      "tier": "INTENSIVE",
+      "gpu_layers": 24,
+      "context_size": 8192,
+      "vram_mb": 6144,
+      "cpu_affinity": [1, 4],
+      "enzyme_subset": ["tensor_forge", "thought_kernel"],
+      "memory_budget_mb": 100
+    },
+    "argus": {
+      "tier": "STANDARD",
+      "gpu_layers": 8,
+      "context_size": 2048,
+      "vram_mb": 2048,
+      "cpu_affinity": [2],
+      "enzyme_subset": ["nat_bridge", "sensor_node"],
+      "memory_budget_mb": 40
+    }
+  },
+  "relic_allocations": {
+    "glass": {
+      "shared_with_specialist": "ariel",
+      "allocation_mode": "shared",
+      "vram_budget_mb": 1024
+    },
+    "grimoire": {
+      "shared_with_specialist": "merlin",
+      "allocation_mode": "shared",
+      "vram_budget_mb": 2048
+    },
+    "draupnir": {
+      "shared_with_specialist": "odin",
+      "allocation_mode": "shared",
+      "vram_budget_mb": 1536
+    },
+    "omni": {
+      "shared_with_specialist": "dionysus",
+      "allocation_mode": "shared",
+      "vram_budget_mb": 1024
+    },
+    "forge": {
+      "shared_with_specialist": "hephaestus",
+      "allocation_mode": "shared",
+      "vram_budget_mb": 2048
+    },
+    "sentinel": {
+      "shared_with_specialist": "argus",
+      "allocation_mode": "shared",
+      "vram_budget_mb": 1024
+    }
+  },
+  "global_limits": {
+    "max_total_vram_mb": 20480,
+    "max_concurrent_specialists": 6,
+    "max_concurrent_relics": 6,
+    "cpu_cores_available": 8,
+    "reserved_cores": [0]
+  },
+  "scaling_policies": {
+    "overload_threshold": 0.85,
+    "underutilized_threshold": 0.30,
+    "scale_up_trigger": "expression_rate > 0.9 AND memory_usage > 0.80",
+    "scale_down_trigger": "expression_rate < 0.4 AND memory_usage < 0.40"
+  }
+}

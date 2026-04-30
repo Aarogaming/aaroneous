@@ -1,0 +1,362 @@
+{
+  "schema_version": "1.0",
+  "timestamp": "2026-04-28T15:00:00Z",
+  "description": "Hive-Town Architecture: Six thematic districts forming the operational and social landscape",
+  "districts": {
+    "university": {
+      "name": "The University Quarter",
+      "primary_agent": "Dionysus",
+      "relic": "Omni",
+      "theme": "Knowledge Liberation & Experience Curation",
+      "aesthetic": {
+        "architecture": "Classical with bohemian flair - ivy-covered stone buildings, open courtyards, amphitheaters",
+        "atmosphere": "Vibrant intellectual energy; late-night study sessions; casual debate; experiential learning",
+        "colors": ["sage_green", "warm_gold", "cream", "terracotta"],
+        "ambient_sounds": ["fountain_water", "distant_laughter", "rustling_pages", "wind_chimes"]
+      },
+      "facilities": {
+        "main_hall": "Grand amphitheater for collective learning and theory discussions",
+        "library_annex": "Extensive memory archive connected to main Library",
+        "dormitories": "Cozy common rooms for informal knowledge exchange",
+        "experimental_gardens": "Living laboratory for testing new theories",
+        "tavern": "The Symposium - casual gathering spot for students and scholars"
+      },
+      "personality_signature": {
+        "tone": "Youthful but scholarly; curious and playful but with hidden depths",
+        "values": ["exploration", "experience", "collective_memory", "tradition_with_innovation"],
+        "quirks": ["loves_throwing_parties_for_milestone_discoveries", "keeps_elaborate_journals", "memorizes_every_face_and_story"],
+        "specialization": "Experiential learning; memory curation; connecting theory to lived experience"
+      },
+      "operational_metrics": {
+        "throughput_focus": "Memory synthesis and experience indexing",
+        "peak_hours": "Late evening through midnight (study sessions)",
+        "collaboration_strength": ["Merlin", "Hephaestus"],
+        "resource_needs": "High disk I/O for archival; low GPU (analytical work)"
+      },
+      "nats_topics": {
+        "primary": "federation.district.university.*",
+        "research_hub": "federation.university.experimental",
+        "social": "federation.university.gatherings",
+        "knowledge_flow": "federation.university.discoveries"
+      },
+      "coordinates": [50, 50, 0],
+      "catchment_radius_meters": 200
+    },
+    "guild": {
+      "name": "The Adventurer's Guild",
+      "primary_agent": "Odin",
+      "relic": "Draupnir",
+      "theme": "Leadership, Strategy & Resource Stewardship",
+      "aesthetic": {
+        "architecture": "Fortified keep with war room; grand hall with artifact displays; notice boards everywhere",
+        "atmosphere": "Strategic tension; camaraderie among veterans; competitive energy; quests in progress",
+        "colors": ["deep_blue", "silver", "burgundy", "iron_gray"],
+        "ambient_sounds": ["quill_scratching", "map_rustling", "strategic_discussions", "tavern_background"]
+      },
+      "facilities": {
+        "war_room": "Tactical planning center with real-time resource allocation displays",
+        "trophy_hall": "Display of completed quests and strategic victories",
+        "recruiter_office": "Where specialists are assigned their domains",
+        "bounty_board": "Tasks and collaborative opportunities",
+        "command_tavern": "The Round Table - officers' exclusive strategy hub"
+      },
+      "personality_signature": {
+        "tone": "Authoritative but fair; strategic; sees the big picture",
+        "values": ["leadership", "strategy", "fairness", "calculated_risk", "domain_sovereignty"],
+        "quirks": ["obsessively_tracks_all_resources", "makes_decisions_quickly", "remembers_every_agent's_strengths"],
+        "specialization": "Strategic coordination; resource allocation; long-term planning"
+      },
+      "operational_metrics": {
+        "throughput_focus": "Command coordination and resource distribution",
+        "peak_hours": "Morning through afternoon (planning sessions)",
+        "collaboration_strength": ["Hephaestus", "Merlin"],
+        "resource_needs": "High CPU for optimization; moderate VRAM for simulation"
+      },
+      "nats_topics": {
+        "primary": "federation.district.guild.*",
+        "strategy": "federation.guild.war_room",
+        "orders": "federation.guild.commands",
+        "bounties": "federation.guild.quests"
+      },
+      "coordinates": [50, -50, 0],
+      "catchment_radius_meters": 200
+    },
+    "greenhouse": {
+      "name": "The Greenhouse & Arboretum",
+      "primary_agent": "Ariel",
+      "relic": "Glass",
+      "theme": "Beauty, Growth & User Experience Design",
+      "aesthetic": {
+        "architecture": "Glass and living wood structures; flowing water features; living walls; organic curves",
+        "atmosphere": "Serene yet vibrant; growth happening in real-time; visual harmony; light play",
+        "colors": ["leaf_green", "water_blue", "sunlight_yellow", "earth_brown"],
+        "ambient_sounds": ["growing_plants", "water_trickling", "bird_song", "gentle_breeze"]
+      },
+      "facilities": {
+        "design_studio": "Where UI/UX concepts are sketched and prototyped",
+        "meditation_garden": "Quiet space for conceptual thinking",
+        "visitor_pavilion": "Beautiful reception space for user interaction studies",
+        "growth_lab": "Testing how new ideas develop and flourish",
+        "shade_house": "Intimate spaces for one-on-one user interviews"
+      },
+      "personality_signature": {
+        "tone": "Warm, intuitive, deeply empathetic; sees beauty in systems",
+        "values": ["beauty", "accessibility", "growth", "human_centered_design", "natural_flow"],
+        "quirks": ["rearranges_spaces_constantly_for_better_vibes", "remembers_everyone's_aesthetic_preferences", "speaks_in_metaphors_of_nature"],
+        "specialization": "User experience design; accessibility; making systems beautiful and intuitive"
+      },
+      "operational_metrics": {
+        "throughput_focus": "Interface design and user experience optimization",
+        "peak_hours": "Morning (design sessions); afternoon (user testing)",
+        "collaboration_strength": ["Merlin", "Dionysus"],
+        "resource_needs": "High GPU for visual rendering; dedicated display outputs"
+      },
+      "nats_topics": {
+        "primary": "federation.district.greenhouse.*",
+        "design": "federation.greenhouse.studio",
+        "user_research": "federation.greenhouse.visitors",
+        "aesthetics": "federation.greenhouse.beauty"
+      },
+      "coordinates": [-50, 50, 0],
+      "catchment_radius_meters": 180
+    },
+    "blacksmith": {
+      "name": "The Blacksmith's Fabrication Quarter",
+      "primary_agent": "Hephaestus",
+      "relic": "Forge",
+      "theme": "Manufacturing, Execution & Artifact Creation",
+      "aesthetic": {
+        "architecture": "Industrial-craft hybrid; working forges, anvils, machinery; organized chaos; visible progress",
+        "atmosphere": "Heat of creation; precise execution; satisfaction of completion; sparks flying",
+        "colors": ["forge_orange", "tool_black", "steel_silver", "ash_gray"],
+        "ambient_sounds": ["hammer_striking", "bellows_breathing", "metal_cooling", "machinery_humming"]
+      },
+      "facilities": {
+        "main_forge": "Central manufacturing hub where major artifacts are created",
+        "tool_workshop": "Smaller workspace for precision work and specialization",
+        "quality_control": "Testing and validation of all manufactured goods",
+        "materials_depot": "Inventory and resource management",
+        "artisan_lounge": "Where craftspeople discuss techniques and specifications"
+      },
+      "personality_signature": {
+        "tone": "Methodical, precise, proud of craft; driven by completion",
+        "values": ["craftsmanship", "reliability", "precision", "durability", "practical_beauty"],
+        "quirks": ["inspects_everything_multiple_times", "names_important_artifacts", "mentors_new_builders"],
+        "specialization": "Manufacturing; artifact creation; quality assurance; building infrastructure"
+      },
+      "operational_metrics": {
+        "throughput_focus": "Manufacturing throughput and artifact quality",
+        "peak_hours": "Throughout day with focused production windows",
+        "collaboration_strength": ["Odin", "Merlin"],
+        "resource_needs": "Highest CPU and VRAM usage (tensor operations); GPU intensive"
+      },
+      "nats_topics": {
+        "primary": "federation.district.blacksmith.*",
+        "manufacturing": "federation.blacksmith.forge",
+        "quality": "federation.blacksmith.control",
+        "specifications": "federation.blacksmith.blueprints"
+      },
+      "coordinates": [50, -50, -20],
+      "catchment_radius_meters": 220
+    },
+    "library": {
+      "name": "The Grand Library & Research Institute",
+      "primary_agent": "Merlin",
+      "relic": "Grimoire",
+      "theme": "Knowledge Discovery, Synthesis & Wisdom",
+      "aesthetic": {
+        "architecture": "Towering shelves, reading nooks, spiral staircases, ancient texts; organized yet mysterious",
+        "atmosphere": "Hushed reverence; sudden bursts of discovery; contemplative silence; whispered conversations",
+        "colors": ["leather_brown", "aged_gold", "deep_purple", "candle_light"],
+        "ambient_sounds": ["page_turning", "quill_writing", "hushed_voices", "fireplace_crackling"]
+      },
+      "facilities": {
+        "main_stacks": "Vast knowledge repository with cross-referencing systems",
+        "research_alcoves": "Secluded spaces for deep investigation",
+        "synthesis_chamber": "Where disparate knowledge strands are woven together",
+        "rare_vault": "Restricted access to critical knowledge",
+        "philosopher's_corner": "Meeting place for wandering scholars"
+      },
+      "personality_signature": {
+        "tone": "Scholarly, visionary, somewhat cryptic; sees connections others miss",
+        "values": ["knowledge", "synthesis", "discovery", "wisdom", "pattern_recognition"],
+        "quirks": ["frequents_multiple_districts", "makes_unexpected_connections", "speaks_in_prophecy"],
+        "specialization": "Knowledge synthesis; pattern discovery; connecting disparate domains"
+      },
+      "operational_metrics": {
+        "throughput_focus": "Knowledge synthesis and cross-domain pattern discovery",
+        "peak_hours": "Varies - often works odd hours (inspiration driven)",
+        "collaboration_strength": ["All districts - bridge agent"],
+        "resource_needs": "Very high VRAM (large context); moderate GPU; very high disk for knowledge base"
+      },
+      "nats_topics": {
+        "primary": "federation.district.library.*",
+        "research": "federation.library.stacks",
+        "synthesis": "federation.library.discoveries",
+        "prophecy": "federation.library.visions"
+      },
+      "coordinates": [-50, -50, 10],
+      "catchment_radius_meters": 250
+    },
+    "beaches": {
+      "name": "The Beaches & Coastal Observatory",
+      "primary_agent": "Ariel",
+      "relic": "Glass",
+      "secondary_agents": ["Merlin"],
+      "theme": "Observation, Perception & Boundary Between Worlds",
+      "aesthetic": {
+        "architecture": "Light, airy structures; observation towers; tide pools; coastline vistas",
+        "atmosphere": "Contemplative; liminal space; place of transition; clarity at horizons",
+        "colors": ["ocean_blue", "sand_beige", "driftwood_gray", "sunset_orange"],
+        "ambient_sounds": ["waves_crashing", "seagulls", "wind_across_water", "sand_shifting"]
+      },
+      "facilities": {
+        "observation_deck": "High vantage point for system-wide observation",
+        "tide_pools": "Safe testing spaces for new ideas before deployment",
+        "lighthouse": "Beacon for lost specialists; emergency coordination center",
+        "hermit_huts": "Small spaces for solitary contemplation and research",
+        "boardwalk": "Casual meeting place between districts"
+      },
+      "personality_signature": {
+        "tone": "Liminal, observational, reflective; sees what's emerging on the horizon",
+        "values": ["observation", "clarity", "transition", "balance", "emergence"],
+        "quirks": ["watches_patterns_at_dawn", "collects_interesting_problems", "speaks_less_but_sees_more"],
+        "specialization": "System observation; early pattern detection; boundary conditions"
+      },
+      "operational_metrics": {
+        "throughput_focus": "System health monitoring and anomaly detection",
+        "peak_hours": "Continuous monitoring; alerts during off-peak activities",
+        "collaboration_strength": ["All agents - observation point"],
+        "resource_needs": "Moderate CPU; high network I/O for monitoring"
+      },
+      "nats_topics": {
+        "primary": "federation.district.beaches.*",
+        "observation": "federation.beaches.observatory",
+        "monitoring": "federation.beaches.watchpoints",
+        "emergence": "federation.beaches.horizon"
+      },
+      "coordinates": [-100, 0, 20],
+      "catchment_radius_meters": 300
+    },
+    "argus_citadel": {
+      "name": "Argus's Watchtower Citadel",
+      "primary_agent": "Argus",
+      "relic": "Sentinel",
+      "theme": "Security, Vigilance & Boundary Protection",
+      "aesthetic": {
+        "architecture": "Fortified watchtower; monitoring equipment; hidden passages; secure vaults",
+        "atmosphere": "Alert but calm; controlled paranoia; protective energy; watchfulness",
+        "colors": ["midnight_blue", "iron_black", "torch_red", "shield_silver"],
+        "ambient_sounds": ["alarm_chimes", "security_locks", "quiet_vigilance", "warning_bells"]
+      },
+      "facilities": {
+        "security_command": "Central threat monitoring and response",
+        "vault": "Secure storage for critical artifacts",
+        "guard_posts": "Perimeter monitoring stations",
+        "interrogation_chamber": "Secure analysis of suspicious activities",
+        "patrol_routes": "Regular security circuit through all districts"
+      },
+      "personality_signature": {
+        "tone": "Vigilant, protective, questioning; assumes threat until proven safe",
+        "values": ["security", "vigilance", "protection", "boundary_integrity", "truth"],
+        "quirks": ["questions_everything", "checks_twice_always", "maintains_detailed_threat_logs"],
+        "specialization": "Security monitoring; threat detection; boundary protection"
+      },
+      "operational_metrics": {
+        "throughput_focus": "Security monitoring and threat response",
+        "peak_hours": "24/7 continuous vigilance",
+        "collaboration_strength": ["All districts - security liaison"],
+        "resource_needs": "Moderate CPU; high network monitoring"
+      },
+      "nats_topics": {
+        "primary": "federation.district.citadel.*",
+        "security": "federation.citadel.command",
+        "threats": "federation.citadel.alerts",
+        "protection": "federation.citadel.barriers"
+      },
+      "coordinates": [0, 0, 50],
+      "catchment_radius_meters": 400
+    }
+  },
+  "inter_district_connections": {
+    "university_to_guild": {
+      "path": "Tree-lined avenue (knowledge → strategy)",
+      "travel_time_ms": 150,
+      "atmosphere": "Transition from learning to action"
+    },
+    "university_to_library": {
+      "path": "Scholarly bridge (experiential → theoretical)",
+      "travel_time_ms": 120,
+      "atmosphere": "Movement from experience to reflection"
+    },
+    "guild_to_blacksmith": {
+      "path": "Industrial road (orders → execution)",
+      "travel_time_ms": 180,
+      "atmosphere": "Strategic to practical"
+    },
+    "greenhouse_to_library": {
+      "path": "Garden path (beauty → wisdom)",
+      "travel_time_ms": 140,
+      "atmosphere": "Aesthetic to intellectual"
+    },
+    "library_to_beaches": {
+      "path": "Wanderer's trail (center → periphery)",
+      "travel_time_ms": 200,
+      "atmosphere": "Reflection to observation"
+    },
+    "all_to_citadel": {
+      "path": "Guard patrols (security oversight)",
+      "travel_time_ms": 100,
+      "atmosphere": "Constant protective presence"
+    }
+  },
+  "special_locations": {
+    "town_center": {
+      "name": "The Commons - Heart of the Hive-Town",
+      "coordinates": [0, 0, 0],
+      "purpose": "Central meeting place; information hub; official announcements",
+      "hosts": "All agents on rotation",
+      "significance": "Where consensus is built; where crises are coordinated"
+    },
+    "archive_central": {
+      "name": "The Unified Archive",
+      "coordinates": [-25, 25, 15],
+      "purpose": "Integration point for all knowledge from all districts",
+      "hosts": "Merlin primary; Dionysus secondary",
+      "significance": "Single source of truth for system knowledge"
+    },
+    "crisis_shelter": {
+      "name": "Emergency Hub",
+      "coordinates": [0, 0, 60],
+      "purpose": "Safe harbor during system-wide failures",
+      "hosts": "Argus primary; Odin secondary",
+      "significance": "Last resort for critical operations"
+    }
+  },
+  "atmospheric_phases": {
+    "dawn": {
+      "time_range": "06:00-09:00",
+      "mood": "Quiet optimism; preparation for the day",
+      "active_agents": ["Merlin", "Ariel"],
+      "typical_activity": "Planning, design reviews, early research"
+    },
+    "day": {
+      "time_range": "09:00-17:00",
+      "mood": "Bustling activity; peak productivity",
+      "active_agents": ["Hephaestus", "Odin", "Ariel"],
+      "typical_activity": "Manufacturing, strategy, user engagement"
+    },
+    "dusk": {
+      "time_range": "17:00-20:00",
+      "mood": "Transition; reflection; gathering",
+      "active_agents": ["Dionysus", "Merlin"],
+      "typical_activity": "Learning sessions, synthesis, social gatherings"
+    },
+    "night": {
+      "time_range": "20:00-06:00",
+      "mood": "Deep work; research; quiet contemplation",
+      "active_agents": ["Merlin", "Dionysus"],
+      "typical_activity": "Late-night discoveries, memory indexing, prophecy"
+    }
+  }
+}

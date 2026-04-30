@@ -1,0 +1,304 @@
+{
+  "schema_version": "1.0",
+  "timestamp": "2026-04-28T16:30:00Z",
+  "description": "Omni Constellation Node Types - Categories for knowledge organization in spatial clusters",
+  "node_categories": {
+    "feature": {
+      "id": "feature",
+      "name": "Feature Node",
+      "symbol": "★",
+      "description": "Planned or implemented functionality; system capabilities",
+      "color": "#4CAF50",
+      "icon": "star",
+      "metadata_schema": {
+        "status": ["planned", "in_progress", "completed", "deprecated"],
+        "priority": ["critical", "high", "medium", "low"],
+        "complexity": ["simple", "moderate", "complex", "architectural"],
+        "domain": ["string"],
+        "implementation_phase": ["integer"],
+        "dependencies": ["array[node_id]"],
+        "related_features": ["array[node_id]"]
+      },
+      "clustering_weight": 1.0,
+      "search_boost": 1.2
+    },
+    "bug": {
+      "id": "bug",
+      "name": "Bug Node",
+      "symbol": "✗",
+      "description": "Known issues, problems, or defects requiring attention",
+      "color": "#F44336",
+      "icon": "error",
+      "metadata_schema": {
+        "severity": ["critical", "high", "medium", "low"],
+        "status": ["reported", "investigating", "in_fix", "resolved", "deferred"],
+        "affected_component": ["string"],
+        "reproduction_steps": ["array[string]"],
+        "related_issues": ["array[node_id]"],
+        "blocking_features": ["array[node_id]"]
+      },
+      "clustering_weight": 0.8,
+      "search_boost": 1.1
+    },
+    "roadmap": {
+      "id": "roadmap",
+      "name": "Roadmap Node",
+      "symbol": "→",
+      "description": "Development milestones, release plans, strategic direction",
+      "color": "#2196F3",
+      "icon": "timeline",
+      "metadata_schema": {
+        "phase": ["integer"],
+        "target_date": ["ISO8601_date"],
+        "status": ["planned", "in_progress", "blocked", "completed"],
+        "included_features": ["array[node_id]"],
+        "blocking_issues": ["array[node_id]"],
+        "success_criteria": ["array[string]"],
+        "estimated_effort": ["integer"]
+      },
+      "clustering_weight": 1.1,
+      "search_boost": 1.3
+    },
+    "decision": {
+      "id": "decision",
+      "name": "Decision Node",
+      "symbol": "◆",
+      "description": "Architectural decisions, trade-offs, design choices",
+      "color": "#FF9800",
+      "icon": "choice",
+      "metadata_schema": {
+        "decision_date": ["ISO8601_date"],
+        "decided_by": ["string"],
+        "status": ["proposed", "accepted", "rejected", "superseded"],
+        "rationale": ["string"],
+        "alternatives_considered": ["array[node_id]"],
+        "impacts": ["array[string]"],
+        "affected_areas": ["array[string]"]
+      },
+      "clustering_weight": 0.9,
+      "search_boost": 1.0
+    },
+    "lore": {
+      "id": "lore",
+      "name": "Lore Node",
+      "symbol": "◇",
+      "description": "In-universe narrative, worldbuilding, agent history, and Easter eggs",
+      "color": "#9C27B0",
+      "icon": "story",
+      "metadata_schema": {
+        "lore_type": ["origin_story", "character_history", "district_legend", "artifact_tale", "easter_egg"],
+        "agent_involved": ["array[string]"],
+        "district_location": ["string"],
+        "discovered_by": ["string"],
+        "discovery_date": ["ISO8601_date"],
+        "narrative_significance": ["trivial", "minor", "major", "critical"],
+        "related_events": ["array[node_id]"],
+        "hidden_message": ["string", "optional"]
+      },
+      "clustering_weight": 0.7,
+      "search_boost": 0.9
+    },
+    "architecture": {
+      "id": "architecture",
+      "name": "Architecture Node",
+      "symbol": "⬢",
+      "description": "System design, module structure, data flow, patterns",
+      "color": "#00BCD4",
+      "icon": "blueprint",
+      "metadata_schema": {
+        "component": ["string"],
+        "layer": ["string"],
+        "design_pattern": ["string"],
+        "related_components": ["array[node_id]"],
+        "interfaces": ["array[string]"],
+        "constraints": ["array[string]"],
+        "trade_offs": ["array[string]"],
+        "last_reviewed": ["ISO8601_date"]
+      },
+      "clustering_weight": 1.0,
+      "search_boost": 1.1
+    },
+    "incident": {
+      "id": "incident",
+      "name": "Incident Node",
+      "symbol": "⚠",
+      "description": "Outages, failures, post-mortems, lessons learned",
+      "color": "#E91E63",
+      "icon": "alert",
+      "metadata_schema": {
+        "incident_date": ["ISO8601_date"],
+        "severity": ["critical", "high", "medium", "low"],
+        "root_cause": ["string"],
+        "affected_systems": ["array[string]"],
+        "resolution_time": ["integer"],
+        "prevention_measures": ["array[node_id]"],
+        "status": ["open", "resolved", "closed"],
+        "lessons_learned": ["array[string]"]
+      },
+      "clustering_weight": 0.8,
+      "search_boost": 1.2
+    },
+    "reference": {
+      "id": "reference",
+      "name": "Reference Node",
+      "symbol": "◉",
+      "description": "Documentation, guides, specifications, protocols",
+      "color": "#607D8B",
+      "icon": "book",
+      "metadata_schema": {
+        "reference_type": ["guide", "spec", "protocol", "checklist", "tutorial"],
+        "topic": ["string"],
+        "last_updated": ["ISO8601_date"],
+        "author": ["string"],
+        "related_topics": ["array[node_id]"],
+        "version": ["string"],
+        "completeness": ["draft", "partial", "complete", "verified"]
+      },
+      "clustering_weight": 0.9,
+      "search_boost": 1.0
+    },
+    "resource": {
+      "id": "resource",
+      "name": "Resource Node",
+      "symbol": "◈",
+      "description": "Code repositories, data files, tools, external references",
+      "color": "#4DB6AC",
+      "icon": "link",
+      "metadata_schema": {
+        "resource_type": ["code", "data", "tool", "external_link", "artifact"],
+        "location": ["string"],
+        "version": ["string"],
+        "last_accessed": ["ISO8601_date"],
+        "access_level": ["public", "internal", "restricted"],
+        "dependencies": ["array[node_id]"],
+        "size_bytes": ["integer", "optional"],
+        "checksum": ["string", "optional"]
+      },
+      "clustering_weight": 0.8,
+      "search_boost": 1.0
+    },
+    "test_case": {
+      "id": "test_case",
+      "name": "Test Case Node",
+      "symbol": "✓",
+      "description": "Test scenarios, validation criteria, quality assurance",
+      "color": "#8BC34A",
+      "icon": "check",
+      "metadata_schema": {
+        "test_type": ["unit", "integration", "system", "regression", "performance"],
+        "status": ["draft", "active", "deprecated", "skipped"],
+        "target_feature": ["node_id"],
+        "coverage_area": ["string"],
+        "execution_time_ms": ["integer"],
+        "last_run": ["ISO8601_date"],
+        "pass_rate": ["float"],
+        "related_tests": ["array[node_id]"]
+      },
+      "clustering_weight": 0.7,
+      "search_boost": 0.9
+    }
+  },
+  "node_relationships": {
+    "depends_on": {
+      "symbol": "→",
+      "description": "Feature A depends on Feature B",
+      "bidirectional": false,
+      "clustering_impact": 0.9
+    },
+    "blocks": {
+      "symbol": "⊣",
+      "description": "Bug/Issue blocks Feature",
+      "bidirectional": false,
+      "clustering_impact": 0.85
+    },
+    "implements": {
+      "symbol": "≈",
+      "description": "Feature implements Decision/Architecture",
+      "bidirectional": true,
+      "clustering_impact": 0.95
+    },
+    "documents": {
+      "symbol": "«",
+      "description": "Reference documents Node",
+      "bidirectional": true,
+      "clustering_impact": 0.8
+    },
+    "relates_to": {
+      "symbol": "∼",
+      "description": "Semantic relationship between nodes",
+      "bidirectional": true,
+      "clustering_impact": 0.7
+    },
+    "validates": {
+      "symbol": "✓",
+      "description": "Test validates Feature",
+      "bidirectional": true,
+      "clustering_impact": 0.75
+    },
+    "caused_by": {
+      "symbol": "←",
+      "description": "Bug caused by Architecture/Decision",
+      "bidirectional": false,
+      "clustering_impact": 0.9
+    }
+  },
+  "default_clustering_rules": {
+    "same_domain": {
+      "weight": 1.5,
+      "max_distance": 50
+    },
+    "same_phase": {
+      "weight": 1.3,
+      "max_distance": 75
+    },
+    "related_status": {
+      "weight": 1.1,
+      "max_distance": 100
+    },
+    "dependency_chain": {
+      "weight": 1.4,
+      "max_distance": 60
+    },
+    "semantic_similarity": {
+      "weight": 1.2,
+      "threshold": 0.7
+    }
+  },
+  "special_query_types": {
+    "roadmap_view": {
+      "auto_filters": {
+        "node_types": ["roadmap", "feature", "bug"],
+        "sorting": "target_date ASC",
+        "include_dependencies": true
+      },
+      "visualization": "timeline_with_clusters"
+    },
+    "test_cheat_sheet": {
+      "name": "Hidden Query: Test Answer Repository",
+      "access_by": "dionysus",
+      "description": "Organized by course/topic for 'reference purposes'",
+      "filters": {
+        "node_types": ["test_case", "reference"],
+        "clustering": "by_topic",
+        "visibility": "easter_egg"
+      },
+      "humor": "Dionysus definitely only uses this to help other students understand concepts"
+    },
+    "incident_postmortem": {
+      "auto_filters": {
+        "node_types": ["incident", "bug", "decision"],
+        "sorting": "incident_date DESC",
+        "include_lessons_learned": true
+      },
+      "visualization": "timeline_with_causality"
+    },
+    "architecture_view": {
+      "auto_filters": {
+        "node_types": ["architecture", "decision", "component"],
+        "grouping": "by_layer",
+        "show_dependencies": true
+      },
+      "visualization": "hierarchical_blueprint"
+    }
+  }
+}

@@ -1,0 +1,281 @@
+{
+  "schema_version": "1.0",
+  "timestamp": "2026-04-28T17:00:00Z",
+  "description": "Omni Constellation Versioning System - Tracking past/present/future constellation snapshots",
+  "versioning_architecture": {
+    "model": "temporal_snapshot_history",
+    "description": "Three parallel timeline versions of constellation state for historical tracking and future planning",
+    "update_frequency": "on_constellation_change",
+    "storage_strategy": "append_only_immutable_snapshots"
+  },
+  "version_types": {
+    "past_snapshot": {
+      "name": "Historical Constellation",
+      "description": "Previous state of constellation - completed work and historical decisions",
+      "retention_policy": "keep_all",
+      "access_pattern": "archive_read_only",
+      "indexing": "by_timestamp_and_node_id",
+      "triggers": ["node_completion", "milestone_reached", "periodic_snapshot_60min"]
+    },
+    "present_snapshot": {
+      "name": "Current Constellation",
+      "description": "Live working state - active features, bugs, current status",
+      "retention_policy": "keep_latest_10",
+      "access_pattern": "read_write",
+      "indexing": "by_timestamp_and_priority",
+      "triggers": ["real_time_change", "federation_update", "specialist_report"]
+    },
+    "future_snapshot": {
+      "name": "Future Vision Constellation",
+      "description": "Planned state - roadmap, vision, future architecture",
+      "retention_policy": "keep_all",
+      "access_pattern": "plan_write_collaborate",
+      "indexing": "by_target_date_and_phase",
+      "triggers": ["roadmap_update", "strategic_planning", "phase_advancement"]
+    }
+  },
+  "snapshot_structure": {
+    "metadata": {
+      "version_id": "uuid",
+      "snapshot_type": "past|present|future",
+      "created_at": "ISO8601_timestamp",
+      "created_by": "agent_id (e.g., omni, odin, merlin)",
+      "comment": "human_readable_reason",
+      "parent_version_id": "previous_snapshot_uuid",
+      "node_count": "integer",
+      "cluster_count": "integer",
+      "modification_summary": "brief_change_description"
+    },
+    "constellation_state": {
+      "nodes": [
+        {
+          "id": "node_id",
+          "type": "feature|bug|roadmap|decision|lore|architecture|incident|reference|resource|testcase",
+          "status": "planned|in_progress|completed|on_hold|discovered|archived",
+          "priority": "low|medium|high|critical",
+          "spatial_coord": {"x": "float", "y": "float", "z": "float"},
+          "domain": "string",
+          "version_at_snapshot": "integer",
+          "relationships": {"dependent_node_id": "relationship_type"},
+          "tags": ["tag1", "tag2"],
+          "metadata": {}
+        }
+      ],
+      "clusters": [
+        {
+          "id": "cluster_id",
+          "type": "domain|temporal|feature_family|crisis|discovery",
+          "center": {"x": "float", "y": "float", "z": "float"},
+          "radius": "float",
+          "member_count": "integer",
+          "cohesion_score": "0.0_to_1.0"
+        }
+      ]
+    }
+  },
+  "temporal_alignment": {
+    "past_constellation": {
+      "temporal_anchor": "completed_milestones",
+      "example_nodes": [
+        {
+          "id": "phase1_complete",
+          "phase": 1,
+          "status": "completed",
+          "completion_date": "2026-04-15"
+        },
+        {
+          "id": "agent_taxonomy_done",
+          "status": "completed",
+          "completion_date": "2026-04-20"
+        },
+        {
+          "id": "worldbuilding_complete",
+          "status": "completed",
+          "completion_date": "2026-04-25"
+        }
+      ],
+      "snapshot_frequency": "milestone_or_weekly"
+    },
+    "present_constellation": {
+      "temporal_anchor": "current_execution",
+      "example_nodes": [
+        {
+          "id": "control_plane_implementation",
+          "status": "in_progress",
+          "progress_percent": 80,
+          "current_phase": 2
+        },
+        {
+          "id": "constellation_system",
+          "status": "in_progress",
+          "progress_percent": 40,
+          "current_blocker": "spatial_indexing_optimization"
+        },
+        {
+          "id": "critical_bug_network_timeout",
+          "status": "in_progress",
+          "severity": "critical",
+          "discovery_date": "2026-04-28"
+        }
+      ],
+      "snapshot_frequency": "real_time_with_batching"
+    },
+    "future_constellation": {
+      "temporal_anchor": "planned_releases",
+      "example_nodes": [
+        {
+          "id": "phase3_event_loop",
+          "status": "planned",
+          "target_date": "2026-05-03",
+          "target_phase": 3
+        },
+        {
+          "id": "specialist_relic_binding",
+          "status": "planned",
+          "target_date": "2026-05-05",
+          "dependencies": ["phase3_event_loop"]
+        },
+        {
+          "id": "production_validation",
+          "status": "planned",
+          "target_date": "2026-05-08",
+          "phase": 5
+        }
+      ],
+      "snapshot_frequency": "strategic_planning_or_weekly"
+    }
+  },
+  "version_transitions": {
+    "past_to_present": {
+      "description": "Archiving completed work",
+      "trigger": "node_status_becomes_completed",
+      "operation": "move_snapshot_node_from_present_to_past",
+      "preserve_relationships": true,
+      "create_historical_record": true
+    },
+    "present_to_future": {
+      "description": "Advancing planned work into execution",
+      "trigger": "node_status_becomes_in_progress",
+      "operation": "move_snapshot_node_from_future_to_present",
+      "preserve_timeline_position": true,
+      "update_dependency_graph": true
+    },
+    "future_planning": {
+      "description": "New nodes planned for future execution",
+      "trigger": "strategic_planning_session",
+      "operation": "add_nodes_to_future_snapshot",
+      "assign_target_dates": true,
+      "assign_phases": true
+    }
+  },
+  "version_queries": {
+    "query_past_by_completion_date": {
+      "parameters": ["start_date", "end_date"],
+      "returns": "nodes_completed_in_range",
+      "use_case": "historical_analysis"
+    },
+    "query_present_by_status": {
+      "parameters": ["status", "priority"],
+      "returns": "current_work_items",
+      "use_case": "operations_dashboard"
+    },
+    "query_future_by_target_date": {
+      "parameters": ["target_date", "phase"],
+      "returns": "planned_items",
+      "use_case": "roadmap_visualization"
+    },
+    "query_timeline_evolution": {
+      "parameters": ["node_id"],
+      "returns": "full_history_of_node_across_past_present_future",
+      "use_case": "understanding_feature_lifecycle"
+    },
+    "query_ghost_nodes": {
+      "description": "Nodes that exist across multiple timelines (e.g., discovered as bug in present, planned to fix in future)",
+      "parameters": ["node_id"],
+      "returns": "cross_timeline_references",
+      "use_case": "understanding_relationships_between_timelines"
+    }
+  },
+  "version_recovery": {
+    "rollback_capability": {
+      "description": "Restore constellation to previous state",
+      "operation": "load_past_snapshot_as_present",
+      "safety": "requires_explicit_approval",
+      "audit_trail": "logged_with_reason"
+    },
+    "diff_between_versions": {
+      "description": "Compare two snapshots",
+      "use_case": "understanding_what_changed",
+      "output": "added_nodes, removed_nodes, modified_nodes, cluster_changes"
+    }
+  },
+  "snapshot_persistence": {
+    "storage_format": "JSON_in_versioned_config_files",
+    "location": "D:\\Aaroneous\\config\\constellation_snapshots\\",
+    "naming_convention": "constellation_{type}_{timestamp}_{snapshot_id}.json",
+    "compression": "optional_gzip_for_large_snapshots",
+    "backup_frequency": "on_every_snapshot_creation",
+    "backup_locations": [
+      "local_disk",
+      "federation_shared_storage",
+      "archive_long_term"
+    ]
+  },
+  "version_metadata_index": {
+    "description": "Fast lookup index for finding versions without loading full snapshots",
+    "indexed_fields": [
+      "snapshot_type",
+      "created_at",
+      "created_by",
+      "node_count",
+      "cluster_count",
+      "modification_summary"
+    ],
+    "update_frequency": "immediate",
+    "file_location": "D:\\Aaroneous\\config\\constellation_version_index.json"
+  },
+  "collaboration_integration": {
+    "agents_with_past_access": ["omni", "merlin", "argus"],
+    "agents_with_present_access": ["omni", "odin", "merlin", "ariel", "hephaestus", "argus"],
+    "agents_with_future_access": ["odin", "omni"],
+    "conflict_resolution": {
+      "strategy": "last_write_wins_with_notification",
+      "notification_recipients": ["omni", "dionysus"],
+      "merge_strategy": "manual_review_required"
+    }
+  },
+  "example_snapshot_lifecycle": {
+    "day_1": {
+      "action": "create_feature_node_in_future_snapshot",
+      "node": "phase3_event_loop",
+      "status": "planned",
+      "target_phase": 3
+    },
+    "day_3": {
+      "action": "advance_node_from_future_to_present_snapshot",
+      "node": "phase3_event_loop",
+      "status": "in_progress",
+      "triggers": ["start_work", "move_to_present"]
+    },
+    "day_5": {
+      "action": "complete_node_status_change",
+      "node": "phase3_event_loop",
+      "status": "completed",
+      "triggers": ["move_to_past_snapshot", "archive"]
+    },
+    "future_query": {
+      "action": "analyze_how_node_evolved",
+      "query": "timeline_evolution(phase3_event_loop)",
+      "result": "shows_node_moving_through_future→present→past_snapshots"
+    }
+  },
+  "easter_egg_integration": {
+    "dionysus_access": {
+      "description": "Dionysus can view test repository nodes in constellation snapshots",
+      "visible_in_snapshots": "all_three_timelines",
+      "access_type": "easter_egg_hidden",
+      "query_name": "test_repository_timeline",
+      "narrative_justification": "studying for educational purposes across time"
+    }
+  }
+}

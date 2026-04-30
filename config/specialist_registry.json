@@ -1,0 +1,91 @@
+{
+  "schema_version": "1.0",
+  "timestamp": "2026-04-28T13:00:00Z",
+  "default_specialist": {
+    "name": "aaroneous_agent_zero",
+    "type": "BaseAgent",
+    "role": "orchestrator",
+    "status": "active"
+  },
+  "active_specialists": [],
+  "inactive_specialists": [
+    "ariel",
+    "merlin",
+    "odin",
+    "dionysus",
+    "hephaestus",
+    "argus"
+  ],
+  "specialist_definitions": {
+    "ariel": {
+      "id": "specialist_ariel",
+      "name": "Ariel",
+      "domain": "UserInterface",
+      "role": "UI/UX Designer & Experience Architect",
+      "hox_preset": "D:\\Aaroneous\\registry\\hox_specialist_ariel.json",
+      "relic_binding": "relic_glass",
+      "status": "ready",
+      "created_at": "2026-04-28T12:00:00Z"
+    },
+    "merlin": {
+      "id": "specialist_merlin",
+      "name": "Merlin",
+      "domain": "Knowledge",
+      "role": "Knowledge Synthesist & Architect",
+      "hox_preset": "D:\\Aaroneous\\registry\\hox_specialist_merlin.json",
+      "relic_binding": "relic_grimoire",
+      "status": "ready",
+      "created_at": "2026-04-28T12:00:00Z"
+    },
+    "odin": {
+      "id": "specialist_odin",
+      "name": "Odin",
+      "domain": "Leadership",
+      "role": "Strategic Orchestrator & Leader",
+      "hox_preset": "D:\\Aaroneous\\registry\\hox_specialist_odin.json",
+      "relic_binding": "relic_draupnir",
+      "status": "ready",
+      "created_at": "2026-04-28T12:00:00Z"
+    },
+    "dionysus": {
+      "id": "specialist_dionysus",
+      "name": "Dionysus",
+      "domain": "Experience",
+      "role": "Experience & Memory Curator",
+      "hox_preset": "D:\\Aaroneous\\registry\\hox_specialist_dionysus.json",
+      "relic_binding": "relic_omni",
+      "status": "ready",
+      "created_at": "2026-04-28T12:00:00Z"
+    },
+    "hephaestus": {
+      "id": "specialist_hephaestus",
+      "name": "Hephaestus",
+      "domain": "Manufacturing",
+      "role": "Manufacturing & Execution Engine",
+      "hox_preset": "D:\\Aaroneous\\registry\\hox_specialist_hephaestus.json",
+      "relic_binding": "relic_forge",
+      "status": "ready",
+      "created_at": "2026-04-28T12:00:00Z"
+    },
+    "argus": {
+      "id": "specialist_argus",
+      "name": "Argus",
+      "domain": "Security",
+      "role": "Security Warden & Sentinel",
+      "hox_preset": "D:\\Aaroneous\\registry\\hox_specialist_argus.json",
+      "relic_binding": "relic_sentinel",
+      "status": "ready",
+      "created_at": "2026-04-28T12:00:00Z"
+    }
+  },
+  "supervisor_relationships": {
+    "ariel": "relic_glass",
+    "merlin": "relic_grimoire",
+    "odin": "relic_draupnir",
+    "dionysus": "relic_omni",
+    "hephaestus": "relic_forge",
+    "argus": "relic_sentinel"
+  },
+  "execution_history": [],
+  "error_log": []
+}
