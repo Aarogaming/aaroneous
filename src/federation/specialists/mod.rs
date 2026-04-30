@@ -14,8 +14,10 @@ pub mod visionary;
 pub mod omnipresent;
 pub mod symbiotic;
 pub mod phygital;
+pub mod archivist;
 
 pub use visionary::Visionary;
 pub use omnipresent::Omnipresent;
 pub use symbiotic::Symbiotic;
 pub use phygital::Phygital;
+pub use archivist::Archivist;
