@@ -15,6 +15,7 @@ pub mod node;
 pub mod engine;
 pub mod mutations;
 pub mod snapshot;
+pub mod election;
 
 pub use types::*;
 pub use log::RaftLog;
@@ -22,6 +23,7 @@ pub use node::RaftNode;
 pub use engine::RaftEngine;
 pub use mutations::*;
 pub use snapshot::Snapshot;
+pub use election::{ElectionTimeout, HeartbeatTimer, ElectionOutcome, handle_request_vote, random_election_timeout};
 
 use std::time::Duration;
 
