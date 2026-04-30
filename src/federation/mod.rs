@@ -20,6 +20,7 @@ pub mod proposal;
 pub mod communication;
 pub mod conflict_resolution;
 pub mod agent_bridge;
+pub mod specialists;
 
 pub use specialist::{Specialist, SpecialistId, SpecialistConfig, SpecialistRegistry, SpecialistContext, Decision, DelegateRequest, Conflict, ProposedAction, SystemResources, UserState, ExecutionStatus, ExecutionResult, ProposalPriority};
 pub use sentinel::{Sentinel, SentinelConfig, ArbitrationResult};
@@ -27,6 +28,7 @@ pub use proposal::{Proposal, ProposalId, ProposalStatus, ProposalSet};
 pub use communication::{SpecialistMessage, MessageChannel, CommunicationBus};
 pub use conflict_resolution::{ConflictDetector, ResourceAllocation, ConflictResolution, ConflictArbitrator};
 pub use agent_bridge::{SpecialistAgentBridge, agent_name_to_specialist_id};
+pub use specialists::Visionary;
 
 #[cfg(test)]
 mod tests;
