@@ -26,6 +26,7 @@ pub mod deployment_examples;
 pub mod cli;
 pub mod runtime;
 pub mod dna_bank;
+pub mod optimization;
 
 pub use specialist::{Specialist, SpecialistId, SpecialistConfig, SpecialistRegistry, SpecialistContext, Decision, DelegateRequest, Conflict, ProposedAction, SystemResources, UserState, ExecutionStatus, ExecutionResult, ProposalPriority};
 pub use sentinel::{Sentinel, SentinelConfig, ArbitrationResult};
@@ -38,6 +39,13 @@ pub use bootstrap::{SpecialistModule, DeploymentTarget, Manifest, DeploymentConf
 pub use cli::{Command, AaroneosCLI, CLIResult, InitArgs, ExpandArgs, PortableArgs, StatusArgs};
 pub use runtime::{HiveRuntime, ModelManager, ExecutionMetrics, SpecialistHealth, HealthStatus, RuntimeStats, HealthReport, LoadedModel};
 pub use dna_bank::{DNABank, DNAEvent, EventQuery, Pattern, DNABankStats, ConsolidationStats, BackupInfo};
+pub use optimization::{
+    QuantizationType, QuantizationStrategy, QuantizationConfig, QuantizedModel,
+    GPUType, GPUInfo, GPUMemoryManager, GPUInferenceContext, GPUAccelerationStrategy,
+    CacheWarmingStrategy, AccessPattern, CacheWarmingTracker, WarmingSchedule,
+    BatchConfig, ProposalBatch, BatchManager,
+    OptimizationProfile, OptimizationStats,
+};
 
 #[cfg(test)]
 mod tests;
