@@ -33,6 +33,7 @@ pub mod p2p;
 pub mod biometric;
 pub mod ar;
 pub mod learn_persist;
+pub mod host;
 
 pub use specialist::{Specialist, SpecialistId, SpecialistConfig, SpecialistRegistry, SpecialistContext, Decision, DelegateRequest, Conflict, ProposedAction, SystemResources, UserState, ExecutionStatus, ExecutionResult, ProposalPriority};
 pub use sentinel::{Sentinel, SentinelConfig, ArbitrationResult};
@@ -76,6 +77,7 @@ pub use learn_persist::{
     LearningSnapshot, PersistableLearning, LearnPersistError,
     save_learning, load_learning,
 };
+pub use host::{SpecialistHost, HostConfig, HostState, HostError, HostableSpecialist};
 
 #[cfg(test)]
 mod tests;

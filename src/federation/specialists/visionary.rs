@@ -14,7 +14,12 @@ use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
-use tokio::sync::Mutex;
+// Use parking_lot::Mutex (sync) for `learning` so save/load methods don't
+// hold a lock guard across `.await` points. This is required for the
+// checkpoint loop's future to be `Send` (and therefore spawnable with
+// `tokio::spawn`). Locks are held only briefly, so there's no contention
+// concern - SQL I/O happens after the lock is released.
+use parking_lot::Mutex;
 
 use crate::federation::specialist::{
     Specialist, SpecialistId, SpecialistContext, SpecialistError, ProposedAction,
@@ -188,27 +193,43 @@ impl Visionary {
 
     /// Save this specialist's current learning state to a persistence manager.
     ///
-    /// Locks the in-memory `LearningData` long enough to take a snapshot,
-    /// then releases the lock before doing the SQL write. Cheap to call
-    /// frequently because SQLite handles concurrent connections well.
-    pub async fn save_learning_to(
+    /// This is a *synchronous* method even though it touches `self.learning`
+    /// because we use `parking_lot::Mutex` (sync) for that field, and the
+    /// SQLite write is also sync. Keeping it sync avoids a `&PersistenceManager`
+    /// reference being held across an `.await` boundary - which would make the
+    /// resulting future non-`Send` (since `PersistenceManager` isn't `Sync`)
+    /// and prevent the host's checkpoint loop from being `tokio::spawn`-able.
+    pub fn save_learning_to(
         &self,
         pm: &crate::persistence::PersistenceManager,
     ) -> Result<(), crate::federation::learn_persist::LearnPersistError> {
-        let learning = self.learning.lock().await;
-        crate::federation::learn_persist::save_learning(pm, Self::PERSISTENCE_KEY, &*learning)
+        // Take a snapshot under the lock, then drop the guard before SQL.
+        let snapshot = {
+            let learning = self.learning.lock();
+            crate::federation::learn_persist::PersistableLearning::snapshot(&*learning)
+        };
+        let record = snapshot.to_record(Self::PERSISTENCE_KEY)?;
+        pm.save_learning_state(&record)?;
+        Ok(())
     }
 
     /// Load learning state from persistence into this specialist.
     ///
     /// Returns `Ok(true)` if state was loaded, `Ok(false)` if no prior state
     /// existed (in which case the specialist keeps its current in-memory state).
-    pub async fn load_learning_from(
+    pub fn load_learning_from(
         &self,
         pm: &crate::persistence::PersistenceManager,
     ) -> Result<bool, crate::federation::learn_persist::LearnPersistError> {
-        let mut learning = self.learning.lock().await;
-        crate::federation::learn_persist::load_learning(pm, Self::PERSISTENCE_KEY, &mut *learning)
+        // Read from SQL first (no learning lock held), then apply under the lock.
+        let maybe_record = pm.load_learning_state(Self::PERSISTENCE_KEY)?;
+        let Some(record) = maybe_record else {
+            return Ok(false);
+        };
+        let snapshot = crate::federation::learn_persist::LearningSnapshot::from_record(&record)?;
+        let mut learning = self.learning.lock();
+        crate::federation::learn_persist::PersistableLearning::restore_from(&mut *learning, snapshot);
+        Ok(true)
     }
 
     /// Generate design variants based on aesthetic engrams
@@ -294,7 +315,7 @@ impl Specialist for Visionary {
         // REVIVED: Use learned confidence from prior executions
         let base_confidence = if context.user_state.activity == "idle" { 0.85 } else { 0.60 };
         
-        let learning = self.learning.lock().await;
+        let learning = self.learning.lock();
         let learned_confidence = learning.get_proposal_confidence();
         let confidence = (base_confidence * 0.7) + (learned_confidence * 0.3); // 70% base, 30% learned
         drop(learning); // Release lock early
@@ -353,7 +374,7 @@ impl Specialist for Visionary {
         // REVIVED: Record execution result for learning
         let success = result.status == ExecutionStatus::Success;
         {
-            let mut learning = self.learning.lock().await;
+            let mut learning = self.learning.lock();
             learning.record_result(success);
         } // Lock is released here
 
@@ -536,7 +557,7 @@ mod tests {
         let visionary = Visionary::new();
         
         // Get initial learning state
-        let initial_learning = visionary.learning.lock().await;
+        let initial_learning = visionary.learning.lock();
         let initial_confidence = initial_learning.get_proposal_confidence();
         let initial_success_count = initial_learning.success_count;
         drop(initial_learning);
@@ -561,7 +582,7 @@ mod tests {
         }
         
         // Check learning state after executions
-        let final_learning = visionary.learning.lock().await;
+        let final_learning = visionary.learning.lock();
         let final_confidence = final_learning.get_proposal_confidence();
         let final_success_count = final_learning.success_count;
         let success_rate = final_learning.get_success_rate();
@@ -629,7 +650,7 @@ mod tests {
 
             // Sanity: brand-new specialist has no learning yet
             {
-                let learning = visionary.learning.lock().await;
+                let learning = visionary.learning.lock();
                 assert_eq!(learning.total_executions, 0, "fresh specialist has no executions");
             }
 
@@ -649,7 +670,7 @@ mod tests {
 
             // Snapshot the in-memory state we expect to recover later
             {
-                let learning = visionary.learning.lock().await;
+                let learning = visionary.learning.lock();
                 initial_success_count = learning.success_count;
                 initial_confidence = learning.confidence_score;
                 initial_history_len = learning.execution_history.len();
@@ -662,7 +683,6 @@ mod tests {
             // Save to persistence
             visionary
                 .save_learning_to(&pm)
-                .await
                 .expect("save should succeed");
 
             // Specialist drops at end of this scope, simulating process exit
@@ -673,7 +693,7 @@ mod tests {
 
         // Sanity: revived specialist has neutral state in memory
         {
-            let learning = revived.learning.lock().await;
+            let learning = revived.learning.lock();
             assert_eq!(learning.total_executions, 0, "fresh specialist starts neutral");
             assert_eq!(learning.success_count, 0);
         }
@@ -681,13 +701,12 @@ mod tests {
         // Load from SQLite
         let loaded = revived
             .load_learning_from(&pm)
-            .await
             .expect("load should succeed");
         assert!(loaded, "should report true: prior state was saved");
 
         // Verify the revived specialist has the SAME learning as the original
         {
-            let learning = revived.learning.lock().await;
+            let learning = revived.learning.lock();
             assert_eq!(
                 learning.success_count, initial_success_count,
                 "success_count should be preserved across restart"
@@ -719,11 +738,11 @@ mod tests {
         let pm = PersistenceManager::new(":memory:").unwrap();
         let visionary = Visionary::new();
 
-        let loaded = visionary.load_learning_from(&pm).await.unwrap();
+        let loaded = visionary.load_learning_from(&pm).unwrap();
         assert!(!loaded, "load should return false for unsaved specialist");
 
         // Specialist should still have its neutral state
-        let learning = visionary.learning.lock().await;
+        let learning = visionary.learning.lock();
         assert_eq!(learning.total_executions, 0);
     }
 
@@ -746,7 +765,7 @@ mod tests {
             };
             visionary.execute(&decision).await.unwrap();
         }
-        visionary.save_learning_to(&pm).await.unwrap();
+        visionary.save_learning_to(&pm).unwrap();
 
         // Continue learning from 2 more, save again
         for i in 3..5 {
@@ -760,12 +779,12 @@ mod tests {
             };
             visionary.execute(&decision).await.unwrap();
         }
-        visionary.save_learning_to(&pm).await.unwrap();
+        visionary.save_learning_to(&pm).unwrap();
 
         // Reload into a fresh specialist - should have all 5 executions
         let revived = Visionary::new();
-        revived.load_learning_from(&pm).await.unwrap();
-        let learning = revived.learning.lock().await;
+        revived.load_learning_from(&pm).unwrap();
+        let learning = revived.learning.lock();
         assert_eq!(learning.total_executions, 5);
         assert_eq!(learning.success_count, 5);
     }

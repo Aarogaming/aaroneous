@@ -62,15 +62,15 @@ mod tests {
                 let result = visionary.execute(&d).await.unwrap();
                 assert_eq!(result.status, ExecutionStatus::Success);
             }
-            visionary.save_learning_to(&pm).await.unwrap();
+            visionary.save_learning_to(&pm).unwrap();
         }
 
         // Phase 2: Revived specialist loads same state
         let revived = Visionary::new();
-        let loaded = revived.load_learning_from(&pm).await.unwrap();
+        let loaded = revived.load_learning_from(&pm).unwrap();
         assert!(loaded);
 
-        let learning = revived.learning.lock().await;
+        let learning = revived.learning.lock();
         assert_eq!(learning.success_count, 3);
         assert_eq!(learning.total_executions, 3);
         assert_eq!(learning.failure_count, 0);
@@ -92,15 +92,15 @@ mod tests {
                 let result = omnipresent.execute(&d).await.unwrap();
                 assert_eq!(result.status, ExecutionStatus::Success);
             }
-            omnipresent.save_learning_to(&pm).await.unwrap();
+            omnipresent.save_learning_to(&pm).unwrap();
         }
 
         // Phase 2
         let revived = Omnipresent::new();
-        let loaded = revived.load_learning_from(&pm).await.unwrap();
+        let loaded = revived.load_learning_from(&pm).unwrap();
         assert!(loaded);
 
-        let learning = revived.learning.lock().await;
+        let learning = revived.learning.lock();
         assert_eq!(learning.success_count, 4);
         assert_eq!(learning.total_executions, 4);
     }
@@ -120,15 +120,15 @@ mod tests {
                 let result = symbiotic.execute(&d).await.unwrap();
                 assert_eq!(result.status, ExecutionStatus::Success);
             }
-            symbiotic.save_learning_to(&pm).await.unwrap();
+            symbiotic.save_learning_to(&pm).unwrap();
         }
 
         // Phase 2
         let revived = Symbiotic::new();
-        let loaded = revived.load_learning_from(&pm).await.unwrap();
+        let loaded = revived.load_learning_from(&pm).unwrap();
         assert!(loaded);
 
-        let learning = revived.learning.lock().await;
+        let learning = revived.learning.lock();
         assert_eq!(learning.success_count, 2);
         assert_eq!(learning.total_executions, 2);
     }
@@ -148,15 +148,15 @@ mod tests {
                 let result = phygital.execute(&d).await.unwrap();
                 assert_eq!(result.status, ExecutionStatus::Success);
             }
-            phygital.save_learning_to(&pm).await.unwrap();
+            phygital.save_learning_to(&pm).unwrap();
         }
 
         // Phase 2
         let revived = Phygital::new();
-        let loaded = revived.load_learning_from(&pm).await.unwrap();
+        let loaded = revived.load_learning_from(&pm).unwrap();
         assert!(loaded);
 
-        let learning = revived.learning.lock().await;
+        let learning = revived.learning.lock();
         assert_eq!(learning.success_count, 5);
         assert_eq!(learning.total_executions, 5);
     }
@@ -176,15 +176,15 @@ mod tests {
                 let result = archivist.execute(&d).await.unwrap();
                 assert_eq!(result.status, ExecutionStatus::Success);
             }
-            archivist.save_learning_to(&pm).await.unwrap();
+            archivist.save_learning_to(&pm).unwrap();
         }
 
         // Phase 2
         let revived = Archivist::new();
-        let loaded = revived.load_learning_from(&pm).await.unwrap();
+        let loaded = revived.load_learning_from(&pm).unwrap();
         assert!(loaded);
 
-        let learning = revived.learning.lock().await;
+        let learning = revived.learning.lock();
         assert_eq!(learning.success_count, 3);
         assert_eq!(learning.total_executions, 3);
     }
@@ -220,11 +220,11 @@ mod tests {
                 archivist.execute(&make_decision(SpecialistId::Archivist, i)).await.unwrap();
             }
 
-            visionary.save_learning_to(&pm).await.unwrap();
-            omnipresent.save_learning_to(&pm).await.unwrap();
-            symbiotic.save_learning_to(&pm).await.unwrap();
-            phygital.save_learning_to(&pm).await.unwrap();
-            archivist.save_learning_to(&pm).await.unwrap();
+            visionary.save_learning_to(&pm).unwrap();
+            omnipresent.save_learning_to(&pm).unwrap();
+            symbiotic.save_learning_to(&pm).unwrap();
+            phygital.save_learning_to(&pm).unwrap();
+            archivist.save_learning_to(&pm).unwrap();
         }
 
         // Phase 2: revive each, verify each has its own correct count
@@ -234,17 +234,17 @@ mod tests {
         let phygital = Phygital::new();
         let archivist = Archivist::new();
 
-        visionary.load_learning_from(&pm).await.unwrap();
-        omnipresent.load_learning_from(&pm).await.unwrap();
-        symbiotic.load_learning_from(&pm).await.unwrap();
-        phygital.load_learning_from(&pm).await.unwrap();
-        archivist.load_learning_from(&pm).await.unwrap();
+        visionary.load_learning_from(&pm).unwrap();
+        omnipresent.load_learning_from(&pm).unwrap();
+        symbiotic.load_learning_from(&pm).unwrap();
+        phygital.load_learning_from(&pm).unwrap();
+        archivist.load_learning_from(&pm).unwrap();
 
-        assert_eq!(visionary.learning.lock().await.total_executions, 1, "Visionary count");
-        assert_eq!(omnipresent.learning.lock().await.total_executions, 2, "Omnipresent count");
-        assert_eq!(symbiotic.learning.lock().await.total_executions, 3, "Symbiotic count");
-        assert_eq!(phygital.learning.lock().await.total_executions, 4, "Phygital count");
-        assert_eq!(archivist.learning.lock().await.total_executions, 5, "Archivist count");
+        assert_eq!(visionary.learning.lock().total_executions, 1, "Visionary count");
+        assert_eq!(omnipresent.learning.lock().total_executions, 2, "Omnipresent count");
+        assert_eq!(symbiotic.learning.lock().total_executions, 3, "Symbiotic count");
+        assert_eq!(phygital.learning.lock().total_executions, 4, "Phygital count");
+        assert_eq!(archivist.learning.lock().total_executions, 5, "Archivist count");
 
         // Verify the diagnostics list reflects all 5
         let all = pm.list_learning_states().unwrap();
@@ -273,12 +273,12 @@ mod tests {
             for i in 0..5 {
                 visionary.execute(&make_decision(SpecialistId::Visionary, i)).await.unwrap();
             }
-            visionary.save_learning_to(&pm).await.unwrap();
+            visionary.save_learning_to(&pm).unwrap();
         }
 
         // Phase 2: reload and check that propose() reflects the learned confidence
         let revived = Visionary::new();
-        revived.load_learning_from(&pm).await.unwrap();
+        revived.load_learning_from(&pm).unwrap();
 
         let context = idle_context();
         let proposals = revived.propose(&context).await.unwrap();

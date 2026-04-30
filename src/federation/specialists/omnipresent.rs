@@ -16,7 +16,9 @@ use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
-use tokio::sync::Mutex;
+// parking_lot::Mutex - see Visionary for the rationale (avoids holding a
+// guard across .await so save/load futures are Send).
+use parking_lot::Mutex;
 
 use crate::federation::specialist::{
     Specialist, SpecialistId, SpecialistContext, SpecialistError, ProposedAction,
@@ -231,21 +233,33 @@ impl Omnipresent {
     }
 
     /// Save this specialist's current learning state to a persistence manager.
-    pub async fn save_learning_to(
+    /// See `Visionary::save_learning_to` for why this is sync, not async.
+    pub fn save_learning_to(
         &self,
         pm: &crate::persistence::PersistenceManager,
     ) -> Result<(), crate::federation::learn_persist::LearnPersistError> {
-        let learning = self.learning.lock().await;
-        crate::federation::learn_persist::save_learning(pm, Self::PERSISTENCE_KEY, &*learning)
+        let snapshot = {
+            let learning = self.learning.lock();
+            crate::federation::learn_persist::PersistableLearning::snapshot(&*learning)
+        };
+        let record = snapshot.to_record(Self::PERSISTENCE_KEY)?;
+        pm.save_learning_state(&record)?;
+        Ok(())
     }
 
     /// Load learning state from persistence into this specialist.
-    pub async fn load_learning_from(
+    pub fn load_learning_from(
         &self,
         pm: &crate::persistence::PersistenceManager,
     ) -> Result<bool, crate::federation::learn_persist::LearnPersistError> {
-        let mut learning = self.learning.lock().await;
-        crate::federation::learn_persist::load_learning(pm, Self::PERSISTENCE_KEY, &mut *learning)
+        let maybe_record = pm.load_learning_state(Self::PERSISTENCE_KEY)?;
+        let Some(record) = maybe_record else {
+            return Ok(false);
+        };
+        let snapshot = crate::federation::learn_persist::LearningSnapshot::from_record(&record)?;
+        let mut learning = self.learning.lock();
+        crate::federation::learn_persist::PersistableLearning::restore_from(&mut *learning, snapshot);
+        Ok(true)
     }
 
     /// Spawn a P2P node and attach it to this specialist
@@ -465,7 +479,7 @@ impl Specialist for Omnipresent {
         let base_confidence = if conflicts.is_empty() { 0.75 } else { 0.90 };
 
         // Get learned confidence from history
-        let learning = self.learning.lock().await;
+        let learning = self.learning.lock();
         let learned_confidence = learning.get_proposal_confidence();
         drop(learning);
 
@@ -521,7 +535,7 @@ impl Specialist for Omnipresent {
         // Record execution result for learning
         let success = result.status == ExecutionStatus::Success;
         {
-            let mut learning = self.learning.lock().await;
+            let mut learning = self.learning.lock();
             learning.record_result(success);
         } // Lock released here
 
