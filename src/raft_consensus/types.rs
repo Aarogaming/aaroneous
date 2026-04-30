@@ -288,6 +288,19 @@ pub struct ApplyResult {
     pub applied_index: LogIndex,
 }
 
+/// Result of replication attempt
+#[derive(Clone, Debug)]
+pub struct ReplicationResult {
+    /// Whether quorum acknowledged the entries
+    pub is_quorum: bool,
+    /// Number of nodes that acknowledged
+    pub success_count: usize,
+    /// Total nodes in cluster
+    pub total_nodes: usize,
+    /// Nodes with conflicting entries and their conflict indices
+    pub conflict_indices: Vec<(NodeId, LogIndex)>,
+}
+
 /// ===== CONFIGURATION =====
 
 /// Raft configuration

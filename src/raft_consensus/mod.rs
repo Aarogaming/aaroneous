@@ -25,6 +25,9 @@ pub use mutations::*;
 pub use snapshot::Snapshot;
 pub use election::{ElectionTimeout, HeartbeatTimer, ElectionOutcome, handle_request_vote, random_election_timeout};
 
+// Specific types for replication
+pub use types::{ReplicationResult, AppendEntriesRpc, AppendEntriesResponse};
+
 use std::time::Duration;
 
 /// Default election timeout range (ms)
