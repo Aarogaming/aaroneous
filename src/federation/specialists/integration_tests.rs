@@ -38,6 +38,7 @@ mod integration_tests {
                 gpu_available_percent: 60.0,
                 cpu_available_percent: 50.0,
                 memory_available_mb: 2000,
+                thermal_headroom: 0.8,
             },
             active_specialists: vec![
                 SpecialistId::Visionary,
@@ -84,9 +85,9 @@ mod integration_tests {
         phygital.set_gpu_available(70.0);
         let landmark = phygital.detect_landmark("Desk".to_string(), LocationType::Desk);
 
-        let phygital_proposals = phygital.propose(&context).await.unwrap();
+        let phygital_proposals = phygital.propose(&context).await;
         // May not propose if no prototypes yet, so just verify it doesn't error
-        assert!(phygital_proposals.is_ok() || phygital_proposals.is_err() == false);
+        assert!(phygital_proposals.is_ok());
 
         // Step 4: Generate prototype and render
         let proto_result = phygital.generate_prototype("design-1".to_string(), landmark.id.clone());
@@ -366,10 +367,14 @@ mod integration_tests {
         if !visionary_proposals.is_empty() && !phygital_proposals.is_empty() {
             // Both want to execute - need coordination
             let conflict = crate::federation::specialist::Conflict {
-                proposer_a: SpecialistId::Visionary,
-                proposer_b: SpecialistId::Phygital,
-                reason: "Both want GPU time simultaneously".to_string(),
-                timestamp: context.timestamp,
+                specialist_a: SpecialistId::Visionary,
+                specialist_b: SpecialistId::Phygital,
+                conflict_type: "resource_contention".to_string(),
+                context: {
+                    let mut ctx = HashMap::new();
+                    ctx.insert("reason".to_string(), "Both want GPU time simultaneously".to_string());
+                    ctx
+                },
             };
 
             // Both negotiate
