@@ -1,14 +1,15 @@
-name: Deploy Aaroneous Federation
+name: Deploy Aaroneous Federation (Aspirational - Manual Trigger Only)
 
+# NOTE: This workflow targets a future deployment scenario with PostgreSQL/Redis
+# services and Docker registry pushes. It will fail in current state because:
+# - The codebase uses SQLite, not PostgreSQL
+# - Redis is not used in current architecture
+# - Clippy has many existing warnings (-D warnings will fail)
+# - Code is not yet rustfmt-clean
+#
+# Use `ci.yml` for actual CI on every push. This workflow is preserved for
+# the future when those infrastructure pieces are in place.
 on:
-  push:
-    branches:
-      - main
-      - develop
-  pull_request:
-    branches:
-      - main
-      - develop
   workflow_dispatch:
     inputs:
       environment:
