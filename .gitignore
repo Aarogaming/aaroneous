@@ -1,7 +1,27 @@
-# Build artifacts
-/target/
-/src/target/
+# Build artifacts (all target directories, including nested ones in enzymes/)
+target/
+**/target/
 Cargo.lock
+
+# Model files (use Git LFS or download separately)
+*.gguf
+*.bin
+*.safetensors
+*.pt
+*.pth
+*.onnx
+data/test_*.gguf
+data/models/
+
+# Submodules build artifacts
+src/enzymes/*/target/
+src/submodules/*/target/
+
+# Compiled binaries
+bin/*.exe
+bin/*.dll
+bin/*.so
+bin/*.dylib
 
 # Database files
 *.db
