@@ -5,6 +5,9 @@
 use bytes::Bytes;
 use serde::{Deserialize, Serialize};
 use serde_json;
+use crate::hid_driver::{HidDriver, HidCommand, HidResponse};
+use std::sync::Arc;
+use parking_lot::RwLock;
 
 /// Marionette action types (WASM → O3DE)
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -54,6 +57,9 @@ impl Default for ActionStatus {
 pub struct ActionExecutor {
     /// Enable/disable action execution (for safety)
     enabled: std::sync::atomic::AtomicBool,
+    
+    /// HID driver for input control (lazily initialized)
+    hid_driver: parking_lot::Mutex<Option<HidDriver>>,
 }
 
 impl ActionExecutor {
@@ -61,7 +67,22 @@ impl ActionExecutor {
     pub fn new() -> Self {
         Self {
             enabled: std::sync::atomic::AtomicBool::new(false),
+            hid_driver: parking_lot::Mutex::new(None),
         }
+    }
+    
+    /// Initialize HID driver (called on first action or explicitly)
+    async fn ensure_hid_driver(&self) -> Result<(), String> {
+        let mut driver_opt = self.hid_driver.lock();
+        if driver_opt.is_some() {
+            return Ok(());
+        }
+        
+        // Initialize HID driver
+        let driver = HidDriver::new().await?;
+        *driver_opt = Some(driver);
+        
+        Ok(())
     }
     
     /// Enable/disable execution
@@ -114,48 +135,128 @@ impl ActionExecutor {
     }
     
     async fn execute_mouse_move(&self, x: i32, y: i32) -> Result<ActionStatus, String> {
-        // TODO: Implementation
-        // On Windows: Use SetCursorPos
-        // On Linux: Use uinput or xdotool
-        // For now: simulate success
+        self.ensure_hid_driver().await?;
         
-        log::debug!("MouseMove({}, {})", x, y);
-        Ok(ActionStatus::Success)
+        let driver_opt = self.hid_driver.lock();
+        if let Some(driver) = driver_opt.as_ref() {
+            let cmd = HidCommand::MouseMove { x, y };
+            match driver.execute(cmd).await {
+                Ok(_) => {
+                    tracing::debug!("MouseMove({}, {})", x, y);
+                    Ok(ActionStatus::Success)
+                }
+                Err(e) => Ok(ActionStatus::ExecutionError { reason: e })
+            }
+        } else {
+            Ok(ActionStatus::ExecutionError { reason: "HID driver not initialized".to_string() })
+        }
     }
     
     async fn execute_mouse_click(
         &self,
-        _button: MouseButton,
+        button: MouseButton,
         x: i32,
         y: i32,
     ) -> Result<ActionStatus, String> {
-        // TODO: Implementation
-        log::debug!("MouseClick({:?}, {}, {})", _button, x, y);
-        Ok(ActionStatus::Success)
+        self.ensure_hid_driver().await?;
+        
+        let driver_opt = self.hid_driver.lock();
+        if let Some(driver) = driver_opt.as_ref() {
+            let hid_button = match button {
+                MouseButton::Left => crate::hid_driver::MouseButton::Left,
+                MouseButton::Right => crate::hid_driver::MouseButton::Right,
+                MouseButton::Middle => crate::hid_driver::MouseButton::Middle,
+            };
+            
+            let cmd = HidCommand::MouseClick { button: hid_button, x, y };
+            match driver.execute(cmd).await {
+                Ok(_) => {
+                    tracing::debug!("MouseClick({:?}, {}, {})", button, x, y);
+                    Ok(ActionStatus::Success)
+                }
+                Err(e) => Ok(ActionStatus::ExecutionError { reason: e })
+            }
+        } else {
+            Ok(ActionStatus::ExecutionError { reason: "HID driver not initialized".to_string() })
+        }
     }
     
-    async fn execute_mouse_release(&self, _button: MouseButton) -> Result<ActionStatus, String> {
-        // TODO: Implementation
-        log::debug!("MouseRelease({:?})", _button);
-        Ok(ActionStatus::Success)
+    async fn execute_mouse_release(&self, button: MouseButton) -> Result<ActionStatus, String> {
+        self.ensure_hid_driver().await?;
+        
+        let driver_opt = self.hid_driver.lock();
+        if let Some(driver) = driver_opt.as_ref() {
+            let hid_button = match button {
+                MouseButton::Left => crate::hid_driver::MouseButton::Left,
+                MouseButton::Right => crate::hid_driver::MouseButton::Right,
+                MouseButton::Middle => crate::hid_driver::MouseButton::Middle,
+            };
+            
+            let cmd = HidCommand::MouseRelease { button: hid_button };
+            match driver.execute(cmd).await {
+                Ok(_) => {
+                    tracing::debug!("MouseRelease({:?})", button);
+                    Ok(ActionStatus::Success)
+                }
+                Err(e) => Ok(ActionStatus::ExecutionError { reason: e })
+            }
+        } else {
+            Ok(ActionStatus::ExecutionError { reason: "HID driver not initialized".to_string() })
+        }
     }
     
     async fn execute_key_press(&self, key: u32) -> Result<ActionStatus, String> {
-        // TODO: Implementation
-        log::debug!("KeyPress({})", key);
-        Ok(ActionStatus::Success)
+        self.ensure_hid_driver().await?;
+        
+        let driver_opt = self.hid_driver.lock();
+        if let Some(driver) = driver_opt.as_ref() {
+            let cmd = HidCommand::KeyPress { key, modifiers: 0 };
+            match driver.execute(cmd).await {
+                Ok(_) => {
+                    tracing::debug!("KeyPress({:#x})", key);
+                    Ok(ActionStatus::Success)
+                }
+                Err(e) => Ok(ActionStatus::ExecutionError { reason: e })
+            }
+        } else {
+            Ok(ActionStatus::ExecutionError { reason: "HID driver not initialized".to_string() })
+        }
     }
     
     async fn execute_key_release(&self, key: u32) -> Result<ActionStatus, String> {
-        // TODO: Implementation
-        log::debug!("KeyRelease({})", key);
-        Ok(ActionStatus::Success)
+        self.ensure_hid_driver().await?;
+        
+        let driver_opt = self.hid_driver.lock();
+        if let Some(driver) = driver_opt.as_ref() {
+            let cmd = HidCommand::KeyRelease { key };
+            match driver.execute(cmd).await {
+                Ok(_) => {
+                    tracing::debug!("KeyRelease({:#x})", key);
+                    Ok(ActionStatus::Success)
+                }
+                Err(e) => Ok(ActionStatus::ExecutionError { reason: e })
+            }
+        } else {
+            Ok(ActionStatus::ExecutionError { reason: "HID driver not initialized".to_string() })
+        }
     }
     
     async fn execute_scroll(&self, delta: i32) -> Result<ActionStatus, String> {
-        // TODO: Implementation
-        log::debug!("Scroll({})", delta);
-        Ok(ActionStatus::Success)
+        self.ensure_hid_driver().await?;
+        
+        let driver_opt = self.hid_driver.lock();
+        if let Some(driver) = driver_opt.as_ref() {
+            let cmd = HidCommand::Scroll { delta };
+            match driver.execute(cmd).await {
+                Ok(_) => {
+                    tracing::debug!("Scroll({})", delta);
+                    Ok(ActionStatus::Success)
+                }
+                Err(e) => Ok(ActionStatus::ExecutionError { reason: e })
+            }
+        } else {
+            Ok(ActionStatus::ExecutionError { reason: "HID driver not initialized".to_string() })
+        }
     }
 }
 

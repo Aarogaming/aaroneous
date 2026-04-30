@@ -58,6 +58,7 @@ pub mod event_log;
 pub mod raft_consensus;
 pub mod agentic_players;
 pub mod wasm_ebus_bridge;
+pub mod hid_driver;
 #[cfg(test)]
 mod integration_tests_phase2;
 mod specialist_memory_tests;
@@ -123,4 +124,5 @@ pub use event_log::{EventLog, FederationEvent, EventType, Operation, EventLogSto
 pub use raft_consensus::{RaftNode, RaftLog, RaftEngine, RaftState, RaftConfig, LogEntry, Term, LogIndex, NodeId, PersistentState, VolatileState, AppendEntriesRpc, RequestVoteRpc, Snapshot, ApplyCommand};
 pub use agentic_players::{Observation, GameState, PlayerAction, InferredIntent, DecisionRule, PlayStyle, HumanizationPatterns, PlayerPolicy, EmulationStats, GameEpisode, Insight};
 pub use wasm_ebus_bridge::{WasmEbusBridge, EbusEvent, EbusEventType, WasmMemory, WitInterface, ActionExecutor, RingBuffer};
+pub use hid_driver::{HidDriver, HidCommand, HidResponse, MouseButton};
 pub use shared_memory::SharedMemorySynapse;
