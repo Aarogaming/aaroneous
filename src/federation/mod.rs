@@ -28,6 +28,7 @@ pub mod runtime;
 pub mod dna_bank;
 pub mod optimization;
 pub mod multi_hive;
+pub mod enterprise;
 
 pub use specialist::{Specialist, SpecialistId, SpecialistConfig, SpecialistRegistry, SpecialistContext, Decision, DelegateRequest, Conflict, ProposedAction, SystemResources, UserState, ExecutionStatus, ExecutionResult, ProposalPriority};
 pub use sentinel::{Sentinel, SentinelConfig, ArbitrationResult};
@@ -51,6 +52,15 @@ pub use multi_hive::{
     HiveCluster, HiveNode, ClusterConfig, P2PNetwork, PeerMessage, MessageType,
     GossipMessage, ConsensusEngine, GradientUpdate, ModelMerger, FederatedLearningEngine,
     RemoteSpecialist, DistributedSpecialistRegistry, MultihiveFederation,
+};
+pub use enterprise::{
+    AuditLog, AuditEvent, AuditLevel, AuditQuery,
+    ComplianceMonitor, ComplianceRule, ComplianceStatus,
+    SecurityConfig, TLSConfig, DataEncryption,
+    RateLimiter, QuotaLimit,
+    AccessControl, Role, Permission, AuthToken,
+    Analytics, AnalyticsEvent,
+    EnterpriseContext,
 };
 
 #[cfg(test)]
