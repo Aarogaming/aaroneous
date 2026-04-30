@@ -11,5 +11,7 @@
 /// with its own GGUF model, relics, and capabilities.
 
 pub mod visionary;
+pub mod omnipresent;
 
 pub use visionary::Visionary;
+pub use omnipresent::Omnipresent;
