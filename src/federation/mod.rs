@@ -35,6 +35,7 @@ pub mod ar;
 pub mod learn_persist;
 pub mod host;
 pub mod hive;
+pub mod http;
 
 pub use specialist::{Specialist, SpecialistId, SpecialistConfig, SpecialistRegistry, SpecialistContext, Decision, DelegateRequest, Conflict, ProposedAction, SystemResources, UserState, ExecutionStatus, ExecutionResult, ProposalPriority};
 pub use sentinel::{Sentinel, SentinelConfig, ArbitrationResult};
@@ -83,6 +84,7 @@ pub use hive::{
     Federation, FederationBuilder, FederationConfig, FederationErrors,
     LearningSummary, SpecialistLearningSummary,
 };
+pub use http::{HttpStatusServer, HttpServerError};
 
 #[cfg(test)]
 mod tests;

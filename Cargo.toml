@@ -69,3 +69,11 @@ futures = { version = "0.3", optional = true }
 # build time. The runtime is queried via the standard OpenXR loader on
 # the system, returning errors gracefully if no runtime is installed.
 openxr = { version = "0.21", optional = true }
+
+[dev-dependencies]
+# tower: in-process axum router testing via ServiceExt::oneshot.
+# Already in the tree transitively via axum, but declaring it explicitly
+# documents the dependency.
+tower = { version = "0.5", features = ["util"] }
+# http-body-util: helpers for collecting axum response bodies in tests
+http-body-util = "0.1"
