@@ -79,7 +79,10 @@ pub use learn_persist::{
     save_learning, load_learning,
 };
 pub use host::{SpecialistHost, HostConfig, HostState, HostError, HostableSpecialist};
-pub use hive::{Federation, FederationBuilder, FederationConfig, FederationErrors};
+pub use hive::{
+    Federation, FederationBuilder, FederationConfig, FederationErrors,
+    LearningSummary, SpecialistLearningSummary,
+};
 
 #[cfg(test)]
 mod tests;

@@ -333,6 +333,175 @@ impl Federation {
         terminator.await;
         self.shutdown_all().await
     }
+
+    // --------------------------------------------------------------
+    // Diagnostics
+    // --------------------------------------------------------------
+
+    /// Take a read-only snapshot of every configured specialist's learning
+    /// state.
+    ///
+    /// This locks each specialist's `learning` Mutex briefly to copy the
+    /// counters out, then releases. No SQL I/O happens - this reads from
+    /// in-memory state only. Cheap to call frequently for status/HTTP/CLI
+    /// endpoints.
+    ///
+    /// Specialists not configured in this federation appear as `None` in
+    /// the corresponding field. Specialists that are configured but never
+    /// loaded/trained (e.g., right after `Federation::builder().with_*()`
+    /// before `start_all()`) appear as `Some(neutral_summary)`.
+    pub fn learning_summary(&self) -> LearningSummary {
+        // Helper closure: bind the Arc<Specialist> first so the lock guard's
+        // referent (the Mutex) outlives the borrow. `h.specialist()` returns
+        // an Arc by value; binding it to `arc` keeps it alive across the lock.
+        LearningSummary {
+            visionary: self.visionary.as_ref().map(|h| {
+                let arc = h.specialist();
+                let l = arc.learning.lock();
+                SpecialistLearningSummary::from_data(
+                    l.success_count,
+                    l.failure_count,
+                    l.total_executions,
+                    l.confidence_score,
+                    l.execution_history.len(),
+                    l.last_updated,
+                )
+            }),
+            omnipresent: self.omnipresent.as_ref().map(|h| {
+                let arc = h.specialist();
+                let l = arc.learning.lock();
+                SpecialistLearningSummary::from_data(
+                    l.success_count,
+                    l.failure_count,
+                    l.total_executions,
+                    l.confidence_score,
+                    l.execution_history.len(),
+                    l.last_updated,
+                )
+            }),
+            symbiotic: self.symbiotic.as_ref().map(|h| {
+                let arc = h.specialist();
+                let l = arc.learning.lock();
+                SpecialistLearningSummary::from_data(
+                    l.success_count,
+                    l.failure_count,
+                    l.total_executions,
+                    l.confidence_score,
+                    l.execution_history.len(),
+                    l.last_updated,
+                )
+            }),
+            phygital: self.phygital.as_ref().map(|h| {
+                let arc = h.specialist();
+                let l = arc.learning.lock();
+                SpecialistLearningSummary::from_data(
+                    l.success_count,
+                    l.failure_count,
+                    l.total_executions,
+                    l.confidence_score,
+                    l.execution_history.len(),
+                    l.last_updated,
+                )
+            }),
+            archivist: self.archivist.as_ref().map(|h| {
+                let arc = h.specialist();
+                let l = arc.learning.lock();
+                SpecialistLearningSummary::from_data(
+                    l.success_count,
+                    l.failure_count,
+                    l.total_executions,
+                    l.confidence_score,
+                    l.execution_history.len(),
+                    l.last_updated,
+                )
+            }),
+        }
+    }
+}
+
+/// Read-only summary of one specialist's learning state.
+///
+/// Returned as part of `LearningSummary` from `Federation::learning_summary()`.
+/// Cheap to construct (just integers) and `serde`-friendly so it can be
+/// emitted as JSON for HTTP status endpoints.
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct SpecialistLearningSummary {
+    pub success_count: u32,
+    pub failure_count: u32,
+    pub total_executions: u32,
+    pub confidence_score: f32,
+    /// How many recent outcomes are in the rolling history (always <= 20)
+    pub history_len: usize,
+    /// Unix seconds of last record_result, or 0 if never recorded
+    pub last_updated: u64,
+}
+
+impl SpecialistLearningSummary {
+    fn from_data(
+        success_count: u32,
+        failure_count: u32,
+        total_executions: u32,
+        confidence_score: f32,
+        history_len: usize,
+        last_updated: u64,
+    ) -> Self {
+        Self {
+            success_count,
+            failure_count,
+            total_executions,
+            confidence_score,
+            history_len,
+            last_updated,
+        }
+    }
+
+    /// Success rate as a percentage 0.0..=100.0. Returns 0.0 if no executions.
+    pub fn success_rate_percent(&self) -> f32 {
+        if self.total_executions == 0 {
+            0.0
+        } else {
+            (self.success_count as f32 / self.total_executions as f32) * 100.0
+        }
+    }
+}
+
+/// Snapshot of every configured specialist's learning state.
+///
+/// Returned by `Federation::learning_summary()`. Specialists not configured
+/// in the federation appear as `None`.
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct LearningSummary {
+    pub visionary: Option<SpecialistLearningSummary>,
+    pub omnipresent: Option<SpecialistLearningSummary>,
+    pub symbiotic: Option<SpecialistLearningSummary>,
+    pub phygital: Option<SpecialistLearningSummary>,
+    pub archivist: Option<SpecialistLearningSummary>,
+}
+
+impl LearningSummary {
+    /// Iterate over (specialist_name, summary) pairs for every present specialist.
+    /// Useful for printing in tabular form.
+    pub fn iter(&self) -> impl Iterator<Item = (&'static str, &SpecialistLearningSummary)> {
+        [
+            ("Visionary", self.visionary.as_ref()),
+            ("Omnipresent", self.omnipresent.as_ref()),
+            ("Symbiotic", self.symbiotic.as_ref()),
+            ("Phygital", self.phygital.as_ref()),
+            ("Archivist", self.archivist.as_ref()),
+        ]
+        .into_iter()
+        .filter_map(|(name, opt)| opt.map(|s| (name, s)))
+    }
+
+    /// Sum total_executions across all configured specialists
+    pub fn total_executions(&self) -> u32 {
+        self.iter().map(|(_, s)| s.total_executions).sum()
+    }
+
+    /// Sum success_count across all configured specialists
+    pub fn total_successes(&self) -> u32 {
+        self.iter().map(|(_, s)| s.success_count).sum()
+    }
 }
 
 // Internal constructor used by the builder

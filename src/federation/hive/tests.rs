@@ -550,4 +550,173 @@ mod tests {
             }
         }
     }
+
+    // ===============================================================
+    // learning_summary diagnostic
+    // ===============================================================
+
+    #[tokio::test]
+    async fn test_summary_for_empty_federation_is_all_none() {
+        let fed = Federation::builder(fresh_pm()).build();
+        let s = fed.learning_summary();
+        assert!(s.visionary.is_none());
+        assert!(s.omnipresent.is_none());
+        assert!(s.symbiotic.is_none());
+        assert!(s.phygital.is_none());
+        assert!(s.archivist.is_none());
+        assert_eq!(s.iter().count(), 0);
+    }
+
+    #[tokio::test]
+    async fn test_summary_neutral_for_fresh_federation() {
+        let fed = Federation::builder(fresh_pm()).with_visionary().build();
+        let s = fed.learning_summary();
+
+        let v = s.visionary.expect("visionary configured");
+        assert_eq!(v.success_count, 0);
+        assert_eq!(v.failure_count, 0);
+        assert_eq!(v.total_executions, 0);
+        assert_eq!(v.confidence_score, 0.5);
+        assert_eq!(v.history_len, 0);
+        assert_eq!(v.success_rate_percent(), 0.0);
+
+        // Other specialists not configured
+        assert!(s.omnipresent.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_summary_reflects_executions() {
+        let fed = Federation::builder(fresh_pm())
+            .with_visionary()
+            .with_archivist()
+            .build();
+        fed.start_all().await.unwrap();
+
+        // Train Visionary 3x, Archivist 1x
+        for i in 0..3 {
+            fed.visionary().unwrap()
+                .execute(&make_decision(SpecialistId::Visionary, i))
+                .await
+                .unwrap();
+        }
+        fed.archivist().unwrap()
+            .execute(&make_decision(SpecialistId::Archivist, 0))
+            .await
+            .unwrap();
+
+        let s = fed.learning_summary();
+
+        let v = s.visionary.as_ref().expect("visionary present");
+        assert_eq!(v.total_executions, 3);
+        assert_eq!(v.success_count, 3);
+        assert_eq!(v.history_len, 3);
+        assert!((v.success_rate_percent() - 100.0).abs() < 0.01);
+
+        let a = s.archivist.as_ref().expect("archivist present");
+        assert_eq!(a.total_executions, 1);
+
+        // Aggregate methods
+        assert_eq!(s.total_executions(), 4);
+        assert_eq!(s.total_successes(), 4);
+
+        fed.shutdown_all().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_summary_iter_returns_only_present_specialists() {
+        let fed = Federation::builder(fresh_pm())
+            .with_visionary()
+            .with_phygital()
+            .build();
+        let s = fed.learning_summary();
+        let names: Vec<&str> = s.iter().map(|(n, _)| n).collect();
+        assert_eq!(names.len(), 2);
+        assert!(names.contains(&"Visionary"));
+        assert!(names.contains(&"Phygital"));
+    }
+
+    #[tokio::test]
+    async fn test_summary_serializes_to_json() {
+        // Verify the diagnostic snapshot is serde-friendly for HTTP/CLI emission
+        let fed = Federation::builder(fresh_pm()).with_visionary().build();
+        let s = fed.learning_summary();
+        let json = serde_json::to_string(&s).expect("LearningSummary should serialize");
+        assert!(json.contains("visionary"));
+        assert!(json.contains("omnipresent"));
+
+        // Round-trip back
+        let recovered: LearningSummary = serde_json::from_str(&json).unwrap();
+        assert_eq!(recovered, s);
+    }
+
+    #[tokio::test]
+    async fn test_summary_after_restart_reflects_loaded_state() {
+        // Real-file persistence so we can verify restart recovery via the
+        // diagnostic surface (not just the raw learning Mutex).
+        let tmp_path = std::env::temp_dir().join(format!(
+            "aaroneous-summary-{}.db",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let tmp_path_str = tmp_path.to_string_lossy().to_string();
+
+        // Generation 1: train + save
+        {
+            let pm = PersistenceManager::new(&tmp_path_str).unwrap();
+            let fed = Federation::builder(pm).with_omnipresent().build();
+            fed.start_all().await.unwrap();
+            for i in 0..5 {
+                fed.omnipresent().unwrap()
+                    .execute(&make_decision(SpecialistId::Omnipresent, i))
+                    .await
+                    .unwrap();
+            }
+            fed.shutdown_all().await.unwrap();
+        }
+
+        // Generation 2: reload and verify summary
+        {
+            let pm = PersistenceManager::new(&tmp_path_str).unwrap();
+            let fed = Federation::builder(pm).with_omnipresent().build();
+
+            // Pre-start: summary shows neutral
+            let pre = fed.learning_summary();
+            assert_eq!(pre.omnipresent.unwrap().total_executions, 0);
+
+            fed.start_all().await.unwrap();
+
+            // Post-start: summary shows recovered state
+            let post = fed.learning_summary();
+            assert_eq!(post.omnipresent.unwrap().total_executions, 5);
+
+            fed.shutdown_all().await.unwrap();
+        }
+
+        let _ = std::fs::remove_file(&tmp_path);
+    }
+
+    #[test]
+    fn test_specialist_summary_success_rate_calculation() {
+        let s = SpecialistLearningSummary {
+            success_count: 7,
+            failure_count: 3,
+            total_executions: 10,
+            confidence_score: 0.7,
+            history_len: 10,
+            last_updated: 100,
+        };
+        assert!((s.success_rate_percent() - 70.0).abs() < 0.01);
+
+        let zero = SpecialistLearningSummary {
+            success_count: 0,
+            failure_count: 0,
+            total_executions: 0,
+            confidence_score: 0.5,
+            history_len: 0,
+            last_updated: 0,
+        };
+        assert_eq!(zero.success_rate_percent(), 0.0); // no /0 panic
+    }
 }
