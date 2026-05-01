@@ -54,6 +54,8 @@ pub use config::FederationConfig;
 use crate::federation::host::{HostError, SharedPersistence, SpecialistHost};
 use crate::federation::specialists::{Archivist, Omnipresent, Phygital, Symbiotic, Visionary};
 use crate::federation::intent::Intent;
+use crate::federation::session::SessionManager;
+use crate::federation::specialist::ExecutionResult;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::{Mutex, RwLock};
@@ -111,6 +113,9 @@ pub struct Federation {
 
     /// Shutdown signal for the Sentinel arbitration loop
     sentinel_shutdown: Arc<tokio::sync::Notify>,
+
+    /// Session registry: user identity and per-session history.
+    pub sessions: Arc<RwLock<SessionManager>>,
 }
 
 impl Federation {
@@ -546,6 +551,7 @@ impl Federation {
             results: Arc::new(Mutex::new(Vec::new())),
             sentinel: Arc::new(RwLock::new(None)),
             sentinel_shutdown: Arc::new(tokio::sync::Notify::new()),
+            sessions: Arc::new(RwLock::new(SessionManager::new())),
         }
     }
 }
@@ -555,11 +561,7 @@ impl Federation {
     /// Submit a new user intent to the federation.
     ///
     /// Sets the active intent, then immediately runs one proposal collection
-    /// cycle: all configured specialists evaluate the new intent via their
-    /// `propose()` methods, and their proposals are submitted to the
-    /// `CommunicationBus` so the Sentinel loop can arbitrate on the next tick.
-    ///
-    /// Returns the intent ID for tracking.
+    /// cycle. Returns the intent ID for tracking.
     pub async fn submit_intent(&self, intent: Intent) -> String {
         let id = intent.id.clone();
         info!("Federation: new intent submitted: '{}' ({})", intent.content, id);
@@ -567,6 +569,74 @@ impl Federation {
         // Trigger immediate proposal collection
         self.collect_proposals().await;
         id
+    }
+
+    /// Submit an intent associated with a specific session.
+    ///
+    /// The intent is recorded on the session's history, tagged with the
+    /// session and user IDs, and forwarded to the federation pipeline.
+    /// Returns `(session_id, intent_id)`.
+    pub async fn submit_intent_for_session(
+        &self,
+        session_id: &str,
+        intent: Intent,
+    ) -> Result<(String, String), String> {
+        let mut sessions = self.sessions.write().await;
+        let session = sessions
+            .get_mut(session_id)
+            .ok_or_else(|| format!("Session '{}' not found", session_id))?;
+        let added = session.add_intent(intent);
+        let intent_id = added.id.clone();
+        let full_intent = added.clone();
+        drop(sessions);
+
+        // Route through the federation pipeline
+        *self.active_intent.write().await = Some(full_intent);
+        self.collect_proposals().await;
+
+        Ok((session_id.to_string(), intent_id))
+    }
+
+    /// Record a result back to the originating session (if any).
+    /// The session is inferred from the result's proposal_id prefix.
+    async fn route_result_to_session(&self, result: &ExecutionResult) {
+        let sessions = self.sessions.read().await;
+        // Find the session that owns the active intent
+        if let Some(intent) = self.active_intent.read().await.as_ref() {
+            let session_id = intent.context.get("session_id").cloned();
+            drop(sessions);
+            if let Some(sid) = session_id {
+                let mut sessions = self.sessions.write().await;
+                if let Some(session) = sessions.get_mut(&sid) {
+                    session.add_result(result.clone());
+                }
+            }
+        }
+    }
+
+    /// Create a new session. Returns the session ID.
+    pub async fn create_session(
+        &self,
+        user_name: impl Into<String>,
+        device_id: Option<&str>,
+    ) -> String {
+        self.sessions
+            .write()
+            .await
+            .create_session(user_name, device_id)
+    }
+
+    /// Get a snapshot of a session's state (clone for HTTP serving).
+    pub async fn get_session(
+        &self,
+        session_id: &str,
+    ) -> Option<crate::federation::session::Session> {
+        self.sessions.read().await.get(session_id).cloned()
+    }
+
+    /// List all active sessions.
+    pub async fn active_sessions(&self) -> Vec<crate::federation::session::Session> {
+        self.sessions.read().await.active_sessions().into_iter().cloned().collect()
     }
 
     /// Collect proposals from all configured specialists and submit them to

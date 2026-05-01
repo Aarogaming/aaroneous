@@ -530,15 +530,44 @@ impl Specialist for Phygital {
             .map(|d| format!("{:?}", d))
             .unwrap_or_else(|| "Mobile".to_string());
 
-        let output = format!(
-            "Rendered {} prototypes on {} at {:.0} FPS",
-            prototype_count,
-            device,
-            self.frame_state_history
-                .last()
-                .map(|f| f.frame_rate)
-                .unwrap_or(60)
-        );
+        let frame_rate = self.frame_state_history
+            .last()
+            .map(|f| f.frame_rate)
+            .unwrap_or(60);
+
+        // Build a structured anchor manifest — spatial anchors for each prototype
+        let anchor_manifest: Vec<serde_json::Value> = self.prototypes.values()
+            .map(|proto| serde_json::json!({
+                "prototype_id": proto.id,
+                "design_variant": proto.design_variant_id,
+                "landmark": proto.landmark_id,
+                "model": proto.model_path,
+                "scale": proto.scale,
+                "rotation_deg": proto.rotation_degrees,
+                "visibility_pct": proto.visibility_percent,
+                "device": device,
+                "frame_rate": frame_rate,
+                "ar_available": self.can_render_ar(),
+                "has_runtime": self.has_runtime(),
+            }))
+            .collect();
+
+        let output = if anchor_manifest.is_empty() {
+            format!(
+                "No prototypes to render on {} (AR: {})",
+                device,
+                if self.can_render_ar() { "available" } else { "unavailable" }
+            )
+        } else {
+            format!(
+                "Rendered {} AR prototype(s) on {} at {} FPS. Anchors: {}",
+                prototype_count,
+                device,
+                frame_rate,
+                serde_json::to_string(&anchor_manifest)
+                    .unwrap_or_else(|_| format!("[{} anchors]", prototype_count))
+            )
+        };
 
         let result = ExecutionResult {
             specialist: SpecialistId::Phygital,

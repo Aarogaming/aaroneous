@@ -44,6 +44,10 @@ pub fn router(state: AppState) -> Router {
         .route("/intent", get(get_intent).post(submit_intent))
         // Execution results: read recent outputs from specialist executions
         .route("/results", get(get_results))
+        // Session management: create a session, get session details
+        .route("/sessions", get(list_sessions).post(create_session))
+        .route("/sessions/:id", get(get_session_by_id))
+        .route("/sessions/:id/intent", post(submit_session_intent))
         .with_state(state)
 }
 
@@ -247,4 +251,139 @@ async fn get_results(State(state): State<AppState>) -> Json<serde_json::Value> {
             "error": r.error,
         })).collect::<Vec<_>>(),
     }))
+}
+
+// ====================================================================
+// Session endpoints
+// ====================================================================
+
+fn session_to_json(s: &crate::federation::session::Session) -> serde_json::Value {
+    serde_json::json!({
+        "id": s.id,
+        "user_id": s.user_id,
+        "user_name": s.user_name,
+        "device_id": s.device_id,
+        "state": format!("{:?}", s.state),
+        "intent_count": s.intents.len(),
+        "result_count": s.results.len(),
+        "current_intent": s.current_intent().map(|i| serde_json::json!({
+            "id": i.id,
+            "content": i.content,
+            "status": format!("{:?}", i.status),
+        })),
+        "pending_intent_count": s.pending_intents().len(),
+        "age_seconds": s.age_seconds(),
+        "idle_seconds": s.idle_seconds(),
+        "started_at": s.started_at,
+        "last_active": s.last_active,
+    })
+}
+
+/// GET /sessions — list all active sessions
+async fn list_sessions(State(state): State<AppState>) -> Json<serde_json::Value> {
+    let sessions = state.federation.active_sessions().await;
+    Json(serde_json::json!({
+        "count": sessions.len(),
+        "sessions": sessions.iter().map(session_to_json).collect::<Vec<_>>(),
+    }))
+}
+
+/// Request body for POST /sessions
+#[derive(Deserialize)]
+struct CreateSessionRequest {
+    user_name: String,
+    #[serde(default)]
+    device_id: Option<String>,
+}
+
+/// POST /sessions — create a new user session
+async fn create_session(
+    State(state): State<AppState>,
+    Json(req): Json<CreateSessionRequest>,
+) -> impl IntoResponse {
+    let session_id = state
+        .federation
+        .create_session(req.user_name.clone(), req.device_id.as_deref())
+        .await;
+
+    (
+        StatusCode::CREATED,
+        Json(serde_json::json!({
+            "session_id": session_id,
+            "user_name": req.user_name,
+            "message": "Session created",
+        })),
+    )
+}
+
+/// GET /sessions/:id — get session details
+async fn get_session_by_id(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+) -> impl IntoResponse {
+    match state.federation.get_session(&id).await {
+        Some(session) => Json(session_to_json(&session)).into_response(),
+        None => (
+            StatusCode::NOT_FOUND,
+            Json(serde_json::json!({"message": format!("Session '{}' not found", id)})),
+        )
+            .into_response(),
+    }
+}
+
+/// Request body for POST /sessions/:id/intent
+#[derive(Deserialize)]
+struct SessionIntentRequest {
+    content: String,
+    #[serde(default)]
+    priority: Option<String>,
+    #[serde(default)]
+    tags: Vec<String>,
+}
+
+/// POST /sessions/:id/intent — submit an intent for a specific session
+///
+/// This is the preferred way to submit intents: associates the intent with
+/// a user session for tracking and results routing.
+async fn submit_session_intent(
+    State(state): State<AppState>,
+    Path(session_id): Path<String>,
+    Json(req): Json<SessionIntentRequest>,
+) -> impl IntoResponse {
+    use crate::federation::intent::{Intent, IntentPriority, IntentSource};
+
+    let priority = match req.priority.as_deref() {
+        Some("High") | Some("high") => IntentPriority::High,
+        Some("Critical") | Some("critical") => IntentPriority::Critical,
+        Some("Background") | Some("background") => IntentPriority::Background,
+        _ => IntentPriority::Normal,
+    };
+
+    let mut intent = Intent::new(req.content)
+        .with_priority(priority)
+        .with_source(IntentSource::Api);
+    for tag in req.tags {
+        intent = intent.with_tag(tag);
+    }
+
+    match state
+        .federation
+        .submit_intent_for_session(&session_id, intent)
+        .await
+    {
+        Ok((sid, intent_id)) => (
+            StatusCode::CREATED,
+            Json(serde_json::json!({
+                "session_id": sid,
+                "intent_id": intent_id,
+                "message": "Intent submitted for session",
+            })),
+        )
+            .into_response(),
+        Err(e) => (
+            StatusCode::NOT_FOUND,
+            Json(serde_json::json!({"message": e})),
+        )
+            .into_response(),
+    }
 }

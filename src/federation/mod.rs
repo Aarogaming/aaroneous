@@ -30,6 +30,7 @@ pub mod optimization;
 pub mod multi_hive;
 pub mod enterprise;
 pub mod intent;
+pub mod session;
 pub mod p2p;
 pub mod biometric;
 pub mod ar;
@@ -89,6 +90,7 @@ pub use hive::{
 pub use intent::{
     Intent, IntentPriority, IntentStatus, IntentSource, IntentScaling, IntentResult,
 };
+pub use session::{Session, SessionState, SessionManager};
 pub use http::{HttpStatusServer, HttpServerError};
 pub use tasks::{BackgroundTaskHandle, OmnipresentRecvTask, SymbioticBleTask, OmnipresentDrainTask, SymbioticDrainTask};
 

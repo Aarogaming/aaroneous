@@ -541,9 +541,23 @@ impl Symbiotic {
         }
     }
 
-    /// Get Intent scaling recommendation
+    /// Get Intent scaling recommendation.
+    ///
+    /// Uses the most up-to-date biometric state available:
+    /// - If `drain_state.current_state.last_update > self.current_state.last_update`,
+    ///   the drain state (updated by `drain_bio_inbox_shared`) takes precedence.
+    /// - Otherwise the main `current_state` field is used.
     pub fn get_intent_scaling(&self) -> IntentScaling {
-        let state = &self.current_state;
+        // Use drain_state if it has fresher data (from real BLE samples)
+        let drain = self.drain_state.lock();
+        let state = if drain.current_state.last_update > self.current_state.last_update {
+            &drain.current_state
+        } else {
+            &self.current_state
+        };
+        // Safety: drain guard keeps state alive for this call; no await in scope
+        let state = unsafe { &*(state as *const UserBiometricState) };
+        drop(drain);
 
         let (proposal_delay, max_duration, focus_mode, allow_interrupt, confidence) = match state.stress_level {
             s if s > 0.8 => {
