@@ -1,7 +1,8 @@
 # Build artifacts (all target directories, including nested ones in enzymes/)
 target/
 **/target/
-Cargo.lock
+# Cargo.lock is intentionally committed for binary crates (reproducible builds)
+# See: https://doc.rust-lang.org/cargo/faq.html#why-do-binaries-have-cargolock-in-version-control
 
 # Model files (use Git LFS or download separately)
 *.gguf

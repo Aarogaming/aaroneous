@@ -469,108 +469,162 @@ impl Specialist for Phygital {
         self.id
     }
 
-    /// Propose rendering when GPU available and landmarks detected
-    async fn propose(&self, _context: &SpecialistContext) -> Result<Vec<ProposedAction>, SpecialistError> {
-        let frame = self.frame_state_history.last();
+    /// Propose AR rendering when the intent has a spatial/visual component.
+    ///
+    /// Unlike the previous implementation that required `prototypes` to be
+    /// pre-populated externally, this version reads the active intent from
+    /// `context.user_state.activity` and proposes rendering when:
+    /// 1. The intent contains spatial/design keywords, OR
+    /// 2. Pre-populated prototypes are already available
+    ///
+    /// When the proposal is accepted, `execute()` synthesizes a prototype
+    /// from the intent content so Phygital can participate even on a fresh
+    /// hive without explicit prototype setup.
+    async fn propose(&self, context: &SpecialistContext) -> Result<Vec<ProposedAction>, SpecialistError> {
+        let activity = &context.user_state.activity;
 
-        if frame.is_none() || !self.can_render_ar() || self.prototypes.is_empty() {
+        // Determine if the intent is spatial/design-relevant
+        let is_spatial_intent = {
+            let lower = activity.to_lowercase();
+            lower.contains("design") || lower.contains("render") || lower.contains("ar ")
+            || lower.contains("spatial") || lower.contains("visuali") || lower.contains("prototype")
+            || lower.contains("layout") || lower.contains("ui") || lower.contains("dashboard")
+            || lower.contains("display") || lower.contains("3d") || lower.contains("view")
+        };
+
+        let has_prototypes = !self.prototypes.is_empty();
+
+        // Propose if: intent is spatial/design-relevant OR prototypes already exist
+        // Skip if: activity is idle AND no prototypes
+        if activity == "idle" && !has_prototypes {
+            return Ok(vec![]);
+        }
+        if !is_spatial_intent && !has_prototypes {
             return Ok(vec![]);
         }
 
-        let frame_state = frame.unwrap();
-        if !frame_state.ar_available {
-            return Ok(vec![]);
-        }
-
-        let device = frame_state
-            .device
-            .as_ref()
+        // Determine device and confidence
+        let device = self.frame_state_history.last()
+            .and_then(|f| f.device.as_ref())
             .map(|d| format!("{:?}", d))
             .unwrap_or_else(|| "Mobile".to_string());
 
-        let base_confidence = 0.8 + (self.gpu_headroom_percent / 100.0) * 0.2;
+        let ar_available = self.frame_state_history.last()
+            .map(|f| f.ar_available)
+            .unwrap_or(false); // can still propose even without AR hw (will simulate)
 
-        // Get learned confidence from history
-        let learning = self.learning.lock();
-        let learned_confidence = learning.get_proposal_confidence();
-        drop(learning);
+        // GPU headroom check: require at least 10% headroom to propose
+        if self.gpu_headroom_percent < 10.0 && !ar_available {
+            return Ok(vec![]);
+        }
 
-        // Blend base confidence (70%) with learned confidence (30%)
-        let confidence = (base_confidence * 0.7) + (learned_confidence * 0.3);
+        let base_confidence = if ar_available {
+            0.8 + (self.gpu_headroom_percent / 100.0) * 0.2
+        } else {
+            // Lower confidence when no AR hardware detected
+            0.5 + (self.gpu_headroom_percent / 100.0) * 0.15
+        };
+
+        let learned_confidence = {
+            let l = self.learning.lock();
+            l.get_proposal_confidence()
+        };
+        let confidence = (base_confidence * 0.7 + learned_confidence * 0.3).clamp(0.0, 1.0);
+
+        let proto_label = if has_prototypes {
+            format!("{} existing prototype(s)", self.prototypes.len())
+        } else {
+            format!("intent: '{}'", activity.chars().take(40).collect::<String>())
+        };
 
         Ok(vec![ProposedAction {
             id: format!("phygital-render-{}", uuid()),
             specialist: SpecialistId::Phygital,
             action_type: "render_prototype".to_string(),
             description: format!(
-                "Render {} prototypes on {} (GPU: {:.0}%, landmarks: {})",
-                self.prototypes.len(),
+                "Spatial render on {} — {} (GPU: {:.0}%{})",
                 device,
+                proto_label,
                 self.gpu_headroom_percent,
-                frame_state.detected_landmarks.len()
+                if ar_available { ", AR live" } else { ", simulated" }
             ),
             confidence,
             required_resources: ResourceRequest {
-                gpu_percent: self
-                    .detected_devices
-                    .first()
+                gpu_percent: self.detected_devices.first()
                     .map(|d| d.gpu_requirement_percent() / 100.0)
-                    .unwrap_or(0.3),
+                    .unwrap_or(0.25),
                 cpu_percent: 20.0,
                 memory_mb: 400,
                 duration_seconds: 60,
             },
-            priority: ProposalPriority::UserFacing,
-            tags: vec!["rendering".to_string(), "ar".to_string()],
+            priority: if ar_available { ProposalPriority::UserFacing } else { ProposalPriority::Normal },
+            tags: vec!["rendering".to_string(), "ar".to_string(), "spatial".to_string()],
         }])
     }
 
-    /// Execute AR rendering
+    /// Execute AR rendering.
+    ///
+    /// When no prototypes are pre-loaded, synthesizes a spatial anchor from
+    /// the intent in `decision.context["intent"]`, producing a structured
+    /// anchor manifest that downstream AR clients can consume.
     async fn execute(&self, decision: &Decision) -> Result<ExecutionResult, SpecialistError> {
-        let prototype_count = self.prototypes.len();
         let device = self
             .primary_device()
             .map(|d| format!("{:?}", d))
             .unwrap_or_else(|| "Mobile".to_string());
+        let frame_rate = self.frame_state_history.last()
+            .map(|f| f.frame_rate).unwrap_or(60);
+        let intent = decision.context.get("intent")
+            .cloned()
+            .unwrap_or_else(|| decision.action.clone());
 
-        let frame_rate = self.frame_state_history
-            .last()
-            .map(|f| f.frame_rate)
-            .unwrap_or(60);
-
-        // Build a structured anchor manifest — spatial anchors for each prototype
-        let anchor_manifest: Vec<serde_json::Value> = self.prototypes.values()
-            .map(|proto| serde_json::json!({
-                "prototype_id": proto.id,
-                "design_variant": proto.design_variant_id,
-                "landmark": proto.landmark_id,
-                "model": proto.model_path,
-                "scale": proto.scale,
-                "rotation_deg": proto.rotation_degrees,
-                "visibility_pct": proto.visibility_percent,
+        // Use pre-loaded prototypes if available; otherwise synthesize from intent
+        let anchor_manifest: Vec<serde_json::Value> = if !self.prototypes.is_empty() {
+            self.prototypes.values()
+                .map(|proto| serde_json::json!({
+                    "prototype_id": proto.id,
+                    "design_variant": proto.design_variant_id,
+                    "landmark": proto.landmark_id,
+                    "model": proto.model_path,
+                    "scale": proto.scale,
+                    "rotation_deg": proto.rotation_degrees,
+                    "visibility_pct": proto.visibility_percent,
+                    "device": device,
+                    "frame_rate": frame_rate,
+                    "ar_available": self.can_render_ar(),
+                    "has_runtime": self.has_runtime(),
+                    "source": "pre_loaded",
+                }))
+                .collect()
+        } else {
+            // Synthesize a spatial anchor from the intent
+            vec![serde_json::json!({
+                "prototype_id": format!("synth-{}", decision.proposal_id),
+                "design_variant": intent.chars().take(60).collect::<String>(),
+                "landmark": "default-space",
+                "model": format!("/models/synth-{}.glb", decision.proposal_id),
+                "scale": 1.0,
+                "rotation_deg": 0.0,
+                "visibility_pct": 100.0,
                 "device": device,
                 "frame_rate": frame_rate,
                 "ar_available": self.can_render_ar(),
                 "has_runtime": self.has_runtime(),
-            }))
-            .collect();
-
-        let output = if anchor_manifest.is_empty() {
-            format!(
-                "No prototypes to render on {} (AR: {})",
-                device,
-                if self.can_render_ar() { "available" } else { "unavailable" }
-            )
-        } else {
-            format!(
-                "Rendered {} AR prototype(s) on {} at {} FPS. Anchors: {}",
-                prototype_count,
-                device,
-                frame_rate,
-                serde_json::to_string(&anchor_manifest)
-                    .unwrap_or_else(|_| format!("[{} anchors]", prototype_count))
-            )
+                "source": "intent_derived",
+            })]
         };
+
+        let prototype_count = anchor_manifest.len();
+        let output = format!(
+            "Phygital: {} AR anchor(s) on {} at {}FPS for '{}'. {}. Anchors: {}",
+            prototype_count,
+            device,
+            frame_rate,
+            intent.chars().take(50).collect::<String>(),
+            if self.can_render_ar() { "AR hardware ready" } else { "Simulated render" },
+            serde_json::to_string(&anchor_manifest)
+                .unwrap_or_else(|_| format!("[{} anchors]", prototype_count))
+        );
 
         let result = ExecutionResult {
             specialist: SpecialistId::Phygital,

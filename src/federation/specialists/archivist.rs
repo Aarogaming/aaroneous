@@ -191,6 +191,11 @@ pub struct Archivist {
     /// persisted to the DNA Bank for pattern extraction across restarts.
     /// When `None`, events are only kept in-memory.
     pub dna_bank: Option<Arc<Mutex<crate::federation::dna_bank::DNABank>>>,
+    /// Atomic counter for total executions recorded via `execute()` (&self path).
+    /// Separate from `stats.total_events` (which requires &mut self via
+    /// `record_event()`), this allows `propose()` to detect whether the specialist
+    /// has been active without interior-mutability gymnastics on `stats`.
+    executions_seen: Arc<std::sync::atomic::AtomicU64>,
 }
 
 impl Archivist {
@@ -213,7 +218,13 @@ impl Archivist {
             consolidation_queue: vec![],
             learning: Arc::new(Mutex::new(ArchivistLearningData::new())),
             dna_bank: None,
+            executions_seen: Arc::new(std::sync::atomic::AtomicU64::new(0)),
         }
+    }
+
+    /// Total executions recorded since startup (incremented atomically by execute()).
+    pub fn executions_seen(&self) -> u64 {
+        self.executions_seen.load(std::sync::atomic::Ordering::Relaxed)
     }
 
     /// Attach a DNA Bank for durable event persistence.
@@ -369,8 +380,14 @@ impl Archivist {
             });
         }
 
+        // Use executions_seen() as the effective event count — it is incremented
+        // by execute() via an AtomicU64 so it works with &self, unlike
+        // stats.total_events which requires &mut self via record_event().
+        let effective_events = self.stats.total_events
+            .max(self.executions_seen() as usize);
+
         // Extract patterns regularly
-        if self.stats.total_events > 100 {
+        if effective_events > 100 {
             work.push(ConsolidationTask {
                 id: format!("patterns-{}", uuid()),
                 task_type: ConsolidationType::ExtractPatterns,
@@ -380,7 +397,7 @@ impl Archivist {
         }
 
         // Deduplicate if too many events
-        if self.stats.total_events > 10000 {
+        if effective_events > 10000 {
             work.push(ConsolidationTask {
                 id: format!("dedup-{}", uuid()),
                 task_type: ConsolidationType::DeduplicateEvents,
@@ -547,12 +564,19 @@ impl Specialist for Archivist {
             error: None,
         };
 
+        // Increment atomic execution counter so propose() can detect activity
+        // via executions_seen() without needing &mut self.
+        let total_seen = self.executions_seen.fetch_add(1, std::sync::atomic::Ordering::Relaxed) + 1;
+
         // Record execution result for learning
         let success = result.status == ExecutionStatus::Success;
         {
             let mut learning = self.learning.lock();
             learning.record_result(success);
         } // Lock released here
+
+        tracing::debug!("Archivist: {} executions seen (DNA Bank: {})",
+            total_seen, if self.dna_bank.is_some() { "attached" } else { "none" });
 
         // Record to DNA Bank if attached — this is the durable event log for
         // all Archivist executions, enabling pattern extraction on replay.

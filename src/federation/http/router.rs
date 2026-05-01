@@ -115,26 +115,48 @@ async fn status_one(
     let summary = state.federation.learning_summary();
     let kind_lc = kind.to_lowercase();
 
-    let entry = match kind_lc.as_str() {
-        "visionary" => summary.visionary,
-        "omnipresent" => summary.omnipresent,
-        "symbiotic" => summary.symbiotic,
-        "phygital" => summary.phygital,
-        "archivist" => summary.archivist,
-        _ => {
-            return Err((
-                StatusCode::NOT_FOUND,
-                format!("unknown specialist '{}'. Known: Visionary, Omnipresent, Symbiotic, Phygital, Archivist", kind),
-            ));
-        }
+    // Check core specialists first (case-insensitive)
+    let core_entry = match kind_lc.as_str() {
+        "visionary"   => Some(summary.visionary),
+        "omnipresent" => Some(summary.omnipresent),
+        "symbiotic"   => Some(summary.symbiotic),
+        "phygital"    => Some(summary.phygital),
+        "archivist"   => Some(summary.archivist),
+        _             => None,
     };
 
-    entry.map(Json).ok_or_else(|| {
-        (
+    if let Some(entry) = core_entry {
+        return entry.map(Json).ok_or_else(|| (
             StatusCode::NOT_FOUND,
             format!("specialist '{}' is known but not configured in this federation", kind),
-        )
-    })
+        ));
+    }
+
+    // Check dynamic (generic) specialists by name (case-insensitive)
+    let dynamic = state.federation.dynamic_specialists().await;
+    for s in &dynamic {
+        if s.name.to_lowercase() == kind_lc {
+            let l = s.learning.lock();
+            let summary = SpecialistLearningSummary {
+                success_count: l.success_count,
+                failure_count: l.failure_count,
+                total_executions: l.total_executions,
+                confidence_score: l.confidence_score,
+                history_len: l.execution_history.len(),
+                last_updated: l.last_updated,
+            };
+            return Ok(Json(summary));
+        }
+    }
+
+    Err((
+        StatusCode::NOT_FOUND,
+        format!(
+            "unknown specialist '{}'. Core: Visionary, Omnipresent, Symbiotic, Phygital, Archivist. Dynamic: {}",
+            kind,
+            dynamic.iter().map(|s| s.name.as_str()).collect::<Vec<_>>().join(", ")
+        ),
+    ))
 }
 
 // ====================================================================

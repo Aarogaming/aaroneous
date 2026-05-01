@@ -100,12 +100,22 @@ impl Session {
         self
     }
 
+    /// Maximum number of intents retained per session.
+    pub const MAX_INTENTS: usize = 500;
+    /// Maximum number of results retained per session (oldest evicted when exceeded).
+    pub const MAX_RESULTS: usize = 200;
+
     /// Record an intent submitted in this session.
     pub fn add_intent(&mut self, mut intent: Intent) -> &Intent {
         // Tag the intent with this session's context
         intent = intent.with_context("session_id", self.id.clone());
         intent = intent.with_context("user_id", self.user_id.clone());
         self.intents.push(intent);
+        // Evict oldest intents beyond the cap (keep most recent MAX_INTENTS)
+        if self.intents.len() > Self::MAX_INTENTS {
+            let excess = self.intents.len() - Self::MAX_INTENTS;
+            self.intents.drain(0..excess);
+        }
         self.touch();
         self.intents.last().unwrap()
     }
@@ -113,6 +123,11 @@ impl Session {
     /// Record an execution result for this session.
     pub fn add_result(&mut self, result: ExecutionResult) {
         self.results.push(result);
+        // Evict oldest results beyond the cap
+        if self.results.len() > Self::MAX_RESULTS {
+            let excess = self.results.len() - Self::MAX_RESULTS;
+            self.results.drain(0..excess);
+        }
         self.touch();
     }
 

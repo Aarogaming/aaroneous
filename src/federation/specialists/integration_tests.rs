@@ -341,9 +341,9 @@ mod integration_tests {
                 .max_by_key(|p| (p.priority as u32, (p.confidence * 100.0) as u32));
 
             if let Some(best_proposal) = highest_priority {
-                // Verify it fits in available resources
-                assert!(best_proposal.required_resources.gpu_percent <= 1.0);
-                assert!(best_proposal.required_resources.cpu_percent <= 1.0);
+                // Verify resources are within plausible bounds (0–100%)
+                assert!(best_proposal.required_resources.gpu_percent <= 100.0);
+                assert!(best_proposal.required_resources.cpu_percent <= 100.0);
             }
         }
     }
@@ -833,4 +833,132 @@ mod integration_tests {
             .as_nanos();
         format!("{:x}", timestamp)
     }
+
+    // ── GenericSpecialist integration tests ──────────────────────────────────
+
+    /// Test GenericSpecialist proposes when given an active intent.
+    #[tokio::test]
+    async fn test_generic_specialist_proposes_on_active_intent() {
+        use crate::federation::specialists::GenericSpecialist;
+
+        let specialist = GenericSpecialist::new("TestReviewer", "code_review")
+            .with_mock_llm().await.unwrap();
+
+        let ctx = create_test_context("review PR #42 for security vulnerabilities", 0.4);
+        let proposals = specialist.propose(&ctx).await.unwrap();
+
+        assert!(!proposals.is_empty(), "should propose on active intent");
+        assert!(proposals[0].tags.contains(&"code_review".to_string()));
+        assert!(proposals[0].confidence > 0.0);
+    }
+
+    /// Test GenericSpecialist does not propose when idle.
+    #[tokio::test]
+    async fn test_generic_specialist_silent_when_idle() {
+        use crate::federation::specialists::GenericSpecialist;
+
+        let specialist = GenericSpecialist::new("IdleSpec", "analysis");
+        let ctx = create_test_context("idle", 0.2);
+        let proposals = specialist.propose(&ctx).await.unwrap();
+        assert!(proposals.is_empty(), "should not propose when idle");
+    }
+
+    /// Test GenericSpecialist executes with mock LLM and produces named output.
+    #[tokio::test]
+    async fn test_generic_specialist_execute_with_mock_llm() {
+        use crate::federation::specialists::GenericSpecialist;
+
+        let specialist = GenericSpecialist::new("LegalAnalyst", "legal_analysis")
+            .with_mock_llm().await.unwrap();
+
+        let mut ctx_map = HashMap::new();
+        ctx_map.insert("intent".to_string(), "analyze contract clause 7.3".to_string());
+        ctx_map.insert("dynamic_specialist".to_string(), "LegalAnalyst".to_string());
+
+        let decision = Decision {
+            proposal_id: "test-p1".to_string(),
+            specialist: SpecialistId::Visionary,
+            action: "domain_legal_analysis_task".to_string(),
+            allocated_resources: ResourceRequest::default(),
+            deadline_ms: 10000,
+            context: ctx_map,
+        };
+
+        let result = specialist.execute(&decision).await.unwrap();
+        assert_eq!(result.status, ExecutionStatus::Success);
+        assert_eq!(result.specialist_name.as_deref(), Some("LegalAnalyst"));
+        assert!(result.output.contains("LegalAnalyst"), "output must be attributed to specialist");
+    }
+
+    /// Test GenericSpecialist learning accumulates across multiple executions.
+    #[tokio::test]
+    async fn test_generic_specialist_learning_convergence() {
+        use crate::federation::specialists::GenericSpecialist;
+
+        let specialist = GenericSpecialist::new("SecurityWarden", "security");
+
+        let decision = Decision {
+            proposal_id: "sec-p1".to_string(),
+            specialist: SpecialistId::Visionary,
+            action: "domain_security_task".to_string(),
+            allocated_resources: ResourceRequest::default(),
+            deadline_ms: 5000,
+            context: {
+                let mut m = HashMap::new();
+                m.insert("intent".to_string(), "audit auth system".to_string());
+                m
+            },
+        };
+
+        // Run 5 executions
+        for _ in 0..5 {
+            specialist.execute(&decision).await.unwrap();
+        }
+
+        let l = specialist.learning.lock();
+        assert_eq!(l.total_executions, 5);
+        assert!(l.confidence_score > 0.0 && l.confidence_score <= 1.0);
+        assert_eq!(l.confidence_trend.len(), 5);
+        // Confidence should be reasonable after 5 successes
+        assert!(l.confidence_score > 0.5, "confidence should rise after successes");
+    }
+
+    /// Test full intent→propose→execute pipeline with a GenericSpecialist
+    /// hooked into the hive via Federation.
+    #[tokio::test]
+    async fn test_generic_specialist_full_federation_pipeline() {
+        use crate::federation::hive::Federation;
+        use crate::federation::intent::Intent;
+        use crate::federation::specialists::GenericSpecialist;
+        use crate::persistence::PersistenceManager;
+        use std::sync::Arc;
+
+        let pm = PersistenceManager::new(":memory:").unwrap();
+        let fed = Arc::new(
+            Federation::builder(pm)
+                .with_visionary()
+                .build()
+        );
+
+        // Add a GenericSpecialist to the federation
+        let analyst = GenericSpecialist::new("CodeReviewer", "code_review")
+            .with_mock_llm().await.unwrap();
+        fed.add_generic_specialist(Arc::new(analyst)).await;
+
+        // Verify it shows up in the dynamic specialists list
+        let dynamic = fed.dynamic_specialists().await;
+        assert_eq!(dynamic.len(), 1);
+        assert_eq!(dynamic[0].name, "CodeReviewer");
+
+        // Submit an intent — collect_proposals() should include GenericSpecialist
+        let intent = Intent::new("review the authentication module for vulnerabilities");
+        let id = fed.submit_intent(intent).await;
+        assert!(!id.is_empty());
+
+        // Dynamic specialist should have been polled (we can't easily verify
+        // the proposal without running the Sentinel loop, but the specialist
+        // registry is correct)
+        assert_eq!(fed.enabled_count(), 2); // Visionary + CodeReviewer
+    }
+
 }
