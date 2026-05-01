@@ -58,22 +58,73 @@ impl GGUFProvider {
         PathBuf::from("./models/qwen-1.8b.gguf")
     }
 
+    /// Generate text from a prompt using the loaded GGUF model.
+    ///
+    /// # Feature gating
+    ///
+    /// - **With `llama-gguf` feature**: uses the pure-Rust `llama-gguf` crate
+    ///   for real model inference. No C library required. The inference runs
+    ///   on `tokio::task::spawn_blocking` since it's CPU-bound and synchronous.
+    ///
+    /// - **Without `llama-gguf` feature** (default): returns a structured mock
+    ///   response so the rest of the system continues to work without a model.
     async fn generate_text(&self, prompt: &str, max_tokens: u32) -> Result<String> {
-        debug!("Generating text with GGUF model");
+        #[cfg(feature = "llama-gguf")]
+        {
+            use llama_gguf::engine::{Engine, EngineConfig};
 
-        // NOTE: llama-cpp crate doesn't have async interface
-        // In production, wrap in tokio::task::spawn_blocking
-        // For now, this is synchronous
-        
-        // TODO: Implement actual llama.cpp inference
-        // This requires linking llama.cpp C library
-        // For MVP, we'll return mock response
-        
-        Ok(format!(
-            "GGUF Response: Analyzed prompt '{}' with {} max tokens",
-            &prompt[..50.min(prompt.len())],
-            max_tokens
-        ))
+            let model_path_str = self.model_path
+                .to_string_lossy()
+                .to_string();
+            let prompt_owned = prompt.to_string();
+            let max_tokens_usize = max_tokens as usize;
+
+            // llama-gguf inference is synchronous and CPU-bound.
+            // Run on the blocking threadpool so we don't block the tokio executor.
+            let result = tokio::task::spawn_blocking(move || -> Result<String> {
+                let config = EngineConfig {
+                    model_path: model_path_str,
+                    temperature: 0.7,
+                    top_p: 0.95,
+                    ..Default::default()
+                };
+
+                let engine = Engine::load(config)
+                    .map_err(|e| anyhow!("Engine::load failed: {:?}", e))?;
+
+                engine
+                    .generate(&prompt_owned, max_tokens_usize)
+                    .map_err(|e| anyhow!("generation failed: {:?}", e))
+            })
+            .await
+            .map_err(|e| anyhow!("spawn_blocking panicked: {}", e))??;
+
+            debug!(
+                "GGUF inference complete: {} chars generated",
+                result.len()
+            );
+            return Ok(result);
+        }
+
+        // Fallback when llama-gguf feature is not enabled
+        #[cfg(not(feature = "llama-gguf"))]
+        {
+            debug!(
+                "GGUF mock (no llama-gguf feature): '{}...' ({} max_tokens)",
+                &prompt[..50.min(prompt.len())],
+                max_tokens
+            );
+
+            // Return a structured response that downstream parsers can still
+            // extract JSON from when available, or identify as a mock.
+            Ok(format!(
+                "GGUF inference disabled (compile with --features llama-gguf \
+                 to enable real model inference). \
+                 Prompt summary: '{}'. Max tokens: {}.",
+                &prompt[..80.min(prompt.len())],
+                max_tokens
+            ))
+        }
     }
 
     fn build_task_analysis_prompt(&self, context: &TaskAnalysisContext) -> String {

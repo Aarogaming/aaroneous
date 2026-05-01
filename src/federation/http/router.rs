@@ -48,6 +48,8 @@ pub fn router(state: AppState) -> Router {
         .route("/sessions", get(list_sessions).post(create_session))
         .route("/sessions/:id", get(get_session_by_id))
         .route("/sessions/:id/intent", post(submit_session_intent))
+        // Multi-hive cluster status
+        .route("/cluster", get(cluster_status))
         .with_state(state)
 }
 
@@ -385,5 +387,47 @@ async fn submit_session_intent(
             Json(serde_json::json!({"message": e})),
         )
             .into_response(),
+    }
+}
+
+// ====================================================================
+// Multi-hive cluster endpoint
+// ====================================================================
+
+/// GET /cluster — multi-hive federation status
+///
+/// Returns the cluster nodes and their health if multi-hive is enabled,
+/// or a message indicating it's not configured.
+async fn cluster_status(State(state): State<AppState>) -> Json<serde_json::Value> {
+    let status = state.federation.cluster_status().await;
+
+    if status.is_empty() {
+        if state.federation.has_multi_hive().await {
+            Json(serde_json::json!({
+                "enabled": true,
+                "nodes": [],
+                "message": "Multi-hive enabled but no peers joined yet"
+            }))
+        } else {
+            Json(serde_json::json!({
+                "enabled": false,
+                "nodes": [],
+                "message": "Multi-hive not enabled. Enable via federation.enable_multi_hive()."
+            }))
+        }
+    } else {
+        let nodes: Vec<serde_json::Value> = status
+            .iter()
+            .map(|(id, s)| serde_json::json!({
+                "node_id": id,
+                "status": format!("{:?}", s),
+            }))
+            .collect();
+
+        Json(serde_json::json!({
+            "enabled": true,
+            "node_count": nodes.len(),
+            "nodes": nodes,
+        }))
     }
 }

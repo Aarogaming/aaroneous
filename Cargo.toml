@@ -15,9 +15,12 @@ ar-openxr = ["dep:openxr"]
 # Convenience: enable all real integrations
 real-integrations = ["p2p-iroh", "biometric-ble", "ar-openxr"]
 # Enable RocksDB-backed DNA Bank (replaces in-memory BTreeMap with disk storage)
-# Requires RocksDB native library (compiled from source on first build).
 # See: https://github.com/rust-rocksdb/rust-rocksdb
 rocksdb-dna = ["dep:rocksdb"]
+# Enable real GGUF inference via llama-gguf (pure Rust, no C deps).
+# Without this feature, GGUFProvider returns structured mock responses.
+# The llama-gguf crate handles .gguf file loading, tokenization, and inference.
+llama-gguf = ["dep:llama-gguf"]
 
 [dependencies]
 anyhow = "1.0.102"
@@ -75,6 +78,9 @@ futures = { version = "0.3", optional = true }
 openxr = { version = "0.21", optional = true }
 # RocksDB for DNA Bank disk persistence
 rocksdb = { version = "0.24", optional = true }
+# llama-gguf: pure Rust GGUF inference engine (no C dependencies, no bindgen)
+# Minimal feature set: just CPU inference without the server/CLI/huggingface overhead
+llama-gguf = { version = "0.14", optional = true, default-features = false }
 
 [dev-dependencies]
 # tower: in-process axum router testing via ServiceExt::oneshot.

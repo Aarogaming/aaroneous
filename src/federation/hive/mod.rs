@@ -116,6 +116,10 @@ pub struct Federation {
 
     /// Session registry: user identity and per-session history.
     pub sessions: Arc<RwLock<SessionManager>>,
+
+    /// Optional multi-hive federation context.
+    /// When enabled, this hive can coordinate with other Aaroneous instances.
+    pub multi_hive: Arc<RwLock<Option<crate::federation::multi_hive::MultihiveFederation>>>,
 }
 
 impl Federation {
@@ -552,7 +556,58 @@ impl Federation {
             sentinel: Arc::new(RwLock::new(None)),
             sentinel_shutdown: Arc::new(tokio::sync::Notify::new()),
             sessions: Arc::new(RwLock::new(SessionManager::new())),
+            multi_hive: Arc::new(RwLock::new(None)),
         }
+    }
+}
+
+// Multi-hive federation management
+impl Federation {
+    /// Enable multi-hive coordination with the given cluster configuration.
+    ///
+    /// After this call, this hive can join a distributed cluster, participate
+    /// in federated learning, and coordinate specialist work across multiple
+    /// Aaroneous instances on the same network.
+    pub async fn enable_multi_hive(
+        &self,
+        config: crate::federation::multi_hive::ClusterConfig,
+    ) {
+        use crate::federation::multi_hive::MultihiveFederation;
+        let mh = MultihiveFederation::new(config);
+        info!(
+            "Multi-hive federation enabled: node_id={}",
+            mh.cluster.config.node_id
+        );
+        *self.multi_hive.write().await = Some(mh);
+    }
+
+    /// Get the multi-hive cluster status.
+    pub async fn cluster_status(
+        &self,
+    ) -> Vec<(String, crate::federation::multi_hive::HiveNodeStatus)> {
+        if let Some(mh) = self.multi_hive.read().await.as_ref() {
+            mh.cluster_status()
+        } else {
+            vec![]
+        }
+    }
+
+    /// Join a remote hive node to the cluster.
+    pub async fn join_hive(
+        &self,
+        node: crate::federation::multi_hive::HiveNode,
+    ) -> Result<(), String> {
+        let mut guard = self.multi_hive.write().await;
+        if let Some(mh) = guard.as_mut() {
+            mh.join_hive(node)
+        } else {
+            Err("Multi-hive not enabled. Call enable_multi_hive() first.".to_string())
+        }
+    }
+
+    /// Whether multi-hive federation is enabled.
+    pub async fn has_multi_hive(&self) -> bool {
+        self.multi_hive.read().await.is_some()
     }
 }
 
