@@ -181,31 +181,65 @@ fn convert_event(event: notify::Event) -> FileEvent {
     }
 }
 
-/// Process file events (route to appropriate specialists)
+/// Process file events by routing them to the ingestion system.
+///
+/// This function wires the file-watcher output to the `InboxSystem` so that
+/// files dropped into the inbox folder are automatically ingested.
+///
+/// Pass `inbox_system: None` to disable automatic routing (useful when the
+/// runtime hasn't been fully initialized yet).
 pub async fn process_file_event(
     event: FileEvent,
     inbox_path: &Path,
+    inbox_system: Option<&crate::inbox_system::InboxSystem>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     match event {
         FileEvent::Created(path) => {
             if path.starts_with(inbox_path) && path.is_file() {
-                info!("New file detected: {}", path.display());
-                // TODO: Route to ingestion system
+                info!("New inbox file: {}", path.display());
+                if let Some(system) = inbox_system {
+                    match system.ingest_file(&path).await {
+                        Ok(result) => info!(
+                            "Ingested '{}' → {:?}",
+                            path.file_name().unwrap_or_default().to_string_lossy(),
+                            result.status
+                        ),
+                        Err(e) => warn!("Ingestion failed for '{}': {}", path.display(), e),
+                    }
+                }
             }
         }
         FileEvent::Modified(path) => {
             if path.starts_with(inbox_path) && path.is_file() {
-                info!("File modified: {}", path.display());
-                // TODO: Update ingestion status
+                // Modified files in the inbox are treated as updated inputs —
+                // trigger re-ingestion so the latest content is processed.
+                info!("Inbox file modified (re-ingesting): {}", path.display());
+                if let Some(system) = inbox_system {
+                    if let Err(e) = system.ingest_file(&path).await {
+                        warn!("Re-ingestion failed for '{}': {}", path.display(), e);
+                    }
+                }
             }
         }
         FileEvent::Removed(path) => {
-            info!("File removed: {}", path.display());
-            // TODO: Clean up ingestion records
+            // Removed files: mark any in-progress ingestion as cancelled.
+            info!("Inbox file removed: {}", path.display());
+            if let Some(system) = inbox_system {
+                system.cancel_ingestion_for_path(&path).await;
+            }
         }
         FileEvent::Renamed(old, new) => {
-            info!("File renamed: {} -> {}", old.display(), new.display());
-            // TODO: Update ingestion tracking
+            // Rename: if the destination is in the inbox, ingest it.
+            // If the source was being ingested, cancel that record.
+            info!("File renamed: {} → {}", old.display(), new.display());
+            if let Some(system) = inbox_system {
+                system.cancel_ingestion_for_path(&old).await;
+                if new.starts_with(inbox_path) && new.is_file() {
+                    if let Err(e) = system.ingest_file(&new).await {
+                        warn!("Ingestion failed for renamed file '{}': {}", new.display(), e);
+                    }
+                }
+            }
         }
     }
     Ok(())
@@ -257,7 +291,8 @@ mod tests {
     async fn test_process_file_event() {
         let inbox = Path::new("D:\\Aaroneous\\inbox");
         let event = FileEvent::Created(inbox.join("test.gguf"));
-        let result = process_file_event(event, inbox).await;
+        // Pass None for inbox_system in tests (no real system available)
+        let result = process_file_event(event, inbox, None).await;
         assert!(result.is_ok());
     }
 }

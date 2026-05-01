@@ -766,14 +766,10 @@ mod tests {
         // Use a fast Sentinel interval so arbitration fires quickly
         fed.spawn_sentinel_loop(Duration::from_millis(100)).await;
 
-        // Ingest a high-stress biometric reading so Symbiotic proposes scaling
+        // Set high-stress biometric state so Symbiotic proposes scaling
         {
             let symb = fed.symbiotic().unwrap();
-            let mut symb_mut = symb.as_ref() as *const _ as *mut crate::federation::specialists::Symbiotic;
-            // Safety: we know this is a single-threaded test; no concurrent access
-            unsafe {
-                (*symb_mut).current_state.stress_level = 0.85;
-            }
+            symb.set_stress_level(0.85); // Safe setter — no unsafe cast needed
         }
 
         // Submit an intent
@@ -810,13 +806,10 @@ mod tests {
         fed.start_all().await.unwrap();
         fed.spawn_sentinel_loop(std::time::Duration::from_secs(60)).await;
 
-        // Set high stress
+        // Set high stress using the safe setter
         {
             let symb = fed.symbiotic().unwrap();
-            unsafe {
-                let symb_mut = symb.as_ref() as *const _ as *mut crate::federation::specialists::Symbiotic;
-                (*symb_mut).current_state.stress_level = 0.85;
-            }
+            symb.set_stress_level(0.85);
         }
 
         let intent = crate::federation::intent::Intent::new("test intent");

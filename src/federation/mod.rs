@@ -24,7 +24,10 @@ pub mod specialists;
 pub mod bootstrap;
 pub mod deployment_examples;
 pub mod cli;
-pub mod runtime;
+// runtime.rs was a standalone design prototype (model cache + deployment manifest runtime)
+// that was never connected to any production code. Its useful concepts (ModelManager,
+// ExecutionMetrics) are available for future extraction into a monitoring module.
+// The file is retained on disk but not compiled in to avoid dead-code warnings.
 pub mod dna_bank;
 pub mod optimization;
 pub mod multi_hive;
@@ -50,7 +53,6 @@ pub use agent_bridge::{SpecialistAgentBridge, agent_name_to_specialist_id};
 pub use specialists::Visionary;
 pub use bootstrap::{SpecialistModule, DeploymentTarget, Manifest, DeploymentConfig, BootstrapResult, BootstrapSystem};
 pub use cli::{Command, AaroneosCLI, CLIResult, InitArgs, ExpandArgs, PortableArgs, StatusArgs};
-pub use runtime::{HiveRuntime, ModelManager, ExecutionMetrics, SpecialistHealth, HealthStatus, RuntimeStats, HealthReport, LoadedModel};
 pub use dna_bank::{DNABank, DNAEvent, EventQuery, Pattern, DNABankStats, ConsolidationStats, BackupInfo};
 pub use optimization::{
     QuantizationType, QuantizationStrategy, QuantizationConfig, QuantizedModel,

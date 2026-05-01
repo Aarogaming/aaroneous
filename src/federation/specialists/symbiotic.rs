@@ -230,6 +230,28 @@ impl Symbiotic {
 
     /// Drain and apply all pending BLE samples from the inbox — callable from `&self`.
     ///
+    /// Set the stress level for testing — avoids the need for `&mut self` or
+    /// unsafe casts through `Arc<Symbiotic>`.
+    ///
+    /// This is the safe, idiomatic way to adjust biometric state in tests
+    /// instead of unsound `*const _ as *mut _` casts.
+    pub fn set_stress_level(&self, level: f32) {
+        let mut drain = self.drain_state.lock();
+        drain.current_state.stress_level = level.clamp(0.0, 1.0);
+    }
+
+    /// Set the fatigue level for testing.
+    pub fn set_fatigue_level(&self, level: f32) {
+        let mut drain = self.drain_state.lock();
+        drain.current_state.fatigue_level = level.clamp(0.0, 1.0);
+    }
+
+    /// Set the focus depth for testing.
+    pub fn set_focus_depth(&self, level: f32) {
+        let mut drain = self.drain_state.lock();
+        drain.current_state.focus_depth = level.clamp(0.0, 1.0);
+    }
+
     /// Updates `drain_state.current_state` and `drain_state.biometric_history`.
     /// Does NOT update the legacy `current_state` / `biometric_history` fields on self
     /// (those require `&mut self`). Use `drain_bio_inbox()` when you have mutable access.

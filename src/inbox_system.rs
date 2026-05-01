@@ -209,6 +209,26 @@ impl InboxSystem {
     pub async fn get_queue_size(&self) -> usize {
         self.processing_queue.lock().await.len()
     }
+
+    /// Cancel any in-flight ingestion records for the given path.
+    ///
+    /// Called by the file watcher when a file is removed or renamed away
+    /// from the inbox. Removes any matching entry from the processing queue
+    /// so it won't be processed after the file disappears.
+    pub async fn cancel_ingestion_for_path(&self, path: &std::path::Path) {
+        let path_str = path.to_string_lossy().to_string();
+        let mut queue = self.processing_queue.lock().await;
+        let before = queue.len();
+        queue.retain(|data| data.metadata.filename.as_deref() != Some(&path_str));
+        let removed = before - queue.len();
+        if removed > 0 {
+            tracing::info!(
+                "Cancelled {} in-flight ingestion record(s) for '{}'",
+                removed,
+                path.display()
+            );
+        }
+    }
 }
 
 /// Result of processing a single data item

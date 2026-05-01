@@ -7,7 +7,7 @@ use crate::task_analysis::TaskAnalysisResult;
 use serde::{Deserialize, Serialize};
 use std::time::Instant;
 use std::sync::Arc;
-use tracing::{debug, info};
+use tracing::{debug, info, warn};
 
 /// Autonomous execution plan for task completion
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -67,28 +67,55 @@ impl AutonomousPlanningEngine {
             task_result.task_id, primary_match.specialist_name
         );
 
-        // Get LLM-generated execution plan from task analysis
-        // Note: generate_plan takes analysis and specialist context
-        // For autonomous planning, we create a minimal execution plan from analysis
-        let llm_plan = ExecutionPlan {
-            task_id: task_result.task_id.clone(),
-            specialist_name: primary_match.specialist_name.clone(),
-            steps: task_result.analysis
-                .suggested_collaborators
-                .iter()
-                .enumerate()
-                .map(|(i, _)| PlanStep {
-                    sequence: (i + 1) as u32,
-                    description: format!("Execute analysis step {}", i + 1),
-                    estimated_time_minutes: task_result.analysis.estimated_time_minutes / 
-                        task_result.analysis.suggested_collaborators.len().max(1) as u32,
-                    required_skills: vec![],
-                    checkpoints: vec![],
+        // Call the LLM to generate a real execution plan.
+        // Build the specialist context from the primary match.
+        let specialist_context = crate::llm::types::SpecialistContext {
+            name: primary_match.specialist_name.clone(),
+            archetype: primary_match.specialist_name.clone(),
+            rank: 1,
+            xp: 0,
+            skills: primary_match.matching_skills.iter()
+                .map(|s| crate::llm::types::SkillInfo {
+                    name: s.clone(),
+                    level: 1,
+                    is_awakened: false,
                 })
                 .collect(),
-            total_estimated_time: task_result.analysis.estimated_time_minutes,
-            success_probability: task_result.analysis.confidence_percentage as f32 / 100.0,
-            reasoning: task_result.analysis.reasoning.clone(),
+            recent_lessons: vec![],
+            collaboration_history: vec![],
+            current_goal: Some(task_result.analysis.recommended_approach.clone()),
+        };
+
+        let llm_plan = match self.llm_client
+            .generate_plan(&task_result.analysis, &specialist_context)
+            .await
+        {
+            Ok(plan) => plan,
+            Err(e) => {
+                // LLM call failed — fall back to the synthetic plan so the
+                // coordinator can still make progress.
+                warn!("LLM generate_plan failed: {}, using synthetic fallback", e);
+                ExecutionPlan {
+                    task_id: task_result.task_id.clone(),
+                    specialist_name: primary_match.specialist_name.clone(),
+                    steps: task_result.analysis
+                        .suggested_collaborators
+                        .iter()
+                        .enumerate()
+                        .map(|(i, _)| PlanStep {
+                            sequence: (i + 1) as u32,
+                            description: format!("Execute step {} (synthetic)", i + 1),
+                            estimated_time_minutes: task_result.analysis.estimated_time_minutes /
+                                task_result.analysis.suggested_collaborators.len().max(1) as u32,
+                            required_skills: vec![],
+                            checkpoints: vec![],
+                        })
+                        .collect(),
+                    total_estimated_time: task_result.analysis.estimated_time_minutes,
+                    success_probability: task_result.analysis.confidence_percentage as f32 / 100.0,
+                    reasoning: task_result.analysis.reasoning.clone(),
+                }
+            }
         };
 
         // Convert LLM plan to detailed execution steps
