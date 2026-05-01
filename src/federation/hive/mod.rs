@@ -54,7 +54,7 @@ pub use config::FederationConfig;
 use crate::federation::host::{HostError, SharedPersistence, SpecialistHost};
 use crate::federation::specialists::{Archivist, Omnipresent, Phygital, Symbiotic, Visionary};
 use std::sync::Arc;
-use tracing::info;
+use tracing::{info, warn};
 
 /// Aggregated lifecycle errors from a federation start/shutdown cycle.
 ///
@@ -270,6 +270,68 @@ impl Federation {
         }
 
         if errors.is_empty() { Ok(()) } else { Err(FederationErrors { errors }) }
+    }
+
+    // --------------------------------------------------------------
+    // Convenience: full lifecycle in one call
+    // --------------------------------------------------------------
+
+    /// Run the federation until a shutdown signal is received.
+    ///
+    /// This is the canonical pattern for `main.rs`:
+    ///
+    /// 1. `start_all()` (load prior state)
+    /// 2. `spawn_checkpoint_loops()` (auto-save in background)
+    /// 3. Wait for `ctrl_c()`
+    /// 4. `shutdown_all()` (stop loops + final save)
+    ///
+    /// Returns the result of `shutdown_all()`. Errors during start_all are
+    /// returned immediately without proceeding.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+    /// use a_run::federation::hive::Federation;
+    /// use a_run::persistence::PersistenceManager;
+    ///
+    /// let pm = PersistenceManager::new("hive.db")?;
+    /// let fed = Federation::builder(pm).with_all().build();
+    /// fed.run_until_signal().await?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub async fn run_until_signal(&self) -> Result<(), FederationErrors> {
+        self.run_until(async {
+            // Best-effort ctrl_c handler; log if installation fails but
+            // don't crash the process.
+            if let Err(e) = tokio::signal::ctrl_c().await {
+                warn!("Failed to wait for ctrl_c signal: {}", e);
+            }
+            info!("Shutdown signal received");
+        })
+        .await
+    }
+
+    /// Run the federation until the given future resolves.
+    ///
+    /// Like `run_until_signal()` but with a custom termination condition,
+    /// useful for tests (e.g., resolve after a `tokio::time::sleep`) and
+    /// for applications with custom shutdown logic (e.g., HTTP signal,
+    /// admin command).
+    ///
+    /// The provided future is awaited *after* `start_all` and
+    /// `spawn_checkpoint_loops`, and *before* `shutdown_all`. Any panic in
+    /// the future propagates to the caller.
+    pub async fn run_until<F>(&self, terminator: F) -> Result<(), FederationErrors>
+    where
+        F: std::future::Future<Output = ()>,
+    {
+        self.start_all().await?;
+        self.spawn_checkpoint_loops().await;
+        info!("Federation running ({} specialist(s))", self.enabled_count());
+        terminator.await;
+        self.shutdown_all().await
     }
 }
 

@@ -421,4 +421,133 @@ mod tests {
         let display = err.to_string();
         assert!(display.contains("3"), "should mention 3 errors: {}", display);
     }
+
+    // ===============================================================
+    // run_until: full lifecycle in one call
+    // ===============================================================
+
+    #[tokio::test]
+    async fn test_run_until_executes_full_lifecycle() {
+        // Use a short-timeout terminator so the test doesn't hang on ctrl-C
+        let fed = Federation::builder(fresh_pm())
+            .checkpoint_every(Duration::from_millis(50))
+            .with_visionary()
+            .build();
+
+        // Train before run_until so we can verify start_all loads + shutdown saves
+        // (We can't train during run_until without a side channel, so we rely on
+        // the host's shutdown final-save instead.)
+        // We exercise the lifecycle, not learning - that's tested elsewhere.
+
+        let terminator = async {
+            tokio::time::sleep(Duration::from_millis(150)).await;
+        };
+
+        fed.run_until(terminator).await.unwrap();
+
+        // After run_until returns, the federation has been shut down.
+        // We can verify the host actually went through start->shutdown by
+        // attempting to call checkpoint_now: it should error (NotStarted)
+        // because shutdown moved state to ShutDown and checkpoint requires
+        // Running state.
+        let result = fed.checkpoint_all().await;
+        assert!(result.is_err(), "post-run_until checkpoint should error");
+    }
+
+    #[tokio::test]
+    async fn test_run_until_propagates_start_errors() {
+        // Pre-start a host so start_all in run_until fails
+        let fed = Federation::builder(fresh_pm()).with_visionary().build();
+        fed.start_all().await.unwrap();
+
+        // Now run_until should fail at start_all (host already started)
+        let terminator = async {
+            tokio::time::sleep(Duration::from_secs(60)).await;
+        };
+
+        let result = fed.run_until(terminator).await;
+        assert!(result.is_err(), "run_until should propagate start_all errors");
+        let err = result.unwrap_err();
+        assert!(err.errors.iter().any(|(k, _)| k == "Visionary"));
+    }
+
+    #[tokio::test]
+    async fn test_run_until_persists_via_final_save() {
+        // Use a real temp file so we can verify persistence after shutdown
+        let tmp_path = std::env::temp_dir().join(format!(
+            "aaroneous-rununtil-{}.db",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let tmp_path_str = tmp_path.to_string_lossy().to_string();
+
+        {
+            let pm = PersistenceManager::new(&tmp_path_str).unwrap();
+            let fed = Federation::builder(pm)
+                .manual_checkpoints() // ensures we rely on shutdown's final save
+                .with_visionary()
+                .build();
+            // Get a handle to the specialist so we can train it during run_until
+            let v = fed.visionary().unwrap();
+
+            // run_until's terminator both (a) trains the specialist and (b)
+            // resolves to end the run.
+            let terminator = async move {
+                v.execute(&make_decision(SpecialistId::Visionary, 0))
+                    .await
+                    .unwrap();
+                v.execute(&make_decision(SpecialistId::Visionary, 1))
+                    .await
+                    .unwrap();
+            };
+
+            fed.run_until(terminator).await.unwrap();
+        }
+
+        // Reopen the DB - state should persist
+        let pm2 = PersistenceManager::new(&tmp_path_str).unwrap();
+        let fed2 = Federation::builder(pm2).with_visionary().build();
+        fed2.start_all().await.unwrap();
+
+        let v2 = fed2.visionary().unwrap();
+        assert_eq!(
+            v2.learning.lock().total_executions,
+            2,
+            "run_until's final shutdown save should persist learning"
+        );
+
+        fed2.shutdown_all().await.unwrap();
+
+        let _ = std::fs::remove_file(&tmp_path);
+    }
+
+    /// run_until_signal can't be tested with an actual signal in unit tests
+    /// (would require platform-specific signal injection), but we can verify
+    /// that the method exists and is callable. The signal handler's
+    /// correctness is delegated to tokio::signal::ctrl_c which is
+    /// well-tested upstream.
+    #[tokio::test]
+    async fn test_run_until_signal_can_be_invoked_with_short_timeout() {
+        // We can't actually wait for ctrl_c, but we can race run_until_signal
+        // against a timeout to verify it sets up the lifecycle correctly.
+        // After the timeout, we abort the future via tokio::select.
+        let fed = Federation::builder(fresh_pm()).with_visionary().build();
+
+        let signal_fut = fed.run_until_signal();
+        let timeout_fut = tokio::time::sleep(Duration::from_millis(100));
+
+        tokio::select! {
+            _ = signal_fut => {
+                // ctrl_c arrived (unlikely in test); not an error
+            }
+            _ = timeout_fut => {
+                // Timeout fired first - the run_until_signal future is dropped here.
+                // The federation is still running because shutdown_all hasn't been called.
+                // Clean up explicitly.
+                fed.shutdown_all().await.ok();
+            }
+        }
+    }
 }

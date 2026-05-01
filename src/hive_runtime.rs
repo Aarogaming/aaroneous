@@ -98,6 +98,11 @@ pub struct HiveRuntime {
     crisis_coordinator: Arc<CrisisCoordinator>,
     biology: Arc<RwLock<SystemBiology>>,
     autonomous_coordinator: Arc<RwLock<AutonomousCoordinator>>,
+    /// Optional federation of the 5 federation-style specialists.
+    /// Constructed externally and attached via `attach_federation()` or
+    /// `HiveRuntimeBuilder` (see federation::hive::Federation).
+    /// When present, its lifecycle is driven by start() / shutdown().
+    federation: Arc<RwLock<Option<Arc<crate::federation::hive::Federation>>>>,
     status: Arc<RwLock<RuntimeStatus>>,
     statistics: Arc<RwLock<RuntimeStatistics>>,
     shutdown_signal: Arc<tokio::sync::Notify>,
@@ -189,6 +194,7 @@ impl HiveRuntime {
             crisis_coordinator,
             biology,
             autonomous_coordinator,
+            federation: Arc::new(RwLock::new(None)),
             status: Arc::new(RwLock::new(RuntimeStatus::Starting)),
             statistics: Arc::new(RwLock::new(RuntimeStatistics {
                 uptime_seconds: 0,
@@ -208,6 +214,28 @@ impl HiveRuntime {
         Ok(runtime)
     }
 
+    /// Attach a `Federation` to this runtime so its lifecycle is driven by
+    /// `start()` / `shutdown()`.
+    ///
+    /// Pass `None` to detach a previously-attached federation (its hosts
+    /// will NOT be shut down by this call - call `federation.shutdown_all()`
+    /// before detaching if you need that).
+    ///
+    /// Must be called before `start()` for the federation to participate
+    /// in the startup sequence. Attaching after `start()` is permitted but
+    /// the federation won't auto-start - the caller must drive its lifecycle.
+    pub async fn attach_federation(
+        &self,
+        federation: Option<Arc<crate::federation::hive::Federation>>,
+    ) {
+        *self.federation.write().await = federation;
+    }
+
+    /// Get the currently-attached `Federation`, if any.
+    pub async fn federation(&self) -> Option<Arc<crate::federation::hive::Federation>> {
+        self.federation.read().await.as_ref().map(Arc::clone)
+    }
+
     /// Start the hive runtime - begins all systems
     pub async fn start(&self) -> Result<(), Box<dyn std::error::Error>> {
         // Update status
@@ -215,6 +243,15 @@ impl HiveRuntime {
 
         // Load existing specialists from persistence
         self.load_specialists_from_db().await?;
+
+        // Start the federation (if attached): loads each specialist's prior
+        // learning state and spawns auto-checkpoint loops.
+        if let Some(fed) = self.federation().await {
+            fed.start_all().await
+                .map_err(|e| format!("Federation start failed: {}", e))?;
+            fed.spawn_checkpoint_loops().await;
+            info!("Federation started with {} specialist(s)", fed.enabled_count());
+        }
 
         // Spawn background tasks
         self.spawn_update_loop();
@@ -344,6 +381,19 @@ impl HiveRuntime {
 
         // Give tasks time to shut down gracefully (max 5 seconds)
         tokio::time::sleep(Duration::from_secs(1)).await;
+
+        // Shut down the federation (if attached): stops each host's
+        // auto-checkpoint loop and does a final save. We collect errors
+        // but always continue with the rest of shutdown - the runtime
+        // exit must complete even if some federation hosts have issues.
+        if let Some(fed) = self.federation().await {
+            if let Err(e) = fed.shutdown_all().await {
+                tracing::error!("Federation shutdown errors: {}", e);
+                // Don't propagate - runtime shutdown is best-effort
+            } else {
+                info!("Federation shut down cleanly");
+            }
+        }
 
         // Final status update
         *self.status.write().await = RuntimeStatus::Stopped;
@@ -546,5 +596,201 @@ mod tests {
         assert_eq!(stats.total_specialists, 0);
 
         runtime.shutdown().await.expect("Failed to shutdown");
+    }
+
+    // =================================================================
+    // Federation integration
+    // =================================================================
+
+    #[tokio::test]
+    async fn test_federation_starts_unattached() {
+        // Default runtime: no federation. start/shutdown should still work.
+        let config = HiveRuntimeConfig {
+            db_path: ":memory:".to_string(),
+            ..Default::default()
+        };
+        let runtime = HiveRuntime::new(config).await.unwrap();
+
+        assert!(runtime.federation().await.is_none());
+        runtime.start().await.expect("start without federation should succeed");
+        runtime.shutdown().await.expect("shutdown without federation should succeed");
+    }
+
+    #[tokio::test]
+    async fn test_attach_and_detach_federation() {
+        use crate::federation::hive::Federation;
+        use crate::persistence::PersistenceManager;
+
+        let config = HiveRuntimeConfig {
+            db_path: ":memory:".to_string(),
+            ..Default::default()
+        };
+        let runtime = HiveRuntime::new(config).await.unwrap();
+
+        // Build a federation with its own DB connection
+        let fed_pm = PersistenceManager::new(":memory:").unwrap();
+        let fed = Arc::new(Federation::builder(fed_pm).with_visionary().build());
+
+        // Attach
+        runtime.attach_federation(Some(Arc::clone(&fed))).await;
+        let attached = runtime.federation().await;
+        assert!(attached.is_some());
+        assert_eq!(attached.unwrap().enabled_count(), 1);
+
+        // Detach
+        runtime.attach_federation(None).await;
+        assert!(runtime.federation().await.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_runtime_start_drives_federation_start() {
+        use crate::federation::hive::Federation;
+        use crate::federation::specialist::{Decision, Specialist, SpecialistId, ResourceRequest};
+        use crate::persistence::PersistenceManager;
+
+        let config = HiveRuntimeConfig {
+            db_path: ":memory:".to_string(),
+            ..Default::default()
+        };
+        let runtime = HiveRuntime::new(config).await.unwrap();
+
+        let fed_pm = PersistenceManager::new(":memory:").unwrap();
+        let fed = Arc::new(
+            Federation::builder(fed_pm)
+                .manual_checkpoints() // no auto-save in test
+                .with_visionary()
+                .build(),
+        );
+        runtime.attach_federation(Some(Arc::clone(&fed))).await;
+
+        // Before start: federation specialist exists but isn't started.
+        // Calling checkpoint_all should fail with NotStarted.
+        let pre_start = fed.checkpoint_all().await;
+        assert!(pre_start.is_err());
+
+        runtime.start().await.expect("runtime start should drive federation start");
+
+        // After runtime.start(): federation specialist is in Running state.
+        // checkpoint_all should now succeed.
+        fed.checkpoint_all().await.expect("federation should be Running after runtime.start");
+
+        // Train and verify
+        let visionary = fed.visionary().unwrap();
+        let decision = Decision {
+            proposal_id: "p0".to_string(),
+            specialist: SpecialistId::Visionary,
+            action: "test".to_string(),
+            allocated_resources: ResourceRequest::default(),
+            deadline_ms: 5000,
+            context: std::collections::HashMap::new(),
+        };
+        visionary.execute(&decision).await.unwrap();
+        assert_eq!(visionary.learning.lock().total_executions, 1);
+
+        runtime.shutdown().await.expect("runtime shutdown should drive federation shutdown");
+    }
+
+    #[tokio::test]
+    async fn test_runtime_shutdown_drives_federation_shutdown() {
+        use crate::federation::hive::Federation;
+        use crate::federation::specialist::{Decision, Specialist, SpecialistId, ResourceRequest};
+        use crate::persistence::PersistenceManager;
+
+        let config = HiveRuntimeConfig {
+            db_path: ":memory:".to_string(),
+            ..Default::default()
+        };
+        let runtime = HiveRuntime::new(config).await.unwrap();
+
+        // Use a real temp file so we can verify shutdown's final-save behavior
+        let tmp_path = std::env::temp_dir().join(format!(
+            "aaroneous-runtime-fed-{}.db",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let tmp_path_str = tmp_path.to_string_lossy().to_string();
+
+        // Generation 1: train and shut down via runtime
+        {
+            let fed_pm = PersistenceManager::new(&tmp_path_str).unwrap();
+            let fed = Arc::new(
+                Federation::builder(fed_pm)
+                    .manual_checkpoints()
+                    .with_visionary()
+                    .build(),
+            );
+            runtime.attach_federation(Some(Arc::clone(&fed))).await;
+            runtime.start().await.unwrap();
+
+            let visionary = fed.visionary().unwrap();
+            for i in 0..3 {
+                let decision = Decision {
+                    proposal_id: format!("p{}", i),
+                    specialist: SpecialistId::Visionary,
+                    action: "test".to_string(),
+                    allocated_resources: ResourceRequest::default(),
+                    deadline_ms: 5000,
+                    context: std::collections::HashMap::new(),
+                };
+                visionary.execute(&decision).await.unwrap();
+            }
+
+            runtime.shutdown().await.unwrap();
+            // No explicit fed.shutdown - runtime.shutdown should have done it.
+            // No explicit checkpoint - we rely on the host's final-save during shutdown.
+        }
+
+        // Generation 2: open the same DB, verify state was persisted
+        {
+            let fed_pm2 = PersistenceManager::new(&tmp_path_str).unwrap();
+            let fed2 = Arc::new(
+                Federation::builder(fed_pm2)
+                    .manual_checkpoints()
+                    .with_visionary()
+                    .build(),
+            );
+            fed2.start_all().await.unwrap();
+            let v2 = fed2.visionary().unwrap();
+            assert_eq!(
+                v2.learning.lock().total_executions,
+                3,
+                "runtime.shutdown should have triggered federation final-save"
+            );
+            fed2.shutdown_all().await.unwrap();
+        }
+
+        let _ = std::fs::remove_file(&tmp_path);
+    }
+
+    #[tokio::test]
+    async fn test_runtime_shutdown_continues_when_federation_errors() {
+        use crate::federation::hive::Federation;
+        use crate::persistence::PersistenceManager;
+
+        let config = HiveRuntimeConfig {
+            db_path: ":memory:".to_string(),
+            ..Default::default()
+        };
+        let runtime = HiveRuntime::new(config).await.unwrap();
+
+        let fed_pm = PersistenceManager::new(":memory:").unwrap();
+        let fed = Arc::new(Federation::builder(fed_pm).with_visionary().build());
+        runtime.attach_federation(Some(Arc::clone(&fed))).await;
+
+        runtime.start().await.unwrap();
+
+        // Pre-shut down the federation so the runtime's shutdown_all returns
+        // an AlreadyShutDown error. The runtime must still report success
+        // (best-effort shutdown semantics).
+        fed.shutdown_all().await.unwrap();
+
+        // Runtime shutdown must succeed even though federation shutdown will error
+        let result = runtime.shutdown().await;
+        assert!(result.is_ok(), "runtime shutdown should be best-effort");
+
+        // Final status should still be Stopped
+        assert_eq!(runtime.get_status().await, RuntimeStatus::Stopped);
     }
 }
