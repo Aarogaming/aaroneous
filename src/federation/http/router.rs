@@ -54,8 +54,9 @@ pub fn router(state: AppState) -> Router {
         .route("/audit", get(get_audit_log))
         // Learning confidence trends (time-series)
         .route("/learning/trends", get(get_learning_trends))
-        // Forge: GGUF inspection and crystallization via HTTP
+        // Forge: GGUF inspection, auto-recipe generation, and crystallization
         .route("/forge/inspect",     post(forge_inspect))
+        .route("/forge/auto-recipe", post(forge_auto_recipe))
         .route("/forge/crystallize", post(forge_crystallize))
         // Multi-hive cluster status
         .route("/cluster", get(cluster_status))
@@ -614,6 +615,74 @@ async fn forge_inspect(
                 "ok": false,
                 "error": e.to_string(),
             })),
+        ).into_response(),
+    }
+}
+
+/// Request body for POST /forge/auto-recipe
+#[derive(Deserialize)]
+struct ForgeAutoRecipeRequest {
+    /// Path to the primary (base) model — e.g., Qwen abliterated
+    model_a_path: String,
+    /// Path to the domain-specialized model
+    model_b_path: String,
+    /// Recipe ID for the output
+    recipe_id: String,
+    /// Specialist domain, used to pick the splicing strategy
+    /// e.g., "code_review", "legal_analysis", "biomedical_qa"
+    domain: String,
+}
+
+/// POST /forge/auto-recipe — parse two GGUFs, auto-generate a ForgeRecipe
+///
+/// Example request:
+/// ```json
+/// {
+///   "model_a_path": "D:\\models\\qwen2.5-1.5b.gguf",
+///   "model_b_path": "D:\\models\\qwen-coder-1.5b.gguf",
+///   "recipe_id": "code-specialist-v1",
+///   "domain": "code_review"
+/// }
+/// ```
+async fn forge_auto_recipe(
+    Json(req): Json<ForgeAutoRecipeRequest>,
+) -> impl IntoResponse {
+    // Parse both GGUFs
+    let mut combined_index = forge::GgufIndex::new();
+    for path in &[&req.model_a_path, &req.model_b_path] {
+        match forge::read_gguf(path.as_str()) {
+            Ok((idx, _)) => {
+                for (k, v) in idx.0 { combined_index.0.insert(k, v); }
+            }
+            Err(e) => {
+                return (
+                    StatusCode::BAD_REQUEST,
+                    Json(serde_json::json!({ "ok": false, "error": e.to_string() })),
+                ).into_response();
+            }
+        }
+    }
+
+    let strategy = forge::SplicingStrategy::for_domain(&req.domain);
+
+    match forge::recipe_from_two_models(
+        &req.model_a_path,
+        &req.model_b_path,
+        &req.recipe_id,
+        strategy,
+        &combined_index,
+        std::collections::HashMap::new(),
+    ) {
+        Ok(recipe) => Json(serde_json::json!({
+            "ok": true,
+            "recipe_id": recipe.recipe_id,
+            "domain": req.domain,
+            "segment_count": recipe.segments.len(),
+            "recipe": recipe,
+        })).into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({ "ok": false, "error": e })),
         ).into_response(),
     }
 }

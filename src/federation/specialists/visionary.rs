@@ -91,7 +91,12 @@ impl LearningData {
         }
     }
 
-    /// Record an execution result (success or failure)
+    /// Record an execution result (success or failure).
+    ///
+    /// Confidence uses an exponential moving average (EMA) over the rolling
+    /// 20-outcome window, with a time-decay factor applied since the last
+    /// update so idle specialists drift back toward the 0.5 neutral baseline.
+    /// This prevents confidence locking at 1.0 after a run of early successes.
     pub fn record_result(&mut self, success: bool) {
         self.total_executions += 1;
         
@@ -108,17 +113,23 @@ impl LearningData {
             self.execution_history.remove(0);
         }
         
-        // Update confidence: success_count / total
-        self.confidence_score = if self.total_executions > 0 {
-            (self.success_count as f32 / self.total_executions as f32).clamp(0.0, 1.0)
-        } else {
-            0.5
-        };
-        
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap_or_default()
             .as_secs();
+
+        // Time decay: confidence drifts 0.5% toward neutral per idle hour.
+        // Max decay 30% total so a dormant specialist remains usable.
+        if self.last_updated > 0 && now > self.last_updated {
+            let hours_idle = (now - self.last_updated) as f32 / 3600.0;
+            let decay = (0.995f32).powf(hours_idle).max(0.70);
+            self.confidence_score = 0.5 + (self.confidence_score - 0.5) * decay;
+        }
+
+        // EMA over rolling window: α=0.2 (recent outcomes weighted more)
+        let outcome_val = if success { 1.0f32 } else { 0.0 };
+        self.confidence_score = (0.8 * self.confidence_score + 0.2 * outcome_val).clamp(0.0, 1.0);
+
         self.last_updated = now;
 
         // Append to trend; cap at 100 entries

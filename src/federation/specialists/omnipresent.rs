@@ -55,35 +55,28 @@ impl OmnipresentLearningData {
     }
 
     pub fn record_result(&mut self, success: bool) {
-        if success {
-            self.success_count += 1;
-        } else {
-            self.failure_count += 1;
-        }
+        if success { self.success_count += 1; } else { self.failure_count += 1; }
         self.total_executions += 1;
 
-        // Keep last 20 executions
         self.execution_history.push(success);
-        if self.execution_history.len() > 20 {
-            self.execution_history.remove(0);
-        }
-
-        // Update confidence score based on recent history
-        if self.total_executions > 0 {
-            self.confidence_score =
-                (self.success_count as f32) / (self.total_executions as f32);
-        }
+        if self.execution_history.len() > 20 { self.execution_history.remove(0); }
 
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_secs();
+            .unwrap_or_default().as_secs();
+
+        // Time decay toward neutral, then EMA update
+        if self.last_updated > 0 && now > self.last_updated {
+            let hours_idle = (now - self.last_updated) as f32 / 3600.0;
+            let decay = (0.995f32).powf(hours_idle).max(0.70);
+            self.confidence_score = 0.5 + (self.confidence_score - 0.5) * decay;
+        }
+        let outcome_val = if success { 1.0f32 } else { 0.0 };
+        self.confidence_score = (0.8 * self.confidence_score + 0.2 * outcome_val).clamp(0.0, 1.0);
         self.last_updated = now;
 
         self.confidence_trend.push((now, self.confidence_score));
-        if self.confidence_trend.len() > 100 {
-            self.confidence_trend.remove(0);
-        }
+        if self.confidence_trend.len() > 100 { self.confidence_trend.remove(0); }
     }
 
     pub fn get_proposal_confidence(&self) -> f32 {

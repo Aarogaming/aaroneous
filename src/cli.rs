@@ -627,6 +627,11 @@ async fn execute_start(
         println!("  GET  http://{}/learning/trends          confidence time-series per specialist", addr);
         println!("  GET  http://{}/cluster                  multi-hive cluster status", addr);
         println!();
+        println!("HTTP API — Synth DNA Forge:");
+        println!("  POST http://{}/forge/inspect            parse GGUF header + tensor table", addr);
+        println!("  POST http://{}/forge/auto-recipe        auto-generate ForgeRecipe from 2 GGUFs", addr);
+        println!("  POST http://{}/forge/crystallize        crystallize hybrid GGUF from recipe", addr);
+        println!();
         println!("Quick start:");
         println!("  # 1. Create a session");
         println!("  curl -X POST http://{}/sessions \\", addr);

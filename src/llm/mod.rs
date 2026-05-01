@@ -255,6 +255,60 @@ impl LLMClient {
     ///
     /// Results are cached keyed on the intent string. Call `clear_cache()`
     /// to force fresh generation for the same intent.
+    /// Generate a domain-specific response for a given intent using a system
+    /// prompt appropriate for the specialist's domain.
+    ///
+    /// Unlike `generate_design()` (which hardcodes a UI/UX system prompt),
+    /// this method builds a prompt from the provided `system_prompt` and
+    /// `user_prompt`, then calls the provider's `generate_design()` with
+    /// the intent set to the full prompt.  The result is returned as a plain
+    /// string (the first variant's description, or the batch output).
+    ///
+    /// Used by `GenericSpecialist` so each sovereign gets its own domain framing.
+    pub async fn generate_domain_response(
+        &self,
+        system_prompt: &str,
+        user_prompt: &str,
+        domain: &str,
+    ) -> Result<String> {
+        self.rate_limiter.check_limit().await?;
+
+        let cache_key = format!("domain:{}:{:.60}", domain, user_prompt);
+
+        if self.config.enable_caching {
+            if let Some(cached) = self.cache.get::<String>(&cache_key).await {
+                return Ok(cached);
+            }
+        }
+
+        // Build a DesignContext whose intent carries the full prompt, and whose
+        // style_hints carry the domain label so the GGUF/Mock provider can adapt.
+        let ctx = DesignContext {
+            intent: format!("[SYSTEM: {}]\n\n{}", system_prompt, user_prompt),
+            style_hints: vec![domain.to_string()],
+            constraints: vec![
+                format!("domain: {}", domain),
+                "respond concisely and precisely".to_string(),
+            ],
+            variants_requested: 1,
+            approved_examples: vec![],
+            rejected_examples: vec![],
+        };
+
+        let generation = self.provider.generate_design(&ctx).await?;
+        let response = generation.variants
+            .into_iter()
+            .next()
+            .map(|v| v.description)
+            .unwrap_or_else(|| format!("[{}] No response generated for: {}", domain, user_prompt));
+
+        if self.config.enable_caching {
+            self.cache.set(&cache_key, response.clone()).await?;
+        }
+
+        Ok(response)
+    }
+
     pub async fn generate_design(
         &self,
         context: &DesignContext,

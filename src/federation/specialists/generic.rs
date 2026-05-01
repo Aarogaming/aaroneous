@@ -77,13 +77,20 @@ impl GenericLearningData {
         self.total_executions += 1;
         self.execution_history.push(success);
         if self.execution_history.len() > 20 { self.execution_history.remove(0); }
-        if self.total_executions > 0 {
-            self.confidence_score = self.success_count as f32 / self.total_executions as f32;
-        }
+
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap_or_default().as_secs();
+
+        if self.last_updated > 0 && now > self.last_updated {
+            let hours_idle = (now - self.last_updated) as f32 / 3600.0;
+            let decay = (0.995f32).powf(hours_idle).max(0.70);
+            self.confidence_score = 0.5 + (self.confidence_score - 0.5) * decay;
+        }
+        let outcome_val = if success { 1.0f32 } else { 0.0 };
+        self.confidence_score = (0.8 * self.confidence_score + 0.2 * outcome_val).clamp(0.0, 1.0);
         self.last_updated = now;
+
         self.confidence_trend.push((now, self.confidence_score));
         if self.confidence_trend.len() > 100 { self.confidence_trend.remove(0); }
     }
@@ -324,29 +331,11 @@ impl Specialist for GenericSpecialist {
 
         // Try LLM-backed execution first
         let output = if let Some(llm) = &self.llm {
-            use crate::llm::DesignContext;
-            let ctx = DesignContext {
-                intent: intent.clone(),
-                style_hints: vec![self.domain.clone()],
-                constraints: vec![],
-                variants_requested: 2,
-                approved_examples: vec![],
-                rejected_examples: vec![],
-            };
-            match llm.generate_design(&ctx).await {
-                Ok(result) if !result.variants.is_empty() => {
-                    format!(
-                        "[{}] {} variant(s) generated for '{}': {}",
-                        self.name,
-                        result.variants.len(),
-                        intent,
-                        result.variants.iter()
-                            .map(|v| v.description.as_str())
-                            .collect::<Vec<_>>()
-                            .join("; ")
-                    )
-                }
-                Ok(_) => format!("[{}] No variants generated for '{}'", self.name, intent),
+            // Build a domain-appropriate system prompt so each sovereign
+            // is framed for its specialty, not as a UI/UX designer.
+            let system_prompt = system_prompt_for_domain(&self.domain, &self.name);
+            match llm.generate_domain_response(&system_prompt, &intent, &self.domain).await {
+                Ok(response) => format!("[{}] {}", self.name, response),
                 Err(e) => format!("[{}] LLM error for '{}': {}", self.name, intent, e),
             }
         } else {
@@ -431,6 +420,60 @@ impl Specialist for GenericSpecialist {
             estimated_duration_ms: 2000,
         }]
     }
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Domain-specific system prompt generation
+// ────────────────────────────────────────────────────────────────────────────
+
+/// Return a system prompt appropriate for the given specialist domain.
+///
+/// This is what separates a sovereign code-reviewer from a sovereign legal
+/// analyst — the same Qwen base model, different context window framing.
+/// Abliterated models respond to these without refusal.
+fn system_prompt_for_domain(domain: &str, name: &str) -> String {
+    let role = match domain {
+        "code_review" | "code" | "coding" =>
+            "You are an expert software engineer. Review code, identify bugs, \
+             suggest improvements, and explain technical decisions clearly. \
+             Be precise, actionable, and use concrete examples.",
+        "legal_analysis" | "legal" =>
+            "You are a legal analyst. Identify relevant statutes, case law, \
+             and legal risks. Provide structured analysis with clear conclusions. \
+             Flag ambiguities and recommend specific mitigations.",
+        "biomedical_qa" | "medical" | "science" =>
+            "You are a biomedical researcher. Answer questions about biology, \
+             medicine, and health with scientific precision. Cite mechanisms \
+             and distinguish established findings from emerging research.",
+        "security" | "cybersecurity" | "infosec" =>
+            "You are a security expert. Identify vulnerabilities, attack vectors, \
+             and mitigations. Think adversarially. Provide CVSS-style severity \
+             assessments and prioritized remediation steps.",
+        "data_analysis" | "analytics" | "data" =>
+            "You are a data analyst. Identify patterns, anomalies, and insights \
+             in data. Recommend statistical approaches, visualizations, and \
+             actionable conclusions. Be quantitative.",
+        "creative_writing" | "creative" =>
+            "You are a creative writer and narrative designer. Generate compelling \
+             content with strong voice, structure, and originality. Adapt style \
+             to audience and purpose.",
+        "knowledge" | "research" | "general" =>
+            "You are a knowledgeable research assistant. Provide accurate, \
+             well-structured answers. Cite sources where possible. Distinguish \
+             facts from interpretations.",
+        "orchestration" | "planning" | "strategy" =>
+            "You are a strategic planning specialist. Break down complex goals \
+             into actionable steps, identify dependencies, and anticipate risks. \
+             Produce clear, executable plans.",
+        _ =>
+            // Generic fallback: use the domain name as the role descriptor
+            return format!(
+                "You are {}, a specialist in {}. Provide precise, expert-level \
+                 responses tailored to this domain. Be concise and actionable.",
+                name, domain
+            ),
+    };
+    format!("You are {}. {}", name, role)
 }
 
 // ────────────────────────────────────────────────────────────────────────────

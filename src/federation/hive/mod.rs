@@ -237,6 +237,9 @@ impl Federation {
 
         // Reload sessions that survived the last process run
         self.load_sessions_from_db().await;
+        // Restore the active intent from the most recently used session so
+        // specialists resume proposing on in-flight work after a restart.
+        self.restore_active_intent_from_sessions().await;
 
         if let Some(h) = &self.visionary {
             if let Err(e) = h.start().await {
@@ -1068,6 +1071,44 @@ impl Federation {
         let pm = self.persistence.lock().await;
         if let Err(e) = pm.save_session(&session.id, &session.user_id, &session.user_name, &state_str, &json, created) {
             warn!("persist_session({}): {}", session_id, e);
+        }
+    }
+
+    /// After `load_sessions_from_db()`, find the most recently active session's
+    /// latest pending intent and restore it as the `active_intent`.
+    ///
+    /// This ensures specialists resume proposing on in-flight work after a
+    /// restart — without this, `active_intent` stays `None` until a new intent
+    /// arrives, leaving all specialists in idle mode.
+    async fn restore_active_intent_from_sessions(&self) {
+        use crate::federation::intent::IntentStatus;
+
+        let sessions = self.sessions.read().await;
+        // Find the session most recently active (highest last_active timestamp)
+        let best_session = sessions
+            .active_sessions()
+            .into_iter()
+            .max_by_key(|s| s.last_active);
+
+        let Some(session) = best_session else { return };
+
+        // Find the most recent non-completed intent in that session
+        let pending_intent = session.intents.iter().rev().find(|i| {
+            !matches!(
+                i.status,
+                IntentStatus::Completed | IntentStatus::Cancelled | IntentStatus::Failed | IntentStatus::Superseded
+            )
+        });
+
+        if let Some(intent) = pending_intent {
+            let mut intent = intent.clone();
+            // Tag it as restored so audit trail is clear
+            intent.context.insert("restored_on_restart".to_string(), "true".to_string());
+            info!(
+                "Restored active intent '{}' from session '{}' on restart",
+                intent.content, session.id
+            );
+            *self.active_intent.write().await = Some(intent);
         }
     }
 
