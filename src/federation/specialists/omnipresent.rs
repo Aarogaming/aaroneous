@@ -193,16 +193,31 @@ pub struct SyncConflict {
 }
 
 /// Omnipresent specialist implementation
+/// State that the drain task updates via interior mutability.
+/// Separated from the main struct so drain() can be called from &self.
+#[derive(Debug)]
+pub struct OmnipresentDrainState {
+    /// Cached intent received from peers (overwritten by FullState/Delta messages)
+    pub cached_intent: Option<String>,
+    pub cache_timestamp: u64,
+    /// Rolling sync event log (recent 1000 entries)
+    pub sync_history: Vec<String>,
+}
+
 pub struct Omnipresent {
     id: SpecialistId,
     pub sync_state: SyncState,
     pub devices: HashMap<String, Device>,
+    /// Legacy single-writer sync_history. Code with &mut self can use this.
+    /// The drain path uses `drain_state.sync_history` instead.
     pub sync_history: Vec<String>,
     pub bandwidth_available_mbps: u32,
     pub learning: Arc<Mutex<OmnipresentLearningData>>,
     pub p2p_node: Option<Arc<P2pNode>>,
     pub device_endpoints: HashMap<String, P2pNodeId>,
     pub sync_inbox: Arc<Mutex<VecDeque<crate::federation::p2p::SyncMessage>>>,
+    /// Interior-mutable state updated by the drain task (from &self).
+    pub drain_state: Arc<Mutex<OmnipresentDrainState>>,
 }
 
 impl Omnipresent {
@@ -226,7 +241,69 @@ impl Omnipresent {
             p2p_node: None,
             device_endpoints: HashMap::new(),
             sync_inbox: Arc::new(Mutex::new(VecDeque::new())),
+            drain_state: Arc::new(Mutex::new(OmnipresentDrainState {
+                cached_intent: None,
+                cache_timestamp: 0,
+                sync_history: Vec::new(),
+            })),
         }
+    }
+
+    /// Drain and apply all pending sync messages from the inbox — callable from `&self`.
+    ///
+    /// Updates `drain_state` (interior-mutable) with cached intent and sync history.
+    /// Does NOT update `sync_state` or the legacy `sync_history` field (those require
+    /// `&mut self`). Call `drain_sync_inbox_mut()` when you have mutable access.
+    pub fn drain_sync_inbox_shared(&self) -> usize {
+        use crate::federation::p2p::types::SyncMessageKind;
+
+        let msgs: Vec<_> = {
+            let mut inbox = self.sync_inbox.lock();
+            inbox.drain(..).collect()
+        };
+        let n = msgs.len();
+        if n == 0 {
+            return 0;
+        }
+
+        let mut state = self.drain_state.lock();
+        for msg in msgs {
+            match msg.kind {
+                SyncMessageKind::FullState | SyncMessageKind::Delta => {
+                    if !msg.payload.is_empty() {
+                        state.cached_intent = String::from_utf8(msg.payload).ok();
+                        state.cache_timestamp = msg.timestamp;
+                    }
+                    state.sync_history.push(format!(
+                        "sync:{:?}:from-{}:v{}",
+                        msg.kind, msg.from.short(), msg.intent_version
+                    ));
+                }
+                SyncMessageKind::Heartbeat => {
+                    state.sync_history.push(format!("hb:from-{}", msg.from.short()));
+                }
+                SyncMessageKind::ConflictDetected => {
+                    state.sync_history.push(format!("conflict:from-{}", msg.from.short()));
+                }
+                SyncMessageKind::SyncRequest => {
+                    state.sync_history.push(format!("req:from-{}", msg.from.short()));
+                }
+            }
+            while state.sync_history.len() > 1000 {
+                state.sync_history.remove(0);
+            }
+        }
+        n
+    }
+
+    /// Get the current cached intent (from drain_state, updated by drain_sync_inbox_shared)
+    pub fn cached_intent(&self) -> Option<String> {
+        self.drain_state.lock().cached_intent.clone()
+    }
+
+    /// Get a snapshot of the shared sync history
+    pub fn shared_sync_history_len(&self) -> usize {
+        self.drain_state.lock().sync_history.len()
     }
 
     /// Apply a single incoming sync message from a peer.

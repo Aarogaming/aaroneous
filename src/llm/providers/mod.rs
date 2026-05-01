@@ -39,4 +39,12 @@ pub trait LLMProvider: Send + Sync {
         skill_name: &str,
         specialist: &SpecialistContext,
     ) -> Result<SkillExplanation>;
+
+    /// Generate UI/UX design variants.
+    ///
+    /// Used by the Visionary federation specialist to produce candidate
+    /// designs for the user to review. Implementations should respect
+    /// the `variants_requested` count, style hints, and constraints in
+    /// the context.
+    async fn generate_design(&self, context: &DesignContext) -> Result<DesignGeneration>;
 }

@@ -282,6 +282,74 @@ Return JSON only:
 
         Ok(explanation)
     }
+
+    async fn generate_design(&self, context: &DesignContext) -> Result<DesignGeneration> {
+        let style = context.style_hints.join(", ");
+        let constraints = context.constraints.join(", ");
+        let count = context.variants_requested.min(3).max(1);
+
+        let prompt = format!(
+            r#"You are Visionary, a UI/UX design specialist. Generate {count} distinct design variants.
+
+Intent: {intent}
+Style hints: {style}
+Constraints: {constraints}
+Avoid: {rejected}
+
+Return a JSON array of {count} variant(s), each with:
+{{
+  "title": "string",
+  "description": "string",
+  "colors": ["hex_or_token"],
+  "typography": "font-stack",
+  "layout": "string",
+  "confidence": 0.0-1.0,
+  "reasoning": "string"
+}}
+
+JSON array only:"#,
+            count = count,
+            intent = context.intent,
+            style = if style.is_empty() { "modern, clean".to_string() } else { style },
+            constraints = if constraints.is_empty() { "none".to_string() } else { constraints },
+            rejected = if context.rejected_examples.is_empty() {
+                "nothing known".to_string()
+            } else {
+                context.rejected_examples[..3.min(context.rejected_examples.len())].join("; ")
+            }
+        );
+
+        let response = self.generate_text(&prompt, 600).await?;
+        debug!("GGUF design generation complete");
+
+        // Parse the JSON array of variants
+        let json_str = extract_json_from_response(&response)?;
+        let variants: Vec<DesignVariant> = serde_json::from_str(&json_str)
+            .unwrap_or_else(|_| {
+                // If parsing fails, return a single fallback variant
+                warn!("Failed to parse GGUF design response; using fallback variant");
+                vec![DesignVariant {
+                    title: format!("Design for {}", context.intent),
+                    description: format!("Generated design: {}", response.chars().take(200).collect::<String>()),
+                    colors: vec!["#6366F1".to_string(), "#F8FAFC".to_string()],
+                    typography: "Inter, sans-serif".to_string(),
+                    layout: "single-column".to_string(),
+                    confidence: 0.5,
+                    reasoning: "Fallback from unparseable GGUF response".to_string(),
+                }]
+            });
+
+        let batch_confidence = if variants.is_empty() { 0.0 } else {
+            variants.iter().map(|v| v.confidence).sum::<f32>() / variants.len() as f32
+        };
+
+        Ok(DesignGeneration {
+            intent: context.intent.clone(),
+            variants,
+            tokens_used: 0,
+            batch_confidence,
+        })
+    }
 }
 
 /// Extract JSON from text that may contain extra content

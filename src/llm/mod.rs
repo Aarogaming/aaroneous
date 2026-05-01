@@ -250,6 +250,36 @@ impl LLMClient {
     pub async fn clear_cache(&self) {
         self.cache.clear().await;
     }
+
+    /// Generate UI/UX design variants for the Visionary specialist.
+    ///
+    /// Results are cached keyed on the intent string. Call `clear_cache()`
+    /// to force fresh generation for the same intent.
+    pub async fn generate_design(
+        &self,
+        context: &DesignContext,
+    ) -> Result<DesignGeneration> {
+        self.rate_limiter.check_limit().await?;
+
+        let cache_key = format!("design:{}", context.intent);
+
+        if self.config.enable_caching {
+            if let Some(cached) = self.cache.get::<DesignGeneration>(&cache_key).await {
+                debug!("Cache hit for design generation: {}", context.intent);
+                return Ok(cached);
+            }
+        }
+
+        debug!("Generating design for intent: {}", context.intent);
+
+        let generation = self.provider.generate_design(context).await?;
+
+        if self.config.enable_caching {
+            self.cache.set(&cache_key, generation.clone()).await?;
+        }
+
+        Ok(generation)
+    }
 }
 
 #[derive(Debug, Clone)]

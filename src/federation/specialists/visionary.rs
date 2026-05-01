@@ -14,6 +14,8 @@ use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
+use crate::llm::{LLMClient, LLMConfig, ProviderType};
+use crate::llm::types::{DesignContext, DesignGeneration};
 // Use parking_lot::Mutex (sync) for `learning` so save/load methods don't
 // hold a lock guard across `.await` points. This is required for the
 // checkpoint loop's future to be `Send` (and therefore spawnable with
@@ -39,7 +41,7 @@ pub struct AestheticEngram {
 
 /// Design variant proposal
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct DesignVariant {
+pub struct VisionaryVariant {
     pub id: String,
     pub description: String,
     pub colors: Vec<String>,
@@ -168,11 +170,14 @@ impl crate::federation::learn_persist::PersistableLearning for LearningData {
 pub struct Visionary {
     id: SpecialistId,
     pub aesthetic_engrams: Vec<AestheticEngram>,
-    pub generated_variants: Vec<DesignVariant>,
+    pub generated_variants: Vec<VisionaryVariant>,
     pub feedback_history: Vec<DesignFeedback>,
     pub model_improvement_score: f32,
-    /// REVIVED: Learning state with interior mutability
     pub learning: Arc<Mutex<LearningData>>,
+    /// Optional LLM client for AI-driven design generation.
+    /// When `None`, Visionary falls back to rule-based variant generation.
+    /// When `Some`, calls `LLMClient::generate_design()` for each execution.
+    pub llm: Option<Arc<LLMClient>>,
 }
 
 impl Visionary {
@@ -188,7 +193,38 @@ impl Visionary {
             feedback_history: vec![],
             model_improvement_score: 0.5,
             learning: Arc::new(Mutex::new(LearningData::new())),
+            llm: None,
         }
+    }
+
+    /// Attach an LLM client for AI-driven design generation.
+    ///
+    /// After this call, `execute()` will call `LLMClient::generate_design()`
+    /// instead of the rule-based fallback.
+    pub fn with_llm(mut self, client: Arc<LLMClient>) -> Self {
+        self.llm = Some(client);
+        self
+    }
+
+    /// Create a Visionary with a MockProvider LLM (fast, no GGUF required).
+    /// Useful for testing and development without a real model installed.
+    pub async fn with_mock_llm() -> Result<Self, anyhow::Error> {
+        let config = LLMConfig {
+            provider_type: ProviderType::Mock,
+            temperature: 0.8,
+            max_tokens: 512,
+            timeout_secs: 10,
+            enable_caching: true,
+            cache_ttl_secs: 600,
+            gguf_model_path: None,
+        };
+        let client = Arc::new(LLMClient::new(config).await?);
+        Ok(Self::new().with_llm(client))
+    }
+
+    /// Whether the LLM client is attached
+    pub fn has_llm(&self) -> bool {
+        self.llm.is_some()
     }
 
     /// Save this specialist's current learning state to a persistence manager.
@@ -233,11 +269,11 @@ impl Visionary {
     }
 
     /// Generate design variants based on aesthetic engrams
-    fn generate_variants(&self, count: usize) -> Vec<DesignVariant> {
+    fn generate_variants(&self, count: usize) -> Vec<VisionaryVariant> {
         let mut variants = vec![];
 
         for i in 0..count {
-            let variant = DesignVariant {
+            let variant = VisionaryVariant {
                 id: format!("variant-{}", i),
                 description: format!("Design variant #{}", i + 1),
                 colors: vec!["#FF6B6B".to_string(), "#4ECDC4".to_string()],
@@ -348,35 +384,82 @@ impl Specialist for Visionary {
 
     /// Execute design generation
     async fn execute(&self, decision: &Decision) -> Result<ExecutionResult, SpecialistError> {
-        // Simulate design generation
-        let variants = self.generate_variants(10);
+        let (output, success) = if let Some(llm) = &self.llm {
+            // --- LLM-backed design generation ---
+            let intent = decision.context.get("intent")
+                .cloned()
+                .unwrap_or_else(|| "UI/UX design".to_string());
 
-        let output = format!(
-            "Generated {} design variants: {}",
-            variants.len(),
-            variants
-                .iter()
-                .map(|v| v.id.clone())
-                .collect::<Vec<_>>()
-                .join(", ")
-        );
+            let style_hints: Vec<String> = self.aesthetic_engrams.iter()
+                .filter(|e| e.confidence > 0.6)
+                .take(5)
+                .map(|e| format!("{}: {}", e.pattern_type, e.values.first().cloned().unwrap_or_default()))
+                .collect();
+
+            let rejected: Vec<String> = self.feedback_history.iter()
+                .filter(|f| !f.approved)
+                .filter_map(|f| f.reason.clone())
+                .take(5)
+                .collect();
+
+            let ctx = DesignContext {
+                intent: intent.clone(),
+                style_hints,
+                constraints: vec![],
+                variants_requested: 3,
+                approved_examples: vec![],
+                rejected_examples: rejected,
+            };
+
+            match llm.generate_design(&ctx).await {
+                Ok(generation) => {
+                    let summary: Vec<String> = generation.variants.iter()
+                        .map(|v| format!("'{}' (conf: {:.0}%)", v.title, v.confidence * 100.0))
+                        .collect();
+                    let output = format!(
+                        "LLM generated {} design variant(s) for '{}': {}. Batch confidence: {:.0}%",
+                        generation.variants.len(),
+                        intent,
+                        summary.join("; "),
+                        generation.batch_confidence * 100.0
+                    );
+                    (output, true)
+                }
+                Err(e) => {
+                    let output = format!(
+                        "LLM design generation failed for '{}': {}. Falling back to rule-based generation.",
+                        intent, e
+                    );
+                    tracing::warn!("Visionary LLM error: {}", e);
+                    (output, false)
+                }
+            }
+        } else {
+            // --- Rule-based fallback (original behavior) ---
+            let variants = self.generate_variants(10);
+            let output = format!(
+                "Generated {} rule-based design variant(s): {}",
+                variants.len(),
+                variants.iter().map(|v| v.id.clone()).collect::<Vec<_>>().join(", ")
+            );
+            (output, true)
+        };
 
         let result = ExecutionResult {
             specialist: SpecialistId::Visionary,
             proposal_id: decision.proposal_id.clone(),
-            status: ExecutionStatus::Success,
+            status: if success { ExecutionStatus::Success } else { ExecutionStatus::Failed },
             output,
             resources_used: decision.allocated_resources.clone(),
-            duration_ms: 2000,
+            duration_ms: if self.llm.is_some() { 500 } else { 2000 },
             error: None,
         };
 
-        // REVIVED: Record execution result for learning
-        let success = result.status == ExecutionStatus::Success;
+        // Record execution result for learning
         {
             let mut learning = self.learning.lock();
             learning.record_result(success);
-        } // Lock is released here
+        }
 
         Ok(result)
     }
@@ -787,5 +870,129 @@ mod tests {
         let learning = revived.learning.lock();
         assert_eq!(learning.total_executions, 5);
         assert_eq!(learning.success_count, 5);
+    }
+
+    // === LLM integration tests ===
+
+    #[test]
+    fn test_visionary_has_no_llm_by_default() {
+        let v = Visionary::new();
+        assert!(!v.has_llm());
+    }
+
+    #[tokio::test]
+    async fn test_visionary_with_mock_llm_attaches_client() {
+        let v = Visionary::with_mock_llm().await.unwrap();
+        assert!(v.has_llm());
+    }
+
+    #[tokio::test]
+    async fn test_execute_with_mock_llm_produces_llm_output() {
+        let visionary = Visionary::with_mock_llm().await.unwrap();
+
+        let mut ctx = std::collections::HashMap::new();
+        ctx.insert("intent".to_string(), "dashboard design".to_string());
+
+        let decision = Decision {
+            proposal_id: "p1".to_string(),
+            specialist: SpecialistId::Visionary,
+            action: "generate_design".to_string(),
+            allocated_resources: ResourceRequest::default(),
+            deadline_ms: 5000,
+            context: ctx,
+        };
+
+        let result = visionary.execute(&decision).await.unwrap();
+        assert_eq!(result.status, ExecutionStatus::Success);
+        // Output should mention LLM-generated variants, not rule-based
+        assert!(
+            result.output.contains("LLM generated"),
+            "LLM-backed execute should say 'LLM generated', got: {}",
+            result.output
+        );
+        assert!(
+            result.output.contains("dashboard design"),
+            "Output should reference the intent: {}",
+            result.output
+        );
+    }
+
+    #[tokio::test]
+    async fn test_execute_without_llm_produces_rule_based_output() {
+        let visionary = Visionary::new(); // no LLM
+        let decision = Decision {
+            proposal_id: "p1".to_string(),
+            specialist: SpecialistId::Visionary,
+            action: "generate_design".to_string(),
+            allocated_resources: ResourceRequest::default(),
+            deadline_ms: 5000,
+            context: std::collections::HashMap::new(),
+        };
+
+        let result = visionary.execute(&decision).await.unwrap();
+        assert_eq!(result.status, ExecutionStatus::Success);
+        assert!(
+            result.output.contains("rule-based"),
+            "Non-LLM execute should say 'rule-based', got: {}",
+            result.output
+        );
+    }
+
+    #[tokio::test]
+    async fn test_execute_with_llm_records_learning() {
+        let visionary = Visionary::with_mock_llm().await.unwrap();
+
+        let decision = Decision {
+            proposal_id: "p1".to_string(),
+            specialist: SpecialistId::Visionary,
+            action: "generate_design".to_string(),
+            allocated_resources: ResourceRequest::default(),
+            deadline_ms: 5000,
+            context: std::collections::HashMap::new(),
+        };
+
+        visionary.execute(&decision).await.unwrap();
+        let learning = visionary.learning.lock();
+        assert_eq!(learning.total_executions, 1);
+        // Mock LLM always succeeds
+        assert_eq!(learning.success_count, 1);
+    }
+
+    #[tokio::test]
+    async fn test_llm_design_generation_directly() {
+        // Test the LLMClient::generate_design path directly with the mock
+        use crate::llm::{LLMClient, LLMConfig, ProviderType};
+        use crate::llm::types::DesignContext;
+
+        let config = LLMConfig {
+            provider_type: ProviderType::Mock,
+            temperature: 0.8,
+            max_tokens: 512,
+            timeout_secs: 10,
+            enable_caching: false,
+            cache_ttl_secs: 60,
+            gguf_model_path: None,
+        };
+        let client = LLMClient::new(config).await.unwrap();
+
+        let ctx = DesignContext {
+            intent: "onboarding flow".to_string(),
+            style_hints: vec!["modern".to_string(), "clean".to_string()],
+            constraints: vec!["mobile-first".to_string()],
+            variants_requested: 2,
+            approved_examples: vec![],
+            rejected_examples: vec![],
+        };
+
+        let generation = client.generate_design(&ctx).await.unwrap();
+        assert_eq!(generation.intent, "onboarding flow");
+        assert_eq!(generation.variants.len(), 2);
+        for variant in &generation.variants {
+            assert!(!variant.title.is_empty());
+            assert!(!variant.description.is_empty());
+            assert!(!variant.colors.is_empty());
+            assert!(variant.confidence > 0.0);
+        }
+        assert!(generation.batch_confidence > 0.0);
     }
 }

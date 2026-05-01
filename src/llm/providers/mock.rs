@@ -142,6 +142,61 @@ impl super::LLMProvider for MockProvider {
             synergies_with: vec!["other_skill1".to_string()],
         })
     }
+
+    async fn generate_design(&self, context: &DesignContext) -> Result<DesignGeneration> {
+        debug!("Mock: Generating {} design variant(s) for '{}'",
+               context.variants_requested, context.intent);
+
+        let count = context.variants_requested.min(3).max(1);
+        let mut variants = Vec::with_capacity(count);
+
+        let palettes = [
+            vec!["#6366F1".to_string(), "#A5B4FC".to_string(), "#1E1B4B".to_string()],
+            vec!["#10B981".to_string(), "#6EE7B7".to_string(), "#065F46".to_string()],
+            vec!["#F59E0B".to_string(), "#FDE68A".to_string(), "#92400E".to_string()],
+        ];
+        let layouts = ["single-column", "card-grid", "sidebar-nav"];
+        let typography = ["Inter, sans-serif", "DM Sans, sans-serif", "Sora, sans-serif"];
+
+        for i in 0..count {
+            let style_hint = context.style_hints.first()
+                .map(|s| s.as_str())
+                .unwrap_or("modern");
+
+            variants.push(DesignVariant {
+                title: format!("Variant {} – {} {:?}", i + 1, style_hint, context.intent),
+                description: format!(
+                    "A {} design for '{}' with {} constraints. Uses {} layout \
+                     with a {} color palette. Optimized for readability and conversion.",
+                    style_hint,
+                    context.intent,
+                    if context.constraints.is_empty() { "no specific".to_string() }
+                    else { context.constraints.join(", ") },
+                    layouts[i % layouts.len()],
+                    if context.style_hints.contains(&"dark-theme".to_string()) { "dark" } else { "light" }
+                ),
+                colors: palettes[i % palettes.len()].clone(),
+                typography: typography[i % typography.len()].to_string(),
+                layout: layouts[i % layouts.len()].to_string(),
+                confidence: 0.7 + (i as f32 * 0.05),
+                reasoning: format!(
+                    "Based on {} approved examples and avoiding {} rejected patterns. \
+                     Style hint '{}' maps to variant {}.",
+                    context.approved_examples.len(),
+                    context.rejected_examples.len(),
+                    style_hint,
+                    i + 1
+                ),
+            });
+        }
+
+        Ok(DesignGeneration {
+            intent: context.intent.clone(),
+            variants,
+            tokens_used: 0, // Mock has no token cost
+            batch_confidence: 0.75,
+        })
+    }
 }
 
 #[cfg(test)]

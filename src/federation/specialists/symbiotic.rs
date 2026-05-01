@@ -174,6 +174,15 @@ pub enum FocusMode {
     Recovery,       // User needs rest
 }
 
+/// Interior-mutable biometric state updated by the drain task (from &self).
+#[derive(Debug)]
+pub struct SymbioticDrainState {
+    /// Most recent classified biometric state (updated as readings come in)
+    pub current_state: UserBiometricState,
+    /// Rolling biometric reading history (most recent `max_history_size` readings)
+    pub biometric_history: VecDeque<BiometricReading>,
+}
+
 /// Symbiotic specialist implementation
 pub struct Symbiotic {
     id: SpecialistId,
@@ -182,19 +191,11 @@ pub struct Symbiotic {
     pub state_history: VecDeque<UserBiometricState>,
     pub max_history_size: usize,
     pub learning: Arc<Mutex<SymbioticLearningData>>,
-    /// Optional real biometric provider. When `Some`, scan/connect operations
-    /// use real BLE (or stub) hardware. When `None`, only manually-ingested
-    /// readings via `ingest_biometric()` are processed.
     pub biometric_provider: Option<Arc<BiometricProvider>>,
-    /// Map from BLE device ID to our logical wearable type
     pub wearable_map: std::collections::HashMap<String, WearableType>,
-    /// Inbox for incoming biometric samples from the BLE receive task.
-    ///
-    /// Background BLE tasks write samples here; the specialist drains via
-    /// `drain_bio_inbox()`. The Mutex allows both the BLE task (writing)
-    /// and the specialist (reading) to access the inbox from different threads
-    /// without requiring `&mut self`.
     pub bio_inbox: Arc<Mutex<VecDeque<BiometricSample>>>,
+    /// Interior-mutable state updated by the BLE drain task (from &self).
+    pub drain_state: Arc<Mutex<SymbioticDrainState>>,
 }
 
 impl Symbiotic {
@@ -202,16 +203,17 @@ impl Symbiotic {
     pub const PERSISTENCE_KEY: &'static str = "Symbiotic";
 
     pub fn new() -> Self {
+        let initial_state = UserBiometricState {
+            stress_level: 0.5,
+            focus_depth: 0.5,
+            fatigue_level: 0.3,
+            activity_state: ActivityState::Sedentary,
+            readiness_score: 0.7,
+            last_update: 0,
+        };
         Self {
             id: SpecialistId::Symbiotic,
-            current_state: UserBiometricState {
-                stress_level: 0.5,
-                focus_depth: 0.5,
-                fatigue_level: 0.3,
-                activity_state: ActivityState::Sedentary,
-                readiness_score: 0.7,
-                last_update: 0,
-            },
+            current_state: initial_state.clone(),
             biometric_history: VecDeque::new(),
             state_history: VecDeque::new(),
             max_history_size: 1000,
@@ -219,6 +221,106 @@ impl Symbiotic {
             biometric_provider: None,
             wearable_map: std::collections::HashMap::new(),
             bio_inbox: Arc::new(Mutex::new(VecDeque::new())),
+            drain_state: Arc::new(Mutex::new(SymbioticDrainState {
+                current_state: initial_state,
+                biometric_history: VecDeque::new(),
+            })),
+        }
+    }
+
+    /// Drain and apply all pending BLE samples from the inbox — callable from `&self`.
+    ///
+    /// Updates `drain_state.current_state` and `drain_state.biometric_history`.
+    /// Does NOT update the legacy `current_state` / `biometric_history` fields on self
+    /// (those require `&mut self`). Use `drain_bio_inbox()` when you have mutable access.
+    pub fn drain_bio_inbox_shared(&self) -> usize {
+        let samples: Vec<_> = {
+            let mut inbox = self.bio_inbox.lock();
+            inbox.drain(..).collect()
+        };
+        let n = samples.len();
+        if n == 0 {
+            return 0;
+        }
+
+        let mut state = self.drain_state.lock();
+        for sample in samples {
+            // Only HR samples produce a reading that updates biometric state.
+            if sample.kind == crate::federation::biometric::BiometricKind::HeartRate {
+                let hrv = sample.raw_payload.as_ref()
+                    .and_then(|p| crate::federation::biometric::services::parse_heart_rate_measurement(p).ok())
+                    .and_then(|p| p.rmssd_ms())
+                    .unwrap_or(50.0) as f32;
+
+                let wearable_type = self.wearable_map.get(&sample.device_id)
+                    .cloned()
+                    .unwrap_or(WearableType::Generic);
+
+                let reading = BiometricReading {
+                    timestamp: sample.timestamp,
+                    heart_rate: sample.value as u32,
+                    heart_rate_variability: hrv,
+                    skin_temperature: 36.5,
+                    activity_level: 0.0,
+                    sleep_debt_hours: 0.0,
+                    device_type: wearable_type,
+                };
+
+                // Update drain_state biometric history
+                state.biometric_history.push_back(reading.clone());
+                if state.biometric_history.len() > self.max_history_size {
+                    state.biometric_history.pop_front();
+                }
+
+                // Re-classify state from the new reading
+                state.current_state = self.classify_state_from_reading_pure(&reading);
+            }
+        }
+        n
+    }
+
+    /// Get the current biometric state from the drain path (updated by drain_bio_inbox_shared)
+    pub fn shared_current_state(&self) -> UserBiometricState {
+        self.drain_state.lock().current_state.clone()
+    }
+
+    /// Pure version of state classification — doesn't modify &mut self, returns new state.
+    fn classify_state_from_reading_pure(&self, reading: &BiometricReading) -> UserBiometricState {
+        // Simplified classification matching the existing classify_state_from_reading logic
+        let stress = if reading.heart_rate_variability < 20.0 {
+            1.0
+        } else if reading.heart_rate_variability > 80.0 {
+            0.0
+        } else {
+            (80.0 - reading.heart_rate_variability) / 60.0
+        };
+
+        let hrv_stability = if reading.heart_rate_variability > 40.0 {
+            reading.heart_rate_variability / 100.0
+        } else {
+            0.4
+        };
+        let low_activity = 1.0 - (reading.activity_level / 100.0).min(1.0);
+        let focus = (hrv_stability * 0.6) + (low_activity * 0.4);
+
+        let sleep_fatigue = (reading.sleep_debt_hours / 8.0).min(1.0);
+        let activity_fatigue = (reading.activity_level / 100.0).min(1.0);
+        let fatigue = (sleep_fatigue * 0.7) + (activity_fatigue * 0.3);
+
+        let readiness = (1.0 - stress) * (1.0 - fatigue * 0.5);
+
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs();
+
+        UserBiometricState {
+            stress_level: stress.clamp(0.0, 1.0),
+            focus_depth: focus.clamp(0.0, 1.0),
+            fatigue_level: fatigue.clamp(0.0, 1.0),
+            activity_state: ActivityState::Sedentary,
+            readiness_score: readiness.clamp(0.0, 1.0),
+            last_update: now,
         }
     }
 

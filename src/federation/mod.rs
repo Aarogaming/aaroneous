@@ -86,7 +86,7 @@ pub use hive::{
     LearningSummary, SpecialistLearningSummary,
 };
 pub use http::{HttpStatusServer, HttpServerError};
-pub use tasks::{BackgroundTaskHandle, OmnipresentRecvTask, SymbioticBleTask};
+pub use tasks::{BackgroundTaskHandle, OmnipresentRecvTask, SymbioticBleTask, OmnipresentDrainTask, SymbioticDrainTask};
 
 #[cfg(test)]
 mod tests;

@@ -32,12 +32,14 @@
 
 pub mod omnipresent_recv;
 pub mod symbiotic_ble;
+pub mod drain;
 
 #[cfg(test)]
 mod tests;
 
 pub use omnipresent_recv::OmnipresentRecvTask;
 pub use symbiotic_ble::SymbioticBleTask;
+pub use drain::{OmnipresentDrainTask, SymbioticDrainTask};
 
 use std::sync::Arc;
 use tokio::sync::Notify;
