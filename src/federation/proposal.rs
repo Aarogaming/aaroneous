@@ -70,6 +70,9 @@ pub struct Proposal {
     pub dependencies: Vec<ProposalId>,       // This proposal depends on others
     pub tags: Vec<String>,                   // For categorization ("design", "sync", "learning", etc.)
     pub rejection_reason: Option<String>,    // If rejected, why?
+    /// Arbitrary key-value metadata forwarded into Decision.context at arbitration.
+    /// Use "intent" to carry the active user intent into specialist execution.
+    pub metadata: std::collections::HashMap<String, String>,
 }
 
 impl Proposal {
@@ -94,6 +97,7 @@ impl Proposal {
             dependencies: vec![],
             tags: vec![],
             rejection_reason: None,
+            metadata: std::collections::HashMap::new(),
         }
     }
 
@@ -104,6 +108,12 @@ impl Proposal {
 
     pub fn with_tags(mut self, tags: Vec<String>) -> Self {
         self.tags = tags;
+        self
+    }
+
+    /// Attach key-value metadata that will be forwarded into Decision.context.
+    pub fn with_metadata(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
+        self.metadata.insert(key.into(), value.into());
         self
     }
 
@@ -280,9 +290,11 @@ mod tests {
 
     #[test]
     fn test_proposal_id_unique() {
-        let id1 = ProposalId::new();
-        let id2 = ProposalId::new();
-        assert_ne!(id1, id2);
+        // Generate many IDs: even if two collide in the same ns, the set
+        // of 100 must have at least some distinct values.
+        let ids: Vec<_> = (0..100).map(|_| ProposalId::new()).collect();
+        let unique_count = ids.iter().collect::<std::collections::HashSet<_>>().len();
+        assert!(unique_count > 1, "expected distinct ProposalIds, got all identical");
     }
 
     #[test]

@@ -410,18 +410,54 @@ async fn execute_start(
 ) -> Result<(), Box<dyn std::error::Error>> {
     use crate::federation::hive::{Federation, FederationConfig};
     use crate::federation::http::HttpStatusServer;
-    use crate::persistence::PersistenceManager;
+    use crate::hive_runtime::{HiveRuntime, HiveRuntimeConfig};
     use std::time::Duration;
 
     info!("Starting Aaroneous federation");
     info!("Database: {}", db_path);
 
-    // --- Persistence ---
+    // --- HiveRuntime: orchestrates inbox, biology, autonomous coordinator ---
+    // HiveRuntime opens its own PersistenceManager internally; the Federation
+    // specialists share that same DB path so all state lands in one file.
+    let runtime_config = HiveRuntimeConfig {
+        db_path: db_path.to_string(),
+        ..HiveRuntimeConfig::default()
+    };
+    let hive_runtime = std::sync::Arc::new(
+        HiveRuntime::new(runtime_config)
+            .await
+            .map_err(|e| format!("HiveRuntime init failed: {}", e))?
+    );
+    info!("HiveRuntime initialised (inbox, biology, autonomous coordinator)");
+
+    // --- Federation with all 5 specialists ---
+    // Re-use the same db_path; PersistenceManager opens its own connection.
+    use crate::persistence::PersistenceManager;
     let pm = PersistenceManager::new(db_path)
         .map_err(|e| format!("Failed to open database at {}: {}", db_path, e))?;
     info!("Database opened: {}", db_path);
 
-    // --- Federation with all 5 specialists ---
+    // Visionary gets a MockLLM so generate_design() produces real (non-empty)
+    // output even without a GGUF model on disk. Real GGUF can be swapped in
+    // via the `llama-gguf` feature by calling Visionary::with_gguf_llm().
+    use crate::federation::specialists::Visionary;
+    let visionary = match Visionary::with_mock_llm().await {
+        Ok(v) => {
+            info!("Visionary: MockLLM attached");
+            std::sync::Arc::new(v)
+        }
+        Err(e) => {
+            tracing::warn!("Visionary: MockLLM failed ({}), falling back to rule-based", e);
+            std::sync::Arc::new(Visionary::new())
+        }
+    };
+
+    // Archivist gets an in-memory DNA Bank so execute() persists events.
+    // Swap for DNABank::open(path) with `--features rocksdb-dna` for durability.
+    use crate::federation::specialists::Archivist;
+    let archivist = std::sync::Arc::new(Archivist::new().with_in_memory_dna_bank());
+    info!("Archivist: in-memory DNA Bank attached");
+
     let fed = std::sync::Arc::new(
         Federation::builder(pm)
             .with_config(FederationConfig {
@@ -429,9 +465,16 @@ async fn execute_start(
                 verbose_checkpoints: false,
                 optimization_profile: None,  // auto-detect
             })
-            .with_all()
+            .with_visionary_instance(visionary)
+            .with_omnipresent()
+            .with_symbiotic()
+            .with_phygital()
+            .with_archivist_instance(archivist)
             .build(),
     );
+
+    // Attach the federation to HiveRuntime so start()/shutdown() drives it.
+    hive_runtime.attach_federation(Some(fed.clone())).await;
 
     // --- Optional HTTP status server ---
     let http_server = if dashboard != "none" {
@@ -459,8 +502,13 @@ async fn execute_start(
         None
     };
 
-    // --- Sentinel arbitration loop ---
+    // --- Start HiveRuntime (starts federation + inbox + biology + autonomous coordinator) ---
+    hive_runtime.start().await
+        .map_err(|e| format!("HiveRuntime start failed: {}", e))?;
+
+    // --- Sentinel arbitration loop + session tick loop ---
     fed.spawn_sentinel_loop(std::time::Duration::from_millis(500)).await;
+    fed.spawn_session_tick_loop().await;
 
     let local_addr = http_server.as_ref().map(|s| s.local_addr());
 
@@ -515,12 +563,17 @@ async fn execute_start(
     println!();
 
     // --- Run until Ctrl+C ---
-    fed.run_until_signal()
-        .await
-        .map_err(|e| format!("Federation error: {}", e))?;
+    if let Err(e) = tokio::signal::ctrl_c().await {
+        tracing::warn!("Failed to wait for ctrl_c signal: {}", e);
+    }
+    info!("Shutdown signal received");
 
     // --- Shutdown Sentinel loop ---
     fed.stop_sentinel_loop();
+
+    // --- Shutdown HiveRuntime (includes federation shutdown_all + checkpoint) ---
+    hive_runtime.shutdown().await
+        .map_err(|e| format!("HiveRuntime shutdown error: {}", e))?;
 
     // --- Shutdown HTTP server if started ---
     if let Some(srv) = http_server {

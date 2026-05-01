@@ -46,7 +46,7 @@ pub fn router(state: AppState) -> Router {
         .route("/results", get(get_results))
         // Session management: create a session, get session details
         .route("/sessions", get(list_sessions).post(create_session))
-        .route("/sessions/:id", get(get_session_by_id))
+        .route("/sessions/:id", get(get_session_by_id).delete(delete_session_by_id))
         .route("/sessions/:id/intent", post(submit_session_intent))
         .route("/sessions/:id/results", get(get_session_results))
         // Audit log
@@ -333,6 +333,18 @@ async fn get_session_by_id(
             Json(serde_json::json!({"message": format!("Session '{}' not found", id)})),
         )
             .into_response(),
+    }
+}
+
+/// DELETE /sessions/:id — end and remove a session
+async fn delete_session_by_id(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+) -> impl IntoResponse {
+    if state.federation.delete_session(&id).await {
+        (StatusCode::OK, Json(serde_json::json!({"message": format!("Session '{}' ended", id)}))).into_response()
+    } else {
+        (StatusCode::NOT_FOUND, Json(serde_json::json!({"message": format!("Session '{}' not found", id)}))).into_response()
     }
 }
 

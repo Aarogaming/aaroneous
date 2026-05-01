@@ -301,9 +301,20 @@ impl Symbiotic {
         n
     }
 
-    /// Get the current biometric state from the drain path (updated by drain_bio_inbox_shared)
+    /// Get the most up-to-date biometric state.
+    ///
+    /// Returns `drain_state.current_state` when it has fresher data (i.e., when
+    /// `drain_bio_inbox_shared()` has processed real BLE samples more recently
+    /// than the last `ingest_biometric()` call). Falls back to the legacy
+    /// `current_state` field otherwise, ensuring tests that call
+    /// `ingest_biometric()` directly still see the correct classified state.
     pub fn shared_current_state(&self) -> UserBiometricState {
-        self.drain_state.lock().current_state.clone()
+        let drain = self.drain_state.lock();
+        if drain.current_state.last_update > self.current_state.last_update {
+            drain.current_state.clone()
+        } else {
+            self.current_state.clone()
+        }
     }
 
     /// Pure version of state classification — doesn't modify &mut self, returns new state.
@@ -665,10 +676,14 @@ impl Specialist for Symbiotic {
         // current_state may be stale - slightly increase urgency.
         let pending_samples = self.bio_inbox.lock().len();
 
+        // Use the fresher of drain_state vs current_state for the stress check,
+        // matching the same precedence logic as get_intent_scaling().
+        let effective_state = self.shared_current_state();
+
         // Propose if significant state change, recovery needed, OR fresh
         // biometric data is waiting that hasn't been processed yet
         if scaling.recommended_focus == FocusMode::Recovery
-            || self.current_state.stress_level > 0.7
+            || effective_state.stress_level > 0.7
             || pending_samples > 0
         {
             let action_type = match scaling.recommended_focus {
@@ -690,17 +705,17 @@ impl Specialist for Symbiotic {
             let description = if pending_samples > 0 {
                 format!(
                     "Scale Intent for user state: stress={:.2}, fatigue={:.2}, readiness={:.2} (+{} pending BLE samples)",
-                    self.current_state.stress_level,
-                    self.current_state.fatigue_level,
-                    self.current_state.readiness_score,
+                    effective_state.stress_level,
+                    effective_state.fatigue_level,
+                    effective_state.readiness_score,
                     pending_samples
                 )
             } else {
                 format!(
                     "Scale Intent for user state: stress={:.2}, fatigue={:.2}, readiness={:.2}",
-                    self.current_state.stress_level,
-                    self.current_state.fatigue_level,
-                    self.current_state.readiness_score
+                    effective_state.stress_level,
+                    effective_state.fatigue_level,
+                    effective_state.readiness_score
                 )
             };
 
@@ -716,9 +731,9 @@ impl Specialist for Symbiotic {
                     memory_mb: 80,
                     duration_seconds: 5,
                 },
-                priority: if self.current_state.fatigue_level > 0.8 {
+                priority: if effective_state.fatigue_level > 0.8 {
                     ProposalPriority::UserFacing
-                } else if self.current_state.stress_level > 0.7 {
+                } else if effective_state.stress_level > 0.7 {
                     ProposalPriority::Normal
                 } else {
                     ProposalPriority::Background

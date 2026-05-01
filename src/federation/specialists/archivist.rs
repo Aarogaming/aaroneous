@@ -519,6 +519,11 @@ impl Specialist for Archivist {
 
     /// Execute consolidation
     async fn execute(&self, decision: &Decision) -> Result<ExecutionResult, SpecialistError> {
+        let start_ms = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis() as u64;
+
         let output = format!(
             "Consolidated {} events into {} patterns. Archive: {} MB",
             self.stats.total_events,
@@ -526,13 +531,15 @@ impl Specialist for Archivist {
             self.stats.archive_size_bytes / 1_000_000
         );
 
+        let duration_ms = 3500u64;
+
         let result = ExecutionResult {
             specialist: SpecialistId::Archivist,
             proposal_id: decision.proposal_id.clone(),
             status: ExecutionStatus::Success,
-            output,
+            output: output.clone(),
             resources_used: decision.allocated_resources.clone(),
-            duration_ms: 3500,
+            duration_ms,
             error: None,
         };
 
@@ -542,6 +549,45 @@ impl Specialist for Archivist {
             let mut learning = self.learning.lock();
             learning.record_result(success);
         } // Lock released here
+
+        // Record to DNA Bank if attached — this is the durable event log for
+        // all Archivist executions, enabling pattern extraction on replay.
+        if self.dna_bank.is_some() {
+            let mut metadata = HashMap::new();
+            metadata.insert("proposal_id".to_string(), decision.proposal_id.clone());
+            metadata.insert("action".to_string(), decision.action.clone());
+            if let Some(intent) = decision.context.get("intent") {
+                metadata.insert("intent".to_string(), intent.clone());
+            }
+
+            let event = EventRecord {
+                id: format!("exec-{}-{}", start_ms, decision.proposal_id),
+                event_type: "consolidation_executed".to_string(),
+                timestamp: start_ms,
+                specialist: "Archivist".to_string(),
+                outcome: EventOutcome::Success,
+                duration_ms: duration_ms as u32,
+                metadata,
+            };
+
+            // Write directly to the bank using &self-compatible try_lock(),
+            // bypassing the &mut self record_event() on Archivist.
+            if let Some(bank) = &self.dna_bank {
+                use crate::federation::dna_bank::DNAEvent;
+                let dna_event = DNAEvent {
+                    id: event.id.clone(),
+                    timestamp: event.timestamp,
+                    specialist: SpecialistId::Archivist,
+                    event_type: event.event_type.clone(),
+                    outcome: "success".to_string(),
+                    duration_ms: event.duration_ms,
+                    metadata: event.metadata.clone(),
+                };
+                if let Some(mut guard) = bank.try_lock() {
+                    let _ = guard.record_event(dna_event);
+                }
+            }
+        }
 
         Ok(result)
     }

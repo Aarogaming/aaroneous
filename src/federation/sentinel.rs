@@ -160,7 +160,8 @@ impl Sentinel {
         Ok(result)
     }
 
-    /// Convert a proposal to a decision
+    /// Convert a proposal to a decision, forwarding proposal metadata into
+    /// Decision.context so specialists (e.g. Visionary) can read the user intent.
     fn decision_from_proposal(&self, proposal: &Proposal, executor: SpecialistId) -> Decision {
         Decision {
             proposal_id: format!("{:?}", proposal.id),
@@ -168,7 +169,7 @@ impl Sentinel {
             action: proposal.action.clone(),
             allocated_resources: proposal.required_resources.clone(),
             deadline_ms: proposal.estimated_completion_ms,
-            context: HashMap::new(),
+            context: proposal.metadata.clone(),
         }
     }
 

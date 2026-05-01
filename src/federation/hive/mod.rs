@@ -851,6 +851,26 @@ impl Federation {
         self.sessions.read().await.active_sessions().into_iter().cloned().collect()
     }
 
+    /// Delete a session by ID. Returns `true` if the session existed and was removed.
+    pub async fn delete_session(&self, session_id: &str) -> bool {
+        use crate::federation::session::SessionState;
+        let mut sessions = self.sessions.write().await;
+        if let Some(session) = sessions.get_mut(session_id) {
+            session.state = SessionState::Ended;
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Tick all sessions: advance idle/expiry state. Purge expired sessions.
+    /// Call periodically (e.g., once per minute) from a background task.
+    pub async fn tick_sessions(&self) {
+        let mut sessions = self.sessions.write().await;
+        sessions.tick();
+        sessions.purge_expired();
+    }
+
     /// Collect proposals from all configured specialists and submit them to
     /// the CommunicationBus for Sentinel arbitration.
     ///
@@ -879,7 +899,7 @@ impl Federation {
                 stress_level: 0.3,  // Neutral baseline; Symbiotic updates this
                 focus_level: 0.7,
                 fatigue_level: 0.2,
-                activity: intent_activity,
+                                activity: intent_activity.clone(),
             },
             system_resources: {
                 // Read real system resources, then cap them to the profile limits.
@@ -913,7 +933,7 @@ impl Federation {
                     match specialist_arc.propose(&context).await {
                         Ok(proposed_actions) => {
                             for action in proposed_actions {
-                                let proposal = Proposal::new(
+                                let mut proposal = Proposal::new(
                                     action.specialist,
                                     action.action_type.clone(),
                                     action.description.clone(),
@@ -922,6 +942,11 @@ impl Federation {
                                 )
                                 .with_resources(action.required_resources.clone())
                                 .with_tags(action.tags.clone());
+                                // Stamp the active intent so Sentinel can forward
+                                // it into Decision.context["intent"] at arbitration.
+                                if !intent_activity.is_empty() && intent_activity != "idle" {
+                                    proposal = proposal.with_metadata("intent", intent_activity.clone());
+                                }
                                 bus_proposals.push(proposal);
                             }
                         }
@@ -1068,7 +1093,12 @@ impl Federation {
         if self.archivist.is_some() { bus.register_specialist(SpecialistId::Archivist); }
 
         let config = SentinelConfig::default();
-        let sentinel = Sentinel::new(config, bus);
+        let mut sentinel = Sentinel::new(config, bus);
+
+        // Seed Sentinel with real system resources immediately so the first
+        // arbitration tick doesn't filter every proposal as not viable.
+        let initial_resources = read_system_resources().await;
+        sentinel.update_system_resources(initial_resources).await;
 
         info!(
             "Sentinel started with {} registered specialist(s), arbitrating every {}ms",
@@ -1107,6 +1137,16 @@ impl Federation {
                         break;
                     }
                     _ = tokio::time::sleep(interval) => {
+                        // Refresh system resources before each arbitration tick
+                        // so the viability filter uses current CPU/memory headroom.
+                        let fresh_resources = read_system_resources().await;
+                        {
+                            let guard = sentinel_arc.read().await;
+                            if let Some(sentinel) = guard.as_ref() {
+                                sentinel.update_system_resources(fresh_resources).await;
+                            }
+                        }
+
                         // Run one arbitration cycle
                         let arb_result = {
                             let guard = sentinel_arc.read().await;
@@ -1180,5 +1220,31 @@ impl Federation {
     /// Stop the Sentinel arbitration loop.
     pub fn stop_sentinel_loop(&self) {
         self.sentinel_shutdown.notify_one();
+    }
+
+    /// Spawn a background task that calls `tick_sessions()` every 60 seconds,
+    /// advancing idle/expiry state and purging expired sessions.
+    ///
+    /// The task shares the sentinel shutdown signal so it stops cleanly when
+    /// `stop_sentinel_loop()` is called.
+    pub async fn spawn_session_tick_loop(&self) {
+        let sessions = self.sessions.clone();
+        let shutdown = self.sentinel_shutdown.clone();
+
+        tokio::spawn(async move {
+            loop {
+                tokio::select! {
+                    _ = shutdown.notified() => break,
+                    _ = tokio::time::sleep(std::time::Duration::from_secs(60)) => {
+                        let mut mgr = sessions.write().await;
+                        mgr.tick();
+                        let purged = mgr.purge_expired();
+                        if purged > 0 {
+                            info!("Session tick: purged {} expired session(s)", purged);
+                        }
+                    }
+                }
+            }
+        });
     }
 }
