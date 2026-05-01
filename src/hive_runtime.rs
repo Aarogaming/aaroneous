@@ -506,6 +506,74 @@ impl HiveRuntime {
             })
             .collect()
     }
+
+    /// Submit a user intent to the federation and the autonomous coordinator simultaneously.
+    ///
+    /// This is the **unified entry point** that bridges Era 1 (autonomous coordinator,
+    /// task analysis, capability matching) and Era 2/3 (federation specialists, Sentinel):
+    ///
+    /// 1. Creates a `Task` for the Era 1 autonomous coordinator — the coordinator analyzes
+    ///    the intent, finds the best Era 1 specialists, and generates an execution plan.
+    /// 2. Simultaneously submits an `Intent` to the federation — the federation specialists
+    ///    propose actions, Sentinel arbitrates, and results land at `GET /results`.
+    ///
+    /// Returns `(task_id, intent_id)` — both can be tracked independently.
+    pub async fn submit_intent(
+        &self,
+        content: impl Into<String>,
+        domain: Option<&str>,
+        session_id: Option<&str>,
+    ) -> (String, Option<String>) {
+        let content_str = content.into();
+
+        // --- Era 1 path: autonomous coordinator ---
+        let task = crate::task_analysis::Task {
+            id: format!("task-{}", nano_id()),
+            name: content_str.clone(),
+            description: format!("Intent submitted: {}", content_str),
+            data_sample: domain.map(|d| format!("domain: {}", d)),
+            priority: crate::task_analysis::TaskPriority::High,
+            deadline_secs: Some(300), // 5 minutes
+            required_skills: vec![],
+            tags: vec![domain.unwrap_or("general").to_string()],
+        };
+        let task_id = self.submit_task(task).await
+            .unwrap_or_else(|_| "task-error".to_string());
+
+        // --- Era 2/3 path: federation ---
+        let intent_id = if let Some(fed) = self.federation().await {
+            let intent = crate::federation::intent::Intent::new(content_str.clone())
+                .with_priority(crate::federation::intent::IntentPriority::High)
+                .with_context("domain", domain.unwrap_or("general").to_string());
+
+            let id = if let Some(session) = session_id {
+                fed.submit_intent_for_session(session, intent).await
+                    .map(|(_, intent_id)| intent_id)
+                    .ok()
+            } else {
+                Some(fed.submit_intent(intent).await)
+            };
+            id
+        } else {
+            None
+        };
+
+        info!(
+            "submit_intent: task_id={}, intent_id={:?}, content='{}'",
+            task_id, intent_id, content_str
+        );
+
+        (task_id, intent_id)
+    }
+}
+
+/// Generate a short unique ID from nanoseconds
+fn nano_id() -> String {
+    let nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_nanos();
+    format!("{:016x}", nanos)
 }
 
 #[cfg(test)]

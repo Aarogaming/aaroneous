@@ -189,15 +189,47 @@ impl CapabilityMatchingEngine {
         (score.min(1.0), matching, missing)
     }
 
-    /// Calculate experience score based on XP and past successes
+    /// Calculate experience score based on memory health, decision history, and strategy depth.
+    ///
+    /// Uses three signals, each weighted:
+    /// - **Memory health** (0.4): `MemoryStats.memory_health` reflects how well the
+    ///   specialist's memories are maintained (non-decayed, actively used).
+    /// - **Decision success rate** (0.4): ratio of successful outcomes in `DecisionRecord`
+    ///   history. More decisions + higher success = higher score.
+    /// - **Strategy depth** (0.2): number of stored strategies (capped at 10),
+    ///   indicating accumulated domain expertise.
+    ///
+    /// Returns 0.5 (neutral baseline) when no memory is available.
     fn calculate_experience_score(
-        specialist: &SpecialistAgent,
-        _memory: Option<&SpecialistMemory>,
+        _specialist: &SpecialistAgent,
+        memory: Option<&SpecialistMemory>,
     ) -> f32 {
-        // Simple XP-based scoring: higher XP = higher confidence
-        // Assume specialist has xp field (or extract from memory)
-        // For now, return moderate default
-        0.6
+        let Some(mem) = memory else {
+            return 0.5; // Neutral baseline — no memory data available
+        };
+
+        let stats = mem.get_memory_stats();
+
+        // Signal 1: memory health (0.0-1.0 from SpecialistMemory internals)
+        let memory_health = stats.memory_health.clamp(0.0, 1.0);
+
+        // Signal 2: decision success rate from recent decisions
+        let decisions = mem.get_recent_decisions(50);
+        let decision_score = if decisions.is_empty() {
+            0.5 // No decisions yet → neutral
+        } else {
+            let successes = decisions.iter().filter(|d| {
+                d.outcome.as_ref().map(|o| o.success).unwrap_or(false)
+            }).count();
+            (successes as f32 / decisions.len() as f32).clamp(0.0, 1.0)
+        };
+
+        // Signal 3: strategy depth — more stored strategies = more experienced
+        let strategy_depth = (stats.strategies as f32 / 10.0).clamp(0.0, 1.0);
+
+        // Weighted combination
+        let score = (memory_health * 0.4) + (decision_score * 0.4) + (strategy_depth * 0.2);
+        score.clamp(0.1, 0.95) // Never fully certain or fully incapable
     }
 
     /// Calculate learning potential (for growth opportunities)
