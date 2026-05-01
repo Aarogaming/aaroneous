@@ -234,6 +234,21 @@ impl PersistenceManager {
                  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
              );
 
+             -- Federation sessions: persists user sessions across restarts.
+             -- The full session state is JSON-serialized into session_json so
+             -- the schema stays stable even as Session gains new fields.
+             CREATE TABLE IF NOT EXISTS federation_sessions (
+                 session_id TEXT PRIMARY KEY,
+                 user_id TEXT NOT NULL,
+                 user_name TEXT NOT NULL,
+                 state TEXT NOT NULL DEFAULT 'Active',
+                 session_json TEXT NOT NULL,
+                 created_at INTEGER NOT NULL,
+                 updated_at INTEGER NOT NULL
+             );
+             CREATE INDEX IF NOT EXISTS idx_sessions_user ON federation_sessions(user_id);
+             CREATE INDEX IF NOT EXISTS idx_sessions_state ON federation_sessions(state);
+
              -- Indexes for performance
              CREATE INDEX IF NOT EXISTS idx_specialists_rank ON specialists(rank);
              CREATE INDEX IF NOT EXISTS idx_specialists_updated ON specialists(updated_at);
@@ -718,6 +733,66 @@ impl PersistenceManager {
         self.db.execute(
             "DELETE FROM specialist_learning WHERE specialist_kind = ?1",
             params![specialist_kind],
+        )?;
+        Ok(())
+    }
+
+    // ── Federation session persistence ──────────────────────────────────────
+
+    /// Upsert a session snapshot to the `federation_sessions` table.
+    ///
+    /// `session_json` should be the full JSON serialisation of the `Session`
+    /// struct.  Call this after `create_session()`, `add_intent()`, and
+    /// `add_result()` to keep the DB in sync with in-memory state.
+    pub fn save_session(
+        &self,
+        session_id: &str,
+        user_id: &str,
+        user_name: &str,
+        state: &str,
+        session_json: &str,
+        created_at: i64,
+    ) -> SqlResult<()> {
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs() as i64;
+
+        self.db.execute(
+            "INSERT INTO federation_sessions
+                 (session_id, user_id, user_name, state, session_json, created_at, updated_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
+             ON CONFLICT(session_id) DO UPDATE SET
+                 state        = excluded.state,
+                 session_json = excluded.session_json,
+                 updated_at   = excluded.updated_at",
+            params![session_id, user_id, user_name, state, session_json, created_at, now],
+        )?;
+        Ok(())
+    }
+
+    /// Load all non-expired sessions from the database.
+    ///
+    /// Returns `(session_id, session_json)` pairs.  The caller is responsible
+    /// for deserialising `session_json` back into `Session` objects.
+    /// Sessions with `state = 'Expired'` or `state = 'Ended'` are excluded.
+    pub fn load_active_sessions(&self) -> SqlResult<Vec<(String, String)>> {
+        let mut stmt = self.db.prepare(
+            "SELECT session_id, session_json FROM federation_sessions
+             WHERE state NOT IN ('Expired', 'Ended')
+             ORDER BY created_at DESC",
+        )?;
+        let rows = stmt.query_map([], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+        })?;
+        rows.collect()
+    }
+
+    /// Delete a session from the database.
+    pub fn delete_session(&self, session_id: &str) -> SqlResult<()> {
+        self.db.execute(
+            "DELETE FROM federation_sessions WHERE session_id = ?1",
+            params![session_id],
         )?;
         Ok(())
     }

@@ -272,6 +272,12 @@ impl SessionManager {
         self.sessions.len()
     }
 
+    /// Insert a pre-built session (used when reloading from the database).
+    /// If a session with the same ID already exists, it is overwritten.
+    pub fn insert_session(&mut self, session: Session) {
+        self.sessions.insert(session.id.clone(), session);
+    }
+
     /// Find sessions by user name (case-insensitive prefix match).
     pub fn find_by_user(&self, user_name: &str) -> Vec<&Session> {
         let lower = user_name.to_lowercase();

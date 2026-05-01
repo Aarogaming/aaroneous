@@ -34,6 +34,7 @@ pub struct ArchivistLearningData {
     pub confidence_score: f32,
     pub execution_history: Vec<bool>,
     pub last_updated: u64,
+    pub confidence_trend: Vec<(u64, f32)>,
 }
 
 impl ArchivistLearningData {
@@ -45,6 +46,7 @@ impl ArchivistLearningData {
             confidence_score: 0.5,
             execution_history: vec![],
             last_updated: 0,
+            confidence_trend: vec![],
         }
     }
 
@@ -71,6 +73,11 @@ impl ArchivistLearningData {
             .unwrap()
             .as_secs();
         self.last_updated = now;
+
+        self.confidence_trend.push((now, self.confidence_score));
+        if self.confidence_trend.len() > 100 {
+            self.confidence_trend.remove(0);
+        }
     }
 
     pub fn get_proposal_confidence(&self) -> f32 {
@@ -94,6 +101,7 @@ impl crate::federation::learn_persist::PersistableLearning for ArchivistLearning
             confidence_score: self.confidence_score,
             execution_history: self.execution_history.clone(),
             last_updated: self.last_updated,
+            confidence_trend: self.confidence_trend.clone(),
         }
     }
 
@@ -103,6 +111,7 @@ impl crate::federation::learn_persist::PersistableLearning for ArchivistLearning
         self.total_executions = s.total_executions;
         self.confidence_score = s.confidence_score;
         self.execution_history = s.execution_history;
+        self.confidence_trend = s.confidence_trend;
         self.last_updated = s.last_updated;
     }
 }

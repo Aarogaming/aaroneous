@@ -51,6 +51,8 @@ pub fn router(state: AppState) -> Router {
         .route("/sessions/:id/results", get(get_session_results))
         // Audit log
         .route("/audit", get(get_audit_log))
+        // Learning confidence trends (time-series)
+        .route("/learning/trends", get(get_learning_trends))
         // Multi-hive cluster status
         .route("/cluster", get(cluster_status))
         .with_state(state)
@@ -468,6 +470,38 @@ async fn get_audit_log(State(state): State<AppState>) -> Json<serde_json::Value>
     Json(serde_json::json!({
         "count": events_json.len(),
         "events": events_json,
+    }))
+}
+
+// ====================================================================
+// Learning trends endpoint
+// ====================================================================
+
+/// GET /learning/trends — confidence time-series for all specialists
+///
+/// Returns `{"visionary": [[ts, conf], ...], ...}` per specialist.
+/// Each entry is `[unix_seconds, confidence_0_to_1]`.
+/// Returns `null` for specialists not configured in this federation.
+async fn get_learning_trends(State(state): State<AppState>) -> Json<serde_json::Value> {
+    let trends = state.federation.learning_trends();
+
+    fn to_json(v: Option<Vec<(u64, f32)>>) -> serde_json::Value {
+        match v {
+            None => serde_json::Value::Null,
+            Some(pairs) => serde_json::Value::Array(
+                pairs.into_iter()
+                    .map(|(ts, conf)| serde_json::json!([ts, conf]))
+                    .collect()
+            ),
+        }
+    }
+
+    Json(serde_json::json!({
+        "visionary":   to_json(trends.visionary),
+        "omnipresent": to_json(trends.omnipresent),
+        "symbiotic":   to_json(trends.symbiotic),
+        "phygital":    to_json(trends.phygital),
+        "archivist":   to_json(trends.archivist),
     }))
 }
 

@@ -541,6 +541,7 @@ async fn execute_start(
         println!();
         println!("HTTP API — observability:");
         println!("  GET  http://{}/audit                    recent audit events", addr);
+        println!("  GET  http://{}/learning/trends          confidence time-series per specialist", addr);
         println!("  GET  http://{}/cluster                  multi-hive cluster status", addr);
         println!();
         println!("Quick start:");

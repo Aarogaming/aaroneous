@@ -38,6 +38,7 @@ pub struct OmnipresentLearningData {
     pub confidence_score: f32,
     pub execution_history: Vec<bool>, // Track last 20 executions
     pub last_updated: u64,
+    pub confidence_trend: Vec<(u64, f32)>,
 }
 
 impl OmnipresentLearningData {
@@ -49,6 +50,7 @@ impl OmnipresentLearningData {
             confidence_score: 0.5, // Start neutral
             execution_history: vec![],
             last_updated: 0,
+            confidence_trend: vec![],
         }
     }
 
@@ -77,6 +79,11 @@ impl OmnipresentLearningData {
             .unwrap()
             .as_secs();
         self.last_updated = now;
+
+        self.confidence_trend.push((now, self.confidence_score));
+        if self.confidence_trend.len() > 100 {
+            self.confidence_trend.remove(0);
+        }
     }
 
     pub fn get_proposal_confidence(&self) -> f32 {
@@ -100,6 +107,7 @@ impl crate::federation::learn_persist::PersistableLearning for OmnipresentLearni
             confidence_score: self.confidence_score,
             execution_history: self.execution_history.clone(),
             last_updated: self.last_updated,
+            confidence_trend: self.confidence_trend.clone(),
         }
     }
 
@@ -109,6 +117,7 @@ impl crate::federation::learn_persist::PersistableLearning for OmnipresentLearni
         self.total_executions = s.total_executions;
         self.confidence_score = s.confidence_score;
         self.execution_history = s.execution_history;
+        self.confidence_trend = s.confidence_trend;
         self.last_updated = s.last_updated;
     }
 }
@@ -698,14 +707,40 @@ impl Specialist for Omnipresent {
         }])
     }
 
-    /// Execute P2P sync across mesh
+    /// Execute P2P sync across mesh.
+    ///
+    /// When a P2P node is attached (via `with_p2p()`), broadcasts the intent
+    /// payload from `decision.context["intent"]` to all registered device
+    /// endpoints. Gracefully no-ops when no P2P node or no endpoints are
+    /// registered (returns Success with 0 devices reached).
     async fn execute(&self, decision: &Decision) -> Result<ExecutionResult, SpecialistError> {
         let sync_bandwidth = self.calculate_sync_bandwidth();
-        
+
+        // Build the intent payload to broadcast: JSON-encode the decision
+        // context so remote devices receive the full intent + metadata.
+        let intent_str = decision.context.get("intent")
+            .cloned()
+            .unwrap_or_else(|| decision.action.clone());
+        let payload: Vec<u8> = serde_json::to_vec(&serde_json::json!({
+            "proposal_id": decision.proposal_id,
+            "action":      decision.action,
+            "intent":      intent_str,
+        }))
+        .unwrap_or_else(|_| intent_str.into_bytes());
+
+        // Attempt broadcast; if P2P not attached or no endpoints, returns 0.
+        let (devices_reached, p2p_note) = match self.broadcast_intent(1, payload).await {
+            Ok(n) if n > 0 => (n, format!(", broadcast to {} device(s) via P2P", n)),
+            Ok(_) => (0, " (no P2P peers registered)".to_string()),
+            Err(e) => (0, format!(" (P2P broadcast error: {})", e)),
+        };
+
         let output = format!(
-            "Synced {} devices across mesh (bandwidth: {} Mbps)",
+            "Synced {} device(s) across mesh (bandwidth: {} Mbps, reached: {}{})",
             self.devices.len(),
-            sync_bandwidth
+            sync_bandwidth,
+            devices_reached,
+            p2p_note,
         );
 
         let result = ExecutionResult {
@@ -723,7 +758,7 @@ impl Specialist for Omnipresent {
         {
             let mut learning = self.learning.lock();
             learning.record_result(success);
-        } // Lock released here
+        }
 
         Ok(result)
     }

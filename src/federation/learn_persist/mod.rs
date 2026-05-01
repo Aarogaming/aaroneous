@@ -66,6 +66,10 @@ pub struct LearningSnapshot {
     pub confidence_score: f32,
     pub execution_history: Vec<bool>,
     pub last_updated: u64,
+    /// Time-series of (unix_seconds, confidence_score) sampled after each
+    /// execution. Enables trend queries. Max 100 entries; oldest dropped first.
+    #[serde(default)]
+    pub confidence_trend: Vec<(u64, f32)>,
 }
 
 impl LearningSnapshot {
@@ -78,15 +82,26 @@ impl LearningSnapshot {
             confidence_score: 0.5,
             execution_history: vec![],
             last_updated: 0,
+            confidence_trend: vec![],
         }
     }
 
-    /// Convert to the SQL record (serializing the history vector to JSON)
+    /// Convert to the SQL record.
+    ///
+    /// Serializes both `execution_history` and `confidence_trend` into the
+    /// single `execution_history_json` column as a versioned envelope:
+    /// `{"v":2,"outcomes":[true,false,...],"trend":[[ts,conf],...]}`.
+    /// Old rows written as `[bool,...]` arrays are still readable via `from_record`.
     pub fn to_record(
         &self,
         specialist_kind: impl Into<String>,
     ) -> Result<LearningStateRecord, LearnPersistError> {
-        let history_json = serde_json::to_string(&self.execution_history)?;
+        let envelope = serde_json::json!({
+            "v": 2,
+            "outcomes": self.execution_history,
+            "trend": self.confidence_trend,
+        });
+        let history_json = serde_json::to_string(&envelope)?;
         Ok(LearningStateRecord {
             specialist_kind: specialist_kind.into(),
             success_count: self.success_count,
@@ -98,16 +113,35 @@ impl LearningSnapshot {
         })
     }
 
-    /// Build from a SQL record (deserializing the history vector from JSON)
+    /// Build from a SQL record.
+    ///
+    /// Handles both the legacy `[bool,...]` format and the v2 envelope
+    /// `{"v":2,"outcomes":[...],"trend":[[ts,conf],...]}`.
     pub fn from_record(record: &LearningStateRecord) -> Result<Self, LearnPersistError> {
-        let execution_history: Vec<bool> =
-            serde_json::from_str(&record.execution_history_json)?;
+        let raw: serde_json::Value = serde_json::from_str(&record.execution_history_json)?;
+
+        let (execution_history, confidence_trend) = if raw.is_array() {
+            // Legacy format: plain boolean array, no trend data
+            let outcomes: Vec<bool> = serde_json::from_value(raw)?;
+            (outcomes, vec![])
+        } else {
+            // v2 envelope
+            let outcomes: Vec<bool> = raw.get("outcomes")
+                .and_then(|v| serde_json::from_value(v.clone()).ok())
+                .unwrap_or_default();
+            let trend: Vec<(u64, f32)> = raw.get("trend")
+                .and_then(|v| serde_json::from_value(v.clone()).ok())
+                .unwrap_or_default();
+            (outcomes, trend)
+        };
+
         Ok(Self {
             success_count: record.success_count,
             failure_count: record.failure_count,
             total_executions: record.total_executions,
             confidence_score: record.confidence_score,
             execution_history,
+            confidence_trend,
             last_updated: record.last_updated,
         })
     }
@@ -204,6 +238,7 @@ mod tests {
             confidence_score: 0.7,
             execution_history: vec![true, true, false, true],
             last_updated: 1700000000,
+            ..LearningSnapshot::neutral()
         };
 
         let record = original.to_record("TestKind").unwrap();
@@ -224,6 +259,7 @@ mod tests {
             confidence_score: 0.8,
             execution_history: vec![true, true, true, false, true],
             last_updated: 1700000123,
+            ..LearningSnapshot::neutral()
         };
         let probe = Probe(snapshot.clone());
 
@@ -257,6 +293,7 @@ mod tests {
             confidence_score: 1.0,
             execution_history: vec![true],
             last_updated: 100,
+            ..LearningSnapshot::neutral()
         });
         save_learning(&pm, "Visionary", &v1).unwrap();
 
@@ -267,6 +304,7 @@ mod tests {
             confidence_score: 0.5,
             execution_history: vec![false; 5].into_iter().chain(vec![true; 5]).collect(),
             last_updated: 200,
+            ..LearningSnapshot::neutral()
         });
         save_learning(&pm, "Visionary", &v2).unwrap();
 
@@ -286,6 +324,7 @@ mod tests {
             confidence_score: 1.0,
             execution_history: vec![true; 10],
             last_updated: 100,
+            ..LearningSnapshot::neutral()
         });
         let symbiotic = Probe(LearningSnapshot {
             success_count: 0,
@@ -294,6 +333,7 @@ mod tests {
             confidence_score: 0.0,
             execution_history: vec![false; 10],
             last_updated: 200,
+            ..LearningSnapshot::neutral()
         });
 
         save_learning(&pm, "Visionary", &visionary).unwrap();
@@ -318,6 +358,7 @@ mod tests {
             confidence_score: 1.0,
             execution_history: vec![true],
             last_updated: 100,
+            ..LearningSnapshot::neutral()
         });
         save_learning(&pm, "Visionary", &probe).unwrap();
 
@@ -339,6 +380,7 @@ mod tests {
             confidence_score: 0.5,
             execution_history: vec![true, false],
             last_updated: 100,
+            ..LearningSnapshot::neutral()
         });
         save_learning(&pm, "Visionary", &probe1).unwrap();
         save_learning(&pm, "Omnipresent", &probe1).unwrap();
@@ -361,6 +403,7 @@ mod tests {
             confidence_score: 0.6,
             execution_history: vec![true, true, false, true, false],
             last_updated: 12345,
+            ..LearningSnapshot::neutral()
         };
 
         let mut probe = Probe(original.clone());

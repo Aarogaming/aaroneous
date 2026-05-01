@@ -73,6 +73,9 @@ pub struct LearningData {
     pub execution_history: Vec<bool>,  // true = success, false = failure
     /// Last timestamp updated
     pub last_updated: u64,
+    /// Time-series of (unix_seconds, confidence_score) for trend queries.
+    /// Capped at 100 entries; oldest dropped first.
+    pub confidence_trend: Vec<(u64, f32)>,
 }
 
 impl LearningData {
@@ -84,6 +87,7 @@ impl LearningData {
             confidence_score: 0.5,  // Start neutral
             execution_history: vec![],
             last_updated: 0,
+            confidence_trend: vec![],
         }
     }
 
@@ -111,10 +115,17 @@ impl LearningData {
             0.5
         };
         
-        self.last_updated = std::time::SystemTime::now()
+        let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap_or_default()
             .as_secs();
+        self.last_updated = now;
+
+        // Append to trend; cap at 100 entries
+        self.confidence_trend.push((now, self.confidence_score));
+        if self.confidence_trend.len() > 100 {
+            self.confidence_trend.remove(0);
+        }
     }
 
     /// Get current confidence for proposals
@@ -153,6 +164,7 @@ impl crate::federation::learn_persist::PersistableLearning for LearningData {
             confidence_score: self.confidence_score,
             execution_history: self.execution_history.clone(),
             last_updated: self.last_updated,
+            confidence_trend: self.confidence_trend.clone(),
         }
     }
 
@@ -161,6 +173,7 @@ impl crate::federation::learn_persist::PersistableLearning for LearningData {
         self.failure_count = snapshot.failure_count;
         self.total_executions = snapshot.total_executions;
         self.confidence_score = snapshot.confidence_score;
+        self.confidence_trend = snapshot.confidence_trend;
         self.execution_history = snapshot.execution_history;
         self.last_updated = snapshot.last_updated;
     }

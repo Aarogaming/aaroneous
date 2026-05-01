@@ -40,6 +40,7 @@ pub struct SymbioticLearningData {
     pub confidence_score: f32,
     pub execution_history: Vec<bool>,
     pub last_updated: u64,
+    pub confidence_trend: Vec<(u64, f32)>,
 }
 
 impl SymbioticLearningData {
@@ -51,6 +52,7 @@ impl SymbioticLearningData {
             confidence_score: 0.5,
             execution_history: vec![],
             last_updated: 0,
+            confidence_trend: vec![],
         }
     }
 
@@ -77,6 +79,11 @@ impl SymbioticLearningData {
             .unwrap()
             .as_secs();
         self.last_updated = now;
+
+        self.confidence_trend.push((now, self.confidence_score));
+        if self.confidence_trend.len() > 100 {
+            self.confidence_trend.remove(0);
+        }
     }
 
     pub fn get_proposal_confidence(&self) -> f32 {
@@ -100,6 +107,7 @@ impl crate::federation::learn_persist::PersistableLearning for SymbioticLearning
             confidence_score: self.confidence_score,
             execution_history: self.execution_history.clone(),
             last_updated: self.last_updated,
+            confidence_trend: self.confidence_trend.clone(),
         }
     }
 
@@ -109,6 +117,7 @@ impl crate::federation::learn_persist::PersistableLearning for SymbioticLearning
         self.total_executions = s.total_executions;
         self.confidence_score = s.confidence_score;
         self.execution_history = s.execution_history;
+        self.confidence_trend = s.confidence_trend;
         self.last_updated = s.last_updated;
     }
 }
@@ -748,14 +757,45 @@ impl Specialist for Symbiotic {
     /// Execute Intent scaling adjustment
     async fn execute(&self, decision: &Decision) -> Result<ExecutionResult, SpecialistError> {
         let scaling = self.get_intent_scaling();
+        let effective = self.shared_current_state();
 
-        let output = format!(
-            "Scaled Intent: {} (delay: {}s, max: {}m, readiness: {:.2}%)",
-            format!("{:?}", scaling.recommended_focus),
-            scaling.proposal_delay_seconds,
-            scaling.max_duration_minutes,
-            self.current_state.readiness_score * 100.0
-        );
+        // Determine intent priority adjustment based on biometric state.
+        // Recovery/very high stress → defer (Background); high stress → Normal;
+        // calm + focused → High to encourage execution.
+        let adjusted_priority = match scaling.recommended_focus {
+            FocusMode::Recovery => "Background",
+            FocusMode::DeepWork if effective.stress_level > 0.7 => "Normal",
+            FocusMode::DeepWork => "High",
+            FocusMode::ContextSwitch => "Normal",
+            _ => "Normal",
+        };
+
+        // Emit structured JSON so run_decision() can apply scaling to the
+        // active intent without Symbiotic needing a mutable federation reference.
+        let scaling_json = serde_json::json!({
+            "action": "apply_scaling",
+            "delay_seconds": scaling.proposal_delay_seconds,
+            "max_duration_minutes": scaling.max_duration_minutes,
+            "allow_interruption": scaling.interruption_allowed,
+            "adjusted_priority": adjusted_priority,
+            "reason": format!(
+                "{:?} mode — stress={:.2}, fatigue={:.2}, readiness={:.0}%",
+                scaling.recommended_focus,
+                effective.stress_level,
+                effective.fatigue_level,
+                effective.readiness_score * 100.0
+            ),
+            "defer": matches!(scaling.recommended_focus, FocusMode::Recovery),
+        });
+
+        let output = serde_json::to_string(&scaling_json)
+            .unwrap_or_else(|_| format!(
+                "Scaled Intent: {:?} (delay: {}s, max: {}m, readiness: {:.0}%)",
+                scaling.recommended_focus,
+                scaling.proposal_delay_seconds,
+                scaling.max_duration_minutes,
+                effective.readiness_score * 100.0,
+            ));
 
         let result = ExecutionResult {
             specialist: SpecialistId::Symbiotic,
@@ -768,11 +808,10 @@ impl Specialist for Symbiotic {
         };
 
         // Record execution result for learning
-        let success = result.status == ExecutionStatus::Success;
         {
             let mut learning = self.learning.lock();
-            learning.record_result(success);
-        } // Lock released here
+            learning.record_result(true);
+        }
 
         Ok(result)
     }

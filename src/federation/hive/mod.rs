@@ -188,6 +188,9 @@ impl Federation {
         info!("Starting federation with {} specialist(s)", self.enabled_count());
         let mut errors = Vec::new();
 
+        // Reload sessions that survived the last process run
+        self.load_sessions_from_db().await;
+
         if let Some(h) = &self.visionary {
             if let Err(e) = h.start().await {
                 errors.push((Visionary::PERSISTENCE_KEY.to_string(), e));
@@ -449,6 +452,30 @@ impl Federation {
             }),
         }
     }
+
+    /// Return the confidence trend (time-series) for all configured specialists.
+    ///
+    /// Each entry is `(unix_seconds, confidence_score)`. The trend is populated
+    /// by `record_result()` on each `*LearningData` and persisted across restarts
+    /// via the v2 `execution_history_json` envelope.
+    pub fn learning_trends(&self) -> LearningTrends {
+        macro_rules! trend_for {
+            ($host_opt:expr) => {
+                $host_opt.as_ref().map(|h| {
+                    let arc = h.specialist();
+                    let l = arc.learning.lock();
+                    l.confidence_trend.clone()
+                })
+            };
+        }
+        LearningTrends {
+            visionary:    trend_for!(self.visionary),
+            omnipresent:  trend_for!(self.omnipresent),
+            symbiotic:    trend_for!(self.symbiotic),
+            phygital:     trend_for!(self.phygital),
+            archivist:    trend_for!(self.archivist),
+        }
+    }
 }
 
 /// Read-only summary of one specialist's learning state.
@@ -495,6 +522,19 @@ impl SpecialistLearningSummary {
             (self.success_count as f32 / self.total_executions as f32) * 100.0
         }
     }
+}
+
+/// Time-series confidence trends for all configured specialists.
+///
+/// Each value is `Vec<(unix_seconds, confidence_score)>` — `None` when the
+/// specialist is not configured.  Returned by `Federation::learning_trends()`.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct LearningTrends {
+    pub visionary:   Option<Vec<(u64, f32)>>,
+    pub omnipresent: Option<Vec<(u64, f32)>>,
+    pub symbiotic:   Option<Vec<(u64, f32)>>,
+    pub phygital:    Option<Vec<(u64, f32)>>,
+    pub archivist:   Option<Vec<(u64, f32)>>,
 }
 
 /// Snapshot of every configured specialist's learning state.
@@ -687,6 +727,54 @@ async fn run_decision(
             let _ = audit_log_arc.lock().await.record(event);
         }
 
+        // If Symbiotic executed a scale_intent_* action, apply the scaling
+        // recommendation to the active intent.  Symbiotic emits a JSON object
+        // with "action":"apply_scaling" and fields: delay_seconds,
+        // max_duration_minutes, allow_interruption, adjusted_priority, reason,
+        // defer.  We parse and apply them here so execute() stays &self.
+        if result.specialist == crate::federation::specialist::SpecialistId::Symbiotic
+            && decision.action.starts_with("scale_intent")
+        {
+            if let Ok(v) = serde_json::from_str::<serde_json::Value>(&result.output) {
+                if v.get("action").and_then(|a| a.as_str()) == Some("apply_scaling") {
+                    use crate::federation::intent::{IntentPriority, IntentScaling, IntentStatus};
+                    let mut intent_guard = active_intent_arc.write().await;
+                    if let Some(intent) = intent_guard.as_mut() {
+                        // Apply scaling object
+                        intent.scaling = Some(IntentScaling {
+                            delay_seconds: v.get("delay_seconds")
+                                .and_then(|x| x.as_u64()).unwrap_or(0) as u32,
+                            max_duration_minutes: v.get("max_duration_minutes")
+                                .and_then(|x| x.as_u64()).unwrap_or(30) as u32,
+                            allow_interruption: v.get("allow_interruption")
+                                .and_then(|x| x.as_bool()).unwrap_or(true),
+                            reason: v.get("reason")
+                                .and_then(|x| x.as_str()).unwrap_or("").to_string(),
+                        });
+                        // Adjust priority
+                        if let Some(p) = v.get("adjusted_priority").and_then(|x| x.as_str()) {
+                            intent.priority = match p {
+                                "Background" => IntentPriority::Background,
+                                "High"       => IntentPriority::High,
+                                "Critical"   => IntentPriority::Critical,
+                                _            => IntentPriority::Normal,
+                            };
+                        }
+                        // Defer if recovery mode
+                        if v.get("defer").and_then(|x| x.as_bool()).unwrap_or(false) {
+                            intent.status = IntentStatus::Deferred;
+                        }
+                        intent.version += 1;
+                        info!(
+                            "Symbiotic scaling applied to intent '{}' (v{}): priority={:?}, defer={}",
+                            intent.id, intent.version, intent.priority,
+                            matches!(intent.status, IntentStatus::Deferred)
+                        );
+                    }
+                }
+            }
+        }
+
         // Route to originating session
         {
             let intent = active_intent_arc.read().await;
@@ -823,19 +911,65 @@ impl Federation {
         *self.active_intent.write().await = Some(full_intent);
         self.collect_proposals().await;
 
+        // Persist updated session (new intent added)
+        self.persist_session(session_id).await;
+
         Ok((session_id.to_string(), intent_id))
     }
 
     /// Create a new session. Returns the session ID.
+    /// The session is immediately persisted to SQLite so it survives restarts.
     pub async fn create_session(
         &self,
         user_name: impl Into<String>,
         device_id: Option<&str>,
     ) -> String {
-        self.sessions
+        let id = self.sessions
             .write()
             .await
-            .create_session(user_name, device_id)
+            .create_session(user_name, device_id);
+        self.persist_session(&id).await;
+        id
+    }
+
+    /// Serialize a session to JSON and upsert it in the `federation_sessions`
+    /// table.  Best-effort: logs a warning on failure rather than propagating.
+    async fn persist_session(&self, session_id: &str) {
+        let snapshot = {
+            let sessions = self.sessions.read().await;
+            sessions.get(session_id).cloned()
+        };
+        let Some(session) = snapshot else { return };
+        let Ok(json) = serde_json::to_string(&session) else { return };
+        let state_str = format!("{:?}", session.state);
+        let created = session.started_at as i64;
+        let pm = self.persistence.lock().await;
+        if let Err(e) = pm.save_session(&session.id, &session.user_id, &session.user_name, &state_str, &json, created) {
+            warn!("persist_session({}): {}", session_id, e);
+        }
+    }
+
+    /// Load all non-expired sessions from the database into SessionManager.
+    /// Called during `start_all()` so sessions survive process restarts.
+    async fn load_sessions_from_db(&self) {
+        let rows = {
+            let pm = self.persistence.lock().await;
+            pm.load_active_sessions().unwrap_or_default()
+        };
+        if rows.is_empty() { return; }
+        let mut mgr = self.sessions.write().await;
+        for (session_id, json) in &rows {
+            if mgr.get(session_id).is_some() { continue; } // already in memory
+            match serde_json::from_str::<crate::federation::session::Session>(json) {
+                Ok(session) => {
+                    mgr.insert_session(session);
+                }
+                Err(e) => {
+                    warn!("load_sessions_from_db: failed to deserialise session {}: {}", session_id, e);
+                }
+            }
+        }
+        info!("Loaded {} session(s) from database", rows.len());
     }
 
     /// Get a snapshot of a session's state (clone for HTTP serving).
@@ -852,15 +986,23 @@ impl Federation {
     }
 
     /// Delete a session by ID. Returns `true` if the session existed and was removed.
+    /// Marks it Ended in memory and removes it from the database.
     pub async fn delete_session(&self, session_id: &str) -> bool {
         use crate::federation::session::SessionState;
-        let mut sessions = self.sessions.write().await;
-        if let Some(session) = sessions.get_mut(session_id) {
-            session.state = SessionState::Ended;
-            true
-        } else {
-            false
+        let existed = {
+            let mut sessions = self.sessions.write().await;
+            if let Some(session) = sessions.get_mut(session_id) {
+                session.state = SessionState::Ended;
+                true
+            } else {
+                false
+            }
+        };
+        if existed {
+            let pm = self.persistence.lock().await;
+            let _ = pm.delete_session(session_id);
         }
+        existed
     }
 
     /// Tick all sessions: advance idle/expiry state. Purge expired sessions.
@@ -895,11 +1037,23 @@ impl Federation {
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap_or_default()
                 .as_secs(),
-            user_state: UserState {
-                stress_level: 0.3,  // Neutral baseline; Symbiotic updates this
-                focus_level: 0.7,
-                fatigue_level: 0.2,
-                                activity: intent_activity.clone(),
+            user_state: {
+                // Read live biometric state from Symbiotic's drain_state when
+                // available.  Falls back to neutral defaults when Symbiotic is
+                // not configured or hasn't received any BLE samples yet.
+                let (stress, focus, fatigue) = self.symbiotic
+                    .as_ref()
+                    .map(|h| {
+                        let s = h.specialist().shared_current_state();
+                        (s.stress_level, s.focus_depth, s.fatigue_level)
+                    })
+                    .unwrap_or((0.3, 0.7, 0.2));
+                UserState {
+                    stress_level: stress,
+                    focus_level: focus,
+                    fatigue_level: fatigue,
+                    activity: intent_activity.clone(),
+                }
             },
             system_resources: {
                 // Read real system resources, then cap them to the profile limits.
