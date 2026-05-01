@@ -56,6 +56,13 @@ impl MessageChannel {
         rx.recv().await
     }
 
+    /// Non-blocking receive: returns `Some(msg)` if there is a message waiting,
+    /// `None` if the channel is empty. Does not block.
+    pub async fn try_receive(&self) -> Option<SpecialistMessage> {
+        let mut rx = self.rx.lock().await;
+        rx.try_recv().ok()
+    }
+
     pub fn sender(&self) -> mpsc::UnboundedSender<SpecialistMessage> {
         self.tx.clone()
     }

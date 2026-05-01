@@ -554,14 +554,174 @@ impl Federation {
 impl Federation {
     /// Submit a new user intent to the federation.
     ///
-    /// This sets the active intent and notifies all specialists (via the
-    /// future Sentinel arbitration loop) that there is work to do.
+    /// Sets the active intent, then immediately runs one proposal collection
+    /// cycle: all configured specialists evaluate the new intent via their
+    /// `propose()` methods, and their proposals are submitted to the
+    /// `CommunicationBus` so the Sentinel loop can arbitrate on the next tick.
+    ///
     /// Returns the intent ID for tracking.
     pub async fn submit_intent(&self, intent: Intent) -> String {
         let id = intent.id.clone();
         info!("Federation: new intent submitted: '{}' ({})", intent.content, id);
         *self.active_intent.write().await = Some(intent);
+        // Trigger immediate proposal collection
+        self.collect_proposals().await;
         id
+    }
+
+    /// Collect proposals from all configured specialists and submit them to
+    /// the CommunicationBus for Sentinel arbitration.
+    ///
+    /// Builds a `SpecialistContext` from the current system state and intent,
+    /// calls `propose()` on each specialist in parallel, converts
+    /// `ProposedAction` → `Proposal`, and submits each to the bus.
+    ///
+    /// The Sentinel arbitration loop will pick them up on its next tick
+    /// (default: 500ms) and issue decisions to the winners.
+    pub async fn collect_proposals(&self) {
+        use crate::federation::specialist::{Specialist, SpecialistContext, SystemResources, UserState};
+        use crate::federation::proposal::Proposal;
+
+        // Build context from active intent
+        let intent = self.active_intent.read().await.clone();
+        let intent_activity = intent.as_ref()
+            .map(|i| i.content.clone())
+            .unwrap_or_else(|| "idle".to_string());
+
+        let context = SpecialistContext {
+            timestamp: std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_secs(),
+            user_state: UserState {
+                stress_level: 0.3,  // Neutral baseline; Symbiotic updates this
+                focus_level: 0.7,
+                fatigue_level: 0.2,
+                activity: intent_activity,
+            },
+            system_resources: SystemResources {
+                gpu_available_percent: 60.0,
+                cpu_available_percent: 70.0,
+                memory_available_mb: 4096,
+                thermal_headroom: 0.8,
+            },
+            active_specialists: vec![
+                crate::federation::specialist::SpecialistId::Visionary,
+                crate::federation::specialist::SpecialistId::Omnipresent,
+                crate::federation::specialist::SpecialistId::Symbiotic,
+                crate::federation::specialist::SpecialistId::Phygital,
+                crate::federation::specialist::SpecialistId::Archivist,
+            ],
+            recent_decisions: vec![],
+        };
+
+        // Collect all proposals (outside sentinel lock to avoid deadlock)
+        let mut bus_proposals: Vec<Proposal> = vec![];
+
+        // Macro-like helper to collect proposals from one specialist and submit to bus
+        macro_rules! collect_from {
+            ($host_opt:expr, $specialist_id:expr) => {
+                if let Some(h) = &$host_opt {
+                    let specialist_arc = h.specialist();
+                    match specialist_arc.propose(&context).await {
+                        Ok(proposed_actions) => {
+                            for action in proposed_actions {
+                                let proposal = Proposal::new(
+                                    action.specialist,
+                                    action.action_type.clone(),
+                                    action.description.clone(),
+                                    action.confidence,
+                                    action.priority.clone(),
+                                )
+                                .with_resources(action.required_resources.clone())
+                                .with_tags(action.tags.clone());
+                                bus_proposals.push(proposal);
+                            }
+                        }
+                        Err(e) => {
+                            warn!("collect_proposals: {:?} propose() error: {}", $specialist_id, e);
+                        }
+                    }
+                }
+            };
+        }
+        collect_from!(self.visionary, crate::federation::specialist::SpecialistId::Visionary);
+        collect_from!(self.omnipresent, crate::federation::specialist::SpecialistId::Omnipresent);
+        collect_from!(self.symbiotic, crate::federation::specialist::SpecialistId::Symbiotic);
+        collect_from!(self.phygital, crate::federation::specialist::SpecialistId::Phygital);
+        collect_from!(self.archivist, crate::federation::specialist::SpecialistId::Archivist);
+
+        let total_proposals = bus_proposals.len();
+
+        // Submit to the bus via Sentinel (holds lock briefly)
+        let sentinel_guard = self.sentinel.read().await;
+        if let Some(sentinel) = sentinel_guard.as_ref() {
+            for proposal in bus_proposals {
+                let _ = sentinel.communication_bus.submit_proposal(proposal).await;
+            }
+        }
+        drop(sentinel_guard);
+
+        if total_proposals > 0 {
+            info!("collect_proposals: {} proposals submitted to Sentinel bus", total_proposals);
+        }
+    }
+
+    /// Execute a decision issued by Sentinel.
+    ///
+    /// Called by the Sentinel arbitration loop after it issues a decision.
+    /// Routes the decision to the correct specialist's `execute()` method
+    /// and records the result.
+    pub async fn execute_decision(
+        &self,
+        decision: crate::federation::specialist::Decision,
+    ) {
+        use crate::federation::specialist::Specialist;
+
+        let result = match decision.specialist {
+            crate::federation::specialist::SpecialistId::Visionary => {
+                if let Some(h) = &self.visionary {
+                    h.specialist().execute(&decision).await
+                } else { return; }
+            },
+            crate::federation::specialist::SpecialistId::Omnipresent => {
+                if let Some(h) = &self.omnipresent {
+                    h.specialist().execute(&decision).await
+                } else { return; }
+            },
+            crate::federation::specialist::SpecialistId::Symbiotic => {
+                if let Some(h) = &self.symbiotic {
+                    h.specialist().execute(&decision).await
+                } else { return; }
+            },
+            crate::federation::specialist::SpecialistId::Phygital => {
+                if let Some(h) = &self.phygital {
+                    h.specialist().execute(&decision).await
+                } else { return; }
+            },
+            crate::federation::specialist::SpecialistId::Archivist => {
+                if let Some(h) = &self.archivist {
+                    h.specialist().execute(&decision).await
+                } else { return; }
+            },
+            _ => return,
+        };
+
+        match result {
+            Ok(exec_result) => {
+                info!(
+                    "execute_decision: {:?} completed '{}' → {:?}",
+                    exec_result.specialist, decision.action, exec_result.status
+                );
+                self.record_result(exec_result).await;
+            }
+            Err(e) => {
+                warn!(
+                    "execute_decision: {:?} '{}' failed: {}",
+                    decision.specialist, decision.action, e
+                );
+            }
+        }
     }
 
     /// Get the currently active intent, if any.
@@ -623,10 +783,20 @@ impl Federation {
         // Spawn the arbitration loop
         let sentinel_arc = self.sentinel.clone();
         let shutdown = self.sentinel_shutdown.clone();
-        let active_intent = self.active_intent.clone();
+
+        // We need to execute decisions after arbitration; collect them from
+        // each specialist's channel and call execute_decision(). We store the
+        // hosts we need as individual Arcs so the task can be 'static + Send.
+        let vis = self.visionary.as_ref().map(|h| h.specialist());
+        let omni = self.omnipresent.as_ref().map(|h| h.specialist());
+        let symb = self.symbiotic.as_ref().map(|h| h.specialist());
+        let phyg = self.phygital.as_ref().map(|h| h.specialist());
+        let arch = self.archivist.as_ref().map(|h| h.specialist());
         let results_store = self.results.clone();
 
         tokio::spawn(async move {
+            use crate::federation::specialist::{Specialist, SpecialistId};
+
             loop {
                 tokio::select! {
                     _ = shutdown.notified() => {
@@ -635,19 +805,89 @@ impl Federation {
                     }
                     _ = tokio::time::sleep(interval) => {
                         // Run one arbitration cycle
-                        let guard = sentinel_arc.read().await;
-                        if let Some(sentinel) = guard.as_ref() {
-                            match sentinel.arbitrate().await {
-                                Ok(result) => {
-                                    if result.decisions_issued > 0 {
-                                        info!(
-                                            "Sentinel: {} proposals reviewed, {} decisions issued",
-                                            result.proposals_reviewed, result.decisions_issued
-                                        );
+                        let arb_result = {
+                            let guard = sentinel_arc.read().await;
+                            if let Some(sentinel) = guard.as_ref() {
+                                sentinel.arbitrate().await.ok()
+                            } else { None }
+                        };
+
+                        if let Some(result) = arb_result {
+                            if result.decisions_issued > 0 {
+                                info!(
+                                    "Sentinel: {} proposals → {} decisions",
+                                    result.proposals_reviewed, result.decisions_issued
+                                );
+                            }
+                        }
+
+                        // Drain each specialist's decision channel and execute
+                        // decisions issued by the Sentinel.
+                        let channels: Vec<(SpecialistId, Arc<crate::federation::communication::MessageChannel>)> = {
+                            let guard = sentinel_arc.read().await;
+                            if let Some(sentinel) = guard.as_ref() {
+                                let mut ch = vec![];
+                                for id in [
+                                    SpecialistId::Visionary, SpecialistId::Omnipresent,
+                                    SpecialistId::Symbiotic, SpecialistId::Phygital,
+                                    SpecialistId::Archivist,
+                                ] {
+                                    if let Some(channel) = sentinel.communication_bus.specialist_channel(id) {
+                                        ch.push((id, channel));
                                     }
                                 }
-                                Err(e) => {
-                                    warn!("Sentinel arbitration error: {}", e);
+                                ch
+                            } else { vec![] }
+                        };
+
+                        for (specialist_id, channel) in channels {
+                            // Non-blocking drain: try_receive until empty
+                            loop {
+                                let msg = channel.try_receive().await;
+
+                                match msg {
+                                    Some(crate::federation::communication::SpecialistMessage::DecisionIssued(decision)) => {
+                                        // Execute on the right specialist
+                                        let exec_result = match specialist_id {
+                                            SpecialistId::Visionary => {
+                                                if let Some(s) = &vis { s.execute(&decision).await.ok() }
+                                                else { None }
+                                            }
+                                            SpecialistId::Omnipresent => {
+                                                if let Some(s) = &omni { s.execute(&decision).await.ok() }
+                                                else { None }
+                                            }
+                                            SpecialistId::Symbiotic => {
+                                                if let Some(s) = &symb { s.execute(&decision).await.ok() }
+                                                else { None }
+                                            }
+                                            SpecialistId::Phygital => {
+                                                if let Some(s) = &phyg { s.execute(&decision).await.ok() }
+                                                else { None }
+                                            }
+                                            SpecialistId::Archivist => {
+                                                if let Some(s) = &arch { s.execute(&decision).await.ok() }
+                                                else { None }
+                                            }
+                                            _ => None,
+                                        };
+
+                                        if let Some(result) = exec_result {
+                                            info!(
+                                                "Executed: {:?} '{}' → {:?}",
+                                                result.specialist, decision.action, result.status
+                                            );
+                                            // Store result
+                                            let mut store = results_store.lock().await;
+                                            store.push(result);
+                                            if store.len() > 100 {
+                                                let excess = store.len() - 100;
+                                                store.drain(0..excess);
+                                            }
+                                        }
+                                    }
+                                    Some(_) => {} // Other message types ignored for now
+                                    None => break, // Channel empty, stop draining
                                 }
                             }
                         }

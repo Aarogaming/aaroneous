@@ -57,6 +57,77 @@ impl SpecialistAgentBridge {
         let history = self.execution_history.lock().await;
         history.clone()
     }
+
+    /// Extract a `LearningSnapshot` from this bridge's execution history.
+    ///
+    /// This is the Era 1 → Era 2/3 data bridge: the execution history accumulated
+    /// by the `SpecialistAgentBridge` (which wraps Era 1 agents) can be injected
+    /// into a federation specialist's `LearningData` via `restore_from()`.
+    ///
+    /// # Usage
+    ///
+    /// ```no_run
+    /// # async fn example() -> anyhow::Result<()> {
+    /// use a_run::federation::agent_bridge::SpecialistAgentBridge;
+    /// use a_run::federation::specialists::Visionary;
+    /// use a_run::federation::learn_persist::PersistableLearning;
+    /// use a_run::agents::SpecialistAgent;
+    ///
+    /// let agent = SpecialistAgent::new("Ariel", "Specialist", &[]);
+    /// let bridge = SpecialistAgentBridge::new(agent)?;
+    ///
+    /// // ... bridge accumulates execution history via execute() calls ...
+    ///
+    /// // Seed the federation Visionary with Ariel's execution record
+    /// let visionary = Visionary::new();
+    /// let snapshot = bridge.to_learning_snapshot().await;
+    /// {
+    ///     let mut learning = visionary.learning.lock();
+    ///     learning.restore_from(snapshot);
+    /// }
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub async fn to_learning_snapshot(
+        &self,
+    ) -> crate::federation::learn_persist::LearningSnapshot {
+        let history = self.execution_history.lock().await;
+
+        let total = history.len() as u32;
+        let successes = history
+            .iter()
+            .filter(|r| r.status == ExecutionStatus::Success)
+            .count() as u32;
+        let failures = total - successes;
+        let confidence = if total > 0 {
+            successes as f32 / total as f32
+        } else {
+            0.5 // Neutral when no history
+        };
+
+        // Build a rolling history of the last 20 outcomes
+        let recent: Vec<bool> = history
+            .iter()
+            .rev()
+            .take(20)
+            .map(|r| r.status == ExecutionStatus::Success)
+            .collect::<Vec<_>>()
+            .into_iter()
+            .rev()
+            .collect();
+
+        crate::federation::learn_persist::LearningSnapshot {
+            success_count: successes,
+            failure_count: failures,
+            total_executions: total,
+            confidence_score: confidence,
+            execution_history: recent,
+            last_updated: std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_secs(),
+        }
+    }
 }
 
 #[async_trait]
