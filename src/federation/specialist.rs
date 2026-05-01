@@ -240,6 +240,14 @@ pub struct Decision {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExecutionResult {
     pub specialist: SpecialistId,
+    /// Human-readable specialist name, separate from the enum variant.
+    ///
+    /// For the 5 core specialists this mirrors `specialist.name()`.
+    /// For `GenericSpecialist` instances this holds the runtime name
+    /// (e.g., `"CodeReviewer"`) so callers don't have to parse the
+    /// `[name]` prefix from `output`.
+    #[serde(default)]
+    pub specialist_name: Option<String>,
     pub proposal_id: String,
     pub status: ExecutionStatus,
     pub output: String,
@@ -439,6 +447,7 @@ mod tests {
             async fn execute(&self, _decision: &Decision) -> Result<ExecutionResult, SpecialistError> {
                 Ok(ExecutionResult {
                     specialist: SpecialistId::Sentinel,
+                    specialist_name: None,
                     proposal_id: "test".to_string(),
                     status: ExecutionStatus::Success,
                     output: "ok".to_string(),

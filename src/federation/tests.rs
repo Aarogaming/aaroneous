@@ -66,6 +66,7 @@ mod tests {
         ) -> Result<crate::federation::specialist::ExecutionResult, crate::federation::specialist::SpecialistError> {
             Ok(crate::federation::specialist::ExecutionResult {
                 specialist: self.id,
+                specialist_name: None,
                 proposal_id: decision.proposal_id.clone(),
                 status: crate::federation::specialist::ExecutionStatus::Success,
                 output: "Mock executed".to_string(),

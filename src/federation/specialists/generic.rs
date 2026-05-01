@@ -366,6 +366,7 @@ impl Specialist for GenericSpecialist {
 
         Ok(ExecutionResult {
             specialist: SpecialistId::Visionary,
+            specialist_name: Some(self.name.clone()),
             proposal_id: decision.proposal_id.clone(),
             status: if success { ExecutionStatus::Success } else { ExecutionStatus::Failed },
             output,

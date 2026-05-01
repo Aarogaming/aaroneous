@@ -38,24 +38,41 @@ impl GGUFProvider {
         })
     }
 
-    /// Get default Qwen model path (can be overridden)
+    /// Get the best available Qwen model path, probing known locations.
+    ///
+    /// Search order (first existing file wins):
+    /// 1. Aaroneous models directory (`D:\Aaroneous\models\`) — Qwen2.5 abliterated variants
+    /// 2. Aaroneous models directory — legacy Qwen names
+    /// 3. Relative `./models/` paths (development/CI)
+    /// 4. Parent-relative `../models/` path
+    ///
+    /// Returns the first existing path, or the Aaroneous default path as a
+    /// fallback even if it doesn't exist (so `LLMConfig::gguf_model_path`
+    /// is always populated with a sane value).
     pub fn default_qwen_path() -> PathBuf {
-        // Try common locations
-        let locations = vec![
+        let locations: Vec<PathBuf> = vec![
+            // Aaroneous models directory — Qwen2.5 abliterated variants (preferred)
+            PathBuf::from("D:\\Aaroneous\\models\\visionary-qwen2.5-1.5b.gguf"),
+            PathBuf::from("D:\\Aaroneous\\models\\qwen2.5-1.5b-instruct-abliterated.gguf"),
+            PathBuf::from("D:\\Aaroneous\\models\\qwen2.5-1.5b.gguf"),
+            PathBuf::from("D:\\Aaroneous\\models\\qwen2.5-0.5b.gguf"),
+            PathBuf::from("D:\\Aaroneous\\models\\qwen-1.8b.gguf"),
+            PathBuf::from("D:\\Aaroneous\\models\\qwen-0.5b.gguf"),
+            // Relative paths for development/CI
             PathBuf::from("./models/qwen-1.8b.gguf"),
             PathBuf::from("./models/qwen-0.5b.gguf"),
             PathBuf::from("./models/qwen-7b.gguf"),
             PathBuf::from("../models/qwen-1.8b.gguf"),
         ];
 
-        for loc in locations {
+        for loc in &locations {
             if loc.exists() {
-                return loc;
+                return loc.clone();
             }
         }
 
-        // Default path
-        PathBuf::from("./models/qwen-1.8b.gguf")
+        // Default: Aaroneous preferred path (may not exist yet)
+        PathBuf::from("D:\\Aaroneous\\models\\qwen2.5-1.5b-instruct-abliterated.gguf")
     }
 
     /// Generate text from a prompt using the loaded GGUF model.

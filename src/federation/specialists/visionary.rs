@@ -460,6 +460,7 @@ impl Specialist for Visionary {
 
         let result = ExecutionResult {
             specialist: SpecialistId::Visionary,
+            specialist_name: None,
             proposal_id: decision.proposal_id.clone(),
             status: if success { ExecutionStatus::Success } else { ExecutionStatus::Failed },
             output,

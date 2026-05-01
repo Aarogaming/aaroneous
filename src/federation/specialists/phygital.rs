@@ -580,6 +580,7 @@ impl Specialist for Phygital {
 
         let result = ExecutionResult {
             specialist: SpecialistId::Phygital,
+            specialist_name: None,
             proposal_id: decision.proposal_id.clone(),
             status: ExecutionStatus::Success,
             output,

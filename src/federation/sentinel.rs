@@ -279,6 +279,7 @@ impl Specialist for Sentinel {
 
         Ok(crate::federation::specialist::ExecutionResult {
             specialist: SpecialistId::Sentinel,
+            specialist_name: None,
             proposal_id: decision.proposal_id.clone(),
             status: crate::federation::specialist::ExecutionStatus::Success,
             output: "Decision recorded".to_string(),

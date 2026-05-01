@@ -745,6 +745,7 @@ impl Specialist for Omnipresent {
 
         let result = ExecutionResult {
             specialist: SpecialistId::Omnipresent,
+            specialist_name: None,
             proposal_id: decision.proposal_id.clone(),
             status: ExecutionStatus::Success,
             output,

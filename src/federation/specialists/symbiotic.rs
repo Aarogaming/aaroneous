@@ -799,6 +799,7 @@ impl Specialist for Symbiotic {
 
         let result = ExecutionResult {
             specialist: SpecialistId::Symbiotic,
+            specialist_name: None,
             proposal_id: decision.proposal_id.clone(),
             status: ExecutionStatus::Success,
             output,

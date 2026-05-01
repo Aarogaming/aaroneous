@@ -376,25 +376,52 @@ async fn execute_forge(cmd: ForgeCmd) -> Result<(), Box<dyn std::error::Error>> 
             if !file.exists() {
                 return Err(format!("File not found: {}", file.display()).into());
             }
-            let metadata = std::fs::metadata(&file)
-                .map_err(|e| format!("Cannot read file '{}': {}", file.display(), e))?;
-
-            // Read GGUF magic bytes
-            let mut magic = [0u8; 4];
-            let mut f = std::fs::File::open(&file)
-                .map_err(|e| format!("Cannot open file: {}", e))?;
-            use std::io::Read;
-            f.read_exact(&mut magic).ok();
+            let file_size = std::fs::metadata(&file)
+                .map_err(|e| format!("Cannot read file '{}': {}", file.display(), e))?.len();
 
             println!("GGUF Inspection: {}", file.display());
-            println!("  Size:  {} bytes ({:.1} MB)", metadata.len(),
-                     metadata.len() as f64 / 1_048_576.0);
-            println!("  Magic: {} ({})",
-                     String::from_utf8_lossy(&magic),
-                     if &magic == b"GGUF" { "valid GGUF" } else { "NOT a GGUF file" });
-            println!();
-            println!("  Note: Full tensor table inspection requires the llama-gguf feature.");
-            println!("  Build with: cargo run --features llama-gguf -- forge inspect ...");
+            println!("  Size: {} bytes ({:.1} MB)", file_size, file_size as f64 / 1_048_576.0);
+
+            use crate::federation::forge::read_gguf;
+            match read_gguf(&file) {
+                Ok((index, meta)) => {
+                    println!("  Valid GGUF v{}", meta.version);
+                    println!("  Architecture : {}", if meta.architecture.is_empty() { "(unset)" } else { &meta.architecture });
+                    println!("  Model name   : {}", if meta.model_name.is_empty() { "(unset)" } else { &meta.model_name });
+                    if let Some(ctx) = meta.context_length {
+                        println!("  Context len  : {}", ctx);
+                    }
+                    println!("  Tensors      : {}", meta.tensor_count);
+                    println!();
+
+                    // List all tensors
+                    let tensors = &index.0.values().next()
+                        .map(|m| &m.tensors)
+                        .ok_or("no tensors in index")?;
+
+                    println!("  {:<50} {:>8}  {:>6}  {:>12}  shape", "Tensor name", "dtype", "kind", "size (B)");
+                    println!("  {}", "-".repeat(100));
+
+                    let mut sorted: Vec<_> = tensors.iter().collect();
+                    sorted.sort_by_key(|(name, _)| name.as_str());
+                    for (name, tm) in &sorted {
+                        let shape_str: Vec<String> = tm.shape.iter().map(|d| d.to_string()).collect();
+                        println!("  {:<50} {:>8}  {:>6}  {:>12}  [{}]",
+                            if name.len() > 48 { &name[..48] } else { name },
+                            tm.dtype,
+                            tm.kind.as_deref().unwrap_or(""),
+                            tm.size,
+                            shape_str.join("×")
+                        );
+                    }
+                    println!();
+                    println!("  {} metadata KV entries. Use POST /forge/inspect for JSON output.", meta.kv.len());
+                }
+                Err(e) => {
+                    println!("  ERROR: {}", e);
+                    return Err(format!("GGUF parse failed: {}", e).into());
+                }
+            }
         }
     }
 

@@ -4,11 +4,12 @@
 /// in-process via `tower::ServiceExt::oneshot` without binding a real port.
 
 use crate::federation::hive::{Federation, LearningSummary, SpecialistLearningSummary};
+use crate::federation::forge;
 use axum::{
     extract::{Path, State},
     http::StatusCode,
     response::{IntoResponse, Json},
-    routing::{get, post},
+    routing::{get, post, delete},
     Router,
 };
 use serde::{Deserialize, Serialize};
@@ -53,6 +54,9 @@ pub fn router(state: AppState) -> Router {
         .route("/audit", get(get_audit_log))
         // Learning confidence trends (time-series)
         .route("/learning/trends", get(get_learning_trends))
+        // Forge: GGUF inspection and crystallization via HTTP
+        .route("/forge/inspect",     post(forge_inspect))
+        .route("/forge/crystallize", post(forge_crystallize))
         // Multi-hive cluster status
         .route("/cluster", get(cluster_status))
         .with_state(state)
@@ -250,7 +254,8 @@ async fn get_results(State(state): State<AppState>) -> Json<serde_json::Value> {
     Json(serde_json::json!({
         "count": results.len(),
         "results": results.iter().map(|r| serde_json::json!({
-            "specialist": format!("{:?}", r.specialist),
+            "specialist": r.specialist_name.as_deref().unwrap_or_else(|| r.specialist.name()),
+            "specialist_id": format!("{:?}", r.specialist),
             "proposal_id": r.proposal_id,
             "status": format!("{:?}", r.status),
             "output": r.output,
@@ -425,7 +430,8 @@ async fn get_session_results(
             .into_response(),
         Some(s) => {
             let results: Vec<serde_json::Value> = s.results.iter().rev().map(|r| serde_json::json!({
-                "specialist": format!("{:?}", r.specialist),
+                "specialist": r.specialist_name.as_deref().unwrap_or_else(|| r.specialist.name()),
+                "specialist_id": format!("{:?}", r.specialist),
                 "proposal_id": r.proposal_id,
                 "status": format!("{:?}", r.status),
                 "output": r.output,
@@ -496,13 +502,20 @@ async fn get_learning_trends(State(state): State<AppState>) -> Json<serde_json::
         }
     }
 
-    Json(serde_json::json!({
+    let mut resp = serde_json::json!({
         "visionary":   to_json(trends.visionary),
         "omnipresent": to_json(trends.omnipresent),
         "symbiotic":   to_json(trends.symbiotic),
         "phygital":    to_json(trends.phygital),
         "archivist":   to_json(trends.archivist),
-    }))
+    });
+    // Add dynamic specialist trends as top-level keys
+    if let serde_json::Value::Object(ref mut map) = resp {
+        for (name, data) in trends.dynamic {
+            map.insert(name, to_json(Some(data)));
+        }
+    }
+    Json(resp)
 }
 
 // ====================================================================
@@ -544,5 +557,153 @@ async fn cluster_status(State(state): State<AppState>) -> Json<serde_json::Value
             "node_count": nodes.len(),
             "nodes": nodes,
         }))
+    }
+}
+
+// ====================================================================
+// Forge endpoints
+// ====================================================================
+
+/// Request body for POST /forge/inspect
+#[derive(Deserialize)]
+struct ForgeInspectRequest {
+    /// Absolute path to the GGUF file to inspect
+    path: String,
+}
+
+/// POST /forge/inspect — parse a GGUF file and return its tensor table and metadata
+///
+/// Example request:
+/// ```json
+/// {"path": "D:\\Aaroneous\\models\\qwen2.5-1.5b.gguf"}
+/// ```
+async fn forge_inspect(
+    Json(req): Json<ForgeInspectRequest>,
+) -> impl IntoResponse {
+    let path = std::path::Path::new(&req.path);
+    match forge::read_gguf(path) {
+        Ok((index, meta)) => {
+            let tensors: Vec<serde_json::Value> = index.0
+                .values()
+                .flat_map(|gm| gm.tensors.iter())
+                .map(|(name, tm)| serde_json::json!({
+                    "name": name,
+                    "shape": tm.shape,
+                    "dtype": tm.dtype,
+                    "offset": tm.offset,
+                    "size": tm.size,
+                    "kind": tm.kind,
+                }))
+                .collect();
+
+            Json(serde_json::json!({
+                "ok": true,
+                "path": req.path,
+                "version": meta.version,
+                "tensor_count": meta.tensor_count,
+                "architecture": meta.architecture,
+                "model_name": meta.model_name,
+                "context_length": meta.context_length,
+                "tensors": tensors,
+                "metadata": meta.kv,
+            })).into_response()
+        }
+        Err(e) => (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({
+                "ok": false,
+                "error": e.to_string(),
+            })),
+        ).into_response(),
+    }
+}
+
+/// Request body for POST /forge/crystallize
+#[derive(Deserialize)]
+struct ForgeCrystallizeRequest {
+    /// Path to the output GGUF file to write
+    output_path: String,
+    /// The forging recipe
+    recipe: forge::ForgeRecipe,
+    /// Source GGUF file paths to index automatically.
+    /// Each path is parsed with read_gguf() and added to the index.
+    source_paths: Vec<String>,
+}
+
+/// POST /forge/crystallize — parse sources, build GgufIndex, crystallize hybrid GGUF
+///
+/// Example request:
+/// ```json
+/// {
+///   "output_path": "D:\\Aaroneous\\models\\hybrid-v1.gguf",
+///   "recipe": {
+///     "recipe_id": "hybrid-v1",
+///     "segments": [
+///       {"source_gguf": "D:\\models\\qwen-a.gguf", "tensor_name": "blk.0.attn_q.weight"},
+///       {"source_gguf": "D:\\models\\qwen-b.gguf", "tensor_name": "blk.0.mlp_gate.weight"}
+///     ],
+///     "metadata_overrides": {"general.name": {"type": "String", "value": "hybrid-v1"}}
+///   },
+///   "source_paths": ["D:\\models\\qwen-a.gguf", "D:\\models\\qwen-b.gguf"]
+/// }
+/// ```
+async fn forge_crystallize(
+    Json(req): Json<ForgeCrystallizeRequest>,
+) -> impl IntoResponse {
+    // Parse all source GGUFs into a combined index
+    let mut combined_index = forge::GgufIndex::new();
+    let mut parse_errors: Vec<String> = vec![];
+
+    for src_path in &req.source_paths {
+        match forge::read_gguf(src_path) {
+            Ok((src_index, _meta)) => {
+                // Merge into combined index
+                for (key, meta) in src_index.0 {
+                    combined_index.0.insert(key, meta);
+                }
+            }
+            Err(e) => {
+                parse_errors.push(format!("{}: {}", src_path, e));
+            }
+        }
+    }
+
+    if !parse_errors.is_empty() {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({
+                "ok": false,
+                "error": "Failed to parse source GGUF(s)",
+                "details": parse_errors,
+            })),
+        ).into_response();
+    }
+
+    // Crystallize
+    let output_path = req.output_path.clone();
+    let recipe = req.recipe.clone();
+    let mut forge_instance = forge::Forge::new();
+
+    match forge_instance.crystallize(&recipe, &combined_index, &output_path).await {
+        Ok(result) => Json(serde_json::json!({
+            "ok": true,
+            "recipe_id": result.recipe_id,
+            "output_path": result.output_path,
+            "tensors_spliced": result.tensors_spliced,
+            "bytes_written": result.bytes_written,
+            "tensors": result.spliced_tensors.iter().map(|t| serde_json::json!({
+                "source": t.source,
+                "name": t.name,
+                "size": t.size,
+                "kind": t.kind,
+            })).collect::<Vec<_>>(),
+        })).into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({
+                "ok": false,
+                "error": e.to_string(),
+            })),
+        ).into_response(),
     }
 }

@@ -282,6 +282,33 @@ impl Federation {
         if let Some(h) = &self.symbiotic { h.spawn_checkpoint_loop().await; }
         if let Some(h) = &self.phygital { h.spawn_checkpoint_loop().await; }
         if let Some(h) = &self.archivist { h.spawn_checkpoint_loop().await; }
+
+        // Spawn checkpoint loops for dynamic (generic) specialists.
+        // Each saves its learning state every 30 seconds independently.
+        let interval = self.config.default_checkpoint_interval;
+        if interval.is_zero() { return; }
+
+        let dynamic = self.dynamic.read().await.clone();
+        let persistence = self.persistence.clone();
+        let shutdown = self.sentinel_shutdown.clone();
+
+        if dynamic.is_empty() { return; }
+
+        tokio::spawn(async move {
+            loop {
+                tokio::select! {
+                    _ = shutdown.notified() => break,
+                    _ = tokio::time::sleep(interval) => {
+                        let pm = persistence.lock().await;
+                        for s in &dynamic {
+                            if let Err(e) = s.save_learning_to(&*pm) {
+                                warn!("GenericSpecialist '{}' checkpoint failed: {}", s.name, e);
+                            }
+                        }
+                    }
+                }
+            }
+        });
     }
 
     /// Trigger a manual checkpoint on every configured host.
@@ -348,6 +375,19 @@ impl Federation {
         if let Some(h) = &self.archivist {
             if let Err(e) = h.shutdown().await {
                 errors.push((Archivist::PERSISTENCE_KEY.to_string(), e));
+            }
+        }
+
+        // Final save for all dynamic (generic) specialists
+        {
+            let pm = self.persistence.lock().await;
+            let dynamic = self.dynamic.read().await;
+            for s in dynamic.iter() {
+                if let Err(e) = s.save_learning_to(&*pm) {
+                    warn!("GenericSpecialist '{}' final save failed: {}", s.name, e);
+                } else {
+                    info!("GenericSpecialist '{}' learning saved on shutdown", s.name);
+                }
             }
         }
 
@@ -515,12 +555,28 @@ impl Federation {
                 })
             };
         }
+
+        // Dynamic specialist trends (sync try_read — safe since not awaiting)
+        let dynamic_trends: std::collections::HashMap<String, Vec<(u64, f32)>> = self
+            .dynamic
+            .try_read()
+            .map(|guard| {
+                guard.iter()
+                    .map(|s| {
+                        let l = s.learning.lock();
+                        (s.name.clone(), l.confidence_trend.clone())
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
+
         LearningTrends {
             visionary:    trend_for!(self.visionary),
             omnipresent:  trend_for!(self.omnipresent),
             symbiotic:    trend_for!(self.symbiotic),
             phygital:     trend_for!(self.phygital),
             archivist:    trend_for!(self.archivist),
+            dynamic:      dynamic_trends,
         }
     }
 }
@@ -582,6 +638,10 @@ pub struct LearningTrends {
     pub symbiotic:   Option<Vec<(u64, f32)>>,
     pub phygital:    Option<Vec<(u64, f32)>>,
     pub archivist:   Option<Vec<(u64, f32)>>,
+    /// Dynamic (GenericSpecialist) trends keyed by specialist name.
+    /// Empty map when no dynamic specialists are configured.
+    #[serde(default)]
+    pub dynamic: std::collections::HashMap<String, Vec<(u64, f32)>>,
 }
 
 /// Snapshot of every configured specialist's learning state.

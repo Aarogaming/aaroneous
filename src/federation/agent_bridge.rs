@@ -262,6 +262,7 @@ impl Specialist for SpecialistAgentBridge {
 
         let result = ExecutionResult {
             specialist: self.specialist_id,
+            specialist_name: None,
             proposal_id: decision.proposal_id.clone(),
             status: ExecutionStatus::Success,
             output: format!(

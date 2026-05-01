@@ -544,6 +544,7 @@ impl Specialist for Archivist {
 
         let result = ExecutionResult {
             specialist: SpecialistId::Archivist,
+            specialist_name: None,
             proposal_id: decision.proposal_id.clone(),
             status: ExecutionStatus::Success,
             output: output.clone(),
