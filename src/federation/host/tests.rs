@@ -347,4 +347,91 @@ mod tests {
 
         host.shutdown().await.unwrap();
     }
+
+    // =================================================================
+    // Recv task integration
+    // =================================================================
+
+    #[tokio::test]
+    async fn test_host_has_no_recv_task_by_default() {
+        let pm = fresh_persistence();
+        let v = Arc::new(Visionary::new());
+        let host = SpecialistHost::new(v, pm, HostConfig::manual_only());
+        assert!(!host.has_recv_task().await);
+    }
+
+    #[tokio::test]
+    async fn test_attach_recv_task_registers_as_running() {
+        use crate::federation::tasks::{BackgroundTaskHandle, OmnipresentRecvTask};
+        use crate::federation::specialists::Omnipresent;
+
+        let pm = fresh_persistence();
+        let omni = Arc::new(Omnipresent::new());
+        let host = SpecialistHost::new(omni.clone(), pm, HostConfig::manual_only());
+        host.start().await.unwrap();
+
+        // Spawn a recv task and attach it
+        let task = OmnipresentRecvTask::new(omni.clone());
+        let shutdown = Arc::new(tokio::sync::Notify::new());
+        let task_handle = task.spawn(shutdown).await;
+        host.attach_recv_task(task_handle).await;
+
+        assert!(host.has_recv_task().await, "task should be running");
+
+        host.shutdown().await.unwrap();
+        // After shutdown, the task should have been stopped
+        assert!(!host.has_recv_task().await, "task should be stopped after shutdown");
+    }
+
+    #[tokio::test]
+    async fn test_omnipresent_sync_inbox_drives_state() {
+        use crate::federation::p2p::{P2pNodeId, SyncMessage};
+        use crate::federation::specialists::Omnipresent;
+
+        let mut omni = Omnipresent::new();
+        let node_id = P2pNodeId::random();
+
+        // Push a full-state message into the inbox (simulates recv task)
+        let payload = b"intent-data-v5".to_vec();
+        let msg = SyncMessage::full_state(node_id.clone(), 5, payload);
+        omni.sync_inbox.lock().push_back(msg);
+
+        // Before drain: inbox has 1 message, cached_intent is empty
+        assert_eq!(omni.sync_inbox.lock().len(), 1);
+        assert!(omni.sync_state.cached_intent.is_none());
+
+        // Drain
+        let n = omni.drain_sync_inbox();
+        assert_eq!(n, 1);
+        assert_eq!(omni.sync_inbox.lock().len(), 0);
+        assert_eq!(
+            omni.sync_state.cached_intent,
+            Some("intent-data-v5".to_string())
+        );
+        assert!(!omni.sync_history.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_symbiotic_bio_inbox_drives_state() {
+        use crate::federation::biometric::BiometricSample;
+        use crate::federation::specialists::Symbiotic;
+
+        let mut symbiotic = Symbiotic::new();
+
+        // Push 3 HR samples into the bio inbox (simulates BLE task)
+        for bpm in [65u16, 70, 75] {
+            let sample = BiometricSample::heart_rate("dev-1".to_string(), bpm);
+            symbiotic.bio_inbox.lock().push_back(sample);
+        }
+
+        assert_eq!(symbiotic.bio_inbox.lock().len(), 3);
+        assert_eq!(symbiotic.biometric_history.len(), 0);
+
+        let n = symbiotic.drain_bio_inbox();
+        assert_eq!(n, 3);
+        assert_eq!(symbiotic.bio_inbox.lock().len(), 0);
+        assert_eq!(symbiotic.biometric_history.len(), 3);
+        // First sample ingested should be the 65 bpm one
+        assert_eq!(symbiotic.biometric_history.front().unwrap().heart_rate, 65);
+    }
 }

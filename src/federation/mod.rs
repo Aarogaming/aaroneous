@@ -36,6 +36,7 @@ pub mod learn_persist;
 pub mod host;
 pub mod hive;
 pub mod http;
+pub mod tasks;
 
 pub use specialist::{Specialist, SpecialistId, SpecialistConfig, SpecialistRegistry, SpecialistContext, Decision, DelegateRequest, Conflict, ProposedAction, SystemResources, UserState, ExecutionStatus, ExecutionResult, ProposalPriority};
 pub use sentinel::{Sentinel, SentinelConfig, ArbitrationResult};
@@ -85,6 +86,7 @@ pub use hive::{
     LearningSummary, SpecialistLearningSummary,
 };
 pub use http::{HttpStatusServer, HttpServerError};
+pub use tasks::{BackgroundTaskHandle, OmnipresentRecvTask, SymbioticBleTask};
 
 #[cfg(test)]
 mod tests;

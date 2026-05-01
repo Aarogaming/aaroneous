@@ -188,6 +188,13 @@ pub struct Symbiotic {
     pub biometric_provider: Option<Arc<BiometricProvider>>,
     /// Map from BLE device ID to our logical wearable type
     pub wearable_map: std::collections::HashMap<String, WearableType>,
+    /// Inbox for incoming biometric samples from the BLE receive task.
+    ///
+    /// Background BLE tasks write samples here; the specialist drains via
+    /// `drain_bio_inbox()`. The Mutex allows both the BLE task (writing)
+    /// and the specialist (reading) to access the inbox from different threads
+    /// without requiring `&mut self`.
+    pub bio_inbox: Arc<Mutex<VecDeque<BiometricSample>>>,
 }
 
 impl Symbiotic {
@@ -211,6 +218,7 @@ impl Symbiotic {
             learning: Arc::new(Mutex::new(SymbioticLearningData::new())),
             biometric_provider: None,
             wearable_map: std::collections::HashMap::new(),
+            bio_inbox: Arc::new(Mutex::new(VecDeque::new())),
         }
     }
 
@@ -344,6 +352,24 @@ impl Symbiotic {
                 // For now, we just don't update the state.
             }
         }
+    }
+
+    /// Drain all pending biometric samples from the BLE inbox and process each.
+    ///
+    /// Call this periodically (e.g., at the start of `propose()` or on a
+    /// timer) to process samples queued by the BLE receive background task.
+    ///
+    /// Returns the number of samples processed.
+    pub fn drain_bio_inbox(&mut self) -> usize {
+        let samples: Vec<_> = {
+            let mut inbox = self.bio_inbox.lock();
+            inbox.drain(..).collect()
+        };
+        let n = samples.len();
+        for sample in samples {
+            self.ingest_sample(sample);
+        }
+        n
     }
 
     /// Ingest a biometric reading (simulated wearable poll)

@@ -14,7 +14,7 @@
 
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::sync::Arc;
 // parking_lot::Mutex - see Visionary for the rationale (avoids holding a
 // guard across .await so save/load futures are Send).
@@ -207,6 +207,13 @@ pub struct Omnipresent {
     pub p2p_node: Option<Arc<P2pNode>>,
     /// Map from logical device ID to its P2P endpoint ID (when P2P is active)
     pub device_endpoints: HashMap<String, P2pNodeId>,
+    /// Inbox for incoming sync messages from the P2P receive task.
+    ///
+    /// Background tasks write into this inbox; the specialist drains it
+    /// lazily via `drain_sync_inbox()`. The Mutex allows both the recv task
+    /// and the specialist to access the inbox from different threads without
+    /// requiring `&mut self`.
+    pub sync_inbox: Arc<Mutex<VecDeque<crate::federation::p2p::SyncMessage>>>,
 }
 
 impl Omnipresent {
@@ -229,7 +236,79 @@ impl Omnipresent {
             learning: Arc::new(Mutex::new(OmnipresentLearningData::new())),
             p2p_node: None,
             device_endpoints: HashMap::new(),
+            sync_inbox: Arc::new(Mutex::new(VecDeque::new())),
         }
+    }
+
+    /// Apply a single incoming sync message from a peer.
+    ///
+    /// Updates the cached intent state and records the sync in history.
+    /// Called by `drain_sync_inbox()` for each queued message.
+    pub fn apply_sync_message(&mut self, msg: crate::federation::p2p::SyncMessage) {
+        use crate::federation::p2p::types::SyncMessageKind;
+
+        match msg.kind {
+            SyncMessageKind::FullState | SyncMessageKind::Delta => {
+                // Update cached intent with the payload from the sender
+                if !msg.payload.is_empty() {
+                    self.sync_state.cached_intent =
+                        String::from_utf8(msg.payload).ok();
+                    self.sync_state.cache_timestamp = msg.timestamp;
+                }
+                self.sync_history.push(format!(
+                    "sync:{:?}:from-{}:version-{}",
+                    msg.kind,
+                    msg.from.short(),
+                    msg.intent_version
+                ));
+            }
+            SyncMessageKind::Heartbeat => {
+                // Heartbeat: update last-seen timestamp for the device
+                self.sync_history.push(format!(
+                    "heartbeat:from-{}",
+                    msg.from.short()
+                ));
+            }
+            SyncMessageKind::ConflictDetected => {
+                let conflict_note = format!(
+                    "conflict-detected:from-{}:version-{}",
+                    msg.from.short(),
+                    msg.intent_version
+                );
+                self.sync_history.push(conflict_note);
+            }
+            SyncMessageKind::SyncRequest => {
+                // Peer is requesting our state - note it; actual reply
+                // is handled by the network layer in production.
+                self.sync_history.push(format!(
+                    "sync-request-from-{}",
+                    msg.from.short()
+                ));
+            }
+        }
+
+        // Cap history at 1000 entries
+        while self.sync_history.len() > 1000 {
+            self.sync_history.remove(0);
+        }
+    }
+
+    /// Drain all pending sync messages from the inbox and apply each one.
+    ///
+    /// Call this periodically (e.g., at the start of `propose()` or on a
+    /// timer) to process messages that the recv background task has queued.
+    ///
+    /// Returns the number of messages processed.
+    pub fn drain_sync_inbox(&mut self) -> usize {
+        let msgs: Vec<_> = {
+            let mut inbox = self.sync_inbox.lock();
+            inbox.drain(..).collect()
+        };
+        let n = msgs.len();
+        for msg in msgs {
+            self.apply_sync_message(msg);
+        }
+        n
     }
 
     /// Save this specialist's current learning state to a persistence manager.

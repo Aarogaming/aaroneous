@@ -116,7 +116,7 @@ impl HttpStatusServer {
         let mut handle_guard = self.handle.lock().await;
         let handle = handle_guard.take().ok_or(HttpServerError::AlreadyShutDown)?;
 
-        self.shutdown_signal.notify_waiters();
+        self.shutdown_signal.notify_one();
 
         // Best-effort wait for the task to finish. If it's stuck, we drop
         // the handle (which aborts the task on Drop).

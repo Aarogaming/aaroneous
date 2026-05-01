@@ -128,6 +128,10 @@ pub struct SpecialistHost<S: HostableSpecialist + 'static> {
     shutdown_signal: Arc<Notify>,
     /// Handle to the checkpoint task (if spawned)
     checkpoint_handle: Arc<RwLock<Option<JoinHandle<()>>>>,
+    /// Optional background receive task (e.g., P2P recv, BLE notifications).
+    /// Started on `start()` if attached before the first call; stopped on
+    /// `shutdown()`. Attach via `attach_recv_task()`.
+    recv_task: Arc<RwLock<Option<crate::federation::tasks::BackgroundTaskHandle>>>,
 }
 
 impl<S: HostableSpecialist + 'static> SpecialistHost<S> {
@@ -144,6 +148,31 @@ impl<S: HostableSpecialist + 'static> SpecialistHost<S> {
             state: Arc::new(RwLock::new(HostState::NotStarted)),
             shutdown_signal: Arc::new(Notify::new()),
             checkpoint_handle: Arc::new(RwLock::new(None)),
+            recv_task: Arc::new(RwLock::new(None)),
+        }
+    }
+
+    /// Attach a background receive task to this host.
+    ///
+    /// The task must already be running (returned by `*.spawn()`). It will
+    /// be shut down as part of `shutdown()`. If called after `shutdown()`,
+    /// the task is stored but will not be cleaned up by this host - the
+    /// caller is responsible for shutting it down manually.
+    ///
+    /// Replace a previously-attached task by calling this again; the old
+    /// task handle is dropped (NOT shut down) - shut it down first if needed.
+    pub async fn attach_recv_task(
+        &self,
+        task: crate::federation::tasks::BackgroundTaskHandle,
+    ) {
+        *self.recv_task.write().await = Some(task);
+    }
+
+    /// Whether a receive task is currently attached and running.
+    pub async fn has_recv_task(&self) -> bool {
+        match self.recv_task.read().await.as_ref() {
+            Some(t) => t.is_running().await,
+            None => false,
         }
     }
 
@@ -279,7 +308,7 @@ impl<S: HostableSpecialist + 'static> SpecialistHost<S> {
         }
 
         // Stop the checkpoint loop
-        self.shutdown_signal.notify_waiters();
+        self.shutdown_signal.notify_one();
 
         // Wait for the loop task to finish (with a generous timeout)
         if let Some(handle) = self.checkpoint_handle.write().await.take() {
@@ -287,6 +316,12 @@ impl<S: HostableSpecialist + 'static> SpecialistHost<S> {
                 Ok(_) => debug!("Checkpoint loop joined cleanly"),
                 Err(_) => warn!("Checkpoint loop did not join within 5s, abandoning"),
             }
+        }
+
+        // Stop the recv task (if any)
+        if let Some(task) = self.recv_task.write().await.take() {
+            task.shutdown().await;
+            debug!("Recv task for {} stopped", S::persistence_key());
         }
 
         // Final save
