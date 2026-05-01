@@ -521,10 +521,17 @@ impl Specialist for Symbiotic {
     /// Propose Intent scaling when user state changes significantly
     async fn propose(&self, _context: &SpecialistContext) -> Result<Vec<ProposedAction>, SpecialistError> {
         let scaling = self.get_intent_scaling();
+        // Peek at bio inbox: unprocessed BLE samples mean fresh biometric data
+        // is waiting. This doesn't change the current_state (that requires
+        // drain_bio_inbox with &mut self), but it's a signal that our
+        // current_state may be stale - slightly increase urgency.
+        let pending_samples = self.bio_inbox.lock().len();
 
-        // Only propose if significant state change or recovery needed
+        // Propose if significant state change, recovery needed, OR fresh
+        // biometric data is waiting that hasn't been processed yet
         if scaling.recommended_focus == FocusMode::Recovery
             || self.current_state.stress_level > 0.7
+            || pending_samples > 0
         {
             let action_type = match scaling.recommended_focus {
                 FocusMode::Recovery => "scale_intent_recovery",
@@ -537,20 +544,33 @@ impl Specialist for Symbiotic {
             let learned_confidence = learning.get_proposal_confidence();
             drop(learning);
 
-            // Blend base confidence (70%) with learned confidence (30%)
-            let base_confidence = scaling.confidence;
+            // Pending BLE samples add a small confidence boost (fresh data)
+            let sample_boost = (pending_samples as f32 * 0.01).min(0.05);
+            let base_confidence = (scaling.confidence + sample_boost).min(0.99);
             let confidence = (base_confidence * 0.7) + (learned_confidence * 0.3);
+
+            let description = if pending_samples > 0 {
+                format!(
+                    "Scale Intent for user state: stress={:.2}, fatigue={:.2}, readiness={:.2} (+{} pending BLE samples)",
+                    self.current_state.stress_level,
+                    self.current_state.fatigue_level,
+                    self.current_state.readiness_score,
+                    pending_samples
+                )
+            } else {
+                format!(
+                    "Scale Intent for user state: stress={:.2}, fatigue={:.2}, readiness={:.2}",
+                    self.current_state.stress_level,
+                    self.current_state.fatigue_level,
+                    self.current_state.readiness_score
+                )
+            };
 
             return Ok(vec![ProposedAction {
                 id: format!("symbiotic-scaling-{}", uuid()),
                 specialist: SpecialistId::Symbiotic,
                 action_type: action_type.to_string(),
-                description: format!(
-                    "Scale Intent for user state: stress={:.2}, fatigue={:.2}, readiness={:.2}",
-                    self.current_state.stress_level,
-                    self.current_state.fatigue_level,
-                    self.current_state.readiness_score
-                ),
+                description,
                 confidence,
                 required_resources: ResourceRequest {
                     gpu_percent: 0.0,
@@ -1011,5 +1031,99 @@ mod tests {
         symbiotic.ingest_sample(sample);
         // Battery samples should NOT add to biometric_history (only HR does)
         assert_eq!(symbiotic.biometric_history.len(), baseline);
+    }
+
+    // === Inbox-shaped proposal tests ===
+
+    #[tokio::test]
+    async fn test_propose_with_pending_ble_inbox_triggers_proposal() {
+        // Normally Symbiotic only proposes when stress > 0.7 or Recovery mode.
+        // If there are pending BLE samples in the inbox, it should also propose
+        // (to signal that fresh biometric data is waiting to be processed).
+        let mut symbiotic = Symbiotic::new();
+        // Set state to below the normal proposal threshold
+        symbiotic.current_state.stress_level = 0.4;
+        symbiotic.current_state.fatigue_level = 0.2;
+
+        // Push a BLE sample into the inbox
+        let sample = BiometricSample::heart_rate("wearable-1".to_string(), 75);
+        symbiotic.bio_inbox.lock().push_back(sample);
+
+        let context = SpecialistContext {
+            timestamp: 0,
+            user_state: crate::federation::specialist::UserState::default(),
+            system_resources: crate::federation::specialist::SystemResources::default(),
+            active_specialists: vec![],
+            recent_decisions: vec![],
+        };
+
+        let proposals = symbiotic.propose(&context).await.unwrap();
+        assert!(
+            !proposals.is_empty(),
+            "pending BLE inbox should trigger a proposal even at low stress"
+        );
+        assert!(
+            proposals[0].description.contains("pending BLE"),
+            "description should mention pending BLE samples: {}",
+            proposals[0].description
+        );
+    }
+
+    #[tokio::test]
+    async fn test_propose_description_omits_pending_when_inbox_empty() {
+        let mut symbiotic = Symbiotic::new();
+        // High stress to trigger a proposal
+        symbiotic.current_state.stress_level = 0.8;
+
+        let context = SpecialistContext {
+            timestamp: 0,
+            user_state: crate::federation::specialist::UserState::default(),
+            system_resources: crate::federation::specialist::SystemResources::default(),
+            active_specialists: vec![],
+            recent_decisions: vec![],
+        };
+
+        let proposals = symbiotic.propose(&context).await.unwrap();
+        assert!(!proposals.is_empty());
+        assert!(
+            !proposals[0].description.contains("pending BLE"),
+            "description should NOT mention pending BLE when inbox empty: {}",
+            proposals[0].description
+        );
+    }
+
+    #[tokio::test]
+    async fn test_pending_samples_increase_confidence_slightly() {
+        let mut symbiotic_base = Symbiotic::new();
+        symbiotic_base.current_state.stress_level = 0.8;
+
+        let mut symbiotic_inbox = Symbiotic::new();
+        symbiotic_inbox.current_state.stress_level = 0.8;
+        // Add 5 pending samples - should boost confidence by 5 * 0.01 = 0.05
+        for i in 0..5u16 {
+            let s = BiometricSample::heart_rate("dev".to_string(), 70 + i);
+            symbiotic_inbox.bio_inbox.lock().push_back(s);
+        }
+
+        let context = SpecialistContext {
+            timestamp: 0,
+            user_state: crate::federation::specialist::UserState::default(),
+            system_resources: crate::federation::specialist::SystemResources::default(),
+            active_specialists: vec![],
+            recent_decisions: vec![],
+        };
+
+        let base_proposals = symbiotic_base.propose(&context).await.unwrap();
+        let inbox_proposals = symbiotic_inbox.propose(&context).await.unwrap();
+
+        assert!(!base_proposals.is_empty());
+        assert!(!inbox_proposals.is_empty());
+
+        assert!(
+            inbox_proposals[0].confidence >= base_proposals[0].confidence,
+            "pending samples should not reduce confidence: {} vs {}",
+            inbox_proposals[0].confidence,
+            base_proposals[0].confidence
+        );
     }
 }

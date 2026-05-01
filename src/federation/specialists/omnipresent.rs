@@ -16,8 +16,7 @@ use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, VecDeque};
 use std::sync::Arc;
-// parking_lot::Mutex - see Visionary for the rationale (avoids holding a
-// guard across .await so save/load futures are Send).
+// parking_lot::Mutex - see Visionary for the rationale.
 use parking_lot::Mutex;
 
 use crate::federation::specialist::{
@@ -201,18 +200,8 @@ pub struct Omnipresent {
     pub sync_history: Vec<String>,
     pub bandwidth_available_mbps: u32,
     pub learning: Arc<Mutex<OmnipresentLearningData>>,
-    /// Optional real P2P node. When `Some`, sync operations use real Iroh
-    /// (or stub) P2P networking. When `None`, only in-memory device tracking
-    /// is performed (suitable for tests and offline development).
     pub p2p_node: Option<Arc<P2pNode>>,
-    /// Map from logical device ID to its P2P endpoint ID (when P2P is active)
     pub device_endpoints: HashMap<String, P2pNodeId>,
-    /// Inbox for incoming sync messages from the P2P receive task.
-    ///
-    /// Background tasks write into this inbox; the specialist drains it
-    /// lazily via `drain_sync_inbox()`. The Mutex allows both the recv task
-    /// and the specialist to access the inbox from different threads without
-    /// requiring `&mut self`.
     pub sync_inbox: Arc<Mutex<VecDeque<crate::federation::p2p::SyncMessage>>>,
 }
 
@@ -545,17 +534,28 @@ impl Specialist for Omnipresent {
         self.id
     }
 
-    /// Propose syncing when devices drift or conflict
+    /// Propose syncing when devices drift, have conflicts, or have pending P2P messages.
     async fn propose(&self, context: &SpecialistContext) -> Result<Vec<ProposedAction>, SpecialistError> {
         let drifted = self.detect_devices_drift();
         let conflicts = self.detect_sync_conflicts();
+        // Peek at inbox without draining: pending messages are an urgency signal
+        // even before we know who sent them. Execute() will drain and apply them.
+        let pending_messages = self.sync_inbox.lock().len();
 
-        if drifted.is_empty() && conflicts.is_empty() {
+        if drifted.is_empty() && conflicts.is_empty() && pending_messages == 0 {
             return Ok(vec![]);
         }
 
         let device_count = self.devices.len() as f32;
-        let base_confidence = if conflicts.is_empty() { 0.75 } else { 0.90 };
+        // Pending inbox messages add urgency: each message bumps confidence slightly
+        let inbox_urgency = (pending_messages as f32 * 0.02).min(0.15);
+        let base_confidence = if !conflicts.is_empty() {
+            0.90
+        } else if pending_messages > 0 {
+            0.80 + inbox_urgency
+        } else {
+            0.75
+        };
 
         // Get learned confidence from history
         let learning = self.learning.lock();
@@ -565,16 +565,28 @@ impl Specialist for Omnipresent {
         // Blend base confidence (70%) with learned confidence (30%)
         let confidence = (base_confidence * 0.7) + (learned_confidence * 0.3);
 
-        Ok(vec![ProposedAction {
-            id: format!("omnipresent-sync-{}", uuid()),
-            specialist: SpecialistId::Omnipresent,
-            action_type: "sync_devices".to_string(),
-            description: format!(
+        let description = if pending_messages > 0 {
+            format!(
+                "Sync {} devices (drift: {}, conflicts: {}, pending: {} msg)",
+                device_count,
+                drifted.len(),
+                conflicts.len(),
+                pending_messages
+            )
+        } else {
+            format!(
                 "Sync {} devices (drift: {}, conflicts: {})",
                 device_count,
                 drifted.len(),
                 conflicts.len()
-            ),
+            )
+        };
+
+        Ok(vec![ProposedAction {
+            id: format!("omnipresent-sync-{}", uuid()),
+            specialist: SpecialistId::Omnipresent,
+            action_type: "sync_devices".to_string(),
+            description,
             confidence,
             required_resources: ResourceRequest {
                 gpu_percent: 0.0,
@@ -582,10 +594,10 @@ impl Specialist for Omnipresent {
                 memory_mb: 300,
                 duration_seconds: 30,
             },
-            priority: if conflicts.is_empty() {
-                ProposalPriority::Normal
-            } else {
+            priority: if !conflicts.is_empty() || pending_messages > 2 {
                 ProposalPriority::UserFacing
+            } else {
+                ProposalPriority::Normal
             },
             tags: vec!["sync".to_string(), "p2p".to_string()],
         }])
@@ -985,5 +997,109 @@ mod tests {
 
         let n = omnipresent.heartbeat_all().await.expect("heartbeat should succeed");
         assert_eq!(n, 0);
+    }
+
+    // === Inbox-shaped proposal tests ===
+
+    #[tokio::test]
+    async fn test_propose_without_drift_but_pending_inbox_still_proposes() {
+        // No drifted devices, no conflicts, but 3 pending sync messages
+        // → should still generate a proposal
+        let mut omnipresent = Omnipresent::new();
+        let node_id = crate::federation::p2p::P2pNodeId::random();
+        for _ in 0..3 {
+            let msg = crate::federation::p2p::SyncMessage::heartbeat(node_id.clone(), 1);
+            omnipresent.sync_inbox.lock().push_back(msg);
+        }
+
+        let context = SpecialistContext {
+            timestamp: 0,
+            user_state: crate::federation::specialist::UserState::default(),
+            system_resources: crate::federation::specialist::SystemResources::default(),
+            active_specialists: vec![],
+            recent_decisions: vec![],
+        };
+
+        let proposals = omnipresent.propose(&context).await.unwrap();
+        assert!(
+            !proposals.is_empty(),
+            "pending inbox messages should trigger a proposal even without drift"
+        );
+        assert!(
+            proposals[0].description.contains("pending"),
+            "description should mention pending messages: {}",
+            proposals[0].description
+        );
+    }
+
+    #[tokio::test]
+    async fn test_propose_with_inbox_messages_has_higher_urgency() {
+        // Scenario 1: no inbox, only drift → Normal priority
+        // Scenario 2: inbox has >2 messages → UserFacing priority
+        let node_id = crate::federation::p2p::P2pNodeId::random();
+
+        let context = SpecialistContext {
+            timestamp: 0,
+            user_state: crate::federation::specialist::UserState::default(),
+            system_resources: crate::federation::specialist::SystemResources::default(),
+            active_specialists: vec![],
+            recent_decisions: vec![],
+        };
+
+        // Scenario 1: some drift, no inbox
+        let mut omni_drift = Omnipresent::new();
+        // Drift is only triggered by last_seen > 300s for is_online devices.
+        // Use conflicts instead which is deterministic.
+        omni_drift.register_device(Device {
+            id: "d1".to_string(),
+            name: "D1".to_string(),
+            device_type: DeviceType::Desktop,
+            last_seen: 0,
+            intent_version: 2,
+            is_online: true,
+        });
+        omni_drift.register_device(Device {
+            id: "d2".to_string(),
+            name: "D2".to_string(),
+            device_type: DeviceType::Phone,
+            last_seen: 0,
+            intent_version: 1,
+            is_online: true,
+        });
+        let proposals_drift = omni_drift.propose(&context).await.unwrap();
+        assert!(!proposals_drift.is_empty());
+        // Conflicts → high base confidence but still UserFacing (conflicts.is_empty() is false)
+
+        // Scenario 2: >2 inbox messages alone → UserFacing  
+        let mut omni_inbox = Omnipresent::new();
+        for _ in 0..3 {
+            let msg = crate::federation::p2p::SyncMessage::heartbeat(node_id.clone(), 1);
+            omni_inbox.sync_inbox.lock().push_back(msg);
+        }
+        let proposals_inbox = omni_inbox.propose(&context).await.unwrap();
+        assert!(!proposals_inbox.is_empty());
+        assert_eq!(
+            proposals_inbox[0].priority,
+            ProposalPriority::UserFacing,
+            "3+ pending messages should give UserFacing priority"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_no_proposal_when_no_drift_no_conflicts_no_inbox() {
+        let omnipresent = Omnipresent::new();
+        let context = SpecialistContext {
+            timestamp: 0,
+            user_state: crate::federation::specialist::UserState::default(),
+            system_resources: crate::federation::specialist::SystemResources::default(),
+            active_specialists: vec![],
+            recent_decisions: vec![],
+        };
+
+        let proposals = omnipresent.propose(&context).await.unwrap();
+        assert!(
+            proposals.is_empty(),
+            "no drift, no conflicts, no inbox → no proposals"
+        );
     }
 }
