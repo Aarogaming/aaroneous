@@ -1,6 +1,69 @@
 {
-  "schema_version": "1.0",
-  "timestamp": "2026-04-28T13:00:00Z",
+  "schema_version": "2.0",
+  "timestamp": "2026-05-01T00:00:00Z",
+  "description": "Federation specialist registry. Each entry maps a specialist name to its domain, GGUF model, and hox configuration. The 5 core specialists (federation tier) use fixed Rust types. Dynamic specialists use GenericSpecialist and resolve to a GGUF path at runtime.",
+  "model_base_path": "D:\\Aaroneous\\models",
+  "preferred_base_model": "Qwen/Qwen2.5-1.5B-Instruct",
+  "preferred_base_model_note": "Qwen2.5 abliterated variants (no refusals) are the preferred base for all specialist crystallizations. Use qwen2.5-1.5b-instruct-abliterated.gguf for small sovereigns.",
+  "federation_core_specialists": {
+    "note": "These 5 are compiled-in Rust types. GGUF path activates LLM-backed execution when the llama-gguf feature is enabled.",
+    "Visionary": {
+      "domain": "UI/UX design generation, aesthetic learning",
+      "gguf_path": "D:\\Aaroneous\\models\\visionary-qwen2.5-1.5b.gguf",
+      "gguf_base": "qwen2.5-1.5b-instruct-abliterated.gguf",
+      "model_size_mb": 1000,
+      "status": "active"
+    },
+    "Omnipresent": {
+      "domain": "P2P multi-device sync, mesh coordination",
+      "gguf_path": "D:\\Aaroneous\\models\\omnipresent-qwen2.5-1.5b.gguf",
+      "gguf_base": "qwen2.5-1.5b-instruct-abliterated.gguf",
+      "model_size_mb": 1000,
+      "status": "active"
+    },
+    "Symbiotic": {
+      "domain": "Biometric classification, stress/fatigue scaling",
+      "gguf_path": "D:\\Aaroneous\\models\\symbiotic-qwen2.5-0.5b.gguf",
+      "gguf_base": "qwen2.5-0.5b-instruct-abliterated.gguf",
+      "model_size_mb": 500,
+      "status": "active"
+    },
+    "Phygital": {
+      "domain": "AR/VR spatial rendering, OpenXR anchoring",
+      "gguf_path": "D:\\Aaroneous\\models\\phygital-qwen2.5-1.5b.gguf",
+      "gguf_base": "qwen2.5-1.5b-instruct-abliterated.gguf",
+      "model_size_mb": 1000,
+      "status": "active"
+    },
+    "Archivist": {
+      "domain": "DNA Bank persistence, pattern learning, memory consolidation",
+      "gguf_path": "D:\\Aaroneous\\models\\archivist-qwen2.5-0.5b.gguf",
+      "gguf_base": "qwen2.5-0.5b-instruct-abliterated.gguf",
+      "model_size_mb": 500,
+      "status": "active"
+    }
+  },
+  "dynamic_specialists": {
+    "note": "Runtime-spawned GenericSpecialist instances. Each entry is loaded at startup via FederationBuilder::with_gguf_specialist(). Add entries here to expand the hive without recompilation.",
+    "examples": [
+      {
+        "name": "LegalAnalyst",
+        "domain": "legal_analysis",
+        "gguf_path": "D:\\Aaroneous\\models\\legal-qwen2.5-1.5b.gguf",
+        "gguf_base": "qwen2.5-1.5b-instruct-abliterated.gguf",
+        "enabled": false,
+        "note": "Placeholder. Drop a crystallized GGUF here and set enabled=true."
+      },
+      {
+        "name": "CodeReviewer",
+        "domain": "code_review",
+        "gguf_path": "D:\\Aaroneous\\models\\code-qwen2.5-1.5b.gguf",
+        "gguf_base": "qwen2.5-coder-1.5b-instruct-abliterated.gguf",
+        "enabled": false,
+        "note": "Qwen2.5-Coder abliterated variant recommended."
+      }
+    ]
+  },
   "default_specialist": {
     "name": "aaroneous_agent_zero",
     "type": "BaseAgent",
@@ -22,6 +85,8 @@
       "name": "Ariel",
       "domain": "UserInterface",
       "role": "UI/UX Designer & Experience Architect",
+      "gguf_path": "D:\\Aaroneous\\models\\ariel-qwen2.5-1.5b.gguf",
+      "gguf_base": "qwen2.5-1.5b-instruct-abliterated.gguf",
       "hox_preset": "D:\\Aaroneous\\registry\\hox_specialist_ariel.json",
       "relic_binding": "relic_glass",
       "status": "ready",
@@ -32,6 +97,8 @@
       "name": "Merlin",
       "domain": "Knowledge",
       "role": "Knowledge Synthesist & Architect",
+      "gguf_path": "D:\\Aaroneous\\models\\merlin-qwen2.5-1.5b.gguf",
+      "gguf_base": "qwen2.5-1.5b-instruct-abliterated.gguf",
       "hox_preset": "D:\\Aaroneous\\registry\\hox_specialist_merlin.json",
       "relic_binding": "relic_grimoire",
       "status": "ready",
@@ -42,6 +109,8 @@
       "name": "Odin",
       "domain": "Leadership",
       "role": "Strategic Orchestrator & Leader",
+      "gguf_path": "D:\\Aaroneous\\models\\odin-qwen2.5-1.5b.gguf",
+      "gguf_base": "qwen2.5-1.5b-instruct-abliterated.gguf",
       "hox_preset": "D:\\Aaroneous\\registry\\hox_specialist_odin.json",
       "relic_binding": "relic_draupnir",
       "status": "ready",
@@ -52,6 +121,8 @@
       "name": "Dionysus",
       "domain": "Experience",
       "role": "Experience & Memory Curator",
+      "gguf_path": "D:\\Aaroneous\\models\\dionysus-qwen2.5-0.5b.gguf",
+      "gguf_base": "qwen2.5-0.5b-instruct-abliterated.gguf",
       "hox_preset": "D:\\Aaroneous\\registry\\hox_specialist_dionysus.json",
       "relic_binding": "relic_omni",
       "status": "ready",
@@ -62,6 +133,8 @@
       "name": "Hephaestus",
       "domain": "Manufacturing",
       "role": "Manufacturing & Execution Engine",
+      "gguf_path": "D:\\Aaroneous\\models\\hephaestus-qwen2.5-1.5b.gguf",
+      "gguf_base": "qwen2.5-1.5b-instruct-abliterated.gguf",
       "hox_preset": "D:\\Aaroneous\\registry\\hox_specialist_hephaestus.json",
       "relic_binding": "relic_forge",
       "status": "ready",
@@ -72,6 +145,8 @@
       "name": "Argus",
       "domain": "Security",
       "role": "Security Warden & Sentinel",
+      "gguf_path": "D:\\Aaroneous\\models\\argus-qwen2.5-0.5b.gguf",
+      "gguf_base": "qwen2.5-0.5b-instruct-abliterated.gguf",
       "hox_preset": "D:\\Aaroneous\\registry\\hox_specialist_argus.json",
       "relic_binding": "relic_sentinel",
       "status": "ready",

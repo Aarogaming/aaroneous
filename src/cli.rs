@@ -437,18 +437,48 @@ async fn execute_start(
         .map_err(|e| format!("Failed to open database at {}: {}", db_path, e))?;
     info!("Database opened: {}", db_path);
 
-    // Visionary gets a MockLLM so generate_design() produces real (non-empty)
-    // output even without a GGUF model on disk. Real GGUF can be swapped in
-    // via the `llama-gguf` feature by calling Visionary::with_gguf_llm().
+    // Visionary: try real GGUF model first (from registry path), fall back to
+    // MockLLM so generate_design() always produces non-empty output.
+    // Real GGUF model placement: D:\Aaroneous\models\visionary-qwen2.5-1.5b.gguf
+    // (See config/specialist_registry.json → federation_core_specialists.Visionary)
     use crate::federation::specialists::Visionary;
-    let visionary = match Visionary::with_mock_llm().await {
-        Ok(v) => {
-            info!("Visionary: MockLLM attached");
-            std::sync::Arc::new(v)
+    let visionary_gguf_path = std::path::Path::new("D:\\Aaroneous\\models\\visionary-qwen2.5-1.5b.gguf");
+    let visionary = if visionary_gguf_path.exists() {
+        // Real GGUF model found — wire it up
+        use crate::llm::{LLMClient, LLMConfig, ProviderType};
+        let config = LLMConfig {
+            provider_type: ProviderType::GGUF,
+            temperature: 0.8,
+            max_tokens: 512,
+            timeout_secs: 30,
+            enable_caching: true,
+            cache_ttl_secs: 600,
+            gguf_model_path: Some(visionary_gguf_path.to_path_buf()),
+        };
+        match LLMClient::new(config).await {
+            Ok(client) => {
+                info!("Visionary: GGUF model loaded from {}", visionary_gguf_path.display());
+                std::sync::Arc::new(Visionary::new().with_llm(std::sync::Arc::new(client)))
+            }
+            Err(e) => {
+                tracing::warn!("Visionary: GGUF load failed ({}), falling back to MockLLM", e);
+                match Visionary::with_mock_llm().await {
+                    Ok(v) => std::sync::Arc::new(v),
+                    Err(_) => std::sync::Arc::new(Visionary::new()),
+                }
+            }
         }
-        Err(e) => {
-            tracing::warn!("Visionary: MockLLM failed ({}), falling back to rule-based", e);
-            std::sync::Arc::new(Visionary::new())
+    } else {
+        // No GGUF on disk — use MockLLM for development / CI
+        match Visionary::with_mock_llm().await {
+            Ok(v) => {
+                info!("Visionary: MockLLM attached (no GGUF at {})", visionary_gguf_path.display());
+                std::sync::Arc::new(v)
+            }
+            Err(e) => {
+                tracing::warn!("Visionary: MockLLM failed ({}), falling back to rule-based", e);
+                std::sync::Arc::new(Visionary::new())
+            }
         }
     };
 
@@ -458,20 +488,46 @@ async fn execute_start(
     let archivist = std::sync::Arc::new(Archivist::new().with_in_memory_dna_bank());
     info!("Archivist: in-memory DNA Bank attached");
 
-    let fed = std::sync::Arc::new(
-        Federation::builder(pm)
-            .with_config(FederationConfig {
-                default_checkpoint_interval: Duration::from_secs(30),
-                verbose_checkpoints: false,
-                optimization_profile: None,  // auto-detect
-            })
-            .with_visionary_instance(visionary)
-            .with_omnipresent()
-            .with_symbiotic()
-            .with_phygital()
-            .with_archivist_instance(archivist)
-            .build(),
-    );
+    // Load any enabled dynamic specialists from the registry
+    use crate::federation::specialists::GenericSpecialist;
+    let mut builder = Federation::builder(pm)
+        .with_config(FederationConfig {
+            default_checkpoint_interval: Duration::from_secs(30),
+            verbose_checkpoints: false,
+            optimization_profile: None,
+        })
+        .with_visionary_instance(visionary)
+        .with_omnipresent()
+        .with_symbiotic()
+        .with_phygital()
+        .with_archivist_instance(archivist);
+
+    // Parse specialist_registry.json for enabled dynamic specialists
+    let registry_path = std::path::Path::new("D:\\Aaroneous\\config\\specialist_registry.json");
+    if registry_path.exists() {
+        if let Ok(content) = std::fs::read_to_string(registry_path) {
+            if let Ok(registry) = serde_json::from_str::<serde_json::Value>(&content) {
+                if let Some(dynamic) = registry.get("dynamic_specialists")
+                    .and_then(|d| d.get("examples"))
+                    .and_then(|e| e.as_array())
+                {
+                    for entry in dynamic {
+                        let enabled = entry.get("enabled").and_then(|e| e.as_bool()).unwrap_or(false);
+                        if !enabled { continue; }
+                        let name = entry.get("name").and_then(|n| n.as_str()).unwrap_or("Unknown");
+                        let domain = entry.get("domain").and_then(|d| d.as_str()).unwrap_or("general");
+                        let gguf = entry.get("gguf_path").and_then(|g| g.as_str()).unwrap_or("");
+                        let specialist = GenericSpecialist::new(name, domain)
+                            .with_gguf_path(gguf).await;
+                        info!("Loading dynamic specialist '{}' (domain: {})", name, domain);
+                        builder = builder.with_gguf_specialist(std::sync::Arc::new(specialist));
+                    }
+                }
+            }
+        }
+    }
+
+    let fed = std::sync::Arc::new(builder.build_async().await);
 
     // Attach the federation to HiveRuntime so start()/shutdown() drives it.
     hive_runtime.attach_federation(Some(fed.clone())).await;

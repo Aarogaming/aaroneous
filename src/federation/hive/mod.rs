@@ -98,6 +98,11 @@ pub struct Federation {
     phygital: Option<Arc<SpecialistHost<Phygital>>>,
     archivist: Option<Arc<SpecialistHost<Archivist>>>,
 
+    /// Runtime-spawned generic specialists, each backed by their own GGUF model.
+    /// These sovereigns are added via `FederationBuilder::with_gguf_specialist()`
+    /// or `Federation::add_generic_specialist()` at runtime without recompilation.
+    pub dynamic: Arc<RwLock<Vec<Arc<crate::federation::specialists::GenericSpecialist>>>>,
+
     /// The active user intent — what the user is trying to accomplish right now.
     /// `None` until the first `submit_intent()` call.
     /// Shared with all specialists and the HTTP `/intent` endpoint.
@@ -165,7 +170,7 @@ impl Federation {
         self.archivist.as_ref().map(|h| h.specialist())
     }
 
-    /// How many specialists are configured in this federation (1..=5)
+    /// How many specialists are configured in this federation (1..=5 core + N dynamic)
     pub fn enabled_count(&self) -> usize {
         let mut n = 0;
         if self.visionary.is_some() { n += 1; }
@@ -173,7 +178,49 @@ impl Federation {
         if self.symbiotic.is_some() { n += 1; }
         if self.phygital.is_some() { n += 1; }
         if self.archivist.is_some() { n += 1; }
+        // Dynamic specialists are counted synchronously via try_read
+        if let Ok(dyn_guard) = self.dynamic.try_read() {
+            n += dyn_guard.len();
+        }
         n
+    }
+
+    /// Add a runtime-spawned `GenericSpecialist` to this federation.
+    ///
+    /// The specialist participates in `collect_proposals()` and `run_decision()`
+    /// immediately after being added.  Its learning state is persisted to
+    /// SQLite using its `persistence_key`.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// # async fn example(fed: &a_run::federation::hive::Federation) {
+    /// use a_run::federation::specialists::GenericSpecialist;
+    ///
+    /// let s = GenericSpecialist::new("LegalAnalyst", "legal")
+    ///     .with_gguf_path("models/qwen-legal-1.8b.gguf").await;
+    /// fed.add_generic_specialist(std::sync::Arc::new(s)).await;
+    /// # }
+    /// ```
+    pub async fn add_generic_specialist(
+        &self,
+        specialist: Arc<crate::federation::specialists::GenericSpecialist>,
+    ) {
+        // Load prior learning from DB if available (best-effort)
+        {
+            let pm = self.persistence.lock().await;
+            let _ = specialist.load_learning_from(&*pm);
+        }
+        let name = specialist.name.clone();
+        self.dynamic.write().await.push(specialist);
+        info!("Added GenericSpecialist '{}' to federation (dynamic slot)", name);
+    }
+
+    /// List all dynamic specialists currently in this federation.
+    pub async fn dynamic_specialists(
+        &self,
+    ) -> Vec<Arc<crate::federation::specialists::GenericSpecialist>> {
+        self.dynamic.read().await.clone()
     }
 
     // ------- Lifecycle -------
@@ -595,6 +642,7 @@ impl Federation {
             symbiotic,
             phygital,
             archivist,
+            dynamic: Arc::new(RwLock::new(Vec::new())),
             active_intent: Arc::new(RwLock::new(None)),
             results: Arc::new(Mutex::new(Vec::new())),
             sentinel: Arc::new(RwLock::new(None)),
@@ -675,6 +723,7 @@ async fn run_decision(
     symb: &Option<Arc<crate::federation::specialists::Symbiotic>>,
     phyg: &Option<Arc<crate::federation::specialists::Phygital>>,
     arch: &Option<Arc<crate::federation::specialists::Archivist>>,
+    dyn_specialists: &[Arc<crate::federation::specialists::GenericSpecialist>],
     results_store: &Arc<tokio::sync::Mutex<Vec<crate::federation::specialist::ExecutionResult>>>,
     active_intent_arc: &Arc<RwLock<Option<Intent>>>,
     sessions_arc: &Arc<RwLock<crate::federation::session::SessionManager>>,
@@ -682,23 +731,36 @@ async fn run_decision(
 ) -> bool {
     use crate::federation::specialist::{Specialist, SpecialistId};
 
-    let exec_result = match decision.specialist {
-        SpecialistId::Visionary => {
-            if let Some(s) = vis { s.execute(&decision).await.ok() } else { None }
+    // Check if this decision was issued for a dynamic specialist by name
+    let dynamic_specialist_name = decision.context.get("dynamic_specialist").cloned();
+
+    let exec_result = if let Some(ref ds_name) = dynamic_specialist_name {
+        // Route to the named dynamic specialist
+        let ds = dyn_specialists.iter().find(|s| &s.name == ds_name);
+        if let Some(s) = ds {
+            s.execute(&decision).await.ok()
+        } else {
+            None
         }
-        SpecialistId::Omnipresent => {
-            if let Some(s) = omni { s.execute(&decision).await.ok() } else { None }
+    } else {
+        match decision.specialist {
+            SpecialistId::Visionary => {
+                if let Some(s) = vis { s.execute(&decision).await.ok() } else { None }
+            }
+            SpecialistId::Omnipresent => {
+                if let Some(s) = omni { s.execute(&decision).await.ok() } else { None }
+            }
+            SpecialistId::Symbiotic => {
+                if let Some(s) = symb { s.execute(&decision).await.ok() } else { None }
+            }
+            SpecialistId::Phygital => {
+                if let Some(s) = phyg { s.execute(&decision).await.ok() } else { None }
+            }
+            SpecialistId::Archivist => {
+                if let Some(s) = arch { s.execute(&decision).await.ok() } else { None }
+            }
+            _ => None,
         }
-        SpecialistId::Symbiotic => {
-            if let Some(s) = symb { s.execute(&decision).await.ok() } else { None }
-        }
-        SpecialistId::Phygital => {
-            if let Some(s) = phyg { s.execute(&decision).await.ok() } else { None }
-        }
-        SpecialistId::Archivist => {
-            if let Some(s) = arch { s.execute(&decision).await.ok() } else { None }
-        }
-        _ => None,
     };
 
     if let Some(result) = exec_result {
@@ -1117,6 +1179,37 @@ impl Federation {
         collect_from!(self.phygital, crate::federation::specialist::SpecialistId::Phygital);
         collect_from!(self.archivist, crate::federation::specialist::SpecialistId::Archivist);
 
+        // Dynamic (generic) specialists
+        {
+            use crate::federation::specialist::Specialist;
+            let dyn_guard = self.dynamic.read().await;
+            for specialist in dyn_guard.iter() {
+                match specialist.propose(&context).await {
+                    Ok(proposed_actions) => {
+                        for action in proposed_actions {
+                            let mut proposal = Proposal::new(
+                                action.specialist,
+                                action.action_type.clone(),
+                                action.description.clone(),
+                                action.confidence,
+                                action.priority.clone(),
+                            )
+                            .with_resources(action.required_resources.clone())
+                            .with_tags(action.tags.clone());
+                            if !intent_activity.is_empty() && intent_activity != "idle" {
+                                proposal = proposal.with_metadata("intent", intent_activity.clone());
+                                proposal = proposal.with_metadata("dynamic_specialist", specialist.name.clone());
+                            }
+                            bus_proposals.push(proposal);
+                        }
+                    }
+                    Err(e) => {
+                        warn!("collect_proposals: GenericSpecialist '{}' propose() error: {}", specialist.name, e);
+                    }
+                }
+            }
+        }
+
         let total_proposals = bus_proposals.len();
 
         // Submit to the bus via Sentinel (holds lock briefly)
@@ -1151,6 +1244,7 @@ impl Federation {
         let symb = self.symbiotic.as_ref().map(|h| h.specialist());
         let phyg = self.phygital.as_ref().map(|h| h.specialist());
         let arch = self.archivist.as_ref().map(|h| h.specialist());
+        let dyn_vec = self.dynamic.read().await.clone();
 
         run_decision(
             decision,
@@ -1159,6 +1253,7 @@ impl Federation {
             &symb,
             &phyg,
             &arch,
+            &dyn_vec,
             &self.results,
             &self.active_intent,
             &self.sessions,
@@ -1274,6 +1369,7 @@ impl Federation {
         let symb = self.symbiotic.as_ref().map(|h| h.specialist());
         let phyg = self.phygital.as_ref().map(|h| h.specialist());
         let arch = self.archivist.as_ref().map(|h| h.specialist());
+        let dynamic_arc = self.dynamic.clone();
         let results_store = self.results.clone();
         // Route results back to the originating session
         let active_intent_arc = self.active_intent.clone();
@@ -1347,6 +1443,7 @@ impl Federation {
                                         // Delegate to the canonical run_decision() function
                                         // so both the sentinel loop and execute_decision()
                                         // have identical audit/session/storage behavior.
+                                        let dyn_vec = dynamic_arc.read().await.clone();
                                         run_decision(
                                             decision,
                                             &vis,
@@ -1354,6 +1451,7 @@ impl Federation {
                                             &symb,
                                             &phyg,
                                             &arch,
+                                            &dyn_vec,
                                             &results_store,
                                             &active_intent_arc,
                                             &sessions_arc,

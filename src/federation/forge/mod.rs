@@ -8,6 +8,22 @@
 /// called via the legacy FFI path in `main.rs`. This module re-implements the
 /// same logic as safe, async Rust directly callable from the `Federation`.
 ///
+/// # Output format
+///
+/// `crystallize()` writes a **valid GGUF v3 file** readable by llama.cpp,
+/// gguf-py, and any conforming GGUF reader:
+///
+/// ```text
+/// [4]  magic       = "GGUF"
+/// [4]  version     = 3  (u32 LE)
+/// [8]  tensor_count        (u64 LE)
+/// [8]  metadata_kv_count   (u64 LE)
+/// [...] metadata KV pairs  (from recipe.metadata_overrides + Aaroneous defaults)
+/// [...] tensor info table  (per tensor: name, n_dims, dims[], dtype, data_offset)
+/// [...] alignment padding  to GGUF_ALIGNMENT (32 bytes)
+/// [...] tensor data blobs  (raw weights from source models)
+/// ```
+///
 /// # Architecture
 ///
 /// ```text
@@ -39,6 +55,7 @@
 ///             tensor_name: "blk.0.attn_q.weight".to_string(),
 ///         },
 ///     ],
+///     metadata_overrides: HashMap::new(),
 /// };
 ///
 /// let mut index = GgufIndex(HashMap::new());
@@ -52,9 +69,51 @@ use memmap2::Mmap;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs::File;
-use std::io::Write;
+use std::io::{Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
 use tracing::{debug, info, warn};
+
+// ────────────────────────────────────────────────────────────────────
+// GGUF v3 constants
+// ────────────────────────────────────────────────────────────────────
+
+/// Output file alignment: tensor data section must start at a multiple of this.
+const GGUF_ALIGNMENT: u64 = 32;
+const GGUF_VERSION: u32 = 3;
+
+/// GGUF metadata value type codes (spec §2.1)
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(u32)]
+pub enum GgufMetaType {
+    Uint8   = 0,
+    Int8    = 1,
+    Uint16  = 2,
+    Int16   = 3,
+    Uint32  = 4,
+    Int32   = 5,
+    Float32 = 6,
+    Bool    = 7,
+    String  = 8,
+    Array   = 9,
+    Uint64  = 10,
+    Int64   = 11,
+    Float64 = 12,
+}
+
+/// A typed metadata value for the GGUF header KV store.
+/// Only the variants used by Qwen/common architectures are modeled.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type", content = "value")]
+pub enum MetaValue {
+    Uint32(u32),
+    Int32(i32),
+    Float32(f32),
+    Uint64(u64),
+    Bool(bool),
+    String(String),
+    /// Array of strings (e.g., tokenizer.ggml.tokens)
+    StringArray(Vec<String>),
+}
 
 // ────────────────────────────────────────────────────────────────────
 // Wire types (same schema as the tensor_forge enzyme)
@@ -69,6 +128,14 @@ pub struct TensorMeta {
     pub size: u64,
     /// Optional: tensor kind label (e.g., "attention", "mlp", "embedding")
     pub kind: Option<String>,
+    /// Tensor shape dimensions (outermost first), e.g. [4096, 4096].
+    /// Required to write a valid GGUF tensor info table.
+    #[serde(default)]
+    pub shape: Vec<u64>,
+    /// GGUF data type code (spec §2.3): 0=F32, 1=F16, 12=Q4_K, 14=Q6_K, etc.
+    /// Defaults to 0 (F32) when absent.
+    #[serde(default)]
+    pub dtype: u32,
 }
 
 /// Metadata about one source GGUF file.
@@ -129,6 +196,18 @@ pub struct ForgeRecipe {
     pub recipe_id: String,
     /// Ordered list of tensor splices. Order determines layout in the output file.
     pub segments: Vec<SplicingSegment>,
+    /// Metadata KV pairs written into the GGUF header.
+    ///
+    /// Common keys for Qwen-based specialists:
+    /// - `"general.architecture"` → `String("qwen2")`
+    /// - `"general.name"`         → `String("aaroneous-visionary-v1")`
+    /// - `"llama.context_length"` → `Uint32(4096)`
+    /// - `"llama.rope.freq_base"` → `Float32(1000000.0)` (Qwen uses 1M)
+    /// - `"tokenizer.ggml.model"` → `String("gpt2")`
+    ///
+    /// Any keys not provided here receive Aaroneous defaults in `crystallize()`.
+    #[serde(default)]
+    pub metadata_overrides: HashMap<String, MetaValue>,
 }
 
 // ────────────────────────────────────────────────────────────────────
@@ -206,16 +285,13 @@ impl Forge {
 
     /// Crystallize a hybrid GGUF by splicing tensors according to the recipe.
     ///
-    /// This is the native Rust equivalent of `tensor_forge::crystallize_hybrid()`.
-    /// It runs on `tokio::task::spawn_blocking` since mmap + file I/O is blocking.
+    /// Writes a **valid GGUF v3 file** readable by llama.cpp, gguf-py, and any
+    /// conforming GGUF reader.  The header contains:
+    ///   magic (4) · version u32 · tensor_count u64 · kv_count u64 ·
+    ///   KV metadata pairs · tensor info table · alignment padding ·
+    ///   tensor data blobs (mmapped from source models)
     ///
-    /// # Output format
-    ///
-    /// The output is **not** a fully valid GGUF yet — it is a "bare spliced" file
-    /// containing the magic bytes `GGUF` followed by raw tensor data in recipe order.
-    /// A full GGUF header (metadata, tensor info table) would be needed for models
-    /// that require it; for experimental inference via direct tensor access, the bare
-    /// format is sufficient.
+    /// Runs on `tokio::task::spawn_blocking` since mmap + file I/O is blocking.
     pub async fn crystallize(
         &mut self,
         recipe: &ForgeRecipe,
@@ -233,78 +309,167 @@ impl Forge {
         let output_path = output_path.as_ref().to_path_buf();
 
         let result = tokio::task::spawn_blocking(move || -> Result<CrystallizationResult, ForgeError> {
+            // ── Phase 1: resolve every segment → (meta, mmap) ──────────────
+            struct ResolvedSegment {
+                segment_name: String,
+                source_gguf:  String,
+                meta:         TensorMeta,
+                source_path:  PathBuf,
+            }
+            let mut resolved: Vec<ResolvedSegment> = Vec::with_capacity(recipe.segments.len());
+
+            for seg in &recipe.segments {
+                let gguf_meta = index.0.get(&seg.source_gguf)
+                    .ok_or_else(|| ForgeError::GgufNotFound { gguf: seg.source_gguf.clone() })?;
+                let tensor_meta = gguf_meta.tensors.get(&seg.tensor_name)
+                    .ok_or_else(|| ForgeError::TensorNotFound {
+                        tensor: seg.tensor_name.clone(),
+                        gguf: seg.source_gguf.clone(),
+                    })?;
+                resolved.push(ResolvedSegment {
+                    segment_name: seg.tensor_name.clone(),
+                    source_gguf:  seg.source_gguf.clone(),
+                    meta:         tensor_meta.clone(),
+                    source_path:  gguf_meta.path.clone(),
+                });
+            }
+
+            // ── Phase 2: build metadata KV list ────────────────────────────
+            let mut kv: Vec<(String, MetaValue)> = Vec::new();
+
+            // Aaroneous-specific provenance key — always present
+            kv.push(("general.source".to_string(),
+                MetaValue::String("aaroneous-forge".to_string())));
+            kv.push(("general.recipe_id".to_string(),
+                MetaValue::String(recipe.recipe_id.clone())));
+
+            // Architecture defaults (overridden by recipe)
+            let defaults: &[(&str, MetaValue)] = &[
+                ("general.architecture",    MetaValue::String("qwen2".to_string())),
+                ("general.name",            MetaValue::String(format!("aaroneous-{}", recipe.recipe_id))),
+                ("llama.context_length",    MetaValue::Uint32(4096)),
+                ("llama.embedding_length",  MetaValue::Uint32(4096)),
+                ("llama.feed_forward_length", MetaValue::Uint32(11008)),
+                ("llama.attention.head_count",    MetaValue::Uint32(32)),
+                ("llama.attention.head_count_kv", MetaValue::Uint32(32)),
+                ("llama.rope.freq_base",    MetaValue::Float32(1_000_000.0)),
+                ("llama.rope.dimension_count", MetaValue::Uint32(128)),
+                ("tokenizer.ggml.model",    MetaValue::String("gpt2".to_string())),
+            ];
+            for (key, val) in defaults {
+                if !recipe.metadata_overrides.contains_key(*key) {
+                    kv.push((key.to_string(), val.clone()));
+                }
+            }
+            // Apply recipe overrides last
+            for (key, val) in &recipe.metadata_overrides {
+                kv.push((key.clone(), val.clone()));
+            }
+
+            // ── Phase 3: write header ───────────────────────────────────────
             let mut output = File::create(&output_path).map_err(|e| ForgeError::OutputCreate {
                 path: output_path.clone(),
                 source: e,
             })?;
 
-            // GGUF magic header
+            // magic
             output.write_all(b"GGUF")?;
+            // version (u32 LE)
+            output.write_all(&GGUF_VERSION.to_le_bytes())?;
+            // tensor_count (u64 LE)
+            output.write_all(&(resolved.len() as u64).to_le_bytes())?;
+            // metadata_kv_count (u64 LE)
+            output.write_all(&(kv.len() as u64).to_le_bytes())?;
 
-            let mut bytes_written: u64 = 4;
+            // KV pairs
+            for (key, val) in &kv {
+                write_gguf_string(&mut output, key)?;
+                write_gguf_meta_value(&mut output, val)?;
+            }
+
+            // ── Phase 4: tensor info table ─────────────────────────────────
+            // data_offset for each tensor is relative to the start of the
+            // tensor data section (after all padding).  We compute them now
+            // as running cumulative sums of tensor sizes.
+            let mut data_offset: u64 = 0;
+            let tensor_offsets: Vec<u64> = resolved.iter().map(|r| {
+                let off = data_offset;
+                data_offset += r.meta.size;
+                off
+            }).collect();
+
+            for (r, &data_off) in resolved.iter().zip(tensor_offsets.iter()) {
+                // tensor name
+                write_gguf_string(&mut output, &r.segment_name)?;
+                // n_dims (u32 LE)
+                let n_dims = r.meta.shape.len() as u32;
+                output.write_all(&n_dims.to_le_bytes())?;
+                // dims[n_dims] (u64 LE each)
+                for &dim in &r.meta.shape {
+                    output.write_all(&dim.to_le_bytes())?;
+                }
+                // type (u32 LE) — GGUF dtype code
+                output.write_all(&r.meta.dtype.to_le_bytes())?;
+                // data_offset (u64 LE) — relative to tensor data section start
+                output.write_all(&data_off.to_le_bytes())?;
+            }
+
+            // ── Phase 5: alignment padding ─────────────────────────────────
+            let header_end = output.seek(SeekFrom::Current(0))
+                .map_err(ForgeError::WriteError)?;
+            let pad_len = pad_to_alignment(header_end, GGUF_ALIGNMENT);
+            if pad_len > 0 {
+                output.write_all(&vec![0u8; pad_len as usize])?;
+            }
+
+            // ── Phase 6: tensor data ───────────────────────────────────────
+            let mut bytes_written: u64 = output.seek(SeekFrom::Current(0))
+                .map_err(ForgeError::WriteError)?;
             let mut tensors_spliced: u64 = 0;
             let mut spliced_tensors: Vec<SplicedTensorInfo> = Vec::new();
 
-            for segment in &recipe.segments {
-                let gguf_meta = index.0.get(&segment.source_gguf)
-                    .ok_or_else(|| ForgeError::GgufNotFound {
-                        gguf: segment.source_gguf.clone(),
-                    })?;
-
-                let tensor_meta = gguf_meta.tensors.get(&segment.tensor_name)
-                    .ok_or_else(|| ForgeError::TensorNotFound {
-                        tensor: segment.tensor_name.clone(),
-                        gguf: segment.source_gguf.clone(),
-                    })?;
-
+            for r in &resolved {
                 debug!(
                     "Splicing tensor '{}' from {} (offset={}, size={}B)",
-                    segment.tensor_name,
-                    segment.source_gguf,
-                    tensor_meta.offset,
-                    tensor_meta.size
+                    r.segment_name, r.source_gguf, r.meta.offset, r.meta.size
                 );
 
-                let source_file = File::open(&gguf_meta.path).map_err(|e| ForgeError::SourceOpen {
-                    path: gguf_meta.path.clone(),
+                let source_file = File::open(&r.source_path).map_err(|e| ForgeError::SourceOpen {
+                    path: r.source_path.clone(),
                     source: e,
                 })?;
-
                 let mmap = unsafe {
                     Mmap::map(&source_file).map_err(|e| ForgeError::MmapFailed {
-                        path: gguf_meta.path.clone(),
+                        path: r.source_path.clone(),
                         source: e,
                     })?
                 };
 
-                let start = tensor_meta.offset as usize;
-                let end = start + tensor_meta.size as usize;
-
+                let start = r.meta.offset as usize;
+                let end   = start + r.meta.size as usize;
                 if end > mmap.len() {
                     return Err(ForgeError::OutOfBounds {
-                        path: gguf_meta.path.clone(),
-                        offset: tensor_meta.offset,
-                        size: tensor_meta.size,
+                        path: r.source_path.clone(),
+                        offset: r.meta.offset,
+                        size: r.meta.size,
                         file_len: mmap.len(),
                     });
                 }
 
                 output.write_all(&mmap[start..end])?;
-                bytes_written += tensor_meta.size;
+                bytes_written += r.meta.size;
                 tensors_spliced += 1;
                 spliced_tensors.push(SplicedTensorInfo {
-                    source: segment.source_gguf.clone(),
-                    name: segment.tensor_name.clone(),
-                    size: tensor_meta.size,
-                    kind: tensor_meta.kind.clone(),
+                    source: r.source_gguf.clone(),
+                    name:   r.segment_name.clone(),
+                    size:   r.meta.size,
+                    kind:   r.meta.kind.clone(),
                 });
             }
 
             info!(
                 "Crystallization complete: {} tensors, {}B → {}",
-                tensors_spliced,
-                bytes_written,
-                output_path.display()
+                tensors_spliced, bytes_written, output_path.display()
             );
 
             Ok(CrystallizationResult {
@@ -327,6 +492,64 @@ impl Forge {
 
         Ok(result)
     }
+}
+
+// ────────────────────────────────────────────────────────────────────
+// GGUF v3 binary serialization helpers
+// ────────────────────────────────────────────────────────────────────
+
+/// Write a GGUF length-prefixed UTF-8 string: u64 LE length + bytes (no NUL).
+fn write_gguf_string(w: &mut impl Write, s: &str) -> Result<(), ForgeError> {
+    let bytes = s.as_bytes();
+    w.write_all(&(bytes.len() as u64).to_le_bytes())?;
+    w.write_all(bytes)?;
+    Ok(())
+}
+
+/// Write a GGUF metadata value: u32 LE type tag + payload.
+fn write_gguf_meta_value(w: &mut impl Write, val: &MetaValue) -> Result<(), ForgeError> {
+    match val {
+        MetaValue::Uint32(v) => {
+            w.write_all(&(GgufMetaType::Uint32 as u32).to_le_bytes())?;
+            w.write_all(&v.to_le_bytes())?;
+        }
+        MetaValue::Int32(v) => {
+            w.write_all(&(GgufMetaType::Int32 as u32).to_le_bytes())?;
+            w.write_all(&v.to_le_bytes())?;
+        }
+        MetaValue::Float32(v) => {
+            w.write_all(&(GgufMetaType::Float32 as u32).to_le_bytes())?;
+            w.write_all(&v.to_le_bytes())?;
+        }
+        MetaValue::Uint64(v) => {
+            w.write_all(&(GgufMetaType::Uint64 as u32).to_le_bytes())?;
+            w.write_all(&v.to_le_bytes())?;
+        }
+        MetaValue::Bool(v) => {
+            w.write_all(&(GgufMetaType::Bool as u32).to_le_bytes())?;
+            w.write_all(&[if *v { 1u8 } else { 0u8 }])?;
+        }
+        MetaValue::String(s) => {
+            w.write_all(&(GgufMetaType::String as u32).to_le_bytes())?;
+            write_gguf_string(w, s)?;
+        }
+        MetaValue::StringArray(arr) => {
+            // Array of strings: type=Array(9), array_type=String(8), count u64, then strings
+            w.write_all(&(GgufMetaType::Array as u32).to_le_bytes())?;
+            w.write_all(&(GgufMetaType::String as u32).to_le_bytes())?; // item type
+            w.write_all(&(arr.len() as u64).to_le_bytes())?;
+            for s in arr {
+                write_gguf_string(w, s)?;
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Return the number of padding bytes needed to align `pos` to `alignment`.
+fn pad_to_alignment(pos: u64, alignment: u64) -> u64 {
+    let rem = pos % alignment;
+    if rem == 0 { 0 } else { alignment - rem }
 }
 
 impl Default for Forge {
@@ -376,6 +599,8 @@ mod tests {
             offset: tensor_offset,
             size: tensor_size,
             kind: Some("attention".to_string()),
+            shape: vec![4, 4],
+            dtype: 0, // F32
         });
         index.register("source.gguf", GgufMeta {
             path: file.path().to_path_buf(),
@@ -384,30 +609,36 @@ mod tests {
         index
     }
 
+    fn basic_recipe(segments: Vec<SplicingSegment>) -> ForgeRecipe {
+        ForgeRecipe {
+            recipe_id: "test".to_string(),
+            segments,
+            metadata_overrides: HashMap::new(),
+        }
+    }
+
     #[tokio::test]
     async fn test_crystallize_empty_recipe_errors() {
         let mut forge = Forge::new();
         let recipe = ForgeRecipe {
             recipe_id: "empty".to_string(),
             segments: vec![],
+            metadata_overrides: HashMap::new(),
         };
         let index = GgufIndex::new();
-        let result = forge.crystallize(&recipe, &index, "/tmp/nope.gguf").await;
+        let result = forge.crystallize(&recipe, &index, "C:\\Temp\\nope.gguf").await;
         assert!(matches!(result, Err(ForgeError::EmptyRecipe)));
     }
 
     #[tokio::test]
     async fn test_crystallize_missing_gguf_errors() {
         let mut forge = Forge::new();
-        let recipe = ForgeRecipe {
-            recipe_id: "test".to_string(),
-            segments: vec![SplicingSegment {
-                source_gguf: "nonexistent.gguf".to_string(),
-                tensor_name: "some.weight".to_string(),
-            }],
-        };
-        let index = GgufIndex::new(); // empty
-        let result = forge.crystallize(&recipe, &index, "/tmp/out.gguf").await;
+        let recipe = basic_recipe(vec![SplicingSegment {
+            source_gguf: "nonexistent.gguf".to_string(),
+            tensor_name: "some.weight".to_string(),
+        }]);
+        let index = GgufIndex::new();
+        let result = forge.crystallize(&recipe, &index, "C:\\Temp\\out.gguf").await;
         assert!(matches!(result, Err(ForgeError::GgufNotFound { .. })));
     }
 
@@ -415,46 +646,36 @@ mod tests {
     async fn test_crystallize_missing_tensor_errors() {
         let source = make_test_gguf(b"GGUF fake tensor data here");
         let mut forge = Forge::new();
-
-        let recipe = ForgeRecipe {
-            recipe_id: "test".to_string(),
-            segments: vec![SplicingSegment {
-                source_gguf: "source.gguf".to_string(),
-                tensor_name: "nonexistent.weight".to_string(), // not in index
-            }],
-        };
-
+        let recipe = basic_recipe(vec![SplicingSegment {
+            source_gguf: "source.gguf".to_string(),
+            tensor_name: "nonexistent.weight".to_string(),
+        }]);
         let mut index = GgufIndex::new();
         index.register("source.gguf", GgufMeta {
             path: source.path().to_path_buf(),
-            tensors: HashMap::new(), // no tensors registered
+            tensors: HashMap::new(),
         });
-
-        let result = forge.crystallize(&recipe, &index, "/tmp/out.gguf").await;
+        let result = forge.crystallize(&recipe, &index, "C:\\Temp\\out.gguf").await;
         assert!(matches!(result, Err(ForgeError::TensorNotFound { .. })));
     }
 
     #[tokio::test]
-    async fn test_crystallize_produces_output_with_gguf_header() {
-        // Create a fake source "GGUF" file with known content
-        let fake_model_data = b"GGUF_HEADER_HERE_tensor_data_payload_abc123";
+    async fn test_crystallize_produces_valid_gguf_v3_output() {
+        // Source GGUF: 43 bytes of fake data; tensor data starts at offset 17
+        let fake_model_data = b"GGUF_HEADER_HERE_tensor_data_paylo_abc123";
         let source = make_test_gguf(fake_model_data);
 
-        // "GGUF_HEADER_HERE" is 16 bytes, then "_tensor_data_payload_abc123"
-        // offset 17 = "tensor_data_payload" (17 chars)
         let tensor_offset = 17u64;
-        let tensor_size = 17u64;
-        assert_eq!(&fake_model_data[tensor_offset as usize..(tensor_offset + tensor_size) as usize],
-                   b"tensor_data_paylo");
+        let tensor_size   = 17u64;
 
         let index = make_index_with_file(&source, tensor_offset, tensor_size);
-
         let recipe = ForgeRecipe {
             recipe_id: "test-crystallize".to_string(),
             segments: vec![SplicingSegment {
                 source_gguf: "source.gguf".to_string(),
                 tensor_name: "test.weight".to_string(),
             }],
+            metadata_overrides: HashMap::new(),
         };
 
         let output = NamedTempFile::new().unwrap();
@@ -463,14 +684,32 @@ mod tests {
         let mut forge = Forge::new();
         let result = forge.crystallize(&recipe, &index, &output_path).await.unwrap();
 
-        // Verify output
         let written = std::fs::read(&output_path).unwrap();
-        assert!(written.starts_with(b"GGUF"), "output should start with GGUF magic");
+
+        // ── GGUF v3 header validation ──────────────────────────────────
+        assert!(written.starts_with(b"GGUF"), "magic must be GGUF");
+
+        // version = 3 at offset 4
+        let version = u32::from_le_bytes(written[4..8].try_into().unwrap());
+        assert_eq!(version, 3, "version must be 3");
+
+        // tensor_count = 1 at offset 8
+        let tensor_count = u64::from_le_bytes(written[8..16].try_into().unwrap());
+        assert_eq!(tensor_count, 1, "tensor_count must be 1");
+
+        // kv_count at offset 16 — must be > 0 (Aaroneous provenance keys present)
+        let kv_count = u64::from_le_bytes(written[16..24].try_into().unwrap());
+        assert!(kv_count >= 2, "must have at least 2 metadata KV pairs");
+
+        // Total file size > header (data section follows alignment padding)
+        assert!(written.len() > 24, "file must be larger than fixed header");
+
+        // Result fields
         assert_eq!(result.tensors_spliced, 1);
-        assert_eq!(result.bytes_written, 4 + tensor_size); // magic + tensor data
+        assert!(result.bytes_written > tensor_size, "bytes_written must include header overhead");
         assert_eq!(result.spliced_tensors[0].kind, Some("attention".to_string()));
 
-        // Verify stats
+        // Stats
         assert_eq!(forge.stats.crystallizations_succeeded, 1);
         assert_eq!(forge.stats.tensors_spliced, 1);
     }
@@ -485,11 +724,17 @@ mod tests {
         let mut index = GgufIndex::new();
         let mut tensors_a = HashMap::new();
         tensors_a.insert("attn.weight".to_string(), TensorMeta {
-            offset: 8, size: 7, kind: Some("attention".to_string()),
+            offset: 8, size: 7,
+            kind: Some("attention".to_string()),
+            shape: vec![7],
+            dtype: 0,
         });
         let mut tensors_b = HashMap::new();
         tensors_b.insert("mlp.weight".to_string(), TensorMeta {
-            offset: 8, size: 7, kind: Some("mlp".to_string()),
+            offset: 8, size: 7,
+            kind: Some("mlp".to_string()),
+            shape: vec![7],
+            dtype: 0,
         });
         index.register("model_a.gguf", GgufMeta { path: src_a.path().to_path_buf(), tensors: tensors_a });
         index.register("model_b.gguf", GgufMeta { path: src_b.path().to_path_buf(), tensors: tensors_b });
@@ -500,6 +745,7 @@ mod tests {
                 SplicingSegment { source_gguf: "model_a.gguf".to_string(), tensor_name: "attn.weight".to_string() },
                 SplicingSegment { source_gguf: "model_b.gguf".to_string(), tensor_name: "mlp.weight".to_string() },
             ],
+            metadata_overrides: HashMap::new(),
         };
 
         let output = NamedTempFile::new().unwrap();
@@ -510,6 +756,44 @@ mod tests {
         assert_eq!(result.spliced_tensors[0].kind, Some("attention".to_string()));
         assert_eq!(result.spliced_tensors[1].kind, Some("mlp".to_string()));
         assert_eq!(forge.stats.tensors_spliced, 2);
+    }
+
+    #[tokio::test]
+    async fn test_metadata_overrides_applied() {
+        let data = b"QWEN_MODEL_tensor_payload_data_";
+        let src = make_test_gguf(data);
+        let mut tensors = HashMap::new();
+        tensors.insert("tok_embd.weight".to_string(), TensorMeta {
+            offset: 11, size: 7, kind: Some("embedding".to_string()),
+            shape: vec![7], dtype: 1,
+        });
+        let mut index = GgufIndex::new();
+        index.register("qwen.gguf", GgufMeta { path: src.path().to_path_buf(), tensors });
+
+        let mut overrides = HashMap::new();
+        overrides.insert("general.name".to_string(), MetaValue::String("my-qwen-v1".to_string()));
+        overrides.insert("llama.context_length".to_string(), MetaValue::Uint32(8192));
+
+        let recipe = ForgeRecipe {
+            recipe_id: "qwen-test".to_string(),
+            segments: vec![SplicingSegment {
+                source_gguf: "qwen.gguf".to_string(),
+                tensor_name: "tok_embd.weight".to_string(),
+            }],
+            metadata_overrides: overrides,
+        };
+
+        let output = NamedTempFile::new().unwrap();
+        let mut forge = Forge::new();
+        let result = forge.crystallize(&recipe, &index, output.path()).await.unwrap();
+
+        // File should be valid GGUF v3
+        let written = std::fs::read(output.path()).unwrap();
+        assert!(written.starts_with(b"GGUF"));
+        let version = u32::from_le_bytes(written[4..8].try_into().unwrap());
+        assert_eq!(version, 3);
+        assert_eq!(result.recipe_id, "qwen-test");
+        assert_eq!(result.tensors_spliced, 1);
     }
 
     #[test]

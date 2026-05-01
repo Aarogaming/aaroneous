@@ -27,7 +27,7 @@
 
 use super::{Federation, FederationConfig};
 use crate::federation::host::{shared, HostConfig, SharedPersistence, SpecialistHost};
-use crate::federation::specialists::{Archivist, Omnipresent, Phygital, Symbiotic, Visionary};
+use crate::federation::specialists::{Archivist, GenericSpecialist, Omnipresent, Phygital, Symbiotic, Visionary};
 use crate::persistence::PersistenceManager;
 use std::sync::Arc;
 use std::time::Duration;
@@ -42,6 +42,8 @@ pub struct FederationBuilder {
     symbiotic: Option<Arc<SpecialistHost<Symbiotic>>>,
     phygital: Option<Arc<SpecialistHost<Phygital>>>,
     archivist: Option<Arc<SpecialistHost<Archivist>>>,
+    /// Pre-built generic specialists to add after federation construction.
+    generic: Vec<Arc<GenericSpecialist>>,
 }
 
 impl FederationBuilder {
@@ -56,6 +58,7 @@ impl FederationBuilder {
             symbiotic: None,
             phygital: None,
             archivist: None,
+            generic: vec![],
         }
     }
 
@@ -268,14 +271,50 @@ impl FederationBuilder {
         self
     }
 
+    // ------- Generic (dynamic) specialists -------
+
+    /// Add a pre-built `GenericSpecialist` to the federation.
+    ///
+    /// The specialist's GGUF model must already be attached before calling this
+    /// (via `GenericSpecialist::with_gguf_path()` or `with_mock_llm()`).
+    /// Learning state is loaded from SQLite during `build_async()`.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// # async fn example() -> anyhow::Result<()> {
+    /// use a_run::federation::specialists::GenericSpecialist;
+    /// use a_run::federation::hive::Federation;
+    /// use a_run::persistence::PersistenceManager;
+    ///
+    /// let coder = GenericSpecialist::new("CodeReviewer", "code_review")
+    ///     .with_gguf_path("models/qwen-code-1.8b.gguf").await;
+    ///
+    /// let pm = PersistenceManager::new("hive.db")?;
+    /// let fed = Federation::builder(pm)
+    ///     .with_all()
+    ///     .with_gguf_specialist(std::sync::Arc::new(coder))
+    ///     .build_async().await;
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn with_gguf_specialist(mut self, specialist: Arc<GenericSpecialist>) -> Self {
+        self.generic.push(specialist);
+        self
+    }
+
     // ------- Build -------
 
-    /// Finalize the builder into a `Federation`.
+    /// Finalize the builder into a `Federation` (sync version).
     ///
     /// This always succeeds - even an empty federation (no specialists) is
     /// valid (it just has nothing to lifecycle-manage).
+    ///
+    /// Note: dynamic specialists added via `with_gguf_specialist()` will NOT
+    /// have their learning state loaded from the DB in this sync path.
+    /// Use `build_async()` to get full persistence support for dynamic specialists.
     pub fn build(self) -> Federation {
-        Federation::from_parts(
+        let fed = Federation::from_parts(
             self.persistence,
             self.config,
             self.visionary,
@@ -283,6 +322,30 @@ impl FederationBuilder {
             self.symbiotic,
             self.phygital,
             self.archivist,
-        )
+        );
+        // Push generic specialists without DB load (sync path)
+        if !self.generic.is_empty() {
+            // Use try_write — safe here since the federation is freshly constructed
+            if let Ok(mut guard) = fed.dynamic.try_write() {
+                for s in self.generic {
+                    guard.push(s);
+                }
+            }
+        }
+        fed
+    }
+
+    /// Finalize the builder into a `Federation`, loading dynamic specialist
+    /// learning state from SQLite asynchronously.
+    ///
+    /// Prefer this over `build()` when using `with_gguf_specialist()`.
+    pub async fn build_async(self) -> Federation {
+        let generic = self.generic.clone();
+        let fed = self.build();
+        // Load learning for each generic specialist
+        for s in generic {
+            let _ = fed.add_generic_specialist(s).await;
+        }
+        fed
     }
 }
