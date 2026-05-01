@@ -427,6 +427,7 @@ async fn execute_start(
             .with_config(FederationConfig {
                 default_checkpoint_interval: Duration::from_secs(30),
                 verbose_checkpoints: false,
+                optimization_profile: None,  // auto-detect
             })
             .with_all()
             .build(),

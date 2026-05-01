@@ -14,6 +14,8 @@ biometric-ble = ["dep:btleplug", "dep:futures"]
 ar-openxr = ["dep:openxr"]
 # Convenience: enable all real integrations
 real-integrations = ["p2p-iroh", "biometric-ble", "ar-openxr"]
+# Enable real NATS messaging via async-nats (requires NATS server running)
+nats-async = ["dep:async-nats"]
 # Enable RocksDB-backed DNA Bank (replaces in-memory BTreeMap with disk storage)
 # See: https://github.com/rust-rocksdb/rust-rocksdb
 rocksdb-dna = ["dep:rocksdb"]
@@ -79,6 +81,8 @@ futures = { version = "0.3", optional = true }
 # build time. The runtime is queried via the standard OpenXR loader on
 # the system, returning errors gracefully if no runtime is installed.
 openxr = { version = "0.21", optional = true }
+# async-nats: official async NATS client for real pub/sub messaging
+async-nats = { version = "0.47", optional = true }
 # RocksDB for DNA Bank disk persistence
 rocksdb = { version = "0.24", optional = true }
 # llama-gguf: pure Rust GGUF inference engine (no C dependencies, no bindgen)

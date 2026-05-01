@@ -188,16 +188,35 @@ impl NatsPublisher {
         }
     }
 
-    /// Publish a single message
+    /// Publish a single message.
+    ///
+    /// With `--features nats-async`: sends to a real NATS server via `async-nats`.
+    /// Without the feature: logs the message and returns `Ok(())` (simulation).
     pub async fn publish(&self, topic: &str, payload: &str) -> Result<(), String> {
         if !self.client.is_connected().await {
             return Err("Not connected to NATS".to_string());
         }
 
-        // In production: self.client.publish(topic, payload).await
-        info!("[Publisher] Published to {}: {} bytes", topic, payload.len());
+        #[cfg(feature = "nats-async")]
+        {
+            let nc = async_nats::connect(&self.client.url)
+                .await
+                .map_err(|e| format!("NATS connect failed: {}", e))?;
+            nc.publish(topic.to_string(), bytes::Bytes::from(payload.to_string()))
+                .await
+                .map_err(|e| format!("NATS publish failed: {}", e))?;
+            info!("[Publisher] Published to {}: {} bytes (real NATS)", topic, payload.len());
+        }
+
+        #[cfg(not(feature = "nats-async"))]
+        {
+            info!("[Publisher] Published to {}: {} bytes (mock — compile with --features nats-async for real NATS)", topic, payload.len());
+        }
+
         Ok(())
     }
+
+
 
     /// Publish message with batching
     pub async fn publish_batched(&self, topic: &str, payload: &str) -> Result<(), String> {

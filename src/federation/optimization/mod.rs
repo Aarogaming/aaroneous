@@ -91,6 +91,65 @@ impl OptimizationProfile {
             OptimizationProfile::Custom { batch_config, .. } => batch_config.clone(),
         }
     }
+
+    /// Get the maximum resource caps for this profile.
+    ///
+    /// Returns a `SystemResources` struct where each field is the **maximum**
+    /// percentage / MB of that resource this profile is allowed to use.
+    /// `collect_proposals()` uses these caps when building the `SpecialistContext`
+    /// so that specialists on a mobile device don't over-propose GPU-heavy tasks.
+    pub fn resource_caps(&self) -> crate::federation::specialist::SystemResources {
+        use crate::federation::specialist::SystemResources;
+        match self {
+            OptimizationProfile::Mobile => SystemResources {
+                gpu_available_percent: 20.0,   // Minimal GPU — mobile has limited VRAM
+                cpu_available_percent: 50.0,   // Leave headroom for OS and apps
+                memory_available_mb: 512,
+                thermal_headroom: 0.5,         // Phones throttle quickly
+            },
+            OptimizationProfile::Tablet => SystemResources {
+                gpu_available_percent: 40.0,
+                cpu_available_percent: 60.0,
+                memory_available_mb: 1024,
+                thermal_headroom: 0.6,
+            },
+            OptimizationProfile::Desktop => SystemResources {
+                gpu_available_percent: 80.0,
+                cpu_available_percent: 80.0,
+                memory_available_mb: 4096,
+                thermal_headroom: 0.9,
+            },
+            OptimizationProfile::Server => SystemResources {
+                gpu_available_percent: 90.0,
+                cpu_available_percent: 90.0,
+                memory_available_mb: 16384,
+                thermal_headroom: 1.0,
+            },
+            OptimizationProfile::Custom { .. } => SystemResources {
+                gpu_available_percent: 60.0,
+                cpu_available_percent: 70.0,
+                memory_available_mb: 2048,
+                thermal_headroom: 0.8,
+            },
+        }
+    }
+
+    /// Auto-detect the appropriate profile based on available hardware.
+    ///
+    /// Uses the number of CPU cores and available memory as a heuristic.
+    /// This avoids the need for platform-specific GPU detection APIs.
+    pub fn detect() -> Self {
+        let cpu_count = std::thread::available_parallelism()
+            .map(|n| n.get())
+            .unwrap_or(4);
+        // sysinfo is available but pulling it here would create a crate-level dep.
+        // Use CPU count as a simple proxy: ≤4 cores = mobile/tablet, >8 = server.
+        match cpu_count {
+            1..=4 => OptimizationProfile::Mobile,
+            5..=8 => OptimizationProfile::Desktop,
+            _ => OptimizationProfile::Server,
+        }
+    }
 }
 
 /// Optimization summary and statistics

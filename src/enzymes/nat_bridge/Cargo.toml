@@ -7,3 +7,6 @@ edition = "2021"
 crate-type = ["cdylib"]
 
 [dependencies]
+# nats: synchronous NATS client for publishing federation events from the enzyme
+nats = "0.26"
+serde_json = "1.0"

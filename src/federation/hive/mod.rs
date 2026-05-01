@@ -616,6 +616,104 @@ impl Federation {
     }
 }
 
+// ─── Decision execution helper ───────────────────────────────────────────────
+
+/// Execute one specialist decision and record the result.
+///
+/// This is the **canonical** execution path, shared by:
+/// - `Federation::execute_decision()` (public, on-demand)
+/// - The Sentinel arbitration loop (background task)
+///
+/// Callers pass the specialist Arcs they already hold, the shared state Arcs,
+/// and the decision to execute.  Returns `true` if an `ExecutionResult` was
+/// produced (success or failure).
+#[allow(clippy::too_many_arguments)]
+async fn run_decision(
+    decision: crate::federation::specialist::Decision,
+    vis: &Option<Arc<crate::federation::specialists::Visionary>>,
+    omni: &Option<Arc<crate::federation::specialists::Omnipresent>>,
+    symb: &Option<Arc<crate::federation::specialists::Symbiotic>>,
+    phyg: &Option<Arc<crate::federation::specialists::Phygital>>,
+    arch: &Option<Arc<crate::federation::specialists::Archivist>>,
+    results_store: &Arc<tokio::sync::Mutex<Vec<crate::federation::specialist::ExecutionResult>>>,
+    active_intent_arc: &Arc<RwLock<Option<Intent>>>,
+    sessions_arc: &Arc<RwLock<crate::federation::session::SessionManager>>,
+    audit_log_arc: &Arc<tokio::sync::Mutex<crate::federation::enterprise::AuditLog>>,
+) -> bool {
+    use crate::federation::specialist::{Specialist, SpecialistId};
+
+    let exec_result = match decision.specialist {
+        SpecialistId::Visionary => {
+            if let Some(s) = vis { s.execute(&decision).await.ok() } else { None }
+        }
+        SpecialistId::Omnipresent => {
+            if let Some(s) = omni { s.execute(&decision).await.ok() } else { None }
+        }
+        SpecialistId::Symbiotic => {
+            if let Some(s) = symb { s.execute(&decision).await.ok() } else { None }
+        }
+        SpecialistId::Phygital => {
+            if let Some(s) = phyg { s.execute(&decision).await.ok() } else { None }
+        }
+        SpecialistId::Archivist => {
+            if let Some(s) = arch { s.execute(&decision).await.ok() } else { None }
+        }
+        _ => None,
+    };
+
+    if let Some(result) = exec_result {
+        use crate::federation::enterprise::{AuditEvent, AuditLevel, AuditResult};
+
+        info!(
+            "Executed: {:?} '{}' → {:?}",
+            result.specialist, decision.action, result.status
+        );
+
+        // Audit log
+        {
+            let audit_result = match result.status {
+                crate::federation::specialist::ExecutionStatus::Success => AuditResult::Success,
+                crate::federation::specialist::ExecutionStatus::Failed => AuditResult::Failure,
+                _ => AuditResult::PartialSuccess,
+            };
+            let event = AuditEvent::new(
+                format!("{:?}", result.specialist),
+                format!("executed:{}", decision.action),
+                AuditLevel::Info,
+            )
+            .with_resource(decision.proposal_id.clone())
+            .with_result(audit_result)
+            .with_details(result.output.chars().take(200).collect::<String>());
+            let _ = audit_log_arc.lock().await.record(event);
+        }
+
+        // Route to originating session
+        {
+            let intent = active_intent_arc.read().await;
+            if let Some(intent) = intent.as_ref() {
+                if let Some(session_id) = intent.context.get("session_id").cloned() {
+                    drop(intent);
+                    let mut sessions = sessions_arc.write().await;
+                    if let Some(session) = sessions.get_mut(&session_id) {
+                        session.add_result(result.clone());
+                    }
+                }
+            }
+        }
+
+        // Global ring buffer
+        let mut store = results_store.lock().await;
+        store.push(result);
+        if store.len() > 100 {
+            let excess = store.len() - 100;
+            store.drain(0..excess);
+        }
+        true
+    } else {
+        false
+    }
+}
+
 /// Read real system resources using sysinfo.
 ///
 /// This is a **synchronous** function that must be called from a blocking
@@ -783,7 +881,17 @@ impl Federation {
                 fatigue_level: 0.2,
                 activity: intent_activity,
             },
-            system_resources: read_system_resources().await,
+            system_resources: {
+                // Read real system resources, then cap them to the profile limits.
+                let real = read_system_resources().await;
+                let caps = self.config.resource_caps();
+                crate::federation::specialist::SystemResources {
+                    gpu_available_percent: real.gpu_available_percent.min(caps.gpu_available_percent),
+                    cpu_available_percent: real.cpu_available_percent.min(caps.cpu_available_percent),
+                    memory_available_mb: real.memory_available_mb.min(caps.memory_available_mb),
+                    thermal_headroom: real.thermal_headroom.min(caps.thermal_headroom),
+                }
+            },
             active_specialists: vec![
                 crate::federation::specialist::SpecialistId::Visionary,
                 crate::federation::specialist::SpecialistId::Omnipresent,
@@ -848,59 +956,36 @@ impl Federation {
 
     /// Execute a decision issued by Sentinel.
     ///
-    /// Called by the Sentinel arbitration loop after it issues a decision.
-    /// Routes the decision to the correct specialist's `execute()` method
-    /// and records the result.
+    /// Routes the decision to the correct specialist's `execute()` method,
+    /// records the result in the audit log, routes it to the originating
+    /// session, and stores it in the global result ring buffer.
+    ///
+    /// This is the public on-demand path. The Sentinel arbitration loop uses
+    /// the same underlying `run_decision()` free function so both paths are
+    /// identical in behavior.
     pub async fn execute_decision(
         &self,
         decision: crate::federation::specialist::Decision,
     ) {
-        use crate::federation::specialist::Specialist;
+        let vis = self.visionary.as_ref().map(|h| h.specialist());
+        let omni = self.omnipresent.as_ref().map(|h| h.specialist());
+        let symb = self.symbiotic.as_ref().map(|h| h.specialist());
+        let phyg = self.phygital.as_ref().map(|h| h.specialist());
+        let arch = self.archivist.as_ref().map(|h| h.specialist());
 
-        let result = match decision.specialist {
-            crate::federation::specialist::SpecialistId::Visionary => {
-                if let Some(h) = &self.visionary {
-                    h.specialist().execute(&decision).await
-                } else { return; }
-            },
-            crate::federation::specialist::SpecialistId::Omnipresent => {
-                if let Some(h) = &self.omnipresent {
-                    h.specialist().execute(&decision).await
-                } else { return; }
-            },
-            crate::federation::specialist::SpecialistId::Symbiotic => {
-                if let Some(h) = &self.symbiotic {
-                    h.specialist().execute(&decision).await
-                } else { return; }
-            },
-            crate::federation::specialist::SpecialistId::Phygital => {
-                if let Some(h) = &self.phygital {
-                    h.specialist().execute(&decision).await
-                } else { return; }
-            },
-            crate::federation::specialist::SpecialistId::Archivist => {
-                if let Some(h) = &self.archivist {
-                    h.specialist().execute(&decision).await
-                } else { return; }
-            },
-            _ => return,
-        };
-
-        match result {
-            Ok(exec_result) => {
-                info!(
-                    "execute_decision: {:?} completed '{}' → {:?}",
-                    exec_result.specialist, decision.action, exec_result.status
-                );
-                self.record_result(exec_result).await;
-            }
-            Err(e) => {
-                warn!(
-                    "execute_decision: {:?} '{}' failed: {}",
-                    decision.specialist, decision.action, e
-                );
-            }
-        }
+        run_decision(
+            decision,
+            &vis,
+            &omni,
+            &symb,
+            &phyg,
+            &arch,
+            &self.results,
+            &self.active_intent,
+            &self.sessions,
+            &self.audit_log,
+        )
+        .await;
     }
 
     /// Get the currently active intent, if any.
@@ -1058,90 +1143,28 @@ impl Federation {
                             } else { vec![] }
                         };
 
-                        for (specialist_id, channel) in channels {
+                        for (_specialist_id, channel) in channels {
                             // Non-blocking drain: try_receive until empty
                             loop {
                                 let msg = channel.try_receive().await;
 
                                 match msg {
                                     Some(crate::federation::communication::SpecialistMessage::DecisionIssued(decision)) => {
-                                        // Execute on the right specialist
-                                        let exec_result = match specialist_id {
-                                            SpecialistId::Visionary => {
-                                                if let Some(s) = &vis { s.execute(&decision).await.ok() }
-                                                else { None }
-                                            }
-                                            SpecialistId::Omnipresent => {
-                                                if let Some(s) = &omni { s.execute(&decision).await.ok() }
-                                                else { None }
-                                            }
-                                            SpecialistId::Symbiotic => {
-                                                if let Some(s) = &symb { s.execute(&decision).await.ok() }
-                                                else { None }
-                                            }
-                                            SpecialistId::Phygital => {
-                                                if let Some(s) = &phyg { s.execute(&decision).await.ok() }
-                                                else { None }
-                                            }
-                                            SpecialistId::Archivist => {
-                                                if let Some(s) = &arch { s.execute(&decision).await.ok() }
-                                                else { None }
-                                            }
-                                            _ => None,
-                                        };
-
-                                        if let Some(result) = exec_result {
-                                            use crate::federation::enterprise::{
-                                                AuditEvent, AuditLevel, AuditResult,
-                                            };
-
-                                            info!(
-                                                "Executed: {:?} '{}' → {:?}",
-                                                result.specialist, decision.action, result.status
-                                            );
-
-                                            // Audit the execution from the sentinel loop
-                                            {
-                                                let audit_result = match result.status {
-                                                    crate::federation::specialist::ExecutionStatus::Success =>
-                                                        AuditResult::Success,
-                                                    crate::federation::specialist::ExecutionStatus::Failed =>
-                                                        AuditResult::Failure,
-                                                    _ => AuditResult::PartialSuccess,
-                                                };
-                                                let event = AuditEvent::new(
-                                                    format!("{:?}", result.specialist),
-                                                    format!("sentinel_executed:{}", decision.action),
-                                                    AuditLevel::Info,
-                                                )
-                                                .with_resource(decision.proposal_id.clone())
-                                                .with_result(audit_result)
-                                                .with_details(result.output.chars().take(200).collect::<String>());
-                                                let _ = audit_log_arc.lock().await.record(event);
-                                            }
-
-                                            // Route result to the originating session (if any)
-                                            {
-                                                let intent = active_intent_arc.read().await;
-                                                if let Some(intent) = intent.as_ref() {
-                                                    if let Some(session_id) = intent.context.get("session_id").cloned() {
-                                                        drop(intent);
-                                                        let mut sessions = sessions_arc.write().await;
-                                                        if let Some(session) = sessions.get_mut(&session_id) {
-                                                            session.add_result(result.clone());
-                                                        }
-                                                    }
-                                                }
-                                            }
-
-                                            // Store in global results ring buffer
-                                            let mut store = results_store.lock().await;
-                                            store.push(result);
-                                            if store.len() > 100 {
-                                                let excess = store.len() - 100;
-                                                store.drain(0..excess);
-                                            }
-                                        }
+                                        // Delegate to the canonical run_decision() function
+                                        // so both the sentinel loop and execute_decision()
+                                        // have identical audit/session/storage behavior.
+                                        run_decision(
+                                            decision,
+                                            &vis,
+                                            &omni,
+                                            &symb,
+                                            &phyg,
+                                            &arch,
+                                            &results_store,
+                                            &active_intent_arc,
+                                            &sessions_arc,
+                                            &audit_log_arc,
+                                        ).await;
                                     }
                                     Some(_) => {} // Other message types ignored for now
                                     None => break, // Channel empty, stop draining
