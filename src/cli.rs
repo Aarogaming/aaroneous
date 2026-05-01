@@ -299,24 +299,83 @@ pub async fn execute(args: CliArgs) -> Result<(), Box<dyn std::error::Error>> {
 /// Execute start command
 async fn execute_start(
     dashboard: String,
-    watch: bool,
-    inbox: String,
+    _watch: bool,
+    _inbox: String,
     db_path: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    info!("Starting Aaroneous hive runtime");
-    info!("Dashboard: {}", dashboard);
-    info!("File watcher: {}", watch);
-    info!("Inbox: {}", inbox);
+    use crate::federation::hive::{Federation, FederationConfig};
+    use crate::federation::http::HttpStatusServer;
+    use crate::persistence::PersistenceManager;
+    use std::time::Duration;
+
+    info!("Starting Aaroneous federation");
     info!("Database: {}", db_path);
 
-    // TODO: Initialize HiveRuntime and start
-    // TODO: Initialize file watcher if requested
-    // TODO: Launch dashboard (TUI or web) if requested
+    // --- Persistence ---
+    let pm = PersistenceManager::new(db_path)
+        .map_err(|e| format!("Failed to open database at {}: {}", db_path, e))?;
+    info!("Database opened: {}", db_path);
 
-    println!("✅ Aaroneous hive started successfully");
-    println!("📊 Dashboard: {}", dashboard);
-    println!("👁️  File watching: {}", if watch { "enabled" } else { "disabled" });
+    // --- Federation with all 5 specialists ---
+    let fed = std::sync::Arc::new(
+        Federation::builder(pm)
+            .with_config(FederationConfig {
+                default_checkpoint_interval: Duration::from_secs(30),
+                verbose_checkpoints: false,
+            })
+            .with_all()
+            .build(),
+    );
 
+    // --- Optional HTTP status server ---
+    let http_server = if dashboard != "none" {
+        let addr: std::net::SocketAddr = dashboard
+            .parse()
+            .unwrap_or_else(|_| "127.0.0.1:8765".parse().unwrap());
+
+        match HttpStatusServer::spawn(addr, fed.clone()).await {
+            Ok(srv) => {
+                println!(
+                    "HTTP status server: http://{}",
+                    srv.local_addr()
+                );
+                println!("  GET /healthz   liveness probe");
+                println!("  GET /readyz    readiness probe");
+                println!("  GET /status    specialist learning summary");
+                Some(srv)
+            }
+            Err(e) => {
+                tracing::warn!("Could not start HTTP server on {}: {}", dashboard, e);
+                None
+            }
+        }
+    } else {
+        None
+    };
+
+    println!();
+    println!("Federation started ({} specialists):", fed.enabled_count());
+    println!("  Visionary    AI-driven UI/UX design generation");
+    println!("  Omnipresent  P2P multi-device sync");
+    println!("  Symbiotic    Biometric user state classification");
+    println!("  Phygital     AR/VR spatial rendering");
+    println!("  Archivist    DNA Bank memory & consolidation");
+    println!();
+    println!("Press Ctrl+C to shut down gracefully.");
+    println!();
+
+    // --- Run until Ctrl+C ---
+    fed.run_until_signal()
+        .await
+        .map_err(|e| format!("Federation error: {}", e))?;
+
+    // --- Shutdown HTTP server if started ---
+    if let Some(srv) = http_server {
+        srv.shutdown().await.ok();
+    }
+
+    println!();
+    println!("Federation shut down cleanly. Goodbye.");
     Ok(())
 }
 

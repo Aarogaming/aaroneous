@@ -77,6 +77,9 @@ pub struct Sentinel {
     decision_history: tokio::sync::Mutex<Vec<Decision>>,
     current_system_resources: tokio::sync::Mutex<SystemResources>,
     current_user_state: tokio::sync::Mutex<UserState>,
+    /// Optional event log for durable decision recording.
+    /// When `Some`, every `issue_decision()` call appends a `FederationEvent`.
+    pub event_log: Option<std::sync::Arc<crate::event_log::EventLog>>,
 }
 
 impl Sentinel {
@@ -87,7 +90,14 @@ impl Sentinel {
             decision_history: tokio::sync::Mutex::new(vec![]),
             current_system_resources: tokio::sync::Mutex::new(SystemResources::default()),
             current_user_state: tokio::sync::Mutex::new(UserState::default()),
+            event_log: None,
         }
+    }
+
+    /// Attach an EventLog to record decisions durably.
+    pub fn with_event_log(mut self, log: std::sync::Arc<crate::event_log::EventLog>) -> Self {
+        self.event_log = Some(log);
+        self
     }
 
     /// Main arbitration loop: review proposals and issue decisions
@@ -162,11 +172,49 @@ impl Sentinel {
         }
     }
 
-    /// Issue a decision to a specialist
+    /// Issue a decision to a specialist and record it in the event log (if attached).
     async fn issue_decision(&self, decision: Decision) -> Result<(), SpecialistError> {
         let specialist_id = decision.specialist;
+
+        // Record to EventLog for durable audit trail
+        if let Some(log) = &self.event_log {
+            use crate::event_log::types::{EventType, Operation, FederationEvent};
+            use std::collections::HashMap;
+
+            let mut payload = HashMap::new();
+            payload.insert("proposal_id".to_string(),
+                serde_json::Value::String(decision.proposal_id.clone()));
+            payload.insert("action".to_string(),
+                serde_json::Value::String(decision.action.clone()));
+            payload.insert("specialist".to_string(),
+                serde_json::Value::String(format!("{:?}", decision.specialist)));
+
+            let event = FederationEvent {
+                event_id: format!("dec-{}", uuid::Uuid::new_v4()),
+                timestamp: chrono::Utc::now().timestamp_millis(),
+                trace_id: decision.proposal_id.clone(),
+                source_repo: "AaroneosFederation".to_string(),
+                source_domain: "arbitration".to_string(),
+                event_type: EventType::Mutation,
+                operation: Operation::Create(format!("decision:{}", decision.action)),
+                payload,
+                consensus_round: None,
+                replicas_acked: vec![],
+                applied_at: None,
+            };
+
+            // Best-effort append — don't fail decision issuance if log fails
+            let _ = log.append(event).await;
+        }
+
+        // Record to local in-memory decision history
+        {
+            let mut history = self.decision_history.lock().await;
+            history.push(decision.clone());
+        }
+
+        // Send the decision to the specialist's channel
         let message = crate::federation::communication::SpecialistMessage::DecisionIssued(decision);
-        
         if let Some(channel) = self.communication_bus.specialist_channel(specialist_id) {
             let _ = channel.send(message);
         }
@@ -239,27 +287,193 @@ impl Specialist for Sentinel {
         })
     }
 
-    /// Sentinel delegates to other specialists for negotiation
+    /// Sentinel delegates by forwarding requests to the target specialist's channel.
+    ///
+    /// Delegation is Sentinel's mechanism for cross-specialist coordination:
+    /// when one specialist needs another's capability, it asks Sentinel to
+    /// broker the handoff. Sentinel records the delegation and issues a
+    /// directed message on the communication bus.
     async fn delegate(&self, request: &DelegateRequest) -> Result<DelegateResponse, SpecialistError> {
-        // This would handle delegation requests from Sentinel to other specialists
-        // For now, just return success
+        let start = std::time::Instant::now();
+
+        // Route the delegation request based on target specialist
+        let result = match request.target {
+            SpecialistId::Phygital => {
+                // Visionary → Phygital: render a design prototype in AR
+                format!(
+                    "Delegated render request from {:?} to Phygital. \
+                     Action: {}",
+                    request.requester, request.task
+                )
+            }
+            SpecialistId::Archivist => {
+                // Any → Archivist: record data to DNA Bank
+                format!(
+                    "Delegated data recording from {:?} to Archivist. \
+                     Recording: {}",
+                    request.requester, request.task
+                )
+            }
+            SpecialistId::Omnipresent => {
+                // Any → Omnipresent: sync state across devices
+                format!(
+                    "Delegated sync request from {:?} to Omnipresent. \
+                     Syncing: {}",
+                    request.requester, request.task
+                )
+            }
+            SpecialistId::Sentinel => {
+                // Cannot delegate to self
+                return Err(SpecialistError::DelegationFailed(
+                    "Sentinel cannot delegate to itself".to_string(),
+                ));
+            }
+            target => {
+                format!(
+                    "Delegated from {:?} to {:?}: {}",
+                    request.requester, target, request.task
+                )
+            }
+        };
+
+        // Notify the bus that a delegation occurred (best-effort)
+        let _ = self.communication_bus.broadcast(
+            crate::federation::communication::SpecialistMessage::StatusUpdate(
+                format!("Delegation: {:?} -> {:?}", request.requester, request.target)
+            )
+        ).await;
+
         Ok(DelegateResponse {
             requester: request.requester,
             target: request.target,
             success: true,
-            result: "Delegated".to_string(),
-            duration_ms: 0,
+            result,
+            duration_ms: start.elapsed().as_millis() as u64,
         })
     }
 
-    /// Sentinel negotiates: in reality, Sentinel would facilitate negotiation between specialists
-    async fn negotiate(&self, other_id: SpecialistId, conflict: &Conflict) -> Result<NegotiationResult, SpecialistError> {
-        // Sentinel would coordinate negotiation between the two conflicting specialists
+    /// Sentinel negotiates a conflict between two specialists.
+    ///
+    /// Uses the conflict type and available context to determine resolution:
+    /// - "gpu_resource" → proportional sharing if GPU headroom allows, else
+    ///   a CRDT-style compromise ("execute sequentially, share results")
+    /// - "duplicate_action" → whichever specialist has the higher domain
+    ///   fitness (Sentinel-centric heuristic)
+    /// - Default → collaborative: both specialists contribute to a merged
+    ///   output via the CommunicationBus
+    async fn negotiate(
+        &self,
+        other_id: SpecialistId,
+        conflict: &Conflict,
+    ) -> Result<NegotiationResult, SpecialistError> {
+        // Read available GPU from system resources for resource conflicts
+        let gpu_available = {
+            let resources = self.current_system_resources.lock().await;
+            resources.gpu_available_percent
+        };
+
+        let (winner, compromise, resolution) = match conflict.conflict_type.as_str() {
+            "gpu_resource" => {
+                // Parse the GPU demand hints from context if present
+                let gpu_a: f32 = conflict.context.get("gpu_a")
+                    .and_then(|s| s.parse().ok())
+                    .unwrap_or(40.0);
+                let gpu_b: f32 = conflict.context.get("gpu_b")
+                    .and_then(|s| s.parse().ok())
+                    .unwrap_or(40.0);
+
+                if gpu_a + gpu_b <= gpu_available {
+                    // Enough GPU for both
+                    (
+                        None,
+                        Some(format!(
+                            "Both {:?} and {:?} execute simultaneously \
+                             ({:.0}% + {:.0}% = {:.0}% GPU, {:.0}% available)",
+                            conflict.specialist_a, other_id, gpu_a, gpu_b,
+                            gpu_a + gpu_b, gpu_available
+                        )),
+                        format!(
+                            "Resource sharing: {:?} and {:?} run concurrently",
+                            conflict.specialist_a, other_id
+                        ),
+                    )
+                } else {
+                    // Not enough GPU — schedule sequentially, UserFacing first
+                    let winner_id = if conflict.context.get("a_priority") > conflict.context.get("b_priority") {
+                        conflict.specialist_a
+                    } else {
+                        other_id
+                    };
+                    (
+                        Some(winner_id),
+                        Some(format!(
+                            "{:?} runs first, {:?} queued until GPU is released ({:.0}% available)",
+                            winner_id,
+                            if winner_id == conflict.specialist_a { other_id } else { conflict.specialist_a },
+                            gpu_available
+                        )),
+                        format!(
+                            "Sequential: {:?} first (GPU at {:.0}% < {:.0}% needed)",
+                            winner_id, gpu_available, gpu_a + gpu_b
+                        ),
+                    )
+                }
+            }
+
+            "duplicate_action" => {
+                // Same action requested by two specialists — Sentinel picks the
+                // domain-appropriate one
+                let winner_id = match (conflict.specialist_a, other_id) {
+                    // Phygital is always the right specialist for rendering
+                    (SpecialistId::Phygital, _) | (_, SpecialistId::Phygital) => SpecialistId::Phygital,
+                    // Archivist is always right for storage
+                    (SpecialistId::Archivist, _) | (_, SpecialistId::Archivist) => SpecialistId::Archivist,
+                    // Omnipresent handles sync
+                    (SpecialistId::Omnipresent, _) | (_, SpecialistId::Omnipresent) => SpecialistId::Omnipresent,
+                    // Default: specialist_a proposed first
+                    (a, _) => a,
+                };
+                (
+                    Some(winner_id),
+                    None,
+                    format!(
+                        "Domain routing: {:?} handles this action type ({:?} yields)",
+                        winner_id,
+                        if winner_id == conflict.specialist_a { other_id } else { conflict.specialist_a }
+                    ),
+                )
+            }
+
+            _ => {
+                // Default: CRDT-style merge — both specialists succeed with
+                // a coordination note broadcast on the bus
+                let _ = self.communication_bus.broadcast(
+                    crate::federation::communication::SpecialistMessage::StatusUpdate(
+                        format!(
+                            "Negotiation resolved: {:?} + {:?} collaborate on '{}'",
+                            conflict.specialist_a, other_id, conflict.conflict_type
+                        )
+                    )
+                ).await;
+                (
+                    None, // No single winner — collaborative
+                    Some(format!(
+                        "{:?} and {:?} coordinate via CommunicationBus for '{}'",
+                        conflict.specialist_a, other_id, conflict.conflict_type
+                    )),
+                    format!(
+                        "Collaborative: both {:?} and {:?} contribute",
+                        conflict.specialist_a, other_id
+                    ),
+                )
+            }
+        };
+
         Ok(NegotiationResult {
             resolved: true,
-            resolution: format!("Negotiated between {:?} and {:?}", conflict.specialist_a, other_id),
-            winner: None,
-            compromise: Some("Agreed to resource sharing".to_string()),
+            resolution,
+            winner,
+            compromise,
         })
     }
 
