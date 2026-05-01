@@ -38,6 +38,13 @@ jobs:
       - name: Build library
         run: cargo build --lib
 
+      - name: Build aaroneous binary
+        run: cargo build --bin aaroneous
+
+      - name: Build main binary
+        run: cargo build --bin main
+        continue-on-error: true  # main.rs requires NATS + native enzymes; best-effort on CI
+
       - name: Check p2p-iroh feature compiles
         run: cargo check --lib --features p2p-iroh
 
@@ -53,6 +60,20 @@ jobs:
       - name: Run federation specialist tests
         run: cargo test --lib federation::specialists --no-fail-fast
         continue-on-error: true  # Some tests are flaky (HashMap ordering)
+
+      - name: Run federation hive tests (must pass)
+        run: cargo test --lib federation::hive --no-fail-fast
+
+      - name: Run forge tests (must pass)
+        run: cargo test --lib federation::forge --no-fail-fast
+
+      - name: Run HTTP router tests (must pass)
+        run: cargo test --lib federation::http --no-fail-fast
+
+      - name: Run session and sentinel tests
+        run: |
+          cargo test --lib federation::session --no-fail-fast
+          cargo test --lib federation::sentinel --no-fail-fast
 
       - name: Run learning tests (must pass)
         run: |

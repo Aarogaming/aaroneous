@@ -14,10 +14,16 @@ pub struct LLMCache {
 }
 
 impl LLMCache {
-    /// Create cache with TTL in seconds
+    /// Create cache with TTL in seconds.
+    ///
+    /// Uses moka's `time_to_live` policy so entries are actually evicted
+    /// after `ttl_secs` seconds.  Previously `Cache::new()` was used which
+    /// creates a cache with no TTL; this is now fixed.
     pub fn new(ttl_secs: u64) -> Self {
-        let cache = Cache::new(10_000); // 10k entries max
         let ttl = Duration::from_secs(ttl_secs);
+        let cache = moka::future::CacheBuilder::new(10_000)
+            .time_to_live(ttl)
+            .build();
 
         Self { cache, ttl }
     }

@@ -254,20 +254,39 @@ pub enum SplicingStrategy {
 
 impl SplicingStrategy {
     /// Return a strategy appropriate for the given specialist domain.
+    ///
+    /// For domains where specific tensor name patterns are known, uses
+    /// `DomainSpecialized` with keywords from `domain_tensor_keywords()` for
+    /// fine-grained control.  Falls back to coarse structural strategies for
+    /// general domains.
     pub fn for_domain(domain: &str) -> Self {
         match domain {
             "code_review" | "code" | "coding" =>
-                // Code reasoning benefits from specialized MLP layers
-                Self::AttentionFromA_MlpFromB,
+                // Code: replace MLP layers from domain-specialized model
+                Self::DomainSpecialized {
+                    domain_keywords: domain_tensor_keywords(domain),
+                },
             "legal_analysis" | "legal" =>
-                // Legal requires precise attention patterns
-                Self::AttentionFromB_MlpFromA,
+                // Legal: replace attention layers for precision reasoning
+                Self::DomainSpecialized {
+                    domain_keywords: domain_tensor_keywords(domain),
+                },
+            "security" | "cybersecurity" =>
+                // Security: specialize output projection layers
+                Self::DomainSpecialized {
+                    domain_keywords: domain_tensor_keywords(domain),
+                },
             "biomedical_qa" | "medical" | "science" =>
-                // Science domains: interleave for broad knowledge retention
+                // Science: interleave for broad knowledge retention
                 Self::AlternateBlocks,
             "creative_writing" | "design" | "ui" | "visual" =>
-                // Creative tasks: keep lower semantic layers, swap higher generation layers
+                // Creative: keep lower semantic layers, swap higher generation layers
                 Self::LowerFromA_UpperFromB,
+            "data_analysis" | "analytics" =>
+                // Data: embedding + MLP specialization
+                Self::DomainSpecialized {
+                    domain_keywords: domain_tensor_keywords(domain),
+                },
             _ =>
                 // Default: embedding continuity, specialized output
                 Self::EmbeddingFromA_OutputFromB,
@@ -390,6 +409,110 @@ pub fn recipe_from_two_models(
         segments,
         metadata_overrides,
     })
+}
+
+/// Generate a `ForgeRecipe` from a **single** GGUF file, selecting tensors
+/// that match any of the `include_kinds` categories.
+///
+/// Useful for extracting a domain-specialized subset of tensors from one model
+/// — for example, extracting only the attention layers from a fine-tuned model
+/// to later splice with a base model's MLP layers.
+///
+/// # Arguments
+/// - `model_key` — key in `index` for the source model
+/// - `recipe_id` — stable name for the output
+/// - `include_kinds` — which tensor kinds to include (empty = include all)
+///
+/// # Example
+///
+/// ```no_run
+/// use a_run::federation::forge::{read_gguf, recipe_from_single_model, TensorKind};
+///
+/// # fn example() -> anyhow::Result<()> {
+/// let (index, _) = read_gguf("models/qwen-finetuned.gguf")?;
+/// // Extract only the attention tensors
+/// let recipe = recipe_from_single_model(
+///     "models/qwen-finetuned.gguf",
+///     "attn-extract-v1",
+///     &[TensorKind::Attention],
+///     &index,
+///     std::collections::HashMap::new(),
+/// )?;
+/// # Ok(())
+/// # }
+/// ```
+pub fn recipe_from_single_model(
+    model_key: &str,
+    recipe_id: &str,
+    include_kinds: &[TensorKind],
+    index: &GgufIndex,
+    metadata_overrides: HashMap<String, MetaValue>,
+) -> Result<ForgeRecipe, String> {
+    let meta = index.0.get(model_key)
+        .ok_or_else(|| format!("model '{}' not in index", model_key))?;
+
+    let mut names: Vec<&str> = meta.tensors.keys().map(|s| s.as_str()).collect();
+    names.sort();
+
+    let segments: Vec<SplicingSegment> = names.into_iter()
+        .filter(|name| {
+            if include_kinds.is_empty() { return true; }
+            let kind = TensorKind::from_name(name);
+            include_kinds.contains(&kind)
+        })
+        .map(|name| SplicingSegment {
+            source_gguf: model_key.to_string(),
+            tensor_name: name.to_string(),
+        })
+        .collect();
+
+    if segments.is_empty() {
+        return Err(format!(
+            "no tensors matching {:?} found in '{}'",
+            include_kinds, model_key
+        ));
+    }
+
+    Ok(ForgeRecipe { recipe_id: recipe_id.to_string(), segments, metadata_overrides })
+}
+
+/// Return the recommended tensor name keywords for a given domain.
+///
+/// Used to build `SplicingStrategy::DomainSpecialized` when the caller
+/// wants fine-grained control beyond the coarse attention/MLP split.
+///
+/// # Example
+///
+/// ```
+/// use a_run::federation::forge::domain_tensor_keywords;
+/// let keywords = domain_tensor_keywords("code_review");
+/// assert!(keywords.iter().any(|k| k.contains("ffn")));
+/// ```
+pub fn domain_tensor_keywords(domain: &str) -> Vec<String> {
+    match domain {
+        // Code reasoning: heavy MLP specialization is key
+        "code_review" | "code" | "coding" =>
+            vec!["ffn_gate".into(), "ffn_up".into(), "ffn_down".into(),
+                 "w1".into(), "w2".into(), "w3".into()],
+        // Legal: attention precision matters most
+        "legal_analysis" | "legal" =>
+            vec!["attn_q".into(), "attn_k".into(), "attn_v".into(),
+                 "attn_output".into(), "q_proj".into(), "k_proj".into(),
+                 "v_proj".into(), "o_proj".into()],
+        // Science: embed domain knowledge throughout
+        "biomedical_qa" | "medical" | "science" =>
+            vec!["ffn".into(), "attn".into()],
+        // Security: output layer specialization
+        "security" | "cybersecurity" =>
+            vec!["output".into(), "ffn_down".into(), "lm_head".into()],
+        // Data: balanced MLP + embedding
+        "data_analysis" | "analytics" =>
+            vec!["ffn_gate".into(), "ffn_up".into(), "embed".into(),
+                 "token_embd".into()],
+        _ =>
+            // Default: take MLP layers (safest domain specialization)
+            vec!["ffn_gate".into(), "ffn_up".into(), "ffn_down".into()],
+    }
 }
 
 /// One tensor to be taken from one source model.
@@ -1571,16 +1694,29 @@ mod tests {
 
     #[test]
     fn test_splicing_strategy_for_domain() {
+        // Code → DomainSpecialized with MLP keywords
         assert!(matches!(SplicingStrategy::for_domain("code_review"),
-            SplicingStrategy::AttentionFromA_MlpFromB));
+            SplicingStrategy::DomainSpecialized { .. }));
+        // Legal → DomainSpecialized with attention keywords
         assert!(matches!(SplicingStrategy::for_domain("legal_analysis"),
-            SplicingStrategy::AttentionFromB_MlpFromA));
+            SplicingStrategy::DomainSpecialized { .. }));
+        // Science → AlternateBlocks
         assert!(matches!(SplicingStrategy::for_domain("biomedical_qa"),
             SplicingStrategy::AlternateBlocks));
+        // Creative → LowerFromA_UpperFromB
         assert!(matches!(SplicingStrategy::for_domain("creative_writing"),
             SplicingStrategy::LowerFromA_UpperFromB));
+        // Unknown → EmbeddingFromA_OutputFromB
         assert!(matches!(SplicingStrategy::for_domain("unknown_domain"),
             SplicingStrategy::EmbeddingFromA_OutputFromB));
+
+        // Verify DomainSpecialized contains real keywords
+        if let SplicingStrategy::DomainSpecialized { domain_keywords } =
+            SplicingStrategy::for_domain("code_review")
+        {
+            assert!(!domain_keywords.is_empty());
+            assert!(domain_keywords.iter().any(|k| k.contains("ffn")));
+        }
     }
 
     #[test]

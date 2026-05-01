@@ -1575,6 +1575,103 @@ impl Federation {
         self.sentinel_shutdown.notify_one();
     }
 
+    /// Spawn a system sensor loop that reads CPU/memory from sysinfo every 5 seconds
+    /// and synthesizes `BiometricSample` entries for Symbiotic's bio_inbox.
+    ///
+    /// This bridges the gap between the sensor_node enzyme (which reads CPU data
+    /// into a shared memory buffer inaccessible from `aaroneous`) and Symbiotic's
+    /// biometric classification pipeline.
+    ///
+    /// Mapping:
+    /// - CPU utilization → synthetic heart rate (60–120 BPM; 70 + cpu_pct*0.5)
+    /// - Free memory < 20% → battery level 20 (stress signal)
+    ///
+    /// The loop stops when `stop_sentinel_loop()` is called (shared shutdown notify).
+    pub async fn spawn_system_sensor_loop(&self) {
+        let Some(symb_host) = &self.symbiotic else { return };
+        let symb = symb_host.specialist();
+        let shutdown = self.sentinel_shutdown.clone();
+
+        tokio::spawn(async move {
+            use crate::federation::biometric::{BiometricKind, BiometricSample};
+            use sysinfo::{System, RefreshKind, CpuRefreshKind, MemoryRefreshKind};
+
+            loop {
+                tokio::select! {
+                    _ = shutdown.notified() => break,
+                    _ = tokio::time::sleep(std::time::Duration::from_secs(5)) => {
+                        // Run sysinfo on blocking thread — it calls sleep(30ms) internally
+                        let (cpu_pct, mem_free_pct) = tokio::task::spawn_blocking(|| {
+                            let mut sys = System::new_with_specifics(
+                                RefreshKind::new()
+                                    .with_cpu(CpuRefreshKind::new().with_cpu_usage())
+                                    .with_memory(MemoryRefreshKind::new().with_ram()),
+                            );
+                            std::thread::sleep(std::time::Duration::from_millis(30));
+                            sys.refresh_cpu();
+                            sys.refresh_memory();
+
+                            let cpu: f32 = sys.cpus().iter().map(|c| c.cpu_usage()).sum::<f32>()
+                                / sys.cpus().len().max(1) as f32;
+                            let total = sys.total_memory();
+                            let free_pct = if total > 0 {
+                                (sys.available_memory() as f32 / total as f32) * 100.0
+                            } else { 50.0 };
+                            (cpu, free_pct)
+                        }).await.unwrap_or((50.0, 50.0));
+
+                        // Map CPU % to synthetic BPM (60–120 range)
+                        // High CPU (100%) → 120 BPM, idle (0%) → 60 BPM
+                        let synthetic_bpm = (60.0 + cpu_pct * 0.6).clamp(60.0, 120.0) as u16;
+
+                        let hr_sample = BiometricSample {
+                            timestamp: std::time::SystemTime::now()
+                                .duration_since(std::time::UNIX_EPOCH)
+                                .unwrap_or_default().as_secs(),
+                            device_id: "system-sensor".to_string(),
+                            kind: BiometricKind::HeartRate,
+                            value: synthetic_bpm as f64,
+                            raw_payload: None,
+                        };
+
+                        // Push to Symbiotic's bio_inbox (non-blocking)
+                        {
+                            let mut inbox = symb.bio_inbox.lock();
+                            inbox.push_back(hr_sample);
+                            // Keep inbox bounded
+                            if inbox.len() > 50 {
+                                inbox.pop_front();
+                            }
+                        }
+
+                        // Also push a battery-level sample as a memory-pressure proxy
+                        let mem_sample = BiometricSample {
+                            timestamp: std::time::SystemTime::now()
+                                .duration_since(std::time::UNIX_EPOCH)
+                                .unwrap_or_default().as_secs(),
+                            device_id: "system-sensor".to_string(),
+                            kind: BiometricKind::BatteryLevel,
+                            value: mem_free_pct as f64,
+                            raw_payload: None,
+                        };
+                        {
+                            let mut inbox = symb.bio_inbox.lock();
+                            inbox.push_back(mem_sample);
+                            if inbox.len() > 50 {
+                                inbox.pop_front();
+                            }
+                        }
+
+                        tracing::debug!(
+                            "SystemSensor: CPU={:.1}% → {}BPM synthetic, mem_free={:.1}%",
+                            cpu_pct, synthetic_bpm, mem_free_pct
+                        );
+                    }
+                }
+            }
+        });
+    }
+
     /// Spawn a background task that calls `tick_sessions()` every 60 seconds,
     /// advancing idle/expiry state and purging expired sessions.
     ///

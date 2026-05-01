@@ -8,12 +8,13 @@ use crate::federation::forge;
 use axum::{
     extract::{Path, State},
     http::StatusCode,
-    response::{IntoResponse, Json},
+    response::{sse::{Event, KeepAlive, Sse}, IntoResponse, Json},
     routing::{get, post, delete},
     Router,
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
+use std::convert::Infallible;
 
 /// Shared application state for HTTP handlers.
 ///
@@ -45,19 +46,23 @@ pub fn router(state: AppState) -> Router {
         .route("/intent", get(get_intent).post(submit_intent))
         // Execution results: read recent outputs from specialist executions
         .route("/results", get(get_results))
+        // SSE stream: push new results as they arrive (polls every 500ms)
+        .route("/results/stream", get(stream_results))
         // Session management: create a session, get session details
         .route("/sessions", get(list_sessions).post(create_session))
         .route("/sessions/:id", get(get_session_by_id).delete(delete_session_by_id))
         .route("/sessions/:id/intent", post(submit_session_intent))
         .route("/sessions/:id/results", get(get_session_results))
+        .route("/sessions/:id/results/stream", get(stream_session_results))
         // Audit log
         .route("/audit", get(get_audit_log))
         // Learning confidence trends (time-series)
         .route("/learning/trends", get(get_learning_trends))
         // Forge: GGUF inspection, auto-recipe generation, and crystallization
-        .route("/forge/inspect",     post(forge_inspect))
-        .route("/forge/auto-recipe", post(forge_auto_recipe))
-        .route("/forge/crystallize", post(forge_crystallize))
+        .route("/forge/inspect",          post(forge_inspect))
+        .route("/forge/auto-recipe",      post(forge_auto_recipe))
+        .route("/forge/single-recipe",    post(forge_single_recipe))
+        .route("/forge/crystallize",      post(forge_crystallize))
         // Multi-hive cluster status
         .route("/cluster", get(cluster_status))
         .with_state(state)
@@ -254,16 +259,77 @@ async fn get_results(State(state): State<AppState>) -> Json<serde_json::Value> {
 
     Json(serde_json::json!({
         "count": results.len(),
-        "results": results.iter().map(|r| serde_json::json!({
-            "specialist": r.specialist_name.as_deref().unwrap_or_else(|| r.specialist.name()),
-            "specialist_id": format!("{:?}", r.specialist),
-            "proposal_id": r.proposal_id,
-            "status": format!("{:?}", r.status),
-            "output": r.output,
-            "duration_ms": r.duration_ms,
-            "error": r.error,
-        })).collect::<Vec<_>>(),
+        "results": results.iter().map(result_to_json).collect::<Vec<_>>(),
     }))
+}
+
+/// Convert an ExecutionResult to a JSON value for SSE/REST responses.
+fn result_to_json(r: &crate::federation::specialist::ExecutionResult) -> serde_json::Value {
+    serde_json::json!({
+        "specialist": r.specialist_name.as_deref().unwrap_or_else(|| r.specialist.name()),
+        "specialist_id": format!("{:?}", r.specialist),
+        "proposal_id": r.proposal_id,
+        "status": format!("{:?}", r.status),
+        "output": r.output,
+        "duration_ms": r.duration_ms,
+        "error": r.error,
+    })
+}
+
+/// GET /results/stream — SSE stream of execution results.
+///
+/// Sends a `results` event for each batch of new `ExecutionResult` entries
+/// as they land in the global ring buffer.  Polls every 500ms.
+///
+/// Each event `data` is a JSON array of result objects.  Clients receive
+/// each result exactly once per connection (tracked by `proposal_id`).
+///
+/// Connect with:
+/// ```sh
+/// curl -N http://localhost:8765/results/stream
+/// ```
+/// or the browser `EventSource` API:
+/// ```js
+/// const es = new EventSource('/results/stream');
+/// es.addEventListener('results', e => console.log(JSON.parse(e.data)));
+/// ```
+async fn stream_results(
+    State(state): State<AppState>,
+) -> Sse<impl futures_util::stream::Stream<Item = Result<Event, Infallible>>> {
+    let fed = state.federation.clone();
+
+    // unfold state: (seen_proposal_ids, interval, federation_arc)
+    let init = (
+        std::collections::HashSet::<String>::new(),
+        tokio::time::interval(std::time::Duration::from_millis(500)),
+        fed,
+    );
+
+    let stream = futures_util::stream::unfold(init, |s| async move {
+        let (mut seen, mut ticker, fed) = s;
+        ticker.tick().await;
+
+        let all = fed.recent_results(50).await;
+        let fresh: Vec<_> = all.into_iter()
+            .filter(|r| !seen.contains(&r.proposal_id))
+            .collect();
+
+        // Mark as seen and serialize
+        let new: Vec<serde_json::Value> = fresh.into_iter()
+            .map(|r| { seen.insert(r.proposal_id.clone()); result_to_json(&r) })
+            .collect();
+
+        let event = if new.is_empty() {
+            Event::default().comment("heartbeat")
+        } else {
+            let data = serde_json::to_string(&new).unwrap_or_default();
+            Event::default().data(data).event("results")
+        };
+
+        Some((Ok(event), (seen, ticker, fed)))
+    });
+
+    Sse::new(stream).keep_alive(KeepAlive::default())
 }
 
 // ====================================================================
@@ -430,15 +496,8 @@ async fn get_session_results(
         )
             .into_response(),
         Some(s) => {
-            let results: Vec<serde_json::Value> = s.results.iter().rev().map(|r| serde_json::json!({
-                "specialist": r.specialist_name.as_deref().unwrap_or_else(|| r.specialist.name()),
-                "specialist_id": format!("{:?}", r.specialist),
-                "proposal_id": r.proposal_id,
-                "status": format!("{:?}", r.status),
-                "output": r.output,
-                "duration_ms": r.duration_ms,
-                "error": r.error,
-            })).collect();
+            let results: Vec<serde_json::Value> = s.results.iter().rev()
+                .map(result_to_json).collect();
 
             Json(serde_json::json!({
                 "session_id": session_id,
@@ -449,6 +508,52 @@ async fn get_session_results(
             .into_response()
         }
     }
+}
+
+/// GET /sessions/:id/results/stream — SSE stream of results for a specific session.
+///
+/// Like `/results/stream` but scoped to one session.  Polls every 500ms.
+/// Sends a `results` event with a JSON array of new results.
+async fn stream_session_results(
+    State(state): State<AppState>,
+    Path(session_id): Path<String>,
+) -> Sse<impl futures_util::stream::Stream<Item = Result<Event, Infallible>>> {
+    let fed = state.federation.clone();
+
+    let init = (
+        std::collections::HashSet::<String>::new(),
+        tokio::time::interval(std::time::Duration::from_millis(500)),
+        fed,
+        session_id,
+    );
+
+    let stream = futures_util::stream::unfold(init, |s| async move {
+        let (mut seen, mut ticker, fed, sid) = s;
+        ticker.tick().await;
+
+        let new: Vec<serde_json::Value> = match fed.get_session(&sid).await {
+            None => vec![],
+            Some(session) => {
+                let fresh: Vec<_> = session.results.into_iter()
+                    .filter(|r| !seen.contains(&r.proposal_id))
+                    .collect();
+                fresh.into_iter()
+                    .map(|r| { seen.insert(r.proposal_id.clone()); result_to_json(&r) })
+                    .collect()
+            }
+        };
+
+        let event = if new.is_empty() {
+            Event::default().comment("heartbeat")
+        } else {
+            let data = serde_json::to_string(&new).unwrap_or_default();
+            Event::default().data(data).event("results")
+        };
+
+        Some((Ok(event), (seen, ticker, fed, sid)))
+    });
+
+    Sse::new(stream).keep_alive(KeepAlive::default())
 }
 
 // ====================================================================
@@ -684,6 +789,64 @@ async fn forge_auto_recipe(
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(serde_json::json!({ "ok": false, "error": e })),
         ).into_response(),
+    }
+}
+
+/// Request body for POST /forge/single-recipe
+#[derive(Deserialize)]
+struct ForgeSingleRecipeRequest {
+    /// Absolute path to the GGUF file to extract from
+    model_path: String,
+    /// Recipe ID for the output
+    recipe_id: String,
+    /// Tensor kinds to include: "attention", "mlp", "embedding", "norm", "other"
+    /// Empty = include all tensors from the model
+    #[serde(default)]
+    include_kinds: Vec<String>,
+}
+
+/// POST /forge/single-recipe — generate a ForgeRecipe extracting selected
+/// tensor kinds from a single GGUF model.
+///
+/// Example: extract only attention tensors from a fine-tuned model,
+/// then use POST /forge/crystallize to splice them with a base model.
+async fn forge_single_recipe(
+    Json(req): Json<ForgeSingleRecipeRequest>,
+) -> impl IntoResponse {
+    match forge::read_gguf(&req.model_path) {
+        Err(e) => return (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({ "ok": false, "error": e.to_string() })),
+        ).into_response(),
+        Ok((index, _meta)) => {
+            let kinds: Vec<forge::TensorKind> = req.include_kinds.iter()
+                .filter_map(|s| match s.to_lowercase().as_str() {
+                    "attention" | "attn" => Some(forge::TensorKind::Attention),
+                    "mlp" | "ffn"        => Some(forge::TensorKind::Mlp),
+                    "embedding" | "emb"  => Some(forge::TensorKind::Embedding),
+                    "norm"               => Some(forge::TensorKind::Norm),
+                    "other"              => Some(forge::TensorKind::Other),
+                    _                    => None,
+                })
+                .collect();
+
+            match forge::recipe_from_single_model(
+                &req.model_path, &req.recipe_id, &kinds, &index,
+                std::collections::HashMap::new(),
+            ) {
+                Ok(recipe) => Json(serde_json::json!({
+                    "ok": true,
+                    "recipe_id": recipe.recipe_id,
+                    "segment_count": recipe.segments.len(),
+                    "include_kinds": req.include_kinds,
+                    "recipe": recipe,
+                })).into_response(),
+                Err(e) => (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(serde_json::json!({ "ok": false, "error": e })),
+                ).into_response(),
+            }
+        }
     }
 }
 

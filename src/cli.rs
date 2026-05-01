@@ -589,9 +589,12 @@ async fn execute_start(
     hive_runtime.start().await
         .map_err(|e| format!("HiveRuntime start failed: {}", e))?;
 
-    // --- Sentinel arbitration loop + session tick loop ---
+    // --- Sentinel arbitration loop + session tick loop + system sensor ---
     fed.spawn_sentinel_loop(std::time::Duration::from_millis(500)).await;
     fed.spawn_session_tick_loop().await;
+    // Bridge: reads CPU/memory from sysinfo every 5s → Symbiotic bio_inbox
+    fed.spawn_system_sensor_loop().await;
+    info!("System sensor loop started (CPU/memory → Symbiotic bio_inbox)");
 
     let local_addr = http_server.as_ref().map(|s| s.local_addr());
 
