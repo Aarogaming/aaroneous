@@ -56,6 +56,7 @@ governor = "0.10"
 thiserror = "2.0"
 futures-core = "0.3"
 futures-util = "0.3"
+memmap2 = "0.9"
 moka = { version = "0.12", features = ["future"] }
 regex = "1.10"
 which = "5.0"
@@ -84,8 +85,8 @@ llama-gguf = { version = "0.14", optional = true, default-features = false }
 
 [dev-dependencies]
 # tower: in-process axum router testing via ServiceExt::oneshot.
-# Already in the tree transitively via axum, but declaring it explicitly
-# documents the dependency.
 tower = { version = "0.5", features = ["util"] }
 # http-body-util: helpers for collecting axum response bodies in tests
 http-body-util = "0.1"
+# tempfile: temporary file/dir creation for forge tests
+tempfile = "3"

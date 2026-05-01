@@ -31,6 +31,7 @@ pub mod multi_hive;
 pub mod enterprise;
 pub mod intent;
 pub mod session;
+pub mod forge;
 pub mod p2p;
 pub mod biometric;
 pub mod ar;
@@ -91,6 +92,7 @@ pub use intent::{
     Intent, IntentPriority, IntentStatus, IntentSource, IntentScaling, IntentResult,
 };
 pub use session::{Session, SessionState, SessionManager};
+pub use forge::{Forge, ForgeRecipe, SplicingSegment, GgufIndex, GgufMeta, TensorMeta, ForgeError, CrystallizationResult};
 pub use http::{HttpStatusServer, HttpServerError};
 pub use tasks::{BackgroundTaskHandle, OmnipresentRecvTask, SymbioticBleTask, OmnipresentDrainTask, SymbioticDrainTask};
 
