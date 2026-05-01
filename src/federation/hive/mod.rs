@@ -53,7 +53,10 @@ pub use config::FederationConfig;
 
 use crate::federation::host::{HostError, SharedPersistence, SpecialistHost};
 use crate::federation::specialists::{Archivist, Omnipresent, Phygital, Symbiotic, Visionary};
+use crate::federation::intent::Intent;
 use std::sync::Arc;
+use std::time::Duration;
+use tokio::sync::{Mutex, RwLock};
 use tracing::{info, warn};
 
 /// Aggregated lifecycle errors from a federation start/shutdown cycle.
@@ -92,6 +95,22 @@ pub struct Federation {
     symbiotic: Option<Arc<SpecialistHost<Symbiotic>>>,
     phygital: Option<Arc<SpecialistHost<Phygital>>>,
     archivist: Option<Arc<SpecialistHost<Archivist>>>,
+
+    /// The active user intent — what the user is trying to accomplish right now.
+    /// `None` until the first `submit_intent()` call.
+    /// Shared with all specialists and the HTTP `/intent` endpoint.
+    pub active_intent: Arc<RwLock<Option<Intent>>>,
+
+    /// Queue of completed execution results waiting to be read.
+    /// Populated by `record_result()`, consumed by the HTTP `/results` endpoint.
+    pub results: Arc<Mutex<Vec<crate::federation::specialist::ExecutionResult>>>,
+
+    /// Sentinel for proposal arbitration.
+    /// Instantiated when the federation starts; `None` until `start_all()`.
+    pub sentinel: Arc<RwLock<Option<crate::federation::sentinel::Sentinel>>>,
+
+    /// Shutdown signal for the Sentinel arbitration loop
+    sentinel_shutdown: Arc<tokio::sync::Notify>,
 }
 
 impl Federation {
@@ -523,6 +542,123 @@ impl Federation {
             symbiotic,
             phygital,
             archivist,
+            active_intent: Arc::new(RwLock::new(None)),
+            results: Arc::new(Mutex::new(Vec::new())),
+            sentinel: Arc::new(RwLock::new(None)),
+            sentinel_shutdown: Arc::new(tokio::sync::Notify::new()),
         }
+    }
+}
+
+// Intent management methods
+impl Federation {
+    /// Submit a new user intent to the federation.
+    ///
+    /// This sets the active intent and notifies all specialists (via the
+    /// future Sentinel arbitration loop) that there is work to do.
+    /// Returns the intent ID for tracking.
+    pub async fn submit_intent(&self, intent: Intent) -> String {
+        let id = intent.id.clone();
+        info!("Federation: new intent submitted: '{}' ({})", intent.content, id);
+        *self.active_intent.write().await = Some(intent);
+        id
+    }
+
+    /// Get the currently active intent, if any.
+    pub async fn current_intent(&self) -> Option<Intent> {
+        self.active_intent.read().await.clone()
+    }
+
+    /// Record an execution result. Called by specialists after executing.
+    /// Results are accessible via `GET /results` on the HTTP status server.
+    pub async fn record_result(&self, result: crate::federation::specialist::ExecutionResult) {
+        let mut results = self.results.lock().await;
+        results.push(result);
+        // Keep last 100 results
+        if results.len() > 100 {
+            let excess = results.len() - 100;
+            results.drain(0..excess);
+        }
+    }
+
+    /// Get recent execution results (last N, newest first).
+    pub async fn recent_results(
+        &self,
+        limit: usize,
+    ) -> Vec<crate::federation::specialist::ExecutionResult> {
+        let results = self.results.lock().await;
+        results.iter().rev().take(limit).cloned().collect()
+    }
+
+    /// Start the Sentinel arbitration loop in the background.
+    ///
+    /// Creates a `CommunicationBus`, registers all configured specialists,
+    /// creates a `Sentinel`, and spawns a tokio task that calls
+    /// `sentinel.arbitrate()` every `config.proposal_review_interval_ms`ms.
+    pub async fn spawn_sentinel_loop(&self, interval: Duration) {
+        use crate::federation::communication::CommunicationBus;
+        use crate::federation::sentinel::{Sentinel, SentinelConfig};
+        use crate::federation::specialist::SpecialistId;
+
+        let mut bus = CommunicationBus::new();
+
+        // Register all configured specialists
+        if self.visionary.is_some() { bus.register_specialist(SpecialistId::Visionary); }
+        if self.omnipresent.is_some() { bus.register_specialist(SpecialistId::Omnipresent); }
+        if self.symbiotic.is_some() { bus.register_specialist(SpecialistId::Symbiotic); }
+        if self.phygital.is_some() { bus.register_specialist(SpecialistId::Phygital); }
+        if self.archivist.is_some() { bus.register_specialist(SpecialistId::Archivist); }
+
+        let config = SentinelConfig::default();
+        let sentinel = Sentinel::new(config, bus);
+
+        info!(
+            "Sentinel started with {} registered specialist(s), arbitrating every {}ms",
+            sentinel.communication_bus.specialist_count(),
+            interval.as_millis()
+        );
+
+        *self.sentinel.write().await = Some(sentinel);
+
+        // Spawn the arbitration loop
+        let sentinel_arc = self.sentinel.clone();
+        let shutdown = self.sentinel_shutdown.clone();
+        let active_intent = self.active_intent.clone();
+        let results_store = self.results.clone();
+
+        tokio::spawn(async move {
+            loop {
+                tokio::select! {
+                    _ = shutdown.notified() => {
+                        info!("Sentinel arbitration loop received shutdown signal");
+                        break;
+                    }
+                    _ = tokio::time::sleep(interval) => {
+                        // Run one arbitration cycle
+                        let guard = sentinel_arc.read().await;
+                        if let Some(sentinel) = guard.as_ref() {
+                            match sentinel.arbitrate().await {
+                                Ok(result) => {
+                                    if result.decisions_issued > 0 {
+                                        info!(
+                                            "Sentinel: {} proposals reviewed, {} decisions issued",
+                                            result.proposals_reviewed, result.decisions_issued
+                                        );
+                                    }
+                                }
+                                Err(e) => {
+                                    warn!("Sentinel arbitration error: {}", e);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    /// Stop the Sentinel arbitration loop.
+    pub fn stop_sentinel_loop(&self) {
+        self.sentinel_shutdown.notify_one();
     }
 }

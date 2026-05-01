@@ -178,7 +178,9 @@ pub struct IntentAdaptation {
 pub struct SyncState {
     pub primary_device_id: String,
     pub devices: HashMap<String, Device>,
-    pub cached_intent: Option<String>,
+    /// The current active Intent being synced across devices.
+    /// `None` until the first sync message arrives or an Intent is set locally.
+    pub cached_intent: Option<crate::federation::intent::Intent>,
     pub cache_timestamp: u64,
     pub sync_conflicts: Vec<SyncConflict>,
 }
@@ -197,8 +199,9 @@ pub struct SyncConflict {
 /// Separated from the main struct so drain() can be called from &self.
 #[derive(Debug)]
 pub struct OmnipresentDrainState {
-    /// Cached intent received from peers (overwritten by FullState/Delta messages)
-    pub cached_intent: Option<String>,
+    /// Most recently received Intent from a peer device.
+    /// When `Some`, this represents the current "active intent" synced via P2P.
+    pub cached_intent: Option<crate::federation::intent::Intent>,
     pub cache_timestamp: u64,
     /// Rolling sync event log (recent 1000 entries)
     pub sync_history: Vec<String>,
@@ -271,7 +274,16 @@ impl Omnipresent {
             match msg.kind {
                 SyncMessageKind::FullState | SyncMessageKind::Delta => {
                     if !msg.payload.is_empty() {
-                        state.cached_intent = String::from_utf8(msg.payload).ok();
+                        // Try to deserialize as a typed Intent first; fall back
+                        // to storing as a raw-string Intent if not deserializable.
+                        state.cached_intent = crate::federation::intent::Intent::from_sync_payload(&msg.payload)
+                            .ok()
+                            .or_else(|| {
+                                // Legacy: payload is a raw UTF-8 string
+                                String::from_utf8(msg.payload.clone()).ok().map(|s| {
+                                    crate::federation::intent::Intent::new(s)
+                                })
+                            });
                         state.cache_timestamp = msg.timestamp;
                     }
                     state.sync_history.push(format!(
@@ -296,8 +308,9 @@ impl Omnipresent {
         n
     }
 
-    /// Get the current cached intent (from drain_state, updated by drain_sync_inbox_shared)
-    pub fn cached_intent(&self) -> Option<String> {
+    /// Get the current cached intent (from drain_state, updated by drain_sync_inbox_shared).
+    /// Returns the typed `Intent` received from a peer device, or `None` if not yet synced.
+    pub fn cached_intent(&self) -> Option<crate::federation::intent::Intent> {
         self.drain_state.lock().cached_intent.clone()
     }
 
@@ -318,7 +331,12 @@ impl Omnipresent {
                 // Update cached intent with the payload from the sender
                 if !msg.payload.is_empty() {
                     self.sync_state.cached_intent =
-                        String::from_utf8(msg.payload).ok();
+                        crate::federation::intent::Intent::from_sync_payload(&msg.payload)
+                            .ok()
+                            .or_else(|| {
+                                String::from_utf8(msg.payload.clone()).ok()
+                                    .map(|s| crate::federation::intent::Intent::new(s))
+                            });
                     self.sync_state.cache_timestamp = msg.timestamp;
                 }
                 self.sync_history.push(format!(

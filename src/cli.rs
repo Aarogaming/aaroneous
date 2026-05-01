@@ -353,14 +353,36 @@ async fn execute_start(
         None
     };
 
+    // --- Sentinel arbitration loop ---
+    fed.spawn_sentinel_loop(std::time::Duration::from_millis(500)).await;
+
+    let local_addr = http_server.as_ref().map(|s| s.local_addr());
+
     println!();
-    println!("Federation started ({} specialists):", fed.enabled_count());
+    println!("Federation running ({} specialists):", fed.enabled_count());
     println!("  Visionary    AI-driven UI/UX design generation");
     println!("  Omnipresent  P2P multi-device sync");
     println!("  Symbiotic    Biometric user state classification");
     println!("  Phygital     AR/VR spatial rendering");
     println!("  Archivist    DNA Bank memory & consolidation");
     println!();
+    if let Some(addr) = local_addr {
+        println!("HTTP API endpoints:");
+        println!("  GET  http://{}/healthz        liveness probe", addr);
+        println!("  GET  http://{}/readyz         readiness probe", addr);
+        println!("  GET  http://{}/status         learning summary (all specialists)", addr);
+        println!("  GET  http://{}/status/{{kind}}  learning summary (one specialist)", addr);
+        println!("  GET  http://{}/intent         current active intent", addr);
+        println!("  POST http://{}/intent         submit new intent (JSON body)", addr);
+        println!("  GET  http://{}/results        recent execution results", addr);
+        println!();
+        println!("Example - submit an intent:");
+        println!("  curl -X POST http://{}/intent \\", addr);
+        println!("       -H 'Content-Type: application/json' \\");
+        println!("       -d '{{\"content\": \"redesign the dashboard\", \"priority\": \"High\"}}'");
+        println!();
+    }
+    println!("Sentinel is arbitrating proposals every 500ms.");
     println!("Press Ctrl+C to shut down gracefully.");
     println!();
 
@@ -368,6 +390,9 @@ async fn execute_start(
     fed.run_until_signal()
         .await
         .map_err(|e| format!("Federation error: {}", e))?;
+
+    // --- Shutdown Sentinel loop ---
+    fed.stop_sentinel_loop();
 
     // --- Shutdown HTTP server if started ---
     if let Some(srv) = http_server {

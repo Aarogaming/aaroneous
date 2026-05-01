@@ -183,6 +183,11 @@ pub struct Archivist {
     pub stats: DNABankStats,
     pub consolidation_queue: Vec<ConsolidationTask>,
     pub learning: Arc<Mutex<ArchivistLearningData>>,
+    /// The DNA Bank: persistent long-term memory for the hive.
+    /// When `Some`, all events recorded via `record_event()` are also
+    /// persisted to the DNA Bank for pattern extraction across restarts.
+    /// When `None`, events are only kept in-memory.
+    pub dna_bank: Option<Arc<Mutex<crate::federation::dna_bank::DNABank>>>,
 }
 
 impl Archivist {
@@ -204,7 +209,28 @@ impl Archivist {
             },
             consolidation_queue: vec![],
             learning: Arc::new(Mutex::new(ArchivistLearningData::new())),
+            dna_bank: None,
         }
+    }
+
+    /// Attach a DNA Bank for durable event persistence.
+    ///
+    /// After this call, every `record_event()` call also records to the
+    /// DNA Bank. The DNA Bank can be RocksDB-backed (with `--features
+    /// rocksdb-dna`) or in-memory (default).
+    pub fn with_dna_bank(mut self, bank: Arc<Mutex<crate::federation::dna_bank::DNABank>>) -> Self {
+        self.dna_bank = Some(bank);
+        self
+    }
+
+    /// Attach an in-memory DNA Bank (no extra setup required).
+    pub fn with_in_memory_dna_bank(self) -> Self {
+        self.with_dna_bank(Arc::new(Mutex::new(crate::federation::dna_bank::DNABank::new())))
+    }
+
+    /// Whether a DNA Bank is attached
+    pub fn has_dna_bank(&self) -> bool {
+        self.dna_bank.is_some()
     }
 
     /// Save this specialist's current learning state to a persistence manager.
@@ -239,10 +265,34 @@ impl Archivist {
 
     /// Record an event to the DNA Bank
     pub fn record_event(&mut self, record: EventRecord) {
-        let now = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_secs();
+        // Persist to DNA Bank if attached (before moving the record)
+        if let Some(bank) = &self.dna_bank {
+            let outcome_str = match record.outcome {
+                EventOutcome::Success => "success",
+                EventOutcome::PartialSuccess => "partial",
+                EventOutcome::Failure => "failure",
+                EventOutcome::UserRejected => "rejected",
+                EventOutcome::UserApproved => "approved",
+            };
+            let specialist_id = match record.specialist.as_str() {
+                "Visionary" | "visionary" => crate::federation::specialist::SpecialistId::Visionary,
+                "Omnipresent" | "omnipresent" => crate::federation::specialist::SpecialistId::Omnipresent,
+                "Symbiotic" | "symbiotic" => crate::federation::specialist::SpecialistId::Symbiotic,
+                "Phygital" | "phygital" => crate::federation::specialist::SpecialistId::Phygital,
+                "Archivist" | "archivist" => crate::federation::specialist::SpecialistId::Archivist,
+                _ => crate::federation::specialist::SpecialistId::Archivist,
+            };
+            let dna_event = crate::federation::dna_bank::DNAEvent::new(
+                specialist_id,
+                record.event_type.clone(),
+                outcome_str.to_string(),
+                0, // duration_ms not tracked in EventRecord
+            );
+            // Best-effort: don't fail if DNA Bank is locked (contention)
+            if let Some(mut db) = bank.try_lock() {
+                let _ = db.record_event(dna_event);
+            }
+        }
 
         self.events.push(record);
         self.stats.total_events += 1;

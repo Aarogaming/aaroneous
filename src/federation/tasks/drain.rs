@@ -166,11 +166,9 @@ mod tests {
 
         tokio::time::sleep(Duration::from_millis(200)).await;
 
-        assert_eq!(
-            specialist.cached_intent(),
-            Some("intent-v7".to_string()),
-            "drain should update cached_intent"
-        );
+        let ci = specialist.cached_intent();
+        assert!(ci.is_some(), "drain should update cached_intent");
+        assert_eq!(ci.unwrap().content, "intent-v7", "cached intent content should match");
 
         handle.shutdown().await;
     }

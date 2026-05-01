@@ -159,9 +159,13 @@ mod tests {
 
         specialist.apply_sync_message(msg);
 
+        assert!(
+            specialist.sync_state.cached_intent.is_some(),
+            "cached_intent should be set after apply_sync_message"
+        );
         assert_eq!(
-            specialist.sync_state.cached_intent,
-            Some("current-intent-v7".to_string())
+            specialist.sync_state.cached_intent.as_ref().unwrap().content,
+            "current-intent-v7"
         );
         assert!(!specialist.sync_history.is_empty());
     }

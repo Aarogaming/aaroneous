@@ -29,6 +29,7 @@ pub mod dna_bank;
 pub mod optimization;
 pub mod multi_hive;
 pub mod enterprise;
+pub mod intent;
 pub mod p2p;
 pub mod biometric;
 pub mod ar;
@@ -84,6 +85,9 @@ pub use host::{SpecialistHost, HostConfig, HostState, HostError, HostableSpecial
 pub use hive::{
     Federation, FederationBuilder, FederationConfig, FederationErrors,
     LearningSummary, SpecialistLearningSummary,
+};
+pub use intent::{
+    Intent, IntentPriority, IntentStatus, IntentSource, IntentScaling, IntentResult,
 };
 pub use http::{HttpStatusServer, HttpServerError};
 pub use tasks::{BackgroundTaskHandle, OmnipresentRecvTask, SymbioticBleTask, OmnipresentDrainTask, SymbioticDrainTask};

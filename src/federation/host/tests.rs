@@ -404,9 +404,13 @@ mod tests {
         let n = omni.drain_sync_inbox();
         assert_eq!(n, 1);
         assert_eq!(omni.sync_inbox.lock().len(), 0);
+        assert!(
+            omni.sync_state.cached_intent.is_some(),
+            "cached_intent should be set after drain"
+        );
         assert_eq!(
-            omni.sync_state.cached_intent,
-            Some("intent-data-v5".to_string())
+            omni.sync_state.cached_intent.as_ref().unwrap().content,
+            "intent-data-v5"
         );
         assert!(!omni.sync_history.is_empty());
     }
