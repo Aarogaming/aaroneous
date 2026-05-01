@@ -534,7 +534,7 @@ async fn execute_start(
 /// Execute specialist commands
 async fn execute_specialist(
     cmd: SpecialistCmd,
-    db_path: &str,
+    _db_path: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
     match cmd {
         SpecialistCmd::Create { name, archetype, xp } => {
@@ -625,7 +625,7 @@ async fn execute_specialist(
 /// Execute query commands
 async fn execute_query(
     cmd: QueryCmd,
-    db_path: &str,
+    _db_path: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
     match cmd {
         QueryCmd::Stats { detailed } => {
@@ -696,7 +696,7 @@ async fn execute_query(
 /// Execute status commands
 async fn execute_status(
     cmd: StatusCmd,
-    db_path: &str,
+    _db_path: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
     match cmd {
         StatusCmd::Health { watch } => {
@@ -836,3 +836,4 @@ mod tests {
         assert!(parsed.is_ok());
     }
 }
+

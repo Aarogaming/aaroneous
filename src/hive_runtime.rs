@@ -11,7 +11,6 @@ use crate::autonomous_coordinator::{AutonomousCoordinator, TaskCoordinationStatu
 use crate::task_analysis::Task;
 use crate::agents::SpecialistAgent;
 use tokio::sync::RwLock;
-use parking_lot::RwLock as ParkingLotRwLock;
 use std::sync::Arc;
 use std::time::Duration;
 use chrono::{DateTime, Utc};
@@ -350,21 +349,35 @@ impl HiveRuntime {
         });
     }
 
-    /// Statistics updater - collects metrics from all systems
+    /// Statistics updater - collects metrics from all systems every 5 seconds.
     fn spawn_statistics_updater(&self) {
         let statistics = Arc::clone(&self.statistics);
         let created_at = self.created_at;
         let shutdown_signal = Arc::clone(&self.shutdown_signal);
+        // NOTE: PersistenceManager (rusqlite::Connection) is not Sync, so we
+        // cannot share Arc<PersistenceManager> across tokio::spawn boundaries.
+        // We capture only the federation Arc (which is Send+Sync) to update
+        // total_specialists. Other metrics (XP, skills, events) remain 0 until
+        // a PersistenceManager-compatible async wrapper is introduced.
+        let federation_ref = self.federation.clone();
 
         tokio::spawn(async move {
             loop {
                 tokio::select! {
                     _ = shutdown_signal.notified() => break,
                     _ = tokio::time::sleep(Duration::from_secs(5)) => {
-                        // Update statistics - note: persistence queries happen in blocking context
-                        // For now, just update timestamps and uptime
                         let mut stats = statistics.write().await;
-                        stats.uptime_seconds = Utc::now().signed_duration_since(created_at).num_seconds() as u64;
+
+                        // Uptime
+                        stats.uptime_seconds = Utc::now()
+                            .signed_duration_since(created_at)
+                            .num_seconds() as u64;
+
+                        // Federation specialist count (from attached federation, if any)
+                        if let Some(fed) = federation_ref.read().await.as_ref() {
+                            stats.total_specialists = fed.enabled_count() as u32;
+                        }
+
                         stats.last_update = Utc::now();
                     }
                 }

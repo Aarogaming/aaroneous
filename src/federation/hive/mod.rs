@@ -618,10 +618,13 @@ impl Federation {
 
 /// Read real system resources using sysinfo.
 ///
-/// Returns a `SystemResources` with actual CPU utilization, available memory,
-/// and placeholder GPU/thermal values (GPU detection requires platform-specific
-/// APIs not yet wired). Falls back to neutral defaults if reading fails.
-fn read_system_resources() -> crate::federation::specialist::SystemResources {
+/// This is a **synchronous** function that must be called from a blocking
+/// context (`spawn_blocking`) — never call it directly from async code.
+/// The `collect_proposals()` method wraps this in `spawn_blocking`.
+///
+/// Returns a `SystemResources` with actual CPU utilization and available
+/// memory. GPU and thermal remain placeholder (require NVML/Metal APIs).
+fn read_system_resources_sync() -> crate::federation::specialist::SystemResources {
     use sysinfo::{System, RefreshKind, CpuRefreshKind, MemoryRefreshKind};
 
     let mut sys = System::new_with_specifics(
@@ -629,8 +632,9 @@ fn read_system_resources() -> crate::federation::specialist::SystemResources {
             .with_cpu(CpuRefreshKind::new().with_cpu_usage())
             .with_memory(MemoryRefreshKind::new().with_ram()),
     );
-    // A second refresh is needed to get accurate CPU delta
-    std::thread::sleep(std::time::Duration::from_millis(50));
+    // Two refreshes are needed for an accurate CPU delta. Use a short sleep
+    // here because we're already on a blocking thread (via spawn_blocking).
+    std::thread::sleep(std::time::Duration::from_millis(30));
     sys.refresh_cpu();
     sys.refresh_memory();
 
@@ -643,15 +647,28 @@ fn read_system_resources() -> crate::federation::specialist::SystemResources {
     let free_mem_mb = if total_mem > used_mem {
         ((total_mem - used_mem) / 1024 / 1024) as u64
     } else {
-        512 // Minimum fallback
+        512
     };
 
     crate::federation::specialist::SystemResources {
-        gpu_available_percent: 60.0, // GPU detection requires NVML/Metal — placeholder
+        gpu_available_percent: 60.0,
         cpu_available_percent: cpu_available,
         memory_available_mb: free_mem_mb as u32,
-        thermal_headroom: 0.8, // Thermal requires platform-specific queries — placeholder
+        thermal_headroom: 0.8,
     }
+}
+
+/// Async wrapper: reads system resources on the blocking thread pool so the
+/// tokio executor is never blocked.
+async fn read_system_resources() -> crate::federation::specialist::SystemResources {
+    tokio::task::spawn_blocking(read_system_resources_sync)
+        .await
+        .unwrap_or_else(|_| crate::federation::specialist::SystemResources {
+            gpu_available_percent: 60.0,
+            cpu_available_percent: 70.0,  // safe fallback
+            memory_available_mb: 2048,
+            thermal_headroom: 0.8,
+        })
 }
 
 // Intent management methods
@@ -711,23 +728,6 @@ impl Federation {
         Ok((session_id.to_string(), intent_id))
     }
 
-    /// Record a result back to the originating session (if any).
-    /// The session is inferred from the result's proposal_id prefix.
-    async fn route_result_to_session(&self, result: &ExecutionResult) {
-        let sessions = self.sessions.read().await;
-        // Find the session that owns the active intent
-        if let Some(intent) = self.active_intent.read().await.as_ref() {
-            let session_id = intent.context.get("session_id").cloned();
-            drop(sessions);
-            if let Some(sid) = session_id {
-                let mut sessions = self.sessions.write().await;
-                if let Some(session) = sessions.get_mut(&sid) {
-                    session.add_result(result.clone());
-                }
-            }
-        }
-    }
-
     /// Create a new session. Returns the session ID.
     pub async fn create_session(
         &self,
@@ -783,7 +783,7 @@ impl Federation {
                 fatigue_level: 0.2,
                 activity: intent_activity,
             },
-            system_resources: read_system_resources(),
+            system_resources: read_system_resources().await,
             active_specialists: vec![
                 crate::federation::specialist::SpecialistId::Visionary,
                 crate::federation::specialist::SpecialistId::Omnipresent,
@@ -1009,6 +1009,8 @@ impl Federation {
         // Route results back to the originating session
         let active_intent_arc = self.active_intent.clone();
         let sessions_arc = self.sessions.clone();
+        // Audit log — record each execution from the sentinel loop
+        let audit_log_arc = self.audit_log.clone();
 
         tokio::spawn(async move {
             use crate::federation::specialist::{Specialist, SpecialistId};
@@ -1089,10 +1091,34 @@ impl Federation {
                                         };
 
                                         if let Some(result) = exec_result {
+                                            use crate::federation::enterprise::{
+                                                AuditEvent, AuditLevel, AuditResult,
+                                            };
+
                                             info!(
                                                 "Executed: {:?} '{}' → {:?}",
                                                 result.specialist, decision.action, result.status
                                             );
+
+                                            // Audit the execution from the sentinel loop
+                                            {
+                                                let audit_result = match result.status {
+                                                    crate::federation::specialist::ExecutionStatus::Success =>
+                                                        AuditResult::Success,
+                                                    crate::federation::specialist::ExecutionStatus::Failed =>
+                                                        AuditResult::Failure,
+                                                    _ => AuditResult::PartialSuccess,
+                                                };
+                                                let event = AuditEvent::new(
+                                                    format!("{:?}", result.specialist),
+                                                    format!("sentinel_executed:{}", decision.action),
+                                                    AuditLevel::Info,
+                                                )
+                                                .with_resource(decision.proposal_id.clone())
+                                                .with_result(audit_result)
+                                                .with_details(result.output.chars().take(200).collect::<String>());
+                                                let _ = audit_log_arc.lock().await.record(event);
+                                            }
 
                                             // Route result to the originating session (if any)
                                             {
