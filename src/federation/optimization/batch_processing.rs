@@ -224,11 +224,18 @@ impl BatchManager {
         None
     }
 
-    /// Process a batch
+    /// Process a batch.
+    ///
+    /// Marks the batch as processing started and completed, tracks timing,
+    /// and stores it in the completed ring buffer. No actual work is done
+    /// here — the caller (e.g. the Sentinel arbitration loop) is responsible
+    /// for executing the contained proposals.
+    ///
+    /// Note: the original implementation used `std::thread::sleep(10ms)` here,
+    /// which would block the async executor. This version does not sleep.
     pub fn process_batch(&mut self, mut batch: ProposalBatch) {
         batch.mark_processing_started();
-        // Simulate processing
-        std::thread::sleep(std::time::Duration::from_millis(10));
+        // No blocking sleep — work is done by the caller before/after this call
         batch.mark_processing_completed();
 
         self.completed_batches.push_back(batch);

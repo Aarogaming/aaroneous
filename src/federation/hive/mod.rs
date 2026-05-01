@@ -120,6 +120,10 @@ pub struct Federation {
     /// Optional multi-hive federation context.
     /// When enabled, this hive can coordinate with other Aaroneous instances.
     pub multi_hive: Arc<RwLock<Option<crate::federation::multi_hive::MultihiveFederation>>>,
+
+    /// Audit log for compliance and observability.
+    /// Records every federation decision, intent submission, and session event.
+    pub audit_log: Arc<Mutex<crate::federation::enterprise::AuditLog>>,
 }
 
 impl Federation {
@@ -557,6 +561,7 @@ impl Federation {
             sentinel_shutdown: Arc::new(tokio::sync::Notify::new()),
             sessions: Arc::new(RwLock::new(SessionManager::new())),
             multi_hive: Arc::new(RwLock::new(None)),
+            audit_log: Arc::new(Mutex::new(crate::federation::enterprise::AuditLog::new())),
         }
     }
 }
@@ -611,6 +616,44 @@ impl Federation {
     }
 }
 
+/// Read real system resources using sysinfo.
+///
+/// Returns a `SystemResources` with actual CPU utilization, available memory,
+/// and placeholder GPU/thermal values (GPU detection requires platform-specific
+/// APIs not yet wired). Falls back to neutral defaults if reading fails.
+fn read_system_resources() -> crate::federation::specialist::SystemResources {
+    use sysinfo::{System, RefreshKind, CpuRefreshKind, MemoryRefreshKind};
+
+    let mut sys = System::new_with_specifics(
+        RefreshKind::new()
+            .with_cpu(CpuRefreshKind::new().with_cpu_usage())
+            .with_memory(MemoryRefreshKind::new().with_ram()),
+    );
+    // A second refresh is needed to get accurate CPU delta
+    std::thread::sleep(std::time::Duration::from_millis(50));
+    sys.refresh_cpu();
+    sys.refresh_memory();
+
+    let cpu_used: f32 = sys.cpus().iter().map(|c| c.cpu_usage()).sum::<f32>()
+        / sys.cpus().len().max(1) as f32;
+    let cpu_available = (100.0 - cpu_used).clamp(0.0, 100.0);
+
+    let total_mem = sys.total_memory();
+    let used_mem = sys.used_memory();
+    let free_mem_mb = if total_mem > used_mem {
+        ((total_mem - used_mem) / 1024 / 1024) as u64
+    } else {
+        512 // Minimum fallback
+    };
+
+    crate::federation::specialist::SystemResources {
+        gpu_available_percent: 60.0, // GPU detection requires NVML/Metal — placeholder
+        cpu_available_percent: cpu_available,
+        memory_available_mb: free_mem_mb as u32,
+        thermal_headroom: 0.8, // Thermal requires platform-specific queries — placeholder
+    }
+}
+
 // Intent management methods
 impl Federation {
     /// Submit a new user intent to the federation.
@@ -618,8 +661,24 @@ impl Federation {
     /// Sets the active intent, then immediately runs one proposal collection
     /// cycle. Returns the intent ID for tracking.
     pub async fn submit_intent(&self, intent: Intent) -> String {
+        use crate::federation::enterprise::{AuditEvent, AuditLevel, AuditResult};
+
         let id = intent.id.clone();
         info!("Federation: new intent submitted: '{}' ({})", intent.content, id);
+
+        // Audit the intent submission
+        {
+            let event = AuditEvent::new(
+                intent.context.get("user_id").cloned().unwrap_or_else(|| "anonymous".to_string()),
+                format!("intent_submitted:{}", intent.content.chars().take(60).collect::<String>()),
+                AuditLevel::Info,
+            )
+            .with_resource(id.clone())
+            .with_result(AuditResult::Success)
+            .with_details(format!("priority={:?}, tags={}", intent.priority, intent.tags.join(",")));
+            let _ = self.audit_log.lock().await.record(event);
+        }
+
         *self.active_intent.write().await = Some(intent);
         // Trigger immediate proposal collection
         self.collect_proposals().await;
@@ -724,12 +783,7 @@ impl Federation {
                 fatigue_level: 0.2,
                 activity: intent_activity,
             },
-            system_resources: SystemResources {
-                gpu_available_percent: 60.0,
-                cpu_available_percent: 70.0,
-                memory_available_mb: 4096,
-                thermal_headroom: 0.8,
-            },
+            system_resources: read_system_resources(),
             active_specialists: vec![
                 crate::federation::specialist::SpecialistId::Visionary,
                 crate::federation::specialist::SpecialistId::Omnipresent,
@@ -857,6 +911,26 @@ impl Federation {
     /// Record an execution result. Called by specialists after executing.
     /// Results are accessible via `GET /results` on the HTTP status server.
     pub async fn record_result(&self, result: crate::federation::specialist::ExecutionResult) {
+        use crate::federation::enterprise::{AuditEvent, AuditLevel, AuditResult};
+
+        // Audit the execution result
+        {
+            let audit_result = match result.status {
+                crate::federation::specialist::ExecutionStatus::Success => AuditResult::Success,
+                crate::federation::specialist::ExecutionStatus::Failed => AuditResult::Failure,
+                _ => AuditResult::PartialSuccess,
+            };
+            let event = AuditEvent::new(
+                format!("{:?}", result.specialist),
+                format!("specialist_executed:{}", result.proposal_id),
+                AuditLevel::Info,
+            )
+            .with_resource(result.proposal_id.clone())
+            .with_result(audit_result)
+            .with_details(result.output.chars().take(200).collect::<String>());
+            let _ = self.audit_log.lock().await.record(event);
+        }
+
         let mut results = self.results.lock().await;
         results.push(result);
         // Keep last 100 results
@@ -864,6 +938,20 @@ impl Federation {
             let excess = results.len() - 100;
             results.drain(0..excess);
         }
+    }
+
+    /// Get recent audit events. Useful for the `/status/audit` endpoint.
+    pub async fn recent_audit_events(&self, limit: usize) -> Vec<crate::federation::enterprise::AuditEvent> {
+        let log = self.audit_log.lock().await;
+        log.query(&crate::federation::enterprise::AuditQuery {
+            user_id: None,
+            action: None,
+            level: None,
+            result: None,
+            start_time_ms: None,
+            end_time_ms: None,
+            limit,
+        })
     }
 
     /// Get recent execution results (last N, newest first).
@@ -918,6 +1006,9 @@ impl Federation {
         let phyg = self.phygital.as_ref().map(|h| h.specialist());
         let arch = self.archivist.as_ref().map(|h| h.specialist());
         let results_store = self.results.clone();
+        // Route results back to the originating session
+        let active_intent_arc = self.active_intent.clone();
+        let sessions_arc = self.sessions.clone();
 
         tokio::spawn(async move {
             use crate::federation::specialist::{Specialist, SpecialistId};
@@ -1002,7 +1093,22 @@ impl Federation {
                                                 "Executed: {:?} '{}' → {:?}",
                                                 result.specialist, decision.action, result.status
                                             );
-                                            // Store result
+
+                                            // Route result to the originating session (if any)
+                                            {
+                                                let intent = active_intent_arc.read().await;
+                                                if let Some(intent) = intent.as_ref() {
+                                                    if let Some(session_id) = intent.context.get("session_id").cloned() {
+                                                        drop(intent);
+                                                        let mut sessions = sessions_arc.write().await;
+                                                        if let Some(session) = sessions.get_mut(&session_id) {
+                                                            session.add_result(result.clone());
+                                                        }
+                                                    }
+                                                }
+                                            }
+
+                                            // Store in global results ring buffer
                                             let mut store = results_store.lock().await;
                                             store.push(result);
                                             if store.len() > 100 {

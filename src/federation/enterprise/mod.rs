@@ -15,7 +15,7 @@ pub mod rate_limiting;
 pub mod access_control;
 pub mod analytics;
 
-pub use audit_log::{AuditLog, AuditEvent, AuditLevel, AuditQuery};
+pub use audit_log::{AuditLog, AuditEvent, AuditLevel, AuditQuery, AuditResult};
 pub use compliance::{ComplianceMonitor, ComplianceRule, ComplianceStatus};
 pub use security::{SecurityConfig, TLSConfig, DataEncryption};
 pub use rate_limiting::{RateLimiter, QuotaLimit};

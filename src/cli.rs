@@ -59,6 +59,38 @@ pub enum Commands {
     /// Configuration management
     #[command(subcommand)]
     Config(ConfigCmd),
+
+    /// Synth DNA Forge — GGUF tensor surgery
+    ///
+    /// Crystallize hybrid AI agents by splicing tensors from multiple GGUF models.
+    /// This is the Rust-native implementation of the tensor_forge enzyme.
+    #[command(subcommand)]
+    Forge(ForgeCmd),
+}
+
+#[derive(Subcommand, Debug)]
+pub enum ForgeCmd {
+    /// Crystallize a hybrid GGUF from a splice recipe
+    Crystallize {
+        /// Path to the splice recipe JSON file
+        #[arg(long, short = 'r')]
+        recipe: PathBuf,
+
+        /// Path to the GGUF index JSON file (maps model names → file paths + tensor offsets)
+        #[arg(long, short = 'i')]
+        index: PathBuf,
+
+        /// Output path for the crystallized GGUF
+        #[arg(long, short = 'o')]
+        output: PathBuf,
+    },
+
+    /// Inspect a GGUF file's metadata and tensor list
+    Inspect {
+        /// Path to the GGUF file to inspect
+        #[arg(long, short = 'f')]
+        file: PathBuf,
+    },
 }
 
 #[derive(Subcommand, Debug)]
@@ -291,6 +323,79 @@ pub async fn execute(args: CliArgs) -> Result<(), Box<dyn std::error::Error>> {
         Commands::Query(cmd) => execute_query(cmd, &args.db_path).await?,
         Commands::Status(cmd) => execute_status(cmd, &args.db_path).await?,
         Commands::Config(cmd) => execute_config(cmd).await?,
+        Commands::Forge(cmd) => execute_forge(cmd).await?,
+    }
+
+    Ok(())
+}
+
+/// Execute forge subcommands
+async fn execute_forge(cmd: ForgeCmd) -> Result<(), Box<dyn std::error::Error>> {
+    use crate::federation::forge::{Forge, ForgeRecipe, GgufIndex};
+
+    match cmd {
+        ForgeCmd::Crystallize { recipe, index, output } => {
+            // Load recipe from JSON file
+            let recipe_json = tokio::fs::read_to_string(&recipe).await
+                .map_err(|e| format!("Failed to read recipe '{}'': {}", recipe.display(), e))?;
+            let recipe: ForgeRecipe = serde_json::from_str(&recipe_json)
+                .map_err(|e| format!("Invalid recipe JSON: {}", e))?;
+
+            // Load index from JSON file
+            let index_json = tokio::fs::read_to_string(&index).await
+                .map_err(|e| format!("Failed to read index '{}': {}", index.display(), e))?;
+            let index: GgufIndex = serde_json::from_str(&index_json)
+                .map_err(|e| format!("Invalid index JSON: {}", e))?;
+
+            println!("Crystallizing hybrid GGUF from recipe '{}'...", recipe.recipe_id);
+            println!("  Segments:    {}", recipe.segments.len());
+            println!("  Source GGUFs: {}", index.len());
+            println!("  Output:      {}", output.display());
+            println!();
+
+            let mut forge = Forge::new();
+            let result = forge.crystallize(&recipe, &index, &output).await
+                .map_err(|e| format!("Crystallization failed: {}", e))?;
+
+            println!("Crystallization complete!");
+            println!("  Tensors spliced: {}", result.tensors_spliced);
+            println!("  Bytes written:   {} ({:.1} MB)", result.bytes_written,
+                     result.bytes_written as f64 / 1_048_576.0);
+            println!("  Output:          {}", result.output_path.display());
+            println!();
+            for t in &result.spliced_tensors {
+                println!("  ✓ {} from {} ({} bytes{})",
+                         t.name,
+                         t.source,
+                         t.size,
+                         t.kind.as_ref().map(|k| format!(", kind={}", k)).unwrap_or_default());
+            }
+        }
+
+        ForgeCmd::Inspect { file } => {
+            if !file.exists() {
+                return Err(format!("File not found: {}", file.display()).into());
+            }
+            let metadata = std::fs::metadata(&file)
+                .map_err(|e| format!("Cannot read file '{}': {}", file.display(), e))?;
+
+            // Read GGUF magic bytes
+            let mut magic = [0u8; 4];
+            let mut f = std::fs::File::open(&file)
+                .map_err(|e| format!("Cannot open file: {}", e))?;
+            use std::io::Read;
+            f.read_exact(&mut magic).ok();
+
+            println!("GGUF Inspection: {}", file.display());
+            println!("  Size:  {} bytes ({:.1} MB)", metadata.len(),
+                     metadata.len() as f64 / 1_048_576.0);
+            println!("  Magic: {} ({})",
+                     String::from_utf8_lossy(&magic),
+                     if &magic == b"GGUF" { "valid GGUF" } else { "NOT a GGUF file" });
+            println!();
+            println!("  Note: Full tensor table inspection requires the llama-gguf feature.");
+            println!("  Build with: cargo run --features llama-gguf -- forge inspect ...");
+        }
     }
 
     Ok(())
@@ -379,10 +484,15 @@ async fn execute_start(
         println!("  GET  http://{}/sessions                 list active sessions", addr);
         println!("  GET  http://{}/sessions/{{id}}            get session details", addr);
         println!("  POST http://{}/sessions/{{id}}/intent    submit intent for session", addr);
+        println!("  GET  http://{}/sessions/{{id}}/results   per-session execution results", addr);
         println!();
         println!("HTTP API — intents (anonymous):");
         println!("  GET  http://{}/intent                   current active intent", addr);
         println!("  POST http://{}/intent                   submit intent (anonymous)", addr);
+        println!();
+        println!("HTTP API — observability:");
+        println!("  GET  http://{}/audit                    recent audit events", addr);
+        println!("  GET  http://{}/cluster                  multi-hive cluster status", addr);
         println!();
         println!("Quick start:");
         println!("  # 1. Create a session");
@@ -395,8 +505,8 @@ async fn execute_start(
         println!("       -H 'Content-Type: application/json' \\");
         println!("       -d '{{\"content\": \"redesign the dashboard\", \"priority\": \"High\"}}'");
         println!();
-        println!("  # 3. Get results");
-        println!("  curl http://{}/results", addr);
+        println!("  # 3. Get session results");
+        println!("  curl http://{}/sessions/{{session_id}}/results", addr);
         println!();
     }
     println!("Sentinel is arbitrating proposals every 500ms.");

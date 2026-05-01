@@ -48,6 +48,9 @@ pub fn router(state: AppState) -> Router {
         .route("/sessions", get(list_sessions).post(create_session))
         .route("/sessions/:id", get(get_session_by_id))
         .route("/sessions/:id/intent", post(submit_session_intent))
+        .route("/sessions/:id/results", get(get_session_results))
+        // Audit log
+        .route("/audit", get(get_audit_log))
         // Multi-hive cluster status
         .route("/cluster", get(cluster_status))
         .with_state(state)
@@ -388,6 +391,72 @@ async fn submit_session_intent(
         )
             .into_response(),
     }
+}
+
+/// GET /sessions/:id/results — execution results for a specific session.
+///
+/// Returns all `ExecutionResult`s associated with this session's intents,
+/// newest first. Results are stored on the `Session` object as specialists
+/// execute decisions routed to that session.
+async fn get_session_results(
+    State(state): State<AppState>,
+    Path(session_id): Path<String>,
+) -> impl IntoResponse {
+    let session = state.federation.get_session(&session_id).await;
+    match session {
+        None => (
+            StatusCode::NOT_FOUND,
+            Json(serde_json::json!({"message": format!("Session '{}' not found", session_id)})),
+        )
+            .into_response(),
+        Some(s) => {
+            let results: Vec<serde_json::Value> = s.results.iter().rev().map(|r| serde_json::json!({
+                "specialist": format!("{:?}", r.specialist),
+                "proposal_id": r.proposal_id,
+                "status": format!("{:?}", r.status),
+                "output": r.output,
+                "duration_ms": r.duration_ms,
+                "error": r.error,
+            })).collect();
+
+            Json(serde_json::json!({
+                "session_id": session_id,
+                "user_name": s.user_name,
+                "result_count": results.len(),
+                "results": results,
+            }))
+            .into_response()
+        }
+    }
+}
+
+// ====================================================================
+// Audit log endpoint
+// ====================================================================
+
+/// GET /audit — recent audit events
+///
+/// Returns the last 50 audit events from the federation's audit log,
+/// newest first. Events include intent submissions, specialist executions,
+/// and session activities.
+async fn get_audit_log(State(state): State<AppState>) -> Json<serde_json::Value> {
+    let events = state.federation.recent_audit_events(50).await;
+
+    let events_json: Vec<serde_json::Value> = events.iter().map(|e| serde_json::json!({
+        "event_id": e.event_id,
+        "timestamp_ms": e.timestamp_ms,
+        "user_id": e.user_id,
+        "action": e.action,
+        "level": format!("{:?}", e.level),
+        "resource": e.resource,
+        "result": format!("{:?}", e.result),
+        "details": e.details,
+    })).collect();
+
+    Json(serde_json::json!({
+        "count": events_json.len(),
+        "events": events_json,
+    }))
 }
 
 // ====================================================================

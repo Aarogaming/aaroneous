@@ -57,6 +57,8 @@ thiserror = "2.0"
 futures-core = "0.3"
 futures-util = "0.3"
 memmap2 = "0.9"
+# sysinfo: cross-platform system metrics (CPU, memory) for real resource readings
+sysinfo = "0.30"
 moka = { version = "0.12", features = ["future"] }
 regex = "1.10"
 which = "5.0"
