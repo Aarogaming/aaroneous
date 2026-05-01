@@ -6,7 +6,7 @@
 use crate::federation::hive::{Federation, LearningSummary, SpecialistLearningSummary};
 use crate::federation::forge;
 use axum::{
-    extract::{Path, State},
+    extract::{Path, Query, State},
     http::StatusCode,
     response::{sse::{Event, KeepAlive, Sse}, IntoResponse, Json},
     routing::{get, post, delete},
@@ -58,6 +58,11 @@ pub fn router(state: AppState) -> Router {
         .route("/audit", get(get_audit_log))
         // Learning confidence trends (time-series)
         .route("/learning/trends", get(get_learning_trends))
+        // Dynamic specialist management
+        .route("/dynamic-specialists",         get(list_dynamic_specialists).post(add_dynamic_specialist))
+        .route("/dynamic-specialists/reload",  post(reload_dynamic_specialists))
+        // Models directory listing
+        .route("/models",                 get(list_models))
         // Forge: GGUF inspection, auto-recipe generation, and crystallization
         .route("/forge/inspect",          post(forge_inspect))
         .route("/forge/auto-recipe",      post(forge_auto_recipe))
@@ -582,13 +587,39 @@ async fn stream_session_results(
 // Audit log endpoint
 // ====================================================================
 
-/// GET /audit — recent audit events
+/// Query parameters for `GET /audit`
+#[derive(Deserialize, Default)]
+struct AuditQueryParams {
+    /// Max events to return (default 50, max 1000)
+    limit: Option<usize>,
+    /// Return only events with timestamp_ms ≥ since_ms
+    since_ms: Option<u64>,
+    /// Return only events with timestamp_ms ≤ until_ms
+    until_ms: Option<u64>,
+    /// Filter by user_id
+    user_id: Option<String>,
+}
+
+/// GET /audit — recent audit events with optional pagination
 ///
-/// Returns the last 50 audit events from the federation's audit log,
-/// newest first. Events include intent submissions, specialist executions,
-/// and session activities.
-async fn get_audit_log(State(state): State<AppState>) -> Json<serde_json::Value> {
-    let events = state.federation.recent_audit_events(50).await;
+/// Query parameters:
+/// - `?limit=N` — return at most N events (default 50, max 1000)
+/// - `?since_ms=UNIX_MS` — only events after this timestamp
+/// - `?until_ms=UNIX_MS` — only events before this timestamp
+/// - `?user_id=USER` — filter by user identity
+///
+/// Example:
+/// ```sh
+/// curl 'http://localhost:8765/audit?limit=100&since_ms=1746000000000'
+/// ```
+async fn get_audit_log(
+    State(state): State<AppState>,
+    Query(params): Query<AuditQueryParams>,
+) -> Json<serde_json::Value> {
+    let limit = params.limit.unwrap_or(50);
+    let events = state.federation.query_audit_events(
+        limit, params.since_ms, params.until_ms, params.user_id
+    ).await;
 
     let events_json: Vec<serde_json::Value> = events.iter().map(|e| serde_json::json!({
         "event_id": e.event_id,
@@ -603,6 +634,9 @@ async fn get_audit_log(State(state): State<AppState>) -> Json<serde_json::Value>
 
     Json(serde_json::json!({
         "count": events_json.len(),
+        "limit": limit,
+        "since_ms": params.since_ms,
+        "until_ms": params.until_ms,
         "events": events_json,
     }))
 }
@@ -686,6 +720,254 @@ async fn cluster_status(State(state): State<AppState>) -> Json<serde_json::Value
             "nodes": nodes,
         }))
     }
+}
+
+// ====================================================================
+// Models directory listing
+// ====================================================================
+
+/// GET /models — list all GGUF files in the models directory
+///
+/// Scans `D:\Aaroneous\models\` (or the current working directory `./models/`)
+/// and returns metadata for each `.gguf` file found.  For small models (<500MB),
+/// also reads the GGUF header to return architecture and tensor count.
+async fn list_models() -> impl IntoResponse {
+    let search_paths = [
+        std::path::PathBuf::from("D:\\Aaroneous\\models"),
+        std::path::PathBuf::from("./models"),
+    ];
+
+    let mut models = Vec::new();
+    let mut searched_paths = Vec::new();
+
+    for models_dir in &search_paths {
+        searched_paths.push(models_dir.to_string_lossy().to_string());
+        if !models_dir.exists() { continue; }
+
+        let Ok(entries) = std::fs::read_dir(models_dir) else { continue };
+
+        for entry in entries.filter_map(|e| e.ok()) {
+            let path = entry.path();
+            let Some(ext) = path.extension() else { continue };
+            if ext != "gguf" { continue; }
+
+            let file_size = entry.metadata().map(|m| m.len()).unwrap_or(0);
+            let file_name = path.file_name()
+                .map(|n| n.to_string_lossy().to_string())
+                .unwrap_or_default();
+
+            // For files under 2GB, try to read the header
+            let header = if file_size < 2 * 1024 * 1024 * 1024 {
+                match forge::read_gguf(&path) {
+                    Ok((_idx, meta)) => serde_json::json!({
+                        "version": meta.version,
+                        "architecture": meta.architecture,
+                        "model_name": meta.model_name,
+                        "context_length": meta.context_length,
+                        "tensor_count": meta.tensor_count,
+                    }),
+                    Err(_) => serde_json::Value::Null,
+                }
+            } else {
+                serde_json::Value::Null
+            };
+
+            models.push(serde_json::json!({
+                "file_name": file_name,
+                "path": path.to_string_lossy(),
+                "size_bytes": file_size,
+                "size_mb": file_size as f64 / 1_048_576.0,
+                "header": header,
+            }));
+        }
+    }
+
+    Json(serde_json::json!({
+        "count": models.len(),
+        "searched_paths": searched_paths,
+        "models": models,
+    }))
+}
+
+// ====================================================================
+// Dynamic specialist management
+// ====================================================================
+
+/// GET /dynamic-specialists — list all currently-loaded GenericSpecialists
+async fn list_dynamic_specialists(
+    State(state): State<AppState>,
+) -> Json<serde_json::Value> {
+    let specialists = state.federation.dynamic_specialists().await;
+    let list: Vec<serde_json::Value> = specialists.iter().map(|s| {
+        let l = s.learning.lock();
+        serde_json::json!({
+            "name": s.name,
+            "domain": s.domain,
+            "persistence_key": s.persistence_key,
+            "has_llm": s.has_llm(),
+            "model_path": s.model_path.as_ref().map(|p| p.to_string_lossy().to_string()),
+            "total_executions": l.total_executions,
+            "confidence_score": l.confidence_score,
+            "last_updated": l.last_updated,
+        })
+    }).collect();
+
+    Json(serde_json::json!({
+        "count": list.len(),
+        "specialists": list,
+    }))
+}
+
+/// Request body for POST /dynamic-specialists
+#[derive(Deserialize)]
+struct AddDynamicSpecialistRequest {
+    /// Display name (e.g. "CodeReviewer")
+    name: String,
+    /// Domain label (e.g. "code_review")
+    domain: String,
+    /// Optional path to GGUF model. If absent or file not found, uses MockLLM.
+    gguf_path: Option<String>,
+}
+
+/// POST /dynamic-specialists — add a new GenericSpecialist at runtime (no restart needed)
+///
+/// Example:
+/// ```json
+/// {
+///   "name": "CodeReviewer",
+///   "domain": "code_review",
+///   "gguf_path": "D:\\Aaroneous\\models\\qwen-code-1.5b.gguf"
+/// }
+/// ```
+async fn add_dynamic_specialist(
+    State(state): State<AppState>,
+    Json(req): Json<AddDynamicSpecialistRequest>,
+) -> impl IntoResponse {
+    use crate::federation::specialists::GenericSpecialist;
+    use std::sync::Arc;
+
+    // Check for duplicate name
+    let existing = state.federation.dynamic_specialists().await;
+    if existing.iter().any(|s| s.name == req.name) {
+        return (
+            StatusCode::CONFLICT,
+            Json(serde_json::json!({
+                "ok": false,
+                "error": format!("A specialist named '{}' is already loaded", req.name),
+            })),
+        ).into_response();
+    }
+
+    let specialist = if let Some(ref path) = req.gguf_path {
+        let p = std::path::Path::new(path);
+        if p.exists() {
+            GenericSpecialist::new(&req.name, &req.domain)
+                .with_gguf_path(p).await
+        } else {
+            match GenericSpecialist::new(&req.name, &req.domain).with_mock_llm().await {
+                Ok(s) => s,
+                Err(e) => return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(serde_json::json!({ "ok": false, "error": e.to_string() })),
+                ).into_response(),
+            }
+        }
+    } else {
+        match GenericSpecialist::new(&req.name, &req.domain).with_mock_llm().await {
+            Ok(s) => s,
+            Err(e) => return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({ "ok": false, "error": e.to_string() })),
+            ).into_response(),
+        }
+    };
+
+    state.federation.add_generic_specialist(Arc::new(specialist)).await;
+
+    Json(serde_json::json!({
+        "ok": true,
+        "name": req.name,
+        "domain": req.domain,
+        "model": req.gguf_path,
+        "total_dynamic": state.federation.dynamic_specialists().await.len(),
+    })).into_response()
+}
+
+/// POST /dynamic-specialists/reload — re-read specialist_registry.json and
+/// add any newly-enabled dynamic specialists (without removing existing ones).
+async fn reload_dynamic_specialists(
+    State(state): State<AppState>,
+) -> impl IntoResponse {
+    use crate::federation::specialists::GenericSpecialist;
+    use std::sync::Arc;
+
+    let registry_path = std::path::Path::new("D:\\Aaroneous\\config\\specialist_registry.json");
+    if !registry_path.exists() {
+        return (
+            StatusCode::NOT_FOUND,
+            Json(serde_json::json!({
+                "ok": false,
+                "error": "specialist_registry.json not found",
+            })),
+        ).into_response();
+    }
+
+    let content = match std::fs::read_to_string(registry_path) {
+        Ok(c) => c,
+        Err(e) => return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({ "ok": false, "error": e.to_string() })),
+        ).into_response(),
+    };
+
+    let registry: serde_json::Value = match serde_json::from_str(&content) {
+        Ok(v) => v,
+        Err(e) => return (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({ "ok": false, "error": e.to_string() })),
+        ).into_response(),
+    };
+
+    let existing_names: std::collections::HashSet<String> = state.federation
+        .dynamic_specialists().await
+        .iter().map(|s| s.name.clone()).collect();
+
+    let mut added = Vec::new();
+    let mut skipped = Vec::new();
+
+    if let Some(entries) = registry
+        .get("dynamic_specialists")
+        .and_then(|d| d.get("examples"))
+        .and_then(|e| e.as_array())
+    {
+        for entry in entries {
+            let enabled = entry.get("enabled").and_then(|e| e.as_bool()).unwrap_or(false);
+            if !enabled { continue; }
+
+            let name = entry.get("name").and_then(|n| n.as_str()).unwrap_or("Unknown");
+            let domain = entry.get("domain").and_then(|d| d.as_str()).unwrap_or("general");
+            let gguf_path = entry.get("gguf_path").and_then(|g| g.as_str()).unwrap_or("");
+
+            if existing_names.contains(name) {
+                skipped.push(serde_json::json!({ "name": name, "reason": "already loaded" }));
+                continue;
+            }
+
+            let specialist = GenericSpecialist::new(name, domain)
+                .with_gguf_path(gguf_path).await;
+            state.federation.add_generic_specialist(Arc::new(specialist)).await;
+            added.push(serde_json::json!({ "name": name, "domain": domain, "gguf": gguf_path }));
+        }
+    }
+
+    Json(serde_json::json!({
+        "ok": true,
+        "added": added.len(),
+        "skipped": skipped.len(),
+        "new_specialists": added,
+        "skipped_specialists": skipped,
+        "total_dynamic": state.federation.dynamic_specialists().await.len(),
+    })).into_response()
 }
 
 // ====================================================================

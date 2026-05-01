@@ -787,6 +787,7 @@ async fn run_decision(
     phyg: &Option<Arc<crate::federation::specialists::Phygital>>,
     arch: &Option<Arc<crate::federation::specialists::Archivist>>,
     dyn_specialists: &[Arc<crate::federation::specialists::GenericSpecialist>],
+    persistence: &SharedPersistence,
     results_store: &Arc<tokio::sync::Mutex<Vec<crate::federation::specialist::ExecutionResult>>>,
     active_intent_arc: &Arc<RwLock<Option<Intent>>>,
     sessions_arc: &Arc<RwLock<crate::federation::session::SessionManager>>,
@@ -915,12 +916,60 @@ async fn run_decision(
         }
 
         // Global ring buffer
-        let mut store = results_store.lock().await;
-        store.push(result);
-        if store.len() > 100 {
-            let excess = store.len() - 100;
-            store.drain(0..excess);
+        {
+            let mut store = results_store.lock().await;
+            store.push(result.clone());
+            if store.len() > 100 {
+                let excess = store.len() - 100;
+                store.drain(0..excess);
+            }
         }
+
+        // Flush learning to SQLite immediately after execution so a crash
+        // between 30s checkpoint ticks doesn't lose this learning update.
+        // Uses spawn_blocking since save_learning_to() does a sync SQLite write.
+        let pm_arc = persistence.clone();
+        let specialist_id = result.specialist;
+        let ds_name = result.specialist_name.clone();
+        let vis_cp = vis.clone();
+        let omni_cp = omni.clone();
+        let symb_cp = symb.clone();
+        let phyg_cp = phyg.clone();
+        let arch_cp = arch.clone();
+        let dyn_cp: Vec<_> = dyn_specialists.to_vec();
+
+        tokio::spawn(async move {
+            use crate::federation::specialist::SpecialistId;
+            let pm = pm_arc.lock().await;
+
+            macro_rules! save_if_some {
+                ($opt:expr) => {
+                    if let Some(ref s) = $opt {
+                        if let Err(e) = s.save_learning_to(&pm) {
+                            warn!("Post-execute checkpoint failed for {:?}: {}", specialist_id, e);
+                        }
+                    }
+                }
+            }
+
+            match specialist_id {
+                SpecialistId::Visionary   => save_if_some!(vis_cp),
+                SpecialistId::Omnipresent => save_if_some!(omni_cp),
+                SpecialistId::Symbiotic   => save_if_some!(symb_cp),
+                SpecialistId::Phygital    => save_if_some!(phyg_cp),
+                SpecialistId::Archivist   => save_if_some!(arch_cp),
+                _ => {
+                    if let Some(ref name) = ds_name {
+                        if let Some(s) = dyn_cp.iter().find(|s| &s.name == name) {
+                            if let Err(e) = s.save_learning_to(&*pm) {
+                                warn!("GenericSpecialist '{}' post-exec checkpoint failed: {}", name, e);
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
         true
     } else {
         false
@@ -969,17 +1018,51 @@ fn read_system_resources_sync() -> crate::federation::specialist::SystemResource
     }
 }
 
-/// Async wrapper: reads system resources on the blocking thread pool so the
-/// tokio executor is never blocked.
+/// Cached system resources to avoid 10 concurrent sysinfo reads when
+/// multiple intents arrive simultaneously. The cache expires after 2 seconds.
+static CACHED_RESOURCES: std::sync::OnceLock<
+    tokio::sync::Mutex<(
+        crate::federation::specialist::SystemResources,
+        std::time::Instant,
+    )>
+> = std::sync::OnceLock::new();
+
+/// Async wrapper: reads system resources, using a 2-second in-process cache
+/// to prevent N concurrent intent submissions from each spawning a 30ms blocking read.
 async fn read_system_resources() -> crate::federation::specialist::SystemResources {
-    tokio::task::spawn_blocking(read_system_resources_sync)
+    let cache = CACHED_RESOURCES.get_or_init(|| {
+        tokio::sync::Mutex::new((
+            crate::federation::specialist::SystemResources {
+                gpu_available_percent: 60.0,
+                cpu_available_percent: 70.0,
+                memory_available_mb: 2048,
+                thermal_headroom: 0.8,
+            },
+            // Set initial expiry to the past so the first call always refreshes
+            std::time::Instant::now() - std::time::Duration::from_secs(10),
+        ))
+    });
+
+    let mut guard = cache.lock().await;
+    let age = guard.1.elapsed();
+
+    if age < std::time::Duration::from_secs(2) {
+        // Cache hit — return without hitting sysinfo
+        return guard.0.clone();
+    }
+
+    // Cache miss — refresh
+    let fresh = tokio::task::spawn_blocking(read_system_resources_sync)
         .await
         .unwrap_or_else(|_| crate::federation::specialist::SystemResources {
             gpu_available_percent: 60.0,
-            cpu_available_percent: 70.0,  // safe fallback
+            cpu_available_percent: 70.0,
             memory_available_mb: 2048,
             thermal_headroom: 0.8,
-        })
+        });
+
+    *guard = (fresh.clone(), std::time::Instant::now());
+    fresh
 }
 
 // Intent management methods
@@ -1355,6 +1438,7 @@ impl Federation {
             &phyg,
             &arch,
             &dyn_vec,
+            &self.persistence,
             &self.results,
             &self.active_intent,
             &self.sessions,
@@ -1410,6 +1494,33 @@ impl Federation {
             result: None,
             start_time_ms: None,
             end_time_ms: None,
+            limit,
+        })
+    }
+
+    /// Query audit events with full filter support.
+    ///
+    /// - `limit`: max events to return (default 50, max 1000)
+    /// - `since_ms`: only return events with `timestamp_ms >= since_ms`
+    /// - `until_ms`: only return events with `timestamp_ms <= until_ms`
+    /// - `user_id`: filter by user identity
+    /// - `action_contains`: filter where action contains this substring
+    pub async fn query_audit_events(
+        &self,
+        limit: usize,
+        since_ms: Option<u64>,
+        until_ms: Option<u64>,
+        user_id: Option<String>,
+    ) -> Vec<crate::federation::enterprise::AuditEvent> {
+        let limit = limit.min(1000); // hard cap
+        let log = self.audit_log.lock().await;
+        log.query(&crate::federation::enterprise::AuditQuery {
+            user_id,
+            action: None,
+            level: None,
+            result: None,
+            start_time_ms: since_ms,
+            end_time_ms: until_ms,
             limit,
         })
     }
@@ -1471,6 +1582,7 @@ impl Federation {
         let phyg = self.phygital.as_ref().map(|h| h.specialist());
         let arch = self.archivist.as_ref().map(|h| h.specialist());
         let dynamic_arc = self.dynamic.clone();
+        let persistence_arc = self.persistence.clone();
         let results_store = self.results.clone();
         // Route results back to the originating session
         let active_intent_arc = self.active_intent.clone();
@@ -1553,6 +1665,7 @@ impl Federation {
                                             &phyg,
                                             &arch,
                                             &dyn_vec,
+                                            &persistence_arc,
                                             &results_store,
                                             &active_intent_arc,
                                             &sessions_arc,
