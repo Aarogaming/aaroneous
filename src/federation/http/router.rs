@@ -7,11 +7,14 @@ use crate::federation::hive::{Federation, LearningSummary, SpecialistLearningSum
 use crate::federation::forge;
 use axum::{
     extract::{Path, Query, State},
-    http::StatusCode,
-    response::{sse::{Event, KeepAlive, Sse}, IntoResponse, Json},
+    http::{HeaderMap, Method, StatusCode},
+    middleware::{self, Next},
+    response::{sse::{Event, KeepAlive, Sse}, IntoResponse, Json, Response},
     routing::{get, post, delete},
     Router,
+    body::Body,
 };
+use tower_http::cors::{CorsLayer, AllowOrigin, Any};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use std::convert::Infallible;
@@ -36,7 +39,67 @@ impl AppState {
 /// Returns a `Router` that callers can either:
 /// - Serve directly via `axum::serve` (the `HttpStatusServer` does this), OR
 /// - Drive in-process via `tower::ServiceExt::oneshot` for testing.
+/// API key authentication middleware.
+///
+/// Reads `AARONEOUS_API_KEY` from the environment at call time.
+/// If set, every request to any route other than `/healthz` and `/readyz`
+/// must include `Authorization: Bearer <key>` (case-insensitive prefix).
+/// If the env var is unset, auth is disabled — development mode.
+///
+/// Set the key before starting the server:
+/// ```sh
+/// $env:AARONEOUS_API_KEY = "my-secret-key"
+/// cargo run --bin aaroneous -- start
+/// ```
+async fn api_key_auth(
+    headers: HeaderMap,
+    req: axum::extract::Request<Body>,
+    next: Next,
+) -> Response {
+    let Some(required_key) = std::env::var("AARONEOUS_API_KEY").ok() else {
+        // Auth disabled — pass through
+        return next.run(req).await;
+    };
+
+    // Allow liveness/readiness probes without auth
+    let path = req.uri().path();
+    if path == "/healthz" || path == "/readyz" {
+        return next.run(req).await;
+    }
+
+    let provided = headers
+        .get("authorization")
+        .and_then(|v| v.to_str().ok())
+        .and_then(|s| s.strip_prefix("Bearer ").or_else(|| s.strip_prefix("bearer ")));
+
+    match provided {
+        Some(key) if key == required_key => next.run(req).await,
+        _ => (
+            StatusCode::UNAUTHORIZED,
+            Json(serde_json::json!({
+                "error": "Unauthorized",
+                "message": "Set Authorization: Bearer <AARONEOUS_API_KEY>"
+            })),
+        ).into_response(),
+    }
+}
+
 pub fn router(state: AppState) -> Router {
+    // CORS: allow any origin by default.
+    // In production, set AARONEOUS_CORS_ORIGIN=https://yourdomain.com
+    // to restrict to a specific origin.
+    let cors = match std::env::var("AARONEOUS_CORS_ORIGIN") {
+        Ok(origin) if !origin.is_empty() => {
+            let hv: axum::http::HeaderValue = origin.parse()
+                .unwrap_or_else(|_| axum::http::HeaderValue::from_static("*"));
+            CorsLayer::new()
+                .allow_origin(AllowOrigin::exact(hv))
+                .allow_methods([Method::GET, Method::POST, Method::DELETE, Method::OPTIONS])
+                .allow_headers(Any)
+        }
+        _ => CorsLayer::permissive(), // Dev mode: allow any origin
+    };
+
     Router::new()
         .route("/healthz", get(healthz))
         .route("/readyz", get(readyz))
@@ -71,6 +134,9 @@ pub fn router(state: AppState) -> Router {
         // Multi-hive cluster status
         .route("/cluster", get(cluster_status))
         .with_state(state)
+        // Apply CORS and auth layers to all routes
+        .layer(cors)
+        .layer(middleware::from_fn(api_key_auth))
 }
 
 // ====================================================================

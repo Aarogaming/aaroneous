@@ -230,6 +230,39 @@ impl Visionary {
         self
     }
 
+    /// Create a Visionary backed by a real GGUF model file.
+    ///
+    /// Requires the `llama-gguf` feature to be enabled at compile time
+    /// (`cargo run --features llama-gguf`) AND a `.gguf` model file at `path`.
+    ///
+    /// Falls back to `with_mock_llm()` if the file doesn't exist, so calling
+    /// code doesn't need to branch.
+    pub async fn with_gguf_path(path: impl Into<std::path::PathBuf>) -> Self {
+        let path = path.into();
+        let config = LLMConfig {
+            provider_type: ProviderType::GGUF,
+            temperature: 0.8,
+            max_tokens: 512,
+            timeout_secs: 60,
+            enable_caching: true,
+            cache_ttl_secs: 600,
+            gguf_model_path: Some(path.clone()),
+        };
+        match LLMClient::new(config).await {
+            Ok(client) => {
+                tracing::info!("Visionary: GGUF loaded from {}", path.display());
+                Self::new().with_llm(Arc::new(client))
+            }
+            Err(e) => {
+                tracing::warn!(
+                    "Visionary: GGUF load failed for {} ({}), falling back to MockLLM",
+                    path.display(), e
+                );
+                Self::with_mock_llm().await.unwrap_or_else(|_| Self::new())
+            }
+        }
+    }
+
     /// Create a Visionary with a MockProvider LLM (fast, no GGUF required).
     /// Useful for testing and development without a real model installed.
     pub async fn with_mock_llm() -> Result<Self, anyhow::Error> {

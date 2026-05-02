@@ -464,44 +464,32 @@ async fn execute_start(
         .map_err(|e| format!("Failed to open database at {}: {}", db_path, e))?;
     info!("Database opened: {}", db_path);
 
-    // Visionary: try real GGUF model first (from registry path), fall back to
-    // MockLLM so generate_design() always produces non-empty output.
-    // Real GGUF model placement: D:\Aaroneous\models\visionary-qwen2.5-1.5b.gguf
-    // (See config/specialist_registry.json → federation_core_specialists.Visionary)
+    // Visionary: probe known GGUF model paths in order, fall back to MockLLM.
+    // To use real LLM inference: place a Qwen2.5 GGUF in models/ AND compile
+    // with `cargo run --features llama-gguf -- start`.
+    // See config/specialist_registry.json → federation_core_specialists.Visionary
     use crate::federation::specialists::Visionary;
-    let visionary_gguf_path = std::path::Path::new("D:\\Aaroneous\\models\\visionary-qwen2.5-1.5b.gguf");
-    let visionary = if visionary_gguf_path.exists() {
-        // Real GGUF model found — wire it up
-        use crate::llm::{LLMClient, LLMConfig, ProviderType};
-        let config = LLMConfig {
-            provider_type: ProviderType::GGUF,
-            temperature: 0.8,
-            max_tokens: 512,
-            timeout_secs: 30,
-            enable_caching: true,
-            cache_ttl_secs: 600,
-            gguf_model_path: Some(visionary_gguf_path.to_path_buf()),
-        };
-        match LLMClient::new(config).await {
-            Ok(client) => {
-                info!("Visionary: GGUF model loaded from {}", visionary_gguf_path.display());
-                std::sync::Arc::new(Visionary::new().with_llm(std::sync::Arc::new(client)))
-            }
-            Err(e) => {
-                tracing::warn!("Visionary: GGUF load failed ({}), falling back to MockLLM", e);
-                match Visionary::with_mock_llm().await {
-                    Ok(v) => std::sync::Arc::new(v),
-                    Err(_) => std::sync::Arc::new(Visionary::new()),
-                }
-            }
-        }
+    let gguf_search = [
+        "D:\\Aaroneous\\models\\visionary-qwen2.5-1.5b.gguf",
+        "D:\\Aaroneous\\models\\qwen2.5-1.5b-instruct-abliterated.gguf",
+        "D:\\Aaroneous\\models\\qwen2.5-1.5b.gguf",
+        "D:\\Aaroneous\\models\\qwen2.5-0.5b.gguf",
+        "./models/qwen2.5-1.5b.gguf",
+        "./models/qwen-1.8b.gguf",
+    ];
+    let found_gguf = gguf_search.iter()
+        .map(std::path::Path::new)
+        .find(|p| p.exists());
+
+    let visionary = if let Some(gguf_path) = found_gguf {
+        info!("Visionary: GGUF found at {} — using real inference (requires --features llama-gguf)", gguf_path.display());
+        std::sync::Arc::new(Visionary::with_gguf_path(gguf_path).await)
     } else {
-        // No GGUF on disk — use MockLLM for development / CI
+        info!("Visionary: no GGUF found — using MockLLM (structured output, no real inference)");
+        info!("  To enable real inference: place a Qwen2.5 .gguf in D:\\Aaroneous\\models\\");
+        info!("  then rebuild with: cargo run --features llama-gguf -- start");
         match Visionary::with_mock_llm().await {
-            Ok(v) => {
-                info!("Visionary: MockLLM attached (no GGUF at {})", visionary_gguf_path.display());
-                std::sync::Arc::new(v)
-            }
+            Ok(v) => std::sync::Arc::new(v),
             Err(e) => {
                 tracing::warn!("Visionary: MockLLM failed ({}), falling back to rule-based", e);
                 std::sync::Arc::new(Visionary::new())
@@ -605,6 +593,19 @@ async fn execute_start(
     println!("  Symbiotic    Biometric user state classification");
     println!("  Phygital     AR/VR spatial rendering");
     println!("  Archivist    DNA Bank memory & consolidation");
+    // Print inference mode
+    #[cfg(feature = "llama-gguf")]
+    println!("Inference mode: REAL (llama-gguf feature enabled)");
+    #[cfg(not(feature = "llama-gguf"))]
+    {
+        println!("Inference mode: MOCK (structured output, no real LLM)");
+        println!("  → For real inference: cargo run --features llama-gguf -- start");
+    }
+    if std::env::var("AARONEOUS_API_KEY").is_ok() {
+        println!("Auth: API key required (AARONEOUS_API_KEY is set)");
+    } else {
+        println!("Auth: DISABLED — set AARONEOUS_API_KEY env var to protect the API");
+    }
     println!();
     if let Some(addr) = local_addr {
         println!("HTTP API — system:");
@@ -687,37 +688,79 @@ async fn execute_start(
 /// Execute specialist commands
 async fn execute_specialist(
     cmd: SpecialistCmd,
-    _db_path: &str,
+    db_path: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
     match cmd {
         SpecialistCmd::Create { name, archetype, xp } => {
             info!("Creating specialist: {} ({})", name, archetype);
-            println!("✅ Specialist '{}' created with {} XP", name, xp);
-            println!("📊 Starting Level: 1");
-            println!("🎭 Archetype: {}", archetype);
+            println!("Specialist '{}' created with {} XP", name, xp);
+            println!("Starting Level: 1");
+            println!("Archetype: {}", archetype);
         }
         SpecialistCmd::List { detailed, archetype, min_level } => {
-            info!("Listing specialists");
-            if detailed {
-                println!("🎭 Active Specialists (Detailed)");
-            } else {
-                println!("🎭 Active Specialists");
+            use crate::persistence::PersistenceManager;
+            let pm = PersistenceManager::new(db_path)
+                .map_err(|e| format!("Cannot open DB: {}", e))?;
+
+            // Era 2/3: federation specialist learning state
+            println!("Federation Specialists (learning state from {}):", db_path);
+            println!("{:<20} {:>12} {:>8} {:>8} {:>8}", "Specialist", "Confidence", "Successes", "Failures", "Execs");
+            println!("{}", "-".repeat(65));
+
+            let learning_kinds = ["Visionary", "Omnipresent", "Symbiotic", "Phygital", "Archivist"];
+            let mut found_any = false;
+            for kind in &learning_kinds {
+                if let Ok(Some(rec)) = pm.load_learning_state(kind) {
+                    if let Some(ref arch) = archetype {
+                        if !kind.to_lowercase().contains(&arch.to_lowercase()) { continue; }
+                    }
+                    if let Some(min_lvl) = min_level {
+                        // Map confidence to approximate "level" (1–10)
+                        let approx_level = (rec.confidence_score * 10.0) as u32 + 1;
+                        if approx_level < min_lvl { continue; }
+                    }
+                    println!("{:<20} {:>12.3} {:>8} {:>8} {:>8}",
+                        kind,
+                        rec.confidence_score,
+                        rec.success_count,
+                        rec.failure_count,
+                        rec.total_executions,
+                    );
+                    if detailed {
+                        println!("   Last updated: {}", rec.last_updated);
+                    }
+                    found_any = true;
+                }
             }
 
-            if let Some(arch) = archetype {
-                println!("   Filtered by: {}", arch);
-            }
-            if let Some(level) = min_level {
-                println!("   Minimum level: {}", level);
+            // Era 1: legacy specialists from specialists table
+            if let Ok(specialists) = pm.list_specialists() {
+                let mut era1_shown = false;
+                for s in &specialists {
+                    if let Some(ref arch) = archetype {
+                        if !s.archetype.to_lowercase().contains(&arch.to_lowercase()) { continue; }
+                    }
+                    if let Some(min_lvl) = min_level {
+                        if s.current_level < min_lvl { continue; }
+                    }
+                    if !era1_shown {
+                        println!("\nEra 1 Specialists:");
+                        println!("{:<20} {:>8} {:>10} {:>6}", "Name", "Level", "XP", "Rank");
+                        println!("{}", "-".repeat(50));
+                        era1_shown = true;
+                    }
+                    println!("{:<20} {:>8} {:>10} {:>6}",
+                        s.name, s.current_level, s.xp, s.rank);
+                    if detailed && !s.archetype.is_empty() {
+                        println!("   Archetype: {}", s.archetype);
+                    }
+                    found_any = true;
+                }
             }
 
-            // Mock data
-            println!("\n1. Ariel (UI Designer) - Level 8 - 2,500 XP");
-            println!("2. Merlin (Knowledge) - Level 7 - 2,200 XP");
-            println!("3. Odin (Leadership) - Level 6 - 1,900 XP");
-            println!("4. Circe (Experience) - Level 5 - 1,600 XP");
-            println!("5. Hephaestus (Manufacturing) - Level 4 - 1,200 XP");
-            println!("6. Argus (Security) - Level 3 - 800 XP");
+            if !found_any {
+                println!("No specialists found. Run 'aaroneous start' to initialize the hive.");
+            }
         }
         SpecialistCmd::View {
             specialist,
@@ -778,68 +821,134 @@ async fn execute_specialist(
 /// Execute query commands
 async fn execute_query(
     cmd: QueryCmd,
-    _db_path: &str,
+    db_path: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    use crate::persistence::PersistenceManager;
+
     match cmd {
         QueryCmd::Stats { detailed } => {
-            info!("Querying hive statistics");
-            println!("📊 Hive Statistics");
-            println!("   Active Specialists: 6");
-            println!("   Total XP: 12,500");
-            println!("   Total Skills: 28");
-            println!("   Total Events: 156");
+            let pm = PersistenceManager::new(db_path)
+                .map_err(|e| format!("Cannot open DB at {}: {}", db_path, e))?;
+
+            // Era 1 specialists
+            let era1 = pm.list_specialists().unwrap_or_default();
+            let total_xp: u32 = era1.iter().map(|s| s.xp_total).sum();
+
+            // Era 2/3 learning state
+            let kinds = ["Visionary", "Omnipresent", "Symbiotic", "Phygital", "Archivist"];
+            let mut total_executions = 0u32;
+            let mut total_successes = 0u32;
+            let mut configured_count = 0;
+            for kind in &kinds {
+                if let Ok(Some(rec)) = pm.load_learning_state(kind) {
+                    total_executions += rec.total_executions;
+                    total_successes += rec.success_count;
+                    configured_count += 1;
+                }
+            }
+
+            println!("Hive Statistics (database: {})", db_path);
+            println!("  Era 1 Specialists:     {}", era1.len());
+            println!("  Total Era 1 XP:        {}", total_xp);
+            println!("  Era 2/3 Configured:    {}", configured_count);
+            println!("  Federation Executions: {}", total_executions);
+            println!("  Federation Successes:  {}", total_successes);
+            if total_executions > 0 {
+                println!("  Overall Success Rate:  {:.1}%",
+                    total_successes as f32 / total_executions as f32 * 100.0);
+            }
 
             if detailed {
-                println!("\n   System Health: 85%");
-                println!("   Uptime: 48 hours");
-                println!("   Files Processed: 34");
-                println!("   Avg Processing Time: 2.3s");
+                println!("\nPer-specialist learning:");
+                for kind in &kinds {
+                    if let Ok(Some(rec)) = pm.load_learning_state(kind) {
+                        println!("  {:<14} conf={:.3}  execs={}  successes={}",
+                            kind, rec.confidence_score, rec.total_executions, rec.success_count);
+                    }
+                }
+
+                // Models directory
+                let models_dir = std::path::Path::new("D:\\Aaroneous\\models");
+                if models_dir.exists() {
+                    let gguf_count = std::fs::read_dir(models_dir)
+                        .map(|d| d.filter_map(|e| e.ok())
+                            .filter(|e| e.path().extension().map_or(false, |x| x == "gguf"))
+                            .count())
+                        .unwrap_or(0);
+                    println!("\nGGUF models in models/: {}", gguf_count);
+                } else {
+                    println!("\nGGUF models: models/ directory not found");
+                }
             }
         }
         QueryCmd::Events {
             specialist,
             limit,
-            event_type,
+            event_type: _,
         } => {
-            info!("Querying events (limit: {})", limit);
-            println!("📅 Recent Events");
-            if let Some(s) = specialist {
-                println!("   Specialist: {}", s);
-            }
-            println!("   Showing {} most recent:\n", limit);
+            let pm = PersistenceManager::new(db_path)
+                .map_err(|e| format!("Cannot open DB: {}", e))?;
 
-            println!("   [INFO] Ariel leveled up to 8! 🎉");
-            println!("   [SKILL] Merlin fused DAG + RAG into SuperDAG");
-            println!("   [XP] Circe earned 250 XP from file ingestion");
-            println!("   [EVENT] Hephaestus breakthrough detected!");
-            println!("   [RANK] Odin promoted to Rank 3");
+            println!("Recent Events (database: {})", db_path);
+            if let Some(ref s) = specialist {
+                println!("Filtered by specialist: {}", s);
+            }
+
+            // Query Era 1 events from the events table
+            // list_events is not yet exposed on PersistenceManager, so we show
+            // what we can from the available API
+            let specialists = pm.list_specialists().unwrap_or_default();
+            if specialists.is_empty() {
+                println!("No Era 1 events found (no specialists in database).");
+                println!("Run 'aaroneous start' to initialize, then use the HTTP API to submit intents.");
+            } else {
+                println!("Era 1 specialists in database: {}", specialists.len());
+                for s in specialists.iter().take(limit as usize) {
+                    if let Some(ref filter) = specialist {
+                        if !s.name.to_lowercase().contains(&filter.to_lowercase()) { continue; }
+                    }
+                    println!("  {} ({}): level {}, XP {}", s.name, s.archetype, s.current_level, s.xp);
+                }
+            }
         }
-        QueryCmd::Skills {
-            specialist,
-            skill_type,
-            high_level,
-        } => {
-            info!("Querying skills");
-            println!("💎 Skills");
-            if let Some(s) = specialist {
-                println!("   Specialist: {}", s);
+        QueryCmd::Skills { specialist, skill_type, high_level } => {
+            let pm = PersistenceManager::new(db_path)
+                .map_err(|e| format!("Cannot open DB: {}", e))?;
+            let specialists = pm.list_specialists().unwrap_or_default();
+
+            println!("Skills (database: {})", db_path);
+            if specialists.is_empty() {
+                println!("No specialists found. Run 'aaroneous start' to initialize.");
+            } else {
+                for s in &specialists {
+                    if let Some(ref filter) = specialist {
+                        if !s.name.to_lowercase().contains(&filter.to_lowercase()) { continue; }
+                    }
+                    println!("  {} — {} skills (level {}{})",
+                        s.name, "see HTTP API /status", s.current_level,
+                        if high_level { ", high-level filter active" } else { "" });
+                    if let Some(ref st) = skill_type {
+                        println!("    (type filter: {})", st);
+                    }
+                }
+                println!("\nNote: Full skill detail available via: GET http://localhost:8765/status");
             }
-            if let Some(st) = skill_type {
-                println!("   Type: {}", st);
-            }
-            println!("\n   DAG (Level 5) - 950 XP");
-            println!("   RAG (Level 4) - 750 XP");
-            println!("   MCP (Level 3) - 550 XP");
         }
         QueryCmd::Ingestions { specialist, summary } => {
-            info!("Querying ingestion records");
-            println!("📥 Data Ingestion Records");
-            if let Some(s) = specialist {
-                println!("   Specialist: {}", s);
+            let pm = PersistenceManager::new(db_path)
+                .map_err(|e| format!("Cannot open DB: {}", e))?;
+            let specialists = pm.list_specialists().unwrap_or_default();
+
+            println!("Ingestion Records (database: {})", db_path);
+            if let Some(ref s) = specialist {
+                println!("  Specialist filter: {}", s);
             }
-            println!("\n   Files processed: 34");
-            println!("   Total XP from ingestion: 4,200");
-            println!("   Success rate: 98.5%");
+            println!("  Era 1 specialists: {}", specialists.len());
+            if summary {
+                let total_xp: u32 = specialists.iter().map(|s| s.xp_total).sum();
+                println!("  Total accumulated XP: {}", total_xp);
+            }
+            println!("\nNote: Full ingestion history available via: GET http://localhost:8765/audit");
         }
     }
 
@@ -849,33 +958,68 @@ async fn execute_query(
 /// Execute status commands
 async fn execute_status(
     cmd: StatusCmd,
-    _db_path: &str,
+    db_path: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    use crate::persistence::PersistenceManager;
+
     match cmd {
         StatusCmd::Health { watch } => {
-            info!("Checking hive health");
-            println!("❤️  Hive Health Status");
-            println!("   Overall: ✅ Healthy (85%)");
-            println!("   Specialists: ✅ All active (6/6)");
-            println!("   Persistence: ✅ Connected");
-            println!("   Ingestion: ✅ Monitoring");
-            println!("   Federation: ⏳ Standby");
+            // Try to open the database and report real status
+            let db_ok = PersistenceManager::new(db_path).is_ok();
+            let models_dir = std::path::Path::new("D:\\Aaroneous\\models");
+            let models_count = if models_dir.exists() {
+                std::fs::read_dir(models_dir)
+                    .map(|d| d.filter_map(|e| e.ok())
+                        .filter(|e| e.path().extension().map_or(false, |x| x == "gguf"))
+                        .count())
+                    .unwrap_or(0)
+            } else { 0 };
+
+            let pm_res = PersistenceManager::new(db_path);
+            let (specialist_count, total_executions) = if let Ok(ref pm) = pm_res {
+                let era1 = pm.list_specialists().unwrap_or_default().len();
+                let kinds = ["Visionary", "Omnipresent", "Symbiotic", "Phygital", "Archivist"];
+                let execs: u32 = kinds.iter()
+                    .filter_map(|k| pm.load_learning_state(k).ok().flatten())
+                    .map(|r| r.total_executions)
+                    .sum();
+                (era1, execs)
+            } else { (0, 0) };
+
+            #[cfg(feature = "llama-gguf")]
+            let inference_mode = "REAL (llama-gguf)";
+            #[cfg(not(feature = "llama-gguf"))]
+            let inference_mode = "MOCK (no llama-gguf)";
+
+            println!("Hive Health Status");
+            println!("  Database:          {} ({})", if db_ok { "OK" } else { "ERROR" }, db_path);
+            println!("  GGUF models:       {} file(s) in models/", models_count);
+            println!("  Inference mode:    {}", inference_mode);
+            println!("  Era 1 specialists: {}", specialist_count);
+            println!("  Total executions:  {}", total_executions);
+            println!("  Auth:              {}", if std::env::var("AARONEOUS_API_KEY").is_ok() {
+                "API key set"
+            } else {
+                "DISABLED (no AARONEOUS_API_KEY)"
+            });
+
+            println!("\nTo check the live running federation: GET http://localhost:8765/healthz");
+            println!("To check specialist learning:        GET http://localhost:8765/status");
 
             if let Some(interval) = watch {
-                println!("\n👀 Watch mode (refresh every {}s, press Ctrl+C to exit)", interval);
+                println!("\nWatch mode (every {}s) — use curl for live data:", interval);
+                println!("  curl http://localhost:8765/healthz");
+                println!("  curl http://localhost:8765/status");
+                println!("  curl -N http://localhost:8765/results/stream  (SSE)");
             }
         }
         StatusCmd::Runtime { detailed } => {
             info!("Showing runtime information");
-            println!("⚙️  Runtime Information");
-            println!("   Status: Running");
-            println!("   Uptime: 48 hours 23 minutes");
-            println!("   Memory: 125 MB");
-            println!("   CPU: 2.3%");
+            println!("Runtime Information");
+            println!("  Note: detailed runtime stats require the federation to be running.");
+            println!("  Check: GET http://localhost:8765/status");
 
             if detailed {
-                println!("\n   Threads: 24");
-                println!("   Async Tasks: 156");
                 println!("   Lock Waits: 3");
             }
         }
