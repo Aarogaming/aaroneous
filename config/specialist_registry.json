@@ -3,8 +3,19 @@
   "timestamp": "2026-05-01T00:00:00Z",
   "description": "Federation specialist registry. Each entry maps a specialist name to its domain, GGUF model, and hox configuration. The 5 core specialists (federation tier) use fixed Rust types. Dynamic specialists use GenericSpecialist and resolve to a GGUF path at runtime.",
   "model_base_path": "D:\\Aaroneous\\models",
-  "preferred_base_model": "Qwen/Qwen2.5-1.5B-Instruct",
-  "preferred_base_model_note": "Qwen2.5 abliterated variants (no refusals) are the preferred base for all specialist crystallizations. Use qwen2.5-1.5b-instruct-abliterated.gguf for small sovereigns.",
+  "preferred_base_model": "Qwen/Qwen2.5-Coder-7B-Instruct",
+  "preferred_base_model_note": "foundation_v1.gguf (Qwen2.5 Coder 7B Instruct, 4.37GB GGUF v3, 339 tensors) is currently the available base model at D:\\Aaroneous\\models\\foundation_v1.gguf. Smaller abliterated variants preferred for sovereign crystallization when available.",
+  "available_models": {
+    "foundation_v1": {
+      "path": "D:\\Aaroneous\\models\\foundation_v1.gguf",
+      "architecture": "qwen2",
+      "name": "Qwen2.5 Coder 7B Instruct",
+      "size_gb": 4.37,
+      "tensor_count": 339,
+      "context_length": null,
+      "note": "Primary base model. Use for specialist crystallization via POST /forge/auto-recipe."
+    }
+  },
   "federation_core_specialists": {
     "note": "These 5 are compiled-in Rust types. GGUF path activates LLM-backed execution when the llama-gguf feature is enabled.",
     "Visionary": {
