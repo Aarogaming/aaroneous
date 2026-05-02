@@ -631,15 +631,23 @@ impl Specialist for Omnipresent {
         self.id
     }
 
-    /// Propose syncing when devices drift, have conflicts, or have pending P2P messages.
+    /// Propose syncing when devices drift, have conflicts, pending P2P messages,
+    /// or when the active intent involves multi-device/spatial/sync scenarios.
     async fn propose(&self, context: &SpecialistContext) -> Result<Vec<ProposedAction>, SpecialistError> {
         let drifted = self.detect_devices_drift();
         let conflicts = self.detect_sync_conflicts();
-        // Peek at inbox without draining: pending messages are an urgency signal
-        // even before we know who sent them. Execute() will drain and apply them.
         let pending_messages = self.sync_inbox.lock().len();
 
-        if drifted.is_empty() && conflicts.is_empty() && pending_messages == 0 {
+        // Also propose when the intent involves spatial, render, or sync keywords
+        let activity = &context.user_state.activity;
+        let intent_relevant = !activity.is_empty() && activity != "idle" && {
+            let lower = activity.to_lowercase();
+            lower.contains("render") || lower.contains("spatial") || lower.contains("sync")
+            || lower.contains("hive") || lower.contains("constellation")
+            || lower.contains("design") || lower.contains("visuali")
+        };
+
+        if drifted.is_empty() && conflicts.is_empty() && pending_messages == 0 && !intent_relevant {
             return Ok(vec![]);
         }
 

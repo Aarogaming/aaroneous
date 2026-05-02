@@ -484,12 +484,23 @@ impl Specialist for Archivist {
         self.id
     }
 
-    /// Propose consolidation work during deep idle
+    /// Propose consolidation/archival work.
+    ///
+    /// Fires when idle (original behaviour) OR when the intent is about
+    /// memory/archive/learning and we have executions to consolidate.
     async fn propose(&self, context: &SpecialistContext) -> Result<Vec<ProposedAction>, SpecialistError> {
-        // Check if user is in deep idle (activity is "idle")
-        let is_idle = context.user_state.activity == "idle";
+        let activity = &context.user_state.activity;
+        let is_idle = activity == "idle";
+        let is_memory_intent = !activity.is_empty() && !is_idle && {
+            let lower = activity.to_lowercase();
+            lower.contains("archive") || lower.contains("memory") || lower.contains("learn")
+            || lower.contains("pattern") || lower.contains("dna") || lower.contains("hive")
+            || lower.contains("consolidat") || lower.contains("session")
+        };
+        // Also propose if we have executions seen (from &self atomic counter)
+        let has_activity = self.executions_seen() > 0;
 
-        if !is_idle {
+        if !is_idle && !is_memory_intent && !has_activity {
             return Ok(vec![]);
         }
 

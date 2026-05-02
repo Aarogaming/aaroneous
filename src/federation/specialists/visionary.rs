@@ -483,12 +483,17 @@ impl Specialist for Visionary {
                     (output, true)
                 }
                 Err(e) => {
+                    // LLM failed (e.g. no llama-gguf feature, model not loaded) —
+                    // fall through to rule-based generation so the result is Success
+                    tracing::warn!("Visionary LLM error (using rule-based fallback): {}", e);
+                    let variants = self.generate_variants(3);
                     let output = format!(
-                        "LLM design generation failed for '{}': {}. Falling back to rule-based generation.",
-                        intent, e
+                        "Visionary (rule-based) generated {} design variant(s) for '{}': {}",
+                        variants.len(),
+                        intent,
+                        variants.iter().map(|v| v.id.clone()).collect::<Vec<_>>().join(", ")
                     );
-                    tracing::warn!("Visionary LLM error: {}", e);
-                    (output, false)
+                    (output, true)
                 }
             }
         } else {

@@ -571,4 +571,68 @@ mod tests {
         assert!(capabilities.len() > 0);
         assert!(capabilities.iter().any(|c| c.name == "arbitration"));
     }
+
+    /// Regression test for the missing `.await` on `channel.send()`.
+    ///
+    /// Previously `issue_decision()` called `channel.send(message)` without
+    /// `.await`, creating a future that was immediately dropped. This test
+    /// verifies that a proposal submitted to the bus results in a decision
+    /// that is actually receivable from the specialist's channel.
+    #[tokio::test]
+    async fn test_decision_reaches_specialist_channel() {
+        use crate::federation::proposal::Proposal;
+
+        let config = SentinelConfig::default();
+        let mut bus = CommunicationBus::new();
+        bus.register_specialist(SpecialistId::Visionary);
+
+        let sentinel = Sentinel::new(config, bus);
+
+        // Seed with ample resources so the proposal passes the viability filter
+        sentinel.update_system_resources(SystemResources {
+            gpu_available_percent: 100.0,
+            cpu_available_percent: 100.0,
+            memory_available_mb: 8192,
+            thermal_headroom: 1.0,
+        }).await;
+
+        // Submit a proposal for Visionary
+        let proposal = Proposal::new(
+            SpecialistId::Visionary,
+            "generate_design".to_string(),
+            "Test design proposal".to_string(),
+            0.9,
+            crate::federation::specialist::ProposalPriority::Normal,
+        );
+        sentinel.communication_bus.submit_proposal(proposal).await.unwrap();
+
+        // Arbitrate — should issue exactly 1 decision
+        let result = sentinel.arbitrate().await.unwrap();
+        assert_eq!(result.proposals_reviewed, 1,
+            "Sentinel should have seen 1 proposal");
+        assert_eq!(result.decisions_issued, 1,
+            "Sentinel should have issued 1 decision");
+
+        // CRITICAL: the decision must actually be in the channel.
+        // This assertion fails if channel.send() is called without .await.
+        let channel = sentinel.communication_bus
+            .specialist_channel(SpecialistId::Visionary)
+            .expect("Visionary channel must exist");
+
+        let msg = channel.try_receive().await;
+        assert!(
+            msg.is_some(),
+            "Decision must be receivable from the specialist channel. \
+             If this fails, check that issue_decision() calls \
+             channel.send(message).await (not channel.send(message))."
+        );
+
+        // Confirm it's a DecisionIssued message
+        match msg.unwrap() {
+            crate::federation::communication::SpecialistMessage::DecisionIssued(d) => {
+                assert_eq!(d.specialist, SpecialistId::Visionary);
+            }
+            other => panic!("Expected DecisionIssued, got {:?}", other),
+        }
+    }
 }
