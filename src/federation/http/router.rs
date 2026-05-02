@@ -121,6 +121,9 @@ pub fn router(state: AppState) -> Router {
         .route("/audit", get(get_audit_log))
         // Learning confidence trends (time-series)
         .route("/learning/trends", get(get_learning_trends))
+        // Specialist state — snapshot and real-time push stream for O3DE/XR clients
+        .route("/specialists",        get(get_specialists_snapshot))
+        .route("/specialists/stream", get(stream_specialists))
         // Dynamic specialist management
         .route("/dynamic-specialists",         get(list_dynamic_specialists).post(add_dynamic_specialist))
         .route("/dynamic-specialists/reload",  post(reload_dynamic_specialists))
@@ -645,6 +648,125 @@ async fn stream_session_results(
 
         Some((Ok(event), (seen, ticker, fed, sid)))
     });
+
+    Sse::new(stream).keep_alive(KeepAlive::default())
+}
+
+// ====================================================================
+// Specialist state endpoints (for O3DE / XR / real-time clients)
+// ====================================================================
+
+/// GET /specialists — full snapshot of all specialist state
+///
+/// Returns every configured specialist (core + dynamic) with their
+/// current learning state, active intent, and domain.  This is the
+/// initial sync payload an O3DE Gem reads on connection; subsequent
+/// updates come via GET /specialists/stream.
+async fn get_specialists_snapshot(
+    State(state): State<AppState>,
+) -> Json<serde_json::Value> {
+    let summary = state.federation.learning_summary();
+    let intent = state.federation.current_intent().await
+        .map(|i| i.content)
+        .unwrap_or_default();
+    let dynamic = state.federation.dynamic_specialists().await;
+
+    let mut specialists: Vec<serde_json::Value> = vec![];
+
+    macro_rules! push_core {
+        ($field:expr, $name:literal, $domain:literal) => {
+            specialists.push(serde_json::json!({
+                "name": $name,
+                "domain": $domain,
+                "kind": "core",
+                "active_intent": intent,
+                "learning": $field.as_ref().map(|s| serde_json::json!({
+                    "confidence": s.confidence_score,
+                    "total_executions": s.total_executions,
+                    "success_rate": s.success_rate_percent(),
+                    "last_updated": s.last_updated,
+                })),
+            }));
+        };
+    }
+
+    push_core!(summary.visionary,   "Visionary",   "UI/UX design generation");
+    push_core!(summary.omnipresent, "Omnipresent", "P2P multi-device sync");
+    push_core!(summary.symbiotic,   "Symbiotic",   "Biometric classification");
+    push_core!(summary.phygital,    "Phygital",    "AR/VR spatial rendering");
+    push_core!(summary.archivist,   "Archivist",   "DNA Bank memory consolidation");
+
+    for s in &dynamic {
+        let l = s.learning.lock();
+        specialists.push(serde_json::json!({
+            "name": s.name,
+            "domain": s.domain,
+            "kind": "dynamic",
+            "model_path": s.model_path.as_ref().map(|p| p.to_string_lossy().to_string()),
+            "has_llm": s.has_llm(),
+            "active_intent": intent,
+            "learning": serde_json::json!({
+                "confidence": l.confidence_score,
+                "total_executions": l.total_executions,
+                "success_rate": if l.total_executions > 0 {
+                    l.success_count as f32 / l.total_executions as f32 * 100.0
+                } else { 0.0 },
+                "last_updated": l.last_updated,
+            }),
+        }));
+    }
+
+    Json(serde_json::json!({
+        "count": specialists.len(),
+        "specialists": specialists,
+        "sentinel_active": state.federation.sentinel.read().await.is_some(),
+    }))
+}
+
+/// GET /specialists/stream — SSE push stream of all specialist state changes
+///
+/// Designed for persistent connection by the O3DE AaroneousGem.
+/// Pushes events on:
+/// - Intent submission (`type: "intent_submitted"`)
+/// - Specialist execution complete (`type: "execution_complete"`)
+/// - Heartbeat every 2s (`comment: heartbeat`)
+///
+/// Connect with:
+/// ```sh
+/// curl -N http://localhost:8765/specialists/stream
+/// ```
+/// O3DE C++ Gem example (conceptual):
+/// ```cpp
+/// // In your SystemComponent::Activate()
+/// HttpRequestorRequestBus::Broadcast(&HttpRequestorRequests::AddTextRequest,
+///     "http://localhost:8765/specialists/stream", HttpMethod::HTTP_GET,
+///     [](const AZStd::string& body, Aws::Http::HttpResponseCode) {
+///         // Parse SSE events line by line
+///     });
+/// ```
+async fn stream_specialists(
+    State(state): State<AppState>,
+) -> Sse<impl futures_util::stream::Stream<Item = Result<Event, Infallible>>> {
+    let mut rx = state.federation.subscribe_specialist_events();
+
+    let stream = futures_util::stream::unfold(
+        (rx, tokio::time::interval(std::time::Duration::from_secs(2))),
+        |(mut rx, mut ticker)| async move {
+            // Try to receive a broadcast event first (non-blocking)
+            let event = tokio::select! {
+                // A specialist event was broadcast
+                Ok(payload) = rx.recv() => {
+                    let data = serde_json::to_string(&payload).unwrap_or_default();
+                    Event::default().data(data).event("specialist_update")
+                }
+                // No event — send heartbeat so the connection stays alive
+                _ = ticker.tick() => {
+                    Event::default().comment("heartbeat")
+                }
+            };
+            Some((Ok(event), (rx, ticker)))
+        }
+    );
 
     Sse::new(stream).keep_alive(KeepAlive::default())
 }

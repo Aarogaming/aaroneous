@@ -129,6 +129,17 @@ pub struct Federation {
     /// Audit log for compliance and observability.
     /// Records every federation decision, intent submission, and session event.
     pub audit_log: Arc<Mutex<crate::federation::enterprise::AuditLog>>,
+
+    /// Broadcast channel for specialist state events.
+    ///
+    /// Every time a specialist executes, proposes, or its learning state
+    /// changes, a `SpecialistEvent` JSON value is sent on this channel.
+    /// Consumers (SSE handlers, O3DE Gem, etc.) subscribe via
+    /// `Federation::subscribe_specialist_events()`.
+    ///
+    /// Capacity: 256 events buffered. Slow consumers miss events rather
+    /// than blocking the federation.
+    pub specialist_events: Arc<tokio::sync::broadcast::Sender<serde_json::Value>>,
 }
 
 impl Federation {
@@ -221,6 +232,70 @@ impl Federation {
         &self,
     ) -> Vec<Arc<crate::federation::specialists::GenericSpecialist>> {
         self.dynamic.read().await.clone()
+    }
+
+    /// Subscribe to the specialist event broadcast channel.
+    ///
+    /// Returns a `Receiver` that receives `serde_json::Value` payloads
+    /// describing specialist state changes (execution results, proposals,
+    /// intent updates, confidence changes).
+    ///
+    /// Used by `GET /specialists/stream` and can be used by any other
+    /// real-time consumer (O3DE Gem, monitoring tools, etc.).
+    pub fn subscribe_specialist_events(&self) -> tokio::sync::broadcast::Receiver<serde_json::Value> {
+        self.specialist_events.subscribe()
+    }
+
+    /// Broadcast a specialist state event to all active SSE/WebSocket subscribers.
+    ///
+    /// Called internally after every execution, proposal collection, and
+    /// intent submission. Silently no-ops if there are no subscribers.
+    pub fn broadcast_specialist_event(&self, event: serde_json::Value) {
+        // send() returns Err only when there are no receivers — that's fine
+        let _ = self.specialist_events.send(event);
+    }
+
+    /// Build and broadcast a complete specialist snapshot event.
+    /// Called after each execution so O3DE always has current state.
+    pub async fn broadcast_specialist_snapshot(&self, specialist_name: &str) {
+        let summary = self.learning_summary();
+        let intent = self.active_intent.read().await
+            .as_ref().map(|i| i.content.clone())
+            .unwrap_or_default();
+
+        let find_summary = |name: &str| -> Option<serde_json::Value> {
+            macro_rules! check {
+                ($field:expr, $label:literal) => {
+                    if name.to_lowercase() == $label {
+                        return $field.as_ref().map(|s| serde_json::json!({
+                            "confidence": s.confidence_score,
+                            "total_executions": s.total_executions,
+                            "success_rate": s.success_rate_percent(),
+                        }));
+                    }
+                };
+            }
+            check!(summary.visionary,   "visionary");
+            check!(summary.omnipresent, "omnipresent");
+            check!(summary.symbiotic,   "symbiotic");
+            check!(summary.phygital,    "phygital");
+            check!(summary.archivist,   "archivist");
+            None
+        };
+
+        let learning = find_summary(specialist_name);
+
+        let event = serde_json::json!({
+            "type": "specialist_update",
+            "specialist": specialist_name,
+            "active_intent": intent,
+            "learning": learning,
+            "timestamp_ms": std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_millis() as u64,
+        });
+        self.broadcast_specialist_event(event);
     }
 
     // ------- Lifecycle -------
@@ -697,6 +772,7 @@ impl Federation {
         phygital: Option<Arc<SpecialistHost<Phygital>>>,
         archivist: Option<Arc<SpecialistHost<Archivist>>>,
     ) -> Self {
+        let (event_tx, _) = tokio::sync::broadcast::channel(256);
         Self {
             persistence,
             config,
@@ -713,6 +789,7 @@ impl Federation {
             sessions: Arc::new(RwLock::new(SessionManager::new())),
             multi_hive: Arc::new(RwLock::new(None)),
             audit_log: Arc::new(Mutex::new(crate::federation::enterprise::AuditLog::new())),
+            specialist_events: Arc::new(event_tx),
         }
     }
 }
@@ -788,6 +865,7 @@ async fn run_decision(
     arch: &Option<Arc<crate::federation::specialists::Archivist>>,
     dyn_specialists: &[Arc<crate::federation::specialists::GenericSpecialist>],
     persistence: &SharedPersistence,
+    event_tx: &Arc<tokio::sync::broadcast::Sender<serde_json::Value>>,
     results_store: &Arc<tokio::sync::Mutex<Vec<crate::federation::specialist::ExecutionResult>>>,
     active_intent_arc: &Arc<RwLock<Option<Intent>>>,
     sessions_arc: &Arc<RwLock<crate::federation::session::SessionManager>>,
@@ -923,6 +1001,29 @@ async fn run_decision(
                 let excess = store.len() - 100;
                 store.drain(0..excess);
             }
+        }
+
+        // Broadcast specialist state event for O3DE / SSE consumers
+        {
+            let specialist_display = result.specialist_name.as_deref()
+                .unwrap_or_else(|| result.specialist.name());
+            let intent = active_intent_arc.read().await
+                .as_ref().map(|i| i.content.clone())
+                .unwrap_or_default();
+            let event = serde_json::json!({
+                "type": "execution_complete",
+                "specialist": specialist_display,
+                "specialist_id": format!("{:?}", result.specialist),
+                "action": decision.action,
+                "status": format!("{:?}", result.status),
+                "output_preview": result.output.chars().take(120).collect::<String>(),
+                "duration_ms": result.duration_ms,
+                "active_intent": intent,
+                "timestamp_ms": std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap_or_default().as_millis() as u64,
+            });
+            let _ = event_tx.send(event);
         }
 
         // Flush learning to SQLite immediately after execution so a crash
@@ -1090,7 +1191,19 @@ impl Federation {
             let _ = self.audit_log.lock().await.record(event);
         }
 
-        *self.active_intent.write().await = Some(intent);
+        *self.active_intent.write().await = Some(intent.clone());
+
+        // Broadcast intent submission so O3DE knows the hive is working on something
+        self.broadcast_specialist_event(serde_json::json!({
+            "type": "intent_submitted",
+            "intent_id": id,
+            "content": intent.content.chars().take(200).collect::<String>(),
+            "priority": format!("{:?}", intent.priority),
+            "timestamp_ms": std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default().as_millis() as u64,
+        }));
+
         // Trigger immediate proposal collection
         self.collect_proposals().await;
         id
@@ -1439,6 +1552,7 @@ impl Federation {
             &arch,
             &dyn_vec,
             &self.persistence,
+            &self.specialist_events,
             &self.results,
             &self.active_intent,
             &self.sessions,
@@ -1583,6 +1697,7 @@ impl Federation {
         let arch = self.archivist.as_ref().map(|h| h.specialist());
         let dynamic_arc = self.dynamic.clone();
         let persistence_arc = self.persistence.clone();
+        let event_tx_arc = self.specialist_events.clone();
         let results_store = self.results.clone();
         // Route results back to the originating session
         let active_intent_arc = self.active_intent.clone();
@@ -1666,6 +1781,7 @@ impl Federation {
                                             &arch,
                                             &dyn_vec,
                                             &persistence_arc,
+                                            &event_tx_arc,
                                             &results_store,
                                             &active_intent_arc,
                                             &sessions_arc,

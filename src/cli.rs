@@ -631,6 +631,10 @@ async fn execute_start(
         println!("  GET  http://{}/learning/trends          confidence time-series per specialist", addr);
         println!("  GET  http://{}/cluster                  multi-hive cluster status", addr);
         println!();
+        println!("HTTP API — specialists (O3DE / XR integration):");
+        println!("  GET  http://{}/specialists              full specialist snapshot (O3DE initial sync)", addr);
+        println!("  GET  http://{}/specialists/stream       SSE push stream (O3DE persistent connection)", addr);
+        println!();
         println!("HTTP API — dynamic specialists:");
         println!("  GET  http://{}/dynamic-specialists      list runtime-loaded GenericSpecialists", addr);
         println!("  POST http://{}/dynamic-specialists      add a new specialist from GGUF", addr);
