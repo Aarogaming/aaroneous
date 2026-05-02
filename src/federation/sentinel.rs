@@ -217,7 +217,7 @@ impl Sentinel {
         // Send the decision to the specialist's channel
         let message = crate::federation::communication::SpecialistMessage::DecisionIssued(decision);
         if let Some(channel) = self.communication_bus.specialist_channel(specialist_id) {
-            let _ = channel.send(message);
+            let _ = channel.send(message).await;
         }
 
         Ok(())
