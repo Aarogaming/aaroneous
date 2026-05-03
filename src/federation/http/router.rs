@@ -1,4 +1,4 @@
-/// Axum router definition for the federation HTTP status API.
+﻿/// Axum router definition for the federation HTTP status API.
 ///
 /// The router is factored out from the server so tests can drive it
 /// in-process via `tower::ServiceExt::oneshot` without binding a real port.
@@ -41,6 +41,9 @@ pub struct AppState {
     pub generation_jobs: GenerationJobs,
     pub dissection_jobs: crate::federation::dna::DissectionJobs,
     pub import_jobs: crate::federation::model_registry::ImportJobs,
+    /// Cross-model tensor index â€” lets ForgeRecipes reference tensors by name
+    /// across all indexed GGUFs without needing to know which file they're in.
+    pub vault: Arc<tokio::sync::RwLock<crate::federation::tensor_vault::TensorVault>>,
 }
 
 impl AppState {
@@ -50,7 +53,23 @@ impl AppState {
             generation_jobs: Arc::new(tokio::sync::Mutex::new(std::collections::HashMap::new())),
             dissection_jobs: Arc::new(tokio::sync::Mutex::new(std::collections::HashMap::new())),
             import_jobs: Arc::new(tokio::sync::Mutex::new(std::collections::HashMap::new())),
+            vault: Arc::new(tokio::sync::RwLock::new(
+                crate::federation::tensor_vault::TensorVault::new()
+            )),
         }
+    }
+
+    /// Start the background vault indexing (non-blocking â€” fires and forgets).
+    pub fn start_vault_indexing(&self) {
+        let vault = self.vault.clone();
+        tokio::spawn(async move {
+            let models_dir = std::path::PathBuf::from("D:\\Aaroneous\\models");
+            tracing::info!("TensorVault: starting background indexing of {}", models_dir.display());
+            let mut v = vault.write().await;
+            if let Err(e) = v.index_all_models(&models_dir).await {
+                tracing::warn!("TensorVault indexing failed: {}", e);
+            }
+        });
     }
 }
 
@@ -64,7 +83,7 @@ impl AppState {
 /// Reads `AARONEOUS_API_KEY` from the environment at call time.
 /// If set, every request to any route other than `/healthz` and `/readyz`
 /// must include `Authorization: Bearer <key>` (case-insensitive prefix).
-/// If the env var is unset, auth is disabled — development mode.
+/// If the env var is unset, auth is disabled â€” development mode.
 ///
 /// Set the key before starting the server:
 /// ```sh
@@ -77,7 +96,7 @@ async fn api_key_auth(
     next: Next,
 ) -> Response {
     let Some(required_key) = std::env::var("AARONEOUS_API_KEY").ok() else {
-        // Auth disabled — pass through
+        // Auth disabled â€” pass through
         return next.run(req).await;
     };
 
@@ -141,7 +160,7 @@ pub fn router(state: AppState) -> Router {
         .route("/audit", get(get_audit_log))
         // Learning confidence trends (time-series)
         .route("/learning/trends", get(get_learning_trends))
-        // Specialist state — snapshot and real-time push stream for O3DE/XR clients
+        // Specialist state â€” snapshot and real-time push stream for O3DE/XR clients
         .route("/specialists",        get(get_specialists_snapshot))
         .route("/specialists/stream", get(stream_specialists))
         // Dynamic specialist management
@@ -171,7 +190,13 @@ pub fn router(state: AppState) -> Router {
         .route("/dna/genome/:model",   get(dna_genome))
         .route("/dna/compare",         post(dna_compare))
         .route("/dna/roster",          get(dna_roster))
-        // Model import/export — large model lifecycle management
+        // TensorVault â€” cross-model tensor index and DNA-driven hybrid assembly
+        .route("/vault/status",             get(vault_status))
+        .route("/vault/index",              post(vault_index_model))
+        .route("/vault/query",              post(vault_query))
+        .route("/vault/best",               post(vault_best_tensor))
+        .route("/dna/forge",                post(dna_forge))
+        // Model import/export â€” large model lifecycle management
         .route("/models/import",            post(models_import))
         .route("/models/import/jobs/:id",   get(models_import_job_status))
         .route("/models/export/:name",      get(models_export))
@@ -310,7 +335,7 @@ impl StatusEnvelope {
 // Intent endpoints
 // ====================================================================
 
-/// GET /intent — read the current active intent
+/// GET /intent â€” read the current active intent
 async fn get_intent(State(state): State<AppState>) -> impl IntoResponse {
     let intent = state.federation.current_intent().await;
     match intent {
@@ -346,7 +371,7 @@ struct SubmitIntentRequest {
     context: std::collections::HashMap<String, String>,
 }
 
-/// POST /intent — submit a new user intent
+/// POST /intent â€” submit a new user intent
 ///
 /// Body: `{ "content": "redesign the dashboard", "priority": "High", "tags": ["ui"] }`
 /// Returns: `{ "id": "intent-...", "message": "Intent submitted" }`
@@ -388,7 +413,7 @@ async fn submit_intent(
 // Results endpoint
 // ====================================================================
 
-/// GET /results — read recent execution results from specialists
+/// GET /results â€” read recent execution results from specialists
 ///
 /// Query parameter `limit` controls how many results to return (default 20, max 100).
 async fn get_results(State(state): State<AppState>) -> Json<serde_json::Value> {
@@ -416,7 +441,7 @@ fn result_to_json(r: &crate::federation::specialist::ExecutionResult) -> serde_j
     })
 }
 
-/// GET /results/stream — SSE stream of execution results.
+/// GET /results/stream â€” SSE stream of execution results.
 ///
 /// Sends a `results` event for each batch of new `ExecutionResult` entries
 /// as they land in the global ring buffer.  Polls every 500ms.
@@ -498,7 +523,7 @@ fn session_to_json(s: &crate::federation::session::Session) -> serde_json::Value
     })
 }
 
-/// GET /sessions — list all active sessions
+/// GET /sessions â€” list all active sessions
 async fn list_sessions(State(state): State<AppState>) -> Json<serde_json::Value> {
     let sessions = state.federation.active_sessions().await;
     Json(serde_json::json!({
@@ -515,7 +540,7 @@ struct CreateSessionRequest {
     device_id: Option<String>,
 }
 
-/// POST /sessions — create a new user session
+/// POST /sessions â€” create a new user session
 async fn create_session(
     State(state): State<AppState>,
     Json(req): Json<CreateSessionRequest>,
@@ -535,7 +560,7 @@ async fn create_session(
     )
 }
 
-/// GET /sessions/:id — get session details
+/// GET /sessions/:id â€” get session details
 async fn get_session_by_id(
     State(state): State<AppState>,
     Path(id): Path<String>,
@@ -550,7 +575,7 @@ async fn get_session_by_id(
     }
 }
 
-/// DELETE /sessions/:id — end and remove a session
+/// DELETE /sessions/:id â€” end and remove a session
 async fn delete_session_by_id(
     State(state): State<AppState>,
     Path(id): Path<String>,
@@ -572,7 +597,7 @@ struct SessionIntentRequest {
     tags: Vec<String>,
 }
 
-/// POST /sessions/:id/intent — submit an intent for a specific session
+/// POST /sessions/:id/intent â€” submit an intent for a specific session
 ///
 /// This is the preferred way to submit intents: associates the intent with
 /// a user session for tracking and results routing.
@@ -619,7 +644,7 @@ async fn submit_session_intent(
     }
 }
 
-/// GET /sessions/:id/results — execution results for a specific session.
+/// GET /sessions/:id/results â€” execution results for a specific session.
 ///
 /// Returns all `ExecutionResult`s associated with this session's intents,
 /// newest first. Results are stored on the `Session` object as specialists
@@ -650,7 +675,7 @@ async fn get_session_results(
     }
 }
 
-/// GET /sessions/:id/results/stream — SSE stream of results for a specific session.
+/// GET /sessions/:id/results/stream â€” SSE stream of results for a specific session.
 ///
 /// Like `/results/stream` but scoped to one session.  Polls every 500ms.
 /// Sends a `results` event with a JSON array of new results.
@@ -700,7 +725,7 @@ async fn stream_session_results(
 // Specialist state endpoints (for O3DE / XR / real-time clients)
 // ====================================================================
 
-/// GET /specialists — full snapshot of all specialist state
+/// GET /specialists â€” full snapshot of all specialist state
 ///
 /// Returns every configured specialist (core + dynamic) with their
 /// current learning state, active intent, and domain.  This is the
@@ -763,7 +788,7 @@ async fn get_specialists_snapshot(
         let l = s.learning.lock();
         let mem_count = s.memory.lock().count_for(&s.name);
 
-        // Lightweight genome summary from task spec (no GGUF I/O — safe for 200ms poll)
+        // Lightweight genome summary from task spec (no GGUF I/O â€” safe for 200ms poll)
         let genome_summary = crate::federation::graph::task_spec::spec_for(&s.name)
             .map(|spec| serde_json::json!({
                 "target_tier":   spec.target_tier.tier_name(),
@@ -804,7 +829,7 @@ async fn get_specialists_snapshot(
     }))
 }
 
-/// GET /specialists/stream — SSE push stream of all specialist state changes
+/// GET /specialists/stream â€” SSE push stream of all specialist state changes
 ///
 /// Designed for persistent connection by the O3DE AaroneousGem.
 /// Pushes events on:
@@ -840,7 +865,7 @@ async fn stream_specialists(
                     let data = serde_json::to_string(&payload).unwrap_or_default();
                     Event::default().data(data).event("specialist_update")
                 }
-                // No event — send heartbeat so the connection stays alive
+                // No event â€” send heartbeat so the connection stays alive
                 _ = ticker.tick() => {
                     Event::default().comment("heartbeat")
                 }
@@ -861,21 +886,21 @@ async fn stream_specialists(
 struct AuditQueryParams {
     /// Max events to return (default 50, max 1000)
     limit: Option<usize>,
-    /// Return only events with timestamp_ms ≥ since_ms
+    /// Return only events with timestamp_ms â‰¥ since_ms
     since_ms: Option<u64>,
-    /// Return only events with timestamp_ms ≤ until_ms
+    /// Return only events with timestamp_ms â‰¤ until_ms
     until_ms: Option<u64>,
     /// Filter by user_id
     user_id: Option<String>,
 }
 
-/// GET /audit — recent audit events with optional pagination
+/// GET /audit â€” recent audit events with optional pagination
 ///
 /// Query parameters:
-/// - `?limit=N` — return at most N events (default 50, max 1000)
-/// - `?since_ms=UNIX_MS` — only events after this timestamp
-/// - `?until_ms=UNIX_MS` — only events before this timestamp
-/// - `?user_id=USER` — filter by user identity
+/// - `?limit=N` â€” return at most N events (default 50, max 1000)
+/// - `?since_ms=UNIX_MS` â€” only events after this timestamp
+/// - `?until_ms=UNIX_MS` â€” only events before this timestamp
+/// - `?user_id=USER` â€” filter by user identity
 ///
 /// Example:
 /// ```sh
@@ -914,7 +939,7 @@ async fn get_audit_log(
 // Learning trends endpoint
 // ====================================================================
 
-/// GET /learning/trends — confidence time-series for all specialists
+/// GET /learning/trends â€” confidence time-series for all specialists
 ///
 /// Returns `{"visionary": [[ts, conf], ...], ...}` per specialist.
 /// Each entry is `[unix_seconds, confidence_0_to_1]`.
@@ -953,7 +978,7 @@ async fn get_learning_trends(State(state): State<AppState>) -> Json<serde_json::
 // Multi-hive cluster endpoint
 // ====================================================================
 
-/// GET /cluster — multi-hive federation status
+/// GET /cluster â€” multi-hive federation status
 ///
 /// Returns the cluster nodes and their health if multi-hive is enabled,
 /// or a message indicating it's not configured.
@@ -995,7 +1020,7 @@ async fn cluster_status(State(state): State<AppState>) -> Json<serde_json::Value
 // Models directory listing
 // ====================================================================
 
-/// GET /models — list all GGUF files in the models directory
+/// GET /models â€” list all GGUF files in the models directory
 ///
 /// Scans `D:\Aaroneous\models\` (or the current working directory `./models/`)
 /// and returns metadata for each `.gguf` file found.  For small models (<500MB),
@@ -1062,7 +1087,7 @@ async fn list_models() -> impl IntoResponse {
 // Dynamic specialist management
 // ====================================================================
 
-/// GET /dynamic-specialists — list all currently-loaded GenericSpecialists
+/// GET /dynamic-specialists â€” list all currently-loaded GenericSpecialists
 async fn list_dynamic_specialists(
     State(state): State<AppState>,
 ) -> Json<serde_json::Value> {
@@ -1098,7 +1123,7 @@ struct AddDynamicSpecialistRequest {
     gguf_path: Option<String>,
 }
 
-/// POST /dynamic-specialists — add a new GenericSpecialist at runtime (no restart needed)
+/// POST /dynamic-specialists â€” add a new GenericSpecialist at runtime (no restart needed)
 ///
 /// Example:
 /// ```json
@@ -1162,7 +1187,7 @@ async fn add_dynamic_specialist(
     })).into_response()
 }
 
-/// POST /dynamic-specialists/reload — re-read specialist_registry.json and
+/// POST /dynamic-specialists/reload â€” re-read specialist_registry.json and
 /// add any newly-enabled dynamic specialists (without removing existing ones).
 async fn reload_dynamic_specialists(
     State(state): State<AppState>,
@@ -1259,7 +1284,7 @@ struct ForgeInspectRequest {
     path: String,
 }
 
-/// POST /forge/inspect — parse a GGUF file and return its tensor table and metadata
+/// POST /forge/inspect â€” parse a GGUF file and return its tensor table and metadata
 ///
 /// Example request:
 /// ```json
@@ -1309,7 +1334,7 @@ async fn forge_inspect(
 /// Request body for POST /forge/auto-recipe
 #[derive(Deserialize)]
 struct ForgeAutoRecipeRequest {
-    /// Path to the primary (base) model — e.g., Qwen abliterated
+    /// Path to the primary (base) model â€” e.g., Qwen abliterated
     model_a_path: String,
     /// Path to the domain-specialized model
     model_b_path: String,
@@ -1320,7 +1345,7 @@ struct ForgeAutoRecipeRequest {
     domain: String,
 }
 
-/// POST /forge/auto-recipe — parse two GGUFs, auto-generate a ForgeRecipe
+/// POST /forge/auto-recipe â€” parse two GGUFs, auto-generate a ForgeRecipe
 ///
 /// Example request:
 /// ```json
@@ -1387,7 +1412,7 @@ struct ForgeSingleRecipeRequest {
     include_kinds: Vec<String>,
 }
 
-/// POST /forge/single-recipe — generate a ForgeRecipe extracting selected
+/// POST /forge/single-recipe â€” generate a ForgeRecipe extracting selected
 /// tensor kinds from a single GGUF model.
 ///
 /// Example: extract only attention tensors from a fine-tuned model,
@@ -1444,7 +1469,7 @@ struct ForgeCrystallizeRequest {
     source_paths: Vec<String>,
 }
 
-/// POST /forge/crystallize — parse sources, build GgufIndex, crystallize hybrid GGUF
+/// POST /forge/crystallize â€” parse sources, build GgufIndex, crystallize hybrid GGUF
 ///
 /// Example request:
 /// ```json
@@ -1529,12 +1554,12 @@ struct ForgeCrystallizeRosterRequest {
     /// Only crystallize specific sovereigns by name
     #[serde(default)]
     only: Vec<String>,
-    /// Dry run — return the plan without writing files
+    /// Dry run â€” return the plan without writing files
     #[serde(default)]
     dry_run: bool,
 }
 
-/// POST /forge/crystallize-roster — crystallize all sovereigns from one base GGUF
+/// POST /forge/crystallize-roster â€” crystallize all sovereigns from one base GGUF
 ///
 /// Reads foundation_v1.gguf (or specified source) once and produces one
 /// domain-specialized GGUF per sovereign, with calibrated layer selection
@@ -1611,7 +1636,7 @@ async fn forge_crystallize_roster(
         })).into_response();
     }
 
-    // Run crystallization (this is long-running — consider SSE for progress)
+    // Run crystallization (this is long-running â€” consider SSE for progress)
     match forge::crystallize_roster(source, &models_dir, Some(profiles), None).await {
         Ok(result) => Json(serde_json::json!({
             "ok": true,
@@ -1638,7 +1663,7 @@ async fn forge_crystallize_roster(
     }
 }
 
-// ── Distillation endpoints ────────────────────────────────────────────────────
+// â”€â”€ Distillation endpoints â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 /// GET /distillation/plan
 ///
@@ -1648,7 +1673,7 @@ async fn forge_crystallize_roster(
 async fn distillation_plan(State(_state): State<AppState>) -> impl IntoResponse {
     use crate::federation::graph::distillation::generate_distillation_plan;
 
-    // GGUFAnalyzer reads tensor headers (fast but synchronous) — run off the async executor
+    // GGUFAnalyzer reads tensor headers (fast but synchronous) â€” run off the async executor
     let plans = tokio::task::spawn_blocking(|| {
         let models_dir = std::path::PathBuf::from("D:\\Aaroneous\\models");
         let data_dir   = std::path::PathBuf::from("D:\\Aaroneous\\training_data");
@@ -1701,7 +1726,7 @@ struct DistillationGenerateRequest {
 /// for status and results.
 ///
 /// CPU inference on a 7B model takes ~2-10 minutes per example.
-/// This endpoint is always async — it never blocks.
+/// This endpoint is always async â€” it never blocks.
 ///
 /// Requires the server to be built with `--features llama-gguf` for real inference.
 async fn distillation_generate(
@@ -1710,13 +1735,13 @@ async fn distillation_generate(
 ) -> impl IntoResponse {
     use crate::llm::{LLMClient, LLMConfig};
 
-    // Without llama-gguf: reject immediately — stub output is worthless.
+    // Without llama-gguf: reject immediately â€” stub output is worthless.
     #[cfg(not(feature = "llama-gguf"))]
     {
         return Json(serde_json::json!({
             "ok": false,
             "error": "Real inference required. Rebuild: cargo build --features llama-gguf",
-            "hint": "Without llama-gguf the GGUF provider returns stub text — training data would be useless.",
+            "hint": "Without llama-gguf the GGUF provider returns stub text â€” training data would be useless.",
         })).into_response();
     }
 
@@ -1725,7 +1750,7 @@ async fn distillation_generate(
         let count = req.count.unwrap_or(50).min(500);
         let sovereign = req.sovereign.clone();
 
-        // Build the LLM client — use reduced max_tokens for CPU inference (128 vs 512)
+        // Build the LLM client â€” use reduced max_tokens for CPU inference (128 vs 512)
         let llm_config = LLMConfig {
             provider_type: crate::llm::ProviderType::GGUF,
             gguf_model_path: Some(std::path::PathBuf::from("D:\\Aaroneous\\models\\foundation_v1.gguf")),
@@ -1757,7 +1782,7 @@ async fn distillation_generate(
             jobs.insert(job_id.clone(), GenerationJobStatus::Running);
         }
 
-        // Spawn the generation as a background task — returns immediately
+        // Spawn the generation as a background task â€” returns immediately
         let jobs_arc = state.generation_jobs.clone();
         let job_id_bg = job_id.clone();
         tokio::task::spawn(async move {
@@ -1801,7 +1826,7 @@ async fn distillation_job_status(
             "ok": true,
             "job_id": job_id,
             "status": "running",
-            "note": "Still generating — CPU inference is slow. Check back in 30s.",
+            "note": "Still generating â€” CPU inference is slow. Check back in 30s.",
         })).into_response(),
         Some(GenerationJobStatus::Done(report)) => Json(serde_json::json!({
             "ok": true,
@@ -1851,7 +1876,7 @@ async fn distillation_analyze(
         ).into_response();
     }
 
-    // GGUFAnalyzer is synchronous (reads file headers) — run off the async executor.
+    // GGUFAnalyzer is synchronous (reads file headers) â€” run off the async executor.
     // stringify the error inside the closure so Result is Send.
     let sov_clone = sovereign.clone();
     let result = tokio::task::spawn_blocking(move || {
@@ -1892,7 +1917,7 @@ async fn distillation_analyze(
     }
 }
 
-// ── Memory stats endpoint ─────────────────────────────────────────────────────
+// â”€â”€ Memory stats endpoint â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 /// GET /memory/stats
 ///
@@ -1919,7 +1944,7 @@ async fn memory_stats(State(state): State<AppState>) -> impl IntoResponse {
     }))
 }
 
-// ── Distillation script endpoint ──────────────────────────────────────────────
+// â”€â”€ Distillation script endpoint â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 /// GET /distillation/script/:sovereign
 ///
@@ -1972,7 +1997,7 @@ async fn distillation_script(
     }
 }
 
-// ── DNA dissection endpoints ──────────────────────────────────────────────────
+// â”€â”€ DNA dissection endpoints â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 #[derive(Deserialize)]
 struct DnaDissectRequest {
@@ -1997,7 +2022,7 @@ async fn dna_dissect(
 ) -> impl IntoResponse {
     use crate::federation::dna::{dissect_model, load_dna_sidecar, DissectionJobStatus};
 
-    // Resolve path — accept either absolute path or filename in models dir
+    // Resolve path â€” accept either absolute path or filename in models dir
     let model_path = if std::path::Path::new(&req.model).is_absolute() {
         std::path::PathBuf::from(&req.model)
     } else {
@@ -2046,7 +2071,7 @@ async fn dna_dissect(
                 blocks_done: 0,
                 blocks_total: 0,
                 percent: 0,
-                message: "Starting dissection…".into(),
+                message: "Starting dissectionâ€¦".into(),
             }
         });
     }
@@ -2179,7 +2204,7 @@ async fn dna_compare(
             // We normalise by keeping only the locus_key (everything after the last
             // double-letter token that identifies the measurement type).
             let locus_key = |id: &str, model_name: &str| -> String {
-                // model_name may contain dots (e.g. "wen-qwen2.5-7b.gguf") — escape dots
+                // model_name may contain dots (e.g. "wen-qwen2.5-7b.gguf") â€” escape dots
                 let prefix_clean = model_name.replace('.', "_").to_lowercase();
                 id.to_lowercase()
                     .trim_start_matches(&prefix_clean)
@@ -2237,7 +2262,7 @@ async fn dna_compare(
                     format!("Take blocks 0-{} from {} and {}-end from {}",
                         a.splice_boundary, a.model_name, a.splice_boundary, b.model_name)
                 } else {
-                    "Both models have the same splice boundary — consider alternating blocks".into()
+                    "Both models have the same splice boundary â€” consider alternating blocks".into()
                 },
                 "loci_comparison": loci_diff,
             })).into_response()
@@ -2303,7 +2328,7 @@ async fn dna_roster(State(_state): State<AppState>) -> impl IntoResponse {
     }))
 }
 
-// ── Model import/export endpoints ─────────────────────────────────────────────
+// â”€â”€ Model import/export endpoints â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 #[derive(Deserialize)]
 struct ModelsImportRequest {
@@ -2443,7 +2468,7 @@ async fn models_export(
 
 /// GET /models/registry
 ///
-/// Return the full model registry — all known GGUFs with metadata, DNA status,
+/// Return the full model registry â€” all known GGUFs with metadata, DNA status,
 /// and sovereign associations.
 async fn models_registry(State(_state): State<AppState>) -> impl IntoResponse {
     use crate::federation::model_registry::scan_models_dir;
@@ -2478,7 +2503,7 @@ async fn models_registry(State(_state): State<AppState>) -> impl IntoResponse {
 
 /// GET /models/recommend
 ///
-/// Returns the recommended base model for each sovereign — which HuggingFace
+/// Returns the recommended base model for each sovereign â€” which HuggingFace
 /// models to download, why, what quantization to use, and whether the model
 /// is already present on disk.
 ///
@@ -2555,7 +2580,7 @@ async fn models_recommend(State(_state): State<AppState>) -> impl IntoResponse {
         },
         "current_foundation": {
             "model": "foundation_v1.gguf (Qwen2.5-Coder-7B-Instruct)",
-            "bias": "~60% code training corpus — strong coding bias across all sovereigns",
+            "bias": "~60% code training corpus â€” strong coding bias across all sovereigns",
             "gate_sparsity": 1.0,
             "problem": "Merlin researches in code. Wen reads biometrics in code. Ariel designs UIs in code.",
         },
@@ -2568,3 +2593,368 @@ async fn models_recommend(State(_state): State<AppState>) -> impl IntoResponse {
         ],
     }))
 }
+
+// â”€â”€ TensorVault endpoints â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+/// GET /vault/status
+///
+/// Returns the current state of the TensorVault index â€” which models are indexed,
+/// total unique tensor names, per-model tensor counts and dtype distribution.
+async fn vault_status(State(state): State<AppState>) -> impl IntoResponse {
+    let vault = state.vault.read().await;
+    let status = vault.status();
+    Json(serde_json::json!({
+        "ok": true,
+        "indexed_models": status.indexed_models.len(),
+        "total_unique_tensor_names": status.total_unique_tensor_names,
+        "total_vault_entries": status.total_vault_entries,
+        "total_indexed_size_gb": (status.total_indexed_size_mb / 1024.0 * 10.0).round() / 10.0,
+        "architectures": status.architectures,
+        "models": status.indexed_models,
+        "note": if status.indexed_models.is_empty() {
+            "Vault is still indexing â€” check back in a few seconds"
+        } else {
+            "Ready"
+        },
+    }))
+}
+
+#[derive(Deserialize)]
+struct VaultIndexRequest {
+    /// Model filename (e.g. "Mistral-7B-Instruct-v0.3-Q4_K_M.gguf")
+    /// or absolute path
+    model: String,
+}
+
+/// POST /vault/index
+///
+/// Add a specific model to the vault index (if not already indexed).
+/// The vault auto-indexes on startup, but this lets you add newly downloaded models.
+async fn vault_index_model(
+    State(state): State<AppState>,
+    Json(req): Json<VaultIndexRequest>,
+) -> impl IntoResponse {
+    use crate::federation::tensor_vault::TensorVault;
+
+    let model_path = if std::path::Path::new(&req.model).is_absolute() {
+        std::path::PathBuf::from(&req.model)
+    } else {
+        std::path::PathBuf::from(format!("D:\\Aaroneous\\models\\{}", req.model))
+    };
+
+    if !model_path.exists() {
+        return (StatusCode::NOT_FOUND, Json(serde_json::json!({
+            "ok": false, "error": format!("Model not found: {}", model_path.display()),
+        }))).into_response();
+    }
+
+    let mut vault = state.vault.write().await;
+    let model_name = model_path.file_name().and_then(|n| n.to_str()).unwrap_or("").to_string();
+
+    if vault.is_indexed(&model_name) {
+        return Json(serde_json::json!({
+            "ok": true, "status": "already_indexed", "model": model_name,
+        })).into_response();
+    }
+
+    match vault.index_model(&model_path).await {
+        Ok(()) => {
+            let status = vault.status();
+            Json(serde_json::json!({
+                "ok": true,
+                "status": "indexed",
+                "model": model_name,
+                "vault_total_models": status.indexed_models.len(),
+                "vault_total_tensors": status.total_unique_tensor_names,
+            })).into_response()
+        }
+        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({
+            "ok": false, "error": e.to_string(),
+        }))).into_response(),
+    }
+}
+
+#[derive(Deserialize)]
+struct VaultQueryRequest {
+    model_name: Option<String>,
+    block_from: Option<usize>,
+    block_to: Option<usize>,
+    kinds: Option<Vec<String>>,
+    limit: Option<usize>,
+}
+
+/// POST /vault/query
+///
+/// Query the vault for tensors matching specific criteria.
+///
+/// Example â€” get all attention tensors from Mistral blocks 0-14:
+/// {"model_name": "Mistral-7B-Instruct-v0.3-Q4_K_M.gguf", "block_from": 0, "block_to": 13, "kinds": ["attention"]}
+async fn vault_query(
+    State(state): State<AppState>,
+    Json(req): Json<VaultQueryRequest>,
+) -> impl IntoResponse {
+    use crate::federation::tensor_vault::VaultQuery;
+
+    let vault = state.vault.read().await;
+    let block_range = match (req.block_from, req.block_to) {
+        (Some(from), Some(to)) => Some(from..=to),
+        (Some(from), None)     => Some(from..=from),
+        _ => None,
+    };
+
+    let q = VaultQuery {
+        model_name: req.model_name.clone(),
+        block_range,
+        kinds: req.kinds.unwrap_or_default(),
+        preferred_dtype: None,
+        limit: req.limit.or(Some(200)),
+    };
+
+    let results = vault.query(&q);
+    let entries: Vec<serde_json::Value> = results.iter().map(|e| serde_json::json!({
+        "tensor_name": e.tensor_name,
+        "model_name":  e.model_name,
+        "block_idx":   e.block_idx,
+        "kind":        e.kind,
+        "dtype":       e.dtype_label(),
+        "shape":       e.shape,
+        "size_bytes":  e.size_bytes,
+        "param_count": e.param_count,
+        "architecture": e.architecture,
+    })).collect();
+
+    Json(serde_json::json!({
+        "ok": true,
+        "count": entries.len(),
+        "query": {
+            "model_name": req.model_name,
+            "block_from": req.block_from,
+            "block_to":   req.block_to,
+        },
+        "entries": entries,
+    }))
+}
+
+#[derive(Deserialize)]
+struct VaultBestRequest {
+    tensor_name: String,
+}
+
+/// POST /vault/best
+///
+/// Find the highest-quality source for a specific tensor name across all indexed models.
+/// Quality priority: F32 > BF16 > F16 > Q8_0 > Q6_K > Q5_K > Q4_K_M > ...
+async fn vault_best(
+    State(state): State<AppState>,
+    Json(req): Json<VaultBestRequest>,
+) -> impl IntoResponse {
+    let vault = state.vault.read().await;
+    match vault.best_source_for_tensor(&req.tensor_name) {
+        Some(e) => Json(serde_json::json!({
+            "ok": true,
+            "tensor_name": e.tensor_name,
+            "best_source": {
+                "model_name":  e.model_name,
+                "dtype":       e.dtype_label(),
+                "param_count": e.param_count,
+                "shape":       e.shape,
+                "size_bytes":  e.size_bytes,
+                "architecture": e.architecture,
+            },
+            "all_sources": vault.models_with_tensor(&req.tensor_name).iter().map(|e| serde_json::json!({
+                "model_name": e.model_name,
+                "dtype":      e.dtype_label(),
+            })).collect::<Vec<_>>(),
+        })).into_response(),
+        None => (StatusCode::NOT_FOUND, Json(serde_json::json!({
+            "ok": false,
+            "error": format!("Tensor '{}' not found in vault", req.tensor_name),
+        }))).into_response(),
+    }
+}
+
+/// POST /vault/best (alias for vault_best â€” named differently internally)
+async fn vault_best_tensor(
+    state: State<AppState>,
+    body: Json<VaultBestRequest>,
+) -> impl IntoResponse {
+    vault_best(state, body).await
+}
+
+// â”€â”€ DNA â†’ Forge pipeline â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+#[derive(Deserialize)]
+struct DnaForgeRequest {
+    /// First model: contribute lower blocks (0..splice_boundary)
+    model_a: String,
+    /// Second model: contribute upper blocks (splice_boundary..end)
+    model_b: String,
+    /// Output sovereign name
+    sovereign_name: String,
+    /// Override splice boundary (default: use dna_a.splice_boundary)
+    splice_boundary: Option<usize>,
+    /// Output filename (default: <sovereign_name>-hybrid.gguf in models dir)
+    output_filename: Option<String>,
+    /// If true, run DNA dissection on the output immediately after forge
+    auto_dissect: Option<bool>,
+}
+
+/// POST /dna/forge
+///
+/// One-call DNA-driven hybrid model assembly:
+/// 1. Load DNA sidecars for both models
+/// 2. Use splice_boundary to determine the split point
+/// 3. Generate a ForgeRecipe (lower blocks from A, upper blocks from B)
+/// 4. Crystallize the hybrid sovereign GGUF
+/// 5. Optionally run DNA dissection on the result
+///
+/// This is how you "partition models and pull the best of several":
+/// - model_a: the model whose lower-layer representations you want
+///   (early layers handle syntax, tokenization, basic semantics)
+/// - model_b: the model whose upper-layer representations you want
+///   (later layers handle reasoning, planning, domain specifics)
+/// - The splice_boundary is the point of maximum divergence between the two
+///   models as measured by cross-block weight correlation
+///
+/// Example:
+/// {"model_a": "Mistral-7B-Instruct-v0.3-Q4_K_M.gguf",
+///  "model_b": "Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf",
+///  "sovereign_name": "Merlin",
+///  "auto_dissect": true}
+async fn dna_forge(
+    State(state): State<AppState>,
+    Json(req): Json<DnaForgeRequest>,
+) -> impl IntoResponse {
+    use crate::federation::dna::load_dna_sidecar;
+    use crate::federation::tensor_vault::recipe_from_dna_compare;
+    
+    let models_dir = std::path::Path::new("D:\\Aaroneous\\models");
+
+    let resolve = |name: &str| -> std::path::PathBuf {
+        let filename = if name.ends_with(".gguf") { name.to_string() }
+            else { format!("{}.gguf", name) };
+        models_dir.join(filename)
+    };
+
+    let path_a = resolve(&req.model_a);
+    let path_b = resolve(&req.model_b);
+
+    // Load DNA sidecars
+    let dna_a = match load_dna_sidecar(&path_a) {
+        Some(d) => d,
+        None => return (StatusCode::NOT_FOUND, Json(serde_json::json!({
+            "ok": false,
+            "error": format!("{} has no DNA sidecar. Run POST /dna/dissect first.", req.model_a),
+        }))).into_response(),
+    };
+    let dna_b = match load_dna_sidecar(&path_b) {
+        Some(d) => d,
+        None => return (StatusCode::NOT_FOUND, Json(serde_json::json!({
+            "ok": false,
+            "error": format!("{} has no DNA sidecar. Run POST /dna/dissect first.", req.model_b),
+        }))).into_response(),
+    };
+
+    // Override splice boundary if specified
+    let mut dna_a_eff = dna_a.clone();
+    if let Some(sb) = req.splice_boundary {
+        dna_a_eff.splice_boundary = sb;
+    }
+
+    let recipe_id = format!("{}-dna-splice-{}", req.sovereign_name.to_lowercase(), now_ms_vault());
+
+    // Build the ForgeRecipe from DNA
+    let vault = state.vault.read().await;
+    let recipe = match recipe_from_dna_compare(&dna_a_eff, &dna_b, &vault, recipe_id.clone(), &req.sovereign_name) {
+        Ok(r) => r,
+        Err(e) => return (StatusCode::BAD_REQUEST, Json(serde_json::json!({
+            "ok": false,
+            "error": format!("Recipe generation failed: {}", e),
+            "hint": "Make sure both models are indexed in the vault (GET /vault/status)",
+        }))).into_response(),
+    };
+    drop(vault); // Release read lock before the blocking crystallize
+
+    let output_filename = req.output_filename.clone()
+        .unwrap_or_else(|| format!("{}-hybrid.gguf", req.sovereign_name.to_lowercase()));
+    let output_path = models_dir.join(&output_filename);
+
+    // Build a GgufIndex containing both source models
+    let (index_a, _) = match crate::federation::forge::read_gguf(&path_a) {
+        Ok(r) => r,
+        Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({
+            "ok": false, "error": format!("Failed to read {}: {}", req.model_a, e),
+        }))).into_response(),
+    };
+    let (index_b, _) = match crate::federation::forge::read_gguf(&path_b) {
+        Ok(r) => r,
+        Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({
+            "ok": false, "error": format!("Failed to read {}: {}", req.model_b, e),
+        }))).into_response(),
+    };
+
+    // Merge both indices
+    let mut combined_index = crate::federation::forge::GgufIndex::new();
+    for (k, v) in index_a.0 { combined_index.register(k, v); }
+    for (k, v) in index_b.0 { combined_index.register(k, v); }
+
+    let mut forge = crate::federation::forge::Forge::new();
+    let start = std::time::Instant::now();
+
+    let crystal_result = match forge.crystallize(&recipe, &combined_index, &output_path).await {
+        Ok(r) => r,
+        Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({
+            "ok": false, "error": format!("Crystallization failed: {}", e),
+        }))).into_response(),
+    };
+
+    let duration_secs = start.elapsed().as_secs_f64();
+
+    // Optionally run DNA dissection on the result
+    let dna_result = if req.auto_dissect.unwrap_or(true) {
+        match crate::federation::dna::dissect_model(&output_path, None).await {
+            Ok(dna) => Some(serde_json::json!({
+                "loci_count": dna.genetic_loci.len(),
+                "blocks": dna.num_blocks,
+                "splice_boundary": dna.splice_boundary,
+                "gate_sparsity": dna.genome_loci.get("gate_sparsity"),
+                "attn_mlp_ratio": dna.genome_loci.get("attn_mlp_ratio"),
+            })),
+            Err(e) => {
+                tracing::warn!("DNA dissection of hybrid failed: {}", e);
+                None
+            }
+        }
+    } else { None };
+
+    Json(serde_json::json!({
+        "ok": true,
+        "sovereign_name":   req.sovereign_name,
+        "output_path":      output_path.to_string_lossy(),
+        "output_filename":  output_filename,
+        "model_a":          dna_a.model_name,
+        "model_b":          dna_b.model_name,
+        "splice_boundary":  dna_a_eff.splice_boundary,
+        "recipe_id":        recipe_id,
+        "tensors_spliced":  crystal_result.tensors_spliced,
+        "bytes_written":    crystal_result.bytes_written,
+        "size_mb":          crystal_result.bytes_written / 1_048_576,
+        "duration_secs":    duration_secs,
+        "dna":              dna_result,
+        "description": format!(
+            "Hybrid: {} blocks 0-{} from {} + blocks {}-{} from {}",
+            dna_a_eff.splice_boundary, dna_a_eff.splice_boundary.saturating_sub(1),
+            dna_a.model_name,
+            dna_a_eff.splice_boundary, dna_b.num_blocks.saturating_sub(1),
+            dna_b.model_name
+        ),
+    })).into_response()
+}
+
+fn now_ms_vault() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0)
+}
+

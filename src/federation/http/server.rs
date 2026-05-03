@@ -72,6 +72,8 @@ impl HttpStatusServer {
             .map_err(HttpServerError::LocalAddr)?;
 
         let state = AppState::new(federation);
+        // Start background vault indexing — non-blocking, fires and forgets
+        state.start_vault_indexing();
         let app = router(state);
         let shutdown_signal = Arc::new(Notify::new());
         let shutdown_signal_for_task = shutdown_signal.clone();
