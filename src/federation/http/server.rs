@@ -74,6 +74,8 @@ impl HttpStatusServer {
         let state = AppState::new(federation);
         // Start background vault indexing — non-blocking, fires and forgets
         state.start_vault_indexing();
+        // Start link dispatcher — delivers federation events to webhooks/Discord/Slack/etc.
+        state.start_link_dispatcher();
         let app = router(state);
         let shutdown_signal = Arc::new(Notify::new());
         let shutdown_signal_for_task = shutdown_signal.clone();

@@ -48,6 +48,7 @@ pub mod dna;
 pub mod model_registry;
 pub mod tensor_vault;
 pub mod sovereign_package;
+pub mod links;
 
 pub use specialist::{Specialist, SpecialistId, SpecialistConfig, SpecialistRegistry, SpecialistContext, Decision, DelegateRequest, Conflict, ProposedAction, SystemResources, UserState, ExecutionStatus, ExecutionResult, ProposalPriority};
 pub use sentinel::{Sentinel, SentinelConfig, ArbitrationResult};

@@ -1,0 +1,27 @@
+[
+  {
+    "id": "link-1777848722760",
+    "name": "Test Discord Link",
+    "link_type": "discord",
+    "target_url": "https://discord.com/api/webhooks/test/fake",
+    "api_key": null,
+    "notion_database_id": null,
+    "github_repo": null,
+    "filter": {
+      "event_types": [
+        "execution_complete"
+      ],
+      "sovereigns": [
+        "Merlin"
+      ],
+      "statuses": [],
+      "output_contains": null
+    },
+    "enabled": true,
+    "created_at": 1777848722760,
+    "deliveries_sent": 0,
+    "deliveries_failed": 0,
+    "last_delivery_at": null,
+    "last_delivery_status": null
+  }
+]

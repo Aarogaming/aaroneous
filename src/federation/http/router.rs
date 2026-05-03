@@ -41,13 +41,15 @@ pub struct AppState {
     pub generation_jobs: GenerationJobs,
     pub dissection_jobs: crate::federation::dna::DissectionJobs,
     pub import_jobs: crate::federation::model_registry::ImportJobs,
-    /// Cross-model tensor index â€” lets ForgeRecipes reference tensors by name
-    /// across all indexed GGUFs without needing to know which file they're in.
+    /// Cross-model tensor index
     pub vault: Arc<tokio::sync::RwLock<crate::federation::tensor_vault::TensorVault>>,
+    /// Link registry: webhooks, Discord, Slack, Notion, GitHub integrations
+    pub links: crate::federation::links::LinkRegistry,
 }
 
 impl AppState {
     pub fn new(federation: Arc<Federation>) -> Self {
+        let links = crate::federation::links::load_links();
         Self {
             federation,
             generation_jobs: Arc::new(tokio::sync::Mutex::new(std::collections::HashMap::new())),
@@ -56,7 +58,16 @@ impl AppState {
             vault: Arc::new(tokio::sync::RwLock::new(
                 crate::federation::tensor_vault::TensorVault::new()
             )),
+            links: Arc::new(tokio::sync::RwLock::new(links)),
         }
+    }
+
+    /// Start the background link dispatcher — watches federation events and
+    /// delivers to registered webhooks, Discord, Slack, Notion, GitHub, etc.
+    pub fn start_link_dispatcher(&self) {
+        use crate::federation::links::start_link_dispatcher;
+        let rx = self.federation.subscribe_specialist_events();
+        start_link_dispatcher(self.links.clone(), rx);
     }
 
     /// Start the background vault indexing (non-blocking â€” fires and forgets).
@@ -100,9 +111,9 @@ async fn api_key_auth(
         return next.run(req).await;
     };
 
-    // Allow liveness/readiness probes without auth
+    // Allow liveness/readiness probes and model listing without auth
     let path = req.uri().path();
-    if path == "/healthz" || path == "/readyz" {
+    if path == "/healthz" || path == "/readyz" || path == "/v1/models" {
         return next.run(req).await;
     }
 
@@ -140,6 +151,15 @@ pub fn router(state: AppState) -> Router {
     };
 
     Router::new()
+        // ── OpenAI-compatible API (/v1/) ──────────────────────────────────────
+        // Makes Aaroneous usable by Cursor, Continue.dev, Claude Desktop,
+        // any OpenAI SDK, LM Studio, and every tool that speaks OpenAI chat.
+        // Model name maps to a sovereign: "merlin", "odin", "ariel", etc.
+        // Unrecognised model → routes to the active hive (all sovereigns).
+        .route("/v1/models",               get(openai_list_models))
+        .route("/v1/chat/completions",     post(openai_chat_completions))
+        .route("/v1/completions",          post(openai_completions))
+        // ── Standard Aaroneous routes ─────────────────────────────────────────
         .route("/healthz", get(healthz))
         .route("/readyz", get(readyz))
         .route("/status", get(status))
@@ -190,6 +210,10 @@ pub fn router(state: AppState) -> Router {
         .route("/dna/genome/:model",   get(dna_genome))
         .route("/dna/compare",         post(dna_compare))
         .route("/dna/roster",          get(dna_roster))
+        // Link integrations — webhooks, Discord, Slack, Notion, GitHub
+        .route("/links",           get(links_list).post(links_create))
+        .route("/links/:id",       get(links_get).delete(links_delete).put(links_update))
+        .route("/links/:id/test",  post(links_test))
         // Sovereign package export/import — portable .sovereign bundles
         .route("/specialists/export/:name", get(specialists_export))
         .route("/specialists/import",       post(specialists_import_pkg))
@@ -3164,5 +3188,510 @@ async fn specialists_inspect(
         Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({
             "ok": false, "error": format!("spawn_blocking panicked: {}", e),
         }))).into_response(),
+    }
+}
+
+// ── OpenAI-compatible API ─────────────────────────────────────────────────────
+//
+// Implements the OpenAI Chat Completions API format so Aaroneous can be used
+// as a drop-in local model backend by:
+//   - Cursor IDE (Settings → Models → Add Model → OpenAI Compatible)
+//   - Continue.dev (config.json → models → provider: "openai")
+//   - Claude Desktop (via local proxy config)
+//   - Any OpenAI SDK: openai.baseURL = "http://localhost:8765/v1"
+//   - LM Studio, Ollama-compatible clients, n8n AI nodes
+//   - GitHub Copilot Chat (via custom model provider)
+//
+// Model naming convention:
+//   "aaroneous"          → all sovereigns vote (full hive)
+//   "merlin"             → routes exclusively to Merlin (research)
+//   "odin"               → routes to Odin (task planning)
+//   "ariel"              → routes to Ariel (UI/UX)
+//   "argus"              → routes to Argus (security)
+//   "wen"                → routes to Wen (biometric/human state)
+//   "hephaestus"         → routes to Hephaestus (build/fabrication)
+//   Any other string     → full hive (all sovereigns)
+//
+// The response is assembled from the sovereign's execution output.
+// Streaming (stream=true) uses SSE with the standard delta format.
+
+/// GET /v1/models
+///
+/// Returns the list of available "models" — each sovereign is a model.
+/// Required by most OpenAI clients before making chat requests.
+async fn openai_list_models(State(state): State<AppState>) -> impl IntoResponse {
+    let dynamic = state.federation.dynamic.read().await;
+    let now_ts = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+
+    // Core sovereigns
+    let mut models = vec![
+        serde_json::json!({ "id": "aaroneous", "object": "model", "created": now_ts, "owned_by": "aaroneous" }),
+        serde_json::json!({ "id": "ariel",     "object": "model", "created": now_ts, "owned_by": "aaroneous", "description": "UI/UX design specialist" }),
+        serde_json::json!({ "id": "hermes",    "object": "model", "created": now_ts, "owned_by": "aaroneous", "description": "P2P mesh sync specialist" }),
+        serde_json::json!({ "id": "wen",       "object": "model", "created": now_ts, "owned_by": "aaroneous", "description": "Biometric / human state specialist" }),
+        serde_json::json!({ "id": "kami",      "object": "model", "created": now_ts, "owned_by": "aaroneous", "description": "AR/VR spatial specialist" }),
+        serde_json::json!({ "id": "dionysus",  "object": "model", "created": now_ts, "owned_by": "aaroneous", "description": "Memory / DNA Bank specialist" }),
+    ];
+    // Dynamic sovereigns
+    for s in dynamic.iter() {
+        models.push(serde_json::json!({
+            "id": s.name.to_lowercase(),
+            "object": "model",
+            "created": now_ts,
+            "owned_by": "aaroneous",
+            "description": format!("{} — {}", s.name, s.domain),
+        }));
+    }
+
+    Json(serde_json::json!({
+        "object": "list",
+        "data": models,
+    }))
+}
+
+/// OpenAI ChatCompletionMessage
+#[derive(Deserialize, Clone)]
+struct OaiMessage {
+    role: String,
+    content: String,
+}
+
+/// OpenAI ChatCompletion request body
+#[derive(Deserialize)]
+struct OaiChatRequest {
+    model: Option<String>,
+    messages: Vec<OaiMessage>,
+    stream: Option<bool>,
+    temperature: Option<f32>,
+    max_tokens: Option<u32>,
+    #[serde(default)]
+    user: Option<String>,
+}
+
+/// POST /v1/chat/completions
+///
+/// OpenAI-compatible chat completions endpoint.
+/// Routes the user's last message as an intent to the appropriate sovereign.
+async fn openai_chat_completions(
+    State(state): State<AppState>,
+    Json(req): Json<OaiChatRequest>,
+) -> impl IntoResponse {
+    use axum::http::header;
+
+    let model = req.model.as_deref().unwrap_or("aaroneous").to_lowercase();
+    let stream = req.stream.unwrap_or(false);
+
+    // Extract the last user message as the intent
+    let user_content = req.messages.iter().rev()
+        .find(|m| m.role == "user")
+        .map(|m| m.content.clone())
+        .unwrap_or_default();
+
+    // Extract system message as context override (optional)
+    let system_content = req.messages.iter()
+        .find(|m| m.role == "system")
+        .map(|m| m.content.clone());
+
+    if user_content.is_empty() {
+        return (StatusCode::BAD_REQUEST, Json(serde_json::json!({
+            "error": { "message": "No user message found", "type": "invalid_request_error" }
+        }))).into_response();
+    }
+
+    // Route to specific sovereign or full hive
+    let response_text = route_to_sovereign(
+        &state, &model, &user_content, system_content.as_deref(),
+    ).await;
+
+    let completion_id = format!("chatcmpl-{}", now_ms_oai());
+    let created = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs()).unwrap_or(0);
+
+    if stream {
+        // Streaming SSE response — delta format
+        let id_clone = completion_id.clone();
+        let model_clone = model.clone();
+        let stream_body = async_stream::stream! {
+            // First chunk: role delta
+            yield Ok::<_, std::convert::Infallible>(axum::response::sse::Event::default()
+                .data(serde_json::to_string(&serde_json::json!({
+                    "id": id_clone, "object": "chat.completion.chunk", "created": created,
+                    "model": model_clone,
+                    "choices": [{"index": 0, "delta": {"role": "assistant"}, "finish_reason": null}]
+                })).unwrap_or_default()));
+
+            // Content chunks (split into ~100-char pieces for streaming feel)
+            let text = response_text.clone();
+            for chunk in text.as_bytes().chunks(100) {
+                let s = String::from_utf8_lossy(chunk).to_string();
+                yield Ok::<_, std::convert::Infallible>(axum::response::sse::Event::default()
+                    .data(serde_json::to_string(&serde_json::json!({
+                        "id": id_clone, "object": "chat.completion.chunk", "created": created,
+                        "model": model_clone,
+                        "choices": [{"index": 0, "delta": {"content": s}, "finish_reason": null}]
+                    })).unwrap_or_default()));
+            }
+
+            // Final chunk: [DONE]
+            yield Ok::<_, std::convert::Infallible>(axum::response::sse::Event::default()
+                .data("[DONE]"));
+        };
+
+        axum::response::sse::Sse::new(stream_body)
+            .keep_alive(axum::response::sse::KeepAlive::default())
+            .into_response()
+    } else {
+        // Non-streaming: single JSON response
+        let prompt_tokens = (user_content.len() / 4) as u32;
+        let completion_tokens = (response_text.len() / 4) as u32;
+
+        Json(serde_json::json!({
+            "id": completion_id,
+            "object": "chat.completion",
+            "created": created,
+            "model": model,
+            "choices": [{
+                "index": 0,
+                "message": {
+                    "role": "assistant",
+                    "content": response_text,
+                },
+                "finish_reason": "stop",
+            }],
+            "usage": {
+                "prompt_tokens": prompt_tokens,
+                "completion_tokens": completion_tokens,
+                "total_tokens": prompt_tokens + completion_tokens,
+            },
+            "system_fingerprint": "aaroneous-v2",
+        })).into_response()
+    }
+}
+
+/// POST /v1/completions
+///
+/// Legacy OpenAI completions endpoint (text-in, text-out).
+/// Maps to chat completions internally.
+#[derive(Deserialize)]
+struct OaiCompletionRequest {
+    model: Option<String>,
+    prompt: String,
+    stream: Option<bool>,
+    max_tokens: Option<u32>,
+}
+
+async fn openai_completions(
+    State(state): State<AppState>,
+    Json(req): Json<OaiCompletionRequest>,
+) -> impl IntoResponse {
+    let model = req.model.as_deref().unwrap_or("aaroneous").to_lowercase();
+    let response_text = route_to_sovereign(&state, &model, &req.prompt, None).await;
+
+    let id = format!("cmpl-{}", now_ms_oai());
+    let created = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs()).unwrap_or(0);
+
+    Json(serde_json::json!({
+        "id": id,
+        "object": "text_completion",
+        "created": created,
+        "model": model,
+        "choices": [{
+            "text": response_text,
+            "index": 0,
+            "finish_reason": "stop",
+        }],
+        "usage": {
+            "prompt_tokens": (req.prompt.len() / 4) as u32,
+            "completion_tokens": (response_text.len() / 4) as u32,
+        }
+    }))
+}
+
+/// Route a message to a named sovereign (by model name) or the full hive.
+///
+/// Returns the sovereign's output text.
+async fn route_to_sovereign(
+    state: &AppState,
+    model: &str,
+    user_message: &str,
+    system_override: Option<&str>,
+) -> String {
+    use crate::llm::{LLMClient, LLMConfig};
+    use crate::federation::specialists::system_prompt_for_domain;
+
+    // Sovereign name → domain mapping
+    let (sovereign_name, domain) = match model {
+        "ariel"       => ("Ariel",      "ui_design"),
+        "hermes"      => ("Hermes",     "mesh_sync"),
+        "wen"         => ("Wen",        "human_state"),
+        "kami"        => ("Kami",       "spatial"),
+        "dionysus"    => ("Dionysus",   "memory_consolidation"),
+        "merlin"      => ("Merlin",     "research"),
+        "odin"        => ("Odin",       "task_orchestration"),
+        "argus"       => ("Argus",      "security_audit"),
+        "hephaestus"  => ("Hephaestus", "fabrication"),
+        _             => {
+            // Full hive — submit as a regular intent and collect all results
+            let intent = crate::federation::intent::Intent::new(user_message.to_string());
+            state.federation.submit_intent(intent).await;
+            // Wait briefly then collect the most recent result
+            tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
+            let results = state.federation.results.lock().await;
+            if let Some(last) = results.last() {
+                let name = last.specialist_name.as_deref().unwrap_or(last.specialist.name());
+                return format!("[{}] {}", name, last.output);
+            }
+            return format!("[Aaroneous Hive] Intent received: '{}'", user_message);
+        }
+    };
+
+    // Route directly to a specific dynamic sovereign via its LLM
+    let dynamic = state.federation.dynamic.read().await;
+    if let Some(specialist) = dynamic.iter().find(|s| s.name == sovereign_name) {
+        if let Some(ref llm) = specialist.llm {
+            let system_prompt = system_override
+                .map(|s| s.to_string())
+                .unwrap_or_else(|| system_prompt_for_domain(domain, sovereign_name));
+            match llm.generate_domain_response(&system_prompt, user_message, domain).await {
+                Ok(r) => return r,
+                Err(e) => return format!("[{}] LLM error: {}", sovereign_name, e),
+            }
+        }
+    }
+    drop(dynamic);
+
+    // Fallback: submit as hive intent tagged for this sovereign
+    let mut context = std::collections::HashMap::new();
+    context.insert("target_sovereign".to_string(), sovereign_name.to_string());
+    context.insert("openai_compat".to_string(), "true".to_string());
+
+    let mut intent = crate::federation::intent::Intent::new(user_message.to_string());
+    intent.context = context;
+    state.federation.submit_intent(intent).await;
+
+    tokio::time::sleep(tokio::time::Duration::from_millis(300)).await;
+    let results = state.federation.results.lock().await;
+    results.last()
+        .map(|r| r.output.clone())
+        .unwrap_or_else(|| format!("[{}] Processing intent: '{}'", sovereign_name, user_message))
+}
+
+fn now_ms_oai() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0)
+}
+
+// ── Link integration endpoints ─────────────────────────────────────────────────
+
+/// GET /links
+///
+/// List all registered integration links.
+async fn links_list(State(state): State<AppState>) -> impl IntoResponse {
+    let links = state.links.read().await;
+    Json(serde_json::json!({
+        "ok": true,
+        "count": links.len(),
+        "links": links.iter().map(|l| serde_json::json!({
+            "id":           l.id,
+            "name":         l.name,
+            "type":         format!("{:?}", l.link_type).to_lowercase(),
+            "target_url":   l.target_url,
+            "enabled":      l.enabled,
+            "filter":       l.filter,
+            "deliveries_sent":   l.deliveries_sent,
+            "deliveries_failed": l.deliveries_failed,
+            "last_delivery_at":  l.last_delivery_at,
+            "last_status":       l.last_delivery_status,
+        })).collect::<Vec<_>>(),
+    }))
+}
+
+#[derive(Deserialize)]
+struct LinkCreateRequest {
+    name: String,
+    link_type: String,
+    target_url: String,
+    api_key: Option<String>,
+    notion_database_id: Option<String>,
+    github_repo: Option<String>,
+    filter: Option<crate::federation::links::EventFilter>,
+    enabled: Option<bool>,
+}
+
+/// POST /links
+///
+/// Register a new integration link.
+///
+/// Examples:
+///
+/// Discord webhook:
+///   {"name":"Merlin updates","link_type":"discord",
+///    "target_url":"https://discord.com/api/webhooks/...",
+///    "filter":{"event_types":["execution_complete"],"sovereigns":["Merlin"]}}
+///
+/// Slack:
+///   {"name":"Security alerts","link_type":"slack",
+///    "target_url":"https://hooks.slack.com/services/...",
+///    "filter":{"sovereigns":["Argus"],"statuses":["Success"]}}
+///
+/// Generic webhook:
+///   {"name":"n8n trigger","link_type":"webhook",
+///    "target_url":"http://n8n.local:5678/webhook/aaroneous"}
+async fn links_create(
+    State(state): State<AppState>,
+    Json(req): Json<LinkCreateRequest>,
+) -> impl IntoResponse {
+    use crate::federation::links::{Link, LinkType};
+
+    let link_type = match req.link_type.to_lowercase().as_str() {
+        "discord"  => LinkType::Discord,
+        "slack"    => LinkType::Slack,
+        "notion"   => LinkType::Notion,
+        "github"   => LinkType::GitHub,
+        "vscode" | "vs_code" | "cursor" => LinkType::VsCode,
+        "custom"   => LinkType::Custom,
+        _          => LinkType::Webhook,
+    };
+
+    let mut link = Link::new(&req.name, link_type, &req.target_url);
+    link.api_key = req.api_key;
+    link.notion_database_id = req.notion_database_id;
+    link.github_repo = req.github_repo;
+    if let Some(filter) = req.filter { link.filter = filter; }
+    if let Some(enabled) = req.enabled { link.enabled = enabled; }
+
+    let link_id = link.id.clone();
+    let link_name = link.name.clone();
+
+    let mut links = state.links.write().await;
+    links.push(link);
+    let snapshot = links.clone();
+    drop(links);
+
+    if let Err(e) = crate::federation::links::save_links(&snapshot) {
+        tracing::warn!("Failed to persist links: {}", e);
+    }
+
+    Json(serde_json::json!({
+        "ok": true,
+        "id": link_id,
+        "name": link_name,
+        "message": "Link registered. Events will be dispatched to your target on match.",
+    }))
+}
+
+/// GET /links/:id
+async fn links_get(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+) -> impl IntoResponse {
+    let links = state.links.read().await;
+    match links.iter().find(|l| l.id == id) {
+        Some(l) => Json(serde_json::json!({ "ok": true, "link": l })).into_response(),
+        None => (StatusCode::NOT_FOUND, Json(serde_json::json!({ "ok": false, "error": "Link not found" }))).into_response(),
+    }
+}
+
+/// DELETE /links/:id
+async fn links_delete(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+) -> impl IntoResponse {
+    let mut links = state.links.write().await;
+    let before = links.len();
+    links.retain(|l| l.id != id);
+    let deleted = before != links.len();
+    let snapshot = links.clone();
+    drop(links);
+    if deleted {
+        let _ = crate::federation::links::save_links(&snapshot);
+        Json(serde_json::json!({ "ok": true, "deleted": id })).into_response()
+    } else {
+        (StatusCode::NOT_FOUND, Json(serde_json::json!({ "ok": false, "error": "Link not found" }))).into_response()
+    }
+}
+
+#[derive(Deserialize)]
+struct LinkUpdateRequest {
+    enabled: Option<bool>,
+    name: Option<String>,
+    filter: Option<crate::federation::links::EventFilter>,
+    api_key: Option<String>,
+}
+
+/// PUT /links/:id
+async fn links_update(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+    Json(req): Json<LinkUpdateRequest>,
+) -> impl IntoResponse {
+    let mut links = state.links.write().await;
+    match links.iter_mut().find(|l| l.id == id) {
+        Some(l) => {
+            if let Some(enabled) = req.enabled { l.enabled = enabled; }
+            if let Some(name) = req.name { l.name = name; }
+            if let Some(filter) = req.filter { l.filter = filter; }
+            if let Some(key) = req.api_key { l.api_key = Some(key); }
+            let snapshot = links.clone();
+            drop(links);
+            let _ = crate::federation::links::save_links(&snapshot);
+            Json(serde_json::json!({ "ok": true, "updated": id })).into_response()
+        }
+        None => {
+            drop(links);
+            (StatusCode::NOT_FOUND, Json(serde_json::json!({ "ok": false, "error": "Link not found" }))).into_response()
+        }
+    }
+}
+
+/// POST /links/:id/test
+///
+/// Send a test event to the link target to verify delivery works.
+async fn links_test(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+) -> impl IntoResponse {
+    let links = state.links.read().await;
+    let link = links.iter().find(|l| l.id == id).cloned();
+    drop(links);
+
+    match link {
+        None => (StatusCode::NOT_FOUND, Json(serde_json::json!({ "ok": false, "error": "Link not found" }))).into_response(),
+        Some(l) => {
+            let test_event = serde_json::json!({
+                "type": "execution_complete",
+                "specialist": "Aaroneous",
+                "status": "Success",
+                "duration_ms": 42,
+                "output_preview": "Test delivery from Aaroneous Link system",
+                "intent": "link_test",
+            });
+            // Re-use the dispatch logic via format_payload
+            use crate::federation::links::*;
+            let payload = format_payload_pub(&l, &test_event);
+            let t = std::time::Instant::now();
+            match deliver_pub(&l, payload).await {
+                Ok(status) => Json(serde_json::json!({
+                    "ok": true,
+                    "http_status": status,
+                    "duration_ms": t.elapsed().as_millis(),
+                    "link_name": l.name,
+                    "target": l.target_url,
+                })).into_response(),
+                Err(e) => (StatusCode::BAD_GATEWAY, Json(serde_json::json!({
+                    "ok": false,
+                    "error": e.to_string(),
+                    "target": l.target_url,
+                }))).into_response(),
+            }
+        }
     }
 }
