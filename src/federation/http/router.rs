@@ -141,6 +141,8 @@ pub fn router(state: AppState) -> Router {
         .route("/distillation/plan",               get(distillation_plan))
         .route("/distillation/generate",           post(distillation_generate))
         .route("/distillation/analyze/:sovereign", get(distillation_analyze))
+        // RAG memory stats: federation-level + per-sovereign memory counts
+        .route("/memory/stats", get(memory_stats))
         .with_state(state)
         // Apply CORS and auth layers to all routes
         .layer(cors)
@@ -1593,10 +1595,13 @@ async fn forge_crystallize_roster(
 /// (no-model / no-data / ready / done).
 async fn distillation_plan(State(_state): State<AppState>) -> impl IntoResponse {
     use crate::federation::graph::distillation::generate_distillation_plan;
-    let models_dir = std::path::Path::new("D:\\Aaroneous\\models");
-    let data_dir   = std::path::Path::new("D:\\Aaroneous\\training_data");
 
-    let plans = generate_distillation_plan(models_dir, data_dir, None);
+    // GGUFAnalyzer reads tensor headers (fast but synchronous) — run off the async executor
+    let plans = tokio::task::spawn_blocking(|| {
+        let models_dir = std::path::PathBuf::from("D:\\Aaroneous\\models");
+        let data_dir   = std::path::PathBuf::from("D:\\Aaroneous\\training_data");
+        generate_distillation_plan(&models_dir, &data_dir, None)
+    }).await.unwrap_or_default();
 
     let items: Vec<serde_json::Value> = plans.iter().map(|p| {
         let model_exists = std::path::Path::new(&p.base_model_path).exists();
@@ -1725,14 +1730,23 @@ async fn distillation_analyze(
         ).into_response();
     }
 
-    let analyzer = GGUFAnalyzer::default();
-    match analyzer.analyze(&model_path) {
-        Ok(analysis) => {
-            let genome = crate::federation::graph::analysis_to_genome_json(&analysis, &sovereign);
+    // GGUFAnalyzer is synchronous (reads file headers) — run off the async executor.
+    // stringify the error inside the closure so Result is Send.
+    let sov_clone = sovereign.clone();
+    let result = tokio::task::spawn_blocking(move || {
+        let analyzer = GGUFAnalyzer::default();
+        analyzer.analyze(&model_path)
+            .map(|a| (a, sov_clone))
+            .map_err(|e| e.to_string())
+    }).await;
+
+    match result {
+        Ok(Ok((analysis, sov))) => {
+            let genome = crate::federation::graph::analysis_to_genome_json(&analysis, &sov);
             Json(serde_json::json!({
                 "ok": true,
                 "sovereign": sovereign,
-                "model_path": model_path.display().to_string(),
+                "model_path": format!("D:\\Aaroneous\\models\\{}-qwen2.5-7b.gguf", sovereign.to_lowercase()),
                 "analysis": {
                     "model_name": analysis.model_name,
                     "architecture": analysis.architecture,
@@ -1746,9 +1760,40 @@ async fn distillation_analyze(
                 "genome": genome,
             })).into_response()
         }
+        Ok(Err(e)) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({ "ok": false, "error": e })),
+        ).into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
-            Json(serde_json::json!({ "ok": false, "error": e.to_string() })),
+            Json(serde_json::json!({ "ok": false, "error": format!("spawn_blocking panicked: {}", e) })),
         ).into_response(),
     }
+}
+
+// ── Memory stats endpoint ─────────────────────────────────────────────────────
+
+/// GET /memory/stats
+///
+/// Returns RAG memory counts for the federation and each active sovereign.
+/// Used by MaelstromUI to show the "memories" badge on sovereign cards.
+async fn memory_stats(State(state): State<AppState>) -> impl IntoResponse {
+    let fed = &state.federation;
+    let federation_total = fed.federation_memory.lock().await.total_count();
+
+    let dynamic = fed.dynamic.read().await;
+    let per_sovereign: Vec<serde_json::Value> = dynamic.iter().map(|s| {
+        let count = s.memory.lock().count_for(&s.name);
+        serde_json::json!({
+            "name":         s.name,
+            "domain":       s.domain,
+            "memory_count": count,
+        })
+    }).collect();
+
+    Json(serde_json::json!({
+        "ok":               true,
+        "federation_total": federation_total,
+        "per_sovereign":    per_sovereign,
+    }))
 }

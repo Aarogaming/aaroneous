@@ -13,6 +13,7 @@ use std::collections::HashMap;
 use std::io::Write;
 use serde::{Deserialize, Serialize};
 use super::task_spec::{SovereignTaskSpec, sovereign_task_specs, spec_for};
+#[allow(unused_imports)]
 use super::analyzer::{GGUFAnalyzer, ModelAnalysis};
 
 // ── Training data generation ──────────────────────────────────────────────────
@@ -493,7 +494,6 @@ pub fn generate_distillation_plan(
     only: Option<&[&str]>,
 ) -> Vec<LoraTrainingSpec> {
     let specs = sovereign_task_specs();
-    let analyzer = GGUFAnalyzer::default();
 
     specs.iter()
         .filter(|s| {
@@ -502,15 +502,9 @@ pub fn generate_distillation_plan(
             })
         })
         .map(|spec| {
-            // Try to analyze the crystallized GGUF for this sovereign
-            let model_path = models_dir.join(
-                format!("{}-qwen2.5-7b.gguf", spec.sovereign_name.to_lowercase())
-            );
-            let analysis = if model_path.exists() {
-                analyzer.analyze(&model_path).ok()
-            } else { None };
-
-            LoraTrainingSpec::from_spec_and_analysis(spec, analysis.as_ref(), models_dir, training_data_dir)
+            // Use task spec only — no weight analysis here (fast path).
+            // For weight-derived hyperparameters, use /distillation/analyze/:sovereign.
+            LoraTrainingSpec::from_spec_and_analysis(spec, None, models_dir, training_data_dir)
         })
         .collect()
 }

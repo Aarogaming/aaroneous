@@ -294,31 +294,90 @@ impl DigestionEngine {
             task.model_name.clone(),
         );
 
-        // Simulate extraction (in reality, would load GGUF and analyze weights)
-        for i in 0..3500 {
-            let locus = GeneticLocus::new(
-                format!("STRUCTURAL_{}", i),
-                match i % 8 {
-                    0 => GeneticCategory::AttentionGenetics,
-                    1 => GeneticCategory::LayerGenetics,
-                    2 => GeneticCategory::EmbeddingGenetics,
-                    3 => GeneticCategory::BiasGenetics,
-                    4 => GeneticCategory::DAGGenetics,
-                    5 => GeneticCategory::RAGGenetics,
-                    6 => GeneticCategory::PersonalityGenetics,
-                    _ => GeneticCategory::SpecializationGenetics,
-                },
-                (i as f64 / 3500.0).clamp(0.0, 1.0),
-                crate::genetics::LociSource::WeightAnalysis,
+        // Real structural extraction via GGUFAnalyzer.
+        // Reads tensor info table (header-only, fast — no 4GB RAM load) and
+        // produces genome_loci values [0,1] mapped to GeneticLocus instances.
+        let loci_count = if task.model_path.exists() {
+            let analyzer = crate::federation::graph::GGUFAnalyzer::default();
+            match analyzer.analyze(&task.model_path) {
+                Ok(analysis) => {
+                    // Map every genome locus from the analyzer into the SpecialistGenome
+                    for (key, &value) in &analysis.genome_loci {
+                        let category = match key.as_str() {
+                            "attention_intensity"            => GeneticCategory::AttentionGenetics,
+                            "mlp_intensity"                  => GeneticCategory::LayerGenetics,
+                            "depth_gradient" | "depth"       => GeneticCategory::LayerGenetics,
+                            "model_density"                  => GeneticCategory::EmbeddingGenetics,
+                            "quantization_depth"             => GeneticCategory::EmbeddingGenetics,
+                            "layer_specialization_variance"  => GeneticCategory::SpecializationGenetics,
+                            _                                => GeneticCategory::PersonalityGenetics,
+                        };
+                        let locus = GeneticLocus::new(
+                            format!("{}-{}", task.model_name.to_lowercase().replace(' ', "_"), key),
+                            category,
+                            value.clamp(0.0, 1.0) as f64,
+                            crate::genetics::LociSource::WeightAnalysis,
+                        )
+                        .with_interpretation(format!(
+                            "{}: {:.3} (from {} blocks, attn/mlp={:.2})",
+                            key, value, analysis.total_blocks, analysis.attn_mlp_ratio
+                        ))
+                        .with_confidence(0.82); // structural analysis confidence
+                        genome.add_locus(locus);
+                    }
+
+                    // Also add per-block specialization scores as LayerGenetics loci
+                    for block in &analysis.block_profiles {
+                        let locus = GeneticLocus::new(
+                            format!("{}-block_{}_spec", task.model_name.to_lowercase().replace(' ', "_"), block.block_idx),
+                            GeneticCategory::LayerGenetics,
+                            block.specialization_score.clamp(0.0, 1.0) as f64,
+                            crate::genetics::LociSource::WeightAnalysis,
+                        )
+                        .with_interpretation(format!(
+                            "Block {} specialization — attn_mean={:.3} mlp_mean={:.3}",
+                            block.block_idx, block.attn_weight_mean, block.mlp_weight_mean
+                        ))
+                        .with_confidence(0.75);
+                        genome.add_locus(locus);
+                    }
+
+                    // Genome-level summary fields
+                    genome.genetic_distance_to_base = (1.0 - analysis.attn_mlp_ratio.clamp(0.0, 2.0) / 2.0) as f64;
+                    genome.specialization_score = analysis.depth_gradient.clamp(0.0, 1.0) as f64;
+
+                    genome.genetic_loci.len()
+                }
+                Err(e) => {
+                    // Model exists but couldn't be analyzed — fall back gracefully
+                    tracing::warn!(
+                        "GGUFAnalyzer failed for '{}': {} — using minimal loci fallback",
+                        task.model_path.display(), e
+                    );
+                    let locus = GeneticLocus::new(
+                        format!("{}-analysis_failed", task.model_name.to_lowercase()),
+                        GeneticCategory::PersonalityGenetics,
+                        0.5,
+                        crate::genetics::LociSource::Inferred,
+                    ).with_confidence(0.1);
+                    genome.add_locus(locus);
+                    1
+                }
+            }
+        } else {
+            // Model file not present (e.g. in-memory digestion task for testing)
+            tracing::debug!(
+                "Model path '{}' not found — skipping structural analysis",
+                task.model_path.display()
             );
-            genome.add_locus(locus);
-        }
+            0
+        };
 
         self.event_tx.send(DigestionEvent {
             digestion_id: task.digestion_id.clone(),
             event_type: DigestionEventType::StructuralAnalysisComplete,
             timestamp: Utc::now(),
-            details: "Structural analysis complete: 3500 loci extracted".to_string(),
+            details: format!("Structural analysis complete: {} loci extracted from GGUF tensor table", loci_count),
             progress_percent: Some(30),
         })?;
 
