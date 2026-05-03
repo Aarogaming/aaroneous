@@ -223,8 +223,16 @@ impl Federation {
             let _ = specialist.load_learning_from(&*pm);
         }
         let name = specialist.name.clone();
+        // Dedup: skip if a sovereign with the same name is already loaded
+        {
+            let guard = self.dynamic.read().await;
+            if guard.iter().any(|s| s.name == name) {
+                info!("Sovereign '{}' already loaded — skipping duplicate", name);
+                return;
+            }
+        }
         self.dynamic.write().await.push(specialist);
-        info!("Added GenericSpecialist '{}' to federation (dynamic slot)", name);
+        info!("Sovereign '{}' added to federation (dynamic slot)", name);
     }
 
     /// List all dynamic specialists currently in this federation.
