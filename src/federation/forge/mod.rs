@@ -1015,8 +1015,16 @@ pub fn read_gguf(
     path: impl AsRef<Path>,
 ) -> Result<(GgufIndex, GgufParsedMeta), GgufReadError> {
     let path = path.as_ref().to_path_buf();
-    let data = std::fs::read(&path).map_err(|e| GgufReadError::Io { path: path.clone(), source: e })?;
-    let mut r = Cursor::new(&data[..]);
+
+    // Use memory-mapped I/O so the OS pages in only the bytes we actually touch.
+    // For a 4GB model file we only need the first ~few MB (header + tensor info
+    // table) — with mmap the OS never loads the tensor data blobs into RAM.
+    let file = File::open(&path).map_err(|e| GgufReadError::Io { path: path.clone(), source: e })?;
+    // SAFETY: the file is not modified while this function runs (single-process,
+    // read-only open).  This is the standard pattern for GGUF header reading.
+    let mmap = unsafe { Mmap::map(&file) }
+        .map_err(|e| GgufReadError::Io { path: path.clone(), source: e })?;
+    let mut r = Cursor::new(&mmap[..]);
 
     // ── magic ──────────────────────────────────────────────────────────
     let mut magic = [0u8; 4];

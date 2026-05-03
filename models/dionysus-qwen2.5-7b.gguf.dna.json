@@ -1,0 +1,749 @@
+{
+  "model_name": "dionysus-qwen2.5-7b.gguf",
+  "model_path": "D:\\Aaroneous\\models\\dionysus-qwen2.5-7b.gguf",
+  "gguf_version": 3,
+  "architecture": "qwen2",
+  "num_blocks": 19,
+  "tensor_count": 147,
+  "parameter_count_m": 3886.69184,
+  "file_size_mb": 2288.043731689453,
+  "dissected_at": 1777830722604,
+  "dissection_duration_secs": 2.7446304,
+  "blocks": [
+    {
+      "block_idx": 0,
+      "attn_weight_mean": 0.0,
+      "mlp_weight_mean": 0.0,
+      "gate_sparsity": 0.0,
+      "attn_frobenius_norm": 0.0,
+      "mlp_frobenius_norm": 0.0,
+      "specialization_score": 0.0,
+      "size_bytes": 0
+    },
+    {
+      "block_idx": 1,
+      "attn_weight_mean": 0.0,
+      "mlp_weight_mean": 0.0,
+      "gate_sparsity": 0.0,
+      "attn_frobenius_norm": 0.0,
+      "mlp_frobenius_norm": 0.0,
+      "specialization_score": 0.0,
+      "size_bytes": 0
+    },
+    {
+      "block_idx": 2,
+      "attn_weight_mean": 0.0,
+      "mlp_weight_mean": 0.0,
+      "gate_sparsity": 0.0,
+      "attn_frobenius_norm": 0.0,
+      "mlp_frobenius_norm": 0.0,
+      "specialization_score": 0.0,
+      "size_bytes": 0
+    },
+    {
+      "block_idx": 3,
+      "attn_weight_mean": 0.0,
+      "mlp_weight_mean": 0.0,
+      "gate_sparsity": 0.0,
+      "attn_frobenius_norm": 0.0,
+      "mlp_frobenius_norm": 0.0,
+      "specialization_score": 0.0,
+      "size_bytes": 0
+    },
+    {
+      "block_idx": 4,
+      "attn_weight_mean": 0.0,
+      "mlp_weight_mean": 0.0,
+      "gate_sparsity": 0.0,
+      "attn_frobenius_norm": 0.0,
+      "mlp_frobenius_norm": 0.0,
+      "specialization_score": 0.0,
+      "size_bytes": 0
+    },
+    {
+      "block_idx": 5,
+      "attn_weight_mean": 0.0,
+      "mlp_weight_mean": 0.0,
+      "gate_sparsity": 0.0,
+      "attn_frobenius_norm": 0.0,
+      "mlp_frobenius_norm": 0.0,
+      "specialization_score": 0.0,
+      "size_bytes": 0
+    },
+    {
+      "block_idx": 6,
+      "attn_weight_mean": 0.0,
+      "mlp_weight_mean": 0.0,
+      "gate_sparsity": 0.0,
+      "attn_frobenius_norm": 0.0,
+      "mlp_frobenius_norm": 0.0,
+      "specialization_score": 0.0,
+      "size_bytes": 0
+    },
+    {
+      "block_idx": 7,
+      "attn_weight_mean": 0.2980446559716559,
+      "mlp_weight_mean": 0.285160039873937,
+      "gate_sparsity": 1.0,
+      "attn_frobenius_norm": 0.6811331621136022,
+      "mlp_frobenius_norm": 0.3939937292278051,
+      "specialization_score": 0.0,
+      "size_bytes": 131135488
+    },
+    {
+      "block_idx": 8,
+      "attn_weight_mean": 0.38319441615188526,
+      "mlp_weight_mean": 0.3052595141522873,
+      "gate_sparsity": 1.0,
+      "attn_frobenius_norm": 0.8314901592344887,
+      "mlp_frobenius_norm": 0.4252309926346123,
+      "specialization_score": 0.0,
+      "size_bytes": 131608576
+    },
+    {
+      "block_idx": 9,
+      "attn_weight_mean": 0.3423622095821581,
+      "mlp_weight_mean": 0.5233882849902569,
+      "gate_sparsity": 1.0,
+      "attn_frobenius_norm": 0.7459211984523759,
+      "mlp_frobenius_norm": 0.6615789829959116,
+      "specialization_score": 0.0,
+      "size_bytes": 148639744
+    },
+    {
+      "block_idx": 10,
+      "attn_weight_mean": 0.3309626157036594,
+      "mlp_weight_mean": 0.4396319990454159,
+      "gate_sparsity": 1.0,
+      "attn_frobenius_norm": 0.8596246980240223,
+      "mlp_frobenius_norm": 0.5437571005903687,
+      "specialization_score": 0.0,
+      "size_bytes": 148639744
+    },
+    {
+      "block_idx": 11,
+      "attn_weight_mean": 0.3566972013407697,
+      "mlp_weight_mean": 0.3454600657390144,
+      "gate_sparsity": 1.0,
+      "attn_frobenius_norm": 1.0,
+      "mlp_frobenius_norm": 0.49430598470510717,
+      "specialization_score": 0.0,
+      "size_bytes": 131135488
+    },
+    {
+      "block_idx": 12,
+      "attn_weight_mean": 0.3961877320852182,
+      "mlp_weight_mean": 0.3362303263006302,
+      "gate_sparsity": 1.0,
+      "attn_frobenius_norm": 0.8180904552566757,
+      "mlp_frobenius_norm": 0.4843975887172425,
+      "specialization_score": 0.0,
+      "size_bytes": 131608576
+    },
+    {
+      "block_idx": 13,
+      "attn_weight_mean": 0.3637705546716461,
+      "mlp_weight_mean": 0.4313442230094025,
+      "gate_sparsity": 1.0,
+      "attn_frobenius_norm": 0.9211897763165664,
+      "mlp_frobenius_norm": 0.5390562433107305,
+      "specialization_score": 0.0,
+      "size_bytes": 148639744
+    },
+    {
+      "block_idx": 14,
+      "attn_weight_mean": 0.36373956095970544,
+      "mlp_weight_mean": 0.34992651728232604,
+      "gate_sparsity": 1.0,
+      "attn_frobenius_norm": 0.8952499644093397,
+      "mlp_frobenius_norm": 0.5084748046305047,
+      "specialization_score": 0.0,
+      "size_bytes": 131135488
+    },
+    {
+      "block_idx": 15,
+      "attn_weight_mean": 0.43136295111838385,
+      "mlp_weight_mean": 0.35206206110664284,
+      "gate_sparsity": 1.0,
+      "attn_frobenius_norm": 0.9469692021601467,
+      "mlp_frobenius_norm": 0.5145247474128471,
+      "specialization_score": 0.0,
+      "size_bytes": 131608576
+    },
+    {
+      "block_idx": 16,
+      "attn_weight_mean": 0.3677806972943169,
+      "mlp_weight_mean": 0.4499898121444666,
+      "gate_sparsity": 1.0,
+      "attn_frobenius_norm": 0.8128930236239608,
+      "mlp_frobenius_norm": 0.569681881040061,
+      "specialization_score": 0.0,
+      "size_bytes": 148639744
+    },
+    {
+      "block_idx": 17,
+      "attn_weight_mean": 0.38609701736519736,
+      "mlp_weight_mean": 0.3769619976116631,
+      "gate_sparsity": 1.0,
+      "attn_frobenius_norm": 0.8736222781957127,
+      "mlp_frobenius_norm": 0.5529414003978774,
+      "specialization_score": 0.0,
+      "size_bytes": 131135488
+    },
+    {
+      "block_idx": 18,
+      "attn_weight_mean": 0.4877158781313483,
+      "mlp_weight_mean": 0.3828023794877271,
+      "gate_sparsity": 1.0,
+      "attn_frobenius_norm": 1.0,
+      "mlp_frobenius_norm": 0.5547344307863742,
+      "specialization_score": 0.0,
+      "size_bytes": 131608576
+    }
+  ],
+  "genome_loci": {
+    "depth_gradient": 0.47496518130345605,
+    "model_density": 0.2288043731689453,
+    "parameter_density": 0.05552416914285714,
+    "attention_intensity": 0.492322149979113,
+    "cross_block_correlation_mean": 0.5950944119083176,
+    "embedding_activation_density": 1.0,
+    "mlp_intensity": 0.5072823938830582,
+    "depth": 0.59375,
+    "attn_mlp_ratio": 0.492322149979113,
+    "layer_specialization_variance": 0.05677657583330742,
+    "embedding_norm_mean": 0.03766350085677903,
+    "gate_sparsity": 0.631578947368421
+  },
+  "genetic_loci": [
+    {
+      "locus_id": "dionysus-qwen2.5-7b-attention_intensity",
+      "category": "AttentionGenetics",
+      "source": "WeightAnalysis",
+      "value": 0.492322149979113,
+      "confidence": 0.88,
+      "interpretation": "Attention-to-MLP weight ratio 0.985 — balanced model"
+    },
+    {
+      "locus_id": "dionysus-qwen2.5-7b-gate_sparsity",
+      "category": "SpecializationGenetics",
+      "source": "WeightAnalysis",
+      "value": 0.631578947368421,
+      "confidence": 0.85,
+      "interpretation": "FFN gate sparsity 63.2% — high domain specialization"
+    },
+    {
+      "locus_id": "dionysus-qwen2.5-7b-depth_gradient",
+      "category": "LayerGenetics",
+      "source": "WeightAnalysis",
+      "value": 0.47496518130345605,
+      "confidence": 0.82,
+      "interpretation": "Cross-block correlation variance 0.475 — strong hierarchical abstraction"
+    },
+    {
+      "locus_id": "dionysus-qwen2.5-7b-embedding_density",
+      "category": "EmbeddingGenetics",
+      "source": "WeightAnalysis",
+      "value": 1.0,
+      "confidence": 0.8,
+      "interpretation": "Token embedding activation density 100.0% — broad general vocabulary coverage"
+    },
+    {
+      "locus_id": "dionysus-qwen2.5-7b-layer_variance",
+      "category": "SpecializationGenetics",
+      "source": "WeightAnalysis",
+      "value": 0.05677657583330742,
+      "confidence": 0.78,
+      "interpretation": "Per-block specialization variance — high = heterogeneous blocks, low = uniform depth"
+    },
+    {
+      "locus_id": "dionysus-qwen2.5-7b-cross_block_cohesion",
+      "category": "LayerGenetics",
+      "source": "WeightAnalysis",
+      "value": 0.5950944119083176,
+      "confidence": 0.75,
+      "interpretation": "Mean adjacent-block weight correlation — high = smooth representation, low = discrete stages"
+    },
+    {
+      "locus_id": "dionysus-qwen2.5-7b-block_0_attn",
+      "category": "AttentionGenetics",
+      "source": "WeightAnalysis",
+      "value": 0.0,
+      "confidence": 0.72,
+      "interpretation": "Block 0 attention weight magnitude"
+    },
+    {
+      "locus_id": "dionysus-qwen2.5-7b-block_0_gate",
+      "category": "SpecializationGenetics",
+      "source": "WeightAnalysis",
+      "value": 0.0,
+      "confidence": 0.72,
+      "interpretation": "Block 0 gate sparsity — domain specificity signal"
+    },
+    {
+      "locus_id": "dionysus-qwen2.5-7b-block_0_spec",
+      "category": "SpecializationGenetics",
+      "source": "WeightAnalysis",
+      "value": 1.0,
+      "confidence": 0.75,
+      "interpretation": "Block 0 specialization score (deviation from model mean)"
+    },
+    {
+      "locus_id": "dionysus-qwen2.5-7b-block_1_attn",
+      "category": "AttentionGenetics",
+      "source": "WeightAnalysis",
+      "value": 0.0,
+      "confidence": 0.72,
+      "interpretation": "Block 1 attention weight magnitude"
+    },
+    {
+      "locus_id": "dionysus-qwen2.5-7b-block_1_gate",
+      "category": "SpecializationGenetics",
+      "source": "WeightAnalysis",
+      "value": 0.0,
+      "confidence": 0.72,
+      "interpretation": "Block 1 gate sparsity — domain specificity signal"
+    },
+    {
+      "locus_id": "dionysus-qwen2.5-7b-block_1_spec",
+      "category": "SpecializationGenetics",
+      "source": "WeightAnalysis",
+      "value": 1.0,
+      "confidence": 0.75,
+      "interpretation": "Block 1 specialization score (deviation from model mean)"
+    },
+    {
+      "locus_id": "dionysus-qwen2.5-7b-block_2_attn",
+      "category": "AttentionGenetics",
+      "source": "WeightAnalysis",
+      "value": 0.0,
+      "confidence": 0.72,
+      "interpretation": "Block 2 attention weight magnitude"
+    },
+    {
+      "locus_id": "dionysus-qwen2.5-7b-block_2_gate",
+      "category": "SpecializationGenetics",
+      "source": "WeightAnalysis",
+      "value": 0.0,
+      "confidence": 0.72,
+      "interpretation": "Block 2 gate sparsity — domain specificity signal"
+    },
+    {
+      "locus_id": "dionysus-qwen2.5-7b-block_2_spec",
+      "category": "SpecializationGenetics",
+      "source": "WeightAnalysis",
+      "value": 1.0,
+      "confidence": 0.75,
+      "interpretation": "Block 2 specialization score (deviation from model mean)"
+    },
+    {
+      "locus_id": "dionysus-qwen2.5-7b-block_3_attn",
+      "category": "AttentionGenetics",
+      "source": "WeightAnalysis",
+      "value": 0.0,
+      "confidence": 0.72,
+      "interpretation": "Block 3 attention weight magnitude"
+    },
+    {
+      "locus_id": "dionysus-qwen2.5-7b-block_3_gate",
+      "category": "SpecializationGenetics",
+      "source": "WeightAnalysis",
+      "value": 0.0,
+      "confidence": 0.72,
+      "interpretation": "Block 3 gate sparsity — domain specificity signal"
+    },
+    {
+      "locus_id": "dionysus-qwen2.5-7b-block_3_spec",
+      "category": "SpecializationGenetics",
+      "source": "WeightAnalysis",
+      "value": 1.0,
+      "confidence": 0.75,
+      "interpretation": "Block 3 specialization score (deviation from model mean)"
+    },
+    {
+      "locus_id": "dionysus-qwen2.5-7b-block_4_attn",
+      "category": "AttentionGenetics",
+      "source": "WeightAnalysis",
+      "value": 0.0,
+      "confidence": 0.72,
+      "interpretation": "Block 4 attention weight magnitude"
+    },
+    {
+      "locus_id": "dionysus-qwen2.5-7b-block_4_gate",
+      "category": "SpecializationGenetics",
+      "source": "WeightAnalysis",
+      "value": 0.0,
+      "confidence": 0.72,
+      "interpretation": "Block 4 gate sparsity — domain specificity signal"
+    },
+    {
+      "locus_id": "dionysus-qwen2.5-7b-block_4_spec",
+      "category": "SpecializationGenetics",
+      "source": "WeightAnalysis",
+      "value": 1.0,
+      "confidence": 0.75,
+      "interpretation": "Block 4 specialization score (deviation from model mean)"
+    },
+    {
+      "locus_id": "dionysus-qwen2.5-7b-block_5_attn",
+      "category": "AttentionGenetics",
+      "source": "WeightAnalysis",
+      "value": 0.0,
+      "confidence": 0.72,
+      "interpretation": "Block 5 attention weight magnitude"
+    },
+    {
+      "locus_id": "dionysus-qwen2.5-7b-block_5_gate",
+      "category": "SpecializationGenetics",
+      "source": "WeightAnalysis",
+      "value": 0.0,
+      "confidence": 0.72,
+      "interpretation": "Block 5 gate sparsity — domain specificity signal"
+    },
+    {
+      "locus_id": "dionysus-qwen2.5-7b-block_5_spec",
+      "category": "SpecializationGenetics",
+      "source": "WeightAnalysis",
+      "value": 1.0,
+      "confidence": 0.75,
+      "interpretation": "Block 5 specialization score (deviation from model mean)"
+    },
+    {
+      "locus_id": "dionysus-qwen2.5-7b-block_6_attn",
+      "category": "AttentionGenetics",
+      "source": "WeightAnalysis",
+      "value": 0.0,
+      "confidence": 0.72,
+      "interpretation": "Block 6 attention weight magnitude"
+    },
+    {
+      "locus_id": "dionysus-qwen2.5-7b-block_6_gate",
+      "category": "SpecializationGenetics",
+      "source": "WeightAnalysis",
+      "value": 0.0,
+      "confidence": 0.72,
+      "interpretation": "Block 6 gate sparsity — domain specificity signal"
+    },
+    {
+      "locus_id": "dionysus-qwen2.5-7b-block_6_spec",
+      "category": "SpecializationGenetics",
+      "source": "WeightAnalysis",
+      "value": 1.0,
+      "confidence": 0.75,
+      "interpretation": "Block 6 specialization score (deviation from model mean)"
+    },
+    {
+      "locus_id": "dionysus-qwen2.5-7b-block_7_attn",
+      "category": "AttentionGenetics",
+      "source": "WeightAnalysis",
+      "value": 0.2980446559716559,
+      "confidence": 0.72,
+      "interpretation": "Block 7 attention weight magnitude"
+    },
+    {
+      "locus_id": "dionysus-qwen2.5-7b-block_7_gate",
+      "category": "SpecializationGenetics",
+      "source": "WeightAnalysis",
+      "value": 1.0,
+      "confidence": 0.72,
+      "interpretation": "Block 7 gate sparsity — domain specificity signal"
+    },
+    {
+      "locus_id": "dionysus-qwen2.5-7b-block_7_spec",
+      "category": "SpecializationGenetics",
+      "source": "WeightAnalysis",
+      "value": 0.2195385620447018,
+      "confidence": 0.75,
+      "interpretation": "Block 7 specialization score (deviation from model mean)"
+    },
+    {
+      "locus_id": "dionysus-qwen2.5-7b-block_8_attn",
+      "category": "AttentionGenetics",
+      "source": "WeightAnalysis",
+      "value": 0.38319441615188526,
+      "confidence": 0.72,
+      "interpretation": "Block 8 attention weight magnitude"
+    },
+    {
+      "locus_id": "dionysus-qwen2.5-7b-block_8_gate",
+      "category": "SpecializationGenetics",
+      "source": "WeightAnalysis",
+      "value": 1.0,
+      "confidence": 0.72,
+      "interpretation": "Block 8 gate sparsity — domain specificity signal"
+    },
+    {
+      "locus_id": "dionysus-qwen2.5-7b-block_8_spec",
+      "category": "SpecializationGenetics",
+      "source": "WeightAnalysis",
+      "value": 0.4396250959190875,
+      "confidence": 0.75,
+      "interpretation": "Block 8 specialization score (deviation from model mean)"
+    },
+    {
+      "locus_id": "dionysus-qwen2.5-7b-block_9_attn",
+      "category": "AttentionGenetics",
+      "source": "WeightAnalysis",
+      "value": 0.3423622095821581,
+      "confidence": 0.72,
+      "interpretation": "Block 9 attention weight magnitude"
+    },
+    {
+      "locus_id": "dionysus-qwen2.5-7b-block_9_gate",
+      "category": "SpecializationGenetics",
+      "source": "WeightAnalysis",
+      "value": 1.0,
+      "confidence": 0.72,
+      "interpretation": "Block 9 gate sparsity — domain specificity signal"
+    },
+    {
+      "locus_id": "dionysus-qwen2.5-7b-block_9_spec",
+      "category": "SpecializationGenetics",
+      "source": "WeightAnalysis",
+      "value": 0.810369705116137,
+      "confidence": 0.75,
+      "interpretation": "Block 9 specialization score (deviation from model mean)"
+    },
+    {
+      "locus_id": "dionysus-qwen2.5-7b-block_10_attn",
+      "category": "AttentionGenetics",
+      "source": "WeightAnalysis",
+      "value": 0.3309626157036594,
+      "confidence": 0.72,
+      "interpretation": "Block 10 attention weight magnitude"
+    },
+    {
+      "locus_id": "dionysus-qwen2.5-7b-block_10_gate",
+      "category": "SpecializationGenetics",
+      "source": "WeightAnalysis",
+      "value": 1.0,
+      "confidence": 0.72,
+      "interpretation": "Block 10 gate sparsity — domain specificity signal"
+    },
+    {
+      "locus_id": "dionysus-qwen2.5-7b-block_10_spec",
+      "category": "SpecializationGenetics",
+      "source": "WeightAnalysis",
+      "value": 0.611389371664607,
+      "confidence": 0.75,
+      "interpretation": "Block 10 specialization score (deviation from model mean)"
+    },
+    {
+      "locus_id": "dionysus-qwen2.5-7b-block_11_attn",
+      "category": "AttentionGenetics",
+      "source": "WeightAnalysis",
+      "value": 0.3566972013407697,
+      "confidence": 0.72,
+      "interpretation": "Block 11 attention weight magnitude"
+    },
+    {
+      "locus_id": "dionysus-qwen2.5-7b-block_11_gate",
+      "category": "SpecializationGenetics",
+      "source": "WeightAnalysis",
+      "value": 1.0,
+      "confidence": 0.72,
+      "interpretation": "Block 11 gate sparsity — domain specificity signal"
+    },
+    {
+      "locus_id": "dionysus-qwen2.5-7b-block_11_spec",
+      "category": "SpecializationGenetics",
+      "source": "WeightAnalysis",
+      "value": 0.4682801251834062,
+      "confidence": 0.75,
+      "interpretation": "Block 11 specialization score (deviation from model mean)"
+    },
+    {
+      "locus_id": "dionysus-qwen2.5-7b-block_12_attn",
+      "category": "AttentionGenetics",
+      "source": "WeightAnalysis",
+      "value": 0.3961877320852182,
+      "confidence": 0.72,
+      "interpretation": "Block 12 attention weight magnitude"
+    },
+    {
+      "locus_id": "dionysus-qwen2.5-7b-block_12_gate",
+      "category": "SpecializationGenetics",
+      "source": "WeightAnalysis",
+      "value": 1.0,
+      "confidence": 0.72,
+      "interpretation": "Block 12 gate sparsity — domain specificity signal"
+    },
+    {
+      "locus_id": "dionysus-qwen2.5-7b-block_12_spec",
+      "category": "SpecializationGenetics",
+      "source": "WeightAnalysis",
+      "value": 0.5315584255445251,
+      "confidence": 0.75,
+      "interpretation": "Block 12 specialization score (deviation from model mean)"
+    },
+    {
+      "locus_id": "dionysus-qwen2.5-7b-block_13_attn",
+      "category": "AttentionGenetics",
+      "source": "WeightAnalysis",
+      "value": 0.3637705546716461,
+      "confidence": 0.72,
+      "interpretation": "Block 13 attention weight magnitude"
+    },
+    {
+      "locus_id": "dionysus-qwen2.5-7b-block_13_gate",
+      "category": "SpecializationGenetics",
+      "source": "WeightAnalysis",
+      "value": 1.0,
+      "confidence": 0.72,
+      "interpretation": "Block 13 gate sparsity — domain specificity signal"
+    },
+    {
+      "locus_id": "dionysus-qwen2.5-7b-block_13_spec",
+      "category": "SpecializationGenetics",
+      "source": "WeightAnalysis",
+      "value": 0.6626634516851795,
+      "confidence": 0.75,
+      "interpretation": "Block 13 specialization score (deviation from model mean)"
+    },
+    {
+      "locus_id": "dionysus-qwen2.5-7b-block_14_attn",
+      "category": "AttentionGenetics",
+      "source": "WeightAnalysis",
+      "value": 0.36373956095970544,
+      "confidence": 0.72,
+      "interpretation": "Block 14 attention weight magnitude"
+    },
+    {
+      "locus_id": "dionysus-qwen2.5-7b-block_14_gate",
+      "category": "SpecializationGenetics",
+      "source": "WeightAnalysis",
+      "value": 1.0,
+      "confidence": 0.72,
+      "interpretation": "Block 14 gate sparsity — domain specificity signal"
+    },
+    {
+      "locus_id": "dionysus-qwen2.5-7b-block_14_spec",
+      "category": "SpecializationGenetics",
+      "source": "WeightAnalysis",
+      "value": 0.4923461848630203,
+      "confidence": 0.75,
+      "interpretation": "Block 14 specialization score (deviation from model mean)"
+    },
+    {
+      "locus_id": "dionysus-qwen2.5-7b-block_15_attn",
+      "category": "AttentionGenetics",
+      "source": "WeightAnalysis",
+      "value": 0.43136295111838385,
+      "confidence": 0.72,
+      "interpretation": "Block 15 attention weight magnitude"
+    },
+    {
+      "locus_id": "dionysus-qwen2.5-7b-block_15_gate",
+      "category": "SpecializationGenetics",
+      "source": "WeightAnalysis",
+      "value": 1.0,
+      "confidence": 0.72,
+      "interpretation": "Block 15 gate sparsity — domain specificity signal"
+    },
+    {
+      "locus_id": "dionysus-qwen2.5-7b-block_15_spec",
+      "category": "SpecializationGenetics",
+      "source": "WeightAnalysis",
+      "value": 0.6382189987230737,
+      "confidence": 0.75,
+      "interpretation": "Block 15 specialization score (deviation from model mean)"
+    },
+    {
+      "locus_id": "dionysus-qwen2.5-7b-block_16_attn",
+      "category": "AttentionGenetics",
+      "source": "WeightAnalysis",
+      "value": 0.3677806972943169,
+      "confidence": 0.72,
+      "interpretation": "Block 16 attention weight magnitude"
+    },
+    {
+      "locus_id": "dionysus-qwen2.5-7b-block_16_gate",
+      "category": "SpecializationGenetics",
+      "source": "WeightAnalysis",
+      "value": 1.0,
+      "confidence": 0.72,
+      "interpretation": "Block 16 gate sparsity — domain specificity signal"
+    },
+    {
+      "locus_id": "dionysus-qwen2.5-7b-block_16_spec",
+      "category": "SpecializationGenetics",
+      "source": "WeightAnalysis",
+      "value": 0.7100388221626723,
+      "confidence": 0.75,
+      "interpretation": "Block 16 specialization score (deviation from model mean)"
+    },
+    {
+      "locus_id": "dionysus-qwen2.5-7b-block_17_attn",
+      "category": "AttentionGenetics",
+      "source": "WeightAnalysis",
+      "value": 0.38609701736519736,
+      "confidence": 0.72,
+      "interpretation": "Block 17 attention weight magnitude"
+    },
+    {
+      "locus_id": "dionysus-qwen2.5-7b-block_17_gate",
+      "category": "SpecializationGenetics",
+      "source": "WeightAnalysis",
+      "value": 1.0,
+      "confidence": 0.72,
+      "interpretation": "Block 17 gate sparsity — domain specificity signal"
+    },
+    {
+      "locus_id": "dionysus-qwen2.5-7b-block_17_spec",
+      "category": "SpecializationGenetics",
+      "source": "WeightAnalysis",
+      "value": 0.5956316890262211,
+      "confidence": 0.75,
+      "interpretation": "Block 17 specialization score (deviation from model mean)"
+    },
+    {
+      "locus_id": "dionysus-qwen2.5-7b-block_18_attn",
+      "category": "AttentionGenetics",
+      "source": "WeightAnalysis",
+      "value": 0.4877158781313483,
+      "confidence": 0.72,
+      "interpretation": "Block 18 attention weight magnitude"
+    },
+    {
+      "locus_id": "dionysus-qwen2.5-7b-block_18_gate",
+      "category": "SpecializationGenetics",
+      "source": "WeightAnalysis",
+      "value": 1.0,
+      "confidence": 0.72,
+      "interpretation": "Block 18 gate sparsity — domain specificity signal"
+    },
+    {
+      "locus_id": "dionysus-qwen2.5-7b-block_18_spec",
+      "category": "SpecializationGenetics",
+      "source": "WeightAnalysis",
+      "value": 0.8203395680673665,
+      "confidence": 0.75,
+      "interpretation": "Block 18 specialization score (deviation from model mean)"
+    }
+  ],
+  "cross_block_correlation": [
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.9800643493884053,
+    0.921006326137849,
+    0.9717124170785449,
+    0.9726854052991537,
+    0.9711121944960694,
+    0.9783021819180449,
+    0.994600128042721,
+    0.9950302424907002,
+    0.9595322704336293,
+    0.9873356418704836,
+    0.9803182571941139
+  ],
+  "splice_boundary": 1,
+  "embedding_activation_density": 1.0,
+  "embedding_norm_mean": 0.03766350085677903,
+  "embedding_norm_std": 0.0,
+  "dna_fingerprint": 13583457637248257429
+}

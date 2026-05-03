@@ -44,6 +44,7 @@ pub mod hive;
 pub mod http;
 pub mod tasks;
 pub mod graph;
+pub mod dna;
 
 pub use specialist::{Specialist, SpecialistId, SpecialistConfig, SpecialistRegistry, SpecialistContext, Decision, DelegateRequest, Conflict, ProposedAction, SystemResources, UserState, ExecutionStatus, ExecutionResult, ProposalPriority};
 pub use sentinel::{Sentinel, SentinelConfig, ArbitrationResult};

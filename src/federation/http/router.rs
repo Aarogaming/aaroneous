@@ -39,6 +39,7 @@ pub type GenerationJobs = Arc<tokio::sync::Mutex<std::collections::HashMap<Strin
 pub struct AppState {
     pub federation: Arc<Federation>,
     pub generation_jobs: GenerationJobs,
+    pub dissection_jobs: crate::federation::dna::DissectionJobs,
 }
 
 impl AppState {
@@ -46,6 +47,7 @@ impl AppState {
         Self {
             federation,
             generation_jobs: Arc::new(tokio::sync::Mutex::new(std::collections::HashMap::new())),
+            dissection_jobs: Arc::new(tokio::sync::Mutex::new(std::collections::HashMap::new())),
         }
     }
 }
@@ -161,6 +163,12 @@ pub fn router(state: AppState) -> Router {
         .route("/distillation/script/:sovereign",  get(distillation_script))
         // RAG memory stats: federation-level + per-sovereign memory counts
         .route("/memory/stats", get(memory_stats))
+        // DNA dissection: deep structural analysis of GGUF models
+        .route("/dna/dissect",         post(dna_dissect))
+        .route("/dna/jobs/:id",        get(dna_job_status))
+        .route("/dna/genome/:model",   get(dna_genome))
+        .route("/dna/compare",         post(dna_compare))
+        .route("/dna/roster",          get(dna_roster))
         .with_state(state)
         // Apply CORS and auth layers to all routes
         .layer(cors)
@@ -1954,4 +1962,335 @@ async fn distillation_script(
             ).into_response()
         }
     }
+}
+
+// ── DNA dissection endpoints ──────────────────────────────────────────────────
+
+#[derive(Deserialize)]
+struct DnaDissectRequest {
+    /// Path to the GGUF model to dissect (e.g. "D:\\Aaroneous\\models\\foundation_v1.gguf")
+    /// or just a filename to look up in D:\Aaroneous\models\
+    model: String,
+    /// If true and a .dna.json sidecar exists, return the cached result immediately
+    use_cache: Option<bool>,
+}
+
+/// POST /dna/dissect
+///
+/// Start a background deep structural dissection of a GGUF model.
+/// Returns a job_id immediately. Poll GET /dna/jobs/:id for status.
+///
+/// The dissection reads tensor bytes via memory-mapped I/O (safe for 4GB+ models)
+/// and produces a full ModelDNA record: per-block weight statistics, gate sparsity,
+/// embedding topology, cross-block correlation, and genetic loci.
+async fn dna_dissect(
+    State(state): State<AppState>,
+    Json(req): Json<DnaDissectRequest>,
+) -> impl IntoResponse {
+    use crate::federation::dna::{dissect_model, load_dna_sidecar, DissectionJobStatus};
+
+    // Resolve path — accept either absolute path or filename in models dir
+    let model_path = if std::path::Path::new(&req.model).is_absolute() {
+        std::path::PathBuf::from(&req.model)
+    } else {
+        std::path::PathBuf::from(format!("D:\\Aaroneous\\models\\{}", req.model))
+    };
+
+    if !model_path.exists() {
+        return (StatusCode::NOT_FOUND, Json(serde_json::json!({
+            "ok": false,
+            "error": format!("Model not found: {}", model_path.display()),
+        }))).into_response();
+    }
+
+    // Return cached sidecar if requested and available
+    if req.use_cache.unwrap_or(true) {
+        if let Some(dna) = load_dna_sidecar(&model_path) {
+            return Json(serde_json::json!({
+                "ok": true,
+                "source": "cache",
+                "model": dna.model_name,
+                "loci_count": dna.genetic_loci.len(),
+                "blocks": dna.num_blocks,
+                "dissected_at": dna.dissected_at,
+                "dna": dna,
+            })).into_response();
+        }
+    }
+
+    // Start background dissection job
+    let job_id = format!("dna-{}-{}",
+        model_path.file_stem().and_then(|s| s.to_str()).unwrap_or("model"),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_millis()).unwrap_or(0));
+
+    let jobs_arc = state.dissection_jobs.clone();
+    let job_id_bg = job_id.clone();
+    let model_name = model_path.file_name().and_then(|n| n.to_str()).unwrap_or("").to_string();
+
+    {
+        let mut jobs = jobs_arc.lock().await;
+        jobs.insert(job_id.clone(), DissectionJobStatus::Running {
+            progress: crate::federation::dna::DissectionProgress {
+                model: model_name.clone(),
+                stage: crate::federation::dna::DissectionStage::ReadingHeader,
+                blocks_done: 0,
+                blocks_total: 0,
+                percent: 0,
+                message: "Starting dissection…".into(),
+            }
+        });
+    }
+
+    tokio::task::spawn(async move {
+        let (tx, mut rx) = tokio::sync::mpsc::channel(64);
+        // Update job status on each progress event
+        let jobs_progress = jobs_arc.clone();
+        let job_id_prog = job_id_bg.clone();
+        tokio::spawn(async move {
+            while let Some(progress) = rx.recv().await {
+                let mut jobs = jobs_progress.lock().await;
+                jobs.insert(job_id_prog.clone(),
+                    DissectionJobStatus::Running { progress });
+            }
+        });
+
+        let result = dissect_model(&model_path, Some(tx)).await;
+        let mut jobs = jobs_arc.lock().await;
+        match result {
+            Ok(dna) => { jobs.insert(job_id_bg, DissectionJobStatus::Done(Box::new(dna))); }
+            Err(e)  => { jobs.insert(job_id_bg, DissectionJobStatus::Failed(e.to_string())); }
+        }
+    });
+
+    Json(serde_json::json!({
+        "ok": true,
+        "job_id": job_id,
+        "model": model_name,
+        "status": "running",
+        "poll": format!("/dna/jobs/{}", job_id),
+    })).into_response()
+}
+
+/// GET /dna/jobs/:id
+///
+/// Poll a background DNA dissection job started by POST /dna/dissect.
+async fn dna_job_status(
+    State(state): State<AppState>,
+    Path(job_id): Path<String>,
+) -> impl IntoResponse {
+    use crate::federation::dna::DissectionJobStatus;
+    let jobs = state.dissection_jobs.lock().await;
+    match jobs.get(&job_id) {
+        None => (StatusCode::NOT_FOUND,
+            Json(serde_json::json!({ "ok": false, "error": "Job not found", "job_id": job_id }))).into_response(),
+        Some(DissectionJobStatus::Running { progress }) => Json(serde_json::json!({
+            "ok": true, "job_id": &job_id, "status": "running",
+            "stage": format!("{:?}", progress.stage),
+            "percent": progress.percent,
+            "blocks_done": progress.blocks_done,
+            "blocks_total": progress.blocks_total,
+            "message": &progress.message,
+        })).into_response(),
+        Some(DissectionJobStatus::Done(dna)) => Json(serde_json::json!({
+            "ok": true, "job_id": &job_id, "status": "done",
+            "model": &dna.model_name,
+            "loci_count": dna.genetic_loci.len(),
+            "blocks": dna.num_blocks,
+            "parameter_count_m": dna.parameter_count_m,
+            "dissection_duration_secs": dna.dissection_duration_secs,
+            "splice_boundary": dna.splice_boundary,
+            "dna": *dna.clone(),
+        })).into_response(),
+        Some(DissectionJobStatus::Failed(err)) => (StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({ "ok": false, "job_id": &job_id, "status": "failed", "error": err }))).into_response(),
+    }
+}
+
+/// GET /dna/genome/:model
+///
+/// Return the cached DNA sidecar for a model (if dissection has been run).
+/// :model is the filename (e.g. "foundation_v1.gguf") or "foundation_v1".
+async fn dna_genome(
+    State(_state): State<AppState>,
+    Path(model): Path<String>,
+) -> impl IntoResponse {
+    use crate::federation::dna::load_dna_sidecar;
+
+    let filename = if model.ends_with(".gguf") { model.clone() }
+        else { format!("{}.gguf", model) };
+    let model_path = std::path::PathBuf::from(format!("D:\\Aaroneous\\models\\{}", filename));
+
+    match load_dna_sidecar(&model_path) {
+        Some(dna) => Json(serde_json::json!({ "ok": true, "dna": dna })).into_response(),
+        None => (StatusCode::NOT_FOUND, Json(serde_json::json!({
+            "ok": false,
+            "error": format!("No DNA sidecar found for {}. Run POST /dna/dissect first.", filename),
+        }))).into_response(),
+    }
+}
+
+#[derive(Deserialize)]
+struct DnaCompareRequest {
+    model_a: String,
+    model_b: String,
+}
+
+/// POST /dna/compare
+///
+/// Compare the DNA of two dissected models and return genetic distance metrics.
+async fn dna_compare(
+    State(_state): State<AppState>,
+    Json(req): Json<DnaCompareRequest>,
+) -> impl IntoResponse {
+    use crate::federation::dna::{load_dna_sidecar, dna_to_genome};
+    use crate::genetics::GeneticAnalyzer;
+
+    let resolve = |name: &str| -> std::path::PathBuf {
+        let filename = if name.ends_with(".gguf") { name.to_string() } else { format!("{}.gguf", name) };
+        std::path::PathBuf::from(format!("D:\\Aaroneous\\models\\{}", filename))
+    };
+
+    let path_a = resolve(&req.model_a);
+    let path_b = resolve(&req.model_b);
+
+    let dna_a = load_dna_sidecar(&path_a);
+    let dna_b = load_dna_sidecar(&path_b);
+
+    match (dna_a, dna_b) {
+        (Some(a), Some(b)) => {
+            let genome_a = dna_to_genome(&a);
+            let genome_b = dna_to_genome(&b);
+            let diversity = GeneticAnalyzer::population_diversity(&[genome_a, genome_b]);
+
+            // Per-locus comparison
+            // Strip model-name prefix from locus IDs for cross-model comparison.
+            // Locus ID format: "<model_prefix>-<locus_key>" where model_prefix is
+            // e.g. "foundation_v1" or "odin-qwen2.5-7b".
+            // We normalise by keeping only the locus_key (everything after the last
+            // double-letter token that identifies the measurement type).
+            let locus_key = |id: &str, model_name: &str| -> String {
+                // model_name may contain dots (e.g. "wen-qwen2.5-7b.gguf") — escape dots
+                let prefix_clean = model_name.replace('.', "_").to_lowercase();
+                id.to_lowercase()
+                    .trim_start_matches(&prefix_clean)
+                    .trim_matches('-')
+                    .to_string()
+            };
+
+            let loci_diff: Vec<serde_json::Value> = a.genetic_loci.iter()
+                .filter_map(|la| {
+                    let la_key = locus_key(&la.locus_id, &a.model_name);
+                    b.genetic_loci.iter()
+                        .find(|lb| locus_key(&lb.locus_id, &b.model_name) == la_key)
+                        .map(|lb| serde_json::json!({
+                            "locus": la_key,
+                            "a": la.value,
+                            "b": lb.value,
+                            "delta": (lb.value - la.value).abs(),
+                            "direction": if lb.value > la.value { "b_higher" } else { "a_higher" },
+                            "category": la.category,
+                        }))
+                })
+                .collect();
+
+            // Compute distance on normalised loci (strip model prefix from IDs)
+            let genome_a_norm = dna_to_genome(&a);
+            let genome_b_norm = dna_to_genome(&b);
+            // Override locus IDs to use keys only so GeneticAnalyzer can match them
+            use crate::genetics::{SpecialistGenome, GeneticLocus};
+            let mk_normalised = |dna: &crate::federation::dna::ModelDNA| {
+                let mut g = SpecialistGenome::new(dna.model_name.clone(), dna.model_name.clone(), dna.model_path.clone());
+                for rec in &dna.genetic_loci {
+                    let key = locus_key(&rec.locus_id, &dna.model_name);
+                    let cat = crate::federation::dna::parse_category_pub(&rec.category);
+                    let src = crate::federation::dna::parse_source_pub(&rec.source);
+                    let locus = GeneticLocus::new(key, cat, rec.value.clamp(0.0, 1.0), src);
+                    g.add_locus(locus);
+                }
+                g
+            };
+            let gn_a = mk_normalised(&a);
+            let gn_b = mk_normalised(&b);
+            let distance = crate::genetics::GeneticAnalyzer::distance(&gn_a, &gn_b);
+
+            Json(serde_json::json!({
+                "ok": true,
+                "model_a": a.model_name,
+                "model_b": b.model_name,
+                "genetic_distance": distance,
+                "population_diversity": diversity,
+                "splice_boundaries": {
+                    "model_a": a.splice_boundary,
+                    "model_b": b.splice_boundary,
+                },
+                "recommended_splice": if a.splice_boundary != b.splice_boundary {
+                    format!("Take blocks 0-{} from {} and {}-end from {}",
+                        a.splice_boundary, a.model_name, a.splice_boundary, b.model_name)
+                } else {
+                    "Both models have the same splice boundary — consider alternating blocks".into()
+                },
+                "loci_comparison": loci_diff,
+            })).into_response()
+        }
+        (None, _) => (StatusCode::NOT_FOUND, Json(serde_json::json!({
+            "ok": false, "error": format!("{} has no DNA sidecar. Run POST /dna/dissect first.", req.model_a)
+        }))).into_response(),
+        (_, None) => (StatusCode::NOT_FOUND, Json(serde_json::json!({
+            "ok": false, "error": format!("{} has no DNA sidecar. Run POST /dna/dissect first.", req.model_b)
+        }))).into_response(),
+    }
+}
+
+/// GET /dna/roster
+///
+/// Returns the DNA status for all 9 sovereign GGUFs + foundation model.
+/// Shows which models have been dissected (have a sidecar), their key genome metrics,
+/// and the recommended ForgeRecipe splice points between each pair.
+async fn dna_roster(State(_state): State<AppState>) -> impl IntoResponse {
+    use crate::federation::dna::load_dna_sidecar;
+
+    let models_dir = std::path::Path::new("D:\\Aaroneous\\models");
+    let known_models = [
+        "foundation_v1", "ariel-qwen2.5-7b", "hermes-qwen2.5-7b",
+        "wen-qwen2.5-7b", "kami-qwen2.5-7b", "dionysus-qwen2.5-7b",
+        "merlin-qwen2.5-7b", "odin-qwen2.5-7b", "argus-qwen2.5-7b",
+        "hephaestus-qwen2.5-7b",
+    ];
+
+    let entries: Vec<serde_json::Value> = known_models.iter().map(|name| {
+        let path = models_dir.join(format!("{}.gguf", name));
+        let exists = path.exists();
+        let size_mb = if exists {
+            std::fs::metadata(&path).map(|m| m.len() as f64 / 1_048_576.0).unwrap_or(0.0)
+        } else { 0.0 };
+
+        let dna = if exists { load_dna_sidecar(&path) } else { None };
+        let dissected = dna.is_some();
+
+        serde_json::json!({
+            "model": name,
+            "file_exists": exists,
+            "size_mb": size_mb as u64,
+            "dissected": dissected,
+            "loci_count": dna.as_ref().map(|d| d.genetic_loci.len()).unwrap_or(0),
+            "blocks": dna.as_ref().map(|d| d.num_blocks).unwrap_or(0),
+            "splice_boundary": dna.as_ref().map(|d| d.splice_boundary).unwrap_or(0),
+            "gate_sparsity": dna.as_ref().and_then(|d| d.genome_loci.get("gate_sparsity").copied()),
+            "attn_mlp_ratio": dna.as_ref().and_then(|d| d.genome_loci.get("attn_mlp_ratio").copied()),
+            "dna_fingerprint": dna.as_ref().map(|d| format!("{:016x}", d.dna_fingerprint)),
+            "dissect_endpoint": format!("POST /dna/dissect {{\"model\":\"{}.gguf\"}}", name),
+        })
+    }).collect();
+
+    let dissected_count = entries.iter().filter(|e| e["dissected"].as_bool().unwrap_or(false)).count();
+
+    Json(serde_json::json!({
+        "ok": true,
+        "total_models": known_models.len(),
+        "dissected": dissected_count,
+        "pending": known_models.len() - dissected_count,
+        "models": entries,
+    }))
 }
