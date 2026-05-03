@@ -190,6 +190,10 @@ pub fn router(state: AppState) -> Router {
         .route("/dna/genome/:model",   get(dna_genome))
         .route("/dna/compare",         post(dna_compare))
         .route("/dna/roster",          get(dna_roster))
+        // Sovereign package export/import — portable .sovereign bundles
+        .route("/specialists/export/:name", get(specialists_export))
+        .route("/specialists/import",       post(specialists_import_pkg))
+        .route("/specialists/inspect",      post(specialists_inspect))
         // TensorVault â€” cross-model tensor index and DNA-driven hybrid assembly
         .route("/vault/status",             get(vault_status))
         .route("/vault/index",              post(vault_index_model))
@@ -2958,3 +2962,207 @@ fn now_ms_vault() -> u64 {
         .unwrap_or(0)
 }
 
+
+// ── Sovereign package export/import endpoints ─────────────────────────────────
+
+/// GET /specialists/export/:name
+///
+/// Export a sovereign specialist as a portable .sovereign package.
+/// The package contains: model.gguf + manifest.json + dna.json +
+/// system_prompt.txt + learning_state.json + specialist_config.json
+///
+/// The file is streamed as a binary download. Typical size: 1-5 GB.
+///
+/// Usage:
+///   curl http://localhost:8765/specialists/export/Merlin -o Merlin.sovereign
+async fn specialists_export(
+    State(state): State<AppState>,
+    Path(name): Path<String>,
+) -> impl IntoResponse {
+    use crate::federation::sovereign_package::{export_sovereign, PackageOptions};
+    use axum::http::header;
+
+    let models_dir = std::path::Path::new("D:\\Aaroneous\\models");
+    let export_dir = std::path::PathBuf::from("D:\\Aaroneous\\exports");
+
+    // Find the GGUF for this sovereign
+    let gguf_filename = format!("{}-qwen2.5-7b.gguf", name.to_lowercase());
+    let gguf_path = models_dir.join(&gguf_filename);
+    let gguf_path = if gguf_path.exists() { gguf_path } else {
+        // Try alternate naming (e.g. hybrid models)
+        let alt = models_dir.join(format!("{}.gguf", name.to_lowercase()));
+        if alt.exists() { alt } else {
+            return (StatusCode::NOT_FOUND, Json(serde_json::json!({
+                "ok": false,
+                "error": format!("No GGUF found for sovereign '{}'. Checked: {} and {}.gguf",
+                    name, gguf_filename, name.to_lowercase()),
+            }))).into_response();
+        }
+    };
+
+    // Get learning state from the active dynamic specialist if present
+    let learning_state = {
+        let dynamic = state.federation.dynamic.read().await;
+        dynamic.iter().find(|s| s.name.to_lowercase() == name.to_lowercase())
+            .map(|s| {
+                let l = s.learning.lock();
+                crate::federation::sovereign_package::LearningStateSnapshot {
+                    sovereign_name: s.name.clone(),
+                    confidence_score: l.confidence_score,
+                    total_executions: l.total_executions,
+                    success_count: l.success_count,
+                    failure_count: l.failure_count,
+                    execution_history: l.execution_history.clone(),
+                    confidence_trend: l.confidence_trend.clone(),
+                    last_updated: l.last_updated,
+                }
+            })
+    };
+
+    let opts = PackageOptions {
+        include_learning_state: true,
+        include_dna: true,
+        compression_level: 3,
+        source_hive: Some(format!("http://localhost:8765")),
+        tags: vec![name.to_lowercase()],
+    };
+
+    match export_sovereign(&name, &gguf_path, &export_dir, learning_state, opts).await {
+        Ok(pkg_path) => {
+            let filename = pkg_path.file_name().and_then(|n| n.to_str()).unwrap_or("").to_string();
+            let size = std::fs::metadata(&pkg_path).map(|m| m.len()).unwrap_or(0);
+            match tokio::fs::File::open(&pkg_path).await {
+                Ok(file) => {
+                    let stream = tokio_util::io::ReaderStream::new(file);
+                    let body = axum::body::Body::from_stream(stream);
+                    (
+                        StatusCode::OK,
+                        [
+                            (header::CONTENT_TYPE, "application/octet-stream".to_string()),
+                            (header::CONTENT_DISPOSITION, format!("attachment; filename=\"{}\"", filename)),
+                            (header::CONTENT_LENGTH, size.to_string()),
+                        ],
+                        body,
+                    ).into_response()
+                }
+                Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({
+                    "ok": false, "error": format!("Failed to open package for streaming: {}", e),
+                }))).into_response(),
+            }
+        }
+        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({
+            "ok": false, "error": e.to_string(),
+        }))).into_response(),
+    }
+}
+
+/// POST /specialists/import
+///
+/// Import a sovereign from a .sovereign package file.
+/// Body: JSON with {"package_path": "D:\\...\\Merlin.sovereign"}
+/// or future: multipart file upload
+#[derive(Deserialize)]
+struct SpecialistsImportRequest {
+    /// Local path to the .sovereign package file
+    package_path: String,
+    /// Whether to auto-register in specialist_registry.json (default: true)
+    register: Option<bool>,
+}
+
+async fn specialists_import_pkg(
+    State(_state): State<AppState>,
+    Json(req): Json<SpecialistsImportRequest>,
+) -> impl IntoResponse {
+    use crate::federation::sovereign_package::import_sovereign;
+
+    let pkg_path = std::path::PathBuf::from(&req.package_path);
+    if !pkg_path.exists() {
+        return (StatusCode::NOT_FOUND, Json(serde_json::json!({
+            "ok": false,
+            "error": format!("Package not found: {}", req.package_path),
+        }))).into_response();
+    }
+
+    let models_dir = std::path::Path::new("D:\\Aaroneous\\models");
+    let register = req.register.unwrap_or(true);
+
+    match import_sovereign(&pkg_path, models_dir, register).await {
+        Ok(result) => Json(serde_json::json!({
+            "ok": true,
+            "sovereign_name":  result.manifest.sovereign_name,
+            "domain":          result.manifest.domain,
+            "architecture":    result.manifest.architecture,
+            "parameter_count_m": result.manifest.parameter_count_m,
+            "gguf_path":       result.gguf_path.to_string_lossy(),
+            "dna_path":        result.dna_path.as_ref().map(|p| p.to_string_lossy().to_string()),
+            "learning_state":  result.learning_state.as_ref().map(|l| serde_json::json!({
+                "confidence": l.confidence_score,
+                "total_executions": l.total_executions,
+            })),
+            "registered":      register,
+            "base_model":      result.manifest.base_model,
+            "quantization":    result.manifest.quantization,
+            "tags":            result.manifest.tags,
+        })).into_response(),
+        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({
+            "ok": false, "error": e.to_string(),
+        }))).into_response(),
+    }
+}
+
+/// POST /specialists/inspect
+///
+/// Read the manifest from a .sovereign package without fully extracting it.
+/// Returns the identity, capabilities, DNA fingerprint, and size.
+/// Fast — only decompresses the first few KB of the archive.
+#[derive(Deserialize)]
+struct SpecialistsInspectRequest {
+    package_path: String,
+}
+
+async fn specialists_inspect(
+    State(_state): State<AppState>,
+    Json(req): Json<SpecialistsInspectRequest>,
+) -> impl IntoResponse {
+    use crate::federation::sovereign_package::read_manifest;
+
+    let pkg_path = std::path::PathBuf::from(&req.package_path);
+    if !pkg_path.exists() {
+        return (StatusCode::NOT_FOUND, Json(serde_json::json!({
+            "ok": false,
+            "error": format!("Package not found: {}", req.package_path),
+        }))).into_response();
+    }
+
+    let pkg_size_mb = std::fs::metadata(&pkg_path)
+        .map(|m| m.len() / 1_048_576).unwrap_or(0);
+
+    match tokio::task::spawn_blocking(move || read_manifest(&pkg_path)).await {
+        Ok(Ok(manifest)) => Json(serde_json::json!({
+            "ok": true,
+            "package_size_mb": pkg_size_mb,
+            "sovereign_name":  manifest.sovereign_name,
+            "domain":          manifest.domain,
+            "architecture":    manifest.architecture,
+            "parameter_count_m": manifest.parameter_count_m,
+            "model_size_mb":   manifest.model_size_bytes / 1_048_576,
+            "base_model":      manifest.base_model,
+            "abliterated":     manifest.abliterated,
+            "quantization":    manifest.quantization,
+            "block_count":     manifest.block_count,
+            "dna_fingerprint": format!("{:016x}", manifest.dna_fingerprint),
+            "model_sha256":    manifest.model_sha256,
+            "created_at":      manifest.created_at_human,
+            "aaroneous_version": manifest.aaroneous_version,
+            "capabilities":    manifest.capabilities,
+            "tags":            manifest.tags,
+            "source_hive":     manifest.source_hive,
+        })).into_response(),
+        Ok(Err(e)) => (StatusCode::BAD_REQUEST, Json(serde_json::json!({
+            "ok": false, "error": format!("Failed to read manifest: {}", e),
+        }))).into_response(),
+        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({
+            "ok": false, "error": format!("spawn_blocking panicked: {}", e),
+        }))).into_response(),
+    }
+}

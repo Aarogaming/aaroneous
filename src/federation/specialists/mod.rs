@@ -27,4 +27,4 @@ pub use omnipresent::Omnipresent;
 pub use symbiotic::Symbiotic;
 pub use phygital::Phygital;
 pub use archivist::Archivist;
-pub use generic::GenericSpecialist;
+pub use generic::{GenericSpecialist, system_prompt_for_domain};

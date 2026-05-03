@@ -72,6 +72,10 @@ rand = "0.8"
 reqwest = { version = "0.12", default-features = false, features = ["json", "stream", "rustls-tls"] }
 # tokio-util: ReaderStream for streaming GGUF export over HTTP
 tokio-util = { version = "0.7", features = ["io"] }
+# zstd: fast streaming compression for .sovereign package bundles
+zstd = "0.13"
+# tar: create/extract .tar archives for sovereign package bundles
+tar = "0.4"
 
 # Phase 3: Real external SDK integrations (all optional behind feature flags)
 # Iroh: P2P QUIC connections for Omnipresent multi-device sync

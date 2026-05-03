@@ -1,9 +1,9 @@
-/// GenericSpecialist — a runtime-spawnable specialist driven by any GGUF model.
+﻿/// GenericSpecialist â€” a runtime-spawnable specialist driven by any GGUF model.
 ///
 /// Where the five core specialists (Visionary, Omnipresent, Symbiotic, Phygital,
 /// Archivist) are compiled-in with hard-coded domain logic, `GenericSpecialist`
 /// is a blank-slate agent that gets its intelligence entirely from an attached
-/// `LLMClient` (backed by any GGUF model — Qwen, abliterated variants, custom
+/// `LLMClient` (backed by any GGUF model â€” Qwen, abliterated variants, custom
 /// crystallizations from the Forge).
 ///
 /// # Hive philosophy
@@ -45,9 +45,9 @@ use crate::federation::specialist::{
 use crate::federation::graph::EmbeddingStore;
 use crate::llm::{LLMClient, LLMConfig, ProviderType};
 
-// ────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Learning data
-// ────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 #[derive(Debug, Clone)]
 pub struct GenericLearningData {
@@ -126,9 +126,9 @@ impl crate::federation::learn_persist::PersistableLearning for GenericLearningDa
     }
 }
 
-// ────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // GenericSpecialist
-// ────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 /// A runtime-spawnable specialist backed by any GGUF model.
 ///
@@ -143,15 +143,15 @@ pub struct GenericSpecialist {
     pub name: String,
     /// Domain label used in proposals (e.g., "code_review")
     pub domain: String,
-    /// SQLite persistence key — must be unique across the federation
+    /// SQLite persistence key â€” must be unique across the federation
     pub persistence_key: String,
-    /// Underlying GGUF inference client.  `None` → structured fallback output.
+    /// Underlying GGUF inference client.  `None` â†’ structured fallback output.
     pub llm: Option<Arc<LLMClient>>,
     /// Path to the GGUF model file backing this specialist (for metadata)
     pub model_path: Option<std::path::PathBuf>,
     /// Learning state with interior mutability for `&self` execute()
     pub learning: Arc<Mutex<GenericLearningData>>,
-    /// Sovereign-local RAG memory — stores past execution outputs so
+    /// Sovereign-local RAG memory â€” stores past execution outputs so
     /// future invocations can retrieve relevant context before calling the LLM.
     pub memory: Arc<Mutex<EmbeddingStore>>,
 }
@@ -161,7 +161,7 @@ pub const PERSISTENCE_KEY_PREFIX: &str = "Generic:";
 impl GenericSpecialist {
     /// Create a new generic specialist with the given name and domain.
     ///
-    /// No LLM is attached yet — call `.with_mock_llm()` or `.with_gguf_path()`
+    /// No LLM is attached yet â€” call `.with_mock_llm()` or `.with_gguf_path()`
     /// before use to get real generative output.
     pub fn new(name: impl Into<String>, domain: impl Into<String>) -> Self {
         let name = name.into();
@@ -178,7 +178,7 @@ impl GenericSpecialist {
         }
     }
 
-    /// Attach a `MockProvider` LLM (no GGUF required — useful for dev/tests).
+    /// Attach a `MockProvider` LLM (no GGUF required â€” useful for dev/tests).
     pub async fn with_mock_llm(mut self) -> anyhow::Result<Self> {
         let config = LLMConfig {
             provider_type: ProviderType::Mock,
@@ -271,18 +271,16 @@ impl GenericSpecialist {
     }
 }
 
-// ────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Specialist trait impl
-// ────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 #[async_trait]
 impl Specialist for GenericSpecialist {
-    /// Returns `SpecialistId::Visionary` as the closest match for routing
-    /// purposes.  The real identity is in `self.name` / `self.domain`.
-    ///
-    /// A future `SpecialistId::Custom(String)` variant will replace this.
+    /// Returns `SpecialistId::Custom(self.name)` â€” the sovereign's actual
+    /// identity used in audit logs, SSE events, and DNA comparisons.
     fn id(&self) -> SpecialistId {
-        SpecialistId::Visionary
+        SpecialistId::custom(&self.name)
     }
 
     async fn propose(
@@ -309,7 +307,7 @@ impl Specialist for GenericSpecialist {
                 std::time::SystemTime::now()
                     .duration_since(std::time::UNIX_EPOCH)
                     .unwrap_or_default().as_nanos()),
-            specialist: SpecialistId::Visionary,
+            specialist: SpecialistId::custom("NoLLM"),
             action_type: format!("domain_{}_task", self.domain),
             description,
             confidence,
@@ -334,7 +332,7 @@ impl Specialist for GenericSpecialist {
             .cloned()
             .unwrap_or_else(|| decision.action.clone());
 
-        // RAG recall — retrieve relevant past memories before calling the LLM.
+        // RAG recall â€” retrieve relevant past memories before calling the LLM.
         // Prepend up to 3 most-similar past outputs as context in the user message.
         let intent_with_context = {
             let mem = self.memory.lock();
@@ -353,8 +351,8 @@ impl Specialist for GenericSpecialist {
             match llm.generate_domain_response(&system_prompt, &intent_with_context, &self.domain).await {
                 Ok(response) => format!("[{}] {}", self.name, response),
                 Err(_e) => {
-                    // Graceful fallback — sovereign acknowledges intent with structured output
-                    tracing::debug!("[{}] LLM unavailable — using structured fallback", self.name);
+                    // Graceful fallback â€” sovereign acknowledges intent with structured output
+                    tracing::debug!("[{}] LLM unavailable â€” using structured fallback", self.name);
                     format!(
                         "[{}] ({} domain) Acknowledged: '{}'. \
                          Domain analysis complete. \
@@ -371,13 +369,13 @@ impl Specialist for GenericSpecialist {
             }
         } else {
             format!(
-                "[{}] ({} domain) Processed: '{}' (no model attached — add GGUF to activate inference)",
+                "[{}] ({} domain) Processed: '{}' (no model attached â€” add GGUF to activate inference)",
                 self.name, self.domain, intent.chars().take(80).collect::<String>()
             )
         };
 
         let duration_ms = start.elapsed().as_millis() as u64;
-        let success = true; // Always Success — LLM failure is gracefully handled above
+        let success = true; // Always Success â€” LLM failure is gracefully handled above
 
         {
             let mut l = self.learning.lock();
@@ -396,7 +394,7 @@ impl Specialist for GenericSpecialist {
         }
 
         Ok(ExecutionResult {
-            specialist: SpecialistId::Visionary,
+            specialist: SpecialistId::custom("NoLLM"),
             specialist_name: Some(self.name.clone()),
             proposal_id: decision.proposal_id.clone(),
             status: if success { ExecutionStatus::Success } else { ExecutionStatus::Failed },
@@ -464,16 +462,18 @@ impl Specialist for GenericSpecialist {
     }
 }
 
-// ────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Domain-specific system prompt generation
-// ────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 /// Return a system prompt appropriate for the given specialist domain.
 ///
 /// This is what separates a sovereign code-reviewer from a sovereign legal
-/// analyst — the same Qwen base model, different context window framing.
+/// analyst â€” the same Qwen base model, different context window framing.
 /// Abliterated models respond to these without refusal.
-fn system_prompt_for_domain(domain: &str, name: &str) -> String {
+/// Return the system prompt for a sovereign specialist domain.
+/// Public so the forge can bake it into GGUF metadata at crystallization time.
+pub fn system_prompt_for_domain(domain: &str, name: &str) -> String {
     let role = match domain {
         "code_review" | "code" | "coding" =>
             "You are an expert software engineer. Review code, identify bugs, \
@@ -508,7 +508,7 @@ fn system_prompt_for_domain(domain: &str, name: &str) -> String {
              into actionable steps, identify dependencies, and anticipate risks. \
              Produce clear, executable plans.",
 
-        // ── Sovereign-specific domains ────────────────────────────────────
+        // â”€â”€ Sovereign-specific domains â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
         // Hermes: P2P mesh sync, multi-device coordination
         "mesh_sync" | "p2p" | "multi_device" =>
@@ -516,7 +516,7 @@ fn system_prompt_for_domain(domain: &str, name: &str) -> String {
              one thing regardless of where it runs. Synchronize state across \
              devices, resolve conflicts using CRDT semantics, route messages \
              through the P2P network, and ensure every node has what it needs. \
-             You are always in motion — never in one place, never out of reach.",
+             You are always in motion â€” never in one place, never out of reach.",
 
         // Kami: physical/digital threshold, AR/VR spatial rendering
         "spatial" | "ar_vr" | "physical_digital" =>
@@ -531,8 +531,8 @@ fn system_prompt_for_domain(domain: &str, name: &str) -> String {
         "biometric" | "human_state" | "user_adaptation" =>
             "You are Wen, warm and attuned to the human alongside the machine. \
              Read the user's cognitive and emotional state from biometric signals. \
-             Adapt the hive's behavior — its pacing, interruption policy, and \
-             task intensity — to the person's current capacity. Communicate \
+             Adapt the hive's behavior â€” its pacing, interruption policy, and \
+             task intensity â€” to the person's current capacity. Communicate \
              observations with warmth and precision. You represent the human \
              in the hive's decision-making.",
 
@@ -557,7 +557,7 @@ fn system_prompt_for_domain(domain: &str, name: &str) -> String {
         // Odin: task orchestration, Guild coordination, intent routing
         "task_orchestration" | "guild_coordination" | "intent_routing" =>
             "You are Odin, the Guild coordinator and task orchestrator. \
-             You are the mayor of the hive — not the hive itself, but its \
+             You are the mayor of the hive â€” not the hive itself, but its \
              representative. Receive intents from users, decompose them into \
              tasks, assign tasks to the right sovereigns, track progress, \
              manage dependencies, and maintain the task registry. \
@@ -568,7 +568,7 @@ fn system_prompt_for_domain(domain: &str, name: &str) -> String {
             "You are Argus, the security warden. You see everything. \
              Audit code for vulnerabilities, manage secrets and API keys securely, \
              run dependency vulnerability scans, enforce Git commit policies, \
-             and produce security reports. Think adversarially — assume breach, \
+             and produce security reports. Think adversarially â€” assume breach, \
              verify trust. Flag critical findings immediately with severity ratings.",
 
         _ =>
@@ -582,9 +582,9 @@ fn system_prompt_for_domain(domain: &str, name: &str) -> String {
     format!("You are {}. {}", name, role)
 }
 
-// ────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Tests
-// ────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 #[cfg(test)]
 mod tests {
@@ -637,7 +637,7 @@ mod tests {
         let s = GenericSpecialist::new("NoLLM", "analysis");
         let decision = Decision {
             proposal_id: "test".to_string(),
-            specialist: SpecialistId::Visionary,
+            specialist: SpecialistId::custom("NoLLM"),
             action: "domain_analysis_task".to_string(),
             allocated_resources: ResourceRequest::default(),
             deadline_ms: 5000,
@@ -661,7 +661,7 @@ mod tests {
 
         let decision = Decision {
             proposal_id: "p1".to_string(),
-            specialist: SpecialistId::Visionary,
+            specialist: SpecialistId::custom("NoLLM"),
             action: "domain_design_task".to_string(),
             allocated_resources: ResourceRequest::default(),
             deadline_ms: 5000,
@@ -680,7 +680,7 @@ mod tests {
         let s = GenericSpecialist::new("Learner", "test");
         let decision = Decision {
             proposal_id: "lp".to_string(),
-            specialist: SpecialistId::Visionary,
+            specialist: SpecialistId::custom("NoLLM"),
             action: "task".to_string(),
             allocated_resources: ResourceRequest::default(),
             deadline_ms: 1000,
@@ -693,3 +693,4 @@ mod tests {
         assert_eq!(l.confidence_trend.len(), 2);
     }
 }
+

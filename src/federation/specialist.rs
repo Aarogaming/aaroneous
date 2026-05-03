@@ -13,6 +13,12 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 /// Unique identifier for a specialist in the hive
+/// `SpecialistId::Custom` uses a fixed-length 32-byte null-terminated array
+/// so that `SpecialistId` keeps the `Copy` trait (required by the ~80 call
+/// sites across the codebase that use it by value).
+///
+/// The `custom_name()` accessor decodes it back to `&str`.
+/// Names longer than 31 bytes are silently truncated.
 #[derive(Debug, Clone, Copy, Hash, Eq, PartialEq, Serialize, Deserialize)]
 pub enum SpecialistId {
     Sentinel,
@@ -21,12 +27,39 @@ pub enum SpecialistId {
     Symbiotic,
     Phygital,
     Archivist,
+    /// A runtime-spawned dynamic specialist.
+    /// The inner bytes are a null-terminated UTF-8 name (max 31 chars).
+    /// Use `SpecialistId::custom("Merlin")` to construct,
+    /// and `.custom_name()` to read back.
+    Custom([u8; 32]),
+}
+
+impl SpecialistId {
+    /// Construct a `Custom` variant from any string (max 31 bytes, truncated if longer).
+    pub fn custom(name: &str) -> Self {
+        let mut buf = [0u8; 32];
+        let bytes = name.as_bytes();
+        let len = bytes.len().min(31);
+        buf[..len].copy_from_slice(&bytes[..len]);
+        SpecialistId::Custom(buf)
+    }
+
+    /// Decode a `Custom` variant back to a `&str`.
+    /// Returns `""` for non-Custom variants.
+    pub fn custom_name(&self) -> &str {
+        if let SpecialistId::Custom(buf) = self {
+            let end = buf.iter().position(|&b| b == 0).unwrap_or(31);
+            std::str::from_utf8(&buf[..end]).unwrap_or("")
+        } else {
+            ""
+        }
+    }
 }
 
 impl SpecialistId {
     /// Internal persistence key — stable across versions, never changes.
     /// Used for SQLite rows and config file keys.
-    pub fn name(&self) -> &'static str {
+    pub fn name(&self) -> &str {
         match self {
             SpecialistId::Sentinel    => "Sentinel",
             SpecialistId::Visionary   => "Visionary",
@@ -34,19 +67,21 @@ impl SpecialistId {
             SpecialistId::Symbiotic   => "Symbiotic",
             SpecialistId::Phygital    => "Phygital",
             SpecialistId::Archivist   => "Archivist",
+            SpecialistId::Custom(_)   => self.custom_name(),
         }
     }
 
     /// Sovereign display name shown to users.
     /// Decoupled from the persistence key so renaming is non-breaking.
-    pub fn sovereign_name(&self) -> &'static str {
+    pub fn sovereign_name(&self) -> &str {
         match self {
-            SpecialistId::Sentinel    => "Sentinel",   // The Arbiter — federation arbitration
-            SpecialistId::Visionary   => "Ariel",      // UI/UX & Maelstrom spatial
-            SpecialistId::Omnipresent => "Hermes",      // Messenger between realms — P2P mesh
-            SpecialistId::Symbiotic   => "Wen",        // Warm, literary, cultured — reads the human
-            SpecialistId::Phygital    => "Kami",       // Spirits of the physical/digital threshold
-            SpecialistId::Archivist   => "Dionysus",   // DNA Bank / memory / experience
+            SpecialistId::Sentinel    => "Sentinel",
+            SpecialistId::Visionary   => "Ariel",
+            SpecialistId::Omnipresent => "Hermes",
+            SpecialistId::Symbiotic   => "Wen",
+            SpecialistId::Phygital    => "Kami",
+            SpecialistId::Archivist   => "Dionysus",
+            SpecialistId::Custom(_)   => self.custom_name(),
         }
     }
 
@@ -59,6 +94,7 @@ impl SpecialistId {
             SpecialistId::Symbiotic   => "Biometric classification & human state adaptation",
             SpecialistId::Phygital    => "AR/VR spatial rendering — physical/digital threshold",
             SpecialistId::Archivist   => "DNA Bank memory consolidation & pattern learning",
+            SpecialistId::Custom(_)   => "Dynamic specialist",
         }
     }
 
@@ -70,11 +106,12 @@ impl SpecialistId {
             SpecialistId::Symbiotic   => 500,
             SpecialistId::Phygital    => 1000,
             SpecialistId::Archivist   => 500,
+            SpecialistId::Custom(_)   => 0, // dynamic — size varies
         }
     }
 
     pub fn is_core(&self) -> bool {
-        true
+        !matches!(self, SpecialistId::Custom(_))
     }
 }
 

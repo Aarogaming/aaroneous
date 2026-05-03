@@ -1,4 +1,4 @@
-/// Model Registry — Import, export, and lifecycle management of GGUF models.
+﻿/// Model Registry — Import, export, and lifecycle management of GGUF models.
 ///
 /// This module provides the full model import/export pipeline:
 ///
@@ -410,7 +410,7 @@ fn build_http_client() -> anyhow::Result<reqwest::Client> {
 }
 
 /// Register a downloaded/copied model as a dynamic specialist in the registry.
-async fn register_as_specialist(model_path: &Path, tags: &[String]) {
+pub async fn register_as_specialist(model_path: &Path, tags: &[String]) {
     let name = model_path.file_stem()
         .and_then(|s| s.to_str())
         .unwrap_or("unknown")

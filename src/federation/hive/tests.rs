@@ -23,7 +23,7 @@ mod tests {
 
     fn make_decision(specialist: SpecialistId, idx: usize) -> Decision {
         Decision {
-            proposal_id: format!("p{}-{}", idx, specialist as u8),
+            proposal_id: format!("p{}-{}", idx, specialist.name()),
             specialist,
             action: "test".to_string(),
             allocated_resources: ResourceRequest::default(),

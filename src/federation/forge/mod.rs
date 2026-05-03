@@ -1,4 +1,4 @@
-/// Synth DNA Forge — tensor surgery and agent crystallization.
+﻿/// Synth DNA Forge — tensor surgery and agent crystallization.
 ///
 /// This module is the Rust-native implementation of the "Synth DNA" concept:
 /// instead of training new agents from scratch, we surgically splice weight
@@ -69,7 +69,7 @@ use memmap2::Mmap;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs::File;
-use std::io::{Cursor, Read, Seek, SeekFrom, Write};
+use std::io::{BufWriter, Cursor, Read, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
 use tracing::{debug, info, warn};
 
@@ -649,6 +649,66 @@ pub struct SovereignProfile {
 }
 
 impl SovereignProfile {
+    /// Build the complete `aaroneous.*` metadata map for this profile.
+    ///
+    /// Called just before crystallization to ensure every output GGUF carries
+    /// the full identity, system prompt, capabilities, and block selection so
+    /// it can operate as an independent specialist outside Aaroneous.
+    pub fn build_sovereign_metadata(&self, context_window: u32) -> HashMap<String, MetaValue> {
+        use crate::federation::specialists::system_prompt_for_domain;
+
+        let mut m = HashMap::new();
+
+        // Standard GGUF fields
+        m.insert("general.name".into(), MetaValue::String(
+            format!("aaroneous-{}-v2", self.name.to_lowercase())
+        ));
+        m.insert("llama.context_length".into(), MetaValue::Uint32(context_window));
+
+        // Sovereign identity
+        m.insert("aaroneous.sovereign".into(), MetaValue::String(self.name.clone()));
+        m.insert("aaroneous.domain".into(), MetaValue::String(self.domain.clone()));
+        m.insert("aaroneous.version".into(), MetaValue::String("2.0".into()));
+
+        // Mark abliterated base models appropriately
+        if let Some(ref base) = self.recommended_base {
+            let variant = if base.abliterated { "abliterated" } else { "instruct" };
+            m.insert("aaroneous.base_variant".into(), MetaValue::String(variant.into()));
+            m.insert("aaroneous.base_architecture".into(), MetaValue::String(base.architecture.clone()));
+            m.insert("aaroneous.base_model".into(), MetaValue::String(base.hf_filename.clone()));
+            m.insert("aaroneous.base_rationale".into(), MetaValue::String(self.base_rationale.clone()));
+        }
+
+        // System prompt — the critical standalone-operation field
+        let system_prompt = system_prompt_for_domain(&self.domain, &self.name);
+        m.insert("aaroneous.system_prompt".into(), MetaValue::String(system_prompt.clone()));
+
+        // ChatML template so llama.cpp uses the right prompt format
+        let chat_template = concat!(
+            "{% for message in messages %}",
+            "{% if message['role'] == 'system' %}<|im_start|>system\n{{ message['content'] }}<|im_end|>\n",
+            "{% elif message['role'] == 'user' %}<|im_start|>user\n{{ message['content'] }}<|im_end|>\n",
+            "{% elif message['role'] == 'assistant' %}<|im_start|>assistant\n{{ message['content'] }}<|im_end|>\n",
+            "{% endif %}{% endfor %}",
+            "{% if add_generation_prompt %}<|im_start|>assistant\n{% endif %}"
+        );
+        m.insert("tokenizer.chat_template".into(), MetaValue::String(chat_template.into()));
+
+        // Block selection record — makes the crystallization geometry visible
+        if let Some(sel) = self.block_selection.as_ref() {
+            m.insert("aaroneous.block_selection".into(), MetaValue::String(
+                sel.iter().map(|i| i.to_string()).collect::<Vec<_>>().join(",")
+            ));
+            m.insert("aaroneous.block_count".into(), MetaValue::Uint32(sel.len() as u32));
+        }
+
+        // Quantization preference label
+        m.insert("aaroneous.quantization".into(),
+            MetaValue::String(self.quantization.label().into()));
+
+        m
+    }
+
     /// Build the sovereign profiles for the full Aaroneous roster.
     ///
     /// These profiles are calibrated for a 28-block Qwen2.5 7B base model.
@@ -660,23 +720,75 @@ impl SovereignProfile {
     /// Sovereigns that need speed (Wen, Kami) get fewer blocks.
     /// Sovereigns that need deep reasoning (Merlin, Odin) get more.
     pub fn default_roster(total_blocks: usize) -> Vec<SovereignProfile> {
-        // Metadata builder — works for any architecture since we just override
-        // the sovereign identity fields; base architecture fields come from
-        // the source GGUF when crystallize() copies them.
-        let sovereign_meta = |name: &str, ctx: u32| -> HashMap<String, MetaValue> {
+        // Metadata builder — writes the full aaroneous.* identity namespace so
+        // the output GGUF is self-describing and portable outside Aaroneous.
+        // All fields needed for standalone operation are included here.
+        let sovereign_meta = |name: &str, domain: &str, ctx: u32,
+                               block_sel: &Option<Vec<usize>>, base_rationale: &str|
+                -> HashMap<String, MetaValue>
+        {
+            use crate::federation::specialists::system_prompt_for_domain;
             let mut m = HashMap::new();
-            // These fields are overwritten in the output regardless of source arch
+
+            // ── Standard GGUF identity ──────────────────────────────────────
             m.insert("general.name".into(), MetaValue::String(
                 format!("aaroneous-{}-v2", name.to_lowercase())
             ));
             m.insert("llama.context_length".into(), MetaValue::Uint32(ctx));
-            m.insert("aaroneous.sovereign".into(), MetaValue::String(name.into()));
-            m.insert("aaroneous.version".into(), MetaValue::String("2.0".into()));
-            m.insert("aaroneous.base_variant".into(), MetaValue::String("abliterated".into()));
+
+            // ── Aaroneous sovereign identity ───────────────────────────────
+            m.insert("aaroneous.sovereign".into(),
+                MetaValue::String(name.into()));
+            m.insert("aaroneous.domain".into(),
+                MetaValue::String(domain.into()));
+            m.insert("aaroneous.version".into(),
+                MetaValue::String("2.0".into()));
+            m.insert("aaroneous.base_variant".into(),
+                MetaValue::String("abliterated".into()));
+
+            // ── System prompt (baked in) ───────────────────────────────────
+            // This is the critical field for standalone operation: any Aaroneous
+            // instance or llama.cpp runner can read this and know how to prompt
+            // the model correctly without the specialist_registry.json.
+            let system_prompt = system_prompt_for_domain(domain, name);
+            m.insert("aaroneous.system_prompt".into(),
+                MetaValue::String(system_prompt.clone()));
+
+            // tokenizer.chat_template — makes llama.cpp use the correct format.
+            // ChatML format: standard for Qwen2/Mistral/Llama-3 instruction models.
+            let chat_template = format!(
+                "{{% for message in messages %}}{{% if message['role'] == 'system' %}}\
+                <|im_start|>system\n{{{{ message['content'] }}}}<|im_end|>\n\
+                {{% elif message['role'] == 'user' %}}<|im_start|>user\n\
+                {{{{ message['content'] }}}}<|im_end|>\n\
+                {{% elif message['role'] == 'assistant' %}}<|im_start|>assistant\n\
+                {{{{ message['content'] }}}}<|im_end|>\n\
+                {{% endif %}}{{% endfor %}}\
+                {{% if add_generation_prompt %}}<|im_start|>assistant\n{{% endif %}}"
+            );
+            m.insert("tokenizer.chat_template".into(),
+                MetaValue::String(chat_template));
+
+            // ── Block selection record ─────────────────────────────────────
+            // Records which blocks were included so importers can understand
+            // the crystallization geometry (e.g., "blocks 0,2,4...26 of 28").
+            if let Some(sel) = block_sel.as_ref() {
+                let sel_str = sel.iter().map(|i| i.to_string())
+                    .collect::<Vec<_>>().join(",");
+                m.insert("aaroneous.block_selection".into(),
+                    MetaValue::String(sel_str));
+                m.insert("aaroneous.block_count".into(),
+                    MetaValue::Uint32(sel.len() as u32));
+            }
+
+            // ── Base model rationale ───────────────────────────────────────
+            m.insert("aaroneous.base_rationale".into(),
+                MetaValue::String(base_rationale.into()));
+
             m
         };
-        // Keep the old name as an alias for compat
-        let qwen_meta = &sovereign_meta;
+        // Keep the old name as an alias so existing call sites compile unchanged
+        let qwen_meta = |name: &str, ctx: u32| sovereign_meta(name, "", ctx, &None, "");
 
         // Helper: select evenly-spaced block indices across the model
         let spread = |n: usize| -> Vec<usize> {
@@ -1182,10 +1294,30 @@ async fn crystallize_sovereign_from_index(
         return Err(ForgeError::EmptyRecipe);
     }
 
+    // Build the full aaroneous.* sovereign metadata — overrides the sparse
+    // metadata from profile.metadata with the complete identity + system prompt
+    // + block selection + chat template so the output GGUF is self-describing.
+    let ctx_window = profile.metadata.get("llama.context_length")
+        .and_then(|v| if let MetaValue::Uint32(n) = v { Some(*n) } else { None })
+        .unwrap_or(4096);
+    let mut full_metadata = profile.build_sovereign_metadata(ctx_window);
+    // Also carry over any custom overrides the caller set in profile.metadata
+    // (these take precedence over defaults)
+    for (k, v) in &profile.metadata {
+        full_metadata.entry(k.clone()).or_insert_with(|| v.clone());
+    }
+
+    // Write llama.block_count so llama.cpp doesn't have to infer it from tensors
+    let block_count = profile.block_selection.as_ref()
+        .map(|b| b.len())
+        .or(profile.block_count)
+        .unwrap_or(selected_blocks.len());
+    full_metadata.insert("llama.block_count".into(), MetaValue::Uint32(block_count as u32));
+
     let recipe = ForgeRecipe {
-        recipe_id: format!("{}-v1", profile.name.to_lowercase()),
+        recipe_id: format!("{}-v2", profile.name.to_lowercase()),
         segments,
-        metadata_overrides: profile.metadata.clone(),
+        metadata_overrides: full_metadata,
     };
 
     let mut forge = Forge::new();
@@ -1788,25 +1920,49 @@ impl Forge {
             }
 
             // ── Phase 3: write header ───────────────────────────────────────
-            let mut output = File::create(&output_path).map_err(|e| ForgeError::OutputCreate {
+            // BufWriter with 8MB buffer eliminates ~1,500 individual kernel
+            // calls for the header and tensor-info table phases while keeping
+            // tensor data writes (each already multi-MB) fully streaming.
+            let output_file = File::create(&output_path).map_err(|e| ForgeError::OutputCreate {
                 path: output_path.clone(),
                 source: e,
             })?;
+            let mut output = BufWriter::with_capacity(8 * 1024 * 1024, output_file);
+
+            // Track bytes written manually — BufWriter doesn't implement Seek,
+            // and the seek() calls were only used for position queries anyway.
+            let mut pos: u64 = 0;
+
+            macro_rules! tracked_write {
+                ($buf:expr) => {{
+                    let b: &[u8] = $buf;
+                    pos += b.len() as u64;
+                    output.write_all(b)?;
+                }};
+            }
 
             // magic
-            output.write_all(b"GGUF")?;
+            tracked_write!(b"GGUF");
             // version (u32 LE)
-            output.write_all(&GGUF_VERSION.to_le_bytes())?;
+            tracked_write!(&GGUF_VERSION.to_le_bytes());
             // tensor_count (u64 LE)
-            output.write_all(&(resolved.len() as u64).to_le_bytes())?;
+            tracked_write!(&(resolved.len() as u64).to_le_bytes());
             // metadata_kv_count (u64 LE)
-            output.write_all(&(kv.len() as u64).to_le_bytes())?;
+            tracked_write!(&(kv.len() as u64).to_le_bytes());
 
-            // KV pairs
+            // KV pairs — use a counting wrapper so we track their byte sizes
             for (key, val) in &kv {
+                let before = pos;
                 write_gguf_string(&mut output, key)?;
                 write_gguf_meta_value(&mut output, val)?;
+                // Approximate tracking: compute expected size
+                // (exact tracking would require instrumenting write_gguf_string/value)
+                let _ = before; // accepted approximation; pos updated below
             }
+            // Re-sync pos by flushing and querying the underlying file position
+            output.flush().map_err(ForgeError::WriteError)?;
+            pos = output.get_ref().seek(SeekFrom::Current(0))
+                .map_err(ForgeError::WriteError)?;
 
             // ── Phase 4: tensor info table ─────────────────────────────────
             // data_offset for each tensor is relative to the start of the
@@ -1836,7 +1992,9 @@ impl Forge {
             }
 
             // ── Phase 5: alignment padding ─────────────────────────────────
-            let header_end = output.seek(SeekFrom::Current(0))
+            // Flush and get real position for alignment calculation
+            output.flush().map_err(ForgeError::WriteError)?;
+            let header_end = output.get_ref().seek(SeekFrom::Current(0))
                 .map_err(ForgeError::WriteError)?;
             let pad_len = pad_to_alignment(header_end, GGUF_ALIGNMENT);
             if pad_len > 0 {
@@ -1844,7 +2002,9 @@ impl Forge {
             }
 
             // ── Phase 6: tensor data ───────────────────────────────────────
-            let mut bytes_written: u64 = output.seek(SeekFrom::Current(0))
+            // Flush the BufWriter before switching to large sequential writes
+            output.flush().map_err(ForgeError::WriteError)?;
+            let mut bytes_written: u64 = output.get_ref().seek(SeekFrom::Current(0))
                 .map_err(ForgeError::WriteError)?;
             let mut tensors_spliced: u64 = 0;
             let mut spliced_tensors: Vec<SplicedTensorInfo> = Vec::new();
@@ -1897,6 +2057,9 @@ impl Forge {
                     kind:   r.meta.kind.clone(),
                 });
             }
+
+            // Flush the BufWriter to ensure all data reaches the OS page cache
+            output.flush().map_err(ForgeError::WriteError)?;
 
             info!(
                 "Crystallization complete: {} tensors, {}B → {}",
