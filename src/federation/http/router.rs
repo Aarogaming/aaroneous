@@ -40,6 +40,7 @@ pub struct AppState {
     pub federation: Arc<Federation>,
     pub generation_jobs: GenerationJobs,
     pub dissection_jobs: crate::federation::dna::DissectionJobs,
+    pub import_jobs: crate::federation::model_registry::ImportJobs,
 }
 
 impl AppState {
@@ -48,6 +49,7 @@ impl AppState {
             federation,
             generation_jobs: Arc::new(tokio::sync::Mutex::new(std::collections::HashMap::new())),
             dissection_jobs: Arc::new(tokio::sync::Mutex::new(std::collections::HashMap::new())),
+            import_jobs: Arc::new(tokio::sync::Mutex::new(std::collections::HashMap::new())),
         }
     }
 }
@@ -169,6 +171,11 @@ pub fn router(state: AppState) -> Router {
         .route("/dna/genome/:model",   get(dna_genome))
         .route("/dna/compare",         post(dna_compare))
         .route("/dna/roster",          get(dna_roster))
+        // Model import/export — large model lifecycle management
+        .route("/models/import",            post(models_import))
+        .route("/models/import/jobs/:id",   get(models_import_job_status))
+        .route("/models/export/:name",      get(models_export))
+        .route("/models/registry",          get(models_registry))
         .with_state(state)
         // Apply CORS and auth layers to all routes
         .layer(cors)
@@ -2292,5 +2299,178 @@ async fn dna_roster(State(_state): State<AppState>) -> impl IntoResponse {
         "dissected": dissected_count,
         "pending": known_models.len() - dissected_count,
         "models": entries,
+    }))
+}
+
+// ── Model import/export endpoints ─────────────────────────────────────────────
+
+#[derive(Deserialize)]
+struct ModelsImportRequest {
+    /// Source: absolute path, "hf://owner/repo/file.gguf", or "owner/repo"
+    source: String,
+    /// Tags for this model (e.g. ["research", "120b"])
+    tags: Option<Vec<String>>,
+    /// Auto-run DNA dissection after import (default: true)
+    auto_dissect: Option<bool>,
+    /// Auto-register as a dynamic sovereign specialist (default: false)
+    auto_register_sovereign: Option<bool>,
+}
+
+/// POST /models/import
+///
+/// Import a GGUF model from a local path or HuggingFace.
+///
+/// Examples:
+///   {"source": "D:\\models\\llama-3.1-70b-q4.gguf"}
+///   {"source": "hf://bartowski/Meta-Llama-3.1-70B-Instruct-GGUF/Meta-Llama-3.1-70B-Instruct-Q4_K_M.gguf"}
+///   {"source": "bartowski/Meta-Llama-3.1-70B-Instruct-GGUF", "tags": ["research", "70b"]}
+///
+/// Returns a job_id immediately. Poll GET /models/import/jobs/:id for progress.
+async fn models_import(
+    State(state): State<AppState>,
+    Json(req): Json<ModelsImportRequest>,
+) -> impl IntoResponse {
+    use crate::federation::model_registry::import_model;
+
+    let job_id = import_model(
+        req.source.clone(),
+        req.tags.unwrap_or_default(),
+        req.auto_dissect.unwrap_or(true),
+        req.auto_register_sovereign.unwrap_or(false),
+        state.import_jobs.clone(),
+    ).await;
+
+    Json(serde_json::json!({
+        "ok": true,
+        "job_id": job_id,
+        "source": req.source,
+        "status": "running",
+        "poll": format!("/models/import/jobs/{}", job_id),
+        "note": "Large model downloads may take many minutes. Poll for status.",
+    }))
+}
+
+/// GET /models/import/jobs/:id
+///
+/// Poll a model import job started by POST /models/import.
+async fn models_import_job_status(
+    State(state): State<AppState>,
+    Path(job_id): Path<String>,
+) -> impl IntoResponse {
+    use crate::federation::model_registry::ImportStatus;
+    let jobs = state.import_jobs.lock().await;
+    match jobs.get(&job_id) {
+        None => (StatusCode::NOT_FOUND, Json(serde_json::json!({
+            "ok": false, "error": "Job not found", "job_id": job_id,
+        }))).into_response(),
+        Some(job) => {
+            let status_str = match &job.status {
+                ImportStatus::Downloading { percent, bytes_done, bytes_total } =>
+                    serde_json::json!({ "stage": "downloading", "percent": percent,
+                        "bytes_done": bytes_done, "bytes_total": bytes_total }),
+                ImportStatus::Copying =>
+                    serde_json::json!({ "stage": "copying" }),
+                ImportStatus::Dissecting { percent } =>
+                    serde_json::json!({ "stage": "dissecting", "percent": percent }),
+                ImportStatus::Registering =>
+                    serde_json::json!({ "stage": "registering" }),
+                ImportStatus::Done =>
+                    serde_json::json!({ "stage": "done" }),
+                ImportStatus::Failed(e) =>
+                    serde_json::json!({ "stage": "failed", "error": e }),
+            };
+            Json(serde_json::json!({
+                "ok": true,
+                "job_id": job_id,
+                "model": job.model_name,
+                "status": status_str,
+            })).into_response()
+        }
+    }
+}
+
+/// GET /models/export/:name
+///
+/// Stream a GGUF model file as a binary download.
+///
+/// :name is the filename (e.g. "foundation_v1.gguf") or just "foundation_v1".
+/// The response has Content-Type: application/octet-stream and
+/// Content-Disposition: attachment so curl/browsers save it as a file.
+///
+/// This is how you export a sovereign specialist for use elsewhere:
+///   curl http://localhost:8765/models/export/odin-qwen2.5-7b.gguf -o odin.gguf
+async fn models_export(
+    State(_state): State<AppState>,
+    Path(name): Path<String>,
+) -> impl IntoResponse {
+    use axum::http::header;
+    use axum::body::Body;
+    use tokio_util::io::ReaderStream;
+
+    let filename = if name.ends_with(".gguf") { name.clone() }
+        else { format!("{}.gguf", name) };
+    let model_path = std::path::PathBuf::from(format!("D:\\Aaroneous\\models\\{}", filename));
+
+    if !model_path.exists() {
+        return (StatusCode::NOT_FOUND, Json(serde_json::json!({
+            "ok": false,
+            "error": format!("Model not found: {}", filename),
+        }))).into_response();
+    }
+
+    let file = match tokio::fs::File::open(&model_path).await {
+        Ok(f) => f,
+        Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({
+            "ok": false, "error": format!("Failed to open model: {}", e),
+        }))).into_response(),
+    };
+
+    let size = model_path.metadata().map(|m| m.len()).unwrap_or(0);
+    let stream = ReaderStream::new(file);
+    let body = Body::from_stream(stream);
+
+    (
+        StatusCode::OK,
+        [
+            (header::CONTENT_TYPE,        "application/octet-stream".to_string()),
+            (header::CONTENT_DISPOSITION, format!("attachment; filename=\"{}\"", filename)),
+            (header::CONTENT_LENGTH,      size.to_string()),
+        ],
+        body,
+    ).into_response()
+}
+
+/// GET /models/registry
+///
+/// Return the full model registry — all known GGUFs with metadata, DNA status,
+/// and sovereign associations.
+async fn models_registry(State(_state): State<AppState>) -> impl IntoResponse {
+    use crate::federation::model_registry::scan_models_dir;
+
+    let entries = scan_models_dir();
+    let total_size_gb: f64 = entries.iter().map(|e| e.size_bytes as f64 / 1_073_741_824.0).sum();
+    let dissected_count = entries.iter().filter(|e| e.dna_dissected).count();
+
+    let models: Vec<serde_json::Value> = entries.iter().map(|e| serde_json::json!({
+        "name":         e.name,
+        "path":         e.path.to_string_lossy(),
+        "size_bytes":   e.size_bytes,
+        "size_mb":      e.size_bytes / 1_048_576,
+        "dna_dissected": e.dna_dissected,
+        "sovereign":    e.sovereign,
+        "tags":         e.tags,
+        "export_url":   format!("/models/export/{}", e.name),
+        "dissect_url":  format!("POST /dna/dissect {{\"model\":\"{}\"}}", e.name),
+    })).collect();
+
+    Json(serde_json::json!({
+        "ok": true,
+        "model_count":    entries.len(),
+        "dissected_count": dissected_count,
+        "total_size_gb":  (total_size_gb * 10.0).round() / 10.0,
+        "models_dir":     "D:\\Aaroneous\\models\\",
+        "inbox_dir":      "D:\\Aaroneous\\models\\inbox\\",
+        "models":         models,
+        "import_endpoint": "POST /models/import {\"source\": \"path/or/hf://...\"}",
     }))
 }

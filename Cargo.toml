@@ -68,6 +68,10 @@ moka = { version = "0.12", features = ["future"] }
 regex = "1.10"
 which = "5.0"
 rand = "0.8"
+# reqwest: HTTP client for HuggingFace model downloads and external API calls
+reqwest = { version = "0.12", default-features = false, features = ["json", "stream", "rustls-tls"] }
+# tokio-util: ReaderStream for streaming GGUF export over HTTP
+tokio-util = { version = "0.7", features = ["io"] }
 
 # Phase 3: Real external SDK integrations (all optional behind feature flags)
 # Iroh: P2P QUIC connections for Omnipresent multi-device sync

@@ -1302,9 +1302,32 @@ fn gguf_tensor_nbytes(shape: &[u64], dtype: u32) -> u64 {
             let blocks = (n_elements + 255) / 256;
             blocks * 292
         }
-        16 | 17 | 18 => n_elements * 2, // IQ types (approximate, 2 bytes)
-        30 => n_elements * 2,           // BF16
-        _  => 0,                        // Unknown — caller should use file size instead
+        // ── IQ (imatrix quantization) types ────────────────────────────────
+        // Byte counts from the GGUF spec and llama.cpp ggml-quants.h
+        16 => { let b = (n_elements + 255) / 256; b * 64  }  // IQ2_XXS (old code 16, 64B/256)
+        17 => { let b = (n_elements + 255) / 256; b * 74  }  // IQ2_XS  (old code 17, 74B/256)
+        18 => { let b = (n_elements + 255) / 256; b * 80  }  // IQ2_S   (old code 18, 80B/256)
+        // Current GGUF spec codes for imatrix types:
+        19 => { let b = (n_elements + 255) / 256; b * 66  }  // IQ2_XXS: 66 bytes per 256-elem block
+        20 => { let b = (n_elements + 255) / 256; b * 74  }  // IQ2_XS:  74 bytes per 256-elem block
+        21 => { let b = (n_elements + 255) / 256; b * 80  }  // IQ2_S:   80 bytes per 256-elem block
+        22 => { let b = (n_elements + 255) / 256; b * 80  }  // IQ2_M:   80 bytes per 256-elem block
+        23 => { let b = (n_elements + 255) / 256; b * 98  }  // IQ3_XXS: 98 bytes per 256-elem block
+        24 => { let b = (n_elements + 255) / 256; b * 110 }  // IQ3_XS:  110 bytes (= Q3_K)
+        25 => { let b = (n_elements + 255) / 256; b * 144 }  // IQ4_NL:  144 bytes (= Q4_K layout)
+        26 => { let b = (n_elements + 255) / 256; b * 136 }  // IQ4_XS:  136 bytes per 256-elem block
+        27 => { let b = (n_elements + 255) / 256; b * 110 }  // IQ3_S:   110 bytes (= Q3_K)
+        28 => { let b = (n_elements + 255) / 256; b * 110 }  // IQ3_M:   110 bytes
+        29 => { let b = (n_elements + 255) / 256; b * 32  }  // IQ1_S:   32 bytes per 256-elem block
+        30 => n_elements * 2,                                 // BF16: 2 bytes per element
+        31 => { let b = (n_elements + 255) / 256; b * 36  }  // IQ1_M:   36 bytes per 256-elem block
+        _  => {
+            // Unknown dtype — estimate from element count with Q4 density as a conservative guess.
+            // This prevents silent zero-size tensors that would corrupt crystallization output.
+            // The caller logs a warning and the actual bytes are read from tensor data directly.
+            let b = (n_elements + 255) / 256;
+            b * 144  // Q4_K estimate
+        }
     }
 }
 
@@ -1542,23 +1565,33 @@ impl Forge {
             let mut tensors_spliced: u64 = 0;
             let mut spliced_tensors: Vec<SplicedTensorInfo> = Vec::new();
 
+            // Group tensors by source path so each source file is only mmapped once.
+            // For a 120B model with ~1000 tensors all from one file, this reduces
+            // mmap system-call overhead from 1000× down to 1× per unique source.
+            let mut source_mmaps: HashMap<PathBuf, (File, Mmap)> = HashMap::new();
+
             for r in &resolved {
                 debug!(
                     "Splicing tensor '{}' from {} (offset={}, size={}B)",
                     r.segment_name, r.source_gguf, r.meta.offset, r.meta.size
                 );
 
-                let source_file = File::open(&r.source_path).map_err(|e| ForgeError::SourceOpen {
-                    path: r.source_path.clone(),
-                    source: e,
-                })?;
-                let mmap = unsafe {
-                    Mmap::map(&source_file).map_err(|e| ForgeError::MmapFailed {
+                // Open and mmap each source file at most once
+                if !source_mmaps.contains_key(&r.source_path) {
+                    let f = File::open(&r.source_path).map_err(|e| ForgeError::SourceOpen {
                         path: r.source_path.clone(),
                         source: e,
-                    })?
-                };
+                    })?;
+                    let m = unsafe {
+                        Mmap::map(&f).map_err(|e| ForgeError::MmapFailed {
+                            path: r.source_path.clone(),
+                            source: e,
+                        })?
+                    };
+                    source_mmaps.insert(r.source_path.clone(), (f, m));
+                }
 
+                let mmap = &source_mmaps[&r.source_path].1;
                 let start = r.meta.offset as usize;
                 let end   = start + r.meta.size as usize;
                 if end > mmap.len() {

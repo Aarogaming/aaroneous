@@ -586,8 +586,10 @@ fn build_genome(
         spec_scores.iter().map(|&s| (s - mean).powi(2)).sum::<f64>() / spec_scores.len().max(1) as f64
     };
 
-    let model_density = (file_size_mb / 10_000.0).clamp(0.0, 1.0);
-    let param_density = (parameter_count_m / 70_000.0).clamp(0.0, 1.0);
+    // Scale file_size_mb relative to a 200B Q4_K_M model (~120GB) for density.
+    // Scale param_density relative to 200B so 120B models use ~0.6 of the range.
+    let model_density = (file_size_mb / 120_000.0).clamp(0.0, 1.0);
+    let param_density = (parameter_count_m / 200_000.0).clamp(0.0, 1.0);
 
     // ── Fill genome_loci (compatible with GGUFAnalyzer keys) ──────────────
     genome_loci.insert("attention_intensity".into(), (attn_mlp_ratio / 2.0).clamp(0.0, 1.0));
@@ -752,6 +754,66 @@ fn dequantize_sample(bytes: &[u8], dtype: u32, n: usize) -> Vec<f32> {
                 let bits = (u32::from(b[1]) << 24) | (u32::from(b[0]) << 16);
                 f32::from_bits(bits)
             }).collect()
+        }
+        // IQ2_XXS (19/16): 256-elem blocks, 2-bit quantization with scales
+        // Approximate: treat each byte as a 4-element packed 2-bit group
+        19 | 16 => {
+            let count = bytes.len().min(n / 4);  // each byte covers ~4 elements
+            let mut out = Vec::with_capacity(count * 4);
+            for &b in &bytes[..count] {
+                // Unpack 4 x 2-bit values — symmetric range [-1.5, 1.5] per 2-bit
+                for shift in [0u8, 2, 4, 6] {
+                    let bits = (b >> shift) & 0x03;
+                    let v = (bits as f32 - 1.5) / 1.5; // [-1.0, 1.0] approx
+                    out.push(v);
+                    if out.len() >= n { break; }
+                }
+                if out.len() >= n { break; }
+            }
+            out
+        }
+        // IQ3_XXS (23): 3-bit quantization, approximate as Q8_0 structure
+        23 | 24 | 27 | 28 => {
+            // 3-bit: ~8 values per 3 bytes — approximate with sign bit extraction
+            let count = bytes.len().min(n);
+            bytes[..count].iter().map(|&b| {
+                let signed = b as i8;
+                (signed as f32) / 127.0  // normalized [-1, 1]
+            }).collect()
+        }
+        // IQ4_NL (25), IQ4_XS (26): 4-bit with non-linear mapping
+        25 | 26 => {
+            // Similar to Q4_K but with non-linear codebook — use Q4 approximation
+            let block_size = 136; // IQ4_XS
+            let n_blocks = (bytes.len() / block_size).min((n + 255) / 256);
+            let mut out = Vec::with_capacity(n_blocks * 32);
+            for b in 0..n_blocks {
+                let off = b * block_size;
+                if off + 4 > bytes.len() { break; }
+                let d = f16_to_f32(u16::from_le_bytes([bytes[off], bytes[off+1]]));
+                let data_start = off + 2;
+                for j in 0..16_usize {
+                    if out.len() >= n || data_start + j >= bytes.len() { break; }
+                    let byte = bytes[data_start + j];
+                    let lo = (byte & 0x0F) as f32 - 8.0;
+                    let hi = ((byte >> 4) & 0x0F) as f32 - 8.0;
+                    out.push(lo * d);
+                    out.push(hi * d);
+                }
+            }
+            out
+        }
+        // IQ1_S (29), IQ1_M (31): 1-bit quantization — mostly 0/1 weights
+        29 | 31 => {
+            let count = (bytes.len() * 8).min(n);
+            let mut out = Vec::with_capacity(count);
+            'outer: for &b in bytes {
+                for bit in 0..8u8 {
+                    out.push(if (b >> bit) & 1 == 0 { -1.0f32 } else { 1.0f32 });
+                    if out.len() >= n { break 'outer; }
+                }
+            }
+            out
         }
         // Unknown: return byte values as f32 [0,1] range (approximate)
         _ => {

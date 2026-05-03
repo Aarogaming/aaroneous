@@ -848,6 +848,14 @@ async fn execute_start(
     // Attach the federation to HiveRuntime so start()/shutdown() drives it.
     hive_runtime.attach_federation(Some(fed.clone())).await;
 
+    // --- Inbox watcher: auto-ingest GGUF files dropped into models/inbox/ ---
+    {
+        let import_jobs = std::sync::Arc::new(tokio::sync::Mutex::new(
+            std::collections::HashMap::new()
+        ));
+        crate::federation::model_registry::start_inbox_watcher(import_jobs).await;
+    }
+
     // --- Optional HTTP status server ---
     let http_server = if dashboard != "none" {
         let addr: std::net::SocketAddr = dashboard
