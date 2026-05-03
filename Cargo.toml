@@ -90,7 +90,7 @@ async-nats = { version = "0.47", optional = true }
 rocksdb = { version = "0.24", optional = true }
 # llama-gguf: pure Rust GGUF inference engine (no C dependencies, no bindgen)
 # Minimal feature set: just CPU inference without the server/CLI/huggingface overhead
-llama-gguf = { version = "0.14", optional = true, default-features = false }
+llama-gguf = { version = "0.14", optional = true, default-features = false, features = ["cpu"] }
 
 [dev-dependencies]
 # tower: in-process axum router testing via ServiceExt::oneshot.

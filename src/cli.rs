@@ -749,14 +749,14 @@ async fn execute_start(
     // See config/specialist_registry.json → federation_core_specialists.Visionary
     use crate::federation::specialists::Visionary;
     let gguf_search = [
-        // Preferred: Qwen abliterated variants (no refusals)
-        "D:\\Aaroneous\\models\\visionary-qwen2.5-1.5b.gguf",
+        // Preferred: Ariel's crystallized model (Ariel = Visionary)
+        "D:\\Aaroneous\\models\\ariel-qwen2.5-7b.gguf",
+        // Foundation model fallback
+        "D:\\Aaroneous\\models\\foundation_v1.gguf",
+        // Legacy abliterated variants
         "D:\\Aaroneous\\models\\qwen2.5-1.5b-instruct-abliterated.gguf",
         "D:\\Aaroneous\\models\\qwen2.5-1.5b.gguf",
-        "D:\\Aaroneous\\models\\qwen2.5-0.5b.gguf",
-        // Foundation model (Qwen2.5 Coder 7B Instruct — present in archive)
-        "D:\\Aaroneous\\models\\foundation_v1.gguf",
-        // Relative paths for CI/development
+        // CI/development relative paths
         "./models/qwen2.5-1.5b.gguf",
         "./models/qwen-1.8b.gguf",
     ];

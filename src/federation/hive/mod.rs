@@ -1212,9 +1212,108 @@ impl Federation {
                 .unwrap_or_default().as_millis() as u64,
         }));
 
+        // Odin intercepts first: decompose the intent into subtasks before
+        // the hive broadcasts to all sovereigns simultaneously.
+        // Odin returns JSON: {"tasks":[{"content":"...","assign_to":"Merlin"},...]}
+        // We stamp the decomposition into the active intent's context so:
+        //   - collect_proposals() can route to specific sovereigns
+        //   - The Guild panel can display the task breakdown
+        //   - The SSE stream broadcasts the decomposition event
+        self.odin_decompose_intent().await;
+
         // Trigger immediate proposal collection
         self.collect_proposals().await;
         id
+    }
+
+    /// Call Odin (Guild coordinator) to decompose the active intent into subtasks
+    /// before the hive broadcasts to all sovereigns.
+    ///
+    /// Odin runs asynchronously and his output is stamped into the active intent's
+    /// context as JSON. If Odin is not loaded or times out, the pipeline continues
+    /// unchanged — degrading gracefully to the flat broadcast.
+    async fn odin_decompose_intent(&self) {
+        use crate::federation::specialist::{Specialist, Decision, ResourceRequest};
+
+        // Find Odin in the dynamic slot
+        let odin = {
+            let guard = self.dynamic.read().await;
+            guard.iter().find(|s| s.name == "Odin").cloned()
+        };
+
+        let Some(odin) = odin else {
+            // Odin not loaded — proceed without decomposition
+            return;
+        };
+
+        let intent_content = {
+            let guard = self.active_intent.read().await;
+            guard.as_ref().map(|i| i.content.clone()).unwrap_or_default()
+        };
+
+        if intent_content.is_empty() { return; }
+
+        // Give Odin a decomposition-specific decision context
+        let mut ctx = std::collections::HashMap::new();
+        ctx.insert("intent".to_string(), intent_content.clone());
+        ctx.insert("task".to_string(), "decompose".to_string());
+        ctx.insert("output_format".to_string(),
+            r#"JSON: {"tasks":[{"content":"...","assign_to":"SovereignName","priority":"Normal"}]}"#
+            .to_string());
+
+        let decision = Decision {
+            proposal_id: format!("odin-decompose-{}", uuid::Uuid::new_v4()),
+            specialist: crate::federation::specialist::SpecialistId::Visionary, // placeholder
+            action: "decompose_intent".to_string(),
+            allocated_resources: ResourceRequest::default(),
+            deadline_ms: 5000,
+            context: ctx,
+        };
+
+        // Run Odin with a 4-second timeout — don't block the pipeline
+        let decomp_result = tokio::time::timeout(
+            std::time::Duration::from_secs(4),
+            odin.execute(&decision),
+        ).await;
+
+        match decomp_result {
+            Ok(Ok(result)) => {
+                // Try to parse Odin's JSON decomposition
+                if let Some(json_start) = result.output.find('{') {
+                    let json_str = &result.output[json_start..];
+                    if let Ok(v) = serde_json::from_str::<serde_json::Value>(json_str) {
+                        // Stamp decomposition into active intent context
+                        let mut guard = self.active_intent.write().await;
+                        if let Some(intent) = guard.as_mut() {
+                            intent.context.insert(
+                                "odin_decomposition".to_string(),
+                                serde_json::to_string(&v).unwrap_or_default(),
+                            );
+                        }
+                        drop(guard);
+
+                        // Broadcast so Guild panel and SSE consumers see the tasks
+                        self.broadcast_specialist_event(serde_json::json!({
+                            "type": "guild_decomposition",
+                            "specialist": "Odin",
+                            "intent": intent_content,
+                            "decomposition": v,
+                            "timestamp_ms": std::time::SystemTime::now()
+                                .duration_since(std::time::UNIX_EPOCH)
+                                .unwrap_or_default().as_millis() as u64,
+                        }));
+
+                        info!("Odin decomposed intent: {}", result.output.chars().take(100).collect::<String>());
+                    }
+                }
+            }
+            Ok(Err(e)) => {
+                warn!("Odin decomposition failed: {}", e);
+            }
+            Err(_) => {
+                warn!("Odin decomposition timed out — proceeding with flat broadcast");
+            }
+        }
     }
 
     /// Submit an intent associated with a specific session.

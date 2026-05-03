@@ -51,18 +51,17 @@ impl GGUFProvider {
     /// is always populated with a sane value).
     pub fn default_qwen_path() -> PathBuf {
         let locations: Vec<PathBuf> = vec![
-            // Aaroneous models directory — Qwen2.5 abliterated variants (preferred)
-            PathBuf::from("D:\\Aaroneous\\models\\visionary-qwen2.5-1.5b.gguf"),
+            // Crystallized sovereign models (preferred — domain-specialized)
+            PathBuf::from("D:\\Aaroneous\\models\\ariel-qwen2.5-7b.gguf"),
+            PathBuf::from("D:\\Aaroneous\\models\\wen-qwen2.5-7b.gguf"),  // smallest (847MB)
+            // Foundation model fallback
+            PathBuf::from("D:\\Aaroneous\\models\\foundation_v1.gguf"),
+            // Legacy/abliterated variants
             PathBuf::from("D:\\Aaroneous\\models\\qwen2.5-1.5b-instruct-abliterated.gguf"),
             PathBuf::from("D:\\Aaroneous\\models\\qwen2.5-1.5b.gguf"),
-            PathBuf::from("D:\\Aaroneous\\models\\qwen2.5-0.5b.gguf"),
-            PathBuf::from("D:\\Aaroneous\\models\\qwen-1.8b.gguf"),
-            PathBuf::from("D:\\Aaroneous\\models\\qwen-0.5b.gguf"),
-            // Relative paths for development/CI
+            // Relative paths for CI/development
+            PathBuf::from("./models/qwen2.5-1.5b.gguf"),
             PathBuf::from("./models/qwen-1.8b.gguf"),
-            PathBuf::from("./models/qwen-0.5b.gguf"),
-            PathBuf::from("./models/qwen-7b.gguf"),
-            PathBuf::from("../models/qwen-1.8b.gguf"),
         ];
 
         for loc in &locations {
