@@ -229,6 +229,8 @@ impl Federation {
             let pm = self.persistence.lock().await;
             let _ = specialist.load_learning_from(&*pm);
         }
+        // Restore sovereign-local RAG memory from disk
+        specialist.load_memory_from_disk();
         let name = specialist.name.clone();
         // Dedup: skip if a sovereign with the same name is already loaded
         {
@@ -324,6 +326,16 @@ impl Federation {
     pub async fn start_all(&self) -> Result<(), FederationErrors> {
         info!("Starting federation with {} specialist(s)", self.enabled_count());
         let mut errors = Vec::new();
+
+        // Restore federation RAG memory from previous session
+        {
+            let restored = crate::federation::graph::EmbeddingStore::load_from_disk(256);
+            let count = restored.total_count();
+            *self.federation_memory.lock().await = restored;
+            if count > 0 {
+                info!("Federation memory: restored {} cross-sovereign memories", count);
+            }
+        }
 
         // Reload sessions that survived the last process run
         self.load_sessions_from_db().await;
@@ -481,6 +493,20 @@ impl Federation {
                 } else {
                     info!("GenericSpecialist '{}' learning saved on shutdown", s.name);
                 }
+                // Persist each sovereign's local RAG memory
+                if let Err(e) = s.save_memory_to_disk() {
+                    warn!("GenericSpecialist '{}' memory save failed: {}", s.name, e);
+                }
+            }
+        }
+
+        // Persist federation RAG memory for next session
+        {
+            let mem = self.federation_memory.lock().await;
+            match mem.save_to_disk() {
+                Ok(()) => info!("Federation memory: {} memories persisted to disk",
+                                mem.total_count()),
+                Err(e) => warn!("Federation memory: save failed: {}", e),
             }
         }
 
@@ -1148,12 +1174,61 @@ fn read_system_resources_sync() -> crate::federation::specialist::SystemResource
         512
     };
 
+    // GPU utilization — real via NVML when available, falls back to 60% estimate
+    let (gpu_available_percent, thermal_headroom) = read_gpu_resources();
+
     crate::federation::specialist::SystemResources {
-        gpu_available_percent: 60.0,
+        gpu_available_percent,
         cpu_available_percent: cpu_available,
         memory_available_mb: free_mem_mb as u32,
-        thermal_headroom: 0.8,
+        thermal_headroom,
     }
+}
+
+/// Read GPU utilization and thermal headroom.
+///
+/// With `--features gpu-metrics`: uses NVML for NVIDIA GPUs.
+/// Without the feature or if NVML fails: returns conservative estimates.
+fn read_gpu_resources() -> (f32, f32) {
+    #[cfg(feature = "gpu-metrics")]
+    {
+        match read_gpu_nvml() {
+            Ok(result) => return result,
+            Err(e) => tracing::debug!("NVML GPU read failed: {} — using estimate", e),
+        }
+    }
+    // Fallback: conservative estimate — 60% available, 80% thermal headroom
+    // Better than hardcoding 60% would be reading CPU thermal as a proxy,
+    // but that requires platform-specific APIs not in sysinfo.
+    (60.0, 0.8)
+}
+
+#[cfg(feature = "gpu-metrics")]
+fn read_gpu_nvml() -> anyhow::Result<(f32, f32)> {
+    use nvml_wrapper::Nvml;
+    let nvml = Nvml::init()?;
+    let device = nvml.device_by_index(0)?;
+
+    let utilization = device.running_compute_processes()
+        .map(|_| device.utilization_rates().ok())
+        .ok()
+        .flatten();
+
+    let gpu_util = utilization.as_ref()
+        .map(|u| u.gpu as f32)
+        .unwrap_or(40.0); // 40% if can't read — conservative
+
+    let gpu_available = (100.0 - gpu_util).clamp(0.0, 100.0);
+
+    // Thermal: use GPU temperature vs threshold
+    let temp_current = device.temperature(nvml_wrapper::enum_wrappers::device::TemperatureSensor::Gpu)
+        .unwrap_or(50) as f32;
+    let temp_slowdown = device.temperature_threshold(
+        nvml_wrapper::enum_wrappers::device::TemperatureThreshold::Slowdown
+    ).unwrap_or(85) as f32;
+    let thermal = (1.0 - (temp_current / temp_slowdown)).clamp(0.0, 1.0);
+
+    Ok((gpu_available, thermal))
 }
 
 /// Cached system resources to avoid 10 concurrent sysinfo reads when
@@ -1168,13 +1243,14 @@ static CACHED_RESOURCES: std::sync::OnceLock<
 /// Async wrapper: reads system resources, using a 2-second in-process cache
 /// to prevent N concurrent intent submissions from each spawning a 30ms blocking read.
 async fn read_system_resources() -> crate::federation::specialist::SystemResources {
+    let (gpu_init, thermal_init) = read_gpu_resources();
     let cache = CACHED_RESOURCES.get_or_init(|| {
         tokio::sync::Mutex::new((
             crate::federation::specialist::SystemResources {
-                gpu_available_percent: 60.0,
+                gpu_available_percent: gpu_init,
                 cpu_available_percent: 70.0,
                 memory_available_mb: 2048,
-                thermal_headroom: 0.8,
+                thermal_headroom: thermal_init,
             },
             // Set initial expiry to the past so the first call always refreshes
             std::time::Instant::now() - std::time::Duration::from_secs(10),
@@ -1190,13 +1266,14 @@ async fn read_system_resources() -> crate::federation::specialist::SystemResourc
     }
 
     // Cache miss — refresh
+    let (gpu_fb, thermal_fb) = read_gpu_resources();
     let fresh = tokio::task::spawn_blocking(read_system_resources_sync)
         .await
         .unwrap_or_else(|_| crate::federation::specialist::SystemResources {
-            gpu_available_percent: 60.0,
+            gpu_available_percent: gpu_fb,
             cpu_available_percent: 70.0,
             memory_available_mb: 2048,
-            thermal_headroom: 0.8,
+            thermal_headroom: thermal_fb,
         });
 
     *guard = (fresh.clone(), std::time::Instant::now());

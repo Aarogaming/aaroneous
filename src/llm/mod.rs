@@ -98,7 +98,13 @@ impl LLMClient {
         };
 
         let cache = cache::LLMCache::new(config.cache_ttl_secs);
-        let rate_limiter = rate_limiter::RateLimiter::new(100); // 100 calls/hour default
+        // 0 = unlimited for local GGUF inference (no API cost, no external throttle).
+        // Set AARONEOUS_LLM_RATE_LIMIT env var to a positive integer to cap it.
+        let rate_limit = std::env::var("AARONEOUS_LLM_RATE_LIMIT")
+            .ok()
+            .and_then(|s| s.parse::<u32>().ok())
+            .unwrap_or(0);
+        let rate_limiter = rate_limiter::RateLimiter::new(rate_limit);
 
         info!("LLM client initialized successfully");
 

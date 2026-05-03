@@ -290,6 +290,131 @@ fn now_ms() -> u64 {
         .as_millis() as u64
 }
 
+// ── Persistence ───────────────────────────────────────────────────────────────
+
+const MEMORY_SIDECAR_PATH: &str = "D:\\Aaroneous\\data\\federation_memory.json";
+
+/// A serializable snapshot of the EmbeddingStore used for disk persistence.
+///
+/// The vocab, idf, and embeddings are all stored so the store can be fully
+/// restored across restarts — no re-indexing needed.
+#[derive(serde::Serialize, serde::Deserialize)]
+struct EmbeddingStoreSnapshot {
+    memories: std::collections::HashMap<String, Vec<EmbeddedMemory>>,
+    vocab: std::collections::HashMap<String, usize>,
+    idf: Vec<f32>,
+    doc_count: usize,
+    dim: usize,
+    saved_at: u64,
+    total_memories: usize,
+}
+
+impl EmbeddingStore {
+    /// Save to a specific path (used by GenericSpecialist for per-sovereign memory).
+    pub fn save_to_disk_at(&self, path: &std::path::Path) -> anyhow::Result<()> {
+        if self.total_count() == 0 { return Ok(()); }
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        let snapshot = EmbeddingStoreSnapshot {
+            memories: self.store.clone(),
+            vocab: self.vocab.clone(),
+            idf: self.idf.clone(),
+            doc_count: self.doc_count,
+            dim: self.dim,
+            saved_at: now_ms(),
+            total_memories: self.total_count(),
+        };
+        std::fs::write(path, serde_json::to_string(&snapshot)?)?;
+        Ok(())
+    }
+
+    /// Load from a specific path (used by GenericSpecialist for per-sovereign memory).
+    pub fn load_from_disk_at(path: &std::path::Path, dim: usize) -> Self {
+        if !path.exists() { return Self::new(dim); }
+        let data = match std::fs::read_to_string(path) {
+            Ok(d) => d,
+            Err(_) => return Self::new(dim),
+        };
+        let snapshot: EmbeddingStoreSnapshot = match serde_json::from_str(&data) {
+            Ok(s) => s,
+            Err(_) => return Self::new(dim),
+        };
+        Self {
+            store: snapshot.memories,
+            vocab: snapshot.vocab,
+            idf: snapshot.idf,
+            doc_count: snapshot.doc_count,
+            dim: snapshot.dim,
+        }
+    }
+
+    /// Save this store to `D:\Aaroneous\data\federation_memory.json`.
+    ///
+    /// Called on federation shutdown. The sidecar is loaded back on startup
+    /// via `load_from_disk()`, making cross-session RAG memory persistent.
+    pub fn save_to_disk(&self) -> anyhow::Result<()> {
+        let path = std::path::Path::new(MEMORY_SIDECAR_PATH);
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        let total = self.total_count();
+        if total == 0 {
+            // Nothing to save — don't overwrite a good sidecar with an empty one
+            return Ok(());
+        }
+        let snapshot = EmbeddingStoreSnapshot {
+            memories: self.store.clone(),
+            vocab: self.vocab.clone(),
+            idf: self.idf.clone(),
+            doc_count: self.doc_count,
+            dim: self.dim,
+            saved_at: now_ms(),
+            total_memories: total,
+        };
+        let json = serde_json::to_string(&snapshot)?;
+        std::fs::write(path, json)?;
+        Ok(())
+    }
+
+    /// Load a previously saved store from disk.
+    ///
+    /// Called at federation startup. If the sidecar doesn't exist or is
+    /// corrupt, a fresh empty store is returned gracefully.
+    pub fn load_from_disk(dim: usize) -> Self {
+        let path = std::path::Path::new(MEMORY_SIDECAR_PATH);
+        if !path.exists() {
+            return Self::new(dim);
+        }
+        let data = match std::fs::read_to_string(path) {
+            Ok(d) => d,
+            Err(e) => {
+                tracing::warn!("EmbeddingStore: failed to read sidecar: {}", e);
+                return Self::new(dim);
+            }
+        };
+        let snapshot: EmbeddingStoreSnapshot = match serde_json::from_str(&data) {
+            Ok(s) => s,
+            Err(e) => {
+                tracing::warn!("EmbeddingStore: sidecar parse error: {}", e);
+                return Self::new(dim);
+            }
+        };
+        tracing::info!(
+            "EmbeddingStore: restored {} memories from sidecar (saved at {})",
+            snapshot.total_memories,
+            snapshot.saved_at,
+        );
+        Self {
+            store: snapshot.memories,
+            vocab: snapshot.vocab,
+            idf: snapshot.idf,
+            doc_count: snapshot.doc_count,
+            dim: snapshot.dim,
+        }
+    }
+}
+
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
 #[cfg(test)]

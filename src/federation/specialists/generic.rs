@@ -269,6 +269,37 @@ impl GenericSpecialist {
         crate::federation::learn_persist::PersistableLearning::restore_from(&mut *l, snapshot);
         Ok(true)
     }
+
+    /// Persist this sovereign's local RAG memory to a sidecar JSON file.
+    ///
+    /// Saves to `D:\Aaroneous\data\<name>_memory.json` so the sovereign's
+    /// per-session recall context survives restarts.
+    pub fn save_memory_to_disk(&self) -> anyhow::Result<()> {
+        let mem = self.memory.lock();
+        if mem.total_count() == 0 { return Ok(()); }
+        let path = format!(
+            "D:\\Aaroneous\\data\\{}_memory.json",
+            self.name.to_lowercase().replace(' ', "_")
+        );
+        mem.save_to_disk_at(std::path::Path::new(&path))?;
+        Ok(())
+    }
+
+    /// Load this sovereign's local RAG memory from disk (if present).
+    pub fn load_memory_from_disk(&self) {
+        let path = format!(
+            "D:\\Aaroneous\\data\\{}_memory.json",
+            self.name.to_lowercase().replace(' ', "_")
+        );
+        let restored = crate::federation::graph::EmbeddingStore::load_from_disk_at(
+            std::path::Path::new(&path), 256
+        );
+        let count = restored.total_count();
+        if count > 0 {
+            *self.memory.lock() = restored;
+            tracing::info!("Sovereign {}: restored {} memories from disk", self.name, count);
+        }
+    }
 }
 
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€

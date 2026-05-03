@@ -13,6 +13,22 @@ pub struct GGUFProvider {
     model_path: PathBuf,
     context_size: u32,
     threads: u32,
+    /// Cached engine instance — loaded once on first call, reused for all subsequent calls.
+    ///
+    /// Without this cache, every `generate_text()` call would:
+    /// - Open the GGUF file (kernel call)
+    /// - Map it into virtual address space (mmap)
+    /// - Parse the tensor info table
+    /// - Allocate KV cache
+    /// Total: 500ms–3s per call for a 4GB model.
+    ///
+    /// With the cache: first call pays the load cost, subsequent calls are
+    /// instant — the Engine is already in memory and the KV cache is hot.
+    ///
+    /// The Mutex is needed because `Engine::generate()` likely takes &mut self
+    /// (inference modifies the KV cache state).
+    #[cfg(feature = "llama-gguf")]
+    engine_cache: std::sync::Arc<tokio::sync::Mutex<Option<llama_gguf::engine::Engine>>>,
 }
 
 impl GGUFProvider {
@@ -35,6 +51,8 @@ impl GGUFProvider {
             model_path,
             context_size,
             threads,
+            #[cfg(feature = "llama-gguf")]
+            engine_cache: std::sync::Arc::new(tokio::sync::Mutex::new(None)),
         })
     }
 
@@ -89,24 +107,36 @@ impl GGUFProvider {
         {
             use llama_gguf::engine::{Engine, EngineConfig};
 
-            let model_path_str = self.model_path
-                .to_string_lossy()
-                .to_string();
             let prompt_owned = prompt.to_string();
             let max_tokens_usize = max_tokens as usize;
 
-            // llama-gguf inference is synchronous and CPU-bound.
-            // Run on the blocking threadpool so we don't block the tokio executor.
-            let result = tokio::task::spawn_blocking(move || -> Result<String> {
-                let config = EngineConfig {
-                    model_path: model_path_str,
-                    temperature: 0.7,
-                    top_p: 0.95,
-                    ..Default::default()
-                };
+            // Use the cached engine — load once on first call, reuse for all subsequent calls.
+            // This turns 500ms–3s load cost per call into a one-time startup cost.
+            let engine_cache = self.engine_cache.clone();
+            let model_path_str = self.model_path.to_string_lossy().to_string();
 
-                let engine = Engine::load(config)
-                    .map_err(|e| anyhow!("Engine::load failed: {:?}", e))?;
+            let result = tokio::task::spawn_blocking(move || -> Result<String> {
+                // Lock the engine cache. On first call: load the engine.
+                // On subsequent calls: use the already-loaded engine.
+                let mut guard = engine_cache.blocking_lock();
+                if guard.is_none() {
+                    info!("GGUF: loading engine from {} (first call — one-time cost)",
+                          model_path_str);
+                    let config = EngineConfig {
+                        model_path: model_path_str,
+                        temperature: 0.7,
+                        top_p: 0.95,
+                        ..Default::default()
+                    };
+                    *guard = Some(
+                        Engine::load(config)
+                            .map_err(|e| anyhow!("Engine::load failed: {:?}", e))?
+                    );
+                    info!("GGUF: engine loaded and cached — subsequent calls will be instant");
+                }
+
+                let engine = guard.as_mut()
+                    .ok_or_else(|| anyhow!("engine cache invariant violated"))?;
 
                 engine
                     .generate(&prompt_owned, max_tokens_usize)
@@ -115,10 +145,7 @@ impl GGUFProvider {
             .await
             .map_err(|e| anyhow!("spawn_blocking panicked: {}", e))??;
 
-            debug!(
-                "GGUF inference complete: {} chars generated",
-                result.len()
-            );
+            debug!("GGUF inference complete: {} chars generated", result.len());
             return Ok(result);
         }
 

@@ -19,6 +19,8 @@ nats-async = ["dep:async-nats"]
 # Enable RocksDB-backed DNA Bank (replaces in-memory BTreeMap with disk storage)
 # See: https://github.com/rust-rocksdb/rust-rocksdb
 rocksdb-dna = ["dep:rocksdb"]
+# Enable real GPU utilization metrics via NVML (NVIDIA) or WMI (AMD/Intel on Windows)
+gpu-metrics = ["dep:nvml-wrapper"]
 # Enable real GGUF inference via llama-gguf (pure Rust, no C deps).
 # Without this feature, GGUFProvider returns structured mock responses.
 # The llama-gguf crate handles .gguf file loading, tokenization, and inference.
@@ -76,6 +78,11 @@ tokio-util = { version = "0.7", features = ["io"] }
 zstd = "0.13"
 # async-stream: for OpenAI streaming SSE response generation
 async-stream = "0.3"
+# nvml-wrapper: NVIDIA GPU metrics (VRAM usage, utilization) via NVML
+# Only available on systems with NVIDIA drivers; gracefully skips if absent
+nvml-wrapper = { version = "0.10", optional = true }
+# wmi: Windows Management Instrumentation — AMD/Intel GPU fallback on Windows
+wmi = { version = "0.14", optional = true }
 # tar: create/extract .tar archives for sovereign package bundles
 tar = "0.4"
 
