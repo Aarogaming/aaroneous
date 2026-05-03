@@ -137,6 +137,10 @@ pub fn router(state: AppState) -> Router {
         .route("/forge/crystallize-roster",   post(forge_crystallize_roster))
         // Multi-hive cluster status
         .route("/cluster", get(cluster_status))
+        // Distillation: training data generation, plan inspection, GGUF genome analysis
+        .route("/distillation/plan",               get(distillation_plan))
+        .route("/distillation/generate",           post(distillation_generate))
+        .route("/distillation/analyze/:sovereign", get(distillation_analyze))
         .with_state(state)
         // Apply CORS and auth layers to all routes
         .layer(cors)
@@ -1573,6 +1577,175 @@ async fn forge_crystallize_roster(
                 "name": name, "error": err,
             })).collect::<Vec<_>>(),
         })).into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({ "ok": false, "error": e.to_string() })),
+        ).into_response(),
+    }
+}
+
+// ── Distillation endpoints ────────────────────────────────────────────────────
+
+/// GET /distillation/plan
+///
+/// Returns the LoRA training plan for all 9 sovereigns: base model path,
+/// adapter output, hyperparameters, training data path, and current status
+/// (no-model / no-data / ready / done).
+async fn distillation_plan(State(_state): State<AppState>) -> impl IntoResponse {
+    use crate::federation::graph::distillation::generate_distillation_plan;
+    let models_dir = std::path::Path::new("D:\\Aaroneous\\models");
+    let data_dir   = std::path::Path::new("D:\\Aaroneous\\training_data");
+
+    let plans = generate_distillation_plan(models_dir, data_dir, None);
+
+    let items: Vec<serde_json::Value> = plans.iter().map(|p| {
+        let model_exists = std::path::Path::new(&p.base_model_path).exists();
+        let data_exists  = std::path::Path::new(&p.training_data_path).exists();
+        let merged_exists = std::path::Path::new(&p.merged_gguf_output).exists();
+        let status = if merged_exists { "done" }
+            else if data_exists { "ready" }
+            else if model_exists { "no-data" }
+            else { "no-model" };
+
+        serde_json::json!({
+            "sovereign":           p.sovereign_name,
+            "base_model":          p.base_model_path,
+            "lora_adapter_output": p.lora_adapter_output,
+            "merged_gguf_output":  p.merged_gguf_output,
+            "training_data_path":  p.training_data_path,
+            "lora_rank":           p.lora_rank,
+            "lora_alpha":          p.lora_alpha,
+            "num_epochs":          p.num_epochs,
+            "batch_size":          p.batch_size,
+            "max_seq_length":      p.max_seq_length,
+            "estimated_vram_gb":   p.estimated_vram_gb,
+            "estimated_hours":     p.estimated_training_hours,
+            "status":              status,
+            "notes":               p.notes,
+        })
+    }).collect();
+
+    Json(serde_json::json!({ "ok": true, "plans": items }))
+}
+
+/// Request body for POST /distillation/generate
+#[derive(Deserialize)]
+struct DistillationGenerateRequest {
+    /// Sovereign name (e.g. "Odin", "Wen")
+    sovereign: String,
+    /// Number of examples to generate (default: 50)
+    count: Option<u32>,
+}
+
+/// POST /distillation/generate
+///
+/// Generates synthetic training data for a sovereign using the foundation model.
+/// Appends to `D:\Aaroneous\training_data\<sovereign>-training.jsonl`.
+///
+/// This is the critical step between crystallization and fine-tuning:
+/// it produces the Alpaca-format JSONL that the unsloth script reads.
+async fn distillation_generate(
+    State(_state): State<AppState>,
+    Json(req): Json<DistillationGenerateRequest>,
+) -> impl IntoResponse {
+    use crate::federation::graph::distillation::generate_training_examples;
+    use crate::llm::{LLMClient, LLMConfig};
+
+    let count = req.count.unwrap_or(50).min(2000);
+    let training_data_dir = std::path::Path::new("D:\\Aaroneous\\training_data");
+
+    // Build an LLM client pointed at the foundation model
+    let llm_config = LLMConfig {
+        provider_type: crate::llm::ProviderType::GGUF,
+        gguf_model_path: Some(std::path::PathBuf::from("D:\\Aaroneous\\models\\foundation_v1.gguf")),
+        max_tokens: 512,
+        ..Default::default()
+    };
+
+    let llm = match LLMClient::new(llm_config).await {
+        Ok(c) => c,
+        Err(e) => {
+            // Fall back to mock if foundation model not found
+            tracing::warn!("Foundation model unavailable ({}), using mock LLM for training data generation", e);
+            match LLMClient::new(LLMConfig {
+                provider_type: crate::llm::ProviderType::Mock,
+                ..Default::default()
+            }).await {
+                Ok(c) => c,
+                Err(e2) => return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(serde_json::json!({ "ok": false, "error": e2.to_string() })),
+                ).into_response(),
+            }
+        }
+    };
+
+    match generate_training_examples(&req.sovereign, count, &llm, training_data_dir).await {
+        Ok(report) => Json(serde_json::json!({
+            "ok": true,
+            "sovereign":           report.sovereign,
+            "examples_generated":  report.examples_generated,
+            "examples_saved":      report.examples_saved,
+            "output_path":         report.output_path,
+            "duration_secs":       report.duration_secs,
+            "errors":              report.errors.len(),
+            "skipped":             report.skipped_capabilities.len(),
+        })).into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({ "ok": false, "error": e.to_string() })),
+        ).into_response(),
+    }
+}
+
+/// GET /distillation/analyze/:sovereign
+///
+/// Runs `GGUFAnalyzer` against a sovereign's crystallized GGUF and returns
+/// the genome JSON: block structure, dominant weight type, layer distribution.
+/// This data is what `genetics.rs` GeneticLocus values should be sourced from.
+async fn distillation_analyze(
+    State(_state): State<AppState>,
+    Path(sovereign): Path<String>,
+) -> impl IntoResponse {
+    use crate::federation::graph::analyzer::GGUFAnalyzer;
+
+    let model_path = std::path::PathBuf::from(format!(
+        "D:\\Aaroneous\\models\\{}-qwen2.5-7b.gguf",
+        sovereign.to_lowercase()
+    ));
+
+    if !model_path.exists() {
+        return (
+            StatusCode::NOT_FOUND,
+            Json(serde_json::json!({
+                "ok": false,
+                "error": format!("Model not found: {}", model_path.display()),
+                "expected": model_path.display().to_string(),
+            })),
+        ).into_response();
+    }
+
+    let analyzer = GGUFAnalyzer::default();
+    match analyzer.analyze(&model_path) {
+        Ok(analysis) => {
+            let genome = crate::federation::graph::analysis_to_genome_json(&analysis, &sovereign);
+            Json(serde_json::json!({
+                "ok": true,
+                "sovereign": sovereign,
+                "model_path": model_path.display().to_string(),
+                "analysis": {
+                    "model_name": analysis.model_name,
+                    "architecture": analysis.architecture,
+                    "total_parameters_estimate": analysis.total_parameters_estimate,
+                    "tensor_count": analysis.tensor_count,
+                    "total_blocks": analysis.total_blocks,
+                    "overall_sparsity": analysis.overall_sparsity,
+                    "attn_mlp_ratio": analysis.attn_mlp_ratio,
+                    "depth_gradient": analysis.depth_gradient,
+                },
+                "genome": genome,
+            })).into_response()
+        }
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(serde_json::json!({ "ok": false, "error": e.to_string() })),

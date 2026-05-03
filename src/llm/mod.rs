@@ -281,26 +281,10 @@ impl LLMClient {
             }
         }
 
-        // Build a DesignContext whose intent carries the full prompt, and whose
-        // style_hints carry the domain label so the GGUF/Mock provider can adapt.
-        let ctx = DesignContext {
-            intent: format!("[SYSTEM: {}]\n\n{}", system_prompt, user_prompt),
-            style_hints: vec![domain.to_string()],
-            constraints: vec![
-                format!("domain: {}", domain),
-                "respond concisely and precisely".to_string(),
-            ],
-            variants_requested: 1,
-            approved_examples: vec![],
-            rejected_examples: vec![],
-        };
-
-        let generation = self.provider.generate_design(&ctx).await?;
-        let response = generation.variants
-            .into_iter()
-            .next()
-            .map(|v| v.description)
-            .unwrap_or_else(|| format!("[{}] No response generated for: {}", domain, user_prompt));
+        // Use the proper chat() path — gives GGUF a real ChatML system+user
+        // turn and gives the mock provider structured domain routing.
+        let response = self.provider.chat(system_prompt, user_prompt, domain).await
+            .unwrap_or_else(|e| format!("[{}] LLM error: {}", domain, e));
 
         if self.config.enable_caching {
             self.cache.set(&cache_key, response.clone()).await?;

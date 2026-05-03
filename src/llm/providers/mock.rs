@@ -143,9 +143,91 @@ impl super::LLMProvider for MockProvider {
         })
     }
 
+    async fn chat(
+        &self,
+        system_prompt: &str,
+        user_message: &str,
+        domain: &str,
+    ) -> Result<String> {
+        debug!("Mock chat: domain={} user='{:.60}'", domain, user_message);
+        // Route through generate_design with the domain hint so the structured
+        // mock responses fire (task_orchestration → JSON task graph, etc.)
+        let ctx = crate::llm::types::DesignContext {
+            intent: format!("[SYSTEM: {}]\n\n{}", system_prompt, user_message),
+            style_hints: vec![domain.to_string()],
+            constraints: vec![format!("domain: {}", domain)],
+            variants_requested: 1,
+            approved_examples: vec![],
+            rejected_examples: vec![],
+        };
+        let generation = self.generate_design(&ctx).await?;
+        Ok(generation.variants.into_iter().next()
+            .map(|v| v.description)
+            .unwrap_or_else(|| format!("[mock] no response for domain {}", domain)))
+    }
+
     async fn generate_design(&self, context: &DesignContext) -> Result<DesignGeneration> {
         debug!("Mock: Generating {} design variant(s) for '{}'",
                context.variants_requested, context.intent);
+
+        // If the intent contains a domain-specific system prompt (from generate_domain_response),
+        // return structured JSON appropriate for that domain rather than UI design variants.
+        // This makes Odin, Argus, Merlin etc. return parseable structured output in mock mode.
+        if let Some(domain) = context.style_hints.first() {
+            match domain.as_str() {
+                "task_orchestration" => {
+                    let intent = context.intent
+                        .splitn(2, "\n\n").nth(1)
+                        .unwrap_or(&context.intent)
+                        .chars().take(100).collect::<String>();
+                    let json = format!(
+                        r#"{{"tasks":[{{"id":"t1","content":"Research and gather context for: {}","assign_to":"Merlin","priority":"High","deps":[]}},{{"id":"t2","content":"Execute primary work on: {}","assign_to":"Ariel","priority":"Normal","deps":["t1"]}},{{"id":"t3","content":"Archive results and update DNA Bank","assign_to":"Dionysus","priority":"Low","deps":["t2"]}}]}}"#,
+                        intent, intent
+                    );
+                    return Ok(DesignGeneration {
+                        intent: context.intent.clone(),
+                        variants: vec![DesignVariant {
+                            title: "Task Decomposition".into(),
+                            description: json,
+                            colors: vec![],
+                            typography: String::new(),
+                            layout: "task_dag".into(),
+                            confidence: 0.85,
+                            reasoning: "Odin guild decomposition (mock)".into(),
+                        }],
+                        tokens_used: 0,
+                        batch_confidence: 0.85,
+                    });
+                }
+                "security_audit" => {
+                    let json = r#"{"findings":[{"severity":"Info","description":"Mock security scan complete — no critical issues found","remediation":"Enable real Argus inference with llama-gguf feature"}],"overall_risk":"Low"}"#;
+                    return Ok(DesignGeneration {
+                        intent: context.intent.clone(),
+                        variants: vec![DesignVariant {
+                            title: "Security Audit".into(),
+                            description: json.into(),
+                            colors: vec![], typography: String::new(), layout: "security_report".into(),
+                            confidence: 0.7, reasoning: "Argus audit (mock)".into(),
+                        }],
+                        tokens_used: 0, batch_confidence: 0.7,
+                    });
+                }
+                "research" | "knowledge_synthesis" | "external_research" => {
+                    let intent = context.intent.chars().take(80).collect::<String>();
+                    let json = format!(r#"{{"summary":"Mock research synthesis for: {}","key_findings":["Finding 1: context gathered","Finding 2: analysis complete"],"confidence":0.75,"gaps":["Enable llama-gguf for real research synthesis"]}}"#, intent);
+                    return Ok(DesignGeneration {
+                        intent: context.intent.clone(),
+                        variants: vec![DesignVariant {
+                            title: "Research Synthesis".into(), description: json,
+                            colors: vec![], typography: String::new(), layout: "research_report".into(),
+                            confidence: 0.75, reasoning: "Merlin synthesis (mock)".into(),
+                        }],
+                        tokens_used: 0, batch_confidence: 0.75,
+                    });
+                }
+                _ => {} // Fall through to default design generation below
+            }
+        }
 
         let count = context.variants_requested.min(3).max(1);
         let mut variants = Vec::with_capacity(count);

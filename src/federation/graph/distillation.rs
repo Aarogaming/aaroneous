@@ -10,9 +10,227 @@
 /// that actually IS its sovereign persona."
 
 use std::collections::HashMap;
+use std::io::Write;
 use serde::{Deserialize, Serialize};
 use super::task_spec::{SovereignTaskSpec, sovereign_task_specs, spec_for};
 use super::analyzer::{GGUFAnalyzer, ModelAnalysis};
+
+// ── Training data generation ──────────────────────────────────────────────────
+
+/// Result of a training data generation run for one sovereign.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GenerationReport {
+    pub sovereign: String,
+    pub examples_generated: u32,
+    pub examples_saved: u32,
+    pub output_path: String,
+    pub skipped_capabilities: Vec<String>,
+    pub errors: Vec<String>,
+    pub duration_secs: f64,
+}
+
+/// Generates synthetic training examples for a sovereign using the foundation model.
+///
+/// # Process
+/// For each capability in the sovereign's task spec:
+/// 1. Fill the `generation_prompt_template` with varied synthetic intents
+/// 2. Call the foundation model (via `LLMClient`) with the sovereign's system prompt
+/// 3. Store the result as a `TrainingExample`
+///
+/// Results are written as JSONL to `<training_data_dir>/<sovereign>-training.jsonl`.
+/// Existing data is **appended to** (not overwritten) so repeated runs accumulate data.
+///
+/// # Arguments
+/// * `sovereign_name` - Case-insensitive sovereign name (e.g. "Odin", "ariel")
+/// * `count` - Total number of examples to generate across all capabilities
+/// * `llm` - Foundation model client (should be backed by `foundation_v1.gguf`)
+/// * `training_data_dir` - Directory to write the JSONL file to
+pub async fn generate_training_examples(
+    sovereign_name: &str,
+    count: u32,
+    llm: &crate::llm::LLMClient,
+    training_data_dir: &std::path::Path,
+) -> anyhow::Result<GenerationReport> {
+    use anyhow::Context;
+    let start = std::time::Instant::now();
+
+    // Find the spec for this sovereign
+    let spec = spec_for(sovereign_name)
+        .ok_or_else(|| anyhow::anyhow!("No task spec found for sovereign '{}'", sovereign_name))?;
+
+    let output_path = training_data_dir
+        .join(format!("{}-training.jsonl", spec.sovereign_name.to_lowercase()));
+
+    std::fs::create_dir_all(training_data_dir)
+        .context("Failed to create training data directory")?;
+
+    // Open in append mode — accumulate across runs
+    let mut file = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&output_path)
+        .context("Failed to open training data file")?;
+
+    let mut report = GenerationReport {
+        sovereign: spec.sovereign_name.clone(),
+        examples_generated: 0,
+        examples_saved: 0,
+        output_path: output_path.to_string_lossy().to_string(),
+        skipped_capabilities: vec![],
+        errors: vec![],
+        duration_secs: 0.0,
+    };
+
+    // Distribute `count` examples across capabilities proportionally
+    let cap_count = spec.capabilities.len().max(1) as u32;
+    let per_capability = (count / cap_count).max(1);
+
+    for capability in &spec.capabilities {
+        let cap_intents = synthetic_intents_for(&spec, &capability.id, per_capability);
+        for (intent_idx, synthetic_intent) in cap_intents.iter().enumerate() {
+            // Build system prompt from the sovereign's domain
+            let system_prompt = format!(
+                "You are {}, a sovereign specialist in the Aaroneous hive.\n\
+                 Domain: {}\n\
+                 Persona: {}\n\
+                 Capability: {} — {}\n\
+                 Respond precisely and in the expected output format.",
+                spec.sovereign_name,
+                spec.domain,
+                spec.persona_summary,
+                capability.id,
+                capability.description,
+            );
+
+            // Fill the generation template
+            let user_prompt = spec.training_data_spec.generation_prompt_template
+                .replace("{{INTENT}}", synthetic_intent)
+                .replace("{{N}}", "3")
+                .replace("{{CONFLICT}}", synthetic_intent)
+                .replace("{{TASK}}", synthetic_intent);
+
+            // Call the foundation model
+            let response = match llm.generate_domain_response(&system_prompt, &user_prompt, &spec.domain_key()).await {
+                Ok(r) => r,
+                Err(e) => {
+                    let msg = format!("cap={} idx={}: {}", capability.id, intent_idx, e);
+                    report.errors.push(msg);
+                    continue;
+                }
+            };
+
+            // Skip obviously bad responses (too short)
+            if response.len() < 20 {
+                report.skipped_capabilities.push(capability.id.clone());
+                continue;
+            }
+
+            // Quality score: 1.0 if response contains JSON, 0.6 otherwise
+            let quality_score = if response.contains('{') || response.contains('[') { 0.9 } else { 0.6 };
+
+            let example = TrainingExample {
+                id: format!("{}-{}-{}", spec.sovereign_name.to_lowercase(), capability.id, intent_idx),
+                sovereign: spec.sovereign_name.clone(),
+                capability_id: capability.id.clone(),
+                instruction: user_prompt,
+                response,
+                system_prompt: system_prompt.clone(),
+                quality_score,
+                generated_at: now_ms(),
+            };
+
+            report.examples_generated += 1;
+
+            // Write as Alpaca JSON line
+            let line = serde_json::to_string(&example.to_alpaca_json())?;
+            writeln!(file, "{}", line)?;
+            report.examples_saved += 1;
+        }
+    }
+
+    report.duration_secs = start.elapsed().as_secs_f64();
+    tracing::info!(
+        "Training data generation complete: {} examples for {} in {:.1}s → {}",
+        report.examples_saved,
+        report.sovereign,
+        report.duration_secs,
+        report.output_path,
+    );
+
+    Ok(report)
+}
+
+/// Generate synthetic intents for a specific capability.
+///
+/// Returns varied natural-language instructions that a user might send to this
+/// sovereign for this capability — the diversity drives generalization.
+fn synthetic_intents_for(spec: &SovereignTaskSpec, capability_id: &str, count: u32) -> Vec<String> {
+    // Start with the example from the capability if available
+    let mut intents: Vec<String> = spec.capabilities.iter()
+        .find(|c| c.id == capability_id)
+        .and_then(|c| c.example.as_ref().map(|(input, _)| vec![input.clone()]))
+        .unwrap_or_default();
+
+    // Generic varied intent templates per capability type
+    let templates: Vec<String> = match capability_id {
+        "generate_design" => vec![
+            "Design a {} dashboard for monitoring {}".into(),
+            "Create a minimal {} interface for {}".into(),
+            "Build a dark-mode {} UI for {}".into(),
+            "Design a mobile-first {} for {}".into(),
+        ],
+        "decompose_intent" | "plan_tasks" => vec![
+            "Plan how to {}".into(),
+            "Break down the task: {}".into(),
+            "Organize the following into subtasks: {}".into(),
+            "Create a task graph for: {}".into(),
+        ],
+        "resolve_sync_conflict" => vec![
+            r#"{"state_a":{"value":1,"ts":100},"state_b":{"value":2,"ts":90}}"#.into(),
+            r#"{"state_a":{"config":"dark"},"state_b":{"config":"light"},"ts_a":200,"ts_b":150}"#.into(),
+        ],
+        "security_audit" | "threat_scan" => vec![
+            "Audit this system: {}".into(),
+            "Scan for vulnerabilities in: {}".into(),
+            "Check security posture for: {}".into(),
+        ],
+        "archive_result" | "store_memory" => vec![
+            "Archive the following execution result: {}".into(),
+            "Store this decision for future recall: {}".into(),
+        ],
+        _ => vec![
+            "Execute the following in your domain: {}".into(),
+            "Handle this request: {}".into(),
+            "Process: {}".into(),
+        ],
+    };
+
+    // Fill templates with varied subjects drawn from a domain vocabulary
+    let subjects = [
+        "sovereign specialists", "AI agents", "neural networks",
+        "Rust async systems", "Aaroneous hive", "GGUF models",
+        "WebSocket connections", "SQLite databases", "federation events",
+        "intent processing pipeline", "MaelstromUI panels", "O3DE game engine",
+    ];
+
+    let mut idx = 0usize;
+    while intents.len() < count as usize {
+        let template = &templates[idx % templates.len()];
+        let subject = subjects[idx % subjects.len()];
+        intents.push(template.replace("{}", subject));
+        idx += 1;
+    }
+
+    intents.truncate(count as usize);
+    intents
+}
+
+fn now_ms() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0)
+}
 
 // ── Training example ──────────────────────────────────────────────────────────
 

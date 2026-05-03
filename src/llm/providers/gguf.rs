@@ -350,6 +350,26 @@ Return JSON only:
         Ok(explanation)
     }
 
+    async fn chat(
+        &self,
+        system_prompt: &str,
+        user_message: &str,
+        _domain: &str,
+    ) -> Result<String> {
+        // Build a Qwen2/ChatML-style prompt:
+        //   <|im_start|>system\n{system}\n<|im_end|>\n
+        //   <|im_start|>user\n{user}\n<|im_end|>\n
+        //   <|im_start|>assistant\n
+        let prompt = format!(
+            "<|im_start|>system\n{system}\n<|im_end|>\n\
+             <|im_start|>user\n{user}\n<|im_end|>\n\
+             <|im_start|>assistant\n",
+            system = system_prompt,
+            user = user_message,
+        );
+        self.generate_text(&prompt, 512).await
+    }
+
     async fn generate_design(&self, context: &DesignContext) -> Result<DesignGeneration> {
         let style = context.style_hints.join(", ");
         let constraints = context.constraints.join(", ");
@@ -453,6 +473,13 @@ mod tests {
     #[test]
     fn test_default_model_path() {
         let path = GGUFProvider::default_qwen_path();
-        assert!(path.ends_with("qwen-1.8b.gguf") || path.ends_with("qwen-0.5b.gguf"));
+        // Returns first existing GGUF; on dev machine the sovereign models are present.
+        // On CI with no models, falls back to the legacy path.
+        let name = path.file_name().unwrap_or_default().to_string_lossy();
+        assert!(
+            name.ends_with(".gguf"),
+            "expected a .gguf path, got: {}",
+            path.display()
+        );
     }
 }

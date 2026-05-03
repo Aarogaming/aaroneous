@@ -42,6 +42,7 @@ use crate::federation::specialist::{
     Conflict, NegotiationResult, ResourceRequest, ProposalPriority,
     ExecutionResult, ExecutionStatus, SpecialistCapability,
 };
+use crate::federation::graph::EmbeddingStore;
 use crate::llm::{LLMClient, LLMConfig, ProviderType};
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -150,6 +151,9 @@ pub struct GenericSpecialist {
     pub model_path: Option<std::path::PathBuf>,
     /// Learning state with interior mutability for `&self` execute()
     pub learning: Arc<Mutex<GenericLearningData>>,
+    /// Sovereign-local RAG memory — stores past execution outputs so
+    /// future invocations can retrieve relevant context before calling the LLM.
+    pub memory: Arc<Mutex<EmbeddingStore>>,
 }
 
 pub const PERSISTENCE_KEY_PREFIX: &str = "Generic:";
@@ -170,6 +174,7 @@ impl GenericSpecialist {
             llm: None,
             model_path: None,
             learning: Arc::new(Mutex::new(GenericLearningData::new())),
+            memory: Arc::new(Mutex::new(EmbeddingStore::new(256))),
         }
     }
 
@@ -329,11 +334,23 @@ impl Specialist for GenericSpecialist {
             .cloned()
             .unwrap_or_else(|| decision.action.clone());
 
+        // RAG recall — retrieve relevant past memories before calling the LLM.
+        // Prepend up to 3 most-similar past outputs as context in the user message.
+        let intent_with_context = {
+            let mem = self.memory.lock();
+            let recall_ctx = mem.recall_for(&self.name, &intent, 3);
+            if recall_ctx.is_empty() {
+                intent.clone()
+            } else {
+                format!("{}\nCurrent intent: {}", recall_ctx, intent)
+            }
+        };
+
         // Try LLM-backed execution; fall back to structured acknowledgement on failure
         // so dynamic sovereigns return Success even without --features llama-gguf.
         let output = if let Some(llm) = &self.llm {
             let system_prompt = system_prompt_for_domain(&self.domain, &self.name);
-            match llm.generate_domain_response(&system_prompt, &intent, &self.domain).await {
+            match llm.generate_domain_response(&system_prompt, &intent_with_context, &self.domain).await {
                 Ok(response) => format!("[{}] {}", self.name, response),
                 Err(_e) => {
                     // Graceful fallback — sovereign acknowledges intent with structured output
@@ -365,6 +382,17 @@ impl Specialist for GenericSpecialist {
         {
             let mut l = self.learning.lock();
             l.record_result(success);
+        }
+
+        // Store this execution's output in sovereign-local memory for future RAG recall.
+        {
+            let mut mem = self.memory.lock();
+            let memory_id = format!("exec-{}", std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_millis())
+                .unwrap_or(0));
+            let memory_text = format!("intent: {} | output: {}", intent.chars().take(120).collect::<String>(), output.chars().take(300).collect::<String>());
+            mem.store_text(memory_id, &self.name, memory_text, "execution");
         }
 
         Ok(ExecutionResult {

@@ -140,6 +140,13 @@ pub struct Federation {
     /// Capacity: 256 events buffered. Slow consumers miss events rather
     /// than blocking the federation.
     pub specialist_events: Arc<tokio::sync::broadcast::Sender<serde_json::Value>>,
+
+    /// Cross-sovereign federation memory (RAG).
+    ///
+    /// Every sovereign execution result is stored here with intent + output text.
+    /// Future intent submissions query it to retrieve the most relevant past
+    /// context across ALL sovereigns, which is prepended to Odin's decomposition.
+    pub federation_memory: Arc<Mutex<crate::federation::graph::EmbeddingStore>>,
 }
 
 impl Federation {
@@ -798,6 +805,7 @@ impl Federation {
             multi_hive: Arc::new(RwLock::new(None)),
             audit_log: Arc::new(Mutex::new(crate::federation::enterprise::AuditLog::new())),
             specialist_events: Arc::new(event_tx),
+            federation_memory: Arc::new(Mutex::new(crate::federation::graph::EmbeddingStore::new(256))),
         }
     }
 }
@@ -878,6 +886,7 @@ async fn run_decision(
     active_intent_arc: &Arc<RwLock<Option<Intent>>>,
     sessions_arc: &Arc<RwLock<crate::federation::session::SessionManager>>,
     audit_log_arc: &Arc<tokio::sync::Mutex<crate::federation::enterprise::AuditLog>>,
+    federation_memory: &Arc<tokio::sync::Mutex<crate::federation::graph::EmbeddingStore>>,
 ) -> bool {
     use crate::federation::specialist::{Specialist, SpecialistId};
 
@@ -1009,6 +1018,26 @@ async fn run_decision(
                 let excess = store.len() - 100;
                 store.drain(0..excess);
             }
+        }
+
+        // Federation RAG memory — store intent+output pair for cross-sovereign recall
+        {
+            let intent_text = active_intent_arc.read().await
+                .as_ref().map(|i| i.content.clone())
+                .unwrap_or_else(|| decision.action.clone());
+            let sovereign = result.specialist_name.as_deref()
+                .unwrap_or_else(|| result.specialist.name());
+            let memory_text = format!(
+                "intent:{} | output:{}",
+                intent_text.chars().take(120).collect::<String>(),
+                result.output.chars().take(300).collect::<String>()
+            );
+            let memory_id = format!("fed-exec-{}", std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_millis())
+                .unwrap_or(0));
+            let mut mem = federation_memory.lock().await;
+            mem.store_text(memory_id, sovereign, memory_text, "execution");
         }
 
         // Broadcast specialist state event for O3DE / SSE consumers
@@ -1664,6 +1693,7 @@ impl Federation {
             &self.active_intent,
             &self.sessions,
             &self.audit_log,
+            &self.federation_memory,
         )
         .await;
     }
@@ -1811,6 +1841,8 @@ impl Federation {
         let sessions_arc = self.sessions.clone();
         // Audit log — record each execution from the sentinel loop
         let audit_log_arc = self.audit_log.clone();
+        // Federation RAG memory
+        let fed_memory_arc = self.federation_memory.clone();
 
         tokio::spawn(async move {
             use crate::federation::specialist::{Specialist, SpecialistId};
@@ -1893,6 +1925,7 @@ impl Federation {
                                             &active_intent_arc,
                                             &sessions_arc,
                                             &audit_log_arc,
+                                            &fed_memory_arc,
                                         ).await;
                                     }
                                     Some(_) => {} // Other message types ignored for now

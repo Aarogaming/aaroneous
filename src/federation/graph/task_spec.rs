@@ -464,6 +464,24 @@ pub fn sovereign_task_specs() -> Vec<SovereignTaskSpec> {
     ]
 }
 
+impl SovereignTaskSpec {
+    /// Short domain key for LLM routing (matches GenericSpecialist domain labels).
+    pub fn domain_key(&self) -> String {
+        match self.sovereign_name.to_lowercase().as_str() {
+            "ariel"      => "ui_design".into(),
+            "hermes"     => "p2p_sync".into(),
+            "wen"        => "biometric".into(),
+            "kami"       => "phygital".into(),
+            "dionysus"   => "archival".into(),
+            "merlin"     => "research".into(),
+            "odin"       => "task_orchestration".into(),
+            "argus"      => "security_audit".into(),
+            "hephaestus" => "construction".into(),
+            other        => other.replace(' ', "_"),
+        }
+    }
+}
+
 /// Return the task spec for a specific sovereign by name.
 pub fn spec_for(sovereign_name: &str) -> Option<SovereignTaskSpec> {
     sovereign_task_specs()
