@@ -66,6 +66,24 @@ pub enum Commands {
     /// This is the Rust-native implementation of the tensor_forge enzyme.
     #[command(subcommand)]
     Forge(ForgeCmd),
+
+    /// Install Aaroneous as a Windows service (requires elevated privileges)
+    ///
+    /// After installation, Aaroneous starts automatically with Windows and
+    /// can be managed with: sc start/stop/query AaroneousFederation
+    ///
+    /// The service runs `aaroneous start` and serves the HTTP API on port 8765.
+    InstallService {
+        /// Service display name
+        #[arg(long, default_value = "Aaroneous Federation")]
+        display_name: String,
+        /// HTTP port the service will listen on
+        #[arg(long, default_value = "8765")]
+        port: u16,
+    },
+
+    /// Uninstall the Aaroneous Windows service (requires elevated privileges)
+    UninstallService,
 }
 
 #[derive(Subcommand, Debug)]
@@ -324,6 +342,122 @@ pub async fn execute(args: CliArgs) -> Result<(), Box<dyn std::error::Error>> {
         Commands::Status(cmd) => execute_status(cmd, &args.db_path).await?,
         Commands::Config(cmd) => execute_config(cmd).await?,
         Commands::Forge(cmd) => execute_forge(cmd).await?,
+        Commands::InstallService { display_name, port } => {
+            execute_install_service(&display_name, port)?
+        }
+        Commands::UninstallService => execute_uninstall_service()?,
+    }
+
+    Ok(())
+}
+
+/// Install Aaroneous as a Windows service.
+///
+/// Requires the process to run as Administrator.
+/// The service runs `aaroneous.exe start --dashboard none` so it has
+/// no TUI but serves the full HTTP API.
+fn execute_install_service(
+    display_name: &str,
+    port: u16,
+) -> Result<(), Box<dyn std::error::Error>> {
+    #[cfg(windows)]
+    {
+        use windows_service::service::{
+            ServiceAccess, ServiceErrorControl, ServiceInfo, ServiceStartType, ServiceType,
+        };
+        use windows_service::service_manager::{ServiceManager, ServiceManagerAccess};
+        use std::ffi::OsString;
+
+        const SERVICE_NAME: &str = "AaroneousFederation";
+
+        // Path to this executable
+        let exe_path = std::env::current_exe()
+            .map_err(|e| format!("Cannot determine exe path: {}", e))?;
+
+        let manager = ServiceManager::local_computer(
+            None::<&str>,
+            ServiceManagerAccess::CREATE_SERVICE,
+        ).map_err(|e| format!(
+            "Cannot open Service Manager (are you running as Administrator?): {}", e
+        ))?;
+
+        let service_info = ServiceInfo {
+            name: OsString::from(SERVICE_NAME),
+            display_name: OsString::from(display_name),
+            service_type: ServiceType::OWN_PROCESS,
+            start_type: ServiceStartType::AutoStart,
+            error_control: ServiceErrorControl::Normal,
+            executable_path: exe_path,
+            launch_arguments: vec![
+                OsString::from("start"),
+                OsString::from("--dashboard"),
+                OsString::from("none"),
+            ],
+            dependencies: vec![],
+            account_name: None,  // LocalSystem
+            account_password: None,
+        };
+
+        let service = manager.create_service(
+            &service_info,
+            ServiceAccess::CHANGE_CONFIG,
+        ).map_err(|e| format!("Failed to create service: {}", e))?;
+
+        // Set description
+        service.set_description(format!(
+            "Aaroneous federation backend. Serves HTTP API on port {}. \
+             Manages the specialist hive, GGUF inference, and session tracking.",
+            port
+        )).ok();
+
+        println!("Service '{}' installed successfully.", SERVICE_NAME);
+        println!("Start it with:  sc start {}", SERVICE_NAME);
+        println!("Status:         sc query {}", SERVICE_NAME);
+        println!("Stop:           sc stop {}", SERVICE_NAME);
+        println!("HTTP API:       http://localhost:{}/healthz", port);
+    }
+
+    #[cfg(not(windows))]
+    {
+        println!("Service installation is only supported on Windows.");
+        println!("On Linux/macOS, use a systemd unit or launchd plist.");
+        println!("Example systemd unit at: D:\\Aaroneous\\registry\\aaroneous.service");
+    }
+
+    Ok(())
+}
+
+/// Uninstall the Aaroneous Windows service.
+fn execute_uninstall_service() -> Result<(), Box<dyn std::error::Error>> {
+    #[cfg(windows)]
+    {
+        use windows_service::service::ServiceAccess;
+        use windows_service::service_manager::{ServiceManager, ServiceManagerAccess};
+
+        const SERVICE_NAME: &str = "AaroneousFederation";
+
+        let manager = ServiceManager::local_computer(
+            None::<&str>,
+            ServiceManagerAccess::CONNECT,
+        ).map_err(|e| format!(
+            "Cannot open Service Manager (are you running as Administrator?): {}", e
+        ))?;
+
+        let service = manager
+            .open_service(SERVICE_NAME, ServiceAccess::DELETE)
+            .map_err(|e| format!("Service '{}' not found: {}", SERVICE_NAME, e))?;
+
+        service.delete()
+            .map_err(|e| format!("Failed to delete service: {}", e))?;
+
+        println!("Service '{}' uninstalled.", SERVICE_NAME);
+        println!("Any running instance will stop after the next system restart,");
+        println!("or stop it now with: sc stop {}", SERVICE_NAME);
+    }
+
+    #[cfg(not(windows))]
+    {
+        println!("Service uninstallation is only supported on Windows.");
     }
 
     Ok(())
