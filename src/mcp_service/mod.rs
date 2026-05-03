@@ -67,9 +67,9 @@ pub mod transport;
 pub mod auth;
 pub mod http_api;
 
-pub use service::McpService;
+pub use service::{McpService, JsonRpcRequest, JsonRpcResponse, McpTool, ServiceStats};
 pub use config::{ServiceConfig, TransportConfig};
 pub use capability::{Capability, CapabilityDomain, CapabilityHandler, CapabilityResult};
 pub use transport::{Transport, HttpTransport, WebSocketTransport, NatsTransport};
 pub use auth::{AuthProvider, ApiKeyAuth, OAuth2Auth};
-pub use http_api::{HttpServer, RestApi};
+pub use http_api::HttpServer;

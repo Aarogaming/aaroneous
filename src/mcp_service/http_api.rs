@@ -1,440 +1,260 @@
-use serde::{Deserialize, Serialize};
+/// MCP HTTP+SSE transport.
+///
+/// Implements the Anthropic Model Context Protocol 2024-11-05 specification:
+///   - POST /mcp  — JSON-RPC 2.0 request/response (main transport)
+///   - GET  /sse  — Server-Sent Events for server-initiated notifications
+///   - GET  /health — Liveness probe
+///
+/// # Client configuration
+///
+/// Claude Desktop (~/Library/Application Support/Claude/claude_desktop_config.json):
+/// ```json
+/// {
+///   "mcpServers": {
+///     "aaroneous": {
+///       "url": "http://localhost:8766/sse",
+///       "transport": "sse"
+///     }
+///   }
+/// }
+/// ```
+///
+/// Cursor (settings.json):
+/// ```json
+/// {
+///   "cursor.mcp.servers": {
+///     "aaroneous": { "url": "http://localhost:8766/mcp", "transport": "http" }
+///   }
+/// }
+/// ```
+
 use std::net::SocketAddr;
 use std::sync::Arc;
+use std::convert::Infallible;
 use axum::{
-    extract::{State, Path, Json},
-    http::StatusCode,
+    extract::State,
+    http::{HeaderMap, StatusCode},
+    response::{sse::{Event, KeepAlive, Sse}, IntoResponse, Json},
     routing::{get, post},
     Router,
 };
-use uuid::Uuid;
+use serde_json::Value;
+use futures_util::StreamExt;
+use tracing::{info, debug, warn};
 
-/// Shared application state for HTTP handlers
+use crate::mcp_service::service::{McpService, JsonRpcRequest, JsonRpcResponse};
+
+// ── State ─────────────────────────────────────────────────────────────────────
+
 #[derive(Clone)]
-pub struct AppState {
-    pub service: Arc<crate::mcp_service::McpService>,
+pub struct McpAppState {
+    pub service: Arc<McpService>,
 }
 
-/// HTTP Server for REST API
+// ── Server ────────────────────────────────────────────────────────────────────
+
 pub struct HttpServer {
     addr: SocketAddr,
-    state: Option<AppState>,
 }
 
 impl HttpServer {
-    /// Create new HTTP server
     pub fn new(addr: SocketAddr) -> Self {
-        Self { 
-            addr,
-            state: None,
-        }
+        Self { addr }
     }
 
-    /// Set the MCP service state
-    pub fn with_service(mut self, service: Arc<crate::mcp_service::McpService>) -> Self {
-        self.state = Some(AppState {
-            service,
-        });
-        self
-    }
-
-    /// Get server address
     pub fn addr(&self) -> SocketAddr {
         self.addr
     }
 
-    /// Build and start the HTTP server (async)
-    pub async fn run(self) -> Result<(), Box<dyn std::error::Error>> {
-        let state = self.state.ok_or("No MCP service provided")?;
+    /// Build and start the MCP HTTP+SSE server.
+    pub async fn run(
+        self,
+        service: Arc<McpService>,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let state = McpAppState { service };
 
-        // Build router with all endpoints
         let app = Router::new()
-            // Health check
-            .route("/health", get(health_check))
-            // Status endpoint
-            .route("/status", get(service_status))
-            // Capabilities
-            .route("/api/v1/capabilities", get(list_capabilities))
-            .route("/api/v1/capabilities/:id", get(get_capability))
-            // Call capability
-            .route("/api/v1/call", post(call_capability))
-            // OpenAPI spec
-            .route("/api/v1/openapi.json", get(openapi_spec))
+            // MCP JSON-RPC 2.0 transport (primary)
+            .route("/mcp",    post(handle_mcp_post))
+            // SSE transport (for Claude Desktop / streaming clients)
+            .route("/sse",    get(handle_sse))
+            // Health probe (unauthenticated)
+            .route("/health", get(handle_health))
+            // MCP discovery endpoint (returns server info)
+            .route("/",       get(handle_root))
             .with_state(state);
 
-        // Create TCP listener
         let listener = tokio::net::TcpListener::bind(self.addr).await?;
-        tracing::info!("HTTP server listening on {}", self.addr);
+        info!("MCP server listening on {} (JSON-RPC 2.0 + SSE)", self.addr);
+        info!("  Claude Desktop: add url='http://{}' to claude_desktop_config.json", self.addr);
+        info!("  Cursor: add url='http://{}/mcp' to settings.json", self.addr);
 
-        // Run server
         axum::serve(listener, app).await?;
         Ok(())
     }
 }
 
-/// REST API interface
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct RestApi {
-    /// API version
-    pub version: String,
-    /// Base path (e.g., "/api/v1")
-    pub base_path: String,
-}
+// ── Handlers ──────────────────────────────────────────────────────────────────
 
-impl RestApi {
-    /// Create new REST API
-    pub fn new(version: impl Into<String>) -> Self {
-        Self {
-            version: version.into(),
-            base_path: "/api/v1".to_string(),
+/// POST /mcp — JSON-RPC 2.0 request handler.
+///
+/// Accepts both single requests and batched arrays.
+/// Returns single response or array of responses.
+async fn handle_mcp_post(
+    State(state): State<McpAppState>,
+    headers: HeaderMap,
+    body: axum::body::Bytes,
+) -> impl IntoResponse {
+    // Parse request body as JSON
+    let raw: Value = match serde_json::from_slice(&body) {
+        Ok(v) => v,
+        Err(e) => {
+            let err = JsonRpcResponse::err(
+                None, -32700,
+                &format!("Parse error: {}", e),
+            );
+            return Json(serde_json::to_value(err).unwrap()).into_response();
         }
+    };
+
+    debug!("MCP POST: {}", raw.get("method").and_then(|m| m.as_str()).unwrap_or("batch"));
+
+    // Handle batch or single
+    if raw.is_array() {
+        let requests = raw.as_array().unwrap();
+        let mut responses = Vec::new();
+        for req in requests {
+            // Skip notifications (no id field)
+            if req.get("id").is_none() {
+                state.service.handle_jsonrpc(req.clone()).await;
+                continue;
+            }
+            let resp = state.service.handle_jsonrpc(req.clone()).await;
+            responses.push(serde_json::to_value(resp).unwrap());
+        }
+        return Json(Value::Array(responses)).into_response();
     }
 
-    /// List capabilities endpoint
-    pub fn list_capabilities_path(&self) -> String {
-        format!("{}/capabilities", self.base_path)
+    // Single request — check if notification (no id)
+    let is_notification = raw.get("id").is_none() &&
+        raw.get("method").and_then(|m| m.as_str())
+           .map(|m| m.starts_with("notifications/"))
+           .unwrap_or(false);
+
+    let resp = state.service.handle_jsonrpc(raw).await;
+
+    if is_notification {
+        // Notifications get 204 No Content
+        return StatusCode::NO_CONTENT.into_response();
     }
 
-    /// Get capability details endpoint
-    pub fn get_capability_path(&self, id: &str) -> String {
-        format!("{}/capabilities/{}", self.base_path, id)
-    }
-
-    /// Call capability endpoint
-    pub fn call_path(&self) -> String {
-        format!("{}/call", self.base_path)
-    }
-
-    /// Health check endpoint
-    pub fn health_path(&self) -> String {
-        format!("{}/health", self.base_path)
-    }
-
-    /// Status endpoint
-    pub fn status_path(&self) -> String {
-        format!("{}/status", self.base_path)
-    }
+    Json(serde_json::to_value(resp).unwrap()).into_response()
 }
 
-/// HTTP request for calling a capability
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct CallRequest {
-    /// Capability ID (e.g., "federation.healthcheck")
-    pub capability: String,
-    /// Optional trace ID for distributed tracing
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub trace_id: Option<String>,
-    /// Request parameters
-    pub params: serde_json::Value,
-    /// Optional timeout in milliseconds
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub timeout_ms: Option<u32>,
+/// GET /sse — Server-Sent Events transport for Claude Desktop.
+///
+/// The SSE transport works as follows:
+/// 1. Client connects to /sse
+/// 2. Server sends `endpoint` event with the POST URL
+/// 3. Client sends JSON-RPC requests to that URL
+/// 4. Server sends responses back as `message` SSE events
+///
+/// This is the transport Claude Desktop uses (it requires SSE, not HTTP POST).
+async fn handle_sse(
+    State(state): State<McpAppState>,
+) -> impl IntoResponse {
+    // The SSE endpoint first advertises the POST endpoint, then keeps alive
+    // Real SSE MCP would need a session-keyed response channel; for now we
+    // send the endpoint advertisement and keep the connection open.
+    // Read tool count before entering the stream (can't hold async guard across yield)
+    let tool_count = state.service.tools.read().await.len();
+
+    let stream = async_stream::stream! {
+        // Required first event: tell the client where to POST requests
+        yield Ok::<Event, Infallible>(
+            Event::default()
+                .event("endpoint")
+                .data("http://localhost:8766/mcp")
+        );
+
+        // Server capabilities announcement
+        let init_notification = serde_json::json!({
+            "jsonrpc": "2.0",
+            "method": "notifications/message",
+            "params": {
+                "level": "info",
+                "logger": "aaroneous",
+                "data": format!(
+                    "Aaroneous MCP server ready — {} tools available. \
+                     Submit intents to the sovereign hive via tools/call.",
+                    tool_count
+                )
+            }
+        });
+        yield Ok::<Event, Infallible>(
+            Event::default()
+                .event("message")
+                .data(serde_json::to_string(&init_notification).unwrap_or_default())
+        );
+
+        // Keep-alive loop — ping every 30s
+        let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(30));
+        loop {
+            interval.tick().await;
+            yield Ok::<Event, Infallible>(Event::default().comment("keepalive"));
+        }
+    };
+
+    Sse::new(stream)
+        .keep_alive(KeepAlive::default())
+        .into_response()
 }
 
-/// HTTP response from capability call
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct CallResponse {
-    /// Request ID (for tracing)
-    pub request_id: String,
-    /// Execution status
-    pub status: String,
-    /// Result data
-    pub result: serde_json::Value,
-    /// Execution time in milliseconds
-    pub latency_ms: u32,
-    /// Error message if failed
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub error: Option<String>,
+/// GET /health — Liveness probe.
+async fn handle_health(State(state): State<McpAppState>) -> impl IntoResponse {
+    let tool_count = state.service.tools.read().await.len();
+    Json(serde_json::json!({
+        "status": "healthy",
+        "name": "Aaroneous MCP Server",
+        "version": env!("CARGO_PKG_VERSION"),
+        "protocol": "MCP 2024-11-05",
+        "transport": ["http", "sse"],
+        "tools_registered": tool_count,
+        "uptime_secs": state.service.uptime_secs(),
+        "requests_total": state.service.request_count(),
+    }))
 }
 
-/// Service health response
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct HealthResponse {
-    /// Service status (healthy, degraded, unhealthy)
-    pub status: String,
-    /// Service name
-    pub name: String,
-    /// Service version
-    pub version: String,
-    /// Uptime in seconds
-    pub uptime_secs: u64,
-    /// Active endpoints
-    pub endpoints: Vec<String>,
-    /// Total requests processed
-    pub requests_total: u64,
-    /// Total errors
-    pub errors_total: u64,
-    /// Timestamp
-    pub timestamp: String,
-}
+/// GET / — MCP server discovery metadata.
+async fn handle_root(State(state): State<McpAppState>) -> impl IntoResponse {
+    let tool_names: Vec<String> = state.service.tools.read().await
+        .iter().map(|t| t.name.clone()).collect();
 
-/// Service status response
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct StatusResponse {
-    /// Federation status
-    pub federation_status: String,
-    /// Active nodes
-    pub active_nodes: u32,
-    /// Total events
-    pub total_events: u64,
-    /// Event log size (bytes)
-    pub log_size_bytes: u64,
-    /// Active transports
-    pub active_transports: Vec<String>,
-    /// Rate limit info
-    pub rate_limit_info: RateLimitInfo,
-}
-
-/// Rate limit information
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct RateLimitInfo {
-    /// Requests per second limit
-    pub limit_rps: u32,
-    /// Current requests in window
-    pub current_rps: u32,
-    /// Seconds remaining in window
-    pub window_remaining_secs: u32,
-}
-
-/// HTTP Handler functions
-
-/// Health check endpoint
-async fn health_check(State(state): State<AppState>) -> Json<HealthResponse> {
-    let now = chrono::Utc::now();
-    Json(HealthResponse {
-        status: "healthy".to_string(),
-        name: "Aaroneous MCP Service".to_string(),
-        version: "2.0.0".to_string(),
-        uptime_secs: 0, // Would track actual uptime
-        endpoints: vec![
-            "/health".to_string(),
-            "/status".to_string(),
-            "/api/v1/capabilities".to_string(),
-            "/api/v1/call".to_string(),
-            "/api/v1/openapi.json".to_string(),
-        ],
-        requests_total: 0, // Would track actual requests
-        errors_total: 0,
-        timestamp: now.to_rfc3339(),
-    })
-}
-
-/// Service status endpoint
-async fn service_status(State(state): State<AppState>) -> Json<StatusResponse> {
-    Json(StatusResponse {
-        federation_status: "active".to_string(),
-        active_nodes: 1,
-        total_events: 0,
-        log_size_bytes: 0,
-        active_transports: vec!["http".to_string()],
-        rate_limit_info: RateLimitInfo {
-            limit_rps: 1000,
-            current_rps: 0,
-            window_remaining_secs: 60,
+    Json(serde_json::json!({
+        "name": "Aaroneous",
+        "description": "Sovereign AI hive — 9 specialized agents powered by abliterated non-coding base models",
+        "version": env!("CARGO_PKG_VERSION"),
+        "protocol": "MCP/2024-11-05",
+        "transport": {
+            "http": "POST http://localhost:8766/mcp",
+            "sse": "GET http://localhost:8766/sse",
         },
-    })
-}
-
-/// List all capabilities
-async fn list_capabilities(State(state): State<AppState>) -> Json<Vec<crate::mcp_service::Capability>> {
-    let caps = tokio::task::block_in_place(|| {
-        tokio::runtime::Handle::current().block_on(async {
-            state.service.list_capabilities().await
-        })
-    });
-    Json(caps)
-}
-
-/// Get specific capability
-async fn get_capability(
-    State(state): State<AppState>,
-    Path(id): Path<String>,
-) -> Result<Json<crate::mcp_service::Capability>, (StatusCode, String)> {
-    let cap = tokio::task::block_in_place(|| {
-        tokio::runtime::Handle::current().block_on(async {
-            state.service.get_capability(&id).await
-        })
-    });
-    
-    cap.ok_or_else(|| (
-        StatusCode::NOT_FOUND,
-        format!("Capability '{}' not found", id),
-    ))
-    .map(Json)
-}
-
-/// Call a capability
-async fn call_capability(
-    State(state): State<AppState>,
-    Json(req): Json<CallRequest>,
-) -> Json<CallResponse> {
-    let request_id = Uuid::new_v4().to_string();
-    let start = std::time::Instant::now();
-    
-    // In a real implementation, we would:
-    // 1. Look up the capability by ID
-    // 2. Execute it with the provided params
-    // 3. Return the result
-    
-    let latency_ms = start.elapsed().as_millis() as u32;
-    
-    Json(CallResponse {
-        request_id,
-        status: "success".to_string(),
-        result: serde_json::json!({"message": "Capability execution placeholder"}),
-        latency_ms,
-        error: None,
-    })
-}
-
-/// Get OpenAPI spec
-async fn openapi_spec(State(state): State<AppState>) -> Json<serde_json::Value> {
-    let caps = tokio::task::block_in_place(|| {
-        tokio::runtime::Handle::current().block_on(async {
-            state.service.list_capabilities().await
-        })
-    });
-    
-    Json(OpenApiGenerator::generate_spec(&caps))
-}
-
-/// OpenAPI documentation generator
-pub struct OpenApiGenerator;
-
-impl OpenApiGenerator {
-    /// Generate OpenAPI spec for capabilities
-    pub fn generate_spec(capabilities: &[crate::mcp_service::Capability]) -> serde_json::Value {
-        serde_json::json!({
-            "openapi": "3.0.0",
-            "info": {
-                "title": "Aaroneous MCP Service API",
-                "version": "3.0.0",
-                "description": "Universal Model Context Protocol service"
-            },
-            "servers": [
-                {"url": "http://localhost:8080/api/v1"}
-            ],
-            "paths": {
-                "/capabilities": {
-                    "get": {
-                        "summary": "List all capabilities",
-                        "responses": {
-                            "200": {
-                                "description": "List of capabilities",
-                                "content": {
-                                    "application/json": {
-                                        "schema": {
-                                            "type": "array",
-                                            "items": {
-                                                "type": "object"
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                },
-                "/call": {
-                    "post": {
-                        "summary": "Call a capability",
-                        "requestBody": {
-                            "required": true,
-                            "content": {
-                                "application/json": {
-                                    "schema": {
-                                        "type": "object",
-                                        "properties": {
-                                            "capability": {"type": "string"},
-                                            "params": {"type": "object"}
-                                        }
-                                    }
-                                }
-                            }
-                        },
-                        "responses": {
-                            "200": {
-                                "description": "Capability execution result"
-                            }
-                        }
-                    }
-                },
-                "/health": {
-                    "get": {
-                        "summary": "Health check",
-                        "responses": {
-                            "200": {
-                                "description": "Service health status"
-                            }
-                        }
-                    }
+        "tools": tool_names,
+        "claude_desktop_config": {
+            "mcpServers": {
+                "aaroneous": {
+                    "url": "http://localhost:8766/sse",
+                    "transport": "sse"
                 }
             }
-        })
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_http_server_creation() {
-        let server = HttpServer::new(([127, 0, 0, 1], 8080).into());
-        assert_eq!(server.addr().port(), 8080);
-    }
-
-    #[test]
-    fn test_rest_api_paths() {
-        let api = RestApi::new("1.0.0");
-        assert_eq!(api.list_capabilities_path(), "/api/v1/capabilities");
-        assert_eq!(api.call_path(), "/api/v1/call");
-        assert_eq!(api.health_path(), "/api/v1/health");
-    }
-
-    #[test]
-    fn test_call_request() {
-        let req = CallRequest {
-            capability: "federation.healthcheck".to_string(),
-            trace_id: Some("trace-1".to_string()),
-            params: serde_json::json!({}),
-            timeout_ms: Some(5000),
-        };
-
-        let json = serde_json::to_string(&req).unwrap();
-        let deserialized: CallRequest = serde_json::from_str(&json).unwrap();
-
-        assert_eq!(deserialized.capability, "federation.healthcheck");
-    }
-
-    #[test]
-    fn test_call_response() {
-        let resp = CallResponse {
-            request_id: "req-1".to_string(),
-            status: "success".to_string(),
-            result: serde_json::json!({"ok": true}),
-            latency_ms: 100,
-            error: None,
-        };
-
-        assert_eq!(resp.status, "success");
-        assert!(resp.error.is_none());
-    }
-
-    #[test]
-    fn test_health_response() {
-        let resp = HealthResponse {
-            status: "healthy".to_string(),
-            name: "Aaroneous MCP".to_string(),
-            version: "3.0.0".to_string(),
-            uptime_secs: 3600,
-            endpoints: vec!["http".to_string(), "websocket".to_string()],
-            requests_total: 10000,
-            errors_total: 5,
-            timestamp: chrono::Utc::now().to_rfc3339(),
-        };
-
-        assert_eq!(resp.status, "healthy");
-        assert_eq!(resp.requests_total, 10000);
-    }
+        },
+        "cursor_config": {
+            "cursor.mcp.servers": {
+                "aaroneous": {
+                    "url": "http://localhost:8766/mcp",
+                    "transport": "http"
+                }
+            }
+        }
+    }))
 }

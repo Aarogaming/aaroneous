@@ -1,4 +1,4 @@
-// Aaroneous Library Module
+﻿// Aaroneous Library Module
 // Central operations for A-Run and Shared Memory Synapse
 
 pub mod agents;
@@ -120,7 +120,7 @@ pub use enterprise_scaling::{ClusterNode, ClusterConfig, ClusterManager, Cluster
 pub use enterprise_scaling::NodeStatus as ClusterNodeStatus;
 pub use advanced_intelligence::{TimeSeriesPoint, MetricStatistics, AnomalyDetection, AnomalySeverity, AnomalyDetector, Forecast, ForecastTrend, Forecaster, ScalingDecision, ScalingAction, ScalingUrgency, AutoScaler, SelfHealingAction, HealingActionType, HealingSeverity, SelfHealingEngine, OptimizationRecommendation, OptimizationCategory, DifficultyLevel, OptimizationEngine};
 pub use mcp_bridge::{McpServer, McpClient, McpMessage, McpCapability, McpRequest, McpResponse};
-pub use mcp_service::{McpService, ServiceConfig, Capability, CapabilityDomain, CapabilityResult, Transport, AuthProvider, ApiKeyAuth, OAuth2Auth, HttpServer, RestApi};
+pub use mcp_service::{McpService, ServiceConfig, Capability, CapabilityDomain, CapabilityResult, Transport, AuthProvider, ApiKeyAuth, OAuth2Auth, HttpServer};
 pub use event_log::{EventLog, FederationEvent, EventType, Operation, EventLogStore, EventLogReplicator, EventLogStats, CompactionResult};
 pub use raft_consensus::{RaftNode, RaftLog, RaftEngine, RaftState, RaftConfig, LogEntry, Term, LogIndex, NodeId, PersistentState, VolatileState, AppendEntriesRpc, RequestVoteRpc, Snapshot, ApplyCommand};
 pub use agentic_players::{Observation, GameState, PlayerAction, InferredIntent, DecisionRule, PlayStyle, HumanizationPatterns, PlayerPolicy, EmulationStats, GameEpisode, Insight};

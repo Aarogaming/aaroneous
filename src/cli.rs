@@ -856,6 +856,33 @@ async fn execute_start(
         crate::federation::model_registry::start_inbox_watcher(import_jobs).await;
     }
 
+    // --- MCP Server (port 8766) — Anthropic Model Context Protocol ---
+    // Makes Aaroneous available to Claude Desktop, Cursor, VS Code, and
+    // any MCP-compatible client as a local AI tool provider.
+    {
+        use crate::mcp_service::ServiceConfig;
+        use crate::mcp_service::service::McpService as McpSvc;
+        use crate::mcp_service::http_api::HttpServer as McpHttpServer;
+
+        let mcp_config = ServiceConfig::new();
+        let mcp_service = std::sync::Arc::new(
+            McpSvc::new(mcp_config).with_federation(fed.clone())
+        );
+        mcp_service.register_sovereign_tools().await;
+
+        let mcp_service_spawn = mcp_service.clone();
+        tokio::spawn(async move {
+            let mcp_addr: std::net::SocketAddr = "127.0.0.1:8766".parse().unwrap();
+            let server = McpHttpServer::new(mcp_addr);
+            if let Err(e) = server.run(mcp_service_spawn).await {
+                tracing::warn!("MCP server error: {}", e);
+            }
+        });
+        println!("  MCP server:     http://127.0.0.1:8766");
+        println!("    Claude Desktop: add to claude_desktop_config.json");
+        println!("    Cursor:         add to cursor settings MCP servers");
+    }
+
     // --- Optional HTTP status server ---
     let http_server = if dashboard != "none" {
         let addr: std::net::SocketAddr = dashboard
