@@ -103,12 +103,16 @@ pub async fn generate_training_examples(
                 capability.description,
             );
 
-            // Fill the generation template
-            let user_prompt = spec.training_data_spec.generation_prompt_template
-                .replace("{{INTENT}}", synthetic_intent)
-                .replace("{{N}}", "3")
-                .replace("{{CONFLICT}}", synthetic_intent)
-                .replace("{{TASK}}", synthetic_intent);
+            // Build the user prompt: use the synthetic_intent directly as input.
+            // The capability's `input_format` provides the framing so the model
+            // knows what format to expect.  We do NOT use the generation_prompt_template
+            // directly because it may contain domain-specific placeholders (e.g.
+            // {{BIOMETRICS}}) that don't map to generic substitution logic.
+            let user_prompt = format!(
+                "{}\n\nInput: {}",
+                capability.description,
+                synthetic_intent,
+            );
 
             // Call the foundation model
             let response = match llm.generate_domain_response(&system_prompt, &user_prompt, &spec.domain_key()).await {
@@ -161,64 +165,133 @@ pub async fn generate_training_examples(
     Ok(report)
 }
 
-/// Generate synthetic intents for a specific capability.
+/// Generate concrete, fully-filled synthetic prompts for a sovereign capability.
 ///
-/// Returns varied natural-language instructions that a user might send to this
-/// sovereign for this capability — the diversity drives generalization.
+/// All placeholders are replaced with real values — the model sees complete,
+/// unambiguous inputs, not template markers like `{{BIOMETRICS}}`.
 fn synthetic_intents_for(spec: &SovereignTaskSpec, capability_id: &str, count: u32) -> Vec<String> {
-    // Start with the example from the capability if available
+    // Start with the capability's own example input if available
     let mut intents: Vec<String> = spec.capabilities.iter()
         .find(|c| c.id == capability_id)
         .and_then(|c| c.example.as_ref().map(|(input, _)| vec![input.clone()]))
         .unwrap_or_default();
 
-    // Generic varied intent templates per capability type
-    let templates: Vec<String> = match capability_id {
-        "generate_design" => vec![
-            "Design a {} dashboard for monitoring {}".into(),
-            "Create a minimal {} interface for {}".into(),
-            "Build a dark-mode {} UI for {}".into(),
-            "Design a mobile-first {} for {}".into(),
+    // Sovereign-specific concrete prompt banks — fully rendered, no placeholders
+    let bank: Vec<String> = match spec.sovereign_name.to_lowercase().as_str() {
+
+        // ── Wen: biometric classification ──
+        "wen" => vec![
+            r#"{"bpm":95,"bpm_trend":"up","mem_pressure":0.7,"time_of_day":"late_night"}"#.into(),
+            r#"{"bpm":62,"bpm_trend":"stable","mem_pressure":0.2,"time_of_day":"morning"}"#.into(),
+            r#"{"bpm":110,"bpm_trend":"up","mem_pressure":0.9,"time_of_day":"afternoon"}"#.into(),
+            r#"{"bpm":75,"bpm_trend":"down","mem_pressure":0.4,"time_of_day":"evening"}"#.into(),
+            r#"{"bpm":55,"bpm_trend":"down","mem_pressure":0.1,"time_of_day":"morning"}"#.into(),
+            r#"{"bpm":88,"bpm_trend":"stable","mem_pressure":0.6,"time_of_day":"midday"}"#.into(),
+            r#"{"bpm":130,"bpm_trend":"up","mem_pressure":0.95,"time_of_day":"evening"}"#.into(),
+            r#"{"bpm":70,"bpm_trend":"stable","mem_pressure":0.3,"time_of_day":"afternoon"}"#.into(),
         ],
-        "decompose_intent" | "plan_tasks" => vec![
-            "Plan how to {}".into(),
-            "Break down the task: {}".into(),
-            "Organize the following into subtasks: {}".into(),
-            "Create a task graph for: {}".into(),
+
+        // ── Odin: intent decomposition ──
+        "odin" => vec![
+            "Build a real-time dashboard showing sovereign execution metrics".into(),
+            "Research the latest Rust async patterns and write a summary".into(),
+            "Audit the Aaroneous HTTP API for security vulnerabilities".into(),
+            "Archive this session's results to the DNA Bank and generate insights".into(),
+            "Design and implement a biometric-triggered notification system".into(),
+            "Create a LoRA training pipeline for Wen using foundation_v1.gguf".into(),
+            "Set up continuous monitoring for all sovereign confidence scores".into(),
+            "Integrate O3DE HiveRepresentativeComponent with the genome display".into(),
         ],
-        "resolve_sync_conflict" => vec![
-            r#"{"state_a":{"value":1,"ts":100},"state_b":{"value":2,"ts":90}}"#.into(),
-            r#"{"state_a":{"config":"dark"},"state_b":{"config":"light"},"ts_a":200,"ts_b":150}"#.into(),
+
+        // ── Ariel: UI/UX design ──
+        "ariel" => vec![
+            "Design a dark-mode sovereign dashboard with confidence heat map".into(),
+            "Create a mobile layout for submitting intents to the hive".into(),
+            "Design the Guild coordination panel showing Odin's task graph".into(),
+            "Build a minimal AR overlay for the O3DE spatial interface".into(),
+            "Design a genomic visualization for sovereign weight profiles".into(),
+            "Create an onboarding flow for the Maelstrom launcher".into(),
+            "Design a settings panel for distillation job management".into(),
+            "Build a dark-mode graph view for the sovereign RAG memory network".into(),
         ],
-        "security_audit" | "threat_scan" => vec![
-            "Audit this system: {}".into(),
-            "Scan for vulnerabilities in: {}".into(),
-            "Check security posture for: {}".into(),
+
+        // ── Hermes: sync conflict resolution ──
+        "hermes" => vec![
+            r#"{"state_a":{"intent":"build dashboard","ts":1000},"state_b":{"intent":"research async","ts":990},"ts_a":1000,"ts_b":990}"#.into(),
+            r#"{"state_a":{"config":"dark","version":3},"state_b":{"config":"light","version":2},"ts_a":2000,"ts_b":1800}"#.into(),
+            r#"{"state_a":{"sessions":["s1","s2"]},"state_b":{"sessions":["s1","s3"]},"ts_a":500,"ts_b":510}"#.into(),
+            r#"{"state_a":{"confidence":0.8},"state_b":{"confidence":0.75},"ts_a":300,"ts_b":350}"#.into(),
         ],
-        "archive_result" | "store_memory" => vec![
-            "Archive the following execution result: {}".into(),
-            "Store this decision for future recall: {}".into(),
+
+        // ── Kami: AR/VR spatial ──
+        "kami" => vec![
+            "Place a holographic display panel 1.5m in front of the user at eye level".into(),
+            "Anchor the sovereign status overlay to the left wall of the physical room".into(),
+            "Create a spatial notification that appears at the user's peripheral vision".into(),
+            "Map the federation execution graph onto the floor of the physical space".into(),
+            "Design an AR interaction zone for intent submission at arm's reach".into(),
+            "Place sovereign confidence indicators as floating orbs around the workspace".into(),
         ],
-        _ => vec![
-            "Execute the following in your domain: {}".into(),
-            "Handle this request: {}".into(),
-            "Process: {}".into(),
+
+        // ── Dionysus: archival ──
+        "dionysus" => vec![
+            r#"{"session_id":"s-001","results":[{"specialist":"Odin","status":"Success","output":"Task graph created"}],"intent":"build dashboard"}"#.into(),
+            r#"{"session_id":"s-002","results":[{"specialist":"Wen","status":"Success","output":"{\"state\":\"focused\"}"}],"intent":"biometric check"}"#.into(),
+            r#"{"session_id":"s-003","results":[{"specialist":"Argus","status":"Success","output":"{\"risk\":\"Low\"}"}],"intent":"security audit"}"#.into(),
+            r#"{"session_id":"s-004","results":[{"specialist":"Merlin","status":"Success","output":"Research complete: 3 findings"}],"intent":"research async"}"#.into(),
         ],
+
+        // ── Merlin: research synthesis ──
+        "merlin" => vec![
+            "Synthesize current best practices for Rust async programming with tokio".into(),
+            "Research LoRA fine-tuning techniques for small language models on CPU".into(),
+            "Summarize recent developments in GGUF quantization formats".into(),
+            "Research TF-IDF vs neural embedding approaches for semantic search".into(),
+            "Compile findings on AR UI design patterns for industrial applications".into(),
+            "Research biometric classification accuracy benchmarks for stress detection".into(),
+            "Synthesize information on sovereign AI architectures and multi-agent systems".into(),
+            "Research best practices for SQLite persistence in Rust async applications".into(),
+        ],
+
+        // ── Argus: security audit ──
+        "argus" => vec![
+            "Audit the Aaroneous HTTP API for authentication vulnerabilities".into(),
+            "Scan the specialist registry JSON for misconfigured permissions".into(),
+            "Check the federation session manager for data leakage risks".into(),
+            "Audit the CORS configuration for the development server".into(),
+            "Scan the GGUF model loading path for path traversal vulnerabilities".into(),
+            "Check the SQLite persistence layer for injection risks".into(),
+            "Audit the SSE streaming endpoints for information disclosure".into(),
+            "Review the API key authentication middleware for bypass conditions".into(),
+        ],
+
+        // ── Hephaestus: construction/fabrication ──
+        "hephaestus" => vec![
+            "Plan the construction of a new LoRA fine-tuning pipeline for Wen".into(),
+            "Design the build system for compiling MaelstromGem.dll for O3DE".into(),
+            "Plan the integration of the unsloth training scripts into the CI pipeline".into(),
+            "Design the deployment architecture for Aaroneous as a Windows service".into(),
+            "Plan the fabrication of sovereign-specific GGUF models from foundation_v1".into(),
+            "Design the maintenance schedule for the DNA Bank archival system".into(),
+            "Plan the expansion of the O3DE HiveLevel with sovereign spatial avatars".into(),
+            "Build the automated testing harness for all 9 sovereign specialists".into(),
+        ],
+
+        // ── Fallback ──
+        _ => {
+            let subjects = [
+                "sovereign specialists", "AI agents", "federation events",
+                "Aaroneous hive", "GGUF models", "intent processing",
+                "RAG memory retrieval", "LoRA fine-tuning",
+            ];
+            subjects.iter().map(|s| format!("Handle this {} request: {}", spec.domain, s)).collect()
+        }
     };
 
-    // Fill templates with varied subjects drawn from a domain vocabulary
-    let subjects = [
-        "sovereign specialists", "AI agents", "neural networks",
-        "Rust async systems", "Aaroneous hive", "GGUF models",
-        "WebSocket connections", "SQLite databases", "federation events",
-        "intent processing pipeline", "MaelstromUI panels", "O3DE game engine",
-    ];
-
-    let mut idx = 0usize;
+    // Fill from the bank, cycling if needed
+    let mut idx = intents.len();
     while intents.len() < count as usize {
-        let template = &templates[idx % templates.len()];
-        let subject = subjects[idx % subjects.len()];
-        intents.push(template.replace("{}", subject));
+        intents.push(bank[idx % bank.len()].clone());
         idx += 1;
     }
 

@@ -19,6 +19,18 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use std::convert::Infallible;
 
+/// Status of a background distillation generation job.
+#[derive(Clone, Debug, Serialize)]
+pub enum GenerationJobStatus {
+    Running,
+    Done(crate::federation::graph::distillation::GenerationReport),
+    Failed(String),
+}
+
+/// Registry of background training-data generation jobs.
+/// Keyed by job_id (UUID string).
+pub type GenerationJobs = Arc<tokio::sync::Mutex<std::collections::HashMap<String, GenerationJobStatus>>>;
+
 /// Shared application state for HTTP handlers.
 ///
 /// Holds an `Arc` to the federation so handlers can read learning state
@@ -26,11 +38,15 @@ use std::convert::Infallible;
 #[derive(Clone)]
 pub struct AppState {
     pub federation: Arc<Federation>,
+    pub generation_jobs: GenerationJobs,
 }
 
 impl AppState {
     pub fn new(federation: Arc<Federation>) -> Self {
-        Self { federation }
+        Self {
+            federation,
+            generation_jobs: Arc::new(tokio::sync::Mutex::new(std::collections::HashMap::new())),
+        }
     }
 }
 
@@ -140,7 +156,9 @@ pub fn router(state: AppState) -> Router {
         // Distillation: training data generation, plan inspection, GGUF genome analysis
         .route("/distillation/plan",               get(distillation_plan))
         .route("/distillation/generate",           post(distillation_generate))
+        .route("/distillation/jobs/:id",           get(distillation_job_status))
         .route("/distillation/analyze/:sovereign", get(distillation_analyze))
+        .route("/distillation/script/:sovereign",  get(distillation_script))
         // RAG memory stats: federation-level + per-sovereign memory counts
         .route("/memory/stats", get(memory_stats))
         .with_state(state)
@@ -727,6 +745,22 @@ async fn get_specialists_snapshot(
 
     for s in &dynamic {
         let l = s.learning.lock();
+        let mem_count = s.memory.lock().count_for(&s.name);
+
+        // Lightweight genome summary from task spec (no GGUF I/O — safe for 200ms poll)
+        let genome_summary = crate::federation::graph::task_spec::spec_for(&s.name)
+            .map(|spec| serde_json::json!({
+                "target_tier":   spec.target_tier.tier_name(),
+                "target_params": spec.target_tier.target_params(),
+                "always_resident": spec.always_resident,
+                "context_window": spec.context_window_tokens,
+                // attn_mlp_ratio and specialization_score come from GGUFAnalyzer;
+                // use 0.0 as sentinel so O3DE knows to display "no genome" until
+                // /distillation/analyze/:sovereign has been called.
+                "attn_mlp_ratio": 0.0f32,
+                "specialization_score": 0.0f32,
+            }));
+
         specialists.push(serde_json::json!({
             "name": s.name,
             "domain": s.domain,
@@ -734,6 +768,8 @@ async fn get_specialists_snapshot(
             "model_path": s.model_path.as_ref().map(|p| p.to_string_lossy().to_string()),
             "has_llm": s.has_llm(),
             "active_intent": intent,
+            "memory_count": mem_count,
+            "genome": genome_summary,
             "learning": serde_json::json!({
                 "confidence": l.confidence_score,
                 "total_executions": l.total_executions,
@@ -1644,61 +1680,130 @@ struct DistillationGenerateRequest {
 
 /// POST /distillation/generate
 ///
-/// Generates synthetic training data for a sovereign using the foundation model.
-/// Appends to `D:\Aaroneous\training_data\<sovereign>-training.jsonl`.
+/// Starts a background training-data generation job for a sovereign.
+/// Returns immediately with a `job_id`. Poll `GET /distillation/jobs/:id`
+/// for status and results.
 ///
-/// This is the critical step between crystallization and fine-tuning:
-/// it produces the Alpaca-format JSONL that the unsloth script reads.
+/// CPU inference on a 7B model takes ~2-10 minutes per example.
+/// This endpoint is always async — it never blocks.
+///
+/// Requires the server to be built with `--features llama-gguf` for real inference.
 async fn distillation_generate(
-    State(_state): State<AppState>,
+    State(state): State<AppState>,
     Json(req): Json<DistillationGenerateRequest>,
 ) -> impl IntoResponse {
-    use crate::federation::graph::distillation::generate_training_examples;
     use crate::llm::{LLMClient, LLMConfig};
 
-    let count = req.count.unwrap_or(50).min(2000);
-    let training_data_dir = std::path::Path::new("D:\\Aaroneous\\training_data");
+    // Without llama-gguf: reject immediately — stub output is worthless.
+    #[cfg(not(feature = "llama-gguf"))]
+    {
+        return Json(serde_json::json!({
+            "ok": false,
+            "error": "Real inference required. Rebuild: cargo build --features llama-gguf",
+            "hint": "Without llama-gguf the GGUF provider returns stub text — training data would be useless.",
+        })).into_response();
+    }
 
-    // Build an LLM client pointed at the foundation model
-    let llm_config = LLMConfig {
-        provider_type: crate::llm::ProviderType::GGUF,
-        gguf_model_path: Some(std::path::PathBuf::from("D:\\Aaroneous\\models\\foundation_v1.gguf")),
-        max_tokens: 512,
-        ..Default::default()
-    };
+    #[allow(unreachable_code)]
+    {
+        let count = req.count.unwrap_or(50).min(500);
+        let sovereign = req.sovereign.clone();
 
-    let llm = match LLMClient::new(llm_config).await {
-        Ok(c) => c,
-        Err(e) => {
-            // Fall back to mock if foundation model not found
-            tracing::warn!("Foundation model unavailable ({}), using mock LLM for training data generation", e);
-            match LLMClient::new(LLMConfig {
-                provider_type: crate::llm::ProviderType::Mock,
-                ..Default::default()
-            }).await {
-                Ok(c) => c,
-                Err(e2) => return (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(serde_json::json!({ "ok": false, "error": e2.to_string() })),
-                ).into_response(),
-            }
+        // Build the LLM client — use reduced max_tokens for CPU inference (128 vs 512)
+        let llm_config = LLMConfig {
+            provider_type: crate::llm::ProviderType::GGUF,
+            gguf_model_path: Some(std::path::PathBuf::from("D:\\Aaroneous\\models\\foundation_v1.gguf")),
+            max_tokens: 128,  // CPU-friendly: structured JSON outputs fit in 128 tokens
+            ..Default::default()
+        };
+
+        let llm = match LLMClient::new(llm_config).await {
+            Ok(c) => c,
+            Err(e) => return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({
+                    "ok": false,
+                    "error": format!("Foundation model failed to load: {}", e),
+                    "path": "D:\\Aaroneous\\models\\foundation_v1.gguf",
+                })),
+            ).into_response(),
+        };
+
+        // Generate a job ID and register the job as Running
+        let job_id = format!("{}-{}", sovereign.to_lowercase(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_millis())
+                .unwrap_or(0));
+
+        {
+            let mut jobs = state.generation_jobs.lock().await;
+            jobs.insert(job_id.clone(), GenerationJobStatus::Running);
         }
-    };
 
-    match generate_training_examples(&req.sovereign, count, &llm, training_data_dir).await {
-        Ok(report) => Json(serde_json::json!({
+        // Spawn the generation as a background task — returns immediately
+        let jobs_arc = state.generation_jobs.clone();
+        let job_id_bg = job_id.clone();
+        tokio::task::spawn(async move {
+            use crate::federation::graph::distillation::generate_training_examples;
+            let training_data_dir = std::path::Path::new("D:\\Aaroneous\\training_data");
+            let result = generate_training_examples(&sovereign, count, &llm, training_data_dir).await;
+            let mut jobs = jobs_arc.lock().await;
+            match result {
+                Ok(report) => { jobs.insert(job_id_bg, GenerationJobStatus::Done(report)); }
+                Err(e)     => { jobs.insert(job_id_bg, GenerationJobStatus::Failed(e.to_string())); }
+            }
+        });
+
+        Json(serde_json::json!({
             "ok": true,
-            "sovereign":           report.sovereign,
-            "examples_generated":  report.examples_generated,
-            "examples_saved":      report.examples_saved,
-            "output_path":         report.output_path,
-            "duration_secs":       report.duration_secs,
-            "errors":              report.errors.len(),
-            "skipped":             report.skipped_capabilities.len(),
+            "job_id": job_id,
+            "sovereign": req.sovereign,
+            "count": count,
+            "status": "running",
+            "poll": format!("/distillation/jobs/{}", job_id),
+            "note": "CPU inference is slow (~2-10 min per example on 7B). Poll the job endpoint for results.",
+        })).into_response()
+    }
+}
+
+/// GET /distillation/jobs/:id
+///
+/// Poll a background training-data generation job started by POST /distillation/generate.
+/// Returns status: "running", "done", or "failed".
+async fn distillation_job_status(
+    State(state): State<AppState>,
+    Path(job_id): Path<String>,
+) -> impl IntoResponse {
+    let jobs = state.generation_jobs.lock().await;
+    match jobs.get(&job_id) {
+        None => (
+            StatusCode::NOT_FOUND,
+            Json(serde_json::json!({ "ok": false, "error": "Job not found", "job_id": job_id })),
+        ).into_response(),
+        Some(GenerationJobStatus::Running) => Json(serde_json::json!({
+            "ok": true,
+            "job_id": job_id,
+            "status": "running",
+            "note": "Still generating — CPU inference is slow. Check back in 30s.",
         })).into_response(),
-        Err(e) => (
+        Some(GenerationJobStatus::Done(report)) => Json(serde_json::json!({
+            "ok": true,
+            "job_id": job_id,
+            "status": "done",
+            "sovereign":          report.sovereign,
+            "examples_generated": report.examples_generated,
+            "examples_saved":     report.examples_saved,
+            "output_path":        report.output_path,
+            "duration_secs":      report.duration_secs,
+            "errors":             report.errors.len(),
+            "inference_mode":     "llama-gguf (real foundation model inference)",
+        })).into_response(),
+        Some(GenerationJobStatus::Failed(err)) => (
             StatusCode::INTERNAL_SERVER_ERROR,
-            Json(serde_json::json!({ "ok": false, "error": e.to_string() })),
+            Json(serde_json::json!({
+                "ok": false, "job_id": job_id, "status": "failed", "error": err,
+            })),
         ).into_response(),
     }
 }
@@ -1796,4 +1901,57 @@ async fn memory_stats(State(state): State<AppState>) -> impl IntoResponse {
         "federation_total": federation_total,
         "per_sovereign":    per_sovereign,
     }))
+}
+
+// ── Distillation script endpoint ──────────────────────────────────────────────
+
+/// GET /distillation/script/:sovereign
+///
+/// Returns the generated unsloth Python training script for a sovereign as
+/// plain text. Save to disk and run:  python wen_train.py
+///
+/// The script reads `training_data/<sovereign>-training.jsonl` (Alpaca format),
+/// applies LoRA to the crystallized GGUF, and saves the merged model to
+/// `models/<sovereign>-distilled.gguf`.
+///
+/// Requires: pip install unsloth torch datasets trl transformers
+async fn distillation_script(
+    State(_state): State<AppState>,
+    Path(sovereign): Path<String>,
+) -> impl IntoResponse {
+    use crate::federation::graph::distillation::generate_distillation_plan;
+    use axum::http::header;
+
+    // Find the LoRA spec for this sovereign
+    let models_dir = std::path::PathBuf::from("D:\\Aaroneous\\models");
+    let data_dir   = std::path::PathBuf::from("D:\\Aaroneous\\training_data");
+
+    let plans = tokio::task::spawn_blocking(move || {
+        generate_distillation_plan(&models_dir, &data_dir, None)
+    }).await.unwrap_or_default();
+
+    let plan = plans.into_iter()
+        .find(|p| p.sovereign_name.to_lowercase() == sovereign.to_lowercase());
+
+    match plan {
+        None => (
+            StatusCode::NOT_FOUND,
+            Json(serde_json::json!({
+                "ok": false,
+                "error": format!("No distillation plan found for sovereign '{}'", sovereign),
+            })),
+        ).into_response(),
+        Some(spec) => {
+            let script = spec.to_unsloth_script();
+            let filename = format!("{}_train.py", spec.sovereign_name.to_lowercase());
+            (
+                StatusCode::OK,
+                [
+                    (header::CONTENT_TYPE,        "text/plain; charset=utf-8".to_string()),
+                    (header::CONTENT_DISPOSITION, format!("attachment; filename=\"{}\"", filename)),
+                ],
+                script,
+            ).into_response()
+        }
+    }
 }
