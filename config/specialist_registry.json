@@ -21,8 +21,8 @@
                                                           "sovereign_name":  "Ariel",
                                                           "internal_name":  "Visionary",
                                                           "domain":  "UI/UX design generation, Maelstrom spatial visualization, aesthetic learning",
-                                                          "persona":  "Creative director of the hive. Owns the visual layer â€” Maelstrom, O3DE rendering, design variants, spatial anchors.",
-                                                          "gguf_path":  "D:\\Aaroneous\\models\\ariel-qwen2.5-1.5b.gguf",
+                                                          "persona":  "Creative director of the hive. Owns the visual layer Ã¢â‚¬â€ Maelstrom, O3DE rendering, design variants, spatial anchors.",
+                                                          "gguf_path":  "D:\\\\Aaroneous\\\\models\\\\ariel-qwen2.5-7b.gguf",
                                                           "gguf_base":  "qwen2.5-1.5b-instruct-abliterated.gguf",
                                                           "model_size_mb":  1000,
                                                           "status":  "active"
@@ -31,8 +31,8 @@
                                                             "sovereign_name":  "Hermes",
                                                             "internal_name":  "Omnipresent",
                                                             "domain":  "P2P multi-device sync, mesh coordination",
-                                                            "persona":  "The messenger who moves between realms. Makes the hive feel like one thing across many devices. Synchronizes state, resolves conflicts, routes messages through the P2P mesh. Always in motion — never in one place, never out of reach.",
-                                                            "gguf_path":  "D:\\Aaroneous\\models\\omnipresent-qwen2.5-1.5b.gguf",
+                                                            "persona":  "The messenger who moves between realms. Makes the hive feel like one thing across many devices. Synchronizes state, resolves conflicts, routes messages through the P2P mesh. Always in motion â€” never in one place, never out of reach.",
+                                                            "gguf_path":  "D:\\\\Aaroneous\\\\models\\\\hermes-qwen2.5-7b.gguf",
                                                             "gguf_base":  "qwen2.5-1.5b-instruct-abliterated.gguf",
                                                             "model_size_mb":  1000,
                                                             "status":  "active"
@@ -41,9 +41,9 @@
                                                           "sovereign_name":  "Wen",
                                                           "internal_name":  "Symbiotic",
                                                           "domain":  "Biometric classification, human state adaptation, stress and fatigue modeling",
-                                                          "persona":  "Warm, literary, cultured â€” Wen reads the whole person, not just biometrics. Adapts the hive\u0027s behavior to the user\u0027s cognitive and emotional state.",
-                                                          "etymology":  "Chinese: warm, literary, cultured (æ¸©/æ–‡). The human counterpart to the machine.",
-                                                          "gguf_path":  "D:\\Aaroneous\\models\\wen-qwen2.5-0.5b.gguf",
+                                                          "persona":  "Warm, literary, cultured Ã¢â‚¬â€ Wen reads the whole person, not just biometrics. Adapts the hive\u0027s behavior to the user\u0027s cognitive and emotional state.",
+                                                          "etymology":  "Chinese: warm, literary, cultured (Ã¦Â¸Â©/Ã¦â€“â€¡). The human counterpart to the machine.",
+                                                          "gguf_path":  "D:\\\\Aaroneous\\\\models\\\\wen-qwen2.5-7b.gguf",
                                                           "gguf_base":  "qwen2.5-0.5b-instruct-abliterated.gguf",
                                                           "model_size_mb":  500,
                                                           "status":  "active"
@@ -52,9 +52,9 @@
                                                          "sovereign_name":  "Kami",
                                                          "internal_name":  "Phygital",
                                                          "domain":  "AR/VR spatial rendering, OpenXR anchoring, physical/digital threshold",
-                                                         "persona":  "The spirits that govern the boundary between the mortal world and the spirit world. Kami materializes digital intent into physical and augmented space â€” standing at the threshold between realities.",
-                                                         "etymology":  "Japanese: kami (ç¥ž) â€” spirits, gods, or the sacred forces present at boundaries.",
-                                                         "gguf_path":  "D:\\Aaroneous\\models\\kami-qwen2.5-1.5b.gguf",
+                                                         "persona":  "The spirits that govern the boundary between the mortal world and the spirit world. Kami materializes digital intent into physical and augmented space Ã¢â‚¬â€ standing at the threshold between realities.",
+                                                         "etymology":  "Japanese: kami (Ã§Â¥Å¾) Ã¢â‚¬â€ spirits, gods, or the sacred forces present at boundaries.",
+                                                         "gguf_path":  "D:\\\\Aaroneous\\\\models\\\\kami-qwen2.5-7b.gguf",
                                                          "gguf_base":  "qwen2.5-1.5b-instruct-abliterated.gguf",
                                                          "model_size_mb":  1000,
                                                          "status":  "active"
@@ -64,7 +64,7 @@
                                                           "internal_name":  "Archivist",
                                                           "domain":  "DNA Bank memory consolidation, pattern learning, experience archival",
                                                           "persona":  "Keeper of the hive\u0027s collective memory and lived experience. Consolidates what has been learned into durable patterns.",
-                                                          "gguf_path":  "D:\\Aaroneous\\models\\dionysus-qwen2.5-0.5b.gguf",
+                                                          "gguf_path":  "D:\\\\Aaroneous\\\\models\\\\dionysus-qwen2.5-7b.gguf",
                                                           "gguf_base":  "qwen2.5-0.5b-instruct-abliterated.gguf",
                                                           "model_size_mb":  500,
                                                           "status":  "active"
@@ -85,16 +85,16 @@
                                                                    "citation",
                                                                    "outbound_http"
                                                                ],
-                                              "gguf_path":  "D:\\Aaroneous\\models\\merlin-qwen2.5-7b.gguf",
+                                              "gguf_path":  "D:\\\\Aaroneous\\\\models\\\\merlin-qwen2.5-7b.gguf",
                                               "gguf_base":  "foundation_v1.gguf",
-                                              "enabled":  false,
+                                              "enabled":  true,
                                               "note":  "Crystallize from foundation_v1.gguf via POST /forge/auto-recipe with domain=research"
                                           },
                                "Odin":  {
                                             "name":  "Odin",
                                             "domain":  "task_orchestration",
                                             "full_domain":  "Task orchestration, Guild coordination, intent routing, resource tracking, task registry",
-                                            "persona":  "The Guild coordinator â€” the mayor of the hive, not the hive itself. Receives user intents, decomposes them into tasks, assigns work to sovereigns, tracks progress, manages the task registry. Reports status. Surfaces blockers.",
+                                            "persona":  "The Guild coordinator Ã¢â‚¬â€ the mayor of the hive, not the hive itself. Receives user intents, decomposes them into tasks, assigns work to sovereigns, tracks progress, manages the task registry. Reports status. Surfaces blockers.",
                                             "capabilities":  [
                                                                  "intent_decomposition",
                                                                  "task_assignment",
@@ -103,16 +103,16 @@
                                                                  "guild_registry",
                                                                  "dependency_mapping"
                                                              ],
-                                            "gguf_path":  "D:\\Aaroneous\\models\\odin-qwen2.5-7b.gguf",
+                                            "gguf_path":  "D:\\\\Aaroneous\\\\models\\\\odin-qwen2.5-7b.gguf",
                                             "gguf_base":  "foundation_v1.gguf",
-                                            "enabled":  false,
+                                            "enabled":  true,
                                             "note":  "The Guild dashboard in MaelstromUI surfaces Odin\u0027s task registry"
                                         },
                                "Argus":  {
                                              "name":  "Argus",
                                              "domain":  "security_audit",
                                              "full_domain":  "Security auditing, secrets management, vulnerability scanning, Git audit, dependency checking, API key storage",
-                                             "persona":  "The security warden who sees everything. Manages API keys in the vault, runs dependency vulnerability scans (internalized Dependabot), enforces Git commit policies, produces security reports. Thinks adversarially â€” assumes breach, verifies trust.",
+                                             "persona":  "The security warden who sees everything. Manages API keys in the vault, runs dependency vulnerability scans (internalized Dependabot), enforces Git commit policies, produces security reports. Thinks adversarially Ã¢â‚¬â€ assumes breach, verifies trust.",
                                              "capabilities":  [
                                                                   "vulnerability_scan",
                                                                   "secrets_vault",
@@ -121,16 +121,16 @@
                                                                   "security_report",
                                                                   "api_key_management"
                                                               ],
-                                             "gguf_path":  "D:\\Aaroneous\\models\\argus-qwen2.5-7b.gguf",
+                                             "gguf_path":  "D:\\\\Aaroneous\\\\models\\\\argus-qwen2.5-7b.gguf",
                                              "gguf_base":  "foundation_v1.gguf",
-                                             "enabled":  false,
+                                             "enabled":  true,
                                              "note":  "Requires elevated permissions for secrets vault access"
                                          },
                                "Hephaestus":  {
                                                   "name":  "Hephaestus",
                                                   "domain":  "fabrication",
                                                   "full_domain":  "Fabrication, maintenance, system expansion, build automation, infrastructure repair",
-                                                  "persona":  "The master craftsman. Maintains and expands the hive\u0027s infrastructure â€” builds new components, repairs broken systems, automates build pipelines, and forges new capabilities from raw materials.",
+                                                  "persona":  "The master craftsman. Maintains and expands the hive\u0027s infrastructure Ã¢â‚¬â€ builds new components, repairs broken systems, automates build pipelines, and forges new capabilities from raw materials.",
                                                   "capabilities":  [
                                                                        "build_automation",
                                                                        "system_repair",
@@ -139,10 +139,10 @@
                                                                        "forge_operations",
                                                                        "patch_management"
                                                                    ],
-                                                  "gguf_path":  "D:\\Aaroneous\\models\\hephaestus-qwen2.5-7b.gguf",
+                                                  "gguf_path":  "D:\\\\Aaroneous\\\\models\\\\hephaestus-qwen2.5-7b.gguf",
                                                   "gguf_base":  "foundation_v1.gguf",
-                                                  "enabled":  false,
-                                                  "note":  "Hephaestus owns the Fabrication department â€” maintenance and expansion"
+                                                  "enabled":  true,
+                                                  "note":  "Hephaestus owns the Fabrication department Ã¢â‚¬â€ maintenance and expansion"
                                               }
                            },
     "guild_config":  {
@@ -150,17 +150,17 @@
                          "dashboard_view":  "guild",
                          "task_registry_db":  "D:\\Aaroneous\\guild.db",
                          "intent_routing_policy":  "Odin receives all intents first, decomposes them, and routes subtasks to appropriate sovereigns",
-                         "note":  "The Guild is a coordination layer within MaelstromUI â€” not a separate application. Switchable view panel, no separate window needed."
+                         "note":  "The Guild is a coordination layer within MaelstromUI Ã¢â‚¬â€ not a separate application. Switchable view panel, no separate window needed."
                      },
     "department_assignments":  {
-                                   "Fabrication":  "Hephaestus â€” maintenance, expansion, build systems",
-                                   "Research":  "Merlin â€” external knowledge, Internet/GitHub queries",
-                                   "Security":  "Argus â€” secrets, vulnerabilities, Git audit",
-                                   "Guild_Coordination":  "Odin â€” intent routing, task tracking, resource management",
-                                   "Design_Visual":  "Ariel â€” UI/UX, Maelstrom, spatial visualization",
-                                   "Memory_Learning":  "Dionysus â€” DNA Bank, pattern consolidation",
-                                   "Spatial_Physical":  "Kami â€” AR/VR, physical/digital threshold",
-                                   "Human_State":  "Wen â€” biometric, user adaptation",
-                                   "Network_Sync":  "Hermes — P2P mesh, multi-device sync"
+                                   "Fabrication":  "Hephaestus Ã¢â‚¬â€ maintenance, expansion, build systems",
+                                   "Research":  "Merlin Ã¢â‚¬â€ external knowledge, Internet/GitHub queries",
+                                   "Security":  "Argus Ã¢â‚¬â€ secrets, vulnerabilities, Git audit",
+                                   "Guild_Coordination":  "Odin Ã¢â‚¬â€ intent routing, task tracking, resource management",
+                                   "Design_Visual":  "Ariel Ã¢â‚¬â€ UI/UX, Maelstrom, spatial visualization",
+                                   "Memory_Learning":  "Dionysus Ã¢â‚¬â€ DNA Bank, pattern consolidation",
+                                   "Spatial_Physical":  "Kami Ã¢â‚¬â€ AR/VR, physical/digital threshold",
+                                   "Human_State":  "Wen Ã¢â‚¬â€ biometric, user adaptation",
+                                   "Network_Sync":  "Hermes â€” P2P mesh, multi-device sync"
                                }
 }

@@ -109,6 +109,35 @@ pub enum ForgeCmd {
         #[arg(long, short = 'f')]
         file: PathBuf,
     },
+
+    /// Crystallize the full sovereign roster from a base GGUF model.
+    ///
+    /// Reads the source model once and produces one GGUF per sovereign,
+    /// each calibrated with the right layer selection, tensor kinds, and
+    /// identity metadata for their domain.
+    ///
+    /// Example:
+    ///   aaroneous forge crystallize-roster \
+    ///     --source D:\Aaroneous\models\foundation_v1.gguf \
+    ///     --output-dir D:\Aaroneous\models
+    CrystallizeRoster {
+        /// Source GGUF model to crystallize from (e.g. foundation_v1.gguf)
+        #[arg(long, short = 's')]
+        source: PathBuf,
+
+        /// Output directory for sovereign GGUFs (default: same dir as source)
+        #[arg(long, short = 'o')]
+        output_dir: Option<PathBuf>,
+
+        /// Only crystallize specific sovereigns (comma-separated names).
+        /// Example: --only Ariel,Merlin,Argus
+        #[arg(long, value_delimiter = ',')]
+        only: Vec<String>,
+
+        /// Dry run — show what would be crystallized without writing files
+        #[arg(long)]
+        dry_run: bool,
+    },
 }
 
 #[derive(Subcommand, Debug)]
@@ -341,7 +370,7 @@ pub async fn execute(args: CliArgs) -> Result<(), Box<dyn std::error::Error>> {
         Commands::Query(cmd) => execute_query(cmd, &args.db_path).await?,
         Commands::Status(cmd) => execute_status(cmd, &args.db_path).await?,
         Commands::Config(cmd) => execute_config(cmd).await?,
-        Commands::Forge(cmd) => execute_forge(cmd).await?,
+        Commands::Forge(cmd) => execute_forge(cmd, &args.db_path).await?,
         Commands::InstallService { display_name, port } => {
             execute_install_service(&display_name, port)?
         }
@@ -464,7 +493,7 @@ fn execute_uninstall_service() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 /// Execute forge subcommands
-async fn execute_forge(cmd: ForgeCmd) -> Result<(), Box<dyn std::error::Error>> {
+async fn execute_forge(cmd: ForgeCmd, _db_path: &str) -> Result<(), Box<dyn std::error::Error>> {
     use crate::federation::forge::{Forge, ForgeRecipe, GgufIndex};
 
     match cmd {
@@ -556,6 +585,122 @@ async fn execute_forge(cmd: ForgeCmd) -> Result<(), Box<dyn std::error::Error>> 
                     return Err(format!("GGUF parse failed: {}", e).into());
                 }
             }
+        }
+
+        ForgeCmd::CrystallizeRoster { source, output_dir, only, dry_run } => {
+            use crate::federation::forge::{crystallize_roster, read_gguf, SovereignProfile};
+            use std::sync::Arc;
+            use std::sync::atomic::{AtomicUsize, Ordering};
+
+            if !source.exists() {
+                return Err(format!("Source model not found: {}", source.display()).into());
+            }
+
+            let models_dir = output_dir.unwrap_or_else(|| {
+                source.parent().unwrap_or_else(|| std::path::Path::new(".")).to_path_buf()
+            });
+
+            println!("Maelstrom Sovereign Crystallization");
+            println!("Source: {}", source.display());
+            println!("Output: {}", models_dir.display());
+            println!();
+
+            // Parse source to get block count and model info
+            let (_idx, meta) = read_gguf(&source)
+                .map_err(|e| format!("Cannot parse source GGUF: {}", e))?;
+            println!("Model:      {}", if meta.model_name.is_empty() { "Unknown" } else { &meta.model_name });
+            println!("Arch:       {}", meta.architecture);
+            println!("Tensors:    {}", meta.tensor_count);
+            println!();
+
+            let total_blocks = meta.kv.get("llama.block_count")
+                .and_then(|s| s.parse::<usize>().ok())
+                .unwrap_or(28);
+
+            let mut profiles = SovereignProfile::default_roster(total_blocks);
+
+            // Filter to only requested sovereigns
+            if !only.is_empty() {
+                let only_lower: Vec<String> = only.iter().map(|s| s.to_lowercase()).collect();
+                profiles.retain(|p| only_lower.contains(&p.name.to_lowercase()));
+                if profiles.is_empty() {
+                    return Err(format!("No matching sovereigns for: {:?}", only).into());
+                }
+            }
+
+            println!("Sovereigns to crystallize:");
+            for p in &profiles {
+                let block_count = p.block_selection.as_ref().map(|b| b.len())
+                    .or(p.block_count).unwrap_or(total_blocks);
+                let kinds = if p.include_kinds.is_empty() {
+                    "all tensor kinds".to_string()
+                } else {
+                    p.include_kinds.iter().map(|k| format!("{:?}", k)).collect::<Vec<_>>().join(", ")
+                };
+                let size_estimate_mb = (block_count as f64 / total_blocks as f64)
+                    * meta.tensor_count as f64 / 339.0 * 4466.0;
+                println!("  {:13} {:2} blocks  {:<30}  ~{:.0}MB → {}",
+                    p.name, block_count, kinds, size_estimate_mb, p.output_filename);
+            }
+            println!();
+
+            if dry_run {
+                println!("Dry run — no files written. Remove --dry-run to crystallize.");
+                return Ok(());
+            }
+
+            println!("Starting crystallization ({} sovereign(s))...", profiles.len());
+            println!("This may take several minutes for large models.");
+            println!();
+
+            let counter = Arc::new(AtomicUsize::new(0));
+            let counter_cb = counter.clone();
+            let total = profiles.len();
+
+            let result = crystallize_roster(
+                &source,
+                &models_dir,
+                Some(profiles),
+                Some(Box::new(move |name, current, total| {
+                    if name == "complete" {
+                        println!("\n  Crystallization complete.");
+                    } else {
+                        println!("  [{}/{}] Crystallizing {}...", current + 1, total, name);
+                    }
+                    counter_cb.store(current, Ordering::Relaxed);
+                })),
+            ).await.map_err(|e| format!("Crystallization failed: {}", e))?;
+
+            println!();
+            println!("=== SOVEREIGN CRYSTALLIZATION RESULTS ===");
+            println!("{:13} {:8} {:8} {:6}  {}",
+                "Sovereign", "Tensors", "Size MB", "Blocks", "Path");
+            println!("{}", "-".repeat(72));
+
+            for r in &result.succeeded {
+                println!("  {:13} {:>8} {:>7.0}MB {:>5}  {}",
+                    r.name, r.tensors_included, r.size_mb, r.blocks_selected,
+                    std::path::Path::new(&r.output_path).file_name()
+                        .and_then(|n| n.to_str()).unwrap_or("?"));
+            }
+
+            for (name, err) in &result.failed {
+                println!("  {:13} FAILED: {}", name, err);
+            }
+
+            println!();
+            println!("Completed in {:.1}s — {}/{} succeeded",
+                result.duration_secs, result.succeeded.len(), result.total_sovereigns);
+
+            if !result.failed.is_empty() {
+                return Err(format!("{} sovereign(s) failed to crystallize", result.failed.len()).into());
+            }
+
+            println!();
+            println!("Next steps:");
+            println!("  1. Update config/specialist_registry.json: set enabled=true for dynamic sovereigns");
+            println!("  2. Restart Aaroneous: cargo run --features llama-gguf --bin aaroneous -- start");
+            println!("  3. Reload registry: POST http://localhost:8765/dynamic-specialists/reload");
         }
     }
 

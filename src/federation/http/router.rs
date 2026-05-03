@@ -129,11 +129,12 @@ pub fn router(state: AppState) -> Router {
         .route("/dynamic-specialists/reload",  post(reload_dynamic_specialists))
         // Models directory listing
         .route("/models",                 get(list_models))
-        // Forge: GGUF inspection, auto-recipe generation, and crystallization
-        .route("/forge/inspect",          post(forge_inspect))
-        .route("/forge/auto-recipe",      post(forge_auto_recipe))
-        .route("/forge/single-recipe",    post(forge_single_recipe))
-        .route("/forge/crystallize",      post(forge_crystallize))
+        // Forge: GGUF inspection, recipe generation, and crystallization
+        .route("/forge/inspect",              post(forge_inspect))
+        .route("/forge/auto-recipe",          post(forge_auto_recipe))
+        .route("/forge/single-recipe",        post(forge_single_recipe))
+        .route("/forge/crystallize",          post(forge_crystallize))
+        .route("/forge/crystallize-roster",   post(forge_crystallize_roster))
         // Multi-hive cluster status
         .route("/cluster", get(cluster_status))
         .with_state(state)
@@ -1455,10 +1456,126 @@ async fn forge_crystallize(
         })).into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({ "ok": false, "error": e.to_string() })),
+        ).into_response(),
+    }
+}
+
+/// Request body for POST /forge/crystallize-roster
+#[derive(Deserialize)]
+struct ForgeCrystallizeRosterRequest {
+    /// Path to the source GGUF model
+    source_path: String,
+    /// Output directory for sovereign GGUFs (defaults to same dir as source)
+    output_dir: Option<String>,
+    /// Only crystallize specific sovereigns by name
+    #[serde(default)]
+    only: Vec<String>,
+    /// Dry run — return the plan without writing files
+    #[serde(default)]
+    dry_run: bool,
+}
+
+/// POST /forge/crystallize-roster — crystallize all sovereigns from one base GGUF
+///
+/// Reads foundation_v1.gguf (or specified source) once and produces one
+/// domain-specialized GGUF per sovereign, with calibrated layer selection
+/// and identity metadata embedded in each output file.
+///
+/// Example request:
+/// ```json
+/// {
+///   "source_path": "D:\\Aaroneous\\models\\foundation_v1.gguf",
+///   "output_dir": "D:\\Aaroneous\\models",
+///   "only": ["Ariel", "Merlin"]
+/// }
+/// ```
+async fn forge_crystallize_roster(
+    Json(req): Json<ForgeCrystallizeRosterRequest>,
+) -> impl IntoResponse {
+    let source = std::path::Path::new(&req.source_path);
+    if !source.exists() {
+        return (
+            StatusCode::BAD_REQUEST,
             Json(serde_json::json!({
                 "ok": false,
-                "error": e.to_string(),
+                "error": format!("Source model not found: {}", req.source_path),
             })),
+        ).into_response();
+    }
+
+    let models_dir = req.output_dir.as_deref()
+        .map(std::path::Path::new)
+        .or_else(|| source.parent())
+        .unwrap_or_else(|| std::path::Path::new("."))
+        .to_path_buf();
+
+    // Parse source for block count
+    let total_blocks = match forge::read_gguf(source) {
+        Ok((_idx, meta)) => meta.kv.get("llama.block_count")
+            .and_then(|s| s.parse::<usize>().ok())
+            .unwrap_or(28),
+        Err(e) => return (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({ "ok": false, "error": e.to_string() })),
+        ).into_response(),
+    };
+
+    let mut profiles = forge::SovereignProfile::default_roster(total_blocks);
+
+    // Filter sovereigns if requested
+    if !req.only.is_empty() {
+        let only_lower: Vec<String> = req.only.iter().map(|s| s.to_lowercase()).collect();
+        profiles.retain(|p| only_lower.contains(&p.name.to_lowercase()));
+    }
+
+    if req.dry_run {
+        let plan: Vec<serde_json::Value> = profiles.iter().map(|p| {
+            let bc = p.block_selection.as_ref().map(|b| b.len())
+                .or(p.block_count).unwrap_or(total_blocks);
+            let size_estimate_mb = (bc as f64 / total_blocks as f64) * 4466.0;
+            serde_json::json!({
+                "name": p.name,
+                "domain": p.domain,
+                "output": p.output_filename,
+                "blocks": bc,
+                "estimated_mb": (size_estimate_mb as u32),
+                "kinds": if p.include_kinds.is_empty() { "all".to_string() }
+                         else { format!("{:?}", p.include_kinds) },
+            })
+        }).collect();
+        return Json(serde_json::json!({
+            "ok": true,
+            "dry_run": true,
+            "source": req.source_path,
+            "total_blocks": total_blocks,
+            "sovereigns": plan,
+        })).into_response();
+    }
+
+    // Run crystallization (this is long-running — consider SSE for progress)
+    match forge::crystallize_roster(source, &models_dir, Some(profiles), None).await {
+        Ok(result) => Json(serde_json::json!({
+            "ok": true,
+            "source": result.source_model,
+            "output_dir": result.models_dir,
+            "duration_secs": result.duration_secs,
+            "succeeded": result.succeeded.len(),
+            "failed": result.failed.len(),
+            "sovereigns": result.succeeded.iter().map(|r| serde_json::json!({
+                "name": r.name,
+                "output": r.output_path,
+                "tensors": r.tensors_included,
+                "size_mb": r.size_mb as u32,
+                "blocks": r.blocks_selected,
+            })).collect::<Vec<_>>(),
+            "errors": result.failed.iter().map(|(name, err)| serde_json::json!({
+                "name": name, "error": err,
+            })).collect::<Vec<_>>(),
+        })).into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({ "ok": false, "error": e.to_string() })),
         ).into_response(),
     }
 }

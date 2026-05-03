@@ -515,6 +515,414 @@ pub fn domain_tensor_keywords(domain: &str) -> Vec<String> {
     }
 }
 
+// ────────────────────────────────────────────────────────────────────
+// Sovereign crystallization profiles
+// ────────────────────────────────────────────────────────────────────
+
+/// A sovereign's GGUF crystallization profile — which blocks and tensor
+/// kinds to extract from the base model, and what metadata to embed.
+///
+/// Each sovereign gets a subset of the base model tailored to their domain:
+/// - Small, fast sovereigns (Wen, Dionysus) get fewer blocks for quick inference
+/// - Reasoning-heavy sovereigns (Merlin, Odin) get more blocks
+/// - Embedding/output layers are always included for generation coherence
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SovereignProfile {
+    /// Sovereign display name (e.g. "Ariel")
+    pub name: String,
+    /// Internal identifier matching the registry
+    pub domain: String,
+    /// Output file name (placed in models_dir)
+    pub output_filename: String,
+    /// How many transformer blocks to include (out of the total).
+    /// None = include all blocks (full model copy with identity metadata).
+    pub block_count: Option<usize>,
+    /// Which block indices to take. None = take the first `block_count`.
+    /// Some([0,1,4,5,...]) = specific blocks (e.g. early + late layers).
+    pub block_selection: Option<Vec<usize>>,
+    /// Tensor kinds to include within each selected block.
+    /// Empty = include all tensor kinds.
+    pub include_kinds: Vec<TensorKind>,
+    /// Metadata to embed in the GGUF header for this sovereign.
+    pub metadata: HashMap<String, MetaValue>,
+}
+
+impl SovereignProfile {
+    /// Build the sovereign profiles for the full Aaroneous roster.
+    ///
+    /// These profiles are calibrated for a 28-block Qwen2.5 7B base model.
+    /// Block selection strategy:
+    /// - Lower blocks (0-7):  syntactic patterns, fast reasoning
+    /// - Middle blocks (8-19): semantic understanding
+    /// - Upper blocks (20-27): generation, instruction following
+    ///
+    /// Sovereigns that need speed (Wen, Kami) get fewer blocks.
+    /// Sovereigns that need deep reasoning (Merlin, Odin) get more.
+    pub fn default_roster(total_blocks: usize) -> Vec<SovereignProfile> {
+        let qwen_meta = |name: &str, ctx: u32| -> HashMap<String, MetaValue> {
+            let mut m = HashMap::new();
+            m.insert("general.architecture".into(), MetaValue::String("qwen2".into()));
+            m.insert("general.name".into(), MetaValue::String(format!("aaroneous-{}-v1", name.to_lowercase())));
+            m.insert("llama.context_length".into(), MetaValue::Uint32(ctx));
+            m.insert("llama.rope.freq_base".into(), MetaValue::Float32(1_000_000.0));
+            m.insert("tokenizer.ggml.model".into(), MetaValue::String("gpt2".into()));
+            m.insert("aaroneous.sovereign".into(), MetaValue::String(name.into()));
+            m
+        };
+
+        // Helper: select evenly-spaced block indices across the model
+        let spread = |n: usize| -> Vec<usize> {
+            if n >= total_blocks { return (0..total_blocks).collect(); }
+            (0..n).map(|i| (i * total_blocks) / n).collect()
+        };
+
+        // Helper: lower half blocks (syntactic, fast)
+        let lower = |n: usize| -> Vec<usize> { (0..n.min(total_blocks)).collect() };
+
+        // Helper: upper-weighted blocks (generation, instruction following)
+        let upper_weighted = |n: usize| -> Vec<usize> {
+            let start = total_blocks.saturating_sub(n);
+            (start..total_blocks).collect()
+        };
+
+        vec![
+            // ── Ariel: UI/UX design, creative generation ─────────────────
+            // Needs strong generation and instruction-following.
+            // Upper blocks + spread for creative output quality.
+            SovereignProfile {
+                name: "Ariel".into(),
+                domain: "ui_design".into(),
+                output_filename: "ariel-qwen2.5-7b.gguf".into(),
+                block_count: Some(20),
+                block_selection: Some(spread(20)),
+                include_kinds: vec![],  // all kinds
+                metadata: qwen_meta("Ariel", 4096),
+            },
+
+            // ── Hermes: P2P mesh, state sync ─────────────────────────────
+            // Needs structured JSON reasoning and CRDT logic.
+            // Middle + upper blocks for semantic precision.
+            SovereignProfile {
+                name: "Hermes".into(),
+                domain: "mesh_sync".into(),
+                output_filename: "hermes-qwen2.5-7b.gguf".into(),
+                block_count: Some(16),
+                block_selection: Some(spread(16)),
+                include_kinds: vec![],
+                metadata: qwen_meta("Hermes", 2048),
+            },
+
+            // ── Wen: Biometric, human state ───────────────────────────────
+            // Needs fast inference (called every 5 seconds from sensor loop).
+            // Fewer blocks = faster. Lower blocks for pattern recognition.
+            SovereignProfile {
+                name: "Wen".into(),
+                domain: "human_state".into(),
+                output_filename: "wen-qwen2.5-7b.gguf".into(),
+                block_count: Some(8),
+                block_selection: Some(lower(8)),
+                include_kinds: vec![TensorKind::Attention, TensorKind::Norm, TensorKind::Embedding],
+                metadata: qwen_meta("Wen", 1024),
+            },
+
+            // ── Kami: AR/VR spatial, physical/digital boundary ───────────
+            // Needs spatial reasoning and coordinate understanding.
+            // Evenly spread — geometric reasoning spans all depths.
+            SovereignProfile {
+                name: "Kami".into(),
+                domain: "spatial".into(),
+                output_filename: "kami-qwen2.5-7b.gguf".into(),
+                block_count: Some(14),
+                block_selection: Some(spread(14)),
+                include_kinds: vec![],
+                metadata: qwen_meta("Kami", 2048),
+            },
+
+            // ── Dionysus: DNA Bank, memory, pattern learning ──────────────
+            // Needs pattern extraction and consolidation reasoning.
+            // Middle blocks (semantic depth) are most useful.
+            SovereignProfile {
+                name: "Dionysus".into(),
+                domain: "memory_consolidation".into(),
+                output_filename: "dionysus-qwen2.5-7b.gguf".into(),
+                block_count: Some(12),
+                block_selection: Some({
+                    let mid = total_blocks / 4;
+                    (mid..mid + 12.min(total_blocks - mid)).collect()
+                }),
+                include_kinds: vec![TensorKind::Attention, TensorKind::Mlp, TensorKind::Norm],
+                metadata: qwen_meta("Dionysus", 2048),
+            },
+
+            // ── Merlin: Research, knowledge synthesis ─────────────────────
+            // Needs deep reasoning and long-context synthesis.
+            // Full depth spread — knowledge is everywhere in the model.
+            SovereignProfile {
+                name: "Merlin".into(),
+                domain: "research".into(),
+                output_filename: "merlin-qwen2.5-7b.gguf".into(),
+                block_count: Some(24),
+                block_selection: Some(spread(24)),
+                include_kinds: vec![],
+                metadata: qwen_meta("Merlin", 8192),
+            },
+
+            // ── Odin: Guild coordination, task orchestration ──────────────
+            // Needs structured planning and dependency reasoning.
+            // Upper-weighted — higher-order reasoning is in upper blocks.
+            SovereignProfile {
+                name: "Odin".into(),
+                domain: "task_orchestration".into(),
+                output_filename: "odin-qwen2.5-7b.gguf".into(),
+                block_count: Some(20),
+                block_selection: Some(upper_weighted(20)),
+                include_kinds: vec![],
+                metadata: qwen_meta("Odin", 4096),
+            },
+
+            // ── Argus: Security, vulnerability scanning ───────────────────
+            // Needs adversarial reasoning and pattern matching.
+            // Lower + upper blocks — threat patterns are both syntactic and semantic.
+            SovereignProfile {
+                name: "Argus".into(),
+                domain: "security_audit".into(),
+                output_filename: "argus-qwen2.5-7b.gguf".into(),
+                block_count: Some(16),
+                block_selection: Some({
+                    let mut blocks = lower(8);
+                    blocks.extend(upper_weighted(8));
+                    blocks.sort_unstable();
+                    blocks.dedup();
+                    blocks
+                }),
+                include_kinds: vec![],
+                metadata: qwen_meta("Argus", 4096),
+            },
+
+            // ── Hephaestus: Fabrication, build automation ─────────────────
+            // Needs code generation and system design reasoning.
+            // This is a Coder model — spread all blocks, favor MLP for code logic.
+            SovereignProfile {
+                name: "Hephaestus".into(),
+                domain: "fabrication".into(),
+                output_filename: "hephaestus-qwen2.5-7b.gguf".into(),
+                block_count: Some(22),
+                block_selection: Some(spread(22)),
+                include_kinds: vec![TensorKind::Mlp, TensorKind::Attention,
+                                    TensorKind::Embedding, TensorKind::Norm],
+                metadata: qwen_meta("Hephaestus", 4096),
+            },
+        ]
+    }
+}
+
+/// Result of a full roster crystallization pass.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RosterCrystallizationResult {
+    pub source_model: String,
+    pub models_dir: String,
+    pub total_sovereigns: usize,
+    pub succeeded: Vec<SovereignCrystallizationResult>,
+    pub failed: Vec<(String, String)>, // (name, error)
+    pub duration_secs: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SovereignCrystallizationResult {
+    pub name: String,
+    pub output_path: String,
+    pub tensors_included: u64,
+    pub size_bytes: u64,
+    pub size_mb: f64,
+    pub blocks_selected: usize,
+}
+
+/// Crystallize the full sovereign roster from a single base GGUF model.
+///
+/// Reads the source model once, then for each sovereign in the profile list:
+/// 1. Selects the specified transformer blocks
+/// 2. Filters tensor kinds as specified
+/// 3. Writes a valid GGUF v3 with sovereign-specific metadata
+///
+/// Progress callback receives `(sovereign_name, current, total)` for UI updates.
+pub async fn crystallize_roster(
+    source_path: impl AsRef<std::path::Path>,
+    models_dir: impl AsRef<std::path::Path>,
+    profiles: Option<Vec<SovereignProfile>>,
+    progress: Option<Box<dyn Fn(String, usize, usize) + Send + Sync>>,
+) -> Result<RosterCrystallizationResult, GgufReadError> {
+    let source_path = source_path.as_ref().to_path_buf();
+    let models_dir = models_dir.as_ref().to_path_buf();
+    let start = std::time::Instant::now();
+
+    // Parse the source model once
+    let (index, meta) = read_gguf(&source_path)?;
+    let total_blocks = meta.kv.get("llama.block_count")
+        .and_then(|s| s.parse::<usize>().ok())
+        .unwrap_or_else(|| {
+            // Infer from tensor names
+            index.0.values()
+                .next()
+                .map(|gm| {
+                    gm.tensors.keys()
+                        .filter_map(|n| {
+                            if let Some(rest) = n.strip_prefix("blk.") {
+                                rest.split('.').next()?.parse::<usize>().ok()
+                            } else { None }
+                        })
+                        .max()
+                        .map(|m| m + 1)
+                        .unwrap_or(28)
+                })
+                .unwrap_or(28)
+        });
+
+    let source_key = source_path.to_string_lossy().to_string();
+    let profiles = profiles.unwrap_or_else(|| SovereignProfile::default_roster(total_blocks));
+    let total = profiles.len();
+
+    std::fs::create_dir_all(&models_dir).ok();
+
+    let mut succeeded = Vec::new();
+    let mut failed = Vec::new();
+
+    for (i, profile) in profiles.iter().enumerate() {
+        if let Some(ref cb) = progress {
+            cb(profile.name.clone(), i, total);
+        }
+
+        let output_path = models_dir.join(&profile.output_filename);
+        info!("Crystallizing {} → {}", profile.name, output_path.display());
+
+        // Build the tensor selection for this sovereign
+        let result = crystallize_sovereign_from_index(
+            &index,
+            &source_key,
+            &profile,
+            &output_path,
+        ).await;
+
+        match result {
+            Ok(r) => {
+                info!("✓ {} — {} tensors, {:.1}MB",
+                    profile.name, r.tensors_included, r.size_mb);
+                succeeded.push(r);
+            }
+            Err(e) => {
+                warn!("✗ {} — {}", profile.name, e);
+                failed.push((profile.name.clone(), e.to_string()));
+            }
+        }
+    }
+
+    if let Some(ref cb) = progress {
+        cb("complete".into(), total, total);
+    }
+
+    Ok(RosterCrystallizationResult {
+        source_model: source_path.to_string_lossy().to_string(),
+        models_dir: models_dir.to_string_lossy().to_string(),
+        total_sovereigns: total,
+        succeeded,
+        failed,
+        duration_secs: start.elapsed().as_secs_f64(),
+    })
+}
+
+/// Crystallize a single sovereign from an already-parsed GgufIndex.
+async fn crystallize_sovereign_from_index(
+    index: &GgufIndex,
+    source_key: &str,
+    profile: &SovereignProfile,
+    output_path: &std::path::Path,
+) -> Result<SovereignCrystallizationResult, ForgeError> {
+    let source_meta = index.0.get(source_key)
+        .ok_or_else(|| ForgeError::GgufNotFound { gguf: source_key.into() })?;
+
+    // Determine which blocks to include
+    let selected_blocks: std::collections::HashSet<usize> = match &profile.block_selection {
+        Some(explicit) => explicit.iter().cloned().collect(),
+        None => match profile.block_count {
+            Some(n) => (0..n).collect(),
+            None => {
+                // All blocks
+                source_meta.tensors.keys()
+                    .filter_map(|n| {
+                        n.strip_prefix("blk.")
+                            .and_then(|r| r.split('.').next())
+                            .and_then(|s| s.parse::<usize>().ok())
+                    })
+                    .collect()
+            }
+        }
+    };
+
+    // Select tensors: those in selected blocks (or non-block tensors like embeddings)
+    let mut segments: Vec<SplicingSegment> = Vec::new();
+    let mut names: Vec<&str> = source_meta.tensors.keys()
+        .map(|s| s.as_str()).collect();
+    names.sort();
+
+    for name in names {
+        let tm = &source_meta.tensors[name];
+
+        // Always include non-block tensors (embeddings, output layer)
+        let is_block_tensor = name.starts_with("blk.");
+        if is_block_tensor {
+            // Check if this block is selected
+            let block_idx = name.strip_prefix("blk.")
+                .and_then(|r| r.split('.').next())
+                .and_then(|s| s.parse::<usize>().ok());
+
+            if let Some(idx) = block_idx {
+                if !selected_blocks.contains(&idx) { continue; }
+            }
+
+            // Check tensor kind filter
+            if !profile.include_kinds.is_empty() {
+                let kind = TensorKind::from_name(name);
+                if !profile.include_kinds.contains(&kind) { continue; }
+            }
+        }
+
+        // Skip zero-size tensors (unknown dtype)
+        if tm.size == 0 { continue; }
+
+        segments.push(SplicingSegment {
+            source_gguf: source_key.to_string(),
+            tensor_name: name.to_string(),
+        });
+    }
+
+    if segments.is_empty() {
+        return Err(ForgeError::EmptyRecipe);
+    }
+
+    let recipe = ForgeRecipe {
+        recipe_id: format!("{}-v1", profile.name.to_lowercase()),
+        segments,
+        metadata_overrides: profile.metadata.clone(),
+    };
+
+    let mut forge = Forge::new();
+    let result = forge.crystallize(&recipe, index, output_path).await?;
+
+    let size_bytes = std::fs::metadata(output_path)
+        .map(|m| m.len()).unwrap_or(result.bytes_written);
+
+    Ok(SovereignCrystallizationResult {
+        name: profile.name.clone(),
+        output_path: output_path.to_string_lossy().to_string(),
+        tensors_included: result.tensors_spliced,
+        size_bytes,
+        size_mb: size_bytes as f64 / 1_048_576.0,
+        blocks_selected: profile.block_selection.as_ref()
+            .map(|b| b.len())
+            .or(profile.block_count)
+            .unwrap_or(0),
+    })
+}
+
 /// One tensor to be taken from one source model.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct SplicingSegment {
