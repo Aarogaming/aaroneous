@@ -43,7 +43,7 @@ impl SpecialistId {
         match self {
             SpecialistId::Sentinel    => "Sentinel",   // The Arbiter — federation arbitration
             SpecialistId::Visionary   => "Ariel",      // UI/UX & Maelstrom spatial
-            SpecialistId::Omnipresent => "Omnipresent", // P2P sync (sovereign name pending)
+            SpecialistId::Omnipresent => "Hermes",      // Messenger between realms — P2P mesh
             SpecialistId::Symbiotic   => "Wen",        // Warm, literary, cultured — reads the human
             SpecialistId::Phygital    => "Kami",       // Spirits of the physical/digital threshold
             SpecialistId::Archivist   => "Dionysus",   // DNA Bank / memory / experience
@@ -55,7 +55,7 @@ impl SpecialistId {
         match self {
             SpecialistId::Sentinel    => "Federation arbitration & orchestration",
             SpecialistId::Visionary   => "UI/UX design generation & Maelstrom visualization",
-            SpecialistId::Omnipresent => "P2P multi-device sync & mesh coordination",
+            SpecialistId::Omnipresent => "P2P multi-device sync & mesh coordination across realms",
             SpecialistId::Symbiotic   => "Biometric classification & human state adaptation",
             SpecialistId::Phygital    => "AR/VR spatial rendering — physical/digital threshold",
             SpecialistId::Archivist   => "DNA Bank memory consolidation & pattern learning",
