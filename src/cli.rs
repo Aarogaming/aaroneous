@@ -660,21 +660,39 @@ async fn execute_start(
     if registry_path.exists() {
         if let Ok(content) = std::fs::read_to_string(registry_path) {
             if let Ok(registry) = serde_json::from_str::<serde_json::Value>(&content) {
-                if let Some(dynamic) = registry.get("dynamic_specialists")
-                    .and_then(|d| d.get("examples"))
-                    .and_then(|e| e.as_array())
-                {
-                    for entry in dynamic {
-                        let enabled = entry.get("enabled").and_then(|e| e.as_bool()).unwrap_or(false);
-                        if !enabled { continue; }
-                        let name = entry.get("name").and_then(|n| n.as_str()).unwrap_or("Unknown");
-                        let domain = entry.get("domain").and_then(|d| d.as_str()).unwrap_or("general");
-                        let gguf = entry.get("gguf_path").and_then(|g| g.as_str()).unwrap_or("");
-                        let specialist = GenericSpecialist::new(name, domain)
-                            .with_gguf_path(gguf).await;
-                        info!("Loading dynamic specialist '{}' (domain: {})", name, domain);
-                        builder = builder.with_gguf_specialist(std::sync::Arc::new(specialist));
-                    }
+                // Support both old key ("dynamic_specialists.examples") and
+                // new key ("dynamic_sovereigns") as a flat object of named entries
+                let entries: Vec<serde_json::Value> = registry
+                    .get("dynamic_sovereigns")
+                    .and_then(|d| d.as_object())
+                    .map(|obj| obj.values().cloned().collect())
+                    .or_else(|| {
+                        registry.get("dynamic_specialists")
+                            .and_then(|d| d.get("examples"))
+                            .and_then(|e| e.as_array())
+                            .cloned()
+                    })
+                    .unwrap_or_default();
+
+                for entry in &entries {
+                    let enabled = entry.get("enabled").and_then(|e| e.as_bool()).unwrap_or(false);
+                    if !enabled { continue; }
+                    let name = entry.get("name").and_then(|n| n.as_str()).unwrap_or("Unknown");
+                    let domain = entry.get("domain").and_then(|d| d.as_str()).unwrap_or("general");
+                    let gguf = entry.get("gguf_path").and_then(|g| g.as_str()).unwrap_or("");
+                    let specialist = GenericSpecialist::new(name, domain)
+                        .with_gguf_path(gguf).await;
+                    info!("Loading sovereign '{}' (domain: {})", name, domain);
+                    builder = builder.with_gguf_specialist(std::sync::Arc::new(specialist));
+                }
+
+                if entries.iter().filter(|e| e.get("enabled").and_then(|v| v.as_bool()).unwrap_or(false)).count() == 0 {
+                    let names: Vec<&str> = entries.iter()
+                        .filter_map(|e| e.get("name").and_then(|n| n.as_str()))
+                        .collect();
+                    info!("Dynamic sovereigns registered but not yet enabled: {}",
+                        names.join(", "));
+                    info!("  Set enabled=true in config/specialist_registry.json to activate");
                 }
             }
         }

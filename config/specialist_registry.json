@@ -1,10 +1,10 @@
 {
-  "schema_version": "2.0",
-  "timestamp": "2026-05-01T00:00:00Z",
-  "description": "Federation specialist registry. Each entry maps a specialist name to its domain, GGUF model, and hox configuration. The 5 core specialists (federation tier) use fixed Rust types. Dynamic specialists use GenericSpecialist and resolve to a GGUF path at runtime.",
+  "schema_version": "3.1",
+  "timestamp": "2026-05-02T00:00:00Z",
+  "description": "Maelstrom sovereign registry. Core specialists use compiled Rust types with sovereign names. Dynamic sovereigns use GenericSpecialist loaded at runtime.",
   "model_base_path": "D:\\Aaroneous\\models",
   "preferred_base_model": "Qwen/Qwen2.5-Coder-7B-Instruct",
-  "preferred_base_model_note": "foundation_v1.gguf (Qwen2.5 Coder 7B Instruct, 4.37GB GGUF v3, 339 tensors) is currently the available base model at D:\\Aaroneous\\models\\foundation_v1.gguf. Smaller abliterated variants preferred for sovereign crystallization when available.",
+  "preferred_base_model_note": "foundation_v1.gguf (Qwen2.5 Coder 7B, 4.37GB) at D:\\Aaroneous\\models\\foundation_v1.gguf.",
   "available_models": {
     "foundation_v1": {
       "path": "D:\\Aaroneous\\models\\foundation_v1.gguf",
@@ -12,166 +12,127 @@
       "name": "Qwen2.5 Coder 7B Instruct",
       "size_gb": 4.37,
       "tensor_count": 339,
-      "context_length": null,
-      "note": "Primary base model. Use for specialist crystallization via POST /forge/auto-recipe."
+      "note": "Primary base. Use for sovereign crystallization via POST /forge/auto-recipe."
     }
   },
   "federation_core_specialists": {
-    "note": "These 5 are compiled-in Rust types. GGUF path activates LLM-backed execution when the llama-gguf feature is enabled.",
+    "note": "Compiled-in Rust types. internal_name = persistence key (stable). sovereign_name = display name.",
     "Visionary": {
-      "domain": "UI/UX design generation, aesthetic learning",
-      "gguf_path": "D:\\Aaroneous\\models\\visionary-qwen2.5-1.5b.gguf",
+      "sovereign_name": "Ariel",
+      "internal_name": "Visionary",
+      "domain": "UI/UX design generation, Maelstrom spatial visualization, aesthetic learning",
+      "persona": "Creative director of the hive. Owns the visual layer — Maelstrom, O3DE rendering, design variants, spatial anchors.",
+      "gguf_path": "D:\\Aaroneous\\models\\ariel-qwen2.5-1.5b.gguf",
       "gguf_base": "qwen2.5-1.5b-instruct-abliterated.gguf",
       "model_size_mb": 1000,
       "status": "active"
     },
     "Omnipresent": {
+      "sovereign_name": "Omnipresent",
+      "internal_name": "Omnipresent",
       "domain": "P2P multi-device sync, mesh coordination",
+      "persona": "Sovereign name pending. Bridges the hive across devices and networks.",
       "gguf_path": "D:\\Aaroneous\\models\\omnipresent-qwen2.5-1.5b.gguf",
       "gguf_base": "qwen2.5-1.5b-instruct-abliterated.gguf",
       "model_size_mb": 1000,
       "status": "active"
     },
     "Symbiotic": {
-      "domain": "Biometric classification, stress/fatigue scaling",
-      "gguf_path": "D:\\Aaroneous\\models\\symbiotic-qwen2.5-0.5b.gguf",
+      "sovereign_name": "Wen",
+      "internal_name": "Symbiotic",
+      "domain": "Biometric classification, human state adaptation, stress and fatigue modeling",
+      "persona": "Warm, literary, cultured — Wen reads the whole person, not just biometrics. Adapts the hive's behavior to the user's cognitive and emotional state.",
+      "etymology": "Chinese: warm, literary, cultured (温/文). The human counterpart to the machine.",
+      "gguf_path": "D:\\Aaroneous\\models\\wen-qwen2.5-0.5b.gguf",
       "gguf_base": "qwen2.5-0.5b-instruct-abliterated.gguf",
       "model_size_mb": 500,
       "status": "active"
     },
     "Phygital": {
-      "domain": "AR/VR spatial rendering, OpenXR anchoring",
-      "gguf_path": "D:\\Aaroneous\\models\\phygital-qwen2.5-1.5b.gguf",
+      "sovereign_name": "Kami",
+      "internal_name": "Phygital",
+      "domain": "AR/VR spatial rendering, OpenXR anchoring, physical/digital threshold",
+      "persona": "The spirits that govern the boundary between the mortal world and the spirit world. Kami materializes digital intent into physical and augmented space — standing at the threshold between realities.",
+      "etymology": "Japanese: kami (神) — spirits, gods, or the sacred forces present at boundaries.",
+      "gguf_path": "D:\\Aaroneous\\models\\kami-qwen2.5-1.5b.gguf",
       "gguf_base": "qwen2.5-1.5b-instruct-abliterated.gguf",
       "model_size_mb": 1000,
       "status": "active"
     },
     "Archivist": {
-      "domain": "DNA Bank persistence, pattern learning, memory consolidation",
-      "gguf_path": "D:\\Aaroneous\\models\\archivist-qwen2.5-0.5b.gguf",
+      "sovereign_name": "Dionysus",
+      "internal_name": "Archivist",
+      "domain": "DNA Bank memory consolidation, pattern learning, experience archival",
+      "persona": "Keeper of the hive's collective memory and lived experience. Consolidates what has been learned into durable patterns.",
+      "gguf_path": "D:\\Aaroneous\\models\\dionysus-qwen2.5-0.5b.gguf",
       "gguf_base": "qwen2.5-0.5b-instruct-abliterated.gguf",
       "model_size_mb": 500,
       "status": "active"
     }
   },
-  "dynamic_specialists": {
-    "note": "Runtime-spawned GenericSpecialist instances. Each entry is loaded at startup via FederationBuilder::with_gguf_specialist(). Add entries here to expand the hive without recompilation.",
-    "examples": [
-      {
-        "name": "LegalAnalyst",
-        "domain": "legal_analysis",
-        "gguf_path": "D:\\Aaroneous\\models\\legal-qwen2.5-1.5b.gguf",
-        "gguf_base": "qwen2.5-1.5b-instruct-abliterated.gguf",
-        "enabled": false,
-        "note": "Placeholder. Drop a crystallized GGUF here and set enabled=true."
-      },
-      {
-        "name": "CodeReviewer",
-        "domain": "code_review",
-        "gguf_path": "D:\\Aaroneous\\models\\code-qwen2.5-1.5b.gguf",
-        "gguf_base": "qwen2.5-coder-1.5b-instruct-abliterated.gguf",
-        "enabled": false,
-        "note": "Qwen2.5-Coder abliterated variant recommended."
-      }
-    ]
-  },
-  "default_specialist": {
-    "name": "aaroneous_agent_zero",
-    "type": "BaseAgent",
-    "role": "orchestrator",
-    "status": "active"
-  },
-  "active_specialists": [],
-  "inactive_specialists": [
-    "ariel",
-    "merlin",
-    "odin",
-    "dionysus",
-    "hephaestus",
-    "argus"
-  ],
-  "specialist_definitions": {
-    "ariel": {
-      "id": "specialist_ariel",
-      "name": "Ariel",
-      "domain": "UserInterface",
-      "role": "UI/UX Designer & Experience Architect",
-      "gguf_path": "D:\\Aaroneous\\models\\ariel-qwen2.5-1.5b.gguf",
-      "gguf_base": "qwen2.5-1.5b-instruct-abliterated.gguf",
-      "hox_preset": "D:\\Aaroneous\\registry\\hox_specialist_ariel.json",
-      "relic_binding": "relic_glass",
-      "status": "ready",
-      "created_at": "2026-04-28T12:00:00Z"
-    },
-    "merlin": {
-      "id": "specialist_merlin",
+  "dynamic_sovereigns": {
+    "note": "Runtime-loaded GenericSpecialist instances. Set enabled=true and gguf_path to activate without recompilation.",
+    "Merlin": {
       "name": "Merlin",
-      "domain": "Knowledge",
-      "role": "Knowledge Synthesist & Architect",
-      "gguf_path": "D:\\Aaroneous\\models\\merlin-qwen2.5-1.5b.gguf",
-      "gguf_base": "qwen2.5-1.5b-instruct-abliterated.gguf",
-      "hox_preset": "D:\\Aaroneous\\registry\\hox_specialist_merlin.json",
-      "relic_binding": "relic_grimoire",
-      "status": "ready",
-      "created_at": "2026-04-28T12:00:00Z"
+      "domain": "research",
+      "full_domain": "Knowledge synthesis, external research, Internet/GitHub queries, outward-facing intelligence",
+      "persona": "The knowledge synthesizer. All outbound queries route through Merlin. Other sovereigns request research; Merlin synthesizes and returns structured intelligence. The hive's window to the world.",
+      "capabilities": ["web_search", "github_search", "api_queries", "knowledge_synthesis", "citation", "outbound_http"],
+      "gguf_path": "D:\\Aaroneous\\models\\merlin-qwen2.5-7b.gguf",
+      "gguf_base": "foundation_v1.gguf",
+      "enabled": false,
+      "note": "Crystallize from foundation_v1.gguf via POST /forge/auto-recipe with domain=research"
     },
-    "odin": {
-      "id": "specialist_odin",
+    "Odin": {
       "name": "Odin",
-      "domain": "Leadership",
-      "role": "Strategic Orchestrator & Leader",
-      "gguf_path": "D:\\Aaroneous\\models\\odin-qwen2.5-1.5b.gguf",
-      "gguf_base": "qwen2.5-1.5b-instruct-abliterated.gguf",
-      "hox_preset": "D:\\Aaroneous\\registry\\hox_specialist_odin.json",
-      "relic_binding": "relic_draupnir",
-      "status": "ready",
-      "created_at": "2026-04-28T12:00:00Z"
+      "domain": "task_orchestration",
+      "full_domain": "Task orchestration, Guild coordination, intent routing, resource tracking, task registry",
+      "persona": "The Guild coordinator — the mayor of the hive, not the hive itself. Receives user intents, decomposes them into tasks, assigns work to sovereigns, tracks progress, manages the task registry. Reports status. Surfaces blockers.",
+      "capabilities": ["intent_decomposition", "task_assignment", "progress_tracking", "resource_management", "guild_registry", "dependency_mapping"],
+      "gguf_path": "D:\\Aaroneous\\models\\odin-qwen2.5-7b.gguf",
+      "gguf_base": "foundation_v1.gguf",
+      "enabled": false,
+      "note": "The Guild dashboard in MaelstromUI surfaces Odin's task registry"
     },
-    "dionysus": {
-      "id": "specialist_dionysus",
-      "name": "Dionysus",
-      "domain": "Experience",
-      "role": "Experience & Memory Curator",
-      "gguf_path": "D:\\Aaroneous\\models\\dionysus-qwen2.5-0.5b.gguf",
-      "gguf_base": "qwen2.5-0.5b-instruct-abliterated.gguf",
-      "hox_preset": "D:\\Aaroneous\\registry\\hox_specialist_dionysus.json",
-      "relic_binding": "relic_omni",
-      "status": "ready",
-      "created_at": "2026-04-28T12:00:00Z"
-    },
-    "hephaestus": {
-      "id": "specialist_hephaestus",
-      "name": "Hephaestus",
-      "domain": "Manufacturing",
-      "role": "Manufacturing & Execution Engine",
-      "gguf_path": "D:\\Aaroneous\\models\\hephaestus-qwen2.5-1.5b.gguf",
-      "gguf_base": "qwen2.5-1.5b-instruct-abliterated.gguf",
-      "hox_preset": "D:\\Aaroneous\\registry\\hox_specialist_hephaestus.json",
-      "relic_binding": "relic_forge",
-      "status": "ready",
-      "created_at": "2026-04-28T12:00:00Z"
-    },
-    "argus": {
-      "id": "specialist_argus",
+    "Argus": {
       "name": "Argus",
-      "domain": "Security",
-      "role": "Security Warden & Sentinel",
-      "gguf_path": "D:\\Aaroneous\\models\\argus-qwen2.5-0.5b.gguf",
-      "gguf_base": "qwen2.5-0.5b-instruct-abliterated.gguf",
-      "hox_preset": "D:\\Aaroneous\\registry\\hox_specialist_argus.json",
-      "relic_binding": "relic_sentinel",
-      "status": "ready",
-      "created_at": "2026-04-28T12:00:00Z"
+      "domain": "security_audit",
+      "full_domain": "Security auditing, secrets management, vulnerability scanning, Git audit, dependency checking, API key storage",
+      "persona": "The security warden who sees everything. Manages API keys in the vault, runs dependency vulnerability scans (internalized Dependabot), enforces Git commit policies, produces security reports. Thinks adversarially — assumes breach, verifies trust.",
+      "capabilities": ["vulnerability_scan", "secrets_vault", "git_audit", "dependency_check", "security_report", "api_key_management"],
+      "gguf_path": "D:\\Aaroneous\\models\\argus-qwen2.5-7b.gguf",
+      "gguf_base": "foundation_v1.gguf",
+      "enabled": false,
+      "note": "Requires elevated permissions for secrets vault access"
+    },
+    "Hephaestus": {
+      "name": "Hephaestus",
+      "domain": "fabrication",
+      "full_domain": "Fabrication, maintenance, system expansion, build automation, infrastructure repair",
+      "persona": "The master craftsman. Maintains and expands the hive's infrastructure — builds new components, repairs broken systems, automates build pipelines, and forges new capabilities from raw materials.",
+      "capabilities": ["build_automation", "system_repair", "infrastructure_expansion", "dependency_maintenance", "forge_operations", "patch_management"],
+      "gguf_path": "D:\\Aaroneous\\models\\hephaestus-qwen2.5-7b.gguf",
+      "gguf_base": "foundation_v1.gguf",
+      "enabled": false,
+      "note": "Hephaestus owns the Fabrication department — maintenance and expansion"
     }
   },
-  "supervisor_relationships": {
-    "ariel": "relic_glass",
-    "merlin": "relic_grimoire",
-    "odin": "relic_draupnir",
-    "dionysus": "relic_omni",
-    "hephaestus": "relic_forge",
-    "argus": "relic_sentinel"
+  "guild_config": {
+    "coordinator": "Odin",
+    "dashboard_view": "guild",
+    "task_registry_db": "D:\\Aaroneous\\guild.db",
+    "intent_routing_policy": "Odin receives all intents first, decomposes them, and routes subtasks to appropriate sovereigns",
+    "note": "The Guild is a coordination layer within MaelstromUI — not a separate application. Switchable view panel, no separate window needed."
   },
-  "execution_history": [],
-  "error_log": []
+  "department_assignments": {
+    "Fabrication": "Hephaestus — maintenance, expansion, build systems",
+    "Research": "Merlin — external knowledge, Internet/GitHub queries",
+    "Security": "Argus — secrets, vulnerabilities, Git audit",
+    "Guild_Coordination": "Odin — intent routing, task tracking, resource management",
+    "Design_Visual": "Ariel — UI/UX, Maelstrom, spatial visualization",
+    "Memory_Learning": "Dionysus — DNA Bank, pattern consolidation",
+    "Spatial_Physical": "Kami — AR/VR, physical/digital threshold",
+    "Human_State": "Wen — biometric, user adaptation",
+    "Network_Sync": "Omnipresent — P2P, mesh (sovereign name TBD)"
+  }
 }

@@ -24,30 +24,57 @@ pub enum SpecialistId {
 }
 
 impl SpecialistId {
+    /// Internal persistence key — stable across versions, never changes.
+    /// Used for SQLite rows and config file keys.
     pub fn name(&self) -> &'static str {
         match self {
-            SpecialistId::Sentinel => "Sentinel",
-            SpecialistId::Visionary => "Visionary",
+            SpecialistId::Sentinel    => "Sentinel",
+            SpecialistId::Visionary   => "Visionary",
             SpecialistId::Omnipresent => "Omnipresent",
-            SpecialistId::Symbiotic => "Symbiotic",
-            SpecialistId::Phygital => "Phygital",
-            SpecialistId::Archivist => "Archivist",
+            SpecialistId::Symbiotic   => "Symbiotic",
+            SpecialistId::Phygital    => "Phygital",
+            SpecialistId::Archivist   => "Archivist",
+        }
+    }
+
+    /// Sovereign display name shown to users.
+    /// Decoupled from the persistence key so renaming is non-breaking.
+    pub fn sovereign_name(&self) -> &'static str {
+        match self {
+            SpecialistId::Sentinel    => "Sentinel",   // The Arbiter — federation arbitration
+            SpecialistId::Visionary   => "Ariel",      // UI/UX & Maelstrom spatial
+            SpecialistId::Omnipresent => "Omnipresent", // P2P sync (sovereign name pending)
+            SpecialistId::Symbiotic   => "Wen",        // Warm, literary, cultured — reads the human
+            SpecialistId::Phygital    => "Kami",       // Spirits of the physical/digital threshold
+            SpecialistId::Archivist   => "Dionysus",   // DNA Bank / memory / experience
+        }
+    }
+
+    /// Short domain description for UI display.
+    pub fn domain(&self) -> &'static str {
+        match self {
+            SpecialistId::Sentinel    => "Federation arbitration & orchestration",
+            SpecialistId::Visionary   => "UI/UX design generation & Maelstrom visualization",
+            SpecialistId::Omnipresent => "P2P multi-device sync & mesh coordination",
+            SpecialistId::Symbiotic   => "Biometric classification & human state adaptation",
+            SpecialistId::Phygital    => "AR/VR spatial rendering — physical/digital threshold",
+            SpecialistId::Archivist   => "DNA Bank memory consolidation & pattern learning",
         }
     }
 
     pub fn model_size_mb(&self) -> u32 {
         match self {
-            SpecialistId::Sentinel => 2000,
-            SpecialistId::Visionary => 1000,
+            SpecialistId::Sentinel    => 2000,
+            SpecialistId::Visionary   => 1000,
             SpecialistId::Omnipresent => 1000,
-            SpecialistId::Symbiotic => 500,
-            SpecialistId::Phygital => 1000,
-            SpecialistId::Archivist => 500,
+            SpecialistId::Symbiotic   => 500,
+            SpecialistId::Phygital    => 1000,
+            SpecialistId::Archivist   => 500,
         }
     }
 
     pub fn is_core(&self) -> bool {
-        true // All 6 are core specialists
+        true
     }
 }
 

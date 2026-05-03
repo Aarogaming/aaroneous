@@ -362,8 +362,11 @@ async fn get_results(State(state): State<AppState>) -> Json<serde_json::Value> {
 /// Convert an ExecutionResult to a JSON value for SSE/REST responses.
 fn result_to_json(r: &crate::federation::specialist::ExecutionResult) -> serde_json::Value {
     serde_json::json!({
-        "specialist": r.specialist_name.as_deref().unwrap_or_else(|| r.specialist.name()),
+        // Use sovereign_name() for core specialists, specialist_name for dynamics
+        "specialist": r.specialist_name.as_deref()
+            .unwrap_or_else(|| r.specialist.sovereign_name()),
         "specialist_id": format!("{:?}", r.specialist),
+        "internal_id": r.specialist.name(),
         "proposal_id": r.proposal_id,
         "status": format!("{:?}", r.status),
         "output": r.output,
@@ -690,11 +693,30 @@ async fn get_specialists_snapshot(
         };
     }
 
-    push_core!(summary.visionary,   "Visionary",   "UI/UX design generation");
-    push_core!(summary.omnipresent, "Omnipresent", "P2P multi-device sync");
-    push_core!(summary.symbiotic,   "Symbiotic",   "Biometric classification");
-    push_core!(summary.phygital,    "Phygital",    "AR/VR spatial rendering");
-    push_core!(summary.archivist,   "Archivist",   "DNA Bank memory consolidation");
+    // Use sovereign_name() for display, name() for persistence/routing
+    use crate::federation::specialist::SpecialistId;
+    macro_rules! push_core_id {
+        ($field:expr, $id:expr) => {
+            specialists.push(serde_json::json!({
+                "name": $id.sovereign_name(),
+                "internal_name": $id.name(),
+                "domain": $id.domain(),
+                "kind": "core",
+                "active_intent": intent,
+                "learning": $field.as_ref().map(|s| serde_json::json!({
+                    "confidence": s.confidence_score,
+                    "total_executions": s.total_executions,
+                    "success_rate": s.success_rate_percent(),
+                    "last_updated": s.last_updated,
+                })),
+            }));
+        };
+    }
+    push_core_id!(summary.visionary,   SpecialistId::Visionary);
+    push_core_id!(summary.omnipresent, SpecialistId::Omnipresent);
+    push_core_id!(summary.symbiotic,   SpecialistId::Symbiotic);
+    push_core_id!(summary.phygital,    SpecialistId::Phygital);
+    push_core_id!(summary.archivist,   SpecialistId::Archivist);
 
     for s in &dynamic {
         let l = s.learning.lock();
@@ -1123,12 +1145,21 @@ async fn reload_dynamic_specialists(
     let mut added = Vec::new();
     let mut skipped = Vec::new();
 
-    if let Some(entries) = registry
-        .get("dynamic_specialists")
-        .and_then(|d| d.get("examples"))
-        .and_then(|e| e.as_array())
-    {
-        for entry in entries {
+    // Support new "dynamic_sovereigns" key (flat object) and old "dynamic_specialists.examples"
+    let entries_vec: Vec<serde_json::Value> = registry
+        .get("dynamic_sovereigns")
+        .and_then(|d| d.as_object())
+        .map(|obj| obj.values().cloned().collect())
+        .or_else(|| {
+            registry.get("dynamic_specialists")
+                .and_then(|d| d.get("examples"))
+                .and_then(|e| e.as_array())
+                .cloned()
+        })
+        .unwrap_or_default();
+
+    if !entries_vec.is_empty() {
+        for entry in &entries_vec {
             let enabled = entry.get("enabled").and_then(|e| e.as_bool()).unwrap_or(false);
             if !enabled { continue; }
 
