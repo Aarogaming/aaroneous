@@ -4,41 +4,41 @@
   "gguf_version": 3,
   "architecture": "qwen2",
   "num_blocks": 27,
-  "tensor_count": 243,
-  "parameter_count_m": 5751.154176,
-  "file_size_mb": 3375.1582946777344,
-  "dissected_at": 1777830723679,
-  "dissection_duration_secs": 3.8743997,
+  "tensor_count": 183,
+  "parameter_count_m": 4630.679552,
+  "file_size_mb": 2642.432891845703,
+  "dissected_at": 1777842195345,
+  "dissection_duration_secs": 0.0104835,
   "blocks": [
     {
       "block_idx": 0,
-      "attn_weight_mean": 0.715308662531091,
-      "mlp_weight_mean": 0.2703483987660021,
+      "attn_weight_mean": 0.19796518225369006,
+      "mlp_weight_mean": 0.36000608501026365,
       "gate_sparsity": 1.0,
-      "attn_frobenius_norm": 1.0,
-      "mlp_frobenius_norm": 0.37962423966335285,
+      "attn_frobenius_norm": 0.3649338134931449,
+      "mlp_frobenius_norm": 0.44027311696405863,
       "specialization_score": 0.0,
-      "size_bytes": 149112832
+      "size_bytes": 138936320
     },
     {
       "block_idx": 1,
-      "attn_weight_mean": 0.4286927449536961,
-      "mlp_weight_mean": 0.4069350009402019,
+      "attn_weight_mean": 0.2513083836658335,
+      "mlp_weight_mean": 0.43595702446259565,
       "gate_sparsity": 1.0,
-      "attn_frobenius_norm": 1.0,
-      "mlp_frobenius_norm": 0.520429477001422,
+      "attn_frobenius_norm": 0.4056527797384965,
+      "mlp_frobenius_norm": 0.5256444683199252,
       "specialization_score": 0.0,
-      "size_bytes": 149112832
+      "size_bytes": 138936320
     },
     {
       "block_idx": 2,
-      "attn_weight_mean": 0.3664958738573053,
-      "mlp_weight_mean": 0.4179827047830354,
+      "attn_weight_mean": 0.5863021597939554,
+      "mlp_weight_mean": 0.4988169950527208,
       "gate_sparsity": 1.0,
-      "attn_frobenius_norm": 0.7870802547592397,
-      "mlp_frobenius_norm": 0.5241417019773754,
+      "attn_frobenius_norm": 0.8639365817341985,
+      "mlp_frobenius_norm": 0.6062349174998124,
       "specialization_score": 0.0,
-      "size_bytes": 149112832
+      "size_bytes": 138936320
     },
     {
       "block_idx": 3,
@@ -52,23 +52,23 @@
     },
     {
       "block_idx": 4,
-      "attn_weight_mean": 0.32322492654202506,
-      "mlp_weight_mean": 0.4776065998079363,
+      "attn_weight_mean": 0.5839800367175485,
+      "mlp_weight_mean": 0.5829966457427612,
       "gate_sparsity": 1.0,
-      "attn_frobenius_norm": 0.9923635836136531,
-      "mlp_frobenius_norm": 0.6676698806098769,
+      "attn_frobenius_norm": 0.8724970448170025,
+      "mlp_frobenius_norm": 0.7770610672066248,
       "specialization_score": 0.0,
-      "size_bytes": 131135488
+      "size_bytes": 122716160
     },
     {
       "block_idx": 5,
-      "attn_weight_mean": 0.4006264252198283,
-      "mlp_weight_mean": 0.5813491556313908,
+      "attn_weight_mean": 0.6812191528383664,
+      "mlp_weight_mean": 0.6562992312496395,
       "gate_sparsity": 1.0,
-      "attn_frobenius_norm": 0.9111367874264001,
-      "mlp_frobenius_norm": 0.7361834884573332,
+      "attn_frobenius_norm": 0.9264409194934299,
+      "mlp_frobenius_norm": 0.8751924012230323,
       "specialization_score": 0.0,
-      "size_bytes": 149112832
+      "size_bytes": 123797504
     },
     {
       "block_idx": 6,
@@ -82,33 +82,33 @@
     },
     {
       "block_idx": 7,
-      "attn_weight_mean": 0.2980446559716559,
-      "mlp_weight_mean": 0.285160039873937,
+      "attn_weight_mean": 0.7186873940154328,
+      "mlp_weight_mean": 0.7677184808167762,
       "gate_sparsity": 1.0,
-      "attn_frobenius_norm": 0.6811331621136022,
-      "mlp_frobenius_norm": 0.3939937292278025,
+      "attn_frobenius_norm": 1.0,
+      "mlp_frobenius_norm": 1.0,
       "specialization_score": 0.0,
-      "size_bytes": 131135488
+      "size_bytes": 122716160
     },
     {
       "block_idx": 8,
-      "attn_weight_mean": 0.38319441615188526,
-      "mlp_weight_mean": 0.3052595141522873,
+      "attn_weight_mean": 0.716029280110764,
+      "mlp_weight_mean": 0.8051907378664639,
       "gate_sparsity": 1.0,
-      "attn_frobenius_norm": 0.831490159234489,
-      "mlp_frobenius_norm": 0.4252309926346123,
+      "attn_frobenius_norm": 0.985743289620877,
+      "mlp_frobenius_norm": 1.0,
       "specialization_score": 0.0,
-      "size_bytes": 131608576
+      "size_bytes": 123797504
     },
     {
       "block_idx": 9,
-      "attn_weight_mean": 0.3423622095821581,
-      "mlp_weight_mean": 0.5233882849902569,
+      "attn_weight_mean": 0.907645517065248,
+      "mlp_weight_mean": 0.7673550264323239,
       "gate_sparsity": 1.0,
-      "attn_frobenius_norm": 0.7459211984523746,
-      "mlp_frobenius_norm": 0.6615789829959102,
+      "attn_frobenius_norm": 1.0,
+      "mlp_frobenius_norm": 0.9889651671290237,
       "specialization_score": 0.0,
-      "size_bytes": 148639744
+      "size_bytes": 137854976
     },
     {
       "block_idx": 10,
@@ -122,23 +122,23 @@
     },
     {
       "block_idx": 11,
-      "attn_weight_mean": 0.3566972013407697,
-      "mlp_weight_mean": 0.3454600657390144,
+      "attn_weight_mean": 0.9363556620592135,
+      "mlp_weight_mean": 0.8645932838220948,
       "gate_sparsity": 1.0,
       "attn_frobenius_norm": 1.0,
-      "mlp_frobenius_norm": 0.4943059847051083,
+      "mlp_frobenius_norm": 1.0,
       "specialization_score": 0.0,
-      "size_bytes": 131135488
+      "size_bytes": 122716160
     },
     {
       "block_idx": 12,
-      "attn_weight_mean": 0.3961877320852182,
-      "mlp_weight_mean": 0.3362303263006302,
+      "attn_weight_mean": 0.9251791923951384,
+      "mlp_weight_mean": 0.8414132636782596,
       "gate_sparsity": 1.0,
-      "attn_frobenius_norm": 0.8180904552566783,
-      "mlp_frobenius_norm": 0.48439758871724264,
+      "attn_frobenius_norm": 1.0,
+      "mlp_frobenius_norm": 1.0,
       "specialization_score": 0.0,
-      "size_bytes": 131608576
+      "size_bytes": 138936320
     },
     {
       "block_idx": 13,
@@ -152,33 +152,33 @@
     },
     {
       "block_idx": 14,
-      "attn_weight_mean": 0.36373956095970544,
-      "mlp_weight_mean": 0.34992651728232604,
+      "attn_weight_mean": 1.0,
+      "mlp_weight_mean": 1.0,
       "gate_sparsity": 1.0,
-      "attn_frobenius_norm": 0.8952499644093392,
-      "mlp_frobenius_norm": 0.5084748046305047,
+      "attn_frobenius_norm": 1.0,
+      "mlp_frobenius_norm": 1.0,
       "specialization_score": 0.0,
-      "size_bytes": 131135488
+      "size_bytes": 122716160
     },
     {
       "block_idx": 15,
-      "attn_weight_mean": 0.43136295111838385,
-      "mlp_weight_mean": 0.35206206110664284,
+      "attn_weight_mean": 1.0,
+      "mlp_weight_mean": 0.962193114702768,
       "gate_sparsity": 1.0,
-      "attn_frobenius_norm": 0.9469692021601464,
-      "mlp_frobenius_norm": 0.514524747412848,
+      "attn_frobenius_norm": 1.0,
+      "mlp_frobenius_norm": 1.0,
       "specialization_score": 0.0,
-      "size_bytes": 131608576
+      "size_bytes": 138936320
     },
     {
       "block_idx": 16,
-      "attn_weight_mean": 0.3677806972943169,
-      "mlp_weight_mean": 0.4499898121444666,
+      "attn_weight_mean": 1.0,
+      "mlp_weight_mean": 1.0,
       "gate_sparsity": 1.0,
-      "attn_frobenius_norm": 0.812893023623964,
-      "mlp_frobenius_norm": 0.5696818810400599,
+      "attn_frobenius_norm": 1.0,
+      "mlp_frobenius_norm": 1.0,
       "specialization_score": 0.0,
-      "size_bytes": 148639744
+      "size_bytes": 122716160
     },
     {
       "block_idx": 17,
@@ -192,23 +192,23 @@
     },
     {
       "block_idx": 18,
-      "attn_weight_mean": 0.4877158781313483,
-      "mlp_weight_mean": 0.3828023794877271,
+      "attn_weight_mean": 1.0,
+      "mlp_weight_mean": 1.0,
       "gate_sparsity": 1.0,
       "attn_frobenius_norm": 1.0,
-      "mlp_frobenius_norm": 0.554734430786373,
+      "mlp_frobenius_norm": 1.0,
       "specialization_score": 0.0,
-      "size_bytes": 131608576
+      "size_bytes": 138936320
     },
     {
       "block_idx": 19,
-      "attn_weight_mean": 0.48371731688287883,
-      "mlp_weight_mean": 0.4100240106210829,
+      "attn_weight_mean": 1.0,
+      "mlp_weight_mean": 1.0,
       "gate_sparsity": 1.0,
       "attn_frobenius_norm": 1.0,
-      "mlp_frobenius_norm": 0.5849811048347412,
+      "mlp_frobenius_norm": 1.0,
       "specialization_score": 0.0,
-      "size_bytes": 131135488
+      "size_bytes": 122716160
     },
     {
       "block_idx": 20,
@@ -222,33 +222,33 @@
     },
     {
       "block_idx": 21,
-      "attn_weight_mean": 0.3997171125956811,
-      "mlp_weight_mean": 0.49088480919957733,
+      "attn_weight_mean": 1.0,
+      "mlp_weight_mean": 1.0,
       "gate_sparsity": 1.0,
-      "attn_frobenius_norm": 0.8279113546456944,
-      "mlp_frobenius_norm": 0.6820417908723518,
+      "attn_frobenius_norm": 1.0,
+      "mlp_frobenius_norm": 1.0,
       "specialization_score": 0.0,
-      "size_bytes": 131135488
+      "size_bytes": 138936320
     },
     {
       "block_idx": 22,
-      "attn_weight_mean": 0.38703721421673737,
-      "mlp_weight_mean": 0.5555784257773596,
+      "attn_weight_mean": 1.0,
+      "mlp_weight_mean": 1.0,
       "gate_sparsity": 1.0,
-      "attn_frobenius_norm": 0.782708116855604,
-      "mlp_frobenius_norm": 0.7693038160271896,
+      "attn_frobenius_norm": 1.0,
+      "mlp_frobenius_norm": 1.0,
       "specialization_score": 0.0,
-      "size_bytes": 131135488
+      "size_bytes": 122716160
     },
     {
       "block_idx": 23,
-      "attn_weight_mean": 0.446450714323934,
-      "mlp_weight_mean": 0.6416392282126253,
+      "attn_weight_mean": 1.0,
+      "mlp_weight_mean": 1.0,
       "gate_sparsity": 1.0,
-      "attn_frobenius_norm": 0.769367536278228,
-      "mlp_frobenius_norm": 0.8198189986106398,
+      "attn_frobenius_norm": 1.0,
+      "mlp_frobenius_norm": 1.0,
       "specialization_score": 0.0,
-      "size_bytes": 149112832
+      "size_bytes": 122716160
     },
     {
       "block_idx": 24,
@@ -262,47 +262,47 @@
     },
     {
       "block_idx": 25,
-      "attn_weight_mean": 0.4614509411024604,
-      "mlp_weight_mean": 0.7035469700653457,
+      "attn_weight_mean": 1.0,
+      "mlp_weight_mean": 1.0,
       "gate_sparsity": 1.0,
-      "attn_frobenius_norm": 0.8036132612381021,
-      "mlp_frobenius_norm": 0.9121734632686082,
+      "attn_frobenius_norm": 1.0,
+      "mlp_frobenius_norm": 1.0,
       "specialization_score": 0.0,
-      "size_bytes": 149112832
+      "size_bytes": 122716160
     },
     {
       "block_idx": 26,
-      "attn_weight_mean": 0.45958713104176546,
-      "mlp_weight_mean": 0.7083149331790417,
+      "attn_weight_mean": 1.0,
+      "mlp_weight_mean": 1.0,
       "gate_sparsity": 1.0,
-      "attn_frobenius_norm": 0.863754786772775,
-      "mlp_frobenius_norm": 0.915784851976274,
+      "attn_frobenius_norm": 1.0,
+      "mlp_frobenius_norm": 1.0,
       "specialization_score": 0.0,
-      "size_bytes": 149112832
+      "size_bytes": 122716160
     }
   ],
   "genome_loci": {
+    "depth_gradient": 0.38580940237574707,
+    "model_density": 0.022020274098714192,
+    "embedding_norm_mean": 0.000699891346770904,
+    "embedding_activation_density": 0.0,
+    "attn_mlp_ratio": 0.4988554379141309,
     "depth": 0.84375,
-    "mlp_intensity": 0.5412896167284859,
-    "model_density": 0.3375158294677734,
-    "embedding_activation_density": 1.0,
-    "layer_specialization_variance": 0.1151102343504881,
-    "attn_mlp_ratio": 0.461359958650198,
-    "depth_gradient": 0.4827096068061425,
-    "embedding_norm_mean": 0.03766350085677903,
-    "cross_block_correlation_mean": 0.44626545750157004,
+    "attention_intensity": 0.4988554379141309,
+    "cross_block_correlation_mean": 0.2084037904893046,
     "gate_sparsity": 0.7407407407407407,
-    "parameter_density": 0.08215934537142858,
-    "attention_intensity": 0.461359958650198
+    "layer_specialization_variance": 0.08631786102409998,
+    "parameter_density": 0.02315339776,
+    "mlp_intensity": 0.5006453940789766
   },
   "genetic_loci": [
     {
       "locus_id": "ariel-qwen2.5-7b-attention_intensity",
       "category": "AttentionGenetics",
       "source": "WeightAnalysis",
-      "value": 0.461359958650198,
+      "value": 0.4988554379141309,
       "confidence": 0.88,
-      "interpretation": "Attention-to-MLP weight ratio 0.923 — balanced model"
+      "interpretation": "Attention-to-MLP weight ratio 0.998 — balanced model"
     },
     {
       "locus_id": "ariel-qwen2.5-7b-gate_sparsity",
@@ -316,23 +316,23 @@
       "locus_id": "ariel-qwen2.5-7b-depth_gradient",
       "category": "LayerGenetics",
       "source": "WeightAnalysis",
-      "value": 0.4827096068061425,
+      "value": 0.38580940237574707,
       "confidence": 0.82,
-      "interpretation": "Cross-block correlation variance 0.483 — strong hierarchical abstraction"
+      "interpretation": "Cross-block correlation variance 0.386 — shallow hierarchical abstraction"
     },
     {
       "locus_id": "ariel-qwen2.5-7b-embedding_density",
       "category": "EmbeddingGenetics",
       "source": "WeightAnalysis",
-      "value": 1.0,
+      "value": 0.0,
       "confidence": 0.8,
-      "interpretation": "Token embedding activation density 100.0% — broad general vocabulary coverage"
+      "interpretation": "Token embedding activation density 0.0% — focused domain vocabulary coverage"
     },
     {
       "locus_id": "ariel-qwen2.5-7b-layer_variance",
       "category": "SpecializationGenetics",
       "source": "WeightAnalysis",
-      "value": 0.1151102343504881,
+      "value": 0.08631786102409998,
       "confidence": 0.78,
       "interpretation": "Per-block specialization variance — high = heterogeneous blocks, low = uniform depth"
     },
@@ -340,7 +340,7 @@
       "locus_id": "ariel-qwen2.5-7b-cross_block_cohesion",
       "category": "LayerGenetics",
       "source": "WeightAnalysis",
-      "value": 0.44626545750157004,
+      "value": 0.2084037904893046,
       "confidence": 0.75,
       "interpretation": "Mean adjacent-block weight correlation — high = smooth representation, low = discrete stages"
     },
@@ -348,7 +348,7 @@
       "locus_id": "ariel-qwen2.5-7b-block_0_attn",
       "category": "AttentionGenetics",
       "source": "WeightAnalysis",
-      "value": 0.715308662531091,
+      "value": 0.19796518225369006,
       "confidence": 0.72,
       "interpretation": "Block 0 attention weight magnitude"
     },
@@ -364,7 +364,7 @@
       "locus_id": "ariel-qwen2.5-7b-block_0_spec",
       "category": "SpecializationGenetics",
       "source": "WeightAnalysis",
-      "value": 0.734885366691294,
+      "value": 0.5441302496373874,
       "confidence": 0.75,
       "interpretation": "Block 0 specialization score (deviation from model mean)"
     },
@@ -372,7 +372,7 @@
       "locus_id": "ariel-qwen2.5-7b-block_1_attn",
       "category": "AttentionGenetics",
       "source": "WeightAnalysis",
-      "value": 0.4286927449536961,
+      "value": 0.2513083836658335,
       "confidence": 0.72,
       "interpretation": "Block 1 attention weight magnitude"
     },
@@ -388,7 +388,7 @@
       "locus_id": "ariel-qwen2.5-7b-block_1_spec",
       "category": "SpecializationGenetics",
       "source": "WeightAnalysis",
-      "value": 0.3046201568029568,
+      "value": 0.43849526235881464,
       "confidence": 0.75,
       "interpretation": "Block 1 specialization score (deviation from model mean)"
     },
@@ -396,7 +396,7 @@
       "locus_id": "ariel-qwen2.5-7b-block_2_attn",
       "category": "AttentionGenetics",
       "source": "WeightAnalysis",
-      "value": 0.3664958738573053,
+      "value": 0.5863021597939554,
       "confidence": 0.72,
       "interpretation": "Block 2 attention weight magnitude"
     },
@@ -412,7 +412,7 @@
       "locus_id": "ariel-qwen2.5-7b-block_2_spec",
       "category": "SpecializationGenetics",
       "source": "WeightAnalysis",
-      "value": 0.22476374354887907,
+      "value": 0.11344359959733634,
       "confidence": 0.75,
       "interpretation": "Block 2 specialization score (deviation from model mean)"
     },
@@ -444,7 +444,7 @@
       "locus_id": "ariel-qwen2.5-7b-block_4_attn",
       "category": "AttentionGenetics",
       "source": "WeightAnalysis",
-      "value": 0.32322492654202506,
+      "value": 0.5839800367175485,
       "confidence": 0.72,
       "interpretation": "Block 4 attention weight magnitude"
     },
@@ -460,7 +460,7 @@
       "locus_id": "ariel-qwen2.5-7b-block_4_spec",
       "category": "SpecializationGenetics",
       "source": "WeightAnalysis",
-      "value": 0.250294711506739,
+      "value": 0.04656493958763569,
       "confidence": 0.75,
       "interpretation": "Block 4 specialization score (deviation from model mean)"
     },
@@ -468,7 +468,7 @@
       "locus_id": "ariel-qwen2.5-7b-block_5_attn",
       "category": "AttentionGenetics",
       "source": "WeightAnalysis",
-      "value": 0.4006264252198283,
+      "value": 0.6812191528383664,
       "confidence": 0.72,
       "interpretation": "Block 5 attention weight magnitude"
     },
@@ -484,7 +484,7 @@
       "locus_id": "ariel-qwen2.5-7b-block_5_spec",
       "category": "SpecializationGenetics",
       "source": "WeightAnalysis",
-      "value": 0.5331050728771008,
+      "value": 0.09276983893717874,
       "confidence": 0.75,
       "interpretation": "Block 5 specialization score (deviation from model mean)"
     },
@@ -516,7 +516,7 @@
       "locus_id": "ariel-qwen2.5-7b-block_7_attn",
       "category": "AttentionGenetics",
       "source": "WeightAnalysis",
-      "value": 0.2980446559716559,
+      "value": 0.7186873940154328,
       "confidence": 0.72,
       "interpretation": "Block 7 attention weight magnitude"
     },
@@ -532,7 +532,7 @@
       "locus_id": "ariel-qwen2.5-7b-block_7_spec",
       "category": "SpecializationGenetics",
       "source": "WeightAnalysis",
-      "value": 0.08947422404173401,
+      "value": 0.21441284677608868,
       "confidence": 0.75,
       "interpretation": "Block 7 specialization score (deviation from model mean)"
     },
@@ -540,7 +540,7 @@
       "locus_id": "ariel-qwen2.5-7b-block_8_attn",
       "category": "AttentionGenetics",
       "source": "WeightAnalysis",
-      "value": 0.38319441615188526,
+      "value": 0.716029280110764,
       "confidence": 0.72,
       "interpretation": "Block 8 attention weight magnitude"
     },
@@ -556,7 +556,7 @@
       "locus_id": "ariel-qwen2.5-7b-block_8_spec",
       "category": "SpecializationGenetics",
       "source": "WeightAnalysis",
-      "value": 0.16186862883161673,
+      "value": 0.2428564525238023,
       "confidence": 0.75,
       "interpretation": "Block 8 specialization score (deviation from model mean)"
     },
@@ -564,7 +564,7 @@
       "locus_id": "ariel-qwen2.5-7b-block_9_attn",
       "category": "AttentionGenetics",
       "source": "WeightAnalysis",
-      "value": 0.3423622095821581,
+      "value": 0.907645517065248,
       "confidence": 0.72,
       "interpretation": "Block 9 attention weight magnitude"
     },
@@ -580,7 +580,7 @@
       "locus_id": "ariel-qwen2.5-7b-block_9_spec",
       "category": "SpecializationGenetics",
       "source": "WeightAnalysis",
-      "value": 0.35164916618830666,
+      "value": 0.36849713313330623,
       "confidence": 0.75,
       "interpretation": "Block 9 specialization score (deviation from model mean)"
     },
@@ -612,7 +612,7 @@
       "locus_id": "ariel-qwen2.5-7b-block_11_attn",
       "category": "AttentionGenetics",
       "source": "WeightAnalysis",
-      "value": 0.3566972013407697,
+      "value": 0.9363556620592135,
       "confidence": 0.72,
       "interpretation": "Block 11 attention weight magnitude"
     },
@@ -628,7 +628,7 @@
       "locus_id": "ariel-qwen2.5-7b-block_11_spec",
       "category": "SpecializationGenetics",
       "source": "WeightAnalysis",
-      "value": 0.09623995658262502,
+      "value": 0.47139860875011885,
       "confidence": 0.75,
       "interpretation": "Block 11 specialization score (deviation from model mean)"
     },
@@ -636,7 +636,7 @@
       "locus_id": "ariel-qwen2.5-7b-block_12_attn",
       "category": "AttentionGenetics",
       "source": "WeightAnalysis",
-      "value": 0.3961877320852182,
+      "value": 0.9251791923951384,
       "confidence": 0.72,
       "interpretation": "Block 12 attention weight magnitude"
     },
@@ -652,7 +652,7 @@
       "locus_id": "ariel-qwen2.5-7b-block_12_spec",
       "category": "SpecializationGenetics",
       "source": "WeightAnalysis",
-      "value": 0.14348448441537112,
+      "value": 0.44332891170484323,
       "confidence": 0.75,
       "interpretation": "Block 12 specialization score (deviation from model mean)"
     },
@@ -684,7 +684,7 @@
       "locus_id": "ariel-qwen2.5-7b-block_14_attn",
       "category": "AttentionGenetics",
       "source": "WeightAnalysis",
-      "value": 0.36373956095970544,
+      "value": 1.0,
       "confidence": 0.72,
       "interpretation": "Block 14 attention weight magnitude"
     },
@@ -700,7 +700,7 @@
       "locus_id": "ariel-qwen2.5-7b-block_14_spec",
       "category": "SpecializationGenetics",
       "source": "WeightAnalysis",
-      "value": 0.11420803758147359,
+      "value": 0.6340258974194058,
       "confidence": 0.75,
       "interpretation": "Block 14 specialization score (deviation from model mean)"
     },
@@ -708,7 +708,7 @@
       "locus_id": "ariel-qwen2.5-7b-block_15_attn",
       "category": "AttentionGenetics",
       "source": "WeightAnalysis",
-      "value": 0.43136295111838385,
+      "value": 1.0,
       "confidence": 0.72,
       "interpretation": "Block 15 attention weight magnitude"
     },
@@ -724,7 +724,7 @@
       "locus_id": "ariel-qwen2.5-7b-block_15_spec",
       "category": "SpecializationGenetics",
       "source": "WeightAnalysis",
-      "value": 0.22311886759938682,
+      "value": 0.6031371825811849,
       "confidence": 0.75,
       "interpretation": "Block 15 specialization score (deviation from model mean)"
     },
@@ -732,7 +732,7 @@
       "locus_id": "ariel-qwen2.5-7b-block_16_attn",
       "category": "AttentionGenetics",
       "source": "WeightAnalysis",
-      "value": 0.3677806972943169,
+      "value": 1.0,
       "confidence": 0.72,
       "interpretation": "Block 16 attention weight magnitude"
     },
@@ -748,7 +748,7 @@
       "locus_id": "ariel-qwen2.5-7b-block_16_spec",
       "category": "SpecializationGenetics",
       "source": "WeightAnalysis",
-      "value": 0.2767406246325434,
+      "value": 0.6340258974194058,
       "confidence": 0.75,
       "interpretation": "Block 16 specialization score (deviation from model mean)"
     },
@@ -780,7 +780,7 @@
       "locus_id": "ariel-qwen2.5-7b-block_18_attn",
       "category": "AttentionGenetics",
       "source": "WeightAnalysis",
-      "value": 0.4877158781313483,
+      "value": 1.0,
       "confidence": 0.72,
       "interpretation": "Block 18 attention weight magnitude"
     },
@@ -796,7 +796,7 @@
       "locus_id": "ariel-qwen2.5-7b-block_18_spec",
       "category": "SpecializationGenetics",
       "source": "WeightAnalysis",
-      "value": 0.35909281535397625,
+      "value": 0.6340258974194058,
       "confidence": 0.75,
       "interpretation": "Block 18 specialization score (deviation from model mean)"
     },
@@ -804,7 +804,7 @@
       "locus_id": "ariel-qwen2.5-7b-block_19_attn",
       "category": "AttentionGenetics",
       "source": "WeightAnalysis",
-      "value": 0.48371731688287883,
+      "value": 1.0,
       "confidence": 0.72,
       "interpretation": "Block 19 attention weight magnitude"
     },
@@ -820,7 +820,7 @@
       "locus_id": "ariel-qwen2.5-7b-block_19_spec",
       "category": "SpecializationGenetics",
       "source": "WeightAnalysis",
-      "value": 0.3953497314551242,
+      "value": 0.6340258974194058,
       "confidence": 0.75,
       "interpretation": "Block 19 specialization score (deviation from model mean)"
     },
@@ -852,7 +852,7 @@
       "locus_id": "ariel-qwen2.5-7b-block_21_attn",
       "category": "AttentionGenetics",
       "source": "WeightAnalysis",
-      "value": 0.3997171125956811,
+      "value": 1.0,
       "confidence": 0.72,
       "interpretation": "Block 21 attention weight magnitude"
     },
@@ -868,7 +868,7 @@
       "locus_id": "ariel-qwen2.5-7b-block_21_spec",
       "category": "SpecializationGenetics",
       "source": "WeightAnalysis",
-      "value": 0.39044834804835943,
+      "value": 0.6340258974194058,
       "confidence": 0.75,
       "interpretation": "Block 21 specialization score (deviation from model mean)"
     },
@@ -876,7 +876,7 @@
       "locus_id": "ariel-qwen2.5-7b-block_22_attn",
       "category": "AttentionGenetics",
       "source": "WeightAnalysis",
-      "value": 0.38703721421673737,
+      "value": 1.0,
       "confidence": 0.72,
       "interpretation": "Block 22 attention weight magnitude"
     },
@@ -892,7 +892,7 @@
       "locus_id": "ariel-qwen2.5-7b-block_22_spec",
       "category": "SpecializationGenetics",
       "source": "WeightAnalysis",
-      "value": 0.47165453767755067,
+      "value": 0.6340258974194058,
       "confidence": 0.75,
       "interpretation": "Block 22 specialization score (deviation from model mean)"
     },
@@ -900,7 +900,7 @@
       "locus_id": "ariel-qwen2.5-7b-block_23_attn",
       "category": "AttentionGenetics",
       "source": "WeightAnalysis",
-      "value": 0.446450714323934,
+      "value": 1.0,
       "confidence": 0.72,
       "interpretation": "Block 23 attention weight magnitude"
     },
@@ -916,7 +916,7 @@
       "locus_id": "ariel-qwen2.5-7b-block_23_spec",
       "category": "SpecializationGenetics",
       "source": "WeightAnalysis",
-      "value": 0.6987756550965575,
+      "value": 0.6340258974194058,
       "confidence": 0.75,
       "interpretation": "Block 23 specialization score (deviation from model mean)"
     },
@@ -948,7 +948,7 @@
       "locus_id": "ariel-qwen2.5-7b-block_25_attn",
       "category": "AttentionGenetics",
       "source": "WeightAnalysis",
-      "value": 0.4614509411024604,
+      "value": 1.0,
       "confidence": 0.72,
       "interpretation": "Block 25 attention weight magnitude"
     },
@@ -964,7 +964,7 @@
       "locus_id": "ariel-qwen2.5-7b-block_25_spec",
       "category": "SpecializationGenetics",
       "source": "WeightAnalysis",
-      "value": 0.8188478841340959,
+      "value": 0.6340258974194058,
       "confidence": 0.75,
       "interpretation": "Block 25 specialization score (deviation from model mean)"
     },
@@ -972,7 +972,7 @@
       "locus_id": "ariel-qwen2.5-7b-block_26_attn",
       "category": "AttentionGenetics",
       "source": "WeightAnalysis",
-      "value": 0.45958713104176546,
+      "value": 1.0,
       "confidence": 0.72,
       "interpretation": "Block 26 attention weight magnitude"
     },
@@ -988,42 +988,42 @@
       "locus_id": "ariel-qwen2.5-7b-block_26_spec",
       "category": "SpecializationGenetics",
       "source": "WeightAnalysis",
-      "value": 0.8233819803629532,
+      "value": 0.6340258974194058,
       "confidence": 0.75,
       "interpretation": "Block 26 specialization score (deviation from model mean)"
     }
   ],
   "cross_block_correlation": [
-    0.8633911907951998,
-    0.9532637411013031,
+    0.998722942708459,
+    0.7470327444573904,
     0.0,
     0.0,
-    0.9889492472485515,
+    0.99554354263933,
     0.0,
     0.0,
-    0.980064349388405,
-    0.9210063261378485,
+    0.9905812433569061,
+    0.6866197765331201,
     0.0,
     0.0,
-    0.9711121944960702,
+    0.9999983030267139,
     0.0,
     0.0,
-    0.9950302424906998,
-    0.9595322704336303,
     0.0,
     0.0,
-    0.9993272579202253,
     0.0,
     0.0,
-    0.987344782465765,
-    0.99179091247398,
     0.0,
     0.0,
-    0.9920893800891417
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0
   ],
   "splice_boundary": 3,
-  "embedding_activation_density": 1.0,
-  "embedding_norm_mean": 0.03766350085677903,
+  "embedding_activation_density": 0.0,
+  "embedding_norm_mean": 0.000699891346770904,
   "embedding_norm_std": 0.0,
-  "dna_fingerprint": 11128234333210467441
+  "dna_fingerprint": 7110524804090611709
 }

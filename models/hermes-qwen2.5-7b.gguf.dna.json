@@ -6,9 +6,9 @@
   "num_blocks": 27,
   "tensor_count": 195,
   "parameter_count_m": 4818.923008,
-  "file_size_mb": 2823.4798889160156,
-  "dissected_at": 1777830723358,
-  "dissection_duration_secs": 3.5253078,
+  "file_size_mb": 2823.47998046875,
+  "dissected_at": 1777842195374,
+  "dissection_duration_secs": 0.0109273,
   "blocks": [
     {
       "block_idx": 0,
@@ -16,7 +16,7 @@
       "mlp_weight_mean": 0.2703483987660021,
       "gate_sparsity": 1.0,
       "attn_frobenius_norm": 1.0,
-      "mlp_frobenius_norm": 0.37962423966335346,
+      "mlp_frobenius_norm": 0.3796242396633531,
       "specialization_score": 0.0,
       "size_bytes": 149112832
     },
@@ -26,7 +26,7 @@
       "mlp_weight_mean": 0.4069350009402019,
       "gate_sparsity": 1.0,
       "attn_frobenius_norm": 1.0,
-      "mlp_frobenius_norm": 0.5204294770014193,
+      "mlp_frobenius_norm": 0.5204294770014194,
       "specialization_score": 0.0,
       "size_bytes": 149112832
     },
@@ -46,7 +46,7 @@
       "mlp_weight_mean": 0.4749042903108952,
       "gate_sparsity": 1.0,
       "attn_frobenius_norm": 1.0,
-      "mlp_frobenius_norm": 0.6621601167135301,
+      "mlp_frobenius_norm": 0.6621601167135333,
       "specialization_score": 0.0,
       "size_bytes": 131135488
     },
@@ -65,8 +65,8 @@
       "attn_weight_mean": 0.4006264252198283,
       "mlp_weight_mean": 0.5813491556313908,
       "gate_sparsity": 1.0,
-      "attn_frobenius_norm": 0.9111367874263988,
-      "mlp_frobenius_norm": 0.7361834884573324,
+      "attn_frobenius_norm": 0.9111367874263986,
+      "mlp_frobenius_norm": 0.7361834884573278,
       "specialization_score": 0.0,
       "size_bytes": 149112832
     },
@@ -85,7 +85,7 @@
       "attn_weight_mean": 0.2980446559716559,
       "mlp_weight_mean": 0.285160039873937,
       "gate_sparsity": 1.0,
-      "attn_frobenius_norm": 0.6811331621135979,
+      "attn_frobenius_norm": 0.6811331621135985,
       "mlp_frobenius_norm": 0.3939937292278025,
       "specialization_score": 0.0,
       "size_bytes": 131135488
@@ -95,8 +95,8 @@
       "attn_weight_mean": 0.38319441615188526,
       "mlp_weight_mean": 0.3052595141522873,
       "gate_sparsity": 1.0,
-      "attn_frobenius_norm": 0.8314901592344891,
-      "mlp_frobenius_norm": 0.4252309926346123,
+      "attn_frobenius_norm": 0.831490159234491,
+      "mlp_frobenius_norm": 0.4252309926346137,
       "specialization_score": 0.0,
       "size_bytes": 131608576
     },
@@ -115,8 +115,8 @@
       "attn_weight_mean": 0.3309626157036594,
       "mlp_weight_mean": 0.4396319990454159,
       "gate_sparsity": 1.0,
-      "attn_frobenius_norm": 0.8596246980240179,
-      "mlp_frobenius_norm": 0.5437571005903714,
+      "attn_frobenius_norm": 0.8596246980240208,
+      "mlp_frobenius_norm": 0.5437571005903706,
       "specialization_score": 0.0,
       "size_bytes": 148639744
     },
@@ -135,8 +135,8 @@
       "attn_weight_mean": 0.3961877320852182,
       "mlp_weight_mean": 0.3362303263006302,
       "gate_sparsity": 1.0,
-      "attn_frobenius_norm": 0.8180904552566796,
-      "mlp_frobenius_norm": 0.48439758871724264,
+      "attn_frobenius_norm": 0.8180904552566759,
+      "mlp_frobenius_norm": 0.484397588717243,
       "specialization_score": 0.0,
       "size_bytes": 131608576
     },
@@ -155,8 +155,8 @@
       "attn_weight_mean": 0.36373956095970544,
       "mlp_weight_mean": 0.34992651728232604,
       "gate_sparsity": 1.0,
-      "attn_frobenius_norm": 0.8952499644093393,
-      "mlp_frobenius_norm": 0.5084748046305039,
+      "attn_frobenius_norm": 0.8952499644093399,
+      "mlp_frobenius_norm": 0.5084748046305032,
       "specialization_score": 0.0,
       "size_bytes": 131135488
     },
@@ -165,8 +165,8 @@
       "attn_weight_mean": 0.43136295111838385,
       "mlp_weight_mean": 0.35206206110664284,
       "gate_sparsity": 1.0,
-      "attn_frobenius_norm": 0.9469692021601477,
-      "mlp_frobenius_norm": 0.5145247474128471,
+      "attn_frobenius_norm": 0.9469692021601466,
+      "mlp_frobenius_norm": 0.5145247474128468,
       "specialization_score": 0.0,
       "size_bytes": 131608576
     },
@@ -185,8 +185,8 @@
       "attn_weight_mean": 0.38609701736519736,
       "mlp_weight_mean": 0.3769619976116631,
       "gate_sparsity": 1.0,
-      "attn_frobenius_norm": 0.8736222781957115,
-      "mlp_frobenius_norm": 0.5529414003978771,
+      "attn_frobenius_norm": 0.873622278195714,
+      "mlp_frobenius_norm": 0.5529414003978764,
       "specialization_score": 0.0,
       "size_bytes": 131135488
     },
@@ -206,7 +206,7 @@
       "mlp_weight_mean": 0.4100240106210829,
       "gate_sparsity": 1.0,
       "attn_frobenius_norm": 1.0,
-      "mlp_frobenius_norm": 0.5849811048347345,
+      "mlp_frobenius_norm": 0.5849811048347378,
       "specialization_score": 0.0,
       "size_bytes": 131135488
     },
@@ -225,8 +225,8 @@
       "attn_weight_mean": 0.3997171125956811,
       "mlp_weight_mean": 0.49088480919957733,
       "gate_sparsity": 1.0,
-      "attn_frobenius_norm": 0.8279113546456961,
-      "mlp_frobenius_norm": 0.6820417908723508,
+      "attn_frobenius_norm": 0.8279113546456877,
+      "mlp_frobenius_norm": 0.6820417908723505,
       "specialization_score": 0.0,
       "size_bytes": 131135488
     },
@@ -235,8 +235,8 @@
       "attn_weight_mean": 0.38703721421673737,
       "mlp_weight_mean": 0.5555784257773596,
       "gate_sparsity": 1.0,
-      "attn_frobenius_norm": 0.7827081168556099,
-      "mlp_frobenius_norm": 0.7693038160271867,
+      "attn_frobenius_norm": 0.7827081168556094,
+      "mlp_frobenius_norm": 0.7693038160271879,
       "specialization_score": 0.0,
       "size_bytes": 131135488
     },
@@ -255,8 +255,8 @@
       "attn_weight_mean": 0.4987849009083523,
       "mlp_weight_mean": 0.6551945346575992,
       "gate_sparsity": 1.0,
-      "attn_frobenius_norm": 0.9226712828407759,
-      "mlp_frobenius_norm": 0.8389554744843589,
+      "attn_frobenius_norm": 0.9226712828407735,
+      "mlp_frobenius_norm": 0.8389554744843611,
       "specialization_score": 0.0,
       "size_bytes": 149112832
     },
@@ -275,25 +275,25 @@
       "attn_weight_mean": 0.45958713104176546,
       "mlp_weight_mean": 0.7083149331790417,
       "gate_sparsity": 1.0,
-      "attn_frobenius_norm": 0.8637547867727713,
+      "attn_frobenius_norm": 0.863754786772772,
       "mlp_frobenius_norm": 0.9157848519762741,
       "specialization_score": 0.0,
       "size_bytes": 149112832
     }
   ],
   "genome_loci": {
-    "depth_gradient": 0.345740266547024,
-    "attention_intensity": 0.4795248353043086,
+    "depth": 0.84375,
+    "depth_gradient": 0.34574026654702417,
     "gate_sparsity": 0.5925925925925926,
-    "embedding_activation_density": 1.0,
     "mlp_intensity": 0.5208063866977094,
+    "embedding_norm_mean": 0.03766350085677903,
+    "parameter_density": 0.02409461504,
+    "embedding_activation_density": 1.0,
+    "model_density": 0.023528999837239585,
+    "cross_block_correlation_mean": 0.14714732942846423,
     "layer_specialization_variance": 0.04706393686772828,
     "attn_mlp_ratio": 0.4795248353043086,
-    "model_density": 0.28234798889160156,
-    "depth": 0.84375,
-    "parameter_density": 0.06884175725714285,
-    "embedding_norm_mean": 0.03766350085677903,
-    "cross_block_correlation_mean": 0.1471473294284642
+    "attention_intensity": 0.4795248353043086
   },
   "genetic_loci": [
     {
@@ -316,7 +316,7 @@
       "locus_id": "hermes-qwen2.5-7b-depth_gradient",
       "category": "LayerGenetics",
       "source": "WeightAnalysis",
-      "value": 0.345740266547024,
+      "value": 0.34574026654702417,
       "confidence": 0.82,
       "interpretation": "Cross-block correlation variance 0.346 — shallow hierarchical abstraction"
     },
@@ -340,7 +340,7 @@
       "locus_id": "hermes-qwen2.5-7b-cross_block_cohesion",
       "category": "LayerGenetics",
       "source": "WeightAnalysis",
-      "value": 0.1471473294284642,
+      "value": 0.14714732942846423,
       "confidence": 0.75,
       "interpretation": "Mean adjacent-block weight correlation — high = smooth representation, low = discrete stages"
     },
@@ -1001,7 +1001,7 @@
     0.0,
     0.0,
     0.0,
-    0.9800643493884038,
+    0.9800643493884036,
     0.0,
     0.0,
     0.0,
@@ -1015,7 +1015,7 @@
     0.0,
     0.0,
     0.0,
-    0.9873447824657658,
+    0.9873447824657671,
     0.0,
     0.0,
     0.0,

@@ -176,6 +176,7 @@ pub fn router(state: AppState) -> Router {
         .route("/models/import/jobs/:id",   get(models_import_job_status))
         .route("/models/export/:name",      get(models_export))
         .route("/models/registry",          get(models_registry))
+        .route("/models/recommend",         get(models_recommend))
         .with_state(state)
         // Apply CORS and auth layers to all routes
         .layer(cors)
@@ -2472,5 +2473,98 @@ async fn models_registry(State(_state): State<AppState>) -> impl IntoResponse {
         "inbox_dir":      "D:\\Aaroneous\\models\\inbox\\",
         "models":         models,
         "import_endpoint": "POST /models/import {\"source\": \"path/or/hf://...\"}",
+    }))
+}
+
+/// GET /models/recommend
+///
+/// Returns the recommended base model for each sovereign — which HuggingFace
+/// models to download, why, what quantization to use, and whether the model
+/// is already present on disk.
+///
+/// This is the starting point for building a non-coding-biased sovereign hive.
+/// Run this endpoint, download the missing models via POST /models/import, then
+/// re-run POST /forge/crystallize-roster to crystallize from the correct bases.
+async fn models_recommend(State(_state): State<AppState>) -> impl IntoResponse {
+    use crate::federation::forge::SovereignProfile;
+
+    let models_dir = std::path::Path::new("D:\\Aaroneous\\models");
+    let recommendations = SovereignProfile::recommendations();
+
+    let entries: Vec<serde_json::Value> = recommendations.into_iter().map(|(name, base, quant, rationale)| {
+        match base {
+            None => serde_json::json!({
+                "sovereign": name,
+                "status": "current_base_correct",
+                "base_rationale": rationale,
+                "quantization": quant.label(),
+                "action": "none_needed",
+            }),
+            Some(b) => {
+                let local_path = b.local_path(models_dir);
+                let present = local_path.exists();
+                let size_mb = if present {
+                    std::fs::metadata(&local_path).map(|m| m.len() / 1_048_576).unwrap_or(0)
+                } else { 0 };
+
+                serde_json::json!({
+                    "sovereign":        name,
+                    "status":           if present { "ready" } else { "needs_download" },
+                    "hf_repo":          b.hf_repo,
+                    "hf_filename":      b.hf_filename,
+                    "architecture":     b.architecture,
+                    "param_count_m":    b.param_count_m,
+                    "abliterated":      b.abliterated,
+                    "quantization":     quant.label(),
+                    "base_rationale":   rationale,
+                    "download_url":     b.download_url,
+                    "local_path":       local_path.to_string_lossy(),
+                    "present_on_disk":  present,
+                    "size_mb":          size_mb,
+                    "import_command": serde_json::json!({
+                        "method": "POST",
+                        "path": "/models/import",
+                        "body": {
+                            "source": format!("hf://{}/{}", b.hf_repo, b.hf_filename),
+                            "tags": [name.to_lowercase(), b.architecture, if b.abliterated { "abliterated" } else { "instruct" }],
+                            "auto_dissect": true,
+                        }
+                    }),
+                })
+            }
+        }
+    }).collect();
+
+    let needs_download = entries.iter().filter(|e| {
+        e.get("status").and_then(|s| s.as_str()) == Some("needs_download")
+    }).count();
+
+    let ready = entries.iter().filter(|e| {
+        matches!(e.get("status").and_then(|s| s.as_str()), Some("ready") | Some("current_base_correct"))
+    }).count();
+
+    Json(serde_json::json!({
+        "ok": true,
+        "summary": {
+            "needs_download": needs_download,
+            "ready": ready,
+            "total_sovereigns": entries.len(),
+            "key_insight": "All current sovereigns are crystallized from Qwen2.5 Coder 7B. \
+                            Most domains (research, biometrics, UI/UX, security) perform better \
+                            with diverse non-coding base models.",
+        },
+        "current_foundation": {
+            "model": "foundation_v1.gguf (Qwen2.5-Coder-7B-Instruct)",
+            "bias": "~60% code training corpus — strong coding bias across all sovereigns",
+            "gate_sparsity": 1.0,
+            "problem": "Merlin researches in code. Wen reads biometrics in code. Ariel designs UIs in code.",
+        },
+        "sovereigns": entries,
+        "next_steps": [
+            "1. Download recommended bases via the import_command for each sovereign",
+            "2. Re-run POST /forge/crystallize-roster with the new base models",
+            "3. Re-run POST /dna/dissect for each new crystallized model",
+            "4. Compare old vs new DNA via POST /dna/compare to verify divergence",
+        ],
     }))
 }

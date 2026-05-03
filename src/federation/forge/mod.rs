@@ -519,6 +519,98 @@ pub fn domain_tensor_keywords(domain: &str) -> Vec<String> {
 // Sovereign crystallization profiles
 // ────────────────────────────────────────────────────────────────────
 
+/// Quantization preference for a sovereign's crystallized model.
+///
+/// Chosen based on the trade-off between:
+/// - Inference speed (lower quant = faster, less memory)
+/// - Output quality (higher quant = more accurate weights)
+/// - Always-resident cost (Wen runs every 5s; Foundation model rarely)
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum QuantizationPreference {
+    /// Full precision — only for tiny models (< 500M) always-resident
+    F16,
+    /// Q8_0 — high accuracy, ~1 byte/param (good for Wen, small models)
+    Q8_0,
+    /// Q4_K_M — balanced (default for 7B class, production quality)
+    Q4KM,
+    /// Q3_K_M — aggressive compression, speed over quality (large models on limited VRAM)
+    Q3KM,
+    /// Q2_K — extreme compression (only for very large models as knowledge bases)
+    Q2K,
+}
+
+impl QuantizationPreference {
+    pub fn label(&self) -> &'static str {
+        match self {
+            Self::F16  => "F16",
+            Self::Q8_0 => "Q8_0",
+            Self::Q4KM => "Q4_K_M",
+            Self::Q3KM => "Q3_K_M",
+            Self::Q2K  => "Q2_K",
+        }
+    }
+
+    /// Bytes per parameter (approximate, for sizing estimates)
+    pub fn bytes_per_param(&self) -> f32 {
+        match self {
+            Self::F16  => 2.0,
+            Self::Q8_0 => 1.06,
+            Self::Q4KM => 0.56,
+            Self::Q3KM => 0.42,
+            Self::Q2K  => 0.31,
+        }
+    }
+}
+
+/// A recommended base model from HuggingFace for a sovereign domain.
+///
+/// These are abliterated (refusal-removed) instruction models that provide
+/// a better foundation than a coding-specialized model for non-code domains.
+/// Abliteration removes the RLHF refusal direction from the residual stream,
+/// producing a model that follows instructions without content restrictions —
+/// critical for security analysis (Argus), uncensored research (Merlin), and
+/// honest biometric assessment (Wen).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RecommendedBase {
+    /// HuggingFace repo ID (e.g. "bartowski/Mistral-7B-Instruct-v0.3-GGUF")
+    pub hf_repo: String,
+    /// Specific filename within the repo
+    pub hf_filename: String,
+    /// Architecture (e.g. "llama", "mistral", "qwen2", "phi3", "gemma")
+    pub architecture: String,
+    /// Approximate parameter count in millions
+    pub param_count_m: u32,
+    /// Why this base was chosen over the Qwen Coder default
+    pub rationale: String,
+    /// Whether this model is abliterated (refusal-removed)
+    pub abliterated: bool,
+    /// Direct download URL (HuggingFace resolve URL)
+    pub download_url: String,
+}
+
+impl RecommendedBase {
+    pub fn new(hf_repo: &str, hf_filename: &str, arch: &str, params_m: u32, rationale: &str, abliterated: bool) -> Self {
+        let download_url = format!(
+            "https://huggingface.co/{}/resolve/main/{}",
+            hf_repo, hf_filename
+        );
+        Self {
+            hf_repo: hf_repo.into(),
+            hf_filename: hf_filename.into(),
+            architecture: arch.into(),
+            param_count_m: params_m,
+            rationale: rationale.into(),
+            abliterated,
+            download_url,
+        }
+    }
+
+    /// Local path where this model would be stored after download
+    pub fn local_path(&self, models_dir: &std::path::Path) -> std::path::PathBuf {
+        models_dir.join(&self.hf_filename)
+    }
+}
+
 /// A sovereign's GGUF crystallization profile — which blocks and tensor
 /// kinds to extract from the base model, and what metadata to embed.
 ///
@@ -545,6 +637,15 @@ pub struct SovereignProfile {
     pub include_kinds: Vec<TensorKind>,
     /// Metadata to embed in the GGUF header for this sovereign.
     pub metadata: HashMap<String, MetaValue>,
+    /// Preferred quantization for this sovereign's crystallized model.
+    /// Set by the domain profile — Wen wants Q8_0, Merlin wants Q4_K_M, etc.
+    pub quantization: QuantizationPreference,
+    /// Recommended base model — a non-coding abliterated model better suited
+    /// to this sovereign's domain than the default Qwen2.5 Coder base.
+    /// None = the Coder base is actually appropriate (Hephaestus, Hermes).
+    pub recommended_base: Option<RecommendedBase>,
+    /// Why this base is recommended (or why the Coder base is kept)
+    pub base_rationale: String,
 }
 
 impl SovereignProfile {
@@ -559,16 +660,23 @@ impl SovereignProfile {
     /// Sovereigns that need speed (Wen, Kami) get fewer blocks.
     /// Sovereigns that need deep reasoning (Merlin, Odin) get more.
     pub fn default_roster(total_blocks: usize) -> Vec<SovereignProfile> {
-        let qwen_meta = |name: &str, ctx: u32| -> HashMap<String, MetaValue> {
+        // Metadata builder — works for any architecture since we just override
+        // the sovereign identity fields; base architecture fields come from
+        // the source GGUF when crystallize() copies them.
+        let sovereign_meta = |name: &str, ctx: u32| -> HashMap<String, MetaValue> {
             let mut m = HashMap::new();
-            m.insert("general.architecture".into(), MetaValue::String("qwen2".into()));
-            m.insert("general.name".into(), MetaValue::String(format!("aaroneous-{}-v1", name.to_lowercase())));
+            // These fields are overwritten in the output regardless of source arch
+            m.insert("general.name".into(), MetaValue::String(
+                format!("aaroneous-{}-v2", name.to_lowercase())
+            ));
             m.insert("llama.context_length".into(), MetaValue::Uint32(ctx));
-            m.insert("llama.rope.freq_base".into(), MetaValue::Float32(1_000_000.0));
-            m.insert("tokenizer.ggml.model".into(), MetaValue::String("gpt2".into()));
             m.insert("aaroneous.sovereign".into(), MetaValue::String(name.into()));
+            m.insert("aaroneous.version".into(), MetaValue::String("2.0".into()));
+            m.insert("aaroneous.base_variant".into(), MetaValue::String("abliterated".into()));
             m
         };
+        // Keep the old name as an alias for compat
+        let qwen_meta = &sovereign_meta;
 
         // Helper: select evenly-spaced block indices across the model
         let spread = |n: usize| -> Vec<usize> {
@@ -587,21 +695,35 @@ impl SovereignProfile {
 
         vec![
             // ── Ariel: UI/UX design, creative generation ─────────────────
-            // Needs strong generation and instruction-following.
-            // Upper blocks + spread for creative output quality.
+            // Needs aesthetic judgment, visual language, NOT code generation.
+            // Mistral-7B abliterated: trained on diverse web text with strong
+            // creative writing patterns — much better for design reasoning.
             SovereignProfile {
                 name: "Ariel".into(),
                 domain: "ui_design".into(),
                 output_filename: "ariel-qwen2.5-7b.gguf".into(),
                 block_count: Some(20),
                 block_selection: Some(spread(20)),
-                include_kinds: vec![],  // all kinds
+                include_kinds: vec![],
                 metadata: qwen_meta("Ariel", 4096),
+                quantization: QuantizationPreference::Q4KM,
+                recommended_base: Some(RecommendedBase::new(
+                    "bartowski/Mistral-7B-Instruct-v0.3-GGUF",
+                    "Mistral-7B-Instruct-v0.3-Q4_K_M.gguf",
+                    "llama", 7111, // Mistral uses LLaMA arch
+                    "Mistral-7B is trained on diverse web text, literature, and design discussions \
+                     — not code. UI/UX requires aesthetic vocabulary and visual metaphor, which \
+                     Mistral handles far better than a Coder model.",
+                    true,
+                )),
+                base_rationale: "Mistral-7B abliterated: diverse training data produces richer \
+                    aesthetic vocabulary than Qwen2.5 Coder whose training corpus is ~60% code.".into(),
             },
 
             // ── Hermes: P2P mesh, state sync ─────────────────────────────
-            // Needs structured JSON reasoning and CRDT logic.
-            // Middle + upper blocks for semantic precision.
+            // Needs structured JSON reasoning — Coder base is acceptable here.
+            // JSON/CRDT logic is close enough to structured code output that
+            // the Coder base performs well. Low priority for re-basing.
             SovereignProfile {
                 name: "Hermes".into(),
                 domain: "mesh_sync".into(),
@@ -610,11 +732,18 @@ impl SovereignProfile {
                 block_selection: Some(spread(16)),
                 include_kinds: vec![],
                 metadata: qwen_meta("Hermes", 2048),
+                quantization: QuantizationPreference::Q4KM,
+                recommended_base: None, // Coder base acceptable for structured JSON output
+                base_rationale: "Qwen2.5 Coder is appropriate — CRDT sync logic and structured \
+                    JSON output are code-adjacent tasks where the Coder bias is an asset.".into(),
             },
 
             // ── Wen: Biometric, human state ───────────────────────────────
-            // Needs fast inference (called every 5 seconds from sensor loop).
-            // Fewer blocks = faster. Lower blocks for pattern recognition.
+            // This sovereign MOST needs re-basing. Called every 5 seconds from
+            // the sensor loop to classify human emotional/cognitive state.
+            // A Coder model reading BPM data to infer "stressed vs focused" is
+            // deeply wrong. Phi-3-mini is trained on conversational + human
+            // behavioural data and is faster at inference (3.8B vs 7B).
             SovereignProfile {
                 name: "Wen".into(),
                 domain: "human_state".into(),
@@ -623,11 +752,26 @@ impl SovereignProfile {
                 block_selection: Some(lower(8)),
                 include_kinds: vec![TensorKind::Attention, TensorKind::Norm, TensorKind::Embedding],
                 metadata: qwen_meta("Wen", 1024),
+                quantization: QuantizationPreference::Q8_0, // high accuracy for always-resident
+                recommended_base: Some(RecommendedBase::new(
+                    "bartowski/Phi-3.5-mini-instruct-GGUF",
+                    "Phi-3.5-mini-instruct-Q8_0.gguf",
+                    "phi3", 3820,
+                    "Phi-3.5-mini is trained on conversational data, human behavioural text, \
+                     and is designed for always-on inference at low latency. Its training corpus \
+                     emphasises human interaction patterns — exactly what biometric classification needs. \
+                     Q8_0 because Wen is always-resident and accuracy on edge cases matters.",
+                    false, // Phi-3.5-mini is already instruction-tuned without heavy refusals
+                )),
+                base_rationale: "Phi-3.5-mini-instruct (Q8_0): conversational + human behavioural \
+                    training, 3.8B params fits always-resident budget, Q8_0 precision for biometric \
+                    classification accuracy.".into(),
             },
 
             // ── Kami: AR/VR spatial, physical/digital boundary ───────────
-            // Needs spatial reasoning and coordinate understanding.
-            // Evenly spread — geometric reasoning spans all depths.
+            // Spatial reasoning — geometric understanding, 3D anchoring.
+            // Llama-3.2-3B-Instruct abliterated: smaller, trained on diverse
+            // content including spatial descriptions and visual scene text.
             SovereignProfile {
                 name: "Kami".into(),
                 domain: "spatial".into(),
@@ -636,11 +780,24 @@ impl SovereignProfile {
                 block_selection: Some(spread(14)),
                 include_kinds: vec![],
                 metadata: qwen_meta("Kami", 2048),
+                quantization: QuantizationPreference::Q4KM,
+                recommended_base: Some(RecommendedBase::new(
+                    "bartowski/Llama-3.2-3B-Instruct-GGUF",
+                    "Llama-3.2-3B-Instruct-Q4_K_M.gguf",
+                    "llama", 3212,
+                    "Llama-3.2-3B is a modern compact model trained on diverse web content \
+                     including spatial descriptions, physical scene text, and AR/VR documentation. \
+                     Smaller footprint suits the always-on spatial overlay use case.",
+                    true,
+                )),
+                base_rationale: "Llama-3.2-3B abliterated: diverse spatial/visual training data, \
+                    compact enough for AR overlay always-resident deployment.".into(),
             },
 
             // ── Dionysus: DNA Bank, memory, pattern learning ──────────────
-            // Needs pattern extraction and consolidation reasoning.
-            // Middle blocks (semantic depth) are most useful.
+            // Memory consolidation — summarise, pattern-extract, archive.
+            // Gemma-2-2B-IT: excellent at summarization tasks, small, fast.
+            // Not a coder model — trained on diverse text with strong recall patterns.
             SovereignProfile {
                 name: "Dionysus".into(),
                 domain: "memory_consolidation".into(),
@@ -652,11 +809,27 @@ impl SovereignProfile {
                 }),
                 include_kinds: vec![TensorKind::Attention, TensorKind::Mlp, TensorKind::Norm],
                 metadata: qwen_meta("Dionysus", 2048),
+                quantization: QuantizationPreference::Q4KM,
+                recommended_base: Some(RecommendedBase::new(
+                    "bartowski/gemma-2-2b-it-GGUF",
+                    "gemma-2-2b-it-Q4_K_M.gguf",
+                    "gemma2", 2614,
+                    "Gemma-2-2B excels at summarisation, pattern extraction, and knowledge \
+                     consolidation tasks. Its training data emphasises factual recall and \
+                     coherent long-form synthesis — aligned with DNA Bank archival work. \
+                     Smaller size means low memory cost for the always-present Archivist.",
+                    false,
+                )),
+                base_rationale: "Gemma-2-2B-IT: trained on knowledge synthesis tasks, not code. \
+                    2.6B params keeps the always-present Archivist sovereign lightweight.".into(),
             },
 
             // ── Merlin: Research, knowledge synthesis ─────────────────────
-            // Needs deep reasoning and long-context synthesis.
-            // Full depth spread — knowledge is everywhere in the model.
+            // Deep research + long-context synthesis. Most important re-base.
+            // Mistral-7B abliterated: broad training data, NO coding bias,
+            // strong at summarization and factual synthesis.
+            // Abliterated specifically because Merlin needs to research without
+            // content restrictions — security research, medical literature, etc.
             SovereignProfile {
                 name: "Merlin".into(),
                 domain: "research".into(),
@@ -665,11 +838,26 @@ impl SovereignProfile {
                 block_selection: Some(spread(24)),
                 include_kinds: vec![],
                 metadata: qwen_meta("Merlin", 8192),
+                quantization: QuantizationPreference::Q4KM,
+                recommended_base: Some(RecommendedBase::new(
+                    "bartowski/Mistral-7B-Instruct-v0.3-GGUF",
+                    "Mistral-7B-Instruct-v0.3-Q4_K_M.gguf",
+                    "llama", 7111,
+                    "Mistral-7B abliterated is the gold standard for unconstrained research. \
+                     Trained on web-scale diverse text (not code), strong at factual synthesis, \
+                     paper summarisation, and cross-domain reasoning. Abliteration removes \
+                     content restrictions that would block security research, medical analysis, \
+                     and other domains Merlin needs to access freely.",
+                    true,
+                )),
+                base_rationale: "Mistral-7B abliterated: best available non-coding base for \
+                    research synthesis. Broad training corpus, no domain restrictions.".into(),
             },
 
             // ── Odin: Guild coordination, task orchestration ──────────────
-            // Needs structured planning and dependency reasoning.
-            // Upper-weighted — higher-order reasoning is in upper blocks.
+            // Structured planning, dependency graphs, intent decomposition.
+            // Llama-3.1-8B abliterated: Meta's instruction model trained on
+            // diverse planning and reasoning data, not primarily code.
             SovereignProfile {
                 name: "Odin".into(),
                 domain: "task_orchestration".into(),
@@ -678,11 +866,29 @@ impl SovereignProfile {
                 block_selection: Some(upper_weighted(20)),
                 include_kinds: vec![],
                 metadata: qwen_meta("Odin", 4096),
+                quantization: QuantizationPreference::Q4KM,
+                recommended_base: Some(RecommendedBase::new(
+                    "bartowski/Meta-Llama-3.1-8B-Instruct-GGUF",
+                    "Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf",
+                    "llama", 8030,
+                    "Llama-3.1-8B abliterated excels at structured planning, task decomposition, \
+                     and multi-step instruction following. Meta's RLHF training emphasises \
+                     clear directive responses and dependency tracking — core to Odin's \
+                     guild coordination role. Not a Coder model: plans come out as prose + \
+                     JSON, not as code.",
+                    true,
+                )),
+                base_rationale: "Llama-3.1-8B abliterated: structured planning + instruction \
+                    following without code bias. Odin decomposes intents into task graphs, \
+                    not function calls.".into(),
             },
 
             // ── Argus: Security, vulnerability scanning ───────────────────
-            // Needs adversarial reasoning and pattern matching.
-            // Lower + upper blocks — threat patterns are both syntactic and semantic.
+            // Adversarial reasoning, threat modelling, vulnerability analysis.
+            // Abliteration is CRITICAL here: Argus must reason about attack
+            // vectors, malware patterns, exploit techniques without refusal.
+            // Mistral-7B abliterated + lower+upper blocks for syntactic+semantic
+            // threat pattern recognition.
             SovereignProfile {
                 name: "Argus".into(),
                 domain: "security_audit".into(),
@@ -697,11 +903,29 @@ impl SovereignProfile {
                 }),
                 include_kinds: vec![],
                 metadata: qwen_meta("Argus", 4096),
+                quantization: QuantizationPreference::Q4KM,
+                recommended_base: Some(RecommendedBase::new(
+                    "bartowski/Mistral-7B-Instruct-v0.3-GGUF",
+                    "Mistral-7B-Instruct-v0.3-Q4_K_M.gguf",
+                    "llama", 7111,
+                    "Abliteration is non-negotiable for Argus. Security analysis requires \
+                     discussing CVEs, exploit techniques, malware signatures, and attack \
+                     vectors without the model refusing to engage. Mistral abliterated \
+                     provides full threat-model reasoning capacity. The Coder base would \
+                     refuse many security analysis prompts.",
+                    true,
+                )),
+                base_rationale: "Mistral-7B abliterated: unrestricted threat reasoning capability. \
+                    Security analysis cannot function with refusal-trained models.".into(),
             },
 
             // ── Hephaestus: Fabrication, build automation ─────────────────
-            // Needs code generation and system design reasoning.
-            // This is a Coder model — spread all blocks, favor MLP for code logic.
+            // Build scripts, maintenance procedures, system expansion plans.
+            // THIS IS THE ONE SOVEREIGN WHERE CODER BASE IS CORRECT.
+            // Fabrication = writing build configurations, Makefiles, deployment
+            // scripts, maintenance procedures. Code IS the domain here.
+            // However: switch to Q4_K_M of a maintained Coder model that
+            // includes recent toolchain knowledge.
             SovereignProfile {
                 name: "Hephaestus".into(),
                 domain: "fabrication".into(),
@@ -711,8 +935,30 @@ impl SovereignProfile {
                 include_kinds: vec![TensorKind::Mlp, TensorKind::Attention,
                                     TensorKind::Embedding, TensorKind::Norm],
                 metadata: qwen_meta("Hephaestus", 4096),
+                quantization: QuantizationPreference::Q4KM,
+                recommended_base: Some(RecommendedBase::new(
+                    "bartowski/Qwen2.5-Coder-7B-Instruct-GGUF",
+                    "Qwen2.5-Coder-7B-Instruct-Q4_K_M.gguf",
+                    "qwen2", 7615,
+                    "Hephaestus IS a coder sovereign — build scripts, deployment automation, \
+                     maintenance procedures, and system fabrication are code-adjacent tasks. \
+                     The Coder base is the correct choice here. Using the official bartowski \
+                     quantization for a well-tested Q4_K_M rather than our crystallized subset.",
+                    false, // Coder model intentionally not abliterated
+                )),
+                base_rationale: "Qwen2.5-Coder-7B is the CORRECT base for Hephaestus. \
+                    Fabrication and build automation are code-domain tasks.".into(),
             },
         ]
+    }
+
+    /// Returns just the recommendation data for all 9 sovereigns — used by
+    /// the /models/recommend endpoint to guide model acquisition.
+    pub fn recommendations() -> Vec<(String, Option<RecommendedBase>, QuantizationPreference, String)> {
+        // Build with dummy block count — we only need metadata
+        Self::default_roster(28).into_iter().map(|p| {
+            (p.name, p.recommended_base, p.quantization, p.base_rationale)
+        }).collect()
     }
 }
 
@@ -792,12 +1038,50 @@ pub async fn crystallize_roster(
         }
 
         let output_path = models_dir.join(&profile.output_filename);
+
+        // Determine the actual source model for this sovereign.
+        // If a recommended base is present on disk, use it instead of the
+        // fallback source (which is the Qwen2.5 Coder model).
+        let (effective_index, effective_source_key) =
+            if let Some(ref rec_base) = profile.recommended_base {
+                let base_path = rec_base.local_path(&models_dir);
+                if base_path.exists() {
+                    info!(
+                        "Crystallizing {} from recommended base {} (arch={})",
+                        profile.name,
+                        rec_base.hf_filename,
+                        rec_base.architecture,
+                    );
+                    match read_gguf(&base_path) {
+                        Ok((idx, _)) => {
+                            let key = base_path.to_string_lossy().to_string();
+                            (std::borrow::Cow::Owned(idx), std::borrow::Cow::Owned(key))
+                        }
+                        Err(e) => {
+                            warn!("Failed to read recommended base for {} ({}): {} — falling back to default source",
+                                profile.name, base_path.display(), e);
+                            (std::borrow::Cow::Borrowed(&index), std::borrow::Cow::Borrowed(&source_key as &String))
+                        }
+                    }
+                } else {
+                    info!(
+                        "Recommended base for {} not on disk ({}) — using default source. \
+                         Download via: POST /models/import {{\"source\":\"hf://{}/{}\"}}",
+                        profile.name, base_path.display(),
+                        rec_base.hf_repo, rec_base.hf_filename,
+                    );
+                    (std::borrow::Cow::Borrowed(&index), std::borrow::Cow::Borrowed(&source_key as &String))
+                }
+            } else {
+                (std::borrow::Cow::Borrowed(&index), std::borrow::Cow::Borrowed(&source_key as &String))
+            };
+
         info!("Crystallizing {} → {}", profile.name, output_path.display());
 
         // Build the tensor selection for this sovereign
         let result = crystallize_sovereign_from_index(
-            &index,
-            &source_key,
+            effective_index.as_ref(),
+            effective_source_key.as_ref(),
             &profile,
             &output_path,
         ).await;
