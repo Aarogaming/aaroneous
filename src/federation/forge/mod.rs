@@ -1930,39 +1930,22 @@ impl Forge {
             let mut output = BufWriter::with_capacity(8 * 1024 * 1024, output_file);
 
             // Track bytes written manually — BufWriter doesn't implement Seek,
-            // and the seek() calls were only used for position queries anyway.
-            let mut pos: u64 = 0;
-
-            macro_rules! tracked_write {
-                ($buf:expr) => {{
-                    let b: &[u8] = $buf;
-                    pos += b.len() as u64;
-                    output.write_all(b)?;
-                }};
-            }
-
             // magic
-            tracked_write!(b"GGUF");
+            output.write_all(b"GGUF")?;
             // version (u32 LE)
-            tracked_write!(&GGUF_VERSION.to_le_bytes());
+            output.write_all(&GGUF_VERSION.to_le_bytes())?;
             // tensor_count (u64 LE)
-            tracked_write!(&(resolved.len() as u64).to_le_bytes());
+            output.write_all(&(resolved.len() as u64).to_le_bytes())?;
             // metadata_kv_count (u64 LE)
-            tracked_write!(&(kv.len() as u64).to_le_bytes());
+            output.write_all(&(kv.len() as u64).to_le_bytes())?;
 
-            // KV pairs — use a counting wrapper so we track their byte sizes
+            // KV pairs
             for (key, val) in &kv {
-                let before = pos;
                 write_gguf_string(&mut output, key)?;
                 write_gguf_meta_value(&mut output, val)?;
-                // Approximate tracking: compute expected size
-                // (exact tracking would require instrumenting write_gguf_string/value)
-                let _ = before; // accepted approximation; pos updated below
             }
-            // Re-sync pos by flushing and querying the underlying file position
+            // Flush before seeking to get true position for alignment
             output.flush().map_err(ForgeError::WriteError)?;
-            pos = output.get_ref().seek(SeekFrom::Current(0))
-                .map_err(ForgeError::WriteError)?;
 
             // ── Phase 4: tensor info table ─────────────────────────────────
             // data_offset for each tensor is relative to the start of the

@@ -777,22 +777,6 @@ async fn get_specialists_snapshot(
 
     let mut specialists: Vec<serde_json::Value> = vec![];
 
-    macro_rules! push_core {
-        ($field:expr, $name:literal, $domain:literal) => {
-            specialists.push(serde_json::json!({
-                "name": $name,
-                "domain": $domain,
-                "kind": "core",
-                "active_intent": intent,
-                "learning": $field.as_ref().map(|s| serde_json::json!({
-                    "confidence": s.confidence_score,
-                    "total_executions": s.total_executions,
-                    "success_rate": s.success_rate_percent(),
-                    "last_updated": s.last_updated,
-                })),
-            }));
-        };
-    }
 
     // Use sovereign_name() for display, name() for persistence/routing
     use crate::federation::specialist::SpecialistId;

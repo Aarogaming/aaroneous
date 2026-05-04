@@ -327,7 +327,10 @@ impl Federation {
         info!("Starting federation with {} specialist(s)", self.enabled_count());
         let mut errors = Vec::new();
 
-        // Restore federation RAG memory from previous session
+        // Restore federation RAG memory from previous session.
+        // Skipped in test builds to prevent persistent disk state from
+        // interfering with hermetic test assertions.
+        #[cfg(not(test))]
         {
             let restored = crate::federation::graph::EmbeddingStore::load_from_disk(256);
             let count = restored.total_count();

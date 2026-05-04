@@ -511,12 +511,12 @@ impl Specialist for Visionary {
         }
 
         // Suppress UI design proposals when the intent is clearly non-design.
-        // This prevents Visionary from cluttering code/security/build results.
+        // Note: keywords must be specific enough not to collide with test actions.
         let activity_lower = context.user_state.activity.to_lowercase();
         let non_design_keywords = [
-            "review", "audit", "security", "build", "test", "fix", "deploy",
+            "review", "audit", "security", "build", "fix", "deploy",
             "debug", "compile", "analyze", "parse", "refactor", "lint",
-            "scan", "check", "rust", "python", "code", "function", "bug",
+            "scan", "rust", "python", "code review", "function", "bug",
         ];
         if non_design_keywords.iter().any(|kw| activity_lower.contains(kw)) {
             return Ok(vec![]); // Not a design intent — stay silent
@@ -562,6 +562,26 @@ impl Specialist for Visionary {
         let intent = decision.context.get("intent")
             .cloned()
             .unwrap_or_else(|| decision.action.clone());
+
+        // Skip for non-design intents — same guard as propose()
+        // Use specific multi-word phrases or domain-specific terms (not "test")
+        let intent_lower = intent.to_lowercase();
+        let non_design_kw = ["audit","security","code review","build","rust","bug",
+            "compile","deploy","debug","refactor","lint","scan","vulnerability",
+            "code analysis","security scan"];
+        if non_design_kw.iter().any(|kw| intent_lower.contains(kw)) {
+            return Ok(ExecutionResult {
+                specialist: SpecialistId::Visionary,
+                specialist_name: None,
+                proposal_id: decision.proposal_id.clone(),
+                status: crate::federation::specialist::ExecutionStatus::Success,
+                output: serde_json::json!({"sovereign":"Ariel","note":"Non-design intent — Ariel standing by","intent":intent.chars().take(60).collect::<String>()}).to_string(),
+                resources_used: decision.allocated_resources.clone(),
+                duration_ms: 1,
+                error: None,
+            });
+        }
+
         let (output, success) = if let Some(llm) = &self.llm {
             // --- LLM-backed design generation ---
             let intent = intent.clone();

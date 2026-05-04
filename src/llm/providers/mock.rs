@@ -281,6 +281,46 @@ impl super::LLMProvider for MockProvider {
                         tokens_used: 0, batch_confidence: 0.3,
                     });
                 }
+                "spatial" | "ar_vr" | "physical_digital" => {
+                    let intent = context.intent.chars().take(80).collect::<String>();
+                    let json = format!(
+                        r#"{{"mock":true,"source":"kami_mock","intent":"{}","spatial":{{"anchor_count":1,"device":"simulated","frame_rate_fps":60,"ar_available":false,"render_mode":"simulated"}},"anchors":[{{"prototype_id":"synth-mock","design_variant":"{}","landmark":"arm-reach-default","model":"/models/synth.glb","scale":1.0,"ar_available":false,"source":"intent_derived"}}],"note":"Enable --features ar-openxr for real Kami AR rendering"}}"#,
+                        intent, intent
+                    );
+                    return Ok(DesignGeneration {
+                        intent: context.intent.clone(),
+                        variants: vec![DesignVariant {
+                            title: "Spatial Anchor".into(), description: json,
+                            colors: vec![], typography: String::new(), layout: "spatial_manifest".into(),
+                            confidence: 0.3, reasoning: "Kami spatial (mock — no AR runtime)".into(),
+                        }],
+                        tokens_used: 0, batch_confidence: 0.3,
+                    });
+                }
+                "biometric" | "human_state" | "user_adaptation" => {
+                    let json = r#"{"mock":true,"source":"wen_mock","state":"unknown","stress":0.5,"fatigue":0.3,"readiness":70,"recommendation":"continue","defer_interruptions":false,"note":"Enable biometric sensor or --features biometric-ble for real Wen readings"}"#;
+                    return Ok(DesignGeneration {
+                        intent: context.intent.clone(),
+                        variants: vec![DesignVariant {
+                            title: "Biometric State".into(), description: json.into(),
+                            colors: vec![], typography: String::new(), layout: "biometric_state".into(),
+                            confidence: 0.3, reasoning: "Wen biometric (mock)".into(),
+                        }],
+                        tokens_used: 0, batch_confidence: 0.3,
+                    });
+                }
+                "memory_consolidation" | "archival" => {
+                    let json = r#"{"mock":true,"source":"dionysus_mock","consolidated_events":0,"patterns_discovered":0,"dna_bank_size_mb":0,"note":"Dionysus accumulates patterns across sessions — submit more intents to build memory"}"#;
+                    return Ok(DesignGeneration {
+                        intent: context.intent.clone(),
+                        variants: vec![DesignVariant {
+                            title: "Memory Consolidation".into(), description: json.into(),
+                            colors: vec![], typography: String::new(), layout: "consolidation_report".into(),
+                            confidence: 0.4, reasoning: "Dionysus archival (mock)".into(),
+                        }],
+                        tokens_used: 0, batch_confidence: 0.4,
+                    });
+                }
                 _ => {} // Fall through to default design generation below
             }
         }

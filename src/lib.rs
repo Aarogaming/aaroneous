@@ -87,7 +87,7 @@ pub use capability_matcher::{CapabilityMatcher, CapabilityMatch, SpecialistProfi
 pub use data_distillation::{DistillationEngine, DistillationConfig, DistillationResult, QualityAssessment, DataCrystallizer, CrystallizedData};
 pub use inbox_system::{InboxSystem, InboxStats, ProcessingResult};
 pub use ingestion_federation::{IngestionEvent, IngestionStatus as FedIngestionStatus, ClassificationResult, QualityMetric, SpecialistUpdate, IngestionStats as FedIngestionStats, FailureEvent, IngestionQuery, QueryResponse, FederationConfig, IngestionTopics};
-pub use inbox_broadcaster::{InboxBroadcaster, FederationListener};
+pub use inbox_broadcaster::{InboxBroadcaster};
 pub use nats_client::{NatsClient, NatsClientConfig, NatsPublisher, NatsSubscriber, NatsRequestReply, ConnectionStatus, NatsHealthStatus};
 pub use persistence::{PersistenceManager, SpecialistRecord, SkillRecord, EventRecord, ConstellationRecord, IngestionRecord, HiveStatistics};
 pub use hive_runtime::{HiveRuntime, HiveRuntimeConfig, RuntimeStatus, RuntimeStatistics};

@@ -1,4 +1,4 @@
-// Aaroneous Self-Digestion Module
+﻿// Aaroneous Self-Digestion Module
 // Autonomous GGUF model ingestion, genetic extraction, soul generation, and integration
 // Allows Aaroneous to consume models in background and create new specialists
 
@@ -548,21 +548,6 @@ impl DigestionEngine {
 }
 
 /// Complete digestion workflow
-pub async fn digest_model(
-    engine: &DigestionEngine,
-    task: DigestionTask,
-) -> Result<(SpecialistGenome, SpecialistSoul), Box<dyn std::error::Error>> {
-    // Extract genetics
-    let genome = engine.extract_genetics(&task).await?;
-
-    // Generate soul
-    let soul = engine.generate_soul(&task, &genome).await?;
-
-    // Integrate
-    engine.integrate_specialist(&task, &genome, &soul).await?;
-
-    Ok((genome, soul))
-}
 
 #[cfg(test)]
 mod tests {

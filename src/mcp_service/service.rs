@@ -491,7 +491,14 @@ impl McpService {
                 // This surfaces prominently in Cursor/Claude Desktop so developers
                 // know to enable --features llama-gguf for real sovereign responses.
                 let display_text = if is_mock {
-                    format!("⚠️ MOCK RESPONSE — no real inference (build with --features llama-gguf)\n\n{}", text)
+                    let feature_hint = match tool_name.as_str() {
+                        "ask_hermes"   => "--features p2p-iroh",
+                        "ask_kami"     => "--features ar-openxr",
+                        "ask_wen"      => "--features biometric-ble (or system sensor loop)",
+                        "forge_hybrid" => "POST /dna/dissect on both models first",
+                        _ => "--features llama-gguf",
+                    };
+                    format!("⚠️ MOCK — enable: cargo build {}\n\n{}", feature_hint, text)
                 } else {
                     text
                 };
@@ -641,16 +648,41 @@ impl McpService {
             let dynamic = fed.dynamic.read().await;
             let specialists: Vec<serde_json::Value> = dynamic.iter().map(|s| {
                 let l = s.learning.lock();
+                let success_rate = if l.total_executions > 0 {
+                    l.success_count as f32 / l.total_executions as f32 * 100.0
+                } else { 0.0 };
+                let memory_count = s.memory.lock().count_for(&s.name);
+                let soul_archetype = s.soul.as_ref()
+                    .map(|soul| soul.personality_soul.archetype.clone())
+                    .unwrap_or_else(|| "unknown".to_string());
                 serde_json::json!({
                     "name": s.name,
                     "domain": s.domain,
-                    "confidence": l.confidence_score,
+                    "confidence": (l.confidence_score * 100.0).round() / 100.0,
+                    "success_rate_pct": (success_rate * 10.0).round() / 10.0,
                     "executions": l.total_executions,
+                    "has_llm": s.llm.is_some(),
                     "has_model": s.model_path.is_some(),
+                    "memory_count": memory_count,
+                    "soul_archetype": soul_archetype,
+                    "model": s.model_path.as_ref()
+                        .and_then(|p| p.file_name()).and_then(|n| n.to_str())
+                        .unwrap_or("none"),
                 })
             }).collect();
             drop(dynamic);
-            Ok(serde_json::to_string_pretty(&specialists)?)
+            let total_mem: u64 = specialists.iter()
+                .filter_map(|s| s.get("memory_count").and_then(|v| v.as_u64())).sum();
+            let has_llm = specialists.iter()
+                .filter(|s| s.get("has_llm").and_then(|v| v.as_bool()).unwrap_or(false)).count();
+            Ok(serde_json::to_string_pretty(&serde_json::json!({
+                "total_sovereigns": specialists.len(),
+                "with_llm": has_llm,
+                "mock_mode": has_llm == 0,
+                "total_memories": total_mem,
+                "inference_hint": if has_llm == 0 { "MOCK mode. Build: cargo run --features llama-gguf" } else { "Real inference active." },
+                "sovereigns": specialists,
+            }))?)
         } else {
             Ok("No federation attached".to_string())
         }

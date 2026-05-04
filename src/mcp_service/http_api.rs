@@ -33,7 +33,7 @@ use std::sync::Arc;
 use std::convert::Infallible;
 use axum::{
     extract::State,
-    http::{HeaderMap, StatusCode},
+    http::StatusCode,
     response::{sse::{Event, KeepAlive, Sse}, IntoResponse, Json},
     routing::{get, post},
     Router,
@@ -46,9 +46,16 @@ use crate::mcp_service::service::{McpService, JsonRpcRequest, JsonRpcResponse};
 
 // ── State ─────────────────────────────────────────────────────────────────────
 
+/// Session-keyed SSE response channels for Claude Desktop.
+type SseSessions = Arc<tokio::sync::RwLock<
+    std::collections::HashMap<String, Arc<tokio::sync::broadcast::Sender<String>>>
+>>;
+
 #[derive(Clone)]
 pub struct McpAppState {
     pub service: Arc<McpService>,
+    /// Active SSE session channels (session_id → broadcast sender)
+    pub sse_sessions: SseSessions,
 }
 
 // ── Server ────────────────────────────────────────────────────────────────────
@@ -71,7 +78,10 @@ impl HttpServer {
         self,
         service: Arc<McpService>,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        let state = McpAppState { service };
+        let state = McpAppState {
+            service,
+            sse_sessions: Arc::new(tokio::sync::RwLock::new(std::collections::HashMap::new())),
+        };
 
         let app = Router::new()
             // MCP JSON-RPC 2.0 transport (primary)
@@ -102,9 +112,10 @@ impl HttpServer {
 /// Returns single response or array of responses.
 async fn handle_mcp_post(
     State(state): State<McpAppState>,
-    headers: HeaderMap,
+    axum::extract::Query(params): axum::extract::Query<std::collections::HashMap<String, String>>,
     body: axum::body::Bytes,
 ) -> impl IntoResponse {
+    let session_id = params.get("session").cloned();
     // Parse request body as JSON
     let raw: Value = match serde_json::from_slice(&body) {
         Ok(v) => v,
@@ -144,8 +155,18 @@ async fn handle_mcp_post(
     let resp = state.service.handle_jsonrpc(raw).await;
 
     if is_notification {
-        // Notifications get 204 No Content
         return StatusCode::NO_CONTENT.into_response();
+    }
+
+    // Push response to session's SSE channel if session_id was provided (Claude Desktop)
+    if let Some(ref sid) = session_id {
+        let sessions = state.sse_sessions.read().await;
+        if let Some(tx) = sessions.get(sid) {
+            let resp_str = serde_json::to_string(
+                &serde_json::to_value(&resp).unwrap_or_default()
+            ).unwrap_or_default();
+            let _ = tx.send(resp_str);
+        }
     }
 
     Json(serde_json::to_value(resp).unwrap()).into_response()
@@ -163,46 +184,64 @@ async fn handle_mcp_post(
 async fn handle_sse(
     State(state): State<McpAppState>,
 ) -> impl IntoResponse {
-    // The SSE endpoint first advertises the POST endpoint, then keeps alive
-    // Real SSE MCP would need a session-keyed response channel; for now we
-    // send the endpoint advertisement and keep the connection open.
-    // Read tool count before entering the stream (can't hold async guard across yield)
     let tool_count = state.service.tools.read().await.len();
 
+    // Create session ID and register a broadcast channel for this SSE connection.
+    // Claude Desktop will POST to /mcp?session=<id>, and responses are pushed here.
+    let session_id = format!("sse-{}", uuid::Uuid::new_v4().simple());
+    let (tx, mut rx) = tokio::sync::broadcast::channel::<String>(64);
+    let tx_arc = Arc::new(tx);
+    {
+        let mut sessions = state.sse_sessions.write().await;
+        sessions.insert(session_id.clone(), tx_arc.clone());
+    }
+
+    let sessions_clone = state.sse_sessions.clone();
+    let sid_clone = session_id.clone();
+    let endpoint_url = format!("http://localhost:8766/mcp?session={}", session_id);
+
     let stream = async_stream::stream! {
-        // Required first event: tell the client where to POST requests
+        // MCP spec: first event must be "endpoint" with the POST URL (includes session)
         yield Ok::<Event, Infallible>(
-            Event::default()
-                .event("endpoint")
-                .data("http://localhost:8766/mcp")
+            Event::default().event("endpoint").data(endpoint_url.clone())
         );
 
-        // Server capabilities announcement
-        let init_notification = serde_json::json!({
-            "jsonrpc": "2.0",
-            "method": "notifications/message",
-            "params": {
-                "level": "info",
-                "logger": "aaroneous",
-                "data": format!(
-                    "Aaroneous MCP server ready — {} tools available. \
-                     Submit intents to the sovereign hive via tools/call.",
-                    tool_count
-                )
-            }
+        // Announce readiness
+        let init = serde_json::json!({
+            "jsonrpc": "2.0", "method": "notifications/message",
+            "params": { "level": "info", "logger": "aaroneous",
+                "data": format!("Aaroneous MCP ready — {} tools | {}", tool_count, endpoint_url) }
         });
         yield Ok::<Event, Infallible>(
-            Event::default()
-                .event("message")
-                .data(serde_json::to_string(&init_notification).unwrap_or_default())
+            Event::default().event("message")
+                .data(serde_json::to_string(&init).unwrap_or_default())
         );
 
-        // Keep-alive loop — ping every 30s
-        let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(30));
+        // Stream: push POST /mcp responses as SSE message events + keepalives
+        let mut keepalive = tokio::time::interval(tokio::time::Duration::from_secs(15));
         loop {
-            interval.tick().await;
-            yield Ok::<Event, Infallible>(Event::default().comment("keepalive"));
+            tokio::select! {
+                msg = rx.recv() => {
+                    match msg {
+                        Ok(resp_str) => {
+                            yield Ok::<Event, Infallible>(
+                                Event::default().event("message").data(resp_str)
+                            );
+                        }
+                        Err(tokio::sync::broadcast::error::RecvError::Lagged(n)) => {
+                            tracing::debug!("SSE session {} lagged {}", sid_clone, n);
+                        }
+                        Err(_) => break,
+                    }
+                }
+                _ = keepalive.tick() => {
+                    yield Ok::<Event, Infallible>(Event::default().comment("keepalive"));
+                }
+            }
         }
+        // Cleanup on disconnect
+        let mut sessions = sessions_clone.write().await;
+        sessions.remove(&sid_clone);
     };
 
     Sse::new(stream)
