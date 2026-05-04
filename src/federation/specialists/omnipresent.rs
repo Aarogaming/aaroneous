@@ -717,12 +717,14 @@ impl Specialist for Omnipresent {
         let intent_str = decision.context.get("intent")
             .cloned()
             .unwrap_or_else(|| decision.action.clone());
+        // Clone before moving into payload closure
+        let intent_display = intent_str.chars().take(60).collect::<String>();
         let payload: Vec<u8> = serde_json::to_vec(&serde_json::json!({
             "proposal_id": decision.proposal_id,
             "action":      decision.action,
-            "intent":      intent_str,
+            "intent":      &intent_display,
         }))
-        .unwrap_or_else(|_| intent_str.into_bytes());
+        .unwrap_or_else(|_| intent_display.as_bytes().to_vec());
 
         // Attempt broadcast; if P2P not attached or no endpoints, returns 0.
         let (devices_reached, p2p_note) = match self.broadcast_intent(1, payload).await {
@@ -731,13 +733,29 @@ impl Specialist for Omnipresent {
             Err(e) => (0, format!(" (P2P broadcast error: {})", e)),
         };
 
-        let output = format!(
-            "Synced {} device(s) across mesh (bandwidth: {} Mbps, reached: {}{})",
-            self.devices.len(),
-            sync_bandwidth,
-            devices_reached,
-            p2p_note,
-        );
+        let conflicts = self.detect_sync_conflicts();
+        let pending = self.sync_inbox.lock().len();
+        let history_count = self.sync_history.len();
+
+        let output = serde_json::to_string(&serde_json::json!({
+            "sovereign": "Hermes",
+            "intent": intent_display,
+            "mesh": {
+                "devices": self.devices.len(),
+                "bandwidth_mbps": sync_bandwidth,
+                "devices_reached": devices_reached,
+                "p2p_attached": self.p2p_node.is_some(),
+                "p2p_endpoints": self.device_endpoints.len(),
+                "sync_conflicts": conflicts.len(),
+                "pending_inbox": pending,
+                "sync_history_events": history_count,
+            },
+            "status": if devices_reached > 0 { "synced" } else { "no_peers" },
+            "note": if self.p2p_node.is_none() { "Enable --features p2p-iroh for real P2P mesh sync" } else { "" },
+        })).unwrap_or_else(|_| format!(
+            "[Hermes] Intent: '{}' | {} device(s) | {} Mbps{}",
+            intent_display, self.devices.len(), sync_bandwidth, p2p_note
+        ));
 
         let result = ExecutionResult {
             specialist: SpecialistId::Omnipresent,

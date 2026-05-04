@@ -455,16 +455,23 @@ async fn get_results(State(state): State<AppState>) -> Json<serde_json::Value> {
 
 /// Convert an ExecutionResult to a JSON value for SSE/REST responses.
 fn result_to_json(r: &crate::federation::specialist::ExecutionResult) -> serde_json::Value {
+    let now_ms = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0);
     serde_json::json!({
-        // Use sovereign_name() for core specialists, specialist_name for dynamics
+        // Use sovereign display name (e.g. "Hermes") not persistence key ("Omnipresent")
         "specialist": r.specialist_name.as_deref()
             .unwrap_or_else(|| r.specialist.sovereign_name()),
-        "specialist_id": format!("{:?}", r.specialist),
-        "internal_id": r.specialist.name(),
+        // Stable domain identifier for programmatic use
+        "domain": r.specialist.domain(),
         "proposal_id": r.proposal_id,
-        "status": format!("{:?}", r.status),
+        // Lowercase status for REST convention consistency
+        "status": format!("{:?}", r.status).to_lowercase(),
         "output": r.output,
         "duration_ms": r.duration_ms,
+        // Unix ms timestamp — allows clients to order and correlate results
+        "timestamp_ms": now_ms,
         "error": r.error,
     })
 }
@@ -3283,8 +3290,10 @@ async fn openai_chat_completions(
 
     let model = req.model.as_deref().unwrap_or("aaroneous").to_lowercase();
     let stream = req.stream.unwrap_or(false);
+    let max_tokens = req.max_tokens.unwrap_or(2048);
+    let temperature = req.temperature.unwrap_or(0.7);
 
-    // Extract the last user message as the intent
+    // Extract the last user message as the immediate intent
     let user_content = req.messages.iter().rev()
         .find(|m| m.role == "user")
         .map(|m| m.content.clone())
@@ -3301,9 +3310,38 @@ async fn openai_chat_completions(
         }))).into_response();
     }
 
-    // Route to specific sovereign or full hive
+    // Build conversation history from prior turns (all messages except the last user message).
+    // This is prepended to the user message so the sovereign sees the full conversation context.
+    // Format: "User: ...\nAssistant: ...\nUser: ...\n\nCurrent: <user_content>"
+    let conversation_history: Option<String> = {
+        let history_msgs: Vec<String> = req.messages.iter()
+            .filter(|m| m.role != "system")
+            .collect::<Vec<_>>()
+            // All turns except the last user message
+            .windows(2)
+            .filter_map(|w| {
+                let last = w.last()?;
+                if last.role == "user" && &last.content == &user_content { None }
+                else { Some(format!("{}: {}", w[0].role.to_uppercase(), w[0].content.chars().take(500).collect::<String>())) }
+            })
+            .collect();
+        if history_msgs.is_empty() { None }
+        else { Some(history_msgs.join("\n")) }
+    };
+
+    // Prepend conversation history to the current message for context
+    let augmented_message = match &conversation_history {
+        Some(hist) => format!(
+            "Previous conversation:\n{}\n\nCurrent message: {}",
+            hist, user_content
+        ),
+        None => user_content.clone(),
+    };
+
+    // Route to specific sovereign or full hive, passing temperature and max_tokens
     let response_text = route_to_sovereign(
-        &state, &model, &user_content, system_content.as_deref(),
+        &state, &model, &augmented_message, system_content.as_deref(),
+        temperature, max_tokens,
     ).await;
 
     let completion_id = format!("chatcmpl-{}", now_ms_oai());
@@ -3389,7 +3427,8 @@ async fn openai_completions(
     Json(req): Json<OaiCompletionRequest>,
 ) -> impl IntoResponse {
     let model = req.model.as_deref().unwrap_or("aaroneous").to_lowercase();
-    let response_text = route_to_sovereign(&state, &model, &req.prompt, None).await;
+    let max_tokens = req.max_tokens.unwrap_or(2048);
+    let response_text = route_to_sovereign(&state, &model, &req.prompt, None, 0.7, max_tokens).await;
 
     let id = format!("cmpl-{}", now_ms_oai());
     let created = std::time::SystemTime::now()
@@ -3421,6 +3460,8 @@ async fn route_to_sovereign(
     model: &str,
     user_message: &str,
     system_override: Option<&str>,
+    temperature: f32,
+    max_tokens: u32,
 ) -> String {
     use crate::llm::{LLMClient, LLMConfig};
     use crate::federation::specialists::system_prompt_for_domain;
@@ -3441,12 +3482,13 @@ async fn route_to_sovereign(
             let intent = crate::federation::intent::Intent::new(user_message.to_string());
             let count_before = state.federation.results.lock().await.len();
             state.federation.submit_intent(intent).await;
-            // Poll until we see new results or timeout at 2s
+            // Wait the full window (2s) to collect ALL sovereign responses
             let outputs = wait_for_new_results(&state.federation, count_before, 2000).await;
             if outputs.is_empty() {
-                return format!("[Aaroneous Hive] Processing: '{}'", user_message);
+                return format!("# Aaroneous Hive\n\nProcessing: '{}'\n\nNo responses yet — sovereigns are still deliberating.", user_message);
             }
-            return outputs.join("\n\n");
+            // Join with horizontal rule separators for clear markdown sectioning
+            return outputs.join("\n\n---\n\n");
         }
     };
 
@@ -3721,6 +3763,11 @@ async fn links_test(
 
 /// Wait for new execution results to appear after an intent submission.
 /// Polls every 50ms up to `timeout_ms`, returning all new outputs since `count_before`.
+/// Wait for new execution results after an intent submission.
+///
+/// Unlike a blind sleep, this polls every 50ms and waits the full `timeout_ms`
+/// to collect ALL sovereign outputs — not just the first to arrive.
+/// Formats each result as a markdown section with the sovereign's display name.
 async fn wait_for_new_results(
     fed: &crate::federation::hive::Federation,
     count_before: usize,
@@ -3728,19 +3775,42 @@ async fn wait_for_new_results(
 ) -> Vec<String> {
     let deadline = tokio::time::Instant::now()
         + tokio::time::Duration::from_millis(timeout_ms);
+
+    // Wait until deadline, collecting all new results
     loop {
         tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
-        {
-            let results = fed.results.lock().await;
-            let new: Vec<String> = results.iter()
-                .skip(count_before)
-                .map(|r| {
-                    let name = r.specialist_name.as_deref().unwrap_or(r.specialist.name());
-                    format!("[{}] {}", name, r.output)
-                })
-                .collect();
-            if !new.is_empty() { return new; }
-        }
-        if tokio::time::Instant::now() >= deadline { return vec![]; }
+        if tokio::time::Instant::now() >= deadline { break; }
+    }
+
+    // Return all results that arrived during the wait window
+    let results = fed.results.lock().await;
+    let new: Vec<String> = results.iter()
+        .skip(count_before)
+        .map(|r| {
+            // Use sovereign display name (e.g. "Hermes") not persistence key ("Omnipresent")
+            let display_name = r.specialist_name.as_deref()
+                .unwrap_or_else(|| r.specialist.sovereign_name());
+            let domain = if r.specialist.is_core() {
+                r.specialist.domain().chars().take(40).collect::<String>()
+            } else {
+                String::new()
+            };
+            // Format as markdown section for readability in Cursor/Claude Desktop
+            if domain.is_empty() {
+                format!("## {}\n\n{}", display_name, r.output)
+            } else {
+                format!("## {} *({})*\n\n{}", display_name, domain, r.output)
+            }
+        })
+        .collect();
+
+    if new.is_empty() {
+        // Fallback: return the single most recent result if available
+        results.last().map(|r| {
+            let name = r.specialist_name.as_deref().unwrap_or_else(|| r.specialist.sovereign_name());
+            vec![format!("## {}\n\n{}", name, r.output)]
+        }).unwrap_or_default()
+    } else {
+        new
     }
 }

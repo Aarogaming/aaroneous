@@ -550,11 +550,20 @@ impl Specialist for Archivist {
             .unwrap_or_default()
             .as_millis() as u64;
 
+        // Use executions_seen() for the running count — self.stats.total_events
+        // requires &mut self (updated via record_event) so is always 0 here.
+        let executions = self.executions_seen.load(std::sync::atomic::Ordering::Relaxed);
+        let intent = decision.context.get("intent")
+            .cloned()
+            .unwrap_or_else(|| decision.action.chars().take(60).collect());
+        let dna_attached = self.dna_bank.is_some();
         let output = format!(
-            "Consolidated {} events into {} patterns. Archive: {} MB",
-            self.stats.total_events,
+            "[Dionysus] Observed {} execution(s) | {} patterns | Archive: {} MB | DNA Bank: {} | Intent: '{}'",
+            executions,
             self.stats.pattern_count,
-            self.stats.archive_size_bytes / 1_000_000
+            self.stats.archive_size_bytes / 1_000_000,
+            if dna_attached { "active" } else { "not attached" },
+            intent,
         );
 
         let duration_ms = 3500u64;

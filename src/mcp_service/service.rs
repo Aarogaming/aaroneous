@@ -379,10 +379,29 @@ impl McpService {
         // Execute via the federation or HTTP fallback
         let result = self.execute_tool(&tool_name, &args).await;
 
+        // Detect if the result is a mock response (contains mock:true or 'GGUF inference disabled')
+        let is_mock = result.as_ref().map(|t| {
+            t.contains("\"mock\":true") || t.contains("GGUF inference disabled")
+                || t.contains("mock_source") || t.contains("_mock\"")
+        }).unwrap_or(false);
+
         match result {
             Ok(text) => JsonRpcResponse::ok(id, serde_json::json!({
-                "content": [{ "type": "text", "text": text }],
+                "content": [{
+                    "type": "text",
+                    "text": text,
+                    // MCP metadata: helps clients understand the source and mock status
+                    "annotations": {
+                        "tool": tool_name,
+                        "mock": is_mock,
+                        "inference": if is_mock { "mock — compile with --features llama-gguf for real inference" } else { "live" },
+                    }
+                }],
                 "isError": false,
+                "_meta": {
+                    "tool": tool_name,
+                    "mock": is_mock,
+                }
             })),
             Err(e) => JsonRpcResponse::ok(id, serde_json::json!({
                 "content": [{ "type": "text", "text": format!("Tool execution failed: {}", e) }],
