@@ -1,4 +1,4 @@
-/// Aaroneous MCP Service — Anthropic Model Context Protocol server.
+﻿/// Aaroneous MCP Service — Anthropic Model Context Protocol server.
 ///
 /// Implements the MCP 2024-11 specification (JSON-RPC 2.0 over HTTP+SSE).
 /// This makes every sovereign specialist available as an MCP tool to:
@@ -109,13 +109,29 @@ pub struct McpService {
     pub started_at: std::time::Instant,
     pub request_count: Arc<std::sync::atomic::AtomicU64>,
     /// Per-session conversation context for multi-turn MCP tool calls.
-    /// Key: session_id (from MCP _meta.session_id field in request)
-    /// Value: Vec of prior tool outputs formatted as "TOOL: <name>\nOUTPUT: <text>"
     pub sessions: Arc<RwLock<HashMap<String, Vec<String>>>>,
+    /// Workspace root for file tools (read_code, search_code, list_files).
+    ///
+    /// Resolution order:
+    /// 1. `AARONEOUS_WORKSPACE` environment variable
+    /// 2. `std::env::current_dir()` (process working directory)
+    /// 3. Hardcoded `D:\Aaroneous` fallback (only for self-development)
+    ///
+    /// Claude Desktop / Cursor: set `AARONEOUS_WORKSPACE=${workspaceFolder}`
+    /// in the MCP server environment config.
+    pub workspace_root: std::path::PathBuf,
 }
 
 impl McpService {
     pub fn new(config: ServiceConfig) -> Self {
+        // Discover workspace root at startup — never hardcoded after this point
+        let workspace_root = std::env::var("AARONEOUS_WORKSPACE")
+            .map(std::path::PathBuf::from)
+            .or_else(|_| std::env::current_dir())
+            .unwrap_or_else(|_| std::path::PathBuf::from("D:\\Aaroneous"));
+
+        tracing::info!("MCP workspace root: {}", workspace_root.display());
+
         Self {
             config,
             federation: None,
@@ -124,6 +140,7 @@ impl McpService {
             started_at: std::time::Instant::now(),
             request_count: Arc::new(std::sync::atomic::AtomicU64::new(0)),
             sessions: Arc::new(RwLock::new(HashMap::new())),
+            workspace_root,
         }
     }
 
@@ -469,10 +486,19 @@ impl McpService {
         }
 
         match result {
-            Ok(text) => JsonRpcResponse::ok(id, serde_json::json!({
+            Ok(text) => {
+                // Prepend a clear mock indicator when inference is not real.
+                // This surfaces prominently in Cursor/Claude Desktop so developers
+                // know to enable --features llama-gguf for real sovereign responses.
+                let display_text = if is_mock {
+                    format!("⚠️ MOCK RESPONSE — no real inference (build with --features llama-gguf)\n\n{}", text)
+                } else {
+                    text
+                };
+                JsonRpcResponse::ok(id, serde_json::json!({
                 "content": [{
                     "type": "text",
-                    "text": text,
+                    "text": display_text,
                     "annotations": {
                         "tool": tool_name,
                         "mock": is_mock,
@@ -486,7 +512,7 @@ impl McpService {
                     "mock": is_mock,
                     "session_id": session_id,
                 }
-            })),
+            }))},
             Err(e) => JsonRpcResponse::ok(id, serde_json::json!({
                 "content": [{ "type": "text", "text": format!("Tool execution failed: {}", e) }],
                 "isError": true,
@@ -700,14 +726,14 @@ impl McpService {
             path
         } else {
             // Try relative to D:\Aaroneous first, then current dir
-            let workspace = std::path::PathBuf::from("D:\\Aaroneous").join(path_str);
+            let workspace = self.workspace_root.join(path_str);
             if workspace.exists() { workspace } else {
                 std::path::PathBuf::from(path_str)
             }
         };
 
         if !resolved.exists() {
-            anyhow::bail!("File not found: {} (tried absolute and relative to D:\\Aaroneous)", path_str);
+            anyhow::bail!("File not found: {} (workspace root: {})", path_str, self.workspace_root.display());
         }
 
         let content = std::fs::read_to_string(&resolved)
@@ -736,7 +762,14 @@ impl McpService {
     async fn tool_search_code(&self, args: &serde_json::Value) -> anyhow::Result<String> {
         let pattern = args.get("pattern").and_then(|v| v.as_str())
             .ok_or_else(|| anyhow::anyhow!("Missing required argument 'pattern'"))?;
-        let search_path = args.get("path").and_then(|v| v.as_str()).unwrap_or("D:\\Aaroneous\\src");
+        // Default to workspace_root/src if exists, otherwise workspace_root
+        let default_search = {
+            let src = self.workspace_root.join("src");
+            if src.exists() { src } else { self.workspace_root.clone() }
+        };
+        let default_search_str = default_search.to_string_lossy().into_owned();
+        let search_path = args.get("path").and_then(|v| v.as_str())
+            .unwrap_or(&default_search_str);
         let file_glob = args.get("file_glob").and_then(|v| v.as_str()).unwrap_or("*.rs");
         let max_results = args.get("max_results").and_then(|v| v.as_u64()).unwrap_or(20) as usize;
 
@@ -794,7 +827,8 @@ impl McpService {
 
     /// List files in a directory.
     async fn tool_list_files(&self, args: &serde_json::Value) -> anyhow::Result<String> {
-        let path_str = args.get("path").and_then(|v| v.as_str()).unwrap_or("D:\\Aaroneous");
+        let default_path = self.workspace_root.to_string_lossy().into_owned();
+        let path_str = args.get("path").and_then(|v| v.as_str()).unwrap_or(&default_path);
         let glob_filter = args.get("glob").and_then(|v| v.as_str()).unwrap_or("");
 
         let path = std::path::Path::new(path_str);

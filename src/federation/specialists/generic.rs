@@ -154,6 +154,9 @@ pub struct GenericSpecialist {
     /// Sovereign-local RAG memory â€” stores past execution outputs so
     /// future invocations can retrieve relevant context before calling the LLM.
     pub memory: Arc<Mutex<EmbeddingStore>>,
+    /// Sovereign soul loaded from the .gguf.soul.json sidecar.
+    /// When present, the archetype and personality modulate the system prompt.
+    pub soul: Option<crate::self_digestion::SpecialistSoul>,
 }
 
 pub const PERSISTENCE_KEY_PREFIX: &str = "Generic:";
@@ -175,6 +178,7 @@ impl GenericSpecialist {
             model_path: None,
             learning: Arc::new(Mutex::new(GenericLearningData::new())),
             memory: Arc::new(Mutex::new(EmbeddingStore::new(256))),
+            soul: None,
         }
     }
 
@@ -215,6 +219,17 @@ impl GenericSpecialist {
                     self.name, path.display()
                 );
                 self.llm = Some(Arc::new(client));
+                // Load soul sidecar alongside the GGUF if it exists
+                let soul_path = path.with_extension("gguf.soul.json");
+                if soul_path.exists() {
+                    if let Ok(data) = std::fs::read_to_string(&soul_path) {
+                        if let Ok(soul) = serde_json::from_str::<crate::self_digestion::SpecialistSoul>(&data) {
+                            info!("GenericSpecialist '{}': soul loaded — archetype={}",
+                                  self.name, soul.personality_soul.archetype);
+                            self.soul = Some(soul);
+                        }
+                    }
+                }
                 self.model_path = Some(path);
             }
             Err(e) => {
@@ -388,7 +403,28 @@ impl Specialist for GenericSpecialist {
         // Try LLM-backed execution; fall back to structured acknowledgement on failure
         // so dynamic sovereigns return Success even without --features llama-gguf.
         let output = if let Some(llm) = &self.llm {
-            let system_prompt = system_prompt_for_domain(&self.domain, &self.name);
+            // Build the system prompt, enriched with soul personality when available.
+            // Soul archetype and Big Five scores modulate tone and focus:
+            // - "Engineer" → precise, structured, show-your-work
+            // - "Scholar" → comprehensive, cite sources, acknowledge uncertainty
+            // - "Strategist" → think in dependencies, surface blockers
+            let base_prompt = system_prompt_for_domain(&self.domain, &self.name);
+            let system_prompt = if let Some(ref soul) = self.soul {
+                let p = &soul.personality_soul;
+                format!(
+                    "{}\n\nPersonality: {} archetype. Openness={:.1} Conscientiousness={:.1} \
+                     Extraversion={:.1}. Style: {}. Values: {}.",
+                    base_prompt,
+                    p.archetype,
+                    p.big_five_openness,
+                    p.big_five_conscientiousness,
+                    p.big_five_extraversion,
+                    p.conversation_style.chars().take(60).collect::<String>(),
+                    p.core_values.first().map(|s| s.as_str()).unwrap_or("excellence"),
+                )
+            } else {
+                base_prompt
+            };
             match llm.generate_domain_response(&system_prompt, &intent_with_context, &self.domain).await {
                 Ok(response) => format!("[{}] {}", self.name, response),
                 Err(_e) => {

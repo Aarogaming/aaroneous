@@ -510,6 +510,18 @@ impl Specialist for Visionary {
             return Ok(vec![]);
         }
 
+        // Suppress UI design proposals when the intent is clearly non-design.
+        // This prevents Visionary from cluttering code/security/build results.
+        let activity_lower = context.user_state.activity.to_lowercase();
+        let non_design_keywords = [
+            "review", "audit", "security", "build", "test", "fix", "deploy",
+            "debug", "compile", "analyze", "parse", "refactor", "lint",
+            "scan", "check", "rust", "python", "code", "function", "bug",
+        ];
+        if non_design_keywords.iter().any(|kw| activity_lower.contains(kw)) {
+            return Ok(vec![]); // Not a design intent — stay silent
+        }
+
         // REVIVED: Use learned confidence from prior executions
         let base_confidence = if context.user_state.activity == "idle" { 0.85 } else { 0.60 };
         

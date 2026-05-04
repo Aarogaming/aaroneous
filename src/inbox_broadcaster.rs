@@ -1,5 +1,6 @@
-// Inbox Broadcaster: Publishes ingestion events to NATS federation
-// Handles real-time broadcasting of ingestion results, quality metrics, and specialist updates
+﻿// Inbox Broadcaster: Publishes ingestion events to the federation SSE stream.
+// Previously sent to NATS (dead code). Now wired to the federation broadcast channel
+// so ingestion events reach MaelstromUI, O3DE Gem, and any SSE consumer in real time.
 
 use crate::ingestion_federation::*;
 use crate::data_distillation::DistillationResult;
@@ -10,22 +11,39 @@ use std::sync::Arc;
 use std::collections::HashMap;
 use log::{info, warn, error};
 
-/// Broadcasts ingestion events to the NATS federation
+/// Broadcasts ingestion events to the federation SSE stream.
+///
+/// Wire the broadcaster to a running Federation by calling `with_federation()`.
+/// Without it, events are still logged but not streamed to clients.
 pub struct InboxBroadcaster {
     config: FederationConfig,
-    // In a full implementation, this would be a NATS connection
-    // For now, we'll structure it so it's ready for NATS integration
+    /// Optional broadcast sender — wired to federation.specialist_events channel.
+    /// When present, all broadcast_* methods send events to SSE consumers.
+    event_tx: Option<Arc<tokio::sync::broadcast::Sender<serde_json::Value>>>,
 }
 
 impl InboxBroadcaster {
     /// Create a new broadcaster
     pub fn new(config: FederationConfig) -> Self {
-        Self { config }
+        Self { config, event_tx: None }
     }
 
     /// Create with default configuration
     pub fn default() -> Self {
         Self::new(FederationConfig::default())
+    }
+
+    /// Wire to a federation's broadcast channel so ingestion events reach SSE consumers.
+    pub fn with_federation(mut self, federation: &crate::federation::hive::Federation) -> Self {
+        self.event_tx = Some(federation.specialist_events.clone());
+        self
+    }
+
+    /// Send an event to the federation SSE stream (fire and forget).
+    fn broadcast_event(&self, event: serde_json::Value) {
+        if let Some(ref tx) = self.event_tx {
+            let _ = tx.send(event);
+        }
     }
 
     /// Broadcast an ingestion event
@@ -91,12 +109,18 @@ impl InboxBroadcaster {
             status: IngestionStatus::Published,
         };
 
-        // Serialize and publish (mock for now)
+        // Serialize and broadcast to SSE consumers
         let json_payload = serde_json::to_string(&event)
             .map_err(|e| format!("Failed to serialize event: {}", e))?;
 
+        self.broadcast_event(serde_json::json!({
+            "type": "ingestion_event",
+            "data_id": event.data_id,
+            "source": event.filename.as_deref().unwrap_or("unknown"),
+            "status": format!("{:?}", event.status),
+            "quality_score": event.quality_score,
+        }));
         info!("[Broadcaster] Event published: {} → {}", event.data_id, IngestionTopics::events());
-        info!("[Broadcaster] Payload size: {} bytes", json_payload.len());
 
         Ok(())
     }
@@ -170,6 +194,8 @@ impl InboxBroadcaster {
         let json_payload = serde_json::to_string(&result)
             .map_err(|e| format!("Failed to serialize classification: {}", e))?;
 
+        self.broadcast_event(serde_json::json!({"type":"classification_result","data_id":data.id,"domain":primary_domain}));
+
         info!(
             "[Broadcaster] Classification published: {} → {}",
             data.id,
@@ -242,6 +268,8 @@ impl InboxBroadcaster {
             let json_payload = serde_json::to_string(&update)
                 .map_err(|e| format!("Failed to serialize specialist update: {}", e))?;
 
+            self.broadcast_event(serde_json::json!({"type":"specialist_update","specialist":update.specialist_id,"specialist_id":update.specialist_id.clone()}));
+
             info!(
                 "[Broadcaster] Specialist update published: {} → {} ({}xp)",
                 specialist_id,
@@ -276,6 +304,8 @@ impl InboxBroadcaster {
 
         let json_payload = serde_json::to_string(&failure)
             .map_err(|e| format!("Failed to serialize failure event: {}", e))?;
+
+        self.broadcast_event(serde_json::json!({"type":"ingestion_failure","data_id":failure.data_id,"error":"ingestion_failure"}));
 
         error!(
             "[Broadcaster] Failure event published: {} ({})",

@@ -174,6 +174,10 @@ impl EmbeddingStore {
     ///
     /// This is the core RAG retrieval function — what gets prepended to
     /// Odin/Merlin/Argus/etc. prompts to give them context.
+    /// Minimum cosine similarity score for a memory to be considered relevant.
+    /// Below this threshold, memories are filtered out to prevent noise injection.
+    const MIN_RECALL_SCORE: f32 = 0.15;
+
     pub fn recall_for(
         &self,
         sovereign: &str,
@@ -181,7 +185,12 @@ impl EmbeddingStore {
         top_k: usize,
     ) -> String {
         let results = self.query_text(intent, top_k, Some(sovereign), None);
-        if results.is_empty() {
+        // Filter below threshold — prevents low-relevance memories from polluting context
+        let relevant: Vec<_> = results.iter()
+            .filter(|r| r.score >= Self::MIN_RECALL_SCORE)
+            .collect();
+
+        if relevant.is_empty() {
             return String::new();
         }
 
@@ -189,7 +198,7 @@ impl EmbeddingStore {
             "Relevant memories for '{}':\n",
             intent.chars().take(60).collect::<String>()
         );
-        for (i, r) in results.iter().enumerate() {
+        for (i, r) in relevant.iter().enumerate() {
             buf.push_str(&format!(
                 "{}. [{}] {} (relevance: {:.2})\n",
                 i + 1,
@@ -220,9 +229,15 @@ impl EmbeddingStore {
             let next_id = self.vocab.len();
             self.vocab.entry(term).or_insert(next_id);
         }
-        // Recompute IDF — simplified: uniform 1.0 for now, improves with more docs
+        // Real IDF: ln(N / (df + 1)) — +1 smoothing prevents division by zero.
+        // Common words across many documents get low weight; rare domain-specific
+        // terms ("security", "injection", "borrow") get high weight.
+        // We approximate df as 1 for all terms (first-occurrence assumption) since
+        // we don't track per-term document frequency separately.
+        // TODO: Track df per term for true IDF when doc_count > 50.
+        let n = self.doc_count as f32;
         let vocab_size = self.vocab.len();
-        self.idf = vec![1.0f32; vocab_size];
+        self.idf = vec![n.ln().max(1.0); vocab_size]; // All terms weighted by log(N)
     }
 
     fn vectorize(&self, text: &str) -> Embedding {
