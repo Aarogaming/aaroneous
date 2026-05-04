@@ -3310,21 +3310,37 @@ async fn openai_chat_completions(
         }))).into_response();
     }
 
-    // Build conversation history from prior turns (all messages except the last user message).
-    // This is prepended to the user message so the sovereign sees the full conversation context.
-    // Format: "User: ...\nAssistant: ...\nUser: ...\n\nCurrent: <user_content>"
+    // Build conversation history from prior turns — all messages except the current user turn.
+    // Correct approach: collect all non-system messages, then strip the trailing user message
+    // that equals user_content. This preserves the full conversation including the most recent
+    // assistant response (critical for follow-up questions).
+    // Format: "USER: ...\nASSISTANT: ...\nUSER: ...\n"
     let conversation_history: Option<String> = {
-        let history_msgs: Vec<String> = req.messages.iter()
+        let all_non_system: Vec<&OaiMessage> = req.messages.iter()
             .filter(|m| m.role != "system")
-            .collect::<Vec<_>>()
-            // All turns except the last user message
-            .windows(2)
-            .filter_map(|w| {
-                let last = w.last()?;
-                if last.role == "user" && &last.content == &user_content { None }
-                else { Some(format!("{}: {}", w[0].role.to_uppercase(), w[0].content.chars().take(500).collect::<String>())) }
-            })
             .collect();
+
+        // Find how many trailing messages to drop: skip the current user message from the end
+        let prior_count = {
+            let mut tail = all_non_system.len();
+            // Walk backwards and drop the last user message matching user_content
+            while tail > 0 {
+                let m = all_non_system[tail - 1];
+                if m.role == "user" && m.content == user_content {
+                    tail -= 1;
+                    break;
+                }
+                break; // only strip exactly the last matching user turn
+            }
+            tail
+        };
+
+        let history_msgs: Vec<String> = all_non_system[..prior_count]
+            .iter()
+            .map(|m| format!("{}: {}", m.role.to_uppercase(),
+                             m.content.chars().take(500).collect::<String>()))
+            .collect();
+
         if history_msgs.is_empty() { None }
         else { Some(history_msgs.join("\n")) }
     };
@@ -3362,16 +3378,28 @@ async fn openai_chat_completions(
                     "choices": [{"index": 0, "delta": {"role": "assistant"}, "finish_reason": null}]
                 })).unwrap_or_default()));
 
-            // Content chunks (split into ~100-char pieces for streaming feel)
+            // Stream word-by-word with a short delay — produces natural typewriter
+            // effect in Cursor/Claude Desktop instead of all-at-once burst.
+            // Groups of ~3 words per chunk keeps it fast but visually smooth.
             let text = response_text.clone();
-            for chunk in text.as_bytes().chunks(100) {
-                let s = String::from_utf8_lossy(chunk).to_string();
+            let words: Vec<&str> = text.split_whitespace().collect();
+            let chunk_size = 3usize; // emit 3 words at a time
+            let mut i = 0;
+            while i < words.len() {
+                let end = (i + chunk_size).min(words.len());
+                let s = words[i..end].join(" ");
+                // Preserve spacing: add space before unless start of text
+                let s = if i > 0 { format!(" {}", s) } else { s };
                 yield Ok::<_, std::convert::Infallible>(axum::response::sse::Event::default()
                     .data(serde_json::to_string(&serde_json::json!({
                         "id": id_clone, "object": "chat.completion.chunk", "created": created,
                         "model": model_clone,
                         "choices": [{"index": 0, "delta": {"content": s}, "finish_reason": null}]
                     })).unwrap_or_default()));
+                i = end;
+                // 20ms between word groups — fast enough to not feel slow,
+                // slow enough to feel live rather than a burst
+                tokio::time::sleep(tokio::time::Duration::from_millis(20)).await;
             }
 
             // Final chunk: [DONE]
@@ -3499,6 +3527,21 @@ async fn route_to_sovereign(
             let system_prompt = system_override
                 .map(|s| s.to_string())
                 .unwrap_or_else(|| system_prompt_for_domain(domain, sovereign_name));
+
+            // Build a scoped LLM client with caller's temperature/max_tokens if different
+            // from defaults — avoids mutating the shared client.
+            if (temperature - 0.7).abs() > 0.01 || max_tokens != 2048 {
+                let mut config = llm.config().clone();
+                config.temperature = temperature;
+                config.max_tokens = max_tokens;
+                if let Ok(scoped_llm) = crate::llm::LLMClient::new(config).await {
+                    match scoped_llm.generate_domain_response(&system_prompt, user_message, domain).await {
+                        Ok(r) => return r,
+                        Err(_) => {} // fall through to default llm
+                    }
+                }
+            }
+
             match llm.generate_domain_response(&system_prompt, user_message, domain).await {
                 Ok(r) => return r,
                 Err(e) => return format!("[{}] LLM error: {}", sovereign_name, e),
@@ -3511,6 +3554,8 @@ async fn route_to_sovereign(
     let mut context = std::collections::HashMap::new();
     context.insert("target_sovereign".to_string(), sovereign_name.to_string());
     context.insert("openai_compat".to_string(), "true".to_string());
+    context.insert("temperature".to_string(), temperature.to_string());
+    context.insert("max_tokens".to_string(), max_tokens.to_string());
 
     let mut intent = crate::federation::intent::Intent::new(user_message.to_string());
     intent.context = context;

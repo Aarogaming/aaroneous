@@ -1022,17 +1022,20 @@ async fn run_decision(
             }
         }
 
-        // Route to originating session
-        {
-            let intent = active_intent_arc.read().await;
-            if let Some(intent) = intent.as_ref() {
-                if let Some(session_id) = intent.context.get("session_id").cloned() {
-                    drop(intent);
-                    let mut sessions = sessions_arc.write().await;
-                    if let Some(session) = sessions.get_mut(&session_id) {
-                        session.add_result(result.clone());
-                    }
-                }
+        // Route to originating session.
+        // Read the session_id under the read guard, then release the guard
+        // BEFORE acquiring the sessions write lock — avoids potential deadlock
+        // when both locks are on the same async executor thread.
+        let session_id_opt = {
+            let intent_guard = active_intent_arc.read().await;
+            intent_guard.as_ref()
+                .and_then(|i| i.context.get("session_id").cloned())
+            // intent_guard drops here, releasing the read lock
+        };
+        if let Some(session_id) = session_id_opt {
+            let mut sessions = sessions_arc.write().await;
+            if let Some(session) = sessions.get_mut(&session_id) {
+                session.add_result(result.clone());
             }
         }
 

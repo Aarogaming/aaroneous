@@ -108,6 +108,10 @@ pub struct McpService {
     pub domains: Arc<RwLock<HashMap<String, CapabilityDomain>>>,
     pub started_at: std::time::Instant,
     pub request_count: Arc<std::sync::atomic::AtomicU64>,
+    /// Per-session conversation context for multi-turn MCP tool calls.
+    /// Key: session_id (from MCP _meta.session_id field in request)
+    /// Value: Vec of prior tool outputs formatted as "TOOL: <name>\nOUTPUT: <text>"
+    pub sessions: Arc<RwLock<HashMap<String, Vec<String>>>>,
 }
 
 impl McpService {
@@ -119,6 +123,7 @@ impl McpService {
             domains: Arc::new(RwLock::new(HashMap::new())),
             started_at: std::time::Instant::now(),
             request_count: Arc::new(std::sync::atomic::AtomicU64::new(0)),
+            sessions: Arc::new(RwLock::new(HashMap::new())),
         }
     }
 
@@ -363,7 +368,35 @@ impl McpService {
             Some(n) => n.to_string(),
             None => return JsonRpcResponse::err(id, -32602, "Invalid params: missing tool name"),
         };
-        let args = params.get("arguments").cloned().unwrap_or(serde_json::json!({}));
+        let mut args = params.get("arguments").cloned().unwrap_or(serde_json::json!({}));
+
+        // Extract session_id from _meta field (MCP 2024-11 spec)
+        let session_id = params.get("_meta")
+            .and_then(|m| m.get("session_id"))
+            .and_then(|s| s.as_str())
+            .map(|s| s.to_string());
+
+        // Inject conversation history from this session into the tool arguments
+        // so the sovereign sees context from prior tool calls in this conversation.
+        if let Some(ref sid) = session_id {
+            let sessions = self.sessions.read().await;
+            if let Some(history) = sessions.get(sid) {
+                if !history.is_empty() {
+                    let history_text = history.iter()
+                        .rev().take(5).rev() // last 5 turns
+                        .cloned().collect::<Vec<_>>().join("\n---\n");
+                    // Prepend to the first string argument we find
+                    for field in &["query", "intent", "target", "content", "context", "task",
+                                   "scenario", "spatial_intent"] {
+                        if let Some(v) = args.get(*field).and_then(|v| v.as_str()) {
+                            let augmented = format!("Prior context:\n{}\n\nCurrent: {}", history_text, v);
+                            args[*field] = serde_json::Value::String(augmented);
+                            break;
+                        }
+                    }
+                }
+            }
+        }
 
         debug!("MCP tool call: {}", tool_name);
 
@@ -385,15 +418,31 @@ impl McpService {
                 || t.contains("mock_source") || t.contains("_mock\"")
         }).unwrap_or(false);
 
+        // Store result in session context for future turns
+        if let Some(ref sid) = session_id {
+            if let Ok(ref text) = result {
+                let entry = format!("TOOL: {}\nOUTPUT: {}",
+                    tool_name, text.chars().take(800).collect::<String>());
+                let mut sessions = self.sessions.write().await;
+                let history = sessions.entry(sid.clone()).or_default();
+                history.push(entry);
+                // Cap session history at 20 turns
+                if history.len() > 20 {
+                    let excess = history.len() - 20;
+                    history.drain(..excess);
+                }
+            }
+        }
+
         match result {
             Ok(text) => JsonRpcResponse::ok(id, serde_json::json!({
                 "content": [{
                     "type": "text",
                     "text": text,
-                    // MCP metadata: helps clients understand the source and mock status
                     "annotations": {
                         "tool": tool_name,
                         "mock": is_mock,
+                        "session_id": session_id,
                         "inference": if is_mock { "mock — compile with --features llama-gguf for real inference" } else { "live" },
                     }
                 }],
@@ -401,6 +450,7 @@ impl McpService {
                 "_meta": {
                     "tool": tool_name,
                     "mock": is_mock,
+                    "session_id": session_id,
                 }
             })),
             Err(e) => JsonRpcResponse::ok(id, serde_json::json!({

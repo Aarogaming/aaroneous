@@ -543,7 +543,9 @@ pub fn system_prompt_for_domain(domain: &str, name: &str) -> String {
 
         // ── Generic domain fallbacks ──────────────────────────────────────────
 
-        "knowledge" | "research" | "general" =>
+        // Note: "research" is intentionally absent here — it is handled by the
+        // Merlin-specific arm below. Only "knowledge" and "general" fall through here.
+        "knowledge" | "general" =>
             "You are a knowledgeable research assistant. Provide accurate, \
              well-structured answers. Cite sources where possible. Distinguish \
              facts from interpretations.",

@@ -267,6 +267,11 @@ impl LLMClient {
     /// Unlike `generate_design()` (which hardcodes a UI/UX system prompt),
     /// this method builds a prompt from the provided `system_prompt` and
     /// `user_prompt`, then calls the provider's `generate_design()` with
+    /// Return the LLM configuration for this client (temperature, max_tokens, etc.)
+    pub fn config(&self) -> &LLMConfig {
+        &self.config
+    }
+
     /// the intent set to the full prompt.  The result is returned as a plain
     /// string (the first variant's description, or the batch output).
     ///

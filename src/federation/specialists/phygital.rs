@@ -615,16 +615,26 @@ impl Specialist for Phygital {
         };
 
         let prototype_count = anchor_manifest.len();
-        let output = format!(
-            "Phygital: {} AR anchor(s) on {} at {}FPS for '{}'. {}. Anchors: {}",
-            prototype_count,
-            device,
-            frame_rate,
-            intent.chars().take(50).collect::<String>(),
-            if self.can_render_ar() { "AR hardware ready" } else { "Simulated render" },
-            serde_json::to_string(&anchor_manifest)
-                .unwrap_or_else(|_| format!("[{} anchors]", prototype_count))
-        );
+        let ar_available = self.can_render_ar();
+        let intent_short = intent.chars().take(60).collect::<String>();
+        let output = serde_json::to_string(&serde_json::json!({
+            "sovereign": "Kami",
+            "intent": intent_short,
+            "spatial": {
+                "anchor_count": prototype_count,
+                "device": device,
+                "frame_rate_fps": frame_rate,
+                "ar_available": ar_available,
+                "render_mode": if ar_available { "ar_hardware" } else { "simulated" },
+                "gpu_headroom_pct": self.gpu_headroom_percent,
+                "landmarks": self.landmarks.len(),
+            },
+            "anchors": anchor_manifest,
+            "note": if ar_available { "" } else { "Enable --features ar-openxr for real AR rendering" },
+        })).unwrap_or_else(|_| format!(
+            "[Kami] {} AR anchor(s) | {} | {}FPS | Intent: '{}'",
+            prototype_count, device, frame_rate, intent_short
+        ));
 
         let result = ExecutionResult {
             specialist: SpecialistId::Phygital,
