@@ -3548,6 +3548,7 @@ async fn route_to_sovereign(
 
     // Wait up to 3s for a result from this specific sovereign.
     // Match by either specialist_name (dynamic) or sovereign_name() (core).
+    // Early-exit: return as soon as the target sovereign's result arrives.
     let sovereign_name_owned = sovereign_name.to_string();
     let deadline = tokio::time::Instant::now() + tokio::time::Duration::from_millis(3000);
     loop {
@@ -3555,14 +3556,14 @@ async fn route_to_sovereign(
         {
             let results = state.federation.results.lock().await;
             let new_results: Vec<_> = results.iter().skip(count_before).collect();
-            // Match by dynamic specialist name OR core sovereign display name
+            // Match target sovereign → return immediately on match
             if let Some(r) = new_results.iter().find(|r| {
                 r.specialist_name.as_deref() == Some(&sovereign_name_owned)
                     || r.specialist.sovereign_name() == sovereign_name_owned
             }) {
                 return r.output.clone();
             }
-            // Accept any new result if timeout approaching
+            // Fallback: accept any new result 200ms before hard deadline
             if !new_results.is_empty()
                 && tokio::time::Instant::now()
                     >= deadline - tokio::time::Duration::from_millis(200)
@@ -3794,9 +3795,10 @@ async fn links_test(
 /// Polls every 50ms up to `timeout_ms`, returning all new outputs since `count_before`.
 /// Wait for new execution results after an intent submission.
 ///
-/// Unlike a blind sleep, this polls every 50ms and waits the full `timeout_ms`
-/// to collect ALL sovereign outputs — not just the first to arrive.
-/// Formats each result as a markdown section with the sovereign's display name.
+/// Polls every 50ms. Exits early once results have arrived AND stopped growing
+/// for one tick — this means mock mode (where all sovereigns respond in <50ms)
+/// completes in ~100ms rather than burning the full 2000ms timeout.
+/// Still waits up to `timeout_ms` for slow sovereigns (real GGUF inference).
 async fn wait_for_new_results(
     fed: &crate::federation::hive::Federation,
     count_before: usize,
@@ -3805,9 +3807,25 @@ async fn wait_for_new_results(
     let deadline = tokio::time::Instant::now()
         + tokio::time::Duration::from_millis(timeout_ms);
 
-    // Wait until deadline, collecting all new results
+    // Early-exit strategy: once we have results and the count hasn't grown
+    // for one additional tick, we consider the response complete.
+    let mut last_count = count_before;
+    let mut stable_ticks = 0u32;
+
     loop {
         tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
+        let current_count = fed.results.lock().await.len();
+
+        if current_count > last_count {
+            // New results arrived — reset stability counter
+            last_count = current_count;
+            stable_ticks = 0;
+        } else if current_count > count_before {
+            // Count is stable and we have results — exit after 1 stable tick
+            stable_ticks += 1;
+            if stable_ticks >= 1 { break; }
+        }
+
         if tokio::time::Instant::now() >= deadline { break; }
     }
 

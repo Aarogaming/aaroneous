@@ -182,37 +182,40 @@ impl super::LLMProvider for MockProvider {
                         .chars().take(100).collect::<String>();
                     let intent_lower = intent.to_lowercase();
 
-                    // Route t2 to the correct sovereign based on intent keywords
-                    // instead of always routing to Ariel (UI design) which is wrong
-                    // for code/security/build intents.
+                    // Route t2 to the correct sovereign based on intent keywords.
+                    // Use .chars().take(60) instead of byte slicing to avoid UTF-8 panics.
+                    let short = intent.chars().take(60).collect::<String>();
                     let (t2_sovereign, t2_action) = if intent_lower.contains("security")
                         || intent_lower.contains("audit") || intent_lower.contains("vulnerab")
                         || intent_lower.contains("exploit") || intent_lower.contains("scan")
+                        || intent_lower.contains("memory leak") || intent_lower.contains("leak")
+                        || intent_lower.contains("review") // code review → Argus for security
                     {
-                        ("Argus", format!("Security audit: {}", &intent[..intent.len().min(60)]))
-                    } else if intent_lower.contains("code") || intent_lower.contains("review")
-                        || intent_lower.contains("rust") || intent_lower.contains("function")
-                        || intent_lower.contains("bug") || intent_lower.contains("refactor")
+                        ("Argus", format!("Security/code audit: {}", short))
+                    } else if intent_lower.contains("rust") || intent_lower.contains("code")
+                        || intent_lower.contains("function") || intent_lower.contains("bug")
+                        || intent_lower.contains("refactor") || intent_lower.contains("analyze")
                     {
-                        ("Merlin", format!("Code analysis: {}", &intent[..intent.len().min(60)]))
+                        ("Merlin", format!("Code analysis: {}", short))
                     } else if intent_lower.contains("build") || intent_lower.contains("deploy")
                         || intent_lower.contains("ci") || intent_lower.contains("pipeline")
                         || intent_lower.contains("docker") || intent_lower.contains("compile")
                     {
-                        ("Hephaestus", format!("Build planning: {}", &intent[..intent.len().min(60)]))
-                    } else if intent_lower.contains("design") || intent_lower.contains("ui")
+                        ("Hephaestus", format!("Build planning: {}", short))
+                    } else if intent_lower.contains("design") || intent_lower.contains(" ui ")
                         || intent_lower.contains("ux") || intent_lower.contains("interface")
                         || intent_lower.contains("layout") || intent_lower.contains("visual")
                     {
-                        ("Ariel", format!("Design generation: {}", &intent[..intent.len().min(60)]))
+                        ("Ariel", format!("Design generation: {}", short))
                     } else {
                         // General intent → Merlin for synthesis
-                        ("Merlin", format!("Execute primary work on: {}", &intent[..intent.len().min(60)]))
+                        ("Merlin", format!("Execute primary work on: {}", short))
                     };
 
+                    let t1_content = format!("Research and gather context for: {}", short);
                     let json = format!(
-                        r#"{{"mock":true,"source":"odin_mock","tasks":[{{"id":"t1","content":"Research and gather context for: {}","assign_to":"Merlin","priority":"High","deps":[]}},{{"id":"t2","content":"{}","assign_to":"{}","priority":"Normal","deps":["t1"]}},{{"id":"t3","content":"Archive results and update DNA Bank","assign_to":"Dionysus","priority":"Low","deps":["t2"]}}],"note":"Enable --features llama-gguf for real Odin task decomposition"}}"#,
-                        intent, t2_action, t2_sovereign
+                        r#"{{"mock":true,"source":"odin_mock","tasks":[{{"id":"t1","content":"{}","assign_to":"Merlin","priority":"High","deps":[]}},{{"id":"t2","content":"{}","assign_to":"{}","priority":"Normal","deps":["t1"]}},{{"id":"t3","content":"Archive results and update DNA Bank","assign_to":"Dionysus","priority":"Low","deps":["t2"]}}],"note":"Enable --features llama-gguf for real Odin task decomposition"}}"#,
+                        t1_content, t2_action, t2_sovereign
                     );
                     return Ok(DesignGeneration {
                         intent: context.intent.clone(),

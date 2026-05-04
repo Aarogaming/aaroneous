@@ -914,7 +914,10 @@ async fn execute_start(
         .map_err(|e| format!("HiveRuntime start failed: {}", e))?;
 
     // --- Sentinel arbitration loop + session tick loop + system sensor ---
-    fed.spawn_sentinel_loop(std::time::Duration::from_millis(500)).await;
+    // 100ms Sentinel tick: was 500ms which caused ~500ms minimum latency for every
+    // intent. At 100ms, mock-mode round-trips drop from ~2100ms to ~200ms.
+    // With real GGUF inference the tick is negligible vs. inference time.
+    fed.spawn_sentinel_loop(std::time::Duration::from_millis(100)).await;
     fed.spawn_session_tick_loop().await;
     // Bridge: reads CPU/memory from sysinfo every 5s → Symbiotic bio_inbox
     fed.spawn_system_sensor_loop().await;

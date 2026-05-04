@@ -296,6 +296,22 @@ impl McpService {
             vec![],
         ));
 
+        // Meta-tool: assembles all recent sovereign outputs into a coherent report
+        tools.push(McpTool::new("hive_summary",
+            "Get a structured summary of the most recent sovereign outputs, assembled \
+             into a coherent markdown report. Shows what each specialist contributed, \
+             their confidence, and key findings. Call after submit_intent to see \
+             the full hive perspective in a readable format.",
+            serde_json::json!({
+                "max_results": {
+                    "type": "integer",
+                    "description": "Maximum number of recent results to include (default: 9)",
+                    "default": 9,
+                }
+            }),
+            vec![],
+        ));
+
         info!("Registered {} MCP tools", tools.len());
     }
 
@@ -473,7 +489,7 @@ impl McpService {
         if let Some(ref sid) = session_id {
             if let Ok(ref text) = result {
                 let entry = format!("TOOL: {}\nOUTPUT: {}",
-                    tool_name, text.chars().take(800).collect::<String>());
+                    tool_name, text.chars().take(2500).collect::<String>());
                 let mut sessions = self.sessions.write().await;
                 let history = sessions.entry(sid.clone()).or_default();
                 history.push(entry);
@@ -549,6 +565,7 @@ impl McpService {
             "ask_dionysus"    => ("content",        "memory_consolidation"),
             "get_results"     => return self.tool_get_results().await,
             "get_specialists" => return self.tool_get_specialists().await,
+            "hive_summary"    => return self.tool_hive_summary(args).await,
             "submit_intent"   => return self.tool_submit_intent(args).await,
             "forge_hybrid"    => return self.tool_forge_hybrid(args).await,
             "read_code"       => return self.tool_read_code(args).await,
@@ -891,6 +908,62 @@ impl McpService {
     }
 
     /// Uptime in seconds
+    /// Assemble recent sovereign outputs into a coherent markdown summary.
+    ///
+    /// This is the "what did the hive just say?" tool — it takes the raw JSON
+    /// blobs from each sovereign and renders them as readable markdown sections.
+    async fn tool_hive_summary(&self, args: &serde_json::Value) -> anyhow::Result<String> {
+        let max_results = args.get("max_results").and_then(|v| v.as_u64()).unwrap_or(9) as usize;
+
+        if let Some(ref fed) = self.federation {
+            let recent: Vec<_> = {
+                let results = fed.results.lock().await;
+                if results.is_empty() {
+                    return Ok("## Hive Summary\n\nNo results yet. Submit an intent first:\n\n```\nuse submit_intent to send a task to the hive\n```".to_string());
+                }
+                // Clone to release the lock before building the markdown
+                results.iter().rev().take(max_results).cloned().collect()
+            };
+
+            let mut sections = vec![
+                format!("# Aaroneous Hive Summary\n\n*{} sovereign response(s) — most recent first*\n", recent.len())
+            ];
+
+            for r in &recent {
+                let name = r.specialist_name.as_deref().unwrap_or_else(|| r.specialist.sovereign_name());
+                let domain = r.specialist.domain();
+                let status_emoji = match r.status {
+                    crate::federation::specialist::ExecutionStatus::Success => "✅",
+                    crate::federation::specialist::ExecutionStatus::Failed => "❌",
+                    _ => "⏳",
+                };
+
+                // Try to parse the output as JSON for cleaner display
+                let formatted_output = if let Ok(v) = serde_json::from_str::<serde_json::Value>(&r.output) {
+                    // Pretty-print JSON with key fields highlighted
+                    let note = v.get("note").and_then(|n| n.as_str()).unwrap_or("");
+                    let mock = v.get("mock").and_then(|m| m.as_bool()).unwrap_or(false);
+                    let mut parts = vec![];
+                    if mock { parts.push(format!("> ⚠️ Mock output — {}", note)); }
+                    parts.push(format!("```json\n{}\n```", serde_json::to_string_pretty(&v).unwrap_or(r.output.clone())));
+                    parts.join("\n\n")
+                } else {
+                    // Plain text output
+                    r.output.chars().take(1000).collect::<String>()
+                };
+
+                sections.push(format!(
+                    "---\n\n## {} {} `{}ms`\n\n*Domain: {}*\n\n{}",
+                    status_emoji, name, r.duration_ms, domain, formatted_output
+                ));
+            }
+
+            Ok(sections.join("\n\n"))
+        } else {
+            Ok("## Hive Summary\n\nNo federation attached — start the server with `cargo run -- start`".to_string())
+        }
+    }
+
     pub fn uptime_secs(&self) -> u64 {
         self.started_at.elapsed().as_secs()
     }

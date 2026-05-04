@@ -525,13 +525,38 @@ impl DigestionEngine {
         node.priority = Priority::High;
         node.status = NodeStatus::InProgress;
 
-        // TODO: Register with Omni's constellation
+        // Persist the soul sidecar alongside the GGUF file.
+        // This is what makes the soul visible to GenericSpecialist.with_gguf_path()
+        // which loads it from <model>.gguf.soul.json at registration time.
+        let soul_path = task.model_path.with_extension("gguf.soul.json");
+        if let Ok(soul_json) = serde_json::to_string_pretty(soul) {
+            if let Err(e) = std::fs::write(&soul_path, &soul_json) {
+                tracing::warn!("Failed to write soul sidecar {}: {}", soul_path.display(), e);
+            } else {
+                tracing::info!(
+                    "Soul persisted: {} (archetype={})",
+                    soul_path.display(),
+                    soul.personality_soul.archetype
+                );
+            }
+        }
+
+        // Persist the genome sidecar as a companion JSON
+        let genome_path = task.model_path.with_extension("gguf.genome.json");
+        if let Ok(genome_json) = serde_json::to_string_pretty(genome) {
+            let _ = std::fs::write(&genome_path, genome_json);
+        }
 
         self.event_tx.send(DigestionEvent {
             digestion_id: task.digestion_id.clone(),
             event_type: DigestionEventType::ConstellationIntegrationComplete,
             timestamp: Utc::now(),
-            details: "Specialist registered in constellation".to_string(),
+            details: format!(
+                "Specialist {} integrated — soul: {} archetype, genome: {} loci",
+                task.model_name,
+                soul.personality_soul.archetype,
+                genome.genetic_loci.len()
+            ),
             progress_percent: Some(95),
         })?;
 
