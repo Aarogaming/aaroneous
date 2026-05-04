@@ -363,15 +363,25 @@ impl Specialist for GenericSpecialist {
             .cloned()
             .unwrap_or_else(|| decision.action.clone());
 
-        // RAG recall â€” retrieve relevant past memories before calling the LLM.
-        // Prepend up to 3 most-similar past outputs as context in the user message.
+        // RAG recall — retrieve relevant past memories before calling the LLM.
+        // Layer 1: sovereign-local memory (this sovereign's own prior executions)
+        // Layer 2: federation memory injected via prior_context (cross-sovereign context)
         let intent_with_context = {
             let mem = self.memory.lock();
             let recall_ctx = mem.recall_for(&self.name, &intent, 3);
-            if recall_ctx.is_empty() {
-                intent.clone()
-            } else {
-                format!("{}\nCurrent intent: {}", recall_ctx, intent)
+
+            // Also include federation-wide prior context from the intent pipeline
+            let fed_prior = decision.context.get("prior_context").cloned();
+
+            match (recall_ctx.is_empty(), fed_prior) {
+                (true, None) => intent.clone(),
+                (false, None) => format!("{}\nCurrent intent: {}", recall_ctx, intent),
+                (true, Some(prior)) => format!("Prior context from hive:\n{}\n\nCurrent intent: {}",
+                                                prior, intent),
+                (false, Some(prior)) => format!(
+                    "Prior context from hive:\n{}\n\n{}\nCurrent intent: {}",
+                    prior, recall_ctx, intent
+                ),
             }
         };
 

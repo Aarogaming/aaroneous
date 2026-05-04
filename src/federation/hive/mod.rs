@@ -59,7 +59,7 @@ use crate::federation::specialist::ExecutionResult;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::{Mutex, RwLock};
-use tracing::{info, warn};
+use tracing::{debug, info, warn};
 
 /// Aggregated lifecycle errors from a federation start/shutdown cycle.
 ///
@@ -1321,6 +1321,32 @@ impl Federation {
                 .unwrap_or_default().as_millis() as u64,
         }));
 
+        // RAG recall: query federation memory for relevant prior context.
+        // This means when Argus audits code, the next security intent automatically
+        // surfaces what Argus previously found — without requiring llama-gguf.
+        // The recall results are stamped into the intent context so Odin and every
+        // sovereign that receives the Decision can see prior relevant outputs.
+        {
+            let intent_content = {
+                let guard = self.active_intent.read().await;
+                guard.as_ref().map(|i| i.content.clone()).unwrap_or_default()
+            };
+            if !intent_content.is_empty() {
+                let recall_text = {
+                    let mem = self.federation_memory.lock().await;
+                    mem.recall_for("federation", &intent_content, 3)
+                };
+                if !recall_text.is_empty() {
+                    let mut guard = self.active_intent.write().await;
+                    if let Some(ref mut intent) = *guard {
+                        intent.context.insert("prior_context".to_string(), recall_text);
+                        debug!("Federation memory: injected prior context into intent '{}'",
+                               intent_content.chars().take(50).collect::<String>());
+                    }
+                }
+            }
+        }
+
         // Odin intercepts first: decompose the intent into subtasks before
         // the hive broadcasts to all sovereigns simultaneously.
         // Odin returns JSON: {"tasks":[{"content":"...","assign_to":"Merlin"},...]}
@@ -1370,6 +1396,17 @@ impl Federation {
             r#"JSON: {"tasks":[{"content":"...","assign_to":"SovereignName","priority":"Normal"}]}"#
             .to_string());
 
+        // Inject prior context from federation memory into Odin's decision
+        // so it can factor past outcomes into its task decomposition
+        {
+            let guard = self.active_intent.read().await;
+            if let Some(ref intent) = *guard {
+                if let Some(prior) = intent.context.get("prior_context") {
+                    ctx.insert("prior_context".to_string(), prior.clone());
+                }
+            }
+        }
+
         let decision = Decision {
             proposal_id: format!("odin-decompose-{}", uuid::Uuid::new_v4()),
             specialist: crate::federation::specialist::SpecialistId::Visionary, // placeholder
@@ -1398,6 +1435,23 @@ impl Federation {
                                 "odin_decomposition".to_string(),
                                 serde_json::to_string(&v).unwrap_or_default(),
                             );
+
+                            // Extract the assign_to fields so collect_proposals()
+                            // can route only to named sovereigns, reducing noise.
+                            if let Some(tasks) = v.get("tasks").and_then(|t| t.as_array()) {
+                                let assigned: Vec<String> = tasks.iter()
+                                    .filter_map(|t| t.get("assign_to")
+                                        .and_then(|a| a.as_str())
+                                        .map(|s| s.to_string()))
+                                    .collect();
+                                if !assigned.is_empty() {
+                                    intent.context.insert(
+                                        "odin_assigned_to".to_string(),
+                                        assigned.join(","),
+                                    );
+                                    info!("Odin assigned tasks to: {}", assigned.join(", "));
+                                }
+                            }
                         }
                         drop(guard);
 
@@ -1685,10 +1739,27 @@ impl Federation {
         push_core_future!(self.phygital,    "Phygital");
         push_core_future!(self.archivist,   "Archivist");
 
-        // Dynamic specialists
+        // Dynamic specialists — if Odin has assigned tasks, only invite the named
+        // sovereigns to propose. This prevents design/biometric outputs from polluting
+        // code/security/research intents.
+        // If Odin has not decomposed (no odin_assigned_to in context), all propose.
+        let odin_assigned: Option<std::collections::HashSet<String>> = {
+            let guard = self.active_intent.read().await;
+            guard.as_ref()
+                .and_then(|i| i.context.get("odin_assigned_to"))
+                .map(|s| s.split(',').map(|n| n.trim().to_string()).collect())
+        };
+
         {
             let dyn_guard = self.dynamic.read().await;
             for specialist in dyn_guard.iter() {
+                // When Odin has routed, only include assigned sovereigns
+                if let Some(ref assigned) = odin_assigned {
+                    if !assigned.contains(&specialist.name) {
+                        debug!("Odin routing: skipping {} (not in assign_to list)", specialist.name);
+                        continue;
+                    }
+                }
                 let s_arc = specialist.clone();
                 let ctx = context.clone();
                 let name = specialist.name.clone();

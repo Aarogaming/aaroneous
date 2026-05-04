@@ -238,8 +238,49 @@ async fn run_import(
             }
         });
         match crate::federation::dna::dissect_model(&target_path, Some(tx)).await {
-            Ok(dna) => info!("DNA dissection complete: {} loci from {}",
-                dna.genetic_loci.len(), target_path.display()),
+            Ok(dna) => {
+                info!("DNA dissection complete: {} loci from {}",
+                    dna.genetic_loci.len(), target_path.display());
+
+                // Convert ModelDNA → SpecialistGenome and generate soul.
+                // This closes the self-digestion loop: imported models get genome
+                // + soul alongside DNA so they can be compared, bred, and routed.
+                let genome = crate::federation::dna::dna_to_genome(&dna);
+                let model_name = target_path.file_name()
+                    .and_then(|n| n.to_str()).unwrap_or("imported").to_string();
+
+                // Generate soul using DigestionEngine (requires a discardable event channel)
+                let (event_tx, _event_rx) = tokio::sync::mpsc::unbounded_channel();
+                let engine = crate::self_digestion::DigestionEngine::new(
+                    crate::self_digestion::DigestionConfig::default(),
+                    event_tx,
+                );
+                let task = crate::self_digestion::DigestionTask {
+                    digestion_id: format!("import-{}", now_ms()),
+                    model_path: target_path.clone(),
+                    model_name: model_name.clone(),
+                    parameter_count: (dna.parameter_count_m * 1_000_000.0) as u64,
+                    created_at: chrono::Utc::now(),
+                    priority: crate::self_digestion::DigestionPriority::Normal,
+                    status: crate::self_digestion::DigestionStatus::StructuralAnalysis,
+                    estimated_duration_minutes: 1,
+                };
+
+                match engine.generate_soul(&task, &genome).await {
+                    Ok(soul) => {
+                        // Save soul sidecar alongside the DNA sidecar
+                        let soul_path = target_path.with_extension("gguf.soul.json");
+                        if let Ok(soul_json) = serde_json::to_string_pretty(&soul) {
+                            if std::fs::write(&soul_path, soul_json).is_ok() {
+                                info!("Soul generated and saved: {} (archetype: {})",
+                                    soul_path.display(),
+                                    soul.personality_soul.archetype);
+                            }
+                        }
+                    }
+                    Err(e) => warn!("Soul generation failed (non-fatal): {}", e),
+                }
+            }
             Err(e) => warn!("DNA dissection failed (non-fatal): {}", e),
         }
     }

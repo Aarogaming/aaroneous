@@ -245,6 +245,40 @@ impl McpService {
             vec!["model_a", "model_b", "sovereign_name"],
         ));
 
+        // Developer workflow tools
+        tools.push(McpTool::new("read_code",
+            "Read source code from a file path. Use this before ask_argus, ask_merlin, or \
+             ask_hephaestus so the sovereign receives the actual code rather than a description. \
+             Supports relative paths from the Aaroneous workspace or absolute paths.",
+            serde_json::json!({
+                "path": { "type": "string", "description": "File path to read (relative to workspace or absolute)" },
+                "start_line": { "type": "integer", "description": "First line to read (1-indexed, default: 1)" },
+                "end_line": { "type": "integer", "description": "Last line to read (default: 200)" },
+            }),
+            vec!["path"],
+        ));
+        tools.push(McpTool::new("search_code",
+            "Search for a pattern across source files in the workspace. Returns matching lines \
+             with file paths and line numbers. Use before ask_argus to find all usages of a \
+             potentially vulnerable pattern.",
+            serde_json::json!({
+                "pattern": { "type": "string", "description": "Search pattern (supports basic regex)" },
+                "path": { "type": "string", "description": "Directory to search (default: workspace root)" },
+                "file_glob": { "type": "string", "description": "File pattern filter e.g. '*.rs' (default: all)" },
+                "max_results": { "type": "integer", "description": "Maximum results to return (default: 20)" },
+            }),
+            vec!["pattern"],
+        ));
+        tools.push(McpTool::new("list_files",
+            "List files in a directory. Use to explore the workspace structure before reading \
+             specific files.",
+            serde_json::json!({
+                "path": { "type": "string", "description": "Directory path (default: workspace root)" },
+                "glob": { "type": "string", "description": "File pattern e.g. '*.rs'" },
+            }),
+            vec![],
+        ));
+
         info!("Registered {} MCP tools", tools.len());
     }
 
@@ -484,6 +518,9 @@ impl McpService {
             "get_specialists" => return self.tool_get_specialists().await,
             "submit_intent"   => return self.tool_submit_intent(args).await,
             "forge_hybrid"    => return self.tool_forge_hybrid(args).await,
+            "read_code"       => return self.tool_read_code(args).await,
+            "search_code"     => return self.tool_search_code(args).await,
+            "list_files"      => return self.tool_list_files(args).await,
             _                 => return Err(anyhow::anyhow!("Unknown tool: {}", tool_name)),
         };
 
@@ -647,6 +684,144 @@ impl McpService {
         } else {
             Err(anyhow::anyhow!("{}", data.get("error").and_then(|v| v.as_str()).unwrap_or("forge failed")))
         }
+    }
+
+    /// Read source code from a file — most impactful developer tool.
+    /// Enables ask_argus/ask_merlin/ask_hephaestus to receive actual code.
+    async fn tool_read_code(&self, args: &serde_json::Value) -> anyhow::Result<String> {
+        let path_str = args.get("path").and_then(|v| v.as_str())
+            .ok_or_else(|| anyhow::anyhow!("Missing required argument 'path'"))?;
+        let start_line = args.get("start_line").and_then(|v| v.as_u64()).unwrap_or(1) as usize;
+        let end_line = args.get("end_line").and_then(|v| v.as_u64()).unwrap_or(200) as usize;
+
+        // Resolve path: try absolute first, then relative to workspace root
+        let path = std::path::PathBuf::from(path_str);
+        let resolved = if path.is_absolute() && path.exists() {
+            path
+        } else {
+            // Try relative to D:\Aaroneous first, then current dir
+            let workspace = std::path::PathBuf::from("D:\\Aaroneous").join(path_str);
+            if workspace.exists() { workspace } else {
+                std::path::PathBuf::from(path_str)
+            }
+        };
+
+        if !resolved.exists() {
+            anyhow::bail!("File not found: {} (tried absolute and relative to D:\\Aaroneous)", path_str);
+        }
+
+        let content = std::fs::read_to_string(&resolved)
+            .map_err(|e| anyhow::anyhow!("Failed to read {}: {}", resolved.display(), e))?;
+
+        let lines: Vec<&str> = content.lines().collect();
+        let total_lines = lines.len();
+        let start = (start_line.saturating_sub(1)).min(total_lines);
+        let end = end_line.min(total_lines);
+
+        let excerpt: Vec<String> = lines[start..end].iter()
+            .enumerate()
+            .map(|(i, line)| format!("{:4}: {}", start + i + 1, line))
+            .collect();
+
+        Ok(format!(
+            "File: {} (lines {}-{} of {})\n\n```{}\n{}\n```",
+            resolved.display(),
+            start + 1, end, total_lines,
+            resolved.extension().and_then(|e| e.to_str()).unwrap_or(""),
+            excerpt.join("\n"),
+        ))
+    }
+
+    /// Search for patterns in source files.
+    async fn tool_search_code(&self, args: &serde_json::Value) -> anyhow::Result<String> {
+        let pattern = args.get("pattern").and_then(|v| v.as_str())
+            .ok_or_else(|| anyhow::anyhow!("Missing required argument 'pattern'"))?;
+        let search_path = args.get("path").and_then(|v| v.as_str()).unwrap_or("D:\\Aaroneous\\src");
+        let file_glob = args.get("file_glob").and_then(|v| v.as_str()).unwrap_or("*.rs");
+        let max_results = args.get("max_results").and_then(|v| v.as_u64()).unwrap_or(20) as usize;
+
+        let root = std::path::Path::new(search_path);
+        if !root.exists() {
+            anyhow::bail!("Search path not found: {}", search_path);
+        }
+
+        // Walk files matching glob
+        let mut results: Vec<String> = Vec::new();
+        let pattern_lower = pattern.to_lowercase();
+        let ext_filter = file_glob.trim_start_matches('*').trim_start_matches('.');
+
+        fn walk_dir(dir: &std::path::Path, ext: &str, pattern: &str,
+                    results: &mut Vec<String>, max: usize) {
+            if results.len() >= max { return; }
+            if let Ok(entries) = std::fs::read_dir(dir) {
+                for entry in entries.flatten() {
+                    if results.len() >= max { break; }
+                    let path = entry.path();
+                    if path.is_dir() {
+                        // Skip target/, .git/, node_modules/
+                        let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
+                        if !["target", ".git", "node_modules", "dist"].contains(&name) {
+                            walk_dir(&path, ext, pattern, results, max);
+                        }
+                    } else if path.extension().and_then(|e| e.to_str())
+                                  .map(|e| ext.is_empty() || e == ext).unwrap_or(false) {
+                        if let Ok(content) = std::fs::read_to_string(&path) {
+                            for (lineno, line) in content.lines().enumerate() {
+                                if results.len() >= max { break; }
+                                if line.to_lowercase().contains(pattern) {
+                                    results.push(format!("{}:{}: {}",
+                                        path.display(), lineno + 1, line.trim()));
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        walk_dir(root, ext_filter, &pattern_lower, &mut results, max_results);
+
+        if results.is_empty() {
+            Ok(format!("No matches found for '{}' in {}", pattern, search_path))
+        } else {
+            Ok(format!(
+                "Found {} match(es) for '{}' in {}:\n\n{}",
+                results.len(), pattern, search_path,
+                results.join("\n")
+            ))
+        }
+    }
+
+    /// List files in a directory.
+    async fn tool_list_files(&self, args: &serde_json::Value) -> anyhow::Result<String> {
+        let path_str = args.get("path").and_then(|v| v.as_str()).unwrap_or("D:\\Aaroneous");
+        let glob_filter = args.get("glob").and_then(|v| v.as_str()).unwrap_or("");
+
+        let path = std::path::Path::new(path_str);
+        if !path.exists() {
+            anyhow::bail!("Path not found: {}", path_str);
+        }
+
+        let ext_filter = if glob_filter.is_empty() { "" }
+            else { glob_filter.trim_start_matches('*').trim_start_matches('.') };
+
+        let mut files: Vec<String> = Vec::new();
+        if let Ok(entries) = std::fs::read_dir(path) {
+            for entry in entries.flatten().take(100) {
+                let p = entry.path();
+                let name = p.file_name().and_then(|n| n.to_str()).unwrap_or("").to_string();
+                if ext_filter.is_empty() || p.extension().and_then(|e| e.to_str())
+                                              .map(|e| e == ext_filter).unwrap_or(p.is_dir()) {
+                    let prefix = if p.is_dir() { "📁 " } else { "📄 " };
+                    let size = if p.is_file() {
+                        p.metadata().map(|m| format!(" ({} KB)", m.len() / 1024)).unwrap_or_default()
+                    } else { String::new() };
+                    files.push(format!("{}{}{}", prefix, name, size));
+                }
+            }
+        }
+        files.sort();
+        Ok(format!("Contents of {}:\n\n{}", path_str, files.join("\n")))
     }
 
     /// Uptime in seconds
