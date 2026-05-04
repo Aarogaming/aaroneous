@@ -1648,74 +1648,82 @@ impl Federation {
             recent_decisions: vec![],
         };
 
-        // Collect all proposals (outside sentinel lock to avoid deadlock)
-        let mut bus_proposals: Vec<Proposal> = vec![];
+        // ── Parallel proposal collection ─────────────────────────────────────
+        // Previously sequential: each propose().await blocked the next.
+        // Now: all specialists propose concurrently, collecting results as they
+        // arrive. With 9 sovereigns this cuts collection latency by ~8×.
 
-        // Macro-like helper to collect proposals from one specialist and submit to bus
-        macro_rules! collect_from {
-            ($host_opt:expr, $specialist_id:expr) => {
+        // Collect all proposal futures — core specialists + dynamic
+        type ProposalResult = (
+            Result<Vec<crate::federation::specialist::ProposedAction>,
+                   crate::federation::specialist::SpecialistError>,
+            String,  // specialist name (for tagging dynamic proposals)
+            bool,    // is_dynamic
+        );
+
+        let mut proposal_futures: Vec<std::pin::Pin<Box<dyn std::future::Future<
+            Output = ProposalResult> + Send>>> = Vec::new();
+
+        macro_rules! push_core_future {
+            ($host_opt:expr, $name:literal) => {
                 if let Some(h) = &$host_opt {
                     let specialist_arc = h.specialist();
-                    match specialist_arc.propose(&context).await {
-                        Ok(proposed_actions) => {
-                            for action in proposed_actions {
-                                let mut proposal = Proposal::new(
-                                    action.specialist,
-                                    action.action_type.clone(),
-                                    action.description.clone(),
-                                    action.confidence,
-                                    action.priority.clone(),
-                                )
-                                .with_resources(action.required_resources.clone())
-                                .with_tags(action.tags.clone());
-                                // Stamp the active intent so Sentinel can forward
-                                // it into Decision.context["intent"] at arbitration.
-                                if !intent_activity.is_empty() && intent_activity != "idle" {
-                                    proposal = proposal.with_metadata("intent", intent_activity.clone());
-                                }
-                                bus_proposals.push(proposal);
-                            }
-                        }
-                        Err(e) => {
-                            warn!("collect_proposals: {:?} propose() error: {}", $specialist_id, e);
-                        }
-                    }
+                    let ctx = context.clone();
+                    proposal_futures.push(Box::pin(async move {
+                        (specialist_arc.propose(&ctx).await, $name.to_string(), false)
+                    }));
                 }
             };
         }
-        collect_from!(self.visionary, crate::federation::specialist::SpecialistId::Visionary);
-        collect_from!(self.omnipresent, crate::federation::specialist::SpecialistId::Omnipresent);
-        collect_from!(self.symbiotic, crate::federation::specialist::SpecialistId::Symbiotic);
-        collect_from!(self.phygital, crate::federation::specialist::SpecialistId::Phygital);
-        collect_from!(self.archivist, crate::federation::specialist::SpecialistId::Archivist);
 
-        // Dynamic (generic) specialists
+        push_core_future!(self.visionary,   "Visionary");
+        push_core_future!(self.omnipresent, "Omnipresent");
+        push_core_future!(self.symbiotic,   "Symbiotic");
+        push_core_future!(self.phygital,    "Phygital");
+        push_core_future!(self.archivist,   "Archivist");
+
+        // Dynamic specialists
         {
-            use crate::federation::specialist::Specialist;
             let dyn_guard = self.dynamic.read().await;
             for specialist in dyn_guard.iter() {
-                match specialist.propose(&context).await {
-                    Ok(proposed_actions) => {
-                        for action in proposed_actions {
-                            let mut proposal = Proposal::new(
-                                action.specialist,
-                                action.action_type.clone(),
-                                action.description.clone(),
-                                action.confidence,
-                                action.priority.clone(),
-                            )
-                            .with_resources(action.required_resources.clone())
-                            .with_tags(action.tags.clone());
-                            if !intent_activity.is_empty() && intent_activity != "idle" {
-                                proposal = proposal.with_metadata("intent", intent_activity.clone());
-                                proposal = proposal.with_metadata("dynamic_specialist", specialist.name.clone());
+                let s_arc = specialist.clone();
+                let ctx = context.clone();
+                let name = specialist.name.clone();
+                proposal_futures.push(Box::pin(async move {
+                    (s_arc.propose(&ctx).await, name, true)
+                }));
+            }
+        }
+
+        // Run all proposals concurrently
+        let all_results = futures_util::future::join_all(proposal_futures).await;
+
+        let mut bus_proposals: Vec<Proposal> = vec![];
+        for (result, specialist_name, is_dynamic) in all_results {
+            match result {
+                Ok(proposed_actions) => {
+                    for action in proposed_actions {
+                        let mut proposal = Proposal::new(
+                            action.specialist,
+                            action.action_type.clone(),
+                            action.description.clone(),
+                            action.confidence,
+                            action.priority.clone(),
+                        )
+                        .with_resources(action.required_resources.clone())
+                        .with_tags(action.tags.clone());
+                        if !intent_activity.is_empty() && intent_activity != "idle" {
+                            proposal = proposal.with_metadata("intent", intent_activity.clone());
+                            if is_dynamic {
+                                proposal = proposal.with_metadata("dynamic_specialist",
+                                                                   specialist_name.clone());
                             }
-                            bus_proposals.push(proposal);
                         }
+                        bus_proposals.push(proposal);
                     }
-                    Err(e) => {
-                        warn!("collect_proposals: GenericSpecialist '{}' propose() error: {}", specialist.name, e);
-                    }
+                }
+                Err(e) => {
+                    warn!("collect_proposals: '{}' propose() error: {}", specialist_name, e);
                 }
             }
         }

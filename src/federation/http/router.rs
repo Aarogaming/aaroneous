@@ -3437,17 +3437,16 @@ async fn route_to_sovereign(
         "argus"       => ("Argus",      "security_audit"),
         "hephaestus"  => ("Hephaestus", "fabrication"),
         _             => {
-            // Full hive — submit as a regular intent and collect all results
+            // Full hive — submit intent and collect ALL sovereign outputs
             let intent = crate::federation::intent::Intent::new(user_message.to_string());
+            let count_before = state.federation.results.lock().await.len();
             state.federation.submit_intent(intent).await;
-            // Wait briefly then collect the most recent result
-            tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
-            let results = state.federation.results.lock().await;
-            if let Some(last) = results.last() {
-                let name = last.specialist_name.as_deref().unwrap_or(last.specialist.name());
-                return format!("[{}] {}", name, last.output);
+            // Poll until we see new results or timeout at 2s
+            let outputs = wait_for_new_results(&state.federation, count_before, 2000).await;
+            if outputs.is_empty() {
+                return format!("[Aaroneous Hive] Processing: '{}'", user_message);
             }
-            return format!("[Aaroneous Hive] Intent received: '{}'", user_message);
+            return outputs.join("\n\n");
         }
     };
 
@@ -3466,20 +3465,44 @@ async fn route_to_sovereign(
     }
     drop(dynamic);
 
-    // Fallback: submit as hive intent tagged for this sovereign
+    // Fallback: submit as hive intent tagged for the target sovereign and wait
     let mut context = std::collections::HashMap::new();
     context.insert("target_sovereign".to_string(), sovereign_name.to_string());
     context.insert("openai_compat".to_string(), "true".to_string());
 
     let mut intent = crate::federation::intent::Intent::new(user_message.to_string());
     intent.context = context;
+    let count_before = state.federation.results.lock().await.len();
     state.federation.submit_intent(intent).await;
 
-    tokio::time::sleep(tokio::time::Duration::from_millis(300)).await;
-    let results = state.federation.results.lock().await;
-    results.last()
-        .map(|r| r.output.clone())
-        .unwrap_or_else(|| format!("[{}] Processing intent: '{}'", sovereign_name, user_message))
+    // Wait up to 3s for a result from this specific sovereign.
+    // Match by either specialist_name (dynamic) or sovereign_name() (core).
+    let sovereign_name_owned = sovereign_name.to_string();
+    let deadline = tokio::time::Instant::now() + tokio::time::Duration::from_millis(3000);
+    loop {
+        tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
+        {
+            let results = state.federation.results.lock().await;
+            let new_results: Vec<_> = results.iter().skip(count_before).collect();
+            // Match by dynamic specialist name OR core sovereign display name
+            if let Some(r) = new_results.iter().find(|r| {
+                r.specialist_name.as_deref() == Some(&sovereign_name_owned)
+                    || r.specialist.sovereign_name() == sovereign_name_owned
+            }) {
+                return r.output.clone();
+            }
+            // Accept any new result if timeout approaching
+            if !new_results.is_empty()
+                && tokio::time::Instant::now()
+                    >= deadline - tokio::time::Duration::from_millis(200)
+            {
+                return new_results.last().map(|r| r.output.clone())
+                    .unwrap_or_default();
+            }
+        }
+        if tokio::time::Instant::now() >= deadline { break; }
+    }
+    format!("[{}] Processing intent: '{}'", sovereign_name, user_message)
 }
 
 fn now_ms_oai() -> u64 {
@@ -3693,5 +3716,31 @@ async fn links_test(
                 }))).into_response(),
             }
         }
+    }
+}
+
+/// Wait for new execution results to appear after an intent submission.
+/// Polls every 50ms up to `timeout_ms`, returning all new outputs since `count_before`.
+async fn wait_for_new_results(
+    fed: &crate::federation::hive::Federation,
+    count_before: usize,
+    timeout_ms: u64,
+) -> Vec<String> {
+    let deadline = tokio::time::Instant::now()
+        + tokio::time::Duration::from_millis(timeout_ms);
+    loop {
+        tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
+        {
+            let results = fed.results.lock().await;
+            let new: Vec<String> = results.iter()
+                .skip(count_before)
+                .map(|r| {
+                    let name = r.specialist_name.as_deref().unwrap_or(r.specialist.name());
+                    format!("[{}] {}", name, r.output)
+                })
+                .collect();
+            if !new.is_empty() { return new; }
+        }
+        if tokio::time::Instant::now() >= deadline { return vec![]; }
     }
 }

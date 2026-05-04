@@ -325,20 +325,125 @@ impl Visionary {
         Ok(true)
     }
 
-    /// Generate design variants based on aesthetic engrams
-    fn generate_variants(&self, count: usize) -> Vec<VisionaryVariant> {
-        let mut variants = vec![];
+    /// Generate intent-derived design variants without LLM.
+    ///
+    /// Each variant is meaningfully different — palette, layout, and typography
+    /// are determined by parsing the intent keywords so that a "dashboard" intent
+    /// produces different variants than a "landing page" or "mobile app" intent.
+    /// Approved engrams are incorporated when available.
+    fn generate_variants_for(&self, count: usize, intent: &str) -> Vec<VisionaryVariant> {
+        self.generate_variants_impl(count, intent)
+    }
 
+    fn generate_variants(&self, count: usize) -> Vec<VisionaryVariant> {
+        self.generate_variants_impl(count, "")
+    }
+
+    fn generate_variants_impl(&self, count: usize, intent_text: &str) -> Vec<VisionaryVariant> {
+        // Curated palette library — indexed by hash of intent keywords
+        const PALETTES: &[(&str, &[&str; 3])] = &[
+            ("dark",       &["#0a1520", "#00ffcc", "#c084fc"]),
+            ("ocean",      &["#0f2d4a", "#4ecdc4", "#a8e6cf"]),
+            ("warm",       &["#2d1b0e", "#f4a261", "#e9c46a"]),
+            ("forest",     &["#1a2e1a", "#52b788", "#95d5b2"]),
+            ("monochrome", &["#1a1a2e", "#e8e8e8", "#888888"]),
+            ("neon",       &["#0d0d0d", "#ff006e", "#fb5607"]),
+            ("coral",      &["#fff5f5", "#ff6b6b", "#cc4444"]),
+            ("slate",      &["#0f172a", "#94a3b8", "#60a5fa"]),
+            ("amber",      &["#1c1508", "#f59e0b", "#fbbf24"]),
+            ("violet",     &["#120d1e", "#8b5cf6", "#c4b5fd"]),
+        ];
+        const LAYOUTS: &[&str] = &[
+            "single-column", "card-grid", "sidebar-nav", "hero-centered",
+            "dashboard-split", "masonry", "tabbed-panels", "timeline",
+        ];
+        const TYPOGRAPHY: &[&str] = &[
+            "Inter, sans-serif", "DM Sans, sans-serif", "Sora, sans-serif",
+            "Consolas, monospace", "Outfit, sans-serif", "Space Grotesk, sans-serif",
+            "Geist, sans-serif", "Poppins, sans-serif",
+        ];
+
+        let current_intent = intent_text.to_lowercase();
+
+        // Derive a stable seed from the intent text
+        let seed: usize = current_intent
+            .bytes()
+            .enumerate()
+            .fold(0usize, |acc, (i, b)| acc.wrapping_add((b as usize).wrapping_mul(i + 1)));
+
+        // Keyword-based layout selection
+        let layout_hint = if current_intent.contains("dashboard") || current_intent.contains("monitor") {
+            "dashboard-split"
+        } else if current_intent.contains("mobile") || current_intent.contains("app") {
+            "single-column"
+        } else if current_intent.contains("landing") || current_intent.contains("hero") {
+            "hero-centered"
+        } else if current_intent.contains("blog") || current_intent.contains("article") {
+            "timeline"
+        } else if current_intent.contains("data") || current_intent.contains("analytics") {
+            "tabbed-panels"
+        } else if current_intent.contains("gallery") || current_intent.contains("portfolio") {
+            "masonry"
+        } else {
+            LAYOUTS[seed % LAYOUTS.len()]
+        };
+
+        // Keyword-based palette selection
+        let palette_hint = if current_intent.contains("dark") || current_intent.contains("night") {
+            0usize  // dark palette
+        } else if current_intent.contains("security") || current_intent.contains("audit") {
+            7        // slate
+        } else if current_intent.contains("nature") || current_intent.contains("eco") {
+            3        // forest
+        } else if current_intent.contains("warm") || current_intent.contains("cozy") {
+            2        // warm
+        } else {
+            seed % PALETTES.len()
+        };
+
+        // Pull approved colors from learning engrams
+        let engram_colors: Vec<String> = self.extract_engrams()
+            .into_iter()
+            .flat_map(|e| e.values)
+            .take(6)
+            .collect();
+
+        let mut variants = Vec::with_capacity(count);
         for i in 0..count {
-            let variant = VisionaryVariant {
-                id: format!("variant-{}", i),
-                description: format!("Design variant #{}", i + 1),
-                colors: vec!["#FF6B6B".to_string(), "#4ECDC4".to_string()],
-                typography: "Inter, sans-serif".to_string(),
-                layout: "grid-based".to_string(),
-                confidence: 0.75 + (i as f32 * 0.01),
+            let palette_idx = (palette_hint + i) % PALETTES.len();
+            let (palette_name, palette_colors) = PALETTES[palette_idx];
+
+            let colors: Vec<String> = if !engram_colors.is_empty() && i == 0 {
+                // First variant uses learned approved colors
+                engram_colors.iter().take(3).cloned().collect()
+            } else {
+                palette_colors.iter().map(|&s| s.to_string()).collect()
             };
-            variants.push(variant);
+
+            let layout = if i == 0 {
+                layout_hint.to_string()
+            } else {
+                LAYOUTS[(seed + i) % LAYOUTS.len()].to_string()
+            };
+
+            let typography = TYPOGRAPHY[(seed + i) % TYPOGRAPHY.len()].to_string();
+
+            let desc = if current_intent.is_empty() {
+                format!("Variant {} — {} palette, {} layout", i + 1, palette_name, layout)
+            } else {
+                let intent_preview: String = current_intent.chars().take(40).collect();
+                format!("Variant {} for '{}...' — {} {} {}", i + 1, intent_preview,
+                        palette_name, layout, typography.split(',').next().unwrap_or(""))
+            };
+
+            variants.push(VisionaryVariant {
+                id: format!("ariel-v{}-{}", i + 1, &format!("{:x}", seed + i)[..4.min(format!("{:x}", seed + i).len())]),
+                description: desc,
+                colors,
+                typography,
+                layout,
+                confidence: (0.70 + (i as f32 * 0.02)).min(0.95),
+            });
         }
 
         variants
@@ -441,11 +546,13 @@ impl Specialist for Visionary {
 
     /// Execute design generation
     async fn execute(&self, decision: &Decision) -> Result<ExecutionResult, SpecialistError> {
+        // Extract intent first — needed in both LLM and rule-based paths
+        let intent = decision.context.get("intent")
+            .cloned()
+            .unwrap_or_else(|| decision.action.clone());
         let (output, success) = if let Some(llm) = &self.llm {
             // --- LLM-backed design generation ---
-            let intent = decision.context.get("intent")
-                .cloned()
-                .unwrap_or_else(|| "UI/UX design".to_string());
+            let intent = intent.clone();
 
             let style_hints: Vec<String> = self.aesthetic_engrams.iter()
                 .filter(|e| e.confidence > 0.6)
@@ -486,24 +593,31 @@ impl Specialist for Visionary {
                     // LLM failed (e.g. no llama-gguf feature, model not loaded) —
                     // fall through to rule-based generation so the result is Success
                     tracing::warn!("Visionary LLM error (using rule-based fallback): {}", e);
-                    let variants = self.generate_variants(3);
-                    let output = format!(
-                        "Visionary (rule-based) generated {} design variant(s) for '{}': {}",
-                        variants.len(),
-                        intent,
-                        variants.iter().map(|v| v.id.clone()).collect::<Vec<_>>().join(", ")
-                    );
+                    let variants = self.generate_variants_for(3, &intent);
+                    let output = serde_json::to_string(&serde_json::json!({
+                        "variants": variants.iter().map(|v| serde_json::json!({
+                            "id": v.id, "description": v.description,
+                            "colors": v.colors, "typography": v.typography,
+                            "layout": v.layout, "confidence": v.confidence,
+                        })).collect::<Vec<_>>(),
+                        "source": "ariel_rule_based",
+                        "intent": intent,
+                    })).unwrap_or_else(|_| format!("Ariel generated {} variants", variants.len()));
                     (output, true)
                 }
             }
         } else {
-            // --- Rule-based fallback (original behavior) ---
-            let variants = self.generate_variants(10);
-            let output = format!(
-                "Generated {} rule-based design variant(s): {}",
-                variants.len(),
-                variants.iter().map(|v| v.id.clone()).collect::<Vec<_>>().join(", ")
-            );
+            // --- Rule-based fallback (intent-derived, structured JSON output) ---
+            let variants = self.generate_variants_for(3, &intent);
+            let output = serde_json::to_string(&serde_json::json!({
+                "variants": variants.iter().map(|v| serde_json::json!({
+                    "id": v.id, "description": v.description,
+                    "colors": v.colors, "typography": v.typography,
+                    "layout": v.layout, "confidence": v.confidence,
+                })).collect::<Vec<_>>(),
+                "source": "ariel_rule_based",
+                "intent": intent,
+            })).unwrap_or_else(|_| format!("Ariel generated {} variants", variants.len()));
             (output, true)
         };
 
@@ -995,8 +1109,8 @@ mod tests {
         let result = visionary.execute(&decision).await.unwrap();
         assert_eq!(result.status, ExecutionStatus::Success);
         assert!(
-            result.output.contains("rule-based"),
-            "Non-LLM execute should say 'rule-based', got: {}",
+            result.output.contains("ariel_rule_based") || result.output.contains("variants"),
+            "Non-LLM execute should produce rule-based variant output, got: {}",
             result.output
         );
     }
@@ -1193,8 +1307,8 @@ mod tests {
         let result = visionary.execute(&decision).await.unwrap();
         assert_eq!(result.status, ExecutionStatus::Success);
         assert!(
-            result.output.contains("rule-based"),
-            "Expected rule-based output, got: {}",
+            result.output.contains("ariel_rule_based") || result.output.contains("variants"),
+            "Expected rule-based variant output, got: {}",
             result.output
         );
         assert_eq!(result.duration_ms, 2000); // rule-based duration
