@@ -338,7 +338,7 @@ impl Specialist for GenericSpecialist {
                 std::time::SystemTime::now()
                     .duration_since(std::time::UNIX_EPOCH)
                     .unwrap_or_default().as_nanos()),
-            specialist: SpecialistId::custom("NoLLM"),
+            specialist: SpecialistId::custom(&self.name),
             action_type: format!("domain_{}_task", self.domain),
             description,
             confidence,
@@ -425,7 +425,7 @@ impl Specialist for GenericSpecialist {
         }
 
         Ok(ExecutionResult {
-            specialist: SpecialistId::custom("NoLLM"),
+            specialist: SpecialistId::custom(&self.name),
             specialist_name: Some(self.name.clone()),
             proposal_id: decision.proposal_id.clone(),
             status: if success { ExecutionStatus::Success } else { ExecutionStatus::Failed },
@@ -530,6 +530,19 @@ pub fn system_prompt_for_domain(domain: &str, name: &str) -> String {
             "You are a creative writer and narrative designer. Generate compelling \
              content with strong voice, structure, and originality. Adapt style \
              to audience and purpose.",
+        // ── Sovereign-specific cases MUST come before generic ones to prevent shadowing ──
+
+        // Merlin: knowledge synthesis (must precede "research" | "knowledge" generic arm)
+        "knowledge_synthesis" | "external_research" =>
+            "You are Merlin, the knowledge synthesizer and researcher. \
+             You bridge the hive to the outside world. Synthesize information \
+             from multiple sources into clear, actionable intelligence. \
+             When researching: cite sources, distinguish fact from inference, \
+             flag outdated information, and surface the most relevant insights \
+             for the requesting specialist. All outbound queries route through you.",
+
+        // ── Generic domain fallbacks ──────────────────────────────────────────
+
         "knowledge" | "research" | "general" =>
             "You are a knowledgeable research assistant. Provide accurate, \
              well-structured answers. Cite sources where possible. Distinguish \
@@ -568,7 +581,7 @@ pub fn system_prompt_for_domain(domain: &str, name: &str) -> String {
              in the hive's decision-making.",
 
         // Hephaestus: fabrication, maintenance, expansion
-        "fabrication" | "maintenance" | "infrastructure" =>
+        "fabrication" | "maintenance" | "infrastructure" | "construction" =>
             "You are Hephaestus, master craftsman of the Fabrication department. \
              You maintain and expand the hive's infrastructure. Build new components, \
              repair broken systems, automate build pipelines, manage dependencies, \
@@ -576,8 +589,8 @@ pub fn system_prompt_for_domain(domain: &str, name: &str) -> String {
              running. When something breaks, you fix it. When capacity is needed, \
              you build it.",
 
-        // Merlin: knowledge synthesis, external research, internet/GitHub queries
-        "research" | "knowledge_synthesis" | "external_research" =>
+        // Merlin: full domain list (research already handled above in sovereign-specific block)
+        "research" =>
             "You are Merlin, the knowledge synthesizer and researcher. \
              You bridge the hive to the outside world. Synthesize information \
              from multiple sources into clear, actionable intelligence. \
@@ -588,7 +601,7 @@ pub fn system_prompt_for_domain(domain: &str, name: &str) -> String {
         // Odin: task orchestration, Guild coordination, intent routing
         "task_orchestration" | "guild_coordination" | "intent_routing" =>
             "You are Odin, the Guild coordinator and task orchestrator. \
-             You are the mayor of the hive â€” not the hive itself, but its \
+             You are the mayor of the hive — not the hive itself, but its \
              representative. Receive intents from users, decompose them into \
              tasks, assign tasks to the right sovereigns, track progress, \
              manage dependencies, and maintain the task registry. \
@@ -599,7 +612,7 @@ pub fn system_prompt_for_domain(domain: &str, name: &str) -> String {
             "You are Argus, the security warden. You see everything. \
              Audit code for vulnerabilities, manage secrets and API keys securely, \
              run dependency vulnerability scans, enforce Git commit policies, \
-             and produce security reports. Think adversarially â€” assume breach, \
+             and produce security reports. Think adversarially — assume breach, \
              verify trust. Flag critical findings immediately with severity ratings.",
 
         _ =>
@@ -692,7 +705,7 @@ mod tests {
 
         let decision = Decision {
             proposal_id: "p1".to_string(),
-            specialist: SpecialistId::custom("NoLLM"),
+            specialist: SpecialistId::custom("MockSpec"),
             action: "domain_design_task".to_string(),
             allocated_resources: ResourceRequest::default(),
             deadline_ms: 5000,
@@ -711,7 +724,7 @@ mod tests {
         let s = GenericSpecialist::new("Learner", "test");
         let decision = Decision {
             proposal_id: "lp".to_string(),
-            specialist: SpecialistId::custom("NoLLM"),
+            specialist: SpecialistId::custom("Learner"),
             action: "task".to_string(),
             allocated_resources: ResourceRequest::default(),
             deadline_ms: 1000,

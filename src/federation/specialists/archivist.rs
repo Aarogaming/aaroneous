@@ -491,16 +491,11 @@ impl Specialist for Archivist {
     async fn propose(&self, context: &SpecialistContext) -> Result<Vec<ProposedAction>, SpecialistError> {
         let activity = &context.user_state.activity;
         let is_idle = activity == "idle";
-        let is_memory_intent = !activity.is_empty() && !is_idle && {
-            let lower = activity.to_lowercase();
-            lower.contains("archive") || lower.contains("memory") || lower.contains("learn")
-            || lower.contains("pattern") || lower.contains("dna") || lower.contains("hive")
-            || lower.contains("consolidat") || lower.contains("session")
-        };
-        // Also propose if we have executions seen (from &self atomic counter)
-        let has_activity = self.executions_seen() > 0;
+        // Archivist proposes when it has consolidation work OR any active intent
+        let has_consolidation = !self.get_consolidation_work().is_empty();
+        let has_intent = !is_idle && !activity.is_empty();
 
-        if !is_idle && !is_memory_intent && !has_activity {
+        if !has_intent && !has_consolidation {
             return Ok(vec![]);
         }
 

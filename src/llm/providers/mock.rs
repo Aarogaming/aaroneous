@@ -175,13 +175,13 @@ impl super::LLMProvider for MockProvider {
         // This makes Odin, Argus, Merlin etc. return parseable structured output in mock mode.
         if let Some(domain) = context.style_hints.first() {
             match domain.as_str() {
-                "task_orchestration" => {
+                "task_orchestration" | "guild_coordination" | "intent_routing" => {
                     let intent = context.intent
                         .splitn(2, "\n\n").nth(1)
                         .unwrap_or(&context.intent)
                         .chars().take(100).collect::<String>();
                     let json = format!(
-                        r#"{{"tasks":[{{"id":"t1","content":"Research and gather context for: {}","assign_to":"Merlin","priority":"High","deps":[]}},{{"id":"t2","content":"Execute primary work on: {}","assign_to":"Ariel","priority":"Normal","deps":["t1"]}},{{"id":"t3","content":"Archive results and update DNA Bank","assign_to":"Dionysus","priority":"Low","deps":["t2"]}}]}}"#,
+                        r#"{{"mock":true,"source":"odin_mock","tasks":[{{"id":"t1","content":"Research and gather context for: {}","assign_to":"Merlin","priority":"High","deps":[]}},{{"id":"t2","content":"Execute primary work on: {}","assign_to":"Ariel","priority":"Normal","deps":["t1"]}},{{"id":"t3","content":"Archive results and update DNA Bank","assign_to":"Dionysus","priority":"Low","deps":["t2"]}}],"note":"Enable --features llama-gguf for real Odin task decomposition"}}"#,
                         intent, intent
                     );
                     return Ok(DesignGeneration {
@@ -199,30 +199,56 @@ impl super::LLMProvider for MockProvider {
                         batch_confidence: 0.85,
                     });
                 }
-                "security_audit" => {
-                    let json = r#"{"findings":[{"severity":"Info","description":"Mock security scan complete — no critical issues found","remediation":"Enable real Argus inference with llama-gguf feature"}],"overall_risk":"Low"}"#;
+                "security_audit" | "secrets_management" | "vulnerability_scanning" => {
+                    let intent = context.intent.chars().take(80).collect::<String>();
+                    let json = format!(r#"{{"mock":true,"source":"argus_mock","target":"{}","findings":[{{"severity":"Info","description":"Mock — no real security analysis performed","remediation":"Enable --features llama-gguf for real Argus scanning"}}],"overall_risk":"Unknown","note":"This is a mock output."}}"#, intent);
                     return Ok(DesignGeneration {
                         intent: context.intent.clone(),
                         variants: vec![DesignVariant {
                             title: "Security Audit".into(),
-                            description: json.into(),
+                            description: json,
                             colors: vec![], typography: String::new(), layout: "security_report".into(),
-                            confidence: 0.7, reasoning: "Argus audit (mock)".into(),
+                            confidence: 0.3, reasoning: "Argus audit (mock — not a real scan)".into(),
                         }],
-                        tokens_used: 0, batch_confidence: 0.7,
+                        tokens_used: 0, batch_confidence: 0.3,
                     });
                 }
                 "research" | "knowledge_synthesis" | "external_research" => {
                     let intent = context.intent.chars().take(80).collect::<String>();
-                    let json = format!(r#"{{"summary":"Mock research synthesis for: {}","key_findings":["Finding 1: context gathered","Finding 2: analysis complete"],"confidence":0.75,"gaps":["Enable llama-gguf for real research synthesis"]}}"#, intent);
+                    let json = format!(r#"{{"mock":true,"source":"merlin_mock","query":"{}","summary":"Mock placeholder — no real synthesis","key_findings":["This is a mock response","Enable --features llama-gguf for real Merlin research"],"confidence":0.3}}"#, intent);
                     return Ok(DesignGeneration {
                         intent: context.intent.clone(),
                         variants: vec![DesignVariant {
                             title: "Research Synthesis".into(), description: json,
                             colors: vec![], typography: String::new(), layout: "research_report".into(),
-                            confidence: 0.75, reasoning: "Merlin synthesis (mock)".into(),
+                            confidence: 0.3, reasoning: "Merlin synthesis (mock)".into(),
                         }],
-                        tokens_used: 0, batch_confidence: 0.75,
+                        tokens_used: 0, batch_confidence: 0.3,
+                    });
+                }
+                "fabrication" | "maintenance" | "infrastructure" | "construction" => {
+                    let intent = context.intent.chars().take(100).collect::<String>();
+                    let json = format!(r#"{{"mock":true,"source":"hephaestus_mock","task":"{}","plan":[{{"step":1,"action":"Assess requirements","status":"planned"}},{{"step":2,"action":"Identify dependencies","status":"planned"}},{{"step":3,"action":"Generate build manifest","status":"planned"}}],"note":"Enable --features llama-gguf for real Hephaestus build planning"}}"#, intent);
+                    return Ok(DesignGeneration {
+                        intent: context.intent.clone(),
+                        variants: vec![DesignVariant {
+                            title: "Fabrication Plan".into(), description: json,
+                            colors: vec![], typography: String::new(), layout: "fabrication_plan".into(),
+                            confidence: 0.3, reasoning: "Hephaestus plan (mock)".into(),
+                        }],
+                        tokens_used: 0, batch_confidence: 0.3,
+                    });
+                }
+                "mesh_sync" | "p2p" | "multi_device" => {
+                    let json = r#"{"mock":true,"source":"hermes_mock","devices":[],"conflicts":[],"bandwidth_mbps":0,"status":"no_p2p_attached","note":"Enable --features p2p-iroh for real Hermes mesh sync"}"#;
+                    return Ok(DesignGeneration {
+                        intent: context.intent.clone(),
+                        variants: vec![DesignVariant {
+                            title: "Mesh Sync".into(), description: json.into(),
+                            colors: vec![], typography: String::new(), layout: "sync_status".into(),
+                            confidence: 0.3, reasoning: "Hermes sync (mock)".into(),
+                        }],
+                        tokens_used: 0, batch_confidence: 0.3,
                     });
                 }
                 _ => {} // Fall through to default design generation below

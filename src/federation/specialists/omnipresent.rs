@@ -638,14 +638,9 @@ impl Specialist for Omnipresent {
         let conflicts = self.detect_sync_conflicts();
         let pending_messages = self.sync_inbox.lock().len();
 
-        // Also propose when the intent involves spatial, render, or sync keywords
+        // Hermes proposes on any non-idle intent — always tracks hive state across mesh
         let activity = &context.user_state.activity;
-        let intent_relevant = !activity.is_empty() && activity != "idle" && {
-            let lower = activity.to_lowercase();
-            lower.contains("render") || lower.contains("spatial") || lower.contains("sync")
-            || lower.contains("hive") || lower.contains("constellation")
-            || lower.contains("design") || lower.contains("visuali")
-        };
+        let intent_relevant = !activity.is_empty() && activity != "idle";
 
         if drifted.is_empty() && conflicts.is_empty() && pending_messages == 0 && !intent_relevant {
             return Ok(vec![]);

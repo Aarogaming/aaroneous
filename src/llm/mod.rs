@@ -292,6 +292,17 @@ impl LLMClient {
         let response = self.provider.chat(system_prompt, user_prompt, domain).await
             .unwrap_or_else(|e| format!("[{}] LLM error: {}", domain, e));
 
+        // If GGUF inference is disabled (feature not compiled in), the response
+        // starts with "GGUF inference disabled". In that case, fall back to
+        // the MockProvider which returns properly structured domain JSON.
+        let response = if response.starts_with("GGUF inference disabled") {
+            let mock = providers::MockProvider;
+            mock.chat(system_prompt, user_prompt, domain).await
+                .unwrap_or(response)
+        } else {
+            response
+        };
+
         if self.config.enable_caching {
             self.cache.set(&cache_key, response.clone()).await?;
         }

@@ -449,21 +449,33 @@ impl McpService {
             }
             drop(dynamic);
 
-            // Fallback: submit as hive intent and wait for result
+            // Fallback: submit as hive intent and poll for result (max 3s)
+            let count_before = fed.results.lock().await.len();
             let mut intent = crate::federation::intent::Intent::new(input.to_string());
             intent.context.insert("target_sovereign".to_string(), sovereign_name.to_string());
             intent.context.insert("mcp_tool".to_string(), tool_name.to_string());
             fed.submit_intent(intent).await;
 
-            tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
-            let results = fed.results.lock().await;
-            if let Some(r) = results.iter().rev()
-                .find(|r| r.specialist_name.as_deref() == Some(sovereign_name))
-            {
-                return Ok(r.output.clone());
-            }
-            if let Some(r) = results.last() {
-                return Ok(r.output.clone());
+            let deadline = tokio::time::Instant::now()
+                + tokio::time::Duration::from_millis(3000);
+            loop {
+                tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
+                let results = fed.results.lock().await;
+                let new: Vec<_> = results.iter().skip(count_before).collect();
+                if let Some(r) = new.iter().find(|r| {
+                    r.specialist_name.as_deref() == Some(sovereign_name)
+                        || r.specialist.sovereign_name() == sovereign_name
+                }) {
+                    return Ok(r.output.clone());
+                }
+                if !new.is_empty()
+                    && tokio::time::Instant::now()
+                        >= deadline - tokio::time::Duration::from_millis(200)
+                {
+                    return Ok(new.last().map(|r| r.output.clone()).unwrap_or_default());
+                }
+                drop(results);
+                if tokio::time::Instant::now() >= deadline { break; }
             }
         }
 
