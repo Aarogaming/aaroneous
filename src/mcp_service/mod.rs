@@ -18,27 +18,29 @@
 /// # Example Usage
 ///
 /// ```rust,no_run
-/// use aaroneous::mcp_service::{McpService, ServiceConfig};
-///
-/// #[tokio::main]
-/// async fn main() -> Result<()> {
+/// # use std::error::Error;
+/// # use a_run::mcp_service::{McpService, ServiceConfig};
+/// # async fn example() -> Result<(), Box<dyn Error>> {
 ///     // Create service
 ///     let config = ServiceConfig::new()
 ///         .with_name("Aaroneous MCP")
-///         .with_port(8080);
+///         .with_http_port(8080);
 ///     
-///     let mut service = McpService::new(config).await?;
+///     let service = McpService::new(config);
 ///     
 ///     // Register capabilities from various domains
-///     service.register_domain("federation", federation_capabilities()).await?;
-///     service.register_domain("intelligence", intelligence_capabilities()).await?;
-///     service.register_domain("consensus", consensus_capabilities()).await?;
+///     service.register_sovereign_tools().await;
 ///     
-///     // Start service on HTTP, WebSocket, and MCP
-///     service.start().await?;
+///     // Handle requests (example)
+///     let req = serde_json::json!({
+///         "jsonrpc": "2.0",
+///         "method": "tools/list",
+///         "id": 1
+///     });
+///     let resp = service.handle_jsonrpc(req).await;
 ///     
-///     Ok(())
-/// }
+/// # Ok(())
+/// # }
 /// ```
 ///
 /// # Clients

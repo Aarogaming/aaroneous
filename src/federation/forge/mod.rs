@@ -47,6 +47,7 @@
 /// use a_run::federation::forge::{Forge, ForgeRecipe, SplicingSegment, GgufIndex, GgufMeta, TensorMeta};
 /// use std::collections::HashMap;
 ///
+/// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
 /// let recipe = ForgeRecipe {
 ///     recipe_id: "design-v1".to_string(),
 ///     segments: vec![
@@ -61,8 +62,10 @@
 /// let mut index = GgufIndex(HashMap::new());
 /// // ... populate index ...
 ///
-/// let forge = Forge::new();
-/// forge.crystallize(&recipe, &index, "/output/hybrid.gguf").await.unwrap();
+/// let mut forge = Forge::new();
+/// forge.crystallize(&recipe, &index, "/output/hybrid.gguf").await?;
+/// # Ok(())
+/// # }
 /// ```
 
 use memmap2::Mmap;
@@ -311,7 +314,7 @@ impl SplicingStrategy {
 /// ```no_run
 /// use a_run::federation::forge::{read_gguf, recipe_from_two_models, SplicingStrategy};
 ///
-/// # fn example() -> anyhow::Result<()> {
+/// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
 /// let (mut index_a, _) = read_gguf("models/qwen2.5-1.5b.gguf")?;
 /// let (index_b, _) = read_gguf("models/qwen-coder-1.5b.gguf")?;
 /// // Merge both into one index
@@ -428,7 +431,7 @@ pub fn recipe_from_two_models(
 /// ```no_run
 /// use a_run::federation::forge::{read_gguf, recipe_from_single_model, TensorKind};
 ///
-/// # fn example() -> anyhow::Result<()> {
+/// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
 /// let (index, _) = read_gguf("models/qwen-finetuned.gguf")?;
 /// // Extract only the attention tensors
 /// let recipe = recipe_from_single_model(
