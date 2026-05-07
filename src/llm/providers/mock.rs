@@ -378,6 +378,15 @@ impl super::LLMProvider for MockProvider {
             batch_confidence: 0.75,
         })
     }
+
+    async fn embed(&self, text: &str) -> Result<Vec<f32>> {
+        debug!("Mock: Generating mock embedding for text len {}", text.len());
+        let mut vec = vec![0.0; 384];
+        if !text.is_empty() {
+            vec[0] = 1.0;
+        }
+        Ok(vec)
+    }
 }
 
 #[cfg(test)]

@@ -317,6 +317,39 @@ Respond ONLY with valid JSON matching:
         let combined = format!("System: {}\n\nUser: {}", system_prompt, user_message);
         self.call_api(&combined).await
     }
+
+    async fn embed(&self, text: &str) -> Result<Vec<f32>> {
+        let client = reqwest::Client::new();
+        
+        #[derive(Serialize)]
+        struct EmbedRequest {
+            model: String,
+            prompt: String,
+        }
+        
+        #[derive(Deserialize)]
+        struct EmbedResponse {
+            embedding: Vec<f32>,
+        }
+        
+        let req = EmbedRequest {
+            model: self.model.clone(),
+            prompt: text.to_string(),
+        };
+        
+        let response = client
+            .post(format!("{}/api/embeddings", self.endpoint))
+            .json(&req)
+            .send()
+            .await?;
+            
+        if !response.status().is_success() {
+            return Err(anyhow!("Local LLM embedding error: {}", response.status().to_string()));
+        }
+        
+        let data: EmbedResponse = response.json().await?;
+        Ok(data.embedding)
+    }
 }
 
 /// Extract JSON from text that might contain extra content

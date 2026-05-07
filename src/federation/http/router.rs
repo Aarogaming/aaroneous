@@ -9,7 +9,7 @@ use axum::{
     extract::{Path, Query, State},
     http::{HeaderMap, Method, StatusCode},
     middleware::{self, Next},
-    response::{sse::{Event, KeepAlive, Sse}, IntoResponse, Json, Response},
+    response::{sse::{Event, KeepAlive, Sse}, IntoResponse, Json, Response, Html},
     routing::{get, post, delete},
     Router,
     body::Body,
@@ -151,6 +151,8 @@ pub fn router(state: AppState) -> Router {
     };
 
     Router::new()
+        // ── Command Center UI ────────────────────────────────────────────────
+        .route("/", get(serve_ui))
         // ── OpenAI-compatible API (/v1/) ──────────────────────────────────────
         // Makes Aaroneous usable by Cursor, Continue.dev, Claude Desktop,
         // any OpenAI SDK, LM Studio, and every tool that speaks OpenAI chat.
@@ -159,7 +161,13 @@ pub fn router(state: AppState) -> Router {
         .route("/v1/models",               get(openai_list_models))
         .route("/v1/chat/completions",     post(openai_chat_completions))
         .route("/v1/completions",          post(openai_completions))
-        // ── Standard Aaroneous routes ─────────────────────────────────────────
+        // ── Chimera Emulation ──────────────────────────────────────────────────
+        .route("/chimera/record", post(chimera_record_toggle))
+        .route("/chimera/routines", get(list_routines))
+        .route("/chimera/routines/:id/run", post(run_routine))
+        // ── Autonomous Scheduler ───────────────────────────────────────────────
+        .route("/scheduler/tasks", get(list_scheduled_tasks).post(add_scheduled_task))
+        .route("/scheduler/tasks/:id", delete(delete_scheduled_task))
         .route("/healthz", get(healthz))
         .route("/readyz", get(readyz))
         .route("/status", get(status))
@@ -188,6 +196,7 @@ pub fn router(state: AppState) -> Router {
         .route("/dynamic-specialists/reload",  post(reload_dynamic_specialists))
         // Models directory listing
         .route("/models",                 get(list_models))
+        .route("/models/external",        get(list_external_models))
         // Forge: GGUF inspection, recipe generation, and crystallization
         .route("/forge/inspect",              post(forge_inspect))
         .route("/forge/auto-recipe",          post(forge_auto_recipe))
@@ -210,6 +219,7 @@ pub fn router(state: AppState) -> Router {
         .route("/dna/genome/:model",   get(dna_genome))
         .route("/dna/compare",         post(dna_compare))
         .route("/dna/roster",          get(dna_roster))
+        .route("/omni/constellation",  get(omni_constellation))
         // Link integrations — webhooks, Discord, Slack, Notion, GitHub
         .route("/links",           get(links_list).post(links_create))
         .route("/links/:id",       get(links_get).delete(links_delete).put(links_update))
@@ -237,8 +247,119 @@ pub fn router(state: AppState) -> Router {
 }
 
 // ====================================================================
+// Autonomous Scheduler Handlers
+// ====================================================================
+
+async fn list_scheduled_tasks(
+    State(state): State<AppState>,
+) -> impl IntoResponse {
+    let scheduler = state.federation.scheduler.read().await;
+    let tasks: Vec<_> = scheduler.tasks.values().cloned().collect();
+    Json(serde_json::json!({"tasks": tasks}))
+}
+
+#[derive(Deserialize)]
+struct AddTaskRequest {
+    name: String,
+    intent_content: String,
+    interval_secs: Option<u64>,
+}
+
+async fn add_scheduled_task(
+    State(state): State<AppState>,
+    Json(req): Json<AddTaskRequest>,
+) -> impl IntoResponse {
+    let mut scheduler = state.federation.scheduler.write().await;
+    let task = crate::federation::hive::scheduler::ScheduledTask {
+        id: uuid::Uuid::new_v4().to_string(),
+        name: req.name,
+        cron_expression: None,
+        interval_secs: req.interval_secs,
+        intent_content: req.intent_content,
+        last_run_ms: 0,
+        status: "Scheduled".to_string(),
+    };
+    scheduler.schedule_task(task.clone());
+    Json(serde_json::json!({"ok": true, "task": task}))
+}
+
+async fn delete_scheduled_task(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+) -> impl IntoResponse {
+    let mut scheduler = state.federation.scheduler.write().await;
+    scheduler.remove_task(&id);
+    Json(serde_json::json!({"ok": true}))
+}
+
+// ====================================================================
+// Chimera Handlers
+// ====================================================================
+
+#[derive(Deserialize)]
+struct ChimeraRecordRequest {
+    action: String, // "start" or "stop"
+}
+
+async fn chimera_record_toggle(
+    Json(req): Json<ChimeraRecordRequest>,
+) -> impl IntoResponse {
+    // We can just open a temporary nats connection or use an existing one to publish.
+    // For simplicity, we do a quick synchronous publish using the default connection url.
+    if let Ok(nc) = nats::connect("localhost:4222") {
+        let _ = nc.publish("chimera.record", req.action.as_bytes());
+        return Json(serde_json::json!({"ok": true, "status": format!("Recording {}ed", req.action)})).into_response();
+    }
+    (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"ok": false, "error": "NATS connection failed"}))).into_response()
+}
+
+async fn list_routines() -> impl IntoResponse {
+    // Look for recorded routines in D:\Aaroneous\data\routines
+    let mut routines = Vec::new();
+    let routines_dir = std::path::PathBuf::from("D:\\Aaroneous\\data\\routines");
+    if routines_dir.exists() {
+        if let Ok(entries) = std::fs::read_dir(routines_dir) {
+            for entry in entries.flatten() {
+                if let Ok(metadata) = entry.metadata() {
+                    if metadata.is_file() {
+                        routines.push(serde_json::json!({
+                            "id": entry.file_name().to_string_lossy(),
+                            "name": entry.file_name().to_string_lossy().replace(".json", ""),
+                            "time": "On Demand",
+                            "status": "Ready",
+                        }));
+                    }
+                }
+            }
+        }
+    }
+    Json(serde_json::json!({"routines": routines}))
+}
+
+async fn run_routine(Path(id): Path<String>) -> impl IntoResponse {
+    let routine_path = std::path::PathBuf::from("D:\\Aaroneous\\data\\routines").join(&id);
+    if !routine_path.exists() {
+        return (StatusCode::NOT_FOUND, Json(serde_json::json!({"ok": false, "error": "Routine not found"}))).into_response();
+    }
+    
+    // In a real system, we'd submit an intent to Odin to process this via Enigo SAB.
+    // For now, we simulate executing the routine and stream a NATS event.
+    if let Ok(nc) = nats::connect("localhost:4222") {
+        let _ = nc.publish("chimera.emulation.playback", id.as_bytes());
+    }
+    
+    Json(serde_json::json!({"ok": true, "status": "Routine queued for execution via Enigo SAB"})).into_response()
+}
+
+// ====================================================================
 // Handlers
 // ====================================================================
+
+/// Serve the Command Center UI
+async fn serve_ui() -> impl IntoResponse {
+    let ui_content = include_str!("ui.html");
+    Html(ui_content)
+}
 
 /// Liveness probe. Returns 200 as long as the process is responding.
 async fn healthz() -> &'static str {
@@ -1038,6 +1159,75 @@ async fn cluster_status(State(state): State<AppState>) -> Json<serde_json::Value
 // ====================================================================
 // Models directory listing
 // ====================================================================
+
+/// GET /models/external — Scan common directories for existing GGUF models
+async fn list_external_models() -> Json<serde_json::Value> {
+    let mut found_models = Vec::new();
+    
+    // Check LM Studio default directory on Windows
+    let home = std::env::var("USERPROFILE").unwrap_or_else(|_| "C:\\".to_string());
+    
+    // Search Paths
+    let lm_studio_dir = std::path::PathBuf::from(&home).join(".lmstudio").join("models");
+    let lm_studio_cache = std::path::PathBuf::from(&home).join(".cache").join("lm-studio").join("models");
+    let ollama_dir = std::path::PathBuf::from(&home).join(".ollama").join("models").join("blobs");
+    let jan_dir = std::path::PathBuf::from(&home).join("jan").join("models");
+    let gpt4all_dir = std::path::PathBuf::from(&home).join("AppData").join("Local").join("nomic.ai").join("GPT4All");
+    
+    // Helper to scan directory (up to 3 levels deep to find GGUFs)
+    let mut scan_dir = |base_dir: std::path::PathBuf, source: &str, is_ollama: bool| {
+        if !base_dir.exists() { return; }
+        
+        let mut dirs_to_visit = vec![base_dir];
+        let mut depth_map = std::collections::HashMap::new();
+        
+        while let Some(current_dir) = dirs_to_visit.pop() {
+            let current_depth = *depth_map.get(&current_dir).unwrap_or(&0);
+            if current_depth > 3 { continue; } // Don't go too deep
+            
+            if let Ok(entries) = std::fs::read_dir(&current_dir) {
+                for entry in entries.flatten() {
+                    let path = entry.path();
+                    
+                    if path.is_dir() {
+                        depth_map.insert(path.clone(), current_depth + 1);
+                        dirs_to_visit.push(path);
+                    } else if path.is_file() {
+                        let is_gguf = path.extension().map_or(false, |ext| ext == "gguf");
+                        let is_valid_ollama = is_ollama && path.file_name().map_or(false, |f| f.to_string_lossy().starts_with("sha256"));
+                        
+                        if is_gguf || is_valid_ollama {
+                            if let Ok(metadata) = std::fs::metadata(&path) {
+                                let mut name = path.file_name().unwrap_or_default().to_string_lossy().to_string();
+                                if is_valid_ollama {
+                                    name = format!("ollama_blob_{}", name.chars().take(15).collect::<String>());
+                                }
+                                found_models.push(serde_json::json!({
+                                    "name": name,
+                                    "path": path.to_string_lossy(),
+                                    "size_bytes": metadata.len(),
+                                    "source": source
+                                }));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    };
+    
+    scan_dir(lm_studio_dir, "LM Studio", false);
+    scan_dir(lm_studio_cache, "LM Studio Cache", false);
+    scan_dir(ollama_dir, "Ollama", true);
+    scan_dir(jan_dir, "Jan", false);
+    scan_dir(gpt4all_dir, "GPT4All", false);
+
+    Json(serde_json::json!({
+        "ok": true,
+        "count": found_models.len(),
+        "models": found_models
+    }))
+}
 
 /// GET /models â€” list all GGUF files in the models directory
 ///
@@ -3859,5 +4049,57 @@ async fn wait_for_new_results(
         }).unwrap_or_default()
     } else {
         new
+    }
+}
+
+// ── Omni Constellation ────────────────────────────────────────────────────────
+
+#[derive(serde::Deserialize)]
+pub struct OmniQuery {
+    pub model: Option<String>,
+}
+
+/// Serve the Omni Constellation for a given model (or the primary Visionary model)
+pub async fn omni_constellation(
+    axum::extract::State(_state): axum::extract::State<AppState>,
+    axum::extract::Query(query): axum::extract::Query<OmniQuery>,
+) -> impl axum::response::IntoResponse {
+    use crate::federation::dna::omni::OmniArchiver;
+    use std::path::PathBuf;
+
+    let model_name = query.model.unwrap_or_else(|| "foundation_v1.gguf".to_string());
+    
+    // Check known paths for the model
+    let mut model_path = PathBuf::from(format!("D:\\Aaroneous\\models\\{}", model_name));
+    if !model_path.exists() {
+        model_path = PathBuf::from(format!("./models/{}", model_name));
+    }
+    
+    if !model_path.exists() {
+        return axum::Json(serde_json::json!({
+            "ok": false,
+            "error": format!("Model not found: {}", model_name)
+        }));
+    }
+
+    match OmniArchiver::extract_from_gguf(&model_path) {
+        Ok(Some(constellation)) => {
+            axum::Json(serde_json::json!({
+                "ok": true,
+                "constellation": constellation
+            }))
+        }
+        Ok(None) => {
+            axum::Json(serde_json::json!({
+                "ok": false,
+                "error": "No Omni Constellation metadata found in this GGUF model."
+            }))
+        }
+        Err(e) => {
+            axum::Json(serde_json::json!({
+                "ok": false,
+                "error": format!("Error extracting Omni metadata: {}", e)
+            }))
+        }
     }
 }

@@ -1,5 +1,7 @@
 /// SovereignPackage — portable specialist export/import format.
 ///
+pub mod auto_fabricator;
+
 /// A `.sovereign` file is a zstd-compressed tar archive containing:
 ///
 /// ```text

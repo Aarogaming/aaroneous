@@ -44,6 +44,7 @@
 
 pub mod builder;
 pub mod config;
+pub mod scheduler;
 
 #[cfg(test)]
 mod tests;
@@ -147,6 +148,9 @@ pub struct Federation {
     /// Future intent submissions query it to retrieve the most relevant past
     /// context across ALL sovereigns, which is prepended to Odin's decomposition.
     pub federation_memory: Arc<Mutex<crate::federation::graph::EmbeddingStore>>,
+
+    /// Autonomous Task Scheduler
+    pub scheduler: Arc<RwLock<crate::federation::hive::scheduler::AutonomousScheduler>>,
 }
 
 impl Federation {
@@ -835,6 +839,7 @@ impl Federation {
             audit_log: Arc::new(Mutex::new(crate::federation::enterprise::AuditLog::new())),
             specialist_events: Arc::new(event_tx),
             federation_memory: Arc::new(Mutex::new(crate::federation::graph::EmbeddingStore::new(256))),
+            scheduler: Arc::new(RwLock::new(crate::federation::hive::scheduler::AutonomousScheduler::new())),
         }
     }
 }
@@ -1359,8 +1364,71 @@ impl Federation {
         //   - The SSE stream broadcasts the decomposition event
         self.odin_decompose_intent().await;
 
-        // Trigger immediate proposal collection
-        self.collect_proposals().await;
+        // If Odin successfully decomposed the intent into a DAG, we can execute the DAG directly.
+        let has_decomposition = {
+            let guard = self.active_intent.read().await;
+            guard.as_ref().and_then(|i| i.context.get("odin_decomposition").cloned())
+        };
+
+        if let Some(json_str) = has_decomposition {
+            let dag_opt = crate::federation::graph::dag::task_dag_from_odin_output(&id, &json_str).ok();
+            if let Some(dag) = dag_opt {
+                // Execute the DAG layer by layer
+                use crate::federation::specialist::Specialist;
+                let layers = dag.parallel_layers();
+                info!("Executing Odin DAG with {} parallel layers", layers.len());
+                for (layer_idx, layer) in layers.into_iter().enumerate() {
+                    info!("Executing DAG Layer {}", layer_idx);
+                    let mut layer_futures: Vec<std::pin::Pin<Box<dyn std::future::Future<Output = (String, Result<crate::federation::specialist::ExecutionResult, crate::federation::specialist::SpecialistError>)> + Send>>> = Vec::new();
+                    for node in layer {
+                        if let crate::federation::graph::dag::NodeKind::Task { ref assigned_to, .. } = node.kind {
+                            // Find the specialist
+                            let dyn_guard = self.dynamic.read().await;
+                            let specialist_opt = dyn_guard.iter().find(|s| s.name.to_lowercase() == assigned_to.to_lowercase()).cloned();
+                            drop(dyn_guard);
+
+                            if let Some(specialist) = specialist_opt {
+                                let s_arc = specialist.clone();
+                                let task_id = node.id.clone();
+                                let task_label = node.label.clone();
+                                layer_futures.push(Box::pin(async move {
+                                    let mut ctx = std::collections::HashMap::new();
+                                    ctx.insert("task_content".to_string(), task_label);
+                                    
+                                    let decision = crate::federation::specialist::Decision {
+                                        proposal_id: format!("dag-task-{}", task_id),
+                                        specialist: crate::federation::specialist::SpecialistId::Visionary, // placeholder for dynamic
+                                        action: "execute_dag_task".to_string(),
+                                        allocated_resources: crate::federation::specialist::ResourceRequest::default(),
+                                        deadline_ms: 10000,
+                                        context: ctx,
+                                    };
+                                    let result = s_arc.execute(&decision).await;
+                                    (task_id, result)
+                                }));
+                            } else {
+                                warn!("DAG execution: Assigned specialist {} not found for task {}", assigned_to, node.id);
+                            }
+                        }
+                    }
+                    // Wait for the layer to finish
+                    let results = futures_util::future::join_all(layer_futures).await;
+                    for (task_id, res) in results {
+                        match res {
+                            Ok(r) => info!("DAG Task {} completed: {}", task_id, r.output),
+                            Err(e) => warn!("DAG Task {} failed: {}", task_id, e),
+                        }
+                    }
+                }
+            } else {
+                // Trigger immediate proposal collection if parsing fails
+                self.collect_proposals().await;
+            }
+        } else {
+            // Trigger immediate proposal collection
+            self.collect_proposals().await;
+        }
+
         id
     }
 
@@ -1408,6 +1476,19 @@ impl Federation {
                     ctx.insert("prior_context".to_string(), prior.clone());
                 }
             }
+        }
+
+        // Inject available plugins
+        let mut available_plugins = Vec::new();
+        if let Ok(entries) = std::fs::read_dir("D:\\Aaroneous\\data\\sabs") {
+            for entry in entries.flatten() {
+                if let Ok(name) = entry.file_name().into_string() {
+                    available_plugins.push(name.replace(".wasm", ""));
+                }
+            }
+        }
+        if !available_plugins.is_empty() {
+            ctx.insert("available_plugins".to_string(), available_plugins.join(", "));
         }
 
         let decision = Decision {
@@ -2222,6 +2303,69 @@ impl Federation {
                         let purged = mgr.purge_expired();
                         if purged > 0 {
                             info!("Session tick: purged {} expired session(s)", purged);
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    /// Spawn the Autonomous Task Scheduler loop that checks for time-based triggers.
+    pub async fn spawn_autonomous_scheduler_loop(&self) {
+        let scheduler_arc = self.scheduler.clone();
+        let shutdown = self.sentinel_shutdown.clone();
+        // Use a weak reference to self or an explicit channel to submit intents?
+        // Let's use NATS or we can just pass an Arc of active_intent and collect_proposals.
+        // Actually, Federation doesn't have a cloneable Arc to itself, but we can use the NATS bus 
+        // to submit an intent, or we can just send it directly to active_intent if we pass it in.
+        
+        // Actually, `Federation` methods take `&self`. To call `submit_intent` from a background task, 
+        // we either need an `Arc<Federation>` which isn't standard here, or we can just push directly 
+        // to `active_intent` and trigger proposal collection using the NATS bus, or we can inject NATS.
+        // Let's just use the local NATS bus to trigger it.
+        
+        tokio::spawn(async move {
+            let nc = match nats::connect("localhost:4222") {
+                Ok(c) => c,
+                Err(_) => {
+                    warn!("Scheduler: NATS not running, autonomous tasks disabled.");
+                    return;
+                }
+            };
+            
+            loop {
+                tokio::select! {
+                    _ = shutdown.notified() => break,
+                    _ = tokio::time::sleep(std::time::Duration::from_secs(10)) => {
+                        let now_ms = std::time::SystemTime::now()
+                            .duration_since(std::time::UNIX_EPOCH)
+                            .unwrap_or_default().as_millis() as u64;
+                            
+                        let mut triggered_tasks = Vec::new();
+                        {
+                            let mut sched = scheduler_arc.write().await;
+                            for (_, task) in sched.tasks.iter_mut() {
+                                if task.status == "Scheduled" {
+                                    if let Some(interval) = task.interval_secs {
+                                        if now_ms >= task.last_run_ms + (interval * 1000) {
+                                            task.last_run_ms = now_ms;
+                                            triggered_tasks.push(task.clone());
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        
+                        for task in triggered_tasks {
+                            info!("Scheduler: Triggering task '{}'", task.name);
+                            // We can use the HTTP API or NATS to trigger an intent. 
+                            // Using NATS directly to the UI backend, or just send a message.
+                            let payload = serde_json::json!({
+                                "content": task.intent_content,
+                                "priority": "High"
+                            });
+                            // In a real setup, we'd have a specific NATS subject for system intents
+                            let _ = nc.publish("system/intent/submit", serde_json::to_string(&payload).unwrap().as_bytes());
                         }
                     }
                 }

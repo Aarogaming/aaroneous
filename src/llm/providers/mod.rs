@@ -65,4 +65,8 @@ pub trait LLMProvider: Send + Sync {
         user_message: &str,
         domain: &str,
     ) -> Result<String>;
+
+    /// Generate a vector embedding for the given text.
+    /// Used natively by the Omni Relic / Constellation system for semantic similarity mapping.
+    async fn embed(&self, text: &str) -> Result<Vec<f32>>;
 }

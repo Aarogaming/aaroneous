@@ -344,6 +344,26 @@ impl LLMClient {
 
         Ok(generation)
     }
+
+    /// Generate an embedding vector for the given text
+    pub async fn embed(&self, text: &str) -> Result<Vec<f32>> {
+        self.rate_limiter.check_limit().await?;
+        
+        let cache_key = format!("embed:{}", text);
+        if self.config.enable_caching {
+            if let Some(cached) = self.cache.get::<Vec<f32>>(&cache_key).await {
+                return Ok(cached);
+            }
+        }
+        
+        let vector = self.provider.embed(text).await?;
+        
+        if self.config.enable_caching {
+            self.cache.set(&cache_key, vector.clone()).await?;
+        }
+        
+        Ok(vector)
+    }
 }
 
 #[derive(Debug, Clone)]

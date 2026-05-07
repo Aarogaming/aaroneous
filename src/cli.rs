@@ -919,6 +919,7 @@ async fn execute_start(
     // With real GGUF inference the tick is negligible vs. inference time.
     fed.spawn_sentinel_loop(std::time::Duration::from_millis(100)).await;
     fed.spawn_session_tick_loop().await;
+    fed.spawn_autonomous_scheduler_loop().await;
     // Bridge: reads CPU/memory from sysinfo every 5s → Symbiotic bio_inbox
     fed.spawn_system_sensor_loop().await;
     info!("System sensor loop started (CPU/memory → Symbiotic bio_inbox)");

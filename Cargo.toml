@@ -110,6 +110,11 @@ rocksdb = { version = "0.24", optional = true }
 llama-gguf = { version = "0.14", optional = true, default-features = false, features = ["cpu"] }
 semver = "1.0.28"
 
+# Phase 4: Chimera Eye (Bevy Overlay)
+bevy = { version = "0.14" }
+rdev = "0.5.3"
+enigo = "0.2.1"
+
 [dev-dependencies]
 # tower: in-process axum router testing via ServiceExt::oneshot.
 tower = { version = "0.5", features = ["util"] }

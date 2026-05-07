@@ -4,6 +4,7 @@ wit_bindgen::generate!({
 
 use crate::exports::aaroneous::agent::specialist::Guest;
 use crate::aaroneous::agent::bus;
+use crate::aaroneous::agent::llm;
 use serde::{Deserialize, Serialize};
 
 mod sdk {
@@ -102,14 +103,22 @@ impl Guest for GenesisArchitect {
                         
                         // 1. Translate mission into an Omni vector query (Simulated deterministic vector mapping)
                         // In reality, this would use a small local embedding model or ask the Visionary to embed the string
-                        let mut origin = vec![0.0; 256];
-                        if req.mission_purpose.contains("security") || req.mission_purpose.contains("monitor") {
-                            origin[0] = 1.0; origin[10] = 0.8;
-                        } else if req.mission_purpose.contains("spatial") || req.mission_purpose.contains("ar") {
-                            origin[5] = 1.0; origin[15] = 0.9;
-                        } else {
-                            origin[128] = 1.0;
-                        }
+                        let mission_desc = format!("{} {}", req.target_hardware, req.mission_purpose);
+                        let origin = match llm::embed(&mission_desc) {
+                            Ok(vec) => vec,
+                            Err(_) => {
+                                sdk::log("WARN", "Embedding failed, falling back to basic mapping");
+                                let mut o = vec![0.0; 256];
+                                if req.mission_purpose.contains("security") || req.mission_purpose.contains("monitor") {
+                                    o[0] = 1.0; o[10] = 0.8;
+                                } else if req.mission_purpose.contains("spatial") || req.mission_purpose.contains("ar") {
+                                    o[5] = 1.0; o[15] = 0.9;
+                                } else {
+                                    o[128] = 1.0;
+                                }
+                                o
+                            }
+                        };
 
                         let query_id = req.request_id.clone().unwrap_or_else(|| "gen-q-1".to_string());
                         

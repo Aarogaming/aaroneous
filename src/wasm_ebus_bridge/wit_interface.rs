@@ -39,7 +39,8 @@ impl WasmExport {
     
     /// Call the function (in real implementation, would invoke WASM)
     pub fn call(&self, _args: &[u32]) -> Result<u32, String> {
-        // TODO: Actual WASM invocation via Wasmtime
+        // In a real execution environment, this calls into the Wasmtime instance.
+        // For the interface registry, this remains a stub.
         Ok(0)
     }
 }

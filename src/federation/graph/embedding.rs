@@ -73,6 +73,8 @@ pub struct EmbeddingStore {
     vocab: HashMap<String, usize>,
     /// IDF weights (log(N/df) for each term)
     idf: Vec<f32>,
+    /// Document frequency for each term
+    df: Vec<usize>,
     /// Total documents seen (for IDF computation)
     doc_count: usize,
     /// Embedding dimension
@@ -87,6 +89,7 @@ impl EmbeddingStore {
             store: HashMap::new(),
             vocab: HashMap::new(),
             idf: Vec::new(),
+            df: Vec::new(),
             doc_count: 0,
             dim,
         }
@@ -227,17 +230,23 @@ impl EmbeddingStore {
         let terms: std::collections::HashSet<String> = tokenize(text).into_iter().collect();
         for term in terms {
             let next_id = self.vocab.len();
-            self.vocab.entry(term).or_insert(next_id);
+            let idx = *self.vocab.entry(term).or_insert(next_id);
+            if idx == next_id {
+                self.df.push(1);
+            } else {
+                self.df[idx] += 1;
+            }
         }
         // Real IDF: ln(N / (df + 1)) — +1 smoothing prevents division by zero.
         // Common words across many documents get low weight; rare domain-specific
         // terms ("security", "injection", "borrow") get high weight.
-        // We approximate df as 1 for all terms (first-occurrence assumption) since
-        // we don't track per-term document frequency separately.
-        // TODO: Track df per term for true IDF when doc_count > 50.
         let n = self.doc_count as f32;
         let vocab_size = self.vocab.len();
-        self.idf = vec![n.ln().max(1.0); vocab_size]; // All terms weighted by log(N)
+        self.idf.resize(vocab_size, 0.0);
+        for i in 0..vocab_size {
+            let df = self.df[i] as f32;
+            self.idf[i] = (n / (df + 1.0)).ln().max(0.1);
+        }
     }
 
     fn vectorize(&self, text: &str) -> Embedding {
@@ -318,6 +327,7 @@ struct EmbeddingStoreSnapshot {
     memories: std::collections::HashMap<String, Vec<EmbeddedMemory>>,
     vocab: std::collections::HashMap<String, usize>,
     idf: Vec<f32>,
+    df: Vec<usize>,
     doc_count: usize,
     dim: usize,
     saved_at: u64,
@@ -335,6 +345,7 @@ impl EmbeddingStore {
             memories: self.store.clone(),
             vocab: self.vocab.clone(),
             idf: self.idf.clone(),
+            df: self.df.clone(),
             doc_count: self.doc_count,
             dim: self.dim,
             saved_at: now_ms(),
@@ -359,6 +370,7 @@ impl EmbeddingStore {
             store: snapshot.memories,
             vocab: snapshot.vocab,
             idf: snapshot.idf,
+            df: snapshot.df,
             doc_count: snapshot.doc_count,
             dim: snapshot.dim,
         }
@@ -382,6 +394,7 @@ impl EmbeddingStore {
             memories: self.store.clone(),
             vocab: self.vocab.clone(),
             idf: self.idf.clone(),
+            df: self.df.clone(),
             doc_count: self.doc_count,
             dim: self.dim,
             saved_at: now_ms(),
@@ -408,13 +421,42 @@ impl EmbeddingStore {
                 return Self::new(dim);
             }
         };
-        let snapshot: EmbeddingStoreSnapshot = match serde_json::from_str(&data) {
+        let mut snapshot: EmbeddingStoreSnapshot = match serde_json::from_str(&data) {
             Ok(s) => s,
             Err(e) => {
-                tracing::warn!("EmbeddingStore: sidecar parse error: {}", e);
-                return Self::new(dim);
+                // Try backward compatibility
+                #[derive(serde::Deserialize)]
+                struct LegacySnapshot {
+                    memories: std::collections::HashMap<String, Vec<EmbeddedMemory>>,
+                    vocab: std::collections::HashMap<String, usize>,
+                    idf: Vec<f32>,
+                    doc_count: usize,
+                    dim: usize,
+                    saved_at: u64,
+                    total_memories: usize,
+                }
+                if let Ok(ls) = serde_json::from_str::<LegacySnapshot>(&data) {
+                    EmbeddingStoreSnapshot {
+                        memories: ls.memories,
+                        vocab: ls.vocab.clone(),
+                        idf: ls.idf,
+                        df: vec![1; ls.vocab.len()],
+                        doc_count: ls.doc_count,
+                        dim: ls.dim,
+                        saved_at: ls.saved_at,
+                        total_memories: ls.total_memories,
+                    }
+                } else {
+                    tracing::warn!("EmbeddingStore: sidecar parse error: {}", e);
+                    return Self::new(dim);
+                }
             }
         };
+        
+        if snapshot.df.len() < snapshot.vocab.len() {
+            snapshot.df.resize(snapshot.vocab.len(), 1);
+        }
+        
         tracing::info!(
             "EmbeddingStore: restored {} memories from sidecar (saved at {})",
             snapshot.total_memories,
@@ -424,6 +466,7 @@ impl EmbeddingStore {
             store: snapshot.memories,
             vocab: snapshot.vocab,
             idf: snapshot.idf,
+            df: snapshot.df,
             doc_count: snapshot.doc_count,
             dim: snapshot.dim,
         }

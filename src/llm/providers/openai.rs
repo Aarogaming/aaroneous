@@ -425,6 +425,46 @@ Respond ONLY with valid JSON matching:
 
         Ok(content)
     }
+
+    async fn embed(&self, text: &str) -> Result<Vec<f32>> {
+        let client = reqwest::Client::new();
+        
+        #[derive(Serialize)]
+        struct EmbedRequest {
+            input: String,
+            model: String,
+        }
+        
+        #[derive(Deserialize)]
+        struct EmbedResponse {
+            data: Vec<EmbedData>,
+        }
+        
+        #[derive(Deserialize)]
+        struct EmbedData {
+            embedding: Vec<f32>,
+        }
+        
+        let req = EmbedRequest {
+            input: text.to_string(),
+            model: "text-embedding-3-small".to_string(),
+        };
+        
+        let response = client
+            .post("https://api.openai.com/v1/embeddings")
+            .header("Authorization", format!("Bearer {}", self.api_key))
+            .json(&req)
+            .send()
+            .await?;
+            
+        if !response.status().is_success() {
+            let error_text = response.text().await?;
+            return Err(anyhow!("OpenAI API error: {}", error_text));
+        }
+        
+        let data: EmbedResponse = response.json().await?;
+        Ok(data.data.into_iter().next().map(|d| d.embedding).unwrap_or_default())
+    }
 }
 
 #[cfg(test)]

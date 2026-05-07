@@ -4,6 +4,7 @@ wit_bindgen::generate!({
 
 use crate::exports::aaroneous::agent::specialist::Guest;
 use crate::aaroneous::agent::bus;
+use crate::aaroneous::agent::llm;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -180,7 +181,21 @@ impl Guest for OmniRelic {
             match topic.as_str() {
                 "system/knowledge/inject" => {
                     if let Ok(data) = serde_json::from_slice::<InjectPayload>(&payload) {
-                        let id = constellation.inject(&data.title, &data.domain, &data.content, data.dimensions, data.mass);
+                        let content_to_embed = format!("{} {} {}", data.domain, data.title, data.content);
+                        let dimensions = if data.dimensions.iter().all(|&x| x == 0.0) || data.dimensions.is_empty() {
+                            // If dimensions are empty or all zero, use the LLM to embed the content
+                            match llm::embed(&content_to_embed) {
+                                Ok(vec) => vec,
+                                Err(_) => {
+                                    sdk::log("WARN", "Embedding failed, falling back to provided or zeros");
+                                    data.dimensions
+                                }
+                            }
+                        } else {
+                            data.dimensions
+                        };
+
+                        let id = constellation.inject(&data.title, &data.domain, &data.content, dimensions, data.mass);
                         sdk::log("INFO", &format!("Injected knowledge node: {}", id));
                         cycle_injections += 1;
                         unsafe { INJECTIONS += 1; STATE_NODES += 1; }
@@ -190,6 +205,7 @@ impl Guest for OmniRelic {
                 }
                 "system/knowledge/query" => {
                     if let Ok(data) = serde_json::from_slice::<QueryPayload>(&payload) {
+                        // If origin is zero-filled, perhaps we embed something? QueryPayload doesn't have a string though.
                         let origin = OmniVector::new(data.origin);
                         let results = constellation.query_relativistic(&origin, data.radius, data.max_results);
                         

@@ -464,6 +464,15 @@ JSON array only:"#,
             batch_confidence,
         })
     }
+
+    async fn embed(&self, text: &str) -> Result<Vec<f32>> {
+        debug!("GGUF: Generating mock embedding (real GGUF embeddings not yet supported)");
+        let mut vec = vec![0.0; 384];
+        if !text.is_empty() {
+            vec[0] = 1.0;
+        }
+        Ok(vec)
+    }
 }
 
 /// Extract JSON from text that may contain extra content

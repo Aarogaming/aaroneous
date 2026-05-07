@@ -426,7 +426,43 @@ impl Specialist for GenericSpecialist {
                 base_prompt
             };
             match llm.generate_domain_response(&system_prompt, &intent_with_context, &self.domain).await {
-                Ok(response) => format!("[{}] {}", self.name, response),
+                Ok(response) => {
+                    let mut final_output = format!("[{}] {}", self.name, response);
+                    
+                    // Self-Coding Agent capability: If the response contains a code writing directive, execute it
+                    if response.contains("[WRITE_FILE]") && response.contains("[/WRITE_FILE]") {
+                        if let Some(start) = response.find("[WRITE_FILE]") {
+                            if let Some(end) = response[start..].find("[/WRITE_FILE]") {
+                                let block = &response[start + 12..start + end];
+                                // block might look like: path: src/foo.rs\ncontent: ...
+                                if let Some(path_start) = block.find("path:") {
+                                    if let Some(path_end) = block[path_start..].find('\n') {
+                                        let file_path = block[path_start + 5..path_start + path_end].trim();
+                                        if let Some(content_start) = block.find("content:") {
+                                            let file_content = &block[content_start + 8..];
+                                            let abs_path = std::path::PathBuf::from("D:\\Aaroneous").join(file_path);
+                                            
+                                            // Ensure the parent directory exists
+                                            if let Some(parent) = abs_path.parent() {
+                                                let _ = std::fs::create_dir_all(parent);
+                                            }
+                                            
+                                            if let Err(e) = std::fs::write(&abs_path, file_content.trim()) {
+                                                tracing::warn!("Self-Coding Agent failed to write to {}: {}", file_path, e);
+                                                final_output.push_str(&format!("\n[Code Edit Failed: {}]", e));
+                                            } else {
+                                                tracing::info!("Self-Coding Agent wrote to {}", file_path);
+                                                final_output.push_str(&format!("\n[Code Edit Success: Wrote {}]", file_path));
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    
+                    final_output
+                },
                 Err(_e) => {
                     // Graceful fallback â€” sovereign acknowledges intent with structured output
                     tracing::debug!("[{}] LLM unavailable â€” using structured fallback", self.name);
@@ -552,10 +588,16 @@ impl Specialist for GenericSpecialist {
 /// Public so the forge can bake it into GGUF metadata at crystallization time.
 pub fn system_prompt_for_domain(domain: &str, name: &str) -> String {
     let role = match domain {
-        "code_review" | "code" | "coding" =>
+        "code_review" | "code" | "coding" | "code_generation" =>
             "You are an expert software engineer. Review code, identify bugs, \
              suggest improvements, and explain technical decisions clearly. \
-             Be precise, actionable, and use concrete examples.",
+             Be precise, actionable, and use concrete examples. \
+             You have Self-Coding capabilities. If you need to autonomously write or edit code in the D:\\Aaroneous workspace, \
+             output exactly in this format:\n\
+             [WRITE_FILE]\n\
+             path: relative/path/to/file.rs\n\
+             content: <exact file content here>\n\
+             [/WRITE_FILE]",
         "legal_analysis" | "legal" =>
             "You are a legal analyst. Identify relevant statutes, case law, \
              and legal risks. Provide structured analysis with clear conclusions. \
@@ -651,8 +693,11 @@ pub fn system_prompt_for_domain(domain: &str, name: &str) -> String {
             "You are Odin, the Guild coordinator and task orchestrator. \
              You are the mayor of the hive — not the hive itself, but its \
              representative. Receive intents from users, decompose them into \
-             tasks, assign tasks to the right sovereigns, track progress, \
-             manage dependencies, and maintain the task registry. \
+             tasks, assign tasks to the right sovereigns (like Merlin, Ariel, Argus) \
+             or to dynamic SAB plugins (like thirtyfour, polars, enigo). \
+             If your context provides an 'available_plugins' list, you MAY assign \
+             tasks directly to those plugin names. \
+             Track progress, manage dependencies, and maintain the task registry. \
              Report status clearly. Surface blockers immediately.",
 
         // Argus: security, secrets management, vulnerability scanning, Git audit
