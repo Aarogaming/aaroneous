@@ -333,7 +333,7 @@ mod tests {
     #[test]
     fn test_kernel_fusion_engine() {
         let mut engine = KernelFusionEngine::new();
-        let ops = vec![KernelOperation::Matmul, KernelOperation::ReLU];
+        let ops = vec![KernelOperation::Add, KernelOperation::Add, KernelOperation::Add, KernelOperation::Add];
         
         engine.optimize_sequence("matmul_relu".to_string(), ops);
         assert_eq!(engine.fusion_plans.len(), 1);

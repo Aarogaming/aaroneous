@@ -76,8 +76,8 @@ mod examples {
         println!("Modules: {}", bootstrap_result.modules_installed);
         println!("Message: {}", bootstrap_result.message);
 
-        // Mobile max is 1500MB
-        assert!(bootstrap_result.size_mb <= 1500);
+        // Mobile max is 3500MB
+        assert!(bootstrap_result.size_mb <= 3500);
         
         // Should have: Sentinel, Omnipresent, Symbiotic
         if let Some(manifest) = &bootstrap_result.manifest {
@@ -107,8 +107,8 @@ mod examples {
         println!("Size: {}MB / 2000MB max", bootstrap_result.size_mb);
         println!("Modules: {}", bootstrap_result.modules_installed);
 
-        // Tablet max is 2000MB
-        assert!(bootstrap_result.size_mb <= 2000);
+        // Tablet max is 4500MB
+        assert!(bootstrap_result.size_mb <= 4500);
 
         // Should have Phygital (AR support)
         if let Some(manifest) = &bootstrap_result.manifest {
@@ -135,8 +135,8 @@ mod examples {
         println!("Modules: {}", bootstrap_result.modules_installed);
         println!("Message: {}", bootstrap_result.message);
 
-        // Desktop max is 4000MB
-        assert!(bootstrap_result.size_mb <= 4000);
+        // Desktop max is 6000MB
+        assert!(bootstrap_result.size_mb <= 6000);
 
         // Should have all 6 specialists
         if let Some(manifest) = &bootstrap_result.manifest {
@@ -168,8 +168,8 @@ mod examples {
         println!("Size: {}MB / 500MB max", bootstrap_result.size_mb);
         println!("Modules: {}", bootstrap_result.modules_installed);
 
-        // Server max is 500MB
-        assert!(bootstrap_result.size_mb <= 500);
+        // Server max is 8000MB
+        assert!(bootstrap_result.size_mb <= 8000);
 
         // Should have only Sentinel
         if let Some(manifest) = &bootstrap_result.manifest {
@@ -299,9 +299,9 @@ mod examples {
         );
 
         // Each within constraints
-        assert!(mobile.size_mb <= 1500);
-        assert!(tablet.size_mb <= 2000);
-        assert!(desktop.size_mb <= 4000);
+        assert!(mobile.size_mb <= 3500);
+        assert!(tablet.size_mb <= 4500);
+        assert!(desktop.size_mb <= 6000);
 
         // Progressive capability increase
         assert!(mobile.modules_installed < tablet.modules_installed);

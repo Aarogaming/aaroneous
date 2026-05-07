@@ -168,7 +168,7 @@ mod tests {
         let channel = MessageChannel::new();
         
         let msg = SpecialistMessage::Error("test error".to_string());
-        let _ = channel.send(msg.clone());
+        let _ = channel.send(msg.clone()).await;
         
         let received = channel.receive().await;
         assert!(received.is_some());

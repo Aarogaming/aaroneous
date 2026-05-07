@@ -44,7 +44,7 @@ fn db_path() -> std::path::PathBuf {
 /// Helper to build a `Decision` for a specific specialist.
 fn decision_for(specialist: SpecialistId, idx: usize) -> Decision {
     Decision {
-        proposal_id: format!("example-{}-{}", specialist as u8, idx),
+        proposal_id: format!("example-{:?}-{}", specialist, idx),
         specialist,
         action: "demo".to_string(),
         allocated_resources: ResourceRequest::default(),

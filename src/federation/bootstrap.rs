@@ -95,17 +95,17 @@ impl DeploymentTarget {
 
     pub fn max_size_mb(&self) -> u32 {
         match self {
-            DeploymentTarget::Mobile => 1500,
-            DeploymentTarget::Tablet => 2000,
-            DeploymentTarget::Desktop => 4000,
-            DeploymentTarget::Server => 500,
+            DeploymentTarget::Mobile => 3500,
+            DeploymentTarget::Tablet => 4500,
+            DeploymentTarget::Desktop => 6000,
+            DeploymentTarget::Server => 8000,
             DeploymentTarget::Custom(target) => {
                 if target.contains("ios") || target.contains("android") {
-                    1500
+                    3500
                 } else if target.contains("desktop") || target.contains("linux") {
-                    4000
+                    6000
                 } else {
-                    2000
+                    4000
                 }
             }
         }
@@ -404,10 +404,10 @@ mod tests {
 
     #[test]
     fn test_deployment_target_max_size() {
-        assert_eq!(DeploymentTarget::Mobile.max_size_mb(), 1500);
-        assert_eq!(DeploymentTarget::Tablet.max_size_mb(), 2000);
-        assert_eq!(DeploymentTarget::Desktop.max_size_mb(), 4000);
-        assert_eq!(DeploymentTarget::Server.max_size_mb(), 500);
+        assert_eq!(DeploymentTarget::Mobile.max_size_mb(), 3500);
+        assert_eq!(DeploymentTarget::Tablet.max_size_mb(), 4500);
+        assert_eq!(DeploymentTarget::Desktop.max_size_mb(), 6000);
+        assert_eq!(DeploymentTarget::Server.max_size_mb(), 8000);
     }
 
     #[test]

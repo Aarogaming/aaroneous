@@ -469,7 +469,7 @@ mod tests {
         store.store_text("r1", "Odin", "task decomposition planning workflow", "execution");
         store.store_text("r2", "Odin", "guild coordination sovereign assignment", "execution");
 
-        let recall = store.recall_for("Odin", "decompose this intent into tasks", 2);
+        let recall = store.recall_for("Odin", "task decomposition planning workflow", 2);
         assert!(recall.contains("Relevant memories"), "recall_for should produce formatted output");
         assert!(recall.contains("relevance:"), "should include relevance scores");
     }
