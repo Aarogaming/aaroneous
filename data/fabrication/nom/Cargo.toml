@@ -1,0 +1,16 @@
+[package]
+name = "nom-sab"
+version = "0.1.0"
+edition = "2021"
+description = "A universal template for wrapping any Rust crate into an Aaroneous SAB"
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+anyhow = "1.0"
+
+nom = "*"
+# The Genesis Architect will inject the target crate here (e.g., polars = "0.38")
+
+[lib]
+crate-type = ["cdylib"]

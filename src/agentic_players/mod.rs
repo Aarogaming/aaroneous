@@ -26,8 +26,12 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_module_structure() {
-        // Placeholder - will be expanded with real tests
-        assert!(true);
+    fn test_emulation_stats() {
+        let mut stats = EmulationStats::new();
+        stats.record_action(true);
+        stats.record_action(false);
+        assert_eq!(stats.actions_attempted, 2);
+        assert_eq!(stats.actions_succeeded, 1);
+        assert_eq!(stats.success_rate(), 0.5);
     }
 }

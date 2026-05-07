@@ -65,8 +65,7 @@ pub mod federation;
 #[cfg(test)]
 mod integration_tests_phase2;
 mod specialist_memory_tests;
-mod shared_memory;
-mod enzymes;
+pub mod shared_memory;
 
 pub use agents::{Agent, AgentType, SpecialistAgent, RelicAgent, UserAgent, BaseAgent, CognitiveBias, Domain, create_specialist, create_relic};
 pub use biology::{SystemBiology, SpecialistMetabolism, ThrottleState, SystemHealthReport, SpecialistHealth};

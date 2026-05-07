@@ -1,0 +1,12 @@
+{
+  "schema_version": "1.0",
+  "name": "universal_sab_template",
+  "version": "0.1.0",
+  "domain": "plugin_template",
+  "description": "Universal template for wrapping open source crates",
+  "entrypoint": "universal_sab_template.wasm",
+  "capabilities": [
+    "dynamic_execution"
+  ],
+  "dependencies": []
+}

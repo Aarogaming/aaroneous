@@ -1397,7 +1397,7 @@ impl Federation {
                                     
                                     let decision = crate::federation::specialist::Decision {
                                         proposal_id: format!("dag-task-{}", task_id),
-                                        specialist: crate::federation::specialist::SpecialistId::Visionary, // placeholder for dynamic
+                                        specialist: crate::federation::specialist::SpecialistId::custom(&s_arc.name),
                                         action: "execute_dag_task".to_string(),
                                         allocated_resources: crate::federation::specialist::ResourceRequest::default(),
                                         deadline_ms: 10000,
@@ -1493,7 +1493,7 @@ impl Federation {
 
         let decision = Decision {
             proposal_id: format!("odin-decompose-{}", uuid::Uuid::new_v4()),
-            specialist: crate::federation::specialist::SpecialistId::Visionary, // placeholder
+            specialist: crate::federation::specialist::SpecialistId::custom("Odin"),
             action: "decompose_intent".to_string(),
             allocated_resources: ResourceRequest::default(),
             deadline_ms: 5000,

@@ -1,4 +1,6 @@
-use std::fs::{self, OpenOptions};
+use a_run::{SharedMemorySynapse};
+use a_run::shared_memory::AasBuffer;
+use std::fs;
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::ffi::c_void;
@@ -25,59 +27,6 @@ struct BuildCommand {
     modules: Vec<String>,
     knowledge_subset_ids: Vec<String>,
     job_id: String,
-}
-
-#[repr(C)]
-pub struct AasBuffer {
-    data: *mut c_void,
-    size: u64,
-    capacity: u64,
-}
-
-type InitFunc = unsafe extern "C" fn() -> i32;
-type ProcessFunc = unsafe extern "C" fn(input: *mut AasBuffer, output: *mut AasBuffer) -> i32;
-type CrystallizeHybridFunc = unsafe extern "C" fn(
-    recipe_json: *const u8, 
-    recipe_len: u32,
-    index_json: *const u8,
-    index_len: u32,
-    output_path_ptr: *const u8,
-    output_path_len: u32
-) -> i32;
-
-enum EnzymeType {
-    Native {
-        lib: Library,
-        init: InitFunc,
-        process: ProcessFunc,
-        crystallize: Option<CrystallizeHybridFunc>,
-    },
-    Wasm {
-        store: Store<()>,
-        instance: Instance,
-        init: TypedFunc<(), i32>,
-        process: TypedFunc<(u32, u32, u32), i32>,
-        memory: Memory,
-    }
-}
-
-struct SharedMemorySynapse {
-    shmem: Shmem,
-}
-
-impl SharedMemorySynapse {
-    fn new(size: usize) -> Result<Self> {
-        let shmem = ShmemConf::new().size(size).create().context("Failed to create shared memory")?;
-        Ok(SharedMemorySynapse { shmem })
-    }
-
-    fn as_buffer(&self) -> AasBuffer {
-        AasBuffer {
-            data: self.shmem.as_ptr() as *mut c_void,
-            size: self.shmem.len() as u64,
-            capacity: self.shmem.len() as u64,
-        }
-    }
 }
 
 struct SystemBiology {
@@ -111,96 +60,6 @@ impl SystemBiology {
             false
         }
     }
-}
-
-fn load_native_enzyme(path: &Path) -> Result<EnzymeType> {
-    unsafe {
-        let lib = Library::new(path).context("Failed to load native library")?;
-        let init_sym: Symbol<InitFunc> = lib.get(b"aas_init").context("Failed to get aas_init symbol")?;
-        let process_sym: Symbol<ProcessFunc> = lib.get(b"aas_process").context("Failed to get aas_process symbol")?;
-        let crystallize = lib.get(b"crystallize_hybrid").ok().map(|s: Symbol<CrystallizeHybridFunc>| *s);
-        let init = *init_sym;
-        let process = *process_sym;
-        Ok(EnzymeType::Native { lib, init, process, crystallize })
-    }
-}
-
-fn load_wasm_enzyme(path: &Path) -> Result<EnzymeType> {
-    let engine = Engine::default();
-    let module = Module::from_file(&engine, path).map_err(|e| anyhow!("Failed to load WASM module: {}", e))?;
-    let mut store = Store::new(&engine, ());
-    let linker = Linker::new(&engine);
-    let instance = linker.instantiate(&mut store, &module).map_err(|e| anyhow!("Failed to instantiate WASM module: {}", e))?;
-    let init = instance.get_typed_func::<(), i32>(&mut store, "aas_init").map_err(|e| anyhow!("Failed to get aas_init WASM export: {}", e))?;
-    let process = instance.get_typed_func::<(u32, u32, u32), i32>(&mut store, "aas_process").map_err(|e| anyhow!("Failed to get aas_process WASM export: {}", e))?;
-    let memory = instance.get_memory(&mut store, "memory").ok_or_else(|| anyhow!("Memory export not found"))?;
-    Ok(EnzymeType::Wasm { store, instance, init, process, memory })
-}
-
-pub fn hot_swap_wasm_enzyme(old_enzyme: &mut EnzymeType, new_path: &Path) -> Result<()> {
-    if let EnzymeType::Wasm { store: old_store, memory: old_memory, .. } = old_enzyme {
-        // 1. Read existing memory to preserve state
-        let old_mem_size = old_memory.data_size(&*old_store);
-        let mut old_mem_data = vec![0u8; old_mem_size];
-        old_memory.read(&*old_store, 0, &mut old_mem_data).context("Failed to read old WASM memory")?;
-        
-        // 2. Load new enzyme
-        let new_enzyme = load_wasm_enzyme(new_path)?;
-        
-        if let EnzymeType::Wasm { mut store, memory, instance, init, process } = new_enzyme {
-            // 3. Write old memory into new instance
-            let new_mem_size = memory.data_size(&store);
-            if new_mem_size < old_mem_size {
-                let pages_to_grow = ((old_mem_size - new_mem_size) as u64 / 65536) + 1;
-                memory.grow(&mut store, pages_to_grow).map_err(|e| anyhow!("Failed to grow new WASM memory: {}", e))?;
-            }
-            memory.write(&mut store, 0, &old_mem_data).context("Failed to restore WASM state")?;
-            
-            println!("A-Run: Successfully hot-swapped WASM module, {} bytes of state preserved.", old_mem_size);
-            
-            // 4. Update the enzyme reference
-            *old_enzyme = EnzymeType::Wasm {
-                store,
-                instance,
-                init,
-                process,
-                memory,
-            };
-            
-            Ok(())
-        } else {
-            Err(anyhow!("New enzyme is not WASM"))
-        }
-    } else {
-        Err(anyhow!("Old enzyme is not WASM"))
-    }
-}
-
-fn load_enzyme(name: &str) -> Result<EnzymeType> {
-    let path = PathBuf::from(format!("D:\\Aaroneous\\cache\\{}", name));
-    if !path.exists() {
-        let genome_path = PathBuf::from(format!("D:\\Aaroneous\\chromosomes\\{}", name));
-        if genome_path.exists() {
-            fs::copy(&genome_path, &path).context("Failed to cache enzyme")?;
-        } else {
-            return Err(anyhow!("Enzyme not found in genome"));
-        }
-    }
-    if name.ends_with(".wasm") { load_wasm_enzyme(&path) } else { load_native_enzyme(&path) }
-}
-
-fn get_allowed_enzymes(registry_path: &Path) -> Vec<String> {
-    let data = fs::read_to_string(registry_path).unwrap_or_else(|_| "{}".to_string());
-    if let Ok(json) = serde_json::from_str::<serde_json::Value>(&data) {
-        if let Some(phenotype) = json.get("phenotype") {
-            if let Some(enzymes) = phenotype.get("enforced_enzymes").and_then(|v| v.as_array()) {
-                return enzymes.iter().filter_map(|v| v.get("name").and_then(|name| name.as_str()).map(|n| {
-                    if n.contains("wasm") { format!("{}.wasm", n) } else { format!("{}.dll", n) }
-                })).collect();
-            }
-        }
-    }
-    Vec::new()
 }
 
 const SERVICE_NAME: &str = "AaroneousARun";
@@ -371,20 +230,6 @@ async fn run_arun_core() -> Result<()> {
     });
 
     let mut biology = SystemBiology::new();
-    let allowed_enzymes = get_allowed_enzymes(Path::new("D:\\Aaroneous\\registry\\hox_map.json"));
-    let synapse = SharedMemorySynapse::new(65536)?;
-    let mut buffer = synapse.as_buffer();
-
-    let mut enzymes: HashMap<String, EnzymeType> = HashMap::new();
-    for enzyme_name in allowed_enzymes {
-        if let Ok(mut enzyme) = load_enzyme(&enzyme_name) {
-            match &mut enzyme {
-                EnzymeType::Native { init, .. } => unsafe { (*init)(); },
-                EnzymeType::Wasm { store, init, .. } => { let _ = init.call(&mut *store, ()); }
-            }
-            enzymes.insert(enzyme_name, enzyme);
-        }
-    }
     
     let mut interval = tokio::time::interval(Duration::from_secs(5));
     loop {
@@ -393,13 +238,6 @@ async fn run_arun_core() -> Result<()> {
         
         if biology.consume_catalyst() {
             println!("A-Run: Catalyst consumed. Tokens remaining: {:.2}", biology.tokens);
-            // Process with first active enzyme
-            if let Some((name, enzyme)) = enzymes.iter_mut().next() {
-                match enzyme {
-                    EnzymeType::Native { process, .. } => unsafe { (*process)(&mut buffer as *mut _, &mut buffer as *mut _); },
-                    _ => {}
-                }
-            }
         } else {
             println!("A-Run: METABOLIC DEPRESSION: Insufficient tokens for catalyst consumption.");
         }
@@ -441,23 +279,6 @@ define_windows_service!(ffi_service_main, service_main);
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<String> = std::env::args().collect();
-    if args.len() > 1 && args[1] == "--forge" {
-        let recipe_path = args.get(2).map(|s| s.as_str()).unwrap_or("D:\\Aaroneous\\registry\\test_recipe.json");
-        let output_path = args.get(3).map(|s| s.as_str()).unwrap_or("D:\\Aaroneous\\data\\hybrid_husk.gguf");
-        let enzyme = load_enzyme("tensor_forge.dll")?;
-        if let EnzymeType::Native { lib: _, crystallize, .. } = enzyme {
-            if let Some(crystallize_func) = crystallize {
-                let recipe_json = fs::read_to_string(recipe_path)?;
-                let index_json = fs::read_to_string("D:\\Aaroneous\\registry\\tensor_index.json")?;
-                unsafe {
-                    crystallize_func(recipe_json.as_ptr(), recipe_json.len() as u32,
-                                     index_json.as_ptr(), index_json.len() as u32,
-                                     output_path.as_ptr(), output_path.len() as u32);
-                }
-            }
-        }
-        return Ok(());
-    }
     if args.len() > 1 && args[1] == "--console" {
         run_arun_core().await.context("Failed during run_arun_core call")?;
     } else {

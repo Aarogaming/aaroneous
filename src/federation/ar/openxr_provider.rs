@@ -233,13 +233,13 @@ impl ArProvider {
         *self.session_state.lock().await
     }
 
-    /// Poll for OpenXR events (placeholder - returns None in v1)
+    /// Poll for OpenXR events
     ///
     /// A full implementation would poll `instance.poll_event()` and
     /// translate `XrEventDataSessionStateChanged` to `ArSessionState`.
     pub async fn poll_events(&self) -> Result<Option<ArSessionState>, ArError> {
         // V1: don't actually pump events; session state is managed by
-        // begin_session/end_session.
+        // begin_session/end_session since we are headless.
         Ok(None)
     }
 

@@ -179,13 +179,22 @@ impl WindowsHidPlatform {
     }
     
     /// Execute a key press
-    fn execute_key_press(key: u32, _modifiers: u8) -> Result<(), String> {
+    fn execute_key_press(key: u32, modifiers: u8) -> Result<(), String> {
         use windows_ffi::*;
         
-        // TODO: Handle modifiers (Ctrl, Shift, Alt)
-        // For now, just press the key
         unsafe {
+            // Apply modifiers
+            if (modifiers & 0x01) != 0 { keybd_event(0x11, 0, 0, std::ptr::null_mut()); } // Ctrl
+            if (modifiers & 0x02) != 0 { keybd_event(0x10, 0, 0, std::ptr::null_mut()); } // Shift
+            if (modifiers & 0x04) != 0 { keybd_event(0x12, 0, 0, std::ptr::null_mut()); } // Alt
+            
+            // Press the main key
             keybd_event(key as u8, 0, 0, std::ptr::null_mut());
+            
+            // Release modifiers
+            if (modifiers & 0x04) != 0 { keybd_event(0x12, 0, KEYEVENTF_KEYUP, std::ptr::null_mut()); } // Alt
+            if (modifiers & 0x02) != 0 { keybd_event(0x10, 0, KEYEVENTF_KEYUP, std::ptr::null_mut()); } // Shift
+            if (modifiers & 0x01) != 0 { keybd_event(0x11, 0, KEYEVENTF_KEYUP, std::ptr::null_mut()); } // Ctrl
         }
         
         Ok(())

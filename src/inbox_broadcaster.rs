@@ -247,21 +247,17 @@ impl InboxBroadcaster {
             return Ok(());
         }
 
-        for (specialist_id, xp) in distillation
-            .events
-            .iter()
-            .map(|e| (e.specialist_id.clone(), e.xp_awarded))
-        {
+        for event in &distillation.events {
             let update = SpecialistUpdate {
                 update_id: format!("upd_{}", uuid::Uuid::new_v4()),
-                specialist_id: specialist_id.clone(),
-                xp_gained: xp,
-                skill_type: "RAG".to_string(), // Placeholder - would come from event
+                specialist_id: event.specialist_id.clone(),
+                xp_gained: event.xp_awarded,
+                skill_type: event.skill_name.clone(),
                 quality_multiplier: distillation.quality_assessment.training_value,
-                difficulty_multiplier: 1.5, // Placeholder
+                difficulty_multiplier: event.difficulty_multiplier as f32,
                 source_data_id: data.id.clone(),
                 source_filename: data.metadata.filename.clone(),
-                is_breakthrough: false,
+                is_breakthrough: event.breakthrough,
                 timestamp: Utc::now(),
             };
 
@@ -272,9 +268,9 @@ impl InboxBroadcaster {
 
             info!(
                 "[Broadcaster] Specialist update published: {} → {} ({}xp)",
-                specialist_id,
-                IngestionTopics::specialist_updates_for(&specialist_id),
-                xp
+                event.specialist_id,
+                IngestionTopics::specialist_updates_for(&event.specialist_id),
+                event.xp_awarded
             );
         }
 

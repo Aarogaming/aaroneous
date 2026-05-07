@@ -29,6 +29,7 @@ pub struct SpecialistStatus {
     pub last_activity: Option<DateTime<Utc>>,
     pub mentees: Vec<String>,
     pub mentors: Vec<String>,
+    pub active_skill_types: Vec<SkillType>,
 }
 
 impl SpecialistStatus {
@@ -50,6 +51,7 @@ impl SpecialistStatus {
             last_activity: None,
             mentees: Vec::new(),
             mentors: Vec::new(),
+            active_skill_types: Vec::new(),
         }
     }
 
@@ -68,10 +70,14 @@ impl SpecialistStatus {
         self.mentees = skillset.mentees.clone();
         self.mentors = skillset.mentors.clone();
 
-        // Build skills by level histogram
+        // Build skills by level histogram and active skill types
         self.skills_by_level.clear();
+        self.active_skill_types.clear();
         for skill in skillset.skills.values() {
             *self.skills_by_level.entry(skill.level).or_insert(0) += 1;
+            if !self.active_skill_types.contains(&skill.skill_type) {
+                self.active_skill_types.push(skill.skill_type.clone());
+            }
         }
 
         // Calculate averages
@@ -555,9 +561,11 @@ impl DashboardQuery {
                     }
                 }
 
-                // Skill type check would require access to skill tree
-                if self.filter_skill_type.is_some() {
-                    // TODO: Implement when skill tree is available
+                // Skill type check 
+                if let Some(ref filter_type) = self.filter_skill_type {
+                    if !status.active_skill_types.contains(filter_type) {
+                        return false;
+                    }
                 }
 
                 true
