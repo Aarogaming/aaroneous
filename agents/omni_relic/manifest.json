@@ -1,0 +1,15 @@
+{
+  "id": "omni-relic-v1",
+  "name": "OmniRelic",
+  "version": "1.0.0",
+  "domain": "knowledge_graph",
+  "capabilities": ["process-data", "memory-archival"],
+  "bus_subscriptions": ["system/knowledge/inject", "system/knowledge/query"],
+  "bus_publications": ["system/knowledge/results", "system/knowledge/crystallize"],
+  "required_resources": {
+    "memory_mb": 512,
+    "gpu_percent": 0.0,
+    "cpu_percent": 15.0
+  },
+  "contract_version": "2.0"
+}
