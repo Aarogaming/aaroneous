@@ -40,11 +40,6 @@ struct OpenAIResponse {
 }
 
 #[derive(Debug, Deserialize)]
-struct Choice {
-    message: Message,
-}
-
-#[derive(Debug, Deserialize)]
 struct Usage {
     prompt_tokens: u32,
     completion_tokens: u32,
@@ -345,6 +340,90 @@ Response must be valid JSON only.
         let explanation: SkillExplanation = serde_json::from_str(&response)?;
 
         Ok(explanation)
+    }
+
+    async fn generate_design(&self, context: &DesignContext) -> Result<DesignGeneration> {
+        let prompt = format!(
+            r##"Generate UI/UX design variants.
+Intent: {intent}
+Constraints: {constraints}
+Variants requested: {count}
+
+Respond ONLY with valid JSON matching:
+{{
+  "intent": "{intent}",
+  "source": "openai_api",
+  "variants": [
+    {{
+      "id": "variant-id",
+      "description": "String",
+      "colors": ["#hex1", "#hex2"],
+      "typography": "String",
+      "layout": "String",
+      "confidence": 0.9
+    }}
+  ]
+}}
+"##,
+            intent = context.intent,
+            constraints = context.constraints.join(", "),
+            count = context.variants_requested
+        );
+
+        let (response, tokens, _cost) = self.call_api(&prompt).await?;
+        debug!("OpenAI design generation: {} tokens", tokens);
+
+        let json_str = if let Some(s) = response.find('{') {
+            if let Some(e) = response.rfind('}') {
+                &response[s..=e]
+            } else { &response }
+        } else { &response };
+
+        let generation: DesignGeneration = serde_json::from_str(json_str)?;
+        Ok(generation)
+    }
+
+    async fn chat(&self, system_prompt: &str, user_message: &str, _domain: &str) -> Result<String> {
+        let client = reqwest::Client::new();
+
+        let request = OpenAIRequest {
+            model: self.model.clone(),
+            messages: vec![
+                Message {
+                    role: "system".to_string(),
+                    content: system_prompt.to_string(),
+                },
+                Message {
+                    role: "user".to_string(),
+                    content: user_message.to_string(),
+                }
+            ],
+            temperature: self.temperature,
+            max_tokens: self.max_tokens,
+        };
+
+        let response = client
+            .post("https://api.openai.com/v1/chat/completions")
+            .header("Authorization", format!("Bearer {}", self.api_key))
+            .json(&request)
+            .send()
+            .await?;
+
+        if !response.status().is_success() {
+            let error_text = response.text().await?;
+            return Err(anyhow!("OpenAI API error: {}", error_text));
+        }
+
+        let data: OpenAIResponse = response.json().await?;
+        let content = data
+            .choices
+            .first()
+            .ok_or_else(|| anyhow!("No response from OpenAI"))?
+            .message
+            .content
+            .clone();
+
+        Ok(content)
     }
 }
 

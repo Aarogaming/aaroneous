@@ -57,10 +57,12 @@ impl Default for LLMConfig {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ProviderType {
     GGUF,      // Local GGUF models (llama.cpp) - RECOMMENDED
     Mock,      // Mock provider for testing
+    OpenAI,    // Cloud OpenAI provider
+    Local,     // Local API provider (Ollama, vLLM)
 }
 
 impl LLMClient {
@@ -69,6 +71,8 @@ impl LLMClient {
         info!("Initializing LLM client with provider: {:?}", config.provider_type);
 
         let provider: Arc<dyn LLMProvider> = match config.provider_type {
+            ProviderType::OpenAI => Arc::new(providers::OpenAIProvider::new().await?),
+            ProviderType::Local => Arc::new(providers::LocalLLMProvider::new().await?),
             ProviderType::GGUF => {
                 let model_path = if let Some(path) = config.gguf_model_path.clone() {
                     // Use explicitly configured path

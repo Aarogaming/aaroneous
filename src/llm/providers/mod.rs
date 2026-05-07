@@ -3,9 +3,13 @@
 
 mod gguf;
 mod mock;
+pub mod openai;
+pub mod local;
 
 pub use gguf::GGUFProvider;
 pub use mock::MockProvider;
+pub use openai::OpenAIProvider;
+pub use local::LocalLLMProvider;
 
 use crate::llm::types::*;
 use anyhow::Result;

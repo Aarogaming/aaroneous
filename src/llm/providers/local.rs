@@ -275,10 +275,52 @@ Return ONLY JSON, no other text.
 
         Ok(explanation)
     }
+
+    async fn generate_design(&self, context: &DesignContext) -> Result<DesignGeneration> {
+        let prompt = format!(
+            r##"Generate UI/UX design variants.
+Intent: {intent}
+Constraints: {constraints}
+Variants requested: {count}
+
+Respond ONLY with valid JSON matching:
+{{
+  "intent": "{intent}",
+  "source": "local_llm",
+  "variants": [
+    {{
+      "id": "variant-id",
+      "description": "String",
+      "colors": ["#hex1", "#hex2"],
+      "typography": "String",
+      "layout": "String",
+      "confidence": 0.9
+    }}
+  ]
+}}
+"##,
+            intent = context.intent,
+            constraints = context.constraints.join(", "),
+            count = context.variants_requested
+        );
+
+        let response = self.call_api(&prompt).await?;
+        debug!("Local LLM design generation response received");
+
+        let json_str = extract_json(&response)?;
+        let generation: DesignGeneration = serde_json::from_str(&json_str)?;
+
+        Ok(generation)
+    }
+
+    async fn chat(&self, system_prompt: &str, user_message: &str, _domain: &str) -> Result<String> {
+        let combined = format!("System: {}\n\nUser: {}", system_prompt, user_message);
+        self.call_api(&combined).await
+    }
 }
 
 /// Extract JSON from text that might contain extra content
-fn extract_json(text: &str) -> Result<String> {
+pub fn extract_json(text: &str) -> Result<String> {
     // Try to find JSON object or array
     if let Some(start) = text.find('{') {
         if let Some(end) = text.rfind('}') {
