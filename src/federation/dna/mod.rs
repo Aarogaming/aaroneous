@@ -34,6 +34,8 @@ use serde::{Deserialize, Serialize};
 use tokio::sync::Mutex;
 use tracing::{debug, info, warn};
 
+pub mod omni;
+
 use crate::federation::forge::{read_gguf, TensorMeta};
 use crate::genetics::{GeneticCategory, GeneticLocus, LociSource, SpecialistGenome};
 
