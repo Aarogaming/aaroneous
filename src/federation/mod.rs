@@ -22,6 +22,7 @@ pub mod conflict_resolution;
 pub mod agent_bridge;
 pub mod specialists;
 pub mod bootstrap;
+pub mod component_registry;
 pub mod deployment_examples;
 pub mod cli;
 // runtime.rs was a standalone design prototype (model cache + deployment manifest runtime)
@@ -57,6 +58,7 @@ pub use communication::{SpecialistMessage, MessageChannel, CommunicationBus};
 pub use conflict_resolution::{ConflictDetector, ResourceAllocation, ConflictResolution, ConflictArbitrator};
 pub use agent_bridge::{SpecialistAgentBridge, agent_name_to_specialist_id};
 pub use specialists::Visionary;
+pub use component_registry::{ComponentRegistry, AgentBundle};
 pub use bootstrap::{SpecialistModule, DeploymentTarget, Manifest, DeploymentConfig, BootstrapResult, BootstrapSystem};
 pub use cli::{Command, AaroneosCLI, CLIResult, InitArgs, ExpandArgs, PortableArgs, StatusArgs};
 pub use dna_bank::{DNABank, DNAEvent, EventQuery, Pattern, DNABankStats, ConsolidationStats, BackupInfo};
