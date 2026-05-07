@@ -1,0 +1,15 @@
+{
+  "id": "genesis-architect-v1",
+  "name": "GenesisArchitect",
+  "version": "1.0.0",
+  "domain": "fabrication",
+  "capabilities": ["deployment-orchestration", "system-generation"],
+  "bus_subscriptions": ["system/deploy/request", "system/knowledge/results"],
+  "bus_publications": ["system/knowledge/query", "system/deploy/build"],
+  "required_resources": {
+    "memory_mb": 256,
+    "gpu_percent": 0.0,
+    "cpu_percent": 25.0
+  },
+  "contract_version": "2.0"
+}
