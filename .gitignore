@@ -52,3 +52,24 @@ test_full.txt
 thumbs.db
 
 exports/
+
+# Environment / secrets — never commit real credentials
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+*.cert
+*.cer
+*.p12
+*.pfx
+*.jks
+*.keystore
+secrets.yml
+secrets.yaml
+secrets.json
+terraform.tfvars
+*.tfvars
+*.tfstate
+*.tfstate.backup
