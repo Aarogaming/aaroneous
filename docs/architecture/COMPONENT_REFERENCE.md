@@ -183,3 +183,4 @@ Drop files here for automatic ingestion and processing by specialists.
 ## Models (`models/`)
 
 GGUF model files (gitignored). Discovered via `WorkspacePaths::discover().models()`.
+

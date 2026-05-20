@@ -1,4 +1,4 @@
-﻿// Aaroneous Hypervisor Core
+// Aaroneous Hypervisor Core
 // The central execution runtime that hosts WASM Enzymes and manages the Synapse.
 
 pub mod nervous_system {

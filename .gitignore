@@ -115,3 +115,6 @@ shards/source_materials/
 shards/AAS_Suite_2/
 AAS/
 monitoring/
+
+# Orphaned legacy src directory (code moved to core/ and components/)
+src/
