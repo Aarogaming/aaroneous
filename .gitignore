@@ -106,3 +106,6 @@ __pycache__/
 *.dll
 *.wasm
 data/sabs/
+
+# Triage directory - scraped web content and build artifacts (641MB)
+triage/
