@@ -10,7 +10,7 @@
 
 ### 1. Agent Taxonomy Architecture ✅
 
-Created a trait-based agent hierarchy in `src/agents.rs`:
+Created a trait-based agent hierarchy in `components/agents/src/agents.rs`:
 
 #### Core Agent Trait
 ```rust
@@ -55,7 +55,7 @@ Each specialist supervises exactly one relic with full lifecycle control.
 
 ### 3. Metabolic Governance System ✅
 
-Refactored `src/biology.rs` with:
+Refactored `components/biology/src/biology.rs` with:
 
 #### SystemBiology
 - Global `expression_rate` (0.0-1.0) throttles all specialists proportionally
@@ -130,7 +130,7 @@ Created `UserAgent` class with:
 
 ### 7. Production Documentation ✅
 
-#### FEDERATION_OPERATIONS.md (Comprehensive)
+#### operations/FEDERATION_OPERATIONS.md (Comprehensive)
 - Complete system architecture overview
 - Specialist lifecycle (startup, spawning, active loop, relic supervision)
 - Metabolic governance details with formulas
@@ -140,7 +140,7 @@ Created `UserAgent` class with:
 - Emergency procedures
 - Configuration guide
 
-#### FEDERATION_DEPLOYMENT_CHECKLIST.md (Detailed)
+#### operations/FEDERATION_DEPLOYMENT_CHECKLIST.md (Detailed)
 - Pre-deployment validation (code integrity, functional testing, integration testing, security validation)
 - Performance benchmarks with placeholder values
 - Production deployment steps (binary prep, service installation, startup verification)
@@ -163,7 +163,7 @@ Created `UserAgent` class with:
 
 ### High Priority
 
-1. **Specialist Spawning System** `src/bin/main.rs`
+1. **Specialist Spawning System** `core/hypervisor/bin/main.rs`
    - Parse `--specialist` CLI flags or NATS control messages
    - Dynamically create SpecialistAgent instances
    - Register each in SystemBiology.specialist_metabolism
@@ -238,8 +238,8 @@ D:\Aaroneous\
 ├── chromosomes/               [EXISTING] Enzyme DLLs/WASM
 ├── logs/                      [RUNTIME] Log files
 ├── Cargo.toml                 [UPDATED] Added serde dependency
-├── FEDERATION_OPERATIONS.md        [NEW] 350+ lines
-├── FEDERATION_DEPLOYMENT_CHECKLIST.md [NEW] 400+ lines
+├── operations/FEDERATION_OPERATIONS.md        [NEW] 350+ lines
+├── operations/FEDERATION_DEPLOYMENT_CHECKLIST.md [NEW] 400+ lines
 ├── IMPLEMENTATION_SUMMARY.md       [THIS FILE]
 └── README.md                  [EXISTING]
 ```
@@ -390,10 +390,10 @@ let _sub = nc.subscribe("federation.control.halt_specialist")?;
 
 ## References
 
-- **FEDERATION_OPERATIONS.md** – Operational procedures
-- **FEDERATION_DEPLOYMENT_CHECKLIST.md** – Deployment validation
-- **src/agents.rs** – Agent taxonomy implementation
-- **src/biology.rs** – Metabolic governance system
+- **operations/FEDERATION_OPERATIONS.md** – Operational procedures
+- **operations/FEDERATION_DEPLOYMENT_CHECKLIST.md** – Deployment validation
+- **components/agents/src/agents.rs** – Agent taxonomy implementation
+- **components/biology/src/biology.rs** – Metabolic governance system
 - **registry/hox_specialist_*.json** – Specialist phenotypes (6 files)
 - **registry/hox_relic_*.json** – Relic phenotypes (6 files)
 
@@ -412,3 +412,4 @@ let _sub = nc.subscribe("federation.control.halt_specialist")?;
 **Status:** ✅ Epoch VI Checkpoint Complete  
 **Next Milestone:** Specialist Spawning & NATS Integration  
 **Estimated Completion:** Phase VII (O3DE + User-Facing Features)
+

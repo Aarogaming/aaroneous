@@ -31,7 +31,7 @@ retry
 - [**Metrics Reference**](#metrics-reference) - Available metrics
 - [**Troubleshooting**](#troubleshooting) - Common issues
 - [**Architecture**](./FEDERATION_ARCHITECTURE.md) - System design
-- [**API Documentation**](./FEDERATION_README.md) - API reference
+- [**API Documentation**](./architecture/FEDERATION_README.md) - API reference
 
 ---
 
@@ -404,7 +404,7 @@ See [MOBILE_APP_DEPLOYMENT_GUIDE.md](./MOBILE_APP_DEPLOYMENT_GUIDE.md) for detai
 
 ```bash
 # iOS
-cd ios/Aaroneous
+cd (mobile app planned)
 xcodebuild -scheme Aaroneous -configuration Release
 
 # Android
@@ -735,7 +735,7 @@ top -b -n 1 | head -20
 
 # Enable profiling
 curl http://localhost:8001/debug/pprof/profile?seconds=30 > cpu.prof
-go tool pprof cpu.prof
+cargo flamegraph / samply cpu.prof
 ```
 
 #### 4. Pod Crashes in Kubernetes
@@ -811,7 +811,7 @@ kubectl rollout status deployment/aaroneous-federation -n aaroneous
 ## Support & Resources
 
 - **Documentation:** [FEDERATION_ARCHITECTURE.md](./FEDERATION_ARCHITECTURE.md)
-- **API Reference:** [FEDERATION_README.md](./FEDERATION_README.md)
+- **API Reference:** [architecture/FEDERATION_README.md](./architecture/FEDERATION_README.md)
 - **Performance Guide:** [PHASE_H_OPTIMIZATION.md](./PHASE_H_OPTIMIZATION.md)
 - **Mobile Guide:** [MOBILE_APP_DEPLOYMENT_GUIDE.md](./MOBILE_APP_DEPLOYMENT_GUIDE.md)
 - **GitHub Issues:** https://github.com/anomalyco/aaroneous/issues
@@ -820,3 +820,4 @@ kubectl rollout status deployment/aaroneous-federation -n aaroneous
 ---
 
 **Aaroneous Federation - Ready for Production! 🚀**
+

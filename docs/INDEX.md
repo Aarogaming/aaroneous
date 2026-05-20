@@ -1,130 +1,73 @@
 # Aaroneous Documentation Index
 
-Welcome to the Aaroneous documentation! This comprehensive guide covers all aspects of the system, from architecture to operations.
+## Getting Started
 
-## Quick Navigation
-
-### 📖 **Getting Started**
-- **[README](README.md)** - Project overview and quick links
-- **[Quick Start Guide](guides/QUICK_START_GUIDE.md)** - Get up and running in 5 minutes
-- **[Team Training Guide](guides/TEAM_TRAINING_GUIDE.md)** - Onboarding and team resources
+- **[README](README.md)** — Project overview and architecture
+- **[Quick Start](guides/QUICK_START.md)** — Build and run in 5 minutes
+- **[Self-Hosting Guide](guides/SELF_HOSTING_GUIDE.md)** — Deploy on your infrastructure
 
 ---
 
-## 📚 Documentation By Category
+## Architecture
 
-### 🏛️ **Architecture & Design**
-Understand how Aaroneous is built and designed.
+- **[Federation Overview](architecture/FEDERATION_README.md)** — System design and specialist collaboration
+- **[Federation Architecture](architecture/FEDERATION_ARCHITECTURE.md)** — Deep dive into bidirectional orchestration
+- **[Mathematical Frameworks](architecture/MATHEMATICAL_FRAMEWORKS.md)** — Thermodynamics, control theory, information theory
+- **[MCP Service Design](architecture/MCP_SERVICE_DESIGN.md)** — Universal MCP service architecture
+- **[API Reference](architecture/API_REFERENCE.md)** — REST and GraphQL endpoints
+- **[Synth DNA Blueprint](architecture/SYNTH_DNA_TECHNICAL_BLUEPRINT.md)** — Model splicing and DNA system
+- **[Sentinel Core](architecture/AARONEOUS_SENTINEL_CORE.md)** — Sentinel and consensus system
+- **[MaelstromUI REST API](architecture/MAELSTROMUI_REST_API.md)** — Desktop UI backend
 
-- **[API Reference V2](architecture/API_REFERENCE_V2.md)** - Complete API endpoint documentation
-- **[MCP Service Design](architecture/MCP_SERVICE_DESIGN.md)** - Universal MCP service architecture
-- **[Phase 6 Ecosystem Integration](architecture/PHASE_6_ECOSYSTEM_INTEGRATION.md)** - Federation, event logs, Raft consensus
-- **[Ecosystem Overview](architecture/ECOSYSTEM_OVERVIEW.md)** - System-wide component overview
+## Guides
 
-### 📋 **Phase Documentation**
-Track progress through development phases.
+- **[SDK: Custom Specialists](guides/SDK_CUSTOM_SPECIALIST_GUIDE.md)** — Build custom specialists
+- **[Specialist Genetics](guides/SPECIALIST_GENETICS_GUIDE.md)** — Genetic algorithm system
+- **[Skill Evolution](guides/SKILL_EVOLUTION_GUIDE.md)** — How skills grow and adapt
+- **[Skill Fusion](guides/SKILL_FUSION_GUIDE.md)** — Combining skills
+- **[GGUF Model Analysis](guides/GGUF_MODEL_ANALYSIS.md)** — Working with GGUF models
+- **[FAQ & Troubleshooting](guides/FAQ_AND_TROUBLESHOOTING.md)** — Common issues
+- **[Integration Guides](guides/INTEGRATION_GUIDES_EXTERNAL_SERVICES.md)** — External service integration
 
-- **[Phase 1 Implementation](phases/PHASE1_IMPLEMENTATION_GUIDE.md)** - Core specialist system
-- **[Phase 2 Decision Matrix](phases/PHASE2_DECISION_MATRIX.md)** - Design decisions
-- **[Phase 2 Example Workflows](phases/PHASE2_EXAMPLE_WORKFLOWS.md)** - Workflow examples
-- **[Phase 2 LLM Integration](phases/PHASE2_LLM_INTEGRATION_PLAN.md)** - Language model integration
-- **[Phase 2 Progress](phases/PHASE2_PROGRESS_REPORT.md)** - Phase 2 completion report
-- **[Phase 2 Completion Summary](phases/PHASE_2_COMPLETION_SUMMARY.md)** - Phase 2 summary
-- **[Phase 3 Checkpoint](phases/PHASE_3_CHECKPOINT.md)** - Phase 3 status
-- **[Phase 3 Optimization](phases/PHASE_3_OPTIMIZATION_PLAN.md)** - Performance improvements
+## Operations
 
-### 🎓 **Guides & Tutorials**
-Step-by-step guides for specific topics.
+- **[Deployment & Operations](operations/DEPLOYMENT_AND_OPERATIONS.md)** — Complete deployment reference
+- **[Operational Runbook](operations/OPERATIONAL_RUNBOOK.md)** — Troubleshooting and procedures
+- **[Monitoring & Observability](operations/MONITORING_AND_OBSERVABILITY.md)** — Metrics and dashboards
+- **[Federation Operations](operations/FEDERATION_OPERATIONS.md)** — Multi-node management
+- **[NATS Federation](operations/NATS_FEDERATION_GUIDE.md)** — Messaging setup
+- **[Governance](operations/GOVERNANCE.md)** — System governance
+- **[Open Source Release](operations/OPEN_SOURCE_RELEASE_GUIDE.md)** — Publishing guide
 
-- **[Self-Hosting Guide](guides/SELF_HOSTING_GUIDE.md)** - Deploy Aaroneous on your own infrastructure
-- **[Skill Evolution Guide](guides/SKILL_EVOLUTION_GUIDE.md)** - How skills grow and adapt
-- **[Skill Fusion Guide](guides/SKILL_FUSION_GUIDE.md)** - Combining skills for new capabilities
-- **[Specialist Genetics Guide](guides/SPECIALIST_GENETICS_GUIDE.md)** - Genetic algorithm system
-- **[Genetic Harvesting](guides/GENETIC_HARVESTING_ACTIONPLAN.md)** - Extracting genetic patterns
-- **[GGUF Model Analysis](guides/GGUF_MODEL_ANALYSIS.md)** - Working with GGUF models
-- **[Hive Town Worldbuilding](guides/HIVE_TOWN_WORLDBUILDING.md)** - Design of the Hive Town environment
-- **[Narrative Constellation](guides/NARRATIVE_CONSTELLATION.md)** - Story structure and narrative
-- **[Dashboard Guide](guides/DASHBOARD_GUIDE.md)** - Dashboard UI and monitoring
+## Phases
 
-### ⚙️ **Operations & Deployment**
-Run and maintain Aaroneous in production.
+- **[Phase 6B: Raft Consensus](phases/PHASE_6B_COMPLETE.md)** — Distributed consensus
+- **[Phase 6C: Agentic Players](phases/PHASE_6C_AGENTIC_PLAYERS.md)** — Shadow agents and intent analysis
+- **[Phase 6D: WASM/Sentinel](phases/PHASE_6D_EXECUTION_PLAN.md)** — WASM-EBus bridge and sentinel
+- **[Phase 6E: Digital Concierge](phases/PHASE_6E_DIGITAL_CONCIERGE.md)** — Command hub and research
+- **[Phase I: Advanced Federation](phases/PHASE_I_ADVANCED_FEDERATION.md)** — Multi-hive federation
+- **[Phase J: Enterprise](phases/PHASE_J_ENTERPRISE_FEATURES.md)** — Audit, compliance, RBAC
 
-- **[Operational Guide V2](operations/OPERATIONAL_GUIDE_V2.md)** - Day-to-day operations
-- **[Operational Runbook](operations/OPERATIONAL_RUNBOOK.md)** - Troubleshooting and procedures
-- **[Federation Deployment](operations/FEDERATION_DEPLOYMENT_CHECKLIST.md)** - Deploy multi-node federation
-- **[Federation Operations](operations/FEDERATION_OPERATIONS.md)** - Manage federated systems
-- **[NATS Federation](operations/NATS_FEDERATION_GUIDE.md)** - NATS messaging setup
-- **[Event Loop Guide](operations/EVENT_LOOP_GUIDE.md)** - Event-driven architecture
-- **[Launch Complete](operations/LAUNCH_COMPLETE.md)** - Launch completion report
-- **[Launch Final Report](operations/LAUNCH_FINAL_REPORT.md)** - Post-launch analysis
-- **[Launch Readiness](operations/LAUNCH_READINESS_ASSESSMENT.md)** - Pre-launch checklist
-- **[Launch Sprint Progress](operations/LAUNCH_SPRINT_PROGRESS.md)** - Sprint status
+## Implementation
 
-### 💻 **Implementation & Crates**
-Technical implementation details.
+- **[Crate Analysis](implementation/CRATE_ANALYSIS.md)** — High-ROI Rust crate selection
+- **[Implementation Summary](implementation/IMPLEMENTATION_SUMMARY.md)** — Codebase structure overview
+- **[Tier Checklist](implementation/TIER_IMPLEMENTATION_CHECKLIST.md)** — Implementation priorities
 
-- **[Implementation Summary](implementation/IMPLEMENTATION_SUMMARY.md)** - Overview of codebase structure
-- **[Crate Analysis](implementation/CRATE_ANALYSIS.md)** - Dependency analysis
-- **[Crate Selection Summary](implementation/CRATE_SELECTION_EXECUTIVE_SUMMARY.md)** - Why we chose specific crates
-- **[Crate Phase 1 Report](implementation/CRATE_PHASE1_COMPLETION_REPORT.md)** - Phase 1 implementation report
+## Reports
 
-### 📊 **Data & Persistence**
-Working with data, storage, and persistence.
+- **[Current Status](reports/CURRENT_STATUS.md)** — What's implemented now
+- **[Strategic Vision](reports/STRATEGIC_VISION.md)** — Long-term endgame plan
+- **[System Analysis](reports/SYSTEM_ANALYSIS_REPORT.md)** — Health check and improvements
+- **[Release Notes](reports/RELEASE_NOTES_V2.0.md)** — Version 2.0 changes
+- **[Dependency Audit](reports/DEPENDENCY_AUDIT.md)** — Open source dependencies
+- **[Enterprise Case Studies](reports/ENTERPRISE_CASE_STUDIES.md)** — Enterprise scenarios
 
-- **[Data Format Specification](data/DATA_FORMAT_SPECIFICATION.md)** - Serialization formats
-- **[Data Ingestion Guide](data/DATA_INGESTION_GUIDE.md)** - Importing data
-- **[Migration Guide V1→V2](data/MIGRATION_GUIDE_V1_TO_V2.md)** - Upgrade path from v1 to v2
+## History
 
-### 📈 **Performance & Optimization**
-Improve and monitor system performance.
-
-- **[Performance Optimization V2](optimization/PERFORMANCE_OPTIMIZATION_V2.md)** - Tuning and benchmarks
-
-### 📋 **Reports & Analysis**
-System analysis, status reports, and roadmaps.
-
-- **[Final Status Report](reports/FINAL_STATUS_REPORT.md)** - Project completion status
-- **[System Analysis Report](reports/SYSTEM_ANALYSIS_REPORT.md)** - Health check and improvements (current)
-- **[System Improvements Plan](reports/SYSTEM_IMPROVEMENTS_PLAN.md)** - Performance optimization roadmap
-- **[Release Notes V2.0](reports/RELEASE_NOTES_V2.0.md)** - Version 2.0 changes
-- **[Strategic Roadmap](reports/STRATEGIC_ROADMAP.md)** - Long-term vision and roadmap
-- **[Week 1 Model Discovery](reports/WEEK1_MODEL_DISCOVERY.md)** - Initial model research
+Archived session notes, superseded roadmaps, launch materials, and reality checks are in **[history/](history/)**. These contain unfulfilled goals and planning documents worth reviewing.
 
 ---
 
-## 🔍 Common Tasks
-
-### I want to...
-
-- **Get started quickly** → [Quick Start Guide](guides/QUICK_START_GUIDE.md)
-- **Deploy to production** → [Self-Hosting Guide](guides/SELF_HOSTING_GUIDE.md) + [Federation Deployment](operations/FEDERATION_DEPLOYMENT_CHECKLIST.md)
-- **Understand the architecture** → [MCP Service Design](architecture/MCP_SERVICE_DESIGN.md) + [Ecosystem Overview](architecture/ECOSYSTEM_OVERVIEW.md)
-- **Troubleshoot issues** → [Operational Runbook](operations/OPERATIONAL_RUNBOOK.md)
-- **Refresh SAB mappings** → `aaroneous status sab-matrix --refresh` + [Operational Runbook](operations/OPERATIONAL_RUNBOOK.md)
-- **Learn about skills** → [Skill Evolution](guides/SKILL_EVOLUTION_GUIDE.md) + [Skill Fusion](guides/SKILL_FUSION_GUIDE.md)
-- **Understand genetics** → [Specialist Genetics](guides/SPECIALIST_GENETICS_GUIDE.md) + [Genetic Harvesting](guides/GENETIC_HARVESTING_ACTIONPLAN.md)
-- **Check system health** → [System Analysis Report](reports/SYSTEM_ANALYSIS_REPORT.md)
-- **See what's new** → [Release Notes V2.0](reports/RELEASE_NOTES_V2.0.md)
-- **Plan improvements** → [System Improvements Plan](reports/SYSTEM_IMPROVEMENTS_PLAN.md)
-
----
-
-## 📚 Document Statistics
-
-- **Total Documents**: 52
-- **Categories**: 8 (Architecture, Phases, Guides, Operations, Implementation, Data, Optimization, Reports)
-- **Total Pages**: ~800+ pages of documentation
-- **Last Updated**: April 30, 2026
-- **Version**: 2.0
-
----
-
-## 🔗 Quick Links
-
-- **[GitHub Repository](https://github.com/anomalyco/opencode)** - Source code
-- **[OpenCode Docs](https://opencode.ai/docs)** - OpenCode integration docs
-- **[Project Status](reports/FINAL_STATUS_REPORT.md)** - Current project status
-
----
-
-**Start Reading**: [README](README.md) → [Quick Start](guides/QUICK_START_GUIDE.md) → Choose your path above!
+**Total Documents:** ~70 active docs + 50+ archived in history/
+**Last Updated:** May 20, 2026

@@ -109,3 +109,9 @@ data/sabs/
 
 # Triage directory - scraped web content and build artifacts (641MB)
 triage/
+
+# Nested git repositories in source materials
+shards/source_materials/
+shards/AAS_Suite_2/
+AAS/
+monitoring/

@@ -61,14 +61,14 @@ Persistence (Save for future)
 
 ```bash
 # LLM Configuration
-AARONEOUS_LLM_PROVIDER=GGUF           # GGUF or Mock
+config.toml [llm] section=GGUF           # GGUF or Mock
 AARONEOUS_LLM_TEMPERATURE=0.7         # 0.0-1.0
 AARONEOUS_LLM_MAX_TOKENS=2048         # Max response tokens
 AARONEOUS_LLM_TIMEOUT_SECS=30         # Request timeout
 AARONEOUS_MODELS_PATH=/path/to/models # Model search path
 
 # Runtime Configuration
-AARONEOUS_DB_PATH=./hive.db           # SQLite database
+config.toml [database] section=./hive.db           # SQLite database
 AARONEOUS_INBOX_FOLDER=./inbox        # Task input folder
 AARONEOUS_OUTPUT_FOLDER=./output      # Results output folder
 AARONEOUS_UPDATE_INTERVAL_MS=100      # Event loop interval
@@ -500,7 +500,7 @@ LLMConfig {
 
 **Cause**: LLM model unavailable  
 **Solution**:
-1. Check AARONEOUS_LLM_PROVIDER environment
+1. Check config.toml [llm] section environment
 2. Ensure model file accessible
 3. Check LM Studio / Ollama running
 4. Review logs for LLM errors
@@ -636,3 +636,4 @@ For issues:
 ---
 
 **Aaroneous v2.0 - Autonomous Intelligence in Action**
+

@@ -12,15 +12,15 @@
 
 ### 1. New Directory Structure Created
 ```
-Aaroneous/src/federation/http/rest_api/
+Aaroneous/core/hypervisor/federation/http/rest_api/
 ├── mod.rs        # Module exports
 └── server.rs     # Full REST/SSE implementation (~200 lines)
 ```
 
 ### 2. Modified Files Updated
-- `Aaroneous/src/federation/http/mod.rs` - Added rest_api module
-- `Aaroneous/src/cli.rs` - Swapped legacy HTTP server for new REST API
-- `Aaroneous/src/Cargo.toml` - Cleaned up duplicate dependencies
+- `Aaroneous/core/hypervisor/federation/http/mod.rs` - Added rest_api module
+- `Aaroneous/core/hypervisor/src/cli.rs` - Swapped legacy HTTP server for new REST API
+- `Aaroneous/core/hypervisor/Cargo.toml` - Cleaned up duplicate dependencies
 
 ### 3. REST Endpoints Implemented (Port 8765)
 
@@ -197,14 +197,14 @@ enigo.click(enigo::MouseButton::Left, enigo::BtnState::Down)?;
 ## Files Modified This Session
 
 ### Created (3 files)
-1. `Aaroneous/src/federation/http/rest_api/mod.rs` - Module exports
-2. `Aaroneous/src/federation/http/rest_api/server.rs` - REST API implementation  
+1. `Aaroneous/core/hypervisor/federation/http/rest_api/mod.rs` - Module exports
+2. `Aaroneous/core/hypervisor/federation/http/rest_api/server.rs` - REST API implementation  
 3. `Aaroneous/MaelstromUI_REST_API_IMPLEMENTATION.md` - This file
 
 ### Modified (3 files)
-1. `Aaroneous/src/federation/http/mod.rs` - Added rest_api module
-2. `Aaroneous/src/cli.rs` - Replaced legacy HTTP server with new REST API
-3. `Aaroneous/src/Cargo.toml` - Fixed duplicate dependencies
+1. `Aaroneous/core/hypervisor/federation/http/mod.rs` - Added rest_api module
+2. `Aaroneous/core/hypervisor/src/cli.rs` - Replaced legacy HTTP server with new REST API
+3. `Aaroneous/core/hypervisor/Cargo.toml` - Fixed duplicate dependencies
 
 ### Lines of Code Added: ~400 LOC  
 ### Build Errors: 1 (rustc not in PATH) - ENVIRONMENT ISSUE, NOT CODE

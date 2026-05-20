@@ -25,7 +25,7 @@ Clone the `templates/universal_sab` directory to create a new workspace (e.g., `
 
 ### Step 3: Glue Generation
 Modify the `Cargo.toml` to include the target crate.
-Modify `src/lib.rs` to route the `execute()` commands to the crate's API.
+Modify `core/hypervisor/src/lib.rs` to route the `execute()` commands to the crate's API.
 *Example:* `execute("read_sheet", "{\"file\": \"data.xlsx\"}")` -> `calamine::open_workbook(...)`.
 
 ### Step 4: Fabrication

@@ -272,19 +272,19 @@ let context_event = ContextEvent {
 **Goal:** Detect state transitions and trigger behaviors
 
 **Step A1: Anchor Detector (6 hours)**
-- Create `src/visionary/anchor_detector.rs`
+- Create `core/hypervisor/federation/specialists/visionary/anchor_detector.rs`
 - Implement OCR-based UI pattern matching (use `tesseract` or similar)
 - Define anchor patterns for common applications (Steam, IDE errors, etc)
 - Test: 5-7 tests for anchor detection
 
 **Step A2: Context Event Emitter (4 hours)**
-- Create `src/visionary/context_event.rs`
+- Create `core/hypervisor/federation/specialists/visionary/context_event.rs`
 - Define `ContextEvent` struct
 - Hook into Glass framebuffer pipeline
 - Test: 3-4 tests for event emission
 
 **Step A3: Ariel Intent Router (5 hours)**
-- Modify `src/hive_runtime.rs` to handle anchor events
+- Modify `core/hypervisor/src/` to handle anchor events
 - Implement anchor → intent mapping
 - Create behavior triggers (e.g., "error detected" → "show manual overlay")
 - Test: 5-6 tests for intent routing
@@ -303,21 +303,21 @@ let context_event = ContextEvent {
 **Goal:** Autonomously generate UI designs during idle time
 
 **Step B1: Style Bank (5 hours)**
-- Create `src/visionary/style_bank.rs`
+- Create `core/hypervisor/federation/specialists/visionary/style_bank.rs`
 - Implement SSD-backed vector store for aesthetic engrams
 - CRUD operations for engrams
 - Query: sample random engrams, find similar styles
 - Test: 5-6 tests for style bank
 
 **Step B2: Design Generator (8 hours)**
-- Create `src/visionary/design_generator.rs`
+- Create `core/hypervisor/federation/specialists/visionary/design_generator.rs`
 - Implement "splicing" algorithm (blend color + layout + animation)
 - Procedural generation of 10 design variants per cycle
 - Config struct for all visual parameters
 - Test: 6-8 tests for design generation
 
 **Step B3: Scoring Engine (6 hours)**
-- Create `src/visionary/design_scorer.rs`
+- Create `core/hypervisor/federation/specialists/visionary/design_scorer.rs`
 - Implement `ClassOfAaron` preference model
 - Color harmony, typography fit, complexity analysis
 - Novelty penalty (don't regenerate similar designs)
@@ -338,7 +338,7 @@ let context_event = ContextEvent {
 **Goal:** Continuously learn visual preferences from user behavior
 
 **Step C1: Engram Extractor (6 hours)**
-- Create `src/visionary/engram_extractor.rs`
+- Create `core/hypervisor/federation/specialists/visionary/engram_extractor.rs`
 - Extract color palettes from screenshots
 - Detect typography (font, size, weight)
 - Analyze spacing, layout structure
@@ -358,7 +358,7 @@ let context_event = ContextEvent {
 - Test: 2-3 tests for population
 
 **Step C4: Preference Model Learning (4 hours)**
-- Create `src/visionary/class_of_aaron.rs`
+- Create `core/hypervisor/federation/specialists/visionary/class_of_aaron.rs`
 - Build user preference model from engrams
 - Update model as new designs are approved/rejected
 - Test: 2-3 tests for preference learning
@@ -372,7 +372,7 @@ let context_event = ContextEvent {
 **Goal:** Render design prototypes and contextual overlays in 3D space
 
 **Step D1: O3DE Integration (8 hours)**
-- Create `src/visionary/glass_workshop.rs`
+- Create `core/hypervisor/federation/specialists/visionary/glass_workshop.rs`
 - Connect to O3DE via existing IPC/gRPC
 - Define UI-to-3D geometry mapping
 - Material system for visual configs
@@ -552,3 +552,4 @@ VBE embodies the core principle: **Aaroneous is not a tool you use; it is a syst
 Every design it generates is not "random AI art"—it's a **hypothesis about your taste**. Every overlay it renders is not "automation"—it's **anticipation of your need**. Every engram it extracts is not "telemetry"—it's **understanding of your aesthetic.**
 
 By the end of this, Aaroneous won't feel like a "command-and-control" system. It will feel like having a **twin** that thinks like you, sees what you see, and makes the world around your computer match who you are.
+

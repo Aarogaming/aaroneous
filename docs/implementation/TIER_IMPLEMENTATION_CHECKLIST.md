@@ -7,12 +7,12 @@ This document maps each tier to specific code locations and provides step-by-ste
 ## Current State (Tier 0: Foundation ✅)
 
 **Completed components:**
-- Ariel (context weaver): `src/hive_runtime.rs`
-- Glass (spatial vision): `src/perception/glass.rs`
-- Sentinel (consensus): `src/raft_consensus/`
-- WASM-EBus bridge: `src/wasm_ebus_bridge/`
-- HID driver: `src/hid_driver/`
-- Event log: `src/event_log/`
+- Ariel (context weaver): `core/hypervisor/src/`
+- Glass (spatial vision): `core/hypervisor/spatial/`
+- Sentinel (consensus): `core/hypervisor/raft_consensus/`
+- WASM-EBus bridge: `core/hypervisor/wasm_ebus_bridge/`
+- HID driver: `core/hypervisor/hid_driver/`
+- Event log: `core/hypervisor/event_log/`
 
 **Tier 0 Tests:** 555 passing (Phases 5-6C)
 
@@ -29,14 +29,14 @@ Event Log → Glass Replay Engine → Headless O3DE → Ariel Student Engram →
 
 #### Step 1.1: Create Visionary Service (3 hours)
 **Files to create:**
-- `src/visionary/mod.rs` (main service orchestrator)
-- `src/visionary/replay_engine.rs` (log playback)
-- `src/visionary/reflection_encoder.rs` (weight delta persistence)
+- `core/hypervisor/federation/specialists/visionary/mod.rs` (main service orchestrator)
+- `core/hypervisor/federation/specialists/visionary/replay_engine.rs` (log playback)
+- `core/hypervisor/federation/specialists/visionary/reflection_encoder.rs` (weight delta persistence)
 
 **Location reference:**
-- Copy VFD idle detection from `src/vfd_intelligence_throttling.rs`
-- Use Event Log interface from `src/event_log/mod.rs`
-- Hook into HiveRuntime from `src/hive_runtime.rs`
+- Copy VFD idle detection from `docs/architecture/VFD_INTELLIGENCE_THROTTLING.md`
+- Use Event Log interface from `core/hypervisor/event_log/mod.rs`
+- Hook into HiveRuntime from `core/hypervisor/src/`
 
 **Pseudocode:**
 ```rust
@@ -69,7 +69,7 @@ impl VisionaryService {
 
 #### Step 1.2: Implement Replay Engine (2 hours)
 **Files:**
-- `src/visionary/replay_engine.rs`
+- `core/hypervisor/federation/specialists/visionary/replay_engine.rs`
 
 **Key functions:**
 ```rust
@@ -88,15 +88,15 @@ pub async fn run_headless_instance(
 ```
 
 **Integration points:**
-- Use `GlassFrame` from `src/perception/glass.rs`
-- Use `HiveRuntime::infer()` from `src/hive_runtime.rs`
+- Use `GlassFrame` from `core/hypervisor/spatial/`
+- Use `HiveRuntime::infer()` from `core/hypervisor/src/`
 - Store results in new `DnaBank` (see Step 1.3)
 
 #### Step 1.3: Create DNA Bank (Persistence Layer) (2 hours)
 **Files:**
-- `src/dna_bank/mod.rs` (new module)
-- `src/dna_bank/event_store.rs` (append-only log)
-- `src/dna_bank/encoder.rs` (serialize DNA events)
+- `core/hypervisor/src/dna_bank/mod.rs` (new module)
+- `core/hypervisor/src/dna_bank/event_store.rs` (append-only log)
+- `core/hypervisor/src/dna_bank/encoder.rs` (serialize DNA events)
 
 **Key struct:**
 ```rust
@@ -138,7 +138,7 @@ dna.append_event(DnaEvent {
 
 #### Step 1.4: Integrate with VFD Governor (2 hours)
 **Files to modify:**
-- `src/vfd_intelligence_throttling.rs` (add callback)
+- `docs/architecture/VFD_INTELLIGENCE_THROTTLING.md` (add callback)
 
 **Change:**
 ```rust
@@ -160,7 +160,7 @@ impl VfdGovernor {
 ```
 
 #### Step 1.5: Write Tests (2 hours)
-**Test file:** `src/visionary/tests.rs`
+**Test file:** `core/hypervisor/federation/specialists/visionary/tests.rs`
 
 ```rust
 #[tokio::test]
@@ -211,9 +211,9 @@ Desktop (Hub) ←→ [Tailscale Mesh] ←→ Phone/Tablet/AR (Peripherals)
 
 #### Step 2.1: Add Tailscale Integration (3 hours)
 **Files to create:**
-- `src/omnipresent/mod.rs`
-- `src/omnipresent/mesh_client.rs`
-- `src/omnipresent/intent_streamer.rs`
+- `core/hypervisor/federation/specialists/omnipresent/mod.rs`
+- `core/hypervisor/federation/specialists/omnipresent/mesh_client.rs`
+- `core/hypervisor/federation/specialists/omnipresent/intent_streamer.rs`
 
 **Dependency:**
 ```toml
@@ -254,7 +254,7 @@ impl LocusProtocol {
 
 #### Step 2.2: Intent Streaming Protocol (3 hours)
 **Files to create:**
-- `src/omnipresent/intent_protocol.rs` (gRPC/protobuf definitions)
+- `core/hypervisor/federation/specialists/omnipresent/intent_protocol.rs` (gRPC/protobuf definitions)
 
 **Protocol definition (protobuf):**
 ```protobuf
@@ -309,7 +309,7 @@ impl IntentStreamer {
 
 #### Step 2.3: Device Adapter System (2 hours)
 **Files to create:**
-- `src/omnipresent/device_adapter.rs`
+- `core/hypervisor/federation/specialists/omnipresent/device_adapter.rs`
 
 **Concept:**
 ```rust
@@ -341,7 +341,7 @@ impl DeviceAdapter for PhoneAdapter {
 
 #### Step 2.4: Offline Mode (Cache) (2 hours)
 **Files to modify:**
-- `src/omnipresent/intent_streamer.rs`
+- `core/hypervisor/federation/specialists/omnipresent/intent_streamer.rs`
 
 **Addition:**
 ```rust
@@ -368,7 +368,7 @@ impl IntentStreamer {
 ```
 
 #### Step 2.5: Write Tests (2 hours)
-**Test file:** `src/omnipresent/tests.rs`
+**Test file:** `core/hypervisor/federation/specialists/omnipresent/tests.rs`
 
 ```rust
 #[tokio::test]
@@ -420,8 +420,8 @@ BLE Peripherals (Watch, Ring, etc) → Biometric Reader → State Classifier →
 
 #### Step 3.1: BLE Peripheral Polling (2 hours)
 **Files to create:**
-- `src/symbiotic/mod.rs`
-- `src/symbiotic/biometric_reader.rs`
+- `core/hypervisor/federation/specialists/symbiotic/mod.rs`
+- `core/hypervisor/federation/specialists/symbiotic/biometric_reader.rs`
 
 **Dependency:**
 ```toml
@@ -466,7 +466,7 @@ impl BiometricReader {
 
 #### Step 3.2: State Classifier (2 hours)
 **Files to create:**
-- `src/symbiotic/state_classifier.rs`
+- `core/hypervisor/federation/specialists/symbiotic/state_classifier.rs`
 
 **Key function:**
 ```rust
@@ -502,7 +502,7 @@ pub fn classify_state(samples: &[BiometricSample]) -> UserState {
 
 #### Step 3.3: Intent Scaler (1 hour)
 **Files to create:**
-- `src/symbiotic/intent_scaler.rs`
+- `core/hypervisor/federation/specialists/symbiotic/intent_scaler.rs`
 
 **Key function:**
 ```rust
@@ -533,7 +533,7 @@ pub fn scale_intent(
 
 #### Step 3.4: Integrate with Ariel (1 hour)
 **Files to modify:**
-- `src/hive_runtime.rs`
+- `core/hypervisor/src/`
 
 **Change:**
 ```rust
@@ -568,7 +568,7 @@ impl HiveRuntime {
 ```
 
 #### Step 3.5: Write Tests (1.5 hours)
-**Test file:** `src/symbiotic/tests.rs`
+**Test file:** `core/hypervisor/federation/specialists/symbiotic/tests.rs`
 
 ```rust
 #[test]
@@ -617,8 +617,8 @@ AR Glasses (passthrough camera + depth) → OpenXR → O3DE → Spatial Anchor C
 
 #### Step 4.1: OpenXR Integration (4 hours)
 **Files to create:**
-- `src/phygital/mod.rs`
-- `src/phygital/openxr_adapter.rs`
+- `core/hypervisor/federation/specialists/phygital/mod.rs`
+- `core/hypervisor/federation/specialists/phygital/openxr_adapter.rs`
 
 **Dependency:**
 ```toml
@@ -657,7 +657,7 @@ pub struct FrameData {
 
 #### Step 4.2: Depth Processing (3 hours)
 **Files to create:**
-- `src/phygital/depth_processor.rs`
+- `core/hypervisor/federation/specialists/phygital/depth_processor.rs`
 
 **Key functions:**
 ```rust
@@ -690,7 +690,7 @@ pub fn depth_to_point_cloud(
 
 #### Step 4.3: Landmark Detection (3 hours)
 **Files to create:**
-- `src/phygital/landmark_detector.rs`
+- `core/hypervisor/federation/specialists/phygital/landmark_detector.rs`
 
 **Key struct:**
 ```rust
@@ -725,7 +725,7 @@ pub fn detect_landmarks(cloud: &PointCloud) -> Vec<Landmark> {
 
 #### Step 4.4: Hand Tracking (Optional, 2 hours)
 **Files to create:**
-- `src/phygital/hand_tracker.rs`
+- `core/hypervisor/federation/specialists/phygital/hand_tracker.rs`
 
 **Key struct:**
 ```rust
@@ -750,8 +750,8 @@ impl HandPose {
 
 #### Step 4.5: Integration with Ariel (2 hours)
 **Files to modify:**
-- `src/hive_runtime.rs`
-- `src/perception/glass.rs`
+- `core/hypervisor/src/`
+- `core/hypervisor/spatial/`
 
 **Change:**
 ```rust
@@ -783,7 +783,7 @@ impl HiveRuntime {
 ```
 
 #### Step 4.6: Write Tests (2 hours)
-**Test file:** `src/phygital/tests.rs`
+**Test file:** `core/hypervisor/federation/specialists/phygital/tests.rs`
 
 ```rust
 #[test]
@@ -840,10 +840,11 @@ fn test_landmark_detection() {
 ## Next Immediate Step: Begin Tier 1 Implementation
 
 **This week's focus:**
-1. Create `src/visionary/` module structure
+1. Create `core/hypervisor/federation/specialists/visionary/` module structure
 2. Implement replay engine and basic DNA Bank
 3. Write 10 tests for reflection logic
 4. Integrate with VFD idle detection
 
 **Success metric:** Agent demonstrates measurable skill improvement after 7 days of background reflection.
+
 
