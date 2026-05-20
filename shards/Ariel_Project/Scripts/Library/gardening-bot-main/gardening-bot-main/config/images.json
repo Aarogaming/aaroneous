@@ -1,0 +1,30 @@
+{
+    "HOME": "./assets/indicators/home.png",
+    
+    "SPELLBOOK": "./assets/indicators/spellbook.png",
+    "DOWNPOUR": "./assets/spells/downpour.png",
+    "FLUTE_ENSEMBLE": "./assets/spells/flute_ensemble.png",
+    "GUSTY_WINDS": "./assets/spells/gusty_winds.png",
+    "PLANT_ALL": "./assets/spells/plant_all.png",
+
+    "GARDENING_RIGHT_ARROW": "./assets/indicators/gardening_right_arrow.png",
+    "HARVEST": "./assets/indicators/harvest.png",
+    "TELEPORT_START": "./assets/indicators/teleport_start.png",
+    "OUTSIDE": "./assets/indicators/outside.png",
+    "HOUSING_MENU": "./assets/indicators/housing_menu.png",
+    "ELDER": "./assets/indicators/elder.png",
+
+    "SEEDS": "./assets/indicators/seeds.png",
+    "COUCH_POTATOES": "./assets/spells/couch_potatoes.png",
+    "GROWING_SPELLS": "./assets/indicators/growing_spells.png",
+    "PEST_SPELLS": "./assets/indicators/pest_spells.png",
+    "UTILITY_SPELLS": "./assets/indicators/utility_spells.png",
+
+    "YES": "./assets/indicators/yes.png",
+    "HAS_NEEDS": "./assets/indicators/has_needs.png",
+
+    "PROGRESS_TO_YOUNG": "./assets/indicators/progress_to_young.png",
+    "PROGRESS_TO_MATURE": "./assets/indicators/progress_to_mature.png",
+    "PROGRESS_TO_ELDER": "./assets/indicators/progress_to_elder.png"
+}
+  

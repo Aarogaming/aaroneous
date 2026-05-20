@@ -1,0 +1,8 @@
+{
+  "name": "Bazaar TC Bot",
+  "description": "Launch tc bazaar farmer (NicolasMaskal/Wizard101-Bazaar-Tc-Farming). Opens repo page if not installed.",
+  "entryPoint": "run.bat",
+  "arguments": "",
+  "requiredResolution": "",
+  "requiredTemplates": []
+}

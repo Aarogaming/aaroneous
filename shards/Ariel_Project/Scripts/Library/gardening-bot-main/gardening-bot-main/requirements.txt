@@ -1,0 +1,5 @@
+opencv-python
+python3_xlib
+pyautogui
+python-dotenv
+firebase-admin

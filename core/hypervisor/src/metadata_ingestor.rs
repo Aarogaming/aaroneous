@@ -1,0 +1,307 @@
+// Metadata Ingestor
+// Watches files, git, system metrics, and feeds them to the compute engine
+
+use std::path::{Path, PathBuf};
+use std::fs;
+use std::time::{Instant, Duration};
+use serde::{Serialize, Deserialize};
+use compute::{ComputeEngine, entropy};
+use crate::workspace::WorkspacePaths;
+
+/// Types of metadata sources
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum MetadataSource {
+    FileSystem(PathBuf),
+    GitRepository(PathBuf),
+    SystemMetrics,
+    SabStore,
+    Constellation,
+}
+
+/// A single metadata event
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MetadataEvent {
+    pub source: String,
+    pub event_type: String,
+    pub timestamp: f64,
+    pub data: serde_json::Value,
+    pub raw_bytes: Option<Vec<u8>>,
+}
+
+/// Configuration for the metadata ingestor
+#[derive(Debug, Clone)]
+pub struct MetadataIngestorConfig {
+    pub watch_paths: Vec<PathBuf>,
+    pub poll_interval: Duration,
+    pub max_event_queue: usize,
+    pub compute_entropy: bool,
+    pub compute_complexity: bool,
+}
+
+impl Default for MetadataIngestorConfig {
+    fn default() -> Self {
+        Self {
+            watch_paths: vec![WorkspacePaths::discover().root().clone()],
+            poll_interval: Duration::from_secs(5),
+            max_event_queue: 1000,
+            compute_entropy: true,
+            compute_complexity: true,
+        }
+    }
+}
+
+/// Metadata Ingestor - collects and analyzes metadata from various sources
+pub struct MetadataIngestor {
+    pub config: MetadataIngestorConfig,
+    pub compute: ComputeEngine,
+    pub event_queue: Vec<MetadataEvent>,
+    pub file_hashes: std::collections::HashMap<PathBuf, String>,
+    pub last_system_metrics: Option<SystemMetrics>,
+}
+
+/// System metrics snapshot
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SystemMetrics {
+    pub cpu_usage: f32,
+    pub memory_usage: f32,
+    pub disk_usage: f32,
+    pub timestamp: f64,
+}
+
+impl MetadataIngestor {
+    pub fn new(config: MetadataIngestorConfig) -> Self {
+        Self {
+            config,
+            compute: ComputeEngine::new(),
+            event_queue: Vec::new(),
+            file_hashes: std::collections::HashMap::new(),
+            last_system_metrics: None,
+        }
+    }
+
+    /// Scan watched paths for changes
+    pub fn scan_filesystem(&mut self) -> Vec<MetadataEvent> {
+        let mut events = Vec::new();
+        
+        for path in &self.config.watch_paths {
+            if !path.exists() {
+                continue;
+            }
+            
+            if let Ok(entries) = fs::read_dir(path) {
+                for entry in entries.filter_map(|e| e.ok()) {
+                    let entry_path = entry.path();
+                    
+                    // Skip hidden files and target directory
+                    if let Some(name) = entry_path.file_name().and_then(|n| n.to_str()) {
+                        if name.starts_with('.') || name == "target" {
+                            continue;
+                        }
+                    }
+                    
+                    if let Ok(metadata) = entry_path.metadata() {
+                        let file_hash = self.compute_file_hash(&entry_path);
+                        let is_new = !self.file_hashes.contains_key(&entry_path);
+                        let is_changed = self.file_hashes.get(&entry_path) != Some(&file_hash);
+                        
+                        if is_new || is_changed {
+                            let event = MetadataEvent {
+                                source: format!("fs:{}", path.display()),
+                                event_type: if is_new { "file_created".to_string() } else { "file_modified".to_string() },
+                                timestamp: std::time::SystemTime::now()
+                                    .duration_since(std::time::UNIX_EPOCH)
+                                    .unwrap_or_default()
+                                    .as_secs_f64(),
+                                data: serde_json::json!({
+                                    "path": entry_path.to_string_lossy(),
+                                    "size": metadata.len(),
+                                    "is_file": metadata.is_file(),
+                                    "modified": metadata.modified().ok().map(|t| {
+                                        t.duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_secs_f64()
+                                    }),
+                                }),
+                                raw_bytes: if metadata.is_file() && metadata.len() < 1_000_000 {
+                                    fs::read(&entry_path).ok()
+                                } else {
+                                    None
+                                },
+                            };
+                            
+                            events.push(event);
+                            self.file_hashes.insert(entry_path, file_hash);
+                        }
+                    }
+                }
+            }
+        }
+        
+        events
+    }
+
+    /// Collect system metrics
+    pub fn collect_system_metrics(&mut self) -> MetadataEvent {
+        let mut sys = sysinfo::System::new_all();
+        sys.refresh_all();
+        
+        let cpu_usage = sys.cpus().iter().map(|c| c.cpu_usage()).sum::<f32>() / sys.cpus().len() as f32;
+        let memory_usage = sys.used_memory() as f32 / sys.total_memory() as f32 * 100.0;
+        let disk_usage = 0.0; // Placeholder - would need disk info
+        
+        let metrics = SystemMetrics {
+            cpu_usage,
+            memory_usage,
+            disk_usage,
+            timestamp: std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_secs_f64(),
+        };
+        
+        self.last_system_metrics = Some(metrics.clone());
+        
+        MetadataEvent {
+            source: "system:metrics".to_string(),
+            event_type: "metrics_update".to_string(),
+            timestamp: metrics.timestamp,
+            data: serde_json::json!({
+                "cpu_usage": cpu_usage,
+                "memory_usage": memory_usage,
+                "disk_usage": disk_usage,
+            }),
+            raw_bytes: None,
+        }
+    }
+
+    /// Analyze a metadata event using compute engine
+    pub fn analyze_event(&mut self, event: &MetadataEvent) -> MetadataAnalysis {
+        let mut analysis = MetadataAnalysis::default();
+        
+        // Compute entropy if raw bytes available
+        if self.config.compute_entropy {
+            if let Some(ref bytes) = event.raw_bytes {
+                let byte_values: Vec<f64> = bytes.iter().map(|&b| b as f64 / 255.0).collect();
+                if let Ok(result) = self.compute.execute("entropy", &byte_values) {
+                    analysis.entropy = result.first().copied().unwrap_or(0.0);
+                }
+            }
+        }
+        
+        // Compute complexity based on event data
+        if self.config.compute_complexity {
+            let complexity_input = match event.event_type.as_str() {
+                "file_modified" => vec![0.5, 0.3],
+                "file_created" => vec![0.7, 0.2],
+                "metrics_update" => vec![0.3, 0.8],
+                _ => vec![0.5, 0.5],
+            };
+            
+            if let Ok(result) = self.compute.execute("monte_carlo", &complexity_input) {
+                analysis.predicted_complexity = result.first().copied().unwrap_or(0.5);
+            }
+        }
+        
+        analysis
+    }
+
+    /// Process all pending events and return analyses
+    pub fn process_pending_events(&mut self) -> Vec<(MetadataEvent, MetadataAnalysis)> {
+        let mut results = Vec::new();
+        
+        // Scan for new events
+        let fs_events = self.scan_filesystem();
+        let metrics_event = self.collect_system_metrics();
+        
+        // Add to queue
+        for event in fs_events {
+            if self.event_queue.len() < self.config.max_event_queue {
+                self.event_queue.push(event);
+            }
+        }
+        if self.event_queue.len() < self.config.max_event_queue {
+            self.event_queue.push(metrics_event);
+        }
+        
+        // Analyze all queued events
+        let events: Vec<MetadataEvent> = self.event_queue.drain(..).collect();
+        for event in events {
+            let analysis = self.analyze_event(&event);
+            results.push((event, analysis));
+        }
+        
+        results
+    }
+
+    /// Compute a simple hash for a file (for change detection)
+    fn compute_file_hash(&self, path: &Path) -> String {
+        if let Ok(metadata) = fs::metadata(path) {
+            if let Ok(modified) = metadata.modified() {
+                if let Ok(duration) = modified.duration_since(std::time::UNIX_EPOCH) {
+                    return format!("{}:{}", metadata.len(), duration.as_secs());
+                }
+            }
+        }
+        "unknown".to_string()
+    }
+}
+
+/// Analysis result for a metadata event
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MetadataAnalysis {
+    pub entropy: f64,
+    pub predicted_complexity: f64,
+    pub risk_score: f64,
+    pub recommended_action: String,
+}
+
+impl Default for MetadataAnalysis {
+    fn default() -> Self {
+        Self {
+            entropy: 0.0,
+            predicted_complexity: 0.5,
+            risk_score: 0.0,
+            recommended_action: "monitor".to_string(),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_ingestor_creation() {
+        let config = MetadataIngestorConfig::default();
+        let ingestor = MetadataIngestor::new(config);
+        assert!(ingestor.file_hashes.is_empty());
+        assert!(ingestor.event_queue.is_empty());
+    }
+
+    #[test]
+    fn test_system_metrics_collection() {
+        let config = MetadataIngestorConfig::default();
+        let mut ingestor = MetadataIngestor::new(config);
+        let event = ingestor.collect_system_metrics();
+        
+        assert_eq!(event.source, "system:metrics");
+        assert_eq!(event.event_type, "metrics_update");
+        assert!(ingestor.last_system_metrics.is_some());
+    }
+
+    #[test]
+    fn test_event_analysis() {
+        let config = MetadataIngestorConfig::default();
+        let mut ingestor = MetadataIngestor::new(config);
+        
+        let event = MetadataEvent {
+            source: "test".to_string(),
+            event_type: "file_modified".to_string(),
+            timestamp: 0.0,
+            data: serde_json::json!({"path": "test.rs"}),
+            raw_bytes: Some(b"fn main() {}".to_vec()),
+        };
+        
+        let analysis = ingestor.analyze_event(&event);
+        assert!(analysis.entropy >= 0.0);
+        assert!(analysis.predicted_complexity >= 0.0 && analysis.predicted_complexity <= 1.0);
+    }
+}

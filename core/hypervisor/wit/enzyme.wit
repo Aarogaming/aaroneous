@@ -1,0 +1,22 @@
+package aaroneous:enzyme;
+
+interface host {
+    /// Log a message from the enzyme to the host
+    log: func(level: string, message: string);
+    
+    /// Request data from the Synapse (shared memory)
+    get-synapse-data: func(key: string) -> list<u8>;
+    
+    /// Write data to the Synapse
+    set-synapse-data: func(key: string, value: list<u8>);
+}
+
+world enzyme {
+    import host;
+    
+    /// Process a task assigned to this enzyme
+    export process-task: func(task-id: string, payload: list<u8>) -> result<list<u8>, string>;
+    
+    /// Get the metabolism state of the enzyme
+    export get-metabolism: func() -> string;
+}

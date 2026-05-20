@@ -1,0 +1,7 @@
+[package]
+name = "aaroneous_sdk"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+nervous_system = { path = "../../core/nervous_system" }

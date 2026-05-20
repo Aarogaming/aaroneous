@@ -1,0 +1,11 @@
+{
+    "COUCH_POTATOES": [
+      { "spell": "DOWNPOUR", "category": "GROWING_SPELLS", "coordinates": [1751, 530] },
+      { "spell": "FLUTE_ENSEMBLE", "category": "GROWING_SPELLS", "coordinates": [1717, 530] },
+      { "spell": "GUSTY_WINDS", "category": "PEST_SPELLS", "coordinates": [1721, 530] }
+    ],
+    "PLANT_ALL": [
+      { "spell": "PLANT_ALL", "category": "UTILITY_SPELLS", "coordinates": [1717, 576] }
+    ]
+  }
+  

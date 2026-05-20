@@ -1,0 +1,17 @@
+{
+    "COUCH_POTATOES": {
+        "state_durations": {
+            "seedling": 13.0,
+            "young": 29.0,
+            "mature": 216.0
+        },
+        "likes": {
+            "tropical_garden_gnome": 0.25,
+            "pixie": 0.20,
+            "sandwhich_station": 0.20,
+            "red_barn_farm": 0.15,
+            "litter": 0.10,
+            "king_parsley": 0.10
+        }
+    }
+}

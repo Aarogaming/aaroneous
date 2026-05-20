@@ -1,0 +1,8 @@
+{
+  "name": "afk-wizard",
+  "description": "AFK Wizard automation (external). Opens folder.",
+  "entryPoint": "run.bat",
+  "arguments": "",
+  "requiredResolution": "",
+  "requiredTemplates": []
+}

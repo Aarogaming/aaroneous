@@ -1,0 +1,8 @@
+{
+  "name": "libkiwad",
+  "description": "libkiwad (external). Opens folder.",
+  "entryPoint": "run.bat",
+  "arguments": "",
+  "requiredResolution": "",
+  "requiredTemplates": []
+}

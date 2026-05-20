@@ -11,9 +11,14 @@ Aaroneous is a high-performance, binary-native synthetic intelligence engine des
 ## Components
 - `bin/`: Machine-native executables (e.g., `a-run.exe`).
 - `chromosomes/`: Compiled binary modules (Enzymes).
-- `registry/`: HOX maps, Splicing recipes, and Tensor indices.
+- `registry/`: HOX maps, Splicing recipes, Tensor indices, and SAB manifests/cache (`sab_*.json`, `sab_matrix.generated.json`).
 - `include/`: AAS-ABI definitions (`aas_abi.h`).
 - `src/`: Source code for the Host and Enzymes.
+
+## SAB Matrix
+- `registry/sab_matrix.json` is the baseline mapping.
+- New `registry/sab_*.json` manifests are merged into the runtime matrix.
+- `a-run` prefers `registry/sab_matrix.generated.json` and rebuilds it if manifests are newer.
 
 ## Operational Command
 ```powershell

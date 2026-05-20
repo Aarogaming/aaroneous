@@ -1,0 +1,60 @@
+# Aaroneous Federation Configuration
+
+[server]
+host = "0.0.0.0"
+port = 8001
+admin_port = 8003
+metrics_port = 8002
+
+[database]
+url = "postgresql://aaroneous:aaroneous_secure_password_123@database:5432/aaroneous_federation"
+max_connections = 50
+ssl = false
+
+[cache]
+url = "redis://cache:6379/0"
+pool_size = 50
+ttl_seconds = 3600
+
+[federation]
+mode = "multi-hive"
+enabled = true
+consensus_threshold = 66
+peer_discovery = true
+leader_election_timeout_ms = 5000
+
+[optimization]
+quantization_enabled = true
+quantization_precision = "fp16"
+gpu_acceleration_enabled = false
+cache_warming_enabled = true
+batch_processing_enabled = true
+kernel_fusion_enabled = true
+memory_pooling_enabled = true
+
+[specialists]
+sentinel_enabled = true
+sentinel_instances = 3
+visionary_enabled = true
+omnipresent_enabled = true
+symbiotic_enabled = true
+phygital_enabled = true
+archivist_enabled = true
+
+[audit]
+enabled = true
+retention_days = 90
+
+[compliance]
+enabled = true
+frameworks = ["gdpr", "hipaa", "soc2"]
+
+[security]
+tls_enabled = false
+rate_limiting_enabled = true
+rate_limit_rps = 1000
+
+[performance]
+max_proposal_queue = 10000
+max_audit_events = 100000
+dna_bank_batch_size = 1000

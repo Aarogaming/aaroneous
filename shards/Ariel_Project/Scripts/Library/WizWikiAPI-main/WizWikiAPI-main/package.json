@@ -1,0 +1,56 @@
+{
+  "name": "wizwikiapi",
+  "version": "1.2.0",
+  "description": "A RESTful API for retrieving information about Wizard101 from the public wiki.",
+  "main": "app/dist/App.js",
+  "scripts": {
+    "start": "npm run docs -s && node app/dist/App.js",
+    "dev": "nodemon --exec \"tsc && npm run docs -s && node app/dist/App.js\" -e ts,html,sass",
+    "test": "npm run start & sleep 10 && curl http://localhost:3000",
+    "docs": "tsc && typedoc --options typedoc.config.json"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/R-unic/WizWikiAPI.git"
+  },
+  "keywords": [
+    "typescript",
+    "restful",
+    "rest",
+    "api",
+    "restful-api",
+    "wizard101",
+    "wiki",
+    "ts"
+  ],
+  "author": "R-unic",
+  "license": "GPL-2.0-only",
+  "bugs": {
+    "url": "https://github.com/R-unic/WizWikiAPI/issues"
+  },
+  "homepage": "https://github.com/R-unic/WizWikiAPI#readme",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "debug": "^4.3.1",
+    "dotenv": "^10.0.0",
+    "express": "^4.17.2",
+    "express-winston": "^4.1.0",
+    "firebase": "^9.21.0",
+    "fs": "0.0.1-security",
+    "puppeteer": "^19.9.1",
+    "puppeteer-core": "^19.9.1",
+    "tslib": "^1.14.1",
+    "typescript": "^4.9.5",
+    "winston": "^3.3.3"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.10",
+    "@types/debug": "^4.1.5",
+    "@types/express": "^4.17.12",
+    "@types/node-sass": "^4.11.3",
+    "node-sass": "^8.0.0",
+    "nodemon": "^2.0.22",
+    "source-map-support": "^0.5.19",
+    "typedoc": "^0.24.7"
+  }
+}

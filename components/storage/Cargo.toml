@@ -1,0 +1,9 @@
+[package]
+name = "storage"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+nervous_system = { path = "../../core/nervous_system" }
+rusqlite = { version = "0.32", features = ["bundled", "chrono"] }
+chrono = { version = "0.4", features = ["serde"] }

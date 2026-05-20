@@ -1,0 +1,40 @@
+name: Aaroneous Metabolic Ingestion
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  rust-check:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+      - name: Check Workspace
+        run: cargo check --workspace
+      - name: Run Tests
+        run: cargo test --workspace
+
+  python-lint:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      - name: Install dependencies
+        run: pip install flake8 mypy
+      - name: Lint SDK
+        run: flake8 sdk/python/
+
+  ingestion-automation:
+    runs-on: windows-latest
+    needs: [rust-check, python-lint]
+    steps:
+      - uses: actions/checkout@v3
+      - name: Run Metabolic Governor
+        run: .\scripts\ingest.ps1
+        shell: pwsh

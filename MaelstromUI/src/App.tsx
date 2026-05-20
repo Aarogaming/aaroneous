@@ -254,277 +254,56 @@ function App() {
 
   return (
     <>
-      <div className="titlebar">
-        <div className="titlebar-title">
-          <Hexagon size={14} color="var(--accent-solid)" />
-          Aaroneous Command Center
-        </div>
-        <div className="titlebar-actions">
-          <button className="titlebar-btn" onClick={() => appWindow.hide()}><Minus size={16} /></button>
-          <button className="titlebar-btn" onClick={() => appWindow.toggleMaximize()}><Square size={14} /></button>
-          <button className="titlebar-btn close" onClick={() => appWindow.hide()}><X size={16} /></button>
-        </div>
-      </div>
+      <Titlebar />
 
       <div className="app-layout">
-        <div className="sidebar">
-          <div className="sidebar-header">
-            <div className="brand">
-              <Hexagon size={24} color="var(--accent-solid)" />
-              <h1>Maelstrom</h1>
-            </div>
-            <div className="hive-status">
-              <div className={`status-dot ${status.includes("Disconnected") ? "offline" : "online"}`}></div>
-              {status}
-            </div>
-          </div>
-          
-          <div className="nav-menu">
-            <button className={`nav-item ${activeTab === "command_center" ? "active" : ""}`} onClick={() => setActiveTab("command_center")}>
-              <TerminalSquare size={16} /> Orchestrator (1v1)
-            </button>
-            <button className={`nav-item ${activeTab === "arsenal" ? "active" : ""}`} onClick={() => setActiveTab("arsenal")}>
-              <Layers size={16} /> SAB Arsenal
-            </button>
-            <button className={`nav-item ${activeTab === "agent_factory" ? "active" : ""}`} onClick={() => setActiveTab("agent_factory")}>
-              <Cpu size={16} /> Synth DNA Forge
-            </button>
-            <button className={`nav-item ${activeTab === "agentic_ops" ? "active" : ""}`} onClick={() => setActiveTab("agentic_ops")}>
-              <Activity size={16} /> Chimera Eye
-            </button>
-          </div>
-
-          <div className="user-profile">
-            <div className="avatar">AA</div>
-            <div className="user-info">
-              <span className="user-name">Commander</span>
-              <span className="user-role">System Admin</span>
-            </div>
-          </div>
-        </div>
+        <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} status={status} />
 
         <div className="main-content">
           {activeTab === "command_center" && (
-            <div className="chat-layout" style={{ padding: "32px" }}>
-              <div className="chat-column">
-                <div className="messages-area">
-                  {log.map((msg, idx) => (
-                    <div key={idx} className={`message-row ${msg.sender}`}>
-                      {msg.sender !== "system" && (
-                        <div className={`msg-avatar ${msg.sender === "user" ? "user-av" : "agent-av"}`}>
-                          {msg.sender === "user" ? "U" : <Bot size={20} />}
-                        </div>
-                      )}
-                      <div className="msg-bubble">{msg.text}</div>
-                    </div>
-                  ))}
-                  <div ref={logEndRef} />
-                </div>
-                <div className="input-container">
-                  <div className="input-box">
-                    <input 
-                      type="text" 
-                      placeholder="Message the Hive (e.g. 'Odin, run a security scan...')" 
-                      value={intent}
-                      onChange={(e) => setIntent(e.target.value)}
-                      onKeyDown={(e) => e.key === 'Enter' && submitIntent()}
-                    />
-                    <button className="send-btn" onClick={submitIntent}><Send size={16} /></button>
-                  </div>
-                </div>
-              </div>
-
-              <div className="dag-column">
-                <div className="dag-panel">
-                  <div className="dag-header">
-                    <BrainCircuit size={18} /> Live DAG Execution
-                  </div>
-                  {dagTasks.length === 0 ? (
-                    <div className="empty-state">
-                      <Hexagon size={32} />
-                      <span>No active task graph.</span>
-                    </div>
-                  ) : (
-                    dagTasks.map((t, idx) => (
-                      <div key={idx} className="dag-node">
-                        <div className="dag-node-header">
-                          <span className="dag-specialist">{t.specialist}</span>
-                          <span className="dag-status">{t.status}</span>
-                        </div>
-                        <div className="dag-output">{t.output}</div>
-                      </div>
-                    ))
-                  )}
-                  <div ref={dagEndRef} />
-                </div>
-              </div>
-            </div>
+            <CommandCenterTab 
+              log={log} 
+              intent={intent} 
+              setIntent={setIntent} 
+              submitIntent={submitIntent} 
+              dagTasks={dagTasks} 
+            />
           )}
 
           {activeTab === "arsenal" && (
-            <div className="tab-body">
-              <div className="tab-header" style={{ padding: "0 0 24px 0", marginBottom: "24px" }}>
-                <h2>Sovereign Agent Bundles</h2>
-                <p>Dynamically compiled WASM plugins and Native DLLs actively loaded in memory.</p>
-              </div>
-              <div className="grid-layout">
-                {arsenal.map((spec, idx) => (
-                  <div key={idx} className="card">
-                    <div className="card-header">
-                      <h3 className="card-title"><Box size={18} /> {spec.name}</h3>
-                      <span className={`badge ${spec.kind === "core" ? "native" : "wasm"}`}>{spec.kind}</span>
-                    </div>
-                    <p className="card-desc">{spec.domain}</p>
-                    <div className="card-actions">
-                      <button className="btn btn-secondary" onClick={() => {
-                        setAgentForm({ name: spec.name, domain: spec.domain, gguf_path: "" });
-                        setShowAgentForm(true);
-                        setActiveTab("agent_factory");
-                      }}>
-                        <Settings size={14} /> Configure
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
+            <SABArsenalTab 
+              arsenal={arsenal} 
+              setAgentForm={setAgentForm} 
+              setShowAgentForm={setShowAgentForm} 
+              setActiveTab={setActiveTab} 
+            />
           )}
 
           {activeTab === "agent_factory" && (
-            <div className="tab-body">
-              <div className="tab-header" style={{ padding: "0 0 24px 0", marginBottom: "24px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <div>
-                  <h2>Synth DNA Forge</h2>
-                  <p>Discover GGUF models, dissect neural structures, and forge new Sovereigns.</p>
-                </div>
-                {factoryStatus && (
-                  <div style={{ color: "var(--accent-solid)", fontSize: "14px", fontWeight: 600 }}>{factoryStatus}</div>
-                )}
-              </div>
-              
-              {showAgentForm ? (
-                <div className="form-group">
-                  <h3><BoxSelect size={18} /> Spawn Custom Agent</h3>
-                  <input type="text" className="input-field" placeholder="Agent Name (e.g. Architect)" value={agentForm.name} onChange={e => setAgentForm({...agentForm, name: e.target.value})} />
-                  <input type="text" className="input-field" placeholder="Domain Expertise (e.g. coding)" value={agentForm.domain} onChange={e => setAgentForm({...agentForm, domain: e.target.value})} />
-                  <input type="text" className="input-field" placeholder="GGUF File Path (Optional)" value={agentForm.gguf_path} onChange={e => setAgentForm({...agentForm, gguf_path: e.target.value})} />
-                  <div style={{ display: "flex", gap: "12px" }}>
-                    <button className="btn btn-primary" onClick={handleCreateAgent}>Deploy</button>
-                    <button className="btn btn-secondary" onClick={() => setShowAgentForm(false)}>Cancel</button>
-                  </div>
-                </div>
-              ) : (
-                <button className="btn btn-primary" style={{ marginBottom: "24px" }} onClick={() => setShowAgentForm(true)}>
-                  <BoxSelect size={16} /> Custom Deployment
-                </button>
-              )}
-              
-              <div className="form-group">
-                <h3><Database size={18} /> HuggingFace Fast Sync</h3>
-                <div style={{ display: "flex", gap: "12px" }}>
-                  <button className="btn btn-secondary" onClick={() => handleImportDissect("hf://Qwen/Qwen2.5-Coder-1.5B-Instruct-GGUF")}>Qwen 1.5B Coder</button>
-                  <button className="btn btn-secondary" onClick={() => handleImportDissect("hf://Qwen/Qwen2.5-7B-Instruct-GGUF")}>Qwen 7B Core</button>
-                </div>
-                <div className="input-box" style={{ marginTop: "16px" }}>
-                  <input type="text" id="hf-input" placeholder="hf://Repo/Name" />
-                  <button className="send-btn" onClick={() => {
-                    const val = (document.getElementById("hf-input") as HTMLInputElement).value;
-                    if (val) handleImportDissect(val);
-                  }}><Send size={16} /></button>
-                </div>
-              </div>
-
-              <h3>Local Model Discovery (LM Studio / Ollama)</h3>
-              <div className="grid-layout" style={{ marginTop: "16px" }}>
-                {externalModels.length === 0 ? (
-                  <div className="empty-state">No local models detected.</div>
-                ) : (
-                  externalModels.map((model, idx) => (
-                    <div key={idx} className="card">
-                      <div className="card-header">
-                        <h3 className="card-title"><Database size={16} /> {model.name}</h3>
-                        <span className="badge external">{model.source}</span>
-                      </div>
-                      <div className="card-meta">{model.path}</div>
-                      <p className="card-desc">Size: {(model.size_bytes / 1073741824).toFixed(2)} GB</p>
-                      <div className="card-actions">
-                        <button className="btn btn-secondary" onClick={() => handleImportDissect(model.path)}>Dissect</button>
-                        <button className="btn btn-primary" onClick={() => handleForgeSovereigns(model.path)}>Forge</button>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
+            <AgentFactoryTab 
+              agentForm={agentForm} 
+              setAgentForm={setAgentForm} 
+              showAgentForm={showAgentForm} 
+              setShowAgentForm={setShowAgentForm} 
+              externalModels={externalModels} 
+              factoryStatus={factoryStatus} 
+              handleCreateAgent={handleCreateAgent} 
+              handleImportDissect={handleImportDissect} 
+              handleForgeSovereigns={handleForgeSovereigns} 
+            />
           )}
 
-          {activeTab === "agentic_ops" && (
-            <div className="tab-body">
-              <div className="tab-header" style={{ padding: "0 0 24px 0", marginBottom: "24px" }}>
-                <h2>Agentic Operations</h2>
-                <p>Record user actions via Chimera Eye and assign execution schedules to SAB plugins.</p>
-              </div>
-
-              <div className="chimera-control" style={{ marginBottom: "30px" }}>
-                <h3><Activity size={18} style={{ marginRight: "8px" }} /> Chimera Eye Emulation</h3>
-                <p>Record your screen clicks to generate training data for autonomous routines.</p>
-                <button 
-                  className={isRecording ? "btn btn-danger" : "btn btn-primary"} 
-                  onClick={toggleRecording}
-                >
-                  {isRecording ? "Stop Recording" : "Start Recording Routine"}
-                </button>
-              </div>
-              
-              <h3>Recorded Routines & Schedules</h3>
-              <div style={{ display: "flex", gap: "10px", marginTop: "16px", marginBottom: "16px" }}>
-                <button className="btn btn-secondary" onClick={() => {
-                  const intent = prompt("Enter task intent:");
-                  const interval = parseInt(prompt("Enter interval in seconds:") || "60");
-                  if (intent && interval) {
-                    fetch(`${API_BASE}/scheduler/tasks`, {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ name: "Custom Task", intent_content: intent, interval_secs: interval })
-                    }).then(fetchTasks);
-                  }
-                }}>
-                  + Add Scheduled Task
-                </button>
-              </div>
-              <div className="grid-layout" style={{ marginTop: "16px" }}>
-                {routines.length === 0 && tasks.length === 0 ? (
-                  <div className="empty-state">No routines recorded.</div>
-                ) : (
-                  <>
-                    {tasks.map((task) => (
-                      <div key={task.id} className="card">
-                        <div className="card-header">
-                          <h3 className="card-title">{task.name}</h3>
-                          <span className={`badge ${task.status === "Scheduled" ? "native" : "wasm"}`}>{task.status}</span>
-                        </div>
-                        <p className="card-desc">Window: {task.interval_secs ? `Every ${task.interval_secs}s` : 'Unknown'}</p>
-                        <div className="card-actions">
-                          <button className="btn btn-secondary">Edit</button>
-                          <button className="btn btn-danger" onClick={() => cancelTask(task.id)}>Cancel</button>
-                        </div>
-                      </div>
-                    ))}
-                    {routines.map((routine, idx) => (
-                      <div key={`r-${idx}`} className="card">
-                        <div className="card-header">
-                          <h3 className="card-title">{routine.name}</h3>
-                          <span className="badge external">{routine.status}</span>
-                        </div>
-                        <p className="card-desc">Time: {routine.time}</p>
-                        <div className="card-actions">
-                          <button className="btn btn-secondary">Assign Schedule</button>
-                          <button className="btn btn-primary" onClick={() => runRoutine(routine.id)}>Run Now</button>
-                        </div>
-                      </div>
-                    ))}
-                  </>
-                )}
+{activeTab === "agentic_ops" && (
+            <AgenticOpsTab 
+              isRecording={isRecording} 
+              toggleRecording={toggleRecording} 
+              tasks={tasks} 
+              fetchTasks={fetchTasks} 
+              cancelTask={cancelTask} 
+              routines={routines} 
+              runRoutine={runRoutine} 
+            />
+          )}
               </div>
             </div>
           )}

@@ -1,0 +1,8 @@
+{
+  "name": "observability_pipeline",
+  "best_fit_module": "src/enterprise_monitoring.rs",
+  "supporting_modules": ["src/phase3_performance_benchmarks.rs"],
+  "reason": "Use here when a SAB adds metrics, tracing, alerting, or performance feedback loops. This is the observability surface for closed-loop tuning.",
+  "artifacts": ["prometheus.wasm", "opentelemetry.wasm"],
+  "registry_patterns": ["monitoring_agent"]
+}

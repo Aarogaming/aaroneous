@@ -1,0 +1,8 @@
+{
+  "name": "Raid Utility Tools",
+  "description": "Raid utility tools (external). Opens folder.",
+  "entryPoint": "run.bat",
+  "arguments": "",
+  "requiredResolution": "",
+  "requiredTemplates": []
+}

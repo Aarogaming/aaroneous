@@ -1,124 +1,23 @@
-[package]
-name = "a_run"
-version = "0.1.0"
-edition = "2024"
-
-[features]
-default = []
-# Enable Iroh-based P2P networking for Omnipresent specialist
-# Brings in heavy dependencies (QUIC, relay, DNS), so it's opt-in
-p2p-iroh = ["dep:iroh", "dep:n0-future"]
-# Enable BLE biometric polling for Symbiotic specialist
-biometric-ble = ["dep:btleplug", "dep:futures"]
-# Enable OpenXR for Phygital specialist (requires OpenXR runtime installed)
-ar-openxr = ["dep:openxr"]
-# Convenience: enable all real integrations
-real-integrations = ["p2p-iroh", "biometric-ble", "ar-openxr"]
-# Enable real NATS messaging via async-nats (requires NATS server running)
-nats-async = ["dep:async-nats"]
-# Enable RocksDB-backed DNA Bank (replaces in-memory BTreeMap with disk storage)
-# See: https://github.com/rust-rocksdb/rust-rocksdb
-rocksdb-dna = ["dep:rocksdb"]
-# Enable real GPU utilization metrics via NVML (NVIDIA) or WMI (AMD/Intel on Windows)
-gpu-metrics = ["dep:nvml-wrapper"]
-# Enable real GGUF inference via llama-gguf (pure Rust, no C deps).
-# Without this feature, GGUFProvider returns structured mock responses.
-# The llama-gguf crate handles .gguf file loading, tokenization, and inference.
-llama-gguf = ["dep:llama-gguf"]
-# Convenience alias for llama-gguf — easier to remember
-gguf-inference = ["llama-gguf"]
-
-[dependencies]
-anyhow = "1.0.102"
-chrono = { version = "0.4", features = ["serde"] }
-clap = { version = "4.5", features = ["derive", "cargo"] }
-crossterm = { version = "0.28", features = ["events"] }
-libloading = "0.9.0"
-log = "0.4"
-nats = "0.26.0"
-notify = "6.1"
-parking_lot = "0.12"
-ratatui = { version = "0.27", features = ["serde"] }
-rusqlite = { version = "0.32", features = ["bundled", "chrono"] }
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0.149"
-shared_memory = "0.12.4"
-strum = { version = "0.26", features = ["derive"] }
-strum_macros = "0.26"
-tokio = { version = "1.52.1", features = ["rt", "time", "full", "sync", "tracing"] }
-axum = "0.7"
-tower-http = { version = "0.5", features = ["cors"] }
-tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter", "json", "fmt"] }
-uuid = { version = "1.0", features = ["v4", "serde"] }
-validator = { version = "0.18", features = ["derive"] }
-wasmtime = "44.0.0"
-windows-service = "0.8.0"
-bytes = "1.5"
-bincode = "1.3"
-
-# Phase 2: LLM Integration (GGUF-based with llama.cpp)
-async-trait = "0.1"
-governor = "0.10"
-thiserror = "2.0"
-futures-core = "0.3"
-futures-util = "0.3"
-memmap2 = "0.9"
-# sysinfo: cross-platform system metrics (CPU, memory) for real resource readings
-sysinfo = "0.30"
-moka = { version = "0.12", features = ["future"] }
-regex = "1.10"
-which = "5.0"
-rand = "0.8"
-# reqwest: HTTP client for HuggingFace model downloads and external API calls
-reqwest = { version = "0.12", default-features = false, features = ["json", "stream", "rustls-tls"] }
-# tokio-util: ReaderStream for streaming GGUF export over HTTP
-tokio-util = { version = "0.7", features = ["io"] }
-# zstd: fast streaming compression for .sovereign package bundles
-zstd = "0.13"
-# async-stream: for OpenAI streaming SSE response generation
-async-stream = "0.3"
-# nvml-wrapper: NVIDIA GPU metrics (VRAM usage, utilization) via NVML
-# Only available on systems with NVIDIA drivers; gracefully skips if absent
-nvml-wrapper = { version = "0.10", optional = true }
-# wmi: Windows Management Instrumentation — AMD/Intel GPU fallback on Windows
-wmi = { version = "0.14", optional = true }
-# tar: create/extract .tar archives for sovereign package bundles
-tar = "0.4"
-
-# Phase 3: Real external SDK integrations (all optional behind feature flags)
-# Iroh: P2P QUIC connections for Omnipresent multi-device sync
-iroh = { version = "0.98", optional = true }
-n0-future = { version = "0.3", optional = true }
-# btleplug: Cross-platform BLE for Symbiotic biometric polling
-# 0.12 supports Windows 10+, macOS, Linux (BlueZ); Android planned
-btleplug = { version = "0.12", optional = true }
-# futures: stream handling for BLE notifications
-futures = { version = "0.3", optional = true }
-# openxr: AR/VR runtime bindings for Phygital spatial rendering
-# Uses default features ("loaded" + "libloading") so the OpenXR loader is
-# loaded at runtime via libloading. No `openxr.lib` linking required at
-# build time. The runtime is queried via the standard OpenXR loader on
-# the system, returning errors gracefully if no runtime is installed.
-openxr = { version = "0.21", optional = true }
-# async-nats: official async NATS client for real pub/sub messaging
-async-nats = { version = "0.47", optional = true }
-# RocksDB for DNA Bank disk persistence
-rocksdb = { version = "0.24", optional = true }
-# llama-gguf: pure Rust GGUF inference engine (no C dependencies, no bindgen)
-# Minimal feature set: just CPU inference without the server/CLI/huggingface overhead
-llama-gguf = { version = "0.14", optional = true, default-features = false, features = ["cpu"] }
-semver = "1.0.28"
-
-# Phase 4: Chimera Eye (Bevy Overlay)
-bevy = { version = "0.14" }
-rdev = "0.5.3"
-enigo = "0.2.1"
-
-[dev-dependencies]
-# tower: in-process axum router testing via ServiceExt::oneshot.
-tower = { version = "0.5", features = ["util"] }
-# http-body-util: helpers for collecting axum response bodies in tests
-http-body-util = "0.1"
-# tempfile: temporary file/dir creation for forge tests
-tempfile = "3"
+[workspace]
+members = [
+    "core/hypervisor",
+    "core/nervous_system",
+    "sdk/rust",
+    "components/intelligence",
+    "components/storage",
+    "components/sabs",
+    "components/skills",
+    "components/genetics",
+    "components/digestion",
+    "components/biology",
+    "components/agents",
+    "components/constellation",
+    "components/control",
+    "components/hive",
+    "components/compute",
+    "components/scientific_analyzer",
+]
+exclude = [
+    "extensions/wasm/test_enzyme"
+]
+resolver = "2"

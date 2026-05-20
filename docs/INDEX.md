@@ -100,6 +100,7 @@ System analysis, status reports, and roadmaps.
 - **Deploy to production** → [Self-Hosting Guide](guides/SELF_HOSTING_GUIDE.md) + [Federation Deployment](operations/FEDERATION_DEPLOYMENT_CHECKLIST.md)
 - **Understand the architecture** → [MCP Service Design](architecture/MCP_SERVICE_DESIGN.md) + [Ecosystem Overview](architecture/ECOSYSTEM_OVERVIEW.md)
 - **Troubleshoot issues** → [Operational Runbook](operations/OPERATIONAL_RUNBOOK.md)
+- **Refresh SAB mappings** → `aaroneous status sab-matrix --refresh` + [Operational Runbook](operations/OPERATIONAL_RUNBOOK.md)
 - **Learn about skills** → [Skill Evolution](guides/SKILL_EVOLUTION_GUIDE.md) + [Skill Fusion](guides/SKILL_FUSION_GUIDE.md)
 - **Understand genetics** → [Specialist Genetics](guides/SPECIALIST_GENETICS_GUIDE.md) + [Genetic Harvesting](guides/GENETIC_HARVESTING_ACTIONPLAN.md)
 - **Check system health** → [System Analysis Report](reports/SYSTEM_ANALYSIS_REPORT.md)

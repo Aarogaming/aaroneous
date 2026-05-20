@@ -1,0 +1,8 @@
+{
+  "name": "Crowns Trivia Bot",
+  "description": "Launch FreekiGames Crowns bot (hikarihacks/FreekiGames-Trivia-Bot). Opens repo page if not installed.",
+  "entryPoint": "run.bat",
+  "arguments": "",
+  "requiredResolution": "",
+  "requiredTemplates": []
+}

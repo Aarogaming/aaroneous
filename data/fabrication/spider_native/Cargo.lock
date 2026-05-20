@@ -261,9 +261,9 @@ dependencies = [
 
 [[package]]
 name = "cc"
-version = "1.2.61"
+version = "1.2.62"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d16d90359e986641506914ba71350897565610e87ce0ad9e6f28569db3dd5c6d"
+checksum = "a1dce859f0832a7d088c4f1119888ab94ef4b5d6795d1ce05afb7fe159d79f98"
 dependencies = [
  "find-msvc-tools",
  "jobserver",
@@ -975,9 +975,9 @@ dependencies = [
 
 [[package]]
 name = "hashbrown"
-version = "0.17.0"
+version = "0.17.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4f467dd6dccf739c208452f8014c75c18bb8301b050ad1cfb27153803edb0f51"
+checksum = "ed5909b6e89a2db4456e54cd5f673791d7eca6732202bbf2a9cc504fe2f9b84a"
 dependencies = [
  "allocator-api2",
  "equivalent",
@@ -1331,7 +1331,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d466e9454f08e4a911e14806c24e16fba1b4c121d1ea474396f396069cf949d9"
 dependencies = [
  "equivalent",
- "hashbrown 0.17.0",
+ "hashbrown 0.17.1",
  "serde",
  "serde_core",
 ]
@@ -1546,7 +1546,7 @@ dependencies = [
  "cssparser",
  "encoding_rs",
  "foldhash 0.2.0",
- "hashbrown 0.17.0",
+ "hashbrown 0.17.1",
  "memchr",
  "mime",
  "precomputed-hash",
@@ -2081,9 +2081,9 @@ checksum = "925383efa346730478fb4838dbe9137d2a47675ad789c546d150a6e1dd4ab31c"
 
 [[package]]
 name = "prefix-trie"
-version = "0.8.3"
+version = "0.8.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "90f561214012d3fc240a1f9c817cc4d57f5310910d066069c1b093f766bb5966"
+checksum = "4cf6e3177f0684016a5c209b00882e15f8bdd3f3bb48f0491df10cd102d0c6e7"
 dependencies = [
  "either",
  "ipnet",
@@ -2127,9 +2127,9 @@ dependencies = [
 
 [[package]]
 name = "quick-xml"
-version = "0.39.3"
+version = "0.39.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "721da970c312655cde9b4ffe0547f20a8494866a4af5ff51f18b7c633d0c870b"
+checksum = "cdcc8dd4e2f670d309a5f0e83fe36dfdc05af317008fea29144da1a2ac858e5e"
 dependencies = [
  "memchr",
  "serde",
@@ -2854,9 +2854,9 @@ dependencies = [
 
 [[package]]
 name = "spider"
-version = "2.51.159"
+version = "2.51.181"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f8a1d3078ba96929b79217511ac42e2febc1b8895761c6e2730ece23ef6a9ec6"
+checksum = "3ed9e93388ecfdb1cab3a51192af9814a1540e86fcb1b5bbedc3c480f0a0f9ac"
 dependencies = [
  "ahash",
  "aho-corasick",
@@ -2868,7 +2868,7 @@ dependencies = [
  "dashmap",
  "fastrand",
  "h2",
- "hashbrown 0.17.0",
+ "hashbrown 0.17.1",
  "hickory-resolver",
  "httpdate",
  "io-uring",
@@ -2916,9 +2916,9 @@ dependencies = [
 
 [[package]]
 name = "spider_agent_types"
-version = "2.51.159"
+version = "2.51.181"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "05a64cd303b8673361741c763f6d738e97b8ac9db7aea85fb9c07074b9071074"
+checksum = "8ea03d16c63bcdb9c40124e88fabf0ef3ddba284a6b7f7ad400a7be6867ab0ac"
 dependencies = [
  "aho-corasick",
  "llm_models_spider",
@@ -3395,9 +3395,9 @@ checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
 
 [[package]]
 name = "tokio"
-version = "1.52.2"
+version = "1.52.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "110a78583f19d5cdb2c5ccf321d1290344e71313c6c37d43520d386027d18386"
+checksum = "8fc7f01b389ac15039e4dc9531aa973a135d7a4135281b12d7c1bc79fd57fffe"
 dependencies = [
  "bytes",
  "libc",
@@ -3590,9 +3590,9 @@ checksum = "40ce102ab67701b8526c123c1bab5cbe42d7040ccfd0f64af1a385808d2f43de"
 
 [[package]]
 name = "ua_generator"
-version = "0.5.60"
+version = "0.5.61"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c8e450fb92905fa516d47380c2664b7f896733a3bd3bdd2e9dd0df552f0aae54"
+checksum = "adac3668b00b25e1779b9cd53aa70cfd61a5b0b208a080427f2b8f5a2433ae48"
 dependencies = [
  "dotenvy",
  "fastrand",
@@ -4457,9 +4457,9 @@ dependencies = [
 
 [[package]]
 name = "zerofrom"
-version = "0.1.7"
+version = "0.1.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "69faa1f2a1ea75661980b013019ed6687ed0e83d069bc1114e2cc74c6c04c4df"
+checksum = "0ec05a11813ea801ff6d75110ad09cd0824ddba17dfe17128ea0d5f68e6c5272"
 dependencies = [
  "zerofrom-derive",
 ]

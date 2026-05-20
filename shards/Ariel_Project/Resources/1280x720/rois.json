@@ -1,0 +1,7 @@
+[
+  { "name": "health", "x": 0.02, "y": 0.08, "width": 0.26, "height": 0.08 },
+  { "name": "mana",   "x": 0.02, "y": 0.16, "width": 0.26, "height": 0.08 },
+  { "name": "energy", "x": 0.02, "y": 0.24, "width": 0.26, "height": 0.08 },
+  { "name": "gold",   "x": 0.02, "y": 0.32, "width": 0.26, "height": 0.08 },
+  { "name": "potions","x": 0.02, "y": 0.40, "width": 0.26, "height": 0.08 }
+]

@@ -1,0 +1,8 @@
+{
+  "name": "WizGallery",
+  "description": "WizGallery dev (external). Opens folder.",
+  "entryPoint": "run.bat",
+  "arguments": "",
+  "requiredResolution": "",
+  "requiredTemplates": []
+}

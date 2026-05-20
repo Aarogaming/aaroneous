@@ -1,0 +1,8 @@
+{
+  "name": "Selenium Crowns Bot",
+  "description": "Launch crowns trivia bot with Selenium + 2Captcha (ThatmewH/Wizard101Bot-Selenium-Captcha). Opens repo page if not installed.",
+  "entryPoint": "run.bat",
+  "arguments": "",
+  "requiredResolution": "",
+  "requiredTemplates": []
+}

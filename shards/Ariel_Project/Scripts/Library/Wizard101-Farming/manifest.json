@@ -1,0 +1,8 @@
+{
+  "name": "Wizard101 Farming",
+  "description": "Community farming scripts (Wizard101-Farming-main). Opens repo folder/README.",
+  "entryPoint": "run.bat",
+  "arguments": "",
+  "requiredResolution": "",
+  "requiredTemplates": []
+}

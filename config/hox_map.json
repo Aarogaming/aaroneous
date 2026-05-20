@@ -1,0 +1,42 @@
+{
+  "schema_version": "3.0",
+  "enzymes": {
+    "odin": {
+      "category": "strategic_planning",
+      "expression_level": 0.95,
+      "permissions": {
+        "max_sovereignty_tier": 2,
+        "allow_network": true,
+        "whitelisted_domains": [
+          "api.openai.com",
+          "api.anthropic.com"
+        ],
+        "requires_hitl": true
+      }
+    },
+    "merlin": {
+      "category": "pattern_synthesis",
+      "expression_level": 0.92,
+      "permissions": {
+        "max_sovereignty_tier": 1,
+        "allow_network": true,
+        "whitelisted_domains": [
+          "api.github.com",
+          "arxiv.org",
+          "api.firecrawl.dev"
+        ],
+        "requires_hitl": true
+      }
+    },
+    "hephaestus": {
+      "category": "execution",
+      "expression_level": 0.99,
+      "permissions": {
+        "max_sovereignty_tier": 0,
+        "allow_network": false,
+        "whitelisted_domains": [],
+        "requires_hitl": false
+      }
+    }
+  }
+}

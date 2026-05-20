@@ -1,0 +1,8 @@
+{
+  "name": "Damage Calculator",
+  "description": "Wizard101 damage calculator (external). Opens folder.",
+  "entryPoint": "run.bat",
+  "arguments": "",
+  "requiredResolution": "",
+  "requiredTemplates": []
+}

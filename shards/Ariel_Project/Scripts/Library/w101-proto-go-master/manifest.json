@@ -1,0 +1,8 @@
+{
+  "name": "w101 proto go",
+  "description": "w101 proto go project (external). Opens folder.",
+  "entryPoint": "run.bat",
+  "arguments": "",
+  "requiredResolution": "",
+  "requiredTemplates": []
+}

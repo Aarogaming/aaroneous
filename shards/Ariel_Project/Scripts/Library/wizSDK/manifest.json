@@ -1,0 +1,8 @@
+{
+  "name": "wizSDK",
+  "description": "Python SDK for Wizard101 bots (wizSDK-master). Opens repo folder/README.",
+  "entryPoint": "run.bat",
+  "arguments": "",
+  "requiredResolution": "",
+  "requiredTemplates": []
+}

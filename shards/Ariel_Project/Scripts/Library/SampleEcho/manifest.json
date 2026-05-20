@@ -1,0 +1,8 @@
+{
+  "name": "Sample Echo",
+  "description": "Tiny sample script that writes a log line, waits, and exits.",
+  "entryPoint": "run.bat",
+  "arguments": "",
+  "requiredResolution": "1280x720",
+  "requiredTemplates": []
+}

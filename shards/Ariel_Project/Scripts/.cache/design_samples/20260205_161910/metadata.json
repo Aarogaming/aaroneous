@@ -1,0 +1,14 @@
+[
+  {
+    "FormName": "Main",
+    "Title": "W101Trainer",
+    "Bounds": {
+      "X": -32000,
+      "Y": -32000,
+      "Width": 160,
+      "Height": 28
+    },
+    "Theme": "Wizard101",
+    "Screenshot": "Main_W101Trainer.png"
+  }
+]

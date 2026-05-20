@@ -1,0 +1,258 @@
+{
+  "schema_version": "1.2",
+  "categories": ["Core_SABs", "Utility_Plugins"],
+  "description": "Agent orchestration patterns from git sources - plug and play for Aaroneous",
+  "patterns": {
+    "crewai": {
+      "plugin_type": "Orchestration",
+      "name": "CrewAI Pattern",
+      "description": "Multi-agent collaboration with role-based crews, sequential task execution, and hierarchical delegation",
+      "repo": "https://github.com/crewAIInc/crewAI",
+      "branch": "main",
+      "subpath": "crewAI",
+      "language": "python",
+      "versions": {
+        "v0.80.0": {
+          "url": "https://github.com/crewAIInc/crewAI/archive/refs/tags/v0.80.0.tar.gz",
+          "hash": "sha256:placeholder"
+        }
+      },
+      "aaroneous_mapping": {
+        "crew": "Federation",
+        "agent": "Specialist",
+        "task": "Intent",
+        "process": "ConsensusEngine"
+      },
+      "capabilities": ["sequential_execution", "parallel_execution", "hierarchical_delegation", "role_assignment"],
+      "contexts": ["collaboration", "multi-agent", "general-purpose"],
+      "priority": 10
+    },
+    "autogen": {
+      "plugin_type": "Orchestration",
+      "name": "AutoGen Pattern",
+      "description": "Microsoft's multi-agent conversation framework with code execution, tool use, and customizable agents",
+      "repo": "https://github.com/microsoft/autogen",
+      "branch": "main",
+      "subpath": "autogen",
+      "language": "python",
+      "versions": {
+        "v0.2.0": {
+          "url": "https://github.com/microsoft/autogen/archive/refs/tags/v0.2.0.tar.gz",
+          "hash": "sha256:placeholder"
+        }
+      },
+      "aaroneous_mapping": {
+        "conversable_agent": "Specialist",
+        "group_chat": "Federation",
+        "assistant": "Sovereign"
+      },
+      "capabilities": ["conversation_flow", "code_execution", "tool_integration", "group_chat"],
+      "contexts": ["chat", "tool-use", "code-execution"],
+      "priority": 9
+    },
+    "blackboard": {
+      "plugin_type": "Orchestration",
+      "name": "Blackboard Pattern",
+      "description": "Shared knowledge blackboard where agents read/write to common state, supporting multiple problem solvers",
+      "repo": "https://github.com/ragent-lab/blackboard-pattern",
+      "branch": "main",
+      "language": "python",
+      "versions": {
+        "latest": {
+          "url": "https://github.com/ragent-lab/blackboard-pattern/archive/refs/heads/main.tar.gz",
+          "hash": "sha256:placeholder"
+        }
+      },
+      "aaroneous_mapping": {
+        "blackboard": "SharedMemory",
+        "knowledge_source": "Specialist",
+        "controller": "Sentinel"
+      },
+      "capabilities": ["shared_state", "knowledge_sources", "hypotheses", "trigger_conditions"],
+      "contexts": ["shared-state", "reasoning", "exploration"],
+      "priority": 8
+    },
+    "actor_model": {
+      "plugin_type": "Orchestration",
+      "name": "Actor Model Pattern",
+      "description": "Message-passing concurrency pattern where each actor has private state and responds to messages",
+      "repo": "https://github.com/ractor-rs/ractor",
+      "branch": "main",
+      "language": "rust",
+      "versions": {
+        "v0.9.0": {
+          "url": "https://github.com/ractor-rs/ractor/archive/refs/tags/v0.9.0.tar.gz",
+          "hash": "sha256:placeholder"
+        }
+      },
+      "aaroneous_mapping": {
+        "actor": "Specialist",
+        "mailbox": "NATS",
+        "supervisor": "Sentinel"
+      },
+      "capabilities": ["message_passing", "isolated_state", "supervision", "location_transparency"],
+      "contexts": ["concurrency", "distributed", "message-passing"],
+      "priority": 7
+    },
+    "plan_execute": {
+      "plugin_type": "Orchestration",
+      "name": "Plan-and-Execute Pattern",
+      "description": "Planner generates action sequences, executor runs them with reflection and replanning",
+      "repo": "https://github.com/langchain-ai/langgraph",
+      "branch": "main",
+      "subpath": "libs/langgraph",
+      "language": "python",
+      "versions": {
+        "v0.1.0": {
+          "url": "https://github.com/langchain-ai/langgraph/archive/refs/tags/v0.1.0.tar.gz",
+          "hash": "sha256:placeholder"
+        }
+      },
+      "aaroneous_mapping": {
+        "planner": "Odin",
+        "executor": "Specialist",
+        "replan_trigger": "Sentinel"
+      },
+      "capabilities": ["planning", "execution", "reflection", "replanning"],
+      "dependencies": ["react_agent"],
+      "contexts": ["planning", "iterative-workflows", "task-execution"],
+      "priority": 9
+    },
+    "react_agent": {
+      "plugin_type": "Orchestration",
+      "name": "ReAct Pattern",
+      "description": "Reasoning + Acting pattern where agents reason about observations and execute actions iteratively",
+      "repo": "https://github.com/轨迹-ai/agent-protocol",
+      "branch": "main",
+      "language": "python",
+      "versions": {
+        "latest": {
+          "url": "https://github.com/轨迹-ai/agent-protocol/archive/refs/heads/main.tar.gz",
+          "hash": "sha256:placeholder"
+        }
+      },
+      "aaroneous_mapping": {
+        "reasoning_loop": "TaskAnalysisEngine",
+        "action": "SpecialistExecution"
+      },
+      "capabilities": ["reasoning", "acting", "observation", "iteration"],
+      "contexts": ["reasoning", "iteration", "decision-making"],
+      "priority": 8
+    },
+    "tool_call": {
+      "plugin_type": "FileManagement",
+      "name": "Tool Call Pattern",
+      "description": "Agents call functions/tools with structured schemas, supporting parallel tool execution",
+      "repo": "https://github.com/anyscale/agent-model",
+      "branch": "main",
+      "language": "python",
+      "versions": {
+        "latest": {
+          "url": "https://github.com/anyscale/agent-model/archive/refs/heads/main.tar.gz",
+          "hash": "sha256:placeholder"
+        }
+      },
+      "aaroneous_mapping": {
+        "tool": "Enzyme",
+        "tool_registry": "CapabilityRegistry",
+        "tool_caller": "Specialist"
+      },
+      "capabilities": ["function_calling", "tool_schema", "parallel_tools", "result_aggregation"],
+      "contexts": ["tooling", "file-management", "automation"],
+      "priority": 4
+    },
+    "hierarchy": {
+      "plugin_type": "Orchestration",
+      "name": "Hierarchical Pattern",
+      "description": "Manager agents decompose tasks and delegate to worker agents, with result aggregation",
+      "repo": "https://github.com/DeepMemory/hi-agent",
+      "branch": "main",
+      "language": "python",
+      "versions": {
+        "latest": {
+          "url": "https://github.com/DeepMemory/hi-agent/archive/refs/heads/main.tar.gz",
+          "hash": "sha256:placeholder"
+        }
+      },
+      "aaroneous_mapping": {
+        "manager": "Sentinel",
+        "worker": "Specialist",
+        "delegation": "IntentRouting"
+      },
+      "capabilities": ["task_decomposition", "delegation", "result_aggregation", "manager_oversight"],
+      "contexts": ["delegation", "oversight", "workflow-control"],
+      "priority": 8
+    },
+    "mesh": {
+      "plugin_type": "Orchestration",
+      "name": "Mesh/Peer-to-Peer Pattern",
+      "description": "Agents communicate directly in a mesh topology, no central coordinator",
+      "repo": "https://github.com/p2p-org/p2p-agent",
+      "branch": "main",
+      "language": "rust",
+      "versions": {
+        "latest": {
+          "url": "https://github.com/p2p-org/p2p-agent/archive/refs/heads/main.tar.gz",
+          "hash": "sha256:placeholder"
+        }
+      },
+      "aaroneous_mapping": {
+        "peer": "Specialist",
+        "discovery": "Omnipresent",
+        "consensus": "Raft"
+      },
+      "capabilities": ["direct_messaging", "peer_discovery", "gossip_protocol", "eventual_consistency"],
+      "contexts": ["distributed", "peer-to-peer", "coordination"],
+      "priority": 7
+    },
+    "state_machine": {
+      "plugin_type": "WorkflowManagement",
+      "name": "State Machine Pattern",
+      "description": "Agents transition through defined states based on events, supporting complex workflow logic",
+      "repo": "https://github.com/fsm-org/fsm-agent",
+      "branch": "main",
+      "language": "typescript",
+      "versions": {
+        "latest": {
+          "url": "https://github.com/fsm-org/fsm-agent/archive/refs/heads/main.tar.gz",
+          "hash": "sha256:placeholder"
+        }
+      },
+      "aaroneous_mapping": {
+        "state": "SpecialistState",
+        "transition": "IntentFlow",
+        "handler": "Specialist"
+      },
+      "capabilities": ["state_transitions", "event_handling", "workflow_automation", "finite_states"],
+      "contexts": ["workflow", "automation", "stateful"],
+      "priority": 5
+    },
+    "monitoring_agent": {
+      "plugin_type": "Monitoring",
+      "name": "Monitoring Agent Pattern",
+      "description": "Monitors system events, tracks performance metrics, and provides analytics for optimization.",
+      "repo": "https://github.com/performance/monitoring-agent",
+      "branch": "main",
+      "language": "rust",
+      "versions": {
+        "latest": {
+          "url": "https://github.com/performance/monitoring-agent/archive/refs/heads/main.tar.gz",
+          "hash": "sha256:placeholder"
+        }
+      },
+      "aaroneous_mapping": {
+        "monitor": "Sentinel",
+        "metrics_collector": "Specialist"
+      },
+      "capabilities": ["performance_tracking", "analytics", "alerts"],
+      "dependencies": ["hierarchy", "plan_execute"],
+      "contexts": ["observability", "performance", "alerts"],
+      "priority": 3
+    }
+  },
+  "metadata": {
+    "last_updated": "2026-05-10",
+    "maintainer": "Aaroneous System",
+    "note": "Patterns are mapped to Aaroneous specialists and can be combined"
+  }
+}

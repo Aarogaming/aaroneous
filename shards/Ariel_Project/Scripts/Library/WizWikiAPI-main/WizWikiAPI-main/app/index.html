@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en-US">
+
+<head>
+  <link rel="favicon" type="image/png" href="https://media.codeweavers.com/pub/crossover/website/htmlimages/Wizard101-Icon.png" />
+  <link rel="stylesheet" href="/main.css">
+  <title>Wizard101 Wiki API</title>
+</head>
+
+<body>
+  <div class="top" title="Header">
+    <a href="https://wizard101.com">
+      <img src="https://edgecast.wizard101.com/image/free/Wizard/Landing-Pages/Networks/ExplorePlay_logo.png?v=1" alt="Wizard101 Logo; Image lost" height="225" width="475" title="Wizard101 Logo" />
+    </a>
+    <h1>The Wizard101 Wiki API (Unofficial)</h1>
+    <h3>Made by
+      <a href="https://github.com/R-unic/">Runic</a>,
+      and open-sourced for public use
+      <a href="https://github.com/R-unic/WizWikiAPI">here</a>.
+    </h3>
+    <h3>All information retrieved from
+      <a href="https://www.wizard101central.com/wiki/Wizard101_Wiki">the unofficial Wizard101 Wiki</a>.
+    </h3>
+  </div>
+  <div class="links" title="Linked Buttons">
+    <hr>
+    <h4>
+      <a href="#endpoints">Endpoints</a>
+      •
+      <a href="/docs/index.html">Docs</a>
+    </h4>
+    <hr>
+  </div>
+  <div class="endpoint-list" title="Endpoints">
+    <h2 id="endpoints">
+      <b>
+        Endpoints
+      </b>
+    </h2>
+    <div style="margin-inline:30px;margin-block:-40px;" class="endpoint-base-url-info" title="Base URL">
+      <p>The following is a list of endpoints that are all prefixed with this base URL: </p>
+      <code id="page-url" class="url-block"></code>
+      <p>All of these are GET unless otherwise specified.</p>
+    </div>
+    <br>
+    <br>
+    <ul>
+      <li class="big-bullet">
+        <h3>
+          <code>/worlds</code>
+        </h3>
+        <ul>
+          <li>
+            <i>Returns the entire dataset of worlds</i>
+          </li>
+        </ul>
+      </li>
+      <li class="big-bullet">
+        <h3>
+          <code>/worlds/:worldName</code>
+        </h3>
+        <ul>
+          <li>
+            <i>Returns information about a specific world</i>
+          </li>
+        </ul>
+      </li>
+      <li class="big-bullet">
+        <h3>
+          <code>/creatures/:creatureName</code>
+        </h3>
+        <ul>
+          <li>
+            <i>Returns information about a creature: health, type, classification, etc.</i>
+          </li>
+        </ul>
+      </li>
+      <li class="big-bullet">
+        <h3>
+          <code>/npcs/:npcName</code>
+        </h3>
+        <ul>
+          <li>
+            <i>Returns information about an NPC: locations, quests it gives, etc.</i>
+          </li>
+        </ul>
+      </li>
+      <li class="big-bullet">
+        <h3>
+          <code>/spells/:spellName</code>
+        </h3>
+        <ul>
+          <li>
+            <i>Returns information about a spell.</i>
+          </li>
+          <li>
+            <i>
+              This does not apply to item cards or treasure cards, they are a separate category.
+            </i>
+          </li>
+        </ul>
+      </li>
+      <li class="big-bullet">
+        <h3>
+          <code>/itemCards/:itemCardName</code>
+        </h3>
+        <ul>
+          <li>
+            <i>Returns information about an item card and its variations.</i>
+          </li>
+        </ul>
+      </li>
+      <li class="big-bullet">
+        <h3>
+          <code>/quests/:questName</code>
+        </h3>
+        <ul>
+          <li>
+            <i>Returns information about a quest.</i>
+          </li>
+        </ul>
+      </li>
+      <li class="big-bullet">
+        <h3>
+          <code>/mounts/:mountName</code>
+        </h3>
+        <ul>
+          <li>
+            <i>Returns information about a mount: speed, prices, temporary versions, etc.</i>
+          </li>
+        </ul>
+      </li>
+      <li class="big-bullet">
+        <h3>
+          <code>/jewels/:jewelName</code>
+        </h3>
+        <ul>
+          <li>
+            <i>Returns information about a jewel.</i>
+          </li>
+        </ul>
+      </li>
+      <li class="big-bullet">
+        <h3>
+          <code>/petAbilities/:abilityName</code>
+        </h3>
+        <ul>
+          <li>
+            <i>Returns information about a pet talent.</i>
+          </li>
+        </ul>
+      </li>
+      <li class="big-bullet">
+        <h3>
+          <code>/fish/:fishName</code>
+        </h3>
+        <ul>
+          <li>
+            <i>Returns information about a fish.</i>
+          </li>
+        </ul>
+      </li>
+    </ul>
+    <hr style="margin-top:50px;">
+  </div>
+  <script>
+    document.getElementById("page-url").innerHTML = window.location.href;
+  </script>
+</body>
+
+</html>

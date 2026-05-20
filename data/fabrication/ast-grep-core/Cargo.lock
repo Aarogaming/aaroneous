@@ -19,9 +19,9 @@ checksum = "7f202df86484c868dbad7eaa557ef785d5c66295e41b460ef922eca0723b842c"
 
 [[package]]
 name = "ast-grep-core"
-version = "0.42.1"
+version = "0.42.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0e4ae49b5c42878311768f4cdd576ef470c6e45c3105d558af928fd04ac8c588"
+checksum = "c6b7a691d0822a503dfababc78985d2f23cad867f27f9ed2ebe078a867abca2b"
 dependencies = [
  "bit-set",
  "regex",
@@ -59,9 +59,9 @@ dependencies = [
 
 [[package]]
 name = "cc"
-version = "1.2.61"
+version = "1.2.62"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d16d90359e986641506914ba71350897565610e87ce0ad9e6f28569db3dd5c6d"
+checksum = "a1dce859f0832a7d088c4f1119888ab94ef4b5d6795d1ce05afb7fe159d79f98"
 dependencies = [
  "find-msvc-tools",
  "shlex",

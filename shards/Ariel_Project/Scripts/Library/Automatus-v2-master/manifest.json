@@ -1,0 +1,8 @@
+{
+  "name": "Automatus v2",
+  "description": "Automatus v2 (Drayux) bridged to trainer snapshots/commands.",
+  "entryPoint": "run.bat",
+  "arguments": "",
+  "requiredResolution": "",
+  "requiredTemplates": []
+}

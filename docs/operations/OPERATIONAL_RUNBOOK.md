@@ -39,6 +39,23 @@ aaroneous start --dashboard tui
 # - Confirm all 6 specialists present
 ```
 
+### SAB Matrix Refresh
+
+SAB discovery is registry-backed and cached at `registry/sab_matrix.generated.json`.
+
+```bash
+# Rebuild the matrix after adding or updating sab_*.json manifests
+cargo test sab_matrix -- --nocapture
+```
+
+If the generated cache is older than the manifests, the app rebuilds it automatically at startup.
+
+You can also force a rebuild manually:
+
+```bash
+aaroneous status sab-matrix --refresh
+```
+
 ### Evening Shutdown
 
 ```bash

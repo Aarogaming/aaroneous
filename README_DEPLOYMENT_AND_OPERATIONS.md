@@ -1,3 +1,4 @@
+retry
 # Aaroneous Federation: Deployment & Operations Guide
 
 **Complete reference guide for deploying, monitoring, and operating Aaroneous Federation in production.**
