@@ -61,12 +61,12 @@ Distributed consensus for federation:
 ---
 
 ### Era 3: Agentic World (Next Frontier 🌟)
-**Phase 6C: O3DE Integration (0% complete, 0 tests)**
+**Phase 6C: MaelstromUI Integration (0% complete, 0 tests)**
 
 Self-assembling, living virtual ecosystem:
 
 #### Phase 6C.1: Maelstrom (8-10 hours, 15-20 tests)
-Headless O3DE orchestration:
+Headless MaelstromUI orchestration:
 - Process management
 - Dynamic gem control
 - Asset pipeline automation
@@ -132,14 +132,14 @@ Autonomous capability development:
 ### Era 3: Living Ecosystem
 ```
 ┌──────────────────────────────────────────┐
-│   Aaroneous v3.0 (O3DE Integration)      │
+│   Aaroneous v3.0 (MaelstromUI Integration)      │
 ├──────────────────────────────────────────┤
 │  Raft Consensus (Multi-node)             │
 │  ├── Leader election                      │
 │  ├── Log replication                      │
 │  └── Atomic mutations                     │
 │                                           │
-│  O3DE Orchestration (Maelstrom)          │
+│  MaelstromUI Orchestration (Maelstrom)          │
 │  ├── Headless instance management        │
 │  ├── Gem development & compilation       │
 │  └── Asset pipeline automation           │
@@ -168,7 +168,7 @@ Autonomous capability development:
 - Self-healing intelligence
 - Autonomous capability development
 
-**2. O3DE (not Unity/Unreal)**
+**2. MaelstromUI (not Unity/Unreal)**
 - Fully open source (Apache 2.0)
 - No black box components
 - Headless rendering support
@@ -194,7 +194,7 @@ Autonomous capability development:
 ```
 1. PERCEIVE
    ↓
-   O3DE sends state → Aaroneous receives via Maelstrom
+   MaelstromUI sends state → Aaroneous receives via Maelstrom
    
 2. UNDERSTAND
    ↓
@@ -213,7 +213,7 @@ Autonomous capability development:
    
 5. ACT
    ↓
-   NPCs execute actions in O3DE world
+   NPCs execute actions in MaelstromUI world
    Maelstrom translates intentions to game events
    
 6. REFLECT
@@ -277,7 +277,7 @@ Autonomous capability development:
 - [ ] All nodes converge to same state
 
 ### Phase 6C.1 ⏳ (15-20 tests)
-- [ ] O3DE launches in headless mode
+- [ ] MaelstromUI launches in headless mode
 - [ ] Gems enable/disable dynamically
 - [ ] Assets import and register
 - [ ] Scripts inject and execute
@@ -306,13 +306,13 @@ Autonomous capability development:
 
 ### Computing
 - **CPU**: Multi-core (8+ cores) for parallel compilation
-- **Memory**: 16+ GB (O3DE + Aaroneous + vector DB)
-- **GPU**: Optional but recommended (O3DE rendering)
-- **Storage**: 50+ GB (O3DE assets, build cache)
+- **Memory**: 16+ GB (MaelstromUI + Aaroneous + vector DB)
+- **GPU**: Optional but recommended (MaelstromUI rendering)
+- **Storage**: 50+ GB (MaelstromUI assets, build cache)
 
 ### Development
 - **Rust toolchain** (latest stable + 2024 edition)
-- **O3DE SDK** (latest version)
+- **MaelstromUI SDK** (latest version)
 - **C++ compiler** (MSVC, GCC, or Clang)
 - **Vector DB** (e.g., Weaviate, Qdrant, Milvus)
 - **LLM client** (local or remote)
@@ -360,7 +360,7 @@ Autonomous capability development:
 ### Short-term (Next 2 sessions)
 - Complete Phase 6B (480+ tests)
 - Begin Phase 6C.1 (Maelstrom)
-- Have first O3DE headless launch
+- Have first MaelstromUI headless launch
 
 ### Medium-term (Next 4 sessions)
 - Complete Phase 6C.1-6C.2 (500 tests)
@@ -402,6 +402,7 @@ Aaroneous will be the first open-source system to prove that true agency—decis
 
 **Current Status**: 33-40% Complete  
 **Estimated Completion**: 75-90 hours total work  
-**Target Milestone**: Fully autonomous, living O3DE ecosystem by end of Phase 6C
+**Target Milestone**: Fully autonomous, living MaelstromUI ecosystem by end of Phase 6C
 
 **Let's build the future.** 🚀
+

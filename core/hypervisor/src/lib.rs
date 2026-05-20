@@ -59,11 +59,7 @@ pub use metadata_ingestor::{MetadataIngestor, MetadataIngestorConfig, MetadataEv
 pub mod action_executor;
 pub use action_executor::{ActionExecutor, ExecutableAction, ActionResult, ExecutionStats, FileOp};
 
-// Unified Orchestration Daemon
-pub mod unified_orchestration;
-pub use unified_orchestration::{UnifiedOrchestrationDaemon, UnifiedOrchestrationConfig, UnifiedDaemonState, UnifiedDaemonStatus};
-
-// Orchestration Daemon (legacy)
+// Orchestration Daemon
 pub mod orchestration_daemon;
 pub use orchestration_daemon::{OrchestrationDaemon, OrchestrationDaemonConfig, DaemonState, DaemonStatus};
 
@@ -109,10 +105,7 @@ pub use workspace::WorkspacePaths;
 pub mod enzyme_runner;
 pub mod synapse;
 pub mod hox_registry;
-pub mod hox_raft;
-pub mod autonomic_loop;
 pub mod splicing_engine;
-pub mod chaos_monkey;
 pub mod nlm_sentinel;
 pub mod hox_map_schema;
 pub mod research_enzyme;
@@ -133,12 +126,30 @@ pub mod curiosity_enzyme;
 pub mod lora_adapter_vault;
 pub mod chromosome_registry;
 pub mod epigenetic_orchestrator;
-pub mod hardened_env;pub mod cognitive_weighting;
+pub mod cognitive_weighting;
 pub mod hox_breeding_simulator;
 pub mod dopamine_system;
 pub mod diplomat_enzyme;
 pub mod genetic_recombination;
 pub mod simulation_testbed;
+
+// Federation: specialist hive, HTTP API, forge, consensus, multi-hive
+pub mod federation;
+pub use federation::{
+    Specialist, SpecialistId, SpecialistConfig, SpecialistRegistry,
+    Sentinel, SentinelConfig,
+    Proposal, ProposalId, ProposalStatus,
+    Visionary, Omnipresent, Symbiotic, Phygital, Archivist, GenericSpecialist,
+    Federation, FederationBuilder, FederationConfig,
+    DNABank, DNAEvent,
+    Forge, ForgeRecipe, CrystallizationResult,
+    HttpStatusServer,
+    Intent, IntentPriority,
+    Session, SessionManager,
+    QuantizationConfig, GPUAccelerationStrategy, BatchConfig,
+    HiveCluster, P2PNetwork, FederatedLearningEngine,
+    AuditLog, ComplianceMonitor, SecurityConfig, AccessControl,
+};
 
 #[cfg(test)]
 mod synaptic_test;

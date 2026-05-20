@@ -1546,14 +1546,14 @@ pub struct SynthesizedAgent {
 
 ---
 
-# STAGE 5: Glass Workshop (O3DE Manifestation)
+# STAGE 5: Glass Workshop (MaelstromUI Manifestation)
 
 **Dependency**: Requires Stages 4.1-4.3 complete  
 **Duration**: 20-30 hours  
 **Tests**: 20-30
 
 ```rust
-/// O3DE Gem: Visual manifestation of Ariel and Glass
+/// MaelstromUI Gem: Visual manifestation of Ariel and Glass
 pub struct GlassWorkshopGem {
     pub ariel_avatar: Arc<VRoidModel>,
     pub glass_lens: Arc<PrismaticLens>,
@@ -1561,7 +1561,7 @@ pub struct GlassWorkshopGem {
 }
 
 impl GlassWorkshopGem {
-    /// Render in O3DE (called by engine)
+    /// Render in MaelstromUI (called by engine)
     pub async fn render(&self) -> Result<()> {
         // Draw VRoid avatar
         // Draw prismatic lens
@@ -1758,7 +1758,7 @@ impl GlassWorkshopGem {
 - ✅ Synthesized agents hot-loadable
 
 ### By End of Glass Workshop
-- ✅ O3DE renders Ariel avatar + Glass lens
+- ✅ MaelstromUI renders Ariel avatar + Glass lens
 - ✅ Drag-drop file ingestion working
 - ✅ Animation state updates reactive
 
@@ -1778,8 +1778,9 @@ impl GlassWorkshopGem {
 | GGUF splicing fails | Validate weights with perplexity check |
 | Memory pressure | Aggressive quantization, SSD-only fallback |
 | Relic comm slow | Use mmap'd ringbuffer instead of IPC |
-| O3DE integration pain | Stub O3DE initially, use mock renderer |
+| MaelstromUI integration pain | Stub MaelstromUI initially, use mock renderer |
 
 ---
 
 **This is the path to Era 3. Let's execute it.**
+

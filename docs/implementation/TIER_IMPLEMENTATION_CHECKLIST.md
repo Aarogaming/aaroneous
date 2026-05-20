@@ -22,7 +22,7 @@ This document maps each tier to specific code locations and provides step-by-ste
 
 ### Architecture Overview
 ```
-Event Log → Glass Replay Engine → Headless O3DE → Ariel Student Engram → Weight Deltas → DNA Bank
+Event Log → Glass Replay Engine → Headless MaelstromUI → Ariel Student Engram → Weight Deltas → DNA Bank
 ```
 
 ### Implementation Checklist
@@ -81,7 +81,7 @@ pub fn replay_glass_frames(frames: Vec<GlassFrame>) -> Vec<VisionaryContext> {
 pub async fn run_headless_instance(
     contexts: Vec<VisionaryContext>
 ) -> Result<Vec<WeightDelta>, String> {
-    // Start headless O3DE with Ariel running
+    // Start headless MaelstromUI with Ariel running
     // Feed contexts sequentially
     // Capture GGUF weight changes
 }
@@ -610,7 +610,7 @@ fn test_intent_scaling_under_stress() {
 
 ### Architecture Overview
 ```
-AR Glasses (passthrough camera + depth) → OpenXR → O3DE → Spatial Anchor Context → Ariel
+AR Glasses (passthrough camera + depth) → OpenXR → MaelstromUI → Spatial Anchor Context → Ariel
 ```
 
 ### Implementation Checklist
@@ -846,5 +846,6 @@ fn test_landmark_detection() {
 4. Integrate with VFD idle detection
 
 **Success metric:** Agent demonstrates measurable skill improvement after 7 days of background reflection.
+
 
 

@@ -67,7 +67,7 @@ With Path B: Multi-agent federation
 ---
 
 ### **Path C: Maelstrom 3D Viz** 🎮
-Immersive 3D visualization using O3DE
+Immersive 3D visualization using MaelstromUI
 
 ```
 Current:     Text-based TUI
@@ -83,7 +83,7 @@ With Path C: 3D network visualization
 - Game-like interaction
 
 **Technical:**
-- O3DE integration
+- MaelstromUI integration
 - Real-time 3D rendering
 - WebSocket state sync
 - C++ plugin development
@@ -248,7 +248,7 @@ Aaroneous (Rust)
 **Key Deliverables:**
 ```
 Week 1:
-✅ O3DE gem setup
+✅ MaelstromUI gem setup
 ✅ Entity models
 ✅ Basic rendering
 
@@ -280,7 +280,7 @@ $ open maelstrom://aaroneous
 
 **Architecture:**
 ```
-O3DE Game Engine (Maelstrom)
+MaelstromUI Game Engine (Maelstrom)
     ├─ Entity Prefabs
     │  ├─ Specialist (3D model)
     │  ├─ SkillNode (visual node)
@@ -292,7 +292,7 @@ O3DE Game Engine (Maelstrom)
 ```
 
 **Skills Needed:**
-- O3DE gem development
+- MaelstromUI gem development
 - C++ game programming
 - 3D modeling / visualization
 - Real-time graphics
@@ -302,7 +302,7 @@ O3DE Game Engine (Maelstrom)
 **Size Impact:**
 - Gem code: +5,000 lines (C++ + scripts)
 - Assets: +100 MB (models, textures)
-- Dependencies: O3DE (2GB)
+- Dependencies: MaelstromUI (2GB)
 
 ---
 
@@ -350,7 +350,7 @@ O3DE Game Engine (Maelstrom)
 ✅ Can invest 6+ weeks
 ✅ Team has 3D skills
 ✅ Targeting enterprise/research
-✅ Have infrastructure for O3DE
+✅ Have infrastructure for MaelstromUI
 ✅ Have 3-4 developers
 ```
 
@@ -474,7 +474,7 @@ $ cargo new api-server
 
 ### Path C Risks
 - [ ] High dev cost (solve with careful scoping)
-- [ ] O3DE learning curve (solve with documentation)
+- [ ] MaelstromUI learning curve (solve with documentation)
 - [ ] Performance on weak hardware (solve with LOD/culling)
 
 ---
@@ -550,7 +550,7 @@ E) Minimum viable (1 week)       → Quick win (Web API only)
    - Requires API foundation first
 
 3. **"Make it beautiful in 3D"** (Path C)
-   - I'll start O3DE gem + visualization
+   - I'll start MaelstromUI gem + visualization
    - 6 weeks to immersive 3D
    - Requires stable backend first
 
@@ -560,3 +560,4 @@ E) Minimum viable (1 week)       → Quick win (Web API only)
    - Complete specialist hive ecosystem
 
 **What would you like to build?** 🚀
+

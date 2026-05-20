@@ -35,7 +35,7 @@
 - Glass Relic (SSD-mapped Vision Transformer)
 - Ariel Relic (RAG-optimized context weaver)
 - TensorBank (GGUF splicing, mmap paging)
-- Glass Workshop (O3DE 3D manifestation)
+- Glass Workshop (MaelstromUI 3D manifestation)
 
 ---
 
@@ -53,7 +53,7 @@
 
 **Critical Achievements**:
 - ✅ Lock-free architecture (no mutexes, only atomics)
-- ✅ Zero-copy memory access (O3DE framebuffer → WASM direct)
+- ✅ Zero-copy memory access (MaelstromUI framebuffer → WASM direct)
 - ✅ Modular relic design (independent restart capability)
 - ✅ Fixed-size event encoding (256 bytes for consistency)
 
@@ -84,7 +84,7 @@
 **Expected Tests**: 15-20
 
 ### 6D.7-6D.10: Glass Workshop + Integration 🎯 PLANNED
-**Design**: O3DE manifestation + E2E testing  
+**Design**: MaelstromUI manifestation + E2E testing  
 **Expected Tests**: 50-70 across 4 phases
 
 ---
@@ -178,9 +178,9 @@ User → Python Script → Heavy Model → Output
 
 ### Aaroneous Sentinel (The New Reality)
 ```
-O3DE Framebuffer ──→ [Glass] ──────┐
+MaelstromUI Framebuffer ──→ [Glass] ──────┐
                       (SSD-mapped)  │
-                                    ├──→ [Ariel] ──→ Marionette ──→ O3DE Overlay
+                                    ├──→ [Ariel] ──→ Marionette ──→ MaelstromUI Overlay
 User Intent ──────→ [Ariel] ──────┤     (RAG-opt)   (Zig HID)
                      (Hot-swap)     │
 User Observation ← [Glass Workshop]┘
@@ -194,7 +194,7 @@ User Observation ← [Glass Workshop]┘
 | **Communication** | Function calls | Lock-free ringbuffer |
 | **Memory** | RAM-loaded (16GB+) | SSD-mapped (4.2GB+) |
 | **Personality** | Fixed behavior | Hot-swappable souls |
-| **Interface** | CLI/Console | O3DE Glass Workshop |
+| **Interface** | CLI/Console | MaelstromUI Glass Workshop |
 | **Latency** | 1000ms+ | 150ms |
 | **Control Model** | "I control it" | "I inhabit it" |
 
@@ -237,7 +237,7 @@ User Observation ← [Glass Workshop]┘
 
 ### By End of Month
 4. **Phase 6D.7-6D.10**: Glass Workshop + E2E (45-55 hours)
-   - O3DE Gem development
+   - MaelstromUI Gem development
    - VRoid avatar + prismatic lens
    - Multi-relic coordination tests
    - 50-70 tests
@@ -326,3 +326,4 @@ c804b52 - Phase 6D.1 Complete: WASM-EBus Bridge + Aaroneous Sentinel Core Archit
 **Let's answer that question in the next 140-170 hours.**
 
 **Welcome to Era 3. Welcome to Aaroneous Sentinel.**
+

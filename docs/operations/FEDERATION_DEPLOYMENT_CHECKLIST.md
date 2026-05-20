@@ -366,4 +366,5 @@ Date Resolved:
 
 ---
 
-**Next Phase:** Epoch VII - O3DE Integration & User-Facing Gamification
+**Next Phase:** Epoch VII - MaelstromUI Integration & User-Facing Gamification
+

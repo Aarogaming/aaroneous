@@ -12,7 +12,7 @@
 | **Style Bank (Vector Store)** | Custom JSONL DB | `qdrant-client` or `milvus` | Use Qdrant for semantic search, keep JSONL for immutability | 60% |
 | **Design Generation** | Custom splicing algorithm | `nannou` or `openscad-rust` | Parametric design via OpenSCAD, render with `nannou` | 50% |
 | **Aesthetic Embedding** | Custom color/typography extraction | `image-rs` + `imageproc` | Combine for feature extraction, use `palette` for color ops | 30% |
-| **3D Rendering** | Custom O3DE integration | O3DE native, `wgpu`, `bevy` | Leverage O3DE's Rust bindings (if available) or `wgpu` + `bevy` | 70% |
+| **3D Rendering** | Custom MaelstromUI integration | MaelstromUI native, `wgpu`, `bevy` | Leverage MaelstromUI's Rust bindings (if available) or `wgpu` + `bevy` | 70% |
 | **OpenXR (Phygital)** | Custom OpenXR wrapper | `openxr-rs` + `xr-interchange` | Use official OpenXR Rust bindings | 80% |
 | **P2P Mesh (Omnipresent)** | Custom Tailscale integration | `iroh`, `libp2p` | Use `iroh` (built by Protocol Labs, production-ready) | 65% |
 | **Biometric Polling (Symbiotic)** | Custom BLE reader | `btleplug`, `bluer` | Cross-platform BLE via `btleplug` or Linux-native `bluer` | 80% |
@@ -250,7 +250,7 @@ ndarray-stats = "0.5"  # Statistics on arrays
 ## Phase D: Glass Workshop (3D Rendering)
 
 ### Current Plan
-- Custom O3DE integration
+- Custom MaelstromUI integration
 - Custom procedural mesh generation
 
 ### Recommended Stack
@@ -799,7 +799,7 @@ burn = "0.12"          # Rust ML framework
 - **Subtotal: 10 hours integration**
 
 ### Phase D
-- [ ] Add `bevy` to Cargo.toml (replaces custom O3DE integration)
+- [ ] Add `bevy` to Cargo.toml (replaces custom MaelstromUI integration)
 - [ ] Create Bevy app with ECS setup (4h)
 - [ ] Implement design prototype spawning (6h)
 - [ ] 3D overlay rendering system (8h)
@@ -893,3 +893,4 @@ Your custom effort should focus on:
 6. **Weeks 6-8:** Add Iroh, btleplug, OpenXR-RS for Tiers 2-4
 
 **Key Principle:** Iterate on library integration as you develop, don't wait until end.
+

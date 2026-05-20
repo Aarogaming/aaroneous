@@ -118,3 +118,7 @@ monitoring/
 
 # Orphaned legacy src directory (code moved to core/ and components/)
 src/
+
+# Shards directory - legacy sovereign agent packages
+# To be processed and used as inspiration for building the system
+shards/

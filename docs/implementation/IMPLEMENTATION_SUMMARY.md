@@ -342,7 +342,7 @@ let _sub = nc.subscribe("federation.control.halt_specialist")?;
 2. **Relic Isolation:** Relics currently share specialist's token allocation (by design)
 3. **User Authentication:** Basic role model; no OAuth/token-based auth yet
 4. **Distributed Federation:** This version is single-process; multi-host clustering in Phase VII
-5. **O3DE Integration:** Deferred to Phase VII (post-stabilization)
+5. **MaelstromUI Integration:** Deferred to Phase VII (post-stabilization)
 
 ---
 
@@ -411,5 +411,6 @@ let _sub = nc.subscribe("federation.control.halt_specialist")?;
 
 **Status:** ✅ Epoch VI Checkpoint Complete  
 **Next Milestone:** Specialist Spawning & NATS Integration  
-**Estimated Completion:** Phase VII (O3DE + User-Facing Features)
+**Estimated Completion:** Phase VII (MaelstromUI + User-Facing Features)
+
 

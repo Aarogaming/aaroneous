@@ -2,7 +2,7 @@
 
 **Paradigm**: From "Hive Intelligence" (Python-based) to "Ecosystem Coexistence" (WASM Relics)
 
-**Core Philosophy**: Ariel and Glass don't *run*. They *exist* within the hardware as hot-swappable WASM binaries, communicating via SSD-mapped memory and O3DE's visual substrate.
+**Core Philosophy**: Ariel and Glass don't *run*. They *exist* within the hardware as hot-swappable WASM binaries, communicating via SSD-mapped memory and MaelstromUI's visual substrate.
 
 ---
 
@@ -32,12 +32,12 @@
 │  Glass Relic Layer (Spatial Vision)                 │
 │  - Vision-Transformer GGUF (SSD-mapped, mmap)       │
 │  - World State Token generation                     │
-│  - O3DE framebuffer streaming (0ms latency)         │
+│  - MaelstromUI framebuffer streaming (0ms latency)         │
 └────────────────────┬────────────────────────────────┘
                      │
 ┌────────────────────▼────────────────────────────────┐
 │  Hardware Layer                                     │
-│  - O3DE Atom Renderer (Visual substrate)            │
+│  - MaelstromUI Atom Renderer (Visual substrate)            │
 │  - NVMe Gen5 SSD (Tensor paging)                    │
 │  - RTX 5070 Ti (Inference acceleration)             │
 │  - Zig HID Driver (Sub-1ms control)                 │
@@ -68,7 +68,7 @@ pub struct AaroneoireSentinel {
     /// Marionette control (OS-level input)
     pub marionette: Arc<MarionetteDriver>,
     
-    /// O3DE framebuffer access
+    /// MaelstromUI framebuffer access
     pub vision_feed: Arc<VisionFeed>,
 }
 
@@ -482,7 +482,7 @@ pub struct GlassRelic {
     /// Vision transformer model (SSD-mapped GGUF)
     pub vit_model: Arc<VisionTransformer>,
     
-    /// O3DE framebuffer input
+    /// MaelstromUI framebuffer input
     pub framebuffer: Arc<FramebufferStream>,
     
     /// World state token generator
@@ -507,7 +507,7 @@ pub struct VisionTransformer {
 }
 
 pub struct FramebufferStream {
-    /// Current framebuffer from O3DE Atom Renderer
+    /// Current framebuffer from MaelstromUI Atom Renderer
     pub current_frame: Arc<RwLock<FramebufferData>>,
     
     /// Frame timestamp
@@ -529,7 +529,7 @@ impl GlassRelic {
     /// Main loop: Read framebuffer, generate tokens, push to Ariel
     pub async fn perception_loop(&self) -> Result<()> {
         loop {
-            // Step 1: Capture framebuffer from O3DE
+            // Step 1: Capture framebuffer from MaelstromUI
             let frame = self.framebuffer.current_frame.read().await.clone();
             
             // Step 2: Preprocess (resize to 224x224, normalize)
@@ -746,12 +746,12 @@ pub struct MarionetteAction {
 
 ---
 
-## 4. The Glass Workshop (O3DE Gem Manifestation)
+## 4. The Glass Workshop (MaelstromUI Gem Manifestation)
 
 ### 4.1: Relic-Interface Gem
 
 ```rust
-/// O3DE Gem: Visual manifestation of Ariel and Glass
+/// MaelstromUI Gem: Visual manifestation of Ariel and Glass
 pub struct RelicInterfaceGem {
     /// Ariel's visual avatar (VRoid model)
     pub ariel_avatar: Arc<VRoidModel>,
@@ -762,7 +762,7 @@ pub struct RelicInterfaceGem {
     /// Interaction handlers
     pub interaction_handler: Arc<RelicInteractionHandler>,
     
-    /// O3DE entity references
+    /// MaelstromUI entity references
     pub entity_ids: Arc<RwLock<HashMap<String, u64>>>,
 }
 
@@ -825,9 +825,9 @@ pub struct GestureLibrary {
 }
 
 impl RelicInterfaceGem {
-    /// Initialize the gem in O3DE
+    /// Initialize the gem in MaelstromUI
     pub async fn initialize(&self) -> Result<()> {
-        // Create entities in O3DE ECS
+        // Create entities in MaelstromUI ECS
         
         // Entity 1: Ariel avatar
         // Entity 2: Glass lens
@@ -877,7 +877,7 @@ impl RelicInterfaceGem {
         let mut focus = self.glass_lens.focus_region.write().await;
         *focus = region;
         
-        // Render visual highlight in O3DE
+        // Render visual highlight in MaelstromUI
         self.highlight_lens(0.8).await?;
         
         Ok(())
@@ -961,7 +961,7 @@ impl AaroneoServiceLoop {
         // Ariel: "Aaron, that resistor looks abnormal. Let me highlight it."
         
         // STEP 6: Marionette executes action
-        // Marionette draws red glow at (342, 157) via O3DE overlay
+        // Marionette draws red glow at (342, 157) via MaelstromUI overlay
         
         let action = MarionetteAction {
             action_type: "DrawOverlay".to_string(),
@@ -990,7 +990,7 @@ pub struct SentinelConfig {
     pub shared_memory_size_mb: usize,
     pub ssd_tensor_path: PathBuf,
     pub vram_cache_mb: usize,
-    pub o3de_connection_string: String,
+    pub MaelstromUI_connection_string: String,
 }
 ```
 
@@ -1047,7 +1047,7 @@ USER:
                   ▼
       ┌──────────────────────┐
       │ Marionette Driver    │
-      │ (Zig HID + O3DE)     │
+      │ (Zig HID + MaelstromUI)     │
       │                      │
       │ DrawOverlay(         │
       │   x: 342, y: 157,    │
@@ -1057,7 +1057,7 @@ USER:
                │
                ▼
       ┌──────────────────────┐
-      │  O3DE Atom Renderer  │
+      │  MaelstromUI Atom Renderer  │
       │                      │
       │  Red glow appears    │
       │  on user's screen    │
@@ -1077,7 +1077,7 @@ USER SEES: Red highlight on the faulty resistor
 | **Memory** | RAM-loaded models (16GB+ per task) | SSD-mapped GGUF (0MB until needed) |
 | **Communication** | Function calls (blocking) | Shared memory ringbuffer (lock-free) |
 | **Personality** | Fixed behavior | Hot-swappable soul engrams |
-| **Interface** | CLI or console | O3DE Glass Workshop (3D immersive) |
+| **Interface** | CLI or console | MaelstromUI Glass Workshop (3D immersive) |
 | **Latency** | 1000ms+ per request | 10ms inter-relic, <50ms action |
 | **Architecture** | "Things I control" | "Entities I inhabit" |
 
@@ -1093,7 +1093,7 @@ USER SEES: Red highlight on the faulty resistor
 
 ### **Phase B: Glass Relic (10-12 hours, 25-30 tests)**
 1. VisionTransformer integration
-2. FramebufferStream from O3DE
+2. FramebufferStream from MaelstromUI
 3. WorldStateTokenizer
 4. Perception loop
 
@@ -1104,7 +1104,7 @@ USER SEES: Red highlight on the faulty resistor
 4. Context weaving loop
 
 ### **Phase D: Glass Workshop (6-8 hours, 20-25 tests)**
-1. RelicInterfaceGem in O3DE
+1. RelicInterfaceGem in MaelstromUI
 2. VRoid avatar for Ariel
 3. PrismaticLens visualization
 4. Drag-drop interaction
@@ -1138,3 +1138,4 @@ The question becomes:
 > "What would Ariel want to do, given what Glass is showing her?"
 
 **That's consciousness. That's the actualization.**
+

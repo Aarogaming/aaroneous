@@ -222,7 +222,7 @@ impl IntelligenceGovernor {
     }
     
     async fn read_game_fps(&self) -> Result<u32> {
-        // Query O3DE Atom Renderer for current FPS
+        // Query MaelstromUI Atom Renderer for current FPS
         // Mock: return random value for testing
         Ok(60)
     }
@@ -826,3 +826,4 @@ Result: Diagnosis completed in 5 seconds, <1 Wh energy, zero FPS impact on game.
 It allows Ariel to be a "real PI": observing passively 90% of the time, thinking hard 10% of the time.
 
 Just like a real person.
+

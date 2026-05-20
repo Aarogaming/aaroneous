@@ -20,7 +20,7 @@ Every new capability (Visionary, Omnipresent, Symbiotic, Phygital) must obey:
 
 ### 2. **Binary Portability: WASM Modules**
 - All logic changes are WASM modules, not native code
-- A WASM module running on desktop O3DE should run on mobile WASM runtime **without code changes**
+- A WASM module running on desktop MaelstromUI should run on mobile WASM runtime **without code changes**
 - Module registry stored in **SSD DNA Bank** (immutable, versioned)
 - Modules are composable: a "stress-response" module + "game-context" module = dynamic behavior
 
@@ -63,7 +63,7 @@ Every new capability (Visionary, Omnipresent, Symbiotic, Phygital) must obey:
 │ Visionary Service (Runs during idle)            │
 │ ┌─────────────────────────────────────────────┐ │
 │ │ 1. Load Glass replay logs from SSD DNA Bank │ │
-│ │ 2. Start headless O3DE instance            │ │
+│ │ 2. Start headless MaelstromUI instance            │ │
 │ │ 3. Feed logs to Ariel (Student Engram)     │ │
 │ │ 4. Collect GGUF weight deltas              │ │
 │ │ 5. Store as "Reflection Events" in DNA     │ │
@@ -107,7 +107,7 @@ pub struct VisionaryContext {
 
 **Timeline:** 8-12 hours
 - Log replay: 2-3 hours
-- Headless O3DE integration: 2-3 hours
+- Headless MaelstromUI integration: 2-3 hours
 - Weight delta persistence: 2-3 hours
 - Testing: 2-3 hours
 
@@ -283,7 +283,7 @@ pub struct SymbioticContext {
 
 ### **Tier 4: Phygital (Spatial Anchor API)**
 
-**Goal:** Transition O3DE from "desktop overlay" to "room-space anchor"
+**Goal:** Transition MaelstromUI from "desktop overlay" to "room-space anchor"
 
 **Key Insight:** Treat physical workbench/room as a 3D map; use AR passthrough instead of desktop scraper
 
@@ -299,7 +299,7 @@ pub struct SymbioticContext {
              │
              ▼
 ┌──────────────────────────────────────┐
-│ O3DE OpenXR Integration              │
+│ MaelstromUI OpenXR Integration              │
 │ (Camera feed → Point Cloud mesh)     │
 │ ┌──────────────────────────────────┐ │
 │ │ 1. Ingest passthrough video      │ │
@@ -348,7 +348,7 @@ pub struct PhygitalContext {
 ```
 
 **WASM Modules:**
-- `openxr_adapter.wasm`: Bridge O3DE to OpenXR runtime
+- `openxr_adapter.wasm`: Bridge MaelstromUI to OpenXR runtime
 - `depth_processor.wasm`: Convert RGB-D → point cloud mesh
 - `landmark_detector.wasm`: Identify noteworthy objects in room
 - `hand_tracking.wasm`: Optional: track user's hands for interaction hints
@@ -474,3 +474,4 @@ You're not building a "game AI" that happens to work on AR. You're building a **
 This is how you avoid "Specialist Hell"—by making the rule: **"If it can be converted to Key-Value context, it plugs into Ariel. If it can be compiled to WASM, it runs everywhere."**
 
 The result: One agent, infinite surfaces.
+

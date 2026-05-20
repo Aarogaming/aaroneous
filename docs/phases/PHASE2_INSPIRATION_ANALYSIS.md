@@ -25,8 +25,8 @@ D:\AaroneousAutomationSuite     (4.6 GB) - Python/Event-Driven
 ├─ Python + async/await
 ├─ Status: ACTIVE/DEVELOPMENT
 
-D:\Maelstrom                    (12.7 GB) - O3DE Integration
-├─ Open 3D Engine
+D:\Maelstrom                    (12.7 GB) - MaelstromUI Integration
+├─ egui/wgpu/ratatui UI stack
 ├─ Simulation/Visualization
 ├─ Complex asset management
 └─ Status: INTEGRATED
@@ -141,7 +141,7 @@ NATS Federation
 
 ### **Direction C: Maelstrom Integration (Visualization Layer)**
 
-**Leverage:** O3DE 3D engine + Aaroneous state management  
+**Leverage:** MaelstromUI 3D engine + Aaroneous state management  
 **Gap:** 3D visualization of specialist network, skills, and data flow  
 **Complexity:** Very High (12-16 weeks)  
 **Benefits:** Immersive visualization, advanced analytics
@@ -159,7 +159,7 @@ Aaroneous Backend
 ```
 
 **Technologies:**
-- O3DE gems/plugins system
+- MaelstromUI gems/plugins system
 - Real-time data binding
 - WebSocket for state sync
 - 3D physics/rendering
@@ -191,7 +191,7 @@ Aaroneous Backend
 │  (Specialists, skills, persistence)     │
 ├─────────────────────────────────────────┤
 │  Maelstrom 3D Viz (Direction C)         │
-│  (O3DE visualization layer)             │
+│  (MaelstromUI visualization layer)             │
 └─────────────────────────────────────────┘
 ```
 
@@ -313,7 +313,7 @@ D:\Aaroneous\
 
 ### Phase 2c: Maelstrom 3D Visualization
 
-**Integration with O3DE:**
+**Integration with MaelstromUI:**
 - Specialist nodes as 3D entities
 - Skill connections as visual links
 - Data flow as particle systems
@@ -356,7 +356,7 @@ D:\Maelstrom\Gems\Aaroneous/
 # 1. Create workspace structure
 git worktree add web-dashboard --track origin/feature/wasm
 git worktree add aas-bridge --track origin/feature/aas-integration
-git worktree add maelstrom-plugin --track origin/feature/o3de-viz
+git worktree add maelstrom-plugin --track origin/feature/MaelstromUI-viz
 
 # 2. Sync shared code
 git subtree pull --prefix shared_types D:\AaroneousAutomationSuite main
@@ -587,8 +587,8 @@ git show <commit>:path/to/file.rs  # View historical versions
 - Python/Rust FFI: PyO3 docs
 - Event-Driven patterns: AAS source
 
-**For O3DE/3D:**
-- O3DE Docs: (local in Maelstrom)
+**For MaelstromUI/3D:**
+- MaelstromUI Docs: (local in Maelstrom)
 - Gem development guide
 - C++ for game development
 
@@ -680,3 +680,4 @@ This would give you:
 - Foundation for federation
 
 Ready to proceed? 🚀
+

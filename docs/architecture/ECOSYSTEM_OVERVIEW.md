@@ -56,7 +56,7 @@ Integration Point:
 
 ```
 D:\Maelstrom
-├─ Open 3D Engine (O3DE)
+├─ egui/wgpu/ratatui UI stack (MaelstromUI)
 ├─ 3D visualization capabilities
 ├─ Asset management
 ├─ Real-time rendering
@@ -159,7 +159,7 @@ Use For:
 
 ```
 ┌──────────────────────────────────────┐
-│    O3DE Game Engine (Maelstrom)      │
+│    MaelstromUI Game Engine (Maelstrom)      │
 │    3D Specialist Universe             │
 ├──────────────────────────────────────┤
 │    WebSocket Real-time Sync          │
@@ -175,7 +175,7 @@ Use For:
 │         User Interfaces                        │
 │  ├─ Web Dashboard (Browser)                    │
 │  ├─ CLI Tools                                  │
-│  └─ 3D Visualization (O3DE)                    │
+│  └─ 3D Visualization (MaelstromUI)                    │
 ├────────────────────────────────────────────────┤
 │         Orchestration Layer (AAS)              │
 │  ├─ Workflow Engine                           │
@@ -289,7 +289,7 @@ Use For:
 
 **Includes:**
 ```
-✅ O3DE game engine integration
+✅ MaelstromUI game engine integration
 ✅ 3D specialist network rendering
 ✅ Real-time animation
 ✅ Interactive exploration
@@ -336,7 +336,7 @@ Use For:
 
 ### Phase 2c (Weeks 8-13): After 2b tested
 ```
-1. Create O3DE gem
+1. Create MaelstromUI gem
 2. Sync with WebSocket
 3. Build visualizations
 4. Add interactions
@@ -383,7 +383,7 @@ nats-py = "2.7"
 
 ### Phase 2c (3D Visualization)
 ```
-O3DE Gem Development
+MaelstromUI Gem Development
 ├─ C++ 20
 ├─ Python scripting
 └─ Asset pipeline
@@ -432,7 +432,7 @@ $ pytest tests/federation_test.py
 
 ### Path C: 3D Visualization
 ```bash
-# Week 1-2: O3DE Gem Setup
+# Week 1-2: MaelstromUI Gem Setup
 # Create: MyGems/AaroneousViz/
 # Add: C++ components for entity rendering
 
@@ -521,7 +521,7 @@ $ pytest tests/federation_test.py
 5. Live in 4 weeks
 
 **Path C (3D Visualization)**
-1. Create O3DE gem
+1. Create MaelstromUI gem
 2. Set up rendering
 3. Add WebSocket sync
 4. Build interactions
@@ -566,3 +566,4 @@ $ pytest tests/federation_test.py
 🔲 All Three (13 weeks) - Complete platform  
 
 **What would you like to build?** 🚀
+

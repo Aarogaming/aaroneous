@@ -6,7 +6,7 @@
 - NVMe Gen5: 10GB/s+ sequential, <1µs random access
 - RTX 5070 Ti: 16GB GDDR7 + hardware quantization
 - Ultra-9 CPU: 8P+12E cores, parallel tensor ops
-- O3DE Atom: borderless transparent rendering + EBus bridge
+- MaelstromUI Atom: borderless transparent rendering + EBus bridge
 
 **The Win**: Synthesize production-ready agents in <50ms. Learn via curiosity, not backprop.
 
@@ -14,15 +14,15 @@
 
 ## Stage 1: The Scaffolding (WASM-EBus Bridge)
 
-### 1.1: O3DE Proxy Gem Architecture
+### 1.1: MaelstromUI Proxy Gem Architecture
 
 ```rust
-// In O3DE/Code/Source/Gems/Aaroneous/WasmEbusBridge/Include/
+// In MaelstromUI/Code/Source/Gems/Aaroneous/WasmEbusBridge/Include/
 pub struct WasmEbusBridge {
     /// Linear memory export to WASM runtime
     pub wasm_memory: Arc<WasmMemory>,
     
-    /// O3DE EBus event queue (ringbuffer, lockfree)
+    /// MaelstromUI EBus event queue (ringbuffer, lockfree)
     pub ebus_ringbuffer: Arc<RingBuffer<EbusEvent>>,
     
     /// WASM function entry points (exported functions)
@@ -44,17 +44,17 @@ pub struct EbusEvent {
 }
 
 impl WasmEbusBridge {
-    /// O3DE → WASM: Push event into ringbuffer
+    /// MaelstromUI → WASM: Push event into ringbuffer
     pub fn on_ebus_event(&self, event: EbusEvent) -> Result<()> {
         self.ebus_ringbuffer.push(event)?;
         // WASM polls ringbuffer; no copying
         Ok(())
     }
     
-    /// WASM → O3DE: Execute action (marionette output)
+    /// WASM → MaelstromUI: Execute action (marionette output)
     pub fn execute_wasm_action(&self, action_bytes: &[u8]) -> Result<()> {
         // Deserialize action (InputEvent, etc.)
-        // Execute via O3DE's input system
+        // Execute via MaelstromUI's input system
         // Return status to WASM
         Ok(())
     }
@@ -108,14 +108,14 @@ impl SsdBackedGguf {
 }
 ```
 
-### 1.3: Transparent Overlay via O3DE Atom
+### 1.3: Transparent Overlay via MaelstromUI Atom
 
 ```cpp
-// O3DE Gem: WasmOverlay component
+// MaelstromUI Gem: WasmOverlay component
 class WasmOverlayComponent : public AZ::Component {
 public:
     void Activate() override {
-        // 1. Launch O3DE window in borderless mode
+        // 1. Launch MaelstromUI window in borderless mode
         // 2. Make background transparent (alpha = 0)
         // 3. Route all rendering to the framebuffer
         
@@ -662,7 +662,7 @@ pub const MouseButton = enum {
 ```rust
 /// WASM sub-agent: Converts LLM intent → precise marionette moves
 pub struct PredictivePolicy {
-    /// Current game state observation (O3DE framebuffer)
+    /// Current game state observation (MaelstromUI framebuffer)
     pub last_observation: GameState,
     
     /// Policy: "In state S, taking action A gives reward R"
@@ -760,7 +760,7 @@ impl PredictivePolicy {
     async fn execute_and_observe(&self, action: &MarionetteAction) -> Result<GameState> {
         // Send action to HID driver
         // Wait for frame
-        // Capture new game state via O3DE vision
+        // Capture new game state via MaelstromUI vision
         todo!()
     }
     
@@ -839,7 +839,7 @@ pub struct Discovery {
 ```rust
 /// The visual manifestation of the WASM core
 pub struct DesktopGirl {
-    /// VRoid model (loaded in O3DE)
+    /// VRoid model (loaded in MaelstromUI)
     pub model: VRoidModel,
     
     /// Current state from WASM core
@@ -851,7 +851,7 @@ pub struct DesktopGirl {
     /// Dialogue system (LLM-based)
     pub dialogue: DialogueEngine,
     
-    /// Position in O3DE overlay
+    /// Position in MaelstromUI overlay
     pub screen_position: (f32, f32),
 }
 
@@ -910,7 +910,7 @@ impl DesktopGirl {
     }
     
     async fn render_speech_bubble(&self, text: &str) -> Result<()> {
-        // Render above NPC's head in O3DE
+        // Render above NPC's head in MaelstromUI
         todo!()
     }
 }
@@ -1100,7 +1100,7 @@ pub struct Section {
 ### **Phase 6D: Order of Implementation**
 
 1. **Start with 4.1 (Zig HID Driver)** — Once this works, agents can "move hands"
-2. **Then 1.1-1.3 (Scaffolding)** — Connect O3DE → WASM
+2. **Then 1.1-1.3 (Scaffolding)** — Connect MaelstromUI → WASM
 3. **Then 4.2-4.3 (Predictive Policy + Curiosity)** — Agents learn to move intelligently
 4. **Then 2.1-2.3 (GGUF Splicing)** — Extract DNA from teachers
 5. **Then 3.1-3.2 (Synthesis + Hot-Loading)** — Breed new agents
@@ -1120,7 +1120,7 @@ pub struct Section {
 | Weight load (single tensor) | <10ms | ✅ (NVMe Gen5 + mmap) |
 | Agent synthesis | <50ms | ✅ (pwrite direct to SSD) |
 | GGUF splicing | <100ms | ✅ (Binary patching, no re-training) |
-| Vision frame capture | <5ms | ✅ (O3DE framebuffer direct) |
+| Vision frame capture | <5ms | ✅ (MaelstromUI framebuffer direct) |
 | Full agent decision loop | <100ms | ✅ (Concurrent: vision + WASM + policy) |
 
 ---
@@ -1159,3 +1159,4 @@ You don't train it. You breed it.
 ---
 
 **Ready to implement Stage 1: Zig HID Driver?**
+

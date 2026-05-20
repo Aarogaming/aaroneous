@@ -181,9 +181,9 @@ RequestVoteRpc {
 
 ## Next Steps (Phase 6C)
 
-Once Raft is proven stable, Phase 6C will integrate with O3DE:
+Once Raft is proven stable, Phase 6C will integrate with MaelstromUI:
 
-1. **Maelstrom** (Headless O3DE): Manage O3DE process, gems, assets
+1. **Maelstrom** (Headless MaelstromUI): Manage MaelstromUI process, gems, assets
 2. **Merlin** (Procedural Generation): Worlds, NPCs, behavior trees
 3. **Library & Guild** (Shared Knowledge): Vector DB, NPC agents
 4. **Self-Implementation** (Autonomous Development): Gem generation, optimization
@@ -226,7 +226,7 @@ The 85 tests provide confidence that the implementation handles:
 - Edge cases (single node, odd/even cluster sizes)
 - Integration scenarios (multi-node clusters)
 
-**With this foundation, Phase 6C can safely build O3DE integration knowing consensus is bulletproof.**
+**With this foundation, Phase 6C can safely build MaelstromUI integration knowing consensus is bulletproof.**
 
 ---
 
@@ -234,3 +234,4 @@ The 85 tests provide confidence that the implementation handles:
 **Time Spent**: ~4-5 hours of actual coding
 **Tests Added**: 48 (443 → 491)
 **Quality**: Production-ready ✅
+

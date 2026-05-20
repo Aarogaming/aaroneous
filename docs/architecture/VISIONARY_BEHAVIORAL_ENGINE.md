@@ -249,7 +249,7 @@ let context_event = ContextEvent {
 │  └──────────────────────────────────────────────────────┘  │
 │                                                             │
 │  ┌──────────────────────────────────────────────────────┐  │
-│  │ O3DE Glass Workshop (3D Overlay Engine)              │  │
+│  │ MaelstromUI Glass Workshop (3D Overlay Engine)              │  │
 │  │ • Renders design prototypes in AR                   │  │
 │  │ • Projects reference materials into workspace       │  │
 │  │ • 3D context anchoring                             │  │
@@ -371,12 +371,12 @@ let context_event = ContextEvent {
 
 **Goal:** Render design prototypes and contextual overlays in 3D space
 
-**Step D1: O3DE Integration (8 hours)**
+**Step D1: MaelstromUI Integration (8 hours)**
 - Create `core/hypervisor/federation/specialists/visionary/glass_workshop.rs`
-- Connect to O3DE via existing IPC/gRPC
+- Connect to MaelstromUI via existing IPC/gRPC
 - Define UI-to-3D geometry mapping
 - Material system for visual configs
-- Test: 4-5 tests for O3DE integration
+- Test: 4-5 tests for MaelstromUI integration
 
 **Step D2: Prototype Rendering (8 hours)**
 - Implement procedural mesh generation from design config
@@ -464,7 +464,7 @@ let context_event = ContextEvent {
 - Style bank has 100+ engrams after 1 week
 
 ### **Phase D Success:**
-- Render prototype in O3DE workshop
+- Render prototype in MaelstromUI workshop
 - Project PDF manual into 3D space at desk location
 - All designs visually match their configs
 - <200ms render latency
@@ -552,4 +552,5 @@ VBE embodies the core principle: **Aaroneous is not a tool you use; it is a syst
 Every design it generates is not "random AI art"—it's a **hypothesis about your taste**. Every overlay it renders is not "automation"—it's **anticipation of your need**. Every engram it extracts is not "telemetry"—it's **understanding of your aesthetic.**
 
 By the end of this, Aaroneous won't feel like a "command-and-control" system. It will feel like having a **twin** that thinks like you, sees what you see, and makes the world around your computer match who you are.
+
 

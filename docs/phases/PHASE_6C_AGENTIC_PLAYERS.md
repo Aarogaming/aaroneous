@@ -12,7 +12,7 @@
 
 ### 1.1: Shadow Agent Architecture
 
-The **Shadow Agent** runs in O3DE background while you play, recording:
+The **Shadow Agent** runs in MaelstromUI background while you play, recording:
 - Your inputs (keyboard, mouse)
 - Resulting game state changes
 - Contextual game information
@@ -247,7 +247,7 @@ impl HandoffController {
 
 ### Why Agentic Players Win
 
-1. **Vision-First**: Uses O3DE perception, not hardcoded coordinates
+1. **Vision-First**: Uses MaelstromUI perception, not hardcoded coordinates
 2. **Goal-Aware**: Understands "fishing gains resources" not just "press F for 3 seconds"
 3. **Self-Correcting**: Builds mental models of game mechanics
 4. **Social**: Can interact with NPCs via LLM dialogue
@@ -255,7 +255,7 @@ impl HandoffController {
 
 ---
 
-## Part 3: O3DE as Shared Virtual World
+## Part 3: MaelstromUI as Shared Virtual World
 
 ### 3.1: Persistent Agent Existence
 
@@ -266,7 +266,7 @@ pub struct PersistentAgent {
     /// Your digital twin
     agent_id: AgentId,
     
-    /// In-game avatar (always in O3DE world)
+    /// In-game avatar (always in MaelstromUI world)
     avatar: Arc<RwLock<Avatar>>,
     
     /// Accumulated experience (Episodic memory)
@@ -275,7 +275,7 @@ pub struct PersistentAgent {
     /// Semantic knowledge (what the agent "knows")
     knowledge_base: Arc<VectorDB>,
     
-    /// Current location (in O3DE persistent world)
+    /// Current location (in MaelstromUI persistent world)
     location: Arc<RwLock<WorldLocation>>,
 }
 
@@ -325,8 +325,8 @@ pub enum InsightSource {
 
 ```rust
 pub struct SharedVirtualWorld {
-    /// Central O3DE instance (always running)
-    o3de_engine: Arc<O3DEInstance>,
+    /// Central MaelstromUI instance (always running)
+    MaelstromUI_engine: Arc<MaelstromUIInstance>,
     
     /// Multiple agents in the same world
     agents: Arc<RwLock<HashMap<AgentId, PersistentAgent>>>,
@@ -422,7 +422,7 @@ impl Guild {
         objective: &GuildQuest,
     ) -> Result<RaidSession> {
         // Ensure agent is trained in the human's playstyle
-        // Launch both in O3DE world simultaneously
+        // Launch both in MaelstromUI world simultaneously
         // Human provides strategy, Agent provides execution
         Ok(RaidSession { /* ... */ })
     }
@@ -440,7 +440,7 @@ pub struct UniversalLaborerConfig {
     /// Training domain (Game, CAD, Dashboard, etc.)
     pub domain: Domain,
     
-    /// Visual environment (O3DE, or domain-specific)
+    /// Visual environment (MaelstromUI, or domain-specific)
     pub visual_env: VisualEnvironment,
     
     /// Learned behaviors transfer across domains
@@ -557,7 +557,7 @@ impl AgentPartner {
 - Humanization (jitter, delays)
 - Failure handling
 
-### Phase 6C.3: O3DE Integration (12-14 hours)
+### Phase 6C.3: MaelstromUI Integration (12-14 hours)
 - Persistent agent world
 - Training loops
 - Knowledge accumulation
@@ -599,3 +599,4 @@ This is the difference between **Tool** and **Ally**.
 5. **Scalability**: Same agent can work in games, finance, robotics
 
 **The player's gameplay is now the training data. You are the lead developer.**
+
