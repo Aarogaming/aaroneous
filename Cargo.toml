@@ -16,6 +16,7 @@ members = [
     "components/hive",
     "components/compute",
     "components/scientific_analyzer",
+    "components/paths",
 ]
 exclude = [
     "extensions/wasm/test_enzyme"

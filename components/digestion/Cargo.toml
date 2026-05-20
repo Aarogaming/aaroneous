@@ -13,3 +13,4 @@ tracing = "0.1"
 genetics = { path = "../genetics" }
 anyhow = "1.0"
 nervous_system = { path = "../../core/nervous_system" }
+aaroneous_paths = { path = "../paths" }
