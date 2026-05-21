@@ -126,17 +126,22 @@ impl HierarchicalPredictiveCoding {
         let mut total_error = 0.0;
 
         for layer_idx in 1..self.layers.len() {
-            let prev_layer = &self.layers[layer_idx - 1];
+            // Collect predictions from previous layer first to avoid borrow conflict
+            let prev_predictions: Vec<f64> = self.layers[layer_idx - 1]
+                .iter()
+                .map(|n| n.prediction)
+                .collect();
+
             let current_layer = &mut self.layers[layer_idx];
 
             for (node_idx, node) in current_layer.iter_mut().enumerate() {
                 if layer_idx - 1 < self.top_down_weights.len() && node_idx < self.top_down_weights[layer_idx - 1].len() {
                     // Top-down prediction
                     let weights = &self.top_down_weights[layer_idx - 1][node_idx];
-                    let prediction: f64 = prev_layer
+                    let prediction: f64 = prev_predictions
                         .iter()
                         .zip(weights.iter())
-                        .map(|(prev_node, &w)| prev_node.prediction * w)
+                        .map(|(&prev_pred, &w)| prev_pred * w)
                         .sum();
 
                     // Use previous prediction as observation for this layer

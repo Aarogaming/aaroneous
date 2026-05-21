@@ -195,6 +195,39 @@ pub fn gibbs_free_energy(
     enthalpy_change - temperature * entropy_change
 }
 
+/// Thermodynamic forecast for system state prediction.
+/// Used by the unified learning loop to track thermodynamic metrics.
+#[derive(Debug, Clone)]
+pub struct ThermodynamicForecast {
+    pub free_energy: f64,
+    pub temperature: f64,
+    pub entropy: f64,
+    pub phase: String,
+    pub predicted_stability: f64,
+}
+
+impl ThermodynamicForecast {
+    pub fn from_state(state: &FreeEnergyState, phase: String) -> Self {
+        Self {
+            free_energy: state.free_energy,
+            temperature: state.temperature,
+            entropy: state.entropy,
+            phase,
+            predicted_stability: (1.0 - state.free_energy.abs()).max(0.0),
+        }
+    }
+
+    pub fn neutral() -> Self {
+        Self {
+            free_energy: 0.0,
+            temperature: 0.5,
+            entropy: 0.5,
+            phase: "stable".to_string(),
+            predicted_stability: 1.0,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

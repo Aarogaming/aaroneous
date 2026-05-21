@@ -27,6 +27,7 @@ pub enum Page {
     SkillTree,
     EventLog,
     Settings,
+    Lore,
 }
 
 /// TUI Event from user interaction
@@ -79,7 +80,8 @@ impl TuiApp {
             Page::Specialists => Page::SkillTree,
             Page::SkillTree => Page::EventLog,
             Page::EventLog => Page::Settings,
-            Page::Settings => Page::Home,
+            Page::Settings => Page::Lore,
+            Page::Lore => Page::Home,
         };
         self.scroll_offset = 0;
     }
@@ -92,6 +94,7 @@ impl TuiApp {
             Page::SkillTree => Page::Specialists,
             Page::EventLog => Page::SkillTree,
             Page::Settings => Page::EventLog,
+            Page::Lore => Page::Settings,
         };
         self.scroll_offset = 0;
     }
@@ -263,6 +266,7 @@ pub fn draw(f: &mut Frame, app: &TuiApp) {
         Page::SkillTree => "Skill Tree",
         Page::EventLog => "Event Log",
         Page::Settings => "Settings",
+        Page::Lore => "Lore",
     };
 
     let header = Paragraph::new(format!("Page: {} | Use Tab to navigate, Q to quit", page_title))
@@ -318,6 +322,7 @@ pub fn draw(f: &mut Frame, app: &TuiApp) {
         Page::SkillTree => draw_skill_tree(f, content_area, app),
         Page::EventLog => draw_event_log(f, content_area, app),
         Page::Settings => draw_settings(f, content_area, app),
+        Page::Lore => draw_settings(f, content_area, app), // TODO: implement draw_lore
     }
 }
 

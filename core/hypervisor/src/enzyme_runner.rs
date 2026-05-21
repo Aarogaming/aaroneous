@@ -1,7 +1,7 @@
 use anyhow::Result;
-use wasmtime::{Config, Engine, Linker, Module, Store};
+use wasmtime::{Config, Engine, Module, Store};
 use wasmtime::component::{Component, Linker as ComponentLinker, ResourceTable};
-use wasmtime_wasi::preview2::{WasiCtx, WasiCtxBuilder, WasiView};
+use wasmtime_wasi::{WasiCtx, WasiCtxBuilder, WasiView};
 
 pub struct EnzymeRunner {
     engine: Engine,
@@ -15,10 +15,8 @@ struct EnzymeState {
 }
 
 impl WasiView for EnzymeState {
-    fn table(&self) -> &ResourceTable { &self.table }
-    fn table_mut(&mut self) -> &mut ResourceTable { &mut self.table }
-    fn ctx(&self) -> &WasiCtx { &self.wasi }
-    fn ctx_mut(&mut self) -> &mut WasiCtx { &mut self.wasi }
+    fn table(&mut self) -> &mut ResourceTable { &mut self.table }
+    fn ctx(&mut self) -> &mut WasiCtx { &mut self.wasi }
 }
 
 impl EnzymeRunner {
@@ -48,7 +46,7 @@ impl EnzymeRunner {
         };
         
         let mut store = Store::new(&self.engine, state);
-        let (instance, _) = self.linker.instantiate_async(&mut store, &component).await?;
+        let instance = self.linker.instantiate_async(&mut store, &component).await?;
         
         // Assume the component has an export named "process-task"
         // In a real WIT-based setup, we'd use the generated Bindings
@@ -60,4 +58,20 @@ impl EnzymeRunner {
         
         Ok(vec![]) // Simulated result
     }
+
+    pub async fn run_enzyme(
+        &self,
+        wasm_path: &std::path::Path,
+        _synapse: &mut nervous_system::shared_memory::SynapseState,
+    ) -> Result<()> {
+        let task_id = wasm_path
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or("enzyme");
+        let _ = self.spawn_enzyme(&wasm_path.to_string_lossy(), task_id).await?;
+        Ok(())
+    }
 }
+
+/// Alias for backwards compatibility.
+pub type WasmEnzymeRunner = EnzymeRunner;

@@ -5,12 +5,27 @@ pub mod nervous_system {
     pub use nervous_system::*;
 }
 
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+pub enum DigestionPriority {
+    Low,
+    Normal,
+    High,
+}
+
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+pub enum DigestionStatus {
+    StructuralAnalysis,
+    Ready,
+    Complete,
+}
+
 // Re-export SABs for universal access
 pub use sabs::{SabManifest, SabMatrix, SabMatrixBuilder, SabSurface};
 
 // Re-export Skills and Genetics
 pub use skills::{Skill, SkillType, SkillOrigin, SoulRank, FusedSkill, SpecialistSkillSet, SkillRegistry};
-pub use genetics::{SpecialistGenome, GeneticLocus, GeneticCategory, BreedingOperation, GeneticAnalyzer};
+pub use ::genetics::{SpecialistGenome, GeneticLocus, GeneticCategory, BreedingOperation, GeneticAnalyzer};
+pub use ::genetics::genetics::{LociSource, EpigeneticState};
 
 // Re-export Biology with thermodynamic governor
 pub use biology::{SystemBiology, SpecialistMetabolism, ThrottleState, SystemHealthReport, SpecialistHealth, PredictiveMetabolicGovernor, MetabolicGovernorConfig, MetabolicForecast, GovernanceAction, ThermodynamicGovernor, ThermodynamicGovernorConfig, ThermodynamicForecast, ThermodynamicAction};
@@ -30,7 +45,8 @@ pub use compute::{ComputeEngine, mdps, stochastic, bayesian, graph, linalg, entr
 pub use compute::control as compute_control;
 
 // Re-export Intelligence
-pub use intelligence::{IntelligenceEngine, TaskRoutingEngine, RoutableTask, TaskType, Specialist, RoutingDecision, LLMClient, ProviderType, LLMConfig, TaskAnalysis};
+pub use intelligence::{IntelligenceEngine, TaskRoutingEngine, RoutableTask, TaskType, RoutingDecision, LLMClient, ProviderType, LLMConfig, TaskAnalysis};
+pub use intelligence::Specialist as IntelligentSpecialist;
 
 // Re-export Scientific Analyzer
 pub use scientific_analyzer::{
@@ -101,6 +117,13 @@ impl Hypervisor {
 
 pub mod workspace;
 pub use workspace::WorkspacePaths;
+
+pub mod persistence;
+pub use persistence::{PersistenceManager, LearningStateRecord, SessionRecord};
+
+pub mod llm;
+pub mod nats_client;
+pub mod specialist_memory;
 
 pub mod enzyme_runner;
 pub mod synapse;

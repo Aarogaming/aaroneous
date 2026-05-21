@@ -135,6 +135,9 @@ impl ConstellationCanvas {
                 NodeType::Reference => Color32::from_rgb(150, 150, 255),
                 NodeType::Resource => Color32::from_rgb(255, 150, 200),
                 NodeType::TestCase => Color32::from_rgb(200, 255, 150),
+                NodeType::KnowledgeGap => Color32::from_rgb(200, 100, 200),
+                NodeType::NeuralSignal => Color32::from_rgb(100, 200, 255),
+                NodeType::LatentPulse => Color32::from_rgb(255, 100, 100),
             };
 
             let base_radius = if is_selected { 12.0 } else { 8.0 };

@@ -37,7 +37,7 @@ impl RoutingWeights {
                 (0..n_features)
                     .map(|j| {
                         // Deterministic initialization based on indices
-                        let val = ((i * n_features + j) as f64 % 100) as f64 / 100.0 * scale;
+                        let val = ((i * n_features + j) % 100) as f64 / 100.0 * scale;
                         val - scale / 2.0
                     })
                     .collect()
@@ -149,6 +149,7 @@ impl TensorRouter {
     /// Route with Boltzmann exploration (sample from distribution).
     pub fn route_with_exploration(&self, task: &TaskEmbedding, rng: &mut impl rand::Rng) -> RoutingResult {
         let result = self.route(task);
+        let specialist_scores = result.specialist_scores.clone();
 
         // Sample from distribution instead of argmax
         let roll: f64 = rng.gen_range(0.0..1.0);
@@ -165,7 +166,7 @@ impl TensorRouter {
 
         RoutingResult {
             task_id: task.task_id.clone(),
-            specialist_scores: result.specialist_scores,
+            specialist_scores,
             selected_specialist: self.weights.specialist_ids[selected_idx].clone(),
             confidence: result.specialist_scores[selected_idx].1,
             entropy: result.entropy,

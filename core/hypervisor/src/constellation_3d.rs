@@ -436,6 +436,7 @@ fn node_color(node_type: &crate::NodeType) -> [f32; 4] {
         crate::NodeType::Architecture => [0.0, 1.0, 0.8, 1.0],
         crate::NodeType::Incident => [1.0, 0.4, 0.2, 1.0],
         crate::NodeType::Reference => [0.6, 0.6, 1.0, 1.0],
+        crate::NodeType::Resource => [1.0, 0.6, 0.8, 1.0],
         crate::NodeType::TestCase => [0.8, 1.0, 0.6, 1.0],
         crate::NodeType::KnowledgeGap => [1.0, 0.5, 0.0, 1.0], // Orange
         crate::NodeType::NeuralSignal => [1.0, 1.0, 0.0, 1.0], // Yellow

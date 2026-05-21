@@ -72,7 +72,7 @@ impl DiplomatEnzyme {
         let odin = registry.get_enzyme("odin").ok_or_else(|| anyhow::anyhow!("Odin genetics missing"))?;
         let merlin = registry.get_enzyme("merlin").ok_or_else(|| anyhow::anyhow!("Merlin genetics missing"))?;
         
-        let mut hybrid = crate::genetic_recombination::GeneticRecombinator::breed(odin, merlin)?;
+        let mut hybrid = crate::genetic_recombination::GeneticRecombinator::breed(&odin, &merlin)?;
         
         hybrid.category = "diplomatic_negotiation".to_string();
         hybrid.mcp_tools.push(crate::hox_map_schema::McpToolDefinition {

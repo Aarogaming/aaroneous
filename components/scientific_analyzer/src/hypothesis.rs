@@ -37,6 +37,25 @@ pub enum TestType {
 }
 
 impl Hypothesis {
+    /// Create a new hypothesis with minimal parameters.
+    pub fn new(target: &str, observation: &str, prior_confidence: f64) -> Self {
+        Self {
+            target: target.to_string(),
+            observation: observation.to_string(),
+            prediction: String::new(),
+            prior_confidence,
+            risk_factors: vec![],
+            experiment_design: ExperimentDesign {
+                test_type: TestType::UnitTest,
+                input_data: vec![],
+                expected_behavior: String::new(),
+                failure_conditions: vec![],
+                performance_threshold: None,
+                iterations: 1,
+            },
+        }
+    }
+
     /// Generate hypotheses from an AST observation
     pub fn from_observation(observation: &AstObservation) -> Vec<Self> {
         let mut hypotheses = Vec::new();

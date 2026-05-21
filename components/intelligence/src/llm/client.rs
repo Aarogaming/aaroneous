@@ -32,4 +32,33 @@ impl LLMClient {
         // Implementation for local GGUF/Candle backend
         Ok(vec![0.0; 1024])
     }
+
+    /// Generate a response for a specific domain.
+    pub async fn generate_domain_response(&self, system_prompt: &str, user_prompt: &str, _domain: &str) -> Result<String> {
+        match self.config.provider_type {
+            ProviderType::Mock => {
+                Ok(format!("[Mock] Response to: {}", user_prompt))
+            }
+            _ => {
+                anyhow::bail!("Provider not implemented yet")
+            }
+        }
+    }
+
+    /// Generate a design based on context.
+    pub async fn generate_design(&self, _context: &crate::llm::types::DesignContext) -> Result<String> {
+        match self.config.provider_type {
+            ProviderType::Mock => {
+                Ok("[Mock] Generated design".to_string())
+            }
+            _ => {
+                anyhow::bail!("Provider not implemented yet")
+            }
+        }
+    }
+
+    /// Get the client's configuration.
+    pub fn config(&self) -> &LLMConfig {
+        &self.config
+    }
 }

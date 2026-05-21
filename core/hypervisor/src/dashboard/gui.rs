@@ -109,13 +109,9 @@ impl EguiRatatuiBridge {
         });
     }
 
-    fn draw_ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
-        // ... (existing code)
-    }
-
     fn draw_hitl_banner(&mut self, ui: &mut egui::Ui) {
         let mut synapse = self.synapse.write();
-        let state = synapse.get_state_mut();
+        let state = unsafe { &mut *(synapse.get_ptr() as *mut nervous_system::shared_memory::SynapseState) };
 
         if state.approval_required == 1 {
             egui::Frame::group(ui.style())
@@ -142,13 +138,9 @@ impl EguiRatatuiBridge {
         }
     }
 
-    fn draw_hitl_banner(&mut self, ui: &mut egui::Ui) {
-        // ... (existing code)
-    }
-
     fn draw_vital_meters(&mut self, ui: &mut egui::Ui) {
         let synapse = self.synapse.read();
-        let state = synapse.get_state();
+        let state = unsafe { &*(synapse.get_ptr() as *const nervous_system::shared_memory::SynapseState) };
 
         ui.add_space(4.0);
         ui.horizontal(|ui| {
@@ -174,13 +166,9 @@ impl EguiRatatuiBridge {
         ui.add_space(8.0);
     }
 
-    fn draw_vital_meters(&mut self, ui: &mut egui::Ui) {
-        // ... (existing code)
-    }
-
     fn draw_intelligence_stream(&mut self, ui: &mut egui::Ui) {
         let synapse = self.synapse.read();
-        let state = synapse.get_state();
+        let state = unsafe { &*(synapse.get_ptr() as *const nervous_system::shared_memory::SynapseState) };
 
         if state.latent_vector[0] > 0.8 {
              ui.colored_label(egui::Color32::from_rgb(0, 255, 255), "💠 LATENT INJECTION ACTIVE: Zero-copy mathematical thought transfer in progress.");
@@ -196,10 +184,6 @@ impl EguiRatatuiBridge {
         if state.integrity_score < 50 {
             ui.colored_label(egui::Color32::from_rgb(255, 50, 50), "⚠ Homeostatic Warning: Low System Integrity");
         }
-    }
-
-    fn draw_intelligence_stream(&mut self, ui: &mut egui::Ui) {
-        // ... (existing code)
     }
 
     fn draw_evolution_view(&mut self, ui: &mut egui::Ui) {
@@ -226,7 +210,7 @@ impl EguiRatatuiBridge {
 
         ui.collapsing("🗣 Specialist Dialogue (Cross-Husk Debate)", |ui| {
             let synapse = self.synapse.read();
-            let state = synapse.get_state();
+            let state = unsafe { &*(synapse.get_ptr() as *const nervous_system::shared_memory::SynapseState) };
             let d = &state.dialogue;
             
             ui.horizontal(|ui| {
@@ -250,7 +234,7 @@ impl EguiRatatuiBridge {
                         ui.label(egui::RichText::new(format!("{}:", speaker_info.0)).strong().color(speaker_info.1));
                         ui.label(egui::RichText::new("🧠 Neural Splicing Active").small().color(egui::Color32::YELLOW));
                     });
-                    ui.label(egui::RichText::new(msg).italic());
+                    ui.label(egui::RichText::new(msg).italics());
                 });
             }
             
@@ -263,7 +247,7 @@ impl EguiRatatuiBridge {
                 if ui.button("📸 Capture UI Latent State").clicked() {
                     println!("[Retina] Triggering manual visual-to-latent projection...");
                     let mut synapse = self.synapse.write();
-                    let state = synapse.get_state_mut();
+                    let state = unsafe { &mut *(synapse.get_ptr() as *mut nervous_system::shared_memory::SynapseState) };
                     for i in 0..1024 {
                         state.latent_vector[i] = rand::random::<f32>() * 2.0 - 1.0;
                     }
@@ -301,10 +285,6 @@ impl EguiRatatuiBridge {
             ui.label("• [08:42:10] Hephaestus: Injected range-check guard at 0x4A2");
             ui.label("• [08:41:55] Merlin: Swapped HTTP-Gate with Local-Retina-V2");
         });
-    }
-
-    fn draw_evolution_view(&mut self, ui: &mut egui::Ui) {
-        // ... (existing code)
     }
 
     fn draw_cluster_explorer(&mut self, ui: &mut egui::Ui) {

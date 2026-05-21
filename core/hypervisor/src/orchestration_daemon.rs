@@ -110,6 +110,12 @@ impl OrchestrationDaemon {
             model_name: "mock".to_string(),
             api_key: None,
             base_url: None,
+            gguf_model_path: None,
+            temperature: 0.7,
+            max_tokens: 512,
+            timeout_secs: 30,
+            enable_caching: true,
+            cache_ttl_secs: 3600,
         };
         
         let intelligence = IntelligenceEngine::new(llm_config, specialists);

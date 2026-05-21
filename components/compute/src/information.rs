@@ -48,8 +48,8 @@ pub fn mutual_information(
 /// Returns value in [0, 1] for comparability across different variable pairs.
 pub fn normalized_mutual_information(
     joint_prob: &[Vec<f64>],
-    marginal_x: &[f64>,
-    marginal_y: &[f64>,
+    marginal_x: &[f64],
+    marginal_y: &[f64],
 ) -> f64 {
     let mi = mutual_information(joint_prob, marginal_x, marginal_y);
     let h_x = shannon_entropy(marginal_x);

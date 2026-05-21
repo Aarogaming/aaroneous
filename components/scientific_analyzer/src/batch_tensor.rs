@@ -14,13 +14,22 @@ use crate::verifier::{VerificationResult, Verdict};
 /// Returns feature matrix [n_files, n_features].
 pub fn batch_extract_features(observations: &[AstObservation]) -> Vec<Vec<f64>> {
     observations.iter().map(|obs| {
+        let func_count = obs.structures.iter()
+            .filter(|s| matches!(s.structure_type, crate::ast_parser::StructureType::Function | crate::ast_parser::StructureType::Method))
+            .count() as f64;
+        let long_funcs = obs.structures.iter()
+            .filter(|s| {
+                let lines = s.line_range.1.saturating_sub(s.line_range.0);
+                lines > 20 && matches!(s.structure_type, crate::ast_parser::StructureType::Function | crate::ast_parser::StructureType::Method)
+            })
+            .count() as f64;
         vec![
             obs.structures.len() as f64,                          // Structural complexity
-            obs.functions.iter().map(|f| f.parameters.len()).sum::<usize>() as f64, // Parameter complexity
-            obs.functions.iter().filter(|f| f.body_lines > 20).count() as f64,     // Long functions
-            obs.imports.len() as f64,                             // Dependency count
-            compute_file_entropy(&obs.raw_content),               // Shannon entropy
-            compute_cyclomatic_complexity(obs),                   // Cyclomatic complexity
+            func_count,                                           // Function count
+            long_funcs,                                           // Long functions
+            obs.complexity_metrics.cyclomatic_complexity as f64,  // Cyclomatic complexity
+            obs.raw_entropy,                                      // Shannon entropy
+            obs.complexity_metrics.nesting_depth as f64,          // Nesting depth
         ]
     }).collect()
 }
@@ -36,7 +45,7 @@ pub fn batch_compute_similarity(feature_matrix: &[Vec<f64>]) -> Vec<Vec<f64>> {
             if i == j {
                 similarity[i][j] = 1.0;
             } else if j > i {
-                let sim = cosine_similarity(&feature_matrix[i], &feature_matrix[j]);
+                let sim = dot_cosine_similarity(&feature_matrix[i], &feature_matrix[j]);
                 similarity[i][j] = sim;
                 similarity[j][i] = sim;
             }
@@ -44,6 +53,18 @@ pub fn batch_compute_similarity(feature_matrix: &[Vec<f64>]) -> Vec<Vec<f64>> {
     }
 
     similarity
+}
+
+/// Simple cosine similarity between two vectors.
+fn dot_cosine_similarity(a: &[f64], b: &[f64]) -> f64 {
+    let dot: f64 = a.iter().zip(b.iter()).map(|(x, y)| x * y).sum();
+    let norm_a: f64 = a.iter().map(|x| x * x).sum::<f64>().sqrt();
+    let norm_b: f64 = b.iter().map(|x| x * x).sum::<f64>().sqrt();
+    if norm_a == 0.0 || norm_b == 0.0 {
+        0.0
+    } else {
+        dot / (norm_a * norm_b)
+    }
 }
 
 /// Prioritize test execution using Boltzmann distribution.
@@ -56,8 +77,13 @@ pub fn prioritize_tests(observations: &[AstObservation], temperature: f64) -> Ve
     // Compute energy (negative priority) for each file
     let energies: Vec<f64> = observations.iter().map(|obs| {
         let complexity = obs.structures.len() as f64;
-        let entropy = compute_file_entropy(&obs.raw_content);
-        let long_funcs = obs.functions.iter().filter(|f| f.body_lines > 20).count() as f64;
+        let entropy = obs.raw_entropy;
+        let long_funcs = obs.structures.iter()
+            .filter(|s| {
+                let lines = s.line_range.1.saturating_sub(s.line_range.0);
+                lines > 20 && matches!(s.structure_type, crate::ast_parser::StructureType::Function | crate::ast_parser::StructureType::Method)
+            })
+            .count() as f64;
         
         // Higher complexity/entropy = higher energy = lower priority in Boltzmann
         // But we want to test complex files first, so negate
@@ -92,7 +118,11 @@ pub fn batch_generate_hypotheses(observations: &[AstObservation]) -> Vec<Vec<Hyp
             ));
         }
 
-        if obs.functions.iter().any(|f| f.body_lines > 50) {
+        let has_long_func = obs.structures.iter().any(|s| {
+            let lines = s.line_range.1.saturating_sub(s.line_range.0);
+            lines > 50 && matches!(s.structure_type, crate::ast_parser::StructureType::Function | crate::ast_parser::StructureType::Method)
+        });
+        if has_long_func {
             hypotheses.push(Hypothesis::new(
                 &format!("File {} contains overly long functions", i),
                 "maintainability",
@@ -216,10 +246,13 @@ fn compute_file_entropy(content: &str) -> f64 {
 fn compute_cyclomatic_complexity(obs: &AstObservation) -> f64 {
     let mut complexity = 1.0; // Base complexity
 
-    for func in &obs.functions {
-        // Each conditional adds 1
-        complexity += func.body_lines as f64 * 0.1; // Approximation
-        complexity += func.parameters.len() as f64 * 0.05;
+    for structure in &obs.structures {
+        if matches!(structure.structure_type, crate::ast_parser::StructureType::Function | crate::ast_parser::StructureType::Method) {
+            let lines = structure.line_range.1.saturating_sub(structure.line_range.0);
+            // Each conditional adds 1
+            complexity += lines as f64 * 0.1; // Approximation
+            complexity += structure.signature.parameters.len() as f64 * 0.05;
+        }
     }
 
     complexity

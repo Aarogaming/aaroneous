@@ -8,7 +8,7 @@
 /// 6. Tensor Routing: Softmax attention for task routing
 /// 7. Spectral Layout: Optimal graph positioning
 
-use biology::{SystemBiology, ThermodynamicGovernor, ThermodynamicGovernorConfig, ThermodynamicAction};
+use biology::{SystemBiology, ThermodynamicGovernor, ThermodynamicGovernorConfig, ThermodynamicAction, ThermodynamicForecast};
 use compute::{
     kalman::KalmanFilter,
     mpc::ScalarMpc,
@@ -130,12 +130,19 @@ pub struct UnifiedLearningLoop {
 impl UnifiedLearningLoop {
     pub fn new(config: UnifiedLearningConfig, n_specialists: usize, specialist_ids: Vec<String>) -> Self {
         let n_features = 4; // complexity, urgency, skill_match, resource_need
+        let kalman_process_noise = config.kalman_process_noise;
+        let kalman_measurement_noise = config.kalman_measurement_noise;
+        let mpc_reference = config.mpc_reference;
+        let mpc_prediction_horizon = config.mpc_prediction_horizon;
+        let predictive_coding_layers = config.predictive_coding_layers.clone();
+        let learning_rate = config.learning_rate;
+        let specialist_ids_for_biology = specialist_ids.clone();
         let routing_weights = RoutingWeights::new(n_specialists, n_features, specialist_ids);
         let mut tensor_router = TensorRouter::new(routing_weights, config.routing_temperature);
 
         // Initialize biology with specialists
         let mut biology = SystemBiology::new();
-        for id in routing_weights.specialist_ids.iter() {
+        for id in specialist_ids_for_biology.iter() {
             biology.register_specialist(id, 20000);
         }
 
@@ -143,13 +150,13 @@ impl UnifiedLearningLoop {
             config,
             biology,
             thermodynamic_governor: ThermodynamicGovernor::new(ThermodynamicGovernorConfig::default()),
-            kalman: KalmanFilter::with_noise(1, 1, config.kalman_process_noise, config.kalman_measurement_noise),
+            kalman: KalmanFilter::with_noise(1, 1, kalman_process_noise, kalman_measurement_noise),
             mpc: {
-                let mut mpc = ScalarMpc::new(0.9, 0.1, config.mpc_reference);
-                mpc.config.prediction_horizon = config.mpc_prediction_horizon;
+                let mut mpc = ScalarMpc::new(0.9, 0.1, mpc_reference);
+                mpc.config.prediction_horizon = mpc_prediction_horizon;
                 mpc
             },
-            predictive_coding: HierarchicalPredictiveCoding::new(&config.predictive_coding_layers, config.learning_rate),
+            predictive_coding: HierarchicalPredictiveCoding::new(&predictive_coding_layers, learning_rate),
             tensor_router,
             system_state: UnifiedSystemState::default(),
             load_history: Vec::new(),
@@ -228,7 +235,7 @@ impl UnifiedLearningLoop {
         estimation_uncertainty: f64,
         mpc_control: f64,
         predicted_trajectory: &[f64],
-        thermo_forecast: &compute::thermodynamics::ThermodynamicForecast,
+        thermo_forecast: &ThermodynamicForecast,
         routing_result: &RoutingResult,
         prediction_error: f64,
     ) {

@@ -51,14 +51,20 @@ impl ThermodynamicGovernor {
         let mut free_energy = FreeEnergyState::new(0.5, 0.5, 0.3);
         free_energy.temperature = 0.5; // Initial exploration rate
 
-        let mut mpc = ScalarMpc::new(0.9, 0.1, config.target_free_energy);
-        mpc.config.prediction_horizon = config.mpc_prediction_horizon;
+        let target_fe = config.target_free_energy;
+        let mpc_horizon = config.mpc_prediction_horizon;
+        let process_noise = config.process_noise;
+        let measurement_noise = config.measurement_noise;
+        let phase_threshold = config.phase_transition_threshold;
+
+        let mut mpc = ScalarMpc::new(0.9, 0.1, target_fe);
+        mpc.config.prediction_horizon = mpc_horizon;
 
         Self {
             config,
             free_energy,
-            phase_detector: PhaseTransitionDetector::new(20, config.phase_transition_threshold),
-            kalman: KalmanFilter::with_noise(1, 1, config.process_noise, config.measurement_noise),
+            phase_detector: PhaseTransitionDetector::new(20, phase_threshold),
+            kalman: KalmanFilter::with_noise(1, 1, process_noise, measurement_noise),
             mpc,
             historical_load: Vec::new(),
             max_history: 50,

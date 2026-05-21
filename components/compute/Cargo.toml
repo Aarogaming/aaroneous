@@ -8,7 +8,7 @@ nervous_system = { path = "../../core/nervous_system" }
 rand = "0.8"
 serde = { version = "1.0", features = ["derive"] }
 num-traits = "0.2"
-candle-core = "0.6"
+candle-core = "0.8"
 rkyv = { version = "0.7", features = ["validation"] }
 anyhow = "1.0"
 

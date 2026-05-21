@@ -87,6 +87,7 @@ impl RetinaModule {
         }
 
         println!("[Retina] Ingestion complete. {} tokens written to synapse.", count);
+        let mut browser = browser;
         browser.close().await?;
         Ok(())
     }

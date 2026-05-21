@@ -202,7 +202,6 @@ pub enum Coproduct<A, B> {
 
 /// Pullback: limit of cospan X → Z ← Y.
 /// Represents the "best" object that maps to both X and Y consistently.
-#[derive(Debug, Clone)]
 pub struct Pullback<X, Y, Z> {
     pub object: Product<X, Y>,
     pub constraint: Box<dyn Fn(&X, &Y) -> Z>,
@@ -223,7 +222,6 @@ impl<X, Y, Z> Pullback<X, Y, Z> {
 
 /// Pushout: colimit of span X ← Z → Y.
 /// Represents the "best" object that both X and Y map to consistently.
-#[derive(Debug, Clone)]
 pub struct Pushout<X, Y, Z> {
     pub result: Coproduct<X, Y>,
     pub identification: Box<dyn Fn(&Z) -> (X, Y)>,
@@ -328,7 +326,7 @@ pub fn verify_composition<A, B, C>(
 ) -> bool
 where
     B: PartialEq,
-    C: PartialEq + Into<f64>,
+    C: PartialEq + Into<f64> + Clone,
     A: Clone,
 {
     let result = g(f(input.clone()));

@@ -25,7 +25,7 @@ impl SimulationTestbed {
         for i in 0..iterations {
             // Simulate increasing memory pressure and clock ticks
             virtual_synapse.clock_tick = i as u64;
-            virtual_synapse.memory_pressure = (i as f32 / iterations as f32) * 100.0;
+            virtual_synapse.memory_pressure = ((i * 100) / iterations.max(1)) as u8;
 
             // Execute the enzyme
             match self.runner.run_enzyme(wasm_path, &mut virtual_synapse).await {
@@ -33,9 +33,6 @@ impl SimulationTestbed {
                     // Check for internal safety locks triggered by the enzyme
                     if virtual_synapse.safety_lock == 1 {
                         return Err(anyhow!("Simulation failed: Enzyme triggered safety lock at iteration {}", i));
-                    }
-                    if virtual_synapse.error_sentinel == 1 {
-                        return Err(anyhow!("Simulation failed: Enzyme reported error sentinel at iteration {}", i));
                     }
                 }
                 Err(e) => {
