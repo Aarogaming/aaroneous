@@ -118,7 +118,25 @@ monitoring/
 
 # Orphaned legacy src directory (code moved to core/ and components/)
 src/
+!core/hypervisor/src/
 
 # Shards directory - legacy sovereign agent packages
 # To be processed and used as inspiration for building the system
 shards/
+
+# Synapse shared memory files
+*.synapse
+
+# Data directory (databases, cached models)
+data/*.db
+data/*.sqlite
+data/models/
+
+# Config directory
+config/*.toml
+!config/example.toml
+
+# Scripts directory - setup artifacts, not source
+scripts/*.zip
+scripts/*.log
+scripts/*.txt
