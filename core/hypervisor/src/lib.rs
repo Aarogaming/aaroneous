@@ -98,6 +98,10 @@ pub mod nats_client;
 pub mod persistence;
 pub mod workspace;
 pub mod wasm_splicer;
+pub mod wasm_loader;
+pub mod metadata_ingestor;
+pub mod action_executor;
+pub mod orchestration_daemon;
 pub mod synapse;
 pub mod win32_intercept;
 pub mod epigenetic_gate;
@@ -152,6 +156,11 @@ pub mod reasoning;
 pub mod execution;
 pub mod compression;
 pub mod hardware_layer;
+
+pub use wasm_loader::WasmEnzymeLoader;
+pub use metadata_ingestor::{MetadataIngestor, MetadataIngestorConfig};
+pub use action_executor::{ActionExecutor, ExecutableAction, FileOp};
+pub use orchestration_daemon::{OrchestrationDaemon, OrchestrationDaemonConfig, DaemonState};
 
 #[cfg(test)]
 mod synaptic_test;

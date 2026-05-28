@@ -280,4 +280,16 @@ impl SpatialKineticEngine {
     pub fn get_frame_history(&self) -> &[f32] {
         &self.frame_history
     }
+
+    /// Run the engine with a custom configuration
+    pub async fn run_with_custom_config(&mut self, config: SpatialKineticConfig) -> Result<(), String> {
+        // Update the configuration
+        self.config = config;
+        
+        // Re-initialize with new config
+        self.initialize().await?;
+        
+        // Run the main loop
+        self.run().await
+    }
 }

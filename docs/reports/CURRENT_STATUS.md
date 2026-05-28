@@ -1,8 +1,9 @@
 # Aaroneous Master Status: Era 3 Actualization Underway
 
-**Date**: April 30, 2026  
-**Status**: Phase 6D.1 Complete + Phase 6D.2-6D.6 Architected  
-**Test Count**: 581/581 passing (100%)  
+**Date**: May 28, 2026  
+**Status**: Phase 6D.1 shipped; 6D.2-6D.6 still planned  
+**Verification**: `cargo check -p a_run --all-targets --jobs 2`, `cargo test -p a_run --lib --jobs 2`, `cargo build -p a_run --bin a_run --jobs 2` all pass  
+**Test Count**: 782/782 passing in `a_run --lib`  
 **Code**: 26,000+ LOC production  
 
 ---
@@ -29,7 +30,7 @@
 
 ### Era 3: WASM Relics & Sentinel Ecosystem (Phase 6D-6F) 🔄 IN PROGRESS
 **Vision**: Hot-swappable WASM binaries (Ariel + Glass) as true entities  
-**Current**: 19 tests + Architecture (Phase 6D.1 complete)  
+**Current**: Phase 6D.1 shipped; repo verification green  
 **Key Systems** (Design):
 - WASM Orchestrator (Sentinel Core hypervisor)
 - Glass Relic (SSD-mapped Vision Transformer)
@@ -42,7 +43,7 @@
 ## Phase 6D Progress: The Actualization
 
 ### 6D.1: WASM-EBus Bridge ✅ COMPLETE
-**Status**: 19 tests, 2,300 LOC, shipped  
+**Status**: shipped; repo verification green  
 **Components**:
 - `WasmEbusBridge`: Main orchestrator (ringbuffer, WIT exports, action execution)
 - `EbusEvent`: Event types (input, visual, entity, combat, system)

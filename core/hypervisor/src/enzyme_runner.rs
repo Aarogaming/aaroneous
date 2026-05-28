@@ -1,7 +1,7 @@
 use anyhow::{Result, anyhow};
 use wasmtime::{Config, Engine, Store};
 use wasmtime::component::{Component, Linker as ComponentLinker, ResourceTable, Val};
-use wasmtime_wasi::{WasiCtx, WasiCtxBuilder, WasiView, DirPerms, FilePerms};
+use wasmtime_wasi::{WasiCtx, WasiCtxBuilder, WasiCtxView, WasiView, DirPerms, FilePerms};
 use std::path::Path;
 
 pub struct EnzymeRunner {
@@ -16,8 +16,12 @@ struct EnzymeState {
 }
 
 impl WasiView for EnzymeState {
-    fn table(&mut self) -> &mut ResourceTable { &mut self.table }
-    fn ctx(&mut self) -> &mut WasiCtx { &mut self.wasi }
+    fn ctx(&mut self) -> WasiCtxView<'_> {
+        WasiCtxView {
+            ctx: &mut self.wasi,
+            table: &mut self.table,
+        }
+    }
 }
 
 impl EnzymeState {
@@ -30,13 +34,12 @@ impl EnzymeRunner {
     pub fn new() -> Result<Self> {
         let mut config = Config::new();
         config.wasm_component_model(true);
-        config.async_support(true);
         
         let engine = Engine::new(&config)?;
         let mut linker = ComponentLinker::new(&engine);
         
         // Add WASI imports to the linker so the component can use them
-        wasmtime_wasi::add_to_linker_async(&mut linker)?;
+        wasmtime_wasi::p2::add_to_linker_async(&mut linker)?;
         
         Ok(Self { engine, linker })
     }
@@ -58,7 +61,7 @@ impl EnzymeRunner {
         // - Only access to the mounted /workspace directory
         builder.inherit_stdout().inherit_stderr();
         
-        let _ = builder.preopened_dir(sandbox_path, "/workspace", DirPerms::all(), FilePerms::all());
+        builder.preopened_dir(sandbox_path, "/workspace", DirPerms::all(), FilePerms::all())?;
         
         let state = EnzymeState {
             wasi: builder.build(),

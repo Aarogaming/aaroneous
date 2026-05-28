@@ -66,7 +66,7 @@ impl Default for IngestionDataChunk {
 }
 
 /// Sandboxed network data stream that digests web bytes directly into VSA.
-#[repr(C)]
+#[repr(C, align(64))]
 #[derive(Debug, Clone)]
 pub struct NetworkDataStream {
     pub endpoint_hash: u64,

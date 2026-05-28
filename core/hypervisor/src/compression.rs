@@ -117,7 +117,7 @@ impl VSARetrieval {
     /// Retrieve top-k most similar entries by popcount.
     pub fn retrieve(&self, query: &VsaVector, k: usize) -> Vec<(u64, f32)> {
         let mut scored: Vec<(usize, f32)> = self.entries.iter().enumerate()
-            .map(|(i, (v, _))| (i, Self::popcount_sim(&query.0, &v.0)))
+            .map(|(i, (v, _))| (i, Self::popcount_sim(query.as_bytes(), v.as_bytes())))
             .collect();
         scored.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
         scored.truncate(k);
@@ -129,7 +129,7 @@ impl VSARetrieval {
     /// Store from raw bytes (hashes internally).
     pub fn store_bytes(&mut self, data: &[u8], metadata: u64) {
         let hash: u64 = data.iter().fold(0u64, |acc, &b| acc.wrapping_mul(31).wrapping_add(b as u64));
-        let vec = VsaVector(data.to_vec());
+        let vec = VsaVector::from_bytes(data);
         self.store(vec, hash ^ metadata);
     }
 
@@ -185,16 +185,16 @@ mod tests {
     #[test]
     fn test_vsa_retrieval_store() {
         let mut rag = VSARetrieval::new(100);
-        rag.store(VsaVector(vec![1, 2, 3]), 0xAA);
+        rag.store(VsaVector::from_bytes(&[1, 2, 3]), 0xAA);
         assert_eq!(rag.entry_count(), 1);
     }
 
     #[test]
     fn test_vsa_retrieval_retrieve() {
         let mut rag = VSARetrieval::new(100);
-        rag.store(VsaVector(vec![0xAA; 32]), 100);
-        rag.store(VsaVector(vec![0xBB; 32]), 200);
-        let query = VsaVector(vec![0xAA; 32]);
+        rag.store(VsaVector::from_bytes(&[0xAA; 32]), 100);
+        rag.store(VsaVector::from_bytes(&[0xBB; 32]), 200);
+        let query = VsaVector::from_bytes(&[0xAA; 32]);
         let results = rag.retrieve(&query, 1);
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].0, 100);
@@ -213,7 +213,7 @@ mod tests {
     fn test_vsa_retrieval_eviction() {
         let mut rag = VSARetrieval::new(3);
         for i in 0..5 {
-            rag.store(VsaVector(vec![i; 8]), i as u64);
+            rag.store(VsaVector::from_bytes(&[i; 8]), i as u64);
         }
         assert_eq!(rag.entry_count(), 3);
     }

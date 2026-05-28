@@ -27,6 +27,7 @@ cargo run --release --bin spatial_kinetic [--fps 60] [--genome path/to/genome]
 
 - **[INDEX.md](INDEX.md)** — Full document index
 - **[Quick Start](guides/QUICK_START.md)** — Getting started
+- **[Workspace Rules](guides/WORKSPACE_RULES.md)** — Local workspace rules and test constraints
 - **[Current Status](reports/CURRENT_STATUS.md)** — Implementation snapshot
 - **[Architecture](architecture/)** — Federation design, mathematical frameworks, MCP
 - **[Operations](operations/)** — Deployment, runbook, monitoring, governance
@@ -39,10 +40,10 @@ cargo run --release --bin spatial_kinetic [--fps 60] [--genome path/to/genome]
 
 | Check | Status |
 |-------|--------|
-| `cargo check -p a_run` | 0 errors, 0 warnings |
-| `cargo check --workspace` | 0 errors |
-| `cargo test -p a_run` | Test-only compilation errors (hive_db `self_digestion` imports) |
-| Workspace crates | 17, all compile cleanly |
+| `cargo check -p a_run --all-targets --jobs 2` | passes |
+| `cargo test -p a_run --lib --jobs 2` | passes (`782 passed, 0 failed, 3 ignored`) |
+| `cargo build -p a_run --bin a_run --jobs 2` | passes |
+| Workspace crates | 17 members in `Cargo.toml` |
 
 ### Active Subsystems
 
@@ -57,7 +58,14 @@ cargo run --release --bin spatial_kinetic [--fps 60] [--genome path/to/genome]
 - **Diplomat Enzyme** — reqwest-based Agent Protocol communication with external agents
 - **Federation** — 6 specialists (Sentinel, Visionary, Omnipresent, Symbiotic, Phygital, Archivist); HTTP status server; enterprise audit/compliance; forge (GGUF crystallization); NATS P2P; multi-hive clusters; sovereign packages
 - **Spatial-Kinetic Engine** — HID reflex loop with genome-driven input, wgpu shader pipeline, configurable FPS
-- **Autonomic Loop** — Staged (commented out in lib.rs pending HardenedEnvironment)
+- **Autonomic Loop** — Integrated runtime management via shared-memory synapse
+
+## Frontiers
+
+- Zig HID driver for sub-millisecond control.
+- Predictive policy and curiosity loops.
+- GGUF splicing, agent synthesis, and hot-loading.
+- Glass Workshop / MaelstromUI integration.
 
 ## Tech Stack
 

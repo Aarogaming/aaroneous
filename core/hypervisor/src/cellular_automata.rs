@@ -5,26 +5,84 @@
 /// RNA adapter, VSA space inflator.
 
 /// A generic VSA (Vector Symbolic Architecture) vector.
-#[repr(C)]
-#[derive(Debug, Clone)]
-pub struct VsaVector(pub Vec<u8>);
+#[repr(C, align(64))]
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct VsaVector {
+    pub storage: [u64; 128],
+}
+
+impl VsaVector {
+    pub const BYTE_LEN: usize = 128 * 8;
+
+    pub fn zeroed() -> Self {
+        Self { storage: [0u64; 128] }
+    }
+
+    pub fn from_bytes(bytes: &[u8]) -> Self {
+        let mut storage = [0u64; 128];
+        let limit = bytes.len().min(Self::BYTE_LEN);
+        for word_idx in 0..128 {
+            let base = word_idx * 8;
+            if base >= limit {
+                break;
+            }
+
+            let mut word = [0u8; 8];
+            for byte_idx in 0..8 {
+                let src_idx = base + byte_idx;
+                if src_idx >= limit {
+                    break;
+                }
+                word[byte_idx] = bytes[src_idx];
+            }
+            storage[word_idx] = u64::from_le_bytes(word);
+        }
+
+        Self { storage }
+    }
+
+    pub fn as_bytes(&self) -> &[u8; Self::BYTE_LEN] {
+        unsafe { &*(self.storage.as_ptr() as *const [u8; Self::BYTE_LEN]) }
+    }
+
+    pub fn as_bytes_mut(&mut self) -> &mut [u8; Self::BYTE_LEN] {
+        unsafe { &mut *(self.storage.as_mut_ptr() as *mut [u8; Self::BYTE_LEN]) }
+    }
+}
 
 // ── 9. FSM Compiler ───────────────────────────────────────────────────
 // Compiles action sequences into compressed state machine representation.
 
-#[repr(C)]
-#[derive(Debug, Clone)]
+#[repr(C, align(64))]
+#[derive(Debug, Clone, Copy)]
 pub struct FsmAction {
     pub input: u64,
     pub output: u64,
     pub next_state: usize,
 }
 
-#[repr(C)]
-#[derive(Debug, Clone)]
+#[repr(C, align(64))]
+#[derive(Debug, Clone, Copy)]
 pub struct FsmState {
     pub id: usize,
-    pub transitions: Vec<FsmAction>,
+    pub transition_count: usize,
+    pub transitions: [FsmAction; 16],
+}
+
+impl FsmState {
+    pub const MAX_TRANSITIONS: usize = 16;
+
+    pub fn new(id: usize, transitions: &[FsmAction]) -> Self {
+        assert!(
+            transitions.len() <= Self::MAX_TRANSITIONS,
+            "FsmState::new supports at most {} transitions",
+            Self::MAX_TRANSITIONS
+        );
+        let mut storage = [FsmAction { input: 0, output: 0, next_state: 0 }; 16];
+        let count = transitions.len().min(storage.len());
+        storage[..count].copy_from_slice(&transitions[..count]);
+        Self { id, transition_count: count, transitions: storage }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -40,7 +98,8 @@ impl FsmCompiler {
 
     pub fn step(&mut self, input: u64) -> Option<u64> {
         let state = &self.states[self.current];
-        for t in &state.transitions {
+        for i in 0..state.transition_count {
+            let t = state.transitions[i];
             if t.input == input {
                 self.current = t.next_state;
                 return Some(t.output);
@@ -210,34 +269,48 @@ impl DataLifecycleManager {
 // ── 13. Superposition ─────────────────────────────────────────────────
 // Qubit-inspired probability amplitude overlay for parallel exploration.
 
-#[repr(C)]
-#[derive(Debug, Clone)]
+#[repr(C, align(64))]
+#[derive(Debug, Clone, Copy)]
 pub struct ProbabilityAmplitude {
     pub real: f32,
     pub imag: f32,
 }
 
-#[repr(C)]
-#[derive(Debug, Clone)]
+#[repr(C, align(64))]
+#[derive(Debug, Clone, Copy)]
 pub struct SuperpositionState {
-    pub amplitudes: Vec<ProbabilityAmplitude>,
+    pub element_count: usize,
+    pub amplitudes: [ProbabilityAmplitude; 32],
 }
 
 impl SuperpositionState {
+    pub const MAX_ELEMENTS: usize = 32;
+
     pub fn new(n: usize) -> Self {
-        let mut amplitudes = Vec::with_capacity(n);
-        let norm = 1.0 / (n as f32).sqrt();
-        for _ in 0..n {
-            amplitudes.push(ProbabilityAmplitude { real: norm, imag: 0.0 });
+        assert!(
+            n <= Self::MAX_ELEMENTS,
+            "SuperpositionState::new supports at most {} elements",
+            Self::MAX_ELEMENTS
+        );
+        let count = n.min(32);
+        let mut amplitudes = [ProbabilityAmplitude { real: 0.0, imag: 0.0 }; 32];
+        if count > 0 {
+            let norm = 1.0 / (count as f32).sqrt();
+            for i in 0..count {
+                amplitudes[i] = ProbabilityAmplitude { real: norm, imag: 0.0 };
+            }
         }
-        SuperpositionState { amplitudes }
+        SuperpositionState { element_count: count, amplitudes }
     }
 
     /// Collapse to most probable state via Born rule.
     pub fn collapse(&self) -> usize {
+        if self.element_count == 0 {
+            return 0;
+        }
         let mut best_idx = 0usize;
         let mut best_prob = 0.0f32;
-        for (i, a) in self.amplitudes.iter().enumerate() {
+        for (i, a) in self.amplitudes.iter().take(self.element_count).enumerate() {
             let prob = a.real * a.real + a.imag * a.imag;
             if prob > best_prob {
                 best_prob = prob;
@@ -249,9 +322,13 @@ impl SuperpositionState {
 
     /// Apply Hadamard-like transform to create equal superposition.
     pub fn apply_hadamard(&mut self) {
-        let n = self.amplitudes.len() as f32;
+        if self.element_count == 0 {
+            return;
+        }
+
+        let n = self.element_count as f32;
         let factor = 1.0 / n.sqrt();
-        for a in &mut self.amplitudes {
+        for a in self.amplitudes.iter_mut().take(self.element_count) {
             a.real = factor;
             a.imag = 0.0;
         }
@@ -309,7 +386,7 @@ impl ValenceBonding {
 
     /// Form a bond between two VSA vectors if their overlap exceeds threshold.
     pub fn try_bond(&mut self, a: &VsaVector, b: &VsaVector, threshold: f32) -> bool {
-        let overlap = popcount_similarity(&a.0, &b.0);
+        let overlap = popcount_similarity(a.as_bytes(), b.as_bytes());
         if overlap >= threshold {
             self.bonds.push(ValenceBond {
                 vector_a: a.clone(),
@@ -390,11 +467,20 @@ impl VsaSpaceInflator {
     pub fn inflate(&mut self, vectors: &[VsaVector]) {
         self.expanded.clear();
         for v in vectors {
-            let mut inflated = VsaVector(vec![0u8; self.base_dimensions * self.expansion_factor]);
+            let mut inflated = VsaVector::zeroed();
+            let output_len = self.base_dimensions.saturating_mul(self.expansion_factor).min(VsaVector::BYTE_LEN);
+            if output_len == 0 {
+                self.expanded.push(inflated);
+                continue;
+            }
+
+            let source = v.as_bytes();
+            let source_max = VsaVector::BYTE_LEN - 1;
+            let inflated_bytes = inflated.as_bytes_mut();
             // Linear interpolation across dimensions
-            for i in 0..inflated.0.len() {
-                let src_idx = (i * self.base_dimensions) / inflated.0.len();
-                inflated.0[i] = v.0[src_idx.min(v.0.len() - 1)];
+            for i in 0..output_len {
+                let src_idx = (i * self.base_dimensions) / output_len;
+                inflated_bytes[i] = source[src_idx.min(source_max)];
             }
             self.expanded.push(inflated);
         }
@@ -408,8 +494,8 @@ mod tests {
     #[test]
     fn test_fsm_compiler() {
         let states = vec![
-            FsmState { id: 0, transitions: vec![FsmAction { input: 1, output: 10, next_state: 1 }] },
-            FsmState { id: 1, transitions: vec![FsmAction { input: 2, output: 20, next_state: 0 }] },
+            FsmState::new(0, &[FsmAction { input: 1, output: 10, next_state: 1 }]),
+            FsmState::new(1, &[FsmAction { input: 2, output: 20, next_state: 0 }]),
         ];
         let mut fsm = FsmCompiler::new(states);
         assert_eq!(fsm.step(1), Some(10));
@@ -420,7 +506,7 @@ mod tests {
 
     #[test]
     fn test_fsm_no_match() {
-        let states = vec![FsmState { id: 0, transitions: vec![] }];
+        let states = vec![FsmState::new(0, &[])];
         let mut fsm = FsmCompiler::new(states);
         assert_eq!(fsm.step(99), None);
     }
@@ -467,7 +553,7 @@ mod tests {
         let mut sup = SuperpositionState::new(4);
         sup.amplitudes[0] = ProbabilityAmplitude { real: 1.0, imag: 0.0 };
         sup.apply_hadamard();
-        for a in &sup.amplitudes {
+        for a in sup.amplitudes.iter().take(sup.element_count) {
             assert!((a.real - 0.5).abs() < 1e-6);
         }
     }
@@ -489,10 +575,11 @@ mod tests {
 
     #[test]
     fn test_valence_bonding() {
-        let bond = ValenceBonding::new();
-        let a = VsaVector(vec![0xAA; 32]);
-        let b = VsaVector(vec![0xAA; 32]);
-        assert!(!bond.bonds.is_empty() || bond.bonds.is_empty()); // just compile check
+        let mut bond = ValenceBonding::new();
+        let a = VsaVector::from_bytes(&[0xAA; 32]);
+        let b = VsaVector::from_bytes(&[0xAA; 32]);
+        assert!(bond.try_bond(&a, &b, 1.0));
+        assert_eq!(bond.bonds.len(), 1);
     }
 
     #[test]
@@ -506,9 +593,9 @@ mod tests {
     #[test]
     fn test_vsa_space_inflator() {
         let mut inflator = VsaSpaceInflator::new(4, 2);
-        let vectors = vec![VsaVector(vec![1, 2, 3, 4])];
+        let vectors = vec![VsaVector::from_bytes(&[1, 2, 3, 4])];
         inflator.inflate(&vectors);
         assert_eq!(inflator.expanded.len(), 1);
-        assert_eq!(inflator.expanded[0].0.len(), 8); // 4 * 2
+        assert_eq!(&inflator.expanded[0].as_bytes()[0..8], &[1, 1, 2, 2, 3, 3, 4, 4]);
     }
 }

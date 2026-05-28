@@ -3,11 +3,12 @@
 
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
+use std::process::{Command, Child, Stdio};
 use tokio::time;
 use serde::{Serialize, Deserialize};
 use crate::metadata_ingestor::{MetadataIngestor, MetadataIngestorConfig, MetadataEvent, MetadataAnalysis};
 use crate::decision_engine::{AutonomousDecisionEngine, DecisionTask, TaskEvaluation, ExecutionOutcome};
-use crate::action_executor::{ActionExecutor, ActionResult};
+use crate::action_executor::{ActionExecutor, ActionResult, ExecutionStats};
 use intelligence::{IntelligenceEngine, Specialist, LLMConfig, ProviderType, TaskType};
 use crate::constellation_ui::{ConstellationCanvas, NodeMetrics};
 use biology::SystemHealthReport;
@@ -50,6 +51,22 @@ pub enum DaemonState {
     ShuttingDown,
 }
 
+/// Orchestration daemon core state.
+pub struct OrchestrationDaemon {
+    pub config: OrchestrationDaemonConfig,
+    pub ingestor: MetadataIngestor,
+    pub decision_engine: AutonomousDecisionEngine,
+    pub executor: ActionExecutor,
+    pub constellation: ConstellationCanvas,
+    pub state: DaemonState,
+    pub lifecycle: Box<dyn LifecycleManager>,
+    pub start_time: Instant,
+    pub cycles_completed: u64,
+    pub tasks_processed: u64,
+    pub actions_executed: u64,
+    pub last_cycle_duration: Duration,
+}
+
 /// Agent status
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum AgentStatus {
@@ -82,19 +99,60 @@ pub struct ProcessLifecycleManager {
 }
 
 impl LifecycleManager for ProcessLifecycleManager {
-    fn spawn(&mut self, _descriptor: AgentDescriptor) -> Result<(), String> {
-        // Implementation for process spawning will go here
+    fn spawn(&mut self, descriptor: AgentDescriptor) -> Result<(), String> {
+        // Spawn a new agent process
+        let mut cmd = Command::new("cargo");
+        cmd.arg("run")
+           .arg("--bin")
+           .arg(&descriptor.binary_name)
+           .arg("--")
+           .arg(&descriptor.args.join(" "));
+        
+        // Add the working directory if specified
+        if let Some(ref working_dir) = descriptor.working_dir {
+            cmd.current_dir(working_dir);
+        }
+        
+        // Spawn the process
+        let child = cmd.spawn()
+            .map_err(|e| format!("Failed to spawn agent {}: {}", descriptor.binary_name, e))?;
+        
+        // Store the child process
+        self.managed_agents.insert(descriptor.id.clone(), child);
         Ok(())
     }
     
     fn monitor(&mut self) -> Result<(), String> {
-        // Monitoring logic will go here
+        // Monitor running agents and clean up finished processes
+        let mut finished_agents = Vec::new();
+        
+        for (id, child) in &mut self.managed_agents {
+            // Check if the process has finished
+            if let Ok(Some(status)) = child.try_wait() {
+                if status.success() {
+                    println!("[LifecycleManager] Agent {} completed successfully", id);
+                } else {
+                    println!("[LifecycleManager] Agent {} failed with status: {:?}", id, status);
+                }
+                finished_agents.push(id.clone());
+            }
+        }
+        
+        // Remove finished agents from managed list
+        for id in finished_agents {
+            self.managed_agents.remove(&id);
+        }
+        
         Ok(())
     }
 
     fn spool_down(&mut self, id: &str) -> Result<(), String> {
         if let Some(mut child) = self.managed_agents.remove(id) {
-            child.kill().map_err(|e| e.to_string())
+            // Attempt graceful shutdown first
+            if let Err(e) = child.kill() {
+                return Err(format!("Failed to kill agent {}: {}", id, e));
+            }
+            Ok(())
         } else {
             Err(format!("Agent {} not found", id))
         }
@@ -102,16 +160,15 @@ impl LifecycleManager for ProcessLifecycleManager {
 }
 
 /// Daemon status report
-#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DaemonStatus {
     pub state: DaemonState,
-    pub lifecycle: Box<dyn LifecycleManager>,
-    pub start_time: Instant,
-
+    pub uptime_seconds: f64,
     pub cycles_completed: u64,
     pub tasks_processed: u64,
     pub actions_executed: u64,
-    pub last_cycle_duration: Duration,
+    pub metabolic_health: SystemHealthReport,
+    pub execution_stats: ExecutionStats,
+    pub last_cycle_duration_ms: f64,
 }
 
 impl OrchestrationDaemon {

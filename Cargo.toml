@@ -2,6 +2,7 @@
 members = [
     "core/hypervisor",
     "core/nervous_system",
+    "core/chimera_vm",
     "sdk/rust",
     "components/intelligence",
     "components/storage",

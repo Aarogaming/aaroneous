@@ -110,65 +110,76 @@ impl MetadataIngestor {
             _watcher: watcher,
         }
     }
-
-    /// Scan watched paths for changes
-    pub fn process_pending_events(&mut self) -> Vec<MetadataEvent> {
+    /// Scan watched paths for filesystem changes.
+    fn scan_filesystem(&mut self) -> Vec<MetadataEvent> {
         let mut events = Vec::new();
-        while let Ok(event) = self.event_rx.try_recv() {
-            events.push(event);
+        let watch_paths = self.config.watch_paths.clone();
+
+        for path in &watch_paths {
+            self.scan_path_recursive(path, &mut events);
         }
+
         events
     }
 
-            
+    fn scan_path_recursive(&mut self, path: &Path, events: &mut Vec<MetadataEvent>) {
+        let metadata = match fs::metadata(path) {
+            Ok(metadata) => metadata,
+            Err(_) => return,
+        };
+
+        if metadata.is_dir() {
             if let Ok(entries) = fs::read_dir(path) {
                 for entry in entries.filter_map(|e| e.ok()) {
                     let entry_path = entry.path();
-                    
-                    // Skip hidden files and target directory
+
+                    // Skip hidden files/directories and target trees.
                     if let Some(name) = entry_path.file_name().and_then(|n| n.to_str()) {
                         if name.starts_with('.') || name == "target" {
                             continue;
                         }
                     }
-                    
-                    if let Ok(metadata) = entry_path.metadata() {
-                        let file_hash = self.compute_file_hash(&entry_path);
-                        let is_new = !self.file_hashes.contains_key(&entry_path);
-                        let is_changed = self.file_hashes.get(&entry_path) != Some(&file_hash);
-                        
-                        if is_new || is_changed {
-                            let event = MetadataEvent {
-                                source: format!("fs:{}", path.display()),
-                                event_type: if is_new { "file_created".to_string() } else { "file_modified".to_string() },
-                                timestamp: std::time::SystemTime::now()
-                                    .duration_since(std::time::UNIX_EPOCH)
-                                    .unwrap_or_default()
-                                    .as_secs_f64(),
-                                data: serde_json::json!({
-                                    "path": entry_path.to_string_lossy(),
-                                    "size": metadata.len(),
-                                    "is_file": metadata.is_file(),
-                                    "modified": metadata.modified().ok().map(|t| {
-                                        t.duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_secs_f64()
-                                    }),
-                                }),
-                                raw_bytes: if metadata.is_file() && metadata.len() < 1_000_000 {
-                                    fs::read(&entry_path).ok()
-                                } else {
-                                    None
-                                },
-                            };
-                            
-                            events.push(event);
-                            self.file_hashes.insert(entry_path, file_hash);
-                        }
-                    }
+
+                    self.scan_path_recursive(&entry_path, events);
                 }
             }
+            return;
         }
-        
-        events
+
+        if !metadata.is_file() {
+            return;
+        }
+
+        let file_hash = self.compute_file_hash(path);
+        let is_new = !self.file_hashes.contains_key(path);
+        let is_changed = self.file_hashes.get(path) != Some(&file_hash);
+
+        if is_new || is_changed {
+            let event = MetadataEvent {
+                source: format!("fs:{}", path.display()),
+                event_type: if is_new { "file_created".to_string() } else { "file_modified".to_string() },
+                timestamp: std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_secs_f64(),
+                data: serde_json::json!({
+                    "path": path.to_string_lossy(),
+                    "size": metadata.len(),
+                    "is_file": metadata.is_file(),
+                    "modified": metadata.modified().ok().map(|t| {
+                        t.duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_secs_f64()
+                    }),
+                }),
+                raw_bytes: if metadata.len() < 1_000_000 {
+                    fs::read(path).ok()
+                } else {
+                    None
+                },
+            };
+
+            events.push(event);
+            self.file_hashes.insert(path.to_path_buf(), file_hash);
+        }
     }
 
     /// Collect system metrics
@@ -249,6 +260,12 @@ impl MetadataIngestor {
     /// Process all pending events and return analyses
     pub fn process_pending_events(&mut self) -> Vec<(MetadataEvent, MetadataAnalysis)> {
         let mut results = Vec::new();
+
+        while let Ok(event) = self.event_rx.try_recv() {
+            if self.event_queue.len() < self.config.max_event_queue {
+                self.event_queue.push(event);
+            }
+        }
         
         // Scan for new events
         let fs_events = self.scan_filesystem();
@@ -310,6 +327,8 @@ impl Default for MetadataAnalysis {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::fs;
+    use tempfile::tempdir;
 
     #[test]
     fn test_ingestor_creation() {
@@ -346,5 +365,27 @@ mod tests {
         let analysis = ingestor.analyze_event(&event);
         assert!(analysis.entropy >= 0.0);
         assert!(analysis.predicted_complexity >= 0.0 && analysis.predicted_complexity <= 1.0);
+    }
+
+    #[test]
+    fn test_recursive_filesystem_scan() {
+        let dir = tempdir().unwrap();
+        let nested = dir.path().join("nested").join("deeper");
+        fs::create_dir_all(&nested).unwrap();
+        let file_path = nested.join("sample.rs");
+        fs::write(&file_path, b"fn main() {}\n").unwrap();
+
+        let config = MetadataIngestorConfig {
+            watch_paths: vec![dir.path().to_path_buf()],
+            poll_interval: Duration::from_secs(1),
+            max_event_queue: 16,
+            compute_entropy: false,
+            compute_complexity: false,
+        };
+        let mut ingestor = MetadataIngestor::new(config);
+        let events = ingestor.scan_filesystem();
+        let expected_path = file_path.to_string_lossy().to_string();
+
+        assert!(events.iter().any(|event| event.data.get("path").and_then(|p| p.as_str()) == Some(expected_path.as_str())));
     }
 }

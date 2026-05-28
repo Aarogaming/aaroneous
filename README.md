@@ -2,36 +2,30 @@
 
 **Machine-Native Stem Cell Engine** — Rust AI agent system with a federation of collaborating specialists and WASM-based enzyme execution.
 
-## Workspace
+## What It Is
 
-```
-Aaroneous/
-├── core/                  # Core crates
-│   ├── hypervisor/        # Orchestrator, specialists, WASM runtime, federation
-│   └── nervous_system/    # Zero-copy shared memory (synapse)
-├── components/            # Reusable components (17 sub-crates)
-│   ├── intelligence/      # LLM routing, task analysis
-│   ├── storage/           # SQLite persistence
-│   ├── sabs/              # Skill Action Block system
-│   ├── skills/            # Skill definitions and fusion
-│   ├── genetics/          # Specialist genome, breeding
-│   ├── digestion/         # Personality/soul digestion
-│   ├── biology/           # Metabolic governance, thermodynamics
-│   ├── agents/            # Agent definitions
-│   ├── constellation/     # Constellation graph topology
-│   ├── control/           # Control plane messages
-│   ├── hive/              # Hive runtime orchestration
-│   ├── compute/           # Mathematical compute engine
-│   ├── scientific_analyzer/ # Pipeline analysis
-│   └── paths/             # Workspace path discovery
-├── MaelstromUI/           # Tauri + React desktop UI
-├── federation/            # Federation HTTP, NATS, forge, specialists
-├── docs/                  # Documentation
-├── data/                  # Runtime data (SABs, routines)
-├── config/                # Configuration files
-├── registry/              # HOX maps, SAB manifests
-└── agents.md              # OpenCode agent instructions
-```
+A Rust workspace for autonomous specialist agents, WASM enzyme execution, shared-memory synapses, and federation tooling. The current focus is stabilizing `a_run` while advancing the WASM/Sentinel frontier.
+
+## Current State
+
+- `cargo check -p a_run --all-targets --jobs 2` passes.
+- `cargo test -p a_run --lib --jobs 2` passes (`782 passed, 0 failed, 3 ignored`).
+- `cargo build -p a_run --bin a_run --jobs 2` passes.
+- Remaining compiler output is warning-only.
+
+## Operating Rules
+
+- Run tests per crate, not `cargo test --workspace`.
+- Use `--jobs 2` for heavy crates when needed.
+- Workspace constraints live in `docs/guides/WORKSPACE_RULES.md`.
+
+## Near-Term Frontiers
+
+- Zig HID driver for low-latency marionette control.
+- Predictive policy engine for intent-to-action refinement.
+- Curiosity learning loop for feedback-driven adaptation.
+- GGUF splicing and agent synthesis/hot-load workflows.
+- MaelstromUI / Glass Workshop integration.
 
 ## Build & Run
 
@@ -48,17 +42,17 @@ cargo run --release --bin spatial_kinetic
 | `spatial_kinetic` | Spatial-kinetic reflex loop — genome-driven HID output + wgpu reflex pipeline |
 | `test_enigo` | Mouse automation test (enigo) |
 
-## Current State
-
-- **Compilation**: `cargo check -p a_run` — clean compilation.
-- **Tests**: `cargo test -p a_run --lib` — 766 passed, 0 failed, 3 ignored.
-
-### Active Subsystems
+## Active Subsystems
 
 | Subsystem | Status | Description |
 |-----------|--------|-------------|
-...
-| Autonomic Loop | Live | Fully integrated, managing agent runtime via shared-memory synapse |
+| Enzyme Runner | Live | Wasmtime Component Model sandbox with WASI isolation |
+| Hox Registry | Live | SQLite-backed capability registry with permission round-trips |
+| Metadata Ingestor | Live | Recursive filesystem and metrics ingestion pipeline |
+| Orchestration Daemon | Live | Converts metadata into tasks and executes actions |
+| Cellular Automata | Live | Fixed-width VSA/FSM/superposition layouts for deterministic memory |
+| Retina Module | Live | Browser-based ingestion with safe teardown |
+| Autonomic Loop | Live | Runtime management via shared-memory synapse |
 
 ## Tech Stack
 
@@ -75,6 +69,13 @@ cargo run --release --bin spatial_kinetic
 ## Documentation
 
 See [docs/INDEX.md](docs/INDEX.md) for the full index.
+
+Key docs:
+
+- [docs/README.md](docs/README.md)
+- [docs/guides/QUICK_START.md](docs/guides/QUICK_START.md)
+- [docs/guides/WORKSPACE_RULES.md](docs/guides/WORKSPACE_RULES.md)
+- [docs/reports/CURRENT_STATUS.md](docs/reports/CURRENT_STATUS.md)
 
 ## License
 

@@ -3,8 +3,8 @@ use futures::StreamExt;
 use std::time::Duration;
 use anyhow::{Result, anyhow};
 use tokenizers::Tokenizer;
-use readability::extractor;
-use std::io::Cursor;
+use std::sync::LazyLock;
+use regex::Regex;
 
 /// The "Retina" Synapse layout for zero-copy web ingestion
 #[repr(C)]
@@ -55,40 +55,43 @@ impl RetinaModule {
             }
         });
 
-        // 3. Render and Extract
-        let page = browser.new_page(url).await?;
-        tokio::time::sleep(Duration::from_millis(2000)).await; // Human-like wait for JS
+        let mut browser = browser;
+        let result = async {
+            // 3. Render and Extract
+            let page = browser.new_page(url).await?;
+            tokio::time::sleep(Duration::from_millis(2000)).await; // Human-like wait for JS
 
-        let html: String = page.content().await?.to_string();
-        
-        // 4. ML Distillation: Readability (Remove boilerplate)
-        let mut cursor = Cursor::new(html);
-        let product = extractor::extract(&mut cursor, &url.parse()?)
-            .map_err(|_| anyhow!("Failed to distill HTML content"))?;
-        
-        let clean_text = product.text;
+            let html: String = page.content().await?.to_string();
 
-        // 5. Zero-Copy Tokenization into Synapse
-        let encoding = self.tokenizer.encode(clean_text, true)
-            .map_err(|e| anyhow!("Tokenization failed: {}", e))?;
-        
-        let tokens = encoding.get_ids();
-        let count = tokens.len().min(8192);
+            // 4. Boilerplate stripping: keep the page text, discard tags/scripts/styles.
+            let clean_text = Self::extract_text(&html);
 
-        unsafe {
-            (*synapse_ptr).status_code = 200;
-            (*synapse_ptr).is_legal = 1;
-            (*synapse_ptr).raw_token_count = count as u32;
-            
-            for i in 0..count {
-                (*synapse_ptr).token_buffer[i] = tokens[i];
+            // 5. Zero-Copy Tokenization into Synapse
+            let encoding = self.tokenizer.encode(clean_text, true)
+                .map_err(|e| anyhow!("Tokenization failed: {}", e))?;
+
+            let tokens = encoding.get_ids();
+            let count = tokens.len().min(8192);
+
+            unsafe {
+                (*synapse_ptr).status_code = 200;
+                (*synapse_ptr).is_legal = 1;
+                (*synapse_ptr).raw_token_count = count as u32;
+
+                for i in 0..count {
+                    (*synapse_ptr).token_buffer[i] = tokens[i];
+                }
             }
+
+            println!("[Retina] Ingestion complete. {} tokens written to synapse.", count);
+            Ok(())
+        }.await;
+
+        if let Err(e) = browser.close().await {
+            tracing::warn!("[Retina] Browser close failed after ingestion: {}", e);
         }
 
-        println!("[Retina] Ingestion complete. {} tokens written to synapse.", count);
-        let mut browser = browser;
-        browser.close().await?;
-        Ok(())
+        result
     }
 
     async fn is_compliance_clear(&self, url: &str) -> Result<bool> {
@@ -164,6 +167,17 @@ impl RetinaModule {
         }
 
         Ok(())
+    }
+
+    fn extract_text(html: &str) -> String {
+        static SCRIPT_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(?is)<script[^>]*>.*?</script>").unwrap());
+        static STYLE_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(?is)<style[^>]*>.*?</style>").unwrap());
+        static TAG_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(?s)<[^>]+>").unwrap());
+
+        let text = SCRIPT_RE.replace_all(html, " ");
+        let text = STYLE_RE.replace_all(&text, " ");
+        let text = TAG_RE.replace_all(&text, " ");
+        text.split_whitespace().collect::<Vec<_>>().join(" ")
     }
 
     /// Maps the internal rendering engine's framebuffer directly into the latent synapse.
