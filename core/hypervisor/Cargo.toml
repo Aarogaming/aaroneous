@@ -46,7 +46,7 @@ log = "0.4"
 llama-gguf = { version = "0.14", optional = true, default-features = false, features = ["cpu"] }
 notify = "6.1"
 parking_lot = "0.12"
-rand = "0.8"
+rand = "0.10"
 rand_distr = "0.4"
 ratatui = { version = "0.27", features = ["serde"] }
 eframe = { version = "0.28", features = ["wgpu"] }
@@ -82,7 +82,7 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json", "fmt"] }
 uuid = { version = "1.0", features = ["v4", "serde", "v7"] }
 validator = { version = "0.18", features = ["derive"] }
-wasmtime = "21.0.0"
+wasmtime = "45.0.0"
 wit-bindgen-rt = "0.24.0"
 rocksdb = "0.21"
 rkyv = { version = "0.7", features = ["validation"] }
@@ -105,7 +105,7 @@ crossterm = "0.27"
 semver = "1.0"
 async-nats = "0.35"
 url = "2.5"
-wasmtime-wasi = "21.0"
+wasmtime-wasi = "45.0"
 cap-std = "3.4.5"
 
 [dev-dependencies]
