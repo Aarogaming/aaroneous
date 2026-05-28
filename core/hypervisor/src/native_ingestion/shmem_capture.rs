@@ -185,13 +185,13 @@ impl ShmemCapture {
 
         unsafe {
             let null_hwnd = HWND(std::ptr::null_mut());
-            let hdc_screen = GetDC(null_hwnd);
+            let hdc_screen = GetDC(Some(null_hwnd));
             if hdc_screen.is_invalid() {
                 return Err("GetDC failed".into());
             }
-            let hdc_mem = CreateCompatibleDC(hdc_screen);
+            let hdc_mem = CreateCompatibleDC(Some(hdc_screen));
             if hdc_mem.is_invalid() {
-                let _ = ReleaseDC(null_hwnd, hdc_screen);
+                let _ = ReleaseDC(Some(null_hwnd), hdc_screen);
                 return Err("CreateCompatibleDC failed".into());
             }
 
@@ -201,16 +201,16 @@ impl ShmemCapture {
             let bmp = CreateCompatibleBitmap(hdc_screen, w, h);
             if bmp.is_invalid() {
                 let _ = DeleteDC(hdc_mem);
-                let _ = ReleaseDC(null_hwnd, hdc_screen);
+                let _ = ReleaseDC(Some(null_hwnd), hdc_screen);
                 return Err("CreateCompatibleBitmap failed".into());
             }
 
-            let _ = SelectObject(hdc_mem, bmp);
+            let _ = SelectObject(hdc_mem, bmp.into());
             let _ = StretchBlt(
                 hdc_mem, 0, 0, w, h,
-                hdc_screen, 0, 0,
-                GetDeviceCaps(hdc_screen, HORZRES),
-                GetDeviceCaps(hdc_screen, VERTRES),
+                Some(hdc_screen), 0, 0,
+                GetDeviceCaps(Some(hdc_screen), HORZRES),
+                GetDeviceCaps(Some(hdc_screen), VERTRES),
                 SRCCOPY,
             );
 
@@ -232,15 +232,15 @@ impl ShmemCapture {
                 DIB_USAGE(0),
             );
             if got == 0 {
-                let _ = DeleteObject(bmp);
+                let _ = DeleteObject(bmp.into());
                 let _ = DeleteDC(hdc_mem);
-                let _ = ReleaseDC(null_hwnd, hdc_screen);
+                let _ = ReleaseDC(Some(null_hwnd), hdc_screen);
                 return Err("GetDIBits failed".into());
             }
 
-            let _ = DeleteObject(bmp);
+            let _ = DeleteObject(bmp.into());
             let _ = DeleteDC(hdc_mem);
-            let _ = ReleaseDC(null_hwnd, hdc_screen);
+            let _ = ReleaseDC(Some(null_hwnd), hdc_screen);
         }
         Ok(())
     }

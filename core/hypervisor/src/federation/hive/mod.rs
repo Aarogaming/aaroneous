@@ -1172,18 +1172,16 @@ async fn run_decision(
 /// Returns a `SystemResources` with actual CPU utilization and available
 /// memory. GPU and thermal remain placeholder (require NVML/Metal APIs).
 fn read_system_resources_sync() -> crate::federation::specialist::SystemResources {
-    use sysinfo::{System, RefreshKind, CpuRefreshKind, MemoryRefreshKind};
+    use sysinfo::{System, CpuRefreshKind, MemoryRefreshKind, RefreshKind};
 
-    let mut sys = System::new_with_specifics(
-        RefreshKind::new()
-            .with_cpu(CpuRefreshKind::new().with_cpu_usage())
-            .with_memory(MemoryRefreshKind::new().with_ram()),
-    );
+    let mut sys = System::new();
+    sys.refresh_cpu_specifics(CpuRefreshKind::everything());
+    sys.refresh_memory_specifics(MemoryRefreshKind::everything());
     // Two refreshes are needed for an accurate CPU delta. Use a short sleep
     // here because we're already on a blocking thread (via spawn_blocking).
     std::thread::sleep(std::time::Duration::from_millis(30));
-    sys.refresh_cpu();
-    sys.refresh_memory();
+    sys.refresh_cpu_specifics(CpuRefreshKind::everything());
+    sys.refresh_memory_specifics(MemoryRefreshKind::everything());
 
     let cpu_used: f32 = sys.cpus().iter().map(|c| c.cpu_usage()).sum::<f32>()
         / sys.cpus().len().max(1) as f32;
@@ -2233,7 +2231,7 @@ impl Federation {
 
         tokio::spawn(async move {
             use crate::federation::biometric::{BiometricKind, BiometricSample};
-            use sysinfo::{System, RefreshKind, CpuRefreshKind, MemoryRefreshKind};
+            use sysinfo::{System, CpuRefreshKind, MemoryRefreshKind};
 
             loop {
                 tokio::select! {
@@ -2241,14 +2239,10 @@ impl Federation {
                     _ = tokio::time::sleep(std::time::Duration::from_secs(5)) => {
                         // Run sysinfo on blocking thread — it calls sleep(30ms) internally
                         let (cpu_pct, mem_free_pct) = tokio::task::spawn_blocking(|| {
-                            let mut sys = System::new_with_specifics(
-                                RefreshKind::new()
-                                    .with_cpu(CpuRefreshKind::new().with_cpu_usage())
-                                    .with_memory(MemoryRefreshKind::new().with_ram()),
-                            );
+                            let mut sys = System::new();
                             std::thread::sleep(std::time::Duration::from_millis(30));
-                            sys.refresh_cpu();
-                            sys.refresh_memory();
+                            sys.refresh_cpu_specifics(CpuRefreshKind::everything());
+                            sys.refresh_memory_specifics(MemoryRefreshKind::everything());
 
                             let cpu: f32 = sys.cpus().iter().map(|c| c.cpu_usage()).sum::<f32>()
                                 / sys.cpus().len().max(1) as f32;

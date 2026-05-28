@@ -76,7 +76,7 @@ impl AutonomousDecisionEngine {
             governor: ThermodynamicGovernor::new(ThermodynamicGovernorConfig::default()),
             intelligence,
             compute: ComputeEngine::new(),
-            rng: rand::rngs::StdRng::from_entropy(),
+            rng: rand::rngs::StdRng::from_seed(rand::random()),
             prior_success_count: 10.0,  // Laplace smoothing
             prior_failure_count: 2.0,
             execution_history: Vec::new(),

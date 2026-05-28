@@ -1,7 +1,7 @@
 // Win32 GDI Screen Capture
 // Captures desktop as normalized 128x128 float grid using StretchBlt
 
-use windows::Win32::Foundation::{BOOL, HWND};
+use windows::Win32::Foundation::HWND;
 use windows::Win32::Graphics::Gdi::{
     CreateCompatibleBitmap, CreateCompatibleDC, DeleteDC, DeleteObject,
     GetDIBits, GetDC, ReleaseDC, SelectObject, StretchBlt,
@@ -42,7 +42,7 @@ impl Win32ScreenCapture {
     pub fn initialize(&mut self) -> Result<(), String> {
         unsafe {
             // Get screen DC
-            self.hdc_screen = Some(GetDC(HWND::default()));
+            self.hdc_screen = Some(GetDC(Some(HWND::default())));
             let hdc_screen = self.hdc_screen.ok_or("Failed to get screen DC")?;
 
             // Get screen dimensions
@@ -50,7 +50,7 @@ impl Win32ScreenCapture {
             self.screen_height = GetSystemMetrics(SYSTEM_METRICS_INDEX(1));
 
             // Create compatible DC
-            self.hdc_memory = Some(CreateCompatibleDC(hdc_screen));
+            self.hdc_memory = Some(CreateCompatibleDC(Some(hdc_screen)));
             let hdc_memory = self.hdc_memory.ok_or("Failed to create memory DC")?;
 
             // Create compatible bitmap
@@ -58,7 +58,7 @@ impl Win32ScreenCapture {
             let hbitmap = self.hbitmap.ok_or("Failed to create bitmap")?;
 
             // Select bitmap into memory DC
-            SelectObject(hdc_memory, hbitmap);
+            SelectObject(hdc_memory, hbitmap.into());
         }
 
         Ok(())
@@ -74,13 +74,13 @@ impl Win32ScreenCapture {
                 hdc_memory,
                 0, 0,
                 GRID_WIDTH as i32, GRID_HEIGHT as i32,
-                hdc_screen,
+                Some(hdc_screen),
                 0, 0,
                 self.screen_width, self.screen_height,
                 SRCCOPY,
             );
 
-            if result == BOOL(0) {
+            if !result.as_bool() {
                 return Err("StretchBlt failed".to_string());
             }
 
@@ -166,13 +166,13 @@ impl Drop for Win32ScreenCapture {
     fn drop(&mut self) {
         unsafe {
             if let Some(hbitmap) = self.hbitmap {
-                let _ = DeleteObject(hbitmap);
+                let _ = DeleteObject(hbitmap.into());
             }
             if let Some(hdc_memory) = self.hdc_memory {
                 let _ = DeleteDC(hdc_memory);
             }
             if let Some(hdc_screen) = self.hdc_screen {
-                let _ = ReleaseDC(HWND::default(), hdc_screen);
+                let _ = ReleaseDC(Some(HWND::default()), hdc_screen);
             }
         }
     }

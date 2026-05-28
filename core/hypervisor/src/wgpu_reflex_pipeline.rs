@@ -97,8 +97,9 @@ impl WgpuReflexPipeline {
             label: Some("Reflex Compute Pipeline"),
             layout: None,
             module: &reflex_shader,
-            entry_point: "main",
+            entry_point: Some("main"),
             compilation_options: Default::default(),
+            cache: None,
         });
 
 let pixel_buffer = device.create_buffer(&BufferDescriptor {
@@ -274,7 +275,7 @@ let pixel_buffer = device.create_buffer(&BufferDescriptor {
             let _ = tx.send(result);
         });
 
-        self.device.poll(wgpu::Maintain::Wait);
+        self.device.poll(wgpu::PollType::Wait { submission_index: None, timeout: None }).unwrap();
         rx.await.unwrap().unwrap();
 
         let data = buffer_slice.get_mapped_range();

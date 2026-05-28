@@ -52,7 +52,7 @@ async fn main() -> Result<()> {
                 vec![]
             )));
 
-            let ans = Arc::new(AutonomicNervousSystem::new(
+            let ans = AutonomicNervousSystem::new(
                 "primary",
                 *tick,
                 enzyme_runner,
@@ -60,13 +60,10 @@ async fn main() -> Result<()> {
                 splicing_engine,
                 learning_loop,
                 Some("hive.db")
-            )?);
+            )?;
 
             println!("System online. Autonomic loop starting...");
-            let ans_clone = ans.clone();
-            std::thread::spawn(move || {
-                ans_clone.start();
-            });
+            ans.start();
 
             loop {
                 tokio::time::sleep(Duration::from_secs(60)).await;
@@ -101,4 +98,3 @@ async fn main() -> Result<()> {
         }
     }
 }
-

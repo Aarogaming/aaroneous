@@ -285,7 +285,7 @@ impl VisualGatePipeline {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rand::Rng;
+    use rand::RngExt;
     use rand::SeedableRng;
 
     #[test]
@@ -328,7 +328,7 @@ mod tests {
             let base = if i % 2 == 0 { 0.0 } else { 1.0 };
             let mut frame = [base; GRID_SIZE];
             for val in frame.iter_mut() {
-                *val += rng.gen_range(-0.05..0.05);
+                *val += rng.random_range(-0.05..0.05);
             }
             let active = matrix.update(&frame);
             assert_eq!(active, TOTAL_SECTORS as u32);

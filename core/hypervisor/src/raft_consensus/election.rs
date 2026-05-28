@@ -5,13 +5,38 @@
 use super::types::*;
 use super::node::RaftNode;
 use std::time::{Duration, Instant};
-use rand::Rng;
+use rand::RngExt;
 
 /// Election timeout tracker
 #[derive(Clone, Debug)]
 pub struct ElectionTimeout {
     reset_at: Instant,
     timeout_ms: u64,
+}
+
+impl ElectionTimeout {
+    pub fn new(min_ms: u64, max_ms: u64) -> Self {
+        let timeout = random_election_timeout(min_ms, max_ms);
+        Self {
+            reset_at: Instant::now() + Duration::from_millis(timeout),
+            timeout_ms: timeout,
+        }
+    }
+
+    pub fn reset(&mut self, min_ms: u64, max_ms: u64) {
+        self.timeout_ms = random_election_timeout(min_ms, max_ms);
+        self.reset_at = Instant::now() + Duration::from_millis(self.timeout_ms);
+    }
+
+    pub fn is_expired(&self) -> bool {
+        Instant::now() >= self.reset_at
+    }
+}
+
+/// Randomized election timeout (between min and max)
+pub fn random_election_timeout(min_ms: u64, max_ms: u64) -> u64 {
+    let mut rng = rand::rng();
+    rng.random_range(min_ms..=max_ms)
 }
 
 impl ElectionTimeout {
@@ -38,12 +63,6 @@ impl ElectionTimeout {
         let remaining = self.reset_at.saturating_duration_since(Instant::now());
         remaining.as_millis() as u64
     }
-}
-
-/// Randomized election timeout (between min and max)
-pub fn random_election_timeout(min_ms: u64, max_ms: u64) -> u64 {
-    let mut rng = rand::thread_rng();
-    rng.gen_range(min_ms..=max_ms)
 }
 
 /// Heartbeat timer for leaders

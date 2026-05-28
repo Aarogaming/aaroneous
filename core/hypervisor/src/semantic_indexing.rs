@@ -4,6 +4,7 @@ use std::collections::HashMap;
 use std::sync::LazyLock;
 
 use candle_core::{Device, Tensor};
+use rand::RngExt;
 
 pub const EMBED_DIM: usize = 384;
 const VOCAB_HASH_SIZE: usize = 4096;
@@ -15,7 +16,7 @@ static PROJECTION_MATRIX: LazyLock<Vec<f32>> = LazyLock::new(|| {
     let mut rng = rand::rngs::StdRng::seed_from_u64(42);
     let mut data = Vec::with_capacity(VOCAB_HASH_SIZE * EMBED_DIM);
     for _ in 0..VOCAB_HASH_SIZE * EMBED_DIM {
-        let val: f32 = rand::Rng::sample(&mut rng, rand::distributions::Uniform::new(-0.1f32, 0.1));
+        let val: f32 = rng.sample(rand::distr::Uniform::new(-0.1f32, 0.1).unwrap());
         data.push(val);
     }
     data

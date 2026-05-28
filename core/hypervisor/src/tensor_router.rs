@@ -1,4 +1,6 @@
 
+use rand::RngExt;
+
 /// Task embedding for routing.
 #[derive(Debug, Clone)]
 pub struct TaskEmbedding {
@@ -147,7 +149,7 @@ impl TensorRouter {
         let specialist_scores = result.specialist_scores.clone();
 
         // Sample from distribution instead of argmax
-        let roll: f64 = rng.gen_range(0.0..1.0);
+        let roll: f64 = rng.random_range(0.0..1.0);
         let mut cumulative = 0.0;
         let mut selected_idx = 0;
 

@@ -10,7 +10,6 @@ use nervous_system::shared_memory::{
 };
 
 #[derive(Archive, Serialize, Deserialize, Debug, Clone)]
-#[archive(check_bytes)]
 pub struct McpToolCallFrame {
     pub tool_name: String,
     pub arguments: String,
@@ -36,7 +35,6 @@ impl McpToolCallFrame {
 }
 
 #[derive(Archive, Serialize, Deserialize, Debug, Clone)]
-#[archive(check_bytes)]
 pub struct SpecialistDialogue {
     pub specialist_id: String,
     pub message: String,
@@ -62,7 +60,6 @@ impl SpecialistDialogue {
 }
 
 #[derive(Archive, Serialize, Deserialize, Debug, Clone)]
-#[archive(check_bytes)]
 pub struct SynapseState {
     pub clock_tick: u64,
     pub latent_vector: [f32; 1024],
@@ -90,7 +87,6 @@ impl SynapseState {
 }
 
 #[derive(Archive, Serialize, Deserialize, Debug)]
-#[archive(check_bytes)]
 pub struct SynapsePayload {
     pub key: String,
     pub data: Vec<u8>,
@@ -117,13 +113,13 @@ impl Synapse {
     }
 
     pub fn write_payload(&mut self, payload: &SynapsePayload) -> Result<()> {
-        let bytes = rkyv::to_bytes::<_, 1024>(payload)?;
-        if bytes.len() > self.mmap.len() {
+        let buf = rkyv::to_bytes::<rkyv::rancor::Error>(payload)?;
+        if buf.len() > self.mmap.len() {
             return Err(anyhow!("Payload too large for synapse"));
         }
 
-        self.serialized_len = bytes.len();
-        self.mmap[..self.serialized_len].copy_from_slice(&bytes);
+        self.serialized_len = buf.len();
+        self.mmap[..self.serialized_len].copy_from_slice(buf.as_ref());
         self.mmap.flush()?;
         Ok(())
     }
@@ -133,14 +129,8 @@ impl Synapse {
             return Err(anyhow!("No payload written"));
         }
 
-        // Copy only the serialized portion into an aligned buffer
-        let mut aligned = rkyv::AlignedVec::new();
-        aligned.extend_from_slice(&self.mmap[..self.serialized_len]);
-
-        let archived = rkyv::check_archived_root::<SynapsePayload>(&aligned)
-            .map_err(|e| anyhow!("Failed to check archived root: {:?}", e))?;
-
-        let payload: SynapsePayload = archived.deserialize(&mut rkyv::Infallible)?;
+        let payload = rkyv::from_bytes::<SynapsePayload, rkyv::rancor::Error>(&self.mmap[..self.serialized_len])
+            .map_err(|e| anyhow!("Failed to deserialize payload: {:?}", e))?;
         Ok(payload)
     }
 }

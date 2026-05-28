@@ -1,6 +1,6 @@
 use crate::hox_map_schema::{EnzymeGenetics, HoxPermissions};
 use anyhow::Result;
-use rand::Rng;
+use rand::RngExt;
 
 pub struct GeneticRecombinator;
 
@@ -8,10 +8,10 @@ impl GeneticRecombinator {
     /// Performs crossover breeding between two specialists.
     /// This creates a new genetic template for a descendant enzyme.
     pub fn breed(parent_a: &EnzymeGenetics, parent_b: &EnzymeGenetics) -> Result<EnzymeGenetics> {
-        let mut rng = rand::thread_rng();
+        let mut rng = rand::rng();
 
         // 1. Category Inheritance (Pick one)
-        let category = if rng.gen_bool(0.5) {
+        let category = if rng.random_bool(0.5) {
             parent_a.category.clone()
         } else {
             parent_b.category.clone()
@@ -19,7 +19,7 @@ impl GeneticRecombinator {
 
         // 2. Expression Level Blending (Mean + Mutation)
         let base_expression = (parent_a.expression_level + parent_b.expression_level) / 2.0;
-        let mutation: f32 = rng.gen_range(-0.05..0.05);
+        let mutation: f32 = rng.random_range(-0.05..0.05);
         let expression_level = (base_expression + mutation).clamp(0.0, 1.0);
 
         // 3. Permission Crossover (Union of safety, Intersection of power)

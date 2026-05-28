@@ -107,8 +107,10 @@ impl SpatialKineticEngine {
         // Initialize WGPU
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
             backends: wgpu::Backends::PRIMARY,
-            dx12_shader_compiler: wgpu::Dx12Compiler::Fxc,
-            ..Default::default()
+            flags: wgpu::InstanceFlags::default(),
+            backend_options: wgpu::BackendOptions::default(),
+            display: None,
+            memory_budget_thresholds: wgpu::MemoryBudgetThresholds::default(),
         });
 
         let adapter = instance
@@ -118,7 +120,7 @@ impl SpatialKineticEngine {
                 compatible_surface: None,
             })
             .await
-            .ok_or("Failed to find GPU adapter")?;
+            .map_err(|_| "Failed to find GPU adapter")?;
 
         let (device, queue) = adapter
             .request_device(
@@ -126,8 +128,10 @@ impl SpatialKineticEngine {
                     label: Some("Spatial-Kinetic Device"),
                     required_features: wgpu::Features::empty(),
                     required_limits: wgpu::Limits::downlevel_defaults(),
+                    experimental_features: wgpu::ExperimentalFeatures::default(),
+                    memory_hints: wgpu::MemoryHints::default(),
+                    trace: wgpu::Trace::Off,
                 },
-                None,
             )
             .await
             .map_err(|e| format!("Failed to create WGPU device: {}", e))?;

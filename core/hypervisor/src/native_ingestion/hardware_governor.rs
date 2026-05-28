@@ -1,5 +1,5 @@
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use sysinfo::System;
+use sysinfo::{CpuRefreshKind, System};
 
 /// Action to take based on hardware profile inference.
 #[repr(u8)]
@@ -57,7 +57,7 @@ pub struct HardwareGovernor {
 impl HardwareGovernor {
     pub fn new(sample_interval_ms: u64) -> Self {
         let mut sys = System::new_all();
-        sys.refresh_cpu();
+        sys.refresh_cpu_specifics(CpuRefreshKind::everything());
         sys.refresh_memory();
 
         let cpu_util = sys.cpus().iter().map(|c| c.cpu_usage()).sum::<f32>()
@@ -94,7 +94,7 @@ impl HardwareGovernor {
         }
         self.last_sample_tick.store(now, Ordering::Release);
 
-        self.sys.refresh_cpu();
+        self.sys.refresh_cpu_specifics(CpuRefreshKind::everything());
         self.sys.refresh_memory();
 
         let cpus = self.sys.cpus();

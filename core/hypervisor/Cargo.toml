@@ -46,19 +46,19 @@ log = "0.4"
 llama-gguf = { version = "0.14", optional = true, default-features = false, features = ["cpu"] }
 notify = "6.1"
 parking_lot = "0.12"
-rand = "0.8"
-rand_distr = "0.4"
-ratatui = { version = "0.27", features = ["serde"] }
-eframe = { version = "0.28", features = ["wgpu"] }
-egui = "0.28"
+rand = "0.10"
+rand_distr = "0.6"
+ratatui = { version = "0.30", features = ["serde"] }
+eframe = { version = "0.34", features = ["wgpu"] }
+egui = "0.34"
 ctrlc = "3.4"
 memmap2 = "0.9"
-windows = { version = "0.58", features = ["Win32_Foundation", "Win32_Graphics_Gdi", "Win32_UI_Input_KeyboardAndMouse", "Win32_UI_WindowsAndMessaging"] }
-wgpu = "0.20"
+windows = { version = "0.62", features = ["Win32_Foundation", "Win32_Graphics_Gdi", "Win32_UI_Input_KeyboardAndMouse", "Win32_UI_WindowsAndMessaging", "Win32_Graphics_Dxgi", "Win32_Graphics_Direct3D12"] }
+wgpu = "29.0"
 bytemuck = "1.14"
 cgmath = "0.18"
 regex = "1.10"
-reqwest = { version = "0.12", default-features = false, features = ["json", "stream", "rustls-tls"] }
+reqwest = { version = "0.13", default-features = false, features = ["json", "stream", "rustls"] }
 rdev = "0.5.3"
 rusqlite = { version = "0.32", features = ["bundled", "chrono"] }
 serde = { version = "1.0", features = ["derive"] }
@@ -66,7 +66,7 @@ serde_json = "1.0"
 shared_memory = "0.12.4"
 strum = { version = "0.26", features = ["derive"] }
 strum_macros = "0.26"
-sysinfo = "0.30"
+sysinfo = "0.39"
 seahash = "4.1"
 byteorder = "1.5"
 tar = "0.4"
@@ -83,8 +83,8 @@ tracing-subscriber = { version = "0.3", features = ["env-filter", "json", "fmt"]
 uuid = { version = "1.0", features = ["v4", "serde", "v7"] }
 wasmtime = "24.0.9"
 rocksdb = "0.21"
-rkyv = { version = "0.7", features = ["validation"] }
-sled = "0.34"
+rkyv = { version = "0.8", features = ["bytecheck"] }
+sled = "1.0.0-alpha.124"
 openraft = "0.9"
 candle-core = "0.8"
 candle-nn = "0.8"
