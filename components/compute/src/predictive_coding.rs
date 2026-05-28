@@ -307,7 +307,7 @@ impl FreeEnergyAgent {
     /// F = D_KL(Q(s'|a) || P(s')) - E_Q[ln P(o'|s')]
     /// First term: risk (divergence from preferred states)
     /// Second term: ambiguity (expected uncertainty)
-    pub fn expected_free_energy(&self, action: usize, preferred_state: f64) -> f64 {
+    pub fn expected_free_energy(&self, _action: usize, preferred_state: f64) -> f64 {
         // Simplified: risk + ambiguity
         let predicted_state = self.generative_model.get_top_prediction();
         if predicted_state.is_empty() {

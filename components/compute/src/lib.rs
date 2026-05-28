@@ -30,7 +30,7 @@ pub struct ComputeEngine {
 impl ComputeEngine {
     pub fn new() -> Self {
         Self {
-            synapse: SharedMemorySynapse::new("SAB_STORE", 1024 * 1024).unwrap(),
+            synapse: SharedMemorySynapse::new_sync("SAB_STORE", 1024 * 1024).unwrap(),
             rng: rand::rngs::StdRng::from_entropy(),
         }
     }
@@ -48,7 +48,7 @@ impl ComputeEngine {
             "nash" => game_theory::nash_approx(input),
             "optimize_ga" => optimize::genetic_step(input, &mut self.rng),
             "boltzmann" => {
-                let n = input.len() - 1;
+                let _n = input.len() - 1;
                 let temperature = input[0];
                 let energies = &input[1..];
                 Ok(thermodynamics::boltzmann_distribution(energies, temperature))

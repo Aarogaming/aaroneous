@@ -25,12 +25,11 @@ pub struct ChromosomeRegistry {
 
 impl Default for ChromosomeRegistry {
     fn default() -> Self {
-        let paths = WorkspacePaths::discover();
         let mut profiles = HashMap::new();
         
         profiles.insert("researcher".to_string(), HoxChromosome {
             agent_id: "researcher_v3".to_string(),
-            base_model_path: paths.models().join("llama-3-8b-instruct.gguf").to_string_lossy().to_string(),
+            base_model_path: WorkspacePaths::data_dir().join("models/llama-3-8b-instruct.gguf").to_string_lossy().to_string(),
             epigenetic_switches: EpigeneticSwitches {
                 active_loras: vec!["academic_writing.lora".to_string(), "evidence_synthesis.lora".to_string()],
                 temperature_bias: 0.4,

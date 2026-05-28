@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aaroneous Command Center</title>
+    <style>
+        :root {
+            --bg-color: #0d1117;
+            --panel-bg: #161b22;
+            --text-color: #c9d1d9;
+            --accent: #58a6ff;
+            --border: #30363d;
+            --success: #238636;
+            --warning: #d29922;
+            --danger: #f85149;
+        }
+        
+        * { box-sizing: border-box; }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 0;
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .sidebar {
+            width: 300px;
+            background-color: var(--panel-bg);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            overflow: hidden;
+        }
+
+        .header {
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        h1, h2, h3 { margin-top: 0; color: #fff; }
+        
+        .chat-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background-color: var(--panel-bg);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+
+        .chat-history {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .message {
+            max-width: 80%;
+            padding: 10px 15px;
+            border-radius: 6px;
+            line-height: 1.4;
+            word-wrap: break-word;
+        }
+
+        .msg-user {
+            align-self: flex-end;
+            background-color: #1f6feb;
+            color: #fff;
+        }
+
+        .msg-aaroneous {
+            align-self: flex-start;
+            background-color: #21262d;
+            border: 1px solid var(--border);
+        }
+
+        .msg-system {
+            align-self: center;
+            background-color: transparent;
+            color: #8b949e;
+            font-size: 0.9em;
+            font-style: italic;
+        }
+
+        .chat-input-area {
+            display: flex;
+            padding: 15px;
+            background-color: var(--panel-bg);
+            border-top: 1px solid var(--border);
+        }
+
+        input[type="text"] {
+            flex: 1;
+            padding: 10px;
+            background-color: var(--bg-color);
+            border: 1px solid var(--border);
+            color: var(--text-color);
+            border-radius: 4px;
+            outline: none;
+        }
+
+        input[type="text"]:focus {
+            border-color: var(--accent);
+        }
+
+        button {
+            padding: 10px 20px;
+            margin-left: 10px;
+            background-color: #238636;
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        button:hover { background-color: #2ea043; }
+
+        .dag-container {
+            height: 300px;
+            background-color: var(--panel-bg);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 15px;
+            overflow-y: auto;
+        }
+
+        .arsenal-item {
+            padding: 10px;
+            background-color: var(--bg-color);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            margin-bottom: 10px;
+        }
+
+        .arsenal-title {
+            font-weight: bold;
+            color: var(--accent);
+        }
+        
+        .arsenal-desc {
+            font-size: 0.9em;
+            color: #8b949e;
+            margin-top: 5px;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 5px;
+        }
+        .status-online { background-color: var(--success); }
+        .status-offline { background-color: var(--danger); }
+        
+        .task-card {
+            background-color: #21262d;
+            border: 1px solid var(--border);
+            border-left: 4px solid var(--accent);
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 4px;
+            font-size: 0.9em;
+        }
+        
+        .pre-wrap { white-space: pre-wrap; font-family: monospace; }
+    </style>
+</head>
+<body>
+
+    <div class="sidebar">
+        <div class="header">
+            <h2>Aaroneous Hive</h2>
+            <div style="display: flex; align-items: center; margin-top: 10px;">
+                <span id="conn-status-indicator" class="status-indicator status-offline"></span>
+                <span id="conn-status-text">Disconnected</span>
+            </div>
+        </div>
+
+        <h3>The Arsenal</h3>
+        <div id="arsenal-list">
+            <div class="msg-system">Loading capabilities...</div>
+        </div>
+    </div>
+
+    <div class="main-content">
+        <div class="header">
+            <h2>Odin Orchestrator (1v1)</h2>
+        </div>
+
+        <div class="chat-container">
+            <div class="chat-history" id="chat-history">
+                <div class="message msg-system">Aaroneous Core online. How can the Hive assist you?</div>
+            </div>
+            <div class="chat-input-area">
+                <input type="text" id="chat-input" placeholder="Enter intent for Odin (e.g. 'Scrape HackerNews and build a dataframe')..." autocomplete="off" />
+                <button id="send-btn">Submit Intent</button>
+            </div>
+        </div>
+
+        <div class="header">
+            <h3>Live DAG Execution</h3>
+        </div>
+        <div class="dag-container" id="dag-container">
+            <div class="msg-system">No active tasks.</div>
+        </div>
+    </div>
+
+    <script>
+        const chatHistory = document.getElementById('chat-history');
+        const chatInput = document.getElementById('chat-input');
+        const sendBtn = document.getElementById('send-btn');
+        const dagContainer = document.getElementById('dag-container');
+        const arsenalList = document.getElementById('arsenal-list');
+        const connIndicator = document.getElementById('conn-status-indicator');
+        const connText = document.getElementById('conn-status-text');
+
+        let sessionId = null;
+
+        function addMessage(sender, text, isCode = false) {
+            const msgDiv = document.createElement('div');
+            msgDiv.className = `message msg-${sender}`;
+            if (isCode) {
+                msgDiv.classList.add('pre-wrap');
+            }
+            msgDiv.textContent = text;
+            chatHistory.appendChild(msgDiv);
+            chatHistory.scrollTop = chatHistory.scrollHeight;
+        }
+
+        function addTaskNode(specialist, output, status) {
+            const taskDiv = document.createElement('div');
+            taskDiv.className = 'task-card';
+            taskDiv.innerHTML = `<strong>[${specialist}]</strong> <em>${status}</em><br/>${output.replace(/\n/g, '<br/>')}`;
+            dagContainer.appendChild(taskDiv);
+            dagContainer.scrollTop = dagContainer.scrollHeight;
+        }
+
+        async function initSession() {
+            try {
+                const res = await fetch('/sessions', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ user_name: "Commander" })
+                });
+                const data = await res.json();
+                sessionId = data.session_id;
+                setupSSE();
+                fetchSpecialists();
+            } catch (err) {
+                console.error("Failed to init session:", err);
+                addMessage('system', 'Error connecting to Hive API.');
+            }
+        }
+
+        function setupSSE() {
+            if (!sessionId) return;
+            const sse = new EventSource(`/sessions/${sessionId}/results/stream`);
+            
+            sse.onopen = () => {
+                connIndicator.className = 'status-indicator status-online';
+                connText.textContent = 'Connected (SSE)';
+            };
+
+            sse.onerror = () => {
+                connIndicator.className = 'status-indicator status-offline';
+                connText.textContent = 'Disconnected';
+            };
+
+            sse.addEventListener('results', (e) => {
+                const results = JSON.parse(e.data);
+                for (const res of results) {
+                    // Update DAG view
+                    addTaskNode(res.specialist, res.output, res.status);
+                    
+                    // If the result looks like a final conversational response or a direct output, add to chat
+                    if (res.specialist !== "Odin" || !res.output.includes('"tasks":')) {
+                        addMessage('aaroneous', `[${res.specialist}] ${res.output}`);
+                    }
+                }
+            });
+
+            // General specialist stream to catch Odin's decomposition event
+            const specSse = new EventSource(`/specialists/stream`);
+            specSse.addEventListener('specialist_update', (e) => {
+                const update = JSON.parse(e.data);
+                if (update.type === "guild_decomposition") {
+                    dagContainer.innerHTML = '<div class="msg-system">DAG Generated by Odin:</div>';
+                    const tasks = update.decomposition.tasks || [];
+                    tasks.forEach(t => {
+                        addTaskNode(t.assign_to || "Unknown", t.content, "Pending");
+                    });
+                }
+            });
+        }
+
+        async function fetchSpecialists() {
+            try {
+                const res = await fetch('/specialists');
+                const data = await res.json();
+                
+                arsenalList.innerHTML = '';
+                data.specialists.forEach(spec => {
+                    const item = document.createElement('div');
+                    item.className = 'arsenal-item';
+                    item.innerHTML = `
+                        <div class="arsenal-title">${spec.name}</div>
+                        <div class="arsenal-desc">Domain: ${spec.domain} | Type: ${spec.kind}</div>
+                    `;
+                    arsenalList.appendChild(item);
+                });
+            } catch (err) {
+                console.error("Failed to fetch arsenal:", err);
+            }
+        }
+
+        async function submitIntent() {
+            if (!sessionId) return;
+            const text = chatInput.value.trim();
+            if (!text) return;
+
+            addMessage('user', text);
+            chatInput.value = '';
+            dagContainer.innerHTML = '<div class="msg-system">Odin is analyzing intent...</div>';
+
+            try {
+                await fetch(`/sessions/${sessionId}/intent`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ content: text, priority: "High" })
+                });
+            } catch (err) {
+                console.error("Failed to submit intent:", err);
+                addMessage('system', 'Error sending intent to Hive.');
+            }
+        }
+
+        sendBtn.addEventListener('click', submitIntent);
+        chatInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') submitIntent();
+        });
+
+        // Start
+        initSession();
+        // Refresh arsenal every 10 seconds to catch AutoFabricator updates
+        setInterval(fetchSpecialists, 10000);
+
+    </script>
+</body>
+</html>

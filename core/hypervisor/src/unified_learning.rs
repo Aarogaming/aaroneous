@@ -12,9 +12,8 @@ use biology::{SystemBiology, ThermodynamicGovernor, ThermodynamicGovernorConfig,
 use compute::{
     kalman::KalmanFilter,
     mpc::ScalarMpc,
-    information::{mutual_information, shannon_entropy, transfer_entropy},
-    predictive_coding::{HierarchicalPredictiveCoding, PredictiveNode, hebbian_update},
-    thermodynamics::{FreeEnergyState, SystemPhase, boltzmann_distribution},
+    predictive_coding::HierarchicalPredictiveCoding,
+    thermodynamics::SystemPhase,
 };
 use crate::tensor_router::{TensorRouter, RoutingWeights, TaskEmbedding, RoutingResult};
 use crate::spectral_layout::{spectral_layout_2d, build_similarity_edges};
@@ -138,7 +137,7 @@ impl UnifiedLearningLoop {
         let learning_rate = config.learning_rate;
         let specialist_ids_for_biology = specialist_ids.clone();
         let routing_weights = RoutingWeights::new(n_specialists, n_features, specialist_ids);
-        let mut tensor_router = TensorRouter::new(routing_weights, config.routing_temperature);
+        let tensor_router = TensorRouter::new(routing_weights, config.routing_temperature);
 
         // Initialize biology with specialists
         let mut biology = SystemBiology::new();

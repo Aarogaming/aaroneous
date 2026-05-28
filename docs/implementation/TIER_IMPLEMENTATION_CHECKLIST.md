@@ -845,7 +845,43 @@ fn test_landmark_detection() {
 3. Write 10 tests for reflection logic
 4. Integrate with VFD idle detection
 
-**Success metric:** Agent demonstrates measurable skill improvement after 7 days of background reflection.
+---
+
+## Post-Integration Roadmaps (Usability Phase)
+
+This section details the critical path to moving from a functional core to a fully managed agentic system.
+
+### 1. Agent Lifecycle Manager (`LifecycleManager`)
+- **Objective**: Managed agent lifecycle (spawn/monitor/spool-down).
+- **Steps**:
+    1. Define `AgentDescriptor` struct (config, status, resource usage).
+    2. Implement `LifecycleManager` using `tokio::process`.
+    3. Update `orchestration_daemon` to register managed processes.
+    4. Implement heartbeats and automatic restarts on failure.
+
+### 2. High-Level Marionette API
+- **Objective**: Formalized control for agent physical/system output.
+- **Steps**:
+    1. Define `MarionetteAction` enum (Mouse, Keyboard, Window, EBus events).
+    2. Map enums to `hid_driver` and `ActionExecutor` primitives.
+    3. Expose API through a thread-safe `MarionetteBridge` accessible by enzymes.
+    4. Verify via a integration test that drives a test window.
+
+### 3. Automated Data Ingestion Pipeline
+- **Objective**: Real-time data gathering.
+- **Steps**:
+    1. Configure `notify` crate to watch target directories.
+    2. Hook events into `MetadataIngestor` queue.
+    3. Implement async consumer in `AutonomicNervousSystem` to pipe events to `HiveDB`.
+    4. Validate embeddings generation for new files.
+
+### 4. MaelstromUI IPC Bridge
+- **Objective**: Visualize and control system via GUI.
+- **Steps**:
+    1. Implement WebSocket server in `mcp_service`.
+    2. Serialize `SynapseState` to JSON via Serde.
+    3. Implement Tauri IPC commands in `MaelstromUI`.
+    4. Create live dashboard view of Constellation nodes and Homeostatic metrics.
 
 
 

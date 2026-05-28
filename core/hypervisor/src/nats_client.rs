@@ -1,8 +1,11 @@
 /// NATS client wrapper for federation event publishing.
 ///
-/// Provides a simple publisher interface over the `nats` crate.
+/// Provides a simple publisher and subscriber over the `async-nats` crate.
+/// All operations are best-effort; connection failures are silently tolerated.
 
 use std::sync::Arc;
+
+use tokio::sync::Mutex;
 
 /// Configuration for NATS client.
 #[derive(Debug, Clone)]
@@ -22,66 +25,40 @@ impl Default for NatsClientConfig {
     }
 }
 
-/// A NATS client for publishing and subscribing.
-pub struct NatsClient {
-    connection: Option<nats::Connection>,
-    config: NatsClientConfig,
-}
-
-impl NatsClient {
-    pub fn new(config: NatsClientConfig) -> anyhow::Result<Self> {
-        let connection = nats::connect(&config.server_url).ok();
-        Ok(Self { connection, config })
-    }
-
-    pub fn publish(&self, subject: &str, data: &[u8]) -> anyhow::Result<()> {
-        if let Some(ref nc) = self.connection {
-            nc.publish(subject, data)?;
-        }
-        Ok(())
-    }
-
-    pub fn subscribe(&self, subject: &str) -> anyhow::Result<nats::Subscription> {
-        if let Some(ref nc) = self.connection {
-            Ok(nc.subscribe(subject)?)
-        } else {
-            anyhow::bail!("NATS not connected")
-        }
-    }
-
-    pub fn is_connected(&self) -> bool {
-        self.connection.is_some()
-    }
-}
-
 /// A NATS publisher for broadcasting federation events.
+/// Lazily connects on first publish if not already connected.
 pub struct NatsPublisher {
-    connection: Option<nats::Connection>,
+    client: Arc<Mutex<Option<async_nats::Client>>>,
+    server_url: String,
 }
 
 impl NatsPublisher {
-    /// Create a new publisher connected to the given NATS server.
-    pub fn new(url: &str) -> anyhow::Result<Self> {
-        let connection = nats::connect(url).ok();
-        Ok(Self { connection })
+    pub fn new(server_url: &str) -> Self {
+        Self {
+            client: Arc::new(Mutex::new(None)),
+            server_url: server_url.to_string(),
+        }
     }
 
-    /// Create a disconnected publisher (no-op for all publish calls).
     pub fn disconnected() -> Self {
-        Self { connection: None }
+        Self::new("nats://localhost:4222")
     }
 
-    /// Publish a message to the given subject.
-    pub fn publish(&self, subject: &str, data: &[u8]) -> anyhow::Result<()> {
-        if let Some(ref nc) = self.connection {
-            nc.publish(subject, data)?;
+    pub async fn publish(&self, subject: &str, data: &[u8]) -> anyhow::Result<()> {
+        let subject = subject.to_string();
+        let data = data.to_vec();
+        let mut guard = self.client.lock().await;
+        if guard.is_none() {
+            *guard = async_nats::connect(&self.server_url).await.ok();
+        }
+        if let Some(ref nc) = *guard {
+            nc.publish(subject, data.into()).await?;
         }
         Ok(())
     }
 
-    /// Check if connected.
-    pub fn is_connected(&self) -> bool {
-        self.connection.is_some()
+    pub async fn is_connected(&self) -> bool {
+        self.client.lock().await.is_some()
     }
 }
 

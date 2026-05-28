@@ -1,7 +1,8 @@
-use anyhow::Result;
-use wasmtime::{Config, Engine, Module, Store};
-use wasmtime::component::{Component, Linker as ComponentLinker, ResourceTable};
-use wasmtime_wasi::{WasiCtx, WasiCtxBuilder, WasiView};
+use anyhow::{Result, anyhow};
+use wasmtime::{Config, Engine, Store};
+use wasmtime::component::{Component, Linker as ComponentLinker, ResourceTable, Val};
+use wasmtime_wasi::{WasiCtx, WasiCtxBuilder, WasiView, DirPerms, FilePerms};
+use std::path::Path;
 
 pub struct EnzymeRunner {
     engine: Engine,
@@ -19,6 +20,12 @@ impl WasiView for EnzymeState {
     fn ctx(&mut self) -> &mut WasiCtx { &mut self.wasi }
 }
 
+impl EnzymeState {
+    pub fn reset(&mut self) {
+        tracing::debug!("Resetting EnzymeState for synapse: {}", self.synapse_id);
+    }
+}
+
 impl EnzymeRunner {
     pub fn new() -> Result<Self> {
         let mut config = Config::new();
@@ -28,7 +35,8 @@ impl EnzymeRunner {
         let engine = Engine::new(&config)?;
         let mut linker = ComponentLinker::new(&engine);
         
-        // Add host imports here once wit-bindgen generates the traits
+        // Add WASI imports to the linker so the component can use them
+        wasmtime_wasi::add_to_linker_async(&mut linker)?;
         
         Ok(Self { engine, linker })
     }
@@ -36,8 +44,21 @@ impl EnzymeRunner {
     pub async fn spawn_enzyme(&self, wasm_path: &str, task_id: &str) -> Result<Vec<u8>> {
         let component = Component::from_file(&self.engine, wasm_path)?;
         
+        // Ensure the sandbox workspace exists
+        let sandbox_path = Path::new("sandbox_workspace");
+        if !sandbox_path.exists() {
+            std::fs::create_dir_all(sandbox_path)?;
+        }
+        
         let mut builder = WasiCtxBuilder::new();
+        // Strict Sandboxing: 
+        // - No ambient network access
+        // - No ambient file system access
+        // - Only stdout/stderr for logging
+        // - Only access to the mounted /workspace directory
         builder.inherit_stdout().inherit_stderr();
+        
+        let _ = builder.preopened_dir(sandbox_path, "/workspace", DirPerms::all(), FilePerms::all());
         
         let state = EnzymeState {
             wasi: builder.build(),
@@ -48,15 +69,22 @@ impl EnzymeRunner {
         let mut store = Store::new(&self.engine, state);
         let instance = self.linker.instantiate_async(&mut store, &component).await?;
         
-        // Assume the component has an export named "process-task"
-        // In a real WIT-based setup, we'd use the generated Bindings
-        let func = instance.get_func(&mut store, "process-task")
-            .ok_or_else(|| anyhow!("Export 'process-task' not found"))?;
+        // Dynamic execution of the "process-task" export if it exists
+        // In a real typed WIT environment, this would use generated bindings
+        println!("[EnzymeRunner] Executing task {} in WASM Sandbox...", task_id);
         
-        // This is a simplified call. Real component calls involve Val/Param mapping.
-        println!("[EnzymeRunner] Executing task {} in WASM...", task_id);
+        if let Some(func) = instance.get_func(&mut store, "process-task") {
+            let mut results = [Val::S32(0)]; // Placeholder for standard return
+            if let Err(e) = func.call_async(&mut store, &[], &mut results).await {
+                println!("[EnzymeRunner] WASM Execution Error: {}", e);
+                return Err(anyhow!("WASM Execution Error: {}", e));
+            }
+            println!("[EnzymeRunner] WASM Execution Completed Successfully.");
+        } else {
+            println!("[EnzymeRunner] Notice: 'process-task' export not found in WASM module. Initialization only.");
+        }
         
-        Ok(vec![]) // Simulated result
+        Ok(vec![]) // Simulated byte result
     }
 
     pub async fn run_enzyme(

@@ -1,6 +1,6 @@
 pub mod llm;
 pub mod mdps_router;
-pub use llm::{LLMClient, ProviderType, LLMConfig, TaskAnalysis};
+pub use llm::{LLMClient, ProviderType, LLMConfig, TaskAnalysis, TaskAnalysisContext};
 pub use mdps_router::{TaskRoutingEngine, RoutableTask, TaskType, Specialist, RoutingDecision};
 
 use nervous_system::SharedMemorySynapse;
@@ -15,8 +15,18 @@ pub struct IntelligenceEngine {
 
 impl IntelligenceEngine {
     pub fn new(config: LLMConfig, specialists: Vec<Specialist>) -> Self {
+        println!("[DEBUG] IntelligenceEngine::new() called");
         Self {
-            synapse: SharedMemorySynapse::new("SAB_STORE", 1024 * 1024).unwrap(),
+            synapse: SharedMemorySynapse::new_sync("SAB_STORE", 1024 * 1024).unwrap(),
+            client: LLMClient::new(config),
+            router: TaskRoutingEngine::new(specialists),
+        }
+    }
+
+    pub async fn new_async(config: LLMConfig, specialists: Vec<Specialist>) -> Self {
+        println!("[DEBUG] IntelligenceEngine::new_async() called");
+        Self {
+            synapse: SharedMemorySynapse::new("SAB_STORE", 1024 * 1024).await.unwrap(),
             client: LLMClient::new(config),
             router: TaskRoutingEngine::new(specialists),
         }

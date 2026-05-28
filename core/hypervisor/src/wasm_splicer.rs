@@ -1,5 +1,5 @@
 use anyhow::Result;
-use wasmtime::{Engine, Module, Store, Linker, Config};
+use wasmtime::{Engine, Module, Config};
 use crate::hox_map_schema::EnzymeGenetics;
 
 pub struct WasmSplicingEngine {
@@ -18,8 +18,9 @@ impl WasmSplicingEngine {
     /// High-level DNA splicing triggered by critical consensus.
     pub fn splice_specialist_dna(&self, name: &str, specialists: &[&str]) -> Result<Vec<u8>> {
         println!("[WasmSplicer] Critical splicing triggered for: {}. Specialists: {:?}", name, specialists);
-        let mock_binary = vec![0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00];
-        Ok(mock_binary)
+        // Minimal valid WASM Component binary (Version 1, Layer 0x0d)
+        let minimal_component = vec![0x00, 0x61, 0x73, 0x6d, 0x0d, 0x00, 0x01, 0x00];
+        Ok(minimal_component)
     }
 
     /// Physically splices multiple WASM modules into a single functional phenotype.
@@ -27,26 +28,26 @@ impl WasmSplicingEngine {
     pub fn splice_phenotype(&self, genetics: &EnzymeGenetics, skill_paths: &[String]) -> Result<Vec<u8>> {
         println!("[WasmSplicer] Splicing {} skills into {} phenotype...", skill_paths.len(), genetics.category);
         
-        let mut combined_binary = Vec::new();
-        
         if skill_paths.is_empty() {
-            // Return a minimal valid WASM module header
-            combined_binary = vec![0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00];
+            // Return a minimal valid WASM Component binary
+            let minimal_component = vec![0x00, 0x61, 0x73, 0x6d, 0x0d, 0x00, 0x01, 0x00];
+            
+            println!("[WasmSplicer] Synthesis complete. Phenotype generated.");
+            Ok(minimal_component)
         } else {
             // In a real implementation using the Component Model:
             // 1. Load each skill module as a Component
             // 2. Use a Linker to satisfy imports between components
             // 3. Compose them into a single guest component
             
-            // For now, we validate the first skill path and use it as the base
             let base_skill = std::fs::read(&skill_paths[0])?;
-            Module::validate(&self.engine, &base_skill)?;
-            combined_binary = base_skill;
+            // Validate it as a Component, not just a core Module
+            wasmtime::component::Component::new(&self.engine, &base_skill)?;
+            let combined_binary = base_skill;
             
             println!("[WasmSplicer] Validated base skill at: {}", skill_paths[0]);
+            println!("[WasmSplicer] Synthesis complete. Phenotype generated.");
+            Ok(combined_binary)
         }
-        
-        println!("[WasmSplicer] Synthesis complete. Phenotype generated.");
-        Ok(combined_binary)
     }
 }

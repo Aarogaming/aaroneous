@@ -38,7 +38,7 @@ impl EpigeneticOrchestrator {
     }
 
     /// Bypasses text parsing by injecting raw latent vectors into the forward pass.
-    pub fn inject_latent_state(&self, vector: &[f32; 1024]) {
+    pub fn inject_latent_state(&self, _vector: &[f32; 1024]) {
         println!("[EpigeneticOrchestrator] Injecting latent activation vector (1024-dim) into attention head.");
         // Forward this vector to the LLM backend (e.g., llama.cpp/candle)
     }

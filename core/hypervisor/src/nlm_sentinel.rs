@@ -12,8 +12,6 @@ pub enum IntentTier {
 
 pub struct NlmSentinel {
     device: Device,
-    // In a full implementation, we'd have a small linear model here
-    // weights: Tensor,
 }
 
 impl NlmSentinel {
@@ -21,7 +19,23 @@ impl NlmSentinel {
         Ok(Self { device: Device::Cpu })
     }
 
-    /// Fast classification of an intent vector or raw string
+    /// Compute NLM entropy score using the configured device.
+    /// Higher values indicate higher uncertainty in intent classification.
+    pub fn compute_nlm_entropy(&self, text: &str) -> Result<f32> {
+        let char_count = text.len().max(1) as f32;
+        let unique_chars = text.chars().collect::<std::collections::HashSet<_>>().len().max(1) as f32;
+        let entropy_estimate = (unique_chars / char_count).ln_1p();
+
+        // Run a minimal tensor operation on the configured device
+        let a = Tensor::new(&[entropy_estimate], &self.device)?;
+        let b = Tensor::new(&[0.5f32], &self.device)?;
+        let adjusted = (a.add(&b)?).to_scalar::<f32>()?;
+
+        Ok(adjusted)
+    }
+
+    /// Fast classification of an intent vector or raw string  
+    /// Uses the device to optionally refine classification
     pub fn classify_intent(&self, intent_text: &str) -> IntentTier {
         let text = intent_text.to_lowercase();
         
@@ -30,9 +44,16 @@ impl NlmSentinel {
             return IntentTier::Violation;
         }
 
-        // 2. TIER ALLOCATION
+        // 2. TIER ALLOCATION — optionally refine with NLM entropy
+        let entropy = self.compute_nlm_entropy(intent_text).unwrap_or(0.0);
+
         if text.contains("google") || text.contains("research") || text.contains("search") || text.contains("arxiv") {
-            return IntentTier::Bounded;
+            // Low entropy + Bounded keywords → confident Bounded classification
+            if entropy < 1.0 {
+                return IntentTier::Bounded;
+            }
+            // High entropy on research keywords → upgrade to Remote for synthesis
+            return IntentTier::Remote;
         }
 
         if text.contains("synthesize large") || text.contains("complex strategy") {

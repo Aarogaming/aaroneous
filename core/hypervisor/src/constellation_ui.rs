@@ -157,7 +157,7 @@ impl ConstellationCanvas {
 
             // Show confidence ring around node
             if i < self.metrics.len() {
-                let (conf, conf_color) = self.confidence_indicator(i);
+                let (_conf, conf_color) = self.confidence_indicator(i);
                 let ring_radius = radius + 4.0;
                 painter.circle_stroke(pos, ring_radius, (1.5, conf_color));
             }

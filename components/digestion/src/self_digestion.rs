@@ -232,6 +232,45 @@ impl DigestionEngine {
         }
     }
 
+    /// Enqueue a new digestion task
+    pub async fn queue_task(&self, task: DigestionTask) {
+        let mut queue = self.task_queue.lock().await;
+        queue.push(task);
+    }
+
+    /// Process all queued tasks, draining them in priority order
+    pub async fn process_queue(&self) -> Vec<DigestionTask> {
+        let mut queue = self.task_queue.lock().await;
+        queue.sort_by_key(|t| std::cmp::Reverse(t.priority));
+        let tasks: Vec<DigestionTask> = queue.drain(..).collect();
+        drop(queue);
+
+        let mut completed = vec![];
+        for task in tasks {
+            match self.run_digestion(&task).await {
+                Ok(()) => completed.push(task),
+                Err(e) => {
+                    let _ = self.event_tx.send(DigestionEvent {
+                        digestion_id: task.digestion_id.clone(),
+                        event_type: DigestionEventType::Error(e.to_string()),
+                        timestamp: Utc::now(),
+                        details: format!("Digestion failed for {}", task.model_name),
+                        progress_percent: None,
+                    });
+                }
+            }
+        }
+        completed
+    }
+
+    /// Run the full digestion pipeline for a single task
+    async fn run_digestion(&self, task: &DigestionTask) -> Result<(), Box<dyn std::error::Error>> {
+        let genome = self.extract_genetics(task).await?;
+        let soul = self.generate_soul(task, &genome).await?;
+        self.integrate_specialist(task, &genome, &soul).await?;
+        Ok(())
+    }
+
     /// Start watching inbox folder for new GGUF models
     pub async fn start_folder_watching(&self) -> Result<(), Box<dyn std::error::Error>> {
         let config = self.config.clone();
@@ -548,5 +587,28 @@ mod tests {
 
         assert_eq!(soul.archetype, "Scholar");
         assert!(soul.big_five_openness > 0.7);
+    }
+
+    #[tokio::test]
+    async fn test_task_queue_drain() {
+        let (_tx, _rx) = mpsc::unbounded_channel();
+        let config = DigestionConfig::default();
+        let engine = DigestionEngine::new(config, _tx);
+
+        let task = DigestionTask {
+            digestion_id: "q_test".to_string(),
+            model_path: PathBuf::from("nonexistent.gguf"),
+            model_name: "q_model".to_string(),
+            parameter_count: 1_000_000_000,
+            created_at: Utc::now(),
+            priority: DigestionPriority::Normal,
+            status: DigestionStatus::Queued,
+            estimated_duration_minutes: 1,
+        };
+
+        engine.queue_task(task.clone()).await;
+        let completed = engine.process_queue().await;
+        assert_eq!(completed.len(), 1);
+        assert_eq!(completed[0].digestion_id, "q_test");
     }
 }

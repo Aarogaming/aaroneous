@@ -4,7 +4,7 @@
 use std::process::Command;
 use std::time::Instant;
 use serde::{Serialize, Deserialize};
-use crate::hypothesis::{Hypothesis, ExperimentDesign, TestType};
+use crate::hypothesis::{Hypothesis, TestType};
 
 /// Result of running an experiment
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -45,7 +45,7 @@ impl ExperimentResult {
     /// Run an experiment for a hypothesis
     pub fn run(hypothesis: &Hypothesis, workspace_root: &str) -> Self {
         let design = &hypothesis.experiment_design;
-        let start = Instant::now();
+        let _start = Instant::now();
         
         match design.test_type {
             TestType::UnitTest => Self::run_unit_test(hypothesis, workspace_root),

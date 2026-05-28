@@ -1,10 +1,11 @@
-// pub mod persistence; // Temporarily disabled: depends on hypervisor modules (skill_system, genetics, etc.)
+
 
 use nervous_system::SharedMemorySynapse;
 
 /// The Storage Component.
 /// Handles database persistence and event logging.
 pub struct StorageEngine {
+    #[allow(dead_code)]
     synapse: SharedMemorySynapse,
     db: Option<rusqlite::Connection>,
 }
@@ -12,7 +13,7 @@ pub struct StorageEngine {
 impl StorageEngine {
     pub fn new() -> Self {
         Self {
-            synapse: SharedMemorySynapse::new("SAB_STORE", 1024 * 1024).unwrap(),
+            synapse: SharedMemorySynapse::new_sync("SAB_STORE", 1024 * 1024).unwrap(),
             db: None,
         }
     }

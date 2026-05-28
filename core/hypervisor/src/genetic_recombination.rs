@@ -1,5 +1,5 @@
 use crate::hox_map_schema::{EnzymeGenetics, HoxPermissions};
-use anyhow::{Result, anyhow};
+use anyhow::Result;
 use rand::Rng;
 
 pub struct GeneticRecombinator;

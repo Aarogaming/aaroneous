@@ -3,6 +3,7 @@ use anyhow::{Result, Context};
 use memmap2::{MmapMut, MmapOptions};
 use std::fs::OpenOptions;
 use std::path::PathBuf;
+use std::fs;
 
 /// The raw memory layout for the Autonomic Nervous System
 #[repr(C)]
@@ -16,6 +17,7 @@ pub struct SynapseState {
     pub approval_granted: u8,   // 0: No, 1: Yes
     pub hox_mutation_flag: u8,
     pub intent_vector_id: [u8; 16],
+    pub intent_payload: [u8; 256],
     pub sovereignty_tier: u8,   // 0: Local, 1: Bounded Web, 2: Remote LLM
     
     // Homeostatic Metrics (The "Dopamine" System)
@@ -91,6 +93,7 @@ impl Default for SynapseState {
             approval_granted: 0,
             hox_mutation_flag: 0,
             intent_vector_id: [0; 16],
+            intent_payload: [0; 256],
             sovereignty_tier: 0,
             curiosity_drive: 50,
             integrity_score: 100,
@@ -144,5 +147,11 @@ impl SharedMemorySynapse {
 
     pub fn get_ptr(&self) -> *const u8 {
         self.mmap.as_ptr()
+    }
+}
+
+impl Drop for SharedMemorySynapse {
+    fn drop(&mut self) {
+        let _ = fs::remove_file(&self.path);
     }
 }

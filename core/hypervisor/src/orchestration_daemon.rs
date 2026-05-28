@@ -6,8 +6,8 @@ use std::time::{Duration, Instant};
 use tokio::time;
 use serde::{Serialize, Deserialize};
 use crate::metadata_ingestor::{MetadataIngestor, MetadataIngestorConfig, MetadataEvent, MetadataAnalysis};
-use crate::decision_engine::{AutonomousDecisionEngine, DecisionTask, TaskEvaluation, Action, ExecutionOutcome, IngestionReport};
-use crate::action_executor::{ActionExecutor, ExecutableAction, ActionResult};
+use crate::decision_engine::{AutonomousDecisionEngine, DecisionTask, TaskEvaluation, ExecutionOutcome};
+use crate::action_executor::{ActionExecutor, ActionResult};
 use intelligence::{IntelligenceEngine, Specialist, LLMConfig, ProviderType, TaskType};
 use crate::constellation_ui::{ConstellationCanvas, NodeMetrics};
 use biology::SystemHealthReport;
@@ -37,6 +37,9 @@ impl Default for OrchestrationDaemonConfig {
     }
 }
 
+use std::collections::HashMap;
+use std::process::Child;
+
 /// Daemon state
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum DaemonState {
@@ -47,28 +50,64 @@ pub enum DaemonState {
     ShuttingDown,
 }
 
+/// Agent status
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum AgentStatus {
+    Spooling,
+    Active,
+    Throttled,
+    Error,
+    SpoolingDown,
+}
+
+/// Agent descriptor
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AgentDescriptor {
+    pub id: String,
+    pub name: String,
+    pub status: AgentStatus,
+    pub resource_usage: f32,
+}
+
+/// Agent lifecycle management
+pub trait LifecycleManager {
+    fn spawn(&mut self, descriptor: AgentDescriptor) -> Result<(), String>;
+    fn monitor(&mut self) -> Result<(), String>;
+    fn spool_down(&mut self, id: &str) -> Result<(), String>;
+}
+
+/// Simple process-based lifecycle manager
+pub struct ProcessLifecycleManager {
+    pub managed_agents: HashMap<String, Child>,
+}
+
+impl LifecycleManager for ProcessLifecycleManager {
+    fn spawn(&mut self, _descriptor: AgentDescriptor) -> Result<(), String> {
+        // Implementation for process spawning will go here
+        Ok(())
+    }
+    
+    fn monitor(&mut self) -> Result<(), String> {
+        // Monitoring logic will go here
+        Ok(())
+    }
+
+    fn spool_down(&mut self, id: &str) -> Result<(), String> {
+        if let Some(mut child) = self.managed_agents.remove(id) {
+            child.kill().map_err(|e| e.to_string())
+        } else {
+            Err(format!("Agent {} not found", id))
+        }
+    }
+}
+
 /// Daemon status report
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DaemonStatus {
     pub state: DaemonState,
-    pub uptime_seconds: f64,
-    pub cycles_completed: u64,
-    pub tasks_processed: u64,
-    pub actions_executed: u64,
-    pub metabolic_health: SystemHealthReport,
-    pub execution_stats: crate::action_executor::ExecutionStats,
-    pub last_cycle_duration_ms: f64,
-}
-
-/// Orchestration Daemon - the main loop that ties everything together
-pub struct OrchestrationDaemon {
-    pub config: OrchestrationDaemonConfig,
-    pub ingestor: MetadataIngestor,
-    pub decision_engine: AutonomousDecisionEngine,
-    pub executor: ActionExecutor,
-    pub constellation: ConstellationCanvas,
-    pub state: DaemonState,
+    pub lifecycle: Box<dyn LifecycleManager>,
     pub start_time: Instant,
+
     pub cycles_completed: u64,
     pub tasks_processed: u64,
     pub actions_executed: u64,
@@ -130,6 +169,7 @@ impl OrchestrationDaemon {
             executor,
             constellation: ConstellationCanvas::new(),
             state: DaemonState::Initializing,
+            lifecycle: Box::new(ProcessLifecycleManager { managed_agents: HashMap::new() }),
             start_time: Instant::now(),
             cycles_completed: 0,
             tasks_processed: 0,
@@ -160,6 +200,11 @@ impl OrchestrationDaemon {
                     self.state = DaemonState::Error(e.clone());
                     eprintln!("[OrchestrationDaemon] Cycle error: {}", e);
                 }
+            }
+            
+            // Monitor managed agents
+            if let Err(e) = self.lifecycle.monitor() {
+                eprintln!("[OrchestrationDaemon] Lifecycle monitoring error: {}", e);
             }
             
             // Check if we should throttle based on thermodynamic phase

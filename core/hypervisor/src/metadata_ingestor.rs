@@ -3,9 +3,9 @@
 
 use std::path::{Path, PathBuf};
 use std::fs;
-use std::time::{Instant, Duration};
+use std::time::Duration;
 use serde::{Serialize, Deserialize};
-use compute::{ComputeEngine, entropy};
+use compute::ComputeEngine;
 use crate::workspace::WorkspacePaths;
 
 /// Types of metadata sources
@@ -41,7 +41,7 @@ pub struct MetadataIngestorConfig {
 impl Default for MetadataIngestorConfig {
     fn default() -> Self {
         Self {
-            watch_paths: vec![WorkspacePaths::discover().root().clone()],
+            watch_paths: WorkspacePaths::discover(),
             poll_interval: Duration::from_secs(5),
             max_event_queue: 1000,
             compute_entropy: true,
@@ -50,6 +50,9 @@ impl Default for MetadataIngestorConfig {
     }
 }
 
+use notify::{Watcher, RecursiveMode, Event as NotifyEvent};
+use tokio::sync::mpsc;
+
 /// Metadata Ingestor - collects and analyzes metadata from various sources
 pub struct MetadataIngestor {
     pub config: MetadataIngestorConfig,
@@ -57,6 +60,9 @@ pub struct MetadataIngestor {
     pub event_queue: Vec<MetadataEvent>,
     pub file_hashes: std::collections::HashMap<PathBuf, String>,
     pub last_system_metrics: Option<SystemMetrics>,
+    // Event channel
+    event_rx: mpsc::Receiver<MetadataEvent>,
+    _watcher: notify::RecommendedWatcher,
 }
 
 /// System metrics snapshot
@@ -70,23 +76,50 @@ pub struct SystemMetrics {
 
 impl MetadataIngestor {
     pub fn new(config: MetadataIngestorConfig) -> Self {
+        let (tx, rx) = mpsc::channel(config.max_event_queue);
+        
+        // Define watcher
+        let event_handler = move |res: notify::Result<NotifyEvent>| {
+            if let Ok(event) = res {
+                // Simplified: just wrap as MetadataEvent
+                let _ = tx.blocking_send(MetadataEvent {
+                    source: "FileSystem".to_string(),
+                    event_type: format!("{:?}", event.kind),
+                    timestamp: chrono::Utc::now().timestamp() as f64,
+                    data: serde_json::json!({"paths": event.paths}),
+                    raw_bytes: None,
+                });
+            }
+        };
+
+        let mut watcher = notify::RecommendedWatcher::new(event_handler, notify::Config::default()).unwrap();
+        
+        for path in &config.watch_paths {
+            if path.exists() {
+                let _ = watcher.watch(path, RecursiveMode::Recursive);
+            }
+        }
+
         Self {
             config,
             compute: ComputeEngine::new(),
             event_queue: Vec::new(),
             file_hashes: std::collections::HashMap::new(),
             last_system_metrics: None,
+            event_rx: rx,
+            _watcher: watcher,
         }
     }
 
     /// Scan watched paths for changes
-    pub fn scan_filesystem(&mut self) -> Vec<MetadataEvent> {
+    pub fn process_pending_events(&mut self) -> Vec<MetadataEvent> {
         let mut events = Vec::new();
-        
-        for path in &self.config.watch_paths {
-            if !path.exists() {
-                continue;
-            }
+        while let Ok(event) = self.event_rx.try_recv() {
+            events.push(event);
+        }
+        events
+    }
+
             
             if let Ok(entries) = fs::read_dir(path) {
                 for entry in entries.filter_map(|e| e.ok()) {
@@ -145,7 +178,17 @@ impl MetadataIngestor {
         
         let cpu_usage = sys.cpus().iter().map(|c| c.cpu_usage()).sum::<f32>() / sys.cpus().len() as f32;
         let memory_usage = sys.used_memory() as f32 / sys.total_memory() as f32 * 100.0;
-        let disk_usage = 0.0; // Placeholder - would need disk info
+        let mut disk_usage = 0.0;
+        let disks = sysinfo::Disks::new_with_refreshed_list();
+        let mut total_space = 0;
+        let mut total_used = 0;
+        for disk in disks.list() {
+            total_space += disk.total_space();
+            total_used += disk.total_space() - disk.available_space();
+        }
+        if total_space > 0 {
+            disk_usage = (total_used as f64 / total_space as f64 * 100.0) as f32;
+        }
         
         let metrics = SystemMetrics {
             cpu_usage,

@@ -231,7 +231,7 @@ fn parse_parameters(params_str: &str) -> Vec<Parameter> {
 /// Find closing brace for Rust function
 fn find_closing_brace(content: &str, start: usize) -> Option<usize> {
     let mut depth = 1;
-    let mut pos = start;
+    let _pos = start;
     let bytes = &content.as_bytes()[start..];
     
     for (i, &b) in bytes.iter().enumerate() {
@@ -270,7 +270,7 @@ fn find_python_block_end(content: &str, start: usize) -> Option<usize> {
 }
 
 /// Calculate complexity metrics
-fn calculate_complexity(content: &str, structures: &[CodeStructure]) -> ComplexityMetrics {
+fn calculate_complexity(content: &str, _structures: &[CodeStructure]) -> ComplexityMetrics {
     let lines = content.lines().count() as u32;
     
     // Cyclomatic complexity approximation

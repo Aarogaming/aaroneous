@@ -3,12 +3,10 @@
 
 use std::path::{Path, PathBuf};
 use std::fs;
-use std::process::Command;
 use serde::{Serialize, Deserialize};
-use crate::decision_engine::{Action, TaskEvaluation, ExecutionOutcome};
+use crate::decision_engine::{Action, TaskEvaluation};
 use biology::SystemBiology;
 use crate::constellation_ui::{ConstellationCanvas, NodeMetrics};
-use crate::ConstellationNode;
 
 /// Types of actions the executor can perform
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -112,7 +110,7 @@ impl ActionExecutor {
             }
         };
         
-        let duration = start.elapsed().as_secs_f64() * 1000.0;
+        let _duration = start.elapsed().as_secs_f64() * 1000.0;
         
         // Record in history
         if self.execution_history.len() >= self.max_history {

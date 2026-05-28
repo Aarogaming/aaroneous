@@ -72,17 +72,19 @@ pub struct SynapseState {
 
 impl SynapseState {
     pub fn from_zero_copy(zc: &ZeroCopyState, tool_registry: &[(u64, String)], speaker_registry: &[(u64, String)]) -> Self {
-        let mcp_frame = if zc.mcp_tool_call.status > 0 {
-            Some(McpToolCallFrame::from_zero_copy(&zc.mcp_tool_call, tool_registry))
+        let mcp_frame = if zc.mcp_status > 0 {
+            let mcp = zc.mcp_tool_call();
+            Some(McpToolCallFrame::from_zero_copy(&mcp, tool_registry))
         } else {
             None
         };
         
+        let dialogue_frame = zc.dialogue();
         Self {
             clock_tick: zc.clock_tick,
             latent_vector: zc.latent_vector,
             mcp_frame,
-            dialogue: vec![SpecialistDialogue::from_zero_copy(&zc.dialogue, speaker_registry)],
+            dialogue: vec![SpecialistDialogue::from_zero_copy(&dialogue_frame, speaker_registry)],
         }
     }
 }
@@ -97,6 +99,7 @@ pub struct SynapsePayload {
 
 pub struct Synapse {
     mmap: MmapMut,
+    serialized_len: usize,
 }
 
 impl Synapse {
@@ -110,7 +113,7 @@ impl Synapse {
         file.set_len(size as u64)?;
         let mmap = unsafe { MmapMut::map_mut(&file)? };
         
-        Ok(Self { mmap })
+        Ok(Self { mmap, serialized_len: 0 })
     }
 
     pub fn write_payload(&mut self, payload: &SynapsePayload) -> Result<()> {
@@ -118,16 +121,25 @@ impl Synapse {
         if bytes.len() > self.mmap.len() {
             return Err(anyhow!("Payload too large for synapse"));
         }
-        
-        self.mmap[..bytes.len()].copy_from_slice(&bytes);
+
+        self.serialized_len = bytes.len();
+        self.mmap[..self.serialized_len].copy_from_slice(&bytes);
         self.mmap.flush()?;
         Ok(())
     }
 
     pub fn read_payload(&self) -> Result<SynapsePayload> {
-        let archived = unsafe { rkyv::check_archived_root::<SynapsePayload>(&self.mmap[..]) }
+        if self.serialized_len == 0 {
+            return Err(anyhow!("No payload written"));
+        }
+
+        // Copy only the serialized portion into an aligned buffer
+        let mut aligned = rkyv::AlignedVec::new();
+        aligned.extend_from_slice(&self.mmap[..self.serialized_len]);
+
+        let archived = rkyv::check_archived_root::<SynapsePayload>(&aligned)
             .map_err(|e| anyhow!("Failed to check archived root: {:?}", e))?;
-        
+
         let payload: SynapsePayload = archived.deserialize(&mut rkyv::Infallible)?;
         Ok(payload)
     }

@@ -24,7 +24,7 @@ impl Default for MpcConfig {
             state_weight: vec![1.0],
             control_weight: vec![0.1],
             terminal_weight: vec![1.0],
-            control_limits: (vec![0.0], vec![1.0]),
+            control_limits: (vec![-100.0], vec![100.0]),
             state_limits: (vec![0.0], vec![100.0]),
         }
     }
@@ -198,7 +198,7 @@ impl LinearMpc {
     ) -> Vec<f64> {
         let m = self.config.control_horizon;
         let control_steps = m * self.control_dim;
-        let output_steps = reference.len();
+        let _output_steps = reference.len();
 
         // Initialize control sequence
         let mut u = vec![0.0; control_steps];
@@ -293,13 +293,11 @@ impl ScalarMpc {
     pub fn solve(&self, current_state: f64) -> f64 {
         let n = self.config.prediction_horizon;
 
-        // For scalar system, optimal control can be computed analytically
-        // u* = -(b/a) * (x - r) * (1 - a^n) / (1 - a^(n+1))
-        // Simplified: proportional control with preview
-
-        let error = self.reference - current_state;
+        // Deadbeat control with preview smoothing:
+        // u[k] = (r - a * x[k]) / b   — reaches reference in one step
+        // Preview gain attenuates for finite horizon
         let preview_gain = (1.0 - self.a.powi(n as i32)) / (1.0 - self.a.powi(n as i32 + 1));
-        let u = self.b * error * preview_gain;
+        let u = (self.reference - self.a * current_state) / self.b * preview_gain;
 
         // Apply control limits
         u.clamp(self.config.control_limits.0[0], self.config.control_limits.1[0])

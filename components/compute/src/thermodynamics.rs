@@ -54,7 +54,7 @@ pub fn boltzmann_distribution(energies: &[f64], temperature: f64) -> Vec<f64> {
     }
 
     let kt = temperature; // k = 1 for simplicity
-    let max_energy = energies.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+    let _max_energy = energies.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
 
     // Numerically stable softmax: exp(x - max) / sum(exp(x - max))
     let exp_values: Vec<f64> = energies

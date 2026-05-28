@@ -3,7 +3,6 @@
 
 use serde::{Serialize, Deserialize};
 use crate::ast_parser::{AstObservation, CodeStructure, StructureType};
-use compute::bayesian;
 
 /// A testable hypothesis about code behavior
 #[derive(Debug, Clone, Serialize, Deserialize)]

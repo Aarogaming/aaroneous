@@ -7,7 +7,7 @@ use crossterm::{
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
 use ratatui::{
-    backend::{Backend, CrosstermBackend},
+    backend::CrosstermBackend,
     Terminal,
     prelude::*,
     widgets::{Block, Borders, Paragraph, Gauge, List, ListItem},
@@ -28,6 +28,7 @@ pub enum Page {
     EventLog,
     Settings,
     Lore,
+    SpatialKinetic,
 }
 
 /// TUI Event from user interaction
@@ -81,20 +82,22 @@ impl TuiApp {
             Page::SkillTree => Page::EventLog,
             Page::EventLog => Page::Settings,
             Page::Settings => Page::Lore,
-            Page::Lore => Page::Home,
+            Page::Lore => Page::SpatialKinetic,
+            Page::SpatialKinetic => Page::Home,
         };
         self.scroll_offset = 0;
     }
 
     pub fn prev_page(&mut self) {
         self.page = match self.page {
-            Page::Home => Page::Settings,
+            Page::Home => Page::SpatialKinetic,
             Page::Metabolic => Page::Home,
             Page::Specialists => Page::Metabolic,
             Page::SkillTree => Page::Specialists,
             Page::EventLog => Page::SkillTree,
             Page::Settings => Page::EventLog,
             Page::Lore => Page::Settings,
+            Page::SpatialKinetic => Page::Lore,
         };
         self.scroll_offset = 0;
     }
@@ -267,6 +270,7 @@ pub fn draw(f: &mut Frame, app: &TuiApp) {
         Page::EventLog => "Event Log",
         Page::Settings => "Settings",
         Page::Lore => "Lore",
+        Page::SpatialKinetic => "Spatial-Kinetic Engine",
     };
 
     let header = Paragraph::new(format!("Page: {} | Use Tab to navigate, Q to quit", page_title))
@@ -322,7 +326,8 @@ pub fn draw(f: &mut Frame, app: &TuiApp) {
         Page::SkillTree => draw_skill_tree(f, content_area, app),
         Page::EventLog => draw_event_log(f, content_area, app),
         Page::Settings => draw_settings(f, content_area, app),
-        Page::Lore => draw_settings(f, content_area, app), // TODO: implement draw_lore
+        Page::Lore => draw_settings(f, content_area, app),
+        Page::SpatialKinetic => draw_settings(f, content_area, app),
     }
 }
 

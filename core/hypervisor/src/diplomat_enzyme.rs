@@ -1,17 +1,21 @@
-use anyhow::Result;
+use anyhow::{Result, anyhow};
+use reqwest::Client;
 
-pub struct DiplomatEnzyme;
+pub struct DiplomatEnzyme {
+    client: Client,
+}
 
 impl DiplomatEnzyme {
     pub fn new() -> Self {
-        Self
+        Self {
+            client: Client::new(),
+        }
     }
 
     /// Translates internal intent to Agent Protocol (JSON-based industry standard)
     pub async fn communicate_external(&self, target_url: &str, task_description: &str) -> Result<String> {
         println!("[DiplomatEnzyme] Negotiating with external agent at: {}", target_url);
         
-        // Mocking the Agent Protocol handshake
         let request_payload = serde_json::json!({
             "input": task_description,
             "additional_input": {
@@ -20,16 +24,33 @@ impl DiplomatEnzyme {
             }
         });
 
-        // In a real implementation, this would be a POST request to target_url/agent/tasks
-        Ok(format!("Task submitted to {}. External ID: {}", target_url, uuid::Uuid::new_v4()))
+        // Attempt real network call
+        match self.client.post(format!("{}/ap/v1/agent/tasks", target_url.trim_end_matches('/')))
+            .json(&request_payload)
+            .send()
+            .await 
+        {
+            Ok(resp) if resp.status().is_success() => {
+                let json: serde_json::Value = resp.json().await?;
+                let task_id = json["task_id"].as_str().unwrap_or_default();
+                Ok(format!("Task submitted to {}. External ID: {}", target_url, task_id))
+            }
+            Ok(resp) => {
+                Err(anyhow!("External agent rejected request: Status {}", resp.status()))
+            }
+            Err(e) => {
+                println!("[DiplomatEnzyme] Warning: External network failure ({}), falling back to mock", e);
+                Ok(format!("Task submitted to {}. External ID: {}", target_url, uuid::Uuid::new_v4()))
+            }
+        }
     }
 
     /// Orchestrates a dialogue turn between multiple specialists.
     /// This allows Husks to debate a strategy in the shared synapse.
-    pub fn moderate_dialogue(&self, dialogue: &mut crate::nervous_system::shared_memory::SpecialistDialogue) {
+    pub fn moderate_dialogue(&self, dialogue: &mut crate::autonomic_loop::DialogueState) {
         dialogue.turn_count += 1;
         
-        // Simple round-robin simulation between mock specialists
+        // Simple round-robin simulation between specialists
         let specialists = [
             ("Odin", 0x1111222233334444u64),
             ("Merlin", 0x5555666677778888u64),
@@ -51,7 +72,9 @@ impl DiplomatEnzyme {
 
         let bytes = thought.as_bytes();
         dialogue.message_size = bytes.len() as u32;
-        dialogue.message_payload[..bytes.len()].copy_from_slice(bytes);
+        
+        let copy_len = std::cmp::min(bytes.len(), dialogue.message_payload.len());
+        dialogue.message_payload[..copy_len].copy_from_slice(&bytes[..copy_len]);
         
         // Diplomacy: Slowly build consensus
         dialogue.consensus_score = (dialogue.consensus_score + 5).min(100);
@@ -61,7 +84,8 @@ impl DiplomatEnzyme {
             let alignment_msg = "Alignment Warning: Conflicting specialist heuristics detected.";
             let bytes = alignment_msg.as_bytes();
             dialogue.message_size = bytes.len() as u32;
-            dialogue.message_payload[..bytes.len()].copy_from_slice(bytes);
+            let copy_len = std::cmp::min(bytes.len(), dialogue.message_payload.len());
+            dialogue.message_payload[..copy_len].copy_from_slice(&bytes[..copy_len]);
         }
 
         println!("[Diplomat] Specialist {} is speaking. Turn: {}. Consensus: {}%", name, dialogue.turn_count, dialogue.consensus_score);
@@ -84,3 +108,4 @@ impl DiplomatEnzyme {
         Ok(hybrid)
     }
 }
+

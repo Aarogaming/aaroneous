@@ -7,14 +7,13 @@ use a_run::metadata_ingestor::{MetadataIngestor, MetadataIngestorConfig};
 use a_run::decision_engine::{AutonomousDecisionEngine, DecisionTask, ExecutionOutcome};
 use a_run::action_executor::{ActionExecutor, ExecutableAction, FileOp};
 use a_run::orchestration_daemon::{OrchestrationDaemon, OrchestrationDaemonConfig, DaemonState};
-use a_run::{IntelligenceEngine, Specialist, LLMConfig, ProviderType, TaskType};
+use a_run::{IntelligenceEngine, IntelligentSpecialist, LLMConfig, ProviderType, TaskType};
 use a_run::{SystemBiology, PredictiveMetabolicGovernor, MetabolicGovernorConfig, GovernanceAction};
-use a_run::workspace::WorkspacePaths;
 
 #[tokio::test]
 async fn test_full_pipeline_metadata_to_action() {
     // Step 1: Create metadata ingestor
-    let paths = WorkspacePaths::discover();
+    let paths = aaroneous_paths::WorkspacePaths::discover();
     let config = MetadataIngestorConfig {
         watch_paths: vec![paths.root().clone()],
         poll_interval: Duration::from_secs(1),
@@ -35,7 +34,7 @@ async fn test_full_pipeline_metadata_to_action() {
 
     // Step 4: Create decision engine
     let specialists = vec![
-        Specialist {
+        IntelligentSpecialist {
             id: "spec_test".to_string(),
             name: "Test Specialist".to_string(),
             skills: vec!["general".to_string()],
@@ -50,6 +49,12 @@ async fn test_full_pipeline_metadata_to_action() {
         model_name: "mock".to_string(),
         api_key: None,
         base_url: None,
+        gguf_model_path: None,
+        temperature: 0.7,
+        max_tokens: 512,
+        timeout_secs: 30,
+        enable_caching: true,
+        cache_ttl_secs: 3600,
     };
 
     let intelligence = IntelligenceEngine::new(llm_config, specialists);
@@ -93,7 +98,7 @@ async fn test_full_pipeline_metadata_to_action() {
 async fn test_ingestion_cycle_with_multiple_tasks() {
     // Create specialists
     let specialists = vec![
-        Specialist {
+        IntelligentSpecialist {
             id: "spec_code".to_string(),
             name: "Code Generator".to_string(),
             skills: vec!["rust".to_string()],
@@ -101,7 +106,7 @@ async fn test_ingestion_cycle_with_multiple_tasks() {
             success_rate: 0.9,
             avg_completion_time: 5.0,
         },
-        Specialist {
+        IntelligentSpecialist {
             id: "spec_analysis".to_string(),
             name: "Analyzer".to_string(),
             skills: vec!["analysis".to_string()],
@@ -116,6 +121,12 @@ async fn test_ingestion_cycle_with_multiple_tasks() {
         model_name: "mock".to_string(),
         api_key: None,
         base_url: None,
+        gguf_model_path: None,
+        temperature: 0.7,
+        max_tokens: 512,
+        timeout_secs: 30,
+        enable_caching: true,
+        cache_ttl_secs: 3600,
     };
 
     let intelligence = IntelligenceEngine::new(llm_config, specialists);
@@ -213,7 +224,7 @@ fn test_action_executor_file_operations() {
 #[test]
 fn test_wasm_enzyme_exists() {
     // Verify the compute enzyme WASM file was built
-    let paths = WorkspacePaths::discover();
+    let paths = aaroneous_paths::WorkspacePaths::discover();
     let wasm_path = paths.extensions().join("wasm\\compute_enzyme\\target\\wasm32-unknown-unknown\\release\\compute_enzyme.wasm");
     assert!(wasm_path.exists(), "Compute enzyme WASM should exist at {:?}", wasm_path);
 

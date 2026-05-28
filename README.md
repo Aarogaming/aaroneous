@@ -1,78 +1,80 @@
 # Aaroneous
 
-**Machine-Native Stem Cell Engine** — A high-performance Rust AI agent system with a federation of collaborating specialists.
+**Machine-Native Stem Cell Engine** — Rust AI agent system with a federation of collaborating specialists and WASM-based enzyme execution.
 
-## Quick Start
-
-```bash
-cargo build --release
-cargo run --release -- start
-```
-
-## What Is Aaroneous?
-
-Aaroneous is a synthetic intelligence engine built on three pillars:
-
-1. **Core Hypervisor** — Orchestrates AI specialists, manages WASM enzymes, handles zero-copy IPC
-2. **Federation of Specialists** — Visionary, Omnipresent, Symbiotic, Phygital, and Archivist collaborate via proposals and consensus
-3. **SABs (Skill Action Blocks)** — Reusable capability modules in WASM or native form
-
-## Architecture
+## Workspace
 
 ```
 Aaroneous/
 ├── core/                  # Core crates
-│   ├── hypervisor/        # Main orchestrator, specialists, HTTP API
+│   ├── hypervisor/        # Orchestrator, specialists, WASM runtime, federation
 │   └── nervous_system/    # Zero-copy shared memory (synapse)
-├── components/            # Reusable components (agents, biology, sabs, skills)
-├── extensions/            # WASM and Python extensions
-├── shards/                # Sovereign agent packages
-├── sdk/                   # Rust SDK
+├── components/            # Reusable components (17 sub-crates)
+│   ├── intelligence/      # LLM routing, task analysis
+│   ├── storage/           # SQLite persistence
+│   ├── sabs/              # Skill Action Block system
+│   ├── skills/            # Skill definitions and fusion
+│   ├── genetics/          # Specialist genome, breeding
+│   ├── digestion/         # Personality/soul digestion
+│   ├── biology/           # Metabolic governance, thermodynamics
+│   ├── agents/            # Agent definitions
+│   ├── constellation/     # Constellation graph topology
+│   ├── control/           # Control plane messages
+│   ├── hive/              # Hive runtime orchestration
+│   ├── compute/           # Mathematical compute engine
+│   ├── scientific_analyzer/ # Pipeline analysis
+│   └── paths/             # Workspace path discovery
 ├── MaelstromUI/           # Tauri + React desktop UI
-├── config/                # Configuration
+├── federation/            # Federation HTTP, NATS, forge, specialists
 ├── docs/                  # Documentation
-└── data/                  # Runtime data (SABs, routines, fabrication)
+├── data/                  # Runtime data (SABs, routines)
+├── config/                # Configuration files
+├── registry/              # HOX maps, SAB manifests
+└── agents.md              # OpenCode agent instructions
 ```
 
-## Key Commands
+## Build & Run
 
 ```bash
-a-run start --dashboard tui              # Start with TUI
-a-run specialist create --name X         # Create a specialist
-a-run status health                      # Check system health
-a-run query stats --detailed             # View statistics
-a-run status sab-matrix --refresh        # Refresh SAB mappings
+cargo build --release
+cargo run --release --bin spatial_kinetic
 ```
 
-## Configuration
+### Binaries
 
-- **Primary config:** `config.toml` at workspace root
-- **Workspace discovery:** `AARONEOUS_WORKSPACE` env var → current dir → `D:\Aaroneous`
-- **Zero hardcoded paths** — all filesystem access uses `WorkspacePaths::discover()`
+| Binary | Description |
+|--------|-------------|
+| `a_run` | CLI entry point for the Autonomic Nervous System |
+| `spatial_kinetic` | Spatial-kinetic reflex loop — genome-driven HID output + wgpu reflex pipeline |
+| `test_enigo` | Mouse automation test (enigo) |
 
-## Documentation
+## Current State
 
-| Topic | Link |
-|-------|------|
-| Quick Start | [docs/guides/QUICK_START.md](docs/guides/QUICK_START.md) |
-| Current Status | [docs/reports/CURRENT_STATUS.md](docs/reports/CURRENT_STATUS.md) |
-| Component Reference | [docs/architecture/COMPONENT_REFERENCE.md](docs/architecture/COMPONENT_REFERENCE.md) |
-| Mathematical Frameworks | [docs/architecture/MATHEMATICAL_FRAMEWORKS.md](docs/architecture/MATHEMATICAL_FRAMEWORKS.md) |
-| Strategic Vision | [docs/reports/STRATEGIC_VISION.md](docs/reports/STRATEGIC_VISION.md) |
-| Governance | [docs/operations/GOVERNANCE.md](docs/operations/GOVERNANCE.md) |
-| Operational Runbook | [docs/operations/OPERATIONAL_RUNBOOK.md](docs/operations/OPERATIONAL_RUNBOOK.md) |
-| Full Index | [docs/INDEX.md](docs/INDEX.md) |
+- **Compilation**: `cargo check -p a_run` — clean compilation.
+- **Tests**: `cargo test -p a_run --lib` — 766 passed, 0 failed, 3 ignored.
+
+### Active Subsystems
+
+| Subsystem | Status | Description |
+|-----------|--------|-------------|
+...
+| Autonomic Loop | Live | Fully integrated, managing agent runtime via shared-memory synapse |
 
 ## Tech Stack
 
-- **Language:** Rust 2024
-- **Async:** Tokio
-- **IPC:** Shared memory (zero-copy `#[repr(C)]`), rkyv serialization
-- **WASM:** Wasmtime
-- **Database:** SQLite (rusqlite)
-- **Messaging:** NATS
-- **UI:** Ratatui (TUI), Tauri + React (MaelstromUI)
-- **Consensus:** Raft
+- **Language**: Rust 2024 edition
+- **Async**: Tokio (multi-threaded)
+- **IPC**: Zero-copy shared memory (`#[repr(C)]` synapse), rkyv serialization
+- **WASM**: Wasmtime (Component Model)
+- **ML**: candle-core (tensor operations)
+- **Database**: SQLite via rusqlite
+- **Messaging**: NATS
+- **UI**: Ratatui (TUI), egui/wgpu (native), Tauri + React (MaelstromUI)
+- **Serialization**: rkyv (zero-copy), serde (JSON)
+
+## Documentation
+
+See [docs/INDEX.md](docs/INDEX.md) for the full index.
 
 ## License
 

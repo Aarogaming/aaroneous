@@ -43,6 +43,22 @@ pub struct TaskAnalysis {
     pub complexity: f64,
     pub required_skills: Vec<String>,
     pub estimated_tokens: u32,
+    pub recommended_approach: String,
+    pub confidence_percentage: u32,
+    pub potential_risks: Vec<String>,
+}
+
+/// Context for task analysis by an LLM.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct TaskAnalysisContext {
+    pub task_id: String,
+    pub file_name: String,
+    pub file_size: u64,
+    pub file_type: String,
+    pub data_sample: String,
+    pub specialist_skills: Vec<String>,
+    pub specialist_domain: String,
+    pub team_context: String,
 }
 
 /// Context for design generation requests.

@@ -1,5 +1,4 @@
 use chromiumoxide::browser::{Browser, BrowserConfig};
-use chromiumoxide::handler::Handler;
 use futures::StreamExt;
 use std::time::Duration;
 use anyhow::{Result, anyhow};
@@ -181,18 +180,4 @@ impl RetinaModule {
         
         println!("[Retina] wgpu framebuffer mapping active.");
         Ok(())
-    }
-
-    fn project_to_latent_space(&self, raw_bytes: &[u8], vector: &mut [f32; 1024]) {
-        use std::collections::hash_map::DefaultHasher;
-        use std::hash::{Hash, Hasher};
-
-        for i in 0..1024 {
-            let mut hasher = DefaultHasher::new();
-            raw_bytes.hash(&mut hasher);
-            i.hash(&mut hasher);
-            let val = (hasher.finish() % 1000) as f32 / 1000.0;
-            vector[i] = val * 2.0 - 1.0; // Scale to -1.0 to 1.0
-        }
-    }
-}
+    }}

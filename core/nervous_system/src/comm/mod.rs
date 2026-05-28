@@ -1,8 +1,6 @@
 use tokio::net::windows::named_pipe::{ServerOptions, ClientOptions, NamedPipeServer};
-use std::ffi::OsStr;
-use std::path::Path;
 use anyhow::{Result, Context};
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::io::AsyncWriteExt;
 
 pub struct AgentBus {
     pipe_path: String,

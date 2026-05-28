@@ -27,7 +27,7 @@ impl WasmSplicingEngine {
         let cap = self.hox_registry.get_capability(specialist_id)?
             .ok_or_else(|| anyhow!("Specialist {} not found in registry", specialist_id))?;
         
-        let current_wasm_path = Path::new(&cap.enzyme_hash);
+        let _current_wasm_path = Path::new(&cap.enzyme_hash);
         // Assuming source is in a sibling directory or metadata
         let current_source_path = self.workspace_root
             .join("extensions/wasm")

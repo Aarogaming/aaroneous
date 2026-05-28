@@ -2,8 +2,7 @@
 /// Uses information theory and tensor operations for surface similarity,
 /// spectral clustering, and cross-domain information flow.
 
-use compute::information::{mutual_information, kl_divergence, js_divergence, shannon_entropy};
-use compute::linalg::{mat_vec_mul, cosine_similarity};
+use compute::information::{js_divergence, shannon_entropy};
 
 /// SAB surface embedding with tensor operations.
 /// Each surface is represented as a feature vector for similarity computation.
@@ -107,7 +106,7 @@ impl SabSimilarityMatrix {
             .map(|(i, &s)| (i, s))
             .collect();
 
-        similarities.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+        similarities.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
         similarities.into_iter().take(k).collect()
     }
 
@@ -166,12 +165,11 @@ pub fn spectral_clustering(similarity_matrix: &SabSimilarityMatrix, k: usize) ->
 
     // Sort by degree and assign to clusters
     let mut degree_indices: Vec<(usize, f64)> = degrees.iter().enumerate().map(|(i, &d)| (i, d)).collect();
-    degree_indices.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+    degree_indices.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
 
-    // Assign to clusters based on degree quantiles
-    let chunk_size = n / k;
+    // Assign to clusters based on degree quantiles (distribute evenly)
     for (idx, &(i, _)) in degree_indices.iter().enumerate() {
-        assignments[i] = idx / chunk_size;
+        assignments[i] = idx * k / n;
     }
 
     assignments

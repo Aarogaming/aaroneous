@@ -1,5 +1,4 @@
 use crate::semantic_indexing::SemanticIndex;
-use crate::prefrontal_cortex::PrefrontalCortex;
 use anyhow::{Result, anyhow};
 use std::collections::HashSet;
 
@@ -14,6 +13,18 @@ impl CuriosityEnzyme {
         }
     }
 
+    /// Return a snapshot of all currently known concepts
+    pub fn query_known_concepts(&self) -> Vec<String> {
+        let mut concepts: Vec<_> = self.known_concepts.iter().cloned().collect();
+        concepts.sort();
+        concepts
+    }
+
+    /// Register a newly discovered concept
+    pub fn add_concept(&mut self, concept: String) {
+        self.known_concepts.insert(concept);
+    }
+
     /// Scans the Semantic Index for "entropy" or knowledge gaps.
     pub fn identify_knowledge_gaps(&mut self, index: &SemanticIndex) -> Vec<String> {
         println!("[CuriosityEnzyme] Analyzing Semantic Index for structural gaps...");
@@ -22,10 +33,16 @@ impl CuriosityEnzyme {
         let mut gaps = Vec::new();
         
         if index.entries.is_empty() {
-            gaps.push("general intelligence and system self-awareness".to_string());
+            if !self.known_concepts.contains("general intelligence") {
+                gaps.push("general intelligence and system self-awareness".to_string());
+            }
         } else if index.entries.len() < 5 {
-            gaps.push("advanced Rust systems programming patterns".to_string());
-            gaps.push("WASM sandboxing security protocols".to_string());
+            if !self.known_concepts.contains("advanced Rust") {
+                gaps.push("advanced Rust systems programming patterns".to_string());
+            }
+            if !self.known_concepts.contains("WASM sandboxing") {
+                gaps.push("WASM sandboxing security protocols".to_string());
+            }
         }
 
         // 2. Temporal Forecasting (Predicting future decay)
@@ -33,7 +50,11 @@ impl CuriosityEnzyme {
         for entry in &index.entries {
             let age_days = (now - entry.last_accessed).num_days();
             if age_days > 7 {
-                gaps.push(format!("re-verify stale knowledge: {:?}", entry.metadata.get("subject").unwrap_or(&"unknown".to_string())));
+                let subject = entry.metadata.get("subject").unwrap_or(&"unknown".to_string()).clone();
+                let gap = format!("re-verify stale knowledge: {subject}");
+                if !self.known_concepts.contains(&gap) {
+                    gaps.push(gap);
+                }
             }
         }
 

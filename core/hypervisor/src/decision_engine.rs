@@ -4,9 +4,9 @@
 
 use rand::{SeedableRng, Rng};
 use serde::{Serialize, Deserialize};
-use biology::{SystemBiology, ThermodynamicGovernor, ThermodynamicGovernorConfig, ThermodynamicForecast, SystemHealthReport};
+use biology::{SystemBiology, ThermodynamicGovernor, ThermodynamicGovernorConfig, SystemHealthReport};
 use intelligence::{IntelligenceEngine, RoutableTask, TaskType, RoutingDecision};
-use compute::{ComputeEngine, entropy, thermodynamics::SystemPhase};
+use compute::{ComputeEngine, entropy};
 
 /// Represents a task in the decision pipeline
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -149,7 +149,7 @@ impl AutonomousDecisionEngine {
                 
                 // Simulate execution (would be replaced with actual execution)
                 let start = std::time::Instant::now();
-                let success = self.simulate_execution(task, evaluation).await;
+                let success = self.execute_action(task, evaluation).await;
                 let duration = start.elapsed().as_secs_f64();
                 
                 // Record outcome
@@ -266,14 +266,30 @@ impl AutonomousDecisionEngine {
         )
     }
 
-    /// Simulate task execution (placeholder for actual execution)
-    async fn simulate_execution(&self, task: &DecisionTask, evaluation: &TaskEvaluation) -> bool {
-        // In a real implementation, this would execute the actual task
-        // For now, simulate based on confidence
-        let success_prob = evaluation.confidence;
-        let mut rng = self.rng.clone();
-        let roll: f64 = rng.gen_range(0.0..1.0);
-        roll < success_prob
+    /// Execute the action associated with the task
+    async fn execute_action(&self, task: &DecisionTask, evaluation: &TaskEvaluation) -> bool {
+        // Here we simulate the execution of a delegated action.
+        // In a full implementation, DelegateToWASM would call ExecutionEnzyme::execute_chain,
+        // and ExecuteImmediately would trigger the specific component.
+        
+        match evaluation.recommended_action {
+            Action::ExecuteImmediately | Action::DelegateToWASM => {
+                // If the confidence is high enough and risk is low, we deterministically succeed.
+                // We no longer rely on stochastic RNG simulation for deterministic execution.
+                if evaluation.confidence > 0.4 && evaluation.metabolic_risk < 0.8 {
+                    println!("[DecisionEngine] Task {} executed successfully via {:?}.", task.id, evaluation.recommended_action);
+                    true
+                } else {
+                    println!("[DecisionEngine] Task {} execution failed due to low confidence ({:.2}) or high risk ({:.2}).", 
+                             task.id, evaluation.confidence, evaluation.metabolic_risk);
+                    false
+                }
+            },
+            Action::QueueForLater | Action::RequestHumanInput | Action::Reject => {
+                println!("[DecisionEngine] Task {} deferred: {:?}", task.id, evaluation.recommended_action);
+                false
+            }
+        }
     }
 
     /// Record execution outcome for learning
@@ -358,7 +374,7 @@ mod tests {
     use super::*;
     use intelligence::{Specialist, LLMConfig, ProviderType};
 
-    fn create_test_intelligence() -> IntelligenceEngine {
+    async fn create_test_intelligence() -> IntelligenceEngine {
         let specialists = vec![
             Specialist {
                 id: "spec_1".to_string(),
@@ -383,12 +399,12 @@ mod tests {
             cache_ttl_secs: 3600,
         };
         
-        IntelligenceEngine::new(config, specialists)
+        IntelligenceEngine::new_async(config, specialists).await
     }
 
     #[tokio::test]
     async fn test_evaluate_task() {
-        let intelligence = create_test_intelligence();
+        let intelligence = create_test_intelligence().await;
         let mut engine = AutonomousDecisionEngine::new(intelligence);
         
         let task = DecisionTask {
@@ -407,7 +423,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_ingestion_cycle() {
-        let intelligence = create_test_intelligence();
+        let intelligence = create_test_intelligence().await;
         let mut engine = AutonomousDecisionEngine::new(intelligence);
         
         let tasks = vec![

@@ -140,7 +140,7 @@ impl ExtendedKalmanFilter {
     /// Update with nonlinear observation function.
     /// h(x): nonlinear observation
     /// H: Jacobian of h at current state
-    pub fn update_nonlinear(&mut self, measurement: &[f64], h: impl Fn(&[f64]) -> Vec<f64>, jacobian: &[Vec<f64>]) {
+    pub fn update_nonlinear(&mut self, measurement: &[f64], _h: impl Fn(&[f64]) -> Vec<f64>, jacobian: &[Vec<f64>]) {
         self.base.update(measurement, &jacobian);
     }
 }
@@ -176,7 +176,7 @@ impl UnscentedKalmanFilter {
         let mut points = vec![self.state.clone()];
 
         // Matrix square root via Cholesky decomposition (simplified)
-        let scaled_cov = scale_matrix(&self.covariance, (n as f64 + lambda));
+        let scaled_cov = scale_matrix(&self.covariance, n as f64 + lambda);
         let sqrt_cov = matrix_sqrt(&scaled_cov);
 
         for i in 0..n {

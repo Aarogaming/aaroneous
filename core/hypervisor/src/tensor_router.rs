@@ -1,8 +1,3 @@
-/// Tensor-Based Task Routing
-/// Replaces MDP routing with softmax attention scoring: softmax(Wx)
-/// Uses linear algebra for O(n) specialist selection instead of O(n²) iteration.
-
-use compute::linalg::mat_vec_mul;
 
 /// Task embedding for routing.
 #[derive(Debug, Clone)]
@@ -332,7 +327,7 @@ mod tests {
             .iter()
             .find(|(id, _)| id == &result.selected_specialist)
             .unwrap();
-        assert!(selected_score.1 >= result.specialist_scores.iter().map(|(_, p)| p).fold(0.0, f64::max) - 1e-10);
+        assert!(selected_score.1 >= result.specialist_scores.iter().map(|(_, p)| p).fold(0.0_f64, |acc, p| acc.max(*p)) - 1e-10);
     }
 
     #[test]

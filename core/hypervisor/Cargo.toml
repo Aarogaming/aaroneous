@@ -6,6 +6,18 @@ edition = "2024"
 [lib]
 path = "src/lib.rs"
 
+[[bin]]
+name = "a_run"
+path = "bin/a_run.rs"
+
+[[bin]]
+name = "spatial_kinetic"
+path = "bin/spatial_kinetic.rs"
+
+[[bin]]
+name = "test_enigo"
+path = "bin/test_enigo.rs"
+
 [dependencies]
 nervous_system = { path = "../nervous_system" }
 sabs = { path = "../../components/sabs" }
@@ -24,6 +36,7 @@ aaroneous_paths = { path = "../../components/paths" }
 anyhow = "1.0"
 chrono = { version = "0.4", features = ["serde"] }
 clap = { version = "4.5", features = ["derive", "cargo"] }
+dirs = "5.0"
 crossbeam-channel = "0.5"
 futures-core = "0.3"
 futures-util = "0.3"
@@ -32,13 +45,15 @@ libloading = "0.9"
 log = "0.4"
 llama-gguf = { version = "0.14", optional = true, default-features = false, features = ["cpu"] }
 notify = "6.1"
-nats = "0.26.0"
 parking_lot = "0.12"
 rand = "0.8"
 rand_distr = "0.4"
 ratatui = { version = "0.27", features = ["serde"] }
 eframe = { version = "0.28", features = ["wgpu"] }
 egui = "0.28"
+ctrlc = "3.4"
+memmap2 = "0.9"
+windows = { version = "0.58", features = ["Win32_Foundation", "Win32_Graphics_Gdi", "Win32_UI_Input_KeyboardAndMouse", "Win32_UI_WindowsAndMessaging"] }
 wgpu = "0.20"
 bytemuck = "1.14"
 cgmath = "0.18"
@@ -52,12 +67,15 @@ shared_memory = "0.12.4"
 strum = { version = "0.26", features = ["derive"] }
 strum_macros = "0.26"
 sysinfo = "0.30"
+seahash = "4.1"
+byteorder = "1.5"
 tar = "0.4"
 thiserror = "2.0"
 chromiumoxide = { version = "0.7.0" }
 tokenizers = { version = "0.21.0", default-features = false, features = ["onig"] }
 readability = "0.3.0"
 futures = "0.3"
+futures-channel = "0.3"
 tokio = { version = "1.52.1", features = ["rt", "time", "full", "sync", "tracing"] }
 tokio-util = { version = "0.7", features = ["io"] }
 tracing = "0.1"
@@ -78,7 +96,6 @@ zstd = "0.13"
 async-trait = "0.1"
 moka = { version = "0.12", features = ["future"] }
 which = "5.0"
-memmap2 = "0.9"
 axum = { version = "0.7", features = ["macros"] }
 tower-http = { version = "0.5", features = ["cors"] }
 async-stream = "0.3"
@@ -89,8 +106,24 @@ semver = "1.0"
 async-nats = "0.35"
 url = "2.5"
 wasmtime-wasi = "21.0"
+cap-std = "3.4.5"
 
 [dev-dependencies]
 tempfile = "3"
 http-body-util = "0.1"
 tower = { version = "0.5", features = ["util"] }
+
+[features]
+default = []
+# Local LLM inference support via llama.cpp GGUF format
+llama-gguf = ["dep:llama-gguf"]
+# GPU utilization metrics via NVML (NVIDIA only)
+gpu-metrics = []
+# Persistent DNA bank storage backed by RocksDB
+rocksdb-dna = []
+# P2P mesh networking via Iroh (requires iroh + n0-future deps)
+p2p-iroh = []
+# Biometric sensor integration via btleplug (requires btleplug deps)
+biometric-ble = []
+# AR/VR spatial tracking via OpenXR (requires openxr deps)
+ar-openxr = []

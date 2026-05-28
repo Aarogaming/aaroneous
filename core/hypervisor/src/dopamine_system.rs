@@ -1,5 +1,4 @@
-use nervous_system::shared_memory::SynapseState;
-use anyhow::Result;
+use crate::autonomic_loop::SynapseState;
 
 pub struct DopamineSystem;
 
@@ -22,7 +21,7 @@ impl DopamineSystem {
             }
             DopamineEvent::ExecutionFailure(severity) => {
                 // Penalty for failures (Integrity drop)
-                let penalty = severity * 10;
+                let penalty = (severity as u32) * 10;
                 state.integrity_score = state.integrity_score.saturating_sub(penalty);
                 state.understanding_score = state.understanding_score.saturating_sub(5);
                 // Failures increase curiosity (need to figure out why it failed)
@@ -46,3 +45,4 @@ pub enum DopamineEvent {
     ExecutionFailure(u8),    // contains severity (1-10)
     InternalCoherenceCheck(bool),
 }
+

@@ -1,4 +1,3 @@
-use anyhow::Result;
 use nervous_system::SharedMemorySynapse;
 use biology::SystemBiology;
 use agents::SpecialistAgent;
@@ -31,9 +30,9 @@ pub struct RuntimeStatistics {
 }
 
 impl HiveRuntime {
-    pub fn new(config: &HiveRuntimeConfig) -> Self {
+    pub fn new(_config: &HiveRuntimeConfig) -> Self {
         Self {
-            synapse: SharedMemorySynapse::new("SAB_STORE", 1024 * 1024).unwrap(),
+            synapse: SharedMemorySynapse::new_sync("SAB_STORE", 1024 * 1024).unwrap(),
             biology: SystemBiology::new(),
             agents: RwLock::new(HashMap::new()),
         }

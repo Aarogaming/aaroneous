@@ -35,7 +35,9 @@ impl WasmEnzymeLoader {
                 }
 
                 let data = caller.data_mut();
-                if data.synapse.write_at(offset as usize, &buffer).is_err() {
+                // Use blocking runtime to call async write_at
+                let rt = tokio::runtime::Runtime::new().unwrap();
+                if rt.block_on(data.synapse.write_at(offset as usize, &buffer)).is_err() {
                     return -3;
                 }
                 0
@@ -49,7 +51,7 @@ impl WasmEnzymeLoader {
         let module = Module::from_file(&self.engine, wasm_path)
             .map_err(|e| anyhow::anyhow!("Failed to load WASM module from {}: {}", wasm_path, e))?;
         
-        let synapse = SharedMemorySynapse::new("SAB_STORE", 1024 * 1024)?;
+        let synapse = SharedMemorySynapse::new_sync("SAB_STORE", 1024 * 1024)?;
         let mut store = Store::new(&self.engine, StoreData { synapse });
         
         let instance = self.linker.instantiate(&mut store, &module)?;

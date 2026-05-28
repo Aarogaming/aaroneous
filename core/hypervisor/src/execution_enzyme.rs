@@ -30,13 +30,34 @@ impl ExecutionEnzyme {
     }
 
     fn simulate_host_call(name: &str, args: &Value, _frame: &mut McpToolCallFrame) -> Result<()> {
-        // Mocking the result of a host call
         match name {
-            "read_file" => println!("  ↳ Host Result: File content loaded into linear memory."),
-            "write_file" => println!("  ↳ Host Result: Buffer flushed to disk."),
-            "http_request" => println!("  ↳ Host Result: Response received (200 OK)."),
-            _ => return Err(anyhow!("Unknown tool: {}", name)),
-        }
-        Ok(())
-    }
-}
+            "read_file" => {
+                let path = args["path"].as_str().unwrap_or("");
+                match std::fs::read_to_string(path) {
+                    Ok(content) => {
+                        let len = content.len();
+                        println!("  +3 Host Result: File content loaded ({} bytes).", len);
+                        Ok(())
+                    }
+                    Err(e) => Err(anyhow!("Failed to read file {}: {}", path, e))
+                }
+            },
+            "write_file" => {
+                let path = args["path"].as_str().unwrap_or("");
+                let content = args["content"].as_str().unwrap_or("");
+                match std::fs::write(path, content) {
+                    Ok(_) => {
+                        println!("  +3 Host Result: Buffer flushed to disk ({}).", path);
+                        Ok(())
+                    }
+                    Err(e) => Err(anyhow!("Failed to write file {}: {}", path, e))
+                }
+            },
+            "http_request" => {
+                let url = args["url"].as_str().unwrap_or("");
+                if url.starts_with("http") {
+                    println!("  +3 Host Result: HTTP Request queued for {}.", url);
+                    Ok(())
+                } else {
+                    Err(anyhow!("Invalid URL for HTTP request: {}", url))
+} } _ => return Err(anyhow!("Unknown tool: {}", name)), } } }

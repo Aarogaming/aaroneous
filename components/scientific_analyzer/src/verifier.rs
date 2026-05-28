@@ -2,7 +2,6 @@
 // Uses compute::bayesian to update posterior confidence based on test results
 
 use serde::{Serialize, Deserialize};
-use compute::bayesian;
 use crate::hypothesis::Hypothesis;
 use crate::experiment::{ExperimentResult, TestOutcome};
 

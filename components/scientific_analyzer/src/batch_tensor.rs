@@ -1,9 +1,3 @@
-/// Batch Tensor Operations for Scientific Analysis
-/// Replaces sequential AST analysis with batch tensor operations.
-/// Uses matrix operations for similarity scoring, test prioritization, and feature extraction.
-
-use compute::linalg::{mat_vec_mul, cosine_similarity};
-use compute::information::{shannon_entropy, mutual_information, kl_divergence};
 use compute::thermodynamics::boltzmann_distribution;
 use crate::ast_parser::AstObservation;
 use crate::hypothesis::Hypothesis;
@@ -220,44 +214,6 @@ pub fn detect_code_clones(
     clones
 }
 
-/// Compute file-level Shannon entropy.
-fn compute_file_entropy(content: &str) -> f64 {
-    if content.is_empty() {
-        return 0.0;
-    }
-
-    // Count byte frequencies
-    let mut freq = vec![0usize; 256];
-    for byte in content.bytes() {
-        freq[byte as usize] += 1;
-    }
-
-    let total = content.len() as f64;
-    let probabilities: Vec<f64> = freq
-        .iter()
-        .filter(|&&count| count > 0)
-        .map(|&count| count as f64 / total)
-        .collect();
-
-    shannon_entropy(&probabilities)
-}
-
-/// Compute cyclomatic complexity from AST observation.
-fn compute_cyclomatic_complexity(obs: &AstObservation) -> f64 {
-    let mut complexity = 1.0; // Base complexity
-
-    for structure in &obs.structures {
-        if matches!(structure.structure_type, crate::ast_parser::StructureType::Function | crate::ast_parser::StructureType::Method) {
-            let lines = structure.line_range.1.saturating_sub(structure.line_range.0);
-            // Each conditional adds 1
-            complexity += lines as f64 * 0.1; // Approximation
-            complexity += structure.signature.parameters.len() as f64 * 0.05;
-        }
-    }
-
-    complexity
-}
-
 /// Approximate mutual information between feature vectors.
 fn approximate_mutual_information(a: &[f64], b: &[f64]) -> f64 {
     if a.len() != b.len() || a.is_empty() {
@@ -409,29 +365,64 @@ mod tests {
         vec![
             AstObservation {
                 file_path: "test1.rs".to_string(),
-                raw_content: "fn main() { let x = 1; }".to_string(),
-                structures: vec!["main".to_string()],
-                functions: vec![crate::ast_parser::FunctionSignature {
-                    name: "main".to_string(),
-                    parameters: vec![],
-                    return_type: "void".to_string(),
-                    body_lines: 3,
-                    is_public: true,
-                }],
-                imports: vec![],
+                language: crate::ast_parser::Language::Rust,
+                structures: vec![
+                    crate::ast_parser::CodeStructure {
+                        name: "main".to_string(),
+                        structure_type: crate::ast_parser::StructureType::Function,
+                        signature: crate::ast_parser::FunctionSignature {
+                            name: "main".to_string(),
+                            parameters: vec![],
+                            return_type: Some("void".to_string()),
+                            is_async: false,
+                            visibility: crate::ast_parser::Visibility::Public,
+                        },
+                        line_range: (1, 3),
+                        dependencies: vec![],
+                        control_flow_complexity: 1,
+                    },
+                ],
+                complexity_metrics: crate::ast_parser::ComplexityMetrics {
+                    cyclomatic_complexity: 1,
+                    lines_of_code: 3,
+                    nesting_depth: 0,
+                    branch_count: 0,
+                    call_count: 0,
+                },
+                raw_entropy: 0.5,
             },
             AstObservation {
                 file_path: "test2.rs".to_string(),
-                raw_content: "fn helper() { let y = 2; }".to_string(),
-                structures: vec!["helper".to_string()],
-                functions: vec![crate::ast_parser::FunctionSignature {
-                    name: "helper".to_string(),
-                    parameters: vec!["arg: i32".to_string()],
-                    return_type: "i32".to_string(),
-                    body_lines: 5,
-                    is_public: false,
-                }],
-                imports: vec!["std::io".to_string()],
+                language: crate::ast_parser::Language::Rust,
+                structures: vec![
+                    crate::ast_parser::CodeStructure {
+                        name: "helper".to_string(),
+                        structure_type: crate::ast_parser::StructureType::Function,
+                        signature: crate::ast_parser::FunctionSignature {
+                            name: "helper".to_string(),
+                            parameters: vec![
+                                crate::ast_parser::Parameter {
+                                    name: "arg".to_string(),
+                                    param_type: "i32".to_string(),
+                                },
+                            ],
+                            return_type: Some("i32".to_string()),
+                            is_async: false,
+                            visibility: crate::ast_parser::Visibility::Private,
+                        },
+                        line_range: (1, 5),
+                        dependencies: vec!["std::io".to_string()],
+                        control_flow_complexity: 2,
+                    },
+                ],
+                complexity_metrics: crate::ast_parser::ComplexityMetrics {
+                    cyclomatic_complexity: 2,
+                    lines_of_code: 5,
+                    nesting_depth: 1,
+                    branch_count: 1,
+                    call_count: 0,
+                },
+                raw_entropy: 0.7,
             },
         ]
     }

@@ -16,6 +16,7 @@ use std::sync::Arc;
 
 use crate::cognitive_weighting::CognitiveWeights;
 use crate::lora_adapter_vault::LoraAdapterVault;
+use crate::dashboard::spatial_kinetic::SpatialKineticTelemetry;
 
 pub struct EguiRatatuiBridge {
     pub app_state: TuiApp,
@@ -26,6 +27,7 @@ pub struct EguiRatatuiBridge {
     synapse: Arc<RwLock<SharedMemorySynapse>>,
     cognitive_weights: CognitiveWeights,
     adapter_vault: LoraAdapterVault,
+    spatial_telemetry: SpatialKineticTelemetry,
 }
 
 impl EguiRatatuiBridge {
@@ -39,6 +41,7 @@ impl EguiRatatuiBridge {
             synapse,
             cognitive_weights: CognitiveWeights::default(),
             adapter_vault: LoraAdapterVault::new(),
+            spatial_telemetry: SpatialKineticTelemetry::default(),
         }
     }
 
@@ -59,7 +62,8 @@ impl EguiRatatuiBridge {
                 if ui.button("🏠 Home").clicked() { self.app_state.page = Page::Home; }
                 if ui.button("🌌 Constellation").clicked() { self.app_state.page = Page::Metabolic; }
                 if ui.button("🤖 Specialists").clicked() { self.app_state.page = Page::Specialists; }
-                if ui.button("🧬 Evolution").clicked() { self.app_state.page = Page::Lore; } // Using Lore as placeholder for Evolution page
+                if ui.button("🧬 Evolution").clicked() { self.app_state.page = Page::Lore; }
+                if ui.button("🎮 Spatial-Kinetic").clicked() { self.app_state.page = Page::SpatialKinetic; }
                 if ui.button("📜 Log").clicked() { self.app_state.page = Page::EventLog; }
                 
                 ui.separator();
@@ -87,6 +91,8 @@ impl EguiRatatuiBridge {
                 self.draw_cluster_explorer(ui);
             } else if self.app_state.page == Page::Lore {
                 self.draw_evolution_view(ui);
+            } else if self.app_state.page == Page::SpatialKinetic {
+                self.spatial_telemetry.render_panel(ui);
             } else {
                 let available_rect = ui.available_rect_before_wrap();
                 let cw = 9.0;
@@ -110,8 +116,8 @@ impl EguiRatatuiBridge {
     }
 
     fn draw_hitl_banner(&mut self, ui: &mut egui::Ui) {
-        let mut synapse = self.synapse.write();
-        let state = unsafe { &mut *(synapse.get_ptr() as *mut nervous_system::shared_memory::SynapseState) };
+        let synapse = self.synapse.write();
+        let state = unsafe { &mut *(synapse.get_ptr_sync() as *mut nervous_system::shared_memory::SynapseState) };
 
         if state.approval_required == 1 {
             egui::Frame::group(ui.style())
@@ -140,7 +146,7 @@ impl EguiRatatuiBridge {
 
     fn draw_vital_meters(&mut self, ui: &mut egui::Ui) {
         let synapse = self.synapse.read();
-        let state = unsafe { &*(synapse.get_ptr() as *const nervous_system::shared_memory::SynapseState) };
+        let state = unsafe { &*(synapse.get_ptr_sync() as *const nervous_system::shared_memory::SynapseState) };
 
         ui.add_space(4.0);
         ui.horizontal(|ui| {
@@ -168,7 +174,7 @@ impl EguiRatatuiBridge {
 
     fn draw_intelligence_stream(&mut self, ui: &mut egui::Ui) {
         let synapse = self.synapse.read();
-        let state = unsafe { &*(synapse.get_ptr() as *const nervous_system::shared_memory::SynapseState) };
+        let state = unsafe { &*(synapse.get_ptr_sync() as *const nervous_system::shared_memory::SynapseState) };
 
         if state.latent_vector[0] > 0.8 {
              ui.colored_label(egui::Color32::from_rgb(0, 255, 255), "💠 LATENT INJECTION ACTIVE: Zero-copy mathematical thought transfer in progress.");
@@ -204,14 +210,14 @@ impl EguiRatatuiBridge {
             }
         });
 
-        ui.collapsing("🔌 MCP Universal Gateway", |ui| {
+        ui.collapsing("🔌 MCP Universal Gateway", |_ui| {
             // ... (existing code)
         });
 
         ui.collapsing("🗣 Specialist Dialogue (Cross-Husk Debate)", |ui| {
             let synapse = self.synapse.read();
-            let state = unsafe { &*(synapse.get_ptr() as *const nervous_system::shared_memory::SynapseState) };
-            let d = &state.dialogue;
+            let state = unsafe { &*(synapse.get_ptr_sync() as *const nervous_system::shared_memory::SynapseState) };
+            let d = &state.dialogue();
             
             ui.horizontal(|ui| {
                 ui.label("Consensus:");
@@ -241,13 +247,20 @@ impl EguiRatatuiBridge {
             ui.label(format!("Turn: {}", d.turn_count));
         });
 
+        ui.collapsing("👁 LoRA Adapter Vault", |ui| {
+            ui.label(format!("Active Adapters: {}", self.adapter_vault.adapters.len()));
+            for (id, switches) in &self.adapter_vault.adapters {
+                ui.label(format!("- {}: {} LoRAs, temp_bias: {:.2}", id, switches.active_loras.len(), switches.temperature_bias));
+            }
+        });
+
         ui.collapsing("👁 Retina Visual Ingestion", |ui| {
             ui.label("Latent Space Projection: 🟢 Online");
             ui.horizontal(|ui| {
                 if ui.button("📸 Capture UI Latent State").clicked() {
                     println!("[Retina] Triggering manual visual-to-latent projection...");
-                    let mut synapse = self.synapse.write();
-                    let state = unsafe { &mut *(synapse.get_ptr() as *mut nervous_system::shared_memory::SynapseState) };
+                    let synapse = self.synapse.write();
+                    let state = unsafe { &mut *(synapse.get_ptr_sync() as *mut nervous_system::shared_memory::SynapseState) };
                     for i in 0..1024 {
                         state.latent_vector[i] = rand::random::<f32>() * 2.0 - 1.0;
                     }
@@ -295,11 +308,11 @@ impl EguiRatatuiBridge {
                 ui.separator();
                 
                 // In a real run, this would query the Constellation's cluster list
-                ui.selectable_label(true, "• Research Discovery Hub (3 nodes)");
+                let _ = ui.selectable_label(true, "• Research Discovery Hub (3 nodes)");
                 ui.label("  ↳ Focus: Rust WASM Sandboxing");
-                
-                ui.selectable_label(false, "• Development Nexus (5 nodes)");
-                ui.selectable_label(false, "• Core Architecture Cluster (2 nodes)");
+
+                let _ = ui.selectable_label(false, "• Development Nexus (5 nodes)");
+                let _ = ui.selectable_label(false, "• Core Architecture Cluster (2 nodes)");
                 
         ui.collapsing("🧬 Evolution & Genetic Breeding", |ui| {
             ui.label("Chromosome Vault: 🟣 Odin, 🔵 Merlin, 🟢 Hephaestus");

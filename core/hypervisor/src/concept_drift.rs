@@ -1,4 +1,3 @@
-use anyhow::Result;
 
 pub struct ConceptDriftDetector {
     centroid: [f32; 1024],
