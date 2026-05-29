@@ -3,7 +3,7 @@
 
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
-use std::process::{Command, Child, Stdio};
+use std::process::{Command, Stdio};
 use tokio::time;
 use serde::{Serialize, Deserialize};
 use crate::metadata_ingestor::{MetadataIngestor, MetadataIngestorConfig, MetadataEvent, MetadataAnalysis};
@@ -84,6 +84,9 @@ pub struct AgentDescriptor {
     pub name: String,
     pub status: AgentStatus,
     pub resource_usage: f32,
+    pub binary_name: String,
+    pub args: Vec<String>,
+    pub working_dir: std::path::PathBuf,
 }
 
 /// Agent lifecycle management
@@ -109,9 +112,7 @@ impl LifecycleManager for ProcessLifecycleManager {
            .arg(&descriptor.args.join(" "));
         
         // Add the working directory if specified
-        if let Some(ref working_dir) = descriptor.working_dir {
-            cmd.current_dir(working_dir);
-        }
+        cmd.current_dir(&descriptor.working_dir);
         
         // Spawn the process
         let child = cmd.spawn()
