@@ -62,6 +62,7 @@ dependencies = [
  "rkyv 0.8.16",
  "rocksdb",
  "rusqlite",
+ "rustc-hash 2.1.2",
  "sabs",
  "scientific_analyzer",
  "seahash",
