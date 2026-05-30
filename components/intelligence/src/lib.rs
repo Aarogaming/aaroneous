@@ -1,5 +1,7 @@
 pub mod llm;
 pub mod mdps_router;
+pub mod linguistic_transducer;
+pub mod aura_ui_manifest;
 pub use llm::{LLMClient, ProviderType, LLMConfig, TaskAnalysis, TaskAnalysisContext};
 pub use mdps_router::{TaskRoutingEngine, RoutableTask, TaskType, Specialist, RoutingDecision};
 
