@@ -1,75 +1,66 @@
 # Legacy Artifact Map v3.14
 
-This document outlines the legacy Python artifacts discovered during the audit and their upgrade paths to the 3.14.5 release.
+This document outlines the discovered legacy Python artifacts and provides upgrade paths to the 3.14.5 stable release.
 
-## Python Artifacts Found
+## Discovered Legacy Artifacts
 
-### AAS_Core
-- **Location**: `D:\Aaroneous\legacy\aas_core`
-- **Status**: Deprecated, requires modernization
-- **Upgrade Path**: 
-  - Migrate to new free-threaded concurrency mode
-  - Replace GIL-dependent patterns with async/await
-  - Update to use modern Python 3.14 features
+### AAS_Core (Automation/Plugin System)
+- **Location**: `shards/AAS_Core/`
+- **Legacy Patterns**:
+  - Old plugin system using class-based TaskProcessors
+  - Synchronous event handling
+  - Manual resource management
+  - Monolithic kernel architecture
 
-### Wizard101_DanceBot
-- **Location**: `D:\Aaroneous\legacy\wizard101_dancebot`
-- **Status**: Legacy automation scripts
-- **Upgrade Path**:
-  - Refactor macro loops to use 3.14's GIL-free parallelism
-  - Update to use new concurrency primitives
-  - Remove outdated dependency on Python 2.7
+### Wizard101_DanceBot (Legacy Automation)
+- **Location**: `shards/Wizard101_DanceBot/` (not found)
+- **Note**: Not found in current repository
 
-### android-app
-- **Location**: `D:\Aaroneous\legacy\android-app`
-- **Status**: Obsolete Android application
-- **Upgrade Path**:
-  - Migrate to modern Android development practices
-  - Update to use current Android SDKs
-  - Implement new UI/UX patterns
+### android-app (Legacy Mobile Integration)
+- **Location**: `shards/android-app/` (not found)
+- **Note**: Not found in current repository
 
-## Migration Strategy
+### Legacy Shards
+- **Ariel_legacy**: Contains old UI/UX patterns
+- **Odin_legacy**: Contains old automation patterns
+- **Merlin_legacy**: Contains old inference patterns
+- **Dionysus_legacy**: Contains old ingestion patterns
 
-1. **Odin Shard**:
-    - Modernize automation/macro loops to leverage 3.14's GIL-free parallelism
-    - Replace deprecated threading patterns with asyncio
-    - Implement task-based parallelism for macro loops
+## 3.14.5 Upgrade Paths
 
-2. **Ariel Shard**:
-    - Update UI/UX manifest logic to use new t-string literals
-    - Migrate legacy UI components to new design system
-    - Implement reusable Template objects for HMI overlays
+### Odin Shard (Automation/Macro Loops)
+- **GIL-free Parallelism**: Migrate from synchronous loops to async/await patterns
+- **Concurrency Model**: Implement new free-threaded concurrency mode
+- **Resource Management**: Replace manual resource management with modern async context managers
 
-3. **Dionysus Shard**:
-    - Implement ingestion/record-keeping patterns with native zstd support
-    - Update data handling to leverage new compression features
-    - Configure incremental compression for small data records
+### Ariel Shard (UI/UX Manifest Logic)
+- **t-string Literals**: Convert string formatting to use new t-string syntax
+- **UI Components**: Migrate legacy UI components to new design system
+- **State Management**: Update state management patterns for new framework
 
-## Modernization Status
+### Dionysus Shard (Ingestion/Record-keeping)
+- **zstd Support**: Implement native zstd compression for data ingestion
+- **Data Pipeline**: Refactor ingestion pipeline for new compression formats
+- **Storage Strategy**: Update record-keeping patterns to use new zstd formats
 
-The legacy artifacts have been successfully modernized for Python 3.14.5:
+## Modernization Recommendations
 
-### AAS_Core
-- **Status**: Complete
-- **Key Changes**:
-  - Replaced threading with async/await patterns
-  - Implemented task-based parallelism
-  - Removed GIL dependency
+### Python 3.14.5 Migration
+- Replace synchronous loops with async/await
+- Implement free-threaded concurrency model
+- Adopt new t-string literals for string formatting
+- Integrate native zstd support for data compression
 
-### Wizard101_DanceBot
-- **Status**: Complete
-- **Key Changes**:
-  - Refactored macro loops for GIL-free parallelism
-  - Updated to new concurrency primitives
-  - Removed Python 2.7 dependencies
+### Performance Optimization
+- Migrate from GIL-based threading to free-threaded concurrency
+- Leverage new async/await patterns for better resource utilization
+- Utilize new t-string literals for improved string processing performance
+- Implement zstd compression for faster ingestion and storage
 
-### android-app
-- **Status**: Complete
-- **Key Changes**:
-  - Migrated to modern Android development practices
-  - Updated to current Android SDKs
-  - Implemented new UI/UX patterns
+## Action Items
 
-## Next Steps
-
-All legacy artifacts have been modernized and are ready for deployment.
+1. **Odin Shard**: Implement free-threaded concurrency for automation loops
+2. **Ariel Shard**: Migrate to t-string literals and new UI components
+3. **Dionysus Shard**: Integrate native zstd support for ingestion patterns
+4. **AAS_Core**: Refactor plugin system to use modern async patterns
+5. **Legacy Shards**: Archive or migrate to modern equivalents
