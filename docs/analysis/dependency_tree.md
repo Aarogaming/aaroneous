@@ -1,0 +1,258 @@
+# Dependency Tree
+
+## Root Dependencies
+
+### Direct Dependencies
+- aaroneous_paths v0.1.0 (D:\Aaroneous\components\paths)
+- aaroneous_sdk v0.1.0 (D:\Aaroneous\sdk\rust)
+  - nervous_system v0.2.0 (D:\Aaroneous\core\nervous_system) (*)
+- agents v0.1.0 (D:\Aaroneous\components\agents) (*)
+- biology v0.1.0 (D:\Aaroneous\components\biology) (*)
+- chimera_vm v0.1.0 (D:\Aaroneous\core\chimera_vm)
+  - nervous_system v0.2.0 (D:\Aaroneous\core\nervous_system) (*)
+  - seahash v4.1.0
+- compute v0.1.0 (D:\Aaroneous\components\compute) (*)
+- constellation v0.1.0 (D:\Aaroneous\components\constellation) (*)
+- control v0.1.0 (D:\Aaroneous\components\control) (*)
+- digestion v0.1.0 (D:\Aaroneous\components\digestion) (*)
+- genetics v0.1.0 (D:\Aaroneous\components\genetics) (*)
+- hive v0.1.0 (D:\Aaroneous\components\hive) (*)
+- intelligence v0.1.0 (D:\Aaroneous\components\intelligence) (*)
+- nervous_system v0.2.0 (D:\Aaroneous\core\nervous_system) (*)
+- sabs v0.1.0 (D:\Aaroneous\components\sabs) (*)
+- scientific_analyzer v0.1.0 (D:\Aaroneous\components\scientific_analyzer) (*)
+- skills v0.1.0 (D:\Aaroneous\components\skills) (*)
+- storage v0.1.0 (D:\Aaroneous\components\storage)
+  - chrono v0.4.44 (*)
+  - nervous_system v0.2.0 (D:\Aaroneous\core\nervous_system) (*)
+  - rusqlite v0.32.1 (*)
+
+### Transitive Dependencies
+- addr2line v0.22.0
+- ahash v0.8.12 (*)
+- aho-corasick v1.1.4 (*)
+- anyhow v1.0.102
+- async-trait v0.1.89 (proc-macro) (*)
+- base64 v0.13.1
+- base64 v0.21.7
+- bitflags v2.11.1 (*)
+- bumpalo v3.20.3
+- cfg-if v1.0.4
+- cobs v0.3.0
+- compact_str v0.9.1 (*)
+- cranelift-bforest v0.111.9
+- cranelift-bitset v0.111.9
+- cranelift-codegen v0.111.9
+- cranelift-codegen-shared v0.111.9
+- cranelift-control v0.111.9
+- cranelift-entity v0.111.9
+- cranelift-frontend v0.111.9
+- cranelift-native v0.111.9
+- cranelift-wasm v0.111.9
+- cranelift-codegen-meta v0.111.9
+- cranelift-codegen-meta v0.111.9
+- cranelift-isle v0.111.9
+- cranelift-entity v0.111.9
+- cranelift-bitset v0.111.9
+- cranelift-codegen-shared v0.111.9
+- cranelift-control v0.111.9
+- cranelift-entity v0.111.9
+- cranelift-frontend v0.111.9
+- cranelift-native v0.111.9
+- cranelift-wasm v0.111.9
+- cranelift-codegen-meta v0.111.9
+- cranelift-isle v0.111.9
+- crossbeam-channel v0.5.13
+- crossbeam-deque v0.8.5
+- crossbeam-epoch v0.9.17
+- crossbeam-queue v0.3.11
+- crossbeam-utils v0.8.18
+- crypto-common v0.1.7
+- csv v1.3.0
+- dary_heap v0.3.9
+- debugid v0.8.0
+- derive_builder v0.20.2
+- derive_builder_macro v0.20.2 (proc-macro)
+- derive_builder_core v0.20.2
+- darling v0.20.11
+- darling_core v0.20.11
+- darling_macro v0.20.11 (proc-macro)
+- darling_core v0.20.11
+- darling_macro v0.20.11 (proc-macro)
+- derive_builder_core v0.20.2
+- darling_core v0.20.11
+- darling_macro v0.20.11 (proc-macro)
+- darling_core v0.20.11
+- darling_macro v0.20.11 (proc-macro)
+- derivative v2.2.0 (proc-macro)
+- digest v0.10.7
+- either v1.16.0
+- encoding_rs v0.8.35
+- errno v0.3.14
+- esaxx-rs v0.1.10
+- fastrand v2.4.1
+- filetime v0.2.29 (*)
+- fnv v1.0.7
+- fxprof-processed-profile v0.6.0
+- futures v0.3.32 (*)
+- gimli v0.29.0
+- getrandom v0.3.4 (*)
+- getrandom v0.4.2 (*)
+- hashbrown v0.14.5 (*)
+- hashbrown v0.15.5 (*)
+- hashbrown v0.16.1 (*)
+- heck v0.4.1
+- heck v0.5.0
+- id-arena v2.3.0
+- indexmap v2.14.0 (*)
+- itertools v0.12.1
+- itertools v0.14.0 (*)
+- ittapi v0.4.0
+- ittapi-sys v0.4.0
+- iana-time-zone v0.1.65
+- io-extras v0.18.4 (*)
+- io-lifetimes v2.0.4
+- jsonwebtoken v9.3.0
+- libc v0.2.186
+- libm v0.2.16
+- log v0.4.30
+- matchers v0.2.0
+- memchr v2.8.1
+- minimal-lexical v0.2.1
+- monostate v0.1.18
+- monostate-impl v0.1.18 (proc-macro)
+- nom v7.1.3
+- once_cell v1.21.4
+- onig v6.5.3
+- onig_sys v69.9.3
+- once_cell v1.21.4
+- opentelemetry v0.25.0
+- opentelemetry-otlp v0.25.0
+- opentelemetry-semantic-conventions v0.25.0
+- opentelemetry-test-harness v0.25.0
+- paste v1.0.15 (proc-macro)
+- paste v1.0.15 (proc-macro)
+- postcard v1.1.3
+- proc-macro2 v1.0.106 (*)
+- quote v1.0.45 (*)
+- rand v0.8.6 (*)
+- rand v0.9.4 (*)
+- rayon v1.12.0 (*)
+- rayon-cond v0.4.0
+- regex v1.12.3 (*)
+- regex-automata v0.4.14 (*)
+- regex-syntax v0.8.10
+- regalloc2 v0.9.3
+- rustc-demangle v0.1.27
+- rustc-hash v1.1.0
+- rustix v0.38.44
+- rustix v1.1.4
+- rustls v0.23.15
+- rustls-native-certs v0.7.0
+- rustls-pemfile v2.1.4
+- rustls-platform-verifier v1.0.0
+- rustls-pki-types v1.0.0
+- rustls-webpki v0.102.0
+- ryu v1.0.18
+- seahash v4.1.0
+- semver v1.0.28
+- serde v1.0.228 (*)
+- serde_core v1.0.228
+- serde_derive v1.0.228 (proc-macro) (*)
+- serde_json v1.0.150 (*)
+- serde_yaml v0.9.34
+- sha2 v0.10.9 (*)
+- sharded-slab v0.1.7
+- smallvec v1.15.1 (*)
+- slice-group-by v0.3.1
+- sptr v0.3.2
+- spm_precompiled v0.1.4
+- strum v0.26.3 (*)
+- strum_macros v0.26.4 (proc-macro) (*)
+- system-interface v0.27.3
+- target-lexicon v0.12.16
+- target-lexicon v0.13.5
+- tempfile v3.27.0 (*)
+- termcolor v1.4.1
+- thiserror v1.0.69 (*)
+- thiserror v2.0.18 (*)
+- thread_local v1.1.9
+- tokio v1.52.3 (*)
+- tokio-util v0.7.18 (*)
+- tower v0.5.3 (*)
+- tower-http v0.5.2
+- tracing v0.1.44 (*)
+- tracing-log v0.2.0
+- tracing-serde v0.2.0
+- tracing-subscriber v0.3.23
+- tracing-core v0.1.36 (*)
+- unicode-categories v0.1.1
+- unicode-normalization-alignments v0.1.12
+- unicode-segmentation v1.13.2
+- unicode-width v0.2.2
+- unicode-xid v0.2.6
+- url v2.5.8 (*)
+- uuid v1.23.1 (*)
+- wasmtime v24.0.9
+- wasmtime v44.0.2
+- wasmtime-asm-macros v24.0.9
+- wasmtime-cache v24.0.9
+- wasmtime-component-macro v24.0.9 (proc-macro)
+- wasmtime-component-util v24.0.9
+- wasmtime-cranelift v24.0.9
+- wasmtime-environ v24.0.9
+- wasmtime-environ v44.0.2
+- wasmtime-fiber v24.0.9
+- wasmtime-jit-debug v24.0.9
+- wasmtime-jit-icache-coherence v24.0.9
+- wasmtime-slab v24.0.9
+- wasmtime-versioned-export-macros v24.0.9 (proc-macro)
+- wasmtime-versioned-export-macros v24.0.9 (proc-macro)
+- wasmtime-internal-component-macro v44.0.2 (proc-macro)
+- wasmtime-internal-component-util v44.0.2
+- wasmtime-internal-core v44.0.2
+- wasmtime-internal-fiber v44.0.2
+- wasmtime-internal-jit-icache-coherence v44.0.2
+- wasmtime-internal-unwinder v44.0.2
+- wasmtime-internal-versioned-export-macros v44.0.2 (proc-macro)
+- wasmtime-internal-versioned-export-macros v44.0.2 (proc-macro)
+- wasmtime-wasi v44.0.2
+- wasmtime-wasi-io v44.0.2
+- wasmparser v0.215.0
+- wasmparser v0.246.2
+- wasm-encoder v0.215.0
+- wasm-encoder v0.250.0
+- wat v1.250.0
+- wast v250.0.0
+- wast v35.0.2
+- win-sys v0.3.1
+- windows v0.34.0
+- windows v0.48.0 (*)
+- windows v0.52.0 (*)
+- windows v0.59.0 (*)
+- windows v0.61.2 (*)
+- windows-sys v0.52.0 (*)
+- windows-sys v0.59.0 (*)
+- windows-sys v0.61.2 (*)
+- winx v0.36.4 (*)
+- winapi v0.3.9
+- winapi-util v0.1.11 (*)
+- wit-parser v0.215.0
+- wit-parser v0.246.2
+- witx v0.9.1
+- wgpu v29.0.3
+- which v5.0.0
+- windows-service v0.8.1
+- zstd v0.13.3
+- zstd-safe v7.2.4
+- zstd-sys v2.0.16+zstd.1.5.7
+- zerocopy v0.8.49
+- zip v0.6.6
+- zstd v0.13.3
+- zstd-safe v7.2.4
+- zstd-sys v2.0.16+zstd.1.5.7
+
+## Development Dependencies
+- http-body-util v0.1.3 (*)
+- tempfile v3.27.0 (*)
+- tower v0.5.3 (*)

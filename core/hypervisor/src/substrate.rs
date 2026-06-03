@@ -102,6 +102,22 @@ impl NetworkDataStream {
             }
         }
     }
+
+    /// Verify that raw data produces a given VSA digest.
+    ///
+    /// Recomputes the digest from the original data and compares it
+    /// to the expected target. Returns true if they match.
+    pub fn verify_digest(raw_web_data: &[u8], expected: &[u64; 128]) -> bool {
+        let mut computed = [0u64; 128];
+        for (index, chunk) in raw_web_data.chunks_exact(64).enumerate() {
+            let mut hasher = SeaHasher::new();
+            hasher.write(chunk);
+            let chunk_hash = hasher.finish();
+            let array_index = (index % 128) as usize;
+            computed[array_index] ^= chunk_hash;
+        }
+        &computed == expected
+    }
 }
 
 // ── GGUF Raw Binary Seek Loop (no model runtime) ──────────────────────

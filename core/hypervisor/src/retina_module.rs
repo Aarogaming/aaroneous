@@ -169,6 +169,41 @@ impl RetinaModule {
         Ok(())
     }
 
+    /// Approximate inverse of the latent projection.
+    ///
+    /// Since the forward projection uses `cos(x)` (which is not invertible),
+    /// this reconstructs the approximate pixel values from the latent vector.
+    /// The reconstruction is lossy — cos is many-to-one, so we recover the
+    /// approximate range rather than exact values.
+    ///
+    /// Returns an array of approximate pixel values in [0.0, 1.0].
+    pub fn latent_to_approximate_visual(latent: &[f32; 1024]) -> [f32; 1024] {
+        let mut output = [0.0f32; 1024];
+        for (i, &val) in latent.iter().enumerate() {
+            // Map from cos-space back to approximate pixel space
+            // cos(x) ∈ [-1, 1], we map to [0, 1] for pixel display
+            output[i] = (val + 1.0) * 0.5;
+        }
+        output
+    }
+
+    /// Compute reconstruction error between original and latent-projected visual.
+    ///
+    /// Useful for measuring how much information the projection preserves.
+    pub fn reconstruction_error(original: &[u8], latent: &[f32; 1024]) -> f32 {
+        let approx = Self::latent_to_approximate_visual(latent);
+        let n = original.len().min(1024);
+        let mut err_sq = 0.0f32;
+        let mut norm_sq = 0.0f32;
+        for i in 0..n {
+            let orig_norm = original[i] as f32 / 255.0;
+            let diff = orig_norm - approx[i];
+            err_sq += diff * diff;
+            norm_sq += orig_norm * orig_norm;
+        }
+        if norm_sq > 0.0 { (err_sq / norm_sq).sqrt() } else { 0.0 }
+    }
+
     fn extract_text(html: &str) -> String {
         static SCRIPT_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(?is)<script[^>]*>.*?</script>").unwrap());
         static STYLE_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(?is)<style[^>]*>.*?</style>").unwrap());
@@ -194,4 +229,25 @@ impl RetinaModule {
         
         println!("[Retina] wgpu framebuffer mapping active.");
         Ok(())
-    }}
+    }
+
+    /// Decode token IDs back to text.
+    ///
+    /// Inverse of the tokenization in `ingest_url()`. Uses the same tokenizer
+    /// to convert a slice of token IDs back into a human-readable string.
+    pub fn decode_tokens(&self, token_ids: &[u32]) -> Result<String> {
+        let ids: Vec<u32> = token_ids.iter().copied().collect();
+        let decoded = self.tokenizer.decode(&ids)
+            .map_err(|e| anyhow!("Token decoding failed: {}", e))?;
+        Ok(decoded)
+    }
+
+    /// Tokenize text and return the token IDs (without writing to synapse).
+    ///
+    /// Useful for standalone tokenization without the full ingestion pipeline.
+    pub fn tokenize_text(&self, text: &str) -> Result<Vec<u32>> {
+        let encoding = self.tokenizer.encode(text, true)
+            .map_err(|e| anyhow!("Tokenization failed: {}", e))?;
+        Ok(encoding.get_ids().to_vec())
+    }
+}

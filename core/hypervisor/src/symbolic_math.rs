@@ -147,6 +147,137 @@ impl SymbolicNode {
         }
     }
 
+    /// Symbolic integration with respect to a variable.
+    ///
+    /// Implements basic integration rules:
+    /// - ∫c dx = c*x
+    /// - ∫x dx = x²/2
+    /// - ∫x^n dx = x^(n+1)/(n+1)
+    /// - ∫sin(x) dx = -cos(x)
+    /// - ∫cos(x) dx = sin(x)
+    /// - ∫exp(x) dx = exp(x)
+    /// - ∫1/x dx = ln|x|
+    /// - ∫(u+v) dx = ∫u dx + ∫v dx
+    ///
+    /// Returns `None` if the integral cannot be computed symbolically.
+    pub fn integrate(&self, target_var: u64) -> Option<Self> {
+        match self {
+            // ∫c dx = c*x
+            SymbolicNode::Constant(c) => {
+                Some(SymbolicNode::mul(SymbolicNode::Constant(*c), SymbolicNode::Variable(target_var)))
+            }
+            // ∫x dx = x²/2 (if this is the target variable)
+            SymbolicNode::Variable(v) => {
+                if *v == target_var {
+                    Some(SymbolicNode::div(
+                        SymbolicNode::pow(SymbolicNode::Variable(target_var), SymbolicNode::Constant(2.0)),
+                        SymbolicNode::Constant(2.0),
+                    ))
+                } else {
+                    // ∫c dx = c*x (treating other variables as constants)
+                    Some(SymbolicNode::mul(self.clone(), SymbolicNode::Variable(target_var)))
+                }
+            }
+            SymbolicNode::Expression { operator, left, right } => match operator {
+                // ∫(u+v) dx = ∫u dx + ∫v dx
+                MathOperator::Add => {
+                    let u = left.integrate(target_var)?;
+                    let v = right.integrate(target_var)?;
+                    Some(SymbolicNode::add(u, v))
+                }
+                // ∫(u-v) dx = ∫u dx - ∫v dx
+                MathOperator::Subtract => {
+                    let u = left.integrate(target_var)?;
+                    let v = right.integrate(target_var)?;
+                    Some(SymbolicNode::sub(u, v))
+                }
+                // ∫(c*f(x)) dx = c * ∫f(x) dx
+                MathOperator::Multiply => {
+                    // Try left as constant
+                    if let SymbolicNode::Constant(c) = left.as_ref() {
+                        let inner = right.integrate(target_var)?;
+                        return Some(SymbolicNode::mul(SymbolicNode::Constant(*c), inner));
+                    }
+                    // Try right as constant
+                    if let SymbolicNode::Constant(c) = right.as_ref() {
+                        let inner = left.integrate(target_var)?;
+                        return Some(SymbolicNode::mul(SymbolicNode::Constant(*c), inner));
+                    }
+                    None // Product of two non-constant functions — integration by parts not implemented
+                }
+                // ∫x^n dx = x^(n+1)/(n+1) (power rule)
+                MathOperator::Power => {
+                    // Check if left is our target variable and right is a constant
+                    if let SymbolicNode::Variable(v) = left.as_ref() {
+                        if *v == target_var {
+                            if let SymbolicNode::Constant(n) = right.as_ref() {
+                                let n_plus_1 = SymbolicNode::Constant(n + 1.0);
+                                return Some(SymbolicNode::div(
+                                    SymbolicNode::pow(SymbolicNode::Variable(target_var), n_plus_1.clone()),
+                                    n_plus_1,
+                                ));
+                            }
+                        }
+                    }
+                    None
+                }
+                _ => None,
+            },
+            SymbolicNode::Unary { operator, operand } => match operator {
+                // ∫sin(u) dx — only if u is the target variable (no chain rule)
+                MathOperator::Sine => {
+                    if let SymbolicNode::Variable(v) = operand.as_ref() {
+                        if *v == target_var {
+                            return Some(SymbolicNode::Unary {
+                                operator: MathOperator::Cosine,
+                                operand: operand.clone(),
+                            });
+                        }
+                    }
+                    None
+                }
+                // ∫cos(u) dx
+                MathOperator::Cosine => {
+                    if let SymbolicNode::Variable(v) = operand.as_ref() {
+                        if *v == target_var {
+                            return Some(SymbolicNode::Unary {
+                                operator: MathOperator::Sine,
+                                operand: operand.clone(),
+                            });
+                        }
+                    }
+                    None
+                }
+                // ∫exp(u) dx
+                MathOperator::Exponential => {
+                    if let SymbolicNode::Variable(v) = operand.as_ref() {
+                        if *v == target_var {
+                            return Some(self.clone());
+                        }
+                    }
+                    None
+                }
+                // ∫ln(u) dx — only for simple case
+                MathOperator::NaturalLog => {
+                    if let SymbolicNode::Variable(v) = operand.as_ref() {
+                        if *v == target_var {
+                            // ∫ln(x) dx = x*ln(x) - x
+                            return Some(SymbolicNode::sub(
+                                SymbolicNode::mul(
+                                    SymbolicNode::Variable(target_var),
+                                    SymbolicNode::Unary { operator: MathOperator::NaturalLog, operand: operand.clone() },
+                                ),
+                                SymbolicNode::Variable(target_var),
+                            ));
+                        }
+                    }
+                    None
+                }
+                _ => None,
+            },
+        }
+    }
+
     /// Evaluate the expression numerically by substituting variable values.
     pub fn evaluate(&self, vars: &HashMap<u64, f64>) -> Result<f64, String> {
         match self {

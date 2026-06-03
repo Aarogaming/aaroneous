@@ -75,22 +75,71 @@ pub use constellation_3d::Constellation3D;
 pub mod autonomic_loop;
 pub use autonomic_loop::AutonomicNervousSystem;
 
+// Consensus Engine for High-Availability
+pub mod consensus_engine;
+pub use consensus_engine::{ConsensusEngine, ProposedDecision, DecisionType, Vote, DecisionStatus};
+
+// State Replication for High-Availability
+pub mod state_replicator;
+pub use state_replicator::{StateReplicator, StateSnapshot, ReplicationStatus};
+
+// Predictive Load Balancing for Intelligent Distribution
+pub mod predictive_load_balancer;
+pub use predictive_load_balancer::{PredictiveLoadBalancer, LoadPrediction, DistributionStrategy};
+
+// Adaptive Learning Rate Optimization
+pub mod adaptive_learning_rate;
+pub use adaptive_learning_rate::{AdaptiveLearningOptimizer, LearningStrategy, ConvergenceMetrics};
+
+// Distributed State Checkpointing for Reliable Recovery
+pub mod distributed_checkpoint;
+pub use distributed_checkpoint::{DistributedCheckpointManager, CheckpointMetadata, ComponentSnapshot};
+
+// Batch Processing for Performance Optimization
+pub mod batch_processor;
+pub use batch_processor::{BatchProcessor, BatchedTask, BatchResult, BatchStatistics};
+
+// Metrics Aggregation and Performance Monitoring
+pub mod metrics_aggregator;
+pub use metrics_aggregator::{MetricsAggregator, MetricStats, PerformanceCounter, SystemHealthSummary};
+
+// Real-Time Dashboard and Metrics Display
+pub mod dashboard;
+pub use dashboard::{RealTimeDashboard, DashboardWidget, DashboardAlert, MetricsSnapshot, HealthMetrics};
+
+// Stress Testing Framework for Stability Validation
+pub mod stress_tester;
+pub use stress_tester::{StressTestRunner, StressTestConfig, StressTestResult, StressSummary};
+
+// Security Hardening: Input Validation and Rate Limiting
+pub mod security_hardener;
+pub use security_hardener::{InputValidator, RateLimiter, SecurityHardener, ValidationRule, ValidationResult};
+
+// Performance Benchmarking and Optimization Tracking
+pub mod performance_benchmark;
+pub use performance_benchmark::{PerformanceBenchmark, BenchmarkOperation, BenchmarkResult, BenchmarkSummary};
+
 // Core modules needed by ANS
 pub mod specialist_memory;
 pub mod enzyme_runner;
 pub mod hox_registry;
+pub mod hox_persistence;
 pub mod unified_learning;
 pub mod splicing_engine;
+pub mod genome_compiler;
+pub mod wasm_validator;
+pub mod unified_registry;
+pub mod wasm_discovery;
+pub mod genome_trait_loader;
+pub mod config_validation;
 pub mod nlm_sentinel;
 pub mod prefrontal_cortex;
 pub mod executive_plan;
 pub mod dopamine_system;
 pub mod epigenetic_orchestrator;
 pub mod concept_drift;
-pub mod self_correction_enzyme;
-pub mod diplomat_enzyme;
+pub mod enzyme_types;  // Consolidated: self_correction_enzyme, diplomat_enzyme, curiosity_enzyme, research_enzyme, execution_enzyme
 pub mod neural_pruning;
-pub mod curiosity_enzyme;
 pub mod semantic_indexing;
 pub mod event_log;
 pub mod llm;
@@ -144,6 +193,10 @@ pub mod predictive_models;
 pub mod cellular_automata;
 pub mod system_integrity;
 
+// Phase 6D: Hybrid Master Registry (WASM/Sentinel GuestOS Layer)
+pub mod hybrid_master_registry;
+pub mod registry_adapters;
+
 // Phase 6 Expansion: Relativity, fluid dynamics, quantum surface
 pub mod relativity_engine;
 pub mod fluid_routing;
@@ -156,8 +209,14 @@ pub mod reasoning;
 pub mod execution;
 pub mod compression;
 pub mod hardware_layer;
+pub mod system_metrics;
+pub mod task_routing;
 
 pub use wasm_loader::WasmEnzymeLoader;
+pub use system_metrics::{SystemMetricsCollector, ThermalMetrics, ThermalStatus, GpuMetrics};
+pub use task_routing::{TaskRouter, ExecutionRoute, ExecutionContext};
+pub use hox_registry::HoxRegistry;
+pub use hox_persistence::{HoxPersistenceManager, RegistrySnapshot, SnapshotInfo};
 pub use metadata_ingestor::{MetadataIngestor, MetadataIngestorConfig};
 pub use action_executor::{ActionExecutor, ExecutableAction, FileOp};
 pub use orchestration_daemon::{OrchestrationDaemon, OrchestrationDaemonConfig, DaemonState};
@@ -173,3 +232,24 @@ mod integration_tests;
 
 #[cfg(test)]
 mod spatial_kinetic_test;
+
+#[cfg(test)]
+mod registry_sync_tests;
+
+#[cfg(test)]
+mod phase_6d_integration_tests;
+
+#[cfg(test)]
+mod end_to_end_tests;
+
+#[cfg(test)]
+mod phase_5_integration_tests;
+
+#[cfg(test)]
+mod phase1_integration_tests;
+
+#[cfg(test)]
+mod phase2_integration_tests;
+
+#[cfg(test)]
+mod core_integration_tests;

@@ -4,9 +4,19 @@
 use std::path::{Path, PathBuf};
 use std::fs;
 use serde::{Serialize, Deserialize};
+use anyhow::{Result as AnyhowResult, Context, Error, anyhow};
+use wasmtime::{Engine, Module, Instance, Config, Store, Value, MemoryType, LinearMemory, Component, FuncType, Linker, GlobalType, ValType, Export, Func, Memory, Type, TypedFunc, I32, F64, ExportName, FuncEnv, f64::Val as F64Val, i32::Val as I32Val};
 use crate::decision_engine::{Action, TaskEvaluation};
 use biology::SystemBiology;
 use crate::constellation_ui::{ConstellationCanvas, NodeMetrics};
+
+/// WASM Enzyme Execution Context for `wasmtime` runtime operations
+struct WasmEnzymeContext {
+    engine: Engine,
+    store: Store<()>,
+    component: Component,
+    instance: Instance,
+}
 
 /// Types of actions the executor can perform
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -161,31 +171,71 @@ impl ActionExecutor {
         }
     }
 
-    /// Spawn a WASM enzyme
+    /// Spawn a WASM enzyme and execute with typed arguments
     async fn spawn_wasm_enzyme(&self, enzyme_path: &Path, input_data: &[u8]) -> ActionResult {
-        // In a real implementation, this would use wasmtime to run the WASM module
-        // For now, we'll simulate it
-        
-        if !enzyme_path.exists() {
-            return ActionResult {
-                action_type: "spawn_wasm".to_string(),
-                success: false,
-                duration_ms: 0.0,
-                message: format!("WASM enzyme not found: {}", enzyme_path.display()),
-                metadata: serde_json::json!({"path": enzyme_path.to_string_lossy()}),
-            };
-        }
-        
-        ActionResult {
-            action_type: "spawn_wasm".to_string(),
-            success: true,
-            duration_ms: 0.0,
-            message: format!("WASM enzyme spawned: {}", enzyme_path.display()),
-            metadata: serde_json::json!({
-                "path": enzyme_path.to_string_lossy(),
-                "input_size": input_data.len(),
-            }),
-        }
+        let result = match WasmEnzymeContext::from_binary(enzyme_path.to_path_buf(), input_data) {
+            Ok(mut context) => {
+                // Find the execution function (convention-based)
+                if let Some(func_name) = context.find_execution_function() {
+                    // Execute with typed arguments
+                    match context.execute_with_input(&mut context.store, &func_name) {
+                        Ok(output_data) => {
+                            ActionResult {
+                                action_type: "spawn_wasm".to_string(),
+                                success: true,
+                                duration_ms: 0.0,
+                                message: format!("WASM enzyme executed successfully: {}", func_name),
+                                metadata: serde_json::json!({
+                                    "path": context.component.name().unwrap_or("unnamed").as_str(),
+                                    "input_size": input_data.len(),
+                                    "output_size": output_data.len(),
+                                    "function_found": func_name,
+                                }),
+                            }
+                        },
+                        Err(e) => {
+                            ActionResult {
+                                action_type: "spawn_wasm".to_string(),
+                                success: false,
+                                duration_ms: 0.0,
+                                message: format!("WASM execution failed: {}", e),
+                                metadata: serde_json::json!({
+                                    "path": context.component.name().unwrap_or("unnamed").as_str(),
+                                    "input_size": input_data.len(),
+                                    "error": e.to_string(),
+                                }),
+                            }
+                        },
+                    }
+                } else {
+                    ActionResult {
+                        action_type: "spawn_wasm".to_string(),
+                        success: false,
+                        duration_ms: 0.0,
+                        message: "No execution function found in WASM binary".to_string(),
+                        metadata: serde_json::json!({
+                            "path": context.component.name().unwrap_or("unnamed").as_str(),
+                            "exports_available": true,
+                        }),
+                    }
+                }
+            },
+            Err(e) => {
+                ActionResult {
+                    action_type: "spawn_wasm".to_string(),
+                    success: false,
+                    duration_ms: 0.0,
+                    message: format!("Failed to load WASM enzyme: {}", e),
+                    metadata: serde_json::json!({
+                        "path": enzyme_path.to_string_lossy(),
+                        "input_size": input_data.len(),
+                        "error": e.to_string(),
+                    }),
+                }
+            },
+        };
+
+        result
     }
 
     /// Throttle the system

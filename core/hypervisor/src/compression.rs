@@ -78,6 +78,50 @@ impl TernaryQuantizer {
         let neg = tern.iter().filter(|&&t| t == TernaryBit::NegOne).count();
         (pos, zero, neg)
     }
+
+    /// Dequantize ternary values back to approximate floats.
+    ///
+    /// Since ternary quantization loses magnitude information, this maps:
+    /// -1 → -scale, 0 → 0.0, +1 → +scale
+    ///
+    /// `scale` should be the threshold or a learned scaling factor.
+    pub fn dequantize(tern: &[TernaryBit], scale: f64) -> Vec<f64> {
+        tern.iter().map(|&t| match t {
+            TernaryBit::NegOne => -scale,
+            TernaryBit::Zero => 0.0,
+            TernaryBit::PosOne => scale,
+        }).collect()
+    }
+
+    /// Dequantize ternary values back to approximate floats (f32 version).
+    pub fn dequantize_f32(tern: &[TernaryBit], scale: f32) -> Vec<f32> {
+        tern.iter().map(|&t| match t {
+            TernaryBit::NegOne => -scale,
+            TernaryBit::Zero => 0.0,
+            TernaryBit::PosOne => scale,
+        }).collect()
+    }
+
+    /// Estimate the optimal scale factor for dequantization.
+    ///
+    /// Given the original float values and their ternary quantization,
+    /// computes the scale that minimizes reconstruction error.
+    pub fn estimate_scale(original: &[f64], ternary: &[TernaryBit]) -> f64 {
+        let n = original.len().min(ternary.len());
+        if n == 0 { return 1.0; }
+
+        // For each ternary value, the optimal scale is the mean of |original|
+        // for non-zero ternary values
+        let mut sum_abs = 0.0;
+        let mut count_nonzero = 0;
+        for i in 0..n {
+            if ternary[i] != TernaryBit::Zero {
+                sum_abs += original[i].abs();
+                count_nonzero += 1;
+            }
+        }
+        if count_nonzero > 0 { sum_abs / count_nonzero as f64 } else { 1.0 }
+    }
 }
 
 // ── VSA-Indexed Retrieval-Augmented Generation ──────────────────────

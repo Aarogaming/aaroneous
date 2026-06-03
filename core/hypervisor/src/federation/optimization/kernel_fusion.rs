@@ -159,6 +159,24 @@ impl FusionPlan {
     pub fn efficiency_score(&self) -> f32 {
         (self.estimated_speedup - 1.0) * self.launch_overhead_reduced_us / 100.0
     }
+
+    /// Decompose fused groups back into individual operations.
+    ///
+    /// Inverse of `analyze()` — flattens all fused groups back into
+    /// the original operation sequence in order.
+    pub fn defuse(&self) -> Vec<KernelOperation> {
+        self.fused_groups.iter().flat_map(|group| group.iter().copied()).collect()
+    }
+
+    /// Get the number of fused groups.
+    pub fn group_count(&self) -> usize {
+        self.fused_groups.len()
+    }
+
+    /// Get operations in each fused group.
+    pub fn groups(&self) -> &[Vec<KernelOperation>] {
+        &self.fused_groups
+    }
 }
 
 /// Kernel fusion engine for runtime optimization

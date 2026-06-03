@@ -158,6 +158,35 @@ impl EpigeneticGateMatrix {
         1.0 - (self.active_count as f32 / TOTAL_SECTORS as f32)
     }
 
+    /// Unpack a GPU bitmask back into a boolean array of sector states.
+    ///
+    /// Inverse of `get_gpu_mask()` — reads individual bits from the packed [u64; 4].
+    pub fn from_gpu_mask(mask: &[u64; 4]) -> [bool; TOTAL_SECTORS] {
+        let mut sectors = [false; TOTAL_SECTORS];
+        for i in 0..TOTAL_SECTORS {
+            let word = i / 64;
+            let bit = i % 64;
+            sectors[i] = (mask[word] >> bit) & 1 == 1;
+        }
+        sectors
+    }
+
+    /// Apply a GPU mask to update sector states.
+    ///
+    /// Sets each sector's active flag from the corresponding bit in the mask.
+    pub fn apply_gpu_mask(&mut self, mask: &[u64; 4]) {
+        let mut count = 0u32;
+        for i in 0..TOTAL_SECTORS {
+            let word = i / 64;
+            let bit = i % 64;
+            let active = (mask[word] >> bit) & 1;
+            self.sectors[i].active = active as u8;
+            count += active as u32;
+        }
+        self.active_count = count;
+        self.packed_mask = *mask;
+    }
+
     /// Force all sectors active (emergency override)
     pub fn force_all_active(&mut self) {
         for gate in self.sectors.iter_mut() {

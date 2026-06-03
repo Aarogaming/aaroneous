@@ -7,6 +7,7 @@
 /// 5. Predictive Coding: Unified prediction error minimization
 /// 6. Tensor Routing: Softmax attention for task routing
 /// 7. Spectral Layout: Optimal graph positioning
+/// 8. Dopamine Learning: Reward-driven model training
 
 use biology::{SystemBiology, ThermodynamicGovernor, ThermodynamicGovernorConfig, ThermodynamicAction, ThermodynamicForecast};
 use compute::{
@@ -17,6 +18,7 @@ use compute::{
 };
 use crate::tensor_router::{TensorRouter, RoutingWeights, TaskEmbedding, RoutingResult};
 use crate::spectral_layout::{spectral_layout_2d, build_similarity_edges};
+use serde::{Deserialize, Serialize};
 
 /// Unified system state.
 /// Single state vector that all components operate on.
@@ -298,6 +300,177 @@ impl UnifiedLearningLoop {
         }
     }
 
+    /// MEDIUM FIX #8: Learn from dopamine reward signals
+    /// Wire dopamine signals directly to model weight updates
+    pub fn learn_from_dopamine(
+        &mut self,
+        task_features: &[f64],
+        specialist_id: &str,
+        dopamine_reward: f32,
+        confidence: f32,
+    ) -> DopamineTrainingResult {
+        let start_time = std::time::Instant::now();
+        
+        // Phase 1: Normalize dopamine reward to learning signal
+        // Dopamine: -1.0 (punishment) to 1.0 (reward)
+        let learning_signal = dopamine_reward as f64;
+        let confidence_factor = (confidence as f64).max(0.1).min(1.0);
+        
+        // Phase 2: Calculate adaptive learning rate based on confidence
+        let adaptive_lr = self.config.learning_rate * confidence_factor;
+        
+        // Phase 3: Update tensor router weights with dopamine signal
+        // Higher dopamine = stronger weight update toward specialist
+        self.tensor_router.learn(task_features, specialist_id, learning_signal > 0.0, adaptive_lr);
+        
+        // Phase 4: Update predictive coding layers
+        // Use dopamine signal to update prediction error minimization
+        self.update_predictive_coding_with_dopamine(learning_signal, adaptive_lr);
+        
+        // Phase 5: Update specialist metabolism based on performance
+        if let Some(idx) = self.tensor_router.weights.specialist_ids.iter().position(|id| id == specialist_id) {
+            self.update_specialist_metabolism(idx, dopamine_reward, confidence);
+        }
+        
+        // Phase 6: Update system state based on learning
+        self.system_state.learning_rate = adaptive_lr;
+        self.system_state.prediction_error = (self.system_state.prediction_error * 0.7) + (learning_signal.abs() * 0.3);
+        
+        let elapsed = start_time.elapsed().as_millis() as u32;
+        
+        DopamineTrainingResult {
+            specialist_id: specialist_id.to_string(),
+            learning_signal,
+            adaptive_learning_rate: adaptive_lr,
+            confidence_factor,
+            training_time_ms: elapsed,
+            weights_updated: true,
+        }
+    }
+
+    /// Update predictive coding layers with dopamine signal
+    fn update_predictive_coding_with_dopamine(&mut self, dopamine_signal: f64, learning_rate: f64) {
+        // Update all layers bottom-up with dopamine modulation
+        for layer in self.predictive_coding.layers.iter_mut() {
+            for node in layer.iter_mut() {
+                // Scale node update by dopamine signal (reward modulates learning strength)
+                let dopamine_modulated_signal = dopamine_signal * learning_rate;
+                node.update(dopamine_modulated_signal);
+            }
+        }
+        
+        // Update output layer with stronger dopamine influence
+        if let Some(output_layer) = self.predictive_coding.layers.last_mut() {
+            for node in output_layer.iter_mut() {
+                let strong_dopamine_signal = dopamine_signal * learning_rate * 1.5; // Stronger at output
+                node.update(strong_dopamine_signal);
+            }
+        }
+    }
+
+    /// Update specialist metabolism based on dopamine reward
+    /// PHASE 5.2: Wire dopamine to specialist ambition/strictness
+    fn update_specialist_metabolism(&mut self, specialist_idx: usize, dopamine_reward: f32, confidence: f32) {
+        // Increase metabolism (activation) for well-performing specialists
+        if dopamine_reward > 0.2 {
+            self.biology.expression_rate = (self.biology.expression_rate + (dopamine_reward as f64 * 0.1))
+                .min(2.0);
+        }
+        
+        // Decrease metabolism for poorly-performing specialists
+        if dopamine_reward < -0.2 {
+            self.biology.expression_rate = (self.biology.expression_rate - 0.05).max(0.1);
+        }
+        
+        // PHASE 5.2: Update specialist ambition/strictness from dopamine reward
+        if specialist_idx < self.tensor_router.weights.specialist_ids.len() {
+            let specialist_id = self.tensor_router.weights.specialist_ids[specialist_idx].clone();
+            
+            // Ensure specialist is registered in biology
+            if !self.biology.specialist_metabolism.contains_key(&specialist_id) {
+                self.biology.register_specialist(&specialist_id, 100);
+            }
+            
+            if let Some(metabolism) = self.biology.specialist_metabolism.get_mut(&specialist_id) {
+                // Positive dopamine: increase ambition (goal-seeking behavior)
+                if dopamine_reward > 0.2 {
+                    metabolism.ambition = (metabolism.ambition + (dopamine_reward as f32 * 0.1)).min(1.0);
+                    println!("[UnifiedLearning] {} ambition increased to {:.2} (dopamine: {:.2})", 
+                        specialist_id, metabolism.ambition, dopamine_reward);
+                }
+                
+                // Negative dopamine: increase strictness (error avoidance)
+                if dopamine_reward < -0.2 {
+                    // Apply stronger effect to strictness for negative rewards (error avoidance)
+                    metabolism.strictness = (metabolism.strictness - (dopamine_reward as f32 * 0.15)).min(1.0);
+                    println!("[UnifiedLearning] {} strictness increased to {:.2} (dopamine: {:.2})", 
+                        specialist_id, metabolism.strictness, dopamine_reward);
+                }
+                
+                // Stability based on confidence: high confidence = higher stability
+                metabolism.stability = (confidence as f32).max(metabolism.stability * 0.9);
+            }
+        }
+        
+        // Track specialist's reward history
+        if specialist_idx < self.specialist_load_history.len() {
+            let reward_normalized = ((dopamine_reward + 1.0) / 2.0).max(0.0).min(1.0); // Map to 0-1
+            self.specialist_load_history[specialist_idx].push(reward_normalized as f64);
+            if self.specialist_load_history[specialist_idx].len() > self.max_history {
+                self.specialist_load_history[specialist_idx].remove(0);
+            }
+        }
+    }
+
+    /// Get current model parameters (for inspection/debugging)
+    pub fn get_model_parameters(&self) -> ModelParameters {
+        ModelParameters {
+            tensor_router_weights: self.tensor_router.weights.weights.clone(),
+            learning_rate: self.config.learning_rate,
+            predictive_coding_layers: self.predictive_coding.layers.len(),
+            biology_expression_rate: self.biology.expression_rate,
+            system_state: self.system_state.clone(),
+        }
+    }
+
+    /// Save model state to allow training resumption
+    pub fn checkpoint_model(&self) -> ModelCheckpoint {
+        ModelCheckpoint {
+            tensor_router_weights: self.tensor_router.weights.weights.clone(),
+            specialist_ids: self.tensor_router.weights.specialist_ids.clone(),
+            learning_rate: self.config.learning_rate,
+            system_state: self.system_state.clone(),
+            load_history: self.load_history.clone(),
+            specialist_load_history: self.specialist_load_history.clone(),
+            timestamp: std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_secs())
+                .unwrap_or(0),
+        }
+    }
+
+    /// Restore model from checkpoint
+    pub fn restore_from_checkpoint(&mut self, checkpoint: &ModelCheckpoint) -> bool {
+        if checkpoint.specialist_ids.len() != self.tensor_router.weights.specialist_ids.len() {
+            println!("[UnifiedLearning] Checkpoint specialist count mismatch");
+            return false;
+        }
+        
+        self.tensor_router.weights.weights = checkpoint.tensor_router_weights.clone();
+        self.system_state = checkpoint.system_state.clone();
+        self.load_history = checkpoint.load_history.clone();
+        self.specialist_load_history = checkpoint.specialist_load_history.clone();
+        
+        println!("[UnifiedLearning] Restored model from checkpoint (age: {} seconds)",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_secs().saturating_sub(checkpoint.timestamp))
+                .unwrap_or(0));
+        
+        true
+    }
+
+
     /// Compute spectral layout for constellation.
     pub fn compute_constellation_layout(&self, n_nodes: usize, node_features: &[Vec<f64>]) -> Vec<(f64, f64)> {
         let edges = build_similarity_edges(n_nodes, node_features, 0.3);
@@ -338,6 +511,39 @@ pub struct SystemHealthSummary {
     pub routing_confidence: f64,
     pub expression_rate: f64,
     pub token_availability: f64,
+}
+
+/// Result from dopamine-driven training
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DopamineTrainingResult {
+    pub specialist_id: String,
+    pub learning_signal: f64,
+    pub adaptive_learning_rate: f64,
+    pub confidence_factor: f64,
+    pub training_time_ms: u32,
+    pub weights_updated: bool,
+}
+
+/// Model parameters for inspection
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ModelParameters {
+    pub tensor_router_weights: Vec<Vec<f64>>,
+    pub learning_rate: f64,
+    pub predictive_coding_layers: usize,
+    pub biology_expression_rate: f64,
+    pub system_state: UnifiedSystemState,
+}
+
+/// Model checkpoint for training resumption
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ModelCheckpoint {
+    pub tensor_router_weights: Vec<Vec<f64>>,
+    pub specialist_ids: Vec<String>,
+    pub learning_rate: f64,
+    pub system_state: UnifiedSystemState,
+    pub load_history: Vec<f64>,
+    pub specialist_load_history: Vec<Vec<f64>>,
+    pub timestamp: u64,
 }
 
 #[cfg(test)]
@@ -422,5 +628,105 @@ mod tests {
         assert!(summary.free_energy.is_finite());
         assert!(summary.estimated_load >= 0.0);
         assert!(summary.routing_confidence >= 0.0 && summary.routing_confidence <= 1.0);
+    }
+
+    #[test]
+    fn test_learn_from_dopamine_positive_reward() {
+        let config = UnifiedLearningConfig::default();
+        let specialist_ids = vec!["spec_a".to_string(), "spec_b".to_string()];
+        let mut loop_ = UnifiedLearningLoop::new(config, 2, specialist_ids);
+
+        let task_features = vec![0.7, 0.5, 0.8, 0.3];
+        
+        // Store initial weights
+        let initial_weights = loop_.tensor_router.weights.weights.clone();
+        
+        // Apply positive dopamine reward
+        let result = loop_.learn_from_dopamine(&task_features, "spec_a", 0.8, 0.9);
+        
+        // Verify result
+        assert_eq!(result.specialist_id, "spec_a");
+        assert_eq!(result.learning_signal, 0.8);
+        assert!(result.adaptive_learning_rate > 0.0);
+        assert!(result.confidence_factor > 0.8);
+        assert!(result.weights_updated);
+        
+        // Weights should have been updated
+        assert_ne!(loop_.tensor_router.weights.weights, initial_weights);
+    }
+
+    #[test]
+    fn test_learn_from_dopamine_negative_reward() {
+        let config = UnifiedLearningConfig::default();
+        let specialist_ids = vec!["spec_a".to_string(), "spec_b".to_string()];
+        let mut loop_ = UnifiedLearningLoop::new(config, 2, specialist_ids);
+
+        let task_features = vec![0.7, 0.5, 0.8, 0.3];
+        
+        // Apply negative dopamine reward
+        let result = loop_.learn_from_dopamine(&task_features, "spec_a", -0.7, 0.8);
+        
+        // Verify result
+        assert_eq!(result.learning_signal, -0.7);
+        assert!(result.adaptive_learning_rate > 0.0);
+        assert!(result.confidence_factor > 0.7);
+    }
+
+    #[test]
+    fn test_dopamine_learning_with_low_confidence() {
+        let config = UnifiedLearningConfig::default();
+        let specialist_ids = vec!["spec_a".to_string()];
+        let mut loop_ = UnifiedLearningLoop::new(config, 1, specialist_ids);
+
+        let task_features = vec![0.5, 0.5, 0.5, 0.5];
+        
+        // Apply dopamine with low confidence
+        let low_conf_result = loop_.learn_from_dopamine(&task_features, "spec_a", 0.5, 0.3);
+        
+        // Apply dopamine with high confidence
+        let high_conf_result = loop_.learn_from_dopamine(&task_features, "spec_a", 0.5, 0.9);
+        
+        // High confidence should lead to higher learning rate
+        assert!(high_conf_result.adaptive_learning_rate > low_conf_result.adaptive_learning_rate);
+    }
+
+    #[test]
+    fn test_model_checkpoint_and_restore() {
+        let config = UnifiedLearningConfig::default();
+        let specialist_ids = vec!["spec_a".to_string(), "spec_b".to_string()];
+        let mut loop_ = UnifiedLearningLoop::new(config, 2, specialist_ids);
+
+        // Train with dopamine
+        let task_features = vec![0.7, 0.5, 0.8, 0.3];
+        loop_.learn_from_dopamine(&task_features, "spec_a", 0.8, 0.9);
+        
+        // Checkpoint model
+        let checkpoint = loop_.checkpoint_model();
+        
+        // Create new loop and restore
+        let config2 = UnifiedLearningConfig::default();
+        let specialist_ids2 = vec!["spec_a".to_string(), "spec_b".to_string()];
+        let mut loop2 = UnifiedLearningLoop::new(config2, 2, specialist_ids2);
+        
+        let restored = loop2.restore_from_checkpoint(&checkpoint);
+        assert!(restored);
+        
+        // Verify weights match
+        assert_eq!(loop2.tensor_router.weights.weights, loop_.tensor_router.weights.weights);
+        assert_eq!(loop2.system_state.learning_rate, loop_.system_state.learning_rate);
+    }
+
+    #[test]
+    fn test_get_model_parameters() {
+        let config = UnifiedLearningConfig::default();
+        let specialist_ids = vec!["spec_a".to_string(), "spec_b".to_string()];
+        let loop_ = UnifiedLearningLoop::new(config, 2, specialist_ids);
+
+        let params = loop_.get_model_parameters();
+        
+        assert_eq!(params.tensor_router_weights.len(), 2);
+        assert!(params.learning_rate > 0.0);
+        assert!(params.predictive_coding_layers > 0);
+        assert!(params.biology_expression_rate > 0.0);
     }
 }

@@ -3838,11 +3838,11 @@ fn now_ms_oai() -> u64 {
 /// List all registered integration links.
 async fn links_list(State(state): State<AppState>) -> impl IntoResponse {
     let links = state.links.read().await;
+    let all_links = links.list();
     Json(serde_json::json!({
         "ok": true,
-        "count": links.len(),
-        "links": links.iter().map(|l| serde_json::json!({
-            "id":           l.id,
+        "count": all_links.len(),
+        "links": all_links.iter().map(|l| serde_json::json!({
             "name":         l.name,
             "type":         format!("{:?}", l.link_type).to_lowercase(),
             "target_url":   l.target_url,

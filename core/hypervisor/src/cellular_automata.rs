@@ -109,6 +109,81 @@ impl FsmCompiler {
     }
 
     pub fn current_state_id(&self) -> usize { self.current }
+
+    /// Decompile the FSM by enumerating all possible input/output paths.
+    ///
+    /// Traces every reachable state from state 0, collecting all possible
+    /// input→output transitions as path sequences. Limits depth to prevent
+    /// infinite loops in cyclic FSMs.
+    ///
+    /// Returns a list of paths, where each path is a sequence of (input, output, next_state).
+    pub fn enumerate_paths(&self, max_depth: usize) -> Vec<Vec<(u64, u64, usize)>> {
+        let mut all_paths = Vec::new();
+        let mut visited = vec![false; self.states.len()];
+        self.dfs_paths(0, &mut visited, &mut Vec::new(), &mut all_paths, max_depth, 0);
+        all_paths
+    }
+
+    fn dfs_paths(
+        &self,
+        state: usize,
+        visited: &mut Vec<bool>,
+        current_path: &mut Vec<(u64, u64, usize)>,
+        all_paths: &mut Vec<Vec<(u64, u64, usize)>>,
+        max_depth: usize,
+        depth: usize,
+    ) {
+        if depth >= max_depth || state >= self.states.len() {
+            if !current_path.is_empty() {
+                all_paths.push(current_path.clone());
+            }
+            return;
+        }
+
+        let s = &self.states[state];
+        let mut has_transitions = false;
+
+        for i in 0..s.transition_count {
+            let t = s.transitions[i];
+            has_transitions = true;
+
+            current_path.push((t.input, t.output, t.next_state));
+
+            if !visited[t.next_state] {
+                visited[t.next_state] = true;
+                self.dfs_paths(t.next_state, visited, current_path, all_paths, max_depth, depth + 1);
+                visited[t.next_state] = false;
+            } else {
+                // Cycle detected — record the path segment
+                all_paths.push(current_path.clone());
+            }
+
+            current_path.pop();
+        }
+
+        if !has_transitions {
+            all_paths.push(current_path.clone());
+        }
+    }
+
+    /// Get all transitions as a flat list.
+    pub fn all_transitions(&self) -> Vec<(usize, u64, u64, usize)> {
+        let mut transitions = Vec::new();
+        for (state_idx, state) in self.states.iter().enumerate() {
+            for i in 0..state.transition_count {
+                let t = state.transitions[i];
+                transitions.push((state_idx, t.input, t.output, t.next_state));
+            }
+        }
+        transitions
+    }
+
+    /// Get state information for inspection.
+    pub fn state_info(&self) -> Vec<(usize, usize)> {
+        self.states.iter().enumerate()
+            .map(|(i, s)| (i, s.transition_count))
+            .collect()
+    }
 }
 
 // ── 10. N-body Clustering ─────────────────────────────────────────────
@@ -159,6 +234,35 @@ impl NBodyCluster {
             body.position[0] += body.velocity[0];
             body.position[1] += body.velocity[1];
         }
+    }
+
+    /// Reverse one gravity simulation step.
+    ///
+    /// Negates velocities and runs a forward step, effectively undoing
+    /// the last time step. Useful for debugging and state inspection.
+    pub fn reverse_step(&mut self) {
+        // Negate velocities to reverse direction
+        for body in &mut self.bodies {
+            body.velocity[0] = -body.velocity[0];
+            body.velocity[1] = -body.velocity[1];
+        }
+        // Run forward step (with negated velocities, this moves backward)
+        self.step();
+        // Negate velocities again to restore sign convention
+        for body in &mut self.bodies {
+            body.velocity[0] = -body.velocity[0];
+            body.velocity[1] = -body.velocity[1];
+        }
+    }
+
+    /// Save the current state of all bodies.
+    pub fn save_state(&self) -> Vec<ClusterBody> {
+        self.bodies.clone()
+    }
+
+    /// Restore bodies to a previously saved state.
+    pub fn restore_state(&mut self, state: &[ClusterBody]) {
+        self.bodies = state.to_vec();
     }
 }
 

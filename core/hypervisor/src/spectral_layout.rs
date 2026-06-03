@@ -360,6 +360,63 @@ pub fn compute_modularity(n_nodes: usize, edges: &[(usize, usize, f64)], cluster
     q / total_weight
 }
 
+/// Infer edges from 2D positions using distance-based thresholding.
+///
+/// Given node positions computed by `spectral_layout_2d`, reconstructs
+/// approximate edge information by connecting nearby nodes.
+///
+/// `positions`: (x, y) coordinates for each node
+/// `distance_threshold`: maximum distance to consider nodes connected
+/// `default_weight`: weight assigned to inferred edges
+pub fn edges_from_positions(
+    positions: &[(f64, f64)],
+    distance_threshold: f64,
+    default_weight: f64,
+) -> Vec<(usize, usize, f64)> {
+    let n = positions.len();
+    let mut edges = Vec::new();
+
+    for i in 0..n {
+        for j in (i + 1)..n {
+            let dx = positions[i].0 - positions[j].0;
+            let dy = positions[i].1 - positions[j].1;
+            let dist = (dx * dx + dy * dy).sqrt();
+            if dist <= distance_threshold {
+                // Weight is inversely proportional to distance
+                let weight = if dist > 0.0 { default_weight / dist } else { default_weight };
+                edges.push((i, j, weight));
+            }
+        }
+    }
+
+    edges
+}
+
+/// Infer edges from 3D positions using distance-based thresholding.
+pub fn edges_from_positions_3d(
+    positions: &[(f64, f64, f64)],
+    distance_threshold: f64,
+    default_weight: f64,
+) -> Vec<(usize, usize, f64)> {
+    let n = positions.len();
+    let mut edges = Vec::new();
+
+    for i in 0..n {
+        for j in (i + 1)..n {
+            let dx = positions[i].0 - positions[j].0;
+            let dy = positions[i].1 - positions[j].1;
+            let dz = positions[i].2 - positions[j].2;
+            let dist = (dx * dx + dy * dy + dz * dz).sqrt();
+            if dist <= distance_threshold {
+                let weight = if dist > 0.0 { default_weight / dist } else { default_weight };
+                edges.push((i, j, weight));
+            }
+        }
+    }
+
+    edges
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

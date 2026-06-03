@@ -79,6 +79,8 @@ impl ModelType {
 /// Model registry and discovery
 pub struct ModelRegistry {
     models: Vec<ModelInfo>,
+    /// HashMap index for O(1) name-based lookup
+    index: std::collections::HashMap<String, usize>,
     pub search_paths: Vec<PathBuf>,
 }
 
@@ -87,6 +89,7 @@ impl ModelRegistry {
     pub fn new() -> Self {
         Self {
             models: Vec::new(),
+            index: std::collections::HashMap::new(),
             search_paths: Self::default_search_paths(),
         }
     }
@@ -170,6 +173,12 @@ impl ModelRegistry {
                 .unwrap_or(std::cmp::Ordering::Equal)
         });
 
+        // Rebuild HashMap index for O(1) lookup
+        self.index.clear();
+        for (i, model) in self.models.iter().enumerate() {
+            self.index.insert(model.name.clone(), i);
+        }
+
         info!("Found {} GGUF models", self.models.len());
 
         Ok(())
@@ -185,9 +194,9 @@ impl ModelRegistry {
         &self.models
     }
 
-    /// Get model by name
+    /// Get model by name (O(1) via HashMap index)
     pub fn get_by_name(&self, name: &str) -> Option<&ModelInfo> {
-        self.models.iter().find(|m| m.name == name)
+        self.index.get(name).and_then(|&i| self.models.get(i))
     }
 
     /// Get best model of a specific type

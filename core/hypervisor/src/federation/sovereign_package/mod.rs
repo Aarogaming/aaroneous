@@ -57,7 +57,7 @@ pub struct SovereignManifest {
     pub parameter_count_m: f64,
     /// File size of the embedded model.gguf in bytes
     pub model_size_bytes: u64,
-    /// DNA fingerprint (64-bit FNV-1a hash of block DNA signatures)
+    /// DNA fingerprint (64-bit FNV-1a hash of block DNA signatures — non-cryptographic)
     pub dna_fingerprint: u64,
     /// SHA-256 hex digest of model.gguf (for integrity verification)
     pub model_sha256: String,
@@ -370,6 +370,20 @@ pub async fn import_sovereign(
     let manifest = manifest.context("no manifest.json in package")?;
     let gguf_path = gguf_path.context("no model.gguf in package")?;
 
+    // Verify integrity: check SHA-256 of extracted model against manifest
+    if !manifest.model_sha256.is_empty() {
+        let actual_hash = compute_sha256_hex(&gguf_path)?;
+        if actual_hash != manifest.model_sha256 {
+            anyhow::bail!(
+                "Integrity check failed: model hash mismatch\n  Expected: {}\n  Actual:   {}",
+                manifest.model_sha256, actual_hash
+            );
+        }
+        info!("Integrity verified: SHA-256 matches manifest");
+    } else {
+        warn!("No model_sha256 in manifest — skipping integrity check");
+    }
+
     info!(
         "Sovereign '{}' (domain={}) imported to {}",
         manifest.sovereign_name, manifest.domain, gguf_path.display()
@@ -414,6 +428,80 @@ pub fn read_manifest(package_path: &Path) -> anyhow::Result<SovereignManifest> {
     anyhow::bail!("no manifest.json in package")
 }
 
+/// Verify a `.sovereign` package without importing it.
+///
+/// Extracts to a temp directory, checks SHA-256 integrity, then cleans up.
+/// Returns the manifest and verification status.
+pub fn verify_sovereign(package_path: &Path) -> anyhow::Result<SovereignVerification> {
+    use anyhow::Context;
+    use std::io::Read;
+
+    info!("Verifying sovereign package: {}", package_path.display());
+
+    let manifest = read_manifest(package_path)?;
+
+    let file = std::fs::File::open(package_path).context("failed to open package")?;
+    let buf = std::io::BufReader::new(file);
+    let dec = zstd::stream::Decoder::new(buf).context("zstd decode failed")?;
+    let mut tar = tar::Archive::new(dec);
+
+    let mut gguf_size: u64 = 0;
+    let mut has_model = false;
+
+    for entry in tar.entries().context("tar entries failed")? {
+        let mut entry = entry.context("tar entry failed")?;
+        let name = entry.path()?.file_name()
+            .and_then(|n| n.to_str()).unwrap_or("").to_string();
+
+        if name == "model.gguf" {
+            has_model = true;
+            // Read to a temp buffer to compute hash
+            let mut buf = Vec::new();
+            entry.read_to_end(&mut buf)?;
+            gguf_size = buf.len() as u64;
+
+            let hash = {
+                use sha2::{Sha256, Digest};
+                let mut hasher = Sha256::new();
+                hasher.update(&buf);
+                hex::encode(hasher.finalize())
+            };
+
+            let hash_ok = if manifest.model_sha256.is_empty() {
+                true // No hash to verify against
+            } else {
+                hash == manifest.model_sha256
+            };
+
+            return Ok(SovereignVerification {
+                manifest,
+                gguf_size,
+                hash_ok,
+                has_model,
+                actual_hash: hash,
+            });
+        }
+    }
+
+    Ok(SovereignVerification {
+        manifest,
+        gguf_size,
+        hash_ok: false,
+        has_model,
+        actual_hash: String::new(),
+    })
+}
+
+/// Result of sovereign package verification.
+#[derive(Debug, Clone)]
+pub struct SovereignVerification {
+    pub manifest: SovereignManifest,
+    pub gguf_size: u64,
+    pub hash_ok: bool,
+    pub has_model: bool,
+    pub actual_hash: String,
+}
+
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
 fn add_bytes_to_tar<W: Write>(
@@ -447,22 +535,20 @@ fn add_file_to_tar<W: Write>(
 
 fn compute_sha256_hex(path: &Path) -> anyhow::Result<String> {
     use std::io::Read;
+    use sha2::{Sha256, Digest};
+
     let file = std::fs::File::open(path)?;
     let mut reader = std::io::BufReader::with_capacity(8 * 1024 * 1024, file);
 
-    // Simple FNV-1a hash (not SHA-256, but fast and good enough for fingerprinting)
-    // SHA-256 would require the sha2 crate — using FNV-1a for now
-    let mut h: u64 = 0xcbf29ce484222325u64;
+    let mut hasher = Sha256::new();
     let mut buf = [0u8; 65536];
     loop {
         let n = reader.read(&mut buf)?;
         if n == 0 { break; }
-        for &b in &buf[..n] {
-            h ^= b as u64;
-            h = h.wrapping_mul(0x100000001b3);
-        }
+        hasher.update(&buf[..n]);
     }
-    Ok(format!("{:016x}", h))
+    let result = hasher.finalize();
+    Ok(hex::encode(result))
 }
 
 fn now_ms() -> u64 {

@@ -93,6 +93,36 @@ impl ByzantineRollup {
         self.root = self.root.wrapping_add(step_hash).rotate_left(13) ^ step_hash;
     }
 
+    /// Remove the last step and recompute the root.
+    ///
+    /// Returns the removed step, or None if the rollup is empty.
+    /// Recomputes the rolling root from the remaining steps.
+    pub fn pop(&mut self) -> Option<TaskStep> {
+        let step = self.steps.pop()?;
+        // Recompute root from remaining steps
+        self.root = 0;
+        for step in &self.steps {
+            let step_hash = self::hash_combine(step.pre_state, step.post_state) ^ step.action_hash;
+            self.root = self.root.wrapping_add(step_hash).rotate_left(13) ^ step_hash;
+        }
+        self.verified = false;
+        Some(step)
+    }
+
+    /// Get the number of steps in the rollup.
+    pub fn len(&self) -> usize {
+        self.steps.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.steps.is_empty()
+    }
+
+    /// Get a step by index.
+    pub fn get(&self, index: usize) -> Option<&TaskStep> {
+        self.steps.get(index)
+    }
+
     /// Finalize rollup; returns the state root for external verification.
     pub fn finalize(&mut self) -> u64 {
         self.root = self.root.wrapping_mul(0x9E3779B97F4A7C15);

@@ -87,7 +87,78 @@ pub struct ImportJob {
 }
 
 pub type ImportJobs = Arc<Mutex<HashMap<String, ImportJob>>>;
-pub type ModelRegistry = Arc<Mutex<Vec<ModelEntry>>>;
+
+/// Federation model registry with HashMap index for O(1) lookup.
+pub struct FederationModelRegistry {
+    entries: Vec<ModelEntry>,
+    index: HashMap<String, usize>,
+}
+
+impl FederationModelRegistry {
+    pub fn new() -> Self {
+        Self {
+            entries: Vec::new(),
+            index: HashMap::new(),
+        }
+    }
+
+    /// Insert a model entry. Updates index for O(1) lookup.
+    pub fn insert(&mut self, entry: ModelEntry) {
+        let idx = self.entries.len();
+        self.index.insert(entry.name.clone(), idx);
+        self.entries.push(entry);
+    }
+
+    /// Get a model by name (O(1)).
+    pub fn get_by_name(&self, name: &str) -> Option<&ModelEntry> {
+        self.index.get(name).and_then(|&i| self.entries.get(i))
+    }
+
+    /// Get a mutable reference to a model by name.
+    pub fn get_mut_by_name(&mut self, name: &str) -> Option<&mut ModelEntry> {
+        self.index.get(name).copied().and_then(|i| self.entries.get_mut(i))
+    }
+
+    /// List all model names.
+    pub fn list_names(&self) -> Vec<&str> {
+        self.entries.iter().map(|e| e.name.as_str()).collect()
+    }
+
+    /// Get all entries.
+    pub fn all(&self) -> &[ModelEntry] {
+        &self.entries
+    }
+
+    /// Count of entries.
+    pub fn len(&self) -> usize {
+        self.entries.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.entries.is_empty()
+    }
+
+    /// Remove a model by name.
+    pub fn remove(&mut self, name: &str) -> bool {
+        if let Some(&idx) = self.index.get(name) {
+            self.entries.remove(idx);
+            // Rebuild index (indices shifted)
+            self.index.clear();
+            for (i, entry) in self.entries.iter().enumerate() {
+                self.index.insert(entry.name.clone(), i);
+            }
+            true
+        } else {
+            false
+        }
+    }
+}
+
+impl Default for FederationModelRegistry {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 // ── Registry operations ───────────────────────────────────────────────────────
 

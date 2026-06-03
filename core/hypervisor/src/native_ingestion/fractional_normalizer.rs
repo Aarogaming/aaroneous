@@ -135,6 +135,54 @@ impl FractionalNormalizer {
         let py = (frac_y.clamp(0.0, 1.0) * src_h as f32) as u32;
         (px.min(src_w - 1), py.min(src_h - 1))
     }
+
+    /// Denormalize a frame back to BGRA pixel data using bilinear interpolation.
+    ///
+    /// Reconstructs a full-resolution BGRA framebuffer from a normalized float grid.
+    /// Each grid cell is expanded to a block of pixels with interpolated values.
+    pub fn denormalize(&self, frame: &NormalizedFrame, target_w: u32, target_h: u32) -> Vec<u8> {
+        let grid = self.sample_grid as usize;
+        let mut bgra = vec![0u8; (target_w * target_h * 4) as usize];
+
+        let sx = target_w as f32 / grid as f32;
+        let sy = target_h as f32 / grid as f32;
+
+        for ty in 0..target_h {
+            for tx in 0..target_w {
+                // Map target pixel to grid coordinates (floating point)
+                let gx = tx as f32 / sx;
+                let gy = ty as f32 / sy;
+
+                // Bilinear interpolation from 4 nearest grid cells
+                let gx0 = gx as usize;
+                let gy0 = gy as usize;
+                let gx1 = (gx0 + 1).min(grid - 1);
+                let gy1 = (gy0 + 1).min(grid - 1);
+                let fx = gx - gx0 as f32;
+                let fy = gy - gy0 as f32;
+
+                let v00 = frame.pixels[gy0 * grid + gx0];
+                let v10 = frame.pixels[gy0 * grid + gx1];
+                let v01 = frame.pixels[gy1 * grid + gx0];
+                let v11 = frame.pixels[gy1 * grid + gx1];
+
+                let lum = v00 * (1.0 - fx) * (1.0 - fy)
+                    + v10 * fx * (1.0 - fy)
+                    + v01 * (1.0 - fx) * fy
+                    + v11 * fx * fy;
+
+                let gray = (lum * 255.0).clamp(0.0, 255.0) as u8;
+                let idx = ((ty * target_w + tx) * 4) as usize;
+                // Write as BGRA (same as source format)
+                bgra[idx] = gray;     // B
+                bgra[idx + 1] = gray; // G
+                bgra[idx + 2] = gray; // R
+                bgra[idx + 3] = 255;  // A
+            }
+        }
+
+        bgra
+    }
 }
 
 #[cfg(test)]

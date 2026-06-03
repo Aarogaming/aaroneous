@@ -56,6 +56,110 @@ impl QuantizationType {
             QuantizationType::INT4 => "INT4",
         }
     }
+
+    /// Bytes per element for this quantization type
+    pub fn bytes_per_element(&self) -> usize {
+        match self {
+            QuantizationType::None => 4,  // FP32
+            QuantizationType::FP16 => 2,
+            QuantizationType::INT8 => 1,
+            QuantizationType::INT4 => 1,  // Packed 2 per byte
+        }
+    }
+}
+
+/// Quantize FP32 weights to a lower precision format.
+///
+/// Returns the quantized bytes and the scale factor used.
+pub fn quantize_weights(weights: &[f32], qtype: QuantizationType) -> (Vec<u8>, f32) {
+    match qtype {
+        QuantizationType::None => {
+            let mut bytes = Vec::with_capacity(weights.len() * 4);
+            for &w in weights {
+                bytes.extend_from_slice(&w.to_le_bytes());
+            }
+            (bytes, 1.0)
+        }
+        QuantizationType::FP16 => {
+            let mut bytes = Vec::with_capacity(weights.len() * 2);
+            let scale = weights.iter().map(|x| x.abs()).fold(0.0f32, f32::max);
+            for &w in weights {
+                let normalized = if scale > 0.0 { w / scale } else { 0.0 };
+                let clamped = normalized.clamp(-1.0, 1.0);
+                // Simple f32 → f16 conversion
+                let bits = ((clamped.signum() * (clamped.abs().sqrt()) * 65535.0) as u16) & 0x7FFF;
+                let sign = if clamped < 0.0 { 0x8000u16 } else { 0u16 };
+                bytes.extend_from_slice(&(sign | bits).to_le_bytes());
+            }
+            (bytes, scale)
+        }
+        QuantizationType::INT8 => {
+            let mut bytes = Vec::with_capacity(weights.len());
+            let abs_max = weights.iter().map(|x| x.abs()).fold(0.0f32, f32::max);
+            let scale = if abs_max > 0.0 { 127.0 / abs_max } else { 1.0 };
+            for &w in weights {
+                let quantized = (w * scale).round().clamp(-128.0, 127.0) as i8;
+                bytes.push(quantized as u8);
+            }
+            (bytes, scale)
+        }
+        QuantizationType::INT4 => {
+            let mut bytes = Vec::with_capacity((weights.len() + 1) / 2);
+            let abs_max = weights.iter().map(|x| x.abs()).fold(0.0f32, f32::max);
+            let scale = if abs_max > 0.0 { 7.0 / abs_max } else { 1.0 };
+            for chunk in weights.chunks(2) {
+                let q0 = ((chunk[0] * scale).round().clamp(-8.0, 7.0) as i8 + 8) as u8;
+                let q1 = if chunk.len() > 1 {
+                    ((chunk[1] * scale).round().clamp(-8.0, 7.0) as i8 + 8) as u8
+                } else {
+                    8 // zero
+                };
+                bytes.push(q0 | (q1 << 4));
+            }
+            (bytes, scale)
+        }
+    }
+}
+
+/// Dequantize weights back to FP32.
+///
+/// `data` is the quantized bytes, `scale` is the scale factor from quantization.
+pub fn dequantize_weights(data: &[u8], qtype: QuantizationType, scale: f32, original_len: usize) -> Vec<f32> {
+    match qtype {
+        QuantizationType::None => {
+            data.chunks_exact(4)
+                .map(|c| f32::from_le_bytes([c[0], c[1], c[2], c[3]]))
+                .collect()
+        }
+        QuantizationType::FP16 => {
+            data.chunks_exact(2)
+                .map(|c| {
+                    let bits = u16::from_le_bytes([c[0], c[1]]);
+                    let sign = if bits & 0x8000 != 0 { -1.0 } else { 1.0 };
+                    let magnitude = (bits & 0x7FFF) as f32 / 65535.0;
+                    sign * magnitude * magnitude * scale
+                })
+                .collect()
+        }
+        QuantizationType::INT8 => {
+            data.iter()
+                .map(|&b| (b as i8 as f32) / scale)
+                .collect()
+        }
+        QuantizationType::INT4 => {
+            let mut result = Vec::with_capacity(original_len);
+            for &byte in data {
+                let low = (byte & 0x0F) as i8 - 8;
+                let high = ((byte >> 4) & 0x0F) as i8 - 8;
+                result.push(low as f32 / scale);
+                if result.len() < original_len {
+                    result.push(high as f32 / scale);
+                }
+            }
+            result.truncate(original_len);
+            result
+        }
+    }
 }
 
 /// Quantization strategy for a specialist

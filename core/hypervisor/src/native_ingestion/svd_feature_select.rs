@@ -38,6 +38,47 @@ pub struct ReducedFeatures {
     pub achieved_rank: usize,
 }
 
+impl ReducedFeatures {
+    /// Reconstruct the approximate matrix from SVD factors.
+    ///
+    /// Computes A_approx = U * diag(Sigma) * V^T
+    /// Returns a flattened row-major matrix of shape [rows * cols].
+    pub fn reconstruct(&self) -> Vec<f32> {
+        let mut result = vec![0.0f32; self.rows * self.cols];
+        for i in 0..self.rows {
+            for j in 0..self.cols {
+                let mut sum = 0.0f32;
+                for k in 0..self.achieved_rank {
+                    sum += self.u_matrix[i * self.achieved_rank + k]
+                        * self.singular_values[k]
+                        * self.vt_matrix[k * self.cols + j];
+                }
+                result[i * self.cols + j] = sum;
+            }
+        }
+        result
+    }
+
+    /// Compute relative reconstruction error: ||A - A_approx||_F / ||A||_F
+    ///
+    /// `original` is the original flattened matrix (row-major, rows * cols).
+    pub fn reconstruction_error(&self, original: &[f32]) -> f32 {
+        let recon = self.reconstruct();
+        let mut err_sq = 0.0f32;
+        let mut norm_sq = 0.0f32;
+        for idx in 0..original.len().min(recon.len()) {
+            let diff = original[idx] - recon[idx];
+            err_sq += diff * diff;
+            norm_sq += original[idx] * original[idx];
+        }
+        if norm_sq > 0.0 {
+            (err_sq / norm_sq).sqrt()
+        } else {
+            0.0
+        }
+    }
+}
+
 /// Truncated SVD via randomized power iteration.
 ///
 /// Decomposes an M×N float matrix A into:

@@ -18,6 +18,14 @@ path = "bin/spatial_kinetic.rs"
 name = "test_enigo"
 path = "bin/test_enigo.rs"
 
+[[bin]]
+name = "genome_compiler"
+path = "bin/genome_compiler.rs"
+
+[[bin]]
+name = "synapse_dump"
+path = "bin/synapse_dump.rs"
+
 [dependencies]
 rustc-hash = "^2.1.0"
 nervous_system = { path = "../nervous_system" }
@@ -42,6 +50,7 @@ crossbeam-channel = "0.5"
 futures-core = "0.3"
 futures-util = "0.3"
 governor = "0.10"
+hex = "0.4"
 libloading = "0.9"
 log = "0.4"
 llama-gguf = { version = "0.14", optional = true, default-features = false, features = ["cpu"] }
@@ -92,6 +101,7 @@ enigo = "0.2.1"
 zstd = "0.13"
 async-trait = "0.1"
 moka = { version = "0.12", features = ["future"] }
+sha2 = "0.10"
 which = "5.0"
 axum = { version = "0.7", features = ["macros"] }
 tower-http = { version = "0.5", features = ["cors"] }

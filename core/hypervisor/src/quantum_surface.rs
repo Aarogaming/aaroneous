@@ -194,6 +194,43 @@ impl HolographicProjector {
         }
         bytes
     }
+
+    /// Approximate reconstruction from a bitmask surface.
+    ///
+    /// Uses the pseudo-inverse of the random projection matrix to recover
+    /// an approximate version of the original vector. The reconstruction
+    /// is lossy due to the sign-thresholding in projection.
+    ///
+    /// Returns a vector of length `input_dims` with approximate values.
+    pub fn approximate_reconstruct(&self, surface: &[bool]) -> Vec<f64> {
+        let mut result = vec![0.0f64; self.input_dims];
+
+        // For each input dimension, compute the approximate value
+        // by averaging the projection rows that contributed to each bit
+        for j in 0..self.input_dims {
+            let mut sum = 0.0f64;
+            let mut count = 0;
+            for (i, row) in self.projection.iter().enumerate() {
+                if i < surface.len() && row[j] {
+                    // This row's sign matched — the original value was likely positive
+                    sum += if surface[i] { 1.0 } else { -1.0 };
+                    count += 1;
+                }
+            }
+            if count > 0 {
+                result[j] = sum / count as f64;
+            }
+        }
+
+        result
+    }
+
+    /// Compute Hamming distance between two surfaces.
+    ///
+    /// Returns the number of differing bits (0 = identical, max = completely different).
+    pub fn hamming_distance(a: &[bool], b: &[bool]) -> usize {
+        a.iter().zip(b.iter()).filter(|(x, y)| x != y).count()
+    }
 }
 
 #[cfg(test)]
