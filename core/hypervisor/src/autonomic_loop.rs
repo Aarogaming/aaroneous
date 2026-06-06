@@ -1,11 +1,24 @@
 use std::thread;
 use std::time::{Duration, Instant};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::path::PathBuf;
 use parking_lot::RwLock;
 use memmap2::{MmapMut, MmapOptions};
 use std::fs::OpenOptions;
 use anyhow::{Result, Context};
+
+/// Maximum allowed wall-clock duration for a single tick. If a tick exceeds
+/// this we log a warning and continue the loop on the next iteration. This
+/// is the watchdog guard: a runaway subsystem that holds a lock for 10
+/// seconds (or a long-running IO call) does not freeze the whole nervous
+/// system forever.
+const TICK_WATCHDOG: Duration = Duration::from_secs(10);
+/// Default total tick budget when no explicit budget is set. The autonomic
+/// loop will stop on its own after this many ticks if it is not externally
+/// shut down. This is the safety stop that prevents the loop from running
+/// effectively forever and accumulating unbounded state.
+const DEFAULT_MAX_TICKS: u64 = 86_400; // 24h at 1Hz
 
 pub struct LegacySharedMemorySynapse {
     mmap: MmapMut,
@@ -179,6 +192,19 @@ pub struct AutonomicNervousSystem {
     tick_rate: Duration,
     hive_db: Option<Arc<parking_lot::Mutex<HivePersistence>>>,
     workspace_root: PathBuf,
+    /// Cooperative shutdown flag. Set to true via `request_shutdown` to make
+    /// the next iteration of the main event loop exit cleanly. Atomic because
+    /// the spawned thread reads it on every tick and the API may be called
+    /// from another thread (signal handler, control plane, panic recovery).
+    pub shutdown: Arc<AtomicBool>,
+    /// Total tick budget. When set, the loop exits after this many ticks
+    /// even if `shutdown` is not requested. Default is `DEFAULT_MAX_TICKS`.
+    /// Set to `u64::MAX` to disable the budget (loop runs until shutdown).
+    pub max_ticks: Arc<AtomicU64>,
+    /// Wall-clock start of the most recent tick. Held in an Arc so the
+    /// spawned thread can use it to enforce `TICK_WATCHDOG` from inside
+    /// the loop without holding a mutable borrow of the system struct.
+    pub tick_start: Arc<RwLock<Instant>>,
 }
 
 impl AutonomicNervousSystem {
@@ -253,7 +279,31 @@ impl AutonomicNervousSystem {
             tick_rate: Duration::from_millis(tick_rate_ms),
             hive_db,
             workspace_root,
+            shutdown: Arc::new(AtomicBool::new(false)),
+            max_ticks: Arc::new(AtomicU64::new(DEFAULT_MAX_TICKS)),
+            tick_start: Arc::new(RwLock::new(Instant::now())),
         })
+    }
+
+    /// Request the autonomic loop to exit at the next iteration boundary.
+    /// Safe to call from signal handlers, control plane threads, or panic
+    /// recovery callbacks. The loop will finish its current tick and then
+    /// break. Idempotent.
+    pub fn request_shutdown(&self) {
+        if !self.shutdown.swap(true, Ordering::SeqCst) {
+            println!("[AutonomicNS] Shutdown requested");
+        }
+    }
+
+    /// Override the default tick budget. Pass `u64::MAX` to disable the
+    /// safety stop and rely on cooperative shutdown only.
+    pub fn set_max_ticks(&self, max: u64) {
+        self.max_ticks.store(max, Ordering::SeqCst);
+    }
+
+    /// Returns `true` if `request_shutdown` has been called.
+    pub fn is_shutdown_requested(&self) -> bool {
+        self.shutdown.load(Ordering::SeqCst)
     }
     
     pub fn get_synapse(&self) -> Arc<RwLock<LegacySharedMemorySynapse>> {
@@ -339,19 +389,39 @@ impl AutonomicNervousSystem {
         let biology = self.biology.clone();
         let tick_rate = self.tick_rate;
         let hive_db = self.hive_db.clone();
-        
+        let shutdown = self.shutdown.clone();
+        let max_ticks = self.max_ticks.clone();
+        let tick_start = self.tick_start.clone();
+
         println!("[AutonomicNS] Heartbeat initiated at {:?}.", tick_rate);
 
         thread::spawn(move || {
             let rt = tokio::runtime::Runtime::new().unwrap();
-            let task_router = TaskRouter::new(
+            let _task_router = TaskRouter::new(
                 Some(enzyme_runner_for_router),
                 Some(learning_loop_for_router),
                 None,
             );
-            
+
+            let mut tick_count: u64 = 0;
             loop {
+                // --- COOPERATIVE SHUTDOWN ---
+                if shutdown.load(Ordering::SeqCst) {
+                    println!("[AutonomicNS] Shutdown observed; exiting after {} ticks", tick_count);
+                    break;
+                }
+                // --- TICK BUDGET ---
+                if tick_count >= max_ticks.load(Ordering::SeqCst) {
+                    println!("[AutonomicNS] Tick budget exhausted at {} ticks; exiting", tick_count);
+                    break;
+                }
+
                 let start = Instant::now();
+                {
+                    let mut ts = tick_start.write();
+                    *ts = start;
+                }
+                tick_count = tick_count.saturating_add(1);
                 
                 let mut state = SynapseState::default();
                 {
@@ -824,6 +894,13 @@ impl AutonomicNervousSystem {
                 }
 
                 let elapsed = start.elapsed();
+                // --- TICK WATCHDOG ---
+                if elapsed > TICK_WATCHDOG {
+                    println!(
+                        "[AutonomicNS] WARNING: tick {} took {:?} (> {:?} watchdog). Continuing.",
+                        tick_count, elapsed, TICK_WATCHDOG
+                    );
+                }
                 if elapsed < tick_rate {
                     thread::sleep(tick_rate - elapsed);
                 }
