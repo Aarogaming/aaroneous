@@ -2,11 +2,17 @@
 // The "brain" that orchestrates compute, biology, and intelligence for optimal task execution
 // Now uses thermodynamic governance with Free Energy Principle
 
+use std::collections::HashMap;
+use std::sync::Arc;
+use parking_lot::RwLock;
 use rand::{SeedableRng, Rng};
 use serde::{Serialize, Deserialize};
 use biology::{SystemBiology, ThermodynamicGovernor, ThermodynamicGovernorConfig, SystemHealthReport};
 use intelligence::{IntelligenceEngine, RoutableTask, TaskType, RoutingDecision};
 use compute::{ComputeEngine, entropy};
+use crate::specialist_memory::{
+    MemoryEntry, MemoryType, MemoryQueryResult, SpecialistMemoryStore,
+};
 
 /// Represents a task in the decision pipeline
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -30,6 +36,9 @@ pub struct TaskEvaluation {
     pub metabolic_risk: f64,      // Predicted metabolic impact
     pub recommended_action: Action,
     pub reasoning: String,
+    pub memory_informed: bool,    // True if memory consultation produced non-empty results
+    pub memory_score: f32,        // Aggregate relevance score from specialist memory (0.0-1.0)
+    pub memory_recommendation: String,  // Human-readable guidance from memory
 }
 
 /// Action to take for a task
@@ -49,14 +58,20 @@ pub struct AutonomousDecisionEngine {
     pub intelligence: IntelligenceEngine,
     pub compute: ComputeEngine,
     pub rng: rand::rngs::StdRng,
-    
+
     // Bayesian priors for confidence estimation
     pub prior_success_count: f64,
     pub prior_failure_count: f64,
-    
+
     // Execution history for learning
     pub execution_history: Vec<ExecutionRecord>,
     pub max_history: usize,
+
+    // Per-specialist persistent memory. Lazily created when a specialist is
+    // first consulted; the store is cheap to clone (Arc<HashMap> under RwLock).
+    pub specialist_memories: HashMap<String, SpecialistMemoryStore>,
+    // Weights used when blending the memory signal into the Bayesian confidence.
+    pub memory_confidence_weight: f64, // 0.0 disables memory, 1.0 makes it the dominant signal
 }
 
 /// Record of a task execution
@@ -81,7 +96,90 @@ impl AutonomousDecisionEngine {
             prior_failure_count: 2.0,
             execution_history: Vec::new(),
             max_history: 100,
+            specialist_memories: HashMap::new(),
+            memory_confidence_weight: 0.3, // memory influences confidence but does not dominate
         }
+    }
+
+    /// Get or lazily create the memory store for a specialist.
+    pub fn memory_for(&mut self, specialist_id: &str) -> SpecialistMemoryStore {
+        if let Some(store) = self.specialist_memories.get(specialist_id) {
+            store.clone()
+        } else {
+            let store = SpecialistMemoryStore::new(specialist_id.to_string());
+            self.specialist_memories.insert(specialist_id.to_string(), store.clone());
+            store
+        }
+    }
+
+    /// Consult the routed specialist's memory for guidance on a task.
+    /// Returns the relevance score and the recommendation string.
+    fn consult_memory(&mut self, routing: &RoutingDecision, task: &DecisionTask) -> (f32, String) {
+        let query = task.description.as_str();
+        let task_type = match &task.task_type {
+            TaskType::CodeGeneration => "code_generation",
+            TaskType::BugFix => "bug_fix",
+            TaskType::Refactor => "refactoring",
+            TaskType::TestCreation => "testing",
+            TaskType::Documentation => "documentation",
+            TaskType::Analysis => "analysis",
+            TaskType::Ingestion => "ingestion",
+            TaskType::Custom(name) => name.as_str(),
+        };
+        let store = self.memory_for(&routing.specialist_id);
+        let result = store.query_memory(query, task_type, 5);
+        let score = if result.entries.is_empty() {
+            0.0
+        } else {
+            (result.total_score / result.entries.len() as f32).clamp(0.0, 1.0)
+        };
+        (score, result.recommendation)
+    }
+
+    /// Blend the memory score with the Bayesian confidence.
+    /// If memory has nothing to say (score = 0), returns the original confidence.
+    fn adjust_confidence_with_memory(&self, base: f64, memory_score: f32) -> f64 {
+        if memory_score <= 0.0 {
+            return base;
+        }
+        let w = self.memory_confidence_weight.clamp(0.0, 1.0);
+        let blended = (1.0 - w) * base + w * memory_score as f64;
+        blended.clamp(0.0, 1.0)
+    }
+
+    /// Record a procedural memory entry for a specialist after a successful
+    /// execution. Failures are stored as factual/negative memories so future
+    /// decisions can avoid the same approach.
+    pub fn record_execution_memory(
+        &mut self,
+        specialist_id: &str,
+        task: &DecisionTask,
+        success: bool,
+        duration_seconds: f64,
+    ) {
+        let memory_type = if success {
+            MemoryType::Procedural
+        } else {
+            MemoryType::Factual
+        };
+        let title = if success {
+            format!("Succeeded at {}", task.description)
+        } else {
+            format!("Failed at {}", task.description)
+        };
+        let description = format!(
+            "Action: {:?}, Duration: {:.2}s, Task type: {:?}",
+            memory_type, duration_seconds, task.task_type
+        );
+        let entry = MemoryEntry::new(
+            format!("mem_{}_{}", specialist_id, task.id),
+            specialist_id.to_string(),
+            title,
+            description,
+            memory_type,
+        );
+        let store = self.memory_for(specialist_id);
+        store.store_memory(entry);
     }
 
     /// Main entry point: evaluate and decide how to handle a task
@@ -110,28 +208,47 @@ impl AutonomousDecisionEngine {
         };
         
         let routing = self.intelligence.route_task(&routable_task);
-        
+
+        // Step 4.5: Consult the routed specialist's persistent memory for
+        // guidance. Memory score blends into the confidence so the engine
+        // can lean on past experience when deciding to act, queue, or
+        // delegate.
+        let (memory_score, memory_recommendation) = self.consult_memory(&routing, task);
+        let memory_informed = memory_score > 0.0;
+        let adjusted_confidence = self.adjust_confidence_with_memory(confidence, memory_score);
+
         // Step 5: Predict metabolic risk using thermodynamic governor
         let current_load = 1.0 - (self.biology.tokens / 100.0) as f64;
         self.governor.record_load(current_load);
         let forecast = self.governor.predict_metabolic_risk();
         let metabolic_risk = forecast.risk_score;
         
-        // Step 6: Decide action
-        let action = self.decide_action(confidence, metabolic_risk, complexity, &routing);
-        
+        // Step 6: Decide action (uses memory-adjusted confidence)
+        let action = self.decide_action(adjusted_confidence, metabolic_risk, complexity, &routing);
+
         // Step 7: Generate reasoning
-        let reasoning = self.generate_reasoning(confidence, metabolic_risk, complexity, &action, &routing);
-        
+        let reasoning = self.generate_reasoning(
+            adjusted_confidence,
+            metabolic_risk,
+            complexity,
+            &action,
+            &routing,
+            memory_informed,
+            memory_score,
+        );
+
         Ok(TaskEvaluation {
             task_id: task.id.clone(),
             complexity,
-            confidence,
+            confidence: adjusted_confidence,
             entropy: task_entropy,
             routing,
             metabolic_risk,
             recommended_action: action,
             reasoning,
+            memory_informed,
+            memory_score,
+            memory_recommendation,
         })
     }
 
@@ -259,10 +376,24 @@ impl AutonomousDecisionEngine {
     }
 
     /// Generate human-readable reasoning for the decision
-    fn generate_reasoning(&self, confidence: f64, metabolic_risk: f64, complexity: f64, action: &Action, routing: &RoutingDecision) -> String {
+    fn generate_reasoning(
+        &self,
+        confidence: f64,
+        metabolic_risk: f64,
+        complexity: f64,
+        action: &Action,
+        routing: &RoutingDecision,
+        memory_informed: bool,
+        memory_score: f32,
+    ) -> String {
+        let memory_note = if memory_informed {
+            format!(", Memory: informed (score {:.2})", memory_score)
+        } else {
+            ", Memory: no relevant history".to_string()
+        };
         format!(
-            "Confidence: {:.2}, Metabolic Risk: {:.2}, Complexity: {:.2} → {:?} via {}",
-            confidence, metabolic_risk, complexity, action, routing.specialist_name
+            "Confidence: {:.2}, Metabolic Risk: {:.2}, Complexity: {:.2}{} → {:?} via {}",
+            confidence, metabolic_risk, complexity, memory_note, action, routing.specialist_name
         )
     }
 
@@ -300,10 +431,10 @@ impl AutonomousDecisionEngine {
         } else {
             self.prior_failure_count += 1.0;
         }
-        
+
         // Update specialist performance
         self.intelligence.record_outcome(task_id, success, duration);
-        
+
         // Record in history
         self.execution_history.push(ExecutionRecord {
             task_id: task_id.to_string(),
@@ -312,11 +443,27 @@ impl AutonomousDecisionEngine {
             completion_time_seconds: duration,
             metabolic_cost,
         });
-        
+
         // Trim history if needed
         if self.execution_history.len() > self.max_history {
             self.execution_history.remove(0);
         }
+    }
+
+    /// Convenience wrapper that records both the execution outcome (Bayesian
+    /// priors, intelligence, history) AND a memory entry for the routed
+    /// specialist. Call this instead of `record_outcome` whenever the
+    /// originating `DecisionTask` and `RoutingDecision` are available.
+    pub fn record_outcome_with_memory(
+        &mut self,
+        task: &DecisionTask,
+        routing: &RoutingDecision,
+        success: bool,
+        duration: f64,
+        metabolic_cost: f64,
+    ) {
+        self.record_outcome(&task.id, success, duration, metabolic_cost);
+        self.record_execution_memory(&routing.specialist_id, task, success, duration);
     }
 
     /// Get system status summary
