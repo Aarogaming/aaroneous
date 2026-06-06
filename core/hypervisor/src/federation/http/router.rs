@@ -67,12 +67,15 @@ pub struct AppState {
     /// Cross-model tensor index
     pub vault: Arc<tokio::sync::RwLock<crate::federation::tensor_vault::TensorVault>>,
     /// Link registry: webhooks, Discord, Slack, Notion, GitHub integrations
-    pub links: Arc<tokio::sync::RwLock<crate::federation::links::LinkRegistry>>,
+    /// Stored as `Vec<Link>` for the HTTP CRUD handlers; flushed back to
+    /// `LinkRegistry` for persistence via `save_links`.
+    pub links: Arc<tokio::sync::RwLock<Vec<crate::federation::links::Link>>>,
 }
 
 impl AppState {
     pub fn new(federation: Arc<Federation>) -> Self {
-        let links = crate::federation::links::load_links().unwrap_or_default();
+        let links_reg = crate::federation::links::load_links().unwrap_or_default();
+        let links_vec = links_reg.list();
         Self {
             federation,
             generation_jobs: Arc::new(tokio::sync::Mutex::new(std::collections::HashMap::new())),
@@ -81,7 +84,7 @@ impl AppState {
             vault: Arc::new(tokio::sync::RwLock::new(
                 crate::federation::tensor_vault::TensorVault::new()
             )),
-            links: Arc::new(tokio::sync::RwLock::new(links)),
+            links: Arc::new(tokio::sync::RwLock::new(links_vec)),
         }
     }
 
@@ -90,7 +93,8 @@ impl AppState {
     pub async fn start_link_dispatcher(&self) {
         use crate::federation::links::start_link_dispatcher;
         let rx = self.federation.subscribe_specialist_events();
-        start_link_dispatcher(self.links.read().await.clone(), rx).await;
+        let links_snapshot = self.links.read().await.clone();
+        start_link_dispatcher(links_snapshot, rx).await;
     }
 
     /// Start the background vault indexing (non-blocking â€” fires and forgets).
@@ -3838,22 +3842,35 @@ fn now_ms_oai() -> u64 {
 /// List all registered integration links.
 async fn links_list(State(state): State<AppState>) -> impl IntoResponse {
     let links = state.links.read().await;
-    let all_links = links.list();
+    let count = links.len();
+    let payload: Vec<_> = links.iter().map(|l| serde_json::json!({
+        "name":         l.name,
+        "type":         format!("{:?}", l.link_type).to_lowercase(),
+        "target_url":   l.target_url,
+        "enabled":      l.enabled,
+        "filter":       l.filter,
+        "deliveries_sent":   l.deliveries_sent,
+        "deliveries_failed": l.deliveries_failed,
+        "last_delivery_at":  l.last_delivery_at,
+        "last_status":       l.last_delivery_status,
+    })).collect();
     Json(serde_json::json!({
         "ok": true,
-        "count": all_links.len(),
-        "links": all_links.iter().map(|l| serde_json::json!({
-            "name":         l.name,
-            "type":         format!("{:?}", l.link_type).to_lowercase(),
-            "target_url":   l.target_url,
-            "enabled":      l.enabled,
-            "filter":       l.filter,
-            "deliveries_sent":   l.deliveries_sent,
-            "deliveries_failed": l.deliveries_failed,
-            "last_delivery_at":  l.last_delivery_at,
-            "last_status":       l.last_delivery_status,
-        })).collect::<Vec<_>>(),
+        "count": count,
+        "links": payload,
     }))
+}
+
+/// Helper: persist the in-memory `Vec<Link>` back to disk via `LinkRegistry`.
+async fn save_links_vec(links: &[crate::federation::links::Link]) {
+    let mut registry = crate::federation::links::LinkRegistry::new();
+    for link in links {
+        // First write wins on duplicate names; matches the original Vec-push semantics.
+        let _ = registry.add(link.clone());
+    }
+    if let Err(e) = crate::federation::links::save_links(&registry) {
+        tracing::warn!("Failed to persist links: {}", e);
+    }
 }
 
 #[derive(Deserialize)]
@@ -3910,7 +3927,7 @@ async fn links_create(
     link.filter = req.filter;
     if let Some(enabled) = req.enabled { link.enabled = enabled; }
 
-    let link_id = link.id.clone();
+    let link_id = link.name.clone();
     let link_name = link.name.clone();
 
     let mut links = state.links.write().await;
@@ -3918,9 +3935,7 @@ async fn links_create(
     let snapshot = links.clone();
     drop(links);
 
-    if let Err(e) = crate::federation::links::save_links(&snapshot) {
-        tracing::warn!("Failed to persist links: {}", e);
-    }
+    save_links_vec(&snapshot).await;
 
     Json(serde_json::json!({
         "ok": true,
@@ -3936,7 +3951,7 @@ async fn links_get(
     Path(id): Path<String>,
 ) -> impl IntoResponse {
     let links = state.links.read().await;
-    match links.iter().find(|l| l.id.as_deref() == Some(id.as_str())) {
+    match links.iter().find(|l| l.name == id) {
         Some(l) => Json(serde_json::json!({ "ok": true, "link": l })).into_response(),
         None => (StatusCode::NOT_FOUND, Json(serde_json::json!({ "ok": false, "error": "Link not found" }))).into_response(),
     }
@@ -3949,12 +3964,12 @@ async fn links_delete(
 ) -> impl IntoResponse {
     let mut links = state.links.write().await;
     let before = links.len();
-    links.retain(|l| l.id.as_deref() != Some(id.as_str()));
+    links.retain(|l| l.name != id);
     let deleted = before != links.len();
     let snapshot = links.clone();
     drop(links);
     if deleted {
-        let _ = crate::federation::links::save_links(&snapshot);
+        save_links_vec(&snapshot).await;
         Json(serde_json::json!({ "ok": true, "deleted": id })).into_response()
     } else {
         (StatusCode::NOT_FOUND, Json(serde_json::json!({ "ok": false, "error": "Link not found" }))).into_response()
@@ -3976,7 +3991,7 @@ async fn links_update(
     Json(req): Json<LinkUpdateRequest>,
 ) -> impl IntoResponse {
     let mut links = state.links.write().await;
-    match links.iter_mut().find(|l| l.id.as_deref() == Some(id.as_str())) {
+    match links.iter_mut().find(|l| l.name == id) {
         Some(l) => {
             if let Some(enabled) = req.enabled { l.enabled = enabled; }
             if let Some(name) = req.name { l.name = name; }
@@ -3984,7 +3999,7 @@ async fn links_update(
             if let Some(key) = req.api_key { l.api_key = Some(key); }
             let snapshot = links.clone();
             drop(links);
-            let _ = crate::federation::links::save_links(&snapshot);
+            save_links_vec(&snapshot).await;
             Json(serde_json::json!({ "ok": true, "updated": id })).into_response()
         }
         None => {
@@ -4010,7 +4025,7 @@ async fn links_test(
     Path(id): Path<String>,
 ) -> impl IntoResponse {
     let links = state.links.read().await;
-    let link = links.iter().find(|l| l.id.as_deref() == Some(id.as_str())).cloned();
+    let link = links.iter().find(|l| l.name == id).cloned();
     drop(links);
 
     match link {
