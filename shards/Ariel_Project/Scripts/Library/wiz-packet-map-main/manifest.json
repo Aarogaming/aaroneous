@@ -1,8 +1,0 @@
-{
-  "name": "wiz packet map",
-  "description": "Packet map tools (external). Opens folder.",
-  "entryPoint": "run.bat",
-  "arguments": "",
-  "requiredResolution": "",
-  "requiredTemplates": []
-}

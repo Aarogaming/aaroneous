@@ -1,8 +1,0 @@
-{
-  "name": "Wizard101 Utilities",
-  "description": "Utility scripts/tools (Wizard101-Utilities-master). Opens repo folder/README.",
-  "entryPoint": "run.bat",
-  "arguments": "",
-  "requiredResolution": "",
-  "requiredTemplates": []
-}

@@ -1,8 +1,0 @@
-{
-  "name": "GrubNinja",
-  "description": "GrubNinja utilities (external). Opens folder.",
-  "entryPoint": "run.bat",
-  "arguments": "",
-  "requiredResolution": "",
-  "requiredTemplates": []
-}

@@ -1,8 +1,0 @@
-{
-  "name": "wizwalker",
-  "description": "Wizard101 scripting API (wizwalker-master, Python). Opens repo folder/README.",
-  "entryPoint": "run.bat",
-  "arguments": "",
-  "requiredResolution": "",
-  "requiredTemplates": []
-}

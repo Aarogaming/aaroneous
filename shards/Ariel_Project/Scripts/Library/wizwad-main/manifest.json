@@ -1,8 +1,0 @@
-{
-  "name": "wizwad",
-  "description": "wizwad tools (external). Opens folder.",
-  "entryPoint": "run.bat",
-  "arguments": "",
-  "requiredResolution": "",
-  "requiredTemplates": []
-}

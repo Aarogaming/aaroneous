@@ -1,8 +1,0 @@
-{
-  "name": "Gardening Bot",
-  "description": "Gardening bot (bridged) via snapshot/input bridges.",
-  "entryPoint": "run.bat",
-  "arguments": "",
-  "requiredResolution": "",
-  "requiredTemplates": []
-}

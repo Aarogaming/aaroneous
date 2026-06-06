@@ -1,4 +1,0 @@
-[
-  { "type": "click", "x": 500, "y": 400, "delayMs": 0 },
-  { "type": "key_press", "key": "SPACE", "delayMs": 200 }
-]

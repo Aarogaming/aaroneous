@@ -1,8 +1,0 @@
-{
-  "name": "WizWikiAPI",
-  "description": "WizWikiAPI tools (external). Opens folder.",
-  "entryPoint": "run.bat",
-  "arguments": "",
-  "requiredResolution": "",
-  "requiredTemplates": []
-}
