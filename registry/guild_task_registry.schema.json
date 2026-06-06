@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aas.local/registry/guild_task_registry.schema.json",
+  "title": "AAS Guild Task Registry",
+  "description": "Task registry for multi-agent coordination. Derived from AAS_Suite_3 guild pattern.",
+  "type": "object",
+  "required": ["version", "tasks"],
+  "properties": {
+    "version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "last_updated": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "tasks": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["id", "priority", "title", "status", "created", "updated"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[A-Z]+-[0-9]+$"
+          },
+          "priority": {
+            "type": "string",
+            "enum": ["Critical", "High", "Medium", "Low"]
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1
+          },
+          "status": {
+            "type": "string",
+            "enum": ["queued", "In Progress", "Done", "Blocked", "Cancelled"]
+          },
+          "assignee": {
+            "type": ["string", "null"],
+            "minLength": 1
+          },
+          "dependencies": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[A-Z]+-[0-9]+$"
+            }
+          },
+          "capabilities_required": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "created": {
+            "type": "string",
+            "format": "date"
+          },
+          "updated": {
+            "type": "string",
+            "format": "date"
+          },
+          "metadata": {
+            "type": "object"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "statistics": {
+      "type": "object",
+      "properties": {
+        "total_tasks": { "type": "integer" },
+        "completed": { "type": "integer" },
+        "in_progress": { "type": "integer" },
+        "queued": { "type": "integer" },
+        "agents_active": { "type": "integer" }
+      }
+    }
+  },
+  "additionalProperties": false
+}

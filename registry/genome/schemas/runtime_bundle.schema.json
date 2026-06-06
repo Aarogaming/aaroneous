@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aas.local/genome/schemas/runtime_bundle.schema.json",
+  "title": "AAS Runtime Bundle",
+  "description": "Bundle of runtime artifacts needed to execute an agent.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "agent_id",
+    "genome",
+    "epigenetics",
+    "memory_model",
+    "model_path"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "pattern": "^1\\.[0-9]+$"
+    },
+    "agent_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "genome": {
+      "type": "string",
+      "description": "Path to identity genome JSON"
+    },
+    "epigenetics": {
+      "type": "string",
+      "description": "Path to epigenetic profile JSON"
+    },
+    "memory_model": {
+      "type": "string",
+      "description": "Path to memory model JSON"
+    },
+    "model_path": {
+      "type": "string",
+      "description": "Path to GGUF model file"
+    },
+    "plugins": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "capabilities": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  },
+  "additionalProperties": false
+}

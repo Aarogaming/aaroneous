@@ -11,6 +11,7 @@ num-traits = "0.2"
 candle-core = "0.8"
 rkyv = { version = "0.7", features = ["validation"] }
 anyhow = "1.0"
+burn-wgpu = "0.21.0"
 
 [features]
 simd = []
