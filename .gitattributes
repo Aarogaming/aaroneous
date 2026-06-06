@@ -1,3 +1,52 @@
+# Normalize line endings to LF in repository; check out with native EOL on Windows
+* text=auto
+
+# Explicit text files (commit LF, checkout LF — no platform conversion)
+*.rs       text eol=lf
+*.toml     text eol=lf
+*.lock     text eol=lf
+*.json     text eol=lf
+*.md       text eol=lf
+*.txt      text eol=lf
+*.yml      text eol=lf
+*.yaml     text eol=lf
+*.py       text eol=lf
+*.sh       text eol=lf
+*.wit      text eol=lf
+*.gitignore   text eol=lf
+*.gitattributes text eol=lf
+
+# Windows-only scripts keep CRLF
+*.ps1      text eol=crlf
+*.psm1     text eol=crlf
+*.psd1     text eol=crlf
+*.bat      text eol=crlf
+*.cmd      text eol=crlf
+
+# Explicit binaries (do not modify)
+*.png      binary
+*.jpg      binary
+*.jpeg     binary
+*.gif      binary
+*.ico      binary
+*.pdf      binary
+*.wasm     binary
+*.dll      binary
+*.exe      binary
+*.so       binary
+*.dylib    binary
+*.gguf     binary
+*.safetensors binary
+*.bin      binary
+*.pt       binary
+*.pth      binary
+*.onnx     binary
+*.db       binary
+*.sqlite   binary
+*.zip      binary
+*.tar.gz   binary
+*.tgz      binary
+
 # LFS rules for files that are actually committed to the repo
 # Currently: none (all large binaries are .gitignore'd)
 # Uncomment below when you need to track specific large files:

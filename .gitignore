@@ -117,3 +117,6 @@ scripts/*.txt
 
 # Local opencode session/agent state
 .opencode/
+
+# Local model library (very large GGUF/safetensors; not externalized to LFS)
+genetics/
