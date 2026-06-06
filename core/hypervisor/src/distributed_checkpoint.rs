@@ -361,10 +361,10 @@ mod tests {
 
     #[test]
     fn test_checkpoint_interval() {
-        let manager = DistributedCheckpointManager::new("node_1", vec![], 5);
-        
+        let mut manager = DistributedCheckpointManager::new("node_1", vec![], 5);
+
         assert!(manager.should_checkpoint());
-        
+
         // After setting time, should not checkpoint immediately
         let _ = manager.finalize_checkpoint();  // Would set time in real impl
     }

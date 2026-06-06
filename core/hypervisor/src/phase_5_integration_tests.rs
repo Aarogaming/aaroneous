@@ -15,12 +15,12 @@ mod phase_5_biological_integration_tests {
         assert_eq!(bio.expression_rate, 1.0);
         assert_eq!(bio.throttle_state, ThrottleState::Normal);
         
-        // Warm (85°C range) - 0.7x throttle
+        // Warm (85Ã‚Â°C range) - 0.7x throttle
         bio.set_expression_rate(0.7);
         assert_eq!(bio.expression_rate, 0.7);
         assert_eq!(bio.throttle_state, ThrottleState::Metabolic);
         
-        // Critical (>95°C) - 0.5x throttle (dormant)
+        // Critical (>95Ã‚Â°C) - 0.5x throttle (dormant)
         bio.set_expression_rate(0.5);
         assert_eq!(bio.expression_rate, 0.5);
         assert_eq!(bio.throttle_state, ThrottleState::Dormant);
@@ -74,7 +74,7 @@ mod phase_5_biological_integration_tests {
         bio.register_specialist("spec_a", 100);
         
         // Consume all tokens
-        let meta = &mut bio.specialist_metabolism["spec_a"];
+        let meta = bio.specialist_metabolism.get_mut("spec_a").unwrap();
         meta.tokens = 0.0;
         
         // Should not be able to execute
@@ -91,12 +91,12 @@ mod phase_5_biological_integration_tests {
         let mut meta_a = bio.specialist_metabolism["spec_a"].clone();
         let mut meta_b = bio.specialist_metabolism["spec_b"].clone();
         
-        // Spec A: positive dopamine (success) → increase ambition
+        // Spec A: positive dopamine (success) Ã¢â€ â€™ increase ambition
         meta_a.ambition = 0.5;
         meta_a.ambition = (meta_a.ambition + 0.1).min(1.0);
         assert!(meta_a.ambition > 0.5);
         
-        // Spec B: negative dopamine (failure) → increase strictness
+        // Spec B: negative dopamine (failure) Ã¢â€ â€™ increase strictness
         meta_b.strictness = 0.5;
         meta_b.strictness = (meta_b.strictness + 0.15).min(1.0);
         assert!(meta_b.strictness > 0.5);
@@ -110,16 +110,16 @@ mod phase_5_biological_integration_tests {
         bio.register_specialist("spec_cautious", 100);
         
         // Aggressive specialist: high ambition, low strictness
-        bio.specialist_metabolism["spec_aggressive"].ambition = 0.9;
-        bio.specialist_metabolism["spec_aggressive"].strictness = 0.1;
+        bio.specialist_metabolism.get_mut("spec_aggressive").unwrap().ambition = 0.9;
+        bio.specialist_metabolism.get_mut("spec_aggressive").unwrap().strictness = 0.1;
         
         let bias_agg = bio.calculate_execution_bias("spec_aggressive");
         assert!(bias_agg.exploration_rate > 0.7);
         assert!(bias_agg.risk_threshold > 0.5);
         
         // Cautious specialist: low ambition, high strictness
-        bio.specialist_metabolism["spec_cautious"].ambition = 0.1;
-        bio.specialist_metabolism["spec_cautious"].strictness = 0.9;
+        bio.specialist_metabolism.get_mut("spec_cautious").unwrap().ambition = 0.1;
+        bio.specialist_metabolism.get_mut("spec_cautious").unwrap().strictness = 0.9;
         
         let bias_cau = bio.calculate_execution_bias("spec_cautious");
         assert!(bias_cau.exploration_rate < 0.5);
@@ -134,11 +134,11 @@ mod phase_5_biological_integration_tests {
         // Start at normal
         assert_eq!(bio.throttle_state, ThrottleState::Normal);
         
-        // Low expression rate → metabolic
+        // Low expression rate Ã¢â€ â€™ metabolic
         bio.set_expression_rate(0.6);
         assert_eq!(bio.throttle_state, ThrottleState::Metabolic);
         
-        // Very low → dormant
+        // Very low Ã¢â€ â€™ dormant
         bio.set_expression_rate(0.2);
         assert_eq!(bio.throttle_state, ThrottleState::Dormant);
         
@@ -195,15 +195,15 @@ mod phase_5_biological_integration_tests {
         let mut bio = SystemBiology::new();
         bio.register_specialist("specialist_1", 100);
         
-        // Phase 5.1: Thermal → expression_rate
+        // Phase 5.1: Thermal Ã¢â€ â€™ expression_rate
         println!("Phase 5.1: Applying thermal throttle (0.7x)");
         bio.set_expression_rate(0.7);
         assert_eq!(bio.throttle_state, ThrottleState::Metabolic);
         
-        // Phase 5.2: Dopamine → ambition/strictness (simulate)
+        // Phase 5.2: Dopamine Ã¢â€ â€™ ambition/strictness (simulate)
         println!("Phase 5.2: Applying dopamine reward");
-        bio.specialist_metabolism["specialist_1"].ambition = 0.7;
-        bio.specialist_metabolism["specialist_1"].strictness = 0.4;
+        bio.specialist_metabolism.get_mut("specialist_1").unwrap().ambition = 0.7;
+        bio.specialist_metabolism.get_mut("specialist_1").unwrap().strictness = 0.4;
         
         // Recalc execution bias
         let bias = bio.calculate_execution_bias("specialist_1");
@@ -223,27 +223,27 @@ mod phase_5_biological_integration_tests {
         // Phase 5.4: Monitor throttle state
         println!("Phase 5.4: Monitoring throttle state");
         match bio.throttle_state {
-            ThrottleState::Normal => println!("  → Normal operation"),
-            ThrottleState::Metabolic => println!("  → Metabolic mode (reduced capacity)"),
-            ThrottleState::Dormant => println!("  → Emergency mode"),
+            ThrottleState::Normal => println!("  Ã¢â€ â€™ Normal operation"),
+            ThrottleState::Metabolic => println!("  Ã¢â€ â€™ Metabolic mode (reduced capacity)"),
+            ThrottleState::Dormant => println!("  Ã¢â€ â€™ Emergency mode"),
         }
         
-        println!("✓ Complete Phase 5 workflow successful");
+        println!("Ã¢Å“â€œ Complete Phase 5 workflow successful");
     }
 }
 
 // Summary of Phase 5 Integration Tests:
 // =======================================
-// Test 1: Thermal → Expression Rate ✓
-// Test 2: Token Regeneration Scaling ✓
-// Test 3: Token Consumption ✓
-// Test 4: Token Availability Check ✓
-// Test 5: Dopamine → Metabolism ✓
-// Test 6: Execution Bias Calculation ✓
-// Test 7: Throttle State Transitions ✓
-// Test 8: Multi-Specialist Management ✓
-// Test 9: Thermal Affects Regen ✓
-// Test 10: Complete Workflow ✓
+// Test 1: Thermal Ã¢â€ â€™ Expression Rate Ã¢Å“â€œ
+// Test 2: Token Regeneration Scaling Ã¢Å“â€œ
+// Test 3: Token Consumption Ã¢Å“â€œ
+// Test 4: Token Availability Check Ã¢Å“â€œ
+// Test 5: Dopamine Ã¢â€ â€™ Metabolism Ã¢Å“â€œ
+// Test 6: Execution Bias Calculation Ã¢Å“â€œ
+// Test 7: Throttle State Transitions Ã¢Å“â€œ
+// Test 8: Multi-Specialist Management Ã¢Å“â€œ
+// Test 9: Thermal Affects Regen Ã¢Å“â€œ
+// Test 10: Complete Workflow Ã¢Å“â€œ
 //
 // Coverage: 10/10 tests
 // Status: READY FOR TESTING

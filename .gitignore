@@ -69,6 +69,7 @@ exports/
 secrets.yml
 secrets.yaml
 secrets.json
+links_registry.json
 terraform.tfvars
 *.tfvars
 *.tfstate
