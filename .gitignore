@@ -76,23 +76,6 @@ terraform.tfvars
 
 # Nested git repositories (sub-projects)
 **/.git/
-shards/Ariel_legacy/
-shards/Odin_legacy/
-shards/Merlin_legacy/
-shards/Kami_legacy/
-shards/Hermes_legacy/
-shards/Wen_legacy/
-shards/Argus_legacy/
-shards/AAS_Suite_3/
-shards/Odin/
-shards/Merlin/
-shards/Kami/
-shards/Hermes/
-shards/Wen/
-shards/Argus/
-shards/Dionysus/
-shards/Hephaestus/
-shards/Ariel/
 
 # Node modules
 node_modules/
@@ -107,22 +90,13 @@ __pycache__/
 *.wasm
 data/sabs/
 
-# Triage directory - scraped web content and build artifacts (641MB)
-triage/
-
 # Nested git repositories in source materials
-shards/source_materials/
-shards/AAS_Suite_2/
 AAS/
 monitoring/
 
 # Orphaned legacy src directory (code moved to core/ and components/)
 src/
 !core/hypervisor/src/
-
-# Shards directory - legacy sovereign agent packages
-# To be processed and used as inspiration for building the system
-shards/
 
 # Synapse shared memory files
 *.synapse
@@ -140,3 +114,6 @@ config/*.toml
 scripts/*.zip
 scripts/*.log
 scripts/*.txt
+
+# Local opencode session/agent state
+.opencode/
