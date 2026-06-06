@@ -22,7 +22,7 @@ use serde::{Deserialize, Serialize};
 
 /// Unified system state.
 /// Single state vector that all components operate on.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UnifiedSystemState {
     // Thermodynamics
     pub free_energy: f64,
@@ -373,8 +373,8 @@ impl UnifiedLearningLoop {
     fn update_specialist_metabolism(&mut self, specialist_idx: usize, dopamine_reward: f32, confidence: f32) {
         // Increase metabolism (activation) for well-performing specialists
         if dopamine_reward > 0.2 {
-            self.biology.expression_rate = (self.biology.expression_rate + (dopamine_reward as f64 * 0.1))
-                .min(2.0);
+            self.biology.expression_rate = (self.biology.expression_rate + (dopamine_reward as f64 * 0.1) as f32)
+                .min(2.0_f32);
         }
         
         // Decrease metabolism for poorly-performing specialists
@@ -428,7 +428,7 @@ impl UnifiedLearningLoop {
             tensor_router_weights: self.tensor_router.weights.weights.clone(),
             learning_rate: self.config.learning_rate,
             predictive_coding_layers: self.predictive_coding.layers.len(),
-            biology_expression_rate: self.biology.expression_rate,
+            biology_expression_rate: self.biology.expression_rate as f64,
             system_state: self.system_state.clone(),
         }
     }

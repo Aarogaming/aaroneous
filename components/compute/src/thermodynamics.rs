@@ -152,7 +152,7 @@ impl PhaseTransitionDetector {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum SystemPhase {
     Ordered,      // Stable, exploitative
     Mixed,        // Transitional

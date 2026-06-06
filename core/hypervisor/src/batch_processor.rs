@@ -12,6 +12,7 @@ pub struct BatchedTask {
     pub features: Vec<f64>,
     pub specialist_id: String,
     pub priority: u32,
+    #[serde(skip, default = "Instant::now")]
     pub timestamp: Instant,
 }
 

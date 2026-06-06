@@ -194,8 +194,8 @@ impl RealTimeDashboard {
 
         // Check thresholds if alerts enabled
         if self.config.enable_alerts {
-            if let Some(threshold) = self.config.alert_thresholds.get(metric_name) {
-                self.check_threshold(metric_name, value, threshold);
+            if let Some(threshold) = self.config.alert_thresholds.get(metric_name).cloned() {
+                self.check_threshold(metric_name, value, &threshold);
             }
         }
     }

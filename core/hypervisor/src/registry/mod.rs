@@ -117,3 +117,34 @@ impl PhaseEra {
         Self::SixD
     }
 }
+
+impl std::fmt::Display for PhaseEra {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
+            Self::OneA => "1A",
+            Self::TwoB => "2B",
+            Self::ThreeC => "3C",
+            Self::FourD => "4D",
+            Self::FiveE => "5E",
+            Self::SixD => "6D",
+        };
+        write!(f, "Phase {}", s)
+    }
+}
+
+impl std::fmt::Display for RegistryType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
+            Self::Unified => "unified",
+            Self::FederationModel => "federation_model",
+            Self::FederationLinks => "federation_links",
+            Self::LLMModel => "llm_model",
+            Self::Component => "component",
+            Self::Specialist => "specialist",
+            Self::Chromosome => "chromosome",
+            Self::HoxCapability => "hox_capability",
+            Self::DistributedSpecialist => "distributed_specialist",
+        };
+        write!(f, "{}", s)
+    }
+}

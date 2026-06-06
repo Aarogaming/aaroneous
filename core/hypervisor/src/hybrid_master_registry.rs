@@ -57,9 +57,10 @@ impl MasterRegistry {
     }
 
     pub fn add_registry(&mut self, registry: Box<dyn SubRegistry>) {
+        let ty = registry.registry_type();
         self.sub_registries.push(registry);
         self.meta.total_registries = self.sub_registries.len();
-        info!("Added registry to master: {}", registry.registry_type());
+        info!("Added registry to master: {}", ty);
     }
     
     pub fn remove_registry(&mut self, ty: RegistryType) -> Option<Box<dyn SubRegistry>> {
@@ -249,7 +250,7 @@ impl RegistryCompositionStrategy {
     }
     
     pub fn with_hox_registry(mut self, registry: crate::hox_registry::HoxRegistry) -> Self {
-        let adapter = crate::registry_adapters::HoxCapabilityRegistryAdapter::new();
+        let adapter = crate::registry_adapters::HoxCapabilityRegistryAdapter::new(registry);
         self.adapters.push(Box::new(adapter));
         self
     }
