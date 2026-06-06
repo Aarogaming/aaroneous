@@ -199,6 +199,13 @@ pub mod registry;
 pub mod registry_adapters;
 pub mod task_analysis;
 
+// Resilience patterns: circuit breakers, retry policies, recovery
+pub mod resilience;
+pub use resilience::{
+    CircuitBreaker, CircuitBreakerConfig, CircuitBreakerError, CircuitState,
+    RetryPolicy, RetryError, with_retry, with_circuit_breaker,
+};
+
 // Phase 6 Expansion: Relativity, fluid dynamics, quantum surface
 pub mod relativity_engine;
 pub mod fluid_routing;
