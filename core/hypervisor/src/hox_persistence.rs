@@ -103,11 +103,12 @@ impl HoxPersistenceManager {
             return Err(anyhow!("Registry integrity check failed before save"));
         }
         
-        let filename = name.unwrap_or_else(|| {
-            &format!("snapshot_{}.json", snapshot.timestamp)
-        });
-        
-        let path = self.snapshot_dir.join(filename);
+        let filename: String = match name {
+            Some(n) => n.to_string(),
+            None => format!("snapshot_{}.json", snapshot.timestamp),
+        };
+
+        let path = self.snapshot_dir.join(&filename);
         
         let json = serde_json::to_string_pretty(&snapshot)?;
         fs::write(&path, json)?;

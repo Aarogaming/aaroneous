@@ -120,7 +120,7 @@ impl LinkRegistry {
 
     /// List all links.
     pub fn list(&self) -> Vec<Link> {
-        self.inner.list().into_iter().map(|e| e.data).collect()
+        self.inner.list().into_iter().map(|e| e.data.clone()).collect()
     }
 
     /// Remove a link by name.
@@ -163,7 +163,7 @@ pub fn save_links(registry: &LinkRegistry) -> anyhow::Result<()> {
     registry.save()
 }
 
-pub async fn start_link_dispatcher(links: LinkRegistry, rx: tokio::sync::broadcast::Receiver<serde_json::Value>) {
+pub async fn start_link_dispatcher(links: Vec<Link>, rx: tokio::sync::broadcast::Receiver<serde_json::Value>) {
     let _ = links;
     let _ = rx;
 }

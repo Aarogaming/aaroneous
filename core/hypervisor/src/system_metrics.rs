@@ -287,7 +287,7 @@ impl SystemMetricsCollector {
         let thermal = self.get_thermal_metrics();
         let gpu = self.get_gpu_metrics();
         
-        let mut pressure = 0.0;
+        let mut pressure: f64 = 0.0;
         
         // Thermal pressure (0-0.5)
         match thermal.cpu_status {
@@ -317,7 +317,7 @@ impl SystemMetricsCollector {
             pressure += 0.1;
         }
         
-        pressure.min(1.0)
+        pressure.min(1.0_f64)
     }
     
     /// Get recommended task deferral probability (0.0-1.0)

@@ -239,6 +239,20 @@ impl DiplomatEnzyme {
             .filter(|log| log.contains("accepted"))
             .count()
     }
+
+    /// Moderate a specialist-debate dialogue by advancing the active speaker
+    /// and nudging the consensus score toward the midpoint when the
+    /// conversation has stalled. Takes `&self` so it can be called on an
+    /// `Arc<DiplomatEnzyme>`; the negotiation log is intentionally not
+    /// mutated here (caller may log elsewhere).
+    pub fn moderate_dialogue(&self, dialogue: &mut crate::autonomic_loop::DialogueState) {
+        dialogue.turn_count = dialogue.turn_count.saturating_add(1);
+        // Simple moderation: if the debate has gone on too long, pull the
+        // consensus toward 50 (a reasonable default) so the system can move on.
+        if dialogue.turn_count > 10 && dialogue.consensus_score < 30 {
+            dialogue.consensus_score = 50;
+        }
+    }
 }
 
 // ============================================================================
@@ -290,16 +304,31 @@ impl SelfCorrectionEnzyme {
 
     pub fn analyze_error_patterns(&self) -> Vec<String> {
         let mut patterns = Vec::new();
-        
+
         if self.error_log.len() > 5 {
             patterns.push(format!("Error trend: {} errors detected", self.error_log.len()));
         }
-        
+
         if self.correction_effectiveness() > 0.8 {
             patterns.push("High correction effectiveness detected".to_string());
         }
-        
+
         patterns
+    }
+
+    /// Attempt to recalibrate system state when consensus is dangerously low.
+    /// Takes `&self` so it can be called on an `Arc<SelfCorrectionEnzyme>`;
+    /// the corrections counter is intentionally not incremented (caller may
+    /// log it elsewhere). Returns Ok with a summary string on success.
+    pub fn attempt_recalibration(
+        &self,
+        state: &mut crate::autonomic_loop::SynapseState,
+    ) -> anyhow::Result<String> {
+        state.integrity_score = (state.integrity_score + 5).min(100);
+        Ok(format!(
+            "Recalibrated at tick {} (consensus={}, integrity={})",
+            state.clock_tick, state.dialogue.consensus_score, state.integrity_score
+        ))
     }
 }
 

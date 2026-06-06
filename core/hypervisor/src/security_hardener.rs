@@ -91,7 +91,7 @@ impl InputValidator {
         }
 
         // Apply specific rules
-        if let Some(rule) = self.rules.get(field_name) {
+        let result = if let Some(rule) = self.rules.get(field_name) {
             self.validate_against_rule(value, rule)
         } else {
             ValidationResult {
@@ -99,11 +99,15 @@ impl InputValidator {
                 errors: Vec::new(),
                 warnings: vec!["No validation rule defined".to_string()],
             }
+        };
+        if !result.is_valid {
+            self.rejected_count += 1;
         }
+        result
     }
 
     /// Validate against specific rule
-    fn validate_against_rule(&mut self, value: &str, rule: &ValidationRule) -> ValidationResult {
+    fn validate_against_rule(&self, value: &str, rule: &ValidationRule) -> ValidationResult {
         let mut errors = Vec::new();
         let mut warnings = Vec::new();
 
@@ -132,7 +136,10 @@ impl InputValidator {
         }
 
         if !errors.is_empty() {
-            self.rejected_count += 1;
+            // rejected_count is incremented by the caller (validate) to
+            // avoid borrow conflicts between the held &ValidationRule and
+            // the &mut self this method previously required.
+            // The caller should increment self.rejected_count on errors.
         }
 
         ValidationResult {

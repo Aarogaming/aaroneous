@@ -145,13 +145,14 @@ impl EnzymeRunner {
     fn extract_from_memory(
         &self,
         store: &Store<EnzymeState>,
-        instance: &wasmtime::component::Instance,
+        _instance: &wasmtime::component::Instance,
     ) -> Result<Vec<u8>> {
-        let memory = instance
-            .get_memory(store, "memory")
-            .ok_or_else(|| anyhow!("No memory export found in WASM module"))?;
-
-        self.read_result_buffer(store, &memory)
+        // Component-model `Instance` does not expose `get_memory` directly.
+        // Real implementation would lift the linear memory from the
+        // component's WIT exports. For now, return an error so callers
+        // can degrade gracefully.
+        let _ = store;
+        Err(anyhow!("extract_from_memory: component-model memory access not yet wired"))
     }
 
     // FIX #1: NEW METHOD - Read result buffer from memory with size header
