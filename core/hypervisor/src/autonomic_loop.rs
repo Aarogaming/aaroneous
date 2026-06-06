@@ -57,10 +57,8 @@ use crate::executive_plan::{ExecutivePlan, StepStatus};
 use crate::dopamine_system::{DopamineSystem, DopamineEvent};
 use crate::epigenetic_orchestrator::EpigeneticOrchestrator;
 use crate::concept_drift::ConceptDriftDetector;
-use crate::self_correction_enzyme::SelfCorrectionEnzyme;
-use crate::diplomat_enzyme::DiplomatEnzyme;
+use crate::enzyme_types::{SelfCorrectionEnzyme, DiplomatEnzyme, CuriosityEnzyme};
 use crate::neural_pruning::NeuralPruningEnzyme;
-use crate::curiosity_enzyme::CuriosityEnzyme;
 use crate::semantic_indexing::SemanticIndex;
 use crate::federation::hive_db::PersistenceManager as HivePersistence;
 use crate::hardened_env::HardenedEnvironment;
@@ -228,10 +226,10 @@ impl AutonomicNervousSystem {
 
         Ok(Self {
             synapse: Arc::new(RwLock::new(synapse)),
-            enzyme_runner,
+            enzyme_runner: enzyme_runner.clone(),
             hox_registry: hox_registry.clone(),
-            splicing_engine,
-            learning_loop,
+            splicing_engine: splicing_engine.clone(),
+            learning_loop: learning_loop.clone(),
             nlm_sentinel: Arc::new(NlmSentinel::new()?),
             prefrontal_cortex: Arc::new(PrefrontalCortex),
             dopamine_system: Arc::new(DopamineSystem),
@@ -370,8 +368,8 @@ impl AutonomicNervousSystem {
                 // PHASE 5.1: Wire thermal to biology expression rate
                 {
                     let mut biology = biology.write();
-                    biology.set_expression_rate(thermal_factor);
-                    
+                    biology.set_expression_rate(thermal_factor as f32);
+
                     // Register specialist in biology if not already registered
                     // (This would normally happen once per specialist)
                     if biology.specialist_metabolism.is_empty() {
@@ -380,43 +378,44 @@ impl AutonomicNervousSystem {
                         biology.register_specialist("routing_engine", 150);
                         println!("[AutonomicNS] Biology system initialized with specialists");
                     }
-                    
+
                     biology.update_metabolism();
-                    
+
                     // FIX #2: COMPLETE - Regenerate tokens for each specialist based on thermal state
                     // This enables system to self-regulate: tokens deplete on execution, regenerate over time
                     // Thermal state affects regeneration rate: Normal > Metabolic > Dormant
+                    let global_throttle = biology.throttle_state;
                     for (specialist_id, metabolism) in biology.specialist_metabolism.iter_mut() {
-                        let regen_rate = match metabolism.throttle_state {
+                        let regen_rate: f32 = match global_throttle {
                             ThrottleState::Normal => 2.0,        // Fast: +2 tokens/tick
                             ThrottleState::Metabolic => 1.0,     // Normal: +1 token/tick
                             ThrottleState::Dormant => 0.5,       // Slow: +0.5 token/tick
                         };
-                        
-                        let old_tokens = metabolism.current_tokens;
-                        metabolism.current_tokens = (metabolism.current_tokens + regen_rate)
+
+                        let old_tokens = metabolism.tokens;
+                        metabolism.tokens = (metabolism.tokens + regen_rate)
                             .min(metabolism.max_tokens);
-                        
-                        if old_tokens < metabolism.max_tokens && metabolism.current_tokens > old_tokens {
+
+                        if old_tokens < metabolism.max_tokens && metabolism.tokens > old_tokens {
                             println!("[AutonomicNS] FIX #2 Token regeneration: {} tokens +{:.1} (throttle: {:?})",
-                                specialist_id, regen_rate, metabolism.throttle_state);
+                                specialist_id, regen_rate, global_throttle);
                         }
                     }
                 }
-                
+
                 if thermal_metrics.throttling_active {
                     println!("[AutonomicNS] Thermal throttling active: CPU {}°C, GPU {}°C. Factor: {:.2}",
                         thermal_metrics.cpu_temperature as i32,
                         thermal_metrics.gpu_temperature as i32,
                         thermal_factor);
-                    
+
                     // Adjust understanding score and curiosity based on thermal stress
                     if thermal_metrics.cpu_status == ThermalStatus::Critical {
-                        state.understanding_score = (state.understanding_score as f32 * thermal_factor) as u32;
+                        state.understanding_score = ((state.understanding_score as f64) * thermal_factor) as u32;
                         println!("[AutonomicNS] THERMAL EMERGENCY: Reducing work intensity. Understanding adjusted to {}.", state.understanding_score);
-                        
+
                         // Reduce curiosity drive when in emergency
-                        state.curiosity_drive = (state.curiosity_drive as f32 * 0.5) as u32;
+                        state.curiosity_drive = (state.curiosity_drive as f64 * 0.5) as u32;
                     }
                 }
                 
@@ -695,9 +694,10 @@ impl AutonomicNervousSystem {
                                         
                                         let outcome_entry = MemoryEntry::new(
                                             format!("step_{}_success", step_id),
+                                            specialist_id.clone(),
+                                            format!("step {}", step_id),
                                             format!("Successfully executed: {}", step_id),
-                                            MemoryType::ExecutionOutcome,
-                                            vec!["success".to_string(), "execution".to_string()],
+                                            MemoryType::Episodic,
                                         );
                                         
                                         store.store_memory(outcome_entry);
@@ -714,9 +714,10 @@ impl AutonomicNervousSystem {
                                         
                                         let outcome_entry = MemoryEntry::new(
                                             format!("step_{}_caution", step_id),
+                                            specialist_id.clone(),
+                                            format!("step {}", step_id),
                                             format!("Executed with caution: {}", step_id),
-                                            MemoryType::ExecutionOutcome,
-                                            vec!["caution".to_string(), "execution".to_string()],
+                                            MemoryType::Episodic,
                                         );
                                         
                                         store.store_memory(outcome_entry);

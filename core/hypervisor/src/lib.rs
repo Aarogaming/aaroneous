@@ -195,7 +195,9 @@ pub mod system_integrity;
 
 // Phase 6D: Hybrid Master Registry (WASM/Sentinel GuestOS Layer)
 pub mod hybrid_master_registry;
+pub mod registry;
 pub mod registry_adapters;
+pub mod task_analysis;
 
 // Phase 6 Expansion: Relativity, fluid dynamics, quantum surface
 pub mod relativity_engine;

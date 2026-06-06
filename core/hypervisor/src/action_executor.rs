@@ -5,7 +5,8 @@ use std::path::{Path, PathBuf};
 use std::fs;
 use serde::{Serialize, Deserialize};
 use anyhow::{Result as AnyhowResult, Context, Error, anyhow};
-use wasmtime::{Engine, Module, Instance, Config, Store, Value, MemoryType, LinearMemory, Component, FuncType, Linker, GlobalType, ValType, Export, Func, Memory, Type, TypedFunc, I32, F64, ExportName, FuncEnv, f64::Val as F64Val, i32::Val as I32Val};
+use wasmtime::{Engine, Config, Store};
+use wasmtime::component::{Component, Instance as ComponentInstance};
 use crate::decision_engine::{Action, TaskEvaluation};
 use biology::SystemBiology;
 use crate::constellation_ui::{ConstellationCanvas, NodeMetrics};
@@ -15,7 +16,41 @@ struct WasmEnzymeContext {
     engine: Engine,
     store: Store<()>,
     component: Component,
-    instance: Instance,
+    instance: ComponentInstance,
+}
+
+impl WasmEnzymeContext {
+    /// Load a `.wasm` (component model) file from disk into a new context.
+    /// Returns an error string for any failure (caller wraps into ActionResult).
+    fn from_binary(path: PathBuf, _input_data: &[u8]) -> Result<Self, String> {
+        let mut config = Config::new();
+        config.wasm_component_model(true);
+        let engine = Engine::new(&config).map_err(|e| format!("Engine init failed: {}", e))?;
+        let component = Component::from_file(&engine, &path)
+            .map_err(|e| format!("Component load failed: {}", e))?;
+        let mut store = Store::new(&engine, ());
+        let linker = wasmtime::component::Linker::new(&engine);
+        let instance = linker
+            .instantiate(&mut store, &component)
+            .map_err(|e| format!("Instantiate failed: {}", e))?;
+        Ok(Self { engine, store, component, instance })
+    }
+
+    /// Locate a function to invoke by convention. Returns the export name.
+    /// Stub: returns None because component-model exports cannot be enumerated
+    /// with the same API as core-wasm modules. The caller's `if let Some(...)`
+    /// branch will skip invocation and report "no execution function found".
+    fn find_execution_function(&self) -> Option<String> {
+        None
+    }
+
+    /// Execute the named function. Stub: returns an error so callers can degrade gracefully.
+    fn execute_with_input(&mut self, func_name: &str) -> Result<Vec<u8>, String> {
+        Err(format!(
+            "WasmEnzymeContext::execute_with_input is a stub; cannot invoke '{}'",
+            func_name
+        ))
+    }
 }
 
 /// Types of actions the executor can perform
@@ -178,7 +213,7 @@ impl ActionExecutor {
                 // Find the execution function (convention-based)
                 if let Some(func_name) = context.find_execution_function() {
                     // Execute with typed arguments
-                    match context.execute_with_input(&mut context.store, &func_name) {
+                    match context.execute_with_input(&func_name) {
                         Ok(output_data) => {
                             ActionResult {
                                 action_type: "spawn_wasm".to_string(),
@@ -186,7 +221,7 @@ impl ActionExecutor {
                                 duration_ms: 0.0,
                                 message: format!("WASM enzyme executed successfully: {}", func_name),
                                 metadata: serde_json::json!({
-                                    "path": context.component.name().unwrap_or("unnamed").as_str(),
+                                    "path": "unnamed",
                                     "input_size": input_data.len(),
                                     "output_size": output_data.len(),
                                     "function_found": func_name,
@@ -200,7 +235,7 @@ impl ActionExecutor {
                                 duration_ms: 0.0,
                                 message: format!("WASM execution failed: {}", e),
                                 metadata: serde_json::json!({
-                                    "path": context.component.name().unwrap_or("unnamed").as_str(),
+                                    "path": "unnamed",
                                     "input_size": input_data.len(),
                                     "error": e.to_string(),
                                 }),
@@ -214,7 +249,7 @@ impl ActionExecutor {
                         duration_ms: 0.0,
                         message: "No execution function found in WASM binary".to_string(),
                         metadata: serde_json::json!({
-                            "path": context.component.name().unwrap_or("unnamed").as_str(),
+                            "path": "unnamed",
                             "exports_available": true,
                         }),
                     }

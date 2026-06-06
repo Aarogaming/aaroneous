@@ -251,7 +251,7 @@ impl DistributedCheckpointManager {
             failed_checkpoints: 0,
             total_data_stored: total_size,
             average_checkpoint_size: avg_size,
-            current_epoch,
+            current_epoch: self.current_epoch,
         }
     }
 }
