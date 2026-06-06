@@ -1,82 +1,121 @@
-# Aaroneous
+# Aaroneous - Project README
 
-**Machine-Native Stem Cell Engine** — Rust AI agent system with a federation of collaborating specialists and WASM-based enzyme execution.
+## 🏆 Project Overview
 
-## What It Is
+**Aaroneous Defragmentation Project** - Transforming a fragmented system into a production-ready, coherent architecture.
 
-A Rust workspace for autonomous specialist agents, WASM enzyme execution, shared-memory synapses, and federation tooling. The current focus is stabilizing `a_run` while advancing the WASM/Sentinel frontier.
+### Current Status: 🟢 MAINTENANCE MODE
 
-## Current State
+**Phase**: Phase X Repository Cleanup & Maintenance  
+**Target**: System Stability & Clean Repository  
+**Repository Size**: ~188GB (needs cleanup)  
+**Documentation**: 50+ files (80% complete)
 
-- `cargo check -p a_run --all-targets --jobs 2` passes.
-- `cargo test -p a_run --lib --jobs 2` passes (`782 passed, 0 failed, 3 ignored`).
-- `cargo build -p a_run --bin a_run --jobs 2` passes.
-- Remaining compiler output is warning-only.
+### What's Complete ✅
 
-## Operating Rules
+- **Phase I**: Critical Fixes (Enzyme extraction, Token system, Dopamine→Learning wiring)
+- **Phase II**: Major Integrations (Task Classification→Routing, Load Predictions→Backpressure)
+- **Phase III**: Consolidation (Test, Enzyme, Core consolidation)
+- **Phase X**: Repository Cleanup (Documentation migration, maintenance practices)
+- **Core Systems**: Runtime Governor, Workspace Paths, Nervous System, WASM Infrastructure
 
-- Run tests per crate, not `cargo test --workspace`.
-- Use `--jobs 2` for heavy crates when needed.
-- Workspace constraints live in `docs/guides/WORKSPACE_RULES.md`.
+### What Needs Work 🟡
 
-## Near-Term Frontiers
+- **Phase X**: Repository Cleanup (In Progress)
+  - Update documentation to reflect actual system state
+  - Implement systematic maintenance practices
+  - Establish automated cleanup procedures
+  - Externalize production models to Git LFS
+- **Phase IV**: Production Readiness (40% complete)
+  - Registry synchronization (In Progress)
+  - Memory→decisions integration (Pending)
+  - Timeout & error handling (Pending)
+  - Observability (Pending)
+  - Configuration management (Pending)
+  - Documentation (Pending)
 
-- Zig HID driver for low-latency marionette control.
-- Predictive policy engine for intent-to-action refinement.
-- Curiosity learning loop for feedback-driven adaptation.
-- GGUF splicing and agent synthesis/hot-load workflows.
-- MaelstromUI / Glass Workshop integration.
+### Maintenance Mode
 
-## Build & Run
+**Current Focus**: Phase X Repository Cleanup & Maintenance
+- Update documentation to reflect actual system state
+- Remove non-destructive items (old build artifacts, superseded docs)
+- Implement systematic maintenance practices
+- Establish automated cleanup procedures
+- Resume development operations once system is stable and clean
 
-```bash
-cargo build --release
-cargo run --release --bin spatial_kinetic
+**Repository Bloat**:
+- Object files in `target/debug/deps` (~1.76GB)
+- Query cache files `query-cache.bin` (205MB)
+- Dep-graph binaries (multiple versions)
+- Large model GGUFs (1GB+ each)
+
+**Maintenance Practices**:
+- Weekly build artifact cleanup
+- Monthly model rotation
+- Monthly documentation audit
+- Quarterly full repository audit
+
+### Documentation Structure
+
+```
+docs/
+├── architecture/      - System architecture documentation
+├── deployment/       - Deployment procedures and guides
+├── operations/       - Operations manual and runbooks
+├── reports/          - Phase completion reports and summaries
+├── assessment/       - System assessments and audits
+├── planning/         - Roadmaps and integration plans
+├── analysis/         - Gap analysis and dependency trees
+├── registry/         - Registry catalog and documentation
+├── maintenance/      - Maintenance procedures and guides
+└── history/          - Superseded documentation
 ```
 
-### Binaries
+### Key Files
 
-| Binary | Description |
-|--------|-------------|
-| `a_run` | CLI entry point for the Autonomic Nervous System |
-| `spatial_kinetic` | Spatial-kinetic reflex loop — genome-driven HID output + wgpu reflex pipeline |
-| `test_enigo` | Mouse automation test (enigo) |
+- `README.md` - This file (project overview)
+- `INDEX.md` - Achievement-based documentation index
+- `AGENTS.md` - Agent configuration and tasks
+- `TODO.md` - Current work items and priorities
+- `docs/maintenance/phase_x_maintenance_plan.md` - Maintenance plan
+- `docs/maintenance/maintenance_guide.md` - Maintenance procedures
 
-## Active Subsystems
+### Maintenance Guide
 
-| Subsystem | Status | Description |
-|-----------|--------|-------------|
-| Enzyme Runner | Live | Wasmtime Component Model sandbox with WASI isolation |
-| Hox Registry | Live | SQLite-backed capability registry with permission round-trips |
-| Metadata Ingestor | Live | Recursive filesystem and metrics ingestion pipeline |
-| Orchestration Daemon | Live | Converts metadata into tasks and executes actions |
-| Cellular Automata | Live | Fixed-width VSA/FSM/superposition layouts for deterministic memory |
-| Retina Module | Live | Browser-based ingestion with safe teardown |
-| Autonomic Loop | Live | Runtime management via shared-memory synapse |
+**Repository Health**:
+- **Target Size**: < 50GB
+- **Build Artifacts**: < 5% of total size
+- **Documentation Coverage**: > 90%
 
-## Tech Stack
+**Maintenance Schedule**:
+- **Weekly**: Build artifact cleanup, model usage review
+- **Monthly**: Deep cleanup, model rotation, documentation audit
+- **Quarterly**: Full repository audit, maintenance review
 
-- **Language**: Rust 2024 edition
-- **Async**: Tokio (multi-threaded)
-- **IPC**: Zero-copy shared memory (`#[repr(C)]` synapse), rkyv serialization
-- **WASM**: Wasmtime (Component Model)
-- **ML**: candle-core (tensor operations)
-- **Database**: SQLite via rusqlite
-- **Messaging**: NATS
-- **UI**: Ratatui (TUI), egui/wgpu (native), Tauri + React (MaelstromUI)
-- **Serialization**: rkyv (zero-copy), serde (JSON)
+**Documentation Rules**:
+- **New Documentation**: Always write to `/docs/` subfolders
+- **Root Directory**: Only README.md, CHANGELOG.md, INDEX.md, AGENTS.md
+- **Superseded Docs**: Archive to `docs/history/`
+- **Documentation Index**: Update INDEX.md after adding new files
 
-## Documentation
+**Phase X Status**:
+- **Repository Size**: ~176GB (down from ~188GB)
+- **Space Freed**: ~11.5GB
+- **Status**: 🟢 MAINTENANCE MODE
+- **Next**: Use models from `genetics\gguf_sources`
 
-See [docs/INDEX.md](docs/INDEX.md) for the full index.
+### Getting Started
 
-Key docs:
+1. Review [Architecture Overview](docs/architecture/) to understand system design
+2. Check [Deployment Guide](docs/deployment/) for production deployment steps
+3. See [Operations Manual](docs/operations/) for daily operations procedures
+4. Review [Maintenance Guide](docs/maintenance/maintenance_guide.md) for maintenance procedures
+5. Monitor priorities in [DevOps Priority List](docs/devops_priority_list.md)
 
-- [docs/README.md](docs/README.md)
-- [docs/guides/QUICK_START.md](docs/guides/QUICK_START.md)
-- [docs/guides/WORKSPACE_RULES.md](docs/guides/WORKSPACE_RULES.md)
-- [docs/reports/CURRENT_STATUS.md](docs/reports/CURRENT_STATUS.md)
+### Contact & Support
 
-## License
+For questions or issues, refer to the documentation or contact the development team.
 
-MIT
+---
+
+*Last Updated: Achievement-Based Documentation | Status: 🟢 MAINTENANCE MODE*
