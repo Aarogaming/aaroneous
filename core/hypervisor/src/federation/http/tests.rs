@@ -11,6 +11,7 @@ mod tests {
     use crate::federation::specialist::{
         Decision, ResourceRequest, Specialist, SpecialistId,
     };
+    use crate::rate_limit::{TokenBucketConfig, TokenBucketLimiter};
     use axum::body::Body;
     use axum::http::{Request, StatusCode};
     use http_body_util::BodyExt;
@@ -302,5 +303,195 @@ mod tests {
             }
             Err(other) => panic!("unexpected error variant: {:?}", other),
         }
+    }
+
+    // =================================================================
+    // Rate-limit middleware
+    // =================================================================
+
+    /// Build an `AppState` whose `rate_limiter` is a fresh,
+    /// tightly-bucketed limiter. We can't use the default
+    /// config (burst=20, refill=10/s) because the unit tests
+    /// would race against the refill; instead we cap burst
+    /// and turn refill off.
+    fn state_with_tight_rate_limit(fed: Arc<Federation>, burst: f64) -> AppState {
+        let mut s = AppState::new(fed);
+        s.rate_limiter = Arc::new(TokenBucketLimiter::new(TokenBucketConfig {
+            burst,
+            // No refill so the bucket drains deterministically.
+            refill_per_second: 0.0,
+            // Long eviction so the test isn't at the mercy
+            // of a sweeper.
+            idle_eviction: None,
+        }));
+        s
+    }
+
+    /// Drive `path` through the router. Mirrors the helper at
+    /// line ~64 but with a custom `AppState` so we can swap the
+    /// rate limiter.
+    async fn get_with(
+        state: AppState,
+        path: &str,
+        auth: Option<&str>,
+    ) -> (StatusCode, axum::http::HeaderMap, Vec<u8>) {
+        let app = router(state);
+        let mut b = Request::builder().uri(path).body(Body::empty()).unwrap();
+        if let Some(t) = auth {
+            b = Request::builder()
+                .uri(path)
+                .header("authorization", format!("Bearer {t}"))
+                .body(Body::empty())
+                .unwrap();
+        }
+        let response = app.oneshot(b).await.expect("router oneshot");
+        let status = response.status();
+        let headers = response.headers().clone();
+        let body = response
+            .into_body()
+            .collect()
+            .await
+            .expect("collect body")
+            .to_bytes()
+            .to_vec();
+        (status, headers, body)
+    }
+
+    #[tokio::test]
+    async fn test_rate_limit_allows_under_burst() {
+        let fed = fresh_federation_with_all();
+        let state = state_with_tight_rate_limit(fed.clone(), 5.0);
+        // Five /status calls all permitted (auth disabled → IP key).
+        for _ in 0..5 {
+            let (status, headers, _) = get_with(state.clone(), "/status", None).await;
+            assert_eq!(status, StatusCode::OK);
+            assert!(
+                headers.contains_key("x-ratelimit-remaining"),
+                "expected x-ratelimit-remaining header on allow"
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn test_rate_limit_denies_over_burst() {
+        let fed = fresh_federation_with_all();
+        let state = state_with_tight_rate_limit(fed.clone(), 3.0);
+        // Burn the bucket: 3 allowed, 4th denied.
+        for _ in 0..3 {
+            let (status, _, _) = get_with(state.clone(), "/status", None).await;
+            assert_eq!(status, StatusCode::OK);
+        }
+        let (status, headers, body) = get_with(state.clone(), "/status", None).await;
+        assert_eq!(status, StatusCode::TOO_MANY_REQUESTS);
+        assert!(
+            headers.get("retry-after").is_some(),
+            "expected Retry-After header on 429"
+        );
+        assert_eq!(headers.get("x-ratelimit-remaining").unwrap(), "0");
+        let body_str = String::from_utf8_lossy(&body);
+        assert!(body_str.to_lowercase().contains("rate limit"));
+    }
+
+    #[tokio::test]
+    async fn test_rate_limit_bypass_endpoints_never_throttled() {
+        let fed = fresh_federation_with_all();
+        // Burst=1 so the *next* call would normally 429.
+        let state = state_with_tight_rate_limit(fed.clone(), 1.0);
+        // Burn the bucket on /status.
+        let (s, _, _) = get_with(state.clone(), "/status", None).await;
+        assert_eq!(s, StatusCode::OK);
+        // Bypass endpoints stay open forever.
+        for path in &["/healthz", "/readyz", "/health", "/live", "/metrics", "/version", "/v1/models"] {
+            for _ in 0..20 {
+                let (status, _, _) = get_with(state.clone(), path, None).await;
+                assert!(
+                    status == StatusCode::OK
+                        || status == StatusCode::SERVICE_UNAVAILABLE
+                        || status == StatusCode::NOT_FOUND,
+                    "bypass path {path} returned {status}"
+                );
+                assert!(
+                    !status.is_success() || status == StatusCode::OK
+                        || status == StatusCode::SERVICE_UNAVAILABLE
+                        || status == StatusCode::NOT_FOUND,
+                    "bypass path {path} returned {status}"
+                );
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn test_rate_limit_keys_are_isolated_by_auth() {
+        let fed = fresh_federation_with_all();
+        // Burst=1 per key. Two different bearer subjects.
+        let state = state_with_tight_rate_limit(fed.clone(), 1.0);
+        let (s_a, _, _) = get_with(state.clone(), "/status", Some("alice")).await;
+        assert_eq!(s_a, StatusCode::OK);
+        // Bob has his own bucket.
+        let (s_b, _, _) = get_with(state.clone(), "/status", Some("bob")).await;
+        assert_eq!(s_b, StatusCode::OK);
+        // Alice's second call is now denied.
+        let (s_a2, _, _) = get_with(state.clone(), "/status", Some("alice")).await;
+        assert_eq!(s_a2, StatusCode::TOO_MANY_REQUESTS);
+    }
+
+    #[tokio::test]
+    async fn test_rate_limit_real_tcp_burst_then_429() {
+        use super::super::server::HttpStatusServer;
+        let fed = fresh_federation_with_all();
+        // Spawn via the real path. The default config
+        // (burst=20) gives plenty of headroom; we hit
+        // /status 25 times in a tight loop from the same
+        // peer. The first 20 are 200; the rest are 429.
+        let server = HttpStatusServer::spawn("127.0.0.1:0".parse().unwrap(), fed)
+            .await
+            .expect("spawn server");
+        let local = server.local_addr();
+
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+        async fn one_call(addr: std::net::SocketAddr) -> (u16, Option<String>) {
+            let mut stream = tokio::net::TcpStream::connect(addr).await.unwrap();
+            stream
+                .write_all(
+                    b"GET /status HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n",
+                )
+                .await
+                .unwrap();
+            let mut response = Vec::new();
+            stream.read_to_end(&mut response).await.unwrap();
+            let s = String::from_utf8_lossy(&response).to_string();
+            // Status line: "HTTP/1.1 NNN ..." — extract NNN
+            let status = s
+                .split_whitespace()
+                .nth(1)
+                .and_then(|n| n.parse::<u16>().ok())
+                .unwrap_or(0);
+            let retry = s
+                .lines()
+                .find(|l| l.to_lowercase().starts_with("retry-after:"))
+                .map(|l| l.split(':').nth(1).unwrap_or("").trim().to_string());
+            (status, retry)
+        }
+
+        let mut saw_429 = false;
+        let mut saw_retry_after = false;
+        for _ in 0..25 {
+            let (status, retry) = one_call(local).await;
+            match status {
+                200 => {}
+                429 => {
+                    saw_429 = true;
+                    if retry.is_some() {
+                        saw_retry_after = true;
+                    }
+                }
+                other => panic!("unexpected status: {other}"),
+            }
+        }
+        assert!(saw_429, "expected at least one 429 in 25 calls under burst=20");
+        assert!(saw_retry_after, "429 response should include Retry-After");
+
+        server.shutdown().await.expect("shutdown");
     }
 }

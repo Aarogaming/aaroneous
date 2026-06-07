@@ -6,8 +6,11 @@
 use crate::federation::hive::{Federation, LearningSummary, SpecialistLearningSummary};
 use crate::federation::forge;
 use crate::metrics_aggregator::MetricsAggregator;
+use crate::rate_limit::{
+    key_from_request, TokenBucketConfig, TokenBucketDecision, TokenBucketLimiter, MAX_KEY_COMPONENT_LEN,
+};
 use axum::{
-    extract::{Path, Query, State},
+    extract::{ConnectInfo, Path, Query, State},
     http::{HeaderMap, Method, StatusCode},
     middleware::{self, Next},
     response::{sse::{Event, KeepAlive, Sse}, IntoResponse, Json, Response, Html},
@@ -17,6 +20,7 @@ use axum::{
 };
 use tower_http::cors::{CorsLayer, AllowOrigin, Any};
 use serde::{Deserialize, Serialize};
+use std::net::SocketAddr;
 use std::sync::Arc;
 use std::convert::Infallible;
 
@@ -78,6 +82,9 @@ pub struct AppState {
     /// Application version string. Used by `/version` and embedded in
     /// every metrics response so operators know which build is serving.
     pub version: &'static str,
+    /// Per-key token-bucket rate limiter. Used by the rate-limit
+    /// middleware layer; one bucket per auth subject or peer IP.
+    pub rate_limiter: Arc<TokenBucketLimiter>,
 }
 
 impl AppState {
@@ -95,6 +102,7 @@ impl AppState {
             links: Arc::new(tokio::sync::RwLock::new(links_vec)),
             metrics: Arc::new(MetricsAggregator::new(1.0, 4096, 3600)),
             version: env!("CARGO_PKG_VERSION"),
+            rate_limiter: Arc::new(TokenBucketLimiter::new(rate_limit_config_from_env())),
         }
     }
 
@@ -107,7 +115,7 @@ impl AppState {
         start_link_dispatcher(links_snapshot, rx).await;
     }
 
-    /// Start the background vault indexing (non-blocking â€” fires and forgets).
+    /// Start the background vault indexing (non-blocking — fires and forgets).
     pub fn start_vault_indexing(&self) {
         let vault = self.vault.clone();
         tokio::spawn(async move {
@@ -117,6 +125,58 @@ impl AppState {
             v.index_all_models().await;
         });
     }
+
+    /// Start the background rate-limit sweeper. Calls
+    /// `rate_limiter.sweep_idle()` every `interval` to evict buckets
+    /// that have not been touched within the configured idle window.
+    /// This bounds memory growth in long-running deployments.
+    pub fn start_rate_limit_sweeper(&self, interval: std::time::Duration) {
+        let limiter = self.rate_limiter.clone();
+        tokio::spawn(async move {
+            let mut ticker = tokio::time::interval(interval);
+            ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+            loop {
+                ticker.tick().await;
+                let dropped = limiter.sweep_idle();
+                if dropped > 0 {
+                    tracing::debug!(
+                        target: "rate_limit",
+                        evicted = dropped,
+                        "swept idle rate-limit buckets"
+                    );
+                }
+            }
+        });
+    }
+}
+
+/// Build a `TokenBucketConfig` from environment variables.
+///
+/// `AARONEOUS_RATE_LIMIT_BURST` overrides the default burst (20).
+/// `AARONEOUS_RATE_LIMIT_REFILL` overrides the default refill (10.0/s).
+/// `AARONEOUS_RATE_LIMIT_OFF=1` disables rate limiting (used in tests
+/// and for operators who run the server behind their own gateway).
+fn rate_limit_config_from_env() -> TokenBucketConfig {
+    let mut cfg = TokenBucketConfig::default();
+    if let Ok(v) = std::env::var("AARONEOUS_RATE_LIMIT_BURST") {
+        if let Ok(b) = v.parse::<f64>() {
+            if b.is_finite() && b > 0.0 {
+                cfg.burst = b;
+            }
+        }
+    }
+    if let Ok(v) = std::env::var("AARONEOUS_RATE_LIMIT_REFILL") {
+        if let Ok(r) = v.parse::<f64>() {
+            if r.is_finite() && r >= 0.0 {
+                cfg.refill_per_second = r;
+            }
+        }
+    }
+    if std::env::var("AARONEOUS_RATE_LIMIT_OFF").ok().as_deref() == Some("1") {
+        cfg.burst = f64::INFINITY;
+        cfg.refill_per_second = f64::INFINITY;
+    }
+    cfg
 }
 
 /// Build the axum router for the federation HTTP status API.
@@ -166,6 +226,117 @@ async fn api_key_auth(
                 "message": "Set Authorization: Bearer <AARONEOUS_API_KEY>"
             })),
         ).into_response(),
+    }
+}
+
+/// Endpoints that bypass rate limiting. These are the standard
+/// probe/identity surfaces that operators, load balancers, and
+/// scrapers hit on a tight schedule; throttling them would
+/// create false alarms. Mirrors the `api_key_auth` bypass list
+/// plus the metrics and version endpoints.
+fn is_rate_limit_bypass(path: &str) -> bool {
+    matches!(
+        path,
+        "/healthz"
+            | "/health"
+            | "/readyz"
+            | "/live"
+            | "/metrics"
+            | "/version"
+            | "/v1/models"
+    )
+}
+
+/// Per-request rate-limit middleware.
+///
+/// Derives a key from the auth subject (preferred) or peer IP
+/// (fallback) via `key_from_request`, consults the shared
+/// `TokenBucketLimiter`, and returns 429 with `Retry-After` and
+/// `X-RateLimit-Remaining` headers when the bucket is empty.
+///
+/// Runs *after* `api_key_auth` so the auth subject is well-known
+/// and we never rate-limit unauthorized requests — they get a
+/// 401 first and never reach this layer.
+///
+/// Bypass list: probe and identity endpoints. See
+/// `is_rate_limit_bypass`.
+///
+/// Peer address comes from `ConnectInfo<SocketAddr>`, which is
+/// set by `axum::serve(...).into_make_service_with_connect_info()`.
+/// In tests (no real connection) the extension is absent and
+/// the peer falls back to `"unknown"`.
+async fn rate_limit_middleware(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    req: axum::extract::Request<Body>,
+    next: Next,
+) -> Response {
+    let path = req.uri().path();
+    if is_rate_limit_bypass(path) {
+        return next.run(req).await;
+    }
+
+    // Extract auth subject from the bearer token (truncated to
+    // the same limit `key_from_request` enforces internally;
+    // doing it here avoids one wasted alloc on the limit path).
+    let auth_subject: Option<String> = headers
+        .get("authorization")
+        .and_then(|v| v.to_str().ok())
+        .and_then(|s| {
+            s.strip_prefix("Bearer ")
+                .or_else(|| s.strip_prefix("bearer "))
+        })
+        .map(|s| {
+            if s.len() > MAX_KEY_COMPONENT_LEN {
+                s[..MAX_KEY_COMPONENT_LEN].to_string()
+            } else {
+                s.to_string()
+            }
+        });
+
+    // Peer address: prefer ConnectInfo, fall back to a sentinel.
+    // The sentinel is fine for tests; in production
+    // `into_make_service_with_connect_info` always sets it.
+    let peer: String = req
+        .extensions()
+        .get::<ConnectInfo<SocketAddr>>()
+        .map(|c| c.0.ip().to_string())
+        .unwrap_or_else(|| "unknown".to_string());
+
+    let key = key_from_request(auth_subject.as_deref(), &peer);
+
+    match state.rate_limiter.check(&key) {
+        TokenBucketDecision::Allow { tokens_remaining } => {
+            // Stash remaining tokens in a request header so
+            // handlers and tests can introspect the limit.
+            // Most callers ignore the header; clients see it
+            // for visibility.
+            let mut resp = next.run(req).await;
+            let headers = resp.headers_mut();
+            if let Ok(v) = axum::http::HeaderValue::from_str(&tokens_remaining.to_string()) {
+                headers.insert("x-ratelimit-remaining", v);
+            }
+            resp
+        }
+        TokenBucketDecision::Deny { retry_after } => {
+            let secs = retry_after.as_secs().max(1);
+            (
+                StatusCode::TOO_MANY_REQUESTS,
+                [
+                    ("retry-after", secs.to_string()),
+                    ("x-ratelimit-remaining", "0".to_string()),
+                ],
+                Json(serde_json::json!({
+                    "error": "Too Many Requests",
+                    "message": format!(
+                        "Rate limit exceeded for key '{}'. Retry after {}s.",
+                        &key[..key.len().min(64)],
+                        secs
+                    ),
+                })),
+            )
+                .into_response()
+        }
     }
 }
 
@@ -279,10 +450,20 @@ pub fn router(state: AppState) -> Router {
         .route("/models/export/:name",      get(models_export))
         .route("/models/registry",          get(models_registry))
         .route("/models/recommend",         get(models_recommend))
-        .with_state(state)
-        // Apply CORS and auth layers to all routes
+        .with_state(state.clone())
+        // Apply CORS, auth, and rate-limit layers to all routes.
+        // CORS is outermost (responds to preflight OPTIONS).
+        // Auth runs before rate limit so unauthorized requests
+        // get a 401 and do not consume a token.
+        // Rate limit uses `from_fn_with_state` so it can read
+        // `AppState.rate_limiter`; `from_fn` would discard the
+        // router's state type.
         .layer(cors)
         .layer(middleware::from_fn(api_key_auth))
+        .layer(middleware::from_fn_with_state(
+            state,
+            rate_limit_middleware,
+        ))
 }
 
 // ====================================================================

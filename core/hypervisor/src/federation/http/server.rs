@@ -79,6 +79,9 @@ impl HttpStatusServer {
         tokio::spawn(async move {
             state_for_dispatcher.start_link_dispatcher().await;
         });
+        // Start the rate-limit sweeper (every minute). Idempotent
+        // task; only the spawned loop is left running.
+        state.start_rate_limit_sweeper(std::time::Duration::from_secs(60));
         let app = router(state);
         let shutdown_signal = Arc::new(Notify::new());
         let shutdown_signal_for_task = shutdown_signal.clone();
@@ -86,11 +89,17 @@ impl HttpStatusServer {
         let handle = tokio::spawn(async move {
             info!("Federation HTTP status server listening on {}", local_addr);
 
-            let serve_fut = axum::serve(listener, app)
-                .with_graceful_shutdown(async move {
-                    shutdown_signal_for_task.notified().await;
-                    info!("Federation HTTP server received shutdown signal");
-                });
+            // `into_make_service_with_connect_info` populates
+            // `ConnectInfo<SocketAddr>` on every request, which the
+            // rate-limit middleware uses to derive a per-IP key.
+            let serve_fut = axum::serve(
+                listener,
+                app.into_make_service_with_connect_info::<SocketAddr>(),
+            )
+            .with_graceful_shutdown(async move {
+                shutdown_signal_for_task.notified().await;
+                info!("Federation HTTP server received shutdown signal");
+            });
 
             if let Err(e) = serve_fut.await {
                 warn!("Federation HTTP server exited with error: {}", e);
