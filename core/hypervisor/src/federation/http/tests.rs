@@ -638,6 +638,22 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_metrics_breakers_endpoint_returns_json() {
+        // /metrics/breakers returns a JSON list (empty until
+        // production callers register breakers). The shape
+        // must be stable so dashboards can depend on it.
+        let fed = fresh_federation_with_all();
+        let state = AppState::new(fed.clone());
+        let (status, _, body) = get_with(state.clone(), "/metrics/breakers", None).await;
+        assert_eq!(status, StatusCode::OK);
+        let v: serde_json::Value =
+            serde_json::from_slice(&body).expect("valid JSON");
+        assert!(v.get("count").is_some());
+        assert!(v.get("breakers").is_some());
+        assert!(v["breakers"].is_array());
+    }
+
+    #[tokio::test]
     async fn test_rate_limit_real_tcp_burst_then_429() {
         use super::super::server::HttpStatusServer;
         let fed = fresh_federation_with_all();

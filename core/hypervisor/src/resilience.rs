@@ -116,6 +116,13 @@ pub struct CircuitBreaker {
     consecutive_successes: AtomicU64,
     opened_at_ms: AtomicU64, // millis since UNIX_EPOCH
     config: CircuitBreakerConfig,
+    /// Counters surfaced through `counters()` for the
+    /// /metrics endpoint. Each is a `u64` total since
+    /// the breaker was constructed.
+    calls_total: AtomicU64,
+    calls_rejected_total: AtomicU64,
+    trips_total: AtomicU64,
+    recoveries_total: AtomicU64,
 }
 
 impl CircuitBreaker {
@@ -126,6 +133,10 @@ impl CircuitBreaker {
             consecutive_successes: AtomicU64::new(0),
             opened_at_ms: AtomicU64::new(0),
             config,
+            calls_total: AtomicU64::new(0),
+            calls_rejected_total: AtomicU64::new(0),
+            trips_total: AtomicU64::new(0),
+            recoveries_total: AtomicU64::new(0),
         }
     }
 
@@ -166,8 +177,12 @@ impl CircuitBreaker {
         F: FnOnce() -> Result<T, E>,
         E: std::fmt::Display,
     {
+        self.calls_total.fetch_add(1, Ordering::SeqCst);
         match self.state() {
-            CircuitState::Open => Err(CircuitBreakerError::Open),
+            CircuitState::Open => {
+                self.calls_rejected_total.fetch_add(1, Ordering::SeqCst);
+                Err(CircuitBreakerError::Open)
+            }
             CircuitState::HalfOpen => {
                 // Allow the call through. If two threads both observe
                 // HalfOpen we accept the cost: at most one extra probe,
@@ -199,12 +214,23 @@ impl CircuitBreaker {
         // Any success closes a HalfOpen breaker immediately so the system
         // is not gated on `success_threshold` consecutive successes during
         // steady-state recovery.
-        let _ = self.state.compare_exchange(
-            CircuitState::HalfOpen.to_u8(),
-            CircuitState::Closed.to_u8(),
-            Ordering::SeqCst,
-            Ordering::SeqCst,
-        );
+        let was_half_open = self
+            .state
+            .compare_exchange(
+                CircuitState::HalfOpen.to_u8(),
+                CircuitState::Closed.to_u8(),
+                Ordering::SeqCst,
+                Ordering::SeqCst,
+            )
+            .is_ok();
+        if was_half_open {
+            self.recoveries_total.fetch_add(1, Ordering::SeqCst);
+            tracing::info!(
+                target: "circuit_breaker",
+                breaker = %self.config.name,
+                "circuit breaker recovered (HalfOpen -> Closed)"
+            );
+        }
         self.consecutive_failures.store(0, Ordering::SeqCst);
         self.consecutive_successes.fetch_add(1, Ordering::SeqCst);
     }
@@ -223,25 +249,39 @@ impl CircuitBreaker {
             )
             .is_ok();
         if was_half_open {
+            self.trips_total.fetch_add(1, Ordering::SeqCst);
             self.opened_at_ms.store(Self::now_ms(), Ordering::SeqCst);
             self.consecutive_failures.store(1, Ordering::SeqCst);
+            tracing::warn!(
+                target: "circuit_breaker",
+                breaker = %self.config.name,
+                "circuit breaker re-tripped (HalfOpen -> Open)"
+            );
             return;
         }
         if prev + 1 >= self.config.failure_threshold as u64
             && self.config.failure_threshold > 0
         {
-            let _ = self.state.compare_exchange(
-                CircuitState::Closed.to_u8(),
-                CircuitState::Open.to_u8(),
-                Ordering::SeqCst,
-                Ordering::SeqCst,
-            );
+            let tripped = self
+                .state
+                .compare_exchange(
+                    CircuitState::Closed.to_u8(),
+                    CircuitState::Open.to_u8(),
+                    Ordering::SeqCst,
+                    Ordering::SeqCst,
+                )
+                .is_ok();
+            if tripped {
+                self.trips_total.fetch_add(1, Ordering::SeqCst);
+            }
             self.opened_at_ms.store(Self::now_ms(), Ordering::SeqCst);
-            warn!(
-                breaker = %self.config.name,
-                failures = prev + 1,
-                "circuit breaker tripped"
-            );
+            if tripped {
+                warn!(
+                    breaker = %self.config.name,
+                    failures = prev + 1,
+                    "circuit breaker tripped"
+                );
+            }
         }
     }
 
@@ -255,8 +295,13 @@ impl CircuitBreaker {
     /// Force the breaker to the Open state. Useful for tests and for
     /// manually quarantining a downstream service.
     pub fn trip(&self) {
-        self.state
-            .store(CircuitState::Open.to_u8(), Ordering::SeqCst);
+        let was_open = self
+            .state
+            .swap(CircuitState::Open.to_u8(), Ordering::SeqCst)
+            == CircuitState::Open.to_u8();
+        if !was_open {
+            self.trips_total.fetch_add(1, Ordering::SeqCst);
+        }
         self.opened_at_ms.store(Self::now_ms(), Ordering::SeqCst);
     }
 
@@ -268,6 +313,28 @@ impl CircuitBreaker {
         self.consecutive_successes.store(0, Ordering::SeqCst);
         self.opened_at_ms.store(0, Ordering::SeqCst);
     }
+
+    /// Snapshot of the public counters. Returned as a
+    /// struct so /metrics can format them without
+    /// reaching into atomic internals.
+    pub fn counters(&self) -> CircuitBreakerCounters {
+        CircuitBreakerCounters {
+            calls_total: self.calls_total.load(Ordering::SeqCst),
+            calls_rejected_total: self.calls_rejected_total.load(Ordering::SeqCst),
+            trips_total: self.trips_total.load(Ordering::SeqCst),
+            recoveries_total: self.recoveries_total.load(Ordering::SeqCst),
+        }
+    }
+}
+
+/// Snapshot of a breaker's cumulative counters. Cloned
+/// cheaply; safe to read across threads.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct CircuitBreakerCounters {
+    pub calls_total: u64,
+    pub calls_rejected_total: u64,
+    pub trips_total: u64,
+    pub recoveries_total: u64,
 }
 
 /// Configuration for a `RetryPolicy`. Exponential backoff with optional
@@ -611,5 +678,61 @@ mod tests {
         );
         assert_eq!(result.unwrap(), 99);
         assert_eq!(counter.load(Ordering::SeqCst), 2);
+    }
+
+    #[test]
+    fn counters_track_calls_and_trips() {
+        // A breaker that trips after one failure: every call
+        // increments calls_total, the trip increments
+        // trips_total, and rejections increment
+        // calls_rejected_total.
+        let cb = CircuitBreaker::new(CircuitBreakerConfig {
+            name: "test".to_string(),
+            failure_threshold: 1,
+            open_duration: Duration::from_secs(60),
+            ..CircuitBreakerConfig::default()
+        });
+        // One failing call → trip.
+        let _ = cb.call(|| -> Result<(), &str> { Err("boom") });
+        let c = cb.counters();
+        assert_eq!(c.calls_total, 1);
+        assert_eq!(c.trips_total, 1);
+        assert_eq!(c.calls_rejected_total, 0);
+        assert_eq!(c.recoveries_total, 0);
+
+        // The breaker is now Open; the next call is rejected
+        // without invoking the closure.
+        let rejected = cb.call(|| -> Result<(), &str> { Ok(()) });
+        assert!(matches!(rejected, Err(CircuitBreakerError::Open)));
+        let c = cb.counters();
+        assert_eq!(c.calls_total, 2);
+        assert_eq!(c.calls_rejected_total, 1);
+        assert_eq!(c.trips_total, 1, "manual-trip is not from a failure");
+    }
+
+    #[test]
+    fn counters_track_recoveries() {
+        // Trip the breaker, then manually reset to Closed.
+        // `trip()` increments trips_total, `reset()` does not
+        // increment recoveries_total (recoveries are recorded
+        // only when the breaker self-recovers via HalfOpen
+        // success).
+        let cb = CircuitBreaker::new(CircuitBreakerConfig {
+            name: "test".to_string(),
+            failure_threshold: 1,
+            open_duration: Duration::from_millis(1),
+            ..CircuitBreakerConfig::default()
+        });
+        let _ = cb.call(|| -> Result<(), &str> { Err("boom") });
+        assert!(matches!(cb.state(), CircuitState::Open));
+        std::thread::sleep(Duration::from_millis(5));
+        // Next call: breaker is Open but cool-down has
+        // elapsed, so state() returns HalfOpen and the call
+        // goes through. A success transitions HalfOpen ->
+        // Closed and bumps recoveries_total.
+        let _ = cb.call(|| -> Result<(), &str> { Ok(()) });
+        let c = cb.counters();
+        assert_eq!(c.recoveries_total, 1, "HalfOpen -> Closed should record a recovery");
+        assert!(matches!(cb.state(), CircuitState::Closed));
     }
 }

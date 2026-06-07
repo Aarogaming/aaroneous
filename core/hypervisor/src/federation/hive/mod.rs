@@ -212,6 +212,21 @@ impl Federation {
         n
     }
 
+    /// Snapshot of every circuit breaker registered with
+    /// this federation. The HTTP `/metrics/breakers` endpoint
+    /// surfaces the list. The counters are cloned (cheaply)
+    /// so callers can read them without holding the breaker
+    /// itself.
+    ///
+    /// At present, no production caller registers a breaker
+    /// with the federation, so the snapshot is empty.
+    /// Future work in S2.x will populate this when the
+    /// resilience module is wired into the action executor
+    /// and the HTTP client.
+    pub fn circuit_breakers(&self) -> Vec<(String, crate::resilience::CircuitBreakerCounters)> {
+        Vec::new()
+    }
+
     /// Add a runtime-spawned `GenericSpecialist` to this federation.
     ///
     /// The specialist participates in `collect_proposals()` and `run_decision()`

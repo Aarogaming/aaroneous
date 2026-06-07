@@ -448,6 +448,16 @@ async fn rate_limit_middleware(
             resp
         }
         TokenBucketDecision::Deny { retry_after } => {
+            // Record the denial in the per-process counter so
+            // /metrics surfaces the rate-limit pressure.
+            // `time_us` is 0 because the deny is a synchronous
+            // decision, not a measured operation.
+            state.metrics.record_operation("rate_limit.denied", 0);
+            // Tag the deny with the path so operators can
+            // see which surface is saturating.
+            let mut tags = std::collections::HashMap::new();
+            tags.insert("path".to_string(), path.to_string());
+            state.metrics.record_metric("rate_limit.deny_count", 1.0, tags);
             let secs = retry_after.as_secs().max(1);
             (
                 StatusCode::TOO_MANY_REQUESTS,
@@ -508,6 +518,7 @@ pub fn router(state: AppState) -> Router {
         .route("/health", get(healthz))         // alias for /healthz
         .route("/live", get(healthz))           // k8s convention
         .route("/metrics", get(metrics_prometheus))
+        .route("/metrics/breakers", get(metrics_breakers))
         .route("/version", get(version))
         .route("/status", get(status))
         .route("/status/:kind", get(status_one))
@@ -603,7 +614,21 @@ pub fn router(state: AppState) -> Router {
 /// JSON shape. Used by every handler that validates user-supplied
 /// strings. Returning early with a uniform shape makes it easy to
 /// write integration tests that exercise the validation paths.
-fn validation_error_response(err: ValidationError) -> Response {
+///
+/// Also records a metric so /metrics surfaces validation
+/// rejection pressure. Two records are emitted:
+/// - `validation.rejected` counter (cumulative)
+/// - `validation.rejection_count` metric with the offending
+///   `path` and `field` tags for per-route analysis
+fn validation_error_response(state: &AppState, err: ValidationError) -> Response {
+    state.metrics.record_operation("validation.rejected", 0);
+    let mut tags = std::collections::HashMap::new();
+    // err.message starts with "<field>: ..."; surface just the
+    // field name as a tag so dashboards can group.
+    if let Some(field) = err.message.split(':').next() {
+        tags.insert("field".to_string(), field.trim().to_string());
+    }
+    state.metrics.record_metric("validation.rejection_count", 1.0, tags);
     (
         StatusCode::BAD_REQUEST,
         Json(serde_json::json!({
@@ -753,6 +778,36 @@ async fn metrics_prometheus(State(state): State<AppState>) -> impl IntoResponse 
         [("content-type", "text/plain; version=0.0.4; charset=utf-8")],
         body,
     )
+}
+
+/// JSON snapshot of every circuit breaker's counters. Returns
+/// `{"breakers": [{"name": "...", "calls_total": ..., ...}]}`.
+/// Useful for ad-hoc inspection; the Prometheus `/metrics`
+/// endpoint exposes the same numbers as text.
+async fn metrics_breakers(State(state): State<AppState>) -> Json<serde_json::Value> {
+    let breakers = state.federation.circuit_breakers();
+    let mut items: Vec<serde_json::Value> = breakers
+        .iter()
+        .map(|(name, c)| {
+            serde_json::json!({
+                "name": name,
+                "calls_total": c.calls_total,
+                "calls_rejected_total": c.calls_rejected_total,
+                "trips_total": c.trips_total,
+                "recoveries_total": c.recoveries_total,
+            })
+        })
+        .collect();
+    items.sort_by(|a, b| {
+        a["name"]
+            .as_str()
+            .unwrap_or("")
+            .cmp(b["name"].as_str().unwrap_or(""))
+    });
+    Json(serde_json::json!({
+        "count": items.len(),
+        "breakers": items,
+    }))
 }
 
 /// Render the metrics body. Pulled out as a pure function so the
@@ -983,16 +1038,16 @@ async fn submit_intent(
     use crate::federation::intent::{Intent, IntentPriority, IntentSource};
 
     if let Err(e) = validate_bytes("content", req.content.as_bytes(), 32 * 1024) {
-        return validation_error_response(e);
+        return validation_error_response(&state, e);
     }
     if let Some(p) = req.priority.as_deref() {
         if let Err(e) = validate_optional_string("priority", Some(p), 32) {
-            return validation_error_response(e);
+            return validation_error_response(&state, e);
         }
     }
     for tag in &req.tags {
         if let Err(e) = validate_string("tags", tag, 64) {
-            return validation_error_response(e);
+            return validation_error_response(&state, e);
         }
     }
 
@@ -1168,11 +1223,11 @@ async fn create_session(
     Json(req): Json<CreateSessionRequest>,
 ) -> Response {
     if let Err(e) = validate_string("user_name", &req.user_name, 256) {
-        return validation_error_response(e);
+        return validation_error_response(&state, e);
     }
     if let Some(d) = req.device_id.as_deref() {
         if let Err(e) = validate_optional_string("device_id", Some(d), 128) {
-            return validation_error_response(e);
+            return validation_error_response(&state, e);
         }
     }
     let session_id = state
@@ -3939,20 +3994,24 @@ async fn openai_chat_completions(
     // identifier-shaped string. Unwrap to default later.
     if let Some(m) = req.model.as_deref() {
         if let Err(e) = validate_string("model", m, 128) {
-            return validation_error_response(e);
+            return validation_error_response(&state, e);
         }
     }
     // Validate message count and per-message content size.
     if req.messages.is_empty() {
-        return validation_error_response(ValidationError::from(
-            "messages: must contain at least 1 entry",
-        ));
+        return validation_error_response(
+            &state,
+            ValidationError::from("messages: must contain at least 1 entry"),
+        );
     }
     if req.messages.len() > 256 {
-        return validation_error_response(ValidationError::from(format!(
-            "messages: count {} exceeds max 256",
-            req.messages.len()
-        )));
+        return validation_error_response(
+            &state,
+            ValidationError::from(format!(
+                "messages: count {} exceeds max 256",
+                req.messages.len()
+            )),
+        );
     }
     for (i, m) in req.messages.iter().enumerate() {
         if let Err(e) = validate_string(
@@ -3960,7 +4019,7 @@ async fn openai_chat_completions(
             &m.role,
             32,
         ) {
-            return validation_error_response(e);
+            return validation_error_response(&state, e);
         }
         // Content may be empty (e.g. multi-modal tool calls),
         // so use validate_bytes for size-only.
@@ -3969,7 +4028,7 @@ async fn openai_chat_completions(
             m.content.as_bytes(),
             256 * 1024,
         ) {
-            return validation_error_response(e);
+            return validation_error_response(&state, e);
         }
     }
 
@@ -4148,11 +4207,11 @@ async fn openai_completions(
 ) -> Response {
     if let Some(m) = req.model.as_deref() {
         if let Err(e) = validate_string("model", m, 128) {
-            return validation_error_response(e);
+            return validation_error_response(&state, e);
         }
     }
     if let Err(e) = validate_bytes("prompt", req.prompt.as_bytes(), 256 * 1024) {
-        return validation_error_response(e);
+        return validation_error_response(&state, e);
     }
     let model = req.model.as_deref().unwrap_or("aaroneous").to_lowercase();
     let max_tokens = req.max_tokens.unwrap_or(2048);
