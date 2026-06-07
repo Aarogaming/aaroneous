@@ -43,10 +43,10 @@
 | phase_4_deployment.md | docs/deployment/ | ✅ Complete | Production deployment strategy |
 | production_deployment_checklist.md | docs/deployment/ | ✅ Complete | 93/100 readiness checklist |
 | production_operations_guide.md | docs/operations/ | ✅ Complete | Operations guide for production |
-| phase_10_critical_integration.md | docs/consolidation/ | 🟡 In Progress | Registry sync and memory→decisions integration |
-| phase_11_config_observability.md | docs/deployment/ | ⏳ Pending | Configuration management and observability |
-| phase_12_security_hardening.md | docs/security/ | ⏳ Pending | Security hardening implementation |
-| phase_13_documentation_completion.md | docs/documentation/ | ⏳ Pending | Documentation completion |
+| phase_10_critical_integration.md | docs/consolidation/ | ✅ Complete | Registry sync + memory→decisions |
+| phase_11_config_observability.md | docs/deployment/ | ✅ Complete | Health endpoints + structured logging |
+| phase_12_security_hardening.md | docs/security/ | ✅ Complete | Rate limit + input validation primitives |
+| phase_13_documentation_completion.md | docs/documentation/ | ✅ Complete | Deployment runbook + troubleshooting |
 | phase_14_performance_testing.md | docs/performance/ | ⏳ Pending | Performance testing and optimization |
 | phase_15_final_review.md | docs/review/ | ⏳ Pending | Final production readiness review |
 
@@ -54,14 +54,17 @@
 
 | File | Location | Status | Description |
 |------|----------|--------|-------------|
-| phase_x_cleanup.md | docs/maintenance/ | 🟡 In Progress | Repository cleanup and maintenance |
-| phase_x_maintenance_plan.md | docs/maintenance/ | 🟡 In Progress | Maintenance plan and procedures |
-| phase_x_audit.md | docs/maintenance/ | 🟡 In Progress | Maintenance audit and verification |
-| phase_x_audit_report.md | docs/maintenance/ | 🟡 In Progress | Maintenance audit report |
-| phase_x_summary.md | docs/maintenance/ | 🟡 In Progress | Maintenance summary |
-| phase_x_status.md | docs/maintenance/ | 🟡 In Progress | Maintenance status |
-| phase_x_status_update.md | docs/maintenance/ | 🟡 In Progress | Phase X status update |
-| phase_x_completion_report.md | docs/maintenance/ | 🟡 In Progress | Phase X completion report |
+| phase_x_cleanup.md | docs/maintenance/ | ✅ Complete | Repository cleanup and maintenance |
+| phase_x_maintenance_plan.md | docs/maintenance/ | ✅ Complete | Maintenance plan and procedures |
+| phase_x_audit.md | docs/maintenance/ | ✅ Complete | Maintenance audit and verification |
+| phase_x_audit_report.md | docs/maintenance/ | ✅ Complete | Maintenance audit report |
+| phase_x_summary.md | docs/maintenance/ | ✅ Complete | Maintenance summary |
+| phase_x_status.md | docs/maintenance/ | ✅ Complete | Maintenance status |
+| phase_x_status_update.md | docs/maintenance/ | ✅ Complete | Phase X status update |
+| phase_x_completion_report.md | docs/maintenance/ | ✅ Complete | Phase X completion report |
+| test-failures-2026-06-06.md | docs/maintenance/ | ✅ Complete | Catalogue of 13 pre-existing test runtime failures |
+| deployment.md | docs/ | ✅ Complete | Deployment runbook (Phase 13) |
+| troubleshooting.md | docs/ | ✅ Complete | Troubleshooting guide (Phase 13) |
 | pruning_complete.md | docs/maintenance/ | ✅ Complete | Pruning complete report |
 | pruning_summary.md | docs/maintenance/ | ✅ Complete | Pruning summary |
 
@@ -78,6 +81,7 @@
 
 | File | Location | Status | Description |
 |------|----------|--------|-------------|
+| deployment.md | docs/ | ✅ Complete | Top-level deployment runbook |
 | deployment_procedures.md | docs/deployment/ | ✅ Complete | Step-by-step deployment procedures |
 | environment_setup.md | docs/deployment/ | ⏳ Pending | Environment setup guide |
 | rollback_procedures.md | docs/deployment/ | ✅ Complete | Rollback procedures documented |
@@ -88,6 +92,7 @@
 |------|----------|--------|-------------|
 | operations_manual.md | docs/operations/ | ✅ Complete | Daily operations manual |
 | monitoring_guide.md | docs/operations/ | ⏳ Pending | Monitoring and alerting guide |
+| troubleshooting.md | docs/ | ✅ Complete | Top-level troubleshooting guide |
 | troubleshooting_guide.md | docs/operations/ | ⏳ Pending | Troubleshooting procedures |
 | incident_response.md | docs/operations/ | ⏳ Pending | Incident response procedures |
 
@@ -106,6 +111,8 @@
 | security_hardening_guide.md | docs/security/ | ⏳ Pending | Security hardening procedures |
 | authentication_implementation.md | docs/security/ | ⏳ Pending | Authentication and authorization |
 | encryption_guide.md | docs/security/ | ⏳ Pending | Encryption implementation guide |
+| rate_limit module | core/hypervisor/src/rate_limit.rs | ✅ Complete | Token-bucket per-key rate limiter |
+| input_validation module | core/hypervisor/src/input_validation.rs | ✅ Complete | String/range/bytes/identifier helpers |
 
 ### Performance Documentation
 
@@ -152,12 +159,12 @@
 - ✅ Phase I: 100% complete
 - ✅ Phase II: 100% complete
 - ✅ Phase III: 100% complete
-- 🟡 Phase IV: 40% complete
-- 🟡 Phase X: 30% complete
-- ⏳ Architecture: 100% complete
-- ⏳ Deployment: 50% complete
-- ⏳ Operations: 30% complete
-- ⏳ Security: 0% complete
+- 🟡 Phase IV: 80% complete (10/12 deliverables; phase 14 perf + 15 review remain)
+- 🟡 Phase X: 80% complete (cleanup + maintenance + Phase 13 docs done; final report pending)
+- ✅ Architecture: 100% complete
+- 🟡 Deployment: 80% complete (runbook done; env-setup guide still pending)
+- 🟡 Operations: 50% complete (top-level troubleshooting done; deep guides pending)
+- 🟡 Security: 40% complete (rate limit + input validation primitives done; auth/encryption pending)
 - ⏳ Performance: 0% complete
 - ✅ Maintenance: 100% complete
 
