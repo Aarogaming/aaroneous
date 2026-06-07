@@ -35,11 +35,19 @@ enum Commands {
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    // Install the tracing-subscriber as the very first thing
+    // so that subsequent init steps are observable. Idempotent;
+    // safe to call from unit tests too.
+    let _ = a_run::init_logging();
+
     let cli = Cli::parse();
 
     match &cli.command {
         Some(Commands::Start { tick }) => {
-            println!("Initializing Aaroneous Autonomic Nervous System...");
+            tracing::info!(
+                tick_ms = tick,
+                "Initializing Aaroneous Autonomic Nervous System"
+            );
 
             let enzyme_runner = Arc::new(EnzymeRunner::new()?);
             let hox_registry = Arc::new(HoxRegistry::new("hox.db")?);
