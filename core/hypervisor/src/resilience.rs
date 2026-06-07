@@ -10,6 +10,7 @@
 use std::sync::atomic::{AtomicU64, AtomicU8, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
+use tracing::{info, warn};
 
 /// State of a circuit breaker. Encoded as a single byte for atomic
 /// transitions; the human-readable enum is reconstructed on read.
@@ -236,10 +237,10 @@ impl CircuitBreaker {
                 Ordering::SeqCst,
             );
             self.opened_at_ms.store(Self::now_ms(), Ordering::SeqCst);
-            println!(
-                "[CircuitBreaker:{}] tripped after {} consecutive failures",
-                self.config.name,
-                prev + 1
+            warn!(
+                breaker = %self.config.name,
+                failures = prev + 1,
+                "circuit breaker tripped"
             );
         }
     }

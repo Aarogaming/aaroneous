@@ -206,6 +206,10 @@ pub use resilience::{
     RetryPolicy, RetryError, with_retry, with_circuit_breaker,
 };
 
+// Structured logging facade: single init point, idempotent
+pub mod logging;
+pub use logging::init_logging;
+
 // Phase 6 Expansion: Relativity, fluid dynamics, quantum surface
 pub mod relativity_engine;
 pub mod fluid_routing;
