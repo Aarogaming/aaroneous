@@ -62,13 +62,25 @@ pub fn validate_string(field: &str, value: &str, max_len: usize) -> Result<Strin
             max_len
         )));
     }
-    // Reject ASCII control characters and NULs early. UTF-8 multi-byte
-    // sequences are not collapsed; if the caller wants unicode-aware
-    // length, they should count chars before calling.
-    if value.chars().any(|c| c.is_control()) {
+    // ASCII fast path: scan the underlying bytes. Control chars
+    // (0x00..=0x1F and 0x7F) are caught here. If the entire
+    // string is ASCII — the common case for names, IDs, and
+    // model identifiers — we never touch the UTF-8 decoder.
+    if value.is_ascii() {
+        if let Some(bad) = value.bytes().find(|&b| b < 0x20 || b == 0x7F) {
+            return Err(ValidationError::new(format!(
+                "{}: contains control character 0x{:02X}",
+                field, bad
+            )));
+        }
+        return Ok(value.to_string());
+    }
+    // Slow path: mixed or non-ASCII. Walk chars so multi-byte
+    // sequences are handled correctly.
+    if let Some(c) = value.chars().find(|c| c.is_control()) {
         return Err(ValidationError::new(format!(
-            "{}: contains control characters",
-            field
+            "{}: contains control character {:?}",
+            field, c
         )));
     }
     Ok(value.to_string())
@@ -187,6 +199,9 @@ mod tests {
     #[test]
     fn string_rejects_control_chars() {
         assert!(validate_string("name", "a\nb", 100).is_err());
+        assert!(validate_string("name", "a\tb", 100).is_err());
+        assert!(validate_string("name", "a\x00b", 100).is_err());
+        assert!(validate_string("name", "a\x7fb", 100).is_err());
     }
 
     #[test]
