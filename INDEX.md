@@ -118,9 +118,11 @@
 
 | File | Location | Status | Description |
 |------|----------|--------|-------------|
+| characteristics.md | docs/performance/ | ✅ Complete | Micro-bench numbers and memory budget |
+| load_testing.md | docs/performance/ | ✅ Complete | Load test plan, harness, expected results |
+| optimization_recommendations.md | docs/performance/ | ✅ Complete | Shipped + candidate optimizations |
 | performance_benchmarking.md | docs/performance/ | ⏳ Pending | Performance benchmarking results |
 | load_testing_results.md | docs/performance/ | ⏳ Pending | Load testing results and capacity |
-| optimization_recommendations.md | docs/performance/ | ⏳ Pending | Optimization recommendations |
 
 ### Review Documentation
 
@@ -159,13 +161,13 @@
 - ✅ Phase I: 100% complete
 - ✅ Phase II: 100% complete
 - ✅ Phase III: 100% complete
-- 🟡 Phase IV: 80% complete (10/12 deliverables; phase 14 perf + 15 review remain)
-- 🟡 Phase X: 80% complete (cleanup + maintenance + Phase 13 docs done; final report pending)
+- 🟡 Phase IV: 90% complete (10/12 deliverables; Phase 15 final review remains)
+- ✅ Phase X: 100% complete (cleanup + maintenance + Phase 13 docs + completion report)
 - ✅ Architecture: 100% complete
 - 🟡 Deployment: 80% complete (runbook done; env-setup guide still pending)
 - 🟡 Operations: 50% complete (top-level troubleshooting done; deep guides pending)
 - 🟡 Security: 40% complete (rate limit + input validation primitives done; auth/encryption pending)
-- ⏳ Performance: 0% complete
+- 🟡 Performance: 60% complete (micro-bench + load-test plan + optimization notes done; concrete load-run pending)
 - ✅ Maintenance: 100% complete
 
 ---
