@@ -82,15 +82,23 @@ pub struct AppState {
     /// Application version string. Used by `/version` and embedded in
     /// every metrics response so operators know which build is serving.
     pub version: &'static str,
-    /// Per-key token-bucket rate limiter. Used by the rate-limit
-    /// middleware layer; one bucket per auth subject or peer IP.
+    /// Default per-key token-bucket rate limiter. Used for any
+    /// request whose path does not match a per-route override.
     pub rate_limiter: Arc<TokenBucketLimiter>,
+    /// Per-route rate-limit overrides: `(prefix, limiter)`. The
+    /// middleware walks this list in length-descending order
+    /// and uses the first prefix that matches. Each route's
+    /// buckets are independent of the default's and of each
+    /// other's, so a user can saturate the cheap reads without
+    /// consuming the heavy endpoints' budget.
+    pub route_limits: Vec<(String, Arc<TokenBucketLimiter>)>,
 }
 
 impl AppState {
     pub fn new(federation: Arc<Federation>) -> Self {
         let links_reg = crate::federation::links::load_links().unwrap_or_default();
         let links_vec = links_reg.list();
+        let (default_limiter, route_limits) = build_route_limit_registry();
         Self {
             federation,
             generation_jobs: Arc::new(tokio::sync::Mutex::new(std::collections::HashMap::new())),
@@ -102,7 +110,8 @@ impl AppState {
             links: Arc::new(tokio::sync::RwLock::new(links_vec)),
             metrics: Arc::new(MetricsAggregator::new(1.0, 4096, 3600)),
             version: env!("CARGO_PKG_VERSION"),
-            rate_limiter: Arc::new(TokenBucketLimiter::new(rate_limit_config_from_env())),
+            rate_limiter: default_limiter,
+            route_limits,
         }
     }
 
@@ -126,23 +135,41 @@ impl AppState {
         });
     }
 
-    /// Start the background rate-limit sweeper. Calls
-    /// `rate_limiter.sweep_idle()` every `interval` to evict buckets
-    /// that have not been touched within the configured idle window.
-    /// This bounds memory growth in long-running deployments.
+    /// Start the background rate-limit sweeper. Sweeps the
+    /// default limiter plus every per-route override every
+    /// `interval` to evict buckets that have not been touched
+    /// within their configured idle window. This bounds
+    /// memory growth in long-running deployments.
     pub fn start_rate_limit_sweeper(&self, interval: std::time::Duration) {
-        let limiter = self.rate_limiter.clone();
+        let mut limiters: Vec<(String, Arc<TokenBucketLimiter>)> = vec![
+            ("default".to_string(), self.rate_limiter.clone()),
+        ];
+        for (prefix, l) in &self.route_limits {
+            limiters.push((prefix.clone(), l.clone()));
+        }
         tokio::spawn(async move {
             let mut ticker = tokio::time::interval(interval);
             ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
             loop {
                 ticker.tick().await;
-                let dropped = limiter.sweep_idle();
-                if dropped > 0 {
+                let mut total = 0usize;
+                for (name, limiter) in &limiters {
+                    let dropped = limiter.sweep_idle();
+                    if dropped > 0 {
+                        tracing::debug!(
+                            target: "rate_limit",
+                            scope = name.as_str(),
+                            evicted = dropped,
+                            "swept idle rate-limit buckets"
+                        );
+                        total += dropped;
+                    }
+                }
+                if total > 0 {
                     tracing::debug!(
                         target: "rate_limit",
-                        evicted = dropped,
-                        "swept idle rate-limit buckets"
+                        total_evicted = total,
+                        "rate-limit sweep complete"
                     );
                 }
             }
@@ -177,6 +204,96 @@ fn rate_limit_config_from_env() -> TokenBucketConfig {
         cfg.refill_per_second = f64::INFINITY;
     }
     cfg
+}
+
+/// Per-route rate-limit profile. The prefix is matched against
+/// the request path; the first match (longest prefix first)
+/// wins. Profiles encode the relative cost and acceptable
+/// load for a route. The defaults are deliberately tight for
+/// heavy endpoints (chat completions, forge crystallization,
+/// model import) and loose for read-only identity surfaces.
+#[derive(Debug, Clone, Copy)]
+struct RouteLimitProfile {
+    prefix: &'static str,
+    burst: f64,
+    refill_per_second: f64,
+}
+
+/// Default per-route profiles. Operators can override each
+/// profile's `burst` and `refill_per_second` via
+/// `AARONEOUS_RATE_LIMIT_<NAME>_BURST` and
+/// `AARONEOUS_RATE_LIMIT_<NAME>_REFILL`.
+const ROUTE_LIMIT_PROFILES: &[RouteLimitProfile] = &[
+    // Heavy: triggers LLM execution. Tighter than the default.
+    RouteLimitProfile { prefix: "/v1/chat/completions", burst: 10.0, refill_per_second: 2.0 },
+    RouteLimitProfile { prefix: "/v1/completions",      burst: 10.0, refill_per_second: 2.0 },
+    // Heavy: GPU/GGUF work.
+    RouteLimitProfile { prefix: "/forge/crystallize",   burst: 5.0,  refill_per_second: 0.5 },
+    RouteLimitProfile { prefix: "/forge/",              burst: 20.0, refill_per_second: 4.0 },
+    // Heavy: large file ingest.
+    RouteLimitProfile { prefix: "/models/import",       burst: 5.0,  refill_per_second: 0.5 },
+    // Moderate: specialist state mutations.
+    RouteLimitProfile { prefix: "/dynamic-specialists", burst: 10.0, refill_per_second: 1.0 },
+    RouteLimitProfile { prefix: "/intent",              burst: 30.0, refill_per_second: 5.0 },
+    // Streaming endpoints: long-lived connections count
+    // against the bucket, so be generous.
+    RouteLimitProfile { prefix: "/results/stream",      burst: 5.0,  refill_per_second: 1.0 },
+    RouteLimitProfile { prefix: "/specialists/stream",  burst: 5.0,  refill_per_second: 1.0 },
+    RouteLimitProfile { prefix: "/sessions/",           burst: 20.0, refill_per_second: 4.0 },
+];
+
+/// Map an uppercase profile name to the env-var key, in priority
+/// order. We try both `AARONEOUS_RATE_LIMIT_<NAME>_BURST` and the
+/// shorthand `<NAME>_BURST` to be forgiving.
+fn parse_profile_env(name_upper: &str, field: &str) -> Option<f64> {
+    let v = std::env::var(format!(
+        "AARONEOUS_RATE_LIMIT_{}_{}",
+        name_upper, field
+    ))
+    .ok()
+    .or_else(|| std::env::var(format!("{}_{}", name_upper, field)).ok())?;
+    v.parse::<f64>().ok().filter(|x| x.is_finite() && *x >= 0.0)
+}
+
+/// Profile name used for env-var overrides. Derived from the
+/// prefix by stripping slashes and uppercasing. Profile names
+/// are stable identifiers in the docs and changelog.
+fn profile_name_for_prefix(prefix: &str) -> String {
+    prefix
+        .trim_start_matches('/')
+        .replace('/', "_")
+        .replace('-', "_")
+        .to_uppercase()
+}
+
+/// Build the per-route rate-limit registry and return it
+/// alongside the default limiter. Sorts routes by prefix
+/// length descending so the middleware does a single linear
+/// pass and uses the longest match.
+fn build_route_limit_registry() -> (
+    Arc<TokenBucketLimiter>,
+    Vec<(String, Arc<TokenBucketLimiter>)>,
+) {
+    let default = Arc::new(TokenBucketLimiter::new(rate_limit_config_from_env()));
+    let mut routes: Vec<(String, Arc<TokenBucketLimiter>)> = ROUTE_LIMIT_PROFILES
+        .iter()
+        .map(|p| {
+            let name = profile_name_for_prefix(p.prefix);
+            let burst = parse_profile_env(&name, "BURST").unwrap_or(p.burst);
+            let refill =
+                parse_profile_env(&name, "REFILL").unwrap_or(p.refill_per_second);
+            let cfg = TokenBucketConfig {
+                burst,
+                refill_per_second: refill,
+                idle_eviction: Some(std::time::Duration::from_secs(600)),
+            };
+            (p.prefix.to_string(), Arc::new(TokenBucketLimiter::new(cfg)))
+        })
+        .collect();
+    // Longest prefix first so the middleware picks the
+    // most specific match.
+    routes.sort_by(|a, b| b.0.len().cmp(&a.0.len()));
+    (default, routes)
 }
 
 /// Build the axum router for the federation HTTP status API.
@@ -305,7 +422,18 @@ async fn rate_limit_middleware(
 
     let key = key_from_request(auth_subject.as_deref(), &peer);
 
-    match state.rate_limiter.check(&key) {
+    // Pick the per-route limiter if a prefix matches; fall
+    // through to the default. `state.route_limits` is
+    // pre-sorted longest-prefix-first, so the first hit is
+    // the most specific match.
+    let limiter = state
+        .route_limits
+        .iter()
+        .find(|(prefix, _)| path.starts_with(prefix.as_str()))
+        .map(|(_, l)| l.clone())
+        .unwrap_or_else(|| state.rate_limiter.clone());
+
+    match limiter.check(&key) {
         TokenBucketDecision::Allow { tokens_remaining } => {
             // Stash remaining tokens in a request header so
             // handlers and tests can introspect the limit.

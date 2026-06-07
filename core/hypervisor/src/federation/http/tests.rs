@@ -436,6 +436,88 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_rate_limit_per_route_uses_independent_buckets() {
+        // Per-route override should not share buckets with the
+        // default. We construct a state with two tight limiters
+        // and confirm the chat route and the default route
+        // consume tokens independently.
+        let fed = fresh_federation_with_all();
+        let mut state = AppState::new(fed.clone());
+        // Tight chat bucket: burst=2, refill off.
+        let chat_limiter = Arc::new(TokenBucketLimiter::new(TokenBucketConfig {
+            burst: 2.0,
+            refill_per_second: 0.0,
+            idle_eviction: None,
+        }));
+        // Tight default bucket: burst=3, refill off.
+        state.rate_limiter = Arc::new(TokenBucketLimiter::new(TokenBucketConfig {
+            burst: 3.0,
+            refill_per_second: 0.0,
+            idle_eviction: None,
+        }));
+        state.route_limits = vec![(
+            "/v1/chat/completions".to_string(),
+            chat_limiter.clone(),
+        )];
+
+        // Drain the chat bucket. We POST with a malformed
+        // body so the handler returns 4xx quickly (no LLM
+        // call) — the middleware still consumes a token.
+        for _ in 0..2 {
+            let (status, _, _) = post_raw(state.clone(), "/v1/chat/completions", b"{}").await;
+            assert_ne!(status, StatusCode::TOO_MANY_REQUESTS);
+        }
+        // 3rd call: chat bucket empty, expect 429.
+        let (status, _, _) = post_raw(state.clone(), "/v1/chat/completions", b"{}").await;
+        assert_eq!(status, StatusCode::TOO_MANY_REQUESTS);
+
+        // /status still has a full default bucket. Burn 3.
+        for _ in 0..3 {
+            let (status, _, _) = get_with(state.clone(), "/status", None).await;
+            assert_eq!(status, StatusCode::OK);
+        }
+        // 4th default call: 429.
+        let (status, _, _) = get_with(state.clone(), "/status", None).await;
+        assert_eq!(status, StatusCode::TOO_MANY_REQUESTS);
+
+        // The chat bucket is still 429, the default bucket
+        // is also 429 — but they fail for *different* reasons.
+        // We confirm the per-route override by counting
+        // distinct limiters: chat path and default path have
+        // different bucket maps.
+        assert_eq!(chat_limiter.len(), 1, "chat limiter saw 1 key");
+        assert_eq!(state.rate_limiter.len(), 1, "default limiter saw 1 key");
+    }
+
+    /// Helper: POST raw bytes to a path through the router.
+    /// Returns the response status / headers / body. Used by
+    /// the per-route override test to avoid running the LLM.
+    async fn post_raw(
+        state: AppState,
+        path: &str,
+        body: &[u8],
+    ) -> (StatusCode, axum::http::HeaderMap, Vec<u8>) {
+        let app = router(state);
+        let req = Request::builder()
+            .method("POST")
+            .uri(path)
+            .header("content-type", "application/json")
+            .body(Body::from(body.to_vec()))
+            .unwrap();
+        let response = app.oneshot(req).await.expect("router oneshot");
+        let status = response.status();
+        let headers = response.headers().clone();
+        let body = response
+            .into_body()
+            .collect()
+            .await
+            .expect("collect body")
+            .to_bytes()
+            .to_vec();
+        (status, headers, body)
+    }
+
+    #[tokio::test]
     async fn test_rate_limit_real_tcp_burst_then_429() {
         use super::super::server::HttpStatusServer;
         let fed = fresh_federation_with_all();
