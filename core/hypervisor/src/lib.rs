@@ -214,6 +214,13 @@ pub use logging::init_logging;
 pub mod rate_limit;
 pub use rate_limit::{TokenBucketLimiter, TokenBucketConfig, TokenBucketDecision, key_from_request};
 
+// Lightweight input validation helpers for HTTP bodies and tasks
+pub mod input_validation;
+pub use input_validation::{
+    validate_bytes, validate_enum, validate_identifier, validate_optional_string, validate_range,
+    validate_string, ValidationError,
+};
+
 // Phase 6 Expansion: Relativity, fluid dynamics, quantum surface
 pub mod relativity_engine;
 pub mod fluid_routing;
