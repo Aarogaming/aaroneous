@@ -5,6 +5,7 @@
 
 use crate::federation::hive::{Federation, LearningSummary, SpecialistLearningSummary};
 use crate::federation::forge;
+use crate::metrics_aggregator::MetricsAggregator;
 use axum::{
     extract::{Path, Query, State},
     http::{HeaderMap, Method, StatusCode},
@@ -70,6 +71,13 @@ pub struct AppState {
     /// Stored as `Vec<Link>` for the HTTP CRUD handlers; flushed back to
     /// `LinkRegistry` for persistence via `save_links`.
     pub links: Arc<tokio::sync::RwLock<Vec<crate::federation::links::Link>>>,
+    /// Process-wide metrics aggregator. The `/metrics` endpoint reads this
+    /// to produce Prometheus-format output. Held in an Arc so background
+    /// workers can record into it without going through the HTTP state.
+    pub metrics: Arc<MetricsAggregator>,
+    /// Application version string. Used by `/version` and embedded in
+    /// every metrics response so operators know which build is serving.
+    pub version: &'static str,
 }
 
 impl AppState {
@@ -85,6 +93,8 @@ impl AppState {
                 crate::federation::tensor_vault::TensorVault::new()
             )),
             links: Arc::new(tokio::sync::RwLock::new(links_vec)),
+            metrics: Arc::new(MetricsAggregator::new(1.0, 4096, 3600)),
+            version: env!("CARGO_PKG_VERSION"),
         }
     }
 
@@ -195,6 +205,10 @@ pub fn router(state: AppState) -> Router {
         .route("/scheduler/tasks/:id", delete(delete_scheduled_task))
         .route("/healthz", get(healthz))
         .route("/readyz", get(readyz))
+        .route("/health", get(healthz))         // alias for /healthz
+        .route("/live", get(healthz))           // k8s convention
+        .route("/metrics", get(metrics_prometheus))
+        .route("/version", get(version))
         .route("/status", get(status))
         .route("/status/:kind", get(status_one))
         // Intent management: read current intent, submit new intent
@@ -389,6 +403,94 @@ async fn serve_ui() -> impl IntoResponse {
 /// Liveness probe. Returns 200 as long as the process is responding.
 async fn healthz() -> &'static str {
     "ok"
+}
+
+/// Build information. Returns the CARGO_PKG_VERSION that was compiled
+/// into the binary. Operators use this to confirm which build is serving
+/// a given environment.
+async fn version(State(state): State<AppState>) -> Json<serde_json::Value> {
+    Json(serde_json::json!({
+        "name": "aaroneous",
+        "version": state.version,
+    }))
+}
+
+/// Prometheus text-format metrics. The body is built from the in-process
+/// `MetricsAggregator` and a few static system gauges. We avoid pulling
+/// in a heavy prometheus crate; the format is small and stable enough
+/// to hand-emit. The text follows the `application/openmetrics-text;
+/// version=1.0.0; charset=utf-8` content type, but we use the
+/// legacy `text/plain; version=0.0.4` because most scrapers accept it.
+async fn metrics_prometheus(State(state): State<AppState>) -> impl IntoResponse {
+    let body = render_prometheus_metrics(&state);
+    (
+        StatusCode::OK,
+        [("content-type", "text/plain; version=0.0.4; charset=utf-8")],
+        body,
+    )
+}
+
+/// Render the metrics body. Pulled out as a pure function so the
+/// formatting is testable without spinning up an HTTP server.
+fn render_prometheus_metrics(state: &AppState) -> String {
+    use std::fmt::Write;
+    let mut out = String::with_capacity(4096);
+    let report = state.metrics.generate_report();
+
+    // Uptime gauge
+    let _ = writeln!(out, "# HELP aaroneous_uptime_seconds Process uptime in seconds");
+    let _ = writeln!(out, "# TYPE aaroneous_uptime_seconds gauge");
+    let _ = writeln!(out, "aaroneous_uptime_seconds {}", report.uptime_seconds);
+
+    // Build info (label-style)
+    let _ = writeln!(out, "# HELP aaroneous_build_info Build metadata");
+    let _ = writeln!(out, "# TYPE aaroneous_build_info gauge");
+    let _ = writeln!(
+        out,
+        "aaroneous_build_info{{version=\"{}\"}} 1",
+        state.version
+    );
+
+    // Federation specialist count
+    let specialist_count = state.federation.enabled_count() as i64;
+    let _ = writeln!(out, "# HELP aaroneous_specialists_enabled Configured specialist count");
+    let _ = writeln!(out, "# TYPE aaroneous_specialists_enabled gauge");
+    let _ = writeln!(out, "aaroneous_specialists_enabled {}", specialist_count);
+
+    // Counter metrics
+    let _ = writeln!(out, "# HELP aaroneous_operation_count Total calls per operation");
+    let _ = writeln!(out, "# TYPE aaroneous_operation_count counter");
+    for c in &report.counter_stats {
+        let _ = writeln!(
+            out,
+            "aaroneous_operation_count{{op=\"{}\"}} {}",
+            c.name, c.call_count
+        );
+    }
+
+    // Operation duration in microseconds, last call
+    let _ = writeln!(out, "# HELP aaroneous_operation_last_duration_us Last call duration in microseconds");
+    let _ = writeln!(out, "# TYPE aaroneous_operation_last_duration_us gauge");
+    for c in &report.counter_stats {
+        let _ = writeln!(
+            out,
+            "aaroneous_operation_last_duration_us{{op=\"{}\"}} {}",
+            c.name, c.last_call_time_us
+        );
+    }
+
+    // Aggregated time-series stats
+    let _ = writeln!(out, "# HELP aaroneous_metric_samples Sample count per metric");
+    let _ = writeln!(out, "# TYPE aaroneous_metric_samples gauge");
+    for s in &report.metric_stats {
+        let _ = writeln!(
+            out,
+            "aaroneous_metric_samples{{metric=\"{}\"}} {}",
+            s.name, s.count
+        );
+    }
+
+    out
 }
 
 /// Readiness probe. Returns 200 if the federation has at least one specialist
