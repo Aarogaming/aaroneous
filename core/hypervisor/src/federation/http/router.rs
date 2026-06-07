@@ -5,6 +5,7 @@
 
 use crate::federation::hive::{Federation, LearningSummary, SpecialistLearningSummary};
 use crate::federation::forge;
+use crate::input_validation::{validate_bytes, validate_optional_string, validate_string, ValidationError};
 use crate::metrics_aggregator::MetricsAggregator;
 use crate::rate_limit::{
     key_from_request, TokenBucketConfig, TokenBucketDecision, TokenBucketLimiter, MAX_KEY_COMPONENT_LEN,
@@ -598,6 +599,21 @@ pub fn router(state: AppState) -> Router {
 // Autonomous Scheduler Handlers
 // ====================================================================
 
+/// Convert a `ValidationError` into a 400 response with a stable
+/// JSON shape. Used by every handler that validates user-supplied
+/// strings. Returning early with a uniform shape makes it easy to
+/// write integration tests that exercise the validation paths.
+fn validation_error_response(err: ValidationError) -> Response {
+    (
+        StatusCode::BAD_REQUEST,
+        Json(serde_json::json!({
+            "error": "Bad Request",
+            "message": err.to_string(),
+        })),
+    )
+        .into_response()
+}
+
 async fn list_scheduled_tasks(
     State(state): State<AppState>,
 ) -> impl IntoResponse {
@@ -963,8 +979,22 @@ struct SubmitIntentRequest {
 async fn submit_intent(
     State(state): State<AppState>,
     Json(req): Json<SubmitIntentRequest>,
-) -> impl IntoResponse {
+) -> Response {
     use crate::federation::intent::{Intent, IntentPriority, IntentSource};
+
+    if let Err(e) = validate_bytes("content", req.content.as_bytes(), 32 * 1024) {
+        return validation_error_response(e);
+    }
+    if let Some(p) = req.priority.as_deref() {
+        if let Err(e) = validate_optional_string("priority", Some(p), 32) {
+            return validation_error_response(e);
+        }
+    }
+    for tag in &req.tags {
+        if let Err(e) = validate_string("tags", tag, 64) {
+            return validation_error_response(e);
+        }
+    }
 
     let priority = match req.priority.as_deref() {
         Some("High") | Some("high") => IntentPriority::High,
@@ -991,7 +1021,7 @@ async fn submit_intent(
             "id": id,
             "message": "Intent submitted to federation"
         })),
-    )
+    ).into_response()
 }
 
 // ====================================================================
@@ -1136,7 +1166,15 @@ struct CreateSessionRequest {
 async fn create_session(
     State(state): State<AppState>,
     Json(req): Json<CreateSessionRequest>,
-) -> impl IntoResponse {
+) -> Response {
+    if let Err(e) = validate_string("user_name", &req.user_name, 256) {
+        return validation_error_response(e);
+    }
+    if let Some(d) = req.device_id.as_deref() {
+        if let Err(e) = validate_optional_string("device_id", Some(d), 128) {
+            return validation_error_response(e);
+        }
+    }
     let session_id = state
         .federation
         .create_session(req.user_name.clone(), req.device_id.as_deref())
@@ -1149,7 +1187,7 @@ async fn create_session(
             "user_name": req.user_name,
             "message": "Session created",
         })),
-    )
+    ).into_response()
 }
 
 /// GET /sessions/:id â€” get session details
@@ -3896,8 +3934,44 @@ struct OaiChatRequest {
 async fn openai_chat_completions(
     State(state): State<AppState>,
     Json(req): Json<OaiChatRequest>,
-) -> impl IntoResponse {
-    
+) -> Response {
+    // Validate `model` if present: it must be a short
+    // identifier-shaped string. Unwrap to default later.
+    if let Some(m) = req.model.as_deref() {
+        if let Err(e) = validate_string("model", m, 128) {
+            return validation_error_response(e);
+        }
+    }
+    // Validate message count and per-message content size.
+    if req.messages.is_empty() {
+        return validation_error_response(ValidationError::from(
+            "messages: must contain at least 1 entry",
+        ));
+    }
+    if req.messages.len() > 256 {
+        return validation_error_response(ValidationError::from(format!(
+            "messages: count {} exceeds max 256",
+            req.messages.len()
+        )));
+    }
+    for (i, m) in req.messages.iter().enumerate() {
+        if let Err(e) = validate_string(
+            &format!("messages[{i}].role"),
+            &m.role,
+            32,
+        ) {
+            return validation_error_response(e);
+        }
+        // Content may be empty (e.g. multi-modal tool calls),
+        // so use validate_bytes for size-only.
+        if let Err(e) = validate_bytes(
+            &format!("messages[{i}].content"),
+            m.content.as_bytes(),
+            256 * 1024,
+        ) {
+            return validation_error_response(e);
+        }
+    }
 
     let model = req.model.as_deref().unwrap_or("aaroneous").to_lowercase();
     let stream = req.stream.unwrap_or(false);
@@ -4071,7 +4145,15 @@ struct OaiCompletionRequest {
 async fn openai_completions(
     State(state): State<AppState>,
     Json(req): Json<OaiCompletionRequest>,
-) -> impl IntoResponse {
+) -> Response {
+    if let Some(m) = req.model.as_deref() {
+        if let Err(e) = validate_string("model", m, 128) {
+            return validation_error_response(e);
+        }
+    }
+    if let Err(e) = validate_bytes("prompt", req.prompt.as_bytes(), 256 * 1024) {
+        return validation_error_response(e);
+    }
     let model = req.model.as_deref().unwrap_or("aaroneous").to_lowercase();
     let max_tokens = req.max_tokens.unwrap_or(2048);
     let response_text = route_to_sovereign(&state, &model, &req.prompt, None, 0.7, max_tokens).await;

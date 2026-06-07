@@ -309,6 +309,126 @@ mod tests {
     // Rate-limit middleware
     // =================================================================
 
+    // =================================================================
+    // Input validation
+    // =================================================================
+
+    #[tokio::test]
+    async fn test_validation_chat_completions_empty_messages() {
+        let fed = fresh_federation_with_all();
+        let state = AppState::new(fed.clone());
+        let body = serde_json::json!({ "model": "ariel", "messages": [] });
+        let (status, _, body_bytes) =
+            post_json(state.clone(), "/v1/chat/completions", &body).await;
+        assert_eq!(status, StatusCode::BAD_REQUEST);
+        let s = String::from_utf8_lossy(&body_bytes);
+        assert!(s.contains("messages"), "got: {s}");
+    }
+
+    #[tokio::test]
+    async fn test_validation_chat_completions_oversized_model() {
+        let fed = fresh_federation_with_all();
+        let state = AppState::new(fed.clone());
+        // 200-char model name exceeds the 128-byte limit.
+        let long_model = "x".repeat(200);
+        let body = serde_json::json!({
+            "model": long_model,
+            "messages": [{"role": "user", "content": "hi"}],
+        });
+        let (status, _, body_bytes) =
+            post_json(state.clone(), "/v1/chat/completions", &body).await;
+        assert_eq!(status, StatusCode::BAD_REQUEST);
+        let s = String::from_utf8_lossy(&body_bytes);
+        assert!(s.contains("model"), "got: {s}");
+    }
+
+    #[tokio::test]
+    async fn test_validation_chat_completions_control_char_in_role() {
+        let fed = fresh_federation_with_all();
+        let state = AppState::new(fed.clone());
+        // Tab in role: validate_string rejects control chars.
+        let body = serde_json::json!({
+            "model": "ariel",
+            "messages": [{"role": "us\ter", "content": "hi"}],
+        });
+        let (status, _, _) =
+            post_json(state.clone(), "/v1/chat/completions", &body).await;
+        assert_eq!(status, StatusCode::BAD_REQUEST);
+    }
+
+    #[tokio::test]
+    async fn test_validation_submit_intent_oversized_content() {
+        let fed = fresh_federation_with_all();
+        let state = AppState::new(fed.clone());
+        // 64KB exceeds the 32KB cap.
+        let big = "x".repeat(64 * 1024);
+        let body = serde_json::json!({ "content": big });
+        let (status, _, body_bytes) =
+            post_json(state.clone(), "/intent", &body).await;
+        assert_eq!(status, StatusCode::BAD_REQUEST);
+        let s = String::from_utf8_lossy(&body_bytes);
+        assert!(s.contains("content"), "got: {s}");
+    }
+
+    #[tokio::test]
+    async fn test_validation_create_session_empty_user_name() {
+        let fed = fresh_federation_with_all();
+        let state = AppState::new(fed.clone());
+        let body = serde_json::json!({ "user_name": "" });
+        let (status, _, body_bytes) =
+            post_json(state.clone(), "/sessions", &body).await;
+        assert_eq!(status, StatusCode::BAD_REQUEST);
+        let s = String::from_utf8_lossy(&body_bytes);
+        assert!(s.contains("user_name"), "got: {s}");
+    }
+
+    #[tokio::test]
+    async fn test_validation_completions_oversized_prompt() {
+        let fed = fresh_federation_with_all();
+        let state = AppState::new(fed.clone());
+        // 512KB prompt exceeds the 256KB cap.
+        let big = "x".repeat(512 * 1024);
+        let body = serde_json::json!({
+            "model": "ariel",
+            "prompt": big,
+        });
+        let (status, _, body_bytes) =
+            post_json(state.clone(), "/v1/completions", &body).await;
+        assert_eq!(status, StatusCode::BAD_REQUEST);
+        let s = String::from_utf8_lossy(&body_bytes);
+        assert!(s.contains("prompt"), "got: {s}");
+    }
+
+    /// Helper: POST a JSON value to a path and return the
+    /// response status / headers / body. Used by the
+    /// validation tests so we don't have to hand-build
+    /// request bodies for every case.
+    async fn post_json(
+        state: AppState,
+        path: &str,
+        body: &serde_json::Value,
+    ) -> (StatusCode, axum::http::HeaderMap, Vec<u8>) {
+        let app = router(state);
+        let req = Request::builder()
+            .method("POST")
+            .uri(path)
+            .header("content-type", "application/json")
+            .body(Body::from(serde_json::to_vec(body).unwrap()))
+            .unwrap();
+        let response = app.oneshot(req).await.expect("router oneshot");
+        let status = response.status();
+        let headers = response.headers().clone();
+        let body = response
+            .into_body()
+            .collect()
+            .await
+            .expect("collect body")
+            .to_bytes()
+            .to_vec();
+        (status, headers, body)
+    }
+
+    // Rate-limit middleware tests continue below
     /// Build an `AppState` whose `rate_limiter` is a fresh,
     /// tightly-bucketed limiter. We can't use the default
     /// config (burst=20, refill=10/s) because the unit tests
