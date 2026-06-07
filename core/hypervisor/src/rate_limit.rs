@@ -193,14 +193,44 @@ impl TokenBucketLimiter {
     }
 }
 
+/// Maximum length of any single rate-limit key component. The
+/// limiter stores one `String` per key, so an unbounded key
+/// is a memory-exhaustion vector: a hostile client could
+/// send a 10 MB auth subject and force the limiter to keep
+/// a 10 MB String alive. 512 bytes is generous for any
+/// token or IP address we have ever seen; if a future
+/// caller needs more, they should hash the input first.
+pub const MAX_KEY_COMPONENT_LEN: usize = 512;
+
 /// Extract a rate-limit key from a request, preferring the auth
-/// header's subject (when present) and falling back to the
-/// peer address. The format is opaque to the limiter; the
-/// caller chooses the granularity.
+/// header's subject (when present) and falling back to the peer
+/// address. The format is opaque to the limiter; the caller
+/// chooses the granularity.
+///
+/// **Security:** both inputs are bounded to `MAX_KEY_COMPONENT_LEN`
+/// bytes. An input that is too long is silently truncated. This
+/// is the right call for a rate-limit key because the key is a
+/// coarse-grained bucketing identifier; the actual request body
+/// has its own validation downstream.
 pub fn key_from_request(auth_subject: Option<&str>, peer: &str) -> String {
-    auth_subject
-        .map(|s| format!("auth:{}", s))
-        .unwrap_or_else(|| format!("ip:{}", peer))
+    match auth_subject {
+        Some(s) if !s.is_empty() => {
+            let s = if s.len() > MAX_KEY_COMPONENT_LEN {
+                &s[..MAX_KEY_COMPONENT_LEN]
+            } else {
+                s
+            };
+            format!("auth:{}", s)
+        }
+        _ => {
+            let peer = if peer.len() > MAX_KEY_COMPONENT_LEN {
+                &peer[..MAX_KEY_COMPONENT_LEN]
+            } else {
+                peer
+            };
+            format!("ip:{}", peer)
+        }
+    }
 }
 
 #[cfg(test)]
@@ -304,6 +334,17 @@ mod tests {
             key_from_request(Some("alice"), "10.0.0.1"),
             "auth:alice"
         );
-        assert_eq!(key_from_request(None, "10.0.0.1"), "ip:10.0.0.1");
+    }
+
+    #[test]
+    fn key_from_request_truncates_long_inputs() {
+        let long = "x".repeat(MAX_KEY_COMPONENT_LEN + 100);
+        let key = key_from_request(Some(&long), "10.0.0.1");
+        assert!(key.len() <= "auth:".len() + MAX_KEY_COMPONENT_LEN);
+    }
+
+    #[test]
+    fn key_from_request_falls_back_on_empty_auth() {
+        assert_eq!(key_from_request(Some(""), "10.0.0.1"), "ip:10.0.0.1");
     }
 }
