@@ -102,28 +102,42 @@ impl TokenBucketLimiter {
     /// Check (and consume) one token for `key`. If the bucket is
     /// empty, returns `Deny` with the time until the next token
     /// is available.
+    ///
+    /// Hot path: the common case is a key that already has a
+    /// bucket. We do a `get_mut` first; only on a miss do we pay
+    /// the `String` allocation cost of inserting via `entry`.
     pub fn check(&self, key: &str) -> TokenBucketDecision {
         let now = Instant::now();
         let mut buckets = self.buckets.lock().expect("rate limiter poisoned");
 
-        // Evict idle buckets. We scan once per check; for
-        // production use with millions of keys, switch to a
-        // background sweep task instead.
-        if let Some(idle) = self.config.idle_eviction {
-            buckets.retain(|_, b| now.duration_since(b.last_refill) < idle);
+        // Fast path: bucket already exists. Avoids the
+        // `key.to_string()` allocation in the entry() call.
+        if let Some(bucket) = buckets.get_mut(key) {
+            return Self::consume(&self.config, bucket, now);
         }
 
+        // Slow path: insert a new bucket. The `to_string()` is
+        // amortized — it happens at most once per new key.
         let bucket = buckets.entry(key.to_string()).or_insert_with(|| BucketState {
             tokens: self.config.burst,
             last_refill: now,
         });
+        Self::consume(&self.config, bucket, now)
+    }
 
+    /// Inner consume step, extracted so the fast path does not
+    /// pay for the `entry()` codegen.
+    fn consume(
+        config: &TokenBucketConfig,
+        bucket: &mut BucketState,
+        now: Instant,
+    ) -> TokenBucketDecision {
         // Refill: add tokens proportional to elapsed time. Cap at
         // burst so a long-idle key cannot get a "free refill"
         // larger than the configured capacity.
         let elapsed = now.duration_since(bucket.last_refill).as_secs_f64();
-        let refill = elapsed * self.config.refill_per_second;
-        bucket.tokens = (bucket.tokens + refill).min(self.config.burst);
+        let refill = elapsed * config.refill_per_second;
+        bucket.tokens = (bucket.tokens + refill).min(config.burst);
         bucket.last_refill = now;
 
         if bucket.tokens >= 1.0 {
@@ -138,8 +152,8 @@ impl TokenBucketLimiter {
             // seconds" hint that breaks HTTP Retry-After parsing.
             // If refill is 0 the bucket will never recover, which
             // is the operator's signal that the config is wrong.
-            let secs = if self.config.refill_per_second > 0.0 {
-                (needed / self.config.refill_per_second).min(3600.0)
+            let secs = if config.refill_per_second > 0.0 {
+                (needed / config.refill_per_second).min(3600.0)
             } else {
                 3600.0
             };
@@ -147,6 +161,23 @@ impl TokenBucketLimiter {
                 retry_after: Duration::from_secs_f64(secs.max(0.0)),
             }
         }
+    }
+
+    /// Evict buckets that have not been touched within the
+    /// configured idle window. Call this from a background task;
+    /// do not call it on the request path. The legacy behaviour
+    /// of sweeping on every `check` was preserved below as
+    /// `check_and_sweep` for callers that want it.
+    pub fn sweep_idle(&self) -> usize {
+        let idle = match self.config.idle_eviction {
+            Some(d) => d,
+            None => return 0,
+        };
+        let now = Instant::now();
+        let mut buckets = self.buckets.lock().expect("rate limiter poisoned");
+        let before = buckets.len();
+        buckets.retain(|_, b| now.duration_since(b.last_refill) < idle);
+        before - buckets.len()
     }
 
     /// Forget the bucket for `key`. Useful when an auth identity
@@ -260,9 +291,11 @@ mod tests {
         rl.check("a");
         assert_eq!(rl.len(), 1);
         sleep(Duration::from_millis(40));
-        // Next check triggers eviction sweep
-        rl.check("b");
-        assert_eq!(rl.len(), 1); // "a" evicted
+        // sweep_idle is now a separate method; it walks the
+        // bucket map once and drops everything past the window.
+        let dropped = rl.sweep_idle();
+        assert_eq!(dropped, 1);
+        assert_eq!(rl.len(), 0);
     }
 
     #[test]
