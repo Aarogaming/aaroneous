@@ -210,6 +210,10 @@ pub use resilience::{
 pub mod logging;
 pub use logging::init_logging;
 
+// Per-key rate limiting (token bucket)
+pub mod rate_limit;
+pub use rate_limit::{TokenBucketLimiter, TokenBucketConfig, TokenBucketDecision, key_from_request};
+
 // Phase 6 Expansion: Relativity, fluid dynamics, quantum surface
 pub mod relativity_engine;
 pub mod fluid_routing;
