@@ -35,6 +35,18 @@ impl ValidationError {
     }
 }
 
+impl From<String> for ValidationError {
+    fn from(message: String) -> Self {
+        Self { message }
+    }
+}
+
+impl From<&str> for ValidationError {
+    fn from(message: &str) -> Self {
+        Self { message: message.to_string() }
+    }
+}
+
 /// Reject empty strings and strings above `max_len` bytes. Whitespace
 /// at the edges is allowed (do not pre-trim); the handler can decide
 /// whether to trim before passing to logic that compares values.

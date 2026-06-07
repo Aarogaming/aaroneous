@@ -26,6 +26,10 @@ path = "bin/genome_compiler.rs"
 name = "synapse_dump"
 path = "bin/synapse_dump.rs"
 
+[[bench]]
+name = "phase_x_smoke"
+harness = false
+
 [dependencies]
 rustc-hash = "^2.1.0"
 nervous_system = { path = "../nervous_system" }
@@ -120,6 +124,7 @@ cap-std = "3.4.5"
 tempfile = "3"
 http-body-util = "0.1"
 tower = { version = "0.5", features = ["util"] }
+criterion = { version = "0.5", default-features = false, features = ["cargo_bench_support"] }
 
 [features]
 default = []
