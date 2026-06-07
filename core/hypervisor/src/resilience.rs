@@ -474,6 +474,156 @@ where
     )))
 }
 
+// ====================================================================
+// Async variants
+// ====================================================================
+//
+// The sync helpers above are still the right tool for blocking I/O and
+// CPU-bound work. For the federation's async I/O paths (HTTP client,
+// action executor's external API calls, federation events) we need
+// async-aware versions. The state machine of the circuit breaker is
+// sync (atomics), so we keep that and just gate the future at the
+// call site. The retry helper uses `tokio::time::sleep` so it does
+// not block the executor thread.
+
+/// Result of a `with_timeout` race.
+#[derive(Debug)]
+pub enum TimeoutError<T> {
+    /// The future did not complete in time.
+    Elapsed,
+    /// The future completed; the inner value is preserved so
+    /// the caller can return a graceful error rather than a
+    /// `JoinError`.
+    Inner(T),
+}
+
+impl<T: std::fmt::Display> std::fmt::Display for TimeoutError<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            TimeoutError::Elapsed => f.write_str("future did not complete before timeout"),
+            TimeoutError::Inner(e) => write!(f, "future completed with error after race: {e}"),
+        }
+    }
+}
+
+/// Race `fut` against `duration`. Returns `Ok(value)` if the
+/// future completed in time, `Err(TimeoutError::Elapsed)`
+/// otherwise. The future is dropped on timeout — no resource
+/// leak, but no way to surface its result either.
+pub async fn with_timeout<T>(
+    duration: std::time::Duration,
+    fut: impl std::future::Future<Output = T>,
+) -> Result<T, TimeoutError<T>> {
+    match tokio::time::timeout(duration, fut).await {
+        Ok(v) => Ok(v),
+        Err(_) => Err(TimeoutError::Elapsed),
+    }
+}
+
+/// Async version of `with_retry`. Each call to `f` returns a
+/// future; the loop awaits them sequentially, sleeping
+/// `policy.delay_for(attempt)` between failed attempts using
+/// `tokio::time::sleep` (does not block the executor).
+pub async fn with_retry_async<F, Fut, T, E>(
+    policy: &RetryPolicy,
+    mut f: F,
+) -> Result<T, RetryError>
+where
+    F: FnMut() -> Fut,
+    Fut: std::future::Future<Output = Result<T, E>>,
+    E: std::fmt::Display,
+{
+    let mut last_err = String::new();
+    for attempt in 0..policy.max_attempts {
+        match f().await {
+            Ok(value) => return Ok(value),
+            Err(e) => {
+                last_err = e.to_string();
+                if attempt + 1 < policy.max_attempts {
+                    tokio::time::sleep(policy.delay_for(attempt)).await;
+                }
+            }
+        }
+    }
+    Err(RetryError {
+        attempts: policy.max_attempts,
+        last_error: last_err,
+    })
+}
+
+/// Async circuit-breaker call. The breaker's state machine is
+/// still sync (atomic), so this just gates the future at the
+/// call site. On Open, returns `CircuitBreakerError::Open`
+/// without polling the future once. On Closed/HalfOpen,
+/// awaits the future, applies the same success/failure
+/// accounting as the sync `call`.
+impl CircuitBreaker {
+    /// Async counterpart to `call`. Counter accounting
+    /// (`calls_total`, `calls_rejected_total`, etc.) is
+    /// identical; only the inner function call changes from
+    /// `f()` to `f().await`.
+    pub async fn call_async<F, Fut, T, E>(&self, f: F) -> Result<T, CircuitBreakerError>
+    where
+        F: FnOnce() -> Fut,
+        Fut: std::future::Future<Output = Result<T, E>>,
+        E: std::fmt::Display,
+    {
+        self.calls_total.fetch_add(1, Ordering::SeqCst);
+        match self.state() {
+            CircuitState::Open => {
+                self.calls_rejected_total.fetch_add(1, Ordering::SeqCst);
+                Err(CircuitBreakerError::Open)
+            }
+            CircuitState::HalfOpen | CircuitState::Closed => match f().await {
+                Ok(v) => {
+                    self.on_success();
+                    Ok(v)
+                }
+                Err(e) => {
+                    self.on_failure();
+                    Err(CircuitBreakerError::Inner(e.to_string()))
+                }
+            },
+        }
+    }
+}
+
+/// Async version of `with_circuit_breaker`. Combines the
+/// retry loop and the breaker gate: the breaker is consulted
+/// before each attempt and short-circuits with `Open` on
+/// failure, the future is awaited, and `tokio::time::sleep`
+/// paces the retries.
+pub async fn with_circuit_breaker_async<F, Fut, T, E>(
+    breaker: &CircuitBreaker,
+    policy: &RetryPolicy,
+    mut f: F,
+) -> Result<T, CircuitBreakerError>
+where
+    F: FnMut() -> Fut,
+    Fut: std::future::Future<Output = Result<T, E>>,
+    E: std::fmt::Display,
+{
+    let mut last_err = String::new();
+    for attempt in 0..policy.max_attempts {
+        match breaker.call_async(&mut f).await {
+            Ok(value) => return Ok(value),
+            Err(CircuitBreakerError::Open) => {
+                return Err(CircuitBreakerError::Open);
+            }
+            Err(CircuitBreakerError::Inner(s)) => {
+                last_err = s;
+                if attempt + 1 < policy.max_attempts {
+                    tokio::time::sleep(policy.delay_for(attempt)).await;
+                }
+            }
+        }
+    }
+    Err(CircuitBreakerError::Inner(format!(
+        "retries exhausted: {}",
+        last_err
+    )))
+}
+
 /// Shared handle type for components that want to pass a breaker around
 /// without moving the underlying state.
 pub type SharedCircuitBreaker = Arc<CircuitBreaker>;
@@ -734,5 +884,196 @@ mod tests {
         let c = cb.counters();
         assert_eq!(c.recoveries_total, 1, "HalfOpen -> Closed should record a recovery");
         assert!(matches!(cb.state(), CircuitState::Closed));
+    }
+
+    // -------- Async variants --------
+
+    #[tokio::test]
+    async fn with_timeout_returns_value_when_fast() {
+        let result: Result<i32, TimeoutError<i32>> =
+            with_timeout(Duration::from_millis(50), async { 7 }).await;
+        assert_eq!(result.unwrap(), 7);
+    }
+
+    #[tokio::test]
+    async fn with_timeout_returns_elapsed_when_slow() {
+        let result: Result<i32, TimeoutError<i32>> = with_timeout(
+            Duration::from_millis(5),
+            async {
+                tokio::time::sleep(Duration::from_millis(100)).await;
+                7
+            },
+        )
+        .await;
+        assert!(matches!(result, Err(TimeoutError::Elapsed)));
+    }
+
+    #[tokio::test]
+    async fn with_retry_async_succeeds_after_failures() {
+        let counter = AtomicU32::new(0);
+        let policy = RetryPolicy {
+            max_attempts: 3,
+            initial_delay: Duration::from_millis(1),
+            jitter: false,
+            ..RetryPolicy::default()
+        };
+        let result = with_retry_async(&policy, || {
+            let n = counter.fetch_add(1, Ordering::SeqCst);
+            async move {
+                if n < 2 {
+                    Err("transient")
+                } else {
+                    Ok(99)
+                }
+            }
+        })
+        .await
+        .unwrap();
+        assert_eq!(result, 99);
+        assert_eq!(counter.load(Ordering::SeqCst), 3);
+    }
+
+    #[tokio::test]
+    async fn circuit_breaker_call_async_accounts_for_state() {
+        let cb = CircuitBreaker::new(CircuitBreakerConfig {
+            name: "async_test".to_string(),
+            failure_threshold: 1,
+            open_duration: Duration::from_secs(60),
+            ..CircuitBreakerConfig::default()
+        });
+        // One failing future → trip.
+        let _ = cb
+            .call_async(|| async { Err::<(), &str>("boom") })
+            .await;
+        let c = cb.counters();
+        assert_eq!(c.calls_total, 1);
+        assert_eq!(c.trips_total, 1);
+
+        // Next call short-circuits with Open without
+        // polling the future.
+        let rejected: Result<(), CircuitBreakerError> = cb
+            .call_async(|| async { Ok::<(), &str>(()) })
+            .await;
+        assert!(matches!(rejected, Err(CircuitBreakerError::Open)));
+        let c = cb.counters();
+        assert_eq!(c.calls_total, 2);
+        assert_eq!(c.calls_rejected_total, 1);
+    }
+
+    #[tokio::test]
+    async fn with_circuit_breaker_async_retries_and_recovers() {
+        let cb = CircuitBreaker::new(CircuitBreakerConfig {
+            name: "async_recovery".to_string(),
+            failure_threshold: 1,
+            open_duration: Duration::from_millis(5),
+            ..CircuitBreakerConfig::default()
+        });
+        let counter = AtomicU32::new(0);
+        let policy = RetryPolicy {
+            max_attempts: 5,
+            initial_delay: Duration::from_millis(1),
+            jitter: false,
+            ..RetryPolicy::default()
+        };
+        // First attempt: failure → trip. Retry sleeps,
+        // cool-down elapses, the breaker is now HalfOpen
+        // and the next call is allowed through and succeeds.
+        let result = with_circuit_breaker_async(&cb, &policy, || {
+            let n = counter.fetch_add(1, Ordering::SeqCst);
+            async move {
+                if n == 0 {
+                    Err("first fails")
+                } else {
+                    Ok(42)
+                }
+            }
+        })
+        .await
+        .unwrap();
+        assert_eq!(result, 42);
+        let c = cb.counters();
+        assert_eq!(c.recoveries_total, 1, "HalfOpen -> Closed via async path");
+    }
+
+    /// End-to-end demonstration: stand up a tiny mock HTTP
+    /// server that flips between failing and succeeding,
+    /// wrap a `reqwest` call with `with_timeout` and
+    /// `with_circuit_breaker_async`, and confirm the retry
+    /// policy recovers from a transient failure.
+    #[tokio::test]
+    async fn async_resilience_handles_transient_http_failure() {
+        use std::sync::atomic::{AtomicU32, Ordering as AOrd};
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        use tokio::net::TcpListener;
+
+        let attempts = Arc::new(AtomicU32::new(0));
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let local = listener.local_addr().unwrap();
+        let attempts_for_server = attempts.clone();
+        let server = tokio::spawn(async move {
+            // Accept exactly two requests: the first
+            // returns 503, the second returns 200.
+            for _ in 0..2 {
+                let (mut s, _) = listener.accept().await.unwrap();
+                let n = attempts_for_server.fetch_add(1, AOrd::SeqCst);
+                let mut buf = [0u8; 1024];
+                let _ = s.read(&mut buf).await;
+                let body = if n == 0 {
+                    "transient"
+                } else {
+                    "ok"
+                };
+                let status = if n == 0 { "503" } else { "200" };
+                let resp = format!(
+                    "HTTP/1.1 {status} {}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                    if n == 0 { "Service Unavailable" } else { "OK" },
+                    body.len(),
+                    body,
+                );
+                let _ = s.write_all(resp.as_bytes()).await;
+                let _ = s.shutdown().await;
+            }
+        });
+
+        // The "call" under the breaker is a reqwest GET.
+        // We treat any non-2xx as a failure; the second
+        // attempt gets a 200 and the retry succeeds.
+        let cb = CircuitBreaker::new(CircuitBreakerConfig {
+            name: "http_demo".to_string(),
+            failure_threshold: 5,
+            open_duration: Duration::from_secs(60),
+            ..CircuitBreakerConfig::default()
+        });
+        let policy = RetryPolicy {
+            max_attempts: 3,
+            initial_delay: Duration::from_millis(5),
+            jitter: false,
+            ..RetryPolicy::default()
+        };
+        let url = format!("http://{local}/");
+        let result = with_circuit_breaker_async(&cb, &policy, || {
+            let url = url.clone();
+            async move {
+                let fut = reqwest::get(&url);
+                let resp = with_timeout(Duration::from_secs(2), fut)
+                    .await
+                    .map_err(|e| match e {
+                        TimeoutError::Elapsed => "timeout".to_string(),
+                        TimeoutError::Inner(e) => format!("inner: {e:?}"),
+                    })?
+                    .map_err(|e| format!("reqwest: {e}"))?;
+                if !resp.status().is_success() {
+                    return Err(format!("status: {}", resp.status()));
+                }
+                let text = resp.text().await.map_err(|e| format!("text: {e}"))?;
+                Ok(text)
+            }
+        })
+        .await
+        .unwrap();
+
+        assert_eq!(result, "ok");
+        assert_eq!(attempts.load(AOrd::SeqCst), 2);
+        server.await.unwrap();
     }
 }

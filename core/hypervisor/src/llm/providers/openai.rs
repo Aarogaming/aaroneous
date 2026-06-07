@@ -76,12 +76,31 @@ impl OpenAIProvider {
 
         debug!("Calling OpenAI API with model: {}", self.model);
 
-        let response = client
+        // Wrap the upstream call with a 60-second per-request
+        // timeout. The OpenAI API occasionally hangs on long
+        // prompts; without this, a stuck connection ties up
+        // the federation's HTTP client for the OS-default
+        // keep-alive duration. `tokio::time::timeout` is the
+        // raw primitive; the `with_timeout` helper in
+        // `resilience` is the same shape but lives alongside
+        // the other async resilience primitives.
+        let send_fut = client
             .post("https://api.openai.com/v1/chat/completions")
             .header("Authorization", format!("Bearer {}", self.api_key))
             .json(&request)
-            .send()
-            .await?;
+            .send();
+        let response = match tokio::time::timeout(
+            std::time::Duration::from_secs(60),
+            send_fut,
+        )
+        .await
+        {
+            Ok(Ok(r)) => r,
+            Ok(Err(e)) => return Err(anyhow::Error::from(e)),
+            Err(_) => {
+                return Err(anyhow!("OpenAI API request timed out after 60s"));
+            }
+        };
 
         if !response.status().is_success() {
             let error_text = response.text().await?;
