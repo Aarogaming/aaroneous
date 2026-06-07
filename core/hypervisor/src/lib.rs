@@ -277,3 +277,6 @@ mod phase2_integration_tests;
 
 #[cfg(test)]
 mod core_integration_tests;
+
+#[cfg(test)]
+mod graceful_degradation_tests;
