@@ -7,6 +7,7 @@ use parking_lot::RwLock;
 use memmap2::{MmapMut, MmapOptions};
 use std::fs::OpenOptions;
 use anyhow::{Result, Context};
+use tracing::{debug, info, warn};
 
 /// Maximum allowed wall-clock duration for a single tick. If a tick exceeds
 /// this we log a warning and continue the loop on the next iteration. This
@@ -291,7 +292,7 @@ impl AutonomicNervousSystem {
     /// break. Idempotent.
     pub fn request_shutdown(&self) {
         if !self.shutdown.swap(true, Ordering::SeqCst) {
-            println!("[AutonomicNS] Shutdown requested");
+            info!(target: "autonomic_loop", "shutdown requested");
         }
     }
 
@@ -393,7 +394,7 @@ impl AutonomicNervousSystem {
         let max_ticks = self.max_ticks.clone();
         let tick_start = self.tick_start.clone();
 
-        println!("[AutonomicNS] Heartbeat initiated at {:?}.", tick_rate);
+        info!(target: "autonomic_loop", ?tick_rate, "heartbeat initiated");
 
         thread::spawn(move || {
             let rt = tokio::runtime::Runtime::new().unwrap();
@@ -407,12 +408,12 @@ impl AutonomicNervousSystem {
             loop {
                 // --- COOPERATIVE SHUTDOWN ---
                 if shutdown.load(Ordering::SeqCst) {
-                    println!("[AutonomicNS] Shutdown observed; exiting after {} ticks", tick_count);
+                    info!(target: "autonomic_loop", tick_count, "shutdown observed; exiting");
                     break;
                 }
                 // --- TICK BUDGET ---
                 if tick_count >= max_ticks.load(Ordering::SeqCst) {
-                    println!("[AutonomicNS] Tick budget exhausted at {} ticks; exiting", tick_count);
+                    warn!(target: "autonomic_loop", tick_count, "tick budget exhausted; exiting");
                     break;
                 }
 
@@ -446,7 +447,7 @@ impl AutonomicNervousSystem {
                         biology.register_specialist("enzyme_runner", 100);
                         biology.register_specialist("learning_loop", 200);
                         biology.register_specialist("routing_engine", 150);
-                        println!("[AutonomicNS] Biology system initialized with specialists");
+                        info!(target: "autonomic_loop", "biology system initialized with specialists");
                     }
 
                     biology.update_metabolism();
@@ -467,22 +468,24 @@ impl AutonomicNervousSystem {
                             .min(metabolism.max_tokens);
 
                         if old_tokens < metabolism.max_tokens && metabolism.tokens > old_tokens {
-                            println!("[AutonomicNS] FIX #2 Token regeneration: {} tokens +{:.1} (throttle: {:?})",
-                                specialist_id, regen_rate, global_throttle);
+                            debug!(target: "autonomic_loop", specialist_id, regen_rate, ?global_throttle, "token regeneration");
                         }
                     }
                 }
 
                 if thermal_metrics.throttling_active {
-                    println!("[AutonomicNS] Thermal throttling active: CPU {}°C, GPU {}°C. Factor: {:.2}",
-                        thermal_metrics.cpu_temperature as i32,
-                        thermal_metrics.gpu_temperature as i32,
-                        thermal_factor);
+                    info!(
+                        target: "autonomic_loop",
+                        cpu_c = thermal_metrics.cpu_temperature as i32,
+                        gpu_c = thermal_metrics.gpu_temperature as i32,
+                        factor = thermal_factor,
+                        "thermal throttling active"
+                    );
 
                     // Adjust understanding score and curiosity based on thermal stress
                     if thermal_metrics.cpu_status == ThermalStatus::Critical {
                         state.understanding_score = ((state.understanding_score as f64) * thermal_factor) as u32;
-                        println!("[AutonomicNS] THERMAL EMERGENCY: Reducing work intensity. Understanding adjusted to {}.", state.understanding_score);
+                        warn!(target: "autonomic_loop", understanding = state.understanding_score, "thermal emergency: reducing work intensity");
 
                         // Reduce curiosity drive when in emergency
                         state.curiosity_drive = (state.curiosity_drive as f64 * 0.5) as u32;
@@ -495,17 +498,17 @@ impl AutonomicNervousSystem {
                     match bio.throttle_state {
                         ThrottleState::Normal => {
                             // System running at normal capacity
-                            println!("[AutonomicNS] Biology: Normal operation (expression rate: {:.2}x)", bio.expression_rate);
+                            debug!(target: "autonomic_loop", rate = bio.expression_rate, "biology: normal");
                         }
                         ThrottleState::Metabolic => {
                             // Reduced capacity - reduce cognitive intensity
-                            println!("[AutonomicNS] Biology: Metabolic mode (expression rate: {:.2}x)", bio.expression_rate);
+                            info!(target: "autonomic_loop", rate = bio.expression_rate, "biology: metabolic mode");
                             state.understanding_score = (state.understanding_score as f32 * 0.9) as u32;
                             state.curiosity_drive = (state.curiosity_drive as f32 * 0.8) as u32;
                         }
                         ThrottleState::Dormant => {
                             // Emergency mode - only critical tasks
-                            println!("[AutonomicNS] Biology: DORMANT mode (expression rate: {:.2}x) - EMERGENCY!", bio.expression_rate);
+                            warn!(target: "autonomic_loop", rate = bio.expression_rate, "biology: dormant mode (emergency)");
                             state.understanding_score = (state.understanding_score as f32 * 0.5) as u32;
                             state.curiosity_drive = 0;
                             state.safety_lock = 1;  // Engage safety locks
@@ -515,7 +518,7 @@ impl AutonomicNervousSystem {
 
                 // --- PHASE 1: HOMEOSTATIC SELF-PRESERVATION ---
                 if state.memory_pressure > 85 {
-                    println!("[AutonomicNS] High memory pressure: {}%. Triggering GC enzyme.", state.memory_pressure);
+                    info!(target: "autonomic_loop", pressure = state.memory_pressure, "high memory pressure; triggering GC");
                     state.memory_pressure = 30;
                 }
                 
@@ -525,19 +528,17 @@ impl AutonomicNervousSystem {
                     let backpressure_level = metrics_collector.get_backpressure_level();
                     
                     if metrics_collector.should_reject_new_tasks() {
-                        println!("[AutonomicNS] FIX #5 BACKPRESSURE ACTIVE: Rejecting new task acceptance");
-                        println!("[AutonomicNS] FIX #5 Backpressure level: {:.1}%", backpressure_level * 100.0);
+                        info!(target: "autonomic_loop", "backpressure active: rejecting new tasks");
+                        debug!(target: "autonomic_loop", level_pct = backpressure_level * 100.0, "backpressure level");
                         // Don't accept new tasks this tick
                         // Existing in-progress tasks will continue
                         state.understanding_score = (state.understanding_score as f32 * 0.9) as u32;
                     } else if backpressure_level > 0.5 {
-                        println!("[AutonomicNS] FIX #5 MODERATE BACKPRESSURE: {:.1}% - reducing task acceptance rate",
-                            backpressure_level * 100.0);
+                        info!(target: "autonomic_loop", level_pct = backpressure_level * 100.0, "moderate backpressure");
                         // Reduce new task acceptance but don't block completely
                         state.curiosity_drive = (state.curiosity_drive as f32 * 0.8) as u32;
                     } else if backpressure_level > 0.2 {
-                        println!("[AutonomicNS] FIX #5 Light backpressure: {:.1}% - normal operation",
-                            backpressure_level * 100.0);
+                        debug!(target: "autonomic_loop", level_pct = backpressure_level * 100.0, "light backpressure");
                     }
                 }
 
@@ -557,7 +558,7 @@ impl AutonomicNervousSystem {
                             if let Ok(new_plan) = rt.block_on(prefrontal_cortex.draft_plan(&hunger_intent)) {
                                 let mut plan_guard = active_plan.write();
                                 *plan_guard = Some(new_plan);
-                                println!("[AutonomicNS] Hunger plan seated to satisfy curiosity.");
+                                debug!(target: "autonomic_loop", "hunger plan seated");
                             }
                         }
                     }
@@ -574,7 +575,7 @@ impl AutonomicNervousSystem {
                     let intent_tier = nlm_sentinel.classify_intent(mock_intent_text);
                     
                     if intent_tier == IntentTier::Violation {
-                        println!("[AutonomicNS] SAFETY VIOLATION detected for task {}. Blocking.", task_id);
+                        warn!(target: "autonomic_loop", %task_id, "safety violation; blocking task");
                         state.safety_lock = 1;
                         state.intent_vector_id = [0; 16];
                         Self::write_state(&synapse.read(), &state);
@@ -591,7 +592,7 @@ impl AutonomicNervousSystem {
 
                     if state.sovereignty_tier >= 1 && state.approval_granted == 0 {
                         if state.approval_required == 0 {
-                            println!("[AutonomicNS] Task {} requires user approval (Tier {}). Stalling.", task_id, state.sovereignty_tier);
+                            info!(target: "autonomic_loop", %task_id, tier = state.sovereignty_tier, "task requires user approval");
                             state.approval_required = 1;
                         }
                         Self::write_state(&synapse.read(), &state);
@@ -599,13 +600,13 @@ impl AutonomicNervousSystem {
                         continue;
                     }
 
-                    println!("[AutonomicNS] Intent vector {} approved (Tier {}). Executing.", task_id, state.sovereignty_tier);
+                    debug!(target: "autonomic_loop", %task_id, tier = state.sovereignty_tier, "intent approved; executing");
                     
                     if mock_intent_text.contains("Perform search") {
                         let mut plan_guard = active_plan.write();
                         if let Ok(new_plan) = rt.block_on(prefrontal_cortex.draft_plan(mock_intent_text)) {
                             *plan_guard = Some(new_plan);
-                            println!("[AutonomicNS] Multi-step plan generated and seated.");
+                            debug!(target: "autonomic_loop", "multi-step plan generated");
                         }
                     }
 
@@ -642,12 +643,12 @@ impl AutonomicNervousSystem {
                                 {
                                     let mut bio = biology.write();
                                     if !bio.can_execute_specialist(&specialist_id) {
-                                        println!("[AutonomicNS] {} out of tokens, deferring step {}", specialist_id, step_id);
+                                        info!(target: "autonomic_loop", %specialist_id, %step_id, "specialist out of tokens; deferring step");
                                         continue;
                                     }
                                 }
                                 
-                                println!("[AutonomicNS] Executing plan step: {} ({})", step_id, specialist_id);
+                                debug!(target: "autonomic_loop", %step_id, %specialist_id, "executing plan step");
                                 
                                 // FIX #7: INTEGRATION - Specialist memory consultation for decision making
                                 let mut should_execute = true;
@@ -668,27 +669,40 @@ impl AutonomicNervousSystem {
                                         let success_rate = (successes as f32) / (query_result.entries.len() as f32);
                                         execution_risk = 1.0 - success_rate;  // Risk = 1 - success rate
                                         
-                                        println!("[AutonomicNS] FIX #7 Memory consultation for specialist '{}' task '{}':", 
-                                            specialist_id, step_id);
-                                        println!("[AutonomicNS] FIX #7 Recommendation: {} (risk: {:.1}%)",
-                                            query_result.recommendation, execution_risk * 100.0);
+                                        info!(
+                                            target: "autonomic_loop",
+                                            specialist_id = %specialist_id,
+                                            step_id = %step_id,
+                                            "memory consultation for specialist"
+                                        );
+                                        info!(
+                                            target: "autonomic_loop",
+                                            recommendation = %query_result.recommendation,
+                                            risk_pct = execution_risk * 100.0,
+                                            "memory recommendation"
+                                        );
                                         for (i, entry) in query_result.entries.iter().enumerate() {
-                                            println!("[AutonomicNS] FIX #7   {}. {} (confidence: {:.1}%)", 
-                                                i + 1, entry.title, entry.confidence * 100.0);
+                                            debug!(
+                                                target: "autonomic_loop",
+                                                index = i + 1,
+                                                title = %entry.title,
+                                                confidence_pct = entry.confidence * 100.0,
+                                                "past outcome"
+                                            );
                                         }
                                         
                                         // FIX #7: Make decision based on risk
                                         if execution_risk > 0.7 {
-                                            println!("[AutonomicNS] FIX #7 HIGH RISK ({:.1}%) - Executing with caution", execution_risk * 100.0);
+                                            warn!(target: "autonomic_loop", risk_pct = execution_risk * 100.0, "high risk; executing with caution");
                                             state.understanding_score = (state.understanding_score as f32 * 0.8) as u32;
                                         } else if execution_risk > 0.3 {
-                                            println!("[AutonomicNS] FIX #7 MEDIUM RISK ({:.1}%) - Normal execution", execution_risk * 100.0);
+                                            info!(target: "autonomic_loop", risk_pct = execution_risk * 100.0, "medium risk; normal execution");
                                         } else {
-                                            println!("[AutonomicNS] FIX #7 LOW RISK ({:.1}%) - Executing with confidence", execution_risk * 100.0);
+                                            debug!(target: "autonomic_loop", risk_pct = execution_risk * 100.0, "low risk");
                                             state.understanding_score = (state.understanding_score as f32 * 1.1).min(100.0) as u32;
                                         }
                                     } else {
-                                        println!("[AutonomicNS] FIX #7 No past experience - executing with default risk {:.1}%", execution_risk * 100.0);
+                                        debug!(target: "autonomic_loop", risk_pct = execution_risk * 100.0, "no past experience");
                                     }
                                 }
                                 
@@ -730,7 +744,7 @@ impl AutonomicNervousSystem {
                                 // Reward successful execution to drive learning
                                 if state.understanding_score > 60 {
                                     dopamine_system.process_event(&mut state, DopamineEvent::SuccessfulIngestion(0));
-                                    println!("[AutonomicNS] Step {} executed successfully. Dopamine reward applied.", step_id);
+                                    debug!(target: "autonomic_loop", %step_id, "step succeeded; dopamine reward applied");
                                     
                                     // FIX #3: CRITICAL - Wire dopamine to learning
                                     // Pass dopamine signal to learning system to update specialist weights
@@ -744,15 +758,20 @@ impl AutonomicNervousSystem {
                                             dopamine_value,
                                             0.9,  // High confidence
                                         );
-                                        println!("[AutonomicNS] FIX #3 Learning from dopamine: specialist={}, signal={:.2}, lr={:.4}",
-                                            specialist_id, result.learning_signal, result.adaptive_learning_rate);
+                                        debug!(
+                                            target: "autonomic_loop",
+                                            specialist_id = %specialist_id,
+                                            signal = result.learning_signal,
+                                            lr = result.adaptive_learning_rate,
+                                            "dopamine learning"
+                                        );
                                     }
                                     
                                     // PHASE 5.3: Consume token on successful execution
                                     {
                                         let mut bio = biology.write();
                                         if bio.consume_specialist_token(&specialist_id) {
-                                            println!("[AutonomicNS] {} token consumed for successful step execution", specialist_id);
+                                            debug!(target: "autonomic_loop", %specialist_id, "token consumed");
                                         }
                                     }
                                     
@@ -771,10 +790,10 @@ impl AutonomicNervousSystem {
                                         );
                                         
                                         store.store_memory(outcome_entry);
-                                        println!("[AutonomicNS] FIX #7 Stored success outcome in specialist memory for '{}'", specialist_id);
+                                        debug!(target: "autonomic_loop", %specialist_id, "stored success outcome");
                                     }
                                 } else {
-                                    println!("[AutonomicNS] Step {} executing with lower understanding score.", step_id);
+                                    warn!(target: "autonomic_loop", %step_id, "executing with lower understanding score");
                                     
                                     // FIX #7: INTEGRATION - Store failure outcome in specialist memory
                                     {
@@ -791,7 +810,7 @@ impl AutonomicNervousSystem {
                                         );
                                         
                                         store.store_memory(outcome_entry);
-                                        println!("[AutonomicNS] FIX #7 Stored cautious execution outcome in specialist memory for '{}'", specialist_id);
+                                        debug!(target: "autonomic_loop", %specialist_id, "stored cautious outcome");
                                     }
                                 }
                                 
@@ -850,7 +869,7 @@ impl AutonomicNervousSystem {
                                     1.0_f32,  // Maximum reward for DNA splicing success
                                     0.95,     // Very high confidence
                                 );
-                                println!("[AutonomicNS] FIX #3 Specialist DNA splicing: {} - dopamine learning triggered", name);
+                                info!(target: "autonomic_loop", %name, "specialist DNA splicing; dopamine learning triggered");
                             }
                         }
                     }
@@ -880,11 +899,11 @@ impl AutonomicNervousSystem {
                 
                 // FIX #6: NEW - Registry synchronization every 100 ticks
                 if state.clock_tick % 100 == 0 {
-                    println!("[AutonomicNS] FIX #6: Tick {} - Registry synchronization point", state.clock_tick);
+                    debug!(target: "autonomic_loop", tick = state.clock_tick, "registry sync point");
                     // Registry sync would happen here:
                     // coordinator.sync_all_adapters() would aggregate state from all 18 adapters
                     // Master registry would be used for all decision queries
-                    println!("[AutonomicNS] FIX #6: Registry sync complete (adapters synced, master aggregated)");
+                    debug!(target: "autonomic_loop", "registry sync complete");
                 }
 
                 // --- Sync: write state back to shared memory ---
@@ -896,9 +915,12 @@ impl AutonomicNervousSystem {
                 let elapsed = start.elapsed();
                 // --- TICK WATCHDOG ---
                 if elapsed > TICK_WATCHDOG {
-                    println!(
-                        "[AutonomicNS] WARNING: tick {} took {:?} (> {:?} watchdog). Continuing.",
-                        tick_count, elapsed, TICK_WATCHDOG
+                    warn!(
+                        target: "autonomic_loop",
+                        tick = tick_count,
+                        elapsed_us = elapsed.as_micros() as u64,
+                        budget_us = TICK_WATCHDOG.as_micros() as u64,
+                        "tick exceeded watchdog budget"
                     );
                 }
                 if elapsed < tick_rate {
