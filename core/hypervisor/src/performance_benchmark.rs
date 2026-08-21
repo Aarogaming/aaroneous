@@ -1,8 +1,8 @@
 // Performance Benchmarking and Optimization Tracking
 // Comprehensive performance metrics, baselines, and optimization analysis
 
-use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::time::Instant;
 
 /// Benchmark operation
@@ -76,11 +76,11 @@ pub enum RegressionSeverity {
     #[serde(rename = "NONE")]
     None,
     #[serde(rename = "MINOR")]
-    Minor,      // < 5%
+    Minor, // < 5%
     #[serde(rename = "MODERATE")]
-    Moderate,   // 5-20%
+    Moderate, // 5-20%
     #[serde(rename = "SEVERE")]
-    Severe,     // > 20%
+    Severe, // > 20%
 }
 
 /// Performance benchmark suite
@@ -97,7 +97,7 @@ impl PerformanceBenchmark {
     /// Create new performance benchmark
     pub fn new(name: &str, version: &str, regression_threshold: f32) -> Self {
         println!("[PerformanceBenchmark] Initialized: {} v{}", name, version);
-        
+
         Self {
             name: name.to_string(),
             version: version.to_string(),
@@ -110,8 +110,10 @@ impl PerformanceBenchmark {
 
     /// Run benchmark
     pub fn run_benchmark(&mut self, operation: &BenchmarkOperation) -> BenchmarkResult {
-        println!("[PerformanceBenchmark] Running: {} ({} iterations)",
-            operation.name, operation.iterations);
+        println!(
+            "[PerformanceBenchmark] Running: {} ({} iterations)",
+            operation.name, operation.iterations
+        );
 
         let start = Instant::now();
         let mut times = Vec::new();
@@ -119,10 +121,10 @@ impl PerformanceBenchmark {
         // Run iterations
         for _ in 0..operation.iterations {
             let iter_start = Instant::now();
-            
+
             // Simulate operation
             self.execute_operation(&operation.operation_type);
-            
+
             let iter_time = iter_start.elapsed().as_micros() as u64;
             times.push(iter_time);
         }
@@ -143,12 +145,14 @@ impl PerformanceBenchmark {
 
         // Calculate standard deviation
         let mean = avg_time as f64;
-        let variance: f64 = times.iter()
+        let variance: f64 = times
+            .iter()
             .map(|t| {
                 let diff = *t as f64 - mean;
                 diff * diff
             })
-            .sum::<f64>() / times.len() as f64;
+            .sum::<f64>()
+            / times.len() as f64;
         let stddev = variance.sqrt() as u64;
 
         let throughput = (operation.iterations as f32 * 1_000_000.0) / total_time as f32;
@@ -169,11 +173,13 @@ impl PerformanceBenchmark {
             p95_time_us: p95,
             p99_time_us: p99,
             throughput_ops_per_sec: throughput,
-            memory_used_mb: 0,  // Would collect from system
+            memory_used_mb: 0, // Would collect from system
         };
 
-        println!("[PerformanceBenchmark] Complete: {} - avg={}μs, p99={}μs, {:.0}ops/sec",
-            operation.name, avg_time, p99, throughput);
+        println!(
+            "[PerformanceBenchmark] Complete: {} - avg={}μs, p99={}μs, {:.0}ops/sec",
+            operation.name, avg_time, p99, throughput
+        );
 
         // Check for regressions
         self.check_regressions(&result);
@@ -196,16 +202,20 @@ impl PerformanceBenchmark {
             throughput_ops_per_sec: result.throughput_ops_per_sec,
         };
 
-        println!("[PerformanceBenchmark] Set baseline for: {}", operation_name);
+        println!(
+            "[PerformanceBenchmark] Set baseline for: {}",
+            operation_name
+        );
         self.baselines.insert(operation_name.to_string(), baseline);
     }
 
     /// Check for regressions
     fn check_regressions(&mut self, result: &BenchmarkResult) {
         if let Some(baseline) = self.baselines.get(&result.operation_name) {
-            let regression_percent = 
-                ((result.average_time_us as f32 - baseline.average_time_us as f32) 
-                / baseline.average_time_us as f32) * 100.0;
+            let regression_percent = ((result.average_time_us as f32
+                - baseline.average_time_us as f32)
+                / baseline.average_time_us as f32)
+                * 100.0;
 
             if regression_percent > self.regression_threshold_percent {
                 let severity = if regression_percent < 5.0 {
@@ -224,8 +234,10 @@ impl PerformanceBenchmark {
                     severity: severity.clone(),
                 };
 
-                println!("[PerformanceBenchmark] REGRESSION: {} ({:.1}%)",
-                    result.operation_name, regression_percent);
+                println!(
+                    "[PerformanceBenchmark] REGRESSION: {} ({:.1}%)",
+                    result.operation_name, regression_percent
+                );
 
                 self.regressions.push(regression);
             }
@@ -241,28 +253,32 @@ impl PerformanceBenchmark {
 
     /// Get results summary
     pub fn get_summary(&self) -> BenchmarkSummary {
-        let total_operations: u64 = self.results.iter()
-            .map(|r| r.iterations as u64)
-            .sum();
+        let total_operations: u64 = self.results.iter().map(|r| r.iterations as u64).sum();
 
         let avg_latency = if !self.results.is_empty() {
-            self.results.iter()
+            self.results
+                .iter()
                 .map(|r| r.average_time_us as f64)
-                .sum::<f64>() / self.results.len() as f64
+                .sum::<f64>()
+                / self.results.len() as f64
         } else {
             0.0
         };
 
         let avg_throughput = if !self.results.is_empty() {
-            self.results.iter()
+            self.results
+                .iter()
                 .map(|r| r.throughput_ops_per_sec)
-                .sum::<f32>() / self.results.len() as f32
+                .sum::<f32>()
+                / self.results.len() as f32
         } else {
             0.0
         };
 
         let regression_count = self.regressions.len();
-        let severe_regressions = self.regressions.iter()
+        let severe_regressions = self
+            .regressions
+            .iter()
             .filter(|r| matches!(r.severity, RegressionSeverity::Severe))
             .count();
 
@@ -291,9 +307,10 @@ impl PerformanceBenchmark {
 
         for result in &self.results {
             if let Some(baseline) = self.baselines.get(&result.operation_name) {
-                let improvement_percent = 
-                    ((baseline.average_time_us as f32 - result.average_time_us as f32)
-                    / baseline.average_time_us as f32) * 100.0;
+                let improvement_percent = ((baseline.average_time_us as f32
+                    - result.average_time_us as f32)
+                    / baseline.average_time_us as f32)
+                    * 100.0;
 
                 operation_comparisons.push(OperationComparison {
                     operation_name: result.operation_name.clone(),
@@ -313,8 +330,7 @@ impl PerformanceBenchmark {
 
     /// Export results as JSON
     pub fn export_results_json(&self) -> String {
-        serde_json::to_string_pretty(&self.results)
-            .unwrap_or_else(|_| "[]".to_string())
+        serde_json::to_string_pretty(&self.results).unwrap_or_else(|_| "[]".to_string())
     }
 }
 
@@ -373,7 +389,7 @@ mod tests {
     #[test]
     fn test_run_benchmark() {
         let mut benchmark = PerformanceBenchmark::new("test", "1.0.0", 5.0);
-        
+
         let operation = BenchmarkOperation {
             name: "test_op".to_string(),
             description: "Test operation".to_string(),
@@ -389,7 +405,7 @@ mod tests {
     #[test]
     fn test_baseline_and_regression() {
         let mut benchmark = PerformanceBenchmark::new("test", "1.0.0", 5.0);
-        
+
         let operation = BenchmarkOperation {
             name: "test_op".to_string(),
             description: "Test operation".to_string(),
@@ -406,7 +422,7 @@ mod tests {
     #[test]
     fn test_summary() {
         let mut benchmark = PerformanceBenchmark::new("test", "1.0.0", 5.0);
-        
+
         let operation = BenchmarkOperation {
             name: "test_op".to_string(),
             description: "Test".to_string(),
@@ -420,4 +436,3 @@ mod tests {
         assert_eq!(summary.total_benchmarks, 1);
     }
 }
-

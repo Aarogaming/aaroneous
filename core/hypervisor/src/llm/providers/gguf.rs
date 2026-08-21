@@ -4,7 +4,7 @@
 
 use crate::llm::types::*;
 use crate::workspace::WorkspacePaths;
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use async_trait::async_trait;
 use std::path::PathBuf;
 use tracing::{debug, info, warn};
@@ -12,8 +12,8 @@ use tracing::{debug, info, warn};
 #[cfg_attr(not(feature = "llama-gguf"), allow(dead_code))]
 pub struct GGUFProvider {
     model_path: PathBuf,
-    context_size: u32,
-    threads: u32,
+    _context_size: u32,
+    _threads: u32,
     /// Cached engine instance — loaded once on first call, reused for all subsequent calls.
     ///
     /// Without this cache, every `generate_text()` call would:
@@ -21,7 +21,7 @@ pub struct GGUFProvider {
     /// - Map it into virtual address space (mmap)
     /// - Parse the tensor info table
     /// - Allocate KV cache
-    /// Total: 500ms–3s per call for a 4GB model.
+    ///   Total: 500ms–3s per call for a 4GB model.
     ///
     /// With the cache: first call pays the load cost, subsequent calls are
     /// instant — the Engine is already in memory and the KV cache is hot.
@@ -36,10 +36,7 @@ impl GGUFProvider {
     /// Create GGUF provider with local model
     pub fn new(model_path: PathBuf, context_size: u32, threads: u32) -> Result<Self> {
         if !model_path.exists() {
-            return Err(anyhow!(
-                "Model file not found at: {}",
-                model_path.display()
-            ));
+            return Err(anyhow!("Model file not found at: {}", model_path.display()));
         }
 
         info!(
@@ -50,8 +47,8 @@ impl GGUFProvider {
 
         Ok(Self {
             model_path,
-            context_size,
-            threads,
+            _context_size: context_size,
+            _threads: threads,
             #[cfg(feature = "llama-gguf")]
             engine_cache: std::sync::Arc::new(tokio::sync::Mutex::new(None)),
         })
@@ -121,8 +118,10 @@ impl GGUFProvider {
                 // On subsequent calls: use the already-loaded engine.
                 let mut guard = engine_cache.blocking_lock();
                 if guard.is_none() {
-                    info!("GGUF: loading engine from {} (first call — one-time cost)",
-                          model_path_str);
+                    info!(
+                        "GGUF: loading engine from {} (first call — one-time cost)",
+                        model_path_str
+                    );
                     let config = EngineConfig {
                         model_path: model_path_str,
                         temperature: 0.7,
@@ -131,12 +130,13 @@ impl GGUFProvider {
                     };
                     *guard = Some(
                         Engine::load(config)
-                            .map_err(|e| anyhow!("Engine::load failed: {:?}", e))?
+                            .map_err(|e| anyhow!("Engine::load failed: {:?}", e))?,
                     );
                     info!("GGUF: engine loaded and cached — subsequent calls will be instant");
                 }
 
-                let engine = guard.as_mut()
+                let engine = guard
+                    .as_mut()
                     .ok_or_else(|| anyhow!("engine cache invariant violated"))?;
 
                 engine
@@ -147,7 +147,7 @@ impl GGUFProvider {
             .map_err(|e| anyhow!("spawn_blocking panicked: {}", e))??;
 
             debug!("GGUF inference complete: {} chars generated", result.len());
-            return Ok(result);
+            Ok(result)
         }
 
         // Fallback when llama-gguf feature is not enabled
@@ -229,7 +229,10 @@ Return JSON array only:
                 .map(|s| format!("{} L{}", s.name, s.level))
                 .collect::<Vec<_>>()
                 .join(", "),
-            goal = specialist.current_goal.as_ref().unwrap_or(&"none".to_string())
+            goal = specialist
+                .current_goal
+                .as_ref()
+                .unwrap_or(&"none".to_string())
         )
     }
 }
@@ -378,12 +381,7 @@ Return JSON only:
         Ok(explanation)
     }
 
-    async fn chat(
-        &self,
-        system_prompt: &str,
-        user_message: &str,
-        _domain: &str,
-    ) -> Result<String> {
+    async fn chat(&self, system_prompt: &str, user_message: &str, _domain: &str) -> Result<String> {
         // Build a Qwen2/ChatML-style prompt:
         //   <|im_start|>system\n{system}\n<|im_end|>\n
         //   <|im_start|>user\n{user}\n<|im_end|>\n
@@ -401,7 +399,7 @@ Return JSON only:
     async fn generate_design(&self, context: &DesignContext) -> Result<DesignGeneration> {
         let style = context.style_hints.join(", ");
         let constraints = context.constraints.join(", ");
-        let count = context.variants_requested.min(3).max(1);
+        let count = context.variants_requested.clamp(1, 3);
 
         let prompt = format!(
             r#"You are Visionary, a UI/UX design specialist. Generate {count} distinct design variants.
@@ -425,8 +423,16 @@ Return a JSON array of {count} variant(s), each with:
 JSON array only:"#,
             count = count,
             intent = context.intent,
-            style = if style.is_empty() { "modern, clean".to_string() } else { style },
-            constraints = if constraints.is_empty() { "none".to_string() } else { constraints },
+            style = if style.is_empty() {
+                "modern, clean".to_string()
+            } else {
+                style
+            },
+            constraints = if constraints.is_empty() {
+                "none".to_string()
+            } else {
+                constraints
+            },
             rejected = if context.rejected_examples.is_empty() {
                 "nothing known".to_string()
             } else {
@@ -439,22 +445,26 @@ JSON array only:"#,
 
         // Parse the JSON array of variants
         let json_str = extract_json_from_response(&response)?;
-        let variants: Vec<DesignVariant> = serde_json::from_str(&json_str)
-            .unwrap_or_else(|_| {
-                // If parsing fails, return a single fallback variant
-                warn!("Failed to parse GGUF design response; using fallback variant");
-                vec![DesignVariant {
-                    title: format!("Design for {}", context.intent),
-                    description: format!("Generated design: {}", response.chars().take(200).collect::<String>()),
-                    colors: vec!["#6366F1".to_string(), "#F8FAFC".to_string()],
-                    typography: "Inter, sans-serif".to_string(),
-                    layout: "single-column".to_string(),
-                    confidence: 0.5,
-                    reasoning: "Fallback from unparseable GGUF response".to_string(),
-                }]
-            });
+        let variants: Vec<DesignVariant> = serde_json::from_str(&json_str).unwrap_or_else(|_| {
+            // If parsing fails, return a single fallback variant
+            warn!("Failed to parse GGUF design response; using fallback variant");
+            vec![DesignVariant {
+                title: format!("Design for {}", context.intent),
+                description: format!(
+                    "Generated design: {}",
+                    response.chars().take(200).collect::<String>()
+                ),
+                colors: vec!["#6366F1".to_string(), "#F8FAFC".to_string()],
+                typography: "Inter, sans-serif".to_string(),
+                layout: "single-column".to_string(),
+                confidence: 0.5,
+                reasoning: "Fallback from unparseable GGUF response".to_string(),
+            }]
+        });
 
-        let batch_confidence = if variants.is_empty() { 0.0 } else {
+        let batch_confidence = if variants.is_empty() {
+            0.0
+        } else {
             variants.iter().map(|v| v.confidence).sum::<f32>() / variants.len() as f32
         };
 
@@ -479,17 +489,17 @@ JSON array only:"#,
 /// Extract JSON from text that may contain extra content
 fn extract_json_from_response(text: &str) -> Result<String> {
     // Try to find JSON object
-    if let Some(start) = text.find('{') {
-        if let Some(end) = text.rfind('}') {
-            return Ok(text[start..=end].to_string());
-        }
+    if let Some(start) = text.find('{')
+        && let Some(end) = text.rfind('}')
+    {
+        return Ok(text[start..=end].to_string());
     }
 
     // Try to find JSON array
-    if let Some(start) = text.find('[') {
-        if let Some(end) = text.rfind(']') {
-            return Ok(text[start..=end].to_string());
-        }
+    if let Some(start) = text.find('[')
+        && let Some(end) = text.rfind(']')
+    {
+        return Ok(text[start..=end].to_string());
     }
 
     // No JSON found

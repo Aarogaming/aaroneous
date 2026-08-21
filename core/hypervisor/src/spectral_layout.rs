@@ -1,7 +1,6 @@
 /// Spectral Graph Layout for Constellation.
 /// Uses eigendecomposition of the graph Laplacian for optimal 2D/3D positioning.
 /// Replaces O(n²) iterative force-directed layout with O(n³) one-shot spectral decomposition.
-
 /// Compute 2D positions from graph edges using spectral layout.
 /// Returns (x, y) coordinates for each node.
 pub fn spectral_layout_2d(n_nodes: usize, edges: &[(usize, usize, f64)]) -> Vec<(f64, f64)> {
@@ -82,7 +81,8 @@ pub fn spectral_layout_3d(n_nodes: usize, edges: &[(usize, usize, f64)]) -> Vec<
     // Find first three non-trivial eigenvectors
     let eigenvector_1 = power_iteration(&laplacian, n_nodes, 1);
     let eigenvector_2 = power_iteration_orthogonal(&laplacian, &eigenvector_1, n_nodes);
-    let eigenvector_3 = power_iteration_orthogonal_to_two(&laplacian, &eigenvector_1, &eigenvector_2, n_nodes);
+    let eigenvector_3 =
+        power_iteration_orthogonal_to_two(&laplacian, &eigenvector_1, &eigenvector_2, n_nodes);
 
     // Positions from eigenvectors
     let positions: Vec<(f64, f64, f64)> = (0..n_nodes)
@@ -169,7 +169,11 @@ fn power_iteration_orthogonal(laplacian: &[Vec<f64>], v1: &[f64], n: usize) -> V
 
         // Re-orthogonalize against v1
         let dot: f64 = new_v.iter().zip(v1.iter()).map(|(a, b)| a * b).sum();
-        new_v = new_v.iter().zip(v1.iter()).map(|(a, b)| a - dot * b).collect();
+        new_v = new_v
+            .iter()
+            .zip(v1.iter())
+            .map(|(a, b)| a - dot * b)
+            .collect();
 
         // Normalize
         let norm: f64 = new_v.iter().map(|x| x.powi(2)).sum::<f64>().sqrt();
@@ -197,7 +201,8 @@ fn power_iteration_orthogonal_to_two(
     // Orthogonalize against v1 and v2
     let dot1: f64 = v.iter().zip(v1.iter()).map(|(a, b)| a * b).sum();
     let dot2: f64 = v.iter().zip(v2.iter()).map(|(a, b)| a * b).sum();
-    v = v.iter()
+    v = v
+        .iter()
         .zip(v1.iter())
         .zip(v2.iter())
         .map(|((a, b1), b2)| a - dot1 * b1 - dot2 * b2)
@@ -227,7 +232,8 @@ fn power_iteration_orthogonal_to_two(
         // Re-orthogonalize against v1 and v2
         let dot1: f64 = new_v.iter().zip(v1.iter()).map(|(a, b)| a * b).sum();
         let dot2: f64 = new_v.iter().zip(v2.iter()).map(|(a, b)| a * b).sum();
-        new_v = new_v.iter()
+        new_v = new_v
+            .iter()
             .zip(v1.iter())
             .zip(v2.iter())
             .map(|((a, b1), b2)| a - dot1 * b1 - dot2 * b2)
@@ -252,8 +258,14 @@ fn normalize_positions(positions: &[(f64, f64)]) -> Vec<(f64, f64)> {
     }
 
     let scale = 100.0;
-    let max_x = positions.iter().map(|(x, _)| x.abs()).fold(0.0f64, f64::max);
-    let max_y = positions.iter().map(|(_, y)| y.abs()).fold(0.0f64, f64::max);
+    let max_x = positions
+        .iter()
+        .map(|(x, _)| x.abs())
+        .fold(0.0f64, f64::max);
+    let max_y = positions
+        .iter()
+        .map(|(_, y)| y.abs())
+        .fold(0.0f64, f64::max);
 
     positions
         .iter()
@@ -272,9 +284,18 @@ fn normalize_positions_3d(positions: &[(f64, f64, f64)]) -> Vec<(f64, f64, f64)>
     }
 
     let scale = 100.0;
-    let max_x = positions.iter().map(|(x, _, _)| x.abs()).fold(0.0f64, f64::max);
-    let max_y = positions.iter().map(|(_, y, _)| y.abs()).fold(0.0f64, f64::max);
-    let max_z = positions.iter().map(|(_, _, z)| z.abs()).fold(0.0f64, f64::max);
+    let max_x = positions
+        .iter()
+        .map(|(x, _, _)| x.abs())
+        .fold(0.0f64, f64::max);
+    let max_y = positions
+        .iter()
+        .map(|(_, y, _)| y.abs())
+        .fold(0.0f64, f64::max);
+    let max_z = positions
+        .iter()
+        .map(|(_, _, z)| z.abs())
+        .fold(0.0f64, f64::max);
 
     positions
         .iter()
@@ -289,7 +310,11 @@ fn normalize_positions_3d(positions: &[(f64, f64, f64)]) -> Vec<(f64, f64, f64)>
 
 /// Build edge weights from node similarity.
 /// Returns edges with weights based on cosine similarity of features.
-pub fn build_similarity_edges(n_nodes: usize, features: &[Vec<f64>], threshold: f64) -> Vec<(usize, usize, f64)> {
+pub fn build_similarity_edges(
+    n_nodes: usize,
+    features: &[Vec<f64>],
+    threshold: f64,
+) -> Vec<(usize, usize, f64)> {
     let mut edges = Vec::new();
 
     for i in 0..n_nodes {
@@ -324,7 +349,11 @@ fn cosine_similarity(a: &[f64], b: &[f64]) -> f64 {
 
 /// Compute graph modularity for cluster quality.
 /// Q = (1/2m) * Σ[A_ij - k_i*k_j/(2m)] * δ(c_i, c_j)
-pub fn compute_modularity(n_nodes: usize, edges: &[(usize, usize, f64)], clusters: &[usize]) -> f64 {
+pub fn compute_modularity(
+    n_nodes: usize,
+    edges: &[(usize, usize, f64)],
+    clusters: &[usize],
+) -> f64 {
     if n_nodes == 0 {
         return 0.0;
     }
@@ -383,7 +412,11 @@ pub fn edges_from_positions(
             let dist = (dx * dx + dy * dy).sqrt();
             if dist <= distance_threshold {
                 // Weight is inversely proportional to distance
-                let weight = if dist > 0.0 { default_weight / dist } else { default_weight };
+                let weight = if dist > 0.0 {
+                    default_weight / dist
+                } else {
+                    default_weight
+                };
                 edges.push((i, j, weight));
             }
         }
@@ -408,7 +441,11 @@ pub fn edges_from_positions_3d(
             let dz = positions[i].2 - positions[j].2;
             let dist = (dx * dx + dy * dy + dz * dz).sqrt();
             if dist <= distance_threshold {
-                let weight = if dist > 0.0 { default_weight / dist } else { default_weight };
+                let weight = if dist > 0.0 {
+                    default_weight / dist
+                } else {
+                    default_weight
+                };
                 edges.push((i, j, weight));
             }
         }
@@ -423,11 +460,7 @@ mod tests {
 
     #[test]
     fn test_spectral_layout_2d() {
-        let edges = vec![
-            (0, 1, 1.0),
-            (1, 2, 1.0),
-            (2, 3, 1.0),
-        ];
+        let edges = vec![(0, 1, 1.0), (1, 2, 1.0), (2, 3, 1.0)];
 
         let positions = spectral_layout_2d(4, &edges);
         assert_eq!(positions.len(), 4);
@@ -441,12 +474,7 @@ mod tests {
 
     #[test]
     fn test_spectral_layout_3d() {
-        let edges = vec![
-            (0, 1, 1.0),
-            (1, 2, 1.0),
-            (2, 3, 1.0),
-            (3, 0, 1.0),
-        ];
+        let edges = vec![(0, 1, 1.0), (1, 2, 1.0), (2, 3, 1.0), (3, 0, 1.0)];
 
         let positions = spectral_layout_3d(4, &edges);
         assert_eq!(positions.len(), 4);
@@ -469,7 +497,11 @@ mod tests {
         let edges = build_similarity_edges(3, &features, 0.5);
         // First two vectors are similar, third is orthogonal
         assert!(!edges.is_empty());
-        assert!(edges.iter().any(|(i, j, _)| (*i == 0 && *j == 1) || (*i == 1 && *j == 0)));
+        assert!(
+            edges
+                .iter()
+                .any(|(i, j, _)| (*i == 0 && *j == 1) || (*i == 1 && *j == 0))
+        );
     }
 
     #[test]

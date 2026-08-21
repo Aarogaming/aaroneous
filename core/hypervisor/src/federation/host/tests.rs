@@ -7,9 +7,7 @@
 #[cfg(test)]
 mod tests {
     use super::super::*;
-    use crate::federation::specialist::{
-        Decision, ResourceRequest, Specialist, SpecialistId,
-    };
+    use crate::federation::specialist::{Decision, ResourceRequest, Specialist, SpecialistId};
     use crate::federation::specialists::Visionary;
     use crate::persistence::PersistenceManager;
     use std::collections::HashMap;
@@ -181,7 +179,10 @@ mod tests {
         let record = pm_guard
             .load_learning_state(Visionary::PERSISTENCE_KEY)
             .unwrap();
-        assert!(record.is_some(), "auto-checkpoint should have written a row");
+        assert!(
+            record.is_some(),
+            "auto-checkpoint should have written a row"
+        );
         assert_eq!(record.unwrap().total_executions, 2);
 
         drop(pm_guard);
@@ -362,8 +363,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_attach_recv_task_registers_as_running() {
-        use crate::federation::tasks::OmnipresentRecvTask;
         use crate::federation::specialists::Omnipresent;
+        use crate::federation::tasks::OmnipresentRecvTask;
 
         let pm = fresh_persistence();
         let omni = Arc::new(Omnipresent::new());
@@ -379,7 +380,10 @@ mod tests {
 
         host.shutdown().await.unwrap();
         // After shutdown, the task should have been stopped
-        assert!(!host.has_recv_task().await, "task should be stopped after shutdown");
+        assert!(
+            !host.has_recv_task().await,
+            "task should be stopped after shutdown"
+        );
     }
 
     #[tokio::test]

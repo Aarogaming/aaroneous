@@ -10,10 +10,10 @@ use tracing::{debug, info};
 /// Supported model loading environments
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 pub enum ModelEnvironment {
-    LMStudio,      // Jan.ai style - ~/.lm-studio/models
-    Ollama,        // ollama pull qwen:1.8b
-    LocalAI,       // LocalAI with local models
-    CustomPath,    // User-specified directory
+    LMStudio,   // Jan.ai style - ~/.lm-studio/models
+    Ollama,     // ollama pull qwen:1.8b
+    LocalAI,    // LocalAI with local models
+    CustomPath, // User-specified directory
 }
 
 impl ModelEnvironment {
@@ -49,11 +49,23 @@ impl ModelEnvironment {
             ModelEnvironment::LMStudio => {
                 let mut paths = Vec::new();
                 if let Ok(home) = std::env::var("USERPROFILE") {
-                    paths.push(PathBuf::from(format!("{}/.lm-studio/models", home)));
-                    paths.push(PathBuf::from(format!("{}\\AppData\\Local\\LM Studio\\models", home)));
+                    let home = PathBuf::from(home);
+                    paths.push(home.join(".lmstudio").join("models"));
+                    paths.push(home.join(".cache").join("lm-studio").join("models"));
+                    // Legacy locations retained for existing installations.
+                    paths.push(home.join(".lm-studio").join("models"));
+                    paths.push(
+                        home.join("AppData")
+                            .join("Local")
+                            .join("LM Studio")
+                            .join("models"),
+                    );
                 }
                 if let Ok(home) = std::env::var("HOME") {
-                    paths.push(PathBuf::from(format!("{}/.lm-studio/models", home)));
+                    let home = PathBuf::from(home);
+                    paths.push(home.join(".lmstudio").join("models"));
+                    paths.push(home.join(".cache").join("lm-studio").join("models"));
+                    paths.push(home.join(".lm-studio").join("models"));
                 }
                 paths
             }
@@ -89,7 +101,12 @@ pub struct DetectedEnvironment {
 }
 
 impl DetectedEnvironment {
-    pub fn new(environment: ModelEnvironment, model_path: PathBuf, is_installed: bool, confidence: f32) -> Self {
+    pub fn new(
+        environment: ModelEnvironment,
+        model_path: PathBuf,
+        is_installed: bool,
+        confidence: f32,
+    ) -> Self {
         Self {
             environment,
             model_path,
@@ -123,8 +140,11 @@ impl ModelEnvironmentDetector {
         self.check_localai();
 
         // Sort by detection confidence
-        self.detected_environments
-            .sort_by(|a, b| b.detection_confidence.partial_cmp(&a.detection_confidence).unwrap());
+        self.detected_environments.sort_by(|a, b| {
+            b.detection_confidence
+                .partial_cmp(&a.detection_confidence)
+                .unwrap()
+        });
 
         info!(
             "Found {} model environments",
@@ -141,21 +161,35 @@ impl ModelEnvironmentDetector {
             Err(_) => return,
         };
 
-        let model_path = PathBuf::from(format!("{}/.lm-studio/models", home));
-        let alt_path = PathBuf::from(format!("{}\\AppData\\Local\\LM Studio\\models", home));
+        let home = PathBuf::from(home);
+        let candidates = [
+            home.join(".lmstudio").join("models"),
+            home.join(".cache").join("lm-studio").join("models"),
+            home.join(".lm-studio").join("models"),
+            home.join("AppData")
+                .join("Local")
+                .join("LM Studio")
+                .join("models"),
+        ];
 
-        let (path, confidence) = if model_path.exists() {
-            debug!("Found LM Studio models at: {}", model_path.display());
-            (model_path, 0.95)
-        } else if alt_path.exists() {
-            debug!("Found LM Studio models at: {}", alt_path.display());
-            (alt_path, 0.95)
+        let (path, confidence) = if candidates[0].exists() {
+            debug!("Found LM Studio models at: {}", candidates[0].display());
+            (candidates[0].clone(), 0.95)
+        } else if candidates[1].exists() {
+            debug!("Found LM Studio models at: {}", candidates[1].display());
+            (candidates[1].clone(), 0.95)
+        } else if candidates[2].exists() {
+            debug!("Found LM Studio models at: {}", candidates[2].display());
+            (candidates[2].clone(), 0.85)
+        } else if candidates[3].exists() {
+            debug!("Found LM Studio models at: {}", candidates[3].display());
+            (candidates[3].clone(), 0.85)
         } else {
             // Check if directory structure exists (but maybe no models yet)
-            let config_dir = PathBuf::from(format!("{}/.lm-studio", home));
+            let config_dir = home.join(".lmstudio");
             if config_dir.exists() {
                 debug!("Found LM Studio config directory");
-                (model_path, 0.7) // Lower confidence if no models
+                (candidates[0].clone(), 0.7) // Lower confidence if no models
             } else {
                 return;
             }
@@ -247,13 +281,26 @@ impl ModelEnvironmentDetector {
             return;
         }
 
-        println!("\n✓ Found {} model environment(s):\n", self.detected_environments.len());
+        println!(
+            "\n✓ Found {} model environment(s):\n",
+            self.detected_environments.len()
+        );
 
         for (idx, env) in self.detected_environments.iter().enumerate() {
-            let status = if env.is_installed { "✓ Installed" } else { "📁 Path Only" };
+            let status = if env.is_installed {
+                "✓ Installed"
+            } else {
+                "📁 Path Only"
+            };
             let confidence = (env.detection_confidence * 100.0) as u32;
 
-            println!("  {}. {} [{}%] {}", idx + 1, env.environment.name(), confidence, status);
+            println!(
+                "  {}. {} [{}%] {}",
+                idx + 1,
+                env.environment.name(),
+                confidence,
+                status
+            );
             println!("     {}", env.environment.description());
             println!("     Models: {}", env.model_path.display());
 
@@ -285,8 +332,10 @@ impl ModelEnvironmentDetector {
             println!("  {}. {}", idx + 1, env.environment.name());
         }
 
-        println!("\n(Automatically selecting best option: {})\n", 
-            self.detected_environments[0].environment.name());
+        println!(
+            "\n(Automatically selecting best option: {})\n",
+            self.detected_environments[0].environment.name()
+        );
 
         Some(&self.detected_environments[0])
     }

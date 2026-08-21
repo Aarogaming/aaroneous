@@ -1,6 +1,5 @@
 /// Hardware-level primitives: secure enclave memory isolation and
 /// zero-copy frame buffer UI overlay rendering.
-
 use std::collections::HashMap;
 
 // ── Hardware-Enclave Memory Isolation ────────────────────────────────
@@ -17,7 +16,11 @@ pub struct SecureEnclave {
 
 impl SecureEnclave {
     pub fn new(enabled: bool) -> Self {
-        SecureEnclave { enabled, sealed_keys: HashMap::new(), measurement: 0 }
+        SecureEnclave {
+            enabled,
+            sealed_keys: HashMap::new(),
+            measurement: 0,
+        }
     }
 
     /// Seal a key into the enclave (encrypt with platform key).
@@ -35,7 +38,10 @@ impl SecureEnclave {
     pub fn unseal_key(&self, id: u64) -> Option<Vec<u8>> {
         self.sealed_keys.get(&id).map(|encrypted| {
             if self.enabled {
-                encrypted.iter().map(|&b| b ^ (self.measurement as u8)).collect()
+                encrypted
+                    .iter()
+                    .map(|&b| b ^ (self.measurement as u8))
+                    .collect()
             } else {
                 encrypted.clone()
             }
@@ -43,7 +49,9 @@ impl SecureEnclave {
     }
 
     /// Set platform measurement (e.g., MRENCLAVE from SGX).
-    pub fn set_measurement(&mut self, m: u64) { self.measurement = m; }
+    pub fn set_measurement(&mut self, m: u64) {
+        self.measurement = m;
+    }
 
     /// Verify enclave identity by checking measurement.
     pub fn verify(&self, expected_measurement: u64) -> bool {
@@ -91,10 +99,17 @@ pub struct ShmemUIOverlay {
 
 impl ShmemUIOverlay {
     pub fn new(width: u32, height: u32) -> Self {
-        let bg = OverlayPixel { r: 0, g: 0, b: 0, a: 0 };
+        let bg = OverlayPixel {
+            r: 0,
+            g: 0,
+            b: 0,
+            a: 0,
+        };
         ShmemUIOverlay {
             framebuffer: vec![bg; (width * height) as usize],
-            width, height, rects: Vec::new(),
+            width,
+            height,
+            rects: Vec::new(),
         }
     }
 
@@ -110,13 +125,20 @@ impl ShmemUIOverlay {
                 }
             }
         }
-        self.rects.push(OverlayRect { x, y, w, h, color, label_offset: 0 });
+        self.rects.push(OverlayRect {
+            x,
+            y,
+            w,
+            h,
+            color,
+            label_offset: 0,
+        });
     }
 
     /// Draw a crosshair at a hotspot center.
     pub fn draw_crosshair(&mut self, cx: u32, cy: u32, size: u32, color: OverlayPixel) {
         // Horizontal line
-        let x_start = if size >= cx { 0 } else { cx - size };
+        let x_start = cx.saturating_sub(size);
         let x_end = (cx + size).min(self.width);
         if cy < self.height {
             for px in x_start..x_end {
@@ -127,7 +149,7 @@ impl ShmemUIOverlay {
             }
         }
         // Vertical line
-        let y_start = if size >= cy { 0 } else { cy - size };
+        let y_start = cy.saturating_sub(size);
         let y_end = (cy + size).min(self.height);
         if cx < self.width {
             for py in y_start..y_end {
@@ -143,7 +165,9 @@ impl ShmemUIOverlay {
     pub fn draw_label(&mut self, x: u32, y: u32, text: &[u8], color: OverlayPixel) {
         for (i, &ch) in text.iter().enumerate() {
             let py = y + i as u32;
-            if py >= self.height { break; }
+            if py >= self.height {
+                break;
+            }
             let px = x;
             if px < self.width {
                 let idx = (py * self.width + px) as usize;
@@ -156,7 +180,12 @@ impl ShmemUIOverlay {
 
     /// Clear the overlay (set all pixels to transparent).
     pub fn clear(&mut self) {
-        let bg = OverlayPixel { r: 0, g: 0, b: 0, a: 0 };
+        let bg = OverlayPixel {
+            r: 0,
+            g: 0,
+            b: 0,
+            a: 0,
+        };
         for pixel in &mut self.framebuffer {
             *pixel = bg;
         }
@@ -231,7 +260,12 @@ mod tests {
     #[test]
     fn test_shmem_overlay_draw_rect() {
         let mut overlay = ShmemUIOverlay::new(100, 100);
-        let red = OverlayPixel { r: 255, g: 0, b: 0, a: 255 };
+        let red = OverlayPixel {
+            r: 255,
+            g: 0,
+            b: 0,
+            a: 255,
+        };
         overlay.draw_rect(10, 10, 20, 20, red);
         let idx = (15 * 100 + 15) as usize;
         assert_eq!(overlay.framebuffer[idx].r, 255);
@@ -241,7 +275,12 @@ mod tests {
     #[test]
     fn test_shmem_overlay_crosshair() {
         let mut overlay = ShmemUIOverlay::new(50, 50);
-        let cyan = OverlayPixel { r: 0, g: 255, b: 255, a: 255 };
+        let cyan = OverlayPixel {
+            r: 0,
+            g: 255,
+            b: 255,
+            a: 255,
+        };
         overlay.draw_crosshair(25, 25, 5, cyan);
         // Center pixel should be cyan
         let idx = (25 * 50 + 25) as usize;
@@ -252,7 +291,12 @@ mod tests {
     #[test]
     fn test_shmem_overlay_label() {
         let mut overlay = ShmemUIOverlay::new(50, 50);
-        let white = OverlayPixel { r: 255, g: 255, b: 255, a: 255 };
+        let white = OverlayPixel {
+            r: 255,
+            g: 255,
+            b: 255,
+            a: 255,
+        };
         overlay.draw_label(10, 10, b"HI", white);
         let idx = (10 * 50 + 10) as usize;
         assert_eq!(overlay.framebuffer[idx].r, 255); // 'H'
@@ -261,18 +305,38 @@ mod tests {
     #[test]
     fn test_shmem_overlay_clear() {
         let mut overlay = ShmemUIOverlay::new(10, 10);
-        let red = OverlayPixel { r: 255, g: 0, b: 0, a: 255 };
+        let red = OverlayPixel {
+            r: 255,
+            g: 0,
+            b: 0,
+            a: 255,
+        };
         overlay.draw_rect(0, 0, 10, 10, red);
         overlay.clear();
-        assert!(overlay.framebuffer.iter().all(|p| p.r == 0 && p.g == 0 && p.b == 0 && p.a == 0));
+        assert!(
+            overlay
+                .framebuffer
+                .iter()
+                .all(|p| p.r == 0 && p.g == 0 && p.b == 0 && p.a == 0)
+        );
     }
 
     #[test]
     fn test_shmem_overlay_blend() {
-        let white = OverlayPixel { r: 255, g: 255, b: 255, a: 255 };
+        let white = OverlayPixel {
+            r: 255,
+            g: 255,
+            b: 255,
+            a: 255,
+        };
         let mut primary = vec![white; 4];
         let mut overlay = ShmemUIOverlay::new(2, 2);
-        let semi = OverlayPixel { r: 255, g: 0, b: 0, a: 128 };
+        let semi = OverlayPixel {
+            r: 255,
+            g: 0,
+            b: 0,
+            a: 128,
+        };
         overlay.draw_rect(0, 0, 2, 2, semi);
         overlay.blend_onto(&mut primary);
         // After blend, pixel should be pinkish (white + red at 50%)

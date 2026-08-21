@@ -24,7 +24,6 @@
 /// - One connection per send (no connection pooling yet)
 /// - No automatic peer discovery (requires known `EndpointId`)
 /// - No CRDT integration yet (callers send/receive opaque messages)
-
 use super::types::{P2pError, P2pNodeId, SyncMessage};
 use iroh::{Endpoint, EndpointAddr, PublicKey, endpoint::presets};
 use n0_future::StreamExt;
@@ -66,7 +65,10 @@ impl P2pNode {
 
         let alpn_vec = alpn.to_vec();
 
-        info!("Spawning Iroh P2P endpoint with ALPN: {:?}", String::from_utf8_lossy(alpn));
+        info!(
+            "Spawning Iroh P2P endpoint with ALPN: {:?}",
+            String::from_utf8_lossy(alpn)
+        );
 
         let endpoint = Endpoint::builder(presets::N0)
             .alpns(vec![alpn_vec.clone()])
@@ -105,13 +107,12 @@ impl P2pNode {
 
         debug!("Connecting to peer: {}", peer.short());
 
-        let conn = tokio::time::timeout(
-            CONNECT_TIMEOUT,
-            self.endpoint.connect(addr, &self.alpn),
-        )
-        .await
-        .map_err(|_| P2pError::Timeout(CONNECT_TIMEOUT.as_millis() as u64))?
-        .map_err(|e| P2pError::ConnectionFailed(format!("connect to {}: {}", peer.short(), e)))?;
+        let conn = tokio::time::timeout(CONNECT_TIMEOUT, self.endpoint.connect(addr, &self.alpn))
+            .await
+            .map_err(|_| P2pError::Timeout(CONNECT_TIMEOUT.as_millis() as u64))?
+            .map_err(|e| {
+                P2pError::ConnectionFailed(format!("connect to {}: {}", peer.short(), e))
+            })?;
 
         // Track the peer
         self.known_peers.lock().await.push(peer.clone());
@@ -129,13 +130,10 @@ impl P2pNode {
 
         debug!("Sending {:?} to peer {}", msg.kind, peer.short());
 
-        let conn = tokio::time::timeout(
-            CONNECT_TIMEOUT,
-            self.endpoint.connect(addr, &self.alpn),
-        )
-        .await
-        .map_err(|_| P2pError::Timeout(CONNECT_TIMEOUT.as_millis() as u64))?
-        .map_err(|e| P2pError::ConnectionFailed(format!("send to {}: {}", peer.short(), e)))?;
+        let conn = tokio::time::timeout(CONNECT_TIMEOUT, self.endpoint.connect(addr, &self.alpn))
+            .await
+            .map_err(|_| P2pError::Timeout(CONNECT_TIMEOUT.as_millis() as u64))?
+            .map_err(|e| P2pError::ConnectionFailed(format!("send to {}: {}", peer.short(), e)))?;
 
         let mut send_stream = conn
             .open_uni()
@@ -226,7 +224,10 @@ impl P2pNode {
 
     /// Shut down the endpoint gracefully
     pub async fn shutdown(self) -> Result<(), P2pError> {
-        info!("Shutting down Iroh P2P endpoint {}", self.endpoint_id().short());
+        info!(
+            "Shutting down Iroh P2P endpoint {}",
+            self.endpoint_id().short()
+        );
         self.endpoint.close().await;
         Ok(())
     }

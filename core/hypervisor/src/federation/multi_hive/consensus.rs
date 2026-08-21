@@ -1,7 +1,6 @@
 /// Consensus Engine: Distributed Decision Making
-/// 
+///
 /// Implements gossip protocol for distributed consensus among hives
-
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -64,7 +63,7 @@ impl GossipMessage {
             return false;
         }
         let yes_percent = (yes as f32 / total_votes as f32) * 100.0;
-        yes_percent > 66.0 || no > yes  // Either 2/3 yes or all nos
+        yes_percent > 66.0 || no > yes // Either 2/3 yes or all nos
     }
 }
 

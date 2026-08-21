@@ -1,3 +1,4 @@
+use crate::federation::specialist::{ProposalPriority, SpecialistId};
 /// The Intent type — the foundational object of the Aaroneous pipeline.
 ///
 /// An `Intent` represents a user's goal or task as it flows through the
@@ -21,10 +22,8 @@
 ///     .with_tag("ui")
 ///     .with_context("target_device", "desktop");
 /// ```
-
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use crate::federation::specialist::{ProposalPriority, SpecialistId};
 
 /// Core intent object — the user's goal as it flows through the federation.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -243,7 +242,8 @@ impl Intent {
             self.content,
             self.priority,
             self.tags.join(", "),
-            self.context.iter()
+            self.context
+                .iter()
                 .map(|(k, v)| format!("{}={}", k, v))
                 .collect::<Vec<_>>()
                 .join(", ")
@@ -293,7 +293,10 @@ mod tests {
 
         assert_eq!(intent.priority, IntentPriority::High);
         assert_eq!(intent.tags, vec!["sync", "mobile"]);
-        assert_eq!(intent.context.get("target_device"), Some(&"iPhone15".to_string()));
+        assert_eq!(
+            intent.context.get("target_device"),
+            Some(&"iPhone15".to_string())
+        );
         assert_eq!(intent.source, IntentSource::Api);
     }
 
@@ -339,10 +342,22 @@ mod tests {
 
     #[test]
     fn test_intent_priority_to_proposal_priority() {
-        assert_eq!(ProposalPriority::from(IntentPriority::Background), ProposalPriority::Background);
-        assert_eq!(ProposalPriority::from(IntentPriority::Normal), ProposalPriority::Normal);
-        assert_eq!(ProposalPriority::from(IntentPriority::High), ProposalPriority::UserFacing);
-        assert_eq!(ProposalPriority::from(IntentPriority::Critical), ProposalPriority::UserFacing);
+        assert_eq!(
+            ProposalPriority::from(IntentPriority::Background),
+            ProposalPriority::Background
+        );
+        assert_eq!(
+            ProposalPriority::from(IntentPriority::Normal),
+            ProposalPriority::Normal
+        );
+        assert_eq!(
+            ProposalPriority::from(IntentPriority::High),
+            ProposalPriority::UserFacing
+        );
+        assert_eq!(
+            ProposalPriority::from(IntentPriority::Critical),
+            ProposalPriority::UserFacing
+        );
     }
 
     #[test]

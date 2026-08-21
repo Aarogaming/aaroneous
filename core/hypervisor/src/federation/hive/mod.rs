@@ -41,7 +41,6 @@
 /// # Ok(())
 /// # }
 /// ```
-
 pub mod builder;
 pub mod config;
 pub mod scheduler;
@@ -53,13 +52,28 @@ pub use builder::FederationBuilder;
 pub use config::FederationConfig;
 
 use crate::federation::host::{HostError, SharedPersistence, SpecialistHost};
-use crate::federation::specialists::{Archivist, Omnipresent, Phygital, Symbiotic, Visionary};
 use crate::federation::intent::Intent;
 use crate::federation::session::SessionManager;
+use crate::federation::specialists::{Archivist, Omnipresent, Phygital, Symbiotic, Visionary};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::{Mutex, RwLock};
 use tracing::{debug, info, warn};
+
+/// Pinned boxed future for DAG layer execution.
+type DagFuture = std::pin::Pin<
+    Box<
+        dyn std::future::Future<
+                Output = (
+                    String,
+                    Result<
+                        crate::federation::specialist::ExecutionResult,
+                        crate::federation::specialist::SpecialistError,
+                    >,
+                ),
+            > + Send,
+    >,
+>;
 
 /// Aggregated lifecycle errors from a federation start/shutdown cycle.
 ///
@@ -74,7 +88,11 @@ pub struct FederationErrors {
 impl std::fmt::Display for FederationErrors {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if self.errors.len() == 1 {
-            write!(f, "federation error: [{}] {}", self.errors[0].0, self.errors[0].1)
+            write!(
+                f,
+                "federation error: [{}] {}",
+                self.errors[0].0, self.errors[0].1
+            )
         } else {
             write!(f, "federation errors ({}):", self.errors.len())?;
             for (kind, err) in &self.errors {
@@ -200,11 +218,21 @@ impl Federation {
     /// How many specialists are configured in this federation (1..=5 core + N dynamic)
     pub fn enabled_count(&self) -> usize {
         let mut n = 0;
-        if self.visionary.is_some() { n += 1; }
-        if self.omnipresent.is_some() { n += 1; }
-        if self.symbiotic.is_some() { n += 1; }
-        if self.phygital.is_some() { n += 1; }
-        if self.archivist.is_some() { n += 1; }
+        if self.visionary.is_some() {
+            n += 1;
+        }
+        if self.omnipresent.is_some() {
+            n += 1;
+        }
+        if self.symbiotic.is_some() {
+            n += 1;
+        }
+        if self.phygital.is_some() {
+            n += 1;
+        }
+        if self.archivist.is_some() {
+            n += 1;
+        }
         // Dynamic specialists are counted synchronously via try_read
         if let Ok(dyn_guard) = self.dynamic.try_read() {
             n += dyn_guard.len();
@@ -251,7 +279,7 @@ impl Federation {
         // Load prior learning from DB if available (best-effort)
         {
             let pm = self.persistence.lock().await;
-            let _ = specialist.load_learning_from(&*pm);
+            let _ = specialist.load_learning_from(&pm);
         }
         // Restore sovereign-local RAG memory from disk
         specialist.load_memory_from_disk();
@@ -283,7 +311,9 @@ impl Federation {
     ///
     /// Used by `GET /specialists/stream` and can be used by any other
     /// real-time consumer (SSE clients, monitoring tools, etc.).
-    pub fn subscribe_specialist_events(&self) -> tokio::sync::broadcast::Receiver<serde_json::Value> {
+    pub fn subscribe_specialist_events(
+        &self,
+    ) -> tokio::sync::broadcast::Receiver<serde_json::Value> {
         self.specialist_events.subscribe()
     }
 
@@ -300,8 +330,12 @@ impl Federation {
     /// Called after each execution so SSE clients always have current state.
     pub async fn broadcast_specialist_snapshot(&self, specialist_name: &str) {
         let summary = self.learning_summary();
-        let intent = self.active_intent.read().await
-            .as_ref().map(|i| i.content.clone())
+        let intent = self
+            .active_intent
+            .read()
+            .await
+            .as_ref()
+            .map(|i| i.content.clone())
             .unwrap_or_default();
 
         let find_summary = |name: &str| -> Option<serde_json::Value> {
@@ -316,11 +350,11 @@ impl Federation {
                     }
                 };
             }
-            check!(summary.visionary,   "visionary");
+            check!(summary.visionary, "visionary");
             check!(summary.omnipresent, "omnipresent");
-            check!(summary.symbiotic,   "symbiotic");
-            check!(summary.phygital,    "phygital");
-            check!(summary.archivist,   "archivist");
+            check!(summary.symbiotic, "symbiotic");
+            check!(summary.phygital, "phygital");
+            check!(summary.archivist, "archivist");
             None
         };
 
@@ -348,7 +382,10 @@ impl Federation {
     /// a `FederationErrors`. Hosts that succeeded remain in `Running` state -
     /// callers can decide whether to abort (call `shutdown_all`) or proceed.
     pub async fn start_all(&self) -> Result<(), FederationErrors> {
-        info!("Starting federation with {} specialist(s)", self.enabled_count());
+        info!(
+            "Starting federation with {} specialist(s)",
+            self.enabled_count()
+        );
         let mut errors = Vec::new();
 
         // Restore federation RAG memory from previous session.
@@ -360,7 +397,10 @@ impl Federation {
             let count = restored.total_count();
             *self.federation_memory.lock().await = restored;
             if count > 0 {
-                info!("Federation memory: restored {} cross-sovereign memories", count);
+                info!(
+                    "Federation memory: restored {} cross-sovereign memories",
+                    count
+                );
             }
         }
 
@@ -370,30 +410,30 @@ impl Federation {
         // specialists resume proposing on in-flight work after a restart.
         self.restore_active_intent_from_sessions().await;
 
-        if let Some(h) = &self.visionary {
-            if let Err(e) = h.start().await {
-                errors.push((Visionary::PERSISTENCE_KEY.to_string(), e));
-            }
+        if let Some(h) = &self.visionary
+            && let Err(e) = h.start().await
+        {
+            errors.push((Visionary::PERSISTENCE_KEY.to_string(), e));
         }
-        if let Some(h) = &self.omnipresent {
-            if let Err(e) = h.start().await {
-                errors.push((Omnipresent::PERSISTENCE_KEY.to_string(), e));
-            }
+        if let Some(h) = &self.omnipresent
+            && let Err(e) = h.start().await
+        {
+            errors.push((Omnipresent::PERSISTENCE_KEY.to_string(), e));
         }
-        if let Some(h) = &self.symbiotic {
-            if let Err(e) = h.start().await {
-                errors.push((Symbiotic::PERSISTENCE_KEY.to_string(), e));
-            }
+        if let Some(h) = &self.symbiotic
+            && let Err(e) = h.start().await
+        {
+            errors.push((Symbiotic::PERSISTENCE_KEY.to_string(), e));
         }
-        if let Some(h) = &self.phygital {
-            if let Err(e) = h.start().await {
-                errors.push((Phygital::PERSISTENCE_KEY.to_string(), e));
-            }
+        if let Some(h) = &self.phygital
+            && let Err(e) = h.start().await
+        {
+            errors.push((Phygital::PERSISTENCE_KEY.to_string(), e));
         }
-        if let Some(h) = &self.archivist {
-            if let Err(e) = h.start().await {
-                errors.push((Archivist::PERSISTENCE_KEY.to_string(), e));
-            }
+        if let Some(h) = &self.archivist
+            && let Err(e) = h.start().await
+        {
+            errors.push((Archivist::PERSISTENCE_KEY.to_string(), e));
         }
 
         if errors.is_empty() {
@@ -409,22 +449,36 @@ impl Federation {
     /// checkpoint interval) will skip spawning their loop - calling this
     /// method is still safe.
     pub async fn spawn_checkpoint_loops(&self) {
-        if let Some(h) = &self.visionary { h.spawn_checkpoint_loop().await; }
-        if let Some(h) = &self.omnipresent { h.spawn_checkpoint_loop().await; }
-        if let Some(h) = &self.symbiotic { h.spawn_checkpoint_loop().await; }
-        if let Some(h) = &self.phygital { h.spawn_checkpoint_loop().await; }
-        if let Some(h) = &self.archivist { h.spawn_checkpoint_loop().await; }
+        if let Some(h) = &self.visionary {
+            h.spawn_checkpoint_loop().await;
+        }
+        if let Some(h) = &self.omnipresent {
+            h.spawn_checkpoint_loop().await;
+        }
+        if let Some(h) = &self.symbiotic {
+            h.spawn_checkpoint_loop().await;
+        }
+        if let Some(h) = &self.phygital {
+            h.spawn_checkpoint_loop().await;
+        }
+        if let Some(h) = &self.archivist {
+            h.spawn_checkpoint_loop().await;
+        }
 
         // Spawn checkpoint loops for dynamic (generic) specialists.
         // Each saves its learning state every 30 seconds independently.
         let interval = self.config.default_checkpoint_interval;
-        if interval.is_zero() { return; }
+        if interval.is_zero() {
+            return;
+        }
 
         let dynamic = self.dynamic.read().await.clone();
         let persistence = self.persistence.clone();
         let shutdown = self.sentinel_shutdown.clone();
 
-        if dynamic.is_empty() { return; }
+        if dynamic.is_empty() {
+            return;
+        }
 
         tokio::spawn(async move {
             loop {
@@ -433,7 +487,7 @@ impl Federation {
                     _ = tokio::time::sleep(interval) => {
                         let pm = persistence.lock().await;
                         for s in &dynamic {
-                            if let Err(e) = s.save_learning_to(&*pm) {
+                            if let Err(e) = s.save_learning_to(&pm) {
                                 warn!("GenericSpecialist '{}' checkpoint failed: {}", s.name, e);
                             }
                         }
@@ -447,33 +501,37 @@ impl Federation {
     pub async fn checkpoint_all(&self) -> Result<(), FederationErrors> {
         let mut errors = Vec::new();
 
-        if let Some(h) = &self.visionary {
-            if let Err(e) = h.checkpoint_now().await {
-                errors.push((Visionary::PERSISTENCE_KEY.to_string(), e));
-            }
+        if let Some(h) = &self.visionary
+            && let Err(e) = h.checkpoint_now().await
+        {
+            errors.push((Visionary::PERSISTENCE_KEY.to_string(), e));
         }
-        if let Some(h) = &self.omnipresent {
-            if let Err(e) = h.checkpoint_now().await {
-                errors.push((Omnipresent::PERSISTENCE_KEY.to_string(), e));
-            }
+        if let Some(h) = &self.omnipresent
+            && let Err(e) = h.checkpoint_now().await
+        {
+            errors.push((Omnipresent::PERSISTENCE_KEY.to_string(), e));
         }
-        if let Some(h) = &self.symbiotic {
-            if let Err(e) = h.checkpoint_now().await {
-                errors.push((Symbiotic::PERSISTENCE_KEY.to_string(), e));
-            }
+        if let Some(h) = &self.symbiotic
+            && let Err(e) = h.checkpoint_now().await
+        {
+            errors.push((Symbiotic::PERSISTENCE_KEY.to_string(), e));
         }
-        if let Some(h) = &self.phygital {
-            if let Err(e) = h.checkpoint_now().await {
-                errors.push((Phygital::PERSISTENCE_KEY.to_string(), e));
-            }
+        if let Some(h) = &self.phygital
+            && let Err(e) = h.checkpoint_now().await
+        {
+            errors.push((Phygital::PERSISTENCE_KEY.to_string(), e));
         }
-        if let Some(h) = &self.archivist {
-            if let Err(e) = h.checkpoint_now().await {
-                errors.push((Archivist::PERSISTENCE_KEY.to_string(), e));
-            }
+        if let Some(h) = &self.archivist
+            && let Err(e) = h.checkpoint_now().await
+        {
+            errors.push((Archivist::PERSISTENCE_KEY.to_string(), e));
         }
 
-        if errors.is_empty() { Ok(()) } else { Err(FederationErrors { errors }) }
+        if errors.is_empty() {
+            Ok(())
+        } else {
+            Err(FederationErrors { errors })
+        }
     }
 
     /// Shut down every configured host: stop loops, final save, mark shut down.
@@ -484,30 +542,30 @@ impl Federation {
         info!("Shutting down federation");
         let mut errors = Vec::new();
 
-        if let Some(h) = &self.visionary {
-            if let Err(e) = h.shutdown().await {
-                errors.push((Visionary::PERSISTENCE_KEY.to_string(), e));
-            }
+        if let Some(h) = &self.visionary
+            && let Err(e) = h.shutdown().await
+        {
+            errors.push((Visionary::PERSISTENCE_KEY.to_string(), e));
         }
-        if let Some(h) = &self.omnipresent {
-            if let Err(e) = h.shutdown().await {
-                errors.push((Omnipresent::PERSISTENCE_KEY.to_string(), e));
-            }
+        if let Some(h) = &self.omnipresent
+            && let Err(e) = h.shutdown().await
+        {
+            errors.push((Omnipresent::PERSISTENCE_KEY.to_string(), e));
         }
-        if let Some(h) = &self.symbiotic {
-            if let Err(e) = h.shutdown().await {
-                errors.push((Symbiotic::PERSISTENCE_KEY.to_string(), e));
-            }
+        if let Some(h) = &self.symbiotic
+            && let Err(e) = h.shutdown().await
+        {
+            errors.push((Symbiotic::PERSISTENCE_KEY.to_string(), e));
         }
-        if let Some(h) = &self.phygital {
-            if let Err(e) = h.shutdown().await {
-                errors.push((Phygital::PERSISTENCE_KEY.to_string(), e));
-            }
+        if let Some(h) = &self.phygital
+            && let Err(e) = h.shutdown().await
+        {
+            errors.push((Phygital::PERSISTENCE_KEY.to_string(), e));
         }
-        if let Some(h) = &self.archivist {
-            if let Err(e) = h.shutdown().await {
-                errors.push((Archivist::PERSISTENCE_KEY.to_string(), e));
-            }
+        if let Some(h) = &self.archivist
+            && let Err(e) = h.shutdown().await
+        {
+            errors.push((Archivist::PERSISTENCE_KEY.to_string(), e));
         }
 
         // Final save for all dynamic (generic) specialists
@@ -515,7 +573,7 @@ impl Federation {
             let pm = self.persistence.lock().await;
             let dynamic = self.dynamic.read().await;
             for s in dynamic.iter() {
-                if let Err(e) = s.save_learning_to(&*pm) {
+                if let Err(e) = s.save_learning_to(&pm) {
                     warn!("GenericSpecialist '{}' final save failed: {}", s.name, e);
                 } else {
                     info!("GenericSpecialist '{}' learning saved on shutdown", s.name);
@@ -531,13 +589,19 @@ impl Federation {
         {
             let mem = self.federation_memory.lock().await;
             match mem.save_to_disk() {
-                Ok(()) => info!("Federation memory: {} memories persisted to disk",
-                                mem.total_count()),
+                Ok(()) => info!(
+                    "Federation memory: {} memories persisted to disk",
+                    mem.total_count()
+                ),
                 Err(e) => warn!("Federation memory: save failed: {}", e),
             }
         }
 
-        if errors.is_empty() { Ok(()) } else { Err(FederationErrors { errors }) }
+        if errors.is_empty() {
+            Ok(())
+        } else {
+            Err(FederationErrors { errors })
+        }
     }
 
     // --------------------------------------------------------------
@@ -597,7 +661,10 @@ impl Federation {
     {
         self.start_all().await?;
         self.spawn_checkpoint_loops().await;
-        info!("Federation running ({} specialist(s))", self.enabled_count());
+        info!(
+            "Federation running ({} specialist(s))",
+            self.enabled_count()
+        );
         terminator.await;
         self.shutdown_all().await
     }
@@ -707,7 +774,8 @@ impl Federation {
             .dynamic
             .try_read()
             .map(|guard| {
-                guard.iter()
+                guard
+                    .iter()
                     .map(|s| {
                         let l = s.learning.lock();
                         (s.name.clone(), l.confidence_trend.clone())
@@ -717,12 +785,12 @@ impl Federation {
             .unwrap_or_default();
 
         LearningTrends {
-            visionary:    trend_for!(self.visionary),
-            omnipresent:  trend_for!(self.omnipresent),
-            symbiotic:    trend_for!(self.symbiotic),
-            phygital:     trend_for!(self.phygital),
-            archivist:    trend_for!(self.archivist),
-            dynamic:      dynamic_trends,
+            visionary: trend_for!(self.visionary),
+            omnipresent: trend_for!(self.omnipresent),
+            symbiotic: trend_for!(self.symbiotic),
+            phygital: trend_for!(self.phygital),
+            archivist: trend_for!(self.archivist),
+            dynamic: dynamic_trends,
         }
     }
 }
@@ -779,11 +847,11 @@ impl SpecialistLearningSummary {
 /// specialist is not configured.  Returned by `Federation::learning_trends()`.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct LearningTrends {
-    pub visionary:   Option<Vec<(u64, f32)>>,
+    pub visionary: Option<Vec<(u64, f32)>>,
     pub omnipresent: Option<Vec<(u64, f32)>>,
-    pub symbiotic:   Option<Vec<(u64, f32)>>,
-    pub phygital:    Option<Vec<(u64, f32)>>,
-    pub archivist:   Option<Vec<(u64, f32)>>,
+    pub symbiotic: Option<Vec<(u64, f32)>>,
+    pub phygital: Option<Vec<(u64, f32)>>,
+    pub archivist: Option<Vec<(u64, f32)>>,
     /// Dynamic (GenericSpecialist) trends keyed by specialist name.
     /// Empty map when no dynamic specialists are configured.
     #[serde(default)]
@@ -842,9 +910,9 @@ impl Federation {
     ) -> Self {
         let (event_tx, _) = tokio::sync::broadcast::channel(256);
         let nats_config = crate::nats_client::NatsClientConfig::default();
-        let nats = Arc::new(
-            crate::nats_client::NatsPublisher::new(&nats_config.server_url)
-        );
+        let nats = Arc::new(crate::nats_client::NatsPublisher::new(
+            &nats_config.server_url,
+        ));
         Self {
             persistence,
             config,
@@ -863,8 +931,12 @@ impl Federation {
             nats,
             audit_log: Arc::new(Mutex::new(crate::federation::enterprise::AuditLog::new())),
             specialist_events: Arc::new(event_tx),
-            federation_memory: Arc::new(Mutex::new(crate::federation::graph::EmbeddingStore::new(256))),
-            scheduler: Arc::new(RwLock::new(crate::federation::hive::scheduler::AutonomousScheduler::new())),
+            federation_memory: Arc::new(Mutex::new(crate::federation::graph::EmbeddingStore::new(
+                256,
+            ))),
+            scheduler: Arc::new(RwLock::new(
+                crate::federation::hive::scheduler::AutonomousScheduler::new(),
+            )),
             biology: Arc::new(RwLock::new(crate::SystemBiology::new())),
         }
     }
@@ -877,17 +949,15 @@ impl Federation {
     /// After this call, this hive can join a distributed cluster, participate
     /// in federated learning, and coordinate specialist work across multiple
     /// Aaroneous instances on the same network.
-    pub async fn enable_multi_hive(
-        &self,
-        config: crate::federation::multi_hive::ClusterConfig,
-    ) {
+    pub async fn enable_multi_hive(&self, config: crate::federation::multi_hive::ClusterConfig) {
         use crate::federation::multi_hive::MultihiveFederation;
         let mh = MultihiveFederation::new(config);
-        let node_id = mh.cluster_status().first().map(|(id, _)| id.clone()).unwrap_or_default();
-        info!(
-            "Multi-hive federation enabled: node_id={}",
-            node_id
-        );
+        let node_id = mh
+            .cluster_status()
+            .first()
+            .map(|(id, _)| id.clone())
+            .unwrap_or_default();
+        info!("Multi-hive federation enabled: node_id={}", node_id);
         *self.multi_hive.write().await = Some(mh);
     }
 
@@ -965,19 +1035,39 @@ async fn run_decision(
     } else {
         match decision.specialist {
             SpecialistId::Visionary => {
-                if let Some(s) = vis { s.execute(&decision).await.ok() } else { None }
+                if let Some(s) = vis {
+                    s.execute(&decision).await.ok()
+                } else {
+                    None
+                }
             }
             SpecialistId::Omnipresent => {
-                if let Some(s) = omni { s.execute(&decision).await.ok() } else { None }
+                if let Some(s) = omni {
+                    s.execute(&decision).await.ok()
+                } else {
+                    None
+                }
             }
             SpecialistId::Symbiotic => {
-                if let Some(s) = symb { s.execute(&decision).await.ok() } else { None }
+                if let Some(s) = symb {
+                    s.execute(&decision).await.ok()
+                } else {
+                    None
+                }
             }
             SpecialistId::Phygital => {
-                if let Some(s) = phyg { s.execute(&decision).await.ok() } else { None }
+                if let Some(s) = phyg {
+                    s.execute(&decision).await.ok()
+                } else {
+                    None
+                }
             }
             SpecialistId::Archivist => {
-                if let Some(s) = arch { s.execute(&decision).await.ok() } else { None }
+                if let Some(s) = arch {
+                    s.execute(&decision).await.ok()
+                } else {
+                    None
+                }
             }
             _ => None,
         }
@@ -1016,44 +1106,51 @@ async fn run_decision(
         // defer.  We parse and apply them here so execute() stays &self.
         if result.specialist == crate::federation::specialist::SpecialistId::Symbiotic
             && decision.action.starts_with("scale_intent")
+            && let Ok(v) = serde_json::from_str::<serde_json::Value>(&result.output)
+            && v.get("action").and_then(|a| a.as_str()) == Some("apply_scaling")
         {
-            if let Ok(v) = serde_json::from_str::<serde_json::Value>(&result.output) {
-                if v.get("action").and_then(|a| a.as_str()) == Some("apply_scaling") {
-                    use crate::federation::intent::{IntentPriority, IntentScaling, IntentStatus};
-                    let mut intent_guard = active_intent_arc.write().await;
-                    if let Some(intent) = intent_guard.as_mut() {
-                        // Apply scaling object
-                        intent.scaling = Some(IntentScaling {
-                            delay_seconds: v.get("delay_seconds")
-                                .and_then(|x| x.as_u64()).unwrap_or(0) as u32,
-                            max_duration_minutes: v.get("max_duration_minutes")
-                                .and_then(|x| x.as_u64()).unwrap_or(30) as u32,
-                            allow_interruption: v.get("allow_interruption")
-                                .and_then(|x| x.as_bool()).unwrap_or(true),
-                            reason: v.get("reason")
-                                .and_then(|x| x.as_str()).unwrap_or("").to_string(),
-                        });
-                        // Adjust priority
-                        if let Some(p) = v.get("adjusted_priority").and_then(|x| x.as_str()) {
-                            intent.priority = match p {
-                                "Background" => IntentPriority::Background,
-                                "High"       => IntentPriority::High,
-                                "Critical"   => IntentPriority::Critical,
-                                _            => IntentPriority::Normal,
-                            };
-                        }
-                        // Defer if recovery mode
-                        if v.get("defer").and_then(|x| x.as_bool()).unwrap_or(false) {
-                            intent.status = IntentStatus::Deferred;
-                        }
-                        intent.version += 1;
-                        info!(
-                            "Symbiotic scaling applied to intent '{}' (v{}): priority={:?}, defer={}",
-                            intent.id, intent.version, intent.priority,
-                            matches!(intent.status, IntentStatus::Deferred)
-                        );
-                    }
+            use crate::federation::intent::{IntentPriority, IntentScaling, IntentStatus};
+            let mut intent_guard = active_intent_arc.write().await;
+            if let Some(intent) = intent_guard.as_mut() {
+                // Apply scaling object
+                intent.scaling = Some(IntentScaling {
+                    delay_seconds: v.get("delay_seconds").and_then(|x| x.as_u64()).unwrap_or(0)
+                        as u32,
+                    max_duration_minutes: v
+                        .get("max_duration_minutes")
+                        .and_then(|x| x.as_u64())
+                        .unwrap_or(30) as u32,
+                    allow_interruption: v
+                        .get("allow_interruption")
+                        .and_then(|x| x.as_bool())
+                        .unwrap_or(true),
+                    reason: v
+                        .get("reason")
+                        .and_then(|x| x.as_str())
+                        .unwrap_or("")
+                        .to_string(),
+                });
+                // Adjust priority
+                if let Some(p) = v.get("adjusted_priority").and_then(|x| x.as_str()) {
+                    intent.priority = match p {
+                        "Background" => IntentPriority::Background,
+                        "High" => IntentPriority::High,
+                        "Critical" => IntentPriority::Critical,
+                        _ => IntentPriority::Normal,
+                    };
                 }
+                // Defer if recovery mode
+                if v.get("defer").and_then(|x| x.as_bool()).unwrap_or(false) {
+                    intent.status = IntentStatus::Deferred;
+                }
+                intent.version += 1;
+                info!(
+                    "Symbiotic scaling applied to intent '{}' (v{}): priority={:?}, defer={}",
+                    intent.id,
+                    intent.version,
+                    intent.priority,
+                    matches!(intent.status, IntentStatus::Deferred)
+                );
             }
         }
 
@@ -1063,7 +1160,8 @@ async fn run_decision(
         // when both locks are on the same async executor thread.
         let session_id_opt = {
             let intent_guard = active_intent_arc.read().await;
-            intent_guard.as_ref()
+            intent_guard
+                .as_ref()
                 .and_then(|i| i.context.get("session_id").cloned())
             // intent_guard drops here, releasing the read lock
         };
@@ -1086,30 +1184,43 @@ async fn run_decision(
 
         // Federation RAG memory — store intent+output pair for cross-sovereign recall
         {
-            let intent_text = active_intent_arc.read().await
-                .as_ref().map(|i| i.content.clone())
+            let intent_text = active_intent_arc
+                .read()
+                .await
+                .as_ref()
+                .map(|i| i.content.clone())
                 .unwrap_or_else(|| decision.action.clone());
-            let sovereign = result.specialist_name.as_deref()
+            let sovereign = result
+                .specialist_name
+                .as_deref()
                 .unwrap_or_else(|| result.specialist.name());
             let memory_text = format!(
                 "intent:{} | output:{}",
                 intent_text.chars().take(120).collect::<String>(),
                 result.output.chars().take(300).collect::<String>()
             );
-            let memory_id = format!("fed-exec-{}", std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .map(|d| d.as_millis())
-                .unwrap_or(0));
+            let memory_id = format!(
+                "fed-exec-{}",
+                std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .map(|d| d.as_millis())
+                    .unwrap_or(0)
+            );
             let mut mem = federation_memory.lock().await;
             mem.store_text(&memory_id, sovereign, &memory_text, "execution");
         }
 
         // Broadcast specialist state event for SSE / real-time clients
         {
-            let specialist_display = result.specialist_name.as_deref()
+            let specialist_display = result
+                .specialist_name
+                .as_deref()
                 .unwrap_or_else(|| result.specialist.name());
-            let intent = active_intent_arc.read().await
-                .as_ref().map(|i| i.content.clone())
+            let intent = active_intent_arc
+                .read()
+                .await
+                .as_ref()
+                .map(|i| i.content.clone())
                 .unwrap_or_default();
             let event = serde_json::json!({
                 "type": "execution_complete",
@@ -1148,25 +1259,30 @@ async fn run_decision(
                 ($opt:expr) => {
                     if let Some(ref s) = $opt {
                         if let Err(e) = s.save_learning_to(&pm) {
-                            warn!("Post-execute checkpoint failed for {:?}: {}", specialist_id, e);
+                            warn!(
+                                "Post-execute checkpoint failed for {:?}: {}",
+                                specialist_id, e
+                            );
                         }
                     }
-                }
+                };
             }
 
             match specialist_id {
-                SpecialistId::Visionary   => save_if_some!(vis_cp),
+                SpecialistId::Visionary => save_if_some!(vis_cp),
                 SpecialistId::Omnipresent => save_if_some!(omni_cp),
-                SpecialistId::Symbiotic   => save_if_some!(symb_cp),
-                SpecialistId::Phygital    => save_if_some!(phyg_cp),
-                SpecialistId::Archivist   => save_if_some!(arch_cp),
+                SpecialistId::Symbiotic => save_if_some!(symb_cp),
+                SpecialistId::Phygital => save_if_some!(phyg_cp),
+                SpecialistId::Archivist => save_if_some!(arch_cp),
                 _ => {
-                    if let Some(ref name) = ds_name {
-                        if let Some(s) = dyn_cp.iter().find(|s| &s.name == name) {
-                            if let Err(e) = s.save_learning_to(&*pm) {
-                                warn!("GenericSpecialist '{}' post-exec checkpoint failed: {}", name, e);
-                            }
-                        }
+                    if let Some(ref name) = ds_name
+                        && let Some(s) = dyn_cp.iter().find(|s| &s.name == name)
+                        && let Err(e) = s.save_learning_to(&pm)
+                    {
+                        warn!(
+                            "GenericSpecialist '{}' post-exec checkpoint failed: {}",
+                            name, e
+                        );
                     }
                 }
             }
@@ -1187,7 +1303,7 @@ async fn run_decision(
 /// Returns a `SystemResources` with actual CPU utilization and available
 /// memory. GPU and thermal remain placeholder (require NVML/Metal APIs).
 fn read_system_resources_sync() -> crate::federation::specialist::SystemResources {
-    use sysinfo::{System, CpuRefreshKind, MemoryRefreshKind, RefreshKind};
+    use sysinfo::{CpuRefreshKind, MemoryRefreshKind, System};
 
     let mut sys = System::new();
     sys.refresh_cpu_specifics(CpuRefreshKind::everything());
@@ -1198,14 +1314,14 @@ fn read_system_resources_sync() -> crate::federation::specialist::SystemResource
     sys.refresh_cpu_specifics(CpuRefreshKind::everything());
     sys.refresh_memory_specifics(MemoryRefreshKind::everything());
 
-    let cpu_used: f32 = sys.cpus().iter().map(|c| c.cpu_usage()).sum::<f32>()
-        / sys.cpus().len().max(1) as f32;
+    let cpu_used: f32 =
+        sys.cpus().iter().map(|c| c.cpu_usage()).sum::<f32>() / sys.cpus().len().max(1) as f32;
     let cpu_available = (100.0 - cpu_used).clamp(0.0, 100.0);
 
     let total_mem = sys.total_memory();
     let used_mem = sys.used_memory();
     let free_mem_mb = if total_mem > used_mem {
-        ((total_mem - used_mem) / 1024 / 1024) as u64
+        (total_mem - used_mem) / 1024 / 1024
     } else {
         512
     };
@@ -1245,24 +1361,24 @@ fn read_gpu_nvml() -> anyhow::Result<(f32, f32)> {
     let nvml = Nvml::init()?;
     let device = nvml.device_by_index(0)?;
 
-    let utilization = device.running_compute_processes()
+    let utilization = device
+        .running_compute_processes()
         .map(|_| device.utilization_rates().ok())
         .ok()
         .flatten();
 
-    let gpu_util = utilization.as_ref()
-        .map(|u| u.gpu as f32)
-        .unwrap_or(40.0); // 40% if can't read — conservative
+    let gpu_util = utilization.as_ref().map(|u| u.gpu as f32).unwrap_or(40.0); // 40% if can't read — conservative
 
-    let gpu_available = (100.0 - gpu_util).clamp(0.0, 100.0);
+    let gpu_available = (100.0_f32 - gpu_util).clamp(0.0_f32, 100.0_f32);
 
     // Thermal: use GPU temperature vs threshold
-    let temp_current = device.temperature(nvml_wrapper::enum_wrappers::device::TemperatureSensor::Gpu)
+    let temp_current = device
+        .temperature(nvml_wrapper::enum_wrappers::device::TemperatureSensor::Gpu)
         .unwrap_or(50) as f32;
-    let temp_slowdown = device.temperature_threshold(
-        nvml_wrapper::enum_wrappers::device::TemperatureThreshold::Slowdown
-    ).unwrap_or(85) as f32;
-    let thermal = (1.0 - (temp_current / temp_slowdown)).clamp(0.0, 1.0);
+    let temp_slowdown = device
+        .temperature_threshold(nvml_wrapper::enum_wrappers::device::TemperatureThreshold::Slowdown)
+        .unwrap_or(85) as f32;
+    let thermal = (1.0_f32 - (temp_current / temp_slowdown)).clamp(0.0_f32, 1.0_f32);
 
     Ok((gpu_available, thermal))
 }
@@ -1273,7 +1389,7 @@ static CACHED_RESOURCES: std::sync::OnceLock<
     tokio::sync::Mutex<(
         crate::federation::specialist::SystemResources,
         std::time::Instant,
-    )>
+    )>,
 > = std::sync::OnceLock::new();
 
 /// Async wrapper: reads system resources, using a 2-second in-process cache
@@ -1305,7 +1421,7 @@ async fn read_system_resources() -> crate::federation::specialist::SystemResourc
     let (gpu_fb, thermal_fb) = read_gpu_resources();
     let fresh = tokio::task::spawn_blocking(read_system_resources_sync)
         .await
-        .unwrap_or_else(|_| crate::federation::specialist::SystemResources {
+        .unwrap_or(crate::federation::specialist::SystemResources {
             gpu_available_percent: gpu_fb,
             cpu_available_percent: 70.0,
             memory_available_mb: 2048,
@@ -1326,18 +1442,32 @@ impl Federation {
         use crate::federation::enterprise::{AuditEvent, AuditLevel, AuditResult};
 
         let id = intent.id.clone();
-        info!("Federation: new intent submitted: '{}' ({})", intent.content, id);
+        info!(
+            "Federation: new intent submitted: '{}' ({})",
+            intent.content, id
+        );
 
         // Audit the intent submission
         {
             let event = AuditEvent::new(
-                intent.context.get("user_id").cloned().unwrap_or_else(|| "anonymous".to_string()),
-                format!("intent_submitted:{}", intent.content.chars().take(60).collect::<String>()),
+                intent
+                    .context
+                    .get("user_id")
+                    .cloned()
+                    .unwrap_or_else(|| "anonymous".to_string()),
+                format!(
+                    "intent_submitted:{}",
+                    intent.content.chars().take(60).collect::<String>()
+                ),
                 AuditLevel::Info,
             )
             .with_resource(id.clone())
             .with_result(AuditResult::Success)
-            .with_details(format!("priority={:?}, tags={}", intent.priority, intent.tags.join(",")));
+            .with_details(format!(
+                "priority={:?}, tags={}",
+                intent.priority,
+                intent.tags.join(",")
+            ));
             let _ = self.audit_log.lock().await.record(event);
         }
 
@@ -1362,7 +1492,10 @@ impl Federation {
         {
             let intent_content = {
                 let guard = self.active_intent.read().await;
-                guard.as_ref().map(|i| i.content.clone()).unwrap_or_default()
+                guard
+                    .as_ref()
+                    .map(|i| i.content.clone())
+                    .unwrap_or_default()
             };
             if !intent_content.is_empty() {
                 let recall_text = {
@@ -1372,9 +1505,13 @@ impl Federation {
                 if !recall_text.is_empty() {
                     let mut guard = self.active_intent.write().await;
                     if let Some(ref mut intent) = *guard {
-                        intent.context.insert("prior_context".to_string(), recall_text);
-                        debug!("Federation memory: injected prior context into intent '{}'",
-                               intent_content.chars().take(50).collect::<String>());
+                        intent
+                            .context
+                            .insert("prior_context".to_string(), recall_text);
+                        debug!(
+                            "Federation memory: injected prior context into intent '{}'",
+                            intent_content.chars().take(50).collect::<String>()
+                        );
                     }
                 }
             }
@@ -1392,11 +1529,14 @@ impl Federation {
         // If Odin successfully decomposed the intent into a DAG, we can execute the DAG directly.
         let has_decomposition = {
             let guard = self.active_intent.read().await;
-            guard.as_ref().and_then(|i| i.context.get("odin_decomposition").cloned())
+            guard
+                .as_ref()
+                .and_then(|i| i.context.get("odin_decomposition").cloned())
         };
 
         if let Some(json_str) = has_decomposition {
-            let dag_opt = crate::federation::graph::dag::task_dag_from_odin_output(&id, &json_str).ok();
+            let dag_opt =
+                crate::federation::graph::dag::task_dag_from_odin_output(&id, &json_str).ok();
             if let Some(dag) = dag_opt {
                 // Execute the DAG layer by layer
                 use crate::federation::specialist::Specialist;
@@ -1404,12 +1544,19 @@ impl Federation {
                 info!("Executing Odin DAG with {} parallel layers", layers.len());
                 for (layer_idx, layer) in layers.into_iter().enumerate() {
                     info!("Executing DAG Layer {}", layer_idx);
-                    let mut layer_futures: Vec<std::pin::Pin<Box<dyn std::future::Future<Output = (String, Result<crate::federation::specialist::ExecutionResult, crate::federation::specialist::SpecialistError>)> + Send>>> = Vec::new();
+                    let mut layer_futures: Vec<DagFuture> = Vec::new();
                     for node in layer {
-                        if let crate::federation::graph::dag::NodeKind::Task { ref assigned_to, .. } = node.kind {
+                        if let crate::federation::graph::dag::NodeKind::Task {
+                            ref assigned_to,
+                            ..
+                        } = node.kind
+                        {
                             // Find the specialist
                             let dyn_guard = self.dynamic.read().await;
-                            let specialist_opt = dyn_guard.iter().find(|s| s.name.to_lowercase() == assigned_to.to_lowercase()).cloned();
+                            let specialist_opt = dyn_guard
+                                .iter()
+                                .find(|s| s.name.to_lowercase() == assigned_to.to_lowercase())
+                                .cloned();
                             drop(dyn_guard);
 
                             if let Some(specialist) = specialist_opt {
@@ -1422,9 +1569,14 @@ impl Federation {
 
                                     let decision = crate::federation::specialist::Decision {
                                         proposal_id: format!("dag-task-{}", task_id),
-                                        specialist: crate::federation::specialist::SpecialistId::custom(&s_arc.name),
+                                        specialist:
+                                            crate::federation::specialist::SpecialistId::custom(
+                                                &s_arc.name,
+                                            ),
                                         action: "execute_dag_task".to_string(),
-                                        allocated_resources: crate::federation::specialist::ResourceRequest::default(),
+                                        allocated_resources:
+                                            crate::federation::specialist::ResourceRequest::default(
+                                            ),
                                         deadline_ms: 10000,
                                         context: ctx,
                                     };
@@ -1432,7 +1584,10 @@ impl Federation {
                                     (task_id, result)
                                 }));
                             } else {
-                                warn!("DAG execution: Assigned specialist {} not found for task {}", assigned_to, node.id);
+                                warn!(
+                                    "DAG execution: Assigned specialist {} not found for task {}",
+                                    assigned_to, node.id
+                                );
                             }
                         }
                     }
@@ -1464,7 +1619,7 @@ impl Federation {
     /// context as JSON. If Odin is not loaded or times out, the pipeline continues
     /// unchanged — degrading gracefully to the flat broadcast.
     async fn odin_decompose_intent(&self) {
-        use crate::federation::specialist::{Specialist, Decision, ResourceRequest};
+        use crate::federation::specialist::{Decision, ResourceRequest, Specialist};
 
         // Find Odin in the dynamic slot
         let odin = {
@@ -1479,10 +1634,15 @@ impl Federation {
 
         let intent_content = {
             let guard = self.active_intent.read().await;
-            guard.as_ref().map(|i| i.content.clone()).unwrap_or_default()
+            guard
+                .as_ref()
+                .map(|i| i.content.clone())
+                .unwrap_or_default()
         };
 
-        if intent_content.is_empty() { return; }
+        if intent_content.is_empty() {
+            return;
+        }
 
         // Give Odin a decomposition-specific decision context
         let mut ctx = std::collections::HashMap::new();
@@ -1496,10 +1656,10 @@ impl Federation {
         // so it can factor past outcomes into its task decomposition
         {
             let guard = self.active_intent.read().await;
-            if let Some(ref intent) = *guard {
-                if let Some(prior) = intent.context.get("prior_context") {
-                    ctx.insert("prior_context".to_string(), prior.clone());
-                }
+            if let Some(ref intent) = *guard
+                && let Some(prior) = intent.context.get("prior_context")
+            {
+                ctx.insert("prior_context".to_string(), prior.clone());
             }
         }
 
@@ -1514,7 +1674,10 @@ impl Federation {
             }
         }
         if !available_plugins.is_empty() {
-            ctx.insert("available_plugins".to_string(), available_plugins.join(", "));
+            ctx.insert(
+                "available_plugins".to_string(),
+                available_plugins.join(", "),
+            );
         }
 
         let decision = Decision {
@@ -1527,10 +1690,8 @@ impl Federation {
         };
 
         // Run Odin with a 4-second timeout — don't block the pipeline
-        let decomp_result = tokio::time::timeout(
-            std::time::Duration::from_secs(4),
-            odin.execute(&decision),
-        ).await;
+        let decomp_result =
+            tokio::time::timeout(std::time::Duration::from_secs(4), odin.execute(&decision)).await;
 
         match decomp_result {
             Ok(Ok(result)) => {
@@ -1549,16 +1710,18 @@ impl Federation {
                             // Extract the assign_to fields so collect_proposals()
                             // can route only to named sovereigns, reducing noise.
                             if let Some(tasks) = v.get("tasks").and_then(|t| t.as_array()) {
-                                let assigned: Vec<String> = tasks.iter()
-                                    .filter_map(|t| t.get("assign_to")
-                                        .and_then(|a| a.as_str())
-                                        .map(|s| s.to_string()))
+                                let assigned: Vec<String> = tasks
+                                    .iter()
+                                    .filter_map(|t| {
+                                        t.get("assign_to")
+                                            .and_then(|a| a.as_str())
+                                            .map(|s| s.to_string())
+                                    })
                                     .collect();
                                 if !assigned.is_empty() {
-                                    intent.context.insert(
-                                        "odin_assigned_to".to_string(),
-                                        assigned.join(","),
-                                    );
+                                    intent
+                                        .context
+                                        .insert("odin_assigned_to".to_string(), assigned.join(","));
                                     info!("Odin assigned tasks to: {}", assigned.join(", "));
                                 }
                             }
@@ -1576,7 +1739,10 @@ impl Federation {
                                 .unwrap_or_default().as_millis() as u64,
                         }));
 
-                        info!("Odin decomposed intent: {}", result.output.chars().take(100).collect::<String>());
+                        info!(
+                            "Odin decomposed intent: {}",
+                            result.output.chars().take(100).collect::<String>()
+                        );
                     }
                 }
             }
@@ -1625,7 +1791,8 @@ impl Federation {
         user_name: impl Into<String>,
         device_id: Option<&str>,
     ) -> String {
-        let id = self.sessions
+        let id = self
+            .sessions
             .write()
             .await
             .create_session(user_name, device_id);
@@ -1641,11 +1808,20 @@ impl Federation {
             sessions.get(session_id).cloned()
         };
         let Some(session) = snapshot else { return };
-        let Ok(json) = serde_json::to_string(&session) else { return };
+        let Ok(json) = serde_json::to_string(&session) else {
+            return;
+        };
         let state_str = format!("{:?}", session.state);
         let created = session.started_at as i64;
         let pm = self.persistence.lock().await;
-        if let Err(e) = pm.save_session(&session.id, &session.user_id, &session.user_name, &state_str, &json, created) {
+        if let Err(e) = pm.save_session(
+            &session.id,
+            &session.user_id,
+            &session.user_name,
+            &state_str,
+            &json,
+            created,
+        ) {
             warn!("persist_session({}): {}", session_id, e);
         }
     }
@@ -1672,14 +1848,19 @@ impl Federation {
         let pending_intent = session.intents.iter().rev().find(|i| {
             !matches!(
                 i.status,
-                IntentStatus::Completed | IntentStatus::Cancelled | IntentStatus::Failed | IntentStatus::Superseded
+                IntentStatus::Completed
+                    | IntentStatus::Cancelled
+                    | IntentStatus::Failed
+                    | IntentStatus::Superseded
             )
         });
 
         if let Some(intent) = pending_intent {
             let mut intent = intent.clone();
             // Tag it as restored so audit trail is clear
-            intent.context.insert("restored_on_restart".to_string(), "true".to_string());
+            intent
+                .context
+                .insert("restored_on_restart".to_string(), "true".to_string());
             info!(
                 "Restored active intent '{}' from session '{}' on restart",
                 intent.content, session.id
@@ -1695,16 +1876,23 @@ impl Federation {
             let pm = self.persistence.lock().await;
             pm.load_active_sessions().unwrap_or_default()
         };
-        if rows.is_empty() { return; }
+        if rows.is_empty() {
+            return;
+        }
         let mut mgr = self.sessions.write().await;
         for (session_id, json) in &rows {
-            if mgr.get(session_id).is_some() { continue; } // already in memory
+            if mgr.get(session_id).is_some() {
+                continue;
+            } // already in memory
             match serde_json::from_str::<crate::federation::session::Session>(json) {
                 Ok(session) => {
                     mgr.insert_session(session);
                 }
                 Err(e) => {
-                    warn!("load_sessions_from_db: failed to deserialise session {}: {}", session_id, e);
+                    warn!(
+                        "load_sessions_from_db: failed to deserialise session {}: {}",
+                        session_id, e
+                    );
                 }
             }
         }
@@ -1721,7 +1909,13 @@ impl Federation {
 
     /// List all active sessions.
     pub async fn active_sessions(&self) -> Vec<crate::federation::session::Session> {
-        self.sessions.read().await.active_sessions().into_iter().cloned().collect()
+        self.sessions
+            .read()
+            .await
+            .active_sessions()
+            .into_iter()
+            .cloned()
+            .collect()
     }
 
     /// Delete a session by ID. Returns `true` if the session existed and was removed.
@@ -1762,12 +1956,13 @@ impl Federation {
     /// The Sentinel arbitration loop will pick them up on its next tick
     /// (default: 500ms) and issue decisions to the winners.
     pub async fn collect_proposals(&self) {
-        use crate::federation::specialist::{Specialist, SpecialistContext, UserState};
         use crate::federation::proposal::Proposal;
+        use crate::federation::specialist::{Specialist, SpecialistContext, UserState};
 
         // Build context from active intent
         let intent = self.active_intent.read().await.clone();
-        let intent_activity = intent.as_ref()
+        let intent_activity = intent
+            .as_ref()
             .map(|i| i.content.clone())
             .unwrap_or_else(|| "idle".to_string());
 
@@ -1780,7 +1975,8 @@ impl Federation {
                 // Read live biometric state from Symbiotic's drain_state when
                 // available.  Falls back to neutral defaults when Symbiotic is
                 // not configured or hasn't received any BLE samples yet.
-                let (stress, focus, fatigue) = self.symbiotic
+                let (stress, focus, fatigue) = self
+                    .symbiotic
                     .as_ref()
                     .map(|h| {
                         let s = h.specialist().shared_current_state();
@@ -1799,8 +1995,12 @@ impl Federation {
                 let real = read_system_resources().await;
                 let caps = self.config.resource_caps();
                 crate::federation::specialist::SystemResources {
-                    gpu_available_percent: real.gpu_available_percent.min(caps.gpu_available_percent),
-                    cpu_available_percent: real.cpu_available_percent.min(caps.cpu_available_percent),
+                    gpu_available_percent: real
+                        .gpu_available_percent
+                        .min(caps.gpu_available_percent),
+                    cpu_available_percent: real
+                        .cpu_available_percent
+                        .min(caps.cpu_available_percent),
                     memory_available_mb: real.memory_available_mb.min(caps.memory_available_mb),
                     thermal_headroom: real.thermal_headroom.min(caps.thermal_headroom),
                 }
@@ -1822,14 +2022,17 @@ impl Federation {
 
         // Collect all proposal futures — core specialists + dynamic
         type ProposalResult = (
-            Result<Vec<crate::federation::specialist::ProposedAction>,
-                   crate::federation::specialist::SpecialistError>,
-            String,  // specialist name (for tagging dynamic proposals)
-            bool,    // is_dynamic
+            Result<
+                Vec<crate::federation::specialist::ProposedAction>,
+                crate::federation::specialist::SpecialistError,
+            >,
+            String, // specialist name (for tagging dynamic proposals)
+            bool,   // is_dynamic
         );
 
-        let mut proposal_futures: Vec<std::pin::Pin<Box<dyn std::future::Future<
-            Output = ProposalResult> + Send>>> = Vec::new();
+        let mut proposal_futures: Vec<
+            std::pin::Pin<Box<dyn std::future::Future<Output = ProposalResult> + Send>>,
+        > = Vec::new();
 
         macro_rules! push_core_future {
             ($host_opt:expr, $name:literal) => {
@@ -1843,11 +2046,11 @@ impl Federation {
             };
         }
 
-        push_core_future!(self.visionary,   "Visionary");
+        push_core_future!(self.visionary, "Visionary");
         push_core_future!(self.omnipresent, "Omnipresent");
-        push_core_future!(self.symbiotic,   "Symbiotic");
-        push_core_future!(self.phygital,    "Phygital");
-        push_core_future!(self.archivist,   "Archivist");
+        push_core_future!(self.symbiotic, "Symbiotic");
+        push_core_future!(self.phygital, "Phygital");
+        push_core_future!(self.archivist, "Archivist");
 
         // Dynamic specialists — if Odin has assigned tasks, only invite the named
         // sovereigns to propose. This prevents design/biometric outputs from polluting
@@ -1855,7 +2058,8 @@ impl Federation {
         // If Odin has not decomposed (no odin_assigned_to in context), all propose.
         let odin_assigned: Option<std::collections::HashSet<String>> = {
             let guard = self.active_intent.read().await;
-            guard.as_ref()
+            guard
+                .as_ref()
                 .and_then(|i| i.context.get("odin_assigned_to"))
                 .map(|s| s.split(',').map(|n| n.trim().to_string()).collect())
         };
@@ -1870,18 +2074,21 @@ impl Federation {
             let dyn_guard = self.dynamic.read().await;
             for specialist in dyn_guard.iter() {
                 // When Odin has routed, only include assigned sovereigns
-                if let Some(ref assigned) = odin_assigned {
-                    if !assigned.contains(&specialist.name) {
-                        debug!("Odin routing: skipping {} (not in assign_to list)", specialist.name);
-                        continue;
-                    }
+                if let Some(ref assigned) = odin_assigned
+                    && !assigned.contains(&specialist.name)
+                {
+                    debug!(
+                        "Odin routing: skipping {} (not in assign_to list)",
+                        specialist.name
+                    );
+                    continue;
                 }
                 let s_arc = specialist.clone();
                 let ctx = context.clone();
                 let name = specialist.name.clone();
-                proposal_futures.push(Box::pin(async move {
-                    (s_arc.propose(&ctx).await, name, true)
-                }));
+                proposal_futures.push(Box::pin(
+                    async move { (s_arc.propose(&ctx).await, name, true) },
+                ));
             }
         }
 
@@ -1898,22 +2105,25 @@ impl Federation {
                             action.action_type.clone(),
                             action.description.clone(),
                             action.confidence,
-                            action.priority.clone(),
+                            action.priority,
                         )
                         .with_resources(action.required_resources.clone())
                         .with_tags(action.tags.clone());
                         if !intent_activity.is_empty() && intent_activity != "idle" {
                             proposal = proposal.with_metadata("intent", intent_activity.clone());
                             if is_dynamic {
-                                proposal = proposal.with_metadata("dynamic_specialist",
-                                                                   specialist_name.clone());
+                                proposal = proposal
+                                    .with_metadata("dynamic_specialist", specialist_name.clone());
                             }
                         }
                         bus_proposals.push(proposal);
                     }
                 }
                 Err(e) => {
-                    warn!("collect_proposals: '{}' propose() error: {}", specialist_name, e);
+                    warn!(
+                        "collect_proposals: '{}' propose() error: {}",
+                        specialist_name, e
+                    );
                 }
             }
         }
@@ -1930,7 +2140,10 @@ impl Federation {
         drop(sentinel_guard);
 
         if total_proposals > 0 {
-            info!("collect_proposals: {} proposals submitted to Sentinel bus", total_proposals);
+            info!(
+                "collect_proposals: {} proposals submitted to Sentinel bus",
+                total_proposals
+            );
         }
     }
 
@@ -1943,10 +2156,7 @@ impl Federation {
     /// This is the public on-demand path. The Sentinel arbitration loop uses
     /// the same underlying `run_decision()` free function so both paths are
     /// identical in behavior.
-    pub async fn execute_decision(
-        &self,
-        decision: crate::federation::specialist::Decision,
-    ) {
+    pub async fn execute_decision(&self, decision: crate::federation::specialist::Decision) {
         let vis = self.visionary.as_ref().map(|h| h.specialist());
         let omni = self.omnipresent.as_ref().map(|h| h.specialist());
         let symb = self.symbiotic.as_ref().map(|h| h.specialist());
@@ -2011,7 +2221,10 @@ impl Federation {
     }
 
     /// Get recent audit events. Useful for the `/status/audit` endpoint.
-    pub async fn recent_audit_events(&self, limit: usize) -> Vec<crate::federation::enterprise::AuditEvent> {
+    pub async fn recent_audit_events(
+        &self,
+        limit: usize,
+    ) -> Vec<crate::federation::enterprise::AuditEvent> {
         let log = self.audit_log.lock().await;
         log.query(&crate::federation::enterprise::AuditQuery {
             user_id: None,
@@ -2073,11 +2286,21 @@ impl Federation {
         let mut bus = CommunicationBus::new();
 
         // Register all configured specialists
-        if self.visionary.is_some() { bus.register_specialist(SpecialistId::Visionary); }
-        if self.omnipresent.is_some() { bus.register_specialist(SpecialistId::Omnipresent); }
-        if self.symbiotic.is_some() { bus.register_specialist(SpecialistId::Symbiotic); }
-        if self.phygital.is_some() { bus.register_specialist(SpecialistId::Phygital); }
-        if self.archivist.is_some() { bus.register_specialist(SpecialistId::Archivist); }
+        if self.visionary.is_some() {
+            bus.register_specialist(SpecialistId::Visionary);
+        }
+        if self.omnipresent.is_some() {
+            bus.register_specialist(SpecialistId::Omnipresent);
+        }
+        if self.symbiotic.is_some() {
+            bus.register_specialist(SpecialistId::Symbiotic);
+        }
+        if self.phygital.is_some() {
+            bus.register_specialist(SpecialistId::Phygital);
+        }
+        if self.archivist.is_some() {
+            bus.register_specialist(SpecialistId::Archivist);
+        }
 
         let config = SentinelConfig::default();
         let sentinel = Sentinel::new(config, bus);
@@ -2147,14 +2370,13 @@ impl Federation {
                             } else { None }
                         };
 
-                        if let Some(result) = arb_result {
-                            if result.decisions_issued > 0 {
+                        if let Some(result) = arb_result
+                            && result.decisions_issued > 0 {
                                 info!(
                                     "Sentinel: {} proposals → {} decisions",
                                     result.proposals_reviewed, result.decisions_issued
                                 );
                             }
-                        }
 
                         // Drain each specialist's decision channel and execute
                         // decisions issued by the Sentinel.
@@ -2177,34 +2399,28 @@ impl Federation {
 
                         for (_specialist_id, channel) in channels {
                             // Non-blocking drain: try_receive until empty
-                            loop {
-                                let msg: Option<crate::federation::communication::SpecialistMessage> = crate::federation::communication::MessageChannel::try_receive(&channel).await;
-
-                                match msg {
-                                    Some(crate::federation::communication::SpecialistMessage::DecisionIssued(decision)) => {
-                                        // Delegate to the canonical run_decision() function
-                                        // so both the sentinel loop and execute_decision()
-                                        // have identical audit/session/storage behavior.
-                                        let dyn_vec = dynamic_arc.read().await.clone();
-                                        run_decision(
-                                            decision,
-                                            &vis,
-                                            &omni,
-                                            &symb,
-                                            &phyg,
-                                            &arch,
-                                            &dyn_vec,
-                                            &persistence_arc,
-                                            &event_tx_arc,
-                                            &results_store,
-                                            &active_intent_arc,
-                                            &sessions_arc,
-                                            &audit_log_arc,
-                                            &fed_memory_arc,
-                                        ).await;
-                                    }
-                                    Some(_) => {} // Other message types ignored for now
-                                    None => break, // Channel empty, stop draining
+                            while let Some(msg) = crate::federation::communication::MessageChannel::try_receive(&channel).await {
+                                if let crate::federation::communication::SpecialistMessage::DecisionIssued(decision) = msg {
+                                    // Delegate to the canonical run_decision() function
+                                    // so both the sentinel loop and execute_decision()
+                                    // have identical audit/session/storage behavior.
+                                    let dyn_vec = dynamic_arc.read().await.clone();
+                                    run_decision(
+                                        decision,
+                                        &vis,
+                                        &omni,
+                                        &symb,
+                                        &phyg,
+                                        &arch,
+                                        &dyn_vec,
+                                        &persistence_arc,
+                                        &event_tx_arc,
+                                        &results_store,
+                                        &active_intent_arc,
+                                        &sessions_arc,
+                                        &audit_log_arc,
+                                        &fed_memory_arc,
+                                    ).await;
                                 }
                             }
                         }
@@ -2240,13 +2456,15 @@ impl Federation {
     ///
     /// The loop stops when `stop_sentinel_loop()` is called (shared shutdown notify).
     pub async fn spawn_system_sensor_loop(&self) {
-        let Some(symb_host) = &self.symbiotic else { return };
+        let Some(symb_host) = &self.symbiotic else {
+            return;
+        };
         let symb = symb_host.specialist();
         let shutdown = self.sentinel_shutdown.clone();
 
         tokio::spawn(async move {
             use crate::federation::biometric::{BiometricKind, BiometricSample};
-            use sysinfo::{System, CpuRefreshKind, MemoryRefreshKind};
+            use sysinfo::{CpuRefreshKind, MemoryRefreshKind, System};
 
             loop {
                 tokio::select! {
@@ -2299,7 +2517,7 @@ impl Federation {
                                 .unwrap_or_default().as_secs(),
                             device_id: "system-sensor".to_string(),
                             kind: BiometricKind::BatteryLevel,
-                            value: mem_free_pct as f32,
+                            value: mem_free_pct,
                             raw_payload: Vec::new(),
                         };
                         {
@@ -2354,7 +2572,6 @@ impl Federation {
 
         tokio::spawn(async move {
             loop {
-
                 tokio::select! {
                     _ = shutdown.notified() => break,
                     _ = tokio::time::sleep(std::time::Duration::from_secs(10)) => {
@@ -2366,14 +2583,12 @@ impl Federation {
                         {
                             let mut sched = scheduler_arc.write().await;
                             for (_, task) in sched.tasks.iter_mut() {
-                                if task.status == "Scheduled" {
-                                    if let Some(interval) = task.interval_secs {
-                                        if now_ms >= task.last_run_ms + (interval * 1000) {
+                                if task.status == "Scheduled"
+                                    && let Some(interval) = task.interval_secs
+                                        && now_ms >= task.last_run_ms + (interval * 1000) {
                                             task.last_run_ms = now_ms;
                                             triggered_tasks.push(task.clone());
                             }
-                        }
-                                }
                             }
                         }
 
@@ -2387,7 +2602,7 @@ impl Federation {
                             });
                             // In a real setup, we'd have a specific NATS subject for system intents
                             let payload_str = serde_json::to_string(&payload).unwrap();
-                            let _ = nc.publish("system/intent/submit", payload_str.as_bytes());
+                            drop(nc.publish("system/intent/submit", payload_str.as_bytes()));
                         }
                     }
                 }

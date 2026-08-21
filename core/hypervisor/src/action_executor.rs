@@ -1,22 +1,22 @@
 // Action Executor
 // Executes decisions made by the decision engine: file ops, WASM, throttling, notifications
 
-use std::path::{Path, PathBuf};
-use std::fs;
-use serde::{Serialize, Deserialize};
-use anyhow::{Result as AnyhowResult, Context, Error, anyhow};
-use wasmtime::{Engine, Config, Store};
-use wasmtime::component::{Component, Instance as ComponentInstance};
-use crate::decision_engine::{Action, TaskEvaluation};
-use biology::SystemBiology;
 use crate::constellation_ui::{ConstellationCanvas, NodeMetrics};
+use crate::decision_engine::{Action, TaskEvaluation};
+use anyhow::Result;
+use biology::SystemBiology;
+use serde::{Deserialize, Serialize};
+use std::fs;
+use std::path::{Path, PathBuf};
+use wasmtime::component::{Component, Instance as ComponentInstance};
+use wasmtime::{Config, Engine, Store};
 
 /// WASM Enzyme Execution Context for `wasmtime` runtime operations
 struct WasmEnzymeContext {
-    engine: Engine,
-    store: Store<()>,
-    component: Component,
-    instance: ComponentInstance,
+    _engine: Engine,
+    _store: Store<()>,
+    _component: Component,
+    _instance: ComponentInstance,
 }
 
 impl WasmEnzymeContext {
@@ -33,7 +33,12 @@ impl WasmEnzymeContext {
         let instance = linker
             .instantiate(&mut store, &component)
             .map_err(|e| format!("Instantiate failed: {}", e))?;
-        Ok(Self { engine, store, component, instance })
+        Ok(Self {
+            _engine: engine,
+            _store: store,
+            _component: component,
+            _instance: instance,
+        })
     }
 
     /// Locate a function to invoke by convention. Returns the export name.
@@ -130,44 +135,54 @@ impl ActionExecutor {
     /// Execute a single action
     pub async fn execute(&mut self, action: ExecutableAction) -> ActionResult {
         let start = std::time::Instant::now();
-        
+
         let result = match action {
-            ExecutableAction::FileOperation { path, operation, content } => {
-                self.execute_file_operation(&path, operation, content.as_deref())
-            }
-            ExecutableAction::SpawnWasm { enzyme_path, input_data } => {
-                self.spawn_wasm_enzyme(&enzyme_path, &input_data).await
-            }
+            ExecutableAction::FileOperation {
+                path,
+                operation,
+                content,
+            } => self.execute_file_operation(&path, operation, content.as_deref()),
+            ExecutableAction::SpawnWasm {
+                enzyme_path,
+                input_data,
+            } => self.spawn_wasm_enzyme(&enzyme_path, &input_data).await,
             ExecutableAction::ThrottleSystem { new_rate, reason } => {
                 self.throttle_system(new_rate, &reason)
             }
             ExecutableAction::NotifyUser { message, priority } => {
                 self.notify_user(&message, priority)
             }
-            ExecutableAction::RequestMutation { specialist_id, goal } => {
-                self.request_mutation(&specialist_id, &goal)
-            }
+            ExecutableAction::RequestMutation {
+                specialist_id,
+                goal,
+            } => self.request_mutation(&specialist_id, &goal),
             ExecutableAction::UpdateConstellation { node_id, metrics } => {
                 self.update_constellation_node(&node_id, metrics)
             }
-            ExecutableAction::ScaleSpecialist { specialist_id, scale_factor } => {
-                self.scale_specialist(&specialist_id, scale_factor)
-            }
+            ExecutableAction::ScaleSpecialist {
+                specialist_id,
+                scale_factor,
+            } => self.scale_specialist(&specialist_id, scale_factor),
         };
-        
+
         let _duration = start.elapsed().as_secs_f64() * 1000.0;
-        
+
         // Record in history
         if self.execution_history.len() >= self.max_history {
             self.execution_history.remove(0);
         }
         self.execution_history.push(result.clone());
-        
+
         result
     }
 
     /// Execute a file operation
-    fn execute_file_operation(&self, path: &Path, operation: FileOp, content: Option<&str>) -> ActionResult {
+    fn execute_file_operation(
+        &self,
+        path: &Path,
+        operation: FileOp,
+        content: Option<&str>,
+    ) -> ActionResult {
         let result = match operation {
             FileOp::Create => {
                 if let Some(content) = content {
@@ -187,7 +202,7 @@ impl ActionExecutor {
             FileOp::Move(ref dest) => fs::rename(path, dest),
             FileOp::Copy(ref dest) => fs::copy(path, dest).map(|_| ()),
         };
-        
+
         match result {
             Ok(_) => ActionResult {
                 action_type: "file_operation".to_string(),
@@ -208,38 +223,34 @@ impl ActionExecutor {
 
     /// Spawn a WASM enzyme and execute with typed arguments
     async fn spawn_wasm_enzyme(&self, enzyme_path: &Path, input_data: &[u8]) -> ActionResult {
-        let result = match WasmEnzymeContext::from_binary(enzyme_path.to_path_buf(), input_data) {
+        match WasmEnzymeContext::from_binary(enzyme_path.to_path_buf(), input_data) {
             Ok(mut context) => {
                 // Find the execution function (convention-based)
                 if let Some(func_name) = context.find_execution_function() {
                     // Execute with typed arguments
                     match context.execute_with_input(&func_name) {
-                        Ok(output_data) => {
-                            ActionResult {
-                                action_type: "spawn_wasm".to_string(),
-                                success: true,
-                                duration_ms: 0.0,
-                                message: format!("WASM enzyme executed successfully: {}", func_name),
-                                metadata: serde_json::json!({
-                                    "path": "unnamed",
-                                    "input_size": input_data.len(),
-                                    "output_size": output_data.len(),
-                                    "function_found": func_name,
-                                }),
-                            }
+                        Ok(output_data) => ActionResult {
+                            action_type: "spawn_wasm".to_string(),
+                            success: true,
+                            duration_ms: 0.0,
+                            message: format!("WASM enzyme executed successfully: {}", func_name),
+                            metadata: serde_json::json!({
+                                "path": "unnamed",
+                                "input_size": input_data.len(),
+                                "output_size": output_data.len(),
+                                "function_found": func_name,
+                            }),
                         },
-                        Err(e) => {
-                            ActionResult {
-                                action_type: "spawn_wasm".to_string(),
-                                success: false,
-                                duration_ms: 0.0,
-                                message: format!("WASM execution failed: {}", e),
-                                metadata: serde_json::json!({
-                                    "path": "unnamed",
-                                    "input_size": input_data.len(),
-                                    "error": e.to_string(),
-                                }),
-                            }
+                        Err(e) => ActionResult {
+                            action_type: "spawn_wasm".to_string(),
+                            success: false,
+                            duration_ms: 0.0,
+                            message: format!("WASM execution failed: {}", e),
+                            metadata: serde_json::json!({
+                                "path": "unnamed",
+                                "input_size": input_data.len(),
+                                "error": e.to_string(),
+                            }),
                         },
                     }
                 } else {
@@ -254,35 +265,34 @@ impl ActionExecutor {
                         }),
                     }
                 }
+            }
+            Err(e) => ActionResult {
+                action_type: "spawn_wasm".to_string(),
+                success: false,
+                duration_ms: 0.0,
+                message: format!("Failed to load WASM enzyme: {}", e),
+                metadata: serde_json::json!({
+                    "path": enzyme_path.to_string_lossy(),
+                    "input_size": input_data.len(),
+                    "error": e.to_string(),
+                }),
             },
-            Err(e) => {
-                ActionResult {
-                    action_type: "spawn_wasm".to_string(),
-                    success: false,
-                    duration_ms: 0.0,
-                    message: format!("Failed to load WASM enzyme: {}", e),
-                    metadata: serde_json::json!({
-                        "path": enzyme_path.to_string_lossy(),
-                        "input_size": input_data.len(),
-                        "error": e.to_string(),
-                    }),
-                }
-            },
-        };
-
-        result
+        }
     }
 
     /// Throttle the system
     fn throttle_system(&mut self, new_rate: f32, reason: &str) -> ActionResult {
         let old_rate = self.biology.expression_rate;
         self.biology.set_expression_rate(new_rate);
-        
+
         ActionResult {
             action_type: "throttle_system".to_string(),
             success: true,
             duration_ms: 0.0,
-            message: format!("Throttled from {:.2} to {:.2}: {}", old_rate, new_rate, reason),
+            message: format!(
+                "Throttled from {:.2} to {:.2}: {}",
+                old_rate, new_rate, reason
+            ),
             metadata: serde_json::json!({
                 "old_rate": old_rate,
                 "new_rate": new_rate,
@@ -294,7 +304,7 @@ impl ActionExecutor {
     /// Notify the user
     fn notify_user(&self, message: &str, priority: u8) -> ActionResult {
         println!("[NOTIFY] (priority: {}) {}", priority, message);
-        
+
         ActionResult {
             action_type: "notify_user".to_string(),
             success: true,
@@ -307,12 +317,15 @@ impl ActionExecutor {
     /// Request a mutation for a specialist
     fn request_mutation(&self, specialist_id: &str, goal: &str) -> ActionResult {
         self.biology.request_mutation(specialist_id, goal);
-        
+
         ActionResult {
             action_type: "request_mutation".to_string(),
             success: true,
             duration_ms: 0.0,
-            message: format!("Mutation requested for {} with goal: {}", specialist_id, goal),
+            message: format!(
+                "Mutation requested for {} with goal: {}",
+                specialist_id, goal
+            ),
             metadata: serde_json::json!({
                 "specialist_id": specialist_id,
                 "goal": goal,
@@ -323,10 +336,15 @@ impl ActionExecutor {
     /// Update a constellation node with new metrics
     fn update_constellation_node(&mut self, node_id: &str, metrics: NodeMetrics) -> ActionResult {
         let metrics_clone = metrics.clone();
-        
-        if let Some(index) = self.constellation.nodes.iter().position(|n| n.id == node_id) {
+
+        if let Some(index) = self
+            .constellation
+            .nodes
+            .iter()
+            .position(|n| n.id == node_id)
+        {
             self.constellation.update_node_metrics(index, metrics);
-            
+
             ActionResult {
                 action_type: "update_constellation".to_string(),
                 success: true,
@@ -354,7 +372,7 @@ impl ActionExecutor {
         if let Some(metabolism) = self.biology.specialist_metabolism.get_mut(specialist_id) {
             metabolism.max_tokens *= scale_factor;
             metabolism.regen_rate *= scale_factor;
-            
+
             ActionResult {
                 action_type: "scale_specialist".to_string(),
                 success: true,
@@ -383,23 +401,17 @@ impl ActionExecutor {
         file_path: Option<PathBuf>,
     ) -> Option<ExecutableAction> {
         match action {
-            Action::ExecuteImmediately => {
-                if let Some(path) = file_path {
-                    Some(ExecutableAction::FileOperation {
-                        path,
-                        operation: FileOp::Modify,
-                        content: None,
-                    })
-                } else {
-                    None
-                }
-            }
-            Action::DelegateToWASM => {
-                Some(ExecutableAction::SpawnWasm {
-                    enzyme_path: PathBuf::from("extensions/wasm/test_enzyme/target/wasm32-unknown-unknown/release/test_enzyme.wasm"),
-                    input_data: vec![],
-                })
-            }
+            Action::ExecuteImmediately => file_path.map(|path| ExecutableAction::FileOperation {
+                path,
+                operation: FileOp::Modify,
+                content: None,
+            }),
+            Action::DelegateToWASM => Some(ExecutableAction::SpawnWasm {
+                enzyme_path: PathBuf::from(
+                    "extensions/wasm/test_enzyme/target/wasm32-unknown-unknown/release/test_enzyme.wasm",
+                ),
+                input_data: vec![],
+            }),
             Action::QueueForLater => {
                 // Just notify for now
                 Some(ExecutableAction::NotifyUser {
@@ -407,18 +419,20 @@ impl ActionExecutor {
                     priority: 1,
                 })
             }
-            Action::RequestHumanInput => {
-                Some(ExecutableAction::NotifyUser {
-                    message: format!("Task {} requires human input: {}", evaluation.task_id, evaluation.reasoning),
-                    priority: 2,
-                })
-            }
-            Action::Reject => {
-                Some(ExecutableAction::NotifyUser {
-                    message: format!("Task {} rejected: {}", evaluation.task_id, evaluation.reasoning),
-                    priority: 3,
-                })
-            }
+            Action::RequestHumanInput => Some(ExecutableAction::NotifyUser {
+                message: format!(
+                    "Task {} requires human input: {}",
+                    evaluation.task_id, evaluation.reasoning
+                ),
+                priority: 2,
+            }),
+            Action::Reject => Some(ExecutableAction::NotifyUser {
+                message: format!(
+                    "Task {} rejected: {}",
+                    evaluation.task_id, evaluation.reasoning
+                ),
+                priority: 3,
+            }),
         }
     }
 
@@ -427,18 +441,26 @@ impl ActionExecutor {
         let total = self.execution_history.len();
         let success = self.execution_history.iter().filter(|r| r.success).count();
         let failed = total - success;
-        
+
         let avg_duration = if total > 0 {
-            self.execution_history.iter().map(|r| r.duration_ms).sum::<f64>() / total as f64
+            self.execution_history
+                .iter()
+                .map(|r| r.duration_ms)
+                .sum::<f64>()
+                / total as f64
         } else {
             0.0
         };
-        
+
         ExecutionStats {
             total_executions: total,
             success_count: success,
             failed_count: failed,
-            success_rate: if total > 0 { success as f64 / total as f64 } else { 0.0 },
+            success_rate: if total > 0 {
+                success as f64 / total as f64
+            } else {
+                0.0
+            },
             avg_duration_ms: avg_duration,
         }
     }
@@ -468,7 +490,7 @@ mod tests {
     fn test_throttle_system() {
         let mut executor = ActionExecutor::new(PathBuf::from("test.wasm"));
         let result = executor.throttle_system(0.5, "test reason");
-        
+
         assert!(result.success);
         assert_eq!(executor.biology.expression_rate, 0.5);
     }
@@ -477,7 +499,7 @@ mod tests {
     fn test_notify_user() {
         let executor = ActionExecutor::new(PathBuf::from("test.wasm"));
         let result = executor.notify_user("Test message", 1);
-        
+
         assert!(result.success);
         assert_eq!(result.message, "Test message");
     }
@@ -486,7 +508,7 @@ mod tests {
     fn test_execution_stats() {
         let executor = ActionExecutor::new(PathBuf::from("test.wasm"));
         let stats = executor.get_stats();
-        
+
         assert_eq!(stats.total_executions, 0);
         assert_eq!(stats.success_rate, 0.0);
     }

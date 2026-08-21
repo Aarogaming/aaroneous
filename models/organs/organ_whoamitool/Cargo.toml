@@ -1,0 +1,10 @@
+[package]
+name = "organ_whoamitool"
+version = "0.1.0"
+edition = "2021"
+description = "Auto-generated Aaroneous Machine-Native Organ Wrapper for WhoamiTool"
+
+[dependencies]
+anyhow = "1.0"
+tokio = { version = "1.0", features = ["full"] }
+tracing = "0.1"

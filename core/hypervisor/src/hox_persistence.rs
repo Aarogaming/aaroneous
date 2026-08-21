@@ -1,14 +1,12 @@
+use crate::hox_registry::{HoxCapability, HoxRegistry};
+use anyhow::{Result, anyhow};
 /// Hox Registry Persistence - save and load full registry state to disk
 ///
 /// Extends HoxRegistry with comprehensive serialization/deserialization
 /// for checkpointing and recovery across restarts.
-
 use serde::{Deserialize, Serialize};
-use std::path::{Path, PathBuf};
 use std::fs;
-use anyhow::{Result, anyhow};
-use crate::hox_registry::{HoxRegistry, HoxCapability};
-use crate::hox_map_schema::HoxPermissions;
+use std::path::{Path, PathBuf};
 
 /// Persistent registry snapshot for disk storage
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -34,9 +32,9 @@ impl RegistrySnapshot {
             .duration_since(std::time::UNIX_EPOCH)
             .map(|d| d.as_secs())
             .unwrap_or(0);
-        
+
         let checksum = Self::compute_checksum(&capabilities);
-        
+
         Self {
             version: 1,
             timestamp: now,
@@ -53,13 +51,13 @@ impl RegistrySnapshot {
     fn compute_checksum(capabilities: &[HoxCapability]) -> String {
         use std::collections::hash_map::DefaultHasher;
         use std::hash::{Hash, Hasher};
-        
+
         let mut hasher = DefaultHasher::new();
         for cap in capabilities {
             cap.name.hash(&mut hasher);
             cap.enzyme_hash.hash(&mut hasher);
         }
-        
+
         format!("{:x}", hasher.finish())
     }
 
@@ -81,12 +79,12 @@ impl HoxPersistenceManager {
     pub fn new(db_path: &str, snapshot_dir: &str) -> Result<Self> {
         let registry = HoxRegistry::new(db_path)?;
         let snapshot_dir = PathBuf::from(snapshot_dir);
-        
+
         // Create snapshot directory if it doesn't exist
         if !snapshot_dir.exists() {
             fs::create_dir_all(&snapshot_dir)?;
         }
-        
+
         Ok(Self {
             registry,
             snapshot_dir,
@@ -97,25 +95,28 @@ impl HoxPersistenceManager {
     pub fn save_snapshot(&self, name: Option<&str>) -> Result<PathBuf> {
         let capabilities = self.registry.list_capabilities()?;
         let snapshot = RegistrySnapshot::new(capabilities);
-        
+
         // Verify integrity before saving
         if !snapshot.verify_integrity() {
             return Err(anyhow!("Registry integrity check failed before save"));
         }
-        
+
         let filename: String = match name {
             Some(n) => n.to_string(),
             None => format!("snapshot_{}.json", snapshot.timestamp),
         };
 
         let path = self.snapshot_dir.join(&filename);
-        
+
         let json = serde_json::to_string_pretty(&snapshot)?;
         fs::write(&path, json)?;
-        
-        println!("[HoxPersistence] Snapshot saved: {} ({} entries)",
-            path.display(), snapshot.metadata.total_entries);
-        
+
+        println!(
+            "[HoxPersistence] Snapshot saved: {} ({} entries)",
+            path.display(),
+            snapshot.metadata.total_entries
+        );
+
         Ok(path)
     }
 
@@ -123,15 +124,18 @@ impl HoxPersistenceManager {
     pub fn load_snapshot(&self, path: &Path) -> Result<RegistrySnapshot> {
         let json = fs::read_to_string(path)?;
         let snapshot: RegistrySnapshot = serde_json::from_str(&json)?;
-        
+
         // Verify integrity
         if !snapshot.verify_integrity() {
             return Err(anyhow!("Snapshot integrity check failed: corrupted data"));
         }
-        
-        println!("[HoxPersistence] Snapshot loaded: {} ({} entries)",
-            path.display(), snapshot.metadata.total_entries);
-        
+
+        println!(
+            "[HoxPersistence] Snapshot loaded: {} ({} entries)",
+            path.display(),
+            snapshot.metadata.total_entries
+        );
+
         Ok(snapshot)
     }
 
@@ -140,35 +144,37 @@ impl HoxPersistenceManager {
         for capability in &snapshot.capabilities {
             self.registry.register_capability(capability)?;
         }
-        
-        println!("[HoxPersistence] Restored {} capabilities from snapshot",
-            snapshot.metadata.total_entries);
-        
+
+        println!(
+            "[HoxPersistence] Restored {} capabilities from snapshot",
+            snapshot.metadata.total_entries
+        );
+
         Ok(())
     }
 
     /// List all available snapshots
     pub fn list_snapshots(&self) -> Result<Vec<SnapshotInfo>> {
         let mut snapshots = Vec::new();
-        
+
         for entry in fs::read_dir(&self.snapshot_dir)? {
             let entry = entry?;
             let path = entry.path();
-            
-            if path.extension().and_then(|s| s.to_str()) == Some("json") {
-                if let Ok(snapshot) = self.load_snapshot(&path) {
-                    snapshots.push(SnapshotInfo {
-                        path,
-                        timestamp: snapshot.timestamp,
-                        entries: snapshot.metadata.total_entries,
-                    });
-                }
+
+            if path.extension().and_then(|s| s.to_str()) == Some("json")
+                && let Ok(snapshot) = self.load_snapshot(&path)
+            {
+                snapshots.push(SnapshotInfo {
+                    path,
+                    timestamp: snapshot.timestamp,
+                    entries: snapshot.metadata.total_entries,
+                });
             }
         }
-        
+
         // Sort by timestamp descending
-        snapshots.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
-        
+        snapshots.sort_by_key(|b| std::cmp::Reverse(b.timestamp));
+
         Ok(snapshots)
     }
 
@@ -183,7 +189,7 @@ impl HoxPersistenceManager {
             .duration_since(std::time::UNIX_EPOCH)
             .map(|d| d.as_secs())
             .unwrap_or(0);
-        
+
         let name = format!("backup_{}.json", timestamp);
         self.save_snapshot(Some(&name))
     }
@@ -192,7 +198,7 @@ impl HoxPersistenceManager {
     pub fn get_stats(&self) -> Result<RegistryStats> {
         let capabilities = self.registry.list_capabilities()?;
         let snapshots = self.list_snapshots()?;
-        
+
         Ok(RegistryStats {
             total_capabilities: capabilities.len(),
             total_snapshots: snapshots.len(),
@@ -222,6 +228,7 @@ pub struct RegistryStats {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::hox_map_schema::HoxPermissions;
     use tempfile::tempdir;
 
     #[test]
@@ -236,7 +243,7 @@ mod tests {
                 requires_hitl: false,
             },
         };
-        
+
         let snapshot = RegistrySnapshot::new(vec![cap]);
         assert_eq!(snapshot.metadata.total_entries, 1);
         assert!(snapshot.verify_integrity());
@@ -254,12 +261,15 @@ mod tests {
                 requires_hitl: false,
             },
         };
-        
+
         let snapshot = RegistrySnapshot::new(vec![cap]);
         let json = serde_json::to_string(&snapshot).unwrap();
         let restored: RegistrySnapshot = serde_json::from_str(&json).unwrap();
-        
-        assert_eq!(restored.metadata.total_entries, snapshot.metadata.total_entries);
+
+        assert_eq!(
+            restored.metadata.total_entries,
+            snapshot.metadata.total_entries
+        );
         assert_eq!(restored.metadata.checksum, snapshot.metadata.checksum);
     }
 
@@ -268,16 +278,15 @@ mod tests {
         let temp_dir = tempdir().unwrap();
         let db_path = temp_dir.path().join("hox.db");
         let snap_dir = temp_dir.path().join("snapshots");
-        
-        let manager = HoxPersistenceManager::new(
-            db_path.to_str().unwrap(),
-            snap_dir.to_str().unwrap(),
-        ).unwrap();
-        
+
+        let manager =
+            HoxPersistenceManager::new(db_path.to_str().unwrap(), snap_dir.to_str().unwrap())
+                .unwrap();
+
         // Create snapshot
         let snapshot_path = manager.auto_save().unwrap();
         assert!(snapshot_path.exists());
-        
+
         // List snapshots
         let snapshots = manager.list_snapshots().unwrap();
         assert_eq!(snapshots.len(), 1);

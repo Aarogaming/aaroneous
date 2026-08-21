@@ -13,7 +13,6 @@
 /// trait works with `Arc<Mutex<PersistenceManager>>` instead of `&PM`.
 /// Implementations lock the mutex internally, do the I/O while holding the
 /// lock, and release.
-
 use crate::federation::host::SharedPersistence;
 use crate::federation::learn_persist::LearnPersistError;
 
@@ -68,11 +67,11 @@ impl HostableSpecialist for crate::federation::specialists::Visionary {
     }
     async fn save_learning(&self, pm: &SharedPersistence) -> Result<(), LearnPersistError> {
         let guard = pm.lock().await;
-        self.save_learning_to(&*guard)
+        self.save_learning_to(&guard)
     }
     async fn load_learning(&self, pm: &SharedPersistence) -> Result<bool, LearnPersistError> {
         let guard = pm.lock().await;
-        self.load_learning_from(&*guard)
+        self.load_learning_from(&guard)
     }
 }
 
@@ -82,11 +81,11 @@ impl HostableSpecialist for crate::federation::specialists::Omnipresent {
     }
     async fn save_learning(&self, pm: &SharedPersistence) -> Result<(), LearnPersistError> {
         let guard = pm.lock().await;
-        self.save_learning_to(&*guard)
+        self.save_learning_to(&guard)
     }
     async fn load_learning(&self, pm: &SharedPersistence) -> Result<bool, LearnPersistError> {
         let guard = pm.lock().await;
-        self.load_learning_from(&*guard)
+        self.load_learning_from(&guard)
     }
 }
 
@@ -96,11 +95,11 @@ impl HostableSpecialist for crate::federation::specialists::Symbiotic {
     }
     async fn save_learning(&self, pm: &SharedPersistence) -> Result<(), LearnPersistError> {
         let guard = pm.lock().await;
-        self.save_learning_to(&*guard)
+        self.save_learning_to(&guard)
     }
     async fn load_learning(&self, pm: &SharedPersistence) -> Result<bool, LearnPersistError> {
         let guard = pm.lock().await;
-        self.load_learning_from(&*guard)
+        self.load_learning_from(&guard)
     }
 }
 
@@ -110,11 +109,11 @@ impl HostableSpecialist for crate::federation::specialists::Phygital {
     }
     async fn save_learning(&self, pm: &SharedPersistence) -> Result<(), LearnPersistError> {
         let guard = pm.lock().await;
-        self.save_learning_to(&*guard)
+        self.save_learning_to(&guard)
     }
     async fn load_learning(&self, pm: &SharedPersistence) -> Result<bool, LearnPersistError> {
         let guard = pm.lock().await;
-        self.load_learning_from(&*guard)
+        self.load_learning_from(&guard)
     }
 }
 
@@ -124,10 +123,10 @@ impl HostableSpecialist for crate::federation::specialists::Archivist {
     }
     async fn save_learning(&self, pm: &SharedPersistence) -> Result<(), LearnPersistError> {
         let guard = pm.lock().await;
-        self.save_learning_to(&*guard)
+        self.save_learning_to(&guard)
     }
     async fn load_learning(&self, pm: &SharedPersistence) -> Result<bool, LearnPersistError> {
         let guard = pm.lock().await;
-        self.load_learning_from(&*guard)
+        self.load_learning_from(&guard)
     }
 }

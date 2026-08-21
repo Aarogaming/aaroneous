@@ -31,7 +31,9 @@ impl std::error::Error for ValidationError {}
 
 impl ValidationError {
     fn new(msg: impl Into<String>) -> Self {
-        Self { message: msg.into() }
+        Self {
+            message: msg.into(),
+        }
     }
 }
 
@@ -43,16 +45,25 @@ impl From<String> for ValidationError {
 
 impl From<&str> for ValidationError {
     fn from(message: &str) -> Self {
-        Self { message: message.to_string() }
+        Self {
+            message: message.to_string(),
+        }
     }
 }
 
 /// Reject empty strings and strings above `max_len` bytes. Whitespace
 /// at the edges is allowed (do not pre-trim); the handler can decide
 /// whether to trim before passing to logic that compares values.
-pub fn validate_string(field: &str, value: &str, max_len: usize) -> Result<String, ValidationError> {
+pub fn validate_string(
+    field: &str,
+    value: &str,
+    max_len: usize,
+) -> Result<String, ValidationError> {
     if value.is_empty() {
-        return Err(ValidationError::new(format!("{}: must not be empty", field)));
+        return Err(ValidationError::new(format!(
+            "{}: must not be empty",
+            field
+        )));
     }
     if value.len() > max_len {
         return Err(ValidationError::new(format!(
@@ -94,7 +105,7 @@ pub fn validate_optional_string(
 ) -> Result<Option<String>, ValidationError> {
     match value {
         None => Ok(None),
-        Some(s) if s.is_empty() => Ok(None),
+        Some("") => Ok(None),
         Some(s) => Ok(Some(validate_string(field, s, max_len)?)),
     }
 }
@@ -118,7 +129,11 @@ pub fn validate_range<T: PartialOrd + fmt::Display + Copy>(
 
 /// Restrict a byte buffer to a maximum size. Use for binary payloads
 /// where `Vec<u8>::len()` is the natural size measure.
-pub fn validate_bytes<'a>(field: &str, value: &'a [u8], max_len: usize) -> Result<&'a [u8], ValidationError> {
+pub fn validate_bytes<'a>(
+    field: &str,
+    value: &'a [u8],
+    max_len: usize,
+) -> Result<&'a [u8], ValidationError> {
     if value.len() > max_len {
         return Err(ValidationError::new(format!(
             "{}: length {} exceeds max {}",
@@ -137,7 +152,10 @@ pub fn validate_bytes<'a>(field: &str, value: &'a [u8], max_len: usize) -> Resul
 /// needs more (e.g. `@`), widen the set here.
 pub fn validate_identifier(field: &str, value: &str) -> Result<String, ValidationError> {
     if value.is_empty() {
-        return Err(ValidationError::new(format!("{}: must not be empty", field)));
+        return Err(ValidationError::new(format!(
+            "{}: must not be empty",
+            field
+        )));
     }
     if value.len() > 128 {
         return Err(ValidationError::new(format!(
@@ -161,8 +179,12 @@ pub fn validate_identifier(field: &str, value: &str) -> Result<String, Validatio
 /// Reject `value` if it is not one of the allowed enum variants
 /// (compared by string). `field` is the caller-supplied name for
 /// error messages; `allowed` is the set of legal values.
-pub fn validate_enum<'a>(field: &str, value: &'a str, allowed: &'a [&'a str]) -> Result<&'a str, ValidationError> {
-    if allowed.iter().any(|a| *a == value) {
+pub fn validate_enum<'a>(
+    field: &str,
+    value: &'a str,
+    allowed: &'a [&'a str],
+) -> Result<&'a str, ValidationError> {
+    if allowed.contains(&value) {
         Ok(value)
     } else {
         Err(ValidationError::new(format!(
@@ -206,8 +228,16 @@ mod tests {
 
     #[test]
     fn optional_string_treats_empty_as_none() {
-        assert!(validate_optional_string("name", None, 100).unwrap().is_none());
-        assert!(validate_optional_string("name", Some(""), 100).unwrap().is_none());
+        assert!(
+            validate_optional_string("name", None, 100)
+                .unwrap()
+                .is_none()
+        );
+        assert!(
+            validate_optional_string("name", Some(""), 100)
+                .unwrap()
+                .is_none()
+        );
         assert_eq!(
             validate_optional_string("name", Some("x"), 100).unwrap(),
             Some("x".to_string())

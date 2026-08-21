@@ -1,7 +1,7 @@
-use std::sync::Arc;
 use crate::wasm_ebus_bridge::action_executor::ActionExecutor;
 use crate::wasm_ebus_bridge::marionette::MarionetteAction;
 use anyhow::Result;
+use std::sync::Arc;
 
 #[derive(Clone)]
 pub struct MarionetteBridge {

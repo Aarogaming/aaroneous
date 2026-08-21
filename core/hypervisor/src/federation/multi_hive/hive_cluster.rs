@@ -1,9 +1,8 @@
-/// HiveCluster: Multi-Hive Coordination System
-/// 
-/// Manages discovery, health monitoring, and coordination of multiple Aaroneous hives
-
-use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
+/// HiveCluster: Multi-Hive Coordination System
+///
+/// Manages discovery, health monitoring, and coordination of multiple Aaroneous hives
+use std::collections::HashMap;
 
 /// Configuration for hive cluster
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -105,7 +104,10 @@ impl HiveCluster {
     /// Add a node to the cluster
     pub fn add_node(&mut self, node: HiveNode) -> Result<(), String> {
         if self.nodes.len() >= self.config.max_cluster_size {
-            return Err(format!("Cluster full (max {})", self.config.max_cluster_size));
+            return Err(format!(
+                "Cluster full (max {})",
+                self.config.max_cluster_size
+            ));
         }
 
         let node_id = node.node_id.clone();
@@ -131,7 +133,7 @@ impl HiveCluster {
             self.total_capacity_mb = self.total_capacity_mb.saturating_sub(n.total_models_mb);
 
             // Reassign leadership if needed
-            if self.leader_node_id.as_ref().map(|id| id.as_str()) == Some(node_id) {
+            if self.leader_node_id.as_deref() == Some(node_id) {
                 self.leader_node_id = self.nodes.keys().next().cloned();
             }
         }

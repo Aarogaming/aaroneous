@@ -1,7 +1,6 @@
 /// Rate Limiting and Quota Management
-/// 
+///
 /// Prevent abuse through rate limiting and quota enforcement
-
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -18,7 +17,7 @@ impl QuotaLimit {
         Self {
             resource,
             limit,
-            window_seconds: 3600,  // 1 hour
+            window_seconds: 3600, // 1 hour
             hard_limit: true,
         }
     }
@@ -27,8 +26,8 @@ impl QuotaLimit {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RateLimiter {
     pub limits: HashMap<String, QuotaLimit>,
-    pub usage: HashMap<String, Vec<u64>>,  // user_id -> timestamps
-    pub blocked_users: HashMap<String, u64>,  // user_id -> unblock_time
+    pub usage: HashMap<String, Vec<u64>>, // user_id -> timestamps
+    pub blocked_users: HashMap<String, u64>, // user_id -> unblock_time
 }
 
 impl RateLimiter {
@@ -67,15 +66,16 @@ impl RateLimiter {
         }
 
         // Check quotas
-        let usage = self.usage.entry(user_id.to_string()).or_insert_with(Vec::new);
-        
+        let usage = self.usage.entry(user_id.to_string()).or_default();
+
         // Clean old entries
         usage.retain(|&timestamp| now - timestamp < 3600);
 
         // Check limits
-        if usage.len() > 1000 {  // Default limit
+        if usage.len() > 1000 {
+            // Default limit
             // Block user
-            let block_until = now + (30 * 60);  // 30 minutes
+            let block_until = now + (30 * 60); // 30 minutes
             self.blocked_users.insert(user_id.to_string(), block_until);
             return Err("Rate limit exceeded".to_string());
         }

@@ -1,105 +1,110 @@
-/// Registry adapters for existing registries implementing SubRegistry trait.
-/// 
-/// Converts existing registry implementations to conform to the hybrid master registry trait interface.
+/// Registry adapters that implement the SubRegistry trait for the hybrid master registry.
 ///
-/// FIX #6: INTEGRATION - Registry adapters now actually synchronize state instead of fake Ok()
-
-use crate::hybrid_master_registry::{SubRegistry, WorkspaceContext, EntityInfo, EntryHealth, RegistryType};
-use crate::unified_registry::{Registry, AsyncRegistry, RegistryConfig, EntryMeta};
-use std::collections::HashMap;
-use std::time::Instant;
-use serde::{Serialize, Deserialize};
-use serde::de::DeserializeOwned;
-
-// FIX #6: NEW - Registry state that adapters will return
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RegistryState {
-    pub entries: HashMap<String, RegistryEntry>,
-    pub source_name: String,
-    #[serde(skip, default = "Instant::now")]
-    pub synced_at: Instant,
-    pub entry_count: usize,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RegistryEntry {
-    pub id: String,
-    pub info: EntityInfo,
-}
-
-impl RegistryState {
-    pub fn new(source_name: String) -> Self {
-        Self {
-            entries: HashMap::new(),
-            source_name,
-            synced_at: Instant::now(),
-            entry_count: 0,
-        }
-    }
-    
-    pub fn add_entry(&mut self, id: String, info: EntityInfo) {
-        self.entries.insert(id.clone(), RegistryEntry { id, info });
-        self.entry_count = self.entries.len();
-    }
-}
+/// These adapters provide a unified trait interface to existing registries that
+/// have different internal structures. They enable cross-registry synchronization
+/// by exposing a common query_entity() and synchronize_state() interface.
+///
+/// Phase 6D: Hybrid Master Registry Composition Strategy
+///
+/// Each adapter:
+/// 1. Wraps an existing registry type
+/// 2. Implements SubRegistry trait methods
+/// 3. Provides a common interface for master registry coordination
+/// 4. Handles type conversions and data mapping
+///
+/// Note: Some adapters currently return None for query_entity() because the
+/// underlying registries don't expose a simple `models: HashMap<String, ModelInfo>`
+/// field. Real synchronization requires adding public accessor methods to the
+/// underlying registries.
+use crate::registry::{EntityInfo, EntryHealth, RegistryType, SubRegistry, WorkspaceContext};
 
 /// Adapter for UnifiedRegistry to SubRegistry trait.
-pub struct UnifiedRegistryAdapter<T: Clone + Serialize + DeserializeOwned> {
-    inner: Registry<T>,
+///
+/// UnifiedRegistry has a public `entries: HashMap<String, RegistryEntry<T>>` field
+/// that can be directly accessed for synchronization.
+pub struct UnifiedRegistryAdapter<
+    T: Clone + serde::Serialize + serde::de::DeserializeOwned + Send + Sync,
+> {
+    inner: crate::unified_registry::Registry<T>,
 }
 
-impl<T: Clone + Serialize + DeserializeOwned> UnifiedRegistryAdapter<T> {
-    pub fn new(registry: Registry<T>) -> Self {
-        Self { inner: registry }
-    }
-    
-    pub fn from_config(config: RegistryConfig) -> Self {
-        let registry = Registry::new(config);
+impl<T: Clone + serde::Serialize + serde::de::DeserializeOwned + Send + Sync>
+    UnifiedRegistryAdapter<T>
+{
+    pub fn new(registry: crate::unified_registry::Registry<T>) -> Self {
         Self { inner: registry }
     }
 }
 
-impl<T: Clone + Serialize + DeserializeOwned + Send + Sync> SubRegistry for UnifiedRegistryAdapter<T> {
+fn map_health(h: crate::unified_registry::EntryHealth) -> EntryHealth {
+    match h {
+        crate::unified_registry::EntryHealth::Healthy => EntryHealth::Healthy,
+        crate::unified_registry::EntryHealth::Degraded => EntryHealth::Degraded,
+        crate::unified_registry::EntryHealth::Failed => EntryHealth::Failed,
+        crate::unified_registry::EntryHealth::Unknown => EntryHealth::Unknown,
+    }
+}
+
+impl<T: Clone + serde::Serialize + serde::de::DeserializeOwned + Send + Sync> SubRegistry
+    for UnifiedRegistryAdapter<T>
+{
     fn initialize(&mut self, _ctx: &WorkspaceContext) -> Result<(), String> {
         Ok(())
     }
-    
+
     fn query_entity(&self, id: &str) -> Option<EntityInfo> {
-        let entry = self.inner.get(id)?;
-        Some(EntityInfo {
-            id: entry.id.clone(),
-            name: None,
-            version: Some(entry.meta.version.clone()),
-            // EntryHealth has identical 4-variant shape in both modules
-            health: match entry.meta.health {
-                crate::unified_registry::EntryHealth::Healthy => crate::registry::EntryHealth::Healthy,
-                crate::unified_registry::EntryHealth::Degraded => crate::registry::EntryHealth::Degraded,
-                crate::unified_registry::EntryHealth::Failed => crate::registry::EntryHealth::Failed,
-                crate::unified_registry::EntryHealth::Unknown => crate::registry::EntryHealth::Unknown,
-            },
-            last_seen: entry.meta.last_seen,
-        })
+        // UnifiedRegistry.entries is public and accessible
+        if let Some(entry) = self.inner.get(id) {
+            Some(EntityInfo {
+                id: entry.id.clone(),
+                name: Some(serde_json::to_string(&entry.data).unwrap_or_default()),
+                version: Some(entry.meta.version.clone()),
+                health: map_health(entry.meta.health),
+                last_seen: entry.meta.last_seen,
+            })
+        } else {
+            None
+        }
     }
-    
+
     fn synchronize_state(&mut self, _ctx: &WorkspaceContext) -> Result<(), String> {
-        // FIX #6: Actually synchronize instead of fake Ok()
-        println!("[Registry] FIX #6 UnifiedRegistry: Synchronizing state");
+        // Evict expired entries and update health
+        self.inner.evict_expired();
         Ok(())
     }
-    
+
+    fn list(&self) -> Vec<EntityInfo> {
+        // List all entries from UnifiedRegistry
+        self.inner
+            .list()
+            .into_iter()
+            .map(|entry| EntityInfo {
+                id: entry.id.clone(),
+                name: Some(serde_json::to_string(&entry.data).unwrap_or_default()),
+                version: Some(entry.meta.version.clone()),
+                health: map_health(entry.meta.health),
+                last_seen: entry.meta.last_seen,
+            })
+            .collect()
+    }
+
     fn registry_type(&self) -> RegistryType {
         RegistryType::Unified
     }
 }
 
 /// Adapter for FederationModelRegistry to SubRegistry trait.
+///
+/// FederationModelRegistry does not expose a `models` HashMap field;
+/// return None to satisfy the SubRegistry surface. Real sync can be
+/// wired by adding a public accessor to the federation model registry.
 pub struct FederationModelRegistryAdapter {
-    inner: crate::federation::model_registry::FederationModelRegistry,
+    _inner: crate::federation::model_registry::FederationModelRegistry,
 }
 
 impl FederationModelRegistryAdapter {
     pub fn new(registry: crate::federation::model_registry::FederationModelRegistry) -> Self {
-        Self { inner: registry }
+        Self { _inner: registry }
     }
 }
 
@@ -107,7 +112,7 @@ impl SubRegistry for FederationModelRegistryAdapter {
     fn initialize(&mut self, _ctx: &WorkspaceContext) -> Result<(), String> {
         Ok(())
     }
-    
+
     fn query_entity(&self, id: &str) -> Option<EntityInfo> {
         // FederationModelRegistry does not expose a `models` HashMap field;
         // return None to satisfy the SubRegistry surface. Real sync can be
@@ -115,24 +120,33 @@ impl SubRegistry for FederationModelRegistryAdapter {
         let _ = id;
         None
     }
-    
+
     fn synchronize_state(&mut self, _ctx: &WorkspaceContext) -> Result<(), String> {
         Ok(())
     }
-    
+
     fn registry_type(&self) -> RegistryType {
         RegistryType::FederationModel
+    }
+
+    fn list(&self) -> Vec<EntityInfo> {
+        // FederationModelRegistry does not expose a list API; return empty
+        Vec::new()
     }
 }
 
 /// Adapter for LinkRegistry to SubRegistry trait.
+///
+/// LinkRegistry has a public `specialists: HashMap<SpecialistId, Arc<dyn Specialist>>`
+/// field, but Specialist has no `name`/`last_active` fields.
+/// Return None to satisfy the SubRegistry surface.
 pub struct LinkRegistryAdapter {
-    inner: crate::federation::links::LinkRegistry,
+    _inner: crate::federation::links::LinkRegistry,
 }
 
 impl LinkRegistryAdapter {
     pub fn new(registry: crate::federation::links::LinkRegistry) -> Self {
-        Self { inner: registry }
+        Self { _inner: registry }
     }
 }
 
@@ -142,7 +156,7 @@ impl SubRegistry for LinkRegistryAdapter {
     }
 
     fn query_entity(&self, id: &str) -> Option<EntityInfo> {
-        // SpecialistRegistry.specialists is private and stores Arc<dyn Specialist>;
+        // LinkRegistry.specialists is private and stores Arc<dyn Specialist>;
         // return None. Real sync requires a public accessor method.
         let _ = id;
         None
@@ -155,16 +169,25 @@ impl SubRegistry for LinkRegistryAdapter {
     fn registry_type(&self) -> RegistryType {
         RegistryType::FederationLinks
     }
+
+    fn list(&self) -> Vec<EntityInfo> {
+        // LinkRegistry does not expose a list API; return empty
+        Vec::new()
+    }
 }
 
 /// Adapter for LLMModelRegistry to SubRegistry trait.
+///
+/// ModelRegistry.models is private; return None. Real sync requires
+/// adding a public accessor (e.g., `pub fn get(&self, id: &str) -> Option<&ModelInfo>`)
+/// to the llm model_registry module.
 pub struct LLMModelRegistryAdapter {
-    inner: crate::llm::model_registry::ModelRegistry,
+    _inner: crate::llm::model_registry::ModelRegistry,
 }
 
 impl LLMModelRegistryAdapter {
     pub fn new(registry: crate::llm::model_registry::ModelRegistry) -> Self {
-        Self { inner: registry }
+        Self { _inner: registry }
     }
 }
 
@@ -172,7 +195,7 @@ impl SubRegistry for LLMModelRegistryAdapter {
     fn initialize(&mut self, _ctx: &WorkspaceContext) -> Result<(), String> {
         Ok(())
     }
-    
+
     fn query_entity(&self, id: &str) -> Option<EntityInfo> {
         // ModelRegistry.models is private; return None. Real sync requires
         // adding a public accessor (e.g., `pub fn get(&self, id: &str) -> Option<&ModelInfo>`)
@@ -180,24 +203,31 @@ impl SubRegistry for LLMModelRegistryAdapter {
         let _ = id;
         None
     }
-    
+
     fn synchronize_state(&mut self, _ctx: &WorkspaceContext) -> Result<(), String> {
         Ok(())
     }
-    
+
     fn registry_type(&self) -> RegistryType {
         RegistryType::LLMModel
+    }
+
+    fn list(&self) -> Vec<EntityInfo> {
+        // ModelRegistry does not expose a list API; return empty
+        Vec::new()
     }
 }
 
 /// Adapter for ComponentRegistry to SubRegistry trait.
+///
+/// ComponentRegistry does not expose a `components` field; return None.
 pub struct ComponentRegistryAdapter {
-    inner: crate::federation::component_registry::ComponentRegistry,
+    _inner: crate::federation::component_registry::ComponentRegistry,
 }
 
 impl ComponentRegistryAdapter {
     pub fn new(registry: crate::federation::component_registry::ComponentRegistry) -> Self {
-        Self { inner: registry }
+        Self { _inner: registry }
     }
 }
 
@@ -215,20 +245,28 @@ impl SubRegistry for ComponentRegistryAdapter {
     fn synchronize_state(&mut self, _ctx: &WorkspaceContext) -> Result<(), String> {
         Ok(())
     }
-    
+
     fn registry_type(&self) -> RegistryType {
         RegistryType::Component
+    }
+
+    fn list(&self) -> Vec<EntityInfo> {
+        // ComponentRegistry does not expose a list API; return empty
+        Vec::new()
     }
 }
 
 /// Adapter for SpecialistRegistry to SubRegistry trait.
+///
+/// SpecialistRegistry.specialists is private and stores Arc<dyn Specialist>;
+/// return None. Real sync requires a public accessor method.
 pub struct SpecialistRegistryAdapter {
-    inner: crate::federation::specialist::SpecialistRegistry,
+    _inner: crate::federation::specialist::SpecialistRegistry,
 }
 
 impl SpecialistRegistryAdapter {
     pub fn new(registry: crate::federation::specialist::SpecialistRegistry) -> Self {
-        Self { inner: registry }
+        Self { _inner: registry }
     }
 }
 
@@ -236,31 +274,39 @@ impl SubRegistry for SpecialistRegistryAdapter {
     fn initialize(&mut self, _ctx: &WorkspaceContext) -> Result<(), String> {
         Ok(())
     }
-    
+
     fn query_entity(&self, id: &str) -> Option<EntityInfo> {
         // SpecialistRegistry.specialists is private and stores Arc<dyn Specialist>;
         // return None. Real sync requires a public accessor method.
         let _ = id;
         None
     }
-    
+
     fn synchronize_state(&mut self, _ctx: &WorkspaceContext) -> Result<(), String> {
         Ok(())
     }
-    
+
     fn registry_type(&self) -> RegistryType {
         RegistryType::Specialist
+    }
+
+    fn list(&self) -> Vec<EntityInfo> {
+        // SpecialistRegistry does not expose a list API; return empty
+        Vec::new()
     }
 }
 
 /// Adapter for ChromosomeRegistry to SubRegistry trait.
+///
+/// ChromosomeRegistry has `profiles: HashMap<String, HoxChromosome>` (not `chromosomes`).
+/// Stubbed to None; wire a public `get` accessor to enable real sync.
 pub struct ChromosomeRegistryAdapter {
-    inner: crate::chromosome_registry::ChromosomeRegistry,
+    _inner: crate::chromosome_registry::ChromosomeRegistry,
 }
 
 impl ChromosomeRegistryAdapter {
     pub fn new(registry: crate::chromosome_registry::ChromosomeRegistry) -> Self {
-        Self { inner: registry }
+        Self { _inner: registry }
     }
 }
 
@@ -268,7 +314,7 @@ impl SubRegistry for ChromosomeRegistryAdapter {
     fn initialize(&mut self, _ctx: &WorkspaceContext) -> Result<(), String> {
         Ok(())
     }
-    
+
     fn query_entity(&self, id: &str) -> Option<EntityInfo> {
         // ChromosomeRegistry has `profiles: HashMap<String, HoxChromosome>` (not `chromosomes`).
         // Stubbed to None; wire a public `get` accessor to enable real sync.
@@ -283,9 +329,15 @@ impl SubRegistry for ChromosomeRegistryAdapter {
     fn registry_type(&self) -> RegistryType {
         RegistryType::Chromosome
     }
+
+    fn list(&self) -> Vec<EntityInfo> {
+        // ChromosomeRegistry does not expose a list API; return empty
+        Vec::new()
+    }
 }
 
 /// Adapter for HoxRegistry to SubRegistry trait.
+///
 /// Uses the public HoxRegistry API (no internal field access).
 pub struct HoxCapabilityRegistryAdapter {
     inner: crate::hox_registry::HoxRegistry,
@@ -319,19 +371,42 @@ impl SubRegistry for HoxCapabilityRegistryAdapter {
         Ok(())
     }
 
+    fn list(&self) -> Vec<EntityInfo> {
+        // List all capabilities from HoxRegistry
+        self.inner
+            .list_capabilities()
+            .ok()
+            .unwrap_or_default()
+            .into_iter()
+            .map(|cap| EntityInfo {
+                id: cap.name.clone(),
+                name: Some(cap.name),
+                version: None,
+                health: EntryHealth::Healthy,
+                last_seen: 0,
+            })
+            .collect()
+    }
+
     fn registry_type(&self) -> RegistryType {
         RegistryType::HoxCapability
     }
 }
 
 /// Adapter for DistributedSpecialistRegistry to SubRegistry trait.
+///
+/// DistributedSpecialistRegistry.specialists is keyed by (SpecialistId, String)
+/// not a bare &str, and RemoteSpecialist has no `name`/`last_active` fields.
+/// Stubbed to None; requires public `find_by_id(&str)` accessor to enable real sync.
 pub struct DistributedSpecialistRegistryAdapter {
-    inner: crate::federation::multi_hive::distributed_registry::DistributedSpecialistRegistry,
+    _inner: crate::federation::multi_hive::distributed_registry::DistributedSpecialistRegistry,
 }
 
 impl DistributedSpecialistRegistryAdapter {
-    pub fn new(registry: crate::federation::multi_hive::distributed_registry::DistributedSpecialistRegistry) -> Self {
-        Self { inner: registry }
+    pub fn new(
+        registry: crate::federation::multi_hive::distributed_registry::DistributedSpecialistRegistry,
+    ) -> Self {
+        Self { _inner: registry }
     }
 }
 
@@ -355,136 +430,9 @@ impl SubRegistry for DistributedSpecialistRegistryAdapter {
     fn registry_type(&self) -> RegistryType {
         RegistryType::DistributedSpecialist
     }
-}
 
-// FIX #6: NEW - Master Registry Coordinator
-/// Coordinates synchronization of all 18 registry adapters
-pub struct MasterRegistryCoordinator {
-    last_sync: Instant,
-    sync_interval_ms: u64,
-}
-
-impl MasterRegistryCoordinator {
-    pub fn new(sync_interval_ms: u64) -> Self {
-        Self {
-            last_sync: Instant::now(),
-            sync_interval_ms,
-        }
-    }
-    
-    /// FIX #6: Synchronize all adapters and build master registry
-    pub fn sync_all_adapters(&mut self) -> Result<MasterRegistry, String> {
-        let elapsed = self.last_sync.elapsed().as_millis() as u64;
-        if elapsed < self.sync_interval_ms {
-            println!("[MasterRegistry] Skipping sync (last sync {} ms ago, interval {} ms)",
-                elapsed, self.sync_interval_ms);
-            return Ok(MasterRegistry::empty());
-        }
-        
-        let mut master = MasterRegistry::new();
-        println!("[MasterRegistry] FIX #6: Starting synchronization of all registry adapters");
-        
-        // Each adapter would be synced here
-        // For now, framework is ready for 18 adapters to implement real sync
-        self.last_sync = Instant::now();
-        
-        println!("[MasterRegistry] FIX #6: Synchronization complete");
-        Ok(master)
-    }
-}
-
-/// FIX #6: NEW - Master registry holding all synced state
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct MasterRegistry {
-    pub entries: HashMap<String, MasterEntry>,
-    #[serde(skip, default = "default_sync_times")]
-    pub sources: Vec<(String, Instant)>,  // adapter name, sync time
-    #[serde(skip, default = "Instant::now")]
-    pub synced_at: Instant,
-    pub consistency_score: f32,  // 0.0-1.0
-}
-
-fn default_sync_times() -> Vec<(String, Instant)> {
-    Vec::new()
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct MasterEntry {
-    pub id: String,
-    pub info: EntityInfo,
-    pub source_adapter: String,
-    #[serde(skip, default = "Instant::now")]
-    pub synced_at: Instant,
-}
-
-impl MasterRegistry {
-    pub fn new() -> Self {
-        Self {
-            entries: HashMap::new(),
-            sources: Vec::new(),
-            synced_at: Instant::now(),
-            consistency_score: 1.0,
-        }
-    }
-    
-    pub fn empty() -> Self {
-        Self::new()
-    }
-    
-    /// Add entry from adapter
-    pub fn add_entry(&mut self, id: String, info: EntityInfo, source: String) {
-        self.entries.insert(id.clone(), MasterEntry {
-            id,
-            info,
-            source_adapter: source,
-            synced_at: Instant::now(),
-        });
-    }
-    
-    /// Query synced state
-    pub fn get(&self, key: &str) -> Option<&MasterEntry> {
-        self.entries.get(key)
-    }
-    
-    /// Get all entries from specific adapter
-    pub fn entries_from_adapter(&self, adapter: &str) -> Vec<&MasterEntry> {
-        self.entries.values()
-            .filter(|e| e.source_adapter == adapter)
-            .collect()
-    }
-    
-    /// FIX #6: Validate consistency across adapters
-    pub fn validate_consistency(&mut self) -> Result<(), String> {
-        let mut conflicts = 0;
-        let mut duplicates = 0;
-        let mut checked = 0;
-        
-        for (id, entry) in &self.entries {
-            checked += 1;
-            // Check for duplicates in other adapters
-            let count = self.entries.values()
-                .filter(|e| e.id == *id)
-                .count();
-            
-            if count > 1 {
-                duplicates += 1;
-            }
-        }
-        
-        self.consistency_score = if checked == 0 {
-            1.0
-        } else {
-            ((checked - conflicts - duplicates) as f32 / checked as f32).max(0.0)
-        };
-        
-        println!("[MasterRegistry] FIX #6 Consistency check: {}/{} entries valid (score: {:.2}%)",
-            checked - conflicts - duplicates, checked, self.consistency_score * 100.0);
-        
-        if duplicates > 0 || conflicts > 0 {
-            println!("[MasterRegistry] FIX #6 WARNING: {} duplicates, {} conflicts detected",
-                duplicates, conflicts);
-        }
-        
-        Ok(())
+    fn list(&self) -> Vec<EntityInfo> {
+        // DistributedSpecialistRegistry does not expose a list API; return empty
+        Vec::new()
     }
 }

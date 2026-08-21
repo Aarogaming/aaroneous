@@ -1,10 +1,9 @@
-/// Genome Trait Loader — loads trait presets from JSON files in `registry/genome/traits/`.
-
-use std::path::{Path, PathBuf};
-use serde::{Serialize, Deserialize};
+use crate::unified_registry::{EntryMeta, Registry};
 use anyhow::Result;
+use serde::{Deserialize, Serialize};
+/// Genome Trait Loader — loads trait presets from JSON files in `registry/genome/traits/`.
+use std::path::Path;
 use tracing::{info, warn};
-use crate::unified_registry::{Registry, RegistryConfig, EntryMeta};
 
 /// A genome trait preset with persona, cognitive, and domain modifiers.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -79,10 +78,14 @@ pub fn load_traits_from_dir(dir: &Path) -> Result<Vec<GenomeTrait>> {
     for entry in std::fs::read_dir(dir)? {
         let entry = entry?;
         let path = entry.path();
-        if path.extension().map_or(false, |ext| ext == "json") {
+        if path.extension().is_some_and(|ext| ext == "json") {
             match load_trait_file(&path) {
                 Ok(trait_data) => {
-                    info!("Loaded genome trait: {} from {}", trait_data.trait_id, path.display());
+                    info!(
+                        "Loaded genome trait: {} from {}",
+                        trait_data.trait_id,
+                        path.display()
+                    );
                     traits.push(trait_data);
                 }
                 Err(e) => {
@@ -92,7 +95,11 @@ pub fn load_traits_from_dir(dir: &Path) -> Result<Vec<GenomeTrait>> {
         }
     }
 
-    info!("Loaded {} genome traits from {}", traits.len(), dir.display());
+    info!(
+        "Loaded {} genome traits from {}",
+        traits.len(),
+        dir.display()
+    );
     Ok(traits)
 }
 
@@ -104,17 +111,13 @@ fn load_trait_file(path: &Path) -> Result<GenomeTrait> {
 }
 
 /// Register loaded traits into a unified registry.
-pub fn register_traits(
-    registry: &mut Registry<GenomeTrait>,
-    traits_dir: &Path,
-) -> Result<usize> {
+pub fn register_traits(registry: &mut Registry<GenomeTrait>, traits_dir: &Path) -> Result<usize> {
     let traits = load_traits_from_dir(traits_dir)?;
     let mut count = 0;
 
     for trait_data in traits {
         let id = trait_data.trait_id.clone();
-        let meta = EntryMeta::new("1.0.0")
-            .with_tags(vec!["genome-trait".into()]);
+        let meta = EntryMeta::new("1.0.0").with_tags(vec!["genome-trait".into()]);
 
         if let Err(e) = registry.register(id, trait_data, meta) {
             warn!("Failed to register trait: {}", e);
@@ -130,6 +133,7 @@ pub fn register_traits(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::unified_registry::RegistryConfig;
     use std::fs::File;
     use std::io::Write;
 
@@ -157,7 +161,10 @@ mod tests {
         let traits = load_traits_from_dir(&dir).unwrap();
         assert_eq!(traits.len(), 1);
         assert_eq!(traits[0].trait_id, "test_trait");
-        assert_eq!(traits[0].persona_modifiers.primary_archetype.as_deref(), Some("Tester"));
+        assert_eq!(
+            traits[0].persona_modifiers.primary_archetype.as_deref(),
+            Some("Tester")
+        );
 
         std::fs::remove_dir_all(&dir).ok();
     }

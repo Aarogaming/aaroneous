@@ -3,8 +3,8 @@
 
 #[cfg(test)]
 mod spatial_kinetic_integration_tests {
-    use crate::epigenetic_gate::{EpigeneticGateMatrix, VisualGatePipeline, GRID_SIZE};
-    use crate::win32_intercept::hid_bridge::{MotorIntent, ACTION_MOUSE_MOVE, ACTION_CLICK};
+    use crate::epigenetic_gate::{EpigeneticGateMatrix, GRID_SIZE, VisualGatePipeline};
+    use crate::win32_intercept::hid_bridge::{ACTION_CLICK, ACTION_MOUSE_MOVE, MotorIntent};
     use rand::RngExt;
     use rand::SeedableRng;
 

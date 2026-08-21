@@ -93,7 +93,8 @@
     "spectrum_config": "D:\\Aaroneous\\config\\spectrum_config.json",
     "specialist_registry": "D:\\Aaroneous\\config\\specialist_registry.json",
     "resource_profiles": "D:\\Aaroneous\\config\\resource_profiles.json",
-    "spatial_layout": "D:\\Aaroneous\\config\\spatial_layout.json"
+    "spatial_layout": "D:\\Aaroneous\\config\\spatial_layout.json",
+    "predictive_models": "D:\\Aaroneous\\config\\predictive_models.toml"
   },
   "logging": {
     "level": "info",

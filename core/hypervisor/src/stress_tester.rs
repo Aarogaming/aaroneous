@@ -1,9 +1,9 @@
 // Stress Testing Framework for Stability Validation
 // Comprehensive testing under load, edge cases, and failure scenarios
 
+use serde::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
-use serde::{Deserialize, Serialize};
 
 /// Stress test configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -13,9 +13,9 @@ pub struct StressTestConfig {
     pub target_throughput: u32,
     pub concurrent_tasks: u32,
     pub max_queue_depth: u32,
-    pub failure_injection_rate: f32,  // 0.0 to 1.0
-    pub memory_spike_interval: u32,   // seconds
-    pub cpu_spike_interval: u32,      // seconds
+    pub failure_injection_rate: f32, // 0.0 to 1.0
+    pub memory_spike_interval: u32,  // seconds
+    pub cpu_spike_interval: u32,     // seconds
     pub network_latency_ms: u32,
 }
 
@@ -76,10 +76,14 @@ pub struct StressTestRunner {
 impl StressTestRunner {
     /// Create new stress test runner
     pub fn new(config: StressTestConfig) -> Self {
-        println!("[StressTest] Initialized: {} ({}s, {}tps, {}concurrent)",
-            config.test_name, config.duration_seconds, config.target_throughput, 
-            config.concurrent_tasks);
-        
+        println!(
+            "[StressTest] Initialized: {} ({}s, {}tps, {}concurrent)",
+            config.test_name,
+            config.duration_seconds,
+            config.target_throughput,
+            config.concurrent_tasks
+        );
+
         Self {
             config,
             tasks: Arc::new(Mutex::new(Vec::new())),
@@ -93,7 +97,7 @@ impl StressTestRunner {
     /// Run stress test
     pub fn run(&mut self) -> StressTestResult {
         println!("[StressTest] Starting test: {}", self.config.test_name);
-        
+
         self.start_time = Some(Instant::now());
         let start_time = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
@@ -107,7 +111,7 @@ impl StressTestRunner {
         // Simulate task execution
         for i in 0..self.config.target_throughput * self.config.duration_seconds as u32 {
             let should_fail = rand::random::<f32>() < self.config.failure_injection_rate;
-            
+
             let task = StressTask {
                 id: i as u64,
                 payload_size: 1024 + (rand::random::<usize>() % 1024),
@@ -127,7 +131,7 @@ impl StressTestRunner {
             }
 
             // Sample resources
-            if (i as u32) % 100 == 0 {
+            if i % 100 == 0 {
                 self.sample_resources();
             }
         }
@@ -185,8 +189,10 @@ impl StressTestRunner {
             status,
         };
 
-        println!("[StressTest] Complete: {} ({}% success, {:.0}tps, p99={}ms)",
-            self.config.test_name, success_rate, throughput, p99 as u32);
+        println!(
+            "[StressTest] Complete: {} ({}% success, {:.0}tps, p99={}ms)",
+            self.config.test_name, success_rate, throughput, p99 as u32
+        );
 
         self.results.push(result.clone());
         result
@@ -203,11 +209,11 @@ impl StressTestRunner {
 
         // Simulate variable performance
         if rand::random::<f32>() < 0.05 {
-            latency += 100;  // Occasional spike
+            latency += 100; // Occasional spike
         }
 
         if task.should_fail {
-            latency += 200;  // Failed tasks take longer
+            latency += 200; // Failed tasks take longer
         }
 
         latency
@@ -217,7 +223,11 @@ impl StressTestRunner {
     fn sample_resources(&mut self) {
         // Simulate memory usage with occasional spikes
         let base_memory = 512;
-        let spike = if rand::random::<u32>() % 30 == 0 { 256 } else { 0 };
+        let spike = if rand::random::<u32>().is_multiple_of(30) {
+            256
+        } else {
+            0
+        };
         self.memory_samples.push(base_memory + spike);
 
         // Simulate CPU usage
@@ -228,7 +238,7 @@ impl StressTestRunner {
     /// Collect errors from test
     fn collect_errors(&self) -> Vec<String> {
         let mut errors = Vec::new();
-        
+
         // Check for anomalies
         if let Some(result) = self.results.last() {
             if result.max_latency_ms > 1000.0 {
@@ -253,9 +263,21 @@ impl StressTestRunner {
     /// Generate summary report
     pub fn generate_summary(&self) -> StressSummary {
         let total_tests = self.results.len();
-        let passed = self.results.iter().filter(|r| r.status == TestStatus::Passed).count();
-        let failed = self.results.iter().filter(|r| r.status == TestStatus::Failed).count();
-        let degraded = self.results.iter().filter(|r| r.status == TestStatus::Degraded).count();
+        let passed = self
+            .results
+            .iter()
+            .filter(|r| r.status == TestStatus::Passed)
+            .count();
+        let failed = self
+            .results
+            .iter()
+            .filter(|r| r.status == TestStatus::Failed)
+            .count();
+        let degraded = self
+            .results
+            .iter()
+            .filter(|r| r.status == TestStatus::Degraded)
+            .count();
 
         let avg_success_rate = if !self.results.is_empty() {
             self.results.iter().map(|r| r.success_rate).sum::<f32>() / total_tests as f32
@@ -265,7 +287,11 @@ impl StressTestRunner {
 
         let total_tasks: u64 = self.results.iter().map(|r| r.total_tasks).sum();
         let avg_latency = if !self.results.is_empty() {
-            self.results.iter().map(|r| r.average_latency_ms).sum::<f64>() / total_tests as f64
+            self.results
+                .iter()
+                .map(|r| r.average_latency_ms)
+                .sum::<f64>()
+                / total_tests as f64
         } else {
             0.0
         };
@@ -374,4 +400,3 @@ mod tests {
         assert_eq!(summary.total_tests, 1);
     }
 }
-

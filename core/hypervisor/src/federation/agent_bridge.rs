@@ -1,31 +1,30 @@
+use crate::SpecialistAgent;
+use crate::federation::specialist::{
+    Conflict, Decision, DelegateRequest, DelegateResponse, ExecutionResult, ExecutionStatus,
+    NegotiationResult, ProposalPriority, ProposedAction, ResourceRequest, Specialist,
+    SpecialistContext, SpecialistError, SpecialistId,
+};
 /// Agent Bridge: Connects existing agents (Ariel/Merlin/Odin/etc) to the federation
-/// 
+///
 /// This module allows the existing SpecialistAgent/RelicAgent system to work
 /// seamlessly with the new federation protocol while maintaining backward compatibility.
-/// 
+///
 /// Each existing agent (Ariel, Merlin, Odin, Hephaestus, Argus, Dionysus) can now:
 /// - Propose actions asynchronously (new)
 /// - Execute decisions from Sentinel (new)
 /// - Negotiate with peers (new)
 /// - While keeping all existing hox_preset and enzyme_subset logic
-
 use async_trait::async_trait;
-use crate::SpecialistAgent;
-use crate::federation::specialist::{
-    Specialist, SpecialistId, SpecialistContext, SpecialistError, ProposedAction,
-    Decision, DelegateRequest, DelegateResponse, Conflict, NegotiationResult,
-    ResourceRequest, ProposalPriority, ExecutionResult, ExecutionStatus,
-};
 
 /// Maps existing SpecialistAgent names to federation SpecialistIds
 pub fn agent_name_to_specialist_id(name: &str) -> Option<SpecialistId> {
     match name.to_lowercase().as_str() {
-        "ariel" => Some(SpecialistId::Visionary),        // UI/UX → Design Generation
-        "merlin" => Some(SpecialistId::Sentinel),        // Knowledge/Leadership → Orchestration
-        "odin" => Some(SpecialistId::Sentinel),          // Leadership/Strategy → Orchestration
-        "hephaestus" => Some(SpecialistId::Phygital),    // Manufacturing → Spatial/Rendering
-        "argus" => Some(SpecialistId::Sentinel),         // Security → Arbitration/Oversight
-        "dionysus" => Some(SpecialistId::Archivist),     // Experience/Memory → Archives
+        "ariel" => Some(SpecialistId::Visionary), // UI/UX → Design Generation
+        "merlin" => Some(SpecialistId::Sentinel), // Knowledge/Leadership → Orchestration
+        "odin" => Some(SpecialistId::Sentinel),   // Leadership/Strategy → Orchestration
+        "hephaestus" => Some(SpecialistId::Phygital), // Manufacturing → Spatial/Rendering
+        "argus" => Some(SpecialistId::Sentinel),  // Security → Arbitration/Oversight
+        "dionysus" => Some(SpecialistId::Archivist), // Experience/Memory → Archives
         _ => None,
     }
 }
@@ -39,8 +38,8 @@ pub struct SpecialistAgentBridge {
 
 impl SpecialistAgentBridge {
     pub fn new(agent: SpecialistAgent) -> Result<Self, SpecialistError> {
-        let specialist_id = agent_name_to_specialist_id(&agent.name)
-            .ok_or(SpecialistError::ModelNotLoaded)?;
+        let specialist_id =
+            agent_name_to_specialist_id(&agent.name).ok_or(SpecialistError::ModelNotLoaded)?;
 
         Ok(Self {
             agent,
@@ -88,9 +87,7 @@ impl SpecialistAgentBridge {
     /// # Ok(())
     /// # }
     /// ```
-    pub async fn to_learning_snapshot(
-        &self,
-    ) -> crate::federation::learn_persist::LearningSnapshot {
+    pub async fn to_learning_snapshot(&self) -> crate::federation::learn_persist::LearningSnapshot {
         let history = self.execution_history.lock().await;
 
         let total = history.len() as u32;
@@ -138,7 +135,10 @@ impl Specialist for SpecialistAgentBridge {
     }
 
     /// Propose action based on agent's domain expertise
-    async fn propose(&self, _context: &SpecialistContext) -> Result<Vec<ProposedAction>, SpecialistError> {
+    async fn propose(
+        &self,
+        _context: &SpecialistContext,
+    ) -> Result<Vec<ProposedAction>, SpecialistError> {
         // Proposals come from the agent's domain expertise and current context
         let proposals = match self.agent.domain {
             crate::Domain::UserInterface => {
@@ -284,7 +284,10 @@ impl Specialist for SpecialistAgentBridge {
     }
 
     /// Delegate work to another specialist
-    async fn delegate(&self, request: &DelegateRequest) -> Result<DelegateResponse, SpecialistError> {
+    async fn delegate(
+        &self,
+        request: &DelegateRequest,
+    ) -> Result<DelegateResponse, SpecialistError> {
         Ok(DelegateResponse {
             requester: request.requester,
             target: request.target,
@@ -295,7 +298,11 @@ impl Specialist for SpecialistAgentBridge {
     }
 
     /// Negotiate with another specialist
-    async fn negotiate(&self, other_id: SpecialistId, _conflict: &Conflict) -> Result<NegotiationResult, SpecialistError> {
+    async fn negotiate(
+        &self,
+        other_id: SpecialistId,
+        _conflict: &Conflict,
+    ) -> Result<NegotiationResult, SpecialistError> {
         // In a real system, the agent's cognitive_bias would influence negotiation
         // Higher audit_strictness = more willing to compromise
         let willingness = self.agent.cognitive_bias.audit_strictness as f32 / 100.0;
@@ -304,14 +311,18 @@ impl Specialist for SpecialistAgentBridge {
             resolved: true,
             resolution: format!(
                 "{} negotiated with {:?} (willingness: {:.1}%)",
-                self.agent.name, other_id, willingness * 100.0
+                self.agent.name,
+                other_id,
+                willingness * 100.0
             ),
             winner: None,
             compromise: Some("Both agree to resource sharing".to_string()),
         })
     }
 
-    async fn status(&self) -> Result<crate::federation::specialist::SpecialistStatus, SpecialistError> {
+    async fn status(
+        &self,
+    ) -> Result<crate::federation::specialist::SpecialistStatus, SpecialistError> {
         let history = self.execution_history.lock().await;
         Ok(crate::federation::specialist::SpecialistStatus {
             id: self.specialist_id,
@@ -324,14 +335,12 @@ impl Specialist for SpecialistAgentBridge {
     }
 
     fn capabilities(&self) -> Vec<crate::federation::specialist::SpecialistCapability> {
-        vec![
-            crate::federation::specialist::SpecialistCapability {
-                name: self.agent.role.clone(),
-                description: self.agent.persona.clone(),
-                required_resources: ResourceRequest::default(),
-                estimated_duration_ms: 5000,
-            },
-        ]
+        vec![crate::federation::specialist::SpecialistCapability {
+            name: self.agent.role.clone(),
+            description: self.agent.persona.clone(),
+            required_resources: ResourceRequest::default(),
+            estimated_duration_ms: 5000,
+        }]
     }
 }
 
@@ -351,19 +360,37 @@ mod tests {
 
     #[test]
     fn test_agent_name_to_specialist_id() {
-        assert_eq!(agent_name_to_specialist_id("ariel"), Some(SpecialistId::Visionary));
-        assert_eq!(agent_name_to_specialist_id("merlin"), Some(SpecialistId::Sentinel));
-        assert_eq!(agent_name_to_specialist_id("odin"), Some(SpecialistId::Sentinel));
-        assert_eq!(agent_name_to_specialist_id("hephaestus"), Some(SpecialistId::Phygital));
-        assert_eq!(agent_name_to_specialist_id("argus"), Some(SpecialistId::Sentinel));
-        assert_eq!(agent_name_to_specialist_id("dionysus"), Some(SpecialistId::Archivist));
+        assert_eq!(
+            agent_name_to_specialist_id("ariel"),
+            Some(SpecialistId::Visionary)
+        );
+        assert_eq!(
+            agent_name_to_specialist_id("merlin"),
+            Some(SpecialistId::Sentinel)
+        );
+        assert_eq!(
+            agent_name_to_specialist_id("odin"),
+            Some(SpecialistId::Sentinel)
+        );
+        assert_eq!(
+            agent_name_to_specialist_id("hephaestus"),
+            Some(SpecialistId::Phygital)
+        );
+        assert_eq!(
+            agent_name_to_specialist_id("argus"),
+            Some(SpecialistId::Sentinel)
+        );
+        assert_eq!(
+            agent_name_to_specialist_id("dionysus"),
+            Some(SpecialistId::Archivist)
+        );
     }
 
     #[tokio::test]
     async fn test_bridge_creation() {
         let agent = crate::create_specialist("ariel").unwrap();
         let bridge = SpecialistAgentBridge::new(agent);
-        
+
         assert!(bridge.is_ok());
         let bridge = bridge.unwrap();
         assert_eq!(bridge.id(), SpecialistId::Visionary);

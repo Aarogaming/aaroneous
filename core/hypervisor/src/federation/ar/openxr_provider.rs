@@ -16,7 +16,6 @@
 /// If headless isn't available (most consumer runtimes), `begin_session`
 /// will return an error and the caller should know that real rendering
 /// is required for that runtime.
-
 use super::types::{ArError, ArSessionState, ArSystemInfo, FormFactor, ViewConfiguration};
 use openxr as xr;
 use std::sync::Arc;
@@ -105,11 +104,7 @@ impl ArProvider {
             return Err(ArError::NoRuntime);
         }
 
-        let entry = self
-            .entry
-            .as_ref()
-            .ok_or(ArError::NoRuntime)?
-            .clone();
+        let entry = self.entry.as_ref().ok_or(ArError::NoRuntime)?.clone();
 
         // Build app info
         let app_info = xr::ApplicationInfo {
@@ -140,8 +135,7 @@ impl ArProvider {
         );
 
         // Try HMD form factor first, then handheld
-        let (system_id, form_factor) = match instance.system(xr::FormFactor::HEAD_MOUNTED_DISPLAY)
-        {
+        let (system_id, form_factor) = match instance.system(xr::FormFactor::HEAD_MOUNTED_DISPLAY) {
             Ok(id) => (id, FormFactor::HeadMountedDisplay),
             Err(_) => match instance.system(xr::FormFactor::HANDHELD_DISPLAY) {
                 Ok(id) => (id, FormFactor::HandheldDisplay),
@@ -263,7 +257,11 @@ mod tests {
     async fn test_detect_does_not_error_when_no_runtime() {
         let result = ArProvider::detect().await;
         // Either runtime is present (test machine) or not (CI). Both fine.
-        assert!(result.is_ok(), "detect should return Ok regardless of runtime: {:?}", result.err());
+        assert!(
+            result.is_ok(),
+            "detect should return Ok regardless of runtime: {:?}",
+            result.err()
+        );
     }
 
     #[tokio::test]
@@ -297,11 +295,17 @@ mod tests {
         match info {
             Ok(info) => {
                 assert!(!info.runtime_name.is_empty());
-                println!("Detected runtime: {} {}", info.runtime_name, info.runtime_version);
+                println!(
+                    "Detected runtime: {} {}",
+                    info.runtime_name, info.runtime_version
+                );
                 println!("System: {}", info.system_name);
             }
             Err(e) => {
-                println!("Got error querying system: {} (this may be expected without HMD)", e);
+                println!(
+                    "Got error querying system: {} (this may be expected without HMD)",
+                    e
+                );
             }
         }
     }

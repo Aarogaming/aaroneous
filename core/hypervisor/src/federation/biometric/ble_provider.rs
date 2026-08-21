@@ -24,8 +24,7 @@
 /// On macOS, Bluetooth permission must be granted to the application.
 /// On Linux, the user must have access to the `bluetoothd` D-Bus interface
 /// (typically the `bluetooth` group).
-
-use super::services::{parse_heart_rate_measurement, StandardServices};
+use super::services::{StandardServices, parse_heart_rate_measurement};
 use super::types::{
     BiometricDevice, BiometricKind, BiometricSample, BiometricStream, BleError, DeviceFilter,
 };
@@ -62,10 +61,7 @@ impl BiometricProvider {
             .await
             .map_err(|e| ble_error(e, "list adapters"))?;
 
-        let adapter = adapters
-            .into_iter()
-            .next()
-            .ok_or(BleError::NoAdapter)?;
+        let adapter = adapters.into_iter().next().ok_or(BleError::NoAdapter)?;
 
         info!("Using BLE adapter: {:?}", adapter);
 
@@ -104,11 +100,7 @@ impl BiometricProvider {
         for p in peripherals {
             if let Ok(Some(props)) = p.properties().await {
                 let id = p.id().to_string();
-                let services: Vec<String> = props
-                    .services
-                    .iter()
-                    .map(|u| u.to_string())
-                    .collect();
+                let services: Vec<String> = props.services.iter().map(|u| u.to_string()).collect();
                 devices.push(BiometricDevice {
                     id,
                     name: props.local_name.unwrap_or_default(),
@@ -172,10 +164,7 @@ impl BiometricProvider {
     ///
     /// Returns a stream of `BiometricSample`s. Each notification produces
     /// one HR sample, plus optionally one HRV sample if RR intervals are present.
-    pub async fn subscribe_heart_rate(
-        &self,
-        device_id: &str,
-    ) -> Result<BiometricStream, BleError> {
+    pub async fn subscribe_heart_rate(&self, device_id: &str) -> Result<BiometricStream, BleError> {
         let peripheral = {
             let connected = self.connected.lock().await;
             connected
@@ -205,28 +194,27 @@ impl BiometricProvider {
             .await
             .map_err(|e| ble_error(e, "open notifications"))?;
 
-        let stream = notif_stream
-            .filter_map(move |notification| {
-                let device_id = device_id_owned.clone();
-                async move {
-                    if notification.uuid != hr_char_uuid {
-                        return None;
-                    }
-                    match parse_heart_rate_measurement(&notification.value) {
-                        Ok(parsed) => Some(BiometricSample {
-                            timestamp: now_secs(),
-                            device_id,
-                            kind: BiometricKind::HeartRate,
-                            value: parsed.bpm as f64,
-                            raw_payload: Some(notification.value),
-                        }),
-                        Err(e) => {
-                            warn!("Failed to parse HR measurement: {}", e);
-                            None
-                        }
+        let stream = notif_stream.filter_map(move |notification| {
+            let device_id = device_id_owned.clone();
+            async move {
+                if notification.uuid != hr_char_uuid {
+                    return None;
+                }
+                match parse_heart_rate_measurement(&notification.value) {
+                    Ok(parsed) => Some(BiometricSample {
+                        timestamp: now_secs(),
+                        device_id,
+                        kind: BiometricKind::HeartRate,
+                        value: parsed.bpm as f64,
+                        raw_payload: Some(notification.value),
+                    }),
+                    Err(e) => {
+                        warn!("Failed to parse HR measurement: {}", e);
+                        None
                     }
                 }
-            });
+            }
+        });
 
         Ok(Box::pin(stream))
     }

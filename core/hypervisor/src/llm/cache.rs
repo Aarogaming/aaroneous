@@ -3,7 +3,7 @@
 
 use anyhow::Result;
 use moka::future::Cache;
-use serde::{de::DeserializeOwned, Serialize};
+use serde::{Serialize, de::DeserializeOwned};
 use std::time::Duration;
 use tracing::debug;
 
@@ -29,11 +29,11 @@ impl LLMCache {
 
     /// Get cached value
     pub async fn get<T: DeserializeOwned>(&self, key: &str) -> Option<T> {
-        if let Some(bytes) = self.cache.get(key).await {
-            if let Ok(value) = serde_json::from_slice::<T>(&bytes) {
-                debug!("Cache hit: {}", key);
-                return Some(value);
-            }
+        if let Some(bytes) = self.cache.get(key).await
+            && let Ok(value) = serde_json::from_slice::<T>(&bytes)
+        {
+            debug!("Cache hit: {}", key);
+            return Some(value);
         }
         None
     }
@@ -41,9 +41,7 @@ impl LLMCache {
     /// Set cached value
     pub async fn set<T: Serialize>(&self, key: &str, value: T) -> Result<()> {
         if let Ok(bytes) = serde_json::to_vec(&value) {
-            self.cache
-                .insert(key.to_string(), bytes)
-                .await;
+            self.cache.insert(key.to_string(), bytes).await;
             debug!("Cache set: {} (TTL: {:?})", key, self.ttl);
         }
         Ok(())
@@ -103,13 +101,13 @@ mod tests {
         };
 
         cache.set("key1", &data).await.unwrap();
-        
+
         // Verify set worked
         let before: Option<TestData> = cache.get("key1").await;
         assert_eq!(before, Some(data.clone()));
 
         cache.clear().await;
-        
+
         // Verify clear worked
         let after: Option<TestData> = cache.get("key1").await;
         assert_eq!(after, None);

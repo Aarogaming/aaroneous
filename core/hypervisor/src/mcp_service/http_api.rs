@@ -1,3 +1,16 @@
+use crate::mcp_service::service::{JsonRpcResponse, McpService};
+use axum::{
+    Router,
+    extract::State,
+    http::StatusCode,
+    response::{
+        IntoResponse, Json,
+        sse::{Event, KeepAlive, Sse},
+    },
+    routing::{get, post},
+};
+use serde_json::Value;
+use std::convert::Infallible;
 /// MCP HTTP+SSE transport.
 ///
 /// Implements the Anthropic Model Context Protocol 2024-11-05 specification:
@@ -27,27 +40,18 @@
 ///   }
 /// }
 /// ```
-
 use std::net::SocketAddr;
 use std::sync::Arc;
-use std::convert::Infallible;
-use axum::{
-    extract::State,
-    http::StatusCode,
-    response::{sse::{Event, KeepAlive, Sse}, IntoResponse, Json},
-    routing::{get, post},
-    Router,
-};
-use crate::mcp_service::service::{McpService, JsonRpcResponse};
-use serde_json::Value;
-use tracing::{info, debug};
+use tracing::{debug, info};
 
 // ── State ─────────────────────────────────────────────────────────────────────
 
 /// Session-keyed SSE response channels for Claude Desktop.
-type SseSessions = Arc<tokio::sync::RwLock<
-    std::collections::HashMap<String, Arc<tokio::sync::broadcast::Sender<String>>>
->>;
+type SseSessions = Arc<
+    tokio::sync::RwLock<
+        std::collections::HashMap<String, Arc<tokio::sync::broadcast::Sender<String>>>,
+    >,
+>;
 
 #[derive(Clone)]
 pub struct McpAppState {
@@ -55,8 +59,6 @@ pub struct McpAppState {
     /// Active SSE session channels (session_id → broadcast sender)
     pub sse_sessions: SseSessions,
 }
-
-
 
 // ── Server ────────────────────────────────────────────────────────────────────
 
@@ -74,38 +76,38 @@ impl HttpServer {
     }
 
     /// Build and start the MCP HTTP+SSE server.
-    pub async fn run(
-        self,
-        service: Arc<McpService>,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn run(self, service: Arc<McpService>) -> Result<(), Box<dyn std::error::Error>> {
         let state = McpAppState {
             service,
             sse_sessions: Arc::new(tokio::sync::RwLock::new(std::collections::HashMap::new())),
         };
 
-
         let app = Router::new()
             // MCP JSON-RPC 2.0 transport (primary)
-            .route("/mcp",    post(handle_mcp_post))
+            .route("/mcp", post(handle_mcp_post))
             // SSE transport (for Claude Desktop / streaming clients)
-            .route("/sse",    get(handle_sse))
+            .route("/sse", get(handle_sse))
             // Health probe (unauthenticated)
             .route("/health", get(handle_health))
             // MCP discovery endpoint (returns server info)
-            .route("/",       get(handle_root))
+            .route("/", get(handle_root))
             .with_state(state);
-
 
         let listener = tokio::net::TcpListener::bind(self.addr).await?;
         info!("MCP server listening on {} (JSON-RPC 2.0 + SSE)", self.addr);
-        info!("  Claude Desktop: add url='http://{}' to claude_desktop_config.json", self.addr);
-        info!("  Cursor: add url='http://{}/mcp' to settings.json", self.addr);
+        info!(
+            "  Claude Desktop: add url='http://{}' to claude_desktop_config.json",
+            self.addr
+        );
+        info!(
+            "  Cursor: add url='http://{}/mcp' to settings.json",
+            self.addr
+        );
 
         axum::serve(listener, app).await?;
         Ok(())
     }
 }
-
 
 ///
 /// Accepts both single requests and batched arrays.
@@ -120,15 +122,17 @@ async fn handle_mcp_post(
     let raw: Value = match serde_json::from_slice(&body) {
         Ok(v) => v,
         Err(e) => {
-            let err = JsonRpcResponse::err(
-                None, -32700,
-                &format!("Parse error: {}", e),
-            );
+            let err = JsonRpcResponse::err(None, -32700, &format!("Parse error: {}", e));
             return Json(serde_json::to_value(err).unwrap()).into_response();
         }
     };
 
-    debug!("MCP POST: {}", raw.get("method").and_then(|m| m.as_str()).unwrap_or("batch"));
+    debug!(
+        "MCP POST: {}",
+        raw.get("method")
+            .and_then(|m| m.as_str())
+            .unwrap_or("batch")
+    );
 
     // Handle batch or single
     if raw.is_array() {
@@ -147,10 +151,12 @@ async fn handle_mcp_post(
     }
 
     // Single request — check if notification (no id)
-    let is_notification = raw.get("id").is_none() &&
-        raw.get("method").and_then(|m| m.as_str())
-           .map(|m| m.starts_with("notifications/"))
-           .unwrap_or(false);
+    let is_notification = raw.get("id").is_none()
+        && raw
+            .get("method")
+            .and_then(|m| m.as_str())
+            .map(|m| m.starts_with("notifications/"))
+            .unwrap_or(false);
 
     let resp = state.service.handle_jsonrpc(raw).await;
 
@@ -162,9 +168,8 @@ async fn handle_mcp_post(
     if let Some(ref sid) = session_id {
         let sessions = state.sse_sessions.read().await;
         if let Some(tx) = sessions.get(sid) {
-            let resp_str = serde_json::to_string(
-                &serde_json::to_value(&resp).unwrap_or_default()
-            ).unwrap_or_default();
+            let resp_str = serde_json::to_string(&serde_json::to_value(&resp).unwrap_or_default())
+                .unwrap_or_default();
             let _ = tx.send(resp_str);
         }
     }
@@ -181,9 +186,7 @@ async fn handle_mcp_post(
 /// 4. Server sends responses back as `message` SSE events
 ///
 /// This is the transport Claude Desktop uses (it requires SSE, not HTTP POST).
-async fn handle_sse(
-    State(state): State<McpAppState>,
-) -> impl IntoResponse {
+async fn handle_sse(State(state): State<McpAppState>) -> impl IntoResponse {
     let tool_count = state.service.tools.read().await.len();
 
     // Create session ID and register a broadcast channel for this SSE connection.
@@ -266,8 +269,14 @@ async fn handle_health(State(state): State<McpAppState>) -> impl IntoResponse {
 
 /// GET / — MCP server discovery metadata.
 async fn handle_root(State(state): State<McpAppState>) -> impl IntoResponse {
-    let tool_names: Vec<String> = state.service.tools.read().await
-        .iter().map(|t| t.name.clone()).collect();
+    let tool_names: Vec<String> = state
+        .service
+        .tools
+        .read()
+        .await
+        .iter()
+        .map(|t| t.name.clone())
+        .collect();
 
     Json(serde_json::json!({
         "name": "Aaroneous",

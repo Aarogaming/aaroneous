@@ -1,5 +1,5 @@
-use std::sync::atomic::{AtomicBool, Ordering};
 use memmap2::MmapMut;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 /// Represents a raw framebuffer capture target in shared memory.
 /// The framebuffer is mapped as a fixed-width grayscale float grid.
@@ -76,14 +76,14 @@ impl ShmemCapture {
             .read(true)
             .write(true)
             .create(true)
+            .truncate(false)
             .open(path)
             .map_err(|e| format!("shmem open: {}", e))?;
 
         file.set_len(file_size as u64)
             .map_err(|e| format!("shmem resize: {}", e))?;
 
-        let mmap = unsafe { MmapMut::map_mut(&file) }
-            .map_err(|e| format!("shmem mmap: {}", e))?;
+        let mmap = unsafe { MmapMut::map_mut(&file) }.map_err(|e| format!("shmem mmap: {}", e))?;
 
         self.mmap = Some(mmap);
         self.active.store(true, Ordering::Release);
@@ -131,10 +131,7 @@ impl ShmemCapture {
                 stride: self.config.width,
             };
             let hdr_bytes = unsafe {
-                std::slice::from_raw_parts(
-                    &hdr as *const ShmemFrameHeader as *const u8,
-                    hdr_size,
-                )
+                std::slice::from_raw_parts(&hdr as *const ShmemFrameHeader as *const u8, hdr_size)
             };
             mmap[..hdr_size].copy_from_slice(hdr_bytes);
             mmap[hdr_size..hdr_size + pixel_bytes].copy_from_slice(&buf);
@@ -179,9 +176,9 @@ impl ShmemCapture {
 
     #[cfg(target_os = "windows")]
     fn capture_win32(&self, pixel_slice: &mut [u8]) -> Result<(), String> {
-        use windows::Win32::Graphics::Gdi::*;
-        use windows::Win32::Foundation::*;
         use std::mem;
+        use windows::Win32::Foundation::*;
+        use windows::Win32::Graphics::Gdi::*;
 
         unsafe {
             let null_hwnd = HWND(std::ptr::null_mut());
@@ -207,8 +204,14 @@ impl ShmemCapture {
 
             let _ = SelectObject(hdc_mem, bmp.into());
             let _ = StretchBlt(
-                hdc_mem, 0, 0, w, h,
-                Some(hdc_screen), 0, 0,
+                hdc_mem,
+                0,
+                0,
+                w,
+                h,
+                Some(hdc_screen),
+                0,
+                0,
                 GetDeviceCaps(Some(hdc_screen), HORZRES),
                 GetDeviceCaps(Some(hdc_screen), VERTRES),
                 SRCCOPY,

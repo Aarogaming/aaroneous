@@ -24,23 +24,27 @@ static INITIALIZED: AtomicBool = AtomicBool::new(false);
 /// multiple entry points (e.g. the binary's main and a test
 /// harness). Returns `true` if this call performed the init,
 /// `false` if logging was already initialized.
-pub fn init_logging() -> bool {
+pub fn init_logging() -> (bool, Option<tracing_appender::non_blocking::WorkerGuard>) {
     if INITIALIZED.swap(true, Ordering::SeqCst) {
-        return false;
+        return (false, None);
     }
-    install_subscriber();
-    true
+    let guard = install_subscriber();
+    (true, Some(guard))
 }
 
 /// Install the tracing subscriber using the `AARONEOUS_LOG` or
 /// `RUST_LOG` env var for the filter, and the fmt subscriber
 /// (ANSI-on-tty, JSON-otherwise) as the formatter.
-fn install_subscriber() {
-    use tracing_subscriber::{fmt, prelude::*, EnvFilter};
+fn install_subscriber() -> tracing_appender::non_blocking::WorkerGuard {
+    use tracing_subscriber::{EnvFilter, fmt, prelude::*};
 
     let filter = EnvFilter::try_from_env("AARONEOUS_LOG")
         .or_else(|_| EnvFilter::try_from_env("RUST_LOG"))
-        .unwrap_or_else(|_| EnvFilter::new("info,a_run=info"));
+        .unwrap_or_else(|_| EnvFilter::new("info,a_run=debug"));
+
+    // Rotating file appender: logs/aaroneous.log
+    let file_appender = tracing_appender::rolling::daily("logs", "aaroneous.log");
+    let (non_blocking, guard) = tracing_appender::non_blocking(file_appender);
 
     // Heuristic: if stderr is redirected (no tty), prefer JSON. The
     // `is_terminal` check is in `std` since 1.70, no extra dep.
@@ -49,13 +53,21 @@ fn install_subscriber() {
         let _ = tracing_subscriber::registry()
             .with(filter)
             .with(fmt::layer().with_target(true).with_level(true))
+            .with(fmt::layer().with_writer(non_blocking))
             .try_init();
     } else {
         let _ = tracing_subscriber::registry()
             .with(filter)
-            .with(fmt::layer().json().with_current_span(true).with_span_list(false))
+            .with(
+                fmt::layer()
+                    .json()
+                    .with_current_span(true)
+                    .with_span_list(false),
+            )
+            .with(fmt::layer().with_writer(non_blocking))
             .try_init();
     }
+    guard
 }
 
 #[cfg(unix)]
@@ -89,7 +101,7 @@ mod tests {
         // We don't assert on `first` because in test contexts
         // another test in the same binary may have already
         // installed a subscriber. We do require idempotence.
-        assert!(!second);
+        assert!(!second.0);
         // First call is either true (we installed it) or false
         // (someone else did). Either way, no panic.
         let _ = first;

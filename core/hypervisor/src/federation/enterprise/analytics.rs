@@ -1,7 +1,6 @@
 /// Analytics and Reporting Engine
-/// 
+///
 /// Collect metrics, analyze trends, and generate reports
-
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -62,14 +61,17 @@ impl Analytics {
         }
 
         // Update metrics
-        let metric = self.metrics.entry(event.event_type.clone()).or_insert_with(|| MetricSummary {
-            name: event.event_type.clone(),
-            count: 0,
-            sum: 0.0,
-            average: 0.0,
-            min: f32::MAX,
-            max: f32::MIN,
-        });
+        let metric = self
+            .metrics
+            .entry(event.event_type.clone())
+            .or_insert_with(|| MetricSummary {
+                name: event.event_type.clone(),
+                count: 0,
+                sum: 0.0,
+                average: 0.0,
+                min: f32::MAX,
+                max: f32::MIN,
+            });
 
         metric.count += 1;
         metric.sum += event.value;
@@ -90,14 +92,16 @@ impl Analytics {
                 let mut report = String::from("ANALYTICS SUMMARY\n");
                 report.push_str(&format!("Total events: {}\n", self.events.len()));
                 report.push_str(&format!("Tracked metrics: {}\n", self.metrics.len()));
-                
+
                 for (name, metric) in &self.metrics {
-                    report.push_str(&format!("  {}: count={}, avg={:.2}, min={:.2}, max={:.2}\n",
-                        name, metric.count, metric.average, metric.min, metric.max));
+                    report.push_str(&format!(
+                        "  {}: count={}, avg={:.2}, min={:.2}, max={:.2}\n",
+                        name, metric.count, metric.average, metric.min, metric.max
+                    ));
                 }
                 Ok(report)
             }
-            _ => Err(format!("Unknown report type: {}", report_type))
+            _ => Err(format!("Unknown report type: {}", report_type)),
         }
     }
 }

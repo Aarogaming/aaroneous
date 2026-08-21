@@ -12,7 +12,6 @@
 ///   2. Target model size selection (token budget → parameter count)
 ///   3. Layer selection for crystallization (which blocks of the 7B to use)
 ///   4. Evaluation criteria (what "correct" output looks like)
-
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -24,7 +23,11 @@ pub enum OutputFormat {
     /// Binary classification (yes/no, safe/unsafe, etc.)
     Classification { classes: Vec<String> },
     /// Numeric score in a range
-    Score { min: f32, max: f32, description: String },
+    Score {
+        min: f32,
+        max: f32,
+        description: String,
+    },
     /// Structured list of items
     List { item_format: String, max_items: u32 },
 }
@@ -63,8 +66,8 @@ impl ModelTier {
     /// Approximate VRAM usage at Q4_K_M quantization
     pub fn vram_mb(&self) -> u32 {
         // ~0.5 bytes per parameter at Q4, plus context overhead
-        let params = self.target_params() as u32;
-        (params as f32 * 0.6) as u32 + 256  // +256MB overhead
+        let params = self.target_params();
+        (params as f32 * 0.6) as u32 + 256 // +256MB overhead
     }
 }
 
@@ -93,7 +96,7 @@ pub struct TaskCapability {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SovereignTaskSpec {
     pub sovereign_name: String,
-    pub internal_id: String,       // matches SpecialistId name
+    pub internal_id: String, // matches SpecialistId name
     pub domain: String,
     pub persona_summary: String,
     pub target_tier: ModelTier,
@@ -467,16 +470,16 @@ impl SovereignTaskSpec {
     /// Short domain key for LLM routing (matches GenericSpecialist domain labels).
     pub fn domain_key(&self) -> String {
         match self.sovereign_name.to_lowercase().as_str() {
-            "ariel"      => "ui_design".into(),
-            "hermes"     => "p2p_sync".into(),
-            "wen"        => "biometric".into(),
-            "kami"       => "phygital".into(),
-            "dionysus"   => "archival".into(),
-            "merlin"     => "research".into(),
-            "odin"       => "task_orchestration".into(),
-            "argus"      => "security_audit".into(),
+            "ariel" => "ui_design".into(),
+            "hermes" => "p2p_sync".into(),
+            "wen" => "biometric".into(),
+            "kami" => "phygital".into(),
+            "dionysus" => "archival".into(),
+            "merlin" => "research".into(),
+            "odin" => "task_orchestration".into(),
+            "argus" => "security_audit".into(),
             "hephaestus" => "construction".into(),
-            other        => other.replace(' ', "_"),
+            other => other.replace(' ', "_"),
         }
     }
 }
@@ -491,24 +494,37 @@ pub fn spec_for(sovereign_name: &str) -> Option<SovereignTaskSpec> {
 /// Print a human-readable summary of all sovereign task specs.
 pub fn print_roster_summary() {
     let specs = sovereign_task_specs();
-    println!("{:<13} {:>8}  {:>7}  {:>8}  {}",
-        "Sovereign", "Tier", "Params", "Latency", "Key capability");
+    println!(
+        "{:<13} {:>8}  {:>7}  {:>8}  Key capability",
+        "Sovereign", "Tier", "Params", "Latency"
+    );
     println!("{}", "-".repeat(75));
     for s in &specs {
-        println!("{:<13} {:>8}  {:>5}M  {:>6}ms  {}",
+        println!(
+            "{:<13} {:>8}  {:>5}M  {:>6}ms  {}",
             s.sovereign_name,
             s.target_tier.tier_name(),
             s.target_tier.target_params(),
-            s.capabilities.first().map(|c| c.latency_budget_ms).unwrap_or(0),
-            s.capabilities.first().map(|c| c.description.as_str()).unwrap_or(""),
+            s.capabilities
+                .first()
+                .map(|c| c.latency_budget_ms)
+                .unwrap_or(0),
+            s.capabilities
+                .first()
+                .map(|c| c.description.as_str())
+                .unwrap_or(""),
         );
     }
     println!();
-    let total_resident_vram: u32 = specs.iter()
+    let total_resident_vram: u32 = specs
+        .iter()
         .filter(|s| s.always_resident)
         .map(|s| s.target_tier.vram_mb())
         .sum();
     let total_all_vram: u32 = specs.iter().map(|s| s.target_tier.vram_mb()).sum();
     println!("Always-resident VRAM: ~{}MB", total_resident_vram);
-    println!("Full roster VRAM:     ~{}MB (not all loaded simultaneously)", total_all_vram);
+    println!(
+        "Full roster VRAM:     ~{}MB (not all loaded simultaneously)",
+        total_all_vram
+    );
 }

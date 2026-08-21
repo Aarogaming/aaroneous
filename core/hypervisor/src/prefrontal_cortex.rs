@@ -1,4 +1,4 @@
-use crate::executive_plan::{ExecutivePlan, CognitiveStep, StepStatus};
+use crate::executive_plan::{CognitiveStep, ExecutivePlan, StepStatus};
 use anyhow::Result;
 
 pub struct PrefrontalCortex;
@@ -7,12 +7,15 @@ impl PrefrontalCortex {
     /// Generates a multi-step execution plan based on a high-level intent.
     pub async fn draft_plan(&self, intent: &str) -> Result<ExecutivePlan> {
         println!("[PrefrontalCortex] Drafting plan for: {}", intent);
-        
+
         let mut plan = ExecutivePlan::new(intent);
         let tokens: Vec<&str> = intent.split_whitespace().collect();
 
         // Heuristic-based planning (replacing the hardcoded 'research' block)
-        if tokens.iter().any(|&t| t.contains("research") || t.contains("find") || t.contains("search")) {
+        if tokens
+            .iter()
+            .any(|&t| t.contains("research") || t.contains("find") || t.contains("search"))
+        {
             plan.add_step(CognitiveStep {
                 id: "research_phase".to_string(),
                 description: format!("Perform deep research into: {}", intent),
@@ -24,11 +27,21 @@ impl PrefrontalCortex {
             });
         }
 
-        if tokens.iter().any(|&t| t.contains("implement") || t.contains("build") || t.contains("write") || t.contains("create")) {
-            let deps = if plan.steps.contains_key("research_phase") { vec!["research_phase".to_string()] } else { vec![] };
+        if tokens.iter().any(|&t| {
+            t.contains("implement")
+                || t.contains("build")
+                || t.contains("write")
+                || t.contains("create")
+        }) {
+            let deps = if plan.steps.contains_key("research_phase") {
+                vec!["research_phase".to_string()]
+            } else {
+                vec![]
+            };
             plan.add_step(CognitiveStep {
                 id: "implementation_phase".to_string(),
-                description: "Execute technical implementation based on research or direct intent".to_string(),
+                description: "Execute technical implementation based on research or direct intent"
+                    .to_string(),
                 dependencies: deps,
                 status: StepStatus::Pending,
                 assigned_specialist: "hephaestus".to_string(),

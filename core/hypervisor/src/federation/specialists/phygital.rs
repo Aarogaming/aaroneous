@@ -1,5 +1,5 @@
 /// Phygital Specialist: AR/VR Spatial Rendering & Landmarks
-/// 
+///
 /// Phygital materializes Intent into spatial/visual form. It:
 /// - Detects AR hardware (HoloLens, Magic Leap, ARKit)
 /// - Renders 3D design prototypes in physical space
@@ -7,11 +7,10 @@
 /// - Streams AR anchors to devices
 /// - Falls back to 2D when AR unavailable
 /// - Proposes rendering when GPU available
-/// 
+///
 /// Size: 1GB GGUF model (includes 3D generation)
 /// Portable: 200MB stripped version (AR proxy only)
 /// Domain: Spatial / AR-VR
-
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -19,12 +18,12 @@ use std::sync::Arc;
 // parking_lot::Mutex - see Visionary for the rationale.
 use parking_lot::Mutex;
 
+use crate::federation::ar::{ArError, ArProvider, ArSessionState};
 use crate::federation::specialist::{
-    Specialist, SpecialistId, SpecialistContext, SpecialistError, ProposedAction,
-    Decision, DelegateRequest, DelegateResponse, Conflict, NegotiationResult,
-    ResourceRequest, ProposalPriority, ExecutionResult, ExecutionStatus, SpecialistCapability,
+    Conflict, Decision, DelegateRequest, DelegateResponse, ExecutionResult, ExecutionStatus,
+    NegotiationResult, ProposalPriority, ProposedAction, ResourceRequest, Specialist,
+    SpecialistCapability, SpecialistContext, SpecialistError, SpecialistId,
 };
-use crate::federation::ar::{ArProvider, ArError, ArSessionState};
 
 /// Learning data for Phygital specialist
 #[derive(Debug, Clone)]
@@ -36,6 +35,12 @@ pub struct PhygitalLearningData {
     pub execution_history: Vec<bool>,
     pub last_updated: u64,
     pub confidence_trend: Vec<(u64, f32)>,
+}
+
+impl Default for PhygitalLearningData {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl PhygitalLearningData {
@@ -52,15 +57,22 @@ impl PhygitalLearningData {
     }
 
     pub fn record_result(&mut self, success: bool) {
-        if success { self.success_count += 1; } else { self.failure_count += 1; }
+        if success {
+            self.success_count += 1;
+        } else {
+            self.failure_count += 1;
+        }
         self.total_executions += 1;
 
         self.execution_history.push(success);
-        if self.execution_history.len() > 20 { self.execution_history.remove(0); }
+        if self.execution_history.len() > 20 {
+            self.execution_history.remove(0);
+        }
 
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or_default().as_secs();
+            .unwrap_or_default()
+            .as_secs();
 
         if self.last_updated > 0 && now > self.last_updated {
             let hours_idle = (now - self.last_updated) as f32 / 3600.0;
@@ -72,7 +84,9 @@ impl PhygitalLearningData {
         self.last_updated = now;
 
         self.confidence_trend.push((now, self.confidence_score));
-        if self.confidence_trend.len() > 100 { self.confidence_trend.remove(0); }
+        if self.confidence_trend.len() > 100 {
+            self.confidence_trend.remove(0);
+        }
     }
 
     pub fn get_proposal_confidence(&self) -> f32 {
@@ -134,7 +148,10 @@ impl SpatialDevice {
     }
 
     pub fn supports_anchors(&self) -> bool {
-        matches!(self, SpatialDevice::HoloLens2 | SpatialDevice::HoloLens3 | SpatialDevice::MagicLeap)
+        matches!(
+            self,
+            SpatialDevice::HoloLens2 | SpatialDevice::HoloLens3 | SpatialDevice::MagicLeap
+        )
     }
 }
 
@@ -242,7 +259,10 @@ impl Phygital {
         };
         let snapshot = crate::federation::learn_persist::LearningSnapshot::from_record(&record)?;
         let mut learning = self.learning.lock();
-        crate::federation::learn_persist::PersistableLearning::restore_from(&mut *learning, snapshot);
+        crate::federation::learn_persist::PersistableLearning::restore_from(
+            &mut *learning,
+            snapshot,
+        );
         Ok(true)
     }
 
@@ -253,7 +273,9 @@ impl Phygital {
     pub async fn with_ar(mut self) -> Result<Self, ArError> {
         struct DefaultArProvider;
         impl crate::federation::ar::ArProvider for DefaultArProvider {
-            fn initialize(&mut self) -> Result<(), ArError> { Err(ArError::FeatureNotEnabled) }
+            fn initialize(&mut self) -> Result<(), ArError> {
+                Err(ArError::FeatureNotEnabled)
+            }
             fn get_session_state(&self) -> crate::federation::ar::ArSessionState {
                 crate::federation::ar::ArSessionState::Idle
             }
@@ -289,7 +311,7 @@ impl Phygital {
     pub fn has_runtime(&self) -> bool {
         self.ar_provider
             .as_ref()
-                .map(|p: &Arc<dyn ArProvider>| p.is_runtime_available())
+            .map(|p: &Arc<dyn ArProvider>| p.is_runtime_available())
             .unwrap_or(false)
     }
 
@@ -475,7 +497,7 @@ impl Phygital {
 
     /// Simulate GPU availability change
     pub fn set_gpu_available(&mut self, percent: f32) {
-        self.gpu_headroom_percent = percent.max(0.0).min(100.0);
+        self.gpu_headroom_percent = percent.clamp(0.0, 100.0);
     }
 }
 
@@ -502,16 +524,27 @@ impl Specialist for Phygital {
     /// When the proposal is accepted, `execute()` synthesizes a prototype
     /// from the intent content so Phygital can participate even on a fresh
     /// hive without explicit prototype setup.
-    async fn propose(&self, context: &SpecialistContext) -> Result<Vec<ProposedAction>, SpecialistError> {
+    async fn propose(
+        &self,
+        context: &SpecialistContext,
+    ) -> Result<Vec<ProposedAction>, SpecialistError> {
         let activity = &context.user_state.activity;
 
         // Determine if the intent is spatial/design-relevant
         let is_spatial_intent = {
             let lower = activity.to_lowercase();
-            lower.contains("design") || lower.contains("render") || lower.contains("ar ")
-            || lower.contains("spatial") || lower.contains("visuali") || lower.contains("prototype")
-            || lower.contains("layout") || lower.contains("ui") || lower.contains("dashboard")
-            || lower.contains("display") || lower.contains("3d") || lower.contains("view")
+            lower.contains("design")
+                || lower.contains("render")
+                || lower.contains("ar ")
+                || lower.contains("spatial")
+                || lower.contains("visuali")
+                || lower.contains("prototype")
+                || lower.contains("layout")
+                || lower.contains("ui")
+                || lower.contains("dashboard")
+                || lower.contains("display")
+                || lower.contains("3d")
+                || lower.contains("view")
         };
 
         let has_prototypes = !self.prototypes.is_empty();
@@ -526,12 +559,16 @@ impl Specialist for Phygital {
         }
 
         // Determine device and confidence
-        let device = self.frame_state_history.last()
+        let device = self
+            .frame_state_history
+            .last()
             .and_then(|f| f.device.as_ref())
             .map(|d| format!("{:?}", d))
             .unwrap_or_else(|| "Mobile".to_string());
 
-        let ar_available = self.frame_state_history.last()
+        let ar_available = self
+            .frame_state_history
+            .last()
             .map(|f| f.ar_available)
             .unwrap_or(false); // can still propose even without AR hw (will simulate)
 
@@ -556,7 +593,10 @@ impl Specialist for Phygital {
         let proto_label = if has_prototypes {
             format!("{} existing prototype(s)", self.prototypes.len())
         } else {
-            format!("intent: '{}'", activity.chars().take(40).collect::<String>())
+            format!(
+                "intent: '{}'",
+                activity.chars().take(40).collect::<String>()
+            )
         };
 
         Ok(vec![ProposedAction {
@@ -568,19 +608,33 @@ impl Specialist for Phygital {
                 device,
                 proto_label,
                 self.gpu_headroom_percent,
-                if ar_available { ", AR live" } else { ", simulated" }
+                if ar_available {
+                    ", AR live"
+                } else {
+                    ", simulated"
+                }
             ),
             confidence,
             required_resources: ResourceRequest {
-                gpu_percent: self.detected_devices.first()
+                gpu_percent: self
+                    .detected_devices
+                    .first()
                     .map(|d| d.gpu_requirement_percent() / 100.0)
                     .unwrap_or(0.25),
                 cpu_percent: 20.0,
                 memory_mb: 400,
                 duration_seconds: 60,
             },
-            priority: if ar_available { ProposalPriority::UserFacing } else { ProposalPriority::Normal },
-            tags: vec!["rendering".to_string(), "ar".to_string(), "spatial".to_string()],
+            priority: if ar_available {
+                ProposalPriority::UserFacing
+            } else {
+                ProposalPriority::Normal
+            },
+            tags: vec![
+                "rendering".to_string(),
+                "ar".to_string(),
+                "spatial".to_string(),
+            ],
         }])
     }
 
@@ -594,29 +648,37 @@ impl Specialist for Phygital {
             .primary_device()
             .map(|d| format!("{:?}", d))
             .unwrap_or_else(|| "Mobile".to_string());
-        let frame_rate = self.frame_state_history.last()
-            .map(|f| f.frame_rate).unwrap_or(60);
-        let intent = decision.context.get("intent")
+        let frame_rate = self
+            .frame_state_history
+            .last()
+            .map(|f| f.frame_rate)
+            .unwrap_or(60);
+        let intent = decision
+            .context
+            .get("intent")
             .cloned()
             .unwrap_or_else(|| decision.action.clone());
 
         // Use pre-loaded prototypes if available; otherwise synthesize from intent
         let anchor_manifest: Vec<serde_json::Value> = if !self.prototypes.is_empty() {
-            self.prototypes.values()
-                .map(|proto| serde_json::json!({
-                    "prototype_id": proto.id,
-                    "design_variant": proto.design_variant_id,
-                    "landmark": proto.landmark_id,
-                    "model": proto.model_path,
-                    "scale": proto.scale,
-                    "rotation_deg": proto.rotation_degrees,
-                    "visibility_pct": proto.visibility_percent,
-                    "device": device,
-                    "frame_rate": frame_rate,
-                    "ar_available": self.can_render_ar(),
-                    "has_runtime": self.has_runtime(),
-                    "source": "pre_loaded",
-                }))
+            self.prototypes
+                .values()
+                .map(|proto| {
+                    serde_json::json!({
+                        "prototype_id": proto.id,
+                        "design_variant": proto.design_variant_id,
+                        "landmark": proto.landmark_id,
+                        "model": proto.model_path,
+                        "scale": proto.scale,
+                        "rotation_deg": proto.rotation_degrees,
+                        "visibility_pct": proto.visibility_percent,
+                        "device": device,
+                        "frame_rate": frame_rate,
+                        "ar_available": self.can_render_ar(),
+                        "has_runtime": self.has_runtime(),
+                        "source": "pre_loaded",
+                    })
+                })
                 .collect()
         } else {
             // Synthesize a spatial anchor from the intent
@@ -680,7 +742,10 @@ impl Specialist for Phygital {
     }
 
     /// Delegate to device-specific rendering handlers
-    async fn delegate(&self, request: &DelegateRequest) -> Result<DelegateResponse, SpecialistError> {
+    async fn delegate(
+        &self,
+        request: &DelegateRequest,
+    ) -> Result<DelegateResponse, SpecialistError> {
         Ok(DelegateResponse {
             requester: request.requester,
             target: request.target,
@@ -698,7 +763,10 @@ impl Specialist for Phygital {
     ) -> Result<NegotiationResult, SpecialistError> {
         Ok(NegotiationResult {
             resolved: true,
-            resolution: format!("Negotiated GPU with {:?}: {:.0}% available", other_id, self.gpu_headroom_percent),
+            resolution: format!(
+                "Negotiated GPU with {:?}: {:.0}% available",
+                other_id, self.gpu_headroom_percent
+            ),
             winner: None,
             compromise: Some("Progressive rendering with lower LOD models".to_string()),
         })
@@ -939,21 +1007,30 @@ mod tests {
     async fn test_detect_ar_hardware_real_without_provider() {
         let mut phygital = Phygital::new();
         let result = phygital.detect_ar_hardware_real();
-        assert!(matches!(result, Err(crate::federation::ar::ArError::FeatureNotEnabled)));
+        assert!(matches!(
+            result,
+            Err(crate::federation::ar::ArError::FeatureNotEnabled)
+        ));
     }
 
     #[tokio::test]
     async fn test_begin_ar_session_without_provider_errors() {
         let phygital = Phygital::new();
         let result = phygital.begin_ar_session().await;
-        assert!(matches!(result, Err(crate::federation::ar::ArError::FeatureNotEnabled)));
+        assert!(matches!(
+            result,
+            Err(crate::federation::ar::ArError::FeatureNotEnabled)
+        ));
     }
 
     #[tokio::test]
     async fn test_end_ar_session_without_provider_errors() {
         let phygital = Phygital::new();
         let result = phygital.end_ar_session().await;
-        assert!(matches!(result, Err(crate::federation::ar::ArError::FeatureNotEnabled)));
+        assert!(matches!(
+            result,
+            Err(crate::federation::ar::ArError::FeatureNotEnabled)
+        ));
     }
 
     #[tokio::test]
@@ -973,7 +1050,10 @@ mod tests {
         // Without a real runtime, detect_ar_hardware_real should return NoRuntime
         if !phygital.has_runtime() {
             let result = phygital.detect_ar_hardware_real();
-            assert!(matches!(result, Err(crate::federation::ar::ArError::NoRuntime)));
+            assert!(matches!(
+                result,
+                Err(crate::federation::ar::ArError::NoRuntime)
+            ));
         }
     }
 

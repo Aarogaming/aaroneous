@@ -1,9 +1,9 @@
 // HID Output Bridge - Converts motor intents to Win32 SendInput hardware events
 
 use windows::Win32::UI::Input::KeyboardAndMouse::{
-    SendInput, INPUT, INPUT_0, INPUT_MOUSE, MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP,
-    MOUSEEVENTF_MOVE, MOUSEEVENTF_RIGHTDOWN, MOUSEEVENTF_RIGHTUP, MOUSEEVENTF_WHEEL,
-    MOUSEINPUT, MOUSE_EVENT_FLAGS,
+    INPUT, INPUT_0, INPUT_MOUSE, MOUSE_EVENT_FLAGS, MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP,
+    MOUSEEVENTF_MOVE, MOUSEEVENTF_RIGHTDOWN, MOUSEEVENTF_RIGHTUP, MOUSEEVENTF_WHEEL, MOUSEINPUT,
+    SendInput,
 };
 
 /// Motor intent from the reflex kernel
@@ -32,6 +32,12 @@ pub const ACTION_DRAG_END: u64 = 1 << 11;
 /// Converts motor intents to Win32 SendInput hardware events
 pub struct HIDOutputBridge {
     mouse_sensitivity: f32,
+}
+
+impl Default for HIDOutputBridge {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl HIDOutputBridge {

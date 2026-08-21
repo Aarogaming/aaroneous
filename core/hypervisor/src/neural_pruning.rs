@@ -27,7 +27,10 @@ impl PrunedArchive {
 
         for (node, reason) in self.nodes.drain(..).zip(self.prune_reasons.drain(..)) {
             if ids.contains(&node.id) {
-                println!("[PrunedArchive] Restoring node: {} (was: {})", node.title, reason);
+                println!(
+                    "[PrunedArchive] Restoring node: {} (was: {})",
+                    node.title, reason
+                );
                 restored.push(node);
             } else {
                 remaining_nodes.push(node);
@@ -42,7 +45,9 @@ impl PrunedArchive {
 
     /// List all archived node IDs and their prune reasons.
     pub fn list(&self) -> Vec<(&str, &str)> {
-        self.nodes.iter().zip(self.prune_reasons.iter())
+        self.nodes
+            .iter()
+            .zip(self.prune_reasons.iter())
             .map(|(n, r)| (n.id.as_str(), r.as_str()))
             .collect()
     }
@@ -63,12 +68,18 @@ pub struct NeuralPruningEnzyme {
 
 impl NeuralPruningEnzyme {
     pub fn new(threshold: u8) -> Self {
-        Self { min_integrity_threshold: threshold }
+        Self {
+            min_integrity_threshold: threshold,
+        }
     }
 
     /// Identifies and archives low-value or redundant nodes to reduce memory pressure.
     /// Pruned nodes are stored in the archive for potential restoration.
-    pub fn prune_constellation(&self, nodes: &mut Vec<ConstellationNode>, archive: &mut PrunedArchive) -> Vec<String> {
+    pub fn prune_constellation(
+        &self,
+        nodes: &mut Vec<ConstellationNode>,
+        archive: &mut PrunedArchive,
+    ) -> Vec<String> {
         println!("[NeuralPruning] Commencing pruning cycle...");
         let now = chrono::Utc::now();
         let mut pruned_ids = Vec::new();
@@ -79,7 +90,7 @@ impl NeuralPruningEnzyme {
             let mut reason = String::new();
 
             // 1. Calculate Information Decay
-            let age_days = (now - node.updated_at).num_days().max(0) as f32;
+            let age_days = now.signed_duration_since(node.updated_at).num_days().max(0) as f32;
             let priority_weight = match node.priority {
                 crate::Priority::Low => 1.0,
                 crate::Priority::Medium => 2.5,
@@ -92,14 +103,16 @@ impl NeuralPruningEnzyme {
 
             if relevance_score < (self.min_integrity_threshold as f32 / 10.0) {
                 // Keep completed architecture or core decisions regardless of age
-                if node.node_type != NodeType::Architecture && node.node_type != NodeType::Decision {
+                if node.node_type != NodeType::Architecture && node.node_type != NodeType::Decision
+                {
                     should_prune = true;
                     reason = format!("low relevance score: {:.2}", relevance_score);
                 }
             }
 
             // 2. Prune redundant nodes
-            if node.metadata.contains_key("redundant") || node.status == crate::NodeStatus::Archived {
+            if node.metadata.contains_key("redundant") || node.status == crate::NodeStatus::Archived
+            {
                 should_prune = true;
                 if reason.is_empty() {
                     reason = "redundant or archived".to_string();
@@ -109,7 +122,10 @@ impl NeuralPruningEnzyme {
             if should_prune {
                 pruned_ids.push(node.id.clone());
                 archive.store(node.clone(), reason);
-                println!("[NeuralPruning] Pruning low-value node: {} (Score: {:.2})", node.title, relevance_score);
+                println!(
+                    "[NeuralPruning] Pruning low-value node: {} (Score: {:.2})",
+                    node.title, relevance_score
+                );
             } else {
                 keep_indices.push(index);
             }

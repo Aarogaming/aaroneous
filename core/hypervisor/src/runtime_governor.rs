@@ -2,8 +2,8 @@
 // Isolates I/O runtime (NATS, Raft, preparedness notices) from compute runtime
 // (WASM execution, heavy compute, Python bindings) to prevent starvation.
 
-use tokio::runtime::{Builder, Runtime};
 use std::future::Future;
+use tokio::runtime::{Builder, Runtime};
 
 /// Task priority levels for routing decisions
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -66,12 +66,11 @@ impl RuntimeGovernor {
                 tokio::task::yield_now().await;
                 self.io_runtime.spawn(async move { task() }).await.unwrap()
             }
-            TaskPriority::HeavyCompute | TaskPriority::PythonExtension | TaskPriority::WASMExecution => {
+            TaskPriority::HeavyCompute
+            | TaskPriority::PythonExtension
+            | TaskPriority::WASMExecution => {
                 // Offload entirely to blocking pool to isolate Tokio from CPU starvation
-                self.compute_runtime
-                    .spawn_blocking(move || task())
-                    .await
-                    .unwrap()
+                self.compute_runtime.spawn_blocking(task).await.unwrap()
             }
         }
     }
@@ -134,15 +133,10 @@ impl BudgetExecutor {
         let mut iterations = 0;
         const YIELD_INTERVAL: u32 = 64; // Yield every 64 iterations
 
-        loop {
-            match process().await {
-                Some(_) => {
-                    iterations += 1;
-                    if iterations % YIELD_INTERVAL == 0 {
-                        tokio::task::yield_now().await;
-                    }
-                }
-                None => break,
+        while process().await.is_some() {
+            iterations += 1;
+            if iterations % YIELD_INTERVAL == 0 {
+                tokio::task::yield_now().await;
             }
         }
     }
@@ -157,10 +151,14 @@ where
     match task_type {
         TaskPriority::HighFrequencyIO => {
             tokio::task::yield_now().await;
-            tokio::task::spawn(async move { compute_payload() }).await.unwrap()
+            tokio::task::spawn(async move { compute_payload() })
+                .await
+                .unwrap()
         }
-        TaskPriority::HeavyCompute | TaskPriority::PythonExtension | TaskPriority::WASMExecution => {
-            tokio::task::spawn_blocking(move || compute_payload()).await.unwrap()
+        TaskPriority::HeavyCompute
+        | TaskPriority::PythonExtension
+        | TaskPriority::WASMExecution => {
+            tokio::task::spawn_blocking(compute_payload).await.unwrap()
         }
     }
 }

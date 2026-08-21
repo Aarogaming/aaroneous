@@ -1,5 +1,5 @@
 /// Integration tests for specialist ecosystem workflows
-/// 
+///
 /// Tests complete end-to-end flows between multiple specialists:
 /// - Design generation → AR rendering → memory consolidation
 /// - Multi-device synchronization
@@ -9,16 +9,14 @@
 #[cfg(test)]
 mod integration_tests {
     use crate::federation::specialist::{
-        Specialist, SpecialistId, SpecialistContext, UserState, SystemResources,
-        Decision, ResourceRequest, ExecutionStatus,
+        Decision, ExecutionStatus, ResourceRequest, Specialist, SpecialistContext, SpecialistId,
+        SystemResources, UserState,
     };
-    use crate::federation::specialists::{
-        Visionary, Omnipresent, Symbiotic, Phygital, Archivist,
-    };
+    use crate::federation::specialists::archivist::{EventOutcome, EventRecord};
     use crate::federation::specialists::omnipresent::{Device, DeviceType};
-    use crate::federation::specialists::symbiotic::{BiometricReading, WearableType};
     use crate::federation::specialists::phygital::LocationType;
-    use crate::federation::specialists::archivist::{EventRecord, EventOutcome};
+    use crate::federation::specialists::symbiotic::{BiometricReading, WearableType};
+    use crate::federation::specialists::{Archivist, Omnipresent, Phygital, Symbiotic, Visionary};
     use std::collections::HashMap;
 
     /// Helper to create a test context
@@ -54,7 +52,7 @@ mod integration_tests {
     #[tokio::test]
     async fn test_workflow_design_to_rendering_to_memory() {
         // Complete workflow: Visionary generates design → Phygital renders → Archivist records
-        
+
         let visionary = Visionary::new();
         let mut phygital = Phygital::new();
         let mut archivist = Archivist::new();
@@ -142,7 +140,7 @@ mod integration_tests {
     #[tokio::test]
     async fn test_multi_device_sync_workflow() {
         // Multi-device coordination: Desktop ↔ Phone ↔ Tablet
-        
+
         let mut omnipresent = Omnipresent::new();
 
         // Register devices
@@ -229,7 +227,7 @@ mod integration_tests {
     #[tokio::test]
     async fn test_user_state_aware_proposal_filtering() {
         // Symbiotic influences when other specialists propose
-        
+
         let visionary = Visionary::new();
         let mut symbiotic = Symbiotic::new();
 
@@ -260,7 +258,10 @@ mod integration_tests {
         // Get intent scaling recommendation
         let scaling = symbiotic.get_intent_scaling();
         assert!(!scaling.interruption_allowed); // Don't interrupt stressed user
-        assert_eq!(scaling.recommended_focus, crate::federation::specialists::symbiotic::FocusMode::DeepWork);
+        assert_eq!(
+            scaling.recommended_focus,
+            crate::federation::specialists::symbiotic::FocusMode::DeepWork
+        );
 
         // Scenario 2: User is relaxed and idle
         let relaxed_reading = BiometricReading {
@@ -292,7 +293,7 @@ mod integration_tests {
     #[tokio::test]
     async fn test_resource_arbitration_between_specialists() {
         // Sentinel must arbitrate when multiple specialists want GPU
-        
+
         let mut phygital = Phygital::new();
         let _visionary = Visionary::new();
         let mut archivist = Archivist::new();
@@ -351,7 +352,7 @@ mod integration_tests {
     #[tokio::test]
     async fn test_specialist_negotiation_conflict_resolution() {
         // When Visionary and Phygital conflict, they negotiate
-        
+
         let visionary = Visionary::new();
         let phygital = Phygital::new();
 
@@ -363,7 +364,7 @@ mod integration_tests {
 
         // In real scenario, Sentinel would initiate negotiation
         // For now, verify both can propose independently
-        
+
         if !visionary_proposals.is_empty() && !phygital_proposals.is_empty() {
             // Both want to execute - need coordination
             let conflict = crate::federation::specialist::Conflict {
@@ -372,14 +373,23 @@ mod integration_tests {
                 conflict_type: "resource_contention".to_string(),
                 context: {
                     let mut ctx = HashMap::new();
-                    ctx.insert("reason".to_string(), "Both want GPU time simultaneously".to_string());
+                    ctx.insert(
+                        "reason".to_string(),
+                        "Both want GPU time simultaneously".to_string(),
+                    );
                     ctx
                 },
             };
 
             // Both negotiate
-            let visionary_result = visionary.negotiate(SpecialistId::Phygital, &conflict).await.unwrap();
-            let phygital_result = phygital.negotiate(SpecialistId::Visionary, &conflict).await.unwrap();
+            let visionary_result = visionary
+                .negotiate(SpecialistId::Phygital, &conflict)
+                .await
+                .unwrap();
+            let phygital_result = phygital
+                .negotiate(SpecialistId::Visionary, &conflict)
+                .await
+                .unwrap();
 
             // Both should resolve the conflict
             assert!(visionary_result.resolved);
@@ -394,7 +404,7 @@ mod integration_tests {
     #[tokio::test]
     async fn test_learning_feedback_loop() {
         // Archivist learns from Visionary's design feedback over time
-        
+
         let visionary = Visionary::new();
         let mut archivist = Archivist::new();
 
@@ -417,7 +427,7 @@ mod integration_tests {
                 };
 
                 let _result = visionary.execute(&decision).await.unwrap();
-                
+
                 // Archivist records outcome
                 let outcome = if cycle % 3 == 0 {
                     EventOutcome::UserRejected
@@ -451,12 +461,12 @@ mod integration_tests {
 
         // Verify learning occurred
         assert!(archivist.stats.total_events >= 7); // Most cycles succeeded
-        
+
         if !patterns.is_empty() {
             let design_pattern = patterns
                 .iter()
                 .find(|p| p.pattern_type.contains("Visionary"));
-            
+
             if let Some(pattern) = design_pattern {
                 // Visionary had ~67% success rate (2 rejected out of 7-10)
                 assert!(pattern.success_rate >= 0.6);
@@ -468,7 +478,7 @@ mod integration_tests {
     #[tokio::test]
     async fn test_idle_consolidation_during_sleep() {
         // Archivist proposes consolidation during deep idle/sleep
-        
+
         let mut archivist = Archivist::new();
 
         // Build up event history
@@ -477,7 +487,12 @@ mod integration_tests {
                 id: format!("event-{}", i),
                 event_type: if i % 3 == 0 { "design" } else { "sync" }.to_string(),
                 timestamp: i as u64,
-                specialist: if i % 2 == 0 { "Visionary" } else { "Omnipresent" }.to_string(),
+                specialist: if i % 2 == 0 {
+                    "Visionary"
+                } else {
+                    "Omnipresent"
+                }
+                .to_string(),
                 outcome: EventOutcome::Success,
                 duration_ms: 500 + (i as u32 * 10),
                 metadata: HashMap::new(),
@@ -494,7 +509,7 @@ mod integration_tests {
         context.user_state.activity = "sleeping".to_string();
 
         let proposals = archivist.propose(&context).await.unwrap();
-        
+
         // Should propose consolidation when idle with lots of events
         if !proposals.is_empty() {
             let consolidation_prop = &proposals[0];
@@ -521,7 +536,7 @@ mod integration_tests {
     #[tokio::test]
     async fn test_cascading_proposal_and_execution() {
         // Full cascade: Symbiotic context → Visionary proposes → Phygital renders → Archivist records
-        
+
         let mut symbiotic = Symbiotic::new();
         let visionary = Visionary::new();
         let mut phygital = Phygital::new();
@@ -601,7 +616,10 @@ mod integration_tests {
             metadata: {
                 let mut m = HashMap::new();
                 m.insert("cascade_stages".to_string(), "3".to_string());
-                m.insert("user_stress".to_string(), format!("{:.2}", symbiotic.current_state.stress_level));
+                m.insert(
+                    "user_stress".to_string(),
+                    format!("{:.2}", symbiotic.current_state.stress_level),
+                );
                 m.insert("prototype_id".to_string(), proto.id.clone());
                 m
             },
@@ -612,14 +630,17 @@ mod integration_tests {
         // Verify cascade completion
         assert_eq!(archivist.stats.total_events, 1);
         assert_eq!(phygital.prototypes.len(), 1);
-        assert_eq!(symbiotic.current_state.stress_level, symbiotic.current_state.stress_level);
+        assert_eq!(
+            symbiotic.current_state.stress_level,
+            symbiotic.current_state.stress_level
+        );
     }
 
     #[tokio::test]
     async fn test_all_specialists_learn_over_iterations() {
         // Multi-iteration test: all 5 specialists learn and improve confidence
         // Run 5 iterations, verify confidence improves each iteration
-        
+
         let visionary = Visionary::new();
         let omnipresent = Omnipresent::new();
         let symbiotic = Symbiotic::new();
@@ -650,9 +671,12 @@ mod integration_tests {
             if !visionary_proposals.is_empty() {
                 if iteration == 0 {
                     visionary_initial_confidence = visionary_proposals[0].confidence;
-                    println!("Visionary initial confidence: {:.1}%", visionary_initial_confidence * 100.0);
+                    println!(
+                        "Visionary initial confidence: {:.1}%",
+                        visionary_initial_confidence * 100.0
+                    );
                 }
-                
+
                 let decision = Decision {
                     proposal_id: visionary_proposals[0].id.clone(),
                     specialist: SpecialistId::Visionary,
@@ -661,10 +685,10 @@ mod integration_tests {
                     deadline_ms: 5000,
                     context: HashMap::new(),
                 };
-                
+
                 let result = visionary.execute(&decision).await.unwrap();
                 assert_eq!(result.status, ExecutionStatus::Success);
-                
+
                 // Get final confidence after execution
                 let props = visionary.propose(&context).await.unwrap();
                 if !props.is_empty() {
@@ -678,9 +702,12 @@ mod integration_tests {
             if !omnipresent_proposals.is_empty() {
                 if iteration == 0 {
                     omnipresent_initial_confidence = omnipresent_proposals[0].confidence;
-                    println!("Omnipresent initial confidence: {:.1}%", omnipresent_initial_confidence * 100.0);
+                    println!(
+                        "Omnipresent initial confidence: {:.1}%",
+                        omnipresent_initial_confidence * 100.0
+                    );
                 }
-                
+
                 let decision = Decision {
                     proposal_id: omnipresent_proposals[0].id.clone(),
                     specialist: SpecialistId::Omnipresent,
@@ -689,10 +716,10 @@ mod integration_tests {
                     deadline_ms: 5000,
                     context: HashMap::new(),
                 };
-                
+
                 let result = omnipresent.execute(&decision).await.unwrap();
                 assert_eq!(result.status, ExecutionStatus::Success);
-                
+
                 // Get final confidence after execution
                 let props = omni_mut.propose(&context).await.unwrap();
                 if !props.is_empty() {
@@ -705,9 +732,12 @@ mod integration_tests {
             if !symbiotic_proposals.is_empty() {
                 if iteration == 0 {
                     symbiotic_initial_confidence = symbiotic_proposals[0].confidence;
-                    println!("Symbiotic initial confidence: {:.1}%", symbiotic_initial_confidence * 100.0);
+                    println!(
+                        "Symbiotic initial confidence: {:.1}%",
+                        symbiotic_initial_confidence * 100.0
+                    );
                 }
-                
+
                 let decision = Decision {
                     proposal_id: symbiotic_proposals[0].id.clone(),
                     specialist: SpecialistId::Symbiotic,
@@ -716,10 +746,10 @@ mod integration_tests {
                     deadline_ms: 5000,
                     context: HashMap::new(),
                 };
-                
+
                 let result = symbiotic.execute(&decision).await.unwrap();
                 assert_eq!(result.status, ExecutionStatus::Success);
-                
+
                 // Get final confidence after execution
                 let props = symbiotic.propose(&context).await.unwrap();
                 if !props.is_empty() {
@@ -731,14 +761,17 @@ mod integration_tests {
             phygital.set_gpu_available(70.0);
             let landmark = phygital.detect_landmark("Desk".to_string(), LocationType::Desk);
             let _ = phygital.generate_prototype("design-1".to_string(), landmark.id.clone());
-            
+
             let phygital_proposals = phygital.propose(&context).await.unwrap();
             if !phygital_proposals.is_empty() {
                 if iteration == 0 {
                     phygital_initial_confidence = phygital_proposals[0].confidence;
-                    println!("Phygital initial confidence: {:.1}%", phygital_initial_confidence * 100.0);
+                    println!(
+                        "Phygital initial confidence: {:.1}%",
+                        phygital_initial_confidence * 100.0
+                    );
                 }
-                
+
                 let decision = Decision {
                     proposal_id: phygital_proposals[0].id.clone(),
                     specialist: SpecialistId::Phygital,
@@ -747,10 +780,10 @@ mod integration_tests {
                     deadline_ms: 5000,
                     context: HashMap::new(),
                 };
-                
+
                 let result = phygital.execute(&decision).await.unwrap();
                 assert_eq!(result.status, ExecutionStatus::Success);
-                
+
                 // Get final confidence after execution
                 let props = phygital.propose(&context).await.unwrap();
                 if !props.is_empty() {
@@ -775,16 +808,19 @@ mod integration_tests {
                     m
                 },
             };
-            
+
             archivist.record_event(event);
-            
+
             let archivist_proposals = archivist.propose(&context).await.unwrap();
             if !archivist_proposals.is_empty() {
                 if iteration == 0 {
                     archivist_initial_confidence = archivist_proposals[0].confidence;
-                    println!("Archivist initial confidence: {:.1}%", archivist_initial_confidence * 100.0);
+                    println!(
+                        "Archivist initial confidence: {:.1}%",
+                        archivist_initial_confidence * 100.0
+                    );
                 }
-                
+
                 let decision = Decision {
                     proposal_id: archivist_proposals[0].id.clone(),
                     specialist: SpecialistId::Archivist,
@@ -793,10 +829,10 @@ mod integration_tests {
                     deadline_ms: 5000,
                     context: HashMap::new(),
                 };
-                
+
                 let result = archivist.execute(&decision).await.unwrap();
                 assert_eq!(result.status, ExecutionStatus::Success);
-                
+
                 // Get final confidence after execution
                 let props = archivist.propose(&context).await.unwrap();
                 if !props.is_empty() {
@@ -807,19 +843,54 @@ mod integration_tests {
 
         // Verify learning happened: all specialists should have improved confidence
         println!("\n=== Learning Results ===");
-        println!("Visionary:  {:.1}% → {:.1}%", visionary_initial_confidence * 100.0, visionary_final_confidence * 100.0);
-        println!("Omnipresent: {:.1}% → {:.1}%", omnipresent_initial_confidence * 100.0, omnipresent_final_confidence * 100.0);
-        println!("Symbiotic:  {:.1}% → {:.1}%", symbiotic_initial_confidence * 100.0, symbiotic_final_confidence * 100.0);
-        println!("Phygital:   {:.1}% → {:.1}%", phygital_initial_confidence * 100.0, phygital_final_confidence * 100.0);
-        println!("Archivist:  {:.1}% → {:.1}%", archivist_initial_confidence * 100.0, archivist_final_confidence * 100.0);
+        println!(
+            "Visionary:  {:.1}% → {:.1}%",
+            visionary_initial_confidence * 100.0,
+            visionary_final_confidence * 100.0
+        );
+        println!(
+            "Omnipresent: {:.1}% → {:.1}%",
+            omnipresent_initial_confidence * 100.0,
+            omnipresent_final_confidence * 100.0
+        );
+        println!(
+            "Symbiotic:  {:.1}% → {:.1}%",
+            symbiotic_initial_confidence * 100.0,
+            symbiotic_final_confidence * 100.0
+        );
+        println!(
+            "Phygital:   {:.1}% → {:.1}%",
+            phygital_initial_confidence * 100.0,
+            phygital_final_confidence * 100.0
+        );
+        println!(
+            "Archivist:  {:.1}% → {:.1}%",
+            archivist_initial_confidence * 100.0,
+            archivist_final_confidence * 100.0
+        );
 
         // Specialist learning is independent but all should show improvement
         // At minimum, final confidence should be >= initial (or stay same if not proposed every iteration)
-        assert!(visionary_final_confidence >= visionary_initial_confidence - 0.01, "Visionary should not degrade");
-        assert!(omnipresent_final_confidence >= omnipresent_initial_confidence - 0.01, "Omnipresent should not degrade");
-        assert!(symbiotic_final_confidence >= symbiotic_initial_confidence - 0.01, "Symbiotic should not degrade");
-        assert!(phygital_final_confidence >= phygital_initial_confidence - 0.01, "Phygital should not degrade");
-        assert!(archivist_final_confidence >= archivist_initial_confidence - 0.01, "Archivist should not degrade");
+        assert!(
+            visionary_final_confidence >= visionary_initial_confidence - 0.01,
+            "Visionary should not degrade"
+        );
+        assert!(
+            omnipresent_final_confidence >= omnipresent_initial_confidence - 0.01,
+            "Omnipresent should not degrade"
+        );
+        assert!(
+            symbiotic_final_confidence >= symbiotic_initial_confidence - 0.01,
+            "Symbiotic should not degrade"
+        );
+        assert!(
+            phygital_final_confidence >= phygital_initial_confidence - 0.01,
+            "Phygital should not degrade"
+        );
+        assert!(
+            archivist_final_confidence >= archivist_initial_confidence - 0.01,
+            "Archivist should not degrade"
+        );
 
         // Verify Archivist recorded all events
         assert_eq!(archivist.stats.total_events, 5);
@@ -842,7 +913,9 @@ mod integration_tests {
         use crate::federation::specialists::GenericSpecialist;
 
         let specialist = GenericSpecialist::new("TestReviewer", "code_review")
-            .with_mock_llm().await.unwrap();
+            .with_mock_llm()
+            .await
+            .unwrap();
 
         let ctx = create_test_context("review PR #42 for security vulnerabilities", 0.4);
         let proposals = specialist.propose(&ctx).await.unwrap();
@@ -869,10 +942,15 @@ mod integration_tests {
         use crate::federation::specialists::GenericSpecialist;
 
         let specialist = GenericSpecialist::new("LegalAnalyst", "legal_analysis")
-            .with_mock_llm().await.unwrap();
+            .with_mock_llm()
+            .await
+            .unwrap();
 
         let mut ctx_map = HashMap::new();
-        ctx_map.insert("intent".to_string(), "analyze contract clause 7.3".to_string());
+        ctx_map.insert(
+            "intent".to_string(),
+            "analyze contract clause 7.3".to_string(),
+        );
         ctx_map.insert("dynamic_specialist".to_string(), "LegalAnalyst".to_string());
 
         let decision = Decision {
@@ -887,7 +965,10 @@ mod integration_tests {
         let result = specialist.execute(&decision).await.unwrap();
         assert_eq!(result.status, ExecutionStatus::Success);
         assert_eq!(result.specialist_name.as_deref(), Some("LegalAnalyst"));
-        assert!(result.output.contains("LegalAnalyst"), "output must be attributed to specialist");
+        assert!(
+            result.output.contains("LegalAnalyst"),
+            "output must be attributed to specialist"
+        );
     }
 
     /// Test GenericSpecialist learning accumulates across multiple executions.
@@ -920,7 +1001,10 @@ mod integration_tests {
         assert!(l.confidence_score > 0.0 && l.confidence_score <= 1.0);
         assert_eq!(l.confidence_trend.len(), 5);
         // Confidence should be reasonable after 5 successes
-        assert!(l.confidence_score > 0.5, "confidence should rise after successes");
+        assert!(
+            l.confidence_score > 0.5,
+            "confidence should rise after successes"
+        );
     }
 
     /// Test full intent→propose→execute pipeline with a GenericSpecialist
@@ -934,15 +1018,13 @@ mod integration_tests {
         use std::sync::Arc;
 
         let pm = PersistenceManager::new(":memory:").unwrap();
-        let fed = Arc::new(
-            Federation::builder(pm)
-                .with_visionary()
-                .build()
-        );
+        let fed = Arc::new(Federation::builder(pm).with_visionary().build());
 
         // Add a GenericSpecialist to the federation
         let analyst = GenericSpecialist::new("CodeReviewer", "code_review")
-            .with_mock_llm().await.unwrap();
+            .with_mock_llm()
+            .await
+            .unwrap();
         fed.add_generic_specialist(Arc::new(analyst)).await;
 
         // Verify it shows up in the dynamic specialists list
@@ -960,5 +1042,4 @@ mod integration_tests {
         // registry is correct)
         assert_eq!(fed.enabled_count(), 2); // Visionary + CodeReviewer
     }
-
 }

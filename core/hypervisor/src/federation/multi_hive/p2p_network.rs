@@ -1,7 +1,6 @@
 /// P2P Network: Cross-Hive Communication
-/// 
+///
 /// Enables peer-to-peer communication between Aaroneous hives
-
 use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
 
@@ -24,7 +23,7 @@ impl Default for NetworkConfig {
             max_peers: 100,
             message_timeout_ms: 5000,
             heartbeat_interval_ms: 1000,
-            max_message_size_kb: 10240,  // 10MB
+            max_message_size_kb: 10240, // 10MB
         }
     }
 }
@@ -204,7 +203,8 @@ impl P2PNetwork {
 
         // Track message
         if message.requires_ack {
-            self.ack_pending.insert(message.message_id.clone(), message.clone());
+            self.ack_pending
+                .insert(message.message_id.clone(), message.clone());
         }
 
         // Add to queue
@@ -310,7 +310,9 @@ mod tests {
     #[test]
     fn test_network_send_message() {
         let mut network = P2PNetwork::new(NetworkConfig::default());
-        network.connect_peer("hive-2".to_string(), "127.0.0.1:8002".to_string()).ok();
+        network
+            .connect_peer("hive-2".to_string(), "127.0.0.1:8002".to_string())
+            .ok();
 
         let msg = PeerMessage::new(
             "hive-1".to_string(),
@@ -327,7 +329,9 @@ mod tests {
     #[test]
     fn test_network_stats() {
         let mut network = P2PNetwork::new(NetworkConfig::default());
-        network.connect_peer("hive-2".to_string(), "127.0.0.1:8002".to_string()).ok();
+        network
+            .connect_peer("hive-2".to_string(), "127.0.0.1:8002".to_string())
+            .ok();
 
         let stats = network.stats();
         assert_eq!(stats.connected_peers, 1);

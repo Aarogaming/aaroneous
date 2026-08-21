@@ -1,5 +1,5 @@
-use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 /// High-dimensional representation of a piece of memory.
 pub type Embedding = Vec<f32>;
@@ -50,16 +50,10 @@ impl EmbeddingStore {
     }
 
     /// Add a new text memory to the store for a specific sovereign.
-    pub fn store_text(
-        &mut self,
-        id: &str,
-        sovereign: &str,
-        text: &str,
-        category: &str,
-    ) {
+    pub fn store_text(&mut self, id: &str, sovereign: &str, text: &str, category: &str) {
         self.update_vocab(text);
         let embedding = self.vectorize(text);
-        
+
         let memory = EmbeddedMemory {
             id: id.to_string(),
             sovereign: sovereign.to_string(),
@@ -97,8 +91,10 @@ impl EmbeddingStore {
 
         for memories in sources {
             for m in memories {
-                if let Some(cat) = category_filter {
-                    if m.category != cat { continue; }
+                if let Some(cat) = category_filter
+                    && m.category != cat
+                {
+                    continue;
                 }
 
                 let score = cosine_similarity(&query_vec, &m.embedding);
@@ -115,15 +111,11 @@ impl EmbeddingStore {
     }
 
     /// Recall past experiences as a formatted string for LLM context injection.
-    pub fn recall_for(
-        &self,
-        sovereign: &str,
-        intent: &str,
-        top_k: usize,
-    ) -> String {
+    pub fn recall_for(&self, sovereign: &str, intent: &str, top_k: usize) -> String {
         let results = self.query_text(intent, top_k, Some(sovereign), None);
         // Filter below threshold — prevents low-relevance memories from polluting context
-        let relevant: Vec<_> = results.iter()
+        let relevant: Vec<_> = results
+            .iter()
             .filter(|r| r.score >= Self::MIN_RECALL_SCORE)
             .collect();
 
@@ -206,10 +198,10 @@ impl EmbeddingStore {
         // Term frequency
         let mut tf: HashMap<usize, f32> = HashMap::new();
         for term in &terms {
-            if let Some(&idx) = self.vocab.get(term) {
-                if idx < dim {
-                    *tf.entry(idx).or_insert(0.0) += 1.0 / total;
-                }
+            if let Some(&idx) = self.vocab.get(term)
+                && idx < dim
+            {
+                *tf.entry(idx).or_insert(0.0) += 1.0 / total;
             }
         }
 
@@ -222,7 +214,9 @@ impl EmbeddingStore {
         // L2 normalize
         let norm: f32 = vec.iter().map(|x| x * x).sum::<f32>().sqrt();
         if norm > 0.0 {
-            for x in &mut vec { *x /= norm; }
+            for x in &mut vec {
+                *x /= norm;
+            }
         }
         vec
     }
@@ -233,18 +227,24 @@ impl EmbeddingStore {
 #[derive(Debug, Clone)]
 pub struct SimilarMemory {
     pub memory: EmbeddedMemory,
-    pub score: f32,  // cosine similarity [0, 1]
+    pub score: f32, // cosine similarity [0, 1]
 }
 
 // ── Math ──────────────────────────────────────────────────────────────────────
 
 /// Cosine similarity between two vectors. Returns 0.0 if either is zero.
 pub fn cosine_similarity(a: &[f32], b: &[f32]) -> f32 {
-    if a.len() != b.len() || a.is_empty() { return 0.0; }
+    if a.len() != b.len() || a.is_empty() {
+        return 0.0;
+    }
     let dot: f32 = a.iter().zip(b.iter()).map(|(x, y)| x * y).sum();
     let norm_a: f32 = a.iter().map(|x| x * x).sum::<f32>().sqrt();
     let norm_b: f32 = b.iter().map(|x| x * x).sum::<f32>().sqrt();
-    if norm_a == 0.0 || norm_b == 0.0 { 0.0 } else { dot / (norm_a * norm_b) }
+    if norm_a == 0.0 || norm_b == 0.0 {
+        0.0
+    } else {
+        dot / (norm_a * norm_b)
+    }
 }
 
 /// Simple word tokenizer: lowercase, alphanumeric tokens, min length 3.
@@ -283,7 +283,9 @@ struct EmbeddingStoreSnapshot {
 impl EmbeddingStore {
     /// Save to a specific path (used by GenericSpecialist for per-sovereign memory).
     pub fn save_to_disk_at(&self, path: &std::path::Path) -> anyhow::Result<()> {
-        if self.total_count() == 0 { return Ok(()); }
+        if self.total_count() == 0 {
+            return Ok(());
+        }
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent)?;
         }
@@ -303,7 +305,9 @@ impl EmbeddingStore {
 
     /// Load from a specific path (used by GenericSpecialist for per-sovereign memory).
     pub fn load_from_disk_at(path: &std::path::Path, dim: usize) -> Self {
-        if !path.exists() { return Self::new(dim); }
+        if !path.exists() {
+            return Self::new(dim);
+        }
         let data = match std::fs::read_to_string(path) {
             Ok(d) => d,
             Err(_) => return Self::new(dim),
@@ -327,7 +331,9 @@ impl EmbeddingStore {
     /// Called on federation shutdown. The sidecar is loaded back on startup
     /// via `load_from_disk()`, making cross-session RAG memory persistent.
     pub fn save_to_disk(&self) -> anyhow::Result<()> {
-        let path = crate::workspace::WorkspacePaths::workspace_root().join("data").join("federation_memory.json");
+        let path = crate::workspace::WorkspacePaths::workspace_root()
+            .join("data")
+            .join("federation_memory.json");
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent)?;
         }
@@ -356,7 +362,9 @@ impl EmbeddingStore {
     /// Called at federation startup. If the sidecar doesn't exist or is
     /// corrupt, a fresh empty store is returned gracefully.
     pub fn load_from_disk(dim: usize) -> Self {
-        let path = crate::workspace::WorkspacePaths::workspace_root().join("data").join("federation_memory.json");
+        let path = crate::workspace::WorkspacePaths::workspace_root()
+            .join("data")
+            .join("federation_memory.json");
         if !path.exists() {
             return Self::new(dim);
         }
@@ -398,11 +406,11 @@ impl EmbeddingStore {
                 }
             }
         };
-        
+
         if snapshot.df.len() < snapshot.vocab.len() {
             snapshot.df.resize(snapshot.vocab.len(), 1);
         }
-        
+
         tracing::info!(
             "EmbeddingStore: restored {} memories from sidecar (saved at {})",
             snapshot.total_memories,
@@ -430,8 +438,18 @@ mod tests {
         let mut store = EmbeddingStore::new(256);
 
         store.store_text("m1", "Merlin", "Rust async runtime tokio", "research");
-        store.store_text("m2", "Merlin", "Python async asyncio coroutines", "research");
-        store.store_text("m3", "Ariel", "UI design patterns component grid", "execution");
+        store.store_text(
+            "m2",
+            "Merlin",
+            "Python async asyncio coroutines",
+            "research",
+        );
+        store.store_text(
+            "m3",
+            "Ariel",
+            "UI design patterns component grid",
+            "execution",
+        );
 
         let results = store.query_text("Rust async programming", 2, Some("Merlin"), None);
         assert!(!results.is_empty(), "Should return at least one result");
@@ -455,12 +473,28 @@ mod tests {
     #[test]
     fn test_recall_for_format() {
         let mut store = EmbeddingStore::new(256);
-        store.store_text("r1", "Odin", "task decomposition planning workflow", "execution");
-        store.store_text("r2", "Odin", "guild coordination sovereign assignment", "execution");
+        store.store_text(
+            "r1",
+            "Odin",
+            "task decomposition planning workflow",
+            "execution",
+        );
+        store.store_text(
+            "r2",
+            "Odin",
+            "guild coordination sovereign assignment",
+            "execution",
+        );
 
         let recall = store.recall_for("Odin", "task decomposition planning workflow", 2);
-        assert!(recall.contains("Relevant memories"), "recall_for should produce formatted output");
-        assert!(recall.contains("relevance:"), "should include relevance scores");
+        assert!(
+            recall.contains("Relevant memories"),
+            "recall_for should produce formatted output"
+        );
+        assert!(
+            recall.contains("relevance:"),
+            "should include relevance scores"
+        );
     }
 
     #[test]

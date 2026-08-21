@@ -7,8 +7,8 @@ use std::io::{Read, Seek, SeekFrom};
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum IngestionSourceType {
     DesktopVideoRecord = 0x0A,
-    ProgramDirectory   = 0x0B,
-    DocumentRawBytes   = 0x0C,
+    ProgramDirectory = 0x0B,
+    DocumentRawBytes = 0x0C,
 }
 
 /// Normalized GGUF tensor layer type after key unification.
@@ -16,9 +16,9 @@ pub enum IngestionSourceType {
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum UnifiedLayerType {
     AttentionQuery = 0x01,
-    AttentionKey   = 0x02,
+    AttentionKey = 0x02,
     AttentionValue = 0x03,
-    FeedForwardUp  = 0x04,
+    FeedForwardUp = 0x04,
 }
 
 /// Fractional screen coordinate in [0.0, 1.0] space.
@@ -94,7 +94,7 @@ impl NetworkDataStream {
             hasher.write(chunk);
             let chunk_hash = hasher.finish();
 
-            let array_index = (index % 128) as usize;
+            let array_index = index % 128;
 
             unsafe {
                 let target_register = target_vsa.get_unchecked_mut(array_index);
@@ -113,7 +113,7 @@ impl NetworkDataStream {
             let mut hasher = SeaHasher::new();
             hasher.write(chunk);
             let chunk_hash = hasher.finish();
-            let array_index = (index % 128) as usize;
+            let array_index = index % 128;
             computed[array_index] ^= chunk_hash;
         }
         &computed == expected
@@ -168,20 +168,22 @@ pub struct GgufTensorBlock {
 /// Scans the file, builds a list of all tensor blocks with their raw byte slices,
 /// and returns them for downstream SVD/VSA processing.
 pub fn seek_gguf_tensor_blocks(path: &str) -> Result<Vec<GgufTensorBlock>, String> {
+    use byteorder::{LittleEndian, ReadBytesExt};
     use std::fs::File;
     use std::io::{Read, Seek, SeekFrom};
-    use byteorder::{LittleEndian, ReadBytesExt};
 
     let mut file = File::open(path).map_err(|e| format!("open {}: {}", path, e))?;
 
     // ── Verify magic and version ───────────────────────────────────────
     let mut magic = [0u8; 4];
-    file.read_exact(&mut magic).map_err(|e| format!("read magic: {}", e))?;
+    file.read_exact(&mut magic)
+        .map_err(|e| format!("read magic: {}", e))?;
     if magic != GGUF_MAGIC {
         return Err(format!("Bad magic: {:?} (expected GGUF)", magic));
     }
 
-    let version = file.read_u32::<LittleEndian>()
+    let version = file
+        .read_u32::<LittleEndian>()
         .map_err(|e| format!("read version: {}", e))?;
     if version < GGUF_VERSION {
         return Err(format!("Unsupported GGUF version {}, need >=3", version));
@@ -190,19 +192,23 @@ pub fn seek_gguf_tensor_blocks(path: &str) -> Result<Vec<GgufTensorBlock>, Strin
     // ── Skip metadata header ───────────────────────────────────────────
     // After version: tensor_count (u64), metadata_kv_count (u64), then metadata KV pairs.
     // We skip these to reach the tensor info section directly.
-    let _tensor_count = file.read_u64::<LittleEndian>()
+    let _tensor_count = file
+        .read_u64::<LittleEndian>()
         .map_err(|e| format!("read tensor_count: {}", e))?;
-    let metadata_kv_count = file.read_u64::<LittleEndian>()
+    let metadata_kv_count = file
+        .read_u64::<LittleEndian>()
         .map_err(|e| format!("read metadata_kv_count: {}", e))?;
 
     // Skip each metadata KV pair: key_length(u32) + key + value_type(u32) + value_data
     for _ in 0..metadata_kv_count {
-        let key_len = file.read_u32::<LittleEndian>()
+        let key_len = file
+            .read_u32::<LittleEndian>()
             .map_err(|e| format!("read kv key_len: {}", e))?;
         file.seek(SeekFrom::Current(key_len as i64))
             .map_err(|e| format!("seek past key: {}", e))?;
 
-        let value_type = file.read_u32::<LittleEndian>()
+        let value_type = file
+            .read_u32::<LittleEndian>()
             .map_err(|e| format!("read value_type: {}", e))?;
         skip_metadata_value(&mut file, value_type)?;
     }
@@ -218,26 +224,32 @@ pub fn seek_gguf_tensor_blocks(path: &str) -> Result<Vec<GgufTensorBlock>, Strin
     // The tensor info section contains `tensor_count` entries.
     // We estimated tensor_count from the initial read, but we need it again.
     // Re-seek to re-read (simpler approach).
-    file.seek(SeekFrom::Start(8)).map_err(|e| format!("re-seek: {}", e))?;
-    let total_tensors = file.read_u64::<LittleEndian>()
+    file.seek(SeekFrom::Start(8))
+        .map_err(|e| format!("re-seek: {}", e))?;
+    let total_tensors = file
+        .read_u64::<LittleEndian>()
         .map_err(|e| format!("read tensor_count: {}", e))?;
 
     // Re-skip metadata again to get back to tensor info section
-    let meta_count = file.read_u64::<LittleEndian>()
+    let meta_count = file
+        .read_u64::<LittleEndian>()
         .map_err(|e| format!("re-read meta_kv_count: {}", e))?;
     for _ in 0..meta_count {
-        let key_len = file.read_u32::<LittleEndian>()
+        let key_len = file
+            .read_u32::<LittleEndian>()
             .map_err(|e| format!("skip kv key_len: {}", e))?;
         file.seek(SeekFrom::Current(key_len as i64))
             .map_err(|e| format!("seek past key: {}", e))?;
-        let value_type = file.read_u32::<LittleEndian>()
+        let value_type = file
+            .read_u32::<LittleEndian>()
             .map_err(|e| format!("read value_type: {}", e))?;
         skip_metadata_value(&mut file, value_type)?;
     }
 
     // ── Read each tensor info header ──────────────────────────────────
     for _ in 0..total_tensors {
-        let name_len = file.read_u32::<LittleEndian>()
+        let name_len = file
+            .read_u32::<LittleEndian>()
             .map_err(|e| format!("read name_len: {}", e))?;
 
         let mut name_bytes = vec![0u8; name_len as usize];
@@ -248,22 +260,28 @@ pub fn seek_gguf_tensor_blocks(path: &str) -> Result<Vec<GgufTensorBlock>, Strin
             .trim_end_matches('\0')
             .to_string();
 
-        let n_dims = file.read_u32::<LittleEndian>()
+        let n_dims = file
+            .read_u32::<LittleEndian>()
             .map_err(|e| format!("read n_dims: {}", e))?;
-        let dim_0 = file.read_u64::<LittleEndian>()
+        let dim_0 = file
+            .read_u64::<LittleEndian>()
             .map_err(|e| format!("read dim_0: {}", e))?;
-        let dim_1 = file.read_u64::<LittleEndian>()
+        let dim_1 = file
+            .read_u64::<LittleEndian>()
             .map_err(|e| format!("read dim_1: {}", e))?;
-        let tensor_type = file.read_u32::<LittleEndian>()
+        let tensor_type = file
+            .read_u32::<LittleEndian>()
             .map_err(|e| format!("read tensor_type: {}", e))?;
-        let offset = file.read_u64::<LittleEndian>()
+        let offset = file
+            .read_u64::<LittleEndian>()
             .map_err(|e| format!("read offset: {}", e))?;
 
         tensor_blocks.push((name, n_dims, dim_0, dim_1, tensor_type, offset));
     }
 
     // ── Read raw data for each tensor ─────────────────────────────────
-    let file_size = file.metadata()
+    let file_size = file
+        .metadata()
         .map_err(|e| format!("metadata: {}", e))?
         .len();
 
@@ -271,10 +289,10 @@ pub fn seek_gguf_tensor_blocks(path: &str) -> Result<Vec<GgufTensorBlock>, Strin
 
     for (name, n_dims, dim_0, dim_1, tensor_type, offset) in tensor_blocks {
         // Estimate data size from dimensions and type
-        let data_size = estimate_tensor_size(n_dims, dim_0, dim_1, tensor_type)
-            .unwrap_or(64 * 1024); // fallback: 64KB
+        let data_size =
+            estimate_tensor_size(n_dims, dim_0, dim_1, tensor_type).unwrap_or(64 * 1024); // fallback: 64KB
 
-        let end = (offset as u64).saturating_add(data_size as u64).min(file_size) as usize;
+        let end = offset.saturating_add(data_size as u64).min(file_size) as usize;
         let start = offset as usize;
 
         if start > end || start >= file_size as usize {
@@ -322,8 +340,12 @@ pub fn classify_layer_name(name: &str) -> Option<UnifiedLayerType> {
         Some(UnifiedLayerType::AttentionKey)
     } else if lower.contains("v_proj") || lower.contains("attn_v") || lower.contains("value") {
         Some(UnifiedLayerType::AttentionValue)
-    } else if lower.contains("gate_proj") || lower.contains("w1") || lower.contains("gate")
-        || lower.contains("up_proj") || lower.contains("w3") {
+    } else if lower.contains("gate_proj")
+        || lower.contains("w1")
+        || lower.contains("gate")
+        || lower.contains("up_proj")
+        || lower.contains("w3")
+    {
         Some(UnifiedLayerType::FeedForwardUp)
     } else {
         None // non-attention/ff layers (norm, embedding, output, etc.)
@@ -339,22 +361,34 @@ fn skip_metadata_value<R: Read + Seek>(reader: &mut R, value_type: u32) -> Resul
     // 6 = float32, 7 = bool, 8 = string, 9 = array, 10 = uint64, 11 = int64,
     // 12 = float64, 13 = array_of_array (rare)
     match value_type {
-        0 | 1 | 7 => { reader.seek(SeekFrom::Current(1)).ok(); }
-        2 | 3 => { reader.seek(SeekFrom::Current(2)).ok(); }
-        4 | 5 | 6 => { reader.seek(SeekFrom::Current(4)).ok(); }
-        10 | 11 | 12 => { reader.seek(SeekFrom::Current(8)).ok(); }
-        8 => { // string: length(u64) + data
+        0 | 1 | 7 => {
+            reader.seek(SeekFrom::Current(1)).ok();
+        }
+        2 | 3 => {
+            reader.seek(SeekFrom::Current(2)).ok();
+        }
+        4..=6 => {
+            reader.seek(SeekFrom::Current(4)).ok();
+        }
+        10..=12 => {
+            reader.seek(SeekFrom::Current(8)).ok();
+        }
+        8 => {
+            // string: length(u64) + data
             let len = read_u64_le(reader).unwrap_or(0);
             reader.seek(SeekFrom::Current(len as i64)).ok();
         }
-        9 => { // array: type(u32) + count(u64) + elements
+        9 => {
+            // array: type(u32) + count(u64) + elements
             let elem_type = read_u32_le(reader).unwrap_or(0);
             let count = read_u64_le(reader).unwrap_or(0);
             for _ in 0..count {
                 skip_metadata_value(reader, elem_type)?;
             }
         }
-        _ => { return Err(format!("Unknown GGUF metadata type: {}", value_type)); }
+        _ => {
+            return Err(format!("Unknown GGUF metadata type: {}", value_type));
+        }
     }
     Ok(())
 }
@@ -380,27 +414,27 @@ fn estimate_tensor_size(n_dims: u32, dim_0: u64, dim_1: u64, tensor_type: u32) -
     // GGML type byte sizes (common types):
     // 0 = F32 (4), 1 = F16 (2), 2 = Q4_0, 3 = Q4_1, ...
     let element_size = match tensor_type {
-        0 => 4, // GGML_TYPE_F32
-        1 => 2, // GGML_TYPE_F16
+        0 => 4,                           // GGML_TYPE_F32
+        1 => 2,                           // GGML_TYPE_F16
         2 | 3 => element_count / 32 * 16, // Q4_0/Q4_1: 16 bytes per 32 elements
-        6 => element_count / 256 * 224,    // Q5_K: 224 bytes per 256 elements
-        7 => element_count / 256 * 208,    // Q6_K: 208 bytes per 256 elements
-        8 => element_count / 256 * 216,    // Q8_K: 216 bytes per 256 elements
-        10 => element_count / 256 * 200,   // Q3_K: 200 bytes per 256 elements
-        11 => element_count / 256 * 208,   // Q4_K: 208 bytes per 256 elements
-        12 => element_count / 256 * 192,   // Q5_K: 192 bytes per 256 elements (alt)
-        14 => element_count / 64 * 36,     // IQ2_XXS: 36 bytes per 64 elements
-        15 => element_count / 256 * 128,   // Q2_K_S
-        16 => element_count / 256 * 64,    // Q3_K_S
-        17 => element_count / 256 * 96,    // Q4_K_S
-        20 => element_count / 32 * 20,     // IQ2_XS
-        21 => element_count / 32 * 18,     // IQ3_XS
-        22 => element_count / 32 * 22,     // IQ3_S
-        23 => element_count / 32 * 24,     // IQ4_NL
-        24 => element_count / 32 * 22,     // IQ4_XS
-        26 => element_count / 64 * 36,     // IQ1_S: 36 bytes per 64 elements
-        27 => element_count / 32 * 18,     // IQ2_S: 18 bytes per 32 elements
-        _ => return None, // unknown type
+        6 => element_count / 256 * 224,   // Q5_K: 224 bytes per 256 elements
+        7 => element_count / 256 * 208,   // Q6_K: 208 bytes per 256 elements
+        8 => element_count / 256 * 216,   // Q8_K: 216 bytes per 256 elements
+        10 => element_count / 256 * 200,  // Q3_K: 200 bytes per 256 elements
+        11 => element_count / 256 * 208,  // Q4_K: 208 bytes per 256 elements
+        12 => element_count / 256 * 192,  // Q5_K: 192 bytes per 256 elements (alt)
+        14 => element_count / 64 * 36,    // IQ2_XXS: 36 bytes per 64 elements
+        15 => element_count / 256 * 128,  // Q2_K_S
+        16 => element_count / 256 * 64,   // Q3_K_S
+        17 => element_count / 256 * 96,   // Q4_K_S
+        20 => element_count / 32 * 20,    // IQ2_XS
+        21 => element_count / 32 * 18,    // IQ3_XS
+        22 => element_count / 32 * 22,    // IQ3_S
+        23 => element_count / 32 * 24,    // IQ4_NL
+        24 => element_count / 32 * 22,    // IQ4_XS
+        26 => element_count / 64 * 36,    // IQ1_S: 36 bytes per 64 elements
+        27 => element_count / 32 * 18,    // IQ2_S: 18 bytes per 32 elements
+        _ => return None,                 // unknown type
     };
 
     Some(element_size)
@@ -412,13 +446,34 @@ mod tests {
 
     #[test]
     fn test_classify_layer_names() {
-        assert_eq!(classify_layer_name("model.layers.0.attention.self.query.weight"), Some(UnifiedLayerType::AttentionQuery));
-        assert_eq!(classify_layer_name("model.layers.0.attention.self.key.weight"), Some(UnifiedLayerType::AttentionKey));
-        assert_eq!(classify_layer_name("model.layers.0.attention.self.value.weight"), Some(UnifiedLayerType::AttentionValue));
-        assert_eq!(classify_layer_name("model.layers.0.mlp.gate_proj.weight"), Some(UnifiedLayerType::FeedForwardUp));
-        assert_eq!(classify_layer_name("model.layers.0.mlp.up_proj.weight"), Some(UnifiedLayerType::FeedForwardUp));
-        assert_eq!(classify_layer_name("model.layers.0.mlp.down_proj.weight"), None); // not ff-up
-        assert_eq!(classify_layer_name("model.layers.0.input_layernorm.weight"), None);
+        assert_eq!(
+            classify_layer_name("model.layers.0.attention.self.query.weight"),
+            Some(UnifiedLayerType::AttentionQuery)
+        );
+        assert_eq!(
+            classify_layer_name("model.layers.0.attention.self.key.weight"),
+            Some(UnifiedLayerType::AttentionKey)
+        );
+        assert_eq!(
+            classify_layer_name("model.layers.0.attention.self.value.weight"),
+            Some(UnifiedLayerType::AttentionValue)
+        );
+        assert_eq!(
+            classify_layer_name("model.layers.0.mlp.gate_proj.weight"),
+            Some(UnifiedLayerType::FeedForwardUp)
+        );
+        assert_eq!(
+            classify_layer_name("model.layers.0.mlp.up_proj.weight"),
+            Some(UnifiedLayerType::FeedForwardUp)
+        );
+        assert_eq!(
+            classify_layer_name("model.layers.0.mlp.down_proj.weight"),
+            None
+        ); // not ff-up
+        assert_eq!(
+            classify_layer_name("model.layers.0.input_layernorm.weight"),
+            None
+        );
     }
 
     #[test]
@@ -445,7 +500,10 @@ mod tests {
     #[test]
     fn test_ingestion_data_chunk_default() {
         let chunk = IngestionDataChunk::default();
-        assert_eq!(chunk.source_type as u8, IngestionSourceType::ProgramDirectory as u8);
+        assert_eq!(
+            chunk.source_type as u8,
+            IngestionSourceType::ProgramDirectory as u8
+        );
         assert_eq!(chunk.coordinate_bounds, [0.0, 0.0, 1.0, 1.0]);
     }
 

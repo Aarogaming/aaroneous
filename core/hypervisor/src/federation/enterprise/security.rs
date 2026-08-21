@@ -1,7 +1,6 @@
 /// Security Hardening Module
-/// 
+///
 /// TLS configuration, encryption, and security policies
-
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

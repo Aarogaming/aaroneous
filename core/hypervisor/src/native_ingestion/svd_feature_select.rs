@@ -1,5 +1,3 @@
-use std::f32::consts::SQRT_2;
-
 /// Configuration for truncated SVD feature selection.
 pub struct SvdConfig {
     /// Number of singular values to retain (target rank).
@@ -127,7 +125,7 @@ impl SvdReducer {
         mat_mul(matrix, &omega, &mut y, rows, cols, k, false, false);
 
         // 2. QR factorization of Y to get Q (rows × k)
-        let (mut q, _) = householder_qr(&mut y, rows, k);
+        let (q, _) = householder_qr(&mut y, rows, k);
 
         // 3. B = Q^T * A   (k × cols)
         let mut b = vec![0.0f32; k * cols];
@@ -253,7 +251,7 @@ fn mat_mul(
     trans_a: bool,
     trans_b: bool,
 ) {
-    let a_rows = if trans_a { k } else { m };
+    let _a_rows = if trans_a { k } else { m };
     let a_cols = if trans_a { m } else { k };
     let b_rows = if trans_b { n } else { k };
     let b_cols = if trans_b { k } else { n };

@@ -1,0 +1,1363 @@
+[2026-04-07 17:22:54] Scanning for JPG files...
+[2026-04-07 17:22:54] Found 457 total JPG files. Starting parallel processing (workers=4)...
+[2026-04-07 17:22:54] [1/457] Skipped (already exists): PXL_20260210_183923487.jpg
+[2026-04-07 17:22:54] [2/457] Skipped (already exists): PXL_20260210_183858739.jpg
+[2026-04-07 17:22:54] [3/457] Skipped (already exists): PXL_20260210_183927059.jpg
+[2026-04-07 17:22:54] [4/457] Skipped (already exists): PXL_20260210_183910839.jpg
+[2026-04-07 17:22:54] [5/457] Skipped (already exists): PXL_20260210_183940543.jpg
+[2026-04-07 17:22:54] [6/457] Skipped (already exists): PXL_20260210_183904764.jpg
+[2026-04-07 17:22:54] [7/457] Skipped (already exists): PXL_20260210_183914975.jpg
+[2026-04-07 17:22:54] [8/457] Skipped (already exists): PXL_20260210_183955655.jpg
+[2026-04-07 17:22:54] [9/457] Skipped (already exists): PXL_20260210_183946207.jpg
+[2026-04-07 17:22:54] [10/457] Skipped (already exists): PXL_20260210_183935991.jpg
+[2026-04-07 17:22:54] [11/457] Skipped (already exists): PXL_20260210_184004803.jpg
+[2026-04-07 17:22:54] [12/457] Skipped (already exists): PXL_20260210_184030790.jpg
+[2026-04-07 17:22:54] [13/457] Skipped (already exists): PXL_20260210_184047106.jpg
+[2026-04-07 17:22:54] [14/457] Skipped (already exists): PXL_20260210_184050313.jpg
+[2026-04-07 17:22:54] [15/457] Skipped (already exists): PXL_20260126_233737684.jpg
+[2026-04-07 17:22:54] [16/457] Skipped (already exists): PXL_20260126_233744149.jpg
+[2026-04-07 17:22:54] [17/457] Skipped (already exists): PXL_20260210_184105225.jpg
+[2026-04-07 17:22:54] [18/457] Skipped (already exists): PXL_20260126_230248488.jpg
+[2026-04-07 17:22:54] [19/457] Skipped (already exists): PXL_20260210_183056764.jpg
+[2026-04-07 17:22:54] [20/457] Skipped (already exists): PXL_20260210_183107098.jpg
+[2026-04-07 17:22:54] [21/457] Skipped (already exists): PXL_20260210_183113132.jpg
+[2026-04-07 17:22:54] [22/457] Skipped (already exists): PXL_20260210_183118010.jpg
+[2026-04-07 17:22:54] [23/457] Skipped (already exists): PXL_20260210_183102851.jpg
+[2026-04-07 17:22:54] [24/457] Skipped (already exists): PXL_20260210_183122291.jpg
+[2026-04-07 17:22:54] [25/457] Skipped (already exists): PXL_20260210_183134828.jpg
+[2026-04-07 17:22:54] [26/457] Skipped (already exists): PXL_20260210_183128180.jpg
+[2026-04-07 17:22:54] [27/457] Skipped (already exists): PXL_20260210_183142606.jpg
+[2026-04-07 17:22:54] [28/457] Skipped (already exists): PXL_20260210_183131558.jpg
+[2026-04-07 17:22:54] [29/457] Skipped (already exists): PXL_20260210_183138759.jpg
+[2026-04-07 17:22:54] [30/457] Skipped (already exists): PXL_20260210_183150836.jpg
+[2026-04-07 17:22:54] [31/457] Skipped (already exists): PXL_20260210_183147025.jpg
+[2026-04-07 17:22:54] [32/457] Skipped (already exists): PXL_20260210_183203142.jpg
+[2026-04-07 17:22:54] [33/457] Skipped (already exists): PXL_20260210_183157402.jpg
+[2026-04-07 17:22:54] [34/457] Skipped (already exists): PXL_20260210_183212028.jpg
+[2026-04-07 17:22:54] [35/457] Skipped (already exists): PXL_20260210_183215832.jpg
+[2026-04-07 17:22:54] [36/457] Skipped (already exists): PXL_20260210_183232411.jpg
+[2026-04-07 17:22:54] [37/457] Skipped (already exists): PXL_20260210_183226507.jpg
+[2026-04-07 17:22:54] [38/457] Skipped (already exists): PXL_20260210_183242356.jpg
+[2026-04-07 17:22:54] [39/457] Skipped (already exists): PXL_20260210_183207060.jpg
+[2026-04-07 17:22:54] [40/457] Skipped (already exists): PXL_20260210_183249285.jpg
+[2026-04-07 17:22:54] [41/457] Skipped (already exists): PXL_20260210_183236765.jpg
+[2026-04-07 17:22:54] [42/457] Skipped (already exists): PXL_20260210_183256218.jpg
+[2026-04-07 17:22:54] [43/457] Skipped (already exists): PXL_20260210_183322806.jpg
+[2026-04-07 17:22:54] [44/457] Skipped (already exists): PXL_20260210_183331328.jpg
+[2026-04-07 17:22:54] [45/457] Skipped (already exists): PXL_20260210_183304857.jpg
+[2026-04-07 17:22:54] [46/457] Skipped (already exists): PXL_20260210_183311112.jpg
+[2026-04-07 17:22:54] [47/457] Skipped (already exists): PXL_20260216_224821721.jpg
+[2026-04-07 17:22:54] [48/457] Skipped (already exists): PXL_20260216_224831099.jpg
+[2026-04-07 17:22:54] [49/457] Skipped (already exists): PXL_20260216_224924959.jpg
+[2026-04-07 17:22:54] [50/457] Skipped (already exists): PXL_20260223_211344386.jpg
+[2026-04-07 17:22:54] [51/457] Skipped (already exists): PXL_20260225_211815070.MP.jpg
+[2026-04-07 17:22:54] [52/457] Skipped (already exists): PXL_20260216_224858536.jpg
+[2026-04-07 17:22:54] [53/457] Skipped (already exists): PXL_20260318_203227947.RAW-01.jpg
+[2026-04-07 17:22:54] [54/457] Skipped (already exists): PXL_20260318_210357377.RAW-01.jpg
+[2026-04-07 17:22:54] [55/457] Skipped (already exists): PXL_20260318_203231164.RAW-01.jpg
+[2026-04-07 17:24:45] [56/457] Extracted: PXL_20260325_203732193.RAW-01.jpg
+[2026-04-07 17:24:46] [57/457] Extracted: PXL_20260330_164900859.RAW-01.jpg
+[2026-04-07 17:26:28] [58/457] Extracted: PXL_20260330_164802733.RAW-01.jpg
+[2026-04-07 17:27:56] [59/457] Error on PXL_20260330_164921106.RAW-01.jpg: timed out
+[2026-04-07 17:29:06] [60/457] Extracted: PXL_20260330_201334533.RAW-01.jpg
+[2026-04-07 17:29:47] [61/457] Error on PXL_20260330_165248548.RAW-01.jpg: timed out
+[2026-04-07 17:31:13] [62/457] Extracted: PXL_20260406_201025634.jpg
+[2026-04-07 17:31:30] [63/457] Error on PXL_20260406_201006649.jpg: timed out
+[2026-04-07 17:34:08] [64/457] Error on PXL_20260406_205423149.jpg: timed out
+[2026-04-07 17:34:49] [65/457] Error on PXL_20260406_205426419.jpg: timed out
+[2026-04-07 17:36:05] [66/457] Extracted: PXL_20260407_203854376.jpg
+[2026-04-07 17:36:15] [67/457] Error on PXL_20260406_205433003.jpg: timed out
+[2026-04-07 17:39:10] [68/457] Error on PXL_20260407_203906092.jpg: timed out
+[2026-04-07 17:39:51] [69/457] Error on PXL_20260407_203918906.jpg: timed out
+[2026-04-07 17:41:07] [70/457] Error on PXL_20260407_204822155.jpg: timed out
+[2026-04-07 17:41:17] [71/457] Error on PXL_20260407_204827158.jpg: timed out
+[2026-04-07 17:44:02] [72/457] Extracted: PXL_20260407_204955205.jpg
+[2026-04-07 17:44:12] [73/457] Error on PXL_20260407_204830784.jpg: timed out
+[2026-04-07 17:46:01] [74/457] Extracted: PXL_20260407_205049022.jpg
+[2026-04-07 17:46:09] [75/457] Error on PXL_20260407_205002540.jpg: timed out
+[2026-04-07 17:49:04] [76/457] Error on PXL_20260407_205054380.jpg: timed out
+[2026-04-07 17:49:15] [77/457] Error on PXL_20260407_205059897.jpg: timed out
+[2026-04-07 17:51:03] [78/457] Error on PXL_20260407_205104734.jpg: timed out
+[2026-04-07 17:51:11] [79/457] Error on PXL_20260407_205110111.jpg: timed out
+[2026-04-07 17:51:38] Scanning for JPG files with auto-resize enabled...
+[2026-04-07 17:51:38] Found 457 total JPG files. Starting resized parallel processing (workers=4)...
+[2026-04-07 17:51:38] [1/457] Skipped (already exists): PXL_20260210_183923487.jpg
+[2026-04-07 17:51:38] [2/457] Skipped (already exists): PXL_20260210_183904764.jpg
+[2026-04-07 17:51:38] [3/457] Skipped (already exists): PXL_20260210_183927059.jpg
+[2026-04-07 17:51:38] [4/457] Skipped (already exists): PXL_20260210_183858739.jpg
+[2026-04-07 17:51:38] [5/457] Skipped (already exists): PXL_20260210_183914975.jpg
+[2026-04-07 17:51:38] [6/457] Skipped (already exists): PXL_20260210_183910839.jpg
+[2026-04-07 17:51:38] [7/457] Skipped (already exists): PXL_20260210_183940543.jpg
+[2026-04-07 17:51:38] [8/457] Skipped (already exists): PXL_20260210_183935991.jpg
+[2026-04-07 17:51:38] [9/457] Skipped (already exists): PXL_20260210_184004803.jpg
+[2026-04-07 17:51:38] [10/457] Skipped (already exists): PXL_20260210_183955655.jpg
+[2026-04-07 17:51:38] [11/457] Skipped (already exists): PXL_20260210_184030790.jpg
+[2026-04-07 17:51:38] [12/457] Skipped (already exists): PXL_20260210_183946207.jpg
+[2026-04-07 17:51:38] [13/457] Skipped (already exists): PXL_20260210_184050313.jpg
+[2026-04-07 17:51:38] [14/457] Skipped (already exists): PXL_20260210_184047106.jpg
+[2026-04-07 17:51:38] [15/457] Skipped (already exists): PXL_20260210_184105225.jpg
+[2026-04-07 17:51:38] [16/457] Skipped (already exists): PXL_20260126_233737684.jpg
+[2026-04-07 17:51:38] [17/457] Skipped (already exists): PXL_20260126_230248488.jpg
+[2026-04-07 17:51:38] [18/457] Skipped (already exists): PXL_20260126_233744149.jpg
+[2026-04-07 17:51:38] [19/457] Skipped (already exists): PXL_20260210_183102851.jpg
+[2026-04-07 17:51:38] [20/457] Skipped (already exists): PXL_20260210_183056764.jpg
+[2026-04-07 17:51:38] [21/457] Skipped (already exists): PXL_20260210_183107098.jpg
+[2026-04-07 17:51:38] [22/457] Skipped (already exists): PXL_20260210_183118010.jpg
+[2026-04-07 17:51:38] [23/457] Skipped (already exists): PXL_20260210_183113132.jpg
+[2026-04-07 17:51:38] [24/457] Skipped (already exists): PXL_20260210_183122291.jpg
+[2026-04-07 17:51:38] [25/457] Skipped (already exists): PXL_20260210_183128180.jpg
+[2026-04-07 17:51:38] [26/457] Skipped (already exists): PXL_20260210_183138759.jpg
+[2026-04-07 17:51:38] [27/457] Skipped (already exists): PXL_20260210_183134828.jpg
+[2026-04-07 17:51:38] [28/457] Skipped (already exists): PXL_20260210_183131558.jpg
+[2026-04-07 17:51:38] [29/457] Skipped (already exists): PXL_20260210_183142606.jpg
+[2026-04-07 17:51:38] [30/457] Skipped (already exists): PXL_20260210_183150836.jpg
+[2026-04-07 17:51:38] [31/457] Skipped (already exists): PXL_20260210_183157402.jpg
+[2026-04-07 17:51:38] [32/457] Skipped (already exists): PXL_20260210_183203142.jpg
+[2026-04-07 17:51:38] [33/457] Skipped (already exists): PXL_20260210_183207060.jpg
+[2026-04-07 17:51:38] [34/457] Skipped (already exists): PXL_20260210_183212028.jpg
+[2026-04-07 17:51:38] [35/457] Skipped (already exists): PXL_20260210_183215832.jpg
+[2026-04-07 17:51:38] [36/457] Skipped (already exists): PXL_20260210_183226507.jpg
+[2026-04-07 17:51:38] [37/457] Skipped (already exists): PXL_20260210_183147025.jpg
+[2026-04-07 17:51:38] [38/457] Skipped (already exists): PXL_20260210_183232411.jpg
+[2026-04-07 17:51:38] [39/457] Skipped (already exists): PXL_20260210_183236765.jpg
+[2026-04-07 17:51:38] [40/457] Skipped (already exists): PXL_20260210_183242356.jpg
+[2026-04-07 17:51:38] [41/457] Skipped (already exists): PXL_20260210_183256218.jpg
+[2026-04-07 17:51:38] [42/457] Skipped (already exists): PXL_20260210_183249285.jpg
+[2026-04-07 17:51:38] [43/457] Skipped (already exists): PXL_20260210_183311112.jpg
+[2026-04-07 17:51:38] [44/457] Skipped (already exists): PXL_20260210_183304857.jpg
+[2026-04-07 17:51:38] [45/457] Skipped (already exists): PXL_20260216_224821721.jpg
+[2026-04-07 17:51:38] [46/457] Skipped (already exists): PXL_20260210_183331328.jpg
+[2026-04-07 17:51:38] [47/457] Skipped (already exists): PXL_20260216_224858536.jpg
+[2026-04-07 17:51:38] [48/457] Skipped (already exists): PXL_20260216_224831099.jpg
+[2026-04-07 17:51:38] [49/457] Skipped (already exists): PXL_20260210_183322806.jpg
+[2026-04-07 17:51:38] [50/457] Skipped (already exists): PXL_20260216_224924959.jpg
+[2026-04-07 17:51:38] [51/457] Skipped (already exists): PXL_20260223_211344386.jpg
+[2026-04-07 17:51:38] [52/457] Skipped (already exists): PXL_20260318_203231164.RAW-01.jpg
+[2026-04-07 17:51:38] [53/457] Skipped (already exists): PXL_20260318_210357377.RAW-01.jpg
+[2026-04-07 17:51:38] [54/457] Skipped (already exists): PXL_20260318_203227947.RAW-01.jpg
+[2026-04-07 17:51:38] [55/457] Skipped (already exists): PXL_20260325_203732193.RAW-01.jpg
+[2026-04-07 17:51:38] [56/457] Skipped (already exists): PXL_20260330_164802733.RAW-01.jpg
+[2026-04-07 17:51:38] [57/457] Skipped (already exists): PXL_20260225_211815070.MP.jpg
+[2026-04-07 17:51:38] [58/457] Skipped (already exists): PXL_20260330_164900859.RAW-01.jpg
+[2026-04-07 17:51:38] [59/457] Skipped (already exists): PXL_20260330_201334533.RAW-01.jpg
+[2026-04-07 17:51:38] [60/457] Skipped (already exists): PXL_20260406_201025634.jpg
+[2026-04-07 17:54:10] [61/457] Extracted: PXL_20260330_164921106.RAW-01.jpg (compressed 11.3MB -> 0.3MB)
+[2026-04-07 17:56:40] [62/457] Error on PXL_20260406_205423149.jpg: timed out
+[2026-04-07 17:56:40] [63/457] Error on PXL_20260330_165248548.RAW-01.jpg: timed out
+[2026-04-07 17:56:40] [64/457] Skipped (already exists): PXL_20260407_203854376.jpg
+[2026-04-07 17:56:40] [65/457] Error on PXL_20260406_201006649.jpg: timed out
+[2026-04-07 17:58:33] [66/457] Extracted: PXL_20260406_205426419.jpg (compressed 4.1MB -> 0.2MB)
+[2026-04-07 18:01:42] [67/457] Error on PXL_20260407_203918906.jpg: timed out
+[2026-04-07 18:01:42] [68/457] Error on PXL_20260407_203906092.jpg: timed out
+[2026-04-07 18:01:42] [69/457] Error on PXL_20260406_205433003.jpg: timed out
+[2026-04-07 18:01:42] [70/457] Skipped (already exists): PXL_20260407_204955205.jpg
+[2026-04-07 18:02:20] Scanning for JPG files with auto-resize enabled...
+[2026-04-07 18:02:20] Found 457 total JPG files. Starting resized parallel processing (workers=4)...
+[2026-04-07 18:02:20] [1/457] Skipped (already exists): PXL_20260210_183923487.jpg
+[2026-04-07 18:02:20] [2/457] Skipped (already exists): PXL_20260210_183904764.jpg
+[2026-04-07 18:02:20] [3/457] Skipped (already exists): PXL_20260210_183927059.jpg
+[2026-04-07 18:02:20] [4/457] Skipped (already exists): PXL_20260210_183858739.jpg
+[2026-04-07 18:02:20] [5/457] Skipped (already exists): PXL_20260210_183914975.jpg
+[2026-04-07 18:02:20] [6/457] Skipped (already exists): PXL_20260210_183910839.jpg
+[2026-04-07 18:02:20] [7/457] Skipped (already exists): PXL_20260210_183935991.jpg
+[2026-04-07 18:02:20] [8/457] Skipped (already exists): PXL_20260210_183940543.jpg
+[2026-04-07 18:02:20] [9/457] Skipped (already exists): PXL_20260210_184004803.jpg
+[2026-04-07 18:02:20] [10/457] Skipped (already exists): PXL_20260210_184030790.jpg
+[2026-04-07 18:02:20] [11/457] Skipped (already exists): PXL_20260210_183955655.jpg
+[2026-04-07 18:02:20] [12/457] Skipped (already exists): PXL_20260210_184047106.jpg
+[2026-04-07 18:02:20] [13/457] Skipped (already exists): PXL_20260210_184050313.jpg
+[2026-04-07 18:02:20] [14/457] Skipped (already exists): PXL_20260210_183946207.jpg
+[2026-04-07 18:02:20] [15/457] Skipped (already exists): PXL_20260126_233737684.jpg
+[2026-04-07 18:02:20] [16/457] Skipped (already exists): PXL_20260126_230248488.jpg
+[2026-04-07 18:02:20] [17/457] Skipped (already exists): PXL_20260126_233744149.jpg
+[2026-04-07 18:02:20] [18/457] Skipped (already exists): PXL_20260210_183056764.jpg
+[2026-04-07 18:02:20] [19/457] Skipped (already exists): PXL_20260210_183102851.jpg
+[2026-04-07 18:02:20] [20/457] Skipped (already exists): PXL_20260210_183107098.jpg
+[2026-04-07 18:02:20] [21/457] Skipped (already exists): PXL_20260210_184105225.jpg
+[2026-04-07 18:02:20] [22/457] Skipped (already exists): PXL_20260210_183118010.jpg
+[2026-04-07 18:02:20] [23/457] Skipped (already exists): PXL_20260210_183113132.jpg
+[2026-04-07 18:02:20] [24/457] Skipped (already exists): PXL_20260210_183131558.jpg
+[2026-04-07 18:02:20] [25/457] Skipped (already exists): PXL_20260210_183122291.jpg
+[2026-04-07 18:02:20] [26/457] Skipped (already exists): PXL_20260210_183134828.jpg
+[2026-04-07 18:02:20] [27/457] Skipped (already exists): PXL_20260210_183138759.jpg
+[2026-04-07 18:02:20] [28/457] Skipped (already exists): PXL_20260210_183147025.jpg
+[2026-04-07 18:02:20] [29/457] Skipped (already exists): PXL_20260210_183150836.jpg
+[2026-04-07 18:02:20] [30/457] Skipped (already exists): PXL_20260210_183128180.jpg
+[2026-04-07 18:02:20] [31/457] Skipped (already exists): PXL_20260210_183142606.jpg
+[2026-04-07 18:02:20] [32/457] Skipped (already exists): PXL_20260210_183203142.jpg
+[2026-04-07 18:02:20] [33/457] Skipped (already exists): PXL_20260210_183157402.jpg
+[2026-04-07 18:02:20] [34/457] Skipped (already exists): PXL_20260210_183207060.jpg
+[2026-04-07 18:02:20] [35/457] Skipped (already exists): PXL_20260210_183212028.jpg
+[2026-04-07 18:02:20] [36/457] Skipped (already exists): PXL_20260210_183215832.jpg
+[2026-04-07 18:02:20] [37/457] Skipped (already exists): PXL_20260210_183232411.jpg
+[2026-04-07 18:02:20] [38/457] Skipped (already exists): PXL_20260210_183236765.jpg
+[2026-04-07 18:02:20] [39/457] Skipped (already exists): PXL_20260210_183226507.jpg
+[2026-04-07 18:02:20] [40/457] Skipped (already exists): PXL_20260210_183249285.jpg
+[2026-04-07 18:02:20] [41/457] Skipped (already exists): PXL_20260210_183256218.jpg
+[2026-04-07 18:02:20] [42/457] Skipped (already exists): PXL_20260210_183304857.jpg
+[2026-04-07 18:02:20] [43/457] Skipped (already exists): PXL_20260210_183311112.jpg
+[2026-04-07 18:02:20] [44/457] Skipped (already exists): PXL_20260210_183322806.jpg
+[2026-04-07 18:02:20] [45/457] Skipped (already exists): PXL_20260210_183331328.jpg
+[2026-04-07 18:02:20] [46/457] Skipped (already exists): PXL_20260216_224821721.jpg
+[2026-04-07 18:02:20] [47/457] Skipped (already exists): PXL_20260216_224831099.jpg
+[2026-04-07 18:02:20] [48/457] Skipped (already exists): PXL_20260210_183242356.jpg
+[2026-04-07 18:02:20] [49/457] Skipped (already exists): PXL_20260216_224858536.jpg
+[2026-04-07 18:02:20] [50/457] Skipped (already exists): PXL_20260223_211344386.jpg
+[2026-04-07 18:02:20] [51/457] Skipped (already exists): PXL_20260216_224924959.jpg
+[2026-04-07 18:02:20] [52/457] Skipped (already exists): PXL_20260225_211815070.MP.jpg
+[2026-04-07 18:02:20] [53/457] Skipped (already exists): PXL_20260318_203227947.RAW-01.jpg
+[2026-04-07 18:02:20] [54/457] Skipped (already exists): PXL_20260325_203732193.RAW-01.jpg
+[2026-04-07 18:02:20] [55/457] Skipped (already exists): PXL_20260330_164802733.RAW-01.jpg
+[2026-04-07 18:02:20] [56/457] Skipped (already exists): PXL_20260318_210357377.RAW-01.jpg
+[2026-04-07 18:02:20] [57/457] Skipped (already exists): PXL_20260318_203231164.RAW-01.jpg
+[2026-04-07 18:02:20] [58/457] Skipped (already exists): PXL_20260330_164921106.RAW-01.jpg
+[2026-04-07 18:02:20] [59/457] Skipped (already exists): PXL_20260330_201334533.RAW-01.jpg
+[2026-04-07 18:02:20] [60/457] Skipped (already exists): PXL_20260406_201025634.jpg
+[2026-04-07 18:02:20] [61/457] Skipped (already exists): PXL_20260330_164900859.RAW-01.jpg
+[2026-04-07 18:02:20] [62/457] Skipped (already exists): PXL_20260406_205426419.jpg
+[2026-04-07 18:06:46] [63/457] Extracted: PXL_20260330_165248548.RAW-01.jpg (compressed 8.5MB -> 0.4MB)
+[2026-04-07 18:06:46] [64/457] Skipped (already exists): PXL_20260407_203854376.jpg
+[2026-04-07 18:12:15] [65/457] Extracted: PXL_20260406_201006649.jpg (compressed 4.6MB -> 0.2MB)
+[2026-04-07 18:14:14] Scanning for JPG files with auto-resize and chained execution enabled...
+[2026-04-07 18:14:14] Found 457 total JPG files. Starting phase 1 (workers=4)...
+[2026-04-07 18:14:14] [1/457] Skipped (already exists): PXL_20260210_183910839.jpg
+[2026-04-07 18:14:14] [2/457] Skipped (already exists): PXL_20260210_183927059.jpg
+[2026-04-07 18:14:14] [3/457] Skipped (already exists): PXL_20260210_183858739.jpg
+[2026-04-07 18:14:14] [4/457] Skipped (already exists): PXL_20260210_183923487.jpg
+[2026-04-07 18:14:14] [5/457] Skipped (already exists): PXL_20260210_183914975.jpg
+[2026-04-07 18:14:14] [6/457] Skipped (already exists): PXL_20260210_183904764.jpg
+[2026-04-07 18:14:14] [7/457] Skipped (already exists): PXL_20260210_183946207.jpg
+[2026-04-07 18:14:14] [8/457] Skipped (already exists): PXL_20260210_183940543.jpg
+[2026-04-07 18:14:14] [9/457] Skipped (already exists): PXL_20260210_183935991.jpg
+[2026-04-07 18:14:14] [10/457] Skipped (already exists): PXL_20260210_184004803.jpg
+[2026-04-07 18:14:14] [11/457] Skipped (already exists): PXL_20260210_184030790.jpg
+[2026-04-07 18:14:14] [12/457] Skipped (already exists): PXL_20260210_183955655.jpg
+[2026-04-07 18:14:14] [13/457] Skipped (already exists): PXL_20260210_184105225.jpg
+[2026-04-07 18:14:14] [14/457] Skipped (already exists): PXL_20260210_184050313.jpg
+[2026-04-07 18:14:14] [15/457] Skipped (already exists): PXL_20260210_184047106.jpg
+[2026-04-07 18:14:14] [16/457] Skipped (already exists): PXL_20260126_233744149.jpg
+[2026-04-07 18:14:14] [17/457] Skipped (already exists): PXL_20260126_233737684.jpg
+[2026-04-07 18:14:14] [18/457] Skipped (already exists): PXL_20260210_183056764.jpg
+[2026-04-07 18:14:14] [19/457] Skipped (already exists): PXL_20260210_183107098.jpg
+[2026-04-07 18:14:14] [20/457] Skipped (already exists): PXL_20260210_183102851.jpg
+[2026-04-07 18:14:14] [21/457] Skipped (already exists): PXL_20260210_183118010.jpg
+[2026-04-07 18:14:14] [22/457] Skipped (already exists): PXL_20260126_230248488.jpg
+[2026-04-07 18:14:14] [23/457] Skipped (already exists): PXL_20260210_183113132.jpg
+[2026-04-07 18:14:14] [24/457] Skipped (already exists): PXL_20260210_183128180.jpg
+[2026-04-07 18:14:14] [25/457] Skipped (already exists): PXL_20260210_183122291.jpg
+[2026-04-07 18:14:14] [26/457] Skipped (already exists): PXL_20260210_183131558.jpg
+[2026-04-07 18:14:14] [27/457] Skipped (already exists): PXL_20260210_183134828.jpg
+[2026-04-07 18:14:14] [28/457] Skipped (already exists): PXL_20260210_183138759.jpg
+[2026-04-07 18:14:14] [29/457] Skipped (already exists): PXL_20260210_183142606.jpg
+[2026-04-07 18:14:14] [30/457] Skipped (already exists): PXL_20260210_183147025.jpg
+[2026-04-07 18:14:14] [31/457] Skipped (already exists): PXL_20260210_183150836.jpg
+[2026-04-07 18:14:14] [32/457] Skipped (already exists): PXL_20260210_183157402.jpg
+[2026-04-07 18:14:14] [33/457] Skipped (already exists): PXL_20260210_183207060.jpg
+[2026-04-07 18:14:14] [34/457] Skipped (already exists): PXL_20260210_183215832.jpg
+[2026-04-07 18:14:14] [35/457] Skipped (already exists): PXL_20260210_183203142.jpg
+[2026-04-07 18:14:14] [36/457] Skipped (already exists): PXL_20260210_183226507.jpg
+[2026-04-07 18:14:14] [37/457] Skipped (already exists): PXL_20260210_183212028.jpg
+[2026-04-07 18:14:14] [38/457] Skipped (already exists): PXL_20260210_183232411.jpg
+[2026-04-07 18:14:14] [39/457] Skipped (already exists): PXL_20260210_183236765.jpg
+[2026-04-07 18:14:14] [40/457] Skipped (already exists): PXL_20260210_183242356.jpg
+[2026-04-07 18:14:14] [41/457] Skipped (already exists): PXL_20260210_183249285.jpg
+[2026-04-07 18:14:14] [42/457] Skipped (already exists): PXL_20260210_183256218.jpg
+[2026-04-07 18:14:14] [43/457] Skipped (already exists): PXL_20260210_183322806.jpg
+[2026-04-07 18:14:14] [44/457] Skipped (already exists): PXL_20260210_183311112.jpg
+[2026-04-07 18:14:14] [45/457] Skipped (already exists): PXL_20260216_224821721.jpg
+[2026-04-07 18:14:14] [46/457] Skipped (already exists): PXL_20260210_183304857.jpg
+[2026-04-07 18:14:14] [47/457] Skipped (already exists): PXL_20260216_224831099.jpg
+[2026-04-07 18:14:14] [48/457] Skipped (already exists): PXL_20260216_224858536.jpg
+[2026-04-07 18:14:14] [49/457] Skipped (already exists): PXL_20260223_211344386.jpg
+[2026-04-07 18:14:14] [50/457] Skipped (already exists): PXL_20260210_183331328.jpg
+[2026-04-07 18:14:14] [51/457] Skipped (already exists): PXL_20260216_224924959.jpg
+[2026-04-07 18:14:14] [52/457] Skipped (already exists): PXL_20260225_211815070.MP.jpg
+[2026-04-07 18:14:14] [53/457] Skipped (already exists): PXL_20260318_203231164.RAW-01.jpg
+[2026-04-07 18:14:14] [54/457] Skipped (already exists): PXL_20260318_203227947.RAW-01.jpg
+[2026-04-07 18:14:14] [55/457] Skipped (already exists): PXL_20260318_210357377.RAW-01.jpg
+[2026-04-07 18:14:14] [56/457] Skipped (already exists): PXL_20260325_203732193.RAW-01.jpg
+[2026-04-07 18:14:14] [57/457] Skipped (already exists): PXL_20260330_164900859.RAW-01.jpg
+[2026-04-07 18:14:14] [58/457] Skipped (already exists): PXL_20260330_164921106.RAW-01.jpg
+[2026-04-07 18:14:14] [59/457] Skipped (already exists): PXL_20260330_165248548.RAW-01.jpg
+[2026-04-07 18:14:14] [60/457] Skipped (already exists): PXL_20260330_164802733.RAW-01.jpg
+[2026-04-07 18:14:14] [61/457] Skipped (already exists): PXL_20260406_201006649.jpg
+[2026-04-07 18:14:14] [62/457] Skipped (already exists): PXL_20260406_201025634.jpg
+[2026-04-07 18:14:14] [63/457] Skipped (already exists): PXL_20260330_201334533.RAW-01.jpg
+[2026-04-07 18:14:14] [64/457] Skipped (already exists): PXL_20260407_203854376.jpg
+[2026-04-07 18:14:14] [65/457] Skipped (already exists): PXL_20260406_205426419.jpg
+[2026-04-07 18:23:13] [66/457] Extracted: PXL_20260406_205423149.jpg (compressed 4.3MB -> 0.2MB)
+[2026-04-07 18:23:13] [67/457] Extracted: PXL_20260406_205433003.jpg (compressed 5.4MB -> 0.3MB)
+[2026-04-07 18:25:46] [68/457] Extracted: PXL_20260407_203906092.jpg (compressed 6.7MB -> 0.3MB)
+[2026-04-07 18:28:21] [69/457] Extracted: PXL_20260407_204827158.jpg (compressed 7.1MB -> 0.3MB)
+[2026-04-07 18:28:21] [70/457] Skipped (already exists): PXL_20260407_204955205.jpg
+[2026-04-07 18:29:50] [71/457] Extracted: PXL_20260407_204822155.jpg (compressed 6.7MB -> 0.3MB)
+[2026-04-07 18:29:50] [72/457] Skipped (already exists): PXL_20260407_205049022.jpg
+[2026-04-07 18:32:19] [73/457] Extracted: PXL_20260407_204830784.jpg (compressed 7.0MB -> 0.3MB)
+[2026-04-07 18:34:11] [74/457] Extracted: PXL_20260407_205002540.jpg (compressed 5.8MB -> 0.3MB)
+[2026-04-07 18:34:16] [75/457] Error on PXL_20260407_203918906.jpg: timed out
+[2026-04-07 18:37:00] [76/457] Extracted: PXL_20260407_205054380.jpg (compressed 5.7MB -> 0.3MB)
+[2026-04-07 18:38:27] [77/457] Extracted: PXL_20260407_205059897.jpg (compressed 6.8MB -> 0.2MB)
+[2026-04-07 18:40:04] [78/457] Extracted: PXL_20260407_205110111.jpg (compressed 7.0MB -> 0.3MB)
+[2026-04-07 18:48:01] [79/457] Extracted: PXL_20260407_205104734.jpg (compressed 6.6MB -> 0.3MB)
+[2026-04-07 18:50:07] [80/457] Extracted: PXL_20260407_205139528.jpg (compressed 7.6MB -> 0.4MB)
+[2026-04-07 18:51:34] [81/457] Extracted: PXL_20260407_205146698.jpg (compressed 7.2MB -> 0.3MB)
+[2026-04-07 18:53:09] [82/457] Extracted: PXL_20260407_205133346.jpg (compressed 6.7MB -> 0.2MB)
+[2026-04-07 18:54:51] [83/457] Extracted: PXL_20260407_205153605.jpg (compressed 6.1MB -> 0.2MB)
+[2026-04-07 18:56:46] [84/457] Extracted: PXL_20260407_205149968.jpg (compressed 6.4MB -> 0.3MB)
+[2026-04-07 18:58:41] [85/457] Extracted: PXL_20260407_205157095.jpg (compressed 6.3MB -> 0.3MB)
+[2026-04-07 19:00:12] [86/457] Extracted: PXL_20260407_205204603.jpg (compressed 6.8MB -> 0.2MB)
+[2026-04-07 19:02:42] [87/457] Extracted: PXL_20260407_205207994.jpg (compressed 7.2MB -> 0.3MB)
+[2026-04-07 19:03:53] [88/457] Extracted: PXL_20260407_205211357.jpg (compressed 6.9MB -> 0.3MB)
+[2026-04-07 19:05:16] [89/457] Extracted: PXL_20260407_205214739.jpg (compressed 7.2MB -> 0.3MB)
+[2026-04-07 19:10:00] [90/457] Extracted: PXL_20260407_205201093.jpg (compressed 6.8MB -> 0.2MB)
+[2026-04-07 19:13:28] [91/457] Extracted: PXL_20260407_205224124.jpg (compressed 8.5MB -> 0.2MB)
+[2026-04-07 19:15:20] [92/457] Extracted: PXL_20260407_205227701.jpg (compressed 7.2MB -> 0.2MB)
+[2026-04-07 19:17:50] [93/457] Extracted: PXL_20260407_205232203.jpg (compressed 6.2MB -> 0.2MB)
+[2026-04-07 19:19:12] [94/457] Extracted: PXL_20260407_205217808.jpg (compressed 7.5MB -> 0.3MB)
+[2026-04-07 19:20:49] [95/457] Extracted: PXL_20260407_205236358.jpg (compressed 8.3MB -> 0.2MB)
+[2026-04-07 19:22:14] [96/457] Extracted: PXL_20260407_205241222.jpg (compressed 5.8MB -> 0.3MB)
+[2026-04-07 19:24:17] [97/457] Extracted: PXL_20260407_205251077.jpg (compressed 6.9MB -> 0.2MB)
+[2026-04-07 19:25:09] [98/457] Extracted: PXL_20260407_205246308.jpg (compressed 6.2MB -> 0.3MB)
+[2026-04-07 19:26:32] [99/457] Extracted: PXL_20260407_205254761.jpg (compressed 6.7MB -> 0.2MB)
+[2026-04-07 19:28:56] [100/457] Extracted: PXL_20260407_205258585.jpg (compressed 6.8MB -> 0.3MB)
+[2026-04-07 19:30:16] [101/457] Extracted: PXL_20260407_205302908.jpg (compressed 6.7MB -> 0.3MB)
+[2026-04-07 19:32:51] [102/457] Extracted: PXL_20260407_205309424.jpg (compressed 7.0MB -> 0.3MB)
+[2026-04-07 19:33:59] [103/457] Extracted: PXL_20260407_205312963.jpg (compressed 7.0MB -> 0.3MB)
+[2026-04-07 19:35:23] [104/457] Extracted: PXL_20260407_205317830.jpg (compressed 7.1MB -> 0.3MB)
+[2026-04-07 19:36:34] [105/457] Extracted: PXL_20260407_205323385.jpg (compressed 6.7MB -> 0.3MB)
+[2026-04-07 19:39:23] [106/457] Extracted: PXL_20260407_205333282.jpg (compressed 6.6MB -> 0.2MB)
+[2026-04-07 19:42:48] [107/457] Extracted: PXL_20260407_205337857.jpg (compressed 7.0MB -> 0.3MB)
+[2026-04-07 19:44:36] Scanning for JPG files with ULTRA-RESIZE and 8x PARALLEL CHAINING enabled...
+[2026-04-07 19:44:36] Found 457 total JPG files. Starting phase 1 (workers=8)...
+[2026-04-07 19:44:36] [1/457] Skipped (already exists): PXL_20260126_233744149.jpg
+[2026-04-07 19:44:36] [2/457] Skipped (already exists): PXL_20260210_184047106.jpg
+[2026-04-07 19:44:36] [3/457] Skipped (already exists): PXL_20260126_233737684.jpg
+[2026-04-07 19:44:36] [4/457] Skipped (already exists): PXL_20260210_183858739.jpg
+[2026-04-07 19:44:36] [5/457] Skipped (already exists): PXL_20260210_183946207.jpg
+[2026-04-07 19:44:36] [6/457] Skipped (already exists): PXL_20260210_184050313.jpg
+[2026-04-07 19:44:36] [7/457] Skipped (already exists): PXL_20260210_184105225.jpg
+[2026-04-07 19:44:36] [8/457] Skipped (already exists): PXL_20260210_183056764.jpg
+[2026-04-07 19:44:36] [9/457] Skipped (already exists): PXL_20260210_183923487.jpg
+[2026-04-07 19:44:36] [10/457] Skipped (already exists): PXL_20260210_184004803.jpg
+[2026-04-07 19:44:36] [11/457] Skipped (already exists): PXL_20260210_183955655.jpg
+[2026-04-07 19:44:36] [12/457] Skipped (already exists): PXL_20260210_183118010.jpg
+[2026-04-07 19:44:36] [13/457] Skipped (already exists): PXL_20260210_183113132.jpg
+[2026-04-07 19:44:36] [14/457] Skipped (already exists): PXL_20260210_183904764.jpg
+[2026-04-07 19:44:36] [15/457] Skipped (already exists): PXL_20260210_183935991.jpg
+[2026-04-07 19:44:36] [16/457] Skipped (already exists): PXL_20260126_230248488.jpg
+[2026-04-07 19:44:36] [17/457] Skipped (already exists): PXL_20260210_183927059.jpg
+[2026-04-07 19:44:36] [18/457] Skipped (already exists): PXL_20260210_183914975.jpg
+[2026-04-07 19:44:36] [19/457] Skipped (already exists): PXL_20260210_183940543.jpg
+[2026-04-07 19:44:36] [20/457] Skipped (already exists): PXL_20260210_183102851.jpg
+[2026-04-07 19:44:36] [21/457] Skipped (already exists): PXL_20260210_184030790.jpg
+[2026-04-07 19:44:36] [22/457] Skipped (already exists): PXL_20260210_183910839.jpg
+[2026-04-07 19:44:36] [23/457] Skipped (already exists): PXL_20260210_183122291.jpg
+[2026-04-07 19:44:36] [24/457] Skipped (already exists): PXL_20260210_183107098.jpg
+[2026-04-07 19:44:36] [25/457] Skipped (already exists): PXL_20260210_183134828.jpg
+[2026-04-07 19:44:36] [26/457] Skipped (already exists): PXL_20260210_183142606.jpg
+[2026-04-07 19:44:36] [27/457] Skipped (already exists): PXL_20260210_183150836.jpg
+[2026-04-07 19:44:36] [28/457] Skipped (already exists): PXL_20260210_183131558.jpg
+[2026-04-07 19:44:36] [29/457] Skipped (already exists): PXL_20260210_183207060.jpg
+[2026-04-07 19:44:36] [30/457] Skipped (already exists): PXL_20260210_183138759.jpg
+[2026-04-07 19:44:36] [31/457] Skipped (already exists): PXL_20260210_183147025.jpg
+[2026-04-07 19:44:36] [32/457] Skipped (already exists): PXL_20260210_183226507.jpg
+[2026-04-07 19:44:36] [33/457] Skipped (already exists): PXL_20260210_183203142.jpg
+[2026-04-07 19:44:36] [34/457] Skipped (already exists): PXL_20260210_183128180.jpg
+[2026-04-07 19:44:36] [35/457] Skipped (already exists): PXL_20260210_183236765.jpg
+[2026-04-07 19:44:36] [36/457] Skipped (already exists): PXL_20260210_183242356.jpg
+[2026-04-07 19:44:36] [37/457] Skipped (already exists): PXL_20260210_183249285.jpg
+[2026-04-07 19:44:36] [38/457] Skipped (already exists): PXL_20260210_183212028.jpg
+[2026-04-07 19:44:36] [39/457] Skipped (already exists): PXL_20260210_183256218.jpg
+[2026-04-07 19:44:36] [40/457] Skipped (already exists): PXL_20260210_183304857.jpg
+[2026-04-07 19:44:36] [41/457] Skipped (already exists): PXL_20260210_183232411.jpg
+[2026-04-07 19:44:36] [42/457] Skipped (already exists): PXL_20260210_183215832.jpg
+[2026-04-07 19:44:36] [43/457] Skipped (already exists): PXL_20260210_183311112.jpg
+[2026-04-07 19:44:36] [44/457] Skipped (already exists): PXL_20260216_224831099.jpg
+[2026-04-07 19:44:36] [45/457] Skipped (already exists): PXL_20260216_224858536.jpg
+[2026-04-07 19:44:36] [46/457] Skipped (already exists): PXL_20260210_183322806.jpg
+[2026-04-07 19:44:36] [47/457] Skipped (already exists): PXL_20260210_183331328.jpg
+[2026-04-07 19:44:36] [48/457] Skipped (already exists): PXL_20260216_224821721.jpg
+[2026-04-07 19:44:36] [49/457] Skipped (already exists): PXL_20260318_203227947.RAW-01.jpg
+[2026-04-07 19:44:36] [50/457] Skipped (already exists): PXL_20260216_224924959.jpg
+[2026-04-07 19:44:36] [51/457] Skipped (already exists): PXL_20260318_203231164.RAW-01.jpg
+[2026-04-07 19:44:36] [52/457] Skipped (already exists): PXL_20260318_210357377.RAW-01.jpg
+[2026-04-07 19:44:36] [53/457] Skipped (already exists): PXL_20260330_165248548.RAW-01.jpg
+[2026-04-07 19:44:36] [54/457] Skipped (already exists): PXL_20260225_211815070.MP.jpg
+[2026-04-07 19:44:36] [55/457] Skipped (already exists): PXL_20260330_164802733.RAW-01.jpg
+[2026-04-07 19:44:36] [56/457] Skipped (already exists): PXL_20260406_201006649.jpg
+[2026-04-07 19:44:36] [57/457] Skipped (already exists): PXL_20260330_164900859.RAW-01.jpg
+[2026-04-07 19:44:36] [58/457] Skipped (already exists): PXL_20260406_201025634.jpg
+[2026-04-07 19:44:36] [59/457] Skipped (already exists): PXL_20260223_211344386.jpg
+[2026-04-07 19:44:36] [60/457] Skipped (already exists): PXL_20260406_205426419.jpg
+[2026-04-07 19:44:36] [61/457] Skipped (already exists): PXL_20260406_205433003.jpg
+[2026-04-07 19:44:36] [62/457] Skipped (already exists): PXL_20260407_203854376.jpg
+[2026-04-07 19:44:36] [63/457] Skipped (already exists): PXL_20260210_183157402.jpg
+[2026-04-07 19:44:36] [64/457] Skipped (already exists): PXL_20260330_164921106.RAW-01.jpg
+[2026-04-07 19:44:36] [65/457] Skipped (already exists): PXL_20260406_205423149.jpg
+[2026-04-07 19:44:36] [66/457] Skipped (already exists): PXL_20260325_203732193.RAW-01.jpg
+[2026-04-07 19:44:36] [67/457] Skipped (already exists): PXL_20260330_201334533.RAW-01.jpg
+[2026-04-07 19:44:36] [68/457] Skipped (already exists): PXL_20260407_204830784.jpg
+[2026-04-07 19:44:36] [69/457] Skipped (already exists): PXL_20260407_203906092.jpg
+[2026-04-07 19:44:36] [70/457] Skipped (already exists): PXL_20260407_205049022.jpg
+[2026-04-07 19:44:36] [71/457] Skipped (already exists): PXL_20260407_204822155.jpg
+[2026-04-07 19:44:36] [72/457] Skipped (already exists): PXL_20260407_205059897.jpg
+[2026-04-07 19:44:36] [73/457] Skipped (already exists): PXL_20260407_205104734.jpg
+[2026-04-07 19:44:36] [74/457] Skipped (already exists): PXL_20260407_205110111.jpg
+[2026-04-07 19:44:36] [75/457] Skipped (already exists): PXL_20260407_205133346.jpg
+[2026-04-07 19:44:36] [76/457] Skipped (already exists): PXL_20260407_205139528.jpg
+[2026-04-07 19:44:36] [77/457] Skipped (already exists): PXL_20260407_205146698.jpg
+[2026-04-07 19:44:36] [78/457] Skipped (already exists): PXL_20260407_205149968.jpg
+[2026-04-07 19:44:36] [79/457] Skipped (already exists): PXL_20260407_205153605.jpg
+[2026-04-07 19:44:36] [80/457] Skipped (already exists): PXL_20260407_205157095.jpg
+[2026-04-07 19:44:36] [81/457] Skipped (already exists): PXL_20260407_205002540.jpg
+[2026-04-07 19:44:36] [82/457] Skipped (already exists): PXL_20260407_205204603.jpg
+[2026-04-07 19:44:36] [83/457] Skipped (already exists): PXL_20260407_205054380.jpg
+[2026-04-07 19:44:36] [84/457] Skipped (already exists): PXL_20260407_204827158.jpg
+[2026-04-07 19:44:36] [85/457] Skipped (already exists): PXL_20260407_204955205.jpg
+[2026-04-07 19:44:36] [86/457] Skipped (already exists): PXL_20260407_205201093.jpg
+[2026-04-07 19:44:36] [87/457] Skipped (already exists): PXL_20260407_205207994.jpg
+[2026-04-07 19:44:36] [88/457] Skipped (already exists): PXL_20260407_205232203.jpg
+[2026-04-07 19:44:36] [89/457] Skipped (already exists): PXL_20260407_205241222.jpg
+[2026-04-07 19:44:36] [90/457] Skipped (already exists): PXL_20260407_205217808.jpg
+[2026-04-07 19:44:36] [91/457] Skipped (already exists): PXL_20260407_205246308.jpg
+[2026-04-07 19:44:36] [92/457] Skipped (already exists): PXL_20260407_205211357.jpg
+[2026-04-07 19:44:36] [93/457] Skipped (already exists): PXL_20260407_205251077.jpg
+[2026-04-07 19:44:36] [94/457] Skipped (already exists): PXL_20260407_205236358.jpg
+[2026-04-07 19:44:36] [95/457] Skipped (already exists): PXL_20260407_205224124.jpg
+[2026-04-07 19:44:36] [96/457] Skipped (already exists): PXL_20260407_205227701.jpg
+[2026-04-07 19:44:36] [97/457] Skipped (already exists): PXL_20260407_205214739.jpg
+[2026-04-07 19:44:36] [98/457] Skipped (already exists): PXL_20260407_205254761.jpg
+[2026-04-07 19:44:36] [99/457] Skipped (already exists): PXL_20260407_205258585.jpg
+[2026-04-07 19:44:36] [100/457] Skipped (already exists): PXL_20260407_205302908.jpg
+[2026-04-07 19:44:36] [101/457] Skipped (already exists): PXL_20260407_205333282.jpg
+[2026-04-07 19:44:36] [102/457] Skipped (already exists): PXL_20260407_205312963.jpg
+[2026-04-07 19:44:36] [103/457] Skipped (already exists): PXL_20260407_205323385.jpg
+[2026-04-07 19:44:36] [104/457] Skipped (already exists): PXL_20260407_205317830.jpg
+[2026-04-07 19:44:36] [105/457] Skipped (already exists): PXL_20260407_205309424.jpg
+[2026-04-07 19:44:36] [106/457] Skipped (already exists): PXL_20260407_205337857.jpg
+[2026-04-07 19:44:36] [107/457] Error on PXL_20260216_224858536.jpg: [Errno 22] Invalid argument
+[2026-04-07 19:44:36] [108/457] Error on PXL_20260216_224821721.jpg: [Errno 22] Invalid argument
+[2026-04-07 19:44:36] [109/457] Error on PXL_20260216_224831099.jpg: [Errno 22] Invalid argument
+[2026-04-07 19:44:36] [110/457] Error on PXL_20260216_224924959.jpg: [Errno 22] Invalid argument
+[2026-04-07 19:47:50] Scanning for JPG files with STABILIZED ULTRA-RESIZE and 8x PARALLEL CHAINING enabled...
+[2026-04-07 19:47:50] Found 457 total JPG files. Starting phase 1 (workers=8)...
+[2026-04-07 19:47:50] [1/457] Skipped (already exists): PXL_20260126_233737684.jpg
+[2026-04-07 19:47:50] [2/457] Skipped (already exists): PXL_20260210_184047106.jpg
+[2026-04-07 19:47:50] [3/457] Skipped (already exists): PXL_20260210_183118010.jpg
+[2026-04-07 19:47:50] [4/457] Skipped (already exists): PXL_20260210_183858739.jpg
+[2026-04-07 19:47:50] [5/457] Skipped (already exists): PXL_20260210_184105225.jpg
+[2026-04-07 19:47:50] [6/457] Skipped (already exists): PXL_20260210_183056764.jpg
+[2026-04-07 19:47:50] [7/457] Skipped (already exists): PXL_20260210_184004803.jpg
+[2026-04-07 19:47:50] [8/457] Skipped (already exists): PXL_20260210_183955655.jpg
+[2026-04-07 19:47:50] [9/457] Skipped (already exists): PXL_20260210_183910839.jpg
+[2026-04-07 19:47:50] [10/457] Skipped (already exists): PXL_20260210_183113132.jpg
+[2026-04-07 19:47:50] [11/457] Skipped (already exists): PXL_20260210_183923487.jpg
+[2026-04-07 19:47:50] [12/457] Skipped (already exists): PXL_20260126_233744149.jpg
+[2026-04-07 19:47:50] [13/457] Skipped (already exists): PXL_20260210_183150836.jpg
+[2026-04-07 19:47:50] [14/457] Skipped (already exists): PXL_20260210_183946207.jpg
+[2026-04-07 19:47:50] [15/457] Skipped (already exists): PXL_20260210_183904764.jpg
+[2026-04-07 19:47:50] [16/457] Skipped (already exists): PXL_20260126_230248488.jpg
+[2026-04-07 19:47:50] [17/457] Skipped (already exists): PXL_20260210_183142606.jpg
+[2026-04-07 19:47:50] [18/457] Skipped (already exists): PXL_20260210_183935991.jpg
+[2026-04-07 19:47:50] [19/457] Skipped (already exists): PXL_20260210_183128180.jpg
+[2026-04-07 19:47:50] [20/457] Skipped (already exists): PXL_20260210_183927059.jpg
+[2026-04-07 19:47:50] [21/457] Skipped (already exists): PXL_20260210_183914975.jpg
+[2026-04-07 19:47:50] [22/457] Skipped (already exists): PXL_20260210_183940543.jpg
+[2026-04-07 19:47:50] [23/457] Skipped (already exists): PXL_20260210_183107098.jpg
+[2026-04-07 19:47:50] [24/457] Skipped (already exists): PXL_20260210_183102851.jpg
+[2026-04-07 19:47:50] [25/457] Skipped (already exists): PXL_20260210_183122291.jpg
+[2026-04-07 19:47:50] [26/457] Skipped (already exists): PXL_20260210_184050313.jpg
+[2026-04-07 19:47:50] [27/457] Skipped (already exists): PXL_20260210_183134828.jpg
+[2026-04-07 19:47:50] [28/457] Skipped (already exists): PXL_20260210_184030790.jpg
+[2026-04-07 19:47:50] [29/457] Skipped (already exists): PXL_20260210_183131558.jpg
+[2026-04-07 19:47:50] [30/457] Skipped (already exists): PXL_20260210_183147025.jpg
+[2026-04-07 19:47:50] [31/457] Skipped (already exists): PXL_20260210_183232411.jpg
+[2026-04-07 19:47:50] [32/457] Skipped (already exists): PXL_20260210_183207060.jpg
+[2026-04-07 19:47:50] [33/457] Skipped (already exists): PXL_20260210_183226507.jpg
+[2026-04-07 19:47:50] [34/457] Skipped (already exists): PXL_20260210_183157402.jpg
+[2026-04-07 19:47:50] [35/457] Skipped (already exists): PXL_20260210_183249285.jpg
+[2026-04-07 19:47:50] [36/457] Skipped (already exists): PXL_20260210_183256218.jpg
+[2026-04-07 19:47:50] [37/457] Skipped (already exists): PXL_20260210_183138759.jpg
+[2026-04-07 19:47:50] [38/457] Skipped (already exists): PXL_20260210_183236765.jpg
+[2026-04-07 19:47:50] [39/457] Skipped (already exists): PXL_20260210_183242356.jpg
+[2026-04-07 19:47:50] [40/457] Skipped (already exists): PXL_20260210_183203142.jpg
+[2026-04-07 19:47:50] [41/457] Skipped (already exists): PXL_20260216_224821721.jpg
+[2026-04-07 19:47:50] [42/457] Skipped (already exists): PXL_20260210_183212028.jpg
+[2026-04-07 19:47:50] [43/457] Skipped (already exists): PXL_20260210_183215832.jpg
+[2026-04-07 19:47:50] [44/457] Skipped (already exists): PXL_20260210_183311112.jpg
+[2026-04-07 19:47:50] [45/457] Skipped (already exists): PXL_20260210_183322806.jpg
+[2026-04-07 19:47:50] [46/457] Skipped (already exists): PXL_20260225_211815070.MP.jpg
+[2026-04-07 19:47:50] [47/457] Skipped (already exists): PXL_20260210_183331328.jpg
+[2026-04-07 19:47:50] [48/457] Skipped (already exists): PXL_20260210_183304857.jpg
+[2026-04-07 19:47:50] [49/457] Skipped (already exists): PXL_20260216_224831099.jpg
+[2026-04-07 19:47:50] [50/457] Skipped (already exists): PXL_20260216_224858536.jpg
+[2026-04-07 19:47:50] [51/457] Skipped (already exists): PXL_20260330_164802733.RAW-01.jpg
+[2026-04-07 19:47:50] [52/457] Skipped (already exists): PXL_20260223_211344386.jpg
+[2026-04-07 19:47:50] [53/457] Skipped (already exists): PXL_20260216_224924959.jpg
+[2026-04-07 19:47:50] [54/457] Skipped (already exists): PXL_20260330_164921106.RAW-01.jpg
+[2026-04-07 19:47:50] [55/457] Skipped (already exists): PXL_20260330_165248548.RAW-01.jpg
+[2026-04-07 19:47:50] [56/457] Skipped (already exists): PXL_20260330_201334533.RAW-01.jpg
+[2026-04-07 19:47:50] [57/457] Skipped (already exists): PXL_20260406_201006649.jpg
+[2026-04-07 19:47:50] [58/457] Skipped (already exists): PXL_20260406_201025634.jpg
+[2026-04-07 19:47:50] [59/457] Skipped (already exists): PXL_20260406_205423149.jpg
+[2026-04-07 19:47:50] [60/457] Skipped (already exists): PXL_20260406_205426419.jpg
+[2026-04-07 19:47:50] [61/457] Skipped (already exists): PXL_20260406_205433003.jpg
+[2026-04-07 19:47:50] [62/457] Skipped (already exists): PXL_20260318_210357377.RAW-01.jpg
+[2026-04-07 19:47:50] [63/457] Skipped (already exists): PXL_20260325_203732193.RAW-01.jpg
+[2026-04-07 19:47:50] [64/457] Skipped (already exists): PXL_20260330_164900859.RAW-01.jpg
+[2026-04-07 19:47:50] [65/457] Skipped (already exists): PXL_20260407_204827158.jpg
+[2026-04-07 19:47:50] [66/457] Skipped (already exists): PXL_20260407_204830784.jpg
+[2026-04-07 19:47:50] [67/457] Skipped (already exists): PXL_20260318_203227947.RAW-01.jpg
+[2026-04-07 19:47:50] [68/457] Skipped (already exists): PXL_20260407_203906092.jpg
+[2026-04-07 19:47:50] [69/457] Skipped (already exists): PXL_20260407_205049022.jpg
+[2026-04-07 19:47:50] [70/457] Skipped (already exists): PXL_20260407_204822155.jpg
+[2026-04-07 19:47:50] [71/457] Skipped (already exists): PXL_20260407_205054380.jpg
+[2026-04-07 19:47:50] [72/457] Skipped (already exists): PXL_20260407_205104734.jpg
+[2026-04-07 19:47:50] [73/457] Skipped (already exists): PXL_20260407_205002540.jpg
+[2026-04-07 19:47:50] [74/457] Skipped (already exists): PXL_20260407_205133346.jpg
+[2026-04-07 19:47:50] [75/457] Skipped (already exists): PXL_20260407_203854376.jpg
+[2026-04-07 19:47:50] [76/457] Skipped (already exists): PXL_20260318_203231164.RAW-01.jpg
+[2026-04-07 19:47:50] [77/457] Skipped (already exists): PXL_20260407_205149968.jpg
+[2026-04-07 19:47:50] [78/457] Skipped (already exists): PXL_20260407_205157095.jpg
+[2026-04-07 19:47:50] [79/457] Skipped (already exists): PXL_20260407_205146698.jpg
+[2026-04-07 19:47:50] [80/457] Skipped (already exists): PXL_20260407_205201093.jpg
+[2026-04-07 19:47:50] [81/457] Skipped (already exists): PXL_20260407_205139528.jpg
+[2026-04-07 19:47:50] [82/457] Skipped (already exists): PXL_20260407_205204603.jpg
+[2026-04-07 19:47:50] [83/457] Skipped (already exists): PXL_20260407_205207994.jpg
+[2026-04-07 19:47:50] [84/457] Skipped (already exists): PXL_20260407_204955205.jpg
+[2026-04-07 19:47:50] [85/457] Skipped (already exists): PXL_20260407_205153605.jpg
+[2026-04-07 19:47:50] [86/457] Skipped (already exists): PXL_20260407_205059897.jpg
+[2026-04-07 19:47:50] [87/457] Skipped (already exists): PXL_20260407_205211357.jpg
+[2026-04-07 19:47:50] [88/457] Skipped (already exists): PXL_20260407_205214739.jpg
+[2026-04-07 19:47:50] [89/457] Skipped (already exists): PXL_20260407_205217808.jpg
+[2026-04-07 19:47:50] [90/457] Skipped (already exists): PXL_20260407_205224124.jpg
+[2026-04-07 19:47:50] [91/457] Skipped (already exists): PXL_20260407_205227701.jpg
+[2026-04-07 19:47:50] [92/457] Skipped (already exists): PXL_20260407_205236358.jpg
+[2026-04-07 19:47:50] [93/457] Skipped (already exists): PXL_20260407_205241222.jpg
+[2026-04-07 19:47:50] [94/457] Skipped (already exists): PXL_20260407_205258585.jpg
+[2026-04-07 19:47:50] [95/457] Skipped (already exists): PXL_20260407_205251077.jpg
+[2026-04-07 19:47:50] [96/457] Skipped (already exists): PXL_20260407_205302908.jpg
+[2026-04-07 19:47:50] [97/457] Skipped (already exists): PXL_20260407_205309424.jpg
+[2026-04-07 19:47:50] [98/457] Skipped (already exists): PXL_20260407_205254761.jpg
+[2026-04-07 19:47:50] [99/457] Skipped (already exists): PXL_20260407_205312963.jpg
+[2026-04-07 19:47:50] [100/457] Skipped (already exists): PXL_20260407_205317830.jpg
+[2026-04-07 19:47:50] [101/457] Skipped (already exists): PXL_20260407_205323385.jpg
+[2026-04-07 19:47:50] [102/457] Skipped (already exists): PXL_20260407_205337857.jpg
+[2026-04-07 19:47:50] [103/457] Skipped (already exists): PXL_20260407_205333282.jpg
+[2026-04-07 19:47:50] [104/457] Skipped (already exists): PXL_20260407_205232203.jpg
+[2026-04-07 19:47:50] [105/457] Skipped (already exists): PXL_20260407_205110111.jpg
+[2026-04-07 19:47:50] [106/457] Skipped (already exists): PXL_20260407_205246308.jpg
+[2026-04-07 19:47:50] [107/457] Error on PXL_20260216_224821721.jpg: [Errno 22] Invalid argument
+[2026-04-07 19:47:50] [108/457] Error on PXL_20260216_224858536.jpg: [Errno 22] Invalid argument
+[2026-04-07 19:47:50] [109/457] Error on PXL_20260216_224831099.jpg: [Errno 22] Invalid argument
+[2026-04-07 19:47:50] [110/457] Error on PXL_20260216_224924959.jpg: [Errno 22] Invalid argument
+[2026-04-07 19:48:15] Scanning for JPG files with STABILIZED ULTRA-RESIZE and 8x PARALLEL CHAINING enabled...
+[2026-04-07 19:48:15] Found 457 total JPG files. Starting phase 1 (workers=4)...
+[2026-04-07 19:48:15] [1/457] Skipped (already exists): PXL_20260210_183910839.jpg
+[2026-04-07 19:48:15] [2/457] Skipped (already exists): PXL_20260210_183927059.jpg
+[2026-04-07 19:48:15] [3/457] Skipped (already exists): PXL_20260210_183858739.jpg
+[2026-04-07 19:48:15] [4/457] Skipped (already exists): PXL_20260210_183923487.jpg
+[2026-04-07 19:48:15] [5/457] Skipped (already exists): PXL_20260210_183914975.jpg
+[2026-04-07 19:48:15] [6/457] Skipped (already exists): PXL_20260210_183904764.jpg
+[2026-04-07 19:48:15] [7/457] Skipped (already exists): PXL_20260210_183935991.jpg
+[2026-04-07 19:48:15] [8/457] Skipped (already exists): PXL_20260210_184004803.jpg
+[2026-04-07 19:48:15] [9/457] Skipped (already exists): PXL_20260210_183955655.jpg
+[2026-04-07 19:48:15] [10/457] Skipped (already exists): PXL_20260210_184047106.jpg
+[2026-04-07 19:48:15] [11/457] Skipped (already exists): PXL_20260210_184030790.jpg
+[2026-04-07 19:48:15] [12/457] Skipped (already exists): PXL_20260210_183946207.jpg
+[2026-04-07 19:48:15] [13/457] Skipped (already exists): PXL_20260210_184105225.jpg
+[2026-04-07 19:48:15] [14/457] Skipped (already exists): PXL_20260126_233737684.jpg
+[2026-04-07 19:48:15] [15/457] Skipped (already exists): PXL_20260210_184050313.jpg
+[2026-04-07 19:48:15] [16/457] Skipped (already exists): PXL_20260210_183940543.jpg
+[2026-04-07 19:48:15] [17/457] Skipped (already exists): PXL_20260126_230248488.jpg
+[2026-04-07 19:48:15] [18/457] Skipped (already exists): PXL_20260126_233744149.jpg
+[2026-04-07 19:48:15] [19/457] Skipped (already exists): PXL_20260210_183102851.jpg
+[2026-04-07 19:48:15] [20/457] Skipped (already exists): PXL_20260210_183113132.jpg
+[2026-04-07 19:48:15] [21/457] Skipped (already exists): PXL_20260210_183118010.jpg
+[2026-04-07 19:48:15] [22/457] Skipped (already exists): PXL_20260210_183122291.jpg
+[2026-04-07 19:48:15] [23/457] Skipped (already exists): PXL_20260210_183056764.jpg
+[2026-04-07 19:48:15] [24/457] Skipped (already exists): PXL_20260210_183131558.jpg
+[2026-04-07 19:48:15] [25/457] Skipped (already exists): PXL_20260210_183128180.jpg
+[2026-04-07 19:48:15] [26/457] Skipped (already exists): PXL_20260210_183107098.jpg
+[2026-04-07 19:48:15] [27/457] Skipped (already exists): PXL_20260210_183142606.jpg
+[2026-04-07 19:48:15] [28/457] Skipped (already exists): PXL_20260210_183134828.jpg
+[2026-04-07 19:48:15] [29/457] Skipped (already exists): PXL_20260210_183138759.jpg
+[2026-04-07 19:48:15] [30/457] Skipped (already exists): PXL_20260210_183203142.jpg
+[2026-04-07 19:48:15] [31/457] Skipped (already exists): PXL_20260210_183150836.jpg
+[2026-04-07 19:48:15] [32/457] Skipped (already exists): PXL_20260210_183157402.jpg
+[2026-04-07 19:48:15] [33/457] Skipped (already exists): PXL_20260210_183212028.jpg
+[2026-04-07 19:48:15] [34/457] Skipped (already exists): PXL_20260210_183207060.jpg
+[2026-04-07 19:48:15] [35/457] Skipped (already exists): PXL_20260210_183226507.jpg
+[2026-04-07 19:48:15] [36/457] Skipped (already exists): PXL_20260210_183215832.jpg
+[2026-04-07 19:48:15] [37/457] Skipped (already exists): PXL_20260210_183232411.jpg
+[2026-04-07 19:48:15] [38/457] Skipped (already exists): PXL_20260210_183236765.jpg
+[2026-04-07 19:48:15] [39/457] Skipped (already exists): PXL_20260210_183249285.jpg
+[2026-04-07 19:48:15] [40/457] Skipped (already exists): PXL_20260210_183256218.jpg
+[2026-04-07 19:48:15] [41/457] Skipped (already exists): PXL_20260210_183242356.jpg
+[2026-04-07 19:48:15] [42/457] Skipped (already exists): PXL_20260210_183304857.jpg
+[2026-04-07 19:48:15] [43/457] Skipped (already exists): PXL_20260210_183322806.jpg
+[2026-04-07 19:48:15] [44/457] Skipped (already exists): PXL_20260210_183311112.jpg
+[2026-04-07 19:48:15] [45/457] Skipped (already exists): PXL_20260216_224821721.jpg
+[2026-04-07 19:48:15] [46/457] Skipped (already exists): PXL_20260216_224831099.jpg
+[2026-04-07 19:48:15] [47/457] Skipped (already exists): PXL_20260216_224858536.jpg
+[2026-04-07 19:48:15] [48/457] Skipped (already exists): PXL_20260216_224924959.jpg
+[2026-04-07 19:48:15] [49/457] Skipped (already exists): PXL_20260210_183147025.jpg
+[2026-04-07 19:48:15] [50/457] Skipped (already exists): PXL_20260223_211344386.jpg
+[2026-04-07 19:48:15] [51/457] Skipped (already exists): PXL_20260225_211815070.MP.jpg
+[2026-04-07 19:48:15] [52/457] Skipped (already exists): PXL_20260210_183331328.jpg
+[2026-04-07 19:48:15] [53/457] Skipped (already exists): PXL_20260318_210357377.RAW-01.jpg
+[2026-04-07 19:48:15] [54/457] Skipped (already exists): PXL_20260318_203227947.RAW-01.jpg
+[2026-04-07 19:48:15] [55/457] Skipped (already exists): PXL_20260330_164900859.RAW-01.jpg
+[2026-04-07 19:48:15] [56/457] Skipped (already exists): PXL_20260325_203732193.RAW-01.jpg
+[2026-04-07 19:48:15] [57/457] Skipped (already exists): PXL_20260330_164921106.RAW-01.jpg
+[2026-04-07 19:48:15] [58/457] Skipped (already exists): PXL_20260330_164802733.RAW-01.jpg
+[2026-04-07 19:48:15] [59/457] Skipped (already exists): PXL_20260318_203231164.RAW-01.jpg
+[2026-04-07 19:48:15] [60/457] Skipped (already exists): PXL_20260330_201334533.RAW-01.jpg
+[2026-04-07 19:48:15] [61/457] Skipped (already exists): PXL_20260406_201025634.jpg
+[2026-04-07 19:48:15] [62/457] Skipped (already exists): PXL_20260406_201006649.jpg
+[2026-04-07 19:48:15] [63/457] Skipped (already exists): PXL_20260406_205426419.jpg
+[2026-04-07 19:48:15] [64/457] Skipped (already exists): PXL_20260330_165248548.RAW-01.jpg
+[2026-04-07 19:48:15] [65/457] Skipped (already exists): PXL_20260406_205423149.jpg
+[2026-04-07 19:48:15] [66/457] Skipped (already exists): PXL_20260406_205433003.jpg
+[2026-04-07 19:48:15] [67/457] Skipped (already exists): PXL_20260407_203854376.jpg
+[2026-04-07 19:48:15] [68/457] Skipped (already exists): PXL_20260407_204822155.jpg
+[2026-04-07 19:48:15] [69/457] Skipped (already exists): PXL_20260407_204827158.jpg
+[2026-04-07 19:48:15] [70/457] Skipped (already exists): PXL_20260407_204955205.jpg
+[2026-04-07 19:48:15] [71/457] Skipped (already exists): PXL_20260407_204830784.jpg
+[2026-04-07 19:48:15] [72/457] Skipped (already exists): PXL_20260407_205002540.jpg
+[2026-04-07 19:48:15] [73/457] Skipped (already exists): PXL_20260407_205049022.jpg
+[2026-04-07 19:48:15] [74/457] Skipped (already exists): PXL_20260407_205054380.jpg
+[2026-04-07 19:48:15] [75/457] Skipped (already exists): PXL_20260407_203906092.jpg
+[2026-04-07 19:48:15] [76/457] Skipped (already exists): PXL_20260407_205059897.jpg
+[2026-04-07 19:48:15] [77/457] Skipped (already exists): PXL_20260407_205110111.jpg
+[2026-04-07 19:48:15] [78/457] Skipped (already exists): PXL_20260407_205104734.jpg
+[2026-04-07 19:48:15] [79/457] Skipped (already exists): PXL_20260407_205139528.jpg
+[2026-04-07 19:48:15] [80/457] Skipped (already exists): PXL_20260407_205146698.jpg
+[2026-04-07 19:48:15] [81/457] Skipped (already exists): PXL_20260407_205133346.jpg
+[2026-04-07 19:48:15] [82/457] Skipped (already exists): PXL_20260407_205153605.jpg
+[2026-04-07 19:48:15] [83/457] Skipped (already exists): PXL_20260407_205149968.jpg
+[2026-04-07 19:48:15] [84/457] Skipped (already exists): PXL_20260407_205201093.jpg
+[2026-04-07 19:48:15] [85/457] Skipped (already exists): PXL_20260407_205204603.jpg
+[2026-04-07 19:48:15] [86/457] Skipped (already exists): PXL_20260407_205157095.jpg
+[2026-04-07 19:48:15] [87/457] Skipped (already exists): PXL_20260407_205211357.jpg
+[2026-04-07 19:48:15] [88/457] Skipped (already exists): PXL_20260407_205207994.jpg
+[2026-04-07 19:48:15] [89/457] Skipped (already exists): PXL_20260407_205214739.jpg
+[2026-04-07 19:48:15] [90/457] Skipped (already exists): PXL_20260407_205224124.jpg
+[2026-04-07 19:48:15] [91/457] Skipped (already exists): PXL_20260407_205227701.jpg
+[2026-04-07 19:48:15] [92/457] Skipped (already exists): PXL_20260407_205232203.jpg
+[2026-04-07 19:48:15] [93/457] Skipped (already exists): PXL_20260407_205236358.jpg
+[2026-04-07 19:48:15] [94/457] Skipped (already exists): PXL_20260407_205241222.jpg
+[2026-04-07 19:48:15] [95/457] Skipped (already exists): PXL_20260407_205246308.jpg
+[2026-04-07 19:48:15] [96/457] Skipped (already exists): PXL_20260407_205251077.jpg
+[2026-04-07 19:48:15] [97/457] Skipped (already exists): PXL_20260407_205254761.jpg
+[2026-04-07 19:48:15] [98/457] Skipped (already exists): PXL_20260407_205258585.jpg
+[2026-04-07 19:48:15] [99/457] Skipped (already exists): PXL_20260407_205302908.jpg
+[2026-04-07 19:48:15] [100/457] Skipped (already exists): PXL_20260407_205309424.jpg
+[2026-04-07 19:48:15] [101/457] Skipped (already exists): PXL_20260407_205217808.jpg
+[2026-04-07 19:48:15] [102/457] Skipped (already exists): PXL_20260407_205317830.jpg
+[2026-04-07 19:48:15] [103/457] Skipped (already exists): PXL_20260407_205312963.jpg
+[2026-04-07 19:48:15] [104/457] Skipped (already exists): PXL_20260407_205323385.jpg
+[2026-04-07 19:48:15] [105/457] Skipped (already exists): PXL_20260407_205337857.jpg
+[2026-04-07 19:48:15] [106/457] Skipped (already exists): PXL_20260407_205333282.jpg
+[2026-04-07 19:49:34] [107/457] Extracted: PXL_20260407_205346536.jpg (ultra-compressed 6.7MB -> 0.09MB)
+[2026-04-07 19:49:48] [108/457] Extracted: PXL_20260407_205350874.jpg (ultra-compressed 7.2MB -> 0.10MB)
+[2026-04-07 19:49:48] [109/457] Error on PXL_20260216_224821721.jpg: [Errno 22] Invalid argument
+[2026-04-07 19:49:48] [110/457] Error on PXL_20260216_224831099.jpg: [Errno 22] Invalid argument
+[2026-04-07 19:49:48] [111/457] Error on PXL_20260216_224858536.jpg: [Errno 22] Invalid argument
+[2026-04-07 19:49:48] [112/457] Error on PXL_20260216_224924959.jpg: [Errno 22] Invalid argument
+[2026-04-07 19:51:06] Scanning for JPG files with STABLE 4x PARALLEL and 1024px ULTRA-RESIZE enabled...
+[2026-04-07 19:51:06] Found 457 total JPG files. Starting phase 1 (workers=4)...
+[2026-04-07 19:51:06] [1/457] Skipped (already exists): PXL_20260210_183923487.jpg
+[2026-04-07 19:51:06] [2/457] Skipped (already exists): PXL_20260210_183927059.jpg
+[2026-04-07 19:51:06] [3/457] Skipped (already exists): PXL_20260210_183910839.jpg
+[2026-04-07 19:51:06] [4/457] Skipped (already exists): PXL_20260210_183858739.jpg
+[2026-04-07 19:51:06] [5/457] Skipped (already exists): PXL_20260210_183914975.jpg
+[2026-04-07 19:51:06] [6/457] Skipped (already exists): PXL_20260210_183904764.jpg
+[2026-04-07 19:51:06] [7/457] Skipped (already exists): PXL_20260210_183946207.jpg
+[2026-04-07 19:51:06] [8/457] Skipped (already exists): PXL_20260210_183940543.jpg
+[2026-04-07 19:51:06] [9/457] Skipped (already exists): PXL_20260210_184004803.jpg
+[2026-04-07 19:51:06] [10/457] Skipped (already exists): PXL_20260210_183955655.jpg
+[2026-04-07 19:51:06] [11/457] Skipped (already exists): PXL_20260210_183935991.jpg
+[2026-04-07 19:51:06] [12/457] Skipped (already exists): PXL_20260210_184030790.jpg
+[2026-04-07 19:51:06] [13/457] Skipped (already exists): PXL_20260210_184047106.jpg
+[2026-04-07 19:51:06] [14/457] Skipped (already exists): PXL_20260210_184105225.jpg
+[2026-04-07 19:51:06] [15/457] Skipped (already exists): PXL_20260210_184050313.jpg
+[2026-04-07 19:51:06] [16/457] Skipped (already exists): PXL_20260126_233744149.jpg
+[2026-04-07 19:51:06] [17/457] Skipped (already exists): PXL_20260210_183056764.jpg
+[2026-04-07 19:51:06] [18/457] Skipped (already exists): PXL_20260210_183102851.jpg
+[2026-04-07 19:51:06] [19/457] Skipped (already exists): PXL_20260126_230248488.jpg
+[2026-04-07 19:51:06] [20/457] Skipped (already exists): PXL_20260126_233737684.jpg
+[2026-04-07 19:51:06] [21/457] Skipped (already exists): PXL_20260210_183118010.jpg
+[2026-04-07 19:51:06] [22/457] Skipped (already exists): PXL_20260210_183107098.jpg
+[2026-04-07 19:51:06] [23/457] Skipped (already exists): PXL_20260210_183128180.jpg
+[2026-04-07 19:51:06] [24/457] Skipped (already exists): PXL_20260210_183113132.jpg
+[2026-04-07 19:51:06] [25/457] Skipped (already exists): PXL_20260210_183122291.jpg
+[2026-04-07 19:51:06] [26/457] Skipped (already exists): PXL_20260210_183134828.jpg
+[2026-04-07 19:51:06] [27/457] Skipped (already exists): PXL_20260210_183142606.jpg
+[2026-04-07 19:51:06] [28/457] Skipped (already exists): PXL_20260210_183138759.jpg
+[2026-04-07 19:51:06] [29/457] Skipped (already exists): PXL_20260210_183150836.jpg
+[2026-04-07 19:51:06] [30/457] Skipped (already exists): PXL_20260210_183131558.jpg
+[2026-04-07 19:51:06] [31/457] Skipped (already exists): PXL_20260210_183147025.jpg
+[2026-04-07 19:51:06] [32/457] Skipped (already exists): PXL_20260210_183203142.jpg
+[2026-04-07 19:51:06] [33/457] Skipped (already exists): PXL_20260210_183207060.jpg
+[2026-04-07 19:51:06] [34/457] Skipped (already exists): PXL_20260210_183157402.jpg
+[2026-04-07 19:51:06] [35/457] Skipped (already exists): PXL_20260210_183212028.jpg
+[2026-04-07 19:51:06] [36/457] Skipped (already exists): PXL_20260210_183215832.jpg
+[2026-04-07 19:51:06] [37/457] Skipped (already exists): PXL_20260210_183226507.jpg
+[2026-04-07 19:51:06] [38/457] Skipped (already exists): PXL_20260210_183232411.jpg
+[2026-04-07 19:51:06] [39/457] Skipped (already exists): PXL_20260210_183236765.jpg
+[2026-04-07 19:51:06] [40/457] Skipped (already exists): PXL_20260210_183242356.jpg
+[2026-04-07 19:51:06] [41/457] Skipped (already exists): PXL_20260210_183249285.jpg
+[2026-04-07 19:51:06] [42/457] Skipped (already exists): PXL_20260210_183256218.jpg
+[2026-04-07 19:51:06] [43/457] Skipped (already exists): PXL_20260210_183304857.jpg
+[2026-04-07 19:51:06] [44/457] Skipped (already exists): PXL_20260210_183311112.jpg
+[2026-04-07 19:51:06] [45/457] Skipped (already exists): PXL_20260210_183331328.jpg
+[2026-04-07 19:51:06] [46/457] Skipped (already exists): PXL_20260216_224831099.jpg
+[2026-04-07 19:51:06] [47/457] Skipped (already exists): PXL_20260216_224821721.jpg
+[2026-04-07 19:51:06] [48/457] Skipped (already exists): PXL_20260210_183322806.jpg
+[2026-04-07 19:51:06] [49/457] Skipped (already exists): PXL_20260223_211344386.jpg
+[2026-04-07 19:51:06] [50/457] Skipped (already exists): PXL_20260216_224924959.jpg
+[2026-04-07 19:51:06] [51/457] Skipped (already exists): PXL_20260216_224858536.jpg
+[2026-04-07 19:51:06] [52/457] Skipped (already exists): PXL_20260225_211815070.MP.jpg
+[2026-04-07 19:51:06] [53/457] Skipped (already exists): PXL_20260318_203227947.RAW-01.jpg
+[2026-04-07 19:51:06] [54/457] Skipped (already exists): PXL_20260318_210357377.RAW-01.jpg
+[2026-04-07 19:51:06] [55/457] Skipped (already exists): PXL_20260318_203231164.RAW-01.jpg
+[2026-04-07 19:51:06] [56/457] Skipped (already exists): PXL_20260330_164802733.RAW-01.jpg
+[2026-04-07 19:51:06] [57/457] Skipped (already exists): PXL_20260330_164900859.RAW-01.jpg
+[2026-04-07 19:51:06] [58/457] Skipped (already exists): PXL_20260330_164921106.RAW-01.jpg
+[2026-04-07 19:51:06] [59/457] Skipped (already exists): PXL_20260330_165248548.RAW-01.jpg
+[2026-04-07 19:51:06] [60/457] Skipped (already exists): PXL_20260330_201334533.RAW-01.jpg
+[2026-04-07 19:51:06] [61/457] Skipped (already exists): PXL_20260406_201006649.jpg
+[2026-04-07 19:51:06] [62/457] Skipped (already exists): PXL_20260406_201025634.jpg
+[2026-04-07 19:51:06] [63/457] Skipped (already exists): PXL_20260406_205423149.jpg
+[2026-04-07 19:51:06] [64/457] Skipped (already exists): PXL_20260406_205426419.jpg
+[2026-04-07 19:51:06] [65/457] Skipped (already exists): PXL_20260406_205433003.jpg
+[2026-04-07 19:51:06] [66/457] Skipped (already exists): PXL_20260407_203854376.jpg
+[2026-04-07 19:51:06] [67/457] Skipped (already exists): PXL_20260407_203906092.jpg
+[2026-04-07 19:51:06] [68/457] Skipped (already exists): PXL_20260325_203732193.RAW-01.jpg
+[2026-04-07 19:51:06] [69/457] Skipped (already exists): PXL_20260407_204827158.jpg
+[2026-04-07 19:51:06] [70/457] Skipped (already exists): PXL_20260407_204830784.jpg
+[2026-04-07 19:51:06] [71/457] Skipped (already exists): PXL_20260407_204955205.jpg
+[2026-04-07 19:51:06] [72/457] Skipped (already exists): PXL_20260407_204822155.jpg
+[2026-04-07 19:51:06] [73/457] Skipped (already exists): PXL_20260407_205049022.jpg
+[2026-04-07 19:51:06] [74/457] Skipped (already exists): PXL_20260407_205002540.jpg
+[2026-04-07 19:51:06] [75/457] Skipped (already exists): PXL_20260407_205059897.jpg
+[2026-04-07 19:51:06] [76/457] Skipped (already exists): PXL_20260407_205054380.jpg
+[2026-04-07 19:51:06] [77/457] Skipped (already exists): PXL_20260407_205133346.jpg
+[2026-04-07 19:51:06] [78/457] Skipped (already exists): PXL_20260407_205110111.jpg
+[2026-04-07 19:51:06] [79/457] Skipped (already exists): PXL_20260407_205139528.jpg
+[2026-04-07 19:51:06] [80/457] Skipped (already exists): PXL_20260407_205104734.jpg
+[2026-04-07 19:51:06] [81/457] Skipped (already exists): PXL_20260407_205146698.jpg
+[2026-04-07 19:51:06] [82/457] Skipped (already exists): PXL_20260407_205153605.jpg
+[2026-04-07 19:51:06] [83/457] Skipped (already exists): PXL_20260407_205157095.jpg
+[2026-04-07 19:51:06] [84/457] Skipped (already exists): PXL_20260407_205149968.jpg
+[2026-04-07 19:51:06] [85/457] Skipped (already exists): PXL_20260407_205207994.jpg
+[2026-04-07 19:51:06] [86/457] Skipped (already exists): PXL_20260407_205201093.jpg
+[2026-04-07 19:51:06] [87/457] Skipped (already exists): PXL_20260407_205204603.jpg
+[2026-04-07 19:51:06] [88/457] Skipped (already exists): PXL_20260407_205217808.jpg
+[2026-04-07 19:51:06] [89/457] Skipped (already exists): PXL_20260407_205211357.jpg
+[2026-04-07 19:51:06] [90/457] Skipped (already exists): PXL_20260407_205224124.jpg
+[2026-04-07 19:51:06] [91/457] Skipped (already exists): PXL_20260407_205227701.jpg
+[2026-04-07 19:51:06] [92/457] Skipped (already exists): PXL_20260407_205214739.jpg
+[2026-04-07 19:51:06] [93/457] Skipped (already exists): PXL_20260407_205232203.jpg
+[2026-04-07 19:51:06] [94/457] Skipped (already exists): PXL_20260407_205236358.jpg
+[2026-04-07 19:51:06] [95/457] Skipped (already exists): PXL_20260407_205246308.jpg
+[2026-04-07 19:51:06] [96/457] Skipped (already exists): PXL_20260407_205251077.jpg
+[2026-04-07 19:51:06] [97/457] Skipped (already exists): PXL_20260407_205241222.jpg
+[2026-04-07 19:51:06] [98/457] Skipped (already exists): PXL_20260407_205258585.jpg
+[2026-04-07 19:51:06] [99/457] Skipped (already exists): PXL_20260407_205254761.jpg
+[2026-04-07 19:51:06] [100/457] Skipped (already exists): PXL_20260407_205302908.jpg
+[2026-04-07 19:51:06] [101/457] Skipped (already exists): PXL_20260407_205312963.jpg
+[2026-04-07 19:51:06] [102/457] Skipped (already exists): PXL_20260407_205317830.jpg
+[2026-04-07 19:51:06] [103/457] Skipped (already exists): PXL_20260407_205309424.jpg
+[2026-04-07 19:51:06] [104/457] Skipped (already exists): PXL_20260407_205323385.jpg
+[2026-04-07 19:51:06] [105/457] Skipped (already exists): PXL_20260407_205333282.jpg
+[2026-04-07 19:51:06] [106/457] Skipped (already exists): PXL_20260407_205337857.jpg
+[2026-04-07 19:51:06] [107/457] Skipped (already exists): PXL_20260407_205346536.jpg
+[2026-04-07 19:51:06] [108/457] Skipped (already exists): PXL_20260407_205350874.jpg
+[2026-04-07 19:51:06] [109/457] Error on PXL_20260216_224821721.jpg: [Errno 22] Invalid argument
+[2026-04-07 19:51:06] [110/457] Error on PXL_20260216_224831099.jpg: [Errno 22] Invalid argument
+[2026-04-07 19:51:06] [111/457] Error on PXL_20260216_224858536.jpg: [Errno 22] Invalid argument
+[2026-04-07 19:51:06] [112/457] Error on PXL_20260216_224924959.jpg: [Errno 22] Invalid argument
+[2026-04-07 19:51:36] Scanning for JPG files with RAW-MODE and 4x PARALLEL CHAINING enabled...
+[2026-04-07 19:51:36] Found 457 total JPG files. Starting phase 1 (workers=4)...
+[2026-04-07 19:51:36] [1/457] Skipped (already exists): PXL_20260210_183914975.jpg
+[2026-04-07 19:51:36] [2/457] Skipped (already exists): PXL_20260210_183858739.jpg
+[2026-04-07 19:51:36] [3/457] Skipped (already exists): PXL_20260210_183904764.jpg
+[2026-04-07 19:51:36] [4/457] Skipped (already exists): PXL_20260210_183910839.jpg
+[2026-04-07 19:51:36] [5/457] Skipped (already exists): PXL_20260210_183946207.jpg
+[2026-04-07 19:51:36] [6/457] Skipped (already exists): PXL_20260210_183923487.jpg
+[2026-04-07 19:51:36] [7/457] Skipped (already exists): PXL_20260210_183927059.jpg
+[2026-04-07 19:51:36] [8/457] Skipped (already exists): PXL_20260210_183955655.jpg
+[2026-04-07 19:51:36] [9/457] Skipped (already exists): PXL_20260210_183940543.jpg
+[2026-04-07 19:51:36] [10/457] Skipped (already exists): PXL_20260210_184004803.jpg
+[2026-04-07 19:51:36] [11/457] Skipped (already exists): PXL_20260210_184030790.jpg
+[2026-04-07 19:51:36] [12/457] Skipped (already exists): PXL_20260210_183935991.jpg
+[2026-04-07 19:51:36] [13/457] Skipped (already exists): PXL_20260210_184105225.jpg
+[2026-04-07 19:51:36] [14/457] Skipped (already exists): PXL_20260210_184050313.jpg
+[2026-04-07 19:51:36] [15/457] Skipped (already exists): PXL_20260126_230248488.jpg
+[2026-04-07 19:51:36] [16/457] Skipped (already exists): PXL_20260210_184047106.jpg
+[2026-04-07 19:51:36] [17/457] Skipped (already exists): PXL_20260126_233737684.jpg
+[2026-04-07 19:51:36] [18/457] Skipped (already exists): PXL_20260126_233744149.jpg
+[2026-04-07 19:51:36] [19/457] Skipped (already exists): PXL_20260210_183107098.jpg
+[2026-04-07 19:51:36] [20/457] Skipped (already exists): PXL_20260210_183113132.jpg
+[2026-04-07 19:51:36] [21/457] Skipped (already exists): PXL_20260210_183056764.jpg
+[2026-04-07 19:51:36] [22/457] Skipped (already exists): PXL_20260210_183122291.jpg
+[2026-04-07 19:51:36] [23/457] Skipped (already exists): PXL_20260210_183102851.jpg
+[2026-04-07 19:51:36] [24/457] Skipped (already exists): PXL_20260210_183118010.jpg
+[2026-04-07 19:51:36] [25/457] Skipped (already exists): PXL_20260210_183131558.jpg
+[2026-04-07 19:51:36] [26/457] Skipped (already exists): PXL_20260210_183128180.jpg
+[2026-04-07 19:51:36] [27/457] Skipped (already exists): PXL_20260210_183134828.jpg
+[2026-04-07 19:51:36] [28/457] Skipped (already exists): PXL_20260210_183138759.jpg
+[2026-04-07 19:51:36] [29/457] Skipped (already exists): PXL_20260210_183142606.jpg
+[2026-04-07 19:51:36] [30/457] Skipped (already exists): PXL_20260210_183150836.jpg
+[2026-04-07 19:51:36] [31/457] Skipped (already exists): PXL_20260210_183157402.jpg
+[2026-04-07 19:51:36] [32/457] Skipped (already exists): PXL_20260210_183203142.jpg
+[2026-04-07 19:51:36] [33/457] Skipped (already exists): PXL_20260210_183207060.jpg
+[2026-04-07 19:51:36] [34/457] Skipped (already exists): PXL_20260210_183212028.jpg
+[2026-04-07 19:51:36] [35/457] Skipped (already exists): PXL_20260210_183215832.jpg
+[2026-04-07 19:51:36] [36/457] Skipped (already exists): PXL_20260210_183147025.jpg
+[2026-04-07 19:51:36] [37/457] Skipped (already exists): PXL_20260210_183236765.jpg
+[2026-04-07 19:51:36] [38/457] Skipped (already exists): PXL_20260210_183226507.jpg
+[2026-04-07 19:51:36] [39/457] Skipped (already exists): PXL_20260210_183242356.jpg
+[2026-04-07 19:51:36] [40/457] Skipped (already exists): PXL_20260210_183232411.jpg
+[2026-04-07 19:51:36] [41/457] Skipped (already exists): PXL_20260210_183249285.jpg
+[2026-04-07 19:51:36] [42/457] Skipped (already exists): PXL_20260210_183256218.jpg
+[2026-04-07 19:51:36] [43/457] Skipped (already exists): PXL_20260210_183304857.jpg
+[2026-04-07 19:51:36] [44/457] Skipped (already exists): PXL_20260210_183311112.jpg
+[2026-04-07 19:51:36] [45/457] Skipped (already exists): PXL_20260210_183322806.jpg
+[2026-04-07 19:51:36] [46/457] Skipped (already exists): PXL_20260210_183331328.jpg
+[2026-04-07 19:51:36] [47/457] Skipped (already exists): PXL_20260216_224821721.jpg
+[2026-04-07 19:51:36] [48/457] Skipped (already exists): PXL_20260216_224831099.jpg
+[2026-04-07 19:51:36] [49/457] Skipped (already exists): PXL_20260216_224858536.jpg
+[2026-04-07 19:51:36] [50/457] Skipped (already exists): PXL_20260216_224924959.jpg
+[2026-04-07 19:51:36] [51/457] Skipped (already exists): PXL_20260225_211815070.MP.jpg
+[2026-04-07 19:51:36] [52/457] Skipped (already exists): PXL_20260318_203227947.RAW-01.jpg
+[2026-04-07 19:51:36] [53/457] Skipped (already exists): PXL_20260223_211344386.jpg
+[2026-04-07 19:51:36] [54/457] Skipped (already exists): PXL_20260318_210357377.RAW-01.jpg
+[2026-04-07 19:51:36] [55/457] Skipped (already exists): PXL_20260325_203732193.RAW-01.jpg
+[2026-04-07 19:51:36] [56/457] Skipped (already exists): PXL_20260330_164802733.RAW-01.jpg
+[2026-04-07 19:51:36] [57/457] Skipped (already exists): PXL_20260330_164900859.RAW-01.jpg
+[2026-04-07 19:51:36] [58/457] Skipped (already exists): PXL_20260318_203231164.RAW-01.jpg
+[2026-04-07 19:51:36] [59/457] Skipped (already exists): PXL_20260330_201334533.RAW-01.jpg
+[2026-04-07 19:51:36] [60/457] Skipped (already exists): PXL_20260330_165248548.RAW-01.jpg
+[2026-04-07 19:51:36] [61/457] Skipped (already exists): PXL_20260330_164921106.RAW-01.jpg
+[2026-04-07 19:51:36] [62/457] Skipped (already exists): PXL_20260406_205423149.jpg
+[2026-04-07 19:51:36] [63/457] Skipped (already exists): PXL_20260406_205426419.jpg
+[2026-04-07 19:51:36] [64/457] Skipped (already exists): PXL_20260406_205433003.jpg
+[2026-04-07 19:51:36] [65/457] Skipped (already exists): PXL_20260407_203854376.jpg
+[2026-04-07 19:51:36] [66/457] Skipped (already exists): PXL_20260406_201025634.jpg
+[2026-04-07 19:51:36] [67/457] Skipped (already exists): PXL_20260406_201006649.jpg
+[2026-04-07 19:51:36] [68/457] Skipped (already exists): PXL_20260407_204822155.jpg
+[2026-04-07 19:51:36] [69/457] Skipped (already exists): PXL_20260407_204827158.jpg
+[2026-04-07 19:51:36] [70/457] Skipped (already exists): PXL_20260407_203906092.jpg
+[2026-04-07 19:51:36] [71/457] Skipped (already exists): PXL_20260407_204830784.jpg
+[2026-04-07 19:51:36] [72/457] Skipped (already exists): PXL_20260407_204955205.jpg
+[2026-04-07 19:51:36] [73/457] Skipped (already exists): PXL_20260407_205049022.jpg
+[2026-04-07 19:51:36] [74/457] Skipped (already exists): PXL_20260407_205002540.jpg
+[2026-04-07 19:51:36] [75/457] Skipped (already exists): PXL_20260407_205059897.jpg
+[2026-04-07 19:51:36] [76/457] Skipped (already exists): PXL_20260407_205054380.jpg
+[2026-04-07 19:51:36] [77/457] Skipped (already exists): PXL_20260407_205104734.jpg
+[2026-04-07 19:51:36] [78/457] Skipped (already exists): PXL_20260407_205110111.jpg
+[2026-04-07 19:51:36] [79/457] Skipped (already exists): PXL_20260407_205139528.jpg
+[2026-04-07 19:51:36] [80/457] Skipped (already exists): PXL_20260407_205146698.jpg
+[2026-04-07 19:51:36] [81/457] Skipped (already exists): PXL_20260407_205133346.jpg
+[2026-04-07 19:51:36] [82/457] Skipped (already exists): PXL_20260407_205149968.jpg
+[2026-04-07 19:51:36] [83/457] Skipped (already exists): PXL_20260407_205153605.jpg
+[2026-04-07 19:51:36] [84/457] Skipped (already exists): PXL_20260407_205157095.jpg
+[2026-04-07 19:51:36] [85/457] Skipped (already exists): PXL_20260407_205201093.jpg
+[2026-04-07 19:51:36] [86/457] Skipped (already exists): PXL_20260407_205204603.jpg
+[2026-04-07 19:51:36] [87/457] Skipped (already exists): PXL_20260407_205211357.jpg
+[2026-04-07 19:51:36] [88/457] Skipped (already exists): PXL_20260407_205207994.jpg
+[2026-04-07 19:51:36] [89/457] Skipped (already exists): PXL_20260407_205214739.jpg
+[2026-04-07 19:51:36] [90/457] Skipped (already exists): PXL_20260407_205217808.jpg
+[2026-04-07 19:51:36] [91/457] Skipped (already exists): PXL_20260407_205227701.jpg
+[2026-04-07 19:51:36] [92/457] Skipped (already exists): PXL_20260407_205232203.jpg
+[2026-04-07 19:51:36] [93/457] Skipped (already exists): PXL_20260407_205224124.jpg
+[2026-04-07 19:51:36] [94/457] Skipped (already exists): PXL_20260407_205236358.jpg
+[2026-04-07 19:51:36] [95/457] Skipped (already exists): PXL_20260407_205246308.jpg
+[2026-04-07 19:51:36] [96/457] Skipped (already exists): PXL_20260407_205241222.jpg
+[2026-04-07 19:51:36] [97/457] Skipped (already exists): PXL_20260407_205251077.jpg
+[2026-04-07 19:51:36] [98/457] Skipped (already exists): PXL_20260407_205254761.jpg
+[2026-04-07 19:51:36] [99/457] Skipped (already exists): PXL_20260407_205258585.jpg
+[2026-04-07 19:51:36] [100/457] Skipped (already exists): PXL_20260407_205302908.jpg
+[2026-04-07 19:51:36] [101/457] Skipped (already exists): PXL_20260407_205309424.jpg
+[2026-04-07 19:51:36] [102/457] Skipped (already exists): PXL_20260407_205312963.jpg
+[2026-04-07 19:51:36] [103/457] Skipped (already exists): PXL_20260407_205317830.jpg
+[2026-04-07 19:51:36] [104/457] Skipped (already exists): PXL_20260407_205323385.jpg
+[2026-04-07 19:51:36] [105/457] Skipped (already exists): PXL_20260407_205333282.jpg
+[2026-04-07 19:51:36] [106/457] Skipped (already exists): PXL_20260407_205337857.jpg
+[2026-04-07 19:51:36] [107/457] Skipped (already exists): PXL_20260407_205346536.jpg
+[2026-04-07 19:51:36] [108/457] Skipped (already exists): PXL_20260407_205350874.jpg
+[2026-04-07 19:51:36] [109/457] Error on PXL_20260216_224821721.jpg: [Errno 22] Invalid argument
+[2026-04-07 19:51:36] [110/457] Error on PXL_20260216_224831099.jpg: [Errno 22] Invalid argument
+[2026-04-07 19:51:36] [111/457] Error on PXL_20260216_224858536.jpg: [Errno 22] Invalid argument
+[2026-04-07 19:51:36] [112/457] Error on PXL_20260216_224924959.jpg: [Errno 22] Invalid argument
+[2026-04-07 19:52:02] Scanning for JPG files with HTTP-CHUNK-FIXED 4x PARALLEL CHAINING enabled...
+[2026-04-07 19:52:02] Found 457 total JPG files. Starting phase 1 (workers=4)...
+[2026-04-07 19:52:02] [1/457] Skipped (already exists): PXL_20260210_183914975.jpg
+[2026-04-07 19:52:02] [2/457] Skipped (already exists): PXL_20260210_183910839.jpg
+[2026-04-07 19:52:02] [3/457] Skipped (already exists): PXL_20260210_183946207.jpg
+[2026-04-07 19:52:02] [4/457] Skipped (already exists): PXL_20260210_183858739.jpg
+[2026-04-07 19:52:02] [5/457] Skipped (already exists): PXL_20260210_183935991.jpg
+[2026-04-07 19:52:02] [6/457] Skipped (already exists): PXL_20260210_183904764.jpg
+[2026-04-07 19:52:02] [7/457] Skipped (already exists): PXL_20260210_183923487.jpg
+[2026-04-07 19:52:02] [8/457] Skipped (already exists): PXL_20260210_183927059.jpg
+[2026-04-07 19:52:02] [9/457] Skipped (already exists): PXL_20260210_183940543.jpg
+[2026-04-07 19:52:02] [10/457] Skipped (already exists): PXL_20260210_184047106.jpg
+[2026-04-07 19:52:02] [11/457] Skipped (already exists): PXL_20260210_184004803.jpg
+[2026-04-07 19:52:02] [12/457] Skipped (already exists): PXL_20260210_184050313.jpg
+[2026-04-07 19:52:02] [13/457] Skipped (already exists): PXL_20260210_184030790.jpg
+[2026-04-07 19:52:02] [14/457] Skipped (already exists): PXL_20260210_183955655.jpg
+[2026-04-07 19:52:02] [15/457] Skipped (already exists): PXL_20260126_230248488.jpg
+[2026-04-07 19:52:02] [16/457] Skipped (already exists): PXL_20260126_233737684.jpg
+[2026-04-07 19:52:02] [17/457] Skipped (already exists): PXL_20260210_184105225.jpg
+[2026-04-07 19:52:02] [18/457] Skipped (already exists): PXL_20260126_233744149.jpg
+[2026-04-07 19:52:02] [19/457] Skipped (already exists): PXL_20260210_183107098.jpg
+[2026-04-07 19:52:02] [20/457] Skipped (already exists): PXL_20260210_183056764.jpg
+[2026-04-07 19:52:02] [21/457] Skipped (already exists): PXL_20260210_183113132.jpg
+[2026-04-07 19:52:02] [22/457] Skipped (already exists): PXL_20260210_183102851.jpg
+[2026-04-07 19:52:02] [23/457] Skipped (already exists): PXL_20260210_183118010.jpg
+[2026-04-07 19:52:02] [24/457] Skipped (already exists): PXL_20260210_183131558.jpg
+[2026-04-07 19:52:02] [25/457] Skipped (already exists): PXL_20260210_183128180.jpg
+[2026-04-07 19:52:02] [26/457] Skipped (already exists): PXL_20260210_183122291.jpg
+[2026-04-07 19:52:02] [27/457] Skipped (already exists): PXL_20260210_183142606.jpg
+[2026-04-07 19:52:02] [28/457] Skipped (already exists): PXL_20260210_183147025.jpg
+[2026-04-07 19:52:02] [29/457] Skipped (already exists): PXL_20260210_183134828.jpg
+[2026-04-07 19:52:02] [30/457] Skipped (already exists): PXL_20260210_183138759.jpg
+[2026-04-07 19:52:02] [31/457] Skipped (already exists): PXL_20260210_183203142.jpg
+[2026-04-07 19:52:02] [32/457] Skipped (already exists): PXL_20260210_183157402.jpg
+[2026-04-07 19:52:02] [33/457] Skipped (already exists): PXL_20260210_183207060.jpg
+[2026-04-07 19:52:02] [34/457] Skipped (already exists): PXL_20260210_183150836.jpg
+[2026-04-07 19:52:02] [35/457] Skipped (already exists): PXL_20260210_183212028.jpg
+[2026-04-07 19:52:02] [36/457] Skipped (already exists): PXL_20260210_183226507.jpg
+[2026-04-07 19:52:02] [37/457] Skipped (already exists): PXL_20260210_183215832.jpg
+[2026-04-07 19:52:02] [38/457] Skipped (already exists): PXL_20260210_183232411.jpg
+[2026-04-07 19:52:02] [39/457] Skipped (already exists): PXL_20260210_183236765.jpg
+[2026-04-07 19:52:02] [40/457] Skipped (already exists): PXL_20260210_183242356.jpg
+[2026-04-07 19:52:02] [41/457] Skipped (already exists): PXL_20260210_183256218.jpg
+[2026-04-07 19:52:02] [42/457] Skipped (already exists): PXL_20260210_183304857.jpg
+[2026-04-07 19:52:02] [43/457] Skipped (already exists): PXL_20260210_183322806.jpg
+[2026-04-07 19:52:02] [44/457] Skipped (already exists): PXL_20260210_183249285.jpg
+[2026-04-07 19:52:02] [45/457] Skipped (already exists): PXL_20260210_183311112.jpg
+[2026-04-07 19:52:02] [46/457] Skipped (already exists): PXL_20260210_183331328.jpg
+[2026-04-07 19:52:02] [47/457] Skipped (already exists): PXL_20260216_224821721.jpg
+[2026-04-07 19:52:02] [48/457] Skipped (already exists): PXL_20260216_224831099.jpg
+[2026-04-07 19:52:02] [49/457] Skipped (already exists): PXL_20260216_224858536.jpg
+[2026-04-07 19:52:02] [50/457] Skipped (already exists): PXL_20260216_224924959.jpg
+[2026-04-07 19:52:02] [51/457] Skipped (already exists): PXL_20260223_211344386.jpg
+[2026-04-07 19:52:02] [52/457] Skipped (already exists): PXL_20260225_211815070.MP.jpg
+[2026-04-07 19:52:02] [53/457] Skipped (already exists): PXL_20260318_203227947.RAW-01.jpg
+[2026-04-07 19:52:02] [54/457] Skipped (already exists): PXL_20260318_203231164.RAW-01.jpg
+[2026-04-07 19:52:02] [55/457] Skipped (already exists): PXL_20260325_203732193.RAW-01.jpg
+[2026-04-07 19:52:02] [56/457] Skipped (already exists): PXL_20260330_164802733.RAW-01.jpg
+[2026-04-07 19:52:02] [57/457] Skipped (already exists): PXL_20260318_210357377.RAW-01.jpg
+[2026-04-07 19:52:02] [58/457] Skipped (already exists): PXL_20260330_164921106.RAW-01.jpg
+[2026-04-07 19:52:02] [59/457] Skipped (already exists): PXL_20260330_165248548.RAW-01.jpg
+[2026-04-07 19:52:02] [60/457] Skipped (already exists): PXL_20260330_201334533.RAW-01.jpg
+[2026-04-07 19:52:02] [61/457] Skipped (already exists): PXL_20260406_201006649.jpg
+[2026-04-07 19:52:02] [62/457] Skipped (already exists): PXL_20260406_201025634.jpg
+[2026-04-07 19:52:02] [63/457] Skipped (already exists): PXL_20260406_205423149.jpg
+[2026-04-07 19:52:02] [64/457] Skipped (already exists): PXL_20260406_205426419.jpg
+[2026-04-07 19:52:02] [65/457] Skipped (already exists): PXL_20260406_205433003.jpg
+[2026-04-07 19:52:02] [66/457] Skipped (already exists): PXL_20260330_164900859.RAW-01.jpg
+[2026-04-07 19:52:02] [67/457] Skipped (already exists): PXL_20260407_203854376.jpg
+[2026-04-07 19:52:02] [68/457] Skipped (already exists): PXL_20260407_204822155.jpg
+[2026-04-07 19:52:02] [69/457] Skipped (already exists): PXL_20260407_203906092.jpg
+[2026-04-07 19:52:02] [70/457] Skipped (already exists): PXL_20260407_204830784.jpg
+[2026-04-07 19:52:02] [71/457] Skipped (already exists): PXL_20260407_204955205.jpg
+[2026-04-07 19:52:02] [72/457] Skipped (already exists): PXL_20260407_205002540.jpg
+[2026-04-07 19:52:02] [73/457] Skipped (already exists): PXL_20260407_205049022.jpg
+[2026-04-07 19:52:02] [74/457] Skipped (already exists): PXL_20260407_205054380.jpg
+[2026-04-07 19:52:02] [75/457] Skipped (already exists): PXL_20260407_205059897.jpg
+[2026-04-07 19:52:02] [76/457] Skipped (already exists): PXL_20260407_205104734.jpg
+[2026-04-07 19:52:02] [77/457] Skipped (already exists): PXL_20260407_204827158.jpg
+[2026-04-07 19:52:02] [78/457] Skipped (already exists): PXL_20260407_205110111.jpg
+[2026-04-07 19:52:02] [79/457] Skipped (already exists): PXL_20260407_205133346.jpg
+[2026-04-07 19:52:02] [80/457] Skipped (already exists): PXL_20260407_205146698.jpg
+[2026-04-07 19:52:02] [81/457] Skipped (already exists): PXL_20260407_205139528.jpg
+[2026-04-07 19:52:02] [82/457] Skipped (already exists): PXL_20260407_205149968.jpg
+[2026-04-07 19:52:02] [83/457] Skipped (already exists): PXL_20260407_205153605.jpg
+[2026-04-07 19:52:02] [84/457] Skipped (already exists): PXL_20260407_205157095.jpg
+[2026-04-07 19:52:02] [85/457] Skipped (already exists): PXL_20260407_205201093.jpg
+[2026-04-07 19:52:02] [86/457] Skipped (already exists): PXL_20260407_205204603.jpg
+[2026-04-07 19:52:02] [87/457] Skipped (already exists): PXL_20260407_205207994.jpg
+[2026-04-07 19:52:02] [88/457] Skipped (already exists): PXL_20260407_205211357.jpg
+[2026-04-07 19:52:02] [89/457] Skipped (already exists): PXL_20260407_205214739.jpg
+[2026-04-07 19:52:02] [90/457] Skipped (already exists): PXL_20260407_205217808.jpg
+[2026-04-07 19:52:02] [91/457] Skipped (already exists): PXL_20260407_205224124.jpg
+[2026-04-07 19:52:02] [92/457] Skipped (already exists): PXL_20260407_205227701.jpg
+[2026-04-07 19:52:02] [93/457] Skipped (already exists): PXL_20260407_205232203.jpg
+[2026-04-07 19:52:02] [94/457] Skipped (already exists): PXL_20260407_205236358.jpg
+[2026-04-07 19:52:02] [95/457] Skipped (already exists): PXL_20260407_205246308.jpg
+[2026-04-07 19:52:02] [96/457] Skipped (already exists): PXL_20260407_205251077.jpg
+[2026-04-07 19:52:02] [97/457] Skipped (already exists): PXL_20260407_205241222.jpg
+[2026-04-07 19:52:02] [98/457] Skipped (already exists): PXL_20260407_205254761.jpg
+[2026-04-07 19:52:02] [99/457] Skipped (already exists): PXL_20260407_205258585.jpg
+[2026-04-07 19:52:02] [100/457] Skipped (already exists): PXL_20260407_205302908.jpg
+[2026-04-07 19:52:02] [101/457] Skipped (already exists): PXL_20260407_205309424.jpg
+[2026-04-07 19:52:02] [102/457] Skipped (already exists): PXL_20260407_205317830.jpg
+[2026-04-07 19:52:02] [103/457] Skipped (already exists): PXL_20260407_205323385.jpg
+[2026-04-07 19:52:02] [104/457] Skipped (already exists): PXL_20260407_205333282.jpg
+[2026-04-07 19:52:02] [105/457] Skipped (already exists): PXL_20260407_205312963.jpg
+[2026-04-07 19:52:02] [106/457] Skipped (already exists): PXL_20260407_205337857.jpg
+[2026-04-07 19:52:02] [107/457] Skipped (already exists): PXL_20260407_205346536.jpg
+[2026-04-07 19:52:02] [108/457] Skipped (already exists): PXL_20260407_205350874.jpg
+[2026-04-07 19:52:02] [109/457] Error on PXL_20260216_224821721.jpg: [Errno 22] Invalid argument
+[2026-04-07 19:52:02] [110/457] Error on PXL_20260216_224831099.jpg: [Errno 22] Invalid argument
+[2026-04-07 19:52:02] [111/457] Error on PXL_20260216_224858536.jpg: [Errno 22] Invalid argument
+[2026-04-07 19:52:02] [112/457] Error on PXL_20260216_224924959.jpg: [Errno 22] Invalid argument
+[2026-04-07 19:52:34] Scanning for JPG files with REQUESTS LIBRARY and 2x SAFE PARALLEL enabled...
+[2026-04-07 19:52:34] Found 457 total JPG files. Starting phase 1 (workers=2)...
+[2026-04-07 19:52:34] [1/457] Skipped (already exists): PXL_20260210_183904764.jpg
+[2026-04-07 19:52:34] [2/457] Skipped (already exists): PXL_20260210_183858739.jpg
+[2026-04-07 19:52:34] [3/457] Skipped (already exists): PXL_20260210_183910839.jpg
+[2026-04-07 19:52:34] [4/457] Skipped (already exists): PXL_20260210_183923487.jpg
+[2026-04-07 19:52:34] [5/457] Skipped (already exists): PXL_20260210_183914975.jpg
+[2026-04-07 19:52:34] [6/457] Skipped (already exists): PXL_20260210_183927059.jpg
+[2026-04-07 19:52:34] [7/457] Skipped (already exists): PXL_20260210_183940543.jpg
+[2026-04-07 19:52:34] [8/457] Skipped (already exists): PXL_20260210_183935991.jpg
+[2026-04-07 19:52:34] [9/457] Skipped (already exists): PXL_20260210_183946207.jpg
+[2026-04-07 19:52:34] [10/457] Skipped (already exists): PXL_20260210_183955655.jpg
+[2026-04-07 19:52:34] [11/457] Skipped (already exists): PXL_20260210_184004803.jpg
+[2026-04-07 19:52:34] [12/457] Skipped (already exists): PXL_20260210_184030790.jpg
+[2026-04-07 19:52:34] [13/457] Skipped (already exists): PXL_20260210_184047106.jpg
+[2026-04-07 19:52:34] [14/457] Skipped (already exists): PXL_20260210_184050313.jpg
+[2026-04-07 19:52:34] [15/457] Skipped (already exists): PXL_20260210_184105225.jpg
+[2026-04-07 19:52:34] [16/457] Skipped (already exists): PXL_20260126_230248488.jpg
+[2026-04-07 19:52:34] [17/457] Skipped (already exists): PXL_20260126_233737684.jpg
+[2026-04-07 19:52:34] [18/457] Skipped (already exists): PXL_20260126_233744149.jpg
+[2026-04-07 19:52:34] [19/457] Skipped (already exists): PXL_20260210_183056764.jpg
+[2026-04-07 19:52:34] [20/457] Skipped (already exists): PXL_20260210_183102851.jpg
+[2026-04-07 19:52:34] [21/457] Skipped (already exists): PXL_20260210_183107098.jpg
+[2026-04-07 19:52:34] [22/457] Skipped (already exists): PXL_20260210_183113132.jpg
+[2026-04-07 19:52:34] [23/457] Skipped (already exists): PXL_20260210_183118010.jpg
+[2026-04-07 19:52:34] [24/457] Skipped (already exists): PXL_20260210_183128180.jpg
+[2026-04-07 19:52:34] [25/457] Skipped (already exists): PXL_20260210_183131558.jpg
+[2026-04-07 19:52:34] [26/457] Skipped (already exists): PXL_20260210_183122291.jpg
+[2026-04-07 19:52:34] [27/457] Skipped (already exists): PXL_20260210_183134828.jpg
+[2026-04-07 19:52:34] [28/457] Skipped (already exists): PXL_20260210_183142606.jpg
+[2026-04-07 19:52:34] [29/457] Skipped (already exists): PXL_20260210_183138759.jpg
+[2026-04-07 19:52:34] [30/457] Skipped (already exists): PXL_20260210_183147025.jpg
+[2026-04-07 19:52:34] [31/457] Skipped (already exists): PXL_20260210_183150836.jpg
+[2026-04-07 19:52:34] [32/457] Skipped (already exists): PXL_20260210_183157402.jpg
+[2026-04-07 19:52:34] [33/457] Skipped (already exists): PXL_20260210_183203142.jpg
+[2026-04-07 19:52:34] [34/457] Skipped (already exists): PXL_20260210_183207060.jpg
+[2026-04-07 19:52:34] [35/457] Skipped (already exists): PXL_20260210_183212028.jpg
+[2026-04-07 19:52:34] [36/457] Skipped (already exists): PXL_20260210_183215832.jpg
+[2026-04-07 19:52:34] [37/457] Skipped (already exists): PXL_20260210_183226507.jpg
+[2026-04-07 19:52:34] [38/457] Skipped (already exists): PXL_20260210_183236765.jpg
+[2026-04-07 19:52:34] [39/457] Skipped (already exists): PXL_20260210_183232411.jpg
+[2026-04-07 19:52:34] [40/457] Skipped (already exists): PXL_20260210_183242356.jpg
+[2026-04-07 19:52:34] [41/457] Skipped (already exists): PXL_20260210_183249285.jpg
+[2026-04-07 19:52:34] [42/457] Skipped (already exists): PXL_20260210_183256218.jpg
+[2026-04-07 19:52:34] [43/457] Skipped (already exists): PXL_20260210_183304857.jpg
+[2026-04-07 19:52:34] [44/457] Skipped (already exists): PXL_20260210_183311112.jpg
+[2026-04-07 19:52:34] [45/457] Skipped (already exists): PXL_20260210_183322806.jpg
+[2026-04-07 19:52:34] [46/457] Skipped (already exists): PXL_20260210_183331328.jpg
+[2026-04-07 19:52:34] [47/457] Skipped (already exists): PXL_20260216_224821721.jpg
+[2026-04-07 19:52:34] [48/457] Skipped (already exists): PXL_20260216_224831099.jpg
+[2026-04-07 19:52:34] [49/457] Skipped (already exists): PXL_20260216_224858536.jpg
+[2026-04-07 19:52:34] [50/457] Skipped (already exists): PXL_20260216_224924959.jpg
+[2026-04-07 19:52:34] [51/457] Skipped (already exists): PXL_20260223_211344386.jpg
+[2026-04-07 19:52:34] [52/457] Skipped (already exists): PXL_20260225_211815070.MP.jpg
+[2026-04-07 19:52:34] [53/457] Skipped (already exists): PXL_20260318_203227947.RAW-01.jpg
+[2026-04-07 19:52:34] [54/457] Skipped (already exists): PXL_20260318_203231164.RAW-01.jpg
+[2026-04-07 19:52:34] [55/457] Skipped (already exists): PXL_20260318_210357377.RAW-01.jpg
+[2026-04-07 19:52:34] [56/457] Skipped (already exists): PXL_20260325_203732193.RAW-01.jpg
+[2026-04-07 19:52:34] [57/457] Skipped (already exists): PXL_20260330_164802733.RAW-01.jpg
+[2026-04-07 19:52:34] [58/457] Skipped (already exists): PXL_20260330_164900859.RAW-01.jpg
+[2026-04-07 19:52:34] [59/457] Skipped (already exists): PXL_20260330_164921106.RAW-01.jpg
+[2026-04-07 19:52:34] [60/457] Skipped (already exists): PXL_20260330_165248548.RAW-01.jpg
+[2026-04-07 19:52:34] [61/457] Skipped (already exists): PXL_20260330_201334533.RAW-01.jpg
+[2026-04-07 19:52:34] [62/457] Skipped (already exists): PXL_20260406_201006649.jpg
+[2026-04-07 19:52:34] [63/457] Skipped (already exists): PXL_20260406_201025634.jpg
+[2026-04-07 19:52:34] [64/457] Skipped (already exists): PXL_20260406_205423149.jpg
+[2026-04-07 19:52:34] [65/457] Skipped (already exists): PXL_20260406_205426419.jpg
+[2026-04-07 19:52:34] [66/457] Skipped (already exists): PXL_20260406_205433003.jpg
+[2026-04-07 19:52:34] [67/457] Skipped (already exists): PXL_20260407_203854376.jpg
+[2026-04-07 19:52:34] [68/457] Skipped (already exists): PXL_20260407_203906092.jpg
+[2026-04-07 19:52:34] [69/457] Skipped (already exists): PXL_20260407_204822155.jpg
+[2026-04-07 19:52:34] [70/457] Skipped (already exists): PXL_20260407_204827158.jpg
+[2026-04-07 19:52:34] [71/457] Skipped (already exists): PXL_20260407_204830784.jpg
+[2026-04-07 19:52:34] [72/457] Skipped (already exists): PXL_20260407_204955205.jpg
+[2026-04-07 19:52:34] [73/457] Skipped (already exists): PXL_20260407_205002540.jpg
+[2026-04-07 19:52:34] [74/457] Skipped (already exists): PXL_20260407_205049022.jpg
+[2026-04-07 19:52:34] [75/457] Skipped (already exists): PXL_20260407_205054380.jpg
+[2026-04-07 19:52:34] [76/457] Skipped (already exists): PXL_20260407_205059897.jpg
+[2026-04-07 19:52:34] [77/457] Skipped (already exists): PXL_20260407_205104734.jpg
+[2026-04-07 19:52:34] [78/457] Skipped (already exists): PXL_20260407_205110111.jpg
+[2026-04-07 19:52:34] [79/457] Skipped (already exists): PXL_20260407_205133346.jpg
+[2026-04-07 19:52:34] [80/457] Skipped (already exists): PXL_20260407_205139528.jpg
+[2026-04-07 19:52:34] [81/457] Skipped (already exists): PXL_20260407_205146698.jpg
+[2026-04-07 19:52:34] [82/457] Skipped (already exists): PXL_20260407_205149968.jpg
+[2026-04-07 19:52:34] [83/457] Skipped (already exists): PXL_20260407_205153605.jpg
+[2026-04-07 19:52:34] [84/457] Skipped (already exists): PXL_20260407_205157095.jpg
+[2026-04-07 19:52:34] [85/457] Skipped (already exists): PXL_20260407_205201093.jpg
+[2026-04-07 19:52:34] [86/457] Skipped (already exists): PXL_20260407_205204603.jpg
+[2026-04-07 19:52:34] [87/457] Skipped (already exists): PXL_20260407_205207994.jpg
+[2026-04-07 19:52:34] [88/457] Skipped (already exists): PXL_20260407_205211357.jpg
+[2026-04-07 19:52:34] [89/457] Skipped (already exists): PXL_20260407_205214739.jpg
+[2026-04-07 19:52:34] [90/457] Skipped (already exists): PXL_20260407_205217808.jpg
+[2026-04-07 19:52:34] [91/457] Skipped (already exists): PXL_20260407_205224124.jpg
+[2026-04-07 19:52:34] [92/457] Skipped (already exists): PXL_20260407_205227701.jpg
+[2026-04-07 19:52:34] [93/457] Skipped (already exists): PXL_20260407_205232203.jpg
+[2026-04-07 19:52:34] [94/457] Skipped (already exists): PXL_20260407_205236358.jpg
+[2026-04-07 19:52:34] [95/457] Skipped (already exists): PXL_20260407_205241222.jpg
+[2026-04-07 19:52:34] [96/457] Skipped (already exists): PXL_20260407_205246308.jpg
+[2026-04-07 19:52:34] [97/457] Skipped (already exists): PXL_20260407_205251077.jpg
+[2026-04-07 19:52:34] [98/457] Skipped (already exists): PXL_20260407_205254761.jpg
+[2026-04-07 19:52:34] [99/457] Skipped (already exists): PXL_20260407_205258585.jpg
+[2026-04-07 19:52:34] [100/457] Skipped (already exists): PXL_20260407_205302908.jpg
+[2026-04-07 19:52:34] [101/457] Skipped (already exists): PXL_20260407_205309424.jpg
+[2026-04-07 19:52:34] [102/457] Skipped (already exists): PXL_20260407_205312963.jpg
+[2026-04-07 19:52:34] [103/457] Skipped (already exists): PXL_20260407_205317830.jpg
+[2026-04-07 19:52:34] [104/457] Skipped (already exists): PXL_20260407_205323385.jpg
+[2026-04-07 20:01:35] Scanning for OPTIMIZED JPG files. FAST DECOUPLED PIPELINE ACTIVE...
+[2026-04-07 20:01:35] Found 206 tiny optimized JPGs. Starting (workers=6)...
+[2026-04-07 20:02:18] [1/206] FAST Extracted: PXL_20260210_183517420.jpg
+[2026-04-07 20:03:38] [2/206] FAST Extracted: PXL_20260210_183512582.jpg
+[2026-04-07 20:04:48] [3/206] FAST Extracted: PXL_20260203_002426034.jpg
+[2026-04-07 20:05:45] [4/206] FAST Extracted: PXL_20260210_183529190.jpg
+[2026-04-07 20:06:55] [5/206] FAST Extracted: PXL_20260407_205342692.jpg
+[2026-04-07 20:07:35] [6/206] FAST Extracted: PXL_20260210_183521332.jpg
+[2026-04-07 20:09:01] [7/206] FAST Extracted: PXL_20260210_183524554.jpg
+[2026-04-07 20:09:47] [8/206] FAST Extracted: PXL_20260210_183536669.jpg
+[2026-04-07 20:11:15] [9/206] FAST Extracted: PXL_20260210_183556749.jpg
+[2026-04-07 20:12:49] [10/206] FAST Extracted: PXL_20260210_183547200.jpg
+[2026-04-07 20:15:25] [11/206] FAST Extracted: PXL_20260210_183614412.jpg
+[2026-04-07 20:16:50] [12/206] FAST Extracted: PXL_20260210_183621427.jpg
+[2026-04-07 20:16:51] [13/206] FAST Extracted: PXL_20260407_205327082.jpg
+[2026-04-07 20:16:51] [14/206] FAST Extracted: PXL_20260407_203918906.jpg
+[2026-04-07 20:18:19] [15/206] FAST Extracted: PXL_20260210_183610191.jpg
+[2026-04-07 20:20:04] [16/206] FAST Extracted: PXL_20260210_183709884.jpg
+[2026-04-07 20:21:27] [17/206] FAST Extracted: PXL_20260210_183717241.jpg
+[2026-04-07 20:22:06] [18/206] FAST Extracted: PXL_20260210_183728024.jpg
+[2026-04-07 20:22:32] [19/206] FAST Extracted: PXL_20260210_183633363.jpg
+[2026-04-07 20:24:19] [20/206] FAST Extracted: PXL_20260210_183721855.jpg
+[2026-04-07 20:26:06] [21/206] FAST Extracted: PXL_20260210_183551572.jpg
+[2026-04-07 20:28:36] [22/206] FAST Extracted: PXL_20260210_183605781.jpg
+[2026-04-07 20:28:59] [23/206] FAST Extracted: PXL_20260210_184544128.jpg
+[2026-04-07 20:29:29] [24/206] FAST Extracted: PXL_20260210_184552261.jpg
+[2026-04-07 20:30:37] [25/206] FAST Extracted: PXL_20260210_183754331.jpg
+[2026-04-07 20:31:14] [26/206] FAST Extracted: PXL_20260210_183743874.jpg
+[2026-04-07 20:31:47] [27/206] FAST Extracted: PXL_20260210_183738855.jpg
+[2026-04-07 20:32:18] [28/206] FAST Extracted: PXL_20260210_184609112.jpg
+[2026-04-07 20:33:39] [29/206] FAST Extracted: PXL_20260210_184555214.jpg
+[2026-04-07 20:36:18] [30/206] FAST Extracted: PXL_20260210_184616426.jpg
+[2026-04-07 20:36:52] [31/206] Error on PXL_20260210_183627654.jpg: HTTPConnectionPool(host='localhost', port=1234): Read timed out. (read timeout=1200)
+[2026-04-07 20:38:00] [32/206] FAST Extracted: PXL_20260210_184611964.jpg
+[2026-04-07 20:40:50] [33/206] FAST Extracted: PXL_20260210_183733934.jpg
+[2026-04-07 20:43:14] [34/206] FAST Extracted: PXL_20260210_184618964.jpg
+[2026-04-07 20:45:28] [35/206] FAST Extracted: PXL_20260210_184637551.jpg
+[2026-04-07 20:47:56] [36/206] FAST Extracted: PXL_20260210_184627284.jpg
+[2026-04-07 20:47:57] [37/206] FAST Extracted: PXL_20260210_184600950.jpg
+[2026-04-07 20:49:10] [38/206] FAST Extracted: PXL_20260210_184603478.jpg
+[2026-04-07 20:52:52] [39/206] FAST Extracted: PXL_20260210_184643596.jpg
+[2026-04-07 20:53:30] [40/206] FAST Extracted: PXL_20260210_184653753.jpg
+[2026-04-07 20:54:12] [41/206] FAST Extracted: PXL_20260210_184634945.jpg
+[2026-04-07 20:56:25] [42/206] FAST Extracted: PXL_20260210_184629919.jpg
+[2026-04-07 20:58:55] [43/206] FAST Extracted: PXL_20260210_184718352.jpg
+[2026-04-07 20:59:25] [44/206] FAST Extracted: PXL_20260210_184706445.jpg
+[2026-04-07 21:00:30] Scanning for OPTIMIZED JPG files. FAST DECOUPLED PIPELINE ACTIVE...
+[2026-04-07 21:00:30] Found 163 tiny optimized JPGs. Starting (workers=6)...
+[2026-04-07 21:03:34] [1/163] FAST Extracted: PXL_20260210_184726596.jpg
+[2026-04-07 21:07:24] [2/163] FAST Extracted: PXL_20260210_183627654.jpg
+[2026-04-07 21:07:51] [3/163] FAST Extracted: PXL_20260210_184709471.jpg
+[2026-04-07 21:09:20] [4/163] FAST Extracted: PXL_20260210_184740740.jpg
+[2026-04-07 21:12:26] [5/163] FAST Extracted: PXL_20260210_184737093.jpg
+[2026-04-07 21:15:36] [6/163] FAST Extracted: PXL_20260210_184747887.jpg
+[2026-04-07 21:16:27] [7/163] FAST Extracted: PXL_20260210_184920135.jpg
+[2026-04-07 21:16:33] [8/163] FAST Extracted: PXL_20260210_184657096.jpg
+[2026-04-07 21:17:59] [9/163] FAST Extracted: PXL_20260210_184646834.jpg
+[2026-04-07 21:17:59] [10/163] FAST Extracted: PXL_20260210_184715266.jpg
+[2026-04-07 21:22:01] [11/163] FAST Extracted: PXL_20260212_024423236.jpg
+[2026-04-07 21:22:52] [12/163] FAST Extracted: PXL_20260212_024425463.jpg
+[2026-04-07 21:23:25] [13/163] FAST Extracted: PXL_20260215_235509048.jpg
+[2026-04-07 21:23:36] [14/163] Error on PXL_20260210_184729781.jpg: HTTPConnectionPool(host='localhost', port=1234): Read timed out. (read timeout=1200)
+[2026-04-07 21:24:27] [15/163] FAST Extracted: PXL_20260215_235513447.jpg
+[2026-04-07 21:25:03] [16/163] FAST Extracted: PXL_20260215_235536929.jpg
+[2026-04-07 21:25:29] [17/163] FAST Extracted: PXL_20260210_184938726.jpg
+[2026-04-07 21:26:03] [18/163] FAST Extracted: PXL_20260215_235543642.jpg
+[2026-04-07 21:27:01] [19/163] FAST Extracted: PXL_20260215_235516815.MP.jpg
+[2026-04-07 21:27:37] [20/163] FAST Extracted: PXL_20260215_235600173.jpg
+[2026-04-07 21:28:31] [21/163] FAST Extracted: PXL_20260215_235532711.jpg
+[2026-04-07 21:29:17] [22/163] FAST Extracted: PXL_20260215_235547885.jpg
+[2026-04-07 21:29:52] [23/163] FAST Extracted: PXL_20260215_235555882.jpg
+[2026-04-07 21:29:53] [24/163] FAST Extracted: PXL_20260215_235619335.MP.jpg
+[2026-04-07 21:31:19] [25/163] FAST Extracted: PXL_20260226_001931260.jpg
+[2026-04-07 21:31:20] [26/163] FAST Extracted: PXL_20260215_235609304.jpg
+[2026-04-07 21:32:14] [27/163] FAST Extracted: PXL_20260215_235613687.jpg
+[2026-04-07 21:32:41] [28/163] FAST Extracted: PXL_20260226_010624876.jpg
+[2026-04-07 21:33:33] [29/163] FAST Extracted: PXL_20260226_001952202.jpg
+[2026-04-07 21:34:07] [30/163] FAST Extracted: PXL_20260215_235627167.jpg
+[2026-04-07 21:35:38] [31/163] Error on PXL_20260210_184928917.jpg: HTTPConnectionPool(host='localhost', port=1234): Read timed out. (read timeout=1200)
+[2026-04-07 21:36:17] [32/163] FAST Extracted: PXL_20260331_003414702.RAW-01.jpg
+[2026-04-07 21:36:35] [33/163] Error on PXL_20260212_024420880.MP.jpg: HTTPConnectionPool(host='localhost', port=1234): Read timed out. (read timeout=1200)
+[2026-04-07 21:37:08] [34/163] FAST Extracted: PXL_20260401_233254480.RAW-01.jpg
+[2026-04-07 21:37:50] [35/163] FAST Extracted: PXL_20260401_231531966.RAW-01.jpg
+[2026-04-07 21:38:13] [36/163] FAST Extracted: PXL_20260326_002038716.RAW-01.jpg
+[2026-04-07 21:39:24] [37/163] FAST Extracted: PXL_20260407_203934700.jpg
+[2026-04-07 21:39:24] [38/163] FAST Extracted: PXL_20260401_231537809.RAW-01.jpg
+[2026-04-07 21:40:14] [39/163] FAST Extracted: PXL_20260407_204014141.jpg
+[2026-04-07 21:40:14] [40/163] FAST Extracted: PXL_20260401_233250574.RAW-01.jpg
+[2026-04-07 21:41:02] [41/163] FAST Extracted: PXL_20260407_204039121.jpg
+[2026-04-07 21:42:10] [42/163] FAST Extracted: PXL_20260407_203929756.jpg
+[2026-04-07 21:43:18] [43/163] FAST Extracted: PXL_20260407_203949685.jpg
+[2026-04-07 21:45:00] [44/163] FAST Extracted: PXL_20260407_205904369.jpg
+[2026-04-07 21:46:25] [45/163] FAST Extracted: PXL_20260407_204021117.jpg
+[2026-04-07 21:47:51] [46/163] FAST Extracted: PXL_20260407_205912427.jpg
+[2026-04-07 21:48:17] [47/163] FAST Extracted: PXL_20260407_205908658.jpg
+[2026-04-07 21:49:20] [48/163] FAST Extracted: PXL_20260407_204047229.jpg
+[2026-04-07 21:51:24] [49/163] FAST Extracted: PXL_20260407_205938397.jpg
+[2026-04-07 21:52:41] [50/163] FAST Extracted: PXL_20260407_205933980.jpg
+[2026-04-07 21:52:43] [51/163] Error on PXL_20260327_002947933.RAW-01.jpg: HTTPConnectionPool(host='localhost', port=1234): Read timed out. (read timeout=1200)
+[2026-04-07 21:54:23] [52/163] FAST Extracted: PXL_20260407_205942396.jpg
+[2026-04-07 21:55:01] [53/163] FAST Extracted: PXL_20260407_205946951.jpg
+[2026-04-07 21:55:58] [54/163] FAST Extracted: PXL_20260407_205955452.jpg
+[2026-04-07 21:58:14] [55/163] FAST Extracted: PXL_20260407_210004261.jpg
+[2026-04-07 21:58:15] [56/163] Error on PXL_20260407_203941862.jpg: HTTPConnectionPool(host='localhost', port=1234): Read timed out. (read timeout=1200)
+[2026-04-07 21:59:34] [57/163] FAST Extracted: PXL_20260407_205950658.jpg
+[2026-04-07 22:01:01] [58/163] FAST Extracted: PXL_20260407_210009118.jpg
+[2026-04-07 22:02:00] [59/163] FAST Extracted: PXL_20260407_210012828.jpg
+[2026-04-07 22:02:13] [60/163] Error on PXL_20260407_204053638.jpg: HTTPConnectionPool(host='localhost', port=1234): Read timed out. (read timeout=1200)
+[2026-04-07 22:02:54] [61/163] FAST Extracted: PXL_20260407_210027108.jpg
+[2026-04-07 22:03:21] [62/163] FAST Extracted: PXL_20260407_210016760.jpg
+[2026-04-07 22:06:52] [63/163] FAST Extracted: PXL_20260407_210041923.jpg
+[2026-04-07 22:07:29] [64/163] FAST Extracted: PXL_20260407_210108251.jpg
+[2026-04-07 22:07:54] [65/163] Error on PXL_20260407_205915346.jpg: HTTPConnectionPool(host='localhost', port=1234): Read timed out. (read timeout=1200)
+[2026-04-07 22:08:29] [66/163] FAST Extracted: PXL_20260407_210115365.jpg
+[2026-04-07 22:09:10] [67/163] FAST Extracted: PXL_20260407_210036652.jpg
+[2026-04-07 22:10:49] [68/163] FAST Extracted: PXL_20260407_210120293.jpg
+[2026-04-07 22:11:26] [69/163] FAST Extracted: PXL_20260407_210136205.jpg
+[2026-04-07 22:12:04] [70/163] FAST Extracted: PXL_20260407_210129968.jpg
+[2026-04-07 22:12:06] [71/163] FAST Extracted: PXL_20260407_210126904.jpg
+[2026-04-07 22:13:06] [72/163] FAST Extracted: PXL_20260407_210144902.jpg
+[2026-04-07 22:13:06] [73/163] FAST Extracted: PXL_20260407_210147984.jpg
+[2026-04-07 22:14:46] [74/163] FAST Extracted: PXL_20260407_210139537.jpg
+[2026-04-07 22:15:04] [75/163] Error on PXL_20260407_210001182.jpg: HTTPConnectionPool(host='localhost', port=1234): Read timed out. (read timeout=1200)
+[2026-04-07 22:15:43] [76/163] FAST Extracted: PXL_20260407_210206492.jpg
+[2026-04-07 22:15:43] [77/163] FAST Extracted: PXL_20260407_210202619.jpg
+[2026-04-07 22:17:16] [78/163] FAST Extracted: PXL_20260407_210157288.jpg
+[2026-04-07 22:18:31] [79/163] FAST Extracted: PXL_20260407_210152934.jpg
+[2026-04-07 22:19:19] [80/163] FAST Extracted: PXL_20260407_210210568.jpg
+[2026-04-07 22:20:20] [81/163] FAST Extracted: PXL_20260407_210215609.jpg
+[2026-04-07 22:21:04] [82/163] Error on PXL_20260407_210021327.jpg: HTTPConnectionPool(host='localhost', port=1234): Read timed out. (read timeout=1200)
+[2026-04-07 22:21:51] [83/163] FAST Extracted: PXL_20260407_210221034.jpg
+[2026-04-07 22:22:22] [84/163] FAST Extracted: PXL_20260407_210248419.jpg
+[2026-04-07 22:22:45] [85/163] FAST Extracted: PXL_20260407_210236195.jpg
+[2026-04-07 22:23:18] [86/163] FAST Extracted: PXL_20260407_210229933.jpg
+[2026-04-07 22:23:24] [87/163] Error on PXL_20260407_210048635.jpg: HTTPConnectionPool(host='localhost', port=1234): Read timed out. (read timeout=1200)
+[2026-04-07 22:23:44] [88/163] FAST Extracted: PXL_20260407_210255922.jpg
+[2026-04-07 22:24:50] [89/163] FAST Extracted: PXL_20260407_210243687.jpg
+[2026-04-07 22:26:25] [90/163] FAST Extracted: PXL_20260407_210349327.jpg
+[2026-04-07 22:26:57] [91/163] FAST Extracted: PXL_20260407_210301576.jpg
+[2026-04-07 22:27:47] [92/163] FAST Extracted: PXL_20260407_210403860.jpg
+[2026-04-07 22:28:19] [93/163] FAST Extracted: PXL_20260210_184249218.jpg
+[2026-04-07 22:28:43] [94/163] FAST Extracted: PXL_20260407_210359667.jpg
+[2026-04-07 22:30:21] [95/163] FAST Extracted: PXL_20260407_210355496.jpg
+[2026-04-07 22:31:23] [96/163] FAST Extracted: PXL_20260210_184302170.jpg
+[2026-04-07 22:32:16] [97/163] FAST Extracted: PXL_20260210_184309945.jpg
+[2026-04-07 22:34:02] [98/163] FAST Extracted: PXL_20260210_184313279.jpg
+[2026-04-07 22:35:29] [99/163] FAST Extracted: PXL_20260210_184319305.jpg
+[2026-04-07 22:36:51] [100/163] FAST Extracted: PXL_20260210_184323698.jpg
+[2026-04-07 22:37:30] [101/163] FAST Extracted: PXL_20260210_184327909.jpg
+[2026-04-07 22:38:33] [102/163] Error on PXL_20260407_210225385.jpg: HTTPConnectionPool(host='localhost', port=1234): Read timed out. (read timeout=1200)
+[2026-04-07 22:39:01] [103/163] FAST Extracted: PXL_20260210_184343235.jpg
+[2026-04-07 22:39:38] [104/163] FAST Extracted: PXL_20260210_184332008.jpg
+[2026-04-07 22:40:16] [105/163] FAST Extracted: PXL_20260210_184349970.jpg
+[2026-04-07 22:41:18] [106/163] FAST Extracted: PXL_20260210_184337655.jpg
+[2026-04-07 22:41:53] [107/163] FAST Extracted: PXL_20260210_184414759.jpg
+[2026-04-07 22:43:57] [108/163] FAST Extracted: PXL_20260210_184403871.jpg
+[2026-04-07 22:46:27] [109/163] Error on PXL_20260407_210407670.jpg: HTTPConnectionPool(host='localhost', port=1234): Read timed out. (read timeout=1200)
+[2026-04-07 22:46:59] [110/163] Error on PXL_20260407_210414231.jpg: HTTPConnectionPool(host='localhost', port=1234): Read timed out. (read timeout=1200)
+[2026-04-07 22:47:39] [111/163] FAST Extracted: PXL_20260210_184442360.jpg
+[2026-04-07 22:48:21] [112/163] Error on PXL_20260210_184252444.jpg: HTTPConnectionPool(host='localhost', port=1234): Read timed out. (read timeout=1200)
+[2026-04-07 22:49:23] [113/163] FAST Extracted: PXL_20260210_184451909.jpg
+[2026-04-07 22:49:56] [114/163] FAST Extracted: PXL_20260210_184437465.jpg
+[2026-04-07 22:50:38] [115/163] FAST Extracted: PXL_20260210_184456294.jpg
+[2026-04-07 22:52:04] [116/163] FAST Extracted: image-1771615278837.jpg
+[2026-04-07 22:53:10] [117/163] FAST Extracted: PXL_20260210_184432537.jpg
+[2026-04-07 22:56:10] [118/163] FAST Extracted: PXL_20260210_184358891.jpg
+[2026-04-07 22:58:57] [119/163] FAST Extracted: PXL_20260210_184447356.jpg
+[2026-04-07 23:00:43] [120/163] FAST Extracted: image-1771618448496.jpg
+[2026-04-07 23:01:55] [121/163] Error on PXL_20260210_184421565.jpg: HTTPConnectionPool(host='localhost', port=1234): Read timed out. (read timeout=1200)
+[2026-04-07 23:03:26] [122/163] FAST Extracted: image-1771618660125.jpg
+[2026-04-07 23:04:00] [123/163] FAST Extracted: image-1771619058170.jpg
+[2026-04-07 23:04:33] [124/163] FAST Extracted: image-1771619195662.jpg
+[2026-04-07 23:04:58] [125/163] FAST Extracted: image-1771618795199.jpg
+[2026-04-07 23:05:46] [126/163] FAST Extracted: image-1771622595426.jpg
+[2026-04-07 23:10:40] [127/163] Error on image-1771616511529.jpg: HTTPConnectionPool(host='localhost', port=1234): Read timed out. (read timeout=1200)
+[2026-04-07 23:12:06] [128/163] Error on image-1771617379019.jpg: HTTPConnectionPool(host='localhost', port=1234): Read timed out. (read timeout=1200)
+[2026-04-07 23:13:03] [129/163] FAST Extracted: PXL_20260227_162823259.jpg
+[2026-04-07 23:13:12] [130/163] Error on image-1771618009649.jpg: HTTPConnectionPool(host='localhost', port=1234): Read timed out. (read timeout=1200)
+[2026-04-07 23:15:36] [131/163] FAST Extracted: PXL_20260320_143227822.RAW-01.jpg
+[2026-04-07 23:16:12] [132/163] Error on image-1771618405847.jpg: HTTPConnectionPool(host='localhost', port=1234): Read timed out. (read timeout=1200)
+[2026-04-07 23:18:20] [133/163] FAST Extracted: PXL_20260320_201328489.RAW-01.jpg
+[2026-04-07 23:21:13] [134/163] FAST Extracted: PXL_20260227_191334586.jpg
+[2026-04-07 23:23:58] [135/163] FAST Extracted: PXL_20260320_201503031.RAW-01.jpg
+[2026-04-07 23:24:35] [136/163] Error on image-1771620410165.jpg: HTTPConnectionPool(host='localhost', port=1234): Read timed out. (read timeout=1200)
+[2026-04-07 23:25:48] [137/163] Error on image-1771623258413.jpg: HTTPConnectionPool(host='localhost', port=1234): Read timed out. (read timeout=1200)
+[2026-04-07 23:27:11] [138/163] FAST Extracted: PXL_20260327_002917688.RAW-01.jpg
+[2026-04-07 23:28:41] [139/163] FAST Extracted: PXL_20260327_003018181.RAW-01.jpg
+[2026-04-07 23:30:07] [140/163] FAST Extracted: PXL_20260327_003001495.RAW-01.jpg
+[2026-04-07 23:30:43] [141/163] Error on PXL_20260227_162818687.jpg: HTTPConnectionPool(host='localhost', port=1234): Read timed out. (read timeout=1200)
+[2026-04-07 23:32:51] [142/163] FAST Extracted: PXL_20260327_003149112.RAW-01.jpg
+[2026-04-07 23:33:45] [143/163] FAST Extracted: PXL_20260327_003156140.RAW-01.jpg
+[2026-04-07 23:35:23] [144/163] FAST Extracted: PXL_20260327_003029791.RAW-01.jpg
+[2026-04-07 23:37:46] [145/163] FAST Extracted: PXL_20260327_202231531.RAW-01.jpg
+[2026-04-07 23:38:22] [146/163] Error on PXL_20260320_202639772.RAW-01.jpg: HTTPConnectionPool(host='localhost', port=1234): Read timed out. (read timeout=1200)
+[2026-04-07 23:38:23] [147/163] FAST Extracted: PXL_20260403_150045107.jpg
+[2026-04-07 23:39:22] [148/163] FAST Extracted: PXL_20260403_150213106.jpg
+[2026-04-07 23:41:15] [149/163] Error on PXL_20260320_204345637.RAW-01.jpg: HTTPConnectionPool(host='localhost', port=1234): Read timed out. (read timeout=1200)
+[2026-04-07 23:41:57] [150/163] FAST Extracted: PXL_20260403_150339689.jpg
+[2026-04-07 23:44:37] [151/163] Error on PXL_20260327_002926679.RAW-01.jpg: HTTPConnectionPool(host='localhost', port=1234): Read timed out. (read timeout=1200)
+[2026-04-07 23:45:00] [152/163] FAST Extracted: Moisture%20Content%20of%20Saturated%20Air%20at%20Various%20T.jpg
+[2026-04-07 23:45:42] [153/163] FAST Extracted: Clamp-Press Circuit WI 2025.jpg
+[2026-04-07 23:46:31] [154/163] FAST Extracted: Pneumatic Logic Circuit with TON-2.jpg
+[2026-04-07 23:46:58] [155/163] FAST Extracted: Pneumatic Logic Circuit with TON-3.jpg
+[2026-04-07 23:47:53] [156/163] FAST Extracted: Moisture%20Content%20of%20Saturated%20Air%20at%20Various%20T.jpg
+[2026-04-07 23:48:34] [157/163] FAST Extracted: Hydraulic Circuit Test2-1.jpg
+[2026-04-07 23:49:00] [158/163] FAST Extracted: Pneumatic Logic Circuit with ON Delay Timer-1.jpg
+[2026-04-07 23:49:38] [159/163] FAST Extracted: Demorgan's Law.jpg
+[2026-04-07 23:50:09] [160/163] Error on PXL_20260327_003103812.RAW-01.jpg: HTTPConnectionPool(host='localhost', port=1234): Read timed out. (read timeout=1200)
+[2026-04-07 23:52:36] [161/163] FAST Extracted: PXL_20260327_003435803.RAW-01.jpg
+[2026-04-07 23:55:53] [162/163] FAST Extracted: PXL_20260403_150324066.jpg
+[2026-04-07 23:56:33] [163/163] FAST Extracted: PXL_20260403_204044871.jpg
+[2026-04-07 23:56:34] Found 26 timed out files. Re-running...
+[2026-04-08 00:11:22] [RETRY 1/26] FAST Extracted: PXL_20260212_024420880.MP.jpg
+[2026-04-08 00:11:22] [RETRY 2/26] FAST Extracted: PXL_20260407_203941862.jpg
+[2026-04-08 00:11:22] [RETRY 3/26] FAST Extracted: PXL_20260407_204053638.jpg
+[2026-04-08 00:11:22] [RETRY 4/26] FAST Extracted: PXL_20260210_184729781.jpg
+[2026-04-08 00:11:22] [RETRY 5/26] FAST Extracted: PXL_20260210_184928917.jpg
+[2026-04-08 00:11:22] [RETRY 6/26] FAST Extracted: PXL_20260327_002947933.RAW-01.jpg
+[2026-04-08 00:14:08] [RETRY 7/26] FAST Extracted: PXL_20260407_210407670.jpg
+[2026-04-08 00:14:29] [RETRY 8/26] FAST Extracted: PXL_20260407_210021327.jpg
+[2026-04-08 00:15:51] [RETRY 9/26] FAST Extracted: PXL_20260407_210414231.jpg
+[2026-04-08 00:16:45] [RETRY 10/26] FAST Extracted: PXL_20260407_210048635.jpg
+[2026-04-08 00:26:05] [RETRY 11/26] FAST Extracted: PXL_20260210_184421565.jpg
+[2026-04-08 00:27:36] [RETRY 12/26] FAST Extracted: PXL_20260407_210001182.jpg
+[2026-04-08 00:27:36] [RETRY 13/26] FAST Extracted: PXL_20260407_205915346.jpg
+[2026-04-08 00:27:36] [RETRY 14/26] FAST Extracted: PXL_20260407_210225385.jpg
+[2026-04-08 00:31:38] [RETRY 15/26] FAST Extracted: image-1771620410165.jpg
+[2026-04-08 00:33:39] [RETRY 16/26] FAST Extracted: PXL_20260210_184252444.jpg
+[2026-04-08 00:36:35] [RETRY 17/26] FAST Extracted: image-1771623258413.jpg
+[2026-04-08 00:36:47] [RETRY 18/26] Error on image-1771616511529.jpg: HTTPConnectionPool(host='localhost', port=1234): Read timed out. (read timeout=1200)
+[2026-04-08 00:46:07] [RETRY 19/26] Error on image-1771617379019.jpg: HTTPConnectionPool(host='localhost', port=1234): Read timed out. (read timeout=1200)
+[2026-04-08 00:47:38] [RETRY 20/26] Error on image-1771618405847.jpg: HTTPConnectionPool(host='localhost', port=1234): Read timed out. (read timeout=1200)
+[2026-04-08 00:47:38] [RETRY 21/26] Error on image-1771618009649.jpg: HTTPConnectionPool(host='localhost', port=1234): Read timed out. (read timeout=1200)
+[2026-04-08 00:53:05] [RETRY 22/26] FAST Extracted: PXL_20260227_162818687.jpg
+[2026-04-08 00:55:15] [RETRY 23/26] FAST Extracted: PXL_20260320_202639772.RAW-01.jpg
+[2026-04-08 00:55:16] [RETRY 24/26] FAST Extracted: PXL_20260320_204345637.RAW-01.jpg
+[2026-04-08 01:04:14] [RETRY 25/26] FAST Extracted: PXL_20260327_002926679.RAW-01.jpg
+[2026-04-08 01:04:34] [RETRY 26/26] FAST Extracted: PXL_20260327_003103812.RAW-01.jpg
+[2026-04-08 01:04:34] FAST Extraction complete! Chaining to Auto-Compiler...
+[2026-04-08 01:04:34] Auto-Compiler finished successfully. Master Study Guides and Formula Sheets are ready!
+[2026-04-08 01:08:24] Scanning for OPTIMIZED JPG files. FAST DECOUPLED PIPELINE ACTIVE...
+[2026-04-08 01:08:24] Found 4 tiny optimized JPGs. Starting (workers=6)...
+[2026-04-08 01:27:45] [1/4] FAST Extracted: image-1771618405847.jpg
+[2026-04-08 01:27:45] [2/4] FAST Extracted: image-1771617379019.jpg
+[2026-04-08 01:27:45] [3/4] FAST Extracted: image-1771618009649.jpg
+[2026-04-08 01:27:45] [4/4] FAST Extracted: image-1771616511529.jpg
+[2026-04-08 01:27:45] FAST Extraction complete! Chaining to Auto-Compiler...
+[2026-04-08 01:27:45] Auto-Compiler finished successfully. Master Study Guides and Formula Sheets are ready!

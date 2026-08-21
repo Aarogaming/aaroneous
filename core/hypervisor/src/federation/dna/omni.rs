@@ -1,18 +1,17 @@
 /// Omni Constellation: Master Information System
-/// 
-/// The Omni is an infinite, multi-dimensional knowledge graph system designed to 
-/// replace flat databases and traditional RAG stores. Rather than querying by 
-/// keyword or physical location, it groups information as "specks in a solar system", 
+///
+/// The Omni is an infinite, multi-dimensional knowledge graph system designed to
+/// replace flat databases and traditional RAG stores. Rather than querying by
+/// keyword or physical location, it groups information as "specks in a solar system",
 /// evaluating relationships via high-dimensional semantic clustering.
-/// 
+///
 /// By treating knowledge like DNA and storing it inside the GGUF archive formats natively,
-/// Aaroneous can compress massive amounts of operational experiences, agent training, 
+/// Aaroneous can compress massive amounts of operational experiences, agent training,
 /// and specialized roles directly into the intelligence node itself.
-
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::Path;
-use tracing::{info, debug, warn};
+use tracing::{debug, info, warn};
 use uuid::Uuid;
 
 use crate::federation::forge::MetaValue;
@@ -43,7 +42,7 @@ pub struct OmniNode {
     pub domain: String,
     pub content: String,
     pub coordinates: OmniVector,
-    pub mass: f32, // Represents gravity/importance
+    pub mass: f32,                   // Represents gravity/importance
     pub links: HashMap<String, f32>, // Target ID -> Orbital Distance
 }
 
@@ -79,7 +78,14 @@ impl OmniConstellation {
     }
 
     /// Inject a new speck of knowledge into the constellation
-    pub fn inject(&mut self, title: &str, domain: &str, content: &str, dims: Vec<f32>, mass: f32) -> String {
+    pub fn inject(
+        &mut self,
+        title: &str,
+        domain: &str,
+        content: &str,
+        dims: Vec<f32>,
+        mass: f32,
+    ) -> String {
         let mut dims = dims;
         // Pad to ensure N-dimensional consistency
         while dims.len() < self.dimensions {
@@ -89,7 +95,7 @@ impl OmniConstellation {
 
         let node = OmniNode::new(title, domain, content, dims, mass);
         let id = node.id.clone();
-        
+
         self.establish_orbits(&node);
         self.nodes.insert(id.clone(), node);
         id
@@ -107,16 +113,24 @@ impl OmniConstellation {
     }
 
     /// Query the Omni for knowledge based on a reference vector
-    pub fn query_relativistic(&self, origin: &OmniVector, radius: f32, max_results: usize) -> Vec<OmniNode> {
-        let mut results: Vec<(&OmniNode, f32)> = self.nodes.values()
+    pub fn query_relativistic(
+        &self,
+        origin: &OmniVector,
+        radius: f32,
+        max_results: usize,
+    ) -> Vec<OmniNode> {
+        let mut results: Vec<(&OmniNode, f32)> = self
+            .nodes
+            .values()
             .map(|n| (n, n.coordinates.relativity_to(origin)))
             .filter(|(_, dist)| *dist <= radius)
             .collect();
 
         // Sort by distance (closest first)
         results.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal));
-        
-        results.into_iter()
+
+        results
+            .into_iter()
             .take(max_results)
             .map(|(n, _)| n.clone())
             .collect()
@@ -138,35 +152,60 @@ pub struct OmniArchiver;
 
 impl OmniArchiver {
     /// Injects an Omni Constellation into a GGUF file's metadata, storing the intelligence natively.
-    pub fn archive_to_gguf(constellation: &OmniConstellation, _gguf_path: &Path, output_path: &Path) -> anyhow::Result<()> {
-        info!("Archiving Omni Constellation '{}' into GGUF: {}", constellation.name, output_path.display());
-        
-        let json_payload = constellation.to_gguf_metadata()
+    pub fn archive_to_gguf(
+        constellation: &OmniConstellation,
+        _gguf_path: &Path,
+        output_path: &Path,
+    ) -> anyhow::Result<()> {
+        info!(
+            "Archiving Omni Constellation '{}' into GGUF: {}",
+            constellation.name,
+            output_path.display()
+        );
+
+        let json_payload = constellation
+            .to_gguf_metadata()
             .map_err(|e| anyhow::anyhow!("Failed to serialize Omni: {}", e))?;
-            
+
         // We inject the Omni knowledge directly into the GGUF metadata tensor table!
         let mut extra_meta = HashMap::new();
-        extra_meta.insert("aaroneous.omni.knowledge".to_string(), MetaValue::String(json_payload));
-        
+        extra_meta.insert(
+            "aaroneous.omni.knowledge".to_string(),
+            MetaValue::String(json_payload),
+        );
+
         // Use the existing splicer pipeline to re-write the GGUF with the Omni brain
         // Since splicer.rs is temporarily unavailable, we simulate the packaging step
-        warn!("Splicer module unavailable. Simulating Omni injection for {}", output_path.display());
-        
-        info!("Successfully synthesized Omni intelligence into {}", output_path.display());
+        warn!(
+            "Splicer module unavailable. Simulating Omni injection for {}",
+            output_path.display()
+        );
+
+        info!(
+            "Successfully synthesized Omni intelligence into {}",
+            output_path.display()
+        );
         Ok(())
     }
 
     /// Extracts an Omni Constellation from a GGUF file's native metadata
     pub fn extract_from_gguf(gguf_path: &Path) -> anyhow::Result<Option<OmniConstellation>> {
-        debug!("Probing GGUF for Omni intelligence: {}", gguf_path.display());
-        
+        debug!(
+            "Probing GGUF for Omni intelligence: {}",
+            gguf_path.display()
+        );
+
         // Read the GGUF index to find the metadata
         let index = crate::federation::forge::read_gguf(gguf_path)?;
-        
+
         if let Some(json_payload) = index.1.kv.get("aaroneous.omni.knowledge") {
             let constellation = OmniConstellation::from_gguf_metadata(json_payload)
                 .map_err(|e| anyhow::anyhow!("Failed to parse Omni constellation: {}", e))?;
-            info!("Extracted Omni Constellation '{}' with {} nodes", constellation.name, constellation.nodes.len());
+            info!(
+                "Extracted Omni Constellation '{}' with {} nodes",
+                constellation.name,
+                constellation.nodes.len()
+            );
             Ok(Some(constellation))
         } else {
             Ok(None)

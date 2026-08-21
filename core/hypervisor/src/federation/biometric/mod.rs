@@ -1,7 +1,7 @@
-﻿// Biometric stub
-use std::time::Duration;
+// Biometric stub
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
+use std::time::Duration;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum BiometricKind {
@@ -53,10 +53,22 @@ pub struct BiometricDevice {
 }
 
 pub struct DeviceFilter;
+impl Default for DeviceFilter {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl DeviceFilter {
-    pub fn new() -> Self { Self }
-    pub fn matches(&self, _device: &BiometricDevice) -> bool { true }
-    pub fn heart_rate_monitors() -> Self { Self }
+    pub fn new() -> Self {
+        Self
+    }
+    pub fn matches(&self, _device: &BiometricDevice) -> bool {
+        true
+    }
+    pub fn heart_rate_monitors() -> Self {
+        Self
+    }
 }
 
 #[derive(Debug)]
@@ -73,7 +85,11 @@ pub trait BiometricProvider: Send + Sync {
     fn disconnect(&mut self);
     fn read_sample(&self) -> Option<BiometricSample>;
 
-    async fn scan_filtered(&self, _duration: Duration, _filter: &DeviceFilter) -> Result<Vec<BiometricDevice>, BleError> {
+    async fn scan_filtered(
+        &self,
+        _duration: Duration,
+        _filter: &DeviceFilter,
+    ) -> Result<Vec<BiometricDevice>, BleError> {
         Err(BleError::FeatureNotEnabled)
     }
 
@@ -87,8 +103,16 @@ pub trait BiometricProvider: Send + Sync {
 }
 
 pub struct BiometricStream;
+impl Default for BiometricStream {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl BiometricStream {
-    pub fn new() -> Self { Self }
+    pub fn new() -> Self {
+        Self
+    }
 }
 
 pub mod services;

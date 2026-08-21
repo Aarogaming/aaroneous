@@ -3,18 +3,22 @@
 
 #[cfg(test)]
 mod unified_integration_tests {
-    use crate::unified_learning::{UnifiedLearningLoop, UnifiedLearningConfig};
-    use crate::tensor_router::{TensorRouter, RoutingWeights, TaskEmbedding};
     use crate::spectral_layout::spectral_layout_2d;
-    use compute::thermodynamics::SystemPhase;
-    use compute::information::{shannon_entropy, mutual_information};
+    use crate::tensor_router::{RoutingWeights, TaskEmbedding, TensorRouter};
+    use crate::unified_learning::{UnifiedLearningConfig, UnifiedLearningLoop};
+    use compute::information::{mutual_information, shannon_entropy};
     use compute::predictive_coding::HierarchicalPredictiveCoding;
+    use compute::thermodynamics::SystemPhase;
     use rand::SeedableRng;
 
     #[test]
     fn test_complete_learning_cycle() {
         let config = UnifiedLearningConfig::default();
-        let specialist_ids = vec!["spec_code".to_string(), "spec_test".to_string(), "spec_review".to_string()];
+        let specialist_ids = vec![
+            "spec_code".to_string(),
+            "spec_test".to_string(),
+            "spec_review".to_string(),
+        ];
         let mut loop_ = UnifiedLearningLoop::new(config, 3, specialist_ids);
 
         // Simulate 10 cycles of learning
@@ -36,7 +40,7 @@ mod unified_integration_tests {
 
         // Verify learning occurred
         assert_eq!(cycle_results.len(), 10);
-        
+
         // System should stabilize
         let first_load = cycle_results[0].estimated_load;
         let last_load = cycle_results[9].estimated_load;
@@ -46,7 +50,11 @@ mod unified_integration_tests {
 
     #[test]
     fn test_tensor_routing_convergence() {
-        let weights = RoutingWeights::new(3, 4, vec!["a".to_string(), "b".to_string(), "c".to_string()]);
+        let weights = RoutingWeights::new(
+            3,
+            4,
+            vec!["a".to_string(), "b".to_string(), "c".to_string()],
+        );
         let mut router = TensorRouter::new(weights, 0.5); // Low temperature for exploitation
 
         // Route same task multiple times and learn
@@ -59,8 +67,10 @@ mod unified_integration_tests {
 
         for _ in 0..20 {
             let result = router.route(&task);
-            *selected_counts.entry(result.selected_specialist.clone()).or_insert(0) += 1;
-            
+            *selected_counts
+                .entry(result.selected_specialist.clone())
+                .or_insert(0) += 1;
+
             // Always succeed with specialist "a"
             router.learn(&task.features, "a", true, 0.1);
             router.learn(&task.features, "b", false, 0.1);
@@ -71,7 +81,7 @@ mod unified_integration_tests {
         let a_count = selected_counts.get("a").unwrap_or(&0);
         let b_count = selected_counts.get("b").unwrap_or(&0);
         let c_count = selected_counts.get("c").unwrap_or(&0);
-        
+
         assert!(*a_count >= *b_count);
         assert!(*a_count >= *c_count);
     }
@@ -100,8 +110,12 @@ mod unified_integration_tests {
         }
 
         // Nodes in same cluster should be relatively close
-        let cluster1_dist = ((positions[0].0 - positions[1].0).powi(2) + (positions[0].1 - positions[1].1).powi(2)).sqrt();
-        let cross_cluster_dist = ((positions[0].0 - positions[3].0).powi(2) + (positions[0].1 - positions[3].1).powi(2)).sqrt();
+        let cluster1_dist = ((positions[0].0 - positions[1].0).powi(2)
+            + (positions[0].1 - positions[1].1).powi(2))
+        .sqrt();
+        let cross_cluster_dist = ((positions[0].0 - positions[3].0).powi(2)
+            + (positions[0].1 - positions[3].1).powi(2))
+        .sqrt();
 
         // Cluster 1 nodes should be at least as close as cross-cluster distance
         assert!(cluster1_dist <= cross_cluster_dist * 10.0 + 1.0);
@@ -140,7 +154,7 @@ mod unified_integration_tests {
         };
 
         let final_error = network.process(&[0.7, 0.8, 0.6]);
-        
+
         // Final error should be lower than initial (learning occurred)
         assert!(final_error <= initial_error);
     }
@@ -157,7 +171,7 @@ mod unified_integration_tests {
         }
 
         let stable_phase = loop_.system_state.phase.clone();
-        
+
         // Simulate sudden load spike
         for _ in 0..10 {
             loop_.run_cycle(&[0.95], &[0.9, 0.9, 0.9, 0.9]);
@@ -171,16 +185,31 @@ mod unified_integration_tests {
 
     #[test]
     fn test_batch_task_routing() {
-        let weights = RoutingWeights::new(4, 4, vec![
-            "spec_a".to_string(), "spec_b".to_string(), 
-            "spec_c".to_string(), "spec_d".to_string()
-        ]);
+        let weights = RoutingWeights::new(
+            4,
+            4,
+            vec![
+                "spec_a".to_string(),
+                "spec_b".to_string(),
+                "spec_c".to_string(),
+                "spec_d".to_string(),
+            ],
+        );
         let router = TensorRouter::new(weights, 1.0);
 
         let tasks = vec![
-            TaskEmbedding { task_id: "t1".to_string(), features: vec![0.8, 0.2, 0.9, 0.1] },
-            TaskEmbedding { task_id: "t2".to_string(), features: vec![0.1, 0.9, 0.2, 0.8] },
-            TaskEmbedding { task_id: "t3".to_string(), features: vec![0.5, 0.5, 0.5, 0.5] },
+            TaskEmbedding {
+                task_id: "t1".to_string(),
+                features: vec![0.8, 0.2, 0.9, 0.1],
+            },
+            TaskEmbedding {
+                task_id: "t2".to_string(),
+                features: vec![0.1, 0.9, 0.2, 0.8],
+            },
+            TaskEmbedding {
+                task_id: "t3".to_string(),
+                features: vec![0.5, 0.5, 0.5, 0.5],
+            },
         ];
 
         let results = router.batch_route(&tasks);
@@ -220,7 +249,11 @@ mod unified_integration_tests {
     #[test]
     fn test_multi_specialist_load_balancing() {
         // Test load balancing directly via the tensor router with exploration
-        let ids = vec!["spec_1".to_string(), "spec_2".to_string(), "spec_3".to_string()];
+        let ids = vec![
+            "spec_1".to_string(),
+            "spec_2".to_string(),
+            "spec_3".to_string(),
+        ];
         let weights = RoutingWeights::new(3, 4, ids);
         let mut router = TensorRouter::new(weights, 2.0); // High temp for exploration
         let mut rng = rand::rngs::StdRng::seed_from_u64(42);
@@ -240,7 +273,9 @@ mod unified_integration_tests {
 
             // Use exploration-based routing to ensure distribution
             let result = router.route_with_exploration(&task, &mut rng);
-            *specialist_usage.entry(result.selected_specialist.clone()).or_insert(0) += 1;
+            *specialist_usage
+                .entry(result.selected_specialist.clone())
+                .or_insert(0) += 1;
 
             // Learn from alternating outcomes
             let success = i % 2 == 0;

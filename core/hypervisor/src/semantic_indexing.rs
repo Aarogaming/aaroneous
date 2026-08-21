@@ -1,5 +1,5 @@
 use anyhow::{Result, anyhow};
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::LazyLock;
 
@@ -47,11 +47,17 @@ pub fn embed_text(text: &str, device: &Device) -> Result<Vec<f32>> {
     // Project via candle-core tensor: (1, HASH_SIZE) × (HASH_SIZE, EMBED_DIM) → (1, EMBED_DIM)
     let feat_t = Tensor::from_vec(features, (1, VOCAB_HASH_SIZE), device)
         .map_err(|e| anyhow!("Failed to create feature tensor: {}", e))?;
-    let proj_t = Tensor::from_vec(PROJECTION_MATRIX.clone(), (VOCAB_HASH_SIZE, EMBED_DIM), device)
-        .map_err(|e| anyhow!("Failed to create projection tensor: {}", e))?;
-    let result_t = feat_t.matmul(&proj_t)
+    let proj_t = Tensor::from_vec(
+        PROJECTION_MATRIX.clone(),
+        (VOCAB_HASH_SIZE, EMBED_DIM),
+        device,
+    )
+    .map_err(|e| anyhow!("Failed to create projection tensor: {}", e))?;
+    let result_t = feat_t
+        .matmul(&proj_t)
         .map_err(|e| anyhow!("Failed to project features: {}", e))?;
-    let vec = result_t.squeeze(0)
+    let vec = result_t
+        .squeeze(0)
         .map_err(|e| anyhow!("Failed to squeeze result: {}", e))?
         .to_vec1::<f32>()
         .map_err(|e| anyhow!("Failed to convert to vec: {}", e))?;
@@ -68,7 +74,7 @@ pub fn embed_text(text: &str, device: &Device) -> Result<Vec<f32>> {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SemanticEmbedding {
     pub text: String,
-    pub vector: Vec<f32>, 
+    pub vector: Vec<f32>,
     pub metadata: HashMap<String, String>,
     pub last_accessed: chrono::DateTime<chrono::Utc>,
     pub access_count: u32,
@@ -79,7 +85,9 @@ impl SemanticEmbedding {
     pub fn new(text: &str, metadata: HashMap<String, String>, device: &Device) -> Self {
         let vector = embed_text(text, device).unwrap_or_else(|_| {
             let mut v = vec![0.0f32; EMBED_DIM];
-            if !text.is_empty() { v[0] = 1.0; }
+            if !text.is_empty() {
+                v[0] = 1.0;
+            }
             v
         });
         Self {
@@ -98,9 +106,15 @@ pub struct SemanticIndex {
     device: Device,
 }
 
+impl Default for SemanticIndex {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl SemanticIndex {
     pub fn new() -> Self {
-        Self { 
+        Self {
             entries: Vec::new(),
             device: Device::Cpu,
         }
@@ -120,15 +134,22 @@ impl SemanticIndex {
             Ok(v) => v,
             Err(_) => return Vec::new(),
         };
-        let mut scored_entries: Vec<(f32, usize)> = self.entries.iter().enumerate()
+        let mut scored_entries: Vec<(f32, usize)> = self
+            .entries
+            .iter()
+            .enumerate()
             .map(|(i, entry)| (self.cosine_similarity(&query_vector, &entry.vector), i))
             .collect();
-            
+
         scored_entries.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
-        
+
         let now = chrono::Utc::now();
-        let top_indices: Vec<usize> = scored_entries.into_iter().take(limit).map(|(_, i)| i).collect();
-        
+        let top_indices: Vec<usize> = scored_entries
+            .into_iter()
+            .take(limit)
+            .map(|(_, i)| i)
+            .collect();
+
         for &idx in &top_indices {
             self.entries[idx].last_accessed = now;
             self.entries[idx].access_count += 1;
@@ -150,12 +171,12 @@ impl SemanticIndex {
     pub fn prune_stale_embeddings(&mut self, max_age_days: i64) -> usize {
         let now = chrono::Utc::now();
         let initial_count = self.entries.len();
-        
+
         self.entries.retain(|entry| {
             let age = (now - entry.last_accessed).num_days();
             age < max_age_days || entry.access_count > 10
         });
-        
+
         initial_count - self.entries.len()
     }
 
@@ -171,6 +192,10 @@ impl SemanticIndex {
         let dot_product: f32 = a.iter().zip(b.iter()).map(|(x, y)| x * y).sum();
         let norm_a: f32 = a.iter().map(|x| x * x).sum::<f32>().sqrt();
         let norm_b: f32 = b.iter().map(|x| x * x).sum::<f32>().sqrt();
-        if norm_a * norm_b == 0.0 { 0.0 } else { dot_product / (norm_a * norm_b) }
+        if norm_a * norm_b == 0.0 {
+            0.0
+        } else {
+            dot_product / (norm_a * norm_b)
+        }
     }
 }

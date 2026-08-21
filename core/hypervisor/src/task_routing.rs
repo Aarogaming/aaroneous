@@ -1,3 +1,5 @@
+use crate::enzyme_runner::EnzymeRunner;
+use crate::federation::hive_db::PersistenceManager;
 /// Task Routing Engine
 /// Routes analyzed tasks to appropriate executors based on classification
 ///
@@ -7,15 +9,12 @@
 /// - Network: Federation/network executor
 /// - Learning: Unified learning loop
 /// - Memory-intensive: Throttled execution
-
 use crate::task_analysis::{Task, TaskAnalysisResult};
-use crate::enzyme_runner::EnzymeRunner;
 use crate::unified_learning::UnifiedLearningLoop;
-use crate::federation::hive_db::PersistenceManager;
-use std::sync::Arc;
-use parking_lot::RwLock;
 use anyhow::{Result, anyhow};
+use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 
 /// Task execution route determined by classification
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -44,7 +43,11 @@ impl ExecutionRoute {
                 ExecutionRoute::Enzyme
             }
             // Network tasks - use federation/network executor for RPC
-            t if t.contains("network") || t.contains("http") || t.contains("rpc") || t.contains("federation") => {
+            t if t.contains("network")
+                || t.contains("http")
+                || t.contains("rpc")
+                || t.contains("federation") =>
+            {
                 ExecutionRoute::Network
             }
             // Learning tasks - use learning loop for model training
@@ -65,17 +68,20 @@ impl ExecutionRoute {
     }
 
     pub fn throttle_under_load(&self) -> bool {
-        matches!(self, ExecutionRoute::CpuIntensive | ExecutionRoute::MemoryIntensive)
+        matches!(
+            self,
+            ExecutionRoute::CpuIntensive | ExecutionRoute::MemoryIntensive
+        )
     }
 
     pub fn priority_boost(&self) -> f32 {
         match self {
             ExecutionRoute::Learning => 0.9,        // Learning is lower priority
             ExecutionRoute::CpuIntensive => 1.2,    // CPU tasks get boost
-            ExecutionRoute::Network => 1.1,          // Network tasks get slight boost
-            ExecutionRoute::Enzyme => 1.3,           // Enzyme tasks highest priority
-            ExecutionRoute::MemoryIntensive => 0.8,  // Memory tasks lower priority
-            ExecutionRoute::Inline => 1.0,           // Inline normal priority
+            ExecutionRoute::Network => 1.1,         // Network tasks get slight boost
+            ExecutionRoute::Enzyme => 1.3,          // Enzyme tasks highest priority
+            ExecutionRoute::MemoryIntensive => 0.8, // Memory tasks lower priority
+            ExecutionRoute::Inline => 1.0,          // Inline normal priority
         }
     }
 }
@@ -94,7 +100,7 @@ pub struct ExecutionContext {
 pub struct TaskRouter {
     enzyme_runner: Option<Arc<EnzymeRunner>>,
     learning_loop: Option<Arc<RwLock<UnifiedLearningLoop>>>,
-    hive_db: Option<Arc<parking_lot::Mutex<PersistenceManager>>>,
+    _hive_db: Option<Arc<parking_lot::Mutex<PersistenceManager>>>,
 }
 
 impl TaskRouter {
@@ -106,7 +112,7 @@ impl TaskRouter {
         Self {
             enzyme_runner,
             learning_loop,
-            hive_db,
+            _hive_db: hive_db,
         }
     }
 
@@ -120,11 +126,11 @@ impl TaskRouter {
         // FIX #4: Use analysis classification to determine route
         let route = ExecutionRoute::from_analysis_type(&analysis.analysis.analysis_type);
         let priority_boost = route.priority_boost();
-        
+
         // FIX #4: INTEGRATION - Use specialist recommendations for more precise routing
         // If we have specialist recommendations, check if they strongly suggest a different approach
         let mut routing_reason = format!("Classification: {}", analysis.analysis.analysis_type);
-        
+
         if !analysis.recommended_specialists.is_empty() {
             // Check specialist recommendations for higher confidence routes
             for rec in &analysis.recommended_specialists {
@@ -132,15 +138,18 @@ impl TaskRouter {
                     // Very high confidence specialist match - could influence routing
                     routing_reason = format!(
                         "Specialist recommendation: {} (score: {:.1}%)",
-                        rec.specialist_name, rec.suitability_score * 100.0
+                        rec.specialist_name,
+                        rec.suitability_score * 100.0
                     );
-                    println!("[TaskRouter] FIX #4: Routing influenced by specialist recommendation: {}",
-                        rec.specialist_name);
+                    println!(
+                        "[TaskRouter] FIX #4: Routing influenced by specialist recommendation: {}",
+                        rec.specialist_name
+                    );
                     break;
                 }
             }
         }
-        
+
         // Adjust throttle factor based on thermal state and route
         let mut throttle_factor = thermal_factor;
         if route.throttle_under_load() && thermal_factor < 1.0 {
@@ -157,8 +166,10 @@ impl TaskRouter {
             priority_boost,
         };
 
-        println!("[TaskRouter] FIX #4: Task {} routed to {:?} ({}) [priority: {:.2}x, throttle: {:.2}x]",
-            task.id, route, routing_reason, priority_boost, throttle_factor);
+        println!(
+            "[TaskRouter] FIX #4: Task {} routed to {:?} ({}) [priority: {:.2}x, throttle: {:.2}x]",
+            task.id, route, routing_reason, priority_boost, throttle_factor
+        );
 
         Ok(context)
     }
@@ -170,103 +181,160 @@ impl TaskRouter {
         task_data: &[u8],
     ) -> Result<Vec<u8>> {
         // FIX #4: Log which route is being executed
-        println!("[TaskRouter] FIX #4 EXECUTING: Task {} on route {:?}", context.task_id, context.route);
-        
+        println!(
+            "[TaskRouter] FIX #4 EXECUTING: Task {} on route {:?}",
+            context.task_id, context.route
+        );
+
         let result = match context.route {
             ExecutionRoute::Enzyme => {
-                println!("[TaskRouter] FIX #4 ROUTE: Enzyme (WASM VM) - CPU intensive enzyme processing");
+                println!(
+                    "[TaskRouter] FIX #4 ROUTE: Enzyme (WASM VM) - CPU intensive enzyme processing"
+                );
                 self.execute_enzyme(context, task_data).await
-            },
+            }
             ExecutionRoute::Learning => {
                 println!("[TaskRouter] FIX #4 ROUTE: Learning - Model training and optimization");
                 self.execute_learning(context, task_data).await
-            },
+            }
             ExecutionRoute::Network => {
                 println!("[TaskRouter] FIX #4 ROUTE: Network - Federation/RPC operations");
                 self.execute_network(context, task_data).await
-            },
+            }
             ExecutionRoute::CpuIntensive => {
                 println!("[TaskRouter] FIX #4 ROUTE: CPU-Intensive - Thread pool execution");
                 self.execute_cpu_intensive(context, task_data).await
-            },
+            }
             ExecutionRoute::MemoryIntensive => {
                 println!("[TaskRouter] FIX #4 ROUTE: Memory-Intensive - Limited memory execution");
                 self.execute_memory_intensive(context, task_data).await
-            },
+            }
             ExecutionRoute::Inline => {
                 println!("[TaskRouter] FIX #4 ROUTE: Inline - Direct synchronous execution");
                 self.execute_inline(context, task_data).await
-            },
+            }
         };
-        
+
         match &result {
-            Ok(output) => println!("[TaskRouter] FIX #4 SUCCESS: Task {} completed via {:?} ({} bytes)", 
-                context.task_id, context.route, output.len()),
-            Err(e) => println!("[TaskRouter] FIX #4 ERROR: Task {} failed on {:?}: {}", 
-                context.task_id, context.route, e),
+            Ok(output) => println!(
+                "[TaskRouter] FIX #4 SUCCESS: Task {} completed via {:?} ({} bytes)",
+                context.task_id,
+                context.route,
+                output.len()
+            ),
+            Err(e) => println!(
+                "[TaskRouter] FIX #4 ERROR: Task {} failed on {:?}: {}",
+                context.task_id, context.route, e
+            ),
         }
-        
+
         result
     }
 
     /// Execute via WASM enzyme runtime
-    async fn execute_enzyme(&self, context: &ExecutionContext, task_data: &[u8]) -> Result<Vec<u8>> {
-        let enzyme = self.enzyme_runner.as_ref()
+    async fn execute_enzyme(
+        &self,
+        context: &ExecutionContext,
+        _task_data: &[u8],
+    ) -> Result<Vec<u8>> {
+        let enzyme = self
+            .enzyme_runner
+            .as_ref()
             .ok_or_else(|| anyhow!("Enzyme runner not available"))?;
 
-        println!("[TaskRouter::Enzyme] Executing task {} with WASM VM", context.task_id);
-        
+        println!(
+            "[TaskRouter::Enzyme] Executing task {} with WASM VM",
+            context.task_id
+        );
+
         // TODO: Wire actual task data to enzyme runner
         // For now, return placeholder
-        let result = enzyme.spawn_enzyme("placeholder.wasm", &context.task_id).await?;
+        let result = enzyme
+            .spawn_enzyme("placeholder.wasm", &context.task_id)
+            .await?;
         Ok(result)
     }
 
     /// Execute via learning loop
-    async fn execute_learning(&self, context: &ExecutionContext, task_data: &[u8]) -> Result<Vec<u8>> {
-        let learning = self.learning_loop.as_ref()
+    async fn execute_learning(
+        &self,
+        context: &ExecutionContext,
+        _task_data: &[u8],
+    ) -> Result<Vec<u8>> {
+        let _learning = self
+            .learning_loop
+            .as_ref()
             .ok_or_else(|| anyhow!("Learning loop not available"))?;
 
-        println!("[TaskRouter::Learning] Executing task {} with unified learning", context.task_id);
-        
+        println!(
+            "[TaskRouter::Learning] Executing task {} with unified learning",
+            context.task_id
+        );
+
         // TODO: Wire task_data to learning loop for model training
         // For now, return success marker
         Ok(vec![0x01, 0x00, 0x00, 0x00]) // Success marker
     }
 
     /// Execute via network/federation executor
-    async fn execute_network(&self, context: &ExecutionContext, task_data: &[u8]) -> Result<Vec<u8>> {
-        println!("[TaskRouter::Network] Executing task {} over network", context.task_id);
-        
+    async fn execute_network(
+        &self,
+        context: &ExecutionContext,
+        task_data: &[u8],
+    ) -> Result<Vec<u8>> {
+        println!(
+            "[TaskRouter::Network] Executing task {} over network",
+            context.task_id
+        );
+
         // TODO: Implement network task execution (federation, RPC, etc.)
         // For now, return echoed data
         Ok(task_data.to_vec())
     }
 
     /// Execute CPU-intensive task with throttling
-    async fn execute_cpu_intensive(&self, context: &ExecutionContext, task_data: &[u8]) -> Result<Vec<u8>> {
-        println!("[TaskRouter::CpuIntensive] Executing task {} with throttle {:.2}x",
-            context.task_id, context.throttle_factor);
-        
+    async fn execute_cpu_intensive(
+        &self,
+        context: &ExecutionContext,
+        _task_data: &[u8],
+    ) -> Result<Vec<u8>> {
+        println!(
+            "[TaskRouter::CpuIntensive] Executing task {} with throttle {:.2}x",
+            context.task_id, context.throttle_factor
+        );
+
         // TODO: Implement CPU-intensive executor with thread pool
         // Spawn on rayon work-stealing pool with throttle factor
         Ok(vec![0x01]) // Placeholder
     }
 
     /// Execute memory-intensive task with careful allocation
-    async fn execute_memory_intensive(&self, context: &ExecutionContext, task_data: &[u8]) -> Result<Vec<u8>> {
-        println!("[TaskRouter::MemoryIntensive] Executing task {} with buffer limits",
-            context.task_id);
-        
+    async fn execute_memory_intensive(
+        &self,
+        context: &ExecutionContext,
+        _task_data: &[u8],
+    ) -> Result<Vec<u8>> {
+        println!(
+            "[TaskRouter::MemoryIntensive] Executing task {} with buffer limits",
+            context.task_id
+        );
+
         // TODO: Implement memory-limited executor
         // Use arena allocator or bounded memory pool
         Ok(vec![0x01]) // Placeholder
     }
 
     /// Execute simple inline task
-    async fn execute_inline(&self, context: &ExecutionContext, task_data: &[u8]) -> Result<Vec<u8>> {
-        println!("[TaskRouter::Inline] Executing task {} inline", context.task_id);
-        
+    async fn execute_inline(
+        &self,
+        context: &ExecutionContext,
+        task_data: &[u8],
+    ) -> Result<Vec<u8>> {
+        println!(
+            "[TaskRouter::Inline] Executing task {} inline",
+            context.task_id
+        );
+
         // TODO: Implement simple inline executor for trivial tasks
         Ok(task_data.to_vec())
     }
@@ -307,12 +375,30 @@ mod tests {
 
     #[test]
     fn test_route_from_analysis_type() {
-        assert_eq!(ExecutionRoute::from_analysis_type("wasm_processing"), ExecutionRoute::Enzyme);
-        assert_eq!(ExecutionRoute::from_analysis_type("network_request"), ExecutionRoute::Network);
-        assert_eq!(ExecutionRoute::from_analysis_type("model_training"), ExecutionRoute::Learning);
-        assert_eq!(ExecutionRoute::from_analysis_type("cpu_compute"), ExecutionRoute::CpuIntensive);
-        assert_eq!(ExecutionRoute::from_analysis_type("memory_buffer"), ExecutionRoute::MemoryIntensive);
-        assert_eq!(ExecutionRoute::from_analysis_type("simple_task"), ExecutionRoute::Inline);
+        assert_eq!(
+            ExecutionRoute::from_analysis_type("wasm_processing"),
+            ExecutionRoute::Enzyme
+        );
+        assert_eq!(
+            ExecutionRoute::from_analysis_type("network_request"),
+            ExecutionRoute::Network
+        );
+        assert_eq!(
+            ExecutionRoute::from_analysis_type("model_training"),
+            ExecutionRoute::Learning
+        );
+        assert_eq!(
+            ExecutionRoute::from_analysis_type("cpu_compute"),
+            ExecutionRoute::CpuIntensive
+        );
+        assert_eq!(
+            ExecutionRoute::from_analysis_type("memory_buffer"),
+            ExecutionRoute::MemoryIntensive
+        );
+        assert_eq!(
+            ExecutionRoute::from_analysis_type("simple_task"),
+            ExecutionRoute::Inline
+        );
     }
 
     #[test]

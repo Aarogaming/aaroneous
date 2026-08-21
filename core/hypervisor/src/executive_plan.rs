@@ -1,4 +1,4 @@
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -44,11 +44,13 @@ impl ExecutivePlan {
 
     /// Returns the next steps that are ready to be executed (dependencies met)
     pub fn get_ready_steps(&self) -> Vec<String> {
-        self.steps.values()
+        self.steps
+            .values()
             .filter(|s| s.status == StepStatus::Pending)
             .filter(|s| {
                 s.dependencies.iter().all(|dep_id| {
-                    self.steps.get(dep_id)
+                    self.steps
+                        .get(dep_id)
                         .map(|dep| dep.status == StepStatus::Completed)
                         .unwrap_or(false)
                 })

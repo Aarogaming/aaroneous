@@ -42,30 +42,24 @@ impl super::LLMProvider for MockProvider {
         debug!("Mock: Finding collaborators for {}", specialist.name);
 
         let suggestions = match specialist.name.as_str() {
-            "Merlin" => vec![
-                CollaboratorSuggestion {
-                    specialist_name: "Circe".to_string(),
-                    reason: "Complementary analysis skills".to_string(),
-                    relevance_score: 0.9,
-                    complementary_skills: vec!["statistical_analysis".to_string()],
-                },
-            ],
-            "Ariel" => vec![
-                CollaboratorSuggestion {
-                    specialist_name: "Hephaestus".to_string(),
-                    reason: "Complementary tool skills".to_string(),
-                    relevance_score: 0.8,
-                    complementary_skills: vec!["system_integration".to_string()],
-                },
-            ],
-            _ => vec![
-                CollaboratorSuggestion {
-                    specialist_name: "Odin".to_string(),
-                    reason: "Leadership coordination".to_string(),
-                    relevance_score: 0.7,
-                    complementary_skills: vec!["orchestration".to_string()],
-                },
-            ],
+            "Merlin" => vec![CollaboratorSuggestion {
+                specialist_name: "Circe".to_string(),
+                reason: "Complementary analysis skills".to_string(),
+                relevance_score: 0.9,
+                complementary_skills: vec!["statistical_analysis".to_string()],
+            }],
+            "Ariel" => vec![CollaboratorSuggestion {
+                specialist_name: "Hephaestus".to_string(),
+                reason: "Complementary tool skills".to_string(),
+                relevance_score: 0.8,
+                complementary_skills: vec!["system_integration".to_string()],
+            }],
+            _ => vec![CollaboratorSuggestion {
+                specialist_name: "Odin".to_string(),
+                reason: "Leadership coordination".to_string(),
+                relevance_score: 0.7,
+                complementary_skills: vec!["orchestration".to_string()],
+            }],
         };
 
         Ok(suggestions)
@@ -128,27 +122,22 @@ impl super::LLMProvider for MockProvider {
         skill_name: &str,
         specialist: &SpecialistContext,
     ) -> Result<SkillExplanation> {
-        debug!("Mock: Explaining skill {} for {}", skill_name, specialist.name);
+        debug!(
+            "Mock: Explaining skill {} for {}",
+            skill_name, specialist.name
+        );
 
         Ok(SkillExplanation {
             skill_name: skill_name.to_string(),
             description: format!("This is the {} skill", skill_name),
-            use_cases: vec![
-                "Use case 1".to_string(),
-                "Use case 2".to_string(),
-            ],
+            use_cases: vec!["Use case 1".to_string(), "Use case 2".to_string()],
             example: "Here's an example of how to use it".to_string(),
             how_to_improve: "Practice using it on different tasks".to_string(),
             synergies_with: vec!["other_skill1".to_string()],
         })
     }
 
-    async fn chat(
-        &self,
-        system_prompt: &str,
-        user_message: &str,
-        domain: &str,
-    ) -> Result<String> {
+    async fn chat(&self, system_prompt: &str, user_message: &str, domain: &str) -> Result<String> {
         debug!("Mock chat: domain={} user='{:.60}'", domain, user_message);
         // Route through generate_design with the domain hint so the structured
         // mock responses fire (task_orchestration → JSON task graph, etc.)
@@ -163,14 +152,19 @@ impl super::LLMProvider for MockProvider {
             rejected_examples: vec![],
         };
         let generation = self.generate_design(&ctx).await?;
-        Ok(generation.variants.into_iter().next()
+        Ok(generation
+            .variants
+            .into_iter()
+            .next()
             .map(|v| v.description)
             .unwrap_or_else(|| format!("[mock] no response for domain {}", domain)))
     }
 
     async fn generate_design(&self, context: &DesignContext) -> Result<DesignGeneration> {
-        debug!("Mock: Generating {} design variant(s) for '{}'",
-               context.variants_requested, context.intent);
+        debug!(
+            "Mock: Generating {} design variant(s) for '{}'",
+            context.variants_requested, context.intent
+        );
 
         // If the intent contains a domain-specific system prompt (from generate_domain_response),
         // return structured JSON appropriate for that domain rather than UI design variants.
@@ -178,35 +172,52 @@ impl super::LLMProvider for MockProvider {
         if let Some(domain) = context.style_hints.first() {
             match domain.as_str() {
                 "task_orchestration" | "guild_coordination" | "intent_routing" => {
-                    let intent = context.intent
-                        .splitn(2, "\n\n").nth(1)
+                    let intent = context
+                        .intent
+                        .split_once("\n\n")
+                        .map(|x| x.1)
                         .unwrap_or(&context.intent)
-                        .chars().take(100).collect::<String>();
+                        .chars()
+                        .take(100)
+                        .collect::<String>();
                     let intent_lower = intent.to_lowercase();
 
                     // Route t2 to the correct sovereign based on intent keywords.
                     // Use .chars().take(60) instead of byte slicing to avoid UTF-8 panics.
                     let short = intent.chars().take(60).collect::<String>();
                     let (t2_sovereign, t2_action) = if intent_lower.contains("security")
-                        || intent_lower.contains("audit") || intent_lower.contains("vulnerab")
-                        || intent_lower.contains("exploit") || intent_lower.contains("scan")
-                        || intent_lower.contains("memory leak") || intent_lower.contains("leak")
-                        || intent_lower.contains("review") // code review → Argus for security
+                        || intent_lower.contains("audit")
+                        || intent_lower.contains("vulnerab")
+                        || intent_lower.contains("exploit")
+                        || intent_lower.contains("scan")
+                        || intent_lower.contains("memory leak")
+                        || intent_lower.contains("leak")
+                        || intent_lower.contains("review")
+                    // code review → Argus for security
                     {
                         ("Argus", format!("Security/code audit: {}", short))
-                    } else if intent_lower.contains("rust") || intent_lower.contains("code")
-                        || intent_lower.contains("function") || intent_lower.contains("bug")
-                        || intent_lower.contains("refactor") || intent_lower.contains("analyze")
+                    } else if intent_lower.contains("rust")
+                        || intent_lower.contains("code")
+                        || intent_lower.contains("function")
+                        || intent_lower.contains("bug")
+                        || intent_lower.contains("refactor")
+                        || intent_lower.contains("analyze")
                     {
                         ("Merlin", format!("Code analysis: {}", short))
-                    } else if intent_lower.contains("build") || intent_lower.contains("deploy")
-                        || intent_lower.contains("ci") || intent_lower.contains("pipeline")
-                        || intent_lower.contains("docker") || intent_lower.contains("compile")
+                    } else if intent_lower.contains("build")
+                        || intent_lower.contains("deploy")
+                        || intent_lower.contains("ci")
+                        || intent_lower.contains("pipeline")
+                        || intent_lower.contains("docker")
+                        || intent_lower.contains("compile")
                     {
                         ("Hephaestus", format!("Build planning: {}", short))
-                    } else if intent_lower.contains("design") || intent_lower.contains(" ui ")
-                        || intent_lower.contains("ux") || intent_lower.contains("interface")
-                        || intent_lower.contains("layout") || intent_lower.contains("visual")
+                    } else if intent_lower.contains("design")
+                        || intent_lower.contains(" ui ")
+                        || intent_lower.contains("ux")
+                        || intent_lower.contains("interface")
+                        || intent_lower.contains("layout")
+                        || intent_lower.contains("visual")
                     {
                         ("Ariel", format!("Design generation: {}", short))
                     } else {
@@ -236,42 +247,65 @@ impl super::LLMProvider for MockProvider {
                 }
                 "security_audit" | "secrets_management" | "vulnerability_scanning" => {
                     let intent = context.intent.chars().take(80).collect::<String>();
-                    let json = format!(r#"{{"mock":true,"source":"argus_mock","target":"{}","findings":[{{"severity":"Info","description":"Mock — no real security analysis performed","remediation":"Enable --features llama-gguf for real Argus scanning"}}],"overall_risk":"Unknown","note":"This is a mock output."}}"#, intent);
+                    let json = format!(
+                        r#"{{"mock":true,"source":"argus_mock","target":"{}","findings":[{{"severity":"Info","description":"Mock — no real security analysis performed","remediation":"Enable --features llama-gguf for real Argus scanning"}}],"overall_risk":"Unknown","note":"This is a mock output."}}"#,
+                        intent
+                    );
                     return Ok(DesignGeneration {
                         intent: context.intent.clone(),
                         variants: vec![DesignVariant {
                             title: "Security Audit".into(),
                             description: json,
-                            colors: vec![], typography: String::new(), layout: "security_report".into(),
-                            confidence: 0.3, reasoning: "Argus audit (mock — not a real scan)".into(),
+                            colors: vec![],
+                            typography: String::new(),
+                            layout: "security_report".into(),
+                            confidence: 0.3,
+                            reasoning: "Argus audit (mock — not a real scan)".into(),
                         }],
-                        tokens_used: 0, batch_confidence: 0.3,
+                        tokens_used: 0,
+                        batch_confidence: 0.3,
                     });
                 }
                 "research" | "knowledge_synthesis" | "external_research" => {
                     let intent = context.intent.chars().take(80).collect::<String>();
-                    let json = format!(r#"{{"mock":true,"source":"merlin_mock","query":"{}","summary":"Mock placeholder — no real synthesis","key_findings":["This is a mock response","Enable --features llama-gguf for real Merlin research"],"confidence":0.3}}"#, intent);
+                    let json = format!(
+                        r#"{{"mock":true,"source":"merlin_mock","query":"{}","summary":"Mock placeholder — no real synthesis","key_findings":["This is a mock response","Enable --features llama-gguf for real Merlin research"],"confidence":0.3}}"#,
+                        intent
+                    );
                     return Ok(DesignGeneration {
                         intent: context.intent.clone(),
                         variants: vec![DesignVariant {
-                            title: "Research Synthesis".into(), description: json,
-                            colors: vec![], typography: String::new(), layout: "research_report".into(),
-                            confidence: 0.3, reasoning: "Merlin synthesis (mock)".into(),
+                            title: "Research Synthesis".into(),
+                            description: json,
+                            colors: vec![],
+                            typography: String::new(),
+                            layout: "research_report".into(),
+                            confidence: 0.3,
+                            reasoning: "Merlin synthesis (mock)".into(),
                         }],
-                        tokens_used: 0, batch_confidence: 0.3,
+                        tokens_used: 0,
+                        batch_confidence: 0.3,
                     });
                 }
                 "fabrication" | "maintenance" | "infrastructure" | "construction" => {
                     let intent = context.intent.chars().take(100).collect::<String>();
-                    let json = format!(r#"{{"mock":true,"source":"hephaestus_mock","task":"{}","plan":[{{"step":1,"action":"Assess requirements","status":"planned"}},{{"step":2,"action":"Identify dependencies","status":"planned"}},{{"step":3,"action":"Generate build manifest","status":"planned"}}],"note":"Enable --features llama-gguf for real Hephaestus build planning"}}"#, intent);
+                    let json = format!(
+                        r#"{{"mock":true,"source":"hephaestus_mock","task":"{}","plan":[{{"step":1,"action":"Assess requirements","status":"planned"}},{{"step":2,"action":"Identify dependencies","status":"planned"}},{{"step":3,"action":"Generate build manifest","status":"planned"}}],"note":"Enable --features llama-gguf for real Hephaestus build planning"}}"#,
+                        intent
+                    );
                     return Ok(DesignGeneration {
                         intent: context.intent.clone(),
                         variants: vec![DesignVariant {
-                            title: "Fabrication Plan".into(), description: json,
-                            colors: vec![], typography: String::new(), layout: "fabrication_plan".into(),
-                            confidence: 0.3, reasoning: "Hephaestus plan (mock)".into(),
+                            title: "Fabrication Plan".into(),
+                            description: json,
+                            colors: vec![],
+                            typography: String::new(),
+                            layout: "fabrication_plan".into(),
+                            confidence: 0.3,
+                            reasoning: "Hephaestus plan (mock)".into(),
                         }],
-                        tokens_used: 0, batch_confidence: 0.3,
+                        tokens_used: 0,
+                        batch_confidence: 0.3,
                     });
                 }
                 "mesh_sync" | "p2p" | "multi_device" => {
@@ -279,11 +313,16 @@ impl super::LLMProvider for MockProvider {
                     return Ok(DesignGeneration {
                         intent: context.intent.clone(),
                         variants: vec![DesignVariant {
-                            title: "Mesh Sync".into(), description: json.into(),
-                            colors: vec![], typography: String::new(), layout: "sync_status".into(),
-                            confidence: 0.3, reasoning: "Hermes sync (mock)".into(),
+                            title: "Mesh Sync".into(),
+                            description: json.into(),
+                            colors: vec![],
+                            typography: String::new(),
+                            layout: "sync_status".into(),
+                            confidence: 0.3,
+                            reasoning: "Hermes sync (mock)".into(),
                         }],
-                        tokens_used: 0, batch_confidence: 0.3,
+                        tokens_used: 0,
+                        batch_confidence: 0.3,
                     });
                 }
                 "spatial" | "ar_vr" | "physical_digital" => {
@@ -295,11 +334,16 @@ impl super::LLMProvider for MockProvider {
                     return Ok(DesignGeneration {
                         intent: context.intent.clone(),
                         variants: vec![DesignVariant {
-                            title: "Spatial Anchor".into(), description: json,
-                            colors: vec![], typography: String::new(), layout: "spatial_manifest".into(),
-                            confidence: 0.3, reasoning: "Kami spatial (mock — no AR runtime)".into(),
+                            title: "Spatial Anchor".into(),
+                            description: json,
+                            colors: vec![],
+                            typography: String::new(),
+                            layout: "spatial_manifest".into(),
+                            confidence: 0.3,
+                            reasoning: "Kami spatial (mock — no AR runtime)".into(),
                         }],
-                        tokens_used: 0, batch_confidence: 0.3,
+                        tokens_used: 0,
+                        batch_confidence: 0.3,
                     });
                 }
                 "biometric" | "human_state" | "user_adaptation" => {
@@ -307,11 +351,16 @@ impl super::LLMProvider for MockProvider {
                     return Ok(DesignGeneration {
                         intent: context.intent.clone(),
                         variants: vec![DesignVariant {
-                            title: "Biometric State".into(), description: json.into(),
-                            colors: vec![], typography: String::new(), layout: "biometric_state".into(),
-                            confidence: 0.3, reasoning: "Wen biometric (mock)".into(),
+                            title: "Biometric State".into(),
+                            description: json.into(),
+                            colors: vec![],
+                            typography: String::new(),
+                            layout: "biometric_state".into(),
+                            confidence: 0.3,
+                            reasoning: "Wen biometric (mock)".into(),
                         }],
-                        tokens_used: 0, batch_confidence: 0.3,
+                        tokens_used: 0,
+                        batch_confidence: 0.3,
                     });
                 }
                 "memory_consolidation" | "archival" => {
@@ -319,30 +368,53 @@ impl super::LLMProvider for MockProvider {
                     return Ok(DesignGeneration {
                         intent: context.intent.clone(),
                         variants: vec![DesignVariant {
-                            title: "Memory Consolidation".into(), description: json.into(),
-                            colors: vec![], typography: String::new(), layout: "consolidation_report".into(),
-                            confidence: 0.4, reasoning: "Dionysus archival (mock)".into(),
+                            title: "Memory Consolidation".into(),
+                            description: json.into(),
+                            colors: vec![],
+                            typography: String::new(),
+                            layout: "consolidation_report".into(),
+                            confidence: 0.4,
+                            reasoning: "Dionysus archival (mock)".into(),
                         }],
-                        tokens_used: 0, batch_confidence: 0.4,
+                        tokens_used: 0,
+                        batch_confidence: 0.4,
                     });
                 }
                 _ => {} // Fall through to default design generation below
             }
         }
 
-        let count = context.variants_requested.min(3).max(1);
+        let count = context.variants_requested.clamp(1, 3);
         let mut variants = Vec::with_capacity(count);
 
         let palettes = [
-            vec!["#6366F1".to_string(), "#A5B4FC".to_string(), "#1E1B4B".to_string()],
-            vec!["#10B981".to_string(), "#6EE7B7".to_string(), "#065F46".to_string()],
-            vec!["#F59E0B".to_string(), "#FDE68A".to_string(), "#92400E".to_string()],
+            vec![
+                "#6366F1".to_string(),
+                "#A5B4FC".to_string(),
+                "#1E1B4B".to_string(),
+            ],
+            vec![
+                "#10B981".to_string(),
+                "#6EE7B7".to_string(),
+                "#065F46".to_string(),
+            ],
+            vec![
+                "#F59E0B".to_string(),
+                "#FDE68A".to_string(),
+                "#92400E".to_string(),
+            ],
         ];
         let layouts = ["single-column", "card-grid", "sidebar-nav"];
-        let typography = ["Inter, sans-serif", "DM Sans, sans-serif", "Sora, sans-serif"];
+        let typography = [
+            "Inter, sans-serif",
+            "DM Sans, sans-serif",
+            "Sora, sans-serif",
+        ];
 
         for i in 0..count {
-            let style_hint = context.style_hints.first()
+            let style_hint = context
+                .style_hints
+                .first()
                 .map(|s| s.as_str())
                 .unwrap_or("modern");
 
@@ -353,10 +425,17 @@ impl super::LLMProvider for MockProvider {
                      with a {} color palette. Optimized for readability and conversion.",
                     style_hint,
                     context.intent,
-                    if context.constraints.is_empty() { "no specific".to_string() }
-                    else { context.constraints.join(", ") },
+                    if context.constraints.is_empty() {
+                        "no specific".to_string()
+                    } else {
+                        context.constraints.join(", ")
+                    },
                     layouts[i % layouts.len()],
-                    if context.style_hints.contains(&"dark-theme".to_string()) { "dark" } else { "light" }
+                    if context.style_hints.contains(&"dark-theme".to_string()) {
+                        "dark"
+                    } else {
+                        "light"
+                    }
                 ),
                 colors: palettes[i % palettes.len()].clone(),
                 typography: typography[i % typography.len()].to_string(),
@@ -382,7 +461,10 @@ impl super::LLMProvider for MockProvider {
     }
 
     async fn embed(&self, text: &str) -> Result<Vec<f32>> {
-        debug!("Mock: Generating mock embedding for text len {}", text.len());
+        debug!(
+            "Mock: Generating mock embedding for text len {}",
+            text.len()
+        );
         let mut vec = vec![0.0; 384];
         if !text.is_empty() {
             vec[0] = 1.0;

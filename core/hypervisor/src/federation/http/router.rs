@@ -1,32 +1,42 @@
-﻿/// Axum router definition for the federation HTTP status API.
+use crate::federation::forge;
+/// Axum router definition for the federation HTTP status API.
 ///
 /// The router is factored out from the server so tests can drive it
 /// in-process via `tower::ServiceExt::oneshot` without binding a real port.
-
 use crate::federation::hive::{Federation, LearningSummary, SpecialistLearningSummary};
-use crate::federation::forge;
-use crate::input_validation::{validate_bytes, validate_optional_string, validate_string, ValidationError};
+use crate::input_validation::{
+    ValidationError, validate_bytes, validate_optional_string, validate_string,
+};
 use crate::metrics_aggregator::MetricsAggregator;
 use crate::rate_limit::{
-    key_from_request, TokenBucketConfig, TokenBucketDecision, TokenBucketLimiter, MAX_KEY_COMPONENT_LEN,
+    MAX_KEY_COMPONENT_LEN, TokenBucketConfig, TokenBucketDecision, TokenBucketLimiter,
+    key_from_request,
 };
 use axum::{
-    extract::{ConnectInfo, Path, Query, State},
-    http::{HeaderMap, Method, StatusCode},
-    middleware::{self, Next},
-    response::{sse::{Event, KeepAlive, Sse}, IntoResponse, Json, Response, Html},
-    routing::{get, post, delete},
     Router,
     body::Body,
+    extract::{ConnectInfo, Extension, Path, Query, State},
+    http::{
+        HeaderMap, Method, Request, StatusCode,
+        header::{HeaderName, HeaderValue},
+    },
+    middleware::{self, Next},
+    response::{
+        Html, IntoResponse, Json, Response,
+        sse::{Event, KeepAlive, Sse},
+    },
+    routing::{delete, get, post},
 };
-use tower_http::cors::{CorsLayer, AllowOrigin, Any};
 use serde::{Deserialize, Serialize};
+use std::convert::Infallible;
 use std::net::SocketAddr;
 use std::sync::Arc;
-use std::convert::Infallible;
+use std::sync::atomic::{AtomicBool, Ordering};
+use tower_http::cors::{AllowOrigin, Any, CorsLayer};
+use tracing::Instrument;
 
 /// Status of a background distillation generation job.
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum GenerationJobStatus {
     Running,
     Done(crate::federation::graph::distillation::GenerationReport),
@@ -35,17 +45,24 @@ pub enum GenerationJobStatus {
 
 /// Registry of background training-data generation jobs.
 /// Keyed by job_id (UUID string).
-pub type GenerationJobs = Arc<tokio::sync::Mutex<std::collections::HashMap<String, GenerationJobStatus>>>;
+pub type GenerationJobs =
+    Arc<tokio::sync::Mutex<std::collections::HashMap<String, GenerationJobStatus>>>;
 
 // ── Workspace path helpers ───────────────────────────────────────────
 fn workspace_models_dir() -> std::path::PathBuf {
     std::env::current_dir().unwrap_or_default().join("models")
 }
 fn workspace_routines_dir() -> std::path::PathBuf {
-    std::env::current_dir().unwrap_or_default().join("data").join("routines")
+    std::env::current_dir()
+        .unwrap_or_default()
+        .join("data")
+        .join("routines")
 }
 fn workspace_training_data_dir() -> std::path::PathBuf {
-    std::env::current_dir().unwrap_or_default().join("data").join("training")
+    std::env::current_dir()
+        .unwrap_or_default()
+        .join("data")
+        .join("training")
 }
 fn workspace_sovereign_model_path(sovereign: &str) -> std::path::PathBuf {
     workspace_models_dir().join(format!("{}.gguf", sovereign))
@@ -54,10 +71,29 @@ fn workspace_models_inbox_dir() -> std::path::PathBuf {
     workspace_models_dir().join("inbox")
 }
 fn workspace_specialist_registry_path() -> std::path::PathBuf {
-    std::env::current_dir().unwrap_or_default().join("config").join("specialist_registry.json")
+    std::env::current_dir()
+        .unwrap_or_default()
+        .join("config")
+        .join("specialist_registry.json")
 }
 fn workspace_exports_dir() -> std::path::PathBuf {
     std::env::current_dir().unwrap_or_default().join("exports")
+}
+fn workspace_cargo_state_path() -> std::path::PathBuf {
+    std::env::var_os("AARONEOUS_CARGO_STATE_PATH")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|| {
+            std::env::current_dir()
+                .unwrap_or_default()
+                .join("cargo_state.json")
+        })
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+struct CargoStateSnapshot {
+    generation_jobs: std::collections::HashMap<String, GenerationJobStatus>,
+    links: Vec<crate::federation::links::Link>,
+    vault: crate::federation::tensor_vault::TensorVault,
 }
 
 /// Shared application state for HTTP handlers.
@@ -93,26 +129,74 @@ pub struct AppState {
     /// other's, so a user can saturate the cheap reads without
     /// consuming the heavy endpoints' budget.
     pub route_limits: Vec<(String, Arc<TokenBucketLimiter>)>,
+    /// Drain flag. Once set, new requests are rejected with 503
+    /// so shutdown can wait for in-flight work to finish.
+    pub draining: Arc<AtomicBool>,
 }
 
 impl AppState {
     pub fn new(federation: Arc<Federation>) -> Self {
+        Self::new_with_state_path(federation, workspace_cargo_state_path())
+    }
+
+    pub(crate) fn new_with_state_path(
+        federation: Arc<Federation>,
+        state_path: std::path::PathBuf,
+    ) -> Self {
         let links_reg = crate::federation::links::load_links().unwrap_or_default();
-        let links_vec = links_reg.list();
         let (default_limiter, route_limits) = build_route_limit_registry();
+        let mut generation_jobs = std::collections::HashMap::new();
+        let mut vault = crate::federation::tensor_vault::TensorVault::new();
+        let mut links_vec = links_reg.list();
+        if let Ok(raw) = std::fs::read_to_string(&state_path)
+            && let Ok(snapshot) = serde_json::from_str::<CargoStateSnapshot>(&raw)
+        {
+            generation_jobs = snapshot.generation_jobs;
+            links_vec = snapshot.links;
+            vault = snapshot.vault;
+        }
         Self {
             federation,
-            generation_jobs: Arc::new(tokio::sync::Mutex::new(std::collections::HashMap::new())),
+            generation_jobs: Arc::new(tokio::sync::Mutex::new(generation_jobs)),
             dissection_jobs: Arc::new(tokio::sync::Mutex::new(std::collections::HashMap::new())),
             import_jobs: Arc::new(tokio::sync::Mutex::new(std::collections::HashMap::new())),
-            vault: Arc::new(tokio::sync::RwLock::new(
-                crate::federation::tensor_vault::TensorVault::new()
-            )),
+            vault: Arc::new(tokio::sync::RwLock::new(vault)),
             links: Arc::new(tokio::sync::RwLock::new(links_vec)),
             metrics: Arc::new(MetricsAggregator::new(1.0, 4096, 3600)),
             version: env!("CARGO_PKG_VERSION"),
             rate_limiter: default_limiter,
             route_limits,
+            draining: Arc::new(AtomicBool::new(false)),
+        }
+    }
+
+    pub fn begin_drain(&self) {
+        self.draining.store(true, Ordering::SeqCst);
+    }
+
+    pub fn is_draining(&self) -> bool {
+        self.draining.load(Ordering::SeqCst)
+    }
+
+    async fn snapshot_for_persist(&self) -> CargoStateSnapshot {
+        CargoStateSnapshot {
+            generation_jobs: self.generation_jobs.lock().await.clone(),
+            links: self.links.read().await.clone(),
+            vault: self.vault.read().await.clone(),
+        }
+    }
+
+    pub async fn persist_cargo_state(&self) {
+        self.persist_cargo_state_to(&workspace_cargo_state_path())
+            .await;
+    }
+
+    pub(crate) async fn persist_cargo_state_to(&self, state_path: &std::path::Path) {
+        let snapshot = self.snapshot_for_persist().await;
+        if let Ok(json) = serde_json::to_string_pretty(&snapshot)
+            && let Err(e) = std::fs::write(state_path, json)
+        {
+            tracing::warn!("failed to persist cargo state: {}", e);
         }
     }
 
@@ -130,7 +214,10 @@ impl AppState {
         let vault = self.vault.clone();
         tokio::spawn(async move {
             let models_dir = workspace_models_dir();
-            tracing::info!("TensorVault: starting background indexing of {}", models_dir.display());
+            tracing::info!(
+                "TensorVault: starting background indexing of {}",
+                models_dir.display()
+            );
             let mut v = vault.write().await;
             v.index_all_models().await;
         });
@@ -142,9 +229,8 @@ impl AppState {
     /// within their configured idle window. This bounds
     /// memory growth in long-running deployments.
     pub fn start_rate_limit_sweeper(&self, interval: std::time::Duration) {
-        let mut limiters: Vec<(String, Arc<TokenBucketLimiter>)> = vec![
-            ("default".to_string(), self.rate_limiter.clone()),
-        ];
+        let mut limiters: Vec<(String, Arc<TokenBucketLimiter>)> =
+            vec![("default".to_string(), self.rate_limiter.clone())];
         for (prefix, l) in &self.route_limits {
             limiters.push((prefix.clone(), l.clone()));
         }
@@ -186,19 +272,19 @@ impl AppState {
 /// and for operators who run the server behind their own gateway).
 fn rate_limit_config_from_env() -> TokenBucketConfig {
     let mut cfg = TokenBucketConfig::default();
-    if let Ok(v) = std::env::var("AARONEOUS_RATE_LIMIT_BURST") {
-        if let Ok(b) = v.parse::<f64>() {
-            if b.is_finite() && b > 0.0 {
-                cfg.burst = b;
-            }
-        }
+    if let Ok(v) = std::env::var("AARONEOUS_RATE_LIMIT_BURST")
+        && let Ok(b) = v.parse::<f64>()
+        && b.is_finite()
+        && b > 0.0
+    {
+        cfg.burst = b;
     }
-    if let Ok(v) = std::env::var("AARONEOUS_RATE_LIMIT_REFILL") {
-        if let Ok(r) = v.parse::<f64>() {
-            if r.is_finite() && r >= 0.0 {
-                cfg.refill_per_second = r;
-            }
-        }
+    if let Ok(v) = std::env::var("AARONEOUS_RATE_LIMIT_REFILL")
+        && let Ok(r) = v.parse::<f64>()
+        && r.is_finite()
+        && r >= 0.0
+    {
+        cfg.refill_per_second = r;
     }
     if std::env::var("AARONEOUS_RATE_LIMIT_OFF").ok().as_deref() == Some("1") {
         cfg.burst = f64::INFINITY;
@@ -226,33 +312,70 @@ struct RouteLimitProfile {
 /// `AARONEOUS_RATE_LIMIT_<NAME>_REFILL`.
 const ROUTE_LIMIT_PROFILES: &[RouteLimitProfile] = &[
     // Heavy: triggers LLM execution. Tighter than the default.
-    RouteLimitProfile { prefix: "/v1/chat/completions", burst: 10.0, refill_per_second: 2.0 },
-    RouteLimitProfile { prefix: "/v1/completions",      burst: 10.0, refill_per_second: 2.0 },
+    RouteLimitProfile {
+        prefix: "/v1/chat/completions",
+        burst: 10.0,
+        refill_per_second: 2.0,
+    },
+    RouteLimitProfile {
+        prefix: "/v1/completions",
+        burst: 10.0,
+        refill_per_second: 2.0,
+    },
     // Heavy: GPU/GGUF work.
-    RouteLimitProfile { prefix: "/forge/crystallize",   burst: 5.0,  refill_per_second: 0.5 },
-    RouteLimitProfile { prefix: "/forge/",              burst: 20.0, refill_per_second: 4.0 },
+    RouteLimitProfile {
+        prefix: "/forge/crystallize",
+        burst: 5.0,
+        refill_per_second: 0.5,
+    },
+    RouteLimitProfile {
+        prefix: "/forge/",
+        burst: 20.0,
+        refill_per_second: 4.0,
+    },
     // Heavy: large file ingest.
-    RouteLimitProfile { prefix: "/models/import",       burst: 5.0,  refill_per_second: 0.5 },
+    RouteLimitProfile {
+        prefix: "/models/import",
+        burst: 5.0,
+        refill_per_second: 0.5,
+    },
     // Moderate: specialist state mutations.
-    RouteLimitProfile { prefix: "/dynamic-specialists", burst: 10.0, refill_per_second: 1.0 },
-    RouteLimitProfile { prefix: "/intent",              burst: 30.0, refill_per_second: 5.0 },
+    RouteLimitProfile {
+        prefix: "/dynamic-specialists",
+        burst: 10.0,
+        refill_per_second: 1.0,
+    },
+    RouteLimitProfile {
+        prefix: "/intent",
+        burst: 30.0,
+        refill_per_second: 5.0,
+    },
     // Streaming endpoints: long-lived connections count
     // against the bucket, so be generous.
-    RouteLimitProfile { prefix: "/results/stream",      burst: 5.0,  refill_per_second: 1.0 },
-    RouteLimitProfile { prefix: "/specialists/stream",  burst: 5.0,  refill_per_second: 1.0 },
-    RouteLimitProfile { prefix: "/sessions/",           burst: 20.0, refill_per_second: 4.0 },
+    RouteLimitProfile {
+        prefix: "/results/stream",
+        burst: 5.0,
+        refill_per_second: 1.0,
+    },
+    RouteLimitProfile {
+        prefix: "/specialists/stream",
+        burst: 5.0,
+        refill_per_second: 1.0,
+    },
+    RouteLimitProfile {
+        prefix: "/sessions/",
+        burst: 20.0,
+        refill_per_second: 4.0,
+    },
 ];
 
 /// Map an uppercase profile name to the env-var key, in priority
 /// order. We try both `AARONEOUS_RATE_LIMIT_<NAME>_BURST` and the
 /// shorthand `<NAME>_BURST` to be forgiving.
 fn parse_profile_env(name_upper: &str, field: &str) -> Option<f64> {
-    let v = std::env::var(format!(
-        "AARONEOUS_RATE_LIMIT_{}_{}",
-        name_upper, field
-    ))
-    .ok()
-    .or_else(|| std::env::var(format!("{}_{}", name_upper, field)).ok())?;
+    let v = std::env::var(format!("AARONEOUS_RATE_LIMIT_{}_{}", name_upper, field))
+        .ok()
+        .or_else(|| std::env::var(format!("{}_{}", name_upper, field)).ok())?;
     v.parse::<f64>().ok().filter(|x| x.is_finite() && *x >= 0.0)
 }
 
@@ -262,8 +385,7 @@ fn parse_profile_env(name_upper: &str, field: &str) -> Option<f64> {
 fn profile_name_for_prefix(prefix: &str) -> String {
     prefix
         .trim_start_matches('/')
-        .replace('/', "_")
-        .replace('-', "_")
+        .replace(['/', '-'], "_")
         .to_uppercase()
 }
 
@@ -281,8 +403,7 @@ fn build_route_limit_registry() -> (
         .map(|p| {
             let name = profile_name_for_prefix(p.prefix);
             let burst = parse_profile_env(&name, "BURST").unwrap_or(p.burst);
-            let refill =
-                parse_profile_env(&name, "REFILL").unwrap_or(p.refill_per_second);
+            let refill = parse_profile_env(&name, "REFILL").unwrap_or(p.refill_per_second);
             let cfg = TokenBucketConfig {
                 burst,
                 refill_per_second: refill,
@@ -293,7 +414,7 @@ fn build_route_limit_registry() -> (
         .collect();
     // Longest prefix first so the middleware picks the
     // most specific match.
-    routes.sort_by(|a, b| b.0.len().cmp(&a.0.len()));
+    routes.sort_by_key(|b| std::cmp::Reverse(b.0.len()));
     (default, routes)
 }
 
@@ -302,7 +423,7 @@ fn build_route_limit_registry() -> (
 /// Returns a `Router` that callers can either:
 /// - Serve directly via `axum::serve` (the `HttpStatusServer` does this), OR
 /// - Drive in-process via `tower::ServiceExt::oneshot` for testing.
-/// API key authentication middleware.
+///   API key authentication middleware.
 ///
 /// Reads `AARONEOUS_API_KEY` from the environment at call time.
 /// If set, every request to any route other than `/healthz` and `/readyz`
@@ -333,7 +454,10 @@ async fn api_key_auth(
     let provided = headers
         .get("authorization")
         .and_then(|v| v.to_str().ok())
-        .and_then(|s| s.strip_prefix("Bearer ").or_else(|| s.strip_prefix("bearer ")));
+        .and_then(|s| {
+            s.strip_prefix("Bearer ")
+                .or_else(|| s.strip_prefix("bearer "))
+        });
 
     match provided {
         Some(key) if key == required_key => next.run(req).await,
@@ -343,7 +467,8 @@ async fn api_key_auth(
                 "error": "Unauthorized",
                 "message": "Set Authorization: Bearer <AARONEOUS_API_KEY>"
             })),
-        ).into_response(),
+        )
+            .into_response(),
     }
 }
 
@@ -355,13 +480,7 @@ async fn api_key_auth(
 fn is_rate_limit_bypass(path: &str) -> bool {
     matches!(
         path,
-        "/healthz"
-            | "/health"
-            | "/readyz"
-            | "/live"
-            | "/metrics"
-            | "/version"
-            | "/v1/models"
+        "/healthz" | "/health" | "/readyz" | "/live" | "/metrics" | "/version" | "/v1/models"
     )
 }
 
@@ -457,7 +576,9 @@ async fn rate_limit_middleware(
             // see which surface is saturating.
             let mut tags = std::collections::HashMap::new();
             tags.insert("path".to_string(), path.to_string());
-            state.metrics.record_metric("rate_limit.deny_count", 1.0, tags);
+            state
+                .metrics
+                .record_metric("rate_limit.deny_count", 1.0, tags);
             let secs = retry_after.as_secs().max(1);
             (
                 StatusCode::TOO_MANY_REQUESTS,
@@ -479,13 +600,90 @@ async fn rate_limit_middleware(
     }
 }
 
+/// Reject new requests once the server enters drain mode.
+/// The dedicated admin endpoint is allowed through so an operator
+/// can switch the flag on. In-flight requests continue because the
+/// gate is checked at request entry.
+async fn drain_gate_middleware(
+    State(state): State<AppState>,
+    req: Request<Body>,
+    next: Next,
+) -> Response {
+    let path = req.uri().path();
+    if state.is_draining() && path != "/v1/admin/drain" {
+        return (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(serde_json::json!({
+                "error": "Service Unavailable",
+                "message": "server is draining"
+            })),
+        )
+            .into_response();
+    }
+    next.run(req).await
+}
+
+/// Per-request request-id and response logging middleware.
+///
+/// Generates or preserves an `X-Request-Id`, stores it in the
+/// request extensions so handlers can `#[instrument]` with it,
+/// and emits one `info!` event when the response returns.
+async fn request_context_middleware(mut req: Request<Body>, next: Next) -> Response {
+    let method = req.method().clone();
+    let path = req.uri().path().to_string();
+    let request_id = req
+        .headers()
+        .get("x-request-id")
+        .and_then(|v| v.to_str().ok())
+        .filter(|v| !v.is_empty())
+        .map(|v| v.to_string())
+        .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
+    let started = std::time::Instant::now();
+
+    req.extensions_mut().insert(request_id.clone());
+
+    let span = tracing::info_span!(
+        target: "http",
+        "request",
+        request_id = %request_id,
+        method = %method,
+        path = %path,
+        status = tracing::field::Empty,
+        latency_us = tracing::field::Empty,
+    );
+
+    let mut response = next.run(req).instrument(span.clone()).await;
+    let status = response.status();
+    let latency_us = started.elapsed().as_micros();
+
+    if let Ok(value) = HeaderValue::from_str(&request_id) {
+        response
+            .headers_mut()
+            .insert(HeaderName::from_static("x-request-id"), value);
+    }
+
+    span.record("status", tracing::field::display(status.as_u16()));
+    span.record("latency_us", tracing::field::display(latency_us));
+    tracing::info!(
+        target: "http",
+        request_id = %request_id,
+        method = %method,
+        path = %path,
+        status = status.as_u16(),
+        latency_us = latency_us,
+        "request completed"
+    );
+    response
+}
+
 pub fn router(state: AppState) -> Router {
     // CORS: allow any origin by default.
     // In production, set AARONEOUS_CORS_ORIGIN=https://yourdomain.com
     // to restrict to a specific origin.
     let cors = match std::env::var("AARONEOUS_CORS_ORIGIN") {
         Ok(origin) if !origin.is_empty() => {
-            let hv: axum::http::HeaderValue = origin.parse()
+            let hv: axum::http::HeaderValue = origin
+                .parse()
                 .unwrap_or_else(|_| axum::http::HeaderValue::from_static("*"));
             CorsLayer::new()
                 .allow_origin(AllowOrigin::exact(hv))
@@ -503,23 +701,27 @@ pub fn router(state: AppState) -> Router {
         // any OpenAI SDK, LM Studio, and every tool that speaks OpenAI chat.
         // Model name maps to a sovereign: "merlin", "odin", "ariel", etc.
         // Unrecognised model → routes to the active hive (all sovereigns).
-        .route("/v1/models",               get(openai_list_models))
-        .route("/v1/chat/completions",     post(openai_chat_completions))
-        .route("/v1/completions",          post(openai_completions))
+        .route("/v1/models", get(openai_list_models))
+        .route("/v1/chat/completions", post(openai_chat_completions))
+        .route("/v1/completions", post(openai_completions))
         // ── Chimera Emulation ──────────────────────────────────────────────────
         .route("/chimera/record", post(chimera_record_toggle))
         .route("/chimera/routines", get(list_routines))
         .route("/chimera/routines/:id/run", post(run_routine))
         // ── Autonomous Scheduler ───────────────────────────────────────────────
-        .route("/scheduler/tasks", get(list_scheduled_tasks).post(add_scheduled_task))
+        .route(
+            "/scheduler/tasks",
+            get(list_scheduled_tasks).post(add_scheduled_task),
+        )
         .route("/scheduler/tasks/:id", delete(delete_scheduled_task))
         .route("/healthz", get(healthz))
         .route("/readyz", get(readyz))
-        .route("/health", get(healthz))         // alias for /healthz
-        .route("/live", get(healthz))           // k8s convention
+        .route("/health", get(healthz)) // alias for /healthz
+        .route("/live", get(healthz)) // k8s convention
         .route("/metrics", get(metrics_prometheus))
         .route("/metrics/breakers", get(metrics_breakers))
         .route("/version", get(version))
+        .route("/v1/admin/drain", post(admin_drain))
         .route("/status", get(status))
         .route("/status/:kind", get(status_one))
         // Intent management: read current intent, submit new intent
@@ -530,7 +732,10 @@ pub fn router(state: AppState) -> Router {
         .route("/results/stream", get(stream_results))
         // Session management: create a session, get session details
         .route("/sessions", get(list_sessions).post(create_session))
-        .route("/sessions/:id", get(get_session_by_id).delete(delete_session_by_id))
+        .route(
+            "/sessions/:id",
+            get(get_session_by_id).delete(delete_session_by_id),
+        )
         .route("/sessions/:id/intent", post(submit_session_intent))
         .route("/sessions/:id/results", get(get_session_results))
         .route("/sessions/:id/results/stream", get(stream_session_results))
@@ -539,57 +744,69 @@ pub fn router(state: AppState) -> Router {
         // Learning confidence trends (time-series)
         .route("/learning/trends", get(get_learning_trends))
         // Specialist state â€” snapshot and real-time push stream for SSE/XR clients
-        .route("/specialists",        get(get_specialists_snapshot))
+        .route("/specialists", get(get_specialists_snapshot))
         .route("/specialists/stream", get(stream_specialists))
         // Dynamic specialist management
-        .route("/dynamic-specialists",         get(list_dynamic_specialists).post(add_dynamic_specialist))
-        .route("/dynamic-specialists/reload",  post(reload_dynamic_specialists))
+        .route(
+            "/dynamic-specialists",
+            get(list_dynamic_specialists).post(add_dynamic_specialist),
+        )
+        .route(
+            "/dynamic-specialists/reload",
+            post(reload_dynamic_specialists),
+        )
         // Models directory listing
-        .route("/models",                 get(list_models))
-        .route("/models/external",        get(list_external_models))
+        .route("/models", get(list_models))
+        .route("/models/external", get(list_external_models))
         // Forge: GGUF inspection, recipe generation, and crystallization
-        .route("/forge/inspect",              post(forge_inspect))
-        .route("/forge/auto-recipe",          post(forge_auto_recipe))
-        .route("/forge/single-recipe",        post(forge_single_recipe))
-        .route("/forge/crystallize",          post(forge_crystallize))
-        .route("/forge/crystallize-roster",   post(forge_crystallize_roster))
+        .route("/forge/inspect", post(forge_inspect))
+        .route("/forge/auto-recipe", post(forge_auto_recipe))
+        .route("/forge/single-recipe", post(forge_single_recipe))
+        .route("/forge/crystallize", post(forge_crystallize))
+        .route("/forge/crystallize-roster", post(forge_crystallize_roster))
         // Multi-hive cluster status
         .route("/cluster", get(cluster_status))
         // Distillation: training data generation, plan inspection, GGUF genome analysis
-        .route("/distillation/plan",               get(distillation_plan))
-        .route("/distillation/generate",           post(distillation_generate))
-        .route("/distillation/jobs/:id",           get(distillation_job_status))
-        .route("/distillation/analyze/:sovereign", get(distillation_analyze))
-        .route("/distillation/script/:sovereign",  get(distillation_script))
+        .route("/distillation/plan", get(distillation_plan))
+        .route("/distillation/generate", post(distillation_generate))
+        .route("/distillation/jobs/:id", get(distillation_job_status))
+        .route(
+            "/distillation/analyze/:sovereign",
+            get(distillation_analyze),
+        )
+        .route("/distillation/script/:sovereign", get(distillation_script))
         // RAG memory stats: federation-level + per-sovereign memory counts
         .route("/memory/stats", get(memory_stats))
         // DNA dissection: deep structural analysis of GGUF models
-        .route("/dna/dissect",         post(dna_dissect))
-        .route("/dna/jobs/:id",        get(dna_job_status))
-        .route("/dna/genome/:model",   get(dna_genome))
-        .route("/dna/compare",         post(dna_compare))
-        .route("/dna/roster",          get(dna_roster))
-        .route("/omni/constellation",  get(omni_constellation))
+        .route("/dna/dissect", post(dna_dissect))
+        .route("/dna/jobs/:id", get(dna_job_status))
+        .route("/dna/genome/:model", get(dna_genome))
+        .route("/dna/compare", post(dna_compare))
+        .route("/dna/roster", get(dna_roster))
+        .route("/omni/constellation", get(omni_constellation))
         // Link integrations — webhooks, Discord, Slack, Notion, GitHub
-        .route("/links",           get(links_list).post(links_create))
-        .route("/links/:id",       get(links_get).delete(links_delete).put(links_update))
-        .route("/links/:id/test",  post(links_test))
+        .route("/links", get(links_list).post(links_create))
+        .route(
+            "/links/:id",
+            get(links_get).delete(links_delete).put(links_update),
+        )
+        .route("/links/:id/test", post(links_test))
         // Sovereign package export/import — portable .sovereign bundles
         .route("/specialists/export/:name", get(specialists_export))
-        .route("/specialists/import",       post(specialists_import_pkg))
-        .route("/specialists/inspect",      post(specialists_inspect))
+        .route("/specialists/import", post(specialists_import_pkg))
+        .route("/specialists/inspect", post(specialists_inspect))
         // TensorVault â€” cross-model tensor index and DNA-driven hybrid assembly
-        .route("/vault/status",             get(vault_status))
-        .route("/vault/index",              post(vault_index_model))
-        .route("/vault/query",              post(vault_query))
-        .route("/vault/best",               post(vault_best_tensor))
-        .route("/dna/forge",                post(dna_forge))
+        .route("/vault/status", get(vault_status))
+        .route("/vault/index", post(vault_index_model))
+        .route("/vault/query", post(vault_query))
+        .route("/vault/best", post(vault_best_tensor))
+        .route("/dna/forge", post(dna_forge))
         // Model import/export â€” large model lifecycle management
-        .route("/models/import",            post(models_import))
-        .route("/models/import/jobs/:id",   get(models_import_job_status))
-        .route("/models/export/:name",      get(models_export))
-        .route("/models/registry",          get(models_registry))
-        .route("/models/recommend",         get(models_recommend))
+        .route("/models/import", post(models_import))
+        .route("/models/import/jobs/:id", get(models_import_job_status))
+        .route("/models/export/:name", get(models_export))
+        .route("/models/registry", get(models_registry))
+        .route("/models/recommend", get(models_recommend))
         .with_state(state.clone())
         // Apply CORS, auth, and rate-limit layers to all routes.
         // CORS is outermost (responds to preflight OPTIONS).
@@ -601,9 +818,14 @@ pub fn router(state: AppState) -> Router {
         .layer(cors)
         .layer(middleware::from_fn(api_key_auth))
         .layer(middleware::from_fn_with_state(
-            state,
+            state.clone(),
             rate_limit_middleware,
         ))
+        .layer(middleware::from_fn_with_state(
+            state.clone(),
+            drain_gate_middleware,
+        ))
+        .layer(middleware::from_fn(request_context_middleware))
 }
 
 // ====================================================================
@@ -628,7 +850,9 @@ fn validation_error_response(state: &AppState, err: ValidationError) -> Response
     if let Some(field) = err.message.split(':').next() {
         tags.insert("field".to_string(), field.trim().to_string());
     }
-    state.metrics.record_metric("validation.rejection_count", 1.0, tags);
+    state
+        .metrics
+        .record_metric("validation.rejection_count", 1.0, tags);
     (
         StatusCode::BAD_REQUEST,
         Json(serde_json::json!({
@@ -639,9 +863,17 @@ fn validation_error_response(state: &AppState, err: ValidationError) -> Response
         .into_response()
 }
 
-async fn list_scheduled_tasks(
-    State(state): State<AppState>,
-) -> impl IntoResponse {
+/// Enter drain mode. New requests are rejected with 503, but in-flight
+/// requests are allowed to complete. The response confirms the flag was set.
+async fn admin_drain(State(state): State<AppState>) -> impl IntoResponse {
+    state.begin_drain();
+    Json(serde_json::json!({
+        "ok": true,
+        "draining": true
+    }))
+}
+
+async fn list_scheduled_tasks(State(state): State<AppState>) -> impl IntoResponse {
     let scheduler = state.federation.scheduler.read().await;
     let tasks: Vec<_> = scheduler.tasks.values().cloned().collect();
     Json(serde_json::json!({"tasks": tasks}))
@@ -690,35 +922,45 @@ struct ChimeraRecordRequest {
     action: String, // "start" or "stop"
 }
 
-async fn chimera_record_toggle(
-    Json(req): Json<ChimeraRecordRequest>,
-) -> impl IntoResponse {
+async fn chimera_record_toggle(Json(req): Json<ChimeraRecordRequest>) -> impl IntoResponse {
     // We can just open a temporary nats connection or use an existing one to publish.
     // For simplicity, we do a quick synchronous publish using the default connection url.
     if let Ok(nc) = async_nats::connect("nats://localhost:4222").await {
-        let _ = nc.publish("chimera.record".to_string(), req.action.as_bytes().to_vec().into()).await;
-        return Json(serde_json::json!({"ok": true, "status": format!("Recording {}ed", req.action)})).into_response();
+        let _ = nc
+            .publish(
+                "chimera.record".to_string(),
+                req.action.as_bytes().to_vec().into(),
+            )
+            .await;
+        return Json(
+            serde_json::json!({"ok": true, "status": format!("Recording {}ed", req.action)}),
+        )
+        .into_response();
     }
-    (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"ok": false, "error": "NATS connection failed"}))).into_response()
+    (
+        StatusCode::INTERNAL_SERVER_ERROR,
+        Json(serde_json::json!({"ok": false, "error": "NATS connection failed"})),
+    )
+        .into_response()
 }
 
 async fn list_routines() -> impl IntoResponse {
     // Look for recorded routines in D:\Aaroneous\data\routines
     let mut routines = Vec::new();
     let routines_dir = workspace_routines_dir();
-    if routines_dir.exists() {
-        if let Ok(entries) = std::fs::read_dir(routines_dir) {
-            for entry in entries.flatten() {
-                if let Ok(metadata) = entry.metadata() {
-                    if metadata.is_file() {
-                        routines.push(serde_json::json!({
-                            "id": entry.file_name().to_string_lossy(),
-                            "name": entry.file_name().to_string_lossy().replace(".json", ""),
-                            "time": "On Demand",
-                            "status": "Ready",
-                        }));
-                    }
-                }
+    if routines_dir.exists()
+        && let Ok(entries) = std::fs::read_dir(routines_dir)
+    {
+        for entry in entries.flatten() {
+            if let Ok(metadata) = entry.metadata()
+                && metadata.is_file()
+            {
+                routines.push(serde_json::json!({
+                    "id": entry.file_name().to_string_lossy(),
+                    "name": entry.file_name().to_string_lossy().replace(".json", ""),
+                    "time": "On Demand",
+                    "status": "Ready",
+                }));
             }
         }
     }
@@ -728,16 +970,26 @@ async fn list_routines() -> impl IntoResponse {
 async fn run_routine(Path(id): Path<String>) -> impl IntoResponse {
     let routine_path = workspace_routines_dir().join(&id);
     if !routine_path.exists() {
-        return (StatusCode::NOT_FOUND, Json(serde_json::json!({"ok": false, "error": "Routine not found"}))).into_response();
+        return (
+            StatusCode::NOT_FOUND,
+            Json(serde_json::json!({"ok": false, "error": "Routine not found"})),
+        )
+            .into_response();
     }
-    
+
     // In a real system, we'd submit an intent to Odin to process this via Enigo SAB.
     // For now, we simulate executing the routine and stream a NATS event.
     if let Ok(nc) = async_nats::connect("nats://localhost:4222").await {
-        let _ = nc.publish("chimera.emulation.playback".to_string(), id.as_bytes().to_vec().into()).await;
+        let _ = nc
+            .publish(
+                "chimera.emulation.playback".to_string(),
+                id.as_bytes().to_vec().into(),
+            )
+            .await;
     }
-    
-    Json(serde_json::json!({"ok": true, "status": "Routine queued for execution via Enigo SAB"})).into_response()
+
+    Json(serde_json::json!({"ok": true, "status": "Routine queued for execution via Enigo SAB"}))
+        .into_response()
 }
 
 // ====================================================================
@@ -818,7 +1070,10 @@ fn render_prometheus_metrics(state: &AppState) -> String {
     let report = state.metrics.generate_report();
 
     // Uptime gauge
-    let _ = writeln!(out, "# HELP aaroneous_uptime_seconds Process uptime in seconds");
+    let _ = writeln!(
+        out,
+        "# HELP aaroneous_uptime_seconds Process uptime in seconds"
+    );
     let _ = writeln!(out, "# TYPE aaroneous_uptime_seconds gauge");
     let _ = writeln!(out, "aaroneous_uptime_seconds {}", report.uptime_seconds);
 
@@ -833,12 +1088,18 @@ fn render_prometheus_metrics(state: &AppState) -> String {
 
     // Federation specialist count
     let specialist_count = state.federation.enabled_count() as i64;
-    let _ = writeln!(out, "# HELP aaroneous_specialists_enabled Configured specialist count");
+    let _ = writeln!(
+        out,
+        "# HELP aaroneous_specialists_enabled Configured specialist count"
+    );
     let _ = writeln!(out, "# TYPE aaroneous_specialists_enabled gauge");
     let _ = writeln!(out, "aaroneous_specialists_enabled {}", specialist_count);
 
     // Counter metrics
-    let _ = writeln!(out, "# HELP aaroneous_operation_count Total calls per operation");
+    let _ = writeln!(
+        out,
+        "# HELP aaroneous_operation_count Total calls per operation"
+    );
     let _ = writeln!(out, "# TYPE aaroneous_operation_count counter");
     for c in &report.counter_stats {
         let _ = writeln!(
@@ -849,7 +1110,10 @@ fn render_prometheus_metrics(state: &AppState) -> String {
     }
 
     // Operation duration in microseconds, last call
-    let _ = writeln!(out, "# HELP aaroneous_operation_last_duration_us Last call duration in microseconds");
+    let _ = writeln!(
+        out,
+        "# HELP aaroneous_operation_last_duration_us Last call duration in microseconds"
+    );
     let _ = writeln!(out, "# TYPE aaroneous_operation_last_duration_us gauge");
     for c in &report.counter_stats {
         let _ = writeln!(
@@ -860,7 +1124,10 @@ fn render_prometheus_metrics(state: &AppState) -> String {
     }
 
     // Aggregated time-series stats
-    let _ = writeln!(out, "# HELP aaroneous_metric_samples Sample count per metric");
+    let _ = writeln!(
+        out,
+        "# HELP aaroneous_metric_samples Sample count per metric"
+    );
     let _ = writeln!(out, "# TYPE aaroneous_metric_samples gauge");
     for s in &report.metric_stats {
         let _ = writeln!(
@@ -884,11 +1151,7 @@ fn render_prometheus_metrics(state: &AppState) -> String {
 /// add its own readiness gate.
 async fn readyz(State(state): State<AppState>) -> impl IntoResponse {
     if state.federation.enabled_count() == 0 {
-        return (
-            StatusCode::SERVICE_UNAVAILABLE,
-            "no specialists configured",
-        )
-            .into_response();
+        return (StatusCode::SERVICE_UNAVAILABLE, "no specialists configured").into_response();
     }
     // Touching learning_summary forces every present specialist to be
     // accessible. If anything panics here, axum will turn it into a 500.
@@ -913,19 +1176,24 @@ async fn status_one(
 
     // Check core specialists first (case-insensitive)
     let core_entry = match kind_lc.as_str() {
-        "visionary"   => Some(summary.visionary),
+        "visionary" => Some(summary.visionary),
         "omnipresent" => Some(summary.omnipresent),
-        "symbiotic"   => Some(summary.symbiotic),
-        "phygital"    => Some(summary.phygital),
-        "archivist"   => Some(summary.archivist),
-        _             => None,
+        "symbiotic" => Some(summary.symbiotic),
+        "phygital" => Some(summary.phygital),
+        "archivist" => Some(summary.archivist),
+        _ => None,
     };
 
     if let Some(entry) = core_entry {
-        return entry.map(Json).ok_or_else(|| (
-            StatusCode::NOT_FOUND,
-            format!("specialist '{}' is known but not configured in this federation", kind),
-        ));
+        return entry.map(Json).ok_or_else(|| {
+            (
+                StatusCode::NOT_FOUND,
+                format!(
+                    "specialist '{}' is known but not configured in this federation",
+                    kind
+                ),
+            )
+        });
     }
 
     // Check dynamic (generic) specialists by name (case-insensitive)
@@ -950,7 +1218,11 @@ async fn status_one(
         format!(
             "unknown specialist '{}'. Core: Visionary, Omnipresent, Symbiotic, Phygital, Archivist. Dynamic: {}",
             kind,
-            dynamic.iter().map(|s| s.name.as_str()).collect::<Vec<_>>().join(", ")
+            dynamic
+                .iter()
+                .map(|s| s.name.as_str())
+                .collect::<Vec<_>>()
+                .join(", ")
         ),
     ))
 }
@@ -1006,7 +1278,8 @@ async fn get_intent(State(state): State<AppState>) -> impl IntoResponse {
             "results_count": i.results.len(),
             "created_at": i.created_at,
             "updated_at": i.updated_at,
-        })).into_response(),
+        }))
+        .into_response(),
         None => (
             StatusCode::NOT_FOUND,
             Json(serde_json::json!({"message": "no active intent"})),
@@ -1040,10 +1313,10 @@ async fn submit_intent(
     if let Err(e) = validate_bytes("content", req.content.as_bytes(), 32 * 1024) {
         return validation_error_response(&state, e);
     }
-    if let Some(p) = req.priority.as_deref() {
-        if let Err(e) = validate_optional_string("priority", Some(p), 32) {
-            return validation_error_response(&state, e);
-        }
+    if let Some(p) = req.priority.as_deref()
+        && let Err(e) = validate_optional_string("priority", Some(p), 32)
+    {
+        return validation_error_response(&state, e);
     }
     for tag in &req.tags {
         if let Err(e) = validate_string("tags", tag, 64) {
@@ -1076,7 +1349,8 @@ async fn submit_intent(
             "id": id,
             "message": "Intent submitted to federation"
         })),
-    ).into_response()
+    )
+        .into_response()
 }
 
 // ====================================================================
@@ -1152,13 +1426,18 @@ async fn stream_results(
         ticker.tick().await;
 
         let all = fed.recent_results(50).await;
-        let fresh: Vec<_> = all.into_iter()
+        let fresh: Vec<_> = all
+            .into_iter()
             .filter(|r| !seen.contains(&r.proposal_id))
             .collect();
 
         // Mark as seen and serialize
-        let new: Vec<serde_json::Value> = fresh.into_iter()
-            .map(|r| { seen.insert(r.proposal_id.clone()); result_to_json(&r) })
+        let new: Vec<serde_json::Value> = fresh
+            .into_iter()
+            .map(|r| {
+                seen.insert(r.proposal_id.clone());
+                result_to_json(&r)
+            })
             .collect();
 
         let event = if new.is_empty() {
@@ -1225,10 +1504,10 @@ async fn create_session(
     if let Err(e) = validate_string("user_name", &req.user_name, 256) {
         return validation_error_response(&state, e);
     }
-    if let Some(d) = req.device_id.as_deref() {
-        if let Err(e) = validate_optional_string("device_id", Some(d), 128) {
-            return validation_error_response(&state, e);
-        }
+    if let Some(d) = req.device_id.as_deref()
+        && let Err(e) = validate_optional_string("device_id", Some(d), 128)
+    {
+        return validation_error_response(&state, e);
     }
     let session_id = state
         .federation
@@ -1242,7 +1521,8 @@ async fn create_session(
             "user_name": req.user_name,
             "message": "Session created",
         })),
-    ).into_response()
+    )
+        .into_response()
 }
 
 /// GET /sessions/:id â€” get session details
@@ -1266,9 +1546,17 @@ async fn delete_session_by_id(
     Path(id): Path<String>,
 ) -> impl IntoResponse {
     if state.federation.delete_session(&id).await {
-        (StatusCode::OK, Json(serde_json::json!({"message": format!("Session '{}' ended", id)}))).into_response()
+        (
+            StatusCode::OK,
+            Json(serde_json::json!({"message": format!("Session '{}' ended", id)})),
+        )
+            .into_response()
     } else {
-        (StatusCode::NOT_FOUND, Json(serde_json::json!({"message": format!("Session '{}' not found", id)}))).into_response()
+        (
+            StatusCode::NOT_FOUND,
+            Json(serde_json::json!({"message": format!("Session '{}' not found", id)})),
+        )
+            .into_response()
     }
 }
 
@@ -1346,8 +1634,8 @@ async fn get_session_results(
         )
             .into_response(),
         Some(s) => {
-            let results: Vec<serde_json::Value> = s.results.iter().rev()
-                .map(result_to_json).collect();
+            let results: Vec<serde_json::Value> =
+                s.results.iter().rev().map(result_to_json).collect();
 
             Json(serde_json::json!({
                 "session_id": session_id,
@@ -1384,11 +1672,17 @@ async fn stream_session_results(
         let new: Vec<serde_json::Value> = match fed.get_session(&sid).await {
             None => vec![],
             Some(session) => {
-                let fresh: Vec<_> = session.results.into_iter()
+                let fresh: Vec<_> = session
+                    .results
+                    .into_iter()
                     .filter(|r| !seen.contains(&r.proposal_id))
                     .collect();
-                fresh.into_iter()
-                    .map(|r| { seen.insert(r.proposal_id.clone()); result_to_json(&r) })
+                fresh
+                    .into_iter()
+                    .map(|r| {
+                        seen.insert(r.proposal_id.clone());
+                        result_to_json(&r)
+                    })
                     .collect()
             }
         };
@@ -1416,17 +1710,17 @@ async fn stream_session_results(
 /// current learning state, active intent, and domain.  This is the
 /// initial sync payload an SSE client reads on connection; subsequent
 /// updates come via GET /specialists/stream.
-async fn get_specialists_snapshot(
-    State(state): State<AppState>,
-) -> Json<serde_json::Value> {
+async fn get_specialists_snapshot(State(state): State<AppState>) -> Json<serde_json::Value> {
     let summary = state.federation.learning_summary();
-    let intent = state.federation.current_intent().await
+    let intent = state
+        .federation
+        .current_intent()
+        .await
         .map(|i| i.content)
         .unwrap_or_default();
     let dynamic = state.federation.dynamic_specialists().await;
 
     let mut specialists: Vec<serde_json::Value> = vec![];
-
 
     // Use sovereign_name() for display, name() for persistence/routing
     use crate::federation::specialist::SpecialistId;
@@ -1447,19 +1741,19 @@ async fn get_specialists_snapshot(
             }));
         };
     }
-    push_core_id!(summary.visionary,   SpecialistId::Visionary);
+    push_core_id!(summary.visionary, SpecialistId::Visionary);
     push_core_id!(summary.omnipresent, SpecialistId::Omnipresent);
-    push_core_id!(summary.symbiotic,   SpecialistId::Symbiotic);
-    push_core_id!(summary.phygital,    SpecialistId::Phygital);
-    push_core_id!(summary.archivist,   SpecialistId::Archivist);
+    push_core_id!(summary.symbiotic, SpecialistId::Symbiotic);
+    push_core_id!(summary.phygital, SpecialistId::Phygital);
+    push_core_id!(summary.archivist, SpecialistId::Archivist);
 
     for s in &dynamic {
         let l = s.learning.lock();
         let mem_count = s.memory.lock().count_for(&s.name);
 
         // Lightweight genome summary from task spec (no GGUF I/O â€” safe for 200ms poll)
-        let genome_summary = crate::federation::graph::task_spec::spec_for(&s.name)
-            .map(|spec| serde_json::json!({
+        let genome_summary = crate::federation::graph::task_spec::spec_for(&s.name).map(|spec| {
+            serde_json::json!({
                 "target_tier":   spec.target_tier.tier_name(),
                 "target_params": spec.target_tier.target_params(),
                 "always_resident": spec.always_resident,
@@ -1469,7 +1763,8 @@ async fn get_specialists_snapshot(
                 // /distillation/analyze/:sovereign has been called.
                 "attn_mlp_ratio": 0.0f32,
                 "specialization_score": 0.0f32,
-            }));
+            })
+        });
 
         specialists.push(serde_json::json!({
             "name": s.name,
@@ -1540,7 +1835,7 @@ async fn stream_specialists(
                 }
             };
             Some((Ok(event), (rx, ticker)))
-        }
+        },
     );
 
     Sse::new(stream).keep_alive(KeepAlive::default())
@@ -1580,20 +1875,26 @@ async fn get_audit_log(
     Query(params): Query<AuditQueryParams>,
 ) -> Json<serde_json::Value> {
     let limit = params.limit.unwrap_or(50);
-    let events = state.federation.query_audit_events(
-        limit, params.since_ms, params.until_ms, params.user_id
-    ).await;
+    let events = state
+        .federation
+        .query_audit_events(limit, params.since_ms, params.until_ms, params.user_id)
+        .await;
 
-    let events_json: Vec<serde_json::Value> = events.iter().map(|e| serde_json::json!({
-        "event_id": e.event_id,
-        "timestamp_ms": e.timestamp_ms,
-        "user_id": e.user_id,
-        "action": e.action,
-        "level": format!("{:?}", e.level),
-        "resource": e.resource,
-        "result": format!("{:?}", e.result),
-        "details": e.details,
-    })).collect();
+    let events_json: Vec<serde_json::Value> = events
+        .iter()
+        .map(|e| {
+            serde_json::json!({
+                "event_id": e.event_id,
+                "timestamp_ms": e.timestamp_ms,
+                "user_id": e.user_id,
+                "action": e.action,
+                "level": format!("{:?}", e.level),
+                "resource": e.resource,
+                "result": format!("{:?}", e.result),
+                "details": e.details,
+            })
+        })
+        .collect();
 
     Json(serde_json::json!({
         "count": events_json.len(),
@@ -1620,9 +1921,10 @@ async fn get_learning_trends(State(state): State<AppState>) -> Json<serde_json::
         match v {
             None => serde_json::Value::Null,
             Some(pairs) => serde_json::Value::Array(
-                pairs.into_iter()
+                pairs
+                    .into_iter()
                     .map(|(ts, conf)| serde_json::json!([ts, conf]))
-                    .collect()
+                    .collect(),
             ),
         }
     }
@@ -1671,10 +1973,12 @@ async fn cluster_status(State(state): State<AppState>) -> Json<serde_json::Value
     } else {
         let nodes: Vec<serde_json::Value> = status
             .iter()
-            .map(|(id, s)| serde_json::json!({
-                "node_id": id,
-                "status": format!("{:?}", s),
-            }))
+            .map(|(id, s)| {
+                serde_json::json!({
+                    "node_id": id,
+                    "status": format!("{:?}", s),
+                })
+            })
             .collect();
 
         Json(serde_json::json!({
@@ -1692,59 +1996,85 @@ async fn cluster_status(State(state): State<AppState>) -> Json<serde_json::Value
 /// GET /models/external — Scan common directories for existing GGUF models
 async fn list_external_models() -> Json<serde_json::Value> {
     let mut found_models = Vec::new();
-    
+
     // Check LM Studio default directory on Windows
     let home = std::env::var("USERPROFILE").unwrap_or_else(|_| "C:\\".to_string());
-    
+
     // Search Paths
-    let lm_studio_dir = std::path::PathBuf::from(&home).join(".lmstudio").join("models");
-    let lm_studio_cache = std::path::PathBuf::from(&home).join(".cache").join("lm-studio").join("models");
-    let ollama_dir = std::path::PathBuf::from(&home).join(".ollama").join("models").join("blobs");
+    let lm_studio_dir = std::path::PathBuf::from(&home)
+        .join(".lmstudio")
+        .join("models");
+    let lm_studio_cache = std::path::PathBuf::from(&home)
+        .join(".cache")
+        .join("lm-studio")
+        .join("models");
+    let ollama_dir = std::path::PathBuf::from(&home)
+        .join(".ollama")
+        .join("models")
+        .join("blobs");
     let jan_dir = std::path::PathBuf::from(&home).join("jan").join("models");
-    let gpt4all_dir = std::path::PathBuf::from(&home).join("AppData").join("Local").join("nomic.ai").join("GPT4All");
-    
+    let gpt4all_dir = std::path::PathBuf::from(&home)
+        .join("AppData")
+        .join("Local")
+        .join("nomic.ai")
+        .join("GPT4All");
+
     // Helper to scan directory (up to 3 levels deep to find GGUFs)
     let mut scan_dir = |base_dir: std::path::PathBuf, source: &str, is_ollama: bool| {
-        if !base_dir.exists() { return; }
-        
+        if !base_dir.exists() {
+            return;
+        }
+
         let mut dirs_to_visit = vec![base_dir];
         let mut depth_map = std::collections::HashMap::new();
-        
+
         while let Some(current_dir) = dirs_to_visit.pop() {
             let current_depth = *depth_map.get(&current_dir).unwrap_or(&0);
-            if current_depth > 3 { continue; } // Don't go too deep
-            
+            if current_depth > 3 {
+                continue;
+            } // Don't go too deep
+
             if let Ok(entries) = std::fs::read_dir(&current_dir) {
                 for entry in entries.flatten() {
                     let path = entry.path();
-                    
+
                     if path.is_dir() {
                         depth_map.insert(path.clone(), current_depth + 1);
                         dirs_to_visit.push(path);
                     } else if path.is_file() {
-                        let is_gguf = path.extension().map_or(false, |ext| ext == "gguf");
-                        let is_valid_ollama = is_ollama && path.file_name().map_or(false, |f| f.to_string_lossy().starts_with("sha256"));
-                        
-                        if is_gguf || is_valid_ollama {
-                            if let Ok(metadata) = std::fs::metadata(&path) {
-                                let mut name = path.file_name().unwrap_or_default().to_string_lossy().to_string();
-                                if is_valid_ollama {
-                                    name = format!("ollama_blob_{}", name.chars().take(15).collect::<String>());
-                                }
-                                found_models.push(serde_json::json!({
-                                    "name": name,
-                                    "path": path.to_string_lossy(),
-                                    "size_bytes": metadata.len(),
-                                    "source": source
-                                }));
+                        let is_gguf = path.extension().is_some_and(|ext| ext == "gguf");
+                        let is_valid_ollama = is_ollama
+                            && path
+                                .file_name()
+                                .is_some_and(|f| f.to_string_lossy().starts_with("sha256"));
+
+                        if (is_gguf || is_valid_ollama)
+                            && let Ok(metadata) = std::fs::metadata(&path)
+                        {
+                            let mut name = path
+                                .file_name()
+                                .unwrap_or_default()
+                                .to_string_lossy()
+                                .to_string();
+                            if is_valid_ollama {
+                                name = format!(
+                                    "ollama_blob_{}",
+                                    name.chars().take(15).collect::<String>()
+                                );
                             }
+                            found_models.push(serde_json::json!({
+                                "name": name,
+                                "path": path.to_string_lossy(),
+                                "size_bytes": metadata.len(),
+                                "source": source
+                            }));
                         }
                     }
                 }
             }
         }
     };
-    
+
     scan_dir(lm_studio_dir, "LM Studio", false);
     scan_dir(lm_studio_cache, "LM Studio Cache", false);
     scan_dir(ollama_dir, "Ollama", true);
@@ -1764,27 +2094,33 @@ async fn list_external_models() -> Json<serde_json::Value> {
 /// and returns metadata for each `.gguf` file found.  For small models (<500MB),
 /// also reads the GGUF header to return architecture and tensor count.
 async fn list_models() -> impl IntoResponse {
-    let search_paths = [
-        workspace_models_dir(),
-        std::path::PathBuf::from("./models"),
-    ];
+    let search_paths = [workspace_models_dir(), std::path::PathBuf::from("./models")];
 
     let mut models = Vec::new();
     let mut searched_paths = Vec::new();
 
     for models_dir in &search_paths {
         searched_paths.push(models_dir.to_string_lossy().to_string());
-        if !models_dir.exists() { continue; }
+        if !models_dir.exists() {
+            continue;
+        }
 
-        let Ok(entries) = std::fs::read_dir(models_dir) else { continue };
+        let Ok(entries) = std::fs::read_dir(models_dir) else {
+            continue;
+        };
 
         for entry in entries.filter_map(|e| e.ok()) {
             let path = entry.path();
-            let Some(ext) = path.extension() else { continue };
-            if ext != "gguf" { continue; }
+            let Some(ext) = path.extension() else {
+                continue;
+            };
+            if ext != "gguf" {
+                continue;
+            }
 
             let file_size = entry.metadata().map(|m| m.len()).unwrap_or(0);
-            let file_name = path.file_name()
+            let file_name = path
+                .file_name()
                 .map(|n| n.to_string_lossy().to_string())
                 .unwrap_or_default();
 
@@ -1826,23 +2162,24 @@ async fn list_models() -> impl IntoResponse {
 // ====================================================================
 
 /// GET /dynamic-specialists â€” list all currently-loaded GenericSpecialists
-async fn list_dynamic_specialists(
-    State(state): State<AppState>,
-) -> Json<serde_json::Value> {
+async fn list_dynamic_specialists(State(state): State<AppState>) -> Json<serde_json::Value> {
     let specialists = state.federation.dynamic_specialists().await;
-    let list: Vec<serde_json::Value> = specialists.iter().map(|s| {
-        let l = s.learning.lock();
-        serde_json::json!({
-            "name": s.name,
-            "domain": s.domain,
-            "persistence_key": s.persistence_key,
-            "has_llm": s.has_llm(),
-            "model_path": s.model_path.as_ref().map(|p| p.to_string_lossy().to_string()),
-            "total_executions": l.total_executions,
-            "confidence_score": l.confidence_score,
-            "last_updated": l.last_updated,
+    let list: Vec<serde_json::Value> = specialists
+        .iter()
+        .map(|s| {
+            let l = s.learning.lock();
+            serde_json::json!({
+                "name": s.name,
+                "domain": s.domain,
+                "persistence_key": s.persistence_key,
+                "has_llm": s.has_llm(),
+                "model_path": s.model_path.as_ref().map(|p| p.to_string_lossy().to_string()),
+                "total_executions": l.total_executions,
+                "confidence_score": l.confidence_score,
+                "last_updated": l.last_updated,
+            })
         })
-    }).collect();
+        .collect();
 
     Json(serde_json::json!({
         "count": list.len(),
@@ -1887,34 +2224,51 @@ async fn add_dynamic_specialist(
                 "ok": false,
                 "error": format!("A specialist named '{}' is already loaded", req.name),
             })),
-        ).into_response();
+        )
+            .into_response();
     }
 
     let specialist = if let Some(ref path) = req.gguf_path {
         let p = std::path::Path::new(path);
         if p.exists() {
             GenericSpecialist::new(&req.name, &req.domain)
-                .with_gguf_path(p).await
+                .with_gguf_path(p)
+                .await
         } else {
-            match GenericSpecialist::new(&req.name, &req.domain).with_mock_llm().await {
+            match GenericSpecialist::new(&req.name, &req.domain)
+                .with_mock_llm()
+                .await
+            {
                 Ok(s) => s,
-                Err(e) => return (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(serde_json::json!({ "ok": false, "error": e.to_string() })),
-                ).into_response(),
+                Err(e) => {
+                    return (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        Json(serde_json::json!({ "ok": false, "error": e.to_string() })),
+                    )
+                        .into_response();
+                }
             }
         }
     } else {
-        match GenericSpecialist::new(&req.name, &req.domain).with_mock_llm().await {
+        match GenericSpecialist::new(&req.name, &req.domain)
+            .with_mock_llm()
+            .await
+        {
             Ok(s) => s,
-            Err(e) => return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(serde_json::json!({ "ok": false, "error": e.to_string() })),
-            ).into_response(),
+            Err(e) => {
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(serde_json::json!({ "ok": false, "error": e.to_string() })),
+                )
+                    .into_response();
+            }
         }
     };
 
-    state.federation.add_generic_specialist(Arc::new(specialist)).await;
+    state
+        .federation
+        .add_generic_specialist(Arc::new(specialist))
+        .await;
 
     Json(serde_json::json!({
         "ok": true,
@@ -1922,14 +2276,13 @@ async fn add_dynamic_specialist(
         "domain": req.domain,
         "model": req.gguf_path,
         "total_dynamic": state.federation.dynamic_specialists().await.len(),
-    })).into_response()
+    }))
+    .into_response()
 }
 
 /// POST /dynamic-specialists/reload â€” re-read specialist_registry.json and
 /// add any newly-enabled dynamic specialists (without removing existing ones).
-async fn reload_dynamic_specialists(
-    State(state): State<AppState>,
-) -> impl IntoResponse {
+async fn reload_dynamic_specialists(State(state): State<AppState>) -> impl IntoResponse {
     use crate::federation::specialists::GenericSpecialist;
     use std::sync::Arc;
 
@@ -1942,28 +2295,39 @@ async fn reload_dynamic_specialists(
                 "ok": false,
                 "error": "specialist_registry.json not found",
             })),
-        ).into_response();
+        )
+            .into_response();
     }
 
     let content = match std::fs::read_to_string(registry_path) {
         Ok(c) => c,
-        Err(e) => return (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(serde_json::json!({ "ok": false, "error": e.to_string() })),
-        ).into_response(),
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({ "ok": false, "error": e.to_string() })),
+            )
+                .into_response();
+        }
     };
 
     let registry: serde_json::Value = match serde_json::from_str(&content) {
         Ok(v) => v,
-        Err(e) => return (
-            StatusCode::BAD_REQUEST,
-            Json(serde_json::json!({ "ok": false, "error": e.to_string() })),
-        ).into_response(),
+        Err(e) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(serde_json::json!({ "ok": false, "error": e.to_string() })),
+            )
+                .into_response();
+        }
     };
 
-    let existing_names: std::collections::HashSet<String> = state.federation
-        .dynamic_specialists().await
-        .iter().map(|s| s.name.clone()).collect();
+    let existing_names: std::collections::HashSet<String> = state
+        .federation
+        .dynamic_specialists()
+        .await
+        .iter()
+        .map(|s| s.name.clone())
+        .collect();
 
     let mut added = Vec::new();
     let mut skipped = Vec::new();
@@ -1974,7 +2338,8 @@ async fn reload_dynamic_specialists(
         .and_then(|d| d.as_object())
         .map(|obj| obj.values().cloned().collect())
         .or_else(|| {
-            registry.get("dynamic_specialists")
+            registry
+                .get("dynamic_specialists")
                 .and_then(|d| d.get("examples"))
                 .and_then(|e| e.as_array())
                 .cloned()
@@ -1983,12 +2348,26 @@ async fn reload_dynamic_specialists(
 
     if !entries_vec.is_empty() {
         for entry in &entries_vec {
-            let enabled = entry.get("enabled").and_then(|e| e.as_bool()).unwrap_or(false);
-            if !enabled { continue; }
+            let enabled = entry
+                .get("enabled")
+                .and_then(|e| e.as_bool())
+                .unwrap_or(false);
+            if !enabled {
+                continue;
+            }
 
-            let name = entry.get("name").and_then(|n| n.as_str()).unwrap_or("Unknown");
-            let domain = entry.get("domain").and_then(|d| d.as_str()).unwrap_or("general");
-            let gguf_path = entry.get("gguf_path").and_then(|g| g.as_str()).unwrap_or("");
+            let name = entry
+                .get("name")
+                .and_then(|n| n.as_str())
+                .unwrap_or("Unknown");
+            let domain = entry
+                .get("domain")
+                .and_then(|d| d.as_str())
+                .unwrap_or("general");
+            let gguf_path = entry
+                .get("gguf_path")
+                .and_then(|g| g.as_str())
+                .unwrap_or("");
 
             if existing_names.contains(name) {
                 skipped.push(serde_json::json!({ "name": name, "reason": "already loaded" }));
@@ -1996,8 +2375,12 @@ async fn reload_dynamic_specialists(
             }
 
             let specialist = GenericSpecialist::new(name, domain)
-                .with_gguf_path(gguf_path).await;
-            state.federation.add_generic_specialist(Arc::new(specialist)).await;
+                .with_gguf_path(gguf_path)
+                .await;
+            state
+                .federation
+                .add_generic_specialist(Arc::new(specialist))
+                .await;
             added.push(serde_json::json!({ "name": name, "domain": domain, "gguf": gguf_path }));
         }
     }
@@ -2009,7 +2392,8 @@ async fn reload_dynamic_specialists(
         "new_specialists": added,
         "skipped_specialists": skipped,
         "total_dynamic": state.federation.dynamic_specialists().await.len(),
-    })).into_response()
+    }))
+    .into_response()
 }
 
 // ====================================================================
@@ -2029,23 +2413,24 @@ struct ForgeInspectRequest {
 /// ```json
 /// {"path": "/path/to/models/qwen2.5-1.5b.gguf"}
 /// ```
-async fn forge_inspect(
-    Json(req): Json<ForgeInspectRequest>,
-) -> impl IntoResponse {
+async fn forge_inspect(Json(req): Json<ForgeInspectRequest>) -> impl IntoResponse {
     let path = std::path::Path::new(&req.path);
     match forge::read_gguf(path) {
         Ok((index, meta)) => {
-            let tensors: Vec<serde_json::Value> = index.0
+            let tensors: Vec<serde_json::Value> = index
+                .0
                 .values()
                 .flat_map(|gm| gm.tensors.iter())
-                .map(|(name, tm)| serde_json::json!({
-                    "name": name,
-                    "shape": tm.shape,
-                    "dtype": tm.dtype,
-                    "offset": tm.offset,
-                    "size": tm.size,
-                    "kind": tm.kind,
-                }))
+                .map(|(name, tm)| {
+                    serde_json::json!({
+                        "name": name,
+                        "shape": tm.shape,
+                        "dtype": tm.dtype,
+                        "offset": tm.offset,
+                        "size": tm.size,
+                        "kind": tm.kind,
+                    })
+                })
                 .collect();
 
             Json(serde_json::json!({
@@ -2058,7 +2443,8 @@ async fn forge_inspect(
                 "context_length": meta.context_length,
                 "tensors": tensors,
                 "metadata": meta.kv,
-            })).into_response()
+            }))
+            .into_response()
         }
         Err(e) => (
             StatusCode::BAD_REQUEST,
@@ -2066,7 +2452,8 @@ async fn forge_inspect(
                 "ok": false,
                 "error": e.to_string(),
             })),
-        ).into_response(),
+        )
+            .into_response(),
     }
 }
 
@@ -2095,21 +2482,22 @@ struct ForgeAutoRecipeRequest {
 ///   "domain": "code_review"
 /// }
 /// ```
-async fn forge_auto_recipe(
-    Json(req): Json<ForgeAutoRecipeRequest>,
-) -> impl IntoResponse {
+async fn forge_auto_recipe(Json(req): Json<ForgeAutoRecipeRequest>) -> impl IntoResponse {
     // Parse both GGUFs
     let mut combined_index = forge::GgufIndex::new();
     for path in &[&req.model_a_path, &req.model_b_path] {
         match forge::read_gguf(path.as_str()) {
             Ok((idx, _)) => {
-                for (k, v) in idx.0 { combined_index.0.insert(k, v); }
+                for (k, v) in idx.0 {
+                    combined_index.0.insert(k, v);
+                }
             }
             Err(e) => {
                 return (
                     StatusCode::BAD_REQUEST,
                     Json(serde_json::json!({ "ok": false, "error": e.to_string() })),
-                ).into_response();
+                )
+                    .into_response();
             }
         }
     }
@@ -2130,11 +2518,13 @@ async fn forge_auto_recipe(
             "domain": req.domain,
             "segment_count": recipe.segments.len(),
             "recipe": recipe,
-        })).into_response(),
+        }))
+        .into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(serde_json::json!({ "ok": false, "error": e })),
-        ).into_response(),
+        )
+            .into_response(),
     }
 }
 
@@ -2156,28 +2546,32 @@ struct ForgeSingleRecipeRequest {
 ///
 /// Example: extract only attention tensors from a fine-tuned model,
 /// then use POST /forge/crystallize to splice them with a base model.
-async fn forge_single_recipe(
-    Json(req): Json<ForgeSingleRecipeRequest>,
-) -> impl IntoResponse {
+async fn forge_single_recipe(Json(req): Json<ForgeSingleRecipeRequest>) -> impl IntoResponse {
     match forge::read_gguf(&req.model_path) {
-        Err(e) => return (
+        Err(e) => (
             StatusCode::BAD_REQUEST,
             Json(serde_json::json!({ "ok": false, "error": e.to_string() })),
-        ).into_response(),
+        )
+            .into_response(),
         Ok((index, _meta)) => {
-            let kinds: Vec<forge::TensorKind> = req.include_kinds.iter()
+            let kinds: Vec<forge::TensorKind> = req
+                .include_kinds
+                .iter()
                 .filter_map(|s| match s.to_lowercase().as_str() {
                     "attention" | "attn" => Some(forge::TensorKind::Attention),
-                    "mlp" | "ffn"        => Some(forge::TensorKind::Mlp),
-                    "embedding" | "emb"  => Some(forge::TensorKind::Embedding),
-                    "norm"               => Some(forge::TensorKind::Norm),
-                    "other"              => Some(forge::TensorKind::Other),
-                    _                    => None,
+                    "mlp" | "ffn" => Some(forge::TensorKind::Mlp),
+                    "embedding" | "emb" => Some(forge::TensorKind::Embedding),
+                    "norm" => Some(forge::TensorKind::Norm),
+                    "other" => Some(forge::TensorKind::Other),
+                    _ => None,
                 })
                 .collect();
 
             match forge::recipe_from_single_model(
-                &req.model_path, &req.recipe_id, &kinds, &index,
+                &req.model_path,
+                &req.recipe_id,
+                &kinds,
+                &index,
                 std::collections::HashMap::new(),
             ) {
                 Ok(recipe) => Json(serde_json::json!({
@@ -2186,11 +2580,13 @@ async fn forge_single_recipe(
                     "segment_count": recipe.segments.len(),
                     "include_kinds": req.include_kinds,
                     "recipe": recipe,
-                })).into_response(),
+                }))
+                .into_response(),
                 Err(e) => (
                     StatusCode::INTERNAL_SERVER_ERROR,
                     Json(serde_json::json!({ "ok": false, "error": e })),
-                ).into_response(),
+                )
+                    .into_response(),
             }
         }
     }
@@ -2225,9 +2621,7 @@ struct ForgeCrystallizeRequest {
 ///   "source_paths": ["/path/to/models/qwen-a.gguf", "/path/to/models/qwen-b.gguf"]
 /// }
 /// ```
-async fn forge_crystallize(
-    Json(req): Json<ForgeCrystallizeRequest>,
-) -> impl IntoResponse {
+async fn forge_crystallize(Json(req): Json<ForgeCrystallizeRequest>) -> impl IntoResponse {
     // Parse all source GGUFs into a combined index
     let mut combined_index = forge::GgufIndex::new();
     let mut parse_errors: Vec<String> = vec![];
@@ -2254,7 +2648,8 @@ async fn forge_crystallize(
                 "error": "Failed to parse source GGUF(s)",
                 "details": parse_errors,
             })),
-        ).into_response();
+        )
+            .into_response();
     }
 
     // Crystallize
@@ -2262,7 +2657,10 @@ async fn forge_crystallize(
     let recipe = req.recipe.clone();
     let mut forge_instance = forge::Forge::new();
 
-    match forge_instance.crystallize(&recipe, &combined_index, &output_path).await {
+    match forge_instance
+        .crystallize(&recipe, &combined_index, &output_path)
+        .await
+    {
         Ok(result) => Json(serde_json::json!({
             "ok": true,
             "recipe_id": result.recipe_id,
@@ -2275,11 +2673,13 @@ async fn forge_crystallize(
                 "size": t.size,
                 "kind": t.kind,
             })).collect::<Vec<_>>(),
-        })).into_response(),
+        }))
+        .into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(serde_json::json!({ "ok": false, "error": e.to_string() })),
-        ).into_response(),
+        )
+            .into_response(),
     }
 }
 
@@ -2323,10 +2723,13 @@ async fn forge_crystallize_roster(
                 "ok": false,
                 "error": format!("Source model not found: {}", req.source_path),
             })),
-        ).into_response();
+        )
+            .into_response();
     }
 
-    let models_dir = req.output_dir.as_deref()
+    let models_dir = req
+        .output_dir
+        .as_deref()
         .map(std::path::Path::new)
         .or_else(|| source.parent())
         .unwrap_or_else(|| std::path::Path::new("."))
@@ -2334,13 +2737,18 @@ async fn forge_crystallize_roster(
 
     // Parse source for block count
     let total_blocks = match forge::read_gguf(source) {
-        Ok((_idx, meta)) => meta.kv.get("llama.block_count")
+        Ok((_idx, meta)) => meta
+            .kv
+            .get("llama.block_count")
             .and_then(|s| s.parse::<usize>().ok())
             .unwrap_or(28),
-        Err(e) => return (
-            StatusCode::BAD_REQUEST,
-            Json(serde_json::json!({ "ok": false, "error": e.to_string() })),
-        ).into_response(),
+        Err(e) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(serde_json::json!({ "ok": false, "error": e.to_string() })),
+            )
+                .into_response();
+        }
     };
 
     let mut profiles = forge::SovereignProfile::default_roster(total_blocks);
@@ -2352,27 +2760,35 @@ async fn forge_crystallize_roster(
     }
 
     if req.dry_run {
-        let plan: Vec<serde_json::Value> = profiles.iter().map(|p| {
-            let bc = p.block_selection.as_ref().map(|b| b.len())
-                .or(p.block_count).unwrap_or(total_blocks);
-            let size_estimate_mb = (bc as f64 / total_blocks as f64) * 4466.0;
-            serde_json::json!({
-                "name": p.name,
-                "domain": p.domain,
-                "output": p.output_filename,
-                "blocks": bc,
-                "estimated_mb": (size_estimate_mb as u32),
-                "kinds": if p.include_kinds.is_empty() { "all".to_string() }
-                         else { format!("{:?}", p.include_kinds) },
+        let plan: Vec<serde_json::Value> = profiles
+            .iter()
+            .map(|p| {
+                let bc = p
+                    .block_selection
+                    .as_ref()
+                    .map(|b| b.len())
+                    .or(p.block_count)
+                    .unwrap_or(total_blocks);
+                let size_estimate_mb = (bc as f64 / total_blocks as f64) * 4466.0;
+                serde_json::json!({
+                    "name": p.name,
+                    "domain": p.domain,
+                    "output": p.output_filename,
+                    "blocks": bc,
+                    "estimated_mb": (size_estimate_mb as u32),
+                    "kinds": if p.include_kinds.is_empty() { "all".to_string() }
+                             else { format!("{:?}", p.include_kinds) },
+                })
             })
-        }).collect();
+            .collect();
         return Json(serde_json::json!({
             "ok": true,
             "dry_run": true,
             "source": req.source_path,
             "total_blocks": total_blocks,
             "sovereigns": plan,
-        })).into_response();
+        }))
+        .into_response();
     }
 
     // Run crystallization (this is long-running â€” consider SSE for progress)
@@ -2394,11 +2810,13 @@ async fn forge_crystallize_roster(
             "errors": result.failed.iter().map(|(name, err)| serde_json::json!({
                 "name": name, "error": err,
             })).collect::<Vec<_>>(),
-        })).into_response(),
+        }))
+        .into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(serde_json::json!({ "ok": false, "error": e.to_string() })),
-        ).into_response(),
+        )
+            .into_response(),
     }
 }
 
@@ -2415,36 +2833,46 @@ async fn distillation_plan(State(_state): State<AppState>) -> impl IntoResponse 
     // GGUFAnalyzer reads tensor headers (fast but synchronous) â€” run off the async executor
     let plans = tokio::task::spawn_blocking(|| {
         let models_dir = workspace_models_dir();
-        let data_dir   = workspace_training_data_dir();
+        let data_dir = workspace_training_data_dir();
         generate_distillation_plan(&models_dir, &data_dir, None)
-    }).await.unwrap_or_default();
+    })
+    .await
+    .unwrap_or_default();
 
-    let items: Vec<serde_json::Value> = plans.iter().map(|p| {
-        let model_exists = std::path::Path::new(&p.base_model_path).exists();
-        let data_exists  = std::path::Path::new(&p.training_data_path).exists();
-        let merged_exists = std::path::Path::new(&p.merged_gguf_output).exists();
-        let status = if merged_exists { "done" }
-            else if data_exists { "ready" }
-            else if model_exists { "no-data" }
-            else { "no-model" };
+    let items: Vec<serde_json::Value> = plans
+        .iter()
+        .map(|p| {
+            let model_exists = std::path::Path::new(&p.base_model_path).exists();
+            let data_exists = std::path::Path::new(&p.training_data_path).exists();
+            let merged_exists = std::path::Path::new(&p.merged_gguf_output).exists();
+            let status = if merged_exists {
+                "done"
+            } else if data_exists {
+                "ready"
+            } else if model_exists {
+                "no-data"
+            } else {
+                "no-model"
+            };
 
-        serde_json::json!({
-            "sovereign":           p.sovereign_name,
-            "base_model":          p.base_model_path,
-            "lora_adapter_output": p.lora_adapter_output,
-            "merged_gguf_output":  p.merged_gguf_output,
-            "training_data_path":  p.training_data_path,
-            "lora_rank":           p.lora_rank,
-            "lora_alpha":          p.lora_alpha,
-            "num_epochs":          p.num_epochs,
-            "batch_size":          p.batch_size,
-            "max_seq_length":      p.max_seq_length,
-            "estimated_vram_gb":   p.estimated_vram_gb,
-            "estimated_hours":     p.estimated_training_hours,
-            "status":              status,
-            "notes":               p.notes,
+            serde_json::json!({
+                "sovereign":           p.sovereign_name,
+                "base_model":          p.base_model_path,
+                "lora_adapter_output": p.lora_adapter_output,
+                "merged_gguf_output":  p.merged_gguf_output,
+                "training_data_path":  p.training_data_path,
+                "lora_rank":           p.lora_rank,
+                "lora_alpha":          p.lora_alpha,
+                "num_epochs":          p.num_epochs,
+                "batch_size":          p.batch_size,
+                "max_seq_length":      p.max_seq_length,
+                "estimated_vram_gb":   p.estimated_vram_gb,
+                "estimated_hours":     p.estimated_training_hours,
+                "status":              status,
+                "notes":               p.notes,
+            })
         })
-    }).collect();
+        .collect();
 
     Json(serde_json::json!({ "ok": true, "plans": items }))
 }
@@ -2472,7 +2900,6 @@ async fn distillation_generate(
     State(state): State<AppState>,
     Json(req): Json<DistillationGenerateRequest>,
 ) -> impl IntoResponse {
-
     use crate::llm::{LLMClient, LLMConfig};
 
     // Without llama-gguf: reject immediately — stub output is worthless.
@@ -2487,7 +2914,6 @@ async fn distillation_generate(
         })).into_response();
     }
 
-
     #[allow(unreachable_code)]
     {
         let count = req.count.unwrap_or(50).min(500);
@@ -2497,18 +2923,21 @@ async fn distillation_generate(
         let llm_config = LLMConfig {
             provider_type: crate::llm::ProviderType::GGUF,
             gguf_model_path: Some(workspace_models_dir().join("foundation_v1.gguf")),
-            max_tokens: 128,  // CPU-friendly: structured JSON outputs fit in 128 tokens
+            max_tokens: 128, // CPU-friendly: structured JSON outputs fit in 128 tokens
             ..Default::default()
         };
 
         let llm = LLMClient::new(llm_config).await.unwrap();
 
         // Generate a job ID and register the job as Running
-        let job_id = format!("{}-{}", sovereign.to_lowercase(),
+        let job_id = format!(
+            "{}-{}",
+            sovereign.to_lowercase(),
             std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .map(|d| d.as_millis())
-                .unwrap_or(0));
+                .unwrap_or(0)
+        );
 
         {
             let mut jobs = state.generation_jobs.lock().await;
@@ -2522,11 +2951,16 @@ async fn distillation_generate(
             use crate::federation::graph::distillation::generate_training_examples;
             let training_data_dir_buf = workspace_training_data_dir();
             let training_data_dir = training_data_dir_buf.as_path();
-            let result = generate_training_examples(&sovereign, count, &llm, training_data_dir).await;
+            let result =
+                generate_training_examples(&sovereign, count, &llm, training_data_dir).await;
             let mut jobs = jobs_arc.lock().await;
             match result {
-                Ok(report) => { jobs.insert(job_id_bg, GenerationJobStatus::Done(report)); }
-                Err(e)     => { jobs.insert(job_id_bg, GenerationJobStatus::Failed(e.to_string())); }
+                Ok(report) => {
+                    jobs.insert(job_id_bg, GenerationJobStatus::Done(report));
+                }
+                Err(e) => {
+                    jobs.insert(job_id_bg, GenerationJobStatus::Failed(e.to_string()));
+                }
             }
         });
 
@@ -2555,13 +2989,15 @@ async fn distillation_job_status(
         None => (
             StatusCode::NOT_FOUND,
             Json(serde_json::json!({ "ok": false, "error": "Job not found", "job_id": job_id })),
-        ).into_response(),
+        )
+            .into_response(),
         Some(GenerationJobStatus::Running) => Json(serde_json::json!({
             "ok": true,
             "job_id": job_id,
             "status": "running",
             "note": "Still generating â€” CPU inference is slow. Check back in 30s.",
-        })).into_response(),
+        }))
+        .into_response(),
         Some(GenerationJobStatus::Done(report)) => Json(serde_json::json!({
             "ok": true,
             "job_id": job_id,
@@ -2573,13 +3009,15 @@ async fn distillation_job_status(
             "duration_secs":      report.duration_secs,
             "errors":             report.errors.len(),
             "inference_mode":     "llama-gguf (real foundation model inference)",
-        })).into_response(),
+        }))
+        .into_response(),
         Some(GenerationJobStatus::Failed(err)) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(serde_json::json!({
                 "ok": false, "job_id": job_id, "status": "failed", "error": err,
             })),
-        ).into_response(),
+        )
+            .into_response(),
     }
 }
 
@@ -2604,7 +3042,8 @@ async fn distillation_analyze(
                 "error": format!("Model not found: {}", model_path.display()),
                 "expected": model_path.display().to_string(),
             })),
-        ).into_response();
+        )
+            .into_response();
     }
 
     // GGUFAnalyzer is synchronous (reads file headers) â€” run off the async executor.
@@ -2612,10 +3051,12 @@ async fn distillation_analyze(
     let sov_clone = sovereign.clone();
     let result = tokio::task::spawn_blocking(move || {
         let analyzer = GGUFAnalyzer::default();
-        analyzer.analyze(&model_path)
+        analyzer
+            .analyze(&model_path)
             .map(|a| (a, sov_clone))
             .map_err(|e| e.to_string())
-    }).await;
+    })
+    .await;
 
     match result {
         Ok(Ok((analysis, _sov))) => {
@@ -2659,14 +3100,17 @@ async fn memory_stats(State(state): State<AppState>) -> impl IntoResponse {
     let federation_total = fed.federation_memory.lock().await.total_count();
 
     let dynamic = fed.dynamic.read().await;
-    let per_sovereign: Vec<serde_json::Value> = dynamic.iter().map(|s| {
-        let count = s.memory.lock().count_for(&s.name);
-        serde_json::json!({
-            "name":         s.name,
-            "domain":       s.domain,
-            "memory_count": count,
+    let per_sovereign: Vec<serde_json::Value> = dynamic
+        .iter()
+        .map(|s| {
+            let count = s.memory.lock().count_for(&s.name);
+            serde_json::json!({
+                "name":         s.name,
+                "domain":       s.domain,
+                "memory_count": count,
+            })
         })
-    }).collect();
+        .collect();
 
     Json(serde_json::json!({
         "ok":               true,
@@ -2696,13 +3140,16 @@ async fn distillation_script(
 
     // Find the LoRA spec for this sovereign
     let models_dir = workspace_models_dir();
-    let data_dir   = workspace_training_data_dir();
+    let data_dir = workspace_training_data_dir();
 
     let plans = tokio::task::spawn_blocking(move || {
         generate_distillation_plan(&models_dir, &data_dir, None)
-    }).await.unwrap_or_default();
+    })
+    .await
+    .unwrap_or_default();
 
-    let plan = plans.into_iter()
+    let plan = plans
+        .into_iter()
         .find(|p| p.sovereign_name.to_lowercase() == sovereign.to_lowercase());
 
     match plan {
@@ -2712,18 +3159,26 @@ async fn distillation_script(
                 "ok": false,
                 "error": format!("No distillation plan found for sovereign '{}'", sovereign),
             })),
-        ).into_response(),
+        )
+            .into_response(),
         Some(spec) => {
             let script = spec.to_unsloth_script();
             let filename = format!("{}_train.py", spec.sovereign_name.to_lowercase());
             (
                 StatusCode::OK,
                 [
-                    (header::CONTENT_TYPE,        "text/plain; charset=utf-8".to_string()),
-                    (header::CONTENT_DISPOSITION, format!("attachment; filename=\"{}\"", filename)),
+                    (
+                        header::CONTENT_TYPE,
+                        "text/plain; charset=utf-8".to_string(),
+                    ),
+                    (
+                        header::CONTENT_DISPOSITION,
+                        format!("attachment; filename=\"{}\"", filename),
+                    ),
                 ],
                 script,
-            ).into_response()
+            )
+                .into_response()
         }
     }
 }
@@ -2751,7 +3206,7 @@ async fn dna_dissect(
     State(state): State<AppState>,
     Json(req): Json<DnaDissectRequest>,
 ) -> impl IntoResponse {
-    use crate::federation::dna::{dissect_model, load_dna_sidecar, DissectionJobStatus};
+    use crate::federation::dna::{DissectionJobStatus, dissect_model, load_dna_sidecar};
 
     // Resolve path â€” accept either absolute path or filename in models dir
     let model_path = if std::path::Path::new(&req.model).is_absolute() {
@@ -2761,50 +3216,68 @@ async fn dna_dissect(
     };
 
     if !model_path.exists() {
-        return (StatusCode::NOT_FOUND, Json(serde_json::json!({
-            "ok": false,
-            "error": format!("Model not found: {}", model_path.display()),
-        }))).into_response();
+        return (
+            StatusCode::NOT_FOUND,
+            Json(serde_json::json!({
+                "ok": false,
+                "error": format!("Model not found: {}", model_path.display()),
+            })),
+        )
+            .into_response();
     }
 
     // Return cached sidecar if requested and available
-    if req.use_cache.unwrap_or(true) {
-        if let Some(dna) = load_dna_sidecar(&model_path) {
-            return Json(serde_json::json!({
-                "ok": true,
-                "source": "cache",
-                "model": dna.model_name,
-                "loci_count": dna.genetic_loci.len(),
-                "blocks": dna.num_blocks,
-                "dissected_at": dna.dissected_at,
-                "dna": dna,
-            })).into_response();
-        }
+    if req.use_cache.unwrap_or(true)
+        && let Some(dna) = load_dna_sidecar(&model_path)
+    {
+        return Json(serde_json::json!({
+            "ok": true,
+            "source": "cache",
+            "model": dna.model_name,
+            "loci_count": dna.genetic_loci.len(),
+            "blocks": dna.num_blocks,
+            "dissected_at": dna.dissected_at,
+            "dna": dna,
+        }))
+        .into_response();
     }
 
     // Start background dissection job
-    let job_id = format!("dna-{}-{}",
-        model_path.file_stem().and_then(|s| s.to_str()).unwrap_or("model"),
+    let job_id = format!(
+        "dna-{}-{}",
+        model_path
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or("model"),
         std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
-            .map(|d| d.as_millis()).unwrap_or(0));
+            .map(|d| d.as_millis())
+            .unwrap_or(0)
+    );
 
     let jobs_arc = state.dissection_jobs.clone();
     let job_id_bg = job_id.clone();
-    let model_name = model_path.file_name().and_then(|n| n.to_str()).unwrap_or("").to_string();
+    let model_name = model_path
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("")
+        .to_string();
 
     {
         let mut jobs = jobs_arc.lock().await;
-        jobs.insert(job_id.clone(), DissectionJobStatus::Running {
-            progress: crate::federation::dna::DissectionProgress {
-                model: model_name.clone(),
-                stage: crate::federation::dna::DissectionStage::ReadingHeader,
-                blocks_done: 0,
-                blocks_total: 0,
-                percent: 0,
-                message: "Starting dissectionâ€¦".into(),
-            }
-        });
+        jobs.insert(
+            job_id.clone(),
+            DissectionJobStatus::Running {
+                progress: crate::federation::dna::DissectionProgress {
+                    model: model_name.clone(),
+                    stage: crate::federation::dna::DissectionStage::ReadingHeader,
+                    blocks_done: 0,
+                    blocks_total: 0,
+                    percent: 0,
+                    message: "Starting dissectionâ€¦".into(),
+                },
+            },
+        );
     }
 
     tokio::task::spawn(async move {
@@ -2815,16 +3288,22 @@ async fn dna_dissect(
         tokio::spawn(async move {
             while let Some(progress) = rx.recv().await {
                 let mut jobs = jobs_progress.lock().await;
-                jobs.insert(job_id_prog.clone(),
-                    DissectionJobStatus::Running { progress });
+                jobs.insert(
+                    job_id_prog.clone(),
+                    DissectionJobStatus::Running { progress },
+                );
             }
         });
 
         let result = dissect_model(&model_path, Some(tx)).await;
         let mut jobs = jobs_arc.lock().await;
         match result {
-            Ok(dna) => { jobs.insert(job_id_bg, DissectionJobStatus::Done(Box::new(dna))); }
-            Err(e)  => { jobs.insert(job_id_bg, DissectionJobStatus::Failed(e.to_string())); }
+            Ok(dna) => {
+                jobs.insert(job_id_bg, DissectionJobStatus::Done(Box::new(dna)));
+            }
+            Err(e) => {
+                jobs.insert(job_id_bg, DissectionJobStatus::Failed(e.to_string()));
+            }
         }
     });
 
@@ -2834,7 +3313,8 @@ async fn dna_dissect(
         "model": model_name,
         "status": "running",
         "poll": format!("/dna/jobs/{}", job_id),
-    })).into_response()
+    }))
+    .into_response()
 }
 
 /// GET /dna/jobs/:id
@@ -2882,8 +3362,11 @@ async fn dna_genome(
 ) -> impl IntoResponse {
     use crate::federation::dna::load_dna_sidecar;
 
-    let filename = if model.ends_with(".gguf") { model.clone() }
-        else { format!("{}.gguf", model) };
+    let filename = if model.ends_with(".gguf") {
+        model.clone()
+    } else {
+        format!("{}.gguf", model)
+    };
     let model_path = workspace_models_dir().join(&filename);
 
     match load_dna_sidecar(&model_path) {
@@ -2908,11 +3391,15 @@ async fn dna_compare(
     State(_state): State<AppState>,
     Json(req): Json<DnaCompareRequest>,
 ) -> impl IntoResponse {
-    use crate::federation::dna::{load_dna_sidecar, dna_to_genome};
     use crate::GeneticAnalyzer;
+    use crate::federation::dna::{dna_to_genome, load_dna_sidecar};
 
     let resolve = |name: &str| -> std::path::PathBuf {
-        let filename = if name.ends_with(".gguf") { name.to_string() } else { format!("{}.gguf", name) };
+        let filename = if name.ends_with(".gguf") {
+            name.to_string()
+        } else {
+            format!("{}.gguf", name)
+        };
         workspace_models_dir().join(&filename)
     };
 
@@ -3018,9 +3505,15 @@ async fn dna_roster(State(_state): State<AppState>) -> impl IntoResponse {
     let models_dir_buf = workspace_models_dir();
     let models_dir = models_dir_buf.as_path();
     let known_models = [
-        "foundation_v1", "ariel-qwen2.5-7b", "hermes-qwen2.5-7b",
-        "wen-qwen2.5-7b", "kami-qwen2.5-7b", "dionysus-qwen2.5-7b",
-        "merlin-qwen2.5-7b", "odin-qwen2.5-7b", "argus-qwen2.5-7b",
+        "foundation_v1",
+        "ariel-qwen2.5-7b",
+        "hermes-qwen2.5-7b",
+        "wen-qwen2.5-7b",
+        "kami-qwen2.5-7b",
+        "dionysus-qwen2.5-7b",
+        "merlin-qwen2.5-7b",
+        "odin-qwen2.5-7b",
+        "argus-qwen2.5-7b",
         "hephaestus-qwen2.5-7b",
     ];
 
@@ -3049,7 +3542,10 @@ async fn dna_roster(State(_state): State<AppState>) -> impl IntoResponse {
         })
     }).collect();
 
-    let dissected_count = entries.iter().filter(|e| e["dissected"].as_bool().unwrap_or(false)).count();
+    let dissected_count = entries
+        .iter()
+        .filter(|e| e["dissected"].as_bool().unwrap_or(false))
+        .count();
 
     Json(serde_json::json!({
         "ok": true,
@@ -3096,7 +3592,8 @@ async fn models_import(
         req.auto_dissect.unwrap_or(true),
         req.auto_register_sovereign.unwrap_or(false),
         state.import_jobs.clone(),
-    ).await;
+    )
+    .await;
 
     Json(serde_json::json!({
         "ok": true,
@@ -3118,31 +3615,36 @@ async fn models_import_job_status(
     use crate::federation::model_registry::ImportStatus;
     let jobs = state.import_jobs.lock().await;
     match jobs.get(&job_id) {
-        None => (StatusCode::NOT_FOUND, Json(serde_json::json!({
-            "ok": false, "error": "Job not found", "job_id": job_id,
-        }))).into_response(),
+        None => (
+            StatusCode::NOT_FOUND,
+            Json(serde_json::json!({
+                "ok": false, "error": "Job not found", "job_id": job_id,
+            })),
+        )
+            .into_response(),
         Some(job) => {
             let status_str = match &job.status {
-                ImportStatus::Downloading { percent, bytes_done, bytes_total } =>
-                    serde_json::json!({ "stage": "downloading", "percent": percent,
+                ImportStatus::Downloading {
+                    percent,
+                    bytes_done,
+                    bytes_total,
+                } => serde_json::json!({ "stage": "downloading", "percent": percent,
                         "bytes_done": bytes_done, "bytes_total": bytes_total }),
-                ImportStatus::Copying =>
-                    serde_json::json!({ "stage": "copying" }),
-                ImportStatus::Dissecting { percent } =>
-                    serde_json::json!({ "stage": "dissecting", "percent": percent }),
-                ImportStatus::Registering =>
-                    serde_json::json!({ "stage": "registering" }),
-                ImportStatus::Done =>
-                    serde_json::json!({ "stage": "done" }),
-                ImportStatus::Failed(e) =>
-                    serde_json::json!({ "stage": "failed", "error": e }),
+                ImportStatus::Copying => serde_json::json!({ "stage": "copying" }),
+                ImportStatus::Dissecting { percent } => {
+                    serde_json::json!({ "stage": "dissecting", "percent": percent })
+                }
+                ImportStatus::Registering => serde_json::json!({ "stage": "registering" }),
+                ImportStatus::Done => serde_json::json!({ "stage": "done" }),
+                ImportStatus::Failed(e) => serde_json::json!({ "stage": "failed", "error": e }),
             };
             Json(serde_json::json!({
                 "ok": true,
                 "job_id": job_id,
                 "model": job.model_name,
                 "status": status_str,
-            })).into_response()
+            }))
+            .into_response()
         }
     }
 }
@@ -3161,26 +3663,39 @@ async fn models_export(
     State(_state): State<AppState>,
     Path(name): Path<String>,
 ) -> impl IntoResponse {
-    use axum::http::header;
     use axum::body::Body;
+    use axum::http::header;
     use tokio_util::io::ReaderStream;
 
-    let filename = if name.ends_with(".gguf") { name.clone() }
-        else { format!("{}.gguf", name) };
+    let filename = if name.ends_with(".gguf") {
+        name.clone()
+    } else {
+        format!("{}.gguf", name)
+    };
     let model_path = workspace_models_dir().join(&filename);
 
     if !model_path.exists() {
-        return (StatusCode::NOT_FOUND, Json(serde_json::json!({
-            "ok": false,
-            "error": format!("Model not found: {}", filename),
-        }))).into_response();
+        return (
+            StatusCode::NOT_FOUND,
+            Json(serde_json::json!({
+                "ok": false,
+                "error": format!("Model not found: {}", filename),
+            })),
+        )
+            .into_response();
     }
 
     let file = match tokio::fs::File::open(&model_path).await {
         Ok(f) => f,
-        Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({
-            "ok": false, "error": format!("Failed to open model: {}", e),
-        }))).into_response(),
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({
+                    "ok": false, "error": format!("Failed to open model: {}", e),
+                })),
+            )
+                .into_response();
+        }
     };
 
     let size = model_path.metadata().map(|m| m.len()).unwrap_or(0);
@@ -3190,12 +3705,16 @@ async fn models_export(
     (
         StatusCode::OK,
         [
-            (header::CONTENT_TYPE,        "application/octet-stream".to_string()),
-            (header::CONTENT_DISPOSITION, format!("attachment; filename=\"{}\"", filename)),
-            (header::CONTENT_LENGTH,      size.to_string()),
+            (header::CONTENT_TYPE, "application/octet-stream".to_string()),
+            (
+                header::CONTENT_DISPOSITION,
+                format!("attachment; filename=\"{}\"", filename),
+            ),
+            (header::CONTENT_LENGTH, size.to_string()),
         ],
         body,
-    ).into_response()
+    )
+        .into_response()
 }
 
 /// GET /models/registry
@@ -3206,20 +3725,28 @@ async fn models_registry(State(_state): State<AppState>) -> impl IntoResponse {
     use crate::federation::model_registry::scan_models_dir;
 
     let entries = scan_models_dir();
-    let total_size_gb: f64 = entries.iter().map(|e| e.size_bytes as f64 / 1_073_741_824.0).sum();
+    let total_size_gb: f64 = entries
+        .iter()
+        .map(|e| e.size_bytes as f64 / 1_073_741_824.0)
+        .sum();
     let dissected_count = entries.iter().filter(|e| e.dna_dissected).count();
 
-    let models: Vec<serde_json::Value> = entries.iter().map(|e| serde_json::json!({
-        "name":         e.name,
-        "path":         e.path.to_string_lossy(),
-        "size_bytes":   e.size_bytes,
-        "size_mb":      e.size_bytes / 1_048_576,
-        "dna_dissected": e.dna_dissected,
-        "sovereign":    e.sovereign,
-        "tags":         e.tags,
-        "export_url":   format!("/models/export/{}", e.name),
-        "dissect_url":  format!("POST /dna/dissect {{\"model\":\"{}\"}}", e.name),
-    })).collect();
+    let models: Vec<serde_json::Value> = entries
+        .iter()
+        .map(|e| {
+            serde_json::json!({
+                "name":         e.name,
+                "path":         e.path.to_string_lossy(),
+                "size_bytes":   e.size_bytes,
+                "size_mb":      e.size_bytes / 1_048_576,
+                "dna_dissected": e.dna_dissected,
+                "sovereign":    e.sovereign,
+                "tags":         e.tags,
+                "export_url":   format!("/models/export/{}", e.name),
+                "dissect_url":  format!("POST /dna/dissect {{\"model\":\"{}\"}}", e.name),
+            })
+        })
+        .collect();
 
     Json(serde_json::json!({
         "ok": true,
@@ -3293,13 +3820,20 @@ async fn models_recommend(State(_state): State<AppState>) -> impl IntoResponse {
         }
     }).collect();
 
-    let needs_download = entries.iter().filter(|e| {
-        e.get("status").and_then(|s| s.as_str()) == Some("needs_download")
-    }).count();
+    let needs_download = entries
+        .iter()
+        .filter(|e| e.get("status").and_then(|s| s.as_str()) == Some("needs_download"))
+        .count();
 
-    let ready = entries.iter().filter(|e| {
-        matches!(e.get("status").and_then(|s| s.as_str()), Some("ready") | Some("current_base_correct"))
-    }).count();
+    let ready = entries
+        .iter()
+        .filter(|e| {
+            matches!(
+                e.get("status").and_then(|s| s.as_str()),
+                Some("ready") | Some("current_base_correct")
+            )
+        })
+        .count();
 
     Json(serde_json::json!({
         "ok": true,
@@ -3334,7 +3868,8 @@ async fn models_recommend(State(_state): State<AppState>) -> impl IntoResponse {
 /// Returns the current state of the TensorVault index â€” which models are indexed,
 /// total unique tensor names, per-model tensor counts and dtype distribution.
 async fn vault_status(State(state): State<AppState>) -> impl IntoResponse {
-    let vault: tokio::sync::RwLockReadGuard<'_, crate::federation::tensor_vault::TensorVault> = state.vault.read().await;
+    let vault: tokio::sync::RwLockReadGuard<'_, crate::federation::tensor_vault::TensorVault> =
+        state.vault.read().await;
     let status = vault.status();
     Json(serde_json::json!({
         "ok": true,
@@ -3367,8 +3902,6 @@ async fn vault_index_model(
     State(state): State<AppState>,
     Json(req): Json<VaultIndexRequest>,
 ) -> impl IntoResponse {
-    
-
     let model_path = if std::path::Path::new(&req.model).is_absolute() {
         std::path::PathBuf::from(&req.model)
     } else {
@@ -3376,18 +3909,28 @@ async fn vault_index_model(
     };
 
     if !model_path.exists() {
-        return (StatusCode::NOT_FOUND, Json(serde_json::json!({
-            "ok": false, "error": format!("Model not found: {}", model_path.display()),
-        }))).into_response();
+        return (
+            StatusCode::NOT_FOUND,
+            Json(serde_json::json!({
+                "ok": false, "error": format!("Model not found: {}", model_path.display()),
+            })),
+        )
+            .into_response();
     }
 
-    let mut vault: tokio::sync::RwLockWriteGuard<'_, crate::federation::tensor_vault::TensorVault> = state.vault.write().await;
-    let model_name = model_path.file_name().and_then(|n| n.to_str()).unwrap_or("").to_string();
+    let mut vault: tokio::sync::RwLockWriteGuard<'_, crate::federation::tensor_vault::TensorVault> =
+        state.vault.write().await;
+    let model_name = model_path
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("")
+        .to_string();
 
     if vault.is_indexed(&model_name) {
         return Json(serde_json::json!({
             "ok": true, "status": "already_indexed", "model": model_name,
-        })).into_response();
+        }))
+        .into_response();
     }
 
     let index_result: anyhow::Result<()> = vault.index_model(&model_path).await;
@@ -3400,13 +3943,18 @@ async fn vault_index_model(
                 "model": model_name,
                 "vault_total_models": status.indexed_models.len(),
                 "vault_total_tensors": status.total_unique_tensor_names,
-            })).into_response()
+            }))
+            .into_response()
         }
         Err(e) => {
             let e = e.to_string();
-            (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({
-                "ok": false, "error": e,
-            }))).into_response()
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({
+                    "ok": false, "error": e,
+                })),
+            )
+                .into_response()
         }
     }
 }
@@ -3432,10 +3980,11 @@ async fn vault_query(
 ) -> impl IntoResponse {
     use crate::federation::tensor_vault::VaultQuery;
 
-    let vault: tokio::sync::RwLockReadGuard<'_, crate::federation::tensor_vault::TensorVault> = state.vault.read().await;
+    let vault: tokio::sync::RwLockReadGuard<'_, crate::federation::tensor_vault::TensorVault> =
+        state.vault.read().await;
     let block_range = match (req.block_from, req.block_to) {
         (Some(from), Some(to)) => Some((from as u64, to as u64)),
-        (Some(from), None)     => Some((from as u64, from as u64)),
+        (Some(from), None) => Some((from as u64, from as u64)),
         _ => None,
     };
 
@@ -3448,17 +3997,22 @@ async fn vault_query(
     };
 
     let results = vault.query(&q);
-    let entries: Vec<serde_json::Value> = results.iter().map(|e| serde_json::json!({
-        "tensor_name": e.tensor_name,
-        "model_name":  e.model_name,
-        "block_idx":   e.block_idx,
-        "kind":        e.kind,
-        "dtype":       e.dtype_label(),
-        "shape":       e.shape,
-        "size_bytes":  e.size_bytes,
-        "param_count": e.param_count,
-        "architecture": e.architecture,
-    })).collect();
+    let entries: Vec<serde_json::Value> = results
+        .iter()
+        .map(|e| {
+            serde_json::json!({
+                "tensor_name": e.tensor_name,
+                "model_name":  e.model_name,
+                "block_idx":   e.block_idx,
+                "kind":        e.kind,
+                "dtype":       e.dtype_label(),
+                "shape":       e.shape,
+                "size_bytes":  e.size_bytes,
+                "param_count": e.param_count,
+                "architecture": e.architecture,
+            })
+        })
+        .collect();
 
     Json(serde_json::json!({
         "ok": true,
@@ -3485,7 +4039,8 @@ async fn vault_best(
     State(state): State<AppState>,
     Json(req): Json<VaultBestRequest>,
 ) -> impl IntoResponse {
-    let vault: tokio::sync::RwLockReadGuard<'_, crate::federation::tensor_vault::TensorVault> = state.vault.read().await;
+    let vault: tokio::sync::RwLockReadGuard<'_, crate::federation::tensor_vault::TensorVault> =
+        state.vault.read().await;
     match vault.best_source_for_tensor(&req.tensor_name) {
         Some(e) => Json(serde_json::json!({
             "ok": true,
@@ -3564,12 +4119,15 @@ async fn dna_forge(
 ) -> impl IntoResponse {
     use crate::federation::dna::load_dna_sidecar;
     use crate::federation::tensor_vault::recipe_from_dna_compare;
-    
+
     let models_dir = workspace_models_dir();
 
     let resolve = |name: &str| -> std::path::PathBuf {
-        let filename = if name.ends_with(".gguf") { name.to_string() }
-            else { format!("{}.gguf", name) };
+        let filename = if name.ends_with(".gguf") {
+            name.to_string()
+        } else {
+            format!("{}.gguf", name)
+        };
         models_dir.join(filename)
     };
 
@@ -3598,11 +4156,15 @@ async fn dna_forge(
         dna_a_eff.splice_boundary = sb;
     }
 
-    let recipe_id = format!("{}-dna-splice-{}", req.sovereign_name.to_lowercase(), now_ms_vault());
+    let recipe_id = format!(
+        "{}-dna-splice-{}",
+        req.sovereign_name.to_lowercase(),
+        now_ms_vault()
+    );
 
     // Build the ForgeRecipe from DNA
     let vault = state.vault.read().await;
-    let recipe = { 
+    let recipe = {
         let recipe_str = recipe_from_dna_compare(0.5);
         forge::ForgeRecipe {
             recipe_id: recipe_str,
@@ -3612,37 +4174,64 @@ async fn dna_forge(
     };
     drop(vault); // Release read lock before the blocking crystallize
 
-    let output_filename = req.output_filename.clone()
+    let output_filename = req
+        .output_filename
+        .clone()
         .unwrap_or_else(|| format!("{}-hybrid.gguf", req.sovereign_name.to_lowercase()));
     let output_path = models_dir.join(&output_filename);
 
     // Build a GgufIndex containing both source models
     let (index_a, _) = match crate::federation::forge::read_gguf(&path_a) {
         Ok(r) => r,
-        Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({
-            "ok": false, "error": format!("Failed to read {}: {}", req.model_a, e),
-        }))).into_response(),
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({
+                    "ok": false, "error": format!("Failed to read {}: {}", req.model_a, e),
+                })),
+            )
+                .into_response();
+        }
     };
     let (index_b, _) = match crate::federation::forge::read_gguf(&path_b) {
         Ok(r) => r,
-        Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({
-            "ok": false, "error": format!("Failed to read {}: {}", req.model_b, e),
-        }))).into_response(),
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({
+                    "ok": false, "error": format!("Failed to read {}: {}", req.model_b, e),
+                })),
+            )
+                .into_response();
+        }
     };
 
     // Merge both indices
     let mut combined_index = crate::federation::forge::GgufIndex::new();
-    for (k, v) in index_a.0 { combined_index.register(k, v); }
-    for (k, v) in index_b.0 { combined_index.register(k, v); }
+    for (k, v) in index_a.0 {
+        combined_index.register(k, v);
+    }
+    for (k, v) in index_b.0 {
+        combined_index.register(k, v);
+    }
 
     let mut forge = crate::federation::forge::Forge::new();
     let start = std::time::Instant::now();
 
-    let crystal_result = match forge.crystallize(&recipe, &combined_index, &output_path).await {
+    let crystal_result = match forge
+        .crystallize(&recipe, &combined_index, &output_path)
+        .await
+    {
         Ok(r) => r,
-        Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({
-            "ok": false, "error": format!("Crystallization failed: {}", e),
-        }))).into_response(),
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({
+                    "ok": false, "error": format!("Crystallization failed: {}", e),
+                })),
+            )
+                .into_response();
+        }
     };
 
     let duration_secs = start.elapsed().as_secs_f64();
@@ -3662,7 +4251,9 @@ async fn dna_forge(
                 None
             }
         }
-    } else { None };
+    } else {
+        None
+    };
 
     Json(serde_json::json!({
         "ok": true,
@@ -3685,7 +4276,8 @@ async fn dna_forge(
             dna_a_eff.splice_boundary, dna_b.num_blocks.saturating_sub(1),
             dna_b.model_name
         ),
-    })).into_response()
+    }))
+    .into_response()
 }
 
 fn now_ms_vault() -> u64 {
@@ -3694,7 +4286,6 @@ fn now_ms_vault() -> u64 {
         .map(|d| d.as_millis() as u64)
         .unwrap_or(0)
 }
-
 
 // ── Sovereign package export/import endpoints ─────────────────────────────────
 
@@ -3712,7 +4303,7 @@ async fn specialists_export(
     State(state): State<AppState>,
     Path(name): Path<String>,
 ) -> impl IntoResponse {
-    use crate::federation::sovereign_package::{export_sovereign, PackageOptions};
+    use crate::federation::sovereign_package::{PackageOptions, export_sovereign};
     use axum::http::header;
 
     let models_dir_buf = workspace_models_dir();
@@ -3722,22 +4313,29 @@ async fn specialists_export(
     // Find the GGUF for this sovereign
     let gguf_filename = format!("{}-qwen2.5-7b.gguf", name.to_lowercase());
     let gguf_path = models_dir.join(&gguf_filename);
-    let gguf_path = if gguf_path.exists() { gguf_path } else {
-        // Try alternate naming (e.g. hybrid models)
-        let alt = models_dir.join(format!("{}.gguf", name.to_lowercase()));
-        if alt.exists() { alt } else {
-            return (StatusCode::NOT_FOUND, Json(serde_json::json!({
+    let gguf_path =
+        if gguf_path.exists() {
+            gguf_path
+        } else {
+            // Try alternate naming (e.g. hybrid models)
+            let alt = models_dir.join(format!("{}.gguf", name.to_lowercase()));
+            if alt.exists() {
+                alt
+            } else {
+                return (StatusCode::NOT_FOUND, Json(serde_json::json!({
                 "ok": false,
                 "error": format!("No GGUF found for sovereign '{}'. Checked: {} and {}.gguf",
                     name, gguf_filename, name.to_lowercase()),
             }))).into_response();
-        }
-    };
+            }
+        };
 
     // Get learning state from the active dynamic specialist if present
     let learning_state = {
         let dynamic = state.federation.dynamic.read().await;
-        dynamic.iter().find(|s| s.name.to_lowercase() == name.to_lowercase())
+        dynamic
+            .iter()
+            .find(|s| s.name.to_lowercase() == name.to_lowercase())
             .map(|s| {
                 let l = s.learning.lock();
                 crate::federation::sovereign_package::LearningStateSnapshot {
@@ -3757,13 +4355,17 @@ async fn specialists_export(
         include_learning_state: true,
         include_dna: true,
         compression_level: 3,
-        source_hive: Some(format!("http://localhost:8765")),
+        source_hive: Some("http://localhost:8765".to_string()),
         tags: vec![name.to_lowercase()],
     };
 
     match export_sovereign(&name, &gguf_path, &export_dir, learning_state, opts).await {
         Ok(pkg_path) => {
-            let filename = pkg_path.file_name().and_then(|n| n.to_str()).unwrap_or("").to_string();
+            let filename = pkg_path
+                .file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or("")
+                .to_string();
             let size = std::fs::metadata(&pkg_path).map(|m| m.len()).unwrap_or(0);
             match tokio::fs::File::open(&pkg_path).await {
                 Ok(file) => {
@@ -3784,9 +4386,13 @@ async fn specialists_export(
                 }))).into_response(),
             }
         }
-        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({
-            "ok": false, "error": e.to_string(),
-        }))).into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({
+                "ok": false, "error": e.to_string(),
+            })),
+        )
+            .into_response(),
     }
 }
 
@@ -3811,10 +4417,14 @@ async fn specialists_import_pkg(
 
     let pkg_path = std::path::PathBuf::from(&req.package_path);
     if !pkg_path.exists() {
-        return (StatusCode::NOT_FOUND, Json(serde_json::json!({
-            "ok": false,
-            "error": format!("Package not found: {}", req.package_path),
-        }))).into_response();
+        return (
+            StatusCode::NOT_FOUND,
+            Json(serde_json::json!({
+                "ok": false,
+                "error": format!("Package not found: {}", req.package_path),
+            })),
+        )
+            .into_response();
     }
 
     let models_dir_buf = workspace_models_dir();
@@ -3838,10 +4448,15 @@ async fn specialists_import_pkg(
             "base_model":      result.manifest.base_model,
             "quantization":    result.manifest.quantization,
             "tags":            result.manifest.tags,
-        })).into_response(),
-        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({
-            "ok": false, "error": e.to_string(),
-        }))).into_response(),
+        }))
+        .into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({
+                "ok": false, "error": e.to_string(),
+            })),
+        )
+            .into_response(),
     }
 }
 
@@ -3863,14 +4478,19 @@ async fn specialists_inspect(
 
     let pkg_path = std::path::PathBuf::from(&req.package_path);
     if !pkg_path.exists() {
-        return (StatusCode::NOT_FOUND, Json(serde_json::json!({
-            "ok": false,
-            "error": format!("Package not found: {}", req.package_path),
-        }))).into_response();
+        return (
+            StatusCode::NOT_FOUND,
+            Json(serde_json::json!({
+                "ok": false,
+                "error": format!("Package not found: {}", req.package_path),
+            })),
+        )
+            .into_response();
     }
 
     let pkg_size_mb = std::fs::metadata(&pkg_path)
-        .map(|m| m.len() / 1_048_576).unwrap_or(0);
+        .map(|m| m.len() / 1_048_576)
+        .unwrap_or(0);
 
     match tokio::task::spawn_blocking(move || read_manifest(&pkg_path)).await {
         Ok(Ok(manifest)) => Json(serde_json::json!({
@@ -3892,13 +4512,22 @@ async fn specialists_inspect(
             "capabilities":    manifest.capabilities,
             "tags":            manifest.tags,
             "source_hive":     manifest.source_hive,
-        })).into_response(),
-        Ok(Err(e)) => (StatusCode::BAD_REQUEST, Json(serde_json::json!({
-            "ok": false, "error": format!("Failed to read manifest: {}", e),
-        }))).into_response(),
-        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({
-            "ok": false, "error": format!("spawn_blocking panicked: {}", e),
-        }))).into_response(),
+        }))
+        .into_response(),
+        Ok(Err(e)) => (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({
+                "ok": false, "error": format!("Failed to read manifest: {}", e),
+            })),
+        )
+            .into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({
+                "ok": false, "error": format!("spawn_blocking panicked: {}", e),
+            })),
+        )
+            .into_response(),
     }
 }
 
@@ -3986,16 +4615,19 @@ struct OaiChatRequest {
 ///
 /// OpenAI-compatible chat completions endpoint.
 /// Routes the user's last message as an intent to the appropriate sovereign.
+#[tracing::instrument(skip(state, req), fields(request_id = tracing::field::Empty))]
 async fn openai_chat_completions(
     State(state): State<AppState>,
+    Extension(request_id): Extension<String>,
     Json(req): Json<OaiChatRequest>,
 ) -> Response {
+    tracing::Span::current().record("request_id", tracing::field::display(&request_id));
     // Validate `model` if present: it must be a short
     // identifier-shaped string. Unwrap to default later.
-    if let Some(m) = req.model.as_deref() {
-        if let Err(e) = validate_string("model", m, 128) {
-            return validation_error_response(&state, e);
-        }
+    if let Some(m) = req.model.as_deref()
+        && let Err(e) = validate_string("model", m, 128)
+    {
+        return validation_error_response(&state, e);
     }
     // Validate message count and per-message content size.
     if req.messages.is_empty() {
@@ -4014,11 +4646,7 @@ async fn openai_chat_completions(
         );
     }
     for (i, m) in req.messages.iter().enumerate() {
-        if let Err(e) = validate_string(
-            &format!("messages[{i}].role"),
-            &m.role,
-            32,
-        ) {
+        if let Err(e) = validate_string(&format!("messages[{i}].role"), &m.role, 32) {
             return validation_error_response(&state, e);
         }
         // Content may be empty (e.g. multi-modal tool calls),
@@ -4038,20 +4666,29 @@ async fn openai_chat_completions(
     let temperature = req.temperature.unwrap_or(0.7);
 
     // Extract the last user message as the immediate intent
-    let user_content = req.messages.iter().rev()
+    let user_content = req
+        .messages
+        .iter()
+        .rev()
         .find(|m| m.role == "user")
         .map(|m| m.content.clone())
         .unwrap_or_default();
 
     // Extract system message as context override (optional)
-    let system_content = req.messages.iter()
+    let system_content = req
+        .messages
+        .iter()
         .find(|m| m.role == "system")
         .map(|m| m.content.clone());
 
     if user_content.is_empty() {
-        return (StatusCode::BAD_REQUEST, Json(serde_json::json!({
-            "error": { "message": "No user message found", "type": "invalid_request_error" }
-        }))).into_response();
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({
+                "error": { "message": "No user message found", "type": "invalid_request_error" }
+            })),
+        )
+            .into_response();
     }
 
     // Build conversation history from prior turns — all messages except the current user turn.
@@ -4060,33 +4697,38 @@ async fn openai_chat_completions(
     // assistant response (critical for follow-up questions).
     // Format: "USER: ...\nASSISTANT: ...\nUSER: ...\n"
     let conversation_history: Option<String> = {
-        let all_non_system: Vec<&OaiMessage> = req.messages.iter()
-            .filter(|m| m.role != "system")
-            .collect();
+        let all_non_system: Vec<&OaiMessage> =
+            req.messages.iter().filter(|m| m.role != "system").collect();
 
         // Find how many trailing messages to drop: skip the current user message from the end
         let prior_count = {
             let mut tail = all_non_system.len();
-            // Walk backwards and drop the last user message matching user_content
-            while tail > 0 {
+            // Check the last user message matching user_content
+            if tail > 0 {
                 let m = all_non_system[tail - 1];
                 if m.role == "user" && m.content == user_content {
                     tail -= 1;
-                    break;
                 }
-                break; // only strip exactly the last matching user turn
             }
             tail
         };
 
         let history_msgs: Vec<String> = all_non_system[..prior_count]
             .iter()
-            .map(|m| format!("{}: {}", m.role.to_uppercase(),
-                             m.content.chars().take(500).collect::<String>()))
+            .map(|m| {
+                format!(
+                    "{}: {}",
+                    m.role.to_uppercase(),
+                    m.content.chars().take(500).collect::<String>()
+                )
+            })
             .collect();
 
-        if history_msgs.is_empty() { None }
-        else { Some(history_msgs.join("\n")) }
+        if history_msgs.is_empty() {
+            None
+        } else {
+            Some(history_msgs.join("\n"))
+        }
     };
 
     // Prepend conversation history to the current message for context
@@ -4107,14 +4749,20 @@ async fn openai_chat_completions(
 
     // Route to specific sovereign or full hive, passing temperature and max_tokens
     let response_text = route_to_sovereign(
-        &state, &model, &augmented_message, system_content.as_deref(),
-        temperature, max_tokens,
-    ).await;
+        &state,
+        &model,
+        &augmented_message,
+        system_content.as_deref(),
+        temperature,
+        max_tokens,
+    )
+    .await;
 
     let completion_id = format!("chatcmpl-{}", now_ms_oai());
     let created = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_secs()).unwrap_or(0);
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
 
     if stream {
         // Streaming SSE response — delta format
@@ -4185,7 +4833,8 @@ async fn openai_chat_completions(
                 "total_tokens": prompt_tokens + completion_tokens,
             },
             "system_fingerprint": "aaroneous-v2",
-        })).into_response()
+        }))
+        .into_response()
     }
 }
 
@@ -4201,26 +4850,31 @@ struct OaiCompletionRequest {
     max_tokens: Option<u32>,
 }
 
+#[tracing::instrument(skip(state, req), fields(request_id = tracing::field::Empty))]
 async fn openai_completions(
     State(state): State<AppState>,
+    Extension(request_id): Extension<String>,
     Json(req): Json<OaiCompletionRequest>,
 ) -> Response {
-    if let Some(m) = req.model.as_deref() {
-        if let Err(e) = validate_string("model", m, 128) {
-            return validation_error_response(&state, e);
-        }
+    tracing::Span::current().record("request_id", tracing::field::display(&request_id));
+    if let Some(m) = req.model.as_deref()
+        && let Err(e) = validate_string("model", m, 128)
+    {
+        return validation_error_response(&state, e);
     }
     if let Err(e) = validate_bytes("prompt", req.prompt.as_bytes(), 256 * 1024) {
         return validation_error_response(&state, e);
     }
     let model = req.model.as_deref().unwrap_or("aaroneous").to_lowercase();
     let max_tokens = req.max_tokens.unwrap_or(2048);
-    let response_text = route_to_sovereign(&state, &model, &req.prompt, None, 0.7, max_tokens).await;
+    let response_text =
+        route_to_sovereign(&state, &model, &req.prompt, None, 0.7, max_tokens).await;
 
     let id = format!("cmpl-{}", now_ms_oai());
     let created = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_secs()).unwrap_or(0);
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
 
     if req.stream.unwrap_or(false) {
         let id_clone = id.clone();
@@ -4264,7 +4918,8 @@ async fn openai_completions(
                 "prompt_tokens": (req.prompt.len() / 4) as u32,
                 "completion_tokens": (response_text.len() / 4) as u32,
             }
-        })).into_response()
+        }))
+        .into_response()
     }
 }
 
@@ -4279,21 +4934,20 @@ async fn route_to_sovereign(
     temperature: f32,
     max_tokens: u32,
 ) -> String {
-    
     use crate::federation::specialists::system_prompt_for_domain;
 
     // Sovereign name → domain mapping
     let (sovereign_name, domain) = match model {
-        "ariel"       => ("Ariel",      "ui_design"),
-        "hermes"      => ("Hermes",     "mesh_sync"),
-        "wen"         => ("Wen",        "human_state"),
-        "kami"        => ("Kami",       "spatial"),
-        "dionysus"    => ("Dionysus",   "memory_consolidation"),
-        "merlin"      => ("Merlin",     "research"),
-        "odin"        => ("Odin",       "task_orchestration"),
-        "argus"       => ("Argus",      "security_audit"),
-        "hephaestus"  => ("Hephaestus", "fabrication"),
-        _             => {
+        "ariel" => ("Ariel", "ui_design"),
+        "hermes" => ("Hermes", "mesh_sync"),
+        "wen" => ("Wen", "human_state"),
+        "kami" => ("Kami", "spatial"),
+        "dionysus" => ("Dionysus", "memory_consolidation"),
+        "merlin" => ("Merlin", "research"),
+        "odin" => ("Odin", "task_orchestration"),
+        "argus" => ("Argus", "security_audit"),
+        "hephaestus" => ("Hephaestus", "fabrication"),
+        _ => {
             // Full hive — submit intent and collect ALL sovereign outputs
             let intent = crate::federation::intent::Intent::new(user_message.to_string());
             let count_before = state.federation.results.lock().await.len();
@@ -4301,7 +4955,10 @@ async fn route_to_sovereign(
             // Wait the full window (2s) to collect ALL sovereign responses
             let outputs = wait_for_new_results(&state.federation, count_before, 2000).await;
             if outputs.is_empty() {
-                return format!("# Aaroneous Hive\n\nProcessing: '{}'\n\nNo responses yet — sovereigns are still deliberating.", user_message);
+                return format!(
+                    "# Aaroneous Hive\n\nProcessing: '{}'\n\nNo responses yet — sovereigns are still deliberating.",
+                    user_message
+                );
             }
             // Join with horizontal rule separators for clear markdown sectioning
             return outputs.join("\n\n---\n\n");
@@ -4310,29 +4967,34 @@ async fn route_to_sovereign(
 
     // Route directly to a specific dynamic sovereign via its LLM
     let dynamic = state.federation.dynamic.read().await;
-    if let Some(specialist) = dynamic.iter().find(|s| s.name == sovereign_name) {
-        if let Some(ref llm) = specialist.llm {
-            let system_prompt = system_override
-                .map(|s| s.to_string())
-                .unwrap_or_else(|| system_prompt_for_domain(domain, sovereign_name));
+    if let Some(specialist) = dynamic.iter().find(|s| s.name == sovereign_name)
+        && let Some(ref llm) = specialist.llm
+    {
+        let system_prompt = system_override
+            .map(|s| s.to_string())
+            .unwrap_or_else(|| system_prompt_for_domain(domain, sovereign_name));
 
-            // Build a scoped LLM client with caller's temperature/max_tokens if different
-            // from defaults — avoids mutating the shared client.
-            if (temperature - 0.7).abs() > 0.01 || max_tokens != 2048 {
-                let mut config = llm.config().clone();
-                config.temperature = temperature;
-                config.max_tokens = max_tokens;
-                let scoped_llm = crate::llm::LLMClient::new(config).await.unwrap();
-                match scoped_llm.generate_domain_response(&system_prompt, user_message, domain).await {
-                    Ok(r) => return r,
-                    Err(_) => {} // fall through to default llm
-                }
+        // Build a scoped LLM client with caller's temperature/max_tokens if different
+        // from defaults — avoids mutating the shared client.
+        if (temperature - 0.7).abs() > 0.01 || max_tokens != 2048 {
+            let mut config = llm.config().clone();
+            config.temperature = temperature;
+            config.max_tokens = max_tokens;
+            let scoped_llm = crate::llm::LLMClient::new(config).await.unwrap();
+            if let Ok(r) = scoped_llm
+                .generate_domain_response(&system_prompt, user_message, domain)
+                .await
+            {
+                return r;
             }
+        }
 
-            match llm.generate_domain_response(&system_prompt, user_message, domain).await {
-                Ok(r) => return r,
-                Err(e) => return format!("[{}] LLM error: {}", sovereign_name, e),
-            }
+        match llm
+            .generate_domain_response(&system_prompt, user_message, domain)
+            .await
+        {
+            Ok(r) => return r,
+            Err(e) => return format!("[{}] LLM error: {}", sovereign_name, e),
         }
     }
     drop(dynamic);
@@ -4368,14 +5030,17 @@ async fn route_to_sovereign(
             }
             // Fallback: accept any new result 200ms before hard deadline
             if !new_results.is_empty()
-                && tokio::time::Instant::now()
-                    >= deadline - tokio::time::Duration::from_millis(200)
+                && tokio::time::Instant::now() >= deadline - tokio::time::Duration::from_millis(200)
             {
-                return new_results.last().map(|r| r.output.clone())
+                return new_results
+                    .last()
+                    .map(|r| r.output.clone())
                     .unwrap_or_default();
             }
         }
-        if tokio::time::Instant::now() >= deadline { break; }
+        if tokio::time::Instant::now() >= deadline {
+            break;
+        }
     }
     format!("[{}] Processing intent: '{}'", sovereign_name, user_message)
 }
@@ -4395,17 +5060,22 @@ fn now_ms_oai() -> u64 {
 async fn links_list(State(state): State<AppState>) -> impl IntoResponse {
     let links = state.links.read().await;
     let count = links.len();
-    let payload: Vec<_> = links.iter().map(|l| serde_json::json!({
-        "name":         l.name,
-        "type":         format!("{:?}", l.link_type).to_lowercase(),
-        "target_url":   l.target_url,
-        "enabled":      l.enabled,
-        "filter":       l.filter,
-        "deliveries_sent":   l.deliveries_sent,
-        "deliveries_failed": l.deliveries_failed,
-        "last_delivery_at":  l.last_delivery_at,
-        "last_status":       l.last_delivery_status,
-    })).collect();
+    let payload: Vec<_> = links
+        .iter()
+        .map(|l| {
+            serde_json::json!({
+                "name":         l.name,
+                "type":         format!("{:?}", l.link_type).to_lowercase(),
+                "target_url":   l.target_url,
+                "enabled":      l.enabled,
+                "filter":       l.filter,
+                "deliveries_sent":   l.deliveries_sent,
+                "deliveries_failed": l.deliveries_failed,
+                "last_delivery_at":  l.last_delivery_at,
+                "last_status":       l.last_delivery_status,
+            })
+        })
+        .collect();
     Json(serde_json::json!({
         "ok": true,
         "count": count,
@@ -4463,13 +5133,13 @@ async fn links_create(
     use crate::federation::links::{Link, LinkType};
 
     let link_type = match req.link_type.to_lowercase().as_str() {
-        "discord"  => LinkType::Discord,
-        "slack"    => LinkType::Slack,
-        "notion"   => LinkType::Notion,
-        "github"   => LinkType::GitHub,
+        "discord" => LinkType::Discord,
+        "slack" => LinkType::Slack,
+        "notion" => LinkType::Notion,
+        "github" => LinkType::GitHub,
         "vscode" | "vs_code" | "cursor" => LinkType::VsCode,
-        "custom"   => LinkType::Custom,
-        _          => LinkType::Webhook,
+        "custom" => LinkType::Custom,
+        _ => LinkType::Webhook,
     };
 
     let mut link = Link::new(&req.name, link_type, &req.target_url);
@@ -4477,7 +5147,9 @@ async fn links_create(
     link.notion_database_id = req.notion_database_id;
     link.github_repo = req.github_repo;
     link.filter = req.filter;
-    if let Some(enabled) = req.enabled { link.enabled = enabled; }
+    if let Some(enabled) = req.enabled {
+        link.enabled = enabled;
+    }
 
     let link_id = link.name.clone();
     let link_name = link.name.clone();
@@ -4498,22 +5170,20 @@ async fn links_create(
 }
 
 /// GET /links/:id
-async fn links_get(
-    State(state): State<AppState>,
-    Path(id): Path<String>,
-) -> impl IntoResponse {
+async fn links_get(State(state): State<AppState>, Path(id): Path<String>) -> impl IntoResponse {
     let links = state.links.read().await;
     match links.iter().find(|l| l.name == id) {
         Some(l) => Json(serde_json::json!({ "ok": true, "link": l })).into_response(),
-        None => (StatusCode::NOT_FOUND, Json(serde_json::json!({ "ok": false, "error": "Link not found" }))).into_response(),
+        None => (
+            StatusCode::NOT_FOUND,
+            Json(serde_json::json!({ "ok": false, "error": "Link not found" })),
+        )
+            .into_response(),
     }
 }
 
 /// DELETE /links/:id
-async fn links_delete(
-    State(state): State<AppState>,
-    Path(id): Path<String>,
-) -> impl IntoResponse {
+async fn links_delete(State(state): State<AppState>, Path(id): Path<String>) -> impl IntoResponse {
     let mut links = state.links.write().await;
     let before = links.len();
     links.retain(|l| l.name != id);
@@ -4524,7 +5194,11 @@ async fn links_delete(
         save_links_vec(&snapshot).await;
         Json(serde_json::json!({ "ok": true, "deleted": id })).into_response()
     } else {
-        (StatusCode::NOT_FOUND, Json(serde_json::json!({ "ok": false, "error": "Link not found" }))).into_response()
+        (
+            StatusCode::NOT_FOUND,
+            Json(serde_json::json!({ "ok": false, "error": "Link not found" })),
+        )
+            .into_response()
     }
 }
 
@@ -4545,10 +5219,16 @@ async fn links_update(
     let mut links = state.links.write().await;
     match links.iter_mut().find(|l| l.name == id) {
         Some(l) => {
-            if let Some(enabled) = req.enabled { l.enabled = enabled; }
-            if let Some(name) = req.name { l.name = name; }
+            if let Some(enabled) = req.enabled {
+                l.enabled = enabled;
+            }
+            if let Some(name) = req.name {
+                l.name = name;
+            }
             l.filter = req.filter;
-            if let Some(key) = req.api_key { l.api_key = Some(key); }
+            if let Some(key) = req.api_key {
+                l.api_key = Some(key);
+            }
             let snapshot = links.clone();
             drop(links);
             save_links_vec(&snapshot).await;
@@ -4556,15 +5236,25 @@ async fn links_update(
         }
         None => {
             drop(links);
-            (StatusCode::NOT_FOUND, Json(serde_json::json!({ "ok": false, "error": "Link not found" }))).into_response()
+            (
+                StatusCode::NOT_FOUND,
+                Json(serde_json::json!({ "ok": false, "error": "Link not found" })),
+            )
+                .into_response()
         }
     }
 }
 
-fn format_payload_pub(_link: &crate::federation::links::Link, _event: &serde_json::Value) -> String {
+fn format_payload_pub(
+    _link: &crate::federation::links::Link,
+    _event: &serde_json::Value,
+) -> String {
     serde_json::to_string(_event).unwrap_or_default()
 }
-async fn deliver_pub(_link: &crate::federation::links::Link, _payload: String) -> Result<String, String> {
+async fn deliver_pub(
+    _link: &crate::federation::links::Link,
+    _payload: String,
+) -> Result<String, String> {
     println!("[pub] delivering to {:?}: {}", _link.target_url, _payload);
     Ok("200 OK".to_string())
 }
@@ -4572,16 +5262,17 @@ async fn deliver_pub(_link: &crate::federation::links::Link, _payload: String) -
 /// POST /links/:id/test
 ///
 /// Send a test event to the link target to verify delivery works.
-async fn links_test(
-    State(state): State<AppState>,
-    Path(id): Path<String>,
-) -> impl IntoResponse {
+async fn links_test(State(state): State<AppState>, Path(id): Path<String>) -> impl IntoResponse {
     let links = state.links.read().await;
     let link = links.iter().find(|l| l.name == id).cloned();
     drop(links);
 
     match link {
-        None => (StatusCode::NOT_FOUND, Json(serde_json::json!({ "ok": false, "error": "Link not found" }))).into_response(),
+        None => (
+            StatusCode::NOT_FOUND,
+            Json(serde_json::json!({ "ok": false, "error": "Link not found" })),
+        )
+            .into_response(),
         Some(l) => {
             let test_event = serde_json::json!({
                 "type": "execution_complete",
@@ -4592,7 +5283,7 @@ async fn links_test(
                 "intent": "link_test",
             });
             // Re-use the dispatch logic via format_payload
-            
+
             let payload = format_payload_pub(&l, &test_event);
             let t = std::time::Instant::now();
             match deliver_pub(&l, payload).await {
@@ -4602,12 +5293,17 @@ async fn links_test(
                     "duration_ms": t.elapsed().as_millis(),
                     "link_name": l.name,
                     "target": l.target_url,
-                })).into_response(),
-                Err(e) => (StatusCode::BAD_GATEWAY, Json(serde_json::json!({
-                    "ok": false,
-                    "error": e.to_string(),
-                    "target": l.target_url,
-                }))).into_response(),
+                }))
+                .into_response(),
+                Err(e) => (
+                    StatusCode::BAD_GATEWAY,
+                    Json(serde_json::json!({
+                        "ok": false,
+                        "error": e.to_string(),
+                        "target": l.target_url,
+                    })),
+                )
+                    .into_response(),
             }
         }
     }
@@ -4626,8 +5322,7 @@ async fn wait_for_new_results(
     count_before: usize,
     timeout_ms: u64,
 ) -> Vec<String> {
-    let deadline = tokio::time::Instant::now()
-        + tokio::time::Duration::from_millis(timeout_ms);
+    let deadline = tokio::time::Instant::now() + tokio::time::Duration::from_millis(timeout_ms);
 
     // Early-exit strategy: once we have results and the count hasn't grown
     // for one additional tick, we consider the response complete.
@@ -4645,19 +5340,26 @@ async fn wait_for_new_results(
         } else if current_count > count_before {
             // Count is stable and we have results — exit after 1 stable tick
             stable_ticks += 1;
-            if stable_ticks >= 1 { break; }
+            if stable_ticks >= 1 {
+                break;
+            }
         }
 
-        if tokio::time::Instant::now() >= deadline { break; }
+        if tokio::time::Instant::now() >= deadline {
+            break;
+        }
     }
 
     // Return all results that arrived during the wait window
     let results = fed.results.lock().await;
-    let new: Vec<String> = results.iter()
+    let new: Vec<String> = results
+        .iter()
         .skip(count_before)
         .map(|r| {
             // Use sovereign display name (e.g. "Hermes") not persistence key ("Omnipresent")
-            let display_name = r.specialist_name.as_deref()
+            let display_name = r
+                .specialist_name
+                .as_deref()
                 .unwrap_or_else(|| r.specialist.sovereign_name());
             let domain = if r.specialist.is_core() {
                 r.specialist.domain().chars().take(40).collect::<String>()
@@ -4675,10 +5377,16 @@ async fn wait_for_new_results(
 
     if new.is_empty() {
         // Fallback: return the single most recent result if available
-        results.last().map(|r| {
-            let name = r.specialist_name.as_deref().unwrap_or_else(|| r.specialist.sovereign_name());
-            vec![format!("## {}\n\n{}", name, r.output)]
-        }).unwrap_or_default()
+        results
+            .last()
+            .map(|r| {
+                let name = r
+                    .specialist_name
+                    .as_deref()
+                    .unwrap_or_else(|| r.specialist.sovereign_name());
+                vec![format!("## {}\n\n{}", name, r.output)]
+            })
+            .unwrap_or_default()
     } else {
         new
     }
@@ -4699,14 +5407,16 @@ pub async fn omni_constellation(
     use crate::federation::dna::omni::OmniArchiver;
     use std::path::PathBuf;
 
-    let model_name = query.model.unwrap_or_else(|| "foundation_v1.gguf".to_string());
-    
+    let model_name = query
+        .model
+        .unwrap_or_else(|| "foundation_v1.gguf".to_string());
+
     // Check known paths for the model
     let mut model_path = workspace_models_dir().join(&model_name);
     if !model_path.exists() {
         model_path = PathBuf::from(format!("./models/{}", model_name));
     }
-    
+
     if !model_path.exists() {
         return axum::Json(serde_json::json!({
             "ok": false,
@@ -4715,23 +5425,17 @@ pub async fn omni_constellation(
     }
 
     match OmniArchiver::extract_from_gguf(&model_path) {
-        Ok(Some(constellation)) => {
-            axum::Json(serde_json::json!({
-                "ok": true,
-                "constellation": constellation
-            }))
-        }
-        Ok(None) => {
-            axum::Json(serde_json::json!({
-                "ok": false,
-                "error": "No Omni Constellation metadata found in this GGUF model."
-            }))
-        }
-        Err(e) => {
-            axum::Json(serde_json::json!({
-                "ok": false,
-                "error": format!("Error extracting Omni metadata: {}", e)
-            }))
-        }
+        Ok(Some(constellation)) => axum::Json(serde_json::json!({
+            "ok": true,
+            "constellation": constellation
+        })),
+        Ok(None) => axum::Json(serde_json::json!({
+            "ok": false,
+            "error": "No Omni Constellation metadata found in this GGUF model."
+        })),
+        Err(e) => axum::Json(serde_json::json!({
+            "ok": false,
+            "error": format!("Error extracting Omni metadata: {}", e)
+        })),
     }
 }

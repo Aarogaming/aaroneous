@@ -3,10 +3,8 @@
 /// Lorentz clock synchronization, Minkowski spacetime metrics,
 /// geodesic curvature for hotspot navigation, and light-cone
 /// causality enforcement.
-
 // ── 1. Lorentz Clock Transformation ──────────────────────────────────
 // Async clock counters for multi-speed processing loops.
-
 #[repr(C)]
 #[derive(Debug, Clone)]
 pub struct LorentzClock {
@@ -19,8 +17,18 @@ pub struct LorentzClock {
 
 impl LorentzClock {
     pub fn new(local_rate: f64, ref_rate: f64) -> Self {
-        let gamma = if ref_rate > 0.0 { local_rate / ref_rate } else { 1.0 };
-        LorentzClock { local_rate, ref_rate, local_ticks: 0, ref_ticks: 0, gamma }
+        let gamma = if ref_rate > 0.0 {
+            local_rate / ref_rate
+        } else {
+            1.0
+        };
+        LorentzClock {
+            local_rate,
+            ref_rate,
+            local_ticks: 0,
+            ref_ticks: 0,
+            gamma,
+        }
     }
 
     /// Advance local tick; returns dilated reference tick equivalent.
@@ -39,8 +47,12 @@ impl LorentzClock {
         local_dt
     }
 
-    pub fn local_elapsed(&self) -> f64 { self.local_ticks as f64 / self.local_rate }
-    pub fn ref_elapsed(&self) -> f64 { self.ref_ticks as f64 / self.ref_rate }
+    pub fn local_elapsed(&self) -> f64 {
+        self.local_ticks as f64 / self.local_rate
+    }
+    pub fn ref_elapsed(&self) -> f64 {
+        self.ref_ticks as f64 / self.ref_rate
+    }
 }
 
 // ── 2. Minkowski Space Vector Metrics ────────────────────────────────
@@ -61,7 +73,9 @@ pub struct MinkowskiMetric {
 }
 
 impl MinkowskiMetric {
-    pub fn new(c: f64) -> Self { MinkowskiMetric { c } }
+    pub fn new(c: f64) -> Self {
+        MinkowskiMetric { c }
+    }
 
     /// Squared spacetime interval between two events.
     /// s² > 0  → space-like (disconnected)
@@ -99,7 +113,10 @@ pub struct GeodesicField {
 
 impl GeodesicField {
     pub fn new(dimensions: usize) -> Self {
-        GeodesicField { curvature: vec![0.0; dimensions * dimensions], dimensions }
+        GeodesicField {
+            curvature: vec![0.0; dimensions * dimensions],
+            dimensions,
+        }
     }
 
     /// Set curvature component at (i, j).
@@ -161,13 +178,19 @@ pub struct LightConeCausality {
 
 impl LightConeCausality {
     pub fn new(c: f64) -> Self {
-        LightConeCausality { metric: MinkowskiMetric::new(c), events: Vec::new() }
+        LightConeCausality {
+            metric: MinkowskiMetric::new(c),
+            events: Vec::new(),
+        }
     }
 
     /// Register a dependency: action `dependent` requires `prerequisite`
     /// to lie in its past light cone.
     pub fn add_dependency(&mut self, bits: u64, event: SpacetimeEvent) {
-        self.events.push(CausalMask { bits, spacetime: event });
+        self.events.push(CausalMask {
+            bits,
+            spacetime: event,
+        });
     }
 
     /// Check if all prerequisites for `bits` are satisfied given a trigger event.
@@ -226,8 +249,18 @@ mod tests {
     #[test]
     fn test_minkowski_timelike() {
         let metric = MinkowskiMetric::new(1.0);
-        let a = SpacetimeEvent { x: 0.0, y: 0.0, z: 0.0, t: 0.0 };
-        let b = SpacetimeEvent { x: 1.0, y: 0.0, z: 0.0, t: 2.0 }; // Δt=2, Δx=1 → 1-4=-3
+        let a = SpacetimeEvent {
+            x: 0.0,
+            y: 0.0,
+            z: 0.0,
+            t: 0.0,
+        };
+        let b = SpacetimeEvent {
+            x: 1.0,
+            y: 0.0,
+            z: 0.0,
+            t: 2.0,
+        }; // Δt=2, Δx=1 → 1-4=-3
         assert!(metric.is_timelike(&a, &b));
         assert!(!metric.is_spacelike(&a, &b));
     }
@@ -235,16 +268,36 @@ mod tests {
     #[test]
     fn test_minkowski_spacelike() {
         let metric = MinkowskiMetric::new(1.0);
-        let a = SpacetimeEvent { x: 0.0, y: 0.0, z: 0.0, t: 0.0 };
-        let b = SpacetimeEvent { x: 10.0, y: 0.0, z: 0.0, t: 1.0 }; // Δt=1, Δx=10 → 100-1=99
+        let a = SpacetimeEvent {
+            x: 0.0,
+            y: 0.0,
+            z: 0.0,
+            t: 0.0,
+        };
+        let b = SpacetimeEvent {
+            x: 10.0,
+            y: 0.0,
+            z: 0.0,
+            t: 1.0,
+        }; // Δt=1, Δx=10 → 100-1=99
         assert!(metric.is_spacelike(&a, &b));
     }
 
     #[test]
     fn test_minkowski_lightlike() {
         let metric = MinkowskiMetric::new(1.0);
-        let a = SpacetimeEvent { x: 0.0, y: 0.0, z: 0.0, t: 0.0 };
-        let b = SpacetimeEvent { x: 3.0, y: 0.0, z: 0.0, t: 3.0 }; // Δx=3, Δt=3 → 9-9=0
+        let a = SpacetimeEvent {
+            x: 0.0,
+            y: 0.0,
+            z: 0.0,
+            t: 0.0,
+        };
+        let b = SpacetimeEvent {
+            x: 3.0,
+            y: 0.0,
+            z: 0.0,
+            t: 3.0,
+        }; // Δx=3, Δt=3 → 9-9=0
         assert!(metric.is_lightlike(&a, &b));
     }
 
@@ -272,36 +325,76 @@ mod tests {
     #[test]
     fn test_lightcone_can_fire_past() {
         let mut lc = LightConeCausality::new(1.0);
-        let dep = SpacetimeEvent { x: 0.0, y: 0.0, z: 0.0, t: 1.0 };
+        let dep = SpacetimeEvent {
+            x: 0.0,
+            y: 0.0,
+            z: 0.0,
+            t: 1.0,
+        };
         lc.add_dependency(0b0001, dep);
-        let trigger = SpacetimeEvent { x: 0.5, y: 0.0, z: 0.0, t: 3.0 };
+        let trigger = SpacetimeEvent {
+            x: 0.5,
+            y: 0.0,
+            z: 0.0,
+            t: 3.0,
+        };
         assert!(lc.can_fire(0b0001, &trigger));
     }
 
     #[test]
     fn test_lightcone_blocked_future() {
         let mut lc = LightConeCausality::new(1.0);
-        let dep = SpacetimeEvent { x: 0.0, y: 0.0, z: 0.0, t: 10.0 };
+        let dep = SpacetimeEvent {
+            x: 0.0,
+            y: 0.0,
+            z: 0.0,
+            t: 10.0,
+        };
         lc.add_dependency(0b0001, dep);
-        let trigger = SpacetimeEvent { x: 0.0, y: 0.0, z: 0.0, t: 3.0 };
+        let trigger = SpacetimeEvent {
+            x: 0.0,
+            y: 0.0,
+            z: 0.0,
+            t: 3.0,
+        };
         assert!(!lc.can_fire(0b0001, &trigger));
     }
 
     #[test]
     fn test_lightcone_blocked_spacelike() {
         let mut lc = LightConeCausality::new(1.0);
-        let dep = SpacetimeEvent { x: 0.0, y: 0.0, z: 0.0, t: 1.0 };
+        let dep = SpacetimeEvent {
+            x: 0.0,
+            y: 0.0,
+            z: 0.0,
+            t: 1.0,
+        };
         lc.add_dependency(0b0001, dep);
-        let trigger = SpacetimeEvent { x: 100.0, y: 0.0, z: 0.0, t: 2.0 };
+        let trigger = SpacetimeEvent {
+            x: 100.0,
+            y: 0.0,
+            z: 0.0,
+            t: 2.0,
+        };
         assert!(!lc.can_fire(0b0001, &trigger));
     }
 
     #[test]
     fn test_lightcone_unrelated_bits() {
         let mut lc = LightConeCausality::new(1.0);
-        let dep = SpacetimeEvent { x: 0.0, y: 0.0, z: 0.0, t: 1.0 };
+        let dep = SpacetimeEvent {
+            x: 0.0,
+            y: 0.0,
+            z: 0.0,
+            t: 1.0,
+        };
         lc.add_dependency(0b0010, dep);
-        let trigger = SpacetimeEvent { x: 0.0, y: 0.0, z: 0.0, t: 2.0 };
+        let trigger = SpacetimeEvent {
+            x: 0.0,
+            y: 0.0,
+            z: 0.0,
+            t: 2.0,
+        };
         // Action bits 0b0001 don't require dependency 0b0010
         assert!(lc.can_fire(0b0001, &trigger));
     }

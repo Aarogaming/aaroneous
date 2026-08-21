@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::pin::Pin;
 use std::future::Future;
+use std::pin::Pin;
 
 /// Result of capability execution
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -37,7 +37,11 @@ pub enum ExecutionStatus {
 
 impl CapabilityResult {
     /// Create successful result
-    pub fn success(request_id: impl Into<String>, data: serde_json::Value, latency_ms: u32) -> Self {
+    pub fn success(
+        request_id: impl Into<String>,
+        data: serde_json::Value,
+        latency_ms: u32,
+    ) -> Self {
         Self {
             request_id: request_id.into(),
             status: ExecutionStatus::Success,
@@ -72,7 +76,9 @@ impl CapabilityResult {
 
 /// Capability handler function type
 pub type CapabilityHandler = Box<
-    dyn Fn(serde_json::Value) -> Pin<Box<dyn Future<Output = Result<serde_json::Value, String>> + Send>>
+    dyn Fn(
+            serde_json::Value,
+        ) -> Pin<Box<dyn Future<Output = Result<serde_json::Value, String>> + Send>>
         + Send
         + Sync,
 >;
@@ -111,7 +117,11 @@ pub struct Capability {
 
 impl Capability {
     /// Create new capability
-    pub fn new(domain: impl Into<String>, method: impl Into<String>, description: impl Into<String>) -> Self {
+    pub fn new(
+        domain: impl Into<String>,
+        method: impl Into<String>,
+        description: impl Into<String>,
+    ) -> Self {
         let domain = domain.into();
         let method = method.into();
         let id = format!("{}.{}", domain, method);
@@ -231,14 +241,17 @@ mod tests {
 
         assert_eq!(cap.version, "2.0.0");
         assert!(cap.is_mutating);
-        assert!(cap.required_permissions.contains(&"write:metrics".to_string()));
+        assert!(
+            cap.required_permissions
+                .contains(&"write:metrics".to_string())
+        );
     }
 
     #[test]
     fn test_capability_domain() {
         let mut domain = CapabilityDomain::new("federation", "Federation operations");
         let cap = Capability::new("federation", "healthcheck", "Check health");
-        
+
         domain.register(cap);
         assert_eq!(domain.list().len(), 1);
         assert!(domain.get("federation.healthcheck").is_some());

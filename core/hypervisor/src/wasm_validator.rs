@@ -1,11 +1,10 @@
+use anyhow::Result;
 /// WASM Module Validator — validates WASM binary modules for integrity and conformance.
 ///
 /// Checks magic bytes, version, section structure, imports/exports,
 /// and basic sanity of WASM modules before loading them into the hypervisor.
-
 use std::path::Path;
-use anyhow::{Result, bail};
-use tracing::{info, warn};
+use tracing::info;
 
 /// WASM magic bytes
 const WASM_MAGIC: &[u8; 4] = b"\0asm";
@@ -96,7 +95,9 @@ pub fn validate_wasm_bytes(data: &[u8], name: &str) -> Result<WasmValidation> {
     // Check minimum size
     if data.len() < 8 {
         validation.valid = false;
-        validation.errors.push(format!("File too small: {} bytes (minimum 8)", data.len()));
+        validation
+            .errors
+            .push(format!("File too small: {} bytes (minimum 8)", data.len()));
         return Ok(validation);
     }
 
@@ -115,7 +116,10 @@ pub fn validate_wasm_bytes(data: &[u8], name: &str) -> Result<WasmValidation> {
     validation.version = version;
     if version != WASM_VERSION {
         validation.valid = false;
-        validation.errors.push(format!("Unsupported WASM version: {} (expected {})", version, WASM_VERSION));
+        validation.errors.push(format!(
+            "Unsupported WASM version: {} (expected {})",
+            version, WASM_VERSION
+        ));
         return Ok(validation);
     }
 
@@ -133,7 +137,9 @@ pub fn validate_wasm_bytes(data: &[u8], name: &str) -> Result<WasmValidation> {
         let (size, new_offset) = match read_leb128(data, offset) {
             Some(v) => v,
             None => {
-                validation.warnings.push(format!("Truncated section at offset {}", offset));
+                validation
+                    .warnings
+                    .push(format!("Truncated section at offset {}", offset));
                 break;
             }
         };
@@ -180,32 +186,51 @@ pub fn validate_wasm_bytes(data: &[u8], name: &str) -> Result<WasmValidation> {
     }
 
     // Check for required sections
-    let has_type = validation.sections.iter().any(|(s, _)| *s == WasmSection::Type);
-    let has_function = validation.sections.iter().any(|(s, _)| *s == WasmSection::Function);
-    let has_code = validation.sections.iter().any(|(s, _)| *s == WasmSection::Code);
+    let has_type = validation
+        .sections
+        .iter()
+        .any(|(s, _)| *s == WasmSection::Type);
+    let has_function = validation
+        .sections
+        .iter()
+        .any(|(s, _)| *s == WasmSection::Function);
+    let has_code = validation
+        .sections
+        .iter()
+        .any(|(s, _)| *s == WasmSection::Code);
 
     if !has_type {
         validation.warnings.push("Missing Type section".to_string());
     }
     if !has_function {
-        validation.warnings.push("Missing Function section".to_string());
+        validation
+            .warnings
+            .push("Missing Function section".to_string());
     }
     if !has_code && validation.function_count > 0 {
-        validation.warnings.push("Has functions but no Code section".to_string());
+        validation
+            .warnings
+            .push("Has functions but no Code section".to_string());
     }
 
     // Check export count
     if validation.export_count == 0 {
-        validation.warnings.push("No exports — module may not be usable".to_string());
+        validation
+            .warnings
+            .push("No exports — module may not be usable".to_string());
     }
 
     // Check for WASI imports
     let has_wasi = validation.import_count > 0; // Simplified check
     if has_wasi {
-        info!("  Module has {} imports (may include WASI)", validation.import_count);
+        info!(
+            "  Module has {} imports (may include WASI)",
+            validation.import_count
+        );
     }
 
-    info!("  Validation complete: {} (sections={}, imports={}, exports={}, functions={})",
+    info!(
+        "  Validation complete: {} (sections={}, imports={}, exports={}, functions={})",
         if validation.valid { "VALID" } else { "INVALID" },
         validation.sections.len(),
         validation.import_count,

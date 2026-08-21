@@ -1,5 +1,5 @@
 /// Omnipresent Specialist: P2P Sync & Multi-Device Coordination
-/// 
+///
 /// Omnipresent is the connectivity hub of the hive. It:
 /// - Syncs Intent across all devices (phone, tablet, desktop, AR)
 /// - Manages peer-to-peer mesh networking via Iroh
@@ -7,11 +7,10 @@
 /// - Adapts Intent for device size/capabilities
 /// - Detects new devices and initiates sync
 /// - Proposes sync when devices drift
-/// 
+///
 /// Size: 1GB GGUF model
 /// Portable: 800MB stripped version for mobile
 /// Domain: P2P / Multi-Device Coordination
-
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, VecDeque};
@@ -19,12 +18,12 @@ use std::sync::Arc;
 // parking_lot::Mutex - see Visionary for the rationale.
 use parking_lot::Mutex;
 
-use crate::federation::specialist::{
-    Specialist, SpecialistId, SpecialistContext, SpecialistError, ProposedAction,
-    Decision, DelegateRequest, DelegateResponse, Conflict, NegotiationResult,
-    ResourceRequest, ProposalPriority, ExecutionResult, ExecutionStatus, SpecialistCapability,
-};
 use crate::federation::p2p::{P2pNode, P2pNodeId};
+use crate::federation::specialist::{
+    Conflict, Decision, DelegateRequest, DelegateResponse, ExecutionResult, ExecutionStatus,
+    NegotiationResult, ProposalPriority, ProposedAction, ResourceRequest, Specialist,
+    SpecialistCapability, SpecialistContext, SpecialistError, SpecialistId,
+};
 
 /// ALPN identifier for Aaroneous Intent sync protocol
 pub const AARONEOUS_SYNC_ALPN: &[u8] = b"aaroneous/sync/v1";
@@ -41,6 +40,12 @@ pub struct OmnipresentLearningData {
     pub confidence_trend: Vec<(u64, f32)>,
 }
 
+impl Default for OmnipresentLearningData {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl OmnipresentLearningData {
     pub fn new() -> Self {
         Self {
@@ -55,15 +60,22 @@ impl OmnipresentLearningData {
     }
 
     pub fn record_result(&mut self, success: bool) {
-        if success { self.success_count += 1; } else { self.failure_count += 1; }
+        if success {
+            self.success_count += 1;
+        } else {
+            self.failure_count += 1;
+        }
         self.total_executions += 1;
 
         self.execution_history.push(success);
-        if self.execution_history.len() > 20 { self.execution_history.remove(0); }
+        if self.execution_history.len() > 20 {
+            self.execution_history.remove(0);
+        }
 
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or_default().as_secs();
+            .unwrap_or_default()
+            .as_secs();
 
         // Time decay toward neutral, then EMA update
         if self.last_updated > 0 && now > self.last_updated {
@@ -76,7 +88,9 @@ impl OmnipresentLearningData {
         self.last_updated = now;
 
         self.confidence_trend.push((now, self.confidence_score));
-        if self.confidence_trend.len() > 100 { self.confidence_trend.remove(0); }
+        if self.confidence_trend.len() > 100 {
+            self.confidence_trend.remove(0);
+        }
     }
 
     pub fn get_proposal_confidence(&self) -> f32 {
@@ -278,14 +292,15 @@ impl Omnipresent {
                     if !msg.payload.is_empty() {
                         // Try to deserialize as a typed Intent first; fall back
                         // to storing as a raw-string Intent if not deserializable.
-                        state.cached_intent = crate::federation::intent::Intent::from_sync_payload(&msg.payload)
-                            .ok()
-                            .or_else(|| {
-                                // Legacy: payload is a raw UTF-8 string
-                                String::from_utf8(msg.payload.clone()).ok().map(|s| {
-                                    crate::federation::intent::Intent::new(s)
-                                })
-                            });
+                        state.cached_intent =
+                            crate::federation::intent::Intent::from_sync_payload(&msg.payload)
+                                .ok()
+                                .or_else(|| {
+                                    // Legacy: payload is a raw UTF-8 string
+                                    String::from_utf8(msg.payload.clone())
+                                        .ok()
+                                        .map(crate::federation::intent::Intent::new)
+                                });
                         state.cache_timestamp = msg.timestamp;
                     }
                     state.sync_history.push(format!(
@@ -297,14 +312,18 @@ impl Omnipresent {
                     state.sync_history.push(format!("hb:from-{}", msg.from));
                 }
                 SyncMessageKind::ConflictDetected => {
-                    state.sync_history.push(format!("conflict:from-{}", msg.from));
+                    state
+                        .sync_history
+                        .push(format!("conflict:from-{}", msg.from));
                 }
                 SyncMessageKind::SyncRequest => {
                     state.sync_history.push(format!("req:from-{}", msg.from));
                 }
                 _ => {
                     // StateSync, Request, Response — unused variants, log and skip
-                    state.sync_history.push(format!("unhandled:{:?}:from-{}", msg.kind, msg.from));
+                    state
+                        .sync_history
+                        .push(format!("unhandled:{:?}:from-{}", msg.kind, msg.from));
                 }
             }
             while state.sync_history.len() > 1000 {
@@ -340,46 +359,38 @@ impl Omnipresent {
                         crate::federation::intent::Intent::from_sync_payload(&msg.payload)
                             .ok()
                             .or_else(|| {
-                                String::from_utf8(msg.payload.clone()).ok()
-                                    .map(|s| crate::federation::intent::Intent::new(s))
+                                String::from_utf8(msg.payload.clone())
+                                    .ok()
+                                    .map(crate::federation::intent::Intent::new)
                             });
                     self.sync_state.cache_timestamp = msg.timestamp;
                 }
                 self.sync_history.push(format!(
                     "sync:{:?}:from-{}:version-{}",
-                    msg.kind,
-                    msg.from,
-                    msg.intent_version
+                    msg.kind, msg.from, msg.intent_version
                 ));
             }
             SyncMessageKind::Heartbeat => {
                 // Heartbeat: update last-seen timestamp for the device
-                self.sync_history.push(format!(
-                    "heartbeat:from-{}",
-                    msg.from
-                ));
+                self.sync_history
+                    .push(format!("heartbeat:from-{}", msg.from));
             }
             SyncMessageKind::ConflictDetected => {
                 let conflict_note = format!(
                     "conflict-detected:from-{}:version-{}",
-                    msg.from,
-                    msg.intent_version
+                    msg.from, msg.intent_version
                 );
                 self.sync_history.push(conflict_note);
             }
             SyncMessageKind::SyncRequest => {
                 // Peer is requesting our state - note it; actual reply
                 // is handled by the network layer in production.
-                self.sync_history.push(format!(
-                    "sync-request-from-{}",
-                    msg.from
-                ));
+                self.sync_history
+                    .push(format!("sync-request-from-{}", msg.from));
             }
             _ => {
-                self.sync_history.push(format!(
-                    "unhandled:{:?}:from-{}",
-                    msg.kind, msg.from
-                ));
+                self.sync_history
+                    .push(format!("unhandled:{:?}:from-{}", msg.kind, msg.from));
             }
         }
 
@@ -433,7 +444,10 @@ impl Omnipresent {
         };
         let snapshot = crate::federation::learn_persist::LearningSnapshot::from_record(&record)?;
         let mut learning = self.learning.lock();
-        crate::federation::learn_persist::PersistableLearning::restore_from(&mut *learning, snapshot);
+        crate::federation::learn_persist::PersistableLearning::restore_from(
+            &mut *learning,
+            snapshot,
+        );
         Ok(true)
     }
 
@@ -465,18 +479,16 @@ impl Omnipresent {
 
     /// Get this node's P2P endpoint ID (if P2P is attached)
     pub fn p2p_endpoint_id(&self) -> Option<P2pNodeId> {
-        self.p2p_node.as_ref().map(|n| P2pNodeId(crate::federation::p2p::P2pNode::endpoint_id(n).to_string()))
+        self.p2p_node
+            .as_ref()
+            .map(|n| P2pNodeId(crate::federation::p2p::P2pNode::endpoint_id(n).to_string()))
     }
 
     /// Register a device with an associated P2P endpoint ID
     ///
     /// This binds a logical device to a P2P node so future sync operations
     /// can address it by `device.id` while the P2P layer uses the endpoint ID.
-    pub fn register_device_with_endpoint(
-        &mut self,
-        device: Device,
-        endpoint_id: P2pNodeId,
-    ) {
+    pub fn register_device_with_endpoint(&mut self, device: Device, endpoint_id: P2pNodeId) {
         let device_id = device.id.clone();
         self.devices.insert(device_id.clone(), device);
         self.device_endpoints.insert(device_id, endpoint_id);
@@ -503,9 +515,12 @@ impl Omnipresent {
         };
 
         let payload_len = intent_payload.len();
-        let msg: crate::federation::p2p::SyncMessage = crate::federation::p2p::SyncMessage::full_state(intent_payload);
-        let node_ref: &crate::federation::p2p::P2pNode = &**node;
-        let to = crate::federation::p2p::P2pNodeId(crate::federation::p2p::P2pNode::endpoint_id(node).to_string());
+        let msg: crate::federation::p2p::SyncMessage =
+            crate::federation::p2p::SyncMessage::full_state(intent_payload);
+        let node_ref: &crate::federation::p2p::P2pNode = node;
+        let to = crate::federation::p2p::P2pNodeId(
+            crate::federation::p2p::P2pNode::endpoint_id(node).to_string(),
+        );
         crate::federation::p2p::P2pNode::send(node_ref, to, msg).await?;
         Ok(payload_len)
     }
@@ -528,8 +543,9 @@ impl Omnipresent {
         }
 
         let n = endpoints.len();
-        let msg: crate::federation::p2p::SyncMessage = crate::federation::p2p::SyncMessage::full_state(intent_payload);
-        let node_ref: &crate::federation::p2p::P2pNode = &**node;
+        let msg: crate::federation::p2p::SyncMessage =
+            crate::federation::p2p::SyncMessage::full_state(intent_payload);
+        let node_ref: &crate::federation::p2p::P2pNode = node;
         crate::federation::p2p::P2pNode::broadcast(node_ref, msg).await;
         Ok(n)
     }
@@ -545,8 +561,9 @@ impl Omnipresent {
             return Ok(0);
         }
 
-        let msg: crate::federation::p2p::SyncMessage = crate::federation::p2p::SyncMessage::heartbeat();
-        let node_ref: &crate::federation::p2p::P2pNode = &**node;
+        let msg: crate::federation::p2p::SyncMessage =
+            crate::federation::p2p::SyncMessage::heartbeat();
+        let node_ref: &crate::federation::p2p::P2pNode = node;
         crate::federation::p2p::P2pNode::broadcast(node_ref, msg).await;
         Ok(endpoints.len())
     }
@@ -643,7 +660,10 @@ impl Specialist for Omnipresent {
 
     /// Propose syncing when devices drift, have conflicts, pending P2P messages,
     /// or when the active intent involves multi-device/spatial/sync scenarios.
-    async fn propose(&self, context: &SpecialistContext) -> Result<Vec<ProposedAction>, SpecialistError> {
+    async fn propose(
+        &self,
+        context: &SpecialistContext,
+    ) -> Result<Vec<ProposedAction>, SpecialistError> {
         let drifted = self.detect_devices_drift();
         let conflicts = self.detect_sync_conflicts();
         let pending_messages = self.sync_inbox.lock().len();
@@ -724,7 +744,9 @@ impl Specialist for Omnipresent {
 
         // Build the intent payload to broadcast: JSON-encode the decision
         // context so remote devices receive the full intent + metadata.
-        let intent_str = decision.context.get("intent")
+        let intent_str = decision
+            .context
+            .get("intent")
             .cloned()
             .unwrap_or_else(|| decision.action.clone());
         // Clone before moving into payload closure
@@ -789,7 +811,10 @@ impl Specialist for Omnipresent {
     }
 
     /// Delegate Intent adaptation to device-specific handlers
-    async fn delegate(&self, request: &DelegateRequest) -> Result<DelegateResponse, SpecialistError> {
+    async fn delegate(
+        &self,
+        request: &DelegateRequest,
+    ) -> Result<DelegateResponse, SpecialistError> {
         Ok(DelegateResponse {
             requester: request.requester,
             target: request.target,
@@ -1062,7 +1087,10 @@ mod tests {
 
         assert!(omnipresent.has_p2p());
         let endpoint = omnipresent.p2p_endpoint_id();
-        assert!(endpoint.is_some(), "endpoint id should be present after attaching p2p");
+        assert!(
+            endpoint.is_some(),
+            "endpoint id should be present after attaching p2p"
+        );
     }
 
     #[tokio::test]
@@ -1103,10 +1131,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_sync_to_unknown_device_errors() {
-        let omnipresent = Omnipresent::new()
-            .with_p2p()
-            .await
-            .expect("p2p spawn");
+        let omnipresent = Omnipresent::new().with_p2p().await.expect("p2p spawn");
 
         let result = omnipresent
             .sync_to_device("unknown-device", 1, vec![1, 2, 3])
@@ -1120,10 +1145,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_broadcast_intent_with_no_devices_returns_zero() {
-        let omnipresent = Omnipresent::new()
-            .with_p2p()
-            .await
-            .expect("p2p spawn");
+        let omnipresent = Omnipresent::new().with_p2p().await.expect("p2p spawn");
 
         let n = omnipresent
             .broadcast_intent(1, vec![1, 2, 3])
@@ -1145,12 +1167,12 @@ mod tests {
 
     #[tokio::test]
     async fn test_heartbeat_all_with_no_devices() {
-        let omnipresent = Omnipresent::new()
-            .with_p2p()
-            .await
-            .expect("p2p spawn");
+        let omnipresent = Omnipresent::new().with_p2p().await.expect("p2p spawn");
 
-        let n = omnipresent.heartbeat_all().await.expect("heartbeat should succeed");
+        let n = omnipresent
+            .heartbeat_all()
+            .await
+            .expect("heartbeat should succeed");
         assert_eq!(n, 0);
     }
 
@@ -1220,7 +1242,7 @@ mod tests {
         assert!(!proposals_drift.is_empty());
         // Conflicts → high base confidence but still UserFacing (conflicts.is_empty() is false)
 
-        // Scenario 2: >2 inbox messages alone → UserFacing  
+        // Scenario 2: >2 inbox messages alone → UserFacing
         let omni_inbox = Omnipresent::new();
         for _ in 0..3 {
             let msg = crate::federation::p2p::SyncMessage::heartbeat();

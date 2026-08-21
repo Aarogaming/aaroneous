@@ -6,11 +6,10 @@
 
 #[cfg(test)]
 mod tests {
-    use super::super::router::{router, AppState, StatusEnvelope};
+    use super::super::router::{AppState, GenerationJobStatus, StatusEnvelope, router};
     use crate::federation::hive::{Federation, SpecialistLearningSummary};
-    use crate::federation::specialist::{
-        Decision, ResourceRequest, Specialist, SpecialistId,
-    };
+    use crate::federation::links::{Link, LinkType};
+    use crate::federation::specialist::{Decision, ResourceRequest, Specialist, SpecialistId};
     use crate::rate_limit::{TokenBucketConfig, TokenBucketLimiter};
     use axum::body::Body;
     use axum::http::{Request, StatusCode};
@@ -21,31 +20,25 @@ mod tests {
 
     fn fresh_federation_with_all() -> Arc<Federation> {
         Arc::new(
-            Federation::builder(
-                crate::persistence::PersistenceManager::new(":memory:").unwrap(),
-            )
-            .with_all()
-            .build(),
+            Federation::builder(crate::persistence::PersistenceManager::new(":memory:").unwrap())
+                .with_all()
+                .build(),
         )
     }
 
     fn fresh_federation_partial() -> Arc<Federation> {
         Arc::new(
-            Federation::builder(
-                crate::persistence::PersistenceManager::new(":memory:").unwrap(),
-            )
-            .with_visionary()
-            .with_archivist()
-            .build(),
+            Federation::builder(crate::persistence::PersistenceManager::new(":memory:").unwrap())
+                .with_visionary()
+                .with_archivist()
+                .build(),
         )
     }
 
     fn empty_federation() -> Arc<Federation> {
         Arc::new(
-            Federation::builder(
-                crate::persistence::PersistenceManager::new(":memory:").unwrap(),
-            )
-            .build(),
+            Federation::builder(crate::persistence::PersistenceManager::new(":memory:").unwrap())
+                .build(),
         )
     }
 
@@ -63,11 +56,11 @@ mod tests {
     /// Helper: send a GET request through the router and return (status, body bytes).
     async fn get(fed: Arc<Federation>, path: &str) -> (StatusCode, Vec<u8>) {
         let app = router(AppState::new(fed));
-        let req = Request::builder()
-            .uri(path)
-            .body(Body::empty())
-            .unwrap();
-        let response = app.oneshot(req).await.expect("router oneshot should succeed");
+        let req = Request::builder().uri(path).body(Body::empty()).unwrap();
+        let response = app
+            .oneshot(req)
+            .await
+            .expect("router oneshot should succeed");
         let status = response.status();
         let body = response
             .into_body()
@@ -89,6 +82,106 @@ mod tests {
         let (status, body) = get(fed, "/healthz").await;
         assert_eq!(status, StatusCode::OK);
         assert_eq!(&body[..], b"ok");
+    }
+
+    #[tokio::test]
+    async fn test_healthz_sets_x_request_id_header() {
+        let fed = fresh_federation_with_all();
+        let app = router(AppState::new(fed));
+        let req = Request::builder()
+            .uri("/healthz")
+            .body(Body::empty())
+            .unwrap();
+        let response = app
+            .oneshot(req)
+            .await
+            .expect("router oneshot should succeed");
+        let request_id = response
+            .headers()
+            .get("x-request-id")
+            .and_then(|v| v.to_str().ok())
+            .expect("x-request-id header");
+        assert!(!request_id.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_healthz_preserves_client_x_request_id_header() {
+        let fed = fresh_federation_with_all();
+        let app = router(AppState::new(fed));
+        let req = Request::builder()
+            .uri("/healthz")
+            .header("x-request-id", "client-request-123")
+            .body(Body::empty())
+            .unwrap();
+        let response = app
+            .oneshot(req)
+            .await
+            .expect("router oneshot should succeed");
+        let request_id = response
+            .headers()
+            .get("x-request-id")
+            .and_then(|v| v.to_str().ok())
+            .expect("x-request-id header");
+        assert_eq!(request_id, "client-request-123");
+    }
+
+    #[tokio::test]
+    async fn test_admin_drain_rejects_new_requests() {
+        let fed = fresh_federation_with_all();
+        let app = router(AppState::new(fed));
+
+        let drain_req = Request::builder()
+            .method("POST")
+            .uri("/v1/admin/drain")
+            .body(Body::empty())
+            .unwrap();
+        let drain_resp = app.clone().oneshot(drain_req).await.expect("drain request");
+        assert_eq!(drain_resp.status(), StatusCode::OK);
+
+        let status_req = Request::builder()
+            .uri("/status")
+            .body(Body::empty())
+            .unwrap();
+        let status_resp = app.oneshot(status_req).await.expect("status request");
+        assert_eq!(status_resp.status(), StatusCode::SERVICE_UNAVAILABLE);
+    }
+
+    #[tokio::test]
+    async fn test_cargo_state_round_trip_persists_jobs_links_and_vault() {
+        let fed = fresh_federation_with_all();
+        let temp_path = std::env::temp_dir().join(format!(
+            "aaroneous_cargo_state_{}.json",
+            uuid::Uuid::new_v4()
+        ));
+
+        let state = AppState::new_with_state_path(fed.clone(), temp_path.clone());
+        let initial_links_len = state.links.read().await.len();
+        state
+            .generation_jobs
+            .lock()
+            .await
+            .insert("job-1".to_string(), GenerationJobStatus::Running);
+        state.links.write().await.push(Link::new(
+            "test-link",
+            LinkType::Webhook,
+            "https://example.com/hook",
+        ));
+        state
+            .vault
+            .write()
+            .await
+            .insert("tensor-a".to_string(), vec![1.0, 2.0, 3.0]);
+
+        state.persist_cargo_state_to(&temp_path).await;
+
+        let loaded = AppState::new_with_state_path(fed.clone(), temp_path.clone());
+        let jobs = loaded.generation_jobs.lock().await;
+        assert!(jobs.contains_key("job-1"));
+        drop(jobs);
+        assert!(loaded.links.read().await.len() > initial_links_len);
+        assert_eq!(loaded.vault.read().await.status().total_vault_entries, 1);
+
+        let _ = std::fs::remove_file(&temp_path);
     }
 
     #[tokio::test]
@@ -168,7 +261,8 @@ mod tests {
 
         // Train Visionary 3 times
         for i in 0..3 {
-            fed.visionary().unwrap()
+            fed.visionary()
+                .unwrap()
                 .execute(&make_decision(SpecialistId::Visionary, i))
                 .await
                 .unwrap();
@@ -269,7 +363,11 @@ mod tests {
         let mut response = Vec::new();
         stream.read_to_end(&mut response).await.unwrap();
         let response_str = String::from_utf8_lossy(&response);
-        assert!(response_str.starts_with("HTTP/1.1 200"), "response: {}", response_str);
+        assert!(
+            response_str.starts_with("HTTP/1.1 200"),
+            "response: {}",
+            response_str
+        );
         assert!(response_str.contains("ok"), "body should contain ok");
 
         // Graceful shutdown
@@ -318,8 +416,7 @@ mod tests {
         let fed = fresh_federation_with_all();
         let state = AppState::new(fed.clone());
         let body = serde_json::json!({ "model": "ariel", "messages": [] });
-        let (status, _, body_bytes) =
-            post_json(state.clone(), "/v1/chat/completions", &body).await;
+        let (status, _, body_bytes) = post_json(state.clone(), "/v1/chat/completions", &body).await;
         assert_eq!(status, StatusCode::BAD_REQUEST);
         let s = String::from_utf8_lossy(&body_bytes);
         assert!(s.contains("messages"), "got: {s}");
@@ -335,8 +432,7 @@ mod tests {
             "model": long_model,
             "messages": [{"role": "user", "content": "hi"}],
         });
-        let (status, _, body_bytes) =
-            post_json(state.clone(), "/v1/chat/completions", &body).await;
+        let (status, _, body_bytes) = post_json(state.clone(), "/v1/chat/completions", &body).await;
         assert_eq!(status, StatusCode::BAD_REQUEST);
         let s = String::from_utf8_lossy(&body_bytes);
         assert!(s.contains("model"), "got: {s}");
@@ -351,8 +447,7 @@ mod tests {
             "model": "ariel",
             "messages": [{"role": "us\ter", "content": "hi"}],
         });
-        let (status, _, _) =
-            post_json(state.clone(), "/v1/chat/completions", &body).await;
+        let (status, _, _) = post_json(state.clone(), "/v1/chat/completions", &body).await;
         assert_eq!(status, StatusCode::BAD_REQUEST);
     }
 
@@ -363,8 +458,7 @@ mod tests {
         // 64KB exceeds the 32KB cap.
         let big = "x".repeat(64 * 1024);
         let body = serde_json::json!({ "content": big });
-        let (status, _, body_bytes) =
-            post_json(state.clone(), "/intent", &body).await;
+        let (status, _, body_bytes) = post_json(state.clone(), "/intent", &body).await;
         assert_eq!(status, StatusCode::BAD_REQUEST);
         let s = String::from_utf8_lossy(&body_bytes);
         assert!(s.contains("content"), "got: {s}");
@@ -375,8 +469,7 @@ mod tests {
         let fed = fresh_federation_with_all();
         let state = AppState::new(fed.clone());
         let body = serde_json::json!({ "user_name": "" });
-        let (status, _, body_bytes) =
-            post_json(state.clone(), "/sessions", &body).await;
+        let (status, _, body_bytes) = post_json(state.clone(), "/sessions", &body).await;
         assert_eq!(status, StatusCode::BAD_REQUEST);
         let s = String::from_utf8_lossy(&body_bytes);
         assert!(s.contains("user_name"), "got: {s}");
@@ -392,8 +485,7 @@ mod tests {
             "model": "ariel",
             "prompt": big,
         });
-        let (status, _, body_bytes) =
-            post_json(state.clone(), "/v1/completions", &body).await;
+        let (status, _, body_bytes) = post_json(state.clone(), "/v1/completions", &body).await;
         assert_eq!(status, StatusCode::BAD_REQUEST);
         let s = String::from_utf8_lossy(&body_bytes);
         assert!(s.contains("prompt"), "got: {s}");
@@ -521,7 +613,15 @@ mod tests {
         let (s, _, _) = get_with(state.clone(), "/status", None).await;
         assert_eq!(s, StatusCode::OK);
         // Bypass endpoints stay open forever.
-        for path in &["/healthz", "/readyz", "/health", "/live", "/metrics", "/version", "/v1/models"] {
+        for path in &[
+            "/healthz",
+            "/readyz",
+            "/health",
+            "/live",
+            "/metrics",
+            "/version",
+            "/v1/models",
+        ] {
             for _ in 0..20 {
                 let (status, _, _) = get_with(state.clone(), path, None).await;
                 assert!(
@@ -531,7 +631,8 @@ mod tests {
                     "bypass path {path} returned {status}"
                 );
                 assert!(
-                    !status.is_success() || status == StatusCode::OK
+                    !status.is_success()
+                        || status == StatusCode::OK
                         || status == StatusCode::SERVICE_UNAVAILABLE
                         || status == StatusCode::NOT_FOUND,
                     "bypass path {path} returned {status}"
@@ -575,10 +676,7 @@ mod tests {
             refill_per_second: 0.0,
             idle_eviction: None,
         }));
-        state.route_limits = vec![(
-            "/v1/chat/completions".to_string(),
-            chat_limiter.clone(),
-        )];
+        state.route_limits = vec![("/v1/chat/completions".to_string(), chat_limiter.clone())];
 
         // Drain the chat bucket. We POST with a malformed
         // body so the handler returns 4xx quickly (no LLM
@@ -646,8 +744,7 @@ mod tests {
         let state = AppState::new(fed.clone());
         let (status, _, body) = get_with(state.clone(), "/metrics/breakers", None).await;
         assert_eq!(status, StatusCode::OK);
-        let v: serde_json::Value =
-            serde_json::from_slice(&body).expect("valid JSON");
+        let v: serde_json::Value = serde_json::from_slice(&body).expect("valid JSON");
         assert!(v.get("count").is_some());
         assert!(v.get("breakers").is_some());
         assert!(v["breakers"].is_array());
@@ -671,9 +768,7 @@ mod tests {
         async fn one_call(addr: std::net::SocketAddr) -> (u16, Option<String>) {
             let mut stream = tokio::net::TcpStream::connect(addr).await.unwrap();
             stream
-                .write_all(
-                    b"GET /status HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n",
-                )
+                .write_all(b"GET /status HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n")
                 .await
                 .unwrap();
             let mut response = Vec::new();
@@ -707,7 +802,10 @@ mod tests {
                 other => panic!("unexpected status: {other}"),
             }
         }
-        assert!(saw_429, "expected at least one 429 in 25 calls under burst=20");
+        assert!(
+            saw_429,
+            "expected at least one 429 in 25 calls under burst=20"
+        );
         assert!(saw_retry_after, "429 response should include Retry-After");
 
         server.shutdown().await.expect("shutdown");

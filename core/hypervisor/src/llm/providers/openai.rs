@@ -2,7 +2,7 @@
 // Integration with OpenAI API (GPT-4, GPT-3.5, etc.)
 
 use crate::llm::types::*;
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use tracing::{debug, info, warn};
@@ -41,8 +41,8 @@ struct OpenAIResponse {
 
 #[derive(Debug, Deserialize)]
 struct Usage {
-    prompt_tokens: u32,
-    completion_tokens: u32,
+    _prompt_tokens: u32,
+    _completion_tokens: u32,
     total_tokens: u32,
 }
 
@@ -89,18 +89,14 @@ impl OpenAIProvider {
             .header("Authorization", format!("Bearer {}", self.api_key))
             .json(&request)
             .send();
-        let response = match tokio::time::timeout(
-            std::time::Duration::from_secs(60),
-            send_fut,
-        )
-        .await
-        {
-            Ok(Ok(r)) => r,
-            Ok(Err(e)) => return Err(anyhow::Error::from(e)),
-            Err(_) => {
-                return Err(anyhow!("OpenAI API request timed out after 60s"));
-            }
-        };
+        let response =
+            match tokio::time::timeout(std::time::Duration::from_secs(60), send_fut).await {
+                Ok(Ok(r)) => r,
+                Ok(Err(e)) => return Err(anyhow::Error::from(e)),
+                Err(_) => {
+                    return Err(anyhow!("OpenAI API request timed out after 60s"));
+                }
+            };
 
         if !response.status().is_success() {
             let error_text = response.text().await?;
@@ -196,7 +192,10 @@ Response must be valid JSON array only.
                 .map(|s| format!("{} L{}", s.name, s.level))
                 .collect::<Vec<_>>()
                 .join(", "),
-            goal = specialist.current_goal.as_ref().unwrap_or(&"None".to_string())
+            goal = specialist
+                .current_goal
+                .as_ref()
+                .unwrap_or(&"None".to_string())
         )
     }
 }
@@ -395,8 +394,12 @@ Respond ONLY with valid JSON matching:
         let json_str = if let Some(s) = response.find('{') {
             if let Some(e) = response.rfind('}') {
                 &response[s..=e]
-            } else { &response }
-        } else { &response };
+            } else {
+                &response
+            }
+        } else {
+            &response
+        };
 
         let generation: DesignGeneration = serde_json::from_str(json_str)?;
         Ok(generation)
@@ -415,7 +418,7 @@ Respond ONLY with valid JSON matching:
                 Message {
                     role: "user".to_string(),
                     content: user_message.to_string(),
-                }
+                },
             ],
             temperature: self.temperature,
             max_tokens: self.max_tokens,
@@ -447,42 +450,47 @@ Respond ONLY with valid JSON matching:
 
     async fn embed(&self, text: &str) -> Result<Vec<f32>> {
         let client = reqwest::Client::new();
-        
+
         #[derive(Serialize)]
         struct EmbedRequest {
             input: String,
             model: String,
         }
-        
+
         #[derive(Deserialize)]
         struct EmbedResponse {
             data: Vec<EmbedData>,
         }
-        
+
         #[derive(Deserialize)]
         struct EmbedData {
             embedding: Vec<f32>,
         }
-        
+
         let req = EmbedRequest {
             input: text.to_string(),
             model: "text-embedding-3-small".to_string(),
         };
-        
+
         let response = client
             .post("https://api.openai.com/v1/embeddings")
             .header("Authorization", format!("Bearer {}", self.api_key))
             .json(&req)
             .send()
             .await?;
-            
+
         if !response.status().is_success() {
             let error_text = response.text().await?;
             return Err(anyhow!("OpenAI API error: {}", error_text));
         }
-        
+
         let data: EmbedResponse = response.json().await?;
-        Ok(data.data.into_iter().next().map(|d| d.embedding).unwrap_or_default())
+        Ok(data
+            .data
+            .into_iter()
+            .next()
+            .map(|d| d.embedding)
+            .unwrap_or_default())
     }
 }
 

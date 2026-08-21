@@ -1,0 +1,28 @@
+[package]
+name = "compute"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+aaroneous_paths = { path = "../paths" }
+nervous_system = { path = "../nervous_system" }
+rand = "0.8"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+num-traits = "0.2"
+candle-core = "0.8"
+candle-nn = "0.8"
+tracing = "0.1"
+rkyv = { version = "0.7", features = ["validation"] }
+anyhow = "1.0"
+burn-wgpu = "0.21.0"
+memmap2 = "0.9"
+rustfft = "6.2"
+statrs = "0.17"
+
+[dev-dependencies]
+tempfile = "3.8"
+
+[features]
+simd = []
+wasm = []

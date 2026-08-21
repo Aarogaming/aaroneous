@@ -3,10 +3,8 @@
 /// Items 18–23 of Phase 6 Expansion: Byzantine consensus, Zipfian cache,
 /// Braess optimizer, Little's law backpressure, Anna Karenina watchdog,
 /// asymmetric hash verification.
-
 // ── 18. Byzantine Consensus Gate ───────────────────────────────────────
 // Fault-tolerant agreement among N replicas; tolerate f faulty.
-
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct ByzantineProposal {
@@ -26,14 +24,23 @@ pub struct ByzantineConsensusGate {
 impl ByzantineConsensusGate {
     pub fn new(nodes: usize) -> Self {
         let faulty_max = (nodes - 1) / 3; // tolerate up to n/3 faulty
-        ByzantineConsensusGate { nodes, faulty_max, proposals: Vec::new(), commits: Vec::new() }
+        ByzantineConsensusGate {
+            nodes,
+            faulty_max,
+            proposals: Vec::new(),
+            commits: Vec::new(),
+        }
     }
 
     /// Submit a proposal; returns true if quorum (2f+1) reached.
     pub fn submit(&mut self, proposal: ByzantineProposal) -> bool {
         self.proposals.push(proposal);
-        let count = self.proposals.iter().filter(|p| p.value == proposal.value).count();
-        if count >= 2 * self.faulty_max + 1 {
+        let count = self
+            .proposals
+            .iter()
+            .filter(|p| p.value == proposal.value)
+            .count();
+        if count > 2 * self.faulty_max {
             if !self.commits.contains(&proposal.value) {
                 self.commits.push(proposal.value);
             }
@@ -43,7 +50,9 @@ impl ByzantineConsensusGate {
         }
     }
 
-    pub fn committed_count(&self) -> usize { self.commits.len() }
+    pub fn committed_count(&self) -> usize {
+        self.commits.len()
+    }
 }
 
 // ── 19. Zipfian L3 Cache Split ────────────────────────────────────────
@@ -66,13 +75,24 @@ impl ZipfianCacheSplit {
         let w = (total as f32 * warm) as usize;
         let c = total.saturating_sub(h + w);
         ZipfianCacheSplit {
-            total_slots: total, hot_ratio: hot, warm_ratio: warm, cold_ratio: cold,
-            hot_slots: h, warm_slots: w, cold_slots: c,
+            total_slots: total,
+            hot_ratio: hot,
+            warm_ratio: warm,
+            cold_ratio: cold,
+            hot_slots: h,
+            warm_slots: w,
+            cold_slots: c,
         }
     }
 
     pub fn assign_tier(&self, frequency: u64) -> &'static str {
-        if frequency > 100 { "hot" } else if frequency > 10 { "warm" } else { "cold" }
+        if frequency > 100 {
+            "hot"
+        } else if frequency > 10 {
+            "warm"
+        } else {
+            "cold"
+        }
     }
 }
 
@@ -93,11 +113,24 @@ pub struct BraessPath {
     pub load: f32,
 }
 
+impl Default for BraessPathOptimizer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl BraessPathOptimizer {
-    pub fn new() -> Self { BraessPathOptimizer { paths: Vec::new() } }
+    pub fn new() -> Self {
+        BraessPathOptimizer { paths: Vec::new() }
+    }
 
     pub fn add_path(&mut self, id: usize, latency: f32, capacity: f32) {
-        self.paths.push(BraessPath { id, base_latency: latency, capacity, load: 0.0 });
+        self.paths.push(BraessPath {
+            id,
+            base_latency: latency,
+            capacity,
+            load: 0.0,
+        });
     }
 
     /// Compute effective latency with Braess penalty: latency * (1 + load/capacity).
@@ -145,7 +178,13 @@ pub struct LittlesLawBackpressure {
 
 impl LittlesLawBackpressure {
     pub fn new(max_queue: f32) -> Self {
-        LittlesLawBackpressure { arrival_rate: 0.0, avg_wait_time: 0.0, max_queue, current_queue: 0.0, dropped: 0 }
+        LittlesLawBackpressure {
+            arrival_rate: 0.0,
+            avg_wait_time: 0.0,
+            max_queue,
+            current_queue: 0.0,
+            dropped: 0,
+        }
     }
 
     /// Update with measured arrival rate and wait time; returns drop probability.
@@ -197,21 +236,32 @@ pub struct AnnaKareninaWatchdog {
 
 impl AnnaKareninaWatchdog {
     pub fn new(threshold: usize, window: u64) -> Self {
-        AnnaKareninaWatchdog { events: Vec::new(), cascade_threshold: threshold, window_ticks: window }
+        AnnaKareninaWatchdog {
+            events: Vec::new(),
+            cascade_threshold: threshold,
+            window_ticks: window,
+        }
     }
 
     pub fn report_failure(&mut self, component: u64, code: u32, now: u64) {
-        self.events.push(FailureEvent { component_id: component, error_code: code, timestamp: now });
+        self.events.push(FailureEvent {
+            component_id: component,
+            error_code: code,
+            timestamp: now,
+        });
     }
 
     /// Check if a cascade is in progress: many distinct errors in window.
     pub fn is_cascade(&self, now: u64) -> bool {
-        let recent: Vec<_> = self.events.iter()
+        let recent: Vec<_> = self
+            .events
+            .iter()
             .filter(|e| now - e.timestamp <= self.window_ticks)
             .collect();
         if recent.len() >= self.cascade_threshold {
             // "Each unhappy family is unhappy in its own way" — check diversity
-            let distinct_errors: std::collections::HashSet<_> = recent.iter().map(|e| e.error_code).collect();
+            let distinct_errors: std::collections::HashSet<_> =
+                recent.iter().map(|e| e.error_code).collect();
             distinct_errors.len() >= self.cascade_threshold / 2
         } else {
             false
@@ -231,7 +281,10 @@ pub struct AsymmetricHashVerification {
 impl AsymmetricHashVerification {
     pub fn new(data: &[u8], work: u32) -> Self {
         let digest = simple_hash(data);
-        AsymmetricHashVerification { digest, work_factor: work }
+        AsymmetricHashVerification {
+            digest,
+            work_factor: work,
+        }
     }
 
     /// Verify a proof: must provide a nonce such that hash(data || nonce)
@@ -246,12 +299,7 @@ impl AsymmetricHashVerification {
 
     /// Forge: find a nonce that satisfies the work factor (O(2^n) brute force).
     pub fn forge(&self, data: &[u8]) -> Option<u64> {
-        for nonce in 0..(1u64 << self.work_factor).max(1_000_000) {
-            if self.verify(data, nonce) {
-                return Some(nonce);
-            }
-        }
-        None
+        (0..(1u64 << self.work_factor).max(1_000_000)).find(|&nonce| self.verify(data, nonce))
     }
 }
 
@@ -259,7 +307,9 @@ fn simple_hash(data: &[u8]) -> [u8; 32] {
     use std::collections::hash_map::DefaultHasher;
     use std::hash::Hasher;
     let mut h = DefaultHasher::new();
-    for &b in data { h.write_u8(b); }
+    for &b in data {
+        h.write_u8(b);
+    }
     let v = h.finish();
     let mut digest = [0u8; 32];
     digest[..8].copy_from_slice(&v.to_le_bytes());
@@ -288,7 +338,11 @@ mod tests {
     fn test_byzantine_quorum() {
         let mut gate = ByzantineConsensusGate::new(7); // f=2, quorum=5
         for i in 0..5 {
-            let committed = gate.submit(ByzantineProposal { proposer: i, value: 42, round: 1 });
+            let committed = gate.submit(ByzantineProposal {
+                proposer: i,
+                value: 42,
+                round: 1,
+            });
             if i < 4 {
                 assert!(!committed, "round {} should not commit yet", i);
             } else {

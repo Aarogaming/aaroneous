@@ -2,7 +2,6 @@
 ///
 /// These types are used regardless of whether the `ar-openxr` feature is
 /// enabled, so the Phygital specialist has a stable API.
-
 use serde::{Deserialize, Serialize};
 
 /// Errors that can occur during AR/VR operations

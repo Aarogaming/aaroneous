@@ -1,6 +1,6 @@
-﻿use serde::{Deserialize, Serialize};
+use crate::unified_registry::{EntryMeta, Registry, RegistryConfig};
+use serde::{Deserialize, Serialize};
 use std::path::Path;
-use crate::unified_registry::{Registry, RegistryConfig, EntryMeta, EntryHealth};
 
 pub const DEFAULT_LINKS_PATH: &str = "links_registry.json";
 
@@ -89,8 +89,7 @@ impl LinkRegistry {
     /// Add a link. The link's name is used as the key.
     pub fn add(&mut self, link: Link) -> Result<(), String> {
         let id = link.name.clone();
-        let meta = EntryMeta::new("1.0.0")
-            .with_tags(vec![format!("{:?}", link.link_type)]);
+        let meta = EntryMeta::new("1.0.0").with_tags(vec![format!("{:?}", link.link_type)]);
         self.inner.register(id, link, meta)
     }
 
@@ -106,21 +105,39 @@ impl LinkRegistry {
 
     /// Find links matching a filter.
     pub fn filter(&self, filter: &EventFilter) -> Vec<Link> {
-        self.inner.find(|e| {
-            filter.link_type.as_ref().map_or(true, |t| &e.data.link_type == t)
-                && filter.source.as_ref().map_or(true, |s| e.data.name == *s)
-                && filter.target.as_ref().map_or(true, |t| e.data.target_url == *t)
-        }).into_iter().map(|e| e.data.clone()).collect()
+        self.inner
+            .find(|e| {
+                filter
+                    .link_type
+                    .as_ref()
+                    .is_none_or(|t| &e.data.link_type == t)
+                    && filter.source.as_ref().is_none_or(|s| e.data.name == *s)
+                    && filter
+                        .target
+                        .as_ref()
+                        .is_none_or(|t| e.data.target_url == *t)
+            })
+            .into_iter()
+            .map(|e| e.data.clone())
+            .collect()
     }
 
     /// List all link names.
     pub fn list_names(&self) -> Vec<String> {
-        self.inner.list_ids().into_iter().map(String::from).collect()
+        self.inner
+            .list_ids()
+            .into_iter()
+            .map(String::from)
+            .collect()
     }
 
     /// List all links.
     pub fn list(&self) -> Vec<Link> {
-        self.inner.list().into_iter().map(|e| e.data.clone()).collect()
+        self.inner
+            .list()
+            .into_iter()
+            .map(|e| e.data.clone())
+            .collect()
     }
 
     /// Remove a link by name.
@@ -163,7 +180,10 @@ pub fn save_links(registry: &LinkRegistry) -> anyhow::Result<()> {
     registry.save()
 }
 
-pub async fn start_link_dispatcher(links: Vec<Link>, rx: tokio::sync::broadcast::Receiver<serde_json::Value>) {
+pub async fn start_link_dispatcher(
+    links: Vec<Link>,
+    rx: tokio::sync::broadcast::Receiver<serde_json::Value>,
+) {
     let _ = links;
     let _ = rx;
 }
@@ -186,8 +206,10 @@ mod tests {
     #[test]
     fn test_filter() {
         let mut reg = LinkRegistry::new();
-        reg.add(Link::new("gh", LinkType::GitHub, "https://github.com")).unwrap();
-        reg.add(Link::new("slack", LinkType::Slack, "https://slack.com")).unwrap();
+        reg.add(Link::new("gh", LinkType::GitHub, "https://github.com"))
+            .unwrap();
+        reg.add(Link::new("slack", LinkType::Slack, "https://slack.com"))
+            .unwrap();
 
         let gh_links = reg.filter(&EventFilter {
             link_type: Some(LinkType::GitHub),
@@ -200,7 +222,8 @@ mod tests {
     #[test]
     fn test_remove() {
         let mut reg = LinkRegistry::new();
-        reg.add(Link::new("test", LinkType::Custom, "https://test.com")).unwrap();
+        reg.add(Link::new("test", LinkType::Custom, "https://test.com"))
+            .unwrap();
         assert!(reg.remove("test"));
         assert_eq!(reg.len(), 0);
     }

@@ -6,13 +6,12 @@
 ///
 /// References:
 /// - https://www.bluetooth.com/specifications/assigned-numbers/
-
 use uuid::Uuid;
 
 /// Construct a 128-bit UUID from a 16-bit short ID per the BT SIG base UUID
 /// `0000XXXX-0000-1000-8000-00805f9b34fb`
 const fn from_u16(short: u16) -> Uuid {
-    Uuid::from_u128(0x0000_0000_0000_1000_8000_00805f9b34fbu128 | ((short as u128) << 96))
+    Uuid::from_u128(0x0000_0000_0000_1000_8000_0080_5f9b_34fb_u128 | ((short as u128) << 96))
 }
 
 /// Standard BLE GATT services and characteristics
@@ -181,10 +180,7 @@ impl HeartRateData {
             .map(|&r| (r as f64) * 1000.0 / 1024.0)
             .collect();
 
-        let sum_sq_diff: f64 = rr_ms
-            .windows(2)
-            .map(|w| (w[1] - w[0]).powi(2))
-            .sum();
+        let sum_sq_diff: f64 = rr_ms.windows(2).map(|w| (w[1] - w[0]).powi(2)).sum();
 
         let n = (rr_ms.len() - 1) as f64;
         Some((sum_sq_diff / n).sqrt())

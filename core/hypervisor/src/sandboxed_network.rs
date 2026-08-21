@@ -1,6 +1,6 @@
+use crate::substrate::NetworkDataStream;
 use seahash::SeaHasher;
 use std::hash::Hasher;
-use crate::substrate::NetworkDataStream;
 
 /// Configuration for the sandboxed network telemetry link.
 pub struct SandboxedNetworkConfig {
@@ -88,7 +88,8 @@ impl SandboxedNetworkProcessor {
                 self.reference_vsa[i] ^= chunk_hash;
             }
             // Also digest into the stream (updates bytes_received, fuses into vsa)
-            self.stream.digest_network_bytes(raw_web_data, &mut self.reference_vsa);
+            self.stream
+                .digest_network_bytes(raw_web_data, &mut self.reference_vsa);
             (true, similarity)
         }
     }

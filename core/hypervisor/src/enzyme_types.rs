@@ -19,6 +19,12 @@ pub struct CuriosityEnzyme {
     known_concepts: HashSet<String>,
 }
 
+impl Default for CuriosityEnzyme {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CuriosityEnzyme {
     pub fn new() -> Self {
         Self {
@@ -38,9 +44,9 @@ impl CuriosityEnzyme {
 
     pub fn identify_knowledge_gaps(&mut self, index: &SemanticIndex) -> Vec<String> {
         println!("[CuriosityEnzyme] Analyzing Semantic Index for structural gaps...");
-        
+
         let mut gaps = Vec::new();
-        
+
         if index.entries.is_empty() {
             if !self.known_concepts.contains("general intelligence") {
                 gaps.push("general intelligence and system self-awareness".to_string());
@@ -58,7 +64,11 @@ impl CuriosityEnzyme {
         for entry in &index.entries {
             let age_days = (now - entry.last_accessed).num_days();
             if age_days > 7 {
-                let subject = entry.metadata.get("subject").unwrap_or(&"unknown".to_string()).clone();
+                let subject = entry
+                    .metadata
+                    .get("subject")
+                    .unwrap_or(&"unknown".to_string())
+                    .clone();
                 let gap = format!("re-verify stale knowledge: {subject}");
                 if !self.known_concepts.contains(&gap) {
                     gaps.push(gap);
@@ -69,15 +79,21 @@ impl CuriosityEnzyme {
         gaps
     }
 
-    pub fn forecast_requirements(&self, active_plan: &Option<crate::executive_plan::ExecutivePlan>) -> Vec<String> {
+    pub fn forecast_requirements(
+        &self,
+        active_plan: &Option<crate::executive_plan::ExecutivePlan>,
+    ) -> Vec<String> {
         let mut forecast = Vec::new();
         if let Some(plan) = active_plan {
-            println!("[CuriosityEnzyme] Forecasting requirements for plan: {}", plan.goal);
-            
+            println!(
+                "[CuriosityEnzyme] Forecasting requirements for plan: {}",
+                plan.goal
+            );
+
             if plan.goal.to_lowercase().contains("wasm") {
                 forecast.push("WASM Component Model (WIT) specifications".to_string());
             }
-            
+
             if plan.steps.len() > 5 {
                 forecast.push("multi-agent coordination protocols".to_string());
             }
@@ -95,7 +111,7 @@ impl CuriosityEnzyme {
         } else {
             gaps[0].clone()
         };
-        
+
         let intent = format!("Synthesize lore to bridge identified gaps: {}", target);
         println!("[CuriosityEnzyme] Formulated hunger intent: {}", intent);
         Ok(intent)
@@ -109,6 +125,12 @@ impl CuriosityEnzyme {
 pub struct ResearchEnzyme {
     hypothesis_bank: Vec<String>,
     test_results: Vec<(String, bool)>,
+}
+
+impl Default for ResearchEnzyme {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl ResearchEnzyme {
@@ -126,7 +148,11 @@ impl ResearchEnzyme {
 
     pub fn validate_hypothesis(&mut self, hypothesis: &str, result: bool) {
         self.test_results.push((hypothesis.to_string(), result));
-        println!("[ResearchEnzyme] Hypothesis '{}' result: {}", hypothesis, if result { "✓" } else { "✗" });
+        println!(
+            "[ResearchEnzyme] Hypothesis '{}' result: {}",
+            hypothesis,
+            if result { "✓" } else { "✗" }
+        );
     }
 
     pub fn get_test_summary(&self) -> String {
@@ -138,9 +164,9 @@ impl ResearchEnzyme {
     pub fn analyze_patterns(&self) -> Vec<String> {
         let mut patterns = Vec::new();
         if self.test_results.len() >= 3 {
-            let success_rate = self.test_results.iter().filter(|(_, r)| *r).count() as f32 
+            let success_rate = self.test_results.iter().filter(|(_, r)| *r).count() as f32
                 / self.test_results.len() as f32;
-            
+
             if success_rate > 0.8 {
                 patterns.push("Strong pattern: High success rate detected".to_string());
             } else if success_rate < 0.3 {
@@ -160,6 +186,12 @@ pub struct ExecutionEnzyme {
     success_count: usize,
 }
 
+impl Default for ExecutionEnzyme {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ExecutionEnzyme {
     pub fn new() -> Self {
         Self {
@@ -171,7 +203,7 @@ impl ExecutionEnzyme {
     pub fn execute_task(&mut self, task: &str) -> Result<String> {
         self.execution_count += 1;
         println!("[ExecutionEnzyme] Executing task: {}", task);
-        
+
         let success = !task.contains("fail");
         if success {
             self.success_count += 1;
@@ -200,6 +232,12 @@ impl ExecutionEnzyme {
 
 pub struct DiplomatEnzyme {
     negotiation_log: Vec<String>,
+}
+
+impl Default for DiplomatEnzyme {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl DiplomatEnzyme {
@@ -235,7 +273,8 @@ impl DiplomatEnzyme {
     }
 
     pub fn get_successful_agreements(&self) -> usize {
-        self.negotiation_log.iter()
+        self.negotiation_log
+            .iter()
             .filter(|log| log.contains("accepted"))
             .count()
     }
@@ -262,6 +301,12 @@ impl DiplomatEnzyme {
 pub struct SelfCorrectionEnzyme {
     error_log: Vec<String>,
     corrections_applied: usize,
+}
+
+impl Default for SelfCorrectionEnzyme {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl SelfCorrectionEnzyme {
@@ -306,7 +351,10 @@ impl SelfCorrectionEnzyme {
         let mut patterns = Vec::new();
 
         if self.error_log.len() > 5 {
-            patterns.push(format!("Error trend: {} errors detected", self.error_log.len()));
+            patterns.push(format!(
+                "Error trend: {} errors detected",
+                self.error_log.len()
+            ));
         }
 
         if self.correction_effectiveness() > 0.8 {
@@ -344,27 +392,27 @@ mod enzyme_types_tests {
         println!("✓ ExecutionEnzyme available");
         println!("✓ DiplomatEnzyme available");
         println!("✓ SelfCorrectionEnzyme available");
-        
+
         let mut curiosity = CuriosityEnzyme::new();
         curiosity.add_concept("test".to_string());
         assert!(!curiosity.query_known_concepts().is_empty());
-        
+
         let mut research = ResearchEnzyme::new();
         research.propose_hypothesis("test hypothesis".to_string());
         assert_eq!(research.hypothesis_bank.len(), 1);
-        
+
         let mut execution = ExecutionEnzyme::new();
         let result = execution.execute_task("test");
         assert!(result.is_ok());
-        
+
         let mut diplomat = DiplomatEnzyme::new();
         diplomat.accept_terms("test terms");
         assert!(!diplomat.get_negotiation_history().is_empty());
-        
+
         let mut correction = SelfCorrectionEnzyme::new();
         correction.detect_error("test error");
         assert_eq!(correction.get_error_count(), 1);
-        
+
         println!("[RESULT] ✅ All enzyme types working correctly");
     }
 }

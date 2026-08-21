@@ -2,7 +2,7 @@
 // Standardized binary instruction set for Aaroneous WASM Enzymes.
 // Derived from legacy Fabricator AAS-IR protocol.
 
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 use std::convert::TryInto;
 
 #[repr(u16)]
@@ -22,8 +22,8 @@ pub enum OpCode {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Instruction {
     pub opcode: OpCode,
-    pub target: String,      // 32-byte fixed-width equivalent in binary
-    pub capability: String,  // 32-byte fixed-width equivalent in binary
+    pub target: String,     // 32-byte fixed-width equivalent in binary
+    pub capability: String, // 32-byte fixed-width equivalent in binary
     pub payload: Vec<u8>,
 }
 
@@ -41,30 +41,30 @@ impl Instruction {
     /// [OpCode: 2 bytes] [Target: 32 bytes] [Capability: 32 bytes] [PayloadLen: 4 bytes] [Payload: N bytes]
     pub fn to_binary(&self) -> Vec<u8> {
         let mut bin = Vec::with_capacity(70 + self.payload.len());
-        
+
         // OpCode (Little Endian)
         bin.extend_from_slice(&(self.opcode as u16).to_le_bytes());
-        
+
         // Target (Fixed 32 bytes)
         let mut target_bytes = [0u8; 32];
         let t_src = self.target.as_bytes();
         let t_len = t_src.len().min(32);
         target_bytes[..t_len].copy_from_slice(&t_src[..t_len]);
         bin.extend_from_slice(&target_bytes);
-        
+
         // Capability (Fixed 32 bytes)
         let mut cap_bytes = [0u8; 32];
         let c_src = self.capability.as_bytes();
         let c_len = c_src.len().min(32);
         cap_bytes[..c_len].copy_from_slice(&c_src[..c_len]);
         bin.extend_from_slice(&cap_bytes);
-        
+
         // Payload Length
         bin.extend_from_slice(&(self.payload.len() as u32).to_le_bytes());
-        
+
         // Payload
         bin.extend_from_slice(&self.payload);
-        
+
         bin
     }
 
@@ -73,7 +73,7 @@ impl Instruction {
         if data.len() < 70 {
             return Err("Data too short for AAS-IR header".to_string());
         }
-        
+
         let opcode_raw = u16::from_le_bytes(data[0..2].try_into().unwrap());
         let opcode = match opcode_raw {
             0 => OpCode::Nop,
@@ -87,17 +87,21 @@ impl Instruction {
             8 => OpCode::MetabolicUpdate,
             _ => return Err(format!("Unknown OpCode: 0x{:04X}", opcode_raw)),
         };
-        
-        let target = String::from_utf8_lossy(&data[2..34]).trim_matches('\0').to_string();
-        let capability = String::from_utf8_lossy(&data[34..66]).trim_matches('\0').to_string();
-        
+
+        let target = String::from_utf8_lossy(&data[2..34])
+            .trim_matches('\0')
+            .to_string();
+        let capability = String::from_utf8_lossy(&data[34..66])
+            .trim_matches('\0')
+            .to_string();
+
         let payload_len = u32::from_le_bytes(data[66..70].try_into().unwrap()) as usize;
         if data.len() < 70 + payload_len {
             return Err("Data too short for AAS-IR payload".to_string());
         }
-        
+
         let payload = data[70..70 + payload_len].to_vec();
-        
+
         Ok(Self {
             opcode,
             target,

@@ -1,10 +1,20 @@
-﻿use crate::federation::specialist::{SpecialistId, Conflict, SystemResources};
-use crate::federation::proposal::{Proposal, ProposalConflict, ConflictType, ConflictSeverity, ProposalSet};
+use crate::federation::proposal::{
+    ConflictSeverity, ConflictType, Proposal, ProposalConflict, ProposalSet,
+};
+use crate::federation::specialist::{Conflict, SpecialistId, SystemResources};
 
 pub struct ConflictDetector;
 
+impl Default for ConflictDetector {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ConflictDetector {
-    pub fn new() -> Self { Self }
+    pub fn new() -> Self {
+        Self
+    }
 
     pub fn detect(&self, _conflicts: &[Conflict]) -> Vec<(Proposal, Proposal)> {
         vec![]
@@ -44,7 +54,8 @@ impl ConflictDetector {
     }
 
     fn check_gpu_contention(p1: &Proposal, p2: &Proposal) -> Option<ProposalConflict> {
-        if p1.required_resources.gpu_percent > 0.0 && p2.required_resources.gpu_percent > 0.0
+        if p1.required_resources.gpu_percent > 0.0
+            && p2.required_resources.gpu_percent > 0.0
             && p1.required_resources.gpu_percent + p2.required_resources.gpu_percent > 100.0
         {
             Some(ProposalConflict {
@@ -61,7 +72,8 @@ impl ConflictDetector {
     }
 
     fn check_cpu_contention(p1: &Proposal, p2: &Proposal) -> Option<ProposalConflict> {
-        if p1.required_resources.cpu_percent > 0.0 && p2.required_resources.cpu_percent > 0.0
+        if p1.required_resources.cpu_percent > 0.0
+            && p2.required_resources.cpu_percent > 0.0
             && p1.required_resources.cpu_percent + p2.required_resources.cpu_percent > 100.0
         {
             Some(ProposalConflict {
@@ -107,7 +119,11 @@ impl ConflictDetector {
         }
     }
 
-    fn check_dependency_loop(p1: &Proposal, p2: &Proposal, set: &ProposalSet) -> Option<ProposalConflict> {
+    fn check_dependency_loop(
+        p1: &Proposal,
+        p2: &Proposal,
+        set: &ProposalSet,
+    ) -> Option<ProposalConflict> {
         let a_depends_on_b = p1.dependencies.contains(&p2.id);
         let b_depends_on_a = p2.dependencies.contains(&p1.id);
 
@@ -124,7 +140,8 @@ impl ConflictDetector {
 
         if a_depends_on_b {
             for transitive in &set.proposals {
-                if transitive.id != p1.id && transitive.id != p2.id
+                if transitive.id != p1.id
+                    && transitive.id != p2.id
                     && transitive.dependencies.contains(&p1.id)
                     && p2.dependencies.contains(&transitive.id)
                 {
@@ -150,8 +167,16 @@ impl ConflictDetector {
 
 pub struct ConflictArbitrator;
 
+impl Default for ConflictArbitrator {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ConflictArbitrator {
-    pub fn new() -> Self { Self }
+    pub fn new() -> Self {
+        Self
+    }
 
     pub fn arbitrate(&self, conflict: &Conflict) -> ConflictResolution {
         ConflictResolution {
@@ -162,16 +187,30 @@ impl ConflictArbitrator {
         }
     }
 
-    pub fn resolve(_conflict: &ProposalConflict, a: &Proposal, b: &Proposal, _resources: &SystemResources) -> ConflictResolution {
+    pub fn resolve(
+        _conflict: &ProposalConflict,
+        a: &Proposal,
+        b: &Proposal,
+        _resources: &SystemResources,
+    ) -> ConflictResolution {
         let (winner, loser) = if a.priority as u8 >= b.priority as u8 {
             (Some(a.specialist), Some(b.specialist))
         } else {
             (Some(b.specialist), Some(a.specialist))
         };
-        ConflictResolution { resolved: true, winner, loser, suggestion: None }
+        ConflictResolution {
+            resolved: true,
+            winner,
+            loser,
+            suggestion: None,
+        }
     }
 
-    pub fn resolve_with_resources(conflicts: &[ProposalConflict], proposals: &[Proposal], resources: &SystemResources) -> Vec<ConflictResolution> {
+    pub fn resolve_with_resources(
+        conflicts: &[ProposalConflict],
+        proposals: &[Proposal],
+        resources: &SystemResources,
+    ) -> Vec<ConflictResolution> {
         let mut resolutions = vec![];
 
         for conflict in conflicts {
@@ -196,17 +235,16 @@ impl ConflictArbitrator {
                         suggestion: None,
                     }
                 }
-                ConflictType::DependencyLoop => {
-                    ConflictResolution {
-                        resolved: true,
-                        winner: Some(conflict.specialist_a),
-                        loser: Some(conflict.specialist_b),
-                        suggestion: Some("Break circular dependency: run proposal A first, re-evaluate B".to_string()),
-                    }
-                }
-                ConflictType::PriorityMismatch => {
-                    Self::resolve(conflict, p1, p2, resources)
-                }
+                ConflictType::DependencyLoop => ConflictResolution {
+                    resolved: true,
+                    winner: Some(conflict.specialist_a),
+                    loser: Some(conflict.specialist_b),
+                    suggestion: Some(
+                        "Break circular dependency: run proposal A first, re-evaluate B"
+                            .to_string(),
+                    ),
+                },
+                ConflictType::PriorityMismatch => Self::resolve(conflict, p1, p2, resources),
             };
 
             resolutions.push(resolution);
@@ -215,7 +253,12 @@ impl ConflictArbitrator {
         resolutions
     }
 
-    fn resolve_resource_contention(p1: &Proposal, p2: &Proposal, resource: &str, resources: &SystemResources) -> ConflictResolution {
+    fn resolve_resource_contention(
+        p1: &Proposal,
+        p2: &Proposal,
+        resource: &str,
+        resources: &SystemResources,
+    ) -> ConflictResolution {
         let available = match resource {
             "GPU" => resources.gpu_available_percent,
             "CPU" => resources.cpu_available_percent,
@@ -242,7 +285,10 @@ impl ConflictArbitrator {
                 resolved: true,
                 winner: Some(p1.specialist),
                 loser: Some(p2.specialist),
-                suggestion: Some(format!("{:?} can proceed, {:?} deferred", p1.specialist, p2.specialist)),
+                suggestion: Some(format!(
+                    "{:?} can proceed, {:?} deferred",
+                    p1.specialist, p2.specialist
+                )),
             };
         }
 
@@ -251,7 +297,10 @@ impl ConflictArbitrator {
                 resolved: true,
                 winner: Some(p2.specialist),
                 loser: Some(p1.specialist),
-                suggestion: Some(format!("{:?} can proceed, {:?} deferred", p2.specialist, p1.specialist)),
+                suggestion: Some(format!(
+                    "{:?} can proceed, {:?} deferred",
+                    p2.specialist, p1.specialist
+                )),
             };
         }
 
@@ -260,14 +309,20 @@ impl ConflictArbitrator {
                 resolved: true,
                 winner: Some(p1.specialist),
                 loser: Some(p2.specialist),
-                suggestion: Some(format!("Priority-based: {:?} wins over {:?}", p1.specialist, p2.specialist)),
+                suggestion: Some(format!(
+                    "Priority-based: {:?} wins over {:?}",
+                    p1.specialist, p2.specialist
+                )),
             }
         } else {
             ConflictResolution {
                 resolved: true,
                 winner: Some(p2.specialist),
                 loser: Some(p1.specialist),
-                suggestion: Some(format!("Priority-based: {:?} wins over {:?}", p2.specialist, p1.specialist)),
+                suggestion: Some(format!(
+                    "Priority-based: {:?} wins over {:?}",
+                    p2.specialist, p1.specialist
+                )),
             }
         }
     }
@@ -300,9 +355,18 @@ impl ConflictResolution {
 mod tests {
     use super::*;
     use crate::federation::proposal::{Proposal, ProposalId};
-    use crate::federation::specialist::{SpecialistId, SystemResources, ResourceRequest, ProposalPriority};
+    use crate::federation::specialist::{
+        ProposalPriority, ResourceRequest, SpecialistId, SystemResources,
+    };
 
-    fn make_proposal(specialist: SpecialistId, action: &str, priority: ProposalPriority, gpu: f32, cpu: f32, mem: u32) -> Proposal {
+    fn make_proposal(
+        specialist: SpecialistId,
+        action: &str,
+        priority: ProposalPriority,
+        gpu: f32,
+        cpu: f32,
+        mem: u32,
+    ) -> Proposal {
         Proposal {
             id: ProposalId::new(),
             specialist,
@@ -328,8 +392,22 @@ mod tests {
 
     #[test]
     fn test_detect_gpu_contention() {
-        let a = make_proposal(SpecialistId::Visionary, "render", ProposalPriority::Normal, 70.0, 10.0, 100);
-        let b = make_proposal(SpecialistId::Phygital, "track", ProposalPriority::Normal, 60.0, 20.0, 200);
+        let a = make_proposal(
+            SpecialistId::Visionary,
+            "render",
+            ProposalPriority::Normal,
+            70.0,
+            10.0,
+            100,
+        );
+        let b = make_proposal(
+            SpecialistId::Phygital,
+            "track",
+            ProposalPriority::Normal,
+            60.0,
+            20.0,
+            200,
+        );
 
         let mut set = ProposalSet::new();
         set.add(a);
@@ -339,14 +417,30 @@ mod tests {
         let conflicts = detector.detect_from_set(&set);
 
         assert_eq!(conflicts.len(), 1);
-        assert!(matches!(conflicts[0].conflict_type, ConflictType::ResourceContention(ref r) if r == "GPU"));
+        assert!(
+            matches!(conflicts[0].conflict_type, ConflictType::ResourceContention(ref r) if r == "GPU")
+        );
         assert_eq!(conflicts[0].severity, ConflictSeverity::High);
     }
 
     #[test]
     fn test_detect_cpu_contention() {
-        let a = make_proposal(SpecialistId::Archivist, "digest", ProposalPriority::Normal, 0.0, 80.0, 100);
-        let b = make_proposal(SpecialistId::Symbiotic, "poll", ProposalPriority::Normal, 0.0, 50.0, 50);
+        let a = make_proposal(
+            SpecialistId::Archivist,
+            "digest",
+            ProposalPriority::Normal,
+            0.0,
+            80.0,
+            100,
+        );
+        let b = make_proposal(
+            SpecialistId::Symbiotic,
+            "poll",
+            ProposalPriority::Normal,
+            0.0,
+            50.0,
+            50,
+        );
 
         let mut set = ProposalSet::new();
         set.add(a);
@@ -355,14 +449,30 @@ mod tests {
         let conflicts = ConflictDetector::new().detect_from_set(&set);
 
         assert_eq!(conflicts.len(), 1);
-        assert!(matches!(conflicts[0].conflict_type, ConflictType::ResourceContention(ref r) if r == "CPU"));
+        assert!(
+            matches!(conflicts[0].conflict_type, ConflictType::ResourceContention(ref r) if r == "CPU")
+        );
         assert_eq!(conflicts[0].severity, ConflictSeverity::Medium);
     }
 
     #[test]
     fn test_detect_duplicate_action() {
-        let a = make_proposal(SpecialistId::Visionary, "backup", ProposalPriority::Normal, 0.0, 10.0, 50);
-        let b = make_proposal(SpecialistId::Archivist, "backup", ProposalPriority::Normal, 0.0, 10.0, 50);
+        let a = make_proposal(
+            SpecialistId::Visionary,
+            "backup",
+            ProposalPriority::Normal,
+            0.0,
+            10.0,
+            50,
+        );
+        let b = make_proposal(
+            SpecialistId::Archivist,
+            "backup",
+            ProposalPriority::Normal,
+            0.0,
+            10.0,
+            50,
+        );
 
         let mut set = ProposalSet::new();
         set.add(a);
@@ -370,14 +480,30 @@ mod tests {
 
         let conflicts = ConflictDetector::new().detect_from_set(&set);
 
-        let dup = conflicts.iter().find(|c| matches!(c.conflict_type, ConflictType::DuplicateAction));
+        let dup = conflicts
+            .iter()
+            .find(|c| matches!(c.conflict_type, ConflictType::DuplicateAction));
         assert!(dup.is_some(), "should detect duplicate action conflict");
     }
 
     #[test]
     fn test_detect_dependency_loop() {
-        let mut a = make_proposal(SpecialistId::Visionary, "design", ProposalPriority::Normal, 0.0, 10.0, 50);
-        let mut b = make_proposal(SpecialistId::Phygital, "build", ProposalPriority::Normal, 0.0, 10.0, 50);
+        let mut a = make_proposal(
+            SpecialistId::Visionary,
+            "design",
+            ProposalPriority::Normal,
+            0.0,
+            10.0,
+            50,
+        );
+        let mut b = make_proposal(
+            SpecialistId::Phygital,
+            "build",
+            ProposalPriority::Normal,
+            0.0,
+            10.0,
+            50,
+        );
 
         let a_id = a.id;
         let b_id = b.id;
@@ -390,14 +516,30 @@ mod tests {
 
         let conflicts = ConflictDetector::new().detect_from_set(&set);
 
-        let loop_c = conflicts.iter().find(|c| matches!(c.conflict_type, ConflictType::DependencyLoop));
+        let loop_c = conflicts
+            .iter()
+            .find(|c| matches!(c.conflict_type, ConflictType::DependencyLoop));
         assert!(loop_c.is_some(), "should detect dependency loop");
     }
 
     #[test]
     fn test_no_false_positive_independent_proposals() {
-        let a = make_proposal(SpecialistId::Visionary, "design", ProposalPriority::Normal, 10.0, 10.0, 50);
-        let b = make_proposal(SpecialistId::Archivist, "digest", ProposalPriority::Background, 10.0, 10.0, 50);
+        let a = make_proposal(
+            SpecialistId::Visionary,
+            "design",
+            ProposalPriority::Normal,
+            10.0,
+            10.0,
+            50,
+        );
+        let b = make_proposal(
+            SpecialistId::Archivist,
+            "digest",
+            ProposalPriority::Background,
+            10.0,
+            10.0,
+            50,
+        );
 
         let mut set = ProposalSet::new();
         set.add(a);
@@ -405,7 +547,10 @@ mod tests {
 
         let conflicts = ConflictDetector::new().detect_from_set(&set);
 
-        assert!(conflicts.is_empty(), "low resource proposals should not conflict");
+        assert!(
+            conflicts.is_empty(),
+            "low resource proposals should not conflict"
+        );
     }
 
     #[test]
@@ -426,8 +571,22 @@ mod tests {
 
     #[test]
     fn test_resolve_with_resources_gpu_winner_fits() {
-        let a = make_proposal(SpecialistId::Visionary, "render", ProposalPriority::Urgent, 50.0, 10.0, 100);
-        let b = make_proposal(SpecialistId::Phygital, "track", ProposalPriority::Normal, 70.0, 10.0, 100);
+        let a = make_proposal(
+            SpecialistId::Visionary,
+            "render",
+            ProposalPriority::Urgent,
+            50.0,
+            10.0,
+            100,
+        );
+        let b = make_proposal(
+            SpecialistId::Phygital,
+            "track",
+            ProposalPriority::Normal,
+            70.0,
+            10.0,
+            100,
+        );
 
         let conflict = ProposalConflict {
             proposal_a_id: a.id,
@@ -443,7 +602,8 @@ mod tests {
             ..Default::default()
         };
 
-        let resolutions = ConflictArbitrator::resolve_with_resources(&[conflict], &[a, b], &resources);
+        let resolutions =
+            ConflictArbitrator::resolve_with_resources(&[conflict], &[a, b], &resources);
 
         assert_eq!(resolutions.len(), 1);
         assert!(resolutions[0].resolved);

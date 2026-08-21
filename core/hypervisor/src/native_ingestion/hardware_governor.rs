@@ -60,8 +60,8 @@ impl HardwareGovernor {
         sys.refresh_cpu_specifics(CpuRefreshKind::everything());
         sys.refresh_memory();
 
-        let cpu_util = sys.cpus().iter().map(|c| c.cpu_usage()).sum::<f32>()
-            / sys.cpus().len().max(1) as f32;
+        let cpu_util =
+            sys.cpus().iter().map(|c| c.cpu_usage()).sum::<f32>() / sys.cpus().len().max(1) as f32;
         let mem_util = sys.used_memory() as f32 / sys.total_memory().max(1) as f32;
 
         Self {
@@ -109,7 +109,8 @@ impl HardwareGovernor {
             if cpus.is_empty() {
                 1.0
             } else {
-                let avg_freq: u64 = cpus.iter().map(|c| c.frequency()).sum::<u64>() / cpu_count as u64;
+                let avg_freq: u64 =
+                    cpus.iter().map(|c| c.frequency()).sum::<u64>() / cpu_count as u64;
                 if avg_freq > 0 {
                     (avg_freq as f32 / 4000.0).clamp(0.1, 1.0) // relative to ~4GHz ceiling
                 } else {

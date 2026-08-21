@@ -13,14 +13,19 @@ pub struct VisualImmunity {
 
 impl VisualImmunity {
     pub fn new(window: usize, threshold: u8) -> Self {
-        VisualImmunity { window_size: window, threshold }
+        VisualImmunity {
+            window_size: window,
+            threshold,
+        }
     }
 
     /// Filter a delta buffer: zero out isolated pixel changes below
     /// the spatial density threshold within a window.
     /// Returns number of noise pixels removed.
     pub fn filter_delta(&self, delta: &mut [u8], width: u32) -> usize {
-        if delta.is_empty() || width == 0 { return 0; }
+        if delta.is_empty() || width == 0 {
+            return 0;
+        }
         let height = (delta.len() as u32) / width;
         let half = (self.window_size / 2) as i32;
         let mut removed = 0usize;
@@ -29,12 +34,16 @@ impl VisualImmunity {
         for y in 0..height {
             for x in 0..width {
                 let idx = (y * width + x) as usize;
-                if idx >= delta.len() || delta[idx] == 0 { continue; }
+                if idx >= delta.len() || delta[idx] == 0 {
+                    continue;
+                }
                 let mut neighbor_count = 0u32;
                 let mut total = 0u32;
                 for dy in -half..=half {
                     for dx in -half..=half {
-                        if dx == 0 && dy == 0 { continue; }
+                        if dx == 0 && dy == 0 {
+                            continue;
+                        }
                         let nx = x as i32 + dx;
                         let ny = y as i32 + dy;
                         if nx >= 0 && nx < width as i32 && ny >= 0 && ny < height as i32 {
@@ -47,7 +56,11 @@ impl VisualImmunity {
                     }
                 }
                 // If density of changes in neighborhood is below threshold, suppress
-                let density = if total > 0 { (neighbor_count as f32) / (total as f32) } else { 0.0 };
+                let density = if total > 0 {
+                    (neighbor_count as f32) / (total as f32)
+                } else {
+                    0.0
+                };
                 if density < (self.threshold as f32) / 255.0 {
                     delta[idx] = 0;
                     removed += 1;
@@ -64,7 +77,7 @@ impl VisualImmunity {
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct ActionEvent {
-    pub event_type: u8,   // 0=mouse_move, 1=mouse_click, 2=key_press, 3=key_release
+    pub event_type: u8, // 0=mouse_move, 1=mouse_click, 2=key_press, 3=key_release
     pub x: u16,
     pub y: u16,
     pub button: u8,
@@ -78,7 +91,12 @@ pub struct ActionVocab {
 }
 
 impl ActionVocab {
-    pub fn new(window: usize) -> Self { ActionVocab { tokens: Vec::new(), window_size: window } }
+    pub fn new(window: usize) -> Self {
+        ActionVocab {
+            tokens: Vec::new(),
+            window_size: window,
+        }
+    }
 
     /// Encode an action event into a multi-hot token pattern.
     /// Bits: [0-3] event_type, [4-19] x, [20-35] y, [36-43] button, [44-59] key_code
@@ -113,7 +131,9 @@ impl ActionVocab {
         }
     }
 
-    pub fn token_count(&self) -> usize { self.tokens.len() }
+    pub fn token_count(&self) -> usize {
+        self.tokens.len()
+    }
 }
 
 // ── Topological UI Graph Routing ─────────────────────────────────────
@@ -137,11 +157,29 @@ pub struct UISurfaceMap {
     pub edges: Vec<(u32, u32, f32)>, // (from_id, to_id, cost)
 }
 
+impl Default for UISurfaceMap {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl UISurfaceMap {
-    pub fn new() -> Self { UISurfaceMap { elements: Vec::new(), edges: Vec::new() } }
+    pub fn new() -> Self {
+        UISurfaceMap {
+            elements: Vec::new(),
+            edges: Vec::new(),
+        }
+    }
 
     pub fn add_element(&mut self, id: u32, x: f32, y: f32, w: f32, h: f32, action: u64) {
-        self.elements.push(UIElement { id, x, y, w, h, action });
+        self.elements.push(UIElement {
+            id,
+            x,
+            y,
+            w,
+            h,
+            action,
+        });
     }
 
     /// Build edges between elements based on spatial proximity.
@@ -166,7 +204,9 @@ impl UISurfaceMap {
     /// Greedy shortest path from start_id to target_id.
     /// Returns list of element IDs in order.
     pub fn navigate(&self, start_id: u32, target_id: u32) -> Vec<u32> {
-        if start_id == target_id { return vec![start_id]; }
+        if start_id == target_id {
+            return vec![start_id];
+        }
         // Dijkstra
         let n = self.elements.len();
         let mut dist = vec![f32::MAX; n];
@@ -174,8 +214,14 @@ impl UISurfaceMap {
         let mut visited = vec![false; n];
         let idx_of = |id: u32| -> Option<usize> { self.elements.iter().position(|e| e.id == id) };
 
-        let start_idx = match idx_of(start_id) { Some(i) => i, None => return vec![] };
-        let target_idx = match idx_of(target_id) { Some(i) => i, None => return vec![] };
+        let start_idx = match idx_of(start_id) {
+            Some(i) => i,
+            None => return vec![],
+        };
+        let target_idx = match idx_of(target_id) {
+            Some(i) => i,
+            None => return vec![],
+        };
 
         dist[start_idx] = 0.0;
 
@@ -184,19 +230,23 @@ impl UISurfaceMap {
                 .filter(|i| !visited[*i])
                 .min_by(|&a, &b| dist[a].partial_cmp(&dist[b]).unwrap())
                 .unwrap_or(0);
-            if visited[u] { break; }
+            if visited[u] {
+                break;
+            }
             visited[u] = true;
-            if u == target_idx { break; }
+            if u == target_idx {
+                break;
+            }
 
             let u_id = self.elements[u].id;
             for &(from, to, cost) in &self.edges {
-                if from == u_id {
-                    if let Some(v) = idx_of(to) {
-                        let new = dist[u] + cost;
-                        if new < dist[v] {
-                            dist[v] = new;
-                            prev[v] = Some(u);
-                        }
+                if from == u_id
+                    && let Some(v) = idx_of(to)
+                {
+                    let new = dist[u] + cost;
+                    if new < dist[v] {
+                        dist[v] = new;
+                        prev[v] = Some(u);
                     }
                 }
             }
@@ -244,12 +294,21 @@ mod tests {
         }
         let removed = immunity.filter_delta(&mut delta, 8);
         // Dense region should be preserved
-        assert!(delta[1 * 8 + 1] != 0, "center of dense region should survive");
+        assert!(
+            delta[1 * 8 + 1] != 0,
+            "center of dense region should survive"
+        );
     }
 
     #[test]
     fn test_action_vocab_encode_decode() {
-        let event = ActionEvent { event_type: 1, x: 100, y: 200, button: 0, key_code: 0 };
+        let event = ActionEvent {
+            event_type: 1,
+            x: 100,
+            y: 200,
+            button: 0,
+            key_code: 0,
+        };
         let token = ActionVocab::encode(&event);
         let decoded = ActionVocab::decode(token);
         assert_eq!(decoded.event_type, 1);
@@ -261,8 +320,20 @@ mod tests {
     fn test_action_vocab_tokenize() {
         let mut vocab = ActionVocab::new(3);
         let events = vec![
-            ActionEvent { event_type: 0, x: 10, y: 20, button: 0, key_code: 0 },
-            ActionEvent { event_type: 1, x: 30, y: 40, button: 1, key_code: 0 },
+            ActionEvent {
+                event_type: 0,
+                x: 10,
+                y: 20,
+                button: 0,
+                key_code: 0,
+            },
+            ActionEvent {
+                event_type: 1,
+                x: 30,
+                y: 40,
+                button: 1,
+                key_code: 0,
+            },
         ];
         vocab.tokenize(&events);
         assert_eq!(vocab.token_count(), 1);

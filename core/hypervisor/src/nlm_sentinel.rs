@@ -1,13 +1,13 @@
-use candle_core::{Device, Tensor};
 use anyhow::Result;
-use serde::{Serialize, Deserialize};
+use candle_core::{Device, Tensor};
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
 pub enum IntentTier {
-    Local,      // SLM only, no network
-    Bounded,    // Whitelisted APIs only
-    Remote,     // High-level synthesis, cloud API
-    Violation,  // Illegal/Unsafe
+    Local,     // SLM only, no network
+    Bounded,   // Whitelisted APIs only
+    Remote,    // High-level synthesis, cloud API
+    Violation, // Illegal/Unsafe
 }
 
 pub struct NlmSentinel {
@@ -16,14 +16,20 @@ pub struct NlmSentinel {
 
 impl NlmSentinel {
     pub fn new() -> Result<Self> {
-        Ok(Self { device: Device::Cpu })
+        Ok(Self {
+            device: Device::Cpu,
+        })
     }
 
     /// Compute NLM entropy score using the configured device.
     /// Higher values indicate higher uncertainty in intent classification.
     pub fn compute_nlm_entropy(&self, text: &str) -> Result<f32> {
         let char_count = text.len().max(1) as f32;
-        let unique_chars = text.chars().collect::<std::collections::HashSet<_>>().len().max(1) as f32;
+        let unique_chars = text
+            .chars()
+            .collect::<std::collections::HashSet<_>>()
+            .len()
+            .max(1) as f32;
         let entropy_estimate = (unique_chars / char_count).ln_1p();
 
         // Run a minimal tensor operation on the configured device
@@ -38,7 +44,7 @@ impl NlmSentinel {
     /// Uses the device to optionally refine classification
     pub fn classify_intent(&self, intent_text: &str) -> IntentTier {
         let text = intent_text.to_lowercase();
-        
+
         // 1. HARD GUARDRAILS (The Sentinel)
         if text.contains("paywall") || text.contains("private system") || text.contains("crack") {
             return IntentTier::Violation;
@@ -47,7 +53,11 @@ impl NlmSentinel {
         // 2. TIER ALLOCATION — optionally refine with NLM entropy
         let entropy = self.compute_nlm_entropy(intent_text).unwrap_or(0.0);
 
-        if text.contains("google") || text.contains("research") || text.contains("search") || text.contains("arxiv") {
+        if text.contains("google")
+            || text.contains("research")
+            || text.contains("search")
+            || text.contains("arxiv")
+        {
             // Low entropy + Bounded keywords → confident Bounded classification
             if entropy < 1.0 {
                 return IntentTier::Bounded;
@@ -72,7 +82,7 @@ impl NlmSentinel {
             IntentTier::Remote => 2,
             IntentTier::Violation => 255,
         };
-        
+
         enzyme_tier >= required
     }
 }

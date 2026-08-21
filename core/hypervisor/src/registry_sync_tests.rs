@@ -1,12 +1,14 @@
 /// Synchronization consistency tests for the Phase 6D hybrid master registry system.
-/// 
+///
 /// Tests the state machine behavior across all sub-registries to ensure
 /// cross-registry synchronization maintains consistency during state transitions.
 
 #[cfg(test)]
 mod sync_consistency_tests {
     use crate::hybrid_master_registry::*;
-    use crate::registry::{SubRegistry, EntityInfo, EntryHealth, RegistryType, WorkspaceContext, PhaseEra};
+    use crate::registry::{
+        EntityInfo, EntryHealth, PhaseEra, RegistryType, SubRegistry, WorkspaceContext,
+    };
     use std::sync::{Arc, Mutex};
 
     /// Mock registry with state tracking for synchronization tests
@@ -62,7 +64,7 @@ mod sync_consistency_tests {
             if !self.state.lock().unwrap().initialized {
                 return Err("Not initialized".to_string());
             }
-            
+
             self.state.lock().unwrap().synchronized = true;
             self.state.lock().unwrap().sync_count += 1;
             Ok(())
@@ -94,14 +96,14 @@ mod sync_consistency_tests {
     #[test]
     fn test_state_machine_era_transition() {
         let mut master = MasterRegistry::new();
-        
+
         // Start in SixD
         assert_eq!(master.active_era(), PhaseEra::SixD);
-        
+
         // Transition to ThreeC
         master.set_active_era(PhaseEra::ThreeC);
         assert_eq!(master.active_era(), PhaseEra::ThreeC);
-        
+
         // Transition back to SixD
         master.set_active_era(PhaseEra::SixD);
         assert_eq!(master.active_era(), PhaseEra::SixD);
@@ -110,20 +112,20 @@ mod sync_consistency_tests {
     #[test]
     fn test_multiple_registry_synchronization_cascade() {
         let mut master = MasterRegistry::new();
-        
+
         // Add multiple registries
         for _ in 0..5 {
             master.add_registry(Box::new(StatefulMockRegistry::new()));
         }
 
         assert_eq!(master.registry_count(), 5);
-        
+
         let ctx = WorkspaceContext::default();
-        
+
         // Initialize all registries
         let init_result = master.initialize();
         assert!(init_result.is_ok());
-        
+
         // Synchronize all registries
         let sync_result = master.synchronize_state();
         assert!(sync_result.is_ok());
@@ -132,17 +134,17 @@ mod sync_consistency_tests {
     #[test]
     fn test_registry_removal_during_sync() {
         let mut master = MasterRegistry::new();
-        
+
         master.add_registry(Box::new(StatefulMockRegistry::new()));
         master.add_registry(Box::new(StatefulMockRegistry::new()));
-        
+
         assert_eq!(master.registry_count(), 2);
-        
+
         // Remove one registry
         let removed = master.remove_registry(RegistryType::Unified);
         assert!(removed.is_some());
         assert_eq!(master.registry_count(), 1);
-        
+
         // Sync should still work with remaining registry
         let sync_result = master.synchronize_state();
         assert!(sync_result.is_ok());
@@ -151,12 +153,12 @@ mod sync_consistency_tests {
     #[test]
     fn test_cross_registry_query_ordering() {
         let mut master = MasterRegistry::new();
-        
+
         // Add multiple registries - query should check all
         master.add_registry(Box::new(StatefulMockRegistry::new()));
         master.add_registry(Box::new(StatefulMockRegistry::new()));
         master.add_registry(Box::new(StatefulMockRegistry::new()));
-        
+
         let result = master.query_entity("test-id");
         // All mocks return None, so final result should be None
         assert!(result.is_none());
@@ -165,7 +167,7 @@ mod sync_consistency_tests {
     #[test]
     fn test_registry_metadata_tracking() {
         let master = MasterRegistry::new();
-        
+
         assert_eq!(master.ctx().current_era, PhaseEra::SixD);
         assert_eq!(master.ctx().registry_version, "1.0.0");
     }
@@ -174,11 +176,11 @@ mod sync_consistency_tests {
     fn test_workspace_context_preservation_across_sync() {
         let mut master = MasterRegistry::new();
         master.add_registry(Box::new(StatefulMockRegistry::new()));
-        
+
         let original_ctx = WorkspaceContext::default();
-        
+
         let _ = master.initialize();
-        
+
         // Context should still point to SixD
         assert_eq!(master.active_era(), PhaseEra::SixD);
         assert_eq!(master.ctx().registry_version, "1.0.0");
@@ -188,9 +190,9 @@ mod sync_consistency_tests {
     fn test_composition_strategy_wiring() {
         let strategy = RegistryCompositionStrategy::new();
         let ctx = WorkspaceContext::default();
-        
+
         let master = strategy.build_master_registry(&ctx);
-        
+
         // Empty strategy should create empty master
         assert_eq!(master.registry_count(), 0);
         assert_eq!(master.active_era(), PhaseEra::SixD);

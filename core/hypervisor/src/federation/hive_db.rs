@@ -1,11 +1,11 @@
 // Aaroneous Persistence Layer - SQLite Integration
 // Handles saving/loading specialists, skills, constellations, and event history
 
-use rusqlite::{Connection, Result as SqlResult, params, OptionalExtension};
+use crate::digestion::SpecialistSoul;
+use crate::genetics::SpecialistGenome;
+use rusqlite::{Connection, OptionalExtension, Result as SqlResult, params};
 use serde_json::json;
-use skills::skill_system::Skill;
-use genetics::SpecialistGenome;
-use digestion::SpecialistSoul;
+use crate::skills::Skill;
 
 /// Persistence manager for the Aaroneous hive
 pub struct PersistenceManager {
@@ -16,10 +16,10 @@ impl PersistenceManager {
     /// Initialize persistence layer with SQLite database
     pub fn new(db_path: &str) -> SqlResult<Self> {
         let db = Connection::open(db_path)?;
-        
+
         // Enable foreign keys
         db.execute("PRAGMA foreign_keys = ON", [])?;
-        
+
         let manager = PersistenceManager { db };
         manager.init_schema()?;
         Ok(manager)
@@ -282,28 +282,15 @@ impl PersistenceManager {
     }
 
     /// Save a specialist to the database
-    pub fn save_specialist(
-        &self,
-        specialist_id: &str,
-        name: &str,
-        archetype: &str,
-        birth_timestamp: i64,
-        generation_level: u32,
-        xp: u32,
-        xp_total: u32,
-        current_level: u32,
-        rank: u32,
-        genome: &SpecialistGenome,
-        soul: &SpecialistSoul,
-    ) -> SqlResult<()> {
-        let genetics_json = match serde_json::to_string(genome) {
+    pub fn save_specialist(&self, specialist: &SpecialistData) -> SqlResult<()> {
+        let genetics_json = match serde_json::to_string(&specialist.genome) {
             Ok(json) => json,
             Err(e) => {
                 tracing::warn!("Failed to serialize specialist genome: {}", e);
                 return Err(rusqlite::Error::InvalidQuery);
             }
         };
-        let soul_json = match serde_json::to_string(soul) {
+        let soul_json = match serde_json::to_string(&specialist.soul) {
             Ok(json) => json,
             Err(e) => {
                 tracing::warn!("Failed to serialize specialist soul: {}", e);
@@ -318,8 +305,19 @@ impl PersistenceManager {
               current_level, rank, genetics_json, soul_json, created_at, updated_at)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
             params![
-                specialist_id, name, archetype, birth_timestamp, generation_level,
-                xp, xp_total, current_level, rank, genetics_json, soul_json, now, now
+                specialist.specialist_id,
+                specialist.name,
+                specialist.archetype,
+                specialist.birth_timestamp,
+                specialist.generation_level,
+                specialist.xp,
+                specialist.xp_total,
+                specialist.current_level,
+                specialist.rank,
+                genetics_json,
+                soul_json,
+                now,
+                now
             ],
         )?;
         Ok(())
@@ -330,26 +328,28 @@ impl PersistenceManager {
         let mut stmt = self.db.prepare(
             "SELECT id, name, archetype, birth_timestamp, generation_level, xp, xp_total,
                     current_level, rank, genetics_json, soul_json, created_at, updated_at
-             FROM specialists WHERE id = ?1"
+             FROM specialists WHERE id = ?1",
         )?;
 
-        let specialist = stmt.query_row(params![specialist_id], |row| {
-            Ok(SpecialistRecord {
-                id: row.get(0)?,
-                name: row.get(1)?,
-                archetype: row.get(2)?,
-                birth_timestamp: row.get(3)?,
-                generation_level: row.get(4)?,
-                xp: row.get(5)?,
-                xp_total: row.get(6)?,
-                current_level: row.get(7)?,
-                rank: row.get(8)?,
-                genetics_json: row.get(9)?,
-                soul_json: row.get(10)?,
-                created_at: row.get(11)?,
-                updated_at: row.get(12)?,
+        let specialist = stmt
+            .query_row(params![specialist_id], |row| {
+                Ok(SpecialistRecord {
+                    id: row.get(0)?,
+                    name: row.get(1)?,
+                    archetype: row.get(2)?,
+                    birth_timestamp: row.get(3)?,
+                    generation_level: row.get(4)?,
+                    xp: row.get(5)?,
+                    xp_total: row.get(6)?,
+                    current_level: row.get(7)?,
+                    rank: row.get(8)?,
+                    genetics_json: row.get(9)?,
+                    soul_json: row.get(10)?,
+                    created_at: row.get(11)?,
+                    updated_at: row.get(12)?,
+                })
             })
-        }).optional()?;
+            .optional()?;
 
         Ok(specialist)
     }
@@ -359,38 +359,34 @@ impl PersistenceManager {
         let mut stmt = self.db.prepare(
             "SELECT id, name, archetype, birth_timestamp, generation_level, xp, xp_total,
                     current_level, rank, genetics_json, soul_json, created_at, updated_at
-             FROM specialists ORDER BY updated_at DESC"
+             FROM specialists ORDER BY updated_at DESC",
         )?;
 
-        let specialists = stmt.query_map([], |row| {
-            Ok(SpecialistRecord {
-                id: row.get(0)?,
-                name: row.get(1)?,
-                archetype: row.get(2)?,
-                birth_timestamp: row.get(3)?,
-                generation_level: row.get(4)?,
-                xp: row.get(5)?,
-                xp_total: row.get(6)?,
-                current_level: row.get(7)?,
-                rank: row.get(8)?,
-                genetics_json: row.get(9)?,
-                soul_json: row.get(10)?,
-                created_at: row.get(11)?,
-                updated_at: row.get(12)?,
-            })
-        })?
-        .collect::<Result<Vec<_>, _>>()?;
+        let specialists = stmt
+            .query_map([], |row| {
+                Ok(SpecialistRecord {
+                    id: row.get(0)?,
+                    name: row.get(1)?,
+                    archetype: row.get(2)?,
+                    birth_timestamp: row.get(3)?,
+                    generation_level: row.get(4)?,
+                    xp: row.get(5)?,
+                    xp_total: row.get(6)?,
+                    current_level: row.get(7)?,
+                    rank: row.get(8)?,
+                    genetics_json: row.get(9)?,
+                    soul_json: row.get(10)?,
+                    created_at: row.get(11)?,
+                    updated_at: row.get(12)?,
+                })
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
 
         Ok(specialists)
     }
 
     /// Save a skill to the database
-    pub fn save_skill(
-        &self,
-        specialist_id: &str,
-        skill_id: &str,
-        skill: &Skill,
-    ) -> SqlResult<()> {
+    pub fn save_skill(&self, specialist_id: &str, skill_id: &str, skill: &Skill) -> SqlResult<()> {
         let skill_json = match serde_json::to_string(skill) {
             Ok(json) => json,
             Err(e) => {
@@ -420,51 +416,44 @@ impl PersistenceManager {
         let mut stmt = self.db.prepare(
             "SELECT id, specialist_id, level, power_score, success_rate, 
                     breakthrough_eligible, breakthrough_achieved, awoken, skill_json
-             FROM skills WHERE specialist_id = ?1 ORDER BY created_at DESC"
+             FROM skills WHERE specialist_id = ?1 ORDER BY created_at DESC",
         )?;
 
-        let skills = stmt.query_map(params![specialist_id], |row| {
-            Ok(SkillRecord {
-                id: row.get(0)?,
-                specialist_id: row.get(1)?,
-                level: row.get(2)?,
-                power_score: row.get(3)?,
-                success_rate: row.get(4)?,
-                breakthrough_eligible: row.get(5)?,
-                breakthrough_achieved: row.get(6)?,
-                awoken: row.get(7)?,
-                skill_json: row.get(8)?,
-            })
-        })?
-        .collect::<Result<Vec<_>, _>>()?;
+        let skills = stmt
+            .query_map(params![specialist_id], |row| {
+                Ok(SkillRecord {
+                    id: row.get(0)?,
+                    specialist_id: row.get(1)?,
+                    level: row.get(2)?,
+                    power_score: row.get(3)?,
+                    success_rate: row.get(4)?,
+                    breakthrough_eligible: row.get(5)?,
+                    breakthrough_achieved: row.get(6)?,
+                    awoken: row.get(7)?,
+                    skill_json: row.get(8)?,
+                })
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
 
         Ok(skills)
     }
 
     /// Record an event in the event history
-    pub fn record_event(
-        &self,
-        specialist_id: &str,
-        event_id: &str,
-        event_type: &str,
-        xp_gained: u32,
-        quality_score: f64,
-        description: &str,
-        timestamp: i64,
-    ) -> SqlResult<()> {
+    pub fn record_event(&self, event: &EventData) -> SqlResult<()> {
         let now = chrono::Utc::now().to_rfc3339();
         let data_json = json!({
-            "event_type": event_type,
-            "quality_score": quality_score
-        }).to_string();
+            "event_type": event.event_type,
+            "quality_score": event.quality_score
+        })
+        .to_string();
 
         self.db.execute(
             "INSERT INTO events 
              (id, specialist_id, event_type, xp_gained, quality_score, description, data_json, timestamp, created_at)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
             params![
-                event_id, specialist_id, event_type, xp_gained as i32, quality_score,
-                description, data_json, timestamp, now
+                event.event_id, event.specialist_id, event.event_type, event.xp_gained as i32, event.quality_score,
+                event.description, data_json, event.timestamp, now
             ],
         )?;
         Ok(())
@@ -474,46 +463,36 @@ impl PersistenceManager {
     pub fn load_events(&self, specialist_id: &str, limit: usize) -> SqlResult<Vec<EventRecord>> {
         let mut stmt = self.db.prepare(
             "SELECT id, specialist_id, event_type, xp_gained, quality_score, description, timestamp
-             FROM events WHERE specialist_id = ?1 ORDER BY timestamp DESC LIMIT ?2"
+             FROM events WHERE specialist_id = ?1 ORDER BY timestamp DESC LIMIT ?2",
         )?;
 
-        let events = stmt.query_map(params![specialist_id, limit as i32], |row| {
-            Ok(EventRecord {
-                id: row.get(0)?,
-                specialist_id: row.get(1)?,
-                event_type: row.get(2)?,
-                xp_gained: row.get(3)?,
-                quality_score: row.get(4)?,
-                description: row.get(5)?,
-                timestamp: row.get(6)?,
-            })
-        })?
-        .collect::<Result<Vec<_>, _>>()?;
+        let events = stmt
+            .query_map(params![specialist_id, limit as i32], |row| {
+                Ok(EventRecord {
+                    id: row.get(0)?,
+                    specialist_id: row.get(1)?,
+                    event_type: row.get(2)?,
+                    xp_gained: row.get(3)?,
+                    quality_score: row.get(4)?,
+                    description: row.get(5)?,
+                    timestamp: row.get(6)?,
+                })
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
 
         Ok(events)
     }
 
     /// Save constellation node
-    pub fn save_constellation_node(
-        &self,
-        node_id: &str,
-        node_type: &str,
-        label: &str,
-        description: Option<&str>,
-        x: f64,
-        y: f64,
-        z: f64,
-        weight: f64,
-        specialist_id: Option<&str>,
-        timestamp: i64,
-    ) -> SqlResult<()> {
+    pub fn save_constellation_node(&self, node: &ConstellationNodeData) -> SqlResult<()> {
         let now = chrono::Utc::now().to_rfc3339();
         let node_json = json!({
-            "type": node_type,
-            "label": label,
-            "position": [x, y, z],
-            "weight": weight
-        }).to_string();
+            "type": node.node_type,
+            "label": node.label,
+            "position": [node.x, node.y, node.z],
+            "weight": node.weight
+        })
+        .to_string();
 
         self.db.execute(
             "INSERT OR REPLACE INTO constellation_nodes
@@ -521,8 +500,18 @@ impl PersistenceManager {
               weight, specialist_id, timestamp, node_json, created_at)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
             params![
-                node_id, node_type, label, description, x, y, z, weight,
-                specialist_id, timestamp, node_json, now
+                node.node_id,
+                node.node_type,
+                node.label,
+                node.description,
+                node.x,
+                node.y,
+                node.z,
+                node.weight,
+                node.specialist_id,
+                node.timestamp,
+                node_json,
+                now
             ],
         )?;
         Ok(())
@@ -532,40 +521,29 @@ impl PersistenceManager {
     pub fn load_constellation(&self, specialist_id: &str) -> SqlResult<Vec<ConstellationRecord>> {
         let mut stmt = self.db.prepare(
             "SELECT id, node_type, label, position_x, position_y, position_z, weight, timestamp
-             FROM constellation_nodes WHERE specialist_id = ?1 ORDER BY timestamp DESC"
+             FROM constellation_nodes WHERE specialist_id = ?1 ORDER BY timestamp DESC",
         )?;
 
-        let nodes = stmt.query_map(params![specialist_id], |row| {
-            Ok(ConstellationRecord {
-                id: row.get(0)?,
-                node_type: row.get(1)?,
-                label: row.get(2)?,
-                x: row.get(3)?,
-                y: row.get(4)?,
-                z: row.get(5)?,
-                weight: row.get(6)?,
-                timestamp: row.get(7)?,
-            })
-        })?
-        .collect::<Result<Vec<_>, _>>()?;
+        let nodes = stmt
+            .query_map(params![specialist_id], |row| {
+                Ok(ConstellationRecord {
+                    id: row.get(0)?,
+                    node_type: row.get(1)?,
+                    label: row.get(2)?,
+                    x: row.get(3)?,
+                    y: row.get(4)?,
+                    z: row.get(5)?,
+                    weight: row.get(6)?,
+                    timestamp: row.get(7)?,
+                })
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
 
         Ok(nodes)
     }
 
     /// Record data ingestion
-    pub fn record_ingestion(
-        &self,
-        specialist_id: &str,
-        ingestion_id: &str,
-        file_path: &str,
-        file_format: &str,
-        file_size: u64,
-        checksum: &str,
-        domain: &str,
-        xp_generated: u32,
-        quality_score: f64,
-        timestamp: i64,
-    ) -> SqlResult<()> {
+    pub fn record_ingestion(&self, ingestion: &IngestionData) -> SqlResult<()> {
         let now = chrono::Utc::now().to_rfc3339();
 
         self.db.execute(
@@ -574,8 +552,17 @@ impl PersistenceManager {
               xp_generated, quality_score, timestamp, created_at)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
             params![
-                ingestion_id, specialist_id, file_path, file_format, file_size as i64,
-                checksum, domain, xp_generated as i32, quality_score, timestamp, now
+                ingestion.ingestion_id,
+                ingestion.specialist_id,
+                ingestion.file_path,
+                ingestion.file_format,
+                ingestion.file_size as i64,
+                ingestion.checksum,
+                ingestion.domain,
+                ingestion.xp_generated as i32,
+                ingestion.quality_score,
+                ingestion.timestamp,
+                now
             ],
         )?;
         Ok(())
@@ -586,24 +573,25 @@ impl PersistenceManager {
         let mut stmt = self.db.prepare(
             "SELECT id, specialist_id, file_path, file_format, file_size, checksum, domain,
                     xp_generated, quality_score, timestamp
-             FROM ingestion_records WHERE specialist_id = ?1 ORDER BY timestamp DESC"
+             FROM ingestion_records WHERE specialist_id = ?1 ORDER BY timestamp DESC",
         )?;
 
-        let records = stmt.query_map(params![specialist_id], |row| {
-            Ok(IngestionRecord {
-                id: row.get(0)?,
-                specialist_id: row.get(1)?,
-                file_path: row.get(2)?,
-                file_format: row.get(3)?,
-                file_size: row.get(4)?,
-                checksum: row.get(5)?,
-                domain: row.get(6)?,
-                xp_generated: row.get(7)?,
-                quality_score: row.get(8)?,
-                timestamp: row.get(9)?,
-            })
-        })?
-        .collect::<Result<Vec<_>, _>>()?;
+        let records = stmt
+            .query_map(params![specialist_id], |row| {
+                Ok(IngestionRecord {
+                    id: row.get(0)?,
+                    specialist_id: row.get(1)?,
+                    file_path: row.get(2)?,
+                    file_format: row.get(3)?,
+                    file_size: row.get(4)?,
+                    checksum: row.get(5)?,
+                    domain: row.get(6)?,
+                    xp_generated: row.get(7)?,
+                    quality_score: row.get(8)?,
+                    timestamp: row.get(9)?,
+                })
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
 
         Ok(records)
     }
@@ -622,26 +610,22 @@ impl PersistenceManager {
         let total_specialists: i32 = self.db.query_row(
             "SELECT COUNT(*) FROM specialists WHERE active = 1",
             [],
-            |row| row.get(0)
+            |row| row.get(0),
         )?;
 
         let total_xp: i64 = self.db.query_row(
             "SELECT COALESCE(SUM(xp_total), 0) FROM specialists WHERE active = 1",
             [],
-            |row| row.get(0)
+            |row| row.get(0),
         )?;
 
-        let total_skills: i32 = self.db.query_row(
-            "SELECT COUNT(*) FROM skills",
-            [],
-            |row| row.get(0)
-        )?;
+        let total_skills: i32 = self
+            .db
+            .query_row("SELECT COUNT(*) FROM skills", [], |row| row.get(0))?;
 
-        let total_events: i32 = self.db.query_row(
-            "SELECT COUNT(*) FROM events",
-            [],
-            |row| row.get(0)
-        )?;
+        let total_events: i32 = self
+            .db
+            .query_row("SELECT COUNT(*) FROM events", [], |row| row.get(0))?;
 
         Ok(HiveStatistics {
             total_specialists: total_specialists as u32,
@@ -777,7 +761,15 @@ impl PersistenceManager {
                  state        = excluded.state,
                  session_json = excluded.session_json,
                  updated_at   = excluded.updated_at",
-            params![session_id, user_id, user_name, state, session_json, created_at, now],
+            params![
+                session_id,
+                user_id,
+                user_name,
+                state,
+                session_json,
+                created_at,
+                now
+            ],
         )?;
         Ok(())
     }
@@ -801,7 +793,10 @@ impl PersistenceManager {
 
     /// Delete a session from the database.
     pub fn delete_session(&self, session_id: &str) -> SqlResult<()> {
-        self.db.execute("DELETE FROM federation_sessions WHERE id = ?1", params![session_id])?;
+        self.db.execute(
+            "DELETE FROM federation_sessions WHERE id = ?1",
+            params![session_id],
+        )?;
         Ok(())
     }
 
@@ -827,9 +822,19 @@ impl PersistenceManager {
     }
 
     /// Load all semantic embeddings from the database
-    pub fn load_all_embeddings(&self) -> SqlResult<Vec<(String, String, Vec<f32>, std::collections::HashMap<String, String>, u32)>> {
+    pub fn load_all_embeddings(
+        &self,
+    ) -> SqlResult<
+        Vec<(
+            String,
+            String,
+            Vec<f32>,
+            std::collections::HashMap<String, String>,
+            u32,
+        )>,
+    > {
         let mut stmt = self.db.prepare(
-            "SELECT id, text, vector_json, metadata_json, access_count FROM semantic_embeddings"
+            "SELECT id, text, vector_json, metadata_json, access_count FROM semantic_embeddings",
         )?;
         let rows = stmt.query_map([], |row| {
             let id: String = row.get(0)?;
@@ -844,7 +849,8 @@ impl PersistenceManager {
         for row in rows {
             if let Ok((id, text, vector_json, metadata_json, access_count)) = row {
                 let vector: Vec<f32> = serde_json::from_str(&vector_json).unwrap_or_default();
-                let metadata: std::collections::HashMap<String, String> = serde_json::from_str(&metadata_json).unwrap_or_default();
+                let metadata: std::collections::HashMap<String, String> =
+                    serde_json::from_str(&metadata_json).unwrap_or_default();
                 results.push((id, text, vector, metadata, access_count));
             }
         }
@@ -852,7 +858,107 @@ impl PersistenceManager {
     }
 }
 
-// Data structures for persistence
+pub struct SpecialistData<'a> {
+    pub specialist_id: &'a str,
+    pub name: &'a str,
+    pub archetype: &'a str,
+    pub birth_timestamp: i64,
+    pub generation_level: u32,
+    pub xp: u32,
+    pub xp_total: u32,
+    pub current_level: u32,
+    pub rank: u32,
+    pub genome: &'a SpecialistGenome,
+    pub soul: &'a SpecialistSoul,
+}
+
+pub struct EventData<'a> {
+    pub specialist_id: &'a str,
+    pub event_id: &'a str,
+    pub event_type: &'a str,
+    pub xp_gained: u32,
+    pub quality_score: f64,
+    pub description: &'a str,
+    pub timestamp: i64,
+}
+
+pub struct ConstellationNodeData<'a> {
+    pub node_id: &'a str,
+    pub node_type: &'a str,
+    pub label: &'a str,
+    pub description: Option<&'a str>,
+    pub x: f64,
+    pub y: f64,
+    pub z: f64,
+    pub weight: f64,
+    pub specialist_id: Option<&'a str>,
+    pub timestamp: i64,
+}
+
+pub struct IngestionData<'a> {
+    pub specialist_id: &'a str,
+    pub ingestion_id: &'a str,
+    pub file_path: &'a str,
+    pub file_format: &'a str,
+    pub file_size: u64,
+    pub checksum: &'a str,
+    pub domain: &'a str,
+    pub xp_generated: u32,
+    pub quality_score: f64,
+    pub timestamp: i64,
+}
+
+pub struct MemoryEntryData<'a> {
+    pub id: &'a str,
+    pub specialist_id: &'a str,
+    pub memory_type: &'a str,
+    pub title: &'a str,
+    pub description: &'a str,
+    pub context: &'a str,
+    pub confidence: &'a str,
+    pub relevance_score: f64,
+    pub usage_count: i32,
+    pub tags: &'a str,
+    pub related_memories: &'a str,
+    pub source: &'a str,
+}
+
+pub struct DecisionData<'a> {
+    pub id: &'a str,
+    pub specialist_id: &'a str,
+    pub decision: &'a str,
+    pub reasoning: &'a str,
+    pub alternatives: &'a str,
+    pub outcome_success: Option<bool>,
+    pub outcome_description: Option<&'a str>,
+    pub confidence_before: &'a str,
+    pub confidence_after: Option<&'a str>,
+}
+
+pub struct StrategyData<'a> {
+    pub id: &'a str,
+    pub specialist_id: &'a str,
+    pub name: &'a str,
+    pub description: &'a str,
+    pub steps_json: &'a str,
+    pub effectiveness_score: f64,
+    pub success_count: i32,
+    pub failure_count: i32,
+    pub applicable_to: &'a str,
+    pub prerequisites: &'a str,
+}
+
+pub struct GoalData<'a> {
+    pub id: &'a str,
+    pub specialist_id: &'a str,
+    pub objective: &'a str,
+    pub reason: &'a str,
+    pub status: &'a str,
+    pub priority: i32,
+    pub progress_percentage: i32,
+    pub blockers: &'a str,
+    pub milestones: &'a str,
+}
 
 #[derive(Debug, Clone)]
 pub struct SpecialistRecord {
@@ -985,21 +1091,7 @@ pub struct HiveStatistics {
 
 impl PersistenceManager {
     /// Save memory entry to database
-    pub fn save_memory_entry(
-        &self,
-        id: &str,
-        specialist_id: &str,
-        memory_type: &str,
-        title: &str,
-        description: &str,
-        context: &str,
-        confidence: &str,
-        relevance_score: f64,
-        usage_count: i32,
-        tags: &str,
-        related_memories: &str,
-        source: &str,
-    ) -> SqlResult<()> {
+    pub fn save_memory_entry(&self, entry: &MemoryEntryData) -> SqlResult<()> {
         let now = chrono::Utc::now().to_rfc3339();
 
         self.db.execute(
@@ -1008,57 +1100,62 @@ impl PersistenceManager {
               relevance_score, usage_count, tags, related_memories, source, created_at, updated_at)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
             params![
-                id, specialist_id, memory_type, title, description, context, confidence,
-                relevance_score, usage_count, tags, related_memories, source, now, now
+                entry.id,
+                entry.specialist_id,
+                entry.memory_type,
+                entry.title,
+                entry.description,
+                entry.context,
+                entry.confidence,
+                entry.relevance_score,
+                entry.usage_count,
+                entry.tags,
+                entry.related_memories,
+                entry.source,
+                now,
+                now
             ],
         )?;
         Ok(())
     }
 
     /// Load memory entries for a specialist
-    pub fn load_specialist_memories(&self, specialist_id: &str) -> SqlResult<Vec<MemoryEntryRecord>> {
+    pub fn load_specialist_memories(
+        &self,
+        specialist_id: &str,
+    ) -> SqlResult<Vec<MemoryEntryRecord>> {
         let mut stmt = self.db.prepare(
             "SELECT id, specialist_id, memory_type, title, description, context, confidence,
                     relevance_score, usage_count, tags, related_memories, source, created_at, updated_at
              FROM memory_entries WHERE specialist_id = ?1 ORDER BY created_at DESC"
         )?;
 
-        let records = stmt.query_map(params![specialist_id], |row| {
-            Ok(MemoryEntryRecord {
-                id: row.get(0)?,
-                specialist_id: row.get(1)?,
-                memory_type: row.get(2)?,
-                title: row.get(3)?,
-                description: row.get(4)?,
-                context: row.get(5)?,
-                confidence: row.get(6)?,
-                relevance_score: row.get(7)?,
-                usage_count: row.get(8)?,
-                tags: row.get(9)?,
-                related_memories: row.get(10)?,
-                source: row.get(11)?,
-                created_at: row.get(12)?,
-                updated_at: row.get(13)?,
-            })
-        })?
-        .collect::<SqlResult<Vec<_>>>()?;
+        let records = stmt
+            .query_map(params![specialist_id], |row| {
+                Ok(MemoryEntryRecord {
+                    id: row.get(0)?,
+                    specialist_id: row.get(1)?,
+                    memory_type: row.get(2)?,
+                    title: row.get(3)?,
+                    description: row.get(4)?,
+                    context: row.get(5)?,
+                    confidence: row.get(6)?,
+                    relevance_score: row.get(7)?,
+                    usage_count: row.get(8)?,
+                    tags: row.get(9)?,
+                    related_memories: row.get(10)?,
+                    source: row.get(11)?,
+                    created_at: row.get(12)?,
+                    updated_at: row.get(13)?,
+                })
+            })?
+            .collect::<SqlResult<Vec<_>>>()?;
 
         Ok(records)
     }
 
     /// Save decision record to database
-    pub fn save_decision_record(
-        &self,
-        id: &str,
-        specialist_id: &str,
-        decision: &str,
-        reasoning: &str,
-        alternatives: &str,
-        outcome_success: Option<bool>,
-        outcome_description: Option<&str>,
-        confidence_before: &str,
-        confidence_after: Option<&str>,
-    ) -> SqlResult<()> {
+    pub fn save_decision_record(&self, decision: &DecisionData) -> SqlResult<()> {
         let now = chrono::Utc::now().to_rfc3339();
 
         self.db.execute(
@@ -1068,28 +1165,24 @@ impl PersistenceManager {
               created_at, updated_at)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
             params![
-                id, specialist_id, decision, reasoning, alternatives,
-                outcome_success, outcome_description, confidence_before, confidence_after,
-                now, now
+                decision.id,
+                decision.specialist_id,
+                decision.decision,
+                decision.reasoning,
+                decision.alternatives,
+                decision.outcome_success,
+                decision.outcome_description,
+                decision.confidence_before,
+                decision.confidence_after,
+                now,
+                now
             ],
         )?;
         Ok(())
     }
 
     /// Save strategy to database
-    pub fn save_strategy(
-        &self,
-        id: &str,
-        specialist_id: &str,
-        name: &str,
-        description: &str,
-        steps_json: &str,
-        effectiveness_score: f64,
-        success_count: i32,
-        failure_count: i32,
-        applicable_to: &str,
-        prerequisites: &str,
-    ) -> SqlResult<()> {
+    pub fn save_strategy(&self, strategy: &StrategyData) -> SqlResult<()> {
         let now = chrono::Utc::now().to_rfc3339();
 
         self.db.execute(
@@ -1098,26 +1191,25 @@ impl PersistenceManager {
               success_count, failure_count, applicable_to, prerequisites, created_at, last_used)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
             params![
-                id, specialist_id, name, description, steps_json, effectiveness_score,
-                success_count, failure_count, applicable_to, prerequisites, now, now
+                strategy.id,
+                strategy.specialist_id,
+                strategy.name,
+                strategy.description,
+                strategy.steps_json,
+                strategy.effectiveness_score,
+                strategy.success_count,
+                strategy.failure_count,
+                strategy.applicable_to,
+                strategy.prerequisites,
+                now,
+                now
             ],
         )?;
         Ok(())
     }
 
     /// Save goal to database
-    pub fn save_goal(
-        &self,
-        id: &str,
-        specialist_id: &str,
-        objective: &str,
-        reason: &str,
-        status: &str,
-        priority: i32,
-        progress_percentage: i32,
-        blockers: &str,
-        milestones: &str,
-    ) -> SqlResult<()> {
+    pub fn save_goal(&self, goal: &GoalData) -> SqlResult<()> {
         let now = chrono::Utc::now().to_rfc3339();
 
         self.db.execute(
@@ -1126,8 +1218,16 @@ impl PersistenceManager {
               blockers, milestones, created_at, target_completion, completed_at)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, NULL, NULL)",
             params![
-                id, specialist_id, objective, reason, status, priority, progress_percentage,
-                blockers, milestones, now
+                goal.id,
+                goal.specialist_id,
+                goal.objective,
+                goal.reason,
+                goal.status,
+                goal.priority,
+                goal.progress_percentage,
+                goal.blockers,
+                goal.milestones,
+                now
             ],
         )?;
         Ok(())
@@ -1136,13 +1236,12 @@ impl PersistenceManager {
     /// Load goals for a specialist
     pub fn load_specialist_goals(&self, specialist_id: &str) -> SqlResult<Vec<String>> {
         let mut stmt = self.db.prepare(
-            "SELECT objective FROM goals WHERE specialist_id = ?1 AND status != 'Completed'"
+            "SELECT objective FROM goals WHERE specialist_id = ?1 AND status != 'Completed'",
         )?;
 
-        let objectives = stmt.query_map(params![specialist_id], |row| {
-            row.get(0)
-        })?
-        .collect::<SqlResult<Vec<_>>>()?;
+        let objectives = stmt
+            .query_map(params![specialist_id], |row| row.get(0))?
+            .collect::<SqlResult<Vec<_>>>()?;
 
         Ok(objectives)
     }
@@ -1155,32 +1254,35 @@ mod tests {
     #[test]
     fn test_persistence_manager_creation() {
         // Create an in-memory database for testing
-        let manager = PersistenceManager::new(":memory:")
-            .expect("Failed to create persistence manager");
-        
-        let stats = manager.get_hive_statistics()
+        let manager =
+            PersistenceManager::new(":memory:").expect("Failed to create persistence manager");
+
+        let stats = manager
+            .get_hive_statistics()
             .expect("Failed to get statistics");
-        
+
         assert_eq!(stats.total_specialists, 0);
         assert_eq!(stats.total_skills, 0);
     }
 
     #[test]
     fn test_save_and_load_specialist() {
-        let manager = PersistenceManager::new(":memory:")
-            .expect("Failed to create persistence manager");
+        let manager =
+            PersistenceManager::new(":memory:").expect("Failed to create persistence manager");
 
         // Create dummy genome and soul
         let genome = SpecialistGenome::new(
             "test_id".to_string(),
             "TestSpecialist".to_string(),
-            "base_model".to_string()
+            "base_model".to_string(),
         );
-        
+
         // Create a minimal soul structure
         use chrono::Utc;
-        use digestion::self_digestion::{PersonalitySoul, RelationalSoul, NarrativeSoul, ExperienceSoul};
-        
+        use crate::digestion::{
+            ExperienceSoul, NarrativeSoul, PersonalitySoul, RelationalSoul,
+        };
+
         let soul = SpecialistSoul {
             specialist_id: "test_id".to_string(),
             personality_soul: PersonalitySoul {
@@ -1225,22 +1327,25 @@ mod tests {
         };
 
         // Save specialist
-        manager.save_specialist(
-            "test_id",
-            "TestSpecialist",
-            "Scholar",
-            0,
-            1,
-            100,
-            100,
-            1,
-            1,
-            &genome,
-            &soul,
-        ).expect("Failed to save specialist");
+        manager
+            .save_specialist(&SpecialistData {
+                specialist_id: "test_id",
+                name: "TestSpecialist",
+                archetype: "Scholar",
+                birth_timestamp: 0,
+                generation_level: 1,
+                xp: 100,
+                xp_total: 100,
+                current_level: 1,
+                rank: 1,
+                genome: &genome,
+                soul: &soul,
+            })
+            .expect("Failed to save specialist");
 
         // Load specialist
-        let record = manager.load_specialist("test_id")
+        let record = manager
+            .load_specialist("test_id")
             .expect("Failed to load specialist")
             .expect("Specialist not found");
 
@@ -1251,18 +1356,20 @@ mod tests {
 
     #[test]
     fn test_hive_statistics() {
-        let manager = PersistenceManager::new(":memory:")
-            .expect("Failed to create persistence manager");
+        let manager =
+            PersistenceManager::new(":memory:").expect("Failed to create persistence manager");
 
         let genome = SpecialistGenome::new(
             "test_1".to_string(),
             "Test1".to_string(),
-            "base_model".to_string()
+            "base_model".to_string(),
         );
-        
+
         use chrono::Utc;
-        use digestion::self_digestion::{PersonalitySoul, RelationalSoul, NarrativeSoul, ExperienceSoul};
-        
+        use crate::digestion::{
+            ExperienceSoul, NarrativeSoul, PersonalitySoul, RelationalSoul,
+        };
+
         let soul = SpecialistSoul {
             specialist_id: "test_1".to_string(),
             personality_soul: PersonalitySoul {
@@ -1307,21 +1414,24 @@ mod tests {
         };
 
         // Add a specialist
-        manager.save_specialist(
-            "test_1",
-            "Test1",
-            "Scholar",
-            0,
-            1,
-            100,
-            100,
-            1,
-            1,
-            &genome,
-            &soul,
-        ).expect("Failed to save specialist");
+        manager
+            .save_specialist(&SpecialistData {
+                specialist_id: "test_1",
+                name: "Test1",
+                archetype: "Scholar",
+                birth_timestamp: 0,
+                generation_level: 1,
+                xp: 100,
+                xp_total: 100,
+                current_level: 1,
+                rank: 1,
+                genome: &genome,
+                soul: &soul,
+            })
+            .expect("Failed to save specialist");
 
-        let stats = manager.get_hive_statistics()
+        let stats = manager
+            .get_hive_statistics()
             .expect("Failed to get statistics");
 
         assert_eq!(stats.total_specialists, 1);

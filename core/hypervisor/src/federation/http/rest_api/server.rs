@@ -1,13 +1,16 @@
-use axum::{
-    response::{sse::{Event, KeepAlive, Sse}, IntoResponse, Json},
-    routing::{get, post, delete},
-    Router,
-    http::StatusCode,
-    extract::{State, Path},
-};
-use std::sync::Arc;
 use crate::federation::hive::Federation;
 use crate::federation::intent::{Intent, IntentPriority, IntentSource};
+use axum::{
+    Router,
+    extract::{Path, State},
+    http::StatusCode,
+    response::{
+        IntoResponse, Json,
+        sse::{Event, KeepAlive, Sse},
+    },
+    routing::{delete, get, post},
+};
+use std::sync::Arc;
 use tracing::info;
 
 /// REST/SSE API Gateway for Maelstrom UI
@@ -19,11 +22,8 @@ pub struct RestApiServer {
 
 impl RestApiServer {
     pub fn new(federation: Arc<Federation>) -> Result<Self, std::io::Error> {
-        let addr = "127.0.0.1:8765".parse().map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
-        Ok(Self {
-            addr,
-            federation,
-        })
+        let addr = "127.0.0.1:8765".parse().map_err(std::io::Error::other)?;
+        Ok(Self { addr, federation })
     }
 
     pub async fn run(&self) -> Result<(), Box<dyn std::error::Error>> {
@@ -32,29 +32,23 @@ impl RestApiServer {
             .route("/healthz", get(handle_healthz))
             .route("/readyz", get(handle_readyz))
             .route("/status", get(handle_status))
-
             // Sessions
             .route("/sessions", post(create_session))
             .route("/sessions", get(list_sessions))
             .route("/sessions/:id/intent", post(submit_intent))
             .route("/sessions/:id/results/stream", get(stream_results_sse))
-
             // Specialists
             .route("/specialists", get(list_specialists))
             .route("/dynamic-specialists", post(create_dynamic_specialist))
-
             // Models
             .route("/models/external", get(list_external_models))
             .route("/models/import", post(import_model))
-
             // Forge
             .route("/forge/crystallize-roster", post(crystallize_roster))
-
             // Scheduler
             .route("/scheduler/tasks", get(list_scheduler_tasks))
             .route("/scheduler/tasks", post(create_scheduler_task))
             .route("/scheduler/tasks/:id", delete(cancel_scheduler_task))
-
             // Chimera
             .route("/chimera/record", post(toggle_chimera_record))
             .route("/chimera/routines", get(list_routines))
@@ -78,14 +72,18 @@ impl RestApiServer {
     }
 }
 
-async fn handle_healthz(State(_federation): State<std::sync::Arc<crate::federation::hive::Federation>>) -> impl IntoResponse {
+async fn handle_healthz(
+    State(_federation): State<std::sync::Arc<crate::federation::hive::Federation>>,
+) -> impl IntoResponse {
     Json(serde_json::json!({
         "status": "healthy",
         "service": "Maelstrom REST API",
     }))
 }
 
-async fn handle_readyz(State(federation): State<std::sync::Arc<crate::federation::hive::Federation>>) -> impl IntoResponse {
+async fn handle_readyz(
+    State(federation): State<std::sync::Arc<crate::federation::hive::Federation>>,
+) -> impl IntoResponse {
     let enabled = federation.enabled_count();
     Json(serde_json::json!({
         "status": if enabled > 0 { "ready" } else { "not_ready" },
@@ -93,7 +91,9 @@ async fn handle_readyz(State(federation): State<std::sync::Arc<crate::federation
     }))
 }
 
-async fn handle_status(State(federation): State<std::sync::Arc<crate::federation::hive::Federation>>) -> impl IntoResponse {
+async fn handle_status(
+    State(federation): State<std::sync::Arc<crate::federation::hive::Federation>>,
+) -> impl IntoResponse {
     Json(serde_json::json!(federation.learning_summary()))
 }
 
@@ -101,12 +101,18 @@ async fn create_session(
     State(federation): State<std::sync::Arc<crate::federation::hive::Federation>>,
     Json(body): Json<serde_json::Value>,
 ) -> Result<Json<serde_json::Value>, StatusCode> {
-    let user_name = body.get("user_name").and_then(|v| v.as_str()).unwrap_or("User").to_string();
+    let user_name = body
+        .get("user_name")
+        .and_then(|v| v.as_str())
+        .unwrap_or("User")
+        .to_string();
     let session_id = federation.create_session(&user_name, None).await;
     Ok(Json(serde_json::json!({"session_id": session_id})))
 }
 
-async fn list_sessions(State(_federation): State<std::sync::Arc<crate::federation::hive::Federation>>) -> impl IntoResponse {
+async fn list_sessions(
+    State(_federation): State<std::sync::Arc<crate::federation::hive::Federation>>,
+) -> impl IntoResponse {
     Json(serde_json::json!({"sessions": []}))
 }
 
@@ -115,8 +121,16 @@ async fn submit_intent(
     Path(session_id): Path<String>,
     Json(body): Json<serde_json::Value>,
 ) -> Result<Json<serde_json::Value>, StatusCode> {
-    let content = body.get("content").and_then(|v| v.as_str()).unwrap_or("").to_string();
-    let priority_str = body.get("priority").and_then(|v| v.as_str()).unwrap_or("Normal").to_string();
+    let content = body
+        .get("content")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+    let priority_str = body
+        .get("priority")
+        .and_then(|v| v.as_str())
+        .unwrap_or("Normal")
+        .to_string();
 
     info!("Intent: {} (priority: {})", content, priority_str);
 
@@ -131,8 +145,13 @@ async fn submit_intent(
         .with_priority(priority)
         .with_source(IntentSource::Api);
 
-    match federation.submit_intent_for_session(&session_id, intent).await {
-        Ok((sid, iid)) => Ok(Json(serde_json::json!({"success": true, "session_id": sid, "intent_id": iid}))),
+    match federation
+        .submit_intent_for_session(&session_id, intent)
+        .await
+    {
+        Ok((sid, iid)) => Ok(Json(
+            serde_json::json!({"success": true, "session_id": sid, "intent_id": iid}),
+        )),
         Err(e) => Ok(Json(serde_json::json!({"error": e}))),
     }
 }
@@ -183,33 +202,65 @@ async fn list_external_models() -> impl IntoResponse {
     Json(serde_json::json!({"models": []}))
 }
 
-async fn import_model(Json(body): Json<serde_json::Value>) -> Result<Json<serde_json::Value>, StatusCode> {
-    let source = body.get("source").and_then(|v| v.as_str()).unwrap_or("").to_string();
+async fn import_model(
+    Json(body): Json<serde_json::Value>,
+) -> Result<Json<serde_json::Value>, StatusCode> {
+    let source = body
+        .get("source")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
     info!("Importing model from: {}", source);
-    Ok(Json(serde_json::json!({"job_id": uuid::Uuid::new_v4().to_string(), "status": "queued"})))
+    Ok(Json(
+        serde_json::json!({"job_id": uuid::Uuid::new_v4().to_string(), "status": "queued"}),
+    ))
 }
 
-async fn crystallize_roster(Json(body): Json<serde_json::Value>) -> Result<Json<serde_json::Value>, StatusCode> {
-    let _source = body.get("source").and_then(|v| v.as_str()).unwrap_or("").to_string();
-    Ok(Json(serde_json::json!({"success": true, "message": "Forge queue initiated"})))
+async fn crystallize_roster(
+    Json(body): Json<serde_json::Value>,
+) -> Result<Json<serde_json::Value>, StatusCode> {
+    let _source = body
+        .get("source")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+    Ok(Json(
+        serde_json::json!({"success": true, "message": "Forge queue initiated"}),
+    ))
 }
 
 async fn list_scheduler_tasks() -> impl IntoResponse {
     Json(serde_json::json!({"tasks": []}))
 }
 
-async fn create_scheduler_task(Json(body): Json<serde_json::Value>) -> Result<Json<serde_json::Value>, StatusCode> {
-    let name = body.get("name").and_then(|v| v.as_str()).unwrap_or("").to_string();
+async fn create_scheduler_task(
+    Json(body): Json<serde_json::Value>,
+) -> Result<Json<serde_json::Value>, StatusCode> {
+    let name = body
+        .get("name")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
     info!("Creating scheduled task: {}", name);
-    Ok(Json(serde_json::json!({"task_id": uuid::Uuid::new_v4().to_string(), "success": true})))
+    Ok(Json(
+        serde_json::json!({"task_id": uuid::Uuid::new_v4().to_string(), "success": true}),
+    ))
 }
 
-async fn cancel_scheduler_task(Path(id): Path<String>) -> Result<Json<serde_json::Value>, StatusCode> {
+async fn cancel_scheduler_task(
+    Path(id): Path<String>,
+) -> Result<Json<serde_json::Value>, StatusCode> {
     Ok(Json(serde_json::json!({"success": true, "task_id": id})))
 }
 
-async fn toggle_chimera_record(Json(body): Json<serde_json::Value>) -> Result<Json<serde_json::Value>, StatusCode> {
-    let action = body.get("action").and_then(|v| v.as_str()).unwrap_or("").to_string();
+async fn toggle_chimera_record(
+    Json(body): Json<serde_json::Value>,
+) -> Result<Json<serde_json::Value>, StatusCode> {
+    let action = body
+        .get("action")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
     Ok(Json(serde_json::json!({"success": true, "action": action})))
 }
 

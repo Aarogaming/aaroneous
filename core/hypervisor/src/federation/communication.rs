@@ -1,8 +1,8 @@
-﻿use tokio::sync::mpsc;
+use crate::federation::proposal::{Proposal, ProposalSet};
+use crate::federation::specialist::{Conflict, Decision, DelegateRequest, SpecialistId};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use crate::federation::specialist::{SpecialistId, Decision, DelegateRequest, Conflict};
-use crate::federation::proposal::{Proposal, ProposalSet};
+use tokio::sync::mpsc;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum SpecialistMessage {
@@ -21,10 +21,19 @@ pub struct MessageChannel {
     rx: Arc<tokio::sync::Mutex<mpsc::UnboundedReceiver<SpecialistMessage>>>,
 }
 
+impl Default for MessageChannel {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl MessageChannel {
     pub fn new() -> Self {
         let (tx, rx) = mpsc::unbounded_channel();
-        Self { tx, rx: Arc::new(tokio::sync::Mutex::new(rx)) }
+        Self {
+            tx,
+            rx: Arc::new(tokio::sync::Mutex::new(rx)),
+        }
     }
     pub fn send(&self, message: SpecialistMessage) {
         let _ = self.tx.send(message);
@@ -80,7 +89,7 @@ impl CommunicationBus {
 
     pub fn register(&mut self, id: SpecialistId) -> MessageChannel {
         let ch = MessageChannel::new();
-        self.channels.insert(id.clone(), ch.clone());
+        self.channels.insert(id, ch.clone());
         ch
     }
 
@@ -127,14 +136,18 @@ impl CommunicationBus {
                 proposal.required_resources.cpu_percent,
             ));
         }
-        let count = self.proposal_counts.get(&proposal.specialist).copied().unwrap_or(0);
+        let count = self
+            .proposal_counts
+            .get(&proposal.specialist)
+            .copied()
+            .unwrap_or(0);
         if count >= self.max_proposals_per_specialist {
             return Err(ProposalError::MaxProposalsReached {
                 max: self.max_proposals_per_specialist,
             });
         }
         self.seen_ids.insert(id_val);
-        *self.proposal_counts.entry(proposal.specialist.clone()).or_insert(0) += 1;
+        *self.proposal_counts.entry(proposal.specialist).or_insert(0) += 1;
         self.proposals.push(proposal);
         Ok(())
     }
@@ -168,7 +181,7 @@ impl Default for CommunicationBus {
 mod tests {
     use super::*;
     use crate::federation::proposal::Proposal;
-    use crate::federation::specialist::{SpecialistId, ProposalPriority, ResourceRequest};
+    use crate::federation::specialist::{ProposalPriority, ResourceRequest, SpecialistId};
 
     fn valid_proposal(specialist: SpecialistId) -> Proposal {
         Proposal {
@@ -258,8 +271,10 @@ mod tests {
     #[tokio::test]
     async fn test_clear_resets_state() {
         let mut bus = CommunicationBus::new();
-        bus.submit_proposal(valid_proposal(SpecialistId::Visionary)).unwrap();
-        bus.submit_proposal(valid_proposal(SpecialistId::Omnipresent)).unwrap();
+        bus.submit_proposal(valid_proposal(SpecialistId::Visionary))
+            .unwrap();
+        bus.submit_proposal(valid_proposal(SpecialistId::Omnipresent))
+            .unwrap();
         assert_eq!(bus.pending_count(), 2);
         bus.clear_proposals().await;
         assert_eq!(bus.pending_count(), 0);

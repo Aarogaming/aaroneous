@@ -48,6 +48,12 @@ pub struct EpigeneticGateMatrix {
     pub frame_id: u64,
 }
 
+impl Default for EpigeneticGateMatrix {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl EpigeneticGateMatrix {
     pub fn new() -> Self {
         let mut sectors = [SectorGate::default(); TOTAL_SECTORS];
@@ -217,6 +223,12 @@ pub struct FrameBuffer {
     pub previous: Box<[f32; GRID_SIZE]>,
 }
 
+impl Default for FrameBuffer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl FrameBuffer {
     pub fn new() -> Self {
         Self {
@@ -241,6 +253,12 @@ pub struct AtomicGateState {
     pub active_sectors: AtomicU64,
     pub total_sectors: AtomicU64,
     pub frame_id: AtomicU64,
+}
+
+impl Default for AtomicGateState {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl AtomicGateState {
@@ -273,6 +291,12 @@ pub struct VisualGatePipeline {
     pub gate_matrix: EpigeneticGateMatrix,
     pub frame_buffer: FrameBuffer,
     pub atomic_state: AtomicGateState,
+}
+
+impl Default for VisualGatePipeline {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl VisualGatePipeline {

@@ -127,12 +127,24 @@ impl XorDeltaScreen {
         let mut i = 0;
         while i + 8 <= len {
             let a = u64::from_ne_bytes([
-                prev[i], prev[i + 1], prev[i + 2], prev[i + 3],
-                prev[i + 4], prev[i + 5], prev[i + 6], prev[i + 7],
+                prev[i],
+                prev[i + 1],
+                prev[i + 2],
+                prev[i + 3],
+                prev[i + 4],
+                prev[i + 5],
+                prev[i + 6],
+                prev[i + 7],
             ]);
             let b = u64::from_ne_bytes([
-                current[i], current[i + 1], current[i + 2], current[i + 3],
-                current[i + 4], current[i + 5], current[i + 6], current[i + 7],
+                current[i],
+                current[i + 1],
+                current[i + 2],
+                current[i + 3],
+                current[i + 4],
+                current[i + 5],
+                current[i + 6],
+                current[i + 7],
             ]);
             let xor = a ^ b;
             if xor != 0 {
@@ -163,8 +175,8 @@ unsafe fn avx2_xor_bytecount(prev: &[u8], current: &[u8], len: usize) -> u64 {
     let mut i = 0;
 
     while i + 32 <= len {
-        let a = _mm256_loadu_si256(prev.as_ptr().add(i) as *const __m256i);
-        let b = _mm256_loadu_si256(current.as_ptr().add(i) as *const __m256i);
+        let a = unsafe { _mm256_loadu_si256(prev.as_ptr().add(i) as *const __m256i) };
+        let b = unsafe { _mm256_loadu_si256(current.as_ptr().add(i) as *const __m256i) };
         let xor = _mm256_xor_si256(a, b);
         // Extract as bytes and count non-zero bytes via vectorized compare
         let zero = _mm256_setzero_si256();
@@ -191,8 +203,8 @@ unsafe fn sse4_xor_bytecount(prev: &[u8], current: &[u8], len: usize) -> u64 {
     let mut i = 0;
 
     while i + 16 <= len {
-        let a = _mm_loadu_si128(prev.as_ptr().add(i) as *const __m128i);
-        let b = _mm_loadu_si128(current.as_ptr().add(i) as *const __m128i);
+        let a = unsafe { _mm_loadu_si128(prev.as_ptr().add(i) as *const __m128i) };
+        let b = unsafe { _mm_loadu_si128(current.as_ptr().add(i) as *const __m128i) };
         let xor = _mm_xor_si128(a, b);
         let zero = _mm_setzero_si128();
         let cmp = _mm_cmpeq_epi8(xor, zero);
@@ -212,7 +224,7 @@ unsafe fn sse4_xor_bytecount(prev: &[u8], current: &[u8], len: usize) -> u64 {
 #[cfg(target_arch = "x86_64")]
 #[target_feature(enable = "sse2")]
 unsafe fn sse2_xor_bytecount(prev: &[u8], current: &[u8], len: usize) -> u64 {
-    sse4_xor_bytecount(prev, current, len)
+    unsafe { sse4_xor_bytecount(prev, current, len) }
 }
 
 #[cfg(target_arch = "aarch64")]
@@ -223,8 +235,8 @@ unsafe fn neon_xor_bytecount(prev: &[u8], current: &[u8], len: usize) -> u64 {
     let mut i = 0;
 
     while i + 16 <= len {
-        let a = vld1q_u8(prev.as_ptr().add(i));
-        let b = vld1q_u8(current.as_ptr().add(i));
+        let a = vld1q_u8(unsafe { prev.as_ptr().add(i) });
+        let b = vld1q_u8(unsafe { current.as_ptr().add(i) });
         let xor = veorq_u8(a, b);
         // Count non-zero bytes: extract result as array and check each byte
         let xor_bytes: [u8; 16] = std::mem::transmute(xor);

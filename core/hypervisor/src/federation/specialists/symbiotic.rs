@@ -1,5 +1,5 @@
 /// Symbiotic Specialist: Biometric Polling & User State Classification
-/// 
+///
 /// Symbiotic monitors the user's physical state via wearables and classifies Intent
 /// importance/timing based on stress, focus, fatigue, and context. It:
 /// - Polls Apple Watch, Oura Ring, Whoop via BLE
@@ -8,11 +8,10 @@
 /// - Tracks fatigue (0.0-1.0)
 /// - Proposes Intent scaling based on user capacity
 /// - Prevents interruption when user is stressed/focused
-/// 
+///
 /// Size: 500MB GGUF model
 /// Portable: 100MB stripped version (inference only)
 /// Domain: Biometrics / User State
-
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
@@ -21,14 +20,13 @@ use std::time::Duration;
 // parking_lot::Mutex - see Visionary for the rationale.
 use parking_lot::Mutex;
 
-use crate::federation::specialist::{
-    Specialist, SpecialistId, SpecialistContext, SpecialistError, ProposedAction,
-    Decision, DelegateRequest, DelegateResponse, Conflict, NegotiationResult,
-    ResourceRequest, ProposalPriority, ExecutionResult, ExecutionStatus, SpecialistCapability,
-};
 use crate::federation::biometric::{
-    BiometricProvider, BiometricDevice, BiometricSample, BiometricKind,
-    DeviceFilter, BleError,
+    BiometricDevice, BiometricKind, BiometricProvider, BiometricSample, BleError, DeviceFilter,
+};
+use crate::federation::specialist::{
+    Conflict, Decision, DelegateRequest, DelegateResponse, ExecutionResult, ExecutionStatus,
+    NegotiationResult, ProposalPriority, ProposedAction, ResourceRequest, Specialist,
+    SpecialistCapability, SpecialistContext, SpecialistError, SpecialistId,
 };
 
 /// Learning data for Symbiotic specialist
@@ -41,6 +39,12 @@ pub struct SymbioticLearningData {
     pub execution_history: Vec<bool>,
     pub last_updated: u64,
     pub confidence_trend: Vec<(u64, f32)>,
+}
+
+impl Default for SymbioticLearningData {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl SymbioticLearningData {
@@ -57,15 +61,22 @@ impl SymbioticLearningData {
     }
 
     pub fn record_result(&mut self, success: bool) {
-        if success { self.success_count += 1; } else { self.failure_count += 1; }
+        if success {
+            self.success_count += 1;
+        } else {
+            self.failure_count += 1;
+        }
         self.total_executions += 1;
 
         self.execution_history.push(success);
-        if self.execution_history.len() > 20 { self.execution_history.remove(0); }
+        if self.execution_history.len() > 20 {
+            self.execution_history.remove(0);
+        }
 
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or_default().as_secs();
+            .unwrap_or_default()
+            .as_secs();
 
         if self.last_updated > 0 && now > self.last_updated {
             let hours_idle = (now - self.last_updated) as f32 / 3600.0;
@@ -77,7 +88,9 @@ impl SymbioticLearningData {
         self.last_updated = now;
 
         self.confidence_trend.push((now, self.confidence_score));
-        if self.confidence_trend.len() > 100 { self.confidence_trend.remove(0); }
+        if self.confidence_trend.len() > 100 {
+            self.confidence_trend.remove(0);
+        }
     }
 
     pub fn get_proposal_confidence(&self) -> f32 {
@@ -142,11 +155,11 @@ pub enum WearableType {
 /// Classified user state from biometrics
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UserBiometricState {
-    pub stress_level: f32,      // 0.0 = calm, 1.0 = extremely stressed
-    pub focus_depth: f32,       // 0.0 = distracted, 1.0 = deep focus
-    pub fatigue_level: f32,     // 0.0 = fresh, 1.0 = exhausted
+    pub stress_level: f32,  // 0.0 = calm, 1.0 = extremely stressed
+    pub focus_depth: f32,   // 0.0 = distracted, 1.0 = deep focus
+    pub fatigue_level: f32, // 0.0 = fresh, 1.0 = exhausted
     pub activity_state: ActivityState,
-    pub readiness_score: f32,   // 0.0-1.0, higher = better capacity for work
+    pub readiness_score: f32, // 0.0-1.0, higher = better capacity for work
     pub last_update: u64,
 }
 
@@ -171,10 +184,10 @@ pub struct IntentScaling {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum FocusMode {
-    DeepWork,       // User should not be interrupted
-    InterruptOk,    // Breaks are fine
-    ContextSwitch,  // Active work, can switch
-    Recovery,       // User needs rest
+    DeepWork,      // User should not be interrupted
+    InterruptOk,   // Breaks are fine
+    ContextSwitch, // Active work, can switch
+    Recovery,      // User needs rest
 }
 
 /// Interior-mutable biometric state updated by the drain task (from &self).
@@ -272,12 +285,16 @@ impl Symbiotic {
         for sample in samples {
             // Only HR samples produce a reading that updates biometric state.
             if sample.kind == crate::federation::biometric::BiometricKind::HeartRate {
-                let hrv = match crate::federation::biometric::services::parse_heart_rate_measurement(&sample.raw_payload) {
+                let hrv = match crate::federation::biometric::services::parse_heart_rate_measurement(
+                    &sample.raw_payload,
+                ) {
                     Ok(parsed) => parsed.rmssd_ms().unwrap_or(50.0),
                     Err(_) => 50.0,
                 } as f32;
 
-                let wearable_type = self.wearable_map.get(&sample.device_id)
+                let wearable_type = self
+                    .wearable_map
+                    .get(&sample.device_id)
                     .cloned()
                     .unwrap_or(WearableType::Generic);
 
@@ -386,7 +403,10 @@ impl Symbiotic {
         };
         let snapshot = crate::federation::learn_persist::LearningSnapshot::from_record(&record)?;
         let mut learning = self.learning.lock();
-        crate::federation::learn_persist::PersistableLearning::restore_from(&mut *learning, snapshot);
+        crate::federation::learn_persist::PersistableLearning::restore_from(
+            &mut *learning,
+            snapshot,
+        );
         Ok(true)
     }
 
@@ -399,9 +419,13 @@ impl Symbiotic {
         // Default stub provider — real BLE requires the biometric-ble feature
         struct DefaultProvider;
         impl BiometricProvider for DefaultProvider {
-            fn connect(&mut self) -> Result<(), BleError> { Err(BleError::FeatureNotEnabled) }
+            fn connect(&mut self) -> Result<(), BleError> {
+                Err(BleError::FeatureNotEnabled)
+            }
             fn disconnect(&mut self) {}
-            fn read_sample(&self) -> Option<BiometricSample> { None }
+            fn read_sample(&self) -> Option<BiometricSample> {
+                None
+            }
         }
         self.biometric_provider = Some(Arc::new(DefaultProvider));
         Ok(self)
@@ -464,7 +488,9 @@ impl Symbiotic {
         match sample.kind {
             BiometricKind::HeartRate => {
                 // Try to extract HRV from the raw payload if present
-                let hrv = match crate::federation::biometric::services::parse_heart_rate_measurement(&sample.raw_payload) {
+                let hrv = match crate::federation::biometric::services::parse_heart_rate_measurement(
+                    &sample.raw_payload,
+                ) {
                     Ok(parsed) => parsed.rmssd_ms().unwrap_or(50.0),
                     Err(_) => 50.0,
                 } as f32;
@@ -567,11 +593,11 @@ impl Symbiotic {
         let readiness = (1.0 - fatigue) * (1.0 - stress) * 0.9 + 0.1;
 
         self.current_state = UserBiometricState {
-            stress_level: stress.max(0.0).min(1.0),
-            focus_depth: focus.max(0.0).min(1.0),
-            fatigue_level: fatigue.max(0.0).min(1.0),
+            stress_level: stress.clamp(0.0, 1.0),
+            focus_depth: focus.clamp(0.0, 1.0),
+            fatigue_level: fatigue.clamp(0.0, 1.0),
             activity_state,
-            readiness_score: readiness.max(0.0).min(1.0),
+            readiness_score: readiness.clamp(0.0, 1.0),
             last_update: reading.timestamp,
         };
 
@@ -599,24 +625,25 @@ impl Symbiotic {
         let state = unsafe { &*(state as *const UserBiometricState) };
         drop(drain);
 
-        let (proposal_delay, max_duration, focus_mode, allow_interrupt, confidence) = match state.stress_level {
-            s if s > 0.8 => {
-                // Very stressed: no interruptions
-                (300, 5, FocusMode::DeepWork, false, 0.95)
-            }
-            s if s > 0.6 => {
-                // Moderately stressed: long focus blocks
-                (120, 15, FocusMode::DeepWork, false, 0.90)
-            }
-            s if s > 0.4 => {
-                // Baseline: normal proposals
-                (30, 30, FocusMode::InterruptOk, true, 0.85)
-            }
-            _ => {
-                // Very relaxed: can context switch
-                (5, 45, FocusMode::ContextSwitch, true, 0.80)
-            }
-        };
+        let (proposal_delay, max_duration, focus_mode, allow_interrupt, confidence) =
+            match state.stress_level {
+                s if s > 0.8 => {
+                    // Very stressed: no interruptions
+                    (300, 5, FocusMode::DeepWork, false, 0.95)
+                }
+                s if s > 0.6 => {
+                    // Moderately stressed: long focus blocks
+                    (120, 15, FocusMode::DeepWork, false, 0.90)
+                }
+                s if s > 0.4 => {
+                    // Baseline: normal proposals
+                    (30, 30, FocusMode::InterruptOk, true, 0.85)
+                }
+                _ => {
+                    // Very relaxed: can context switch
+                    (5, 45, FocusMode::ContextSwitch, true, 0.80)
+                }
+            };
 
         // Adjust for fatigue
         let adjusted_duration = if state.fatigue_level > 0.8 {
@@ -675,7 +702,10 @@ impl Specialist for Symbiotic {
     }
 
     /// Propose Intent scaling when user state changes significantly
-    async fn propose(&self, _context: &SpecialistContext) -> Result<Vec<ProposedAction>, SpecialistError> {
+    async fn propose(
+        &self,
+        _context: &SpecialistContext,
+    ) -> Result<Vec<ProposedAction>, SpecialistError> {
         let scaling = self.get_intent_scaling();
         // Peek at bio inbox: unprocessed BLE samples mean fresh biometric data
         // is waiting. This doesn't change the current_state (that requires
@@ -786,14 +816,15 @@ impl Specialist for Symbiotic {
             "defer": matches!(scaling.recommended_focus, FocusMode::Recovery),
         });
 
-        let output = serde_json::to_string(&scaling_json)
-            .unwrap_or_else(|_| format!(
+        let output = serde_json::to_string(&scaling_json).unwrap_or_else(|_| {
+            format!(
                 "Scaled Intent: {:?} (delay: {}s, max: {}m, readiness: {:.0}%)",
                 scaling.recommended_focus,
                 scaling.proposal_delay_seconds,
                 scaling.max_duration_minutes,
                 effective.readiness_score * 100.0,
-            ));
+            )
+        });
 
         let result = ExecutionResult {
             specialist: SpecialistId::Symbiotic,
@@ -816,12 +847,18 @@ impl Specialist for Symbiotic {
     }
 
     /// Delegate biometric polling to wearable handlers
-    async fn delegate(&self, request: &DelegateRequest) -> Result<DelegateResponse, SpecialistError> {
+    async fn delegate(
+        &self,
+        request: &DelegateRequest,
+    ) -> Result<DelegateResponse, SpecialistError> {
         Ok(DelegateResponse {
             requester: request.requester,
             target: request.target,
             success: true,
-            result: format!("Polled biometrics: stress={:.2}", self.current_state.stress_level),
+            result: format!(
+                "Polled biometrics: stress={:.2}",
+                self.current_state.stress_level
+            ),
             duration_ms: 200,
         })
     }
@@ -839,7 +876,10 @@ impl Specialist for Symbiotic {
                 self.current_state.stress_level, self.current_state.readiness_score
             ),
             winner: None,
-            compromise: Some(format!("Coordinated with {:?} on user availability", other_id)),
+            compromise: Some(format!(
+                "Coordinated with {:?} on user availability",
+                other_id
+            )),
         })
     }
 
@@ -1006,7 +1046,7 @@ mod tests {
             heart_rate_variability: 50.0,
             skin_temperature: 36.5,
             activity_level: 0.0,
-            sleep_debt_hours: 8.0,  // Need >=8 hours for high fatigue
+            sleep_debt_hours: 8.0, // Need >=8 hours for high fatigue
             device_type: WearableType::Whoop,
         };
 
@@ -1016,8 +1056,8 @@ mod tests {
         // With 8 hours sleep debt: fatigue = (8.0/8.0) * 0.7 = 0.7
         // This is not > 0.9, so won't trigger Recovery mode
         // Instead, test that it reduces duration and doesn't allow interruptions
-        assert!(scaling.max_duration_minutes < 45);  // Should be reduced
-        assert!(!scaling.interruption_allowed || scaling.max_duration_minutes <= 34);  // fatigue >= 0.7 blocks interrupts
+        assert!(scaling.max_duration_minutes < 45); // Should be reduced
+        assert!(!scaling.interruption_allowed || scaling.max_duration_minutes <= 34); // fatigue >= 0.7 blocks interrupts
     }
 
     #[test]
@@ -1117,7 +1157,11 @@ mod tests {
         let capabilities = symbiotic.capabilities();
         assert_eq!(capabilities.len(), 3);
         assert!(capabilities.iter().any(|c| c.name == "biometric_polling"));
-        assert!(capabilities.iter().any(|c| c.name == "stress_classification"));
+        assert!(
+            capabilities
+                .iter()
+                .any(|c| c.name == "stress_classification")
+        );
     }
 
     // === BLE biometric integration tests ===

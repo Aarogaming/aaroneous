@@ -1,5 +1,5 @@
-﻿use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 pub struct BackgroundTaskHandle {
     pub name: String,
@@ -25,25 +25,65 @@ impl BackgroundTaskHandle {
 }
 
 pub struct OmnipresentRecvTask;
+impl Default for OmnipresentRecvTask {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl OmnipresentRecvTask {
-    pub fn new() -> Self { Self }
-    pub fn start(&self) -> BackgroundTaskHandle { BackgroundTaskHandle::new("omnipresent_recv") }
+    pub fn new() -> Self {
+        Self
+    }
+    pub fn start(&self) -> BackgroundTaskHandle {
+        BackgroundTaskHandle::new("omnipresent_recv")
+    }
 }
 
 pub struct SymbioticBleTask;
+impl Default for SymbioticBleTask {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl SymbioticBleTask {
-    pub fn new() -> Self { Self }
-    pub fn start(&self) -> BackgroundTaskHandle { BackgroundTaskHandle::new("symbiotic_ble") }
+    pub fn new() -> Self {
+        Self
+    }
+    pub fn start(&self) -> BackgroundTaskHandle {
+        BackgroundTaskHandle::new("symbiotic_ble")
+    }
 }
 
 pub struct OmnipresentDrainTask;
+impl Default for OmnipresentDrainTask {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl OmnipresentDrainTask {
-    pub fn new() -> Self { Self }
-    pub fn start(&self) -> BackgroundTaskHandle { BackgroundTaskHandle::new("omnipresent_drain") }
+    pub fn new() -> Self {
+        Self
+    }
+    pub fn start(&self) -> BackgroundTaskHandle {
+        BackgroundTaskHandle::new("omnipresent_drain")
+    }
 }
 
 pub struct SymbioticDrainTask;
+impl Default for SymbioticDrainTask {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl SymbioticDrainTask {
-    pub fn new() -> Self { Self }
-    pub fn start(&self) -> BackgroundTaskHandle { BackgroundTaskHandle::new("symbiotic_drain") }
+    pub fn new() -> Self {
+        Self
+    }
+    pub fn start(&self) -> BackgroundTaskHandle {
+        BackgroundTaskHandle::new("symbiotic_drain")
+    }
 }

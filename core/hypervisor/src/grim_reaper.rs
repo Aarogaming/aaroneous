@@ -5,10 +5,10 @@
 // Snapshots agent state, kills the fragmented instance, and spawns
 // a fresh, defragmented clone in milliseconds.
 
+use anyhow::{Context, Result};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::{RwLock, mpsc};
-use anyhow::{Result, Context};
 
 use nervous_system::slab_allocator::SlabStats;
 
@@ -67,15 +67,9 @@ pub enum ReaperEvent {
         reason: String,
     },
     /// Reap failed
-    ReapFailed {
-        agent_id: String,
-        error: String,
-    },
+    ReapFailed { agent_id: String, error: String },
     /// Slab recovered without reaping (bulk free)
-    SlabRecovered {
-        agent_id: String,
-        freed_slots: u16,
-    },
+    SlabRecovered { agent_id: String, freed_slots: u16 },
 }
 
 /// Agent handle for the Grim Reaper to manage
@@ -139,10 +133,9 @@ impl GrimReaper {
         );
 
         // 1. Snapshot core state
-        let state_bytes = tokio::time::timeout(
-            self.config.snapshot_timeout,
-            async { agent.snapshot_state() },
-        )
+        let state_bytes = tokio::time::timeout(self.config.snapshot_timeout, async {
+            agent.snapshot_state()
+        })
         .await
         .context("Snapshot timed out")??;
 
@@ -217,10 +210,7 @@ impl GrimReaper {
     }
 
     /// Run the reaper monitoring loop
-    pub async fn run_monitor(
-        &mut self,
-        mut agents: Vec<Box<dyn AgentHandle>>,
-    ) -> Result<()> {
+    pub async fn run_monitor(&mut self, mut agents: Vec<Box<dyn AgentHandle>>) -> Result<()> {
         self.running = true;
         let mut interval = tokio::time::interval(self.config.check_interval);
 

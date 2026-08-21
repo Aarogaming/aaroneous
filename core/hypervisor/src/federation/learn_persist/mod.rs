@@ -23,7 +23,6 @@
 /// thrash SQLite for high-frequency executions. Instead, callers
 /// (the runtime / runner / specialist-host) decide when to checkpoint -
 /// e.g., every N executions, on graceful shutdown, or on a timer.
-
 use crate::persistence::{LearningStateRecord, PersistenceManager};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -126,10 +125,12 @@ impl LearningSnapshot {
             (outcomes, vec![])
         } else {
             // v2 envelope
-            let outcomes: Vec<bool> = raw.get("outcomes")
+            let outcomes: Vec<bool> = raw
+                .get("outcomes")
                 .and_then(|v| serde_json::from_value(v.clone()).ok())
                 .unwrap_or_default();
-            let trend: Vec<(u64, f32)> = raw.get("trend")
+            let trend: Vec<(u64, f32)> = raw
+                .get("trend")
                 .and_then(|v| serde_json::from_value(v.clone()).ok())
                 .unwrap_or_default();
             (outcomes, trend)
@@ -266,8 +267,8 @@ mod tests {
         save_learning(&pm, "Visionary", &probe).expect("save should succeed");
 
         let mut empty_probe = Probe(LearningSnapshot::neutral());
-        let loaded = load_learning(&pm, "Visionary", &mut empty_probe)
-            .expect("load should succeed");
+        let loaded =
+            load_learning(&pm, "Visionary", &mut empty_probe).expect("load should succeed");
         assert!(loaded, "load should report true when row exists");
         assert_eq!(empty_probe.0, snapshot, "loaded state should match saved");
     }

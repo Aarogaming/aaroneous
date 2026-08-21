@@ -1,16 +1,15 @@
+use async_trait::async_trait;
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 /// Core Specialist Trait and Types
-/// 
+///
 /// Every entity in the Aaroneous hive is a Specialist:
 /// - Can propose actions asynchronously
 /// - Can execute decisions when assigned
 /// - Can delegate work to other specialists
 /// - Can negotiate with peers to resolve conflicts
 /// - Has its own compact GGUF model (0.5-2GB)
-
 use std::sync::Arc;
-use async_trait::async_trait;
-use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 
 /// Unique identifier for a specialist in the hive
 /// `SpecialistId::Custom` uses a fixed-length 32-byte null-terminated array
@@ -61,13 +60,13 @@ impl SpecialistId {
     /// Used for SQLite rows and config file keys.
     pub fn name(&self) -> &str {
         match self {
-            SpecialistId::Sentinel    => "Sentinel",
-            SpecialistId::Visionary   => "Visionary",
+            SpecialistId::Sentinel => "Sentinel",
+            SpecialistId::Visionary => "Visionary",
             SpecialistId::Omnipresent => "Omnipresent",
-            SpecialistId::Symbiotic   => "Symbiotic",
-            SpecialistId::Phygital    => "Phygital",
-            SpecialistId::Archivist   => "Archivist",
-            SpecialistId::Custom(_)   => self.custom_name(),
+            SpecialistId::Symbiotic => "Symbiotic",
+            SpecialistId::Phygital => "Phygital",
+            SpecialistId::Archivist => "Archivist",
+            SpecialistId::Custom(_) => self.custom_name(),
         }
     }
 
@@ -75,38 +74,38 @@ impl SpecialistId {
     /// Decoupled from the persistence key so renaming is non-breaking.
     pub fn sovereign_name(&self) -> &str {
         match self {
-            SpecialistId::Sentinel    => "Sentinel",
-            SpecialistId::Visionary   => "Ariel",
+            SpecialistId::Sentinel => "Sentinel",
+            SpecialistId::Visionary => "Ariel",
             SpecialistId::Omnipresent => "Hermes",
-            SpecialistId::Symbiotic   => "Wen",
-            SpecialistId::Phygital    => "Kami",
-            SpecialistId::Archivist   => "Dionysus",
-            SpecialistId::Custom(_)   => self.custom_name(),
+            SpecialistId::Symbiotic => "Wen",
+            SpecialistId::Phygital => "Kami",
+            SpecialistId::Archivist => "Dionysus",
+            SpecialistId::Custom(_) => self.custom_name(),
         }
     }
 
     /// Short domain description for UI display.
     pub fn domain(&self) -> &'static str {
         match self {
-            SpecialistId::Sentinel    => "Federation arbitration & orchestration",
-            SpecialistId::Visionary   => "UI/UX design generation & Maelstrom visualization",
+            SpecialistId::Sentinel => "Federation arbitration & orchestration",
+            SpecialistId::Visionary => "UI/UX design generation & Maelstrom visualization",
             SpecialistId::Omnipresent => "P2P multi-device sync & mesh coordination across realms",
-            SpecialistId::Symbiotic   => "Biometric classification & human state adaptation",
-            SpecialistId::Phygital    => "AR/VR spatial rendering — physical/digital threshold",
-            SpecialistId::Archivist   => "DNA Bank memory consolidation & pattern learning",
-            SpecialistId::Custom(_)   => "Dynamic specialist",
+            SpecialistId::Symbiotic => "Biometric classification & human state adaptation",
+            SpecialistId::Phygital => "AR/VR spatial rendering — physical/digital threshold",
+            SpecialistId::Archivist => "DNA Bank memory consolidation & pattern learning",
+            SpecialistId::Custom(_) => "Dynamic specialist",
         }
     }
 
     pub fn model_size_mb(&self) -> u32 {
         match self {
-            SpecialistId::Sentinel    => 2000,
-            SpecialistId::Visionary   => 1000,
+            SpecialistId::Sentinel => 2000,
+            SpecialistId::Visionary => 1000,
             SpecialistId::Omnipresent => 1000,
-            SpecialistId::Symbiotic   => 500,
-            SpecialistId::Phygital    => 1000,
-            SpecialistId::Archivist   => 500,
-            SpecialistId::Custom(_)   => 0, // dynamic — size varies
+            SpecialistId::Symbiotic => 500,
+            SpecialistId::Phygital => 1000,
+            SpecialistId::Archivist => 500,
+            SpecialistId::Custom(_) => 0, // dynamic — size varies
         }
     }
 
@@ -142,7 +141,7 @@ impl SpecialistConfig {
 }
 
 /// The core trait that all specialists implement
-/// 
+///
 /// A specialist is:
 /// - Autonomous: can propose actions without being asked
 /// - Delegatable: can execute decisions from Sentinel
@@ -154,30 +153,40 @@ pub trait Specialist: Send + Sync {
     fn id(&self) -> SpecialistId;
 
     /// Propose actions based on current context
-    /// 
+    ///
     /// Called asynchronously when the specialist has ideas.
     /// Returns multiple proposals ranked by confidence.
     /// Does NOT require Sentinel's permission (bottom-up signal).
-    async fn propose(&self, context: &SpecialistContext) -> Result<Vec<ProposedAction>, SpecialistError>;
+    async fn propose(
+        &self,
+        context: &SpecialistContext,
+    ) -> Result<Vec<ProposedAction>, SpecialistError>;
 
     /// Execute a decision assigned by Sentinel
-    /// 
+    ///
     /// Called when Sentinel decides this specialist should act.
     /// Specialist commits to the decision and reports results (top-down signal).
     /// REVIVED: Specialists use interior mutability (Mutex) to learn from results
     async fn execute(&self, decision: &Decision) -> Result<ExecutionResult, SpecialistError>;
 
     /// Delegate work to another specialist
-    /// 
+    ///
     /// Called when this specialist needs help from a peer.
     /// Can happen without Sentinel involvement (lateral signal).
-    async fn delegate(&self, request: &DelegateRequest) -> Result<DelegateResponse, SpecialistError>;
+    async fn delegate(
+        &self,
+        request: &DelegateRequest,
+    ) -> Result<DelegateResponse, SpecialistError>;
 
     /// Negotiate a conflict with another specialist
-    /// 
+    ///
     /// Called when two specialists have competing proposals.
     /// Both must agree or Sentinel arbitrates.
-    async fn negotiate(&self, other_id: SpecialistId, conflict: &Conflict) -> Result<NegotiationResult, SpecialistError>;
+    async fn negotiate(
+        &self,
+        other_id: SpecialistId,
+        conflict: &Conflict,
+    ) -> Result<NegotiationResult, SpecialistError>;
 
     /// Optional: Get specialist's current state for diagnostics
     async fn status(&self) -> Result<SpecialistStatus, SpecialistError> {
@@ -210,10 +219,10 @@ pub struct SpecialistContext {
 /// User state (biometric, activity, focus level, etc.)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UserState {
-    pub stress_level: f32,     // 0.0-1.0
-    pub focus_level: f32,      // 0.0-1.0
-    pub fatigue_level: f32,    // 0.0-1.0
-    pub activity: String,      // "working", "gaming", "idle", etc.
+    pub stress_level: f32,  // 0.0-1.0
+    pub focus_level: f32,   // 0.0-1.0
+    pub fatigue_level: f32, // 0.0-1.0
+    pub activity: String,   // "working", "gaming", "idle", etc.
 }
 
 impl Default for UserState {
@@ -230,10 +239,10 @@ impl Default for UserState {
 /// System resource availability
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SystemResources {
-    pub gpu_available_percent: f32,    // 0-100
-    pub cpu_available_percent: f32,    // 0-100
+    pub gpu_available_percent: f32, // 0-100
+    pub cpu_available_percent: f32, // 0-100
     pub memory_available_mb: u32,
-    pub thermal_headroom: f32,         // 0.0-1.0
+    pub thermal_headroom: f32, // 0.0-1.0
 }
 
 impl Default for SystemResources {
@@ -254,7 +263,7 @@ pub struct ProposedAction {
     pub specialist: SpecialistId,
     pub action_type: String,
     pub description: String,
-    pub confidence: f32,           // 0.0-1.0
+    pub confidence: f32, // 0.0-1.0
     pub required_resources: ResourceRequest,
     pub priority: ProposalPriority,
     pub tags: Vec<String>,
@@ -371,9 +380,9 @@ pub struct NegotiationResult {
 pub struct SpecialistStatus {
     pub id: SpecialistId,
     pub enabled: bool,
-    pub load: f32,                      // 0.0-1.0
-    pub last_proposal: Option<u64>,     // timestamp
-    pub last_execution: Option<u64>,    // timestamp
+    pub load: f32,                   // 0.0-1.0
+    pub last_proposal: Option<u64>,  // timestamp
+    pub last_execution: Option<u64>, // timestamp
     pub error_count: u32,
 }
 
@@ -504,11 +513,17 @@ mod tests {
                 SpecialistId::Sentinel
             }
 
-            async fn propose(&self, _context: &SpecialistContext) -> Result<Vec<ProposedAction>, SpecialistError> {
+            async fn propose(
+                &self,
+                _context: &SpecialistContext,
+            ) -> Result<Vec<ProposedAction>, SpecialistError> {
                 Ok(vec![])
             }
 
-            async fn execute(&self, _decision: &Decision) -> Result<ExecutionResult, SpecialistError> {
+            async fn execute(
+                &self,
+                _decision: &Decision,
+            ) -> Result<ExecutionResult, SpecialistError> {
                 Ok(ExecutionResult {
                     specialist: SpecialistId::Sentinel,
                     specialist_name: None,
@@ -521,7 +536,10 @@ mod tests {
                 })
             }
 
-            async fn delegate(&self, _request: &DelegateRequest) -> Result<DelegateResponse, SpecialistError> {
+            async fn delegate(
+                &self,
+                _request: &DelegateRequest,
+            ) -> Result<DelegateResponse, SpecialistError> {
                 Ok(DelegateResponse {
                     requester: SpecialistId::Sentinel,
                     target: SpecialistId::Visionary,
@@ -531,7 +549,11 @@ mod tests {
                 })
             }
 
-            async fn negotiate(&self, _other_id: SpecialistId, _conflict: &Conflict) -> Result<NegotiationResult, SpecialistError> {
+            async fn negotiate(
+                &self,
+                _other_id: SpecialistId,
+                _conflict: &Conflict,
+            ) -> Result<NegotiationResult, SpecialistError> {
                 Ok(NegotiationResult {
                     resolved: true,
                     resolution: "agreed".to_string(),

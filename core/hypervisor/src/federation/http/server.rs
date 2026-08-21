@@ -11,8 +11,7 @@
 /// We want the federation's main work (executing specialists, checkpointing)
 /// to keep running while the HTTP server is just monitoring. A dedicated
 /// task isolates the server's failures from the federation's hot path.
-
-use super::router::{router, AppState};
+use super::router::{AppState, router};
 use crate::federation::hive::Federation;
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -47,6 +46,9 @@ pub struct HttpStatusServer {
     /// The actual address the listener bound to (may differ from the
     /// requested address if port 0 was used).
     local_addr: SocketAddr,
+    /// HTTP application state, retained so shutdown can persist the
+    /// in-memory snapshot to `cargo_state.json`.
+    state: AppState,
     /// Notifier used to signal the server task to stop.
     shutdown_signal: Arc<Notify>,
     /// Background server task. `Some` until `shutdown()` joins it.
@@ -67,9 +69,7 @@ impl HttpStatusServer {
             .await
             .map_err(|source| HttpServerError::Bind { addr, source })?;
 
-        let local_addr = listener
-            .local_addr()
-            .map_err(HttpServerError::LocalAddr)?;
+        let local_addr = listener.local_addr().map_err(HttpServerError::LocalAddr)?;
 
         let state = AppState::new(federation);
         // Start background vault indexing — non-blocking, fires and forgets
@@ -82,7 +82,7 @@ impl HttpStatusServer {
         // Start the rate-limit sweeper (every minute). Idempotent
         // task; only the spawned loop is left running.
         state.start_rate_limit_sweeper(std::time::Duration::from_secs(60));
-        let app = router(state);
+        let app = router(state.clone());
         let shutdown_signal = Arc::new(Notify::new());
         let shutdown_signal_for_task = shutdown_signal.clone();
 
@@ -110,6 +110,7 @@ impl HttpStatusServer {
 
         Ok(Self {
             local_addr,
+            state,
             shutdown_signal,
             handle: tokio::sync::Mutex::new(Some(handle)),
         })
@@ -130,8 +131,11 @@ impl HttpStatusServer {
     /// returns `Err(AlreadyShutDown)` from the second call.
     pub async fn shutdown(&self) -> Result<(), HttpServerError> {
         let mut handle_guard = self.handle.lock().await;
-        let handle = handle_guard.take().ok_or(HttpServerError::AlreadyShutDown)?;
+        let handle = handle_guard
+            .take()
+            .ok_or(HttpServerError::AlreadyShutDown)?;
 
+        self.state.begin_drain();
         self.shutdown_signal.notify_one();
 
         // Best-effort wait for the task to finish. If it's stuck, we drop
@@ -143,6 +147,8 @@ impl HttpStatusServer {
                 timeout
             );
         }
+
+        self.state.persist_cargo_state().await;
 
         Ok(())
     }

@@ -4,8 +4,7 @@
 /// All operations are synchronous (rusqlite is not async), so callers should
 /// hold the `Arc<Mutex<PersistenceManager>>` and perform I/O on a background
 /// thread or within a `tokio::task::spawn_blocking` context.
-
-use rusqlite::{Connection, Result as SqlResult, OptionalExtension};
+use rusqlite::{Connection, OptionalExtension, Result as SqlResult};
 
 /// Row representation of a specialist's learning state.
 ///
@@ -111,24 +110,29 @@ impl PersistenceManager {
 
     /// Load a learning state record by specialist kind.
     /// Returns `None` if no row exists.
-    pub fn load_learning_state(&self, specialist_kind: &str) -> SqlResult<Option<LearningStateRecord>> {
-        self.db.query_row(
-            "SELECT specialist_kind, success_count, failure_count, total_executions,
+    pub fn load_learning_state(
+        &self,
+        specialist_kind: &str,
+    ) -> SqlResult<Option<LearningStateRecord>> {
+        self.db
+            .query_row(
+                "SELECT specialist_kind, success_count, failure_count, total_executions,
                     confidence_score, execution_history_json, last_updated
              FROM specialist_learning WHERE specialist_kind = ?1",
-            [specialist_kind],
-            |row| {
-                Ok(LearningStateRecord {
-                    specialist_kind: row.get(0)?,
-                    success_count: row.get(1)?,
-                    failure_count: row.get(2)?,
-                    total_executions: row.get(3)?,
-                    confidence_score: row.get(4)?,
-                    execution_history_json: row.get(5)?,
-                    last_updated: row.get(6)?,
-                })
-            },
-        ).optional()
+                [specialist_kind],
+                |row| {
+                    Ok(LearningStateRecord {
+                        specialist_kind: row.get(0)?,
+                        success_count: row.get(1)?,
+                        failure_count: row.get(2)?,
+                        total_executions: row.get(3)?,
+                        confidence_score: row.get(4)?,
+                        execution_history_json: row.get(5)?,
+                        last_updated: row.get(6)?,
+                    })
+                },
+            )
+            .optional()
     }
 
     /// Delete a learning state record.
@@ -182,7 +186,14 @@ impl PersistenceManager {
                  state = excluded.state,
                  session_json = excluded.session_json,
                  created_at = excluded.created_at",
-            rusqlite::params![session_id, user_id, user_name, state, session_json, created_at],
+            rusqlite::params![
+                session_id,
+                user_id,
+                user_name,
+                state,
+                session_json,
+                created_at
+            ],
         )?;
         Ok(())
     }
@@ -190,21 +201,17 @@ impl PersistenceManager {
     /// Load all active (non-ended) sessions.
     /// Returns a list of `(session_id, session_json)` pairs.
     pub fn load_active_sessions(&self) -> SqlResult<Vec<(String, String)>> {
-        let mut stmt = self.db.prepare(
-            "SELECT session_id, session_json FROM sessions WHERE state != 'Ended'",
-        )?;
-        let rows = stmt.query_map([], |row| {
-            Ok((row.get(0)?, row.get(1)?))
-        })?;
+        let mut stmt = self
+            .db
+            .prepare("SELECT session_id, session_json FROM sessions WHERE state != 'Ended'")?;
+        let rows = stmt.query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?;
         rows.collect()
     }
 
     /// Delete a session by ID.
     pub fn delete_session(&self, session_id: &str) -> SqlResult<()> {
-        self.db.execute(
-            "DELETE FROM sessions WHERE session_id = ?1",
-            [session_id],
-        )?;
+        self.db
+            .execute("DELETE FROM sessions WHERE session_id = ?1", [session_id])?;
         Ok(())
     }
 }

@@ -3,7 +3,6 @@
 /// Items 9–17 of the Phase 6 Expansion: FSM compiler, N-body clustering,
 /// orbital scheduler, data lifecycle, superposition, tunneling, valence bonding,
 /// RNA adapter, VSA space inflator.
-
 /// A generic VSA (Vector Symbolic Architecture) vector.
 #[repr(C, align(64))]
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -15,27 +14,30 @@ impl VsaVector {
     pub const BYTE_LEN: usize = 128 * 8;
 
     pub fn zeroed() -> Self {
-        Self { storage: [0u64; 128] }
+        Self {
+            storage: [0u64; 128],
+        }
     }
 
+    #[allow(clippy::needless_range_loop)]
     pub fn from_bytes(bytes: &[u8]) -> Self {
         let mut storage = [0u64; 128];
         let limit = bytes.len().min(Self::BYTE_LEN);
-        for word_idx in 0..128 {
+        for (word_idx, storage_slot) in storage.iter_mut().enumerate().take(128) {
             let base = word_idx * 8;
             if base >= limit {
                 break;
             }
 
             let mut word = [0u8; 8];
-            for byte_idx in 0..8 {
+            for (byte_idx, byte_slot) in word.iter_mut().enumerate().take(8) {
                 let src_idx = base + byte_idx;
                 if src_idx >= limit {
                     break;
                 }
-                word[byte_idx] = bytes[src_idx];
+                *byte_slot = bytes[src_idx];
             }
-            storage[word_idx] = u64::from_le_bytes(word);
+            *storage_slot = u64::from_le_bytes(word);
         }
 
         Self { storage }
@@ -78,10 +80,18 @@ impl FsmState {
             "FsmState::new supports at most {} transitions",
             Self::MAX_TRANSITIONS
         );
-        let mut storage = [FsmAction { input: 0, output: 0, next_state: 0 }; 16];
+        let mut storage = [FsmAction {
+            input: 0,
+            output: 0,
+            next_state: 0,
+        }; 16];
         let count = transitions.len().min(storage.len());
         storage[..count].copy_from_slice(&transitions[..count]);
-        Self { id, transition_count: count, transitions: storage }
+        Self {
+            id,
+            transition_count: count,
+            transitions: storage,
+        }
     }
 }
 
@@ -108,7 +118,9 @@ impl FsmCompiler {
         None
     }
 
-    pub fn current_state_id(&self) -> usize { self.current }
+    pub fn current_state_id(&self) -> usize {
+        self.current
+    }
 
     /// Decompile the FSM by enumerating all possible input/output paths.
     ///
@@ -120,7 +132,14 @@ impl FsmCompiler {
     pub fn enumerate_paths(&self, max_depth: usize) -> Vec<Vec<(u64, u64, usize)>> {
         let mut all_paths = Vec::new();
         let mut visited = vec![false; self.states.len()];
-        self.dfs_paths(0, &mut visited, &mut Vec::new(), &mut all_paths, max_depth, 0);
+        self.dfs_paths(
+            0,
+            &mut visited,
+            &mut Vec::new(),
+            &mut all_paths,
+            max_depth,
+            0,
+        );
         all_paths
     }
 
@@ -151,7 +170,14 @@ impl FsmCompiler {
 
             if !visited[t.next_state] {
                 visited[t.next_state] = true;
-                self.dfs_paths(t.next_state, visited, current_path, all_paths, max_depth, depth + 1);
+                self.dfs_paths(
+                    t.next_state,
+                    visited,
+                    current_path,
+                    all_paths,
+                    max_depth,
+                    depth + 1,
+                );
                 visited[t.next_state] = false;
             } else {
                 // Cycle detected — record the path segment
@@ -180,7 +206,9 @@ impl FsmCompiler {
 
     /// Get state information for inspection.
     pub fn state_info(&self) -> Vec<(usize, usize)> {
-        self.states.iter().enumerate()
+        self.states
+            .iter()
+            .enumerate()
             .map(|(i, s)| (i, s.transition_count))
             .collect()
     }
@@ -204,13 +232,23 @@ pub struct NBodyCluster {
 }
 
 impl NBodyCluster {
-    pub fn new(g: f32) -> Self { NBodyCluster { bodies: Vec::new(), g } }
+    pub fn new(g: f32) -> Self {
+        NBodyCluster {
+            bodies: Vec::new(),
+            g,
+        }
+    }
 
     pub fn add_body(&mut self, x: f32, y: f32, mass: f32) {
-        self.bodies.push(ClusterBody { position: [x, y], mass, velocity: [0.0, 0.0] });
+        self.bodies.push(ClusterBody {
+            position: [x, y],
+            mass,
+            velocity: [0.0, 0.0],
+        });
     }
 
     /// Run one gravity simulation step (Brute-force O(n²)).
+    #[allow(clippy::needless_range_loop)]
     pub fn step(&mut self) {
         let n = self.bodies.len();
         let mut forces = vec![[0.0f32; 2]; n];
@@ -283,11 +321,27 @@ pub struct OrbitalScheduler {
     pub tick: u64,
 }
 
+impl Default for OrbitalScheduler {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl OrbitalScheduler {
-    pub fn new() -> Self { OrbitalScheduler { tasks: Vec::new(), tick: 0 } }
+    pub fn new() -> Self {
+        OrbitalScheduler {
+            tasks: Vec::new(),
+            tick: 0,
+        }
+    }
 
     pub fn add_task(&mut self, id: u64, period: u64, action: u64) {
-        self.tasks.push(OrbitalTask { id, period_ticks: period, counter: 0, action });
+        self.tasks.push(OrbitalTask {
+            id,
+            period_ticks: period,
+            counter: 0,
+            action,
+        });
     }
 
     /// Advance one tick; return Vec of actions that fire this tick.
@@ -310,7 +364,12 @@ impl OrbitalScheduler {
 
 #[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub enum DataTier { Tier0 = 0, Tier1 = 1, Tier2 = 2, Tier3 = 3 }
+pub enum DataTier {
+    Tier0 = 0,
+    Tier1 = 1,
+    Tier2 = 2,
+    Tier3 = 3,
+}
 
 #[repr(C)]
 #[derive(Debug, Clone)]
@@ -331,7 +390,12 @@ pub struct DataLifecycleManager {
 
 impl DataLifecycleManager {
     pub fn new(promote: u64, demote: u64) -> Self {
-        DataLifecycleManager { blocks: Vec::new(), clock: 0, promote_threshold: promote, demote_threshold: demote }
+        DataLifecycleManager {
+            blocks: Vec::new(),
+            clock: 0,
+            promote_threshold: promote,
+            demote_threshold: demote,
+        }
     }
 
     pub fn access(&mut self, id: u64) {
@@ -397,14 +461,23 @@ impl SuperpositionState {
             Self::MAX_ELEMENTS
         );
         let count = n.min(32);
-        let mut amplitudes = [ProbabilityAmplitude { real: 0.0, imag: 0.0 }; 32];
+        let mut amplitudes = [ProbabilityAmplitude {
+            real: 0.0,
+            imag: 0.0,
+        }; 32];
         if count > 0 {
             let norm = 1.0 / (count as f32).sqrt();
             for i in 0..count {
-                amplitudes[i] = ProbabilityAmplitude { real: norm, imag: 0.0 };
+                amplitudes[i] = ProbabilityAmplitude {
+                    real: norm,
+                    imag: 0.0,
+                };
             }
         }
-        SuperpositionState { element_count: count, amplitudes }
+        SuperpositionState {
+            element_count: count,
+            amplitudes,
+        }
     }
 
     /// Collapse to most probable state via Born rule.
@@ -451,7 +524,11 @@ pub struct TunnelingGate {
 
 impl TunnelingGate {
     pub fn new(barrier: f32) -> Self {
-        TunnelingGate { barrier_energy: barrier, particle_energy: 0.0, tunnel_enabled: false }
+        TunnelingGate {
+            barrier_energy: barrier,
+            particle_energy: 0.0,
+            tunnel_enabled: false,
+        }
     }
 
     /// Attempt to tunnel; returns true if barrier is crossed.
@@ -485,16 +562,24 @@ pub struct ValenceBonding {
     pub bonds: Vec<ValenceBond>,
 }
 
+impl Default for ValenceBonding {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ValenceBonding {
-    pub fn new() -> Self { ValenceBonding { bonds: Vec::new() } }
+    pub fn new() -> Self {
+        ValenceBonding { bonds: Vec::new() }
+    }
 
     /// Form a bond between two VSA vectors if their overlap exceeds threshold.
     pub fn try_bond(&mut self, a: &VsaVector, b: &VsaVector, threshold: f32) -> bool {
         let overlap = popcount_similarity(a.as_bytes(), b.as_bytes());
         if overlap >= threshold {
             self.bonds.push(ValenceBond {
-                vector_a: a.clone(),
-                vector_b: b.clone(),
+                vector_a: *a,
+                vector_b: *b,
                 bond_strength: overlap,
             });
             true
@@ -506,7 +591,9 @@ impl ValenceBonding {
 
 fn popcount_similarity(a: &[u8], b: &[u8]) -> f32 {
     let n = a.len().min(b.len());
-    if n == 0 { return 0.0; }
+    if n == 0 {
+        return 0.0;
+    }
     let mut same = 0usize;
     for i in 0..n {
         let diff = (a[i] ^ b[i]).count_ones() as usize;
@@ -529,17 +616,29 @@ pub struct RnaAdapter {
     pub transcript: Vec<RnaInstruction>,
 }
 
+impl Default for RnaAdapter {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl RnaAdapter {
-    pub fn new() -> Self { RnaAdapter { transcript: Vec::new() } }
+    pub fn new() -> Self {
+        RnaAdapter {
+            transcript: Vec::new(),
+        }
+    }
 
     /// Transcribe a byte sequence into RNA instructions.
     pub fn transcribe(&mut self, data: &[u8]) {
         self.transcript.clear();
         for chunk in data.chunks(9) {
-            if chunk.is_empty() { continue; }
+            if chunk.is_empty() {
+                continue;
+            }
             let opcode = chunk[0] % 64;
             let mut operand = 0u64;
-            for (i, &b) in chunk.iter().enumerate().skip(1).take(8) {
+            for (_i, &b) in chunk.iter().enumerate().skip(1).take(8) {
                 operand = (operand << 8) | (b as u64);
             }
             self.transcript.push(RnaInstruction { opcode, operand });
@@ -547,7 +646,10 @@ impl RnaAdapter {
     }
 
     pub fn translate(&self) -> Vec<u64> {
-        self.transcript.iter().map(|inst| (inst.opcode as u64) << 56 | inst.operand).collect()
+        self.transcript
+            .iter()
+            .map(|inst| (inst.opcode as u64) << 56 | inst.operand)
+            .collect()
     }
 }
 
@@ -564,7 +666,11 @@ pub struct VsaSpaceInflator {
 
 impl VsaSpaceInflator {
     pub fn new(base: usize, expansion: usize) -> Self {
-        VsaSpaceInflator { base_dimensions: base, expansion_factor: expansion, expanded: Vec::new() }
+        VsaSpaceInflator {
+            base_dimensions: base,
+            expansion_factor: expansion,
+            expanded: Vec::new(),
+        }
     }
 
     /// Expand a VSA vector into higher-dimensional space by interpolating.
@@ -572,7 +678,10 @@ impl VsaSpaceInflator {
         self.expanded.clear();
         for v in vectors {
             let mut inflated = VsaVector::zeroed();
-            let output_len = self.base_dimensions.saturating_mul(self.expansion_factor).min(VsaVector::BYTE_LEN);
+            let output_len = self
+                .base_dimensions
+                .saturating_mul(self.expansion_factor)
+                .min(VsaVector::BYTE_LEN);
             if output_len == 0 {
                 self.expanded.push(inflated);
                 continue;
@@ -582,9 +691,9 @@ impl VsaSpaceInflator {
             let source_max = VsaVector::BYTE_LEN - 1;
             let inflated_bytes = inflated.as_bytes_mut();
             // Linear interpolation across dimensions
-            for i in 0..output_len {
+            for (i, byte_slot) in inflated_bytes.iter_mut().enumerate().take(output_len) {
                 let src_idx = (i * self.base_dimensions) / output_len;
-                inflated_bytes[i] = source[src_idx.min(source_max)];
+                *byte_slot = source[src_idx.min(source_max)];
             }
             self.expanded.push(inflated);
         }
@@ -598,8 +707,22 @@ mod tests {
     #[test]
     fn test_fsm_compiler() {
         let states = vec![
-            FsmState::new(0, &[FsmAction { input: 1, output: 10, next_state: 1 }]),
-            FsmState::new(1, &[FsmAction { input: 2, output: 20, next_state: 0 }]),
+            FsmState::new(
+                0,
+                &[FsmAction {
+                    input: 1,
+                    output: 10,
+                    next_state: 1,
+                }],
+            ),
+            FsmState::new(
+                1,
+                &[FsmAction {
+                    input: 2,
+                    output: 20,
+                    next_state: 0,
+                }],
+            ),
         ];
         let mut fsm = FsmCompiler::new(states);
         assert_eq!(fsm.step(1), Some(10));
@@ -631,16 +754,25 @@ mod tests {
         let mut sched = OrbitalScheduler::new();
         sched.add_task(1, 3, 100);
         let mut fired = Vec::new();
-        for _ in 0..6 { fired.extend(sched.tick()); }
+        for _ in 0..6 {
+            fired.extend(sched.tick());
+        }
         assert_eq!(fired, vec![100, 100]); // fires at ticks 3, 6
     }
 
     #[test]
     fn test_data_lifecycle() {
         let mut mgr = DataLifecycleManager::new(3, 10);
-        mgr.blocks.push(DataBlock { id: 1, tier: DataTier::Tier2, access_count: 0, last_accessed: 0 });
+        mgr.blocks.push(DataBlock {
+            id: 1,
+            tier: DataTier::Tier2,
+            access_count: 0,
+            last_accessed: 0,
+        });
         // Access 4 times → promote to Tier1
-        for _ in 0..4 { mgr.access(1); }
+        for _ in 0..4 {
+            mgr.access(1);
+        }
         mgr.rebalance();
         assert_eq!(mgr.blocks[0].tier as u8, DataTier::Tier1 as u8);
     }
@@ -648,14 +780,20 @@ mod tests {
     #[test]
     fn test_superposition_collapse() {
         let mut sup = SuperpositionState::new(4);
-        sup.amplitudes[0] = ProbabilityAmplitude { real: 0.9, imag: 0.0 };
+        sup.amplitudes[0] = ProbabilityAmplitude {
+            real: 0.9,
+            imag: 0.0,
+        };
         assert_eq!(sup.collapse(), 0);
     }
 
     #[test]
     fn test_superposition_hadamard() {
         let mut sup = SuperpositionState::new(4);
-        sup.amplitudes[0] = ProbabilityAmplitude { real: 1.0, imag: 0.0 };
+        sup.amplitudes[0] = ProbabilityAmplitude {
+            real: 1.0,
+            imag: 0.0,
+        };
         sup.apply_hadamard();
         for a in sup.amplitudes.iter().take(sup.element_count) {
             assert!((a.real - 0.5).abs() < 1e-6);
@@ -700,6 +838,9 @@ mod tests {
         let vectors = vec![VsaVector::from_bytes(&[1, 2, 3, 4])];
         inflator.inflate(&vectors);
         assert_eq!(inflator.expanded.len(), 1);
-        assert_eq!(&inflator.expanded[0].as_bytes()[0..8], &[1, 1, 2, 2, 3, 3, 4, 4]);
+        assert_eq!(
+            &inflator.expanded[0].as_bytes()[0..8],
+            &[1, 1, 2, 2, 3, 3, 4, 4]
+        );
     }
 }

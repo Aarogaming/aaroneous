@@ -118,10 +118,12 @@ impl TokenBucketLimiter {
 
         // Slow path: insert a new bucket. The `to_string()` is
         // amortized — it happens at most once per new key.
-        let bucket = buckets.entry(key.to_string()).or_insert_with(|| BucketState {
-            tokens: self.config.burst,
-            last_refill: now,
-        });
+        let bucket = buckets
+            .entry(key.to_string())
+            .or_insert_with(|| BucketState {
+                tokens: self.config.burst,
+                last_refill: now,
+            });
         Self::consume(&self.config, bucket, now)
     }
 
@@ -183,7 +185,10 @@ impl TokenBucketLimiter {
     /// Forget the bucket for `key`. Useful when an auth identity
     /// is logged out or when a tenant is deprovisioned.
     pub fn forget(&self, key: &str) {
-        self.buckets.lock().expect("rate limiter poisoned").remove(key);
+        self.buckets
+            .lock()
+            .expect("rate limiter poisoned")
+            .remove(key);
     }
 
     /// Number of tracked keys. Test-only inspection.
@@ -330,10 +335,7 @@ mod tests {
 
     #[test]
     fn key_from_request_prefers_auth() {
-        assert_eq!(
-            key_from_request(Some("alice"), "10.0.0.1"),
-            "auth:alice"
-        );
+        assert_eq!(key_from_request(Some("alice"), "10.0.0.1"), "auth:alice");
     }
 
     #[test]

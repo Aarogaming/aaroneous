@@ -1,7 +1,6 @@
 /// Compliance Monitoring Framework
-/// 
+///
 /// Tracks compliance with regulations and internal policies
-
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -19,7 +18,7 @@ pub struct ComplianceRule {
     pub rule_id: String,
     pub name: String,
     pub description: String,
-    pub category: String,  // GDPR, HIPAA, SOC2, etc.
+    pub category: String, // GDPR, HIPAA, SOC2, etc.
     pub check_interval_ms: u64,
     pub enabled: bool,
 }
@@ -31,7 +30,7 @@ impl ComplianceRule {
             name,
             description: String::new(),
             category,
-            check_interval_ms: 3600000,  // 1 hour
+            check_interval_ms: 3600000, // 1 hour
             enabled: true,
         }
     }
@@ -82,13 +81,10 @@ impl ComplianceMonitor {
         ];
 
         for (id, name, category) in rules {
-            let rule = ComplianceRule::new(
-                id.to_string(),
-                name.to_string(),
-                category.to_string(),
-            );
+            let rule = ComplianceRule::new(id.to_string(), name.to_string(), category.to_string());
             self.rules.insert(id.to_string(), rule);
-            self.status_map.insert(id.to_string(), ComplianceStatus::Unknown);
+            self.status_map
+                .insert(id.to_string(), ComplianceStatus::Unknown);
         }
     }
 
@@ -132,15 +128,29 @@ impl ComplianceMonitor {
 
     /// Check overall compliance
     pub fn is_compliant(&self) -> bool {
-        self.status_map.values().all(|status| !matches!(status, ComplianceStatus::Violated))
+        self.status_map
+            .values()
+            .all(|status| !matches!(status, ComplianceStatus::Violated))
     }
 
     /// Get compliance report
     pub fn generate_report(&self) -> ComplianceReport {
         let total_rules = self.rules.len();
-        let compliant = self.status_map.values().filter(|s| matches!(s, ComplianceStatus::Compliant)).count();
-        let warnings = self.status_map.values().filter(|s| matches!(s, ComplianceStatus::Warning)).count();
-        let violations = self.status_map.values().filter(|s| matches!(s, ComplianceStatus::Violated)).count();
+        let compliant = self
+            .status_map
+            .values()
+            .filter(|s| matches!(s, ComplianceStatus::Compliant))
+            .count();
+        let warnings = self
+            .status_map
+            .values()
+            .filter(|s| matches!(s, ComplianceStatus::Warning))
+            .count();
+        let violations = self
+            .status_map
+            .values()
+            .filter(|s| matches!(s, ComplianceStatus::Violated))
+            .count();
 
         ComplianceReport {
             total_rules,

@@ -1,8 +1,8 @@
+use crate::hox_map_schema::{EnzymeGenetics, HoxPermissions};
 use anyhow::Result;
 use parking_lot::Mutex;
-use rusqlite::{params, Connection};
+use rusqlite::{Connection, params};
 use serde::{Deserialize, Serialize};
-use crate::hox_map_schema::{EnzymeGenetics, HoxPermissions};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct HoxCapability {
@@ -69,12 +69,15 @@ impl HoxRegistry {
     }
 
     pub fn get_enzyme(&self, name: &str) -> Option<EnzymeGenetics> {
-        self.get_capability(name).ok().flatten().map(|cap| EnzymeGenetics {
-            category: cap.name.clone(),
-            expression_level: 1.0,
-            permissions: cap.permissions.clone(),
-            mcp_tools: vec![],
-        })
+        self.get_capability(name)
+            .ok()
+            .flatten()
+            .map(|cap| EnzymeGenetics {
+                category: cap.name.clone(),
+                expression_level: 1.0,
+                permissions: cap.permissions.clone(),
+                mcp_tools: vec![],
+            })
     }
 
     pub fn list_capabilities(&self) -> Result<Vec<HoxCapability>> {
@@ -89,7 +92,7 @@ impl HoxRegistry {
                     name: row.get(0)?,
                     enzyme_hash: row.get(1)?,
                     permissions: serde_json::from_str(&permissions_json).map_err(|e| {
-                    rusqlite::Error::FromSqlConversionFailure(
+                        rusqlite::Error::FromSqlConversionFailure(
                             2,
                             rusqlite::types::Type::Text,
                             Box::new(e),
@@ -127,7 +130,10 @@ mod tests {
             HoxPermissions {
                 max_sovereignty_tier: 2,
                 allow_network: true,
-                whitelisted_domains: vec!["api.openai.com".to_string(), "api.anthropic.com".to_string()],
+                whitelisted_domains: vec![
+                    "api.openai.com".to_string(),
+                    "api.anthropic.com".to_string(),
+                ],
                 requires_hitl: true,
             },
         );
@@ -136,10 +142,22 @@ mod tests {
         let loaded = registry.get_capability("odin").unwrap().unwrap();
         assert_eq!(loaded.name, cap.name);
         assert_eq!(loaded.enzyme_hash, cap.enzyme_hash);
-        assert_eq!(loaded.permissions.max_sovereignty_tier, cap.permissions.max_sovereignty_tier);
-        assert_eq!(loaded.permissions.allow_network, cap.permissions.allow_network);
-        assert_eq!(loaded.permissions.whitelisted_domains, cap.permissions.whitelisted_domains);
-        assert_eq!(loaded.permissions.requires_hitl, cap.permissions.requires_hitl);
+        assert_eq!(
+            loaded.permissions.max_sovereignty_tier,
+            cap.permissions.max_sovereignty_tier
+        );
+        assert_eq!(
+            loaded.permissions.allow_network,
+            cap.permissions.allow_network
+        );
+        assert_eq!(
+            loaded.permissions.whitelisted_domains,
+            cap.permissions.whitelisted_domains
+        );
+        assert_eq!(
+            loaded.permissions.requires_hitl,
+            cap.permissions.requires_hitl
+        );
 
         let listed = registry.list_capabilities().unwrap();
         assert_eq!(listed.len(), 1);
@@ -152,46 +170,64 @@ mod tests {
         let db_path = dir.path().join("hox.db");
         let registry = HoxRegistry::new(db_path.to_str().unwrap()).unwrap();
 
-        registry.register_capability(&capability(
-            "merlin",
-            "hash-a",
-            HoxPermissions {
-                max_sovereignty_tier: 1,
-                allow_network: false,
-                whitelisted_domains: vec!["signals.local".to_string()],
-                requires_hitl: false,
-            },
-        )).unwrap();
-        registry.register_capability(&capability(
-            "odin",
-            "hash-b",
-            HoxPermissions {
-                max_sovereignty_tier: 2,
-                allow_network: true,
-                whitelisted_domains: vec!["api.openai.com".to_string()],
-                requires_hitl: true,
-            },
-        )).unwrap();
-        registry.register_capability(&capability(
-            "merlin",
-            "hash-c",
-            HoxPermissions {
-                max_sovereignty_tier: 3,
-                allow_network: true,
-                whitelisted_domains: vec!["signals.local".to_string(), "api.anthropic.com".to_string()],
-                requires_hitl: true,
-            },
-        )).unwrap();
+        registry
+            .register_capability(&capability(
+                "merlin",
+                "hash-a",
+                HoxPermissions {
+                    max_sovereignty_tier: 1,
+                    allow_network: false,
+                    whitelisted_domains: vec!["signals.local".to_string()],
+                    requires_hitl: false,
+                },
+            ))
+            .unwrap();
+        registry
+            .register_capability(&capability(
+                "odin",
+                "hash-b",
+                HoxPermissions {
+                    max_sovereignty_tier: 2,
+                    allow_network: true,
+                    whitelisted_domains: vec!["api.openai.com".to_string()],
+                    requires_hitl: true,
+                },
+            ))
+            .unwrap();
+        registry
+            .register_capability(&capability(
+                "merlin",
+                "hash-c",
+                HoxPermissions {
+                    max_sovereignty_tier: 3,
+                    allow_network: true,
+                    whitelisted_domains: vec![
+                        "signals.local".to_string(),
+                        "api.anthropic.com".to_string(),
+                    ],
+                    requires_hitl: true,
+                },
+            ))
+            .unwrap();
 
         let merlin = registry.get_capability("merlin").unwrap().unwrap();
         assert_eq!(merlin.enzyme_hash, "hash-c");
         assert_eq!(merlin.permissions.max_sovereignty_tier, 3);
         assert!(merlin.permissions.allow_network);
-        assert_eq!(merlin.permissions.whitelisted_domains, vec!["signals.local".to_string(), "api.anthropic.com".to_string()]);
+        assert_eq!(
+            merlin.permissions.whitelisted_domains,
+            vec!["signals.local".to_string(), "api.anthropic.com".to_string()]
+        );
         assert!(merlin.permissions.requires_hitl);
 
         let listed = registry.list_capabilities().unwrap();
-        assert_eq!(listed.iter().map(|cap| cap.name.as_str()).collect::<Vec<_>>(), vec!["merlin", "odin"]);
+        assert_eq!(
+            listed
+                .iter()
+                .map(|cap| cap.name.as_str())
+                .collect::<Vec<_>>(),
+            vec!["merlin", "odin"]
+        );
     }
 
     #[test]
@@ -200,22 +236,27 @@ mod tests {
         let db_path = dir.path().join("hox.db");
         let registry = HoxRegistry::new(db_path.to_str().unwrap()).unwrap();
 
-        registry.register_capability(&capability(
-            "odin",
-            "hash-1",
-            HoxPermissions {
-                max_sovereignty_tier: 2,
-                allow_network: true,
-                whitelisted_domains: vec!["api.openai.com".to_string()],
-                requires_hitl: true,
-            },
-        )).unwrap();
+        registry
+            .register_capability(&capability(
+                "odin",
+                "hash-1",
+                HoxPermissions {
+                    max_sovereignty_tier: 2,
+                    allow_network: true,
+                    whitelisted_domains: vec!["api.openai.com".to_string()],
+                    requires_hitl: true,
+                },
+            ))
+            .unwrap();
 
         let enzyme = registry.get_enzyme("odin").unwrap();
         assert_eq!(enzyme.category, "odin");
         assert_eq!(enzyme.permissions.max_sovereignty_tier, 2);
         assert!(enzyme.permissions.allow_network);
-        assert_eq!(enzyme.permissions.whitelisted_domains, vec!["api.openai.com".to_string()]);
+        assert_eq!(
+            enzyme.permissions.whitelisted_domains,
+            vec!["api.openai.com".to_string()]
+        );
         assert!(enzyme.permissions.requires_hitl);
     }
 }

@@ -50,8 +50,8 @@ pub struct DashboardWidget {
     pub widget_type: WidgetType,
     pub metrics: Vec<String>,
     pub refresh_interval_ms: u32,
-    pub position: (u32, u32),  // x, y coordinates
-    pub size: (u32, u32),      // width, height
+    pub position: (u32, u32), // x, y coordinates
+    pub size: (u32, u32),     // width, height
 }
 
 /// Widget type
@@ -143,7 +143,7 @@ impl RealTimeDashboard {
     /// Create new dashboard
     pub fn new(name: &str) -> Self {
         println!("[Dashboard] Initialized: {}", name);
-        
+
         let config = DashboardConfig {
             name: name.to_string(),
             refresh_interval_ms: 1000,
@@ -168,11 +168,13 @@ impl RealTimeDashboard {
 
     /// Add alert threshold
     pub fn add_alert_threshold(&mut self, threshold: AlertThreshold) {
-        println!("[Dashboard] Added alert threshold: {}", threshold.metric_name);
-        self.config.alert_thresholds.insert(
-            threshold.metric_name.clone(),
-            threshold,
+        println!(
+            "[Dashboard] Added alert threshold: {}",
+            threshold.metric_name
         );
+        self.config
+            .alert_thresholds
+            .insert(threshold.metric_name.clone(), threshold);
     }
 
     /// Record metric value with history
@@ -182,21 +184,18 @@ impl RealTimeDashboard {
             .unwrap()
             .as_secs();
 
-        let entry = HistoricalValue {
-            timestamp,
-            value,
-        };
+        let entry = HistoricalValue { timestamp, value };
 
         self.metric_history
             .entry(metric_name.to_string())
-            .or_insert_with(Vec::new)
+            .or_default()
             .push(entry);
 
         // Check thresholds if alerts enabled
-        if self.config.enable_alerts {
-            if let Some(threshold) = self.config.alert_thresholds.get(metric_name).cloned() {
-                self.check_threshold(metric_name, value, &threshold);
-            }
+        if self.config.enable_alerts
+            && let Some(threshold) = self.config.alert_thresholds.get(metric_name).cloned()
+        {
+            self.check_threshold(metric_name, value, &threshold);
         }
     }
 
@@ -219,8 +218,10 @@ impl RealTimeDashboard {
                 current_value: value,
                 threshold: threshold.critical_value,
                 severity: AlertSeverity::Critical,
-                message: format!("{} exceeded threshold: {} > {}",
-                    metric_name, value, threshold.critical_value),
+                message: format!(
+                    "{} exceeded threshold: {} > {}",
+                    metric_name, value, threshold.critical_value
+                ),
                 acknowledged: false,
             };
 
@@ -236,11 +237,10 @@ impl RealTimeDashboard {
 
     /// Get current metrics snapshot
     pub fn get_metrics_snapshot(&self) -> MetricsSnapshot {
-        let latest_values: HashMap<&String, f64> = self.metric_history
+        let latest_values: HashMap<&String, f64> = self
+            .metric_history
             .iter()
-            .filter_map(|(k, v)| {
-                v.last().map(|h| (k, h.value))
-            })
+            .filter_map(|(k, v)| v.last().map(|h| (k, h.value)))
             .collect();
 
         MetricsSnapshot {
@@ -248,23 +248,28 @@ impl RealTimeDashboard {
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap()
                 .as_secs(),
-            autonomic_tick_ms: latest_values.get(&"autonomic_tick_ms".to_string())
+            autonomic_tick_ms: latest_values
+                .get(&"autonomic_tick_ms".to_string())
                 .copied()
                 .unwrap_or(0.0),
             thermal_state: "NORMAL".to_string(),
             active_tasks: 0,
             completed_tasks: 0,
             failed_tasks: 0,
-            average_latency_ms: latest_values.get(&"latency_ms".to_string())
+            average_latency_ms: latest_values
+                .get(&"latency_ms".to_string())
                 .copied()
                 .unwrap_or(0.0),
-            cpu_usage_percent: latest_values.get(&"cpu_usage".to_string())
+            cpu_usage_percent: latest_values
+                .get(&"cpu_usage".to_string())
                 .copied()
                 .unwrap_or(0.0),
-            memory_usage_mb: latest_values.get(&"memory_usage".to_string())
+            memory_usage_mb: latest_values
+                .get(&"memory_usage".to_string())
                 .copied()
                 .unwrap_or(0.0),
-            network_io_mbps: latest_values.get(&"network_io".to_string())
+            network_io_mbps: latest_values
+                .get(&"network_io".to_string())
                 .copied()
                 .unwrap_or(0.0),
         }
@@ -272,7 +277,8 @@ impl RealTimeDashboard {
 
     /// Generate HTML dashboard
     pub fn generate_html(&self) -> String {
-        format!(r#"
+        format!(
+            r#"
 <!DOCTYPE html>
 <html>
 <head>
@@ -362,14 +368,14 @@ impl RealTimeDashboard {
     </script>
 </body>
 </html>
-        "#, self.config.name)
+        "#,
+            self.config.name
+        )
     }
 
     /// Get active alerts
     pub fn get_active_alerts(&self) -> Vec<&DashboardAlert> {
-        self.alerts.iter()
-            .filter(|a| !a.acknowledged)
-            .collect()
+        self.alerts.iter().filter(|a| !a.acknowledged).collect()
     }
 
     /// Acknowledge alert
@@ -383,7 +389,9 @@ impl RealTimeDashboard {
     /// Get health metrics
     pub fn get_health_metrics(&self) -> HealthMetrics {
         let total_alerts = self.alerts.len();
-        let critical_alerts = self.alerts.iter()
+        let critical_alerts = self
+            .alerts
+            .iter()
             .filter(|a| matches!(a.severity, AlertSeverity::Critical))
             .count();
 
@@ -436,7 +444,7 @@ mod tests {
     #[test]
     fn test_add_widget() {
         let mut dashboard = RealTimeDashboard::new("Test");
-        
+
         let widget = DashboardWidget {
             id: "w1".to_string(),
             title: "Latency".to_string(),
@@ -446,7 +454,7 @@ mod tests {
             position: (0, 0),
             size: (400, 300),
         };
-        
+
         dashboard.add_widget(widget);
         assert_eq!(dashboard.widgets.len(), 1);
     }
@@ -454,10 +462,10 @@ mod tests {
     #[test]
     fn test_record_metric() {
         let mut dashboard = RealTimeDashboard::new("Test");
-        
+
         dashboard.record_metric_value("latency_ms", 45.5);
         dashboard.record_metric_value("latency_ms", 52.3);
-        
+
         assert!(dashboard.metric_history.contains_key("latency_ms"));
     }
 
@@ -465,7 +473,7 @@ mod tests {
     fn test_health_metrics() {
         let dashboard = RealTimeDashboard::new("Test");
         let health = dashboard.get_health_metrics();
-        
+
         assert_eq!(health.availability_percent, 99.95);
         assert!(health.performance_score > 0.0);
     }
@@ -474,7 +482,7 @@ mod tests {
     fn test_html_generation() {
         let dashboard = RealTimeDashboard::new("Production");
         let html = dashboard.generate_html();
-        
+
         assert!(html.contains("Aaroneous"));
         assert!(html.contains("Dashboard"));
     }
@@ -482,12 +490,11 @@ mod tests {
     #[test]
     fn test_metrics_snapshot() {
         let mut dashboard = RealTimeDashboard::new("Test");
-        
+
         dashboard.record_metric_value("latency_ms", 45.0);
         dashboard.record_metric_value("cpu_usage", 65.0);
-        
+
         let snapshot = dashboard.get_metrics_snapshot();
         assert_eq!(snapshot.average_latency_ms, 45.0);
     }
 }
-

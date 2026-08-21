@@ -1,3 +1,4 @@
+pub mod rest_api;
 /// Federation HTTP status surface.
 ///
 /// Exposes a small read-only HTTP API for monitoring the federation:
@@ -38,14 +39,12 @@
 /// # Ok(())
 /// # }
 /// ```
-
 pub mod router;
 pub mod server;
-pub mod rest_api;
 
 #[cfg(test)]
 mod tests;
 
-pub use router::{router as federation_router, AppState};
-pub use server::{HttpStatusServer, HttpServerError};
 pub use rest_api::server::RestApiServer;
+pub use router::{AppState, router as federation_router};
+pub use server::{HttpServerError, HttpStatusServer};

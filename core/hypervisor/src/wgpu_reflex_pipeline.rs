@@ -9,14 +9,13 @@ use std::path::Path;
 use std::sync::Arc;
 
 use wgpu::{
+    Buffer, BufferDescriptor, BufferUsages, ComputePassDescriptor, ComputePipeline,
+    ComputePipelineDescriptor, Device, Queue, ShaderModuleDescriptor, ShaderSource,
     util::DeviceExt,
-    Buffer, BufferDescriptor, BufferUsages, ComputePassDescriptor,
-    ComputePipeline, ComputePipelineDescriptor, Device, Queue,
-    ShaderModuleDescriptor, ShaderSource,
 };
 
-use crate::win32_intercept::hid_bridge::MotorIntent;
 use crate::epigenetic_gate::EpigeneticGateMatrix;
+use crate::win32_intercept::hid_bridge::MotorIntent;
 
 pub const GRID_SIZE: usize = 128 * 128;
 pub const TOTAL_SECTORS: usize = 256;
@@ -68,7 +67,8 @@ impl WgpuReflexPipeline {
 
         let intent_buffer = device.create_buffer(&BufferDescriptor {
             label: Some("Motor Intent Output Buffer"),
-            size: (voxel_count as usize * std::mem::size_of::<f32>()).min(MAX_BUFFER_SIZE as usize) as u64,
+            size: (voxel_count as usize * std::mem::size_of::<f32>()).min(MAX_BUFFER_SIZE as usize)
+                as u64,
             usage: BufferUsages::STORAGE | BufferUsages::COPY_SRC,
             mapped_at_creation: false,
         });
@@ -102,7 +102,7 @@ impl WgpuReflexPipeline {
             cache: None,
         });
 
-let pixel_buffer = device.create_buffer(&BufferDescriptor {
+        let pixel_buffer = device.create_buffer(&BufferDescriptor {
             label: Some("Pixel Input Buffer"),
             size: (GRID_SIZE * std::mem::size_of::<f32>()) as u64,
             usage: BufferUsages::STORAGE | BufferUsages::COPY_DST,
@@ -124,12 +124,11 @@ let pixel_buffer = device.create_buffer(&BufferDescriptor {
 
     /// Load genome from binary file via memory mapping
     fn load_genome_mmap(path: &Path) -> Result<Vec<u32>, String> {
-        let file = std::fs::File::open(path)
-            .map_err(|e| format!("Failed to open genome file: {}", e))?;
+        let file =
+            std::fs::File::open(path).map_err(|e| format!("Failed to open genome file: {}", e))?;
 
         let mmap = unsafe {
-            memmap2::Mmap::map(&file)
-                .map_err(|e| format!("Failed to memory-map genome: {}", e))?
+            memmap2::Mmap::map(&file).map_err(|e| format!("Failed to memory-map genome: {}", e))?
         };
 
         // Parse header: AASv1 magic (5 bytes) + voxel_count (8 bytes) + weight_count (8 bytes)
@@ -145,8 +144,7 @@ let pixel_buffer = device.create_buffer(&BufferDescriptor {
         }
 
         let voxel_count = u64::from_le_bytes([
-            mmap[5], mmap[6], mmap[7], mmap[8],
-            mmap[9], mmap[10], mmap[11], mmap[12],
+            mmap[5], mmap[6], mmap[7], mmap[8], mmap[9], mmap[10], mmap[11], mmap[12],
         ]) as usize;
 
         let data_start = 21;
@@ -189,11 +187,8 @@ let pixel_buffer = device.create_buffer(&BufferDescriptor {
         // Upload gate mask if provided
         if let Some(gate) = gate_matrix {
             let mask = gate.get_gpu_mask();
-            self.queue.write_buffer(
-                &self.gate_mask_buffer,
-                0,
-                bytemuck::cast_slice(&mask),
-            );
+            self.queue
+                .write_buffer(&self.gate_mask_buffer, 0, bytemuck::cast_slice(&mask));
         }
 
         // Process each genome chunk
@@ -201,8 +196,11 @@ let pixel_buffer = device.create_buffer(&BufferDescriptor {
         let mut all_intents = Vec::with_capacity(self.voxel_count as usize);
 
         for (chunk_idx, genome_buf) in self.genome_buffers.iter().enumerate() {
-            let chunk_voxels = max_voxels_per_buffer.min(self.voxel_count as usize - chunk_idx * max_voxels_per_buffer);
-            if chunk_voxels == 0 { break; }
+            let chunk_voxels = max_voxels_per_buffer
+                .min(self.voxel_count as usize - chunk_idx * max_voxels_per_buffer);
+            if chunk_voxels == 0 {
+                break;
+            }
 
             let mut encoder = self
                 .device
@@ -241,7 +239,9 @@ let pixel_buffer = device.create_buffer(&BufferDescriptor {
 
                 // Dispatch with workgroup count within limits (max 65535)
                 let threads_per_workgroup = 256u32;
-                let workgroup_count = ((chunk_voxels as u32 + threads_per_workgroup - 1) / threads_per_workgroup).min(65535);
+                let workgroup_count = (chunk_voxels as u32)
+                    .div_ceil(threads_per_workgroup)
+                    .min(65535);
                 compute_pass.dispatch_workgroups(workgroup_count, 1, 1);
             }
 
@@ -275,7 +275,12 @@ let pixel_buffer = device.create_buffer(&BufferDescriptor {
             let _ = tx.send(result);
         });
 
-        self.device.poll(wgpu::PollType::Wait { submission_index: None, timeout: None }).unwrap();
+        self.device
+            .poll(wgpu::PollType::Wait {
+                submission_index: None,
+                timeout: None,
+            })
+            .unwrap();
         rx.await.unwrap().unwrap();
 
         let data = buffer_slice.get_mapped_range();
@@ -288,7 +293,11 @@ let pixel_buffer = device.create_buffer(&BufferDescriptor {
     }
 
     /// Convert computed intent values to MotorIntent for HID execution
-    pub fn compute_motor_intent(&self, intents: &[f32], gate_matrix: &EpigeneticGateMatrix) -> MotorIntent {
+    pub fn compute_motor_intent(
+        &self,
+        intents: &[f32],
+        gate_matrix: &EpigeneticGateMatrix,
+    ) -> MotorIntent {
         // Aggregate intent values across active genome tracks
         let mut sum_x: f32 = 0.0;
         let mut sum_y: f32 = 0.0;
@@ -308,7 +317,11 @@ let pixel_buffer = device.create_buffer(&BufferDescriptor {
         }
 
         // Normalize by active sector count
-        let scale = if max_magnitude > 0.0 { 1.0 / max_magnitude } else { 1.0 };
+        let scale = if max_magnitude > 0.0 {
+            1.0 / max_magnitude
+        } else {
+            1.0
+        };
 
         MotorIntent {
             delta_x: sum_x * scale / active_count as f32 * 100.0,

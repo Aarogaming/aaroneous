@@ -1,12 +1,12 @@
 // Metadata Ingestor
 // Watches files, git, system metrics, and feeds them to the compute engine
 
-use std::path::{Path, PathBuf};
-use std::fs;
-use std::time::Duration;
-use serde::{Serialize, Deserialize};
-use compute::ComputeEngine;
 use crate::workspace::WorkspacePaths;
+use compute::ComputeEngine;
+use serde::{Deserialize, Serialize};
+use std::fs;
+use std::path::{Path, PathBuf};
+use std::time::Duration;
 
 /// Types of metadata sources
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -50,7 +50,7 @@ impl Default for MetadataIngestorConfig {
     }
 }
 
-use notify::{Watcher, RecursiveMode, Event as NotifyEvent};
+use notify::{Event as NotifyEvent, RecursiveMode, Watcher};
 use tokio::sync::mpsc;
 
 /// Metadata Ingestor - collects and analyzes metadata from various sources
@@ -77,7 +77,7 @@ pub struct SystemMetrics {
 impl MetadataIngestor {
     pub fn new(config: MetadataIngestorConfig) -> Self {
         let (tx, rx) = mpsc::channel(config.max_event_queue);
-        
+
         // Define watcher
         let event_handler = move |res: notify::Result<NotifyEvent>| {
             if let Ok(event) = res {
@@ -92,8 +92,9 @@ impl MetadataIngestor {
             }
         };
 
-        let mut watcher = notify::RecommendedWatcher::new(event_handler, notify::Config::default()).unwrap();
-        
+        let mut watcher =
+            notify::RecommendedWatcher::new(event_handler, notify::Config::default()).unwrap();
+
         for path in &config.watch_paths {
             if path.exists() {
                 let _ = watcher.watch(path, RecursiveMode::Recursive);
@@ -134,10 +135,10 @@ impl MetadataIngestor {
                     let entry_path = entry.path();
 
                     // Skip hidden files/directories and target trees.
-                    if let Some(name) = entry_path.file_name().and_then(|n| n.to_str()) {
-                        if name.starts_with('.') || name == "target" {
-                            continue;
-                        }
+                    if let Some(name) = entry_path.file_name().and_then(|n| n.to_str())
+                        && (name.starts_with('.') || name == "target")
+                    {
+                        continue;
                     }
 
                     self.scan_path_recursive(&entry_path, events);
@@ -157,7 +158,11 @@ impl MetadataIngestor {
         if is_new || is_changed {
             let event = MetadataEvent {
                 source: format!("fs:{}", path.display()),
-                event_type: if is_new { "file_created".to_string() } else { "file_modified".to_string() },
+                event_type: if is_new {
+                    "file_created".to_string()
+                } else {
+                    "file_modified".to_string()
+                },
                 timestamp: std::time::SystemTime::now()
                     .duration_since(std::time::UNIX_EPOCH)
                     .unwrap_or_default()
@@ -186,8 +191,9 @@ impl MetadataIngestor {
     pub fn collect_system_metrics(&mut self) -> MetadataEvent {
         let mut sys = sysinfo::System::new_all();
         sys.refresh_all();
-        
-        let cpu_usage = sys.cpus().iter().map(|c| c.cpu_usage()).sum::<f32>() / sys.cpus().len() as f32;
+
+        let cpu_usage =
+            sys.cpus().iter().map(|c| c.cpu_usage()).sum::<f32>() / sys.cpus().len() as f32;
         let memory_usage = sys.used_memory() as f32 / sys.total_memory() as f32 * 100.0;
         let mut disk_usage = 0.0;
         let disks = sysinfo::Disks::new_with_refreshed_list();
@@ -200,7 +206,7 @@ impl MetadataIngestor {
         if total_space > 0 {
             disk_usage = (total_used as f64 / total_space as f64 * 100.0) as f32;
         }
-        
+
         let metrics = SystemMetrics {
             cpu_usage,
             memory_usage,
@@ -210,9 +216,9 @@ impl MetadataIngestor {
                 .unwrap_or_default()
                 .as_secs_f64(),
         };
-        
+
         self.last_system_metrics = Some(metrics.clone());
-        
+
         MetadataEvent {
             source: "system:metrics".to_string(),
             event_type: "metrics_update".to_string(),
@@ -229,17 +235,17 @@ impl MetadataIngestor {
     /// Analyze a metadata event using compute engine
     pub fn analyze_event(&mut self, event: &MetadataEvent) -> MetadataAnalysis {
         let mut analysis = MetadataAnalysis::default();
-        
+
         // Compute entropy if raw bytes available
-        if self.config.compute_entropy {
-            if let Some(ref bytes) = event.raw_bytes {
-                let byte_values: Vec<f64> = bytes.iter().map(|&b| b as f64 / 255.0).collect();
-                if let Ok(result) = self.compute.execute("entropy", &byte_values) {
-                    analysis.entropy = result.first().copied().unwrap_or(0.0);
-                }
+        if self.config.compute_entropy
+            && let Some(ref bytes) = event.raw_bytes
+        {
+            let byte_values: Vec<f64> = bytes.iter().map(|&b| b as f64 / 255.0).collect();
+            if let Ok(result) = self.compute.execute("entropy", &byte_values) {
+                analysis.entropy = result.first().copied().unwrap_or(0.0);
             }
         }
-        
+
         // Compute complexity based on event data
         if self.config.compute_complexity {
             let complexity_input = match event.event_type.as_str() {
@@ -248,12 +254,12 @@ impl MetadataIngestor {
                 "metrics_update" => vec![0.3, 0.8],
                 _ => vec![0.5, 0.5],
             };
-            
+
             if let Ok(result) = self.compute.execute("monte_carlo", &complexity_input) {
                 analysis.predicted_complexity = result.first().copied().unwrap_or(0.5);
             }
         }
-        
+
         analysis
     }
 
@@ -266,11 +272,11 @@ impl MetadataIngestor {
                 self.event_queue.push(event);
             }
         }
-        
+
         // Scan for new events
         let fs_events = self.scan_filesystem();
         let metrics_event = self.collect_system_metrics();
-        
+
         // Add to queue
         for event in fs_events {
             if self.event_queue.len() < self.config.max_event_queue {
@@ -280,25 +286,24 @@ impl MetadataIngestor {
         if self.event_queue.len() < self.config.max_event_queue {
             self.event_queue.push(metrics_event);
         }
-        
+
         // Analyze all queued events
         let events: Vec<MetadataEvent> = self.event_queue.drain(..).collect();
         for event in events {
             let analysis = self.analyze_event(&event);
             results.push((event, analysis));
         }
-        
+
         results
     }
 
     /// Compute a simple hash for a file (for change detection)
     fn compute_file_hash(&self, path: &Path) -> String {
-        if let Ok(metadata) = fs::metadata(path) {
-            if let Ok(modified) = metadata.modified() {
-                if let Ok(duration) = modified.duration_since(std::time::UNIX_EPOCH) {
-                    return format!("{}:{}", metadata.len(), duration.as_secs());
-                }
-            }
+        if let Ok(metadata) = fs::metadata(path)
+            && let Ok(modified) = metadata.modified()
+            && let Ok(duration) = modified.duration_since(std::time::UNIX_EPOCH)
+        {
+            return format!("{}:{}", metadata.len(), duration.as_secs());
         }
         "unknown".to_string()
     }
@@ -343,7 +348,7 @@ mod tests {
         let config = MetadataIngestorConfig::default();
         let mut ingestor = MetadataIngestor::new(config);
         let event = ingestor.collect_system_metrics();
-        
+
         assert_eq!(event.source, "system:metrics");
         assert_eq!(event.event_type, "metrics_update");
         assert!(ingestor.last_system_metrics.is_some());
@@ -353,7 +358,7 @@ mod tests {
     fn test_event_analysis() {
         let config = MetadataIngestorConfig::default();
         let mut ingestor = MetadataIngestor::new(config);
-        
+
         let event = MetadataEvent {
             source: "test".to_string(),
             event_type: "file_modified".to_string(),
@@ -361,7 +366,7 @@ mod tests {
             data: serde_json::json!({"path": "test.rs"}),
             raw_bytes: Some(b"fn main() {}".to_vec()),
         };
-        
+
         let analysis = ingestor.analyze_event(&event);
         assert!(analysis.entropy >= 0.0);
         assert!(analysis.predicted_complexity >= 0.0 && analysis.predicted_complexity <= 1.0);
@@ -386,6 +391,11 @@ mod tests {
         let events = ingestor.scan_filesystem();
         let expected_path = file_path.to_string_lossy().to_string();
 
-        assert!(events.iter().any(|event| event.data.get("path").and_then(|p| p.as_str()) == Some(expected_path.as_str())));
+        assert!(
+            events
+                .iter()
+                .any(|event| event.data.get("path").and_then(|p| p.as_str())
+                    == Some(expected_path.as_str()))
+        );
     }
 }

@@ -15,6 +15,12 @@ pub struct AutonomousScheduler {
     pub tasks: HashMap<String, ScheduledTask>,
 }
 
+impl Default for AutonomousScheduler {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl AutonomousScheduler {
     pub fn new() -> Self {
         Self {

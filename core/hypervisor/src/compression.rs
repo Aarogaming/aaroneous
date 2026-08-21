@@ -1,8 +1,6 @@
 /// Compression and retrieval: BitNet 1.58b ternary quantization and
 /// VSA-indexed retrieval-augmented generation (VSA-RAG).
-
 use crate::cellular_automata::VsaVector;
-use std::collections::HashMap;
 
 // ── BitNet 1.58b Ternary Quantization ────────────────────────────────
 // Maps GGUF attention outputs to {-1, 0, +1}, replacing floating-point
@@ -24,7 +22,10 @@ pub struct TernaryQuantizer {
 
 impl TernaryQuantizer {
     pub fn new(dim: usize, threshold: f64) -> Self {
-        TernaryQuantizer { input_dim: dim, threshold }
+        TernaryQuantizer {
+            input_dim: dim,
+            threshold,
+        }
     }
 
     /// Quantize an f64 vector into ternary {-1, 0, +1}.
@@ -86,20 +87,24 @@ impl TernaryQuantizer {
     ///
     /// `scale` should be the threshold or a learned scaling factor.
     pub fn dequantize(tern: &[TernaryBit], scale: f64) -> Vec<f64> {
-        tern.iter().map(|&t| match t {
-            TernaryBit::NegOne => -scale,
-            TernaryBit::Zero => 0.0,
-            TernaryBit::PosOne => scale,
-        }).collect()
+        tern.iter()
+            .map(|&t| match t {
+                TernaryBit::NegOne => -scale,
+                TernaryBit::Zero => 0.0,
+                TernaryBit::PosOne => scale,
+            })
+            .collect()
     }
 
     /// Dequantize ternary values back to approximate floats (f32 version).
     pub fn dequantize_f32(tern: &[TernaryBit], scale: f32) -> Vec<f32> {
-        tern.iter().map(|&t| match t {
-            TernaryBit::NegOne => -scale,
-            TernaryBit::Zero => 0.0,
-            TernaryBit::PosOne => scale,
-        }).collect()
+        tern.iter()
+            .map(|&t| match t {
+                TernaryBit::NegOne => -scale,
+                TernaryBit::Zero => 0.0,
+                TernaryBit::PosOne => scale,
+            })
+            .collect()
     }
 
     /// Estimate the optimal scale factor for dequantization.
@@ -108,7 +113,9 @@ impl TernaryQuantizer {
     /// computes the scale that minimizes reconstruction error.
     pub fn estimate_scale(original: &[f64], ternary: &[TernaryBit]) -> f64 {
         let n = original.len().min(ternary.len());
-        if n == 0 { return 1.0; }
+        if n == 0 {
+            return 1.0;
+        }
 
         // For each ternary value, the optimal scale is the mean of |original|
         // for non-zero ternary values
@@ -120,7 +127,11 @@ impl TernaryQuantizer {
                 count_nonzero += 1;
             }
         }
-        if count_nonzero > 0 { sum_abs / count_nonzero as f64 } else { 1.0 }
+        if count_nonzero > 0 {
+            sum_abs / count_nonzero as f64
+        } else {
+            1.0
+        }
     }
 }
 
@@ -136,7 +147,12 @@ pub struct VSARetrieval {
 }
 
 impl VSARetrieval {
-    pub fn new(max: usize) -> Self { VSARetrieval { entries: Vec::new(), max_entries: max } }
+    pub fn new(max: usize) -> Self {
+        VSARetrieval {
+            entries: Vec::new(),
+            max_entries: max,
+        }
+    }
 
     /// Store a VSA vector with its metadata.
     pub fn store(&mut self, vector: VsaVector, metadata: u64) {
@@ -149,7 +165,9 @@ impl VSARetrieval {
     /// Popcount similarity between two byte slices (1.0 = identical).
     pub fn popcount_sim(a: &[u8], b: &[u8]) -> f32 {
         let n = a.len().min(b.len());
-        if n == 0 { return 0.0; }
+        if n == 0 {
+            return 0.0;
+        }
         let mut same = 0usize;
         for i in 0..n {
             let diff = (a[i] ^ b[i]).count_ones() as usize;
@@ -160,24 +178,32 @@ impl VSARetrieval {
 
     /// Retrieve top-k most similar entries by popcount.
     pub fn retrieve(&self, query: &VsaVector, k: usize) -> Vec<(u64, f32)> {
-        let mut scored: Vec<(usize, f32)> = self.entries.iter().enumerate()
+        let mut scored: Vec<(usize, f32)> = self
+            .entries
+            .iter()
+            .enumerate()
             .map(|(i, (v, _))| (i, Self::popcount_sim(query.as_bytes(), v.as_bytes())))
             .collect();
         scored.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
         scored.truncate(k);
-        scored.into_iter()
+        scored
+            .into_iter()
             .filter_map(|(i, sim)| self.entries.get(i).map(|(_, meta)| (*meta, sim)))
             .collect()
     }
 
     /// Store from raw bytes (hashes internally).
     pub fn store_bytes(&mut self, data: &[u8], metadata: u64) {
-        let hash: u64 = data.iter().fold(0u64, |acc, &b| acc.wrapping_mul(31).wrapping_add(b as u64));
+        let hash: u64 = data
+            .iter()
+            .fold(0u64, |acc, &b| acc.wrapping_mul(31).wrapping_add(b as u64));
         let vec = VsaVector::from_bytes(data);
         self.store(vec, hash ^ metadata);
     }
 
-    pub fn entry_count(&self) -> usize { self.entries.len() }
+    pub fn entry_count(&self) -> usize {
+        self.entries.len()
+    }
 }
 
 #[cfg(test)]
@@ -219,7 +245,12 @@ mod tests {
 
     #[test]
     fn test_ternary_count() {
-        let t = vec![TernaryBit::PosOne, TernaryBit::Zero, TernaryBit::NegOne, TernaryBit::PosOne];
+        let t = vec![
+            TernaryBit::PosOne,
+            TernaryBit::Zero,
+            TernaryBit::NegOne,
+            TernaryBit::PosOne,
+        ];
         let (pos, zero, neg) = TernaryQuantizer::count_categories(&t);
         assert_eq!(pos, 2);
         assert_eq!(zero, 1);

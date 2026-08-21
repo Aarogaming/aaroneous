@@ -17,7 +17,10 @@ impl DopamineSystem {
                 state.curiosity_drive = state.curiosity_drive.saturating_sub(reward);
                 state.understanding_score = state.understanding_score.saturating_add(reward / 2);
                 state.integrity_score = state.integrity_score.saturating_add(2);
-                println!("[Dopamine] +Reward: Ingestion successful (Tier {}). Curiosity satisfied.", tier);
+                println!(
+                    "[Dopamine] +Reward: Ingestion successful (Tier {}). Curiosity satisfied.",
+                    tier
+                );
             }
             DopamineEvent::ExecutionFailure(severity) => {
                 // Penalty for failures (Integrity drop)
@@ -26,7 +29,10 @@ impl DopamineSystem {
                 state.understanding_score = state.understanding_score.saturating_sub(5);
                 // Failures increase curiosity (need to figure out why it failed)
                 state.curiosity_drive = state.curiosity_drive.saturating_add(10);
-                println!("[Dopamine] -Penalty: Execution failure (Severity {}). Integrity compromised.", severity);
+                println!(
+                    "[Dopamine] -Penalty: Execution failure (Severity {}). Integrity compromised.",
+                    severity
+                );
             }
             DopamineEvent::InternalCoherenceCheck(passed) => {
                 if passed {
@@ -45,4 +51,3 @@ pub enum DopamineEvent {
     ExecutionFailure(u8),    // contains severity (1-10)
     InternalCoherenceCheck(bool),
 }
-

@@ -1,7 +1,6 @@
 use std::env;
 use std::fs::File;
 use std::io::{BufReader, Read};
-use std::path::PathBuf;
 
 fn main() {
     tracing_subscriber::fmt()
@@ -18,7 +17,7 @@ fn main() {
     }
 
     let path = &args[0];
-    let raw_mode = args.get(1).map_or(false, |a| a == "--raw");
+    let raw_mode = args.get(1).is_some_and(|a| a == "--raw");
 
     if let Err(e) = dump_synapse(path, raw_mode) {
         eprintln!("Error: {}", e);
@@ -36,7 +35,11 @@ fn dump_synapse(path: &str, raw_mode: bool) -> Result<(), Box<dyn std::error::Er
 
     let file_size = data.len();
     println!("Synapse Dump: {}", path);
-    println!("File size: {} bytes ({:.2} KB)", file_size, file_size as f64 / 1024.0);
+    println!(
+        "File size: {} bytes ({:.2} KB)",
+        file_size,
+        file_size as f64 / 1024.0
+    );
     println!();
 
     if raw_mode {
@@ -46,16 +49,21 @@ fn dump_synapse(path: &str, raw_mode: bool) -> Result<(), Box<dyn std::error::Er
 
         for (i, chunk) in data.chunks(16).enumerate() {
             let offset = i * 16;
-            let hex: Vec<String> = chunk.iter()
-                .map(|b| format!("{:02x}", b))
-                .collect();
+            let hex: Vec<String> = chunk.iter().map(|b| format!("{:02x}", b)).collect();
             let hex_str = if chunk.len() > 8 {
                 format!("{}  {}", hex[..8].join(" "), hex[8..].join(" "))
             } else {
                 format!("{:<41}", hex.join(" "))
             };
-            let ascii: String = chunk.iter()
-                .map(|&b| if b >= 0x20 && b < 0x7f { b as char } else { '.' })
+            let ascii: String = chunk
+                .iter()
+                .map(|&b| {
+                    if (0x20..0x7f).contains(&b) {
+                        b as char
+                    } else {
+                        '.'
+                    }
+                })
                 .collect();
             println!("{:08x}  {}  {}", offset, hex_str, ascii);
         }
@@ -76,7 +84,10 @@ fn dump_synapse(path: &str, raw_mode: bool) -> Result<(), Box<dyn std::error::Er
                 println!("Magic: Telemetry (TEL1)");
             }
             _ => {
-                println!("Magic: {:02x} {:02x} {:02x} {:02x} (unknown)", magic[0], magic[1], magic[2], magic[3]);
+                println!(
+                    "Magic: {:02x} {:02x} {:02x} {:02x} (unknown)",
+                    magic[0], magic[1], magic[2], magic[3]
+                );
             }
         }
 
@@ -97,10 +108,17 @@ fn dump_synapse(path: &str, raw_mode: bool) -> Result<(), Box<dyn std::error::Er
             // Show first 256 bytes of payload as hex
             let show_bytes = payload_size.min(256);
             println!("\nFirst {} bytes of payload:", show_bytes);
-            for (i, chunk) in data[16..16+show_bytes].chunks(16).enumerate() {
+            for (i, chunk) in data[16..16 + show_bytes].chunks(16).enumerate() {
                 let hex: Vec<String> = chunk.iter().map(|b| format!("{:02x}", b)).collect();
-                let ascii: String = chunk.iter()
-                    .map(|&b| if b >= 0x20 && b < 0x7f { b as char } else { '.' })
+                let ascii: String = chunk
+                    .iter()
+                    .map(|&b| {
+                        if (0x20..0x7f).contains(&b) {
+                            b as char
+                        } else {
+                            '.'
+                        }
+                    })
                     .collect();
                 println!("  {:04x}: {:<48} {}", i * 16, hex.join(" "), ascii);
             }

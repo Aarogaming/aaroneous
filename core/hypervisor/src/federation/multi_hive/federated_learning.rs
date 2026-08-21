@@ -1,7 +1,6 @@
 /// Federated Learning: Cross-Hive Model Improvement
-/// 
+///
 /// Enables specialists to learn from gradients shared across hives
-
 use serde::{Deserialize, Serialize};
 
 /// Gradient update from a specialist

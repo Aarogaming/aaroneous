@@ -1,4 +1,4 @@
-﻿use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
@@ -80,6 +80,7 @@ impl TensorEntry {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TensorVault {
     entries: Vec<TensorEntry>,
     indexed: bool,
@@ -125,12 +126,12 @@ impl TensorVault {
     }
 
     pub fn get(&self, key: &str) -> Option<&Vec<f32>> {
-        if let Some(indices) = self.name_index.get(key) {
-            if let Some(idx) = indices.first() {
-                let entry = &self.entries[*idx];
-                let fake_tensor = vec![entry.param_count as f32];
-                return Some(Box::leak(Box::new(fake_tensor)));
-            }
+        if let Some(indices) = self.name_index.get(key)
+            && let Some(idx) = indices.first()
+        {
+            let entry = &self.entries[*idx];
+            let fake_tensor = vec![entry.param_count as f32];
+            return Some(Box::leak(Box::new(fake_tensor)));
         }
         None
     }
@@ -171,8 +172,16 @@ impl TensorVault {
             .zip(&other_fv[..min_len])
             .map(|(a, b)| a * b)
             .sum();
-        let norm_a = target_fv[..min_len].iter().map(|x| x * x).sum::<f32>().sqrt();
-        let norm_b = other_fv[..min_len].iter().map(|x| x * x).sum::<f32>().sqrt();
+        let norm_a = target_fv[..min_len]
+            .iter()
+            .map(|x| x * x)
+            .sum::<f32>()
+            .sqrt();
+        let norm_b = other_fv[..min_len]
+            .iter()
+            .map(|x| x * x)
+            .sum::<f32>()
+            .sqrt();
         if norm_a * norm_b == 0.0 {
             0.0
         } else {
@@ -181,8 +190,11 @@ impl TensorVault {
     }
 
     pub fn status(&self) -> VaultStatus {
-        let unique_names: HashSet<&str> =
-            self.entries.iter().map(|e| e.tensor_name.as_str()).collect();
+        let unique_names: HashSet<&str> = self
+            .entries
+            .iter()
+            .map(|e| e.tensor_name.as_str())
+            .collect();
         let total_bytes: u64 = self.entries.iter().map(|e| e.size_bytes).sum();
         let architectures: Vec<String> = {
             let mut archs: Vec<String> = self
@@ -234,10 +246,7 @@ impl TensorVault {
             results.retain(|e| query.kinds.iter().any(|k| e.kind.eq_ignore_ascii_case(k)));
         }
         if !query.preferred_dtype.is_empty() {
-            results.retain(|e| {
-                e.dtype_label()
-                    .eq_ignore_ascii_case(&query.preferred_dtype)
-            });
+            results.retain(|e| e.dtype_label().eq_ignore_ascii_case(&query.preferred_dtype));
         }
         if query.limit > 0 && results.len() > query.limit {
             results.truncate(query.limit);
@@ -357,7 +366,15 @@ pub fn recipe_from_dna_compare(similarity: f32) -> String {
 mod tests {
     use super::*;
 
-    fn sample_entry(name: &str, model: &str, kind: &str, shape: Vec<u64>, params: u64, size: u64, block: Option<usize>) -> TensorEntry {
+    fn sample_entry(
+        name: &str,
+        model: &str,
+        kind: &str,
+        shape: Vec<u64>,
+        params: u64,
+        size: u64,
+        block: Option<usize>,
+    ) -> TensorEntry {
         TensorEntry {
             tensor_name: name.to_string(),
             model_name: model.to_string(),
@@ -373,28 +390,58 @@ mod tests {
     fn populated_vault() -> TensorVault {
         let mut v = TensorVault::new();
         v.add_entry(sample_entry(
-            "blk.0.attn_q.weight", "qwen2.5-7b", "attention",
-            vec![4096, 4096], 16_777_216, 67_108_864, Some(0),
+            "blk.0.attn_q.weight",
+            "qwen2.5-7b",
+            "attention",
+            vec![4096, 4096],
+            16_777_216,
+            67_108_864,
+            Some(0),
         ));
         v.add_entry(sample_entry(
-            "blk.0.attn_q.weight", "mistral-7b", "attention",
-            vec![4096, 4096], 16_777_216, 67_108_864, Some(0),
+            "blk.0.attn_q.weight",
+            "mistral-7b",
+            "attention",
+            vec![4096, 4096],
+            16_777_216,
+            67_108_864,
+            Some(0),
         ));
         v.add_entry(sample_entry(
-            "blk.0.attn_k.weight", "qwen2.5-7b", "attention",
-            vec![4096, 1024], 4_194_304, 16_777_216, Some(0),
+            "blk.0.attn_k.weight",
+            "qwen2.5-7b",
+            "attention",
+            vec![4096, 1024],
+            4_194_304,
+            16_777_216,
+            Some(0),
         ));
         v.add_entry(sample_entry(
-            "blk.0.ffn_gate.weight", "qwen2.5-7b", "mlp",
-            vec![4096, 11008], 45_088_768, 180_355_072, Some(0),
+            "blk.0.ffn_gate.weight",
+            "qwen2.5-7b",
+            "mlp",
+            vec![4096, 11008],
+            45_088_768,
+            180_355_072,
+            Some(0),
         ));
         v.add_entry(sample_entry(
-            "token_embd.weight", "qwen2.5-7b", "embedding",
-            vec![151936, 4096], 622_329_856, 2_489_319_424, None,
+            "token_embd.weight",
+            "qwen2.5-7b",
+            "embedding",
+            vec![151936, 4096],
+            622_329_856,
+            2_489_319_424,
+            None,
         ));
         v.add_entry(sample_entry(
-            "output_norm.weight", "qwen2.5-7b", "norm",
-            vec![4096], 4096, 16_384, None,
+            "output_norm.weight",
+            "qwen2.5-7b",
+            "norm",
+            vec![4096],
+            4096,
+            16_384,
+            None,
         ));
         v
     }
@@ -454,12 +501,20 @@ mod tests {
     fn test_find_similar() {
         let v = populated_vault();
         let query = sample_entry(
-            "blk.0.attn_q.weight", "qwen2.5-7b", "attention",
-            vec![4096, 4096], 16_777_216, 67_108_864, Some(0),
+            "blk.0.attn_q.weight",
+            "qwen2.5-7b",
+            "attention",
+            vec![4096, 4096],
+            16_777_216,
+            67_108_864,
+            Some(0),
         );
         let similar = v.find_similar(&query, 0.5, 5);
         assert!(!similar.is_empty());
-        let names: Vec<&str> = similar.iter().map(|(e, _)| e.tensor_name.as_str()).collect();
+        let names: Vec<&str> = similar
+            .iter()
+            .map(|(e, _)| e.tensor_name.as_str())
+            .collect();
         assert!(names.contains(&"blk.0.attn_q.weight"));
         assert!(names.contains(&"blk.0.attn_k.weight"));
     }

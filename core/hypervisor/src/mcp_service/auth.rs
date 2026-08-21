@@ -65,7 +65,12 @@ impl ApiKeyAuth {
     }
 
     /// Register an API key
-    pub fn register_key(&mut self, key: impl Into<String>, principal_id: impl Into<String>, scopes: Vec<String>) {
+    pub fn register_key(
+        &mut self,
+        key: impl Into<String>,
+        principal_id: impl Into<String>,
+        scopes: Vec<String>,
+    ) {
         let info = ApiKeyInfo {
             principal_id: principal_id.into(),
             scopes,
@@ -86,15 +91,9 @@ impl ApiKeyAuth {
 impl AuthProvider for ApiKeyAuth {
     async fn authenticate(&self, credentials: &str) -> Result<AuthToken, String> {
         // Extract API key from "Bearer <key>" or just "<key>"
-        let key = if credentials.starts_with("Bearer ") {
-            &credentials[7..]
-        } else {
-            credentials
-        };
+        let key = credentials.strip_prefix("Bearer ").unwrap_or(credentials);
 
-        let info = self.valid_keys
-            .get(key)
-            .ok_or("Invalid API key")?;
+        let info = self.valid_keys.get(key).ok_or("Invalid API key")?;
 
         if !info.active {
             return Err("API key revoked".to_string());
@@ -115,9 +114,7 @@ impl AuthProvider for ApiKeyAuth {
             return Ok(false);
         }
 
-        let info = self.valid_keys
-            .get(&token.token)
-            .ok_or("Token not found")?;
+        let info = self.valid_keys.get(&token.token).ok_or("Token not found")?;
 
         Ok(info.active)
     }
@@ -135,19 +132,23 @@ impl Default for ApiKeyAuth {
 
 /// OAuth2 authentication
 pub struct OAuth2Auth {
-    issuer: String,
-    client_id: String,
-    client_secret: String,
+    _issuer: String,
+    _client_id: String,
+    _client_secret: String,
     // In production, would have JWK set fetching and token verification
 }
 
 impl OAuth2Auth {
     /// Create new OAuth2 authenticator
-    pub fn new(issuer: impl Into<String>, client_id: impl Into<String>, client_secret: impl Into<String>) -> Self {
+    pub fn new(
+        issuer: impl Into<String>,
+        client_id: impl Into<String>,
+        client_secret: impl Into<String>,
+    ) -> Self {
         Self {
-            issuer: issuer.into(),
-            client_id: client_id.into(),
-            client_secret: client_secret.into(),
+            _issuer: issuer.into(),
+            _client_id: client_id.into(),
+            _client_secret: client_secret.into(),
         }
     }
 }
@@ -157,14 +158,12 @@ impl AuthProvider for OAuth2Auth {
     async fn authenticate(&self, credentials: &str) -> Result<AuthToken, String> {
         // In production, would validate JWT signature against issuer's JWK set
         // For now, parse JWT and extract claims
-        
-        // Simplified: just verify format
-        if !credentials.starts_with("Bearer ") {
-            return Err("Invalid OAuth2 token format".to_string());
-        }
 
-        let token_str = &credentials[7..];
-        
+        // Simplified: just verify format
+        let token_str = credentials
+            .strip_prefix("Bearer ")
+            .ok_or_else(|| "Invalid OAuth2 token format".to_string())?;
+
         // In production: decode JWT and verify signature
         Ok(AuthToken {
             token: token_str.to_string(),
@@ -239,7 +238,7 @@ mod tests {
     async fn test_api_key_revocation() {
         let mut auth = ApiKeyAuth::new();
         auth.register_key("key-123", "user-1", vec!["read:all".to_string()]);
-        
+
         auth.revoke_key("key-123");
 
         let result = auth.authenticate("Bearer key-123").await;
@@ -249,8 +248,10 @@ mod tests {
     #[tokio::test]
     async fn test_oauth2_auth() {
         let auth = OAuth2Auth::new("https://auth.example.com", "client-id", "secret");
-        
-        let result = auth.authenticate("Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...").await;
+
+        let result = auth
+            .authenticate("Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...")
+            .await;
         assert!(result.is_ok());
     }
 }

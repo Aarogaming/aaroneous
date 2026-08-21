@@ -2,7 +2,6 @@
 ///
 /// Defines the command types that can be sent to the HID driver
 /// and the corresponding responses.
-
 use serde::{Deserialize, Serialize};
 
 /// Command to send to HID driver
@@ -10,25 +9,25 @@ use serde::{Deserialize, Serialize};
 pub enum HidCommand {
     /// Move mouse cursor to (x, y)
     MouseMove { x: i32, y: i32 },
-    
+
     /// Click mouse button at (x, y)
     MouseClick { button: MouseButton, x: i32, y: i32 },
-    
+
     /// Release mouse button
     MouseRelease { button: MouseButton },
-    
+
     /// Press keyboard key
     KeyPress { key: u32, modifiers: u8 },
-    
+
     /// Release keyboard key
     KeyRelease { key: u32 },
-    
+
     /// Scroll (positive = up, negative = down)
     Scroll { delta: i32 },
-    
+
     /// Get current cursor position
     GetCursorPos,
-    
+
     /// Query key state (is it pressed?)
     QueryKeyState { key: u32 },
 }
@@ -38,13 +37,13 @@ pub enum HidCommand {
 pub enum HidResponse {
     /// Command executed successfully
     Success,
-    
+
     /// Current cursor position
     CursorPos { x: i32, y: i32 },
-    
+
     /// Key state query result
     KeyState { pressed: bool },
-    
+
     /// Error occurred
     Error { reason: String },
 }
@@ -71,7 +70,7 @@ pub mod keycodes {
     pub const VK_RBUTTON: u32 = 0x02;
     pub const VK_CANCEL: u32 = 0x03;
     pub const VK_MBUTTON: u32 = 0x04;
-    
+
     // Letters
     pub const VK_A: u32 = 0x41;
     pub const VK_B: u32 = 0x42;
@@ -99,7 +98,7 @@ pub mod keycodes {
     pub const VK_X: u32 = 0x58;
     pub const VK_Y: u32 = 0x59;
     pub const VK_Z: u32 = 0x5A;
-    
+
     // Numbers
     pub const VK_0: u32 = 0x30;
     pub const VK_1: u32 = 0x31;
@@ -111,7 +110,7 @@ pub mod keycodes {
     pub const VK_7: u32 = 0x37;
     pub const VK_8: u32 = 0x38;
     pub const VK_9: u32 = 0x39;
-    
+
     // Function keys
     pub const VK_F1: u32 = 0x70;
     pub const VK_F2: u32 = 0x71;
@@ -125,7 +124,7 @@ pub mod keycodes {
     pub const VK_F10: u32 = 0x79;
     pub const VK_F11: u32 = 0x7A;
     pub const VK_F12: u32 = 0x7B;
-    
+
     // Special keys
     pub const VK_ESCAPE: u32 = 0x1B;
     pub const VK_TAB: u32 = 0x09;
@@ -139,26 +138,26 @@ pub mod keycodes {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_mouse_button_values() {
         assert_eq!(MouseButton::Left as u32, 0);
         assert_eq!(MouseButton::Right as u32, 1);
         assert_eq!(MouseButton::Middle as u32, 2);
     }
-    
+
     #[test]
     fn test_keycode_a() {
         assert_eq!(keycodes::VK_A, 0x41);
     }
-    
+
     #[test]
     fn test_modifier_values() {
         assert_eq!(modifiers::SHIFT, 0x01);
         assert_eq!(modifiers::CTRL, 0x02);
         assert_eq!(modifiers::ALT, 0x04);
     }
-    
+
     #[test]
     fn test_hid_command_serialization() {
         let cmd = HidCommand::MouseMove { x: 100, y: 200 };

@@ -3,7 +3,6 @@
 /// Color confinement (2-bit color states bundling into 64-byte chunks),
 /// quantum decoherence isolation (timer-collapsed probability states),
 /// and holographic surface boundary projection (HD→2D bitmask flattening).
-
 use crate::cellular_automata::SuperpositionState;
 
 // ── 7. Color Confinement Data Clustering ─────────────────────────────
@@ -13,9 +12,9 @@ use crate::cellular_automata::SuperpositionState;
 #[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum ColorCharge {
-    Red   = 0b00,
+    Red = 0b00,
     Green = 0b01,
-    Blue  = 0b10,
+    Blue = 0b10,
     White = 0b11,
 }
 
@@ -35,19 +34,33 @@ pub struct ColorConfinement {
     pub white_count: usize,
 }
 
+impl Default for ColorConfinement {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ColorConfinement {
     pub fn new() -> Self {
-        ColorConfinement { chunks: Vec::new(), red_count: 0, green_count: 0, blue_count: 0, white_count: 0 }
+        ColorConfinement {
+            chunks: Vec::new(),
+            red_count: 0,
+            green_count: 0,
+            blue_count: 0,
+            white_count: 0,
+        }
     }
 
     /// Assign a color based on a hash of the data (2-bit quantization).
     pub fn assign_color(data: &[u8]) -> ColorCharge {
-        let hash: u8 = data.iter().fold(0u8, |acc, &b| acc.wrapping_add(b).wrapping_mul(31));
+        let hash: u8 = data
+            .iter()
+            .fold(0u8, |acc, &b| acc.wrapping_add(b).wrapping_mul(31));
         match hash & 0b11 {
             0b00 => ColorCharge::Red,
             0b01 => ColorCharge::Green,
             0b10 => ColorCharge::Blue,
-            _    => ColorCharge::White,
+            _ => ColorCharge::White,
         }
     }
 
@@ -57,11 +70,14 @@ impl ColorConfinement {
         let mut chunk_data = [0u8; 64];
         let n = data.len().min(64);
         chunk_data[..n].copy_from_slice(&data[..n]);
-        self.chunks.push(ColorChunk { color, data: chunk_data });
+        self.chunks.push(ColorChunk {
+            color,
+            data: chunk_data,
+        });
         match color {
-            ColorCharge::Red   => self.red_count += 1,
+            ColorCharge::Red => self.red_count += 1,
             ColorCharge::Green => self.green_count += 1,
-            ColorCharge::Blue  => self.blue_count += 1,
+            ColorCharge::Blue => self.blue_count += 1,
             ColorCharge::White => self.white_count += 1,
         }
     }
@@ -71,16 +87,18 @@ impl ColorConfinement {
         let mut packed: [Vec<usize>; 4] = [Vec::new(), Vec::new(), Vec::new(), Vec::new()];
         for (i, chunk) in self.chunks.iter().enumerate() {
             match chunk.color {
-                ColorCharge::Red   => packed[0].push(i),
+                ColorCharge::Red => packed[0].push(i),
                 ColorCharge::Green => packed[1].push(i),
-                ColorCharge::Blue  => packed[2].push(i),
+                ColorCharge::Blue => packed[2].push(i),
                 ColorCharge::White => packed[3].push(i),
             }
         }
         packed
     }
 
-    pub fn total_chunks(&self) -> usize { self.chunks.len() }
+    pub fn total_chunks(&self) -> usize {
+        self.chunks.len()
+    }
 }
 
 // ── 8. Quantum Decoherence Error Isolation ───────────────────────────
@@ -95,7 +113,11 @@ pub struct DecoherenceGate {
 
 impl DecoherenceGate {
     pub fn new(timeout_ns: u64) -> Self {
-        DecoherenceGate { timeout_ns, timer: 0, collapsed_count: 0 }
+        DecoherenceGate {
+            timeout_ns,
+            timer: 0,
+            collapsed_count: 0,
+        }
     }
 
     /// Advance timer; returns true if decoherence fires (timeout reached).
@@ -119,7 +141,9 @@ impl DecoherenceGate {
     }
 
     /// Reset the timer without collapsing.
-    pub fn reset(&mut self) { self.timer = 0; }
+    pub fn reset(&mut self) {
+        self.timer = 0;
+    }
 }
 
 // ── 9. Holographic Surface Boundary Projection ───────────────────────
@@ -153,7 +177,11 @@ impl HolographicProjector {
             }
             projection.push(bits);
         }
-        HolographicProjector { input_dims, output_cols, projection }
+        HolographicProjector {
+            input_dims,
+            output_cols,
+            projection,
+        }
     }
 
     /// Project a high-D vector (as f64 slice) onto a 2D bitmask surface.
@@ -164,7 +192,11 @@ impl HolographicProjector {
         for row in &self.projection {
             let mut dot = 0.0f64;
             for j in 0..n {
-                if row[j] { dot += vector[j]; } else { dot -= vector[j]; }
+                if row[j] {
+                    dot += vector[j];
+                } else {
+                    dot -= vector[j];
+                }
             }
             surface.push(dot > 0.0);
         }
@@ -185,7 +217,7 @@ impl HolographicProjector {
 
     /// Pack the bool surface into bytes (8 bits per byte).
     pub fn surface_to_bytes(&self, surface: &[bool]) -> Vec<u8> {
-        let byte_len = (surface.len() + 7) / 8;
+        let byte_len = surface.len().div_ceil(8);
         let mut bytes = vec![0u8; byte_len];
         for (i, &bit) in surface.iter().enumerate() {
             if bit {
@@ -244,8 +276,14 @@ mod tests {
         let c1 = ColorConfinement::assign_color(&data_a);
         let c2 = ColorConfinement::assign_color(&data_b);
         // Different data may produce different or same colors
-        assert!(matches!(c1, ColorCharge::Red | ColorCharge::Green | ColorCharge::Blue | ColorCharge::White));
-        assert!(matches!(c2, ColorCharge::Red | ColorCharge::Green | ColorCharge::Blue | ColorCharge::White));
+        assert!(matches!(
+            c1,
+            ColorCharge::Red | ColorCharge::Green | ColorCharge::Blue | ColorCharge::White
+        ));
+        assert!(matches!(
+            c2,
+            ColorCharge::Red | ColorCharge::Green | ColorCharge::Blue | ColorCharge::White
+        ));
     }
 
     #[test]
@@ -313,7 +351,9 @@ mod tests {
     #[test]
     fn test_holographic_surface_to_bytes() {
         let projector = HolographicProjector::new(4, 12);
-        let surface = vec![true, false, true, false, true, false, true, false, true, false, true, false];
+        let surface = vec![
+            true, false, true, false, true, false, true, false, true, false, true, false,
+        ];
         let bytes = projector.surface_to_bytes(&surface);
         assert_eq!(bytes.len(), 2); // 12 bits = 2 bytes
         assert_eq!(bytes[0], 0b01010101);

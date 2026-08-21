@@ -1,6 +1,6 @@
-use serde::{Serialize, Deserialize};
-use std::collections::HashMap;
 use crate::workspace::WorkspacePaths;
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HoxChromosome {
@@ -26,17 +26,29 @@ pub struct ChromosomeRegistry {
 impl Default for ChromosomeRegistry {
     fn default() -> Self {
         let mut profiles = HashMap::new();
-        
-        profiles.insert("researcher".to_string(), HoxChromosome {
-            agent_id: "researcher_v3".to_string(),
-            base_model_path: WorkspacePaths::data_dir().join("models/llama-3-8b-instruct.gguf").to_string_lossy().to_string(),
-            epigenetic_switches: EpigeneticSwitches {
-                active_loras: vec!["academic_writing.lora".to_string(), "evidence_synthesis.lora".to_string()],
-                temperature_bias: 0.4,
-                top_p: 0.9,
+
+        profiles.insert(
+            "researcher".to_string(),
+            HoxChromosome {
+                agent_id: "researcher_v3".to_string(),
+                base_model_path: WorkspacePaths::data_dir()
+                    .join("models/llama-3-8b-instruct.gguf")
+                    .to_string_lossy()
+                    .to_string(),
+                epigenetic_switches: EpigeneticSwitches {
+                    active_loras: vec![
+                        "academic_writing.lora".to_string(),
+                        "evidence_synthesis.lora".to_string(),
+                    ],
+                    temperature_bias: 0.4,
+                    top_p: 0.9,
+                },
+                enzymatic_allowlist: vec![
+                    "retina_browser.wasm".to_string(),
+                    "compliance_gatekeeper.wasm".to_string(),
+                ],
             },
-            enzymatic_allowlist: vec!["retina_browser.wasm".to_string(), "compliance_gatekeeper.wasm".to_string()],
-        });
+        );
 
         ChromosomeRegistry {
             schema_version: "4.0".to_string(),

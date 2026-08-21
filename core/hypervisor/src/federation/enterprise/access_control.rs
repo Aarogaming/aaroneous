@@ -1,7 +1,6 @@
 /// Role-Based Access Control (RBAC)
-/// 
+///
 /// Manage permissions and access rights
-
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 
@@ -46,7 +45,7 @@ impl AuthToken {
             user_id,
             role,
             issued_at_ms: now,
-            expires_at_ms: now + (24 * 60 * 60 * 1000),  // 24 hours
+            expires_at_ms: now + (24 * 60 * 60 * 1000), // 24 hours
         }
     }
 

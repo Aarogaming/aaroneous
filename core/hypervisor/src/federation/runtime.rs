@@ -1,5 +1,6 @@
+use crate::federation::bootstrap::DeploymentConfig;
 /// Federation Runtime System
-/// 
+///
 /// Manages specialist lifecycle, model loading, proposal scheduling, and execution.
 /// Runs the hive in production environments with:
 /// - Specialist instantiation and lifecycle
@@ -8,11 +9,7 @@
 /// - Execution scheduling and arbitration
 /// - Health monitoring and metrics
 /// - Graceful shutdown
-
-use crate::federation::specialist::{
-    SpecialistId,
-};
-use crate::federation::bootstrap::DeploymentConfig;
+use crate::federation::specialist::SpecialistId;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -83,7 +80,12 @@ impl ModelManager {
     }
 
     /// Load a model into memory
-    pub fn load_model(&mut self, specialist_id: SpecialistId, path: String, size_mb: u32) -> Result<LoadedModel, String> {
+    pub fn load_model(
+        &mut self,
+        specialist_id: SpecialistId,
+        path: String,
+        size_mb: u32,
+    ) -> Result<LoadedModel, String> {
         // Check if already loaded
         if let Some(model) = self.loaded_models.get_mut(&specialist_id) {
             model.mark_used();
@@ -117,7 +119,8 @@ impl ModelManager {
     /// Evict least recently used model
     fn evict_lru(&mut self, needed_space: u32) -> Result<(), String> {
         // Find LRU model
-        let lru_id = self.loaded_models
+        let lru_id = self
+            .loaded_models
             .iter()
             .min_by_key(|(_, model)| model.last_used)
             .map(|(id, _)| *id);
@@ -160,6 +163,12 @@ pub struct ExecutionMetrics {
     pub last_execution: u64,
 }
 
+impl Default for ExecutionMetrics {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ExecutionMetrics {
     pub fn new() -> Self {
         Self {
@@ -182,7 +191,8 @@ impl ExecutionMetrics {
         }
 
         // Update average latency
-        let total_latency = (self.avg_latency_ms * (self.execution_count - 1) as f32) + latency_ms as f32;
+        let total_latency =
+            (self.avg_latency_ms * (self.execution_count - 1) as f32) + latency_ms as f32;
         self.avg_latency_ms = total_latency / self.execution_count as f32;
         self.total_runtime_ms += latency_ms as u64;
         self.last_execution = SystemTime::now()
@@ -664,7 +674,10 @@ mod tests {
         runtime.record_execution(SpecialistId::Visionary, 100, true);
 
         assert_eq!(runtime.metrics[&SpecialistId::Visionary].execution_count, 1);
-        assert_eq!(runtime.health[&SpecialistId::Visionary].status, HealthStatus::Healthy);
+        assert_eq!(
+            runtime.health[&SpecialistId::Visionary].status,
+            HealthStatus::Healthy
+        );
     }
 
     #[test]

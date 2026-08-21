@@ -1,3 +1,4 @@
+pub mod config;
 /// SpecialistHost: lifecycle wrapper for a federation specialist
 ///
 /// This module owns the full operational lifecycle of one federation
@@ -47,9 +48,7 @@
 /// # Ok(())
 /// # }
 /// ```
-
 pub mod hostable;
-pub mod config;
 
 #[cfg(test)]
 mod tests;
@@ -136,11 +135,7 @@ pub struct SpecialistHost<S: HostableSpecialist + 'static> {
 
 impl<S: HostableSpecialist + 'static> SpecialistHost<S> {
     /// Create a new host. The specialist is *not* started yet.
-    pub fn new(
-        specialist: Arc<S>,
-        persistence: SharedPersistence,
-        config: HostConfig,
-    ) -> Self {
+    pub fn new(specialist: Arc<S>, persistence: SharedPersistence, config: HostConfig) -> Self {
         Self {
             specialist,
             persistence,
@@ -148,7 +143,9 @@ impl<S: HostableSpecialist + 'static> SpecialistHost<S> {
             state: Arc::new(RwLock::new(HostState::NotStarted)),
             shutdown_signal: Arc::new(Notify::new()),
             checkpoint_handle: Arc::new(RwLock::new(None::<JoinHandle<()>>)),
-            recv_task: Arc::new(RwLock::new(None::<crate::federation::tasks::BackgroundTaskHandle>)),
+            recv_task: Arc::new(RwLock::new(
+                None::<crate::federation::tasks::BackgroundTaskHandle>,
+            )),
         }
     }
 
@@ -161,16 +158,16 @@ impl<S: HostableSpecialist + 'static> SpecialistHost<S> {
     ///
     /// Replace a previously-attached task by calling this again; the old
     /// task handle is dropped (NOT shut down) - shut it down first if needed.
-    pub async fn attach_recv_task(
-        &self,
-        task: crate::federation::tasks::BackgroundTaskHandle,
-    ) {
+    pub async fn attach_recv_task(&self, task: crate::federation::tasks::BackgroundTaskHandle) {
         *self.recv_task.write().await = Some(task);
     }
 
     /// Whether a receive task is currently attached and running.
     pub async fn has_recv_task(&self) -> bool {
-        let guard: tokio::sync::RwLockReadGuard<'_, Option<crate::federation::tasks::BackgroundTaskHandle>> = self.recv_task.read().await;
+        let guard: tokio::sync::RwLockReadGuard<
+            '_,
+            Option<crate::federation::tasks::BackgroundTaskHandle>,
+        > = self.recv_task.read().await;
         match guard.as_ref() {
             Some(task) => crate::federation::tasks::BackgroundTaskHandle::is_running(task),
             None => false,
@@ -231,10 +228,7 @@ impl<S: HostableSpecialist + 'static> SpecialistHost<S> {
             return Err(HostError::NotStarted);
         }
         self.specialist.save_learning(&self.persistence).await?;
-        debug!(
-            "Checkpointed learning state for {}",
-            S::persistence_key()
-        );
+        debug!("Checkpointed learning state for {}", S::persistence_key());
         Ok(())
     }
 
@@ -320,7 +314,10 @@ impl<S: HostableSpecialist + 'static> SpecialistHost<S> {
         }
 
         // Stop the recv task (if any)
-        let mut recv_guard: tokio::sync::RwLockWriteGuard<'_, Option<crate::federation::tasks::BackgroundTaskHandle>> = self.recv_task.write().await;
+        let mut recv_guard: tokio::sync::RwLockWriteGuard<
+            '_,
+            Option<crate::federation::tasks::BackgroundTaskHandle>,
+        > = self.recv_task.write().await;
         if let Some(ref mut task) = *recv_guard {
             crate::federation::tasks::BackgroundTaskHandle::shutdown(task).await;
             debug!("Recv task for {} stopped", S::persistence_key());

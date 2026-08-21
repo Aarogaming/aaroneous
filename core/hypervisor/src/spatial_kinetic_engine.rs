@@ -8,10 +8,10 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use crate::epigenetic_gate::{VisualGatePipeline, GRID_SIZE};
-use crate::win32_intercept::hid_bridge::{HIDOutputBridge, MotorIntent};
-use crate::win32_intercept::capture::Win32ScreenCapture;
+use crate::epigenetic_gate::{GRID_SIZE, VisualGatePipeline};
 use crate::wgpu_reflex_pipeline::WgpuReflexPipeline;
+use crate::win32_intercept::capture::Win32ScreenCapture;
+use crate::win32_intercept::hid_bridge::{HIDOutputBridge, MotorIntent};
 
 /// Configuration for the spatial-kinetic engine
 #[derive(Clone)]
@@ -123,16 +123,14 @@ impl SpatialKineticEngine {
             .map_err(|_| "Failed to find GPU adapter")?;
 
         let (device, queue) = adapter
-            .request_device(
-                &wgpu::DeviceDescriptor {
-                    label: Some("Spatial-Kinetic Device"),
-                    required_features: wgpu::Features::empty(),
-                    required_limits: wgpu::Limits::downlevel_defaults(),
-                    experimental_features: wgpu::ExperimentalFeatures::default(),
-                    memory_hints: wgpu::MemoryHints::default(),
-                    trace: wgpu::Trace::Off,
-                },
-            )
+            .request_device(&wgpu::DeviceDescriptor {
+                label: Some("Spatial-Kinetic Device"),
+                required_features: wgpu::Features::empty(),
+                required_limits: wgpu::Limits::downlevel_defaults(),
+                experimental_features: wgpu::ExperimentalFeatures::default(),
+                memory_hints: wgpu::MemoryHints::default(),
+                trace: wgpu::Trace::Off,
+            })
             .await
             .map_err(|e| format!("Failed to create WGPU device: {}", e))?;
 
@@ -140,13 +138,9 @@ impl SpatialKineticEngine {
         let queue = Arc::new(queue);
 
         // Load genome and create reflex pipeline
-        let pipeline = WgpuReflexPipeline::new(
-            device,
-            queue,
-            &self.config.genome_path,
-            &reflex_shader,
-        )
-        .await?;
+        let pipeline =
+            WgpuReflexPipeline::new(device, queue, &self.config.genome_path, &reflex_shader)
+                .await?;
 
         self.telemetry.genome_voxels = pipeline.voxel_count() as u64;
         self.telemetry.vram_usage_mb = pipeline.gpu_memory_usage_mb();
@@ -230,7 +224,10 @@ impl SpatialKineticEngine {
         };
 
         // Step 3: Execute GPU reflex kernel
-        let pipeline = self.wgpu_pipeline.as_ref().ok_or("WGPU pipeline not initialized")?;
+        let pipeline = self
+            .wgpu_pipeline
+            .as_ref()
+            .ok_or("WGPU pipeline not initialized")?;
 
         let gate_ref = if self.config.enable_epigenetic_gating {
             Some(&self.gate_pipeline.gate_matrix)
@@ -241,10 +238,7 @@ impl SpatialKineticEngine {
         let intents = pipeline.execute_frame(&pixel_array, gate_ref).await;
 
         // Step 4: Compute motor intent from GPU output
-        let motor_intent = pipeline.compute_motor_intent(
-            &intents,
-            &self.gate_pipeline.gate_matrix,
-        );
+        let motor_intent = pipeline.compute_motor_intent(&intents, &self.gate_pipeline.gate_matrix);
 
         // Step 5: Execute HID output if enabled
         if self.config.enable_hid_output {
@@ -282,13 +276,16 @@ impl SpatialKineticEngine {
     }
 
     /// Run the engine with a custom configuration
-    pub async fn run_with_custom_config(&mut self, config: SpatialKineticConfig) -> Result<(), String> {
+    pub async fn run_with_custom_config(
+        &mut self,
+        config: SpatialKineticConfig,
+    ) -> Result<(), String> {
         // Update the configuration
         self.config = config;
-        
+
         // Re-initialize with new config
         self.initialize().await?;
-        
+
         // Run the main loop
         self.run().await
     }

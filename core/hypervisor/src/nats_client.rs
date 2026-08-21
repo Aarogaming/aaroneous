@@ -2,7 +2,6 @@
 ///
 /// Provides a simple publisher and subscriber over the `async-nats` crate.
 /// All operations are best-effort; connection failures are silently tolerated.
-
 use std::sync::Arc;
 
 use tokio::sync::Mutex;

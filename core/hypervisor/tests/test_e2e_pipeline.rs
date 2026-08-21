@@ -1,14 +1,16 @@
 // End-to-End Integration Test
 // Tests the full pipeline: metadata ingestion → compute → decision → action
 
+use a_run::action_executor::{ActionExecutor, ExecutableAction, FileOp};
+use a_run::decision_engine::{AutonomousDecisionEngine, DecisionTask, ExecutionOutcome};
+use a_run::metadata_ingestor::{MetadataIngestor, MetadataIngestorConfig};
+use a_run::orchestration_daemon::{DaemonState, OrchestrationDaemon, OrchestrationDaemonConfig};
+use a_run::{
+    GovernanceAction, MetabolicGovernorConfig, PredictiveMetabolicGovernor, SystemBiology,
+};
+use a_run::{IntelligenceEngine, IntelligentSpecialist, LLMConfig, ProviderType, TaskType};
 use std::path::PathBuf;
 use std::time::Duration;
-use a_run::metadata_ingestor::{MetadataIngestor, MetadataIngestorConfig};
-use a_run::decision_engine::{AutonomousDecisionEngine, DecisionTask, ExecutionOutcome};
-use a_run::action_executor::{ActionExecutor, ExecutableAction, FileOp};
-use a_run::orchestration_daemon::{OrchestrationDaemon, OrchestrationDaemonConfig, DaemonState};
-use a_run::{IntelligenceEngine, IntelligentSpecialist, LLMConfig, ProviderType, TaskType};
-use a_run::{SystemBiology, PredictiveMetabolicGovernor, MetabolicGovernorConfig, GovernanceAction};
 
 #[tokio::test]
 async fn test_full_pipeline_metadata_to_action() {
@@ -33,16 +35,14 @@ async fn test_full_pipeline_metadata_to_action() {
     assert!(analysis.entropy >= 0.0 || analysis.predicted_complexity >= 0.0);
 
     // Step 4: Create decision engine
-    let specialists = vec![
-        IntelligentSpecialist {
-            id: "spec_test".to_string(),
-            name: "Test Specialist".to_string(),
-            skills: vec!["general".to_string()],
-            capacity: 1.0,
-            success_rate: 0.9,
-            avg_completion_time: 5.0,
-        },
-    ];
+    let specialists = vec![IntelligentSpecialist {
+        id: "spec_test".to_string(),
+        name: "Test Specialist".to_string(),
+        skills: vec!["general".to_string()],
+        capacity: 1.0,
+        success_rate: 0.9,
+        avg_completion_time: 5.0,
+    }];
 
     let llm_config = LLMConfig {
         provider_type: ProviderType::Mock,
@@ -83,12 +83,12 @@ async fn test_full_pipeline_metadata_to_action() {
         ExecutionOutcome::Completed { duration } => {
             assert!(*duration >= 0.0);
         }
-        ExecutionOutcome::Queued(_) |
-        ExecutionOutcome::Delegated(_) |
-        ExecutionOutcome::NeedsInput(_) |
-        ExecutionOutcome::Rejected(_) |
-        ExecutionOutcome::Failed(_) |
-        ExecutionOutcome::Blocked(_) => {
+        ExecutionOutcome::Queued(_)
+        | ExecutionOutcome::Delegated(_)
+        | ExecutionOutcome::NeedsInput(_)
+        | ExecutionOutcome::Rejected(_)
+        | ExecutionOutcome::Failed(_)
+        | ExecutionOutcome::Blocked(_) => {
             // All valid outcomes
         }
     }
@@ -225,12 +225,24 @@ fn test_action_executor_file_operations() {
 fn test_wasm_enzyme_exists() {
     // Verify the compute enzyme WASM file was built
     let paths = aaroneous_paths::WorkspacePaths::discover();
-    let wasm_path = paths.extensions().join("wasm\\compute_enzyme\\target\\wasm32-unknown-unknown\\release\\compute_enzyme.wasm");
-    assert!(wasm_path.exists(), "Compute enzyme WASM should exist at {:?}", wasm_path);
+    let wasm_path = paths
+        .extensions()
+        .join("wasm\\compute_enzyme\\target\\wasm32-unknown-unknown\\release\\compute_enzyme.wasm");
+    assert!(
+        wasm_path.exists(),
+        "Compute enzyme WASM should exist at {:?}",
+        wasm_path
+    );
 
     // Verify the test enzyme WASM file exists
-    let test_wasm_path = paths.extensions().join("wasm\\test_enzyme\\target\\wasm32-unknown-unknown\\release\\test_enzyme.wasm");
-    assert!(test_wasm_path.exists(), "Test enzyme WASM should exist at {:?}", test_wasm_path);
+    let test_wasm_path = paths
+        .extensions()
+        .join("wasm\\test_enzyme\\target\\wasm32-unknown-unknown\\release\\test_enzyme.wasm");
+    assert!(
+        test_wasm_path.exists(),
+        "Test enzyme WASM should exist at {:?}",
+        test_wasm_path
+    );
 }
 
 #[tokio::test]
@@ -248,8 +260,8 @@ async fn test_metabolic_governance_integration() {
 
     // Should have throttled due to high predicted risk
     match action {
-        GovernanceAction::WarningThrottle { new_rate, .. } |
-        GovernanceAction::EmergencyThrottle { new_rate, .. } => {
+        GovernanceAction::WarningThrottle { new_rate, .. }
+        | GovernanceAction::EmergencyThrottle { new_rate, .. } => {
             assert!(new_rate < 1.0, "Should have throttled");
         }
         GovernanceAction::Recovery { .. } => {

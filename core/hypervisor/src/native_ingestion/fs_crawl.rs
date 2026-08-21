@@ -1,9 +1,9 @@
-use std::fs;
-use std::path::{Path, PathBuf};
-use seahash::SeaHasher;
-use std::hash::Hasher;
 use crate::native_ingestion::IngestionDataChunk;
 use crate::native_ingestion::IngestionSourceType;
+use seahash::SeaHasher;
+use std::fs;
+use std::hash::Hasher;
+use std::path::{Path, PathBuf};
 
 /// Zero-allocation directory walker that reads source code files as raw
 /// UTF-8 byte streams and computes VSA signatures for each function block
@@ -59,10 +59,10 @@ impl FsCrawlIngestor {
                 }
 
                 // Check file size
-                if let Ok(meta) = fs::metadata(&path) {
-                    if meta.len() > self.max_file_size {
-                        continue;
-                    }
+                if let Ok(meta) = fs::metadata(&path)
+                    && meta.len() > self.max_file_size
+                {
+                    continue;
                 }
 
                 // Read file and compute VSA signature
@@ -122,19 +122,20 @@ mod tests {
     #[test]
     fn test_crawl_current_directory_filtered() {
         // Crawl the native_ingestion directory itself looking for .rs files
-        let ingestor = FsCrawlIngestor::new("src/native_ingestion")
-            .with_extension("rs");
+        let ingestor = FsCrawlIngestor::new("src/native_ingestion").with_extension("rs");
         let chunks = ingestor.crawl();
         assert!(!chunks.is_empty());
         for chunk in &chunks {
-            assert_eq!(chunk.source_type as u8, IngestionSourceType::ProgramDirectory as u8);
+            assert_eq!(
+                chunk.source_type as u8,
+                IngestionSourceType::ProgramDirectory as u8
+            );
         }
     }
 
     #[test]
     fn test_crawl_with_wrong_extension() {
-        let ingestor = FsCrawlIngestor::new("src")
-            .with_extension("zzz");
+        let ingestor = FsCrawlIngestor::new("src").with_extension("zzz");
         let chunks = ingestor.crawl();
         assert!(chunks.is_empty());
     }

@@ -1,15 +1,17 @@
 use anyhow::{Result, anyhow};
-use std::process::Command;
-use std::path::{Path, PathBuf};
 use std::fs;
+use std::path::{Path, PathBuf};
+use std::process::Command;
 
 pub struct HardenedEnvironment {
-    workspace_root: PathBuf,
+    _workspace_root: PathBuf,
 }
 
 impl HardenedEnvironment {
     pub fn new(root: PathBuf) -> Self {
-        Self { workspace_root: root }
+        Self {
+            _workspace_root: root,
+        }
     }
 
     /// Attempts to compile a mutated WASM patch in a hardened, restricted environment.
@@ -19,7 +21,10 @@ impl HardenedEnvironment {
         // 1. Static Analysis Check (Simulated)
         let source_code = fs::read_to_string(source_path)?;
         if source_code.contains("unsafe") && !specialist_id.contains("hephaestus") {
-             return Err(anyhow!("Security Block: Unauthorized 'unsafe' usage detected in specialist {}", specialist_id));
+            return Err(anyhow!(
+                "Security Block: Unauthorized 'unsafe' usage detected in specialist {}",
+                specialist_id
+            ));
         }
 
         // 2. Restricted Cargo Build
@@ -35,10 +40,17 @@ impl HardenedEnvironment {
             .map_err(|e| anyhow!("Hardened build failed: {}", e))?;
 
         if !status.success() {
-            return Err(anyhow!("WASM compilation failed in hardened environment for {}", specialist_id));
+            return Err(anyhow!(
+                "WASM compilation failed in hardened environment for {}",
+                specialist_id
+            ));
         }
 
-        let wasm_file = source_path.parent().unwrap().parent().unwrap()
+        let wasm_file = source_path
+            .parent()
+            .unwrap()
+            .parent()
+            .unwrap()
             .join("target/wasm32-unknown-unknown/release")
             .join(format!("{}.wasm", specialist_id.replace("-", "_")));
 

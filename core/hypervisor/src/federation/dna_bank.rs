@@ -1,5 +1,5 @@
 /// DNA Bank: Persistent Learning Memory
-/// 
+///
 /// Implements long-term memory for the hive using a tiered storage system:
 /// - Hot tier (in-memory): Recent events and patterns (1-7 days)
 /// - Warm tier (disk): Medium history (1-3 months)  [RocksDB with `rocksdb-dna` feature]
@@ -15,10 +15,9 @@
 ///
 /// Use `DNABank::new()` for in-memory or `DNABank::open(path)` for RocksDB.
 /// All public methods are identical regardless of backend.
-
 use crate::federation::specialist::SpecialistId;
 use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, BTreeMap};
+use std::collections::{BTreeMap, HashMap};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 /// Event in the DNA Bank
@@ -81,6 +80,12 @@ pub struct EventQuery {
     pub limit: Option<usize>,
 }
 
+impl Default for EventQuery {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl EventQuery {
     pub fn new() -> Self {
         Self {
@@ -124,34 +129,34 @@ impl EventQuery {
     }
 
     pub fn matches(&self, event: &DNAEvent) -> bool {
-        if let Some(specialist) = self.specialist {
-            if event.specialist != specialist {
-                return false;
-            }
+        if let Some(specialist) = self.specialist
+            && event.specialist != specialist
+        {
+            return false;
         }
 
-        if let Some(ref event_type) = self.event_type {
-            if event.event_type != *event_type {
-                return false;
-            }
+        if let Some(ref event_type) = self.event_type
+            && event.event_type != *event_type
+        {
+            return false;
         }
 
-        if let Some(ref outcome) = self.outcome {
-            if event.outcome != *outcome {
-                return false;
-            }
+        if let Some(ref outcome) = self.outcome
+            && event.outcome != *outcome
+        {
+            return false;
         }
 
-        if let Some(since) = self.since_timestamp {
-            if event.timestamp < since {
-                return false;
-            }
+        if let Some(since) = self.since_timestamp
+            && event.timestamp < since
+        {
+            return false;
         }
 
-        if let Some(until) = self.until_timestamp {
-            if event.timestamp > until {
-                return false;
-            }
+        if let Some(until) = self.until_timestamp
+            && event.timestamp > until
+        {
+            return false;
         }
 
         true
@@ -229,7 +234,7 @@ pub struct DNABank {
     pub events: rocksdb_storage::RocksDbEvents,
 
     pub patterns: HashMap<String, Pattern>,
-    
+
     // Statistics
     pub total_events_stored: u64,
     pub total_patterns_discovered: u64,
@@ -237,6 +242,12 @@ pub struct DNABank {
 
     /// Path this DNA Bank was opened from. `None` for pure in-memory instances.
     pub db_path: Option<std::path::PathBuf>,
+}
+
+impl Default for DNABank {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl DNABank {
@@ -275,7 +286,7 @@ impl DNABank {
         {
             let events = rocksdb_storage::RocksDbEvents::open(path)
                 .map_err(|e| format!("RocksDB open failed at {}: {}", path.display(), e))?;
-            return Ok(Self {
+            Ok(Self {
                 events,
                 patterns: HashMap::new(),
                 total_events_stored: 0,
@@ -285,7 +296,7 @@ impl DNABank {
                     .unwrap()
                     .as_secs(),
                 db_path: Some(path.to_path_buf()),
-            });
+            })
         }
 
         #[cfg(not(feature = "rocksdb-dna"))]
@@ -316,7 +327,8 @@ impl DNABank {
 
     /// Query events
     pub fn query(&self, query: &EventQuery) -> Vec<DNAEvent> {
-        let mut results: Vec<DNAEvent> = self.events
+        let mut results: Vec<DNAEvent> = self
+            .events
             .values()
             .filter(|event| query.matches(event))
             .cloned()
@@ -386,7 +398,8 @@ impl DNABank {
         let mut moved = 0;
         let mut archived = 0;
 
-        let to_move: Vec<String> = self.events
+        let to_move: Vec<String> = self
+            .events
             .values()
             .filter(|event| event.age_days() > cutoff_days)
             .map(|event| event.id.clone())
@@ -446,7 +459,7 @@ impl DNABank {
         BackupInfo {
             event_count: self.events.len(),
             pattern_count: self.patterns.len(),
-            size_estimate_mb: (self.events.len() as u32 * 2) + (self.patterns.len() as u32 * 1),
+            size_estimate_mb: (self.events.len() as u32 * 2) + (self.patterns.len() as u32),
             last_backup: self.last_consolidated,
         }
     }
@@ -528,11 +541,9 @@ mod tests {
             500,
         );
 
-        let matching_query = EventQuery::new()
-            .for_specialist(SpecialistId::Visionary);
+        let matching_query = EventQuery::new().for_specialist(SpecialistId::Visionary);
 
-        let non_matching_query = EventQuery::new()
-            .for_specialist(SpecialistId::Omnipresent);
+        let non_matching_query = EventQuery::new().for_specialist(SpecialistId::Omnipresent);
 
         assert!(matching_query.matches(&event));
         assert!(!non_matching_query.matches(&event));
@@ -601,8 +612,7 @@ mod tests {
             let _ = bank.record_event(event);
         }
 
-        let query = EventQuery::new()
-            .for_specialist(SpecialistId::Visionary);
+        let query = EventQuery::new().for_specialist(SpecialistId::Visionary);
 
         let results = bank.query(&query);
         assert_eq!(results.len(), 5);
@@ -635,7 +645,11 @@ mod tests {
             let event = DNAEvent::new(
                 SpecialistId::Visionary,
                 "design_generation".to_string(),
-                if i < 4 { "success".to_string() } else { "failure".to_string() },
+                if i < 4 {
+                    "success".to_string()
+                } else {
+                    "failure".to_string()
+                },
                 500 + i as u32 * 10,
             );
             let _ = bank.record_event(event);
@@ -730,21 +744,23 @@ mod tests {
                 let event = DNAEvent::new(
                     *specialist,
                     "operation".to_string(),
-                    if i < 2 { "success".to_string() } else { "failure".to_string() },
+                    if i < 2 {
+                        "success".to_string()
+                    } else {
+                        "failure".to_string()
+                    },
                     500,
                 );
                 let _ = bank.record_event(event);
             }
         }
 
-        let visionary_query = EventQuery::new()
-            .for_specialist(SpecialistId::Visionary);
+        let visionary_query = EventQuery::new().for_specialist(SpecialistId::Visionary);
 
         let visionary_events = bank.query(&visionary_query);
         assert_eq!(visionary_events.len(), 3);
 
-        let omnipresent_query = EventQuery::new()
-            .for_specialist(SpecialistId::Omnipresent);
+        let omnipresent_query = EventQuery::new().for_specialist(SpecialistId::Omnipresent);
 
         let omnipresent_events = bank.query(&omnipresent_query);
         assert_eq!(omnipresent_events.len(), 3);
@@ -776,7 +792,11 @@ mod tests {
             let event = DNAEvent::new(
                 SpecialistId::Visionary,
                 "design_generation".to_string(),
-                if i < 4 { "success".to_string() } else { "failure".to_string() },
+                if i < 4 {
+                    "success".to_string()
+                } else {
+                    "failure".to_string()
+                },
                 500,
             );
             let _ = bank.record_event(event);
@@ -789,12 +809,17 @@ mod tests {
     }
 
     #[test]
+    #[cfg(not(feature = "rocksdb-dna"))]
     fn test_dna_bank_is_not_persistent_by_default() {
         let bank = DNABank::new();
-        assert!(!bank.is_persistent(), "in-memory bank should not be persistent");
+        assert!(
+            !bank.is_persistent(),
+            "in-memory bank should not be persistent"
+        );
     }
 
     #[test]
+    #[cfg(not(feature = "rocksdb-dna"))]
     fn test_dna_bank_open_without_rocksdb_feature_returns_in_memory() {
         // Without the rocksdb-dna feature, open() returns an in-memory bank
         let bank = DNABank::open("/tmp/does-not-matter").expect("open should succeed");
@@ -853,16 +878,14 @@ mod rocksdb_storage {
         /// In-memory-backed instance (for tests / `DNABank::new()`).
         /// All operations succeed but nothing is written to disk.
         pub fn in_memory() -> Self {
-            use tempfile::TempDir;
             // Use a temp directory so it's cleaned up when dropped.
             // This matches the in-memory semantics while still going through
             // the RocksDB code path (useful for testing the feature).
-            let tmp = tempfile::tempdir()
-                .expect("failed to create temp dir for in-memory RocksDB");
+            let tmp = tempfile::tempdir().expect("failed to create temp dir for in-memory RocksDB");
             // We can't easily return the TempDir alongside the DB here, so
             // just open a DB in a path that will be cleaned eventually.
             // (Alternatively: keep an in-memory BTreeMap for the in_memory case)
-            let path = tmp.into_path(); // intentionally leak to keep alive
+            let path = tmp.keep(); // intentionally leak to keep alive
             Self::open(&path).expect("temp RocksDB should open")
         }
 
@@ -902,9 +925,7 @@ mod rocksdb_storage {
         /// Clear all events from both cache and disk.
         pub fn clear(&mut self) {
             // Delete all keys
-            let keys: Vec<Vec<u8>> = self.cache.keys()
-                .map(|k| k.as_bytes().to_vec())
-                .collect();
+            let keys: Vec<Vec<u8>> = self.cache.keys().map(|k| k.as_bytes().to_vec()).collect();
             for key in keys {
                 let _ = self.db.delete(&key);
             }

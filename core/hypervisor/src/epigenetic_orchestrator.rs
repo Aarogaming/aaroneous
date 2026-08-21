@@ -1,10 +1,16 @@
 use crate::chromosome_registry::HoxChromosome;
 use anyhow::{Result, anyhow};
-use std::sync::Arc;
 use parking_lot::RwLock;
+use std::sync::Arc;
 
 pub struct EpigeneticOrchestrator {
     active_switches: Arc<RwLock<Option<HoxChromosome>>>,
+}
+
+impl Default for EpigeneticOrchestrator {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl EpigeneticOrchestrator {
@@ -17,11 +23,17 @@ impl EpigeneticOrchestrator {
     /// Hot-swaps the functional state of a Husk without touching the base weights.
     /// In a full implementation, this notifies the GGUF loader to swap LoRA adapters in VRAM.
     pub fn express_chromosome(&self, chromosome: HoxChromosome) -> Result<()> {
-        println!("[EpigeneticOrchestrator] Expressing chromosome for: {}", chromosome.agent_id);
-        
+        println!(
+            "[EpigeneticOrchestrator] Expressing chromosome for: {}",
+            chromosome.agent_id
+        );
+
         // 1. Verify base model presence
         if !std::path::Path::new(&chromosome.base_model_path).exists() {
-            return Err(anyhow!("Base model (Husk) not found: {}", chromosome.base_model_path));
+            return Err(anyhow!(
+                "Base model (Husk) not found: {}",
+                chromosome.base_model_path
+            ));
         }
 
         // 2. Notify internal runner to swap LoRAs (Simulated)
@@ -39,7 +51,9 @@ impl EpigeneticOrchestrator {
 
     /// Bypasses text parsing by injecting raw latent vectors into the forward pass.
     pub fn inject_latent_state(&self, _vector: &[f32; 1024]) {
-        println!("[EpigeneticOrchestrator] Injecting latent activation vector (1024-dim) into attention head.");
+        println!(
+            "[EpigeneticOrchestrator] Injecting latent activation vector (1024-dim) into attention head."
+        );
         // Forward this vector to the LLM backend (e.g., llama.cpp/candle)
     }
 
@@ -47,12 +61,12 @@ impl EpigeneticOrchestrator {
     /// This is the inverse of injection: it captures the "thought" before it becomes text.
     pub fn extract_hidden_state(&self, output_vector: &mut [f32; 1024]) -> Result<()> {
         println!("[EpigeneticOrchestrator] Extracting post-attention hidden states...");
-        
-        // Simulated extraction: In a real system, this pulls from the KV cache or transformer block 
+
+        // Simulated extraction: In a real system, this pulls from the KV cache or transformer block
         for i in 0..1024 {
             output_vector[i] = (i as f32 * 0.001).sin(); // Simulated latent signal
         }
-        
+
         Ok(())
     }
 
@@ -66,7 +80,10 @@ impl EpigeneticOrchestrator {
             0x9999AAAABBBBCCCC => "hephaestus",
             _ => return,
         };
-        
-        println!("[EpigeneticOrchestrator] Neural Splicing triggered. Loading {} functional phenotype.", agent_id);
+
+        println!(
+            "[EpigeneticOrchestrator] Neural Splicing triggered. Loading {} functional phenotype.",
+            agent_id
+        );
     }
 }

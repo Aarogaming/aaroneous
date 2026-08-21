@@ -1,12 +1,11 @@
 /// Core registry module for Aaroneous hybrid master registry system.
-/// 
+///
 /// This module implements the core `SubRegistry` trait that all registry adapters must implement,
 /// providing a unified interface for the hybrid master registry to interact with all sub-registries.
-
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 /// Trait interface for sub-registries in the hybrid master registry system.
-/// 
+///
 /// Defines lifecycle methods that all registry implementations must support:
 /// - `initialize`: Setup and initialization with workspace context
 /// - `query_entity`: Query an entity by ID, returning None if not found
@@ -14,23 +13,23 @@ use serde::{Serialize, Deserialize};
 pub trait SubRegistry: Send + Sync {
     /// Initialize the registry with workspace context.
     fn initialize(&mut self, ctx: &WorkspaceContext) -> Result<(), String>;
-    
+
     /// Query an entity by ID. Returns None if not found.
-    fn query_entity(&self, id: &str) -> Option<EntityInfo> {
+    fn query_entity(&self, _id: &str) -> Option<EntityInfo> {
         None
     }
-    
-    /// Synchronize state and return all entities managed by this sub-registry.
-    /// 
-    /// Called by master registry during synchronization.
-    /// Returns a Vec of EntityInfo for all entities in this registry.
-    fn list_entities(&self) -> Vec<EntityInfo> {
+
+    /// List all entities managed by this sub-registry.
+    ///
+    /// Called by master registry during full synchronization.
+    /// Registries that don't support listing should return an empty Vec.
+    fn list(&self) -> Vec<EntityInfo> {
         Vec::new()
     }
-    
+
     /// Synchronize state across all sub-registries.
     fn synchronize_state(&mut self, ctx: &WorkspaceContext) -> Result<(), String>;
-    
+
     /// Get registry type identifier.
     fn registry_type(&self) -> RegistryType;
 }
@@ -46,21 +45,19 @@ pub struct EntityInfo {
 }
 
 /// Health status of a registered entry.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum EntryHealth {
     Healthy,
     Degraded,
     Failed,
+    #[default]
     Unknown,
 }
 
-impl Default for EntryHealth {
-    fn default() -> Self { Self::Unknown }
-}
-
 /// Type identifier for registry implementations.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum RegistryType {
+    #[default]
     Unified,
     FederationModel,
     FederationLinks,
@@ -70,10 +67,6 @@ pub enum RegistryType {
     Chromosome,
     HoxCapability,
     DistributedSpecialist,
-}
-
-impl Default for RegistryType {
-    fn default() -> Self { Self::Unified }
 }
 
 /// Workspace context for registry operations.

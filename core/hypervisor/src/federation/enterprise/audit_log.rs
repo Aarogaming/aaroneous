@@ -1,7 +1,6 @@
 /// Comprehensive Audit Logging System
-/// 
+///
 /// Records all significant events for compliance, security, and debugging
-
 use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
 
@@ -130,40 +129,40 @@ impl AuditQuery {
     }
 
     pub fn matches(&self, event: &AuditEvent) -> bool {
-        if let Some(ref user) = self.user_id {
-            if event.user_id != *user {
-                return false;
-            }
+        if let Some(ref user) = self.user_id
+            && event.user_id != *user
+        {
+            return false;
         }
 
-        if let Some(ref action) = self.action {
-            if event.action != *action {
-                return false;
-            }
+        if let Some(ref action) = self.action
+            && event.action != *action
+        {
+            return false;
         }
 
-        if let Some(level) = self.level {
-            if event.level != level {
-                return false;
-            }
+        if let Some(level) = self.level
+            && event.level != level
+        {
+            return false;
         }
 
-        if let Some(result) = self.result {
-            if event.result != result {
-                return false;
-            }
+        if let Some(result) = self.result
+            && event.result != result
+        {
+            return false;
         }
 
-        if let Some(start) = self.start_time_ms {
-            if event.timestamp_ms < start {
-                return false;
-            }
+        if let Some(start) = self.start_time_ms
+            && event.timestamp_ms < start
+        {
+            return false;
         }
 
-        if let Some(end) = self.end_time_ms {
-            if event.timestamp_ms > end {
-                return false;
-            }
+        if let Some(end) = self.end_time_ms
+            && event.timestamp_ms > end
+        {
+            return false;
         }
 
         true
@@ -190,7 +189,7 @@ impl AuditLog {
     pub fn new() -> Self {
         Self {
             events: VecDeque::new(),
-            max_events: 100000,  // Keep last 100k events
+            max_events: 100000, // Keep last 100k events
             total_recorded: 0,
             security_events_count: 0,
             critical_events_count: 0,
@@ -229,19 +228,26 @@ impl AuditLog {
 
     /// Get recent events
     pub fn recent(&self, count: usize) -> Vec<AuditEvent> {
-        self.events
-            .iter()
-            .rev()
-            .take(count)
-            .cloned()
-            .collect()
+        self.events.iter().rev().take(count).cloned().collect()
     }
 
     /// Get statistics
     pub fn stats(&self) -> AuditStats {
-        let security_count = self.events.iter().filter(|e| matches!(e.level, AuditLevel::Security)).count();
-        let critical_count = self.events.iter().filter(|e| matches!(e.level, AuditLevel::Critical)).count();
-        let failure_count = self.events.iter().filter(|e| matches!(e.result, AuditResult::Failure)).count();
+        let security_count = self
+            .events
+            .iter()
+            .filter(|e| matches!(e.level, AuditLevel::Security))
+            .count();
+        let critical_count = self
+            .events
+            .iter()
+            .filter(|e| matches!(e.level, AuditLevel::Critical))
+            .count();
+        let failure_count = self
+            .events
+            .iter()
+            .filter(|e| matches!(e.result, AuditResult::Failure))
+            .count();
 
         AuditStats {
             total_events: self.events.len(),
@@ -249,14 +255,18 @@ impl AuditLog {
             security_events: security_count,
             critical_events: critical_count,
             failed_operations: failure_count,
-            unique_users: self.events.iter().map(|e| e.user_id.clone()).collect::<std::collections::HashSet<_>>().len(),
+            unique_users: self
+                .events
+                .iter()
+                .map(|e| e.user_id.clone())
+                .collect::<std::collections::HashSet<_>>()
+                .len(),
         }
     }
 
     /// Export events to JSON
     pub fn export_json(&self) -> Result<String, String> {
-        serde_json::to_string(&self.events)
-            .map_err(|e| format!("Failed to export: {}", e))
+        serde_json::to_string(&self.events).map_err(|e| format!("Failed to export: {}", e))
     }
 }
 

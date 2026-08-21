@@ -1,3 +1,8 @@
+pub mod agent_bridge;
+pub mod communication;
+pub mod conflict_resolution;
+pub mod proposal;
+pub mod sentinel;
 /// Federation Module: Core specialist hive architecture
 ///
 /// This module implements the federated specialist hive pattern where:
@@ -13,27 +18,21 @@
 /// - Symbiotic (500MB): Biometric polling, state classification
 /// - Phygital (1GB): AR/VR, depth processing, landmarks
 /// - Archivist (500MB): DNA Bank persistence, reflection
-
 // ── Core specialist system ──────────────────────────────────────────────────
 pub mod specialist;
-pub mod sentinel;
-pub mod proposal;
-pub mod communication;
-pub mod conflict_resolution;
-pub mod agent_bridge;
 pub mod specialists;
 
 // ── Lifecycle & orchestration ───────────────────────────────────────────────
-pub mod host;
 pub mod hive;
+pub mod host;
 
 // ── Intent & session management ─────────────────────────────────────────────
 pub mod intent;
 pub mod session;
 
 // ── Persistence bridge ──────────────────────────────────────────────────────
-pub mod learn_persist;
 pub mod hive_db;
+pub mod learn_persist;
 
 // ── Model DNA & sovereign packages ──────────────────────────────────────────
 pub mod dna;
@@ -50,20 +49,20 @@ pub mod http;
 pub mod enterprise;
 
 // ── Speculative modules (compile but not wired into active paths) ───────────
+pub mod ar;
+pub mod biometric;
 pub mod bootstrap;
+pub mod cli;
 pub mod component_registry;
 pub mod deployment_examples;
-pub mod cli;
 pub mod dna_bank;
-pub mod optimization;
-pub mod multi_hive;
-pub mod p2p;
-pub mod biometric;
-pub mod ar;
-pub mod tasks;
 pub mod graph;
-pub mod tensor_vault;
 pub mod links;
+pub mod multi_hive;
+pub mod optimization;
+pub mod p2p;
+pub mod tasks;
+pub mod tensor_vault;
 
 // runtime.rs was a standalone design prototype (model cache + deployment manifest runtime)
 // that was never connected to any production code. Its useful concepts (ModelManager,
@@ -72,88 +71,95 @@ pub mod links;
 pub mod runtime;
 
 // ── Re-exports: Core specialist system ──────────────────────────────────────
-pub use specialist::{
-    Specialist, SpecialistId, SpecialistConfig, SpecialistRegistry,
-    SpecialistContext, Decision, DelegateRequest, Conflict,
-    ProposedAction, SystemResources, UserState,
-    ExecutionStatus, ExecutionResult, ProposalPriority,
-};
-pub use sentinel::{Sentinel, SentinelConfig, ArbitrationResult};
-pub use proposal::{Proposal, ProposalId, ProposalStatus, ProposalSet};
-pub use communication::{SpecialistMessage, MessageChannel, CommunicationBus};
-pub use conflict_resolution::{ConflictDetector, ResourceAllocation, ConflictResolution, ConflictArbitrator};
 pub use agent_bridge::{SpecialistAgentBridge, agent_name_to_specialist_id};
-pub use specialists::{Visionary, Omnipresent, Symbiotic, Phygital, Archivist, GenericSpecialist};
+pub use communication::{CommunicationBus, MessageChannel, SpecialistMessage};
+pub use conflict_resolution::{
+    ConflictArbitrator, ConflictDetector, ConflictResolution, ResourceAllocation,
+};
+pub use proposal::{Proposal, ProposalId, ProposalSet, ProposalStatus};
+pub use sentinel::{ArbitrationResult, Sentinel, SentinelConfig};
+pub use specialist::{
+    Conflict, Decision, DelegateRequest, ExecutionResult, ExecutionStatus, ProposalPriority,
+    ProposedAction, Specialist, SpecialistConfig, SpecialistContext, SpecialistId,
+    SpecialistRegistry, SystemResources, UserState,
+};
+pub use specialists::{Archivist, GenericSpecialist, Omnipresent, Phygital, Symbiotic, Visionary};
 
 // ── Re-exports: Lifecycle & orchestration ───────────────────────────────────
-pub use host::{SpecialistHost, HostConfig, HostState, HostError, HostableSpecialist};
 pub use hive::{
-    Federation, FederationBuilder, FederationConfig, FederationErrors,
-    LearningSummary, SpecialistLearningSummary,
+    Federation, FederationBuilder, FederationConfig, FederationErrors, LearningSummary,
+    SpecialistLearningSummary,
 };
+pub use host::{HostConfig, HostError, HostState, HostableSpecialist, SpecialistHost};
 
 // ── Re-exports: Intent & session ────────────────────────────────────────────
-pub use intent::{
-    Intent, IntentPriority, IntentStatus, IntentSource, IntentScaling, IntentResult,
-};
-pub use session::{Session, SessionState, SessionManager};
+pub use intent::{Intent, IntentPriority, IntentResult, IntentScaling, IntentSource, IntentStatus};
+pub use session::{Session, SessionManager, SessionState};
 
 // ── Re-exports: Persistence ─────────────────────────────────────────────────
 pub use learn_persist::{
-    LearningSnapshot, PersistableLearning, LearnPersistError,
-    save_learning, load_learning,
+    LearnPersistError, LearningSnapshot, PersistableLearning, load_learning, save_learning,
 };
 
 // ── Re-exports: Model DNA & sovereign ───────────────────────────────────────
-pub use dna::{ModelDNA, BlockDNA, dissect_model, load_dna_sidecar};
+pub use dna::{BlockDNA, ModelDNA, dissect_model, load_dna_sidecar};
 pub use model_registry::register_as_specialist;
 pub use sovereign_package::{
-    SovereignManifest, PackageOptions, LearningStateSnapshot,
-    export_sovereign, import_sovereign, ImportResult, read_manifest,
+    ImportResult, LearningStateSnapshot, PackageOptions, SovereignManifest, export_sovereign,
+    import_sovereign, read_manifest,
 };
 
 // ── Re-exports: Forge ───────────────────────────────────────────────────────
-pub use forge::{Forge, ForgeRecipe, SplicingSegment, GgufIndex, GgufMeta, TensorMeta, ForgeError, CrystallizationResult};
+pub use forge::{
+    CrystallizationResult, Forge, ForgeError, ForgeRecipe, GgufIndex, GgufMeta, SplicingSegment,
+    TensorMeta,
+};
 
 // ── Re-exports: HTTP ────────────────────────────────────────────────────────
-pub use http::{HttpStatusServer, HttpServerError};
+pub use http::{HttpServerError, HttpStatusServer};
 
 // ── Re-exports: Enterprise ──────────────────────────────────────────────────
 pub use enterprise::{
-    AuditLog, AuditEvent, AuditLevel, AuditQuery,
-    ComplianceMonitor, ComplianceRule, ComplianceStatus,
-    SecurityConfig, TLSConfig, DataEncryption,
-    RateLimiter, QuotaLimit,
-    AccessControl, Role, Permission, AuthToken,
-    Analytics, AnalyticsEvent,
-    EnterpriseContext,
+    AccessControl, Analytics, AnalyticsEvent, AuditEvent, AuditLevel, AuditLog, AuditQuery,
+    AuthToken, ComplianceMonitor, ComplianceRule, ComplianceStatus, DataEncryption,
+    EnterpriseContext, Permission, QuotaLimit, RateLimiter, Role, SecurityConfig, TLSConfig,
 };
 
 // ── Re-exports: Speculative modules ─────────────────────────────────────────
-pub use component_registry::{ComponentRegistry, AgentBundle};
-pub use bootstrap::{SpecialistModule, DeploymentTarget, Manifest, DeploymentConfig, BootstrapResult, BootstrapSystem};
-pub use cli::{Command, AaroneosCLI, CLIResult, InitArgs, ExpandArgs, PortableArgs, StatusArgs};
-pub use dna_bank::{DNABank, DNAEvent, EventQuery, Pattern, DNABankStats, ConsolidationStats, BackupInfo};
-pub use optimization::{
-    QuantizationType, QuantizationStrategy, QuantizationConfig, QuantizedModel,
-    GPUType, GPUInfo, GPUMemoryManager, GPUInferenceContext, GPUAccelerationStrategy,
-    CacheWarmingStrategy, AccessPattern, CacheWarmingTracker, WarmingSchedule,
-    BatchConfig, ProposalBatch, BatchManager,
-    OptimizationProfile, OptimizationStats,
+pub use ar::{
+    ArError, ArProvider, ArSessionState, ArSystemInfo, FormFactor as ArFormFactor,
+    ViewConfiguration as ArViewConfiguration,
+};
+pub use biometric::{
+    BiometricDevice, BiometricKind, BiometricProvider, BiometricSample, BiometricStream, BleError,
+    DeviceFilter, StandardServices,
+};
+pub use bootstrap::{
+    BootstrapResult, BootstrapSystem, DeploymentConfig, DeploymentTarget, Manifest,
+    SpecialistModule,
+};
+pub use cli::{AaroneosCLI, CLIResult, Command, ExpandArgs, InitArgs, PortableArgs, StatusArgs};
+pub use component_registry::{AgentBundle, ComponentRegistry};
+pub use dna_bank::{
+    BackupInfo, ConsolidationStats, DNABank, DNABankStats, DNAEvent, EventQuery, Pattern,
 };
 pub use multi_hive::{
-    HiveCluster, HiveNode, ClusterConfig, P2PNetwork, PeerMessage, MessageType,
-    GossipMessage, ConsensusEngine, GradientUpdate, ModelMerger, FederatedLearningEngine,
-    RemoteSpecialist, DistributedSpecialistRegistry, MultihiveFederation,
+    ClusterConfig, ConsensusEngine, DistributedSpecialistRegistry, FederatedLearningEngine,
+    GossipMessage, GradientUpdate, HiveCluster, HiveNode, MessageType, ModelMerger,
+    MultihiveFederation, P2PNetwork, PeerMessage, RemoteSpecialist,
 };
-pub use p2p::{P2pNode, P2pNodeId, P2pError, SyncMessage};
-pub use biometric::{
-    BiometricProvider, BiometricDevice, BiometricSample, BiometricKind,
-    BleError, DeviceFilter, BiometricStream, StandardServices,
+pub use optimization::{
+    AccessPattern, BatchConfig, BatchManager, CacheWarmingStrategy, CacheWarmingTracker,
+    GPUAccelerationStrategy, GPUInferenceContext, GPUInfo, GPUMemoryManager, GPUType,
+    OptimizationProfile, OptimizationStats, ProposalBatch, QuantizationConfig,
+    QuantizationStrategy, QuantizationType, QuantizedModel, WarmingSchedule,
 };
-pub use ar::{ArProvider, ArSystemInfo, ArSessionState, ArError, FormFactor as ArFormFactor, ViewConfiguration as ArViewConfiguration};
-pub use tasks::{BackgroundTaskHandle, OmnipresentRecvTask, SymbioticBleTask, OmnipresentDrainTask, SymbioticDrainTask};
-pub use runtime::{ModelManager, ExecutionMetrics, LoadedModel, RuntimeStats, HealthReport};
+pub use p2p::{P2pError, P2pNode, P2pNodeId, SyncMessage};
+pub use runtime::{ExecutionMetrics, HealthReport, LoadedModel, ModelManager, RuntimeStats};
+pub use tasks::{
+    BackgroundTaskHandle, OmnipresentDrainTask, OmnipresentRecvTask, SymbioticBleTask,
+    SymbioticDrainTask,
+};
 
 #[cfg(test)]
 mod tests;

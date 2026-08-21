@@ -10,11 +10,11 @@
 //
 // Cost tracking is always active regardless of rate limit state.
 
+use anyhow::{Result, anyhow};
+use parking_lot::Mutex;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, Instant};
-use parking_lot::Mutex;
-use tracing::{warn, debug};
-use anyhow::{anyhow, Result};
+use tracing::{debug, warn};
 
 pub struct RateLimiter {
     /// Maximum calls allowed per hour (0 = unlimited)
@@ -87,7 +87,9 @@ impl RateLimiter {
             return Err(anyhow!(
                 "Rate limit exceeded: {} calls/hr (max {}). \
                  Retry in {}s or increase max_calls_per_hour.",
-                current, self.max_calls_per_hour, remaining_secs
+                current,
+                self.max_calls_per_hour,
+                remaining_secs
             ));
         }
 
@@ -170,7 +172,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_unlimited_mode() {
-        let limiter = RateLimiter::new(0);  // unlimited
+        let limiter = RateLimiter::new(0); // unlimited
         for _ in 0..1000 {
             assert!(limiter.check_limit().await.is_ok());
         }

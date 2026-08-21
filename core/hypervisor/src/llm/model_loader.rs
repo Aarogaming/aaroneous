@@ -9,11 +9,11 @@ use tracing::{info, warn};
 /// Top recommended models for Aaroneous
 /// Ordered by recommendation score
 pub const TOP_RECOMMENDED_MODELS: &[(&str, &str)] = &[
-    ("Qwen 1.8B", "qwen-1.8b-gguf"),      // Best balance
-    ("Qwen 0.5B", "qwen-0.5b-gguf"),      // Fastest
-    ("Mistral 7B", "mistral-7b-gguf"),    // Good alternative
-    ("Qwen 7B", "qwen-7b-gguf"),          // More capable
-    ("Llama 2 7B", "llama-2-7b-gguf"),    // Solid choice
+    ("Qwen 1.8B", "qwen-1.8b-gguf"),   // Best balance
+    ("Qwen 0.5B", "qwen-0.5b-gguf"),   // Fastest
+    ("Mistral 7B", "mistral-7b-gguf"), // Good alternative
+    ("Qwen 7B", "qwen-7b-gguf"),       // More capable
+    ("Llama 2 7B", "llama-2-7b-gguf"), // Solid choice
 ];
 
 /// Model loader and manager
@@ -40,14 +40,14 @@ impl ModelLoader {
     /// Get top 5 recommended models
     pub fn get_top_5_recommendations(&self) -> Vec<&ModelInfo> {
         let recommendations = self.registry.top_recommendations(5);
-        
+
         if recommendations.is_empty() {
             warn!("No GGUF models found. Please download models to:");
             for path in &self.registry.search_paths {
                 warn!("  {}", path.display());
             }
         }
-        
+
         recommendations
     }
 
@@ -72,7 +72,7 @@ impl ModelLoader {
     /// Print available models in friendly format
     pub fn print_available_models(&self) {
         let models = self.registry.all_models();
-        
+
         if models.is_empty() {
             println!("\n⚠️  No GGUF models found!");
             println!("\nTo use Aaroneous with local LLM inference:");
@@ -82,7 +82,7 @@ impl ModelLoader {
                 println!("   - {}", path.display());
             }
             println!("\nRecommended models:");
-        for (name, _hf_id) in TOP_RECOMMENDED_MODELS {
+            for (name, _hf_id) in TOP_RECOMMENDED_MODELS {
                 println!("  • {}", name);
             }
             return;
@@ -110,7 +110,7 @@ impl ModelLoader {
         println!("\n🎯 Top 5 Recommended Models:\n");
 
         let recommendations = self.get_top_5_recommendations();
-        
+
         for (idx, model) in recommendations.iter().enumerate() {
             let size_mb = model.size_bytes as f64 / 1_000_000.0;
             println!("  {}. {}", idx + 1, model.name);

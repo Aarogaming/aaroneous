@@ -1,4 +1,4 @@
-﻿/// Synth DNA Forge — tensor surgery and agent crystallization.
+/// Synth DNA Forge — tensor surgery and agent crystallization.
 ///
 /// This module is the Rust-native implementation of the "Synth DNA" concept:
 /// instead of training new agents from scratch, we surgically splice weight
@@ -67,14 +67,16 @@
 /// # Ok(())
 /// # }
 /// ```
-
 use memmap2::Mmap;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs::File;
-use std::io::{BufWriter, Cursor, Read, Seek, SeekFrom, Write};
+use std::io::{BufWriter, Cursor, Read, Seek, Write};
 use std::path::{Path, PathBuf};
 use tracing::{debug, info, warn};
+
+/// Progress callback for long-running operations.
+type ProgressCallback = Box<dyn Fn(String, usize, usize) + Send + Sync>;
 
 // ────────────────────────────────────────────────────────────────────
 // GGUF v3 constants
@@ -88,18 +90,18 @@ const GGUF_VERSION: u32 = 3;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u32)]
 pub enum GgufMetaType {
-    Uint8   = 0,
-    Int8    = 1,
-    Uint16  = 2,
-    Int16   = 3,
-    Uint32  = 4,
-    Int32   = 5,
+    Uint8 = 0,
+    Int8 = 1,
+    Uint16 = 2,
+    Int16 = 3,
+    Uint32 = 4,
+    Int32 = 5,
     Float32 = 6,
-    Bool    = 7,
-    String  = 8,
-    Array   = 9,
-    Uint64  = 10,
-    Int64   = 11,
+    Bool = 7,
+    String = 8,
+    Array = 9,
+    Uint64 = 10,
+    Int64 = 11,
     Float64 = 12,
 }
 
@@ -204,23 +206,37 @@ impl TensorKind {
     pub fn from_name(name: &str) -> Self {
         let n = name.to_lowercase();
         // Attention layers
-        if n.contains("attn_q") || n.contains("attn_k") || n.contains("attn_v")
-            || n.contains("attn_output") || n.contains("self_attn")
-            || n.contains("q_proj") || n.contains("k_proj") || n.contains("v_proj")
+        if n.contains("attn_q")
+            || n.contains("attn_k")
+            || n.contains("attn_v")
+            || n.contains("attn_output")
+            || n.contains("self_attn")
+            || n.contains("q_proj")
+            || n.contains("k_proj")
+            || n.contains("v_proj")
             || n.contains("o_proj")
         {
             return Self::Attention;
         }
         // MLP / Feed-forward layers
-        if n.contains("ffn_gate") || n.contains("ffn_up") || n.contains("ffn_down")
-            || n.contains("mlp") || n.contains("feed_forward")
-            || n.contains("gate_proj") || n.contains("up_proj") || n.contains("down_proj")
-            || n.contains("w1") || n.contains("w2") || n.contains("w3")
+        if n.contains("ffn_gate")
+            || n.contains("ffn_up")
+            || n.contains("ffn_down")
+            || n.contains("mlp")
+            || n.contains("feed_forward")
+            || n.contains("gate_proj")
+            || n.contains("up_proj")
+            || n.contains("down_proj")
+            || n.contains("w1")
+            || n.contains("w2")
+            || n.contains("w3")
         {
             return Self::Mlp;
         }
         // Embedding / output layers
-        if n.contains("embed") || n == "output.weight" || n.contains("lm_head")
+        if n.contains("embed")
+            || n == "output.weight"
+            || n.contains("lm_head")
             || n.contains("token_embd")
         {
             return Self::Embedding;
@@ -266,34 +282,48 @@ impl SplicingStrategy {
     pub fn for_domain(domain: &str) -> Self {
         match domain {
             "code_review" | "code" | "coding" =>
-                // Code: replace MLP layers from domain-specialized model
+            // Code: replace MLP layers from domain-specialized model
+            {
                 Self::DomainSpecialized {
                     domain_keywords: domain_tensor_keywords(domain),
-                },
+                }
+            }
             "legal_analysis" | "legal" =>
-                // Legal: replace attention layers for precision reasoning
+            // Legal: replace attention layers for precision reasoning
+            {
                 Self::DomainSpecialized {
                     domain_keywords: domain_tensor_keywords(domain),
-                },
+                }
+            }
             "security" | "cybersecurity" =>
-                // Security: specialize output projection layers
+            // Security: specialize output projection layers
+            {
                 Self::DomainSpecialized {
                     domain_keywords: domain_tensor_keywords(domain),
-                },
+                }
+            }
             "biomedical_qa" | "medical" | "science" =>
-                // Science: interleave for broad knowledge retention
-                Self::AlternateBlocks,
+            // Science: interleave for broad knowledge retention
+            {
+                Self::AlternateBlocks
+            }
             "creative_writing" | "design" | "ui" | "visual" =>
-                // Creative: keep lower semantic layers, swap higher generation layers
-                Self::LowerFromA_UpperFromB,
+            // Creative: keep lower semantic layers, swap higher generation layers
+            {
+                Self::LowerFromA_UpperFromB
+            }
             "data_analysis" | "analytics" =>
-                // Data: embedding + MLP specialization
+            // Data: embedding + MLP specialization
+            {
                 Self::DomainSpecialized {
                     domain_keywords: domain_tensor_keywords(domain),
-                },
+                }
+            }
             _ =>
-                // Default: embedding continuity, specialized output
-                Self::EmbeddingFromA_OutputFromB,
+            // Default: embedding continuity, specialized output
+            {
+                Self::EmbeddingFromA_OutputFromB
+            }
         }
     }
 }
@@ -340,9 +370,13 @@ pub fn recipe_from_two_models(
     index: &GgufIndex,
     metadata_overrides: HashMap<String, MetaValue>,
 ) -> Result<ForgeRecipe, String> {
-    let meta_a = index.0.get(model_a_key)
+    let meta_a = index
+        .0
+        .get(model_a_key)
         .ok_or_else(|| format!("model_a '{}' not in index", model_a_key))?;
-    let meta_b = index.0.get(model_b_key)
+    let meta_b = index
+        .0
+        .get(model_b_key)
         .ok_or_else(|| format!("model_b '{}' not in index", model_b_key))?;
 
     // Build the tensor set — all tensors from model_a keyed by name.
@@ -354,7 +388,8 @@ pub fn recipe_from_two_models(
     a_names.sort();
 
     // Parse block count from model_a for strategies that need it
-    let total_blocks = a_names.iter()
+    let total_blocks = a_names
+        .iter()
         .filter_map(|n| {
             // Extract block index from "blk.N." prefix
             let stripped = n.strip_prefix("blk.")?;
@@ -367,26 +402,30 @@ pub fn recipe_from_two_models(
 
     for name in &a_names {
         let kind = TensorKind::from_name(name);
-        let block_idx = name.strip_prefix("blk.")
+        let block_idx = name
+            .strip_prefix("blk.")
             .and_then(|s| s.split('.').next())
             .and_then(|s| s.parse::<usize>().ok());
 
         // Decide source based on strategy
         let use_b = match &strategy {
-            SplicingStrategy::AttentionFromA_MlpFromB =>
-                kind == TensorKind::Mlp,
-            SplicingStrategy::AttentionFromB_MlpFromA =>
-                kind == TensorKind::Attention,
-            SplicingStrategy::AlternateBlocks =>
-                block_idx.map(|i| i % 2 == 1).unwrap_or(false),
-            SplicingStrategy::LowerFromA_UpperFromB =>
-                block_idx.map(|i| i >= total_blocks / 2).unwrap_or(false),
+            SplicingStrategy::AttentionFromA_MlpFromB => kind == TensorKind::Mlp,
+            SplicingStrategy::AttentionFromB_MlpFromA => kind == TensorKind::Attention,
+            SplicingStrategy::AlternateBlocks => block_idx.map(|i| i % 2 == 1).unwrap_or(false),
+            SplicingStrategy::LowerFromA_UpperFromB => {
+                block_idx.map(|i| i >= total_blocks / 2).unwrap_or(false)
+            }
             SplicingStrategy::EmbeddingFromA_OutputFromB =>
-                // Upper half of transformer blocks + output layer from B
+            // Upper half of transformer blocks + output layer from B
+            {
                 matches!(kind, TensorKind::Other)
-                || block_idx.map(|i| i >= total_blocks * 3 / 4).unwrap_or(false),
-            SplicingStrategy::DomainSpecialized { domain_keywords } =>
-                domain_keywords.iter().any(|kw| name.to_lowercase().contains(kw.as_str())),
+                    || block_idx
+                        .map(|i| i >= total_blocks * 3 / 4)
+                        .unwrap_or(false)
+            }
+            SplicingStrategy::DomainSpecialized { domain_keywords } => domain_keywords
+                .iter()
+                .any(|kw| name.to_lowercase().contains(kw.as_str())),
         };
 
         // Only use model_b tensor if it exists in model_b's index
@@ -400,8 +439,12 @@ pub fn recipe_from_two_models(
     }
 
     // Add any tensors that are in model_a but not enumerated yet (shouldn't happen, but defensive)
-    let segments: Vec<SplicingSegment> = tensor_sources.into_iter()
-        .map(|(tensor_name, source_gguf)| SplicingSegment { source_gguf, tensor_name })
+    let segments: Vec<SplicingSegment> = tensor_sources
+        .into_iter()
+        .map(|(tensor_name, source_gguf)| SplicingSegment {
+            source_gguf,
+            tensor_name,
+        })
         .collect();
 
     if segments.is_empty() {
@@ -452,15 +495,20 @@ pub fn recipe_from_single_model(
     index: &GgufIndex,
     metadata_overrides: HashMap<String, MetaValue>,
 ) -> Result<ForgeRecipe, String> {
-    let meta = index.0.get(model_key)
+    let meta = index
+        .0
+        .get(model_key)
         .ok_or_else(|| format!("model '{}' not in index", model_key))?;
 
     let mut names: Vec<&str> = meta.tensors.keys().map(|s| s.as_str()).collect();
     names.sort();
 
-    let segments: Vec<SplicingSegment> = names.into_iter()
+    let segments: Vec<SplicingSegment> = names
+        .into_iter()
         .filter(|name| {
-            if include_kinds.is_empty() { return true; }
+            if include_kinds.is_empty() {
+                return true;
+            }
             let kind = TensorKind::from_name(name);
             include_kinds.contains(&kind)
         })
@@ -477,7 +525,11 @@ pub fn recipe_from_single_model(
         ));
     }
 
-    Ok(ForgeRecipe { recipe_id: recipe_id.to_string(), segments, metadata_overrides })
+    Ok(ForgeRecipe {
+        recipe_id: recipe_id.to_string(),
+        segments,
+        metadata_overrides,
+    })
 }
 
 /// Return the recommended tensor name keywords for a given domain.
@@ -495,27 +547,41 @@ pub fn recipe_from_single_model(
 pub fn domain_tensor_keywords(domain: &str) -> Vec<String> {
     match domain {
         // Code reasoning: heavy MLP specialization is key
-        "code_review" | "code" | "coding" =>
-            vec!["ffn_gate".into(), "ffn_up".into(), "ffn_down".into(),
-                 "w1".into(), "w2".into(), "w3".into()],
+        "code_review" | "code" | "coding" => vec![
+            "ffn_gate".into(),
+            "ffn_up".into(),
+            "ffn_down".into(),
+            "w1".into(),
+            "w2".into(),
+            "w3".into(),
+        ],
         // Legal: attention precision matters most
-        "legal_analysis" | "legal" =>
-            vec!["attn_q".into(), "attn_k".into(), "attn_v".into(),
-                 "attn_output".into(), "q_proj".into(), "k_proj".into(),
-                 "v_proj".into(), "o_proj".into()],
+        "legal_analysis" | "legal" => vec![
+            "attn_q".into(),
+            "attn_k".into(),
+            "attn_v".into(),
+            "attn_output".into(),
+            "q_proj".into(),
+            "k_proj".into(),
+            "v_proj".into(),
+            "o_proj".into(),
+        ],
         // Science: embed domain knowledge throughout
-        "biomedical_qa" | "medical" | "science" =>
-            vec!["ffn".into(), "attn".into()],
+        "biomedical_qa" | "medical" | "science" => vec!["ffn".into(), "attn".into()],
         // Security: output layer specialization
-        "security" | "cybersecurity" =>
-            vec!["output".into(), "ffn_down".into(), "lm_head".into()],
+        "security" | "cybersecurity" => vec!["output".into(), "ffn_down".into(), "lm_head".into()],
         // Data: balanced MLP + embedding
-        "data_analysis" | "analytics" =>
-            vec!["ffn_gate".into(), "ffn_up".into(), "embed".into(),
-                 "token_embd".into()],
+        "data_analysis" | "analytics" => vec![
+            "ffn_gate".into(),
+            "ffn_up".into(),
+            "embed".into(),
+            "token_embd".into(),
+        ],
         _ =>
-            // Default: take MLP layers (safest domain specialization)
-            vec!["ffn_gate".into(), "ffn_up".into(), "ffn_down".into()],
+        // Default: take MLP layers (safest domain specialization)
+        {
+            vec!["ffn_gate".into(), "ffn_up".into(), "ffn_down".into()]
+        }
     }
 }
 
@@ -546,22 +612,22 @@ pub enum QuantizationPreference {
 impl QuantizationPreference {
     pub fn label(&self) -> &'static str {
         match self {
-            Self::F16  => "F16",
+            Self::F16 => "F16",
             Self::Q8_0 => "Q8_0",
             Self::Q4KM => "Q4_K_M",
             Self::Q3KM => "Q3_K_M",
-            Self::Q2K  => "Q2_K",
+            Self::Q2K => "Q2_K",
         }
     }
 
     /// Bytes per parameter (approximate, for sizing estimates)
     pub fn bytes_per_param(&self) -> f32 {
         match self {
-            Self::F16  => 2.0,
+            Self::F16 => 2.0,
             Self::Q8_0 => 1.06,
             Self::Q4KM => 0.56,
             Self::Q3KM => 0.42,
-            Self::Q2K  => 0.31,
+            Self::Q2K => 0.31,
         }
     }
 }
@@ -593,7 +659,14 @@ pub struct RecommendedBase {
 }
 
 impl RecommendedBase {
-    pub fn new(hf_repo: &str, hf_filename: &str, arch: &str, params_m: u32, rationale: &str, abliterated: bool) -> Self {
+    pub fn new(
+        hf_repo: &str,
+        hf_filename: &str,
+        arch: &str,
+        params_m: u32,
+        rationale: &str,
+        abliterated: bool,
+    ) -> Self {
         let download_url = format!(
             "https://huggingface.co/{}/resolve/main/{}",
             hf_repo, hf_filename
@@ -664,28 +737,57 @@ impl SovereignProfile {
         let mut m = HashMap::new();
 
         // Standard GGUF fields
-        m.insert("general.name".into(), MetaValue::String(
-            format!("aaroneous-{}-v2", self.name.to_lowercase())
-        ));
-        m.insert("llama.context_length".into(), MetaValue::Uint32(context_window));
+        m.insert(
+            "general.name".into(),
+            MetaValue::String(format!("aaroneous-{}-v2", self.name.to_lowercase())),
+        );
+        m.insert(
+            "llama.context_length".into(),
+            MetaValue::Uint32(context_window),
+        );
 
         // Sovereign identity
-        m.insert("aaroneous.sovereign".into(), MetaValue::String(self.name.clone()));
-        m.insert("aaroneous.domain".into(), MetaValue::String(self.domain.clone()));
+        m.insert(
+            "aaroneous.sovereign".into(),
+            MetaValue::String(self.name.clone()),
+        );
+        m.insert(
+            "aaroneous.domain".into(),
+            MetaValue::String(self.domain.clone()),
+        );
         m.insert("aaroneous.version".into(), MetaValue::String("2.0".into()));
 
         // Mark abliterated base models appropriately
         if let Some(ref base) = self.recommended_base {
-            let variant = if base.abliterated { "abliterated" } else { "instruct" };
-            m.insert("aaroneous.base_variant".into(), MetaValue::String(variant.into()));
-            m.insert("aaroneous.base_architecture".into(), MetaValue::String(base.architecture.clone()));
-            m.insert("aaroneous.base_model".into(), MetaValue::String(base.hf_filename.clone()));
-            m.insert("aaroneous.base_rationale".into(), MetaValue::String(self.base_rationale.clone()));
+            let variant = if base.abliterated {
+                "abliterated"
+            } else {
+                "instruct"
+            };
+            m.insert(
+                "aaroneous.base_variant".into(),
+                MetaValue::String(variant.into()),
+            );
+            m.insert(
+                "aaroneous.base_architecture".into(),
+                MetaValue::String(base.architecture.clone()),
+            );
+            m.insert(
+                "aaroneous.base_model".into(),
+                MetaValue::String(base.hf_filename.clone()),
+            );
+            m.insert(
+                "aaroneous.base_rationale".into(),
+                MetaValue::String(self.base_rationale.clone()),
+            );
         }
 
         // System prompt — the critical standalone-operation field
         let system_prompt = system_prompt_for_domain(&self.domain, &self.name);
-        m.insert("aaroneous.system_prompt".into(), MetaValue::String(system_prompt.clone()));
+        m.insert(
+            "aaroneous.system_prompt".into(),
+            MetaValue::String(system_prompt.clone()),
+        );
 
         // ChatML template so llama.cpp uses the right prompt format
         let chat_template = concat!(
@@ -696,19 +798,33 @@ impl SovereignProfile {
             "{% endif %}{% endfor %}",
             "{% if add_generation_prompt %}<|im_start|>assistant\n{% endif %}"
         );
-        m.insert("tokenizer.chat_template".into(), MetaValue::String(chat_template.into()));
+        m.insert(
+            "tokenizer.chat_template".into(),
+            MetaValue::String(chat_template.into()),
+        );
 
         // Block selection record — makes the crystallization geometry visible
         if let Some(sel) = self.block_selection.as_ref() {
-            m.insert("aaroneous.block_selection".into(), MetaValue::String(
-                sel.iter().map(|i| i.to_string()).collect::<Vec<_>>().join(",")
-            ));
-            m.insert("aaroneous.block_count".into(), MetaValue::Uint32(sel.len() as u32));
+            m.insert(
+                "aaroneous.block_selection".into(),
+                MetaValue::String(
+                    sel.iter()
+                        .map(|i| i.to_string())
+                        .collect::<Vec<_>>()
+                        .join(","),
+                ),
+            );
+            m.insert(
+                "aaroneous.block_count".into(),
+                MetaValue::Uint32(sel.len() as u32),
+            );
         }
 
         // Quantization preference label
-        m.insert("aaroneous.quantization".into(),
-            MetaValue::String(self.quantization.label().into()));
+        m.insert(
+            "aaroneous.quantization".into(),
+            MetaValue::String(self.quantization.label().into()),
+        );
 
         m
     }
@@ -727,67 +843,81 @@ impl SovereignProfile {
         // Metadata builder — writes the full aaroneous.* identity namespace so
         // the output GGUF is self-describing and portable outside Aaroneous.
         // All fields needed for standalone operation are included here.
-        let sovereign_meta = |name: &str, domain: &str, ctx: u32,
-                               block_sel: &Option<Vec<usize>>, base_rationale: &str|
-                -> HashMap<String, MetaValue>
-        {
+        let sovereign_meta = |name: &str,
+                              domain: &str,
+                              ctx: u32,
+                              block_sel: &Option<Vec<usize>>,
+                              base_rationale: &str|
+         -> HashMap<String, MetaValue> {
             use crate::federation::specialists::system_prompt_for_domain;
             let mut m = HashMap::new();
 
             // ── Standard GGUF identity ──────────────────────────────────────
-            m.insert("general.name".into(), MetaValue::String(
-                format!("aaroneous-{}-v2", name.to_lowercase())
-            ));
+            m.insert(
+                "general.name".into(),
+                MetaValue::String(format!("aaroneous-{}-v2", name.to_lowercase())),
+            );
             m.insert("llama.context_length".into(), MetaValue::Uint32(ctx));
 
             // ── Aaroneous sovereign identity ───────────────────────────────
-            m.insert("aaroneous.sovereign".into(),
-                MetaValue::String(name.into()));
-            m.insert("aaroneous.domain".into(),
-                MetaValue::String(domain.into()));
-            m.insert("aaroneous.version".into(),
-                MetaValue::String("2.0".into()));
-            m.insert("aaroneous.base_variant".into(),
-                MetaValue::String("abliterated".into()));
+            m.insert("aaroneous.sovereign".into(), MetaValue::String(name.into()));
+            m.insert("aaroneous.domain".into(), MetaValue::String(domain.into()));
+            m.insert("aaroneous.version".into(), MetaValue::String("2.0".into()));
+            m.insert(
+                "aaroneous.base_variant".into(),
+                MetaValue::String("abliterated".into()),
+            );
 
             // ── System prompt (baked in) ───────────────────────────────────
             // This is the critical field for standalone operation: any Aaroneous
             // instance or llama.cpp runner can read this and know how to prompt
             // the model correctly without the specialist_registry.json.
             let system_prompt = system_prompt_for_domain(domain, name);
-            m.insert("aaroneous.system_prompt".into(),
-                MetaValue::String(system_prompt.clone()));
+            m.insert(
+                "aaroneous.system_prompt".into(),
+                MetaValue::String(system_prompt.clone()),
+            );
 
             // tokenizer.chat_template — makes llama.cpp use the correct format.
             // ChatML format: standard for Qwen2/Mistral/Llama-3 instruction models.
-            let chat_template = format!(
-                "{{% for message in messages %}}{{% if message['role'] == 'system' %}}\
-                <|im_start|>system\n{{{{ message['content'] }}}}<|im_end|>\n\
-                {{% elif message['role'] == 'user' %}}<|im_start|>user\n\
-                {{{{ message['content'] }}}}<|im_end|>\n\
-                {{% elif message['role'] == 'assistant' %}}<|im_start|>assistant\n\
-                {{{{ message['content'] }}}}<|im_end|>\n\
-                {{% endif %}}{{% endfor %}}\
-                {{% if add_generation_prompt %}}<|im_start|>assistant\n{{% endif %}}"
+            let chat_template = "{% for message in messages %}{% if message['role'] == 'system' %}\
+                <|im_start|>system\n{{ message['content'] }}<|im_end|>\n\
+                {% elif message['role'] == 'user' %}<|im_start|>user\n\
+                {{ message['content'] }}<|im_end|>\n\
+                {% elif message['role'] == 'assistant' %}<|im_start|>assistant\n\
+                {{ message['content'] }}<|im_end|>\n\
+                {% endif %}{% endfor %}\
+                {% if add_generation_prompt %}<|im_start|>assistant\n{% endif %}"
+                .to_string();
+            m.insert(
+                "tokenizer.chat_template".into(),
+                MetaValue::String(chat_template),
             );
-            m.insert("tokenizer.chat_template".into(),
-                MetaValue::String(chat_template));
 
             // ── Block selection record ─────────────────────────────────────
             // Records which blocks were included so importers can understand
             // the crystallization geometry (e.g., "blocks 0,2,4...26 of 28").
             if let Some(sel) = block_sel.as_ref() {
-                let sel_str = sel.iter().map(|i| i.to_string())
-                    .collect::<Vec<_>>().join(",");
-                m.insert("aaroneous.block_selection".into(),
-                    MetaValue::String(sel_str));
-                m.insert("aaroneous.block_count".into(),
-                    MetaValue::Uint32(sel.len() as u32));
+                let sel_str = sel
+                    .iter()
+                    .map(|i| i.to_string())
+                    .collect::<Vec<_>>()
+                    .join(",");
+                m.insert(
+                    "aaroneous.block_selection".into(),
+                    MetaValue::String(sel_str),
+                );
+                m.insert(
+                    "aaroneous.block_count".into(),
+                    MetaValue::Uint32(sel.len() as u32),
+                );
             }
 
             // ── Base model rationale ───────────────────────────────────────
-            m.insert("aaroneous.base_rationale".into(),
-                MetaValue::String(base_rationale.into()));
+            m.insert(
+                "aaroneous.base_rationale".into(),
+                MetaValue::String(base_rationale.into()),
+            );
 
             m
         };
@@ -796,7 +926,9 @@ impl SovereignProfile {
 
         // Helper: select evenly-spaced block indices across the model
         let spread = |n: usize| -> Vec<usize> {
-            if n >= total_blocks { return (0..total_blocks).collect(); }
+            if n >= total_blocks {
+                return (0..total_blocks).collect();
+            }
             (0..n).map(|i| (i * total_blocks) / n).collect()
         };
 
@@ -1070,11 +1202,17 @@ impl SovereignProfile {
 
     /// Returns just the recommendation data for all 9 sovereigns — used by
     /// the /models/recommend endpoint to guide model acquisition.
-    pub fn recommendations() -> Vec<(String, Option<RecommendedBase>, QuantizationPreference, String)> {
+    pub fn recommendations() -> Vec<(
+        String,
+        Option<RecommendedBase>,
+        QuantizationPreference,
+        String,
+    )> {
         // Build with dummy block count — we only need metadata
-        Self::default_roster(28).into_iter().map(|p| {
-            (p.name, p.recommended_base, p.quantization, p.base_rationale)
-        }).collect()
+        Self::default_roster(28)
+            .into_iter()
+            .map(|p| (p.name, p.recommended_base, p.quantization, p.base_rationale))
+            .collect()
     }
 }
 
@@ -1111,7 +1249,7 @@ pub async fn crystallize_roster(
     source_path: impl AsRef<std::path::Path>,
     models_dir: impl AsRef<std::path::Path>,
     profiles: Option<Vec<SovereignProfile>>,
-    progress: Option<Box<dyn Fn(String, usize, usize) + Send + Sync>>,
+    progress: Option<ProgressCallback>,
 ) -> Result<RosterCrystallizationResult, GgufReadError> {
     let source_path = source_path.as_ref().to_path_buf();
     let models_dir = models_dir.as_ref().to_path_buf();
@@ -1119,18 +1257,25 @@ pub async fn crystallize_roster(
 
     // Parse the source model once
     let (index, meta) = read_gguf(&source_path)?;
-    let total_blocks = meta.kv.get("llama.block_count")
+    let total_blocks = meta
+        .kv
+        .get("llama.block_count")
         .and_then(|s| s.parse::<usize>().ok())
         .unwrap_or_else(|| {
             // Infer from tensor names
-            index.0.values()
+            index
+                .0
+                .values()
                 .next()
                 .map(|gm| {
-                    gm.tensors.keys()
+                    gm.tensors
+                        .keys()
                         .filter_map(|n| {
                             if let Some(rest) = n.strip_prefix("blk.") {
                                 rest.split('.').next()?.parse::<usize>().ok()
-                            } else { None }
+                            } else {
+                                None
+                            }
                         })
                         .max()
                         .map(|m| m + 1)
@@ -1158,39 +1303,53 @@ pub async fn crystallize_roster(
         // Determine the actual source model for this sovereign.
         // If a recommended base is present on disk, use it instead of the
         // fallback source (which is the Qwen2.5 Coder model).
-        let (effective_index, effective_source_key) =
-            if let Some(ref rec_base) = profile.recommended_base {
-                let base_path = rec_base.local_path(&models_dir);
-                if base_path.exists() {
-                    info!(
-                        "Crystallizing {} from recommended base {} (arch={})",
-                        profile.name,
-                        rec_base.hf_filename,
-                        rec_base.architecture,
-                    );
-                    match read_gguf(&base_path) {
-                        Ok((idx, _)) => {
-                            let key = base_path.to_string_lossy().to_string();
-                            (std::borrow::Cow::Owned(idx), std::borrow::Cow::Owned(key))
-                        }
-                        Err(e) => {
-                            warn!("Failed to read recommended base for {} ({}): {} — falling back to default source",
-                                profile.name, base_path.display(), e);
-                            (std::borrow::Cow::Borrowed(&index), std::borrow::Cow::Borrowed(&source_key as &String))
-                        }
+        let (effective_index, effective_source_key) = if let Some(ref rec_base) =
+            profile.recommended_base
+        {
+            let base_path = rec_base.local_path(&models_dir);
+            if base_path.exists() {
+                info!(
+                    "Crystallizing {} from recommended base {} (arch={})",
+                    profile.name, rec_base.hf_filename, rec_base.architecture,
+                );
+                match read_gguf(&base_path) {
+                    Ok((idx, _)) => {
+                        let key = base_path.to_string_lossy().to_string();
+                        (std::borrow::Cow::Owned(idx), std::borrow::Cow::Owned(key))
                     }
-                } else {
-                    info!(
-                        "Recommended base for {} not on disk ({}) — using default source. \
-                         Download via: POST /models/import {{\"source\":\"hf://{}/{}\"}}",
-                        profile.name, base_path.display(),
-                        rec_base.hf_repo, rec_base.hf_filename,
-                    );
-                    (std::borrow::Cow::Borrowed(&index), std::borrow::Cow::Borrowed(&source_key as &String))
+                    Err(e) => {
+                        warn!(
+                            "Failed to read recommended base for {} ({}): {} — falling back to default source",
+                            profile.name,
+                            base_path.display(),
+                            e
+                        );
+                        (
+                            std::borrow::Cow::Borrowed(&index),
+                            std::borrow::Cow::Borrowed(&source_key as &String),
+                        )
+                    }
                 }
             } else {
-                (std::borrow::Cow::Borrowed(&index), std::borrow::Cow::Borrowed(&source_key as &String))
-            };
+                info!(
+                    "Recommended base for {} not on disk ({}) — using default source. \
+                         Download via: POST /models/import {{\"source\":\"hf://{}/{}\"}}",
+                    profile.name,
+                    base_path.display(),
+                    rec_base.hf_repo,
+                    rec_base.hf_filename,
+                );
+                (
+                    std::borrow::Cow::Borrowed(&index),
+                    std::borrow::Cow::Borrowed(&source_key as &String),
+                )
+            }
+        } else {
+            (
+                std::borrow::Cow::Borrowed(&index),
+                std::borrow::Cow::Borrowed(&source_key as &String),
+            )
+        };
 
         info!("Crystallizing {} → {}", profile.name, output_path.display());
 
@@ -1198,14 +1357,17 @@ pub async fn crystallize_roster(
         let result = crystallize_sovereign_from_index(
             effective_index.as_ref(),
             effective_source_key.as_ref(),
-            &profile,
+            profile,
             &output_path,
-        ).await;
+        )
+        .await;
 
         match result {
             Ok(r) => {
-                info!("✓ {} — {} tensors, {:.1}MB",
-                    profile.name, r.tensors_included, r.size_mb);
+                info!(
+                    "✓ {} — {} tensors, {:.1}MB",
+                    profile.name, r.tensors_included, r.size_mb
+                );
                 succeeded.push(r);
             }
             Err(e) => {
@@ -1236,8 +1398,12 @@ async fn crystallize_sovereign_from_index(
     profile: &SovereignProfile,
     output_path: &std::path::Path,
 ) -> Result<SovereignCrystallizationResult, ForgeError> {
-    let source_meta = index.0.get(source_key)
-        .ok_or_else(|| ForgeError::GgufNotFound { gguf: source_key.into() })?;
+    let source_meta = index
+        .0
+        .get(source_key)
+        .ok_or_else(|| ForgeError::GgufNotFound {
+            gguf: source_key.into(),
+        })?;
 
     // Determine which blocks to include
     let selected_blocks: std::collections::HashSet<usize> = match &profile.block_selection {
@@ -1246,7 +1412,9 @@ async fn crystallize_sovereign_from_index(
             Some(n) => (0..n).collect(),
             None => {
                 // All blocks
-                source_meta.tensors.keys()
+                source_meta
+                    .tensors
+                    .keys()
                     .filter_map(|n| {
                         n.strip_prefix("blk.")
                             .and_then(|r| r.split('.').next())
@@ -1254,13 +1422,12 @@ async fn crystallize_sovereign_from_index(
                     })
                     .collect()
             }
-        }
+        },
     };
 
     // Select tensors: those in selected blocks (or non-block tensors like embeddings)
     let mut segments: Vec<SplicingSegment> = Vec::new();
-    let mut names: Vec<&str> = source_meta.tensors.keys()
-        .map(|s| s.as_str()).collect();
+    let mut names: Vec<&str> = source_meta.tensors.keys().map(|s| s.as_str()).collect();
     names.sort();
 
     for name in names {
@@ -1270,23 +1437,30 @@ async fn crystallize_sovereign_from_index(
         let is_block_tensor = name.starts_with("blk.");
         if is_block_tensor {
             // Check if this block is selected
-            let block_idx = name.strip_prefix("blk.")
+            let block_idx = name
+                .strip_prefix("blk.")
                 .and_then(|r| r.split('.').next())
                 .and_then(|s| s.parse::<usize>().ok());
 
-            if let Some(idx) = block_idx {
-                if !selected_blocks.contains(&idx) { continue; }
+            if let Some(idx) = block_idx
+                && !selected_blocks.contains(&idx)
+            {
+                continue;
             }
 
             // Check tensor kind filter
             if !profile.include_kinds.is_empty() {
                 let kind = TensorKind::from_name(name);
-                if !profile.include_kinds.contains(&kind) { continue; }
+                if !profile.include_kinds.contains(&kind) {
+                    continue;
+                }
             }
         }
 
         // Skip zero-size tensors (unknown dtype)
-        if tm.size == 0 { continue; }
+        if tm.size == 0 {
+            continue;
+        }
 
         segments.push(SplicingSegment {
             source_gguf: source_key.to_string(),
@@ -1301,8 +1475,16 @@ async fn crystallize_sovereign_from_index(
     // Build the full aaroneous.* sovereign metadata — overrides the sparse
     // metadata from profile.metadata with the complete identity + system prompt
     // + block selection + chat template so the output GGUF is self-describing.
-    let ctx_window = profile.metadata.get("llama.context_length")
-        .and_then(|v| if let MetaValue::Uint32(n) = v { Some(*n) } else { None })
+    let ctx_window = profile
+        .metadata
+        .get("llama.context_length")
+        .and_then(|v| {
+            if let MetaValue::Uint32(n) = v {
+                Some(*n)
+            } else {
+                None
+            }
+        })
         .unwrap_or(4096);
     let mut full_metadata = profile.build_sovereign_metadata(ctx_window);
     // Also carry over any custom overrides the caller set in profile.metadata
@@ -1312,11 +1494,16 @@ async fn crystallize_sovereign_from_index(
     }
 
     // Write llama.block_count so llama.cpp doesn't have to infer it from tensors
-    let block_count = profile.block_selection.as_ref()
+    let block_count = profile
+        .block_selection
+        .as_ref()
         .map(|b| b.len())
         .or(profile.block_count)
         .unwrap_or(selected_blocks.len());
-    full_metadata.insert("llama.block_count".into(), MetaValue::Uint32(block_count as u32));
+    full_metadata.insert(
+        "llama.block_count".into(),
+        MetaValue::Uint32(block_count as u32),
+    );
 
     let recipe = ForgeRecipe {
         recipe_id: format!("{}-v2", profile.name.to_lowercase()),
@@ -1328,7 +1515,8 @@ async fn crystallize_sovereign_from_index(
     let result = forge.crystallize(&recipe, index, output_path).await?;
 
     let size_bytes = std::fs::metadata(output_path)
-        .map(|m| m.len()).unwrap_or(result.bytes_written);
+        .map(|m| m.len())
+        .unwrap_or(result.bytes_written);
 
     Ok(SovereignCrystallizationResult {
         name: profile.name.clone(),
@@ -1336,7 +1524,9 @@ async fn crystallize_sovereign_from_index(
         tensors_included: result.tensors_spliced,
         size_bytes,
         size_mb: size_bytes as f64 / 1_048_576.0,
-        blocks_selected: profile.block_selection.as_ref()
+        blocks_selected: profile
+            .block_selection
+            .as_ref()
             .map(|b| b.len())
             .or(profile.block_count)
             .unwrap_or(0),
@@ -1381,7 +1571,11 @@ pub struct ForgeRecipe {
 #[derive(Debug, thiserror::Error)]
 pub enum GgufReadError {
     #[error("I/O error reading '{path}': {source}")]
-    Io { path: PathBuf, #[source] source: std::io::Error },
+    Io {
+        path: PathBuf,
+        #[source]
+        source: std::io::Error,
+    },
     #[error("not a GGUF file (bad magic at '{path}')")]
     BadMagic { path: PathBuf },
     #[error("unsupported GGUF version {version} in '{path}' (expected 1–3)")]
@@ -1431,24 +1625,30 @@ pub struct GgufParsedMeta {
 /// # Ok(())
 /// # }
 /// ```
-pub fn read_gguf(
-    path: impl AsRef<Path>,
-) -> Result<(GgufIndex, GgufParsedMeta), GgufReadError> {
+pub fn read_gguf(path: impl AsRef<Path>) -> Result<(GgufIndex, GgufParsedMeta), GgufReadError> {
     let path = path.as_ref().to_path_buf();
 
     // Use memory-mapped I/O so the OS pages in only the bytes we actually touch.
     // For a 4GB model file we only need the first ~few MB (header + tensor info
     // table) — with mmap the OS never loads the tensor data blobs into RAM.
-    let file = File::open(&path).map_err(|e| GgufReadError::Io { path: path.clone(), source: e })?;
+    let file = File::open(&path).map_err(|e| GgufReadError::Io {
+        path: path.clone(),
+        source: e,
+    })?;
     // SAFETY: the file is not modified while this function runs (single-process,
     // read-only open).  This is the standard pattern for GGUF header reading.
-    let mmap = unsafe { Mmap::map(&file) }
-        .map_err(|e| GgufReadError::Io { path: path.clone(), source: e })?;
+    let mmap = unsafe { Mmap::map(&file) }.map_err(|e| GgufReadError::Io {
+        path: path.clone(),
+        source: e,
+    })?;
     let mut r = Cursor::new(&mmap[..]);
 
     // ── magic ──────────────────────────────────────────────────────────
     let mut magic = [0u8; 4];
-    r.read_exact(&mut magic).map_err(|e| GgufReadError::Io { path: path.clone(), source: e })?;
+    r.read_exact(&mut magic).map_err(|e| GgufReadError::Io {
+        path: path.clone(),
+        source: e,
+    })?;
     if &magic != b"GGUF" {
         return Err(GgufReadError::BadMagic { path });
     }
@@ -1472,8 +1672,10 @@ pub fn read_gguf(
         let type_code = read_u32_le(&mut r, &path)?;
         let value_str = skip_or_read_meta_value(&mut r, &path, type_code, version)?;
 
-        if key == "general.alignment" {
-            if let Ok(v) = value_str.parse::<u64>() { alignment = v; }
+        if key == "general.alignment"
+            && let Ok(v) = value_str.parse::<u64>()
+        {
+            alignment = v;
         }
         kv_map.insert(key, value_str);
     }
@@ -1484,12 +1686,19 @@ pub fn read_gguf(
     for _ in 0..tensor_count {
         let name = read_gguf_string_r(&mut r, &path)?;
         if name.len() > 256 {
-            return Err(GgufReadError::NameTooLong { path, len: name.len() as u64 });
+            return Err(GgufReadError::NameTooLong {
+                path,
+                len: name.len() as u64,
+            });
         }
 
         let n_dims = read_u32_le(&mut r, &path)?;
         if n_dims > 8 {
-            return Err(GgufReadError::TooManyDims { path, name, n: n_dims });
+            return Err(GgufReadError::TooManyDims {
+                path,
+                name,
+                n: n_dims,
+            });
         }
 
         let mut shape = Vec::with_capacity(n_dims as usize);
@@ -1509,19 +1718,22 @@ pub fn read_gguf(
         // Auto-classify tensor kind from name pattern
         let kind_tag = match TensorKind::from_name(&name) {
             TensorKind::Attention => Some("attention".to_string()),
-            TensorKind::Mlp      => Some("mlp".to_string()),
+            TensorKind::Mlp => Some("mlp".to_string()),
             TensorKind::Embedding => Some("embedding".to_string()),
-            TensorKind::Norm     => Some("norm".to_string()),
-            TensorKind::Other    => None,
+            TensorKind::Norm => Some("norm".to_string()),
+            TensorKind::Other => None,
         };
 
-        tensors.insert(name, TensorMeta {
-            offset: data_offset, // will be fixed up below once we know section start
-            size: gguf_tensor_nbytes(&shape, dtype),
-            kind: kind_tag,
-            shape,
-            dtype,
-        });
+        tensors.insert(
+            name,
+            TensorMeta {
+                offset: data_offset, // will be fixed up below once we know section start
+                size: gguf_tensor_nbytes(&shape, dtype),
+                kind: kind_tag,
+                shape,
+                dtype,
+            },
+        );
     }
 
     // ── compute absolute offsets ───────────────────────────────────────
@@ -1537,16 +1749,23 @@ pub fn read_gguf(
     }
 
     // ── build index + metadata ─────────────────────────────────────────
-    let architecture = kv_map.get("general.architecture").cloned().unwrap_or_default();
-    let model_name   = kv_map.get("general.name").cloned().unwrap_or_default();
-    let context_length = kv_map.get("llama.context_length")
+    let architecture = kv_map
+        .get("general.architecture")
+        .cloned()
+        .unwrap_or_default();
+    let model_name = kv_map.get("general.name").cloned().unwrap_or_default();
+    let context_length = kv_map
+        .get("llama.context_length")
         .or_else(|| kv_map.get("llm.context_length"))
         .and_then(|s| s.parse().ok());
 
     let mut index = GgufIndex::new();
     index.register(
         path.to_string_lossy().to_string(),
-        GgufMeta { path: path.clone(), tensors },
+        GgufMeta {
+            path: path.clone(),
+            tensors,
+        },
     );
 
     let meta = GgufParsedMeta {
@@ -1560,7 +1779,10 @@ pub fn read_gguf(
 
     info!(
         "read_gguf: '{}' v{} — {} tensors, arch='{}'",
-        path.display(), version, tensor_count, meta.architecture
+        path.display(),
+        version,
+        tensor_count,
+        meta.architecture
     );
 
     Ok((index, meta))
@@ -1570,49 +1792,73 @@ pub fn read_gguf(
 
 fn read_u8(r: &mut Cursor<&[u8]>, path: &Path) -> Result<u8, GgufReadError> {
     let mut b = [0u8; 1];
-    r.read_exact(&mut b).map_err(|e| GgufReadError::Io { path: path.to_path_buf(), source: e })?;
+    r.read_exact(&mut b).map_err(|e| GgufReadError::Io {
+        path: path.to_path_buf(),
+        source: e,
+    })?;
     Ok(b[0])
 }
 
 fn read_u16_le(r: &mut Cursor<&[u8]>, path: &Path) -> Result<u16, GgufReadError> {
     let mut b = [0u8; 2];
-    r.read_exact(&mut b).map_err(|e| GgufReadError::Io { path: path.to_path_buf(), source: e })?;
+    r.read_exact(&mut b).map_err(|e| GgufReadError::Io {
+        path: path.to_path_buf(),
+        source: e,
+    })?;
     Ok(u16::from_le_bytes(b))
 }
 
 fn read_u32_le(r: &mut Cursor<&[u8]>, path: &Path) -> Result<u32, GgufReadError> {
     let mut b = [0u8; 4];
-    r.read_exact(&mut b).map_err(|e| GgufReadError::Io { path: path.to_path_buf(), source: e })?;
+    r.read_exact(&mut b).map_err(|e| GgufReadError::Io {
+        path: path.to_path_buf(),
+        source: e,
+    })?;
     Ok(u32::from_le_bytes(b))
 }
 
 fn read_i32_le(r: &mut Cursor<&[u8]>, path: &Path) -> Result<i32, GgufReadError> {
     let mut b = [0u8; 4];
-    r.read_exact(&mut b).map_err(|e| GgufReadError::Io { path: path.to_path_buf(), source: e })?;
+    r.read_exact(&mut b).map_err(|e| GgufReadError::Io {
+        path: path.to_path_buf(),
+        source: e,
+    })?;
     Ok(i32::from_le_bytes(b))
 }
 
 fn read_u64_le(r: &mut Cursor<&[u8]>, path: &Path) -> Result<u64, GgufReadError> {
     let mut b = [0u8; 8];
-    r.read_exact(&mut b).map_err(|e| GgufReadError::Io { path: path.to_path_buf(), source: e })?;
+    r.read_exact(&mut b).map_err(|e| GgufReadError::Io {
+        path: path.to_path_buf(),
+        source: e,
+    })?;
     Ok(u64::from_le_bytes(b))
 }
 
 fn read_i64_le(r: &mut Cursor<&[u8]>, path: &Path) -> Result<i64, GgufReadError> {
     let mut b = [0u8; 8];
-    r.read_exact(&mut b).map_err(|e| GgufReadError::Io { path: path.to_path_buf(), source: e })?;
+    r.read_exact(&mut b).map_err(|e| GgufReadError::Io {
+        path: path.to_path_buf(),
+        source: e,
+    })?;
     Ok(i64::from_le_bytes(b))
 }
 
 fn read_f32_le(r: &mut Cursor<&[u8]>, path: &Path) -> Result<f32, GgufReadError> {
     let mut b = [0u8; 4];
-    r.read_exact(&mut b).map_err(|e| GgufReadError::Io { path: path.to_path_buf(), source: e })?;
+    r.read_exact(&mut b).map_err(|e| GgufReadError::Io {
+        path: path.to_path_buf(),
+        source: e,
+    })?;
     Ok(f32::from_le_bytes(b))
 }
 
 fn read_f64_le(r: &mut Cursor<&[u8]>, path: &Path) -> Result<f64, GgufReadError> {
     let mut b = [0u8; 8];
-    r.read_exact(&mut b).map_err(|e| GgufReadError::Io { path: path.to_path_buf(), source: e })?;
+    r.read_exact(&mut b).map_err(|e| GgufReadError::Io {
+        path: path.to_path_buf(),
+        source: e,
+    })?;
     Ok(f64::from_le_bytes(b))
 }
 
@@ -1620,10 +1866,16 @@ fn read_f64_le(r: &mut Cursor<&[u8]>, path: &Path) -> Result<f64, GgufReadError>
 fn read_gguf_string_r(r: &mut Cursor<&[u8]>, path: &Path) -> Result<String, GgufReadError> {
     let len = read_u64_le(r, path)?;
     if len > 1024 * 1024 {
-        return Err(GgufReadError::NameTooLong { path: path.to_path_buf(), len });
+        return Err(GgufReadError::NameTooLong {
+            path: path.to_path_buf(),
+            len,
+        });
     }
     let mut buf = vec![0u8; len as usize];
-    r.read_exact(&mut buf).map_err(|e| GgufReadError::Io { path: path.to_path_buf(), source: e })?;
+    r.read_exact(&mut buf).map_err(|e| GgufReadError::Io {
+        path: path.to_path_buf(),
+        source: e,
+    })?;
     Ok(String::from_utf8_lossy(&buf).to_string())
 }
 
@@ -1636,16 +1888,21 @@ fn skip_or_read_meta_value(
     _version: u32,
 ) -> Result<String, GgufReadError> {
     match type_code {
-        0  => Ok(read_u8(r, path)?.to_string()),           // UINT8
-        1  => Ok((read_u8(r, path)? as i8).to_string()),   // INT8
-        2  => Ok(read_u16_le(r, path)?.to_string()),       // UINT16
-        3  => Ok((read_u16_le(r, path)? as i16).to_string()), // INT16
-        4  => Ok(read_u32_le(r, path)?.to_string()),       // UINT32
-        5  => Ok(read_i32_le(r, path)?.to_string()),       // INT32
-        6  => Ok(read_f32_le(r, path)?.to_string()),       // FLOAT32
-        7  => Ok(if read_u8(r, path)? != 0 { "true" } else { "false" }.to_string()), // BOOL
-        8  => read_gguf_string_r(r, path),                 // STRING
-        9  => {
+        0 => Ok(read_u8(r, path)?.to_string()),              // UINT8
+        1 => Ok((read_u8(r, path)? as i8).to_string()),      // INT8
+        2 => Ok(read_u16_le(r, path)?.to_string()),          // UINT16
+        3 => Ok((read_u16_le(r, path)? as i16).to_string()), // INT16
+        4 => Ok(read_u32_le(r, path)?.to_string()),          // UINT32
+        5 => Ok(read_i32_le(r, path)?.to_string()),          // INT32
+        6 => Ok(read_f32_le(r, path)?.to_string()),          // FLOAT32
+        7 => Ok(if read_u8(r, path)? != 0 {
+            "true"
+        } else {
+            "false"
+        }
+        .to_string()), // BOOL
+        8 => read_gguf_string_r(r, path),                    // STRING
+        9 => {
             // ARRAY: array_type u32, count u64, items
             let item_type = read_u32_le(r, path)?;
             let count = read_u64_le(r, path)?;
@@ -1653,14 +1910,19 @@ fn skip_or_read_meta_value(
             let mut parts = Vec::with_capacity(cap);
             for i in 0..count {
                 let s = skip_or_read_meta_value(r, path, item_type, _version)?;
-                if (i as usize) < cap { parts.push(s); }
+                if (i as usize) < cap {
+                    parts.push(s);
+                }
             }
             Ok(parts.join(","))
         }
-        10 => Ok(read_u64_le(r, path)?.to_string()),       // UINT64
-        11 => Ok(read_i64_le(r, path)?.to_string()),       // INT64
-        12 => Ok(read_f64_le(r, path)?.to_string()),       // FLOAT64
-        t  => Err(GgufReadError::UnsupportedMetaType { path: path.to_path_buf(), type_code: t }),
+        10 => Ok(read_u64_le(r, path)?.to_string()), // UINT64
+        11 => Ok(read_i64_le(r, path)?.to_string()), // INT64
+        12 => Ok(read_f64_le(r, path)?.to_string()), // FLOAT64
+        t => Err(GgufReadError::UnsupportedMetaType {
+            path: path.to_path_buf(),
+            type_code: t,
+        }),
     }
 }
 
@@ -1671,82 +1933,140 @@ fn skip_or_read_meta_value(
 /// source size are known from the index.
 fn gguf_tensor_nbytes(shape: &[u64], dtype: u32) -> u64 {
     let n_elements: u64 = shape.iter().product();
-    if n_elements == 0 { return 0; }
+    if n_elements == 0 {
+        return 0;
+    }
 
     // bytes_per_element × n_elements for floating-point types
     // For quantized types: bytes_per_block × n_blocks
     match dtype {
-        0  => n_elements * 4,           // F32
-        1  => n_elements * 2,           // F16
-        2  => {                         // Q4_0: 18 bytes per 32-element block
-            let blocks = (n_elements + 31) / 32;
+        0 => n_elements * 4, // F32
+        1 => n_elements * 2, // F16
+        2 => {
+            // Q4_0: 18 bytes per 32-element block
+            let blocks = n_elements.div_ceil(32);
             blocks * 18
         }
-        3  => {                         // Q4_1: 20 bytes per 32-element block
-            let blocks = (n_elements + 31) / 32;
+        3 => {
+            // Q4_1: 20 bytes per 32-element block
+            let blocks = n_elements.div_ceil(32);
             blocks * 20
         }
-        6  => {                         // Q5_0: 22 bytes per 32-element block
-            let blocks = (n_elements + 31) / 32;
+        6 => {
+            // Q5_0: 22 bytes per 32-element block
+            let blocks = n_elements.div_ceil(32);
             blocks * 22
         }
-        7  => {                         // Q5_1: 24 bytes per 32-element block
-            let blocks = (n_elements + 31) / 32;
+        7 => {
+            // Q5_1: 24 bytes per 32-element block
+            let blocks = n_elements.div_ceil(32);
             blocks * 24
         }
-        8  => {                         // Q8_0: 34 bytes per 32-element block
-            let blocks = (n_elements + 31) / 32;
+        8 => {
+            // Q8_0: 34 bytes per 32-element block
+            let blocks = n_elements.div_ceil(32);
             blocks * 34
         }
-        10 => {                         // Q2_K: 84 bytes per 256-element block
-            let blocks = (n_elements + 255) / 256;
+        10 => {
+            // Q2_K: 84 bytes per 256-element block
+            let blocks = n_elements.div_ceil(256);
             blocks * 84
         }
-        11 => {                         // Q3_K: 110 bytes per 256-element block
-            let blocks = (n_elements + 255) / 256;
+        11 => {
+            // Q3_K: 110 bytes per 256-element block
+            let blocks = n_elements.div_ceil(256);
             blocks * 110
         }
-        12 => {                         // Q4_K: 144 bytes per 256-element block (Q4_K_M)
-            let blocks = (n_elements + 255) / 256;
+        12 => {
+            // Q4_K: 144 bytes per 256-element block (Q4_K_M)
+            let blocks = n_elements.div_ceil(256);
             blocks * 144
         }
-        13 => {                         // Q5_K: 176 bytes per 256-element block
-            let blocks = (n_elements + 255) / 256;
+        13 => {
+            // Q5_K: 176 bytes per 256-element block
+            let blocks = n_elements.div_ceil(256);
             blocks * 176
         }
-        14 => {                         // Q6_K: 210 bytes per 256-element block
-            let blocks = (n_elements + 255) / 256;
+        14 => {
+            // Q6_K: 210 bytes per 256-element block
+            let blocks = n_elements.div_ceil(256);
             blocks * 210
         }
-        15 => {                         // Q8_K: 292 bytes per 256-element block
-            let blocks = (n_elements + 255) / 256;
+        15 => {
+            // Q8_K: 292 bytes per 256-element block
+            let blocks = n_elements.div_ceil(256);
             blocks * 292
         }
         // ── IQ (imatrix quantization) types ────────────────────────────────
         // Byte counts from the GGUF spec and llama.cpp ggml-quants.h
-        16 => { let b = (n_elements + 255) / 256; b * 64  }  // IQ2_XXS (old code 16, 64B/256)
-        17 => { let b = (n_elements + 255) / 256; b * 74  }  // IQ2_XS  (old code 17, 74B/256)
-        18 => { let b = (n_elements + 255) / 256; b * 80  }  // IQ2_S   (old code 18, 80B/256)
+        16 => {
+            let b = n_elements.div_ceil(256);
+            b * 64
+        } // IQ2_XXS (old code 16, 64B/256)
+        17 => {
+            let b = n_elements.div_ceil(256);
+            b * 74
+        } // IQ2_XS  (old code 17, 74B/256)
+        18 => {
+            let b = n_elements.div_ceil(256);
+            b * 80
+        } // IQ2_S   (old code 18, 80B/256)
         // Current GGUF spec codes for imatrix types:
-        19 => { let b = (n_elements + 255) / 256; b * 66  }  // IQ2_XXS: 66 bytes per 256-elem block
-        20 => { let b = (n_elements + 255) / 256; b * 74  }  // IQ2_XS:  74 bytes per 256-elem block
-        21 => { let b = (n_elements + 255) / 256; b * 80  }  // IQ2_S:   80 bytes per 256-elem block
-        22 => { let b = (n_elements + 255) / 256; b * 80  }  // IQ2_M:   80 bytes per 256-elem block
-        23 => { let b = (n_elements + 255) / 256; b * 98  }  // IQ3_XXS: 98 bytes per 256-elem block
-        24 => { let b = (n_elements + 255) / 256; b * 110 }  // IQ3_XS:  110 bytes (= Q3_K)
-        25 => { let b = (n_elements + 255) / 256; b * 144 }  // IQ4_NL:  144 bytes (= Q4_K layout)
-        26 => { let b = (n_elements + 255) / 256; b * 136 }  // IQ4_XS:  136 bytes per 256-elem block
-        27 => { let b = (n_elements + 255) / 256; b * 110 }  // IQ3_S:   110 bytes (= Q3_K)
-        28 => { let b = (n_elements + 255) / 256; b * 110 }  // IQ3_M:   110 bytes
-        29 => { let b = (n_elements + 255) / 256; b * 32  }  // IQ1_S:   32 bytes per 256-elem block
-        30 => n_elements * 2,                                 // BF16: 2 bytes per element
-        31 => { let b = (n_elements + 255) / 256; b * 36  }  // IQ1_M:   36 bytes per 256-elem block
-        _  => {
+        19 => {
+            let b = n_elements.div_ceil(256);
+            b * 66
+        } // IQ2_XXS: 66 bytes per 256-elem block
+        20 => {
+            let b = n_elements.div_ceil(256);
+            b * 74
+        } // IQ2_XS:  74 bytes per 256-elem block
+        21 => {
+            let b = n_elements.div_ceil(256);
+            b * 80
+        } // IQ2_S:   80 bytes per 256-elem block
+        22 => {
+            let b = n_elements.div_ceil(256);
+            b * 80
+        } // IQ2_M:   80 bytes per 256-elem block
+        23 => {
+            let b = n_elements.div_ceil(256);
+            b * 98
+        } // IQ3_XXS: 98 bytes per 256-elem block
+        24 => {
+            let b = n_elements.div_ceil(256);
+            b * 110
+        } // IQ3_XS:  110 bytes (= Q3_K)
+        25 => {
+            let b = n_elements.div_ceil(256);
+            b * 144
+        } // IQ4_NL:  144 bytes (= Q4_K layout)
+        26 => {
+            let b = n_elements.div_ceil(256);
+            b * 136
+        } // IQ4_XS:  136 bytes per 256-elem block
+        27 => {
+            let b = n_elements.div_ceil(256);
+            b * 110
+        } // IQ3_S:   110 bytes (= Q3_K)
+        28 => {
+            let b = n_elements.div_ceil(256);
+            b * 110
+        } // IQ3_M:   110 bytes
+        29 => {
+            let b = n_elements.div_ceil(256);
+            b * 32
+        } // IQ1_S:   32 bytes per 256-elem block
+        30 => n_elements * 2, // BF16: 2 bytes per element
+        31 => {
+            let b = n_elements.div_ceil(256);
+            b * 36
+        } // IQ1_M:   36 bytes per 256-elem block
+        _ => {
             // Unknown dtype — estimate from element count with Q4 density as a conservative guess.
             // This prevents silent zero-size tensors that would corrupt crystallization output.
             // The caller logs a warning and the actual bytes are read from tensor data directly.
-            let b = (n_elements + 255) / 256;
-            b * 144  // Q4_K estimate
+            let b = n_elements.div_ceil(256);
+            b * 144 // Q4_K estimate
         }
     }
 }
@@ -1777,7 +2097,9 @@ pub enum ForgeError {
         source: std::io::Error,
     },
 
-    #[error("tensor data out of bounds in '{path}' (offset={offset}, size={size}, file_len={file_len})")]
+    #[error(
+        "tensor data out of bounds in '{path}' (offset={offset}, size={size}, file_len={file_len})"
+    )]
     OutOfBounds {
         path: PathBuf,
         offset: u64,
@@ -1849,223 +2171,255 @@ impl Forge {
         let index = index.clone();
         let output_path = output_path.as_ref().to_path_buf();
 
-        let result = tokio::task::spawn_blocking(move || -> Result<CrystallizationResult, ForgeError> {
-            // ── Phase 1: resolve every segment → (meta, mmap) ──────────────
-            struct ResolvedSegment {
-                segment_name: String,
-                source_gguf:  String,
-                meta:         TensorMeta,
-                source_path:  PathBuf,
-            }
-            let mut resolved: Vec<ResolvedSegment> = Vec::with_capacity(recipe.segments.len());
+        let result =
+            tokio::task::spawn_blocking(move || -> Result<CrystallizationResult, ForgeError> {
+                // ── Phase 1: resolve every segment → (meta, mmap) ──────────────
+                struct ResolvedSegment {
+                    segment_name: String,
+                    source_gguf: String,
+                    meta: TensorMeta,
+                    source_path: PathBuf,
+                }
+                let mut resolved: Vec<ResolvedSegment> = Vec::with_capacity(recipe.segments.len());
 
-            for seg in &recipe.segments {
-                let gguf_meta = index.0.get(&seg.source_gguf)
-                    .ok_or_else(|| ForgeError::GgufNotFound { gguf: seg.source_gguf.clone() })?;
-                let tensor_meta = gguf_meta.tensors.get(&seg.tensor_name)
-                    .ok_or_else(|| ForgeError::TensorNotFound {
-                        tensor: seg.tensor_name.clone(),
-                        gguf: seg.source_gguf.clone(),
+                for seg in &recipe.segments {
+                    let gguf_meta =
+                        index
+                            .0
+                            .get(&seg.source_gguf)
+                            .ok_or_else(|| ForgeError::GgufNotFound {
+                                gguf: seg.source_gguf.clone(),
+                            })?;
+                    let tensor_meta = gguf_meta.tensors.get(&seg.tensor_name).ok_or_else(|| {
+                        ForgeError::TensorNotFound {
+                            tensor: seg.tensor_name.clone(),
+                            gguf: seg.source_gguf.clone(),
+                        }
                     })?;
 
-                // Skip tensors with unknown dtype (size=0) rather than writing
-                // corrupt zero-length tensor data that would confuse GGUF readers.
-                if tensor_meta.size == 0 {
-                    warn!(
-                        "Skipping tensor '{}' from '{}': unknown dtype {} → size=0 \
+                    // Skip tensors with unknown dtype (size=0) rather than writing
+                    // corrupt zero-length tensor data that would confuse GGUF readers.
+                    if tensor_meta.size == 0 {
+                        warn!(
+                            "Skipping tensor '{}' from '{}': unknown dtype {} → size=0 \
                          (add to gguf_tensor_nbytes() for this quantization type)",
-                        seg.tensor_name, seg.source_gguf, tensor_meta.dtype
-                    );
-                    continue;
-                }
+                            seg.tensor_name, seg.source_gguf, tensor_meta.dtype
+                        );
+                        continue;
+                    }
 
-                resolved.push(ResolvedSegment {
-                    segment_name: seg.tensor_name.clone(),
-                    source_gguf:  seg.source_gguf.clone(),
-                    meta:         tensor_meta.clone(),
-                    source_path:  gguf_meta.path.clone(),
-                });
-            }
-
-            if resolved.is_empty() {
-                return Err(ForgeError::EmptyRecipe);
-            }
-
-            // ── Phase 2: build metadata KV list ────────────────────────────
-            let mut kv: Vec<(String, MetaValue)> = Vec::new();
-
-            // Aaroneous-specific provenance key — always present
-            kv.push(("general.source".to_string(),
-                MetaValue::String("aaroneous-forge".to_string())));
-            kv.push(("general.recipe_id".to_string(),
-                MetaValue::String(recipe.recipe_id.clone())));
-
-            // Architecture defaults (overridden by recipe)
-            let defaults: &[(&str, MetaValue)] = &[
-                ("general.architecture",    MetaValue::String("qwen2".to_string())),
-                ("general.name",            MetaValue::String(format!("aaroneous-{}", recipe.recipe_id))),
-                ("llama.context_length",    MetaValue::Uint32(4096)),
-                ("llama.embedding_length",  MetaValue::Uint32(4096)),
-                ("llama.feed_forward_length", MetaValue::Uint32(11008)),
-                ("llama.attention.head_count",    MetaValue::Uint32(32)),
-                ("llama.attention.head_count_kv", MetaValue::Uint32(32)),
-                ("llama.rope.freq_base",    MetaValue::Float32(1_000_000.0)),
-                ("llama.rope.dimension_count", MetaValue::Uint32(128)),
-                ("tokenizer.ggml.model",    MetaValue::String("gpt2".to_string())),
-            ];
-            for (key, val) in defaults {
-                if !recipe.metadata_overrides.contains_key(*key) {
-                    kv.push((key.to_string(), val.clone()));
-                }
-            }
-            // Apply recipe overrides last
-            for (key, val) in &recipe.metadata_overrides {
-                kv.push((key.clone(), val.clone()));
-            }
-
-            // ── Phase 3: write header ───────────────────────────────────────
-            // BufWriter with 8MB buffer eliminates ~1,500 individual kernel
-            // calls for the header and tensor-info table phases while keeping
-            // tensor data writes (each already multi-MB) fully streaming.
-            let output_file = File::create(&output_path).map_err(|e| ForgeError::OutputCreate {
-                path: output_path.clone(),
-                source: e,
-            })?;
-            let mut output = BufWriter::with_capacity(8 * 1024 * 1024, output_file);
-
-            // Track bytes written manually — BufWriter doesn't implement Seek,
-            // magic
-            output.write_all(b"GGUF")?;
-            // version (u32 LE)
-            output.write_all(&GGUF_VERSION.to_le_bytes())?;
-            // tensor_count (u64 LE)
-            output.write_all(&(resolved.len() as u64).to_le_bytes())?;
-            // metadata_kv_count (u64 LE)
-            output.write_all(&(kv.len() as u64).to_le_bytes())?;
-
-            // KV pairs
-            for (key, val) in &kv {
-                write_gguf_string(&mut output, key)?;
-                write_gguf_meta_value(&mut output, val)?;
-            }
-            // Flush before seeking to get true position for alignment
-            output.flush().map_err(ForgeError::WriteError)?;
-
-            // ── Phase 4: tensor info table ─────────────────────────────────
-            // data_offset for each tensor is relative to the start of the
-            // tensor data section (after all padding).  We compute them now
-            // as running cumulative sums of tensor sizes.
-            let mut data_offset: u64 = 0;
-            let tensor_offsets: Vec<u64> = resolved.iter().map(|r| {
-                let off = data_offset;
-                data_offset += r.meta.size;
-                off
-            }).collect();
-
-            for (r, &data_off) in resolved.iter().zip(tensor_offsets.iter()) {
-                // tensor name
-                write_gguf_string(&mut output, &r.segment_name)?;
-                // n_dims (u32 LE)
-                let n_dims = r.meta.shape.len() as u32;
-                output.write_all(&n_dims.to_le_bytes())?;
-                // dims[n_dims] (u64 LE each)
-                for &dim in &r.meta.shape {
-                    output.write_all(&dim.to_le_bytes())?;
-                }
-                // type (u32 LE) — GGUF dtype code
-                output.write_all(&r.meta.dtype.to_le_bytes())?;
-                // data_offset (u64 LE) — relative to tensor data section start
-                output.write_all(&data_off.to_le_bytes())?;
-            }
-
-            // ── Phase 5: alignment padding ─────────────────────────────────
-            // Flush and get real position for alignment calculation
-            output.flush().map_err(ForgeError::WriteError)?;
-            let header_end = output.get_ref().seek(SeekFrom::Current(0))
-                .map_err(ForgeError::WriteError)?;
-            let pad_len = pad_to_alignment(header_end, GGUF_ALIGNMENT);
-            if pad_len > 0 {
-                output.write_all(&vec![0u8; pad_len as usize])?;
-            }
-
-            // ── Phase 6: tensor data ───────────────────────────────────────
-            // Flush the BufWriter before switching to large sequential writes
-            output.flush().map_err(ForgeError::WriteError)?;
-            let mut bytes_written: u64 = output.get_ref().seek(SeekFrom::Current(0))
-                .map_err(ForgeError::WriteError)?;
-            let mut tensors_spliced: u64 = 0;
-            let mut spliced_tensors: Vec<SplicedTensorInfo> = Vec::new();
-
-            // Group tensors by source path so each source file is only mmapped once.
-            // For a 120B model with ~1000 tensors all from one file, this reduces
-            // mmap system-call overhead from 1000× down to 1× per unique source.
-            let mut source_mmaps: HashMap<PathBuf, (File, Mmap)> = HashMap::new();
-
-            for r in &resolved {
-                debug!(
-                    "Splicing tensor '{}' from {} (offset={}, size={}B)",
-                    r.segment_name, r.source_gguf, r.meta.offset, r.meta.size
-                );
-
-                // Open and mmap each source file at most once
-                if !source_mmaps.contains_key(&r.source_path) {
-                    let f = File::open(&r.source_path).map_err(|e| ForgeError::SourceOpen {
-                        path: r.source_path.clone(),
-                        source: e,
-                    })?;
-                    let m = unsafe {
-                        Mmap::map(&f).map_err(|e| ForgeError::MmapFailed {
-                            path: r.source_path.clone(),
-                            source: e,
-                        })?
-                    };
-                    source_mmaps.insert(r.source_path.clone(), (f, m));
-                }
-
-                let mmap = &source_mmaps[&r.source_path].1;
-                let start = r.meta.offset as usize;
-                let end   = start + r.meta.size as usize;
-                if end > mmap.len() {
-                    return Err(ForgeError::OutOfBounds {
-                        path: r.source_path.clone(),
-                        offset: r.meta.offset,
-                        size: r.meta.size,
-                        file_len: mmap.len(),
+                    resolved.push(ResolvedSegment {
+                        segment_name: seg.tensor_name.clone(),
+                        source_gguf: seg.source_gguf.clone(),
+                        meta: tensor_meta.clone(),
+                        source_path: gguf_meta.path.clone(),
                     });
                 }
 
-                output.write_all(&mmap[start..end])?;
-                bytes_written += r.meta.size;
-                tensors_spliced += 1;
-                spliced_tensors.push(SplicedTensorInfo {
-                    source: r.source_gguf.clone(),
-                    name:   r.segment_name.clone(),
-                    size:   r.meta.size,
-                    kind:   r.meta.kind.clone(),
-                });
-            }
+                if resolved.is_empty() {
+                    return Err(ForgeError::EmptyRecipe);
+                }
 
-            // Flush the BufWriter to ensure all data reaches the OS page cache
-            output.flush().map_err(ForgeError::WriteError)?;
+                // ── Phase 2: build metadata KV list ────────────────────────────
+                let mut kv: Vec<(String, MetaValue)> = Vec::new();
 
-            info!(
-                "Crystallization complete: {} tensors, {}B → {}",
-                tensors_spliced, bytes_written, output_path.display()
-            );
+                // Aaroneous-specific provenance key — always present
+                kv.push((
+                    "general.source".to_string(),
+                    MetaValue::String("aaroneous-forge".to_string()),
+                ));
+                kv.push((
+                    "general.recipe_id".to_string(),
+                    MetaValue::String(recipe.recipe_id.clone()),
+                ));
 
-            Ok(CrystallizationResult {
-                recipe_id: recipe.recipe_id.clone(),
-                output_path,
-                tensors_spliced,
-                bytes_written,
-                spliced_tensors,
+                // Architecture defaults (overridden by recipe)
+                let defaults: &[(&str, MetaValue)] = &[
+                    (
+                        "general.architecture",
+                        MetaValue::String("qwen2".to_string()),
+                    ),
+                    (
+                        "general.name",
+                        MetaValue::String(format!("aaroneous-{}", recipe.recipe_id)),
+                    ),
+                    ("llama.context_length", MetaValue::Uint32(4096)),
+                    ("llama.embedding_length", MetaValue::Uint32(4096)),
+                    ("llama.feed_forward_length", MetaValue::Uint32(11008)),
+                    ("llama.attention.head_count", MetaValue::Uint32(32)),
+                    ("llama.attention.head_count_kv", MetaValue::Uint32(32)),
+                    ("llama.rope.freq_base", MetaValue::Float32(1_000_000.0)),
+                    ("llama.rope.dimension_count", MetaValue::Uint32(128)),
+                    (
+                        "tokenizer.ggml.model",
+                        MetaValue::String("gpt2".to_string()),
+                    ),
+                ];
+                for (key, val) in defaults {
+                    if !recipe.metadata_overrides.contains_key(*key) {
+                        kv.push((key.to_string(), val.clone()));
+                    }
+                }
+                // Apply recipe overrides last
+                for (key, val) in &recipe.metadata_overrides {
+                    kv.push((key.clone(), val.clone()));
+                }
+
+                // ── Phase 3: write header ───────────────────────────────────────
+                // BufWriter with 8MB buffer eliminates ~1,500 individual kernel
+                // calls for the header and tensor-info table phases while keeping
+                // tensor data writes (each already multi-MB) fully streaming.
+                let output_file =
+                    File::create(&output_path).map_err(|e| ForgeError::OutputCreate {
+                        path: output_path.clone(),
+                        source: e,
+                    })?;
+                let mut output = BufWriter::with_capacity(8 * 1024 * 1024, output_file);
+
+                // Track bytes written manually — BufWriter doesn't implement Seek,
+                // magic
+                output.write_all(b"GGUF")?;
+                // version (u32 LE)
+                output.write_all(&GGUF_VERSION.to_le_bytes())?;
+                // tensor_count (u64 LE)
+                output.write_all(&(resolved.len() as u64).to_le_bytes())?;
+                // metadata_kv_count (u64 LE)
+                output.write_all(&(kv.len() as u64).to_le_bytes())?;
+
+                // KV pairs
+                for (key, val) in &kv {
+                    write_gguf_string(&mut output, key)?;
+                    write_gguf_meta_value(&mut output, val)?;
+                }
+                // Flush before seeking to get true position for alignment
+                output.flush().map_err(ForgeError::WriteError)?;
+
+                // ── Phase 4: tensor info table ─────────────────────────────────
+                // data_offset for each tensor is relative to the start of the
+                // tensor data section (after all padding).  We compute them now
+                // as running cumulative sums of tensor sizes.
+                let mut data_offset: u64 = 0;
+                let tensor_offsets: Vec<u64> = resolved
+                    .iter()
+                    .map(|r| {
+                        let off = data_offset;
+                        data_offset += r.meta.size;
+                        off
+                    })
+                    .collect();
+
+                for (r, &data_off) in resolved.iter().zip(tensor_offsets.iter()) {
+                    // tensor name
+                    write_gguf_string(&mut output, &r.segment_name)?;
+                    // n_dims (u32 LE)
+                    let n_dims = r.meta.shape.len() as u32;
+                    output.write_all(&n_dims.to_le_bytes())?;
+                    // dims[n_dims] (u64 LE each)
+                    for &dim in &r.meta.shape {
+                        output.write_all(&dim.to_le_bytes())?;
+                    }
+                    // type (u32 LE) — GGUF dtype code
+                    output.write_all(&r.meta.dtype.to_le_bytes())?;
+                    // data_offset (u64 LE) — relative to tensor data section start
+                    output.write_all(&data_off.to_le_bytes())?;
+                }
+
+                // ── Phase 5: alignment padding ─────────────────────────────────
+                // Flush and get real position for alignment calculation
+                output.flush().map_err(ForgeError::WriteError)?;
+                let header_end = output
+                    .get_ref()
+                    .stream_position()
+                    .map_err(ForgeError::WriteError)?;
+                let pad_len = pad_to_alignment(header_end, GGUF_ALIGNMENT);
+                if pad_len > 0 {
+                    output.write_all(&vec![0u8; pad_len as usize])?;
+                }
+
+                // ── Phase 6: tensor data ───────────────────────────────────────
+                // Flush the BufWriter before switching to large sequential writes
+                output.flush().map_err(ForgeError::WriteError)?;
+                let mut bytes_written: u64 = output
+                    .get_ref()
+                    .stream_position()
+                    .map_err(ForgeError::WriteError)?;
+                let mut tensors_spliced: u64 = 0;
+                let mut spliced_tensors: Vec<SplicedTensorInfo> = Vec::new();
+
+                // Group tensors by source path so each source file is only mmapped once.
+                // For a 120B model with ~1000 tensors all from one file, this reduces
+                // mmap system-call overhead from 1000× down to 1× per unique source.
+                let mut source_mmaps: HashMap<PathBuf, (File, Mmap)> = HashMap::new();
+
+                for r in &resolved {
+                    debug!(
+                        "Splicing tensor '{}' from {} (offset={}, size={}B)",
+                        r.segment_name, r.source_gguf, r.meta.offset, r.meta.size
+                    );
+
+                    // Open and mmap each source file at most once
+                    if !source_mmaps.contains_key(&r.source_path) {
+                        let f = File::open(&r.source_path).map_err(|e| ForgeError::SourceOpen {
+                            path: r.source_path.clone(),
+                            source: e,
+                        })?;
+                        let m = unsafe {
+                            Mmap::map(&f).map_err(|e| ForgeError::MmapFailed {
+                                path: r.source_path.clone(),
+                                source: e,
+                            })?
+                        };
+                        source_mmaps.insert(r.source_path.clone(), (f, m));
+                    }
+
+                    let mmap = &source_mmaps[&r.source_path].1;
+                    let start = r.meta.offset as usize;
+                    let end = start + r.meta.size as usize;
+                    if end > mmap.len() {
+                        return Err(ForgeError::OutOfBounds {
+                            path: r.source_path.clone(),
+                            offset: r.meta.offset,
+                            size: r.meta.size,
+                            file_len: mmap.len(),
+                        });
+                    }
+
+                    output.write_all(&mmap[start..end])?;
+                    bytes_written += r.meta.size;
+                    tensors_spliced += 1;
+                    spliced_tensors.push(SplicedTensorInfo {
+                        source: r.source_gguf.clone(),
+                        name: r.segment_name.clone(),
+                        size: r.meta.size,
+                        kind: r.meta.kind.clone(),
+                    });
+                }
+
+                // Flush the BufWriter to ensure all data reaches the OS page cache
+                output.flush().map_err(ForgeError::WriteError)?;
+
+                info!(
+                    "Crystallization complete: {} tensors, {}B → {}",
+                    tensors_spliced,
+                    bytes_written,
+                    output_path.display()
+                );
+
+                Ok(CrystallizationResult {
+                    recipe_id: recipe.recipe_id.clone(),
+                    output_path,
+                    tensors_spliced,
+                    bytes_written,
+                    spliced_tensors,
+                })
             })
-        })
-        .await
-        .map_err(|e| ForgeError::WriteError(std::io::Error::new(
-            std::io::ErrorKind::Other,
-            format!("spawn_blocking panicked: {}", e),
-        )))??;
+            .await
+            .map_err(|e| {
+                ForgeError::WriteError(std::io::Error::other(format!(
+                    "spawn_blocking panicked: {}",
+                    e
+                )))
+            })??;
 
         self.stats.crystallizations_succeeded += 1;
         self.stats.tensors_spliced += result.tensors_spliced;
@@ -2173,20 +2527,30 @@ mod tests {
         f
     }
 
-    fn make_index_with_file(file: &NamedTempFile, tensor_offset: u64, tensor_size: u64) -> GgufIndex {
+    fn make_index_with_file(
+        file: &NamedTempFile,
+        tensor_offset: u64,
+        tensor_size: u64,
+    ) -> GgufIndex {
         let mut index = GgufIndex::new();
         let mut tensors = HashMap::new();
-        tensors.insert("test.weight".to_string(), TensorMeta {
-            offset: tensor_offset,
-            size: tensor_size,
-            kind: Some("attention".to_string()),
-            shape: vec![4, 4],
-            dtype: 0, // F32
-        });
-        index.register("source.gguf", GgufMeta {
-            path: file.path().to_path_buf(),
-            tensors,
-        });
+        tensors.insert(
+            "test.weight".to_string(),
+            TensorMeta {
+                offset: tensor_offset,
+                size: tensor_size,
+                kind: Some("attention".to_string()),
+                shape: vec![4, 4],
+                dtype: 0, // F32
+            },
+        );
+        index.register(
+            "source.gguf",
+            GgufMeta {
+                path: file.path().to_path_buf(),
+                tensors,
+            },
+        );
         index
     }
 
@@ -2207,7 +2571,9 @@ mod tests {
             metadata_overrides: HashMap::new(),
         };
         let index = GgufIndex::new();
-        let result = forge.crystallize(&recipe, &index, "C:\\Temp\\nope.gguf").await;
+        let result = forge
+            .crystallize(&recipe, &index, "C:\\Temp\\nope.gguf")
+            .await;
         assert!(matches!(result, Err(ForgeError::EmptyRecipe)));
     }
 
@@ -2219,7 +2585,9 @@ mod tests {
             tensor_name: "some.weight".to_string(),
         }]);
         let index = GgufIndex::new();
-        let result = forge.crystallize(&recipe, &index, "C:\\Temp\\out.gguf").await;
+        let result = forge
+            .crystallize(&recipe, &index, "C:\\Temp\\out.gguf")
+            .await;
         assert!(matches!(result, Err(ForgeError::GgufNotFound { .. })));
     }
 
@@ -2232,11 +2600,16 @@ mod tests {
             tensor_name: "nonexistent.weight".to_string(),
         }]);
         let mut index = GgufIndex::new();
-        index.register("source.gguf", GgufMeta {
-            path: source.path().to_path_buf(),
-            tensors: HashMap::new(),
-        });
-        let result = forge.crystallize(&recipe, &index, "C:\\Temp\\out.gguf").await;
+        index.register(
+            "source.gguf",
+            GgufMeta {
+                path: source.path().to_path_buf(),
+                tensors: HashMap::new(),
+            },
+        );
+        let result = forge
+            .crystallize(&recipe, &index, "C:\\Temp\\out.gguf")
+            .await;
         assert!(matches!(result, Err(ForgeError::TensorNotFound { .. })));
     }
 
@@ -2247,7 +2620,7 @@ mod tests {
         let source = make_test_gguf(fake_model_data);
 
         let tensor_offset = 17u64;
-        let tensor_size   = 17u64;
+        let tensor_size = 17u64;
 
         let index = make_index_with_file(&source, tensor_offset, tensor_size);
         let recipe = ForgeRecipe {
@@ -2263,7 +2636,10 @@ mod tests {
         let output_path = output.path().to_path_buf();
 
         let mut forge = Forge::new();
-        let result = forge.crystallize(&recipe, &index, &output_path).await.unwrap();
+        let result = forge
+            .crystallize(&recipe, &index, &output_path)
+            .await
+            .unwrap();
 
         let written = std::fs::read(&output_path).unwrap();
 
@@ -2287,8 +2663,14 @@ mod tests {
 
         // Result fields
         assert_eq!(result.tensors_spliced, 1);
-        assert!(result.bytes_written > tensor_size, "bytes_written must include header overhead");
-        assert_eq!(result.spliced_tensors[0].kind, Some("attention".to_string()));
+        assert!(
+            result.bytes_written > tensor_size,
+            "bytes_written must include header overhead"
+        );
+        assert_eq!(
+            result.spliced_tensors[0].kind,
+            Some("attention".to_string())
+        );
 
         // Stats
         assert_eq!(forge.stats.crystallizations_succeeded, 1);
@@ -2304,37 +2686,69 @@ mod tests {
 
         let mut index = GgufIndex::new();
         let mut tensors_a = HashMap::new();
-        tensors_a.insert("attn.weight".to_string(), TensorMeta {
-            offset: 8, size: 7,
-            kind: Some("attention".to_string()),
-            shape: vec![7],
-            dtype: 0,
-        });
+        tensors_a.insert(
+            "attn.weight".to_string(),
+            TensorMeta {
+                offset: 8,
+                size: 7,
+                kind: Some("attention".to_string()),
+                shape: vec![7],
+                dtype: 0,
+            },
+        );
         let mut tensors_b = HashMap::new();
-        tensors_b.insert("mlp.weight".to_string(), TensorMeta {
-            offset: 8, size: 7,
-            kind: Some("mlp".to_string()),
-            shape: vec![7],
-            dtype: 0,
-        });
-        index.register("model_a.gguf", GgufMeta { path: src_a.path().to_path_buf(), tensors: tensors_a });
-        index.register("model_b.gguf", GgufMeta { path: src_b.path().to_path_buf(), tensors: tensors_b });
+        tensors_b.insert(
+            "mlp.weight".to_string(),
+            TensorMeta {
+                offset: 8,
+                size: 7,
+                kind: Some("mlp".to_string()),
+                shape: vec![7],
+                dtype: 0,
+            },
+        );
+        index.register(
+            "model_a.gguf",
+            GgufMeta {
+                path: src_a.path().to_path_buf(),
+                tensors: tensors_a,
+            },
+        );
+        index.register(
+            "model_b.gguf",
+            GgufMeta {
+                path: src_b.path().to_path_buf(),
+                tensors: tensors_b,
+            },
+        );
 
         let recipe = ForgeRecipe {
             recipe_id: "hybrid-v1".to_string(),
             segments: vec![
-                SplicingSegment { source_gguf: "model_a.gguf".to_string(), tensor_name: "attn.weight".to_string() },
-                SplicingSegment { source_gguf: "model_b.gguf".to_string(), tensor_name: "mlp.weight".to_string() },
+                SplicingSegment {
+                    source_gguf: "model_a.gguf".to_string(),
+                    tensor_name: "attn.weight".to_string(),
+                },
+                SplicingSegment {
+                    source_gguf: "model_b.gguf".to_string(),
+                    tensor_name: "mlp.weight".to_string(),
+                },
             ],
             metadata_overrides: HashMap::new(),
         };
 
         let output = NamedTempFile::new().unwrap();
         let mut forge = Forge::new();
-        let result = forge.crystallize(&recipe, &index, output.path()).await.unwrap();
+        let result = forge
+            .crystallize(&recipe, &index, output.path())
+            .await
+            .unwrap();
 
         assert_eq!(result.tensors_spliced, 2);
-        assert_eq!(result.spliced_tensors[0].kind, Some("attention".to_string()));
+        assert_eq!(
+            result.spliced_tensors[0].kind,
+            Some("attention".to_string())
+        );
         assert_eq!(result.spliced_tensors[1].kind, Some("mlp".to_string()));
         assert_eq!(forge.stats.tensors_spliced, 2);
     }
@@ -2344,15 +2758,30 @@ mod tests {
         let data = b"QWEN_MODEL_tensor_payload_data_";
         let src = make_test_gguf(data);
         let mut tensors = HashMap::new();
-        tensors.insert("tok_embd.weight".to_string(), TensorMeta {
-            offset: 11, size: 7, kind: Some("embedding".to_string()),
-            shape: vec![7], dtype: 1,
-        });
+        tensors.insert(
+            "tok_embd.weight".to_string(),
+            TensorMeta {
+                offset: 11,
+                size: 7,
+                kind: Some("embedding".to_string()),
+                shape: vec![7],
+                dtype: 1,
+            },
+        );
         let mut index = GgufIndex::new();
-        index.register("qwen.gguf", GgufMeta { path: src.path().to_path_buf(), tensors });
+        index.register(
+            "qwen.gguf",
+            GgufMeta {
+                path: src.path().to_path_buf(),
+                tensors,
+            },
+        );
 
         let mut overrides = HashMap::new();
-        overrides.insert("general.name".to_string(), MetaValue::String("my-qwen-v1".to_string()));
+        overrides.insert(
+            "general.name".to_string(),
+            MetaValue::String("my-qwen-v1".to_string()),
+        );
         overrides.insert("llama.context_length".to_string(), MetaValue::Uint32(8192));
 
         let recipe = ForgeRecipe {
@@ -2366,7 +2795,10 @@ mod tests {
 
         let output = NamedTempFile::new().unwrap();
         let mut forge = Forge::new();
-        let result = forge.crystallize(&recipe, &index, output.path()).await.unwrap();
+        let result = forge
+            .crystallize(&recipe, &index, output.path())
+            .await
+            .unwrap();
 
         // File should be valid GGUF v3
         let written = std::fs::read(output.path()).unwrap();
@@ -2383,7 +2815,13 @@ mod tests {
         assert_eq!(index.len(), 0);
         assert!(index.is_empty());
 
-        index.register("a.gguf", GgufMeta { path: PathBuf::from("a.gguf"), tensors: HashMap::new() });
+        index.register(
+            "a.gguf",
+            GgufMeta {
+                path: PathBuf::from("a.gguf"),
+                tensors: HashMap::new(),
+            },
+        );
         assert_eq!(index.len(), 1);
         assert!(!index.is_empty());
     }
@@ -2454,7 +2892,7 @@ mod tests {
     #[test]
     fn test_read_gguf_basic() {
         let tensors = &[
-            ("token_embd.weight", &[32000u64, 2048][..], 1u32),  // F16
+            ("token_embd.weight", &[32000u64, 2048][..], 1u32), // F16
             ("blk.0.attn_q.weight", &[2048u64, 2048][..], 0u32), // F32
         ];
         let data = make_valid_gguf_v3(tensors);
@@ -2510,7 +2948,11 @@ mod tests {
 
         // Offset must point into the data section, past the header
         // The header is at minimum 4+4+8+8 = 24 bytes, plus KV data, plus alignment
-        assert!(tm.offset >= 24, "offset {} must be past fixed header", tm.offset);
+        assert!(
+            tm.offset >= 24,
+            "offset {} must be past fixed header",
+            tm.offset
+        );
 
         // Verify: reading size bytes at offset from the raw file gives 0xAB pattern
         let file_data = std::fs::read(tmp.path()).unwrap();
@@ -2546,7 +2988,10 @@ mod tests {
         // 4. Crystallize
         let out = tempfile::NamedTempFile::new().unwrap();
         let mut forge = Forge::new();
-        let result = forge.crystallize(&recipe, &index, out.path()).await.unwrap();
+        let result = forge
+            .crystallize(&recipe, &index, out.path())
+            .await
+            .unwrap();
 
         assert_eq!(result.tensors_spliced, 1);
 
@@ -2563,35 +3008,75 @@ mod tests {
 
     #[test]
     fn test_tensor_kind_classification() {
-        assert_eq!(TensorKind::from_name("blk.0.attn_q.weight"), TensorKind::Attention);
-        assert_eq!(TensorKind::from_name("blk.5.attn_output.weight"), TensorKind::Attention);
-        assert_eq!(TensorKind::from_name("blk.0.ffn_gate.weight"), TensorKind::Mlp);
-        assert_eq!(TensorKind::from_name("blk.0.ffn_up.weight"), TensorKind::Mlp);
-        assert_eq!(TensorKind::from_name("blk.0.ffn_down.weight"), TensorKind::Mlp);
-        assert_eq!(TensorKind::from_name("token_embd.weight"), TensorKind::Embedding);
-        assert_eq!(TensorKind::from_name("output.weight"), TensorKind::Embedding);
-        assert_eq!(TensorKind::from_name("output_norm.weight"), TensorKind::Norm);
-        assert_eq!(TensorKind::from_name("blk.0.attn_norm.weight"), TensorKind::Norm);
-        assert_eq!(TensorKind::from_name("blk.0.ffn_norm.weight"), TensorKind::Norm);
+        assert_eq!(
+            TensorKind::from_name("blk.0.attn_q.weight"),
+            TensorKind::Attention
+        );
+        assert_eq!(
+            TensorKind::from_name("blk.5.attn_output.weight"),
+            TensorKind::Attention
+        );
+        assert_eq!(
+            TensorKind::from_name("blk.0.ffn_gate.weight"),
+            TensorKind::Mlp
+        );
+        assert_eq!(
+            TensorKind::from_name("blk.0.ffn_up.weight"),
+            TensorKind::Mlp
+        );
+        assert_eq!(
+            TensorKind::from_name("blk.0.ffn_down.weight"),
+            TensorKind::Mlp
+        );
+        assert_eq!(
+            TensorKind::from_name("token_embd.weight"),
+            TensorKind::Embedding
+        );
+        assert_eq!(
+            TensorKind::from_name("output.weight"),
+            TensorKind::Embedding
+        );
+        assert_eq!(
+            TensorKind::from_name("output_norm.weight"),
+            TensorKind::Norm
+        );
+        assert_eq!(
+            TensorKind::from_name("blk.0.attn_norm.weight"),
+            TensorKind::Norm
+        );
+        assert_eq!(
+            TensorKind::from_name("blk.0.ffn_norm.weight"),
+            TensorKind::Norm
+        );
     }
 
     #[test]
     fn test_splicing_strategy_for_domain() {
         // Code → DomainSpecialized with MLP keywords
-        assert!(matches!(SplicingStrategy::for_domain("code_review"),
-            SplicingStrategy::DomainSpecialized { .. }));
+        assert!(matches!(
+            SplicingStrategy::for_domain("code_review"),
+            SplicingStrategy::DomainSpecialized { .. }
+        ));
         // Legal → DomainSpecialized with attention keywords
-        assert!(matches!(SplicingStrategy::for_domain("legal_analysis"),
-            SplicingStrategy::DomainSpecialized { .. }));
+        assert!(matches!(
+            SplicingStrategy::for_domain("legal_analysis"),
+            SplicingStrategy::DomainSpecialized { .. }
+        ));
         // Science → AlternateBlocks
-        assert!(matches!(SplicingStrategy::for_domain("biomedical_qa"),
-            SplicingStrategy::AlternateBlocks));
+        assert!(matches!(
+            SplicingStrategy::for_domain("biomedical_qa"),
+            SplicingStrategy::AlternateBlocks
+        ));
         // Creative → LowerFromA_UpperFromB
-        assert!(matches!(SplicingStrategy::for_domain("creative_writing"),
-            SplicingStrategy::LowerFromA_UpperFromB));
+        assert!(matches!(
+            SplicingStrategy::for_domain("creative_writing"),
+            SplicingStrategy::LowerFromA_UpperFromB
+        ));
         // Unknown → EmbeddingFromA_OutputFromB
-        assert!(matches!(SplicingStrategy::for_domain("unknown_domain"),
-            SplicingStrategy::EmbeddingFromA_OutputFromB));
+        assert!(matches!(
+            SplicingStrategy::for_domain("unknown_domain"),
+            SplicingStrategy::EmbeddingFromA_OutputFromB
+        ));
 
         // Verify DomainSpecialized contains real keywords
         if let SplicingStrategy::DomainSpecialized { domain_keywords } =
@@ -2606,21 +3091,33 @@ mod tests {
     fn test_recipe_from_two_models_attention_from_a_mlp_from_b() {
         // Build two fake models with the same tensor names
         let tensor_names = [
-            ("blk.0.attn_q.weight",  &[8u64, 8][..], 0u32),
+            ("blk.0.attn_q.weight", &[8u64, 8][..], 0u32),
             ("blk.0.ffn_gate.weight", &[8u64][..], 0u32),
-            ("token_embd.weight",    &[100u64, 8][..], 0u32),
+            ("token_embd.weight", &[100u64, 8][..], 0u32),
         ];
 
         let mut index = GgufIndex::new();
         for key in &["model_a.gguf", "model_b.gguf"] {
             let mut tensors = HashMap::new();
             for (name, shape, dtype) in &tensor_names {
-                tensors.insert(name.to_string(), TensorMeta {
-                    offset: 0, size: shape.iter().product::<u64>() * 4,
-                    kind: None, shape: shape.to_vec(), dtype: *dtype,
-                });
+                tensors.insert(
+                    name.to_string(),
+                    TensorMeta {
+                        offset: 0,
+                        size: shape.iter().product::<u64>() * 4,
+                        kind: None,
+                        shape: shape.to_vec(),
+                        dtype: *dtype,
+                    },
+                );
             }
-            index.register(*key, GgufMeta { path: PathBuf::from(key), tensors });
+            index.register(
+                *key,
+                GgufMeta {
+                    path: PathBuf::from(key),
+                    tensors,
+                },
+            );
         }
 
         let recipe = recipe_from_two_models(
@@ -2630,21 +3127,34 @@ mod tests {
             SplicingStrategy::AttentionFromA_MlpFromB,
             &index,
             HashMap::new(),
-        ).unwrap();
+        )
+        .unwrap();
 
         assert_eq!(recipe.recipe_id, "test-hybrid");
         assert_eq!(recipe.segments.len(), 3);
 
         // Attention tensor → from model_a
-        let attn = recipe.segments.iter().find(|s| s.tensor_name == "blk.0.attn_q.weight").unwrap();
+        let attn = recipe
+            .segments
+            .iter()
+            .find(|s| s.tensor_name == "blk.0.attn_q.weight")
+            .unwrap();
         assert_eq!(attn.source_gguf, "model_a.gguf");
 
         // MLP tensor → from model_b
-        let mlp = recipe.segments.iter().find(|s| s.tensor_name == "blk.0.ffn_gate.weight").unwrap();
+        let mlp = recipe
+            .segments
+            .iter()
+            .find(|s| s.tensor_name == "blk.0.ffn_gate.weight")
+            .unwrap();
         assert_eq!(mlp.source_gguf, "model_b.gguf");
 
         // Embedding → from model_a (not MLP, so stays in A)
-        let emb = recipe.segments.iter().find(|s| s.tensor_name == "token_embd.weight").unwrap();
+        let emb = recipe
+            .segments
+            .iter()
+            .find(|s| s.tensor_name == "token_embd.weight")
+            .unwrap();
         assert_eq!(emb.source_gguf, "model_a.gguf");
     }
 

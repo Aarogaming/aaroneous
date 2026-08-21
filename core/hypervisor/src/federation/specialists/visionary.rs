@@ -1,20 +1,19 @@
+use crate::llm::types::DesignContext;
+use crate::llm::{LLMClient, LLMConfig, ProviderType};
 /// Visionary Specialist: Design Generation & Aesthetic Learning
-/// 
+///
 /// Visionary is the creative dreamer of the hive. It:
 /// - Generates UI/UX design variants
 /// - Learns from user feedback (approvals/rejections)
 /// - Proposes design iterations based on aesthetic engrams
 /// - Delegates rendering to Phygital
 /// - Stores results with Archivist
-/// 
+///
 /// Size: 1GB GGUF model
 /// Domain: UserInterface / Aesthetic Generation
-
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use crate::llm::{LLMClient, LLMConfig, ProviderType};
-use crate::llm::types::DesignContext;
 // Use parking_lot::Mutex (sync) for `learning` so save/load methods don't
 // hold a lock guard across `.await` points. This is required for the
 // checkpoint loop's future to be `Send` (and therefore spawnable with
@@ -23,17 +22,17 @@ use crate::llm::types::DesignContext;
 use parking_lot::Mutex;
 
 use crate::federation::specialist::{
-    Specialist, SpecialistId, SpecialistContext, SpecialistError, ProposedAction,
-    Decision, DelegateRequest, DelegateResponse, Conflict, NegotiationResult,
-    ResourceRequest, ProposalPriority, ExecutionResult, ExecutionStatus, SpecialistCapability,
+    Conflict, Decision, DelegateRequest, DelegateResponse, ExecutionResult, ExecutionStatus,
+    NegotiationResult, ProposalPriority, ProposedAction, ResourceRequest, Specialist,
+    SpecialistCapability, SpecialistContext, SpecialistError, SpecialistId,
 };
 
 /// Aesthetic engram: learned preference pattern
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AestheticEngram {
     pub id: String,
-    pub pattern_type: String,  // "color", "typography", "spacing", "layout"
-    pub values: Vec<String>,   // e.g., ["#FF6B6B", "#4ECDC4", "#95E1D3"]
+    pub pattern_type: String, // "color", "typography", "spacing", "layout"
+    pub values: Vec<String>,  // e.g., ["#FF6B6B", "#4ECDC4", "#95E1D3"]
     pub confidence: f32,
     pub user_approval_count: u32,
 }
@@ -46,7 +45,7 @@ pub struct VisionaryVariant {
     pub colors: Vec<String>,
     pub typography: String,
     pub layout: String,
-    pub confidence: f32,  // How sure Visionary is about this design
+    pub confidence: f32, // How sure Visionary is about this design
 }
 
 /// Feedback from user on a design
@@ -69,7 +68,7 @@ pub struct LearningData {
     /// Current confidence score (0.0 - 1.0)
     pub confidence_score: f32,
     /// Recent execution outcomes
-    pub execution_history: Vec<bool>,  // true = success, false = failure
+    pub execution_history: Vec<bool>, // true = success, false = failure
     /// Last timestamp updated
     pub feedback_history: Vec<DesignFeedback>,
     /// Last updated timestamp
@@ -85,7 +84,7 @@ impl LearningData {
             success_count: 0,
             failure_count: 0,
             total_executions: 0,
-            confidence_score: 0.5,  // Start neutral
+            confidence_score: 0.5, // Start neutral
             execution_history: vec![],
             feedback_history: vec![],
             last_updated: 0,
@@ -101,7 +100,7 @@ impl LearningData {
     /// This prevents confidence locking at 1.0 after a run of early successes.
     pub fn record_result(&mut self, success: bool) {
         self.total_executions += 1;
-        
+
         if success {
             self.success_count += 1;
             self.execution_history.push(true);
@@ -109,12 +108,12 @@ impl LearningData {
             self.failure_count += 1;
             self.execution_history.push(false);
         }
-        
+
         // Keep only recent 20 results for rolling average
         if self.execution_history.len() > 20 {
             self.execution_history.remove(0);
         }
-        
+
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap_or_default()
@@ -252,7 +251,11 @@ impl Visionary {
         let path = path.into();
         let config = LLMConfig {
             provider_type: ProviderType::GGUF,
-            model_name: path.file_stem().and_then(|s| s.to_str()).unwrap_or("gguf").to_string(),
+            model_name: path
+                .file_stem()
+                .and_then(|s| s.to_str())
+                .unwrap_or("gguf")
+                .to_string(),
             api_key: None,
             base_url: None,
             temperature: 0.8,
@@ -328,7 +331,10 @@ impl Visionary {
         };
         let snapshot = crate::federation::learn_persist::LearningSnapshot::from_record(&record)?;
         let mut learning = self.learning.lock();
-        crate::federation::learn_persist::PersistableLearning::restore_from(&mut *learning, snapshot);
+        crate::federation::learn_persist::PersistableLearning::restore_from(
+            &mut *learning,
+            snapshot,
+        );
         Ok(true)
     }
 
@@ -344,25 +350,36 @@ impl Visionary {
     fn generate_variants_impl(&self, count: usize, intent_text: &str) -> Vec<VisionaryVariant> {
         // Curated palette library — indexed by hash of intent keywords
         const PALETTES: &[(&str, &[&str; 3])] = &[
-            ("dark",       &["#0a1520", "#00ffcc", "#c084fc"]),
-            ("ocean",      &["#0f2d4a", "#4ecdc4", "#a8e6cf"]),
-            ("warm",       &["#2d1b0e", "#f4a261", "#e9c46a"]),
-            ("forest",     &["#1a2e1a", "#52b788", "#95d5b2"]),
+            ("dark", &["#0a1520", "#00ffcc", "#c084fc"]),
+            ("ocean", &["#0f2d4a", "#4ecdc4", "#a8e6cf"]),
+            ("warm", &["#2d1b0e", "#f4a261", "#e9c46a"]),
+            ("forest", &["#1a2e1a", "#52b788", "#95d5b2"]),
             ("monochrome", &["#1a1a2e", "#e8e8e8", "#888888"]),
-            ("neon",       &["#0d0d0d", "#ff006e", "#fb5607"]),
-            ("coral",      &["#fff5f5", "#ff6b6b", "#cc4444"]),
-            ("slate",      &["#0f172a", "#94a3b8", "#60a5fa"]),
-            ("amber",      &["#1c1508", "#f59e0b", "#fbbf24"]),
-            ("violet",     &["#120d1e", "#8b5cf6", "#c4b5fd"]),
+            ("neon", &["#0d0d0d", "#ff006e", "#fb5607"]),
+            ("coral", &["#fff5f5", "#ff6b6b", "#cc4444"]),
+            ("slate", &["#0f172a", "#94a3b8", "#60a5fa"]),
+            ("amber", &["#1c1508", "#f59e0b", "#fbbf24"]),
+            ("violet", &["#120d1e", "#8b5cf6", "#c4b5fd"]),
         ];
         const LAYOUTS: &[&str] = &[
-            "single-column", "card-grid", "sidebar-nav", "hero-centered",
-            "dashboard-split", "masonry", "tabbed-panels", "timeline",
+            "single-column",
+            "card-grid",
+            "sidebar-nav",
+            "hero-centered",
+            "dashboard-split",
+            "masonry",
+            "tabbed-panels",
+            "timeline",
         ];
         const TYPOGRAPHY: &[&str] = &[
-            "Inter, sans-serif", "DM Sans, sans-serif", "Sora, sans-serif",
-            "Consolas, monospace", "Outfit, sans-serif", "Space Grotesk, sans-serif",
-            "Geist, sans-serif", "Poppins, sans-serif",
+            "Inter, sans-serif",
+            "DM Sans, sans-serif",
+            "Sora, sans-serif",
+            "Consolas, monospace",
+            "Outfit, sans-serif",
+            "Space Grotesk, sans-serif",
+            "Geist, sans-serif",
+            "Poppins, sans-serif",
         ];
 
         let current_intent = intent_text.to_lowercase();
@@ -371,40 +388,44 @@ impl Visionary {
         let seed: usize = current_intent
             .bytes()
             .enumerate()
-            .fold(0usize, |acc, (i, b)| acc.wrapping_add((b as usize).wrapping_mul(i + 1)));
+            .fold(0usize, |acc, (i, b)| {
+                acc.wrapping_add((b as usize).wrapping_mul(i + 1))
+            });
 
         // Keyword-based layout selection
-        let layout_hint = if current_intent.contains("dashboard") || current_intent.contains("monitor") {
-            "dashboard-split"
-        } else if current_intent.contains("mobile") || current_intent.contains("app") {
-            "single-column"
-        } else if current_intent.contains("landing") || current_intent.contains("hero") {
-            "hero-centered"
-        } else if current_intent.contains("blog") || current_intent.contains("article") {
-            "timeline"
-        } else if current_intent.contains("data") || current_intent.contains("analytics") {
-            "tabbed-panels"
-        } else if current_intent.contains("gallery") || current_intent.contains("portfolio") {
-            "masonry"
-        } else {
-            LAYOUTS[seed % LAYOUTS.len()]
-        };
+        let layout_hint =
+            if current_intent.contains("dashboard") || current_intent.contains("monitor") {
+                "dashboard-split"
+            } else if current_intent.contains("mobile") || current_intent.contains("app") {
+                "single-column"
+            } else if current_intent.contains("landing") || current_intent.contains("hero") {
+                "hero-centered"
+            } else if current_intent.contains("blog") || current_intent.contains("article") {
+                "timeline"
+            } else if current_intent.contains("data") || current_intent.contains("analytics") {
+                "tabbed-panels"
+            } else if current_intent.contains("gallery") || current_intent.contains("portfolio") {
+                "masonry"
+            } else {
+                LAYOUTS[seed % LAYOUTS.len()]
+            };
 
         // Keyword-based palette selection
         let palette_hint = if current_intent.contains("dark") || current_intent.contains("night") {
-            0usize  // dark palette
+            0usize // dark palette
         } else if current_intent.contains("security") || current_intent.contains("audit") {
-            7        // slate
+            7 // slate
         } else if current_intent.contains("nature") || current_intent.contains("eco") {
-            3        // forest
+            3 // forest
         } else if current_intent.contains("warm") || current_intent.contains("cozy") {
-            2        // warm
+            2 // warm
         } else {
             seed % PALETTES.len()
         };
 
         // Pull approved colors from learning engrams
-        let engram_colors: Vec<String> = self.extract_engrams()
+        let engram_colors: Vec<String> = self
+            .extract_engrams()
             .into_iter()
             .flat_map(|e| e.values)
             .take(6)
@@ -431,15 +452,29 @@ impl Visionary {
             let typography = TYPOGRAPHY[(seed + i) % TYPOGRAPHY.len()].to_string();
 
             let desc = if current_intent.is_empty() {
-                format!("Variant {} — {} palette, {} layout", i + 1, palette_name, layout)
+                format!(
+                    "Variant {} — {} palette, {} layout",
+                    i + 1,
+                    palette_name,
+                    layout
+                )
             } else {
                 let intent_preview: String = current_intent.chars().take(40).collect();
-                format!("Variant {} for '{}...' — {} {} {}", i + 1, intent_preview,
-                        palette_name, layout, typography.split(',').next().unwrap_or(""))
+                format!(
+                    "Variant {} for '{}...' — {} {} {}",
+                    i + 1,
+                    intent_preview,
+                    palette_name,
+                    layout,
+                    typography.split(',').next().unwrap_or("")
+                )
             };
 
+            let hex_seed = format!("{:x}", seed + i);
+            let hex_truncated = &hex_seed[..4.min(hex_seed.len())];
+
             variants.push(VisionaryVariant {
-                id: format!("ariel-v{}-{}", i + 1, &format!("{:x}", seed + i)[..4.min(format!("{:x}", seed + i).len())]),
+                id: format!("ariel-v{}-{}", i + 1, hex_truncated),
                 description: desc,
                 colors,
                 typography,
@@ -460,7 +495,11 @@ impl Visionary {
     /// Extract aesthetic patterns from approved designs
     fn extract_engrams(&self) -> Vec<AestheticEngram> {
         let learning = self.learning.lock();
-        let approved: Vec<_> = learning.feedback_history.iter().filter(|f| f.approved).collect();
+        let approved: Vec<_> = learning
+            .feedback_history
+            .iter()
+            .filter(|f| f.approved)
+            .collect();
 
         if approved.is_empty() {
             return vec![];
@@ -471,7 +510,11 @@ impl Visionary {
         let color_engram = AestheticEngram {
             id: "color-pattern".to_string(),
             pattern_type: "color".to_string(),
-            values: vec!["#FF6B6B".to_string(), "#4ECDC4".to_string(), "#95E1D3".to_string()],
+            values: vec![
+                "#FF6B6B".to_string(),
+                "#4ECDC4".to_string(),
+                "#95E1D3".to_string(),
+            ],
             confidence: learning.confidence_score,
             user_approval_count: approved.len() as u32,
         };
@@ -494,7 +537,10 @@ impl Specialist for Visionary {
     }
 
     /// Propose design generation work
-    async fn propose(&self, context: &SpecialistContext) -> Result<Vec<ProposedAction>, SpecialistError> {
+    async fn propose(
+        &self,
+        context: &SpecialistContext,
+    ) -> Result<Vec<ProposedAction>, SpecialistError> {
         // Only propose if user is idle or in a good state
         let stress = context.user_state.stress_level;
         let _focus = context.user_state.focus_level;
@@ -508,17 +554,39 @@ impl Specialist for Visionary {
         // Note: keywords must be specific enough not to collide with test actions.
         let activity_lower = context.user_state.activity.to_lowercase();
         let non_design_keywords = [
-            "review", "audit", "security", "build", "fix", "deploy",
-            "debug", "compile", "analyze", "parse", "refactor", "lint",
-            "scan", "rust", "python", "code review", "function", "bug",
+            "review",
+            "audit",
+            "security",
+            "build",
+            "fix",
+            "deploy",
+            "debug",
+            "compile",
+            "analyze",
+            "parse",
+            "refactor",
+            "lint",
+            "scan",
+            "rust",
+            "python",
+            "code review",
+            "function",
+            "bug",
         ];
-        if non_design_keywords.iter().any(|kw| activity_lower.contains(kw)) {
+        if non_design_keywords
+            .iter()
+            .any(|kw| activity_lower.contains(kw))
+        {
             return Ok(vec![]); // Not a design intent — stay silent
         }
 
         // REVIVED: Use learned confidence from prior executions
-        let base_confidence = if context.user_state.activity == "idle" { 0.85 } else { 0.60 };
-        
+        let base_confidence = if context.user_state.activity == "idle" {
+            0.85
+        } else {
+            0.60
+        };
+
         let learning = self.learning.lock();
         let learned_confidence = learning.get_proposal_confidence();
         let confidence = (base_confidence * 0.7) + (learned_confidence * 0.3); // 70% base, 30% learned
@@ -553,16 +621,32 @@ impl Specialist for Visionary {
     /// Execute design generation
     async fn execute(&self, decision: &Decision) -> Result<ExecutionResult, SpecialistError> {
         // Extract intent first — needed in both LLM and rule-based paths
-        let intent = decision.context.get("intent")
+        let intent = decision
+            .context
+            .get("intent")
             .cloned()
             .unwrap_or_else(|| decision.action.clone());
 
         // Skip for non-design intents — same guard as propose()
         // Use specific multi-word phrases or domain-specific terms (not "test")
         let intent_lower = intent.to_lowercase();
-        let non_design_kw = ["audit","security","code review","build","rust","bug",
-            "compile","deploy","debug","refactor","lint","scan","vulnerability",
-            "code analysis","security scan"];
+        let non_design_kw = [
+            "audit",
+            "security",
+            "code review",
+            "build",
+            "rust",
+            "bug",
+            "compile",
+            "deploy",
+            "debug",
+            "refactor",
+            "lint",
+            "scan",
+            "vulnerability",
+            "code analysis",
+            "security scan",
+        ];
         if non_design_kw.iter().any(|kw| intent_lower.contains(kw)) {
             return Ok(ExecutionResult {
                 specialist: SpecialistId::Visionary,
@@ -580,13 +664,25 @@ impl Specialist for Visionary {
             // --- LLM-backed design generation ---
             let intent = intent.clone();
 
-            let style_hints: Vec<String> = self.aesthetic_engrams.iter()
+            let style_hints: Vec<String> = self
+                .aesthetic_engrams
+                .iter()
                 .filter(|e| e.confidence > 0.6)
                 .take(5)
-                .map(|e| format!("{}: {}", e.pattern_type, e.values.first().cloned().unwrap_or_default()))
+                .map(|e| {
+                    format!(
+                        "{}: {}",
+                        e.pattern_type,
+                        e.values.first().cloned().unwrap_or_default()
+                    )
+                })
                 .collect();
 
-            let rejected: Vec<String> = self.learning.lock().feedback_history.iter()
+            let rejected: Vec<String> = self
+                .learning
+                .lock()
+                .feedback_history
+                .iter()
                 .filter(|f| !f.approved)
                 .filter_map(|f| f.reason.clone())
                 .take(5)
@@ -621,7 +717,8 @@ impl Specialist for Visionary {
                         })).collect::<Vec<_>>(),
                         "source": "ariel_rule_based",
                         "intent": intent,
-                    })).unwrap_or_else(|_| format!("Ariel generated {} variants", variants.len()));
+                    }))
+                    .unwrap_or_else(|_| format!("Ariel generated {} variants", variants.len()));
                     (output, true)
                 }
             }
@@ -636,7 +733,8 @@ impl Specialist for Visionary {
                 })).collect::<Vec<_>>(),
                 "source": "ariel_rule_based",
                 "intent": intent,
-            })).unwrap_or_else(|_| format!("Ariel generated {} variants", variants.len()));
+            }))
+            .unwrap_or_else(|_| format!("Ariel generated {} variants", variants.len()));
             (output, true)
         };
 
@@ -644,7 +742,11 @@ impl Specialist for Visionary {
             specialist: SpecialistId::Visionary,
             specialist_name: None,
             proposal_id: decision.proposal_id.clone(),
-            status: if success { ExecutionStatus::Success } else { ExecutionStatus::Failed },
+            status: if success {
+                ExecutionStatus::Success
+            } else {
+                ExecutionStatus::Failed
+            },
             output,
             resources_used: decision.allocated_resources.clone(),
             duration_ms: if self.llm.is_some() { 500 } else { 2000 },
@@ -658,17 +760,20 @@ impl Specialist for Visionary {
         }
 
         // Process feedback if present in decision context
-        if let Some(feedback_json) = decision.context.get("design_feedback") {
-            if let Ok(feedback) = serde_json::from_str::<DesignFeedback>(feedback_json) {
-                self.learn_from_feedback(&feedback);
-            }
+        if let Some(feedback_json) = decision.context.get("design_feedback")
+            && let Ok(feedback) = serde_json::from_str::<DesignFeedback>(feedback_json)
+        {
+            self.learn_from_feedback(&feedback);
         }
 
         Ok(result)
     }
 
     /// Delegate rendering to Phygital
-    async fn delegate(&self, request: &DelegateRequest) -> Result<DelegateResponse, SpecialistError> {
+    async fn delegate(
+        &self,
+        request: &DelegateRequest,
+    ) -> Result<DelegateResponse, SpecialistError> {
         Ok(DelegateResponse {
             requester: request.requester,
             target: request.target,
@@ -842,16 +947,16 @@ mod tests {
     #[tokio::test]
     async fn test_visionary_learns_from_execution() {
         let visionary = Visionary::new();
-        
+
         // Get initial learning state
         let initial_learning = visionary.learning.lock();
         let initial_confidence = initial_learning.get_proposal_confidence();
         let initial_success_count = initial_learning.success_count;
         drop(initial_learning);
-        
+
         println!("Initial confidence: {:.1}%", initial_confidence * 100.0);
         assert_eq!(initial_success_count, 0);
-        
+
         // Execute 5 successful decisions
         let decision = Decision {
             proposal_id: "learn-test".to_string(),
@@ -861,29 +966,35 @@ mod tests {
             deadline_ms: 5000,
             context: HashMap::new(),
         };
-        
+
         for i in 0..5 {
             let result = visionary.execute(&decision).await.unwrap();
             assert_eq!(result.status, ExecutionStatus::Success);
             println!("Execution {}: success", i + 1);
         }
-        
+
         // Check learning state after executions
         let final_learning = visionary.learning.lock();
         let final_confidence = final_learning.get_proposal_confidence();
         let final_success_count = final_learning.success_count;
         let success_rate = final_learning.get_success_rate();
         drop(final_learning);
-        
+
         println!("Final confidence: {:.1}%", final_confidence * 100.0);
         println!("Success count: {}", final_success_count);
         println!("Success rate: {:.1}%", success_rate);
-        
+
         // ASSERTIONS: Learning should have improved
-        assert_eq!(final_success_count, 5, "Should have 5 successful executions");
-        assert_eq!(final_confidence, 1.0, "Confidence should be 1.0 after all successes");
+        assert_eq!(
+            final_success_count, 5,
+            "Should have 5 successful executions"
+        );
+        assert_eq!(
+            final_confidence, 1.0,
+            "Confidence should be 1.0 after all successes"
+        );
         assert_eq!(success_rate, 100.0, "Success rate should be 100%");
-        
+
         // Now propose and check that confidence improved
         let context = SpecialistContext {
             timestamp: 0,
@@ -894,11 +1005,14 @@ mod tests {
         };
         let proposals = visionary.propose(&context).await.unwrap();
         assert!(!proposals.is_empty());
-        
+
         // Confidence should be higher than initial
-        assert!(proposals[0].confidence > initial_confidence, 
-                "Learned confidence {} should be > initial {}",
-                proposals[0].confidence, initial_confidence);
+        assert!(
+            proposals[0].confidence > initial_confidence,
+            "Learned confidence {} should be > initial {}",
+            proposals[0].confidence,
+            initial_confidence
+        );
     }
 
     #[test]
@@ -938,7 +1052,10 @@ mod tests {
             // Sanity: brand-new specialist has no learning yet
             {
                 let learning = visionary.learning.lock();
-                assert_eq!(learning.total_executions, 0, "fresh specialist has no executions");
+                assert_eq!(
+                    learning.total_executions, 0,
+                    "fresh specialist has no executions"
+                );
             }
 
             // Execute 5 successful decisions
@@ -964,7 +1081,10 @@ mod tests {
 
                 assert_eq!(initial_success_count, 5, "should have 5 successes");
                 assert_eq!(learning.total_executions, 5);
-                assert!(initial_confidence > 0.5, "confidence should improve from neutral");
+                assert!(
+                    initial_confidence > 0.5,
+                    "confidence should improve from neutral"
+                );
             }
 
             // Save to persistence
@@ -981,7 +1101,10 @@ mod tests {
         // Sanity: revived specialist has neutral state in memory
         {
             let learning = revived.learning.lock();
-            assert_eq!(learning.total_executions, 0, "fresh specialist starts neutral");
+            assert_eq!(
+                learning.total_executions, 0,
+                "fresh specialist starts neutral"
+            );
             assert_eq!(learning.success_count, 0);
         }
 
@@ -1165,8 +1288,8 @@ mod tests {
     #[tokio::test]
     async fn test_llm_design_generation_directly() {
         // Test the LLMClient::generate_design path directly with the mock
-        use crate::llm::{LLMClient, LLMConfig, ProviderType};
         use crate::llm::types::DesignContext;
+        use crate::llm::{LLMClient, LLMConfig, ProviderType};
 
         let config = LLMConfig {
             provider_type: ProviderType::Mock,
@@ -1269,7 +1392,10 @@ mod tests {
         // Verify the session has the intent recorded
         let session = fed.get_session(&session_id).await.unwrap();
         assert_eq!(session.intents.len(), 1);
-        assert_eq!(session.intents[0].content, "generate a new dashboard layout");
+        assert_eq!(
+            session.intents[0].content,
+            "generate a new dashboard layout"
+        );
 
         fed.shutdown_all().await.unwrap();
     }

@@ -6,14 +6,14 @@
 // Run with: `cargo bench -p a_run`
 // Or one suite: `cargo bench -p a_run --bench phase_x_smoke`
 
-use criterion::{criterion_group, criterion_main, Criterion};
+use criterion::{Criterion, criterion_group, criterion_main};
 use std::time::Duration;
 
 use a_run::input_validation::{
-    validate_bytes, validate_enum, validate_identifier, validate_range, validate_string,
-    ValidationError,
+    ValidationError, validate_bytes, validate_enum, validate_identifier, validate_range,
+    validate_string,
 };
-use a_run::rate_limit::{key_from_request, TokenBucketConfig, TokenBucketLimiter};
+use a_run::rate_limit::{TokenBucketConfig, TokenBucketLimiter, key_from_request};
 use a_run::resilience::{CircuitBreaker, CircuitBreakerConfig, RetryPolicy};
 
 fn bench_rate_limit_check(c: &mut Criterion) {
@@ -117,7 +117,10 @@ fn bench_retry_policy_delay(c: &mut Criterion) {
     c.bench_function("resilience/retry_policy/delay", |b| {
         b.iter(|| p.delay_for(3))
     });
-    let p_jitter_off = RetryPolicy { jitter: false, ..RetryPolicy::default() };
+    let p_jitter_off = RetryPolicy {
+        jitter: false,
+        ..RetryPolicy::default()
+    };
     c.bench_function("resilience/retry_policy/delay_no_jitter", |b| {
         b.iter(|| p_jitter_off.delay_for(3))
     });

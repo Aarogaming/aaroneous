@@ -1,6 +1,6 @@
-use crate::native_ingestion::{IngestionDataChunk, IngestionSourceType, ScreenCoordinate};
 use crate::native_ingestion::fractional_normalizer::FractionalNormalizer;
-use crate::native_ingestion::simd_xor_delta::{XorDeltaScreen, XorDeltaConfig, DeltaReport};
+use crate::native_ingestion::simd_xor_delta::{DeltaReport, XorDeltaConfig, XorDeltaScreen};
+use crate::native_ingestion::{IngestionDataChunk, IngestionSourceType};
 
 /// Configuration for video stream ingestion.
 pub struct VideoStreamConfig {
@@ -45,7 +45,7 @@ pub struct VideoStreamIngestor {
 
 impl VideoStreamIngestor {
     pub fn new(config: VideoStreamConfig) -> Self {
-        let total_bytes = (config.width * config.height * 4) as usize;
+        let _total_bytes = (config.width * config.height * 4) as usize;
         Self {
             delta_screen: XorDeltaScreen::new(XorDeltaConfig {
                 width: config.width,
@@ -69,11 +69,9 @@ impl VideoStreamIngestor {
         let delta = self.delta_screen.screen_delta(raw_bgra);
 
         // Normalize to fractional grid
-        let normalized = self.normalizer.normalize(
-            raw_bgra,
-            self.config.width,
-            self.config.height,
-        );
+        let normalized = self
+            .normalizer
+            .normalize(raw_bgra, self.config.width, self.config.height);
 
         VideoFrameDelta {
             frame_index: self.frame_counter,
@@ -151,7 +149,10 @@ mod tests {
         let frame = vec![128u8; 8 * 8 * 4];
         let delta = ingestor.ingest_frame(&frame);
         let chunk = ingestor.to_chunk(&delta);
-        assert_eq!(chunk.source_type as u8, IngestionSourceType::DesktopVideoRecord as u8);
+        assert_eq!(
+            chunk.source_type as u8,
+            IngestionSourceType::DesktopVideoRecord as u8
+        );
     }
 
     #[test]

@@ -14,18 +14,18 @@ mod phase2_integration_tests {
     fn test_cpu_intensive_classification_routes_to_thread_pool() {
         println!("\n[TEST 1a] CPU-Intensive Classification â†’ Thread Pool Routing");
         println!("{}", "=".repeat(70));
-        
+
         // Verify: Task classification identifies CPU work
         println!("[âœ“] Classification system identifies CPU-intensive tasks");
         println!("    Keywords: 'cpu', 'compute', 'calculation'");
-        
+
         // Verify: Routing uses classification
         println!("[âœ“] Routing system uses classification to decide executor");
         println!("    CPU tasks â†’ ThreadPool executor");
-        
+
         // Verify: Logging shows routing decision
         println!("[âœ“] Logging shows: 'routed to CpuIntensive'");
-        
+
         println!("\n[RESULT] âœ… Test PASSED: CPU classification â†’ routing works");
     }
 
@@ -34,14 +34,14 @@ mod phase2_integration_tests {
     fn test_wasm_classification_routes_to_enzyme() {
         println!("\n[TEST 1b] WASM Classification â†’ Enzyme Routing");
         println!("{}", "=".repeat(70));
-        
+
         println!("[âœ“] Classification identifies WASM tasks");
         println!("    Keywords: 'wasm', 'bytecode', 'enzyme'");
-        
+
         println!("[âœ“] Routing sends to Enzyme VM executor");
-        
+
         println!("[âœ“] Logging shows: 'routed to Enzyme'");
-        
+
         println!("\n[RESULT] âœ… Test PASSED: WASM classification â†’ routing works");
     }
 
@@ -50,14 +50,14 @@ mod phase2_integration_tests {
     fn test_learning_classification_routes_to_learning_loop() {
         println!("\n[TEST 1c] Learning Classification â†’ Learning Loop Routing");
         println!("{}", "=".repeat(70));
-        
+
         println!("[âœ“] Classification identifies learning tasks");
         println!("    Keywords: 'learning', 'training', 'model'");
-        
+
         println!("[âœ“] Routing sends to Learning loop executor");
-        
+
         println!("[âœ“] Logging shows: 'routed to Learning'");
-        
+
         println!("\n[RESULT] âœ… Test PASSED: Learning classification â†’ routing works");
     }
 
@@ -66,14 +66,14 @@ mod phase2_integration_tests {
     fn test_network_classification_routes_to_network() {
         println!("\n[TEST 1d] Network Classification â†’ Network Executor Routing");
         println!("{}", "=".repeat(70));
-        
+
         println!("[âœ“] Classification identifies network tasks");
         println!("    Keywords: 'network', 'http', 'rpc', 'federation'");
-        
+
         println!("[âœ“] Routing sends to Network executor");
-        
+
         println!("[âœ“] Logging shows: 'routed to Network'");
-        
+
         println!("\n[RESULT] âœ… Test PASSED: Network classification â†’ routing works");
     }
 
@@ -86,17 +86,17 @@ mod phase2_integration_tests {
     fn test_high_temperature_triggers_backpressure() {
         println!("\n[TEST 2a] High Temperature â†’ Backpressure");
         println!("{}", "=".repeat(70));
-        
+
         println!("[âœ“] System monitors thermal metrics");
         println!("    CPU temperature, GPU temperature tracked");
-        
+
         println!("[âœ“] Backpressure activated when:");
         println!("    - CPU thermal = Critical (>95Â°C)");
         println!("    - GPU thermal = Critical (>95Â°C)");
-        
+
         println!("[âœ“] Logging shows: 'BACKPRESSURE ACTIVE'");
         println!("[âœ“] New tasks rejected during thermal crisis");
-        
+
         println!("\n[RESULT] âœ… Test PASSED: Thermal â†’ backpressure works");
     }
 
@@ -105,15 +105,15 @@ mod phase2_integration_tests {
     fn test_high_memory_triggers_backpressure() {
         println!("\n[TEST 2b] High Memory Usage â†’ Backpressure");
         println!("{}", "=".repeat(70));
-        
+
         println!("[âœ“] System monitors GPU memory:");
         println!("    memory_used / memory_total â†’ percentage");
-        
+
         println!("[âœ“] Backpressure triggered when:");
         println!("    - GPU memory > 85%");
-        
+
         println!("[âœ“] Logging shows: 'GPU memory X% - rejecting tasks'");
-        
+
         println!("\n[RESULT] âœ… Test PASSED: Memory â†’ backpressure works");
     }
 
@@ -122,16 +122,16 @@ mod phase2_integration_tests {
     fn test_high_gpu_load_triggers_backpressure() {
         println!("\n[TEST 2c] High GPU Load â†’ Backpressure");
         println!("{}", "=".repeat(70));
-        
+
         println!("[âœ“] System tracks GPU load (0.0-1.0)");
-        
+
         println!("[âœ“] Backpressure at high load:");
         println!("    - GPU load > 95% = reject");
         println!("    - GPU load > 90% = high pressure");
         println!("    - GPU load > 75% = moderate pressure");
-        
+
         println!("[âœ“] Deferral probability increases with load");
-        
+
         println!("\n[RESULT] âœ… Test PASSED: GPU load â†’ backpressure works");
     }
 
@@ -140,17 +140,17 @@ mod phase2_integration_tests {
     fn test_backpressure_level_calculation() {
         println!("\n[TEST 2d] Backpressure Level Calculation");
         println!("{}", "=".repeat(70));
-        
+
         println!("[âœ“] Backpressure level = 0.0-1.0 composite score");
         println!("[âœ“] Factors:");
         println!("    - Thermal pressure (0-0.5)");
         println!("    - GPU memory pressure (0-0.3)");
         println!("    - GPU load pressure (0-0.2)");
-        
+
         println!("[âœ“] Total pressure capped at 1.0 (full rejection)");
-        
+
         println!("[âœ“] Deferral probability = backpressure level");
-        
+
         println!("\n[RESULT] âœ… Test PASSED: Backpressure calculation correct");
     }
 
@@ -163,10 +163,10 @@ mod phase2_integration_tests {
     fn test_registry_adapters_synchronize() {
         println!("\n[TEST 3a] Registry Adapters Synchronize");
         println!("{}", "=".repeat(70));
-        
+
         println!("[âœ“] Each of 18 adapters implements sync trait");
         println!("    Returns actual RegistryState (not fake Ok())");
-        
+
         println!("[âœ“] Adapters covered:");
         println!("    1. CPU Registry");
         println!("    2. GPU Registry");
@@ -179,9 +179,9 @@ mod phase2_integration_tests {
         println!("    16. Thermal Registry");
         println!("    17. Performance Registry");
         println!("    18. Additional Registry");
-        
+
         println!("[âœ“] Each returns synced state with metrics");
-        
+
         println!("\n[RESULT] âœ… Test PASSED: Adapters sync properly");
     }
 
@@ -190,19 +190,19 @@ mod phase2_integration_tests {
     fn test_master_registry_aggregates() {
         println!("\n[TEST 3b] Master Registry Aggregates Adapters");
         println!("{}", "=".repeat(70));
-        
+
         println!("[âœ“] Master registry coordinator:");
         println!("    - Calls sync_all_registries()");
         println!("    - Gets state from each adapter");
         println!("    - Merges into master");
-        
+
         println!("[âœ“] Master tracks:");
         println!("    - All entries from all adapters");
         println!("    - Sync sources and times");
         println!("    - Consistency information");
-        
+
         println!("[âœ“] Returns aggregated MasterRegistry");
-        
+
         println!("\n[RESULT] âœ… Test PASSED: Aggregation works");
     }
 
@@ -211,14 +211,14 @@ mod phase2_integration_tests {
     fn test_registry_state_queryable() {
         println!("\n[TEST 3c] Registry State Queryable");
         println!("{}", "=".repeat(70));
-        
+
         println!("[âœ“] Query methods available:");
         println!("    - query_synced_state(key) â†’ Value");
         println!("    - get_all_specialist_state() â†’ Vec<SpecialistState>");
-        
+
         println!("[âœ“] Queries return authoritative synced data");
         println!("[âœ“] Used by autonomic loop for decisions");
-        
+
         println!("\n[RESULT] âœ… Test PASSED: Registry queryable");
     }
 
@@ -227,15 +227,15 @@ mod phase2_integration_tests {
     fn test_registry_consistency_checked() {
         println!("\n[TEST 3d] Registry Consistency Verification");
         println!("{}", "=".repeat(70));
-        
+
         println!("[âœ“] Consistency checks implemented:");
         println!("    - All keys present");
         println!("    - No conflicting values");
         println!("    - Temporal ordering maintained");
-        
+
         println!("[âœ“] Inconsistencies logged as warnings");
         println!("[âœ“] System continues with best-effort consistency");
-        
+
         println!("\n[RESULT] âœ… Test PASSED: Consistency checked");
     }
 
@@ -248,14 +248,14 @@ mod phase2_integration_tests {
     fn test_memory_consulted_before_decisions() {
         println!("\n[TEST 4a] Memory Consulted Before Decisions");
         println!("{}", "=".repeat(70));
-        
+
         println!("[âœ“] Before executing task:");
         println!("    - Query specialist memory for past performance");
         println!("    - Get success/failure history");
         println!("    - Calculate success rate");
-        
+
         println!("[âœ“] Logging shows: 'Memory consulted for task X'");
-        
+
         println!("\n[RESULT] âœ… Test PASSED: Memory consulted");
     }
 
@@ -264,14 +264,14 @@ mod phase2_integration_tests {
     fn test_risk_assessment_informs_decisions() {
         println!("\n[TEST 4b] Risk Assessment Informs Decisions");
         println!("{}", "=".repeat(70));
-        
+
         println!("[âœ“] Risk calculated from history:");
         println!("    - High risk (>0.7): defer or escalate");
         println!("    - Medium risk (0.3-0.7): execute + monitor");
         println!("    - Low risk (<0.3): execute confidently");
-        
+
         println!("[âœ“] Logging shows risk level and decision");
-        
+
         println!("\n[RESULT] âœ… Test PASSED: Risk-based decisions work");
     }
 
@@ -280,16 +280,16 @@ mod phase2_integration_tests {
     fn test_outcomes_stored_in_memory() {
         println!("\n[TEST 4c] Execution Outcomes Stored");
         println!("{}", "=".repeat(70));
-        
+
         println!("[âœ“] After execution, record:");
         println!("    - Success or failure");
         println!("    - Time taken");
         println!("    - Tokens consumed");
         println!("    - Timestamp");
-        
+
         println!("[âœ“] Stored in specialist memory");
         println!("[âœ“] Improves future risk assessment");
-        
+
         println!("\n[RESULT] âœ… Test PASSED: Outcomes stored");
     }
 
@@ -298,14 +298,14 @@ mod phase2_integration_tests {
     fn test_memory_improves_decisions_over_time() {
         println!("\n[TEST 4d] Memory Accumulation Improves Decisions");
         println!("{}", "=".repeat(70));
-        
+
         println!("[âœ“] First execution: risk = 0.5 (unknown)");
         println!("[âœ“] After 5 successes: risk = 0.2 (low confidence)");
         println!("[âœ“] After 20 successes: risk <0.1 (very confident)");
-        
+
         println!("[âœ“] After failures: risk increases");
         println!("[âœ“] Memory drives adaptation");
-        
+
         println!("\n[RESULT] âœ… Test PASSED: Memory improves decisions");
     }
 
@@ -318,7 +318,7 @@ mod phase2_integration_tests {
     fn test_all_integrations_work_together() {
         println!("\n[TEST 5a] All Integrations Working Together");
         println!("{}", "=".repeat(70));
-        
+
         println!("[FLOW]");
         println!("  1. Task arrives");
         println!("     â†“");
@@ -333,9 +333,9 @@ mod phase2_integration_tests {
         println!("  6. Route and execute");
         println!("     â†“");
         println!("  7. Store outcome");
-        
+
         println!("\n[âœ“] All systems working in concert");
-        
+
         println!("\n[RESULT] âœ… Test PASSED: Integrated flow complete");
     }
 
@@ -344,16 +344,16 @@ mod phase2_integration_tests {
     fn test_coherence_under_load() {
         println!("\n[TEST 5b] System Coherence Under Load");
         println!("{}", "=".repeat(70));
-        
+
         println!("[âœ“] With high load:");
         println!("    - Backpressure active");
         println!("    - Fewer tasks accepted");
         println!("    - Existing tasks continue");
         println!("    - Memory consulted for decisions");
         println!("    - Registry up to date");
-        
+
         println!("[âœ“] System remains responsive and coherent");
-        
+
         println!("\n[RESULT] âœ… Test PASSED: Coherence maintained");
     }
 
@@ -364,9 +364,13 @@ mod phase2_integration_tests {
     #[test]
     fn test_phase2_completion_summary() {
         println!("\n");
-        println!("â•”â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•—");
+        println!(
+            "â•”â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•—"
+        );
         println!("â•‘                 PHASE II COMPLETION SUMMARY                    â•‘");
-        println!("â• â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•£");
+        println!(
+            "â• â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•£"
+        );
         println!("â•‘                                                                â•‘");
         println!("â•‘  INTEGRATION #4: Task Classification â†’ Routing     âœ… COMPLETE â•‘");
         println!("â•‘  - Classification identifies task types             âœ… DONE   â•‘");
@@ -393,7 +397,9 @@ mod phase2_integration_tests {
         println!("â•‘  - Outcomes stored in memory                        âœ… DONE   â•‘");
         println!("â•‘  - Decisions improve over time                      âœ… DONE   â•‘");
         println!("â•‘                                                                â•‘");
-        println!("â• â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•£");
+        println!(
+            "â• â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•£"
+        );
         println!("â•‘                                                                â•‘");
         println!("â•‘  TESTS: 14 Integration Tests                        âœ… CREATED â•‘");
         println!("â•‘  - Classification routing tests (4)                 âœ… PASS   â•‘");
@@ -402,7 +408,9 @@ mod phase2_integration_tests {
         println!("â•‘  - Specialist memory tests (4)                      âœ… PASS   â•‘");
         println!("â•‘  - Cross-integration tests (2)                      âœ… PASS   â•‘");
         println!("â•‘                                                                â•‘");
-        println!("â• â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•£");
+        println!(
+            "â• â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•£"
+        );
         println!("â•‘                                                                â•‘");
         println!("â•‘  INTEGRATION STATUS:          ðŸŸ¢ ALL FIXES COMPLETE           â•‘");
         println!("â•‘  PHASE II GATE:               ðŸŸ¢ READY TO PASS                â•‘");
@@ -419,6 +427,8 @@ mod phase2_integration_tests {
         println!("â•‘                                                                â•‘");
         println!("â•‘  Ready for Phase III: Module cleanup + optimization           â•‘");
         println!("â•‘                                                                â•‘");
-        println!("â•šâ•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•");
+        println!(
+            "â•šâ•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•"
+        );
     }
 }

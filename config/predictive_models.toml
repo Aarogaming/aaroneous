@@ -1,0 +1,126 @@
+# Predictive Models Configuration
+#
+# Externalizes Kalman filter and HMM parameters for runtime tuning
+# without recompilation.
+
+# ── Kalman Filter Configuration ──────────────────────────────────────────
+[kalman]
+# Process noise variance (q) - controls how much the filter trusts the model
+# Lower = trusts model more, Higher = trusts measurements more
+# Thermal prediction: 0.001 - 0.1
+# Load prediction: 0.0001 - 0.01
+# Token prediction: 0.001 - 0.05
+process_noise_variance = 0.01
+
+# Measurement noise variance (r) - controls how much the filter trusts measurements
+# Lower = trusts measurements more, Higher = trusts model more
+# Thermal prediction: 0.01 - 1.0
+# Load prediction: 0.001 - 0.1
+# Token prediction: 0.01 - 0.5
+measurement_noise_variance = 0.1
+
+# Initial covariance matrix (P0) - uncertainty in initial state
+# [position_uncertainty, velocity_uncertainty]
+# [0, 0]
+initial_covariance = [1.0, 0.0, 0.0, 1.0]
+
+# Initial state - starting position estimate
+initial_position = 0.0
+
+# Initial velocity estimate
+initial_velocity = 0.0
+
+# ── Hidden Markov Model Configuration ────────────────────────────────────
+[hmm]
+# Number of hidden states
+# 2 states: idle/active
+# 3 states: idle/working/thinking
+# 4 states: idle/working/thinking/creating
+num_states = 2
+
+# Number of observable symbols
+# 2 symbols: low/high activity
+# 3 symbols: low/medium/high activity
+num_symbols = 2
+
+# Initial state probabilities
+# [prob_state_0, prob_state_1, ...]
+# Sum must equal 1.0
+initial_state_probabilities = [0.5, 0.5]
+
+# Transition matrix
+# [from_state_0_to_state_0, from_state_0_to_state_1, ...]
+# [from_state_1_to_state_0, from_state_1_to_state_1, ...]
+# Each row must sum to 1.0
+# Example for 2 states:
+#   State 0: 80% stay, 20% switch
+#   State 1: 20% switch, 80% stay
+transition_matrix = [0.8, 0.2, 0.2, 0.8]
+
+# Emission matrix
+# [state_0_emit_symbol_0, state_0_emit_symbol_1, ...]
+# [state_1_emit_symbol_0, state_1_emit_symbol_1, ...]
+# Each row must sum to 1.0
+# Example for 2 states, 2 symbols:
+#   State 0: 90% emit symbol 0, 10% emit symbol 1
+#   State 1: 10% emit symbol 0, 90% emit symbol 1
+emission_matrix = [0.9, 0.1, 0.1, 0.9]
+
+# ── Predictive Model Tuning ─────────────────────────────────────────────
+[predictive]
+# Enable/disable predictive models
+enabled = true
+
+# Thermal prediction tuning
+# Enable thermal prediction
+thermal_enabled = true
+# Thermal prediction confidence threshold
+thermal_confidence_threshold = 0.8
+# Thermal prediction update rate (seconds)
+thermal_update_rate = 1.0
+
+# Load prediction tuning
+# Enable load prediction
+load_enabled = true
+# Load prediction confidence threshold
+load_confidence_threshold = 0.8
+# Load prediction update rate (seconds)
+load_update_rate = 1.0
+
+# Token prediction tuning
+# Enable token prediction
+token_enabled = true
+# Token prediction confidence threshold
+token_confidence_threshold = 0.8
+# Token prediction update rate (seconds)
+token_update_rate = 1.0
+
+# Intent prediction tuning
+# Enable intent prediction
+intent_enabled = true
+# Intent prediction confidence threshold
+intent_confidence_threshold = 0.7
+# Intent prediction update rate (seconds)
+intent_update_rate = 1.0
+
+# ── Observability Configuration ──────────────────────────────────────────
+[observability]
+# Enable predictive telemetry logging
+telemetry_enabled = true
+# Telemetry log level (debug, info, warn, error)
+telemetry_log_level = "debug"
+# Enable tracing spans
+tracing_enabled = true
+# Enable metrics collection
+metrics_enabled = true
+
+# ── Runtime Tuning ──────────────────────────────────────────────────────
+[runtime]
+# Enable runtime parameter updates
+dynamic_tuning_enabled = true
+# Parameter update interval (seconds)
+parameter_update_interval = 60.0
+# Enable parameter persistence
+parameter_persistence_enabled = true
+# Parameter persistence path
+parameter_persistence_path = "config/predictive_models.json"

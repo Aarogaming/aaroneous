@@ -205,19 +205,34 @@ mod tests {
             let archivist = Archivist::new();
 
             for i in 0..1 {
-                visionary.execute(&make_decision(SpecialistId::Visionary, i)).await.unwrap();
+                visionary
+                    .execute(&make_decision(SpecialistId::Visionary, i))
+                    .await
+                    .unwrap();
             }
             for i in 0..2 {
-                omnipresent.execute(&make_decision(SpecialistId::Omnipresent, i)).await.unwrap();
+                omnipresent
+                    .execute(&make_decision(SpecialistId::Omnipresent, i))
+                    .await
+                    .unwrap();
             }
             for i in 0..3 {
-                symbiotic.execute(&make_decision(SpecialistId::Symbiotic, i)).await.unwrap();
+                symbiotic
+                    .execute(&make_decision(SpecialistId::Symbiotic, i))
+                    .await
+                    .unwrap();
             }
             for i in 0..4 {
-                phygital.execute(&make_decision(SpecialistId::Phygital, i)).await.unwrap();
+                phygital
+                    .execute(&make_decision(SpecialistId::Phygital, i))
+                    .await
+                    .unwrap();
             }
             for i in 0..5 {
-                archivist.execute(&make_decision(SpecialistId::Archivist, i)).await.unwrap();
+                archivist
+                    .execute(&make_decision(SpecialistId::Archivist, i))
+                    .await
+                    .unwrap();
             }
 
             visionary.save_learning_to(&pm).unwrap();
@@ -240,17 +255,43 @@ mod tests {
         phygital.load_learning_from(&pm).unwrap();
         archivist.load_learning_from(&pm).unwrap();
 
-        assert_eq!(visionary.learning.lock().total_executions, 1, "Visionary count");
-        assert_eq!(omnipresent.learning.lock().total_executions, 2, "Omnipresent count");
-        assert_eq!(symbiotic.learning.lock().total_executions, 3, "Symbiotic count");
-        assert_eq!(phygital.learning.lock().total_executions, 4, "Phygital count");
-        assert_eq!(archivist.learning.lock().total_executions, 5, "Archivist count");
+        assert_eq!(
+            visionary.learning.lock().total_executions,
+            1,
+            "Visionary count"
+        );
+        assert_eq!(
+            omnipresent.learning.lock().total_executions,
+            2,
+            "Omnipresent count"
+        );
+        assert_eq!(
+            symbiotic.learning.lock().total_executions,
+            3,
+            "Symbiotic count"
+        );
+        assert_eq!(
+            phygital.learning.lock().total_executions,
+            4,
+            "Phygital count"
+        );
+        assert_eq!(
+            archivist.learning.lock().total_executions,
+            5,
+            "Archivist count"
+        );
 
         // Verify the diagnostics list reflects all 5
         let all = pm.list_learning_states().unwrap();
         assert_eq!(all.len(), 5);
         let kinds: Vec<&str> = all.iter().map(|r| r.specialist_kind.as_str()).collect();
-        for expected in ["Visionary", "Omnipresent", "Symbiotic", "Phygital", "Archivist"] {
+        for expected in [
+            "Visionary",
+            "Omnipresent",
+            "Symbiotic",
+            "Phygital",
+            "Archivist",
+        ] {
             assert!(
                 kinds.contains(&expected),
                 "{} missing from list_learning_states: got {:?}",
@@ -271,7 +312,10 @@ mod tests {
         {
             let visionary = Visionary::new();
             for i in 0..5 {
-                visionary.execute(&make_decision(SpecialistId::Visionary, i)).await.unwrap();
+                visionary
+                    .execute(&make_decision(SpecialistId::Visionary, i))
+                    .await
+                    .unwrap();
             }
             visionary.save_learning_to(&pm).unwrap();
         }

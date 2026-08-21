@@ -1,8 +1,7 @@
 /// WebAssembly Interface Types (WIT) definitions
-/// 
+///
 /// This module defines the ABI (Application Binary Interface) between Rust and WASM
 /// Responsibility: Function export registry, type definitions, marshalling
-
 use std::collections::HashMap;
 
 /// Exported WASM function descriptor
@@ -10,13 +9,13 @@ use std::collections::HashMap;
 pub struct WasmExport {
     /// Function name
     pub name: String,
-    
+
     /// Parameter types
     pub param_types: Vec<ValueType>,
-    
+
     /// Return type
     pub return_type: ValueType,
-    
+
     /// Function pointer (for future dynamic invocation)
     pub function_id: u32,
 }
@@ -36,7 +35,7 @@ impl WasmExport {
             function_id,
         }
     }
-    
+
     /// Call the function (in real implementation, would invoke WASM)
     pub fn call(&self, _args: &[u32]) -> Result<u32, String> {
         // In a real execution environment, this calls into the Wasmtime instance.
@@ -82,26 +81,26 @@ impl WitInterface {
             exports: HashMap::new(),
         }
     }
-    
+
     /// Register an exported function
     pub fn register_export(&mut self, export: WasmExport) {
         self.exports.insert(export.name.clone(), export);
     }
-    
+
     /// Get function by name
     pub fn get_function(&self, name: &str) -> Option<&WasmExport> {
         self.exports.get(name)
     }
-    
+
     /// List all exports
     pub fn list_exports(&self) -> Vec<&str> {
         self.exports.keys().map(|s| s.as_str()).collect()
     }
-    
+
     /// Default interface with standard exports
     pub fn with_defaults() -> Self {
         let mut iface = Self::new();
-        
+
         // process_events: Takes event count, returns status
         iface.register_export(WasmExport::new(
             "process_events",
@@ -109,7 +108,7 @@ impl WitInterface {
             ValueType::I32,
             1,
         ));
-        
+
         // execute_action: Sends action to marionette
         iface.register_export(WasmExport::new(
             "execute_action",
@@ -117,7 +116,7 @@ impl WitInterface {
             ValueType::I32,
             2,
         ));
-        
+
         // query_state: Gets current game state
         iface.register_export(WasmExport::new(
             "query_state",
@@ -125,7 +124,7 @@ impl WitInterface {
             ValueType::I32, // Returns offset of state buffer
             3,
         ));
-        
+
         // learn_observation: Record surprise/learning
         iface.register_export(WasmExport::new(
             "learn_observation",
@@ -133,7 +132,7 @@ impl WitInterface {
             ValueType::I32,
             4,
         ));
-        
+
         // get_memory_stats: Check WASM memory usage
         iface.register_export(WasmExport::new(
             "get_memory_stats",
@@ -141,7 +140,7 @@ impl WitInterface {
             ValueType::I32,
             5,
         ));
-        
+
         iface
     }
 }
@@ -154,25 +153,24 @@ impl Default for WitInterface {
 
 /// Standard WIT type definitions (for future import/export type checking)
 pub mod types {
-    
-    
+
     /// Event that WASM receives from Hypervisor
     #[derive(Debug, Clone)]
     pub struct WasmEvent {
         pub event_type: u32,
         pub timestamp_ns: u64,
-        pub payload_ptr: u32,  // Pointer in WASM memory
+        pub payload_ptr: u32, // Pointer in WASM memory
         pub payload_len: u32,
     }
-    
+
     /// Action that WASM sends to Hypervisor
     #[derive(Debug, Clone)]
     pub struct WasmAction {
         pub action_type: u32,
-        pub data_ptr: u32,     // Pointer to action data
+        pub data_ptr: u32, // Pointer to action data
         pub data_len: u32,
     }
-    
+
     /// Game state snapshot (visual+entity data)
     #[derive(Debug, Clone)]
     pub struct GameState {
@@ -182,7 +180,7 @@ pub mod types {
         pub entities_count: u32,
         pub ui_state_hash: u64,
     }
-    
+
     /// Discovery insight (for curiosity learning)
     #[derive(Debug, Clone)]
     pub struct Discovery {
@@ -197,7 +195,7 @@ pub mod types {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_value_type_sizes() {
         assert_eq!(ValueType::I32.size(), 4);
@@ -206,28 +204,23 @@ mod tests {
         assert_eq!(ValueType::F64.size(), 8);
         assert_eq!(ValueType::None.size(), 0);
     }
-    
+
     #[test]
     fn test_wit_interface_registration() {
         let mut iface = WitInterface::new();
-        
-        let export = WasmExport::new(
-            "test_func",
-            vec![ValueType::I32],
-            ValueType::I32,
-            1,
-        );
-        
+
+        let export = WasmExport::new("test_func", vec![ValueType::I32], ValueType::I32, 1);
+
         iface.register_export(export);
-        
+
         assert!(iface.get_function("test_func").is_some());
         assert_eq!(iface.list_exports().len(), 1);
     }
-    
+
     #[test]
     fn test_wit_interface_defaults() {
         let iface = WitInterface::with_defaults();
-        
+
         assert!(iface.get_function("process_events").is_some());
         assert!(iface.get_function("execute_action").is_some());
         assert!(iface.get_function("query_state").is_some());

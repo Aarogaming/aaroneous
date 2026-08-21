@@ -1,4 +1,3 @@
-
 use rand::RngExt;
 
 /// Task embedding for routing.
@@ -49,7 +48,13 @@ impl RoutingWeights {
     }
 
     /// Update weights based on task outcome (online learning).
-    pub fn update(&mut self, task_features: &[f64], specialist_idx: usize, success: bool, learning_rate: f64) {
+    pub fn update(
+        &mut self,
+        task_features: &[f64],
+        specialist_idx: usize,
+        success: bool,
+        learning_rate: f64,
+    ) {
         if specialist_idx >= self.weights.len() {
             return;
         }
@@ -83,7 +88,10 @@ pub struct TensorRouter {
 
 impl TensorRouter {
     pub fn new(weights: RoutingWeights, temperature: f64) -> Self {
-        Self { weights, temperature }
+        Self {
+            weights,
+            temperature,
+        }
     }
 
     /// Route task to specialist using softmax(Wx).
@@ -104,8 +112,14 @@ impl TensorRouter {
 
         // Softmax with temperature: p_i = exp(z_i / T) / Σ exp(z_j / T)
         let scaled_logits: Vec<f64> = logits.iter().map(|z| z / self.temperature).collect();
-        let max_logit = scaled_logits.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
-        let exp_values: Vec<f64> = scaled_logits.iter().map(|z| (z - max_logit).exp()).collect();
+        let max_logit = scaled_logits
+            .iter()
+            .cloned()
+            .fold(f64::NEG_INFINITY, f64::max);
+        let exp_values: Vec<f64> = scaled_logits
+            .iter()
+            .map(|z| (z - max_logit).exp())
+            .collect();
         let sum_exp: f64 = exp_values.iter().sum();
 
         let probabilities: Vec<f64> = if sum_exp > 0.0 {
@@ -128,7 +142,9 @@ impl TensorRouter {
             .map(|&p| -p * p.log2())
             .sum();
 
-        let specialist_scores: Vec<(String, f64)> = self.weights.specialist_ids
+        let specialist_scores: Vec<(String, f64)> = self
+            .weights
+            .specialist_ids
             .iter()
             .zip(probabilities.iter())
             .map(|(id, &p)| (id.clone(), p))
@@ -144,7 +160,11 @@ impl TensorRouter {
     }
 
     /// Route with Boltzmann exploration (sample from distribution).
-    pub fn route_with_exploration(&self, task: &TaskEmbedding, rng: &mut impl rand::Rng) -> RoutingResult {
+    pub fn route_with_exploration(
+        &self,
+        task: &TaskEmbedding,
+        rng: &mut impl rand::Rng,
+    ) -> RoutingResult {
         let result = self.route(task);
         let specialist_scores = result.specialist_scores.clone();
 
@@ -177,16 +197,33 @@ impl TensorRouter {
     }
 
     /// Update routing weights based on task outcome.
-    pub fn learn(&mut self, task_features: &[f64], specialist_id: &str, success: bool, learning_rate: f64) {
-        if let Some(idx) = self.weights.specialist_ids.iter().position(|id| id == specialist_id) {
-            self.weights.update(task_features, idx, success, learning_rate);
+    pub fn learn(
+        &mut self,
+        task_features: &[f64],
+        specialist_id: &str,
+        success: bool,
+        learning_rate: f64,
+    ) {
+        if let Some(idx) = self
+            .weights
+            .specialist_ids
+            .iter()
+            .position(|id| id == specialist_id)
+        {
+            self.weights
+                .update(task_features, idx, success, learning_rate);
         }
     }
 
     /// Adjust temperature based on system state.
     /// High entropy needed -> increase temperature (explore)
     /// Low entropy needed -> decrease temperature (exploit)
-    pub fn adjust_temperature(&mut self, target_entropy: f64, current_entropy: f64, learning_rate: f64) {
+    pub fn adjust_temperature(
+        &mut self,
+        target_entropy: f64,
+        current_entropy: f64,
+        learning_rate: f64,
+    ) {
         let error = target_entropy - current_entropy;
         self.temperature = (self.temperature + learning_rate * error).clamp(0.1, 2.0);
     }
@@ -208,7 +245,10 @@ impl MultiHeadRouter {
 
         let head_weights = vec![1.0 / heads.len() as f64; heads.len()];
 
-        Self { heads, head_weights }
+        Self {
+            heads,
+            head_weights,
+        }
     }
 
     /// Route using multi-head attention.
@@ -245,7 +285,9 @@ impl MultiHeadRouter {
             .map(|&p| -p * p.log2())
             .sum();
 
-        let specialist_scores: Vec<(String, f64)> = self.heads[0].weights.specialist_ids
+        let specialist_scores: Vec<(String, f64)> = self.heads[0]
+            .weights
+            .specialist_ids
             .iter()
             .zip(combined_scores.iter())
             .map(|(id, &p)| (id.clone(), p))
@@ -278,7 +320,13 @@ impl RoutingOptimizer {
     }
 
     /// Update weights with momentum.
-    pub fn step(&mut self, router: &mut TensorRouter, task_features: &[f64], specialist_idx: usize, success: bool) {
+    pub fn step(
+        &mut self,
+        router: &mut TensorRouter,
+        task_features: &[f64],
+        specialist_idx: usize,
+        success: bool,
+    ) {
         if specialist_idx >= router.weights.weights.len() {
             return;
         }
@@ -305,7 +353,15 @@ mod tests {
     use rand::SeedableRng;
 
     fn create_test_router() -> TensorRouter {
-        let weights = RoutingWeights::new(3, 4, vec!["spec_a".to_string(), "spec_b".to_string(), "spec_c".to_string()]);
+        let weights = RoutingWeights::new(
+            3,
+            4,
+            vec![
+                "spec_a".to_string(),
+                "spec_b".to_string(),
+                "spec_c".to_string(),
+            ],
+        );
         TensorRouter::new(weights, 1.0)
     }
 
@@ -325,11 +381,20 @@ mod tests {
         assert!((sum - 1.0).abs() < 1e-10);
 
         // Selected specialist should have highest probability
-        let selected_score = result.specialist_scores
+        let selected_score = result
+            .specialist_scores
             .iter()
             .find(|(id, _)| id == &result.selected_specialist)
             .unwrap();
-        assert!(selected_score.1 >= result.specialist_scores.iter().map(|(_, p)| p).fold(0.0_f64, |acc, p| acc.max(*p)) - 1e-10);
+        assert!(
+            selected_score.1
+                >= result
+                    .specialist_scores
+                    .iter()
+                    .map(|(_, p)| p)
+                    .fold(0.0_f64, |acc, p| acc.max(*p))
+                    - 1e-10
+        );
     }
 
     #[test]
@@ -364,8 +429,14 @@ mod tests {
     fn test_batch_routing() {
         let router = create_test_router();
         let tasks = vec![
-            TaskEmbedding { task_id: "task_1".to_string(), features: vec![0.7, 0.5, 0.8, 0.3] },
-            TaskEmbedding { task_id: "task_2".to_string(), features: vec![0.3, 0.8, 0.2, 0.9] },
+            TaskEmbedding {
+                task_id: "task_1".to_string(),
+                features: vec![0.7, 0.5, 0.8, 0.3],
+            },
+            TaskEmbedding {
+                task_id: "task_2".to_string(),
+                features: vec![0.3, 0.8, 0.2, 0.9],
+            },
         ];
 
         let results = router.batch_route(&tasks);

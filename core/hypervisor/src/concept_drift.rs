@@ -1,8 +1,13 @@
-
 pub struct ConceptDriftDetector {
     centroid: [f32; 1024],
     moving_average_drift: f32,
     sample_count: u64,
+}
+
+impl Default for ConceptDriftDetector {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl ConceptDriftDetector {
@@ -24,8 +29,8 @@ impl ConceptDriftDetector {
 
         // Calculate distance from centroid (Euclidean)
         let mut distance_sq = 0.0;
-        for i in 0..1024 {
-            let diff = self.centroid[i] - vector[i];
+        for (&c, &v) in self.centroid.iter().zip(vector.iter()) {
+            let diff = c - v;
             distance_sq += diff * diff;
         }
         let distance = distance_sq.sqrt();
@@ -34,8 +39,8 @@ impl ConceptDriftDetector {
         self.moving_average_drift = (self.moving_average_drift * 0.95) + (distance * 0.05);
 
         // Slowly update centroid toward the new vector to allow for natural evolution
-        for i in 0..1024 {
-            self.centroid[i] = (self.centroid[i] * 0.999) + (vector[i] * 0.001);
+        for (c, v) in self.centroid.iter_mut().zip(vector.iter()) {
+            *c = (*c * 0.999) + (v * 0.001);
         }
 
         self.sample_count += 1;

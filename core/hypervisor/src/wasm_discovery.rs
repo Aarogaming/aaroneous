@@ -1,12 +1,11 @@
+use crate::unified_registry::{EntryMeta, Registry};
+use anyhow::{Result, bail};
 /// WASM Plugin Discovery — scans directories for .wasm files and auto-registers them.
 ///
 /// Discovers WASM enzymes in `chromosomes/`, `extensions/wasm/`, and configured paths,
 /// validates them, and registers them in the unified registry.
-
 use std::path::{Path, PathBuf};
-use anyhow::{Result, bail};
 use tracing::{info, warn};
-use crate::unified_registry::{Registry, RegistryConfig, EntryMeta, EntryHealth};
 
 /// Metadata for a discovered WASM plugin.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -39,10 +38,14 @@ pub fn discover_wasm_plugins(workspace_root: &Path) -> Result<Vec<WasmPlugin>> {
         for entry in std::fs::read_dir(dir)? {
             let entry = entry?;
             let path = entry.path();
-            if path.extension().map_or(false, |ext| ext == "wasm") {
+            if path.extension().is_some_and(|ext| ext == "wasm") {
                 match load_plugin_metadata(&path, dir) {
                     Ok(plugin) => {
-                        info!("Discovered WASM plugin: {} ({} bytes)", path.display(), plugin.size);
+                        info!(
+                            "Discovered WASM plugin: {} ({} bytes)",
+                            path.display(),
+                            plugin.size
+                        );
                         plugins.push(plugin);
                     }
                     Err(e) => {
@@ -86,13 +89,15 @@ fn load_plugin_metadata(path: &Path, source_dir: &Path) -> Result<WasmPlugin> {
     };
 
     // Compute hash
-    use sha2::{Sha256, Digest};
+    use sha2::{Digest, Sha256};
     let mut hasher = Sha256::new();
     let mut file = std::fs::File::open(path)?;
     let mut buf = [0u8; 8192];
     loop {
         let n = std::io::Read::read(&mut file, &mut buf)?;
-        if n == 0 { break; }
+        if n == 0 {
+            break;
+        }
         hasher.update(&buf[..n]);
     }
     let hash = hex::encode(hasher.finalize());
@@ -115,19 +120,26 @@ pub fn register_discovered_plugins(
     let mut count = 0;
 
     for plugin in plugins {
-        let id = plugin.path.file_stem()
+        let id = plugin
+            .path
+            .file_stem()
             .and_then(|s| s.to_str())
             .unwrap_or("unknown")
             .to_string();
 
-        let meta = EntryMeta::new("1.0.0")
-            .with_tags(vec![
-                if plugin.is_component { "component".into() } else { "core-module".into() },
-                plugin.source_dir.file_name()
-                    .and_then(|s| s.to_str())
-                    .unwrap_or("unknown")
-                    .into(),
-            ]);
+        let meta = EntryMeta::new("1.0.0").with_tags(vec![
+            if plugin.is_component {
+                "component".into()
+            } else {
+                "core-module".into()
+            },
+            plugin
+                .source_dir
+                .file_name()
+                .and_then(|s| s.to_str())
+                .unwrap_or("unknown")
+                .into(),
+        ]);
 
         if let Err(e) = registry.register(id, plugin, meta) {
             warn!("Failed to register plugin: {}", e);

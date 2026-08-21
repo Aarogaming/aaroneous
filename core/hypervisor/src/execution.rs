@@ -1,6 +1,5 @@
 /// Dynamic execution systems: speculative parallel branches and
 /// asynchronous DAG task compilation.
-
 use std::collections::{HashMap, VecDeque};
 
 // ── Dynamic Execution Tree Speculation ───────────────────────────────
@@ -27,17 +26,32 @@ pub struct SpeculativeExecutor {
 
 impl SpeculativeExecutor {
     pub fn new(max_workers: u32) -> Self {
-        SpeculativeExecutor { branches: Vec::new(), max_workers, next_id: 0 }
+        SpeculativeExecutor {
+            branches: Vec::new(),
+            max_workers,
+            next_id: 0,
+        }
     }
 
     /// Fork a new speculative branch if a worker slot is available.
     pub fn fork(&mut self, action_hash: u64, expected_state: u64) -> Option<u32> {
-        let active_count = self.branches.iter().filter(|b| b.active && !b.discarded).count() as u32;
-        if active_count >= self.max_workers { return None; }
+        let active_count = self
+            .branches
+            .iter()
+            .filter(|b| b.active && !b.discarded)
+            .count() as u32;
+        if active_count >= self.max_workers {
+            return None;
+        }
         let id = self.next_id;
         self.next_id += 1;
         self.branches.push(SpeculativeBranch {
-            id, worker_slot: active_count, action_hash, expected_state, active: true, discarded: false,
+            id,
+            worker_slot: active_count,
+            action_hash,
+            expected_state,
+            active: true,
+            discarded: false,
         });
         Some(id)
     }
@@ -47,7 +61,9 @@ impl SpeculativeExecutor {
     pub fn check_state(&mut self, actual_state: u64) -> Vec<u32> {
         let mut winners = Vec::new();
         for branch in &mut self.branches {
-            if !branch.active || branch.discarded { continue; }
+            if !branch.active || branch.discarded {
+                continue;
+            }
             if branch.expected_state == actual_state {
                 winners.push(branch.id);
             } else {
@@ -65,7 +81,10 @@ impl SpeculativeExecutor {
     }
 
     pub fn active_count(&self) -> usize {
-        self.branches.iter().filter(|b| b.active && !b.discarded).count()
+        self.branches
+            .iter()
+            .filter(|b| b.active && !b.discarded)
+            .count()
     }
 }
 
@@ -93,6 +112,12 @@ pub struct DAGScheduler {
     pub in_degree: HashMap<u32, usize>,
 }
 
+impl Default for DAGScheduler {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl DAGScheduler {
     pub fn new() -> Self {
         DAGScheduler {
@@ -106,7 +131,15 @@ impl DAGScheduler {
 
     /// Add a task node.
     pub fn add_task(&mut self, id: u32, weight: f32) {
-        self.tasks.insert(id, DAGTask { id, weight, completed: false, failed: false });
+        self.tasks.insert(
+            id,
+            DAGTask {
+                id,
+                weight,
+                completed: false,
+                failed: false,
+            },
+        );
         self.children.entry(id).or_default();
         self.parents.entry(id).or_default();
         self.in_degree.entry(id).or_insert(0);
@@ -133,7 +166,9 @@ impl DAGScheduler {
     }
 
     /// Pop next ready task (returns None if nothing ready).
-    pub fn next_ready(&mut self) -> Option<u32> { self.ready.pop_front() }
+    pub fn next_ready(&mut self) -> Option<u32> {
+        self.ready.pop_front()
+    }
 
     /// Mark a task as completed; updates dependents to unblock them.
     pub fn complete(&mut self, id: u32) {

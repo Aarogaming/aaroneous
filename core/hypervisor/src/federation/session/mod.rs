@@ -27,7 +27,6 @@
 /// let session = manager.get(&session_id).unwrap();
 /// println!("Session {} for {}", session.id, session.user_name);
 /// ```
-
 use crate::federation::intent::{Intent, IntentStatus};
 use crate::federation::specialist::ExecutionResult;
 use serde::{Deserialize, Serialize};
@@ -206,8 +205,8 @@ impl SessionManager {
     pub fn new() -> Self {
         Self {
             sessions: HashMap::new(),
-            idle_timeout_secs: 300,       // 5 minutes
-            expiry_timeout_secs: 86_400,  // 24 hours
+            idle_timeout_secs: 300,      // 5 minutes
+            expiry_timeout_secs: 86_400, // 24 hours
         }
     }
 
@@ -252,9 +251,7 @@ impl SessionManager {
     pub fn active_sessions(&self) -> Vec<&Session> {
         self.sessions
             .values()
-            .filter(|s| {
-                matches!(s.state, SessionState::Active | SessionState::Idle)
-            })
+            .filter(|s| matches!(s.state, SessionState::Active | SessionState::Idle))
             .collect()
     }
 
@@ -276,9 +273,8 @@ impl SessionManager {
     /// Remove all expired and ended sessions. Returns count removed.
     pub fn purge_expired(&mut self) -> usize {
         let before = self.sessions.len();
-        self.sessions.retain(|_, s| {
-            !matches!(s.state, SessionState::Expired | SessionState::Ended)
-        });
+        self.sessions
+            .retain(|_, s| !matches!(s.state, SessionState::Expired | SessionState::Ended));
         before - self.sessions.len()
     }
 
@@ -361,10 +357,7 @@ mod tests {
 
         assert_eq!(added.content, "redesign dashboard");
         // Session should have injected context
-        assert_eq!(
-            added.context.get("session_id"),
-            Some(&session.id)
-        );
+        assert_eq!(added.context.get("session_id"), Some(&session.id));
         assert_eq!(session.intents.len(), 1);
     }
 

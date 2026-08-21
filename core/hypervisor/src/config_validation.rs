@@ -1,3 +1,5 @@
+use anyhow::Result;
+use serde_json::Value;
 /// Config Validation Framework — validates configuration files against schemas.
 ///
 /// Provides a lightweight schema definition system for validating JSON/TOML
@@ -8,11 +10,7 @@
 /// - Enum validation (allowed values)
 /// - Nested object validation
 /// - Custom validators via closures
-
 use std::collections::HashMap;
-use anyhow::{Result, bail};
-use serde_json::Value;
-use tracing::{info, warn};
 
 /// Validation result for a single field.
 #[derive(Debug, Clone)]
@@ -32,11 +30,19 @@ pub struct ValidationResult {
 
 impl ValidationResult {
     pub fn ok() -> Self {
-        Self { valid: true, errors: Vec::new(), warnings: Vec::new() }
+        Self {
+            valid: true,
+            errors: Vec::new(),
+            warnings: Vec::new(),
+        }
     }
 
     pub fn fail(errors: Vec<FieldResult>) -> Self {
-        Self { valid: false, errors, warnings: Vec::new() }
+        Self {
+            valid: false,
+            errors,
+            warnings: Vec::new(),
+        }
     }
 
     pub fn add_error(&mut self, path: &str, message: &str) {
@@ -112,9 +118,17 @@ pub struct Schema {
     pub fields: HashMap<String, Vec<SchemaRule>>,
 }
 
+impl Default for Schema {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Schema {
     pub fn new() -> Self {
-        Self { fields: HashMap::new() }
+        Self {
+            fields: HashMap::new(),
+        }
     }
 
     /// Add a field with rules.
@@ -149,7 +163,13 @@ impl Schema {
         result
     }
 
-    fn validate_rule(&self, field_name: &str, value: &Value, rule: &SchemaRule, result: &mut ValidationResult) {
+    fn validate_rule(
+        &self,
+        field_name: &str,
+        value: &Value,
+        rule: &SchemaRule,
+        result: &mut ValidationResult,
+    ) {
         match rule {
             SchemaRule::Required => {} // Already handled
             SchemaRule::IsString => {
@@ -178,31 +198,43 @@ impl Schema {
                 }
             }
             SchemaRule::Min(min) => {
-                if let Some(n) = value.as_f64() {
-                    if n < *min {
-                        result.add_error(&format!("{}.{}", "value", field_name), &format!("{} is less than minimum {}", n, min));
-                    }
+                if let Some(n) = value.as_f64()
+                    && n < *min
+                {
+                    result.add_error(
+                        &format!("{}.{}", "value", field_name),
+                        &format!("{} is less than minimum {}", n, min),
+                    );
                 }
             }
             SchemaRule::Max(max) => {
-                if let Some(n) = value.as_f64() {
-                    if n > *max {
-                        result.add_error(&format!("{}.{}", "value", field_name), &format!("{} exceeds maximum {}", n, max));
-                    }
+                if let Some(n) = value.as_f64()
+                    && n > *max
+                {
+                    result.add_error(
+                        &format!("{}.{}", "value", field_name),
+                        &format!("{} exceeds maximum {}", n, max),
+                    );
                 }
             }
             SchemaRule::MinLength(min) => {
-                if let Some(s) = value.as_str() {
-                    if s.len() < *min {
-                        result.add_error(field_name, &format!("length {} is less than minimum {}", s.len(), min));
-                    }
+                if let Some(s) = value.as_str()
+                    && s.len() < *min
+                {
+                    result.add_error(
+                        field_name,
+                        &format!("length {} is less than minimum {}", s.len(), min),
+                    );
                 }
             }
             SchemaRule::MaxLength(max) => {
-                if let Some(s) = value.as_str() {
-                    if s.len() > *max {
-                        result.add_error(field_name, &format!("length {} exceeds maximum {}", s.len(), max));
-                    }
+                if let Some(s) = value.as_str()
+                    && s.len() > *max
+                {
+                    result.add_error(
+                        field_name,
+                        &format!("length {} exceeds maximum {}", s.len(), max),
+                    );
                 }
             }
             SchemaRule::OneOf(allowed) => {
@@ -214,7 +246,10 @@ impl Schema {
                 if let Some(arr) = value.as_array() {
                     for (i, item) in arr.iter().enumerate() {
                         if !item.is_string() {
-                            result.add_error(&format!("{}[{}]", field_name, i), "expected string in array");
+                            result.add_error(
+                                &format!("{}[{}]", field_name, i),
+                                "expected string in array",
+                            );
                         }
                     }
                 }
@@ -227,12 +262,20 @@ impl Schema {
                             match sub_rule {
                                 SchemaRule::Required => {
                                     if sub_value.is_none() {
-                                        result.add_error(&format!("{}.{}", field_name, sub_field), "required nested field is missing");
+                                        result.add_error(
+                                            &format!("{}.{}", field_name, sub_field),
+                                            "required nested field is missing",
+                                        );
                                     }
                                 }
                                 _ => {
                                     if let Some(v) = sub_value {
-                                        self.validate_rule(&format!("{}.{}", field_name, sub_field), v, sub_rule, result);
+                                        self.validate_rule(
+                                            &format!("{}.{}", field_name, sub_field),
+                                            v,
+                                            sub_rule,
+                                            result,
+                                        );
                                     }
                                 }
                             }
@@ -263,40 +306,94 @@ pub fn validate_json_str(json_str: &str, schema: &Schema) -> Result<ValidationRe
 }
 
 /// Pre-built schemas for common Aaroneous config files.
-
 /// Schema for specialist_registry.json
 pub fn specialist_registry_schema() -> Schema {
     Schema::new()
         .field("version", vec![SchemaRule::Required, SchemaRule::IsString])
-        .field("specialists", vec![SchemaRule::Required, SchemaRule::IsObject])
+        .field(
+            "specialists",
+            vec![SchemaRule::Required, SchemaRule::IsObject],
+        )
 }
 
 /// Schema for genome manifest
 pub fn genome_manifest_schema() -> Schema {
     Schema::new()
-        .field("schema_version", vec![SchemaRule::Required, SchemaRule::IsString])
-        .field("identity_version", vec![SchemaRule::Required, SchemaRule::IsString])
-        .field("designation", vec![SchemaRule::Required, SchemaRule::IsString, SchemaRule::MinLength(1)])
-        .field("primary_directive", vec![SchemaRule::Required, SchemaRule::IsString, SchemaRule::MinLength(1)])
-        .field("core_values", vec![SchemaRule::Required, SchemaRule::IsArray, SchemaRule::ArrayOfStrings])
-        .field("invariants", vec![SchemaRule::Required, SchemaRule::IsArray, SchemaRule::ArrayOfStrings])
+        .field(
+            "schema_version",
+            vec![SchemaRule::Required, SchemaRule::IsString],
+        )
+        .field(
+            "identity_version",
+            vec![SchemaRule::Required, SchemaRule::IsString],
+        )
+        .field(
+            "designation",
+            vec![
+                SchemaRule::Required,
+                SchemaRule::IsString,
+                SchemaRule::MinLength(1),
+            ],
+        )
+        .field(
+            "primary_directive",
+            vec![
+                SchemaRule::Required,
+                SchemaRule::IsString,
+                SchemaRule::MinLength(1),
+            ],
+        )
+        .field(
+            "core_values",
+            vec![
+                SchemaRule::Required,
+                SchemaRule::IsArray,
+                SchemaRule::ArrayOfStrings,
+            ],
+        )
+        .field(
+            "invariants",
+            vec![
+                SchemaRule::Required,
+                SchemaRule::IsArray,
+                SchemaRule::ArrayOfStrings,
+            ],
+        )
 }
 
 /// Schema for epigenetic profile
 pub fn epigenetic_profile_schema() -> Schema {
     Schema::new()
-        .field("schema_version", vec![SchemaRule::Required, SchemaRule::IsString])
-        .field("profile_name", vec![SchemaRule::Required, SchemaRule::IsString])
+        .field(
+            "schema_version",
+            vec![SchemaRule::Required, SchemaRule::IsString],
+        )
+        .field(
+            "profile_name",
+            vec![SchemaRule::Required, SchemaRule::IsString],
+        )
         .field("preset", vec![SchemaRule::Required, SchemaRule::IsString])
-        .field("spectrums", vec![SchemaRule::Required, SchemaRule::IsObject])
-        .field("policy_clamps", vec![SchemaRule::Required, SchemaRule::IsObject])
+        .field(
+            "spectrums",
+            vec![SchemaRule::Required, SchemaRule::IsObject],
+        )
+        .field(
+            "policy_clamps",
+            vec![SchemaRule::Required, SchemaRule::IsObject],
+        )
 }
 
 /// Schema for WASM registry index
 pub fn wasm_registry_schema() -> Schema {
     Schema::new()
-        .field("schema_version", vec![SchemaRule::Required, SchemaRule::IsString])
-        .field("components", vec![SchemaRule::Required, SchemaRule::IsObject])
+        .field(
+            "schema_version",
+            vec![SchemaRule::Required, SchemaRule::IsString],
+        )
+        .field(
+            "components",
+            vec![SchemaRule::Required, SchemaRule::IsObject],
+        )
 }
 
 #[cfg(test)]
@@ -333,8 +430,15 @@ mod tests {
 
     #[test]
     fn test_range_validation() {
-        let schema = Schema::new()
-            .field("port", vec![SchemaRule::Required, SchemaRule::IsNumber, SchemaRule::Min(1.0), SchemaRule::Max(65535.0)]);
+        let schema = Schema::new().field(
+            "port",
+            vec![
+                SchemaRule::Required,
+                SchemaRule::IsNumber,
+                SchemaRule::Min(1.0),
+                SchemaRule::Max(65535.0),
+            ],
+        );
 
         let valid_json = r#"{"port": 8080}"#;
         let result = schema.validate(&serde_json::from_str(valid_json).unwrap());
@@ -347,8 +451,9 @@ mod tests {
 
     #[test]
     fn test_enum_validation() {
-        let schema = Schema::new()
-            .field("level", vec![
+        let schema = Schema::new().field(
+            "level",
+            vec![
                 SchemaRule::Required,
                 SchemaRule::OneOf(vec![
                     Value::String("debug".into()),
@@ -356,7 +461,8 @@ mod tests {
                     Value::String("warn".into()),
                     Value::String("error".into()),
                 ]),
-            ]);
+            ],
+        );
 
         let valid = schema.validate(&serde_json::from_str(r#"{"level": "info"}"#).unwrap());
         assert!(valid.valid);
@@ -371,7 +477,9 @@ mod tests {
             .field("server", vec![SchemaRule::Required, SchemaRule::IsObject])
             .field("name", vec![SchemaRule::Required, SchemaRule::IsString]);
 
-        let valid = schema.validate(&serde_json::from_str(r#"{"server": {"host": "localhost"}, "name": "test"}"#).unwrap());
+        let valid = schema.validate(
+            &serde_json::from_str(r#"{"server": {"host": "localhost"}, "name": "test"}"#).unwrap(),
+        );
         assert!(valid.valid);
     }
 

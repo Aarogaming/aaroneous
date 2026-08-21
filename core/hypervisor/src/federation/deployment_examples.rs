@@ -1,5 +1,5 @@
 /// Deployment Examples: Real-world deployment scenarios
-/// 
+///
 /// Shows how to use the bootstrap system for different targets:
 /// - Mobile deployment (iOS/Android)
 /// - Desktop deployment (full featured)
@@ -9,11 +9,11 @@
 #[cfg(test)]
 mod examples {
     use crate::federation::bootstrap::{
-        BootstrapSystem, DeploymentTarget, SpecialistModule, DeploymentConfig,
+        BootstrapSystem, DeploymentConfig, DeploymentTarget, SpecialistModule,
     };
 
     /// Example 1: Fresh installation on desktop
-    /// 
+    ///
     /// `aaroneous --init`
     /// Install Sentinel core only (2GB)
     #[test]
@@ -32,7 +32,7 @@ mod examples {
     }
 
     /// Example 2: Expand desktop with design specialist
-    /// 
+    ///
     /// `aaroneous --expand --include visionary`
     /// Adds Visionary (1GB) to existing Sentinel
     #[test]
@@ -58,7 +58,7 @@ mod examples {
     }
 
     /// Example 3: Mobile deployment with essential modules
-    /// 
+    ///
     /// `aaroneous --portable --target mobile`
     /// Sentinel + Omnipresent + Symbiotic (1.5GB)
     #[test]
@@ -78,7 +78,7 @@ mod examples {
 
         // Mobile max is 3500MB
         assert!(bootstrap_result.size_mb <= 3500);
-        
+
         // Should have: Sentinel, Omnipresent, Symbiotic
         if let Some(manifest) = &bootstrap_result.manifest {
             assert!(manifest.modules.contains(&SpecialistModule::Sentinel));
@@ -90,7 +90,7 @@ mod examples {
     }
 
     /// Example 4: Tablet deployment with AR support
-    /// 
+    ///
     /// `aaroneous --portable --target tablet`
     /// Sentinel + Omnipresent + Symbiotic + Phygital (2GB)
     #[test]
@@ -117,7 +117,7 @@ mod examples {
     }
 
     /// Example 5: Full desktop deployment with all specialists
-    /// 
+    ///
     /// `aaroneous --portable --target desktop`
     /// All 6 specialists (4GB)
     #[test]
@@ -151,7 +151,7 @@ mod examples {
     }
 
     /// Example 6: Server deployment (headless, minimal)
-    /// 
+    ///
     /// `aaroneous --portable --target server`
     /// Sentinel only (500MB) - for orchestration/backend
     #[test]
@@ -179,7 +179,7 @@ mod examples {
     }
 
     /// Example 7: Generate deployment configuration for CI/CD
-    /// 
+    ///
     /// Create TOML config for Docker/Kubernetes
     #[test]
     fn example_generate_deployment_config() {
@@ -212,7 +212,7 @@ mod examples {
     }
 
     /// Example 8: Custom configuration with paths
-    /// 
+    ///
     /// Configure custom DNA Bank and model cache locations
     #[test]
     fn example_custom_configuration() {
@@ -236,7 +236,7 @@ mod examples {
     }
 
     /// Example 9: Progressive expansion workflow
-    /// 
+    ///
     /// Start minimal, add specialists as needed
     #[test]
     fn example_progressive_expansion() {
@@ -248,38 +248,27 @@ mod examples {
         println!("Step 1: Server (Sentinel) - {}MB", result.unwrap().size_mb);
 
         // Add Omnipresent for multi-device
-        let mut manifest =
-            crate::federation::bootstrap::Manifest::new(DeploymentTarget::Desktop);
+        let mut manifest = crate::federation::bootstrap::Manifest::new(DeploymentTarget::Desktop);
         let _ = manifest.remove_module(&SpecialistModule::Visionary);
         let _ = manifest.remove_module(&SpecialistModule::Phygital);
         let _ = manifest.remove_module(&SpecialistModule::Archivist);
 
-        println!(
-            "Step 2: Add Omnipresent - {}MB",
-            manifest.total_size_mb()
-        );
+        println!("Step 2: Add Omnipresent - {}MB", manifest.total_size_mb());
 
         // Add Symbiotic for biometrics
         let result = BootstrapSystem::expand(manifest, vec!["symbiotic"]);
         assert!(result.is_ok());
-        println!(
-            "Step 3: Add Symbiotic - {}MB",
-            result.unwrap().size_mb
-        );
+        println!("Step 3: Add Symbiotic - {}MB", result.unwrap().size_mb);
 
         // Add Visionary for design
-        let manifest2 =
-            crate::federation::bootstrap::Manifest::new(DeploymentTarget::Desktop);
+        let manifest2 = crate::federation::bootstrap::Manifest::new(DeploymentTarget::Desktop);
         let result = BootstrapSystem::expand(manifest2, vec!["visionary"]);
         assert!(result.is_ok());
-        println!(
-            "Step 4: Add Visionary - {}MB",
-            result.unwrap().size_mb
-        );
+        println!("Step 4: Add Visionary - {}MB", result.unwrap().size_mb);
     }
 
     /// Example 10: Verify portable versions can coexist on same system
-    /// 
+    ///
     /// Multiple deployments with different targets
     #[test]
     fn example_multiple_deployments() {

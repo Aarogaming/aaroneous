@@ -11,14 +11,14 @@
 // lib-internal tests; they do not exercise the HTTP
 // stack.
 
-use std::sync::atomic::{AtomicU32, AtomicUsize, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU32, AtomicUsize, Ordering};
 use std::time::{Duration, Instant};
 
 use crate::rate_limit::{TokenBucketConfig, TokenBucketDecision, TokenBucketLimiter};
 use crate::resilience::{
-    with_circuit_breaker, with_retry, CircuitBreaker, CircuitBreakerConfig,
-    CircuitBreakerError, CircuitState, RetryPolicy,
+    CircuitBreaker, CircuitBreakerConfig, CircuitBreakerError, CircuitState, RetryPolicy,
+    with_circuit_breaker, with_retry,
 };
 
 /// Scenario 1: a rate-limited client is denied; the
@@ -114,8 +114,7 @@ fn breaker_recovers_via_half_open_probe() {
     );
     // Trip the breaker.
     for _ in 0..2 {
-        let _: Result<i32, CircuitBreakerError> =
-            cb.call(|| -> Result<i32, &str> { Err("x") });
+        let _: Result<i32, CircuitBreakerError> = cb.call(|| -> Result<i32, &str> { Err("x") });
     }
     assert_eq!(cb.state(), CircuitState::Open);
 
@@ -227,6 +226,81 @@ fn rate_limit_thread_safety() {
     assert!(d >= 690, "denied={} (expected ~700)", d);
 }
 
+/// Property-ish check: over a deterministic stream of mixed keys,
+/// per-key allowance never exceeds the configured burst.
+#[test]
+fn rate_limit_respects_per_key_burst_under_randomized_inputs() {
+    let rl = TokenBucketLimiter::new(TokenBucketConfig {
+        burst: 3.0,
+        refill_per_second: 0.0,
+        idle_eviction: None,
+    });
+    let mut allowed_per_key = std::collections::HashMap::<String, usize>::new();
+    let mut seed = 0x1234_5678_9abc_def0u64;
+    for _ in 0..100 {
+        // Deterministic LCG so the test is stable but exercises
+        // a broad mix of keys.
+        seed = seed.wrapping_mul(6364136223846793005).wrapping_add(1);
+        let key = format!("key-{}", seed % 8);
+        if matches!(rl.check(&key), TokenBucketDecision::Allow { .. }) {
+            *allowed_per_key.entry(key).or_insert(0) += 1;
+        }
+    }
+    assert!(allowed_per_key.values().all(|&n| n <= 3));
+}
+
+/// Property-ish check: breaker counters remain monotonic while
+/// the breaker transitions through a randomized success/failure stream.
+#[test]
+fn circuit_breaker_counters_are_monotonic_under_mixed_outcomes() {
+    let cb = CircuitBreaker::new(CircuitBreakerConfig {
+        failure_threshold: 4,
+        success_threshold: 1,
+        open_duration: Duration::from_millis(5),
+        name: "prop-breaker".to_string(),
+        ..CircuitBreakerConfig::default()
+    });
+    let mut seed = 0xfeed_beefu64;
+    let mut last = cb.counters();
+    for _ in 0..64 {
+        seed = seed.wrapping_mul(1103515245).wrapping_add(12345);
+        let fail = seed & 1 == 0;
+        let _ = if fail {
+            cb.call(|| -> Result<(), &str> { Err("x") })
+        } else {
+            cb.call(|| -> Result<(), &str> { Ok(()) })
+        };
+        let now = cb.counters();
+        assert!(now.calls_total >= last.calls_total);
+        assert!(now.calls_rejected_total >= last.calls_rejected_total);
+        assert!(now.trips_total >= last.trips_total);
+        assert!(now.recoveries_total >= last.recoveries_total);
+        last = now;
+    }
+}
+
+/// Chaos check: a worker panic is caught by the runtime and
+/// surfaced as a join error without poisoning the rest of the test.
+#[test]
+fn panic_recovery_catches_worker_panic() {
+    let handle = std::thread::spawn(|| {
+        panic!("intentional panic for chaos test");
+    });
+    assert!(handle.join().is_err());
+}
+
+/// Chaos check: an aborted async task is cancelled cleanly.
+#[tokio::test]
+async fn join_handle_abort_cancels_task_cleanly() {
+    let handle = tokio::spawn(async {
+        tokio::time::sleep(Duration::from_secs(60)).await;
+        42u32
+    });
+    handle.abort();
+    let result = handle.await;
+    assert!(result.is_err());
+}
+
 /// Scenario 8: end-to-end timing sanity check. A closed
 /// breaker serving traffic should add < 1µs per call.
 /// This is a soft assertion (fails only on gross regression).
@@ -240,11 +314,11 @@ fn breaker_closed_call_is_fast() {
     }
     let elapsed = start.elapsed();
     let per_call = elapsed / n;
-    // Generous bound: 1µs/call. Current bench shows ~16 ns,
-    // so this leaves 60× headroom for slow CI hardware.
+    // Coarse bound: 100µs/call. This is a guardrail only; the
+    // actual benchmark lives in the Criterion suite.
     assert!(
-        per_call < Duration::from_micros(1),
-        "per-call time {} ns exceeded 1µs budget",
+        per_call < Duration::from_micros(100),
+        "per-call time {} ns exceeded 100µs budget",
         per_call.as_nanos()
     );
 }

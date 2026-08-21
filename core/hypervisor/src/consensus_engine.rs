@@ -1,9 +1,9 @@
 // Consensus Engine for High-Availability
 // Enables distributed decision-making across multiple autonomic loops
 
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use chrono::{DateTime, Utc};
 
 /// A decision that needs consensus approval
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -13,7 +13,7 @@ pub struct ProposedDecision {
     pub timestamp: DateTime<Utc>,
     pub decision_type: DecisionType,
     pub data: Vec<u8>,
-    pub confidence: f32,  // 0.0-1.0
+    pub confidence: f32, // 0.0-1.0
 }
 
 /// Types of system decisions
@@ -37,7 +37,7 @@ pub struct DecisionRecord {
     pub decision: ProposedDecision,
     pub votes: HashMap<String, Vote>,
     pub status: DecisionStatus,
-    pub consensus_score: f32,  // 0.0-1.0
+    pub consensus_score: f32, // 0.0-1.0
 }
 
 /// Vote from a peer node
@@ -68,7 +68,7 @@ pub enum DecisionStatus {
 pub struct ConsensusEngine {
     pub node_id: String,
     pub peers: Vec<String>,
-    pub voting_threshold: f32,  // 0.5-1.0, typically 0.6 (60%)
+    pub voting_threshold: f32, // 0.5-1.0, typically 0.6 (60%)
     pub decision_history: Vec<DecisionRecord>,
     pub pending_decisions: HashMap<String, DecisionRecord>,
     pub max_history: usize,
@@ -80,7 +80,7 @@ impl ConsensusEngine {
         Self {
             node_id: node_id.to_string(),
             peers,
-            voting_threshold: voting_threshold.max(0.5).min(1.0),
+            voting_threshold: voting_threshold.clamp(0.5, 1.0),
             decision_history: Vec::new(),
             pending_decisions: HashMap::new(),
             max_history: 1000,
@@ -90,23 +90,25 @@ impl ConsensusEngine {
     /// Propose a new decision (to be voted on by peers)
     pub fn propose_decision(&mut self, decision: ProposedDecision) -> String {
         let decision_id = decision.decision_id.clone();
-        
+
         // Initialize with this node's automatic approval
         let mut votes = HashMap::new();
         votes.insert(self.node_id.clone(), Vote::Approve);
-        
+
         let record = DecisionRecord {
             decision: decision.clone(),
             votes,
             status: DecisionStatus::Pending,
             consensus_score: 0.0,
         };
-        
+
         self.pending_decisions.insert(decision_id.clone(), record);
-        
-        println!("[ConsensusEngine] Decision {} proposed by {} (type: {:?})", 
-            decision_id, decision.proposer_node, decision.decision_type);
-        
+
+        println!(
+            "[ConsensusEngine] Decision {} proposed by {} (type: {:?})",
+            decision_id, decision.proposer_node, decision.decision_type
+        );
+
         decision_id
     }
 
@@ -114,13 +116,15 @@ impl ConsensusEngine {
     pub fn vote_on_decision(&mut self, decision_id: &str, voter_id: &str, vote: Vote) -> bool {
         if let Some(record) = self.pending_decisions.get_mut(decision_id) {
             record.votes.insert(voter_id.to_string(), vote);
-            
+
             // Check if consensus is reached
             self.check_consensus(decision_id);
-            
-            println!("[ConsensusEngine] Vote from {} on decision {}: {:?}", 
-                voter_id, decision_id, vote);
-            
+
+            println!(
+                "[ConsensusEngine] Vote from {} on decision {}: {:?}",
+                voter_id, decision_id, vote
+            );
+
             true
         } else {
             println!("[ConsensusEngine] Decision {} not found", decision_id);
@@ -132,23 +136,34 @@ impl ConsensusEngine {
     fn check_consensus(&mut self, decision_id: &str) {
         if let Some(record) = self.pending_decisions.get_mut(decision_id) {
             let total_votes = record.votes.len();
-            let needed_votes = ((self.peers.len() + 1) as f32 * self.voting_threshold).ceil() as usize;
-            
-            let approve_count = record.votes.values().filter(|v| **v == Vote::Approve).count();
-            let reject_count = record.votes.values().filter(|v| **v == Vote::Reject).count();
-            
+            let needed_votes =
+                ((self.peers.len() + 1) as f32 * self.voting_threshold).ceil() as usize;
+
+            let approve_count = record
+                .votes
+                .values()
+                .filter(|v| **v == Vote::Approve)
+                .count();
+            let reject_count = record
+                .votes
+                .values()
+                .filter(|v| **v == Vote::Reject)
+                .count();
+
             // Calculate consensus score
             record.consensus_score = approve_count as f32 / total_votes as f32;
-            
+
             // Determine status
             if approve_count >= needed_votes {
                 record.status = DecisionStatus::Approved;
-                println!("[ConsensusEngine] Decision {} APPROVED ({}/{})", 
-                    decision_id, approve_count, needed_votes);
+                println!(
+                    "[ConsensusEngine] Decision {} APPROVED ({}/{})",
+                    decision_id, approve_count, needed_votes
+                );
             } else if reject_count > (self.peers.len() + 1 - needed_votes) {
                 record.status = DecisionStatus::Rejected;
                 println!("[ConsensusEngine] Decision {} REJECTED", decision_id);
-            } else if total_votes >= self.peers.len() + 1 {
+            } else if total_votes > self.peers.len() {
                 // All votes collected but no majority
                 record.status = DecisionStatus::Deadlocked;
                 println!("[ConsensusEngine] Decision {} DEADLOCKED", decision_id);
@@ -163,20 +178,21 @@ impl ConsensusEngine {
 
     /// Finalize a decision (move from pending to history)
     pub fn finalize_decision(&mut self, decision_id: &str) -> Option<DecisionRecord> {
-        if let Some(mut record) = self.pending_decisions.remove(decision_id) {
+        if let Some(record) = self.pending_decisions.remove(decision_id) {
             // Only approved decisions are finalized
             if record.status == DecisionStatus::Approved {
                 self.decision_history.push(record.clone());
-                
+
                 // Keep history bounded
                 if self.decision_history.len() > self.max_history {
                     self.decision_history.remove(0);
                 }
-                
+
                 Some(record)
             } else {
                 // Put it back if not approved
-                self.pending_decisions.insert(decision_id.to_string(), record.clone());
+                self.pending_decisions
+                    .insert(decision_id.to_string(), record.clone());
                 None
             }
         } else {
@@ -189,23 +205,28 @@ impl ConsensusEngine {
         if proposals.is_empty() {
             return None;
         }
-        
+
         if proposals.len() == 1 {
             return Some(proposals[0].clone());
         }
-        
+
         // Find proposal with highest confidence
-        let best = proposals.iter()
+        let best = proposals
+            .iter()
             .max_by(|a, b| a.confidence.partial_cmp(&b.confidence).unwrap())
             .cloned()?;
-        
-        println!("[ConsensusEngine] Merged {} proposals into highest-confidence proposal", proposals.len());
+
+        println!(
+            "[ConsensusEngine] Merged {} proposals into highest-confidence proposal",
+            proposals.len()
+        );
         Some(best)
     }
 
     /// Get pending decisions for a specific type
     pub fn get_pending_by_type(&self, decision_type: &DecisionType) -> Vec<DecisionRecord> {
-        self.pending_decisions.values()
+        self.pending_decisions
+            .values()
             .filter(|r| r.decision.decision_type == *decision_type)
             .cloned()
             .collect()
@@ -219,18 +240,22 @@ impl ConsensusEngine {
     /// Get consensus statistics
     pub fn get_statistics(&self) -> ConsensusStatistics {
         let total_decisions = self.decision_history.len();
-        let approved = self.decision_history.iter()
+        let approved = self
+            .decision_history
+            .iter()
             .filter(|r| r.status == DecisionStatus::Approved)
             .count();
-        
+
         let avg_consensus = if !self.decision_history.is_empty() {
-            self.decision_history.iter()
+            self.decision_history
+                .iter()
                 .map(|r| r.consensus_score)
-                .sum::<f32>() / self.decision_history.len() as f32
+                .sum::<f32>()
+                / self.decision_history.len() as f32
         } else {
             0.0
         };
-        
+
         ConsensusStatistics {
             total_decisions,
             approved,
@@ -259,7 +284,7 @@ mod tests {
     fn test_consensus_proposal() {
         let peers = vec!["node_2".to_string(), "node_3".to_string()];
         let mut engine = ConsensusEngine::new("node_1", peers, 0.6);
-        
+
         let decision = ProposedDecision {
             decision_id: "dec_001".to_string(),
             proposer_node: "node_1".to_string(),
@@ -268,7 +293,7 @@ mod tests {
             data: vec![1, 2, 3],
             confidence: 0.95,
         };
-        
+
         let id = engine.propose_decision(decision);
         assert_eq!(id, "dec_001");
         assert!(engine.pending_decisions.contains_key(&id));
@@ -278,7 +303,7 @@ mod tests {
     fn test_voting() {
         let peers = vec!["node_2".to_string(), "node_3".to_string()];
         let mut engine = ConsensusEngine::new("node_1", peers, 0.6);
-        
+
         let decision = ProposedDecision {
             decision_id: "dec_002".to_string(),
             proposer_node: "node_1".to_string(),
@@ -287,12 +312,12 @@ mod tests {
             data: vec![],
             confidence: 0.8,
         };
-        
+
         let id = engine.propose_decision(decision);
-        
+
         // Votes: node_1 (auto-approve) + node_2 (approve) = 2/3
         engine.vote_on_decision(&id, "node_2", Vote::Approve);
-        
+
         let status = engine.get_decision_status(&id);
         assert_eq!(status, Some(DecisionStatus::Approved));
     }
@@ -301,7 +326,7 @@ mod tests {
     fn test_rejection() {
         let peers = vec!["node_2".to_string(), "node_3".to_string()];
         let mut engine = ConsensusEngine::new("node_1", peers, 0.6);
-        
+
         let decision = ProposedDecision {
             decision_id: "dec_003".to_string(),
             proposer_node: "node_1".to_string(),
@@ -310,13 +335,13 @@ mod tests {
             data: vec![],
             confidence: 0.5,
         };
-        
+
         let id = engine.propose_decision(decision);
-        
+
         // Votes: node_1 (auto-approve), node_2 (reject), node_3 (reject)
         engine.vote_on_decision(&id, "node_2", Vote::Reject);
         engine.vote_on_decision(&id, "node_3", Vote::Reject);
-        
+
         let status = engine.get_decision_status(&id);
         assert_eq!(status, Some(DecisionStatus::Rejected));
     }
@@ -324,7 +349,7 @@ mod tests {
     #[test]
     fn test_proposal_merge() {
         let engine = ConsensusEngine::new("node_1", vec![], 0.6);
-        
+
         let proposals = vec![
             ProposedDecision {
                 decision_id: "p1".to_string(),
@@ -340,10 +365,10 @@ mod tests {
                 timestamp: Utc::now(),
                 decision_type: DecisionType::PlanSelection,
                 data: vec![2],
-                confidence: 0.9,  // Higher confidence
+                confidence: 0.9, // Higher confidence
             },
         ];
-        
+
         let merged = engine.merge_proposals(proposals);
         assert!(merged.is_some());
         assert_eq!(merged.unwrap().decision_id, "p2");
@@ -353,7 +378,7 @@ mod tests {
     fn test_statistics() {
         let peers = vec!["node_2".to_string()];
         let mut engine = ConsensusEngine::new("node_1", peers, 0.5);
-        
+
         for i in 0..5 {
             let decision = ProposedDecision {
                 decision_id: format!("dec_{}", i),
@@ -363,16 +388,15 @@ mod tests {
                 data: vec![],
                 confidence: 0.8,
             };
-            
+
             let id = engine.propose_decision(decision);
             engine.vote_on_decision(&id, "node_2", Vote::Approve);
             engine.finalize_decision(&id);
         }
-        
+
         let stats = engine.get_statistics();
         assert_eq!(stats.total_decisions, 5);
         assert_eq!(stats.approved, 5);
         assert_eq!(stats.rejected, 0);
     }
 }
-

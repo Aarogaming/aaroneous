@@ -1,8 +1,6 @@
 /// Reasoning scalers: test-time Viterbi depth adjustment, sparse
 /// autoencoder feature steering for GGUF tensor maps, and state-space
 /// model linear convolutions for long-range sequence memory.
-
-use std::collections::HashMap;
 use crate::predictive_models::HiddenMarkovModel;
 
 // ── Test-Time Compute Scaler (Viterbi Depth) ─────────────────────────
@@ -18,13 +16,20 @@ pub struct ViterbiDepthScaler {
 
 impl ViterbiDepthScaler {
     pub fn new(base: usize, max: usize, novelty: f64) -> Self {
-        ViterbiDepthScaler { base_depth: base, max_depth: max, novelty_threshold: novelty, current_depth: base }
+        ViterbiDepthScaler {
+            base_depth: base,
+            max_depth: max,
+            novelty_threshold: novelty,
+            current_depth: base,
+        }
     }
 
     /// Estimate novelty from HMM path probability.
     /// Low probability → novel environment → expand depth.
     pub fn estimate_novelty(prob: f64) -> f64 {
-        if prob <= 0.0 { return 1.0; }
+        if prob <= 0.0 {
+            return 1.0;
+        }
         (-prob.ln()).min(1.0)
     }
 
@@ -53,8 +58,11 @@ impl ViterbiDepthScaler {
         let novelty = Self::estimate_novelty(prob);
         if novelty > self.novelty_threshold && self.current_depth < self.max_depth {
             self.current_depth = (self.current_depth * 2).min(self.max_depth);
-            let wider: Vec<usize> = observations.iter().copied()
-                .take(self.current_depth.min(observations.len())).collect();
+            let wider: Vec<usize> = observations
+                .iter()
+                .copied()
+                .take(self.current_depth.min(observations.len()))
+                .collect();
             let (deeper_path, deeper_prob) = hmm.viterbi(&wider);
             if deeper_prob > prob {
                 return (deeper_path, deeper_prob);
@@ -90,7 +98,12 @@ impl SparseAutoencoderSteer {
                 atom[j] = (h as f64 / u64::MAX as f64) * 2.0 - 1.0;
             }
         }
-        SparseAutoencoderSteer { dict_size, input_dim, dictionary, codes: vec![0.0; dict_size] }
+        SparseAutoencoderSteer {
+            dict_size,
+            input_dim,
+            dictionary,
+            codes: vec![0.0; dict_size],
+        }
     }
 
     /// Encode input through sparse coding (greedy matching pursuit).
@@ -111,7 +124,9 @@ impl SparseAutoencoderSteer {
                     best_idx = i;
                 }
             }
-            if best_dot < 1e-9 { break; }
+            if best_dot < 1e-9 {
+                break;
+            }
             let atom = &self.dictionary[best_idx];
             let alpha = best_dot;
             self.codes[best_idx] += alpha;
@@ -190,7 +205,15 @@ impl StateSpaceModel {
                 c[i * state_dim + j] = (j & 1) as f64 * 2.0 - 1.0;
             }
         }
-        StateSpaceModel { state_dim, input_dim, a, b, c, state: vec![0.0; state_dim], decay }
+        StateSpaceModel {
+            state_dim,
+            input_dim,
+            a,
+            b,
+            c,
+            state: vec![0.0; state_dim],
+            decay,
+        }
     }
 
     /// Step the SSM: state' = A·state + B·input, output = C·state'
@@ -285,11 +308,7 @@ mod tests {
     #[test]
     fn test_ssm_sequence() {
         let mut ssm = StateSpaceModel::new(4, 2, 0.9);
-        let inputs = vec![
-            vec![1.0, 0.0],
-            vec![0.0, 1.0],
-            vec![1.0, 1.0],
-        ];
+        let inputs = vec![vec![1.0, 0.0], vec![0.0, 1.0], vec![1.0, 1.0]];
         let outputs = ssm.process_sequence(&inputs);
         assert_eq!(outputs.len(), 3);
         assert_eq!(outputs[0].len(), 2);

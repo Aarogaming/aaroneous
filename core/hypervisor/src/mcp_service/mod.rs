@@ -1,3 +1,7 @@
+pub mod auth;
+pub mod capability;
+pub mod config;
+pub mod http_api;
 /// Universal MCP Service Module
 ///
 /// Provides a vendor-agnostic MCP (Model Context Protocol) service that can be used by any client:
@@ -61,17 +65,12 @@
 ///
 /// ## Claude Web UI
 /// Uses OAuth2 authentication and REST API for seamless integration.
-
 pub mod service;
-pub mod config;
-pub mod capability;
 pub mod transport;
-pub mod auth;
-pub mod http_api;
 
-pub use service::{McpService, JsonRpcRequest, JsonRpcResponse, McpTool, ServiceStats};
-pub use config::{ServiceConfig, TransportConfig};
+pub use auth::{ApiKeyAuth, AuthProvider, OAuth2Auth};
 pub use capability::{Capability, CapabilityDomain, CapabilityHandler, CapabilityResult};
-pub use transport::{Transport, HttpTransport, WebSocketTransport, NatsTransport};
-pub use auth::{AuthProvider, ApiKeyAuth, OAuth2Auth};
+pub use config::{ServiceConfig, TransportConfig};
 pub use http_api::HttpServer;
+pub use service::{JsonRpcRequest, JsonRpcResponse, McpService, McpTool, ServiceStats};
+pub use transport::{HttpTransport, NatsTransport, Transport, WebSocketTransport};

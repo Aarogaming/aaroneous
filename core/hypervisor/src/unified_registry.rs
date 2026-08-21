@@ -1,3 +1,4 @@
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
 /// Unified Registry — single abstraction for all dynamic registration.
 ///
 /// Provides a common interface for registering, looking up, listing,
@@ -8,25 +9,20 @@
 /// - Optional JSON persistence
 /// - TTL-based expiry for stale entries
 /// - Health status tracking
-
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use serde::{Serialize, Deserialize, de::DeserializeOwned};
 use tokio::sync::RwLock;
 use tracing::{info, warn};
 
 /// Health status of a registered entry.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum EntryHealth {
     Healthy,
     Degraded,
     Failed,
+    #[default]
     Unknown,
-}
-
-impl Default for EntryHealth {
-    fn default() -> Self { Self::Unknown }
 }
 
 /// Metadata for a registered entry.
@@ -70,7 +66,9 @@ impl EntryMeta {
     }
 
     pub fn is_expired(&self) -> bool {
-        if self.ttl_secs == 0 { return false; }
+        if self.ttl_secs == 0 {
+            return false;
+        }
         now_secs() > self.last_seen + self.ttl_secs
     }
 
@@ -129,10 +127,10 @@ impl<T: Clone + Serialize + DeserializeOwned> Registry<T> {
     /// Create a registry and load persisted entries from disk.
     pub fn with_persistence(config: RegistryConfig) -> Self {
         let mut registry = Self::new(config.clone());
-        if let Some(ref path) = config.persist_path {
-            if let Err(e) = registry.load_from_file(path) {
-                warn!("Failed to load registry from {}: {}", path.display(), e);
-            }
+        if let Some(ref path) = config.persist_path
+            && let Err(e) = registry.load_from_file(path)
+        {
+            warn!("Failed to load registry from {}: {}", path.display(), e);
         }
         registry
     }
@@ -142,20 +140,29 @@ impl<T: Clone + Serialize + DeserializeOwned> Registry<T> {
     /// If an entry with the same ID already exists, it is updated.
     pub fn register(&mut self, id: String, data: T, meta: EntryMeta) -> Result<(), String> {
         // Check capacity
-        if self.config.max_entries > 0 && self.entries.len() >= self.config.max_entries {
-            if !self.entries.contains_key(&id) {
-                return Err(format!("Registry full ({}/{})", self.entries.len(), self.config.max_entries));
-            }
+        if self.config.max_entries > 0
+            && self.entries.len() >= self.config.max_entries
+            && !self.entries.contains_key(&id)
+        {
+            return Err(format!(
+                "Registry full ({}/{})",
+                self.entries.len(),
+                self.config.max_entries
+            ));
         }
 
-        let entry = RegistryEntry { id: id.clone(), data, meta };
+        let entry = RegistryEntry {
+            id: id.clone(),
+            data,
+            meta,
+        };
         self.entries.insert(id, entry);
 
         // Persist if configured
-        if let Some(ref path) = self.config.persist_path {
-            if let Err(e) = self.save_to_file(path) {
-                warn!("Failed to persist registry: {}", e);
-            }
+        if let Some(ref path) = self.config.persist_path
+            && let Err(e) = self.save_to_file(path)
+        {
+            warn!("Failed to persist registry: {}", e);
         }
 
         Ok(())
@@ -172,12 +179,12 @@ impl<T: Clone + Serialize + DeserializeOwned> Registry<T> {
     pub fn unregister(&mut self, id: &str) -> bool {
         let existed = self.entries.remove(id).is_some();
 
-        if existed && self.config.persist_path.is_some() {
-            if let Some(ref path) = self.config.persist_path.clone() {
-                if let Err(e) = self.save_to_file(path) {
-                    warn!("Failed to persist registry after unregister: {}", e);
-                }
-            }
+        if existed
+            && self.config.persist_path.is_some()
+            && let Some(ref path) = self.config.persist_path.clone()
+            && let Err(e) = self.save_to_file(path)
+        {
+            warn!("Failed to persist registry after unregister: {}", e);
         }
 
         existed
@@ -277,8 +284,7 @@ impl<T: Clone + Serialize + DeserializeOwned> Registry<T> {
     pub fn save_to_file(&self, path: &Path) -> Result<(), String> {
         let json = serde_json::to_string_pretty(&self.entries)
             .map_err(|e| format!("Serialize error: {}", e))?;
-        std::fs::write(path, json)
-            .map_err(|e| format!("Write error: {}", e))?;
+        std::fs::write(path, json).map_err(|e| format!("Write error: {}", e))?;
         Ok(())
     }
 
@@ -287,11 +293,14 @@ impl<T: Clone + Serialize + DeserializeOwned> Registry<T> {
         if !path.exists() {
             return Ok(());
         }
-        let json = std::fs::read_to_string(path)
-            .map_err(|e| format!("Read error: {}", e))?;
-        self.entries = serde_json::from_str(&json)
-            .map_err(|e| format!("Deserialize error: {}", e))?;
-        info!("Loaded {} entries from {}", self.entries.len(), path.display());
+        let json = std::fs::read_to_string(path).map_err(|e| format!("Read error: {}", e))?;
+        self.entries =
+            serde_json::from_str(&json).map_err(|e| format!("Deserialize error: {}", e))?;
+        info!(
+            "Loaded {} entries from {}",
+            self.entries.len(),
+            path.display()
+        );
         Ok(())
     }
 }
@@ -299,21 +308,21 @@ impl<T: Clone + Serialize + DeserializeOwned> Registry<T> {
 /// Async wrapper for concurrent access.
 pub struct AsyncRegistry<T: Clone + Serialize + DeserializeOwned> {
     inner: Arc<RwLock<Registry<T>>>,
-    config: RegistryConfig,
+    _config: RegistryConfig,
 }
 
 impl<T: Clone + Serialize + DeserializeOwned + 'static> AsyncRegistry<T> {
     pub fn new(config: RegistryConfig) -> Self {
         Self {
             inner: Arc::new(RwLock::new(Registry::new(config.clone()))),
-            config,
+            _config: config,
         }
     }
 
     pub fn with_persistence(config: RegistryConfig) -> Self {
         Self {
             inner: Arc::new(RwLock::new(Registry::with_persistence(config.clone()))),
-            config,
+            _config: config,
         }
     }
 
@@ -334,11 +343,23 @@ impl<T: Clone + Serialize + DeserializeOwned + 'static> AsyncRegistry<T> {
     }
 
     pub async fn list(&self) -> Vec<RegistryEntry<T>> {
-        self.inner.read().await.list().into_iter().cloned().collect()
+        self.inner
+            .read()
+            .await
+            .list()
+            .into_iter()
+            .cloned()
+            .collect()
     }
 
     pub async fn find_by_tag(&self, tag: &str) -> Vec<RegistryEntry<T>> {
-        self.inner.read().await.find_by_tag(tag).into_iter().cloned().collect()
+        self.inner
+            .read()
+            .await
+            .find_by_tag(tag)
+            .into_iter()
+            .cloned()
+            .collect()
     }
 
     pub async fn set_health(&self, id: &str, health: EntryHealth) -> bool {
@@ -347,6 +368,10 @@ impl<T: Clone + Serialize + DeserializeOwned + 'static> AsyncRegistry<T> {
 
     pub async fn len(&self) -> usize {
         self.inner.read().await.len()
+    }
+
+    pub async fn is_empty(&self) -> bool {
+        self.inner.read().await.is_empty()
     }
 
     pub async fn evict_expired(&self) -> usize {
@@ -374,7 +399,15 @@ mod tests {
     #[test]
     fn test_register_and_get() {
         let mut reg = Registry::<TestEntry>::new(RegistryConfig::default());
-        reg.register_simple("a".into(), TestEntry { name: "alpha".into(), value: 1 }, "1.0.0").unwrap();
+        reg.register_simple(
+            "a".into(),
+            TestEntry {
+                name: "alpha".into(),
+                value: 1,
+            },
+            "1.0.0",
+        )
+        .unwrap();
         assert_eq!(reg.len(), 1);
 
         let entry = reg.get("a").unwrap();
@@ -385,7 +418,15 @@ mod tests {
     #[test]
     fn test_unregister() {
         let mut reg = Registry::<TestEntry>::new(RegistryConfig::default());
-        reg.register_simple("a".into(), TestEntry { name: "alpha".into(), value: 1 }, "1.0.0").unwrap();
+        reg.register_simple(
+            "a".into(),
+            TestEntry {
+                name: "alpha".into(),
+                value: 1,
+            },
+            "1.0.0",
+        )
+        .unwrap();
         assert!(reg.unregister("a"));
         assert_eq!(reg.len(), 0);
         assert!(!reg.unregister("a"));
@@ -394,10 +435,24 @@ mod tests {
     #[test]
     fn test_find_by_tag() {
         let mut reg = Registry::<TestEntry>::new(RegistryConfig::default());
-        reg.register("a".into(), TestEntry { name: "alpha".into(), value: 1 },
-            EntryMeta::new("1.0.0").with_tags(vec!["fast".into()])).unwrap();
-        reg.register("b".into(), TestEntry { name: "beta".into(), value: 2 },
-            EntryMeta::new("1.0.0").with_tags(vec!["slow".into()])).unwrap();
+        reg.register(
+            "a".into(),
+            TestEntry {
+                name: "alpha".into(),
+                value: 1,
+            },
+            EntryMeta::new("1.0.0").with_tags(vec!["fast".into()]),
+        )
+        .unwrap();
+        reg.register(
+            "b".into(),
+            TestEntry {
+                name: "beta".into(),
+                value: 2,
+            },
+            EntryMeta::new("1.0.0").with_tags(vec!["slow".into()]),
+        )
+        .unwrap();
 
         let fast = reg.find_by_tag("fast");
         assert_eq!(fast.len(), 1);
@@ -407,7 +462,15 @@ mod tests {
     #[test]
     fn test_health_status() {
         let mut reg = Registry::<TestEntry>::new(RegistryConfig::default());
-        reg.register_simple("a".into(), TestEntry { name: "alpha".into(), value: 1 }, "1.0.0").unwrap();
+        reg.register_simple(
+            "a".into(),
+            TestEntry {
+                name: "alpha".into(),
+                value: 1,
+            },
+            "1.0.0",
+        )
+        .unwrap();
 
         reg.set_health("a", EntryHealth::Degraded);
         let entry = reg.get("a").unwrap();
@@ -417,10 +480,24 @@ mod tests {
     #[test]
     fn test_evict_expired() {
         let mut reg = Registry::<TestEntry>::new(RegistryConfig::default());
-        reg.register("a".into(), TestEntry { name: "alpha".into(), value: 1 },
-            EntryMeta::new("1.0.0").with_ttl(0)).unwrap(); // No expiry
-        reg.register("b".into(), TestEntry { name: "beta".into(), value: 2 },
-            EntryMeta::new("1.0.0")).unwrap(); // Default (no expiry)
+        reg.register(
+            "a".into(),
+            TestEntry {
+                name: "alpha".into(),
+                value: 1,
+            },
+            EntryMeta::new("1.0.0").with_ttl(0),
+        )
+        .unwrap(); // No expiry
+        reg.register(
+            "b".into(),
+            TestEntry {
+                name: "beta".into(),
+                value: 2,
+            },
+            EntryMeta::new("1.0.0"),
+        )
+        .unwrap(); // Default (no expiry)
 
         assert_eq!(reg.evict_expired(), 0);
         assert_eq!(reg.len(), 2);
@@ -437,7 +514,15 @@ mod tests {
                 persist_path: Some(path.clone()),
                 ..Default::default()
             });
-            reg.register_simple("a".into(), TestEntry { name: "alpha".into(), value: 1 }, "1.0.0").unwrap();
+            reg.register_simple(
+                "a".into(),
+                TestEntry {
+                    name: "alpha".into(),
+                    value: 1,
+                },
+                "1.0.0",
+            )
+            .unwrap();
         }
 
         {

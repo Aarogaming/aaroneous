@@ -24,10 +24,11 @@
 /// - The federation-level config has default 30s checkpoint cadence.
 /// - All hosts inherit the federation-level checkpoint cadence unless
 ///   overridden via `with_*_host_config`.
-
 use super::{Federation, FederationConfig};
-use crate::federation::host::{shared, HostConfig, SharedPersistence, SpecialistHost};
-use crate::federation::specialists::{Archivist, GenericSpecialist, Omnipresent, Phygital, Symbiotic, Visionary};
+use crate::federation::host::{HostConfig, SharedPersistence, SpecialistHost, shared};
+use crate::federation::specialists::{
+    Archivist, GenericSpecialist, Omnipresent, Phygital, Symbiotic, Visionary,
+};
 use crate::persistence::PersistenceManager;
 use std::sync::Arc;
 use std::time::Duration;
@@ -240,11 +241,7 @@ impl FederationBuilder {
         self.with_phygital_instance_host_config(p, cfg)
     }
 
-    pub fn with_phygital_instance_host_config(
-        mut self,
-        p: Arc<Phygital>,
-        cfg: HostConfig,
-    ) -> Self {
+    pub fn with_phygital_instance_host_config(mut self, p: Arc<Phygital>, cfg: HostConfig) -> Self {
         self.phygital = Some(Arc::new(SpecialistHost::new(
             p,
             self.persistence.clone(),

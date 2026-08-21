@@ -74,25 +74,21 @@ impl KernelOperation {
 
     /// Can this operation be fused with another?
     pub fn can_fuse_with(&self, other: &KernelOperation) -> bool {
-        match (self, other) {
+        matches!(
+            (self, other),
             // Matmul + activation
-            (KernelOperation::Matmul, KernelOperation::ReLU) => true,
-            (KernelOperation::Matmul, KernelOperation::Sigmoid) => true,
-            (KernelOperation::Matmul, KernelOperation::GeLU) => true,
-            
-            // Activation + scale
-            (KernelOperation::ReLU, KernelOperation::Scale) => true,
-            
-            // Norm + activation
-            (KernelOperation::LayerNorm, KernelOperation::GeLU) => true,
-            (KernelOperation::BatchNorm, KernelOperation::ReLU) => true,
-            
-            // Any + Add for skip connections
-            (_, KernelOperation::Add) => true,
-            (KernelOperation::Add, _) => true,
-            
-            _ => false,
-        }
+            (KernelOperation::Matmul, KernelOperation::ReLU)
+                | (KernelOperation::Matmul, KernelOperation::Sigmoid)
+                | (KernelOperation::Matmul, KernelOperation::GeLU)
+                // Activation + scale
+                | (KernelOperation::ReLU, KernelOperation::Scale)
+                // Norm + activation
+                | (KernelOperation::LayerNorm, KernelOperation::GeLU)
+                | (KernelOperation::BatchNorm, KernelOperation::ReLU)
+                // Any + Add for skip connections
+                | (_, KernelOperation::Add)
+                | (KernelOperation::Add, _)
+        )
     }
 }
 

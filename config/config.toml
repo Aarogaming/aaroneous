@@ -1,0 +1,40 @@
+# Aaroneous Configuration
+#
+# Workspace discovery: AARONEOUS_WORKSPACE env var → current dir → D:\Aaroneous
+# All paths are resolved relative to workspace root via WorkspacePaths::discover()
+
+[server]
+host = "0.0.0.0"
+port = 8001
+
+[database]
+# Aaroneous uses SQLite for persistence
+path = "hive.db"
+
+[llm]
+# LLM provider configuration
+provider = "mock"  # mock | gguf | openai
+model_path = ""    # Path to GGUF file (if provider = "gguf")
+openai_api_key = ""
+openai_base_url = ""
+openai_model = ""
+
+[federation]
+mode = "single"  # single | multi-hive
+consensus_threshold = 66
+
+[optimization]
+quantization_enabled = false
+quantization_precision = "fp16"
+gpu_acceleration_enabled = false
+
+[specialists]
+visionary_enabled = true
+omnipresent_enabled = true
+symbiotic_enabled = true
+phygital_enabled = true
+archivist_enabled = true
+
+[logging]
+level = "info"
+json_logs = false

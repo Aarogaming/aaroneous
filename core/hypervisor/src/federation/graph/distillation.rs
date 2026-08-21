@@ -1,8 +1,8 @@
-use std::io::Write;
-use serde::{Deserialize, Serialize};
-use super::task_spec::{SovereignTaskSpec, sovereign_task_specs, spec_for};
 #[allow(unused_imports)]
 use super::analyzer::{GGUFAnalyzer, ModelAnalysis};
+use super::task_spec::{SovereignTaskSpec, sovereign_task_specs, spec_for};
+use serde::{Deserialize, Serialize};
+use std::io::Write;
 
 // ── Training data generation ──────────────────────────────────────────────────
 
@@ -47,8 +47,10 @@ pub async fn generate_training_examples(
     let spec = spec_for(sovereign_name)
         .ok_or_else(|| anyhow::anyhow!("No task spec found for sovereign '{}'", sovereign_name))?;
 
-    let output_path = training_data_dir
-        .join(format!("{}-training.jsonl", spec.sovereign_name.to_lowercase()));
+    let output_path = training_data_dir.join(format!(
+        "{}-training.jsonl",
+        spec.sovereign_name.to_lowercase()
+    ));
 
     std::fs::create_dir_all(training_data_dir)
         .context("Failed to create training data directory")?;
@@ -56,6 +58,7 @@ pub async fn generate_training_examples(
     // Open in append mode — accumulate across runs
     let mut file = std::fs::OpenOptions::new()
         .create(true)
+        .truncate(false)
         .append(true)
         .open(&output_path)
         .context("Failed to open training data file")?;
@@ -96,14 +99,13 @@ pub async fn generate_training_examples(
             // knows what format to expect.  We do NOT use the generation_prompt_template
             // directly because it may contain domain-specific placeholders (e.g.
             // {{BIOMETRICS}}) that don't map to generic substitution logic.
-            let user_prompt = format!(
-                "{}\n\nInput: {}",
-                capability.description,
-                synthetic_intent,
-            );
+            let user_prompt = format!("{}\n\nInput: {}", capability.description, synthetic_intent,);
 
             // Call the foundation model
-            let response = match llm.generate_domain_response(&system_prompt, &user_prompt, &spec.domain_key()).await {
+            let response = match llm
+                .generate_domain_response(&system_prompt, &user_prompt, &spec.domain_key())
+                .await
+            {
                 Ok(r) => r,
                 Err(e) => {
                     let msg = format!("cap={} idx={}: {}", capability.id, intent_idx, e);
@@ -119,10 +121,19 @@ pub async fn generate_training_examples(
             }
 
             // Quality score: 1.0 if response contains JSON, 0.6 otherwise
-            let quality_score = if response.contains('{') || response.contains('[') { 0.9 } else { 0.6 };
+            let quality_score = if response.contains('{') || response.contains('[') {
+                0.9
+            } else {
+                0.6
+            };
 
             let example = TrainingExample {
-                id: format!("{}-{}-{}", spec.sovereign_name.to_lowercase(), capability.id, intent_idx),
+                id: format!(
+                    "{}-{}-{}",
+                    spec.sovereign_name.to_lowercase(),
+                    capability.id,
+                    intent_idx
+                ),
                 sovereign: spec.sovereign_name.clone(),
                 capability_id: capability.id.clone(),
                 instruction: user_prompt,
@@ -159,7 +170,9 @@ pub async fn generate_training_examples(
 /// unambiguous inputs, not template markers like `{{BIOMETRICS}}`.
 fn synthetic_intents_for(spec: &SovereignTaskSpec, capability_id: &str, count: u32) -> Vec<String> {
     // Start with the capability's own example input if available
-    let mut intents: Vec<String> = spec.capabilities.iter()
+    let mut intents: Vec<String> = spec
+        .capabilities
+        .iter()
         .find(|c| c.id == capability_id)
         .and_then(|c| c.example.as_ref().map(|(input, _)| vec![input.clone()]))
         .unwrap_or_default();
@@ -328,9 +341,7 @@ impl TrainingExample {
     pub fn to_chatml(&self) -> String {
         format!(
             "<|im_start|>system\n{}<|im_end|>\n<|im_start|>user\n{}<|im_end|>\n<|im_start|>assistant\n{}<|im_end|>",
-            self.system_prompt,
-            self.instruction,
-            self.response,
+            self.system_prompt, self.instruction, self.response,
         )
     }
 }
@@ -350,10 +361,10 @@ pub struct LoraTrainingSpec {
     pub merged_gguf_output: String,
 
     // LoRA hyperparameters
-    pub lora_rank: u32,        // r: typically 8-64. Higher = more capacity, more VRAM
-    pub lora_alpha: u32,       // α: typically = rank. Scaling factor.
-    pub lora_dropout: f32,     // regularization
-    pub target_modules: Vec<String>,  // which weight matrices to adapt
+    pub lora_rank: u32,    // r: typically 8-64. Higher = more capacity, more VRAM
+    pub lora_alpha: u32,   // α: typically = rank. Scaling factor.
+    pub lora_dropout: f32, // regularization
+    pub target_modules: Vec<String>, // which weight matrices to adapt
 
     // Training hyperparameters
     pub learning_rate: f64,
@@ -365,7 +376,7 @@ pub struct LoraTrainingSpec {
 
     // Data
     pub training_data_path: String,
-    pub data_format: String,   // "alpaca", "chatml", "sharegpt"
+    pub data_format: String, // "alpaca", "chatml", "sharegpt"
 
     // Metadata
     pub estimated_training_hours: f32,
@@ -382,22 +393,34 @@ impl LoraTrainingSpec {
         training_data_dir: &std::path::Path,
     ) -> Self {
         let base_path = models_dir
-            .join(format!("{}-qwen2.5-7b.gguf", spec.sovereign_name.to_lowercase()))
+            .join(format!(
+                "{}-qwen2.5-7b.gguf",
+                spec.sovereign_name.to_lowercase()
+            ))
             .to_string_lossy()
             .to_string();
 
         let adapter_path = models_dir
-            .join(format!("{}-lora-adapter.bin", spec.sovereign_name.to_lowercase()))
+            .join(format!(
+                "{}-lora-adapter.bin",
+                spec.sovereign_name.to_lowercase()
+            ))
             .to_string_lossy()
             .to_string();
 
         let merged_path = models_dir
-            .join(format!("{}-distilled.gguf", spec.sovereign_name.to_lowercase()))
+            .join(format!(
+                "{}-distilled.gguf",
+                spec.sovereign_name.to_lowercase()
+            ))
             .to_string_lossy()
             .to_string();
 
         let data_path = training_data_dir
-            .join(format!("{}-training.jsonl", spec.sovereign_name.to_lowercase()))
+            .join(format!(
+                "{}-training.jsonl",
+                spec.sovereign_name.to_lowercase()
+            ))
             .to_string_lossy()
             .to_string();
 
@@ -414,12 +437,13 @@ impl LoraTrainingSpec {
         let params_m = spec.target_tier.target_params() as f32;
         // Rough estimate: 1M params × 1K examples × 1 epoch ≈ 1 minute on RTX 5070 Ti
         let estimated_hours = (params_m * examples as f32 / 1_000_000.0 / 60.0)
-            * spec.training_data_spec.min_examples as f32 / 1000.0;
+            * spec.training_data_spec.min_examples as f32
+            / 1000.0;
 
         // VRAM: base model + LoRA gradients + optimizer states
         let base_vram_gb = spec.target_tier.vram_mb() as f32 / 1024.0;
-        let lora_overhead_gb = (lora_rank as f32 * 2.0) / 1024.0;  // approximate
-        let estimated_vram_gb = base_vram_gb + lora_overhead_gb + 2.0;  // +2GB buffer
+        let lora_overhead_gb = (lora_rank as f32 * 2.0) / 1024.0; // approximate
+        let estimated_vram_gb = base_vram_gb + lora_overhead_gb + 2.0; // +2GB buffer
 
         Self {
             sovereign_name: spec.sovereign_name.clone(),
@@ -430,8 +454,13 @@ impl LoraTrainingSpec {
             lora_alpha: lora_rank,
             lora_dropout: 0.05,
             target_modules: vec![
-                "q_proj".into(), "k_proj".into(), "v_proj".into(),
-                "o_proj".into(), "gate_proj".into(), "up_proj".into(), "down_proj".into(),
+                "q_proj".into(),
+                "k_proj".into(),
+                "v_proj".into(),
+                "o_proj".into(),
+                "gate_proj".into(),
+                "up_proj".into(),
+                "down_proj".into(),
             ],
             learning_rate: 2e-4,
             num_epochs: 3,
@@ -448,14 +477,18 @@ impl LoraTrainingSpec {
                 spec.sovereign_name,
                 spec.crystallization_blocks.len(),
                 spec.training_data_spec.min_examples,
-                spec.distillation_notes.chars().take(120).collect::<String>(),
+                spec.distillation_notes
+                    .chars()
+                    .take(120)
+                    .collect::<String>(),
             ),
         }
     }
 
     /// Output as a Python script for unsloth (fastest LoRA training library).
     pub fn to_unsloth_script(&self) -> String {
-        format!(r#"#!/usr/bin/env python3
+        format!(
+            r#"#!/usr/bin/env python3
 """
 LoRA fine-tuning for {sovereign} using Unsloth.
 Generated by Aaroneous Distillation Pipeline.
@@ -479,7 +512,7 @@ model, tokenizer = FastLanguageModel.from_pretrained(
 model = FastLanguageModel.get_peft_model(
     model,
     r={rank},
-    target_modules={target_modules},
+    target_modules={target_modules:?},
     lora_alpha={alpha},
     lora_dropout={dropout},
     bias="none",
@@ -531,7 +564,7 @@ print(f"LoRA adapter saved: {adapter_output}")
             base_model = self.base_model_path,
             max_seq_len = self.max_seq_length,
             rank = self.lora_rank,
-            target_modules = format!("{:?}", self.target_modules),
+            target_modules = &self.target_modules,
             alpha = self.lora_alpha,
             dropout = self.lora_dropout,
             data_path = self.training_data_path,
@@ -556,10 +589,13 @@ pub fn generate_distillation_plan(
 ) -> Vec<LoraTrainingSpec> {
     let specs = sovereign_task_specs();
 
-    specs.iter()
+    specs
+        .iter()
         .filter(|s| {
-            only.map_or(true, |names| {
-                names.iter().any(|n| n.to_lowercase() == s.sovereign_name.to_lowercase())
+            only.is_none_or(|names| {
+                names
+                    .iter()
+                    .any(|n| n.to_lowercase() == s.sovereign_name.to_lowercase())
             })
         })
         .map(|spec| {
@@ -573,8 +609,10 @@ pub fn generate_distillation_plan(
 /// Print the full distillation plan as a summary table.
 pub fn print_distillation_plan(models_dir: &std::path::Path, training_data_dir: &std::path::Path) {
     let plans = generate_distillation_plan(models_dir, training_data_dir, None);
-    println!("{:<13} {:>5}  {:>5}  {:>6}  {:>8}  {:>5}",
-        "Sovereign", "Rank", "VRAM", "Hours", "Examples", "Status");
+    println!(
+        "{:<13} {:>5}  {:>5}  {:>6}  {:>8}  {:>5}",
+        "Sovereign", "Rank", "VRAM", "Hours", "Examples", "Status"
+    );
     println!("{}", "-".repeat(60));
 
     for p in &plans {
@@ -582,18 +620,28 @@ pub fn print_distillation_plan(models_dir: &std::path::Path, training_data_dir: 
         let data_exists = std::path::Path::new(&p.training_data_path).exists();
         let merged_exists = std::path::Path::new(&p.merged_gguf_output).exists();
 
-        let status = if merged_exists { "done" }
-            else if data_exists { "ready" }
-            else if model_exists { "no-data" }
-            else { "no-model" };
+        let status = if merged_exists {
+            "done"
+        } else if data_exists {
+            "ready"
+        } else if model_exists {
+            "no-data"
+        } else {
+            "no-model"
+        };
 
         let spec = spec_for(&p.sovereign_name);
         let examples = spec.map(|s| s.training_data_spec.min_examples).unwrap_or(0);
 
-        println!("{:<13} {:>5}  {:>4.1}G  {:>5.1}h  {:>8}  {:>7}",
-            p.sovereign_name, p.lora_rank,
-            p.estimated_vram_gb, p.estimated_training_hours,
-            examples, status);
+        println!(
+            "{:<13} {:>5}  {:>4.1}G  {:>5.1}h  {:>8}  {:>7}",
+            p.sovereign_name,
+            p.lora_rank,
+            p.estimated_vram_gb,
+            p.estimated_training_hours,
+            examples,
+            status
+        );
     }
     println!();
     println!("To generate training data: POST /distillation/generate-training-data");

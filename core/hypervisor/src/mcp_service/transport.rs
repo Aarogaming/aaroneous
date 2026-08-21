@@ -19,7 +19,7 @@ pub trait Transport: Send + Sync {
 
 /// HTTP/REST transport
 pub struct HttpTransport {
-    addr: SocketAddr,
+    _addr: SocketAddr,
     running: std::sync::atomic::AtomicBool,
 }
 
@@ -27,7 +27,7 @@ impl HttpTransport {
     /// Create new HTTP transport
     pub fn new(addr: SocketAddr) -> Self {
         Self {
-            addr,
+            _addr: addr,
             running: std::sync::atomic::AtomicBool::new(false),
         }
     }
@@ -58,7 +58,7 @@ impl Transport for HttpTransport {
 
 /// WebSocket transport
 pub struct WebSocketTransport {
-    port: u16,
+    _port: u16,
     running: std::sync::atomic::AtomicBool,
 }
 
@@ -66,7 +66,7 @@ impl WebSocketTransport {
     /// Create new WebSocket transport
     pub fn new(port: u16) -> Self {
         Self {
-            port,
+            _port: port,
             running: std::sync::atomic::AtomicBool::new(false),
         }
     }
@@ -97,7 +97,7 @@ impl Transport for WebSocketTransport {
 
 /// NATS transport
 pub struct NatsTransport {
-    url: String,
+    _url: String,
     running: std::sync::atomic::AtomicBool,
 }
 
@@ -105,7 +105,7 @@ impl NatsTransport {
     /// Create new NATS transport
     pub fn new(url: impl Into<String>) -> Self {
         Self {
-            url: url.into(),
+            _url: url.into(),
             running: std::sync::atomic::AtomicBool::new(false),
         }
     }
@@ -136,7 +136,7 @@ impl Transport for NatsTransport {
 
 /// MCP Protocol transport
 pub struct McpTransport {
-    mode: McpMode,
+    _mode: McpMode,
     running: std::sync::atomic::AtomicBool,
 }
 
@@ -155,7 +155,7 @@ impl McpTransport {
     /// Create new MCP transport
     pub fn new(mode: McpMode) -> Self {
         Self {
-            mode,
+            _mode: mode,
             running: std::sync::atomic::AtomicBool::new(false),
         }
     }
@@ -209,11 +209,11 @@ mod tests {
     async fn test_http_transport() {
         let mut transport = HttpTransport::new(([127, 0, 0, 1], 8080).into());
         assert!(!transport.is_running());
-        
+
         transport.start().await.unwrap();
         assert!(transport.is_running());
         assert_eq!(transport.transport_type(), "http");
-        
+
         transport.stop().await.unwrap();
         assert!(!transport.is_running());
     }

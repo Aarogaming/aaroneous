@@ -7,10 +7,13 @@
 // be shared between the autonomic loop, the action executor, and the
 // HTTP layer.
 
-use std::sync::atomic::{AtomicU64, AtomicU8, Ordering};
+use parking_lot::Mutex;
+use std::collections::VecDeque;
 use std::sync::Arc;
-use std::time::{Duration, Instant};
-use tracing::{info, warn};
+use std::sync::atomic::{AtomicU8, AtomicU64, Ordering};
+use std::time::Duration;
+use tokio::sync::Semaphore;
+use tracing::warn;
 
 /// State of a circuit breaker. Encoded as a single byte for atomic
 /// transitions; the human-readable enum is reconstructed on read.
@@ -77,6 +80,16 @@ pub struct CircuitBreakerConfig {
     pub open_duration: Duration,
     /// Human-readable name used in log lines.
     pub name: String,
+    /// Sliding window size used to compute failure rate.
+    /// When enough calls land inside the window and the
+    /// failure ratio exceeds `failure_rate_threshold`, the
+    /// breaker trips even if failures are not consecutive.
+    pub failure_rate_window: Duration,
+    /// Failure ratio threshold over the sliding window.
+    pub failure_rate_threshold: f64,
+    /// Minimum number of calls inside the window before the
+    /// rate-based trip logic can trigger.
+    pub failure_rate_min_calls: u32,
 }
 
 impl Default for CircuitBreakerConfig {
@@ -86,6 +99,9 @@ impl Default for CircuitBreakerConfig {
             success_threshold: 2,
             open_duration: Duration::from_secs(30),
             name: "default".to_string(),
+            failure_rate_window: Duration::from_secs(30),
+            failure_rate_threshold: 0.5,
+            failure_rate_min_calls: 10,
         }
     }
 }
@@ -123,6 +139,7 @@ pub struct CircuitBreaker {
     calls_rejected_total: AtomicU64,
     trips_total: AtomicU64,
     recoveries_total: AtomicU64,
+    recent_outcomes: Mutex<VecDeque<(u64, bool)>>,
 }
 
 impl CircuitBreaker {
@@ -137,6 +154,7 @@ impl CircuitBreaker {
             calls_rejected_total: AtomicU64::new(0),
             trips_total: AtomicU64::new(0),
             recoveries_total: AtomicU64::new(0),
+            recent_outcomes: Mutex::new(VecDeque::new()),
         }
     }
 
@@ -211,6 +229,7 @@ impl CircuitBreaker {
     }
 
     fn on_success(&self) {
+        self.record_outcome(true);
         // Any success closes a HalfOpen breaker immediately so the system
         // is not gated on `success_threshold` consecutive successes during
         // steady-state recovery.
@@ -237,6 +256,7 @@ impl CircuitBreaker {
 
     fn on_failure(&self) {
         let prev = self.consecutive_failures.fetch_add(1, Ordering::SeqCst);
+        self.record_outcome(false);
         // If we were HalfOpen and just failed, trip the breaker back to Open
         // and reset the cool-down clock. The probe failed; back off again.
         let was_half_open = self
@@ -259,9 +279,7 @@ impl CircuitBreaker {
             );
             return;
         }
-        if prev + 1 >= self.config.failure_threshold as u64
-            && self.config.failure_threshold > 0
-        {
+        if prev + 1 >= self.config.failure_threshold as u64 && self.config.failure_threshold > 0 {
             let tripped = self
                 .state
                 .compare_exchange(
@@ -280,6 +298,46 @@ impl CircuitBreaker {
                     breaker = %self.config.name,
                     failures = prev + 1,
                     "circuit breaker tripped"
+                );
+            }
+        }
+    }
+
+    fn record_outcome(&self, success: bool) {
+        let now = Self::now_ms();
+        let mut window = self.recent_outcomes.lock();
+        window.push_back((now, success));
+        let cutoff = now.saturating_sub(self.config.failure_rate_window.as_millis() as u64);
+        while let Some((ts, _)) = window.front().copied() {
+            if ts >= cutoff {
+                break;
+            }
+            window.pop_front();
+        }
+        let total = window.len() as u32;
+        if total < self.config.failure_rate_min_calls || self.config.failure_rate_threshold <= 0.0 {
+            return;
+        }
+        let failures = window.iter().filter(|(_, ok)| !*ok).count() as f64;
+        let failure_rate = failures / total as f64;
+        if failure_rate >= self.config.failure_rate_threshold {
+            let tripped = self
+                .state
+                .compare_exchange(
+                    CircuitState::Closed.to_u8(),
+                    CircuitState::Open.to_u8(),
+                    Ordering::SeqCst,
+                    Ordering::SeqCst,
+                )
+                .is_ok();
+            if tripped {
+                self.trips_total.fetch_add(1, Ordering::SeqCst);
+                self.opened_at_ms.store(now, Ordering::SeqCst);
+                warn!(
+                    breaker = %self.config.name,
+                    failure_rate = failure_rate,
+                    calls_in_window = total,
+                    "circuit breaker tripped by sliding window"
                 );
             }
         }
@@ -380,14 +438,20 @@ impl RetryPolicy {
             // Simple deterministic jitter: hash attempt number into a 0-30%
             // range so two callers do not retry in lockstep. The hash uses
             // a basic LCG, no rng dependency.
-            let lcg = (attempt as u64)
-                .wrapping_mul(2_654_435_761)
-                .wrapping_add(1);
+            let lcg = (attempt as u64).wrapping_mul(2_654_435_761).wrapping_add(1);
             let factor = 1.0 + ((lcg % 30) as f64) / 100.0;
             delay = Duration::from_nanos(((delay.as_nanos() as f64) * factor) as u64);
         }
         delay
     }
+}
+
+/// Classification used by retry helpers to distinguish transient
+/// failures from permanent ones. Permanent failures fail fast.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ErrorKind {
+    Retryable,
+    Permanent,
 }
 
 /// Error returned by `with_retry` after exhausting the configured number
@@ -414,10 +478,25 @@ impl std::error::Error for RetryError {}
 /// `policy.delay_for`. The closure is called up to `policy.max_attempts`
 /// times. The first successful result is returned; the last error is
 /// wrapped in a `RetryError` if all attempts fail.
-pub fn with_retry<F, T, E>(policy: &RetryPolicy, mut f: F) -> Result<T, RetryError>
+pub fn with_retry<F, T, E>(policy: &RetryPolicy, f: F) -> Result<T, RetryError>
 where
     F: FnMut() -> Result<T, E>,
     E: std::fmt::Display,
+{
+    with_retry_classified(policy, f, |_| ErrorKind::Retryable)
+}
+
+/// Retry helper with explicit error classification. Permanent errors fail
+/// fast; retryable errors follow the normal backoff schedule.
+pub fn with_retry_classified<F, T, E, C>(
+    policy: &RetryPolicy,
+    mut f: F,
+    mut classify: C,
+) -> Result<T, RetryError>
+where
+    F: FnMut() -> Result<T, E>,
+    E: std::fmt::Display,
+    C: FnMut(&E) -> ErrorKind,
 {
     let mut last_err = String::new();
     for attempt in 0..policy.max_attempts {
@@ -425,6 +504,9 @@ where
             Ok(value) => return Ok(value),
             Err(e) => {
                 last_err = e.to_string();
+                if matches!(classify(&e), ErrorKind::Permanent) {
+                    break;
+                }
                 if attempt + 1 < policy.max_attempts {
                     std::thread::sleep(policy.delay_for(attempt));
                 }
@@ -524,14 +606,26 @@ pub async fn with_timeout<T>(
 /// future; the loop awaits them sequentially, sleeping
 /// `policy.delay_for(attempt)` between failed attempts using
 /// `tokio::time::sleep` (does not block the executor).
-pub async fn with_retry_async<F, Fut, T, E>(
+pub async fn with_retry_async<F, Fut, T, E>(policy: &RetryPolicy, f: F) -> Result<T, RetryError>
+where
+    F: FnMut() -> Fut,
+    Fut: std::future::Future<Output = Result<T, E>>,
+    E: std::fmt::Display,
+{
+    with_retry_async_classified(policy, f, |_| ErrorKind::Retryable).await
+}
+
+/// Async retry helper with explicit error classification.
+pub async fn with_retry_async_classified<F, Fut, T, E, C>(
     policy: &RetryPolicy,
     mut f: F,
+    mut classify: C,
 ) -> Result<T, RetryError>
 where
     F: FnMut() -> Fut,
     Fut: std::future::Future<Output = Result<T, E>>,
     E: std::fmt::Display,
+    C: FnMut(&E) -> ErrorKind,
 {
     let mut last_err = String::new();
     for attempt in 0..policy.max_attempts {
@@ -539,6 +633,9 @@ where
             Ok(value) => return Ok(value),
             Err(e) => {
                 last_err = e.to_string();
+                if matches!(classify(&e), ErrorKind::Permanent) {
+                    break;
+                }
                 if attempt + 1 < policy.max_attempts {
                     tokio::time::sleep(policy.delay_for(attempt)).await;
                 }
@@ -628,6 +725,77 @@ where
 /// without moving the underlying state.
 pub type SharedCircuitBreaker = Arc<CircuitBreaker>;
 
+/// Error returned when a bulkhead is saturated.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum BulkheadError {
+    Saturated,
+}
+
+impl std::fmt::Display for BulkheadError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("bulkhead saturated")
+    }
+}
+
+impl std::error::Error for BulkheadError {}
+
+/// Configuration for a semaphore-backed bulkhead.
+#[derive(Debug, Clone)]
+pub struct BulkheadConfig {
+    pub permits: usize,
+    pub name: String,
+}
+
+impl Default for BulkheadConfig {
+    fn default() -> Self {
+        Self {
+            permits: 8,
+            name: "default".to_string(),
+        }
+    }
+}
+
+/// Semaphore-backed concurrency limiter.
+#[derive(Clone)]
+pub struct Bulkhead {
+    semaphore: Arc<Semaphore>,
+    config: BulkheadConfig,
+}
+
+impl Bulkhead {
+    pub fn new(config: BulkheadConfig) -> Self {
+        Self {
+            semaphore: Arc::new(Semaphore::new(config.permits)),
+            config,
+        }
+    }
+
+    pub fn try_acquire(&self) -> Result<tokio::sync::OwnedSemaphorePermit, BulkheadError> {
+        self.semaphore
+            .clone()
+            .try_acquire_owned()
+            .map_err(|_| BulkheadError::Saturated)
+    }
+
+    pub async fn execute_async<F, Fut, T>(&self, f: F) -> Result<T, BulkheadError>
+    where
+        F: FnOnce() -> Fut,
+        Fut: std::future::Future<Output = T>,
+    {
+        let _permit = self
+            .semaphore
+            .clone()
+            .acquire_owned()
+            .await
+            .map_err(|_| BulkheadError::Saturated)?;
+        Ok(f().await)
+    }
+
+    pub fn name(&self) -> &str {
+        &self.config.name
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -654,8 +822,7 @@ mod tests {
         }
         assert_eq!(cb.state(), CircuitState::Open);
         // Subsequent calls fail fast
-        let result: Result<i32, CircuitBreakerError> =
-            cb.call(|| -> Result<i32, &str> { Ok(1) });
+        let result: Result<i32, CircuitBreakerError> = cb.call(|| -> Result<i32, &str> { Ok(1) });
         assert_eq!(result.unwrap_err(), CircuitBreakerError::Open);
     }
 
@@ -668,14 +835,12 @@ mod tests {
             }
             .with_failure_threshold(1),
         );
-        let _: Result<i32, CircuitBreakerError> =
-            cb.call(|| -> Result<i32, &str> { Err("x") });
+        let _: Result<i32, CircuitBreakerError> = cb.call(|| -> Result<i32, &str> { Err("x") });
         assert_eq!(cb.state(), CircuitState::Open);
         std::thread::sleep(Duration::from_millis(60));
         assert_eq!(cb.state(), CircuitState::HalfOpen);
         // Successful call closes the breaker
-        let result: Result<i32, CircuitBreakerError> =
-            cb.call(|| -> Result<i32, &str> { Ok(99) });
+        let result: Result<i32, CircuitBreakerError> = cb.call(|| -> Result<i32, &str> { Ok(99) });
         assert_eq!(result.unwrap(), 99);
         assert_eq!(cb.state(), CircuitState::Closed);
     }
@@ -689,13 +854,29 @@ mod tests {
             }
             .with_failure_threshold(1),
         );
-        let _: Result<i32, CircuitBreakerError> =
-            cb.call(|| -> Result<i32, &str> { Err("a") });
+        let _: Result<i32, CircuitBreakerError> = cb.call(|| -> Result<i32, &str> { Err("a") });
         std::thread::sleep(Duration::from_millis(20));
         assert_eq!(cb.state(), CircuitState::HalfOpen);
         // Probe fails; should reopen
-        let _: Result<i32, CircuitBreakerError> =
-            cb.call(|| -> Result<i32, &str> { Err("b") });
+        let _: Result<i32, CircuitBreakerError> = cb.call(|| -> Result<i32, &str> { Err("b") });
+        assert_eq!(cb.state(), CircuitState::Open);
+    }
+
+    #[test]
+    fn circuit_breaker_trips_on_sliding_failure_rate() {
+        let cb = CircuitBreaker::new(CircuitBreakerConfig {
+            failure_threshold: 100,
+            success_threshold: 1,
+            open_duration: Duration::from_millis(50),
+            name: "window_test".to_string(),
+            failure_rate_window: Duration::from_secs(5),
+            failure_rate_threshold: 0.75,
+            failure_rate_min_calls: 4,
+        });
+        let _ = cb.call(|| -> Result<(), &str> { Err("fail-1") });
+        let _ = cb.call(|| -> Result<(), &str> { Ok(()) });
+        let _ = cb.call(|| -> Result<(), &str> { Err("fail-2") });
+        let _ = cb.call(|| -> Result<(), &str> { Err("fail-3") });
         assert_eq!(cb.state(), CircuitState::Open);
     }
 
@@ -721,11 +902,7 @@ mod tests {
         let counter = AtomicU32::new(0);
         let result: Result<u32, RetryError> = with_retry(&policy, || -> Result<u32, &str> {
             let n = counter.fetch_add(1, Ordering::SeqCst);
-            if n < 2 {
-                Err("not yet")
-            } else {
-                Ok(42)
-            }
+            if n < 2 { Err("not yet") } else { Ok(42) }
         });
         assert_eq!(result.unwrap(), 42);
         assert_eq!(counter.load(Ordering::SeqCst), 3);
@@ -785,8 +962,7 @@ mod tests {
             }
             .with_failure_threshold(1),
         );
-        let _: Result<i32, CircuitBreakerError> =
-            cb.call(|| -> Result<i32, &str> { Err("trip") });
+        let _: Result<i32, CircuitBreakerError> = cb.call(|| -> Result<i32, &str> { Err("trip") });
         let counter = AtomicU32::new(0);
         let result: Result<i32, CircuitBreakerError> = with_circuit_breaker(
             &cb,
@@ -819,15 +995,45 @@ mod tests {
             },
             || -> Result<i32, &str> {
                 let n = counter.fetch_add(1, Ordering::SeqCst);
-                if n < 1 {
-                    Err("retry me")
-                } else {
-                    Ok(99)
-                }
+                if n < 1 { Err("retry me") } else { Ok(99) }
             },
         );
         assert_eq!(result.unwrap(), 99);
         assert_eq!(counter.load(Ordering::SeqCst), 2);
+    }
+
+    #[test]
+    fn retry_classifier_fails_fast_on_permanent_errors() {
+        let policy = RetryPolicy {
+            max_attempts: 5,
+            ..RetryPolicy::default()
+        };
+        let attempts = AtomicU32::new(0);
+        let result = with_retry_classified(
+            &policy,
+            || {
+                attempts.fetch_add(1, Ordering::SeqCst);
+                Err::<(), _>("bad input")
+            },
+            |_| ErrorKind::Permanent,
+        );
+        assert!(result.is_err());
+        assert_eq!(attempts.load(Ordering::SeqCst), 1);
+    }
+
+    #[test]
+    fn bulkhead_denies_when_saturated() {
+        let bulkhead = Bulkhead::new(BulkheadConfig {
+            permits: 1,
+            name: "bulkhead-test".to_string(),
+        });
+        let permit = bulkhead.try_acquire().expect("first permit should succeed");
+        assert!(matches!(
+            bulkhead.try_acquire(),
+            Err(BulkheadError::Saturated)
+        ));
+        drop(permit);
+        assert!(bulkhead.try_acquire().is_ok());
     }
 
     #[test]
@@ -870,19 +1076,22 @@ mod tests {
         let cb = CircuitBreaker::new(CircuitBreakerConfig {
             name: "test".to_string(),
             failure_threshold: 1,
-            open_duration: Duration::from_millis(1),
+            open_duration: Duration::from_millis(100),
             ..CircuitBreakerConfig::default()
         });
         let _ = cb.call(|| -> Result<(), &str> { Err("boom") });
         assert!(matches!(cb.state(), CircuitState::Open));
-        std::thread::sleep(Duration::from_millis(5));
+        std::thread::sleep(Duration::from_millis(150));
         // Next call: breaker is Open but cool-down has
         // elapsed, so state() returns HalfOpen and the call
         // goes through. A success transitions HalfOpen ->
         // Closed and bumps recoveries_total.
         let _ = cb.call(|| -> Result<(), &str> { Ok(()) });
         let c = cb.counters();
-        assert_eq!(c.recoveries_total, 1, "HalfOpen -> Closed should record a recovery");
+        assert_eq!(
+            c.recoveries_total, 1,
+            "HalfOpen -> Closed should record a recovery"
+        );
         assert!(matches!(cb.state(), CircuitState::Closed));
     }
 
@@ -897,14 +1106,12 @@ mod tests {
 
     #[tokio::test]
     async fn with_timeout_returns_elapsed_when_slow() {
-        let result: Result<i32, TimeoutError<i32>> = with_timeout(
-            Duration::from_millis(5),
-            async {
+        let result: Result<i32, TimeoutError<i32>> =
+            with_timeout(Duration::from_millis(5), async {
                 tokio::time::sleep(Duration::from_millis(100)).await;
                 7
-            },
-        )
-        .await;
+            })
+            .await;
         assert!(matches!(result, Err(TimeoutError::Elapsed)));
     }
 
@@ -919,13 +1126,7 @@ mod tests {
         };
         let result = with_retry_async(&policy, || {
             let n = counter.fetch_add(1, Ordering::SeqCst);
-            async move {
-                if n < 2 {
-                    Err("transient")
-                } else {
-                    Ok(99)
-                }
-            }
+            async move { if n < 2 { Err("transient") } else { Ok(99) } }
         })
         .await
         .unwrap();
@@ -942,18 +1143,15 @@ mod tests {
             ..CircuitBreakerConfig::default()
         });
         // One failing future → trip.
-        let _ = cb
-            .call_async(|| async { Err::<(), &str>("boom") })
-            .await;
+        let _ = cb.call_async(|| async { Err::<(), &str>("boom") }).await;
         let c = cb.counters();
         assert_eq!(c.calls_total, 1);
         assert_eq!(c.trips_total, 1);
 
         // Next call short-circuits with Open without
         // polling the future.
-        let rejected: Result<(), CircuitBreakerError> = cb
-            .call_async(|| async { Ok::<(), &str>(()) })
-            .await;
+        let rejected: Result<(), CircuitBreakerError> =
+            cb.call_async(|| async { Ok::<(), &str>(()) }).await;
         assert!(matches!(rejected, Err(CircuitBreakerError::Open)));
         let c = cb.counters();
         assert_eq!(c.calls_total, 2);
@@ -965,13 +1163,13 @@ mod tests {
         let cb = CircuitBreaker::new(CircuitBreakerConfig {
             name: "async_recovery".to_string(),
             failure_threshold: 1,
-            open_duration: Duration::from_millis(5),
+            open_duration: Duration::from_millis(10),
             ..CircuitBreakerConfig::default()
         });
         let counter = AtomicU32::new(0);
         let policy = RetryPolicy {
             max_attempts: 5,
-            initial_delay: Duration::from_millis(1),
+            initial_delay: Duration::from_millis(50),
             jitter: false,
             ..RetryPolicy::default()
         };
@@ -980,13 +1178,7 @@ mod tests {
         // and the next call is allowed through and succeeds.
         let result = with_circuit_breaker_async(&cb, &policy, || {
             let n = counter.fetch_add(1, Ordering::SeqCst);
-            async move {
-                if n == 0 {
-                    Err("first fails")
-                } else {
-                    Ok(42)
-                }
-            }
+            async move { if n == 0 { Err("first fails") } else { Ok(42) } }
         })
         .await
         .unwrap();
@@ -1018,11 +1210,7 @@ mod tests {
                 let n = attempts_for_server.fetch_add(1, AOrd::SeqCst);
                 let mut buf = [0u8; 1024];
                 let _ = s.read(&mut buf).await;
-                let body = if n == 0 {
-                    "transient"
-                } else {
-                    "ok"
-                };
+                let body = if n == 0 { "transient" } else { "ok" };
                 let status = if n == 0 { "503" } else { "200" };
                 let resp = format!(
                     "HTTP/1.1 {status} {}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",

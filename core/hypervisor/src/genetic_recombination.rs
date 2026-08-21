@@ -25,9 +25,15 @@ impl GeneticRecombinator {
         // 3. Permission Crossover (Union of safety, Intersection of power)
         // We favor the more restrictive permissions for the hybrid to ensure safety.
         let permissions = HoxPermissions {
-            max_sovereignty_tier: parent_a.permissions.max_sovereignty_tier.min(parent_b.permissions.max_sovereignty_tier),
+            max_sovereignty_tier: parent_a
+                .permissions
+                .max_sovereignty_tier
+                .min(parent_b.permissions.max_sovereignty_tier),
             allow_network: parent_a.permissions.allow_network && parent_b.permissions.allow_network,
-            whitelisted_domains: Self::merge_whitelists(&parent_a.permissions.whitelisted_domains, &parent_b.permissions.whitelisted_domains),
+            whitelisted_domains: Self::merge_whitelists(
+                &parent_a.permissions.whitelisted_domains,
+                &parent_b.permissions.whitelisted_domains,
+            ),
             requires_hitl: parent_a.permissions.requires_hitl || parent_b.permissions.requires_hitl,
         };
 

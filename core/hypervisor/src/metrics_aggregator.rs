@@ -1,9 +1,9 @@
 // Metrics Aggregation and Performance Monitoring
 // Real-time collection, aggregation, and performance tracking
 
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
-use serde::{Deserialize, Serialize};
 use std::time::Instant;
 
 /// A single metric data point
@@ -44,7 +44,7 @@ pub struct PerformanceCounter {
 pub struct MetricsAggregator {
     pub metrics: Arc<Mutex<HashMap<String, Vec<MetricPoint>>>>,
     pub counters: Arc<Mutex<HashMap<String, PerformanceCounter>>>,
-    pub sampling_rate: f32,  // 0.0 to 1.0
+    pub sampling_rate: f32, // 0.0 to 1.0
     pub max_points_per_metric: usize,
     pub retention_seconds: u64,
     pub start_time: Instant,
@@ -53,9 +53,12 @@ pub struct MetricsAggregator {
 impl MetricsAggregator {
     /// Create new metrics aggregator
     pub fn new(sampling_rate: f32, max_points: usize, retention_sec: u64) -> Self {
-        println!("[MetricsAggregator] Initialized (sampling: {:.1}%, retention: {}s)",
-            sampling_rate * 100.0, retention_sec);
-        
+        println!(
+            "[MetricsAggregator] Initialized (sampling: {:.1}%, retention: {}s)",
+            sampling_rate * 100.0,
+            retention_sec
+        );
+
         Self {
             metrics: Arc::new(Mutex::new(HashMap::new())),
             counters: Arc::new(Mutex::new(HashMap::new())),
@@ -85,23 +88,22 @@ impl MetricsAggregator {
         };
 
         let mut metrics = self.metrics.lock().unwrap();
-        metrics.entry(name.to_string())
-            .or_insert_with(Vec::new)
-            .push(point);
+        metrics.entry(name.to_string()).or_default().push(point);
 
         // Enforce max points
-        if let Some(points) = metrics.get_mut(name) {
-            if points.len() > self.max_points_per_metric {
-                points.remove(0);
-            }
+        if let Some(points) = metrics.get_mut(name)
+            && points.len() > self.max_points_per_metric
+        {
+            points.remove(0);
         }
     }
 
     /// Record operation timing
     pub fn record_operation(&self, name: &str, time_us: u64) {
         let mut counters = self.counters.lock().unwrap();
-        
-        counters.entry(name.to_string())
+
+        counters
+            .entry(name.to_string())
             .and_modify(|c| {
                 c.call_count += 1;
                 c.total_time_us += time_us;
@@ -124,7 +126,7 @@ impl MetricsAggregator {
     /// Get aggregated stats for a metric
     pub fn get_metric_stats(&self, name: &str) -> Option<MetricStats> {
         let metrics = self.metrics.lock().unwrap();
-        
+
         if let Some(points) = metrics.get(name) {
             if points.is_empty() {
                 return None;
@@ -175,7 +177,8 @@ impl MetricsAggregator {
         let metrics = self.metrics.lock().unwrap();
         let counters = self.counters.lock().unwrap();
 
-        let metric_stats: Vec<_> = metrics.keys()
+        let metric_stats: Vec<_> = metrics
+            .keys()
             .filter_map(|name| self.get_metric_stats(name))
             .collect();
 
@@ -201,10 +204,10 @@ impl MetricsAggregator {
     pub fn reset(&self) {
         let mut metrics = self.metrics.lock().unwrap();
         let mut counters = self.counters.lock().unwrap();
-        
+
         metrics.clear();
         counters.clear();
-        
+
         println!("[MetricsAggregator] Metrics reset");
     }
 
@@ -218,7 +221,7 @@ impl MetricsAggregator {
         let cutoff = now - self.retention_seconds;
 
         let mut metrics = self.metrics.lock().unwrap();
-        
+
         for points in metrics.values_mut() {
             points.retain(|p| p.timestamp > cutoff);
         }
@@ -230,25 +233,23 @@ impl MetricsAggregator {
     /// Get system health summary
     pub fn get_health_summary(&self) -> SystemHealthSummary {
         let counters = self.counters.lock().unwrap();
-        
+
         let counters_list: Vec<_> = counters.values().collect();
-        
+
         if counters_list.is_empty() {
             return SystemHealthSummary::default();
         }
 
-        let avg_operation_time: u64 = counters_list.iter()
-            .map(|c| c.average_time_us)
-            .sum::<u64>() / counters_list.len() as u64;
+        let avg_operation_time: u64 = counters_list.iter().map(|c| c.average_time_us).sum::<u64>()
+            / counters_list.len() as u64;
 
-        let max_operation_time = counters_list.iter()
+        let max_operation_time = counters_list
+            .iter()
             .map(|c| c.max_time_us)
             .max()
             .unwrap_or(0);
 
-        let total_operations: u64 = counters_list.iter()
-            .map(|c| c.call_count)
-            .sum();
+        let total_operations: u64 = counters_list.iter().map(|c| c.call_count).sum();
 
         SystemHealthSummary {
             total_operations,
@@ -340,9 +341,9 @@ mod tests {
         let agg = MetricsAggregator::new(1.0, 1000, 3600);
         let mut tags = HashMap::new();
         tags.insert("region".to_string(), "us-east".to_string());
-        
+
         agg.record_metric("latency_ms", 45.3, tags);
-        
+
         let stats = agg.get_metric_stats("latency_ms");
         assert!(stats.is_some());
         assert_eq!(stats.unwrap().count, 1);
@@ -351,11 +352,11 @@ mod tests {
     #[test]
     fn test_record_operation() {
         let agg = MetricsAggregator::new(1.0, 1000, 3600);
-        
+
         agg.record_operation("process_task", 1500);
         agg.record_operation("process_task", 2000);
         agg.record_operation("process_task", 1000);
-        
+
         let counter = agg.get_counter("process_task").unwrap();
         assert_eq!(counter.call_count, 3);
         assert_eq!(counter.min_time_us, 1000);
@@ -365,10 +366,10 @@ mod tests {
     #[test]
     fn test_health_summary() {
         let agg = MetricsAggregator::new(1.0, 1000, 3600);
-        
+
         agg.record_operation("op1", 500);
         agg.record_operation("op2", 800);
-        
+
         let health = agg.get_health_summary();
         assert!(health.total_operations > 0);
         assert_eq!(health.health_status, HealthStatus::Excellent);
@@ -376,12 +377,12 @@ mod tests {
 
     #[test]
     fn test_cleanup_old_data() {
-        let agg = MetricsAggregator::new(1.0, 1000, 0);  // 0 second retention
+        let agg = MetricsAggregator::new(1.0, 1000, 0); // 0 second retention
         let mut tags = HashMap::new();
-        
+
         agg.record_metric("metric1", 10.0, tags);
         agg.cleanup_old_data();
-        
+
         // Old data should be cleaned
         let metrics = agg.metrics.lock().unwrap();
         assert!(metrics.is_empty() || metrics.get("metric1").unwrap().is_empty());
@@ -390,13 +391,12 @@ mod tests {
     #[test]
     fn test_performance_report() {
         let agg = MetricsAggregator::new(1.0, 1000, 3600);
-        
+
         agg.record_operation("task1", 1000);
         agg.record_operation("task2", 2000);
-        
+
         let report = agg.generate_report();
         assert!(report.counter_count > 0);
         assert!(report.uptime_seconds >= 0);
     }
 }
-

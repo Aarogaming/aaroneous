@@ -1,5 +1,5 @@
 /// Archivist Specialist: Memory Persistence & DNA Bank
-/// 
+///
 /// Archivist is the hive's long-term memory. It:
 /// - Persists Intent, decisions, and feedback to DNA Bank (RocksDB)
 /// - Analyzes event logs for patterns (skill usage, time patterns)
@@ -7,11 +7,10 @@
 /// - Proposes background consolidation during deep idle
 /// - Backs up/transfers DNA across devices
 /// - Compresses cold data (move old records to archive tier)
-/// 
+///
 /// Size: 500MB GGUF model (pattern extraction)
 /// Portable: 50MB core + variable DNA Bank size
 /// Domain: Memory / Pattern Learning
-
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -20,9 +19,9 @@ use std::sync::Arc;
 use parking_lot::Mutex;
 
 use crate::federation::specialist::{
-    Specialist, SpecialistId, SpecialistContext, SpecialistError, ProposedAction,
-    Decision, DelegateRequest, DelegateResponse, Conflict, NegotiationResult,
-    ResourceRequest, ExecutionResult, ExecutionStatus, SpecialistCapability,
+    Conflict, Decision, DelegateRequest, DelegateResponse, ExecutionResult, ExecutionStatus,
+    NegotiationResult, ProposedAction, ResourceRequest, Specialist, SpecialistCapability,
+    SpecialistContext, SpecialistError, SpecialistId,
 };
 
 /// Learning data for Archivist specialist
@@ -35,6 +34,12 @@ pub struct ArchivistLearningData {
     pub execution_history: Vec<bool>,
     pub last_updated: u64,
     pub confidence_trend: Vec<(u64, f32)>,
+}
+
+impl Default for ArchivistLearningData {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl ArchivistLearningData {
@@ -51,15 +56,22 @@ impl ArchivistLearningData {
     }
 
     pub fn record_result(&mut self, success: bool) {
-        if success { self.success_count += 1; } else { self.failure_count += 1; }
+        if success {
+            self.success_count += 1;
+        } else {
+            self.failure_count += 1;
+        }
         self.total_executions += 1;
 
         self.execution_history.push(success);
-        if self.execution_history.len() > 20 { self.execution_history.remove(0); }
+        if self.execution_history.len() > 20 {
+            self.execution_history.remove(0);
+        }
 
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or_default().as_secs();
+            .unwrap_or_default()
+            .as_secs();
 
         if self.last_updated > 0 && now > self.last_updated {
             let hours_idle = (now - self.last_updated) as f32 / 3600.0;
@@ -71,7 +83,9 @@ impl ArchivistLearningData {
         self.last_updated = now;
 
         self.confidence_trend.push((now, self.confidence_score));
-        if self.confidence_trend.len() > 100 { self.confidence_trend.remove(0); }
+        if self.confidence_trend.len() > 100 {
+            self.confidence_trend.remove(0);
+        }
     }
 
     pub fn get_proposal_confidence(&self) -> f32 {
@@ -224,7 +238,8 @@ impl Archivist {
 
     /// Total executions recorded since startup (incremented atomically by execute()).
     pub fn executions_seen(&self) -> u64 {
-        self.executions_seen.load(std::sync::atomic::Ordering::Relaxed)
+        self.executions_seen
+            .load(std::sync::atomic::Ordering::Relaxed)
     }
 
     /// Attach a DNA Bank for durable event persistence.
@@ -239,7 +254,9 @@ impl Archivist {
 
     /// Attach an in-memory DNA Bank (no extra setup required).
     pub fn with_in_memory_dna_bank(self) -> Self {
-        self.with_dna_bank(Arc::new(Mutex::new(crate::federation::dna_bank::DNABank::new())))
+        self.with_dna_bank(Arc::new(Mutex::new(
+            crate::federation::dna_bank::DNABank::new(),
+        )))
     }
 
     /// Whether a DNA Bank is attached
@@ -273,7 +290,10 @@ impl Archivist {
         };
         let snapshot = crate::federation::learn_persist::LearningSnapshot::from_record(&record)?;
         let mut learning = self.learning.lock();
-        crate::federation::learn_persist::PersistableLearning::restore_from(&mut *learning, snapshot);
+        crate::federation::learn_persist::PersistableLearning::restore_from(
+            &mut *learning,
+            snapshot,
+        );
         Ok(true)
     }
 
@@ -290,7 +310,9 @@ impl Archivist {
             };
             let specialist_id = match record.specialist.as_str() {
                 "Visionary" | "visionary" => crate::federation::specialist::SpecialistId::Visionary,
-                "Omnipresent" | "omnipresent" => crate::federation::specialist::SpecialistId::Omnipresent,
+                "Omnipresent" | "omnipresent" => {
+                    crate::federation::specialist::SpecialistId::Omnipresent
+                }
                 "Symbiotic" | "symbiotic" => crate::federation::specialist::SpecialistId::Symbiotic,
                 "Phygital" | "phygital" => crate::federation::specialist::SpecialistId::Phygital,
                 "Archivist" | "archivist" => crate::federation::specialist::SpecialistId::Archivist,
@@ -334,7 +356,7 @@ impl Archivist {
 
             examples
                 .entry(key.clone())
-                .or_insert_with(Vec::new)
+                .or_default()
                 .push(event.id.clone());
         }
 
@@ -345,11 +367,7 @@ impl Archivist {
                 let success_rate = success as f32 / count as f32;
                 let pattern = HistoricalPattern {
                     pattern_type: key.clone(),
-                    description: format!(
-                        "{} events, {:.0}% success",
-                        count,
-                        success_rate * 100.0
-                    ),
+                    description: format!("{} events, {:.0}% success", count, success_rate * 100.0),
                     frequency: count,
                     success_rate,
                     discovered_at: std::time::SystemTime::now()
@@ -383,8 +401,7 @@ impl Archivist {
         // Use executions_seen() as the effective event count — it is incremented
         // by execute() via an AtomicU64 so it works with &self, unlike
         // stats.total_events which requires &mut self via record_event().
-        let effective_events = self.stats.total_events
-            .max(self.executions_seen() as usize);
+        let effective_events = self.stats.total_events.max(self.executions_seen() as usize);
 
         // Extract patterns regularly
         if effective_events > 100 {
@@ -488,7 +505,10 @@ impl Specialist for Archivist {
     ///
     /// Fires when idle (original behaviour) OR when the intent is about
     /// memory/archive/learning and we have executions to consolidate.
-    async fn propose(&self, context: &SpecialistContext) -> Result<Vec<ProposedAction>, SpecialistError> {
+    async fn propose(
+        &self,
+        context: &SpecialistContext,
+    ) -> Result<Vec<ProposedAction>, SpecialistError> {
         let activity = &context.user_state.activity;
         let is_idle = activity == "idle";
         // Archivist proposes when it has consolidation work OR any active intent
@@ -535,9 +555,15 @@ impl Specialist for Archivist {
                 duration_seconds: 30,
             },
             priority: match primary_task.priority {
-                ConsolidationPriority::High => crate::federation::specialist::ProposalPriority::UserFacing,
-                ConsolidationPriority::Normal => crate::federation::specialist::ProposalPriority::Normal,
-                ConsolidationPriority::Low => crate::federation::specialist::ProposalPriority::Background,
+                ConsolidationPriority::High => {
+                    crate::federation::specialist::ProposalPriority::UserFacing
+                }
+                ConsolidationPriority::Normal => {
+                    crate::federation::specialist::ProposalPriority::Normal
+                }
+                ConsolidationPriority::Low => {
+                    crate::federation::specialist::ProposalPriority::Background
+                }
             },
             tags: vec!["memory".to_string(), "consolidation".to_string()],
         }])
@@ -552,8 +578,12 @@ impl Specialist for Archivist {
 
         // Use executions_seen() for the running count — self.stats.total_events
         // requires &mut self (updated via record_event) so is always 0 here.
-        let executions = self.executions_seen.load(std::sync::atomic::Ordering::Relaxed);
-        let intent = decision.context.get("intent")
+        let executions = self
+            .executions_seen
+            .load(std::sync::atomic::Ordering::Relaxed);
+        let intent = decision
+            .context
+            .get("intent")
             .cloned()
             .unwrap_or_else(|| decision.action.chars().take(60).collect());
         let dna_attached = self.dna_bank.is_some();
@@ -562,7 +592,11 @@ impl Specialist for Archivist {
             executions,
             self.stats.pattern_count,
             self.stats.archive_size_bytes / 1_000_000,
-            if dna_attached { "active" } else { "not attached" },
+            if dna_attached {
+                "active"
+            } else {
+                "not attached"
+            },
             intent,
         );
 
@@ -581,7 +615,10 @@ impl Specialist for Archivist {
 
         // Increment atomic execution counter so propose() can detect activity
         // via executions_seen() without needing &mut self.
-        let total_seen = self.executions_seen.fetch_add(1, std::sync::atomic::Ordering::Relaxed) + 1;
+        let total_seen = self
+            .executions_seen
+            .fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+            + 1;
 
         // Record execution result for learning
         let success = result.status == ExecutionStatus::Success;
@@ -590,8 +627,15 @@ impl Specialist for Archivist {
             learning.record_result(success);
         } // Lock released here
 
-        tracing::debug!("Archivist: {} executions seen (DNA Bank: {})",
-            total_seen, if self.dna_bank.is_some() { "attached" } else { "none" });
+        tracing::debug!(
+            "Archivist: {} executions seen (DNA Bank: {})",
+            total_seen,
+            if self.dna_bank.is_some() {
+                "attached"
+            } else {
+                "none"
+            }
+        );
 
         // Record to DNA Bank if attached — this is the durable event log for
         // all Archivist executions, enabling pattern extraction on replay.
@@ -616,8 +660,7 @@ impl Specialist for Archivist {
             // Write directly to the bank using &self-compatible try_lock(),
             // bypassing the &mut self record_event() on Archivist.
             if let Some(bank) = &self.dna_bank {
-                use crate::federation::dna_bank::DNAEvent;
-                let dna_event = DNAEvent {
+                let dna_event = crate::federation::dna_bank::DNAEvent {
                     id: event.id.clone(),
                     timestamp: event.timestamp,
                     specialist: SpecialistId::Archivist,
@@ -636,7 +679,10 @@ impl Specialist for Archivist {
     }
 
     /// Delegate to backup/transfer handlers
-    async fn delegate(&self, request: &DelegateRequest) -> Result<DelegateResponse, SpecialistError> {
+    async fn delegate(
+        &self,
+        request: &DelegateRequest,
+    ) -> Result<DelegateResponse, SpecialistError> {
         Ok(DelegateResponse {
             requester: request.requester,
             target: request.target,
@@ -659,7 +705,9 @@ impl Specialist for Archivist {
                 other_id, self.stats.total_events, self.stats.pattern_count
             ),
             winner: None,
-            compromise: Some("Tiered storage: hot (recent), warm (1mo), cold (archive)".to_string()),
+            compromise: Some(
+                "Tiered storage: hot (recent), warm (1mo), cold (archive)".to_string(),
+            ),
         })
     }
 

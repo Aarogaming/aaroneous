@@ -1,0 +1,10 @@
+[package]
+name = "aaroneous_paths"
+version = "0.1.0"
+edition = "2021"
+authors = ["Aaroneous"]
+description = "Centralized workspace path discovery and directory resolution for Aaroneous"
+
+[dependencies]
+dirs = "5.0"
+serde = { version = "1.0", features = ["derive"] }

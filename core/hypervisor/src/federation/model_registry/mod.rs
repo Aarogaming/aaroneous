@@ -1,4 +1,4 @@
-﻿/// Model Registry — Import, export, and lifecycle management of GGUF models.
+/// Model Registry — Import, export, and lifecycle management of GGUF models.
 ///
 /// This module provides the full model import/export pipeline:
 ///
@@ -17,16 +17,15 @@
 /// # Registry
 /// The registry tracks all known models: their path, DNA sidecar status, last
 /// dissection timestamp, associated sovereign (if any), and import source.
-
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use crate::workspace::WorkspacePaths;
 use serde::{Deserialize, Serialize};
 use tokio::sync::Mutex;
 use tracing::{info, warn};
-use crate::workspace::WorkspacePaths;
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -45,9 +44,15 @@ pub enum ImportSource {
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ImportStatus {
-    Downloading { percent: u8, bytes_done: u64, bytes_total: u64 },
+    Downloading {
+        percent: u8,
+        bytes_done: u64,
+        bytes_total: u64,
+    },
     Copying,
-    Dissecting { percent: u8 },
+    Dissecting {
+        percent: u8,
+    },
     Registering,
     Done,
     Failed(String),
@@ -116,7 +121,10 @@ impl FederationModelRegistry {
 
     /// Get a mutable reference to a model by name.
     pub fn get_mut_by_name(&mut self, name: &str) -> Option<&mut ModelEntry> {
-        self.index.get(name).copied().and_then(|i| self.entries.get_mut(i))
+        self.index
+            .get(name)
+            .copied()
+            .and_then(|i| self.entries.get_mut(i))
     }
 
     /// List all model names.
@@ -169,13 +177,23 @@ pub fn scan_models_dir() -> Vec<ModelEntry> {
     let models_dir = WorkspacePaths::workspace_root().join("models");
     let mut entries = Vec::new();
 
-    let Ok(dir) = std::fs::read_dir(&models_dir) else { return entries; };
+    let Ok(dir) = std::fs::read_dir(&models_dir) else {
+        return entries;
+    };
 
     for entry in dir.flatten() {
         let path = entry.path();
-        if path.extension().and_then(|e| e.to_str()) != Some("gguf") { continue; }
-        let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("").to_string();
-        if name.is_empty() { continue; }
+        if path.extension().and_then(|e| e.to_str()) != Some("gguf") {
+            continue;
+        }
+        let name = path
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("")
+            .to_string();
+        if name.is_empty() {
+            continue;
+        }
 
         let size_bytes = path.metadata().map(|m| m.len()).unwrap_or(0);
         let dna_path = path.with_extension("gguf.dna.json");
@@ -199,8 +217,12 @@ pub fn scan_models_dir() -> Vec<ModelEntry> {
     entries.sort_by(|a, b| {
         let a_is_foundation = a.name.contains("foundation");
         let b_is_foundation = b.name.contains("foundation");
-        if a_is_foundation && !b_is_foundation { return std::cmp::Ordering::Less; }
-        if !a_is_foundation && b_is_foundation { return std::cmp::Ordering::Greater; }
+        if a_is_foundation && !b_is_foundation {
+            return std::cmp::Ordering::Less;
+        }
+        if !a_is_foundation && b_is_foundation {
+            return std::cmp::Ordering::Greater;
+        }
         b.size_bytes.cmp(&a.size_bytes)
     });
 
@@ -230,17 +252,30 @@ pub async fn import_model(
 
     {
         let mut j = jobs.lock().await;
-        j.insert(job_id.clone(), ImportJob {
-            job_id: job_id.clone(),
-            model_name: source_spec.split('/').last().unwrap_or(&source_spec).to_string(),
-            status: ImportStatus::Copying,
-        });
+        j.insert(
+            job_id.clone(),
+            ImportJob {
+                job_id: job_id.clone(),
+                model_name: source_spec
+                    .split('/')
+                    .next_back()
+                    .unwrap_or(&source_spec)
+                    .to_string(),
+                status: ImportStatus::Copying,
+            },
+        );
     }
 
     tokio::spawn(async move {
         let result = run_import(
-            &source_spec, &tags, auto_dissect, auto_register_sovereign, &jobs, &job_id_bg,
-        ).await;
+            &source_spec,
+            &tags,
+            auto_dissect,
+            auto_register_sovereign,
+            &jobs,
+            &job_id_bg,
+        )
+        .await;
 
         let mut j = jobs.lock().await;
         match result {
@@ -299,42 +334,50 @@ async fn run_import(
     if auto_dissect {
         update_job_status(jobs, job_id, ImportStatus::Dissecting { percent: 0 }).await;
         info!("Auto-dissecting imported model: {}", target_path.display());
-        let (tx, mut rx) = tokio::sync::mpsc::channel::<crate::federation::dna::DissectionProgress>(32);
+        let (tx, mut rx) =
+            tokio::sync::mpsc::channel::<crate::federation::dna::DissectionProgress>(32);
         let jobs_clone = jobs.clone();
         let jid = job_id.to_string();
         tokio::spawn(async move {
             while let Some(p) = rx.recv().await {
-                update_job_status(&jobs_clone, &jid, ImportStatus::Dissecting {
-                    percent: p.percent,
-                }).await;
+                update_job_status(
+                    &jobs_clone,
+                    &jid,
+                    ImportStatus::Dissecting { percent: p.percent },
+                )
+                .await;
             }
         });
         match crate::federation::dna::dissect_model(&target_path, Some(tx)).await {
             Ok(dna) => {
-                info!("DNA dissection complete: {} loci from {}",
-                    dna.genetic_loci.len(), target_path.display());
+                info!(
+                    "DNA dissection complete: {} loci from {}",
+                    dna.genetic_loci.len(),
+                    target_path.display()
+                );
 
                 // Convert ModelDNA → SpecialistGenome and generate soul.
                 // This closes the self-digestion loop: imported models get genome
                 // + soul alongside DNA so they can be compared, bred, and routed.
                 let genome = crate::federation::dna::dna_to_genome(&dna);
-                let model_name = target_path.file_name()
-                    .and_then(|n| n.to_str()).unwrap_or("imported").to_string();
+                let model_name = target_path
+                    .file_name()
+                    .and_then(|n| n.to_str())
+                    .unwrap_or("imported")
+                    .to_string();
 
                 // Generate soul using DigestionEngine (requires a discardable event channel)
                 let (event_tx, _event_rx) = tokio::sync::mpsc::unbounded_channel();
-                let engine = crate::DigestionEngine::new(
-                    crate::DigestionConfig::default(),
-                    event_tx,
-                );
+                let engine =
+                    crate::DigestionEngine::new(crate::DigestionConfig::default(), event_tx);
                 let task = crate::DigestionTask {
                     digestion_id: format!("import-{}", now_ms()),
                     model_path: target_path.clone(),
                     model_name: model_name.clone(),
                     parameter_count: (dna.parameter_count_m * 1_000_000.0) as u64,
                     created_at: chrono::Utc::now(),
-                    priority: digestion::self_digestion::DigestionPriority::Normal,
-                    status: digestion::self_digestion::DigestionStatus::StructuralAnalysis,
+                    priority: crate::digestion::DigestionPriority::Normal,
+                    status: crate::digestion::DigestionStatus::StructuralAnalysis,
                     estimated_duration_minutes: 1,
                 };
 
@@ -342,12 +385,14 @@ async fn run_import(
                     Ok(soul) => {
                         // Save soul sidecar alongside the DNA sidecar
                         let soul_path = target_path.with_extension("gguf.soul.json");
-                        if let Ok(soul_json) = serde_json::to_string_pretty(&soul) {
-                            if std::fs::write(&soul_path, soul_json).is_ok() {
-                                info!("Soul generated and saved: {} (archetype: {})",
-                                    soul_path.display(),
-                                    soul.personality_soul.archetype);
-                            }
+                        if let Ok(soul_json) = serde_json::to_string_pretty(&soul)
+                            && std::fs::write(&soul_path, soul_json).is_ok()
+                        {
+                            info!(
+                                "Soul generated and saved: {} (archetype: {})",
+                                soul_path.display(),
+                                soul.personality_soul.archetype
+                            );
                         }
                     }
                     Err(e) => warn!("Soul generation failed (non-fatal): {}", e),
@@ -389,15 +434,22 @@ async fn download_from_huggingface(
 
     let dest_path = models_dir.join(&filename);
     if dest_path.exists() {
-        info!("Model already exists at {} — skipping download", dest_path.display());
+        info!(
+            "Model already exists at {} — skipping download",
+            dest_path.display()
+        );
         return Ok(dest_path);
     }
 
-    info!("Downloading {} from HuggingFace ({}/{})", filename, repo_id, filename);
+    info!(
+        "Downloading {} from HuggingFace ({}/{})",
+        filename, repo_id, filename
+    );
     info!("URL: {}", download_url);
 
     // Stream download with progress reporting
-    stream_download(&download_url, &dest_path, jobs, job_id, &repo_id, &filename).await
+    stream_download(&download_url, &dest_path, jobs, job_id, &repo_id, &filename)
+        .await
         .context("HuggingFace download failed")?;
 
     Ok(dest_path)
@@ -415,9 +467,11 @@ async fn stream_download(
     use anyhow::Context;
 
     let client = build_http_client()?;
-    let resp = client.get(url)
+    let resp = client
+        .get(url)
         .header("User-Agent", "Aaroneous/1.0")
-        .send().await
+        .send()
+        .await
         .context("HTTP request failed")?;
 
     if !resp.status().is_success() {
@@ -427,7 +481,8 @@ async fn stream_download(
     let total_bytes = resp.content_length().unwrap_or(0);
     info!("Downloading {} bytes for {}", total_bytes, filename);
 
-    let mut file = tokio::fs::File::create(dest).await
+    let mut file = tokio::fs::File::create(dest)
+        .await
         .context("failed to create destination file")?;
     let mut downloaded: u64 = 0;
     let mut last_pct = 0u8;
@@ -443,26 +498,44 @@ async fn stream_download(
         let chunk = chunk_result.context("stream read error")?;
         file.write_all(&chunk).await.context("write chunk failed")?;
         downloaded += chunk.len() as u64;
-        if total_bytes > 0 {
-            let pct = (downloaded * 100 / total_bytes) as u8;
+        if let Some(pct) = (downloaded * 100).checked_div(total_bytes) {
+            let pct = pct as u8;
             if pct != last_pct {
                 last_pct = pct;
-                update_job_status(jobs, job_id, ImportStatus::Downloading {
-                    percent: pct, bytes_done: downloaded, bytes_total: total_bytes,
-                }).await;
+                update_job_status(
+                    jobs,
+                    job_id,
+                    ImportStatus::Downloading {
+                        percent: pct,
+                        bytes_done: downloaded,
+                        bytes_total: total_bytes,
+                    },
+                )
+                .await;
             }
         }
     }
 
-    if total_bytes > 0 {
-        let pct = (downloaded * 100 / total_bytes) as u8;
-        update_job_status(jobs, job_id, ImportStatus::Downloading {
-            percent: pct, bytes_done: downloaded, bytes_total: total_bytes,
-        }).await;
+    if let Some(pct) = (downloaded * 100).checked_div(total_bytes) {
+        let pct = pct as u8;
+        update_job_status(
+            jobs,
+            job_id,
+            ImportStatus::Downloading {
+                percent: pct,
+                bytes_done: downloaded,
+                bytes_total: total_bytes,
+            },
+        )
+        .await;
     }
 
     file.flush().await.context("failed to flush model file")?;
-    info!("Download complete: {} ({} bytes)", dest.display(), downloaded);
+    info!(
+        "Download complete: {} ({} bytes)",
+        dest.display(),
+        downloaded
+    );
     Ok(())
 }
 
@@ -484,11 +557,15 @@ fn parse_hf_spec(spec: &str) -> anyhow::Result<(String, String)> {
         2 => {
             let repo_id = format!("{}/{}", parts[0], parts[1]);
             // Default to Q4_K_M naming convention
-            let model_base = parts[1].to_lowercase()
+            let model_base = parts[1]
+                .to_lowercase()
                 .replace("-gguf", "")
                 .replace("_gguf", "");
             let filename = format!("{}-Q4_K_M.gguf", model_base);
-            warn!("No filename specified for HF repo '{}' — guessing '{}'", repo_id, filename);
+            warn!(
+                "No filename specified for HF repo '{}' — guessing '{}'",
+                repo_id, filename
+            );
             warn!("To specify: hf://{}/{}", repo_id, filename);
             Ok((repo_id, filename))
         }
@@ -512,7 +589,7 @@ fn is_hf_repo_id(s: &str) -> bool {
 
 fn build_http_client() -> anyhow::Result<reqwest::Client> {
     reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(3600))  // 1hr for large models
+        .timeout(std::time::Duration::from_secs(3600)) // 1hr for large models
         .tcp_keepalive(std::time::Duration::from_secs(30))
         .connection_verbose(false)
         .build()
@@ -521,7 +598,8 @@ fn build_http_client() -> anyhow::Result<reqwest::Client> {
 
 /// Register a downloaded/copied model as a dynamic specialist in the registry.
 pub async fn register_as_specialist(model_path: &Path, tags: &[String]) {
-    let name = model_path.file_stem()
+    let name = model_path
+        .file_stem()
         .and_then(|s| s.to_str())
         .unwrap_or("unknown")
         .to_string();
@@ -532,12 +610,16 @@ pub async fn register_as_specialist(model_path: &Path, tags: &[String]) {
 
     info!(
         "Registering imported model as specialist: name='{}' sovereign_hint={:?} path={}",
-        name, sovereign_hint, model_path.display()
+        name,
+        sovereign_hint,
+        model_path.display()
     );
 
     // Write to specialist_registry.json — append a new entry
     // This is done by reading the existing registry, adding the entry, and writing back
-    let registry_path = WorkspacePaths::workspace_root().join("config").join("specialist_registry.json");
+    let registry_path = WorkspacePaths::workspace_root()
+        .join("config")
+        .join("specialist_registry.json");
     if !registry_path.exists() {
         warn!("specialist_registry.json not found — skipping auto-registration");
         return;
@@ -545,16 +627,25 @@ pub async fn register_as_specialist(model_path: &Path, tags: &[String]) {
 
     let data = match std::fs::read_to_string(&registry_path) {
         Ok(d) => d,
-        Err(e) => { warn!("Failed to read specialist registry: {}", e); return; }
+        Err(e) => {
+            warn!("Failed to read specialist registry: {}", e);
+            return;
+        }
     };
 
     let mut registry: serde_json::Value = match serde_json::from_str(&data) {
         Ok(v) => v,
-        Err(e) => { warn!("Failed to parse specialist registry JSON: {}", e); return; }
+        Err(e) => {
+            warn!("Failed to parse specialist registry JSON: {}", e);
+            return;
+        }
     };
 
     // Add to dynamic_specialists array if not already present
-    if let Some(arr) = registry.get_mut("dynamic_specialists").and_then(|v| v.as_array_mut()) {
+    if let Some(arr) = registry
+        .get_mut("dynamic_specialists")
+        .and_then(|v| v.as_array_mut())
+    {
         let already_registered = arr.iter().any(|e| {
             e.get("gguf_path").and_then(|p| p.as_str())
                 == Some(model_path.to_string_lossy().as_ref())
@@ -563,7 +654,8 @@ pub async fn register_as_specialist(model_path: &Path, tags: &[String]) {
         if !already_registered {
             let sovereign_name = sovereign_hint.unwrap_or_else(|| {
                 // Use capitalised filename base as sovereign name
-                let base = model_path.file_stem()
+                let base = model_path
+                    .file_stem()
                     .and_then(|s| s.to_str())
                     .unwrap_or("imported");
                 let mut c = base.chars();
@@ -587,8 +679,11 @@ pub async fn register_as_specialist(model_path: &Path, tags: &[String]) {
                 if let Err(e) = std::fs::write(&registry_path, updated) {
                     warn!("Failed to write updated registry: {}", e);
                 } else {
-                    info!("Registered {} in specialist_registry.json as '{}'",
-                          model_path.display(), sovereign_name);
+                    info!(
+                        "Registered {} in specialist_registry.json as '{}'",
+                        model_path.display(),
+                        sovereign_name
+                    );
                 }
             }
         }
@@ -597,8 +692,17 @@ pub async fn register_as_specialist(model_path: &Path, tags: &[String]) {
 
 fn infer_sovereign_name(filename: &str) -> Option<String> {
     let lower = filename.to_lowercase();
-    for sovereign in &["odin", "merlin", "argus", "ariel", "hermes",
-                        "wen", "kami", "dionysus", "hephaestus"] {
+    for sovereign in &[
+        "odin",
+        "merlin",
+        "argus",
+        "ariel",
+        "hermes",
+        "wen",
+        "kami",
+        "dionysus",
+        "hephaestus",
+    ] {
         if lower.contains(sovereign) {
             let mut c = sovereign.chars();
             return Some(match c.next() {
@@ -611,7 +715,9 @@ fn infer_sovereign_name(filename: &str) -> Option<String> {
 }
 
 fn infer_domain_from_tags(tags: &[String]) -> String {
-    if tags.is_empty() { return "general_purpose".into(); }
+    if tags.is_empty() {
+        return "general_purpose".into();
+    }
     tags[0].to_lowercase().replace(' ', "_")
 }
 
@@ -639,12 +745,18 @@ pub async fn start_inbox_watcher(jobs: ImportJobs) {
         loop {
             interval.tick().await;
 
-            let Ok(entries) = std::fs::read_dir(&inbox_dir) else { continue };
+            let Ok(entries) = std::fs::read_dir(&inbox_dir) else {
+                continue;
+            };
 
             for entry in entries.flatten() {
                 let src = entry.path();
-                if src.extension().and_then(|e| e.to_str()) != Some("gguf") { continue; }
-                if seen.contains(&src) { continue; }
+                if src.extension().and_then(|e| e.to_str()) != Some("gguf") {
+                    continue;
+                }
+                if seen.contains(&src) {
+                    continue;
+                }
 
                 seen.insert(src.clone());
                 let filename = match src.file_name().and_then(|n| n.to_str()) {
@@ -653,7 +765,10 @@ pub async fn start_inbox_watcher(jobs: ImportJobs) {
                 };
                 let dest = models_dir.join(&filename);
 
-                info!("Inbox: found {} — moving to models/ and ingesting", filename);
+                info!(
+                    "Inbox: found {} — moving to models/ and ingesting",
+                    filename
+                );
 
                 // Move file
                 if let Err(e) = std::fs::rename(&src, &dest) {
@@ -669,18 +784,24 @@ pub async fn start_inbox_watcher(jobs: ImportJobs) {
                     let _spec = dest_clone.to_string_lossy().to_string();
                     {
                         let mut j = jobs_clone.lock().await;
-                        j.insert(job_id.clone(), ImportJob {
-                            job_id: job_id.clone(),
-                            model_name: filename.clone(),
-                            status: ImportStatus::Dissecting { percent: 0 },
-                        });
+                        j.insert(
+                            job_id.clone(),
+                            ImportJob {
+                                job_id: job_id.clone(),
+                                model_name: filename.clone(),
+                                status: ImportStatus::Dissecting { percent: 0 },
+                            },
+                        );
                     }
 
                     // DNA dissection
                     match crate::federation::dna::dissect_model(&dest_clone, None).await {
                         Ok(dna) => {
-                            info!("Inbox ingestion complete: {} — {} loci",
-                                  filename, dna.genetic_loci.len());
+                            info!(
+                                "Inbox ingestion complete: {} — {} loci",
+                                filename,
+                                dna.genetic_loci.len()
+                            );
                         }
                         Err(e) => warn!("Inbox dissection failed for {}: {}", filename, e),
                     }
@@ -697,7 +818,10 @@ pub async fn start_inbox_watcher(jobs: ImportJobs) {
         }
     });
 
-    info!("Inbox watcher started: {}", std::path::PathBuf::from("inbox").display());
+    info!(
+        "Inbox watcher started: {}",
+        std::path::PathBuf::from("inbox").display()
+    );
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────────

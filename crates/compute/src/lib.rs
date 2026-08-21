@@ -1,0 +1,153 @@
+pub mod automata;
+pub mod bayesian;
+pub mod burn_gpu;
+pub mod category;
+pub mod control;
+pub mod entropy;
+pub mod game_theory;
+pub mod graph;
+pub mod information;
+pub mod kalman;
+pub mod linalg;
+pub mod machine_native;
+pub mod mdps;
+pub mod mpc;
+pub mod optimize;
+pub mod predictive_coding;
+pub mod signal;
+pub mod stochastic;
+pub mod thermodynamics;
+pub mod topology;
+pub mod si_binary;
+pub mod si_model;
+pub mod si_trainer;
+pub mod si_macro;
+pub mod si_ssm;
+pub mod si_skill_tree;
+pub mod si_tool;
+pub mod si_solid_state;
+pub mod latent_guardrail;
+pub mod si_self_play;
+pub mod si_jit;
+pub mod multimodal_ssm;
+pub mod rosetta_stone;
+pub mod si_distillation_harness;
+pub mod si_packer;
+pub mod si_forge;
+pub mod hermes_router;
+pub mod reflex_worker;
+pub mod si_decoder;
+pub mod si_motor_tree;
+pub mod ghost_station;
+
+pub use burn_gpu::{GpuTensorAccelerator, GpuTensorProfile};
+pub use machine_native::{
+    DimensionalUnit, EdgeLinguisticLens, MachineNativePredictionEngine, MachineOpcode,
+    NativeComputationNode, NativeComputationalGraph, NativeTypeLattice,
+};
+pub use si_binary::{SiCorpusStore, SiThoughtHeader, SiThoughtPacket, SI_MAGIC_BYTES};
+pub use si_model::{SiGraphLayer, SiModel, SiModelConfig, SiModelPrediction, SI_MODEL_MAGIC, SI_OPCODE_VOCAB_SIZE};
+pub use si_trainer::{gelu, gelu_prime, LatentGELUBottleneckBridge, SiModelTrainer, SiTrainerConfig, TrainingEpochReport};
+pub use si_macro::{SiMacroEngine, SiMacroMetadata};
+pub use si_ssm::{SiSsmConfig, SiStateSpaceModel, SsmLayerBlock, SsmStatePrediction, TreeSsmNode, SI_SSM_MAGIC, SI_SSM_VERSION};
+pub use si_skill_tree::{SiSkillModule, SkillExpansionEngine, SkillMaturityStatus};
+pub use si_tool::{SiBenchmarkReport, SiInspectorReport, SiToolEngine};
+pub use si_solid_state::{
+    DynamicAdaptationMatrix, OnlineCorrectionReport, SafetyCheckResult, SiOnlineLearner, SolidStateSiContainer,
+    SI_SOLID_STATE_MAGIC, SI_SOLID_STATE_VERSION,
+};
+pub use latent_guardrail::{ArgusSafetySentinel, LatentAuditVerdict, SafeHypersphereManifold, GUARDRAIL_DIM};
+pub use si_self_play::{AsymmetricDuelReport, DreamGoal, SelfPlayStepResult, SiSelfPlayEngine};
+pub use si_jit::{CompiledReflexHandle, CrystallizationMetrics, MemoryProtectionState, NativeExecutionContext, SiJitCompilerEngine, JIT_INTENT_DIM};
+pub use multimodal_ssm::{AcousticIntentProjector, MultimodalSensoryFrame, PixelDiffProjector, TemporalModalitySynchronizer, MULTIMODAL_LATENT_DIM};
+pub use rosetta_stone::{RosettaStoneDataset, RosettaTrajectoryStep, ROSETTA_LATENT_DIM, ROSETTA_TEACHER_DIM};
+pub use si_distillation_harness::{BootstrapConfig, BootstrapReport, SiDistillationHarness};
+pub use si_packer::{
+    compute_padding, SiContainerManifest, SiPacker, SiSolidStateLoader, SiTierFlags,
+    TensorDescriptor, ALIGNMENT_BYTES, SINT_PACKER_MAGIC, SINT_PACKER_VERSION,
+};
+pub use si_forge::SiForge;
+pub use hermes_router::{HermesRouter, CORTEX_INTENT_DIM, SUBGOAL_DIM};
+pub use reflex_worker::ReflexWorker;
+pub use si_decoder::{ActionDecoder, DecodedActionCommand, DECODER_INTENT_DIM};
+pub use si_motor_tree::{MotorCortex, MotorSkillNode, SkillType, StarState, MOTOR_INTENT_DIM};
+pub use ghost_station::GhostDesktop;
+use nervous_system::SharedMemorySynapse;
+use rand::SeedableRng;
+
+/// The central Compute Engine.
+/// Exposes mathematical methodologies to the Synapse for zero-copy execution.
+pub struct ComputeEngine {
+    pub synapse: SharedMemorySynapse,
+    pub rng: rand::rngs::StdRng,
+}
+
+impl Default for ComputeEngine {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl ComputeEngine {
+    pub fn new() -> Self {
+        Self {
+            synapse: SharedMemorySynapse::new_sync("SAB_STORE", 1024 * 1024).unwrap(),
+            rng: rand::rngs::StdRng::from_entropy(),
+        }
+    }
+
+    // Unified execution interface
+    pub fn execute(&mut self, task: &str, input: &[f64]) -> anyhow::Result<Vec<f64>> {
+        match task {
+            "monte_carlo" => stochastic::monte_carlo_simulate(input, 1000, &mut self.rng),
+            "markov" => mdps::markov_transition(input, &mut self.rng),
+            "bayesian" => bayesian::bayesian_update(input),
+            "entropy" => entropy::shannon_entropy(input),
+            "cosine" => linalg::cosine_similarity(input),
+            "pid" => control::pid_step(input),
+            "fft" => signal::fft_basic(input),
+            "nash" => game_theory::nash_approx(input),
+            "optimize_ga" => optimize::genetic_step(input, &mut self.rng),
+            "boltzmann" => {
+                let _n = input.len() - 1;
+                let temperature = input[0];
+                let energies = &input[1..];
+                Ok(thermodynamics::boltzmann_distribution(
+                    energies,
+                    temperature,
+                ))
+            }
+            "free_energy" => {
+                if input.len() >= 3 {
+                    Ok(vec![
+                        thermodynamics::FreeEnergyState::new(input[0], input[1], input[2])
+                            .free_energy,
+                    ])
+                } else {
+                    Ok(vec![0.0])
+                }
+            }
+            "mutual_info" => {
+                if input.len() >= 3 {
+                    Ok(vec![information::mutual_information(
+                        &[
+                            vec![input[0], input[1]],
+                            vec![input[2], 1.0 - input[0] - input[1] - input[2]],
+                        ],
+                        &[
+                            input[0] + input[1],
+                            input[2] + (1.0 - input[0] - input[1] - input[2]),
+                        ],
+                        &[
+                            input[0] + input[2],
+                            input[1] + (1.0 - input[0] - input[1] - input[2]),
+                        ],
+                    )])
+                } else {
+                    Ok(vec![0.0])
+                }
+            }
+            _ => anyhow::bail!("Unknown compute task: {}", task),
+        }
+    }
+}

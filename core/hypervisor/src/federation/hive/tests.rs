@@ -8,9 +8,7 @@
 mod tests {
     use super::super::*;
     use crate::federation::host::HostConfig;
-    use crate::federation::specialist::{
-        Decision, ResourceRequest, Specialist, SpecialistId,
-    };
+    use crate::federation::specialist::{Decision, ResourceRequest, Specialist, SpecialistId};
     use crate::federation::specialists::Visionary;
     use crate::persistence::PersistenceManager;
     use std::collections::HashMap;
@@ -201,31 +199,36 @@ mod tests {
 
             // Train each specialist a different number of times
             for i in 0..2 {
-                fed.visionary().unwrap()
+                fed.visionary()
+                    .unwrap()
                     .execute(&make_decision(SpecialistId::Visionary, i))
                     .await
                     .unwrap();
             }
             for i in 0..3 {
-                fed.omnipresent().unwrap()
+                fed.omnipresent()
+                    .unwrap()
                     .execute(&make_decision(SpecialistId::Omnipresent, i))
                     .await
                     .unwrap();
             }
             for i in 0..4 {
-                fed.symbiotic().unwrap()
+                fed.symbiotic()
+                    .unwrap()
                     .execute(&make_decision(SpecialistId::Symbiotic, i))
                     .await
                     .unwrap();
             }
             for i in 0..1 {
-                fed.phygital().unwrap()
+                fed.phygital()
+                    .unwrap()
                     .execute(&make_decision(SpecialistId::Phygital, i))
                     .await
                     .unwrap();
             }
             for i in 0..5 {
-                fed.archivist().unwrap()
+                fed.archivist()
+                    .unwrap()
                     .execute(&make_decision(SpecialistId::Archivist, i))
                     .await
                     .unwrap();
@@ -291,11 +294,13 @@ mod tests {
         fed.start_all().await.unwrap();
 
         // Train one execution each
-        fed.visionary().unwrap()
+        fed.visionary()
+            .unwrap()
             .execute(&make_decision(SpecialistId::Visionary, 0))
             .await
             .unwrap();
-        fed.archivist().unwrap()
+        fed.archivist()
+            .unwrap()
             .execute(&make_decision(SpecialistId::Archivist, 0))
             .await
             .unwrap();
@@ -303,12 +308,23 @@ mod tests {
         fed.checkpoint_all().await.unwrap();
 
         // Verify via direct DB query (using the federation's persistence)
-        let pm_guard = fed.persistence().lock().await.list_learning_states().unwrap();
+        let pm_guard = fed
+            .persistence()
+            .lock()
+            .await
+            .list_learning_states()
+            .unwrap();
         // Five rows total (every host writes a row even with zero executions)
         assert_eq!(pm_guard.len(), 5);
 
-        let v_row = pm_guard.iter().find(|r| r.specialist_kind == "Visionary").unwrap();
-        let a_row = pm_guard.iter().find(|r| r.specialist_kind == "Archivist").unwrap();
+        let v_row = pm_guard
+            .iter()
+            .find(|r| r.specialist_kind == "Visionary")
+            .unwrap();
+        let a_row = pm_guard
+            .iter()
+            .find(|r| r.specialist_kind == "Archivist")
+            .unwrap();
         assert_eq!(v_row.total_executions, 1);
         assert_eq!(a_row.total_executions, 1);
 
@@ -342,11 +358,13 @@ mod tests {
         fed.spawn_checkpoint_loops().await;
 
         // Train both specialists
-        fed.visionary().unwrap()
+        fed.visionary()
+            .unwrap()
             .execute(&make_decision(SpecialistId::Visionary, 0))
             .await
             .unwrap();
-        fed.symbiotic().unwrap()
+        fed.symbiotic()
+            .unwrap()
             .execute(&make_decision(SpecialistId::Symbiotic, 0))
             .await
             .unwrap();
@@ -355,7 +373,12 @@ mod tests {
         tokio::time::sleep(Duration::from_millis(200)).await;
 
         // Both should be persisted
-        let states = fed.persistence().lock().await.list_learning_states().unwrap();
+        let states = fed
+            .persistence()
+            .lock()
+            .await
+            .list_learning_states()
+            .unwrap();
         assert_eq!(states.len(), 2);
         for state in &states {
             assert_eq!(state.total_executions, 1);
@@ -384,9 +407,9 @@ mod tests {
     async fn test_per_host_config_override() {
         let custom = HostConfig::with_interval(Duration::from_secs(120));
         let fed = Federation::builder(fresh_pm())
-            .checkpoint_every(Duration::from_secs(30))      // federation default
-            .with_visionary_host_config(custom)             // host override
-            .with_symbiotic()                               // uses default
+            .checkpoint_every(Duration::from_secs(30)) // federation default
+            .with_visionary_host_config(custom) // host override
+            .with_symbiotic() // uses default
             .build();
 
         // Visionary's host has the custom interval; Symbiotic has the default.
@@ -419,7 +442,11 @@ mod tests {
         let result = fed.checkpoint_all().await;
         let err = result.unwrap_err();
         let display = err.to_string();
-        assert!(display.contains("3"), "should mention 3 errors: {}", display);
+        assert!(
+            display.contains("3"),
+            "should mention 3 errors: {}",
+            display
+        );
     }
 
     // ===============================================================
@@ -466,7 +493,10 @@ mod tests {
         };
 
         let result = fed.run_until(terminator).await;
-        assert!(result.is_err(), "run_until should propagate start_all errors");
+        assert!(
+            result.is_err(),
+            "run_until should propagate start_all errors"
+        );
         let err = result.unwrap_err();
         assert!(err.errors.iter().any(|(k, _)| k == "Visionary"));
     }
@@ -594,12 +624,14 @@ mod tests {
 
         // Train Visionary 3x, Archivist 1x
         for i in 0..3 {
-            fed.visionary().unwrap()
+            fed.visionary()
+                .unwrap()
                 .execute(&make_decision(SpecialistId::Visionary, i))
                 .await
                 .unwrap();
         }
-        fed.archivist().unwrap()
+        fed.archivist()
+            .unwrap()
             .execute(&make_decision(SpecialistId::Archivist, 0))
             .await
             .unwrap();
@@ -668,7 +700,8 @@ mod tests {
             let fed = Federation::builder(pm).with_omnipresent().build();
             fed.start_all().await.unwrap();
             for i in 0..5 {
-                fed.omnipresent().unwrap()
+                fed.omnipresent()
+                    .unwrap()
                     .execute(&make_decision(SpecialistId::Omnipresent, i))
                     .await
                     .unwrap();
@@ -734,7 +767,8 @@ mod tests {
 
         fed.start_all().await.unwrap();
         // Spawn Sentinel so collect_proposals has a bus to route to
-        fed.spawn_sentinel_loop(std::time::Duration::from_secs(60)).await;
+        fed.spawn_sentinel_loop(std::time::Duration::from_secs(60))
+            .await;
 
         // Submit an intent — should trigger collect_proposals()
         let intent = crate::federation::intent::Intent::new("redesign the status page")
@@ -804,7 +838,8 @@ mod tests {
             .build();
 
         fed.start_all().await.unwrap();
-        fed.spawn_sentinel_loop(std::time::Duration::from_secs(60)).await;
+        fed.spawn_sentinel_loop(std::time::Duration::from_secs(60))
+            .await;
 
         // Set high stress using the safe setter
         {
@@ -858,7 +893,10 @@ mod tests {
         let results = fed.recent_results(10).await;
         // Results may be empty (if Sentinel's viable_sorted filtered them out)
         // but the count should be a valid non-negative number
-        assert!(results.len() <= 10, "should have at most 10 results (capped)");
+        assert!(
+            results.len() <= 10,
+            "should have at most 10 results (capped)"
+        );
 
         fed.shutdown_all().await.unwrap();
     }
@@ -881,7 +919,9 @@ mod tests {
         // Submit intent for this session (tags it with session_id in context)
         let intent = crate::federation::intent::Intent::new("design test")
             .with_priority(crate::federation::intent::IntentPriority::High);
-        fed.submit_intent_for_session(&session_id, intent).await.unwrap();
+        fed.submit_intent_for_session(&session_id, intent)
+            .await
+            .unwrap();
 
         // Wait for pipeline
         tokio::time::sleep(Duration::from_millis(600)).await;

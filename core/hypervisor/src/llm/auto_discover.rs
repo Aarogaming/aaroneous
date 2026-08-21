@@ -67,7 +67,10 @@ pub async fn auto_discover_models() -> Result<AutoDiscoveryResult> {
                 info!("📌 Recommended model: {}", model.name);
             }
         } else {
-            info!("⚠️  Model environment detected ({}) but no GGUF models found", env.name());
+            info!(
+                "⚠️  Model environment detected ({}) but no GGUF models found",
+                env.name()
+            );
         }
 
         let result = AutoDiscoveryResult {
@@ -126,7 +129,8 @@ pub async fn print_auto_discovery_summary() -> Result<()> {
     let discovered = get_auto_discovered_models().await?;
 
     println!("\n📊 Auto-Discovery Summary:");
-    println!("  Environment: {}",
+    println!(
+        "  Environment: {}",
         discovered
             .detected_environment
             .map(|e| e.name())

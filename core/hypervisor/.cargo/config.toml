@@ -1,6 +1,4 @@
-[build]
-rustflags = ["-C", "link-arg=-fuse-ld=lld"]
-
-[rustup]
-extend-env-parents = true
-sysroot-ext-env = "PATH"
+﻿[env]
+CRATE_CC_NO_DEFAULTS = "1"
+ZSTD_SYS_USE_PKG_CONFIG = "0"
+ZSTD_NO_PKG_CONFIG = "1"

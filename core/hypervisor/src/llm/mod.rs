@@ -2,20 +2,20 @@
 // Provides abstraction layer for multiple LLM providers
 // Supports: OpenAI, Local (Ollama/vLLM), Anthropic, Mock
 
-pub mod providers;
-pub mod types;
-pub mod cache;
-pub mod rate_limiter;
-pub mod model_registry;
-pub mod model_loader;
-pub mod model_environment;
 pub mod auto_discover;
+pub mod cache;
+pub mod model_environment;
+pub mod model_loader;
+pub mod model_registry;
+pub mod providers;
+pub mod rate_limiter;
+pub mod types;
 
-pub use providers::{LLMProvider, GGUFProvider, MockProvider};
-pub use types::*;
-pub use model_registry::{ModelRegistry, ModelInfo, ModelType};
+pub use model_environment::{DetectedEnvironment, ModelEnvironment, ModelEnvironmentDetector};
 pub use model_loader::{ModelLoader, TOP_RECOMMENDED_MODELS};
-pub use model_environment::{ModelEnvironment, DetectedEnvironment, ModelEnvironmentDetector};
+pub use model_registry::{ModelInfo, ModelRegistry, ModelType};
+pub use providers::{GGUFProvider, LLMProvider, MockProvider};
+pub use types::*;
 
 use anyhow::Result;
 use std::path::PathBuf;
@@ -63,16 +63,19 @@ impl Default for LLMConfig {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ProviderType {
-    GGUF,      // Local GGUF models (llama.cpp) - RECOMMENDED
-    Mock,      // Mock provider for testing
-    OpenAI,    // Cloud OpenAI provider
-    Local,     // Local API provider (Ollama, vLLM)
+    GGUF,   // Local GGUF models (llama.cpp) - RECOMMENDED
+    Mock,   // Mock provider for testing
+    OpenAI, // Cloud OpenAI provider
+    Local,  // Local API provider (Ollama, vLLM)
 }
 
 impl LLMClient {
     /// Create new LLM client with GGUF provider
     pub async fn new(config: LLMConfig) -> Result<Self> {
-        info!("Initializing LLM client with provider: {:?}", config.provider_type);
+        info!(
+            "Initializing LLM client with provider: {:?}",
+            config.provider_type
+        );
 
         let provider: Arc<dyn LLMProvider> = match config.provider_type {
             ProviderType::OpenAI => Arc::new(providers::OpenAIProvider::new().await?),
@@ -86,11 +89,16 @@ impl LLMClient {
                     info!("Auto-discovering available GGUF models...");
                     match auto_discover::get_recommended_model_for_llm().await {
                         Ok(Some(model)) => {
-                            info!("Auto-discovered model: {} ({})", model.name, model.model_type);
+                            info!(
+                                "Auto-discovered model: {} ({})",
+                                model.name, model.model_type
+                            );
                             model.path
                         }
                         Ok(None) => {
-                            warn!("No GGUF models found during auto-discovery, using default Qwen path");
+                            warn!(
+                                "No GGUF models found during auto-discovery, using default Qwen path"
+                            );
                             GGUFProvider::default_qwen_path()
                         }
                         Err(e) => {
@@ -102,7 +110,7 @@ impl LLMClient {
 
                 Arc::new(GGUFProvider::new(model_path, 2048, 8)?)
             }
-            ProviderType::Mock => Arc::new(MockProvider::default()),
+            ProviderType::Mock => Arc::new(MockProvider),
         };
 
         let cache = cache::LLMCache::new(config.cache_ttl_secs);
@@ -125,20 +133,17 @@ impl LLMClient {
     }
 
     /// Analyze a task to determine best approach
-    pub async fn analyze_task(
-        &self,
-        task_context: &TaskAnalysisContext,
-    ) -> Result<TaskAnalysis> {
+    pub async fn analyze_task(&self, task_context: &TaskAnalysisContext) -> Result<TaskAnalysis> {
         self.rate_limiter.check_limit().await?;
 
         let cache_key = format!("analyze_task:{}", task_context.task_id);
 
         // Check cache first
-        if self.config.enable_caching {
-            if let Some(cached) = self.cache.get::<TaskAnalysis>(&cache_key).await {
-                debug!("Cache hit for task analysis: {}", task_context.task_id);
-                return Ok(cached);
-            }
+        if self.config.enable_caching
+            && let Some(cached) = self.cache.get::<TaskAnalysis>(&cache_key).await
+        {
+            debug!("Cache hit for task analysis: {}", task_context.task_id);
+            return Ok(cached);
         }
 
         debug!("Analyzing task: {}", task_context.task_id);
@@ -162,11 +167,14 @@ impl LLMClient {
 
         let cache_key = format!("collaborators:{}", specialist.name);
 
-        if self.config.enable_caching {
-            if let Some(cached) = self.cache.get::<Vec<CollaboratorSuggestion>>(&cache_key).await {
-                debug!("Cache hit for collaborators: {}", specialist.name);
-                return Ok(cached);
-            }
+        if self.config.enable_caching
+            && let Some(cached) = self
+                .cache
+                .get::<Vec<CollaboratorSuggestion>>(&cache_key)
+                .await
+        {
+            debug!("Cache hit for collaborators: {}", specialist.name);
+            return Ok(cached);
         }
 
         debug!("Finding collaborators for: {}", specialist.name);
@@ -190,11 +198,11 @@ impl LLMClient {
 
         let cache_key = format!("plan:{}:{}", specialist.name, task.task_id);
 
-        if self.config.enable_caching {
-            if let Some(cached) = self.cache.get::<ExecutionPlan>(&cache_key).await {
-                debug!("Cache hit for execution plan");
-                return Ok(cached);
-            }
+        if self.config.enable_caching
+            && let Some(cached) = self.cache.get::<ExecutionPlan>(&cache_key).await
+        {
+            debug!("Cache hit for execution plan");
+            return Ok(cached);
         }
 
         debug!("Generating plan for specialist: {}", specialist.name);
@@ -209,10 +217,7 @@ impl LLMClient {
     }
 
     /// Analyze a failure and suggest recovery
-    pub async fn analyze_failure(
-        &self,
-        failure: &FailureContext,
-    ) -> Result<FailureAnalysis> {
+    pub async fn analyze_failure(&self, failure: &FailureContext) -> Result<FailureAnalysis> {
         self.rate_limiter.check_limit().await?;
 
         debug!("Analyzing failure for task: {}", failure.task_id);
@@ -232,11 +237,11 @@ impl LLMClient {
 
         let cache_key = format!("skill:{}:{}", specialist.name, skill_name);
 
-        if self.config.enable_caching {
-            if let Some(cached) = self.cache.get::<SkillExplanation>(&cache_key).await {
-                debug!("Cache hit for skill explanation");
-                return Ok(cached);
-            }
+        if self.config.enable_caching
+            && let Some(cached) = self.cache.get::<SkillExplanation>(&cache_key).await
+        {
+            debug!("Cache hit for skill explanation");
+            return Ok(cached);
         }
 
         debug!("Explaining skill: {}", skill_name);
@@ -299,15 +304,18 @@ impl LLMClient {
 
         let cache_key = format!("domain:{}:{:.60}", domain, user_prompt);
 
-        if self.config.enable_caching {
-            if let Some(cached) = self.cache.get::<String>(&cache_key).await {
-                return Ok(cached);
-            }
+        if self.config.enable_caching
+            && let Some(cached) = self.cache.get::<String>(&cache_key).await
+        {
+            return Ok(cached);
         }
 
         // Use the proper chat() path — gives GGUF a real ChatML system+user
         // turn and gives the mock provider structured domain routing.
-        let response = self.provider.chat(system_prompt, user_prompt, domain).await
+        let response = self
+            .provider
+            .chat(system_prompt, user_prompt, domain)
+            .await
             .unwrap_or_else(|e| format!("[{}] LLM error: {}", domain, e));
 
         // If GGUF inference is disabled (feature not compiled in), the response
@@ -315,7 +323,8 @@ impl LLMClient {
         // the MockProvider which returns properly structured domain JSON.
         let response = if response.starts_with("GGUF inference disabled") {
             let mock = providers::MockProvider;
-            mock.chat(system_prompt, user_prompt, domain).await
+            mock.chat(system_prompt, user_prompt, domain)
+                .await
                 .unwrap_or(response)
         } else {
             response
@@ -328,19 +337,16 @@ impl LLMClient {
         Ok(response)
     }
 
-    pub async fn generate_design(
-        &self,
-        context: &DesignContext,
-    ) -> Result<DesignGeneration> {
+    pub async fn generate_design(&self, context: &DesignContext) -> Result<DesignGeneration> {
         self.rate_limiter.check_limit().await?;
 
         let cache_key = format!("design:{}", context.intent);
 
-        if self.config.enable_caching {
-            if let Some(cached) = self.cache.get::<DesignGeneration>(&cache_key).await {
-                debug!("Cache hit for design generation: {}", context.intent);
-                return Ok(cached);
-            }
+        if self.config.enable_caching
+            && let Some(cached) = self.cache.get::<DesignGeneration>(&cache_key).await
+        {
+            debug!("Cache hit for design generation: {}", context.intent);
+            return Ok(cached);
         }
 
         debug!("Generating design for intent: {}", context.intent);
@@ -357,20 +363,20 @@ impl LLMClient {
     /// Generate an embedding vector for the given text
     pub async fn embed(&self, text: &str) -> Result<Vec<f32>> {
         self.rate_limiter.check_limit().await?;
-        
+
         let cache_key = format!("embed:{}", text);
-        if self.config.enable_caching {
-            if let Some(cached) = self.cache.get::<Vec<f32>>(&cache_key).await {
-                return Ok(cached);
-            }
+        if self.config.enable_caching
+            && let Some(cached) = self.cache.get::<Vec<f32>>(&cache_key).await
+        {
+            return Ok(cached);
         }
-        
+
         let vector = self.provider.embed(text).await?;
-        
+
         if self.config.enable_caching {
             self.cache.set(&cache_key, vector.clone()).await?;
         }
-        
+
         Ok(vector)
     }
 }

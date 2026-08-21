@@ -2,7 +2,7 @@
 // Integration with local models via Ollama, vLLM, etc.
 
 use crate::llm::types::*;
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use tracing::{debug, info};
@@ -31,8 +31,8 @@ impl LocalLLMProvider {
         let endpoint = std::env::var("LOCAL_LLM_ENDPOINT")
             .unwrap_or_else(|_| "http://localhost:11434".to_string());
 
-        let model = std::env::var("LOCAL_LLM_MODEL")
-            .unwrap_or_else(|_| "mistral:latest".to_string());
+        let model =
+            std::env::var("LOCAL_LLM_MODEL").unwrap_or_else(|_| "mistral:latest".to_string());
 
         info!("Initialized Local LLM provider at: {}", endpoint);
 
@@ -62,10 +62,7 @@ impl LocalLLMProvider {
             .await?;
 
         if !response.status().is_success() {
-            return Err(anyhow!(
-                "Local LLM error: {}",
-                response.status().to_string()
-            ));
+            return Err(anyhow!("Local LLM error: {}", response.status()));
         }
 
         let data: LocalResponse = response.json().await?;
@@ -320,33 +317,33 @@ Respond ONLY with valid JSON matching:
 
     async fn embed(&self, text: &str) -> Result<Vec<f32>> {
         let client = reqwest::Client::new();
-        
+
         #[derive(Serialize)]
         struct EmbedRequest {
             model: String,
             prompt: String,
         }
-        
+
         #[derive(Deserialize)]
         struct EmbedResponse {
             embedding: Vec<f32>,
         }
-        
+
         let req = EmbedRequest {
             model: self.model.clone(),
             prompt: text.to_string(),
         };
-        
+
         let response = client
             .post(format!("{}/api/embeddings", self.endpoint))
             .json(&req)
             .send()
             .await?;
-            
+
         if !response.status().is_success() {
-            return Err(anyhow!("Local LLM embedding error: {}", response.status().to_string()));
+            return Err(anyhow!("Local LLM embedding error: {}", response.status()));
         }
-        
+
         let data: EmbedResponse = response.json().await?;
         Ok(data.embedding)
     }
@@ -355,16 +352,16 @@ Respond ONLY with valid JSON matching:
 /// Extract JSON from text that might contain extra content
 pub fn extract_json(text: &str) -> Result<String> {
     // Try to find JSON object or array
-    if let Some(start) = text.find('{') {
-        if let Some(end) = text.rfind('}') {
-            return Ok(text[start..=end].to_string());
-        }
+    if let Some(start) = text.find('{')
+        && let Some(end) = text.rfind('}')
+    {
+        return Ok(text[start..=end].to_string());
     }
 
-    if let Some(start) = text.find('[') {
-        if let Some(end) = text.rfind(']') {
-            return Ok(text[start..=end].to_string());
-        }
+    if let Some(start) = text.find('[')
+        && let Some(end) = text.rfind(']')
+    {
+        return Ok(text[start..=end].to_string());
     }
 
     // If no JSON found, assume the whole thing is JSON

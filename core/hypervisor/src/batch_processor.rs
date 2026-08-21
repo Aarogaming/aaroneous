@@ -1,8 +1,8 @@
 // Batch Processing for Learning Updates
 // Groups learning tasks for efficient processing and amortized overhead
 
-use std::collections::VecDeque;
 use serde::{Deserialize, Serialize};
+use std::collections::VecDeque;
 use std::time::Instant;
 
 /// A task to be batched
@@ -48,15 +48,17 @@ pub struct BatchStatistics {
     pub throughput_tasks_per_sec: f32,
     pub average_task_time_us: u64,
     pub success_rate: f32,
-    pub memory_overhead_reduction: f32,  // vs individual processing
+    pub memory_overhead_reduction: f32, // vs individual processing
 }
 
 impl BatchProcessor {
     /// Create a new batch processor
     pub fn new(max_batch_size: usize, max_batch_age_ms: u64) -> Self {
-        println!("[BatchProcessor] Initialized (batch size: {}, age: {}ms)",
-            max_batch_size, max_batch_age_ms);
-        
+        println!(
+            "[BatchProcessor] Initialized (batch size: {}, age: {}ms)",
+            max_batch_size, max_batch_age_ms
+        );
+
         Self {
             batch_id: 0,
             max_batch_size,
@@ -75,12 +77,14 @@ impl BatchProcessor {
     pub fn add_task(&mut self, task: BatchedTask) -> bool {
         if self.current_batch.len() < self.max_batch_size {
             self.current_batch.push_back(task);
-            
+
             if self.current_batch.len() == self.max_batch_size {
-                println!("[BatchProcessor] Batch full ({}), ready for processing", 
-                    self.max_batch_size);
+                println!(
+                    "[BatchProcessor] Batch full ({}), ready for processing",
+                    self.max_batch_size
+                );
             }
-            
+
             true
         } else {
             println!("[BatchProcessor] Batch full, cannot add task");
@@ -96,10 +100,10 @@ impl BatchProcessor {
         }
 
         // Process if batch is old enough
-        if let Some(last_time) = self.last_batch_time {
-            if last_time.elapsed().as_millis() >= self.max_batch_age_ms as u128 {
-                return true;
-            }
+        if let Some(last_time) = self.last_batch_time
+            && last_time.elapsed().as_millis() >= self.max_batch_age_ms as u128
+        {
+            return true;
         }
 
         false
@@ -115,27 +119,24 @@ impl BatchProcessor {
         let start_time = Instant::now();
         let batch_size = self.current_batch.len();
 
-        println!("[BatchProcessor] Processing batch {} ({} tasks)",
-            self.batch_id, batch_size);
+        println!(
+            "[BatchProcessor] Processing batch {} ({} tasks)",
+            self.batch_id, batch_size
+        );
 
-        // Collect all features from tasks
-        let mut all_features = Vec::new();
+        // Collect task indices from batch
         let mut task_indices = Vec::new();
-        
+
         for (idx, task) in self.current_batch.iter().enumerate() {
             task_indices.push((idx, task.task_id.clone()));
-            all_features.extend(&task.features);
         }
-
-        // Process all features together (amortized overhead)
-        let batch_results = self.process_batch_features(&all_features, batch_size);
 
         // Generate results
         let mut results = Vec::new();
-        for (idx, task_id) in task_indices {
+        for (_idx, task_id) in task_indices {
             results.push(BatchResult {
                 task_id: task_id.clone(),
-                output: vec![0.5, 0.3, 0.2],  // Placeholder
+                output: vec![0.5, 0.3, 0.2], // Placeholder
                 processing_time_us: (start_time.elapsed().as_micros() as u64) / batch_size as u64,
                 success: true,
             });
@@ -153,7 +154,7 @@ impl BatchProcessor {
             throughput_tasks_per_sec: throughput,
             average_task_time_us: avg_task_time,
             success_rate: 1.0,
-            memory_overhead_reduction: 0.35,  // 35% reduction vs individual
+            memory_overhead_reduction: 0.35, // 35% reduction vs individual
         };
 
         self.batch_history.push_back(stats);
@@ -165,8 +166,10 @@ impl BatchProcessor {
         self.total_tasks_processed += batch_size as u64;
         self.last_batch_time = Some(Instant::now());
 
-        println!("[BatchProcessor] Batch {} complete: {:.0} tasks/sec, {}μs/task",
-            self.batch_id, throughput, avg_task_time);
+        println!(
+            "[BatchProcessor] Batch {} complete: {:.0} tasks/sec, {}μs/task",
+            self.batch_id, throughput, avg_task_time
+        );
 
         // Clear batch
         self.current_batch.clear();
@@ -175,29 +178,24 @@ impl BatchProcessor {
         results
     }
 
-    /// Process batch features (vectorized operation)
-    fn process_batch_features(&self, all_features: &[f64], batch_size: usize) -> Vec<Vec<f64>> {
-        // In real implementation, would use SIMD here
-        // For now, simple vectorized processing
-        vec![vec![0.5]; batch_size]
-    }
-
     /// Get batch statistics
     pub fn get_statistics(&self) -> BatchProcessorStatistics {
-        let total_time: u64 = self.batch_history.iter()
+        let total_time: u64 = self
+            .batch_history
+            .iter()
             .map(|s| s.processing_time_us)
             .sum();
-        
-        let avg_time = if !self.batch_history.is_empty() {
-            total_time / self.batch_history.len() as u64
-        } else {
-            0
-        };
+
+        let avg_time = total_time
+            .checked_div(self.batch_history.len() as u64)
+            .unwrap_or(0);
 
         let avg_throughput = if !self.batch_history.is_empty() {
-            self.batch_history.iter()
+            self.batch_history
+                .iter()
                 .map(|s| s.throughput_tasks_per_sec)
-                .sum::<f32>() / self.batch_history.len() as f32
+                .sum::<f32>()
+                / self.batch_history.len() as f32
         } else {
             0.0
         };
@@ -220,7 +218,10 @@ impl BatchProcessor {
             return Vec::new();
         }
 
-        println!("[BatchProcessor] Flushing {} pending tasks", self.current_batch.len());
+        println!(
+            "[BatchProcessor] Flushing {} pending tasks",
+            self.current_batch.len()
+        );
         self.process_batch()
     }
 
@@ -240,7 +241,7 @@ impl BatchProcessor {
         let memory_reduction = 35.0;
         let cpu_reduction = 40.0;
         let throughput_improvement = 40.0;
-        let latency_increase = 5.0;  // ms per task (acceptable tradeoff)
+        let latency_increase = 5.0; // ms per task (acceptable tradeoff)
 
         PerformanceImprovement {
             memory_reduction_percent: memory_reduction,
@@ -285,7 +286,7 @@ mod tests {
     #[test]
     fn test_add_task() {
         let mut processor = BatchProcessor::new(2, 100);
-        
+
         let task = BatchedTask {
             task_id: "t1".to_string(),
             features: vec![0.1, 0.2, 0.3],
@@ -293,7 +294,7 @@ mod tests {
             priority: 1,
             timestamp: Instant::now(),
         };
-        
+
         assert!(processor.add_task(task));
         assert_eq!(processor.pending_count(), 1);
     }
@@ -301,7 +302,7 @@ mod tests {
     #[test]
     fn test_batch_full() {
         let mut processor = BatchProcessor::new(2, 100);
-        
+
         for i in 0..2 {
             let task = BatchedTask {
                 task_id: format!("t{}", i),
@@ -312,14 +313,14 @@ mod tests {
             };
             processor.add_task(task);
         }
-        
+
         assert!(processor.should_process_batch());
     }
 
     #[test]
     fn test_process_batch() {
         let mut processor = BatchProcessor::new(3, 100);
-        
+
         for i in 0..2 {
             let task = BatchedTask {
                 task_id: format!("t{}", i),
@@ -330,7 +331,7 @@ mod tests {
             };
             processor.add_task(task);
         }
-        
+
         let results = processor.process_batch();
         assert_eq!(results.len(), 2);
         assert_eq!(processor.pending_count(), 0);
@@ -339,7 +340,7 @@ mod tests {
     #[test]
     fn test_statistics() {
         let mut processor = BatchProcessor::new(2, 100);
-        
+
         for i in 0..2 {
             let task = BatchedTask {
                 task_id: format!("t{}", i),
@@ -350,9 +351,9 @@ mod tests {
             };
             processor.add_task(task);
         }
-        
+
         processor.process_batch();
-        
+
         let stats = processor.get_statistics();
         assert_eq!(stats.total_batches, 1);
         assert_eq!(stats.total_tasks, 2);
@@ -363,9 +364,8 @@ mod tests {
     fn test_performance_improvement() {
         let processor = BatchProcessor::new(32, 100);
         let improvement = processor.estimate_improvement();
-        
+
         assert!(improvement.memory_reduction_percent > 0.0);
         assert!(improvement.throughput_improvement_percent > 0.0);
     }
 }
-

@@ -1,15 +1,14 @@
+use crate::federation::specialist::{ProposalPriority, ResourceRequest, SpecialistId};
 /// Proposal System: How specialists share their ideas
-/// 
+///
 /// A proposal is a specialist's asynchronous signal: "I have an idea that might help."
 /// Proposals are:
 /// - Non-blocking: specialist submits and continues
 /// - Ranked: multiple proposals from different specialists
 /// - Conflict-capable: Sentinel detects overlaps and resolves
 /// - Retryable: proposals can be resubmitted if rejected
-
 use serde::{Deserialize, Serialize};
 use std::time::SystemTime;
-use crate::federation::specialist::{SpecialistId, ResourceRequest, ProposalPriority};
 
 /// Unique identifier for a proposal
 #[derive(Debug, Clone, Copy, Hash, Eq, PartialEq, Serialize, Deserialize)]
@@ -61,15 +60,15 @@ pub struct Proposal {
     pub specialist: SpecialistId,
     pub timestamp: u64,
     pub status: ProposalStatus,
-    pub action: String,                      // "generate_design", "sync_devices", etc.
+    pub action: String, // "generate_design", "sync_devices", etc.
     pub description: String,
-    pub confidence: f32,                     // 0.0-1.0 (how sure specialist is)
+    pub confidence: f32, // 0.0-1.0 (how sure specialist is)
     pub priority: ProposalPriority,
     pub required_resources: ResourceRequest,
     pub estimated_completion_ms: u64,
-    pub dependencies: Vec<ProposalId>,       // This proposal depends on others
-    pub tags: Vec<String>,                   // For categorization ("design", "sync", "learning", etc.)
-    pub rejection_reason: Option<String>,    // If rejected, why?
+    pub dependencies: Vec<ProposalId>, // This proposal depends on others
+    pub tags: Vec<String>,             // For categorization ("design", "sync", "learning", etc.)
+    pub rejection_reason: Option<String>, // If rejected, why?
     /// Arbitrary key-value metadata forwarded into Decision.context at arbitration.
     /// Use "intent" to carry the active user intent into specialist execution.
     pub metadata: std::collections::HashMap<String, String>,
@@ -129,7 +128,10 @@ impl Proposal {
 
     /// Score for ranking proposals (higher = better)
     /// Takes into account confidence, priority, resource availability
-    pub fn score(&self, available_resources: &crate::federation::specialist::SystemResources) -> f32 {
+    pub fn score(
+        &self,
+        available_resources: &crate::federation::specialist::SystemResources,
+    ) -> f32 {
         let priority_weight = match self.priority {
             ProposalPriority::Background => 0.1,
             ProposalPriority::Normal => 0.5,
@@ -137,9 +139,9 @@ impl Proposal {
             ProposalPriority::Urgent => 1.0,
         };
 
-        let resource_feasible = 
-            self.required_resources.gpu_percent <= available_resources.gpu_available_percent &&
-            self.required_resources.memory_mb <= available_resources.memory_available_mb;
+        let resource_feasible = self.required_resources.gpu_percent
+            <= available_resources.gpu_available_percent
+            && self.required_resources.memory_mb <= available_resources.memory_available_mb;
 
         if !resource_feasible {
             return 0.0;
@@ -148,9 +150,12 @@ impl Proposal {
         (self.confidence * 0.6) + (priority_weight * 0.4)
     }
 
-    pub fn is_viable(&self, available_resources: &crate::federation::specialist::SystemResources) -> bool {
-        self.required_resources.gpu_percent <= available_resources.gpu_available_percent &&
-        self.required_resources.memory_mb <= available_resources.memory_available_mb
+    pub fn is_viable(
+        &self,
+        available_resources: &crate::federation::specialist::SystemResources,
+    ) -> bool {
+        self.required_resources.gpu_percent <= available_resources.gpu_available_percent
+            && self.required_resources.memory_mb <= available_resources.memory_available_mb
     }
 }
 
@@ -198,7 +203,9 @@ impl ProposalSet {
         proposals.sort_by(|a, b| {
             let score_a = a.score(available_resources);
             let score_b = b.score(available_resources);
-            score_b.partial_cmp(&score_a).unwrap_or(std::cmp::Ordering::Equal)
+            score_b
+                .partial_cmp(&score_a)
+                .unwrap_or(std::cmp::Ordering::Equal)
         });
 
         proposals
@@ -214,17 +221,18 @@ impl ProposalSet {
                 let p2 = &self.proposals[j];
 
                 // Conflict if both need GPU and combined usage > 100%
-                if p1.required_resources.gpu_percent > 0.0 && p2.required_resources.gpu_percent > 0.0 {
-                    if p1.required_resources.gpu_percent + p2.required_resources.gpu_percent > 100.0 {
-                        conflicts.push(ProposalConflict {
-                            proposal_a_id: p1.id,
-                            proposal_b_id: p2.id,
-                            specialist_a: p1.specialist,
-                            specialist_b: p2.specialist,
-                            conflict_type: ConflictType::ResourceContention("GPU".to_string()),
-                            severity: ConflictSeverity::High,
-                        });
-                    }
+                if p1.required_resources.gpu_percent > 0.0
+                    && p2.required_resources.gpu_percent > 0.0
+                    && p1.required_resources.gpu_percent + p2.required_resources.gpu_percent > 100.0
+                {
+                    conflicts.push(ProposalConflict {
+                        proposal_a_id: p1.id,
+                        proposal_b_id: p2.id,
+                        specialist_a: p1.specialist,
+                        specialist_b: p2.specialist,
+                        conflict_type: ConflictType::ResourceContention("GPU".to_string()),
+                        severity: ConflictSeverity::High,
+                    });
                 }
 
                 // Conflict if both need same resource at same time
@@ -264,7 +272,7 @@ pub struct ProposalConflict {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ConflictType {
-    ResourceContention(String),  // "GPU", "CPU", "Memory"
+    ResourceContention(String), // "GPU", "CPU", "Memory"
     DuplicateAction,
     DependencyLoop,
     PriorityMismatch,
@@ -294,7 +302,10 @@ mod tests {
         // of 100 must have at least some distinct values.
         let ids: Vec<_> = (0..100).map(|_| ProposalId::new()).collect();
         let unique_count = ids.iter().collect::<std::collections::HashSet<_>>().len();
-        assert!(unique_count > 1, "expected distinct ProposalIds, got all identical");
+        assert!(
+            unique_count > 1,
+            "expected distinct ProposalIds, got all identical"
+        );
     }
 
     #[test]
@@ -368,7 +379,7 @@ mod tests {
     #[test]
     fn test_proposal_set_add_and_count() {
         let mut set = ProposalSet::new();
-        
+
         let p1 = Proposal::new(
             SpecialistId::Visionary,
             "design".to_string(),
@@ -394,7 +405,7 @@ mod tests {
     #[test]
     fn test_proposal_set_by_specialist() {
         let mut set = ProposalSet::new();
-        
+
         set.add(Proposal::new(
             SpecialistId::Visionary,
             "d1".to_string(),
@@ -453,7 +464,10 @@ mod tests {
 
         let conflicts = set.detect_conflicts();
         assert_eq!(conflicts.len(), 1);
-        assert!(matches!(conflicts[0].conflict_type, ConflictType::ResourceContention(_)));
+        assert!(matches!(
+            conflicts[0].conflict_type,
+            ConflictType::ResourceContention(_)
+        ));
     }
 
     #[test]

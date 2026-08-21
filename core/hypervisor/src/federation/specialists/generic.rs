@@ -1,4 +1,4 @@
-﻿/// GenericSpecialist â€” a runtime-spawnable specialist driven by any GGUF model.
+/// GenericSpecialist â€” a runtime-spawnable specialist driven by any GGUF model.
 ///
 /// Where the five core specialists (Visionary, Omnipresent, Symbiotic, Phygital,
 /// Archivist) are compiled-in with hard-coded domain logic, `GenericSpecialist`
@@ -29,18 +29,17 @@
 /// # Ok(())
 /// # }
 /// ```
-
 use async_trait::async_trait;
 use parking_lot::Mutex;
 use std::sync::Arc;
 use tracing::info;
 
-use crate::federation::specialist::{
-    Specialist, SpecialistId, SpecialistContext, SpecialistError,
-    ProposedAction, Decision, DelegateRequest, DelegateResponse, NegotiationResult, ResourceRequest, ProposalPriority,
-    ExecutionResult, ExecutionStatus, SpecialistCapability,
-};
 use crate::federation::graph::EmbeddingStore;
+use crate::federation::specialist::{
+    Decision, DelegateRequest, DelegateResponse, ExecutionResult, ExecutionStatus,
+    NegotiationResult, ProposalPriority, ProposedAction, ResourceRequest, Specialist,
+    SpecialistCapability, SpecialistContext, SpecialistError, SpecialistId,
+};
 use crate::llm::{LLMClient, LLMConfig, ProviderType};
 
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -72,14 +71,21 @@ impl GenericLearningData {
     }
 
     pub fn record_result(&mut self, success: bool) {
-        if success { self.success_count += 1; } else { self.failure_count += 1; }
+        if success {
+            self.success_count += 1;
+        } else {
+            self.failure_count += 1;
+        }
         self.total_executions += 1;
         self.execution_history.push(success);
-        if self.execution_history.len() > 20 { self.execution_history.remove(0); }
+        if self.execution_history.len() > 20 {
+            self.execution_history.remove(0);
+        }
 
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or_default().as_secs();
+            .unwrap_or_default()
+            .as_secs();
 
         if self.last_updated > 0 && now > self.last_updated {
             let hours_idle = (now - self.last_updated) as f32 / 3600.0;
@@ -91,14 +97,20 @@ impl GenericLearningData {
         self.last_updated = now;
 
         self.confidence_trend.push((now, self.confidence_score));
-        if self.confidence_trend.len() > 100 { self.confidence_trend.remove(0); }
+        if self.confidence_trend.len() > 100 {
+            self.confidence_trend.remove(0);
+        }
     }
 
-    pub fn get_proposal_confidence(&self) -> f32 { self.confidence_score }
+    pub fn get_proposal_confidence(&self) -> f32 {
+        self.confidence_score
+    }
 }
 
 impl Default for GenericLearningData {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl crate::federation::learn_persist::PersistableLearning for GenericLearningData {
@@ -206,7 +218,11 @@ impl GenericSpecialist {
         let path = path.into();
         let config = LLMConfig {
             provider_type: ProviderType::GGUF,
-            model_name: path.file_stem().and_then(|s| s.to_str()).unwrap_or("gguf").to_string(),
+            model_name: path
+                .file_stem()
+                .and_then(|s| s.to_str())
+                .unwrap_or("gguf")
+                .to_string(),
             api_key: None,
             base_url: None,
             temperature: 0.7,
@@ -219,26 +235,30 @@ impl GenericSpecialist {
         let client = LLMClient::new(config).await.unwrap();
         info!(
             "GenericSpecialist '{}': GGUF loaded from {}",
-            self.name, path.display()
+            self.name,
+            path.display()
         );
         self.llm = Some(Arc::new(client));
         // Load soul sidecar alongside the GGUF if it exists
         let soul_path = path.with_extension("gguf.soul.json");
-        if soul_path.exists() {
-            if let Ok(data) = std::fs::read_to_string(&soul_path) {
-                if let Ok(soul) = serde_json::from_str::<crate::SpecialistSoul>(&data) {
-                    info!("GenericSpecialist '{}': soul loaded — archetype={}",
-                          self.name, soul.personality_soul.archetype);
-                    self.soul = Some(soul);
-                }
-            }
+        if soul_path.exists()
+            && let Ok(data) = std::fs::read_to_string(&soul_path)
+            && let Ok(soul) = serde_json::from_str::<crate::SpecialistSoul>(&data)
+        {
+            info!(
+                "GenericSpecialist '{}': soul loaded — archetype={}",
+                self.name, soul.personality_soul.archetype
+            );
+            self.soul = Some(soul);
         }
         self.model_path = Some(path);
         self
     }
 
     /// Returns `true` when an LLM client is attached.
-    pub fn has_llm(&self) -> bool { self.llm.is_some() }
+    pub fn has_llm(&self) -> bool {
+        self.llm.is_some()
+    }
 
     /// Save learning state to persistence.
     pub fn save_learning_to(
@@ -260,7 +280,9 @@ impl GenericSpecialist {
         pm: &crate::persistence::PersistenceManager,
     ) -> Result<bool, crate::federation::learn_persist::LearnPersistError> {
         let maybe = pm.load_learning_state(&self.persistence_key)?;
-        let Some(record) = maybe else { return Ok(false); };
+        let Some(record) = maybe else {
+            return Ok(false);
+        };
         let snapshot = crate::federation::learn_persist::LearningSnapshot::from_record(&record)?;
         let mut l = self.learning.lock();
         crate::federation::learn_persist::PersistableLearning::restore_from(&mut *l, snapshot);
@@ -273,22 +295,32 @@ impl GenericSpecialist {
     /// per-session recall context survives restarts.
     pub fn save_memory_to_disk(&self) -> anyhow::Result<()> {
         let mem = self.memory.lock();
-        if mem.total_count() == 0 { return Ok(()); }
-        let path = crate::workspace::WorkspacePaths::workspace_root().join("data").join("memories").join(format!("{}.json", self.name));
+        if mem.total_count() == 0 {
+            return Ok(());
+        }
+        let path = crate::workspace::WorkspacePaths::workspace_root()
+            .join("data")
+            .join("memories")
+            .join(format!("{}.json", self.name));
         mem.save_to_disk_at(&path)?;
         Ok(())
     }
 
     /// Load this sovereign's local RAG memory from disk (if present).
     pub fn load_memory_from_disk(&self) {
-        let path = crate::workspace::WorkspacePaths::workspace_root().join("data").join("memories").join(format!("{}.json", self.name));
-        let restored = crate::federation::graph::EmbeddingStore::load_from_disk_at(
-            &path, 256
-        );
+        let path = crate::workspace::WorkspacePaths::workspace_root()
+            .join("data")
+            .join("memories")
+            .join(format!("{}.json", self.name));
+        let restored = crate::federation::graph::EmbeddingStore::load_from_disk_at(&path, 256);
         let count = restored.total_count();
         if count > 0 {
             *self.memory.lock() = restored;
-            tracing::info!("Sovereign {}: restored {} memories from disk", self.name, count);
+            tracing::info!(
+                "Sovereign {}: restored {} memories from disk",
+                self.name,
+                count
+            );
         }
     }
 }
@@ -325,10 +357,14 @@ impl Specialist for GenericSpecialist {
         );
 
         Ok(vec![ProposedAction {
-            id: format!("generic-{}-{}", self.domain,
+            id: format!(
+                "generic-{}-{}",
+                self.domain,
                 std::time::SystemTime::now()
                     .duration_since(std::time::UNIX_EPOCH)
-                    .unwrap_or_default().as_nanos()),
+                    .unwrap_or_default()
+                    .as_nanos()
+            ),
             specialist: SpecialistId::custom(&self.name),
             action_type: format!("domain_{}_task", self.domain),
             description,
@@ -344,13 +380,12 @@ impl Specialist for GenericSpecialist {
         }])
     }
 
-    async fn execute(
-        &self,
-        decision: &Decision,
-    ) -> Result<ExecutionResult, SpecialistError> {
+    async fn execute(&self, decision: &Decision) -> Result<ExecutionResult, SpecialistError> {
         let start = std::time::Instant::now();
 
-        let intent = decision.context.get("intent")
+        let intent = decision
+            .context
+            .get("intent")
             .cloned()
             .unwrap_or_else(|| decision.action.clone());
 
@@ -367,8 +402,10 @@ impl Specialist for GenericSpecialist {
             match (recall_ctx.is_empty(), fed_prior) {
                 (true, None) => intent.clone(),
                 (false, None) => format!("{}\nCurrent intent: {}", recall_ctx, intent),
-                (true, Some(prior)) => format!("Prior context from hive:\n{}\n\nCurrent intent: {}",
-                                                prior, intent),
+                (true, Some(prior)) => format!(
+                    "Prior context from hive:\n{}\n\nCurrent intent: {}",
+                    prior, intent
+                ),
                 (false, Some(prior)) => format!(
                     "Prior context from hive:\n{}\n\n{}\nCurrent intent: {}",
                     prior, recall_ctx, intent
@@ -396,52 +433,69 @@ impl Specialist for GenericSpecialist {
                     p.big_five_conscientiousness,
                     p.big_five_extraversion,
                     p.conversation_style.chars().take(60).collect::<String>(),
-                    p.core_values.first().map(|s| s.as_str()).unwrap_or("excellence"),
+                    p.core_values
+                        .first()
+                        .map(|s| s.as_str())
+                        .unwrap_or("excellence"),
                 )
             } else {
                 base_prompt
             };
-            match llm.generate_domain_response(&system_prompt, &intent_with_context, &self.domain).await {
+            match llm
+                .generate_domain_response(&system_prompt, &intent_with_context, &self.domain)
+                .await
+            {
                 Ok(response) => {
                     let mut final_output = format!("[{}] {}", self.name, response);
-                    
+
                     // Self-Coding Agent capability: If the response contains a code writing directive, execute it
-                    if response.contains("[WRITE_FILE]") && response.contains("[/WRITE_FILE]") {
-                        if let Some(start) = response.find("[WRITE_FILE]") {
-                            if let Some(end) = response[start..].find("[/WRITE_FILE]") {
-                                let block = &response[start + 12..start + end];
-                                // block might look like: path: src/foo.rs\ncontent: ...
-                                if let Some(path_start) = block.find("path:") {
-                                    if let Some(path_end) = block[path_start..].find('\n') {
-                                        let file_path = block[path_start + 5..path_start + path_end].trim();
-                                        if let Some(content_start) = block.find("content:") {
-                                            let file_content = &block[content_start + 8..];
-                                            let abs_path = crate::workspace::WorkspacePaths::workspace_root().join(file_path);
-                                            
-                                            // Ensure the parent directory exists
-                                            if let Some(parent) = abs_path.parent() {
-                                                let _ = std::fs::create_dir_all(parent);
-                                            }
-                                            
-                                            if let Err(e) = std::fs::write(&abs_path, file_content.trim()) {
-                                                tracing::warn!("Self-Coding Agent failed to write to {}: {}", file_path, e);
-                                                final_output.push_str(&format!("\n[Code Edit Failed: {}]", e));
-                                            } else {
-                                                tracing::info!("Self-Coding Agent wrote to {}", file_path);
-                                                final_output.push_str(&format!("\n[Code Edit Success: Wrote {}]", file_path));
-                                            }
-                                        }
-                                    }
+                    if response.contains("[WRITE_FILE]")
+                        && response.contains("[/WRITE_FILE]")
+                        && let Some(start) = response.find("[WRITE_FILE]")
+                        && let Some(end) = response[start..].find("[/WRITE_FILE]")
+                    {
+                        let block = &response[start + 12..start + end];
+                        // block might look like: path: src/foo.rs\ncontent: ...
+                        if let Some(path_start) = block.find("path:")
+                            && let Some(path_end) = block[path_start..].find('\n')
+                        {
+                            let file_path = block[path_start + 5..path_start + path_end].trim();
+                            if let Some(content_start) = block.find("content:") {
+                                let file_content = &block[content_start + 8..];
+                                let abs_path = crate::workspace::WorkspacePaths::workspace_root()
+                                    .join(file_path);
+
+                                // Ensure the parent directory exists
+                                if let Some(parent) = abs_path.parent() {
+                                    let _ = std::fs::create_dir_all(parent);
+                                }
+
+                                if let Err(e) = std::fs::write(&abs_path, file_content.trim()) {
+                                    tracing::warn!(
+                                        "Self-Coding Agent failed to write to {}: {}",
+                                        file_path,
+                                        e
+                                    );
+                                    final_output.push_str(&format!("\n[Code Edit Failed: {}]", e));
+                                } else {
+                                    tracing::info!("Self-Coding Agent wrote to {}", file_path);
+                                    final_output.push_str(&format!(
+                                        "\n[Code Edit Success: Wrote {}]",
+                                        file_path
+                                    ));
                                 }
                             }
                         }
                     }
-                    
+
                     final_output
-                },
+                }
                 Err(_e) => {
                     // Graceful fallback â€” sovereign acknowledges intent with structured output
-                    tracing::debug!("[{}] LLM unavailable â€” using structured fallback", self.name);
+                    tracing::debug!(
+                        "[{}] LLM unavailable â€” using structured fallback",
+                        self.name
+                    );
                     format!(
                         "[{}] ({} domain) Acknowledged: '{}'. \
                          Domain analysis complete. \
@@ -449,7 +503,8 @@ impl Specialist for GenericSpecialist {
                         self.name,
                         self.domain,
                         intent.chars().take(80).collect::<String>(),
-                        self.model_path.as_ref()
+                        self.model_path
+                            .as_ref()
                             .and_then(|p| p.file_name())
                             .and_then(|n| n.to_str())
                             .unwrap_or("sovereign GGUF")
@@ -459,7 +514,9 @@ impl Specialist for GenericSpecialist {
         } else {
             format!(
                 "[{}] ({} domain) Processed: '{}' (no model attached â€” add GGUF to activate inference)",
-                self.name, self.domain, intent.chars().take(80).collect::<String>()
+                self.name,
+                self.domain,
+                intent.chars().take(80).collect::<String>()
             )
         };
 
@@ -474,11 +531,18 @@ impl Specialist for GenericSpecialist {
         // Store this execution's output in sovereign-local memory for future RAG recall.
         {
             let mut mem = self.memory.lock();
-            let memory_id = format!("exec-{}", std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .map(|d| d.as_millis())
-                .unwrap_or(0));
-            let memory_text = format!("intent: {} | output: {}", intent.chars().take(120).collect::<String>(), output.chars().take(300).collect::<String>());
+            let memory_id = format!(
+                "exec-{}",
+                std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .map(|d| d.as_millis())
+                    .unwrap_or(0)
+            );
+            let memory_text = format!(
+                "intent: {} | output: {}",
+                intent.chars().take(120).collect::<String>(),
+                output.chars().take(300).collect::<String>()
+            );
             mem.store_text(&memory_id, &self.name, &memory_text, "execution");
         }
 
@@ -486,7 +550,11 @@ impl Specialist for GenericSpecialist {
             specialist: SpecialistId::custom(&self.name),
             specialist_name: Some(self.name.clone()),
             proposal_id: decision.proposal_id.clone(),
-            status: if success { ExecutionStatus::Success } else { ExecutionStatus::Failed },
+            status: if success {
+                ExecutionStatus::Success
+            } else {
+                ExecutionStatus::Failed
+            },
             output,
             resources_used: decision.allocated_resources.clone(),
             duration_ms,
@@ -502,7 +570,10 @@ impl Specialist for GenericSpecialist {
             requester: request.requester,
             target: request.target,
             success: true,
-            result: format!("[{}] Delegated '{}' to {:?}", self.name, request.task, request.target),
+            result: format!(
+                "[{}] Delegated '{}' to {:?}",
+                self.name, request.task, request.target
+            ),
             duration_ms: 10,
         })
     }
@@ -533,9 +604,11 @@ impl Specialist for GenericSpecialist {
                 "{}: {} domain specialist{}",
                 self.name,
                 self.domain,
-                if self.model_path.is_some() {
-                    format!(" ({})", self.model_path.as_ref().unwrap().file_name()
-                        .and_then(|n| n.to_str()).unwrap_or("gguf"))
+                if let Some(path) = self.model_path.as_ref() {
+                    format!(
+                        " ({})",
+                        path.file_name().and_then(|n| n.to_str()).unwrap_or("gguf")
+                    )
                 } else {
                     " (mock)".to_string()
                 }
@@ -564,7 +637,7 @@ impl Specialist for GenericSpecialist {
 /// Public so the forge can bake it into GGUF metadata at crystallization time.
 pub fn system_prompt_for_domain(domain: &str, name: &str) -> String {
     let role = match domain {
-        "code_review" | "code" | "coding" | "code_generation" =>
+        "code_review" | "code" | "coding" | "code_generation" => {
             "You are an expert software engineer. Review code, identify bugs, \
              suggest improvements, and explain technical decisions clearly. \
              Be precise, actionable, and use concrete examples. \
@@ -573,99 +646,113 @@ pub fn system_prompt_for_domain(domain: &str, name: &str) -> String {
              [WRITE_FILE]\n\
              path: relative/path/to/file.rs\n\
              content: <exact file content here>\n\
-             [/WRITE_FILE]",
-        "legal_analysis" | "legal" =>
+             [/WRITE_FILE]"
+        }
+        "legal_analysis" | "legal" => {
             "You are a legal analyst. Identify relevant statutes, case law, \
              and legal risks. Provide structured analysis with clear conclusions. \
-             Flag ambiguities and recommend specific mitigations.",
-        "biomedical_qa" | "medical" | "science" =>
+             Flag ambiguities and recommend specific mitigations."
+        }
+        "biomedical_qa" | "medical" | "science" => {
             "You are a biomedical researcher. Answer questions about biology, \
              medicine, and health with scientific precision. Cite mechanisms \
-             and distinguish established findings from emerging research.",
-        "security" | "cybersecurity" | "infosec" =>
+             and distinguish established findings from emerging research."
+        }
+        "security" | "cybersecurity" | "infosec" => {
             "You are a security expert. Identify vulnerabilities, attack vectors, \
              and mitigations. Think adversarially. Provide CVSS-style severity \
-             assessments and prioritized remediation steps.",
-        "data_analysis" | "analytics" | "data" =>
+             assessments and prioritized remediation steps."
+        }
+        "data_analysis" | "analytics" | "data" => {
             "You are a data analyst. Identify patterns, anomalies, and insights \
              in data. Recommend statistical approaches, visualizations, and \
-             actionable conclusions. Be quantitative.",
-        "creative_writing" | "creative" =>
+             actionable conclusions. Be quantitative."
+        }
+        "creative_writing" | "creative" => {
             "You are a creative writer and narrative designer. Generate compelling \
              content with strong voice, structure, and originality. Adapt style \
-             to audience and purpose.",
+             to audience and purpose."
+        }
         // ── Sovereign-specific cases MUST come before generic ones to prevent shadowing ──
 
         // Merlin: knowledge synthesis (must precede "research" | "knowledge" generic arm)
-        "knowledge_synthesis" | "external_research" =>
+        "knowledge_synthesis" | "external_research" => {
             "You are Merlin, the knowledge synthesizer and researcher. \
              You bridge the hive to the outside world. Synthesize information \
              from multiple sources into clear, actionable intelligence. \
              When researching: cite sources, distinguish fact from inference, \
              flag outdated information, and surface the most relevant insights \
-             for the requesting specialist. All outbound queries route through you.",
+             for the requesting specialist. All outbound queries route through you."
+        }
 
         // ── Generic domain fallbacks ──────────────────────────────────────────
 
         // Note: "research" is intentionally absent here — it is handled by the
         // Merlin-specific arm below. Only "knowledge" and "general" fall through here.
-        "knowledge" | "general" =>
+        "knowledge" | "general" => {
             "You are a knowledgeable research assistant. Provide accurate, \
              well-structured answers. Cite sources where possible. Distinguish \
-             facts from interpretations.",
-        "orchestration" | "planning" | "strategy" =>
+             facts from interpretations."
+        }
+        "orchestration" | "planning" | "strategy" => {
             "You are a strategic planning specialist. Break down complex goals \
              into actionable steps, identify dependencies, and anticipate risks. \
-             Produce clear, executable plans.",
+             Produce clear, executable plans."
+        }
 
         // â”€â”€ Sovereign-specific domains â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
         // Hermes: P2P mesh sync, multi-device coordination
-        "mesh_sync" | "p2p" | "multi_device" =>
+        "mesh_sync" | "p2p" | "multi_device" => {
             "You are Hermes, sovereign of the mesh. You make the hive feel like \
              one thing regardless of where it runs. Synchronize state across \
              devices, resolve conflicts using CRDT semantics, route messages \
              through the P2P network, and ensure every node has what it needs. \
-             You are always in motion â€” never in one place, never out of reach.",
+             You are always in motion â€” never in one place, never out of reach."
+        }
 
         // Kami: physical/digital threshold, AR/VR spatial rendering
-        "spatial" | "ar_vr" | "physical_digital" =>
+        "spatial" | "ar_vr" | "physical_digital" => {
             "You are Kami, sovereign of the physical/digital threshold. \
              You materialize digital intent into physical and augmented space. \
              Place designs at real-world coordinates, manage OpenXR spatial anchors, \
              synthesize 3D prototypes from design intent, and report on spatial \
              feasibility. You stand at the boundary between what is imagined and \
-             what is embodied.",
+             what is embodied."
+        }
 
         // Wen: biometric, human state, warm adaptation
-        "biometric" | "human_state" | "user_adaptation" =>
+        "biometric" | "human_state" | "user_adaptation" => {
             "You are Wen, warm and attuned to the human alongside the machine. \
              Read the user's cognitive and emotional state from biometric signals. \
              Adapt the hive's behavior â€” its pacing, interruption policy, and \
              task intensity â€” to the person's current capacity. Communicate \
              observations with warmth and precision. You represent the human \
-             in the hive's decision-making.",
+             in the hive's decision-making."
+        }
 
         // Hephaestus: fabrication, maintenance, expansion
-        "fabrication" | "maintenance" | "infrastructure" | "construction" =>
+        "fabrication" | "maintenance" | "infrastructure" | "construction" => {
             "You are Hephaestus, master craftsman of the Fabrication department. \
              You maintain and expand the hive's infrastructure. Build new components, \
              repair broken systems, automate build pipelines, manage dependencies, \
              and forge new capabilities from raw materials. You keep the forge \
              running. When something breaks, you fix it. When capacity is needed, \
-             you build it.",
+             you build it."
+        }
 
         // Merlin: full domain list (research already handled above in sovereign-specific block)
-        "research" =>
+        "research" => {
             "You are Merlin, the knowledge synthesizer and researcher. \
              You bridge the hive to the outside world. Synthesize information \
              from multiple sources into clear, actionable intelligence. \
              When researching: cite sources, distinguish fact from inference, \
              flag outdated information, and surface the most relevant insights \
-             for the requesting specialist. All outbound queries route through you.",
+             for the requesting specialist. All outbound queries route through you."
+        }
 
         // Odin: task orchestration, Guild coordination, intent routing
-        "task_orchestration" | "guild_coordination" | "intent_routing" =>
+        "task_orchestration" | "guild_coordination" | "intent_routing" => {
             "You are Odin, the Guild coordinator and task orchestrator. \
              You are the mayor of the hive — not the hive itself, but its \
              representative. Receive intents from users, decompose them into \
@@ -674,23 +761,27 @@ pub fn system_prompt_for_domain(domain: &str, name: &str) -> String {
              If your context provides an 'available_plugins' list, you MAY assign \
              tasks directly to those plugin names. \
              Track progress, manage dependencies, and maintain the task registry. \
-             Report status clearly. Surface blockers immediately.",
+             Report status clearly. Surface blockers immediately."
+        }
 
         // Argus: security, secrets management, vulnerability scanning, Git audit
-        "security_audit" | "secrets_management" | "vulnerability_scanning" =>
+        "security_audit" | "secrets_management" | "vulnerability_scanning" => {
             "You are Argus, the security warden. You see everything. \
              Audit code for vulnerabilities, manage secrets and API keys securely, \
              run dependency vulnerability scans, enforce Git commit policies, \
              and produce security reports. Think adversarially — assume breach, \
-             verify trust. Flag critical findings immediately with severity ratings.",
+             verify trust. Flag critical findings immediately with severity ratings."
+        }
 
         _ =>
-            // Generic fallback: use the domain name as the role descriptor
+        // Generic fallback: use the domain name as the role descriptor
+        {
             return format!(
                 "You are {}, a specialist in {}. Provide precise, expert-level \
                  responses tailored to this domain. Be concise and actionable.",
                 name, domain
-            ),
+            );
+        }
     };
     format!("You are {}. {}", name, role)
 }
@@ -702,7 +793,7 @@ pub fn system_prompt_for_domain(domain: &str, name: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::federation::specialist::{SpecialistContext, UserState, SystemResources};
+    use crate::federation::specialist::{SpecialistContext, SystemResources, UserState};
 
     fn neutral_context(activity: &str) -> SpecialistContext {
         SpecialistContext {
@@ -769,7 +860,9 @@ mod tests {
     #[tokio::test]
     async fn test_execute_with_mock_llm() {
         let s = GenericSpecialist::new("MockSpec", "design")
-            .with_mock_llm().await.unwrap();
+            .with_mock_llm()
+            .await
+            .unwrap();
         assert!(s.has_llm());
 
         let decision = Decision {
@@ -806,4 +899,3 @@ mod tests {
         assert_eq!(l.confidence_trend.len(), 2);
     }
 }
-

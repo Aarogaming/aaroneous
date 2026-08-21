@@ -2,7 +2,11 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum QuantizationType { Q4_0, Q5_0, Q8_0 }
+pub enum QuantizationType {
+    Q4_0,
+    Q5_0,
+    Q8_0,
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct QuantizationConfig {
@@ -22,8 +26,16 @@ pub struct GPUType;
 pub struct GPUInfo;
 
 pub struct GPUMemoryManager;
+impl Default for GPUMemoryManager {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl GPUMemoryManager {
-    pub fn new() -> Self { Self }
+    pub fn new() -> Self {
+        Self
+    }
 }
 
 pub struct GPUInferenceContext;
@@ -43,7 +55,9 @@ pub struct BatchManager;
 pub struct OptimizationProfile;
 
 impl OptimizationProfile {
-    pub fn detect() -> Self { OptimizationProfile }
+    pub fn detect() -> Self {
+        OptimizationProfile
+    }
     pub fn resource_caps(&self) -> crate::federation::specialist::SystemResources {
         crate::federation::specialist::SystemResources::default()
     }

@@ -1,5 +1,5 @@
 /// Federation CLI System
-/// 
+///
 /// Command-line interface for bootstrap and deployment:
 /// - `aaroneous --init`: Fresh installation
 /// - `aaroneous --expand --include specialist`: Add modules
@@ -7,10 +7,7 @@
 /// - `aaroneous config`: Manage configuration
 /// - `aaroneous status`: Check deployment status
 /// - `aaroneous --version`: Show version
-
-use crate::federation::bootstrap::{
-    BootstrapSystem, DeploymentTarget, Manifest, DeploymentConfig,
-};
+use crate::federation::bootstrap::{BootstrapSystem, DeploymentConfig, DeploymentTarget, Manifest};
 use serde::{Deserialize, Serialize};
 
 /// CLI command structure
@@ -31,6 +28,12 @@ pub struct InitArgs {
     pub dna_path: Option<String>,
     pub model_cache_path: Option<String>,
     pub log_level: Option<String>,
+}
+
+impl Default for InitArgs {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl InitArgs {
@@ -100,9 +103,19 @@ impl PortableArgs {
 /// Arguments for `aaroneous config`
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ConfigArgs {
-    Show { manifest_path: String },
-    Edit { manifest_path: String, key: String, value: String },
-    Set { manifest_path: String, dna_path: Option<String>, log_level: Option<String> },
+    Show {
+        manifest_path: String,
+    },
+    Edit {
+        manifest_path: String,
+        key: String,
+        value: String,
+    },
+    Set {
+        manifest_path: String,
+        dna_path: Option<String>,
+        log_level: Option<String>,
+    },
 }
 
 /// Arguments for `aaroneous status`
@@ -280,11 +293,9 @@ impl AaroneosCLI {
                 }
 
                 match args[1] {
-                    "show" if args.len() >= 3 => {
-                        Ok(Command::Config(ConfigArgs::Show {
-                            manifest_path: args[2].to_string(),
-                        }))
-                    }
+                    "show" if args.len() >= 3 => Ok(Command::Config(ConfigArgs::Show {
+                        manifest_path: args[2].to_string(),
+                    })),
                     "set" if args.len() >= 4 => {
                         let manifest_path = args[2].to_string();
                         let mut dna_path = None;
@@ -364,10 +375,9 @@ impl AaroneosCLI {
         }
 
         match config.to_toml() {
-            Ok(toml) => CLIResult::success_with_output(
-                format!("Initialized: {}", result.message),
-                toml,
-            ),
+            Ok(toml) => {
+                CLIResult::success_with_output(format!("Initialized: {}", result.message), toml)
+            }
             Err(e) => CLIResult::error(format!("Failed to generate config: {}", e)),
         }
     }
@@ -388,10 +398,10 @@ impl AaroneosCLI {
         // Expand
         match BootstrapSystem::expand(manifest, args.include.iter().map(|s| s.as_str()).collect()) {
             Ok(result) => {
-                if let Some(output_path) = args.output_path {
-                    if let Some(manifest) = result.manifest {
-                        let _ = ManifestStore::save(&manifest, &output_path);
-                    }
+                if let Some(output_path) = args.output_path
+                    && let Some(manifest) = result.manifest
+                {
+                    let _ = ManifestStore::save(&manifest, &output_path);
                 }
 
                 CLIResult::success(result.message)
@@ -413,10 +423,10 @@ impl AaroneosCLI {
 
         match BootstrapSystem::portable(deployment_target.clone()) {
             Ok(result) => {
-                if let Some(output_path) = args.output_path {
-                    if let Some(manifest) = result.manifest {
-                        let _ = ManifestStore::save(&manifest, &output_path);
-                    }
+                if let Some(output_path) = args.output_path
+                    && let Some(manifest) = result.manifest
+                {
+                    let _ = ManifestStore::save(&manifest, &output_path);
                 }
 
                 CLIResult::success(result.message)
@@ -427,20 +437,18 @@ impl AaroneosCLI {
 
     fn execute_config(args: ConfigArgs) -> CLIResult {
         match args {
-            ConfigArgs::Show { manifest_path } => {
-                match ManifestStore::load(&manifest_path) {
-                    Ok(manifest) => {
-                        let output = format!(
-                            "Manifest: {}\nModules: {}\nSize: {}MB",
-                            manifest_path,
-                            manifest.modules.len(),
-                            manifest.total_size_mb()
-                        );
-                        CLIResult::success_with_output("Configuration loaded".to_string(), output)
-                    }
-                    Err(e) => CLIResult::error(e),
+            ConfigArgs::Show { manifest_path } => match ManifestStore::load(&manifest_path) {
+                Ok(manifest) => {
+                    let output = format!(
+                        "Manifest: {}\nModules: {}\nSize: {}MB",
+                        manifest_path,
+                        manifest.modules.len(),
+                        manifest.total_size_mb()
+                    );
+                    CLIResult::success_with_output("Configuration loaded".to_string(), output)
                 }
-            }
+                Err(e) => CLIResult::error(e),
+            },
 
             ConfigArgs::Set {
                 manifest_path,
@@ -460,18 +468,13 @@ impl AaroneosCLI {
                 match config.to_toml() {
                     Ok(toml) => {
                         let _ = ManifestStore::save(&config.manifest, &manifest_path);
-                        CLIResult::success_with_output(
-                            "Configuration updated".to_string(),
-                            toml,
-                        )
+                        CLIResult::success_with_output("Configuration updated".to_string(), toml)
                     }
                     Err(e) => CLIResult::error(e),
                 }
             }
 
-            ConfigArgs::Edit { .. } => {
-                CLIResult::error("Edit not yet implemented".to_string())
-            }
+            ConfigArgs::Edit { .. } => CLIResult::error("Edit not yet implemented".to_string()),
         }
     }
 
@@ -533,10 +536,7 @@ Options:
   --manifest PATH           Manifest file path
 "#;
 
-        CLIResult::success_with_output(
-            "Help displayed".to_string(),
-            help_text.to_string(),
-        )
+        CLIResult::success_with_output("Help displayed".to_string(), help_text.to_string())
     }
 }
 
@@ -568,11 +568,7 @@ mod tests {
 
     #[test]
     fn test_parse_expand_command() {
-        let result = AaroneosCLI::parse_args(vec![
-            "--expand",
-            "--include",
-            "visionary,archivist",
-        ]);
+        let result = AaroneosCLI::parse_args(vec!["--expand", "--include", "visionary,archivist"]);
         assert!(result.is_ok());
         match result.unwrap() {
             Command::Expand(args) => {
@@ -713,8 +709,7 @@ mod tests {
 
     #[test]
     fn test_portable_args_builder() {
-        let args = PortableArgs::new("mobile".to_string())
-            .with_output("/output.toml".to_string());
+        let args = PortableArgs::new("mobile".to_string()).with_output("/output.toml".to_string());
 
         assert_eq!(args.target, "mobile");
         assert_eq!(args.output_path, Some("/output.toml".to_string()));

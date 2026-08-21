@@ -1,13 +1,13 @@
 // Native 3D Constellation Renderer using wgpu
 // Embedded directly into egui via PaintCallback for zero-overhead native rendering
 
-use std::collections::HashMap;
-use std::sync::Arc;
-use std::ops::{AddAssign, SubAssign};
-use cgmath::{Matrix4, Point3, Vector3, Deg, perspective, EuclideanSpace, InnerSpace};
-use bytemuck::{Pod, Zeroable};
-use wgpu::util::DeviceExt;
 use crate::ConstellationNode;
+use bytemuck::{Pod, Zeroable};
+use cgmath::{Deg, EuclideanSpace, InnerSpace, Matrix4, Point3, Vector3, perspective};
+use std::collections::HashMap;
+use std::ops::{AddAssign, SubAssign};
+use std::sync::Arc;
+use wgpu::util::DeviceExt;
 
 pub enum NodeType {
     Feature,
@@ -21,8 +21,8 @@ pub enum NodeType {
     Resource,
     TestCase,
     KnowledgeGap, // New Curiosity Node
-    NeuralSignal,  // New Dopamine Node
-    LatentPulse,   // New Latent Injection Node
+    NeuralSignal, // New Dopamine Node
+    LatentPulse,  // New Latent Injection Node
 }
 
 /// Vertex data for 3D nodes
@@ -65,6 +65,12 @@ pub struct Constellation3D {
     needs_rebuild: bool,
 }
 
+impl Default for Constellation3D {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Constellation3D {
     pub fn new() -> Self {
         Self {
@@ -89,7 +95,7 @@ impl Constellation3D {
         if self.nodes.is_empty() {
             return;
         }
-        
+
         // Initialize positions if needed
         for node in &self.nodes {
             if !self.positions.contains_key(&node.id) {
@@ -103,14 +109,14 @@ impl Constellation3D {
                 );
             }
         }
-        
+
         // Run force-directed layout
         let node_ids: Vec<String> = self.nodes.iter().map(|n| n.id.clone()).collect();
         let node_count = node_ids.len();
-        
+
         for _ in 0..iterations {
             let mut forces: HashMap<String, Vector3<f32>> = HashMap::new();
-            
+
             // Repulsion between all nodes
             for i in 0..node_count {
                 for j in (i + 1)..node_count {
@@ -120,30 +126,42 @@ impl Constellation3D {
                     let dist = diff.magnitude().max(0.1);
                     let force = 50.0 / (dist * dist);
                     let force_vec = diff.normalize() * force;
-                    
-                    forces.entry(node_ids[i].clone()).or_insert_with(|| Vector3::new(0.0, 0.0, 0.0)).add_assign(force_vec);
-                    forces.entry(node_ids[j].clone()).or_insert_with(|| Vector3::new(0.0, 0.0, 0.0)).sub_assign(force_vec);
+
+                    forces
+                        .entry(node_ids[i].clone())
+                        .or_insert_with(|| Vector3::new(0.0, 0.0, 0.0))
+                        .add_assign(force_vec);
+                    forces
+                        .entry(node_ids[j].clone())
+                        .or_insert_with(|| Vector3::new(0.0, 0.0, 0.0))
+                        .sub_assign(force_vec);
                 }
             }
-            
+
             // Attraction along edges (simplified: connect nearby nodes)
             for i in 0..node_count {
                 for j in (i + 1)..node_count {
                     let pos_a = self.positions[&node_ids[i]];
                     let pos_b = self.positions[&node_ids[j]];
                     let dist = (pos_a - pos_b).magnitude();
-                    
+
                     if dist < 3.0 {
                         let diff = pos_b.to_vec() - pos_a.to_vec();
                         let force = (dist - 1.5) * 0.1;
                         let force_vec = diff.normalize() * force;
-                        
-                        forces.entry(node_ids[i].clone()).or_insert_with(|| Vector3::new(0.0, 0.0, 0.0)).add_assign(force_vec);
-                        forces.entry(node_ids[j].clone()).or_insert_with(|| Vector3::new(0.0, 0.0, 0.0)).sub_assign(force_vec);
+
+                        forces
+                            .entry(node_ids[i].clone())
+                            .or_insert_with(|| Vector3::new(0.0, 0.0, 0.0))
+                            .add_assign(force_vec);
+                        forces
+                            .entry(node_ids[j].clone())
+                            .or_insert_with(|| Vector3::new(0.0, 0.0, 0.0))
+                            .sub_assign(force_vec);
                     }
                 }
             }
-            
+
             // Apply forces
             for (id, force) in forces {
                 if let Some(pos) = self.positions.get_mut(&id) {
@@ -154,19 +172,21 @@ impl Constellation3D {
             // SEMANTIC CLUSTERING FORCE: Pull nodes with similar latent vectors together
             for i in 0..node_count {
                 for j in (i + 1)..node_count {
-                    if let (Some(v_a), Some(v_b)) = (&self.nodes[i].latent_vector, &self.nodes[j].latent_vector) {
+                    if let (Some(v_a), Some(v_b)) =
+                        (&self.nodes[i].latent_vector, &self.nodes[j].latent_vector)
+                    {
                         let sim = self.cosine_similarity_32(v_a, v_b);
                         if sim > 0.8 {
                             let pos_a = self.positions[&node_ids[i]];
                             let pos_b = self.positions[&node_ids[j]];
                             let diff = pos_b.to_vec() - pos_a.to_vec();
                             let pull_strength = (sim - 0.8) * 2.0;
-                            
+
                             if let Some(pos) = self.positions.get_mut(&node_ids[i]) {
-                                *pos += diff * 0.05 * pull_strength as f32;
+                                *pos += diff * 0.05 * pull_strength;
                             }
                             if let Some(pos) = self.positions.get_mut(&node_ids[j]) {
-                                *pos -= diff * 0.05 * pull_strength as f32;
+                                *pos -= diff * 0.05 * pull_strength;
                             }
                         }
                     }
@@ -189,11 +209,11 @@ impl Constellation3D {
             label: Some("Constellation Shader"),
             source: wgpu::ShaderSource::Wgsl(SHADER_CODE.into()),
         });
-        
+
         // Create bind group layout
-        let camera_bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            entries: &[
-                wgpu::BindGroupLayoutEntry {
+        let camera_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                entries: &[wgpu::BindGroupLayoutEntry {
                     binding: 0,
                     visibility: wgpu::ShaderStages::VERTEX,
                     ty: wgpu::BindingType::Buffer {
@@ -202,18 +222,18 @@ impl Constellation3D {
                         min_binding_size: None,
                     },
                     count: None,
-                },
-            ],
-            label: Some("Camera Bind Group Layout"),
-        });
-        
+                }],
+                label: Some("Camera Bind Group Layout"),
+            });
+
         // Create pipeline layout
-        let render_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            label: Some("Constellation Pipeline Layout"),
-            bind_group_layouts: &[Some(&camera_bind_group_layout)],
-            immediate_size: 0,
-        });
-        
+        let render_pipeline_layout =
+            device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                label: Some("Constellation Pipeline Layout"),
+                bind_group_layouts: &[Some(&camera_bind_group_layout)],
+                immediate_size: 0,
+            });
+
         // Create render pipeline
         let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("Constellation Render Pipeline"),
@@ -274,9 +294,11 @@ impl Constellation3D {
             multiview_mask: None,
             cache: None,
         });
-        
+
         // Build vertex buffer from nodes
-        let vertices: Vec<NodeVertex> = self.nodes.iter()
+        let vertices: Vec<NodeVertex> = self
+            .nodes
+            .iter()
             .filter_map(|node| {
                 self.positions.get(&node.id).map(|pos| {
                     let color = node_color(&node.node_type);
@@ -290,7 +312,7 @@ impl Constellation3D {
                 })
             })
             .collect();
-        
+
         let vertex_buffer = if vertices.is_empty() {
             // Create empty buffer if no nodes
             device.create_buffer(&wgpu::BufferDescriptor {
@@ -306,9 +328,9 @@ impl Constellation3D {
                 usage: wgpu::BufferUsages::VERTEX,
             })
         };
-        
+
         let node_count = vertices.len() as u32;
-        
+
         // Create uniform buffer
         let uniform_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Camera Uniform Buffer"),
@@ -316,7 +338,7 @@ impl Constellation3D {
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
-        
+
         // Create bind group
         let uniform_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout: &camera_bind_group_layout,
@@ -326,10 +348,10 @@ impl Constellation3D {
             }],
             label: Some("Camera Bind Group"),
         });
-        
+
         // Create depth texture
         let depth_texture = create_depth_texture(device, config);
-        
+
         self.wgpu_resources = Some(Arc::new(WgpuResources {
             render_pipeline,
             vertex_buffer,
@@ -338,44 +360,48 @@ impl Constellation3D {
             depth_texture,
             node_count,
         }));
-        
+
         self.needs_rebuild = false;
     }
 
     /// Update camera uniforms and render
     pub fn render(
         &mut self,
-        device: &wgpu::Device,
+        _device: &wgpu::Device,
         queue: &wgpu::Queue,
         encoder: &mut wgpu::CommandEncoder,
         surface_view: &wgpu::TextureView,
         viewport_size: (f32, f32),
     ) {
-        let Some(ref resources) = self.wgpu_resources else { return };
-        if resources.node_count == 0 { return; }
-        
+        let Some(ref resources) = self.wgpu_resources else {
+            return;
+        };
+        if resources.node_count == 0 {
+            return;
+        }
+
         // Update camera
         let aspect = viewport_size.0 / viewport_size.1;
         let proj = perspective(Deg(60.0), aspect, 1.0, 2000.0);
-        
+
         let yaw = self.rotation.0;
         let pitch = self.rotation.1;
-        
+
         let x = self.camera_distance * pitch.cos() * yaw.sin();
         let y = self.camera_distance * pitch.sin();
         let z = self.camera_distance * pitch.cos() * yaw.cos();
-        
+
         let camera_pos = Point3::new(x, y, z);
         let view = Matrix4::look_at_rh(camera_pos, Point3::new(0.0, 0.0, 0.0), Vector3::unit_y());
         let view_proj = proj * view;
-        
+
         let uniform = CameraUniform {
             view_proj: view_proj.into(),
             camera_position: [camera_pos.x, camera_pos.y, camera_pos.z, 1.0],
         };
-        
+
         queue.write_buffer(&resources.uniform_buffer, 0, bytemuck::bytes_of(&uniform));
-        
+
         // Render pass
         let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("Constellation 3D Render Pass"),
@@ -400,7 +426,7 @@ impl Constellation3D {
             occlusion_query_set: None,
             multiview_mask: None,
         });
-        
+
         render_pass.set_pipeline(&resources.render_pipeline);
         render_pass.set_bind_group(0, &resources.uniform_bind_group, &[]);
         render_pass.set_vertex_buffer(0, resources.vertex_buffer.slice(..));
@@ -409,7 +435,10 @@ impl Constellation3D {
 }
 
 /// Create a depth texture for 3D rendering
-fn create_depth_texture(device: &wgpu::Device, config: &wgpu::SurfaceConfiguration) -> wgpu::TextureView {
+fn create_depth_texture(
+    device: &wgpu::Device,
+    config: &wgpu::SurfaceConfiguration,
+) -> wgpu::TextureView {
     let texture = device.create_texture(&wgpu::TextureDescriptor {
         label: Some("Depth Texture"),
         size: wgpu::Extent3d {
@@ -424,7 +453,7 @@ fn create_depth_texture(device: &wgpu::Device, config: &wgpu::SurfaceConfigurati
         usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
         view_formats: &[],
     });
-    
+
     texture.create_view(&wgpu::TextureViewDescriptor::default())
 }
 
@@ -443,7 +472,9 @@ fn node_color(node_type: &crate::NodeType) -> [f32; 4] {
         crate::NodeType::TestCase => [0.8, 1.0, 0.6, 1.0],
         crate::NodeType::KnowledgeGap => [1.0, 0.5, 0.0, 1.0], // Orange
         crate::NodeType::NeuralSignal => [1.0, 1.0, 0.0, 1.0], // Yellow
-        crate::NodeType::LatentPulse => [0.0, 1.0, 1.0, 1.0],   // Cyan (Mathematical Thought)
+        crate::NodeType::LatentPulse => [0.0, 1.0, 1.0, 1.0],  // Cyan (Mathematical Thought)
+        crate::NodeType::Memory => [0.7, 0.3, 0.9, 1.0],       // Violet (Memory Soul)
+        crate::NodeType::Specialist => [1.0, 0.84, 0.0, 1.0],  // Gold (Federated Specialist)
     }
 }
 
@@ -489,6 +520,12 @@ pub struct ConstellationCallback {
     pub renderer: Arc<std::sync::Mutex<Constellation3D>>,
 }
 
+impl Default for ConstellationCallback {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ConstellationCallback {
     pub fn new() -> Self {
         Self {
@@ -506,14 +543,14 @@ pub fn create_paint_callback(
     egui::PaintCallback {
         rect,
         callback: std::sync::Arc::new(PaintCallbackData {
-            renderer: callback.renderer.clone(),
+            _renderer: callback.renderer.clone(),
         }),
     }
 }
 
 /// Data stored in the PaintCallback
 struct PaintCallbackData {
-    renderer: Arc<std::sync::Mutex<Constellation3D>>,
+    _renderer: Arc<std::sync::Mutex<Constellation3D>>,
 }
 
 /// Render the 3D constellation using the provided wgpu device and queue
@@ -526,7 +563,7 @@ pub fn render_constellation_3d(
     viewport_size: (f32, f32),
 ) {
     let mut renderer = callback.renderer.lock().unwrap();
-    
+
     // Build resources on first frame or when needed
     if renderer.wgpu_resources.is_none() || renderer.needs_rebuild {
         let config = wgpu::SurfaceConfiguration {
@@ -542,31 +579,31 @@ pub fn render_constellation_3d(
         renderer.build_resources(device, &config);
         renderer.update_layout(50);
     }
-    
+
     // Update camera uniforms
-    if let Some(ref resources) = renderer.wgpu_resources {
-        if resources.node_count > 0 {
-            let aspect = viewport_size.0 / viewport_size.1;
-            let proj = perspective(Deg(60.0), aspect, 1.0, 2000.0);
-            
-            let yaw = renderer.rotation.0;
-            let pitch = renderer.rotation.1;
-            
-            let x = renderer.camera_distance * pitch.cos() * yaw.sin();
-            let y = renderer.camera_distance * pitch.sin();
-            let z = renderer.camera_distance * pitch.cos() * yaw.cos();
-            
-            let camera_pos = Point3::new(x, y, z);
-            let view = Matrix4::look_at_rh(camera_pos, Point3::new(0.0, 0.0, 0.0), Vector3::unit_y());
-            let view_proj = proj * view;
-            
-            let uniform = CameraUniform {
-                view_proj: view_proj.into(),
-                camera_position: [camera_pos.x, camera_pos.y, camera_pos.z, 1.0],
-            };
-            
-            queue.write_buffer(&resources.uniform_buffer, 0, bytemuck::bytes_of(&uniform));
-        }
+    if let Some(ref resources) = renderer.wgpu_resources
+        && resources.node_count > 0
+    {
+        let aspect = viewport_size.0 / viewport_size.1;
+        let proj = perspective(Deg(60.0), aspect, 1.0, 2000.0);
+
+        let yaw = renderer.rotation.0;
+        let pitch = renderer.rotation.1;
+
+        let x = renderer.camera_distance * pitch.cos() * yaw.sin();
+        let y = renderer.camera_distance * pitch.sin();
+        let z = renderer.camera_distance * pitch.cos() * yaw.cos();
+
+        let camera_pos = Point3::new(x, y, z);
+        let view = Matrix4::look_at_rh(camera_pos, Point3::new(0.0, 0.0, 0.0), Vector3::unit_y());
+        let view_proj = proj * view;
+
+        let uniform = CameraUniform {
+            view_proj: view_proj.into(),
+            camera_position: [camera_pos.x, camera_pos.y, camera_pos.z, 1.0],
+        };
+
+        queue.write_buffer(&resources.uniform_buffer, 0, bytemuck::bytes_of(&uniform));
     }
 }
 

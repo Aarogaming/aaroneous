@@ -3,7 +3,6 @@
 /// Currently this is a thin wrapper around per-host settings, but it's the
 /// natural place for future cross-cutting policy (resource caps, health
 /// thresholds, telemetry endpoints).
-
 use crate::federation::host::HostConfig;
 use crate::federation::optimization::OptimizationProfile;
 use serde::{Deserialize, Serialize};
@@ -129,6 +128,9 @@ mod tests {
         let c = FederationConfig::default();
         let json = serde_json::to_string(&c).unwrap();
         let back: FederationConfig = serde_json::from_str(&json).unwrap();
-        assert_eq!(back.default_checkpoint_interval, c.default_checkpoint_interval);
+        assert_eq!(
+            back.default_checkpoint_interval,
+            c.default_checkpoint_interval
+        );
     }
 }

@@ -1,5 +1,5 @@
 /// Comprehensive Federation Protocol Tests
-/// 
+///
 /// These tests validate:
 /// - Specialist trait implementation
 /// - Proposal submission and ranking
@@ -11,10 +11,10 @@
 #[cfg(test)]
 mod tests {
     use crate::federation::{
-        Specialist, SpecialistId, SpecialistContext, Decision,
-        DelegateRequest, Conflict, Proposal, ProposalStatus, ProposalPriority,
-        ProposalSet, CommunicationBus, ConflictDetector, ConflictArbitrator,
-        Sentinel, SentinelConfig, SystemResources, UserState, ProposedAction,
+        CommunicationBus, Conflict, ConflictArbitrator, ConflictDetector, Decision,
+        DelegateRequest, Proposal, ProposalPriority, ProposalSet, ProposalStatus, ProposedAction,
+        Sentinel, SentinelConfig, Specialist, SpecialistContext, SpecialistId, SystemResources,
+        UserState,
     };
     use async_trait::async_trait;
     use std::sync::Arc;
@@ -63,7 +63,10 @@ mod tests {
         async fn execute(
             &self,
             decision: &Decision,
-        ) -> Result<crate::federation::specialist::ExecutionResult, crate::federation::specialist::SpecialistError> {
+        ) -> Result<
+            crate::federation::specialist::ExecutionResult,
+            crate::federation::specialist::SpecialistError,
+        > {
             Ok(crate::federation::specialist::ExecutionResult {
                 specialist: self.id,
                 specialist_name: None,
@@ -79,7 +82,10 @@ mod tests {
         async fn delegate(
             &self,
             request: &DelegateRequest,
-        ) -> Result<crate::federation::specialist::DelegateResponse, crate::federation::specialist::SpecialistError> {
+        ) -> Result<
+            crate::federation::specialist::DelegateResponse,
+            crate::federation::specialist::SpecialistError,
+        > {
             Ok(crate::federation::specialist::DelegateResponse {
                 requester: request.requester,
                 target: request.target,
@@ -93,7 +99,10 @@ mod tests {
             &self,
             other_id: SpecialistId,
             _conflict: &Conflict,
-        ) -> Result<crate::federation::specialist::NegotiationResult, crate::federation::specialist::SpecialistError> {
+        ) -> Result<
+            crate::federation::specialist::NegotiationResult,
+            crate::federation::specialist::SpecialistError,
+        > {
             Ok(crate::federation::specialist::NegotiationResult {
                 resolved: true,
                 resolution: format!("Negotiated with {:?}", other_id),
@@ -106,9 +115,9 @@ mod tests {
     #[tokio::test]
     async fn test_specialist_trait_implementation() {
         let specialist = MockSpecialist::new(SpecialistId::Visionary);
-        
+
         assert_eq!(specialist.id(), SpecialistId::Visionary);
-        
+
         let context = SpecialistContext {
             timestamp: 0,
             user_state: UserState::default(),
@@ -211,7 +220,7 @@ mod tests {
 
         // Should only include viable proposals (p1, p3)
         assert_eq!(viable.len(), 2);
-        
+
         // Should be sorted by score (p1 should be first)
         assert_eq!(viable[0].id, p1.id);
         assert_eq!(viable[1].id, p3.id);
@@ -311,7 +320,10 @@ mod tests {
             context: std::collections::HashMap::new(),
         };
 
-        let result = specialist.negotiate(SpecialistId::Phygital, &conflict).await.unwrap();
+        let result = specialist
+            .negotiate(SpecialistId::Phygital, &conflict)
+            .await
+            .unwrap();
 
         assert!(result.resolved);
     }
@@ -364,7 +376,8 @@ mod tests {
             severity: crate::federation::proposal::ConflictSeverity::Medium,
         };
 
-        let resolution = ConflictArbitrator::resolve(&conflict, &p1, &p2, &SystemResources::default());
+        let resolution =
+            ConflictArbitrator::resolve(&conflict, &p1, &p2, &SystemResources::default());
 
         assert!(resolution.resolved);
         assert_eq!(resolution.winner, Some(SpecialistId::Visionary));

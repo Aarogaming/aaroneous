@@ -11,7 +11,7 @@ pub struct TaskAnalysisContext {
     pub file_name: String,
     pub file_size: u64,
     pub file_type: String,
-    pub data_sample: String,           // First N rows/bytes
+    pub data_sample: String,            // First N rows/bytes
     pub specialist_skills: Vec<String>, // Current specialist skills
     pub specialist_domain: String,
     pub team_context: String, // What other specialists are available
@@ -33,9 +33,9 @@ pub struct TaskAnalysis {
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum Complexity {
-    Simple,    // <5 minutes
-    Moderate,  // 5-30 minutes
-    Complex,   // 30+ minutes
+    Simple,   // <5 minutes
+    Moderate, // 5-30 minutes
+    Complex,  // 30+ minutes
 }
 
 /// Context for finding collaborators
@@ -260,8 +260,13 @@ pub struct DesignGeneration {
 
 impl fmt::Display for DesignGeneration {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "DesignGeneration(intent={}, variants={}, confidence={:.1}%)",
-            self.intent, self.variants.len(), self.batch_confidence * 100.0)
+        write!(
+            f,
+            "DesignGeneration(intent={}, variants={}, confidence={:.1}%)",
+            self.intent,
+            self.variants.len(),
+            self.batch_confidence * 100.0
+        )
     }
 }
 

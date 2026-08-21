@@ -1,29 +1,27 @@
 /// Sentinel: The Orchestrator Specialist
-/// 
+///
 /// Sentinel is a specialist itself, but with special responsibilities:
 /// - Collects proposals from all specialists
 /// - Detects conflicts between proposals
 /// - Arbitrates using priority, resources, and negotiation
 /// - Issues decisions to specialists
 /// - Monitors system health
-/// 
+///
 /// Sentinel is NOT a bottleneck because:
 /// - Specialists propose asynchronously (don't wait for approval)
 /// - Specialists can self-organize and negotiate
 /// - Sentinel's decisions are simple heuristics (not complex inference)
-
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
-
-use crate::federation::specialist::{
-    Specialist, SpecialistId, SpecialistConfig, SpecialistContext, SystemResources,
-    SpecialistError, ProposedAction, Decision, DelegateRequest, DelegateResponse,
-    Conflict, NegotiationResult, ResourceRequest, ProposalPriority, UserState,
-};
-use crate::federation::proposal::Proposal;
 use crate::federation::communication::CommunicationBus;
 use crate::federation::conflict_resolution::ConflictArbitrator;
+use crate::federation::proposal::Proposal;
+use crate::federation::specialist::{
+    Conflict, Decision, DelegateRequest, DelegateResponse, NegotiationResult, ProposalPriority,
+    ProposedAction, ResourceRequest, Specialist, SpecialistConfig, SpecialistContext,
+    SpecialistError, SpecialistId, SystemResources, UserState,
+};
 
 /// Configuration for Sentinel
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -48,25 +46,13 @@ impl Default for SentinelConfig {
 }
 
 /// Result of Sentinel's arbitration
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct ArbitrationResult {
     pub proposals_reviewed: usize,
     pub conflicts_detected: usize,
     pub conflicts_resolved: usize,
     pub decisions_issued: usize,
     pub negotiations_initiated: usize,
-}
-
-impl Default for ArbitrationResult {
-    fn default() -> Self {
-        Self {
-            proposals_reviewed: 0,
-            conflicts_detected: 0,
-            conflicts_resolved: 0,
-            decisions_issued: 0,
-            negotiations_initiated: 0,
-        }
-    }
 }
 
 /// Sentinel: The orchestrator specialist
@@ -123,8 +109,14 @@ impl Sentinel {
         // Resolve conflicts
         for conflict in conflicts {
             // Find the conflicting proposals
-            let proposal_a = proposal_set.proposals.iter().find(|p| p.id == conflict.proposal_a_id);
-            let proposal_b = proposal_set.proposals.iter().find(|p| p.id == conflict.proposal_b_id);
+            let proposal_a = proposal_set
+                .proposals
+                .iter()
+                .find(|p| p.id == conflict.proposal_a_id);
+            let proposal_b = proposal_set
+                .proposals
+                .iter()
+                .find(|p| p.id == conflict.proposal_b_id);
 
             if let (Some(p_a), Some(p_b)) = (proposal_a, proposal_b) {
                 let resolution = ConflictArbitrator::resolve(&conflict, p_a, p_b, &resources);
@@ -179,12 +171,18 @@ impl Sentinel {
             use std::collections::HashMap;
 
             let mut payload = HashMap::new();
-            payload.insert("proposal_id".to_string(),
-                serde_json::Value::String(decision.proposal_id.clone()));
-            payload.insert("action".to_string(),
-                serde_json::Value::String(decision.action.clone()));
-            payload.insert("specialist".to_string(),
-                serde_json::Value::String(format!("{:?}", decision.specialist)));
+            payload.insert(
+                "proposal_id".to_string(),
+                serde_json::Value::String(decision.proposal_id.clone()),
+            );
+            payload.insert(
+                "action".to_string(),
+                serde_json::Value::String(decision.action.clone()),
+            );
+            payload.insert(
+                "specialist".to_string(),
+                serde_json::Value::String(format!("{:?}", decision.specialist)),
+            );
 
             let event = FederationEvent {
                 event_id: format!("dec-{}", uuid::Uuid::new_v4()),
@@ -211,10 +209,11 @@ impl Sentinel {
         }
 
         // Send the decision to the specialist's channel
-        let message: crate::federation::communication::SpecialistMessage = crate::federation::communication::SpecialistMessage::DecisionIssued(decision);
+        let message: crate::federation::communication::SpecialistMessage =
+            crate::federation::communication::SpecialistMessage::DecisionIssued(decision);
         if let Some(channel) = self.communication_bus.specialist_channel(&specialist_id) {
             let channel = std::sync::Arc::new(channel);
-            let _ = channel.send(message);
+            channel.send(message);
         }
 
         Ok(())
@@ -246,7 +245,10 @@ impl Specialist for Sentinel {
     }
 
     /// Sentinel's proposal: run arbitration cycle
-    async fn propose(&self, _context: &SpecialistContext) -> Result<Vec<ProposedAction>, SpecialistError> {
+    async fn propose(
+        &self,
+        _context: &SpecialistContext,
+    ) -> Result<Vec<ProposedAction>, SpecialistError> {
         let result = self.arbitrate().await?;
 
         Ok(vec![ProposedAction {
@@ -255,7 +257,10 @@ impl Specialist for Sentinel {
             action_type: "orchestration".to_string(),
             description: format!(
                 "Reviewed {} proposals, detected {} conflicts, resolved {}, issued {} decisions",
-                result.proposals_reviewed, result.conflicts_detected, result.conflicts_resolved, result.decisions_issued
+                result.proposals_reviewed,
+                result.conflicts_detected,
+                result.conflicts_resolved,
+                result.decisions_issued
             ),
             confidence: 0.95,
             required_resources: ResourceRequest {
@@ -270,7 +275,10 @@ impl Specialist for Sentinel {
     }
 
     /// Sentinel executes: this should not happen (Sentinel issues decisions, doesn't receive them)
-    async fn execute(&self, decision: &Decision) -> Result<crate::federation::specialist::ExecutionResult, SpecialistError> {
+    async fn execute(
+        &self,
+        decision: &Decision,
+    ) -> Result<crate::federation::specialist::ExecutionResult, SpecialistError> {
         let mut history = self.decision_history.lock().await;
         history.push(decision.clone());
 
@@ -292,7 +300,10 @@ impl Specialist for Sentinel {
     /// when one specialist needs another's capability, it asks Sentinel to
     /// broker the handoff. Sentinel records the delegation and issues a
     /// directed message on the communication bus.
-    async fn delegate(&self, request: &DelegateRequest) -> Result<DelegateResponse, SpecialistError> {
+    async fn delegate(
+        &self,
+        request: &DelegateRequest,
+    ) -> Result<DelegateResponse, SpecialistError> {
         let start = std::time::Instant::now();
 
         // Route the delegation request based on target specialist
@@ -337,9 +348,10 @@ impl Specialist for Sentinel {
 
         // Notify the bus that a delegation occurred (best-effort)
         let _ = self.communication_bus.broadcast(
-            crate::federation::communication::SpecialistMessage::StatusUpdate(
-                format!("Delegation: {:?} -> {:?}", request.requester, request.target)
-            )
+            crate::federation::communication::SpecialistMessage::StatusUpdate(format!(
+                "Delegation: {:?} -> {:?}",
+                request.requester, request.target
+            )),
         );
 
         Ok(DelegateResponse {
@@ -374,10 +386,14 @@ impl Specialist for Sentinel {
         let (winner, compromise, resolution) = match conflict.conflict_type.as_str() {
             "gpu_resource" => {
                 // Parse the GPU demand hints from context if present
-                let gpu_a: f32 = conflict.context.get("gpu_a")
+                let gpu_a: f32 = conflict
+                    .context
+                    .get("gpu_a")
                     .and_then(|s| s.parse().ok())
                     .unwrap_or(40.0);
-                let gpu_b: f32 = conflict.context.get("gpu_b")
+                let gpu_b: f32 = conflict
+                    .context
+                    .get("gpu_b")
                     .and_then(|s| s.parse().ok())
                     .unwrap_or(40.0);
 
@@ -388,8 +404,12 @@ impl Specialist for Sentinel {
                         Some(format!(
                             "Both {:?} and {:?} execute simultaneously \
                              ({:.0}% + {:.0}% = {:.0}% GPU, {:.0}% available)",
-                            conflict.specialist_a, other_id, gpu_a, gpu_b,
-                            gpu_a + gpu_b, gpu_available
+                            conflict.specialist_a,
+                            other_id,
+                            gpu_a,
+                            gpu_b,
+                            gpu_a + gpu_b,
+                            gpu_available
                         )),
                         format!(
                             "Resource sharing: {:?} and {:?} run concurrently",
@@ -398,7 +418,9 @@ impl Specialist for Sentinel {
                     )
                 } else {
                     // Not enough GPU — schedule sequentially, UserFacing first
-                    let winner_id = if conflict.context.get("a_priority") > conflict.context.get("b_priority") {
+                    let winner_id = if conflict.context.get("a_priority")
+                        > conflict.context.get("b_priority")
+                    {
                         conflict.specialist_a
                     } else {
                         other_id
@@ -408,12 +430,18 @@ impl Specialist for Sentinel {
                         Some(format!(
                             "{:?} runs first, {:?} queued until GPU is released ({:.0}% available)",
                             winner_id,
-                            if winner_id == conflict.specialist_a { other_id } else { conflict.specialist_a },
+                            if winner_id == conflict.specialist_a {
+                                other_id
+                            } else {
+                                conflict.specialist_a
+                            },
                             gpu_available
                         )),
                         format!(
                             "Sequential: {:?} first (GPU at {:.0}% < {:.0}% needed)",
-                            winner_id, gpu_available, gpu_a + gpu_b
+                            winner_id,
+                            gpu_available,
+                            gpu_a + gpu_b
                         ),
                     )
                 }
@@ -424,11 +452,17 @@ impl Specialist for Sentinel {
                 // domain-appropriate one
                 let winner_id = match (conflict.specialist_a, other_id) {
                     // Phygital is always the right specialist for rendering
-                    (SpecialistId::Phygital, _) | (_, SpecialistId::Phygital) => SpecialistId::Phygital,
+                    (SpecialistId::Phygital, _) | (_, SpecialistId::Phygital) => {
+                        SpecialistId::Phygital
+                    }
                     // Archivist is always right for storage
-                    (SpecialistId::Archivist, _) | (_, SpecialistId::Archivist) => SpecialistId::Archivist,
+                    (SpecialistId::Archivist, _) | (_, SpecialistId::Archivist) => {
+                        SpecialistId::Archivist
+                    }
                     // Omnipresent handles sync
-                    (SpecialistId::Omnipresent, _) | (_, SpecialistId::Omnipresent) => SpecialistId::Omnipresent,
+                    (SpecialistId::Omnipresent, _) | (_, SpecialistId::Omnipresent) => {
+                        SpecialistId::Omnipresent
+                    }
                     // Default: specialist_a proposed first
                     (a, _) => a,
                 };
@@ -438,7 +472,11 @@ impl Specialist for Sentinel {
                     format!(
                         "Domain routing: {:?} handles this action type ({:?} yields)",
                         winner_id,
-                        if winner_id == conflict.specialist_a { other_id } else { conflict.specialist_a }
+                        if winner_id == conflict.specialist_a {
+                            other_id
+                        } else {
+                            conflict.specialist_a
+                        }
                     ),
                 )
             }
@@ -447,12 +485,10 @@ impl Specialist for Sentinel {
                 // Default: CRDT-style merge — both specialists succeed with
                 // a coordination note broadcast on the bus
                 let _ = self.communication_bus.broadcast(
-                    crate::federation::communication::SpecialistMessage::StatusUpdate(
-                        format!(
-                            "Negotiation resolved: {:?} + {:?} collaborate on '{}'",
-                            conflict.specialist_a, other_id, conflict.conflict_type
-                        )
-                    )
+                    crate::federation::communication::SpecialistMessage::StatusUpdate(format!(
+                        "Negotiation resolved: {:?} + {:?} collaborate on '{}'",
+                        conflict.specialist_a, other_id, conflict.conflict_type
+                    )),
                 );
                 (
                     None, // No single winner — collaborative
@@ -476,7 +512,9 @@ impl Specialist for Sentinel {
         })
     }
 
-    async fn status(&self) -> Result<crate::federation::specialist::SpecialistStatus, SpecialistError> {
+    async fn status(
+        &self,
+    ) -> Result<crate::federation::specialist::SpecialistStatus, SpecialistError> {
         let history = self.decision_history.lock().await;
         Ok(crate::federation::specialist::SpecialistStatus {
             id: SpecialistId::Sentinel,
@@ -586,12 +624,14 @@ mod tests {
         let mut sentinel = Sentinel::new(config, bus);
 
         // Seed with ample resources so the proposal passes the viability filter
-        sentinel.update_system_resources(SystemResources {
-            gpu_available_percent: 100.0,
-            cpu_available_percent: 100.0,
-            memory_available_mb: 8192,
-            thermal_headroom: 1.0,
-        }).await;
+        sentinel
+            .update_system_resources(SystemResources {
+                gpu_available_percent: 100.0,
+                cpu_available_percent: 100.0,
+                memory_available_mb: 8192,
+                thermal_headroom: 1.0,
+            })
+            .await;
 
         // Submit a proposal for Visionary
         let proposal = Proposal::new(
@@ -605,14 +645,19 @@ mod tests {
 
         // Arbitrate — should issue exactly 1 decision
         let result = sentinel.arbitrate().await.unwrap();
-        assert_eq!(result.proposals_reviewed, 1,
-            "Sentinel should have seen 1 proposal");
-        assert_eq!(result.decisions_issued, 1,
-            "Sentinel should have issued 1 decision");
+        assert_eq!(
+            result.proposals_reviewed, 1,
+            "Sentinel should have seen 1 proposal"
+        );
+        assert_eq!(
+            result.decisions_issued, 1,
+            "Sentinel should have issued 1 decision"
+        );
 
         // CRITICAL: the decision must actually be in the channel.
         // This assertion fails if channel.send() is called without .await.
-        let channel = sentinel.communication_bus
+        let channel = sentinel
+            .communication_bus
             .specialist_channel(&SpecialistId::Visionary)
             .expect("Visionary channel must exist");
 

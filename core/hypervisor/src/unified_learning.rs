@@ -1,3 +1,5 @@
+use crate::spectral_layout::{build_similarity_edges, spectral_layout_2d};
+use crate::tensor_router::{RoutingResult, RoutingWeights, TaskEmbedding, TensorRouter};
 /// Unified Learning Loop
 /// Integrates all mathematical frameworks into a single coherent learning system:
 /// 1. Thermodynamics: Free energy minimization for system stability
@@ -8,16 +10,14 @@
 /// 6. Tensor Routing: Softmax attention for task routing
 /// 7. Spectral Layout: Optimal graph positioning
 /// 8. Dopamine Learning: Reward-driven model training
-
-use biology::{SystemBiology, ThermodynamicGovernor, ThermodynamicGovernorConfig, ThermodynamicAction, ThermodynamicForecast};
+use biology::{
+    SystemBiology, ThermodynamicAction, ThermodynamicForecast, ThermodynamicGovernor,
+    ThermodynamicGovernorConfig,
+};
 use compute::{
-    kalman::KalmanFilter,
-    mpc::ScalarMpc,
-    predictive_coding::HierarchicalPredictiveCoding,
+    kalman::KalmanFilter, mpc::ScalarMpc, predictive_coding::HierarchicalPredictiveCoding,
     thermodynamics::SystemPhase,
 };
-use crate::tensor_router::{TensorRouter, RoutingWeights, TaskEmbedding, RoutingResult};
-use crate::spectral_layout::{spectral_layout_2d, build_similarity_edges};
 use serde::{Deserialize, Serialize};
 
 /// Unified system state.
@@ -129,7 +129,11 @@ pub struct UnifiedLearningLoop {
 }
 
 impl UnifiedLearningLoop {
-    pub fn new(config: UnifiedLearningConfig, n_specialists: usize, specialist_ids: Vec<String>) -> Self {
+    pub fn new(
+        config: UnifiedLearningConfig,
+        n_specialists: usize,
+        specialist_ids: Vec<String>,
+    ) -> Self {
         let n_features = 4; // complexity, urgency, skill_match, resource_need
         let kalman_process_noise = config.kalman_process_noise;
         let kalman_measurement_noise = config.kalman_measurement_noise;
@@ -150,14 +154,19 @@ impl UnifiedLearningLoop {
         Self {
             config,
             biology,
-            thermodynamic_governor: ThermodynamicGovernor::new(ThermodynamicGovernorConfig::default()),
+            thermodynamic_governor: ThermodynamicGovernor::new(
+                ThermodynamicGovernorConfig::default(),
+            ),
             kalman: KalmanFilter::with_noise(1, 1, kalman_process_noise, kalman_measurement_noise),
             mpc: {
                 let mut mpc = ScalarMpc::new(0.9, 0.1, mpc_reference);
                 mpc.config.prediction_horizon = mpc_prediction_horizon;
                 mpc
             },
-            predictive_coding: HierarchicalPredictiveCoding::new(&predictive_coding_layers, learning_rate),
+            predictive_coding: HierarchicalPredictiveCoding::new(
+                &predictive_coding_layers,
+                learning_rate,
+            ),
             tensor_router,
             system_state: UnifiedSystemState::default(),
             load_history: Vec::new(),
@@ -170,12 +179,16 @@ impl UnifiedLearningLoop {
     /// OBSERVE → ESTIMATE → PREDICT → ROUTE → ACT → LEARN
     pub fn run_cycle(&mut self, observations: &[f64], task_features: &[f64]) -> UnifiedCycleResult {
         // Phase 1: OBSERVE - Record observations
-        let current_load = if !observations.is_empty() { observations[0] } else { 0.5 };
+        let current_load = if !observations.is_empty() {
+            observations[0]
+        } else {
+            0.5
+        };
         self.record_observation(current_load);
 
         // Phase 2: ESTIMATE - Kalman filter state estimation
-        self.kalman.predict(&vec![vec![1.0]]);
-        self.kalman.update(&[current_load], &vec![vec![1.0]]);
+        self.kalman.predict(&[vec![1.0]]);
+        self.kalman.update(&[current_load], &[vec![1.0]]);
         let estimated_load = self.kalman.get_state()[0];
         let estimation_uncertainty = self.kalman.get_uncertainty();
 
@@ -184,7 +197,11 @@ impl UnifiedLearningLoop {
         let thermo_forecast = self.thermodynamic_governor.predict_metabolic_risk();
 
         let mpc_control = self.mpc.solve(estimated_load);
-        let predicted_trajectory = self.mpc.predict(estimated_load, mpc_control, self.config.mpc_prediction_horizon);
+        let predicted_trajectory = self.mpc.predict(
+            estimated_load,
+            mpc_control,
+            self.config.mpc_prediction_horizon,
+        );
 
         // Phase 4: ROUTE - Tensor-based task routing
         let task = TaskEmbedding {
@@ -194,7 +211,9 @@ impl UnifiedLearningLoop {
         let routing_result = self.tensor_router.route(&task);
 
         // Phase 5: ACT - Apply governance and biology updates
-        let governance_action = self.thermodynamic_governor.apply_governance(&mut self.biology);
+        let governance_action = self
+            .thermodynamic_governor
+            .apply_governance(&mut self.biology);
         self.biology.update_metabolism();
 
         // Phase 6: LEARN - Predictive coding + Hebbian updates
@@ -258,27 +277,42 @@ impl UnifiedLearningLoop {
     /// Compute information theory metrics across domains.
     fn compute_information_metrics(&mut self) {
         // Compute mutual information between load history and specialist loads
-        if self.load_history.len() >= 5 && !self.specialist_load_history.is_empty() {
-            if let Some(first_specialist) = self.specialist_load_history.first() {
-                if first_specialist.len() >= 5 {
-                    // Simplified MI computation
-                    self.system_state.mutual_info_cross_domain = 0.5; // Placeholder
-                }
-            }
+        if self.load_history.len() >= 5
+            && !self.specialist_load_history.is_empty()
+            && let Some(first_specialist) = self.specialist_load_history.first()
+            && first_specialist.len() >= 5
+        {
+            // Simplified MI computation
+            self.system_state.mutual_info_cross_domain = 0.5; // Placeholder
         }
 
         // Compute feature entropy
         if !self.load_history.is_empty() {
             let mean: f64 = self.load_history.iter().sum::<f64>() / self.load_history.len() as f64;
-            let variance: f64 = self.load_history.iter().map(|x| (x - mean).powi(2)).sum::<f64>() / self.load_history.len() as f64;
+            let variance: f64 = self
+                .load_history
+                .iter()
+                .map(|x| (x - mean).powi(2))
+                .sum::<f64>()
+                / self.load_history.len() as f64;
             self.system_state.feature_entropy = (variance * 10.0).max(0.01);
         }
     }
 
     /// Learn from task outcome.
-    pub fn learn_from_outcome(&mut self, task_features: &[f64], specialist_id: &str, success: bool) {
+    pub fn learn_from_outcome(
+        &mut self,
+        task_features: &[f64],
+        specialist_id: &str,
+        success: bool,
+    ) {
         // Update tensor router
-        self.tensor_router.learn(task_features, specialist_id, success, self.config.learning_rate);
+        self.tensor_router.learn(
+            task_features,
+            specialist_id,
+            success,
+            self.config.learning_rate,
+        );
 
         // Update predictive coding
         let reward_signal = if success { 1.0 } else { -1.0 };
@@ -289,13 +323,18 @@ impl UnifiedLearningLoop {
         });
 
         // Update specialist load history
-        if let Some(idx) = self.tensor_router.weights.specialist_ids.iter().position(|id| id == specialist_id) {
-            if idx < self.specialist_load_history.len() {
-                let load = if success { 0.3 } else { 0.8 };
-                self.specialist_load_history[idx].push(load);
-                if self.specialist_load_history[idx].len() > self.max_history {
-                    self.specialist_load_history[idx].remove(0);
-                }
+        if let Some(idx) = self
+            .tensor_router
+            .weights
+            .specialist_ids
+            .iter()
+            .position(|id| id == specialist_id)
+            && idx < self.specialist_load_history.len()
+        {
+            let load = if success { 0.3 } else { 0.8 };
+            self.specialist_load_history[idx].push(load);
+            if self.specialist_load_history[idx].len() > self.max_history {
+                self.specialist_load_history[idx].remove(0);
             }
         }
     }
@@ -310,34 +349,46 @@ impl UnifiedLearningLoop {
         confidence: f32,
     ) -> DopamineTrainingResult {
         let start_time = std::time::Instant::now();
-        
+
         // Phase 1: Normalize dopamine reward to learning signal
         // Dopamine: -1.0 (punishment) to 1.0 (reward)
         let learning_signal = dopamine_reward as f64;
-        let confidence_factor = (confidence as f64).max(0.1).min(1.0);
-        
+        let confidence_factor = (confidence as f64).clamp(0.1, 1.0);
+
         // Phase 2: Calculate adaptive learning rate based on confidence
         let adaptive_lr = self.config.learning_rate * confidence_factor;
-        
+
         // Phase 3: Update tensor router weights with dopamine signal
         // Higher dopamine = stronger weight update toward specialist
-        self.tensor_router.learn(task_features, specialist_id, learning_signal > 0.0, adaptive_lr);
-        
+        self.tensor_router.learn(
+            task_features,
+            specialist_id,
+            learning_signal > 0.0,
+            adaptive_lr,
+        );
+
         // Phase 4: Update predictive coding layers
         // Use dopamine signal to update prediction error minimization
         self.update_predictive_coding_with_dopamine(learning_signal, adaptive_lr);
-        
+
         // Phase 5: Update specialist metabolism based on performance
-        if let Some(idx) = self.tensor_router.weights.specialist_ids.iter().position(|id| id == specialist_id) {
+        if let Some(idx) = self
+            .tensor_router
+            .weights
+            .specialist_ids
+            .iter()
+            .position(|id| id == specialist_id)
+        {
             self.update_specialist_metabolism(idx, dopamine_reward, confidence);
         }
-        
+
         // Phase 6: Update system state based on learning
         self.system_state.learning_rate = adaptive_lr;
-        self.system_state.prediction_error = (self.system_state.prediction_error * 0.7) + (learning_signal.abs() * 0.3);
-        
+        self.system_state.prediction_error =
+            (self.system_state.prediction_error * 0.7) + (learning_signal.abs() * 0.3);
+
         let elapsed = start_time.elapsed().as_millis() as u32;
-        
+
         DopamineTrainingResult {
             specialist_id: specialist_id.to_string(),
             learning_signal,
@@ -358,7 +409,7 @@ impl UnifiedLearningLoop {
                 node.update(dopamine_modulated_signal);
             }
         }
-        
+
         // Update output layer with stronger dopamine influence
         if let Some(output_layer) = self.predictive_coding.layers.last_mut() {
             for node in output_layer.iter_mut() {
@@ -370,51 +421,65 @@ impl UnifiedLearningLoop {
 
     /// Update specialist metabolism based on dopamine reward
     /// PHASE 5.2: Wire dopamine to specialist ambition/strictness
-    fn update_specialist_metabolism(&mut self, specialist_idx: usize, dopamine_reward: f32, confidence: f32) {
+    fn update_specialist_metabolism(
+        &mut self,
+        specialist_idx: usize,
+        dopamine_reward: f32,
+        confidence: f32,
+    ) {
         // Increase metabolism (activation) for well-performing specialists
         if dopamine_reward > 0.2 {
-            self.biology.expression_rate = (self.biology.expression_rate + (dopamine_reward as f64 * 0.1) as f32)
-                .min(2.0_f32);
+            self.biology.expression_rate =
+                (self.biology.expression_rate + (dopamine_reward as f64 * 0.1) as f32).min(2.0_f32);
         }
-        
+
         // Decrease metabolism for poorly-performing specialists
         if dopamine_reward < -0.2 {
             self.biology.expression_rate = (self.biology.expression_rate - 0.05).max(0.1);
         }
-        
+
         // PHASE 5.2: Update specialist ambition/strictness from dopamine reward
         if specialist_idx < self.tensor_router.weights.specialist_ids.len() {
             let specialist_id = self.tensor_router.weights.specialist_ids[specialist_idx].clone();
-            
+
             // Ensure specialist is registered in biology
-            if !self.biology.specialist_metabolism.contains_key(&specialist_id) {
+            if !self
+                .biology
+                .specialist_metabolism
+                .contains_key(&specialist_id)
+            {
                 self.biology.register_specialist(&specialist_id, 100);
             }
-            
+
             if let Some(metabolism) = self.biology.specialist_metabolism.get_mut(&specialist_id) {
                 // Positive dopamine: increase ambition (goal-seeking behavior)
                 if dopamine_reward > 0.2 {
-                    metabolism.ambition = (metabolism.ambition + (dopamine_reward as f32 * 0.1)).min(1.0);
-                    println!("[UnifiedLearning] {} ambition increased to {:.2} (dopamine: {:.2})", 
-                        specialist_id, metabolism.ambition, dopamine_reward);
+                    metabolism.ambition = (metabolism.ambition + (dopamine_reward * 0.1)).min(1.0);
+                    println!(
+                        "[UnifiedLearning] {} ambition increased to {:.2} (dopamine: {:.2})",
+                        specialist_id, metabolism.ambition, dopamine_reward
+                    );
                 }
-                
+
                 // Negative dopamine: increase strictness (error avoidance)
                 if dopamine_reward < -0.2 {
                     // Apply stronger effect to strictness for negative rewards (error avoidance)
-                    metabolism.strictness = (metabolism.strictness - (dopamine_reward as f32 * 0.15)).min(1.0);
-                    println!("[UnifiedLearning] {} strictness increased to {:.2} (dopamine: {:.2})", 
-                        specialist_id, metabolism.strictness, dopamine_reward);
+                    metabolism.strictness =
+                        (metabolism.strictness - (dopamine_reward * 0.15)).min(1.0);
+                    println!(
+                        "[UnifiedLearning] {} strictness increased to {:.2} (dopamine: {:.2})",
+                        specialist_id, metabolism.strictness, dopamine_reward
+                    );
                 }
-                
+
                 // Stability based on confidence: high confidence = higher stability
-                metabolism.stability = (confidence as f32).max(metabolism.stability * 0.9);
+                metabolism.stability = confidence.max(metabolism.stability * 0.9);
             }
         }
-        
+
         // Track specialist's reward history
         if specialist_idx < self.specialist_load_history.len() {
-            let reward_normalized = ((dopamine_reward + 1.0) / 2.0).max(0.0).min(1.0); // Map to 0-1
+            let reward_normalized = ((dopamine_reward + 1.0) / 2.0).clamp(0.0, 1.0); // Map to 0-1
             self.specialist_load_history[specialist_idx].push(reward_normalized as f64);
             if self.specialist_load_history[specialist_idx].len() > self.max_history {
                 self.specialist_load_history[specialist_idx].remove(0);
@@ -455,24 +520,29 @@ impl UnifiedLearningLoop {
             println!("[UnifiedLearning] Checkpoint specialist count mismatch");
             return false;
         }
-        
+
         self.tensor_router.weights.weights = checkpoint.tensor_router_weights.clone();
         self.system_state = checkpoint.system_state.clone();
         self.load_history = checkpoint.load_history.clone();
         self.specialist_load_history = checkpoint.specialist_load_history.clone();
-        
-        println!("[UnifiedLearning] Restored model from checkpoint (age: {} seconds)",
+
+        println!(
+            "[UnifiedLearning] Restored model from checkpoint (age: {} seconds)",
             std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .map(|d| d.as_secs().saturating_sub(checkpoint.timestamp))
-                .unwrap_or(0));
-        
+                .unwrap_or(0)
+        );
+
         true
     }
 
-
     /// Compute spectral layout for constellation.
-    pub fn compute_constellation_layout(&self, n_nodes: usize, node_features: &[Vec<f64>]) -> Vec<(f64, f64)> {
+    pub fn compute_constellation_layout(
+        &self,
+        n_nodes: usize,
+        node_features: &[Vec<f64>],
+    ) -> Vec<(f64, f64)> {
         let edges = build_similarity_edges(n_nodes, node_features, 0.3);
         spectral_layout_2d(n_nodes, &edges)
     }
@@ -596,7 +666,11 @@ mod tests {
     #[test]
     fn test_constellation_layout() {
         let config = UnifiedLearningConfig::default();
-        let specialist_ids = vec!["spec_a".to_string(), "spec_b".to_string(), "spec_c".to_string()];
+        let specialist_ids = vec![
+            "spec_a".to_string(),
+            "spec_b".to_string(),
+            "spec_c".to_string(),
+        ];
         let loop_ = UnifiedLearningLoop::new(config, 3, specialist_ids);
 
         let features = vec![
@@ -637,20 +711,20 @@ mod tests {
         let mut loop_ = UnifiedLearningLoop::new(config, 2, specialist_ids);
 
         let task_features = vec![0.7, 0.5, 0.8, 0.3];
-        
+
         // Store initial weights
         let initial_weights = loop_.tensor_router.weights.weights.clone();
-        
+
         // Apply positive dopamine reward
         let result = loop_.learn_from_dopamine(&task_features, "spec_a", 0.8, 0.9);
-        
+
         // Verify result
         assert_eq!(result.specialist_id, "spec_a");
-        assert_eq!(result.learning_signal, 0.8);
+        assert!((result.learning_signal - 0.8).abs() < 1e-6);
         assert!(result.adaptive_learning_rate > 0.0);
         assert!(result.confidence_factor > 0.8);
         assert!(result.weights_updated);
-        
+
         // Weights should have been updated
         assert_ne!(loop_.tensor_router.weights.weights, initial_weights);
     }
@@ -662,12 +736,12 @@ mod tests {
         let mut loop_ = UnifiedLearningLoop::new(config, 2, specialist_ids);
 
         let task_features = vec![0.7, 0.5, 0.8, 0.3];
-        
+
         // Apply negative dopamine reward
         let result = loop_.learn_from_dopamine(&task_features, "spec_a", -0.7, 0.8);
-        
+
         // Verify result
-        assert_eq!(result.learning_signal, -0.7);
+        assert!((result.learning_signal - (-0.7)).abs() < 1e-5);
         assert!(result.adaptive_learning_rate > 0.0);
         assert!(result.confidence_factor > 0.7);
     }
@@ -679,13 +753,13 @@ mod tests {
         let mut loop_ = UnifiedLearningLoop::new(config, 1, specialist_ids);
 
         let task_features = vec![0.5, 0.5, 0.5, 0.5];
-        
+
         // Apply dopamine with low confidence
         let low_conf_result = loop_.learn_from_dopamine(&task_features, "spec_a", 0.5, 0.3);
-        
+
         // Apply dopamine with high confidence
         let high_conf_result = loop_.learn_from_dopamine(&task_features, "spec_a", 0.5, 0.9);
-        
+
         // High confidence should lead to higher learning rate
         assert!(high_conf_result.adaptive_learning_rate > low_conf_result.adaptive_learning_rate);
     }
@@ -699,21 +773,27 @@ mod tests {
         // Train with dopamine
         let task_features = vec![0.7, 0.5, 0.8, 0.3];
         loop_.learn_from_dopamine(&task_features, "spec_a", 0.8, 0.9);
-        
+
         // Checkpoint model
         let checkpoint = loop_.checkpoint_model();
-        
+
         // Create new loop and restore
         let config2 = UnifiedLearningConfig::default();
         let specialist_ids2 = vec!["spec_a".to_string(), "spec_b".to_string()];
         let mut loop2 = UnifiedLearningLoop::new(config2, 2, specialist_ids2);
-        
+
         let restored = loop2.restore_from_checkpoint(&checkpoint);
         assert!(restored);
-        
+
         // Verify weights match
-        assert_eq!(loop2.tensor_router.weights.weights, loop_.tensor_router.weights.weights);
-        assert_eq!(loop2.system_state.learning_rate, loop_.system_state.learning_rate);
+        assert_eq!(
+            loop2.tensor_router.weights.weights,
+            loop_.tensor_router.weights.weights
+        );
+        assert_eq!(
+            loop2.system_state.learning_rate,
+            loop_.system_state.learning_rate
+        );
     }
 
     #[test]
@@ -723,7 +803,7 @@ mod tests {
         let loop_ = UnifiedLearningLoop::new(config, 2, specialist_ids);
 
         let params = loop_.get_model_parameters();
-        
+
         assert_eq!(params.tensor_router_weights.len(), 2);
         assert!(params.learning_rate > 0.0);
         assert!(params.predictive_coding_layers > 0);

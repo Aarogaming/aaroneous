@@ -3,7 +3,7 @@
 
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use tracing::{debug, info, warn};
 
 /// Information about a GGUF model
@@ -18,14 +18,14 @@ pub struct ModelInfo {
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 pub enum ModelType {
-    QwenTiny,      // 0.5B - ultra-lightweight
-    QwenSmall,     // 1.8B - recommended default
-    QwenBase,      // 7B - good balance
-    QwenLarge,     // 14B+ - high capability
-    LlamaSmall,    // Llama 2 7B
-    LlamaBase,     // Llama 2 13B
-    MistralSmall,  // Mistral 7B
-    Other,         // Unknown
+    QwenTiny,     // 0.5B - ultra-lightweight
+    QwenSmall,    // 1.8B - recommended default
+    QwenBase,     // 7B - good balance
+    QwenLarge,    // 14B+ - high capability
+    LlamaSmall,   // Llama 2 7B
+    LlamaBase,    // Llama 2 13B
+    MistralSmall, // Mistral 7B
+    Other,        // Unknown
 }
 
 impl std::fmt::Display for ModelType {
@@ -39,11 +39,17 @@ impl ModelType {
         let lower = name.to_lowercase();
         match () {
             _ if lower.contains("qwen") && lower.contains("0.5") => ModelType::QwenTiny,
-            _ if lower.contains("qwen") && (lower.contains("1.8") || lower.contains("1_8")) => ModelType::QwenSmall,
-            _ if lower.contains("qwen") && (lower.contains("7b") || lower.contains("7_b")) => ModelType::QwenBase,
+            _ if lower.contains("qwen") && (lower.contains("1.8") || lower.contains("1_8")) => {
+                ModelType::QwenSmall
+            }
+            _ if lower.contains("qwen") && (lower.contains("7b") || lower.contains("7_b")) => {
+                ModelType::QwenBase
+            }
             _ if lower.contains("qwen") => ModelType::QwenLarge,
             _ if lower.contains("llama") && lower.contains("7") => ModelType::LlamaSmall,
-            _ if lower.contains("llama") && (lower.contains("13") || lower.contains("13b")) => ModelType::LlamaBase,
+            _ if lower.contains("llama") && (lower.contains("13") || lower.contains("13b")) => {
+                ModelType::LlamaBase
+            }
             _ if lower.contains("mistral") => ModelType::MistralSmall,
             _ => ModelType::Other,
         }
@@ -51,13 +57,13 @@ impl ModelType {
 
     pub fn recommended_score(&self) -> f32 {
         match self {
-            ModelType::QwenSmall => 0.95,   // Perfect for reasoning
-            ModelType::QwenBase => 0.85,    // More capable
-            ModelType::QwenTiny => 0.70,    // Fast but limited
-            ModelType::QwenLarge => 0.75,   // Slower but better quality
+            ModelType::QwenSmall => 0.95,    // Perfect for reasoning
+            ModelType::QwenBase => 0.85,     // More capable
+            ModelType::QwenTiny => 0.70,     // Fast but limited
+            ModelType::QwenLarge => 0.75,    // Slower but better quality
             ModelType::MistralSmall => 0.80, // Good alternative
-            ModelType::LlamaSmall => 0.75,  // Solid choice
-            ModelType::LlamaBase => 0.70,   // Slower, needs more resources
+            ModelType::LlamaSmall => 0.75,   // Solid choice
+            ModelType::LlamaBase => 0.70,    // Slower, needs more resources
             ModelType::Other => 0.5,
         }
     }
@@ -100,8 +106,17 @@ impl ModelRegistry {
 
         // LM Studio paths
         if let Ok(home) = std::env::var("USERPROFILE") {
-            paths.push(PathBuf::from(format!("{}/.lm-studio/models", home)));
-            paths.push(PathBuf::from(format!("{}\\AppData\\Local\\LM Studio\\models", home)));
+            let home = PathBuf::from(home);
+            paths.push(home.join(".lmstudio").join("models"));
+            paths.push(home.join(".cache").join("lm-studio").join("models"));
+            // Legacy locations retained for existing installations.
+            paths.push(home.join(".lm-studio").join("models"));
+            paths.push(
+                home.join("AppData")
+                    .join("Local")
+                    .join("LM Studio")
+                    .join("models"),
+            );
         }
 
         // Common locations
@@ -121,6 +136,7 @@ impl ModelRegistry {
     /// Scan for available GGUF models
     pub fn scan(&mut self) -> Result<()> {
         self.models.clear();
+        let mut seen_paths = std::collections::HashSet::new();
 
         for search_path in &self.search_paths {
             if !search_path.exists() {
@@ -130,39 +146,8 @@ impl ModelRegistry {
 
             debug!("Scanning for models in: {}", search_path.display());
 
-            match std::fs::read_dir(search_path) {
-                Ok(entries) => {
-                    for entry in entries {
-                        if let Ok(entry) = entry {
-                            let path = entry.path();
-                            if path.extension().map_or(false, |ext| ext == "gguf") {
-                                if let Ok(metadata) = std::fs::metadata(&path) {
-                                    let name = path
-                                        .file_name()
-                                        .and_then(|n| n.to_str())
-                                        .unwrap_or("unknown")
-                                        .to_string();
-
-                                    let model_type = ModelType::from_name(&name);
-                                    let recommended_score = model_type.recommended_score();
-
-                                    let model = ModelInfo {
-                                        name,
-                                        path,
-                                        size_bytes: metadata.len(),
-                                        model_type,
-                                        recommended_score,
-                                    };
-
-                                    self.models.push(model);
-                                }
-                            }
-                        }
-                    }
-                }
-                Err(e) => {
-                    warn!("Failed to scan {}: {}", search_path.display(), e);
-                }
+            if let Err(e) = Self::scan_directory(search_path, &mut self.models, &mut seen_paths) {
+                warn!("Failed to scan {}: {}", search_path.display(), e);
             }
         }
 
@@ -184,6 +169,51 @@ impl ModelRegistry {
         Ok(())
     }
 
+    fn scan_directory(
+        directory: &Path,
+        models: &mut Vec<ModelInfo>,
+        seen_paths: &mut std::collections::HashSet<PathBuf>,
+    ) -> std::io::Result<()> {
+        for entry in std::fs::read_dir(directory)? {
+            let entry = entry?;
+            let path = entry.path();
+            if path.is_dir() {
+                Self::scan_directory(&path, models, seen_paths)?;
+                continue;
+            }
+
+            if !path
+                .extension()
+                .is_some_and(|ext| ext.eq_ignore_ascii_case("gguf"))
+            {
+                continue;
+            }
+
+            let canonical_path = path.canonicalize().unwrap_or_else(|_| path.clone());
+            if !seen_paths.insert(canonical_path) {
+                continue;
+            }
+
+            let metadata = std::fs::metadata(&path)?;
+            let name = path
+                .file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or("unknown")
+                .to_string();
+            let model_type = ModelType::from_name(&name);
+
+            models.push(ModelInfo {
+                name,
+                path,
+                size_bytes: metadata.len(),
+                recommended_score: model_type.recommended_score(),
+                model_type,
+            });
+        }
+
+        Ok(())
+    }
+
     /// Get top N recommended models
     pub fn top_recommendations(&self, count: usize) -> Vec<&ModelInfo> {
         self.models.iter().take(count).collect()
@@ -201,21 +231,19 @@ impl ModelRegistry {
 
     /// Get best model of a specific type
     pub fn get_best_of_type(&self, target_type: ModelType) -> Option<&ModelInfo> {
-        self.models
-            .iter()
-            .find(|m| {
-                match (m.model_type, target_type) {
-                    (ModelType::QwenSmall, ModelType::QwenSmall) => true,
-                    (ModelType::QwenBase, ModelType::QwenBase) => true,
-                    (ModelType::QwenTiny, ModelType::QwenTiny) => true,
-                    (ModelType::QwenLarge, ModelType::QwenLarge) => true,
-                    (ModelType::MistralSmall, ModelType::MistralSmall) => true,
-                    (ModelType::LlamaSmall, ModelType::LlamaSmall) => true,
-                    (ModelType::LlamaBase, ModelType::LlamaBase) => true,
-                    (ModelType::Other, ModelType::Other) => true,
-                    _ => false,
-                }
-            })
+        self.models.iter().find(|m| {
+            matches!(
+                (m.model_type, target_type),
+                (ModelType::QwenSmall, ModelType::QwenSmall)
+                    | (ModelType::QwenBase, ModelType::QwenBase)
+                    | (ModelType::QwenTiny, ModelType::QwenTiny)
+                    | (ModelType::QwenLarge, ModelType::QwenLarge)
+                    | (ModelType::MistralSmall, ModelType::MistralSmall)
+                    | (ModelType::LlamaSmall, ModelType::LlamaSmall)
+                    | (ModelType::LlamaBase, ModelType::LlamaBase)
+                    | (ModelType::Other, ModelType::Other)
+            )
+        })
     }
 
     /// Get model with smallest size (fastest)
@@ -246,10 +274,7 @@ mod tests {
 
     #[test]
     fn test_model_type_from_name() {
-        assert_eq!(
-            ModelType::from_name("qwen-1.8b.gguf"),
-            ModelType::QwenSmall
-        );
+        assert_eq!(ModelType::from_name("qwen-1.8b.gguf"), ModelType::QwenSmall);
         assert_eq!(ModelType::from_name("qwen-7b.gguf"), ModelType::QwenBase);
         assert_eq!(
             ModelType::from_name("mistral-7b.gguf"),

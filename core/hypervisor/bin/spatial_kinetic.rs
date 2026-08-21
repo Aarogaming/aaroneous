@@ -13,6 +13,9 @@ use a_run::spatial_kinetic_engine::{SpatialKineticConfig, SpatialKineticEngine};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // Install logging
+    let (_init, _guard) = a_run::init_logging();
+
     let args: Vec<String> = std::env::args().collect();
 
     let mut config = SpatialKineticConfig::default();
@@ -73,33 +76,41 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         i += 1;
     }
 
-    println!("╔══════════════════════════════════════════════════════════╗");
-    println!("║   Aaroneous Spatial-Kinetic Engine                      ║");
-    println!("║   Universal Gaming Genome Reflex Loop                   ║");
-    println!("╚══════════════════════════════════════════════════════════╝");
-    println!();
-    println!("Genome:     {}", config.genome_path.display());
-    println!("Reflex:     {}", config.reflex_shader_path.display());
-    println!("Gate:       {:?}", config.gate_shader_path.as_ref().map(|p| p.display()));
-    println!("FPS:        {}", config.target_fps);
-    println!("Sensitivity: {}", config.mouse_sensitivity);
-    println!("HID Output: {}", if config.enable_hid_output { "enabled" } else { "disabled" });
-    println!("Gating:     {}", if config.enable_epigenetic_gating { "enabled" } else { "disabled" });
-    println!();
+    tracing::info!("╔══════════════════════════════════════════════════════════╗");
+    tracing::info!("║   Aaroneous Spatial-Kinetic Engine                      ║");
+    tracing::info!("║   Universal Gaming Genome Reflex Loop                   ║");
+    tracing::info!("╚══════════════════════════════════════════════════════════╝");
+    tracing::info!(
+        genome = %config.genome_path.display(),
+        reflex = %config.reflex_shader_path.display(),
+        fps = config.target_fps,
+        sensitivity = config.mouse_sensitivity,
+        hid = config.enable_hid_output,
+        gating = config.enable_epigenetic_gating,
+        "Engine configuration loaded"
+    );
 
     let engine = SpatialKineticEngine::new(config);
+
+    // Perform internal health checks
+    if !a_run::run_health_checks() {
+        tracing::error!("Internal health checks failed! Engine aborting startup.");
+        std::process::exit(1);
+    }
+    tracing::info!("Internal health checks passed.");
 
     // Handle Ctrl+C for graceful shutdown
     let engine_handle = std::sync::Arc::new(parking_lot::Mutex::new(engine));
     let engine_clone = engine_handle.clone();
 
     ctrlc::set_handler(move || {
-        println!("\n[SpatialKineticEngine] Received shutdown signal...");
+        tracing::warn!("[SpatialKineticEngine] Received shutdown signal...");
         engine_clone.lock().stop();
     })
     .expect("Failed to set Ctrl+C handler");
 
-    engine_handle.lock().run().await?;
+    let result = engine_handle.lock().run().await;
+    result?;
 
     Ok(())
 }

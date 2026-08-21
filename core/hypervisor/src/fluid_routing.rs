@@ -3,10 +3,8 @@
 /// Navier-Stokes inspired data routing treats throughput as hydraulic
 /// pressure; overflows divert to parallel cores. Entropy sweeper
 /// periodically purges high-entropy buffers to reduce CPU thermal load.
-
 // ── 5. Navier-Stokes Data Fluid Routing ──────────────────────────────
 // Models data pipelines as hydraulic networks.
-
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
 pub struct PipeChannel {
@@ -25,21 +23,35 @@ pub struct NavierStokesRouter {
 
 impl NavierStokesRouter {
     pub fn new(threshold: f64) -> Self {
-        NavierStokesRouter { channels: Vec::new(), overflow_threshold: threshold }
+        NavierStokesRouter {
+            channels: Vec::new(),
+            overflow_threshold: threshold,
+        }
     }
 
     pub fn add_channel(&mut self, id: usize, service_rate: f64, capacity: f64) {
-        self.channels.push(PipeChannel { id, arrival_rate: 0.0, service_rate, capacity, load: 0.0 });
+        self.channels.push(PipeChannel {
+            id,
+            arrival_rate: 0.0,
+            service_rate,
+            capacity,
+            load: 0.0,
+        });
     }
 
     /// Compute pressure = arrival_rate / service_rate (dimensionless).
     pub fn pressure(&self, id: usize) -> Option<f64> {
-        self.channels.iter().find(|c| c.id == id).map(|c| c.arrival_rate / c.service_rate.max(1e-9))
+        self.channels
+            .iter()
+            .find(|c| c.id == id)
+            .map(|c| c.arrival_rate / c.service_rate.max(1e-9))
     }
 
     /// Route data to the least-pressured channel; returns channel id.
     pub fn route(&mut self, data_size: f64) -> usize {
-        let best_idx = self.channels.iter()
+        let best_idx = self
+            .channels
+            .iter()
             .enumerate()
             .min_by(|(_, a), (_, b)| {
                 let pa = a.arrival_rate / a.service_rate.max(1e-9);
@@ -48,7 +60,9 @@ impl NavierStokesRouter {
             })
             .map(|(i, _)| i);
         let idx = best_idx.unwrap_or(0);
-        if idx >= self.channels.len() { return 0; }
+        if idx >= self.channels.len() {
+            return 0;
+        }
         let ch = &mut self.channels[idx];
         ch.arrival_rate += data_size;
         ch.load += data_size;
@@ -56,7 +70,9 @@ impl NavierStokesRouter {
         if ch.arrival_rate / ch.service_rate.max(1e-9) > self.overflow_threshold {
             let spill = data_size * 0.5;
             ch.arrival_rate -= spill;
-            let spill_idx = self.channels.iter()
+            let spill_idx = self
+                .channels
+                .iter()
                 .enumerate()
                 .filter(|(i, _)| *i != idx)
                 .min_by(|(_, a), (_, b)| {
@@ -65,12 +81,12 @@ impl NavierStokesRouter {
                     pa.partial_cmp(&pb).unwrap()
                 })
                 .map(|(i, _)| i);
-            if let Some(si) = spill_idx {
-                if si < self.channels.len() {
-                    let sc = &mut self.channels[si];
-                    sc.arrival_rate += spill;
-                    sc.load += spill;
-                }
+            if let Some(si) = spill_idx
+                && si < self.channels.len()
+            {
+                let sc = &mut self.channels[si];
+                sc.arrival_rate += spill;
+                sc.load += spill;
             }
         }
         self.channels[idx].id
@@ -84,7 +100,9 @@ impl NavierStokesRouter {
         }
     }
 
-    pub fn total_load(&self) -> f64 { self.channels.iter().map(|c| c.load).sum() }
+    pub fn total_load(&self) -> f64 {
+        self.channels.iter().map(|c| c.load).sum()
+    }
 }
 
 // ── 6. Thermal Entropy Bit Sweeping ──────────────────────────────────
@@ -100,12 +118,19 @@ pub struct EntropySweeper {
 
 impl EntropySweeper {
     pub fn new(threshold: f64, period_ticks: u64) -> Self {
-        EntropySweeper { threshold, period_ticks, counter: 0, purged_bytes: 0 }
+        EntropySweeper {
+            threshold,
+            period_ticks,
+            counter: 0,
+            purged_bytes: 0,
+        }
     }
 
     /// Compute Shannon entropy of a byte slice (H = -Σ p(i)·log₂ p(i)).
     pub fn shannon_entropy(data: &[u8]) -> f64 {
-        if data.is_empty() { return 0.0; }
+        if data.is_empty() {
+            return 0.0;
+        }
         let mut freq = [0u64; 256];
         for &b in data {
             freq[b as usize] += 1;
@@ -124,7 +149,9 @@ impl EntropySweeper {
     /// Tick the sweeper; returns bytes purged this tick (0 if not due).
     pub fn tick(&mut self, buffers: &mut [Vec<u8>]) -> u64 {
         self.counter += 1;
-        if self.counter < self.period_ticks { return 0; }
+        if self.counter < self.period_ticks {
+            return 0;
+        }
         self.counter = 0;
 
         let mut total_purged = 0u64;
@@ -141,7 +168,9 @@ impl EntropySweeper {
 
     /// Sweep a single buffer; returns true if purged.
     pub fn sweep_buffer(&mut self, buf: &mut Vec<u8>) -> bool {
-        if buf.is_empty() { return false; }
+        if buf.is_empty() {
+            return false;
+        }
         let entropy = Self::shannon_entropy(buf);
         if entropy > self.threshold {
             self.purged_bytes += buf.len() as u64;

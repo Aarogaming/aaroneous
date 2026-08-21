@@ -4,7 +4,6 @@
 /// peer-to-peer capability sharing. Byzantine rollups compress 1000
 /// task steps into a single cryptographic state root for external
 /// verification without re-execution.
-
 use std::collections::HashMap;
 
 // ── A2A Binary Protocol ──────────────────────────────────────────────
@@ -25,18 +24,34 @@ pub struct A2AProtocol {
     pub pending: Vec<A2AFlag>,
 }
 
+impl Default for A2AProtocol {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl A2AProtocol {
-    pub fn new() -> Self { A2AProtocol { agents: HashMap::new(), pending: Vec::new() } }
+    pub fn new() -> Self {
+        A2AProtocol {
+            agents: HashMap::new(),
+            pending: Vec::new(),
+        }
+    }
 
     /// Set a capability flag for this agent; returns true if state changed.
     pub fn set_flag(&mut self, agent_id: u64, capability: u32, state: bool) -> bool {
-        let key = (agent_id, capability);
-        let changed = match self.agents.get(&agent_id) {
-            Some(existing) if existing.capability == capability && existing.state == state => false,
-            _ => true,
-        };
+        let _key = (agent_id, capability);
+        let changed = !matches!(
+            self.agents.get(&agent_id),
+            Some(existing) if existing.capability == capability && existing.state == state
+        );
         if changed {
-            let flag = A2AFlag { agent_id, capability, state, timestamp: 0 };
+            let flag = A2AFlag {
+                agent_id,
+                capability,
+                state,
+                timestamp: 0,
+            };
             self.agents.insert(agent_id, flag);
             self.pending.push(flag);
         }
@@ -45,14 +60,17 @@ impl A2AProtocol {
 
     /// Get current state of a capability for an agent.
     pub fn get_flag(&self, agent_id: u64, capability: u32) -> bool {
-        self.agents.get(&agent_id)
+        self.agents
+            .get(&agent_id)
             .filter(|f| f.capability == capability)
             .map(|f| f.state)
             .unwrap_or(false)
     }
 
     /// Drain pending flags (e.g. after broadcast).
-    pub fn drain_pending(&mut self) -> Vec<A2AFlag> { std::mem::take(&mut self.pending) }
+    pub fn drain_pending(&mut self) -> Vec<A2AFlag> {
+        std::mem::take(&mut self.pending)
+    }
 
     /// Negotiate shared capability: both agents must agree.
     pub fn negotiate(&mut self, local_id: u64, remote_id: u64, capability: u32) -> bool {
@@ -81,13 +99,30 @@ pub struct ByzantineRollup {
     pub verified: bool,
 }
 
+impl Default for ByzantineRollup {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ByzantineRollup {
-    pub fn new() -> Self { ByzantineRollup { steps: Vec::new(), root: 0, verified: false } }
+    pub fn new() -> Self {
+        ByzantineRollup {
+            steps: Vec::new(),
+            root: 0,
+            verified: false,
+        }
+    }
 
     /// Append a task step; incrementally updates the rolling state root.
     pub fn append(&mut self, action_hash: u64, pre_state: u64, post_state: u64) {
         let step_id = self.steps.len() as u32;
-        self.steps.push(TaskStep { step_id, action_hash, pre_state, post_state });
+        self.steps.push(TaskStep {
+            step_id,
+            action_hash,
+            pre_state,
+            post_state,
+        });
         // Rolling Merkle-like root: root = hash(root XOR step_hash)
         let step_hash = self::hash_combine(pre_state, post_state) ^ action_hash;
         self.root = self.root.wrapping_add(step_hash).rotate_left(13) ^ step_hash;
@@ -141,7 +176,9 @@ impl ByzantineRollup {
     }
 
     /// Mark rollup as externally verified.
-    pub fn mark_verified(&mut self) { self.verified = true; }
+    pub fn mark_verified(&mut self) {
+        self.verified = true;
+    }
 }
 
 fn hash_combine(a: u64, b: u64) -> u64 {
@@ -201,8 +238,18 @@ mod tests {
     #[test]
     fn test_byzantine_rollup_tamper_detection() {
         let mut steps = vec![
-            TaskStep { step_id: 0, action_hash: 0xDEAD, pre_state: 0xAAAA, post_state: 0xBBBB },
-            TaskStep { step_id: 1, action_hash: 0xBEEF, pre_state: 0xBBBB, post_state: 0xCCCC },
+            TaskStep {
+                step_id: 0,
+                action_hash: 0xDEAD,
+                pre_state: 0xAAAA,
+                post_state: 0xBBBB,
+            },
+            TaskStep {
+                step_id: 1,
+                action_hash: 0xBEEF,
+                pre_state: 0xBBBB,
+                post_state: 0xCCCC,
+            },
         ];
         let real_root = ByzantineRollup::verify(&steps);
         steps[0].action_hash = 0xBAD;

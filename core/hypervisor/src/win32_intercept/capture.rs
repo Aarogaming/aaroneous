@@ -3,9 +3,9 @@
 
 use windows::Win32::Foundation::HWND;
 use windows::Win32::Graphics::Gdi::{
-    CreateCompatibleBitmap, CreateCompatibleDC, DeleteDC, DeleteObject,
-    GetDIBits, GetDC, ReleaseDC, SelectObject, StretchBlt,
-    BITMAPINFO, BITMAPINFOHEADER, DIB_RGB_COLORS, HDC, HBITMAP, SRCCOPY,
+    BITMAPINFO, BITMAPINFOHEADER, CreateCompatibleBitmap, CreateCompatibleDC, DIB_RGB_COLORS,
+    DeleteDC, DeleteObject, GetDC, GetDIBits, HBITMAP, HDC, ReleaseDC, SRCCOPY, SelectObject,
+    StretchBlt,
 };
 use windows::Win32::UI::WindowsAndMessaging::{GetSystemMetrics, SYSTEM_METRICS_INDEX};
 
@@ -26,6 +26,12 @@ pub struct Win32ScreenCapture {
 // Safety: HDC and HBITMAP are thread-safe handles on Windows
 unsafe impl Send for Win32ScreenCapture {}
 unsafe impl Sync for Win32ScreenCapture {}
+
+impl Default for Win32ScreenCapture {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl Win32ScreenCapture {
     pub fn new() -> Self {
@@ -54,7 +60,11 @@ impl Win32ScreenCapture {
             let hdc_memory = self.hdc_memory.ok_or("Failed to create memory DC")?;
 
             // Create compatible bitmap
-            self.hbitmap = Some(CreateCompatibleBitmap(hdc_screen, GRID_WIDTH as i32, GRID_HEIGHT as i32));
+            self.hbitmap = Some(CreateCompatibleBitmap(
+                hdc_screen,
+                GRID_WIDTH as i32,
+                GRID_HEIGHT as i32,
+            ));
             let hbitmap = self.hbitmap.ok_or("Failed to create bitmap")?;
 
             // Select bitmap into memory DC
@@ -72,11 +82,15 @@ impl Win32ScreenCapture {
             // Blit screen to memory DC (stretched to 128x128)
             let result = StretchBlt(
                 hdc_memory,
-                0, 0,
-                GRID_WIDTH as i32, GRID_HEIGHT as i32,
+                0,
+                0,
+                GRID_WIDTH as i32,
+                GRID_HEIGHT as i32,
                 Some(hdc_screen),
-                0, 0,
-                self.screen_width, self.screen_height,
+                0,
+                0,
+                self.screen_width,
+                self.screen_height,
                 SRCCOPY,
             );
 
@@ -129,10 +143,7 @@ impl Win32ScreenCapture {
         }
     }
 
-    pub fn capture_frame_with_gate(
-        &mut self,
-        gate_mask: &[bool; 256],
-    ) -> Result<Vec<f32>, String> {
+    pub fn capture_frame_with_gate(&mut self, gate_mask: &[bool; 256]) -> Result<Vec<f32>, String> {
         let mut frame = self.capture_frame()?;
 
         // Zero out inactive sectors

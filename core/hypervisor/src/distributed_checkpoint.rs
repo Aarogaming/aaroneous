@@ -1,9 +1,9 @@
 // Distributed State Checkpointing for Reliable Recovery
 // Manages atomic checkpoints across cluster with recovery guarantees
 
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use chrono::{DateTime, Utc};
 use std::time::Instant;
 
 /// Checkpoint metadata
@@ -59,9 +59,11 @@ pub struct DistributedCheckpointManager {
 impl DistributedCheckpointManager {
     /// Create a new distributed checkpoint manager
     pub fn new(node_id: &str, peers: Vec<String>, interval_secs: u64) -> Self {
-        println!("[CheckpointManager] Initialized for node {} with interval {}s",
-            node_id, interval_secs);
-        
+        println!(
+            "[CheckpointManager] Initialized for node {} with interval {}s",
+            node_id, interval_secs
+        );
+
         Self {
             node_id: node_id.to_string(),
             peers,
@@ -79,13 +81,15 @@ impl DistributedCheckpointManager {
     /// Begin a new checkpoint
     pub fn begin_checkpoint(&mut self) -> String {
         self.current_epoch += 1;
-        
+
         let checkpoint_id = format!("chk_{}_{}", self.node_id, self.current_epoch);
         self.pending_checkpoint = Some(HashMap::new());
-        
-        println!("[CheckpointManager] Checkpoint {} started (epoch: {})",
-            checkpoint_id, self.current_epoch);
-        
+
+        println!(
+            "[CheckpointManager] Checkpoint {} started (epoch: {})",
+            checkpoint_id, self.current_epoch
+        );
+
         checkpoint_id
     }
 
@@ -94,10 +98,12 @@ impl DistributedCheckpointManager {
         if let Some(ref mut pending) = self.pending_checkpoint {
             let component_name = snapshot.component_name.clone();
             pending.insert(component_name.clone(), snapshot);
-            
-            println!("[CheckpointManager] Component {} added to checkpoint",
-                component_name);
-            
+
+            println!(
+                "[CheckpointManager] Component {} added to checkpoint",
+                component_name
+            );
+
             Ok(())
         } else {
             Err("No checkpoint in progress".to_string())
@@ -108,14 +114,14 @@ impl DistributedCheckpointManager {
     pub fn finalize_checkpoint(&mut self) -> Result<CheckpointMetadata, String> {
         if let Some(components) = self.pending_checkpoint.take() {
             let checkpoint_id = format!("chk_{}_{}", self.node_id, self.current_epoch);
-            
+
             // Serialize all components
             let serialized = bincode::serialize(&components)
                 .map_err(|e| format!("Serialization failed: {}", e))?;
-            
+
             let size = serialized.len();
             let checksum = self.calculate_checksum(&serialized);
-            
+
             let metadata = CheckpointMetadata {
                 checkpoint_id: checkpoint_id.clone(),
                 timestamp: Utc::now(),
@@ -125,13 +131,16 @@ impl DistributedCheckpointManager {
                 nodes_replicated: Vec::new(),
                 replication_complete: false,
             };
-            
-            self.checkpoints.insert(checkpoint_id.clone(), metadata.clone());
+
+            self.checkpoints
+                .insert(checkpoint_id.clone(), metadata.clone());
             self.last_checkpoint_time = Some(Instant::now());
-            
-            println!("[CheckpointManager] Checkpoint {} finalized ({} bytes, checksum: {})",
-                checkpoint_id, size, checksum);
-            
+
+            println!(
+                "[CheckpointManager] Checkpoint {} finalized ({} bytes, checksum: {})",
+                checkpoint_id, size, checksum
+            );
+
             Ok(metadata)
         } else {
             Err("No checkpoint in progress".to_string())
@@ -144,15 +153,19 @@ impl DistributedCheckpointManager {
             if !metadata.nodes_replicated.contains(&peer_id.to_string()) {
                 metadata.nodes_replicated.push(peer_id.to_string());
             }
-            
+
             // Check if replicated to majority
-            let needed = (self.peers.len() + 1) / 2;  // Majority quorum
+            let needed = self.peers.len().div_ceil(2); // Majority quorum
             if metadata.nodes_replicated.len() >= needed {
                 metadata.replication_complete = true;
-                println!("[CheckpointManager] Checkpoint {} replicated to majority ({}/{})",
-                    checkpoint_id, metadata.nodes_replicated.len(), needed);
+                println!(
+                    "[CheckpointManager] Checkpoint {} replicated to majority ({}/{})",
+                    checkpoint_id,
+                    metadata.nodes_replicated.len(),
+                    needed
+                );
             }
-            
+
             Ok(())
         } else {
             Err(format!("Checkpoint {} not found", checkpoint_id))
@@ -169,25 +182,33 @@ impl DistributedCheckpointManager {
     }
 
     /// Recover from a checkpoint
-    pub fn recover_from_checkpoint(&mut self, checkpoint_id: &str) -> Result<HashMap<String, Vec<u8>>, String> {
+    pub fn recover_from_checkpoint(
+        &mut self,
+        checkpoint_id: &str,
+    ) -> Result<HashMap<String, Vec<u8>>, String> {
         if !self.is_checkpoint_stable(checkpoint_id) {
-            return Err(format!("Checkpoint {} not stable for recovery", checkpoint_id));
+            return Err(format!(
+                "Checkpoint {} not stable for recovery",
+                checkpoint_id
+            ));
         }
-        
+
         if let Some(metadata) = self.checkpoints.get(checkpoint_id) {
             // In real implementation, would fetch from replicas if local copy unavailable
-            println!("[CheckpointManager] Recovering from checkpoint {} (epoch: {})",
-                checkpoint_id, metadata.epoch);
-            
+            println!(
+                "[CheckpointManager] Recovering from checkpoint {} (epoch: {})",
+                checkpoint_id, metadata.epoch
+            );
+
             self.recovery_point = Some(checkpoint_id.to_string());
             self.current_epoch = metadata.epoch;
-            
+
             // Return component states
             let mut recovered_state = HashMap::new();
             recovered_state.insert("models".to_string(), vec![1, 2, 3]);
             recovered_state.insert("registry".to_string(), vec![4, 5, 6]);
             recovered_state.insert("metrics".to_string(), vec![7, 8, 9]);
-            
+
             Ok(recovered_state)
         } else {
             Err(format!("Checkpoint {} not found", checkpoint_id))
@@ -208,7 +229,7 @@ impl DistributedCheckpointManager {
         if let Some(last_time) = self.last_checkpoint_time {
             last_time.elapsed().as_secs() >= self.checkpoint_interval_secs
         } else {
-            true  // First checkpoint
+            true // First checkpoint
         }
     }
 
@@ -231,19 +252,17 @@ impl DistributedCheckpointManager {
     /// Get checkpoint statistics
     pub fn get_statistics(&self) -> CheckpointStatistics {
         let total_checkpoints = self.checkpoint_history.len();
-        let stable = self.checkpoint_history.iter()
+        let stable = self
+            .checkpoint_history
+            .iter()
             .filter(|m| m.replication_complete)
             .count();
-        
-        let total_size: usize = self.checkpoint_history.iter()
-            .map(|m| m.size_bytes)
-            .sum();
-        
-        let avg_size = if !self.checkpoint_history.is_empty() {
-            total_size / self.checkpoint_history.len()
-        } else {
-            0
-        };
+
+        let total_size: usize = self.checkpoint_history.iter().map(|m| m.size_bytes).sum();
+
+        let avg_size = total_size
+            .checked_div(self.checkpoint_history.len())
+            .unwrap_or(0);
 
         CheckpointStatistics {
             total_checkpoints,
@@ -275,7 +294,7 @@ mod tests {
     fn test_checkpoint_creation() {
         let peers = vec!["node_2".to_string(), "node_3".to_string()];
         let mut manager = DistributedCheckpointManager::new("node_1", peers, 60);
-        
+
         let checkpoint_id = manager.begin_checkpoint();
         assert!(checkpoint_id.contains("chk_"));
     }
@@ -284,14 +303,14 @@ mod tests {
     fn test_add_component() {
         let mut manager = DistributedCheckpointManager::new("node_1", vec![], 60);
         let _ = manager.begin_checkpoint();
-        
+
         let snapshot = ComponentSnapshot {
             component_name: "models".to_string(),
             state_data: vec![1, 2, 3],
             version: 1,
             dependencies: vec![],
         };
-        
+
         assert!(manager.add_component(snapshot).is_ok());
     }
 
@@ -299,17 +318,17 @@ mod tests {
     fn test_finalize_checkpoint() {
         let mut manager = DistributedCheckpointManager::new("node_1", vec![], 60);
         let _ = manager.begin_checkpoint();
-        
+
         let snapshot = ComponentSnapshot {
             component_name: "models".to_string(),
             state_data: vec![1, 2, 3],
             version: 1,
             dependencies: vec![],
         };
-        
+
         manager.add_component(snapshot).ok();
         let result = manager.finalize_checkpoint();
-        
+
         assert!(result.is_ok());
         let metadata = result.unwrap();
         assert_eq!(metadata.epoch, 1);
@@ -319,7 +338,7 @@ mod tests {
     fn test_replication_tracking() {
         let peers = vec!["node_2".to_string(), "node_3".to_string()];
         let mut manager = DistributedCheckpointManager::new("node_1", peers, 60);
-        
+
         let checkpoint_id = manager.begin_checkpoint();
         let snapshot = ComponentSnapshot {
             component_name: "models".to_string(),
@@ -330,18 +349,18 @@ mod tests {
         manager.add_component(snapshot).ok();
         let metadata = manager.finalize_checkpoint().unwrap();
         let id = metadata.checkpoint_id;
-        
+
         manager.record_replication(&id, "node_2").ok();
         manager.record_replication(&id, "node_3").ok();
-        
+
         assert!(manager.is_checkpoint_stable(&id));
     }
 
     #[test]
     fn test_recovery() {
-        let peers = vec!["node_2".to_string()];
+        let peers = vec!["node_2".to_string(), "node_3".to_string()];
         let mut manager = DistributedCheckpointManager::new("node_1", peers, 60);
-        
+
         let _ = manager.begin_checkpoint();
         let snapshot = ComponentSnapshot {
             component_name: "models".to_string(),
@@ -352,9 +371,10 @@ mod tests {
         manager.add_component(snapshot).ok();
         let metadata = manager.finalize_checkpoint().unwrap();
         let id = metadata.checkpoint_id;
-        
+
         manager.record_replication(&id, "node_2").ok();
-        
+        manager.record_replication(&id, "node_3").ok();
+
         let result = manager.recover_from_checkpoint(&id);
         assert!(result.is_ok());
     }
@@ -366,13 +386,13 @@ mod tests {
         assert!(manager.should_checkpoint());
 
         // After setting time, should not checkpoint immediately
-        let _ = manager.finalize_checkpoint();  // Would set time in real impl
+        let _ = manager.finalize_checkpoint(); // Would set time in real impl
     }
 
     #[test]
     fn test_statistics() {
         let mut manager = DistributedCheckpointManager::new("node_1", vec![], 60);
-        
+
         for _ in 0..3 {
             let _ = manager.begin_checkpoint();
             let snapshot = ComponentSnapshot {
@@ -387,9 +407,8 @@ mod tests {
                 manager.checkpoint_history.push(m);
             }
         }
-        
+
         let stats = manager.get_statistics();
         assert_eq!(stats.total_checkpoints, 3);
     }
 }
-

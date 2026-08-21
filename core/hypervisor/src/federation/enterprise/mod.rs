@@ -1,5 +1,7 @@
+pub mod access_control;
+pub mod analytics;
 /// Phase J: Enterprise Features
-/// 
+///
 /// Production-grade enterprise capabilities:
 /// - Comprehensive audit logging
 /// - Compliance monitoring
@@ -7,20 +9,17 @@
 /// - Rate limiting and quotas
 /// - Access control and RBAC
 /// - Analytics and reporting
-
 pub mod audit_log;
 pub mod compliance;
-pub mod security;
 pub mod rate_limiting;
-pub mod access_control;
-pub mod analytics;
+pub mod security;
 
-pub use audit_log::{AuditLog, AuditEvent, AuditLevel, AuditQuery, AuditResult};
-pub use compliance::{ComplianceMonitor, ComplianceRule, ComplianceStatus};
-pub use security::{SecurityConfig, TLSConfig, DataEncryption};
-pub use rate_limiting::{RateLimiter, QuotaLimit};
-pub use access_control::{AccessControl, Role, Permission, AuthToken};
+pub use access_control::{AccessControl, AuthToken, Permission, Role};
 pub use analytics::{Analytics, AnalyticsEvent, Report};
+pub use audit_log::{AuditEvent, AuditLevel, AuditLog, AuditQuery, AuditResult};
+pub use compliance::{ComplianceMonitor, ComplianceRule, ComplianceStatus};
+pub use rate_limiting::{QuotaLimit, RateLimiter};
+pub use security::{DataEncryption, SecurityConfig, TLSConfig};
 
 /// Enterprise context for all operations
 #[derive(Debug, Clone)]
@@ -48,10 +47,7 @@ impl EnterpriseContext {
     /// Log an action with audit trail
     pub fn log_action(&mut self, event: AuditEvent) -> Result<(), String> {
         self.audit_log.record(event.clone())?;
-        let analytics_event = AnalyticsEvent::new(
-            event.action.clone(),
-            1.0,
-        );
+        let analytics_event = AnalyticsEvent::new(event.action.clone(), 1.0);
         self.analytics.record_event(analytics_event);
         Ok(())
     }

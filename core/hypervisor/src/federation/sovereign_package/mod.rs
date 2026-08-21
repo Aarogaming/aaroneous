@@ -2,6 +2,7 @@
 ///
 pub mod auto_fabricator;
 
+use serde::{Deserialize, Serialize};
 /// A `.sovereign` file is a zstd-compressed tar archive containing:
 ///
 /// ```text
@@ -31,10 +32,8 @@ pub mod auto_fabricator;
 ///
 /// The manifest is always the first entry in the archive so consumers can
 /// read the identity without decompressing the full file.
-
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
-use serde::{Deserialize, Serialize};
 use tracing::{info, warn};
 
 // ── Manifest ──────────────────────────────────────────────────────────────────
@@ -84,7 +83,9 @@ pub struct SovereignManifest {
 }
 
 impl SovereignManifest {
-    pub fn schema_version() -> u32 { 1 }
+    pub fn schema_version() -> u32 {
+        1
+    }
 }
 
 /// Learning state snapshot — included so imported specialists start with
@@ -144,8 +145,12 @@ pub async fn export_sovereign(
     let package_path = output_dir.join(format!("{}.sovereign", sovereign_name.to_lowercase()));
     std::fs::create_dir_all(output_dir).context("failed to create output dir")?;
 
-    info!("Exporting sovereign '{}' from {} → {}",
-          sovereign_name, gguf_path.display(), package_path.display());
+    info!(
+        "Exporting sovereign '{}' from {} → {}",
+        sovereign_name,
+        gguf_path.display(),
+        package_path.display()
+    );
 
     // Load DNA sidecar
     let dna = crate::federation::dna::load_dna_sidecar(gguf_path);
@@ -159,29 +164,46 @@ pub async fn export_sovereign(
         .context("cannot stat GGUF file")?;
 
     // Compute SHA-256 of the model file (streaming, no full-RAM load via mmap)
-    let model_sha256 = compute_sha256_hex(gguf_path)
-        .unwrap_or_else(|_| "unavailable".to_string());
+    let model_sha256 = compute_sha256_hex(gguf_path).unwrap_or_else(|_| "unavailable".to_string());
 
     // Extract aaroneous.* fields from GGUF KV
     let kv = &meta.kv;
-    let domain        = kv.get("aaroneous.domain").cloned().unwrap_or_default();
-    let system_prompt = kv.get("aaroneous.system_prompt").cloned()
+    let domain = kv.get("aaroneous.domain").cloned().unwrap_or_default();
+    let system_prompt = kv
+        .get("aaroneous.system_prompt")
+        .cloned()
         .unwrap_or_else(|| {
             crate::federation::specialists::system_prompt_for_domain(&domain, sovereign_name)
         });
-    let quantization  = kv.get("aaroneous.quantization").cloned()
+    let quantization = kv
+        .get("aaroneous.quantization")
+        .cloned()
         .unwrap_or_else(|| "Q4_K_M".to_string());
-    let block_sel     = kv.get("aaroneous.block_selection").cloned().unwrap_or_default();
-    let block_count   = kv.get("aaroneous.block_count")
-        .and_then(|s| s.parse::<u32>().ok()).unwrap_or(0);
-    let base_model    = kv.get("aaroneous.base_model").cloned()
+    let block_sel = kv
+        .get("aaroneous.block_selection")
+        .cloned()
+        .unwrap_or_default();
+    let block_count = kv
+        .get("aaroneous.block_count")
+        .and_then(|s| s.parse::<u32>().ok())
+        .unwrap_or(0);
+    let base_model = kv
+        .get("aaroneous.base_model")
+        .cloned()
         .unwrap_or_else(|| "foundation_v1.gguf".to_string());
-    let abliterated   = kv.get("aaroneous.base_variant")
-        .map(|v| v == "abliterated").unwrap_or(false);
+    let abliterated = kv
+        .get("aaroneous.base_variant")
+        .map(|v| v == "abliterated")
+        .unwrap_or(false);
 
     // Capabilities from task spec
     let capabilities = crate::federation::graph::task_spec::spec_for(sovereign_name)
-        .map(|s| s.capabilities.iter().map(|c| c.description.clone()).collect())
+        .map(|s| {
+            s.capabilities
+                .iter()
+                .map(|c| c.description.clone())
+                .collect()
+        })
         .unwrap_or_default();
 
     let dna_fingerprint = dna.as_ref().map(|d| d.dna_fingerprint).unwrap_or(0);
@@ -191,8 +213,8 @@ pub async fn export_sovereign(
     let now_ms = now_ms();
     let created_human = {
         let secs = now_ms / 1000;
-        let dt = chrono::DateTime::<chrono::Utc>::from_timestamp(secs as i64, 0)
-            .unwrap_or_default();
+        let dt =
+            chrono::DateTime::<chrono::Utc>::from_timestamp(secs as i64, 0).unwrap_or_default();
         dt.format("%Y-%m-%d %H:%M UTC").to_string()
     };
 
@@ -221,8 +243,7 @@ pub async fn export_sovereign(
     // ── Write the .sovereign archive ──────────────────────────────────────────
     // Structure: zstd(tar(manifest.json, model.gguf, dna.json, system_prompt.txt,
     //                      learning_state.json, specialist_config.json))
-    let out_file = std::fs::File::create(&package_path)
-        .context("failed to create package file")?;
+    let out_file = std::fs::File::create(&package_path).context("failed to create package file")?;
 
     // Wrap in BufWriter + zstd encoder
     let buf_writer = std::io::BufWriter::with_capacity(8 * 1024 * 1024, out_file);
@@ -248,7 +269,11 @@ pub async fn export_sovereign(
         "context_length": meta.context_length,
         "kv_metadata": kv,
     });
-    add_bytes_to_tar(&mut tar, "specialist_config.json", &serde_json::to_vec_pretty(&config)?)?;
+    add_bytes_to_tar(
+        &mut tar,
+        "specialist_config.json",
+        &serde_json::to_vec_pretty(&config)?,
+    )?;
 
     // Entry 4: learning_state.json
     if opts.include_learning_state {
@@ -262,14 +287,18 @@ pub async fn export_sovereign(
             confidence_trend: vec![],
             last_updated: now_ms,
         });
-        add_bytes_to_tar(&mut tar, "learning_state.json", &serde_json::to_vec_pretty(&ls)?)?;
+        add_bytes_to_tar(
+            &mut tar,
+            "learning_state.json",
+            &serde_json::to_vec_pretty(&ls)?,
+        )?;
     }
 
     // Entry 5: dna.json (full genome)
-    if opts.include_dna {
-        if let Some(ref d) = dna {
-            add_bytes_to_tar(&mut tar, "dna.json", &serde_json::to_vec_pretty(d)?)?;
-        }
+    if opts.include_dna
+        && let Some(ref d) = dna
+    {
+        add_bytes_to_tar(&mut tar, "dna.json", &serde_json::to_vec_pretty(d)?)?;
     }
 
     // Entry 6: model.gguf — the largest entry, streamed via mmap
@@ -286,7 +315,8 @@ pub async fn export_sovereign(
 
     info!(
         "Sovereign package created: {} ({:.2}GB) — manifest+system_prompt+dna+learning+model",
-        package_path.display(), pkg_size
+        package_path.display(),
+        pkg_size
     );
 
     Ok(package_path)
@@ -317,8 +347,8 @@ pub async fn import_sovereign(
 
     let file = std::fs::File::open(package_path).context("failed to open package")?;
     let buf_reader = std::io::BufReader::new(file);
-    let zstd_decoder = zstd::stream::Decoder::new(buf_reader)
-        .context("zstd decoder init failed")?;
+    let zstd_decoder =
+        zstd::stream::Decoder::new(buf_reader).context("zstd decoder init failed")?;
     let mut tar = tar::Archive::new(zstd_decoder);
 
     let mut manifest: Option<SovereignManifest> = None;
@@ -329,37 +359,44 @@ pub async fn import_sovereign(
     for entry in tar.entries().context("tar entries failed")? {
         let mut entry = entry.context("tar entry read failed")?;
         let path = entry.path().context("tar entry path failed")?.to_path_buf();
-        let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("").to_string();
+        let name = path
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("")
+            .to_string();
 
         match name.as_str() {
             "manifest.json" => {
                 let mut buf = String::new();
-                entry.read_to_string(&mut buf).context("manifest read failed")?;
+                entry
+                    .read_to_string(&mut buf)
+                    .context("manifest read failed")?;
                 manifest = Some(serde_json::from_str(&buf).context("manifest parse failed")?);
             }
             "learning_state.json" => {
                 let mut buf = String::new();
-                entry.read_to_string(&mut buf).context("learning_state read failed")?;
+                entry
+                    .read_to_string(&mut buf)
+                    .context("learning_state read failed")?;
                 learning_state = serde_json::from_str(&buf).ok();
             }
             "model.gguf" => {
-                let sovereign_name = manifest.as_ref()
+                let sovereign_name = manifest
+                    .as_ref()
                     .map(|m| m.sovereign_name.to_lowercase())
                     .unwrap_or_else(|| "imported".to_string());
                 let dest = models_dir.join(format!("{}-imported.gguf", sovereign_name));
-                let mut out = std::fs::File::create(&dest)
-                    .context("failed to create model file")?;
-                std::io::copy(&mut entry, &mut out)
-                    .context("failed to extract model.gguf")?;
+                let mut out =
+                    std::fs::File::create(&dest).context("failed to create model file")?;
+                std::io::copy(&mut entry, &mut out).context("failed to extract model.gguf")?;
                 gguf_path = Some(dest);
             }
             "dna.json" => {
                 if let Some(ref gguf) = gguf_path {
                     let sidecar = gguf.with_extension("gguf.dna.json");
-                    let mut out = std::fs::File::create(&sidecar)
-                        .context("failed to create dna sidecar")?;
-                    std::io::copy(&mut entry, &mut out)
-                        .context("failed to extract dna.json")?;
+                    let mut out =
+                        std::fs::File::create(&sidecar).context("failed to create dna sidecar")?;
+                    std::io::copy(&mut entry, &mut out).context("failed to extract dna.json")?;
                     dna_path = Some(sidecar);
                 }
             }
@@ -376,7 +413,8 @@ pub async fn import_sovereign(
         if actual_hash != manifest.model_sha256 {
             anyhow::bail!(
                 "Integrity check failed: model hash mismatch\n  Expected: {}\n  Actual:   {}",
-                manifest.model_sha256, actual_hash
+                manifest.model_sha256,
+                actual_hash
             );
         }
         info!("Integrity verified: SHA-256 matches manifest");
@@ -386,15 +424,14 @@ pub async fn import_sovereign(
 
     info!(
         "Sovereign '{}' (domain={}) imported to {}",
-        manifest.sovereign_name, manifest.domain, gguf_path.display()
+        manifest.sovereign_name,
+        manifest.domain,
+        gguf_path.display()
     );
 
     // Register in specialist_registry.json
     if register {
-        crate::federation::model_registry::register_as_specialist(
-            &gguf_path,
-            &manifest.tags,
-        ).await;
+        crate::federation::model_registry::register_as_specialist(&gguf_path, &manifest.tags).await;
     }
 
     // Re-dissect if no DNA sidecar was embedded
@@ -405,7 +442,12 @@ pub async fn import_sovereign(
         }
     }
 
-    Ok(ImportResult { manifest, gguf_path, learning_state, dna_path })
+    Ok(ImportResult {
+        manifest,
+        gguf_path,
+        learning_state,
+        dna_path,
+    })
 }
 
 /// Read ONLY the manifest from a .sovereign file (fast — decompresses just the first entry).
@@ -417,8 +459,12 @@ pub fn read_manifest(package_path: &Path) -> anyhow::Result<SovereignManifest> {
     let mut tar = tar::Archive::new(dec);
     for entry in tar.entries().context("tar entries failed")? {
         let mut entry = entry.context("tar entry failed")?;
-        let name = entry.path()?.file_name()
-            .and_then(|n| n.to_str()).unwrap_or("").to_string();
+        let name = entry
+            .path()?
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("")
+            .to_string();
         if name == "manifest.json" {
             let mut buf = String::new();
             entry.read_to_string(&mut buf)?;
@@ -450,8 +496,12 @@ pub fn verify_sovereign(package_path: &Path) -> anyhow::Result<SovereignVerifica
 
     for entry in tar.entries().context("tar entries failed")? {
         let mut entry = entry.context("tar entry failed")?;
-        let name = entry.path()?.file_name()
-            .and_then(|n| n.to_str()).unwrap_or("").to_string();
+        let name = entry
+            .path()?
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("")
+            .to_string();
 
         if name == "model.gguf" {
             has_model = true;
@@ -461,7 +511,7 @@ pub fn verify_sovereign(package_path: &Path) -> anyhow::Result<SovereignVerifica
             gguf_size = buf.len() as u64;
 
             let hash = {
-                use sha2::{Sha256, Digest};
+                use sha2::{Digest, Sha256};
                 let mut hasher = Sha256::new();
                 hasher.update(&buf);
                 hex::encode(hasher.finalize())
@@ -534,8 +584,8 @@ fn add_file_to_tar<W: Write>(
 }
 
 fn compute_sha256_hex(path: &Path) -> anyhow::Result<String> {
+    use sha2::{Digest, Sha256};
     use std::io::Read;
-    use sha2::{Sha256, Digest};
 
     let file = std::fs::File::open(path)?;
     let mut reader = std::io::BufReader::with_capacity(8 * 1024 * 1024, file);
@@ -544,7 +594,9 @@ fn compute_sha256_hex(path: &Path) -> anyhow::Result<String> {
     let mut buf = [0u8; 65536];
     loop {
         let n = reader.read(&mut buf)?;
-        if n == 0 { break; }
+        if n == 0 {
+            break;
+        }
         hasher.update(&buf[..n]);
     }
     let result = hasher.finalize();

@@ -1,0 +1,51 @@
+# deploy/package_release.ps1
+# Packages Aaroneous into a standalone distributable ZIP release with installer.
+
+[CmdletBinding()]
+param(
+    [string]$Version = "0.1.0"
+)
+
+$ErrorActionPreference = "Stop"
+
+$WorkspaceRoot = (Get-Item $PSScriptRoot).Parent.FullName
+$DistDir = Join-Path $WorkspaceRoot "dist"
+$StagingDir = Join-Path $DistDir "Aaroneous-v$Version-windows-x86_64"
+$ZipFile = Join-Path $DistDir "Aaroneous-v$Version-windows-x86_64.zip"
+
+Write-Host "=================================================================" -ForegroundColor Cyan
+Write-Host "  PACKAGING AARONEOUS STANDALONE RELEASE (v$Version)" -ForegroundColor Cyan
+Write-Host "=================================================================" -ForegroundColor Cyan
+
+# 1. Clean & Prepare Staging
+if (Test-Path $StagingDir) {
+    Remove-Item -Recurse -Force $StagingDir
+}
+New-Item -ItemType Directory -Force -Path (Join-Path $StagingDir "bin") | Out-Null
+New-Item -ItemType Directory -Force -Path (Join-Path $StagingDir "config") | Out-Null
+
+# 2. Copy Executables
+Write-Host "Copying release binaries..." -ForegroundColor Yellow
+Copy-Item -Path (Join-Path $WorkspaceRoot "target\release\aaroneous.exe") -Destination (Join-Path $StagingDir "bin\aaroneous.exe") -Force
+Copy-Item -Path (Join-Path $WorkspaceRoot "target\release\a_run.exe") -Destination (Join-Path $StagingDir "bin\a_run.exe") -Force
+
+# 3. Copy Installer Scripts & README
+Write-Host "Copying installation scripts..." -ForegroundColor Yellow
+Copy-Item -Path (Join-Path $PSScriptRoot "install.ps1") -Destination (Join-Path $StagingDir "install.ps1") -Force
+Copy-Item -Path (Join-Path $PSScriptRoot "uninstall.ps1") -Destination (Join-Path $StagingDir "uninstall.ps1") -Force
+
+# 4. Create Distributable ZIP
+Write-Host "Creating distributable archive: $ZipFile..." -ForegroundColor Yellow
+if (Test-Path $ZipFile) {
+    Remove-Item -Force $ZipFile
+}
+Compress-Archive -Path "$StagingDir\*" -DestinationPath $ZipFile -CompressionLevel Optimal
+
+$SizeMb = [math]::Round((Get-Item $ZipFile).Length / 1MB, 2)
+
+Write-Host "=================================================================" -ForegroundColor Green
+Write-Host "  RELEASE PACKAGE CREATED SUCCESSFULLY!" -ForegroundColor Green
+Write-Host "=================================================================" -ForegroundColor Green
+Write-Host "Archive Path : $ZipFile" -ForegroundColor Cyan
+Write-Host "File Size    : $SizeMb MB" -ForegroundColor Cyan
+Write-Host "=================================================================" -ForegroundColor Green

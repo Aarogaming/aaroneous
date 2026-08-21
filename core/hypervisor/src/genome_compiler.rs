@@ -1,3 +1,5 @@
+use anyhow::{Result, anyhow, bail};
+use byteorder::{LittleEndian, ReadBytesExt};
 /// GGUF Genome Compiler — extracts FFN decision geometries from GGUF models
 /// and compiles them into the universal 2-bit genome format.
 ///
@@ -19,7 +21,8 @@
 ///
 /// # Usage
 ///
-/// ```no_run
+/// ```rust,ignore
+/// use std::path::PathBuf;
 /// use a_run::genome_compiler::{GenomeCompiler, CompileConfig};
 ///
 /// let config = CompileConfig {
@@ -29,14 +32,11 @@
 ///     ..Default::default()
 /// };
 /// let mut compiler = GenomeCompiler::new(config);
-/// compiler.compile()?;
+/// compiler.compile().unwrap();
 /// ```
-
 use std::fs::File;
 use std::io::{BufReader, Read, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
-use anyhow::{Result, anyhow, bail};
-use byteorder::{LittleEndian, ReadBytesExt};
 use tracing::{info, warn};
 
 // ────────────────────────────────────────────────────────────────────
@@ -44,56 +44,56 @@ use tracing::{info, warn};
 // ────────────────────────────────────────────────────────────────────
 
 const GGUF_MAGIC: &[u8; 4] = b"GGUF";
-const GGUF_VERSION: u32 = 3;
+const _GGUF_VERSION: u32 = 3;
 
 /// GGML tensor data types
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u32)]
 #[allow(non_camel_case_types)]
 pub enum GgmlType {
-    F32     = 0,
-    F16     = 1,
-    Q4_0    = 2,
-    Q4_1    = 3,
-    Q5_0    = 6,
-    Q5_1    = 7,
-    Q8_0    = 8,
-    Q8_1    = 9,
-    Q2_K    = 10,
-    Q3_K    = 11,
-    Q4_K    = 12,
-    Q5_K    = 13,
-    Q6_K    = 14,
-    Q8_K    = 15,
+    F32 = 0,
+    F16 = 1,
+    Q4_0 = 2,
+    Q4_1 = 3,
+    Q5_0 = 6,
+    Q5_1 = 7,
+    Q8_0 = 8,
+    Q8_1 = 9,
+    Q2_K = 10,
+    Q3_K = 11,
+    Q4_K = 12,
+    Q5_K = 13,
+    Q6_K = 14,
+    Q8_K = 15,
     IQ2_XXS = 16,
-    IQ2_XS  = 17,
+    IQ2_XS = 17,
     IQ3_XXS = 18,
-    IQ1_S   = 19,
-    IQ4_NL  = 20,
-    IQ3_S   = 21,
-    IQ2_S   = 22,
-    IQ4_XS  = 23,
-    I8      = 24,
-    I16     = 25,
-    I32     = 26,
-    I64     = 27,
-    F64     = 28,
-    IQ1_M   = 29,
-    BF16    = 30,
-    MXFP4   = 39,
+    IQ1_S = 19,
+    IQ4_NL = 20,
+    IQ3_S = 21,
+    IQ2_S = 22,
+    IQ4_XS = 23,
+    I8 = 24,
+    I16 = 25,
+    I32 = 26,
+    I64 = 27,
+    F64 = 28,
+    IQ1_M = 29,
+    BF16 = 30,
+    MXFP4 = 39,
 }
 
 impl GgmlType {
     fn from_u32(v: u32) -> Self {
         match v {
-            0  => Self::F32,
-            1  => Self::F16,
-            2  => Self::Q4_0,
-            3  => Self::Q4_1,
-            6  => Self::Q5_0,
-            7  => Self::Q5_1,
-            8  => Self::Q8_0,
-            9  => Self::Q8_1,
+            0 => Self::F32,
+            1 => Self::F16,
+            2 => Self::Q4_0,
+            3 => Self::Q4_1,
+            6 => Self::Q5_0,
+            7 => Self::Q5_1,
+            8 => Self::Q8_0,
+            9 => Self::Q8_1,
             10 => Self::Q2_K,
             11 => Self::Q3_K,
             12 => Self::Q4_K,
@@ -107,7 +107,7 @@ impl GgmlType {
             28 => Self::F64,
             30 => Self::BF16,
             39 => Self::MXFP4,
-            _  => Self::F32,
+            _ => Self::F32,
         }
     }
 
@@ -135,18 +135,18 @@ impl GgmlType {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u32)]
 pub enum GgufMetaType {
-    Uint8   = 0,
-    Int8    = 1,
-    Uint16  = 2,
-    Int16   = 3,
-    Uint32  = 4,
-    Int32   = 5,
+    Uint8 = 0,
+    Int8 = 1,
+    Uint16 = 2,
+    Int16 = 3,
+    Uint32 = 4,
+    Int32 = 5,
     Float32 = 6,
-    Bool    = 7,
-    String  = 8,
-    Array   = 9,
-    Uint64  = 10,
-    Int64   = 11,
+    Bool = 7,
+    String = 8,
+    Array = 9,
+    Uint64 = 10,
+    Int64 = 11,
     Float64 = 12,
 }
 
@@ -178,9 +178,9 @@ fn bit_to_float(bit: u8) -> f32 {
     match bit & 0x03 {
         0b00 => -1.5, // A: range [-2.5, -1.0)
         0b01 => -0.5, // T: range [-1.0,  0.0)
-        0b10 =>  0.5, // C: range [ 0.0,  1.0)
-        0b11 =>  1.5, // G: range [ 1.0,  2.5]
-        _    =>  0.0,
+        0b10 => 0.5,  // C: range [ 0.0,  1.0)
+        0b11 => 1.5,  // G: range [ 1.0,  2.5]
+        _ => 0.0,
     }
 }
 
@@ -201,7 +201,11 @@ fn unpack_2bit_array(voxels: &[u32], count: usize) -> Vec<u8> {
 /// Pack an array of 2-bit values into u32 voxels (16 values per u32).
 fn pack_2bit_array(values: &[u8]) -> Vec<u32> {
     let remainder = values.len() % 16;
-    let padded_len = if remainder != 0 { values.len() + 16 - remainder } else { values.len() };
+    let padded_len = if remainder != 0 {
+        values.len() + 16 - remainder
+    } else {
+        values.len()
+    };
     let mut padded = vec![0u8; padded_len];
     padded[..values.len()].copy_from_slice(values);
 
@@ -331,7 +335,10 @@ impl GenomeCompiler {
         let weight_count = reader.read_u64::<LittleEndian>()?;
         let num_tracks = reader.read_u32::<LittleEndian>()? as usize;
 
-        info!("  Voxels: {}, Weights: {}, Tracks: {}", voxel_count, weight_count, num_tracks);
+        info!(
+            "  Voxels: {}, Weights: {}, Tracks: {}",
+            voxel_count, weight_count, num_tracks
+        );
 
         // Read track sizes
         let mut track_sizes = Vec::with_capacity(num_tracks);
@@ -353,7 +360,11 @@ impl GenomeCompiler {
 
         // Denormalize from [-2.5, 2.5] back to original range
         // We don't know the original abs_max, so we output normalized weights
-        info!("  Decompiled {} weights from {} voxels", weights.len(), voxels.len());
+        info!(
+            "  Decompiled {} weights from {} voxels",
+            weights.len(),
+            voxels.len()
+        );
 
         // Write output
         if let Some(parent) = output.parent() {
@@ -384,10 +395,30 @@ impl GenomeCompiler {
             counts[(b & 0x03) as usize] += 1;
         }
         writeln!(summary, "2-bit Distribution:")?;
-        writeln!(summary, "  A (00): {} ({:.1}%)", counts[0], counts[0] as f64 / bits.len() as f64 * 100.0)?;
-        writeln!(summary, "  T (01): {} ({:.1}%)", counts[1], counts[1] as f64 / bits.len() as f64 * 100.0)?;
-        writeln!(summary, "  C (10): {} ({:.1}%)", counts[2], counts[2] as f64 / bits.len() as f64 * 100.0)?;
-        writeln!(summary, "  G (11): {} ({:.1}%)", counts[3], counts[3] as f64 / bits.len() as f64 * 100.0)?;
+        writeln!(
+            summary,
+            "  A (00): {} ({:.1}%)",
+            counts[0],
+            counts[0] as f64 / bits.len() as f64 * 100.0
+        )?;
+        writeln!(
+            summary,
+            "  T (01): {} ({:.1}%)",
+            counts[1],
+            counts[1] as f64 / bits.len() as f64 * 100.0
+        )?;
+        writeln!(
+            summary,
+            "  C (10): {} ({:.1}%)",
+            counts[2],
+            counts[2] as f64 / bits.len() as f64 * 100.0
+        )?;
+        writeln!(
+            summary,
+            "  G (11): {} ({:.1}%)",
+            counts[3],
+            counts[3] as f64 / bits.len() as f64 * 100.0
+        )?;
         writeln!(summary)?;
 
         // Weight statistics
@@ -415,7 +446,10 @@ impl GenomeCompiler {
 
         info!("Weights written to: {}", output.display());
         info!("Summary written to: {}", summary_path.display());
-        info!("  Weight file: {:.2} MB", file_size as f64 / (1024.0 * 1024.0));
+        info!(
+            "  Weight file: {:.2} MB",
+            file_size as f64 / (1024.0 * 1024.0)
+        );
         info!("  Summary: {} bytes", summary_size);
 
         Ok(())
@@ -458,7 +492,8 @@ impl GenomeCompiler {
         if expected_voxels != voxel_count {
             bail!(
                 "Voxel count mismatch: header says {}, track sizes sum to {}",
-                voxel_count, expected_voxels
+                voxel_count,
+                expected_voxels
             );
         }
 
@@ -510,7 +545,10 @@ impl GenomeCompiler {
         };
 
         info!("Verification complete for {}", input.display());
-        info!("  Voxels: {} (valid: {})", verification.voxel_count, verification.voxel_count_valid);
+        info!(
+            "  Voxels: {} (valid: {})",
+            verification.voxel_count, verification.voxel_count_valid
+        );
         info!("  Weights: {}", verification.weight_count);
         info!("  Tracks: {}", verification.num_tracks);
         info!("  Entropy: {:.3} bits (max 2.0)", verification.entropy);
@@ -532,7 +570,7 @@ impl GenomeCompiler {
         let mut gguf_files: Vec<PathBuf> = std::fs::read_dir(dir)?
             .filter_map(|e| e.ok())
             .map(|e| e.path())
-            .filter(|p| p.extension().map_or(false, |ext| ext == "gguf"))
+            .filter(|p| p.extension().is_some_and(|ext| ext == "gguf"))
             .collect();
 
         if gguf_files.is_empty() {
@@ -547,7 +585,8 @@ impl GenomeCompiler {
         let mut source_models: Vec<String> = Vec::new();
 
         for gguf_path in &gguf_files {
-            let model_name = gguf_path.file_stem()
+            let model_name = gguf_path
+                .file_stem()
                 .and_then(|s| s.to_str())
                 .unwrap_or("unknown")
                 .to_string();
@@ -559,7 +598,11 @@ impl GenomeCompiler {
             source_models.push(model_name);
         }
 
-        info!("Assembling {} voxels into {} tracks", all_voxels.len(), self.config.num_tracks);
+        info!(
+            "Assembling {} voxels into {} tracks",
+            all_voxels.len(),
+            self.config.num_tracks
+        );
         self.write_output(&all_voxels, total_weights, &source_models)
     }
 
@@ -570,7 +613,8 @@ impl GenomeCompiler {
             bail!("GGUF file not found: {}", gguf_path.display());
         }
 
-        let model_name = gguf_path.file_stem()
+        let model_name = gguf_path
+            .file_stem()
             .and_then(|s| s.to_str())
             .unwrap_or("unknown")
             .to_string();
@@ -578,7 +622,11 @@ impl GenomeCompiler {
         info!("Harvesting: {}", gguf_path.display());
         let (voxels, weight_count) = self.harvest_gguf(gguf_path)?;
 
-        info!("Compiling {} voxels into {} tracks", voxels.len(), self.config.num_tracks);
+        info!(
+            "Compiling {} voxels into {} tracks",
+            voxels.len(),
+            self.config.num_tracks
+        );
         self.write_output(&voxels, weight_count, &[model_name])
     }
 
@@ -589,8 +637,10 @@ impl GenomeCompiler {
 
         // Parse header
         let header = self.read_header(&mut reader)?;
-        info!("  GGUF v{}: {} tensors, {} metadata KV pairs",
-            header.version, header.tensor_count, header.metadata_kv_count);
+        info!(
+            "  GGUF v{}: {} tensors, {} metadata KV pairs",
+            header.version, header.tensor_count, header.metadata_kv_count
+        );
 
         // Skip metadata KV pairs
         for _ in 0..header.metadata_kv_count {
@@ -608,11 +658,14 @@ impl GenomeCompiler {
 
         // Filter to FFN tensors if requested
         let target_tensors: Vec<&GgufTensor> = if self.config.ffn_only {
-            tensors.iter()
+            tensors
+                .iter()
                 .filter(|t| {
                     let n = t.name.to_lowercase();
-                    n.contains("ffn_gate") || n.contains("ffn_down")
-                        || n.contains("ffn_up") || n.contains("ffn_norm")
+                    n.contains("ffn_gate")
+                        || n.contains("ffn_down")
+                        || n.contains("ffn_up")
+                        || n.contains("ffn_norm")
                 })
                 .collect()
         } else {
@@ -636,8 +689,10 @@ impl GenomeCompiler {
 
         for tensor in &tensors_to_process {
             if tensor.n_elements > self.config.max_elements {
-                warn!("  Skipping {} ({} elements exceeds limit)",
-                    tensor.name, tensor.n_elements);
+                warn!(
+                    "  Skipping {} ({} elements exceeds limit)",
+                    tensor.name, tensor.n_elements
+                );
                 continue;
             }
 
@@ -645,8 +700,10 @@ impl GenomeCompiler {
             reader.seek(SeekFrom::Start(tensor.offset))?;
 
             if let Some(data) = self.read_tensor_data(&mut reader, tensor)? {
-                info!("  Extracted {} ({} elements, {:?})",
-                    tensor.name, tensor.n_elements, tensor.ggml_type);
+                info!(
+                    "  Extracted {} ({} elements, {:?})",
+                    tensor.name, tensor.n_elements, tensor.ggml_type
+                );
                 all_weights.extend_from_slice(&data);
             }
         }
@@ -672,9 +729,12 @@ impl GenomeCompiler {
         // Pack into u32 voxels
         let voxels = pack_2bit_array(&genome_2bit);
 
-        info!("  Compiled {} weights → {} voxels (ratio: {:.1}x)",
-            weight_count, voxels.len(),
-            weight_count as f32 / (voxels.len() as f32 * 16.0));
+        info!(
+            "  Compiled {} weights → {} voxels (ratio: {:.1}x)",
+            weight_count,
+            voxels.len(),
+            weight_count as f32 / (voxels.len() as f32 * 16.0)
+        );
 
         Ok((voxels, weight_count))
     }
@@ -685,14 +745,22 @@ impl GenomeCompiler {
         let mut magic = [0u8; 4];
         reader.read_exact(&mut magic)?;
         if &magic != GGUF_MAGIC {
-            bail!("Invalid GGUF magic: {:?} (expected {:?})", &magic, GGUF_MAGIC);
+            bail!(
+                "Invalid GGUF magic: {:?} (expected {:?})",
+                &magic,
+                GGUF_MAGIC
+            );
         }
 
         let version = reader.read_u32::<LittleEndian>()?;
         let tensor_count = reader.read_u64::<LittleEndian>()?;
         let metadata_kv_count = reader.read_u64::<LittleEndian>()?;
 
-        Ok(GgufHeader { version, tensor_count, metadata_kv_count })
+        Ok(GgufHeader {
+            version,
+            tensor_count,
+            metadata_kv_count,
+        })
     }
 
     fn read_string(&self, reader: &mut BufReader<File>) -> Result<String> {
@@ -705,19 +773,43 @@ impl GenomeCompiler {
     fn skip_metadata_value(&self, reader: &mut BufReader<File>) -> Result<()> {
         let type_code = reader.read_u32::<LittleEndian>()?;
         match type_code {
-            0  => { reader.read_u8()?; }         // Uint8
-            1  => { reader.read_i8()?; }         // Int8
-            2  => { reader.read_u16::<LittleEndian>()?; }  // Uint16
-            3  => { reader.read_i16::<LittleEndian>()?; }  // Int16
-            4  => { reader.read_u32::<LittleEndian>()?; }  // Uint32
-            5  => { reader.read_i32::<LittleEndian>()?; }  // Int32
-            6  => { reader.read_f32::<LittleEndian>()?; }  // Float32
-            7  => { reader.read_u8()?; }         // Bool
-            8  => { self.read_string(reader)?; }  // String
-            10 => { reader.read_u64::<LittleEndian>()?; }  // Uint64
-            11 => { reader.read_i64::<LittleEndian>()?; }  // Int64
-            12 => { reader.read_f64::<LittleEndian>()?; }  // Float64
-            9  => {
+            0 => {
+                reader.read_u8()?;
+            } // Uint8
+            1 => {
+                reader.read_i8()?;
+            } // Int8
+            2 => {
+                reader.read_u16::<LittleEndian>()?;
+            } // Uint16
+            3 => {
+                reader.read_i16::<LittleEndian>()?;
+            } // Int16
+            4 => {
+                reader.read_u32::<LittleEndian>()?;
+            } // Uint32
+            5 => {
+                reader.read_i32::<LittleEndian>()?;
+            } // Int32
+            6 => {
+                reader.read_f32::<LittleEndian>()?;
+            } // Float32
+            7 => {
+                reader.read_u8()?;
+            } // Bool
+            8 => {
+                self.read_string(reader)?;
+            } // String
+            10 => {
+                reader.read_u64::<LittleEndian>()?;
+            } // Uint64
+            11 => {
+                reader.read_i64::<LittleEndian>()?;
+            } // Int64
+            12 => {
+                reader.read_f64::<LittleEndian>()?;
+            } // Float64
+            9 => {
                 // Array — read element type and count, then skip each element
                 let elem_type = reader.read_u32::<LittleEndian>()?;
                 let count = reader.read_u64::<LittleEndian>()?;
@@ -730,21 +822,49 @@ impl GenomeCompiler {
         Ok(())
     }
 
-    fn skip_metadata_value_by_type(&self, reader: &mut BufReader<File>, type_code: u32) -> Result<()> {
+    fn skip_metadata_value_by_type(
+        &self,
+        reader: &mut BufReader<File>,
+        type_code: u32,
+    ) -> Result<()> {
         match type_code {
-            0  => { reader.read_u8()?; }
-            1  => { reader.read_i8()?; }
-            2  => { reader.read_u16::<LittleEndian>()?; }
-            3  => { reader.read_i16::<LittleEndian>()?; }
-            4  => { reader.read_u32::<LittleEndian>()?; }
-            5  => { reader.read_i32::<LittleEndian>()?; }
-            6  => { reader.read_f32::<LittleEndian>()?; }
-            7  => { reader.read_u8()?; }
-            8  => { self.read_string(reader)?; }
-            10 => { reader.read_u64::<LittleEndian>()?; }
-            11 => { reader.read_i64::<LittleEndian>()?; }
-            12 => { reader.read_f64::<LittleEndian>()?; }
-            9  => {
+            0 => {
+                reader.read_u8()?;
+            }
+            1 => {
+                reader.read_i8()?;
+            }
+            2 => {
+                reader.read_u16::<LittleEndian>()?;
+            }
+            3 => {
+                reader.read_i16::<LittleEndian>()?;
+            }
+            4 => {
+                reader.read_u32::<LittleEndian>()?;
+            }
+            5 => {
+                reader.read_i32::<LittleEndian>()?;
+            }
+            6 => {
+                reader.read_f32::<LittleEndian>()?;
+            }
+            7 => {
+                reader.read_u8()?;
+            }
+            8 => {
+                self.read_string(reader)?;
+            }
+            10 => {
+                reader.read_u64::<LittleEndian>()?;
+            }
+            11 => {
+                reader.read_i64::<LittleEndian>()?;
+            }
+            12 => {
+                reader.read_f64::<LittleEndian>()?;
+            }
+            9 => {
                 let elem_type = reader.read_u32::<LittleEndian>()?;
                 let count = reader.read_u64::<LittleEndian>()?;
                 for _ in 0..count {
@@ -773,23 +893,34 @@ impl GenomeCompiler {
 
         let n_bytes = ggml_type.bytes_per_element(n_elements);
 
-        Ok(GgufTensor { name, shape, ggml_type, n_elements, n_bytes, offset })
+        Ok(GgufTensor {
+            name,
+            shape,
+            ggml_type,
+            n_elements,
+            n_bytes,
+            offset,
+        })
     }
 
     // ── Tensor Dequantization ──────────────────────────────────────
 
-    fn read_tensor_data(&self, reader: &mut BufReader<File>, tensor: &GgufTensor) -> Result<Option<Vec<f32>>> {
+    fn read_tensor_data(
+        &self,
+        reader: &mut BufReader<File>,
+        tensor: &GgufTensor,
+    ) -> Result<Option<Vec<f32>>> {
         let mut raw_bytes = vec![0u8; tensor.n_bytes as usize];
         reader.read_exact(&mut raw_bytes)?;
 
         let data = match tensor.ggml_type {
-            GgmlType::F32 => {
-                raw_bytes.chunks_exact(4)
-                    .map(|c| f32::from_le_bytes([c[0], c[1], c[2], c[3]]))
-                    .collect()
-            }
+            GgmlType::F32 => raw_bytes
+                .chunks_exact(4)
+                .map(|c| f32::from_le_bytes([c[0], c[1], c[2], c[3]]))
+                .collect(),
             GgmlType::F16 => {
-                raw_bytes.chunks_exact(2)
+                raw_bytes
+                    .chunks_exact(2)
                     .map(|c| {
                         let bits = u16::from_le_bytes([c[0], c[1]]);
                         // Simple f16 → f32 conversion
@@ -806,7 +937,8 @@ impl GenomeCompiler {
             GgmlType::Q8_1 => self.dequant_q8_0(&raw_bytes, tensor.n_elements)?,
             _ => {
                 // Fallback: interpret as i8 and normalize
-                let values: Vec<f32> = raw_bytes.iter()
+                let values: Vec<f32> = raw_bytes
+                    .iter()
                     .map(|&b| (b as i8 as f32) / 128.0)
                     .collect();
                 values
@@ -823,7 +955,9 @@ impl GenomeCompiler {
         let mut offset = 0usize;
 
         for i in 0..n_blocks {
-            if offset + 18 > raw.len() { break; }
+            if offset + 18 > raw.len() {
+                break;
+            }
 
             // Read scale (f16)
             let scale_bits = u16::from_le_bytes([raw[offset], raw[offset + 1]]);
@@ -852,7 +986,9 @@ impl GenomeCompiler {
         let mut offset = 0usize;
 
         for i in 0..n_blocks {
-            if offset + 34 > raw.len() { break; }
+            if offset + 34 > raw.len() {
+                break;
+            }
 
             // Read scale (f16)
             let scale_bits = u16::from_le_bytes([raw[offset], raw[offset + 1]]);
@@ -879,7 +1015,9 @@ impl GenomeCompiler {
         let mut offset = 0usize;
 
         for i in 0..n_blocks {
-            if offset + 144 > raw.len() { break; }
+            if offset + 144 > raw.len() {
+                break;
+            }
 
             // Read d and d_min (f16)
             let d_bits = u16::from_le_bytes([raw[offset], raw[offset + 1]]);
@@ -933,7 +1071,12 @@ impl GenomeCompiler {
 
     // ── Output ─────────────────────────────────────────────────────
 
-    fn write_output(&self, voxels: &[u32], weight_count: u64, source_models: &[String]) -> Result<()> {
+    fn write_output(
+        &self,
+        voxels: &[u32],
+        weight_count: u64,
+        source_models: &[String],
+    ) -> Result<()> {
         let output_path = &self.config.output;
 
         // Ensure parent directory exists
@@ -965,7 +1108,10 @@ impl GenomeCompiler {
 
         let file_size = std::fs::metadata(output_path)?.len();
         info!("Genome written to: {}", output_path.display());
-        info!("  File size: {:.2} MB", file_size as f64 / (1024.0 * 1024.0));
+        info!(
+            "  File size: {:.2} MB",
+            file_size as f64 / (1024.0 * 1024.0)
+        );
         info!("  Voxels: {}", voxels.len());
         info!("  Weight count: {}", weight_count);
         info!("  Tracks: {}", self.config.num_tracks);
@@ -983,7 +1129,10 @@ pub fn run_cli(args: &[String]) -> Result<()> {
     use clap::Parser;
 
     #[derive(Parser)]
-    #[command(name = "genome_compiler", about = "GGUF Genome Compiler — harvest FFN decision geometries into 2-bit genome format")]
+    #[command(
+        name = "genome_compiler",
+        about = "GGUF Genome Compiler — harvest FFN decision geometries into 2-bit genome format"
+    )]
     struct Cli {
         /// Path to GGUF file (compile) or genome binary (decompile/verify)
         input: PathBuf,
@@ -1038,10 +1187,26 @@ pub fn run_cli(args: &[String]) -> Result<()> {
         println!("Entropy: {:.3} bits", verification.entropy);
         println!("2-bit distribution:");
         let total = verification.bit_counts.iter().sum::<u64>() as f64;
-        println!("  A (00): {} ({:.1}%)", verification.bit_counts[0], verification.bit_counts[0] as f64 / total * 100.0);
-        println!("  T (01): {} ({:.1}%)", verification.bit_counts[1], verification.bit_counts[1] as f64 / total * 100.0);
-        println!("  C (10): {} ({:.1}%)", verification.bit_counts[2], verification.bit_counts[2] as f64 / total * 100.0);
-        println!("  G (11): {} ({:.1}%)", verification.bit_counts[3], verification.bit_counts[3] as f64 / total * 100.0);
+        println!(
+            "  A (00): {} ({:.1}%)",
+            verification.bit_counts[0],
+            verification.bit_counts[0] as f64 / total * 100.0
+        );
+        println!(
+            "  T (01): {} ({:.1}%)",
+            verification.bit_counts[1],
+            verification.bit_counts[1] as f64 / total * 100.0
+        );
+        println!(
+            "  C (10): {} ({:.1}%)",
+            verification.bit_counts[2],
+            verification.bit_counts[2] as f64 / total * 100.0
+        );
+        println!(
+            "  G (11): {} ({:.1}%)",
+            verification.bit_counts[3],
+            verification.bit_counts[3] as f64 / total * 100.0
+        );
         println!("File size: {} bytes", verification.file_size);
         if verification.has_trailing_data {
             println!("WARNING: Trailing data detected after voxel section");
@@ -1062,15 +1227,17 @@ mod tests {
     fn test_float_to_2bit() {
         assert_eq!(float_to_2bit(-2.0), 0b00); // A
         assert_eq!(float_to_2bit(-0.5), 0b01); // T
-        assert_eq!(float_to_2bit(0.5), 0b10);  // C
-        assert_eq!(float_to_2bit(2.0), 0b11);  // G
+        assert_eq!(float_to_2bit(0.5), 0b10); // C
+        assert_eq!(float_to_2bit(2.0), 0b11); // G
     }
 
     #[test]
     fn test_pack_2bit_array() {
         // 16 values → 1 voxel
-        let values = vec![0b00, 0b01, 0b10, 0b11, 0b00, 0b01, 0b10, 0b11,
-                          0b00, 0b01, 0b10, 0b11, 0b00, 0b01, 0b10, 0b11];
+        let values = vec![
+            0b00, 0b01, 0b10, 0b11, 0b00, 0b01, 0b10, 0b11, 0b00, 0b01, 0b10, 0b11, 0b00, 0b01,
+            0b10, 0b11,
+        ];
         let voxels = pack_2bit_array(&values);
         assert_eq!(voxels.len(), 1);
         // First value (0b00) in bits 0-1, second (0b01) in bits 2-3, etc.
@@ -1102,15 +1269,17 @@ mod tests {
     fn test_bit_to_float() {
         assert_eq!(bit_to_float(0b00), -1.5); // A
         assert_eq!(bit_to_float(0b01), -0.5); // T
-        assert_eq!(bit_to_float(0b10),  0.5); // C
-        assert_eq!(bit_to_float(0b11),  1.5); // G
+        assert_eq!(bit_to_float(0b10), 0.5); // C
+        assert_eq!(bit_to_float(0b11), 1.5); // G
     }
 
     #[test]
     fn test_unpack_2bit_array() {
         // Pack then unpack should round-trip
-        let original = vec![0b00, 0b01, 0b10, 0b11, 0b00, 0b01, 0b10, 0b11,
-                            0b00, 0b01, 0b10, 0b11, 0b00, 0b01, 0b10, 0b11];
+        let original = vec![
+            0b00, 0b01, 0b10, 0b11, 0b00, 0b01, 0b10, 0b11, 0b00, 0b01, 0b10, 0b11, 0b00, 0b01,
+            0b10, 0b11,
+        ];
         let voxels = pack_2bit_array(&original);
         let unpacked = unpack_2bit_array(&voxels, original.len());
         assert_eq!(unpacked, original);

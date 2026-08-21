@@ -2,14 +2,14 @@
 // Different implementations for various LLM services
 
 mod gguf;
+pub mod local;
 mod mock;
 pub mod openai;
-pub mod local;
 
 pub use gguf::GGUFProvider;
+pub use local::LocalLLMProvider;
 pub use mock::MockProvider;
 pub use openai::OpenAIProvider;
-pub use local::LocalLLMProvider;
 
 use crate::llm::types::*;
 use anyhow::Result;
@@ -59,12 +59,7 @@ pub trait LLMProvider: Send + Sync {
     /// system+user+assistant turn so the model sees a real system turn.
     ///
     /// Domain is passed through for mock routing and caching.
-    async fn chat(
-        &self,
-        system_prompt: &str,
-        user_message: &str,
-        domain: &str,
-    ) -> Result<String>;
+    async fn chat(&self, system_prompt: &str, user_message: &str, domain: &str) -> Result<String>;
 
     /// Generate a vector embedding for the given text.
     /// Used natively by the Omni Relic / Constellation system for semantic similarity mapping.

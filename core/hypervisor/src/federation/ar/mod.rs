@@ -1,8 +1,8 @@
-﻿// AR/VR stub
+// AR/VR stub
 use async_trait::async_trait;
 
 pub mod types;
-pub use types::{FormFactor, ViewConfiguration, ArError, ArSessionState, ArSystemInfo};
+pub use types::{ArError, ArSessionState, ArSystemInfo, FormFactor, ViewConfiguration};
 
 #[async_trait]
 pub trait ArProvider: Send + Sync {
@@ -10,13 +10,21 @@ pub trait ArProvider: Send + Sync {
     fn get_session_state(&self) -> ArSessionState;
     fn get_system_info(&self) -> ArSystemInfo;
 
-    fn is_runtime_available(&self) -> bool { false }
+    fn is_runtime_available(&self) -> bool {
+        false
+    }
 
-    fn system_info(&self) -> Result<ArSystemInfo, ArError> { Err(ArError::NoRuntime) }
+    fn system_info(&self) -> Result<ArSystemInfo, ArError> {
+        Err(ArError::NoRuntime)
+    }
 
-    async fn begin_session(&self) -> Result<(), ArError> { Err(ArError::FeatureNotEnabled) }
+    async fn begin_session(&self) -> Result<(), ArError> {
+        Err(ArError::FeatureNotEnabled)
+    }
 
-    async fn end_session(&self) -> Result<(), ArError> { Err(ArError::FeatureNotEnabled) }
+    async fn end_session(&self) -> Result<(), ArError> {
+        Err(ArError::FeatureNotEnabled)
+    }
 
     async fn session_state(&self) -> ArSessionState {
         ArSessionState::Idle

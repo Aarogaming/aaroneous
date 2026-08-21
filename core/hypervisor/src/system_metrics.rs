@@ -1,8 +1,7 @@
 /// System Metrics - GPU and Thermal Monitoring
-/// 
+///
 /// Provides real-time GPU load, thermal status, and resource metrics
 /// for adaptive throttling and performance management.
-
 use std::fs;
 use std::path::Path;
 
@@ -11,9 +10,9 @@ use std::path::Path;
 pub struct GpuMetrics {
     pub load: f64,
     pub temperature: f64,  // degrees Celsius
-    pub memory_used: u64,   // bytes
-    pub memory_total: u64,  // bytes
-    pub power_draw: f64,    // watts
+    pub memory_used: u64,  // bytes
+    pub memory_total: u64, // bytes
+    pub power_draw: f64,   // watts
 }
 
 impl Default for GpuMetrics {
@@ -31,12 +30,12 @@ impl Default for GpuMetrics {
 /// CPU thermal status
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ThermalStatus {
-    Cool,      // < 50°C
-    Normal,    // 50-75°C
-    Warm,      // 75-85°C
-    Hot,       // 85-95°C
-    Critical,  // > 95°C
-    Unknown,   // sensor unavailable
+    Cool,     // < 50°C
+    Normal,   // 50-75°C
+    Warm,     // 75-85°C
+    Hot,      // 85-95°C
+    Critical, // > 95°C
+    Unknown,  // sensor unavailable
 }
 
 impl ThermalStatus {
@@ -70,7 +69,7 @@ impl ThermalStatus {
 /// System thermal metrics
 #[derive(Debug, Clone)]
 pub struct ThermalMetrics {
-    pub cpu_temperature: f64,     // degrees Celsius
+    pub cpu_temperature: f64, // degrees Celsius
     pub cpu_status: ThermalStatus,
     pub gpu_temperature: f64,
     pub gpu_status: ThermalStatus,
@@ -93,23 +92,23 @@ impl Default for ThermalMetrics {
 
 /// System Metrics Collector
 pub struct SystemMetricsCollector {
-    use_nvml: bool,      // NVIDIA GPU monitoring available
-    use_hwmon: bool,     // Linux hwmon thermal sensors available
-    nvml_device_index: u32,
+    use_nvml: bool,  // NVIDIA GPU monitoring available
+    use_hwmon: bool, // Linux hwmon thermal sensors available
+    _nvml_device_index: u32,
 }
 
 impl SystemMetricsCollector {
     pub fn new() -> Self {
         // Check if NVML (NVIDIA GPU) is available
         let use_nvml = Self::check_nvml_available();
-        
+
         // Check if hwmon (Linux thermal sensors) is available
         let use_hwmon = Self::check_hwmon_available();
 
         Self {
             use_nvml,
             use_hwmon,
-            nvml_device_index: 0,
+            _nvml_device_index: 0,
         }
     }
 
@@ -141,9 +140,9 @@ impl SystemMetricsCollector {
         // let device = nvml.device_by_index(self.nvml_device_index).ok()?;
         // let utilization = device.utilization_rates().ok()?;
         // let temperature = device.temperature(0).ok()?;
-        
+
         GpuMetrics {
-            load: 0.5,  // Placeholder
+            load: 0.5, // Placeholder
             temperature: 45.0,
             memory_used: 2_000_000_000,
             memory_total: 8_000_000_000,
@@ -186,13 +185,10 @@ impl SystemMetricsCollector {
         // Returns temperature in millidegrees Celsius
         match fs::read_to_string("/sys/class/thermal/thermal_zone0/temp") {
             Ok(content) => {
-                let temp_millidegrees: f64 = content
-                    .trim()
-                    .parse()
-                    .unwrap_or(25000.0);
-                temp_millidegrees / 1000.0  // Convert to Celsius
+                let temp_millidegrees: f64 = content.trim().parse().unwrap_or(25000.0);
+                temp_millidegrees / 1000.0 // Convert to Celsius
             }
-            Err(_) => 25.0,  // Default fallback
+            Err(_) => 25.0, // Default fallback
         }
     }
 
@@ -208,7 +204,7 @@ impl SystemMetricsCollector {
         if self.use_nvml {
             self.get_gpu_temperature_nvidia()
         } else {
-            25.0  // Default fallback
+            25.0 // Default fallback
         }
     }
 
@@ -217,8 +213,8 @@ impl SystemMetricsCollector {
         // let nvml = Nvml::init().ok()?;
         // let device = nvml.device_by_index(self.nvml_device_index).ok()?;
         // let temp = device.temperature(0).ok()?;
-        
-        45.0  // Placeholder
+
+        45.0 // Placeholder
     }
 
     /// Determine if system should throttle compute
@@ -230,65 +226,71 @@ impl SystemMetricsCollector {
     /// Get throttle factor (0.0-1.0) to reduce workload
     pub fn get_throttle_factor(&self) -> f64 {
         let thermal = self.get_thermal_metrics();
-        
+
         // Use the more restrictive throttle factor from CPU or GPU
         let cpu_factor = thermal.cpu_status.throttle_factor();
         let gpu_factor = thermal.gpu_status.throttle_factor();
-        
+
         cpu_factor.min(gpu_factor)
     }
 
     /// Check if thermal situation requires immediate action
     pub fn is_thermal_emergency(&self) -> bool {
         let thermal = self.get_thermal_metrics();
-        thermal.cpu_status == ThermalStatus::Critical || 
-        thermal.gpu_status == ThermalStatus::Critical
+        thermal.cpu_status == ThermalStatus::Critical
+            || thermal.gpu_status == ThermalStatus::Critical
     }
-    
+
     // FIX #5: NEW - Load-based backpressure methods
     /// Check if system should reject new tasks (backpressure)
     pub fn should_reject_new_tasks(&self) -> bool {
         let thermal = self.get_thermal_metrics();
         let gpu = self.get_gpu_metrics();
-        
+
         // Reject if:
         // 1. Thermal critical
         if thermal.cpu_status == ThermalStatus::Critical {
             println!("[SystemMetrics] FIX #5 BACKPRESSURE: CPU thermal critical - rejecting tasks");
             return true;
         }
-        
+
         // 2. GPU critical
         if thermal.gpu_status == ThermalStatus::Critical {
             println!("[SystemMetrics] FIX #5 BACKPRESSURE: GPU thermal critical - rejecting tasks");
             return true;
         }
-        
+
         // 3. GPU memory > 85%
         if gpu.memory_total > 0 {
             let mem_percent = (gpu.memory_used as f64 / gpu.memory_total as f64) * 100.0;
             if mem_percent > 85.0 {
-                println!("[SystemMetrics] FIX #5 BACKPRESSURE: GPU memory {:.1}% - rejecting tasks", mem_percent);
+                println!(
+                    "[SystemMetrics] FIX #5 BACKPRESSURE: GPU memory {:.1}% - rejecting tasks",
+                    mem_percent
+                );
                 return true;
             }
         }
-        
+
         // 4. GPU load > 95%
         if gpu.load > 0.95 {
-            println!("[SystemMetrics] FIX #5 BACKPRESSURE: GPU load {:.1}% - rejecting tasks", gpu.load * 100.0);
+            println!(
+                "[SystemMetrics] FIX #5 BACKPRESSURE: GPU load {:.1}% - rejecting tasks",
+                gpu.load * 100.0
+            );
             return true;
         }
-        
-        false  // Safe to accept
+
+        false // Safe to accept
     }
-    
+
     /// Get backpressure level (0.0-1.0, where 1.0 = full rejection)
     pub fn get_backpressure_level(&self) -> f64 {
         let thermal = self.get_thermal_metrics();
         let gpu = self.get_gpu_metrics();
-        
+
         let mut pressure: f64 = 0.0;
-        
+
         // Thermal pressure (0-0.5)
         match thermal.cpu_status {
             ThermalStatus::Cool | ThermalStatus::Normal => pressure += 0.0,
@@ -297,29 +299,29 @@ impl SystemMetricsCollector {
             ThermalStatus::Critical => pressure += 0.5,
             ThermalStatus::Unknown => pressure += 0.0,
         }
-        
+
         // GPU memory pressure (0-0.3)
         if gpu.memory_total > 0 {
-            let mem_percent = (gpu.memory_used as f64 / gpu.memory_total as f64);
+            let mem_percent = gpu.memory_used as f64 / gpu.memory_total as f64;
             if mem_percent > 0.85 {
-                pressure += 0.3;  // Critical
+                pressure += 0.3; // Critical
             } else if mem_percent > 0.75 {
-                pressure += 0.2;  // High
+                pressure += 0.2; // High
             } else if mem_percent > 0.65 {
-                pressure += 0.1;  // Moderate
+                pressure += 0.1; // Moderate
             }
         }
-        
+
         // GPU load pressure (0-0.2)
         if gpu.load > 0.90 {
             pressure += 0.2;
         } else if gpu.load > 0.75 {
             pressure += 0.1;
         }
-        
+
         pressure.min(1.0_f64)
     }
-    
+
     /// Get recommended task deferral probability (0.0-1.0)
     pub fn get_deferral_probability(&self) -> f64 {
         self.get_backpressure_level()
@@ -342,7 +344,10 @@ mod tests {
         assert_eq!(ThermalStatus::from_temperature(60.0), ThermalStatus::Normal);
         assert_eq!(ThermalStatus::from_temperature(80.0), ThermalStatus::Warm);
         assert_eq!(ThermalStatus::from_temperature(90.0), ThermalStatus::Hot);
-        assert_eq!(ThermalStatus::from_temperature(100.0), ThermalStatus::Critical);
+        assert_eq!(
+            ThermalStatus::from_temperature(100.0),
+            ThermalStatus::Critical
+        );
     }
 
     #[test]
@@ -366,11 +371,11 @@ mod tests {
     #[test]
     fn test_metrics_collector_creation() {
         let collector = SystemMetricsCollector::new();
-        assert!(!collector.use_nvml);  // NVML won't be available in test
-        
+        assert!(!collector.use_nvml); // NVML won't be available in test
+
         let gpu = collector.get_gpu_metrics();
         assert!(gpu.load >= 0.0 && gpu.load <= 1.0);
-        
+
         let thermal = collector.get_thermal_metrics();
         assert!(thermal.cpu_temperature > 0.0);
     }

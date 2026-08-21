@@ -4,7 +4,6 @@
 /// making all coordinate spaces resolution-independent. Inputs at
 /// any resolution produce normalized feature vectors of fixed size,
 /// enabling the upstream SIMD/SVD pipeline to process uniformly.
-
 /// A normalized frame with all coordinates in [0.0, 1.0].
 #[repr(C)]
 pub struct NormalizedFrame {
@@ -34,7 +33,9 @@ impl FractionalNormalizer {
     /// `sample_grid`: the normalized output will be `sample_grid × sample_grid`
     ///               regardless of input resolution.
     pub fn new(sample_grid: u32) -> Self {
-        Self { sample_grid: sample_grid.max(4) }
+        Self {
+            sample_grid: sample_grid.max(4),
+        }
     }
 
     /// Normalize a raw BGRA framebuffer into a fixed-size [0.0, 1.0] float grid.
@@ -90,7 +91,7 @@ impl FractionalNormalizer {
         &self,
         raw_bgra: &[u8],
         frame_w: u32,
-        frame_h: u32,
+        _frame_h: u32,
         roi_x: u32,
         roi_y: u32,
         roi_w: u32,
@@ -174,10 +175,10 @@ impl FractionalNormalizer {
                 let gray = (lum * 255.0).clamp(0.0, 255.0) as u8;
                 let idx = ((ty * target_w + tx) * 4) as usize;
                 // Write as BGRA (same as source format)
-                bgra[idx] = gray;     // B
+                bgra[idx] = gray; // B
                 bgra[idx + 1] = gray; // G
                 bgra[idx + 2] = gray; // R
-                bgra[idx + 3] = 255;  // A
+                bgra[idx + 3] = 255; // A
             }
         }
 

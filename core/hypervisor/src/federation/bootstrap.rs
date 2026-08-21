@@ -1,8 +1,7 @@
 /// Federation Bootstrap System
-/// 
+///
 /// Implements `aaroneous --init`, `--expand`, and `--portable` commands.
 /// Enables flexible deployment: core only, modular expansion, or portable targets.
-
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -148,11 +147,7 @@ impl Manifest {
         for module in &self.modules {
             for dep in module.dependencies() {
                 if !self.modules.contains(&dep) {
-                    return Err(format!(
-                        "Module {} requires {}",
-                        module.name(),
-                        dep.name()
-                    ));
+                    return Err(format!("Module {} requires {}", module.name(), dep.name()));
                 }
             }
         }
@@ -484,16 +479,14 @@ mod tests {
 
     #[test]
     fn test_deployment_config_with_dna_path() {
-        let config = DeploymentConfig::new(DeploymentTarget::Desktop)
-            .with_dna_path("/custom/path");
+        let config = DeploymentConfig::new(DeploymentTarget::Desktop).with_dna_path("/custom/path");
 
         assert_eq!(config.dna_bank_path, "/custom/path");
     }
 
     #[test]
     fn test_deployment_config_with_log_level() {
-        let config = DeploymentConfig::new(DeploymentTarget::Desktop)
-            .with_log_level("debug");
+        let config = DeploymentConfig::new(DeploymentTarget::Desktop).with_log_level("debug");
 
         assert_eq!(config.log_level, "debug");
     }

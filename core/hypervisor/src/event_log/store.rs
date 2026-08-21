@@ -1,5 +1,5 @@
-use anyhow::Result;
 use crate::event_log::types::FederationEvent;
+use anyhow::Result;
 use rocksdb::{DB, Options};
 use std::path::Path;
 

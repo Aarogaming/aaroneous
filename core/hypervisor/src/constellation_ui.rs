@@ -1,15 +1,15 @@
-use egui::{Color32, Painter, Rect, Response, Sense, Ui, Vec2};
-use serde::{Serialize, Deserialize};
 use crate::{ConstellationNode, NodeType, SpatialCoord};
+use egui::{Color32, Painter, Rect, Response, Sense, Ui, Vec2};
+use serde::{Deserialize, Serialize};
 
 /// Compute-driven metrics for constellation nodes
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct NodeMetrics {
-    pub entropy: f64,          // Shannon entropy of node state
-    pub confidence: f64,       // Bayesian confidence score (0.0-1.0)
-    pub metabolic_risk: f64,   // Monte Carlo predicted risk (0.0-1.0)
-    pub centrality: f64,       // Graph centrality score
-    pub mdp_value: f64,        // MDP state value estimate
+    pub entropy: f64,        // Shannon entropy of node state
+    pub confidence: f64,     // Bayesian confidence score (0.0-1.0)
+    pub metabolic_risk: f64, // Monte Carlo predicted risk (0.0-1.0)
+    pub centrality: f64,     // Graph centrality score
+    pub mdp_value: f64,      // MDP state value estimate
 }
 
 /// Interactive 2D Constellation Renderer for egui
@@ -20,6 +20,12 @@ pub struct ConstellationCanvas {
     pub pan: Vec2,
     pub selected: Option<usize>,
     pub show_metrics: bool,
+}
+
+impl Default for ConstellationCanvas {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl ConstellationCanvas {
@@ -75,10 +81,7 @@ impl ConstellationCanvas {
     }
 
     pub fn ui(&mut self, ui: &mut Ui) -> Response {
-        let (rect, response) = ui.allocate_exact_size(
-            ui.available_size(),
-            Sense::click_and_drag(),
-        );
+        let (rect, response) = ui.allocate_exact_size(ui.available_size(), Sense::click_and_drag());
 
         if response.hovered() {
             ui.ctx().set_cursor_icon(egui::CursorIcon::Grab);
@@ -101,11 +104,13 @@ impl ConstellationCanvas {
         // Draw edges first (behind nodes)
         for (i, node_a) in self.nodes.iter().enumerate() {
             for (j, node_b) in self.nodes.iter().enumerate() {
-                if i >= j { continue; }
+                if i >= j {
+                    continue;
+                }
                 if self.are_connected(node_a, node_b) {
                     let p1 = self.to_screen(&node_a.spatial_coord, rect);
                     let p2 = self.to_screen(&node_b.spatial_coord, rect);
-                    
+
                     // Edge thickness based on relationship strength
                     let strength = if i < self.metrics.len() && j < self.metrics.len() {
                         let conf_a = self.metrics[i].confidence;
@@ -114,7 +119,7 @@ impl ConstellationCanvas {
                     } else {
                         1.0f32
                     };
-                    
+
                     painter.line_segment([p1, p2], (strength, Color32::DARK_GRAY));
                 }
             }
@@ -138,10 +143,12 @@ impl ConstellationCanvas {
                 NodeType::KnowledgeGap => Color32::from_rgb(200, 100, 200),
                 NodeType::NeuralSignal => Color32::from_rgb(100, 200, 255),
                 NodeType::LatentPulse => Color32::from_rgb(255, 100, 100),
+                NodeType::Memory => Color32::from_rgb(180, 80, 240),
+                NodeType::Specialist => Color32::from_rgb(255, 215, 0),
             };
 
             let base_radius = if is_selected { 12.0 } else { 8.0 };
-            
+
             // Adjust radius based on MDP value if available
             let radius = if i < self.metrics.len() {
                 let mdp_boost = (self.metrics[i].mdp_value.abs() * 4.0).min(6.0);
@@ -149,7 +156,7 @@ impl ConstellationCanvas {
             } else {
                 base_radius
             };
-            
+
             painter.circle_filled(pos, radius, color);
             if is_selected {
                 painter.circle_stroke(pos, radius + 2.0, (2.0, Color32::WHITE));
