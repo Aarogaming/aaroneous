@@ -11,4 +11,4 @@ The canonical, authoritative homebase documentation for the Aaroneous platform i
 - **Sovereign Specialists & Relics**: [`dev/docs/14_SOVEREIGN_SPECIALISTS_AND_RELICS_ROSTER.md`](../dev/docs/14_SOVEREIGN_SPECIALISTS_AND_RELICS_ROSTER.md)
 - **Crate & Organ Hierarchy**: [`dev/docs/03_CODEBASE_CENSUS_AND_FORENSIC_AUDIT.md`](../dev/docs/03_CODEBASE_CENSUS_AND_FORENSIC_AUDIT.md)
 
-Historical session logs and archived migration summaries are preserved in [`dev/archive/legacy_docs/`](../dev/archive/legacy_docs/).
+Historical session logs and migration summaries remain available through the Git history.

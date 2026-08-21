@@ -1,8 +1,0 @@
-[package]
-name = "chimera_vm"
-version = "0.1.0"
-edition = "2021"
-
-[dependencies]
-seahash = "4.1.0"
-nervous_system = { path = "../nervous_system" }
