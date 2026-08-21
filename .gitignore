@@ -34,3 +34,4 @@ core/hypervisor/cargo_state.json
 core/hypervisor/links_registry.json
 core/hypervisor/logs/
 dev/archive/logs/
+dev/archive/legacy_repos/*
