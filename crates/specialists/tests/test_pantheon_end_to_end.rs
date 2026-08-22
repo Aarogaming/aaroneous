@@ -135,3 +135,29 @@ async fn test_hephaestus_auto_wrap_tool_integration() {
     assert!(res_wrap.message.contains("Hephaestus successfully forged organ"));
     assert_eq!(res_wrap.opcode, 0x0400);
 }
+
+#[tokio::test]
+async fn test_hermes_multi_node_swarm_mesh_cluster() {
+    let mut node_prime = SpecialistFederation::new();
+    let mut node_alpha = SpecialistFederation::new();
+    let mut node_beta = SpecialistFederation::new();
+
+    // 1. Prime initiates gossip broadcast across swarm
+    let peers = vec!["node_alpha", "node_beta"];
+    let gossip_results = node_prime.hermes.broadcast_gossip_pulse(&peers);
+    assert_eq!(gossip_results.len(), 2);
+    assert!(gossip_results.iter().all(|p| p.is_connected));
+    assert!(gossip_results.iter().all(|p| p.latency_ms > 0.0 && p.latency_ms < 5.0));
+
+    // 2. Nodes exchange domain capabilities
+    let prime_synced = node_alpha.hermes.sync_swarm_manifest("node_prime", &["odin", "hephaestus", "kami"]);
+    let alpha_synced = node_beta.hermes.sync_swarm_manifest("node_alpha", &["merlin", "ariel", "argus"]);
+    assert!(prime_synced);
+    assert!(alpha_synced);
+
+    // 3. Dispatch cross-node offload request from Prime to Beta via Hermes
+    let offload_state = node_prime.hermes.route_task_offload(0x0500, "node_beta");
+    assert!(offload_state.is_connected);
+    assert_eq!(offload_state.peer_node_id, "node_beta");
+    assert!(offload_state.latency_ms < 1.0);
+}

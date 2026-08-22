@@ -35,9 +35,7 @@ impl Default for OrchestrationDaemonConfig {
             ingestor_config: MetadataIngestorConfig::default(),
             cycle_interval: Duration::from_secs(10),
             max_tasks_per_cycle: 5,
-            wasm_enzyme_path: PathBuf::from(
-                "extensions/wasm/test_enzyme/target/wasm32-unknown-unknown/release/test_enzyme.wasm",
-            ),
+            wasm_enzyme_path: PathBuf::from("native_enzyme"),
             enable_auto_throttle: true,
             enable_constellation_updates: true,
         }

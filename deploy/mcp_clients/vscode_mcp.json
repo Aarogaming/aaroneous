@@ -1,0 +1,11 @@
+﻿{
+  "servers": {
+    "aaroneous": {
+      "type": "sse",
+      "url": "http://127.0.0.1:8766/sse",
+      "headers": {
+        "Authorization": "Bearer aaroneous-local-dev-key"
+      }
+    }
+  }
+}

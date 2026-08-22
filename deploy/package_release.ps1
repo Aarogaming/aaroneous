@@ -38,6 +38,9 @@ if (Test-Path (Join-Path $WorkspaceRoot "config")) {
 if (Test-Path (Join-Path $WorkspaceRoot "shaders")) {
     Copy-Item -Path (Join-Path $WorkspaceRoot "shaders\*") -Destination (Join-Path $StagingDir "shaders") -Recurse -Force
 }
+if (Test-Path (Join-Path $WorkspaceRoot "deploy\mcp_clients")) {
+    Copy-Item -Path (Join-Path $WorkspaceRoot "deploy\mcp_clients") -Destination (Join-Path $StagingDir "mcp_clients") -Recurse -Force
+}
 
 # 4. Copy Installer Scripts & README
 Write-Host "Copying installation scripts and documentation..." -ForegroundColor Yellow

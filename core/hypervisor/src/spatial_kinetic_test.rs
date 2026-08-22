@@ -130,4 +130,37 @@ mod spatial_kinetic_integration_tests {
 
         assert!((matrix.skip_ratio() - 0.5).abs() < 0.01);
     }
+
+    #[test]
+    fn test_sub_16ms_perception_to_motor_reflex_benchmark() {
+        let mut pipeline = VisualGatePipeline::new();
+        let mut rng = rand::rngs::StdRng::seed_from_u64(1337);
+
+        let total_frames = 100usize;
+        let start = std::time::Instant::now();
+        let mut total_active_sectors = 0u64;
+
+        for frame_idx in 0..total_frames {
+            // Simulate 90% static HUD with 10% moving crosshair/target sector
+            let mut frame = [0.1f32; GRID_SIZE];
+            if frame_idx % 3 == 0 {
+                // Motion in target sector (sector 42)
+                frame[42] = rng.random_range(0.8..1.0);
+            }
+
+            let active = pipeline.process_frame(&frame);
+            total_active_sectors += active as u64;
+        }
+
+        let elapsed = start.elapsed();
+        let avg_latency_us = (elapsed.as_micros() as f64) / (total_frames as f64);
+        let avg_latency_ms = avg_latency_us / 1000.0;
+
+        // Sub-16ms requirement (target is sub-1ms for pure CPU gating step)
+        assert!(avg_latency_ms < 1.0, "Average perception latency too high: {:.3}ms (must be < 1.0ms)", avg_latency_ms);
+
+        // Compute savings: Most static sectors should be gated off after warmup
+        let skip_ratio = pipeline.gate_matrix.skip_ratio();
+        assert!(skip_ratio > 0.50, "Epigenetic skip ratio should exceed 50%, got {:.2}%", skip_ratio * 100.0);
+    }
 }
