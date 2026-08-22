@@ -4,7 +4,8 @@
 
 [CmdletBinding()]
 param(
-    [string]$InstallDir = "$env:LOCALAPPDATA\Programs\Aaroneous"
+    [string]$InstallDir = "$env:LOCALAPPDATA\Programs\Aaroneous",
+    [switch]$Force
 )
 
 $ErrorActionPreference = "Continue"

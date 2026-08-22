@@ -179,6 +179,15 @@ enum Commands {
         #[arg(short, long, default_value = "3")]
         iterations: usize,
     },
+    /// Launch the Machine-Native Model Context Protocol (MCP) server for Claude Desktop, Cursor, and VS Code
+    Mcp {
+        /// Host address to bind
+        #[arg(short = 'H', long, default_value = "127.0.0.1")]
+        host: String,
+        /// Port to listen on
+        #[arg(short, long, default_value = "8766")]
+        port: u16,
+    },
 }
 
 #[derive(Subcommand)]
@@ -730,6 +739,9 @@ fn run_cli(cli: Cli) -> Result<()> {
         }
         Some(Commands::Flagship { iterations }) => {
             run_flagship_pipeline(*iterations)
+        }
+        Some(Commands::Mcp { host, port }) => {
+            run_async(run_mcp_pipeline(host, *port))
         }
         None => {
             println!("Usage: a_run [COMMAND]");
@@ -1759,4 +1771,28 @@ fn run_flagship_pipeline(iterations: usize) -> Result<()> {
         })?
         .join()
         .map_err(|_| anyhow::anyhow!("Flagship worker thread panicked"))?
+}
+
+/// Launches the Model Context Protocol (MCP) HTTP + SSE server
+async fn run_mcp_pipeline(host: &str, port: u16) -> Result<()> {
+    let addr_str = format!("{}:{}", host, port);
+    let addr: std::net::SocketAddr = addr_str.parse()
+        .map_err(|e| anyhow::anyhow!("Invalid MCP server address '{}': {}", addr_str, e))?;
+
+    let mut config = a_run::mcp_service::ServiceConfig::default();
+    config.http_addr = addr;
+
+    let service = Arc::new(a_run::mcp_service::McpService::new(config));
+    service.register_sovereign_tools().await;
+    let server = a_run::mcp_service::http_api::HttpServer::new(addr);
+
+    println!("=================================================================");
+    println!(" 🪐 AARONEOUS SOVEREIGN MCP SERVER (JSON-RPC 2.0 + SSE)");
+    println!("=================================================================");
+    println!("   Listening Address : http://{}", addr);
+    println!("   Endpoints         : /mcp (JSON-RPC) | /sse (Stream) | /health");
+    println!("   Authentication    : Authorization: Bearer <AARONEOUS_API_KEY>");
+    println!("=================================================================\n");
+
+    server.run(service).await.map_err(|e| anyhow::anyhow!("MCP server error: {}", e))
 }
