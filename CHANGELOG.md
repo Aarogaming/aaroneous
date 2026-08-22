@@ -2,6 +2,8 @@
 
 All notable changes to Aaroneous.
 
+> **Architectural Note:** References in historical changelog sections (< v0.1.0) to `components/*` describe the legacy monolithic prototype layout. In v0.1.0+, all components were refactored into `core/hypervisor` and the 12 sovereign `crates/*` workspace crates.
+
 ## [0.3.0] - 2026-08-21
 
 ### 🧬 Full 9-Specialist Distillation, Live P2P Daemon & Autonomous Self-Evolution

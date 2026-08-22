@@ -4,7 +4,7 @@
 # All paths are resolved relative to workspace root via WorkspacePaths::discover()
 
 [server]
-host = "0.0.0.0"
+host = "127.0.0.1"
 port = 8001
 
 [database]
