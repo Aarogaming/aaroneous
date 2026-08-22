@@ -63,8 +63,8 @@ impl EpigeneticOrchestrator {
         println!("[EpigeneticOrchestrator] Extracting post-attention hidden states...");
 
         // Simulated extraction: In a real system, this pulls from the KV cache or transformer block
-        for i in 0..1024 {
-            output_vector[i] = (i as f32 * 0.001).sin(); // Simulated latent signal
+        for (i, val) in output_vector.iter_mut().enumerate() {
+            *val = (i as f32 * 0.001).sin(); // Simulated latent signal
         }
 
         Ok(())

@@ -58,11 +58,11 @@ impl SynapseVisualizer {
 
         // 1. Argus Safety Threat Gauge Calculation
         let tensor = &self.latest_tensors[0]; // Hermes broadcast intent
-        let mut dist_sq = 0.0f32;
-        for i in 0..TENSOR_DIM {
-            let diff = tensor[i] - self.argus_centroid[i];
-            dist_sq += diff * diff;
-        }
+        let dist_sq: f32 = tensor
+            .iter()
+            .zip(&self.argus_centroid)
+            .map(|(t, c)| (t - c).powi(2))
+            .sum();
         let current_distance = dist_sq.sqrt();
         let threat_ratio = (current_distance / self.argus_radius).clamp(0.0, 2.0);
 

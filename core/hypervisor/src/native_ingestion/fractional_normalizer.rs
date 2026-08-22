@@ -87,6 +87,7 @@ impl FractionalNormalizer {
     /// `raw_bgra`: full frame in BGRA 8bpp.
     /// `frame_w`, `frame_h`: full frame dimensions.
     /// `roi_x`, `roi_y`, `roi_w`, `roi_h`: pixel-coordinate bounding box.
+    #[allow(clippy::too_many_arguments)]
     pub fn normalize_roi(
         &self,
         raw_bgra: &[u8],

@@ -4,6 +4,26 @@ All notable changes to Aaroneous.
 
 > **Architectural Note:** References in historical changelog sections (< v0.1.0) to `components/*` describe the legacy monolithic prototype layout. In v0.1.0+, all components were refactored into `core/hypervisor` and the 12 sovereign `crates/*` workspace crates.
 
+## [0.3.1] - 2026-08-22
+
+### 🧹 Workspace-Wide Clippy Cleanup — Zero Warnings on All Library Targets
+
+#### Changed
+- **`core/hypervisor` (a_run) — 0 Clippy warnings on `--lib`**:
+  - Replaced manual index loops with idiomatic iterators across 19 modules: `spectral_layout.rs`, `tensor_router.rs`, `relativity_engine.rs`, `reasoning.rs`, `hardware_layer.rs`, `synapse_ui.rs`, `skill_constellation.rs`, `cellular_automata.rs`, `epigenetic_gate.rs`, `epigenetic_orchestrator.rs`, `federated_learning.rs`, `live_daemon.rs`, `task_routing.rs`.
+  - Replaced `.unwrap()` on `Option` with safe `if let Some` patterns in `live_daemon.rs`.
+  - Replaced `.map(|layer| { ... })` producing unit with `if let Some(layer)` in `unified_learning.rs`.
+  - Added `#[allow(clippy::too_many_arguments)]` on justified signatures: `decision_engine.rs`, `unified_learning.rs`, `fractional_normalizer.rs`, `svd_feature_select.rs`.
+  - Added `#[allow(clippy::collapsible_if)]` on security path-containment guards in `mcp_service/service.rs`.
+  - Defined `SemanticEmbeddingRecord` type alias and simplified embedding load loop in `hive_db.rs`.
+  - Used `.clamp()` and `.div_ceil()` standard library methods in `task_routing.rs` and `live_daemon.rs`.
+- **All external crates (`compute`, `marionette`, `omni`, `orchestrator`, `chimera`, `evolution`, `specialists`) — 0 warnings** (completed in prior commit `dbde3a5`).
+
+#### Verified
+- `cargo clippy -p a_run --lib -- -D warnings`: **0 errors, 0 warnings**.
+
+---
+
 ## [0.3.0] - 2026-08-21
 
 ### 🧬 Full 9-Specialist Distillation, Live P2P Daemon & Autonomous Self-Evolution

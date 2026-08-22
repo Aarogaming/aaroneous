@@ -467,8 +467,8 @@ impl SuperpositionState {
         }; 32];
         if count > 0 {
             let norm = 1.0 / (count as f32).sqrt();
-            for i in 0..count {
-                amplitudes[i] = ProbabilityAmplitude {
+            for amp in amplitudes.iter_mut().take(count) {
+                *amp = ProbabilityAmplitude {
                     real: norm,
                     imag: 0.0,
                 };

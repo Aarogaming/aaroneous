@@ -390,6 +390,7 @@ impl AutonomousDecisionEngine {
     }
 
     /// Generate human-readable reasoning for the decision
+    #[allow(clippy::too_many_arguments)]
     fn generate_reasoning(
         &self,
         confidence: f64,

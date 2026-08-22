@@ -88,14 +88,13 @@ pub struct SparseAutoencoderSteer {
 
 impl SparseAutoencoderSteer {
     pub fn new(dict_size: usize, input_dim: usize) -> Self {
-        let dictionary = vec![vec![0.0; input_dim]; dict_size];
+        let mut dictionary = vec![vec![0.0; input_dim]; dict_size];
         // Initialize with random orthogonal-ish vectors
-        for (i, atom) in dictionary.iter().enumerate() {
-            let mut atom = atom.clone();
+        for (i, atom) in dictionary.iter_mut().enumerate() {
             let seed = (i as u64).wrapping_mul(0x9E3779B97F4A7C15);
-            for j in 0..input_dim {
+            for (j, val) in atom.iter_mut().enumerate() {
                 let h = (seed ^ (j as u64)).wrapping_mul(0xBF58476D1CE4E5B9);
-                atom[j] = (h as f64 / u64::MAX as f64) * 2.0 - 1.0;
+                *val = (h as f64 / u64::MAX as f64) * 2.0 - 1.0;
             }
         }
         SparseAutoencoderSteer {
@@ -221,23 +220,24 @@ impl StateSpaceModel {
         let n = input.len().min(self.input_dim);
         // state = A * state + B * input
         let mut new_state = vec![0.0; self.state_dim];
-        for i in 0..self.state_dim {
+        for (i, ns) in new_state.iter_mut().enumerate() {
             let mut s = 0.0;
-            for j in 0..self.state_dim {
-                s += self.a[i * self.state_dim + j] * self.state[j];
+            let a_row = &self.a[i * self.state_dim..(i + 1) * self.state_dim];
+            for (a_val, &st) in a_row.iter().zip(&self.state) {
+                s += a_val * st;
             }
-            for j in 0..n {
-                s += self.b[i * self.input_dim + j] * input[j];
+            let b_row = &self.b[i * self.input_dim..i * self.input_dim + n];
+            for (b_val, &inp) in b_row.iter().zip(input.iter().take(n)) {
+                s += b_val * inp;
             }
-            new_state[i] = s * self.decay;
+            *ns = s * self.decay;
         }
         self.state = new_state;
         // output = C * state
         let mut output = vec![0.0; self.input_dim];
-        for i in 0..self.input_dim {
-            for j in 0..self.state_dim {
-                output[i] += self.c[i * self.state_dim + j] * self.state[j];
-            }
+        for (i, out) in output.iter_mut().enumerate() {
+            let c_row = &self.c[i * self.state_dim..(i + 1) * self.state_dim];
+            *out = c_row.iter().zip(&self.state).map(|(c_val, st)| c_val * st).sum();
         }
         output
     }

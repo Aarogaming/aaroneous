@@ -131,10 +131,9 @@ impl GeodesicField {
     pub fn slide(&self, position: &[f64]) -> Vec<f64> {
         let n = self.dimensions.min(position.len());
         let mut result = vec![0.0; n];
-        for i in 0..n {
-            for j in 0..n {
-                result[i] += self.curvature[i * self.dimensions + j] * position[j];
-            }
+        for (i, res) in result.iter_mut().enumerate().take(n) {
+            let row = &self.curvature[i * self.dimensions..i * self.dimensions + n];
+            *res = row.iter().zip(position.iter().take(n)).map(|(c, p)| c * p).sum();
         }
         result
     }
@@ -152,9 +151,10 @@ impl GeodesicField {
                 }
             }
         }
-        for i in 0..n * n {
-            cov[i] /= count.max(1.0);
-            self.curvature[i] += lr * (cov[i] - self.curvature[i]);
+        let count_safe = count.max(1.0);
+        for (c, curv) in cov.iter_mut().zip(&mut self.curvature).take(n * n) {
+            *c /= count_safe;
+            *curv += lr * (*c - *curv);
         }
     }
 }

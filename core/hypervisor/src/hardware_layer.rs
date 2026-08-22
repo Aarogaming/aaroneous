@@ -195,12 +195,10 @@ impl ShmemUIOverlay {
     /// Blend this overlay onto a primary framebuffer.
     pub fn blend_onto(&self, primary: &mut [OverlayPixel]) {
         let n = self.framebuffer.len().min(primary.len());
-        for i in 0..n {
-            let overlay = self.framebuffer[i];
+        for (bg, &overlay) in primary.iter_mut().zip(&self.framebuffer).take(n) {
             if overlay.a > 0 {
-                let bg = primary[i];
                 let a = overlay.a as f32 / 255.0;
-                primary[i] = OverlayPixel {
+                *bg = OverlayPixel {
                     r: (overlay.r as f32 * a + bg.r as f32 * (1.0 - a)) as u8,
                     g: (overlay.g as f32 * a + bg.g as f32 * (1.0 - a)) as u8,
                     b: (overlay.b as f32 * a + bg.b as f32 * (1.0 - a)) as u8,

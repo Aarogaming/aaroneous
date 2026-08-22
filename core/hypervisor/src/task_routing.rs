@@ -281,7 +281,7 @@ impl TaskRouter {
                     .map(|(i, &b)| (b as f64) * (256.0_f64.powi(i as i32)))
                     .sum::<f64>()
                     / (u32::MAX as f64);
-                val.min(1.0).max(0.0)
+                val.clamp(0.0, 1.0)
             })
             .take(4)
             .collect();

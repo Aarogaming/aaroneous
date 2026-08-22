@@ -61,8 +61,8 @@ impl RoutingWeights {
 
         let error = if success { 1.0 } else { -1.0 };
 
-        for j in 0..task_features.len() {
-            self.weights[specialist_idx][j] += learning_rate * error * task_features[j];
+        for (w, &feat) in self.weights[specialist_idx].iter_mut().zip(task_features) {
+            *w += learning_rate * error * feat;
         }
 
         // Update bias
@@ -342,11 +342,14 @@ impl RoutingOptimizer {
 
         let error = if success { 1.0 } else { -1.0 };
 
-        for j in 0..task_features.len() {
-            let grad = error * task_features[j];
-            self.velocity[specialist_idx][j] =
-                self.momentum * self.velocity[specialist_idx][j] + self.learning_rate * grad;
-            router.weights.weights[specialist_idx][j] += self.velocity[specialist_idx][j];
+        for ((w, vel), &feat) in router.weights.weights[specialist_idx]
+            .iter_mut()
+            .zip(&mut self.velocity[specialist_idx])
+            .zip(task_features)
+        {
+            let grad = error * feat;
+            *vel = self.momentum * *vel + self.learning_rate * grad;
+            *w += *vel;
         }
 
         // Update bias with momentum

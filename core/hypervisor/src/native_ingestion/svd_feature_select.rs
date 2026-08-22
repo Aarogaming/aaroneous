@@ -241,6 +241,7 @@ impl SvdReducer {
 
 /// C = alpha * A * B + beta * C, where A is M×K, B is K×N.
 /// Supports transposition via boolean flags.
+#[allow(clippy::too_many_arguments)]
 fn mat_mul(
     a: &[f32],
     b: &[f32],

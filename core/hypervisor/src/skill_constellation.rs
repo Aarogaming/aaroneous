@@ -164,11 +164,11 @@ impl SkillConstellationCanvas {
         }
 
         // Integrate velocity & positions
-        for i in 0..n {
-            self.stars[i].velocity += forces[i] * delta_time;
-            self.stars[i].velocity *= damping;
-            let step = self.stars[i].velocity * delta_time;
-            self.stars[i].pos += step;
+        for (star, force) in self.stars.iter_mut().zip(&forces).take(n) {
+            star.velocity += *force * delta_time;
+            star.velocity *= damping;
+            let step = star.velocity * delta_time;
+            star.pos += step;
         }
     }
 

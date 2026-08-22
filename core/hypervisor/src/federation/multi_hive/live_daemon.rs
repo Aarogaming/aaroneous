@@ -259,8 +259,9 @@ impl LiveP2PDaemon {
 
                     if let Ok(packet) = serde_json::from_slice::<DaemonWirePacket>(&payload) {
                         let sender_id = self.process_packet(packet, &tx).await?;
-                        if peer_node_id.is_none() && sender_id.is_some() {
-                            let id = sender_id.unwrap();
+                        if peer_node_id.is_none()
+                            && let Some(id) = sender_id
+                        {
                             peer_node_id = Some(id.clone());
                             self.outbound_channels.write().insert(id.clone(), tx.clone());
                             self.peers.write().insert(id.clone(), LivePeerInfo {
@@ -426,7 +427,7 @@ impl LiveP2PDaemon {
         if let Some(proposal_votes) = votes.get(proposal_id) {
             let yes_count = proposal_votes.values().filter(|&&v| v).count();
             let no_count = proposal_votes.values().filter(|&&v| !v).count();
-            let required_quorum = (total_cluster_nodes * 2 + 2) / 3; // ceil(2/3 * N)
+            let required_quorum = (total_cluster_nodes * 2).div_ceil(3); // ceil(2/3 * N)
             let is_quorum = yes_count >= required_quorum.max(1);
             (is_quorum, yes_count, no_count)
         } else {

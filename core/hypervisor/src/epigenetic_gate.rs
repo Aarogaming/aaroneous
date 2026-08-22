@@ -169,10 +169,10 @@ impl EpigeneticGateMatrix {
     /// Inverse of `get_gpu_mask()` — reads individual bits from the packed [u64; 4].
     pub fn from_gpu_mask(mask: &[u64; 4]) -> [bool; TOTAL_SECTORS] {
         let mut sectors = [false; TOTAL_SECTORS];
-        for i in 0..TOTAL_SECTORS {
+        for (i, sector) in sectors.iter_mut().enumerate() {
             let word = i / 64;
             let bit = i % 64;
-            sectors[i] = (mask[word] >> bit) & 1 == 1;
+            *sector = (mask[word] >> bit) & 1 == 1;
         }
         sectors
     }

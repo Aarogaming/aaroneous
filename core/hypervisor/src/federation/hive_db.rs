@@ -820,19 +820,21 @@ impl PersistenceManager {
         )?;
         Ok(())
     }
+}
 
+pub type SemanticEmbeddingRecord = (
+    String,
+    String,
+    Vec<f32>,
+    std::collections::HashMap<String, String>,
+    u32,
+);
+
+impl PersistenceManager {
     /// Load all semantic embeddings from the database
     pub fn load_all_embeddings(
         &self,
-    ) -> SqlResult<
-        Vec<(
-            String,
-            String,
-            Vec<f32>,
-            std::collections::HashMap<String, String>,
-            u32,
-        )>,
-    > {
+    ) -> SqlResult<Vec<SemanticEmbeddingRecord>> {
         let mut stmt = self.db.prepare(
             "SELECT id, text, vector_json, metadata_json, access_count FROM semantic_embeddings",
         )?;
@@ -846,13 +848,11 @@ impl PersistenceManager {
         })?;
 
         let mut results = Vec::new();
-        for row in rows {
-            if let Ok((id, text, vector_json, metadata_json, access_count)) = row {
-                let vector: Vec<f32> = serde_json::from_str(&vector_json).unwrap_or_default();
-                let metadata: std::collections::HashMap<String, String> =
-                    serde_json::from_str(&metadata_json).unwrap_or_default();
-                results.push((id, text, vector, metadata, access_count));
-            }
+        for (id, text, vector_json, metadata_json, access_count) in rows.filter_map(Result::ok) {
+            let vector: Vec<f32> = serde_json::from_str(&vector_json).unwrap_or_default();
+            let metadata: std::collections::HashMap<String, String> =
+                serde_json::from_str(&metadata_json).unwrap_or_default();
+            results.push((id, text, vector, metadata, access_count));
         }
         Ok(results)
     }

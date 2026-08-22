@@ -1013,6 +1013,7 @@ impl McpService {
         };
 
         // ── Path containment: reject reads outside workspace ──────────────
+        #[allow(clippy::collapsible_if)]
         if let (Ok(canonical), Ok(workspace_canonical)) = (
             resolved.canonicalize(),
             self.workspace_root.canonicalize(),
@@ -1094,6 +1095,7 @@ impl McpService {
         }
 
         // ── Path containment: reject searches outside workspace ───────────
+        #[allow(clippy::collapsible_if)]
         if let (Ok(canonical), Ok(workspace_canonical)) = (
             root.canonicalize(),
             self.workspace_root.canonicalize(),
@@ -1192,6 +1194,7 @@ impl McpService {
         }
 
         // ── Path containment: reject listing outside workspace ────────────
+        #[allow(clippy::collapsible_if)]
         if let (Ok(canonical), Ok(workspace_canonical)) = (
             path.canonicalize(),
             self.workspace_root.canonicalize(),

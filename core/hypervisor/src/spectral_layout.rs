@@ -111,8 +111,8 @@ fn power_iteration(laplacian: &[Vec<f64>], n: usize, _k: usize) -> Vec<f64> {
     // Simplified: use shifted inverse iteration
     let shift = 1.0; // Shift to find smallest non-zero eigenvalue
     let mut shifted = laplacian.to_vec();
-    for i in 0..n {
-        shifted[i][i] += shift;
+    for (i, row) in shifted.iter_mut().enumerate().take(n) {
+        row[i] += shift;
     }
 
     // Power iteration on shifted matrix
@@ -155,8 +155,8 @@ fn power_iteration_orthogonal(laplacian: &[Vec<f64>], v1: &[f64], n: usize) -> V
     // Power iteration with re-orthogonalization
     let shift = 1.0;
     let mut shifted = laplacian.to_vec();
-    for i in 0..n {
-        shifted[i][i] += shift;
+    for (i, row) in shifted.iter_mut().enumerate().take(n) {
+        row[i] += shift;
     }
 
     for _ in 0..50 {
@@ -217,8 +217,8 @@ fn power_iteration_orthogonal_to_two(
     // Power iteration with re-orthogonalization
     let shift = 1.0;
     let mut shifted = laplacian.to_vec();
-    for i in 0..n {
-        shifted[i][i] += shift;
+    for (i, row) in shifted.iter_mut().enumerate().take(n) {
+        row[i] += shift;
     }
 
     for _ in 0..50 {

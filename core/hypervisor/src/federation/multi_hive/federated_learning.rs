@@ -161,11 +161,11 @@ impl ModelMerger {
                 }
             }
             MergeStrategy::Median => {
-                for param_idx in 0..num_params {
+                for (param_idx, m) in merged.iter_mut().enumerate().take(num_params) {
                     let mut values: Vec<f32> =
                         updates.iter().map(|u| u.gradients[param_idx]).collect();
                     values.sort_by(|a, b| a.partial_cmp(b).unwrap());
-                    merged[param_idx] = values[values.len() / 2];
+                    *m = values[values.len() / 2];
                 }
             }
             MergeStrategy::FederatedAverage => {

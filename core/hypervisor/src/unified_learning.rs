@@ -249,6 +249,7 @@ impl UnifiedLearningLoop {
     }
 
     /// Update unified system state.
+    #[allow(clippy::too_many_arguments)]
     fn update_system_state(
         &mut self,
         estimated_load: f64,
@@ -316,11 +317,11 @@ impl UnifiedLearningLoop {
 
         // Update predictive coding
         let reward_signal = if success { 1.0 } else { -1.0 };
-        self.predictive_coding.layers.last_mut().map(|layer| {
+        if let Some(layer) = self.predictive_coding.layers.last_mut() {
             for node in layer.iter_mut() {
                 node.update(reward_signal);
             }
-        });
+        }
 
         // Update specialist load history
         if let Some(idx) = self
