@@ -1353,31 +1353,12 @@ impl McpService {
             .unwrap_or(serde_json::json!({}));
 
         if let Some(ref fed) = self.federation {
-            // Signal through the E-Bus bridge if available
-            // Note: In this architecture, the Federation is the source of truth.
-            // We'll wrap the signal as an EBusEvent and push it to the E-Bus.
-            use crate::wasm_ebus_bridge::ebus_event::{EbusEvent, EbusEventType, ShardSignal};
-
-            let shard_signal = ShardSignal {
-                shard_name: "MCP_CLIENT".to_string(), // Or extract from context if available
-                signal_type: signal_type.to_string(),
-                payload_json: payload.to_string(),
-            };
-
-            let payload_bytes = serde_json::to_vec(&shard_signal)?;
-            let _event = EbusEvent::new(EbusEventType::ShardSignal, payload_bytes);
-
-            // Find the E-Bus bridge in the federation and push the event
-            // For now, we'll use a broadcast channel or direct lookup if we have the reference
-            // Let's check if the federation has a way to broadcast ebus events.
-
-            // FALLBACK: Submit as an intent which the E-Bus bridge (if listening) will pick up
             let intent_content = format!("SIGNAL: {} | PAYLOAD: {}", signal_type, payload);
             let intent = crate::federation::intent::Intent::new(intent_content);
             fed.submit_intent(intent).await;
 
             Ok(format!(
-                "Signal '{}' broadcasted to WASM runtime via E-Bus intent.",
+                "Signal '{}' broadcasted to federation specialists.",
                 signal_type
             ))
         } else {

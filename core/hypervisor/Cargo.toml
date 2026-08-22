@@ -19,10 +19,6 @@ name = "spatial_kinetic"
 path = "bin/spatial_kinetic.rs"
 
 [[bin]]
-name = "test_enigo"
-path = "bin/test_enigo.rs"
-
-[[bin]]
 name = "genome_compiler"
 path = "bin/genome_compiler.rs"
 

@@ -14,7 +14,7 @@ class SabManager:
     """
     def __init__(self, bridge: SynapseBridge):
         self.bridge = bridge
-        self.sab_matrix_path = os.path.join(os.path.dirname(__file__), '..', '..', 'components', 'sabs', 'registry', 'sab_matrix.json')
+        self.sab_matrix_path = os.path.join(os.path.dirname(__file__), '..', '..', 'registry', 'sab_matrix.json')
 
     def load_matrix(self) -> dict:
         """Loads the current SAB Matrix from the registry."""

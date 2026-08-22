@@ -1,18 +1,21 @@
 """
-Aaroneous Python SDK - WASM Pipeline
-Handles the compilation and deployment of WASM Enzymes from Python.
+Aaroneous Python SDK - WASM Pipeline (DEPRECATED)
+Legacy helper for compiling WASM Enzymes.
+Superseded by pure Rust Machine-Native and .si Solid-State container models.
 """
 import subprocess
 import os
 import shutil
+import warnings
 from typing import Optional
 
 class WasmPipeline:
     """
-    Manages the lifecycle of WASM Enzymes.
-    Allows Python to compile Rust code into WASM modules and deploy them to the Hypervisor.
+    [DEPRECATED] Manages the lifecycle of legacy WASM Enzymes.
+    Superseded by native Rust execution.
     """
     def __init__(self, workspace_root: str = None):
+        warnings.warn("WasmPipeline is deprecated. Use Machine-Native or .si Solid-State engines.", DeprecationWarning, stacklevel=2)
         if workspace_root is None:
             self.workspace_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
         else:
