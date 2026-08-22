@@ -115,9 +115,7 @@ mod tests {
         let frame_1 = vec![0u8; 1000];
         let mut frame_2 = vec![0u8; 1000];
         // Mutate 100 bytes (10%)
-        for i in 0..100 {
-            frame_2[i] = 255;
-        }
+        frame_2[..100].fill(255);
 
         let hash_1 = FramebufferAnalyzer::compute_frame_hash(&frame_1);
         let hash_2 = FramebufferAnalyzer::compute_frame_hash(&frame_2);

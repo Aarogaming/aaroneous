@@ -250,7 +250,7 @@ mod tests {
 
     #[test]
     fn test_autonomic_impulses_and_token_distribution() {
-        let mut engine = NeurochemicalHomeostasisEngine::new(NeurochemicalLevels::new(0.1, 0.2, 0.1, 0.9));
+        let engine = NeurochemicalHomeostasisEngine::new(NeurochemicalLevels::new(0.1, 0.2, 0.1, 0.9));
         let impulses = engine.evaluate_autonomic_impulses();
         assert!(!impulses.is_empty());
         assert_eq!(impulses[0].kind, ImpulseKind::ExploreKnowledgeGaps);

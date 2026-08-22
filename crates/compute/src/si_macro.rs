@@ -107,7 +107,7 @@ impl SiMacroEngine {
         }
 
         // Verify magic bytes
-        if &mmap[0..4] != SI_MAGIC_BYTES {
+        if mmap[0..4] != SI_MAGIC_BYTES {
             bail!("Invalid SI magic header: {:?}", &mmap[0..4]);
         }
 

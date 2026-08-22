@@ -56,21 +56,27 @@ impl AcousticIntentProjector {
     pub fn project_audio_frame(&self, pcm_samples: &[f32]) -> (Vec<f32>, bool) {
         let count = pcm_samples.len().min(AUDIO_FRAME_SAMPLES);
         let mut energy = 0.0f32;
-        for i in 0..count {
-            energy += pcm_samples[i].powi(2);
+        for &sample in pcm_samples.iter().take(count) {
+            energy += sample.powi(2);
         }
         let is_active = (energy / count.max(1) as f32).sqrt() > self.energy_threshold;
 
         let mut intent = vec![0.0f32; MULTIMODAL_LATENT_DIM];
-        for d in 0..MULTIMODAL_LATENT_DIM {
+        for (d, intent_value) in intent.iter_mut().enumerate() {
             let mut sum = 0.0f32;
-            for i in 0..count {
-                sum += pcm_samples[i] * self.projection_weights[i * MULTIMODAL_LATENT_DIM + d];
+            for (i, &sample) in pcm_samples.iter().enumerate().take(count) {
+                sum += sample * self.projection_weights[i * MULTIMODAL_LATENT_DIM + d];
             }
-            intent[d] = sum.tanh(); // Bounded continuous acoustic intent [-1, 1]
+            *intent_value = sum.tanh(); // Bounded continuous acoustic intent [-1, 1]
         }
 
         (intent, is_active)
+    }
+}
+
+impl Default for AcousticIntentProjector {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -98,15 +104,26 @@ impl PixelDiffProjector {
         let mut diff_energy = 0.0f32;
 
         let count = current_frame_downsampled.len().min(total_pixels);
-        for i in 0..count {
-            let diff = current_frame_downsampled[i] - self.last_frame_buffer[i];
+        for (i, (&current_value, last_value)) in current_frame_downsampled
+            .iter()
+            .zip(&mut self.last_frame_buffer)
+            .enumerate()
+            .take(count)
+        {
+            let diff = current_value - *last_value;
             diff_vector[i % MULTIMODAL_LATENT_DIM] = diff;
             diff_energy += diff.abs();
-            self.last_frame_buffer[i] = current_frame_downsampled[i];
+            *last_value = current_value;
         }
 
         let is_active = (diff_energy / count.max(1) as f32) > self.diff_sensitivity;
         (diff_vector, is_active)
+    }
+}
+
+impl Default for PixelDiffProjector {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -148,10 +165,15 @@ impl TemporalModalitySynchronizer {
 
         // Multi-rate continuous recurrence fusion:
         // h_t = 0.90 * h_{t-1} + 0.60 * x_audio + 0.40 * x_visual
-        for d in 0..MULTIMODAL_LATENT_DIM {
-            let a_term = if is_audio_active { 0.60 * audio_intent[d] } else { 0.0 };
-            let v_term = if is_visual_active { 0.40 * visual_diff[d] } else { 0.0 };
-            self.fused_state[d] = 0.90 * self.fused_state[d] + a_term + v_term;
+        for ((fused_value, &audio_value), &visual_value) in self
+            .fused_state
+            .iter_mut()
+            .zip(&audio_intent)
+            .zip(&visual_diff)
+        {
+            let a_term = if is_audio_active { 0.60 * audio_value } else { 0.0 };
+            let v_term = if is_visual_active { 0.40 * visual_value } else { 0.0 };
+            *fused_value = 0.90 * *fused_value + a_term + v_term;
         }
 
         MultimodalSensoryFrame {
@@ -161,6 +183,12 @@ impl TemporalModalitySynchronizer {
             is_audio_active,
             is_visual_active,
         }
+    }
+}
+
+impl Default for TemporalModalitySynchronizer {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

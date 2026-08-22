@@ -90,9 +90,9 @@ impl SiSelfPlayEngine {
         let mut rng = rand::thread_rng();
         let mut target_state = anchor.state_t.clone();
 
-        for d in 0..target_state.len() {
+        for value in &mut target_state {
             let noise: f32 = rng.gen_range(-self.exploration_sigma..self.exploration_sigma);
-            target_state[d] += noise;
+            *value += noise;
         }
 
         DreamGoal {

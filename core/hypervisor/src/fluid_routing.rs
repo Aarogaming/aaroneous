@@ -56,7 +56,7 @@ impl NavierStokesRouter {
             .min_by(|(_, a), (_, b)| {
                 let pa = a.arrival_rate / a.service_rate.max(1e-9);
                 let pb = b.arrival_rate / b.service_rate.max(1e-9);
-                pa.partial_cmp(&pb).unwrap()
+                pa.total_cmp(&pb)
             })
             .map(|(i, _)| i);
         let idx = best_idx.unwrap_or(0);
@@ -78,7 +78,7 @@ impl NavierStokesRouter {
                 .min_by(|(_, a), (_, b)| {
                     let pa = a.arrival_rate / a.service_rate.max(1e-9);
                     let pb = b.arrival_rate / b.service_rate.max(1e-9);
-                    pa.partial_cmp(&pb).unwrap()
+                    pa.total_cmp(&pb)
                 })
                 .map(|(i, _)| i);
             if let Some(si) = spill_idx

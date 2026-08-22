@@ -340,7 +340,7 @@ impl SiStateSpaceModel {
         let file = File::open(path)?;
         let mmap = unsafe { Mmap::map(&file)? };
 
-        if mmap.len() < 12 || &mmap[0..5] != SI_SSM_MAGIC {
+        if mmap.len() < 12 || mmap[0..5] != SI_SSM_MAGIC {
             bail!("Invalid SISSM magic byte stream in {:?}", path);
         }
 

@@ -101,6 +101,7 @@ impl Default for EcsGalaxyEngine {
 
 impl EcsGalaxyEngine {
     /// Spawns a new Star Node Entity into the Bevy ECS World
+    #[allow(clippy::too_many_arguments)]
     pub fn spawn_star(
         &mut self,
         id: impl Into<String>,

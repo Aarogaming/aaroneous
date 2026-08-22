@@ -87,15 +87,13 @@ pub struct MotorSkillNode {
 impl MotorSkillNode {
     /// Computes the Cosine Similarity between this skill's intent and another in R^256
     pub fn cosine_similarity(&self, other: &MotorSkillNode) -> f32 {
-        let mut dot = 0.0f32;
-        let mut norm_a = 0.0f32;
-        let mut norm_b = 0.0f32;
-
-        for i in 0..MOTOR_INTENT_DIM {
-            dot += self.intent_embedding[i] * other.intent_embedding[i];
-            norm_a += self.intent_embedding[i] * self.intent_embedding[i];
-            norm_b += other.intent_embedding[i] * other.intent_embedding[i];
-        }
+        let (dot, norm_a, norm_b) = self
+            .intent_embedding
+            .iter()
+            .zip(&other.intent_embedding)
+            .fold((0.0f32, 0.0f32, 0.0f32), |(dot, na, nb), (&a, &b)| {
+                (dot + a * b, na + a * a, nb + b * b)
+            });
 
         let denom = (norm_a.sqrt() * norm_b.sqrt()).max(1e-6);
         (dot / denom).clamp(-1.0, 1.0)
@@ -103,12 +101,12 @@ impl MotorSkillNode {
 
     /// Computes Euclidean distance to a target candidate intent vector
     pub fn euclidean_distance(&self, target_intent: &[f32; MOTOR_INTENT_DIM]) -> f32 {
-        let mut sum = 0.0f32;
-        for i in 0..MOTOR_INTENT_DIM {
-            let diff = self.intent_embedding[i] - target_intent[i];
-            sum += diff * diff;
-        }
-        sum.sqrt()
+        self.intent_embedding
+            .iter()
+            .zip(target_intent)
+            .map(|(&a, &b)| (a - b).powi(2))
+            .sum::<f32>()
+            .sqrt()
     }
 }
 

@@ -49,20 +49,35 @@ pub type GenerationJobs =
     Arc<tokio::sync::Mutex<std::collections::HashMap<String, GenerationJobStatus>>>;
 
 // ── Workspace path helpers ───────────────────────────────────────────
-fn workspace_models_dir() -> std::path::PathBuf {
-    std::env::current_dir().unwrap_or_default().join("models")
+fn workspace_paths() -> aaroneous_paths::WorkspacePaths {
+    aaroneous_paths::WorkspacePaths::discover()
 }
+
+fn workspace_models_dir() -> std::path::PathBuf {
+    workspace_paths().models()
+}
+
+/// Resolve a model reference inside the workspace model directory.
+/// HTTP callers may provide a filename or relative subdirectory, but cannot
+/// escape the model root with absolute paths or parent traversal.
+fn resolve_workspace_model_path(model: &str) -> Result<std::path::PathBuf, &'static str> {
+    let path = std::path::Path::new(model);
+    if path.is_absolute()
+        || path
+            .components()
+            .any(|component| matches!(component, std::path::Component::ParentDir))
+    {
+        return Err("model path must be relative and contained within the models directory");
+    }
+
+    Ok(workspace_models_dir().join(path))
+}
+
 fn workspace_routines_dir() -> std::path::PathBuf {
-    std::env::current_dir()
-        .unwrap_or_default()
-        .join("data")
-        .join("routines")
+    workspace_paths().data().join("routines")
 }
 fn workspace_training_data_dir() -> std::path::PathBuf {
-    std::env::current_dir()
-        .unwrap_or_default()
-        .join("data")
-        .join("training")
+    workspace_paths().data().join("training")
 }
 fn workspace_sovereign_model_path(sovereign: &str) -> std::path::PathBuf {
     workspace_models_dir().join(format!("{}.gguf", sovereign))
@@ -71,22 +86,15 @@ fn workspace_models_inbox_dir() -> std::path::PathBuf {
     workspace_models_dir().join("inbox")
 }
 fn workspace_specialist_registry_path() -> std::path::PathBuf {
-    std::env::current_dir()
-        .unwrap_or_default()
-        .join("config")
-        .join("specialist_registry.json")
+    workspace_paths().config().join("specialist_registry.json")
 }
 fn workspace_exports_dir() -> std::path::PathBuf {
-    std::env::current_dir().unwrap_or_default().join("exports")
+    workspace_paths().exports()
 }
 fn workspace_cargo_state_path() -> std::path::PathBuf {
     std::env::var_os("AARONEOUS_CARGO_STATE_PATH")
         .map(std::path::PathBuf::from)
-        .unwrap_or_else(|| {
-            std::env::current_dir()
-                .unwrap_or_default()
-                .join("cargo_state.json")
-        })
+        .unwrap_or_else(|| workspace_paths().root().join("cargo_state.json"))
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -428,7 +436,8 @@ fn build_route_limit_registry() -> (
 /// Reads `AARONEOUS_API_KEY` from the environment at call time.
 /// If set, every request to any route other than `/healthz` and `/readyz`
 /// must include `Authorization: Bearer <key>` (case-insensitive prefix).
-/// If the env var is unset, auth is disabled â€” development mode.
+/// If the env var is unset, authentication is disabled only for a loopback
+/// server; non-loopback startup is rejected by `HttpStatusServer`.
 ///
 /// Set the key before starting the server:
 /// ```sh
@@ -3209,10 +3218,15 @@ async fn dna_dissect(
     use crate::federation::dna::{DissectionJobStatus, dissect_model, load_dna_sidecar};
 
     // Resolve path â€” accept either absolute path or filename in models dir
-    let model_path = if std::path::Path::new(&req.model).is_absolute() {
-        std::path::PathBuf::from(&req.model)
-    } else {
-        workspace_models_dir().join(&req.model)
+    let model_path = match resolve_workspace_model_path(&req.model) {
+        Ok(path) => path,
+        Err(error) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(serde_json::json!({ "ok": false, "error": error })),
+            )
+                .into_response();
+        }
     };
 
     if !model_path.exists() {
@@ -3367,7 +3381,16 @@ async fn dna_genome(
     } else {
         format!("{}.gguf", model)
     };
-    let model_path = workspace_models_dir().join(&filename);
+    let model_path = match resolve_workspace_model_path(&filename) {
+        Ok(path) => path,
+        Err(error) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(serde_json::json!({ "ok": false, "error": error })),
+            )
+                .into_response();
+        }
+    };
 
     match load_dna_sidecar(&model_path) {
         Some(dna) => Json(serde_json::json!({ "ok": true, "dna": dna })).into_response(),
@@ -3672,7 +3695,16 @@ async fn models_export(
     } else {
         format!("{}.gguf", name)
     };
-    let model_path = workspace_models_dir().join(&filename);
+    let model_path = match resolve_workspace_model_path(&filename) {
+        Ok(path) => path,
+        Err(error) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(serde_json::json!({ "ok": false, "error": error })),
+            )
+                .into_response();
+        }
+    };
 
     if !model_path.exists() {
         return (
@@ -3902,10 +3934,15 @@ async fn vault_index_model(
     State(state): State<AppState>,
     Json(req): Json<VaultIndexRequest>,
 ) -> impl IntoResponse {
-    let model_path = if std::path::Path::new(&req.model).is_absolute() {
-        std::path::PathBuf::from(&req.model)
-    } else {
-        workspace_models_dir().join(&req.model)
+    let model_path = match resolve_workspace_model_path(&req.model) {
+        Ok(path) => path,
+        Err(error) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(serde_json::json!({ "ok": false, "error": error })),
+            )
+                .into_response();
+        }
     };
 
     if !model_path.exists() {

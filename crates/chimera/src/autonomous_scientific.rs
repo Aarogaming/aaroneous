@@ -135,7 +135,7 @@ impl AutonomousScientificEngine {
         }
 
         // Hypothesis C: Inlined Hot Functions
-        for func in &observation.functions {
+        if let Some(func) = observation.functions.first() {
             let prior = 0.55f64;
             let posterior = 0.82f64;
             accepted_count += 1;
@@ -152,7 +152,6 @@ impl AutonomousScientificEngine {
                 verdict: "HYPOTHESIS_ACCEPTED".to_string(),
                 patch_preview: format!("#[inline]\n{} fn {}(...)", func.visibility, func.name),
             });
-            break; // One representative hypothesis per file
         }
 
         let duration_us = start.elapsed().as_micros() as u64;

@@ -43,6 +43,9 @@ impl Default for NativeExecutionContext {
     }
 }
 
+/// Type alias for native execution function closure
+pub type NativeExecutionFn = Box<dyn Fn(&mut NativeExecutionContext) -> Result<u64> + Send + Sync>;
+
 /// JIT-Compiled Native Reflex Handle
 pub struct CompiledReflexHandle {
     pub skill_id: u16,
@@ -51,7 +54,7 @@ pub struct CompiledReflexHandle {
     pub memory_state: MemoryProtectionState,
     pub intent_centroid: Vec<f32>,       // 256-dim intent vector
     pub confidence_radius: f32,          // Maximum Euclidean radius for O(1) bypass
-    pub execution_func: Box<dyn Fn(&mut NativeExecutionContext) -> Result<u64> + Send + Sync>,
+    pub execution_func: NativeExecutionFn,
 }
 
 /// Crystallization Maturity Metrics Evaluator
@@ -179,11 +182,12 @@ impl SiJitCompilerEngine {
                 continue;
             }
 
-            let mut dist_sq = 0.0f32;
-            let count = JIT_INTENT_DIM.min(intent_vector.len()).min(handle.intent_centroid.len());
-            for d in 0..count {
-                dist_sq += (intent_vector[d] - handle.intent_centroid[d]).powi(2);
-            }
+            let dist_sq: f32 = intent_vector
+                .iter()
+                .zip(&handle.intent_centroid)
+                .take(JIT_INTENT_DIM)
+                .map(|(a, b)| (a - b).powi(2))
+                .sum();
 
             if dist_sq.sqrt() <= handle.confidence_radius {
                 return Some(idx);

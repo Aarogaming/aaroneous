@@ -67,12 +67,12 @@ impl HermesRouter {
         let mut subgoal = [0.0f32; SUBGOAL_DIM];
         let in_len = cortex_intent.len().min(CORTEX_INTENT_DIM);
 
-        for j in 0..SUBGOAL_DIM {
+        for (j, subgoal_value) in subgoal.iter_mut().enumerate() {
             let mut sum = 0.0f32;
-            for i in 0..in_len {
-                sum += cortex_intent[i] * self.projection_matrix[i * SUBGOAL_DIM + j];
+            for (i, &intent_value) in cortex_intent.iter().enumerate().take(in_len) {
+                sum += intent_value * self.projection_matrix[i * SUBGOAL_DIM + j];
             }
-            subgoal[j] = sum;
+            *subgoal_value = sum;
         }
 
         subgoal

@@ -397,7 +397,7 @@ impl SiSolidStateLoader {
         let mmap = unsafe { Mmap::map(&file)? };
 
         // Validate magic
-        if mmap.len() < 20 || &mmap[0..4] != SINT_PACKER_MAGIC {
+        if mmap.len() < 20 || mmap[0..4] != SINT_PACKER_MAGIC {
             bail!("SiSolidStateLoader: {:?} missing SINT magic bytes", path);
         }
 
@@ -509,7 +509,7 @@ mod tests {
     fn test_compute_padding_always_64_aligned() {
         for offset in 0u64..=256 {
             let pad = compute_padding(offset);
-            assert!((offset as usize + pad) % ALIGNMENT_BYTES == 0,
+            assert!((offset as usize + pad).is_multiple_of(ALIGNMENT_BYTES),
                 "offset={offset} pad={pad} not aligned");
         }
     }

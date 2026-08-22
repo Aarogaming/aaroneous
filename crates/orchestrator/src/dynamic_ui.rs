@@ -284,7 +284,7 @@ impl NonOverlapSolver {
             }
             WindowArrangementStrategy::TileGrid { columns } => {
                 let cols = columns.max(1);
-                let rows = (n + cols - 1) / cols;
+                let rows = n.div_ceil(cols);
 
                 let tile_w = (screen_bounds.width - (padding * (cols as f32 + 1.0))) / cols as f32;
                 let tile_h = (screen_bounds.height - (padding * (rows as f32 + 1.0))) / rows as f32;

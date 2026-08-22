@@ -86,22 +86,22 @@ impl LatentGELUBottleneckBridge {
 
         // 1. Layer 1: z = GELU(x · W1 + b1)
         let mut bottleneck = vec![0.0f32; self.bottleneck_dim];
-        for b in 0..self.bottleneck_dim {
+        for (b, bottleneck_value) in bottleneck.iter_mut().enumerate() {
             let mut sum = self.bias_1[b];
-            for t in 0..in_len {
-                sum += teacher_latent[t] * self.weight_1[t * self.bottleneck_dim + b];
+            for (t, &teacher_value) in teacher_latent.iter().enumerate().take(in_len) {
+                sum += teacher_value * self.weight_1[t * self.bottleneck_dim + b];
             }
-            bottleneck[b] = gelu(sum);
+            *bottleneck_value = gelu(sum);
         }
 
         // 2. Layer 2: y = z · W2 + b2
         let mut student_latent = vec![0.0f32; self.student_dim];
-        for s in 0..self.student_dim {
+        for (s, student_value) in student_latent.iter_mut().enumerate() {
             let mut sum = self.bias_2[s];
-            for b in 0..self.bottleneck_dim {
-                sum += bottleneck[b] * self.weight_2[b * self.student_dim + s];
+            for (b, &bottleneck_value) in bottleneck.iter().enumerate() {
+                sum += bottleneck_value * self.weight_2[b * self.student_dim + s];
             }
-            student_latent[s] = sum;
+            *student_value = sum;
         }
 
         student_latent
@@ -232,22 +232,22 @@ impl LatentGELUBottleneckBridge {
         // Forward pass recording activations
         let mut pre_act_1 = vec![0.0f32; self.bottleneck_dim];
         let mut bottleneck = vec![0.0f32; self.bottleneck_dim];
-        for b in 0..self.bottleneck_dim {
+        for (b, pre_activation) in pre_act_1.iter_mut().enumerate() {
             let mut sum = self.bias_1[b];
-            for t in 0..in_len {
-                sum += teacher_latent[t] * self.weight_1[t * self.bottleneck_dim + b];
+            for (t, &teacher_value) in teacher_latent.iter().enumerate().take(in_len) {
+                sum += teacher_value * self.weight_1[t * self.bottleneck_dim + b];
             }
-            pre_act_1[b] = sum;
+            *pre_activation = sum;
             bottleneck[b] = gelu(sum);
         }
 
         let mut output = vec![0.0f32; self.student_dim];
-        for s in 0..self.student_dim {
+        for (s, output_value) in output.iter_mut().enumerate() {
             let mut sum = self.bias_2[s];
-            for b in 0..self.bottleneck_dim {
-                sum += bottleneck[b] * self.weight_2[b * self.student_dim + s];
+            for (b, &bottleneck_value) in bottleneck.iter().enumerate() {
+                sum += bottleneck_value * self.weight_2[b * self.student_dim + s];
             }
-            output[s] = sum;
+            *output_value = sum;
         }
 
         // Compute loss and output gradients: grad_out = 2 * (output - student_target)
@@ -255,36 +255,41 @@ impl LatentGELUBottleneckBridge {
         let mut grad_out = vec![0.0f32; self.student_dim];
         let count = student_target.len().min(self.student_dim);
 
-        for s in 0..count {
-            let diff = output[s] - student_target[s];
+        for ((&output_value, &target_value), grad) in output
+            .iter()
+            .zip(student_target)
+            .take(count)
+            .zip(grad_out.iter_mut())
+        {
+            let diff = output_value - target_value;
             loss += diff.powi(2);
-            grad_out[s] = 2.0 * diff / count as f32;
+            *grad = 2.0 * diff / count as f32;
         }
 
         // Backward Layer 2
         let mut grad_bottleneck = vec![0.0f32; self.bottleneck_dim];
-        for b in 0..self.bottleneck_dim {
+        for (b, grad_bottleneck_value) in grad_bottleneck.iter_mut().enumerate() {
             let mut sum = 0.0f32;
-            for s in 0..self.student_dim {
+            for (s, &grad_out_value) in grad_out.iter().enumerate() {
                 let idx = b * self.student_dim + s;
-                let grad_w2 = bottleneck[b] * grad_out[s];
+                let grad_w2 = bottleneck[b] * grad_out_value;
                 self.weight_2[idx] -= lr * grad_w2;
-                sum += self.weight_2[idx] * grad_out[s];
+                sum += self.weight_2[idx] * grad_out_value;
             }
-            grad_bottleneck[b] = sum * gelu_prime(pre_act_1[b]);
+            *grad_bottleneck_value = sum * gelu_prime(pre_act_1[b]);
             self.bias_2[b % self.student_dim] -= lr * grad_out[b % self.student_dim];
         }
 
         // Backward Layer 1
-        for t in 0..in_len {
-            for b in 0..self.bottleneck_dim {
+        for (t, &teacher_value) in teacher_latent.iter().enumerate().take(in_len) {
+            for (b, &grad_bottleneck_value) in grad_bottleneck.iter().enumerate() {
                 let idx = t * self.bottleneck_dim + b;
-                let grad_w1 = teacher_latent[t] * grad_bottleneck[b];
+                let grad_w1 = teacher_value * grad_bottleneck_value;
                 self.weight_1[idx] -= lr * grad_w1;
             }
         }
-        for b in 0..self.bottleneck_dim {
-            self.bias_1[b] -= lr * grad_bottleneck[b];
+        for (bias, &grad_bottleneck_value) in self.bias_1.iter_mut().zip(&grad_bottleneck) {
+            *bias -= lr * grad_bottleneck_value;
         }
 
         loss / count.max(1) as f32
@@ -516,12 +521,12 @@ impl Bootstrapper {
         let student = self.bridge.project(teacher_state);
         let d = student.len();
         let mut logits = vec![0.0f32; self.config.num_opcodes];
-        for o in 0..self.config.num_opcodes {
+        for (o, logit) in logits.iter_mut().enumerate() {
             let mut sum = self.classifier_b[o];
-            for s in 0..d {
-                sum += student[s] * self.classifier_w[s * self.config.num_opcodes + o];
+            for (s, &student_value) in student.iter().enumerate().take(d) {
+                sum += student_value * self.classifier_w[s * self.config.num_opcodes + o];
             }
-            logits[o] = sum;
+            *logit = sum;
         }
         (student, logits)
     }
@@ -662,15 +667,15 @@ impl Bootstrapper {
 
             // Backward through classifier head → accumulate grad_student
             let mut grad_student = vec![0.0f32; student_dim];
-            for s in 0..student_dim {
-                for o in 0..num_opcodes {
+            for (s, &student_value) in student.iter().enumerate().take(student_dim) {
+                for (o, &grad_logits_value) in grad_logits.iter().enumerate() {
                     let idx = s * num_opcodes + o;
-                    grad_student[s] += grad_logits[o] * self.classifier_w[idx];
-                    self.classifier_w[idx] -= lr * grad_logits[o] * student[s];
+                    grad_student[s] += grad_logits_value * self.classifier_w[idx];
+                    self.classifier_w[idx] -= lr * grad_logits_value * student_value;
                 }
             }
-            for o in 0..num_opcodes {
-                self.classifier_b[o] -= lr * grad_logits[o];
+            for (o, &grad_logits_value) in grad_logits.iter().enumerate() {
+                self.classifier_b[o] -= lr * grad_logits_value;
             }
 
             // Blend CE gradient signal into the bridge target:
@@ -788,7 +793,7 @@ mod tests {
         ];
 
         let cka = bridge.compute_linear_cka(&teacher_batch, &student_targets);
-        assert!(cka >= 0.0 && cka <= 1.0);
+        assert!((0.0..=1.0).contains(&cka));
 
         let infonce = bridge.compute_infonce_loss(&student_targets[0], &student_targets[0], &[student_targets[1].clone()]);
         assert!(infonce >= 0.0);

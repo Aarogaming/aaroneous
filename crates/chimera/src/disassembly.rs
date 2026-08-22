@@ -346,8 +346,7 @@ impl BinaryInspector {
             0
         };
 
-        let mut sections = Vec::new();
-        sections.push(BinarySection {
+        let sections = vec![BinarySection {
             name: ".text".to_string(),
             virtual_address: entry_point,
             virtual_size: 4096,
@@ -356,7 +355,7 @@ impl BinaryInspector {
             is_executable: true,
             is_writable: false,
             is_readable: true,
-        });
+        }];
 
         let basic_blocks = Self::disassemble_entry_points(raw_bytes, entry_point, &sections);
         let is_packed = overall_entropy > 7.2;

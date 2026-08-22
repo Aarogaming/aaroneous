@@ -12,19 +12,10 @@ use chimera::{ChimeraEngine, PatchProposal};
 use crate::traits::{MnlpPacket, MnlpResponse, RelicEngine, SovereignSpecialist, SpecialistHealth};
 
 /// Forge Relic Engine: Autonomous build automation and software forge
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct ForgeRelic {
     pub total_adaptations_forged: usize,
     pub active_build_pipelines: usize,
-}
-
-impl Default for ForgeRelic {
-    fn default() -> Self {
-        Self {
-            total_adaptations_forged: 0,
-            active_build_pipelines: 0,
-        }
-    }
 }
 
 impl RelicEngine for ForgeRelic {
@@ -252,8 +243,10 @@ mod tests {
     fn test_hephaestus_autonomous_self_repair() {
         let mut heph = HephaestusSpecialist::new();
         let src = "use digestion::Soul;\n";
-        let mut synapse = nervous_system::SynapseState::default();
-        synapse.integrity_score = 80;
+        let mut synapse = nervous_system::SynapseState {
+            integrity_score: 80,
+            ..Default::default()
+        };
         let report = heph
             .forge_autonomous_self_repair("test.rs", src, "error[E0432]: unresolved import", &mut synapse)
             .unwrap();

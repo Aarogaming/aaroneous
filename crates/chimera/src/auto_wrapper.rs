@@ -15,8 +15,12 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use std::time::Instant;
+use tokio::io::AsyncReadExt;
 use tokio::process::Command;
 use tracing::info;
+
+const MAX_ORGAN_STDOUT_BYTES: usize = 16 * 1024 * 1024;
+const MAX_ORGAN_STDERR_BYTES: usize = 1024 * 1024;
 
 /// Standard Machine-Native Linking Protocol (MNLP) Response for Wrapped Organs
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -119,13 +123,59 @@ impl AutoWrapperEngine {
         let mut chosen_arg = "--version";
 
         for arg in probe_args {
-            let res = Command::new(&manifest.target_path)
+            let mut child = match Command::new(&manifest.target_path)
                 .arg(arg)
                 .stdin(Stdio::null())
                 .stdout(Stdio::piped())
                 .stderr(Stdio::piped())
-                .output()
-                .await;
+                .spawn()
+            {
+                Ok(child) => child,
+                Err(_) => continue,
+            };
+
+            let probe_timeout = std::time::Duration::from_millis(manifest.timeout_ms.max(1));
+            let mut stdout = child
+                .stdout
+                .take()
+                .context("Probe process did not provide stdout")?
+                .take((MAX_ORGAN_STDOUT_BYTES + 1) as u64);
+            let mut stderr = child
+                .stderr
+                .take()
+                .context("Probe process did not provide stderr")?
+                .take((MAX_ORGAN_STDERR_BYTES + 1) as u64);
+            let res = match tokio::time::timeout(probe_timeout, async {
+                let mut stdout_buf = Vec::new();
+                let mut stderr_buf = Vec::new();
+                let (status, stdout_result, stderr_result) = tokio::join!(
+                    child.wait(),
+                    stdout.read_to_end(&mut stdout_buf),
+                    stderr.read_to_end(&mut stderr_buf),
+                );
+                stdout_result?;
+                stderr_result?;
+                if stdout_buf.len() > MAX_ORGAN_STDOUT_BYTES {
+                    return Err(anyhow::anyhow!("Probe stdout exceeded the 16 MiB limit"));
+                }
+                if stderr_buf.len() > MAX_ORGAN_STDERR_BYTES {
+                    return Err(anyhow::anyhow!("Probe stderr exceeded the 1 MiB limit"));
+                }
+                Ok::<std::process::Output, anyhow::Error>(std::process::Output {
+                    status: status?,
+                    stdout: stdout_buf,
+                    stderr: stderr_buf,
+                })
+            })
+            .await
+            {
+                Ok(result) => result,
+                Err(_) => {
+                    let _ = child.kill().await;
+                    let _ = child.wait().await;
+                    continue;
+                }
+            };
 
             if let Ok(output) = res {
                 let success = output.status.success() || !output.stdout.is_empty();
@@ -335,6 +385,19 @@ impl NativeOrganRunner {
             });
         }
 
+        if self.manifest.program_type == TargetProgramType::NativeDynamicLibrary {
+            return Err(anyhow::anyhow!(
+                "Cannot execute dynamic library '{}' as a process",
+                self.manifest.target_path.display()
+            ));
+        }
+        if !self.manifest.target_path.is_file() {
+            return Err(anyhow::anyhow!(
+                "Target executable does not exist or is not a file: {}",
+                self.manifest.target_path.display()
+            ));
+        }
+
         let mut child = Command::new(&self.manifest.target_path)
             .args(args)
             .stdin(if input_payload.is_some() { Stdio::piped() } else { Stdio::null() })
@@ -350,7 +413,56 @@ impl NativeOrganRunner {
             }
         }
 
-        let output = child.wait_with_output().await?;
+        let timeout = std::time::Duration::from_millis(self.manifest.timeout_ms.max(1));
+        let mut stdout = child
+            .stdout
+            .take()
+            .context("Target process did not provide stdout")?
+            .take((MAX_ORGAN_STDOUT_BYTES + 1) as u64);
+        let mut stderr = child
+            .stderr
+            .take()
+            .context("Target process did not provide stderr")?
+            .take((MAX_ORGAN_STDERR_BYTES + 1) as u64);
+        let output = match tokio::time::timeout(timeout, async {
+            let mut stdout_buf = Vec::new();
+            let mut stderr_buf = Vec::new();
+            let (status, stdout_result, stderr_result) = tokio::join!(
+                child.wait(),
+                stdout.read_to_end(&mut stdout_buf),
+                stderr.read_to_end(&mut stderr_buf),
+            );
+            if stdout_buf.len() > MAX_ORGAN_STDOUT_BYTES {
+                return Err(anyhow::anyhow!("Organ stdout exceeded the 16 MiB limit"));
+            }
+            if stderr_buf.len() > MAX_ORGAN_STDERR_BYTES {
+                return Err(anyhow::anyhow!("Organ stderr exceeded the 1 MiB limit"));
+            }
+            Ok::<std::process::Output, anyhow::Error>(std::process::Output {
+                status: status?,
+                stdout: {
+                    stdout_result?;
+                    stdout_buf
+                },
+                stderr: {
+                    stderr_result?;
+                    stderr_buf
+                },
+            })
+        })
+        .await
+        {
+            Ok(result) => result?,
+            Err(_) => {
+                let _ = child.kill().await;
+                let _ = child.wait().await;
+                return Err(anyhow::anyhow!(
+                    "Organ '{}' exceeded its {}ms execution timeout",
+                    self.manifest.name,
+                    timeout.as_millis()
+                ));
+            }
+        };
         let duration_us = start.elapsed().as_micros() as u64;
 
         if output.status.success() {

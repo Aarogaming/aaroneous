@@ -81,7 +81,6 @@ impl PersistentGrimoireStore {
         // Open WAL in append mode
         let write_file = OpenOptions::new()
             .read(true)
-            .write(true)
             .create(true)
             .append(true)
             .open(&path)?;
@@ -182,6 +181,11 @@ impl PersistentGrimoireStore {
         self.index.len()
     }
 
+    /// Returns whether the store contains no active keys.
+    pub fn is_empty(&self) -> bool {
+        self.index.is_empty()
+    }
+
     /// Returns current generation tick
     pub fn generation(&self) -> u64 {
         self.current_generation
@@ -225,7 +229,6 @@ impl PersistentGrimoireStore {
         // Re-open WAL handle
         let write_file = OpenOptions::new()
             .read(true)
-            .write(true)
             .create(true)
             .append(true)
             .open(&self.db_path)?;

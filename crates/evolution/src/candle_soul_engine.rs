@@ -164,10 +164,10 @@ impl CandleSoulEngine {
         let target_len = 1024;
         let mut output = vec![0.0f32; target_len];
 
-        for i in 0..target_len {
+        for (i, val) in output.iter_mut().enumerate() {
             let src_idx = i % input_features.len();
             let multiplier = 1.0 + (i as f32 * 0.001);
-            output[i] = input_features[src_idx] * multiplier;
+            *val = input_features[src_idx] * multiplier;
         }
 
         // L2 Normalize via Candle Tensor
@@ -239,8 +239,10 @@ mod tests {
         let engine = CandleSoulEngine::new();
         let logits = vec![0.1, 0.2, 5.0, 0.3, 0.1]; // index 2 is strongly dominant
 
-        let mut config = GenerationConfig::default();
-        config.temperature = 0.0; // Greedy
+        let mut config = GenerationConfig {
+            temperature: 0.0, // Greedy
+            ..Default::default()
+        };
 
         let sampled = engine.sample_token(&logits, &config).unwrap();
         assert_eq!(sampled, 2);

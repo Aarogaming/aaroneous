@@ -7,6 +7,7 @@ description = "Universal software adaptation, binary deconstruction, AST mutatio
 
 [dependencies]
 nervous_system = { path = "../nervous_system" }
+aaroneous_paths = { path = "../paths" }
 compute = { path = "../compute" }
 biology = { path = "../biology" }
 omni = { path = "../omni" }

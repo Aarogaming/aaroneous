@@ -562,8 +562,7 @@ impl DigestionEngine {
     }
 }
 
-/// Complete digestion workflow
-
+// Complete digestion workflow tests
 #[cfg(test)]
 mod tests {
     use super::*;

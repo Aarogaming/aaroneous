@@ -156,32 +156,14 @@ impl OAuth2Auth {
 #[async_trait::async_trait]
 impl AuthProvider for OAuth2Auth {
     async fn authenticate(&self, credentials: &str) -> Result<AuthToken, String> {
-        // In production, would validate JWT signature against issuer's JWK set
-        // For now, parse JWT and extract claims
-
-        // Simplified: just verify format
-        let token_str = credentials
-            .strip_prefix("Bearer ")
-            .ok_or_else(|| "Invalid OAuth2 token format".to_string())?;
-
-        // In production: decode JWT and verify signature
-        Ok(AuthToken {
-            token: token_str.to_string(),
-            token_type: "Bearer".to_string(),
-            principal_id: "user-123".to_string(),
-            scopes: vec!["read:federation".to_string(), "write:consensus".to_string()],
-            expires_at: chrono::Utc::now().timestamp_millis() + 3600000, // 1 hour
-            claims: HashMap::new(),
-        })
+        let _ = credentials;
+        Err("OAuth2 authentication is not configured; use a verified provider or ApiKeyAuth"
+            .to_string())
     }
 
     async fn verify_token(&self, token: &AuthToken) -> Result<bool, String> {
-        if token.is_expired() {
-            return Ok(false);
-        }
-
-        // In production: verify JWT signature
-        Ok(true)
+        let _ = token;
+        Err("OAuth2 token verification is not configured".to_string())
     }
 
     fn provider_type(&self) -> &str {
@@ -252,6 +234,6 @@ mod tests {
         let result = auth
             .authenticate("Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...")
             .await;
-        assert!(result.is_ok());
+        assert!(result.is_err());
     }
 }

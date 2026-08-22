@@ -6,6 +6,9 @@ use nervous_system::SynapseState;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::time::{Duration, Instant};
+
+const SANDBOX_CHECK_TIMEOUT: Duration = Duration::from_secs(10);
 
 /// Isolated Shadow Sandbox that prevents unverified compiler mutations from touching live code.
 #[derive(Debug, Clone)]
@@ -92,9 +95,31 @@ impl ShadowSandbox {
 
         cmd.current_dir(&self.shadow_dir);
 
-        let output = cmd
-            .output()
+        let mut child = cmd
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped())
+            .spawn()
             .context("Failed to execute sandboxed compiler toolchain")?;
+
+        let deadline = Instant::now() + SANDBOX_CHECK_TIMEOUT;
+        loop {
+            match child.try_wait().context("Failed while waiting for sandboxed compiler")? {
+                Some(_) => break,
+                None if Instant::now() >= deadline => {
+                    let _ = child.kill();
+                    let _ = child.wait();
+                    anyhow::bail!(
+                        "Sandboxed compiler exceeded the {}s timeout",
+                        SANDBOX_CHECK_TIMEOUT.as_secs()
+                    );
+                }
+                None => std::thread::sleep(Duration::from_millis(10)),
+            }
+        }
+
+        let output = child
+            .wait_with_output()
+            .context("Failed to collect sandboxed compiler output")?;
         let success = output.status.success();
         let stderr = String::from_utf8_lossy(&output.stderr).to_string();
         let stdout = String::from_utf8_lossy(&output.stdout).to_string();
@@ -156,8 +181,10 @@ mod tests {
         let written_path = sandbox.write_shadow_file(test_file, content).unwrap();
         assert!(written_path.exists());
 
-        let mut synapse = SynapseState::default();
-        synapse.integrity_score = 80;
+        let mut synapse = SynapseState {
+            integrity_score: 80,
+            ..Default::default()
+        };
         let initial_integrity = synapse.integrity_score;
 
         let success = sandbox

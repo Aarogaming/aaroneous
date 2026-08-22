@@ -123,6 +123,7 @@ impl SkillExpansionEngine {
     }
 
     /// Evaluates an observed execution trace and registers or evolves a skill
+    #[allow(clippy::too_many_arguments)]
     pub fn record_and_evaluate_trace(
         &mut self,
         name: &str,

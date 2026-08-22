@@ -53,6 +53,13 @@ impl HIDOutputBridge {
     }
 
     pub fn execute_intent(&self, intent: &MotorIntent) {
+        // Keep this low-level bridge fail-closed as well as the higher-level
+        // Marionette host. Direct callers must explicitly opt into live host
+        // input through the same runtime safety permit.
+        if std::env::var("AARONEOUS_ALLOW_HOST_INPUT").as_deref() != Ok("1") {
+            return;
+        }
+
         let actions = intent.binary_action_register;
 
         if actions & ACTION_MOUSE_MOVE != 0 {

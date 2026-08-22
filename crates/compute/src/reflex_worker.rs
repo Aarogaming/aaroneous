@@ -124,7 +124,6 @@ mod tests {
     use super::*;
     use crate::si_ssm::SiSsmConfig;
     use nervous_system::pantheon_bus::TENSOR_DIM;
-    use tempfile::tempdir;
 
     #[test]
     fn test_reflex_worker_step_and_spin_read() {

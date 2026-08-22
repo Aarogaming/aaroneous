@@ -44,13 +44,15 @@ impl Eq for VectorSearchResult {}
 
 impl PartialOrd for VectorSearchResult {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        self.similarity_score.partial_cmp(&other.similarity_score)
+        Some(self.cmp(other))
     }
 }
 
 impl Ord for VectorSearchResult {
     fn cmp(&self, other: &Self) -> Ordering {
-        self.partial_cmp(other).unwrap_or(Ordering::Equal)
+        self.similarity_score
+            .partial_cmp(&other.similarity_score)
+            .unwrap_or(Ordering::Equal)
     }
 }
 

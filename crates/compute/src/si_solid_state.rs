@@ -118,37 +118,35 @@ impl DynamicAdaptationMatrix {
 
         // 1. Project x (1 x in_dim) through A (in_dim x rank) -> intermediate (1 x rank)
         let mut intermediate = vec![0.0f32; self.rank];
-        for r in 0..self.rank {
+        for (r, intermediate_value) in intermediate.iter_mut().enumerate() {
             let mut sum = 0.0f32;
-            for i in 0..self.in_dim {
-                sum += x[i] * self.matrix_a[i * self.rank + r];
+            for (i, &x_value) in x.iter().enumerate() {
+                sum += x_value * self.matrix_a[i * self.rank + r];
             }
-            intermediate[r] = sum;
+            *intermediate_value = sum;
         }
 
         // 2. Update Eligibility Traces: E_t = gamma * lambda * E_{t-1} + grad_W
         let trace_decay = self.gamma * self.lambda;
-        for i in 0..self.in_dim {
-            for r in 0..self.rank {
-                let idx = i * self.rank + r;
-                self.trace_a[idx] = self.trace_a[idx] * trace_decay + x[i] * intermediate[r];
+        for (i, trace_row) in self.trace_a.chunks_exact_mut(self.rank).enumerate() {
+            for (r, trace_value) in trace_row.iter_mut().enumerate() {
+                *trace_value = *trace_value * trace_decay + x[i] * intermediate[r];
             }
         }
-        for r in 0..self.rank {
-            for o in 0..self.out_dim {
-                let idx = r * self.out_dim + o;
-                self.trace_b[idx] = self.trace_b[idx] * trace_decay + intermediate[r];
+        for (r, trace_row) in self.trace_b.chunks_exact_mut(self.out_dim).enumerate() {
+            for trace_value in trace_row.iter_mut() {
+                *trace_value = *trace_value * trace_decay + intermediate[r];
             }
         }
 
         // 3. Project intermediate through B -> delta
         let mut delta = vec![0.0f32; self.out_dim];
-        for o in 0..self.out_dim {
+        for (o, delta_value) in delta.iter_mut().enumerate() {
             let mut sum = 0.0f32;
-            for r in 0..self.rank {
-                sum += intermediate[r] * self.matrix_b[r * self.out_dim + o];
+            for (r, &intermediate_value) in intermediate.iter().enumerate() {
+                sum += intermediate_value * self.matrix_b[r * self.out_dim + o];
             }
-            delta[o] = sum * self.scaling;
+            *delta_value = sum * self.scaling;
         }
 
         delta
@@ -161,21 +159,21 @@ impl DynamicAdaptationMatrix {
         }
 
         let mut intermediate = vec![0.0f32; self.rank];
-        for r in 0..self.rank {
+        for (r, intermediate_value) in intermediate.iter_mut().enumerate() {
             let mut sum = 0.0f32;
-            for i in 0..self.in_dim {
-                sum += x[i] * self.matrix_a[i * self.rank + r];
+            for (i, &x_value) in x.iter().enumerate() {
+                sum += x_value * self.matrix_a[i * self.rank + r];
             }
-            intermediate[r] = sum;
+            *intermediate_value = sum;
         }
 
         let mut delta = vec![0.0f32; self.out_dim];
-        for o in 0..self.out_dim {
+        for (o, delta_value) in delta.iter_mut().enumerate() {
             let mut sum = 0.0f32;
-            for r in 0..self.rank {
-                sum += intermediate[r] * self.matrix_b[r * self.out_dim + o];
+            for (r, &intermediate_value) in intermediate.iter().enumerate() {
+                sum += intermediate_value * self.matrix_b[r * self.out_dim + o];
             }
-            delta[o] = sum * self.scaling;
+            *delta_value = sum * self.scaling;
         }
 
         delta
@@ -257,48 +255,63 @@ impl DynamicAdaptationMatrix {
 
         // Compute intermediate state
         let mut intermediate = vec![0.0f32; self.rank];
-        for r in 0..self.rank {
+        for (r, intermediate_value) in intermediate.iter_mut().enumerate() {
             let mut sum = 0.0f32;
-            for i in 0..self.in_dim {
-                sum += state_x[i] * self.matrix_a[i * self.rank + r];
+            for (i, &state_value) in state_x.iter().enumerate() {
+                sum += state_value * self.matrix_a[i * self.rank + r];
             }
-            intermediate[r] = sum;
+            *intermediate_value = sum;
         }
 
         // Update Matrix B with TD(λ) trace and L2 Weight Decay
-        for r in 0..self.rank {
-            for o in 0..self.out_dim {
-                let idx = r * self.out_dim + o;
-                let grad = -intermediate[r] * projected_error[o] * self.scaling;
-                let trace_contribution = self.trace_b[idx] * -projected_error[o];
+        for (r, ((matrix_row, momentum_row), trace_row)) in self
+            .matrix_b
+            .chunks_exact_mut(self.out_dim)
+            .zip(self.momentum_b.chunks_exact_mut(self.out_dim))
+            .zip(self.trace_b.chunks_exact(self.out_dim))
+            .enumerate()
+        {
+            for (o, (&error_value, trace_value)) in projected_error.iter().zip(trace_row).enumerate() {
+                let grad = -intermediate[r] * error_value * self.scaling;
+                let trace_contribution = trace_value * -error_value;
                 let combined_grad = 0.7 * grad + 0.3 * trace_contribution;
 
-                self.momentum_b[idx] = beta * self.momentum_b[idx] + (1.0 - beta) * combined_grad;
+                momentum_row[o] = beta * momentum_row[o] + (1.0 - beta) * combined_grad;
                 
-                let decayed_val = self.matrix_b[idx] * (1.0 - lr * self.weight_decay);
-                let update = lr * self.momentum_b[idx];
-                self.matrix_b[idx] = decayed_val - update;
+                let decayed_val = matrix_row[o] * (1.0 - lr * self.weight_decay);
+                let update = lr * momentum_row[o];
+                matrix_row[o] = decayed_val - update;
                 drift += (update as f64).abs();
             }
         }
 
         // Update Matrix A with TD(λ) trace and L2 Weight Decay
-        for i in 0..self.in_dim {
-            for r in 0..self.rank {
-                let idx = i * self.rank + r;
+        for (i, ((matrix_row, momentum_row), trace_row)) in self
+            .matrix_a
+            .chunks_exact_mut(self.rank)
+            .zip(self.momentum_a.chunks_exact_mut(self.rank))
+            .zip(self.trace_a.chunks_exact(self.rank))
+            .enumerate()
+        {
+            for (r, ((matrix_value, momentum_value), trace_value)) in matrix_row
+                .iter_mut()
+                .zip(momentum_row.iter_mut())
+                .zip(trace_row)
+                .enumerate()
+            {
                 let mut b_sum = 0.0f32;
-                for o in 0..self.out_dim {
-                    b_sum += -projected_error[o] * self.matrix_b[r * self.out_dim + o];
+                for (o, &error_value) in projected_error.iter().enumerate() {
+                    b_sum += -error_value * self.matrix_b[r * self.out_dim + o];
                 }
                 let grad = state_x[i] * b_sum * self.scaling;
-                let trace_contribution = self.trace_a[idx] * b_sum;
+                let trace_contribution = *trace_value * b_sum;
                 let combined_grad = 0.7 * grad + 0.3 * trace_contribution;
 
-                self.momentum_a[idx] = beta * self.momentum_a[idx] + (1.0 - beta) * combined_grad;
+                *momentum_value = beta * *momentum_value + (1.0 - beta) * combined_grad;
                 
-                let decayed_val = self.matrix_a[idx] * (1.0 - lr * self.weight_decay);
-                let update = lr * self.momentum_a[idx];
-                self.matrix_a[idx] = decayed_val - update;
+                let decayed_val = *matrix_value * (1.0 - lr * self.weight_decay);
+                let update = lr * *momentum_value;
+                *matrix_value = decayed_val - update;
                 drift += (update as f64).abs();
             }
         }
@@ -316,18 +329,18 @@ impl DynamicAdaptationMatrix {
         let projected_target = self.project_gradient_orthogonal(target_delta);
         let beta = 0.9f32;
         let mut intermediate = vec![0.0f32; self.rank];
-        for r in 0..self.rank {
+        for (r, intermediate_value) in intermediate.iter_mut().enumerate() {
             let mut sum = 0.0f32;
-            for i in 0..self.in_dim {
-                sum += state_x[i] * self.matrix_a[i * self.rank + r];
+            for (i, &state_value) in state_x.iter().enumerate() {
+                sum += state_value * self.matrix_a[i * self.rank + r];
             }
-            intermediate[r] = sum;
+            *intermediate_value = sum;
         }
 
-        for r in 0..self.rank {
-            for o in 0..self.out_dim {
+        for (r, &intermediate_value) in intermediate.iter().enumerate() {
+            for (o, &target_value) in projected_target.iter().enumerate() {
                 let idx = r * self.out_dim + o;
-                let grad = intermediate[r] * projected_target[o] * self.scaling;
+                let grad = intermediate_value * target_value * self.scaling;
                 self.momentum_b[idx] = beta * self.momentum_b[idx] + (1.0 - beta) * grad;
                 self.matrix_b[idx] = self.matrix_b[idx] * (1.0 - lr * self.weight_decay) + lr * self.momentum_b[idx];
             }
@@ -444,7 +457,7 @@ impl SolidStateSiContainer {
         let file = File::open(path)?;
         let mmap = unsafe { Mmap::map(&file)? };
 
-        if mmap.len() < 14 || &mmap[0..4] != SI_SOLID_STATE_MAGIC {
+        if mmap.len() < 14 || mmap[0..4] != SI_SOLID_STATE_MAGIC {
             bail!("Invalid SINT magic header in {:?}", path);
         }
 

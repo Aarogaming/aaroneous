@@ -40,6 +40,12 @@ pub struct AuraLayout {
     pub orientation: String,
 }
 
+impl Default for AuraUiManifest {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl AuraUiManifest {
     /// Creates a new Aura UI manifest with default settings
     pub fn new() -> Self {

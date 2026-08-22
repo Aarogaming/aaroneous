@@ -28,7 +28,7 @@ if (-not $SkipBuild) {
         $CargoPath = "cargo"
     }
 
-    & $CargoPath build --release -p a_run --bin aaroneous --bin a_run --manifest-path (Join-Path $WorkspaceRoot "Cargo.toml")
+    & $CargoPath build --release -p a_run --bin aaroneous --bin a_run --bin aaroneous-setup --bin aaroneous-uninstall --manifest-path (Join-Path $WorkspaceRoot "Cargo.toml")
     if ($LASTEXITCODE -ne 0) {
         Write-Error "Failed to build release binaries."
         exit 1

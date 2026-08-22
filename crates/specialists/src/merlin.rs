@@ -21,19 +21,10 @@ pub struct KnowledgeSynthesis {
 }
 
 /// Grimoire Relic Engine: Semantic research vault and citation index
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct GrimoireRelic {
     pub indexed_documents: usize,
     pub citation_graph: HashMap<String, Vec<String>>,
-}
-
-impl Default for GrimoireRelic {
-    fn default() -> Self {
-        Self {
-            indexed_documents: 0,
-            citation_graph: HashMap::new(),
-        }
-    }
 }
 
 impl RelicEngine for GrimoireRelic {

@@ -78,12 +78,12 @@ impl ActionDecoder {
         let mut best_action_id = 0usize;
         let mut act_logits = vec![0.0f32; self.num_opcodes];
 
-        for o in 0..self.num_opcodes {
+        for (o, logit) in act_logits.iter_mut().enumerate() {
             let mut sum = 0.0f32;
-            for i in 0..in_len {
-                sum += intent[i] * self.action_weights[i * self.num_opcodes + o];
+            for (i, &intent_value) in intent.iter().enumerate().take(in_len) {
+                sum += intent_value * self.action_weights[i * self.num_opcodes + o];
             }
-            act_logits[o] = sum;
+            *logit = sum;
             if sum > max_act_logit {
                 max_act_logit = sum;
                 best_action_id = o;
@@ -99,22 +99,28 @@ impl ActionDecoder {
 
         // 2. Spatial coords: tanh(intent · W_spat)
         let mut spatial_coords = [0.0f32; 4];
-        for k in 0..4 {
+        for (k, coordinate) in spatial_coords.iter_mut().enumerate() {
             let mut sum = 0.0f32;
-            for i in 0..in_len {
-                sum += intent[i] * self.spatial_weights[i * 4 + k];
+            for (i, &intent_value) in intent.iter().enumerate().take(in_len) {
+                sum += intent_value * self.spatial_weights[i * 4 + k];
             }
-            spatial_coords[k] = sum.tanh();
+            *coordinate = sum.tanh();
         }
 
         // 3. Pointer head: argmax(intent · W_ptr)
         let mut max_ptr_logit = f32::NEG_INFINITY;
         let mut best_ptr_idx = 0usize;
-        for r in 0..self.num_registers {
-            let mut sum = 0.0f32;
-            for i in 0..in_len {
-                sum += intent[i] * self.pointer_weights[i * self.num_registers + r];
-            }
+        for (r, sum) in (0..self.num_registers).map(|r| {
+            let sum = intent
+                .iter()
+                .enumerate()
+                .take(in_len)
+                .map(|(i, &intent_value)| {
+                    intent_value * self.pointer_weights[i * self.num_registers + r]
+                })
+                .sum::<f32>();
+            (r, sum)
+        }) {
             if sum > max_ptr_logit {
                 max_ptr_logit = sum;
                 best_ptr_idx = r;
@@ -170,7 +176,7 @@ mod tests {
         assert!(cmd.register_idx < 8);
         assert!(cmd.confidence > 0.0 && cmd.confidence <= 1.0);
         for &coord in &cmd.spatial_coords {
-            assert!(coord >= -1.0 && coord <= 1.0);
+            assert!((-1.0..=1.0).contains(&coord));
         }
     }
 }

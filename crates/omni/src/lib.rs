@@ -79,8 +79,8 @@ impl OmniEngine {
         for (id, title, x, y, z, opcode) in specialists {
             let mut latent = [0.0f32; 32];
             // Synthetic latent signature based on opcode
-            for i in 0..32 {
-                latent[i] = ((opcode as f32 * 0.1 + i as f32 * 0.3).sin() + 1.0) * 0.5;
+            for (i, val) in latent.iter_mut().enumerate() {
+                *val = ((opcode as f32 * 0.1 + i as f32 * 0.3).sin() + 1.0) * 0.5;
             }
 
             let mut node = StarNode::new(
@@ -127,8 +127,8 @@ impl OmniEngine {
             let z = 500.0;
 
             let mut latent = [0.0f32; 32];
-            for j in 0..32 {
-                latent[j] = ((i as f32 * 0.2 + j as f32 * 0.4).cos() + 1.0) * 0.5;
+            for (j, val) in latent.iter_mut().enumerate() {
+                *val = ((i as f32 * 0.2 + j as f32 * 0.4).cos() + 1.0) * 0.5;
             }
 
             let node = StarNode::new(

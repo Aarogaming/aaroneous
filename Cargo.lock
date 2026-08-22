@@ -1702,6 +1702,7 @@ dependencies = [
 name = "chimera"
 version = "0.1.0"
 dependencies = [
+ "aaroneous_paths",
  "anyhow",
  "async-trait",
  "biology",

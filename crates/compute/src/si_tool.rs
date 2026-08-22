@@ -71,7 +71,7 @@ impl SiToolEngine {
         }
 
         // Check SINT Solid-State Container Magic (b"SINT")
-        if mmap.len() >= 4 && &mmap[0..4] == SI_SOLID_STATE_MAGIC {
+        if mmap.len() >= 4 && mmap[0..4] == SI_SOLID_STATE_MAGIC {
             let container = SolidStateSiContainer::load_from_file(path)?;
             let opcodes_used: Vec<String> = vec![
                 format!("Anchors: {}", container.adaptation.anchor_buffer.len()),
@@ -97,7 +97,7 @@ impl SiToolEngine {
         }
 
         // Check SISSM State-Space Model Magic
-        if mmap.len() >= 5 && &mmap[0..5] == SI_SSM_MAGIC {
+        if mmap.len() >= 5 && mmap[0..5] == SI_SSM_MAGIC {
             let version = u16::from_le_bytes(mmap[5..7].try_into()?);
             let config_len = u32::from_le_bytes(mmap[7..11].try_into()?) as usize;
             let config_bytes = &mmap[11..11 + config_len];
@@ -128,7 +128,7 @@ impl SiToolEngine {
         }
 
         // Check Standard SIMN Thought Packet Magic
-        if mmap.len() >= 4 && &mmap[0..4] == SI_MAGIC_BYTES {
+        if mmap.len() >= 4 && mmap[0..4] == SI_MAGIC_BYTES {
             let packet = SiThoughtPacket::from_binary(&mmap)?;
             let opcodes_used: Vec<String> = packet.graph.nodes.values().map(|n| n.opcode.name().to_string()).collect();
 
@@ -164,11 +164,11 @@ impl SiToolEngine {
         for _ in 0..iterations {
             let start = Instant::now();
             let mmap = unsafe { Mmap::map(&file)? };
-            if mmap.len() >= 4 && &mmap[0..4] == SI_SOLID_STATE_MAGIC {
+            if mmap.len() >= 4 && mmap[0..4] == SI_SOLID_STATE_MAGIC {
                 let _ = SolidStateSiContainer::load_from_file(path)?;
-            } else if mmap.len() >= 5 && &mmap[0..5] == SI_SSM_MAGIC {
+            } else if mmap.len() >= 5 && mmap[0..5] == SI_SSM_MAGIC {
                 let _ = SiStateSpaceModel::load_from_si_container(path, false)?;
-            } else if mmap.len() >= 4 && &mmap[0..4] == SI_MAGIC_BYTES {
+            } else if mmap.len() >= 4 && mmap[0..4] == SI_MAGIC_BYTES {
                 let _ = SiThoughtPacket::from_binary(&mmap)?;
             }
             latencies_us.push(start.elapsed().as_micros() as u64);

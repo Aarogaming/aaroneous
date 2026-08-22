@@ -6,6 +6,7 @@
 use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::fmt;
 
 /// Capability permissions bitflags (inspired by Redox OS capabilities)
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -56,12 +57,14 @@ impl SchemeUri {
             path,
         })
     }
+}
 
-    pub fn to_string(&self) -> String {
+impl fmt::Display for SchemeUri {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if self.path.is_empty() {
-            format!("{}://{}", self.scheme, self.target)
+            write!(f, "{}://{}", self.scheme, self.target)
         } else {
-            format!("{}://{}/{}", self.scheme, self.target, self.path)
+            write!(f, "{}://{}/{}", self.scheme, self.target, self.path)
         }
     }
 }

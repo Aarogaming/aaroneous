@@ -23,6 +23,9 @@ use tracing::{info, warn};
 /// Errors from `HttpStatusServer::spawn`.
 #[derive(Debug, thiserror::Error)]
 pub enum HttpServerError {
+    #[error("refusing non-loopback bind {addr} without AARONEOUS_API_KEY")]
+    UnauthenticatedRemoteBind { addr: SocketAddr },
+
     #[error("failed to bind {addr}: {source}")]
     Bind {
         addr: SocketAddr,
@@ -65,6 +68,13 @@ impl HttpStatusServer {
         addr: SocketAddr,
         federation: Arc<Federation>,
     ) -> Result<Self, HttpServerError> {
+        let has_api_key = std::env::var("AARONEOUS_API_KEY")
+            .map(|key| !key.is_empty())
+            .unwrap_or(false);
+        if !addr.ip().is_loopback() && !has_api_key {
+            return Err(HttpServerError::UnauthenticatedRemoteBind { addr });
+        }
+
         let listener = TcpListener::bind(addr)
             .await
             .map_err(|source| HttpServerError::Bind { addr, source })?;

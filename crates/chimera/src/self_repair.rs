@@ -186,8 +186,10 @@ error[E0432]: unresolved import `crate::invalid::Module`
         let buggy_code = "use digestion::Specialist;\nuse crate::crate::skills::Skill;\n";
         let fake_error = "error[E0432]: unresolved import\n --> test.rs:1:5\n";
 
-        let mut synapse = SynapseState::default();
-        synapse.integrity_score = 80;
+        let mut synapse = SynapseState {
+            integrity_score: 80,
+            ..Default::default()
+        };
 
         let report = engine
             .attempt_repair("test.rs", buggy_code, fake_error, &mut synapse)

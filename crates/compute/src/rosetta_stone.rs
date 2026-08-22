@@ -111,9 +111,9 @@ impl RosettaStoneDataset {
 
             // Generate structured 4096-dim teacher hidden state with deterministic pseudo-random harmonics
             let mut teacher_state = vec![0.0f32; ROSETTA_TEACHER_DIM];
-            for j in 0..ROSETTA_TEACHER_DIM {
+            for (j, value) in teacher_state.iter_mut().enumerate() {
                 let freq = ((i * 13 + j * 17 + (domain_opcode as usize) * 31) as f32).sin();
-                teacher_state[j] = freq * 0.5 + ((j % 64) as f32 * 0.001);
+                *value = freq * 0.5 + ((j % 64) as f32 * 0.001);
             }
 
             // Normalize teacher state onto hypersphere
@@ -124,8 +124,8 @@ impl RosettaStoneDataset {
 
             // Generate structured 256-dim target state delta
             let mut delta = vec![0.0f32; ROSETTA_LATENT_DIM];
-            for j in 0..ROSETTA_LATENT_DIM {
-                delta[j] = (((i * 7 + j * 11 + (domain_opcode as usize) * 19) as f32).cos()) * scale;
+            for (j, value) in delta.iter_mut().enumerate() {
+                *value = (((i * 7 + j * 11 + (domain_opcode as usize) * 19) as f32).cos()) * scale;
             }
 
             dataset.steps.push(RosettaTrajectoryStep {

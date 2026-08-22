@@ -23,19 +23,10 @@ pub struct TaskNode {
 }
 
 /// Draupnir Relic Engine: Autonomous task scheduler and token multiplier
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct DraupnirRelic {
     pub active_dag_count: usize,
     pub total_tasks_scheduled: usize,
-}
-
-impl Default for DraupnirRelic {
-    fn default() -> Self {
-        Self {
-            active_dag_count: 0,
-            total_tasks_scheduled: 0,
-        }
-    }
 }
 
 impl RelicEngine for DraupnirRelic {

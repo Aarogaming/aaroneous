@@ -139,7 +139,7 @@ impl SiThoughtPacket {
             bail!("SI binary buffer too short (len: {})", bytes.len());
         }
 
-        if &bytes[0..4] != SI_MAGIC_BYTES {
+        if bytes[0..4] != SI_MAGIC_BYTES {
             bail!("Invalid SI magic header: {:?}", &bytes[0..4]);
         }
 
@@ -273,7 +273,7 @@ mod tests {
         );
 
         let binary = packet.to_binary().expect("Binary serialization failed");
-        assert_eq!(&binary[0..4], &SI_MAGIC_BYTES);
+        assert_eq!(binary[0..4], SI_MAGIC_BYTES);
 
         let decoded = SiThoughtPacket::from_binary(&binary).expect("Binary deserialization failed");
         assert_eq!(decoded.header.goal_opcode, 0x0100);

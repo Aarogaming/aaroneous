@@ -162,9 +162,9 @@ impl ContinuousSelfEvolutionEngine {
 
         if !accepted_hypotheses.is_empty() {
             let n = accepted_hypotheses.len() as f32;
-            let mean_delta: f32 = accepted_hypotheses.iter().map(|h| h.performance_delta_pct as f32).sum::<f32>() / n;
+            let mean_delta: f32 = accepted_hypotheses.iter().map(|h| h.performance_delta_pct).sum::<f32>() / n;
             let sum_sq_diff: f32 = accepted_hypotheses.iter().map(|h| {
-                let diff = h.performance_delta_pct as f32 - mean_delta;
+                let diff = h.performance_delta_pct - mean_delta;
                 diff * diff
             }).sum();
             gradient_variance = (sum_sq_diff / n).max(0.0001);

@@ -98,6 +98,15 @@ impl TensorRouter {
     /// Returns probability distribution over specialists.
     pub fn route(&self, task: &TaskEmbedding) -> RoutingResult {
         let n = self.weights.specialist_ids.len();
+        if n == 0 {
+            return RoutingResult {
+                task_id: task.task_id.clone(),
+                specialist_scores: Vec::new(),
+                selected_specialist: String::new(),
+                confidence: 0.0,
+                entropy: 0.0,
+            };
+        }
 
         // Compute logits: z = Wx + b
         let mut logits = Vec::with_capacity(n);
@@ -132,7 +141,7 @@ impl TensorRouter {
         let (selected_idx, &max_prob) = probabilities
             .iter()
             .enumerate()
-            .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
+            .max_by(|(_, a), (_, b)| a.total_cmp(b))
             .unwrap();
 
         // Compute routing entropy

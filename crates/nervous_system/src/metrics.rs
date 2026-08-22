@@ -232,7 +232,7 @@ mod tests {
             next_sequence: 0,
             current_generation: 3,
         };
-        collector.update_slab_stats("agent_1", stats.clone());
+        collector.update_slab_stats("agent_1", stats);
         collector.record_allocation("agent_1");
         collector.record_allocation("agent_1");
         collector.record_free("agent_1");

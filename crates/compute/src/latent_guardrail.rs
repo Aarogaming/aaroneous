@@ -58,8 +58,8 @@ impl SafeHypersphereManifold {
                 centroid[d] += state[d];
             }
         }
-        for d in 0..GUARDRAIL_DIM {
-            centroid[d] /= n;
+        for value in &mut centroid {
+            *value /= n;
         }
 
         // 2. Compute Variance diag(Sigma) = 1/N sum_i (S_i - c)^2
@@ -72,9 +72,9 @@ impl SafeHypersphereManifold {
 
         // 3. Compute Inverse Diagonal Covariance: Lambda = 1 / (var + eps)
         let mut max_dist = 0.0f32;
-        for d in 0..GUARDRAIL_DIM {
-            let variance = (var_diag[d] / n).max(1e-4);
-            self.mahalanobis_diag[d] = 1.0 / variance;
+        for (variance_value, diagonal) in var_diag.iter().zip(&mut self.mahalanobis_diag) {
+            let variance = (variance_value / n).max(1e-4);
+            *diagonal = 1.0 / variance;
         }
 
         // 4. Set Radius R as 99th percentile maximum distance
@@ -95,9 +95,14 @@ impl SafeHypersphereManifold {
         let count = GUARDRAIL_DIM.min(state.len()).min(centroid.len());
         let mut sum = 0.0f32;
 
-        for d in 0..count {
-            let diff = state[d] - centroid[d];
-            sum += diff * diff * self.mahalanobis_diag[d];
+        for ((&state_value, &centroid_value), &diagonal) in state
+            .iter()
+            .zip(centroid)
+            .zip(&self.mahalanobis_diag)
+            .take(count)
+        {
+            let diff = state_value - centroid_value;
+            sum += diff * diff * diagonal;
         }
 
         sum.sqrt()
@@ -109,8 +114,8 @@ impl SafeHypersphereManifold {
         let count = GUARDRAIL_DIM.min(state.len()).min(self.centroid.len());
         let mut sum = 0.0f32;
 
-        for d in 0..count {
-            let diff = state[d] - self.centroid[d];
+        for (&state_value, &centroid_value) in state.iter().zip(&self.centroid).take(count) {
+            let diff = state_value - centroid_value;
             sum += diff * diff;
         }
 
@@ -130,8 +135,13 @@ impl SafeHypersphereManifold {
         let mut snapped = vec![0.0f32; GUARDRAIL_DIM];
         let count = GUARDRAIL_DIM.min(state.len()).min(self.centroid.len());
 
-        for d in 0..count {
-            snapped[d] = self.centroid[d] + (state[d] - self.centroid[d]) * scale;
+        for ((snapped_value, &state_value), &centroid_value) in snapped
+            .iter_mut()
+            .zip(state)
+            .zip(&self.centroid)
+            .take(count)
+        {
+            *snapped_value = centroid_value + (state_value - centroid_value) * scale;
         }
 
         snapped
