@@ -258,7 +258,13 @@ impl SkillConstellationCanvas {
 
                 // Hover Tooltip
                 if is_hovered {
-                    egui::show_tooltip_at_pointer(ctx, ui.layer_id(), ui.id().with(&star.id), |ui: &mut Ui| {
+                    egui::Tooltip::always_open(
+                        ctx.clone(),
+                        ui.layer_id(),
+                        ui.id().with(&star.id),
+                        egui::containers::PopupAnchor::Pointer,
+                    )
+                    .show(|ui: &mut Ui| {
                         ui.heading(format!("⭐ {}", star.id));
                         ui.label(&star.label);
                         ui.separator();

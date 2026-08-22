@@ -64,7 +64,7 @@ Persistent data, neural weights, and genetic blueprints:
 - WGSL GPU compute shaders (`shaders/`).
 
 ### Bucket 5: `ARCHIVE & PURGE` (Dead Artifacts & Scaffolding)
-To be deleted or archived in `dev/archive/`:
+To be deleted or purged:
 - Ghost folders (`agents/sleep_cycle/target/`, `agents/system_janitor/target/`, etc.).
 - Deprecated WASM/WIT layers (`templates/universal_sab/`, `.wasm` files).
 - One-off ad-hoc formula/PDF scraping scripts in `scripts/`.

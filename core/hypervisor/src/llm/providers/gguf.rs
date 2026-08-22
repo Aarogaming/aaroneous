@@ -45,6 +45,14 @@ impl GGUFProvider {
             std::fs::metadata(&model_path)?.len() / 1024
         );
 
+        #[cfg(not(feature = "llama-gguf"))]
+        {
+            warn!(
+                "GGUF provider initialized without 'llama-gguf' feature. Real inference is disabled. \
+                 To enable real local GGUF inference, compile with: cargo build --features llama-gguf"
+            );
+        }
+
         Ok(Self {
             model_path,
             _context_size: context_size,

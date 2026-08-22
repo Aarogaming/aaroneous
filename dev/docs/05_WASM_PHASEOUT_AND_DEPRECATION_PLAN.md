@@ -28,7 +28,7 @@ The following files, dependencies, and modules will be systematically deprecated
 | `core/hypervisor/src/wasm_discovery.rs` | Scans workspace for `.wasm` files | Update to discover native `.sovereign` / `.dll` modules. |
 | `core/hypervisor/src/wasm_ebus_bridge/` | Multi-file WASM event bus & WIT bridge | Deprecate and replace with native IPC / Linking Protocol. |
 | `templates/universal_sab/` | WASM starter template crate | Replace with `templates/universal_native`. |
-| `chromosomes/wasm_enzyme.wasm` | Pre-compiled WASM enzyme | Remove or archive into `dev/archive/`. |
+| `chromosomes/wasm_enzyme.wasm` | Pre-compiled WASM enzyme | Removed (WASM phaseout complete). |
 
 ---
 
@@ -50,5 +50,5 @@ Phase 3: Sever Wasmtime from Core Hypervisor
 
 Phase 4: Purge WASM Templates & Binary Blobs
   ├── Remove templates/universal_sab/
-  └── Archive leftover .wasm files into dev/archive/
+  └── Purge leftover .wasm files from workspace
 ```
