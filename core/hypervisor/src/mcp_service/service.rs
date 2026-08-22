@@ -164,6 +164,15 @@ impl McpService {
         self
     }
 
+    /// Report LLM provider status for the /health endpoint.
+    pub fn llm_provider_status(&self) -> serde_json::Value {
+        let gguf_compiled = cfg!(feature = "llama-gguf");
+        serde_json::json!({
+            "llama_gguf_feature": gguf_compiled,
+            "inference_available": gguf_compiled,
+        })
+    }
+
     /// Register all sovereign specialists as MCP tools.
     ///
     /// Called once at startup after federation is attached.
@@ -994,7 +1003,7 @@ impl McpService {
         let resolved = if path.is_absolute() && path.exists() {
             path
         } else {
-            // Try relative to D:\Aaroneous first, then current dir
+            // Try relative to workspace root first, then current dir
             let workspace = self.workspace_root.join(path_str);
             if workspace.exists() {
                 workspace
@@ -1002,6 +1011,20 @@ impl McpService {
                 std::path::PathBuf::from(path_str)
             }
         };
+
+        // ── Path containment: reject reads outside workspace ──────────────
+        if let (Ok(canonical), Ok(workspace_canonical)) = (
+            resolved.canonicalize(),
+            self.workspace_root.canonicalize(),
+        ) {
+            if !canonical.starts_with(&workspace_canonical) {
+                anyhow::bail!(
+                    "Access denied: path '{}' is outside the workspace root '{}'",
+                    path_str,
+                    self.workspace_root.display()
+                );
+            }
+        }
 
         if !resolved.exists() {
             anyhow::bail!(
@@ -1068,6 +1091,20 @@ impl McpService {
         let root = std::path::Path::new(search_path);
         if !root.exists() {
             anyhow::bail!("Search path not found: {}", search_path);
+        }
+
+        // ── Path containment: reject searches outside workspace ───────────
+        if let (Ok(canonical), Ok(workspace_canonical)) = (
+            root.canonicalize(),
+            self.workspace_root.canonicalize(),
+        ) {
+            if !canonical.starts_with(&workspace_canonical) {
+                anyhow::bail!(
+                    "Access denied: search path '{}' is outside the workspace root '{}'",
+                    search_path,
+                    self.workspace_root.display()
+                );
+            }
         }
 
         // Walk files matching glob
@@ -1152,6 +1189,20 @@ impl McpService {
         let path = std::path::Path::new(path_str);
         if !path.exists() {
             anyhow::bail!("Path not found: {}", path_str);
+        }
+
+        // ── Path containment: reject listing outside workspace ────────────
+        if let (Ok(canonical), Ok(workspace_canonical)) = (
+            path.canonicalize(),
+            self.workspace_root.canonicalize(),
+        ) {
+            if !canonical.starts_with(&workspace_canonical) {
+                anyhow::bail!(
+                    "Access denied: path '{}' is outside the workspace root '{}'",
+                    path_str,
+                    self.workspace_root.display()
+                );
+            }
         }
 
         let ext_filter = if glob_filter.is_empty() {

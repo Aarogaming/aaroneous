@@ -13,7 +13,7 @@ path = "hive.db"
 
 [llm]
 # LLM provider configuration
-provider = "mock"  # mock | gguf | openai
+provider = "gguf"  # mock | gguf | openai
 model_path = ""    # Path to GGUF file (if provider = "gguf")
 openai_api_key = ""
 openai_base_url = ""

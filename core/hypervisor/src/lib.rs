@@ -247,8 +247,6 @@ pub mod unified_learning;
 pub mod unified_registry;
 pub mod wasm_discovery;
 pub mod wasm_ebus_bridge;
-pub mod wasm_loader;
-pub mod wasm_splicer;
 pub mod wasm_validator;
 pub mod wgpu_reflex_pipeline;
 pub mod win32_intercept;
@@ -372,7 +370,6 @@ pub use skill_constellation::{SkillConstellationCanvas, VisualStarNode};
 pub use synapse_ui::SynapseVisualizer;
 pub use system_metrics::{GpuMetrics, SystemMetricsCollector, ThermalMetrics, ThermalStatus};
 pub use task_routing::{ExecutionContext, ExecutionRoute, TaskRouter};
-pub use wasm_loader::WasmEnzymeLoader;
 
 #[cfg(test)]
 mod synaptic_test;

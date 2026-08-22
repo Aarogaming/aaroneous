@@ -5,6 +5,7 @@ use crate::llm::types::*;
 use anyhow::{Result, anyhow};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
+use std::time::Duration;
 use tracing::{debug, info, warn};
 
 pub struct OpenAIProvider {
@@ -406,7 +407,10 @@ Respond ONLY with valid JSON matching:
     }
 
     async fn chat(&self, system_prompt: &str, user_message: &str, _domain: &str) -> Result<String> {
-        let client = reqwest::Client::new();
+        let client = reqwest::Client::builder()
+            .connect_timeout(Duration::from_secs(10))
+            .timeout(Duration::from_secs(120))
+            .build()?;
 
         let request = OpenAIRequest {
             model: self.model.clone(),
@@ -449,7 +453,10 @@ Respond ONLY with valid JSON matching:
     }
 
     async fn embed(&self, text: &str) -> Result<Vec<f32>> {
-        let client = reqwest::Client::new();
+        let client = reqwest::Client::builder()
+            .connect_timeout(Duration::from_secs(10))
+            .timeout(Duration::from_secs(60))
+            .build()?;
 
         #[derive(Serialize)]
         struct EmbedRequest {

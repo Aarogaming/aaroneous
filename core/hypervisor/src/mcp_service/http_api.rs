@@ -1,10 +1,12 @@
 use crate::mcp_service::service::{JsonRpcResponse, McpService};
 use axum::{
     Router,
+    body::Body,
     extract::State,
-    http::StatusCode,
+    http::{HeaderMap, StatusCode},
+    middleware::Next,
     response::{
-        IntoResponse, Json,
+        IntoResponse, Json, Response,
         sse::{Event, KeepAlive, Sse},
     },
     routing::{get, post},
@@ -58,6 +60,8 @@ pub struct McpAppState {
     pub service: Arc<McpService>,
     /// Active SSE session channels (session_id → broadcast sender)
     pub sse_sessions: SseSessions,
+    /// Bind address for deriving SSE endpoint URLs dynamically.
+    pub bind_addr: SocketAddr,
 }
 
 // ── Server ────────────────────────────────────────────────────────────────────
@@ -80,18 +84,28 @@ impl HttpServer {
         let state = McpAppState {
             service,
             sse_sessions: Arc::new(tokio::sync::RwLock::new(std::collections::HashMap::new())),
+            bind_addr: self.addr,
         };
 
-        let app = Router::new()
+        // Build separate routers: protected routes get auth middleware,
+        // health/discovery routes remain unauthenticated.
+        let protected = Router::new()
             // MCP JSON-RPC 2.0 transport (primary)
             .route("/mcp", post(handle_mcp_post))
             // SSE transport (for Claude Desktop / streaming clients)
             .route("/sse", get(handle_sse))
+            .layer(axum::middleware::from_fn(mcp_api_key_auth));
+
+        let public = Router::new()
             // Health probe (unauthenticated)
             .route("/health", get(handle_health))
             // MCP discovery endpoint (returns server info)
-            .route("/", get(handle_root))
-            .with_state(state);
+            .route("/", get(handle_root));
+
+        let app = Router::new()
+            .merge(protected)
+            .merge(public)
+            .with_state(state.clone());
 
         let listener = tokio::net::TcpListener::bind(self.addr).await?;
         info!("MCP server listening on {} (JSON-RPC 2.0 + SSE)", self.addr);
@@ -106,6 +120,44 @@ impl HttpServer {
 
         axum::serve(listener, app).await?;
         Ok(())
+    }
+}
+
+// ── Auth Middleware ───────────────────────────────────────────────────────────
+
+/// API-key auth guard for MCP routes.
+///
+/// Mirrors the federation router's `api_key_auth` middleware:
+/// - If `AARONEOUS_API_KEY` env var is **not** set → pass through (auth disabled).
+/// - If set → require `Authorization: Bearer <key>` header on every request.
+async fn mcp_api_key_auth(
+    headers: HeaderMap,
+    req: axum::extract::Request<Body>,
+    next: Next,
+) -> Response {
+    let Some(required_key) = std::env::var("AARONEOUS_API_KEY").ok() else {
+        // Auth not configured — pass through
+        return next.run(req).await;
+    };
+
+    let provided = headers
+        .get("authorization")
+        .and_then(|v| v.to_str().ok())
+        .and_then(|s| {
+            s.strip_prefix("Bearer ")
+                .or_else(|| s.strip_prefix("bearer "))
+        });
+
+    match provided {
+        Some(key) if key == required_key => next.run(req).await,
+        _ => (
+            StatusCode::UNAUTHORIZED,
+            Json(serde_json::json!({
+                "error": "Unauthorized",
+                "message": "Set Authorization: Bearer <AARONEOUS_API_KEY>"
+            })),
+        )
+            .into_response(),
     }
 }
 
@@ -201,7 +253,7 @@ async fn handle_sse(State(state): State<McpAppState>) -> impl IntoResponse {
 
     let sessions_clone = state.sse_sessions.clone();
     let sid_clone = session_id.clone();
-    let endpoint_url = format!("http://localhost:8766/mcp?session={}", session_id);
+    let endpoint_url = format!("http://{}/mcp?session={}", state.bind_addr, session_id);
 
     let stream = async_stream::stream! {
         // MCP spec: first event must be "endpoint" with the POST URL (includes session)
@@ -264,6 +316,7 @@ async fn handle_health(State(state): State<McpAppState>) -> impl IntoResponse {
         "tools_registered": tool_count,
         "uptime_secs": state.service.uptime_secs(),
         "requests_total": state.service.request_count(),
+        "llm": state.service.llm_provider_status(),
     }))
 }
 
@@ -278,20 +331,21 @@ async fn handle_root(State(state): State<McpAppState>) -> impl IntoResponse {
         .map(|t| t.name.clone())
         .collect();
 
+    let addr = state.bind_addr;
     Json(serde_json::json!({
         "name": "Aaroneous",
         "description": "Sovereign AI hive — 9 specialized agents powered by abliterated non-coding base models",
         "version": env!("CARGO_PKG_VERSION"),
         "protocol": "MCP/2024-11-05",
         "transport": {
-            "http": "POST http://localhost:8766/mcp",
-            "sse": "GET http://localhost:8766/sse",
+            "http": format!("POST http://{}/mcp", addr),
+            "sse": format!("GET http://{}/sse", addr),
         },
         "tools": tool_names,
         "claude_desktop_config": {
             "mcpServers": {
                 "aaroneous": {
-                    "url": "http://localhost:8766/sse",
+                    "url": format!("http://{}/sse", addr),
                     "transport": "sse"
                 }
             }
@@ -299,7 +353,7 @@ async fn handle_root(State(state): State<McpAppState>) -> impl IntoResponse {
         "cursor_config": {
             "cursor.mcp.servers": {
                 "aaroneous": {
-                    "url": "http://localhost:8766/mcp",
+                    "url": format!("http://{}/mcp", addr),
                     "transport": "http"
                 }
             }

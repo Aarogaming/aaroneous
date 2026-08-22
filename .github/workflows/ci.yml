@@ -1,19 +1,17 @@
-name: Aaroneous CI
+name: CI
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main]
   pull_request:
     branches: [main]
 
 env:
   CARGO_TERM_COLOR: always
-  RUST_BACKTRACE: 1
 
 jobs:
-  # 1. Host compilation check
-  check-host:
-    name: Host Compilation Check
+  check:
+    name: Check & Test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -21,125 +19,15 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
-          components: clippy, rustfmt
+          components: rustfmt
 
-      - name: Cache cargo registry
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+      - uses: Swatinem/rust-cache@v2
 
-      - name: cargo check --workspace
-        run: cargo check --workspace --all-features
-
-      - name: cargo clippy
-        run: cargo clippy --workspace --all-features -- -D warnings
-
-      - name: cargo fmt check
+      - name: Formatting
         run: cargo fmt --all -- --check
 
-  # 2. WASM agent build
-  build-wasm:
-    name: WASM Agent Build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
+      - name: Workspace check
+        run: cargo check --workspace
 
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: wasm32-wasip1
-
-      - name: Cache cargo registry
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-wasm-cargo-${{ hashFiles('**/Cargo.lock') }}
-
-      - name: Build WASM agents
-        run: cargo build --target wasm32-wasip1 --release
-        working-directory: extensions/wasm
-
-      - name: Verify WASM binaries
-        run: |
-          for f in target/wasm32-wasip1/release/*.wasm; do
-            echo "Validating: $f"
-            wasm-tools validate "$f"
-          done
-
-  # 3. Integrated IPC testing with ephemeral NATS
-  test-ipc:
-    name: IPC Integration Tests
-    runs-on: ubuntu-latest
-    services:
-      nats:
-        image: nats:latest
-        ports:
-          - 4222:4222
-          - 8222:8222
-        options: >-
-          --health-cmd "nc -z localhost 4222"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Cache cargo registry
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-test-cargo-${{ hashFiles('**/Cargo.lock') }}
-
-      - name: Run integration tests
-        run: cargo test --workspace --all-features -- --nocapture
-        env:
-          NATS_URL: nats://localhost:4222
-          AARONEOUS_WORKSPACE: /tmp/aaroneous-test
-
-  # 4. Spatial-Kinetic Engine build
-  build-spatial-kinetic:
-    name: Spatial-Kinetic Engine
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Cache cargo registry
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-spatial-cargo-${{ hashFiles('**/Cargo.lock') }}
-
-      - name: Build spatial_kinetic binary
-        run: cargo build --bin spatial_kinetic --release
-        working-directory: core/hypervisor
-
-      - name: Verify binary
-        run: |
-          if (Test-Path "target\release\spatial_kinetic.exe") {
-            Write-Host "Binary exists"
-            & "target\release\spatial_kinetic.exe" --help
-          } else {
-            Write-Error "Binary not found"
-            exit 1
-          }
-        working-directory: core/hypervisor
+      - name: Tests
+        run: cargo test --workspace

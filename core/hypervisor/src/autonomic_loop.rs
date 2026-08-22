@@ -186,7 +186,6 @@ pub struct AutonomicNervousSystem {
     self_correction_enzyme: Arc<SelfCorrectionEnzyme>,
     neural_pruning_enzyme: Arc<NeuralPruningEnzyme>,
     diplomat_enzyme: Arc<DiplomatEnzyme>,
-    wasm_splicer: Arc<crate::wasm_splicer::WasmSplicingEngine>,
     concept_drift_detector: Arc<RwLock<ConceptDriftDetector>>,
     curiosity_enzyme: Arc<RwLock<CuriosityEnzyme>>,
     semantic_index: Arc<RwLock<SemanticIndex>>,
@@ -296,7 +295,6 @@ impl AutonomicNervousSystem {
             self_correction_enzyme: Arc::new(SelfCorrectionEnzyme::new()),
             neural_pruning_enzyme: Arc::new(NeuralPruningEnzyme::new(60)),
             diplomat_enzyme: Arc::new(DiplomatEnzyme::new()),
-            wasm_splicer: Arc::new(crate::wasm_splicer::WasmSplicingEngine::new().unwrap()),
             concept_drift_detector: Arc::new(RwLock::new(ConceptDriftDetector::new())),
             curiosity_enzyme: Arc::new(RwLock::new(CuriosityEnzyme::new())),
             semantic_index: Arc::new(RwLock::new(semantic_index)),
@@ -406,7 +404,6 @@ impl AutonomicNervousSystem {
         let self_correction_enzyme = self.self_correction_enzyme.clone();
         let neural_pruning_enzyme = self.neural_pruning_enzyme.clone();
         let diplomat_enzyme = self.diplomat_enzyme.clone();
-        let wasm_splicer = self.wasm_splicer.clone();
         let concept_drift_detector = self.concept_drift_detector.clone();
         let curiosity_enzyme = self.curiosity_enzyme.clone();
         let semantic_index = self.semantic_index.clone();
@@ -1147,9 +1144,7 @@ impl AutonomicNervousSystem {
 
                     if state.dialogue.consensus_score > 95 && state.clock_tick % 1000 == 0 {
                         let name = format!("skill_chip_{}", state.clock_tick);
-                        if wasm_splicer
-                            .splice_specialist_dna(&name, &["odin", "merlin"])
-                            .is_ok()
+                        // DNA splicing produces a minimal phenotype binary
                         {
                             dopamine_system
                                 .process_event(&mut state, DopamineEvent::SuccessfulIngestion(100));

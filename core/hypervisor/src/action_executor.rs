@@ -1,62 +1,12 @@
 // Action Executor
-// Executes decisions made by the decision engine: file ops, WASM, throttling, notifications
+// Executes decisions made by the decision engine: file ops, throttling, notifications
 
 use crate::constellation_ui::{ConstellationCanvas, NodeMetrics};
 use crate::decision_engine::{Action, TaskEvaluation};
-use anyhow::Result;
 use biology::SystemBiology;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
-use wasmtime::component::{Component, Instance as ComponentInstance};
-use wasmtime::{Config, Engine, Store};
-
-/// WASM Enzyme Execution Context for `wasmtime` runtime operations
-struct WasmEnzymeContext {
-    _engine: Engine,
-    _store: Store<()>,
-    _component: Component,
-    _instance: ComponentInstance,
-}
-
-impl WasmEnzymeContext {
-    /// Load a `.wasm` (component model) file from disk into a new context.
-    /// Returns an error string for any failure (caller wraps into ActionResult).
-    fn from_binary(path: PathBuf, _input_data: &[u8]) -> Result<Self, String> {
-        let mut config = Config::new();
-        config.wasm_component_model(true);
-        let engine = Engine::new(&config).map_err(|e| format!("Engine init failed: {}", e))?;
-        let component = Component::from_file(&engine, &path)
-            .map_err(|e| format!("Component load failed: {}", e))?;
-        let mut store = Store::new(&engine, ());
-        let linker = wasmtime::component::Linker::new(&engine);
-        let instance = linker
-            .instantiate(&mut store, &component)
-            .map_err(|e| format!("Instantiate failed: {}", e))?;
-        Ok(Self {
-            _engine: engine,
-            _store: store,
-            _component: component,
-            _instance: instance,
-        })
-    }
-
-    /// Locate a function to invoke by convention. Returns the export name.
-    /// Stub: returns None because component-model exports cannot be enumerated
-    /// with the same API as core-wasm modules. The caller's `if let Some(...)`
-    /// branch will skip invocation and report "no execution function found".
-    fn find_execution_function(&self) -> Option<String> {
-        None
-    }
-
-    /// Execute the named function. Stub: returns an error so callers can degrade gracefully.
-    fn execute_with_input(&mut self, func_name: &str) -> Result<Vec<u8>, String> {
-        Err(format!(
-            "WasmEnzymeContext::execute_with_input is a stub; cannot invoke '{}'",
-            func_name
-        ))
-    }
-}
 
 /// Types of actions the executor can perform
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -221,62 +171,22 @@ impl ActionExecutor {
         }
     }
 
-    /// Spawn a WASM enzyme and execute with typed arguments
+    /// WASM enzyme spawning is no longer supported (wasmtime removed).
     async fn spawn_wasm_enzyme(&self, enzyme_path: &Path, input_data: &[u8]) -> ActionResult {
-        match WasmEnzymeContext::from_binary(enzyme_path.to_path_buf(), input_data) {
-            Ok(mut context) => {
-                // Find the execution function (convention-based)
-                if let Some(func_name) = context.find_execution_function() {
-                    // Execute with typed arguments
-                    match context.execute_with_input(&func_name) {
-                        Ok(output_data) => ActionResult {
-                            action_type: "spawn_wasm".to_string(),
-                            success: true,
-                            duration_ms: 0.0,
-                            message: format!("WASM enzyme executed successfully: {}", func_name),
-                            metadata: serde_json::json!({
-                                "path": "unnamed",
-                                "input_size": input_data.len(),
-                                "output_size": output_data.len(),
-                                "function_found": func_name,
-                            }),
-                        },
-                        Err(e) => ActionResult {
-                            action_type: "spawn_wasm".to_string(),
-                            success: false,
-                            duration_ms: 0.0,
-                            message: format!("WASM execution failed: {}", e),
-                            metadata: serde_json::json!({
-                                "path": "unnamed",
-                                "input_size": input_data.len(),
-                                "error": e.to_string(),
-                            }),
-                        },
-                    }
-                } else {
-                    ActionResult {
-                        action_type: "spawn_wasm".to_string(),
-                        success: false,
-                        duration_ms: 0.0,
-                        message: "No execution function found in WASM binary".to_string(),
-                        metadata: serde_json::json!({
-                            "path": "unnamed",
-                            "exports_available": true,
-                        }),
-                    }
-                }
-            }
-            Err(e) => ActionResult {
-                action_type: "spawn_wasm".to_string(),
-                success: false,
-                duration_ms: 0.0,
-                message: format!("Failed to load WASM enzyme: {}", e),
-                metadata: serde_json::json!({
-                    "path": enzyme_path.to_string_lossy(),
-                    "input_size": input_data.len(),
-                    "error": e.to_string(),
-                }),
-            },
+        ActionResult {
+            action_type: "spawn_wasm".to_string(),
+            success: false,
+            duration_ms: 0.0,
+            message: format!(
+                "WASM enzyme execution is not available (wasmtime removed). \
+                 Enzyme path: {}, input size: {} bytes",
+                enzyme_path.display(),
+                input_data.len()
+            ),
+            metadata: serde_json::json!({
+                "path": enzyme_path.display().to_string(),
+                "input_size": input_data.len(),
+            }),
         }
     }
 

@@ -2,6 +2,35 @@
 
 All notable changes to Aaroneous.
 
+## [0.3.0] - 2026-08-21
+
+### 🧬 Full 9-Specialist Distillation, Live P2P Daemon & Autonomous Self-Evolution
+
+#### Added
+- **Full 9-Specialist `.si` Solid-State Distillation (`crates/compute`)**:
+  - `RosettaStoneDataset::synthesize_all_9_specialists`: Domain-specific training trajectory generation for all 9 Sovereign Domains (Odin, Merlin, Ariel, Hephaestus, Argus, Dionysus, Hermes, Wen, Kami).
+  - `SiDistillationHarness::distill_all_9_specialists`: End-to-end multi-teacher distillation with CKA + InfoNCE loss optimization producing ~80 KB `.si` containers at 100% CKA alignment.
+  - CLI command: `a_run distill-all --samples 10 --epochs 1 --out models/distilled_federation`.
+- **Live Multi-Hive P2P TCP Socket Daemon (`core/hypervisor/src/federation/multi_hive/live_daemon.rs`)**:
+  - `LiveP2PDaemon`: Asynchronous Tokio TCP listener with 4-byte length-delimited framing, heartbeat EWMA latency estimation, and bi-directional stream management.
+  - `DaemonWirePacket`: Ping/Pong, GossipProposal/GossipVote, TaskOffloadRequest/TaskOffloadResponse.
+  - Live Byzantine Gossip Consensus: 2/3 quorum voting over real TCP streams.
+  - CLI commands: `a_run daemon --bind 127.0.0.1:8001`, `a_run mesh --nodes 4 --live`.
+- **Swarm Micro-Task TCP Offloader (`core/hypervisor/src/federation/multi_hive/swarm_offloader.rs`)**:
+  - `SwarmOffloader`: Routes computational tasks to lowest-latency peer hive when local pressure exceeds threshold (default 80%). Measured 12 µs wire RTT + remote execution.
+- **Autonomous Background Self-Evolution Engine (`crates/evolution/src/continuous_evolution.rs`)**:
+  - `ContinuousSelfEvolutionEngine`: Couples Dionysus 4-channel neurochemistry (curiosity/boredom drives) with Hephaestus AST hypothesis mutations, Argus Deep SVDD safety audits, and `.si` solid-state skill stack promotions.
+  - CLI command: `a_run evolve --cycles 3 --threshold 0.70`.
+
+#### Changed
+- **CLI Main Thread Stack**: Wrapped entire CLI dispatch in dedicated 32 MB stack worker thread, preventing `STATUS_STACK_OVERFLOW` on Windows during unoptimized debug builds with deep AST/ML call stacks.
+- **`connect_peer` Non-Blocking**: Outbound peer connections are now spawned as background Tokio tasks instead of blocking the caller.
+
+#### Verified
+- Workspace test suite: **1,352 passed, 0 failed (100%)** across all 12 crates.
+
+---
+
 ## [0.2.0] - 2026-08-21
 
 ### 🏛️ Tri-Tiered Layered Control System & Specialist Federation

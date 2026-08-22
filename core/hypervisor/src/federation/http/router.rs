@@ -4662,8 +4662,8 @@ async fn openai_chat_completions(
 
     let model = req.model.as_deref().unwrap_or("aaroneous").to_lowercase();
     let stream = req.stream.unwrap_or(false);
-    let max_tokens = req.max_tokens.unwrap_or(2048);
-    let temperature = req.temperature.unwrap_or(0.7);
+    let max_tokens = req.max_tokens.unwrap_or(2048).min(16384);
+    let temperature = req.temperature.unwrap_or(0.7).clamp(0.0, 2.0);
 
     // Extract the last user message as the immediate intent
     let user_content = req
@@ -4980,7 +4980,10 @@ async fn route_to_sovereign(
             let mut config = llm.config().clone();
             config.temperature = temperature;
             config.max_tokens = max_tokens;
-            let scoped_llm = crate::llm::LLMClient::new(config).await.unwrap();
+            let scoped_llm = match crate::llm::LLMClient::new(config).await {
+                Ok(c) => c,
+                Err(e) => return format!("[{}] LLM init error: {}", sovereign_name, e),
+            };
             if let Ok(r) = scoped_llm
                 .generate_domain_response(&system_prompt, user_message, domain)
                 .await
