@@ -156,6 +156,28 @@ impl SoulFusionEngine {
             rank_requirement: rank.to_string(),
         }
     }
+
+    /// Automatically mines and synthesizes pairwise cooperative synergies across all 9 Sovereign Specialists
+    pub fn mine_all_federation_synergies() -> Vec<FusedEmergentSkill> {
+        let pairs = [
+            ("odin_intent_decomposition", 150.0, "merlin_graph_synthesis", 140.0),
+            ("hephaestus_ast_mutation", 160.0, "argus_svdd_guardrail", 155.0),
+            ("kami_motion_gating", 130.0, "ariel_hud_compositor", 125.0),
+            ("hermes_mesh_routing", 140.0, "dionysus_memory_compaction", 135.0),
+            ("wen_chrono_scheduler", 135.0, "hephaestus_jit_synthesis", 150.0),
+            ("odin_consensus_quorum", 145.0, "hermes_gossip_broadcast", 130.0),
+            ("merlin_semantic_search", 135.0, "argus_zero_copy_audit", 140.0),
+            ("kami_spatial_intent", 140.0, "hephaestus_native_optimizer", 145.0),
+            ("dionysus_homeostasis", 130.0, "wen_temporal_resonance", 125.0),
+            ("ariel_oscilloscope", 120.0, "merlin_subgraph_traversal", 135.0),
+        ];
+
+        pairs.iter()
+            .map(|(skill_a, power_a, skill_b, power_b)| {
+                Self::fuse_skills(skill_a, *power_a, skill_b, *power_b)
+            })
+            .collect()
+    }
 }
 
 #[cfg(test)]
@@ -201,5 +223,16 @@ mod tests {
         // (120 + 100) * 1.35 = 297.0 -> Rank S
         assert!((fused.power_rating - 297.0).abs() < 1e-4);
         assert_eq!(fused.rank_requirement, "Rank S");
+    }
+
+    #[test]
+    fn test_mine_all_federation_synergies() {
+        let synergies = SoulFusionEngine::mine_all_federation_synergies();
+        assert_eq!(synergies.len(), 10);
+        for syn in &synergies {
+            assert!(syn.synergy_multiplier >= 1.35);
+            assert!(syn.power_rating > 250.0);
+            assert!(syn.rank_requirement == "Rank S" || syn.rank_requirement == "Ultimate");
+        }
     }
 }

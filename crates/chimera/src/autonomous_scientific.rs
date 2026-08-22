@@ -208,6 +208,36 @@ impl AutonomousScientificEngine {
 
         Ok(reports)
     }
+
+    /// Executes an Asymmetric Dream Duel (Alice Generator vs. Bob Verifier)
+    pub fn run_asymmetric_dream_duel(target_file: &str, code: &str) -> Result<DreamDuelOutcome> {
+        let report = Self::analyze_and_hypothesize(Path::new(target_file), code)?;
+        let epistemic_empowerment = (report.hypotheses_accepted as f64) * 1.35;
+        let surprise_normalized = (1.0 - report.avg_posterior_confidence).clamp(0.0, 1.0);
+
+        Ok(DreamDuelOutcome {
+            target_file: target_file.to_string(),
+            alice_proposals: report.hypotheses_tested,
+            bob_acceptances: report.hypotheses_accepted,
+            epistemic_empowerment,
+            surprise_normalized,
+            promoted_patches: report.hypotheses.into_iter()
+                .filter(|h| h.verdict == "HYPOTHESIS_ACCEPTED")
+                .map(|h| h.patch_preview)
+                .collect(),
+        })
+    }
+}
+
+/// Telemetry outcome from an Asymmetric Dream Duel (Alice vs. Bob)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DreamDuelOutcome {
+    pub target_file: String,
+    pub alice_proposals: usize,
+    pub bob_acceptances: usize,
+    pub epistemic_empowerment: f64,
+    pub surprise_normalized: f64,
+    pub promoted_patches: Vec<String>,
 }
 
 #[cfg(test)]
@@ -244,5 +274,24 @@ mod tests {
 
         let report = AutonomousScientificEngine::analyze_and_hypothesize(path, code).unwrap();
         assert!(report.hypotheses.iter().any(|h| h.category == HypothesisCategory::PerformanceOptimization));
+    }
+
+    #[test]
+    fn test_asymmetric_dream_duel_cycle() {
+        let code = r#"
+            pub fn compute_result() -> u32 {
+                let data = "test".to_string();
+                if false {
+                    panic!("fatal error");
+                }
+                data.clone().len() as u32
+            }
+        "#;
+
+        let outcome = AutonomousScientificEngine::run_asymmetric_dream_duel("src/compute_worker.rs", code).unwrap();
+        assert!(outcome.alice_proposals >= 2);
+        assert!(outcome.bob_acceptances >= 1);
+        assert!(outcome.epistemic_empowerment > 0.0);
+        assert!(!outcome.promoted_patches.is_empty());
     }
 }

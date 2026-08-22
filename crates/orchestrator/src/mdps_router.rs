@@ -286,6 +286,27 @@ impl TaskRoutingEngine {
             self.transition_matrix[s].push(vec![0.0; num_states]);
         }
     }
+
+    /// Rebalances tasks across local specialists and remote swarm peers based on metabolic capacity
+    pub fn balance_swarm_load(&self, peer_capacities: &[(&str, f64)]) -> Vec<(String, String)> {
+        let mut offload_routes = Vec::new();
+        // If average local specialist capacity is overloaded (< 0.5), find peers with capacity > 0.6
+        let avg_local_capacity: f64 = if self.specialists.is_empty() {
+            1.0
+        } else {
+            self.specialists.iter().map(|s| s.capacity).sum::<f64>() / (self.specialists.len() as f64)
+        };
+
+        if avg_local_capacity < 0.5 {
+            for (peer_id, peer_cap) in peer_capacities {
+                if *peer_cap > 0.6 {
+                    offload_routes.push(("overloaded_local_task".to_string(), peer_id.to_string()));
+                }
+            }
+        }
+
+        offload_routes
+    }
 }
 
 /// Decision output from the routing engine
@@ -363,5 +384,19 @@ mod tests {
             .find(|s| s.id == "spec_1")
             .unwrap();
         assert!(spec.success_rate > 0.85); // Should have increased slightly
+    }
+
+    #[test]
+    fn test_balance_swarm_load() {
+        let mut overloaded_specs = create_test_specialists();
+        overloaded_specs[0].capacity = 0.2;
+        overloaded_specs[1].capacity = 0.3;
+
+        let engine = TaskRoutingEngine::new(overloaded_specs);
+        let peers = vec![("peer_node_alpha", 0.9), ("peer_node_beta", 0.4)];
+        let routes = engine.balance_swarm_load(&peers);
+
+        assert_eq!(routes.len(), 1);
+        assert_eq!(routes[0].1, "peer_node_alpha");
     }
 }
