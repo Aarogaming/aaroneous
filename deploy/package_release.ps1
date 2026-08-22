@@ -29,6 +29,8 @@ New-Item -ItemType Directory -Force -Path (Join-Path $StagingDir "shaders") | Ou
 Write-Host "Copying release binaries..." -ForegroundColor Yellow
 Copy-Item -Path (Join-Path $WorkspaceRoot "target\release\aaroneous.exe") -Destination (Join-Path $StagingDir "bin\aaroneous.exe") -Force
 Copy-Item -Path (Join-Path $WorkspaceRoot "target\release\a_run.exe") -Destination (Join-Path $StagingDir "bin\a_run.exe") -Force
+Copy-Item -Path (Join-Path $WorkspaceRoot "target\release\aaroneous-uninstall.exe") -Destination (Join-Path $StagingDir "bin\aaroneous-uninstall.exe") -Force
+Copy-Item -Path (Join-Path $WorkspaceRoot "target\release\aaroneous-setup.exe") -Destination (Join-Path $StagingDir "Aaroneous-Setup.exe") -Force
 
 # 3. Copy Configurations & Shaders
 Write-Host "Copying configuration and shader assets..." -ForegroundColor Yellow

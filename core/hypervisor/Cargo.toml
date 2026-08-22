@@ -26,6 +26,14 @@ path = "bin/genome_compiler.rs"
 name = "synapse_dump"
 path = "bin/synapse_dump.rs"
 
+[[bin]]
+name = "aaroneous-setup"
+path = "bin/installer_gui.rs"
+
+[[bin]]
+name = "aaroneous-uninstall"
+path = "bin/uninstaller_gui.rs"
+
 [[bench]]
 name = "phase_x_smoke"
 harness = false
