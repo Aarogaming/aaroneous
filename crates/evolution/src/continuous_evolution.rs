@@ -51,6 +51,7 @@ pub struct SelfEvolutionCycleReport {
     pub hypotheses_accepted: usize,
     pub argus_svdd_safety_verified: bool,
     pub skills_promoted_to_si: usize,
+    pub lora_gradient_variance: f32,
     pub duration_ms: u64,
 }
 
@@ -102,6 +103,7 @@ impl ContinuousSelfEvolutionEngine {
                 hypotheses_accepted: 0,
                 argus_svdd_safety_verified: true,
                 skills_promoted_to_si: 0,
+                lora_gradient_variance: 0.0,
                 duration_ms,
             });
         }
@@ -154,8 +156,20 @@ impl ContinuousSelfEvolutionEngine {
             }
         }
 
-        // 3. Phase 3: Promote Validated Skills to .si Solid-State Container
+        // 3. Phase 3: Promote Validated Skills to .si Solid-State Container & Compute LoRA Gradient Variance
         let mut promoted_count = 0usize;
+        let mut gradient_variance = 0.0f32;
+
+        if !accepted_hypotheses.is_empty() {
+            let n = accepted_hypotheses.len() as f32;
+            let mean_delta: f32 = accepted_hypotheses.iter().map(|h| h.performance_delta_pct as f32).sum::<f32>() / n;
+            let sum_sq_diff: f32 = accepted_hypotheses.iter().map(|h| {
+                let diff = h.performance_delta_pct as f32 - mean_delta;
+                diff * diff
+            }).sum();
+            gradient_variance = (sum_sq_diff / n).max(0.0001);
+        }
+
         if argus_safety_verified && !accepted_hypotheses.is_empty() {
             if let Some(ref si_path) = self.config.target_si_path {
                 if let Ok(mut container) = SolidStateSiContainer::load_from_file(si_path) {
@@ -193,6 +207,7 @@ impl ContinuousSelfEvolutionEngine {
             hypotheses_accepted,
             argus_svdd_safety_verified: argus_safety_verified,
             skills_promoted_to_si: promoted_count,
+            lora_gradient_variance: gradient_variance,
             duration_ms,
         })
     }

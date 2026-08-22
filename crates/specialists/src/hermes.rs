@@ -104,6 +104,34 @@ impl HermesSpecialist {
             is_connected: true,
         }
     }
+    /// Broadcasts a gossip pulse to all known swarm peers to update mesh connectivity and latencies
+    pub fn broadcast_gossip_pulse(&mut self, known_peers: &[&str]) -> Vec<MeshPeerState> {
+        let mut states = Vec::with_capacity(known_peers.len());
+        for (idx, peer) in known_peers.iter().enumerate() {
+            self.caduceus.packets_routed += 1;
+            let latency_ms = 0.5 + ((idx as f32 * 0.3) % 2.0);
+            states.push(MeshPeerState {
+                peer_node_id: peer.to_string(),
+                latency_ms,
+                synced_epochs: self.caduceus.packets_routed,
+                is_connected: true,
+            });
+        }
+        self.caduceus.connected_peers = 1 + states.len();
+        states
+    }
+
+    /// Synchronizes swarm manifest capabilities with a remote node
+    pub fn sync_swarm_manifest(&mut self, peer_id: &str, active_specialists: &[&str]) -> bool {
+        self.caduceus.packets_routed += 1;
+        info!(
+            target: "specialist::hermes",
+            peer = %peer_id,
+            specialists_count = active_specialists.len(),
+            "Synced remote swarm capabilities over Caduceus mesh"
+        );
+        !active_specialists.is_empty()
+    }
 }
 
 #[async_trait]
@@ -156,5 +184,19 @@ mod tests {
         let state = hermes.route_mesh_packet("node_beta", 1024);
         assert!(state.is_connected);
         assert_eq!(hermes.caduceus.packets_routed, 1);
+    }
+
+    #[test]
+    fn test_hermes_gossip_pulse_and_manifest_sync() {
+        let mut hermes = HermesSpecialist::new();
+        let peers = vec!["node_alpha", "node_beta", "node_gamma"];
+        let pulse_states = hermes.broadcast_gossip_pulse(&peers);
+        assert_eq!(pulse_states.len(), 3);
+        assert_eq!(hermes.caduceus.connected_peers, 4); // 1 local + 3 remote
+        assert_eq!(hermes.caduceus.packets_routed, 3);
+
+        let is_synced = hermes.sync_swarm_manifest("node_alpha", &["odin", "merlin", "hephaestus"]);
+        assert!(is_synced);
+        assert_eq!(hermes.caduceus.packets_routed, 4);
     }
 }

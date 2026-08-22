@@ -159,6 +159,17 @@ impl RosettaStoneDataset {
             .collect()
     }
 
+    /// Synthesizes a unified multi-thousand sample training corpus spanning all 9 Sovereign Domain Specialists
+    pub fn synthesize_full_federation_corpus(sample_count_per_domain: usize) -> Self {
+        let mut unified = Self::new("Rosetta-SpecialistFederation-FullCorpus");
+        let all_datasets = Self::synthesize_all_9_specialists(sample_count_per_domain);
+        for ds in all_datasets {
+            unified.steps.extend(ds.steps);
+        }
+        unified.sample_count = unified.steps.len();
+        unified
+    }
+
     /// Saves the Rosetta Stone dataset to a binary file
     pub fn save_to_file<P: AsRef<Path>>(&self, path: P) -> Result<()> {
         if let Some(parent) = path.as_ref().parent() {
@@ -212,6 +223,22 @@ mod tests {
         let loaded = RosettaStoneDataset::load_from_file(&path).unwrap();
         assert_eq!(loaded.sample_count, 10);
         assert_eq!(loaded.steps[0].description, dataset.steps[0].description);
+        let _ = fs::remove_file(path);
+    }
+
+    #[test]
+    fn test_rosetta_stone_full_federation_corpus() {
+        let unified = RosettaStoneDataset::synthesize_full_federation_corpus(20);
+        assert_eq!(unified.sample_count, 180); // 9 specialists * 20 samples
+        assert_eq!(unified.steps.len(), 180);
+
+        let temp_dir = std::env::temp_dir();
+        let path = temp_dir.join("test_rosetta_federation_corpus.rost");
+        unified.save_to_file(&path).unwrap();
+
+        let loaded = RosettaStoneDataset::load_from_file(&path).unwrap();
+        assert_eq!(loaded.sample_count, 180);
+        assert_eq!(loaded.steps[179].expected_opcode, unified.steps[179].expected_opcode);
         let _ = fs::remove_file(path);
     }
 }
