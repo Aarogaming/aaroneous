@@ -196,6 +196,40 @@ impl SiDistillationMiner {
         Ok(report)
     }
 
+    /// Mines custom reasoning traces into the SI corpus
+    pub fn mine_from_source_corpus(&self, source_traces: &[(&str, &str, u16)]) -> Result<DistillationBatchReport> {
+        let start = Instant::now();
+        let mut raw_bytes = 0;
+        let mut native_bytes = 0;
+        let mut total_energy = 0.0;
+        let mut count = 0;
+
+        for (prompt, code, opcode) in source_traces {
+            raw_bytes += prompt.len() + code.len();
+            let packet = self.distill_code_to_si(*opcode, DimensionalUnit::DIMENSIONLESS, prompt, code)?;
+            let bin = packet.to_binary()?;
+            native_bytes += bin.len();
+            total_energy += packet.header.thermodynamic_free_energy;
+            count += 1;
+        }
+
+        let estimated_llm_footprint_bytes = ((raw_bytes as f32 / 4.0) * 1024.0) as usize;
+        let compression = if estimated_llm_footprint_bytes > 0 {
+            (1.0 - (native_bytes as f32 / estimated_llm_footprint_bytes as f32)) * 100.0
+        } else {
+            90.0
+        };
+
+        Ok(DistillationBatchReport {
+            thoughts_mined: count,
+            raw_english_bytes: raw_bytes,
+            machine_native_bytes: native_bytes,
+            compression_ratio_percent: compression.clamp(1.0, 99.0),
+            average_energy_cost: if count > 0 { total_energy / count as f64 } else { 0.0 },
+            duration_ms: start.elapsed().as_millis() as u64,
+        })
+    }
+
     /// Gets live corpus metrics
     pub fn get_live_metrics(&self) -> Result<(usize, u64, f64)> {
         self.corpus_store.get_corpus_stats()
@@ -220,6 +254,24 @@ mod tests {
         let (count, bytes, _avg_energy) = miner.get_live_metrics().unwrap();
         assert_eq!(count, 4);
         assert!(bytes > 0);
+
+        let _ = std::fs::remove_file(temp_corpus);
+    }
+
+    #[test]
+    fn test_mine_from_source_corpus() {
+        let nanos = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos();
+        let temp_corpus = std::env::temp_dir().join(format!("test_source_corpus_{}.bin", nanos));
+        let miner = SiDistillationMiner::new(temp_corpus.clone());
+
+        let traces = vec![
+            ("Parse AST tokens", "pub fn parse(s: &str) -> Vec<&str> { s.split_whitespace().collect() }", 0x0100),
+            ("Compute tensor dot", "pub fn dot(a: f32, b: f32) -> f32 { a * b }", 0x0200),
+        ];
+
+        let report = miner.mine_from_source_corpus(&traces).unwrap();
+        assert_eq!(report.thoughts_mined, 2);
+        assert!(report.machine_native_bytes > 0);
 
         let _ = std::fs::remove_file(temp_corpus);
     }
