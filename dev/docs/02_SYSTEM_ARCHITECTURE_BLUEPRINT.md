@@ -6,7 +6,7 @@ Aaroneous is designed around a decoupled, multi-program topology where independe
 
 ```mermaid
 graph TD
-    User([Human Operator]) <-->|GUI / SSE / REST| Ariel[Ariel / MaelstromUI]
+    User([Human Operator]) <-->|GUI / egui / REST| Ariel[Ariel: Native Desktop Studio / a_hud]
     Ariel <-->|Task Intents & Status| AaroneousMaster[Aaroneous Master Linker]
     
     subgraph Master Coordination & Knowledge
@@ -41,13 +41,13 @@ graph TD
 
 ## The Four Core Architectural Layers
 
-### 1. Presentation & Human Interface Layer (Ariel / MaelstromUI)
-- **Technology**: Tauri 2.0 + React 18 + TypeScript + Vite + Tailwind CSS.
-- **Role**: Communicates with the Aaroneous Master daemon via Server-Sent Events (SSE) and HTTP REST.
+### 1. Presentation & Human Interface Layer (Ariel / Native Desktop Studio)
+- **Technology**: Native Rust + `egui` + `eframe` + `wgpu` (`core/hypervisor/bin/a_hud.rs`, legacy MaelstromUI Tauri/React deprecated).
+- **Role**: Communicates with the Aaroneous Master hypervisor via lock-free Synapse Bus and MCP/REST API.
 - **Responsibilities**:
   - Command Center: Intent submission, DAG visualization, real-time agent output feed.
-  - SAB Arsenal: Visualization of available sovereign modules and specialists.
-  - Agentic Ops: Macro recording, routine playback management, and scheduled tasks.
+  - Telescope Suite: Live 11-Specialist SPMC Synapse Bus activation monitors and Argus Deep SVDD $\mathbb{R}^{256}$ latent radar.
+  - Skill Constellation: 3D interactive physics canvas for live LoRA and crystallized skill pathways.
   - Telemetry: Real-time FPS, GPU compute latency, thermal metrics, token reserves.
 
 ### 2. Orchestration & Intelligence Layer (Aaroneous Master, Odin, Merlin)

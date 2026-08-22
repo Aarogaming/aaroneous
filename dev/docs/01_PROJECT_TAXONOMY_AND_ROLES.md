@@ -59,6 +59,6 @@ This document defines the official taxonomy, roles, boundaries, and communicatio
 ### 6. Ariel (UI & Presentation Manager)
 - **Scope**: Visual communication, dashboard management, and human-facing interface.
 - **Responsibilities**:
-  - Drives the `MaelstromUI` frontend (Tauri/React) and native terminal dashboards.
+  - Drives the machine-native Desktop Studio (`a_hud` / Rust egui) and terminal dashboards (legacy MaelstromUI Tauri/React deprecated).
   - Visualizes real-time DAG execution, node health, metabolic token burn, and GPU telemetry.
   - Acts as the primary human-language synthesizer, converting raw binary machine metrics into intuitive visual and textual feedback.
