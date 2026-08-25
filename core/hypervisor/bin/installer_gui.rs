@@ -1,7 +1,7 @@
-﻿//! Aaroneous Setup GUI
+//! Aaroneous Setup GUI
 //! Professional graphical installer desktop application for Aaroneous Sovereign Hypervisor & Studio.
 
-#![windows_subsystem = "windows"]
+// #![windows_subsystem = "windows"]  // temporarily disabled to debug launch
 
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};

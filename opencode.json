@@ -1,0 +1,20 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "terminal": {
+    "default_profile": "auto",
+    "profiles": {
+      "git_bash": {
+        "path": "C:\\Program Files\\Git\\bin\\bash.exe",
+        "args": ["--login", "-i"]
+      },
+      "powershell": {
+        "path": "powershell.exe",
+        "args": ["-NoExit", "-Command"]
+      },
+      "cmd": {
+        "path": "cmd.exe",
+        "args": ["/k"]
+      }
+    }
+  }
+}

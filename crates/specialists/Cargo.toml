@@ -2,7 +2,7 @@
 name = "specialists"
 version = "0.1.0"
 edition = "2021"
-authors = ["Aaroneous"]
+authors = ["Aaron"]
 description = "The Specialist Federation of 9 Sovereign Domain Specialists and their paired Relic Substrates"
 
 [dependencies]

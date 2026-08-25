@@ -2,7 +2,7 @@
 name = "biology"
 version = "0.1.0"
 edition = "2021"
-authors = ["Aaroneous"]
+authors = ["Aaron"]
 description = "Thermodynamic and token-bucket metabolic governor for Aaroneous"
 
 [dependencies]

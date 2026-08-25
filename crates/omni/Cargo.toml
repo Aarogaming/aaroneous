@@ -2,7 +2,7 @@
 name = "omni"
 version = "0.1.0"
 edition = "2021"
-authors = ["Aaroneous"]
+authors = ["Aaron"]
 description = "Universal 3D Galaxy semantic data navigation, star-node clustering, and visual search engine"
 
 [dependencies]

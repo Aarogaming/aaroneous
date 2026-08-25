@@ -2,7 +2,7 @@
 name = "chimera"
 version = "0.1.0"
 edition = "2021"
-authors = ["Aaroneous"]
+authors = ["Aaron"]
 description = "Universal software adaptation, binary deconstruction, AST mutation, and code repair engine"
 
 [dependencies]

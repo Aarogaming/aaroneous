@@ -2,7 +2,7 @@
 name = "marionette"
 version = "0.1.0"
 edition = "2021"
-authors = ["Aaroneous"]
+authors = ["Aaron"]
 description = "Universal frontend user emulation, visual perception, backend probing, and datalogging engine"
 
 [dependencies]

@@ -25,7 +25,7 @@ exclude = [
 [workspace.package]
 version = "0.1.0"
 edition = "2021"
-authors = ["Aaroneous"]
+authors = ["Aaron"]
 license = "MIT"
 repository = "https://github.com/aaroneous/aaroneous"
 

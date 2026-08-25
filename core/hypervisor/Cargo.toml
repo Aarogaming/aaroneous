@@ -68,7 +68,7 @@ parking_lot = "0.12"
 rand = "0.10"
 rand_distr = "0.6"
 ratatui = { version = "0.30", features = ["serde"] }
-eframe = { version = "0.34", features = ["wgpu"] }
+eframe = { version = "0.34", default-features = false, features = ["glow", "default_fonts"] }
 egui = "0.34"
 egui_extras = { version = "0.34", features = ["default"] }
 rfd = "0.15"

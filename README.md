@@ -1,15 +1,12 @@
 # ⚡ Aaroneous: Sovereign Machine-Native Synthetic Intelligence (SI)
 
-> **Zero Python. Zero Token Bloat. Zero Cloud Latency.**  
+> **Aaroneous: Sovereign Machine-Native Synthetic Intelligence (SI)**  
 > A pure Rust autonomic hypervisor and solid-state neural execution substrate powered by **Continuous Selective State-Space Models (SSM)**, **Real-Time Dynamic Adaptation Matrices**, and **Zero-Copy Memory-Mapped `.si` Cartridges**.
-
 ---
 
 ## 🌌 Overview
 
-**Aaroneous** is a next-generation sovereign AI runtime and developer desktop hypervisor built entirely in Rust. Unlike traditional LLM frameworks that wrap Python around static, multi-gigabyte models with slow text tokenizers, Aaroneous operates directly on **Machine-Native AST DAGs, Typed Memory Lattices, and Discrete Selective State-Space Recurrences**.
-
-Running 15 heavy language models simultaneously destroys consumer PC performance through VRAM and KV-cache thrashing. Aaroneous solves this by replacing conversational text-token taxes with **microsecond-fast, solid-state `.si` neural cartridges** that load instantly into virtual memory via `memmap2`.
+**Aaroneous** is a next-generation sovereign AI runtime and developer desktop hypervisor, built entirely in Rust. Unlike traditional LLM frameworks that wrap Python around static, multi-gigabyte models with slow text tokenizers, running many heavy language models simultaneously destroys consumer PC performance through VRAM and KV-cache thrashing.
 
 ```
 ┌────────────────────────────────────────────────────────────────────────────────────────────────────────┐
@@ -87,7 +84,7 @@ Measured on generated `.si` binary cartridges:
   p99 Latency      : 23 µs
   Throughput       : 102,606 operations / second
   Memory Bandwidth : 112.63 MB / second
-  LLM Compute      : 0.0% (Zero prompt tokens, zero Python)
+  LLM Compute      : 0.0% (Zero prompt tokens)
 =================================================================
 ```
 

@@ -2,7 +2,7 @@
 name = "transpiler"
 version = "0.1.0"
 edition = "2021"
-authors = ["Aaroneous"]
+authors = ["Aaron"]
 description = "Synthetic Intelligence (SI) to Conventional AI Inter-Intelligence Translation and Model Conversion Bridge"
 
 [dependencies]
