@@ -92,16 +92,16 @@ impl AaroneousSetupApp {
             };
 
             let discover_source_root = || -> PathBuf {
-                if let Ok(current_exe) = std::env::current_exe() {
-                    if let Some(parent) = current_exe.parent() {
-                        if parent.join("aaroneous.exe").exists() {
-                            return parent.to_path_buf();
-                        }
-                        if let Some(grandparent) = parent.parent() {
-                            if grandparent.join("target").exists() || grandparent.join("Cargo.toml").exists() {
-                                return grandparent.to_path_buf();
-                            }
-                        }
+                if let Ok(current_exe) = std::env::current_exe()
+                    && let Some(parent) = current_exe.parent()
+                {
+                    if parent.join("aaroneous.exe").exists() {
+                        return parent.to_path_buf();
+                    }
+                    if let Some(grandparent) = parent.parent()
+                        && (grandparent.join("target").exists() || grandparent.join("Cargo.toml").exists())
+                    {
+                        return grandparent.to_path_buf();
                     }
                 }
                 aaroneous_paths::WorkspacePaths::discover().root().to_path_buf()
@@ -138,10 +138,8 @@ impl AaroneousSetupApp {
             let copy_if_found = |name: &str, dest: &Path| -> bool {
                 for candidate in &possible_bins {
                     let src = candidate.join(name);
-                    if src.exists() {
-                        if std::fs::copy(&src, dest).is_ok() {
-                            return true;
-                        }
+                    if src.exists() && std::fs::copy(&src, dest).is_ok() {
+                        return true;
                     }
                 }
                 false
@@ -157,10 +155,10 @@ impl AaroneousSetupApp {
                 if let Ok(entries) = std::fs::read_dir(src) {
                     for entry in entries.flatten() {
                         let path = entry.path();
-                        if path.is_file() {
-                            if let Some(fname) = path.file_name() {
-                                let _ = std::fs::copy(&path, dst.join(fname));
-                            }
+                        if path.is_file()
+                            && let Some(fname) = path.file_name()
+                        {
+                            let _ = std::fs::copy(&path, dst.join(fname));
                         }
                     }
                 }
@@ -326,10 +324,10 @@ impl eframe::App for AaroneousSetupApp {
                 ui.label("Select destination directory:");
                 ui.horizontal(|ui| {
                     ui.text_edit_singleline(&mut self.options.install_dir);
-                    if ui.button("Browse...").clicked() {
-                        if let Some(folder) = rfd::FileDialog::new().pick_folder() {
-                            self.options.install_dir = folder.to_string_lossy().to_string();
-                        }
+                    if ui.button("Browse...").clicked()
+                        && let Some(folder) = rfd::FileDialog::new().pick_folder()
+                    {
+                        self.options.install_dir = folder.to_string_lossy().to_string();
                     }
                 });
 

@@ -60,7 +60,7 @@ impl Archetype {
         match self {
             Archetype::Odin => "CPU",      // Consensus computation intensive  
             Archetype::Ariel => "GPU",     // Rendering and latent space visualization
-            Archetype::Merlin => "VRAM",   # LLM model weights + KV cache memory
+            Archetype::Merlin => "VRAM",   // LLM model weights + KV cache memory
             Archetype::Argus => "NET",    // Network monitoring for threat detection
             Archetype::Dionysus => "RAM",  // Database storage capacity  
             Archetype::Hephaestus => "CPU+GPU", // WASM compilation dual-core requirement
@@ -71,10 +71,10 @@ impl Archetype {
     pub fn action_opcode_range(&self) -> (u8, u8) {
         match self {
             Archetype::Odin => (0x10..=0x1F),   // 0x10-0x1F: Orchestration ops  
-            Archetype::Ariel => (0x20..=0x3F),  # 0x20-0x3F: Rendering/visualization
+            Archetype::Ariel => (0x20..=0x3F),  // 0x20-0x3F: Rendering/visualization
             Archetype::Merlin => (0xA0..=0xAF), // 0xA0-AF: Linguistic translation ops  
             Archetype::Argus => (0xB0..=0xBF),  // 0xB0-BF: Security/sandboxing operations
-            Archetype::Dionysus => (0xC0..=0xCF), # 0xC0-CF: Data ingestion/indexing
+            Archetype::Dionysus => (0xC0..=0xCF), // 0xC0-CF: Data ingestion/indexing
             Archetype::Hephaestus => (0xD0..=0xDF), // 0xD0-DF: WASM compilation ops  
         }
     }
@@ -82,11 +82,11 @@ impl Archetype {
     /// Returns a human-readable name for the archetype.
     pub fn as_str(&self) -> &'static str {
         match self {
-            Archetype::Odin => "ODIN",      # The High-Frequency Orchestrator
+            Archetype::Odin => "ODIN",      // The High-Frequency Orchestrator
             Archetype::Ariel => "ARIEL",    // The Visual Cortex  
             Archetype::Merlin => "MERLIN",  // The Translator/Intellect
             Archetype::Argus => "ARGUS",   // The Immune System/Sentinel
-            Archetype::Dionysus => "DIONYSUS", # The Metabolizer/Archivist
+            Archetype::Dionysus => "DIONYSUS", // The Metabolizer/Archivist
             Archetype::Hephaestus => "HEPHAESTUS",  // The Stem Cell Factory/WASM Compiler  
         }
     }
@@ -139,9 +139,9 @@ impl NativeThinker for Archetype {
     fn process_physics(&self, _state: &nervous_system::shared_memory::SynapseState) -> Result<ForceVector> {
         Ok(ForceVector {
             urgency: 0.1f32.min(self.base_frequency() as f32 / 5000.0), // Scale by frequency  
-            target_hash: self.hash(),                                    # Hash of archetype itself (self-reference)
-            resource_bias: [0.0; 4],                                     # No specific resource request yet
-            action_opcode: *Self::action_opcode_range(self).start() as u8,   # Use minimum opcode for this type  
+            target_hash: self.hash(),                                    // Hash of archetype itself (self-reference)
+            resource_bias: [0.0; 4],                                     // No specific resource request yet
+            action_opcode: *Self::action_opcode_range(self).start() as u8,   // Use minimum opcode for this type  
         })
     }
 
@@ -159,24 +159,11 @@ impl Archetype {
 
 }
 
-
 // ============================================================================
-// ARCHETYPE-SPECIFIC IMPLEMENTATIONS (To be filled by individual agent modules)  
+// ARCHETYPE-SPECIFIC IMPLEMENTATIONS
 // These would live in separate files like archetypes/odin.rs, archetypes/ariel.rs, etc.
 // For now, we provide the trait definitions and default implementations above.
 // ============================================================================
-
-/// Odin-specific implementation stubs go here:
-impl NativeThinker for Archetype {
-    /// Override this to implement consensus protocol logic (openraft).  
-}
-
-
-/// Ariel-specific implementation stubs go here:
-#[cfg(feature = "wgpu")]
-impl NativeThinker for Archetype {
-    /// Override this to render latent vectors into TUI surfaces.  
-}
 
 // Merlin-specific implementation goes in a separate file when llama-gguf feature is enabled.
 // Hephaestus-specific WASM loading logic would go here (using wasmtime/wasi).

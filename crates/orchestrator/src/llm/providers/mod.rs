@@ -1,1 +1,5 @@
-// Provider implementations (OpenAI, GGUF, etc.) will go here.
+pub mod gguf;
+pub mod openai;
+
+pub use gguf::GgufProvider;
+pub use openai::OpenAIProvider;

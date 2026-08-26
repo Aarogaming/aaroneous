@@ -4,6 +4,8 @@ version = "0.1.0"
 edition = "2021"
 authors = ["Aaron"]
 description = "Centralized workspace path discovery and directory resolution for Aaroneous"
+license.workspace = true
+repository.workspace = true
 
 [dependencies]
 dirs = "5.0"

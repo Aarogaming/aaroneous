@@ -12,6 +12,7 @@ use std::path::PathBuf;
 use a_run::spatial_kinetic_engine::{SpatialKineticConfig, SpatialKineticEngine};
 
 #[tokio::main]
+#[allow(clippy::await_holding_lock)]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Install logging
     let (_init, _guard) = a_run::init_logging();

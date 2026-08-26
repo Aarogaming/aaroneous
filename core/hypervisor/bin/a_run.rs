@@ -969,7 +969,7 @@ fn run_pack_si_pipeline(
 
     // Spot-check alignment
     let misaligned: Vec<&str> = loader.manifest.tensors.iter()
-        .filter(|t| t.byte_offset as usize % compute::ALIGNMENT_BYTES != 0)
+        .filter(|t| !(t.byte_offset as usize).is_multiple_of(compute::ALIGNMENT_BYTES))
         .map(|t| t.name.as_str())
         .collect();
 
@@ -1272,10 +1272,10 @@ async fn run_mesh_pipeline(nodes_count: usize, live: bool) -> Result<()> {
 
         println!("\n   [Stage 2] Establishing Full-Mesh TCP Socket Connections...");
         tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
-        for i in 1..nodes_count {
+        for (i, daemon) in daemons.iter().enumerate().skip(1).take(nodes_count - 1) {
             for j in 0..i {
                 let target_addr = format!("127.0.0.1:{}", base_port + j);
-                let _ = daemons[i].connect_peer(&target_addr).await;
+                let _ = daemon.connect_peer(&target_addr).await;
             }
         }
         tokio::time::sleep(tokio::time::Duration::from_millis(250)).await;
@@ -1367,7 +1367,7 @@ async fn run_mesh_pipeline(nodes_count: usize, live: bool) -> Result<()> {
         "Migrate Hermes Router to Hive-Peer-01".to_string(),
     );
 
-    for (node_id, _) in &cluster.nodes {
+    for node_id in cluster.nodes.keys() {
         gossip.add_vote(node_id.clone(), true);
     }
 
@@ -1779,8 +1779,7 @@ async fn run_mcp_pipeline(host: &str, port: u16) -> Result<()> {
     let addr: std::net::SocketAddr = addr_str.parse()
         .map_err(|e| anyhow::anyhow!("Invalid MCP server address '{}': {}", addr_str, e))?;
 
-    let mut config = a_run::mcp_service::ServiceConfig::default();
-    config.http_addr = addr;
+    let config = a_run::mcp_service::ServiceConfig { http_addr: addr, ..Default::default() };
 
     let service = Arc::new(a_run::mcp_service::McpService::new(config));
     service.register_sovereign_tools().await;

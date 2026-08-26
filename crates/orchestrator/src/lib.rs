@@ -8,10 +8,12 @@ pub mod control;
 pub mod dynamic_ui;
 pub mod grim_reaper;
 pub mod hive_runtime;
+pub mod intent_engine;
 pub mod linguistic_transducer;
 pub mod llm;
 pub mod mdps_router;
 pub mod pantheon_orchestrator;
+pub mod swarm_balancer;
 pub mod workflow_engine;
 pub mod workspace;
 
@@ -42,6 +44,8 @@ pub use llm::{LLMClient, LLMConfig, ProviderType, TaskAnalysis, TaskAnalysisCont
 pub use mdps_router::{RoutableTask, RoutingDecision, Specialist, TaskRoutingEngine, TaskType};
 pub use workflow_engine::{StepStatus, WorkflowGraph, WorkflowStep};
 pub use workspace::WorkspacePaths;
+pub use intent_engine::{IntentEngine, ParsedIntent, DispatchResult};
+pub use swarm_balancer::{SwarmBalancer, SwarmWorker, SwarmHealth};
 
 use nervous_system::SharedMemorySynapse;
 
@@ -53,22 +57,21 @@ pub struct IntelligenceEngine {
 }
 
 impl IntelligenceEngine {
-    pub fn new(config: LLMConfig, specialists: Vec<Specialist>) -> Self {
-        Self {
-            synapse: SharedMemorySynapse::new_sync("SAB_STORE", 1024 * 1024).unwrap(),
+    pub fn new(config: LLMConfig, specialists: Vec<Specialist>) -> anyhow::Result<Self> {
+        Ok(Self {
+            synapse: SharedMemorySynapse::new_sync("SAB_STORE", 1024 * 1024)?,
             client: LLMClient::new(config),
             router: TaskRoutingEngine::new(specialists),
-        }
+        })
     }
 
-    pub async fn new_async(config: LLMConfig, specialists: Vec<Specialist>) -> Self {
-        Self {
+    pub async fn new_async(config: LLMConfig, specialists: Vec<Specialist>) -> anyhow::Result<Self> {
+        Ok(Self {
             synapse: SharedMemorySynapse::new("SAB_STORE", 1024 * 1024)
-                .await
-                .unwrap(),
+                .await?,
             client: LLMClient::new(config),
             router: TaskRoutingEngine::new(specialists),
-        }
+        })
     }
 
     pub async fn analyze_task(&self, prompt: &str) -> anyhow::Result<TaskAnalysis> {

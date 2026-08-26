@@ -2,6 +2,10 @@
 name = "evolution"
 version = "0.1.0"
 edition = "2021"
+authors.workspace = true
+description = "Continuous self-evolution engine, neurochemistry, genetics, and soul fusion"
+license.workspace = true
+repository.workspace = true
 
 [dependencies]
 nervous_system = { path = "../nervous_system" }
@@ -17,7 +21,7 @@ tokio = { version = "1.0", features = ["full"] }
 tracing = "0.1"
 rand = "0.8"
 anyhow = "1.0"
-thiserror = "1.0"
+thiserror = "2.0"
 candle-core = "0.8"
 candle-nn = "0.8"
 candle-transformers = "0.8"

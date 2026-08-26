@@ -3,4 +3,5 @@ pub mod providers;
 pub mod types;
 
 pub use client::LLMClient;
-pub use types::{LLMConfig, ProviderType, TaskAnalysis, TaskAnalysisContext};
+pub use providers::{GgufProvider, OpenAIProvider};
+pub use types::{LLMConfig, ProviderType, TaskAnalysis, TaskAnalysisContext, DesignContext};

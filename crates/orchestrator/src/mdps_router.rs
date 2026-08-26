@@ -101,7 +101,7 @@ impl TaskRoutingEngine {
                 let specialist = &self.specialists[a];
 
                 // Calculate expected reward based on specialist capabilities
-                let reward = self.calculate_expected_reward(&state, specialist);
+                let reward = self.calculate_expected_reward(&state, specialist, &[]);
                 self.reward_matrix[s][a] = reward;
 
                 // Initialize transition probabilities (uniform prior)
@@ -113,7 +113,12 @@ impl TaskRoutingEngine {
     }
 
     /// Calculate expected reward for assigning a task to a specialist
-    fn calculate_expected_reward(&self, state: &RoutingState, specialist: &Specialist) -> f64 {
+    fn calculate_expected_reward(
+        &self,
+        state: &RoutingState,
+        specialist: &Specialist,
+        task_skills: &[String],
+    ) -> f64 {
         let complexity_match =
             1.0 - (state.task_complexity_bin as f64 / 4.0 - specialist.success_rate).abs();
         let capacity_reward = specialist.capacity;
@@ -124,7 +129,26 @@ impl TaskRoutingEngine {
             0.0
         };
 
-        (complexity_match + capacity_reward + success_bonus + urgency_penalty).max(0.0)
+        // Skill matching: bonus for matching skills, penalty for missing required skills
+        let skill_score = if task_skills.is_empty() {
+            0.0 // No skills required, neutral
+        } else {
+            let matched = task_skills
+                .iter()
+                .filter(|skill| specialist.skills.contains(skill))
+                .count();
+            let total = task_skills.len();
+            if matched == total {
+                1.0 // All skills matched
+            } else if matched > 0 {
+                0.5 // Partial match
+            } else {
+                -2.0 // No skills match — heavy penalty
+            }
+        };
+
+        (complexity_match + capacity_reward + success_bonus + urgency_penalty + skill_score)
+            .max(0.0)
     }
 
     /// Decode a state index into a RoutingState
@@ -181,8 +205,28 @@ impl TaskRoutingEngine {
             let specialist = &self.specialists[best_action_idx];
             let expected_value = self.value_function[state_idx];
 
-            // Normalize confidence to 0.0-1.0 range
-            let confidence = (expected_value / 10.0).clamp(0.0, 1.0);
+            // Calculate skill match score for the task
+            let skill_score = if task.required_skills.is_empty() {
+                0.0
+            } else {
+                let matched = task
+                    .required_skills
+                    .iter()
+                    .filter(|skill| specialist.skills.contains(skill))
+                    .count();
+                let total = task.required_skills.len();
+                if matched == total {
+                    1.0
+                } else if matched > 0 {
+                    0.5
+                } else {
+                    -2.0
+                }
+            };
+
+            // Normalize confidence to 0.0-1.0 range, adjusted by skill match
+            let base_confidence = (expected_value / 10.0).clamp(0.0, 1.0);
+            let confidence = (base_confidence + skill_score * 0.3).clamp(0.0, 1.0);
 
             RoutingDecision {
                 specialist_id: specialist.id.clone(),
@@ -190,8 +234,14 @@ impl TaskRoutingEngine {
                 confidence,
                 expected_completion_time: specialist.avg_completion_time,
                 reasoning: format!(
-                    "Optimal for complexity={:.2}, urgency={:.2}",
-                    task.complexity, task.urgency
+                    "Optimal for complexity={:.2}, urgency={:.2}, skills_matched={}/{}",
+                    task.complexity,
+                    task.urgency,
+                    task.required_skills
+                        .iter()
+                        .filter(|s| specialist.skills.contains(s))
+                        .count(),
+                    task.required_skills.len()
                 ),
             }
         } else {
@@ -264,6 +314,48 @@ impl TaskRoutingEngine {
 
             // Update capacity (replenish after task completion)
             specialist.capacity = (specialist.capacity + 0.2).min(1.0);
+        }
+    }
+
+    /// Update transition matrix from observed routing outcome (online learning)
+    pub fn update_transition_matrix(
+        &mut self,
+        state: &RoutingState,
+        action: &RoutingAction,
+        next_state: &RoutingState,
+    ) {
+        let state_idx = self.encode_state(state);
+        let next_state_idx = self.encode_state(next_state);
+        let action_idx = action.specialist_index;
+
+        if action_idx >= self.specialists.len() {
+            return;
+        }
+
+        let num_states = self.transition_matrix.len();
+
+        // Bayesian update: increase probability of observed transition
+        // Decrease all other transitions proportionally
+        let current_prob = self.transition_matrix[state_idx][action_idx][next_state_idx];
+        let delta = self.learning_rate * (1.0 - current_prob);
+
+        for s in 0..num_states {
+            if s == next_state_idx {
+                self.transition_matrix[state_idx][action_idx][s] += delta;
+            } else {
+                self.transition_matrix[state_idx][action_idx][s] *=
+                    1.0 - self.learning_rate;
+            }
+        }
+
+        // Normalize to maintain valid probability distribution
+        let sum: f64 = self.transition_matrix[state_idx][action_idx]
+            .iter()
+            .sum();
+        if sum > 0.0 {
+            for s in 0..num_states {
+                self.transition_matrix[state_idx][action_idx][s] /= sum;
+            }
         }
     }
 

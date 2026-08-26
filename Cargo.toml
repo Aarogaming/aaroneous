@@ -23,18 +23,23 @@ exclude = [
 ]
 
 [workspace.package]
-version = "0.1.0"
+version = "0.3.2"
 edition = "2021"
+rust-version = "1.75"
 authors = ["Aaron"]
+description = "Sovereign machine-native synthetic intelligence runtime and desktop hypervisor"
 license = "MIT"
 repository = "https://github.com/aaroneous/aaroneous"
+keywords = ["ai", "si", "synthetic-intelligence", "runtime", "agent"]
+categories = ["development-tools", "asynchronous", "wasm"]
+readme = "README.md"
 
 [workspace.dependencies]
 # Core dependencies
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 tokio = { version = "1.0", features = ["full"] }
-thiserror = "1.0"
+thiserror = "2.0"
 anyhow = "1.0"
 chrono = "0.4"
 uuid = { version = "1.0", features = ["v4", "serde"] }

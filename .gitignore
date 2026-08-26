@@ -35,3 +35,25 @@ core/hypervisor/links_registry.json
 core/hypervisor/logs/
 dev/archive/logs/
 dev/archive/
+
+# IDE / Editor configs (developer-specific)
+.opencode.json
+opencode.json
+.zed/
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Cargo local config (machine-specific paths)
+.cargo/config.toml
+
+# Binary artifacts that should not be tracked
+data/sabs/
+bin/nats/*.exe
+bin/nats/*.dll
+bin/a-run.exe
+
+# Temp files
+*.tmp
+*.bak

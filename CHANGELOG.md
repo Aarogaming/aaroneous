@@ -4,6 +4,86 @@ All notable changes to Aaroneous.
 
 > **Architectural Note:** References in historical changelog sections (< v0.1.0) to `components/*` describe the legacy monolithic prototype layout. In v0.1.0+, all components were refactored into `core/hypervisor` and the 12 sovereign `crates/*` workspace crates.
 
+## [0.3.2] - 2026-08-25
+
+### 🔧 Orchestrator Compilation Fixes, Core Orchestration & LLM Integration
+
+#### Fixed
+- **`crates/orchestrator/src/archetypes.rs` — Compilation Errors**:
+  - Replaced 8 instances of `#` used as comment delimiter with valid `//` syntax.
+  - Removed 2 duplicate `impl NativeThinker for Archetype` blocks.
+- **`crates/orchestrator/src/lib.rs` — Safety Violations**:
+  - `IntelligenceEngine::new()` and `new_async()` now return `anyhow::Result<Self>`.
+- **`crates/orchestrator/src/hive_runtime.rs` — Safety Violations**:
+  - `HiveRuntime::new()` now returns `anyhow::Result<Self>`.
+- **`core/hypervisor/src/orchestration_daemon.rs` — Callers Updated**:
+  - `OrchestrationDaemon::new()` now returns `anyhow::Result<Self>`.
+  - All 4 call sites updated to handle the new `Result` type.
+
+#### Added
+- **`crates/orchestrator/src/hive_runtime.rs` — Full Task Dispatch & Lifecycle**:
+  - `start()`: Initializes MDP routing engine from registered agents as specialists.
+  - `stop()`: Shuts down runtime execution.
+  - `dispatch_task()`: Routes a `RoutableTask` through MDP value iteration, consumes specialist capacity, and logs the task record.
+  - `complete_task()`: Records completion timestamp, updates specialist performance metrics via EMA.
+  - `get_status()`: Returns full runtime status including dispatched/completed/failed task counts.
+  - 4 new unit tests: creation, agent registration, start/stop lifecycle, task dispatch.
+- **`crates/orchestrator/src/mdps_router.rs` — Skill-Aware Routing**:
+  - `calculate_expected_reward()` now accepts `task_skills: &[String]` parameter with skill-match scoring: +1.0 for full match, +0.5 for partial, -2.0 for no match.
+  - `find_optimal_specialist()` applies skill matching at routing time with reasoning output.
+- **`crates/orchestrator/src/mdps_router.rs` — Online MDP Learning**:
+  - `update_transition_matrix()`: Bayesian update of transition probabilities from observed state transitions.
+- **`crates/orchestrator/src/control.rs` — Resource Allocation**:
+  - `adjust_resource_allocation()` now applies VRAM and context_size changes to specialist status.
+- **`crates/orchestrator/src/aura_ui.rs` — UI Consolidation**:
+  - Replaced redundant 3-field struct with backward-compatible re-exports from `aura_ui_manifest.rs`.
+- **`crates/orchestrator/src/llm/providers/openai.rs` — OpenAI Provider**:
+  - `OpenAIProvider`: reqwest-based HTTP client with `chat_completion()` and `embeddings()` methods.
+  - Supports OpenAI, Ollama, LM Studio, and any OpenAI-compatible API endpoint.
+- **`crates/orchestrator/src/llm/providers/gguf.rs` — GGUF Provider**:
+  - `GgufProvider`: Local GGUF model inference with path validation and placeholder for candle integration.
+- **`crates/orchestrator/src/llm/client.rs` — LLMClient Provider Integration**:
+  - `LLMClient` now initializes `OpenAIProvider` or `GgufProvider` based on `ProviderType`.
+  - `get_last_hidden_state()` now returns cached embedding state instead of zero vector.
+  - `compute_embeddings()`: Computes embeddings via OpenAI or deterministic pseudo-embeddings for non-OpenAI providers.
+  - `analyze_task()` parses JSON-structured LLM responses for richer task analysis.
+- **`crates/orchestrator/src/linguistic_transducer.rs` — CAS Vocabulary**:
+  - `CasCommand` struct with opcode, mnemonic, description, and domain fields.
+  - 18 pre-defined CAS commands spanning all 6 specialist domains.
+  - `parse_intent()`: Keyword-based intent detection converting natural language to CAS commands.
+  - `opcode_to_mnemonic()` / `mnemonic_to_opcode()` bidirectional lookup.
+  - 10 new unit tests covering vocabulary, intent parsing, and domain mapping.
+- **`crates/orchestrator/src/intent_engine.rs` — User Intent Pipeline**:
+  - `IntentEngine`: Full natural language → CAS command → specialist dispatch pipeline.
+  - `parse_intent()`: Extracts CAS command, skills, complexity, and urgency from text.
+  - `dispatch()`: Routes parsed intent through MDP router to optimal specialist.
+  - `parse_and_dispatch()`: One-call convenience method.
+  - Keyword-based skill extraction with domain-aware heuristics.
+  - 6 new unit tests covering intent parsing, urgency detection, dispatch, and skill extraction.
+- **`crates/orchestrator/src/workflow_engine.rs` — Crash-Recoverable Persistence**:
+  - `serialize()` / `deserialize()`: JSON roundtrip for workflow state.
+  - `save()` / `save_to()`: Atomic file writes with temp-file-then-rename pattern.
+  - `load_from()`: Restore workflow from disk with persist_path restoration.
+  - `save_default()` / `load_default()`: Convenience methods using `.aaroneous/workflows/` directory.
+  - `list_persisted()`: Enumerate all saved workflows.
+  - 3 new unit tests covering serialization roundtrip, save/load, and listing.
+- **`crates/orchestrator/src/swarm_balancer.rs` — Swarm Load Balancer**:
+  - `SwarmBalancer`: Channel-based task distribution across local and remote workers.
+  - `Transport` trait: Pluggable backend (TCP, NATS, in-process channels).
+  - `TcpTransport` / `ChannelTransport`: Built-in implementations.
+  - `register_worker()` / `remove_worker()` / `list_workers()`: Worker lifecycle.
+  - `find_best_worker()`: Capacity + latency weighted selection.
+  - `dispatch_task()` / `complete_task()`: Full task lifecycle with worker status tracking.
+  - `health()`: Swarm health summary (idle/busy/offline counts, average capacity).
+  - 4 new unit tests covering registration, best-worker selection, dispatch/complete, and health.
+
+#### Verified
+- `cargo check --workspace`: **0 errors**.
+- `cargo clippy -p orchestrator`: **0 warnings**.
+- `cargo test -p orchestrator`: **50 passed, 0 failed** (up from 22).
+
+---
+
 ## [0.3.1] - 2026-08-22
 
 ### 🧹 Workspace-Wide Clippy Cleanup — Zero Warnings on All Library Targets

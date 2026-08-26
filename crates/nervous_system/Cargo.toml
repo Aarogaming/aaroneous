@@ -2,6 +2,10 @@
 name = "nervous_system"
 version = "0.2.0"
 edition = "2021"
+authors.workspace = true
+description = "128-byte cache-aligned 11-channel lock-free SPMC synapse bus"
+license.workspace = true
+repository.workspace = true
 
 [dependencies]
 crossbeam = "0.8"

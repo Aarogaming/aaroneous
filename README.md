@@ -158,4 +158,4 @@ d:\Aaroneous\
 ---
 
 ## 📜 License
-Licensed under the Apache-2.0 / MIT License.
+Licensed under the MIT License. See [LICENSE](LICENSE) for details.

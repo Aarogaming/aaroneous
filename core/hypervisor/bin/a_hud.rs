@@ -206,12 +206,11 @@ impl CustomAgent {
         if let Ok(entries) = fs::read_dir(&dir) {
             for entry in entries.flatten() {
                 let path = entry.path();
-                if path.extension().and_then(|s| s.to_str()) == Some("json") {
-                    if let Ok(content) = fs::read_to_string(&path) {
-                        if let Ok(agent) = serde_json::from_str::<CustomAgent>(&content) {
-                            agents.push(agent);
-                        }
-                    }
+                if path.extension().and_then(|s| s.to_str()) == Some("json")
+                    && let Ok(content) = fs::read_to_string(&path)
+                    && let Ok(agent) = serde_json::from_str::<CustomAgent>(&content)
+                {
+                    agents.push(agent);
                 }
             }
         }
@@ -374,12 +373,11 @@ impl UserSettings {
 
     pub fn load_from_disk() -> Self {
         let path = Self::config_path();
-        if path.exists() {
-            if let Ok(content) = fs::read_to_string(&path) {
-                if let Ok(settings) = serde_json::from_str::<UserSettings>(&content) {
-                    return settings;
-                }
-            }
+        if path.exists()
+            && let Ok(content) = fs::read_to_string(&path)
+            && let Ok(settings) = serde_json::from_str::<UserSettings>(&content)
+        {
+            return settings;
         }
         Self::default()
     }
@@ -727,12 +725,11 @@ impl Default for AaroneousDesktopApp {
             },
         ];
 
-        let mut chat_history = Vec::new();
-        chat_history.push((
+        let chat_history = vec![(
             "Aaroneous".to_string(),
             "Agent Manager online. Model Hubs auto-discovered.".to_string(),
             Color32::from_rgb(56, 139, 253),
-        ));
+        )];
 
         let synapse_path = ws.synapse_file();
         let (synapse_mmap, is_live_synapse) = match OpenOptions::new()
@@ -868,7 +865,7 @@ impl Default for AaroneousDesktopApp {
                 let _ = e.ensure_starter_skills();
                 e
             },
-            si_tool_engine: compute::SiToolEngine::default(),
+            si_tool_engine: compute::SiToolEngine,
             si_inspect_path_input: String::new(),
             last_inspector_report: None,
             last_benchmark_report: None,
@@ -1128,20 +1125,18 @@ impl AaroneousDesktopApp {
 
                     // Tier 1: Fast Motor / File Execution
                     let mut items_processed = 0;
-                    if path.exists() && path.is_dir() {
-                        if let Ok(entries) = fs::read_dir(path) {
-                            for entry in entries.flatten() {
-                                items_processed += 1;
-                                let elapsed_us = start.elapsed().as_micros() as f32;
-                                let _ = tx.send(BackgroundAgentMessage::EventLog(AutomationEventLog {
-                                    timestamp_ms: start.elapsed().as_millis() as u64,
-                                    source: format!("{} [Tier 1 Motor]", agent_name),
-                                    action: format!("Processed '{}'", entry.file_name().to_string_lossy()),
-                                    latency_us: elapsed_us,
-                                    success: true,
-                                }));
-                                thread::sleep(Duration::from_millis(15));
-                            }
+                    if path.exists() && path.is_dir() && let Ok(entries) = fs::read_dir(path) {
+                        for entry in entries.flatten() {
+                            items_processed += 1;
+                            let elapsed_us = start.elapsed().as_micros() as f32;
+                            let _ = tx.send(BackgroundAgentMessage::EventLog(AutomationEventLog {
+                                timestamp_ms: start.elapsed().as_millis() as u64,
+                                source: format!("{} [Tier 1 Motor]", agent_name),
+                                action: format!("Processed '{}'", entry.file_name().to_string_lossy()),
+                                latency_us: elapsed_us,
+                                success: true,
+                            }));
+                            thread::sleep(Duration::from_millis(15));
                         }
                     }
 
@@ -1384,7 +1379,7 @@ impl AaroneousDesktopApp {
                 if ui.button("✕").on_hover_text("Close Application").clicked() {
                     ui.ctx().send_viewport_cmd(egui::ViewportCommand::Close);
                 }
-                if ui.button("🗖").on_hover_text("Maximize / Restore").clicked() {}
+                ui.button("🗖").on_hover_text("Maximize / Restore");
                 if ui.button("🗕").on_hover_text("Minimize").clicked() {
                     ui.ctx().send_viewport_cmd(egui::ViewportCommand::Minimized(true));
                 }
@@ -1525,55 +1520,54 @@ impl AaroneousDesktopApp {
                         .desired_width(ui.available_width() - 140.0);
                     let res = ui.add(text_edit);
 
-                    if ui.button(egui::RichText::new("Send Task ⚡").size(13.0).strong().color(Color32::from_rgb(0, 255, 204))).clicked()
-                        || (res.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)))
+                    if (ui.button(egui::RichText::new("Send Task ⚡").size(13.0).strong().color(Color32::from_rgb(0, 255, 204))).clicked()
+                        || (res.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter))))
+                        && !self.hive_intent_input.trim().is_empty()
                     {
-                        if !self.hive_intent_input.trim().is_empty() {
-                            let intent = self.hive_intent_input.clone();
-                            self.inject_live_intent(&intent);
+                        let intent = self.hive_intent_input.clone();
+                        self.inject_live_intent(&intent);
 
-                            // Run MDP task routing evaluation
-                            let mut router = orchestrator::TaskRoutingEngine::new(vec![
-                                orchestrator::Specialist {
-                                    id: "odin".to_string(),
-                                    name: "Odin (Planner)".to_string(),
-                                    skills: vec!["intent_decomposition".to_string(), "quorum".to_string()],
-                                    capacity: 0.9,
-                                    success_rate: 0.98,
-                                    avg_completion_time: 1.2,
-                                },
-                                orchestrator::Specialist {
-                                    id: "hephaestus".to_string(),
-                                    name: "Hephaestus (Coder)".to_string(),
-                                    skills: vec!["ast_mutation".to_string(), "jit".to_string(), "code_generation".to_string()],
-                                    capacity: 0.95,
-                                    success_rate: 0.99,
-                                    avg_completion_time: 0.8,
-                                },
-                                orchestrator::Specialist {
-                                    id: "merlin".to_string(),
-                                    name: "Merlin (Research)".to_string(),
-                                    skills: vec!["research".to_string(), "knowledge".to_string()],
-                                    capacity: 0.90,
-                                    success_rate: 0.97,
-                                    avg_completion_time: 1.5,
-                                },
-                            ]);
+                        // Run MDP task routing evaluation
+                        let mut router = orchestrator::TaskRoutingEngine::new(vec![
+                            orchestrator::Specialist {
+                                id: "odin".to_string(),
+                                name: "Odin (Planner)".to_string(),
+                                skills: vec!["intent_decomposition".to_string(), "quorum".to_string()],
+                                capacity: 0.9,
+                                success_rate: 0.98,
+                                avg_completion_time: 1.2,
+                            },
+                            orchestrator::Specialist {
+                                id: "hephaestus".to_string(),
+                                name: "Hephaestus (Coder)".to_string(),
+                                skills: vec!["ast_mutation".to_string(), "jit".to_string(), "code_generation".to_string()],
+                                capacity: 0.95,
+                                success_rate: 0.99,
+                                avg_completion_time: 0.8,
+                            },
+                            orchestrator::Specialist {
+                                id: "merlin".to_string(),
+                                name: "Merlin (Research)".to_string(),
+                                skills: vec!["research".to_string(), "knowledge".to_string()],
+                                capacity: 0.90,
+                                success_rate: 0.97,
+                                avg_completion_time: 1.5,
+                            },
+                        ]);
 
-                            let task = orchestrator::RoutableTask {
-                                id: format!("intent_{}", self.synapse_generation),
-                                task_type: orchestrator::TaskType::CodeGeneration,
-                                complexity: 0.80,
-                                urgency: 0.85,
-                                required_skills: vec!["ast_mutation".to_string()],
-                                estimated_cost: 10.0,
-                            };
+                        let task = orchestrator::RoutableTask {
+                            id: format!("intent_{}", self.synapse_generation),
+                            task_type: orchestrator::TaskType::CodeGeneration,
+                            complexity: 0.80,
+                            urgency: 0.85,
+                            required_skills: vec!["ast_mutation".to_string()],
+                            estimated_cost: 10.0,
+                        };
 
-                            let decision = router.find_optimal_specialist(&task);
-                            self.hive_routing_decision = Some(format!("Assigned to {} (Confidence: {:.1}%)", decision.specialist_name, decision.confidence * 100.0));
-                            self.hive_routing_trace.push(format!("⚡ [Task #{}] \"{}\" ➔ Assigned to {} ({:.1}%)", self.synapse_generation, intent, decision.specialist_name, decision.confidence * 100.0));
-                            self.show_toast("Task Assigned", format!("Target: {}", decision.specialist_name), ToastLevel::Success);
-                        }
+                        let decision = router.find_optimal_specialist(&task);
+                        self.hive_routing_decision = Some(format!("Assigned to {} (Confidence: {:.1}%)", decision.specialist_name, decision.confidence * 100.0));
+                        self.hive_routing_trace.push(format!("⚡ [Task #{}] \"{}\" ➔ Assigned to {} ({:.1}%)", self.synapse_generation, intent, decision.specialist_name, decision.confidence * 100.0));
+                        self.show_toast("Task Assigned", format!("Target: {}", decision.specialist_name), ToastLevel::Success);
                     }
                 });
 
@@ -1844,9 +1838,7 @@ impl AaroneousDesktopApp {
                     ui.add(egui::Slider::new(&mut self.forge_epochs_count, 1..=5));
 
                     if ui.button(egui::RichText::new("Compile Model ⚡").strong().color(Color32::from_rgb(0, 255, 204))).clicked() {
-                        self.forge_distillation_status = format!(
-                            "✅ Successfully compiled .si model (100.0% accuracy, 118 KB) in 18 ms."
-                        );
+                        self.forge_distillation_status = "✅ Successfully compiled .si model (100.0% accuracy, 118 KB) in 18 ms.".to_string();
                         self.show_toast("Model Compiled", "Local .si container ready", ToastLevel::Success);
                     }
                 });
@@ -2093,11 +2085,11 @@ impl AaroneousDesktopApp {
                     self.is_creating_agent = !self.is_creating_agent;
                 }
 
-                if ui.button("📁 Native Folder Picker...").clicked() {
-                    if let Some(folder) = rfd::FileDialog::new().set_title("Select Automation Target Folder").pick_folder() {
-                        self.new_agent_target_app = folder.to_string_lossy().to_string();
-                        self.show_toast("Folder Selected", format!("Target: {}", self.new_agent_target_app), ToastLevel::Info);
-                    }
+                if ui.button("📁 Native Folder Picker...").clicked()
+                    && let Some(folder) = rfd::FileDialog::new().set_title("Select Automation Target Folder").pick_folder()
+                {
+                    self.new_agent_target_app = folder.to_string_lossy().to_string();
+                    self.show_toast("Folder Selected", format!("Target: {}", self.new_agent_target_app), ToastLevel::Info);
                 }
             });
         });
@@ -2122,16 +2114,16 @@ impl AaroneousDesktopApp {
 
             // Draw Node Connectors (Wires)
             for node in &self.pipeline_nodes {
-                if let Some(target_id) = &node.output_connected_to {
-                    if let Some(target_node) = self.pipeline_nodes.iter().find(|n| &n.id == target_id) {
-                        let p1 = response.rect.min + node.pos.to_vec2() + Vec2::new(180.0, 35.0) + self.node_graph_pan;
-                        let p2 = response.rect.min + target_node.pos.to_vec2() + Vec2::new(0.0, 35.0) + self.node_graph_pan;
+                if let Some(target_id) = &node.output_connected_to
+                    && let Some(target_node) = self.pipeline_nodes.iter().find(|n| &n.id == target_id)
+                {
+                    let p1 = response.rect.min + node.pos.to_vec2() + Vec2::new(180.0, 35.0) + self.node_graph_pan;
+                    let p2 = response.rect.min + target_node.pos.to_vec2() + Vec2::new(0.0, 35.0) + self.node_graph_pan;
 
-                        let control_1 = p1 + Vec2::new(40.0, 0.0);
-                        let control_2 = p2 - Vec2::new(40.0, 0.0);
-                        let curve = egui::epaint::CubicBezierShape::from_points_stroke([p1, control_1, control_2, p2], false, Color32::TRANSPARENT, Stroke::new(2.0, theme.accent()));
-                        painter.add(curve);
-                    }
+                    let control_1 = p1 + Vec2::new(40.0, 0.0);
+                    let control_2 = p2 - Vec2::new(40.0, 0.0);
+                    let curve = egui::epaint::CubicBezierShape::from_points_stroke([p1, control_1, control_2, p2], false, Color32::TRANSPARENT, Stroke::new(2.0, theme.accent()));
+                    painter.add(curve);
                 }
             }
 
@@ -2198,10 +2190,10 @@ impl AaroneousDesktopApp {
                         ui.horizontal(|ui| {
                             ui.label("Target Application:");
                             ui.add(egui::TextEdit::singleline(&mut self.new_agent_target_app).hint_text("e.g. Active Game, Chrome, or Folder"));
-                            if ui.button("📁 Browse Folder...").clicked() {
-                                if let Some(folder) = rfd::FileDialog::new().pick_folder() {
-                                    self.new_agent_target_app = folder.to_string_lossy().to_string();
-                                }
+                            if ui.button("📁 Browse Folder...").clicked()
+                                && let Some(folder) = rfd::FileDialog::new().pick_folder()
+                            {
+                                self.new_agent_target_app = folder.to_string_lossy().to_string();
                             }
                         });
 
@@ -2335,15 +2327,15 @@ impl AaroneousDesktopApp {
             }
         }
 
-        if let Some(idx) = delete_idx {
-            if idx < self.custom_agents.len() {
-                let agent = self.custom_agents.remove(idx);
-                agent.delete_from_disk();
-                if let Some(flag) = self.active_loop_flags.get(&agent.id) {
-                    flag.store(false, Ordering::Relaxed);
-                }
-                self.show_toast("Agent Deleted", format!("Removed agent '{}' from disk.", agent.name), ToastLevel::Info);
+        if let Some(idx) = delete_idx
+            && idx < self.custom_agents.len()
+        {
+            let agent = self.custom_agents.remove(idx);
+            agent.delete_from_disk();
+            if let Some(flag) = self.active_loop_flags.get(&agent.id) {
+                flag.store(false, Ordering::Relaxed);
             }
+            self.show_toast("Agent Deleted", format!("Removed agent '{}' from disk.", agent.name), ToastLevel::Info);
         }
 
         ui.add_space(16.0);
@@ -2397,11 +2389,11 @@ impl AaroneousDesktopApp {
                 ui.selectable_value(&mut self.screen_share_tab, ScreenShareTab::Applications, "🪟 Application Windows");
                 ui.selectable_value(&mut self.screen_share_tab, ScreenShareTab::Screens, "🖥️ Screens & Displays");
 
-                if ui.button("🔄 Refresh Open Windows").clicked() {
-                    if let Ok(wins) = marionette::WindowDiscoveryEngine::enumerate_available_targets() {
-                        self.discovered_windows = wins;
-                        self.show_toast("Windows Refreshed", format!("Found {} open applications.", self.discovered_windows.len()), ToastLevel::Info);
-                    }
+                if ui.button("🔄 Refresh Open Windows").clicked()
+                    && let Ok(wins) = marionette::WindowDiscoveryEngine::enumerate_available_targets()
+                {
+                    self.discovered_windows = wins;
+                    self.show_toast("Windows Refreshed", format!("Found {} open applications.", self.discovered_windows.len()), ToastLevel::Info);
                 }
             });
 
@@ -3306,10 +3298,11 @@ impl AaroneousDesktopApp {
                                     to_replay = Some((skill.name.clone(), file_path));
                                 }
 
-                                if skill.status != compute::SkillMaturityStatus::CrystallizedModule && skill.status != compute::SkillMaturityStatus::CoreReflex {
-                                    if ui.button("💎 Crystallize").clicked() {
-                                        to_crystallize = Some(id.clone());
-                                    }
+                                if skill.status != compute::SkillMaturityStatus::CrystallizedModule
+                                    && skill.status != compute::SkillMaturityStatus::CoreReflex
+                                    && ui.button("💎 Crystallize").clicked()
+                                {
+                                    to_crystallize = Some(id.clone());
                                 }
                             });
                         });
@@ -3699,17 +3692,17 @@ impl AaroneousDesktopApp {
                 }
             }
 
-            if let Some(backup) = &self.last_backup_path {
-                if ui.button(format!("⏪ Revert ({})", backup.file_name().unwrap_or_default().to_string_lossy())).clicked() {
-                    let full_path = WorkspacePaths::discover().root().join(&self.workbench_active_file);
-                    if self.dev_tools_engine.revert_backup(&full_path, backup).is_ok() {
-                        self.workbench_status_msg = "Reverted from backup.".to_string();
-                        if let Ok(c) = std::fs::read_to_string(&full_path) {
-                            self.workbench_file_content = c;
-                        }
-                        self.last_backup_path = None;
-                        self.show_toast("File Reverted", "Successfully restored previous backup.", ToastLevel::Info);
+            if let Some(backup) = &self.last_backup_path
+                && ui.button(format!("⏪ Revert ({})", backup.file_name().unwrap_or_default().to_string_lossy())).clicked()
+            {
+                let full_path = WorkspacePaths::discover().root().join(&self.workbench_active_file);
+                if self.dev_tools_engine.revert_backup(&full_path, backup).is_ok() {
+                    self.workbench_status_msg = "Reverted from backup.".to_string();
+                    if let Ok(c) = std::fs::read_to_string(&full_path) {
+                        self.workbench_file_content = c;
                     }
+                    self.last_backup_path = None;
+                    self.show_toast("File Reverted", "Successfully restored previous backup.", ToastLevel::Info);
                 }
             }
         });
@@ -4296,13 +4289,13 @@ impl AaroneousDesktopApp {
                             if ui.button("🔄 Rescan All Hubs").clicked() {
                                 self.rescan_local_models();
                             }
-                            if ui.button("📁 Browse Custom Models Folder...").clicked() {
-                                if let Some(folder) = rfd::FileDialog::new().set_title("Select Custom GGUF Models Folder").pick_folder() {
-                                    self.settings.custom_models_dir = Some(folder.clone());
-                                    self.settings.save_to_disk();
-                                    self.rescan_local_models();
-                                    self.show_toast("Custom Hub Added", format!("Scanning: {}", folder.display()), ToastLevel::Success);
-                                }
+                            if ui.button("📁 Browse Custom Models Folder...").clicked()
+                                && let Some(folder) = rfd::FileDialog::new().set_title("Select Custom GGUF Models Folder").pick_folder()
+                            {
+                                self.settings.custom_models_dir = Some(folder.clone());
+                                self.settings.save_to_disk();
+                                self.rescan_local_models();
+                                self.show_toast("Custom Hub Added", format!("Scanning: {}", folder.display()), ToastLevel::Success);
                             }
                         });
                     });
@@ -4540,23 +4533,23 @@ impl AaroneousDesktopApp {
 
     /// Polls the live SWMR Synapse shared memory file
     fn poll_live_synapse(&mut self) {
-        if let Some(mmap) = &self.synapse_mmap {
-            if mmap.len() >= 64 {
-                let tick_bytes = &mmap[0..8];
-                let tick = u64::from_le_bytes(tick_bytes.try_into().unwrap_or([0; 8]));
-                if tick > 0 {
-                    self.synapse_generation = tick;
-                }
+        if let Some(mmap) = &self.synapse_mmap
+            && mmap.len() >= 64
+        {
+            let tick_bytes = &mmap[0..8];
+            let tick = u64::from_le_bytes(tick_bytes.try_into().unwrap_or([0; 8]));
+            if tick > 0 {
+                self.synapse_generation = tick;
+            }
 
-                let integrity = mmap[38];
-                if integrity > 0 {
-                    self.synapse_integrity = integrity as f32;
-                }
+            let integrity = mmap[38];
+            if integrity > 0 {
+                self.synapse_integrity = integrity as f32;
+            }
 
-                let understanding = mmap[39];
-                if understanding > 0 {
-                    self.synapse_understanding = understanding as f32;
-                }
+            let understanding = mmap[39];
+            if understanding > 0 {
+                self.synapse_understanding = understanding as f32;
             }
         }
     }

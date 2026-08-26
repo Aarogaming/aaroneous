@@ -385,16 +385,29 @@ impl ControlPlane {
         vram_mb: u32,
         context_size: u32,
     ) -> (String, Value) {
-        let states = self.specialist_states.read().await;
+        let mut states = self.specialist_states.write().await;
 
-        if states.contains_key(specialist_name) {
+        if let Some(state) = states.get_mut(specialist_name) {
+            // Apply resource changes to the specialist's agent
+            // Store resource allocation in the agent's metadata via cognitive bias adjustments
+            // In a full implementation, this would update model loading parameters
+            // For now, we track the allocation request and update status
+            state.agent.status = format!(
+                "resource_adjusted:vram={}MB,context={}",
+                vram_mb, context_size
+            );
+
+            // Increment execution count to track resource operations
+            state.execution_count += 1;
+
             (
                 "federation.control.response.adjust_resource".to_string(),
                 json!({
                     "success": true,
                     "specialist": specialist_name,
                     "vram_mb": vram_mb,
-                    "context_size": context_size
+                    "context_size": context_size,
+                    "new_status": state.agent.status
                 }),
             )
         } else {

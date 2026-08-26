@@ -4,6 +4,8 @@ version = "0.1.0"
 edition = "2021"
 authors = ["Aaron"]
 description = "Universal software adaptation, binary deconstruction, AST mutation, and code repair engine"
+license.workspace = true
+repository.workspace = true
 
 [dependencies]
 nervous_system = { path = "../nervous_system" }

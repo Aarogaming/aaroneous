@@ -4,6 +4,8 @@ version = "0.1.0"
 edition = "2021"
 authors = ["Aaron"]
 description = "Universal frontend user emulation, visual perception, backend probing, and datalogging engine"
+license.workspace = true
+repository.workspace = true
 
 [dependencies]
 async-trait = "0.1"

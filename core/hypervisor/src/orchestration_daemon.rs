@@ -181,7 +181,7 @@ pub struct DaemonStatus {
 }
 
 impl OrchestrationDaemon {
-    pub fn new(config: OrchestrationDaemonConfig) -> Self {
+    pub fn new(config: OrchestrationDaemonConfig) -> anyhow::Result<Self> {
         // Create test specialists for the intelligence engine
         let specialists = vec![
             Specialist {
@@ -223,12 +223,12 @@ impl OrchestrationDaemon {
             cache_ttl_secs: 3600,
         };
 
-        let intelligence = IntelligenceEngine::new(llm_config, specialists);
+        let intelligence = IntelligenceEngine::new(llm_config, specialists)?;
         let decision_engine = AutonomousDecisionEngine::new(intelligence);
         let executor = ActionExecutor::new(config.wasm_enzyme_path.clone());
         let ingestor_config = config.ingestor_config.clone();
 
-        Self {
+        Ok(Self {
             config,
             ingestor: MetadataIngestor::new(ingestor_config),
             decision_engine,
@@ -243,7 +243,7 @@ impl OrchestrationDaemon {
             tasks_processed: 0,
             actions_executed: 0,
             last_cycle_duration: Duration::ZERO,
-        }
+        })
     }
 
     /// Run the daemon main loop
@@ -454,7 +454,7 @@ mod tests {
     #[test]
     fn test_daemon_creation() {
         let config = OrchestrationDaemonConfig::default();
-        let daemon = OrchestrationDaemon::new(config);
+        let daemon = OrchestrationDaemon::new(config).expect("failed to create daemon");
 
         assert!(matches!(daemon.state, DaemonState::Initializing));
         assert_eq!(daemon.cycles_completed, 0);
@@ -463,7 +463,7 @@ mod tests {
     #[test]
     fn test_daemon_status() {
         let config = OrchestrationDaemonConfig::default();
-        let daemon = OrchestrationDaemon::new(config);
+        let daemon = OrchestrationDaemon::new(config).expect("failed to create daemon");
         let status = daemon.get_status();
 
         assert!(matches!(status.state, DaemonState::Initializing));
@@ -473,7 +473,7 @@ mod tests {
     #[test]
     fn test_convert_event_to_task() {
         let config = OrchestrationDaemonConfig::default();
-        let daemon = OrchestrationDaemon::new(config);
+        let daemon = OrchestrationDaemon::new(config).expect("failed to create daemon");
 
         let event = MetadataEvent {
             source: "test".to_string(),

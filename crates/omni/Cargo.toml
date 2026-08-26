@@ -4,6 +4,8 @@ version = "0.1.0"
 edition = "2021"
 authors = ["Aaron"]
 description = "Universal 3D Galaxy semantic data navigation, star-node clustering, and visual search engine"
+license.workspace = true
+repository.workspace = true
 
 [dependencies]
 compute = { path = "../compute" }

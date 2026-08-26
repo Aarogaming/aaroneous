@@ -1,9 +1,13 @@
 //! crates/orchestrator/src/workflow_engine.rs
 //! Resilient Task Workflow DAG & Specialist Consensus State Machine
 //! inspired by Temporal.io, Kubernetes Workflow Controllers, and LangGraph.
+//!
+//! Supports crash-recoverable persistence via JSON serialization.
 
+use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
+use std::path::{Path, PathBuf};
 
 /// Status of an individual workflow step
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -35,6 +39,9 @@ pub struct WorkflowGraph {
     pub steps: HashMap<String, WorkflowStep>,
     pub is_completed: bool,
     pub is_failed: bool,
+    /// Optional file path for persistence
+    #[serde(skip)]
+    pub persist_path: Option<PathBuf>,
 }
 
 impl WorkflowGraph {
@@ -44,6 +51,18 @@ impl WorkflowGraph {
             steps: HashMap::new(),
             is_completed: false,
             is_failed: false,
+            persist_path: None,
+        }
+    }
+
+    /// Create a new workflow with a persistence path
+    pub fn new_with_persist(workflow_id: impl Into<String>, path: PathBuf) -> Self {
+        Self {
+            workflow_id: workflow_id.into(),
+            steps: HashMap::new(),
+            is_completed: false,
+            is_failed: false,
+            persist_path: Some(path),
         }
     }
 
@@ -126,43 +145,116 @@ impl WorkflowGraph {
             }
         }
     }
+
+    // ─── Persistence ───────────────────────────────────────────────
+
+    /// Serialize the workflow to a JSON string
+    pub fn serialize(&self) -> Result<String> {
+        serde_json::to_string_pretty(self).context("Failed to serialize workflow")
+    }
+
+    /// Deserialize a workflow from a JSON string
+    pub fn deserialize(json: &str) -> Result<Self> {
+        serde_json::from_str(json).context("Failed to deserialize workflow")
+    }
+
+    /// Save the workflow to disk at the configured persist_path
+    pub fn save(&self) -> Result<()> {
+        let path = self
+            .persist_path
+            .as_ref()
+            .ok_or_else(|| anyhow::anyhow!("No persist_path configured for workflow {}", self.workflow_id))?;
+        self.save_to(path)
+    }
+
+    /// Save the workflow to a specific file path
+    pub fn save_to(&self, path: &Path) -> Result<()> {
+        let json = self.serialize()?;
+
+        // Write to temp file first, then rename for atomicity
+        let tmp_path = path.with_extension("json.tmp");
+        std::fs::write(&tmp_path, &json)
+            .with_context(|| format!("Failed to write workflow to {}", tmp_path.display()))?;
+        std::fs::rename(&tmp_path, path)
+            .with_context(|| format!("Failed to rename workflow file to {}", path.display()))?;
+
+        Ok(())
+    }
+
+    /// Load a workflow from a file path
+    pub fn load_from(path: &Path) -> Result<Self> {
+        let json = std::fs::read_to_string(path)
+            .with_context(|| format!("Failed to read workflow from {}", path.display()))?;
+        let mut workflow = Self::deserialize(&json)?;
+        workflow.persist_path = Some(path.to_path_buf());
+        Ok(workflow)
+    }
+
+    /// Save to the default location: .aaroneous/workflows/{workflow_id}.json
+    pub fn save_default(&self, workspace_root: &Path) -> Result<()> {
+        let dir = workspace_root.join(".aaroneous").join("workflows");
+        std::fs::create_dir_all(&dir)?;
+        let path = dir.join(format!("{}.json", self.workflow_id));
+        self.save_to(&path)
+    }
+
+    /// Load from the default location
+    pub fn load_default(workspace_root: &Path, workflow_id: &str) -> Result<Self> {
+        let path = workspace_root
+            .join(".aaroneous")
+            .join("workflows")
+            .join(format!("{}.json", workflow_id));
+        Self::load_from(&path)
+    }
+
+    /// List all persisted workflows in a directory
+    pub fn list_persisted(workspace_root: &Path) -> Result<Vec<String>> {
+        let dir = workspace_root.join(".aaroneous").join("workflows");
+        if !dir.exists() {
+            return Ok(Vec::new());
+        }
+
+        let mut ids = Vec::new();
+        for entry in std::fs::read_dir(&dir)? {
+            let entry = entry?;
+            let path = entry.path();
+            if path.extension().and_then(|e| e.to_str()) == Some("json") {
+                if let Some(stem) = path.file_stem().and_then(|s| s.to_str()) {
+                    ids.push(stem.to_string());
+                }
+            }
+        }
+        Ok(ids)
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::fs;
 
     #[test]
     fn test_workflow_dag_dependency_resolution() {
         let mut workflow = WorkflowGraph::new("wf_code_adaptation");
 
-        // Step 1: Merlin decompiles intent
         workflow.add_step("step_1", "Merlin", "DecompileIntent", "{}", vec![], 2);
-
-        // Step 2: Hephaestus forges AST patch (depends on step 1)
         workflow.add_step("step_2", "Hephaestus", "ForgePatch", "{}", vec!["step_1".to_string()], 2);
-
-        // Step 3: Argus audits security (depends on step 2)
         workflow.add_step("step_3", "Argus", "SecurityAudit", "{}", vec!["step_2".to_string()], 1);
 
-        // Initially only step 1 should be ready
         let ready = workflow.get_ready_steps();
         assert_eq!(ready.len(), 1);
         assert_eq!(ready[0].step_id, "step_1");
 
-        // Complete step 1 -> step 2 becomes ready
         workflow.complete_step("step_1");
         let ready2 = workflow.get_ready_steps();
         assert_eq!(ready2.len(), 1);
         assert_eq!(ready2[0].step_id, "step_2");
 
-        // Complete step 2 -> step 3 becomes ready
         workflow.complete_step("step_2");
         let ready3 = workflow.get_ready_steps();
         assert_eq!(ready3.len(), 1);
         assert_eq!(ready3[0].step_id, "step_3");
 
-        // Complete step 3 -> workflow finishes
         workflow.complete_step("step_3");
         assert!(workflow.is_completed);
         assert!(!workflow.is_failed);
@@ -174,14 +266,70 @@ mod tests {
         workflow.add_step("step_1", "Hephaestus", "Compile", "{}", vec![], 1);
         workflow.add_step("step_2", "Argus", "Audit", "{}", vec!["step_1".to_string()], 1);
 
-        // Fail once -> retry
         workflow.fail_step("step_1", "Compile Error 1");
         assert_eq!(workflow.steps.get("step_1").unwrap().retry_count, 1);
         assert_eq!(workflow.steps.get("step_1").unwrap().status, StepStatus::Pending);
 
-        // Fail second time (exceeds max_retries = 1) -> fatal failure + rollback
         workflow.fail_step("step_1", "Compile Error 2");
         assert!(workflow.is_failed);
         assert_eq!(workflow.steps.get("step_2").unwrap().status, StepStatus::RolledBack);
+    }
+
+    #[test]
+    fn test_serialize_deserialize_roundtrip() {
+        let mut workflow = WorkflowGraph::new("wf_roundtrip");
+        workflow.add_step("s1", "Merlin", "Analyze", "data", vec![], 1);
+        workflow.complete_step("s1");
+
+        let json = workflow.serialize().unwrap();
+        let loaded = WorkflowGraph::deserialize(&json).unwrap();
+
+        assert_eq!(loaded.workflow_id, "wf_roundtrip");
+        assert_eq!(loaded.steps.len(), 1);
+        assert!(loaded.is_completed);
+    }
+
+    #[test]
+    fn test_save_and_load() {
+        let dir = std::env::temp_dir().join("aaroneous_test_workflows");
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+
+        let path = dir.join("test_wf.json");
+        let mut workflow = WorkflowGraph::new("test_wf");
+        workflow.add_step("s1", "Odin", "Plan", "{}", vec![], 0);
+        workflow.save_to(&path).unwrap();
+
+        let loaded = WorkflowGraph::load_from(&path).unwrap();
+        assert_eq!(loaded.workflow_id, "test_wf");
+        assert_eq!(loaded.steps.len(), 1);
+        assert_eq!(loaded.persist_path, Some(path.clone()));
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn test_list_persisted() {
+        let dir = std::env::temp_dir().join("aaroneous_test_list");
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(dir.join(".aaroneous/workflows")).unwrap();
+
+        // Create two workflow files
+        fs::write(
+            dir.join(".aaroneous/workflows/wf_a.json"),
+            "{\"workflow_id\":\"wf_a\",\"steps\":{},\"is_completed\":false,\"is_failed\":false}",
+        )
+        .unwrap();
+        fs::write(
+            dir.join(".aaroneous/workflows/wf_b.json"),
+            "{\"workflow_id\":\"wf_b\",\"steps\":{},\"is_completed\":false,\"is_failed\":false}",
+        )
+        .unwrap();
+
+        let mut ids = WorkflowGraph::list_persisted(&dir).unwrap();
+        ids.sort();
+        assert_eq!(ids, vec!["wf_a", "wf_b"]);
+
+        let _ = fs::remove_dir_all(&dir);
     }
 }

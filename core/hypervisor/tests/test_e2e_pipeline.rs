@@ -57,7 +57,7 @@ async fn test_full_pipeline_metadata_to_action() {
         cache_ttl_secs: 3600,
     };
 
-    let intelligence = IntelligenceEngine::new(llm_config, specialists);
+    let intelligence = IntelligenceEngine::new(llm_config, specialists).expect("Failed to create intelligence engine");
     let mut decision_engine = AutonomousDecisionEngine::new(intelligence);
 
     // Step 5: Create a task from the metadata event
@@ -129,7 +129,7 @@ async fn test_ingestion_cycle_with_multiple_tasks() {
         cache_ttl_secs: 3600,
     };
 
-    let intelligence = IntelligenceEngine::new(llm_config, specialists);
+    let intelligence = IntelligenceEngine::new(llm_config, specialists).expect("Failed to create intelligence engine");
     let mut decision_engine = AutonomousDecisionEngine::new(intelligence);
 
     // Create multiple tasks simulating metadata events
@@ -183,7 +183,7 @@ async fn test_daemon_initialization() {
         ..Default::default()
     };
 
-    let daemon = OrchestrationDaemon::new(config);
+    let daemon = OrchestrationDaemon::new(config).expect("failed to create daemon");
 
     // Verify initial state
     let status = daemon.get_status();

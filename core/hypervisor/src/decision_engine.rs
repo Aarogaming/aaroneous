@@ -569,7 +569,7 @@ mod tests {
             cache_ttl_secs: 3600,
         };
 
-        IntelligenceEngine::new_async(config, specialists).await
+        IntelligenceEngine::new_async(config, specialists).await.expect("Failed to create test intelligence engine")
     }
 
     #[tokio::test]
