@@ -714,9 +714,9 @@ pub fn router(state: AppState) -> Router {
         .route("/v1/chat/completions", post(openai_chat_completions))
         .route("/v1/completions", post(openai_completions))
         // ── Adaptation Engine Emulation ─────────────────────────────────────────
-        .route("/chimera/record", post(chimera_record_toggle))
-        .route("/chimera/routines", get(list_routines))
-        .route("/chimera/routines/:id/run", post(run_routine))
+        .route("/adaptation/record", post(adaptation_record_toggle))
+        .route("/adaptation/routines", get(list_routines))
+        .route("/adaptation/routines/:id/run", post(run_routine))
         // ── Autonomous Scheduler ───────────────────────────────────────────────
         .route(
             "/scheduler/tasks",
@@ -927,17 +927,17 @@ async fn delete_scheduled_task(
 // ====================================================================
 
 #[derive(Deserialize)]
-struct ChimeraRecordRequest {
+struct AdaptationRecordRequest {
     action: String, // "start" or "stop"
 }
 
-async fn chimera_record_toggle(Json(req): Json<ChimeraRecordRequest>) -> impl IntoResponse {
+async fn adaptation_record_toggle(Json(req): Json<AdaptationRecordRequest>) -> impl IntoResponse {
     // We can just open a temporary nats connection or use an existing one to publish.
     // For simplicity, we do a quick synchronous publish using the default connection url.
     if let Ok(nc) = async_nats::connect("nats://localhost:4222").await {
         let _ = nc
             .publish(
-                "chimera.record".to_string(),
+                "adaptation.record".to_string(),
                 req.action.as_bytes().to_vec().into(),
             )
             .await;
@@ -991,7 +991,7 @@ async fn run_routine(Path(id): Path<String>) -> impl IntoResponse {
     if let Ok(nc) = async_nats::connect("nats://localhost:4222").await {
         let _ = nc
             .publish(
-                "chimera.emulation.playback".to_string(),
+                "adaptation.emulation.playback".to_string(),
                 id.as_bytes().to_vec().into(),
             )
             .await;

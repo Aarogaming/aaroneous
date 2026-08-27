@@ -44,7 +44,7 @@ pub struct ForgeStudio {
 impl Default for ForgeStudio {
     fn default() -> Self {
         Self {
-            model_name: "chimera_ast_v1".to_string(),
+            model_name: "adaptation_ast_v1".to_string(),
             selected_tier: SiTierFlags::TIER_3_REFLEX,
             dataset_path: "rosetta_code.si".to_string(),
             epochs: 5,

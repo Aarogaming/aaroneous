@@ -50,9 +50,9 @@ impl RestApiServer {
             .route("/scheduler/tasks", post(create_scheduler_task))
             .route("/scheduler/tasks/:id", delete(cancel_scheduler_task))
             // Adaptation Engine
-            .route("/chimera/record", post(toggle_chimera_record))
-            .route("/chimera/routines", get(list_routines))
-            .route("/chimera/routines/:id/run", post(run_routine_now));
+            .route("/adaptation/record", post(toggle_adaptation_record))
+            .route("/adaptation/routines", get(list_routines))
+            .route("/adaptation/routines/:id/run", post(run_routine_now));
 
         let app = app.with_state(std::sync::Arc::clone(&self.federation));
 
@@ -253,7 +253,7 @@ async fn cancel_scheduler_task(
     Ok(Json(serde_json::json!({"success": true, "task_id": id})))
 }
 
-async fn toggle_chimera_record(
+async fn toggle_adaptation_record(
     Json(body): Json<serde_json::Value>,
 ) -> Result<Json<serde_json::Value>, StatusCode> {
     let action = body
