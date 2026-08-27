@@ -11,7 +11,7 @@ Welcome to the **`dev`** project. This directory serves as the permanent homebas
 3. **Automated Software Wrapping & Adaptation**: External target programs (CLI utilities, native DLLs, APIs, GUI apps) are ingested, deconstructed by Chimera, probed by Marionette, and automatically wrapped with Machine-Native Linking Protocol (MNLP) harnesses to become first-class cooperative utilities.
 4. **Omni Galaxy 3D Semantic Access**: Data and capabilities are navigated not through physical filesystem folders, but as a 3D galaxy of content-related star-nodes and gravitational clusters.
 5. **Synthetic Intelligence (SI) over Human-Token AI**: Machines communicate in machine-native representations (binary vectors, tensor matrices, shared memory mmap, structured binary IPC). Human language is strictly an edge translation skill for human-machine interaction.
-6. **The Specialist Federation**: A simplified, modernized family of 9 Sovereign Specialists (Odin, Merlin, Ariel, Hephaestus, Argus, Dionysus, Hermes, Wen, Kami) operating paired autonomous Relic Substrates without bulky legacy city/location metaphors.
+6. **The Specialist Federation**: A simplified, modernized family of 9 Sovereign Specialists (Orchestrator, Synthesizer, Presenter, Fabricator, Sentinel, Archivist, Router, Aligner, Perceiver) operating paired autonomous Relic Substrates without bulky legacy city/location metaphors.
 7. **Phase Out WASM**: Eliminating WebAssembly and WIT virtualization overhead across the entire stack in favor of high-performance native machine code.
 8. **Absolute Host Safety**: Zero unconstrained OS-level input injections or unthrottled desktop screen grabbing during development or testing.
 
@@ -22,10 +22,10 @@ Welcome to the **`dev`** project. This directory serves as the permanent homebas
 | Document | Title & Description |
 | :--- | :--- |
 | [00_SYNTHETIC_INTELLIGENCE_MANIFESTO.md](file:///d:/Aaroneous/dev/docs/00_SYNTHETIC_INTELLIGENCE_MANIFESTO.md) | Philosophy: non-human-language machine-native intelligence, tensor thought, and native communication. |
-| [01_PROJECT_TAXONOMY_AND_ROLES.md](file:///d:/Aaroneous/dev/docs/01_PROJECT_TAXONOMY_AND_ROLES.md) | Official definitions: Aaroneous, Marionette, Chimera, Odin, Merlin, and Ariel. |
+| [01_PROJECT_TAXONOMY_AND_ROLES.md](file:///d:/Aaroneous/dev/docs/01_PROJECT_TAXONOMY_AND_ROLES.md) | Official definitions: Aaroneous, Desktop Emulator, Adaptation Engine, Orchestrator, Synthesizer, and Presenter. |
 | [02_SYSTEM_ARCHITECTURE_BLUEPRINT.md](file:///d:/Aaroneous/dev/docs/02_SYSTEM_ARCHITECTURE_BLUEPRINT.md) | Modular blueprint, IPC/NATS topology, and shared memory pipelines. |
 | [03_CODEBASE_CENSUS_AND_FORENSIC_AUDIT.md](file:///d:/Aaroneous/dev/docs/03_CODEBASE_CENSUS_AND_FORENSIC_AUDIT.md) | Exhaustive audit of all 41 directories and 29 Cargo crates. |
-| [04_DUPLICATE_IMPLEMENTATION_ANALYSIS.md](file:///d:/Aaroneous/dev/docs/04_DUPLICATE_IMPLEMENTATION_ANALYSIS.md) | Forensic analysis of duplicated/conflicting Marionette, Chimera, and Synapse implementations. |
+| [04_DUPLICATE_IMPLEMENTATION_ANALYSIS.md](file:///d:/Aaroneous/dev/docs/04_DUPLICATE_IMPLEMENTATION_ANALYSIS.md) | Forensic analysis of duplicated/conflicting Desktop Emulator, Adaptation Engine, and Synapse implementations. |
 | [05_WASM_PHASEOUT_AND_DEPRECATION_PLAN.md](file:///d:/Aaroneous/dev/docs/05_WASM_PHASEOUT_AND_DEPRECATION_PLAN.md) | Step-by-step roadmap to purge WASM/WIT layers in favor of native compiled shared libraries. |
 | [06_MACHINE_NATIVE_LINKING_PROTOCOL.md](file:///d:/Aaroneous/dev/docs/06_MACHINE_NATIVE_LINKING_PROTOCOL.md) | Canonical binary interchange specification for inter-program communication. |
 | [07_HOST_SAFETY_AND_ISOLATION_SPEC.md](file:///d:/Aaroneous/dev/docs/07_HOST_SAFETY_AND_ISOLATION_SPEC.md) | Post-mortem of host PC lockups/hijacking and mandatory safety isolation rules. |

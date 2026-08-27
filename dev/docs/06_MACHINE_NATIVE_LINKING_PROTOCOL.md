@@ -2,7 +2,7 @@
 
 ## Purpose & Scope
 
-The **Machine-Native Linking Protocol (MNLP)** is the universal, zero-overhead binary communication standard that enables all decoupled programs in the Aaroneous ecosystem (Aaroneous, Marionette, Chimera, Odin, Merlin, Ariel) to discover, link, synchronize state, and exchange dense tensors without converting data into human language or JSON strings.
+The **Machine-Native Linking Protocol (MNLP)** is the universal, zero-overhead binary communication standard that enables all decoupled programs in the Aaroneous ecosystem (Aaroneous, Marionette, Chimera, Orchestrator, Synthesizer, Presenter) to discover, link, synchronize state, and exchange dense tensors without converting data into human language or JSON strings.
 
 ---
 
@@ -42,11 +42,11 @@ pub struct MachinePacketHeader {
 | Opcode Range | Category | Description | Primary Data Format |
 | :--- | :--- | :--- | :--- |
 | `0x0001 - 0x00FF` | **Lifecycle & Handshake** | Heartbeats, discovery, registration, graceful shutdown. | `HandshakePayload` struct |
-| `0x0100 - 0x01FF` | **Task & Intent (Odin)** | Task DAG generation, step dispatch, status updates. | `TaskIntentPayload` struct |
+| `0x0100 - 0x01FF` | **Task & Intent (Orchestrator)** | Task DAG generation, step dispatch, status updates. | `TaskIntentPayload` struct |
 | `0x0200 - 0x02FF` | **Sensory & Reflex (Marionette)**| 128x128 sensory grid, motor intents, epigenetic gate mask. | `128x128 f32` grid / `MotorIntent` |
-| `0x0300 - 0x03FF` | **Knowledge & Embeddings (Merlin)**| Semantic vector queries, embedding transfers, DB updates. | `1024x f32` vector embeddings |
+| `0x0300 - 0x03FF` | **Knowledge & Embeddings (Synthesizer)**| Semantic vector queries, embedding transfers, DB updates. | `1024x f32` vector embeddings |
 | `0x0400 - 0x04FF` | **Code & Patching (Chimera)** | AST diffs, patch proposals, bytecode inspection requests. | `AstPatchPayload` |
-| `0x0500 - 0x05FF` | **Telemetry & UI (Ariel)** | FPS, GPU compute latency, thermal metrics, token reserves. | `SystemTelemetryPayload` |
+| `0x0500 - 0x05FF` | **Telemetry & UI (Presenter)** | FPS, GPU compute latency, thermal metrics, token reserves. | `SystemTelemetryPayload` |
 
 ---
 

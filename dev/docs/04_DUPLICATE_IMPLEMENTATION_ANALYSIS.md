@@ -4,7 +4,7 @@ This document provides a forensic breakdown of the duplicated, fragmented, and c
 
 ---
 
-## 🎭 The Marionette Implementations
+## 🎭 The Desktop Emulator Implementations
 
 Marionette was envisioned as a **frontend user emulation system with backend probing and datalogging**. Over multiple iterations, at least 5 competing implementations emerged:
 
@@ -25,7 +25,7 @@ Marionette was envisioned as a **frontend user emulation system with backend pro
 └─────────────────┘   └───────────────────┘     └───────────────────┘    └───────────────────┘
 ```
 
-### Detailed Matrix of Marionette Implementations:
+### Detailed Matrix of Desktop Emulator Implementations:
 
 | Location | Mechanism | Code Reality | Verdict & Action |
 | :--- | :--- | :--- | :--- |
@@ -35,7 +35,7 @@ Marionette was envisioned as a **frontend user emulation system with backend pro
 | `core/hypervisor/src/win32_intercept/hid_bridge.rs` | Win32 `SendInput` API | Low-level C-FFI direct Win32 hardware event dispatcher. | **Move to Marionette Native Backend** (behind strict safety switch). |
 | `core/hypervisor/src/wasm_ebus_bridge/marionette_bridge.rs` | WASM WIT interface | Virtualized WASM interface binding. | **Phase Out with WASM Removal**. |
 
-### Reconciliation Plan for Marionette:
+### Reconciliation Plan for Desktop Emulator:
 1. Establish a single standalone crate/program: **`crates/marionette`**.
 2. Adopt the clean `MarionetteHost` async trait from `components/chimera_marionette_loop/src/marionette.rs`.
 3. Provide two swappable backend implementations:
@@ -45,7 +45,7 @@ Marionette was envisioned as a **frontend user emulation system with backend pro
 
 ---
 
-## 🧬 The Chimera Implementations
+## 🧬 The Adaptation Engine Implementations
 
 Chimera was envisioned as a **"smart" software adaptation system** capable of decompiling, reading, writing, copying, and patching target software. Four conflicting implementations were created:
 
@@ -56,11 +56,11 @@ Chimera was envisioned as a **"smart" software adaptation system** capable of de
 | `core/hypervisor/src/lib.rs` (`run_health_checks`) | "DNA Bank (Chimera)" | Calls `persistence::PersistenceManager::new(":memory:")` (SQLite trait storage). | **Rename to SQLite DNA Bank** to remove namespace confusion. |
 | `MaelstromUI` & REST API (`server.rs`) | Macro recorder | Endpoints `/chimera/record` and `/chimera/routines` for UI event recording. | **Rebrand to Routine Datalogger** and move under Marionette. |
 
-### Reconciliation Plan for Chimera:
+### Reconciliation Plan for Adaptation Engine:
 1. Establish a single standalone crate/program: **`crates/chimera`**.
 2. Consolidate AST parsing and patch synthesis (using Tree-Sitter) as the primary software adaptation engine.
 3. Integrate binary disassembly and bytecode inspection as Chimera's low-level analysis module.
-4. Move macro recording and peripheral playback entirely to Marionette where it logically belongs.
+4. Move macro recording and peripheral playback entirely to Desktop Emulator where it logically belongs.
 
 ---
 

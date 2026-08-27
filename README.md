@@ -58,14 +58,14 @@
 
 ### 6. 🏛️ Tri-Tiered Layered Control System
 - **Tier 1 (Strategic Cortex - $\mathbb{R}^{4096}$):** Long-horizon task decomposition and high-dimensional semantic planning running on background OS threads (`SiTierFlags::TIER_1_CORTEX`).
-- **Tier 2 (Hermes Router - $\mathbb{R}^{4096} \to \mathbb{R}^{256}$):** Subgoal projection with inline **Argus Deep SVDD** guardrail audit ($< 2\mu\text{s}$ safe manifold snap: $\mathbf{S}_{\text{snapped}} = \mathbf{c} + R \frac{\mathbf{S} - \mathbf{c}}{\|\mathbf{S} - \mathbf{c}\|_2}$) and atomic broadcasting over Channel 0 of the lock-free SPMC synapse bus (`SiTierFlags::TIER_2_ROUTER`).
+- **Tier 2 (Router - $\mathbb{R}^{4096} \to \mathbb{R}^{256}$):** Subgoal projection with inline **Sentinel Deep SVDD** guardrail audit ($< 2\mu\text{s}$ safe manifold snap: $\mathbf{S}_{\text{snapped}} = \mathbf{c} + R \frac{\mathbf{S} - \mathbf{c}}{\|\mathbf{S} - \mathbf{c}\|_2}$) and atomic broadcasting over Channel 0 of the lock-free SPMC synapse bus (`SiTierFlags::TIER_2_ROUTER`).
 - **Tier 3 (Kinetic Reflex Workers - $\mathbb{R}^{256}$):** Dedicated physical CPU-core pinned workers (`SetThreadAffinityMask`) executing sub-microsecond spin-wait pursuit loops, continuous sensory-conditioned state recurrence ($< 180\mu\text{s}$), and multi-headed action decoding (`SiTierFlags::TIER_3_REFLEX`).
 
 ### 7. 🔥 The `SiForge` Unified Model Builder API
 - Fully integrated Rust Builder pipeline (`SiForge::new("model_name").with_tier(tier).with_training_data(dataset).birth(dir)`).
 - End-to-end multi-objective teacher distillation (CKA + InfoNCE + CE) $\to$ State-Space parameter extraction $\to$ SINT v3 64-byte SIMD aligned container generation $\to$ Zero-copy memory mapping verification.
 
-### 8. 🛡️ Sovereign Windows Ghost Desktop Sandbox
+### 8. 🛡️ Sovereign Windows Isolated Desktop Sandbox
 - Headless process and kinetic UI isolation via Win32 `CreateDesktopW` FFI, preventing robotic actions from stealing host keyboard/mouse focus or interfering with the developer's foreground work.
 
 ---
@@ -118,10 +118,10 @@ a_run evolve --cycles 3 --threshold 0.70
 # 5. Forge a new Tier 3 Kinetic Reflex .si container from scratch
 a_run forge --name chimera_ast --tier 3 --samples 20 --epochs 1
 
-# 6. Boot the Hypervisor in an isolated sovereign Ghost Desktop
+# 6. Boot the Hypervisor in an isolated sovereign Isolated Desktop
 a_run boot --profile isolated
 
-# 7. Run closed-loop multimodal sensory-motor pipeline in Ghost Desktop
+# 7. Run closed-loop multimodal sensory-motor pipeline in Isolated Desktop
 a_run simulate --frames 5
 
 # 8. Benchmark zero-copy memory-mapped execution
@@ -135,14 +135,14 @@ a_run si benchmark data/models/chimera_ast.si --iterations 500
 ```
 d:\Aaroneous\
 ├── crates/
-│   ├── compute/            # SiForge, SSM engine, 9-Specialist Distillation, HermesRouter, ReflexWorker
+│   ├── compute/            # SiForge, SSM engine, 9-Specialist Distillation, Router, ReflexWorker
 │   ├── paths/              # Dynamic zero-hardcoded workspace path resolver
 │   ├── nervous_system/     # 128-byte cache-aligned 11-channel lock-free SPMC synapse bus
-│   ├── orchestrator/       # Thread affinity allocator, Grim Reaper memory compactor & .sissm resurrection
+│   ├── orchestrator/       # Thread affinity allocator, Compaction Engine memory compactor & .sissm resurrection
 │   ├── specialists/        # SpecialistFederation: 9 Sovereign Domain Engines & Relic Substrates
 │   ├── evolution/          # ContinuousSelfEvolutionEngine, NeurochemicalHomeostasisEngine & genetics
 │   ├── chimera/            # AutonomousScientificEngine, AST mutation & shadow sandbox verification
-│   ├── marionette/         # OS kinetic interaction, EpigeneticVisionGater (16x16) & Ghost Desktop loop
+│   ├── marionette/         # OS kinetic interaction, EpigeneticVisionGater (16x16) & Isolated Desktop loop
 │   ├── transpiler/         # AST parser & distillation trajectory miner
 │   ├── biology/            # Cellular automata & homeostatic feedback loops
 │   └── omni/               # 3D Galaxy Concept Graph & N-body Barnes-Hut gravitational clustering

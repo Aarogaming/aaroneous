@@ -11,14 +11,14 @@ This document categorizes, tags, and deconstructs every prominent feature, compu
                                           │
     ┌──────────────────┬──────────────────┼──────────────────┬──────────────────┐
     ▼                  ▼                  ▼                  ▼                  ▼
-[1. Biology &      [2. Neuro-         [3. Scientific     [4. Grim Reaper    [5. Federation &
+[1. Biology &      [2. Neuro-         [3. Scientific     [4. Compaction      [5. Federation &
  Metabolism]        chemistry]         Pipeline]          Resurrection]      Raft Consensus]
  • Token Economy    • Dopamine         • Observe          • Slab Defrag      • Multi-Hive Mesh
  • Thermal State    • Curiosity        • Hypothesis       • State Snapshot   • State Replicator
  • Governor         • Neural Prune     • Verify           • Instant Clone    • Load Balancer
     │                  │                  │                  │                  │
     ▼                  ▼                  ▼                  ▼                  ▼
-[6. Genetics &     [7. Soul           [8. Advanced       [9. NLM Sentinel   [10. Spatial-
+[6. Genetics &     [7. Persona         [8. Advanced       [9. NLM Sentinel   [10. Spatial-
  HOX Registry]      Digestion]         Compute Engine]    & Security]        Kinetic Reflex]
  • Loci & Genome    • Experience       • Markov / Kalman  • Intent Tiers     • WGSL Shaders
  • Epigenetic Gate  • Narrative        • Bayesian / CA    • Rate Limiting    • GDI Capture
@@ -45,7 +45,7 @@ This document categorizes, tags, and deconstructs every prominent feature, compu
 - **Core Constructs**:
   - `NeurochemicalLevels`: 4-channel continuous dynamics (Dopamine, Serotonin, Noradrenaline, Acetylcholine).
   - `NeurochemicalHomeostasisEngine`: Homeostatic decay, curiosity drive, boredom index, and stress index calculations.
-  - `ContinuousSelfEvolutionEngine`: Couples neurochemical curiosity/boredom with Hephaestus AST mutation and Argus Deep SVDD safety audits.
+  - `ContinuousSelfEvolutionEngine`: Couples neurochemical curiosity/boredom with Fabricator AST mutation and Sentinel Deep SVDD safety audits.
   - Proactive Autonomic Impulses: Formulates `ExploreKnowledgeGaps` and `OptimizeAstHypotheses`.
   - Dynamic Token Rebalancing: Allocates metabolic tokens across the 9 sovereign specialists.
 - **CLI Commands**:
@@ -66,10 +66,10 @@ This document categorizes, tags, and deconstructs every prominent feature, compu
 
 ---
 
-### 4. The Grim Reaper & Agent Resurrection Pattern
+### 4. The Compaction Engine & Agent Resurrection Pattern
 - **Files**: `crates/orchestrator/src/grim_reaper.rs`, `crates/specialists/src/traits.rs`.
 - **Core Constructs**:
-  - `GrimReaperEngine`: Working set memory pressure evaluation ($>80.0\%$).
+  - `CompactionEngine`: Working set memory pressure evaluation ($>80.0\%$).
   - Zero-Copy `.sissm` Hibernation: 128-byte aligned serialization of dormant specialists to NVMe.
   - Instant Resurrection: `memmap2::Mmap` zero-copy memory restoration in $<1\,\text{ms}$ ($792\,\mu\text{s}$ observed).
 - **CLI Command**: `a_run reap --pressure 88.5`
@@ -101,15 +101,15 @@ This document categorizes, tags, and deconstructs every prominent feature, compu
 
 ---
 
-### 7. The "Soul" / Self-Digestion System
+### 7. The "Persona" / Self-Digestion System
 - **Files**: `crates/evolution/src/self_digestion.rs`, `soul_fusion.rs`, `candle_soul_engine.rs`.
 - **Core Constructs**:
-  - `DigestionEngine`: Ingests unstructured logs, source code, and session history into structured "souls":
-    - `ExperienceSoul`: Episodic memories of past successes and failures.
-    - `NarrativeSoul`: System lore and conversational history.
-    - `PersonalitySoul`: Behavioral biases and response parameters.
-    - `SpecialistSoul`: Technical competence and capability profiles.
-  - `SoulFusionEngine`: Emergent skill fusion and soul vector synthesis.
+  - `DigestionEngine`: Ingests unstructured logs, source code, and session history into structured "personas":
+    - `ExperiencePersona`: Episodic memories of past successes and failures.
+    - `NarrativePersona`: System lore and conversational history.
+    - `PersonalityPersona`: Behavioral biases and response parameters.
+    - `SpecialistPersona`: Technical competence and capability profiles.
+  - `PersonaFusionEngine`: Emergent skill fusion and persona vector synthesis.
 - **Status**: **✅ IMPLEMENTED & VERIFIED**. 23 evolution tests passed.
 
 ---
@@ -117,7 +117,7 @@ This document categorizes, tags, and deconstructs every prominent feature, compu
 ### 8. The Advanced Compute & Full 9-Specialist `.si` Distillation Layer
 - **Files**: `crates/compute/src/`, `rosetta_stone.rs`, `si_distillation_harness.rs`, `si_packer.rs`, `kalman_filter.rs`.
 - **Core Constructs**:
-  - `RosettaStoneDataset`: Synthesizes 9-domain expert training trajectories across all specialist opcodes.
+  - `TranslationDataset`: Synthesizes 9-domain expert training trajectories across all specialist opcodes.
   - `SiDistillationHarness`: End-to-end multi-teacher distillation, CKA alignment, and InfoNCE loss optimization for all 9 specialists:
     `odin.si`, `merlin.si`, `ariel.si`, `hephaestus.si`, `argus.si`, `dionysus.si`, `hermes.si`, `wen.si`, `kami.si`.
   - `SiPacker`: Zero-copy `.si` container generation, CRC32 verification, SIMD quantized weights.
@@ -141,7 +141,7 @@ This document categorizes, tags, and deconstructs every prominent feature, compu
 - **Files**: `crates/omni/src/lib.rs`, `star_node.rs`, `crates/marionette/src/sensory_motor_pipeline.rs`, `crates/specialists/src/ariel.rs`.
 - **Core Constructs**:
   - `OmniEngine`: 3D spatial coordinate topology $(X, Y, Z)$ with $N$-body Coulomb repulsion and semantic cosine gravity.
-  - `SensoryMotorPipeline`: Closed-loop 128x128 epigenetic vision gating $\to$ Argus SVDD guardrail $\to$ Action decoder $\to$ Win32 Ghost Desktop motor sandbox.
+  - `SensoryMotorPipeline`: Closed-loop 128x128 epigenetic vision gating $\to$ Sentinel SVDD guardrail $\to$ Action decoder $\to$ Win32 Isolated Desktop motor sandbox.
 - **CLI Commands**:
   - `a_run galaxy --steps 10`
   - `a_run simulate --frames 5`

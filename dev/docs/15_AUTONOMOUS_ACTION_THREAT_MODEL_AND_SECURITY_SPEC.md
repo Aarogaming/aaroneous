@@ -16,10 +16,10 @@ Aaroneous executes autonomous tasks (AST synthesis, file operations, hardware in
 - **API Key Guard**: All MCP HTTP (`/mcp`) and SSE (`/sse`) routes require `Authorization: Bearer <AARONEOUS_API_KEY>` via `mcp_api_key_auth` Axum middleware.
 - **P2P Wire Framing**: Live TCP packets use 4-byte length prefixes and type validation to prevent buffer overflows.
 
-### C. Execution & JIT Safety (Argus SVDD Guardrail)
-- **Latent Manifold Safety**: Before any synthesized code or candidate action vector is dispatched, Argus evaluates its distance against the safe SVDD hypersphere ($R = 14.5$).
+### C. Execution & JIT Safety (Sentinel SVDD Guardrail)
+- **Latent Manifold Safety**: Before any synthesized code or candidate action vector is dispatched, Sentinel evaluates its distance against the safe SVDD hypersphere ($R = 14.5$).
 - **Orthogonal Snapping**: Unsafe candidate vectors exceeding the threshold radius are snapped orthogonally to the nearest safe boundary in $< 2\mu s$.
 
 ### D. AST Mutation & Shadow Sandbox Rollback
-- **Shadow Sandboxes**: Hephaestus and the Dream Engine execute speculative code patches in isolated temp sandboxes.
+- **Shadow Sandboxes**: Fabricator and the Dream Engine execute speculative code patches in isolated temp sandboxes.
 - **Rollback Guarantee**: If Bayesian posterior confidence $< 0.70$ or unit tests fail, the mutation is immediately rolled back without touching the live tree.

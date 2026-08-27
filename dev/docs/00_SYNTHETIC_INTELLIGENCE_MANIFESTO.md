@@ -28,7 +28,7 @@ This creates massive inefficiencies:
          ┌─────────────────────────────┼─────────────────────────────┐
          │ (Binary Tensors/IPC)        │ (Shared Memory Synapse)     │ (Native Events)
 ┌────────▼────────┐           ┌────────▼────────┐           ┌────────▼────────┐
-│   Marionette    │           │     Chimera     │           │   Odin/Merlin   │
+│   Marionette    │           │     Chimera     │           │Orchestrator/Synthesizer│
 │ (User Emulation)│           │(Software Adapt) │           │(Task & Intel)   │
 └─────────────────┘           └─────────────────┘           └─────────────────┘
 ```
@@ -42,7 +42,7 @@ Machines communicate most efficiently in their own native substrate:
 ### 2. Human Language as an "Edge Translation Skill"
 Human language is not machine intelligence; it is a **peripheral translation protocol** used strictly when interfacing with the human operator.
 - An SI agent processes, plans, and synchronizes internally using high-dimensional latent vectors and state machines.
-- Only when communicating results to the user, receiving instructions, or rendering a UI does an edge component (e.g. the UI manager Ariel or an LLM tokenizer) synthesize natural language.
+- Only when communicating results to the user, receiving instructions, or rendering a UI does an edge component (e.g. the UI manager Presenter or an LLM tokenizer) synthesize natural language.
 
 ### 3. Elimination of WASM Virtualization Bloat
 WebAssembly (WASM) was initially adopted under the assumption that agents required a sandboxed bytecode format. However, in practice, WASM in this architecture:
@@ -57,8 +57,8 @@ Instead of a monolithic runtime attempting to do everything simultaneously (lead
 - **Aaroneous**: Overhead platform, user-facing surface, and linker.
 - **Marionette**: User emulation system (keyboard/mouse motor simulation, visual perception, backend probing, datalogging).
 - **Chimera**: "Smart" software adaptation system (decompilation, reading, writing, copying, bytecode and binary analysis, automated patching).
-- **Odin**: User-side task orchestration and DAG management.
-- **Merlin**: Research, information ingestion, knowledge synthesis, and data gathering.
-- **Ariel**: Presentation manager, HUD, and telemetry visualizer.
+- **Orchestrator**: User-side task orchestration and DAG management.
+- **Synthesizer**: Research, information ingestion, knowledge synthesis, and data gathering.
+- **Presenter**: Presentation manager, HUD, and telemetry visualizer.
 
 All of these programs link together via the **Machine-Native Linking Protocol** over shared memory and high-throughput local IPC.

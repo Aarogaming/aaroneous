@@ -11,9 +11,9 @@ This document defines the official taxonomy, roles, boundaries, and communicatio
 | **Aaroneous** | Overhead Platform | Master supervisor, user-facing control plane, and inter-program linker. | Human Intent (In) ➔ System Topology / Linked Coordination (Out) |
 | **Marionette** | Standalone Program | Frontend user emulation system with backend probing and high-frequency datalogging. | Reflex Tensors / Action Vectors (In) ➔ HID Emulation / Perceptual Datalog (Out) |
 | **Chimera** | Standalone Program | "Smart" software adaptation system (decompilation, AST parsing, reading/writing/copying target software). | Target Binaries / Source Code (In) ➔ AST Modifications / Bytecode Patches (Out) |
-| **Odin** | Sovereign Specialist | User-side task management, high-level intent breakdown, DAG generation, and goal tracking. | User Objectives (In) ➔ Structured Task DAGs / Execution Tokens (Out) |
-| **Merlin** | Sovereign Specialist | Intelligence gathering, research, external knowledge indexing, and deep technical data retrieval. | Research Prompts / Query Filters (In) ➔ Semantic Embeddings / Knowledge Graph (Out) |
-| **Ariel** | Sovereign Specialist | UI management, HUD rendering, telemetry visualizer, and user presentation layer. | Telemetry Streams / System State (In) ➔ Real-Time GUI Display / Human Language Summaries (Out) |
+| **Orchestrator** | Sovereign Specialist | User-side task management, high-level intent breakdown, DAG generation, and goal tracking. | User Objectives (In) ➔ Structured Task DAGs / Execution Tokens (Out) |
+| **Synthesizer** | Sovereign Specialist | Intelligence gathering, research, external knowledge indexing, and deep technical data retrieval. | Research Prompts / Query Filters (In) ➔ Semantic Embeddings / Knowledge Graph (Out) |
+| **Presenter** | Sovereign Specialist | UI management, HUD rendering, telemetry visualizer, and user presentation layer. | Telemetry Streams / System State (In) ➔ Real-Time GUI Display / Human Language Summaries (Out) |
 
 ---
 
@@ -42,21 +42,21 @@ This document defines the official taxonomy, roles, boundaries, and communicatio
   - Identifies bugs, bottlenecks, or unoptimized routines and synthesizes code/bytecode patches.
   - Manages safe, sandboxed test execution of mutated code before deployment.
 
-### 4. Odin (User-Side Task Orchestrator)
+### 4. Orchestrator (User-Side Task Orchestrator)
 - **Scope**: Executive function, planning, and task dependency resolution.
 - **Responsibilities**:
   - Breaks down complex, multi-stage goals into directed acyclic graphs (DAGs).
-  - Assigns sub-tasks to the appropriate specialized subsystem (e.g. routing research to Merlin, emulation to Marionette, patching to Chimera).
+  - Assigns sub-tasks to the appropriate specialized subsystem (e.g. routing research to Synthesizer, emulation to Marionette, patching to Chimera).
   - Tracks task completion, verifies outcomes, and recalibrates plans on failure.
 
-### 5. Merlin (Intelligence & Knowledge Harvester)
+### 5. Synthesizer (Intelligence & Knowledge Harvester)
 - **Scope**: Information retrieval, deep technical indexing, and semantic memory.
 - **Responsibilities**:
   - Scrapes, crawls, and indexes documentation, code repositories, specifications, and external data sources.
   - Maintains the semantic vector index and knowledge database.
   - Answers deep technical queries from other specialists using pre-computed vector embeddings.
 
-### 6. Ariel (UI & Presentation Manager)
+### 6. Presenter (UI & Presentation Manager)
 - **Scope**: Visual communication, dashboard management, and human-facing interface.
 - **Responsibilities**:
   - Drives the machine-native Desktop Studio (`a_hud` / Rust egui) and terminal dashboards (legacy MaelstromUI Tauri/React deprecated).

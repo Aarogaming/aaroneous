@@ -42,7 +42,7 @@ Standalone, executable services running under the Process Supervisor:
 - **`marionette`**: User emulation, visual capture, process probing, and datalogging.
 - **`chimera`**: Software adaptation, binary decompilation, AST mutation, and auto-patching.
 - **`omni`**: 3D Galaxy semantic navigation and visual star-node search.
-- **`specialists`**: Odin (Task DAGs), Merlin (Intelligence & Vector Index), Ariel (UI presentation).
+- **`specialists`**: Orchestrator (Task DAGs), Synthesizer (Intelligence & Vector Index), Presenter (UI presentation).
 
 ### Bucket 2: `LIBRARIES` (Shared Machine Math & Common Primitives)
 Pure Rust crates with zero circular dependencies:

@@ -6,12 +6,12 @@ Aaroneous is designed around a decoupled, multi-program topology where independe
 
 ```mermaid
 graph TD
-    User([Human Operator]) <-->|GUI / egui / REST| Ariel[Ariel: Native Desktop Studio / a_hud]
-    Ariel <-->|Task Intents & Status| AaroneousMaster[Aaroneous Master Linker]
+    User([Human Operator]) <-->|GUI / egui / REST| Presenter[Presenter: Native Desktop Studio / a_hud]
+    Presenter <-->|Task Intents & Status| AaroneousMaster[Aaroneous Master Linker]
     
     subgraph Master Coordination & Knowledge
-        AaroneousMaster <-->|Task DAGs| Odin[Odin: Task Orchestrator]
-        AaroneousMaster <-->|Knowledge Vectors| Merlin[Merlin: Intelligence Engine]
+        AaroneousMaster <-->|Task DAGs| Orchestrator[Orchestrator: Task Orchestrator]
+        AaroneousMaster <-->|Knowledge Vectors| Synthesizer[Synthesizer: Intelligence Engine]
         AaroneousMaster <-->|Metabolic & Health| Biology[System Biology & Governor]
     end
     
@@ -41,22 +41,22 @@ graph TD
 
 ## The Four Core Architectural Layers
 
-### 1. Presentation & Human Interface Layer (Ariel / Native Desktop Studio)
+### 1. Presentation & Human Interface Layer (Presenter / Native Desktop Studio)
 - **Technology**: Native Rust + `egui` + `eframe` + `wgpu` (`core/hypervisor/bin/a_hud.rs`, legacy MaelstromUI Tauri/React deprecated).
 - **Role**: Communicates with the Aaroneous Master hypervisor via lock-free Synapse Bus and MCP/REST API.
 - **Responsibilities**:
   - Command Center: Intent submission, DAG visualization, real-time agent output feed.
-  - Telescope Suite: Live 11-Specialist SPMC Synapse Bus activation monitors and Argus Deep SVDD $\mathbb{R}^{256}$ latent radar.
+  - Telescope Suite: Live 11-Specialist SPMC Synapse Bus activation monitors and Sentinel Deep SVDD $\mathbb{R}^{256}$ latent radar.
   - Skill Constellation: 3D interactive physics canvas for live LoRA and crystallized skill pathways.
   - Telemetry: Real-time FPS, GPU compute latency, thermal metrics, token reserves.
 
-### 2. Orchestration & Intelligence Layer (Aaroneous Master, Odin, Merlin)
+### 2. Orchestration & Intelligence Layer (Aaroneous Master, Orchestrator, Synthesizer)
 - **Aaroneous Master**: The daemon hosting the central event loop, metabolic governor, and inter-program linker.
-- **Odin (Task Management)**:
+- **Orchestrator (Task Management)**:
   - Generates multi-step execution plans (`ExecutivePlan`).
   - Tracks step status (`Pending`, `InProgress`, `Completed`, `Failed`).
   - Manages token consumption and risk scores using historical episodic memory.
-- **Merlin (Knowledge & Semantic Index)**:
+- **Synthesizer (Knowledge & Semantic Index)**:
   - SQLite (`hive.db` / `hox.db`) and in-memory vector index.
   - Stores high-dimensional semantic embeddings (1024-float vectors) for lightning-fast retrieval.
 

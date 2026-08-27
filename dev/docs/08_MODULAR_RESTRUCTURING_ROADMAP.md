@@ -15,7 +15,7 @@ Phase 1: Developer Tooling & Forensic Ledger (COMPLETED in dev/)
   └── Author Machine-Native Linking Protocol (MNLP) specification
 
 Phase 2: Host Safety Isolation & Sandboxing
-  ├── Modify SpatialKineticConfig & Marionette to default enable_hid_output = false
+   ├── Modify SpatialKineticConfig & Desktop Emulator to default enable_hid_output = false
   ├── Implement MockMarionette for zero-risk testing and development
   ├── Add AARONEOUS_ALLOW_HOST_INPUT guard for live peripheral execution
   └── Create automated test harness with mock display buffers
@@ -29,11 +29,11 @@ Phase 3: WASM Elimination & Dependency Pruning
 Phase 4: Modular Program Separation
   ├── Extract Marionette into standalone program (crates/marionette)
   ├── Extract Chimera into standalone program (crates/chimera)
-  ├── Isolate Odin (task management) & Merlin (intelligence) into specialist crates
+   ├── Isolate Orchestrator (task management) & Synthesizer (intelligence) into specialist crates
   ├── Unify Synapse into the Machine-Native Linking Protocol shared memory library
   └── Update root Cargo.toml workspace members to include all active crates cleanly
 
-Phase 5: MaelstromUI & Ariel Presentation Stabilization
+Phase 5: MaelstromUI & Presenter Presentation Stabilization
   ├── Fix dangling HTML/JSX syntax errors in MaelstromUI/src/App.tsx
   ├── Connect MaelstromUI SSE streams to the new linking protocol daemon
   ├── Test real-time DAG rendering, telemetry charts, and model import workflows

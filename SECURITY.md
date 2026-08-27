@@ -30,14 +30,14 @@ If you discover a security vulnerability within Aaroneous, please send an email 
 
 Aaroneous operates with elevated system privileges (Win32 HID interception, desktop automation, memory-mapped I/O). Key security boundaries:
 
-- **Ghost Desktop Isolation**: Win32 `CreateDesktopW` sandboxing for kinetic execution
-- **Argus Sentinel**: Deep SVDD anomaly detection on all agent outputs
+- **Isolated Desktop Isolation**: Win32 `CreateDesktopW` sandboxing for kinetic execution
+- **Sentinel**: Deep SVDD anomaly detection on all agent outputs
 - **Capability restrictions**: Agents have explicit `enzyme_subset` allowlists
 - **No network exposure by default**: Federation requires explicit `--bind` flag
 
 ## Best Practices
 
 - Run with minimum required privileges
-- Use Ghost Desktop isolation for untrusted workloads
-- Enable Argus security monitoring in production
+- Use Isolated Desktop isolation for untrusted workloads
+- Enable Sentinel security monitoring in production
 - Keep `.si` model files verified with SHA256 hashes

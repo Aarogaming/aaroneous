@@ -39,7 +39,7 @@ Attempting to run Aaroneous has previously caused **severe operating issues for 
   2. Setting environment variable `AARONEOUS_ALLOW_HOST_INPUT=1`.
 
 ### Rule 2: Swappable Mock Backends for Dev & CI
-- When developing, testing, or running unit tests, Marionette MUST instantiate `MockMarionette`:
+- When developing, testing, or running unit tests, Desktop Emulator MUST instantiate `MockMarionette`:
   - Visual inputs are served from synthetic in-memory test patterns or pre-recorded image files.
   - Motor outputs are written to an in-memory telemetry log buffer (`MotorIntentLog`) rather than calling OS APIs.
 

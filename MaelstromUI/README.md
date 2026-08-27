@@ -10,7 +10,7 @@ As part of the Solid-State Synthetic Intelligence (SI) architecture migration, a
 - **Desktop Studio (`a_hud`)**: Located at `core/hypervisor/bin/a_hud.rs`, built in pure Rust with `egui`, `eframe`, and `wgpu`.
 - **Integrated Telescopes**:
   - Live 11-Specialist SPMC Synapse Bus activation monitors.
-  - Argus Deep SVDD $\mathbb{R}^{256}$ latent manifold radar.
+  - Sentinel Deep SVDD $\mathbb{R}^{256}$ latent manifold radar.
   - Machine-Native JIT Crystallization and LoRA stability inspector.
   - 3D Gravitational Skill Constellation physics canvas.
   - Multi-Specialist Distillation & Self-Evolution visualizer.

@@ -87,13 +87,13 @@ Aaroneous supports three interoperable binary container types under the `.si` ec
 ## 4. Multi-Specialist Distillation & Continuous Self-Evolution Harness
 
 ### A. 9-Specialist `.si` Distillation Engine (`SiDistillationHarness`)
-- **Rosetta Stone Dataset**: Generates synthetic execution trajectories for all 9 Sovereign Specialists (`odin`, `merlin`, `ariel`, `hephaestus`, `argus`, `dionysus`, `hermes`, `wen`, `kami`).
+- **Translation Dataset**: Generates synthetic execution trajectories for all 9 Sovereign Specialists (`odin`, `merlin`, `ariel`, `hephaestus`, `argus`, `dionysus`, `hermes`, `wen`, `kami`).
 - **Multi-Objective Loss Function**:
   $$\mathcal{L}_{\text{total}} = \mathcal{L}_{\text{InfoNCE}}(\mathbf{z}_{\text{student}}, \mathbf{z}_{\text{teacher}}) + \lambda_{\text{CKA}} (1.0 - \text{CKA}(\mathbf{H}_{\text{student}}, \mathbf{H}_{\text{teacher}}))$$
 - **Output Artifacts**: Produces 64-byte aligned portable `.si` containers (`~80 KB` each) with $100.0\%$ CKA alignment.
 
 ### B. Continuous Self-Evolution Skill Promotion (`ContinuousSelfEvolutionEngine`)
-- When Dionysus neurochemistry signals high curiosity ($\ge 0.50$) or boredom ($\ge 0.40$), Hephaestus AST code mutations are audited by Argus Deep SVDD.
+- When Archivist neurochemistry signals high curiosity ($\ge 0.50$) or boredom ($\ge 0.40$), Fabricator AST code mutations are audited by Sentinel Deep SVDD.
 - Validated high-confidence hypotheses ($\ge 70\%$ posterior) are automatically promoted into the target `.si` container's **Block 3: Episodic Skill Stack** and dynamic adaptation anchor matrix.
 
 ---

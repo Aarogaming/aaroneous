@@ -12,7 +12,7 @@
 | Crate | Path | Lifecycle State | Production Boundaries | Test Coverage |
 |---|---|---|---|---|
 | **`a_run` / `aaroneous`** | `core/hypervisor` | 🟢 Production | Hypervisor CLI daemon, egui/wgpu Studio HUD, MCP service, Win32 HID bridge | 1,086 tests |
-| **`compute`** | `crates/compute` | 🟢 Production | Solid-State `.si` containers (v2), CKA+InfoNCE distillation, Rosetta Stone | 75 tests |
+| **`compute`** | `crates/compute` | 🟢 Production | Solid-State `.si` containers (v2), CKA+InfoNCE distillation, Translation Dataset | 75 tests |
 | **`specialists`** | `crates/specialists` | 🟢 Production | 9 Olympian Sovereign Specialists, P2P gossip pulse, swarm capability sync | 17 tests |
 | **`nervous_system`** | `crates/nervous_system` | 🟢 Production | 128-byte aligned SPMC Synapse Bus, zero CAS ring buffers, slab allocator | 17 tests |
 | **`evolution`** | `crates/evolution` | 🟢 Production | 4-channel neurochemistry, LoRA weight burning, pairwise synergy mining | 24 tests |
@@ -31,7 +31,7 @@
 - **Supported Production Path**:
   - Desktop Studio UI (`aaroneous.exe`)
   - Sovereign Hypervisor Daemon & MCP Server (`a_run.exe` / `a_run mcp`)
-  - Local Single-Node & P2P Swarm Clustering over Caduceus mesh
+  - Local Single-Node & P2P Swarm Clustering over FederationBus mesh
   - SQLite persistence (`hive.db`)
 - **Reference / Cloud Design Blueprints**:
   - `deploy/helm/` and `deploy/terraform/` (Reference Kubernetes & cloud configurations)

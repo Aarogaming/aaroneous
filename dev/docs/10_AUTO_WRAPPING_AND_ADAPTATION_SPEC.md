@@ -6,7 +6,7 @@ To enable Aaroneous to ingest, analyze, wrap, and adapt **any external target pr
 
 ```
 ┌────────────────────────┐
-│ Target Program Ingest  │ ──► [1. Chimera Inspection] ──► [2. Marionette Probing]
+│ Target Program Ingest  │ ──► [1. Adaptation Engine Inspection] ──► [2. Desktop Emulator Probing]
 │ (CLI / DLL / App / API)│
 └────────────────────────┘
                                                                    │
@@ -21,14 +21,14 @@ To enable Aaroneous to ingest, analyze, wrap, and adapt **any external target pr
 
 ## ⚙️ The Four-Stage Auto-Wrapping Pipeline
 
-### Stage 1: Structural Dissection (Chimera)
+### Stage 1: Structural Dissection (Adaptation Engine)
 - **Target Analysis**:
   - **CLI Tools**: Analyzes `--help`, usage strings, subcommands, stdin/stdout behaviors, exit codes, and environment variables.
   - **Native DLLs / C-Libraries**: Parses PE/ELF export tables, symbol names, function signatures, and ABI calling conventions.
   - **Source Repositories**: Uses Tree-Sitter AST parsers to map functions, structs, and dependency graphs.
 - **Output**: A structured `TargetCapabilityManifest` JSON/TOML definition.
 
-### Stage 2: Interface Probing & Validation (Marionette)
+### Stage 2: Interface Probing & Validation (Desktop Emulator)
 - **Dynamic Probing**:
   - Executes dry-run test invocations of CLI parameters.
   - Hooks stdout/stderr streams to analyze output formatting (plain text, tables, JSON, binary streams).
@@ -46,7 +46,7 @@ To enable Aaroneous to ingest, analyze, wrap, and adapt **any external target pr
 ### Stage 4: Mesh Registration & Cooperative Discovery
 - The newly generated wrapper is started under the Process Supervisor.
 - Sends a `HANDSHAKE_ANNOUNCE` packet (`0x0001`) to the Aaroneous Master.
-- Odin adds the new capability to its Task Routing Table; Merlin indexes its parameters into the semantic knowledge graph.
+- Orchestrator adds the new capability to its Task Routing Table; Synthesizer indexes its parameters into the semantic knowledge graph.
 - The external program is now a fully functional, cooperative organ within Aaroneous!
 
 ---
@@ -58,4 +58,4 @@ To enable Aaroneous to ingest, analyze, wrap, and adapt **any external target pr
 | **Piped Stream Adapter** | CLI Tools (grep, git, ffmpeg, curl) | Asynchronous non-blocking stdin/stdout Tokio process pipes. | ~1–5 ms |
 | **Zero-Copy FFI Adapter** | Native DLLs / Shared Libs (`.dll`, `.so`) | Direct C-ABI dynamic linking (`libloading`), passing raw memory pointers. | < 5 µs |
 | **Shared Memory Bridge** | High-throughput data engines (engines, databases) | Maps target output directly into `.synapse` ring buffer. | < 1 µs |
-| **Virtual Emulation Adapter** | Closed-source GUI applications | Marionette visual capture + virtual input injection (sandboxed). | ~16–33 ms |
+| **Virtual Emulation Adapter** | Closed-source GUI applications | Desktop Emulator visual capture + virtual input injection (sandboxed). | ~16–33 ms |

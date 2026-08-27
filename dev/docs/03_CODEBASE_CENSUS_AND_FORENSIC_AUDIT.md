@@ -60,7 +60,7 @@ All 20 crates in `components/` evaluated:
 | `components/constellation` | `constellation` | Graph database / spatial memory map representing nodes and relationships. | Active |
 | `components/control` | `control` | Control plane message parsing and specialist state tracking. | Active |
 | `components/deconstruction` | `deconstruction`| Deconstructs source code and AST structures. | Prototype |
-| `components/digestion` | `digestion` | Soul ingestion engine (Experience, Narrative, Personality, Relational, Specialist). | Conceptual / Active |
+| `components/digestion` | `digestion` | Persona ingestion engine (Experience, Narrative, Personality, Relational, Specialist). | Conceptual / Active |
 | `components/foundry` | `foundry` | Specialist synthesis and build automation. | Active |
 | `components/genetics` | `genetics` | Genetic loci, breeding operations, and specialist genomes. | Active |
 | `components/hive` | `hive` | Multi-agent execution runtime and statistics collector. | Active |

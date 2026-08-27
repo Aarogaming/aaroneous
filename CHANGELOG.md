@@ -110,7 +110,7 @@ All notable changes to Aaroneous.
 
 #### Added
 - **Full 9-Specialist `.si` Solid-State Distillation (`crates/compute`)**:
-  - `RosettaStoneDataset::synthesize_all_9_specialists`: Domain-specific training trajectory generation for all 9 Sovereign Domains (Odin, Merlin, Ariel, Hephaestus, Argus, Dionysus, Hermes, Wen, Kami).
+  - `TranslationDataset::synthesize_all_9_specialists`: Domain-specific training trajectory generation for all 9 Sovereign Domains (Orchestrator, Synthesizer, Presenter, Fabricator, Sentinel, Archivist, Router, Aligner, Perceiver).
   - `SiDistillationHarness::distill_all_9_specialists`: End-to-end multi-teacher distillation with CKA + InfoNCE loss optimization producing ~80 KB `.si` containers at 100% CKA alignment.
   - CLI command: `a_run distill-all --samples 10 --epochs 1 --out models/distilled_federation`.
 - **Live Multi-Hive P2P TCP Socket Daemon (`core/hypervisor/src/federation/multi_hive/live_daemon.rs`)**:
@@ -121,7 +121,7 @@ All notable changes to Aaroneous.
 - **Swarm Micro-Task TCP Offloader (`core/hypervisor/src/federation/multi_hive/swarm_offloader.rs`)**:
   - `SwarmOffloader`: Routes computational tasks to lowest-latency peer hive when local pressure exceeds threshold (default 80%). Measured 12 µs wire RTT + remote execution.
 - **Autonomous Background Self-Evolution Engine (`crates/evolution/src/continuous_evolution.rs`)**:
-  - `ContinuousSelfEvolutionEngine`: Couples Dionysus 4-channel neurochemistry (curiosity/boredom drives) with Hephaestus AST hypothesis mutations, Argus Deep SVDD safety audits, and `.si` solid-state skill stack promotions.
+  - `ContinuousSelfEvolutionEngine`: Couples Archivist 4-channel neurochemistry (curiosity/boredom drives) with Fabricator AST hypothesis mutations, Sentinel Deep SVDD safety audits, and `.si` solid-state skill stack promotions.
   - CLI command: `a_run evolve --cycles 3 --threshold 0.70`.
 
 #### Changed
@@ -140,7 +140,7 @@ All notable changes to Aaroneous.
 #### Added
 - **Tri-Tiered Layered Control Architecture (`crates/compute`, `crates/orchestrator`)**:
   - **Tier 1 (Strategic Cortex - $\mathbb{R}^{4096}$)**: High-dimensional intent planning on background OS threads (`SiTierFlags::TIER_1_CORTEX`).
-  - **Tier 2 (Hermes Router - $\mathbb{R}^{4096} \to \mathbb{R}^{256}$)**: Continuous orthogonal intent projector with inline **Argus Deep SVDD** guardrail audit ($< 2\mu\text{s}$ safe hypersphere manifold snap) broadcasting atomically to Channel 0 of the lock-free SPMC synapse bus (`SiTierFlags::TIER_2_ROUTER`).
+  - **Tier 2 (Router - $\mathbb{R}^{4096} \to \mathbb{R}^{256}$)**: Continuous orthogonal intent projector with inline **Sentinel Deep SVDD** guardrail audit ($< 2\mu\text{s}$ safe hypersphere manifold snap) broadcasting atomically to Channel 0 of the lock-free SPMC synapse bus (`SiTierFlags::TIER_2_ROUTER`).
   - **Tier 3 (Kinetic Reflex Workers - $\mathbb{R}^{256}$)**: Hot-loop sub-microsecond spin-wait pursuit workers pinned to physical CPU cores via `SetThreadAffinityMask`, executing continuous sensory-conditioned recurrence in $< 180\mu\text{s}$ (`SiTierFlags::TIER_3_REFLEX`).
 - **Unified `SiForge` Model Builder API (`crates/compute/src/si_forge.rs`)**:
   - Pure Rust builder pattern for birthing `.si` solid-state containers end-to-end: teacher trajectory synthesis $\to$ multi-objective distillation (CKA + InfoNCE + CE) $\to$ state-space weight matrix extraction $\to$ 64-byte SIMD cache-aligned SINT v3 binary packing.
@@ -148,19 +148,19 @@ All notable changes to Aaroneous.
 - **SINT v3 64-Byte SIMD Alignment & Tier Flags (`crates/compute/src/si_packer.rs`)**:
   - Added `SiTierFlags` at byte offset `0x08` for immediate execution profile resolution upon memory mapping.
   - Fixed-point convergent layout solver guaranteeing strict 64-byte AVX-512 alignment for every weight tensor.
-- **Sovereign Windows Ghost Desktop Isolation (`crates/compute/src/ghost_station.rs`)**:
+- **Sovereign Windows Isolated Desktop Isolation (`crates/compute/src/ghost_station.rs`)**:
   - Win32 `CreateDesktopW` encapsulation creating headless sandboxed stations for safe robotic kinetic execution.
   - CLI command: `a_run boot --profile isolated`.
 - **Desktop Studio Telemetry & Visualizer Suite (`core/hypervisor/src/`)**:
   - `ForgeStudio` (`forge_ui.rs`): Decoupled 60Hz immediate-mode `egui` interface streaming background distillation status and logs over `std::sync::mpsc`.
-  - `SynapseVisualizer` (`synapse_ui.rs`): 60Hz 256-bar activation oscilloscope with real-time Argus Threat Gauge and safe manifold centroid overlay.
+  - `SynapseVisualizer` (`synapse_ui.rs`): 60Hz 256-bar activation oscilloscope with real-time Sentinel Threat Gauge and safe manifold centroid overlay.
   - `SkillConstellationCanvas` (`skill_constellation.rs`): Skyrim-style celestial constellation with $N$-body Coulomb repulsion and Hooke's Law attraction physics based on $\mathbb{R}^{256}$ cosine similarity.
 
 #### Changed / Normalized
 - **System Normalization & Specialist Federation (`crates/specialists`, `crates/nervous_system`, `crates/evolution`, `core/hypervisor`)**:
   - Normalized all system terminology from mythological metaphors to clean, professional systems engineering (`SpecialistFederation`, `PantheonSynapseBus::new_federation()`, `build_specialist_soul`).
-  - Standardized functional domain roles across all 9 sovereign engines (Task Orchestration, Knowledge & Research, Presentation & HUD, Code & Binary Forge, Security & Guardrails, Memory & State, Router & Federation, Alignment & Symbiosis, Sensory & Vision).
-  - Maintained backwards-compatible aliases (`OlympianPantheon`, `new_olympian`, `build_olympian_soul`) across all public APIs.
+  - Standardized functional domain roles across all 9 sovereign engines (Task Orchestration, Knowledge & Research, Presentation & HUD, Code & Binary CompilerCore, Security & Guardrails, Memory & State, Router & Federation, Alignment & Symbiosis, Sensory & Vision).
+  - Maintained backwards-compatible aliases (`SpecialistFederation`, `new_olympian`, `build_olympian_soul`) across all public APIs.
 
 ---
 

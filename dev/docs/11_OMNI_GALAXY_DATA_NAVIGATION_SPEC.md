@@ -58,7 +58,7 @@ pub struct StarNode {
 ### Visual Characteristics:
 - **Color**: Mapped to `NodeType` (Features: Cyan, Lore/Knowledge: Green, Bugs/Crises: Red, Latent Thoughts: Neon Blue, Specialists: Gold).
 - **Size & Brightness**: Proportional to Priority (`Z` coordinate) and access frequency (`activity_pulse`).
-- **Pulsing Animation**: When a background specialist (e.g. Merlin or Marionette) accesses or writes to a node, its `activity_pulse` flares up.
+- **Pulsing Animation**: When a background specialist (e.g. Synthesizer or Desktop Emulator) accesses or writes to a node, its `activity_pulse` flares up.
 
 ---
 
@@ -79,6 +79,6 @@ In traditional systems, files are grouped by whatever folder path they were save
 Omni acts as the unified search engine across all internal and wrapped data:
 
 1. **Spatial Bounding Frustum**: Query nodes within a 3D visual bounding box.
-2. **Semantic Proximity Search**: Provide a natural language query ➔ Merlin embeds it into a latent vector ➔ Omni highlights the nearest star-nodes in Euclidean 3D space.
+2. **Semantic Proximity Search**: Provide a natural language query ➔ Synthesizer embeds it into a latent vector ➔ Omni highlights the nearest star-nodes in Euclidean 3D space.
 3. **Tag & Domain Filtering**: Toggle filter tags to dim or illuminate entire galactic sectors.
 4. **Temporal Horizon Slider**: Scrubbing the timeline shifts the `Y` plane to inspect historical snapshots or future planned capabilities.

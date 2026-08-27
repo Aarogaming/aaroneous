@@ -47,7 +47,7 @@ The stem cell core provides four fundamental universal primitives that allow it 
 
 ## 🔄 The Morphogenesis Lifecycle
 
-When the system identifies a new operational need (or when directed by Odin / the User):
+When the system identifies a new operational need (or when directed by Orchestrator / the User):
 
 1. **Undifferentiated State**: The stem cell runtime allocates a shared memory region and connects to the native NATS bus.
 2. **Genetic Specification Ingestion**: The system ingests a capability blueprint (defining required inputs, outputs, tensor shapes, and peripheral hooks).

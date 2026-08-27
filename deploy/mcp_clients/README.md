@@ -23,6 +23,6 @@ Add the configuration from `vscode_mcp.json` to `.vscode/mcp.json` or Global Use
 - `read_code`: Reads source files safely with sandbox path containment.
 - `search_code`: Fast text pattern search across the workspace repository.
 - `list_files`: Lists directory contents and file metadata.
-- `submit_intent`: Submits sovereign natural language instructions to Odin & the Specialist Federation.
-- `dispatch_specialist`: Direct point-to-point invocation of a specific specialist (Odin, Merlin, Hephaestus, Argus, Dionysus, Hermes, Wen, Kami, Ariel).
+- `submit_intent`: Submits sovereign natural language instructions to Orchestrator & the Specialist Federation.
+- `dispatch_specialist`: Direct point-to-point invocation of a specific specialist (Orchestrator, Synthesizer, Fabricator, Sentinel, Archivist, Router, Aligner, Perceiver, Presenter).
 - `signal_wasms`: Dispatches broadcast signals across the federation bus.
