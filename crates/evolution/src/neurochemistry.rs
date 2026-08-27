@@ -156,13 +156,13 @@ impl NeurochemicalHomeostasisEngine {
             impulses.push(AutonomicImpulse {
                 kind: ImpulseKind::ExploreKnowledgeGaps,
                 urgency: curiosity,
-                target_domain: "Merlin (0x0200)".to_string(),
+                target_domain: "Synthesizer (0x0200)".to_string(),
                 rationale: format!("Curiosity drive elevated ({:.1}%); exploring uncharted semantic constellation gaps", curiosity * 100.0),
             });
             impulses.push(AutonomicImpulse {
                 kind: ImpulseKind::OptimizeAstHypotheses,
                 urgency: curiosity * 0.9,
-                target_domain: "Hephaestus (0x0400)".to_string(),
+                target_domain: "Fabricator (0x0400)".to_string(),
                 rationale: "Plasticity (ACh) optimal for AST hypothesis formulation and code optimization".to_string(),
             });
         }
@@ -172,7 +172,7 @@ impl NeurochemicalHomeostasisEngine {
             impulses.push(AutonomicImpulse {
                 kind: ImpulseKind::ReapDormantMemory,
                 urgency: stress,
-                target_domain: "GrimReaper (0x0100)".to_string(),
+                target_domain: "CompactionEngine (0x0100)".to_string(),
                 rationale: format!("Stress index elevated ({:.1}%); triggering dormant specialist memory compaction", stress * 100.0),
             });
         }
@@ -182,7 +182,7 @@ impl NeurochemicalHomeostasisEngine {
             impulses.push(AutonomicImpulse {
                 kind: ImpulseKind::RebalanceFederationTokens,
                 urgency: boredom,
-                target_domain: "Odin (0x0100)".to_string(),
+                target_domain: "Orchestrator (0x0100)".to_string(),
                 rationale: format!("Boredom index elevated ({:.1}%); rebalancing token metabolic allocations to stimulate tasks", boredom * 100.0),
             });
         }
@@ -200,15 +200,15 @@ impl NeurochemicalHomeostasisEngine {
 
         // Dynamic weight factors based on neurochemical drives
         let weights = [
-            ("Odin", 0x0100, 1.0 + d * 0.5, "Strategic cortex driven by dopamine momentum"),
-            ("Merlin", 0x0200, 1.0 + a * 0.8, "Semantic knowledge boosted by acetylcholine plasticity"),
-            ("Ariel", 0x0300, 1.0 + s * 0.4, "Visual experience sustained by serotonin harmony"),
-            ("Hephaestus", 0x0400, 1.0 + d * 0.7, "Forge & engineering energized by reward prediction"),
-            ("Argus", 0x0500, 1.0 + n * 0.9, "Auditor & safety heightened by noradrenaline vigilance"),
-            ("Dionysus", 0x0600, 1.0 + s * 0.5 + a * 0.3, "Memory chronicler consolidating balanced states"),
-            ("Hermes", 0x0700, 1.0 + n * 0.4 + d * 0.3, "Router & mesh maintaining active throughput"),
-            ("Wen", 0x0800, 1.0 + s * 0.6, "Temporal resonance aligned with baseline harmony"),
-            ("Kami", 0x0900, 1.0 + n * 0.8 + a * 0.4, "Sensory gating responsive to vigilance and focus"),
+            ("Orchestrator", 0x0100, 1.0 + d * 0.5, "Strategic cortex driven by dopamine momentum"),
+            ("Synthesizer", 0x0200, 1.0 + a * 0.8, "Semantic knowledge boosted by acetylcholine plasticity"),
+            ("Presenter", 0x0300, 1.0 + s * 0.4, "Visual experience sustained by serotonin harmony"),
+            ("Fabricator", 0x0400, 1.0 + d * 0.7, "Forge & engineering energized by reward prediction"),
+            ("Sentinel", 0x0500, 1.0 + n * 0.9, "Auditor & safety heightened by noradrenaline vigilance"),
+            ("Archivist", 0x0600, 1.0 + s * 0.5 + a * 0.3, "Memory chronicler consolidating balanced states"),
+            ("Router", 0x0700, 1.0 + n * 0.4 + d * 0.3, "Router & mesh maintaining active throughput"),
+            ("Aligner", 0x0800, 1.0 + s * 0.6, "Temporal resonance aligned with baseline harmony"),
+            ("Perceiver", 0x0900, 1.0 + n * 0.8 + a * 0.4, "Sensory gating responsive to vigilance and focus"),
         ];
 
         let total_weight: f32 = weights.iter().map(|(_, _, w, _)| *w).sum();

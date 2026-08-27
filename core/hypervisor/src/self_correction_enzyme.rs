@@ -10,9 +10,9 @@ pub struct SelfCorrectionEnzyme {
 impl SelfCorrectionEnzyme {
     pub fn new() -> Self {
         let mut stable_states = std::collections::HashMap::new();
-        stable_states.insert("merlin".to_string(), "academic_research_v1".to_string());
-        stable_states.insert("odin".to_string(), "strategic_planning_v1".to_string());
-        stable_states.insert("hephaestus".to_string(), "code_optimizer_v1".to_string());
+        stable_states.insert("synthesizer".to_string(), "academic_research_v1".to_string());
+        stable_states.insert("orchestrator".to_string(), "strategic_planning_v1".to_string());
+        stable_states.insert("fabricator".to_string(), "code_optimizer_v1".to_string());
         
         Self { stable_states }
     }

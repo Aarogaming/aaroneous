@@ -59,7 +59,7 @@ pub enum SkillOrigin {
     EnumString,
     EnumIter,
 )]
-pub enum SoulRank {
+pub enum PersonaRank {
     Rank1NovellyDigested = 1,
     Rank2IntegratedSpecialist = 2,
     Rank3Journeyman = 3,
@@ -67,14 +67,14 @@ pub enum SoulRank {
     Rank5Transcendent = 5,
 }
 
-impl SoulRank {
+impl PersonaRank {
     pub fn name(&self) -> &str {
         match self {
-            SoulRank::Rank1NovellyDigested => "Newly Digested",
-            SoulRank::Rank2IntegratedSpecialist => "Integrated Specialist",
-            SoulRank::Rank3Journeyman => "Trusted Member",
-            SoulRank::Rank4Master => "Domain Expert",
-            SoulRank::Rank5Transcendent => "Transcendent Specialist",
+            PersonaRank::Rank1NovellyDigested => "Newly Digested",
+            PersonaRank::Rank2IntegratedSpecialist => "Integrated Specialist",
+            PersonaRank::Rank3Journeyman => "Trusted Member",
+            PersonaRank::Rank4Master => "Domain Expert",
+            PersonaRank::Rank5Transcendent => "Transcendent Specialist",
         }
     }
 }
@@ -287,7 +287,7 @@ impl FusedSkill {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SpecialistSkillSet {
     pub specialist_id: String,
-    pub soul_rank: SoulRank,
+    pub persona_rank: PersonaRank,
     pub total_experience: u32,
     pub skills: HashMap<String, Skill>,
     pub fused_skills: Vec<FusedSkill>,
@@ -299,7 +299,7 @@ impl SpecialistSkillSet {
     pub fn new(specialist_id: String) -> Self {
         Self {
             specialist_id,
-            soul_rank: SoulRank::Rank1NovellyDigested,
+            persona_rank: PersonaRank::Rank1NovellyDigested,
             total_experience: 0,
             skills: HashMap::new(),
             fused_skills: Vec::new(),
@@ -324,47 +324,47 @@ impl SpecialistSkillSet {
     }
 
     /// Check if ready for rank evolution
-    pub fn check_rank_evolution(&mut self) -> Option<SoulRank> {
+    pub fn check_rank_evolution(&mut self) -> Option<PersonaRank> {
         let skilled_count = self.skills.values().filter(|s| s.level >= 5).count();
 
         let awakened_count = self.skills.values().filter(|s| s.is_awakened).count();
 
-        let next_rank = match self.soul_rank {
-            SoulRank::Rank1NovellyDigested => {
+        let next_rank = match self.persona_rank {
+            PersonaRank::Rank1NovellyDigested => {
                 if skilled_count >= 5 {
-                    Some(SoulRank::Rank2IntegratedSpecialist)
+                    Some(PersonaRank::Rank2IntegratedSpecialist)
                 } else {
                     None
                 }
             }
-            SoulRank::Rank2IntegratedSpecialist => {
+            PersonaRank::Rank2IntegratedSpecialist => {
                 if skilled_count >= 10 && self.skills.values().any(|s| s.level >= 5) {
-                    Some(SoulRank::Rank3Journeyman)
+                    Some(PersonaRank::Rank3Journeyman)
                 } else {
                     None
                 }
             }
-            SoulRank::Rank3Journeyman => {
+            PersonaRank::Rank3Journeyman => {
                 if self.skills.values().filter(|s| s.level >= 10).count() >= 3
                     && awakened_count >= 1
                 {
-                    Some(SoulRank::Rank4Master)
+                    Some(PersonaRank::Rank4Master)
                 } else {
                     None
                 }
             }
-            SoulRank::Rank4Master => {
+            PersonaRank::Rank4Master => {
                 if awakened_count >= 2 && !self.fused_skills.is_empty() {
-                    Some(SoulRank::Rank5Transcendent)
+                    Some(PersonaRank::Rank5Transcendent)
                 } else {
                     None
                 }
             }
-            SoulRank::Rank5Transcendent => None,
+            PersonaRank::Rank5Transcendent => None,
         };
 
         if let Some(new_rank) = next_rank {
-            self.soul_rank = new_rank;
+            self.persona_rank = new_rank;
         }
 
         next_rank
@@ -374,7 +374,7 @@ impl SpecialistSkillSet {
     pub fn total_power_score(&self) -> f64 {
         let skill_power: f64 = self.skills.values().map(|s| s.power_score()).sum();
         let fusion_boost: f64 = self.fused_skills.iter().map(|f| f.power_multiplier).sum();
-        let rank_multiplier = (self.soul_rank as u8 as f64) * 0.5;
+        let rank_multiplier = (self.persona_rank as u8 as f64) * 0.5;
 
         skill_power + fusion_boost + rank_multiplier
     }
@@ -558,7 +558,7 @@ mod tests {
 
         // Should be ready for rank 2
         let new_rank = skillset.check_rank_evolution();
-        assert_eq!(new_rank, Some(SoulRank::Rank2IntegratedSpecialist));
+        assert_eq!(new_rank, Some(PersonaRank::Rank2IntegratedSpecialist));
     }
 
     #[test]

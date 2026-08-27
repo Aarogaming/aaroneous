@@ -1,10 +1,10 @@
 //! crates/orchestrator/src/pantheon_orchestrator.rs
-//! Hypervisor Thread Allocator & Multi-Tier Pantheon Orchestrator.
+//! Hypervisor Thread Allocator & Multi-Tier Specialist Orchestrator.
 //!
 //! Features:
 //! 1. Reads .si Tier Designation Flags (Cortex, Router, Reflex) to allocate CPU cores and memory maps.
 //! 2. Tier 1 Cortex: Dispatched on standard async OS thread scheduler (HD R^4096 representation).
-//! 3. Tier 2 Hermes Router: High-priority event loop connecting to the 128-byte aligned SPMC hub.
+//! 3. Tier 2 Router: High-priority event loop connecting to the 128-byte aligned SPMC hub.
 //! 4. Tier 3 Kinetic Reflex: Pinned to dedicated physical CPU cores with L1 cache residency.
 
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -17,7 +17,7 @@ use compute::hermes_router::HermesRouter;
 use compute::reflex_worker::ReflexWorker;
 use compute::si_packer::SiTierFlags;
 use compute::si_solid_state::SolidStateSiContainer;
-use nervous_system::pantheon_bus::PantheonSynapseBus;
+use nervous_system::specialist_bus::SpecialistSynapseBus;
 
 /// Pin the current executing thread to a specific CPU core index
 pub fn pin_current_thread_to_core(core_id: usize) -> bool {
@@ -52,17 +52,17 @@ pub fn pin_current_thread_to_core(core_id: usize) -> bool {
     }
 }
 
-/// The Multi-Tier Pantheon Orchestrator
+/// The Multi-Tier Specialist Orchestrator
 pub struct PantheonOrchestrator {
     pub available_cores: Vec<usize>,
-    pub bus: Arc<PantheonSynapseBus>,
+    pub bus: Arc<SpecialistSynapseBus>,
     pub spawned_threads: Vec<JoinHandle<()>>,
     pub shutdown_signal: Arc<AtomicBool>,
 }
 
 impl PantheonOrchestrator {
     /// Creates a new orchestrator with a Federated SPMC synapse bus and discovered core count
-    pub fn new(bus: Arc<PantheonSynapseBus>) -> Self {
+    pub fn new(bus: Arc<SpecialistSynapseBus>) -> Self {
         let num_cpus = num_cpus::get_physical().max(2);
         let available_cores = (0..num_cpus).rev().collect(); // Allocate highest physical cores first
 
@@ -101,10 +101,10 @@ impl PantheonOrchestrator {
                 })?;
             self.spawned_threads.push(handle);
         } else if tier.is_router() {
-            // Tier 2: Hermes Router connecting to central SPMC hub
-            println!("⚡ [Orchestrator] Launching Tier 2 Hermes Router: '{}' (SPMC Hub Channel 0)", name);
+            // Tier 2: Router connecting to central SPMC hub
+            println!("⚡ [Orchestrator] Launching Tier 2 Router: '{}' (SPMC Hub Channel 0)", name);
             let handle = thread::Builder::new()
-                .name(format!("Hermes-Router-{}", worker_id))
+                .name(format!("Router-{}", worker_id))
                 .spawn(move || {
                     let mut router = HermesRouter::default();
                     let dummy_intent = vec![0.1f32; 4096];
@@ -116,7 +116,7 @@ impl PantheonOrchestrator {
                         routed += 1;
                         thread::sleep(Duration::from_millis(10));
                     }
-                    println!("⚡ [Orchestrator] Hermes Router '{}' shutdown after {} broadcasts.", name, routed);
+                    println!("⚡ [Orchestrator] Router '{}' shutdown after {} broadcasts.", name, routed);
                 })?;
             self.spawned_threads.push(handle);
         } else if tier.is_reflex() {
@@ -161,8 +161,8 @@ mod tests {
     use compute::si_ssm::SiSsmConfig;
 
     #[test]
-    fn test_pantheon_orchestrator_mount_and_shutdown() {
-        let bus = Arc::new(PantheonSynapseBus::new_federation());
+    fn test_specialist_orchestrator_mount_and_shutdown() {
+        let bus = Arc::new(SpecialistSynapseBus::new_federation());
         let mut orchestrator = PantheonOrchestrator::new(bus);
 
         let config = SiSsmConfig {
@@ -177,8 +177,8 @@ mod tests {
             param_count: 10_000,
         };
 
-        let container1 = SolidStateSiContainer::new("Hermes-Test", config.clone());
-        let container2 = SolidStateSiContainer::new("Marionette-Test", config);
+        let container1 = SolidStateSiContainer::new("Router-Test", config.clone());
+        let container2 = SolidStateSiContainer::new("DesktopEmulator-Test", config);
 
         orchestrator.mount_container(container1, SiTierFlags::TIER_2_ROUTER, 0).unwrap();
         orchestrator.mount_container(container2, SiTierFlags::TIER_3_REFLEX, 1).unwrap();

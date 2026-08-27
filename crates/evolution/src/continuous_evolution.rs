@@ -1,8 +1,8 @@
 //! crates/evolution/src/continuous_evolution.rs
-//! Autonomous Background Self-Evolution & Continuous Chimera Engine.
+//! Autonomous Background Self-Evolution & Continuous Adaptation Engine.
 //!
-//! Bridges Dionysus 4-Channel Neurochemical Homeostasis (Curiosity / Boredom) with
-//! Hephaestus AST Code Mutation, Argus Deep SVDD Safety Auditing, and
+//! Bridges Archivist 4-Channel Neurochemical Homeostasis (Curiosity / Boredom) with
+//! Fabricator AST Code Mutation, Sentinel Deep SVDD Safety Auditing, and
 //! Solid-State `.si` Container Episodic Skill Stack Promotion.
 
 use anyhow::Result;
@@ -12,7 +12,7 @@ use std::time::Instant;
 use tracing::info;
 
 use crate::neurochemistry::{AutonomicImpulse, ImpulseKind, NeurochemicalHomeostasisEngine, NeurochemicalLevels};
-use chimera::autonomous_scientific::AutonomousScientificEngine;
+use adaptation_engine::autonomous_scientific::AutonomousScientificEngine;
 use compute::si_solid_state::SolidStateSiContainer;
 
 /// Configuration for Autonomous Background Self-Evolution
@@ -49,7 +49,7 @@ pub struct SelfEvolutionCycleReport {
     pub triggered_impulse: Option<String>,
     pub mutations_attempted: usize,
     pub hypotheses_accepted: usize,
-    pub argus_svdd_safety_verified: bool,
+    pub sentinel_svdd_safety_verified: bool,
     pub skills_promoted_to_si: usize,
     pub lora_gradient_variance: f32,
     pub duration_ms: u64,
@@ -101,7 +101,7 @@ impl ContinuousSelfEvolutionEngine {
                 triggered_impulse: None,
                 mutations_attempted: 0,
                 hypotheses_accepted: 0,
-                argus_svdd_safety_verified: true,
+                sentinel_svdd_safety_verified: true,
                 skills_promoted_to_si: 0,
                 lora_gradient_variance: 0.0,
                 duration_ms,
@@ -112,14 +112,14 @@ impl ContinuousSelfEvolutionEngine {
             AutonomicImpulse {
                 kind: ImpulseKind::OptimizeAstHypotheses,
                 urgency: curiosity,
-                target_domain: "0x0400 (Hephaestus)".to_string(),
+                target_domain: "0x0400 (Fabricator)".to_string(),
                 rationale: "High curiosity drive: Discovering and optimizing novel AST execution pathways".to_string(),
             }
         } else {
             AutonomicImpulse {
                 kind: ImpulseKind::ExploreKnowledgeGaps,
                 urgency: boredom,
-                target_domain: "0x0200 (Merlin)".to_string(),
+                target_domain: "0x0200 (Synthesizer)".to_string(),
                 rationale: "High boredom index: Mutating dormant codebase routines to reduce stagnation".to_string(),
             }
         };
@@ -133,7 +133,7 @@ impl ContinuousSelfEvolutionEngine {
             "🧬 Triggering Autonomous Self-Evolution AST mutation cycle"
         );
 
-        // 1. Phase 1: Hephaestus AST Hypothesis & Mutation Cycle
+        // 1. Phase 1: Fabricator AST Hypothesis & Mutation Cycle
         let dummy_path = Path::new("src/lib.rs");
         let scientific_report = AutonomousScientificEngine::analyze_and_hypothesize(dummy_path, sample_code)?;
 
@@ -146,12 +146,12 @@ impl ContinuousSelfEvolutionEngine {
         let mutations_attempted = scientific_report.hypotheses_tested;
         let hypotheses_accepted = accepted_hypotheses.len();
 
-        // 2. Phase 2: Argus Deep SVDD Safety Manifold Audit
-        let mut argus_safety_verified = true;
+        // 2. Phase 2: Sentinel Deep SVDD Safety Manifold Audit
+        let mut sentinel_safety_verified = true;
         for hyp in &accepted_hypotheses {
             // Check that performance delta is non-negative and confidence is verified
             if hyp.performance_delta_pct < 0.0 || hyp.posterior_confidence < 0.50 {
-                argus_safety_verified = false;
+                sentinel_safety_verified = false;
                 break;
             }
         }
@@ -170,7 +170,7 @@ impl ContinuousSelfEvolutionEngine {
             gradient_variance = (sum_sq_diff / n).max(0.0001);
         }
 
-        if argus_safety_verified && !accepted_hypotheses.is_empty() {
+        if sentinel_safety_verified && !accepted_hypotheses.is_empty() {
             if let Some(ref si_path) = self.config.target_si_path {
                 if let Ok(mut container) = SolidStateSiContainer::load_from_file(si_path) {
                     for _hyp in &accepted_hypotheses {
@@ -205,7 +205,7 @@ impl ContinuousSelfEvolutionEngine {
             triggered_impulse: Some(format!("{:?} -> {}", impulse.kind, impulse.target_domain)),
             mutations_attempted,
             hypotheses_accepted,
-            argus_svdd_safety_verified: argus_safety_verified,
+            sentinel_svdd_safety_verified: sentinel_safety_verified,
             skills_promoted_to_si: promoted_count,
             lora_gradient_variance: gradient_variance,
             duration_ms,
@@ -241,7 +241,7 @@ mod tests {
         assert!(report.is_evolution_triggered);
         assert!(report.mutations_attempted > 0);
         assert!(report.hypotheses_accepted > 0);
-        assert!(report.argus_svdd_safety_verified);
+        assert!(report.sentinel_svdd_safety_verified);
         assert_eq!(report.skills_promoted_to_si, report.hypotheses_accepted);
 
         // Verify dopamine satisfaction boosted

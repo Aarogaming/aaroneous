@@ -264,4 +264,159 @@ mod tests {
         let decision = runtime.dispatch_task(task).await.unwrap();
         assert!(!decision.specialist_id.is_empty());
     }
+
+    #[tokio::test]
+    async fn test_complete_task_success() {
+        let config = test_config();
+        let mut runtime = HiveRuntime::new(&config).unwrap();
+
+        let mut agent = SpecialistAgent::default();
+        agent.id = "spec_a".to_string();
+        agent.name = "Agent A".to_string();
+        agent.enzyme_subset = vec!["rust".to_string()];
+        runtime.register_agent("a".to_string(), agent).await;
+        runtime.start().await.unwrap();
+
+        let task = RoutableTask {
+            id: "task_complete".to_string(),
+            task_type: crate::mdps_router::TaskType::CodeGeneration,
+            complexity: 0.5,
+            urgency: 0.5,
+            required_skills: vec!["rust".to_string()],
+            estimated_cost: 0.1,
+        };
+
+        runtime.dispatch_task(task).await.unwrap();
+        let task_id = "task_complete".to_string();
+
+        // Complete the task
+        runtime.complete_task(&task_id, true, 3.0).await.unwrap();
+
+        // Verify task record updated
+        let log = runtime.task_log.read().await;
+        let record = log.iter().find(|r| r.task_id == task_id).unwrap();
+        assert_eq!(record.success, Some(true));
+        assert!(record.completed_at.is_some());
+    }
+
+    #[tokio::test]
+    async fn test_complete_task_not_found() {
+        let config = test_config();
+        let runtime = HiveRuntime::new(&config).unwrap();
+
+        let result = runtime.complete_task("nonexistent_task", true, 1.0).await;
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("not found"));
+    }
+
+    #[tokio::test]
+    async fn test_stats_returns_defaults() {
+        let config = test_config();
+        let runtime = HiveRuntime::new(&config).unwrap();
+        let stats = runtime.stats();
+        assert_eq!(stats.tasks_completed, 0);
+        assert_eq!(stats.tasks_failed, 0);
+    }
+
+    #[tokio::test]
+    async fn test_get_status_metabolic_state() {
+        let config = test_config();
+        let mut runtime = HiveRuntime::new(&config).unwrap();
+
+        let status = runtime.get_status().await;
+        assert_eq!(status.metabolic_state, "DORMANT");
+
+        runtime.start().await.unwrap();
+        let status = runtime.get_status().await;
+        assert_eq!(status.metabolic_state, "OPTIMAL");
+    }
+
+    #[tokio::test]
+    async fn test_get_status_counts() {
+        let config = test_config();
+        let mut runtime = HiveRuntime::new(&config).unwrap();
+
+        let mut agent = SpecialistAgent::default();
+        agent.id = "s1".to_string();
+        agent.enzyme_subset = vec!["rust".to_string()];
+        runtime.register_agent("a".to_string(), agent).await;
+        runtime.start().await.unwrap();
+
+        // Dispatch a task
+        let task = RoutableTask {
+            id: "t1".to_string(),
+            task_type: crate::mdps_router::TaskType::Analysis,
+            complexity: 0.3,
+            urgency: 0.3,
+            required_skills: vec!["rust".to_string()],
+            estimated_cost: 0.05,
+        };
+        runtime.dispatch_task(task).await.unwrap();
+
+        let status = runtime.get_status().await;
+        assert_eq!(status.tasks_dispatched, 1);
+        assert_eq!(status.tasks_completed, 0);
+    }
+
+    #[tokio::test]
+    async fn test_multiple_dispatch_accumulates_log() {
+        let config = test_config();
+        let mut runtime = HiveRuntime::new(&config).unwrap();
+
+        let mut agent = SpecialistAgent::default();
+        agent.id = "s1".to_string();
+        agent.enzyme_subset = vec!["rust".to_string()];
+        runtime.register_agent("a".to_string(), agent).await;
+        runtime.start().await.unwrap();
+
+        for i in 0..5 {
+            let task = RoutableTask {
+                id: format!("task_{}", i),
+                task_type: crate::mdps_router::TaskType::Analysis,
+                complexity: 0.5,
+                urgency: 0.5,
+                required_skills: vec!["rust".to_string()],
+                estimated_cost: 0.05,
+            };
+            runtime.dispatch_task(task).await.unwrap();
+        }
+
+        let log = runtime.task_log.read().await;
+        assert_eq!(log.len(), 5);
+
+        let status = runtime.get_status().await;
+        assert_eq!(status.tasks_dispatched, 5);
+    }
+
+    #[tokio::test]
+    async fn test_task_record_fields_populated() {
+        let config = test_config();
+        let mut runtime = HiveRuntime::new(&config).unwrap();
+
+        let mut agent = SpecialistAgent::default();
+        agent.id = "s1".to_string();
+        agent.name = "TestSpec".to_string();
+        agent.enzyme_subset = vec!["rust".to_string()];
+        runtime.register_agent("a".to_string(), agent).await;
+        runtime.start().await.unwrap();
+
+        let task = RoutableTask {
+            id: "task_fields".to_string(),
+            task_type: crate::mdps_router::TaskType::Refactor,
+            complexity: 0.7,
+            urgency: 0.3,
+            required_skills: vec!["rust".to_string()],
+            estimated_cost: 0.15,
+        };
+        let decision = runtime.dispatch_task(task).await.unwrap();
+
+        let log = runtime.task_log.read().await;
+        let record = log.last().unwrap();
+        assert_eq!(record.task_id, "task_fields");
+        assert_eq!(record.specialist_id, decision.specialist_id);
+        assert_eq!(record.specialist_name, decision.specialist_name);
+        assert!(record.dispatched_at > 0);
+        assert_eq!(record.completed_at, None);
+        assert_eq!(record.success, None);
+    }
 }

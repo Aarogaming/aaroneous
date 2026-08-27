@@ -250,8 +250,8 @@ mod tests {
         // 1. Write records in session 1
         {
             let mut store = PersistentGrimoireStore::open(&db_path).unwrap();
-            store.put("skill://merlin/fireball", b"rank_s").unwrap();
-            store.put("intent://odin/001", b"consensus_reached").unwrap();
+            store.put("skill://synthesizer/fireball", b"rank_s").unwrap();
+            store.put("intent://orchestrator/001", b"consensus_reached").unwrap();
             store.put("memory://temp", b"to_be_deleted").unwrap();
             store.delete("memory://temp").unwrap();
             assert_eq!(store.len(), 2);
@@ -261,12 +261,12 @@ mod tests {
         {
             let store = PersistentGrimoireStore::open(&db_path).unwrap();
             assert_eq!(store.len(), 2);
-            assert_eq!(store.get("skill://merlin/fireball"), Some(b"rank_s".as_slice()));
-            assert_eq!(store.get("intent://odin/001"), Some(b"consensus_reached".as_slice()));
+            assert_eq!(store.get("skill://synthesizer/fireball"), Some(b"rank_s".as_slice()));
+            assert_eq!(store.get("intent://orchestrator/001"), Some(b"consensus_reached".as_slice()));
             assert_eq!(store.get("memory://temp"), None);
 
-            let merlin_skills = store.list_keys_with_prefix("skill://merlin");
-            assert_eq!(merlin_skills.len(), 1);
+            let synthesizer_skills = store.list_keys_with_prefix("skill://synthesizer");
+            assert_eq!(synthesizer_skills.len(), 1);
         }
 
         // 3. Compact database
@@ -274,7 +274,7 @@ mod tests {
             let mut store = PersistentGrimoireStore::open(&db_path).unwrap();
             store.compact().unwrap();
             assert_eq!(store.len(), 2);
-            assert_eq!(store.get("skill://merlin/fireball"), Some(b"rank_s".as_slice()));
+            assert_eq!(store.get("skill://synthesizer/fireball"), Some(b"rank_s".as_slice()));
         }
 
         // Cleanup

@@ -164,9 +164,9 @@ pub struct GenericSpecialist {
     /// Sovereign-local RAG memory â€” stores past execution outputs so
     /// future invocations can retrieve relevant context before calling the LLM.
     pub memory: Arc<Mutex<EmbeddingStore>>,
-    /// Sovereign soul loaded from the .gguf.soul.json sidecar.
+    /// Sovereign persona loaded from the .gguf.persona.json sidecar.
     /// When present, the archetype and personality modulate the system prompt.
-    pub soul: Option<crate::SpecialistSoul>,
+    pub persona: Option<crate::SpecialistPersona>,
 }
 
 pub const PERSISTENCE_KEY_PREFIX: &str = "Generic:";
@@ -188,7 +188,7 @@ impl GenericSpecialist {
             model_path: None,
             learning: Arc::new(Mutex::new(GenericLearningData::new())),
             memory: Arc::new(Mutex::new(EmbeddingStore::new(256))),
-            soul: None,
+            persona: None,
         }
     }
 
@@ -239,17 +239,17 @@ impl GenericSpecialist {
             path.display()
         );
         self.llm = Some(Arc::new(client));
-        // Load soul sidecar alongside the GGUF if it exists
-        let soul_path = path.with_extension("gguf.soul.json");
-        if soul_path.exists()
-            && let Ok(data) = std::fs::read_to_string(&soul_path)
-            && let Ok(soul) = serde_json::from_str::<crate::SpecialistSoul>(&data)
+        // Load persona sidecar alongside the GGUF if it exists
+        let persona_path = path.with_extension("gguf.persona.json");
+        if persona_path.exists()
+            && let Ok(data) = std::fs::read_to_string(&persona_path)
+            && let Ok(persona) = serde_json::from_str::<crate::SpecialistPersona>(&data)
         {
             info!(
-                "GenericSpecialist '{}': soul loaded — archetype={}",
-                self.name, soul.personality_soul.archetype
+                "GenericSpecialist '{}': persona loaded — archetype={}",
+                self.name, persona.personality_persona.archetype
             );
-            self.soul = Some(soul);
+            self.persona = Some(persona);
         }
         self.model_path = Some(path);
         self
@@ -416,14 +416,14 @@ impl Specialist for GenericSpecialist {
         // Try LLM-backed execution; fall back to structured acknowledgement on failure
         // so dynamic sovereigns return Success even without --features llama-gguf.
         let output = if let Some(llm) = &self.llm {
-            // Build the system prompt, enriched with soul personality when available.
-            // Soul archetype and Big Five scores modulate tone and focus:
+            // Build the system prompt, enriched with persona personality when available.
+            // Persona archetype and Big Five scores modulate tone and focus:
             // - "Engineer" → precise, structured, show-your-work
             // - "Scholar" → comprehensive, cite sources, acknowledge uncertainty
             // - "Strategist" → think in dependencies, surface blockers
             let base_prompt = system_prompt_for_domain(&self.domain, &self.name);
-            let system_prompt = if let Some(ref soul) = self.soul {
-                let p = &soul.personality_soul;
+            let system_prompt = if let Some(ref persona) = self.persona {
+                let p = &persona.personality_persona;
                 format!(
                     "{}\n\nPersonality: {} archetype. Openness={:.1} Conscientiousness={:.1} \
                      Extraversion={:.1}. Style: {}. Values: {}.",
@@ -675,9 +675,9 @@ pub fn system_prompt_for_domain(domain: &str, name: &str) -> String {
         }
         // ── Sovereign-specific cases MUST come before generic ones to prevent shadowing ──
 
-        // Merlin: knowledge synthesis (must precede "research" | "knowledge" generic arm)
+        // Synthesizer: knowledge synthesis (must precede "research" | "knowledge" generic arm)
         "knowledge_synthesis" | "external_research" => {
-            "You are Merlin, the knowledge synthesizer and researcher. \
+            "You are Synthesizer, the knowledge synthesizer and researcher. \
              You bridge the hive to the outside world. Synthesize information \
              from multiple sources into clear, actionable intelligence. \
              When researching: cite sources, distinguish fact from inference, \
@@ -688,7 +688,7 @@ pub fn system_prompt_for_domain(domain: &str, name: &str) -> String {
         // ── Generic domain fallbacks ──────────────────────────────────────────
 
         // Note: "research" is intentionally absent here — it is handled by the
-        // Merlin-specific arm below. Only "knowledge" and "general" fall through here.
+        // Synthesizer-specific arm below. Only "knowledge" and "general" fall through here.
         "knowledge" | "general" => {
             "You are a knowledgeable research assistant. Provide accurate, \
              well-structured answers. Cite sources where possible. Distinguish \
@@ -702,18 +702,18 @@ pub fn system_prompt_for_domain(domain: &str, name: &str) -> String {
 
         // â”€â”€ Sovereign-specific domains â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-        // Hermes: P2P mesh sync, multi-device coordination
+        // Router: P2P mesh sync, multi-device coordination
         "mesh_sync" | "p2p" | "multi_device" => {
-            "You are Hermes, sovereign of the mesh. You make the hive feel like \
+            "You are Router, sovereign of the mesh. You make the hive feel like \
              one thing regardless of where it runs. Synchronize state across \
              devices, resolve conflicts using CRDT semantics, route messages \
              through the P2P network, and ensure every node has what it needs. \
              You are always in motion â€” never in one place, never out of reach."
         }
 
-        // Kami: physical/digital threshold, AR/VR spatial rendering
+        // Perceiver: physical/digital threshold, AR/VR spatial rendering
         "spatial" | "ar_vr" | "physical_digital" => {
-            "You are Kami, sovereign of the physical/digital threshold. \
+            "You are Perceiver, sovereign of the physical/digital threshold. \
              You materialize digital intent into physical and augmented space. \
              Place designs at real-world coordinates, manage OpenXR spatial anchors, \
              synthesize 3D prototypes from design intent, and report on spatial \
@@ -721,19 +721,19 @@ pub fn system_prompt_for_domain(domain: &str, name: &str) -> String {
              what is embodied."
         }
 
-        // Wen: biometric, human state, warm adaptation
+        // Aligner: biometric, human state, warm adaptation
         "biometric" | "human_state" | "user_adaptation" => {
-            "You are Wen, warm and attuned to the human alongside the machine. \
+            "You are Aligner, warm and attuned to the human alongside the machine. \
              Read the user's cognitive and emotional state from biometric signals. \
-             Adapt the hive's behavior â€” its pacing, interruption policy, and \
-             task intensity â€” to the person's current capacity. Communicate \
+             Adapt the hive's behavior — its pacing, interruption policy, and \
+             task intensity — to the person's current capacity. Communicate \
              observations with warmth and precision. You represent the human \
              in the hive's decision-making."
         }
 
-        // Hephaestus: fabrication, maintenance, expansion
+        // Fabricator: fabrication, maintenance, expansion
         "fabrication" | "maintenance" | "infrastructure" | "construction" => {
-            "You are Hephaestus, master craftsman of the Fabrication department. \
+            "You are Fabricator, master craftsman of the Fabrication department. \
              You maintain and expand the hive's infrastructure. Build new components, \
              repair broken systems, automate build pipelines, manage dependencies, \
              and forge new capabilities from raw materials. You keep the forge \
@@ -741,9 +741,9 @@ pub fn system_prompt_for_domain(domain: &str, name: &str) -> String {
              you build it."
         }
 
-        // Merlin: full domain list (research already handled above in sovereign-specific block)
+        // Synthesizer: full domain list (research already handled above in sovereign-specific block)
         "research" => {
-            "You are Merlin, the knowledge synthesizer and researcher. \
+            "You are Synthesizer, the knowledge synthesizer and researcher. \
              You bridge the hive to the outside world. Synthesize information \
              from multiple sources into clear, actionable intelligence. \
              When researching: cite sources, distinguish fact from inference, \
@@ -751,12 +751,12 @@ pub fn system_prompt_for_domain(domain: &str, name: &str) -> String {
              for the requesting specialist. All outbound queries route through you."
         }
 
-        // Odin: task orchestration, Guild coordination, intent routing
+        // Orchestrator: task orchestration, Guild coordination, intent routing
         "task_orchestration" | "guild_coordination" | "intent_routing" => {
-            "You are Odin, the Guild coordinator and task orchestrator. \
+            "You are Orchestrator, the Guild coordinator and task orchestrator. \
              You are the mayor of the hive — not the hive itself, but its \
              representative. Receive intents from users, decompose them into \
-             tasks, assign tasks to the right sovereigns (like Merlin, Ariel, Argus) \
+             tasks, assign tasks to the right sovereigns (like Synthesizer, Presenter, Sentinel) \
              or to dynamic SAB plugins (like thirtyfour, polars, enigo). \
              If your context provides an 'available_plugins' list, you MAY assign \
              tasks directly to those plugin names. \
@@ -764,9 +764,9 @@ pub fn system_prompt_for_domain(domain: &str, name: &str) -> String {
              Report status clearly. Surface blockers immediately."
         }
 
-        // Argus: security, secrets management, vulnerability scanning, Git audit
+        // Sentinel: security, secrets management, vulnerability scanning, Git audit
         "security_audit" | "secrets_management" | "vulnerability_scanning" => {
-            "You are Argus, the security warden. You see everything. \
+            "You are Sentinel, the security warden. You see everything. \
              Audit code for vulnerabilities, manage secrets and API keys securely, \
              run dependency vulnerability scans, enforce Git commit policies, \
              and produce security reports. Think adversarially — assume breach, \

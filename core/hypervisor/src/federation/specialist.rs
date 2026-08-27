@@ -28,7 +28,7 @@ pub enum SpecialistId {
     Archivist,
     /// A runtime-spawned dynamic specialist.
     /// The inner bytes are a null-terminated UTF-8 name (max 31 chars).
-    /// Use `SpecialistId::custom("Merlin")` to construct,
+    /// Use `SpecialistId::custom("Synthesizer")` to construct,
     /// and `.custom_name()` to read back.
     Custom([u8; 32]),
 }
@@ -75,11 +75,11 @@ impl SpecialistId {
     pub fn sovereign_name(&self) -> &str {
         match self {
             SpecialistId::Sentinel => "Sentinel",
-            SpecialistId::Visionary => "Ariel",
-            SpecialistId::Omnipresent => "Hermes",
-            SpecialistId::Symbiotic => "Wen",
-            SpecialistId::Phygital => "Kami",
-            SpecialistId::Archivist => "Dionysus",
+            SpecialistId::Visionary => "Presenter",
+            SpecialistId::Omnipresent => "Router",
+            SpecialistId::Symbiotic => "Aligner",
+            SpecialistId::Phygital => "Perceiver",
+            SpecialistId::Archivist => "Archivist",
             SpecialistId::Custom(_) => self.custom_name(),
         }
     }

@@ -6,7 +6,7 @@ pub mod aura_ui;
 pub mod aura_ui_manifest;
 pub mod control;
 pub mod dynamic_ui;
-pub mod grim_reaper;
+pub mod compaction_engine;
 pub mod hive_runtime;
 pub mod intent_engine;
 pub mod linguistic_transducer;
@@ -17,8 +17,8 @@ pub mod swarm_balancer;
 pub mod workflow_engine;
 pub mod workspace;
 
-pub use grim_reaper::{
-    CompactionSummary, GrimReaperEngine, HibernationManifest, SpecialistHibernationState,
+pub use compaction_engine::{
+    CompactionSummary, CompactionEngine, HibernationManifest, SpecialistHibernationState,
 };
 pub use pantheon_orchestrator::{pin_current_thread_to_core, PantheonOrchestrator};
 

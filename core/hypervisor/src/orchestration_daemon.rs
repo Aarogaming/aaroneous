@@ -489,4 +489,176 @@ mod tests {
         assert!(task.id.starts_with("task_"));
         assert!(matches!(task.task_type, TaskType::Refactor));
     }
+
+    #[test]
+    fn test_shutdown_sets_state() {
+        let config = OrchestrationDaemonConfig::default();
+        let mut daemon = OrchestrationDaemon::new(config).expect("failed to create daemon");
+
+        daemon.shutdown();
+        assert!(matches!(daemon.state, DaemonState::ShuttingDown));
+    }
+
+    #[test]
+    fn test_convert_event_file_created() {
+        let config = OrchestrationDaemonConfig::default();
+        let daemon = OrchestrationDaemon::new(config).expect("failed to create daemon");
+
+        let event = MetadataEvent {
+            source: "test".to_string(),
+            event_type: "file_created".to_string(),
+            timestamp: 1.0,
+            data: serde_json::json!({"path": "new.rs"}),
+            raw_bytes: None,
+        };
+
+        let analysis = crate::metadata_ingestor::MetadataAnalysis::default();
+        let task = daemon.convert_event_to_task(&event, &analysis);
+        assert!(matches!(task.task_type, TaskType::CodeGeneration));
+    }
+
+    #[test]
+    fn test_convert_event_metrics_update() {
+        let config = OrchestrationDaemonConfig::default();
+        let daemon = OrchestrationDaemon::new(config).expect("failed to create daemon");
+
+        let event = MetadataEvent {
+            source: "monitor".to_string(),
+            event_type: "metrics_update".to_string(),
+            timestamp: 2.0,
+            data: serde_json::json!({"cpu": 0.8}),
+            raw_bytes: None,
+        };
+
+        let analysis = crate::metadata_ingestor::MetadataAnalysis::default();
+        let task = daemon.convert_event_to_task(&event, &analysis);
+        assert!(matches!(task.task_type, TaskType::Analysis));
+    }
+
+    #[test]
+    fn test_convert_event_custom_type() {
+        let config = OrchestrationDaemonConfig::default();
+        let daemon = OrchestrationDaemon::new(config).expect("failed to create daemon");
+
+        let event = MetadataEvent {
+            source: "test".to_string(),
+            event_type: "custom_event".to_string(),
+            timestamp: 3.0,
+            data: serde_json::json!({}),
+            raw_bytes: None,
+        };
+
+        let analysis = crate::metadata_ingestor::MetadataAnalysis::default();
+        let task = daemon.convert_event_to_task(&event, &analysis);
+        assert!(matches!(task.task_type, TaskType::Custom(_)));
+    }
+
+    #[test]
+    fn test_convert_event_priority_high_complexity() {
+        let config = OrchestrationDaemonConfig::default();
+        let daemon = OrchestrationDaemon::new(config).expect("failed to create daemon");
+
+        let event = MetadataEvent {
+            source: "test".to_string(),
+            event_type: "file_modified".to_string(),
+            timestamp: 4.0,
+            data: serde_json::json!({}),
+            raw_bytes: None,
+        };
+
+        let mut analysis = crate::metadata_ingestor::MetadataAnalysis::default();
+        analysis.predicted_complexity = 0.85;
+        let task = daemon.convert_event_to_task(&event, &analysis);
+        assert_eq!(task.priority, 0.8);
+    }
+
+    #[test]
+    fn test_convert_event_priority_high_entropy() {
+        let config = OrchestrationDaemonConfig::default();
+        let daemon = OrchestrationDaemon::new(config).expect("failed to create daemon");
+
+        let event = MetadataEvent {
+            source: "test".to_string(),
+            event_type: "file_modified".to_string(),
+            timestamp: 5.0,
+            data: serde_json::json!({}),
+            raw_bytes: None,
+        };
+
+        let mut analysis = crate::metadata_ingestor::MetadataAnalysis::default();
+        analysis.entropy = 3.5;
+        let task = daemon.convert_event_to_task(&event, &analysis);
+        assert_eq!(task.priority, 0.6);
+    }
+
+    #[test]
+    fn test_convert_event_priority_low() {
+        let config = OrchestrationDaemonConfig::default();
+        let daemon = OrchestrationDaemon::new(config).expect("failed to create daemon");
+
+        let event = MetadataEvent {
+            source: "test".to_string(),
+            event_type: "file_modified".to_string(),
+            timestamp: 6.0,
+            data: serde_json::json!({}),
+            raw_bytes: None,
+        };
+
+        let analysis = crate::metadata_ingestor::MetadataAnalysis::default();
+        let task = daemon.convert_event_to_task(&event, &analysis);
+        assert_eq!(task.priority, 0.4);
+    }
+
+    #[test]
+    fn test_daemon_status_uptime_positive() {
+        let config = OrchestrationDaemonConfig::default();
+        let daemon = OrchestrationDaemon::new(config).expect("failed to create daemon");
+        let status = daemon.get_status();
+        assert!(status.uptime_seconds >= 0.0);
+    }
+
+    #[test]
+    fn test_daemon_config_defaults() {
+        let config = OrchestrationDaemonConfig::default();
+        assert_eq!(config.cycle_interval, Duration::from_secs(10));
+        assert_eq!(config.max_tasks_per_cycle, 5);
+        assert!(config.enable_auto_throttle);
+        assert!(config.enable_constellation_updates);
+    }
+
+    #[test]
+    fn test_daemon_initial_counters() {
+        let config = OrchestrationDaemonConfig::default();
+        let daemon = OrchestrationDaemon::new(config).expect("failed to create daemon");
+        assert_eq!(daemon.tasks_processed, 0);
+        assert_eq!(daemon.actions_executed, 0);
+        assert_eq!(daemon.last_cycle_duration, Duration::ZERO);
+    }
+
+    #[test]
+    fn test_process_lifecycle_manager_new() {
+        let manager = ProcessLifecycleManager {
+            managed_agents: std::collections::HashMap::new(),
+        };
+        assert!(manager.managed_agents.is_empty());
+    }
+
+    #[test]
+    fn test_process_lifecycle_spool_down_nonexistent() {
+        let mut manager = ProcessLifecycleManager {
+            managed_agents: std::collections::HashMap::new(),
+        };
+        let result = manager.spool_down("nonexistent");
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("not found"));
+    }
+
+    #[test]
+    fn test_daemon_state_variants() {
+        assert!(matches!(DaemonState::Initializing, DaemonState::Initializing));
+        assert!(matches!(DaemonState::Running, DaemonState::Running));
+        assert!(matches!(DaemonState::Throttled, DaemonState::Throttled));
+        assert!(matches!(DaemonState::Error("test".into()), DaemonState::Error(_)));
+        assert!(matches!(DaemonState::ShuttingDown, DaemonState::ShuttingDown));
+    }
 }

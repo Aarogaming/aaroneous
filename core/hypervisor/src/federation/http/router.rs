@@ -708,12 +708,12 @@ pub fn router(state: AppState) -> Router {
         // ── OpenAI-compatible API (/v1/) ──────────────────────────────────────
         // Makes Aaroneous usable by Cursor, Continue.dev, Claude Desktop,
         // any OpenAI SDK, LM Studio, and every tool that speaks OpenAI chat.
-        // Model name maps to a sovereign: "merlin", "odin", "ariel", etc.
+        // Model name maps to a sovereign: "synthesizer", "orchestrator", "presenter", etc.
         // Unrecognised model → routes to the active hive (all sovereigns).
         .route("/v1/models", get(openai_list_models))
         .route("/v1/chat/completions", post(openai_chat_completions))
         .route("/v1/completions", post(openai_completions))
-        // ── Chimera Emulation ──────────────────────────────────────────────────
+        // ── Adaptation Engine Emulation ─────────────────────────────────────────
         .route("/chimera/record", post(chimera_record_toggle))
         .route("/chimera/routines", get(list_routines))
         .route("/chimera/routines/:id/run", post(run_routine))
@@ -923,7 +923,7 @@ async fn delete_scheduled_task(
 }
 
 // ====================================================================
-// Chimera Handlers
+// Adaptation Engine Handlers
 // ====================================================================
 
 #[derive(Deserialize)]
@@ -986,7 +986,7 @@ async fn run_routine(Path(id): Path<String>) -> impl IntoResponse {
             .into_response();
     }
 
-    // In a real system, we'd submit an intent to Odin to process this via Enigo SAB.
+    // In a real system, we'd submit an intent to Orchestrator to process this via Enigo SAB.
     // For now, we simulate executing the routine and stream a NATS event.
     if let Ok(nc) = async_nats::connect("nats://localhost:4222").await {
         let _ = nc
@@ -1385,7 +1385,7 @@ fn result_to_json(r: &crate::federation::specialist::ExecutionResult) -> serde_j
         .map(|d| d.as_millis() as u64)
         .unwrap_or(0);
     serde_json::json!({
-        // Use sovereign display name (e.g. "Hermes") not persistence key ("Omnipresent")
+        // Use sovereign display name (e.g. "Router") not persistence key ("Omnipresent")
         "specialist": r.specialist_name.as_deref()
             .unwrap_or_else(|| r.specialist.sovereign_name()),
         // Stable domain identifier for programmatic use
@@ -2718,7 +2718,7 @@ struct ForgeCrystallizeRosterRequest {
 /// {
 ///   "source_path": "/path/to/models/foundation_v1.gguf",
 ///   "output_dir": "/path/to/models",
-///   "only": ["Ariel", "Merlin"]
+///   "only": ["Presenter", "Synthesizer"]
 /// }
 /// ```
 async fn forge_crystallize_roster(
@@ -2889,7 +2889,7 @@ async fn distillation_plan(State(_state): State<AppState>) -> impl IntoResponse 
 /// Request body for POST /distillation/generate
 #[derive(Deserialize)]
 struct DistillationGenerateRequest {
-    /// Sovereign name (e.g. "Odin", "Wen")
+    /// Sovereign name (e.g. "Orchestrator", "Aligner")
     sovereign: String,
     /// Number of examples to generate (default: 50)
     count: Option<u32>,
@@ -3441,11 +3441,11 @@ async fn dna_compare(
             // Per-locus comparison
             // Strip model-name prefix from locus IDs for cross-model comparison.
             // Locus ID format: "<model_prefix>-<locus_key>" where model_prefix is
-            // e.g. "foundation_v1" or "odin-qwen2.5-7b".
+            // e.g. "foundation_v1" or "orchestrator-qwen2.5-7b".
             // We normalise by keeping only the locus_key (everything after the last
             // double-letter token that identifies the measurement type).
             let locus_key = |id: &str, model_name: &str| -> String {
-                // model_name may contain dots (e.g. "wen-qwen2.5-7b.gguf") â€” escape dots
+                // model_name may contain dots (e.g. "aligner-qwen2.5-7b.gguf") â€” escape dots
                 let prefix_clean = model_name.replace('.', "_").to_lowercase();
                 id.to_lowercase()
                     .trim_start_matches(&prefix_clean)
@@ -3529,15 +3529,15 @@ async fn dna_roster(State(_state): State<AppState>) -> impl IntoResponse {
     let models_dir = models_dir_buf.as_path();
     let known_models = [
         "foundation_v1",
-        "ariel-qwen2.5-7b",
-        "hermes-qwen2.5-7b",
-        "wen-qwen2.5-7b",
-        "kami-qwen2.5-7b",
-        "dionysus-qwen2.5-7b",
-        "merlin-qwen2.5-7b",
-        "odin-qwen2.5-7b",
-        "argus-qwen2.5-7b",
-        "hephaestus-qwen2.5-7b",
+        "presenter-qwen2.5-7b",
+        "router-qwen2.5-7b",
+        "aligner-qwen2.5-7b",
+        "perceiver-qwen2.5-7b",
+        "archivist-qwen2.5-7b",
+        "synthesizer-qwen2.5-7b",
+        "orchestrator-qwen2.5-7b",
+        "sentinel-qwen2.5-7b",
+        "fabricator-qwen2.5-7b",
     ];
 
     let entries: Vec<serde_json::Value> = known_models.iter().map(|name| {
@@ -3681,7 +3681,7 @@ async fn models_import_job_status(
 /// Content-Disposition: attachment so curl/browsers save it as a file.
 ///
 /// This is how you export a sovereign specialist for use elsewhere:
-///   curl http://localhost:8765/models/export/odin-qwen2.5-7b.gguf -o odin.gguf
+///   curl http://localhost:8765/models/export/orchestrator-qwen2.5-7b.gguf -o orchestrator.gguf
 async fn models_export(
     State(_state): State<AppState>,
     Path(name): Path<String>,
@@ -3881,7 +3881,7 @@ async fn models_recommend(State(_state): State<AppState>) -> impl IntoResponse {
             "model": "foundation_v1.gguf (Qwen2.5-Coder-7B-Instruct)",
             "bias": "~60% code training corpus â€” strong coding bias across all sovereigns",
             "gate_sparsity": 1.0,
-            "problem": "Merlin researches in code. Wen reads biometrics in code. Ariel designs UIs in code.",
+            "problem": "Synthesizer researches in code. Aligner reads biometrics in code. Presenter designs UIs in code.",
         },
         "sovereigns": entries,
         "next_steps": [
@@ -4148,7 +4148,7 @@ struct DnaForgeRequest {
 /// Example:
 /// {"model_a": "Mistral-7B-Instruct-v0.3-Q4_K_M.gguf",
 ///  "model_b": "Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf",
-///  "sovereign_name": "Merlin",
+///  "sovereign_name": "Synthesizer",
 ///  "auto_dissect": true}
 async fn dna_forge(
     State(state): State<AppState>,
@@ -4335,7 +4335,7 @@ fn now_ms_vault() -> u64 {
 /// The file is streamed as a binary download. Typical size: 1-5 GB.
 ///
 /// Usage:
-///   curl http://localhost:8765/specialists/export/Merlin -o Merlin.sovereign
+///   curl http://localhost:8765/specialists/export/Synthesizer -o Synthesizer.sovereign
 async fn specialists_export(
     State(state): State<AppState>,
     Path(name): Path<String>,
@@ -4436,7 +4436,7 @@ async fn specialists_export(
 /// POST /specialists/import
 ///
 /// Import a sovereign from a .sovereign package file.
-/// Body: JSON with {"package_path": "D:\\...\\Merlin.sovereign"}
+/// Body: JSON with {"package_path": "D:\\...\\Synthesizer.sovereign"}
 /// or future: multipart file upload
 #[derive(Deserialize)]
 struct SpecialistsImportRequest {
@@ -4581,12 +4581,12 @@ async fn specialists_inspect(
 //
 // Model naming convention:
 //   "aaroneous"          → all sovereigns vote (full hive)
-//   "merlin"             → routes exclusively to Merlin (research)
-//   "odin"               → routes to Odin (task planning)
-//   "ariel"              → routes to Ariel (UI/UX)
-//   "argus"              → routes to Argus (security)
-//   "wen"                → routes to Wen (biometric/human state)
-//   "hephaestus"         → routes to Hephaestus (build/fabrication)
+//   "synthesizer"        → routes exclusively to Synthesizer (research)
+//   "orchestrator"       → routes to Orchestrator (task planning)
+//   "presenter"          → routes to Presenter (UI/UX)
+//   "sentinel"           → routes to Sentinel (security)
+//   "aligner"            → routes to Aligner (biometric/human state)
+//   "fabricator"         → routes to Fabricator (build/fabrication)
 //   Any other string     → full hive (all sovereigns)
 //
 // The response is assembled from the sovereign's execution output.
@@ -4606,11 +4606,11 @@ async fn openai_list_models(State(state): State<AppState>) -> impl IntoResponse 
     // Core sovereigns
     let mut models = vec![
         serde_json::json!({ "id": "aaroneous", "object": "model", "created": now_ts, "owned_by": "aaroneous" }),
-        serde_json::json!({ "id": "ariel",     "object": "model", "created": now_ts, "owned_by": "aaroneous", "description": "UI/UX design specialist" }),
-        serde_json::json!({ "id": "hermes",    "object": "model", "created": now_ts, "owned_by": "aaroneous", "description": "P2P mesh sync specialist" }),
-        serde_json::json!({ "id": "wen",       "object": "model", "created": now_ts, "owned_by": "aaroneous", "description": "Biometric / human state specialist" }),
-        serde_json::json!({ "id": "kami",      "object": "model", "created": now_ts, "owned_by": "aaroneous", "description": "AR/VR spatial specialist" }),
-        serde_json::json!({ "id": "dionysus",  "object": "model", "created": now_ts, "owned_by": "aaroneous", "description": "Memory / DNA Bank specialist" }),
+        serde_json::json!({ "id": "presenter",    "object": "model", "created": now_ts, "owned_by": "aaroneous", "description": "UI/UX design specialist" }),
+        serde_json::json!({ "id": "router",    "object": "model", "created": now_ts, "owned_by": "aaroneous", "description": "P2P mesh sync specialist" }),
+        serde_json::json!({ "id": "aligner",       "object": "model", "created": now_ts, "owned_by": "aaroneous", "description": "Biometric / human state specialist" }),
+        serde_json::json!({ "id": "perceiver",      "object": "model", "created": now_ts, "owned_by": "aaroneous", "description": "AR/VR spatial specialist" }),
+        serde_json::json!({ "id": "archivist",  "object": "model", "created": now_ts, "owned_by": "aaroneous", "description": "Memory / DNA Bank specialist" }),
     ];
     // Dynamic sovereigns
     for s in dynamic.iter() {
@@ -4975,15 +4975,15 @@ async fn route_to_sovereign(
 
     // Sovereign name → domain mapping
     let (sovereign_name, domain) = match model {
-        "ariel" => ("Ariel", "ui_design"),
-        "hermes" => ("Hermes", "mesh_sync"),
-        "wen" => ("Wen", "human_state"),
-        "kami" => ("Kami", "spatial"),
-        "dionysus" => ("Dionysus", "memory_consolidation"),
-        "merlin" => ("Merlin", "research"),
-        "odin" => ("Odin", "task_orchestration"),
-        "argus" => ("Argus", "security_audit"),
-        "hephaestus" => ("Hephaestus", "fabrication"),
+        "presenter" => ("Presenter", "ui_design"),
+        "router" => ("Router", "mesh_sync"),
+        "aligner" => ("Aligner", "human_state"),
+        "perceiver" => ("Perceiver", "spatial"),
+        "archivist" => ("Archivist", "memory_consolidation"),
+        "synthesizer" => ("Synthesizer", "research"),
+        "orchestrator" => ("Orchestrator", "task_orchestration"),
+        "sentinel" => ("Sentinel", "security_audit"),
+        "fabricator" => ("Fabricator", "fabrication"),
         _ => {
             // Full hive — submit intent and collect ALL sovereign outputs
             let intent = crate::federation::intent::Intent::new(user_message.to_string());
@@ -5154,14 +5154,14 @@ struct LinkCreateRequest {
 /// Examples:
 ///
 /// Discord webhook:
-///   {"name":"Merlin updates","link_type":"discord",
+///   {"name":"Synthesizer updates","link_type":"discord",
 ///    "target_url":"https://discord.com/api/webhooks/...",
-///    "filter":{"event_types":["execution_complete"],"sovereigns":["Merlin"]}}
+///    "filter":{"event_types":["execution_complete"],"sovereigns":["Synthesizer"]}}
 ///
 /// Slack:
 ///   {"name":"Security alerts","link_type":"slack",
 ///    "target_url":"https://hooks.slack.com/services/...",
-///    "filter":{"sovereigns":["Argus"],"statuses":["Success"]}}
+///    "filter":{"sovereigns":["Sentinel"],"statuses":["Success"]}}
 ///
 /// Generic webhook:
 ///   {"name":"n8n trigger","link_type":"webhook",
@@ -5396,7 +5396,7 @@ async fn wait_for_new_results(
         .iter()
         .skip(count_before)
         .map(|r| {
-            // Use sovereign display name (e.g. "Hermes") not persistence key ("Omnipresent")
+        // Use sovereign display name (e.g. "Router") not persistence key ("Omnipresent")
             let display_name = r
                 .specialist_name
                 .as_deref()

@@ -1,5 +1,5 @@
-//! ariel.rs
-//! Ariel (The Visionary / Experience Designer) & Glass (Optical Telemetry & HUD Streamer).
+//! presenter.rs
+//! Presenter (The Visionary / Experience Designer) & DisplayBuffer (Optical Telemetry & HUD Streamer).
 //! Domain Opcode: 0x0300 (UI_PRESENTATION)
 
 use anyhow::Result;
@@ -20,14 +20,14 @@ pub struct UiPresentationFrame {
     pub status_message: String,
 }
 
-/// Glass Relic Engine: Optical HUD Telemetry and visual streamer
+/// DisplayBuffer Relic Engine: Optical HUD Telemetry and visual streamer
 #[derive(Debug, Clone)]
-pub struct GlassRelic {
+pub struct DisplayBufferRelic {
     pub frames_streamed: u64,
     pub hud_layers_active: usize,
 }
 
-impl Default for GlassRelic {
+impl Default for DisplayBufferRelic {
     fn default() -> Self {
         Self {
             frames_streamed: 0,
@@ -36,44 +36,44 @@ impl Default for GlassRelic {
     }
 }
 
-impl RelicEngine for GlassRelic {
+impl RelicEngine for DisplayBufferRelic {
     fn relic_name(&self) -> &'static str {
-        "Glass"
+        "DisplayBuffer"
     }
 
     fn supervisor_name(&self) -> &'static str {
-        "Ariel"
+        "Presenter"
     }
 
     fn relic_status(&self) -> String {
         format!(
-            "Glass Optical Streamer: {} frames delivered across {} HUD layers",
+            "DisplayBuffer Optical Streamer: {} frames delivered across {} HUD layers",
             self.frames_streamed, self.hud_layers_active
         )
     }
 }
 
-/// Ariel Sovereign Specialist
-pub struct ArielSpecialist {
+/// Presenter Sovereign Specialist
+pub struct PresenterSpecialist {
     pub tokens: f32,
     pub max_tokens: f32,
-    pub glass: GlassRelic,
+    pub glass: DisplayBufferRelic,
     pub omni_engine: std::sync::Arc<omni::OmniEngine>,
 }
 
-impl Default for ArielSpecialist {
+impl Default for PresenterSpecialist {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl ArielSpecialist {
+impl PresenterSpecialist {
     pub fn new() -> Self {
         let omni_engine = std::sync::Arc::new(omni::OmniEngine::default());
         Self {
             tokens: 100.0,
             max_tokens: 100.0,
-            glass: GlassRelic::default(),
+            glass: DisplayBufferRelic::default(),
             omni_engine,
         }
     }
@@ -81,13 +81,13 @@ impl ArielSpecialist {
     /// Composes a UI frame for frontend rendering
     pub fn compose_ui_frame(&mut self, active_view: &str, status: &str) -> UiPresentationFrame {
         self.glass.frames_streamed += 1;
-        info!(target: "specialist::ariel", %active_view, "Composing visual UI presentation frame");
+        info!(target: "specialist::presenter", %active_view, "Composing visual UI presentation frame");
 
         UiPresentationFrame {
             active_view: active_view.to_string(),
             theme: "Aaroneous_Obsidian_Cyan".to_string(),
             cognitive_load_pct: 24.5,
-            active_specialist: "Ariel".to_string(),
+            active_specialist: "Presenter".to_string(),
             status_message: status.to_string(),
         }
     }
@@ -107,9 +107,9 @@ impl ArielSpecialist {
 }
 
 #[async_trait]
-impl SovereignSpecialist for ArielSpecialist {
+impl SovereignSpecialist for PresenterSpecialist {
     fn name(&self) -> &'static str {
-        "Ariel"
+        "Presenter"
     }
 
     fn domain_opcode(&self) -> u16 {
@@ -128,7 +128,7 @@ impl SovereignSpecialist for ArielSpecialist {
                 success: true,
                 opcode: self.domain_opcode(),
                 correlation_id: packet.correlation_id,
-                message: format!("Ariel delivered 3D Omni Galaxy snapshot ({} stars, {} galaxies)", snapshot.total_stars, snapshot.total_galaxies),
+                message: format!("Presenter delivered 3D Omni Galaxy snapshot ({} stars, {} galaxies)", snapshot.total_stars, snapshot.total_galaxies),
                 payload,
             });
         }
@@ -140,7 +140,7 @@ impl SovereignSpecialist for ArielSpecialist {
             success: true,
             opcode: self.domain_opcode(),
             correlation_id: packet.correlation_id,
-            message: format!("Ariel composed UI frame for '{}'", req_str),
+            message: format!("Presenter composed UI frame for '{}'", req_str),
             payload,
         })
     }
@@ -167,10 +167,10 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_ariel_frame_composition() {
-        let mut ariel = ArielSpecialist::new();
-        let frame = ariel.compose_ui_frame("OmniGalaxyView", "Exploring sector 4");
+    fn test_presenter_frame_composition() {
+        let mut presenter = PresenterSpecialist::new();
+        let frame = presenter.compose_ui_frame("OmniGalaxyView", "Exploring sector 4");
         assert_eq!(frame.active_view, "OmniGalaxyView");
-        assert_eq!(ariel.glass.frames_streamed, 1);
+        assert_eq!(presenter.glass.frames_streamed, 1);
     }
 }

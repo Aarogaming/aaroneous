@@ -76,8 +76,8 @@ impl GGUFProvider {
     pub fn default_qwen_path() -> PathBuf {
         let locations: Vec<PathBuf> = vec![
             // Crystallized sovereign models (preferred — domain-specialized)
-            WorkspacePaths::sovereign_model("ariel"),
-            WorkspacePaths::sovereign_model("wen"),
+            WorkspacePaths::sovereign_model("presenter"),
+            WorkspacePaths::sovereign_model("aligner"),
             // Foundation model fallback
             WorkspacePaths::models().join("foundation_v1.gguf"),
             // Legacy/abliterated variants

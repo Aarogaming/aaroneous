@@ -1,5 +1,5 @@
-//! crates/orchestrator/src/grim_reaper.rs
-//! The Grim Reaper Memory Compaction & Instant Resurrection Engine.
+//! crates/orchestrator/src/compaction_engine.rs
+//! The Compaction Engine Memory Compaction & Instant Resurrection Engine.
 //!
 //! Implements Subsystem 4:
 //! Monitored RAM Pressure (>85%) ➔ Evaluate Specialist Dormancy ➔
@@ -53,14 +53,14 @@ pub struct CompactionSummary {
     pub hibernated_manifests: Vec<HibernationManifest>,
 }
 
-/// Master Grim Reaper & Resurrection Engine
-pub struct GrimReaperEngine {
+/// Master Compaction Engine & Resurrection Engine
+pub struct CompactionEngine {
     pub hibernation_dir: PathBuf,
     pub active_specialists: HashMap<String, SpecialistHibernationState>,
     pub hibernated_specialists: HashMap<String, HibernationManifest>,
 }
 
-impl Default for GrimReaperEngine {
+impl Default for CompactionEngine {
     fn default() -> Self {
         let dir = aaroneous_paths::WorkspacePaths::discover()
             .models()
@@ -69,7 +69,7 @@ impl Default for GrimReaperEngine {
     }
 }
 
-impl GrimReaperEngine {
+impl CompactionEngine {
     pub fn new(hibernation_dir: PathBuf) -> Self {
         let _ = fs::create_dir_all(&hibernation_dir);
         Self {
@@ -128,7 +128,7 @@ impl GrimReaperEngine {
         };
 
         info!(
-            target: "orchestrator::grim_reaper",
+            target: "orchestrator::compaction_engine",
             specialist_id,
             freed_bytes = state.active_memory_bytes,
             "Reaped dormant specialist into zero-copy .sissm container"
@@ -218,10 +218,10 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_grim_reaper_hibernation_and_resurrection() {
-        let test_dir = std::env::temp_dir().join("aaroneous_grim_reaper_unit_test");
+    fn test_compaction_engine_hibernation_and_resurrection() {
+        let test_dir = std::env::temp_dir().join("aaroneous_compaction_engine_unit_test");
         let _ = fs::create_dir_all(&test_dir);
-        let mut reaper = GrimReaperEngine::new(test_dir.clone());
+        let mut reaper = CompactionEngine::new(test_dir.clone());
 
         // 1. Register test specialist with 32MB simulated memory footprint
         let dummy_state = SpecialistHibernationState {

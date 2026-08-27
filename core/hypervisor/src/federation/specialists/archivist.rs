@@ -588,7 +588,7 @@ impl Specialist for Archivist {
             .unwrap_or_else(|| decision.action.chars().take(60).collect());
         let dna_attached = self.dna_bank.is_some();
         let output = format!(
-            "[Dionysus] Observed {} execution(s) | {} patterns | Archive: {} MB | DNA Bank: {} | Intent: '{}'",
+            "[Archivist] Observed {} execution(s) | {} patterns | Archive: {} MB | DNA Bank: {} | Intent: '{}'",
             executions,
             self.stats.pattern_count,
             self.stats.archive_size_bytes / 1_000_000,

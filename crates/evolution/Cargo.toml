@@ -3,7 +3,7 @@ name = "evolution"
 version = "0.1.0"
 edition = "2021"
 authors.workspace = true
-description = "Continuous self-evolution engine, neurochemistry, genetics, and soul fusion"
+description = "Continuous self-evolution engine, neurochemistry, genetics, and persona fusion"
 license.workspace = true
 repository.workspace = true
 
@@ -11,7 +11,7 @@ repository.workspace = true
 nervous_system = { path = "../nervous_system" }
 aaroneous_paths = { path = "../paths" }
 compute = { path = "../compute" }
-chimera = { path = "../chimera" }
+adaptation_engine = { path = "../chimera" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 strum = { version = "0.26", features = ["derive"] }

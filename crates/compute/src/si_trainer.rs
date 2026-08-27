@@ -694,7 +694,7 @@ impl Bootstrapper {
     }
 }
 
-/// Executes the full Bootstrapper training loop over a Rosetta Stone dataset.
+/// Executes the full Bootstrapper training loop over a Translation Dataset.
 ///
 /// Pure-Rust analogue to `run_bootstrapper<B: AutodiffBackend>` from the Phase 3
 /// brief, implemented without an autodiff framework using analytically-derived
@@ -703,7 +703,7 @@ impl Bootstrapper {
 /// After calling this, pass `model.bridge` to `SiDistillationHarness` to seed
 /// the `.si` container with the distilled student weights.
 pub fn run_bootstrapper(
-    dataset: &crate::rosetta_stone::RosettaStoneDataset,
+    dataset: &crate::translation_dataset::TranslationDataset,
     config: BootstrapperConfig,
 ) -> (Bootstrapper, Vec<BootstrapperEpochReport>) {
     let teacher_dim = dataset.teacher_dim;
@@ -905,9 +905,9 @@ mod tests {
 
     #[test]
     fn test_run_bootstrapper_full_loop() {
-        use crate::rosetta_stone::RosettaStoneDataset;
+        use crate::translation_dataset::TranslationDataset;
 
-        let dataset = RosettaStoneDataset::synthesize_synthetic_corpus(32);
+        let dataset = TranslationDataset::synthesize_synthetic_corpus(32);
         let config = BootstrapperConfig {
             num_opcodes: 8,
             learning_rate: 1e-3,

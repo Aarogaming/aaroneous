@@ -52,9 +52,9 @@ impl DiplomatEnzyme {
         
         // Simple round-robin simulation between specialists
         let specialists = [
-            ("Odin", 0x1111222233334444u64),
-            ("Merlin", 0x5555666677778888u64),
-            ("Hephaestus", 0x9999AAAABBBBCCCCu64),
+            ("Orchestrator", 0x1111222233334444u64),
+            ("Synthesizer", 0x5555666677778888u64),
+            ("Fabricator", 0x9999AAAABBBBCCCCu64),
         ];
 
         let idx = (dialogue.turn_count as usize) % specialists.len();
@@ -64,9 +64,9 @@ impl DiplomatEnzyme {
         
         // Simulate a specialist thought based on current system state
         let thought = match name {
-            "Odin" => "Strategy: Focus on scaling the WASM isolation boundary.",
-            "Merlin" => "Observation: Semantic drift is increasing in the latent subspace.",
-            "Hephaestus" => "Action: Optimizing the zero-copy synapse for lower latency.",
+            "Orchestrator" => "Strategy: Focus on scaling the WASM isolation boundary.",
+            "Synthesizer" => "Observation: Semantic drift is increasing in the latent subspace.",
+            "Fabricator" => "Action: Optimizing the zero-copy synapse for lower latency.",
             _ => "...",
         };
 
@@ -93,8 +93,8 @@ impl DiplomatEnzyme {
 
     /// Breeds a new Diplomatic hybrid specialist.
     pub fn breed_diplomat_specialist(&self, registry: &crate::hox_registry::HoxRegistry) -> Result<crate::hox_map_schema::EnzymeGenetics> {
-        let odin = registry.get_enzyme("odin").ok_or_else(|| anyhow::anyhow!("Odin genetics missing"))?;
-        let merlin = registry.get_enzyme("merlin").ok_or_else(|| anyhow::anyhow!("Merlin genetics missing"))?;
+        let odin = registry.get_enzyme("orchestrator").ok_or_else(|| anyhow::anyhow!("Orchestrator genetics missing"))?;
+        let merlin = registry.get_enzyme("synthesizer").ok_or_else(|| anyhow::anyhow!("Synthesizer genetics missing"))?;
         
         let mut hybrid = crate::genetic_recombination::GeneticRecombinator::breed(&odin, &merlin)?;
         

@@ -473,8 +473,8 @@ mod tests {
     #[test]
     fn test_genome_creation() {
         let mut genome = SpecialistGenome::new(
-            "odin_1".to_string(),
-            "Odin".to_string(),
+            "orchestrator_1".to_string(),
+            "Orchestrator".to_string(),
             "llama2-70b".to_string(),
         );
 

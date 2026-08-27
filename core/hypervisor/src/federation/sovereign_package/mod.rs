@@ -16,10 +16,10 @@ use serde::{Deserialize, Serialize};
 /// ```
 ///
 /// This format enables:
-/// - **Export**: `POST /specialists/export/Merlin` → `Merlin.sovereign`
+/// - **Export**: `POST /specialists/export/Synthesizer` → `Synthesizer.sovereign`
 /// - **Import**: `POST /specialists/import` with multipart file upload
 /// - **Hive federation**: another Aaroneous instance imports the package and
-///   immediately has a fully functional Merlin specialist with its learned
+///   immediately has a fully functional Synthesizer specialist with its learned
 ///   confidence scores and persona intact
 /// - **Standalone operation**: the system_prompt.txt + model.gguf are enough
 ///   for llama.cpp to run the specialist without Aaroneous at all
@@ -28,7 +28,7 @@ use serde::{Deserialize, Serialize};
 ///
 /// The outer container is a zstd-compressed tar stream. Each entry is stored
 /// uncompressed within the tar (zstd compresses the stream as a whole).
-/// Typical sizes: Merlin.sovereign ≈ 2.9 GB (dominated by model.gguf).
+/// Typical sizes: Synthesizer.sovereign ≈ 2.9 GB (dominated by model.gguf).
 ///
 /// The manifest is always the first entry in the archive so consumers can
 /// read the identity without decompressing the full file.
@@ -44,7 +44,7 @@ use tracing::{info, warn};
 pub struct SovereignManifest {
     /// Schema version of this manifest format
     pub schema_version: u32,
-    /// Sovereign display name (e.g. "Merlin")
+    /// Sovereign display name (e.g. "Synthesizer")
     pub sovereign_name: String,
     /// Internal domain key (e.g. "research")
     pub domain: String,

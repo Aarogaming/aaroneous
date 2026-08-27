@@ -75,9 +75,9 @@ impl EpigeneticOrchestrator {
     pub fn sync_lora_to_speaker(&self, speaker_hash: u64) {
         // Map hashes back to agent IDs for chromosome lookup
         let agent_id = match speaker_hash {
-            0x1111222233334444 => "odin",
-            0x5555666677778888 => "merlin",
-            0x9999AAAABBBBCCCC => "hephaestus",
+            0x1111222233334444 => "orchestrator",
+            0x5555666677778888 => "synthesizer",
+            0x9999AAAABBBBCCCC => "fabricator",
             _ => return,
         };
 

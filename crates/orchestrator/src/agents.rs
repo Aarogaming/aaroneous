@@ -24,7 +24,7 @@ pub enum AgentType {
     #[strum(serialize = "BaseAgent")]
     BaseAgent, // Aaroneous (Agent-Zero)
     #[strum(serialize = "Specialist")]
-    Specialist, // Interactive personifications (Ariel, Merlin, Odin, etc.)
+    Specialist, // Interactive personifications (Presenter, Synthesizer, Orchestrator, etc.)
     #[strum(serialize = "Relic")]
     Relic, // Smart artifacts supervised by specialists
     #[strum(serialize = "User")]
@@ -55,17 +55,17 @@ impl Default for CognitiveBias {
 )]
 pub enum Domain {
     #[strum(serialize = "UserInterface")]
-    UserInterface, // Ariel
+    UserInterface, // Presenter
     #[strum(serialize = "Knowledge")]
-    Knowledge, // Merlin
+    Knowledge, // Synthesizer
     #[strum(serialize = "Leadership")]
-    Leadership, // Odin
+    Leadership, // Orchestrator
     #[strum(serialize = "Experience")]
     Experience, // Circe
     #[strum(serialize = "Manufacturing")]
-    Manufacturing, // Hephaestus
+    Manufacturing, // Fabricator
     #[strum(serialize = "Security")]
-    Security, // Argus
+    Security, // Sentinel
     #[strum(serialize = "Undefined")]
     Undefined, // For base agents
 }
@@ -74,7 +74,7 @@ pub enum Domain {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SpecialistAgent {
     pub id: String,
-    pub name: String, // "Ariel", "Merlin", "Odin", etc.
+    pub name: String, // "Presenter", "Synthesizer", "Orchestrator", etc.
     pub domain: Domain,
     pub role: String,    // "UI Designer", "Knowledge Synthesist", etc.
     pub persona: String, // Personality flavor text
@@ -139,7 +139,7 @@ impl Default for SpecialistAgent {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RelicAgent {
     pub id: String,
-    pub name: String,          // "Glass", "Grimoire", "Draupnir", etc.
+    pub name: String,          // "DisplayBuffer", "KnowledgeStore", "OrchestratorCore", etc.
     pub supervisor_id: String, // ID of supervising specialist
     pub role: String,          // "Visual Operator", "Prophetic Synthesist", etc.
     pub persona: String,       // Personality flavor text
@@ -306,9 +306,9 @@ impl Default for BaseAgent {
 pub fn create_specialist(name: &str) -> Option<SpecialistAgent> {
     let paths = crate::workspace::WorkspacePaths::discover();
     match name.to_lowercase().as_str() {
-        "ariel" => Some(SpecialistAgent {
-            id: "specialist_ariel".to_string(),
-            name: "Ariel".to_string(),
+        "presenter" => Some(SpecialistAgent {
+            id: "specialist_presenter".to_string(),
+            name: "Presenter".to_string(),
             domain: Domain::UserInterface,
             role: "UI/UX Designer & Experience Architect".to_string(),
             persona:
@@ -319,21 +319,21 @@ pub fn create_specialist(name: &str) -> Option<SpecialistAgent> {
                 creative_variance: 95,
                 audit_strictness: 40,
             },
-            supervised_relic: Some("relic_glass".to_string()),
+            supervised_relic: Some("relic_display_buffer".to_string()),
             hox_preset_path: paths
-                .sovereign_hox_preset("ariel")
+                .sovereign_hox_preset("presenter")
                 .to_string_lossy()
                 .to_string(),
             enzyme_subset: vec!["sensor_node".to_string(), "tensor_forge".to_string()],
             interval_ms: 20000,
-            model_path: paths.sovereign_model("ariel").to_string_lossy().to_string(),
+            model_path: paths.sovereign_model("presenter").to_string_lossy().to_string(),
             model_hash: "70fe5af18c8f804a2e071fed22f72327f7beb59acdb905a476acbd40cb5513ee"
                 .to_string(),
             status: "active".to_string(),
         }),
-        "merlin" => Some(SpecialistAgent {
-            id: "specialist_merlin".to_string(),
-            name: "Merlin".to_string(),
+        "synthesizer" => Some(SpecialistAgent {
+            id: "specialist_synthesizer".to_string(),
+            name: "Synthesizer".to_string(),
             domain: Domain::Knowledge,
             role: "Knowledge Synthesist & Architect".to_string(),
             persona: "Prophetic and visionary. Sees patterns across vast knowledge domains."
@@ -343,24 +343,24 @@ pub fn create_specialist(name: &str) -> Option<SpecialistAgent> {
                 creative_variance: 75,
                 audit_strictness: 60,
             },
-            supervised_relic: Some("relic_grimoire".to_string()),
+            supervised_relic: Some("relic_knowledge_store".to_string()),
             hox_preset_path: paths
-                .sovereign_hox_preset("merlin")
+                .sovereign_hox_preset("synthesizer")
                 .to_string_lossy()
                 .to_string(),
             enzyme_subset: vec!["thought_kernel".to_string(), "tensor_forge".to_string()],
             interval_ms: 25000,
             model_path: paths
-                .sovereign_model("merlin")
+                .sovereign_model("synthesizer")
                 .to_string_lossy()
                 .to_string(),
             model_hash: "b75872377e2b5fe391b4c168d1184c6be24ea362de63f788875c6493eccb55e2"
                 .to_string(),
             status: "active".to_string(),
         }),
-        "odin" => Some(SpecialistAgent {
-            id: "specialist_odin".to_string(),
-            name: "Odin".to_string(),
+        "orchestrator" => Some(SpecialistAgent {
+            id: "specialist_orchestrator".to_string(),
+            name: "Orchestrator".to_string(),
             domain: Domain::Leadership,
             role: "Strategic Orchestrator & Leader".to_string(),
             persona: "All-seeing and cunning. Orchestrates with precision and foresight."
@@ -370,21 +370,21 @@ pub fn create_specialist(name: &str) -> Option<SpecialistAgent> {
                 creative_variance: 55,
                 audit_strictness: 75,
             },
-            supervised_relic: Some("relic_draupnir".to_string()),
+            supervised_relic: Some("relic_orchestrator_core".to_string()),
             hox_preset_path: paths
-                .sovereign_hox_preset("odin")
+                .sovereign_hox_preset("orchestrator")
                 .to_string_lossy()
                 .to_string(),
             enzyme_subset: vec!["thought_kernel".to_string(), "nat_bridge".to_string()],
             interval_ms: 30000,
-            model_path: paths.sovereign_model("odin").to_string_lossy().to_string(),
+            model_path: paths.sovereign_model("orchestrator").to_string_lossy().to_string(),
             model_hash: "ec614427643249d67a927ad5ad5b19e71d56eb3f3ec4d63c58ff0a5f2b17033c"
                 .to_string(),
             status: "active".to_string(),
         }),
-        "dionysus" => Some(SpecialistAgent {
-            id: "specialist_dionysus".to_string(),
-            name: "Dionysus".to_string(),
+        "archivist" => Some(SpecialistAgent {
+            id: "specialist_archivist".to_string(),
+            name: "Archivist".to_string(),
             domain: Domain::Experience,
             role: "Experience & Memory Curator".to_string(),
             persona:
@@ -395,24 +395,24 @@ pub fn create_specialist(name: &str) -> Option<SpecialistAgent> {
                 creative_variance: 90,
                 audit_strictness: 35,
             },
-            supervised_relic: Some("relic_omni".to_string()),
+            supervised_relic: Some("relic_memory_index".to_string()),
             hox_preset_path: paths
-                .sovereign_hox_preset("dionysus")
+                .sovereign_hox_preset("archivist")
                 .to_string_lossy()
                 .to_string(),
             enzyme_subset: vec!["sensor_node".to_string(), "thought_kernel".to_string()],
             interval_ms: 35000,
             model_path: paths
-                .sovereign_model("dionysus")
+                .sovereign_model("archivist")
                 .to_string_lossy()
                 .to_string(),
             model_hash: "4cdca60ca840f3de4f4a4b12649ac05136f2637971f729b1075639492834e3d2"
                 .to_string(),
             status: "active".to_string(),
         }),
-        "hephaestus" => Some(SpecialistAgent {
-            id: "specialist_hephaestus".to_string(),
-            name: "Hephaestus".to_string(),
+        "fabricator" => Some(SpecialistAgent {
+            id: "specialist_fabricator".to_string(),
+            name: "Fabricator".to_string(),
             domain: Domain::Manufacturing,
             role: "Manufacturing & Execution Engine".to_string(),
             persona: "Methodical and constructive. Builds and manifests with precision."
@@ -422,24 +422,24 @@ pub fn create_specialist(name: &str) -> Option<SpecialistAgent> {
                 creative_variance: 60,
                 audit_strictness: 85,
             },
-            supervised_relic: Some("relic_forge".to_string()),
+            supervised_relic: Some("relic_compiler_core".to_string()),
             hox_preset_path: paths
-                .sovereign_hox_preset("hephaestus")
+                .sovereign_hox_preset("fabricator")
                 .to_string_lossy()
                 .to_string(),
             enzyme_subset: vec!["tensor_forge".to_string(), "thought_kernel".to_string()],
             interval_ms: 22000,
             model_path: paths
-                .sovereign_model("hephaestus")
+                .sovereign_model("fabricator")
                 .to_string_lossy()
                 .to_string(),
             model_hash: "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"
                 .to_string(),
             status: "active".to_string(),
         }),
-        "argus" => Some(SpecialistAgent {
-            id: "specialist_argus".to_string(),
-            name: "Argus".to_string(),
+        "sentinel" => Some(SpecialistAgent {
+            id: "specialist_sentinel".to_string(),
+            name: "Sentinel".to_string(),
             domain: Domain::Security,
             role: "Security Warden & Sentinel".to_string(),
             persona: "Vigilant and scrutinizing. Questions everything, trusts nothing.".to_string(),
@@ -448,14 +448,14 @@ pub fn create_specialist(name: &str) -> Option<SpecialistAgent> {
                 creative_variance: 15,
                 audit_strictness: 100,
             },
-            supervised_relic: Some("relic_sentinel".to_string()),
+            supervised_relic: Some("relic_audit_engine".to_string()),
             hox_preset_path: paths
-                .sovereign_hox_preset("argus")
+                .sovereign_hox_preset("sentinel")
                 .to_string_lossy()
                 .to_string(),
             enzyme_subset: vec!["nat_bridge".to_string(), "sensor_node".to_string()],
             interval_ms: 15000,
-            model_path: paths.sovereign_model("argus").to_string_lossy().to_string(),
+            model_path: paths.sovereign_model("sentinel").to_string_lossy().to_string(),
             model_hash: "4cdca60ca840f3de4f4a4b12649ac05136f2637971f729b1075639492834e3d2"
                 .to_string(),
             status: "active".to_string(),
@@ -468,9 +468,9 @@ pub fn create_specialist(name: &str) -> Option<SpecialistAgent> {
 pub fn create_relic(name: &str, supervisor_id: &str) -> Option<RelicAgent> {
     let paths = crate::workspace::WorkspacePaths::discover();
     match name.to_lowercase().as_str() {
-        "glass" => Some(RelicAgent {
-            id: "relic_glass".to_string(),
-            name: "Glass".to_string(),
+        "display_buffer" => Some(RelicAgent {
+            id: "relic_display_buffer".to_string(),
+            name: "DisplayBuffer".to_string(),
             supervisor_id: supervisor_id.to_string(),
             role: "Visual Operator & Perception Engine".to_string(),
             persona: "Transparent and layered. Sees and translates visual and spatial information."
@@ -481,20 +481,20 @@ pub fn create_relic(name: &str, supervisor_id: &str) -> Option<RelicAgent> {
                 audit_strictness: 45,
             },
             hox_preset_path: paths
-                .relic_hox_preset("glass")
+                .relic_hox_preset("display_buffer")
                 .to_string_lossy()
                 .to_string(),
             enzyme_subset: vec!["sensor_node".to_string(), "tensor_forge".to_string()],
             interval_ms: 18000,
             metadata: HashMap::new(),
-            model_path: paths.sovereign_model("glass").to_string_lossy().to_string(),
+            model_path: paths.sovereign_model("display_buffer").to_string_lossy().to_string(),
             model_hash: "70fe5af18c8f804a2e071fed22f72327f7beb59acdb905a476acbd40cb5513ee"
                 .to_string(),
             status: "active".to_string(),
         }),
-        "grimoire" => Some(RelicAgent {
-            id: "relic_grimoire".to_string(),
-            name: "Grimoire".to_string(),
+        "knowledge_store" => Some(RelicAgent {
+            id: "relic_knowledge_store".to_string(),
+            name: "KnowledgeStore".to_string(),
             supervisor_id: supervisor_id.to_string(),
             role: "Prophetic Knowledge Index".to_string(),
             persona: "Ancient and mystical. Holds and reveals hidden patterns of knowledge."
@@ -505,23 +505,23 @@ pub fn create_relic(name: &str, supervisor_id: &str) -> Option<RelicAgent> {
                 audit_strictness: 55,
             },
             hox_preset_path: paths
-                .relic_hox_preset("grimoire")
+                .relic_hox_preset("knowledge_store")
                 .to_string_lossy()
                 .to_string(),
             enzyme_subset: vec!["thought_kernel".to_string(), "tensor_forge".to_string()],
             interval_ms: 28000,
             metadata: HashMap::new(),
             model_path: paths
-                .sovereign_model("grimoire")
+                .sovereign_model("knowledge_store")
                 .to_string_lossy()
                 .to_string(),
             model_hash: "b75872377e2b5fe391b4c168d1184c6be24ea362de63f788875c6493eccb55e2"
                 .to_string(),
             status: "active".to_string(),
         }),
-        "draupnir" => Some(RelicAgent {
-            id: "relic_draupnir".to_string(),
-            name: "Draupnir".to_string(),
+        "orchestrator_core" => Some(RelicAgent {
+            id: "relic_orchestrator_core".to_string(),
+            name: "OrchestratorCore".to_string(),
             supervisor_id: supervisor_id.to_string(),
             role: "Resource Allocator & Coordinator".to_string(),
             persona: "Sovereign and precise. Allocates resources with strategic foresight."
@@ -532,23 +532,23 @@ pub fn create_relic(name: &str, supervisor_id: &str) -> Option<RelicAgent> {
                 audit_strictness: 80,
             },
             hox_preset_path: paths
-                .relic_hox_preset("draupnir")
+                .relic_hox_preset("orchestrator_core")
                 .to_string_lossy()
                 .to_string(),
             enzyme_subset: vec!["thought_kernel".to_string(), "nat_bridge".to_string()],
             interval_ms: 32000,
             metadata: HashMap::new(),
             model_path: paths
-                .sovereign_model("draupnir")
+                .sovereign_model("orchestrator_core")
                 .to_string_lossy()
                 .to_string(),
             model_hash: "ec614427643249d67a927ad5ad5b19e71d56eb3f3ec4d63c58ff0a5f2b17033c"
                 .to_string(),
             status: "active".to_string(),
         }),
-        "omni" => Some(RelicAgent {
-            id: "relic_omni".to_string(),
-            name: "Omni".to_string(),
+        "memory_index" => Some(RelicAgent {
+            id: "relic_memory_index".to_string(),
+            name: "MemoryIndex".to_string(),
             supervisor_id: supervisor_id.to_string(),
             role: "Experiential Memory Librarian".to_string(),
             persona: "Omniscient and revelatory. Holds collective memories and patterns."
@@ -558,18 +558,18 @@ pub fn create_relic(name: &str, supervisor_id: &str) -> Option<RelicAgent> {
                 creative_variance: 85,
                 audit_strictness: 50,
             },
-            hox_preset_path: paths.relic_hox_preset("omni").to_string_lossy().to_string(),
+            hox_preset_path: paths.relic_hox_preset("memory_index").to_string_lossy().to_string(),
             enzyme_subset: vec!["sensor_node".to_string(), "thought_kernel".to_string()],
             interval_ms: 40000,
             metadata: HashMap::new(),
-            model_path: paths.sovereign_model("omni").to_string_lossy().to_string(),
+            model_path: paths.sovereign_model("memory_index").to_string_lossy().to_string(),
             model_hash: "4cdca60ca840f3de4f4a4b12649ac05136f2637971f729b1075639492834e3d2"
                 .to_string(),
             status: "active".to_string(),
         }),
-        "forge" => Some(RelicAgent {
-            id: "relic_forge".to_string(),
-            name: "Forge".to_string(),
+        "compiler_core" => Some(RelicAgent {
+            id: "relic_compiler_core".to_string(),
+            name: "CompilerCore".to_string(),
             supervisor_id: supervisor_id.to_string(),
             role: "Manufacturing & Synthesis Executor".to_string(),
             persona: "Tireless and exacting. Forges possibilities into reality.".to_string(),
@@ -579,20 +579,20 @@ pub fn create_relic(name: &str, supervisor_id: &str) -> Option<RelicAgent> {
                 audit_strictness: 88,
             },
             hox_preset_path: paths
-                .relic_hox_preset("forge")
+                .relic_hox_preset("compiler_core")
                 .to_string_lossy()
                 .to_string(),
             enzyme_subset: vec!["tensor_forge".to_string(), "thought_kernel".to_string()],
             interval_ms: 20000,
             metadata: HashMap::new(),
-            model_path: paths.sovereign_model("forge").to_string_lossy().to_string(),
+            model_path: paths.sovereign_model("compiler_core").to_string_lossy().to_string(),
             model_hash: "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"
                 .to_string(),
             status: "active".to_string(),
         }),
-        "sentinel" => Some(RelicAgent {
-            id: "relic_sentinel".to_string(),
-            name: "Sentinel".to_string(),
+        "audit_engine" => Some(RelicAgent {
+            id: "relic_audit_engine".to_string(),
+            name: "AuditEngine".to_string(),
             supervisor_id: supervisor_id.to_string(),
             role: "Security Monitor & Threat Detector".to_string(),
             persona: "Watchful and paranoid. Never sleeps, always vigilant.".to_string(),
@@ -602,14 +602,14 @@ pub fn create_relic(name: &str, supervisor_id: &str) -> Option<RelicAgent> {
                 audit_strictness: 100,
             },
             hox_preset_path: paths
-                .relic_hox_preset("sentinel")
+                .relic_hox_preset("audit_engine")
                 .to_string_lossy()
                 .to_string(),
             enzyme_subset: vec!["nat_bridge".to_string(), "sensor_node".to_string()],
             interval_ms: 12000,
             metadata: HashMap::new(),
             model_path: paths
-                .sovereign_model("sentinel")
+                .sovereign_model("audit_engine")
                 .to_string_lossy()
                 .to_string(),
             model_hash: "4cdca60ca840f3de4f4a4b12649ac05136f2637971f729b1075639492834e3d2"

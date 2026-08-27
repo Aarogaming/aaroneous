@@ -30,7 +30,7 @@ pub mod latent_guardrail;
 pub mod si_self_play;
 pub mod si_jit;
 pub mod multimodal_ssm;
-pub mod rosetta_stone;
+pub mod translation_dataset;
 pub mod si_distillation_harness;
 pub mod si_packer;
 pub mod si_forge;
@@ -38,7 +38,7 @@ pub mod hermes_router;
 pub mod reflex_worker;
 pub mod si_decoder;
 pub mod si_motor_tree;
-pub mod ghost_station;
+pub mod isolated_desktop;
 
 pub use burn_gpu::{GpuTensorAccelerator, GpuTensorProfile};
 pub use machine_native::{
@@ -60,7 +60,7 @@ pub use latent_guardrail::{ArgusSafetySentinel, LatentAuditVerdict, SafeHypersph
 pub use si_self_play::{AsymmetricDuelReport, DreamGoal, SelfPlayStepResult, SiSelfPlayEngine};
 pub use si_jit::{CompiledReflexHandle, CrystallizationMetrics, MemoryProtectionState, NativeExecutionContext, SiJitCompilerEngine, JIT_INTENT_DIM};
 pub use multimodal_ssm::{AcousticIntentProjector, MultimodalSensoryFrame, PixelDiffProjector, TemporalModalitySynchronizer, MULTIMODAL_LATENT_DIM};
-pub use rosetta_stone::{RosettaStoneDataset, RosettaTrajectoryStep, ROSETTA_LATENT_DIM, ROSETTA_TEACHER_DIM};
+pub use translation_dataset::{TranslationDataset, RosettaTrajectoryStep, ROSETTA_LATENT_DIM, ROSETTA_TEACHER_DIM};
 pub use si_distillation_harness::{BootstrapConfig, BootstrapReport, SiDistillationHarness};
 pub use si_packer::{
     compute_padding, SiContainerManifest, SiPacker, SiSolidStateLoader, SiTierFlags,
@@ -71,7 +71,7 @@ pub use hermes_router::{HermesRouter, CORTEX_INTENT_DIM, SUBGOAL_DIM};
 pub use reflex_worker::ReflexWorker;
 pub use si_decoder::{ActionDecoder, DecodedActionCommand, DECODER_INTENT_DIM};
 pub use si_motor_tree::{MotorCortex, MotorSkillNode, SkillType, StarState, MOTOR_INTENT_DIM};
-pub use ghost_station::GhostDesktop;
+pub use isolated_desktop::IsolatedDesktop;
 use nervous_system::SharedMemorySynapse;
 use rand::SeedableRng;
 
@@ -149,5 +149,154 @@ impl ComputeEngine {
             }
             _ => anyhow::bail!("Unknown compute task: {}", task),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_compute_engine_new() {
+        let engine = ComputeEngine::new();
+        drop(engine);
+    }
+
+    #[test]
+    fn test_compute_engine_default() {
+        let engine = ComputeEngine::default();
+        drop(engine);
+    }
+
+    #[test]
+    fn test_execute_monte_carlo() {
+        let mut engine = ComputeEngine::new();
+        let input = vec![0.5, 0.3];
+        let result = engine.execute("monte_carlo", &input);
+        assert!(result.is_ok());
+        let values = result.unwrap();
+        assert!(!values.is_empty());
+    }
+
+    #[test]
+    fn test_execute_markov() {
+        let mut engine = ComputeEngine::new();
+        let input = vec![0.7, 0.3];
+        let result = engine.execute("markov", &input);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_execute_bayesian() {
+        let mut engine = ComputeEngine::new();
+        let input = vec![0.5, 0.3, 0.2];
+        let result = engine.execute("bayesian", &input);
+        assert!(result.is_ok());
+        let values = result.unwrap();
+        assert_eq!(values.len(), 4);
+    }
+
+    #[test]
+    fn test_execute_entropy() {
+        let mut engine = ComputeEngine::new();
+        let input = vec![0.25, 0.25, 0.25, 0.25];
+        let result = engine.execute("entropy", &input);
+        assert!(result.is_ok());
+        let values = result.unwrap();
+        assert!(!values.is_empty());
+    }
+
+    #[test]
+    fn test_execute_cosine() {
+        let mut engine = ComputeEngine::new();
+        let input = vec![1.0, 0.0, 0.0, 1.0];
+        let result = engine.execute("cosine", &input);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_execute_pid() {
+        let mut engine = ComputeEngine::new();
+        let input = vec![1.0, 0.5, 0.1];
+        let result = engine.execute("pid", &input);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_execute_fft() {
+        let mut engine = ComputeEngine::new();
+        let input = vec![1.0, 0.0, 0.0, 0.0];
+        let result = engine.execute("fft", &input);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_execute_nash() {
+        let mut engine = ComputeEngine::new();
+        let input = vec![0.5, 0.5, 0.5];
+        let result = engine.execute("nash", &input);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_execute_optimize_ga() {
+        let mut engine = ComputeEngine::new();
+        let input = vec![0.1, 0.2, 0.3, 0.4, 0.5];
+        let result = engine.execute("optimize_ga", &input);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_execute_boltzmann() {
+        let mut engine = ComputeEngine::new();
+        let input = vec![1.0, -0.5, 0.3, -0.8];
+        let result = engine.execute("boltzmann", &input);
+        assert!(result.is_ok());
+        let values = result.unwrap();
+        assert_eq!(values.len(), 3);
+    }
+
+    #[test]
+    fn test_execute_free_energy() {
+        let mut engine = ComputeEngine::new();
+        let input = vec![0.5, 0.3, 0.2];
+        let result = engine.execute("free_energy", &input);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap().len(), 1);
+    }
+
+    #[test]
+    fn test_execute_free_energy_insufficient_input() {
+        let mut engine = ComputeEngine::new();
+        let input = vec![0.5, 0.3];
+        let result = engine.execute("free_energy", &input);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), vec![0.0]);
+    }
+
+    #[test]
+    fn test_execute_mutual_info() {
+        let mut engine = ComputeEngine::new();
+        let input = vec![0.3, 0.2, 0.1];
+        let result = engine.execute("mutual_info", &input);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_execute_mutual_info_insufficient() {
+        let mut engine = ComputeEngine::new();
+        let input = vec![0.3, 0.2];
+        let result = engine.execute("mutual_info", &input);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), vec![0.0]);
+    }
+
+    #[test]
+    fn test_execute_unknown_task() {
+        let mut engine = ComputeEngine::new();
+        let input = vec![1.0];
+        let result = engine.execute("nonexistent_task", &input);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("Unknown compute task"));
     }
 }

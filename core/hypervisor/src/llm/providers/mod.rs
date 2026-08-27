@@ -53,8 +53,8 @@ pub trait LLMProvider: Send + Sync {
     async fn generate_design(&self, context: &DesignContext) -> Result<DesignGeneration>;
 
     /// Generate a plain-text response given an explicit system prompt and user
-    /// message.  This is the correct path for sovereign specialists (Odin,
-    /// Merlin, Argus …) — it avoids the UI-design framing of `generate_design`
+    /// message.  This is the correct path for sovereign specialists (Orchestrator,
+    /// Synthesizer, Sentinel …) — it avoids the UI-design framing of `generate_design`
     /// and, for GGUF models, formats the prompt as a proper ChatML / Qwen2
     /// system+user+assistant turn so the model sees a real system turn.
     ///

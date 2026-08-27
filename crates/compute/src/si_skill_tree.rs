@@ -307,7 +307,7 @@ impl SkillExpansionEngine {
         let p5 = SiThoughtPacket::new(0x0805, DimensionalUnit::DIMENSIONLESS, vec![0.9, 0.1, 0.8], g5);
         self.record_and_evaluate_trace("Compiler Diagnostic Repair", "Auto-fixes common compiler diagnostic AST mismatches and lint errors", "repair compiler error", 7, p5, 29, true)?;
 
-        // Skill 6: Workspace Cache Reaper
+        // Skill 6: Workspace Cache Compactor
         let mut g6 = NativeComputationalGraph::new();
         g6.add_node(NativeComputationNode {
             id: 1,
@@ -317,7 +317,7 @@ impl SkillExpansionEngine {
             dependencies: Vec::new(),
         });
         let p6 = SiThoughtPacket::new(0x0806, DimensionalUnit::ENERGY_JOULE, vec![0.1, 0.1, 0.1], g6);
-        self.record_and_evaluate_trace("Workspace Cache Reaper", "Scans and purges stale target/debug dependencies and cache blobs", "clean workspace cache", 5, p6, 15, true)?;
+        self.record_and_evaluate_trace("Workspace Cache Compactor", "Scans and purges stale target/debug dependencies and cache blobs", "clean workspace cache", 5, p6, 15, true)?;
 
         // Skill 7: Process Heartbeat Probe
         let mut g7 = NativeComputationalGraph::new();

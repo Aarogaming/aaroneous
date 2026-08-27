@@ -49,7 +49,7 @@ impl RestApiServer {
             .route("/scheduler/tasks", get(list_scheduler_tasks))
             .route("/scheduler/tasks", post(create_scheduler_task))
             .route("/scheduler/tasks/:id", delete(cancel_scheduler_task))
-            // Chimera
+            // Adaptation Engine
             .route("/chimera/record", post(toggle_chimera_record))
             .route("/chimera/routines", get(list_routines))
             .route("/chimera/routines/:id/run", post(run_routine_now));
@@ -163,8 +163,8 @@ async fn stream_results_sse(Path(session_id): Path<String>) -> impl IntoResponse
         );
 
         let update = serde_json::json!({
-            "specialist": "Odin",
-            "output": "{\"tasks\":[{\"content\":\"Analyze intent\", \"assign_to\":\"Merlin\"}]}",
+            "specialist": "Orchestrator",
+            "output": "{\"tasks\":[{\"content\":\"Analyze intent\", \"assign_to\":\"Synthesizer\"}]}",
             "status": "Processing"
         });
 
@@ -184,12 +184,12 @@ async fn stream_results_sse(Path(session_id): Path<String>) -> impl IntoResponse
 async fn list_specialists() -> impl IntoResponse {
     Json(serde_json::json!({
         "specialists": [
-            {"name": "Ariel", "domain": "UserInterface", "kind": "core", "status": "active"},
-            {"name": "Merlin", "domain": "Knowledge", "kind": "core", "status": "active"},
-            {"name": "Odin", "domain": "Leadership", "kind": "core", "status": "active"},
-            {"name": "Hephaestus", "domain": "Manufacturing", "kind": "core", "status": "active"},
-            {"name": "Argus", "domain": "Security", "kind": "core", "status": "active"},
-            {"name": "Dionysus", "domain": "Experience", "kind": "core", "status": "active"}
+            {"name": "Presenter", "domain": "UserInterface", "kind": "core", "status": "active"},
+            {"name": "Synthesizer", "domain": "Knowledge", "kind": "core", "status": "active"},
+            {"name": "Orchestrator", "domain": "Leadership", "kind": "core", "status": "active"},
+            {"name": "Fabricator", "domain": "Manufacturing", "kind": "core", "status": "active"},
+            {"name": "Sentinel", "domain": "Security", "kind": "core", "status": "active"},
+            {"name": "Archivist", "domain": "Experience", "kind": "core", "status": "active"}
         ]
     }))
 }

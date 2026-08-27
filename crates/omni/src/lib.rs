@@ -64,15 +64,15 @@ impl OmniEngine {
     /// Ingest the 9 Sovereign Domain Specialists into the 3D Omni Galaxy
     pub async fn ingest_standard_specialists(&self) -> usize {
         let specialists = [
-            ("odin", "Odin (Strategic Cortex)", -800.0, 500.0, 950.0, 0x0100),
-            ("merlin", "Merlin (Semantic Knowledge)", -600.0, 200.0, 800.0, 0x0200),
-            ("ariel", "Ariel (Visual Experience)", -400.0, 400.0, 750.0, 0x0300),
-            ("hephaestus", "Hephaestus (Hardware & Forge)", 200.0, 300.0, 900.0, 0x0400),
-            ("argus", "Argus (Auditor & Safety)", 0.0, 600.0, 1000.0, 0x0500),
-            ("dionysus", "Dionysus (Chaos & Resilience)", 400.0, -200.0, 600.0, 0x0600),
-            ("hermes", "Hermes (Router & Mesh)", 100.0, 100.0, 850.0, 0x0700),
-            ("wen", "Wen (Temporal Resonance)", -200.0, -400.0, 700.0, 0x0800),
-            ("kami", "Kami (Sensory Threshold)", 800.0, 300.0, 900.0, 0x0900),
+            ("orchestrator", "Orchestrator (Strategic Cortex)", -800.0, 500.0, 950.0, 0x0100),
+            ("synthesizer", "Synthesizer (Semantic Knowledge)", -600.0, 200.0, 800.0, 0x0200),
+            ("presenter", "Presenter (Visual Experience)", -400.0, 400.0, 750.0, 0x0300),
+            ("fabricator", "Fabricator (Hardware & Forge)", 200.0, 300.0, 900.0, 0x0400),
+            ("sentinel", "Sentinel (Auditor & Safety)", 0.0, 600.0, 1000.0, 0x0500),
+            ("archivist", "Archivist (Chaos & Resilience)", 400.0, -200.0, 600.0, 0x0600),
+            ("router", "Router (Router & Mesh)", 100.0, 100.0, 850.0, 0x0700),
+            ("aligner", "Aligner (Temporal Resonance)", -200.0, -400.0, 700.0, 0x0800),
+            ("perceiver", "Perceiver (Sensory Threshold)", 800.0, 300.0, 900.0, 0x0900),
         ];
 
         let mut count = 0;
@@ -103,13 +103,13 @@ impl OmniEngine {
         // Link core orchestrations
         {
             let mut nodes = self.nodes.write().await;
-            if let Some(odin) = nodes.get_mut("odin") {
-                odin.link_to("hermes", LinkType::Synthesizes);
-                odin.link_to("argus", LinkType::DependsOn);
+            if let Some(orchestrator) = nodes.get_mut("orchestrator") {
+                orchestrator.link_to("router", LinkType::Synthesizes);
+                orchestrator.link_to("sentinel", LinkType::DependsOn);
             }
-            if let Some(hermes) = nodes.get_mut("hermes") {
-                hermes.link_to("kami", LinkType::RelatesTo);
-                hermes.link_to("hephaestus", LinkType::RelatesTo);
+            if let Some(router) = nodes.get_mut("router") {
+                router.link_to("perceiver", LinkType::RelatesTo);
+                router.link_to("fabricator", LinkType::RelatesTo);
             }
         }
 

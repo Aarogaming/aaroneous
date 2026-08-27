@@ -286,9 +286,9 @@ mod tests {
     #[test]
     fn test_specialist_registration() {
         let mut biology = SystemBiology::new();
-        biology.register_specialist("specialist_ariel", 20000);
+        biology.register_specialist("specialist_presenter", 20000);
         assert!(biology
-            .get_specialist_metabolism("specialist_ariel")
+            .get_specialist_metabolism("specialist_presenter")
             .is_some());
     }
 

@@ -7,6 +7,7 @@ name = "a_run"
 version = "0.1.0"
 dependencies = [
  "aaroneous_paths",
+ "adaptation_engine",
  "anyhow",
  "async-nats",
  "async-stream",
@@ -20,7 +21,6 @@ dependencies = [
  "candle-core",
  "candle-nn",
  "cgmath",
- "chimera",
  "chromiumoxide",
  "chrono",
  "clap",
@@ -29,6 +29,7 @@ dependencies = [
  "crossbeam-channel",
  "crossterm 0.27.0",
  "ctrlc",
+ "desktop_emulator",
  "dirs 5.0.1",
  "eframe",
  "egui",
@@ -45,7 +46,6 @@ dependencies = [
  "libloading 0.9.0",
  "llama-gguf",
  "log",
- "marionette",
  "memmap2 0.9.11",
  "moka",
  "nervous_system",
@@ -118,6 +118,33 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d3b7f7f85a7e5f68090000ed7622545829afd484d210358702ae4cb97dd0c320"
 dependencies = [
  "uuid",
+]
+
+[[package]]
+name = "adaptation_engine"
+version = "0.1.0"
+dependencies = [
+ "aaroneous_paths",
+ "anyhow",
+ "async-trait",
+ "biology",
+ "candle-core",
+ "chrono",
+ "compute",
+ "goblin",
+ "nervous_system",
+ "notify",
+ "omni",
+ "rand 0.8.7",
+ "rayon",
+ "regex",
+ "serde",
+ "serde_json",
+ "similar",
+ "stdext",
+ "tempfile",
+ "tokio",
+ "tracing",
 ]
 
 [[package]]
@@ -1515,33 +1542,6 @@ dependencies = [
  "cfg-if",
  "cpufeatures 0.3.0",
  "rand_core 0.10.1",
-]
-
-[[package]]
-name = "chimera"
-version = "0.1.0"
-dependencies = [
- "aaroneous_paths",
- "anyhow",
- "async-trait",
- "biology",
- "candle-core",
- "chrono",
- "compute",
- "goblin",
- "nervous_system",
- "notify",
- "omni",
- "rand 0.8.7",
- "rayon",
- "regex",
- "serde",
- "serde_json",
- "similar",
- "stdext",
- "tempfile",
- "tokio",
- "tracing",
 ]
 
 [[package]]
@@ -2986,6 +2986,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "desktop_emulator"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "compute",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tracing",
+ "windows 0.62.2",
+]
+
+[[package]]
 name = "deunicode"
 version = "1.6.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3563,11 +3577,11 @@ name = "evolution"
 version = "0.1.0"
 dependencies = [
  "aaroneous_paths",
+ "adaptation_engine",
  "anyhow",
  "candle-core",
  "candle-nn",
  "candle-transformers",
- "chimera",
  "chrono",
  "compute",
  "hf-hub",
@@ -5339,20 +5353,6 @@ name = "maplit"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3e2e65a1a2e43cfcb47a895c4c8b10d1f4a61097f9f254f183aee60cad9c651d"
-
-[[package]]
-name = "marionette"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "async-trait",
- "compute",
- "serde",
- "serde_json",
- "tokio",
- "tracing",
- "windows 0.62.2",
-]
 
 [[package]]
 name = "matchers"
@@ -8575,13 +8575,13 @@ name = "specialists"
 version = "0.1.0"
 dependencies = [
  "aaroneous_paths",
+ "adaptation_engine",
  "anyhow",
  "async-trait",
- "chimera",
  "chrono",
  "compute",
+ "desktop_emulator",
  "evolution",
- "marionette",
  "nervous_system",
  "omni",
  "serde",

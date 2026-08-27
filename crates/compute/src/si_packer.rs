@@ -51,7 +51,7 @@ pub struct SiTierFlags(pub u32);
 impl SiTierFlags {
     /// Tier 1: Strategic Cortex (HD R^4096 representation, background OS thread)
     pub const TIER_1_CORTEX: Self = Self(0b0000_0001);
-    /// Tier 2: Orchestration / Hermes Router (R^256, connects to central SPMC hub)
+    /// Tier 2: Orchestration / Router (R^256, connects to central SPMC hub)
     pub const TIER_2_ROUTER: Self = Self(0b0000_0010);
     /// Tier 3: Kinetic Specialist / Reflex (R^256, L1 cache priority, thread pinning)
     pub const TIER_3_REFLEX: Self = Self(0b0000_0100);
@@ -80,7 +80,7 @@ impl SiTierFlags {
         if self.is_cortex() {
             "Tier 1: Strategic Cortex (R^4096)"
         } else if self.is_router() {
-            "Tier 2: Hermes Router (R^256)"
+            "Tier 2: Router (R^256)"
         } else if self.is_reflex() {
             "Tier 3: Kinetic Reflex (R^256)"
         } else {

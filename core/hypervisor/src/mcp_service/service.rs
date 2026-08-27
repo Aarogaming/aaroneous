@@ -19,12 +19,12 @@ use std::collections::HashMap;
 ///
 /// | Tool name      | Description                              | Input schema             |
 /// |----------------|------------------------------------------|--------------------------|
-/// | ask_merlin     | Research and knowledge synthesis         | {query: string}          |
-/// | ask_odin       | Task decomposition and planning          | {intent: string}         |
-/// | ask_ariel      | UI/UX design generation                  | {intent: string}         |
-/// | ask_argus      | Security audit and vulnerability scan    | {target: string}         |
-/// | ask_wen        | Human state classification from context  | {context: string}        |
-/// | ask_hephaestus | Build and fabrication planning           | {task: string}           |
+/// | ask_synthesizer | Research and knowledge synthesis         | {query: string}          |
+/// | ask_orchestrator | Task decomposition and planning          | {intent: string}         |
+/// | ask_presenter   | UI/UX design generation                  | {intent: string}         |
+/// | ask_sentinel    | Security audit and vulnerability scan    | {target: string}         |
+/// | ask_aligner     | Human state classification from context  | {context: string}        |
+/// | ask_fabricator  | Build and fabrication planning           | {task: string}           |
 /// | submit_intent  | Submit to the full sovereign hive        | {content: string}        |
 /// | get_results    | Retrieve recent execution results        | {}                       |
 /// | get_specialists| List all active specialists and state    | {}                       |
@@ -181,44 +181,44 @@ impl McpService {
         tools.clear();
 
         // Core tools — one per sovereign
-        tools.push(McpTool::new("ask_merlin",
+        tools.push(McpTool::new("ask_synthesizer",
             "Research, knowledge synthesis, and factual queries. \
-             Merlin bridges Aaroneous to external knowledge. \
+             Synthesizer bridges Aaroneous to external knowledge. \
              Use for: research summaries, fact-checking, topic synthesis.",
             serde_json::json!({ "query": { "type": "string", "description": "Research query or topic to investigate" } }),
             vec!["query"],
         ));
-        tools.push(McpTool::new("ask_odin",
+        tools.push(McpTool::new("ask_orchestrator",
             "Task decomposition and guild coordination. \
-             Odin breaks complex intents into sovereign task graphs. \
+             Orchestrator breaks complex intents into sovereign task graphs. \
              Use for: planning, dependency identification, multi-step workflows.",
             serde_json::json!({ "intent": { "type": "string", "description": "Complex intent to decompose into tasks" } }),
             vec!["intent"],
         ));
-        tools.push(McpTool::new("ask_ariel",
+        tools.push(McpTool::new("ask_presenter",
             "UI/UX design generation and Maelstrom spatial visualization. \
-             Ariel produces structured design variants with colors, typography, layouts. \
+             Presenter produces structured design variants with colors, typography, layouts. \
              Use for: interface design, visual hierarchy, design system decisions.",
             serde_json::json!({ "intent": { "type": "string", "description": "Design intent or UI requirement" } }),
             vec!["intent"],
         ));
-        tools.push(McpTool::new("ask_argus",
+        tools.push(McpTool::new("ask_sentinel",
             "Security audit, vulnerability scanning, and adversarial analysis. \
-             Argus sees all threats. Abliterated — no refusals on security topics. \
+             Sentinel sees all threats. Abliterated — no refusals on security topics. \
              Use for: code audits, CVE analysis, threat modelling, secrets scanning.",
             serde_json::json!({ "target": { "type": "string", "description": "Code, system, or configuration to audit" } }),
             vec!["target"],
         ));
-        tools.push(McpTool::new("ask_wen",
+        tools.push(McpTool::new("ask_aligner",
             "Human state classification and biometric-adaptive responses. \
-             Wen reads context and adapts hive behavior to the human's current capacity. \
+             Aligner reads context and adapts hive behavior to the human's current capacity. \
              Use for: stress detection, focus assessment, interruption policy.",
             serde_json::json!({ "context": { "type": "string", "description": "Human state context or biometric readings" } }),
             vec!["context"],
         ));
-        tools.push(McpTool::new("ask_hephaestus",
+        tools.push(McpTool::new("ask_fabricator",
             "Build automation, fabrication planning, and infrastructure maintenance. \
-             Hephaestus keeps the forge running. \
+             Fabricator keeps the forge running. \
              Use for: build scripts, deployment plans, dependency management, CI/CD.",
             serde_json::json!({ "task": { "type": "string", "description": "Build or fabrication task to plan" } }),
             vec!["task"],
@@ -253,23 +253,23 @@ impl McpService {
             }),
             vec!["task_id", "instruction"],
         ));
-        tools.push(McpTool::new("ask_hermes",
+        tools.push(McpTool::new("ask_router",
             "P2P mesh sync, CRDT conflict resolution, multi-device state coordination. \
-             Hermes is always in motion — makes the hive feel like one thing. \
+             Router is always in motion — makes the hive feel like one thing. \
              Use for: sync conflicts, device coordination, state consistency.",
             serde_json::json!({ "scenario": { "type": "string", "description": "Sync scenario or conflict to resolve" } }),
             vec!["scenario"],
         ));
-        tools.push(McpTool::new("ask_kami",
+        tools.push(McpTool::new("ask_perceiver",
             "AR/VR spatial reasoning and physical/digital boundary management. \
-             Kami materializes digital intent into physical space. \
+             Perceiver materializes digital intent into physical space. \
              Use for: spatial anchor placement, 3D coordinate reasoning, AR overlays.",
             serde_json::json!({ "spatial_intent": { "type": "string", "description": "Spatial or AR/VR placement intent" } }),
             vec!["spatial_intent"],
         ));
-        tools.push(McpTool::new("ask_dionysus",
+        tools.push(McpTool::new("ask_archivist",
             "DNA Bank archival, memory consolidation, and pattern extraction. \
-             Dionysus remembers so the hive can learn. \
+             Archivist remembers so the hive can learn. \
              Use for: session archival, pattern discovery, long-term memory retrieval.",
             serde_json::json!({ "content": { "type": "string", "description": "Content to archive or retrieve patterns from" } }),
             vec!["content"],
@@ -278,7 +278,7 @@ impl McpService {
         // Hive-level tools
         tools.push(McpTool::new("submit_intent",
             "Submit an intent to the full Aaroneous sovereign hive. \
-             All 9 specialists process the intent in parallel via Odin's coordination. \
+              All 9 specialists process the intent in parallel via Orchestrator's coordination. \
              Use for: complex multi-domain tasks that need multiple specialists.",
             serde_json::json!({
                 "content": { "type": "string", "description": "The intent or task for the full hive" },
@@ -309,7 +309,7 @@ impl McpService {
             "Create a hybrid sovereign by DNA-splicing two models. \
              Uses the splice_boundary from DNA comparison to determine the optimal cut point.",
             serde_json::json!({
-                "model_a": { "type": "string", "description": "First model filename (e.g. 'merlin-qwen2.5-7b.gguf')" },
+                "model_a": { "type": "string", "description": "First model filename (e.g. 'synthesizer-qwen2.5-7b.gguf')" },
                 "model_b": { "type": "string", "description": "Second model filename" },
                 "sovereign_name": { "type": "string", "description": "Name for the resulting hybrid sovereign" },
                 "splice_boundary": { "type": "integer", "description": "Override splice point (default: auto from DNA)" }
@@ -319,8 +319,8 @@ impl McpService {
 
         // Developer workflow tools
         tools.push(McpTool::new("read_code",
-            "Read source code from a file path. Use this before ask_argus, ask_merlin, or \
-             ask_hephaestus so the sovereign receives the actual code rather than a description. \
+            "Read source code from a file path. Use this before ask_sentinel, ask_synthesizer, or \
+             ask_fabricator so the sovereign receives the actual code rather than a description. \
              Supports relative paths from the Aaroneous workspace or absolute paths.",
             serde_json::json!({
                 "path": { "type": "string", "description": "File path to read (relative to workspace or absolute)" },
@@ -331,7 +331,7 @@ impl McpService {
         ));
         tools.push(McpTool::new("search_code",
             "Search for a pattern across source files in the workspace. Returns matching lines \
-             with file paths and line numbers. Use before ask_argus to find all usages of a \
+             with file paths and line numbers. Use before ask_sentinel to find all usages of a \
              potentially vulnerable pattern.",
             serde_json::json!({
                 "pattern": { "type": "string", "description": "Search pattern (supports basic regex)" },
@@ -671,9 +671,9 @@ impl McpService {
                 // know to enable --features llama-gguf for real sovereign responses.
                 let display_text = if is_mock {
                     let feature_hint = match tool_name.as_str() {
-                        "ask_hermes" => "--features p2p-iroh",
-                        "ask_kami" => "--features ar-openxr",
-                        "ask_wen" => "--features biometric-ble (or system sensor loop)",
+                        "ask_router" => "--features p2p-iroh",
+                        "ask_perceiver" => "--features ar-openxr",
+                        "ask_aligner" => "--features biometric-ble (or system sensor loop)",
                         "forge_hybrid" => "POST /dna/dissect on both models first",
                         _ => "--features llama-gguf",
                     };
@@ -724,15 +724,15 @@ impl McpService {
 
         // Map tool name → sovereign domain
         let (input_field, domain) = match tool_name {
-            "ask_merlin" => ("query", "research"),
-            "ask_odin" => ("intent", "task_orchestration"),
-            "ask_ariel" => ("intent", "ui_design"),
-            "ask_argus" => ("target", "security_audit"),
-            "ask_wen" => ("context", "human_state"),
-            "ask_hephaestus" => ("task", "fabrication"),
-            "ask_hermes" => ("scenario", "mesh_sync"),
-            "ask_kami" => ("spatial_intent", "spatial"),
-            "ask_dionysus" => ("content", "memory_consolidation"),
+            "ask_synthesizer" => ("query", "research"),
+            "ask_orchestrator" => ("intent", "task_orchestration"),
+            "ask_presenter" => ("intent", "ui_design"),
+            "ask_sentinel" => ("target", "security_audit"),
+            "ask_aligner" => ("context", "human_state"),
+            "ask_fabricator" => ("task", "fabrication"),
+            "ask_router" => ("scenario", "mesh_sync"),
+            "ask_perceiver" => ("spatial_intent", "spatial"),
+            "ask_archivist" => ("content", "memory_consolidation"),
             "get_results" => return self.tool_get_results().await,
             "get_specialists" => return self.tool_get_specialists().await,
             "hive_summary" => return self.tool_hive_summary(args).await,
@@ -756,16 +756,16 @@ impl McpService {
 
         // Resolve sovereign name from domain
         let sovereign_name = match domain {
-            "research" => "Merlin",
-            "task_orchestration" => "Odin",
-            "ui_design" => "Ariel",
-            "security_audit" => "Argus",
-            "human_state" => "Wen",
-            "fabrication" => "Hephaestus",
-            "mesh_sync" => "Hermes",
-            "spatial" => "Kami",
-            "memory_consolidation" => "Dionysus",
-            _ => "Merlin",
+            "research" => "Synthesizer",
+            "task_orchestration" => "Orchestrator",
+            "ui_design" => "Presenter",
+            "security_audit" => "Sentinel",
+            "human_state" => "Aligner",
+            "fabrication" => "Fabricator",
+            "mesh_sync" => "Router",
+            "spatial" => "Perceiver",
+            "memory_consolidation" => "Archivist",
+            _ => "Synthesizer",
         };
 
         // Try routing to the live dynamic specialist's LLM
@@ -865,10 +865,10 @@ impl McpService {
                         0.0
                     };
                     let memory_count = s.memory.lock().count_for(&s.name);
-                    let soul_archetype = s
-                        .soul
+                    let persona_archetype = s
+                        .persona
                         .as_ref()
-                        .map(|soul| soul.personality_soul.archetype.clone())
+                        .map(|p| p.personality_persona.archetype.clone())
                         .unwrap_or_else(|| "unknown".to_string());
                     serde_json::json!({
                         "name": s.name,
@@ -879,7 +879,7 @@ impl McpService {
                         "has_llm": s.llm.is_some(),
                         "has_model": s.model_path.is_some(),
                         "memory_count": memory_count,
-                        "soul_archetype": soul_archetype,
+                        "persona_archetype": persona_archetype,
                         "model": s.model_path.as_ref()
                             .and_then(|p| p.file_name()).and_then(|n| n.to_str())
                             .unwrap_or("none"),
@@ -989,7 +989,7 @@ impl McpService {
     }
 
     /// Read source code from a file — most impactful developer tool.
-    /// Enables ask_argus/ask_merlin/ask_hephaestus to receive actual code.
+    /// Enables ask_sentinel/ask_synthesizer/ask_fabricator to receive actual code.
     async fn tool_read_code(&self, args: &serde_json::Value) -> anyhow::Result<String> {
         let path_str = args
             .get("path")

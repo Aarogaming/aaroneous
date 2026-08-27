@@ -415,7 +415,7 @@ mod tests {
     async fn test_validation_chat_completions_empty_messages() {
         let fed = fresh_federation_with_all();
         let state = AppState::new(fed.clone());
-        let body = serde_json::json!({ "model": "ariel", "messages": [] });
+        let body = serde_json::json!({ "model": "presenter", "messages": [] });
         let (status, _, body_bytes) = post_json(state.clone(), "/v1/chat/completions", &body).await;
         assert_eq!(status, StatusCode::BAD_REQUEST);
         let s = String::from_utf8_lossy(&body_bytes);
@@ -444,7 +444,7 @@ mod tests {
         let state = AppState::new(fed.clone());
         // Tab in role: validate_string rejects control chars.
         let body = serde_json::json!({
-            "model": "ariel",
+            "model": "presenter",
             "messages": [{"role": "us\ter", "content": "hi"}],
         });
         let (status, _, _) = post_json(state.clone(), "/v1/chat/completions", &body).await;
@@ -482,7 +482,7 @@ mod tests {
         // 512KB prompt exceeds the 256KB cap.
         let big = "x".repeat(512 * 1024);
         let body = serde_json::json!({
-            "model": "ariel",
+            "model": "presenter",
             "prompt": big,
         });
         let (status, _, body_bytes) = post_json(state.clone(), "/v1/completions", &body).await;

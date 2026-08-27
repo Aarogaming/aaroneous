@@ -473,7 +473,7 @@ fn node_color(node_type: &crate::NodeType) -> [f32; 4] {
         crate::NodeType::KnowledgeGap => [1.0, 0.5, 0.0, 1.0], // Orange
         crate::NodeType::NeuralSignal => [1.0, 1.0, 0.0, 1.0], // Yellow
         crate::NodeType::LatentPulse => [0.0, 1.0, 1.0, 1.0],  // Cyan (Mathematical Thought)
-        crate::NodeType::Memory => [0.7, 0.3, 0.9, 1.0],       // Violet (Memory Soul)
+        crate::NodeType::Memory => [0.7, 0.3, 0.9, 1.0],       // Violet (Memory Persona)
         crate::NodeType::Specialist => [1.0, 0.84, 0.0, 1.0],  // Gold (Federated Specialist)
     }
 }

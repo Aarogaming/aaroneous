@@ -166,7 +166,7 @@ pub struct Federation {
     ///
     /// Every sovereign execution result is stored here with intent + output text.
     /// Future intent submissions query it to retrieve the most relevant past
-    /// context across ALL sovereigns, which is prepended to Odin's decomposition.
+    /// context across ALL sovereigns, which is prepended to Orchestrator's decomposition.
     pub federation_memory: Arc<Mutex<crate::federation::graph::EmbeddingStore>>,
 
     /// Autonomous Task Scheduler
@@ -1485,9 +1485,9 @@ impl Federation {
         }));
 
         // RAG recall: query federation memory for relevant prior context.
-        // This means when Argus audits code, the next security intent automatically
-        // surfaces what Argus previously found — without requiring llama-gguf.
-        // The recall results are stamped into the intent context so Odin and every
+        // This means when Sentinel audits code, the next security intent automatically
+        // surfaces what Sentinel previously found — without requiring llama-gguf.
+        // The recall results are stamped into the intent context so Orchestrator and every
         // sovereign that receives the Decision can see prior relevant outputs.
         {
             let intent_content = {
@@ -1517,31 +1517,31 @@ impl Federation {
             }
         }
 
-        // Odin intercepts first: decompose the intent into subtasks before
+        // Orchestrator intercepts first: decompose the intent into subtasks before
         // the hive broadcasts to all sovereigns simultaneously.
-        // Odin returns JSON: {"tasks":[{"content":"...","assign_to":"Merlin"},...]}
+        // Orchestrator returns JSON: {"tasks":[{"content":"...","assign_to":"Synthesizer"},...]}
         // We stamp the decomposition into the active intent's context so:
         //   - collect_proposals() can route to specific sovereigns
         //   - The Guild panel can display the task breakdown
         //   - The SSE stream broadcasts the decomposition event
-        self.odin_decompose_intent().await;
+        self.orchestrator_decompose_intent().await;
 
-        // If Odin successfully decomposed the intent into a DAG, we can execute the DAG directly.
+        // If Orchestrator successfully decomposed the intent into a DAG, we can execute the DAG directly.
         let has_decomposition = {
             let guard = self.active_intent.read().await;
             guard
                 .as_ref()
-                .and_then(|i| i.context.get("odin_decomposition").cloned())
+                .and_then(|i| i.context.get("orchestrator_decomposition").cloned())
         };
 
         if let Some(json_str) = has_decomposition {
             let dag_opt =
-                crate::federation::graph::dag::task_dag_from_odin_output(&id, &json_str).ok();
+                crate::federation::graph::dag::task_dag_from_orchestrator_output(&id, &json_str).ok();
             if let Some(dag) = dag_opt {
                 // Execute the DAG layer by layer
                 use crate::federation::specialist::Specialist;
                 let layers = dag.parallel_layers();
-                info!("Executing Odin DAG with {} parallel layers", layers.len());
+                info!("Executing Orchestrator DAG with {} parallel layers", layers.len());
                 for (layer_idx, layer) in layers.into_iter().enumerate() {
                     info!("Executing DAG Layer {}", layer_idx);
                     let mut layer_futures: Vec<DagFuture> = Vec::new();
@@ -1612,23 +1612,23 @@ impl Federation {
         id
     }
 
-    /// Call Odin (Guild coordinator) to decompose the active intent into subtasks
+    /// Call Orchestrator (Guild coordinator) to decompose the active intent into subtasks
     /// before the hive broadcasts to all sovereigns.
     ///
-    /// Odin runs asynchronously and his output is stamped into the active intent's
-    /// context as JSON. If Odin is not loaded or times out, the pipeline continues
+    /// Orchestrator runs asynchronously and his output is stamped into the active intent's
+    /// context as JSON. If Orchestrator is not loaded or times out, the pipeline continues
     /// unchanged — degrading gracefully to the flat broadcast.
-    async fn odin_decompose_intent(&self) {
+    async fn orchestrator_decompose_intent(&self) {
         use crate::federation::specialist::{Decision, ResourceRequest, Specialist};
 
-        // Find Odin in the dynamic slot
+        // Find Orchestrator in the dynamic slot
         let odin = {
             let guard = self.dynamic.read().await;
-            guard.iter().find(|s| s.name == "Odin").cloned()
+            guard.iter().find(|s| s.name == "Orchestrator").cloned()
         };
 
         let Some(odin) = odin else {
-            // Odin not loaded — proceed without decomposition
+            // Orchestrator not loaded — proceed without decomposition
             return;
         };
 
@@ -1644,7 +1644,7 @@ impl Federation {
             return;
         }
 
-        // Give Odin a decomposition-specific decision context
+        // Give Orchestrator a decomposition-specific decision context
         let mut ctx = std::collections::HashMap::new();
         ctx.insert("intent".to_string(), intent_content.clone());
         ctx.insert("task".to_string(), "decompose".to_string());
@@ -1652,7 +1652,7 @@ impl Federation {
             r#"JSON: {"tasks":[{"content":"...","assign_to":"SovereignName","priority":"Normal"}]}"#
             .to_string());
 
-        // Inject prior context from federation memory into Odin's decision
+        // Inject prior context from federation memory into Orchestrator's decision
         // so it can factor past outcomes into its task decomposition
         {
             let guard = self.active_intent.read().await;
@@ -1681,21 +1681,21 @@ impl Federation {
         }
 
         let decision = Decision {
-            proposal_id: format!("odin-decompose-{}", uuid::Uuid::new_v4()),
-            specialist: crate::federation::specialist::SpecialistId::custom("Odin"),
+            proposal_id: format!("orchestrator-decompose-{}", uuid::Uuid::new_v4()),
+            specialist: crate::federation::specialist::SpecialistId::custom("Orchestrator"),
             action: "decompose_intent".to_string(),
             allocated_resources: ResourceRequest::default(),
             deadline_ms: 5000,
             context: ctx,
         };
 
-        // Run Odin with a 4-second timeout — don't block the pipeline
+        // Run Orchestrator with a 4-second timeout — don't block the pipeline
         let decomp_result =
             tokio::time::timeout(std::time::Duration::from_secs(4), odin.execute(&decision)).await;
 
         match decomp_result {
             Ok(Ok(result)) => {
-                // Try to parse Odin's JSON decomposition
+                // Try to parse Orchestrator's JSON decomposition
                 if let Some(json_start) = result.output.find('{') {
                     let json_str = &result.output[json_start..];
                     if let Ok(v) = serde_json::from_str::<serde_json::Value>(json_str) {
@@ -1703,7 +1703,7 @@ impl Federation {
                         let mut guard = self.active_intent.write().await;
                         if let Some(intent) = guard.as_mut() {
                             intent.context.insert(
-                                "odin_decomposition".to_string(),
+                                "orchestrator_decomposition".to_string(),
                                 serde_json::to_string(&v).unwrap_or_default(),
                             );
 
@@ -1721,8 +1721,8 @@ impl Federation {
                                 if !assigned.is_empty() {
                                     intent
                                         .context
-                                        .insert("odin_assigned_to".to_string(), assigned.join(","));
-                                    info!("Odin assigned tasks to: {}", assigned.join(", "));
+                                        .insert("orchestrator_assigned_to".to_string(), assigned.join(","));
+                                    info!("Orchestrator assigned tasks to: {}", assigned.join(", "));
                                 }
                             }
                         }
@@ -1731,7 +1731,7 @@ impl Federation {
                         // Broadcast so Guild panel and SSE consumers see the tasks
                         self.broadcast_specialist_event(serde_json::json!({
                             "type": "guild_decomposition",
-                            "specialist": "Odin",
+                            "specialist": "Orchestrator",
                             "intent": intent_content,
                             "decomposition": v,
                             "timestamp_ms": std::time::SystemTime::now()
@@ -1740,17 +1740,17 @@ impl Federation {
                         }));
 
                         info!(
-                            "Odin decomposed intent: {}",
+                            "Orchestrator decomposed intent: {}",
                             result.output.chars().take(100).collect::<String>()
                         );
                     }
                 }
             }
             Ok(Err(e)) => {
-                warn!("Odin decomposition failed: {}", e);
+                warn!("Orchestrator decomposition failed: {}", e);
             }
             Err(_) => {
-                warn!("Odin decomposition timed out — proceeding with flat broadcast");
+                warn!("Orchestrator decomposition timed out — proceeding with flat broadcast");
             }
         }
     }
@@ -2052,15 +2052,15 @@ impl Federation {
         push_core_future!(self.phygital, "Phygital");
         push_core_future!(self.archivist, "Archivist");
 
-        // Dynamic specialists — if Odin has assigned tasks, only invite the named
+        // Dynamic specialists — if Orchestrator has assigned tasks, only invite the named
         // sovereigns to propose. This prevents design/biometric outputs from polluting
         // code/security/research intents.
-        // If Odin has not decomposed (no odin_assigned_to in context), all propose.
-        let odin_assigned: Option<std::collections::HashSet<String>> = {
+        // If Orchestrator has not decomposed (no orchestrator_assigned_to in context), all propose.
+        let orchestrator_assigned: Option<std::collections::HashSet<String>> = {
             let guard = self.active_intent.read().await;
             guard
                 .as_ref()
-                .and_then(|i| i.context.get("odin_assigned_to"))
+                .and_then(|i| i.context.get("orchestrator_assigned_to"))
                 .map(|s| s.split(',').map(|n| n.trim().to_string()).collect())
         };
 
@@ -2073,12 +2073,12 @@ impl Federation {
         {
             let dyn_guard = self.dynamic.read().await;
             for specialist in dyn_guard.iter() {
-                // When Odin has routed, only include assigned sovereigns
-                if let Some(ref assigned) = odin_assigned
+                // When Orchestrator has routed, only include assigned sovereigns
+                if let Some(ref assigned) = orchestrator_assigned
                     && !assigned.contains(&specialist.name)
                 {
                     debug!(
-                        "Odin routing: skipping {} (not in assign_to list)",
+                        "Orchestrator routing: skipping {} (not in assign_to list)",
                         specialist.name
                     );
                     continue;

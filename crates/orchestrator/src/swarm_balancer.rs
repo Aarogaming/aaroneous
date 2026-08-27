@@ -414,4 +414,268 @@ mod tests {
         assert_eq!(health.idle_workers, 1);
         assert_eq!(health.busy_workers, 1);
     }
+
+    #[tokio::test]
+    async fn test_remove_worker() {
+        let balancer = mock_balancer();
+        balancer.register_worker(SwarmWorker {
+            id: "w1".to_string(),
+            name: "Worker".to_string(),
+            address: None,
+            capacity: 1.0,
+            status: WorkerStatus::Idle,
+            tasks_completed: 0,
+            avg_latency_ms: 0.0,
+        }).await;
+
+        assert_eq!(balancer.list_workers().await.len(), 1);
+        balancer.remove_worker("w1").await;
+        assert_eq!(balancer.list_workers().await.len(), 0);
+    }
+
+    #[tokio::test]
+    async fn test_remove_nonexistent_worker() {
+        let balancer = mock_balancer();
+        balancer.remove_worker("nonexistent").await;
+    }
+
+    #[tokio::test]
+    async fn test_dispatch_no_workers_fails() {
+        let balancer = mock_balancer();
+        let mut balancer = balancer;
+        let task = RoutableTask {
+            id: "t1".to_string(),
+            task_type: crate::mdps_router::TaskType::Analysis,
+            complexity: 0.5,
+            urgency: 0.5,
+            required_skills: vec![],
+            estimated_cost: 0.1,
+        };
+
+        let result = balancer.dispatch_task(task).await;
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("No available workers"));
+    }
+
+    #[tokio::test]
+    async fn test_find_best_worker_filters_busy() {
+        let balancer = mock_balancer();
+        balancer.register_worker(SwarmWorker {
+            id: "w_busy".to_string(),
+            name: "Busy".to_string(),
+            address: None,
+            capacity: 0.9,
+            status: WorkerStatus::Busy,
+            tasks_completed: 5,
+            avg_latency_ms: 10.0,
+        }).await;
+        balancer.register_worker(SwarmWorker {
+            id: "w_idle".to_string(),
+            name: "Idle".to_string(),
+            address: None,
+            capacity: 0.5,
+            status: WorkerStatus::Idle,
+            tasks_completed: 0,
+            avg_latency_ms: 50.0,
+        }).await;
+
+        let task = RoutableTask {
+            id: "t1".to_string(),
+            task_type: crate::mdps_router::TaskType::Analysis,
+            complexity: 0.5,
+            urgency: 0.5,
+            required_skills: vec![],
+            estimated_cost: 0.1,
+        };
+
+        let best = balancer.find_best_worker(&task).await.unwrap();
+        assert_eq!(best.id, "w_idle");
+    }
+
+    #[tokio::test]
+    async fn test_find_best_worker_filters_low_capacity() {
+        let balancer = mock_balancer();
+        balancer.register_worker(SwarmWorker {
+            id: "w_low".to_string(),
+            name: "Low".to_string(),
+            address: None,
+            capacity: 0.05,
+            status: WorkerStatus::Idle,
+            tasks_completed: 0,
+            avg_latency_ms: 0.0,
+        }).await;
+
+        let task = RoutableTask {
+            id: "t1".to_string(),
+            task_type: crate::mdps_router::TaskType::Analysis,
+            complexity: 0.5,
+            urgency: 0.5,
+            required_skills: vec![],
+            estimated_cost: 0.1,
+        };
+
+        let best = balancer.find_best_worker(&task).await;
+        assert!(best.is_none(), "Low capacity worker should not be selected");
+    }
+
+    #[tokio::test]
+    async fn test_find_best_worker_no_workers() {
+        let balancer = mock_balancer();
+        let task = RoutableTask {
+            id: "t1".to_string(),
+            task_type: crate::mdps_router::TaskType::Analysis,
+            complexity: 0.5,
+            urgency: 0.5,
+            required_skills: vec![],
+            estimated_cost: 0.1,
+        };
+
+        let best = balancer.find_best_worker(&task).await;
+        assert!(best.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_dispatch_consume_capacity() {
+        let balancer = mock_balancer();
+        balancer.register_worker(SwarmWorker {
+            id: "w1".to_string(),
+            name: "Worker".to_string(),
+            address: None,
+            capacity: 1.0,
+            status: WorkerStatus::Idle,
+            tasks_completed: 0,
+            avg_latency_ms: 0.0,
+        }).await;
+
+        let mut balancer = balancer;
+        let task = RoutableTask {
+            id: "t1".to_string(),
+            task_type: crate::mdps_router::TaskType::CodeGeneration,
+            complexity: 0.5,
+            urgency: 0.5,
+            required_skills: vec![],
+            estimated_cost: 0.3,
+        };
+
+        balancer.dispatch_task(task).await.unwrap();
+
+        let workers = balancer.list_workers().await;
+        let w = workers.iter().find(|w| w.id == "w1").unwrap();
+        assert!((w.capacity - 0.7).abs() < 0.01);
+    }
+
+    #[tokio::test]
+    async fn test_complete_task_failure_sets_failed_status() {
+        let balancer = mock_balancer();
+        balancer.register_worker(SwarmWorker {
+            id: "w1".to_string(),
+            name: "Worker".to_string(),
+            address: None,
+            capacity: 1.0,
+            status: WorkerStatus::Busy,
+            tasks_completed: 0,
+            avg_latency_ms: 0.0,
+        }).await;
+
+        balancer.complete_task("t1", "w1", false, 100.0).await.unwrap();
+
+        let workers = balancer.list_workers().await;
+        let w = workers.iter().find(|w| w.id == "w1").unwrap();
+        assert!(matches!(w.status, WorkerStatus::Failed(_)));
+    }
+
+    #[tokio::test]
+    async fn test_complete_task_updates_latency_ema() {
+        let balancer = mock_balancer();
+        balancer.register_worker(SwarmWorker {
+            id: "w1".to_string(),
+            name: "Worker".to_string(),
+            address: None,
+            capacity: 1.0,
+            status: WorkerStatus::Busy,
+            tasks_completed: 0,
+            avg_latency_ms: 100.0,
+        }).await;
+
+        balancer.complete_task("t1", "w1", true, 50.0).await.unwrap();
+
+        let workers = balancer.list_workers().await;
+        let w = workers.iter().find(|w| w.id == "w1").unwrap();
+        assert!((w.avg_latency_ms - 95.0).abs() < 0.1);
+    }
+
+    #[tokio::test]
+    async fn test_health_with_mixed_statuses() {
+        let balancer = mock_balancer();
+        balancer.register_worker(SwarmWorker {
+            id: "w1".to_string(),
+            name: "A".to_string(),
+            address: None,
+            capacity: 0.8,
+            status: WorkerStatus::Idle,
+            tasks_completed: 0,
+            avg_latency_ms: 0.0,
+        }).await;
+        balancer.register_worker(SwarmWorker {
+            id: "w2".to_string(),
+            name: "B".to_string(),
+            address: None,
+            capacity: 0.6,
+            status: WorkerStatus::Busy,
+            tasks_completed: 0,
+            avg_latency_ms: 0.0,
+        }).await;
+        balancer.register_worker(SwarmWorker {
+            id: "w3".to_string(),
+            name: "C".to_string(),
+            address: None,
+            capacity: 0.0,
+            status: WorkerStatus::Offline,
+            tasks_completed: 0,
+            avg_latency_ms: 0.0,
+        }).await;
+
+        let health = balancer.health().await;
+        assert_eq!(health.total_workers, 3);
+        assert_eq!(health.idle_workers, 1);
+        assert_eq!(health.busy_workers, 1);
+        assert_eq!(health.offline_workers, 1);
+        assert!((health.average_capacity - 0.4667).abs() < 0.01);
+    }
+
+    #[tokio::test]
+    async fn test_health_empty_swarm() {
+        let balancer = mock_balancer();
+        let health = balancer.health().await;
+        assert_eq!(health.total_workers, 0);
+        assert_eq!(health.average_capacity, 0.0);
+    }
+
+    #[tokio::test]
+    async fn test_channel_transport_send() {
+        let (tx, mut rx) = mpsc::channel(16);
+        let transport = Arc::new(ChannelTransport { sender: tx });
+        let worker = SwarmWorker {
+            id: "w1".to_string(),
+            name: "W".to_string(),
+            address: None,
+            capacity: 1.0,
+            status: WorkerStatus::Idle,
+            tasks_completed: 0,
+            avg_latency_ms: 0.0,
+        };
+        let task = RoutableTask {
+            id: "t1".to_string(),
+            task_type: crate::mdps_router::TaskType::Analysis,
+            complexity: 0.5,
+            urgency: 0.5,
+            required_skills: vec![],
+            estimated_cost: 0.1,
+        };
+
+        transport.send_task(&worker, &task).await.unwrap();
+        let dispatch = rx.recv().await.unwrap();
+        assert_eq!(dispatch.target_worker, "w1");
+        assert_eq!(dispatch.task.id, "t1");
+    }
 }

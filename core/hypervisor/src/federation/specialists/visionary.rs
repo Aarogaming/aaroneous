@@ -474,7 +474,7 @@ impl Visionary {
             let hex_truncated = &hex_seed[..4.min(hex_seed.len())];
 
             variants.push(VisionaryVariant {
-                id: format!("ariel-v{}-{}", i + 1, hex_truncated),
+                id: format!("presenter-v{}-{}", i + 1, hex_truncated),
                 description: desc,
                 colors,
                 typography,
@@ -653,7 +653,7 @@ impl Specialist for Visionary {
                 specialist_name: None,
                 proposal_id: decision.proposal_id.clone(),
                 status: crate::federation::specialist::ExecutionStatus::Success,
-                output: serde_json::json!({"sovereign":"Ariel","note":"Non-design intent — Ariel standing by","intent":intent.chars().take(60).collect::<String>()}).to_string(),
+                output: serde_json::json!({"sovereign":"Presenter","note":"Non-design intent — Presenter standing by","intent":intent.chars().take(60).collect::<String>()}).to_string(),
                 resources_used: decision.allocated_resources.clone(),
                 duration_ms: 1,
                 error: None,
@@ -715,10 +715,10 @@ impl Specialist for Visionary {
                             "colors": v.colors, "typography": v.typography,
                             "layout": v.layout, "confidence": v.confidence,
                         })).collect::<Vec<_>>(),
-                        "source": "ariel_rule_based",
+                        "source": "presenter_rule_based",
                         "intent": intent,
                     }))
-                    .unwrap_or_else(|_| format!("Ariel generated {} variants", variants.len()));
+                    .unwrap_or_else(|_| format!("Presenter generated {} variants", variants.len()));
                     (output, true)
                 }
             }
@@ -731,10 +731,10 @@ impl Specialist for Visionary {
                     "colors": v.colors, "typography": v.typography,
                     "layout": v.layout, "confidence": v.confidence,
                 })).collect::<Vec<_>>(),
-                "source": "ariel_rule_based",
+                "source": "presenter_rule_based",
                 "intent": intent,
             }))
-            .unwrap_or_else(|_| format!("Ariel generated {} variants", variants.len()));
+            .unwrap_or_else(|_| format!("Presenter generated {} variants", variants.len()));
             (output, true)
         };
 
@@ -1259,7 +1259,7 @@ mod tests {
         let result = visionary.execute(&decision).await.unwrap();
         assert_eq!(result.status, ExecutionStatus::Success);
         assert!(
-            result.output.contains("ariel_rule_based") || result.output.contains("variants"),
+            result.output.contains("presenter_rule_based") || result.output.contains("variants"),
             "Non-LLM execute should produce rule-based variant output, got: {}",
             result.output
         );
@@ -1457,7 +1457,7 @@ mod tests {
         let result = visionary.execute(&decision).await.unwrap();
         assert_eq!(result.status, ExecutionStatus::Success);
         assert!(
-            result.output.contains("ariel_rule_based") || result.output.contains("variants"),
+            result.output.contains("presenter_rule_based") || result.output.contains("variants"),
             "Expected rule-based variant output, got: {}",
             result.output
         );

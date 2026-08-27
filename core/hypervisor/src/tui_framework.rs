@@ -157,12 +157,12 @@ pub fn draw_home(f: &mut Frame, area: Rect, app: &TuiApp) {
 /// Render the specialists page
 pub fn draw_specialists(f: &mut Frame, area: Rect, _app: &TuiApp) {
     let specialists = vec![
-        "Ariel (UI Designer) - Level 8 - 2,500 XP",
-        "Merlin (Knowledge) - Level 7 - 2,200 XP",
-        "Odin (Leadership) - Level 6 - 1,900 XP",
-        "Circe (Experience) - Level 5 - 1,600 XP",
-        "Hephaestus (Manufacturing) - Level 4 - 1,200 XP",
-        "Argus (Security) - Level 3 - 800 XP",
+        "Presenter (UI Designer) - Level 8 - 2,500 XP",
+        "Synthesizer (Knowledge) - Level 7 - 2,200 XP",
+        "Orchestrator (Leadership) - Level 6 - 1,900 XP",
+        "Archivist (Experience) - Level 5 - 1,600 XP",
+        "Fabricator (Manufacturing) - Level 4 - 1,200 XP",
+        "Sentinel (Security) - Level 3 - 800 XP",
     ];
 
     let items: Vec<ListItem> = specialists
@@ -210,11 +210,11 @@ pub fn draw_skill_tree(f: &mut Frame, area: Rect, _app: &TuiApp) {
 /// Render the event log page
 pub fn draw_event_log(f: &mut Frame, area: Rect, _app: &TuiApp) {
     let events = vec![
-        "[INFO] Ariel leveled up to 8! 🎉",
-        "[SKILL] Merlin fused DAG + RAG into SuperDAG",
-        "[XP] Circe earned 250 XP from file ingestion",
-        "[EVENT] Hephaestus breakthrough detected!",
-        "[RANK] Odin promoted to Rank 3",
+        "[INFO] Presenter leveled up to 8! 🎉",
+        "[SKILL] Synthesizer fused DAG + RAG into SuperDAG",
+        "[XP] Archivist earned 250 XP from file ingestion",
+        "[EVENT] Fabricator breakthrough detected!",
+        "[RANK] Orchestrator promoted to Rank 3",
     ];
 
     let items: Vec<ListItem> = events

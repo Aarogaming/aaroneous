@@ -1,5 +1,5 @@
-//! crates/compute/src/rosetta_stone.rs
-//! Rosetta Stone Synthetic Dataset Engine.
+//! crates/compute/src/translation_dataset.rs
+//! Translation Dataset Synthetic Engine.
 //! Translates standard software and OS operations into 4096-dimensional teacher reasoning states
 //! paired with 256-dimensional target state deltas and discrete machine opcodes for offline distillation.
 
@@ -23,9 +23,9 @@ pub struct RosettaTrajectoryStep {
     pub target_state_delta: Vec<f32>,   // 256-dim next-state delta (ΔS = S_{t+1} - S_t)
 }
 
-/// The Rosetta Stone Dataset containing thousands of trajectory steps
+/// The Translation Dataset containing thousands of trajectory steps
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RosettaStoneDataset {
+pub struct TranslationDataset {
     pub name: String,
     pub sample_count: usize,
     pub teacher_dim: usize,
@@ -33,7 +33,7 @@ pub struct RosettaStoneDataset {
     pub steps: Vec<RosettaTrajectoryStep>,
 }
 
-impl RosettaStoneDataset {
+impl TranslationDataset {
     pub fn new(name: &str) -> Self {
         Self {
             name: name.to_string(),
@@ -46,59 +46,59 @@ impl RosettaStoneDataset {
 
     /// Synthesizes N realistic micro-task trajectory steps across AST and UI domains
     pub fn synthesize_synthetic_corpus(sample_count: usize) -> Self {
-        Self::synthesize_specialist_corpus("hermes", 0x0700, sample_count)
+        Self::synthesize_specialist_corpus("router", 0x0700, sample_count)
     }
 
     /// Synthesizes tailored micro-task trajectories for a specific Sovereign Specialist Domain
     pub fn synthesize_specialist_corpus(specialist_name: &str, domain_opcode: u16, sample_count: usize) -> Self {
-        let mut dataset = Self::new(&format!("Rosetta-{}-0x{:04X}", specialist_name, domain_opcode));
+        let mut dataset = Self::new(&format!("Translation-{}-0x{:04X}", specialist_name, domain_opcode));
         dataset.sample_count = sample_count;
 
         let templates: &[(&str, u16, f32)] = match specialist_name.to_lowercase().as_str() {
-            "odin" => &[
-                ("Odin: Schedule distributed specialist pipeline execution", 0x01, 0.05),
-                ("Odin: Evaluate Byzantine quorum consensus vote threshold", 0x02, 0.04),
-                ("Odin: Allocate metabolic energy tokens across federation", 0x03, 0.03),
+            "orchestrator" => &[
+                ("Orchestrator: Schedule distributed specialist pipeline execution", 0x01, 0.05),
+                ("Orchestrator: Evaluate Byzantine quorum consensus vote threshold", 0x02, 0.04),
+                ("Orchestrator: Allocate metabolic energy tokens across federation", 0x03, 0.03),
             ],
-            "merlin" => &[
-                ("Merlin: Query 3D Omni Galaxy knowledge subgraph", 0x02, 0.05),
-                ("Merlin: Link cross-domain ontology concepts in AST", 0x04, 0.06),
-                ("Merlin: Ingest scientific research paper into semantic index", 0x01, 0.04),
+            "synthesizer" => &[
+                ("Synthesizer: Query 3D Omni Galaxy knowledge subgraph", 0x02, 0.05),
+                ("Synthesizer: Link cross-domain ontology concepts in AST", 0x04, 0.06),
+                ("Synthesizer: Ingest scientific research paper into semantic index", 0x01, 0.04),
             ],
-            "ariel" => &[
-                ("Ariel: Render 60Hz 3D Star-Graph constellation viewport", 0x01, 0.06),
-                ("Ariel: Project latent state activations onto 256-bar oscilloscope", 0x04, 0.05),
-                ("Ariel: Compose reactive HUD dashboard widget", 0x03, 0.04),
+            "presenter" => &[
+                ("Presenter: Render 60Hz 3D Star-Graph constellation viewport", 0x01, 0.06),
+                ("Presenter: Project latent state activations onto 256-bar oscilloscope", 0x04, 0.05),
+                ("Presenter: Compose reactive HUD dashboard widget", 0x03, 0.04),
             ],
-            "hephaestus" => &[
-                ("Hephaestus: Generate SIMD-quantized Q4_K_M forward kernel", 0x04, 0.08),
-                ("Hephaestus: Compile and link native WASM bytecode module", 0x01, 0.05),
-                ("Hephaestus: Optimize AST computational DAG node ordering", 0x03, 0.04),
+            "fabricator" => &[
+                ("Fabricator: Generate SIMD-quantized Q4_K_M forward kernel", 0x04, 0.08),
+                ("Fabricator: Compile and link native WASM bytecode module", 0x01, 0.05),
+                ("Fabricator: Optimize AST computational DAG node ordering", 0x03, 0.04),
             ],
-            "argus" => &[
-                ("Argus: Audit candidate action state tensor against SVDD safe manifold", 0x05, 0.07),
-                ("Argus: Orthogonally project rogue latent vector onto safe boundary", 0x06, 0.09),
-                ("Argus: Verify memory-mapped container zero-copy bounds check", 0x02, 0.03),
+            "sentinel" => &[
+                ("Sentinel: Audit candidate action state tensor against SVDD safe manifold", 0x05, 0.07),
+                ("Sentinel: Orthogonally project rogue latent vector onto safe boundary", 0x06, 0.09),
+                ("Sentinel: Verify memory-mapped container zero-copy bounds check", 0x02, 0.03),
             ],
-            "dionysus" => &[
-                ("Dionysus: Trigger Grim Reaper zero-copy memory compaction on NVMe", 0x01, 0.05),
-                ("Dionysus: Step 4-channel neurochemical homeostatic decay", 0x04, 0.04),
-                ("Dionysus: Calculate proactive curiosity drive impulse", 0x03, 0.06),
+            "archivist" => &[
+                ("Archivist: Trigger Compaction Engine zero-copy memory compaction on NVMe", 0x01, 0.05),
+                ("Archivist: Step 4-channel neurochemical homeostatic decay", 0x04, 0.04),
+                ("Archivist: Calculate proactive curiosity drive impulse", 0x03, 0.06),
             ],
-            "hermes" => &[
-                ("Hermes: Broadcast zero-copy tensor packet across SPMC synapse", 0x01, 0.04),
-                ("Hermes: Route multi-node gossip proposal to P2P peer", 0x02, 0.05),
-                ("Hermes: Synchronize state across federated hive nodes", 0x03, 0.03),
+            "router" => &[
+                ("Router: Broadcast zero-copy tensor packet across SPMC synapse", 0x01, 0.04),
+                ("Router: Route multi-node gossip proposal to P2P peer", 0x02, 0.05),
+                ("Router: Synchronize state across federated hive nodes", 0x03, 0.03),
             ],
-            "wen" => &[
-                ("Wen: Synchronize relativistic chrono-scheduler clocks", 0x02, 0.03),
-                ("Wen: Align temporal resonance frequency across specialist loops", 0x04, 0.04),
-                ("Wen: Predict time-to-completion for autonomous chimera cycle", 0x03, 0.05),
+            "aligner" => &[
+                ("Aligner: Synchronize relativistic chrono-scheduler clocks", 0x02, 0.03),
+                ("Aligner: Align temporal resonance frequency across specialist loops", 0x04, 0.04),
+                ("Aligner: Predict time-to-completion for autonomous chimera cycle", 0x03, 0.05),
             ],
-            "kami" => &[
-                ("Kami: Evaluate 16x16 epigenetic visual motion gating delta", 0x01, 0.07),
-                ("Kami: Skip dormant screen sectors to achieve >90% compute savings", 0x06, 0.06),
-                ("Kami: Project raw visual luminance into R^256 spatial latent intent", 0x04, 0.08),
+            "perceiver" => &[
+                ("Perceiver: Evaluate 16x16 epigenetic visual motion gating delta", 0x01, 0.07),
+                ("Perceiver: Skip dormant screen sectors to achieve >90% compute savings", 0x06, 0.06),
+                ("Perceiver: Project raw visual luminance into R^256 spatial latent intent", 0x04, 0.08),
             ],
             _ => &[
                 ("General: Execute computational instruction step", 0x01, 0.05),
@@ -140,18 +140,18 @@ impl RosettaStoneDataset {
         dataset
     }
 
-    /// Synthesizes distinct Rosetta datasets for all 9 Sovereign Domain Specialists
-    pub fn synthesize_all_9_specialists(sample_count_per_domain: usize) -> Vec<RosettaStoneDataset> {
+    /// Synthesizes distinct datasets for all 9 Sovereign Domain Specialists
+    pub fn synthesize_all_9_specialists(sample_count_per_domain: usize) -> Vec<TranslationDataset> {
         let specs = [
-            ("odin", 0x0100),
-            ("merlin", 0x0200),
-            ("ariel", 0x0300),
-            ("hephaestus", 0x0400),
-            ("argus", 0x0500),
-            ("dionysus", 0x0600),
-            ("hermes", 0x0700),
-            ("wen", 0x0800),
-            ("kami", 0x0900),
+            ("orchestrator", 0x0100),
+            ("synthesizer", 0x0200),
+            ("presenter", 0x0300),
+            ("fabricator", 0x0400),
+            ("sentinel", 0x0500),
+            ("archivist", 0x0600),
+            ("router", 0x0700),
+            ("aligner", 0x0800),
+            ("perceiver", 0x0900),
         ];
 
         specs.iter()
@@ -161,7 +161,7 @@ impl RosettaStoneDataset {
 
     /// Synthesizes a unified multi-thousand sample training corpus spanning all 9 Sovereign Domain Specialists
     pub fn synthesize_full_federation_corpus(sample_count_per_domain: usize) -> Self {
-        let mut unified = Self::new("Rosetta-SpecialistFederation-FullCorpus");
+        let mut unified = Self::new("Translation-SpecialistFederation-FullCorpus");
         let all_datasets = Self::synthesize_all_9_specialists(sample_count_per_domain);
         for ds in all_datasets {
             unified.steps.extend(ds.steps);
@@ -170,7 +170,7 @@ impl RosettaStoneDataset {
         unified
     }
 
-    /// Saves the Rosetta Stone dataset to a binary file
+    /// Saves the translation dataset to a binary file
     pub fn save_to_file<P: AsRef<Path>>(&self, path: P) -> Result<()> {
         if let Some(parent) = path.as_ref().parent() {
             fs::create_dir_all(parent)?;
@@ -184,13 +184,13 @@ impl RosettaStoneDataset {
         Ok(())
     }
 
-    /// Loads the Rosetta Stone dataset from a binary file
+    /// Loads the Translation Dataset from a binary file
     pub fn load_from_file<P: AsRef<Path>>(path: P) -> Result<Self> {
         let mut file = File::open(path)?;
         let mut magic = [0u8; 4];
         file.read_exact(&mut magic)?;
         if magic != ROSETTA_MAGIC {
-            anyhow::bail!("Invalid Rosetta Stone dataset magic header");
+            anyhow::bail!("Invalid translation dataset magic header");
         }
 
         let mut len_bytes = [0u8; 8];
@@ -210,8 +210,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_rosetta_stone_synthesis_and_roundtrip() {
-        let dataset = RosettaStoneDataset::synthesize_synthetic_corpus(10);
+    fn test_translation_dataset_synthesis_and_roundtrip() {
+        let dataset = TranslationDataset::synthesize_synthetic_corpus(10);
         assert_eq!(dataset.steps.len(), 10);
         assert_eq!(dataset.steps[0].teacher_hidden_state.len(), ROSETTA_TEACHER_DIM);
         assert_eq!(dataset.steps[0].target_state_delta.len(), ROSETTA_LATENT_DIM);
@@ -220,15 +220,15 @@ mod tests {
         let path = temp_dir.join("test_rosetta_stone.bin");
         dataset.save_to_file(&path).unwrap();
 
-        let loaded = RosettaStoneDataset::load_from_file(&path).unwrap();
+        let loaded = TranslationDataset::load_from_file(&path).unwrap();
         assert_eq!(loaded.sample_count, 10);
         assert_eq!(loaded.steps[0].description, dataset.steps[0].description);
         let _ = fs::remove_file(path);
     }
 
     #[test]
-    fn test_rosetta_stone_full_federation_corpus() {
-        let unified = RosettaStoneDataset::synthesize_full_federation_corpus(20);
+    fn test_translation_dataset_full_federation_corpus() {
+        let unified = TranslationDataset::synthesize_full_federation_corpus(20);
         assert_eq!(unified.sample_count, 180); // 9 specialists * 20 samples
         assert_eq!(unified.steps.len(), 180);
 
@@ -236,7 +236,7 @@ mod tests {
         let path = temp_dir.join("test_rosetta_federation_corpus.rost");
         unified.save_to_file(&path).unwrap();
 
-        let loaded = RosettaStoneDataset::load_from_file(&path).unwrap();
+        let loaded = TranslationDataset::load_from_file(&path).unwrap();
         assert_eq!(loaded.sample_count, 180);
         assert_eq!(loaded.steps[179].expected_opcode, unified.steps[179].expected_opcode);
         let _ = fs::remove_file(path);

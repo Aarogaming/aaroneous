@@ -47,6 +47,8 @@ opencode.json
 
 # Cargo local config (machine-specific paths)
 .cargo/config.toml
+**/.cargo/config.toml
+.cargo/windows-build-workaround.bat
 
 # Binary artifacts that should not be tracked
 data/sabs/

@@ -1,14 +1,14 @@
 //! crates/evolution
-//! Biological and Soul Evolution Engine for Aaroneous.
-//! Unifies chromosome genetics, GGUF model soul extraction, and Rimuru skill ranking.
+//! Biological and Persona Evolution Engine for Aaroneous.
+//! Unifies chromosome genetics, GGUF model persona extraction, and skill ranking.
 
-pub mod candle_soul_engine;
+pub mod candle_persona_engine;
 pub mod continuous_evolution;
 pub mod genetics;
 pub mod neurochemistry;
 pub mod self_digestion;
 pub mod skills;
-pub mod soul_fusion;
+pub mod persona_fusion;
 pub mod workspace;
 
 pub use continuous_evolution::{
@@ -19,26 +19,26 @@ pub use neurochemistry::{
     SpecialistTokenAllocation,
 };
 
-// Re-export candle & neural soul
-pub use candle_soul_engine::{
-    CandleSoulEngine, DiscoveredGgufModel, GenerationConfig, GgufModelMetadata,
+// Re-export candle & neural persona
+pub use candle_persona_engine::{
+    CandlePersonaEngine, DiscoveredGgufModel, GenerationConfig, GgufModelMetadata,
 };
 
 // Re-export genetics
 pub use genetics::{GeneticCategory, GeneticLocus, LociSource, SpecialistGenome};
 
-// Re-export digestion & souls
+// Re-export digestion & personas
 pub use self_digestion::{
-    DigestionConfig, DigestionEngine, DigestionEvent, DigestionTask, ExperienceSoul, NarrativeSoul,
-    PersonalitySoul, RelationalSoul, SpecialistSoul,
+    DigestionConfig, DigestionEngine, DigestionEvent, DigestionTask, ExperienceProfile,
+    NarrativeProfile, PersonalityProfile, RelationalProfile, SpecialistPersona,
 };
 
 // Re-export skills & leveling
 pub use skills::{
-    FusedSkill, Skill, SkillOrigin, SkillRegistry, SkillType, SpecialistSkillSet, SoulRank,
+    FusedSkill, Skill, SkillOrigin, SkillRegistry, SkillType, SpecialistSkillSet, PersonaRank,
 };
-pub use soul_fusion::{
-    CompositeSoulVector, ExperienceSoulLayer, FusedEmergentSkill, NarrativeSoulLayer,
-    PersonalitySoulLayer, RelationalSoulLayer, SoulFusionEngine, SpecialistSoulLayer,
+pub use persona_fusion::{
+    CompositePersonaVector, ExperiencePersonaLayer, FusedEmergentSkill, NarrativeVoiceLayer,
+    PersonalityPersonaLayer, RelationalPersonaLayer, PersonaFusionEngine, SpecialistPersonaLayer,
 };
 pub use workspace::WorkspacePaths;

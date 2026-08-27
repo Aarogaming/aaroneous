@@ -162,7 +162,7 @@ mod tests {
 
         let star_1 = galaxy.spawn_star(
             "star_chimera",
-            "Chimera AST",
+            "Adaptation Engine AST",
             "Forge",
             10.0,
             20.0,

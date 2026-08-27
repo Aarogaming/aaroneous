@@ -25,11 +25,11 @@ impl CapabilityFlags {
     }
 }
 
-/// Parsed Scheme URI (e.g. `specialist://odin/task/consensus`)
+/// Parsed Scheme URI (e.g. `specialist://orchestrator/task/consensus`)
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SchemeUri {
     pub scheme: String, // "specialist", "synapse", "forge", "memory"
-    pub target: String, // "odin", "primary", "chimera", "merlin"
+    pub target: String, // "orchestrator", "primary", "adaptation_engine", "synthesizer"
     pub path: String,   // "task/consensus", "slot/0x0400"
 }
 
@@ -80,8 +80,8 @@ impl Default for SchemeCapabilityGate {
             permissions: HashMap::new(),
         };
         // Default permission rules
-        gate.grant("specialist://odin", CapabilityFlags::ALL);
-        gate.grant("specialist://hephaestus", CapabilityFlags(CapabilityFlags::READ.0 | CapabilityFlags::WRITE.0 | CapabilityFlags::FORGE.0));
+        gate.grant("specialist://orchestrator", CapabilityFlags::ALL);
+        gate.grant("specialist://fabricator", CapabilityFlags(CapabilityFlags::READ.0 | CapabilityFlags::WRITE.0 | CapabilityFlags::FORGE.0));
         gate.grant("synapse://primary", CapabilityFlags(CapabilityFlags::READ.0 | CapabilityFlags::WRITE.0));
         gate
     }
@@ -108,9 +108,9 @@ mod tests {
 
     #[test]
     fn test_scheme_uri_parsing() {
-        let uri = SchemeUri::parse("specialist://odin/task/consensus").unwrap();
+        let uri = SchemeUri::parse("specialist://orchestrator/task/consensus").unwrap();
         assert_eq!(uri.scheme, "specialist");
-        assert_eq!(uri.target, "odin");
+        assert_eq!(uri.target, "orchestrator");
         assert_eq!(uri.path, "task/consensus");
     }
 
@@ -118,12 +118,12 @@ mod tests {
     fn test_capability_authorization() {
         let gate = SchemeCapabilityGate::default();
 
-        let odin_uri = SchemeUri::parse("specialist://odin/run").unwrap();
-        assert!(gate.authorize(&odin_uri, CapabilityFlags::FORGE));
+        let orchestrator_uri = SchemeUri::parse("specialist://orchestrator/run").unwrap();
+        assert!(gate.authorize(&orchestrator_uri, CapabilityFlags::FORGE));
 
-        let hephaestus_uri = SchemeUri::parse("specialist://hephaestus/forge").unwrap();
-        assert!(gate.authorize(&hephaestus_uri, CapabilityFlags::FORGE));
-        assert!(!gate.authorize(&hephaestus_uri, CapabilityFlags::EXECUTE)); // Not granted execute
+        let fabricator_uri = SchemeUri::parse("specialist://fabricator/forge").unwrap();
+        assert!(gate.authorize(&fabricator_uri, CapabilityFlags::FORGE));
+        assert!(!gate.authorize(&fabricator_uri, CapabilityFlags::EXECUTE)); // Not granted execute
 
         let unknown_uri = SchemeUri::parse("specialist://unknown/hack").unwrap();
         assert!(!gate.authorize(&unknown_uri, CapabilityFlags::READ));

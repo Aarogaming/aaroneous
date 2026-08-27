@@ -2,7 +2,7 @@
 //! Tier 3: Kinetic Specialist & Reflex Worker Hot Loop.
 //!
 //! Features:
-//! 1. Sub-microsecond lock-free spin-wait for new subgoals from Hermes on SPMC channel.
+//! 1. Sub-microsecond lock-free spin-wait for new subgoals from Router on SPMC channel.
 //! 2. Ingests current sensory state (AST diff, UI tree, or sensory vector).
 //! 3. Conditions input: x_t = x_sensory + s_subgoal.
 //! 4. Continuous state-space recurrence execution (h_t = A·h_{t-1} + B·x_t) in < 180µs.
@@ -17,7 +17,7 @@ use anyhow::Result;
 use crate::machine_native::MachineOpcode;
 use crate::si_solid_state::{SiOnlineLearner, SolidStateSiContainer};
 use crate::si_ssm::SsmStatePrediction;
-use nervous_system::pantheon_bus::SpecialistSpmcChannel;
+use nervous_system::specialist_bus::SpecialistSpmcChannel;
 
 /// Configuration and telemetry for a Tier 3 Reflex Worker
 pub struct ReflexWorker {
@@ -123,7 +123,7 @@ impl ReflexWorker {
 mod tests {
     use super::*;
     use crate::si_ssm::SiSsmConfig;
-    use nervous_system::pantheon_bus::TENSOR_DIM;
+    use nervous_system::specialist_bus::TENSOR_DIM;
 
     #[test]
     fn test_reflex_worker_step_and_spin_read() {
@@ -140,8 +140,8 @@ mod tests {
         };
 
         let container = SolidStateSiContainer::new("Reflex Test", config);
-        let mut worker = ReflexWorker::new(1, "Marionette-Worker", container, false).unwrap();
-        let channel = SpecialistSpmcChannel::new(0, "Hermes-Channel");
+        let mut worker = ReflexWorker::new(1, "DesktopEmulator-Worker", container, false).unwrap();
+        let channel = SpecialistSpmcChannel::new(0, "Router-Channel");
 
         // Step before any publishing -> returns None
         let sensory = vec![0.05f32; 128];

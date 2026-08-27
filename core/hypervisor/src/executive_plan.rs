@@ -15,7 +15,7 @@ pub struct CognitiveStep {
     pub description: String,
     pub dependencies: Vec<String>,
     pub status: StepStatus,
-    pub assigned_specialist: String, // e.g., "merlin", "hephaestus"
+    pub assigned_specialist: String, // e.g., "synthesizer", "fabricator"
     pub input_data: Option<String>,
     pub output_data: Option<String>,
 }

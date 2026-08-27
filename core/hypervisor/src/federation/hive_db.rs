@@ -1,7 +1,7 @@
 // Aaroneous Persistence Layer - SQLite Integration
 // Handles saving/loading specialists, skills, constellations, and event history
 
-use crate::digestion::SpecialistSoul;
+use crate::digestion::SpecialistPersona;
 use crate::genetics::SpecialistGenome;
 use rusqlite::{Connection, OptionalExtension, Result as SqlResult, params};
 use serde_json::json;
@@ -290,10 +290,10 @@ impl PersistenceManager {
                 return Err(rusqlite::Error::InvalidQuery);
             }
         };
-        let soul_json = match serde_json::to_string(&specialist.soul) {
+        let persona_json = match serde_json::to_string(&specialist.persona) {
             Ok(json) => json,
             Err(e) => {
-                tracing::warn!("Failed to serialize specialist soul: {}", e);
+                tracing::warn!("Failed to serialize specialist persona: {}", e);
                 return Err(rusqlite::Error::InvalidQuery);
             }
         };
@@ -315,7 +315,7 @@ impl PersistenceManager {
                 specialist.current_level,
                 specialist.rank,
                 genetics_json,
-                soul_json,
+                persona_json,
                 now,
                 now
             ],
@@ -869,7 +869,7 @@ pub struct SpecialistData<'a> {
     pub current_level: u32,
     pub rank: u32,
     pub genome: &'a SpecialistGenome,
-    pub soul: &'a SpecialistSoul,
+    pub persona: &'a SpecialistPersona,
 }
 
 pub struct EventData<'a> {
@@ -1277,15 +1277,15 @@ mod tests {
             "base_model".to_string(),
         );
 
-        // Create a minimal soul structure
+        // Create a minimal persona structure
         use chrono::Utc;
         use crate::digestion::{
-            ExperienceSoul, NarrativeSoul, PersonalitySoul, RelationalSoul,
+            ExperienceProfile, NarrativeProfile, PersonalityProfile, RelationalProfile,
         };
 
-        let soul = SpecialistSoul {
+        let persona = SpecialistPersona {
             specialist_id: "test_id".to_string(),
-            personality_soul: PersonalitySoul {
+            personality_persona: PersonalityProfile {
                 archetype: "Scholar".to_string(),
                 big_five_openness: 0.8,
                 big_five_conscientiousness: 0.7,
@@ -1299,14 +1299,14 @@ mod tests {
                 emotional_tendencies: vec![],
                 growth_areas: vec![],
             },
-            relational_soul: RelationalSoul {
+            relational_persona: RelationalProfile {
                 natural_allies: vec![],
                 natural_tensions: vec![],
                 peer_relationships: std::collections::HashMap::new(),
                 collaboration_patterns: vec![],
                 conflict_resolution_style: "direct".to_string(),
             },
-            narrative_soul: NarrativeSoul {
+            narrative_persona: NarrativeProfile {
                 origin_story: "test".to_string(),
                 self_conception: "learning".to_string(),
                 personal_goals: vec![],
@@ -1315,7 +1315,7 @@ mod tests {
                 favorite_topics: vec![],
                 fears_and_hopes: "hope".to_string(),
             },
-            experience_soul: ExperienceSoul {
+            experience_persona: ExperienceProfile {
                 shared_memories: vec![],
                 lessons_learned: vec![],
                 achievements: vec![],
@@ -1339,7 +1339,7 @@ mod tests {
                 current_level: 1,
                 rank: 1,
                 genome: &genome,
-                soul: &soul,
+                persona: &persona,
             })
             .expect("Failed to save specialist");
 
@@ -1367,12 +1367,12 @@ mod tests {
 
         use chrono::Utc;
         use crate::digestion::{
-            ExperienceSoul, NarrativeSoul, PersonalitySoul, RelationalSoul,
+            ExperienceProfile, NarrativeProfile, PersonalityProfile, RelationalProfile,
         };
 
-        let soul = SpecialistSoul {
+        let persona = SpecialistPersona {
             specialist_id: "test_1".to_string(),
-            personality_soul: PersonalitySoul {
+            personality_persona: PersonalityProfile {
                 archetype: "Scholar".to_string(),
                 big_five_openness: 0.8,
                 big_five_conscientiousness: 0.7,
@@ -1386,14 +1386,14 @@ mod tests {
                 emotional_tendencies: vec![],
                 growth_areas: vec![],
             },
-            relational_soul: RelationalSoul {
+            relational_persona: RelationalProfile {
                 natural_allies: vec![],
                 natural_tensions: vec![],
                 peer_relationships: std::collections::HashMap::new(),
                 collaboration_patterns: vec![],
                 conflict_resolution_style: "direct".to_string(),
             },
-            narrative_soul: NarrativeSoul {
+            narrative_persona: NarrativeProfile {
                 origin_story: "test".to_string(),
                 self_conception: "learning".to_string(),
                 personal_goals: vec![],
@@ -1402,7 +1402,7 @@ mod tests {
                 favorite_topics: vec![],
                 fears_and_hopes: "hope".to_string(),
             },
-            experience_soul: ExperienceSoul {
+            experience_persona: ExperienceProfile {
                 shared_memories: vec![],
                 lessons_learned: vec![],
                 achievements: vec![],
@@ -1426,7 +1426,7 @@ mod tests {
                 current_level: 1,
                 rank: 1,
                 genome: &genome,
-                soul: &soul,
+                persona: &persona,
             })
             .expect("Failed to save specialist");
 

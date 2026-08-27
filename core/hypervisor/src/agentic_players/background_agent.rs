@@ -1,6 +1,6 @@
-/// Shadow Agent - Observes and records player behavior
+/// Background Agent - Observes and records player behavior
 ///
-/// The Shadow Agent runs in the background while the player games, recording:
+/// The Background Agent runs in the background while the player games, recording:
 /// - All inputs (keyboard, mouse)
 /// - Resulting game state changes
 /// - Inferred intent behind actions
@@ -11,7 +11,7 @@ use std::collections::VecDeque;
 
 /// Captures continuous player behavior
 #[derive(Clone)]
-pub struct ShadowAgent {
+pub struct BackgroundAgent {
     /// Rolling buffer of observations
     observation_log: Arc<parking_lot::RwLock<VecDeque<Observation>>>,
     
@@ -19,8 +19,8 @@ pub struct ShadowAgent {
     max_observations: usize,
 }
 
-impl ShadowAgent {
-    /// Create new shadow agent
+impl BackgroundAgent {
+    /// Create new background agent
     pub fn new(max_observations: usize) -> Self {
         Self {
             observation_log: Arc::new(parking_lot::RwLock::new(VecDeque::new())),
@@ -102,14 +102,14 @@ mod tests {
     }
 
     #[test]
-    fn test_shadow_agent_creation() {
-        let agent = ShadowAgent::new(1000);
+    fn test_background_agent_creation() {
+        let agent = BackgroundAgent::new(1000);
         assert_eq!(agent.observation_count(), 0);
     }
 
     #[test]
     fn test_record_observation() {
-        let agent = ShadowAgent::new(1000);
+        let agent = BackgroundAgent::new(1000);
         let obs = create_test_observation();
 
         agent.record_observation(obs);
@@ -118,7 +118,7 @@ mod tests {
 
     #[test]
     fn test_multiple_observations() {
-        let agent = ShadowAgent::new(100);
+        let agent = BackgroundAgent::new(100);
 
         for _ in 0..50 {
             agent.record_observation(create_test_observation());
@@ -129,7 +129,7 @@ mod tests {
 
     #[test]
     fn test_observation_buffer_limit() {
-        let agent = ShadowAgent::new(10);
+        let agent = BackgroundAgent::new(10);
 
         for _ in 0..20 {
             agent.record_observation(create_test_observation());
@@ -141,7 +141,7 @@ mod tests {
 
     #[test]
     fn test_get_observations() {
-        let agent = ShadowAgent::new(100);
+        let agent = BackgroundAgent::new(100);
         let obs = create_test_observation();
 
         agent.record_observation(obs.clone());
@@ -153,7 +153,7 @@ mod tests {
 
     #[test]
     fn test_clear_observations() {
-        let agent = ShadowAgent::new(100);
+        let agent = BackgroundAgent::new(100);
 
         for _ in 0..10 {
             agent.record_observation(create_test_observation());

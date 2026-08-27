@@ -11,9 +11,9 @@ pub struct CognitiveWeights {
 impl Default for CognitiveWeights {
     fn default() -> Self {
         let mut weights = HashMap::new();
-        weights.insert("odin".to_string(), 0.8);
-        weights.insert("merlin".to_string(), 0.6);
-        weights.insert("hephaestus".to_string(), 0.9);
+        weights.insert("orchestrator".to_string(), 0.8);
+        weights.insert("synthesizer".to_string(), 0.6);
+        weights.insert("fabricator".to_string(), 0.9);
         
         Self {
             specialist_weights: weights,

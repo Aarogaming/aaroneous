@@ -41,7 +41,7 @@ pub struct SpecialistHealth {
 /// Standard trait contract implemented by every Federated Sovereign Specialist
 #[async_trait]
 pub trait SovereignSpecialist: Send + Sync {
-    /// Canonical specialist name (e.g. "Odin", "Merlin")
+    /// Canonical specialist name (e.g. "Orchestrator", "Synthesizer")
     fn name(&self) -> &'static str;
 
     /// Primary Machine-Native domain opcode (e.g. 0x0100 for Task Orchestration)
@@ -56,7 +56,7 @@ pub trait SovereignSpecialist: Send + Sync {
     /// Current operational and metabolic health status
     fn health_report(&self) -> SpecialistHealth;
 
-    /// Exports a serializable state representation for Grim Reaper hibernation
+    /// Exports a serializable state representation for Compaction Engine hibernation
     fn hibernate_state(&self) -> Result<Vec<u8>> {
         let health = self.health_report();
         serde_json::to_vec(&health).map_err(Into::into)
@@ -70,7 +70,7 @@ pub trait SovereignSpecialist: Send + Sync {
 
 /// Standard trait contract implemented by every autonomous Relic Engine
 pub trait RelicEngine: Send + Sync {
-    /// Canonical name of the Relic Engine (e.g. "Draupnir", "Grimoire", "Omni")
+    /// Canonical name of the Relic Engine (e.g. "OrchestratorCore", "KnowledgeStore", "MemoryIndex")
     fn relic_name(&self) -> &'static str;
 
     /// The name of the supervising federated specialist

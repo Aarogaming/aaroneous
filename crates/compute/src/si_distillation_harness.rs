@@ -1,6 +1,6 @@
 //! crates/compute/src/si_distillation_harness.rs
 //! Offline Bootstrap & Distillation Harness for Zero-to-One .si Base Models.
-//! Distills 4096-dimensional teacher reasoning states from the Rosetta Stone dataset
+//! Distills 4096-dimensional teacher reasoning states from the Translation Dataset
 //! into frozen base Selective SSM weights using CKA + InfoNCE loss, and packages the result into
 //! a sovereign, bootable .si model container.
 
@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
-use crate::rosetta_stone::{RosettaStoneDataset, ROSETTA_LATENT_DIM, ROSETTA_TEACHER_DIM};
+use crate::translation_dataset::{TranslationDataset, ROSETTA_LATENT_DIM, ROSETTA_TEACHER_DIM};
 use crate::si_solid_state::SolidStateSiContainer;
 use crate::si_ssm::SiSsmConfig;
 use crate::si_trainer::LatentGELUBottleneckBridge;
@@ -31,7 +31,7 @@ pub struct BootstrapConfig {
 impl Default for BootstrapConfig {
     fn default() -> Self {
         Self {
-            model_name: "base_hermes_v1".to_string(),
+            model_name: "base_router_v1".to_string(),
             epochs: 5,
             batch_size: 16,
             learning_rate: 0.001,
@@ -70,10 +70,10 @@ impl SiDistillationHarness {
         Self { config, bridge }
     }
 
-    /// Distills a Rosetta Stone dataset into a bootable .si base model container
+    /// Distills a Translation Dataset into a bootable .si base model container
     pub fn bootstrap_base_model<P: AsRef<Path>>(
         &mut self,
-        dataset: &RosettaStoneDataset,
+        dataset: &TranslationDataset,
         out_path: P,
     ) -> Result<BootstrapReport> {
         let start = Instant::now();
@@ -154,20 +154,20 @@ impl SiDistillationHarness {
         fs::create_dir_all(out_dir_path)?;
 
         let specs = [
-            ("odin", 0x0100),
-            ("merlin", 0x0200),
-            ("ariel", 0x0300),
-            ("hephaestus", 0x0400),
-            ("argus", 0x0500),
-            ("dionysus", 0x0600),
-            ("hermes", 0x0700),
-            ("wen", 0x0800),
-            ("kami", 0x0900),
+            ("orchestrator", 0x0100),
+            ("synthesizer", 0x0200),
+            ("presenter", 0x0300),
+            ("fabricator", 0x0400),
+            ("sentinel", 0x0500),
+            ("archivist", 0x0600),
+            ("router", 0x0700),
+            ("aligner", 0x0800),
+            ("perceiver", 0x0900),
         ];
 
         let mut reports = Vec::new();
         for (name, opcode) in specs {
-            let dataset = RosettaStoneDataset::synthesize_specialist_corpus(name, opcode, samples_per_specialist);
+            let dataset = TranslationDataset::synthesize_specialist_corpus(name, opcode, samples_per_specialist);
             let config = BootstrapConfig {
                 model_name: format!("{}_sovereign_v1", name),
                 epochs,
@@ -195,12 +195,12 @@ mod tests {
 
     #[test]
     fn test_bootstrap_base_model_from_rosetta_dataset() {
-        let dataset = RosettaStoneDataset::synthesize_synthetic_corpus(8);
+        let dataset = TranslationDataset::synthesize_synthetic_corpus(8);
         let config = BootstrapConfig::default();
         let mut harness = SiDistillationHarness::new(config);
 
         let temp_dir = std::env::temp_dir();
-        let out_path = temp_dir.join("test_base_hermes.si");
+        let out_path = temp_dir.join("test_base_router.si");
 
         let report = harness.bootstrap_base_model(&dataset, &out_path).unwrap();
         assert_eq!(report.samples_processed, 8);

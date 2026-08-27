@@ -296,15 +296,15 @@ impl GGUFAnalyzer {
     /// Useful for understanding how each crystallized sovereign differs from the others.
     pub fn analyze_roster(&self, models_dir: &std::path::Path) -> HashMap<String, ModelAnalysis> {
         let sovereigns = [
-            ("ariel", "ariel-qwen2.5-7b.gguf"),
-            ("hermes", "hermes-qwen2.5-7b.gguf"),
-            ("wen", "wen-qwen2.5-7b.gguf"),
-            ("kami", "kami-qwen2.5-7b.gguf"),
-            ("dionysus", "dionysus-qwen2.5-7b.gguf"),
-            ("merlin", "merlin-qwen2.5-7b.gguf"),
-            ("odin", "odin-qwen2.5-7b.gguf"),
-            ("argus", "argus-qwen2.5-7b.gguf"),
-            ("hephaestus", "hephaestus-qwen2.5-7b.gguf"),
+            ("presenter", "presenter-qwen2.5-7b.gguf"),
+            ("router", "router-qwen2.5-7b.gguf"),
+            ("aligner", "aligner-qwen2.5-7b.gguf"),
+            ("perceiver", "perceiver-qwen2.5-7b.gguf"),
+            ("archivist", "archivist-qwen2.5-7b.gguf"),
+            ("synthesizer", "synthesizer-qwen2.5-7b.gguf"),
+            ("orchestrator", "orchestrator-qwen2.5-7b.gguf"),
+            ("sentinel", "sentinel-qwen2.5-7b.gguf"),
+            ("fabricator", "fabricator-qwen2.5-7b.gguf"),
         ];
 
         let mut results = HashMap::new();
@@ -375,11 +375,11 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_analyze_wen_if_present() {
+    fn test_analyze_aligner_if_present() {
         let analyzer = GGUFAnalyzer::default();
         let path = crate::workspace::WorkspacePaths::workspace_root()
             .join("models")
-            .join("wen-qwen2.5-7b.gguf");
+            .join("aligner-qwen2.5-7b.gguf");
         if !path.exists() {
             return; // Skip if model not present
         }

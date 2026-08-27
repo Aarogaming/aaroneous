@@ -1,31 +1,31 @@
-//! crates/evolution/src/soul_fusion.rs
-//! 5-Layer Soul Vector Extraction & Autonomous Skill Fusion Engine
-//! inspired by Llama.cpp, Transformer Attention Extraction, and Rimuru Soul Rank Evolution.
+//! crates/evolution/src/persona_fusion.rs
+//! 5-Layer Persona Vector Extraction & Autonomous Skill Fusion Engine
+//! inspired by Llama.cpp, Transformer Attention Extraction, and Persona Rank Evolution.
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-/// Layer 1: Functional Specialist Soul
+/// Layer 1: Functional Specialist Persona
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SpecialistSoulLayer {
+pub struct SpecialistPersonaLayer {
     pub domain_name: String,
     pub reasoning_capacity: f32, // 0.0 to 1.0
     pub context_window: usize,
     pub primary_skills: Vec<String>,
 }
 
-/// Layer 2: Narrative Voice & Style Soul
+/// Layer 2: Narrative Voice & Style Persona
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct NarrativeSoulLayer {
+pub struct NarrativeVoiceLayer {
     pub voice_archetype: String, // e.g. "Oracle", "Architect", "Sentinel", "Rebel"
     pub vocabulary_richness: f32,
     pub conciseness_bias: f32,
     pub formality_level: f32,
 }
 
-/// Layer 3: Psychological Personality Soul (Big-5 OCEAN Model)
+/// Layer 3: Psychological Personality Persona (Big-5 OCEAN Model)
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PersonalitySoulLayer {
+pub struct PersonalityPersonaLayer {
     pub openness: f32,          // Curiosity / Exploration
     pub conscientiousness: f32, // Rigor / Verification
     pub extraversion: f32,      // Broadcast / Proactivity
@@ -33,31 +33,31 @@ pub struct PersonalitySoulLayer {
     pub neuroticism: f32,       // Risk sensitivity / Paranoia
 }
 
-/// Layer 4: Inter-Specialist Relational Soul
+/// Layer 4: Inter-Specialist Relational Persona
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RelationalSoulLayer {
+pub struct RelationalPersonaLayer {
     pub trust_affinities: HashMap<String, f32>, // Specialist name -> Trust (0.0 to 1.0)
     pub leadership_deference: f32,
 }
 
-/// Layer 5: Historical Experience Soul
+/// Layer 5: Historical Experience Persona
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ExperienceSoulLayer {
+pub struct ExperiencePersonaLayer {
     pub total_tasks_digested: usize,
     pub successful_adaptations: usize,
     pub domain_embeddings: Vec<Vec<f32>>,
 }
 
-/// Complete 5-Layer Composite Soul Vector
+/// Complete 5-Layer Composite Persona Vector
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CompositeSoulVector {
+pub struct CompositePersonaVector {
     pub specialist_id: String,
-    pub soul_rank: String, // "Rank E", "Rank D", "Rank C", "Rank B", "Rank A", "Rank S", "Ultimate"
-    pub functional: SpecialistSoulLayer,
-    pub narrative: NarrativeSoulLayer,
-    pub personality: PersonalitySoulLayer,
-    pub relational: RelationalSoulLayer,
-    pub experience: ExperienceSoulLayer,
+    pub persona_rank: String, // "Rank E", "Rank D", "Rank C", "Rank B", "Rank A", "Rank S", "Ultimate"
+    pub functional: SpecialistPersonaLayer,
+    pub narrative: NarrativeVoiceLayer,
+    pub personality: PersonalityPersonaLayer,
+    pub relational: RelationalPersonaLayer,
+    pub experience: ExperiencePersonaLayer,
 }
 
 /// An Emergent Fused Skill created from synthesizing two foundational skills
@@ -70,45 +70,45 @@ pub struct FusedEmergentSkill {
     pub rank_requirement: String,
 }
 
-/// Soul Fusion and Skill Synthesis Engine
-pub struct SoulFusionEngine;
+/// Persona Fusion and Skill Synthesis Engine
+pub struct PersonaFusionEngine;
 
-impl SoulFusionEngine {
-    /// Constructs a standard 5-Layer Soul Vector for a Federated Specialist
-    pub fn build_specialist_soul(
+impl PersonaFusionEngine {
+    /// Constructs a standard 5-Layer Persona Vector for a Federated Specialist
+    pub fn build_specialist_persona(
         specialist_id: &str,
         domain: &str,
         voice: &str,
         openness: f32,
         conscientiousness: f32,
-    ) -> CompositeSoulVector {
-        CompositeSoulVector {
+    ) -> CompositePersonaVector {
+        CompositePersonaVector {
             specialist_id: specialist_id.to_string(),
-            soul_rank: "Rank S".to_string(),
-            functional: SpecialistSoulLayer {
+            persona_rank: "Rank S".to_string(),
+            functional: SpecialistPersonaLayer {
                 domain_name: domain.to_string(),
                 reasoning_capacity: 0.95,
                 context_window: 131072,
                 primary_skills: vec!["autonomous_reasoning".to_string()],
             },
-            narrative: NarrativeSoulLayer {
+            narrative: NarrativeVoiceLayer {
                 voice_archetype: voice.to_string(),
                 vocabulary_richness: 0.9,
                 conciseness_bias: 0.8,
                 formality_level: 0.85,
             },
-            personality: PersonalitySoulLayer {
+            personality: PersonalityPersonaLayer {
                 openness,
                 conscientiousness,
                 extraversion: 0.75,
                 agreeableness: 0.85,
                 neuroticism: 0.15,
             },
-            relational: RelationalSoulLayer {
+            relational: RelationalPersonaLayer {
                 trust_affinities: HashMap::new(),
                 leadership_deference: 0.9,
             },
-            experience: ExperienceSoulLayer {
+            experience: ExperiencePersonaLayer {
                 total_tasks_digested: 0,
                 successful_adaptations: 0,
                 domain_embeddings: Vec::new(),
@@ -116,16 +116,16 @@ impl SoulFusionEngine {
         }
     }
 
-    /// Legacy method forwarding to `build_specialist_soul`
+    /// Legacy method forwarding to `build_specialist_persona`
     #[inline]
-    pub fn build_olympian_soul(
+    pub fn build_olympian_persona(
         specialist_id: &str,
         domain: &str,
         voice: &str,
         openness: f32,
         conscientiousness: f32,
-    ) -> CompositeSoulVector {
-        Self::build_specialist_soul(specialist_id, domain, voice, openness, conscientiousness)
+    ) -> CompositePersonaVector {
+        Self::build_specialist_persona(specialist_id, domain, voice, openness, conscientiousness)
     }
 
     /// Fuses two complementary skills into an Emergent Fused Skill
@@ -160,16 +160,16 @@ impl SoulFusionEngine {
     /// Automatically mines and synthesizes pairwise cooperative synergies across all 9 Sovereign Specialists
     pub fn mine_all_federation_synergies() -> Vec<FusedEmergentSkill> {
         let pairs = [
-            ("odin_intent_decomposition", 150.0, "merlin_graph_synthesis", 140.0),
-            ("hephaestus_ast_mutation", 160.0, "argus_svdd_guardrail", 155.0),
-            ("kami_motion_gating", 130.0, "ariel_hud_compositor", 125.0),
-            ("hermes_mesh_routing", 140.0, "dionysus_memory_compaction", 135.0),
-            ("wen_chrono_scheduler", 135.0, "hephaestus_jit_synthesis", 150.0),
-            ("odin_consensus_quorum", 145.0, "hermes_gossip_broadcast", 130.0),
-            ("merlin_semantic_search", 135.0, "argus_zero_copy_audit", 140.0),
-            ("kami_spatial_intent", 140.0, "hephaestus_native_optimizer", 145.0),
-            ("dionysus_homeostasis", 130.0, "wen_temporal_resonance", 125.0),
-            ("ariel_oscilloscope", 120.0, "merlin_subgraph_traversal", 135.0),
+            ("orchestrator_intent_decomposition", 150.0, "synthesizer_graph_synthesis", 140.0),
+            ("fabricator_ast_mutation", 160.0, "sentinel_svdd_guardrail", 155.0),
+            ("perceiver_motion_gating", 130.0, "presenter_hud_compositor", 125.0),
+            ("router_mesh_routing", 140.0, "archivist_memory_compaction", 135.0),
+            ("aligner_chrono_scheduler", 135.0, "fabricator_jit_synthesis", 150.0),
+            ("orchestrator_consensus_quorum", 145.0, "router_gossip_broadcast", 130.0),
+            ("synthesizer_semantic_search", 135.0, "sentinel_zero_copy_audit", 140.0),
+            ("perceiver_spatial_intent", 140.0, "fabricator_native_optimizer", 145.0),
+            ("archivist_homeostasis", 130.0, "aligner_temporal_resonance", 125.0),
+            ("presenter_oscilloscope", 120.0, "synthesizer_subgraph_traversal", 135.0),
         ];
 
         pairs.iter()
@@ -185,38 +185,38 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_specialist_soul_vector_generation() {
-        let soul = SoulFusionEngine::build_specialist_soul(
-            "Hephaestus",
+    fn test_specialist_persona_vector_generation() {
+        let persona = PersonaFusionEngine::build_specialist_persona(
+            "Fabricator",
             "Fabrication",
             "Architect",
             0.95,
             0.99,
         );
-        assert_eq!(soul.specialist_id, "Hephaestus");
-        assert_eq!(soul.functional.domain_name, "Fabrication");
-        assert_eq!(soul.personality.conscientiousness, 0.99);
+        assert_eq!(persona.specialist_id, "Fabricator");
+        assert_eq!(persona.functional.domain_name, "Fabrication");
+        assert_eq!(persona.personality.conscientiousness, 0.99);
     }
 
     #[test]
-    fn test_olympian_soul_vector_generation() {
-        let soul = SoulFusionEngine::build_olympian_soul(
-            "Hephaestus",
+    fn test_olympian_persona_vector_generation() {
+        let persona = PersonaFusionEngine::build_olympian_persona(
+            "Fabricator",
             "Fabrication",
             "Architect",
             0.95,
             0.99,
         );
 
-        assert_eq!(soul.specialist_id, "Hephaestus");
-        assert_eq!(soul.soul_rank, "Rank S");
-        assert_eq!(soul.functional.domain_name, "Fabrication");
-        assert_eq!(soul.personality.conscientiousness, 0.99);
+        assert_eq!(persona.specialist_id, "Fabricator");
+        assert_eq!(persona.persona_rank, "Rank S");
+        assert_eq!(persona.functional.domain_name, "Fabrication");
+        assert_eq!(persona.personality.conscientiousness, 0.99);
     }
 
     #[test]
     fn test_skill_fusion_synergy() {
-        let fused = SoulFusionEngine::fuse_skills("ast_mutation", 120.0, "shadow_sandbox", 100.0);
+        let fused = PersonaFusionEngine::fuse_skills("ast_mutation", 120.0, "shadow_sandbox", 100.0);
 
         assert_eq!(fused.parent_skills.0, "ast_mutation");
         assert_eq!(fused.parent_skills.1, "shadow_sandbox");
@@ -227,7 +227,7 @@ mod tests {
 
     #[test]
     fn test_mine_all_federation_synergies() {
-        let synergies = SoulFusionEngine::mine_all_federation_synergies();
+        let synergies = PersonaFusionEngine::mine_all_federation_synergies();
         assert_eq!(synergies.len(), 10);
         for syn in &synergies {
             assert!(syn.synergy_multiplier >= 1.35);

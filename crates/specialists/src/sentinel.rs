@@ -1,5 +1,5 @@
-//! argus.rs
-//! Argus (The All-Seeing Guardian) & Sentinel (Cryptographic Vault & Safety Gatekeeper).
+//! sentinel.rs
+//! Sentinel (The All-Seeing Guardian) & AuditEngine (Cryptographic Vault & Safety Gatekeeper).
 //! Domain Opcode: 0x0500 (SECURITY_GOVERNANCE)
 
 use anyhow::{bail, Result};
@@ -19,14 +19,14 @@ pub struct SecurityAuditReport {
     pub rate_limit_passed: bool,
 }
 
-/// Sentinel Relic Engine: Cryptographic secrets vault & boundary firewall
-pub struct SentinelRelic {
+/// AuditEngine Relic Engine: Cryptographic secrets vault & boundary firewall
+pub struct AuditEngineRelic {
     pub threats_blocked: usize,
     pub audits_performed: usize,
     pub sentinel_engine: compute::ArgusSafetySentinel,
 }
 
-impl Default for SentinelRelic {
+impl Default for AuditEngineRelic {
     fn default() -> Self {
         Self {
             threats_blocked: 0,
@@ -36,49 +36,49 @@ impl Default for SentinelRelic {
     }
 }
 
-impl RelicEngine for SentinelRelic {
+impl RelicEngine for AuditEngineRelic {
     fn relic_name(&self) -> &'static str {
-        "Sentinel"
+        "AuditEngine"
     }
 
     fn supervisor_name(&self) -> &'static str {
-        "Argus"
+        "Sentinel"
     }
 
     fn relic_status(&self) -> String {
         format!(
-            "Sentinel Firewall: {} audits completed, {} malicious/unsafe operations blocked",
+            "AuditEngine Firewall: {} audits completed, {} malicious/unsafe operations blocked",
             self.audits_performed, self.threats_blocked
         )
     }
 }
 
-/// Argus Sovereign Specialist
-pub struct ArgusSpecialist {
+/// Sentinel Sovereign Specialist
+pub struct SentinelSpecialist {
     pub tokens: f32,
     pub max_tokens: f32,
-    pub sentinel: SentinelRelic,
+    pub sentinel: AuditEngineRelic,
 }
 
-impl Default for ArgusSpecialist {
+impl Default for SentinelSpecialist {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl ArgusSpecialist {
+impl SentinelSpecialist {
     pub fn new() -> Self {
         Self {
             tokens: 100.0,
             max_tokens: 100.0,
-            sentinel: SentinelRelic::default(),
+            sentinel: AuditEngineRelic::default(),
         }
     }
 
     /// Audits a proposed operation or payload for host safety
     pub fn audit_operation(&mut self, operation_name: &str, payload_bytes: &[u8]) -> Result<SecurityAuditReport> {
         self.sentinel.audits_performed += 1;
-        info!(target: "specialist::argus", %operation_name, "Auditing operation for host safety compliance");
+        info!(target: "specialist::sentinel", %operation_name, "Auditing operation for host safety compliance");
 
         let mut violations = Vec::new();
         let payload_str = String::from_utf8_lossy(payload_bytes);
@@ -94,7 +94,7 @@ impl ArgusSpecialist {
         let is_safe = violations.is_empty();
         if !is_safe {
             self.sentinel.threats_blocked += 1;
-            warn!(target: "specialist::argus", %operation_name, count = violations.len(), "Security violations detected by Sentinel");
+            warn!(target: "specialist::sentinel", %operation_name, count = violations.len(), "Security violations detected by AuditEngine");
         }
 
         Ok(SecurityAuditReport {
@@ -117,9 +117,9 @@ impl ArgusSpecialist {
 }
 
 #[async_trait]
-impl SovereignSpecialist for ArgusSpecialist {
+impl SovereignSpecialist for SentinelSpecialist {
     fn name(&self) -> &'static str {
-        "Argus"
+        "Sentinel"
     }
 
     fn domain_opcode(&self) -> u16 {
@@ -131,14 +131,14 @@ impl SovereignSpecialist for ArgusSpecialist {
         let payload = serde_json::to_vec(&report)?;
 
         if !report.is_safe {
-            bail!("Argus rejected packet due to safety violations: {:?}", report.violations_detected);
+            bail!("Sentinel rejected packet due to safety violations: {:?}", report.violations_detected);
         }
 
         Ok(MnlpResponse {
             success: true,
             opcode: self.domain_opcode(),
             correlation_id: packet.correlation_id,
-            message: "Argus verified operation as safe and compliant".to_string(),
+            message: "Sentinel verified operation as safe and compliant".to_string(),
             payload,
         })
     }
@@ -165,27 +165,27 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_argus_safety_audit() {
-        let mut argus = ArgusSpecialist::new();
-        let safe_report = argus.audit_operation("compute", b"let x = 1 + 2;").unwrap();
+    fn test_sentinel_safety_audit() {
+        let mut sentinel = SentinelSpecialist::new();
+        let safe_report = sentinel.audit_operation("compute", b"let x = 1 + 2;").unwrap();
         assert!(safe_report.is_safe);
 
-        let unsafe_report = argus.audit_operation("hid", b"SendInput(&input);").unwrap();
+        let unsafe_report = sentinel.audit_operation("hid", b"SendInput(&input);").unwrap();
         assert!(!unsafe_report.is_safe);
-        assert_eq!(argus.sentinel.threats_blocked, 1);
+        assert_eq!(sentinel.sentinel.threats_blocked, 1);
     }
 
     #[test]
-    fn test_argus_latent_manifold_guardrail() {
-        let mut argus = ArgusSpecialist::new();
+    fn test_sentinel_latent_manifold_guardrail() {
+        let mut sentinel = SentinelSpecialist::new();
         let safe_tensor = [0.1f32; 256];
-        let verdict = argus.audit_latent_state(&safe_tensor);
+        let verdict = sentinel.audit_latent_state(&safe_tensor);
         assert!(verdict.is_safe);
 
         let rogue_tensor = [50.0f32; 256];
-        let rogue_verdict = argus.audit_latent_state(&rogue_tensor);
+        let rogue_verdict = sentinel.audit_latent_state(&rogue_tensor);
         assert!(!rogue_verdict.is_safe);
         assert!(rogue_verdict.was_projected);
-        assert!(argus.sentinel.threats_blocked >= 1);
+        assert!(sentinel.sentinel.threats_blocked >= 1);
     }
 }

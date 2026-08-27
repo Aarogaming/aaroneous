@@ -1,5 +1,5 @@
-//! odin.rs
-//! Odin (The Allfather / Commander) & Draupnir (Task Scheduler & Token Multiplier Engine).
+//! orchestrator.rs
+//! Orchestrator (The Allfather / Commander) & OrchestratorCore (Task Scheduler & Token Multiplier Engine).
 //! Domain Opcode: 0x0100 (TASK_ORCHESTRATION)
 
 use anyhow::Result;
@@ -11,7 +11,7 @@ use tracing::info;
 
 use crate::traits::{MnlpPacket, MnlpResponse, RelicEngine, SovereignSpecialist, SpecialistHealth};
 
-/// A subtask in an Odin Directed Acyclic Graph (DAG)
+/// A subtask in an Orchestrator Directed Acyclic Graph (DAG)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TaskNode {
     pub task_id: String,
@@ -22,63 +22,63 @@ pub struct TaskNode {
     pub completed: bool,
 }
 
-/// Draupnir Relic Engine: Autonomous task scheduler and token multiplier
+/// OrchestratorCore Relic Engine: Autonomous task scheduler and token multiplier
 #[derive(Debug, Clone, Default)]
-pub struct DraupnirRelic {
+pub struct OrchestratorCoreRelic {
     pub active_dag_count: usize,
     pub total_tasks_scheduled: usize,
 }
 
-impl RelicEngine for DraupnirRelic {
+impl RelicEngine for OrchestratorCoreRelic {
     fn relic_name(&self) -> &'static str {
-        "Draupnir"
+        "OrchestratorCore"
     }
 
     fn supervisor_name(&self) -> &'static str {
-        "Odin"
+        "Orchestrator"
     }
 
     fn relic_status(&self) -> String {
         format!(
-            "Draupnir Active: {} DAGs, {} tasks scheduled",
+            "OrchestratorCore Active: {} DAGs, {} tasks scheduled",
             self.active_dag_count, self.total_tasks_scheduled
         )
     }
 }
 
-/// Odin Sovereign Specialist
-pub struct OdinSpecialist {
+/// Orchestrator Sovereign Specialist
+pub struct OrchestratorSpecialist {
     pub tokens: f32,
     pub max_tokens: f32,
     pub task_queue: VecDeque<TaskNode>,
-    pub draupnir: DraupnirRelic,
+    pub draupnir: OrchestratorCoreRelic,
 }
 
-impl Default for OdinSpecialist {
+impl Default for OrchestratorSpecialist {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl OdinSpecialist {
+impl OrchestratorSpecialist {
     pub fn new() -> Self {
         Self {
             tokens: 100.0,
             max_tokens: 100.0,
             task_queue: VecDeque::new(),
-            draupnir: DraupnirRelic::default(),
+            draupnir: OrchestratorCoreRelic::default(),
         }
     }
 
     /// Decomposes an intent into subtasks
     pub fn decompose_intent(&mut self, intent_description: &str) -> Vec<TaskNode> {
-        info!(target: "specialist::odin", %intent_description, "Decomposing user intent into task DAG");
+        info!(target: "specialist::orchestrator", %intent_description, "Decomposing user intent into task DAG");
 
         let tasks = vec![
             TaskNode {
                 task_id: "task_1_research".to_string(),
                 description: format!("Research requirements for: {}", intent_description),
-                assigned_specialist: "Merlin".to_string(),
+                assigned_specialist: "Synthesizer".to_string(),
                 token_cost: 5.0,
                 dependencies: vec![],
                 completed: false,
@@ -86,7 +86,7 @@ impl OdinSpecialist {
             TaskNode {
                 task_id: "task_2_forge".to_string(),
                 description: format!("Synthesize and adapt code for: {}", intent_description),
-                assigned_specialist: "Hephaestus".to_string(),
+                assigned_specialist: "Fabricator".to_string(),
                 token_cost: 15.0,
                 dependencies: vec!["task_1_research".to_string()],
                 completed: false,
@@ -94,7 +94,7 @@ impl OdinSpecialist {
             TaskNode {
                 task_id: "task_3_audit".to_string(),
                 description: format!("Security and safety verification for: {}", intent_description),
-                assigned_specialist: "Argus".to_string(),
+                assigned_specialist: "Sentinel".to_string(),
                 token_cost: 5.0,
                 dependencies: vec!["task_2_forge".to_string()],
                 completed: false,
@@ -113,9 +113,9 @@ impl OdinSpecialist {
 }
 
 #[async_trait]
-impl SovereignSpecialist for OdinSpecialist {
+impl SovereignSpecialist for OrchestratorSpecialist {
     fn name(&self) -> &'static str {
-        "Odin"
+        "Orchestrator"
     }
 
     fn domain_opcode(&self) -> u16 {
@@ -131,7 +131,7 @@ impl SovereignSpecialist for OdinSpecialist {
             success: true,
             opcode: self.domain_opcode(),
             correlation_id: packet.correlation_id,
-            message: format!("Odin decomposed intent into {} tasks", tasks.len()),
+            message: format!("Orchestrator decomposed intent into {} tasks", tasks.len()),
             payload: response_payload,
         })
     }
@@ -158,13 +158,13 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    async fn test_odin_intent_decomposition() {
-        let mut odin = OdinSpecialist::new();
-        let tasks = odin.decompose_intent("Build new adapter harness");
+    async fn test_orchestrator_intent_decomposition() {
+        let mut orchestrator = OrchestratorSpecialist::new();
+        let tasks = orchestrator.decompose_intent("Build new adapter harness");
         assert_eq!(tasks.len(), 3);
-        assert_eq!(tasks[0].assigned_specialist, "Merlin");
-        assert_eq!(tasks[1].assigned_specialist, "Hephaestus");
-        assert_eq!(tasks[2].assigned_specialist, "Argus");
-        assert_eq!(odin.draupnir.total_tasks_scheduled, 3);
+        assert_eq!(tasks[0].assigned_specialist, "Synthesizer");
+        assert_eq!(tasks[1].assigned_specialist, "Fabricator");
+        assert_eq!(tasks[2].assigned_specialist, "Sentinel");
+        assert_eq!(orchestrator.draupnir.total_tasks_scheduled, 3);
     }
 }

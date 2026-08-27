@@ -42,20 +42,20 @@ impl super::LLMProvider for MockProvider {
         debug!("Mock: Finding collaborators for {}", specialist.name);
 
         let suggestions = match specialist.name.as_str() {
-            "Merlin" => vec![CollaboratorSuggestion {
+            "Synthesizer" => vec![CollaboratorSuggestion {
                 specialist_name: "Circe".to_string(),
                 reason: "Complementary analysis skills".to_string(),
                 relevance_score: 0.9,
                 complementary_skills: vec!["statistical_analysis".to_string()],
             }],
-            "Ariel" => vec![CollaboratorSuggestion {
-                specialist_name: "Hephaestus".to_string(),
+            "Presenter" => vec![CollaboratorSuggestion {
+                specialist_name: "Fabricator".to_string(),
                 reason: "Complementary tool skills".to_string(),
                 relevance_score: 0.8,
                 complementary_skills: vec!["system_integration".to_string()],
             }],
             _ => vec![CollaboratorSuggestion {
-                specialist_name: "Odin".to_string(),
+                specialist_name: "Orchestrator".to_string(),
                 reason: "Leadership coordination".to_string(),
                 relevance_score: 0.7,
                 complementary_skills: vec!["orchestration".to_string()],
@@ -168,7 +168,7 @@ impl super::LLMProvider for MockProvider {
 
         // If the intent contains a domain-specific system prompt (from generate_domain_response),
         // return structured JSON appropriate for that domain rather than UI design variants.
-        // This makes Odin, Argus, Merlin etc. return parseable structured output in mock mode.
+        // This makes Orchestrator, Sentinel, Synthesizer etc. return parseable structured output in mock mode.
         if let Some(domain) = context.style_hints.first() {
             match domain.as_str() {
                 "task_orchestration" | "guild_coordination" | "intent_routing" => {
@@ -193,9 +193,9 @@ impl super::LLMProvider for MockProvider {
                         || intent_lower.contains("memory leak")
                         || intent_lower.contains("leak")
                         || intent_lower.contains("review")
-                    // code review → Argus for security
+                    // code review → Sentinel for security
                     {
-                        ("Argus", format!("Security/code audit: {}", short))
+                        ("Sentinel", format!("Security/code audit: {}", short))
                     } else if intent_lower.contains("rust")
                         || intent_lower.contains("code")
                         || intent_lower.contains("function")
@@ -203,7 +203,7 @@ impl super::LLMProvider for MockProvider {
                         || intent_lower.contains("refactor")
                         || intent_lower.contains("analyze")
                     {
-                        ("Merlin", format!("Code analysis: {}", short))
+                        ("Synthesizer", format!("Code analysis: {}", short))
                     } else if intent_lower.contains("build")
                         || intent_lower.contains("deploy")
                         || intent_lower.contains("ci")
@@ -211,7 +211,7 @@ impl super::LLMProvider for MockProvider {
                         || intent_lower.contains("docker")
                         || intent_lower.contains("compile")
                     {
-                        ("Hephaestus", format!("Build planning: {}", short))
+                        ("Fabricator", format!("Build planning: {}", short))
                     } else if intent_lower.contains("design")
                         || intent_lower.contains(" ui ")
                         || intent_lower.contains("ux")
@@ -219,15 +219,15 @@ impl super::LLMProvider for MockProvider {
                         || intent_lower.contains("layout")
                         || intent_lower.contains("visual")
                     {
-                        ("Ariel", format!("Design generation: {}", short))
+                        ("Presenter", format!("Design generation: {}", short))
                     } else {
-                        // General intent → Merlin for synthesis
-                        ("Merlin", format!("Execute primary work on: {}", short))
+                        // General intent → Synthesizer for synthesis
+                        ("Synthesizer", format!("Execute primary work on: {}", short))
                     };
 
                     let t1_content = format!("Research and gather context for: {}", short);
                     let json = format!(
-                        r#"{{"mock":true,"source":"odin_mock","tasks":[{{"id":"t1","content":"{}","assign_to":"Merlin","priority":"High","deps":[]}},{{"id":"t2","content":"{}","assign_to":"{}","priority":"Normal","deps":["t1"]}},{{"id":"t3","content":"Archive results and update DNA Bank","assign_to":"Dionysus","priority":"Low","deps":["t2"]}}],"note":"Enable --features llama-gguf for real Odin task decomposition"}}"#,
+                        r#"{{"mock":true,"source":"orchestrator_mock","tasks":[{{"id":"t1","content":"{}","assign_to":"Synthesizer","priority":"High","deps":[]}},{{"id":"t2","content":"{}","assign_to":"{}","priority":"Normal","deps":["t1"]}},{{"id":"t3","content":"Archive results and update DNA Bank","assign_to":"Archivist","priority":"Low","deps":["t2"]}}],"note":"Enable --features llama-gguf for real Orchestrator task decomposition"}}"#,
                         t1_content, t2_action, t2_sovereign
                     );
                     return Ok(DesignGeneration {
@@ -239,7 +239,7 @@ impl super::LLMProvider for MockProvider {
                             typography: String::new(),
                             layout: "task_dag".into(),
                             confidence: 0.85,
-                            reasoning: "Odin guild decomposition (mock)".into(),
+                            reasoning: "Orchestrator guild decomposition (mock)".into(),
                         }],
                         tokens_used: 0,
                         batch_confidence: 0.85,
@@ -248,7 +248,7 @@ impl super::LLMProvider for MockProvider {
                 "security_audit" | "secrets_management" | "vulnerability_scanning" => {
                     let intent = context.intent.chars().take(80).collect::<String>();
                     let json = format!(
-                        r#"{{"mock":true,"source":"argus_mock","target":"{}","findings":[{{"severity":"Info","description":"Mock — no real security analysis performed","remediation":"Enable --features llama-gguf for real Argus scanning"}}],"overall_risk":"Unknown","note":"This is a mock output."}}"#,
+                        r#"{{"mock":true,"source":"sentinel_mock","target":"{}","findings":[{{"severity":"Info","description":"Mock — no real security analysis performed","remediation":"Enable --features llama-gguf for real Sentinel scanning"}}],"overall_risk":"Unknown","note":"This is a mock output."}}"#,
                         intent
                     );
                     return Ok(DesignGeneration {
@@ -260,7 +260,7 @@ impl super::LLMProvider for MockProvider {
                             typography: String::new(),
                             layout: "security_report".into(),
                             confidence: 0.3,
-                            reasoning: "Argus audit (mock — not a real scan)".into(),
+                            reasoning: "Sentinel audit (mock — not a real scan)".into(),
                         }],
                         tokens_used: 0,
                         batch_confidence: 0.3,
@@ -269,7 +269,7 @@ impl super::LLMProvider for MockProvider {
                 "research" | "knowledge_synthesis" | "external_research" => {
                     let intent = context.intent.chars().take(80).collect::<String>();
                     let json = format!(
-                        r#"{{"mock":true,"source":"merlin_mock","query":"{}","summary":"Mock placeholder — no real synthesis","key_findings":["This is a mock response","Enable --features llama-gguf for real Merlin research"],"confidence":0.3}}"#,
+                         r#"{{"mock":true,"source":"synthesizer_mock","query":"{}","summary":"Mock placeholder — no real synthesis","key_findings":["This is a mock response","Enable --features llama-gguf for real Synthesizer research"],"confidence":0.3}}"#,
                         intent
                     );
                     return Ok(DesignGeneration {
@@ -281,7 +281,7 @@ impl super::LLMProvider for MockProvider {
                             typography: String::new(),
                             layout: "research_report".into(),
                             confidence: 0.3,
-                            reasoning: "Merlin synthesis (mock)".into(),
+                            reasoning: "Synthesizer synthesis (mock)".into(),
                         }],
                         tokens_used: 0,
                         batch_confidence: 0.3,
@@ -290,7 +290,7 @@ impl super::LLMProvider for MockProvider {
                 "fabrication" | "maintenance" | "infrastructure" | "construction" => {
                     let intent = context.intent.chars().take(100).collect::<String>();
                     let json = format!(
-                        r#"{{"mock":true,"source":"hephaestus_mock","task":"{}","plan":[{{"step":1,"action":"Assess requirements","status":"planned"}},{{"step":2,"action":"Identify dependencies","status":"planned"}},{{"step":3,"action":"Generate build manifest","status":"planned"}}],"note":"Enable --features llama-gguf for real Hephaestus build planning"}}"#,
+                         r#"{{"mock":true,"source":"fabricator_mock","task":"{}","plan":[{{"step":1,"action":"Assess requirements","status":"planned"}},{{"step":2,"action":"Identify dependencies","status":"planned"}},{{"step":3,"action":"Generate build manifest","status":"planned"}}],"note":"Enable --features llama-gguf for real Fabricator build planning"}}"#,
                         intent
                     );
                     return Ok(DesignGeneration {
@@ -302,14 +302,14 @@ impl super::LLMProvider for MockProvider {
                             typography: String::new(),
                             layout: "fabrication_plan".into(),
                             confidence: 0.3,
-                            reasoning: "Hephaestus plan (mock)".into(),
+                            reasoning: "Fabricator plan (mock)".into(),
                         }],
                         tokens_used: 0,
                         batch_confidence: 0.3,
                     });
                 }
                 "mesh_sync" | "p2p" | "multi_device" => {
-                    let json = r#"{"mock":true,"source":"hermes_mock","devices":[],"conflicts":[],"bandwidth_mbps":0,"status":"no_p2p_attached","note":"Enable --features p2p-iroh for real Hermes mesh sync"}"#;
+                     let json = r#"{"mock":true,"source":"router_mock","devices":[],"conflicts":[],"bandwidth_mbps":0,"status":"no_p2p_attached","note":"Enable --features p2p-iroh for real Router mesh sync"}"#;
                     return Ok(DesignGeneration {
                         intent: context.intent.clone(),
                         variants: vec![DesignVariant {
@@ -319,7 +319,7 @@ impl super::LLMProvider for MockProvider {
                             typography: String::new(),
                             layout: "sync_status".into(),
                             confidence: 0.3,
-                            reasoning: "Hermes sync (mock)".into(),
+                            reasoning: "Router sync (mock)".into(),
                         }],
                         tokens_used: 0,
                         batch_confidence: 0.3,
@@ -328,7 +328,7 @@ impl super::LLMProvider for MockProvider {
                 "spatial" | "ar_vr" | "physical_digital" => {
                     let intent = context.intent.chars().take(80).collect::<String>();
                     let json = format!(
-                        r#"{{"mock":true,"source":"kami_mock","intent":"{}","spatial":{{"anchor_count":1,"device":"simulated","frame_rate_fps":60,"ar_available":false,"render_mode":"simulated"}},"anchors":[{{"prototype_id":"synth-mock","design_variant":"{}","landmark":"arm-reach-default","model":"/models/synth.glb","scale":1.0,"ar_available":false,"source":"intent_derived"}}],"note":"Enable --features ar-openxr for real Kami AR rendering"}}"#,
+                         r#"{{"mock":true,"source":"perceiver_mock","intent":"{}","spatial":{{"anchor_count":1,"device":"simulated","frame_rate_fps":60,"ar_available":false,"render_mode":"simulated"}},"anchors":[{{"prototype_id":"synth-mock","design_variant":"{}","landmark":"arm-reach-default","model":"/models/synth.glb","scale":1.0,"ar_available":false,"source":"intent_derived"}}],"note":"Enable --features ar-openxr for real Perceiver AR rendering"}}"#,
                         intent, intent
                     );
                     return Ok(DesignGeneration {
@@ -340,14 +340,14 @@ impl super::LLMProvider for MockProvider {
                             typography: String::new(),
                             layout: "spatial_manifest".into(),
                             confidence: 0.3,
-                            reasoning: "Kami spatial (mock — no AR runtime)".into(),
+                            reasoning: "Perceiver spatial (mock — no AR runtime)".into(),
                         }],
                         tokens_used: 0,
                         batch_confidence: 0.3,
                     });
                 }
                 "biometric" | "human_state" | "user_adaptation" => {
-                    let json = r#"{"mock":true,"source":"wen_mock","state":"unknown","stress":0.5,"fatigue":0.3,"readiness":70,"recommendation":"continue","defer_interruptions":false,"note":"Enable biometric sensor or --features biometric-ble for real Wen readings"}"#;
+                     let json = r#"{"mock":true,"source":"aligner_mock","state":"unknown","stress":0.5,"fatigue":0.3,"readiness":70,"recommendation":"continue","defer_interruptions":false,"note":"Enable biometric sensor or --features biometric-ble for real Aligner readings"}"#;
                     return Ok(DesignGeneration {
                         intent: context.intent.clone(),
                         variants: vec![DesignVariant {
@@ -357,14 +357,14 @@ impl super::LLMProvider for MockProvider {
                             typography: String::new(),
                             layout: "biometric_state".into(),
                             confidence: 0.3,
-                            reasoning: "Wen biometric (mock)".into(),
+                            reasoning: "Aligner biometric (mock)".into(),
                         }],
                         tokens_used: 0,
                         batch_confidence: 0.3,
                     });
                 }
                 "memory_consolidation" | "archival" => {
-                    let json = r#"{"mock":true,"source":"dionysus_mock","consolidated_events":0,"patterns_discovered":0,"dna_bank_size_mb":0,"note":"Dionysus accumulates patterns across sessions — submit more intents to build memory"}"#;
+                     let json = r#"{"mock":true,"source":"archivist_mock","consolidated_events":0,"patterns_discovered":0,"dna_bank_size_mb":0,"note":"Archivist accumulates patterns across sessions — submit more intents to build memory"}"#;
                     return Ok(DesignGeneration {
                         intent: context.intent.clone(),
                         variants: vec![DesignVariant {
@@ -374,7 +374,7 @@ impl super::LLMProvider for MockProvider {
                             typography: String::new(),
                             layout: "consolidation_report".into(),
                             confidence: 0.4,
-                            reasoning: "Dionysus archival (mock)".into(),
+                            reasoning: "Archivist archival (mock)".into(),
                         }],
                         tokens_used: 0,
                         batch_confidence: 0.4,

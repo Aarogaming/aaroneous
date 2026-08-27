@@ -1,6 +1,6 @@
-//! kami.rs
-//! Kami (The Sensory Threshold) & Threshold (Spatial-Kinetic Perception & HID Bridge).
-//! Powered directly by Marionette.
+//! perceiver.rs
+//! Perceiver (The Sensory Threshold) & GatekeeperEngine (Spatial-Kinetic Perception & HID Bridge).
+//! Powered directly by Desktop Emulator.
 //! Domain Opcode: 0x0900 (SPATIAL_SENSORY)
 
 use anyhow::Result;
@@ -9,17 +9,17 @@ use chrono::Utc;
 use std::sync::Arc;
 use tracing::info;
 
-use marionette::{HidCommand, MarionetteEngine, VisualObservation};
+use desktop_emulator::{HidCommand, DesktopEmulator, VisualObservation};
 use crate::traits::{MnlpPacket, MnlpResponse, RelicEngine, SovereignSpecialist, SpecialistHealth};
 
-/// Threshold Relic Engine wrapper for Kami
+/// GatekeeperEngine Relic Engine wrapper for Perceiver
 #[derive(Debug, Clone)]
-pub struct ThresholdRelicWrapper {
+pub struct GatekeeperEngineRelic {
     pub frames_processed: usize,
     pub avg_compute_savings_pct: f32,
 }
 
-impl Default for ThresholdRelicWrapper {
+impl Default for GatekeeperEngineRelic {
     fn default() -> Self {
         Self {
             frames_processed: 0,
@@ -28,57 +28,57 @@ impl Default for ThresholdRelicWrapper {
     }
 }
 
-impl RelicEngine for ThresholdRelicWrapper {
+impl RelicEngine for GatekeeperEngineRelic {
     fn relic_name(&self) -> &'static str {
-        "Threshold"
+        "GatekeeperEngine"
     }
 
     fn supervisor_name(&self) -> &'static str {
-        "Kami"
+        "Perceiver"
     }
 
     fn relic_status(&self) -> String {
         format!(
-            "Threshold Epigenetic Gating: {} frames processed ({:.1}% avg compute saved)",
+            "GatekeeperEngine Epigenetic Gating: {} frames processed ({:.1}% avg compute saved)",
             self.frames_processed, self.avg_compute_savings_pct
         )
     }
 }
 
-/// Kami Sovereign Specialist
-pub struct KamiSpecialist {
+/// Perceiver Sovereign Specialist
+pub struct PerceiverSpecialist {
     pub tokens: f32,
     pub max_tokens: f32,
-    pub marionette: Arc<MarionetteEngine>,
-    pub relic: ThresholdRelicWrapper,
+    pub marionette: Arc<DesktopEmulator>,
+    pub relic: GatekeeperEngineRelic,
 }
 
-impl Default for KamiSpecialist {
+impl Default for PerceiverSpecialist {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl KamiSpecialist {
+impl PerceiverSpecialist {
     pub fn new() -> Self {
-        let engine = Arc::new(MarionetteEngine::new_mock());
+        let engine = Arc::new(DesktopEmulator::new_mock());
         Self {
             tokens: 100.0,
             max_tokens: 100.0,
             marionette: engine,
-            relic: ThresholdRelicWrapper::default(),
+            relic: GatekeeperEngineRelic::default(),
         }
     }
 
-    /// Captures a raw spatial visual frame from the threshold
+    /// Captures a raw spatial visual frame from the gatekeeper
     pub async fn capture_frame(&self) -> Result<VisualObservation> {
-        info!(target: "specialist::kami", "Capturing spatial visual frame across the physical-digital threshold");
+        info!(target: "specialist::perceiver", "Capturing spatial visual frame across the physical-digital gatekeeper");
         self.marionette.pull_visual_perception().await
     }
 
     /// Captures a spatial visual frame gated by the 16x16 epigenetic motion saliency matrix
-    pub async fn capture_epigenetic_gated_frame(&mut self) -> Result<(VisualObservation, marionette::EpigeneticGatingResult)> {
-        info!(target: "specialist::kami", "Capturing epigenetic gated visual perception across the threshold");
+    pub async fn capture_epigenetic_gated_frame(&mut self) -> Result<(VisualObservation, desktop_emulator::EpigeneticGatingResult)> {
+        info!(target: "specialist::perceiver", "Capturing epigenetic gated visual perception across the gatekeeper");
         let (obs, result) = self.marionette.pull_epigenetic_perception().await?;
 
         self.relic.frames_processed += 1;
@@ -96,9 +96,9 @@ impl KamiSpecialist {
 }
 
 #[async_trait]
-impl SovereignSpecialist for KamiSpecialist {
+impl SovereignSpecialist for PerceiverSpecialist {
     fn name(&self) -> &'static str {
-        "Kami"
+        "Perceiver"
     }
 
     fn domain_opcode(&self) -> u16 {
@@ -114,7 +114,7 @@ impl SovereignSpecialist for KamiSpecialist {
             opcode: self.domain_opcode(),
             correlation_id: packet.correlation_id,
             message: format!(
-                "Kami captured epigenetic frame via Marionette ({} active sectors, {:.1}% compute saved in {}µs)",
+                "Perceiver captured epigenetic frame via Desktop Emulator ({} active sectors, {:.1}% compute saved in {}µs)",
                 gating.active_sectors_count, gating.compute_savings_pct, gating.duration_us
             ),
             payload,
@@ -143,9 +143,9 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    async fn test_kami_perception() {
-        let kami = KamiSpecialist::new();
-        let frame = kami.capture_frame().await.unwrap();
+    async fn test_perceiver_perception() {
+        let perceiver = PerceiverSpecialist::new();
+        let frame = perceiver.capture_frame().await.unwrap();
         assert_eq!(frame.grid.len(), 128 * 128);
     }
 }

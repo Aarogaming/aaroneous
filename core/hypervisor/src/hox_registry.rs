@@ -125,7 +125,7 @@ mod tests {
         let registry = HoxRegistry::new(db_path.to_str().unwrap()).unwrap();
 
         let cap = capability(
-            "odin",
+            "orchestrator",
             "hash-1",
             HoxPermissions {
                 max_sovereignty_tier: 2,
@@ -139,7 +139,7 @@ mod tests {
         );
         registry.register_capability(&cap).unwrap();
 
-        let loaded = registry.get_capability("odin").unwrap().unwrap();
+        let loaded = registry.get_capability("orchestrator").unwrap().unwrap();
         assert_eq!(loaded.name, cap.name);
         assert_eq!(loaded.enzyme_hash, cap.enzyme_hash);
         assert_eq!(
@@ -161,7 +161,7 @@ mod tests {
 
         let listed = registry.list_capabilities().unwrap();
         assert_eq!(listed.len(), 1);
-        assert_eq!(listed[0].name, "odin");
+        assert_eq!(listed[0].name, "orchestrator");
     }
 
     #[test]
@@ -172,7 +172,7 @@ mod tests {
 
         registry
             .register_capability(&capability(
-                "merlin",
+                "synthesizer",
                 "hash-a",
                 HoxPermissions {
                     max_sovereignty_tier: 1,
@@ -184,7 +184,7 @@ mod tests {
             .unwrap();
         registry
             .register_capability(&capability(
-                "odin",
+                "orchestrator",
                 "hash-b",
                 HoxPermissions {
                     max_sovereignty_tier: 2,
@@ -196,7 +196,7 @@ mod tests {
             .unwrap();
         registry
             .register_capability(&capability(
-                "merlin",
+                "synthesizer",
                 "hash-c",
                 HoxPermissions {
                     max_sovereignty_tier: 3,
@@ -210,7 +210,7 @@ mod tests {
             ))
             .unwrap();
 
-        let merlin = registry.get_capability("merlin").unwrap().unwrap();
+        let merlin = registry.get_capability("synthesizer").unwrap().unwrap();
         assert_eq!(merlin.enzyme_hash, "hash-c");
         assert_eq!(merlin.permissions.max_sovereignty_tier, 3);
         assert!(merlin.permissions.allow_network);
@@ -226,7 +226,7 @@ mod tests {
                 .iter()
                 .map(|cap| cap.name.as_str())
                 .collect::<Vec<_>>(),
-            vec!["merlin", "odin"]
+            vec!["orchestrator", "synthesizer"]
         );
     }
 
@@ -238,7 +238,7 @@ mod tests {
 
         registry
             .register_capability(&capability(
-                "odin",
+                "orchestrator",
                 "hash-1",
                 HoxPermissions {
                     max_sovereignty_tier: 2,
@@ -249,8 +249,8 @@ mod tests {
             ))
             .unwrap();
 
-        let enzyme = registry.get_enzyme("odin").unwrap();
-        assert_eq!(enzyme.category, "odin");
+        let enzyme = registry.get_enzyme("orchestrator").unwrap();
+        assert_eq!(enzyme.category, "orchestrator");
         assert_eq!(enzyme.permissions.max_sovereignty_tier, 2);
         assert!(enzyme.permissions.allow_network);
         assert_eq!(

@@ -1,5 +1,5 @@
-//! hermes.rs
-//! Hermes (The Swift Messenger) & Caduceus (Zero-Copy P2P Synapse & Mesh Bus).
+//! router.rs
+//! Router (The Swift Messenger) & FederationBus (Zero-Copy P2P Synapse & Mesh Bus).
 //! Domain Opcode: 0x0700 (NETWORK_FEDERATION)
 
 use anyhow::Result;
@@ -19,14 +19,14 @@ pub struct MeshPeerState {
     pub is_connected: bool,
 }
 
-/// Caduceus Relic Engine: Zero-copy P2P packet bus and distributed synapse
+/// FederationBus Relic Engine: Zero-copy P2P packet bus and distributed synapse
 #[derive(Debug, Clone)]
-pub struct CaduceusRelic {
+pub struct FederationBusRelic {
     pub packets_routed: u64,
     pub connected_peers: usize,
 }
 
-impl Default for CaduceusRelic {
+impl Default for FederationBusRelic {
     fn default() -> Self {
         Self {
             packets_routed: 0,
@@ -35,49 +35,49 @@ impl Default for CaduceusRelic {
     }
 }
 
-impl RelicEngine for CaduceusRelic {
+impl RelicEngine for FederationBusRelic {
     fn relic_name(&self) -> &'static str {
-        "Caduceus"
+        "FederationBus"
     }
 
     fn supervisor_name(&self) -> &'static str {
-        "Hermes"
+        "Router"
     }
 
     fn relic_status(&self) -> String {
         format!(
-            "Caduceus Mesh Bus: {} packets routed across {} connected peers",
+            "FederationBus Mesh Bus: {} packets routed across {} connected peers",
             self.packets_routed, self.connected_peers
         )
     }
 }
 
-/// Hermes Sovereign Specialist
-pub struct HermesSpecialist {
+/// Router Sovereign Specialist
+pub struct RouterSpecialist {
     pub tokens: f32,
     pub max_tokens: f32,
-    pub caduceus: CaduceusRelic,
+    pub caduceus: FederationBusRelic,
 }
 
-impl Default for HermesSpecialist {
+impl Default for RouterSpecialist {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl HermesSpecialist {
+impl RouterSpecialist {
     pub fn new() -> Self {
         Self {
             tokens: 100.0,
             max_tokens: 100.0,
-            caduceus: CaduceusRelic::default(),
+            caduceus: FederationBusRelic::default(),
         }
     }
 
     /// Routes a packet across the P2P mesh to a target peer
     pub fn route_mesh_packet(&mut self, target_peer: &str, payload_size: usize) -> MeshPeerState {
         self.caduceus.packets_routed += 1;
-        info!(target: "specialist::hermes", %target_peer, bytes = payload_size, "Routing packet over P2P mesh");
+        info!(target: "specialist::router", %target_peer, bytes = payload_size, "Routing packet over P2P mesh");
 
         MeshPeerState {
             peer_node_id: target_peer.to_string(),
@@ -91,10 +91,10 @@ impl HermesSpecialist {
     pub fn route_task_offload(&mut self, opcode: u16, target_peer: &str) -> MeshPeerState {
         self.caduceus.packets_routed += 1;
         info!(
-            target: "specialist::hermes",
+            target: "specialist::router",
             opcode = format!("0x{:04X}", opcode),
             %target_peer,
-            "⚡ Hermes offloading micro-task to swarm peer"
+            "⚡ Router offloading micro-task to swarm peer"
         );
 
         MeshPeerState {
@@ -125,19 +125,19 @@ impl HermesSpecialist {
     pub fn sync_swarm_manifest(&mut self, peer_id: &str, active_specialists: &[&str]) -> bool {
         self.caduceus.packets_routed += 1;
         info!(
-            target: "specialist::hermes",
+            target: "specialist::router",
             peer = %peer_id,
             specialists_count = active_specialists.len(),
-            "Synced remote swarm capabilities over Caduceus mesh"
+            "Synced remote swarm capabilities over FederationBus mesh"
         );
         !active_specialists.is_empty()
     }
 }
 
 #[async_trait]
-impl SovereignSpecialist for HermesSpecialist {
+impl SovereignSpecialist for RouterSpecialist {
     fn name(&self) -> &'static str {
-        "Hermes"
+        "Router"
     }
 
     fn domain_opcode(&self) -> u16 {
@@ -152,7 +152,7 @@ impl SovereignSpecialist for HermesSpecialist {
             success: true,
             opcode: self.domain_opcode(),
             correlation_id: packet.correlation_id,
-            message: format!("Hermes routed packet to peer '{}'", packet.target),
+            message: format!("Router routed packet to peer '{}'", packet.target),
             payload,
         })
     }
@@ -179,24 +179,24 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_hermes_routing() {
-        let mut hermes = HermesSpecialist::new();
-        let state = hermes.route_mesh_packet("node_beta", 1024);
+    fn test_router_routing() {
+        let mut router = RouterSpecialist::new();
+        let state = router.route_mesh_packet("node_beta", 1024);
         assert!(state.is_connected);
-        assert_eq!(hermes.caduceus.packets_routed, 1);
+        assert_eq!(router.caduceus.packets_routed, 1);
     }
 
     #[test]
-    fn test_hermes_gossip_pulse_and_manifest_sync() {
-        let mut hermes = HermesSpecialist::new();
+    fn test_router_gossip_pulse_and_manifest_sync() {
+        let mut router = RouterSpecialist::new();
         let peers = vec!["node_alpha", "node_beta", "node_gamma"];
-        let pulse_states = hermes.broadcast_gossip_pulse(&peers);
+        let pulse_states = router.broadcast_gossip_pulse(&peers);
         assert_eq!(pulse_states.len(), 3);
-        assert_eq!(hermes.caduceus.connected_peers, 4); // 1 local + 3 remote
-        assert_eq!(hermes.caduceus.packets_routed, 3);
+        assert_eq!(router.caduceus.connected_peers, 4); // 1 local + 3 remote
+        assert_eq!(router.caduceus.packets_routed, 3);
 
-        let is_synced = hermes.sync_swarm_manifest("node_alpha", &["odin", "merlin", "hephaestus"]);
+        let is_synced = router.sync_swarm_manifest("node_alpha", &["orchestrator", "synthesizer", "fabricator"]);
         assert!(is_synced);
-        assert_eq!(hermes.caduceus.packets_routed, 4);
+        assert_eq!(router.caduceus.packets_routed, 4);
     }
 }

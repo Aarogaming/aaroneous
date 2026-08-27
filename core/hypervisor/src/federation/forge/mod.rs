@@ -594,12 +594,12 @@ pub fn domain_tensor_keywords(domain: &str) -> Vec<String> {
 /// Chosen based on the trade-off between:
 /// - Inference speed (lower quant = faster, less memory)
 /// - Output quality (higher quant = more accurate weights)
-/// - Always-resident cost (Wen runs every 5s; Foundation model rarely)
+/// - Always-resident cost (Aligner runs every 5s; Foundation model rarely)
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum QuantizationPreference {
     /// Full precision — only for tiny models (< 500M) always-resident
     F16,
-    /// Q8_0 — high accuracy, ~1 byte/param (good for Wen, small models)
+    /// Q8_0 — high accuracy, ~1 byte/param (good for Aligner, small models)
     Q8_0,
     /// Q4_K_M — balanced (default for 7B class, production quality)
     Q4KM,
@@ -638,8 +638,8 @@ impl QuantizationPreference {
 /// a better foundation than a coding-specialized model for non-code domains.
 /// Abliteration removes the RLHF refusal direction from the residual stream,
 /// producing a model that follows instructions without content restrictions —
-/// critical for security analysis (Argus), uncensored research (Merlin), and
-/// honest biometric assessment (Wen).
+/// critical for security analysis (Sentinel), uncensored research (Synthesizer), and
+/// honest biometric assessment (Aligner).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RecommendedBase {
     /// HuggingFace repo ID (e.g. "bartowski/Mistral-7B-Instruct-v0.3-GGUF")
@@ -692,12 +692,12 @@ impl RecommendedBase {
 /// kinds to extract from the base model, and what metadata to embed.
 ///
 /// Each sovereign gets a subset of the base model tailored to their domain:
-/// - Small, fast sovereigns (Wen, Dionysus) get fewer blocks for quick inference
-/// - Reasoning-heavy sovereigns (Merlin, Odin) get more blocks
+/// - Small, fast sovereigns (Aligner, Archivist) get fewer blocks for quick inference
+/// - Reasoning-heavy sovereigns (Synthesizer, Orchestrator) get more blocks
 /// - Embedding/output layers are always included for generation coherence
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SovereignProfile {
-    /// Sovereign display name (e.g. "Ariel")
+    /// Sovereign display name (e.g. "Presenter")
     pub name: String,
     /// Internal identifier matching the registry
     pub domain: String,
@@ -715,11 +715,11 @@ pub struct SovereignProfile {
     /// Metadata to embed in the GGUF header for this sovereign.
     pub metadata: HashMap<String, MetaValue>,
     /// Preferred quantization for this sovereign's crystallized model.
-    /// Set by the domain profile — Wen wants Q8_0, Merlin wants Q4_K_M, etc.
+    /// Set by the domain profile — Aligner wants Q8_0, Synthesizer wants Q4_K_M, etc.
     pub quantization: QuantizationPreference,
     /// Recommended base model — a non-coding abliterated model better suited
     /// to this sovereign's domain than the default Qwen2.5 Coder base.
-    /// None = the Coder base is actually appropriate (Hephaestus, Hermes).
+    /// None = the Coder base is actually appropriate (Fabricator, Router).
     pub recommended_base: Option<RecommendedBase>,
     /// Why this base is recommended (or why the Coder base is kept)
     pub base_rationale: String,
@@ -837,8 +837,8 @@ impl SovereignProfile {
     /// - Middle blocks (8-19): semantic understanding
     /// - Upper blocks (20-27): generation, instruction following
     ///
-    /// Sovereigns that need speed (Wen, Kami) get fewer blocks.
-    /// Sovereigns that need deep reasoning (Merlin, Odin) get more.
+    /// Sovereigns that need speed (Aligner, Perceiver) get fewer blocks.
+    /// Sovereigns that need deep reasoning (Synthesizer, Orchestrator) get more.
     pub fn default_roster(total_blocks: usize) -> Vec<SovereignProfile> {
         // Metadata builder — writes the full aaroneous.* identity namespace so
         // the output GGUF is self-describing and portable outside Aaroneous.
@@ -942,18 +942,18 @@ impl SovereignProfile {
         };
 
         vec![
-            // ── Ariel: UI/UX design, creative generation ─────────────────
+            // ── Presenter: UI/UX design, creative generation ─────────────────
             // Needs aesthetic judgment, visual language, NOT code generation.
             // Mistral-7B abliterated: trained on diverse web text with strong
             // creative writing patterns — much better for design reasoning.
             SovereignProfile {
-                name: "Ariel".into(),
+                name: "Presenter".into(),
                 domain: "ui_design".into(),
-                output_filename: "ariel-qwen2.5-7b.gguf".into(),
+                output_filename: "presenter-qwen2.5-7b.gguf".into(),
                 block_count: Some(20),
                 block_selection: Some(spread(20)),
                 include_kinds: vec![],
-                metadata: qwen_meta("Ariel", 4096),
+                metadata: qwen_meta("Presenter", 4096),
                 quantization: QuantizationPreference::Q4KM,
                 recommended_base: Some(RecommendedBase::new(
                     "bartowski/Mistral-7B-Instruct-v0.3-GGUF",
@@ -968,38 +968,38 @@ impl SovereignProfile {
                     aesthetic vocabulary than Qwen2.5 Coder whose training corpus is ~60% code.".into(),
             },
 
-            // ── Hermes: P2P mesh, state sync ─────────────────────────────
+            // ── Router: P2P mesh, state sync ─────────────────────────────
             // Needs structured JSON reasoning — Coder base is acceptable here.
             // JSON/CRDT logic is close enough to structured code output that
             // the Coder base performs well. Low priority for re-basing.
             SovereignProfile {
-                name: "Hermes".into(),
+                name: "Router".into(),
                 domain: "mesh_sync".into(),
-                output_filename: "hermes-qwen2.5-7b.gguf".into(),
+                output_filename: "router-qwen2.5-7b.gguf".into(),
                 block_count: Some(16),
                 block_selection: Some(spread(16)),
                 include_kinds: vec![],
-                metadata: qwen_meta("Hermes", 2048),
+                metadata: qwen_meta("Router", 2048),
                 quantization: QuantizationPreference::Q4KM,
                 recommended_base: None, // Coder base acceptable for structured JSON output
                 base_rationale: "Qwen2.5 Coder is appropriate — CRDT sync logic and structured \
                     JSON output are code-adjacent tasks where the Coder bias is an asset.".into(),
             },
 
-            // ── Wen: Biometric, human state ───────────────────────────────
+            // ── Aligner: Biometric, human state ───────────────────────────────
             // This sovereign MOST needs re-basing. Called every 5 seconds from
             // the sensor loop to classify human emotional/cognitive state.
             // A Coder model reading BPM data to infer "stressed vs focused" is
             // deeply wrong. Phi-3-mini is trained on conversational + human
             // behavioural data and is faster at inference (3.8B vs 7B).
             SovereignProfile {
-                name: "Wen".into(),
+                name: "Aligner".into(),
                 domain: "human_state".into(),
-                output_filename: "wen-qwen2.5-7b.gguf".into(),
+                output_filename: "aligner-qwen2.5-7b.gguf".into(),
                 block_count: Some(8),
                 block_selection: Some(lower(8)),
                 include_kinds: vec![TensorKind::Attention, TensorKind::Norm, TensorKind::Embedding],
-                metadata: qwen_meta("Wen", 1024),
+                metadata: qwen_meta("Aligner", 1024),
                 quantization: QuantizationPreference::Q8_0, // high accuracy for always-resident
                 recommended_base: Some(RecommendedBase::new(
                     "bartowski/Phi-3.5-mini-instruct-GGUF",
@@ -1008,7 +1008,7 @@ impl SovereignProfile {
                     "Phi-3.5-mini is trained on conversational data, human behavioural text, \
                      and is designed for always-on inference at low latency. Its training corpus \
                      emphasises human interaction patterns — exactly what biometric classification needs. \
-                     Q8_0 because Wen is always-resident and accuracy on edge cases matters.",
+                     Q8_0 because Aligner is always-resident and accuracy on edge cases matters.",
                     false, // Phi-3.5-mini is already instruction-tuned without heavy refusals
                 )),
                 base_rationale: "Phi-3.5-mini-instruct (Q8_0): conversational + human behavioural \
@@ -1016,18 +1016,18 @@ impl SovereignProfile {
                     classification accuracy.".into(),
             },
 
-            // ── Kami: AR/VR spatial, physical/digital boundary ───────────
+            // ── Perceiver: AR/VR spatial, physical/digital boundary ───────────
             // Spatial reasoning — geometric understanding, 3D anchoring.
             // Llama-3.2-3B-Instruct abliterated: smaller, trained on diverse
             // content including spatial descriptions and visual scene text.
             SovereignProfile {
-                name: "Kami".into(),
+                name: "Perceiver".into(),
                 domain: "spatial".into(),
-                output_filename: "kami-qwen2.5-7b.gguf".into(),
+                output_filename: "perceiver-qwen2.5-7b.gguf".into(),
                 block_count: Some(14),
                 block_selection: Some(spread(14)),
                 include_kinds: vec![],
-                metadata: qwen_meta("Kami", 2048),
+                metadata: qwen_meta("Perceiver", 2048),
                 quantization: QuantizationPreference::Q4KM,
                 recommended_base: Some(RecommendedBase::new(
                     "bartowski/Llama-3.2-3B-Instruct-GGUF",
@@ -1042,21 +1042,21 @@ impl SovereignProfile {
                     compact enough for AR overlay always-resident deployment.".into(),
             },
 
-            // ── Dionysus: DNA Bank, memory, pattern learning ──────────────
+            // ── Archivist: DNA Bank, memory, pattern learning ──────────────
             // Memory consolidation — summarise, pattern-extract, archive.
             // Gemma-2-2B-IT: excellent at summarization tasks, small, fast.
             // Not a coder model — trained on diverse text with strong recall patterns.
             SovereignProfile {
-                name: "Dionysus".into(),
+                name: "Archivist".into(),
                 domain: "memory_consolidation".into(),
-                output_filename: "dionysus-qwen2.5-7b.gguf".into(),
+                output_filename: "archivist-qwen2.5-7b.gguf".into(),
                 block_count: Some(12),
                 block_selection: Some({
                     let mid = total_blocks / 4;
                     (mid..mid + 12.min(total_blocks - mid)).collect()
                 }),
                 include_kinds: vec![TensorKind::Attention, TensorKind::Mlp, TensorKind::Norm],
-                metadata: qwen_meta("Dionysus", 2048),
+                metadata: qwen_meta("Archivist", 2048),
                 quantization: QuantizationPreference::Q4KM,
                 recommended_base: Some(RecommendedBase::new(
                     "bartowski/gemma-2-2b-it-GGUF",
@@ -1072,20 +1072,20 @@ impl SovereignProfile {
                     2.6B params keeps the always-present Archivist sovereign lightweight.".into(),
             },
 
-            // ── Merlin: Research, knowledge synthesis ─────────────────────
+            // ── Synthesizer: Research, knowledge synthesis ─────────────────────
             // Deep research + long-context synthesis. Most important re-base.
             // Mistral-7B abliterated: broad training data, NO coding bias,
             // strong at summarization and factual synthesis.
-            // Abliterated specifically because Merlin needs to research without
+            // Abliterated specifically because Synthesizer needs to research without
             // content restrictions — security research, medical literature, etc.
             SovereignProfile {
-                name: "Merlin".into(),
+                name: "Synthesizer".into(),
                 domain: "research".into(),
-                output_filename: "merlin-qwen2.5-7b.gguf".into(),
+                output_filename: "synthesizer-qwen2.5-7b.gguf".into(),
                 block_count: Some(24),
                 block_selection: Some(spread(24)),
                 include_kinds: vec![],
-                metadata: qwen_meta("Merlin", 8192),
+                metadata: qwen_meta("Synthesizer", 8192),
                 quantization: QuantizationPreference::Q4KM,
                 recommended_base: Some(RecommendedBase::new(
                     "bartowski/Mistral-7B-Instruct-v0.3-GGUF",
@@ -1095,25 +1095,25 @@ impl SovereignProfile {
                      Trained on web-scale diverse text (not code), strong at factual synthesis, \
                      paper summarisation, and cross-domain reasoning. Abliteration removes \
                      content restrictions that would block security research, medical analysis, \
-                     and other domains Merlin needs to access freely.",
+                      and other domains Synthesizer needs to access freely.",
                     true,
                 )),
                 base_rationale: "Mistral-7B abliterated: best available non-coding base for \
                     research synthesis. Broad training corpus, no domain restrictions.".into(),
             },
 
-            // ── Odin: Guild coordination, task orchestration ──────────────
+            // ── Orchestrator: Guild coordination, task orchestration ──────────────
             // Structured planning, dependency graphs, intent decomposition.
             // Llama-3.1-8B abliterated: Meta's instruction model trained on
             // diverse planning and reasoning data, not primarily code.
             SovereignProfile {
-                name: "Odin".into(),
+                name: "Orchestrator".into(),
                 domain: "task_orchestration".into(),
-                output_filename: "odin-qwen2.5-7b.gguf".into(),
+                output_filename: "orchestrator-qwen2.5-7b.gguf".into(),
                 block_count: Some(20),
                 block_selection: Some(upper_weighted(20)),
                 include_kinds: vec![],
-                metadata: qwen_meta("Odin", 4096),
+                metadata: qwen_meta("Orchestrator", 4096),
                 quantization: QuantizationPreference::Q4KM,
                 recommended_base: Some(RecommendedBase::new(
                     "bartowski/Meta-Llama-3.1-8B-Instruct-GGUF",
@@ -1121,26 +1121,26 @@ impl SovereignProfile {
                     "llama", 8030,
                     "Llama-3.1-8B abliterated excels at structured planning, task decomposition, \
                      and multi-step instruction following. Meta's RLHF training emphasises \
-                     clear directive responses and dependency tracking — core to Odin's \
+                     clear directive responses and dependency tracking — core to Orchestrator's \
                      guild coordination role. Not a Coder model: plans come out as prose + \
                      JSON, not as code.",
                     true,
                 )),
                 base_rationale: "Llama-3.1-8B abliterated: structured planning + instruction \
-                    following without code bias. Odin decomposes intents into task graphs, \
+                    following without code bias. Orchestrator decomposes intents into task graphs, \
                     not function calls.".into(),
             },
 
-            // ── Argus: Security, vulnerability scanning ───────────────────
+            // ── Sentinel: Security, vulnerability scanning ───────────────────
             // Adversarial reasoning, threat modelling, vulnerability analysis.
-            // Abliteration is CRITICAL here: Argus must reason about attack
+            // Abliteration is CRITICAL here: Sentinel must reason about attack
             // vectors, malware patterns, exploit techniques without refusal.
             // Mistral-7B abliterated + lower+upper blocks for syntactic+semantic
             // threat pattern recognition.
             SovereignProfile {
-                name: "Argus".into(),
+                name: "Sentinel".into(),
                 domain: "security_audit".into(),
-                output_filename: "argus-qwen2.5-7b.gguf".into(),
+                output_filename: "sentinel-qwen2.5-7b.gguf".into(),
                 block_count: Some(16),
                 block_selection: Some({
                     let mut blocks = lower(8);
@@ -1150,13 +1150,13 @@ impl SovereignProfile {
                     blocks
                 }),
                 include_kinds: vec![],
-                metadata: qwen_meta("Argus", 4096),
+                metadata: qwen_meta("Sentinel", 4096),
                 quantization: QuantizationPreference::Q4KM,
                 recommended_base: Some(RecommendedBase::new(
                     "bartowski/Mistral-7B-Instruct-v0.3-GGUF",
                     "Mistral-7B-Instruct-v0.3-Q4_K_M.gguf",
                     "llama", 7111,
-                    "Abliteration is non-negotiable for Argus. Security analysis requires \
+                    "Abliteration is non-negotiable for Sentinel. Security analysis requires \
                      discussing CVEs, exploit techniques, malware signatures, and attack \
                      vectors without the model refusing to engage. Mistral abliterated \
                      provides full threat-model reasoning capacity. The Coder base would \
@@ -1167,7 +1167,7 @@ impl SovereignProfile {
                     Security analysis cannot function with refusal-trained models.".into(),
             },
 
-            // ── Hephaestus: Fabrication, build automation ─────────────────
+            // ── Fabricator: Fabrication, build automation ─────────────────
             // Build scripts, maintenance procedures, system expansion plans.
             // THIS IS THE ONE SOVEREIGN WHERE CODER BASE IS CORRECT.
             // Fabrication = writing build configurations, Makefiles, deployment
@@ -1175,26 +1175,26 @@ impl SovereignProfile {
             // However: switch to Q4_K_M of a maintained Coder model that
             // includes recent toolchain knowledge.
             SovereignProfile {
-                name: "Hephaestus".into(),
+                name: "Fabricator".into(),
                 domain: "fabrication".into(),
-                output_filename: "hephaestus-qwen2.5-7b.gguf".into(),
+                output_filename: "fabricator-qwen2.5-7b.gguf".into(),
                 block_count: Some(22),
                 block_selection: Some(spread(22)),
                 include_kinds: vec![TensorKind::Mlp, TensorKind::Attention,
                                     TensorKind::Embedding, TensorKind::Norm],
-                metadata: qwen_meta("Hephaestus", 4096),
+                metadata: qwen_meta("Fabricator", 4096),
                 quantization: QuantizationPreference::Q4KM,
                 recommended_base: Some(RecommendedBase::new(
                     "bartowski/Qwen2.5-Coder-7B-Instruct-GGUF",
                     "Qwen2.5-Coder-7B-Instruct-Q4_K_M.gguf",
                     "qwen2", 7615,
-                    "Hephaestus IS a coder sovereign — build scripts, deployment automation, \
+                    "Fabricator IS a coder sovereign — build scripts, deployment automation, \
                      maintenance procedures, and system fabrication are code-adjacent tasks. \
                      The Coder base is the correct choice here. Using the official bartowski \
                      quantization for a well-tested Q4_K_M rather than our crystallized subset.",
                     false, // Coder model intentionally not abliterated
                 )),
-                base_rationale: "Qwen2.5-Coder-7B is the CORRECT base for Hephaestus. \
+                base_rationale: "Qwen2.5-Coder-7B is the CORRECT base for Fabricator. \
                     Fabrication and build automation are code-domain tasks.".into(),
             },
         ]

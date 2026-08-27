@@ -14,7 +14,7 @@ use crossbeam::queue::ArrayQueue;
 #[repr(C)]
 #[derive(Clone, Debug, PartialEq)]
 pub struct SynapsePacket {
-    pub source_id: u32,          // Originating subsystem identifier (e.g. Cortex = 1, Chimera = 2)
+    pub source_id: u32,          // Originating subsystem identifier (e.g. Cortex = 1, Adaptation Engine = 2)
     pub timestamp_ns: u64,       // High-resolution hardware timestamp
     pub intent_vector: [f32; 4], // Compact summary of active R^256 intent or state
     pub opcode_trigger: u32,     // Associated machine opcode or diagnostic flag
@@ -68,7 +68,7 @@ impl SpmcSynapseBus {
     }
 
     /// [Consumer] Pull the next available packet for processing 
-    /// (Used by Marionette, Chimera, or the egui Telemetry HUD).
+    /// (Used by Desktop Emulator, Adaptation Engine, or the egui Telemetry HUD).
     #[inline(always)]
     pub fn consume(&self) -> Option<SynapsePacket> {
         self.channel.pop()

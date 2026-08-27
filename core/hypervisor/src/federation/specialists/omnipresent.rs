@@ -668,7 +668,7 @@ impl Specialist for Omnipresent {
         let conflicts = self.detect_sync_conflicts();
         let pending_messages = self.sync_inbox.lock().len();
 
-        // Hermes proposes on any non-idle intent — always tracks hive state across mesh
+        // Router proposes on any non-idle intent — always tracks hive state across mesh
         let activity = &context.user_state.activity;
         let intent_relevant = !activity.is_empty() && activity != "idle";
 
@@ -770,7 +770,7 @@ impl Specialist for Omnipresent {
         let history_count = self.sync_history.len();
 
         let output = serde_json::to_string(&serde_json::json!({
-            "sovereign": "Hermes",
+            "sovereign": "Router",
             "intent": intent_display,
             "mesh": {
                 "devices": self.devices.len(),
@@ -785,7 +785,7 @@ impl Specialist for Omnipresent {
             "status": if devices_reached > 0 { "synced" } else { "no_peers" },
             "note": if self.p2p_node.is_none() { "Enable --features p2p-iroh for real P2P mesh sync" } else { "" },
         })).unwrap_or_else(|_| format!(
-            "[Hermes] Intent: '{}' | {} device(s) | {} Mbps{}",
+            "[Router] Intent: '{}' | {} device(s) | {} Mbps{}",
             intent_display, self.devices.len(), sync_bandwidth, p2p_note
         ));
 

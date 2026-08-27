@@ -15,8 +15,8 @@ serde_json = "1.0"
 tokio = { version = "1.0", features = ["full"] }
 tracing = "0.1"
 chrono = { version = "0.4", features = ["serde"] }
-marionette = { path = "../marionette" }
-chimera = { path = "../chimera" }
+desktop_emulator = { path = "../marionette" }
+adaptation_engine = { path = "../chimera" }
 omni = { path = "../omni" }
 nervous_system = { path = "../nervous_system" }
 compute = { path = "../compute" }

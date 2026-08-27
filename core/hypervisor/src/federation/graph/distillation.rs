@@ -30,7 +30,7 @@ pub struct GenerationReport {
 /// Existing data is **appended to** (not overwritten) so repeated runs accumulate data.
 ///
 /// # Arguments
-/// * `sovereign_name` - Case-insensitive sovereign name (e.g. "Odin", "ariel")
+/// * `sovereign_name` - Case-insensitive sovereign name (e.g. "Orchestrator", "presenter")
 /// * `count` - Total number of examples to generate across all capabilities
 /// * `llm` - Foundation model client (should be backed by `foundation_v1.gguf`)
 /// * `training_data_dir` - Directory to write the JSONL file to
@@ -180,8 +180,8 @@ fn synthetic_intents_for(spec: &SovereignTaskSpec, capability_id: &str, count: u
     // Sovereign-specific concrete prompt banks — fully rendered, no placeholders
     let bank: Vec<String> = match spec.sovereign_name.to_lowercase().as_str() {
 
-        // ── Wen: biometric classification ──
-        "wen" => vec![
+        // ── Aligner: biometric classification ──
+        "aligner" => vec![
             r#"{"bpm":95,"bpm_trend":"up","mem_pressure":0.7,"time_of_day":"late_night"}"#.into(),
             r#"{"bpm":62,"bpm_trend":"stable","mem_pressure":0.2,"time_of_day":"morning"}"#.into(),
             r#"{"bpm":110,"bpm_trend":"up","mem_pressure":0.9,"time_of_day":"afternoon"}"#.into(),
@@ -192,23 +192,23 @@ fn synthetic_intents_for(spec: &SovereignTaskSpec, capability_id: &str, count: u
             r#"{"bpm":70,"bpm_trend":"stable","mem_pressure":0.3,"time_of_day":"afternoon"}"#.into(),
         ],
 
-        // ── Odin: intent decomposition ──
-        "odin" => vec![
+        // ── Orchestrator: intent decomposition ──
+        "orchestrator" => vec![
             "Build a real-time dashboard showing sovereign execution metrics".into(),
             "Research the latest Rust async patterns and write a summary".into(),
             "Audit the Aaroneous HTTP API for security vulnerabilities".into(),
             "Archive this session's results to the DNA Bank and generate insights".into(),
             "Design and implement a biometric-triggered notification system".into(),
-            "Create a LoRA training pipeline for Wen using foundation_v1.gguf".into(),
+            "Create a LoRA training pipeline for Aligner using foundation_v1.gguf".into(),
             "Set up continuous monitoring for all sovereign confidence scores".into(),
             "Integrate egui HiveRepresentativeComponent with the genome display".into(),
         ],
 
-        // ── Ariel: UI/UX design ──
-        "ariel" => vec![
+        // ── Presenter: UI/UX design ──
+        "presenter" => vec![
             "Design a dark-mode sovereign dashboard with confidence heat map".into(),
             "Create a mobile layout for submitting intents to the hive".into(),
-            "Design the Guild coordination panel showing Odin's task graph".into(),
+            "Design the Guild coordination panel showing Orchestrator's task graph".into(),
             "Build a minimal AR overlay for the egui spatial interface".into(),
             "Design a genomic visualization for sovereign weight profiles".into(),
             "Create an onboarding flow for the Maelstrom launcher".into(),
@@ -216,16 +216,16 @@ fn synthetic_intents_for(spec: &SovereignTaskSpec, capability_id: &str, count: u
             "Build a dark-mode graph view for the sovereign RAG memory network".into(),
         ],
 
-        // ── Hermes: sync conflict resolution ──
-        "hermes" => vec![
+        // ── Router: sync conflict resolution ──
+        "router" => vec![
             r#"{"state_a":{"intent":"build dashboard","ts":1000},"state_b":{"intent":"research async","ts":990},"ts_a":1000,"ts_b":990}"#.into(),
             r#"{"state_a":{"config":"dark","version":3},"state_b":{"config":"light","version":2},"ts_a":2000,"ts_b":1800}"#.into(),
             r#"{"state_a":{"sessions":["s1","s2"]},"state_b":{"sessions":["s1","s3"]},"ts_a":500,"ts_b":510}"#.into(),
             r#"{"state_a":{"confidence":0.8},"state_b":{"confidence":0.75},"ts_a":300,"ts_b":350}"#.into(),
         ],
 
-        // ── Kami: AR/VR spatial ──
-        "kami" => vec![
+        // ── Perceiver: AR/VR spatial ──
+        "perceiver" => vec![
             "Place a holographic display panel 1.5m in front of the user at eye level".into(),
             "Anchor the sovereign status overlay to the left wall of the physical room".into(),
             "Create a spatial notification that appears at the user's peripheral vision".into(),
@@ -234,16 +234,16 @@ fn synthetic_intents_for(spec: &SovereignTaskSpec, capability_id: &str, count: u
             "Place sovereign confidence indicators as floating orbs around the workspace".into(),
         ],
 
-        // ── Dionysus: archival ──
-        "dionysus" => vec![
-            r#"{"session_id":"s-001","results":[{"specialist":"Odin","status":"Success","output":"Task graph created"}],"intent":"build dashboard"}"#.into(),
-            r#"{"session_id":"s-002","results":[{"specialist":"Wen","status":"Success","output":"{\"state\":\"focused\"}"}],"intent":"biometric check"}"#.into(),
-            r#"{"session_id":"s-003","results":[{"specialist":"Argus","status":"Success","output":"{\"risk\":\"Low\"}"}],"intent":"security audit"}"#.into(),
-            r#"{"session_id":"s-004","results":[{"specialist":"Merlin","status":"Success","output":"Research complete: 3 findings"}],"intent":"research async"}"#.into(),
+        // ── Archivist: archival ──
+        "archivist" => vec![
+            r#"{"session_id":"s-001","results":[{"specialist":"Orchestrator","status":"Success","output":"Task graph created"}],"intent":"build dashboard"}"#.into(),
+            r#"{"session_id":"s-002","results":[{"specialist":"Aligner","status":"Success","output":"{\"state\":\"focused\"}"}],"intent":"biometric check"}"#.into(),
+            r#"{"session_id":"s-003","results":[{"specialist":"Sentinel","status":"Success","output":"{\"risk\":\"Low\"}"}],"intent":"security audit"}"#.into(),
+            r#"{"session_id":"s-004","results":[{"specialist":"Synthesizer","status":"Success","output":"Research complete: 3 findings"}],"intent":"research async"}"#.into(),
         ],
 
-        // ── Merlin: research synthesis ──
-        "merlin" => vec![
+        // ── Synthesizer: research synthesis ──
+        "synthesizer" => vec![
             "Synthesize current best practices for Rust async programming with tokio".into(),
             "Research LoRA fine-tuning techniques for small language models on CPU".into(),
             "Summarize recent developments in GGUF quantization formats".into(),
@@ -254,8 +254,8 @@ fn synthetic_intents_for(spec: &SovereignTaskSpec, capability_id: &str, count: u
             "Research best practices for SQLite persistence in Rust async applications".into(),
         ],
 
-        // ── Argus: security audit ──
-        "argus" => vec![
+        // ── Sentinel: security audit ──
+        "sentinel" => vec![
             "Audit the Aaroneous HTTP API for authentication vulnerabilities".into(),
             "Scan the specialist registry JSON for misconfigured permissions".into(),
             "Check the federation session manager for data leakage risks".into(),
@@ -266,9 +266,9 @@ fn synthetic_intents_for(spec: &SovereignTaskSpec, capability_id: &str, count: u
             "Review the API key authentication middleware for bypass conditions".into(),
         ],
 
-        // ── Hephaestus: construction/fabrication ──
-        "hephaestus" => vec![
-            "Plan the construction of a new LoRA fine-tuning pipeline for Wen".into(),
+        // ── Fabricator: construction/fabrication ──
+        "fabricator" => vec![
+            "Plan the construction of a new LoRA fine-tuning pipeline for Aligner".into(),
             "Design the build system for compiling native engine plugins".into(),
             "Plan the integration of the unsloth training scripts into the CI pipeline".into(),
             "Design the deployment architecture for Aaroneous as a Windows service".into(),

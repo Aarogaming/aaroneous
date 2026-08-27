@@ -153,9 +153,9 @@ impl TaskRoutingEngine {
 
     /// Decode a state index into a RoutingState
     fn decode_state(&self, index: usize) -> RoutingState {
-        let urgency_bin = index % 5;
+        let task_complexity_bin = index % 5;
         let specialist_load_bin = (index / 5) % 5;
-        let task_complexity_bin = (index / 25) % 5;
+        let urgency_bin = (index / 25) % 5;
 
         RoutingState {
             task_complexity_bin,
@@ -490,5 +490,338 @@ mod tests {
 
         assert_eq!(routes.len(), 1);
         assert_eq!(routes[0].1, "peer_node_alpha");
+    }
+
+    #[test]
+    fn test_encode_decode_state_roundtrip() {
+        let engine = TaskRoutingEngine::new(create_test_specialists());
+        let state = RoutingState {
+            task_complexity_bin: 3,
+            specialist_load_bin: 2,
+            urgency_bin: 4,
+        };
+        let idx = engine.encode_state(&state);
+        let decoded = engine.decode_state(idx);
+        assert_eq!(decoded.task_complexity_bin, 3);
+        assert_eq!(decoded.specialist_load_bin, 2);
+        assert_eq!(decoded.urgency_bin, 4);
+    }
+
+    #[test]
+    fn test_encode_state_bounds() {
+        let engine = TaskRoutingEngine::new(create_test_specialists());
+        // Min state
+        let min = RoutingState { task_complexity_bin: 0, specialist_load_bin: 0, urgency_bin: 0 };
+        assert_eq!(engine.encode_state(&min), 0);
+        // Max state (4,4,4)
+        let max = RoutingState { task_complexity_bin: 4, specialist_load_bin: 4, urgency_bin: 4 };
+        assert_eq!(engine.encode_state(&max), 124); // 5*5*5 - 1
+    }
+
+    #[test]
+    fn test_discretize_values() {
+        assert_eq!(TaskRoutingEngine::discretize(0.0), 0);
+        assert_eq!(TaskRoutingEngine::discretize(0.5), 2);
+        assert_eq!(TaskRoutingEngine::discretize(1.0), 4);
+        assert_eq!(TaskRoutingEngine::discretize(-0.1), 0); // clamped
+        assert_eq!(TaskRoutingEngine::discretize(1.5), 4); // clamped
+    }
+
+    #[test]
+    fn test_update_transition_matrix_increases_observed() {
+        let specialists = create_test_specialists();
+        let mut engine = TaskRoutingEngine::new(specialists);
+
+        let state = RoutingState { task_complexity_bin: 1, specialist_load_bin: 2, urgency_bin: 3 };
+        let action = RoutingAction { specialist_index: 0 };
+        let next_state = RoutingState { task_complexity_bin: 2, specialist_load_bin: 1, urgency_bin: 0 };
+
+        let state_idx = engine.encode_state(&state);
+        let next_idx = engine.encode_state(&next_state);
+
+        let prob_before = engine.transition_matrix[state_idx][0][next_idx];
+
+        // Apply multiple updates to see convergence
+        for _ in 0..20 {
+            engine.update_transition_matrix(&state, &action, &next_state);
+        }
+
+        let prob_after = engine.transition_matrix[state_idx][0][next_idx];
+        assert!(prob_after > prob_before, "Observed transition probability should increase");
+    }
+
+    #[test]
+    fn test_update_transition_matrix_normalizes() {
+        let specialists = create_test_specialists();
+        let mut engine = TaskRoutingEngine::new(specialists);
+
+        let state = RoutingState { task_complexity_bin: 0, specialist_load_bin: 0, urgency_bin: 0 };
+        let action = RoutingAction { specialist_index: 0 };
+        let next = RoutingState { task_complexity_bin: 1, specialist_load_bin: 1, urgency_bin: 1 };
+
+        for _ in 0..50 {
+            engine.update_transition_matrix(&state, &action, &next);
+        }
+
+        let sum: f64 = engine.transition_matrix[engine.encode_state(&state)][0].iter().sum();
+        assert!((sum - 1.0).abs() < 0.01, "Transition probabilities should sum to ~1.0, got {}", sum);
+    }
+
+    #[test]
+    fn test_update_transition_matrix_out_of_bounds_action() {
+        let specialists = create_test_specialists();
+        let mut engine = TaskRoutingEngine::new(specialists);
+
+        let state = RoutingState { task_complexity_bin: 0, specialist_load_bin: 0, urgency_bin: 0 };
+        let action = RoutingAction { specialist_index: 999 }; // Out of bounds
+        let next = RoutingState { task_complexity_bin: 1, specialist_load_bin: 1, urgency_bin: 1 };
+
+        // Should not panic
+        engine.update_transition_matrix(&state, &action, &next);
+    }
+
+    #[test]
+    fn test_consume_capacity() {
+        let specialists = create_test_specialists();
+        let mut engine = TaskRoutingEngine::new(specialists);
+
+        engine.consume_capacity("spec_1", 0.3);
+        let spec = engine.specialists.iter().find(|s| s.id == "spec_1").unwrap();
+        assert!((spec.capacity - 0.7).abs() < 0.01);
+
+        // Cannot go below 0
+        engine.consume_capacity("spec_1", 1.0);
+        let spec = engine.specialists.iter().find(|s| s.id == "spec_1").unwrap();
+        assert_eq!(spec.capacity, 0.0);
+    }
+
+    #[test]
+    fn test_consume_capacity_unknown_specialist() {
+        let specialists = create_test_specialists();
+        let mut engine = TaskRoutingEngine::new(specialists);
+        // Should not panic
+        engine.consume_capacity("nonexistent", 0.5);
+    }
+
+    #[test]
+    fn test_add_specialist() {
+        let specialists = create_test_specialists();
+        let mut engine = TaskRoutingEngine::new(specialists);
+        assert_eq!(engine.specialists.len(), 2);
+
+        engine.add_specialist(Specialist {
+            id: "spec_3".to_string(),
+            name: "Tester".to_string(),
+            skills: vec!["testing".to_string()],
+            capacity: 0.9,
+            success_rate: 0.88,
+            avg_completion_time: 6.0,
+        });
+
+        assert_eq!(engine.specialists.len(), 3);
+        // Matrices should extend: reward_matrix[125] should now have 3 entries
+        assert_eq!(engine.reward_matrix[0].len(), 3);
+        assert_eq!(engine.transition_matrix[0].len(), 3);
+    }
+
+    #[test]
+    fn test_add_specialist_then_route() {
+        let specialists = create_test_specialists();
+        let mut engine = TaskRoutingEngine::new(specialists);
+
+        engine.add_specialist(Specialist {
+            id: "spec_rust_expert".to_string(),
+            name: "Rust Expert".to_string(),
+            skills: vec!["rust".to_string(), "cargo".to_string()],
+            capacity: 1.0,
+            success_rate: 0.99,
+            avg_completion_time: 2.0,
+        });
+
+        let task = RoutableTask {
+            id: "t1".to_string(),
+            task_type: TaskType::CodeGeneration,
+            complexity: 0.3,
+            urgency: 0.2,
+            required_skills: vec!["rust".to_string()],
+            estimated_cost: 0.1,
+        };
+
+        let decision = engine.find_optimal_specialist(&task);
+        assert!(!decision.specialist_id.is_empty());
+        assert!(decision.confidence >= 0.0 && decision.confidence <= 1.0);
+    }
+
+    #[test]
+    fn test_update_specialist_performance_failure() {
+        let specialists = create_test_specialists();
+        let mut engine = TaskRoutingEngine::new(specialists);
+
+        let initial_rate = engine.specialists[0].success_rate;
+        engine.update_specialist_performance("spec_1", false, 20.0);
+
+        let spec = engine.specialists.iter().find(|s| s.id == "spec_1").unwrap();
+        assert!(spec.success_rate < initial_rate, "Failure should decrease success rate");
+        assert!(spec.avg_completion_time > 5.0, "Slow completion should increase avg time");
+    }
+
+    #[test]
+    fn test_update_specialist_performance_replenishes_capacity() {
+        let specialists = create_test_specialists();
+        let mut engine = TaskRoutingEngine::new(specialists);
+        engine.specialists[0].capacity = 0.3;
+
+        engine.update_specialist_performance("spec_1", true, 5.0);
+
+        let spec = engine.specialists.iter().find(|s| s.id == "spec_1").unwrap();
+        assert!(spec.capacity > 0.3, "Capacity should replenish after task completion");
+    }
+
+    #[test]
+    fn test_update_specialist_performance_unknown_id() {
+        let specialists = create_test_specialists();
+        let mut engine = TaskRoutingEngine::new(specialists);
+        // Should not panic
+        engine.update_specialist_performance("nonexistent", true, 1.0);
+    }
+
+    #[test]
+    fn test_find_optimal_specialist_with_skill_match() {
+        let specialists = create_test_specialists();
+        let mut engine = TaskRoutingEngine::new(specialists);
+
+        // Task requiring "rust" — should prefer spec_1 (Code Generator) which has "rust"
+        let task = RoutableTask {
+            id: "t_rust".to_string(),
+            task_type: TaskType::CodeGeneration,
+            complexity: 0.5,
+            urgency: 0.5,
+            required_skills: vec!["rust".to_string()],
+            estimated_cost: 0.2,
+        };
+
+        let decision = engine.find_optimal_specialist(&task);
+        assert_eq!(decision.specialist_id, "spec_1");
+        assert!(decision.confidence > 0.0);
+        assert!(decision.reasoning.contains("skills_matched=1/1"));
+    }
+
+    #[test]
+    fn test_find_optimal_specialist_no_skills_matches() {
+        let specialists = create_test_specialists();
+        let mut engine = TaskRoutingEngine::new(specialists);
+
+        let task = RoutableTask {
+            id: "t_nomatch".to_string(),
+            task_type: TaskType::CodeGeneration,
+            complexity: 0.5,
+            urgency: 0.5,
+            required_skills: vec!["quantum_computing".to_string()],
+            estimated_cost: 0.2,
+        };
+
+        let decision = engine.find_optimal_specialist(&task);
+        assert!(decision.confidence >= 0.0);
+        assert!(decision.reasoning.contains("skills_matched=0/1"));
+    }
+
+    #[test]
+    fn test_find_optimal_specialist_empty_specialists() {
+        let mut engine = TaskRoutingEngine::new(Vec::new());
+        let task = RoutableTask {
+            id: "t_empty".to_string(),
+            task_type: TaskType::Analysis,
+            complexity: 0.5,
+            urgency: 0.5,
+            required_skills: vec![],
+            estimated_cost: 0.1,
+        };
+
+        let decision = engine.find_optimal_specialist(&task);
+        assert_eq!(decision.specialist_id, "fallback");
+        assert_eq!(decision.confidence, 0.3);
+    }
+
+    #[test]
+    fn test_balance_swarm_load_no_offloading_when_capacity_ok() {
+        let specialists = create_test_specialists(); // capacity 1.0 and 0.8
+        let engine = TaskRoutingEngine::new(specialists);
+        let peers = vec![("peer_a", 0.9)];
+        let routes = engine.balance_swarm_load(&peers);
+        assert!(routes.is_empty(), "No offloading when local capacity is sufficient");
+    }
+
+    #[test]
+    fn test_balance_swarm_load_no_peers_with_capacity() {
+        let mut overloaded_specs = create_test_specialists();
+        overloaded_specs[0].capacity = 0.1;
+        overloaded_specs[1].capacity = 0.1;
+
+        let engine = TaskRoutingEngine::new(overloaded_specs);
+        let peers = vec![("peer_a", 0.3), ("peer_b", 0.2)]; // All below threshold
+        let routes = engine.balance_swarm_load(&peers);
+        assert!(routes.is_empty(), "No offloading when no peers have capacity");
+    }
+
+    #[test]
+    fn test_balance_swarm_load_multiple_peers() {
+        let mut overloaded_specs = create_test_specialists();
+        overloaded_specs[0].capacity = 0.1;
+        overloaded_specs[1].capacity = 0.1;
+
+        let engine = TaskRoutingEngine::new(overloaded_specs);
+        let peers = vec![("peer_a", 0.9), ("peer_b", 0.7), ("peer_c", 0.5)];
+        let routes = engine.balance_swarm_load(&peers);
+        assert_eq!(routes.len(), 2); // Only peers with capacity > 0.6
+    }
+
+    #[test]
+    fn test_routing_state_equality() {
+        let s1 = RoutingState { task_complexity_bin: 1, specialist_load_bin: 2, urgency_bin: 3 };
+        let s2 = RoutingState { task_complexity_bin: 1, specialist_load_bin: 2, urgency_bin: 3 };
+        let s3 = RoutingState { task_complexity_bin: 1, specialist_load_bin: 2, urgency_bin: 4 };
+        assert_eq!(s1, s2);
+        assert_ne!(s1, s3);
+    }
+
+    #[test]
+    fn test_routing_action_equality() {
+        let a1 = RoutingAction { specialist_index: 0 };
+        let a2 = RoutingAction { specialist_index: 0 };
+        let a3 = RoutingAction { specialist_index: 1 };
+        assert_eq!(a1, a2);
+        assert_ne!(a1, a3);
+    }
+
+    #[test]
+    fn test_routing_decision_serialization() {
+        let decision = RoutingDecision {
+            specialist_id: "s1".to_string(),
+            specialist_name: "Test".to_string(),
+            confidence: 0.85,
+            expected_completion_time: 5.0,
+            reasoning: "because".to_string(),
+        };
+        let json = serde_json::to_string(&decision).unwrap();
+        let loaded: RoutingDecision = serde_json::from_str(&json).unwrap();
+        assert_eq!(loaded.specialist_id, "s1");
+        assert_eq!(loaded.confidence, 0.85);
+    }
+
+    #[test]
+    fn test_task_type_equality_and_hash() {
+        let t1 = TaskType::CodeGeneration;
+        let t2 = TaskType::CodeGeneration;
+        let t3 = TaskType::BugFix;
+        let t4 = TaskType::Custom("test".to_string());
+        let t5 = TaskType::Custom("test".to_string());
+        assert_eq!(t1, t2);
+        assert_ne!(t1, t3);
+        assert_eq!(t4, t5);
+        // Verify they can be used as HashMap keys
+        let mut map = std::collections::HashMap::new();
+        map.insert(t1.clone(), 1);
+        map.insert(t3.clone(), 2);
+        assert_eq!(map.len(), 2);
     }
 }

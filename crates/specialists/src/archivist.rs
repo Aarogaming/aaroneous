@@ -1,5 +1,5 @@
-//! dionysus.rs
-//! Dionysus (The Memory Keeper / Chronicler) & Omni (3D Galaxy Semantic Data Access Engine).
+//! archivist.rs
+//! Archivist (The Memory Keeper / Chronicler) & MemoryIndex (3D Galaxy Semantic Data Access Engine).
 //! Powered directly by Omni.
 //! Domain Opcode: 0x0600 (MEMORY_CONSOLIDATION)
 
@@ -12,55 +12,55 @@ use tracing::info;
 use omni::{OmniEngine, SpatialCoord, StarNode, StarNodeType};
 use crate::traits::{MnlpPacket, MnlpResponse, RelicEngine, SovereignSpecialist, SpecialistHealth};
 
-/// Omni Relic Engine wrapper for Dionysus
-pub struct OmniRelicWrapper {
+/// MemoryIndex Relic Engine wrapper for Archivist
+pub struct MemoryIndexRelic {
     pub omni_engine: Arc<OmniEngine>,
 }
 
-impl RelicEngine for OmniRelicWrapper {
+impl RelicEngine for MemoryIndexRelic {
     fn relic_name(&self) -> &'static str {
-        "Omni"
+        "MemoryIndex"
     }
 
     fn supervisor_name(&self) -> &'static str {
-        "Dionysus"
+        "Archivist"
     }
 
     fn relic_status(&self) -> String {
-        "Omni 3D Galaxy Engine: Online and clustering star-nodes".to_string()
+        "MemoryIndex 3D Galaxy Engine: Online and clustering star-nodes".to_string()
     }
 }
 
-/// Dionysus Sovereign Specialist
-pub struct DionysusSpecialist {
+/// Archivist Sovereign Specialist
+pub struct ArchivistSpecialist {
     pub tokens: f32,
     pub max_tokens: f32,
     pub omni_engine: Arc<OmniEngine>,
-    pub relic: OmniRelicWrapper,
+    pub relic: MemoryIndexRelic,
     pub neurochemistry: evolution::NeurochemicalHomeostasisEngine,
 }
 
-impl Default for DionysusSpecialist {
+impl Default for ArchivistSpecialist {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl DionysusSpecialist {
+impl ArchivistSpecialist {
     pub fn new() -> Self {
         let omni = Arc::new(OmniEngine::default());
         Self {
             tokens: 100.0,
             max_tokens: 100.0,
             omni_engine: omni.clone(),
-            relic: OmniRelicWrapper { omni_engine: omni },
+            relic: MemoryIndexRelic { omni_engine: omni },
             neurochemistry: evolution::NeurochemicalHomeostasisEngine::default(),
         }
     }
 
     /// Consolidates an episodic experience into a permanent 3D star-node
     pub async fn consolidate_memory(&self, node_id: &str, title: &str, domain: &str, payload_uri: &str) -> StarNode {
-        info!(target: "specialist::dionysus", %node_id, %title, "Consolidating lived experience into Omni Galaxy star-node");
+        info!(target: "specialist::archivist", %node_id, %title, "Consolidating lived experience into Omni Galaxy star-node");
 
         let star = StarNode::new(
             node_id,
@@ -77,9 +77,9 @@ impl DionysusSpecialist {
 }
 
 #[async_trait]
-impl SovereignSpecialist for DionysusSpecialist {
+impl SovereignSpecialist for ArchivistSpecialist {
     fn name(&self) -> &'static str {
-        "Dionysus"
+        "Archivist"
     }
 
     fn domain_opcode(&self) -> u16 {
@@ -97,7 +97,7 @@ impl SovereignSpecialist for DionysusSpecialist {
                 success: true,
                 opcode: self.domain_opcode(),
                 correlation_id: packet.correlation_id,
-                message: format!("Dionysus evaluated {} autonomic impulses from neurochemical state", impulses.len()),
+                message: format!("Archivist evaluated {} autonomic impulses from neurochemical state", impulses.len()),
                 payload,
             });
         }
@@ -109,7 +109,7 @@ impl SovereignSpecialist for DionysusSpecialist {
             success: true,
             opcode: self.domain_opcode(),
             correlation_id: packet.correlation_id,
-            message: format!("Dionysus consolidated memory into star-node '{}'", payload_str),
+            message: format!("Archivist consolidated memory into star-node '{}'", payload_str),
             payload,
         })
     }
@@ -136,12 +136,12 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    async fn test_dionysus_memory_consolidation() {
-        let dionysus = DionysusSpecialist::new();
-        let star = dionysus.consolidate_memory("test_mem", "Adapter Success", "Fabrication", "omni://test").await;
+    async fn test_archivist_memory_consolidation() {
+        let archivist = ArchivistSpecialist::new();
+        let star = archivist.consolidate_memory("test_mem", "Adapter Success", "Fabrication", "omni://test").await;
         assert_eq!(star.id, "test_mem");
 
-        let snapshot = dionysus.omni_engine.export_snapshot().await.unwrap();
+        let snapshot = archivist.omni_engine.export_snapshot().await.unwrap();
         assert_eq!(snapshot.total_stars, 1);
     }
 }

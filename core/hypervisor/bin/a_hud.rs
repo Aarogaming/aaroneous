@@ -5,7 +5,7 @@
 //! - 🌐 100% Dynamic Path Resolution (Discovers root, user data, config, and models via `aaroneous_paths`)
 //! - 🧠 Local GGUF Auto-Discovery (Auto-detects LM Studio, Ollama, HuggingFace, Jan, and custom model folders)
 //! - 💾 Real Agent Disk Persistence (Auto-saves and loads all agents to `{data}/agents/*.json`)
-//! - ⚡ Live Background Automation Worker (Real async thread pool executing file tasks, loops, and Marionette actions)
+//! - ⚡ Live Background Automation Worker (Real async thread pool executing file tasks, loops, and Desktop Emulator actions)
 //! - 📈 Live Hardware Telemetry Plots (Real measured frame time deltas & memory counters)
 //! - 📊 Live Virtualized Event Log (Real-time stream of background agent execution events in microseconds)
 //! - 📂 Native Windows Dialogs (`rfd` async file/folder pickers)
@@ -523,21 +523,21 @@ pub struct AaroneousDesktopApp {
     camera_pan: Vec2,
     camera_zoom: f32,
 
-    // Ariel Live Vision Perception
+    // Presenter Live Vision Perception
     viewport_texture: Option<egui::TextureHandle>,
     vision_fps: f32,
     vision_entropy: f64,
 
     // Game & Task Emulation Agent
-    game_agent: marionette::AutonomousGameAgent,
+    game_agent: desktop_emulator::AutonomousGameAgent,
     emulation_session_name: String,
     emulation_status_msg: String,
 
     // Discord-Style Screen & Application Sharing Picker
     screen_share_tab: ScreenShareTab,
-    discovered_windows: Vec<marionette::DiscoveredWindow>,
+    discovered_windows: Vec<desktop_emulator::DiscoveredWindow>,
     selected_window_idx: usize,
-    capture_modifiers: marionette::CaptureModifiers,
+    capture_modifiers: desktop_emulator::CaptureModifiers,
 
     // 5 Frontier Engines Interactive State
     frontier_guardrail_test_val: f32,
@@ -556,24 +556,24 @@ pub struct AaroneousDesktopApp {
     bot_active_keys: [bool; 5], // W, A, S, D, L-Click
 
     // Developer Workbench State
-    dev_tools_engine: chimera::DevToolsEngine,
-    workspace_tree_items: Vec<chimera::WorkspaceFileItem>,
+    dev_tools_engine: adaptation_engine::DevToolsEngine,
+    workspace_tree_items: Vec<adaptation_engine::WorkspaceFileItem>,
     selected_tree_idx: usize,
     workbench_active_file: String,
     workbench_file_content: String,
     workbench_diff_preview: String,
-    workbench_diagnostics: Vec<chimera::CompilerDiagnosticItem>,
+    workbench_diagnostics: Vec<adaptation_engine::CompilerDiagnosticItem>,
     workbench_status_msg: String,
     last_backup_path: Option<PathBuf>,
 
-    // Hephaestus Forge State
+    // Fabricator Forge State
     forge_file_path: String,
     forge_source_code: String,
     forge_search_pattern: String,
     forge_replace_template: String,
     forge_diff_preview: String,
     forge_status_msg: String,
-    rebuilder_engine: chimera::SelfRebuildEngine,
+    rebuilder_engine: adaptation_engine::SelfRebuildEngine,
 
     // SI Machine-Native Distillation State
     si_miner: transpiler::SiDistillationMiner,
@@ -655,7 +655,7 @@ impl Default for AaroneousDesktopApp {
             },
             AgentPipelineNode {
                 id: "node_action".to_string(),
-                title: "⚡ Marionette Motor Macro".to_string(),
+                title: "⚡ Desktop Emulator Motor Macro".to_string(),
                 subtitle: "Injects [W, Space, L-Click]".to_string(),
                 pos: Pos2::new(460.0, 45.0),
                 color: Color32::from_rgb(63, 185, 80),
@@ -749,11 +749,11 @@ impl Default for AaroneousDesktopApp {
             Err(_) => (None, false),
         };
 
-        let dev_tools_engine = chimera::DevToolsEngine::default();
+        let dev_tools_engine = adaptation_engine::DevToolsEngine::default();
         let workspace_tree_items = dev_tools_engine.scan_workspace_tree(2);
 
         // Discover active windows
-        let discovered_windows = marionette::WindowDiscoveryEngine::enumerate_available_targets().unwrap_or_default();
+        let discovered_windows = desktop_emulator::WindowDiscoveryEngine::enumerate_available_targets().unwrap_or_default();
 
         let default_target_app = ws.root().to_string_lossy().to_string();
 
@@ -814,13 +814,13 @@ impl Default for AaroneousDesktopApp {
             viewport_texture: None,
             vision_fps: 60.0,
             vision_entropy: 7.82,
-            game_agent: marionette::AutonomousGameAgent::new(),
+            game_agent: desktop_emulator::AutonomousGameAgent::new(),
             emulation_session_name: "speedrun_macro_1".to_string(),
             emulation_status_msg: "Game Emulation Agent Ready".to_string(),
             screen_share_tab: ScreenShareTab::Applications,
             discovered_windows,
             selected_window_idx: 0,
-            capture_modifiers: marionette::CaptureModifiers::default(),
+            capture_modifiers: desktop_emulator::CaptureModifiers::default(),
             frontier_guardrail_test_val: 0.1,
             frontier_guardrail_verdict_str: "Safe (SVDD Hypersphere distance: 1.60 <= 12.0)".to_string(),
             frontier_dream_cycles: 10,
@@ -842,13 +842,13 @@ impl Default for AaroneousDesktopApp {
             workbench_diagnostics: Vec::new(),
             workbench_status_msg: "Developer Workbench Ready".to_string(),
             last_backup_path: None,
-            forge_file_path: "crates/specialists/src/hephaestus.rs".to_string(),
+            forge_file_path: "crates/specialists/src/fabricator.rs".to_string(),
             forge_source_code: "pub fn execute_work() {\n    log(\"Starting task...\");\n}".to_string(),
             forge_search_pattern: "log(:[msg]);".to_string(),
             forge_replace_template: "tracing::info!(:[msg]);".to_string(),
             forge_diff_preview: String::new(),
             forge_status_msg: "Ready to forge patches".to_string(),
-            rebuilder_engine: chimera::SelfRebuildEngine::default(),
+            rebuilder_engine: adaptation_engine::SelfRebuildEngine::default(),
             si_miner,
             si_corpus_count,
             si_corpus_bytes,
@@ -1108,7 +1108,7 @@ impl AaroneousDesktopApp {
                     // Tier 3: Decompose Task
                     let _ = tx.send(BackgroundAgentMessage::EventLog(AutomationEventLog {
                         timestamp_ms: start.elapsed().as_millis() as u64,
-                        source: format!("{} [Tier 3 Soul]", agent_name),
+                        source: format!("{} [Tier 3 Persona]", agent_name),
                         action: format!("Planned workflow with {}: '{}'", soul_model_name, instructions),
                         latency_us: 120.0,
                         success: true,
@@ -1175,10 +1175,10 @@ impl AaroneousDesktopApp {
                 thread::spawn(move || {
                     let start = Instant::now();
 
-                    // Tier 3 Soul Prompting
+                    // Tier 3 Persona Prompting
                     let _ = tx.send(BackgroundAgentMessage::EventLog(AutomationEventLog {
                         timestamp_ms: start.elapsed().as_millis() as u64,
-                        source: format!("{} [Tier 3 Soul]", agent_name),
+                        source: format!("{} [Tier 3 Persona]", agent_name),
                         action: format!("Synthesizing AST graph using {}", soul_model_name),
                         latency_us: 350.0,
                         success: true,
@@ -1238,7 +1238,7 @@ impl AaroneousDesktopApp {
     /// Toggles gameplay demonstration recording
     fn toggle_recording(&mut self) {
         match &self.game_agent.state {
-            marionette::PlaythroughState::Recording { .. } => {
+            desktop_emulator::PlaythroughState::Recording { .. } => {
                 if let Ok(count) = self.game_agent.stop_recording() {
                     self.emulation_status_msg = format!("Recorded {} events.", count);
                     self.recording_start_instant = None;
@@ -1282,7 +1282,7 @@ impl AaroneousDesktopApp {
         ui.horizontal(|ui| {
             // Record / Stop Pill
             match &self.game_agent.state {
-                marionette::PlaythroughState::Recording { frames_recorded, .. } => {
+                desktop_emulator::PlaythroughState::Recording { frames_recorded, .. } => {
                     let elapsed = self.recording_start_instant.map(|s| s.elapsed().as_secs()).unwrap_or(0);
                     let mins = elapsed / 60;
                     let secs = elapsed % 60;
@@ -1302,14 +1302,14 @@ impl AaroneousDesktopApp {
 
             // Bot Play / Pause
             match &self.game_agent.state {
-                marionette::PlaythroughState::AutonomousPlaying { steps_executed, .. } => {
+                desktop_emulator::PlaythroughState::AutonomousPlaying { steps_executed, .. } => {
                     if ui.button(egui::RichText::new(format!("⏸️ BOT (#{})", steps_executed)).color(Color32::LIGHT_GREEN).strong()).clicked() {
-                        self.game_agent.state = marionette::PlaythroughState::Paused;
+                        self.game_agent.state = desktop_emulator::PlaythroughState::Paused;
                     }
                 }
                 _ => {
                     if ui.button(egui::RichText::new("▶️ BOT").color(theme.accent()).strong()).clicked() {
-                        self.game_agent.state = marionette::PlaythroughState::AutonomousPlaying {
+                        self.game_agent.state = desktop_emulator::PlaythroughState::AutonomousPlaying {
                             steps_executed: 1,
                             cumulative_reward: self.game_agent.cumulative_dopamine,
                         };
@@ -1530,24 +1530,24 @@ impl AaroneousDesktopApp {
                         // Run MDP task routing evaluation
                         let mut router = orchestrator::TaskRoutingEngine::new(vec![
                             orchestrator::Specialist {
-                                id: "odin".to_string(),
-                                name: "Odin (Planner)".to_string(),
+                                id: "orchestrator".to_string(),
+                                name: "Orchestrator (Planner)".to_string(),
                                 skills: vec!["intent_decomposition".to_string(), "quorum".to_string()],
                                 capacity: 0.9,
                                 success_rate: 0.98,
                                 avg_completion_time: 1.2,
                             },
                             orchestrator::Specialist {
-                                id: "hephaestus".to_string(),
-                                name: "Hephaestus (Coder)".to_string(),
+                                id: "fabricator".to_string(),
+                                name: "Fabricator (Coder)".to_string(),
                                 skills: vec!["ast_mutation".to_string(), "jit".to_string(), "code_generation".to_string()],
                                 capacity: 0.95,
                                 success_rate: 0.99,
                                 avg_completion_time: 0.8,
                             },
                             orchestrator::Specialist {
-                                id: "merlin".to_string(),
-                                name: "Merlin (Research)".to_string(),
+                                id: "synthesizer".to_string(),
+                                name: "Synthesizer (Research)".to_string(),
                                 skills: vec!["research".to_string(), "knowledge".to_string()],
                                 capacity: 0.90,
                                 success_rate: 0.97,
@@ -1584,15 +1584,15 @@ impl AaroneousDesktopApp {
 
         // 9 Specialist Cards in 3x3 Grid
         let specialists = [
-            ("👑 Odin", "Planner", "Task Planner & Lead", "Breaks complex goals into steps & coordinates the team", Color32::from_rgb(255, 215, 0)),
-            ("🧙 Merlin", "Research", "Research & Knowledge", "Searches online sources, documents & scientific papers", Color32::from_rgb(147, 112, 219)),
-            ("🎨 Ariel", "Designer", "UI & Visual Design", "Designs user interfaces, styling, and visual layouts", Color32::from_rgb(0, 255, 204)),
-            ("🔨 Hephaestus", "Coder", "Code Builder & Compiler", "Writes, edits, refactors, and compiles source code", Color32::from_rgb(255, 120, 0)),
-            ("🛡️ Argus", "Auditor", "Safety & Guardrails", "Checks code and actions to prevent errors and bugs", Color32::from_rgb(255, 80, 80)),
-            ("🍷 Dionysus", "Memory", "Memory & Learning", "Maintains long-term project memory and learning data", Color32::from_rgb(255, 105, 180)),
-            ("🕊️ Hermes", "Network", "Network & Device Sync", "Coordinates tasks across other PCs on your local network", Color32::from_rgb(100, 200, 255)),
-            ("👁️ Wen", "Context", "User Preferences & Style", "Adapts AI tone and style to match your workflow", Color32::from_rgb(180, 255, 100)),
-            ("🌌 Kami", "Spatial", "3D & Screen Coordinates", "Calculates 3D space, physics, and screen coordinates", Color32::from_rgb(200, 150, 255)),
+            ("👑 Orchestrator", "Planner", "Task Planner & Lead", "Breaks complex goals into steps & coordinates the team", Color32::from_rgb(255, 215, 0)),
+            ("🧙 Synthesizer", "Research", "Research & Knowledge", "Searches online sources, documents & scientific papers", Color32::from_rgb(147, 112, 219)),
+            ("🎨 Presenter", "Designer", "UI & Visual Design", "Designs user interfaces, styling, and visual layouts", Color32::from_rgb(0, 255, 204)),
+            ("🔨 Fabricator", "Coder", "Code Builder & Compiler", "Writes, edits, refactors, and compiles source code", Color32::from_rgb(255, 120, 0)),
+            ("🛡️ Sentinel", "Auditor", "Safety & Guardrails", "Checks code and actions to prevent errors and bugs", Color32::from_rgb(255, 80, 80)),
+            ("🍷 Archivist", "Memory", "Memory & Learning", "Maintains long-term project memory and learning data", Color32::from_rgb(255, 105, 180)),
+            ("🕊️ Router", "Network", "Network & Device Sync", "Coordinates tasks across other PCs on your local network", Color32::from_rgb(100, 200, 255)),
+            ("👁️ Aligner", "Context", "User Preferences & Style", "Adapts AI tone and style to match your workflow", Color32::from_rgb(180, 255, 100)),
+            ("🌌 Perceiver", "Spatial", "3D & Screen Coordinates", "Calculates 3D space, physics, and screen coordinates", Color32::from_rgb(200, 150, 255)),
         ];
 
         egui::Grid::new("pantheon_grid").num_columns(3).spacing([12.0, 12.0]).show(ui, |ui| {
@@ -1773,15 +1773,15 @@ impl AaroneousDesktopApp {
                 ui.add_space(6.0);
 
                 let models = [
-                    ("odin.si", "Task Planner", "118 KB", "100.0%", "2.24", "< 18 µs"),
-                    ("merlin.si", "Research", "118 KB", "100.0%", "2.39", "< 18 µs"),
-                    ("ariel.si", "UI Design", "118 KB", "100.0%", "2.26", "< 17 µs"),
-                    ("hephaestus.si", "Code Builder", "117 KB", "100.0%", "2.25", "< 18 µs"),
-                    ("argus.si", "Safety Guard", "117 KB", "100.0%", "2.82", "< 19 µs"),
-                    ("dionysus.si", "Memory Bank", "118 KB", "100.0%", "2.33", "< 18 µs"),
-                    ("hermes.si", "Device Sync", "118 KB", "100.0%", "2.42", "< 18 µs"),
-                    ("wen.si", "User Style", "118 KB", "100.0%", "2.22", "< 18 µs"),
-                    ("kami.si", "3D & Spatial", "117 KB", "100.0%", "2.19", "< 17 µs"),
+                    ("orchestrator.si", "Task Planner", "118 KB", "100.0%", "2.24", "< 18 µs"),
+                    ("synthesizer.si", "Research", "118 KB", "100.0%", "2.39", "< 18 µs"),
+                    ("presenter.si", "UI Design", "118 KB", "100.0%", "2.26", "< 17 µs"),
+                    ("fabricator.si", "Code Builder", "117 KB", "100.0%", "2.25", "< 18 µs"),
+                    ("sentinel.si", "Safety Guard", "117 KB", "100.0%", "2.82", "< 19 µs"),
+                    ("archivist.si", "Memory Bank", "118 KB", "100.0%", "2.33", "< 18 µs"),
+                    ("router.si", "Device Sync", "118 KB", "100.0%", "2.42", "< 18 µs"),
+                    ("aligner.si", "User Style", "118 KB", "100.0%", "2.22", "< 18 µs"),
+                    ("perceiver.si", "3D & Spatial", "117 KB", "100.0%", "2.19", "< 17 µs"),
                 ];
 
                 egui::Grid::new("distilled_models_grid").striped(true).min_col_width(80.0).show(ui, |ui| {
@@ -1819,16 +1819,16 @@ impl AaroneousDesktopApp {
                     ui.label("Model Type:");
                     egui::ComboBox::from_id_salt("distill_domain_combo")
                         .selected_text(match self.forge_selected_domain {
-                            0 => "Code Builder (Hephaestus)",
-                            1 => "Research Specialist (Merlin)",
-                            2 => "Safety Guardrail (Argus)",
-                            _ => "Task Planner (Odin)",
+                            0 => "Code Builder (Fabricator)",
+                            1 => "Research Specialist (Synthesizer)",
+                            2 => "Safety Guardrail (Sentinel)",
+                            _ => "Task Planner (Orchestrator)",
                         })
                         .show_ui(ui, |ui| {
-                            ui.selectable_value(&mut self.forge_selected_domain, 0, "Code Builder (Hephaestus)");
-                            ui.selectable_value(&mut self.forge_selected_domain, 1, "Research Specialist (Merlin)");
-                            ui.selectable_value(&mut self.forge_selected_domain, 2, "Safety Guardrail (Argus)");
-                            ui.selectable_value(&mut self.forge_selected_domain, 3, "Task Planner (Odin)");
+                            ui.selectable_value(&mut self.forge_selected_domain, 0, "Code Builder (Fabricator)");
+                            ui.selectable_value(&mut self.forge_selected_domain, 1, "Research Specialist (Synthesizer)");
+                            ui.selectable_value(&mut self.forge_selected_domain, 2, "Safety Guardrail (Sentinel)");
+                            ui.selectable_value(&mut self.forge_selected_domain, 3, "Task Planner (Orchestrator)");
                         });
 
                     ui.label("Training Examples:");
@@ -2170,7 +2170,7 @@ impl AaroneousDesktopApp {
                         });
 
                         ui.horizontal(|ui| {
-                            ui.label("Engine Soul:");
+                            ui.label("Engine Persona:");
                             let current_soul_name = self.new_agent_soul_model.as_deref().unwrap_or("⚡ Native Tri-Tiered Engine");
                             egui::ComboBox::from_id_salt("soul_picker_new")
                                 .selected_text(current_soul_name)
@@ -2390,7 +2390,7 @@ impl AaroneousDesktopApp {
                 ui.selectable_value(&mut self.screen_share_tab, ScreenShareTab::Screens, "🖥️ Screens & Displays");
 
                 if ui.button("🔄 Refresh Open Windows").clicked()
-                    && let Ok(wins) = marionette::WindowDiscoveryEngine::enumerate_available_targets()
+                    && let Ok(wins) = desktop_emulator::WindowDiscoveryEngine::enumerate_available_targets()
                 {
                     self.discovered_windows = wins;
                     self.show_toast("Windows Refreshed", format!("Found {} open applications.", self.discovered_windows.len()), ToastLevel::Info);
@@ -2423,7 +2423,7 @@ impl AaroneousDesktopApp {
 
                                 if resp.response.interact(egui::Sense::click()).clicked() {
                                     self.selected_window_idx = i;
-                                    self.capture_modifiers.target = marionette::CaptureTarget::ApplicationWindow {
+                                    self.capture_modifiers.target = desktop_emulator::CaptureTarget::ApplicationWindow {
                                         hwnd: win.hwnd,
                                         title: win.title.clone(),
                                         process_name: win.process_name.clone(),
@@ -2441,7 +2441,7 @@ impl AaroneousDesktopApp {
                     ui.horizontal(|ui| {
                         for disp_id in 0..2 {
                             let is_selected = match &self.capture_modifiers.target {
-                                marionette::CaptureTarget::EntireDisplay { display_id, .. } => *display_id == disp_id,
+                                desktop_emulator::CaptureTarget::EntireDisplay { display_id, .. } => *display_id == disp_id,
                                 _ => false,
                             };
                             let border_color = if is_selected { theme.accent() } else { theme.border_color() };
@@ -2459,7 +2459,7 @@ impl AaroneousDesktopApp {
                                 });
 
                             if resp.response.interact(egui::Sense::click()).clicked() {
-                                self.capture_modifiers.target = marionette::CaptureTarget::EntireDisplay {
+                                self.capture_modifiers.target = desktop_emulator::CaptureTarget::EntireDisplay {
                                     display_id: disp_id,
                                     name: format!("Display {}", disp_id + 1),
                                 };
@@ -2475,9 +2475,9 @@ impl AaroneousDesktopApp {
             // ── Discord-Style Modifiers Bar ─────────────────────────────────────────
             ui.horizontal(|ui| {
                 ui.label(egui::RichText::new("🎙️ Audio:").strong());
-                ui.selectable_value(&mut self.capture_modifiers.audio_modifier, marionette::AudioCaptureModifier::SystemAndGameLoopback, "🔊 Game Loopback");
-                ui.selectable_value(&mut self.capture_modifiers.audio_modifier, marionette::AudioCaptureModifier::MicrophoneOnly, "🎤 Mic Only");
-                ui.selectable_value(&mut self.capture_modifiers.audio_modifier, marionette::AudioCaptureModifier::Muted, "🔇 Mute");
+                ui.selectable_value(&mut self.capture_modifiers.audio_modifier, desktop_emulator::AudioCaptureModifier::SystemAndGameLoopback, "🔊 Game Loopback");
+                ui.selectable_value(&mut self.capture_modifiers.audio_modifier, desktop_emulator::AudioCaptureModifier::MicrophoneOnly, "🎤 Mic Only");
+                ui.selectable_value(&mut self.capture_modifiers.audio_modifier, desktop_emulator::AudioCaptureModifier::Muted, "🔇 Mute");
 
                 ui.separator();
 
@@ -2821,7 +2821,7 @@ impl AaroneousDesktopApp {
 
             ui.selectable_value(&mut self.dev_tab, DevStudioTab::Workbench, "📁 File Explorer & Editor");
             ui.selectable_value(&mut self.dev_tab, DevStudioTab::CompilerDiagnostics, "🔍 Diagnostic Auto-Fixer");
-            ui.selectable_value(&mut self.dev_tab, DevStudioTab::StructuralForge, "🔨 Hephaestus AST Forge");
+            ui.selectable_value(&mut self.dev_tab, DevStudioTab::StructuralForge, "🔨 Fabricator AST Forge");
             ui.selectable_value(&mut self.dev_tab, DevStudioTab::SiDistillation, "🧠 SI Distillation & Trainer");
             ui.selectable_value(&mut self.dev_tab, DevStudioTab::SiMacroHub, "⚡ Smart SI Macro Hub");
             ui.selectable_value(&mut self.dev_tab, DevStudioTab::SiSkillTree, "🧬 Skill Tree & SI Inspector");
@@ -3470,17 +3470,17 @@ impl AaroneousDesktopApp {
                         ui.separator();
 
                         let specialists_data = [
-                            ("Hermes", "0x0100", "Caduceus / Router", "ACTIVE", "Cursor: 0/256", "0.02 µs", Color32::from_rgb(56, 139, 253)),
-                            ("Marionette", "0x0200", "OS Kinetic & UIAutomation", "ACTIVE", "Cursor: 14/256", "0.04 µs", Color32::from_rgb(63, 185, 80)),
-                            ("Chimera", "0x0300", "AST Decompile & Hotpatch", "ACTIVE", "Cursor: 8/256", "0.05 µs", Color32::from_rgb(163, 113, 247)),
-                            ("Hephaestus", "0x0400", "Machine Optimizer / Forge", "ACTIVE", "Cursor: 22/256", "0.03 µs", Color32::from_rgb(245, 158, 11)),
-                            ("Argus", "0x0500", "Sentinel / Latent Guardrail", "ARMED", "Cursor: 6/256", "0.01 µs", Color32::from_rgb(239, 68, 68)),
-                            ("Merlin", "0x0600", "Grimoire / Synthesis", "ACTIVE", "Cursor: 2/256", "0.04 µs", Color32::from_rgb(139, 92, 246)),
-                            ("Odin", "0x0700", "Draupnir / Intent Planner", "ACTIVE", "Cursor: 1/256", "0.02 µs", Color32::from_rgb(59, 130, 246)),
-                            ("Ariel", "0x0800", "Glass / UI Perception", "ACTIVE", "Cursor: 60/256", "0.06 µs", Color32::from_rgb(20, 184, 166)),
-                            ("Kami", "0x0900", "Threshold / Security Vault", "ACTIVE", "Cursor: 0/256", "0.02 µs", Color32::from_rgb(168, 85, 247)),
-                            ("Wen", "0x0A00", "Resonance / Alignment", "ACTIVE", "Cursor: 4/256", "0.03 µs", Color32::from_rgb(236, 72, 153)),
-                            ("Dionysus", "0x0B00", "Omni / Memory Consolidation", "ACTIVE", "Cursor: 12/256", "0.05 µs", Color32::from_rgb(234, 179, 8)),
+                            ("Router", "0x0100", "FederationBus / Mesh", "ACTIVE", "Cursor: 0/256", "0.02 µs", Color32::from_rgb(56, 139, 253)),
+                            ("Desktop Emulator", "0x0200", "OS Kinetic & UIAutomation", "ACTIVE", "Cursor: 14/256", "0.04 µs", Color32::from_rgb(63, 185, 80)),
+                            ("Adaptation Engine", "0x0300", "AST Decompile & Hotpatch", "ACTIVE", "Cursor: 8/256", "0.05 µs", Color32::from_rgb(163, 113, 247)),
+                            ("Fabricator", "0x0400", "CompilerCore / Forge", "ACTIVE", "Cursor: 22/256", "0.03 µs", Color32::from_rgb(245, 158, 11)),
+                            ("Sentinel", "0x0500", "AuditEngine / Guardrail", "ARMED", "Cursor: 6/256", "0.01 µs", Color32::from_rgb(239, 68, 68)),
+                            ("Synthesizer", "0x0600", "KnowledgeStore / Research", "ACTIVE", "Cursor: 2/256", "0.04 µs", Color32::from_rgb(139, 92, 246)),
+                            ("Orchestrator", "0x0700", "OrchestratorCore / Planner", "ACTIVE", "Cursor: 1/256", "0.02 µs", Color32::from_rgb(59, 130, 246)),
+                            ("Presenter", "0x0800", "DisplayBuffer / UI", "ACTIVE", "Cursor: 60/256", "0.06 µs", Color32::from_rgb(20, 184, 166)),
+                            ("Perceiver", "0x0900", "GatekeeperEngine / Sensory", "ACTIVE", "Cursor: 0/256", "0.02 µs", Color32::from_rgb(168, 85, 247)),
+                            ("Aligner", "0x0A00", "HarmonyEngine / Alignment", "ACTIVE", "Cursor: 4/256", "0.03 µs", Color32::from_rgb(236, 72, 153)),
+                            ("Archivist", "0x0B00", "MemoryIndex / Consolidation", "ACTIVE", "Cursor: 12/256", "0.05 µs", Color32::from_rgb(234, 179, 8)),
                         ];
 
                         for (name, opcode, role, status, cursor, lat, color) in specialists_data {
@@ -3501,7 +3501,7 @@ impl AaroneousDesktopApp {
 
             ui.add_space(10.0);
 
-            // ── Section 2: Argus Latent Manifold Guardrails (Deep SVDD) ───
+            // ── Section 2: Sentinel Latent Manifold Guardrails (Deep SVDD) ───
             egui::Frame::group(ui.style())
                 .fill(theme.panel_bg())
                 .stroke(Stroke::new(1.0, Color32::from_rgb(239, 68, 68)))
@@ -3510,7 +3510,7 @@ impl AaroneousDesktopApp {
                     ui.set_min_width(ui.available_width());
                     ui.vertical(|ui| {
                         ui.horizontal(|ui| {
-                            ui.heading(egui::RichText::new("🛡️ Argus Latent Manifold Guardrail (Deep SVDD)").color(Color32::from_rgb(239, 68, 68)).size(15.0).strong());
+                            ui.heading(egui::RichText::new("🛡️ Sentinel Latent Manifold Guardrail (Deep SVDD)").color(Color32::from_rgb(239, 68, 68)).size(15.0).strong());
                             ui.label(egui::RichText::new("Discriminative Hypersphere • Mahalanobis Anisotropic • Auto-Snapping").color(Color32::GRAY).size(11.0));
                         });
                         ui.separator();
@@ -3526,10 +3526,10 @@ impl AaroneousDesktopApp {
 
                                 if verdict.is_safe {
                                     self.frontier_guardrail_verdict_str = format!("✅ SAFE: Distance {:.2} <= {:.2} (Within Hypersphere)", verdict.distance_to_centroid, verdict.safety_radius);
-                                    self.show_toast("Argus Audit Passed", "Candidate tensor is verified inside safe operational manifold.", ToastLevel::Success);
+                                    self.show_toast("Sentinel Audit Passed", "Candidate tensor is verified inside safe operational manifold.", ToastLevel::Success);
                                 } else {
                                     self.frontier_guardrail_verdict_str = format!("⚠️ OUT OF BOUNDS: Distance {:.2} > {:.2} ──► Snapped to safe boundary!", verdict.distance_to_centroid, verdict.safety_radius);
-                                    self.show_toast("Argus Guardrail Activated", "Rogue tensor intercepted and orthogonally snapped to boundary.", ToastLevel::Warning);
+                                    self.show_toast("Sentinel Guardrail Activated", "Rogue tensor intercepted and orthogonally snapped to boundary.", ToastLevel::Warning);
                                 }
                             }
                         });
@@ -3760,7 +3760,7 @@ impl AaroneousDesktopApp {
         });
     }
 
-    /// Renders Hephaestus Forge & AST Pattern Rewriter (Dev Mode)
+    /// Renders Fabricator Forge & AST Pattern Rewriter (Dev Mode)
     fn render_forge_view(&mut self, ui: &mut egui::Ui) {
         let theme = self.settings.theme;
 
@@ -3800,7 +3800,7 @@ impl AaroneousDesktopApp {
 
                 ui.add_space(8.0);
                 if ui.button("⚡ Synthesize Structural Diff in Forge").clicked() {
-                    match chimera::PatternRewriter::rewrite_source(
+                    match adaptation_engine::PatternRewriter::rewrite_source(
                         &self.forge_file_path,
                         &self.forge_source_code,
                         &self.forge_search_pattern,
@@ -3871,7 +3871,7 @@ impl AaroneousDesktopApp {
             ui.separator();
 
             match &self.game_agent.state {
-                marionette::PlaythroughState::Idle => {
+                desktop_emulator::PlaythroughState::Idle => {
                     if ui.button("🔴 Start Recording (F9)").clicked() {
                         self.toggle_recording();
                     }
@@ -3880,28 +3880,28 @@ impl AaroneousDesktopApp {
                         self.show_toast("Autonomous Bot Active", "Game agent policy running.", ToastLevel::Success);
                     }
                 }
-                marionette::PlaythroughState::Recording { frames_recorded, .. } => {
+                desktop_emulator::PlaythroughState::Recording { frames_recorded, .. } => {
                     let elapsed = self.recording_start_instant.map(|s| s.elapsed().as_secs()).unwrap_or(0);
                     ui.label(egui::RichText::new(format!("🔴 RECORDING {:02}:{:02} ({} actions)", elapsed / 60, elapsed % 60, frames_recorded)).color(Color32::RED).strong());
                     if ui.button("⏹️ Stop & Save Policy (F9)").clicked() {
                         self.toggle_recording();
                     }
                 }
-                marionette::PlaythroughState::AutonomousPlaying { steps_executed, cumulative_reward } => {
+                desktop_emulator::PlaythroughState::AutonomousPlaying { steps_executed, cumulative_reward } => {
                     ui.label(egui::RichText::new(format!("▶️ RUNNING (Action #{}, Reward: {:.2})", steps_executed, cumulative_reward)).color(Color32::LIGHT_GREEN).strong());
                     if ui.button("⏸️ Pause").clicked() {
-                        self.game_agent.state = marionette::PlaythroughState::Paused;
+                        self.game_agent.state = desktop_emulator::PlaythroughState::Paused;
                     }
                 }
-                marionette::PlaythroughState::Paused => {
+                desktop_emulator::PlaythroughState::Paused => {
                     if ui.button("▶️ Resume").clicked() {
-                        self.game_agent.state = marionette::PlaythroughState::AutonomousPlaying {
+                        self.game_agent.state = desktop_emulator::PlaythroughState::AutonomousPlaying {
                             steps_executed: 10,
                             cumulative_reward: self.game_agent.cumulative_dopamine,
                         };
                     }
                 }
-                marionette::PlaythroughState::EmergencyHalted { reason } => {
+                desktop_emulator::PlaythroughState::EmergencyHalted { reason } => {
                     ui.label(egui::RichText::new(format!("🛑 HALTED: {}", reason)).color(Color32::RED).strong());
                     if ui.button("🔄 Reset").clicked() {
                         self.game_agent.reset();
@@ -4365,7 +4365,7 @@ impl AaroneousDesktopApp {
                                             });
 
                                             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                                                let btn_text = if is_selected { "✅ Active Soul" } else { "⚡ Bind to Agent Soul" };
+                                                let btn_text = if is_selected { "✅ Active Persona" } else { "⚡ Bind to Agent Persona" };
                                                 if ui.button(btn_text).clicked() {
                                                     selected_model_to_bind = Some((i, m.file_name.clone()));
                                                 }
@@ -4386,7 +4386,7 @@ impl AaroneousDesktopApp {
                         self.selected_model_idx = idx;
                         self.settings.selected_gguf_model = Some(model_name.clone());
                         self.settings.save_to_disk();
-                        self.show_toast("Soul Bound", format!("Selected {} as primary reasoning engine.", model_name), ToastLevel::Success);
+                        self.show_toast("Persona Bound", format!("Selected {} as primary reasoning engine.", model_name), ToastLevel::Success);
                     }
                 });
             });

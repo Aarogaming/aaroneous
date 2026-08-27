@@ -1,5 +1,5 @@
 //! Auto-generated Aaroneous Machine-Native Organ Wrapper for: WhoamiTool
-//! Synthesized by the Chimera Stem Cell Auto-Wrapping Engine.
+//! Synthesized by the Adaptation Engine Stem Cell Auto-Wrapping Engine.
 
 use anyhow::{Context, Result};
 use std::process::Stdio;

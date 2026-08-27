@@ -23,7 +23,7 @@ pub enum StepStatus {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkflowStep {
     pub step_id: String,
-    pub assigned_specialist: String, // e.g. "Hephaestus", "Argus", "Odin"
+    pub assigned_specialist: String, // e.g. "Fabricator", "Sentinel", "Orchestrator"
     pub dependencies: Vec<String>,   // Step IDs that must complete first
     pub action_name: String,
     pub payload: String,
@@ -237,9 +237,9 @@ mod tests {
     fn test_workflow_dag_dependency_resolution() {
         let mut workflow = WorkflowGraph::new("wf_code_adaptation");
 
-        workflow.add_step("step_1", "Merlin", "DecompileIntent", "{}", vec![], 2);
-        workflow.add_step("step_2", "Hephaestus", "ForgePatch", "{}", vec!["step_1".to_string()], 2);
-        workflow.add_step("step_3", "Argus", "SecurityAudit", "{}", vec!["step_2".to_string()], 1);
+        workflow.add_step("step_1", "Synthesizer", "DecompileIntent", "{}", vec![], 2);
+        workflow.add_step("step_2", "Fabricator", "ForgePatch", "{}", vec!["step_1".to_string()], 2);
+        workflow.add_step("step_3", "Sentinel", "SecurityAudit", "{}", vec!["step_2".to_string()], 1);
 
         let ready = workflow.get_ready_steps();
         assert_eq!(ready.len(), 1);
@@ -263,8 +263,8 @@ mod tests {
     #[test]
     fn test_workflow_retry_and_rollback() {
         let mut workflow = WorkflowGraph::new("wf_failing");
-        workflow.add_step("step_1", "Hephaestus", "Compile", "{}", vec![], 1);
-        workflow.add_step("step_2", "Argus", "Audit", "{}", vec!["step_1".to_string()], 1);
+        workflow.add_step("step_1", "Fabricator", "Compile", "{}", vec![], 1);
+        workflow.add_step("step_2", "Sentinel", "Audit", "{}", vec!["step_1".to_string()], 1);
 
         workflow.fail_step("step_1", "Compile Error 1");
         assert_eq!(workflow.steps.get("step_1").unwrap().retry_count, 1);
@@ -278,7 +278,7 @@ mod tests {
     #[test]
     fn test_serialize_deserialize_roundtrip() {
         let mut workflow = WorkflowGraph::new("wf_roundtrip");
-        workflow.add_step("s1", "Merlin", "Analyze", "data", vec![], 1);
+        workflow.add_step("s1", "Synthesizer", "Analyze", "data", vec![], 1);
         workflow.complete_step("s1");
 
         let json = workflow.serialize().unwrap();
@@ -297,7 +297,7 @@ mod tests {
 
         let path = dir.join("test_wf.json");
         let mut workflow = WorkflowGraph::new("test_wf");
-        workflow.add_step("s1", "Odin", "Plan", "{}", vec![], 0);
+        workflow.add_step("s1", "Orchestrator", "Plan", "{}", vec![], 0);
         workflow.save_to(&path).unwrap();
 
         let loaded = WorkflowGraph::load_from(&path).unwrap();
@@ -331,5 +331,144 @@ mod tests {
         assert_eq!(ids, vec!["wf_a", "wf_b"]);
 
         let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn test_new_with_persist() {
+        let path = std::env::temp_dir().join("test_wf_persist.json");
+        let wf = WorkflowGraph::new_with_persist("wf_persist", path.clone());
+        assert_eq!(wf.workflow_id, "wf_persist");
+        assert_eq!(wf.persist_path, Some(path));
+    }
+
+    #[test]
+    fn test_save_default_creates_directory() {
+        let dir = std::env::temp_dir().join("aaroneous_test_save_default");
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+
+        let mut wf = WorkflowGraph::new("wf_default");
+        wf.add_step("s1", "Synthesizer", "Analyze", "{}", vec![], 0);
+        wf.save_default(&dir).unwrap();
+
+        let loaded = WorkflowGraph::load_default(&dir, "wf_default").unwrap();
+        assert_eq!(loaded.workflow_id, "wf_default");
+        assert_eq!(loaded.steps.len(), 1);
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn test_load_default_nonexistent() {
+        let dir = std::env::temp_dir().join("aaroneous_test_load_nonexist");
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+
+        let result = WorkflowGraph::load_default(&dir, "nonexistent");
+        assert!(result.is_err());
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn test_save_no_persist_path_fails() {
+        let wf = WorkflowGraph::new("no_path");
+        let result = wf.save();
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("No persist_path"));
+    }
+
+    #[test]
+    fn test_parallel_ready_steps() {
+        let mut wf = WorkflowGraph::new("parallel");
+        wf.add_step("a", "Synthesizer", "Analyze", "{}", vec![], 0);
+        wf.add_step("b", "Sentinel", "Audit", "{}", vec![], 0);
+        wf.add_step("c", "Fabricator", "Build", "{}", vec!["a".to_string(), "b".to_string()], 0);
+
+        let ready = wf.get_ready_steps();
+        assert_eq!(ready.len(), 2); // Both a and b should be ready
+
+        wf.complete_step("a");
+        let ready = wf.get_ready_steps();
+        assert_eq!(ready.len(), 1); // Only b
+        assert_eq!(ready[0].step_id, "b");
+
+        wf.complete_step("b");
+        let ready = wf.get_ready_steps();
+        assert_eq!(ready.len(), 1); // Now c
+        assert_eq!(ready[0].step_id, "c");
+    }
+
+    #[test]
+    fn test_retry_exhaustion_sets_failed() {
+        let mut wf = WorkflowGraph::new("retry");
+        wf.add_step("s1", "Fabricator", "Compile", "{}", vec![], 2); // max 2 retries
+
+        wf.fail_step("s1", "Error 1"); // retry_count=1, status=Pending
+        assert_eq!(wf.steps.get("s1").unwrap().retry_count, 1);
+        assert_eq!(wf.steps.get("s1").unwrap().status, StepStatus::Pending);
+
+        wf.fail_step("s1", "Error 2"); // retry_count=2, status=Pending
+        assert_eq!(wf.steps.get("s1").unwrap().retry_count, 2);
+        assert_eq!(wf.steps.get("s1").unwrap().status, StepStatus::Pending);
+
+        wf.fail_step("s1", "Error 3"); // retry_count=2 (capped), status=Failed
+        assert!(wf.is_failed);
+        assert!(matches!(wf.steps.get("s1").unwrap().status, StepStatus::Failed(_)));
+    }
+
+    #[test]
+    fn test_rollback_preserves_completed() {
+        let mut wf = WorkflowGraph::new("rollback_preserve");
+        wf.add_step("s1", "Synthesizer", "Plan", "{}", vec![], 0);
+        wf.add_step("s2", "Fabricator", "Build", "{}", vec!["s1".to_string()], 0);
+
+        wf.complete_step("s1");
+        wf.fail_step("s2", "fatal"); // triggers rollback
+
+        // s1 should remain Completed
+        assert_eq!(wf.steps.get("s1").unwrap().status, StepStatus::Completed);
+        // s2 should be Failed
+        assert!(matches!(wf.steps.get("s2").unwrap().status, StepStatus::Failed(_)));
+    }
+
+    #[test]
+    fn test_serialize_preserves_all_fields() {
+        let mut wf = WorkflowGraph::new("full_serialize");
+        wf.add_step("s1", "Orchestrator", "Orchestrate", "payload1", vec!["dep1".to_string()], 3);
+        wf.steps.get_mut("s1").unwrap().status = StepStatus::Running;
+        wf.steps.get_mut("s1").unwrap().retry_count = 1;
+
+        let json = wf.serialize().unwrap();
+        let loaded: WorkflowGraph = serde_json::from_str(&json).unwrap();
+
+        let step = loaded.steps.get("s1").unwrap();
+        assert_eq!(step.assigned_specialist, "Orchestrator");
+        assert_eq!(step.action_name, "Orchestrate");
+        assert_eq!(step.payload, "payload1");
+        assert_eq!(step.max_retries, 3);
+        assert_eq!(step.retry_count, 1);
+        assert_eq!(step.status, StepStatus::Running);
+    }
+
+    #[test]
+    fn test_list_persisted_empty_dir() {
+        let dir = std::env::temp_dir().join("aaroneous_test_empty_wf");
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+
+        let ids = WorkflowGraph::list_persisted(&dir).unwrap();
+        assert!(ids.is_empty());
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn test_list_persisted_nonexistent_dir() {
+        let dir = std::env::temp_dir().join("aaroneous_test_nonexist_wf_dir");
+        let _ = fs::remove_dir_all(&dir);
+        // Directory doesn't exist
+        let ids = WorkflowGraph::list_persisted(&dir).unwrap();
+        assert!(ids.is_empty());
     }
 }

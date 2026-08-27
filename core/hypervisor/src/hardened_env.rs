@@ -20,7 +20,7 @@ impl HardenedEnvironment {
 
         // 1. Static Analysis Check (Simulated)
         let source_code = fs::read_to_string(source_path)?;
-        if source_code.contains("unsafe") && !specialist_id.contains("hephaestus") {
+        if source_code.contains("unsafe") && !specialist_id.contains("fabricator") {
             return Err(anyhow!(
                 "Security Block: Unauthorized 'unsafe' usage detected in specialist {}",
                 specialist_id

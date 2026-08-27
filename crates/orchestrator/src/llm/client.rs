@@ -226,7 +226,7 @@ mod tests {
         let client = LLMClient::new(config);
 
         let resp = client
-            .generate_domain_response("System", "Hello specialist", "odin")
+            .generate_domain_response("System", "Hello specialist", "orchestrator")
             .await
             .unwrap();
         assert!(!resp.is_empty());

@@ -44,8 +44,8 @@ impl IntentEngine {
     pub fn new() -> Self {
         let specialists = vec![
             Specialist {
-                id: "specialist_ariel".to_string(),
-                name: "Ariel".to_string(),
+                id: "specialist_presenter".to_string(),
+                name: "Presenter".to_string(),
                 skills: vec![
                     "sensor_node".to_string(),
                     "tensor_forge".to_string(),
@@ -58,8 +58,8 @@ impl IntentEngine {
                 avg_completion_time: 5.0,
             },
             Specialist {
-                id: "specialist_merlin".to_string(),
-                name: "Merlin".to_string(),
+                id: "specialist_synthesizer".to_string(),
+                name: "Synthesizer".to_string(),
                 skills: vec![
                     "thought_kernel".to_string(),
                     "tensor_forge".to_string(),
@@ -71,8 +71,8 @@ impl IntentEngine {
                 avg_completion_time: 8.0,
             },
             Specialist {
-                id: "specialist_odin".to_string(),
-                name: "Odin".to_string(),
+                id: "specialist_orchestrator".to_string(),
+                name: "Orchestrator".to_string(),
                 skills: vec![
                     "thought_kernel".to_string(),
                     "nat_bridge".to_string(),
@@ -84,8 +84,8 @@ impl IntentEngine {
                 avg_completion_time: 3.0,
             },
             Specialist {
-                id: "specialist_dionysus".to_string(),
-                name: "Dionysus".to_string(),
+                id: "specialist_archivist".to_string(),
+                name: "Archivist".to_string(),
                 skills: vec![
                     "sensor_node".to_string(),
                     "thought_kernel".to_string(),
@@ -97,8 +97,8 @@ impl IntentEngine {
                 avg_completion_time: 6.0,
             },
             Specialist {
-                id: "specialist_hephaestus".to_string(),
-                name: "Hephaestus".to_string(),
+                id: "specialist_fabricator".to_string(),
+                name: "Fabricator".to_string(),
                 skills: vec![
                     "tensor_forge".to_string(),
                     "thought_kernel".to_string(),
@@ -111,8 +111,8 @@ impl IntentEngine {
                 avg_completion_time: 10.0,
             },
             Specialist {
-                id: "specialist_argus".to_string(),
-                name: "Argus".to_string(),
+                id: "specialist_sentinel".to_string(),
+                name: "Sentinel".to_string(),
                 skills: vec![
                     "nat_bridge".to_string(),
                     "sensor_node".to_string(),
@@ -357,5 +357,121 @@ mod tests {
         let skills = engine.extract_skills("Create a Rust function", &cmd);
         assert!(skills.contains(&"rust".to_string()));
         assert!(skills.contains(&"build".to_string()));
+    }
+
+    #[test]
+    fn test_record_outcome() {
+        let mut engine = IntentEngine::new();
+        engine.record_outcome("specialist_presenter", true, 5.0);
+        engine.record_outcome("specialist_synthesizer", false, 10.0);
+    }
+
+    #[test]
+    fn test_transducer_accessor() {
+        let engine = IntentEngine::new();
+        let t = engine.transducer();
+        assert!(!t.vocabulary().is_empty());
+    }
+
+    #[test]
+    fn test_cas_to_task_type_mappings() {
+        let engine = IntentEngine::new();
+
+        let cmd_gen = CasCommand { opcode: 0, mnemonic: "GENERATE".to_string(), description: "".to_string(), domain: "".to_string() };
+        assert!(matches!(engine.cas_to_task_type(&cmd_gen), TaskType::CodeGeneration));
+
+        let cmd_refine = CasCommand { opcode: 0, mnemonic: "REFINE".to_string(), description: "".to_string(), domain: "".to_string() };
+        assert!(matches!(engine.cas_to_task_type(&cmd_refine), TaskType::Refactor));
+
+        let cmd_analyze = CasCommand { opcode: 0, mnemonic: "ANALYZE".to_string(), description: "".to_string(), domain: "".to_string() };
+        assert!(matches!(engine.cas_to_task_type(&cmd_analyze), TaskType::Analysis));
+
+        let cmd_remember = CasCommand { opcode: 0, mnemonic: "REMEMBER".to_string(), description: "".to_string(), domain: "".to_string() };
+        assert!(matches!(engine.cas_to_task_type(&cmd_remember), TaskType::Ingestion));
+
+        let cmd_visualize = CasCommand { opcode: 0, mnemonic: "VISUALIZE".to_string(), description: "".to_string(), domain: "".to_string() };
+        assert!(matches!(engine.cas_to_task_type(&cmd_visualize), TaskType::Documentation));
+
+        let cmd_unknown = CasCommand { opcode: 0, mnemonic: "UNKNOWN".to_string(), description: "".to_string(), domain: "".to_string() };
+        assert!(matches!(engine.cas_to_task_type(&cmd_unknown), TaskType::Custom(_)));
+    }
+
+    #[test]
+    fn test_extract_skills_by_keyword() {
+        let engine = IntentEngine::new();
+        let cmd = CasCommand { opcode: 0, mnemonic: "GENERATE".to_string(), description: "".to_string(), domain: "".to_string() };
+
+        let skills = engine.extract_skills("Write a Python function", &cmd);
+        assert!(skills.contains(&"python".to_string()));
+
+        let skills = engine.extract_skills("Fix the Rust bug", &cmd);
+        assert!(skills.contains(&"rust".to_string()));
+
+        let skills = engine.extract_skills("Add tests for this module", &cmd);
+        assert!(skills.contains(&"testing".to_string()));
+
+        let skills = engine.extract_skills("Refactor the code", &cmd);
+        assert!(skills.contains(&"refactoring".to_string()));
+
+        let skills = engine.extract_skills("Write documentation", &cmd);
+        assert!(skills.contains(&"documentation".to_string()));
+    }
+
+    #[test]
+    fn test_urgency_estimates() {
+        let engine = IntentEngine::new();
+        assert!(engine.estimate_urgency("Fix this ASAP") >= 0.8);
+        assert!(engine.estimate_urgency("Do this quickly") >= 0.6);
+        assert!(engine.estimate_urgency("When you can, low priority") <= 0.3);
+        assert!(engine.estimate_urgency("Regular task") >= 0.2);
+    }
+
+    #[test]
+    fn test_parse_intent_returns_structured_fields() {
+        let engine = IntentEngine::new();
+        let intent = engine.parse_intent("Deploy the service ASAP with Rust");
+        assert_eq!(intent.raw_text, "Deploy the service ASAP with Rust");
+        assert!(!intent.cas_command.mnemonic.is_empty());
+        assert!(intent.complexity > 0.0);
+        assert!(intent.urgency >= 0.8);
+        assert!(intent.extracted_skills.contains(&"rust".to_string()));
+    }
+
+    #[test]
+    fn test_dispatch_returns_valid_result() {
+        let mut engine = IntentEngine::new();
+        let intent = engine.parse_intent("Generate a test suite");
+        let result = engine.dispatch(&intent);
+
+        assert!(!result.task_id.is_empty());
+        assert!(result.task_id.starts_with("task_"));
+        assert!(!result.routing.specialist_id.is_empty());
+        assert!(result.routing.confidence > 0.0);
+        assert_eq!(result.intent.raw_text, "Generate a test suite");
+    }
+
+    #[test]
+    fn test_parse_and_dispatch_integration() {
+        let mut engine = IntentEngine::new();
+        let result = engine.parse_and_dispatch("Review the security of this module").unwrap();
+        assert!(!result.task_id.is_empty());
+        assert!(!result.routing.specialist_id.is_empty());
+        assert!(result.routing.confidence > 0.0);
+    }
+
+    #[test]
+    fn test_extract_skills_deduplication() {
+        let engine = IntentEngine::new();
+        let cmd = CasCommand { opcode: 0, mnemonic: "GENERATE".to_string(), description: "".to_string(), domain: "".to_string() };
+        let skills = engine.extract_skills("Test the Rust code with tests", &cmd);
+        let rust_count = skills.iter().filter(|s| *s == "rust").count();
+        assert_eq!(rust_count, 1);
+    }
+
+    #[test]
+    fn test_default_is_same_as_new() {
+        let engine1 = IntentEngine::new();
+        let engine2 = IntentEngine::default();
+        assert_eq!(engine1.transducer().vocabulary().len(), engine2.transducer().vocabulary().len());
     }
 }

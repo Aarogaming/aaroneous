@@ -3,7 +3,7 @@
 //!
 //! Consolidates 4 Core Visual Telemetry Viewports:
 //! 1. 🌌 3D Omni Galaxy View: Star-Nodes, Gravitational Clustering, Semantic Cosine Distance.
-//! 2. ⚡ SPMC Synapse & Argus SVDD: 256-Bar Latent Vector Oscilloscope & Threat Gauge.
+//! 2. ⚡ SPMC Synapse & Sentinel SVDD: 256-Bar Latent Vector Oscilloscope & Threat Gauge.
 //! 3. 👁️ Epigenetic Vision & Sensory Grid: 16x16 Motion Saliency Mask & Compute Savings.
 //! 4. 🧬 Neurochemical Homeostasis: 4-Channel Neurotransmitters, Curiosity Impulses & Token Pool.
 
@@ -12,8 +12,8 @@ use eframe::egui::{self, Color32, RichText, Stroke, Ui, Vec2};
 use serde::{Deserialize, Serialize};
 
 use evolution::{NeurochemicalHomeostasisEngine, NeurochemicalLevels};
-use marionette::SensoryMotorPipeline;
-use nervous_system::pantheon_bus::{PantheonSynapseBus, TENSOR_DIM};
+use desktop_emulator::SensoryMotorPipeline;
+use nervous_system::specialist_bus::{SpecialistSynapseBus, TENSOR_DIM};
 use omni::{OmniEngine, SpatialCoord, StarNode, StarNodeType};
 
 use crate::synapse_ui::SynapseVisualizer;
@@ -60,7 +60,7 @@ impl MaelstromHudApp {
     /// Initializes the Unified Maelstrom HUD with live subsystems
     pub fn new() -> Self {
         let omni = Arc::new(OmniEngine::default());
-        let bus = Arc::new(PantheonSynapseBus::new_federation());
+        let bus = Arc::new(SpecialistSynapseBus::new_federation());
         let centroid = [0.05f32; TENSOR_DIM];
         let radius = 14.5f32;
 
@@ -90,15 +90,15 @@ impl MaelstromHudApp {
     pub fn bootstrap_sample_data(&mut self) {
         // Seed standard specialists into Omni Galaxy if empty
         let specs = [
-            ("odin", "Odin (Orchestration)", "Orchestration", SpatialCoord::new(-450.0, 300.0, 800.0)),
-            ("merlin", "Merlin (Knowledge)", "Knowledge", SpatialCoord::new(200.0, -150.0, 600.0)),
-            ("ariel", "Ariel (Presentation)", "UI", SpatialCoord::new(500.0, 400.0, 400.0)),
-            ("hephaestus", "Hephaestus (Forge)", "Fabrication", SpatialCoord::new(-200.0, -500.0, 700.0)),
-            ("argus", "Argus (Security)", "Security", SpatialCoord::new(0.0, 0.0, 950.0)),
-            ("dionysus", "Dionysus (Memory)", "Memory", SpatialCoord::new(350.0, -350.0, 500.0)),
-            ("hermes", "Hermes (Router)", "Network", SpatialCoord::new(-600.0, 100.0, 450.0)),
-            ("wen", "Wen (Symbiosis)", "Symbiosis", SpatialCoord::new(150.0, 550.0, 300.0)),
-            ("kami", "Kami (Perception)", "Vision", SpatialCoord::new(-350.0, 600.0, 650.0)),
+            ("orchestrator", "Orchestrator (Orchestration)", "Orchestration", SpatialCoord::new(-450.0, 300.0, 800.0)),
+            ("synthesizer", "Synthesizer (Knowledge)", "Knowledge", SpatialCoord::new(200.0, -150.0, 600.0)),
+            ("presenter", "Presenter (Presentation)", "UI", SpatialCoord::new(500.0, 400.0, 400.0)),
+            ("fabricator", "Fabricator (Forge)", "Fabrication", SpatialCoord::new(-200.0, -500.0, 700.0)),
+            ("sentinel", "Sentinel (Security)", "Security", SpatialCoord::new(0.0, 0.0, 950.0)),
+            ("archivist", "Archivist (Memory)", "Memory", SpatialCoord::new(350.0, -350.0, 500.0)),
+            ("router", "Router (Router)", "Network", SpatialCoord::new(-600.0, 100.0, 450.0)),
+            ("aligner", "Aligner (Symbiosis)", "Symbiosis", SpatialCoord::new(150.0, 550.0, 300.0)),
+            ("perceiver", "Perceiver (Perception)", "Vision", SpatialCoord::new(-350.0, 600.0, 650.0)),
         ];
 
         for (id, title, domain, coord) in specs {

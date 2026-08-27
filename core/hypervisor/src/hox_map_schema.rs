@@ -36,7 +36,7 @@ impl Default for HoxMap {
 
         // Strategic Specialist (Tier 2 - Remote)
         enzymes.insert(
-            "odin".to_string(),
+            "orchestrator".to_string(),
             EnzymeGenetics {
                 category: "strategic_planning".to_string(),
                 expression_level: 0.95,
@@ -82,7 +82,7 @@ impl Default for HoxMap {
 
         // Local Execution Specialist (Tier 0 - Local)
         enzymes.insert(
-            "hephaestus".to_string(),
+            "fabricator".to_string(),
             EnzymeGenetics {
                 category: "execution".to_string(),
                 expression_level: 0.99,

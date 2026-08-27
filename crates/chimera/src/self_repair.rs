@@ -26,7 +26,7 @@ pub struct SelfRepairReport {
     pub dopamine_delta: i32,
 }
 
-/// Hephaestus Self-Repair & Code Evolution Engine
+/// Fabricator Self-Repair & Code Evolution Engine
 pub struct SelfRepairEngine {
     sandbox: ShadowSandbox,
 }

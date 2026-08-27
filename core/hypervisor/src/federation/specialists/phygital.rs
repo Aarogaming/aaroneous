@@ -702,7 +702,7 @@ impl Specialist for Phygital {
         let ar_available = self.can_render_ar();
         let intent_short = intent.chars().take(60).collect::<String>();
         let output = serde_json::to_string(&serde_json::json!({
-            "sovereign": "Kami",
+            "sovereign": "Perceiver",
             "intent": intent_short,
             "spatial": {
                 "anchor_count": prototype_count,
@@ -716,7 +716,7 @@ impl Specialist for Phygital {
             "anchors": anchor_manifest,
             "note": if ar_available { "" } else { "Enable --features ar-openxr for real AR rendering" },
         })).unwrap_or_else(|_| format!(
-            "[Kami] {} AR anchor(s) | {} | {}FPS | Intent: '{}'",
+            "[Perceiver] {} AR anchor(s) | {} | {}FPS | Intent: '{}'",
             prototype_count, device, frame_rate, intent_short
         ));
 

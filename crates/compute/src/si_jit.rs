@@ -175,7 +175,7 @@ impl SiJitCompilerEngine {
         Ok(handle_idx)
     }
 
-    /// Fast O(1) Intent Vector Lookup: Hermes-Router checks if an intent can bypass the neural model
+    /// Fast O(1) Intent Vector Lookup: Router checks if an intent can bypass the neural model
     pub fn lookup_fast_reflex(&self, intent_vector: &[f32]) -> Option<usize> {
         for (idx, handle) in self.compiled_registry.iter().enumerate() {
             if handle.memory_state != MemoryProtectionState::ReadExecute {

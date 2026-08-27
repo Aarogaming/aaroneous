@@ -1,4 +1,4 @@
-//! crates/nervous_system/src/pantheon_bus.rs
+//! crates/nervous_system/src/specialist_bus.rs
 //! Multi-Specialist Lock-Free Partitioned SPMC Synapse Bus for 10+ Machine-Native Neural Containers.
 //! Features:
 //! 1. Dedicated Single-Producer Multi-Consumer (SPMC) rings per specialist with 128-byte prefetcher-safe cursor isolation.
@@ -190,25 +190,25 @@ pub fn install_specialist_panic_hook(channel: Arc<SpecialistSpmcChannel>) {
 /// 4. 200-500 iteration Hot-Path Spin-Wait (std::hint::spin_loop / _mm_pause) + Cold-Path WaitOnAddress support.
 /// 5. 10ms Watchdog Epochs & Fault Isolation: Dead or poisoned specialist channels are zero-padded (S_i = 0).
 /// 6. Zero-Copy & SIMD Multi-Specialist Tensor Fusion: S_exec = ⨁_{i=1}^k S_i.
-pub struct PantheonSynapseBus {
+pub struct SpecialistSynapseBus {
     pub channels: Vec<SpecialistSpmcChannel>,
 }
 
-impl PantheonSynapseBus {
+impl SpecialistSynapseBus {
     /// Creates the standard Specialist Federation Bus with 11 dedicated channels
     pub fn new_federation() -> Self {
         let specialist_names = [
-            "Hermes-Router",
-            "Marionette-Vision",
-            "Chimera-Code",
-            "Argus-Auditor",
-            "Hephaestus-Forge",
-            "Merlin-Synthesis",
-            "Odin-Intent",
-            "Ariel-Frame",
-            "Kami-Perception",
-            "Wen-Alignment",
-            "Dionysus-Memory",
+            "Router-Federation",
+            "Desktop Emulator-Vision",
+            "Adaptation Engine-Code",
+            "Sentinel-Audit",
+            "Fabricator-Compiler",
+            "Synthesizer-Knowledge",
+            "Orchestrator-Intent",
+            "Presenter-Display",
+            "Perceiver-Gatekeeper",
+            "Aligner-Harmony",
+            "Archivist-Memory",
         ];
 
         let mut channels = Vec::with_capacity(specialist_names.len());
@@ -277,28 +277,28 @@ mod tests {
     }
 
     #[test]
-    fn test_pantheon_bus_zero_copy_fusion_and_fault_isolation() {
-        let bus = PantheonSynapseBus::new_olympian();
+    fn test_specialist_bus_zero_copy_fusion_and_fault_isolation() {
+        let bus = SpecialistSynapseBus::new_olympian();
         assert_eq!(bus.channels.len(), 11);
 
-        // Publish to Hermes (Channel 0) and Marionette (Channel 1)
+        // Publish to Router (Channel 0) and Desktop Emulator (Channel 1)
         let tensor_0 = [1.0f32; TENSOR_DIM];
         let tensor_1 = [2.0f32; TENSOR_DIM];
         bus.channels[0].publish_tensor(&tensor_0).unwrap();
         bus.channels[1].publish_tensor(&tensor_1).unwrap();
 
-        // Poison Argus (Channel 3)
+        // Poison Sentinel (Channel 3)
         bus.channels[3].poison();
 
         // Fuse all 11 observations
         let fused = bus.fuse_active_observations();
         assert_eq!(fused.len(), 11 * TENSOR_DIM);
 
-        // Hermes slice is 1.0
+        // Router slice is 1.0
         assert_eq!(fused[0], 1.0);
-        // Marionette slice is 2.0
+        // Desktop Emulator slice is 2.0
         assert_eq!(fused[TENSOR_DIM], 2.0);
-        // Argus slice is zero-padded due to poison
+        // Sentinel slice is zero-padded due to poison
         assert_eq!(fused[3 * TENSOR_DIM], 0.0);
     }
 }

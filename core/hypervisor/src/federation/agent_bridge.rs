@@ -4,12 +4,12 @@ use crate::federation::specialist::{
     NegotiationResult, ProposalPriority, ProposedAction, ResourceRequest, Specialist,
     SpecialistContext, SpecialistError, SpecialistId,
 };
-/// Agent Bridge: Connects existing agents (Ariel/Merlin/Odin/etc) to the federation
+/// Agent Bridge: Connects existing agents (Presenter/Synthesizer/Orchestrator/etc) to the federation
 ///
 /// This module allows the existing SpecialistAgent/RelicAgent system to work
 /// seamlessly with the new federation protocol while maintaining backward compatibility.
 ///
-/// Each existing agent (Ariel, Merlin, Odin, Hephaestus, Argus, Dionysus) can now:
+/// Each existing agent (Presenter, Synthesizer, Orchestrator, Fabricator, Sentinel, Archivist) can now:
 /// - Propose actions asynchronously (new)
 /// - Execute decisions from Sentinel (new)
 /// - Negotiate with peers (new)
@@ -19,12 +19,12 @@ use async_trait::async_trait;
 /// Maps existing SpecialistAgent names to federation SpecialistIds
 pub fn agent_name_to_specialist_id(name: &str) -> Option<SpecialistId> {
     match name.to_lowercase().as_str() {
-        "ariel" => Some(SpecialistId::Visionary), // UI/UX → Design Generation
-        "merlin" => Some(SpecialistId::Sentinel), // Knowledge/Leadership → Orchestration
-        "odin" => Some(SpecialistId::Sentinel),   // Leadership/Strategy → Orchestration
-        "hephaestus" => Some(SpecialistId::Phygital), // Manufacturing → Spatial/Rendering
-        "argus" => Some(SpecialistId::Sentinel),  // Security → Arbitration/Oversight
-        "dionysus" => Some(SpecialistId::Archivist), // Experience/Memory → Archives
+        "presenter" => Some(SpecialistId::Visionary), // UI/UX → Design Generation
+        "synthesizer" => Some(SpecialistId::Sentinel), // Knowledge/Leadership → Orchestration
+        "orchestrator" => Some(SpecialistId::Sentinel),   // Leadership/Strategy → Orchestration
+        "fabricator" => Some(SpecialistId::Phygital), // Manufacturing → Spatial/Rendering
+        "sentinel" => Some(SpecialistId::Sentinel),  // Security → Arbitration/Oversight
+        "archivist" => Some(SpecialistId::Archivist), // Experience/Memory → Archives
         _ => None,
     }
 }
@@ -72,12 +72,12 @@ impl SpecialistAgentBridge {
     /// use a_run::federation::learn_persist::PersistableLearning;
     /// use a_run::create_specialist;
     ///
-    /// let agent = create_specialist("ariel").unwrap();
+    /// let agent = create_specialist("presenter").unwrap();
     /// let bridge = SpecialistAgentBridge::new(agent)?;
     ///
     /// // ... bridge accumulates execution history via execute() calls ...
     ///
-    /// // Seed the federation Visionary with Ariel's execution record
+    /// // Seed the federation Visionary with Presenter's execution record
     /// let visionary = Visionary::new();
     /// let snapshot = bridge.to_learning_snapshot().await;
     /// {
@@ -142,9 +142,9 @@ impl Specialist for SpecialistAgentBridge {
         // Proposals come from the agent's domain expertise and current context
         let proposals = match self.agent.domain {
             crate::Domain::UserInterface => {
-                // Ariel (Visionary): Visual design proposals
+                // Presenter (Visionary): Visual design proposals
                 vec![ProposedAction {
-                    id: format!("proposal-ariel-{}", uuid()),
+                    id: format!("proposal-presenter-{}", uuid()),
                     specialist: SpecialistId::Visionary,
                     action_type: "generate_designs".to_string(),
                     description: format!("{} proposes visual iteration", self.agent.name),
@@ -160,9 +160,9 @@ impl Specialist for SpecialistAgentBridge {
                 }]
             }
             crate::Domain::Knowledge => {
-                // Merlin: Knowledge synthesis proposals
+                // Synthesizer: Knowledge synthesis proposals
                 vec![ProposedAction {
-                    id: format!("proposal-merlin-{}", uuid()),
+                    id: format!("proposal-synthesizer-{}", uuid()),
                     specialist: SpecialistId::Sentinel,
                     action_type: "knowledge_synthesis".to_string(),
                     description: format!("{} proposes knowledge pattern analysis", self.agent.name),
@@ -178,9 +178,9 @@ impl Specialist for SpecialistAgentBridge {
                 }]
             }
             crate::Domain::Leadership => {
-                // Odin: Strategic coordination proposals
+                // Orchestrator: Strategic coordination proposals
                 vec![ProposedAction {
-                    id: format!("proposal-odin-{}", uuid()),
+                    id: format!("proposal-orchestrator-{}", uuid()),
                     specialist: SpecialistId::Sentinel,
                     action_type: "coordination".to_string(),
                     description: format!("{} proposes orchestration decision", self.agent.name),
@@ -196,9 +196,9 @@ impl Specialist for SpecialistAgentBridge {
                 }]
             }
             crate::Domain::Manufacturing => {
-                // Hephaestus: Execution/rendering proposals
+                // Fabricator: Execution/rendering proposals
                 vec![ProposedAction {
-                    id: format!("proposal-hephaestus-{}", uuid()),
+                    id: format!("proposal-fabricator-{}", uuid()),
                     specialist: SpecialistId::Phygital,
                     action_type: "render_spatial".to_string(),
                     description: format!("{} proposes 3D rendering", self.agent.name),
@@ -214,9 +214,9 @@ impl Specialist for SpecialistAgentBridge {
                 }]
             }
             crate::Domain::Security => {
-                // Argus: Security/validation proposals
+                // Sentinel: Security/validation proposals
                 vec![ProposedAction {
-                    id: format!("proposal-argus-{}", uuid()),
+                    id: format!("proposal-sentinel-{}", uuid()),
                     specialist: SpecialistId::Sentinel,
                     action_type: "validate_decision".to_string(),
                     description: format!("{} proposes security validation", self.agent.name),
@@ -232,9 +232,9 @@ impl Specialist for SpecialistAgentBridge {
                 }]
             }
             crate::Domain::Experience => {
-                // Dionysus: Memory/experience proposals
+                // Archivist: Memory/experience proposals
                 vec![ProposedAction {
-                    id: format!("proposal-dionysus-{}", uuid()),
+                    id: format!("proposal-archivist-{}", uuid()),
                     specialist: SpecialistId::Archivist,
                     action_type: "archive_experience".to_string(),
                     description: format!("{} proposes experience logging", self.agent.name),
@@ -361,34 +361,34 @@ mod tests {
     #[test]
     fn test_agent_name_to_specialist_id() {
         assert_eq!(
-            agent_name_to_specialist_id("ariel"),
+            agent_name_to_specialist_id("presenter"),
             Some(SpecialistId::Visionary)
         );
         assert_eq!(
-            agent_name_to_specialist_id("merlin"),
+            agent_name_to_specialist_id("synthesizer"),
             Some(SpecialistId::Sentinel)
         );
         assert_eq!(
-            agent_name_to_specialist_id("odin"),
+            agent_name_to_specialist_id("orchestrator"),
             Some(SpecialistId::Sentinel)
         );
         assert_eq!(
-            agent_name_to_specialist_id("hephaestus"),
+            agent_name_to_specialist_id("fabricator"),
             Some(SpecialistId::Phygital)
         );
         assert_eq!(
-            agent_name_to_specialist_id("argus"),
+            agent_name_to_specialist_id("sentinel"),
             Some(SpecialistId::Sentinel)
         );
         assert_eq!(
-            agent_name_to_specialist_id("dionysus"),
+            agent_name_to_specialist_id("archivist"),
             Some(SpecialistId::Archivist)
         );
     }
 
     #[tokio::test]
     async fn test_bridge_creation() {
-        let agent = crate::create_specialist("ariel").unwrap();
+        let agent = crate::create_specialist("presenter").unwrap();
         let bridge = SpecialistAgentBridge::new(agent);
 
         assert!(bridge.is_ok());
@@ -398,7 +398,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_bridge_propose() {
-        let agent = crate::create_specialist("ariel").unwrap();
+        let agent = crate::create_specialist("presenter").unwrap();
         let bridge = SpecialistAgentBridge::new(agent).unwrap();
 
         let context = SpecialistContext {
@@ -416,7 +416,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_bridge_execute() {
-        let agent = crate::create_specialist("merlin").unwrap();
+        let agent = crate::create_specialist("synthesizer").unwrap();
         let bridge = SpecialistAgentBridge::new(agent).unwrap();
 
         let decision = Decision {

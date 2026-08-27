@@ -127,15 +127,15 @@ pub struct TrainingDataSpec {
 /// These drive training data generation and target model sizing.
 pub fn sovereign_task_specs() -> Vec<SovereignTaskSpec> {
     vec![
-        // ── Ariel (Visionary) ──────────────────────────────────────────────
+        // ── Presenter (Visionary) ──────────────────────────────────────────────
         SovereignTaskSpec {
-            sovereign_name: "Ariel".into(),
+            sovereign_name: "Presenter".into(),
             internal_id: "Visionary".into(),
             domain: "UI/UX design generation, Maelstrom spatial visualization".into(),
             persona_summary: "Creative director. Generates design variants as structured JSON with colors, typography, layout, confidence. Aesthetic judgment is the core skill.".into(),
             target_tier: ModelTier::Standard { target_params_m: 1500 },
             context_window_tokens: 2048,
-            always_resident: true,  // Ariel runs on every design intent
+            always_resident: true,  // Presenter runs on every design intent
             distillation_notes: "Fine-tune on UI/UX design conversations. Training data: intent → structured JSON variants with hex colors, font stacks, layout names. The Coder 7B base is good — coding and design share structured output patterns.".into(),
             crystallization_blocks: (0..20).map(|i| i * 28 / 20).collect(),
             capabilities: vec![
@@ -164,14 +164,14 @@ pub fn sovereign_task_specs() -> Vec<SovereignTaskSpec> {
                     "Layout names are specific (not generic)".into(),
                     "Reasoning references the intent".into(),
                 ],
-                generation_prompt_template: "You are Ariel, a UI/UX design specialist. For the intent: {{INTENT}}, generate {{N}} design variants as JSON.".into(),
+                generation_prompt_template: "You are Presenter, a UI/UX design specialist. For the intent: {{INTENT}}, generate {{N}} design variants as JSON.".into(),
                 synthetic_generation_model: "foundation_v1.gguf".into(),
             },
         },
 
-        // ── Hermes (Omnipresent) ───────────────────────────────────────────
+        // ── Router (Omnipresent) ───────────────────────────────────────────
         SovereignTaskSpec {
-            sovereign_name: "Hermes".into(),
+            sovereign_name: "Router".into(),
             internal_id: "Omnipresent".into(),
             domain: "P2P mesh sync, state consistency, device coordination".into(),
             persona_summary: "Messenger. Routes messages, resolves sync conflicts using CRDT logic, reports mesh state. Structured output is critical — JSON sync operations.".into(),
@@ -198,14 +198,14 @@ pub fn sovereign_task_specs() -> Vec<SovereignTaskSpec> {
             training_data_spec: TrainingDataSpec {
                 min_examples: 300,
                 quality_criteria: vec!["Valid JSON".into(), "Strategy is named".into()],
-                generation_prompt_template: "You are Hermes. Resolve this sync conflict: {{CONFLICT}}".into(),
+                generation_prompt_template: "You are Router. Resolve this sync conflict: {{CONFLICT}}".into(),
                 synthetic_generation_model: "foundation_v1.gguf".into(),
             },
         },
 
-        // ── Wen (Symbiotic) ────────────────────────────────────────────────
+        // ── Aligner (Symbiotic) ────────────────────────────────────────────────
         SovereignTaskSpec {
-            sovereign_name: "Wen".into(),
+            sovereign_name: "Aligner".into(),
             internal_id: "Symbiotic".into(),
             domain: "Biometric classification, human state adaptation".into(),
             persona_summary: "Warm and attuned. Reads biometric signals and classifies user state. Output is simple structured state + recommendation. Called every 5 seconds — must be fast.".into(),
@@ -239,14 +239,14 @@ pub fn sovereign_task_specs() -> Vec<SovereignTaskSpec> {
                     "All numeric values in [0,1]".into(),
                     "Recommendation matches state".into(),
                 ],
-                generation_prompt_template: "You are Wen. Classify the user state from these biometrics: {{BIOMETRICS}}".into(),
+                generation_prompt_template: "You are Aligner. Classify the user state from these biometrics: {{BIOMETRICS}}".into(),
                 synthetic_generation_model: "foundation_v1.gguf".into(),
             },
         },
 
-        // ── Kami (Phygital) ────────────────────────────────────────────────
+        // ── Perceiver (Phygital) ────────────────────────────────────────────────
         SovereignTaskSpec {
-            sovereign_name: "Kami".into(),
+            sovereign_name: "Perceiver".into(),
             internal_id: "Phygital".into(),
             domain: "AR/VR spatial reasoning, OpenXR anchor placement".into(),
             persona_summary: "Spatial intelligence. Converts design intent into 3D anchor manifests. Understands spatial relationships, scale, and physical constraints.".into(),
@@ -273,14 +273,14 @@ pub fn sovereign_task_specs() -> Vec<SovereignTaskSpec> {
             training_data_spec: TrainingDataSpec {
                 min_examples: 400,
                 quality_criteria: vec!["Valid JSON".into(), "Positions are plausible (y>0 for floor)".into()],
-                generation_prompt_template: "You are Kami. Place these elements in 3D space: {{ELEMENTS}}".into(),
+                generation_prompt_template: "You are Perceiver. Place these elements in 3D space: {{ELEMENTS}}".into(),
                 synthetic_generation_model: "foundation_v1.gguf".into(),
             },
         },
 
-        // ── Dionysus (Archivist) ───────────────────────────────────────────
+        // ── Archivist ───────────────────────────────────────────────────
         SovereignTaskSpec {
-            sovereign_name: "Dionysus".into(),
+            sovereign_name: "Archivist".into(),
             internal_id: "Archivist".into(),
             domain: "Pattern extraction, memory consolidation, session archival".into(),
             persona_summary: "Memory keeper. Extracts patterns from execution histories, writes memory summaries, identifies recurring themes across sessions.".into(),
@@ -299,7 +299,7 @@ pub fn sovereign_task_specs() -> Vec<SovereignTaskSpec> {
                     input_format: "JSON: list of {sovereign, action, status, output_preview}".into(),
                     typical_input_tokens: 400,
                     output_format: OutputFormat::Json {
-                        schema_example: r#"{"patterns":[{"type":"recurring_success","description":"Ariel succeeds on design tasks when intent mentions color","confidence":0.85,"evidence_count":12}]}"#.into(),
+                        schema_example: r#"{"patterns":[{"type":"recurring_success","description":"Presenter succeeds on design tasks when intent mentions color","confidence":0.85,"evidence_count":12}]}"#.into(),
                     },
                     typical_output_tokens: 300,
                     calls_per_hour_estimate: 2.0,
@@ -310,21 +310,21 @@ pub fn sovereign_task_specs() -> Vec<SovereignTaskSpec> {
             training_data_spec: TrainingDataSpec {
                 min_examples: 300,
                 quality_criteria: vec!["Patterns have confidence scores".into(), "Evidence count > 0".into()],
-                generation_prompt_template: "You are Dionysus. Extract patterns from these executions: {{EXECUTIONS}}".into(),
+                generation_prompt_template: "You are Archivist. Extract patterns from these executions: {{EXECUTIONS}}".into(),
                 synthetic_generation_model: "foundation_v1.gguf".into(),
             },
         },
 
-        // ── Merlin ─────────────────────────────────────────────────────────
+        // ── Synthesizer ─────────────────────────────────────────────────
         SovereignTaskSpec {
-            sovereign_name: "Merlin".into(),
-            internal_id: "Merlin".into(),
+            sovereign_name: "Synthesizer".into(),
+            internal_id: "Synthesizer".into(),
             domain: "Research synthesis, external knowledge, outbound queries".into(),
             persona_summary: "Knowledge synthesizer. Decomposes research questions, synthesizes multiple sources, returns structured intelligence reports.".into(),
             target_tier: ModelTier::Deep { target_params_m: 3000 },
             context_window_tokens: 8192,
             always_resident: false,  // Only loaded for research tasks
-            distillation_notes: "Merlin needs the most depth — knowledge synthesis requires broad world knowledge. Use the full 24-block extraction. Training data: research question → structured synthesis with citations and confidence ratings.".into(),
+            distillation_notes: "Synthesizer needs the most depth — knowledge synthesis requires broad world knowledge. Use the full 24-block extraction. Training data: research question → structured synthesis with citations and confidence ratings.".into(),
             crystallization_blocks: (0..24).map(|i| i * 28 / 24).collect(),
             capabilities: vec![
                 TaskCapability {
@@ -344,20 +344,20 @@ pub fn sovereign_task_specs() -> Vec<SovereignTaskSpec> {
             training_data_spec: TrainingDataSpec {
                 min_examples: 800,
                 quality_criteria: vec!["Summary is specific".into(), "Confidence score present".into(), "Gaps identified".into()],
-                generation_prompt_template: "You are Merlin. Research and synthesize: {{QUESTION}}".into(),
+                generation_prompt_template: "You are Synthesizer. Research and synthesize: {{QUESTION}}".into(),
                 synthetic_generation_model: "foundation_v1.gguf".into(),
             },
         },
 
-        // ── Odin ───────────────────────────────────────────────────────────
+        // ── Orchestrator ───────────────────────────────────────────────────
         SovereignTaskSpec {
-            sovereign_name: "Odin".into(),
-            internal_id: "Odin".into(),
+            sovereign_name: "Orchestrator".into(),
+            internal_id: "Orchestrator".into(),
             domain: "Guild coordination, task decomposition, intent routing".into(),
             persona_summary: "Guild coordinator. Receives user intents and decomposes them into a dependency graph of subtasks, each assigned to the right sovereign.".into(),
             target_tier: ModelTier::Standard { target_params_m: 1500 },
             context_window_tokens: 4096,
-            always_resident: true,  // Odin intercepts every intent
+            always_resident: true,  // Orchestrator intercepts every intent
             distillation_notes: "The critical skill is structured decomposition — input is free text, output must be valid JSON with task graph. Upper-layer blocks for planning. Training data is the highest priority: hundreds of intent → task_dag examples across all domains.".into(),
             crystallization_blocks: (8..28).collect(),  // upper layers
             capabilities: vec![
@@ -367,19 +367,19 @@ pub fn sovereign_task_specs() -> Vec<SovereignTaskSpec> {
                     input_format: "Text: user intent".into(),
                     typical_input_tokens: 100,
                     output_format: OutputFormat::Json {
-                        schema_example: r#"{"tasks":[{"id":"t1","content":"...","assign_to":"Merlin","priority":"High","deps":[]},{"id":"t2","content":"...","assign_to":"Ariel","deps":["t1"]}]}"#.into(),
+                        schema_example: r#"{"tasks":[{"id":"t1","content":"...","assign_to":"Synthesizer","priority":"High","deps":[]},{"id":"t2","content":"...","assign_to":"Presenter","deps":["t1"]}]}"#.into(),
                     },
                     typical_output_tokens: 400,
                     calls_per_hour_estimate: 20.0,
                     latency_budget_ms: 2000,
                     example: Some((
                         "research the latest Rust async patterns and build a summary dashboard".into(),
-                        r#"{"tasks":[{"id":"t1","content":"research Rust async runtime patterns 2025","assign_to":"Merlin","priority":"High","deps":[]},{"id":"t2","content":"synthesize findings into structured report","assign_to":"Merlin","priority":"Normal","deps":["t1"]},{"id":"t3","content":"design summary dashboard layout for the report","assign_to":"Ariel","priority":"Normal","deps":["t2"]},{"id":"t4","content":"archive research session and patterns","assign_to":"Dionysus","priority":"Low","deps":["t2"]}]}"#.into(),
+                        r#"{"tasks":[{"id":"t1","content":"research Rust async runtime patterns 2025","assign_to":"Synthesizer","priority":"High","deps":[]},{"id":"t2","content":"synthesize findings into structured report","assign_to":"Synthesizer","priority":"Normal","deps":["t1"]},{"id":"t3","content":"design summary dashboard layout for the report","assign_to":"Presenter","priority":"Normal","deps":["t2"]},{"id":"t4","content":"archive research session and patterns","assign_to":"Archivist","priority":"Low","deps":["t2"]}]}"#.into(),
                     )),
                 },
             ],
             training_data_spec: TrainingDataSpec {
-                min_examples: 1000,  // Odin's training data is the foundation of everything
+                min_examples: 1000,  // Orchestrator's training data is the foundation of everything
                 quality_criteria: vec![
                     "Valid JSON with tasks array".into(),
                     "All assign_to values are sovereign names".into(),
@@ -387,15 +387,15 @@ pub fn sovereign_task_specs() -> Vec<SovereignTaskSpec> {
                     "No circular dependencies".into(),
                     "Priorities are: Critical/High/Normal/Low/Background".into(),
                 ],
-                generation_prompt_template: "You are Odin, the Guild coordinator. Decompose this intent into tasks for your sovereigns: {{INTENT}}. Return only JSON.".into(),
+                generation_prompt_template: "You are Orchestrator, the Guild coordinator. Decompose this intent into tasks for your sovereigns: {{INTENT}}. Return only JSON.".into(),
                 synthetic_generation_model: "foundation_v1.gguf".into(),
             },
         },
 
-        // ── Argus ──────────────────────────────────────────────────────────
+        // ── Sentinel ──────────────────────────────────────────────────────────
         SovereignTaskSpec {
-            sovereign_name: "Argus".into(),
-            internal_id: "Argus".into(),
+            sovereign_name: "Sentinel".into(),
+            internal_id: "Sentinel".into(),
             domain: "Security audit, vulnerability scanning, secrets management".into(),
             persona_summary: "Security warden. Scans code/configs for vulnerabilities, classifies severity, reports actionable findings. Adversarial mindset.".into(),
             target_tier: ModelTier::Standard { target_params_m: 1500 },
@@ -425,21 +425,21 @@ pub fn sovereign_task_specs() -> Vec<SovereignTaskSpec> {
             training_data_spec: TrainingDataSpec {
                 min_examples: 600,
                 quality_criteria: vec!["Severity is Critical/High/Medium/Low/Info".into(), "Remediation is specific".into()],
-                generation_prompt_template: "You are Argus. Audit this for security issues: {{CODE}}".into(),
+                generation_prompt_template: "You are Sentinel. Audit this for security issues: {{CODE}}".into(),
                 synthetic_generation_model: "foundation_v1.gguf".into(),
             },
         },
 
-        // ── Hephaestus ─────────────────────────────────────────────────────
+        // ── Fabricator ─────────────────────────────────────────────────────
         SovereignTaskSpec {
-            sovereign_name: "Hephaestus".into(),
-            internal_id: "Hephaestus".into(),
+            sovereign_name: "Fabricator".into(),
+            internal_id: "Fabricator".into(),
             domain: "Fabrication, build automation, maintenance, infrastructure expansion".into(),
             persona_summary: "Master craftsman. Writes build scripts, repairs broken systems, expands infrastructure. Code generation and system design are the core skills.".into(),
             target_tier: ModelTier::Standard { target_params_m: 2000 },
             context_window_tokens: 4096,
             always_resident: false,
-            distillation_notes: "Coder 7B base is ideal — Hephaestus is the most code-centric sovereign. MLP-heavy selection is correct (FFN layers encode code logic). Training data: task description → implementation plan + code snippets.".into(),
+            distillation_notes: "Coder 7B base is ideal — Fabricator is the most code-centric sovereign. MLP-heavy selection is correct (FFN layers encode code logic). Training data: task description → implementation plan + code snippets.".into(),
             crystallization_blocks: (0..22).map(|i| i * 28 / 22).collect(),
             capabilities: vec![
                 TaskCapability {
@@ -459,7 +459,7 @@ pub fn sovereign_task_specs() -> Vec<SovereignTaskSpec> {
             training_data_spec: TrainingDataSpec {
                 min_examples: 500,
                 quality_criteria: vec!["Steps have actionable commands".into(), "Expected outcomes are verifiable".into()],
-                generation_prompt_template: "You are Hephaestus. Plan how to build: {{TASK}}".into(),
+                generation_prompt_template: "You are Fabricator. Plan how to build: {{TASK}}".into(),
                 synthetic_generation_model: "foundation_v1.gguf".into(),
             },
         },
@@ -470,15 +470,15 @@ impl SovereignTaskSpec {
     /// Short domain key for LLM routing (matches GenericSpecialist domain labels).
     pub fn domain_key(&self) -> String {
         match self.sovereign_name.to_lowercase().as_str() {
-            "ariel" => "ui_design".into(),
-            "hermes" => "p2p_sync".into(),
-            "wen" => "biometric".into(),
-            "kami" => "phygital".into(),
-            "dionysus" => "archival".into(),
-            "merlin" => "research".into(),
-            "odin" => "task_orchestration".into(),
-            "argus" => "security_audit".into(),
-            "hephaestus" => "construction".into(),
+            "presenter" => "ui_design".into(),
+            "router" => "p2p_sync".into(),
+            "aligner" => "biometric".into(),
+            "perceiver" => "phygital".into(),
+            "archivist" => "archival".into(),
+            "synthesizer" => "research".into(),
+            "orchestrator" => "task_orchestration".into(),
+            "sentinel" => "security_audit".into(),
+            "fabricator" => "construction".into(),
             other => other.replace(' ', "_"),
         }
     }

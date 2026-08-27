@@ -10,3 +10,19 @@ impl SynapseBridge {
         Self
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_synapse_bridge_connect() {
+        let bridge = SynapseBridge::connect();
+        drop(bridge);
+    }
+
+    #[test]
+    fn test_sdk_reexports_nervous_system() {
+        let _ = nervous_system::SharedMemorySynapse::new_sync("test_sdk", 1024 * 1024);
+    }
+}

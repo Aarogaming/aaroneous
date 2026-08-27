@@ -1,6 +1,6 @@
-//! hephaestus.rs
-//! Hephaestus (The Master Craftsman) & Forge (Autonomous Compiler & Adaptation Engine).
-//! Powered directly by Chimera.
+//! fabricator.rs
+//! Fabricator (The Master Craftsman) & CompilerCore (Autonomous Compiler & Adaptation Engine).
+//! Powered directly by Adaptation Engine.
 //! Domain Opcode: 0x0400 (FABRICATION_ADAPTATION)
 
 use anyhow::Result;
@@ -8,63 +8,63 @@ use async_trait::async_trait;
 use chrono::Utc;
 use tracing::info;
 
-use chimera::{ChimeraEngine, PatchProposal};
+use adaptation_engine::{AdaptationEngine, PatchProposal};
 use crate::traits::{MnlpPacket, MnlpResponse, RelicEngine, SovereignSpecialist, SpecialistHealth};
 
-/// Forge Relic Engine: Autonomous build automation and software forge
+/// CompilerCore Relic Engine: Autonomous build automation and software forge
 #[derive(Debug, Clone, Default)]
-pub struct ForgeRelic {
+pub struct CompilerCoreRelic {
     pub total_adaptations_forged: usize,
     pub active_build_pipelines: usize,
 }
 
-impl RelicEngine for ForgeRelic {
+impl RelicEngine for CompilerCoreRelic {
     fn relic_name(&self) -> &'static str {
-        "Forge"
+        "CompilerCore"
     }
 
     fn supervisor_name(&self) -> &'static str {
-        "Hephaestus"
+        "Fabricator"
     }
 
     fn relic_status(&self) -> String {
         format!(
-            "Forge Engine: {} code adaptations forged, {} build pipelines active",
+            "CompilerCore Engine: {} code adaptations forged, {} build pipelines active",
             self.total_adaptations_forged, self.active_build_pipelines
         )
     }
 }
 
-/// Hephaestus Sovereign Specialist
-pub struct HephaestusSpecialist {
+/// Fabricator Sovereign Specialist
+pub struct FabricatorSpecialist {
     pub tokens: f32,
     pub max_tokens: f32,
-    pub forge: ForgeRelic,
+    pub forge: CompilerCoreRelic,
 }
 
-impl Default for HephaestusSpecialist {
+impl Default for FabricatorSpecialist {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl HephaestusSpecialist {
+impl FabricatorSpecialist {
     pub fn new() -> Self {
         Self {
             tokens: 100.0,
             max_tokens: 100.0,
-            forge: ForgeRelic::default(),
+            forge: CompilerCoreRelic::default(),
         }
     }
 
-    /// Forges a code adaptation patch using Chimera
+    /// Forges a code adaptation patch using Adaptation Engine
     pub fn forge_code_repair(&mut self, file: &str, code: &str, target: &str, replacement: &str) -> Result<PatchProposal> {
-        info!(target: "specialist::hephaestus", %file, "Forging code patch in the Forge");
-        let (_obs, _hyp, report) = ChimeraEngine::adapt_code(file, code, target, replacement)?;
+        info!(target: "specialist::fabricator", %file, "Forging code patch in the CompilerCore");
+        let (_obs, _hyp, report) = AdaptationEngine::adapt_code(file, code, target, replacement)?;
         self.forge.total_adaptations_forged += 1;
         
-        let patch = chimera::CodeMutator::synthesize_repair(file, code, target, replacement)?;
-        info!(target: "specialist::hephaestus", verdict = %report.verdict, "Forge adaptation verified");
+        let patch = adaptation_engine::CodeMutator::synthesize_repair(file, code, target, replacement)?;
+        info!(target: "specialist::fabricator", verdict = %report.verdict, "CompilerCore adaptation verified");
         Ok(patch)
     }
 
@@ -75,17 +75,17 @@ impl HephaestusSpecialist {
         code: &str,
         search_pattern: &str,
         replace_template: &str,
-    ) -> Result<(String, Vec<chimera::StructuralPatch>)> {
-        info!(target: "specialist::hephaestus", %file, "Executing structural pattern rewrite in the Forge");
-        let (rewritten, patches) = ChimeraEngine::rewrite_pattern(file, code, search_pattern, replace_template)?;
+    ) -> Result<(String, Vec<adaptation_engine::StructuralPatch>)> {
+        info!(target: "specialist::fabricator", %file, "Executing structural pattern rewrite in the CompilerCore");
+        let (rewritten, patches) = AdaptationEngine::rewrite_pattern(file, code, search_pattern, replace_template)?;
         self.forge.total_adaptations_forged += patches.len();
         Ok((rewritten, patches))
     }
 
     /// Inspects and disassembles a native enzyme binary (PE/ELF/Mach-O)
-    pub fn inspect_enzyme_binary(&self, file: &str, raw_bytes: &[u8]) -> Result<chimera::BinaryManifest> {
-        info!(target: "specialist::hephaestus", %file, size = raw_bytes.len(), "Inspecting native enzyme binary");
-        ChimeraEngine::inspect_binary(file, raw_bytes)
+    pub fn inspect_enzyme_binary(&self, file: &str, raw_bytes: &[u8]) -> Result<adaptation_engine::BinaryManifest> {
+        info!(target: "specialist::fabricator", %file, size = raw_bytes.len(), "Inspecting native enzyme binary");
+        AdaptationEngine::inspect_binary(file, raw_bytes)
     }
 
     /// Autonomous self-repair loop testing in shadow sandbox
@@ -95,9 +95,9 @@ impl HephaestusSpecialist {
         code: &str,
         known_error: &str,
         synapse: &mut nervous_system::SynapseState,
-    ) -> Result<chimera::SelfRepairReport> {
-        info!(target: "specialist::hephaestus", %file, "Executing autonomous sandboxed self-repair in the Forge");
-        let report = ChimeraEngine::self_repair(file, code, known_error, synapse)?;
+    ) -> Result<adaptation_engine::SelfRepairReport> {
+        info!(target: "specialist::fabricator", %file, "Executing autonomous sandboxed self-repair in the CompilerCore");
+        let report = AdaptationEngine::self_repair(file, code, known_error, synapse)?;
         if report.is_verified {
             self.forge.total_adaptations_forged += report.patches_applied.len();
         }
@@ -109,7 +109,7 @@ impl HephaestusSpecialist {
         &mut self,
         intent: &str,
     ) -> Result<(compute::NativeComputationalGraph, String)> {
-        info!(target: "specialist::hephaestus", %intent, "Translating intent into native computational graph");
+        info!(target: "specialist::fabricator", %intent, "Translating intent into native computational graph");
         let initial_graph = compute::EdgeLinguisticLens::intent_to_native_graph(intent);
         initial_graph.verify_dimensional_invariants()?;
 
@@ -122,11 +122,11 @@ impl HephaestusSpecialist {
     }
 
     /// Forges an autonomous software wrapper organ for an external binary/CLI tool
-    pub async fn forge_organ_wrapper(&mut self, target_path: &str, custom_name: Option<&str>, out_dir: &std::path::Path) -> Result<(chimera::TargetCapabilityManifest, std::path::PathBuf)> {
-        info!(target: "specialist::hephaestus", target_path, "Forging autonomous software organ in the Forge");
-        let manifest = chimera::AutoWrapperEngine::inspect_target(std::path::Path::new(target_path), custom_name)?;
-        let _probe = chimera::AutoWrapperEngine::probe_target(&manifest).await?;
-        let staged_crate = chimera::AutoWrapperEngine::build_and_stage_organ(&manifest, out_dir)?;
+    pub async fn forge_organ_wrapper(&mut self, target_path: &str, custom_name: Option<&str>, out_dir: &std::path::Path) -> Result<(adaptation_engine::TargetCapabilityManifest, std::path::PathBuf)> {
+        info!(target: "specialist::fabricator", target_path, "Forging autonomous software organ in the CompilerCore");
+        let manifest = adaptation_engine::AutoWrapperEngine::inspect_target(std::path::Path::new(target_path), custom_name)?;
+        let _probe = adaptation_engine::AutoWrapperEngine::probe_target(&manifest).await?;
+        let staged_crate = adaptation_engine::AutoWrapperEngine::build_and_stage_organ(&manifest, out_dir)?;
         
         self.forge.total_adaptations_forged += 1;
         self.forge.active_build_pipelines += 1;
@@ -138,18 +138,18 @@ impl HephaestusSpecialist {
         &mut self,
         file_path: &std::path::Path,
         code: &str,
-    ) -> Result<chimera::ScientificCycleReport> {
-        info!(target: "specialist::hephaestus", ?file_path, "Executing autonomous scientific AST hypothesis loop in the Forge");
-        let report = chimera::AutonomousScientificEngine::analyze_and_hypothesize(file_path, code)?;
+    ) -> Result<adaptation_engine::ScientificCycleReport> {
+        info!(target: "specialist::fabricator", ?file_path, "Executing autonomous scientific AST hypothesis loop in the CompilerCore");
+        let report = adaptation_engine::AutonomousScientificEngine::analyze_and_hypothesize(file_path, code)?;
         self.forge.total_adaptations_forged += report.hypotheses_accepted;
         Ok(report)
     }
 }
 
 #[async_trait]
-impl SovereignSpecialist for HephaestusSpecialist {
+impl SovereignSpecialist for FabricatorSpecialist {
     fn name(&self) -> &'static str {
-        "Hephaestus"
+        "Fabricator"
     }
 
     fn domain_opcode(&self) -> u16 {
@@ -168,7 +168,7 @@ impl SovereignSpecialist for HephaestusSpecialist {
                 success: true,
                 opcode: self.domain_opcode(),
                 correlation_id: packet.correlation_id,
-                message: format!("Hephaestus successfully forged organ '{}' at {:?}", manifest.name, crate_path),
+                message: format!("Fabricator successfully forged organ '{}' at {:?}", manifest.name, crate_path),
                 payload: serde_json::to_vec(&manifest)?,
             });
         }
@@ -181,7 +181,7 @@ impl SovereignSpecialist for HephaestusSpecialist {
                 success: true,
                 opcode: self.domain_opcode(),
                 correlation_id: packet.correlation_id,
-                message: format!("Hephaestus evaluated {} hypotheses (accepted: {})", report.hypotheses_tested, report.hypotheses_accepted),
+                message: format!("Fabricator evaluated {} hypotheses (accepted: {})", report.hypotheses_tested, report.hypotheses_accepted),
                 payload: serde_json::to_vec(&report)?,
             });
         }
@@ -193,7 +193,7 @@ impl SovereignSpecialist for HephaestusSpecialist {
             success: true,
             opcode: self.domain_opcode(),
             correlation_id: packet.correlation_id,
-            message: "Hephaestus forged code patch via Chimera".to_string(),
+            message: "Fabricator forged code patch via Adaptation Engine".to_string(),
             payload,
         })
     }
@@ -220,19 +220,19 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_hephaestus_forge() {
-        let mut heph = HephaestusSpecialist::new();
+    fn test_fabricator_forge() {
+        let mut fabricator = FabricatorSpecialist::new();
         let src = "fn work() { panic!(); }";
-        let patch = heph.forge_code_repair("test.rs", src, "panic!();", "Ok(())").unwrap();
+        let patch = fabricator.forge_code_repair("test.rs", src, "panic!();", "Ok(())").unwrap();
         assert!(patch.patch_content.contains("Ok(())"));
-        assert_eq!(heph.forge.total_adaptations_forged, 1);
+        assert_eq!(fabricator.forge.total_adaptations_forged, 1);
     }
 
     #[test]
-    fn test_hephaestus_structural_rewrite() {
-        let mut heph = HephaestusSpecialist::new();
+    fn test_fabricator_structural_rewrite() {
+        let mut fabricator = FabricatorSpecialist::new();
         let src = "fn run() { log(\"hello\"); }";
-        let (rewritten, patches) = heph
+        let (rewritten, patches) = fabricator
             .forge_structural_rewrite("test.rs", src, "log(:[msg]);", "tracing::info!(:[msg]);")
             .unwrap();
         assert!(rewritten.contains("tracing::info!(\"hello\");"));
@@ -240,14 +240,14 @@ mod tests {
     }
 
     #[test]
-    fn test_hephaestus_autonomous_self_repair() {
-        let mut heph = HephaestusSpecialist::new();
-        let src = "use digestion::Soul;\n";
+    fn test_fabricator_autonomous_self_repair() {
+        let mut fabricator = FabricatorSpecialist::new();
+        let src = "use digestion::Persona;\n";
         let mut synapse = nervous_system::SynapseState {
             integrity_score: 80,
             ..Default::default()
         };
-        let report = heph
+        let report = fabricator
             .forge_autonomous_self_repair("test.rs", src, "error[E0432]: unresolved import", &mut synapse)
             .unwrap();
         assert!(report.is_verified);
@@ -255,13 +255,13 @@ mod tests {
     }
 
     #[test]
-    fn test_hephaestus_machine_native_optimization() {
-        let mut heph = HephaestusSpecialist::new();
-        let (graph, explanation) = heph
+    fn test_fabricator_machine_native_optimization() {
+        let mut fabricator = FabricatorSpecialist::new();
+        let (graph, explanation) = fabricator
             .forge_machine_native_optimization("Synthesize vector allocation and energy tensor dot product")
             .unwrap();
         assert_eq!(graph.nodes.len(), 2);
         assert!(explanation.contains("Machine-Native"));
-        assert_eq!(heph.forge.total_adaptations_forged, 1);
+        assert_eq!(fabricator.forge.total_adaptations_forged, 1);
     }
 }

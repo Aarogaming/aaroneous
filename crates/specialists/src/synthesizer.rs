@@ -1,5 +1,5 @@
-//! merlin.rs
-//! Merlin (The Seer / Knowledge Synthesist) & Grimoire (Citation & Research Vault).
+//! synthesizer.rs
+//! Synthesizer (The Seer / Knowledge Synthesist) & KnowledgeStore (Citation & Research Vault).
 //! Domain Opcode: 0x0200 (KNOWLEDGE_SYNTHESIS)
 
 use anyhow::Result;
@@ -20,58 +20,58 @@ pub struct KnowledgeSynthesis {
     pub confidence_score: f32,
 }
 
-/// Grimoire Relic Engine: Semantic research vault and citation index
+/// KnowledgeStore Relic Engine: Semantic research vault and citation index
 #[derive(Debug, Clone, Default)]
-pub struct GrimoireRelic {
+pub struct KnowledgeStoreRelic {
     pub indexed_documents: usize,
     pub citation_graph: HashMap<String, Vec<String>>,
 }
 
-impl RelicEngine for GrimoireRelic {
+impl RelicEngine for KnowledgeStoreRelic {
     fn relic_name(&self) -> &'static str {
-        "Grimoire"
+        "KnowledgeStore"
     }
 
     fn supervisor_name(&self) -> &'static str {
-        "Merlin"
+        "Synthesizer"
     }
 
     fn relic_status(&self) -> String {
         format!(
-            "Grimoire Vault: {} documents indexed, {} citation nodes",
+            "KnowledgeStore Vault: {} documents indexed, {} citation nodes",
             self.indexed_documents,
             self.citation_graph.len()
         )
     }
 }
 
-/// Merlin Sovereign Specialist
-pub struct MerlinSpecialist {
+/// Synthesizer Sovereign Specialist
+pub struct SynthesizerSpecialist {
     pub tokens: f32,
     pub max_tokens: f32,
     pub knowledge_cache: HashMap<String, KnowledgeSynthesis>,
-    pub grimoire: GrimoireRelic,
+    pub grimoire: KnowledgeStoreRelic,
 }
 
-impl Default for MerlinSpecialist {
+impl Default for SynthesizerSpecialist {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl MerlinSpecialist {
+impl SynthesizerSpecialist {
     pub fn new() -> Self {
         Self {
             tokens: 100.0,
             max_tokens: 100.0,
             knowledge_cache: HashMap::new(),
-            grimoire: GrimoireRelic::default(),
+            grimoire: KnowledgeStoreRelic::default(),
         }
     }
 
     /// Synthesize knowledge for a topic
     pub fn synthesize(&mut self, query: &str) -> KnowledgeSynthesis {
-        info!(target: "specialist::merlin", %query, "Synthesizing research intelligence");
+        info!(target: "specialist::synthesizer", %query, "Synthesizing research intelligence");
 
         let synthesis = KnowledgeSynthesis {
             topic: query.to_string(),
@@ -92,9 +92,9 @@ impl MerlinSpecialist {
 }
 
 #[async_trait]
-impl SovereignSpecialist for MerlinSpecialist {
+impl SovereignSpecialist for SynthesizerSpecialist {
     fn name(&self) -> &'static str {
-        "Merlin"
+        "Synthesizer"
     }
 
     fn domain_opcode(&self) -> u16 {
@@ -110,7 +110,7 @@ impl SovereignSpecialist for MerlinSpecialist {
             success: true,
             opcode: self.domain_opcode(),
             correlation_id: packet.correlation_id,
-            message: format!("Merlin synthesized knowledge for '{}'", query),
+            message: format!("Synthesizer synthesized knowledge for '{}'", query),
             payload,
         })
     }
@@ -137,10 +137,10 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_merlin_synthesis() {
-        let mut merlin = MerlinSpecialist::new();
-        let k = merlin.synthesize("Machine-Native Linking");
+    fn test_synthesizer_synthesis() {
+        let mut synthesizer = SynthesizerSpecialist::new();
+        let k = synthesizer.synthesize("Machine-Native Linking");
         assert_eq!(k.confidence_score, 0.98);
-        assert_eq!(merlin.grimoire.indexed_documents, 1);
+        assert_eq!(synthesizer.grimoire.indexed_documents, 1);
     }
 }

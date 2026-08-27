@@ -338,7 +338,7 @@ impl SovereignGraph {
     }
 }
 
-pub fn task_dag_from_odin_output(
+pub fn task_dag_from_orchestrator_output(
     intent_id: &str,
     json_str: &str,
 ) -> Result<SovereignGraph, Box<dyn std::error::Error>> {
@@ -378,7 +378,7 @@ pub fn task_dag_from_odin_output(
             },
         )
         .with_tag(&assign_to)
-        .with_tag("odin_task")
+        .with_tag("orchestrator_task")
         .with_meta("priority", serde_json::Value::String(priority));
         graph.add_node(node)?;
     }
@@ -422,15 +422,15 @@ pub fn model_lineage_graph(registry_json: &serde_json::Value) -> SovereignGraph 
         }
     }
     let sovereigns = [
-        ("ariel", "Ariel", "ariel-qwen2.5-7b.gguf"),
-        ("hermes", "Hermes", "hermes-qwen2.5-7b.gguf"),
-        ("wen", "Wen", "wen-qwen2.5-7b.gguf"),
-        ("kami", "Kami", "kami-qwen2.5-7b.gguf"),
-        ("dionysus", "Dionysus", "dionysus-qwen2.5-7b.gguf"),
-        ("merlin", "Merlin", "merlin-qwen2.5-7b.gguf"),
-        ("odin", "Odin", "odin-qwen2.5-7b.gguf"),
-        ("argus", "Argus", "argus-qwen2.5-7b.gguf"),
-        ("hephaestus", "Hephaestus", "hephaestus-qwen2.5-7b.gguf"),
+        ("presenter", "Presenter", "presenter-qwen2.5-7b.gguf"),
+        ("router", "Router", "router-qwen2.5-7b.gguf"),
+        ("aligner", "Aligner", "aligner-qwen2.5-7b.gguf"),
+        ("perceiver", "Perceiver", "perceiver-qwen2.5-7b.gguf"),
+        ("archivist", "Archivist", "archivist-qwen2.5-7b.gguf"),
+        ("synthesizer", "Synthesizer", "synthesizer-qwen2.5-7b.gguf"),
+        ("orchestrator", "Orchestrator", "orchestrator-qwen2.5-7b.gguf"),
+        ("sentinel", "Sentinel", "sentinel-qwen2.5-7b.gguf"),
+        ("fabricator", "Fabricator", "fabricator-qwen2.5-7b.gguf"),
     ];
     let models_dir = crate::workspace::WorkspacePaths::workspace_root().join("models");
     for (id, label, filename) in &sovereigns {
@@ -536,9 +536,9 @@ mod tests {
     }
 
     #[test]
-    fn test_odin_json() {
-        let json = r#"{"tasks":[{"id":"t1","content":"research","assign_to":"Merlin","deps":[]},{"id":"t2","content":"write","assign_to":"Ariel","deps":["t1"]}]}"#;
-        let dag = task_dag_from_odin_output("i1", json).unwrap();
+    fn test_orchestrator_json() {
+        let json = r#"{"tasks":[{"id":"t1","content":"research","assign_to":"Synthesizer","deps":[]},{"id":"t2","content":"write","assign_to":"Presenter","deps":["t1"]}]}"#;
+        let dag = task_dag_from_orchestrator_output("i1", json).unwrap();
         assert_eq!(dag.node_count(), 2);
         assert!(dag.has_path("t1", "t2"));
         assert!(!dag.has_path("t2", "t1"));

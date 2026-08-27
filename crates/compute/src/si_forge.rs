@@ -2,14 +2,14 @@
 //! Integrated Model Builder & Birthing Pipeline for Project Aaroneous.
 //!
 //! Exposes the builder pattern `SiForge` to configure, train, align, and pack
-//! any tier of .si solid-state container (Strategic Cortex, Hermes Router, or Kinetic Reflex)
+//! any tier of .si solid-state container (Strategic Cortex, Router, or Kinetic Reflex)
 //! in one continuous pipeline.
 
 use anyhow::{Context, Result};
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use crate::rosetta_stone::RosettaStoneDataset;
+use crate::translation_dataset::TranslationDataset;
 use crate::si_packer::{SiPacker, SiSolidStateLoader, SiTierFlags};
 use crate::si_ssm::{SiSsmConfig, SiStateSpaceModel};
 use crate::si_trainer::{run_bootstrapper, BootstrapperConfig};
@@ -107,20 +107,20 @@ impl SiForge {
                 .with_context(|| format!("Failed to create output directory {:?}", output_dir))?;
         }
 
-        // 1. Prepare Rosetta Stone training dataset (load or synthesize)
+        // 1. Prepare Translation Dataset training dataset (load or synthesize)
         let dataset = if let Some(ref data_path) = self.rosetta_stone_path {
             if data_path.exists() {
                 println!("   -> Step 1: Loading teacher trajectories from {:?}", data_path);
-                RosettaStoneDataset::load_from_file(data_path)?
+                TranslationDataset::load_from_file(data_path)?
             } else {
                 println!("   -> Step 1: Dataset {:?} not found. Synthesizing {} micro-tasks...", data_path, self.samples);
-                let ds = RosettaStoneDataset::synthesize_synthetic_corpus(self.samples);
+                let ds = TranslationDataset::synthesize_synthetic_corpus(self.samples);
                 let _ = ds.save_to_file(data_path);
                 ds
             }
         } else {
-            println!("   -> Step 1: Synthesizing {} Rosetta Stone Oracle trajectories...", self.samples);
-            RosettaStoneDataset::synthesize_synthetic_corpus(self.samples)
+            println!("   -> Step 1: Synthesizing {} Translation Dataset Oracle trajectories...", self.samples);
+            TranslationDataset::synthesize_synthetic_corpus(self.samples)
         };
 
         // 2. Distillation: Train student manifold representations via 2-layer GeLU Bridge
@@ -206,7 +206,7 @@ mod tests {
     #[test]
     fn test_si_forge_birth_router_pipeline() {
         let dir = tempdir().unwrap();
-        let forge = SiForge::new("test_hermes_router")
+        let forge = SiForge::new("test_router")
             .with_tier(SiTierFlags::TIER_2_ROUTER)
             .with_training_params(1, 8, 0.01, 16);
 
@@ -214,7 +214,7 @@ mod tests {
         assert!(out.exists());
 
         let loader = SiSolidStateLoader::load(&out).expect("Verification load failed");
-        assert_eq!(loader.manifest.model_identifier, "test_hermes_router");
+        assert_eq!(loader.manifest.model_identifier, "test_router");
         assert!(loader.tier_flags.is_router());
     }
 }

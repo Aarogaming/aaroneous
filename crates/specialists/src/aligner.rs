@@ -1,5 +1,5 @@
-//! wen.rs
-//! Wen (The Human Symbiote) & Resonance (Cognitive Alignment Matrix).
+//! aligner.rs
+//! Aligner (The Human Symbiote) & HarmonyEngine (Cognitive Alignment Matrix).
 //! Domain Opcode: 0x0800 (HUMAN_SYMBIOSIS)
 
 use anyhow::Result;
@@ -18,14 +18,14 @@ pub struct SymbioticResonanceReport {
     pub translated_message: String,
 }
 
-/// Resonance Relic Engine: Human cognitive alignment & symbiotic tuning matrix
+/// HarmonyEngine Relic Engine: Human cognitive alignment & symbiotic tuning matrix
 #[derive(Debug, Clone)]
-pub struct ResonanceRelic {
+pub struct HarmonyEngineRelic {
     pub interactions_aligned: u64,
     pub current_resonance_score: f32,
 }
 
-impl Default for ResonanceRelic {
+impl Default for HarmonyEngineRelic {
     fn default() -> Self {
         Self {
             interactions_aligned: 0,
@@ -34,50 +34,50 @@ impl Default for ResonanceRelic {
     }
 }
 
-impl RelicEngine for ResonanceRelic {
+impl RelicEngine for HarmonyEngineRelic {
     fn relic_name(&self) -> &'static str {
-        "Resonance"
+        "HarmonyEngine"
     }
 
     fn supervisor_name(&self) -> &'static str {
-        "Wen"
+        "Aligner"
     }
 
     fn relic_status(&self) -> String {
         format!(
-            "Resonance Matrix: {} interactions tuned with {:.1}% alignment score",
+            "HarmonyEngine Matrix: {} interactions tuned with {:.1}% alignment score",
             self.interactions_aligned,
             self.current_resonance_score * 100.0
         )
     }
 }
 
-/// Wen Sovereign Specialist
-pub struct WenSpecialist {
+/// Aligner Sovereign Specialist
+pub struct AlignerSpecialist {
     pub tokens: f32,
     pub max_tokens: f32,
-    pub resonance: ResonanceRelic,
+    pub resonance: HarmonyEngineRelic,
 }
 
-impl Default for WenSpecialist {
+impl Default for AlignerSpecialist {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl WenSpecialist {
+impl AlignerSpecialist {
     pub fn new() -> Self {
         Self {
             tokens: 100.0,
             max_tokens: 100.0,
-            resonance: ResonanceRelic::default(),
+            resonance: HarmonyEngineRelic::default(),
         }
     }
 
     /// Aligns machine tensor output into clear human resonance
     pub fn align_output(&mut self, raw_machine_output: &str) -> SymbioticResonanceReport {
         self.resonance.interactions_aligned += 1;
-        info!(target: "specialist::wen", "Translating machine output for optimal human cognitive resonance");
+        info!(target: "specialist::aligner", "Translating machine output for optimal human cognitive resonance");
 
         SymbioticResonanceReport {
             estimated_cognitive_load: 0.32,
@@ -88,9 +88,9 @@ impl WenSpecialist {
 }
 
 #[async_trait]
-impl SovereignSpecialist for WenSpecialist {
+impl SovereignSpecialist for AlignerSpecialist {
     fn name(&self) -> &'static str {
-        "Wen"
+        "Aligner"
     }
 
     fn domain_opcode(&self) -> u16 {
@@ -106,7 +106,7 @@ impl SovereignSpecialist for WenSpecialist {
             success: true,
             opcode: self.domain_opcode(),
             correlation_id: packet.correlation_id,
-            message: "Wen translated output with symbiotic human resonance".to_string(),
+            message: "Aligner translated output with symbiotic human resonance".to_string(),
             payload,
         })
     }
@@ -133,10 +133,10 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_wen_alignment() {
-        let mut wen = WenSpecialist::new();
-        let report = wen.align_output("Kernel 0x01 completed in 12ms");
+    fn test_aligner_alignment() {
+        let mut aligner = AlignerSpecialist::new();
+        let report = aligner.align_output("Kernel 0x01 completed in 12ms");
         assert_eq!(report.recommended_detail_level, "ConciseSummary");
-        assert_eq!(wen.resonance.interactions_aligned, 1);
+        assert_eq!(aligner.resonance.interactions_aligned, 1);
     }
 }

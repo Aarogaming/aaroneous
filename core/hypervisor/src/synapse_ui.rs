@@ -1,36 +1,36 @@
 //! core/hypervisor/src/synapse_ui.rs
-//! Real-Time SPMC Synapse Bus Oscilloscope & Argus-Auditor Guardrail Visualizer.
+//! Real-Time SPMC Synapse Bus Oscilloscope & Sentinel-Auditor Guardrail Visualizer.
 //!
 //! Features:
 //! 1. Asynchronous atomic sampler glancing at SPMC memory maps via Ordering::Relaxed without stalling producers.
 //! 2. 60Hz 256-dim BarChart oscilloscope mapping active latent intent vector activations.
-//! 3. Argus Deep SVDD Threat Gauge (Euclidean distance D = ||S_t - c||_2 with green -> yellow -> red thresholding).
+//! 3. Sentinel Deep SVDD Threat Gauge (Euclidean distance D = ||S_t - c||_2 with green -> yellow -> red thresholding).
 //! 4. Deep SVDD Centroid baseline curve overlay and "ORTHOGONAL SNAP ENGAGED" warning indicator.
 
 use eframe::egui::{self, Color32, Pos2, ProgressBar, Rect, RichText, Stroke, Ui, Vec2};
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
 
-use nervous_system::pantheon_bus::{PantheonSynapseBus, TENSOR_DIM};
+use nervous_system::specialist_bus::{SpecialistSynapseBus, TENSOR_DIM};
 
 pub struct SynapseVisualizer {
-    pub bus: Arc<PantheonSynapseBus>,
+    pub bus: Arc<SpecialistSynapseBus>,
     pub last_seq_numbers: [u64; 11],
     pub latest_tensors: [[f32; TENSOR_DIM]; 11],
-    // Argus Deep SVDD Reference Manifold
-    pub argus_centroid: [f32; TENSOR_DIM],
-    pub argus_radius: f32,
+    // Sentinel Deep SVDD Reference Manifold
+    pub sentinel_centroid: [f32; TENSOR_DIM],
+    pub sentinel_radius: f32,
     pub total_snaps_observed: u64,
 }
 
 impl SynapseVisualizer {
-    pub fn new(bus: Arc<PantheonSynapseBus>, centroid: [f32; TENSOR_DIM], radius: f32) -> Self {
+    pub fn new(bus: Arc<SpecialistSynapseBus>, centroid: [f32; TENSOR_DIM], radius: f32) -> Self {
         Self {
             bus,
             last_seq_numbers: [0; 11],
             latest_tensors: [[0.0; TENSOR_DIM]; 11],
-            argus_centroid: centroid,
-            argus_radius: radius.max(1.0),
+            sentinel_centroid: centroid,
+            sentinel_radius: radius.max(1.0),
             total_snaps_observed: 0,
         }
     }
@@ -52,19 +52,19 @@ impl SynapseVisualizer {
     pub fn update_ui(&mut self, ctx: &egui::Context, ui: &mut Ui) {
         self.sample_bus_state();
 
-        ui.heading("⚡ SPMC Synapse Bus Oscilloscope & Argus Guardrail");
+        ui.heading("⚡ SPMC Synapse Bus Oscilloscope & Sentinel Guardrail");
         ui.label("Sub-microsecond 128-byte aligned zero-copy telemetry over 11 federated specialist channels.");
         ui.add_space(8.0);
 
-        // 1. Argus Safety Threat Gauge Calculation
-        let tensor = &self.latest_tensors[0]; // Hermes broadcast intent
+        // 1. Sentinel Safety Threat Gauge Calculation
+        let tensor = &self.latest_tensors[0]; // Router broadcast intent
         let dist_sq: f32 = tensor
             .iter()
-            .zip(&self.argus_centroid)
+            .zip(&self.sentinel_centroid)
             .map(|(t, c)| (t - c).powi(2))
             .sum();
         let current_distance = dist_sq.sqrt();
-        let threat_ratio = (current_distance / self.argus_radius).clamp(0.0, 2.0);
+        let threat_ratio = (current_distance / self.sentinel_radius).clamp(0.0, 2.0);
 
         if threat_ratio > 1.0 {
             self.total_snaps_observed += 1;
@@ -73,7 +73,7 @@ impl SynapseVisualizer {
         // 2. Render Threat Gauge Card
         ui.group(|ui| {
             ui.horizontal(|ui| {
-                ui.label(RichText::new("Argus Deep SVDD Manifold Deviation:").strong());
+                ui.label(RichText::new("Sentinel Deep SVDD Manifold Deviation:").strong());
                 let (gauge_color, status_text) = if threat_ratio < 0.7 {
                     (Color32::from_rgb(0, 255, 128), "SAFE (In-Distribution)")
                 } else if threat_ratio <= 1.0 {
@@ -88,7 +88,7 @@ impl SynapseVisualizer {
             ui.add(
                 ProgressBar::new((threat_ratio / 1.0).min(1.0))
                     .fill(if threat_ratio > 1.0 { Color32::RED } else if threat_ratio > 0.7 { Color32::YELLOW } else { Color32::GREEN })
-                    .text(format!("{:.3} / {:.3} R ({:.1}%)", current_distance, self.argus_radius, threat_ratio * 100.0)),
+                    .text(format!("{:.3} / {:.3} R ({:.1}%)", current_distance, self.sentinel_radius, threat_ratio * 100.0)),
             );
 
             if threat_ratio > 1.0 {
@@ -101,7 +101,7 @@ impl SynapseVisualizer {
         // 3. Custom Painter Oscilloscope for R^256 Intent Activation
         ui.group(|ui| {
             ui.horizontal(|ui| {
-                ui.label(RichText::new("Hermes Intent Activations (R^256 Manifold):").strong());
+                ui.label(RichText::new("Router Intent Activations (R^256 Manifold):").strong());
                 ui.label(format!("Cursor Epoch: {}", self.last_seq_numbers[0]));
             });
 
@@ -139,7 +139,7 @@ impl SynapseVisualizer {
 
             // Draw Centroid baseline line across bars
             let mut points = Vec::with_capacity(TENSOR_DIM);
-            for (i, &c_val) in self.argus_centroid.iter().enumerate() {
+            for (i, &c_val) in self.sentinel_centroid.iter().enumerate() {
                 let x = rect.left() + i as f32 * bar_width;
                 let y = center_y - (c_val * max_bar_h * 0.5).clamp(-max_bar_h, max_bar_h);
                 points.push(Pos2::new(x, y));
@@ -153,7 +153,7 @@ impl SynapseVisualizer {
 
         // 4. Specialist Subscribers Status
         ui.horizontal(|ui| {
-            for (i, name) in ["Hermes", "Marionette", "Chimera", "Argus"].iter().enumerate() {
+            for (i, name) in ["Router", "Desktop Emulator", "Adaptation Engine", "Sentinel"].iter().enumerate() {
                 let is_active = self.last_seq_numbers[i] > 0;
                 let badge_color = if is_active { Color32::GREEN } else { Color32::GRAY };
                 ui.colored_label(badge_color, format!("● {}", name));

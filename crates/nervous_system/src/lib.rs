@@ -6,7 +6,7 @@ pub mod intent_log;
 pub mod metrics;
 pub mod mutation_intent;
 pub mod nucleotide_packet;
-pub mod pantheon_bus;
+pub mod specialist_bus;
 pub mod persistent_grimoire;
 pub mod preparedness_notice;
 pub mod scheme_router;
@@ -14,7 +14,7 @@ pub mod slab_allocator;
 pub mod spmc_synapse_bus;
 pub mod swmr_synapse;
 
-pub use pantheon_bus::{install_specialist_panic_hook, PantheonSynapseBus, SpecialistSpmcChannel, TensorSlot, TENSOR_DIM};
+pub use specialist_bus::{install_specialist_panic_hook, SpecialistSynapseBus, SpecialistSpmcChannel, TensorSlot, TENSOR_DIM};
 pub use spmc_synapse_bus::{SharedSynapseBus, SpmcSynapseBus, SynapsePacket};
 
 pub use persistent_grimoire::{GrimoireRecord, PersistentGrimoireStore};

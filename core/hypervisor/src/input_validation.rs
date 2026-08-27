@@ -264,16 +264,16 @@ mod tests {
 
     #[test]
     fn identifier_accepts_typical_names() {
-        assert!(validate_identifier("model", "merlin-v1").is_ok());
+        assert!(validate_identifier("model", "synthesizer-v1").is_ok());
         assert!(validate_identifier("model", "genome.reg_v2").is_ok());
         assert!(validate_identifier("model", "link:webhook-1").is_ok());
     }
 
     #[test]
     fn identifier_rejects_bad_chars() {
-        assert!(validate_identifier("model", "merlin/v1").is_err());
-        assert!(validate_identifier("model", "merlin v1").is_err());
-        assert!(validate_identifier("model", "merlin@v1").is_err());
+        assert!(validate_identifier("model", "synthesizer/v1").is_err());
+        assert!(validate_identifier("model", "synthesizer v1").is_err());
+        assert!(validate_identifier("model", "synthesizer@v1").is_err());
     }
 
     #[test]

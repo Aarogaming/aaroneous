@@ -303,10 +303,10 @@ impl eframe::App for AaroneousSetupApp {
                     ui.label(egui::RichText::new("✨ Included Sovereign Subsystems:").strong().color(egui::Color32::from_rgb(180, 220, 255)));
                     ui.add_space(4.0);
                     ui.label("• 🪐 3D Omni Galaxy Viewport & N-body Gravitational Physics");
-                    ui.label("• ⚡ 128-byte Aligned SPMC Synapse Bus & Argus SVDD Guardrail");
-                    ui.label("• 🏛️ 9 Olympian Sovereign Domain Specialists (Odin, Merlin, Ariel, etc.)");
+                    ui.label("• ⚡ 128-byte Aligned SPMC Synapse Bus & Sentinel SVDD Guardrail");
+                    ui.label("• 🏛️ 9 Sovereign Domain Specialists (Orchestrator, Synthesizer, Presenter, etc.)");
                     ui.label("• 🔌 Model Context Protocol (MCP) Server for Claude Desktop & Cursor");
-                    ui.label("• 🌐 Caduceus Multi-Hive P2P LAN Gossip Mesh & Task Offloading");
+                    ui.label("• 🌐 FederationBus Multi-Hive P2P LAN Gossip Mesh & Task Offloading");
                 });
 
                 ui.add_space(20.0);

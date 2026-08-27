@@ -1,6 +1,6 @@
-//! crates/evolution/src/candle_soul_engine.rs
-//! Pure Rust Neural Soul & GGUF Tensor Engine powered by HuggingFace Candle & Tokenizers.
-//! Directly extracts quantized model weights, computes semantic latent vectors, and powers Merlin's Grimoire.
+//! crates/evolution/src/candle_persona_engine.rs
+//! Pure Rust Neural Persona & GGUF Tensor Engine powered by HuggingFace Candle & Tokenizers.
+//! Directly extracts quantized model weights, computes semantic latent vectors, and powers Synthesizer's KnowledgeStore.
 
 use anyhow::{anyhow, Result};
 use candle_core::quantized::gguf_file;
@@ -50,12 +50,12 @@ pub struct DiscoveredGgufModel {
     pub metadata: Option<GgufModelMetadata>,
 }
 
-/// Pure Rust Candle-powered Soul Engine
-pub struct CandleSoulEngine {
+/// Pure Rust Candle-powered Persona Engine
+pub struct CandlePersonaEngine {
     device: Device,
 }
 
-impl Default for CandleSoulEngine {
+impl Default for CandlePersonaEngine {
     fn default() -> Self {
         Self {
             device: Device::Cpu,
@@ -63,8 +63,8 @@ impl Default for CandleSoulEngine {
     }
 }
 
-impl CandleSoulEngine {
-    /// Creates a new Candle Soul Engine instance targeting the best available device
+impl CandlePersonaEngine {
+    /// Creates a new Candle Persona Engine instance targeting the best available device
     pub fn new() -> Self {
         Self {
             device: Device::Cpu,
@@ -222,8 +222,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_candle_soul_engine_latent_vector_projection() {
-        let engine = CandleSoulEngine::new();
+    fn test_candle_persona_engine_latent_vector_projection() {
+        let engine = CandlePersonaEngine::new();
         let sample_features = vec![0.5, -0.2, 0.8, 0.1, -0.9, 0.4];
 
         let latent = engine.compute_latent_vector(&sample_features).unwrap();
@@ -236,7 +236,7 @@ mod tests {
 
     #[test]
     fn test_candle_sampling_greedy_and_temperature() {
-        let engine = CandleSoulEngine::new();
+        let engine = CandlePersonaEngine::new();
         let logits = vec![0.1, 0.2, 5.0, 0.3, 0.1]; // index 2 is strongly dominant
 
         let mut config = GenerationConfig {
@@ -254,7 +254,7 @@ mod tests {
 
     #[test]
     fn test_local_model_discovery() {
-        let models = CandleSoulEngine::discover_local_models();
+        let models = CandlePersonaEngine::discover_local_models();
         // Discovery executes cleanly without errors
         println!("Discovered local GGUF models: {}", models.len());
     }

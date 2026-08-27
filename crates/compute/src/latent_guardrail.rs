@@ -1,5 +1,5 @@
 //! crates/compute/src/latent_guardrail.rs
-//! Continuous Latent Manifold Guardrails & Argus Safety Auditor Substrate.
+//! Continuous Latent Manifold Guardrails & Sentinel Safety Auditor Substrate.
 //! Features:
 //! 1. O(1) Support Vector Data Description (SVDD) Hypersphere & Mahalanobis Distance Metrics.
 //! 2. Orthogonal Invariant Projection: Snaps rogue/unsafe latent vectors back onto the nearest safe manifold.
@@ -179,7 +179,7 @@ impl SafeHypersphereManifold {
     }
 }
 
-/// The Argus Auditor Safety Sentinel Engine
+/// The Sentinel Auditor Safety Engine
 pub struct ArgusSafetySentinel {
     pub manifolds: Vec<SafeHypersphereManifold>,
 }

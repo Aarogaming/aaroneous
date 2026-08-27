@@ -66,7 +66,7 @@ fn bench_validate_string(c: &mut Criterion) {
 
 fn bench_validate_identifier(c: &mut Criterion) {
     c.bench_function("input_validation/validate_identifier_typical", |b| {
-        b.iter(|| validate_identifier("model", "merlin-v2.1"))
+        b.iter(|| validate_identifier("model", "synthesizer-v2.1"))
     });
 }
 

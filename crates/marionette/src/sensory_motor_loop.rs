@@ -4,16 +4,16 @@
 //! Connects:
 //! 1. Epigenetic Vision Gater (16x16 sectors motion filter, ~97µs)
 //! 2. Spatial-Semantic Latent Projector (R^256 latent vector)
-//! 3. Argus Deep SVDD Latent Guardrail (Safe hypersphere audit & orthogonal projection, <2µs)
+//! 3. Sentinel Deep SVDD Latent Guardrail (Safe hypersphere audit & orthogonal projection, <2µs)
 //! 4. Multi-Headed Action Decoder (R^256 -> Discrete MachineOpcode + 4D Coords, <10µs)
-//! 5. Ghost Desktop Sandbox Actuator (Isolated Win32 Virtual Desktop / Mock Emulation)
+//! 5. Isolated Desktop Sandbox Actuator (Isolated Win32 Virtual Desktop / Mock Emulation)
 
 use std::time::Instant;
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use tracing::info;
 
-use compute::ghost_station::GhostDesktop;
+use compute::isolated_desktop::IsolatedDesktop;
 use compute::latent_guardrail::{GUARDRAIL_DIM, LatentAuditVerdict, SafeHypersphereManifold};
 use compute::machine_native::MachineOpcode;
 use compute::si_decoder::{ActionDecoder, DecodedActionCommand};
@@ -44,7 +44,7 @@ pub struct SensoryMotorPipeline {
     pub gater: EpigeneticVisionGater,
     pub guardrail: SafeHypersphereManifold,
     pub decoder: ActionDecoder,
-    pub ghost_desktop: GhostDesktop,
+    pub ghost_desktop: IsolatedDesktop,
     pub host: MockMarionette,
     pub frame_counter: usize,
 }
@@ -67,8 +67,8 @@ impl SensoryMotorPipeline {
         ]);
 
         let decoder = ActionDecoder::new(16, 8);
-        let ghost_desktop = GhostDesktop::forge(desktop_name).unwrap_or_else(|_| {
-            GhostDesktop {
+        let ghost_desktop = IsolatedDesktop::forge(desktop_name).unwrap_or_else(|_| {
+            IsolatedDesktop {
                 name: desktop_name.to_string(),
                 handle_id: 0,
                 is_isolated: false,
@@ -155,7 +155,7 @@ impl SensoryMotorPipeline {
         // Stage 2: Spatial-Semantic Latent Projection (R^256)
         let raw_latent = self.project_latent_intent(&gated, raw_frame);
 
-        // Stage 3: Argus Deep SVDD Latent Hypersphere Guardrail Audit
+        // Stage 3: Sentinel Deep SVDD Latent Hypersphere Guardrail Audit
         let audit: LatentAuditVerdict = self.guardrail.audit_candidate_action(&raw_latent, true);
         let safe_latent = if audit.was_projected {
             audit.snapped_vector.clone().unwrap_or(raw_latent)
@@ -166,7 +166,7 @@ impl SensoryMotorPipeline {
         // Stage 4: Multi-Headed Action Decoder
         let decoded = self.decoder.decode(&safe_latent);
 
-        // Stage 5: Motor Action Translation & Ghost Desktop Actuation
+        // Stage 5: Motor Action Translation & Isolated Desktop Actuation
         let hid_actions = self.translate_to_hid(&decoded);
         let hid_command = HidCommand {
             actions: hid_actions.clone(),

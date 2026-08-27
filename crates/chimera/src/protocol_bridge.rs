@@ -1,5 +1,5 @@
 //! protocol_bridge.rs
-//! Machine-Native Linking Protocol (MNLP) patch serialization and dispatch for Chimera.
+//! Machine-Native Linking Protocol (MNLP) patch serialization and dispatch for Adaptation Engine.
 
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
@@ -29,7 +29,7 @@ impl Default for MnlpPatchPacket {
     }
 }
 
-/// Machine-Native Linking Protocol bridge for Chimera patch proposals
+/// Machine-Native Linking Protocol bridge for Adaptation Engine patch proposals
 pub struct ChimeraProtocolBridge;
 
 impl ChimeraProtocolBridge {
@@ -59,7 +59,7 @@ impl ChimeraProtocolBridge {
     pub fn decode_patch(bytes: &[u8]) -> Result<PatchProposal> {
         let header_size = std::mem::size_of::<MnlpPatchPacket>();
         if bytes.len() < header_size {
-            anyhow::bail!("Packet too small for Chimera MNLP header");
+            anyhow::bail!("Packet too small for Adaptation Engine MNLP header");
         }
 
         let payload = &bytes[header_size..];

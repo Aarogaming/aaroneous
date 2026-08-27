@@ -618,4 +618,322 @@ mod tests {
         let report = engine.process_ingestion_cycle(tasks).await;
         assert_eq!(report.total_tasks, 2);
     }
+
+    #[tokio::test]
+    async fn test_execute_task_queue_returns_queued() {
+        let intelligence = create_test_intelligence().await;
+        let mut engine = AutonomousDecisionEngine::new(intelligence);
+
+        let task = DecisionTask {
+            id: "q1".to_string(),
+            description: "Queue this".to_string(),
+            task_type: TaskType::Analysis,
+            raw_input: "data".to_string(),
+            priority: 0.3,
+            deadline_seconds: None,
+        };
+
+        let evaluation = TaskEvaluation {
+            task_id: task.id.clone(),
+            complexity: 0.5,
+            confidence: 0.6,
+            entropy: 1.0,
+            routing: RoutingDecision {
+                specialist_id: "spec_1".to_string(),
+                specialist_name: "Test".to_string(),
+                confidence: 0.5,
+                expected_completion_time: 5.0,
+                reasoning: "test".to_string(),
+            },
+            metabolic_risk: 0.3,
+            recommended_action: Action::QueueForLater,
+            reasoning: "queued".to_string(),
+            memory_informed: false,
+            memory_score: 0.0,
+            memory_recommendation: String::new(),
+        };
+
+        let outcome = engine.execute_task(&task, &evaluation).await;
+        assert!(matches!(outcome, ExecutionOutcome::Queued(_)));
+    }
+
+    #[tokio::test]
+    async fn test_execute_task_reject_returns_rejected() {
+        let intelligence = create_test_intelligence().await;
+        let mut engine = AutonomousDecisionEngine::new(intelligence);
+
+        let task = DecisionTask {
+            id: "r1".to_string(),
+            description: "Reject".to_string(),
+            task_type: TaskType::Analysis,
+            raw_input: "data".to_string(),
+            priority: 0.1,
+            deadline_seconds: None,
+        };
+
+        let evaluation = TaskEvaluation {
+            task_id: task.id.clone(),
+            complexity: 0.5,
+            confidence: 0.2,
+            entropy: 2.0,
+            routing: RoutingDecision {
+                specialist_id: "spec_1".to_string(),
+                specialist_name: "Test".to_string(),
+                confidence: 0.3,
+                expected_completion_time: 5.0,
+                reasoning: "low confidence".to_string(),
+            },
+            metabolic_risk: 0.8,
+            recommended_action: Action::Reject,
+            reasoning: "rejected".to_string(),
+            memory_informed: false,
+            memory_score: 0.0,
+            memory_recommendation: String::new(),
+        };
+
+        let outcome = engine.execute_task(&task, &evaluation).await;
+        assert!(matches!(outcome, ExecutionOutcome::Rejected(_)));
+    }
+
+    #[tokio::test]
+    async fn test_execute_task_human_input() {
+        let intelligence = create_test_intelligence().await;
+        let mut engine = AutonomousDecisionEngine::new(intelligence);
+
+        let task = DecisionTask {
+            id: "h1".to_string(),
+            description: "Need input".to_string(),
+            task_type: TaskType::Analysis,
+            raw_input: "unclear".to_string(),
+            priority: 0.5,
+            deadline_seconds: None,
+        };
+
+        let evaluation = TaskEvaluation {
+            task_id: task.id.clone(),
+            complexity: 0.5,
+            confidence: 0.1,
+            entropy: 4.0,
+            routing: RoutingDecision {
+                specialist_id: "spec_1".to_string(),
+                specialist_name: "Test".to_string(),
+                confidence: 0.1,
+                expected_completion_time: 5.0,
+                reasoning: "very uncertain".to_string(),
+            },
+            metabolic_risk: 0.3,
+            recommended_action: Action::RequestHumanInput,
+            reasoning: "needs input".to_string(),
+            memory_informed: false,
+            memory_score: 0.0,
+            memory_recommendation: String::new(),
+        };
+
+        let outcome = engine.execute_task(&task, &evaluation).await;
+        assert!(matches!(outcome, ExecutionOutcome::NeedsInput(_)));
+    }
+
+    #[tokio::test]
+    async fn test_memory_for_creates_store() {
+        let intelligence = create_test_intelligence().await;
+        let engine = AutonomousDecisionEngine::new(intelligence);
+        let store = engine.memory_for("spec_test");
+        let result = store.query_memory("test", "code_generation", 5);
+        assert!(result.entries.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_adjust_confidence_with_memory_no_effect() {
+        let intelligence = create_test_intelligence().await;
+        let engine = AutonomousDecisionEngine::new(intelligence);
+        let adjusted = engine.adjust_confidence_with_memory(0.7, 0.0);
+        assert_eq!(adjusted, 0.7);
+    }
+
+    #[tokio::test]
+    async fn test_adjust_confidence_with_memory_blends() {
+        let intelligence = create_test_intelligence().await;
+        let engine = AutonomousDecisionEngine::new(intelligence);
+        let adjusted = engine.adjust_confidence_with_memory(0.3, 0.9);
+        // weight=0.3: (1-0.3)*0.3 + 0.3*0.9 = 0.21 + 0.27 = 0.48
+        assert!((adjusted - 0.48).abs() < 0.01);
+    }
+
+    #[tokio::test]
+    async fn test_record_execution_memory_success() {
+        let intelligence = create_test_intelligence().await;
+        let mut engine = AutonomousDecisionEngine::new(intelligence);
+
+        let task = DecisionTask {
+            id: "mem_task".to_string(),
+            description: "Test memory".to_string(),
+            task_type: TaskType::CodeGeneration,
+            raw_input: "test".to_string(),
+            priority: 0.5,
+            deadline_seconds: None,
+        };
+
+        engine.record_execution_memory("spec_1", &task, true, 2.5);
+        let store = engine.memory_for("spec_1");
+        let result = store.query_memory("Test memory", "code_generation", 5);
+        assert!(!result.entries.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_record_execution_memory_failure() {
+        let intelligence = create_test_intelligence().await;
+        let mut engine = AutonomousDecisionEngine::new(intelligence);
+
+        let task = DecisionTask {
+            id: "fail_task".to_string(),
+            description: "Failed task".to_string(),
+            task_type: TaskType::BugFix,
+            raw_input: "test".to_string(),
+            priority: 0.5,
+            deadline_seconds: None,
+        };
+
+        engine.record_execution_memory("spec_1", &task, false, 1.0);
+        let store = engine.memory_for("spec_1");
+        let result = store.query_memory("Failed task", "bug_fix", 5);
+        assert!(!result.entries.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_get_status_initial() {
+        let intelligence = create_test_intelligence().await;
+        let engine = AutonomousDecisionEngine::new(intelligence);
+        let status = engine.get_status();
+        assert_eq!(status.execution_count, 0);
+        assert_eq!(status.recent_success_rate, 0.5);
+        assert!(status.bayesian_confidence > 0.0);
+        assert!(status.bayesian_confidence < 1.0);
+    }
+
+    #[tokio::test]
+    async fn test_get_status_with_history() {
+        let intelligence = create_test_intelligence().await;
+        let mut engine = AutonomousDecisionEngine::new(intelligence);
+
+        for i in 0..5 {
+            engine.execution_history.push(ExecutionRecord {
+                task_id: format!("t{}", i),
+                action_taken: Action::ExecuteImmediately,
+                success: i % 2 == 0,
+                completion_time_seconds: 1.0,
+                metabolic_cost: 0.1,
+            });
+        }
+
+        let status = engine.get_status();
+        assert_eq!(status.execution_count, 5);
+        // 3 successes out of 5
+        assert!((status.recent_success_rate - 0.6).abs() < 0.01);
+    }
+
+    #[tokio::test]
+    async fn test_record_outcome_with_memory() {
+        let intelligence = create_test_intelligence().await;
+        let mut engine = AutonomousDecisionEngine::new(intelligence);
+
+        let task = DecisionTask {
+            id: "outcome_task".to_string(),
+            description: "Record outcome".to_string(),
+            task_type: TaskType::Refactor,
+            raw_input: "test".to_string(),
+            priority: 0.5,
+            deadline_seconds: None,
+        };
+
+        let routing = RoutingDecision {
+            specialist_id: "spec_1".to_string(),
+            specialist_name: "Test".to_string(),
+            confidence: 0.8,
+            expected_completion_time: 5.0,
+            reasoning: "test".to_string(),
+        };
+
+        engine.record_outcome_with_memory(&task, &routing, true, 3.0, 0.2);
+        assert_eq!(engine.execution_history.len(), 1);
+        assert!(engine.execution_history[0].success);
+    }
+
+    #[tokio::test]
+    async fn test_ingestion_cycle_all_evaluated() {
+        let intelligence = create_test_intelligence().await;
+        let mut engine = AutonomousDecisionEngine::new(intelligence);
+
+        let tasks = vec![
+            DecisionTask {
+                id: "c1".to_string(),
+                description: "Task 1".to_string(),
+                task_type: TaskType::CodeGeneration,
+                raw_input: "simple".to_string(),
+                priority: 0.8,
+                deadline_seconds: None,
+            },
+            DecisionTask {
+                id: "c2".to_string(),
+                description: "Task 2".to_string(),
+                task_type: TaskType::Analysis,
+                raw_input: "analysis".to_string(),
+                priority: 0.5,
+                deadline_seconds: None,
+            },
+            DecisionTask {
+                id: "c3".to_string(),
+                description: "Task 3".to_string(),
+                task_type: TaskType::BugFix,
+                raw_input: "fix".to_string(),
+                priority: 0.3,
+                deadline_seconds: None,
+            },
+        ];
+
+        let report = engine.process_ingestion_cycle(tasks).await;
+        assert_eq!(report.total_tasks, 3);
+        assert_eq!(report.evaluations.len(), 3);
+        assert_eq!(report.outcomes.len(), 3);
+    }
+
+    #[tokio::test]
+    async fn test_estimate_confidence_low_complexity_high() {
+        let intelligence = create_test_intelligence().await;
+        let engine = AutonomousDecisionEngine::new(intelligence);
+        let conf = engine.estimate_confidence(0.1, 0.5);
+        assert!(conf > 0.6);
+    }
+
+    #[tokio::test]
+    async fn test_estimate_confidence_high_complexity_low() {
+        let intelligence = create_test_intelligence().await;
+        let engine = AutonomousDecisionEngine::new(intelligence);
+        let conf = engine.estimate_confidence(0.9, 4.0);
+        assert!(conf < 0.6);
+    }
+
+    #[tokio::test]
+    async fn test_execution_history_trimming() {
+        let intelligence = create_test_intelligence().await;
+        let mut engine = AutonomousDecisionEngine::new(intelligence);
+        engine.max_history = 3;
+
+        // record_outcome trims history when it exceeds max_history
+        for i in 0..5 {
+            engine.execution_history.push(ExecutionRecord {
+                task_id: format!("t{}", i),
+                action_taken: Action::ExecuteImmediately,
+                success: true,
+                completion_time_seconds: 1.0,
+                metabolic_cost: 0.1,
+            });
+            // Manually trim like record_outcome does
+            if engine.execution_history.len() > engine.max_history {
+                engine.execution_history.remove(0);
+            }
+        }
+
+        assert!(engine.execution_history.len() <= 3);
+        assert_eq!(engine.execution_history.len(), 3);
+    }
 }

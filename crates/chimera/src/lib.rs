@@ -1,4 +1,4 @@
-//! crates/chimera
+//! crates/adaptation_engine
 //! Universal software adaptation, binary deconstruction, AST mutation, and code repair engine for Aaroneous.
 
 pub mod analysis;
@@ -49,10 +49,10 @@ pub use self_repair::{CompilerDiagnostic, SelfRepairEngine, SelfRepairReport};
 use anyhow::Result;
 use nervous_system::SynapseState;
 
-/// Master Chimera Engine interface for universal software adaptation and AST repair
-pub struct ChimeraEngine;
+/// Master Adaptation Engine interface for universal software adaptation and AST repair
+pub struct AdaptationEngine;
 
-impl ChimeraEngine {
+impl AdaptationEngine {
     /// Ingests and analyzes a source file
     pub fn inspect_source(file_path: &str, code: &str) -> Result<AstObservation> {
         AstParser::parse_source(file_path, code)
@@ -100,13 +100,13 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_chimera_engine_e2e() {
+    fn test_adaptation_engine_e2e() {
         let code = r#"
 pub fn broken_routine() {
     panic!("fatal memory condition");
 }
 "#;
-        let (obs, _hyp, report) = ChimeraEngine::adapt_code(
+        let (obs, _hyp, report) = AdaptationEngine::adapt_code(
             "kernel.rs",
             code,
             "panic!(\"fatal memory condition\");",
@@ -116,5 +116,89 @@ pub fn broken_routine() {
         assert_eq!(obs.functions.len(), 1);
         assert!(report.success);
         assert_eq!(report.verdict, "ADAPTATION_ACCEPTED");
+    }
+
+    #[test]
+    fn test_inspect_source_valid() {
+        let code = r#"
+pub fn add(a: i32, b: i32) -> i32 {
+    a + b
+}
+"#;
+        let obs = AdaptationEngine::inspect_source("math.rs", code).unwrap();
+        assert_eq!(obs.file_path, "math.rs");
+        assert!(!obs.functions.is_empty());
+        assert_eq!(obs.functions[0].name, "add");
+    }
+
+    #[test]
+    fn test_inspect_source_empty() {
+        let obs = AdaptationEngine::inspect_source("empty.rs", "").unwrap();
+        assert!(obs.functions.is_empty());
+    }
+
+    #[test]
+    fn test_inspect_source_multiple_functions() {
+        let code = r#"
+pub fn first() {}
+pub fn second() {}
+pub fn third() {}
+"#;
+        let obs = AdaptationEngine::inspect_source("multi.rs", code).unwrap();
+        assert_eq!(obs.functions.len(), 3);
+    }
+
+    #[test]
+    fn test_rewrite_pattern_basic() {
+        let code = "fn main() { println!(\"hello\"); }";
+        let (rewritten, patches) = AdaptationEngine::rewrite_pattern(
+            "main.rs",
+            code,
+            "println!(\"hello\")",
+            "tracing::info!(\"hello\")",
+        ).unwrap();
+        assert!(rewritten.contains("tracing::info"));
+        assert!(!patches.is_empty());
+    }
+
+    #[test]
+    fn test_rewrite_pattern_no_match() {
+        let code = "fn main() { }";
+        let (rewritten, patches) = AdaptationEngine::rewrite_pattern(
+            "main.rs",
+            code,
+            "nonexistent_pattern",
+            "replacement",
+        ).unwrap();
+        assert_eq!(rewritten, code);
+        assert!(patches.is_empty());
+    }
+
+    #[test]
+    fn test_rewrite_pattern_multiple_occurrences() {
+        let code = "fn a() { panic!(\"error\"); }\nfn b() { panic!(\"error\"); }";
+        let (_, patches) = AdaptationEngine::rewrite_pattern(
+            "multi.rs",
+            code,
+            "panic!(\"error\")",
+            "return Err(\"error\");",
+        ).unwrap();
+        assert!(patches.len() >= 2, "Should match both occurrences");
+    }
+
+    #[test]
+    fn test_inspect_binary_valid_pe() {
+        let mut bytes = vec![0u8; 1024];
+        bytes[0] = b'M';
+        bytes[1] = b'Z';
+        bytes[0x3C] = 64;
+        bytes[64] = b'P';
+        bytes[65] = b'E';
+        bytes[66] = 0;
+        bytes[67] = 0;
+
+        let manifest = AdaptationEngine::inspect_binary("test.exe", &bytes).unwrap();
+        assert_eq!(manifest.file_path, "test.exe");
+        assert!(manifest.file_size_bytes > 0);
     }
 }

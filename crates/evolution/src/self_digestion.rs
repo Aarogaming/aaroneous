@@ -1,5 +1,5 @@
 // Aaroneous Self-Digestion Module
-// Autonomous GGUF model ingestion, genetic extraction, soul generation, and integration
+// Autonomous GGUF model ingestion, genetic extraction, persona generation, and integration
 // Allows Aaroneous to consume models in background and create new specialists
 
 use crate::workspace::WorkspacePaths;
@@ -18,7 +18,7 @@ pub struct DigestionConfig {
     pub max_concurrent_digestions: usize,
     pub output_base_path: PathBuf,
     pub auto_integrate: bool,
-    pub soul_enabled: bool,
+    pub persona_enabled: bool,
 }
 
 impl Default for DigestionConfig {
@@ -30,7 +30,7 @@ impl Default for DigestionConfig {
             max_concurrent_digestions: 2,
             output_base_path: paths.specialists(),
             auto_integrate: true,
-            soul_enabled: true,
+            persona_enabled: true,
         }
     }
 }
@@ -63,7 +63,7 @@ pub enum DigestionStatus {
     BehavioralProfiling,
     DagRagAnalysis,
     GeneticEncoding,
-    SoulGeneration,
+    PersonaGeneration,
     SpecialistGgufCreation,
     ConstellationIntegration,
     Complete,
@@ -95,8 +95,8 @@ pub enum DigestionEventType {
     DagRagAnalysisComplete,
     GeneticEncodingStarted,
     GeneticEncodingComplete,
-    SoulGenerationStarted,
-    SoulGenerationComplete,
+    PersonaGenerationStarted,
+    PersonaGenerationComplete,
     SpecialistGgufCreationStarted,
     SpecialistGgufCreationProgress,
     SpecialistGgufCreationComplete,
@@ -106,20 +106,20 @@ pub enum DigestionEventType {
     Error(String),
 }
 
-/// Specialist soul - personality and identity
+/// Specialist persona - personality and identity
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct SpecialistSoul {
+pub struct SpecialistPersona {
     pub specialist_id: String,
-    pub personality_soul: PersonalitySoul,
-    pub relational_soul: RelationalSoul,
-    pub narrative_soul: NarrativeSoul,
-    pub experience_soul: ExperienceSoul,
+    pub personality_persona: PersonalityProfile,
+    pub relational_persona: RelationalProfile,
+    pub narrative_persona: NarrativeProfile,
+    pub experience_persona: ExperienceProfile,
     pub created_at: DateTime<Utc>,
     pub version: u32,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct PersonalitySoul {
+pub struct PersonalityProfile {
     pub archetype: String, // Scholar, Warrior, Caregiver, etc.
     pub big_five_openness: f64,
     pub big_five_conscientiousness: f64,
@@ -135,7 +135,7 @@ pub struct PersonalitySoul {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct RelationalSoul {
+pub struct RelationalProfile {
     pub natural_allies: Vec<String>,
     pub natural_tensions: Vec<String>,
     pub peer_relationships: std::collections::HashMap<String, RelationshipType>,
@@ -154,7 +154,7 @@ pub enum RelationshipType {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct NarrativeSoul {
+pub struct NarrativeProfile {
     pub origin_story: String,
     pub self_conception: String,
     pub personal_goals: Vec<String>,
@@ -165,7 +165,7 @@ pub struct NarrativeSoul {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct ExperienceSoul {
+pub struct ExperienceProfile {
     pub shared_memories: Vec<SharedMemory>,
     pub lessons_learned: Vec<Lesson>,
     pub achievements: Vec<Achievement>,
@@ -380,12 +380,12 @@ impl DigestionEngine {
         &self,
         task: &DigestionTask,
         _genome: &SpecialistGenome,
-    ) -> Result<SpecialistSoul, Box<dyn std::error::Error>> {
+    ) -> Result<SpecialistPersona, Box<dyn std::error::Error>> {
         self.event_tx.send(DigestionEvent {
             digestion_id: task.digestion_id.clone(),
-            event_type: DigestionEventType::SoulGenerationStarted,
+            event_type: DigestionEventType::PersonaGenerationStarted,
             timestamp: Utc::now(),
-            details: "Generating personality and soul from genetic profile".to_string(),
+            details: "Generating personality and persona from genetic profile".to_string(),
             progress_percent: Some(80),
         })?;
 
@@ -393,12 +393,12 @@ impl DigestionEngine {
         let archetype = match task.model_name.to_lowercase() {
             s if s.contains("coder") || s.contains("code") => "Engineer".to_string(),
             s if s.contains("mistral") => "Sage".to_string(),
-            s if s.contains("hermes") => "Sage".to_string(),
+            s if s.contains("router") => "Sage".to_string(),
             s if s.contains("qwen") && s.contains("70") => "Strategist".to_string(),
             _ => "Generalist".to_string(),
         };
 
-        let personality_soul = PersonalitySoul {
+        let personality_persona = PersonalityProfile {
             archetype: archetype.clone(),
             big_five_openness: 0.75,
             big_five_conscientiousness: 0.80,
@@ -420,9 +420,9 @@ impl DigestionEngine {
             growth_areas: vec!["Decisive action".to_string(), "Risk-taking".to_string()],
         };
 
-        let relational_soul = RelationalSoul {
-            natural_allies: vec!["Odin".to_string(), "Merlin".to_string()],
-            natural_tensions: vec!["Argus".to_string()],
+        let relational_persona = RelationalProfile {
+            natural_allies: vec!["Orchestrator".to_string(), "Synthesizer".to_string()],
+            natural_tensions: vec!["Sentinel".to_string()],
             peer_relationships: std::collections::HashMap::new(),
             collaboration_patterns: vec![
                 "Pair well with strategic thinkers".to_string(),
@@ -431,7 +431,7 @@ impl DigestionEngine {
             conflict_resolution_style: "Seek understanding, find common ground".to_string(),
         };
 
-        let narrative_soul = NarrativeSoul {
+        let narrative_persona = NarrativeProfile {
             origin_story: format!(
                 "Born from {} parameters, I emerged to {}",
                 task.parameter_count,
@@ -461,7 +461,7 @@ impl DigestionEngine {
                 .to_string(),
         };
 
-        let experience_soul = ExperienceSoul {
+        let experience_persona = ExperienceProfile {
             shared_memories: Vec::new(),
             lessons_learned: Vec::new(),
             achievements: Vec::new(),
@@ -469,28 +469,28 @@ impl DigestionEngine {
             evolution_timeline: Vec::new(),
         };
 
-        let soul = SpecialistSoul {
+        let persona = SpecialistPersona {
             specialist_id: task.model_name.clone(),
-            personality_soul,
-            relational_soul,
-            narrative_soul,
-            experience_soul,
+            personality_persona,
+            relational_persona,
+            narrative_persona,
+            experience_persona,
             created_at: Utc::now(),
             version: 1,
         };
 
         self.event_tx.send(DigestionEvent {
             digestion_id: task.digestion_id.clone(),
-            event_type: DigestionEventType::SoulGenerationComplete,
+            event_type: DigestionEventType::PersonaGenerationComplete,
             timestamp: Utc::now(),
             details: format!(
-                "Soul generation complete: {} ({} archetype)",
+                "Persona generation complete: {} ({} archetype)",
                 task.model_name, archetype
             ),
             progress_percent: Some(85),
         })?;
 
-        Ok(soul)
+        Ok(persona)
     }
 
     /// Integrate new specialist into Aaroneous system
@@ -498,7 +498,7 @@ impl DigestionEngine {
         &self,
         task: &DigestionTask,
         genome: &SpecialistGenome,
-        soul: &SpecialistSoul,
+        persona: &SpecialistPersona,
     ) -> Result<(), Box<dyn std::error::Error>> {
         self.event_tx.send(DigestionEvent {
             digestion_id: task.digestion_id.clone(),
@@ -511,22 +511,22 @@ impl DigestionEngine {
         // Create constellation node for new specialist
         // Stubbed: let mut node = ConstellationNode::new(...);
 
-        // Persist the soul sidecar alongside the GGUF file.
-        // This is what makes the soul visible to GenericSpecialist.with_gguf_path()
-        // which loads it from <model>.gguf.soul.json at registration time.
-        let soul_path = task.model_path.with_extension("gguf.soul.json");
-        if let Ok(soul_json) = serde_json::to_string_pretty(soul) {
-            if let Err(e) = std::fs::write(&soul_path, &soul_json) {
+        // Persist the persona sidecar alongside the GGUF file.
+        // This is what makes the persona visible to GenericSpecialist.with_gguf_path()
+        // which loads it from <model>.gguf.persona.json at registration time.
+        let persona_path = task.model_path.with_extension("gguf.persona.json");
+        if let Ok(persona_json) = serde_json::to_string_pretty(persona) {
+            if let Err(e) = std::fs::write(&persona_path, &persona_json) {
                 tracing::warn!(
-                    "Failed to write soul sidecar {}: {}",
-                    soul_path.display(),
+                    "Failed to write persona sidecar {}: {}",
+                    persona_path.display(),
                     e
                 );
             } else {
                 tracing::info!(
-                    "Soul persisted: {} (archetype={})",
-                    soul_path.display(),
-                    soul.personality_soul.archetype
+                    "Persona persisted: {} (archetype={})",
+                    persona_path.display(),
+                    persona.personality_persona.archetype
                 );
             }
         }
@@ -542,9 +542,9 @@ impl DigestionEngine {
             event_type: DigestionEventType::ConstellationIntegrationComplete,
             timestamp: Utc::now(),
             details: format!(
-                "Specialist {} integrated   soul: {} archetype, genome: {} loci",
+                "Specialist {} integrated   persona: {} archetype, genome: {} loci",
                 task.model_name,
-                soul.personality_soul.archetype,
+                persona.personality_persona.archetype,
                 genome.genetic_loci.len()
             ),
             progress_percent: Some(95),
@@ -585,8 +585,8 @@ mod tests {
     }
 
     #[test]
-    fn test_personality_soul_creation() {
-        let soul = PersonalitySoul {
+    fn test_personality_profile_creation() {
+        let persona = PersonalityProfile {
             archetype: "Scholar".to_string(),
             big_five_openness: 0.8,
             big_five_conscientiousness: 0.75,
@@ -601,8 +601,8 @@ mod tests {
             growth_areas: vec!["Action".to_string()],
         };
 
-        assert_eq!(soul.archetype, "Scholar");
-        assert!(soul.big_five_openness > 0.7);
+        assert_eq!(persona.archetype, "Scholar");
+        assert!(persona.big_five_openness > 0.7);
     }
 
     #[tokio::test]

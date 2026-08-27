@@ -1,4 +1,4 @@
-//! crates/marionette
+//! crates/desktop_emulator
 //! Unified frontend user emulation, visual perception, backend probing, and datalogging organ for Aaroneous.
 
 pub mod epigenetic_vision;
@@ -31,15 +31,15 @@ use anyhow::Result;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
-/// The primary Marionette Engine managing active backend, epigenetic vision gater, and probing datalogger
-pub struct MarionetteEngine {
+/// The primary Desktop Emulator Engine managing active backend, epigenetic vision gater, and probing datalogger
+pub struct DesktopEmulator {
     host: Arc<Mutex<dyn MarionetteHost>>,
     probe_logger: Arc<Mutex<ProcessProbeLogger>>,
     gater: Arc<Mutex<EpigeneticVisionGater>>,
 }
 
-impl MarionetteEngine {
-    /// Creates the default production MarionetteEngine
+impl DesktopEmulator {
+    /// Creates the default production DesktopEmulator
     pub fn new_default() -> Self {
         #[cfg(target_os = "windows")]
         {
@@ -51,7 +51,7 @@ impl MarionetteEngine {
         }
     }
 
-    /// Creates a safe sandboxed MarionetteEngine using Mock backend
+    /// Creates a safe sandboxed DesktopEmulator using Mock backend
     pub fn new_mock() -> Self {
         Self {
             host: Arc::new(Mutex::new(MockMarionette::new())),
@@ -60,7 +60,7 @@ impl MarionetteEngine {
         }
     }
 
-    /// Creates a live Win32 MarionetteEngine (guarded by safety permit)
+    /// Creates a live Win32 DesktopEmulator (guarded by safety permit)
     pub fn new_native_win32(allow_live_input: bool) -> Self {
         Self {
             host: Arc::new(Mutex::new(NativeWin32Marionette::new(allow_live_input))),
@@ -114,8 +114,8 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    async fn test_marionette_engine_mock_lifecycle() {
-        let engine = MarionetteEngine::new_mock();
+    async fn test_desktop_emulator_mock_lifecycle() {
+        let engine = DesktopEmulator::new_mock();
         let frame = engine.pull_visual_perception().await.unwrap();
         assert_eq!(frame.grid.len(), 128 * 128);
 

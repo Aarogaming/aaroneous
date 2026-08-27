@@ -103,7 +103,7 @@ impl AutoWrapperEngine {
             program_type,
             subcommands: vec!["--version".into(), "--help".into()],
             flags: vec!["-v".into(), "-h".into(), "--quiet".into()],
-            domain_opcode: 0x0400, // Hephaestus Fabrication / Tooling Opcode
+            domain_opcode: 0x0400, // Fabricator Fabrication / Tooling Opcode
             timeout_ms: 10_000,
             expected_latency_us: 1_500,
             created_at: Utc::now().to_rfc3339(),
@@ -238,7 +238,7 @@ impl AutoWrapperEngine {
 
         format!(
             r#"//! Auto-generated Aaroneous Machine-Native Organ Wrapper for: {name}
-//! Synthesized by the Chimera Stem Cell Auto-Wrapping Engine.
+//! Synthesized by the Adaptation Engine Stem Cell Auto-Wrapping Engine.
 
 use anyhow::{{Context, Result}};
 use std::process::Stdio;

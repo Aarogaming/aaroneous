@@ -1,4 +1,4 @@
-// Grim Reaper Pattern
+// Compaction Engine Pattern
 // Monitors WASM agent slab utilization and triggers resurrection
 // when memory fragmentation becomes critical.
 //
@@ -15,9 +15,9 @@ use nervous_system::slab_allocator::SlabStats;
 #[cfg(test)]
 use nervous_system::slab_allocator::SlabAllocator;
 
-/// Grim Reaper configuration
+/// Compaction Engine configuration
 #[derive(Debug, Clone)]
-pub struct GrimReaperConfig {
+pub struct CompactionEngineConfig {
     /// Utilization threshold to trigger reaping (0.0 to 1.0)
     pub utilization_threshold: f32,
     /// How often to check slab utilization
@@ -28,7 +28,7 @@ pub struct GrimReaperConfig {
     pub snapshot_timeout: Duration,
 }
 
-impl Default for GrimReaperConfig {
+impl Default for CompactionEngineConfig {
     fn default() -> Self {
         Self {
             utilization_threshold: 0.8, // 80%
@@ -50,9 +50,9 @@ pub struct AgentSnapshot {
     pub reap_reason: String,
 }
 
-/// Reaper event types
+/// Compaction event types
 #[derive(Debug, Clone)]
-pub enum ReaperEvent {
+pub enum CompactionEvent {
     /// Slab utilization exceeded threshold
     UtilizationHigh {
         agent_id: String,
@@ -72,7 +72,7 @@ pub enum ReaperEvent {
     SlabRecovered { agent_id: String, freed_slots: u16 },
 }
 
-/// Agent handle for the Grim Reaper to manage
+/// Agent handle for the Compaction Engine to manage
 pub trait AgentHandle: Send + Sync {
     /// Get the agent's ID
     fn agent_id(&self) -> &str;
@@ -96,16 +96,16 @@ pub trait AgentHandle: Send + Sync {
     fn is_alive(&self) -> bool;
 }
 
-/// The Grim Reaper - monitors and reaps fragmented WASM agents
-pub struct GrimReaper {
-    config: GrimReaperConfig,
-    event_tx: mpsc::UnboundedSender<ReaperEvent>,
+/// The Compaction Engine - monitors and reaps fragmented WASM agents
+pub struct CompactionEngine {
+    config: CompactionEngineConfig,
+    event_tx: mpsc::UnboundedSender<CompactionEvent>,
     reaped_agents: std::collections::HashMap<String, u32>,
     running: bool,
 }
 
-impl GrimReaper {
-    pub fn new(config: GrimReaperConfig) -> (Self, mpsc::UnboundedReceiver<ReaperEvent>) {
+impl CompactionEngine {
+    pub fn new(config: CompactionEngineConfig) -> (Self, mpsc::UnboundedReceiver<CompactionEvent>) {
         let (event_tx, event_rx) = mpsc::unbounded_channel();
         let reaper = Self {
             config,
@@ -129,7 +129,7 @@ impl GrimReaper {
         tracing::warn!(
             agent_id,
             utilization = old_stats.utilization,
-            "Grim Reaper: Reaping fragmented agent"
+            "Compaction Engine: Reaping fragmented agent"
         );
 
         // 1. Snapshot core state
@@ -168,7 +168,7 @@ impl GrimReaper {
         *count += 1;
 
         // Emit event
-        let _ = self.event_tx.send(ReaperEvent::AgentReaped {
+        let _ = self.event_tx.send(CompactionEvent::AgentReaped {
             agent_id: agent_id.clone(),
             old_generation: old_stats.current_generation,
             new_generation: new_stats.current_generation,
@@ -180,7 +180,7 @@ impl GrimReaper {
             tracing::error!(
                 agent_id = agent_id,
                 reap_count = *count,
-                "Grim Reaper: Agent reaped excessively - possible memory leak"
+                "Compaction Engine: Agent reaped excessively - possible memory leak"
             );
         }
 
@@ -188,7 +188,7 @@ impl GrimReaper {
             agent_id = agent_id,
             old_utilization = old_stats.utilization,
             new_utilization = new_stats.utilization,
-            "Grim Reaper: Agent resurrected with clean memory"
+            "Compaction Engine: Agent resurrected with clean memory"
         );
 
         Ok(snapshot)
@@ -200,7 +200,7 @@ impl GrimReaper {
         if stats.committed_count > 0 {
             // The agent handle should implement bulk free
             // This is a hint that committed slots can be reclaimed
-            let _ = self.event_tx.send(ReaperEvent::SlabRecovered {
+            let _ = self.event_tx.send(CompactionEvent::SlabRecovered {
                 agent_id: agent.agent_id().to_string(),
                 freed_slots: stats.committed_count,
             });
@@ -226,7 +226,7 @@ impl GrimReaper {
 
                 // Check if utilization is high
                 if stats.utilization > self.config.utilization_threshold {
-                    let _ = self.event_tx.send(ReaperEvent::UtilizationHigh {
+                    let _ = self.event_tx.send(CompactionEvent::UtilizationHigh {
                         agent_id: agent.agent_id().to_string(),
                         utilization: stats.utilization,
                         threshold: self.config.utilization_threshold,
@@ -239,7 +239,7 @@ impl GrimReaper {
                     // If still high after bulk free, full reap
                     if new_stats.utilization > self.config.utilization_threshold {
                         if let Err(e) = self.reap_agent(agent.as_mut()).await {
-                            let _ = self.event_tx.send(ReaperEvent::ReapFailed {
+                            let _ = self.event_tx.send(CompactionEvent::ReapFailed {
                                 agent_id: agent.agent_id().to_string(),
                                 error: e.to_string(),
                             });
@@ -248,7 +248,7 @@ impl GrimReaper {
                         tracing::info!(
                             agent_id = agent.agent_id(),
                             freed,
-                            "Grim Reaper: Bulk free recovered slab"
+                            "Compaction Engine: Bulk free recovered slab"
                         );
                     }
                 }
@@ -277,7 +277,7 @@ impl GrimReaper {
     }
 }
 
-/// Reaper statistics summary
+/// Compaction statistics summary
 #[derive(Debug, Clone)]
 pub struct ReaperStats {
     pub total_reaps: u32,
@@ -285,18 +285,18 @@ pub struct ReaperStats {
     pub most_reaped: Option<(String, u32)>,
 }
 
-/// Shared Grim Reaper for multi-agent monitoring
-pub type SharedGrimReaper = Arc<RwLock<GrimReaper>>;
+/// Shared Compaction Engine for multi-agent monitoring
+pub type SharedCompactionEngine = Arc<RwLock<CompactionEngine>>;
 
-/// Builder for Grim Reaper configuration
-pub struct GrimReaperBuilder {
-    config: GrimReaperConfig,
+/// Builder for Compaction Engine configuration
+pub struct CompactionEngineBuilder {
+    config: CompactionEngineConfig,
 }
 
-impl GrimReaperBuilder {
+impl CompactionEngineBuilder {
     pub fn new() -> Self {
         Self {
-            config: GrimReaperConfig::default(),
+            config: CompactionEngineConfig::default(),
         }
     }
 
@@ -320,12 +320,12 @@ impl GrimReaperBuilder {
         self
     }
 
-    pub fn build(self) -> (GrimReaper, mpsc::UnboundedReceiver<ReaperEvent>) {
-        GrimReaper::new(self.config)
+    pub fn build(self) -> (CompactionEngine, mpsc::UnboundedReceiver<CompactionEvent>) {
+        CompactionEngine::new(self.config)
     }
 }
 
-impl Default for GrimReaperBuilder {
+impl Default for CompactionEngineBuilder {
     fn default() -> Self {
         Self::new()
     }
@@ -388,8 +388,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_grim_reaper_should_reap() {
-        let (reaper, _rx) = GrimReaper::new(GrimReaperConfig {
+    async fn test_compaction_engine_should_reap() {
+        let (reaper, _rx) = CompactionEngine::new(CompactionEngineConfig {
             utilization_threshold: 0.5,
             ..Default::default()
         });
@@ -403,8 +403,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_grim_reaper_reap_agent() {
-        let (mut reaper, _rx) = GrimReaper::new(GrimReaperConfig {
+    async fn test_compaction_engine_reap_agent() {
+        let (mut reaper, _rx) = CompactionEngine::new(CompactionEngineConfig {
             utilization_threshold: 0.5,
             ..Default::default()
         });

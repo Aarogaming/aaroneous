@@ -1,7 +1,7 @@
 //! crates/marionette/src/epigenetic_vision.rs
 //! GPU-Accelerated Epigenetic Visual Motion Gating Pipeline.
 //!
-//! Subsystem 6 / Kami Threshold Vision Gating:
+//! Subsystem 6 / Perceiver Threshold Vision Gating:
 //! Divides the 128x128 sensory input screen grid into a 16x16 grid (256 sectors of 8x8 pixels),
 //! computes frame-over-frame intensity delta, and applies hysteresis filtering to eliminate
 //! 80%+ of sensory compute on static background regions in < 50µs.

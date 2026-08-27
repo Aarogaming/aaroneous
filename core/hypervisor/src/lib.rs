@@ -48,18 +48,18 @@ pub mod intelligence {
 }
 
 pub mod scientific_analyzer {
-    pub use chimera::analysis::*;
+    pub use adaptation_engine::analysis::*;
 }
 
 // Multi-Runtime Tokio Governance
 pub mod runtime_governor;
 pub use runtime_governor::{BudgetExecutor, RuntimeGovernor, TaskPriority, execute_agent_task};
 
-// Grim Reaper Pattern
-pub mod grim_reaper;
-pub use grim_reaper::{
-    AgentHandle, GrimReaper, GrimReaperBuilder, GrimReaperConfig, ReaperEvent, ReaperStats,
-    SharedGrimReaper,
+// Compaction Engine Pattern
+pub mod compaction_engine;
+pub use compaction_engine::{
+    AgentHandle, CompactionEngine, CompactionEngineBuilder, CompactionEngineConfig, CompactionEvent,
+    ReaperStats, SharedCompactionEngine,
 };
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
@@ -85,7 +85,7 @@ pub use crate::genetics::{
     EpigeneticState, LociSource,
 };
 pub use crate::skills::{
-    FusedSkill, Skill, SkillOrigin, SkillRegistry, SkillType, SoulRank, SpecialistSkillSet,
+    FusedSkill, Skill, SkillOrigin, SkillRegistry, SkillType, PersonaRank, SpecialistSkillSet,
 };
 
 // Re-export Biology with thermodynamic governor
@@ -100,8 +100,8 @@ pub use crate::agents::{
     create_relic, create_specialist,
 };
 pub use crate::digestion::{
-    DigestionConfig, DigestionEngine, DigestionEvent, DigestionTask, ExperienceSoul, NarrativeSoul,
-    PersonalitySoul, RelationalSoul, SpecialistSoul,
+    DigestionConfig, DigestionEngine, DigestionEvent, DigestionTask, ExperienceProfile,
+    NarrativeProfile, PersonalityProfile, RelationalProfile, SpecialistPersona,
 };
 
 // Re-export Constellation and Control Plane
@@ -297,19 +297,19 @@ pub use logging::init_logging;
 pub fn run_health_checks() -> bool {
     let mut success = true;
 
-    // Check Chimera (DNA Bank) initialization path
+    // Check Adaptation Engine (DNA Bank) initialization path
     // We check if the persistence layer can be initialized with a mock :memory: backend
     if persistence::PersistenceManager::new(":memory:").is_err() {
-        tracing::error!("HealthCheck: DNA Bank (Chimera) failed initialization");
+        tracing::error!("HealthCheck: DNA Bank (Adaptation Engine) failed initialization");
         success = false;
     } else {
-        tracing::info!("HealthCheck: DNA Bank (Chimera) initialized successfully");
+        tracing::info!("HealthCheck: DNA Bank (Adaptation Engine) initialized successfully");
     }
 
-    // Check Reasoning (Merlin) component availability
+    // Check Reasoning (Synthesizer) component availability
     // Simplified heuristic check for agent existence
     // This is a placeholder for more deep integrity checks
-    tracing::info!("HealthCheck: Reasoning Engine (Merlin) status: Nominal");
+    tracing::info!("HealthCheck: Reasoning Engine (Synthesizer) status: Nominal");
 
     // Check Constellation (Omni) registry health
     // Check if registry paths exist

@@ -21,7 +21,7 @@ impl PrefrontalCortex {
                 description: format!("Perform deep research into: {}", intent),
                 dependencies: vec![],
                 status: StepStatus::Pending,
-                assigned_specialist: "merlin".to_string(),
+                assigned_specialist: "synthesizer".to_string(),
                 input_data: Some(intent.to_string()),
                 output_data: None,
             });
@@ -44,7 +44,7 @@ impl PrefrontalCortex {
                     .to_string(),
                 dependencies: deps,
                 status: StepStatus::Pending,
-                assigned_specialist: "hephaestus".to_string(),
+                assigned_specialist: "fabricator".to_string(),
                 input_data: None,
                 output_data: None,
             });
@@ -57,7 +57,7 @@ impl PrefrontalCortex {
                 description: "Direct execution of intent".to_string(),
                 dependencies: vec![],
                 status: StepStatus::Pending,
-                assigned_specialist: "odin".to_string(),
+                assigned_specialist: "orchestrator".to_string(),
                 input_data: Some(intent.to_string()),
                 output_data: None,
             });

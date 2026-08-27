@@ -478,11 +478,11 @@ mod tests {
 
     #[test]
     fn test_parse_spawn_specialist_command() {
-        let json = r#"{"command": "spawn_specialist", "name": "ariel", "activate": true}"#;
+        let json = r#"{"command": "spawn_specialist", "name": "presenter", "activate": true}"#;
         let msg = parse_control_message(json).unwrap();
         match msg {
             ControlMessage::SpawnSpecialist { name, activate, .. } => {
-                assert_eq!(name, "ariel");
+                assert_eq!(name, "presenter");
                 assert!(activate);
             }
             _ => panic!("Wrong command type"),
@@ -506,5 +506,240 @@ mod tests {
         let json = r#"{"command": "unknown"}"#;
         let result = parse_control_message(json);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_parse_halt_specialist() {
+        let json = r#"{"command": "halt_specialist", "name": "presenter"}"#;
+        let msg = parse_control_message(json).unwrap();
+        match msg {
+            ControlMessage::HaltSpecialist { name } => assert_eq!(name, "presenter"),
+            _ => panic!("Wrong type"),
+        }
+    }
+
+    #[test]
+    fn test_parse_recalibrate_specialist() {
+        let json = r#"{"command": "recalibrate_specialist", "name": "synthesizer", "bias": {"focus": "analysis"}}"#;
+        let msg = parse_control_message(json).unwrap();
+        match msg {
+            ControlMessage::RecalibrateSpecialist { name, bias } => {
+                assert_eq!(name, "synthesizer");
+                assert!(bias.is_some());
+            }
+            _ => panic!("Wrong type"),
+        }
+    }
+
+    #[test]
+    fn test_parse_adjust_resource_allocation() {
+        let json = r#"{"command": "adjust_resource_allocation", "specialist_name": "orchestrator", "vram_mb": 4096, "context_size": 8192}"#;
+        let msg = parse_control_message(json).unwrap();
+        match msg {
+            ControlMessage::AdjustResourceAllocation { specialist_name, vram_mb, context_size } => {
+                assert_eq!(specialist_name, "orchestrator");
+                assert_eq!(vram_mb, 4096);
+                assert_eq!(context_size, 8192);
+            }
+            _ => panic!("Wrong type"),
+        }
+    }
+
+    #[test]
+    fn test_parse_query_system_health() {
+        let json = r#"{"command": "query_system_health"}"#;
+        let msg = parse_control_message(json).unwrap();
+        assert!(matches!(msg, ControlMessage::QuerySystemHealth));
+    }
+
+    #[test]
+    fn test_parse_query_specialist_status() {
+        let json = r#"{"command": "query_specialist_status", "name": "fabricator"}"#;
+        let msg = parse_control_message(json).unwrap();
+        match msg {
+            ControlMessage::QuerySpecialistStatus { name } => assert_eq!(name, "fabricator"),
+            _ => panic!("Wrong type"),
+        }
+    }
+
+    #[test]
+    fn test_parse_invalid_json() {
+        let result = parse_control_message("not json at all");
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("Invalid JSON"));
+    }
+
+    #[test]
+    fn test_parse_missing_command() {
+        let json = r#"{"name": "presenter"}"#;
+        let result = parse_control_message(json);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_parse_spawn_missing_name() {
+        let json = r#"{"command": "spawn_specialist", "activate": true}"#;
+        let result = parse_control_message(json);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("Missing 'name'"));
+    }
+
+    #[test]
+    fn test_parse_halt_missing_name() {
+        let json = r#"{"command": "halt_specialist"}"#;
+        let result = parse_control_message(json);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_parse_adjust_missing_fields() {
+        let json = r#"{"command": "adjust_resource_allocation", "specialist_name": "test"}"#;
+        let result = parse_control_message(json);
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_control_plane_new() {
+        let plane = ControlPlane::new();
+        let specialists = plane.get_active_specialists().await;
+        assert!(specialists.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_enqueue_and_process_commands() {
+        use biology::SystemBiology;
+
+        let plane = ControlPlane::new();
+        let mut bio = SystemBiology::new();
+
+        plane.enqueue_command(ControlMessage::SetExpressionRate { rate: 0.7 }).await;
+        plane.enqueue_command(ControlMessage::QuerySystemHealth).await;
+
+        let responses = plane.process_pending_commands(&mut bio).await;
+        assert_eq!(responses.len(), 2);
+
+        // Responses are LIFO (pop from Vec end), so system_health comes first
+        assert!(responses[0].0.contains("system_health"));
+        assert!(responses[1].0.contains("set_expression_rate"));
+    }
+
+    #[tokio::test]
+    async fn test_spawn_specialist_lifecycle() {
+        use biology::SystemBiology;
+
+        let plane = ControlPlane::new();
+        let mut bio = SystemBiology::new();
+
+        // Spawn
+        plane.enqueue_command(ControlMessage::SpawnSpecialist {
+            name: "presenter".to_string(),
+            activate: true,
+            user_id: None,
+        }).await;
+        let responses = plane.process_pending_commands(&mut bio).await;
+        assert!(responses[0].1["success"].as_bool().unwrap());
+
+        // Check active
+        let active = plane.get_active_specialists().await;
+        assert!(active.contains(&"presenter".to_string()));
+
+        // Halt
+        plane.enqueue_command(ControlMessage::HaltSpecialist {
+            name: "presenter".to_string(),
+        }).await;
+        plane.process_pending_commands(&mut bio).await;
+
+        // Check not active
+        let active = plane.get_active_specialists().await;
+        assert!(!active.contains(&"presenter".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_spawn_duplicate_specialist() {
+        use biology::SystemBiology;
+
+        let plane = ControlPlane::new();
+        let mut bio = SystemBiology::new();
+
+        plane.enqueue_command(ControlMessage::SpawnSpecialist {
+            name: "presenter".to_string(),
+            activate: true,
+            user_id: None,
+        }).await;
+        plane.process_pending_commands(&mut bio).await;
+
+        // Spawn again
+        plane.enqueue_command(ControlMessage::SpawnSpecialist {
+            name: "presenter".to_string(),
+            activate: true,
+            user_id: None,
+        }).await;
+        let responses = plane.process_pending_commands(&mut bio).await;
+        assert!(!responses[0].1["success"].as_bool().unwrap());
+    }
+
+    #[tokio::test]
+    async fn test_halt_nonexistent_specialist() {
+        use biology::SystemBiology;
+
+        let plane = ControlPlane::new();
+        let mut bio = SystemBiology::new();
+
+        plane.enqueue_command(ControlMessage::HaltSpecialist {
+            name: "ghost".to_string(),
+        }).await;
+        let responses = plane.process_pending_commands(&mut bio).await;
+        assert!(!responses[0].1["success"].as_bool().unwrap());
+    }
+
+    #[tokio::test]
+    async fn test_get_specialist_state() {
+        use biology::SystemBiology;
+
+        let plane = ControlPlane::new();
+        let mut bio = SystemBiology::new();
+
+        plane.enqueue_command(ControlMessage::SpawnSpecialist {
+            name: "orchestrator".to_string(),
+            activate: true,
+            user_id: Some("user1".to_string()),
+        }).await;
+        plane.process_pending_commands(&mut bio).await;
+
+        let state = plane.get_specialist_state("orchestrator").await;
+        assert!(state.is_some());
+        let state = state.unwrap();
+        assert!(state.is_active);
+        assert_eq!(state.execution_count, 0);
+        assert!(state.spawned_at.is_some());
+    }
+
+    #[tokio::test]
+    async fn test_get_specialist_state_nonexistent() {
+        let plane = ControlPlane::new();
+        let state = plane.get_specialist_state("ghost").await;
+        assert!(state.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_query_specialist_status() {
+        use biology::SystemBiology;
+
+        let plane = ControlPlane::new();
+        let mut bio = SystemBiology::new();
+
+        plane.enqueue_command(ControlMessage::SpawnSpecialist {
+            name: "fabricator".to_string(),
+            activate: true,
+            user_id: None,
+        }).await;
+        plane.process_pending_commands(&mut bio).await;
+
+        plane.enqueue_command(ControlMessage::QuerySpecialistStatus {
+            name: "fabricator".to_string(),
+        }).await;
+        let responses = plane.process_pending_commands(&mut bio).await;
+        assert!(responses[0].1["success"].as_bool().unwrap());
+        assert_eq!(responses[0].1["specialist"], "fabricator");
     }
 }

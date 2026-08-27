@@ -28,9 +28,9 @@ enum Commands {
     },
     /// Inject a task intent into the live shared memory synapse
     Inject { intent: String },
-    /// Bootstrap the first solid-state .si base model (base_hermes_v1.si) from the Rosetta Stone dataset
+    /// Bootstrap the first solid-state .si base model (base_router_v1.si) from the Translation Dataset
     Bootstrap {
-        #[arg(short, long, default_value = "base_hermes_v1")]
+        #[arg(short, long, default_value = "base_router_v1")]
         name: String,
         #[arg(short, long, default_value = "100")]
         samples: usize,
@@ -92,7 +92,7 @@ enum Commands {
         /// Target file path to analyze and hypothesize
         path: PathBuf,
     },
-    /// Trigger Grim Reaper memory compaction and benchmark instant specialist resurrection
+    /// Trigger Compaction Engine memory compaction and benchmark instant specialist resurrection
     Reap {
         /// Simulated memory pressure percentage
         #[arg(short, long, default_value = "88.5")]
@@ -137,7 +137,7 @@ enum Commands {
         #[arg(long, default_value = "1500")]
         heartbeat: u64,
     },
-    /// Execute closed-loop multimodal sensory-motor pipeline in isolated Ghost Desktop sandbox
+    /// Execute closed-loop multimodal sensory-motor pipeline in isolated Isolated Desktop sandbox
     Simulate {
         /// Number of consecutive test frames to evaluate
         #[arg(short, long, default_value = "5")]
@@ -238,9 +238,9 @@ enum SiCommands {
         #[arg(short, long)]
         out: Option<PathBuf>,
     },
-    /// Bootstrap the first solid-state .si base model from the Rosetta Stone dataset
+    /// Bootstrap the first solid-state .si base model from the Translation Dataset
     Bootstrap {
-        #[arg(short, long, default_value = "base_hermes_v1")]
+        #[arg(short, long, default_value = "base_router_v1")]
         name: String,
         #[arg(short, long, default_value = "100")]
         samples: usize,
@@ -253,7 +253,7 @@ enum SiCommands {
     PackSi {
         /// Model identifier written into the TOC manifest
         model_id: String,
-        /// Output .si file path (e.g. models/base_hermes_v1.si)
+        /// Output .si file path (e.g. models/base_router_v1.si)
         #[arg(short, long)]
         out: PathBuf,
         /// d_model: inner SSM projection dimension (default: 256)
@@ -309,7 +309,7 @@ enum SiCommands {
         /// Target file path to analyze and hypothesize
         path: PathBuf,
     },
-    /// Trigger Grim Reaper memory compaction and benchmark instant specialist resurrection
+    /// Trigger Compaction Engine memory compaction and benchmark instant specialist resurrection
     Reap {
         /// Simulated memory pressure percentage
         #[arg(short, long, default_value = "88.5")]
@@ -354,7 +354,7 @@ enum SiCommands {
         #[arg(long, default_value = "1500")]
         heartbeat: u64,
     },
-    /// Execute closed-loop multimodal sensory-motor pipeline in isolated Ghost Desktop sandbox
+    /// Execute closed-loop multimodal sensory-motor pipeline in isolated Isolated Desktop sandbox
     Simulate {
         /// Number of consecutive test frames to evaluate
         #[arg(short, long, default_value = "5")]
@@ -749,17 +749,17 @@ fn run_cli(cli: Cli) -> Result<()> {
             println!("  start       Start autonomic nervous system loop");
             println!("  inject      Inject task intent into shared synapse");
             println!("  daemon      Launch an active sovereign P2P socket daemon node");
-            println!("  bootstrap   Bootstrap the first .si base model from Rosetta Stone");
+            println!("  bootstrap   Bootstrap the first .si base model from Translation Dataset");
             println!("  forge       Birth a new .si model container via SiForge");
             println!("  boot        Boot Aaroneous sovereign runtime under an execution profile");
             println!("  wrap        Autonomously wrap an external binary into a sovereign organ");
             println!("  vision      Benchmark GPU-accelerated epigenetic visual motion gating");
             println!("  galaxy      Ingest and inspect 3D Omni Galaxy with gravitational clustering");
             println!("  hypothesis  Execute autonomous scientific AST hypothesis loop");
-            println!("  reap        Trigger Grim Reaper memory compaction and instant resurrection");
+            println!("  reap        Trigger Compaction Engine memory compaction and instant resurrection");
             println!("  drive       Inspect proactive neurochemical homeostatic drive and token rebalancing");
             println!("  mesh        Inspect Multi-Hive P2P federation, gossip consensus quorum, and cluster health");
-            println!("  simulate    Execute closed-loop multimodal sensory-motor pipeline in Ghost Desktop");
+            println!("  simulate    Execute closed-loop multimodal sensory-motor pipeline in Isolated Desktop");
             println!("  hud         Launch the Unified Maelstrom Telemetry HUD desktop interface");
             println!("  distill-all Distill and birth .si solid-state models for all 9 Sovereign Specialists");
             println!("  evolve      Execute autonomous background self-evolution AST mutation cycles");
@@ -809,9 +809,9 @@ fn run_boot_pipeline(profile: &str) -> Result<()> {
 
     match profile.to_lowercase().as_str() {
         "isolated" | "sovereign" => {
-            println!("   -> Forging Sovereign Sandbox: Allocating Win32 Ghost Desktop...");
-            let ghost = compute::GhostDesktop::forge("Aaroneous_Ghost_Desktop")?;
-            println!("   -> Ghost Desktop active and secured (Handle ID: {:#X}).", ghost.handle_id);
+            println!("   -> Forging Sovereign Sandbox: Allocating Win32 Isolated Desktop...");
+            let ghost = compute::IsolatedDesktop::forge("Aaroneous_Isolated_Desktop")?;
+            println!("   -> Isolated Desktop active and secured (Handle ID: {:#X}).", ghost.handle_id);
         }
         "cooperative" => {
             println!("   -> Engaging cooperative sidecar mode (Non-invasive memory telemetry).");
@@ -822,7 +822,7 @@ fn run_boot_pipeline(profile: &str) -> Result<()> {
     }
 
     println!("   -> Initializing Federated SPMC Synapse Bus (11 Channels)...");
-    let bus = std::sync::Arc::new(nervous_system::pantheon_bus::PantheonSynapseBus::new_federation());
+    let bus = std::sync::Arc::new(nervous_system::specialist_bus::SpecialistSynapseBus::new_federation());
 
     println!("   -> Initializing Motor Cortex (Muscle Memory Constellation)...");
     let mut motor_cortex = compute::MotorCortex::new();
@@ -853,8 +853,8 @@ fn run_bootstrap_pipeline(name: &str, samples: usize, epochs: usize, out: Option
         paths.data().join("models").join(format!("{}.si", name))
     });
 
-    println!("📜 Synthesizing Rosetta Stone Oracle Trajectories ({} micro-tasks)...", samples);
-    let dataset = compute::RosettaStoneDataset::synthesize_synthetic_corpus(samples);
+    println!("📜 Synthesizing Translation Dataset Oracle Trajectories ({} micro-tasks)...", samples);
+    let dataset = compute::TranslationDataset::synthesize_synthetic_corpus(samples);
 
     println!("🧠 Initializing Offline Bootstrap Distillation Harness (Model: {}, Epochs: {})...", name, epochs);
     let config = compute::BootstrapConfig {
@@ -889,10 +889,10 @@ fn run_bootstrap_pipeline(name: &str, samples: usize, epochs: usize, out: Option
 ///
 /// In the full production pipeline this would load real trained weights from disk
 /// (e.g. a safetensors checkpoint). Here we derive representative synthetic weights
-/// from the Rosetta Stone dataset so the command is immediately runnable.
+/// from the Translation Dataset so the command is immediately runnable.
 ///
 /// Usage:
-///   a_run si pack-si base_hermes_v1 --out data/models/base_hermes_packed.si \
+///   a_run si pack-si base_router_v1 --out data/models/base_router_packed.si \
 ///                                    --d-model 256 --d-state 16 --lora-rank 16
 fn run_pack_si_pipeline(
     model_id: &str,
@@ -991,14 +991,14 @@ async fn run_wrap_pipeline(target: &std::path::Path, name: Option<&str>, out: Op
     println!("=================================================================");
     println!("   [Stage 1] Ingesting Target: {:?}", target);
 
-    let manifest = chimera::AutoWrapperEngine::inspect_target(target, name)?;
+    let manifest = adaptation_engine::AutoWrapperEngine::inspect_target(target, name)?;
     println!("   -> Organ Name   : {}", manifest.name);
     println!("   -> Organ Slug   : {}", manifest.slug);
     println!("   -> Program Type : {:?}", manifest.program_type);
     println!("   -> Domain Opcode: 0x{:04X}", manifest.domain_opcode);
 
     println!("\n   [Stage 2] Executing Non-Destructive Interface Probing...");
-    let probe = chimera::AutoWrapperEngine::probe_target(&manifest).await?;
+    let probe = adaptation_engine::AutoWrapperEngine::probe_target(&manifest).await?;
     println!("   -> Probe Verified  : {}", probe.verified);
     println!("   -> Probe Latency   : {} µs", probe.probe_duration_us);
     println!("   -> Exit Code       : {}", probe.exit_code);
@@ -1007,7 +1007,7 @@ async fn run_wrap_pipeline(target: &std::path::Path, name: Option<&str>, out: Op
     }
 
     println!("\n   [Stage 3] Synthesizing Native Rust MNLP Adapter Harness...");
-    let staged_crate = chimera::AutoWrapperEngine::build_and_stage_organ(&manifest, &out_dir)?;
+    let staged_crate = adaptation_engine::AutoWrapperEngine::build_and_stage_organ(&manifest, &out_dir)?;
 
     println!("\n   [Stage 4] Organ Staging & Verification Complete:");
     println!("   -> Staged Crate Dir: {:?}", staged_crate);
@@ -1024,19 +1024,19 @@ async fn run_wrap_pipeline(target: &std::path::Path, name: Option<&str>, out: Op
 /// Benchmarks GPU-accelerated epigenetic visual motion gating on 128x128 sensory frames
 async fn run_vision_pipeline(frames: usize) -> Result<()> {
     println!("=================================================================");
-    println!(" 👁️ AARONEOUS KAMI & THRESHOLD: EPIGENETIC VISION GATING PIPELINE");
+    println!(" 👁️ AARONEOUS PERCEIVER & THRESHOLD: EPIGENETIC VISION GATING PIPELINE");
     println!("=================================================================");
     println!("   Grid Topology : 128x128 float luminance (16,384 inputs)");
     println!("   Sector Matrix : 16x16 grid of 8x8 pixel blocks (256 sectors)");
     println!("   Delta Filter  : > 0.02 delta threshold (3-frame hysteresis)\n");
 
-    let mut gater = marionette::EpigeneticVisionGater::new();
+    let mut gater = desktop_emulator::EpigeneticVisionGater::new();
     let mut total_saved = 0.0f32;
     let mut total_us = 0u64;
 
     for f in 1..=frames {
         // Generate test sensory frame with moving cursor/element in frame 3+
-        let mut frame = vec![0.1f32; marionette::GRID_SIZE];
+        let mut frame = vec![0.1f32; desktop_emulator::GRID_SIZE];
         if f >= 3 {
             // Mutate sector (4, 4) to simulate mouse cursor or UI motion
             for dy in 32..40 {
@@ -1120,7 +1120,7 @@ async fn run_hypothesis_pipeline(path: &std::path::Path) -> Result<()> {
     println!("   Target Path     : {:?}", path);
     println!("   Scientific Cycle: OBSERVE ➔ HYPOTHESIS ➔ EXPERIMENT ➔ VERIFY ➔ CONSTELLATION\n");
 
-    let report = chimera::AutonomousScientificEngine::scan_file(path).await?;
+    let report = adaptation_engine::AutonomousScientificEngine::scan_file(path).await?;
     println!("   [Phase 1: OBSERVE]");
     println!("   -> Functions Observed : {}", report.total_functions_observed);
     println!("   -> Hypotheses Tested  : {}", report.hypotheses_tested);
@@ -1144,23 +1144,23 @@ async fn run_hypothesis_pipeline(path: &std::path::Path) -> Result<()> {
     Ok(())
 }
 
-/// Triggers Grim Reaper memory compaction and benchmarks instant specialist resurrection
+/// Triggers Compaction Engine memory compaction and benchmarks instant specialist resurrection
 async fn run_reap_pipeline(pressure: f32) -> Result<()> {
     println!("=================================================================");
-    println!(" 💀 AARONEOUS ORCHESTRATOR: GRIM REAPER & INSTANT RESURRECTION");
+    println!(" 💀 AARONEOUS ORCHESTRATOR: COMPACTION ENGINE & INSTANT RESURRECTION");
     println!("=================================================================");
     println!("   System Memory Pressure : {:.1}% (Compaction Threshold: 80.0%)", pressure);
     println!("   Hibernation Format     : 128-byte aligned zero-copy .sissm containers\n");
 
     let temp_dir = std::env::temp_dir().join("aaroneous_hibernation_bench");
-    let mut reaper = orchestrator::GrimReaperEngine::new(temp_dir);
+    let mut reaper = orchestrator::CompactionEngine::new(temp_dir);
 
     // Register active specialists with simulated footprints
     let specs = [
-        ("odin", 0x0100, 100.0, 5, 64 * 1024 * 1024),
-        ("merlin", 0x0200, 2.0, 45, 128 * 1024 * 1024),
-        ("ariel", 0x0300, 95.0, 2, 48 * 1024 * 1024),
-        ("kami", 0x0900, 1.0, 60, 256 * 1024 * 1024),
+        ("orchestrator", 0x0100, 100.0, 5, 64 * 1024 * 1024),
+        ("synthesizer", 0x0200, 2.0, 45, 128 * 1024 * 1024),
+        ("presenter", 0x0300, 95.0, 2, 48 * 1024 * 1024),
+        ("perceiver", 0x0900, 1.0, 60, 256 * 1024 * 1024),
     ];
 
     for (id, opcode, tokens, idle_sec, mem_bytes) in specs {
@@ -1192,7 +1192,7 @@ async fn run_reap_pipeline(pressure: f32) -> Result<()> {
     }
 
     println!("=================================================================");
-    println!("✅ Grim Reaper Compaction & Resurrection Loop Verified.");
+    println!("✅ Compaction Engine Compaction & Resurrection Loop Verified.");
     println!("=================================================================\n");
     Ok(())
 }
@@ -1362,9 +1362,9 @@ async fn run_mesh_pipeline(nodes_count: usize, live: bool) -> Result<()> {
 
     println!("\n   [Stage 2] Simulating Gossip Quorum Consensus on Model Migration...");
     let mut gossip = a_run::federation::multi_hive::consensus::GossipMessage::new(
-        "prop_migrate_hermes_v1".to_string(),
+        "prop_migrate_router_v1".to_string(),
         "hive-alpha-primary".to_string(),
-        "Migrate Hermes Router to Hive-Peer-01".to_string(),
+        "Migrate Router to Hive-Peer-01".to_string(),
     );
 
     for node_id in cluster.nodes.keys() {
@@ -1425,15 +1425,15 @@ async fn run_daemon_pipeline(bind: &str, peers: &[String], heartbeat: u64) -> Re
     Ok(())
 }
 
-/// Executes closed-loop multimodal sensory-motor pipeline in isolated Ghost Desktop sandbox
+/// Executes closed-loop multimodal sensory-motor pipeline in isolated Isolated Desktop sandbox
 async fn run_simulate_pipeline(frames: usize) -> Result<()> {
     println!("=================================================================");
     println!(" 🎮 AARONEOUS MARIONETTE: CLOSED-LOOP SENSORY-MOTOR PIPELINE");
     println!("=================================================================");
-    println!("   Loop Stages  : Epigenetic Vision (16x16) ➔ SVDD Guardrail ➔ Action Decoder ➔ Ghost Desktop");
+    println!("   Loop Stages  : Epigenetic Vision (16x16) ➔ SVDD Guardrail ➔ Action Decoder ➔ Isolated Desktop");
     println!("   Frame Stream : {} consecutive synthetic evaluation frames\n", frames);
 
-    let mut pipeline = marionette::SensoryMotorPipeline::new("Aaroneous_Live_Simulation");
+    let mut pipeline = desktop_emulator::SensoryMotorPipeline::new("Aaroneous_Live_Simulation");
 
     for f in 1..=frames {
         // Generate test frame with dynamic moving target
@@ -1484,7 +1484,7 @@ fn run_hud_pipeline(headless: bool) -> Result<()> {
         println!("   [Stage 1] Initializing Maelstrom HUD Subsystems...");
         let mut app = a_run::MaelstromHudApp::new();
         println!("   -> Omni 3D Galaxy Viewport       : Ready ({} Star-Nodes)", run_async(app.omni_engine.total_stars()));
-        println!("   -> SPMC Synapse Bus & SVDD Gauge : Ready (R = {:.1})", app.synapse_visualizer.argus_radius);
+        println!("   -> SPMC Synapse Bus & SVDD Gauge : Ready (R = {:.1})", app.synapse_visualizer.sentinel_radius);
         println!("   -> Epigenetic Vision Sensor Grid : Ready (16x16 / 256 Sectors)");
         println!("   -> Neurochemistry Homeostasis    : Ready (Dopamine: {:.2}, ACh: {:.2})",
             app.neurochemistry.levels.dopamine, app.neurochemistry.levels.acetylcholine);
@@ -1535,7 +1535,7 @@ fn run_distill_all_pipeline(
     println!("   Samples/Domain   : {}", samples);
     println!("   Training Epochs  : {}\n", epochs);
 
-    println!("   [Stage 1] Synthesizing Multi-Domain Rosetta Stone Datasets...");
+    println!("   [Stage 1] Synthesizing Multi-Domain Translation Datasets...");
     let out_clone = out.clone();
     let reports = std::thread::Builder::new()
         .name("si_distiller".into())
@@ -1589,9 +1589,9 @@ fn run_evolve_pipeline(
             println!("=================================================================");
             println!(" 🧬 AARONEOUS AUTONOMIC SELF-EVOLUTION & CONTINUOUS CHIMERA");
             println!("=================================================================");
-            println!("   Trigger Engine   : Dionysus 4-Channel Neurochemical Drive (Curiosity / Boredom)");
-            println!("   Mutation Engine  : Hephaestus AST Synthesis & Shadow Sandbox");
-            println!("   Safety Auditor   : Argus Deep SVDD Invariant Hypersphere Manifold");
+            println!("   Trigger Engine   : Archivist 4-Channel Neurochemical Drive (Curiosity / Boredom)");
+            println!("   Mutation Engine  : Fabricator AST Synthesis & Shadow Sandbox");
+            println!("   Safety Auditor   : Sentinel Deep SVDD Invariant Hypersphere Manifold");
             println!("   Promotion Target : .si Solid-State Container (Block 3: Episodic Skill Stack)");
             println!("   Execution Cycles : {} Cycles (Confidence Threshold: {:.2})\n", cycles, threshold);
 
@@ -1639,7 +1639,7 @@ fn run_evolve_pipeline(
                     println!("   -> Autonomic Impulse : ⚡ {}", impulse);
                 }
                 println!("   -> AST Mutations     : Attempted: {} | Accepted: {}", report.mutations_attempted, report.hypotheses_accepted);
-                println!("   -> Argus SVDD Audit  : {}", if report.argus_svdd_safety_verified { "🛡️ INVARIANTS_PASSED (Safe)" } else { "❌ SAFETY_VIOLATION" });
+                println!("   -> Sentinel SVDD Audit  : {}", if report.sentinel_svdd_safety_verified { "🛡️ INVARIANTS_PASSED (Safe)" } else { "❌ SAFETY_VIOLATION" });
                 println!("   -> Skill Promotion   : {} skills promoted to .si stack ({:.2} ms)", report.skills_promoted_to_si, report.duration_ms as f64);
                 println!("   -------------------------------------------------------------");
             }
@@ -1674,7 +1674,7 @@ fn run_flagship_pipeline(iterations: usize) -> Result<()> {
                 println!(" 🚀 AARONEOUS FLAGSHIP WORKFLOW: 5-STEP END-TO-END PIPELINE");
                 println!("=================================================================");
                 println!("   Architecture : Machine-Native Rust Hypervisor + 9 Sovereign Specialists");
-                println!("   Pipeline     : Ingest ➔ MDP Route ➔ Argus Guard ➔ Persist SI ➔ Studio Telemetry\n");
+                println!("   Pipeline     : Ingest ➔ MDP Route ➔ Sentinel Guard ➔ Persist SI ➔ Studio Telemetry\n");
 
                 let _total_start = std::time::Instant::now();
                 let mut total_latency_us = 0u64;
@@ -1691,16 +1691,16 @@ fn run_flagship_pipeline(iterations: usize) -> Result<()> {
                     let route_start = std::time::Instant::now();
                     let mut routing_engine = orchestrator::TaskRoutingEngine::new(vec![
                         orchestrator::Specialist {
-                            id: "odin".to_string(),
-                            name: "Odin".to_string(),
+                            id: "orchestrator".to_string(),
+                            name: "Orchestrator".to_string(),
                             skills: vec!["intent_decomposition".to_string(), "quorum".to_string()],
                             capacity: 0.9,
                             success_rate: 0.98,
                             avg_completion_time: 1.2,
                         },
                         orchestrator::Specialist {
-                            id: "hephaestus".to_string(),
-                            name: "Hephaestus".to_string(),
+                            id: "fabricator".to_string(),
+                            name: "Fabricator".to_string(),
                             skills: vec!["ast_mutation".to_string(), "jit".to_string()],
                             capacity: 0.95,
                             success_rate: 0.99,
@@ -1720,19 +1720,19 @@ fn run_flagship_pipeline(iterations: usize) -> Result<()> {
                     println!("   -> Step 2: MDP Routing        : {} (Confidence: {:.1}%, Duration: {} µs)",
                         decision.specialist_name, decision.confidence * 100.0, route_latency);
 
-                    // 3. Argus-Guarded Execution
+                    // 3. Sentinel-Guarded Execution
                     let exec_start = std::time::Instant::now();
                     let mut federation = Box::new(specialists::SpecialistFederation::new());
                     let pkt = specialists::MnlpPacket {
-                        opcode: 0x0400, // Hephaestus
+                        opcode: 0x0400, // Fabricator
                         source: "flagship_orchestrator".to_string(),
-                        target: "hephaestus".to_string(),
+                        target: "fabricator".to_string(),
                         correlation_id: 1000 + i as u64,
                         payload: intent_text.as_bytes().to_vec(),
                     };
                     let res = federation.dispatch_packet(pkt).await?;
                     let exec_latency = exec_start.elapsed().as_micros();
-                    println!("   -> Step 3: Argus-Guarded Exec : ✅ SUCCESS (Opcode: 0x{:04X}, Duration: {} µs)",
+                    println!("   -> Step 3: Sentinel-Guarded Exec : ✅ SUCCESS (Opcode: 0x{:04X}, Duration: {} µs)",
                         res.opcode, exec_latency);
 
                     // 4. Solid-State SI Persistence

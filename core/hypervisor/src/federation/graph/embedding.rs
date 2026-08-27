@@ -23,7 +23,7 @@ pub struct EmbeddedMemory {
 ///
 /// Implements a lightweight RAG (Retrieval-Augmented Generation) system using
 /// TF-IDF vectorization and cosine similarity. It provides sovereign-isolated
-/// memory recall, allowing Merlin, Odin, and others to remember past actions.
+/// memory recall, allowing Synthesizer, Orchestrator, and others to remember past actions.
 pub struct EmbeddingStore {
     // Sovereign -> [Memories]
     store: HashMap<String, Vec<EmbeddedMemory>>,
@@ -437,21 +437,21 @@ mod tests {
     fn test_store_and_retrieve() {
         let mut store = EmbeddingStore::new(256);
 
-        store.store_text("m1", "Merlin", "Rust async runtime tokio", "research");
+        store.store_text("m1", "Synthesizer", "Rust async runtime tokio", "research");
         store.store_text(
             "m2",
-            "Merlin",
+            "Synthesizer",
             "Python async asyncio coroutines",
             "research",
         );
         store.store_text(
             "m3",
-            "Ariel",
+            "Presenter",
             "UI design patterns component grid",
             "execution",
         );
 
-        let results = store.query_text("Rust async programming", 2, Some("Merlin"), None);
+        let results = store.query_text("Rust async programming", 2, Some("Synthesizer"), None);
         assert!(!results.is_empty(), "Should return at least one result");
         // m1 should score higher than m2 for a Rust query
         assert_eq!(results[0].memory.id, "m1");
@@ -460,13 +460,13 @@ mod tests {
     #[test]
     fn test_sovereign_isolation() {
         let mut store = EmbeddingStore::new(256);
-        store.store_text("a", "Merlin", "knowledge synthesis research", "research");
-        store.store_text("b", "Argus", "security vulnerability scanning", "execution");
+        store.store_text("a", "Synthesizer", "knowledge synthesis research", "research");
+        store.store_text("b", "Sentinel", "security vulnerability scanning", "execution");
 
-        let merlin_results = store.query_text("security scan", 5, Some("Merlin"), None);
-        // Merlin has no security memory — should return her closest but not Argus's
+        let merlin_results = store.query_text("security scan", 5, Some("Synthesizer"), None);
+        // Synthesizer has no security memory — should return her closest but not Sentinel's
         for r in &merlin_results {
-            assert_eq!(r.memory.sovereign, "Merlin");
+            assert_eq!(r.memory.sovereign, "Synthesizer");
         }
     }
 
@@ -475,18 +475,18 @@ mod tests {
         let mut store = EmbeddingStore::new(256);
         store.store_text(
             "r1",
-            "Odin",
+            "Orchestrator",
             "task decomposition planning workflow",
             "execution",
         );
         store.store_text(
             "r2",
-            "Odin",
+            "Orchestrator",
             "guild coordination sovereign assignment",
             "execution",
         );
 
-        let recall = store.recall_for("Odin", "task decomposition planning workflow", 2);
+        let recall = store.recall_for("Orchestrator", "task decomposition planning workflow", 2);
         assert!(
             recall.contains("Relevant memories"),
             "recall_for should produce formatted output"

@@ -382,20 +382,20 @@ async fn run_import(
                 };
 
                 match engine.generate_soul(&task, &genome).await {
-                    Ok(soul) => {
-                        // Save soul sidecar alongside the DNA sidecar
-                        let soul_path = target_path.with_extension("gguf.soul.json");
-                        if let Ok(soul_json) = serde_json::to_string_pretty(&soul)
-                            && std::fs::write(&soul_path, soul_json).is_ok()
+                    Ok(persona) => {
+                        // Save persona sidecar alongside the DNA sidecar
+                        let persona_path = target_path.with_extension("gguf.persona.json");
+                        if let Ok(persona_json) = serde_json::to_string_pretty(&persona)
+                            && std::fs::write(&persona_path, persona_json).is_ok()
                         {
                             info!(
-                                "Soul generated and saved: {} (archetype: {})",
-                                soul_path.display(),
-                                soul.personality_soul.archetype
+                                "Persona generated and saved: {} (archetype: {})",
+                                persona_path.display(),
+                                persona.personality_persona.archetype
                             );
                         }
                     }
-                    Err(e) => warn!("Soul generation failed (non-fatal): {}", e),
+                    Err(e) => warn!("Persona generation failed (non-fatal): {}", e),
                 }
             }
             Err(e) => warn!("DNA dissection failed (non-fatal): {}", e),
@@ -605,7 +605,7 @@ pub async fn register_as_specialist(model_path: &Path, tags: &[String]) {
         .to_string();
 
     // Infer sovereign name from filename
-    // e.g. "llama-3.1-70b-odin-q4_k_m" → try to find a known sovereign name
+    // e.g. "llama-3.1-70b-orchestrator-q4_k_m" → try to find a known sovereign name
     let sovereign_hint = infer_sovereign_name(&name);
 
     info!(
@@ -693,15 +693,15 @@ pub async fn register_as_specialist(model_path: &Path, tags: &[String]) {
 fn infer_sovereign_name(filename: &str) -> Option<String> {
     let lower = filename.to_lowercase();
     for sovereign in &[
-        "odin",
-        "merlin",
-        "argus",
-        "ariel",
-        "hermes",
-        "wen",
-        "kami",
-        "dionysus",
-        "hephaestus",
+        "orchestrator",
+        "synthesizer",
+        "sentinel",
+        "presenter",
+        "router",
+        "aligner",
+        "perceiver",
+        "archivist",
+        "fabricator",
     ] {
         if lower.contains(sovereign) {
             let mut c = sovereign.chars();
