@@ -1,4 +1,4 @@
-//! crates/chimera/src/pattern_rewriter.rs
+//! crates/adaptation_engine/src/pattern_rewriter.rs
 //! Universal Structural Code Pattern Search, Multi-Language AST Rewriter,
 //! and Context-Preserving Substitution Engine (Comby & Structural Search inspired).
 

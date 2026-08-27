@@ -1,4 +1,4 @@
-//! crates/chimera/src/error_interceptor.rs
+//! crates/adaptation_engine/src/error_interceptor.rs
 //! Live compiler, process, and execution error interceptor.
 //! Translates process exit failures and stderr traces into continuous error tensors
 //! to trigger instant in-place online error-steering updates within the active .si model container.

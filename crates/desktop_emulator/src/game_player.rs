@@ -1,4 +1,4 @@
-//! crates/marionette/src/game_player.rs
+//! crates/desktop_emulator/src/game_player.rs
 //! Autonomous Game Playthrough, User Emulation, and Demonstration Learning Engine.
 //! Integrates vision-based action policies, reinforcement learning reward calculation,
 //! and hardware HID injection with fail-safe safety killswitches.

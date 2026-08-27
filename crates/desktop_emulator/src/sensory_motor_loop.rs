@@ -1,4 +1,4 @@
-//! crates/marionette/src/sensory_motor_loop.rs
+//! crates/desktop_emulator/src/sensory_motor_loop.rs
 //! Closed-Loop Live Multimodal Sensory-Motor Pipeline.
 //!
 //! Connects:

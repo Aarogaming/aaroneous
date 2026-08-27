@@ -1,4 +1,4 @@
-//! crates/chimera/src/auto_wrapper.rs
+//! crates/adaptation_engine/src/auto_wrapper.rs
 //! Pure-Rust Autonomous Software Auto-Wrapping & Morphogenesis Engine.
 //!
 //! Implements the 4-Stage Software Adaptation Pipeline from Doc 10:

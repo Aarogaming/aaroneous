@@ -1,4 +1,4 @@
-//! crates/chimera/src/dev_tools.rs
+//! crates/adaptation_engine/src/dev_tools.rs
 //! Industrial-Grade Developer Power Tools, Diagnostic Parsing, and Patch Application Engine.
 //! Provides workspace file tree exploration, compiler diagnostic extraction, and safe file patching with backup.
 

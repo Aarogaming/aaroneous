@@ -1,4 +1,4 @@
-//! crates/chimera/src/sandbox.rs
+//! crates/adaptation_engine/src/sandbox.rs
 //! Shadow sandbox compilation, isolated verification, and dopamine feedback loop.
 
 use anyhow::{Context, Result};

@@ -1,4 +1,4 @@
-//! crates/marionette/src/window_target.rs
+//! crates/desktop_emulator/src/window_target.rs
 //! Discord-style Screen, Window, and Application Target Enumeration and Capture Modifiers Engine.
 
 use anyhow::Result;

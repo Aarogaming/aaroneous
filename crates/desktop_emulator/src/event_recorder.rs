@@ -1,4 +1,4 @@
-//! crates/marionette/src/event_recorder.rs
+//! crates/desktop_emulator/src/event_recorder.rs
 //! Microsecond-Precision HID Event Recording, Framebuffer Delta Analysis, and Action Replay Engine
 //! inspired by Playwright, Selenium, and Win32 Input Journaling.
 

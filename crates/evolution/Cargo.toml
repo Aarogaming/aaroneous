@@ -11,7 +11,7 @@ repository.workspace = true
 nervous_system = { path = "../nervous_system" }
 aaroneous_paths = { path = "../paths" }
 compute = { path = "../compute" }
-adaptation_engine = { path = "../chimera" }
+adaptation_engine = { path = "../adaptation_engine" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 strum = { version = "0.26", features = ["derive"] }

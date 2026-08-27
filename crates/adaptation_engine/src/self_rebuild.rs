@@ -1,4 +1,4 @@
-//! crates/chimera/src/self_rebuild.rs
+//! crates/adaptation_engine/src/self_rebuild.rs
 //! Autonomous Ouroboros Self-Rebuild & Binary Reload Engine
 //! Enables Aaroneous to compile, verify, and reload its own crates and binaries on demand.
 

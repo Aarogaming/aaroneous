@@ -1,4 +1,4 @@
-//! crates/chimera/src/repo_watcher.rs
+//! crates/adaptation_engine/src/repo_watcher.rs
 //! Live Autonomous Repository Monitor & Background Self-Repair Watcher
 //! Monitors workspace filesystem changes and triggers background verification and patch synthesis.
 

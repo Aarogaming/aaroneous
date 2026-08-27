@@ -1,4 +1,4 @@
-//! crates/chimera/src/parallel_scanner.rs
+//! crates/adaptation_engine/src/parallel_scanner.rs
 //! High-Throughput Parallel AST Scanner & Batch Code Analysis Engine
 //! Powered by Rayon multi-core work-stealing parallelism.
 

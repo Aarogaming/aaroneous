@@ -1,4 +1,4 @@
-//! crates/chimera/src/autonomous_scientific.rs
+//! crates/adaptation_engine/src/autonomous_scientific.rs
 //! Autonomous Scientific AST Hypothesis Loop.
 //!
 //! Implements Subsystem 3:

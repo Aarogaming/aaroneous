@@ -50,8 +50,8 @@ evolution = { path = "../../crates/evolution" }
 biology = { path = "../../crates/biology" }
 orchestrator = { path = "../../crates/orchestrator" }
 compute = { path = "../../crates/compute" }
-adaptation_engine = { path = "../../crates/chimera" }
-desktop_emulator = { path = "../../crates/marionette" }
+adaptation_engine = { path = "../../crates/adaptation_engine" }
+desktop_emulator = { path = "../../crates/desktop_emulator" }
 specialists = { path = "../../crates/specialists" }
 aaroneous_paths = { path = "../../crates/paths" }
 transpiler = { path = "../../crates/transpiler" }

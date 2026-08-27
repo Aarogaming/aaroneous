@@ -1,4 +1,4 @@
-//! crates/marionette/src/epigenetic_vision.rs
+//! crates/desktop_emulator/src/epigenetic_vision.rs
 //! GPU-Accelerated Epigenetic Visual Motion Gating Pipeline.
 //!
 //! Subsystem 6 / Perceiver Threshold Vision Gating:
