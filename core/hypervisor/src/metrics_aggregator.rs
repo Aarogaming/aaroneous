@@ -397,6 +397,6 @@ mod tests {
 
         let report = agg.generate_report();
         assert!(report.counter_count > 0);
-        assert!(report.uptime_seconds >= 0);
+        assert!(report.uptime_seconds <= 3600);
     }
 }
