@@ -4572,6 +4572,7 @@ impl AaroneousDesktopApp {
                 let payload = intent.as_bytes();
                 let payload_len = std::cmp::min(payload.len(), 4064);
                 mmap[32..32 + payload_len].copy_from_slice(&payload[..payload_len]);
+                mmap[32 + payload_len..4096].fill(0);
 
                 let new_tick = self.synapse_generation + 1;
                 mmap[0..8].copy_from_slice(&new_tick.to_le_bytes());
