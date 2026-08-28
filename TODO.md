@@ -174,22 +174,22 @@
 Documented in detail in `dev/docs/17_DEFECT_AUDIT_AND_REMEDIATION_PLAN.md`.
 
 #### Tier 1 — Critical Memory Safety & Crash Prevention (Immediate)
-- [x] **#1** Enforce 8-byte pointer boundary alignment in `NucleotidePacket::from_bytes` (`crates/nervous_system/src/nucleotide_packet.rs`)
-- [ ] **#2** Implement `impl Drop` for Win32 GDI handles in `NativeWin32Marionette` (`crates/desktop_emulator/src/native_win32.rs`)
-- [ ] **#3** Replace raw byte slicing with UTF-8 character boundary safe truncation in `P2pNodeId::short()` and `GgufProvider::truncate` (`core/hypervisor/src/federation/p2p/mod.rs`, `crates/orchestrator/src/llm/providers/gguf.rs`)
+- [x] **#1** Enforce 8-byte pointer boundary alignment in `MachinePacket::from_bytes` (`crates/ipc_bus/src/machine_packet.rs`)
+- [x] **#2** Implement `impl Drop` for Win32 GDI handles in `NativeWin32Marionette` (`crates/desktop_emulator/src/native_win32.rs`)
+- [x] **#3** Replace raw byte slicing with UTF-8 character boundary safe truncation in `P2pNodeId::short()` and `GgufProvider::truncate` (`core/hypervisor/src/federation/p2p/mod.rs`, `crates/orchestrator/src/llm/providers/gguf.rs`)
 
 #### Tier 2 — Synapse Bus & IPC State Synchronization (High Priority)
-- [ ] **#4** Zero out trailing memory in `a_hud.rs` shared memory synapse intent injection (`core/hypervisor/bin/a_hud.rs`)
-- [ ] **#9** Unify `swmr_synapse::resolve_synapse_path` with `aaroneous_paths::WorkspacePaths` across platforms (`crates/nervous_system/src/swmr_synapse.rs`)
-- [ ] **#10** Wire `SynapseBridge` in Rust SDK to connect to `nervous_system::SpecialistSynapseBus` / `SharedMemorySynapse` (`sdk/rust/src/lib.rs`)
+- [x] **#4** Zero out trailing memory in `a_hud.rs` shared memory synapse intent injection (`core/hypervisor/bin/a_hud.rs`)
+- [x] **#9** Unify `swmr_synapse::resolve_synapse_path` with `aaroneous_paths::WorkspacePaths` across platforms (`crates/ipc_bus/src/swmr_synapse.rs`, `crates/ipc_bus/src/shared_memory.rs`, `core/hypervisor/src/autonomic_loop.rs`)
+- [x] **#10** Wire `SynapseBridge` in Rust SDK to connect to `ipc_bus::SpecialistSynapseBus` / `SpecialistIpcBus` (`sdk/rust/src/lib.rs`)
 
-#### Tier 3 — Daemon Lifecycle & Service Stability (Medium-High Priority)
-- [ ] **#5** Fix argument slice passing and replace `cargo run` dependency in `ProcessLifecycleManager::spawn` (`core/hypervisor/src/orchestration_daemon.rs`)
-- [ ] **#8** Replace unbounded vectors in `TelemetryBuffer` and `MetricsCollector` with bounded ring buffers (`crates/transpiler/src/polyglot.rs`)
+#### Tier 3 — Transpiler & Auto-Wrapper Resilience (Medium-High Priority)
+- [x] **#5** Optimize code fence extraction with OnceLock regex in `AiToSiTranspiler` (`crates/transpiler/src/ai_to_si.rs`)
+- [x] **#7** Handle non-zero exit codes with stderr/stdout output gracefully in `probe_cli_capabilities` (`crates/adaptation_engine/src/auto_wrapper.rs`)
+- [x] **#8** Implement atomic file writes and live promotion for shadow sandbox (`crates/adaptation_engine/src/sandbox.rs`)
 
-#### Tier 4 — Subsystem Modernization & Local Inference (Medium Priority)
-- [ ] **#6** Resolve `SpawnWasm` dead end in `ActionExecutor` by transitioning to `.si` container execution (`core/hypervisor/src/action_executor.rs`)
-- [ ] **#7** Implement real candle tensor inference / KV-cache in `GgufProvider::chat_completion` (`crates/orchestrator/src/llm/providers/gguf.rs`)
+#### Tier 4 — Subsystem Modernization & UI Telemetry (Medium Priority)
+- [x] **#6** Replace hardcoded literals with named configuration constants in MCP Service (`core/hypervisor/src/mcp_service/service.rs`)
 
 ### Phase 7: Security Hardening & Containment Sandboxing (Threat Model)
 Documented in detail in `dev/docs/15_AUTONOMOUS_ACTION_THREAT_MODEL_AND_SECURITY_SPEC.md`.
@@ -197,7 +197,7 @@ Documented in detail in `dev/docs/15_AUTONOMOUS_ACTION_THREAT_MODEL_AND_SECURITY
 - [ ] **SEC-01** Enforce strict canonical workspace root check in `ActionExecutor::execute_file_operation` (`core/hypervisor/src/action_executor.rs`)
 - [ ] **SEC-02** Lockdown CORS in HTTP server and auto-generate local session tokens when `AARONEOUS_API_KEY` is unset (`core/hypervisor/src/federation/http/router.rs`)
 - [ ] **SEC-03** Enforce constant-time equality check for API key bearer tokens (`core/hypervisor/src/federation/http/router.rs`)
-- [ ] **SEC-04** Apply Windows Security Descriptor DACL to restrict Named Pipe access to current user SID (`crates/nervous_system/src/comm/mod.rs`)
+- [ ] **SEC-04** Apply Windows Security Descriptor DACL to restrict Named Pipe access to current user SID (`crates/ipc_bus/src/comm/mod.rs`)
 - [ ] **SEC-05** Implement emergency breakout hook / screen-corner mouse failsafe for HID input injection (`crates/desktop_emulator/src/native_win32.rs`)
 - [ ] **SEC-06** Replace `DefaultHasher` in `system_integrity.rs` with cryptographic SHA-256 / BLAKE3 hashing (`core/hypervisor/src/system_integrity.rs`)
 - [ ] **SEC-07** Store SHA-256 hashes instead of plaintext API keys in `ApiKeyAuth` (`core/hypervisor/src/mcp_service/auth.rs`)
@@ -205,3 +205,4 @@ Documented in detail in `dev/docs/15_AUTONOMOUS_ACTION_THREAT_MODEL_AND_SECURITY
 ---
 
 *Last updated: 2026-08-28*
+
