@@ -10,10 +10,12 @@ impl P2pNodeId {
     }
 
     pub fn short(&self) -> String {
-        if self.0.len() <= 12 {
+        let char_count = self.0.chars().count();
+        if char_count <= 12 {
             self.0.clone()
         } else {
-            format!("{}…", &self.0[..12])
+            let truncated: String = self.0.chars().take(12).collect();
+            format!("{}…", truncated)
         }
     }
 }
@@ -117,3 +119,25 @@ pub mod types {
 
 #[cfg(feature = "p2p-iroh")]
 pub mod iroh_node;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_p2p_node_id_short_ascii() {
+        let node_id_short = P2pNodeId::new("node-123");
+        assert_eq!(node_id_short.short(), "node-123");
+
+        let node_id_long = P2pNodeId::new("node-1234567890abcdef");
+        assert_eq!(node_id_long.short(), "node-1234567…");
+    }
+
+    #[test]
+    fn test_p2p_node_id_short_unicode_multibyte() {
+        let unicode_id = P2pNodeId::new("🦀🔥⚡🌟🚀💻🎉✨🌌💎🛠️🎯🛡️");
+        // Must not panic on UTF-8 multibyte boundary
+        let short = unicode_id.short();
+        assert!(short.ends_with('…'));
+    }
+}

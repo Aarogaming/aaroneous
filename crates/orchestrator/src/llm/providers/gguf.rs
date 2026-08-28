@@ -50,10 +50,9 @@ impl GgufProvider {
 }
 
 fn truncate(s: &str, max_len: usize) -> &str {
-    if s.len() <= max_len {
-        s
-    } else {
-        &s[..max_len]
+    match s.char_indices().nth(max_len) {
+        Some((idx, _)) => &s[..idx],
+        None => s,
     }
 }
 
@@ -72,5 +71,6 @@ mod tests {
     fn test_truncate() {
         assert_eq!(truncate("hello", 10), "hello");
         assert_eq!(truncate("hello world", 5), "hello");
+        assert_eq!(truncate("🦀🔥⚡🌟🚀", 2), "🦀🔥");
     }
 }
