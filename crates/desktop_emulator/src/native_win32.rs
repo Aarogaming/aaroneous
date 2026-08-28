@@ -20,7 +20,8 @@ use windows::Win32::Foundation::HWND;
 #[cfg(feature = "native-win32")]
 use windows::Win32::Graphics::Gdi::{
     BITMAPINFO, BITMAPINFOHEADER, CreateCompatibleBitmap, CreateCompatibleDC, DIB_RGB_COLORS,
-    GetDC, GetDIBits, HBITMAP, HDC, SRCCOPY, SelectObject, StretchBlt,
+    DeleteDC, DeleteObject, GetDC, GetDIBits, HBITMAP, HDC, ReleaseDC, SRCCOPY, SelectObject,
+    StretchBlt,
 };
 #[cfg(feature = "native-win32")]
 use windows::Win32::UI::Input::KeyboardAndMouse::{
@@ -111,6 +112,23 @@ impl NativeWin32Marionette {
             .duration_since(UNIX_EPOCH)
             .unwrap_or_default()
             .as_micros() as u64
+    }
+}
+
+impl Drop for NativeWin32Marionette {
+    fn drop(&mut self) {
+        #[cfg(feature = "native-win32")]
+        unsafe {
+            if let Some(hbitmap) = self.hbitmap.take() {
+                let _ = DeleteObject(hbitmap.into());
+            }
+            if let Some(hdc_memory) = self.hdc_memory.take() {
+                let _ = DeleteDC(hdc_memory);
+            }
+            if let Some(hdc_screen) = self.hdc_screen.take() {
+                let _ = ReleaseDC(Some(HWND::default()), hdc_screen);
+            }
+        }
     }
 }
 
