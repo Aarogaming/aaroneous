@@ -3,9 +3,9 @@
 
 pub mod disruptor;
 pub mod intent_log;
+pub mod machine_packet;
 pub mod metrics;
 pub mod mutation_intent;
-pub mod nucleotide_packet;
 pub mod specialist_bus;
 pub mod persistent_grimoire;
 pub mod preparedness_notice;
@@ -13,6 +13,11 @@ pub mod scheme_router;
 pub mod slab_allocator;
 pub mod spmc_synapse_bus;
 pub mod swmr_synapse;
+
+// Backward compatibility module alias
+pub mod nucleotide_packet {
+    pub use crate::machine_packet::*;
+}
 
 pub use specialist_bus::{install_specialist_panic_hook, SpecialistSynapseBus, SpecialistSpmcChannel, TensorSlot, TENSOR_DIM};
 pub use spmc_synapse_bus::{SharedSynapseBus, SpmcSynapseBus, SynapsePacket};
@@ -40,26 +45,26 @@ pub use intent_log::{
 };
 pub use metrics::{MetricsCollector, MetricsSnapshot, SharedMetricsCollector, SlabMetricEntry};
 pub use mutation_intent::{IntentQueue, IntentValidator, MutationIntent};
-pub use nucleotide_packet::{
-    packet_types, priorities, NucleotidePacket, SlabBackedBridge, WASMLinearMemoryBridge,
+pub use machine_packet::{
+    packet_types, priorities, LinearMemoryBridge, MachinePacket, NucleotidePacket,
+    SlabBackedBridge, WASMLinearMemoryBridge,
 };
 pub use preparedness_notice::{NoticeBroadcast, PreparednessNotice};
 pub use slab_allocator::{
     PacketSlot, SlabAllocator, SlabAllocatorWithArena, SlabStats, SLOT_ACTIVE, SLOT_COMMITTED,
     SLOT_ERROR, SLOT_FREE,
 };
+pub use swmr_synapse::{
+    McpToolCallFrame, SWMRSynapse, SpecialistDialogue, SynapseReader, SynapseState,
+    SynapseWriterHandle,
+};
+
 // Engineering & CS Terminology Aliases (Machine-Native Linking Protocol & IPC)
-pub use nucleotide_packet::NucleotidePacket as MachinePacket;
-pub use nucleotide_packet::NucleotidePacket as IpcPacket;
-pub use nucleotide_packet::WASMLinearMemoryBridge as LinearMemoryBridge;
+pub use machine_packet::MachinePacket as IpcPacket;
 pub use swmr_synapse::SWMRSynapse as SharedMemoryChannel;
 pub use swmr_synapse::SWMRSynapse as SharedMemorySynapse;
 pub use specialist_bus::SpecialistSynapseBus as SpecialistIpcBus;
 pub use spmc_synapse_bus::SharedSynapseBus as SharedIpcBus;
-
-pub mod machine_packet {
-    pub use crate::nucleotide_packet::*;
-}
 
 pub mod ipc_bus {
     pub use crate::specialist_bus::*;

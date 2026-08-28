@@ -498,8 +498,8 @@ impl SWMRSynapse {
                     let header = crate::intent_log::create_log_entry(
                         log_seq,
                         0, // source_id - would come from intent context
-                        crate::nucleotide_packet::packet_types::INTENT,
-                        crate::nucleotide_packet::priorities::NORMAL,
+                        crate::machine_packet::packet_types::INTENT,
+                        crate::machine_packet::priorities::NORMAL,
                         current_gen,
                         intent.value.len() as u32,
                     );

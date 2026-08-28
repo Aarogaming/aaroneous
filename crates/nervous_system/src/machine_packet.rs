@@ -1,6 +1,6 @@
-// Nucleotide Packet System
-// Zero-allocation WASM packet topology for direct linear memory crossing.
-// Treats WASM linear memory and host memory as a unified packet bus.
+// Machine-Native Linking Protocol (MNLP) - Machine Packet System
+// Zero-allocation aligned binary packet topology for direct linear memory crossing.
+// Treats linear memory and host memory as a unified high-speed packet bus.
 //
 // Integrated with SlabAllocator for fragmentation-free memory management.
 
@@ -8,11 +8,11 @@ use std::mem;
 
 use crate::slab_allocator::{PacketSlot, SlabAllocator};
 
-/// Uniform packet topology - strict binary layout understood by both Rust host and WASM guest
-/// #[repr(C, align(8))] ensures predictable memory layout across the FFI boundary
+/// Uniform packet topology - strict binary layout understood by host and guest runtimes
+/// #[repr(C, align(8))] ensures predictable memory layout across FFI and IPC boundaries
 #[repr(C, align(8))]
 #[derive(Debug, Clone, Copy)]
-pub struct NucleotidePacket {
+pub struct MachinePacket {
     /// Packet type identifier (magic: 0xAA55_0001)
     pub magic: u32,
     /// Packet sequence number (monotonic)
@@ -25,7 +25,7 @@ pub struct NucleotidePacket {
     pub priority: u8,
     /// Schema version for validation
     pub schema_version: u16,
-    /// Offset into WASM linear memory where payload begins
+    /// Offset into linear memory where payload begins
     pub payload_offset: u32,
     /// Length of payload in bytes
     pub payload_length: u32,
@@ -35,9 +35,12 @@ pub struct NucleotidePacket {
     pub reserved: [u8; 8],
 }
 
-impl NucleotidePacket {
+/// Backward compatibility alias
+pub type NucleotidePacket = MachinePacket;
+
+impl MachinePacket {
     pub const MAGIC: u32 = 0xAA55_0001;
-    pub const HEADER_SIZE: usize = mem::size_of::<NucleotidePacket>();
+    pub const HEADER_SIZE: usize = mem::size_of::<MachinePacket>();
 
     pub fn new(
         sequence: u64,
@@ -112,30 +115,33 @@ impl NucleotidePacket {
     }
 }
 
-/// WASM Linear Memory Bridge
-/// Maps a slice of WASM linear memory directly for zero-allocation crossings
-pub struct WASMLinearMemoryBridge<'a> {
-    /// Raw pointer to WASM linear memory (mutable for guest writes)
-    wasm_memory: &'a mut [u8],
+/// Linear Memory FFI Bridge
+/// Maps a slice of linear memory directly for zero-allocation crossings
+pub struct LinearMemoryBridge<'a> {
+    /// Raw pointer to linear memory (mutable for guest writes)
+    memory: &'a mut [u8],
     /// Current packet sequence counter
     sequence: u64,
 }
 
-impl<'a> WASMLinearMemoryBridge<'a> {
-    pub fn new(wasm_memory: &'a mut [u8]) -> Self {
+/// Backward compatibility alias
+pub type WASMLinearMemoryBridge<'a> = LinearMemoryBridge<'a>;
+
+impl<'a> LinearMemoryBridge<'a> {
+    pub fn new(memory: &'a mut [u8]) -> Self {
         Self {
-            wasm_memory,
+            memory,
             sequence: 0,
         }
     }
 
-    /// Read a packet from WASM memory at the given offset
-    pub fn read_packet(&self, offset: usize) -> Option<&NucleotidePacket> {
-        if offset + NucleotidePacket::HEADER_SIZE > self.wasm_memory.len() {
+    /// Read a packet from memory at the given offset
+    pub fn read_packet(&self, offset: usize) -> Option<&MachinePacket> {
+        if offset + MachinePacket::HEADER_SIZE > self.memory.len() {
             return None;
         }
-        let packet_bytes = &self.wasm_memory[offset..];
-        let packet = NucleotidePacket::from_bytes(packet_bytes)?;
+        let packet_bytes = &self.memory[offset..];
+        let packet = MachinePacket::from_bytes(packet_bytes)?;
 
         if !packet.verify() {
             return None;
@@ -145,18 +151,18 @@ impl<'a> WASMLinearMemoryBridge<'a> {
     }
 
     /// Read payload data referenced by a packet
-    pub fn read_payload<'p>(&'p self, packet: &NucleotidePacket) -> Option<&'p [u8]> {
+    pub fn read_payload<'p>(&'p self, packet: &MachinePacket) -> Option<&'p [u8]> {
         let start = packet.payload_offset as usize;
         let end = start + packet.payload_length as usize;
 
-        if end > self.wasm_memory.len() {
+        if end > self.memory.len() {
             return None;
         }
 
-        Some(&self.wasm_memory[start..end])
+        Some(&self.memory[start..end])
     }
 
-    /// Write a packet header into WASM memory (guest writes, host reads notification pointer)
+    /// Write a packet header into memory (guest writes, host reads notification pointer)
     pub fn write_packet_header(
         &mut self,
         offset: usize,
@@ -166,12 +172,12 @@ impl<'a> WASMLinearMemoryBridge<'a> {
         payload_length: u32,
         source_id: u64,
     ) -> Option<u64> {
-        if offset + NucleotidePacket::HEADER_SIZE > self.wasm_memory.len() {
+        if offset + MachinePacket::HEADER_SIZE > self.memory.len() {
             return None;
         }
 
         self.sequence += 1;
-        let packet = NucleotidePacket::new(
+        let packet = MachinePacket::new(
             self.sequence,
             source_id,
             packet_type,
@@ -181,7 +187,7 @@ impl<'a> WASMLinearMemoryBridge<'a> {
         );
 
         let bytes = packet.as_bytes();
-        let dest = &mut self.wasm_memory[offset..offset + bytes.len()];
+        let dest = &mut self.memory[offset..offset + bytes.len()];
         dest.copy_from_slice(bytes);
 
         Some(self.sequence)

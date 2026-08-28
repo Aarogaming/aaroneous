@@ -483,7 +483,7 @@ pub fn create_log_entry(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::nucleotide_packet::packet_types;
+    use crate::machine_packet::packet_types;
 
     fn temp_path(name: &str) -> PathBuf {
         let mut path = std::env::temp_dir();
