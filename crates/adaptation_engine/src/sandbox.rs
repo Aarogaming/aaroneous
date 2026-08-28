@@ -41,14 +41,43 @@ impl ShadowSandbox {
         &self.shadow_dir
     }
 
-    /// Write file strictly inside the shadow sandbox
+    /// Write file strictly inside the shadow sandbox using atomic write + rename
     pub fn write_shadow_file(&self, file_name: &str, content: &[u8]) -> Result<PathBuf> {
         let safe_name = Path::new(file_name)
             .file_name()
             .ok_or_else(|| anyhow::anyhow!("Invalid filename for shadow write"))?;
         let target_path = self.shadow_dir.join(safe_name);
-        fs::write(&target_path, content).context("Failed to write file inside shadow sandbox")?;
+        let temp_path = self.shadow_dir.join(format!("{}.tmp.{}", safe_name.to_string_lossy(), std::process::id()));
+        
+        fs::write(&temp_path, content).context("Failed to write temporary shadow file")?;
+        if let Err(_) = fs::rename(&temp_path, &target_path) {
+            let _ = fs::remove_file(&target_path);
+            fs::rename(&temp_path, &target_path).context("Failed to atomically commit shadow file")?;
+        }
         Ok(target_path)
+    }
+
+    /// Atomically promotes a verified file from the shadow sandbox to the live target path
+    pub fn promote_to_live(&self, file_name: &str, live_target: &Path) -> Result<()> {
+        let safe_name = Path::new(file_name)
+            .file_name()
+            .ok_or_else(|| anyhow::anyhow!("Invalid filename for shadow promotion"))?;
+        let shadow_path = self.shadow_dir.join(safe_name);
+        if !shadow_path.exists() {
+            anyhow::bail!("Shadow file does not exist for promotion: {:?}", shadow_path);
+        }
+
+        if let Some(parent) = live_target.parent() {
+            fs::create_dir_all(parent)?;
+        }
+
+        let temp_live = live_target.with_extension(format!("tmp.{}", std::process::id()));
+        fs::copy(&shadow_path, &temp_live)?;
+        if let Err(_) = fs::rename(&temp_live, live_target) {
+            let _ = fs::remove_file(live_target);
+            fs::rename(&temp_live, live_target)?;
+        }
+        Ok(())
     }
 
     /// Execute syntax check strictly within shadow directory
@@ -208,5 +237,22 @@ mod tests {
             .unwrap();
         assert!(!success);
         assert_eq!(synapse.integrity_score, initial_integrity.saturating_sub(10));
+    }
+
+    #[test]
+    fn test_shadow_sandbox_atomic_promotion() {
+        let sandbox = ShadowSandbox::new().unwrap();
+        let test_file = "promoted_module.rs";
+        let content = b"pub fn version() -> u32 { 1 }";
+
+        sandbox.write_shadow_file(test_file, content).unwrap();
+
+        let live_target = std::env::temp_dir().join("aaroneous_live_test").join("promoted.rs");
+        sandbox.promote_to_live(test_file, &live_target).unwrap();
+
+        assert!(live_target.exists());
+        let read_back = fs::read(&live_target).unwrap();
+        assert_eq!(read_back, content);
+        let _ = fs::remove_file(&live_target);
     }
 }
