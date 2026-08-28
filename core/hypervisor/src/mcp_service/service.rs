@@ -35,6 +35,9 @@ use tracing::{debug, info};
 use crate::federation::hive::Federation;
 use crate::mcp_service::{CapabilityDomain, ServiceConfig};
 
+pub const DEFAULT_CODE_READ_LIMIT_LINES: u64 = 200;
+pub const DEFAULT_SEARCH_MAX_MATCHES: u64 = 20;
+
 // ── JSON-RPC 2.0 types ────────────────────────────────────────────────────────
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -996,7 +999,10 @@ impl McpService {
             .and_then(|v| v.as_str())
             .ok_or_else(|| anyhow::anyhow!("Missing required argument 'path'"))?;
         let start_line = args.get("start_line").and_then(|v| v.as_u64()).unwrap_or(1) as usize;
-        let end_line = args.get("end_line").and_then(|v| v.as_u64()).unwrap_or(200) as usize;
+        let end_line = args
+            .get("end_line")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(DEFAULT_CODE_READ_LIMIT_LINES) as usize;
 
         // Resolve path: try absolute first, then relative to workspace root
         let path = std::path::PathBuf::from(path_str);
@@ -1087,7 +1093,7 @@ impl McpService {
         let max_results = args
             .get("max_results")
             .and_then(|v| v.as_u64())
-            .unwrap_or(20) as usize;
+            .unwrap_or(DEFAULT_SEARCH_MAX_MATCHES) as usize;
 
         let root = std::path::Path::new(search_path);
         if !root.exists() {
