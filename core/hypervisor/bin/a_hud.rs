@@ -112,7 +112,7 @@ pub enum NavSection {
     LivingMind,    // 🧬 Neurochemistry & Dream Engine Self-Play
     SiForge,       // ⚡ Solid-State SI Model Forge & Compiler
     GhostStation,  // 👁️ Epigenetic Vision & Sandboxed Motor Engine
-    SwarmMesh,     // 🌐 Caduceus Multi-Hive P2P Swarm Mesh
+    SwarmMesh,     // 🌐 FederationBus Multi-Hive P2P Swarm Mesh
     Agents,        // 🤖 Autonomous SI Agents & Workflows
     Settings,      // ⚙️ Preferences, Model Hub & Shaders
 

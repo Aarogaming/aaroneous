@@ -61,12 +61,12 @@ impl DevToolsSpecialist {
 
     /// Forges a code adaptation patch using Adaptation Engine
     pub fn forge_code_repair(&mut self, file: &str, code: &str, target: &str, replacement: &str) -> Result<PatchProposal> {
-        info!(target: "specialist::fabricator", %file, "Forging code patch in the CompilerCore");
+        info!(target: "specialist::dev_tools", %file, "Forging code patch in the CompilerCore");
         let (_obs, _hyp, report) = AdaptationEngine::adapt_code(file, code, target, replacement)?;
         self.forge.total_adaptations_forged += 1;
         
         let patch = adaptation_engine::CodeMutator::synthesize_repair(file, code, target, replacement)?;
-        info!(target: "specialist::fabricator", verdict = %report.verdict, "CompilerCore adaptation verified");
+        info!(target: "specialist::dev_tools", verdict = %report.verdict, "CompilerCore adaptation verified");
         Ok(patch)
     }
 
@@ -78,7 +78,7 @@ impl DevToolsSpecialist {
         search_pattern: &str,
         replace_template: &str,
     ) -> Result<(String, Vec<adaptation_engine::StructuralPatch>)> {
-        info!(target: "specialist::fabricator", %file, "Executing structural pattern rewrite in the CompilerCore");
+        info!(target: "specialist::dev_tools", %file, "Executing structural pattern rewrite in the CompilerCore");
         let (rewritten, patches) = AdaptationEngine::rewrite_pattern(file, code, search_pattern, replace_template)?;
         self.forge.total_adaptations_forged += patches.len();
         Ok((rewritten, patches))
@@ -86,7 +86,7 @@ impl DevToolsSpecialist {
 
     /// Inspects and disassembles a native enzyme binary (PE/ELF/Mach-O)
     pub fn inspect_enzyme_binary(&self, file: &str, raw_bytes: &[u8]) -> Result<adaptation_engine::BinaryManifest> {
-        info!(target: "specialist::fabricator", %file, size = raw_bytes.len(), "Inspecting native enzyme binary");
+        info!(target: "specialist::dev_tools", %file, size = raw_bytes.len(), "Inspecting native enzyme binary");
         AdaptationEngine::inspect_binary(file, raw_bytes)
     }
 
@@ -98,7 +98,7 @@ impl DevToolsSpecialist {
         known_error: &str,
         synapse: &mut nervous_system::SynapseState,
     ) -> Result<adaptation_engine::SelfRepairReport> {
-        info!(target: "specialist::fabricator", %file, "Executing autonomous sandboxed self-repair in the CompilerCore");
+        info!(target: "specialist::dev_tools", %file, "Executing autonomous sandboxed self-repair in the CompilerCore");
         let report = AdaptationEngine::self_repair(file, code, known_error, synapse)?;
         if report.is_verified {
             self.forge.total_adaptations_forged += report.patches_applied.len();
@@ -111,7 +111,7 @@ impl DevToolsSpecialist {
         &mut self,
         intent: &str,
     ) -> Result<(compute::NativeComputationalGraph, String)> {
-        info!(target: "specialist::fabricator", %intent, "Translating intent into native computational graph");
+        info!(target: "specialist::dev_tools", %intent, "Translating intent into native computational graph");
         let initial_graph = compute::EdgeLinguisticLens::intent_to_native_graph(intent);
         initial_graph.verify_dimensional_invariants()?;
 
@@ -125,7 +125,7 @@ impl DevToolsSpecialist {
 
     /// Forges an autonomous software wrapper organ for an external binary/CLI tool
     pub async fn forge_organ_wrapper(&mut self, target_path: &str, custom_name: Option<&str>, out_dir: &std::path::Path) -> Result<(adaptation_engine::TargetCapabilityManifest, std::path::PathBuf)> {
-        info!(target: "specialist::fabricator", target_path, "Forging autonomous software organ in the CompilerCore");
+        info!(target: "specialist::dev_tools", target_path, "Forging autonomous software organ in the CompilerCore");
         let manifest = adaptation_engine::AutoWrapperEngine::inspect_target(std::path::Path::new(target_path), custom_name)?;
         let _probe = adaptation_engine::AutoWrapperEngine::probe_target(&manifest).await?;
         let staged_crate = adaptation_engine::AutoWrapperEngine::build_and_stage_organ(&manifest, out_dir)?;
@@ -141,7 +141,7 @@ impl DevToolsSpecialist {
         file_path: &std::path::Path,
         code: &str,
     ) -> Result<adaptation_engine::ScientificCycleReport> {
-        info!(target: "specialist::fabricator", ?file_path, "Executing autonomous scientific AST hypothesis loop in the CompilerCore");
+        info!(target: "specialist::dev_tools", ?file_path, "Executing autonomous scientific AST hypothesis loop in the CompilerCore");
         let report = adaptation_engine::AutonomousScientificEngine::analyze_and_hypothesize(file_path, code)?;
         self.forge.total_adaptations_forged += report.hypotheses_accepted;
         Ok(report)

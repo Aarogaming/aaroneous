@@ -56,7 +56,7 @@ impl RelicEngine for FederationBusRelic {
 pub struct RouterSpecialist {
     pub tokens: f32,
     pub max_tokens: f32,
-    pub caduceus: FederationBusRelic,
+    pub bus: FederationBusRelic,
 }
 
 impl Default for RouterSpecialist {
@@ -70,26 +70,26 @@ impl RouterSpecialist {
         Self {
             tokens: 100.0,
             max_tokens: 100.0,
-            caduceus: FederationBusRelic::default(),
+            bus: FederationBusRelic::default(),
         }
     }
 
     /// Routes a packet across the P2P mesh to a target peer
     pub fn route_mesh_packet(&mut self, target_peer: &str, payload_size: usize) -> MeshPeerState {
-        self.caduceus.packets_routed += 1;
+        self.bus.packets_routed += 1;
         info!(target: "specialist::router", %target_peer, bytes = payload_size, "Routing packet over P2P mesh");
 
         MeshPeerState {
             peer_node_id: target_peer.to_string(),
             latency_ms: 1.2,
-            synced_epochs: self.caduceus.packets_routed,
+            synced_epochs: self.bus.packets_routed,
             is_connected: true,
         }
     }
 
     /// Dispatches a high-priority micro-task offload request to a peer hive
     pub fn route_task_offload(&mut self, opcode: u16, target_peer: &str) -> MeshPeerState {
-        self.caduceus.packets_routed += 1;
+        self.bus.packets_routed += 1;
         info!(
             target: "specialist::router",
             opcode = format!("0x{:04X}", opcode),
@@ -100,7 +100,7 @@ impl RouterSpecialist {
         MeshPeerState {
             peer_node_id: target_peer.to_string(),
             latency_ms: 0.85,
-            synced_epochs: self.caduceus.packets_routed,
+            synced_epochs: self.bus.packets_routed,
             is_connected: true,
         }
     }
@@ -108,22 +108,22 @@ impl RouterSpecialist {
     pub fn broadcast_gossip_pulse(&mut self, known_peers: &[&str]) -> Vec<MeshPeerState> {
         let mut states = Vec::with_capacity(known_peers.len());
         for (idx, peer) in known_peers.iter().enumerate() {
-            self.caduceus.packets_routed += 1;
+            self.bus.packets_routed += 1;
             let latency_ms = 0.5 + ((idx as f32 * 0.3) % 2.0);
             states.push(MeshPeerState {
                 peer_node_id: peer.to_string(),
                 latency_ms,
-                synced_epochs: self.caduceus.packets_routed,
+                synced_epochs: self.bus.packets_routed,
                 is_connected: true,
             });
         }
-        self.caduceus.connected_peers = 1 + states.len();
+        self.bus.connected_peers = 1 + states.len();
         states
     }
 
     /// Synchronizes swarm manifest capabilities with a remote node
     pub fn sync_swarm_manifest(&mut self, peer_id: &str, active_specialists: &[&str]) -> bool {
-        self.caduceus.packets_routed += 1;
+        self.bus.packets_routed += 1;
         info!(
             target: "specialist::router",
             peer = %peer_id,
@@ -183,7 +183,7 @@ mod tests {
         let mut router = RouterSpecialist::new();
         let state = router.route_mesh_packet("node_beta", 1024);
         assert!(state.is_connected);
-        assert_eq!(router.caduceus.packets_routed, 1);
+        assert_eq!(router.bus.packets_routed, 1);
     }
 
     #[test]
@@ -192,11 +192,11 @@ mod tests {
         let peers = vec!["node_alpha", "node_beta", "node_gamma"];
         let pulse_states = router.broadcast_gossip_pulse(&peers);
         assert_eq!(pulse_states.len(), 3);
-        assert_eq!(router.caduceus.connected_peers, 4); // 1 local + 3 remote
-        assert_eq!(router.caduceus.packets_routed, 3);
+        assert_eq!(router.bus.connected_peers, 4); // 1 local + 3 remote
+        assert_eq!(router.bus.packets_routed, 3);
 
         let is_synced = router.sync_swarm_manifest("node_alpha", &["orchestrator", "synthesizer", "fabricator"]);
         assert!(is_synced);
-        assert_eq!(router.caduceus.packets_routed, 4);
+        assert_eq!(router.bus.packets_routed, 4);
     }
 }

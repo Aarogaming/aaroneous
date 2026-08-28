@@ -118,10 +118,10 @@ async fn test_full_specialist_federation_orchestration_cycle() {
 }
 
 #[tokio::test]
-async fn test_hephaestus_auto_wrap_tool_integration() {
+async fn test_devtools_auto_wrap_tool_integration() {
     let mut federation = SpecialistFederation::new();
 
-    // Send MNLP packet with "wrap:" directive to Fabricator (0x0400)
+    // Send MNLP packet with "wrap:" directive to Fabricator / DevTools (0x0400)
     let pkt_wrap = MnlpPacket {
         opcode: 0x0400,
         source: "orchestrator".to_string(),
@@ -137,7 +137,7 @@ async fn test_hephaestus_auto_wrap_tool_integration() {
 }
 
 #[tokio::test]
-async fn test_hermes_multi_node_swarm_mesh_cluster() {
+async fn test_router_multi_node_swarm_mesh_cluster() {
     let mut node_prime = SpecialistFederation::new();
     let mut node_alpha = SpecialistFederation::new();
     let mut node_beta = SpecialistFederation::new();
