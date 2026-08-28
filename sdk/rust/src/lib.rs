@@ -1,14 +1,31 @@
 pub extern crate ipc_bus as nervous_system;
 pub use ipc_bus;
 
+use ipc_bus::SpecialistSynapseBus;
+use std::sync::Arc;
+
 /// The Rust SDK for Aaroneous.
-/// Provides high-level wrappers for the Synapse and AgentBus.
-pub struct SynapseBridge;
+/// Provides high-level wrappers for the Machine-Native IPC / Synapse Bus.
+pub struct SynapseBridge {
+    bus: Arc<SpecialistSynapseBus>,
+}
 
 impl SynapseBridge {
+    /// Connects to or initializes the Specialist IPC / Synapse Federation Bus.
     pub fn connect() -> Self {
-        println!("[SDK] Connected to Aaroneous Synapse");
-        Self
+        Self {
+            bus: Arc::new(SpecialistSynapseBus::new_federation()),
+        }
+    }
+
+    /// Returns a reference to the inner SpecialistSynapseBus.
+    pub fn bus(&self) -> &Arc<SpecialistSynapseBus> {
+        &self.bus
+    }
+
+    /// Number of active channels in the federation.
+    pub fn channel_count(&self) -> usize {
+        self.bus.channels.len()
     }
 }
 
@@ -19,7 +36,7 @@ mod tests {
     #[test]
     fn test_synapse_bridge_connect() {
         let bridge = SynapseBridge::connect();
-        drop(bridge);
+        assert_eq!(bridge.channel_count(), 11);
     }
 
     #[test]
