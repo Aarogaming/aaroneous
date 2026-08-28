@@ -5,6 +5,9 @@
 use anyhow::{bail, Result};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
+use std::sync::OnceLock;
+
+static CODE_FENCE_RE: OnceLock<Regex> = OnceLock::new();
 
 /// Parsed Machine-Native payload extracted from AI response
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -20,7 +23,11 @@ pub struct AiToSiTranspiler;
 impl AiToSiTranspiler {
     /// Extracts clean executable code from raw markdown or LLM response text
     pub fn extract_code(raw_ai_response: &str) -> Result<ExtractedCodePayload> {
-        let code_fence_re = Regex::new(r"(?s)```([a-zA-Z0-9_-]*)\r?\n(.*?)```")?;
+        let code_fence_re = CODE_FENCE_RE.get_or_init(|| {
+            Regex::new(r"```([a-zA-Z0-9_-]*)\r?\n([\s\S]*?)(?:```|$)").unwrap_or_else(|_| {
+                Regex::new("").expect("fallback regex must be valid")
+            })
+        });
 
         if let Some(captures) = code_fence_re.captures(raw_ai_response) {
             let lang = captures.get(1).map(|m| m.as_str().trim().to_string()).unwrap_or_else(|| "rust".to_string());
@@ -59,5 +66,13 @@ mod tests {
         assert_eq!(extracted.language, "rust");
         assert!(extracted.source_code.contains("pub fn calculate()"));
         assert!(!extracted.source_code.contains("Sure!"));
+    }
+
+    #[test]
+    fn test_extract_code_unclosed_block() {
+        let ai_reply = "```rust\npub fn stream_calc() -> u32 {\n    100\n}";
+        let extracted = AiToSiTranspiler::extract_code(ai_reply).unwrap();
+        assert_eq!(extracted.language, "rust");
+        assert!(extracted.source_code.contains("pub fn stream_calc()"));
     }
 }
