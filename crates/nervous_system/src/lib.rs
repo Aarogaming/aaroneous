@@ -48,10 +48,24 @@ pub use slab_allocator::{
     PacketSlot, SlabAllocator, SlabAllocatorWithArena, SlabStats, SLOT_ACTIVE, SLOT_COMMITTED,
     SLOT_ERROR, SLOT_FREE,
 };
-pub use swmr_synapse::{
-    McpToolCallFrame, SWMRSynapse, SpecialistDialogue, SynapseReader, SynapseState,
-    SynapseWriterHandle,
-};
-
-// Backward compatibility alias
+// Engineering & CS Terminology Aliases (Machine-Native Linking Protocol & IPC)
+pub use nucleotide_packet::NucleotidePacket as MachinePacket;
+pub use nucleotide_packet::NucleotidePacket as IpcPacket;
+pub use nucleotide_packet::WASMLinearMemoryBridge as LinearMemoryBridge;
+pub use swmr_synapse::SWMRSynapse as SharedMemoryChannel;
 pub use swmr_synapse::SWMRSynapse as SharedMemorySynapse;
+pub use specialist_bus::SpecialistSynapseBus as SpecialistIpcBus;
+pub use spmc_synapse_bus::SharedSynapseBus as SharedIpcBus;
+
+pub mod machine_packet {
+    pub use crate::nucleotide_packet::*;
+}
+
+pub mod ipc_bus {
+    pub use crate::specialist_bus::*;
+    pub use crate::spmc_synapse_bus::*;
+}
+
+pub mod shared_memory_channel {
+    pub use crate::swmr_synapse::*;
+}
