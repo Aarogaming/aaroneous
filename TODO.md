@@ -170,19 +170,26 @@
 - [x] Workflow persistence (crash-recoverable DAG)
 - [x] Swarm load balancing with NATS
 
-### Phase 6: Top 10 Critical Defect Remediation (Active Audit)
+### Phase 6: Prioritized Defect & Synapse Remediation (Active Audit)
 Documented in detail in `dev/docs/17_DEFECT_AUDIT_AND_REMEDIATION_PLAN.md`.
 
+#### Tier 1 — Critical Memory Safety & Crash Prevention (Immediate)
 - [ ] **#1** Enforce 8-byte pointer boundary alignment in `NucleotidePacket::from_bytes` (`crates/nervous_system/src/nucleotide_packet.rs`)
 - [ ] **#2** Implement `impl Drop` for Win32 GDI handles in `NativeWin32Marionette` (`crates/desktop_emulator/src/native_win32.rs`)
 - [ ] **#3** Replace raw byte slicing with UTF-8 character boundary safe truncation in `P2pNodeId::short()` and `GgufProvider::truncate` (`core/hypervisor/src/federation/p2p/mod.rs`, `crates/orchestrator/src/llm/providers/gguf.rs`)
+
+#### Tier 2 — Synapse Bus & IPC State Synchronization (High Priority)
 - [ ] **#4** Zero out trailing memory in `a_hud.rs` shared memory synapse intent injection (`core/hypervisor/bin/a_hud.rs`)
+- [ ] **#9** Unify `swmr_synapse::resolve_synapse_path` with `aaroneous_paths::WorkspacePaths` across platforms (`crates/nervous_system/src/swmr_synapse.rs`)
+- [ ] **#10** Wire `SynapseBridge` in Rust SDK to connect to `nervous_system::SpecialistSynapseBus` / `SharedMemorySynapse` (`sdk/rust/src/lib.rs`)
+
+#### Tier 3 — Daemon Lifecycle & Service Stability (Medium-High Priority)
 - [ ] **#5** Fix argument slice passing and replace `cargo run` dependency in `ProcessLifecycleManager::spawn` (`core/hypervisor/src/orchestration_daemon.rs`)
+- [ ] **#8** Replace unbounded vectors in `TelemetryBuffer` and `MetricsCollector` with bounded ring buffers (`crates/transpiler/src/polyglot.rs`)
+
+#### Tier 4 — Subsystem Modernization & Local Inference (Medium Priority)
 - [ ] **#6** Resolve `SpawnWasm` dead end in `ActionExecutor` by transitioning to `.si` container execution (`core/hypervisor/src/action_executor.rs`)
 - [ ] **#7** Implement real candle tensor inference / KV-cache in `GgufProvider::chat_completion` (`crates/orchestrator/src/llm/providers/gguf.rs`)
-- [ ] **#8** Replace unbounded vectors in `TelemetryBuffer` and `MetricsCollector` with bounded ring buffers (`crates/transpiler/src/polyglot.rs`)
-- [ ] **#9** Unify `swmr_synapse::resolve_synapse_path` with `aaroneous_paths::WorkspacePaths` across platforms (`crates/nervous_system/src/swmr_synapse.rs`)
-- [ ] **#10** Wire `SynapseBridge` in Rust SDK to connect to `nervous_system::SharedMemorySynapse` (`sdk/rust/src/lib.rs`)
 
 ---
 
