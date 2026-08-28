@@ -178,7 +178,7 @@ impl AutoWrapperEngine {
             };
 
             if let Ok(output) = res {
-                let success = output.status.success() || !output.stdout.is_empty();
+                let success = output.status.success() || !output.stdout.is_empty() || !output.stderr.is_empty();
                 if success {
                     chosen_arg = arg;
                     best_output = Some(output);
