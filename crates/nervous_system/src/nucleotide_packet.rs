@@ -104,7 +104,11 @@ impl NucleotidePacket {
         if bytes.len() < mem::size_of::<Self>() {
             return None;
         }
-        unsafe { Some(&*(bytes.as_ptr() as *const Self)) }
+        let ptr = bytes.as_ptr();
+        if (ptr as usize) % mem::align_of::<Self>() != 0 {
+            return None;
+        }
+        unsafe { Some(&*(ptr as *const Self)) }
     }
 }
 
@@ -315,6 +319,16 @@ mod tests {
     fn test_packet_size() {
         // Should be aligned to 8 bytes
         assert_eq!(NucleotidePacket::HEADER_SIZE % 8, 0);
+    }
+
+    #[test]
+    fn test_from_bytes_unaligned_rejected() {
+        let buffer = vec![0u8; NucleotidePacket::HEADER_SIZE + 8];
+        let base_ptr = buffer.as_ptr() as usize;
+        let misaligned_offset = if base_ptr % 8 == 0 { 1 } else { 8 - (base_ptr % 8) + 1 };
+        let slice = &buffer[misaligned_offset..misaligned_offset + NucleotidePacket::HEADER_SIZE];
+        assert_eq!((slice.as_ptr() as usize) % 8, 1);
+        assert!(NucleotidePacket::from_bytes(slice).is_none());
     }
 
     #[test]

@@ -174,7 +174,7 @@
 Documented in detail in `dev/docs/17_DEFECT_AUDIT_AND_REMEDIATION_PLAN.md`.
 
 #### Tier 1 — Critical Memory Safety & Crash Prevention (Immediate)
-- [ ] **#1** Enforce 8-byte pointer boundary alignment in `NucleotidePacket::from_bytes` (`crates/nervous_system/src/nucleotide_packet.rs`)
+- [x] **#1** Enforce 8-byte pointer boundary alignment in `NucleotidePacket::from_bytes` (`crates/nervous_system/src/nucleotide_packet.rs`)
 - [ ] **#2** Implement `impl Drop` for Win32 GDI handles in `NativeWin32Marionette` (`crates/desktop_emulator/src/native_win32.rs`)
 - [ ] **#3** Replace raw byte slicing with UTF-8 character boundary safe truncation in `P2pNodeId::short()` and `GgufProvider::truncate` (`core/hypervisor/src/federation/p2p/mod.rs`, `crates/orchestrator/src/llm/providers/gguf.rs`)
 
