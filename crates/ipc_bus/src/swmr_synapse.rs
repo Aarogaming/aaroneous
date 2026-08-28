@@ -232,17 +232,7 @@ impl GenerationCounter {
 
 /// Platform-agnostic workspace path resolution
 pub fn resolve_synapse_path(name: &str) -> PathBuf {
-    std::env::var("AARONEOUS_WORKSPACE")
-        .map(PathBuf::from)
-        .unwrap_or_else(|_| {
-            dirs::home_dir()
-                .unwrap_or_else(|| PathBuf::from("."))
-                .join(".local")
-                .join("share")
-                .join("aaroneous")
-                .join("synapse")
-        })
-        .join(format!("{}.synapse", name))
+    aaroneous_paths::resolve_synapse_path(name)
 }
 
 /// The SWMR Synapse - Single Writer, Multi-Reader zero-copy shared memory

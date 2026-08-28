@@ -135,7 +135,24 @@ impl WorkspacePaths {
     }
 
     pub fn synapse_file(&self) -> PathBuf {
-        std::env::temp_dir().join("primary.synapse")
+        self.synapse_named("primary")
+    }
+
+    pub fn synapse_named(&self, name: &str) -> PathBuf {
+        let file_name = if name.ends_with(".synapse") {
+            name.to_string()
+        } else {
+            format!("{}.synapse", name)
+        };
+
+        if let Ok(env_root) = std::env::var("AARONEOUS_WORKSPACE") {
+            let p = PathBuf::from(env_root);
+            if p.exists() {
+                return p.join(&file_name);
+            }
+        }
+
+        std::env::temp_dir().join(file_name)
     }
 
     pub fn hive_db(&self) -> PathBuf {
@@ -334,6 +351,11 @@ fn format_bytes(bytes: u64) -> String {
     }
 }
 
+/// Platform-agnostic workspace synapse path resolution
+pub fn resolve_synapse_path(name: &str) -> PathBuf {
+    WorkspacePaths::discover().synapse_named(name)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -351,5 +373,11 @@ mod tests {
         let paths = WorkspacePaths::discover();
         let hubs = paths.get_known_model_hubs();
         assert!(!hubs.is_empty());
+    }
+
+    #[test]
+    fn test_resolve_synapse_path() {
+        let path = resolve_synapse_path("primary");
+        assert!(path.to_string_lossy().ends_with("primary.synapse"));
     }
 }

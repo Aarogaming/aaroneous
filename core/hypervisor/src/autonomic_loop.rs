@@ -28,10 +28,7 @@ pub struct LegacySharedMemorySynapse {
 
 impl LegacySharedMemorySynapse {
     pub fn new(name: &str, size: usize) -> Result<Self> {
-        let path = PathBuf::from(format!(
-            r"C:\Users\aarog\AppData\Local\Temp\{}.synapse",
-            name
-        ));
+        let path = aaroneous_paths::resolve_synapse_path(name);
 
         let file = OpenOptions::new()
             .read(true)
