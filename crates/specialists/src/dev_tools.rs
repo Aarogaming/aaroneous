@@ -1,7 +1,7 @@
-//! fabricator.rs
-//! Fabricator (The Master Craftsman) & CompilerCore (Autonomous Compiler & Adaptation Engine).
+//! dev_tools.rs
+//! DevTools (The Master Craftsman) & CompilerCore (Autonomous Compiler & Adaptation Engine).
 //! Powered directly by Adaptation Engine.
-//! Domain Opcode: 0x0400 (FABRICATION_ADAPTATION)
+//! Domain Opcode: 0x0400 (DEV_TOOLS_ADAPTATION)
 
 use anyhow::Result;
 use async_trait::async_trait;
@@ -24,7 +24,7 @@ impl RelicEngine for CompilerCoreRelic {
     }
 
     fn supervisor_name(&self) -> &'static str {
-        "Fabricator"
+        "DevTools"
     }
 
     fn relic_status(&self) -> String {
@@ -35,20 +35,22 @@ impl RelicEngine for CompilerCoreRelic {
     }
 }
 
-/// Fabricator Sovereign Specialist
-pub struct FabricatorSpecialist {
+/// DevTools Sovereign Specialist
+pub struct DevToolsSpecialist {
     pub tokens: f32,
     pub max_tokens: f32,
     pub forge: CompilerCoreRelic,
 }
 
-impl Default for FabricatorSpecialist {
+pub type FabricatorSpecialist = DevToolsSpecialist;
+
+impl Default for DevToolsSpecialist {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl FabricatorSpecialist {
+impl DevToolsSpecialist {
     pub fn new() -> Self {
         Self {
             tokens: 100.0,

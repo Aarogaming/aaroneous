@@ -1,5 +1,5 @@
 //! sentinel.rs
-//! Sentinel (The All-Seeing Guardian) & AuditEngine (Cryptographic Vault & Safety Gatekeeper).
+//! Sentinel (The All-Seeing Guardian) & AuditEngine (Cryptographic Vault & Security Gatekeeper).
 //! Domain Opcode: 0x0500 (SECURITY_GOVERNANCE)
 
 use anyhow::{bail, Result};

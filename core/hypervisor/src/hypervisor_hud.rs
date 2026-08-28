@@ -1,5 +1,5 @@
-//! core/hypervisor/src/maelstrom_hud.rs
-//! Unified Maelstrom Telemetry HUD & Visualizer Subsystem (egui / eframe).
+//! core/hypervisor/src/hypervisor_hud.rs
+//! Unified Hypervisor Telemetry HUD & Visualizer Subsystem (egui / eframe).
 //!
 //! Consolidates 4 Core Visual Telemetry Viewports:
 //! 1. 🌌 3D Omni Galaxy View: Star-Nodes, Gravitational Clustering, Semantic Cosine Distance.
@@ -16,9 +16,9 @@ use desktop_emulator::SensoryMotorPipeline;
 use nervous_system::specialist_bus::{SpecialistSynapseBus, TENSOR_DIM};
 use omni::{OmniEngine, SpatialCoord, StarNode, StarNodeType};
 
-use crate::synapse_ui::SynapseVisualizer;
+use crate::bus_visualizer::BusVisualizer;
 
-/// Navigation tabs in the Unified Maelstrom HUD
+/// Navigation tabs in the Unified Hypervisor HUD
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum HudTab {
     Galaxy3D,
@@ -27,11 +27,11 @@ pub enum HudTab {
     NeurochemistryDrive,
 }
 
-/// The Master Unified Maelstrom HUD Desktop App
-pub struct MaelstromHudApp {
+/// The Master Unified Hypervisor HUD Desktop App
+pub struct HypervisorHudApp {
     pub active_tab: HudTab,
     pub omni_engine: Arc<OmniEngine>,
-    pub synapse_visualizer: SynapseVisualizer,
+    pub bus_visualizer: BusVisualizer,
     pub sensory_pipeline: SensoryMotorPipeline,
     pub neurochemistry: NeurochemicalHomeostasisEngine,
     pub tick_counter: u64,
@@ -42,7 +42,7 @@ pub struct MaelstromHudApp {
     pub simulated_frame: Vec<f32>,
 }
 
-impl Default for MaelstromHudApp {
+impl Default for HypervisorHudApp {
     fn default() -> Self {
         Self::new()
     }
@@ -56,22 +56,22 @@ fn block_on_future<F: std::future::Future>(f: F) -> F::Output {
     }
 }
 
-impl MaelstromHudApp {
-    /// Initializes the Unified Maelstrom HUD with live subsystems
+impl HypervisorHudApp {
+    /// Initializes the Unified Hypervisor HUD with live subsystems
     pub fn new() -> Self {
         let omni = Arc::new(OmniEngine::default());
         let bus = Arc::new(SpecialistSynapseBus::new_federation());
         let centroid = [0.05f32; TENSOR_DIM];
         let radius = 14.5f32;
 
-        let synapse_visualizer = SynapseVisualizer::new(bus, centroid, radius);
-        let sensory_pipeline = SensoryMotorPipeline::new("Aaroneous_Maelstrom_HUD");
+        let bus_visualizer = BusVisualizer::new(bus, centroid, radius);
+        let sensory_pipeline = SensoryMotorPipeline::new("Aaroneous_Hypervisor_HUD");
         let neurochemistry = NeurochemicalHomeostasisEngine::new(NeurochemicalLevels::new(0.85, 0.50, 0.35, 0.90));
 
         let mut app = Self {
             active_tab: HudTab::Galaxy3D,
             omni_engine: omni,
-            synapse_visualizer,
+            bus_visualizer,
             sensory_pipeline,
             neurochemistry,
             tick_counter: 0,
@@ -285,18 +285,18 @@ impl MaelstromHudApp {
     }
 }
 
-impl eframe::App for MaelstromHudApp {
+impl eframe::App for HypervisorHudApp {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         ui.ctx().request_repaint();
         self.step_simulation();
 
         // 1. Top Bar Navigation Panel
         ui.horizontal(|ui| {
-            ui.heading(RichText::new("⚡ AARONEOUS MAELSTROM HUD").strong().color(Color32::from_rgb(0, 210, 255)));
+            ui.heading(RichText::new("⚡ AARONEOUS HYPERVISOR HUD").strong().color(Color32::from_rgb(0, 210, 255)));
             ui.separator();
 
             ui.selectable_value(&mut self.active_tab, HudTab::Galaxy3D, "🌌 3D Galaxy");
-            ui.selectable_value(&mut self.active_tab, HudTab::SynapseOscilloscope, "⚡ Synapse & SVDD");
+            ui.selectable_value(&mut self.active_tab, HudTab::SynapseOscilloscope, "⚡ Bus & SVDD");
             ui.selectable_value(&mut self.active_tab, HudTab::EpigeneticSensory, "👁️ Epigenetic Vision");
             ui.selectable_value(&mut self.active_tab, HudTab::NeurochemistryDrive, "🧬 Neurochemistry");
 
@@ -312,7 +312,7 @@ impl eframe::App for MaelstromHudApp {
         let ctx = ui.ctx().clone();
         match self.active_tab {
             HudTab::Galaxy3D => self.render_galaxy_tab(ui),
-            HudTab::SynapseOscilloscope => self.synapse_visualizer.update_ui(&ctx, ui),
+            HudTab::SynapseOscilloscope => self.bus_visualizer.update_ui(&ctx, ui),
             HudTab::EpigeneticSensory => self.render_epigenetic_tab(ui),
             HudTab::NeurochemistryDrive => self.render_neurochemistry_tab(ui),
         }
@@ -325,7 +325,7 @@ mod tests {
 
     #[test]
     fn test_hud_app_initialization_and_tabs() {
-        let mut app = MaelstromHudApp::new();
+        let mut app = HypervisorHudApp::new();
         assert_eq!(app.active_tab, HudTab::Galaxy3D);
         assert!(app.is_simulating);
 

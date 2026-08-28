@@ -34,7 +34,7 @@ pub mod translation_dataset;
 pub mod si_distillation_harness;
 pub mod si_packer;
 pub mod si_forge;
-pub mod hermes_router;
+pub mod latent_router;
 pub mod reflex_worker;
 pub mod si_decoder;
 pub mod si_motor_tree;
@@ -67,7 +67,7 @@ pub use si_packer::{
     TensorDescriptor, ALIGNMENT_BYTES, SINT_PACKER_MAGIC, SINT_PACKER_VERSION,
 };
 pub use si_forge::SiForge;
-pub use hermes_router::{HermesRouter, CORTEX_INTENT_DIM, SUBGOAL_DIM};
+pub use latent_router::{HermesRouter, CORTEX_INTENT_DIM, SUBGOAL_DIM};
 pub use reflex_worker::ReflexWorker;
 pub use si_decoder::{ActionDecoder, DecodedActionCommand, DECODER_INTENT_DIM};
 pub use si_motor_tree::{MotorCortex, MotorSkillNode, SkillType, StarState, MOTOR_INTENT_DIM};
@@ -105,7 +105,7 @@ impl ComputeEngine {
             "entropy" => entropy::shannon_entropy(input),
             "cosine" => linalg::cosine_similarity(input),
             "pid" => control::pid_step(input),
-            "fft" => signal::fft_basic(input),
+            "fft" => signal::fft_industrial(input),
             "nash" => game_theory::nash_approx(input),
             "optimize_ga" => optimize::genetic_step(input, &mut self.rng),
             "boltzmann" => {

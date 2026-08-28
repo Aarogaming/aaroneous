@@ -1481,10 +1481,10 @@ fn run_hud_pipeline(headless: bool) -> Result<()> {
     println!("   Mode      : {}\n", if headless { "Headless Evaluation Loop" } else { "Native Desktop Window (egui/eframe)" });
 
     if headless {
-        println!("   [Stage 1] Initializing Maelstrom HUD Subsystems...");
-        let mut app = a_run::MaelstromHudApp::new();
+        println!("   [Stage 1] Initializing Hypervisor HUD Subsystems...");
+        let mut app = a_run::HypervisorHudApp::new();
         println!("   -> Omni 3D Galaxy Viewport       : Ready ({} Star-Nodes)", run_async(app.omni_engine.total_stars()));
-        println!("   -> SPMC Synapse Bus & SVDD Gauge : Ready (R = {:.1})", app.synapse_visualizer.sentinel_radius);
+        println!("   -> SPMC Specialist Bus & SVDD Gauge : Ready (R = {:.1})", app.bus_visualizer.sentinel_radius);
         println!("   -> Epigenetic Vision Sensor Grid : Ready (16x16 / 256 Sectors)");
         println!("   -> Neurochemistry Homeostasis    : Ready (Dopamine: {:.2}, ACh: {:.2})",
             app.neurochemistry.levels.dopamine, app.neurochemistry.levels.acetylcholine);
@@ -1497,7 +1497,7 @@ fn run_hud_pipeline(headless: bool) -> Result<()> {
         }
 
         println!("=================================================================");
-        println!("✅ Unified Maelstrom HUD Headless Pipeline Verified.");
+        println!("✅ Unified Hypervisor HUD Headless Pipeline Verified.");
         println!("=================================================================\n");
         Ok(())
     } else {
@@ -1505,14 +1505,14 @@ fn run_hud_pipeline(headless: bool) -> Result<()> {
         let native_options = eframe::NativeOptions {
             viewport: egui::ViewportBuilder::default()
                 .with_inner_size([1100.0, 750.0])
-                .with_title("Aaroneous Maelstrom HUD — Unified Telemetry Engine"),
+                .with_title("Aaroneous Hypervisor HUD — Unified Telemetry Engine"),
             ..Default::default()
         };
 
         let _ = eframe::run_native(
-            "Aaroneous Maelstrom HUD",
+            "Aaroneous Hypervisor HUD",
             native_options,
-            Box::new(|_cc| Ok(Box::new(a_run::MaelstromHudApp::new()))),
+            Box::new(|_cc| Ok(Box::new(a_run::HypervisorHudApp::new()))),
         );
         Ok(())
     }

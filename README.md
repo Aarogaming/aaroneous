@@ -1,6 +1,6 @@
-# ⚡ Aaroneous: Sovereign Machine-Native Synthetic Intelligence (SI)
+# ⚡ Aaroneous: Sovereign Machine-Native Execution Engine
 
-> **Aaroneous: Sovereign Machine-Native Synthetic Intelligence (SI)**  
+> **Aaroneous: Sovereign Machine-Native Execution Engine**  
 > A pure Rust autonomic hypervisor and solid-state neural execution substrate powered by **Continuous Selective State-Space Models (SSM)**, **Real-Time Dynamic Adaptation Matrices**, and **Zero-Copy Memory-Mapped `.si` Cartridges**.
 ---
 
@@ -10,7 +10,7 @@
 
 ```
 ┌────────────────────────────────────────────────────────────────────────────────────────────────────────┐
-│                        THE AARONEOUS SOLID-STATE SI SUBSTRATE                                          │
+│                        THE AARONEOUS SOLID-STATE EXECUTION ENGINE SUBSTRATE                                          │
 ├────────────────────────────────────────────────────────────────────────────────────────────────────────┤
 │                                                                                                        │
 │  ONE FILE (.si) ──► Mounted via `memmap2` in < 50µs directly into Active Virtual Memory                │
@@ -51,7 +51,7 @@
   $$\text{🌱 Candidate} \longrightarrow \text{🧪 Validated} \longrightarrow \text{💎 Crystallized Module} \longrightarrow \text{⚡ Core Reflex}$$
 - High-fitness habits are automatically frozen into portable `.si` cartridges.
 
-### 4. 🛠️ Complete SI Tool Suite (`SiToolEngine` & CLI)
+### 4. 🛠️ Complete Execution Engine Tool Suite (`SiToolEngine` & CLI)
 - **Container Inspector**: Extracts magic headers (`SIMN`/`SISSM`/`SINT`), AST nodes, energy dissipation, dimensional invariants, and embedded SSM parameters.
 - **Microsecond Benchmarker**: Profiles zero-copy memory-mapped throughput and latency over hundreds of passes.
 - **Task Distiller**: Transpiles human action sequences directly into machine-native execution graphs.
@@ -76,7 +76,7 @@ Measured on generated `.si` binary cartridges:
 
 ```
 =================================================================
-  AARONEOUS .SI MEMORY-MAPPED EXECUTION BENCHMARK (500 PASSES)
+   AARONEOUS .SI MEMORY-MAPPED EXECUTION ENGINE BENCHMARK (500 PASSES)
 =================================================================
   Container Size   : 3.73 MB (SINT v3, 64-byte SIMD aligned)
   p50 Latency      : 9 µs (0.009 milliseconds!)

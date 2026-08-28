@@ -166,7 +166,7 @@ All notable changes to Aaroneous.
 
 ## [0.1.0] - 2026-08-21
 
-### ⚡ Solid-State Machine-Native Synthetic Intelligence (SI) Architecture
+### ⚡ Solid-State Machine-Native Execution Engine Architecture
 
 #### Added
 - **Unified Solid-State `.si` Container (`crates/compute/src/si_solid_state.rs`)**:
@@ -182,15 +182,15 @@ All notable changes to Aaroneous.
   - Autonomous 4-tier graduation ladder: `🌱 Candidate` $\to$ `🧪 Validated` $\to$ `💎 Crystallized` $\to$ `⚡ Core Reflex`.
   - Intrinsic reward formula: $\mathcal{R}_{\text{intrinsic}} = \text{SuccessRate} + \text{Compression} + \frac{1}{1 + \Delta F}$.
   - Automatic crystallization of high-value latent pathways into standalone `.si` cartridges.
-- **Complete SI Tool Suite (`crates/compute/src/si_tool.rs` & CLI)**:
+- **Complete Execution Engine Tool Suite (`crates/compute/src/si_tool.rs` & CLI)**:
   - `a_run si inspect`: Deep binary container inspection for `SIMN`, `SISSM`, and `SINT` files.
   - `a_run si benchmark`: Memory-mapped microsecond latency profiler (benchmarked at $9\mu\text{s}$ p50 latency, 102,606 ops/s).
   - `a_run si skills`: Dynamic discovery and intrinsic score inspector.
   - `a_run si distill`: Action-to-DAG binary compiler.
   - `a_run si train`: On-device GPU multi-objective loss trainer.
 - **Developer Studio Integration (`core/hypervisor/bin/a_hud.rs`)**:
-  - Added **`🧬 Skill Tree & SI Inspector`** tab with live telemetry cards and 1-click microsecond benchmark execution.
-  - Connected Smart SI Macro Hub to Global Command Palette (`Ctrl + K`).
+  - Added **`🧬 Skill Tree & Execution Engine Inspector`** tab with live telemetry cards and 1-click microsecond benchmark execution.
+  - Connected Smart Execution Engine Macro Hub to Global Command Palette (`Ctrl + K`).
 - **Dynamic Workspace Resolver (`crates/paths`)**:
   - Enforced zero hardcoded paths across all hypervisor components and toolchains.
 

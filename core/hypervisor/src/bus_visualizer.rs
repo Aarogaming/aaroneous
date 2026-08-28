@@ -1,5 +1,5 @@
-//! core/hypervisor/src/synapse_ui.rs
-//! Real-Time SPMC Synapse Bus Oscilloscope & Sentinel-Auditor Guardrail Visualizer.
+//! core/hypervisor/src/bus_visualizer.rs
+//! Real-Time SPMC Specialist Bus Oscilloscope & Sentinel-Auditor Guardrail Visualizer.
 //!
 //! Features:
 //! 1. Asynchronous atomic sampler glancing at SPMC memory maps via Ordering::Relaxed without stalling producers.
@@ -13,7 +13,7 @@ use std::sync::Arc;
 
 use nervous_system::specialist_bus::{SpecialistSynapseBus, TENSOR_DIM};
 
-pub struct SynapseVisualizer {
+pub struct BusVisualizer {
     pub bus: Arc<SpecialistSynapseBus>,
     pub last_seq_numbers: [u64; 11],
     pub latest_tensors: [[f32; TENSOR_DIM]; 11],
@@ -23,7 +23,7 @@ pub struct SynapseVisualizer {
     pub total_snaps_observed: u64,
 }
 
-impl SynapseVisualizer {
+impl BusVisualizer {
     pub fn new(bus: Arc<SpecialistSynapseBus>, centroid: [f32; TENSOR_DIM], radius: f32) -> Self {
         Self {
             bus,

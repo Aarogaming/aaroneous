@@ -3,7 +3,7 @@
 
 pub mod aligner;
 pub mod archivist;
-pub mod fabricator;
+pub mod dev_tools;
 pub mod orchestrator;
 pub mod perceiver;
 pub mod presenter;
@@ -14,7 +14,7 @@ pub mod traits;
 
 pub use aligner::{AlignerSpecialist, HarmonyEngineRelic, SymbioticResonanceReport};
 pub use archivist::{ArchivistSpecialist, MemoryIndexRelic};
-pub use fabricator::{CompilerCoreRelic, FabricatorSpecialist};
+pub use dev_tools::{CompilerCoreRelic, DevToolsSpecialist, FabricatorSpecialist};
 pub use orchestrator::{OrchestratorCoreRelic, OrchestratorSpecialist, TaskNode};
 pub use perceiver::{GatekeeperEngineRelic, PerceiverSpecialist};
 pub use presenter::{DisplayBufferRelic, PresenterSpecialist, UiPresentationFrame};
@@ -31,7 +31,7 @@ pub struct SpecialistFederation {
     pub orchestrator: OrchestratorSpecialist,
     pub synthesizer: SynthesizerSpecialist,
     pub presenter: PresenterSpecialist,
-    pub fabricator: FabricatorSpecialist,
+    pub dev_tools: DevToolsSpecialist,
     pub sentinel: SentinelSpecialist,
     pub archivist: ArchivistSpecialist,
     pub router: RouterSpecialist,
@@ -54,7 +54,7 @@ impl SpecialistFederation {
             orchestrator: OrchestratorSpecialist::new(),
             synthesizer: SynthesizerSpecialist::new(),
             presenter: PresenterSpecialist::new(),
-            fabricator: FabricatorSpecialist::new(),
+            dev_tools: DevToolsSpecialist::new(),
             sentinel: SentinelSpecialist::new(),
             archivist: ArchivistSpecialist::new(),
             router: RouterSpecialist::new(),
@@ -69,7 +69,7 @@ impl SpecialistFederation {
             0x0100 => self.orchestrator.handle_packet(packet).await,
             0x0200 => self.synthesizer.handle_packet(packet).await,
             0x0300 => self.presenter.handle_packet(packet).await,
-            0x0400 => self.fabricator.handle_packet(packet).await,
+            0x0400 => self.dev_tools.handle_packet(packet).await,
             0x0500 => self.sentinel.handle_packet(packet).await,
             0x0600 => self.archivist.handle_packet(packet).await,
             0x0700 => self.router.handle_packet(packet).await,
@@ -85,7 +85,7 @@ impl SpecialistFederation {
         reports.insert(self.orchestrator.name(), self.orchestrator.health_report());
         reports.insert(self.synthesizer.name(), self.synthesizer.health_report());
         reports.insert(self.presenter.name(), self.presenter.health_report());
-        reports.insert(self.fabricator.name(), self.fabricator.health_report());
+        reports.insert(self.dev_tools.name(), self.dev_tools.health_report());
         reports.insert(self.sentinel.name(), self.sentinel.health_report());
         reports.insert(self.archivist.name(), self.archivist.health_report());
         reports.insert(self.router.name(), self.router.health_report());

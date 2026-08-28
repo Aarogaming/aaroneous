@@ -130,3 +130,20 @@ impl HostableSpecialist for crate::federation::specialists::Archivist {
         self.load_learning_from(&guard)
     }
 }
+
+impl HostableSpecialist for crate::federation::specialists::GenericSpecialist {
+    fn persistence_key() -> &'static str {
+        // GenericSpecialist uses dynamic persistence keys based on name and domain.
+        // This static string is used only for logging in SpecialistHost; the actual
+        // persistence key is computed dynamically per instance (see GenericSpecialist::persistence_key field).
+        crate::federation::specialists::generic::PERSISTENCE_KEY_PREFIX
+    }
+    async fn save_learning(&self, pm: &SharedPersistence) -> Result<(), LearnPersistError> {
+        let guard = pm.lock().await;
+        self.save_learning_to(&guard)
+    }
+    async fn load_learning(&self, pm: &SharedPersistence) -> Result<bool, LearnPersistError> {
+        let guard = pm.lock().await;
+        self.load_learning_from(&guard)
+    }
+}

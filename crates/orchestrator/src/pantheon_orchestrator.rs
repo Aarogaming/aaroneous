@@ -13,7 +13,7 @@ use std::thread::{self, JoinHandle};
 use std::time::Duration;
 use anyhow::{bail, Result};
 
-use compute::hermes_router::HermesRouter;
+use compute::latent_router::HermesRouter;
 use compute::reflex_worker::ReflexWorker;
 use compute::si_packer::SiTierFlags;
 use compute::si_solid_state::SolidStateSiContainer;

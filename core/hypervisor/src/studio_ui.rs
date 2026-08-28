@@ -1,5 +1,5 @@
-//! core/hypervisor/src/forge_ui.rs
-//! Aaroneous Desktop Studio: Forge Studio Module.
+//! core/hypervisor/src/studio_ui.rs
+//! Aaroneous Desktop Studio: Solid-State Distillation Studio Module.
 //!
 //! Features:
 //! 1. Decouples heavy model distillation & packaging from egui's 60Hz rendering loop
@@ -17,7 +17,7 @@ use compute::si_packer::SiTierFlags;
 
 /// Status of the background model birthing process
 #[derive(Clone, PartialEq, Debug)]
-pub enum ForgeStatus {
+pub enum DistillStatus {
     Idle,
     Distilling(f32), // Progress (0.0 to 1.0)
     Packing,
@@ -25,8 +25,8 @@ pub enum ForgeStatus {
     Error(String),
 }
 
-/// The Forge Studio UI State
-pub struct ForgeStudio {
+/// The Solid-State Distillation Studio UI State
+pub struct DistillStudio {
     // Input parameters
     pub model_name: String,
     pub selected_tier: SiTierFlags,
@@ -35,21 +35,21 @@ pub struct ForgeStudio {
     pub samples: usize,
 
     // Concurrency & reactive state
-    pub current_status: ForgeStatus,
-    pub status_rx: Option<Receiver<ForgeStatus>>,
+    pub current_status: DistillStatus,
+    pub status_rx: Option<Receiver<DistillStatus>>,
     pub log_buffer: String,
     pub log_rx: Option<Receiver<String>>,
 }
 
-impl Default for ForgeStudio {
+impl Default for DistillStudio {
     fn default() -> Self {
         Self {
             model_name: "adaptation_ast_v1".to_string(),
             selected_tier: SiTierFlags::TIER_3_REFLEX,
-            dataset_path: "rosetta_code.si".to_string(),
+            dataset_path: "translation_corpus.si".to_string(),
             epochs: 5,
             samples: 50,
-            current_status: ForgeStatus::Idle,
+            current_status: DistillStatus::Idle,
             status_rx: None,
             log_buffer: String::new(),
             log_rx: None,
@@ -57,7 +57,7 @@ impl Default for ForgeStudio {
     }
 }
 
-impl ForgeStudio {
+impl DistillStudio {
     pub fn new() -> Self {
         Self::default()
     }
@@ -69,7 +69,7 @@ impl ForgeStudio {
 
         self.status_rx = Some(status_rx);
         self.log_rx = Some(log_rx);
-        self.current_status = ForgeStatus::Distilling(0.1);
+        self.current_status = DistillStatus::Distilling(0.1);
         self.log_buffer.clear();
 
         let name = self.model_name.clone();
@@ -82,12 +82,12 @@ impl ForgeStudio {
             let _ = log_tx.send(format!("🔥 [SiForge] Initializing birthing process for '{}' ({})", name, tier.label()));
             let _ = log_tx.send(format!("   -> Target Architecture: {}", tier.label()));
             let _ = log_tx.send("   -> Step 1: Synthesizing / loading teacher trajectories...".into());
-            let _ = status_tx.send(ForgeStatus::Distilling(0.3));
+            let _ = status_tx.send(DistillStatus::Distilling(0.3));
 
             let paths = aaroneous_paths::WorkspacePaths::discover();
             let out_dir = paths.data().join("models");
             let dataset_path = if dataset_str.is_empty() {
-                paths.data().join("datasets").join("rosetta_stone.si")
+                paths.data().join("datasets").join("translation_corpus.si")
             } else {
                 PathBuf::from(&dataset_str)
             };
@@ -97,20 +97,20 @@ impl ForgeStudio {
                 .with_training_data(dataset_path)
                 .with_training_params(epochs, 16, 0.001, samples);
 
-            let _ = status_tx.send(ForgeStatus::Distilling(0.7));
+            let _ = status_tx.send(DistillStatus::Distilling(0.7));
             let _ = log_tx.send("   -> Step 2: Training 2-layer GeLU bridge with CKA + InfoNCE loss...".into());
 
-            let _ = status_tx.send(ForgeStatus::Packing);
+            let _ = status_tx.send(DistillStatus::Packing);
             let _ = log_tx.send("   -> Step 3: Packing 64-byte aligned solid-state container...".into());
 
             match forge.birth(&out_dir) {
                 Ok(path) => {
                     let _ = log_tx.send(format!("✅ Successfully birthed and verified at {:?}", path));
-                    let _ = status_tx.send(ForgeStatus::Complete(path));
+                    let _ = status_tx.send(DistillStatus::Complete(path));
                 }
                 Err(e) => {
-                    let _ = log_tx.send(format!("❌ Forge Error: {}", e));
-                    let _ = status_tx.send(ForgeStatus::Error(e.to_string()));
+                    let _ = log_tx.send(format!("❌ Distillation Error: {}", e));
+                    let _ = status_tx.send(DistillStatus::Error(e.to_string()));
                 }
             }
         });
@@ -173,29 +173,29 @@ impl ForgeStudio {
         // 3. Action Controls & Real-Time Status Progress
         ui.group(|ui| {
             match &self.current_status {
-                ForgeStatus::Idle => {
+                DistillStatus::Idle => {
                     if ui.button(RichText::new("🔥 Birth .si Container").size(15.0).color(Color32::WHITE)).clicked() {
                         self.dispatch_birthing_thread();
                     }
                 }
-                ForgeStatus::Distilling(progress) => {
+                DistillStatus::Distilling(progress) => {
                     ui.label(RichText::new("⚙️ Distilling Latent Topological Manifold...").color(Color32::YELLOW));
                     ui.add(ProgressBar::new(*progress).animate(true).show_percentage());
                 }
-                ForgeStatus::Packing => {
+                DistillStatus::Packing => {
                     ui.label(RichText::new("📦 Packing 64-Byte Aligned Solid-State Memory Map...").color(Color32::LIGHT_BLUE));
                     ui.add(ProgressBar::new(1.0).animate(true));
                 }
-                ForgeStatus::Complete(path) => {
+                DistillStatus::Complete(path) => {
                     ui.colored_label(Color32::GREEN, format!("✅ Deployed to {:?}", path));
-                    if ui.button("Forge Another Model").clicked() {
-                        self.current_status = ForgeStatus::Idle;
+                    if ui.button("Distill Another Model").clicked() {
+                        self.current_status = DistillStatus::Idle;
                     }
                 }
-                ForgeStatus::Error(err) => {
+                DistillStatus::Error(err) => {
                     ui.colored_label(Color32::RED, format!("❌ Failed: {}", err));
                     if ui.button("Retry").clicked() {
-                        self.current_status = ForgeStatus::Idle;
+                        self.current_status = DistillStatus::Idle;
                     }
                 }
             }
@@ -204,7 +204,7 @@ impl ForgeStudio {
         ui.add_space(8.0);
 
         // 4. Live Log Scroll Area
-        ui.label(RichText::new("Forge Execution Logs:").strong());
+        ui.label(RichText::new("Distillation Execution Logs:").strong());
         ScrollArea::vertical().stick_to_bottom(true).max_height(160.0).show(ui, |ui| {
             ui.add_sized(
                 [ui.available_width(), 140.0],
@@ -214,7 +214,7 @@ impl ForgeStudio {
             );
         });
 
-        if self.current_status != ForgeStatus::Idle {
+        if self.current_status != DistillStatus::Idle {
             ctx.request_repaint(); // Keep responsive 60Hz telemetry
         }
     }

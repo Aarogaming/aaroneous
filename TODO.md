@@ -8,11 +8,11 @@
 
 | Concept | Technical Term | Crate |
 |---------|---------------|-------|
-| Aaroneous | Sovereign SI Runtime / Desktop Hypervisor | `a_run` (core/hypervisor) |
+| Aaroneous | Sovereign Execution Engine Runtime / Desktop Hypervisor | `a_run` (core/hypervisor) |
 | Hierarchy (Thinkers/Organizers/Workers) | Three-Tier Agent Dispatch Architecture | `orchestrator` |
 | Marionette | Desktop User Emulation (Win32 HID + overlay) | `marionette` |
 | Chimera | Polyglot AST Transpiler / Program Mutation | `chimera` |
-| SI (Synthetic Intelligence) | Machine-Native Neural Execution Substrate (`.si` containers + SSM) | `compute` |
+| Execution Engine | Machine-Native Neural Execution Substrate (`.si` containers + SSM) | `compute` |
 | Experience Solidification | Online Continual Learning with Forgetting Mitigation | `compute` (distillation) |
 | Realtime Updates | Live Model Adaptation via Dynamic LoRA / Epigenetic Matrices | `compute` |
 

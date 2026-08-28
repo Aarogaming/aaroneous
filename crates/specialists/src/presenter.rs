@@ -10,7 +10,7 @@ use tracing::info;
 
 use crate::traits::{MnlpPacket, MnlpResponse, RelicEngine, SovereignSpecialist, SpecialistHealth};
 
-/// UI Presentation frame streamed to MaelstromUI
+/// UI Presentation frame streamed to BusVisualizer
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UiPresentationFrame {
     pub active_view: String,

@@ -1,5 +1,5 @@
 //! router.rs
-//! Router (The Swift Messenger) & FederationBus (Zero-Copy P2P Synapse & Mesh Bus).
+//! Router (The Swift Messenger) & FederationBus (Zero-Copy P2P Network & Mesh Bus).
 //! Domain Opcode: 0x0700 (NETWORK_FEDERATION)
 
 use anyhow::Result;
@@ -19,7 +19,7 @@ pub struct MeshPeerState {
     pub is_connected: bool,
 }
 
-/// FederationBus Relic Engine: Zero-copy P2P packet bus and distributed synapse
+/// FederationBus Relic Engine: Zero-copy P2P packet bus and distributed network
 #[derive(Debug, Clone)]
 pub struct FederationBusRelic {
     pub packets_routed: u64,
