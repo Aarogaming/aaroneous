@@ -822,7 +822,7 @@ fn run_boot_pipeline(profile: &str) -> Result<()> {
     }
 
     println!("   -> Initializing Federated SPMC Synapse Bus (11 Channels)...");
-    let bus = std::sync::Arc::new(nervous_system::specialist_bus::SpecialistSynapseBus::new_federation());
+    let bus = std::sync::Arc::new(ipc_bus::specialist_bus::SpecialistSynapseBus::new_federation());
 
     println!("   -> Initializing Motor Cortex (Muscle Memory Constellation)...");
     let mut motor_cortex = compute::MotorCortex::new();

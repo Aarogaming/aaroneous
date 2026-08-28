@@ -2,7 +2,7 @@
 resolver = "2"
 
 members = [
-    "crates/nervous_system",
+    "crates/ipc_bus",
     "crates/specialists",
     "crates/orchestrator",
     "crates/evolution",

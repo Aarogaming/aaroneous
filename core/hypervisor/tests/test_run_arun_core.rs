@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use nervous_system::SharedMemorySynapse;
+    use ipc_bus::SharedMemorySynapse;
     use std::thread;
     use std::time::Duration;
 

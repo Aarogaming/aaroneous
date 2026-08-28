@@ -8,4 +8,4 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
-nervous_system = { path = "../../crates/nervous_system" }
+ipc_bus = { path = "../../crates/ipc_bus" }

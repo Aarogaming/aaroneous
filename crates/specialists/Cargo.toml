@@ -18,7 +18,7 @@ chrono = { version = "0.4", features = ["serde"] }
 desktop_emulator = { path = "../desktop_emulator" }
 adaptation_engine = { path = "../adaptation_engine" }
 omni = { path = "../omni" }
-nervous_system = { path = "../nervous_system" }
+ipc_bus = { path = "../ipc_bus" }
 compute = { path = "../compute" }
 paths = { package = "aaroneous_paths", path = "../paths" }
 evolution = { path = "../evolution" }

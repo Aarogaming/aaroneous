@@ -1,9 +1,8 @@
 // Aaroneous Hypervisor Core
 // The central execution runtime that hosts WASM Enzymes and manages the Synapse.
 
-pub mod nervous_system {
-    pub use nervous_system::*;
-}
+pub extern crate ipc_bus as nervous_system;
+pub use ipc_bus;
 
 pub mod sabs {
     pub use omni::matrix::*;

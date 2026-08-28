@@ -1,4 +1,5 @@
-pub use nervous_system;
+pub extern crate ipc_bus as nervous_system;
+pub use ipc_bus;
 
 /// The Rust SDK for Aaroneous.
 /// Provides high-level wrappers for the Synapse and AgentBus.

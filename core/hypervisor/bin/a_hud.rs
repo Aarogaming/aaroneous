@@ -2238,6 +2238,11 @@ impl AaroneousDesktopApp {
         // ── Active Custom Agents Grid ──────────────────────────────────────────
         let mut toggle_state = None;
         let mut delete_idx = None;
+        
+        // Load agents from disk at the start of rendering
+        if self.custom_agents.is_empty() {
+            self.custom_agents = CustomAgent::load_all_from_disk();
+        }
 
         egui::Grid::new("agents_grid")
             .num_columns(2)
@@ -2317,6 +2322,7 @@ impl AaroneousDesktopApp {
                     }
                     toast_info = Some(("Agent Paused", format!("'{}' paused.", a.name), ToastLevel::Info));
                 }
+                // Save agent state to disk immediately after change
                 a.save_to_disk();
             }
             if let Some(agent) = agent_to_spawn {

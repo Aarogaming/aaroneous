@@ -43,12 +43,12 @@ dependencies = [
  "governor",
  "hex",
  "http-body-util",
+ "ipc_bus",
  "libloading 0.9.0",
  "llama-gguf",
  "log",
  "memmap2 0.9.11",
  "moka",
- "nervous_system",
  "notify",
  "omni",
  "openraft",
@@ -108,7 +108,7 @@ dependencies = [
 name = "aaroneous_sdk"
 version = "0.1.0"
 dependencies = [
- "nervous_system",
+ "ipc_bus",
 ]
 
 [[package]]
@@ -132,7 +132,7 @@ dependencies = [
  "chrono",
  "compute",
  "goblin",
- "nervous_system",
+ "ipc_bus",
  "notify",
  "omni",
  "rand 0.8.7",
@@ -1794,8 +1794,8 @@ dependencies = [
  "burn-wgpu",
  "candle-core",
  "candle-nn",
+ "ipc_bus",
  "memmap2 0.9.11",
- "nervous_system",
  "num-traits",
  "rand 0.8.7",
  "rkyv 0.7.46",
@@ -3585,7 +3585,7 @@ dependencies = [
  "chrono",
  "compute",
  "hf-hub",
- "nervous_system",
+ "ipc_bus",
  "rand 0.8.7",
  "serde",
  "serde_json",
@@ -4903,6 +4903,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "ipc_bus"
+version = "0.2.0"
+dependencies = [
+ "anyhow",
+ "crossbeam",
+ "dirs 5.0.1",
+ "memmap2 0.9.11",
+ "parking_lot",
+ "rkyv 0.7.46",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "ipnet"
 version = "2.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5685,22 +5701,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ee6cda3051665f1fb8d9e08fc35c96d5a244fb1be711a03b71118828afc9a873"
 dependencies = [
  "jni-sys 0.3.1",
-]
-
-[[package]]
-name = "nervous_system"
-version = "0.2.0"
-dependencies = [
- "anyhow",
- "crossbeam",
- "dirs 5.0.1",
- "memmap2 0.9.11",
- "parking_lot",
- "rkyv 0.7.46",
- "serde",
- "serde_json",
- "tokio",
- "tracing",
 ]
 
 [[package]]
@@ -6498,8 +6498,8 @@ dependencies = [
  "biology",
  "chrono",
  "compute",
+ "ipc_bus",
  "memmap2 0.9.11",
- "nervous_system",
  "rand 0.8.7",
  "reqwest 0.12.28",
  "serde",
@@ -8582,7 +8582,7 @@ dependencies = [
  "compute",
  "desktop_emulator",
  "evolution",
- "nervous_system",
+ "ipc_bus",
  "omni",
  "serde",
  "serde_json",

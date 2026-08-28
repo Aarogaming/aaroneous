@@ -46,8 +46,11 @@ pub use scientific_loop::{AdaptationHypothesis, ScientificLoop, VerificationRepo
 pub use self_rebuild::{RebuildReport, SelfRebuildEngine};
 pub use self_repair::{CompilerDiagnostic, SelfRepairEngine, SelfRepairReport};
 
+pub extern crate ipc_bus as nervous_system;
+pub use ipc_bus;
+
 use anyhow::Result;
-use nervous_system::SynapseState;
+use ipc_bus::SynapseState;
 
 /// Master Adaptation Engine interface for universal software adaptation and AST repair
 pub struct AdaptationEngine;

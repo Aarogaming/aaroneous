@@ -72,7 +72,9 @@ pub use reflex_worker::ReflexWorker;
 pub use si_decoder::{ActionDecoder, DecodedActionCommand, DECODER_INTENT_DIM};
 pub use si_motor_tree::{MotorCortex, MotorSkillNode, SkillType, StarState, MOTOR_INTENT_DIM};
 pub use isolated_desktop::IsolatedDesktop;
-use nervous_system::SharedMemorySynapse;
+pub extern crate ipc_bus as nervous_system;
+pub use ipc_bus;
+use ipc_bus::SharedMemorySynapse;
 use rand::SeedableRng;
 
 /// The central Compute Engine.

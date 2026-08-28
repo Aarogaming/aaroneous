@@ -17,6 +17,9 @@ pub mod swarm_balancer;
 pub mod workflow_engine;
 pub mod workspace;
 
+pub extern crate ipc_bus as nervous_system;
+pub use ipc_bus;
+
 pub use compaction_engine::{
     CompactionSummary, CompactionEngine, HibernationManifest, SpecialistHibernationState,
 };

@@ -8,7 +8,7 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
-nervous_system = { path = "../nervous_system" }
+ipc_bus = { path = "../ipc_bus" }
 biology = { path = "../biology" }
 compute = { path = "../compute" }
 aaroneous_paths = { path = "../paths" }

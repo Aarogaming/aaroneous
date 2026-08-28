@@ -44,7 +44,7 @@ harness = false
 
 [dependencies]
 rustc-hash = "^2.1.0"
-nervous_system = { path = "../../crates/nervous_system" }
+ipc_bus = { path = "../../crates/ipc_bus" }
 omni = { path = "../../crates/omni" }
 evolution = { path = "../../crates/evolution" }
 biology = { path = "../../crates/biology" }

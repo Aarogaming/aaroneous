@@ -12,6 +12,9 @@ pub mod sentinel;
 pub mod synthesizer;
 pub mod traits;
 
+pub extern crate ipc_bus as nervous_system;
+pub use ipc_bus;
+
 pub use aligner::{AlignerSpecialist, HarmonyEngineRelic, SymbioticResonanceReport};
 pub use archivist::{ArchivistSpecialist, MemoryIndexRelic};
 pub use dev_tools::{CompilerCoreRelic, DevToolsSpecialist, FabricatorSpecialist};

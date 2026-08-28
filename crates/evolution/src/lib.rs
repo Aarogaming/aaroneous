@@ -11,6 +11,9 @@ pub mod skills;
 pub mod persona_fusion;
 pub mod workspace;
 
+pub extern crate ipc_bus as nervous_system;
+pub use ipc_bus;
+
 pub use continuous_evolution::{
     ContinuousSelfEvolutionEngine, SelfEvolutionConfig, SelfEvolutionCycleReport,
 };
