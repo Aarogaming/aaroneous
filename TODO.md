@@ -191,6 +191,17 @@ Documented in detail in `dev/docs/17_DEFECT_AUDIT_AND_REMEDIATION_PLAN.md`.
 - [ ] **#6** Resolve `SpawnWasm` dead end in `ActionExecutor` by transitioning to `.si` container execution (`core/hypervisor/src/action_executor.rs`)
 - [ ] **#7** Implement real candle tensor inference / KV-cache in `GgufProvider::chat_completion` (`crates/orchestrator/src/llm/providers/gguf.rs`)
 
+### Phase 7: Security Hardening & Containment Sandboxing (Threat Model)
+Documented in detail in `dev/docs/15_AUTONOMOUS_ACTION_THREAT_MODEL_AND_SECURITY_SPEC.md`.
+
+- [ ] **SEC-01** Enforce strict canonical workspace root check in `ActionExecutor::execute_file_operation` (`core/hypervisor/src/action_executor.rs`)
+- [ ] **SEC-02** Lockdown CORS in HTTP server and auto-generate local session tokens when `AARONEOUS_API_KEY` is unset (`core/hypervisor/src/federation/http/router.rs`)
+- [ ] **SEC-03** Enforce constant-time equality check for API key bearer tokens (`core/hypervisor/src/federation/http/router.rs`)
+- [ ] **SEC-04** Apply Windows Security Descriptor DACL to restrict Named Pipe access to current user SID (`crates/nervous_system/src/comm/mod.rs`)
+- [ ] **SEC-05** Implement emergency breakout hook / screen-corner mouse failsafe for HID input injection (`crates/desktop_emulator/src/native_win32.rs`)
+- [ ] **SEC-06** Replace `DefaultHasher` in `system_integrity.rs` with cryptographic SHA-256 / BLAKE3 hashing (`core/hypervisor/src/system_integrity.rs`)
+- [ ] **SEC-07** Store SHA-256 hashes instead of plaintext API keys in `ApiKeyAuth` (`core/hypervisor/src/mcp_service/auth.rs`)
+
 ---
 
 *Last updated: 2026-08-28*
