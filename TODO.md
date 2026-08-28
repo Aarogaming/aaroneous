@@ -170,18 +170,20 @@
 - [x] Workflow persistence (crash-recoverable DAG)
 - [x] Swarm load balancing with NATS
 
-### Phase 5: Crate Versioning & Release Coordination
-Current state: workspace root `0.1.0`, most crates `0.1.0`, `nervous_system` `0.2.0`.
+### Phase 6: Top 10 Critical Defect Remediation (Active Audit)
+Documented in detail in `dev/docs/17_DEFECT_AUDIT_AND_REMEDIATION_PLAN.md`.
 
-- [ ] Audit inter-crate dependency graph for version compatibility
-- [ ] Bump `orchestrator` to `0.2.0` (breaking: `IntelligenceEngine::new()` returns `Result`)
-- [ ] Bump `a_run` (core/hypervisor) to `0.2.0` (breaking: `OrchestrationDaemon::new()` returns `Result`)
-- [ ] Align workspace root version with release target (`0.3.2` per changelog)
-- [ ] Update `Cargo.toml` workspace `package.version` to match
-- [ ] Verify all `path = "..."` dependencies resolve correctly after bumps
-- [ ] Tag release commit with `git tag v0.3.2`
-- [ ] Update `deploy/package_release.ps1` if version hardcoded
+- [ ] **#1** Enforce 8-byte pointer boundary alignment in `NucleotidePacket::from_bytes` (`crates/nervous_system/src/nucleotide_packet.rs`)
+- [ ] **#2** Implement `impl Drop` for Win32 GDI handles in `NativeWin32Marionette` (`crates/desktop_emulator/src/native_win32.rs`)
+- [ ] **#3** Replace raw byte slicing with UTF-8 character boundary safe truncation in `P2pNodeId::short()` and `GgufProvider::truncate` (`core/hypervisor/src/federation/p2p/mod.rs`, `crates/orchestrator/src/llm/providers/gguf.rs`)
+- [ ] **#4** Zero out trailing memory in `a_hud.rs` shared memory synapse intent injection (`core/hypervisor/bin/a_hud.rs`)
+- [ ] **#5** Fix argument slice passing and replace `cargo run` dependency in `ProcessLifecycleManager::spawn` (`core/hypervisor/src/orchestration_daemon.rs`)
+- [ ] **#6** Resolve `SpawnWasm` dead end in `ActionExecutor` by transitioning to `.si` container execution (`core/hypervisor/src/action_executor.rs`)
+- [ ] **#7** Implement real candle tensor inference / KV-cache in `GgufProvider::chat_completion` (`crates/orchestrator/src/llm/providers/gguf.rs`)
+- [ ] **#8** Replace unbounded vectors in `TelemetryBuffer` and `MetricsCollector` with bounded ring buffers (`crates/transpiler/src/polyglot.rs`)
+- [ ] **#9** Unify `swmr_synapse::resolve_synapse_path` with `aaroneous_paths::WorkspacePaths` across platforms (`crates/nervous_system/src/swmr_synapse.rs`)
+- [ ] **#10** Wire `SynapseBridge` in Rust SDK to connect to `nervous_system::SharedMemorySynapse` (`sdk/rust/src/lib.rs`)
 
 ---
 
-*Last updated: 2026-08-25*
+*Last updated: 2026-08-28*
