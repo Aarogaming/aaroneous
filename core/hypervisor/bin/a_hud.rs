@@ -1372,6 +1372,7 @@ impl AaroneousDesktopApp {
                 self.dynamic_window_status = format!("Created live '{}' tool!", win.title);
                 self.show_toast("Tool Synthesized", format!("Created '{}' widget.", win.title), ToastLevel::Success);
                 self.dynamic_windows.push(win);
+                self.dynamic_prompt_input.clear();
             }
 
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
