@@ -48,7 +48,7 @@ pub struct ExperiencePersonaLayer {
     pub domain_embeddings: Vec<Vec<f32>>,
 }
 
-/// Complete 5-Layer Composite Persona Vector
+/// Complete 5-Layer Composite Persona / Compound Agent Profile Vector
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CompositePersonaVector {
     pub specialist_id: String,
@@ -60,6 +60,9 @@ pub struct CompositePersonaVector {
     pub experience: ExperiencePersonaLayer,
 }
 
+pub type CompoundAgentProfile = CompositePersonaVector;
+pub type OlympianPersonaVector = CompositePersonaVector;
+
 /// An Emergent Fused Skill created from synthesizing two foundational skills
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FusedEmergentSkill {
@@ -70,8 +73,10 @@ pub struct FusedEmergentSkill {
     pub rank_requirement: String,
 }
 
-/// Persona Fusion and Skill Synthesis Engine
+/// Persona Fusion and Skill Synthesis Engine (Capability Fusion)
 pub struct PersonaFusionEngine;
+
+pub type CapabilityFusionEngine = PersonaFusionEngine;
 
 impl PersonaFusionEngine {
     /// Constructs a standard 5-Layer Persona Vector for a Federated Specialist

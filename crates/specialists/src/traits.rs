@@ -38,9 +38,9 @@ pub struct SpecialistHealth {
     pub last_active: DateTime<Utc>,
 }
 
-/// Standard trait contract implemented by every Federated Sovereign Specialist
+/// Standard trait contract implemented by every Specialist
 #[async_trait]
-pub trait SovereignSpecialist: Send + Sync {
+pub trait Specialist: Send + Sync {
     /// Canonical specialist name (e.g. "Orchestrator", "Synthesizer")
     fn name(&self) -> &'static str;
 
@@ -68,14 +68,30 @@ pub trait SovereignSpecialist: Send + Sync {
     }
 }
 
-/// Standard trait contract implemented by every autonomous Relic Engine
-pub trait RelicEngine: Send + Sync {
-    /// Canonical name of the Relic Engine (e.g. "OrchestratorCore", "KnowledgeStore", "MemoryIndex")
-    fn relic_name(&self) -> &'static str;
+/// Backwards-compatible type alias
+pub use Specialist as SovereignSpecialist;
 
-    /// The name of the supervising federated specialist
+/// Standard trait contract implemented by every autonomous Domain Sub-Engine
+pub trait DomainSubEngine: Send + Sync {
+    /// Canonical name of the Domain Sub-Engine (e.g. "TaskSchedulerEngine", "KnowledgeStoreEngine")
+    fn engine_name(&self) -> &'static str;
+
+    /// The name of the supervising specialist
     fn supervisor_name(&self) -> &'static str;
 
-    /// Current operational metrics of the relic engine
-    fn relic_status(&self) -> String;
+    /// Current operational metrics of the sub-engine
+    fn engine_status(&self) -> String;
+
+    /// Backwards-compatible alias for engine_name
+    fn relic_name(&self) -> &'static str {
+        self.engine_name()
+    }
+
+    /// Backwards-compatible alias for engine_status
+    fn relic_status(&self) -> String {
+        self.engine_status()
+    }
 }
+
+/// Backwards-compatible type alias
+pub use DomainSubEngine as RelicEngine;

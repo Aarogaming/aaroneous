@@ -4,6 +4,81 @@ All notable changes to Aaroneous.
 
 > **Architectural Note:** References in historical changelog sections (< v0.1.0) to `components/*` describe the legacy monolithic prototype layout. In v0.1.0+, all components were refactored into `core/hypervisor` and the 12 sovereign `crates/*` workspace crates.
 
+## [0.4.0] - 2026-08-31
+
+### 🛡️ Security Hardening, Subsystem Realignment, Sandboxed Micro-VM, GPU Compute & Live Telemetry
+
+#### Security & Sandboxing (Phase 7 & Phase 11)
+- **`core/hypervisor/src/action_executor.rs` (SEC-01)**:
+  - Implemented `validate_sandbox_path` to enforce canonical root path containment and reject directory traversal attacks (`../`).
+- **`core/hypervisor/src/federation/http/router.rs` (SEC-02, SEC-03)**:
+  - Added strict production CORS exact origin filtering.
+  - Replaced variable-time string comparisons with `subtle::ConstantTimeEq` constant-time bearer token validation.
+- **`crates/ipc_bus/src/comm/mod.rs` (SEC-04)**:
+  - Restricted Named Pipe connections to localhost, rejecting remote network client connections.
+- **`crates/desktop_emulator/src/native_win32.rs` (SEC-05)**:
+  - Implemented top-left screen corner cursor failsafe to instantly abort automated mouse/keyboard input.
+- **`core/hypervisor/src/system_integrity.rs` (SEC-06)**:
+  - Added full SHA-256 integrity digest checks across critical workspace paths.
+- **`core/hypervisor/src/mcp_service/auth.rs` (SEC-07)**:
+  - Replaced plaintext API keys with in-memory SHA-256 hashed storage.
+- **`core/hypervisor/src/micro_vm.rs` (Phase 11)**:
+  - Implemented pure-Rust 16-register Virtual Machine (`MicroBytecodeVm`) with arithmetic, memory, and branch opcodes.
+  - Strict instruction gas metering (`VmError::GasExhausted`) and linear memory bounds checking (`VmError::MemoryOutOfBounds`).
+  - Integrated with `ActionExecutor::ExecuteMicroBytecode`.
+
+#### Architecture & Subsystem Realignment (Phase 8 & Phase 9)
+- **`crates/specialists/src/` (ARCH-01)**:
+  - Unified all 9 domain specialists (`Perceiver`, `Presenter`, `Orchestrator`, `Synthesizer`, `Archivist`, `DevTools`, `Sentinel`, `Aligner`, `Router`) under the `DomainSubEngine` trait.
+- **`crates/ipc_bus/src/persistent_grimoire.rs` (ARCH-02)**:
+  - Standardized Write-Ahead Log to `PersistentWalStore` and `WalRecord` with `b"AWAL"` and `b"GRIM"` magic bytes.
+- **`core/hypervisor/src/enzyme_runner.rs` (ARCH-03)**:
+  - Added modern systems aliases (`MicroTaskRunner`, `ExplorationWorker`, `ResearchWorker`, `ExecutionWorker`, `ProtocolGatewayWorker`, `SelfCorrectionWorker`).
+- **`core/hypervisor/src/hox_registry.rs` (ARCH-04)**:
+  - Realigned capability management with `CapabilitySchemaRegistry` and `CapabilityDescriptor`.
+- **`core/hypervisor/bin/a_hud.rs` (ARCH-05)**:
+  - Modernized telemetry HUD navigation tabs (`ScreenAutomation`, `LearningAndSelfPlay`, `GalaxyMap3D`).
+- **`sdk/rust/src/lib.rs` (Phase 9)**:
+  - Re-exported modern IPC types (`SynapseBridge`, `PersistentWalStore`, `MachinePacket`) with verified doc-tests.
+
+#### Extended Verification, Multi-Host Transport & GPU Compute (Phases 5, 10, 12, 13)
+- **`crates/specialists/tests/test_specialists_end_to_end.rs` (Phase 5)**:
+  - Added 120-packet concurrent burst stress test across all 9 domain specialists.
+- **`crates/orchestrator/src/tier_allocator.rs` (Phase 5)**:
+  - Verified multi-tier CPU thread pinning (`TIER_1_CORTEX`, `TIER_2_ROUTER`, `TIER_3_REFLEX`).
+- **`core/hypervisor/src/federation/p2p/mod.rs` (Phase 10)**:
+  - Implemented length-prefixed TCP streaming listener (`bind_listener`), remote stream connector (`connect_remote_stream`), and direct peer channels (`register_direct_peer`).
+- **`crates/compute/src/burn_gpu.rs` (Phase 12)**:
+  - Implemented fast matrix-vector products (`compute_matrix_vector_product`), continuous SSM recurrence (`compute_ssm_recurrence`), and stable softmax probability calculations (`compute_softmax_probabilities`).
+- **`crates/desktop_emulator/src/native_win32.rs` (Phase 12)**:
+  - Implemented `DxgiHardwareFrameBuffer` with 256-byte pitch alignment for zero-copy GPU video streaming.
+- **`core/hypervisor/src/federation/http/router.rs` & `crates/specialists/src/presenter.rs` (Phase 13)**:
+  - Added `/v1/telemetry/stream` live SSE telemetry stream.
+  - Implemented `InteractionHeatmap` and `compute_adaptive_layout` for automated UI tuning.
+- **`core/hypervisor/src/consensus_engine.rs` (Phase 14)**:
+  - Implemented Raft cluster consensus state machine (`RaftRole::Leader`/`Follower`/`Candidate`) with quorum election rounds, monotonic term transitions, and distributed WAL replication (`append_wal_mutation`).
+- **`crates/compute/src/si_spec.rs` (Phase 18)**:
+  - Established canonical `.si` cartridge standard v3.0 (`b"SINT"`) with 64-byte aligned binary headers, CRC32 checksums, and explicit section offset tables.
+  - Standardized three-block memory-mapped topology (Block 1: Frozen Core SSM Weights, Block 2: Dynamic Adaptation Matrix, Block 3: Episodic Skill Stack & Habits).
+  - Built pure-Rust `SiCartridgeEngine` verification, linting, unpacking, packing, and diffing tool suite.
+- **`crates/adaptation_engine/src/ast_parser.rs` & `auto_wrapper.rs` (Phase 15)**:
+  - Added polyglot source parsing (`Rust`, `Python`, `TypeScript`, `Cpp`) and incremental structural AST diffing.
+  - Implemented safe automated C-ABI FFI wrapper harness synthesis (`synthesize_c_abi_ffi_harness`) for runtime native library binding.
+- **`crates/autonomic_adaptation/src/continuous_evolution.rs` (Phase 16)**:
+  - Implemented `adapt_from_reward` for real-time online weight steering modulated by closed-loop control states with TD($\lambda$) eligibility traces and Orthogonal Gradient Projection.
+  - Implemented `crystallize_habit_cartridge` packaging high-frequency execution traces into canonical `.si` cartridges v3.0.
+- **`crates/governance` & `crates/autonomic_adaptation` (Machine-Native Systems Realignment)**:
+  - Realigned `crates/biology` to `crates/governance` and `crates/evolution` to `crates/autonomic_adaptation`.
+  - Realigned all 9 specialist state buffers from `*Relic` to `*Substrate` in `crates/specialists/`.
+  - Realigned homeostatic controllers to `FeedbackRegulator`, `DynamicEquilibriumState`, `SystemHealthGovernor`, `AdaptiveControlState`, and `AutonomicStateRegulator`.
+  - Standardized `MnlpProtocolBridge`, `CompoundAgentProfile`, `ParameterLocus`, and `WasmHotSwapEngine`.
+- **`core/hypervisor/bin/a_hud.rs` (Phase 17 — Native WGPU 3D Constellation Studio)**:
+  - Integrated pure-Rust 3D perspective projection with depth fogging, $z$-depth sort ordering, 360° pitch/yaw orbit drag controls, and smooth scroll zoom in `render_galaxy_3d_view`.
+  - Implemented interactive star node selection, live execution trace pulse lines traveling along constellation edges, domain filter chips, and specialist detail inspector card with direct native channel task dispatch triggers.
+- **`crates/desktop_emulator` (Phase 19 — Multi-Modal Vision & Audio Loopback Pipeline)**:
+  - Implemented `SolidStateVisionPipeline` (`vision_latent.rs`) for sub-5ms 64-D spatial latent extraction, temporal entropy, and motion delta from `DxgiHardwareFrameBuffer`.
+  - Implemented `WasapiAudioStreamAnalyzer` (`audio_analyzer.rs`) for 8-band Goertzel log frequency spectrum analysis, transient acoustic spike detection, and speech event tokenization (`AudioEventObservation`).
+
 ## [0.3.2] - 2026-08-25
 
 ### 🔧 Orchestrator Compilation Fixes, Core Orchestration & LLM Integration

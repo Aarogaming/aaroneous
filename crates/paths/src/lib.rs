@@ -168,7 +168,7 @@ impl WorkspacePaths {
     }
 
     pub fn specialists(&self) -> PathBuf {
-        self.root.join("specialists")
+        self.crates().join("specialists")
     }
 
     pub fn sovereign_model(&self, sovereign: &str) -> PathBuf {
@@ -365,6 +365,7 @@ mod tests {
         let paths = WorkspacePaths::discover();
         assert!(!paths.root().as_os_str().is_empty());
         assert_eq!(paths.crates(), paths.root().join("crates"));
+        assert_eq!(paths.specialists(), paths.crates().join("specialists"));
         assert_eq!(paths.models(), paths.root().join("models"));
     }
 

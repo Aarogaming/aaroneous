@@ -10,15 +10,18 @@ use std::sync::Arc;
 use tracing::info;
 
 use omni::{OmniEngine, SpatialCoord, StarNode, StarNodeType};
-use crate::traits::{MnlpPacket, MnlpResponse, RelicEngine, SovereignSpecialist, SpecialistHealth};
+use crate::traits::{DomainSubEngine, MnlpPacket, MnlpResponse, SovereignSpecialist, SpecialistHealth};
 
-/// MemoryIndex Relic Engine wrapper for Archivist
-pub struct MemoryIndexRelic {
+/// MemoryIndexEngine: 3D Galaxy semantic data access and indexing sub-engine
+pub struct MemoryIndexEngine {
     pub omni_engine: Arc<OmniEngine>,
 }
 
-impl RelicEngine for MemoryIndexRelic {
-    fn relic_name(&self) -> &'static str {
+/// Backwards-compatible alias
+pub type MemoryIndexRelic = MemoryIndexEngine;
+
+impl DomainSubEngine for MemoryIndexEngine {
+    fn engine_name(&self) -> &'static str {
         "MemoryIndex"
     }
 
@@ -26,17 +29,18 @@ impl RelicEngine for MemoryIndexRelic {
         "Archivist"
     }
 
-    fn relic_status(&self) -> String {
+    fn engine_status(&self) -> String {
         "MemoryIndex 3D Galaxy Engine: Online and clustering star-nodes".to_string()
     }
 }
 
-/// Archivist Sovereign Specialist
+/// Archivist Specialist
 pub struct ArchivistSpecialist {
     pub tokens: f32,
     pub max_tokens: f32,
     pub omni_engine: Arc<OmniEngine>,
-    pub relic: MemoryIndexRelic,
+    pub memory_index: MemoryIndexEngine,
+    pub relic: MemoryIndexEngine,
     pub neurochemistry: evolution::NeurochemicalHomeostasisEngine,
 }
 
@@ -53,7 +57,8 @@ impl ArchivistSpecialist {
             tokens: 100.0,
             max_tokens: 100.0,
             omni_engine: omni.clone(),
-            relic: MemoryIndexRelic { omni_engine: omni },
+            memory_index: MemoryIndexEngine { omni_engine: omni.clone() },
+            relic: MemoryIndexEngine { omni_engine: omni },
             neurochemistry: evolution::NeurochemicalHomeostasisEngine::default(),
         }
     }

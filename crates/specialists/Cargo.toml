@@ -21,4 +21,4 @@ omni = { path = "../omni" }
 ipc_bus = { path = "../ipc_bus" }
 compute = { path = "../compute" }
 paths = { package = "aaroneous_paths", path = "../paths" }
-evolution = { path = "../evolution" }
+autonomic_adaptation = { path = "../autonomic_adaptation" }

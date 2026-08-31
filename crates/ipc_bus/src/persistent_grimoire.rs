@@ -1,4 +1,4 @@
-//! crates/nervous_system/src/persistent_grimoire.rs
+//! crates/ipc_bus/src/persistent_grimoire.rs
 //! High-Performance Embedded ACID Key-Value & Intent Persistence Engine.
 //! Provides durability across daemon reboots, intent history tracking, and specialist skill persistence.
 
@@ -10,12 +10,13 @@ use std::io::{BufReader, BufWriter, Read, Write};
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-const GRIMOIRE_MAGIC: &[u8; 4] = b"GRIM";
-const GRIMOIRE_VERSION: u16 = 1;
+const WAL_MAGIC: &[u8; 4] = b"AWAL";
+const LEGACY_MAGIC: &[u8; 4] = b"GRIM";
+const WAL_VERSION: u16 = 1;
 
-/// A durable record stored in the Grimoire WAL
+/// A durable record stored in the Write-Ahead Log (WAL)
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct GrimoireRecord {
+pub struct WalRecord {
     pub key: String,
     pub value: Vec<u8>,
     pub generation: u64,
@@ -23,16 +24,22 @@ pub struct GrimoireRecord {
     pub is_tombstone: bool,
 }
 
-/// Persistent Grimoire Key-Value & Intent Store
-pub struct PersistentGrimoireStore {
+/// Backwards-compatible alias
+pub type GrimoireRecord = WalRecord;
+
+/// Persistent Write-Ahead Log (WAL) Key-Value & Intent Store
+pub struct PersistentWalStore {
     db_path: PathBuf,
     wal_file: BufWriter<File>,
     index: BTreeMap<String, Vec<u8>>,
     current_generation: u64,
 }
 
-impl PersistentGrimoireStore {
-    /// Opens or creates a durable Grimoire database at the given path
+/// Backwards-compatible alias
+pub type PersistentGrimoireStore = PersistentWalStore;
+
+impl PersistentWalStore {
+    /// Opens or creates a durable database at the given path
     pub fn open(db_path: impl AsRef<Path>) -> Result<Self> {
         let path = db_path.as_ref().to_path_buf();
         if let Some(parent) = path.parent() {
@@ -49,14 +56,14 @@ impl PersistentGrimoireStore {
                 let mut reader = BufReader::new(read_file);
                 let mut magic = [0u8; 4];
                 reader.read_exact(&mut magic)?;
-                if &magic != GRIMOIRE_MAGIC {
-                    return Err(anyhow!("Invalid Grimoire database magic bytes"));
+                if &magic != WAL_MAGIC && &magic != LEGACY_MAGIC {
+                    return Err(anyhow!("Invalid database magic bytes"));
                 }
                 let mut version_bytes = [0u8; 2];
                 reader.read_exact(&mut version_bytes)?;
                 let version = u16::from_le_bytes(version_bytes);
-                if version != GRIMOIRE_VERSION {
-                    return Err(anyhow!("Unsupported Grimoire database version: {}", version));
+                if version != WAL_VERSION {
+                    return Err(anyhow!("Unsupported database version: {}", version));
                 }
 
                 // Read records iteratively until EOF
@@ -66,7 +73,7 @@ impl PersistentGrimoireStore {
                 } {
                     let mut record_bytes = vec![0u8; len_bytes as usize];
                     reader.read_exact(&mut record_bytes)?;
-                    if let Ok(record) = serde_json::from_slice::<GrimoireRecord>(&record_bytes) {
+                    if let Ok(record) = serde_json::from_slice::<WalRecord>(&record_bytes) {
                         max_generation = max_generation.max(record.generation);
                         if record.is_tombstone {
                             index.remove(&record.key);
@@ -89,8 +96,8 @@ impl PersistentGrimoireStore {
 
         // If file was brand new, write magic header
         if wal_file.get_ref().metadata()?.len() == 0 {
-            wal_file.write_all(GRIMOIRE_MAGIC)?;
-            wal_file.write_all(&GRIMOIRE_VERSION.to_le_bytes())?;
+            wal_file.write_all(WAL_MAGIC)?;
+            wal_file.write_all(&WAL_VERSION.to_le_bytes())?;
             wal_file.flush()?;
         }
 
@@ -115,7 +122,7 @@ impl PersistentGrimoireStore {
         let val_bytes = value.into();
         self.current_generation += 1;
 
-        let record = GrimoireRecord {
+        let record = WalRecord {
             key: key_str.clone(),
             value: val_bytes.clone(),
             generation: self.current_generation,
@@ -147,7 +154,7 @@ impl PersistentGrimoireStore {
         }
 
         self.current_generation += 1;
-        let record = GrimoireRecord {
+        let record = WalRecord {
             key: key.to_string(),
             value: Vec::new(),
             generation: self.current_generation,
@@ -203,11 +210,11 @@ impl PersistentGrimoireStore {
                     .open(&temp_path)?,
             );
 
-            temp_file.write_all(GRIMOIRE_MAGIC)?;
-            temp_file.write_all(&GRIMOIRE_VERSION.to_le_bytes())?;
+            temp_file.write_all(WAL_MAGIC)?;
+            temp_file.write_all(&WAL_VERSION.to_le_bytes())?;
 
             for (k, v) in &self.index {
-                let record = GrimoireRecord {
+                let record = WalRecord {
                     key: k.clone(),
                     value: v.clone(),
                     generation: self.current_generation,

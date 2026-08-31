@@ -11,7 +11,7 @@ repository.workspace = true
 ipc_bus = { path = "../ipc_bus" }
 aaroneous_paths = { path = "../paths" }
 compute = { path = "../compute" }
-biology = { path = "../biology" }
+governance = { path = "../governance" }
 omni = { path = "../omni" }
 candle-core = "0.8"
 regex = "1.10"

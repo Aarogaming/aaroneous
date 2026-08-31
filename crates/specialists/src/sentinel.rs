@@ -8,7 +8,7 @@ use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use tracing::{info, warn};
 
-use crate::traits::{MnlpPacket, MnlpResponse, RelicEngine, SovereignSpecialist, SpecialistHealth};
+use crate::traits::{DomainSubEngine, MnlpPacket, MnlpResponse, SovereignSpecialist, SpecialistHealth};
 
 /// Security audit verification report
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -19,14 +19,17 @@ pub struct SecurityAuditReport {
     pub rate_limit_passed: bool,
 }
 
-/// AuditEngine Relic Engine: Cryptographic secrets vault & boundary firewall
-pub struct AuditEngineRelic {
+/// SecurityAuditEngine: Cryptographic secrets vault & boundary firewall sub-engine
+pub struct SecurityAuditEngine {
     pub threats_blocked: usize,
     pub audits_performed: usize,
     pub sentinel_engine: compute::ArgusSafetySentinel,
 }
 
-impl Default for AuditEngineRelic {
+/// Backwards-compatible alias
+pub type AuditEngineRelic = SecurityAuditEngine;
+
+impl Default for SecurityAuditEngine {
     fn default() -> Self {
         Self {
             threats_blocked: 0,
@@ -36,28 +39,29 @@ impl Default for AuditEngineRelic {
     }
 }
 
-impl RelicEngine for AuditEngineRelic {
-    fn relic_name(&self) -> &'static str {
-        "AuditEngine"
+impl DomainSubEngine for SecurityAuditEngine {
+    fn engine_name(&self) -> &'static str {
+        "SecurityAudit"
     }
 
     fn supervisor_name(&self) -> &'static str {
         "Sentinel"
     }
 
-    fn relic_status(&self) -> String {
+    fn engine_status(&self) -> String {
         format!(
-            "AuditEngine Firewall: {} audits completed, {} malicious/unsafe operations blocked",
+            "SecurityAudit Firewall: {} audits completed, {} malicious/unsafe operations blocked",
             self.audits_performed, self.threats_blocked
         )
     }
 }
 
-/// Sentinel Sovereign Specialist
+/// Sentinel Specialist
 pub struct SentinelSpecialist {
     pub tokens: f32,
     pub max_tokens: f32,
-    pub sentinel: AuditEngineRelic,
+    pub security_auditor: SecurityAuditEngine,
+    pub sentinel: SecurityAuditEngine,
 }
 
 impl Default for SentinelSpecialist {
@@ -71,7 +75,8 @@ impl SentinelSpecialist {
         Self {
             tokens: 100.0,
             max_tokens: 100.0,
-            sentinel: AuditEngineRelic::default(),
+            security_auditor: SecurityAuditEngine::default(),
+            sentinel: SecurityAuditEngine::default(),
         }
     }
 

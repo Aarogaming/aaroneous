@@ -40,6 +40,12 @@ pub struct EnzymeRunner {
     test_enzyme: NativeTestEnzyme,
 }
 
+/// Modern micro-task runner alias
+pub type MicroTaskRunner = EnzymeRunner;
+
+/// Modern micro-task worker trait alias
+pub use NativeEnzyme as MicroTaskWorker;
+
 impl EnzymeRunner {
     pub fn new() -> Result<Self> {
         Ok(Self {

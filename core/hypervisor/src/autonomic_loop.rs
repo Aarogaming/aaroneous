@@ -63,7 +63,7 @@ impl LegacySharedMemorySynapse {
 }
 
 use crate::concept_drift::ConceptDriftDetector;
-use crate::dopamine_system::{DopamineEvent, DopamineSystem};
+use crate::dopamine_system::{DopamineEvent, DopamineSystem, FeedbackSignalProcessor};
 use crate::enzyme_runner::EnzymeRunner;
 use crate::enzyme_types::{CuriosityEnzyme, DiplomatEnzyme, SelfCorrectionEnzyme};
 use crate::epigenetic_orchestrator::EpigeneticOrchestrator;
@@ -287,7 +287,7 @@ impl AutonomicNervousSystem {
             learning_loop: learning_loop.clone(),
             nlm_sentinel: Arc::new(NlmSentinel::new()?),
             prefrontal_cortex: Arc::new(PrefrontalCortex),
-            dopamine_system: Arc::new(DopamineSystem),
+            dopamine_system: Arc::new(FeedbackSignalProcessor),
             epigenetic_orchestrator: Arc::new(EpigeneticOrchestrator::new()),
             self_correction_enzyme: Arc::new(SelfCorrectionEnzyme::new()),
             neural_pruning_enzyme: Arc::new(NeuralPruningEnzyme::new(60)),

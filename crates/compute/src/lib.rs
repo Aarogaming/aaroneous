@@ -39,8 +39,14 @@ pub mod reflex_worker;
 pub mod si_decoder;
 pub mod si_motor_tree;
 pub mod isolated_desktop;
+pub mod si_spec;
 
 pub use burn_gpu::{GpuTensorAccelerator, GpuTensorProfile};
+pub use si_spec::{
+    compute_crc32, SiCartridgeDeconstructed, SiCartridgeDiffReport, SiCartridgeEngine,
+    SiCartridgeHeader, SiCartridgeReport, SI_CANONICAL_MAGIC, SI_CANONICAL_VERSION,
+    SI_FLAG_TIER_1_CORTEX, SI_FLAG_TIER_2_ROUTER, SI_FLAG_TIER_3_REFLEX, SI_HEADER_SIZE,
+};
 pub use machine_native::{
     DimensionalUnit, EdgeLinguisticLens, MachineNativePredictionEngine, MachineOpcode,
     NativeComputationNode, NativeComputationalGraph, NativeTypeLattice,

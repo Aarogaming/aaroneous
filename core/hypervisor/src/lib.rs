@@ -3,6 +3,10 @@
 
 pub extern crate ipc_bus as nervous_system;
 pub use ipc_bus;
+pub extern crate autonomic_adaptation as evolution;
+pub use autonomic_adaptation;
+pub extern crate governance as biology;
+pub use governance;
 
 pub mod sabs {
     pub use omni::matrix::*;
@@ -146,9 +150,20 @@ pub use constellation_ui::{ConstellationCanvas, NodeMetrics};
 pub mod autonomic_loop;
 pub use autonomic_loop::AutonomicNervousSystem;
 
+// Sandboxed Micro-Worker Bytecode Virtual Machine
+pub mod micro_vm;
+pub use micro_vm::{
+    MicroBytecodeVm, VmError, VmExecutionResult, VmInstruction, VmProgram,
+    DEFAULT_GAS_LIMIT, DEFAULT_MEMORY_LIMIT, REGISTER_COUNT,
+};
+
 // Consensus Engine for High-Availability
 pub mod consensus_engine;
-pub use consensus_engine::{ConsensusEngine, DecisionStatus, DecisionType, ProposedDecision, Vote};
+pub use consensus_engine::{
+    ConsensusEngine, DecisionStatus, DecisionType, DistributedWalEntry, ProposedDecision,
+    RaftAppendEntriesRequest, RaftAppendEntriesResponse, RaftClusterState, RaftRole,
+    RaftVoteRequest, RaftVoteResponse, Vote,
+};
 
 // State Replication for High-Availability
 pub mod state_replicator;
@@ -207,6 +222,7 @@ pub mod concept_drift;
 pub mod config_validation;
 pub mod dopamine_system;
 pub mod enzyme_runner;
+pub use enzyme_runner::MicroTaskRunner;
 pub mod enzyme_types; // Consolidated: self_correction_enzyme, diplomat_enzyme, curiosity_enzyme, research_enzyme, execution_enzyme
 pub mod epigenetic_gate;
 pub mod epigenetic_orchestrator;
@@ -220,6 +236,7 @@ pub mod hid_driver;
 pub mod hox_map_schema;
 pub mod hox_persistence;
 pub mod hox_registry;
+pub use hox_registry::CapabilitySchemaRegistry;
 pub mod llm;
 pub mod lora_adapter_vault;
 pub mod mcp_service;
@@ -237,8 +254,21 @@ pub mod spatial_kinetic_engine;
 pub mod specialist_memory;
 pub mod spectral_layout;
 pub mod splicing_engine;
+pub use splicing_engine::{PluginHotSwapEngine, WasmHotSwapEngine, WasmSplicingEngine};
 pub mod substrate;
 pub mod synapse;
+pub mod interconnect {
+    pub use crate::synapse::*;
+}
+pub use dopamine_system::{FeedbackEvent, FeedbackSignalProcessor, RewardSignalProcessor};
+pub use interconnect::{
+    InterconnectBus, InterconnectMcpFrame, InterconnectPayload, InterconnectState,
+    SpecialistBusDialogue,
+};
+pub mod retina_module;
+pub use retina_module::{
+    SharedBusWebIngest, TokenIngestionEngine, WebIngestionEngine, WebSamplerModule,
+};
 pub mod tensor_router;
 pub mod hypervisor_hud;
 pub mod ui_broker;

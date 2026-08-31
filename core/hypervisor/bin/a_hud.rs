@@ -30,6 +30,7 @@ use crossbeam_channel::{unbounded, Receiver, Sender};
 use eframe::egui::{self, Color32, CornerRadius, Pos2, Stroke, TextureOptions, Vec2};
 use memmap2::{MmapMut, MmapOptions};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::fs::{self, OpenOptions};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -107,21 +108,25 @@ impl HudTheme {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum NavSection {
     // Cognitive Hypervisor Main Deck
-    Pantheon,      // 🏛️ 9 Sovereign Domain Specialists & Hive Intent
-    Cosmos3D,      // 🌌 3D Omni Knowledge Galaxy
-    LivingMind,    // 🧬 Neurochemistry & Dream Engine Self-Play
-    SiForge,       // ⚡ Solid-State SI Model Forge & Compiler
-    GhostStation,  // 👁️ Epigenetic Vision & Sandboxed Motor Engine
-    SwarmMesh,     // 🌐 FederationBus Multi-Hive P2P Swarm Mesh
-    Agents,        // 🤖 Autonomous SI Agents & Workflows
-    Settings,      // ⚙️ Preferences, Model Hub & Shaders
+    #[serde(alias = "Pantheon")]
+    Specialists,          // 👥 9 Domain Specialists & Hive Intent
+    GalaxyMap3D,          // 🌌 3D Omni Knowledge Galaxy
+    LearningAndSelfPlay,  // 🧬 Neurochemistry & Self-Play Learning
+    SiForge,              // ⚡ Solid-State SI Model Forge & Compiler
+    ScreenAutomation,     // 👁️ Epigenetic Vision & Sandboxed Motor Engine
+    SwarmMesh,            // 🌐 FederationBus Multi-Hive P2P Swarm Mesh
+    Agents,               // 🤖 Autonomous SI Agents & Workflows
+    Settings,             // ⚙️ Preferences, Model Hub & Shaders
 
     // Developer Mode Views (Unlocked in Settings)
     DevStudio,
-    SynapseMonitor,
+    InterconnectMonitor,
     Console,
 
     // Legacy / Backwards Compatibility Aliases
+    Cosmos3D,
+    LivingMind,
+    GhostStation,
     GameStudio,
     CustomTools,
     ScreenCapture,
@@ -317,7 +322,7 @@ pub enum DevStudioTab {
     SiDistillation,
     SiMacroHub,
     SiSkillTree,
-    PantheonAndFrontier,
+    SpecialistsAndFrontier,
 }
 
 /// Discord-Style Screen & Application Sharing Mode
@@ -430,7 +435,7 @@ pub enum CommandAction {
     SetTheme(HudTheme),
 }
 
-/// A Star Node in the 3D Galaxy Canvas
+/// A Star Node in the 3D Galaxy Canvas (Phase 17 Sovereign 3D Cosmos)
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
 struct GalaxyStar {
@@ -438,7 +443,11 @@ struct GalaxyStar {
     name: String,
     pos: [f32; 3],
     category: String,
+    domain_opcode: u16,
     color: Color32,
+    connected_to: Vec<String>,
+    description: String,
+    activity_level: f32, // Pulsing activity level [0.0..1.0]
 }
 
 /// Native Desktop Application State
@@ -508,20 +517,24 @@ pub struct AaroneousDesktopApp {
     dynamic_window_status: String,
 
     // Live Shared Memory Connection
-    synapse_mmap: Option<MmapMut>,
-    synapse_path: PathBuf,
-    is_live_synapse: bool,
+    bus_mmap: Option<MmapMut>,
+    bus_path: PathBuf,
+    is_live_bus: bool,
 
-    // Synapse Metrics
-    synapse_integrity: f32,
-    synapse_understanding: f32,
-    synapse_generation: u64,
-    synapse_events_per_sec: f32,
+    // Interconnect Bus Metrics
+    bus_integrity: f32,
+    bus_understanding: f32,
+    bus_generation: u64,
+    bus_events_per_sec: f32,
 
-    // 3D Galaxy Viewport State
+    // 3D Galaxy Viewport State (Phase 17 Sovereign 3D Cosmos)
     galaxy_stars: Vec<GalaxyStar>,
     camera_pan: Vec2,
     camera_zoom: f32,
+    camera_rotation: (f32, f32), // (yaw, pitch) in radians
+    selected_galaxy_star_id: Option<String>,
+    galaxy_filter_category: String,
+    galaxy_auto_rotate: bool,
 
     // Presenter Live Vision Perception
     viewport_texture: Option<egui::TextureHandle>,
@@ -689,39 +702,125 @@ impl Default for AaroneousDesktopApp {
 
         let galaxy_stars = vec![
             GalaxyStar {
-                id: "star_agents".to_string(),
-                name: "Agents & Macros".to_string(),
+                id: "spec_orchestrator".to_string(),
+                name: "01. Orchestrator".to_string(),
                 pos: [0.0, 0.0, 0.0],
-                category: "Agents".to_string(),
-                color: Color32::from_rgb(56, 139, 253),
+                category: "Specialists".to_string(),
+                domain_opcode: 0x0100,
+                color: Color32::from_rgb(255, 215, 0),
+                connected_to: vec!["spec_synthesizer".into(), "spec_archivist".into(), "spec_router".into(), "spec_sentinel".into()],
+                description: "Central task decomposition, dynamic DAG scheduling & priority execution.".to_string(),
+                activity_level: 0.95,
             },
             GalaxyStar {
-                id: "star_game".to_string(),
-                name: "Game Studio".to_string(),
-                pos: [-120.0, 40.0, 10.0],
-                category: "Gaming".to_string(),
-                color: Color32::from_rgb(255, 120, 0),
-            },
-            GalaxyStar {
-                id: "star_tools".to_string(),
-                name: "Custom Tools".to_string(),
-                pos: [80.0, -90.0, -20.0],
-                category: "Tools".to_string(),
+                id: "spec_synthesizer".to_string(),
+                name: "02. Synthesizer".to_string(),
+                pos: [140.0, 50.0, -40.0],
+                category: "Specialists".to_string(),
+                domain_opcode: 0x0200,
                 color: Color32::from_rgb(163, 113, 247),
+                connected_to: vec!["spec_orchestrator".into(), "spec_devtools".into(), "substr_matrix".into()],
+                description: "Polyglot code synthesis, AST transformation & knowledge generation.".to_string(),
+                activity_level: 0.88,
             },
             GalaxyStar {
-                id: "star_stream".to_string(),
-                name: "Screen & Audio".to_string(),
-                pos: [140.0, 80.0, 30.0],
-                category: "Capture".to_string(),
+                id: "spec_presenter".to_string(),
+                name: "03. Presenter".to_string(),
+                pos: [-130.0, 70.0, 50.0],
+                category: "Specialists".to_string(),
+                domain_opcode: 0x0300,
+                color: Color32::from_rgb(56, 139, 253),
+                connected_to: vec!["spec_orchestrator".into(), "spec_perceiver".into()],
+                description: "DirectX 12 / Vulkan frame composition, interactive telemetry & UI layout.".to_string(),
+                activity_level: 0.92,
+            },
+            GalaxyStar {
+                id: "spec_devtools".to_string(),
+                name: "04. DevTools".to_string(),
+                pos: [90.0, -110.0, 60.0],
+                category: "Specialists".to_string(),
+                domain_opcode: 0x0400,
+                color: Color32::from_rgb(240, 136, 62),
+                connected_to: vec!["spec_synthesizer".into(), "spec_sentinel".into()],
+                description: "Automated FFI wrapper synthesis, cargo compilation & memory inspection.".to_string(),
+                activity_level: 0.76,
+            },
+            GalaxyStar {
+                id: "spec_sentinel".to_string(),
+                name: "05. Sentinel".to_string(),
+                pos: [-140.0, -80.0, -50.0],
+                category: "Security".to_string(),
+                domain_opcode: 0x0500,
+                color: Color32::from_rgb(248, 81, 73),
+                connected_to: vec!["spec_orchestrator".into(), "spec_devtools".into(), "spec_aligner".into()],
+                description: "SVDD latent manifold security, path containment sandboxing & integrity checks.".to_string(),
+                activity_level: 0.98,
+            },
+            GalaxyStar {
+                id: "spec_archivist".to_string(),
+                name: "06. Archivist".to_string(),
+                pos: [0.0, 150.0, 70.0],
+                category: "Memory".to_string(),
+                domain_opcode: 0x0600,
+                color: Color32::from_rgb(121, 192, 255),
+                connected_to: vec!["spec_orchestrator".into(), "spec_router".into(), "substr_si_core".into()],
+                description: "3D Galaxy semantic knowledge graph clustering & episodic memory indexing.".to_string(),
+                activity_level: 0.85,
+            },
+            GalaxyStar {
+                id: "spec_router".to_string(),
+                name: "07. Router".to_string(),
+                pos: [150.0, -40.0, -60.0],
+                category: "Networking".to_string(),
+                domain_opcode: 0x0700,
                 color: Color32::from_rgb(63, 185, 80),
+                connected_to: vec!["spec_orchestrator".into(), "spec_archivist".into()],
+                description: "P2P streaming TCP mesh multiplexer, gossip protocol & consensus replication.".to_string(),
+                activity_level: 0.91,
             },
             GalaxyStar {
-                id: "star_overlay".to_string(),
-                name: "In-Game HUD".to_string(),
-                pos: [-60.0, -110.0, 5.0],
-                category: "Overlay".to_string(),
-                color: Color32::from_rgb(210, 153, 34),
+                id: "spec_aligner".to_string(),
+                name: "08. Aligner".to_string(),
+                pos: [-80.0, 120.0, -70.0],
+                category: "Specialists".to_string(),
+                domain_opcode: 0x0800,
+                color: Color32::from_rgb(219, 109, 40),
+                connected_to: vec!["spec_sentinel".into(), "spec_orchestrator".into()],
+                description: "Federation policy alignment, symbiotic consensus arbitration & safety compliance.".to_string(),
+                activity_level: 0.80,
+            },
+            GalaxyStar {
+                id: "spec_perceiver".to_string(),
+                name: "09. Perceiver".to_string(),
+                pos: [60.0, -140.0, -40.0],
+                category: "Capture".to_string(),
+                domain_opcode: 0x0900,
+                color: Color32::from_rgb(88, 166, 255),
+                connected_to: vec!["spec_presenter".into(), "spec_orchestrator".into()],
+                description: "DXGI hardware screen capture, low-latency perceptual gating & HID bridge.".to_string(),
+                activity_level: 0.94,
+            },
+            GalaxyStar {
+                id: "substr_si_core".to_string(),
+                name: "⚡ SSM Cartridge Core".to_string(),
+                pos: [0.0, -170.0, 40.0],
+                category: "Reflex".to_string(),
+                domain_opcode: 0x0A00,
+                color: Color32::from_rgb(255, 230, 100),
+                connected_to: vec!["spec_archivist".into(), "substr_matrix".into()],
+                description: "Canonical .si v3.0 zero-copy memory-mapped neural execution substrate (< 50µs).".to_string(),
+                activity_level: 1.0,
+            },
+            GalaxyStar {
+                id: "substr_matrix".to_string(),
+                name: "🧬 Adaptation Matrix".to_string(),
+                pos: [-170.0, 0.0, -30.0],
+                category: "Reflex".to_string(),
+                domain_opcode: 0x0B00,
+                color: Color32::from_rgb(100, 255, 218),
+                connected_to: vec!["substr_si_core".into(), "spec_synthesizer".into()],
+                description: "Real-time online weight steering with TD(λ) eligibility traces and OGP.".to_string(),
+                activity_level: 0.89,
             },
         ];
 
@@ -731,13 +830,13 @@ impl Default for AaroneousDesktopApp {
             Color32::from_rgb(56, 139, 253),
         )];
 
-        let synapse_path = ws.synapse_file();
-        let (synapse_mmap, is_live_synapse) = match OpenOptions::new()
+        let bus_path = ws.synapse_file();
+        let (bus_mmap, is_live_bus) = match OpenOptions::new()
             .read(true)
             .write(true)
             .create(true)
             .truncate(false)
-            .open(&synapse_path)
+            .open(&bus_path)
         {
             Ok(file) => {
                 let _ = file.set_len(64 * 1024 * 1024); // 64 MB
@@ -761,7 +860,7 @@ impl Default for AaroneousDesktopApp {
         let (si_corpus_count, si_corpus_bytes, si_corpus_avg_energy) = si_miner.get_live_metrics().unwrap_or((0, 0, 0.0));
 
         let mut app = Self {
-            nav_section: NavSection::Pantheon,
+            nav_section: NavSection::Specialists,
             dev_tab: DevStudioTab::Workbench,
             start_time: Instant::now(),
             last_frame_instant: Instant::now(),
@@ -801,16 +900,20 @@ impl Default for AaroneousDesktopApp {
             dynamic_windows: Vec::new(),
             dynamic_prompt_input: "Create a game stats and speedrun tracker".to_string(),
             dynamic_window_status: "AI Tool Synthesizer Ready".to_string(),
-            synapse_mmap,
-            synapse_path,
-            is_live_synapse,
-            synapse_integrity: 99.4,
-            synapse_understanding: 98.6,
-            synapse_generation: 1,
-            synapse_events_per_sec: 3840.0,
+            bus_mmap,
+            bus_path,
+            is_live_bus,
+            bus_integrity: 99.4,
+            bus_understanding: 98.6,
+            bus_generation: 1,
+            bus_events_per_sec: 3840.0,
             galaxy_stars,
             camera_pan: Vec2::ZERO,
             camera_zoom: 1.0,
+            camera_rotation: (0.4, 0.3),
+            selected_galaxy_star_id: Some("spec_orchestrator".to_string()),
+            galaxy_filter_category: "All".to_string(),
+            galaxy_auto_rotate: true,
             viewport_texture: None,
             vision_fps: 60.0,
             vision_entropy: 7.82,
@@ -836,13 +939,13 @@ impl Default for AaroneousDesktopApp {
             dev_tools_engine,
             workspace_tree_items,
             selected_tree_idx: 0,
-            workbench_active_file: "crates/chimera/src/lib.rs".to_string(),
+            workbench_active_file: "crates/adaptation_engine/src/lib.rs".to_string(),
             workbench_file_content: "// Select a file from the tree to inspect or refactor".to_string(),
             workbench_diff_preview: String::new(),
             workbench_diagnostics: Vec::new(),
             workbench_status_msg: "Developer Workbench Ready".to_string(),
             last_backup_path: None,
-            forge_file_path: "crates/specialists/src/fabricator.rs".to_string(),
+            forge_file_path: "crates/specialists/src/dev_tools.rs".to_string(),
             forge_source_code: "pub fn execute_work() {\n    log(\"Starting task...\");\n}".to_string(),
             forge_search_pattern: "log(:[msg]);".to_string(),
             forge_replace_template: "tracing::info!(:[msg]);".to_string(),
@@ -912,7 +1015,7 @@ impl eframe::App for AaroneousDesktopApp {
         ui.ctx().set_pixels_per_point(self.settings.ui_scale);
         ui.ctx().request_repaint();
 
-        self.poll_live_synapse();
+        self.poll_live_bus();
         self.poll_background_messages();
         self.tick_telemetry_plots();
 
@@ -922,7 +1025,7 @@ impl eframe::App for AaroneousDesktopApp {
             self.command_palette_query.clear();
             self.selected_command_idx = 0;
         }
-        if ui.input(|i| i.modifiers.command && i.key_pressed(egui::Key::Num1)) { self.nav_section = NavSection::Pantheon; }
+        if ui.input(|i| i.modifiers.command && i.key_pressed(egui::Key::Num1)) { self.nav_section = NavSection::Specialists; }
         if ui.input(|i| i.modifiers.command && i.key_pressed(egui::Key::Num2)) { self.nav_section = NavSection::Cosmos3D; }
         if ui.input(|i| i.modifiers.command && i.key_pressed(egui::Key::Num3)) { self.nav_section = NavSection::LivingMind; }
         if ui.input(|i| i.modifiers.command && i.key_pressed(egui::Key::Num4)) { self.nav_section = NavSection::SiForge; }
@@ -995,18 +1098,18 @@ impl eframe::App for AaroneousDesktopApp {
                             .auto_shrink([false; 2])
                             .show(ui, |ui| {
                                 match self.nav_section {
-                                    NavSection::Pantheon | NavSection::Home => self.render_pantheon_view(ui),
-                                    NavSection::Cosmos3D | NavSection::Galaxy3D => self.render_galaxy_3d_view(ui),
-                                    NavSection::LivingMind => self.render_living_mind_view(ui),
+                                    NavSection::Specialists | NavSection::Home => self.render_specialists_view(ui),
+                                    NavSection::GalaxyMap3D | NavSection::Cosmos3D | NavSection::Galaxy3D => self.render_galaxy_3d_view(ui),
+                                    NavSection::LearningAndSelfPlay | NavSection::LivingMind => self.render_living_mind_view(ui),
                                     NavSection::SiForge | NavSection::CustomTools => self.render_si_forge_view(ui),
-                                    NavSection::GhostStation | NavSection::ScreenCapture | NavSection::GameStudio => self.render_ghost_station_view(ui),
+                                    NavSection::ScreenAutomation | NavSection::GhostStation | NavSection::ScreenCapture | NavSection::GameStudio => self.render_ghost_station_view(ui),
                                     NavSection::SwarmMesh => self.render_swarm_mesh_view(ui),
                                     NavSection::Agents => self.render_agents_hub_view(ui),
                                     NavSection::Settings => self.render_settings_view(ui),
 
                                     // Developer Mode Views
                                     NavSection::DevStudio => self.render_dev_studio_view(ui),
-                                    NavSection::SynapseMonitor => self.render_synapse_monitor_view(ui),
+                                    NavSection::InterconnectMonitor => self.render_interconnect_monitor_view(ui),
                                     NavSection::Console => self.render_chat_view(ui),
                                 }
                             });
@@ -1455,7 +1558,7 @@ impl AaroneousDesktopApp {
             ui.add_space(4.0);
             ui.label(egui::RichText::new("MAIN NAVIGATION").color(Color32::from_rgb(110, 118, 129)).size(10.0).strong());
 
-            self.nav_item(ui, NavSection::Pantheon, "👥  AI Team (9 Specialists)", theme);
+            self.nav_item(ui, NavSection::Specialists, "👥  AI Team (9 Specialists)", theme);
             self.nav_item(ui, NavSection::Cosmos3D, "🌌  3D Knowledge Map", theme);
             self.nav_item(ui, NavSection::LivingMind, "🧠  Brain & Learning", theme);
             self.nav_item(ui, NavSection::SiForge, "⚡  Model Compiler", theme);
@@ -1470,7 +1573,7 @@ impl AaroneousDesktopApp {
                 ui.label(egui::RichText::new("DEVELOPER TOOLS").color(Color32::from_rgb(255, 120, 0)).size(10.0).strong());
 
                 self.nav_item(ui, NavSection::DevStudio, "🛠️  Code & AST Forge", theme);
-                self.nav_item(ui, NavSection::SynapseMonitor, "🧠  Memory Bus Monitor", theme);
+                self.nav_item(ui, NavSection::InterconnectMonitor, "⚡  Interconnect Bus Monitor", theme);
                 self.nav_item(ui, NavSection::Console, "💬  Protocol Console", theme);
             }
         });
@@ -1486,7 +1589,7 @@ impl AaroneousDesktopApp {
     }
 
     /// Renders the AI Team & Task Router Command Deck
-    fn render_pantheon_view(&mut self, ui: &mut egui::Ui) {
+    fn render_specialists_view(&mut self, ui: &mut egui::Ui) {
         let theme = self.settings.theme;
 
         // Hero Banner
@@ -1557,7 +1660,7 @@ impl AaroneousDesktopApp {
                         ]);
 
                         let task = orchestrator::RoutableTask {
-                            id: format!("intent_{}", self.synapse_generation),
+                            id: format!("intent_{}", self.bus_generation),
                             task_type: orchestrator::TaskType::CodeGeneration,
                             complexity: 0.80,
                             urgency: 0.85,
@@ -1567,7 +1670,7 @@ impl AaroneousDesktopApp {
 
                         let decision = router.find_optimal_specialist(&task);
                         self.hive_routing_decision = Some(format!("Assigned to {} (Confidence: {:.1}%)", decision.specialist_name, decision.confidence * 100.0));
-                        self.hive_routing_trace.push(format!("⚡ [Task #{}] \"{}\" ➔ Assigned to {} ({:.1}%)", self.synapse_generation, intent, decision.specialist_name, decision.confidence * 100.0));
+                        self.hive_routing_trace.push(format!("⚡ [Task #{}] \"{}\" ➔ Assigned to {} ({:.1}%)", self.bus_generation, intent, decision.specialist_name, decision.confidence * 100.0));
                         self.show_toast("Task Assigned", format!("Target: {}", decision.specialist_name), ToastLevel::Success);
                     }
                 });
@@ -1596,7 +1699,7 @@ impl AaroneousDesktopApp {
             ("🌌 Perceiver", "Spatial", "3D & Screen Coordinates", "Calculates 3D space, physics, and screen coordinates", Color32::from_rgb(200, 150, 255)),
         ];
 
-        egui::Grid::new("pantheon_grid").num_columns(3).spacing([12.0, 12.0]).show(ui, |ui| {
+        egui::Grid::new("specialists_grid").num_columns(3).spacing([12.0, 12.0]).show(ui, |ui| {
             for (idx, (name, role_tag, title, desc, color)) in specialists.iter().enumerate() {
                 ui.group(|ui| {
                     ui.set_min_size(Vec2::new(210.0, 130.0));
@@ -2511,7 +2614,7 @@ impl AaroneousDesktopApp {
         let theme = self.settings.theme;
 
         let mut commands = vec![
-            ("👥 AI Team (9 Specialists)", "Task planner, coder, researcher, designer, and safety team", CommandAction::Navigate(NavSection::Pantheon), "Ctrl+1"),
+            ("👥 AI Team (9 Specialists)", "Task planner, coder, researcher, designer, and safety team", CommandAction::Navigate(NavSection::Specialists), "Ctrl+1"),
             ("🌌 3D Knowledge Map", "Interactive 3D visual map of files, memory, and models", CommandAction::Navigate(NavSection::Cosmos3D), "Ctrl+2"),
             ("🧠 Brain & Background Learning", "Attention controls & Alice vs Bob self-testing loop", CommandAction::Navigate(NavSection::LivingMind), "Ctrl+3"),
             ("⚡ Fast Model Compiler", "Compile models into lightweight, ultra-fast local .si files", CommandAction::Navigate(NavSection::SiForge), "Ctrl+4"),
@@ -2535,7 +2638,7 @@ impl AaroneousDesktopApp {
         if self.settings.dev_mode {
             commands.push(("🛠️ Code & AST Forge", "Developer workbench and pattern rewriter", CommandAction::Navigate(NavSection::DevStudio), ""));
             commands.push(("🧠 SI Machine-Native Distillation", "Mine discrete AST DAG thoughts and phase out LLMs", CommandAction::MineSiDistillation, ""));
-            commands.push(("🧠 Shared Memory Synapse", "64 MB zero-copy memory bus telemetry", CommandAction::Navigate(NavSection::SynapseMonitor), ""));
+            commands.push(("⚡ Interconnect Bus Monitor", "64 MB zero-copy memory bus telemetry", CommandAction::Navigate(NavSection::InterconnectMonitor), ""));
             commands.push(("💬 Protocol Console", "Interactive intent injection stream", CommandAction::Navigate(NavSection::Console), ""));
             commands.push(("⚡ Run Compiler Diagnostics", "Execute `cargo check` and sweep errors", CommandAction::RunDiagnostics, ""));
         }
@@ -2832,7 +2935,7 @@ impl AaroneousDesktopApp {
             ui.selectable_value(&mut self.dev_tab, DevStudioTab::SiDistillation, "🧠 SI Distillation & Trainer");
             ui.selectable_value(&mut self.dev_tab, DevStudioTab::SiMacroHub, "⚡ Smart SI Macro Hub");
             ui.selectable_value(&mut self.dev_tab, DevStudioTab::SiSkillTree, "🧬 Skill Tree & SI Inspector");
-            ui.selectable_value(&mut self.dev_tab, DevStudioTab::PantheonAndFrontier, "🏛️ Specialist Federation & 5 Frontier Engines");
+            ui.selectable_value(&mut self.dev_tab, DevStudioTab::SpecialistsAndFrontier, "🏛️ Specialists & Frontier Engines");
         });
 
         ui.separator();
@@ -2853,8 +2956,8 @@ impl AaroneousDesktopApp {
             DevStudioTab::SiSkillTree => {
                 self.render_skill_tree_view(ui);
             }
-            DevStudioTab::PantheonAndFrontier => {
-                self.render_pantheon_and_frontier_view(ui);
+            DevStudioTab::SpecialistsAndFrontier => {
+                self.render_specialists_and_frontier_view(ui);
             }
         }
     }
@@ -3065,7 +3168,7 @@ impl AaroneousDesktopApp {
                         ui.label(egui::RichText::new("Memory-Mapped Zero-Copy Execution (< 50µs)").color(Color32::GRAY).size(11.0));
                     });
                     ui.label("Freeze complex reasoning, actions, and AST graphs directly into portable `.si` containers.");
-                    ui.label(egui::RichText::new("Bypasses text tokenization completely. Paged directly from disk into active Synapse memory via `memmap2` with ZERO LLM compute.").color(Color32::from_rgb(139, 148, 158)).size(11.0));
+                    ui.label(egui::RichText::new("Bypasses text tokenization completely. Paged directly from disk into active Interconnect Bus memory via `memmap2` with ZERO LLM compute.").color(Color32::from_rgb(139, 148, 158)).size(11.0));
                 });
             });
 
@@ -3440,7 +3543,7 @@ impl AaroneousDesktopApp {
     }
 
     /// Renders the 11-Specialist Federation & 5 Frontier Engines Studio
-    fn render_pantheon_and_frontier_view(&mut self, ui: &mut egui::Ui) {
+    fn render_specialists_and_frontier_view(&mut self, ui: &mut egui::Ui) {
         let theme = self.settings.theme;
 
         egui::ScrollArea::vertical().show(ui, |ui| {
@@ -3453,7 +3556,7 @@ impl AaroneousDesktopApp {
                     ui.set_min_width(ui.available_width());
                     ui.vertical(|ui| {
                         ui.horizontal(|ui| {
-                            ui.heading(egui::RichText::new("🏛️ Specialist Federation & 5 Frontier Engines").color(Color32::from_rgb(56, 139, 253)).size(18.0).strong());
+                            ui.heading(egui::RichText::new("🏛️ Specialists & Frontier Engines").color(Color32::from_rgb(56, 139, 253)).size(18.0).strong());
                             ui.label(egui::RichText::new("Lock-Free SPMC Bus + Continuous State-Space Intelligence").color(Color32::GRAY).size(11.0));
                         });
                         ui.label("Sub-microsecond, 128-byte cache-aligned inter-specialist communication fused with deep latent guardrails, bare-metal JIT crystallization, asymmetric self-play, and direct multimodal sensory streams.");
@@ -3462,7 +3565,7 @@ impl AaroneousDesktopApp {
 
             ui.add_space(10.0);
 
-            // ── Section 1: Partitioned SPMC Synapse Bus (11 Federated Specialists) ───
+            // ── Section 1: Partitioned SPMC Interconnect Bus (11 Federated Specialists) ───
             egui::Frame::group(ui.style())
                 .fill(theme.panel_bg())
                 .stroke(Stroke::new(1.0, theme.border_color()))
@@ -3471,7 +3574,7 @@ impl AaroneousDesktopApp {
                     ui.set_min_width(ui.available_width());
                     ui.vertical(|ui| {
                         ui.horizontal(|ui| {
-                            ui.heading(egui::RichText::new("⚡ Partitioned SPMC Synapse Bus (11 Specialists)").color(theme.accent()).size(15.0).strong());
+                            ui.heading(egui::RichText::new("⚡ Partitioned SPMC Interconnect Bus (11 Specialists)").color(theme.accent()).size(15.0).strong());
                             ui.label(egui::RichText::new("Zero-CAS Contention • 128-byte Aligned • 4-State Slot Machine").color(Color32::GRAY).size(11.0));
                         });
                         ui.separator();
@@ -4022,56 +4125,336 @@ impl AaroneousDesktopApp {
         }
     }
 
-    /// Renders the Interactive 3D Galaxy Canvas
+    /// Renders the Sovereign Native 3D Constellation Studio & Spatial Knowledge Graph (Phase 17)
     fn render_galaxy_3d_view(&mut self, ui: &mut egui::Ui) {
         let theme = self.settings.theme;
+        let time_sec = self.start_time.elapsed().as_secs_f32();
 
-        ui.heading(egui::RichText::new("🌌 3D Visual Galaxy & Workspace Nodes").color(theme.accent()).strong());
-        ui.label("Drag to pan, Scroll to zoom. Click stars to inspect connected ideas, tools, and workflows.");
+        // 1. Header & Controls
+        ui.horizontal(|ui| {
+            ui.heading(
+                egui::RichText::new("🌌 3D Constellation Studio & Spatial Knowledge Graph")
+                    .color(theme.accent())
+                    .strong(),
+            );
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                if ui.button("🔄 Reset Camera").clicked() {
+                    self.camera_pan = Vec2::ZERO;
+                    self.camera_zoom = 1.0;
+                    self.camera_rotation = (0.4, 0.3);
+                }
+                ui.toggle_value(&mut self.galaxy_auto_rotate, "💫 Auto-Orbit");
+            });
+        });
+
+        ui.label(
+            "Pure-Rust 3D Spatial Hypervisor: Drag canvas to rotate camera (360°), Scroll to zoom, Click stars to inspect live specialist substrates.",
+        );
+        ui.add_space(4.0);
+
+        // 2. Category Filter Chips
+        ui.horizontal_wrapped(|ui| {
+            ui.label(egui::RichText::new("Filter Cluster:").strong());
+            for cat in ["All", "Specialists", "Reflex", "Memory", "Security", "Networking", "Capture"] {
+                let is_selected = self.galaxy_filter_category == cat;
+                if ui.selectable_label(is_selected, cat).clicked() {
+                    self.galaxy_filter_category = cat.to_string();
+                }
+            }
+        });
         ui.separator();
 
-        let (response, painter) = ui.allocate_painter(Vec2::new(ui.available_width(), 480.0), egui::Sense::drag());
+        // Auto-rotation
+        if self.galaxy_auto_rotate {
+            self.camera_rotation.0 += 0.003;
+            ui.ctx().request_repaint();
+        }
 
-        if response.dragged() {
+        // 3. 3D Canvas Viewport Allocation
+        let canvas_height = 420.0;
+        let (response, painter) = ui.allocate_painter(
+            Vec2::new(ui.available_width(), canvas_height),
+            egui::Sense::click_and_drag(),
+        );
+
+        let canvas_rect = response.rect;
+        let center = canvas_rect.center() + self.camera_pan;
+
+        // Mouse Drag Orbit & Zoom Controls
+        if response.dragged_by(egui::PointerButton::Primary) {
+            let delta = response.drag_delta();
+            self.camera_rotation.0 += delta.x * 0.008; // Yaw
+            self.camera_rotation.1 = (self.camera_rotation.1 - delta.y * 0.008).clamp(-1.4, 1.4); // Pitch
+        } else if response.dragged_by(egui::PointerButton::Secondary) || response.dragged_by(egui::PointerButton::Middle) {
             self.camera_pan += response.drag_delta();
         }
 
-        let center = response.rect.center() + self.camera_pan;
-
-        for radius in [80.0, 160.0, 240.0] {
-            painter.circle_stroke(center, radius * self.camera_zoom, Stroke::new(1.0, Color32::from_rgba_unmultiplied(100, 110, 140, 40)));
+        // Scroll Zoom
+        let scroll_delta = ui.input(|i| i.smooth_scroll_delta.y);
+        if response.hovered() && scroll_delta.abs() > 0.1 {
+            let zoom_factor = if scroll_delta > 0.0 { 1.1 } else { 0.9 };
+            self.camera_zoom = (self.camera_zoom * zoom_factor).clamp(0.4, 3.5);
         }
 
-        for i in 0..self.galaxy_stars.len() {
-            for j in i + 1..self.galaxy_stars.len() {
-                let p1 = Pos2::new(
-                    center.x + self.galaxy_stars[i].pos[0] * self.camera_zoom,
-                    center.y + self.galaxy_stars[i].pos[1] * self.camera_zoom,
-                );
-                let p2 = Pos2::new(
-                    center.x + self.galaxy_stars[j].pos[0] * self.camera_zoom,
-                    center.y + self.galaxy_stars[j].pos[1] * self.camera_zoom,
-                );
-                painter.line_segment([p1, p2], Stroke::new(1.0, Color32::from_rgba_unmultiplied(56, 139, 253, 70)));
+        // Background Cosmos Backdrop
+        painter.rect_filled(canvas_rect, CornerRadius::same(6), Color32::from_rgb(8, 10, 16));
+
+        // Draw 3D Concentric Orbital Rings on Ground Plane (XZ)
+        let (yaw, pitch) = self.camera_rotation;
+        let cos_y = yaw.cos();
+        let sin_y = yaw.sin();
+        let cos_p = pitch.cos();
+        let sin_p = pitch.sin();
+        let focal_dist = 500.0;
+        let cam_dist = 450.0 / self.camera_zoom;
+
+        // 3D Projection Closure
+        let project_3d = |pos: [f32; 3]| -> Option<(Pos2, f32, f32)> {
+            let x = pos[0];
+            let y = pos[1];
+            let z = pos[2];
+
+            // 1. Yaw rotation (Y-axis)
+            let x1 = x * cos_y - z * sin_y;
+            let z1 = x * sin_y + z * cos_y;
+
+            // 2. Pitch rotation (X-axis)
+            let y2 = y * cos_p - z1 * sin_p;
+            let z2 = y * sin_p + z1 * cos_p;
+
+            // 3. Camera distance & perspective projection
+            let z_cam = z2 + cam_dist;
+            if z_cam <= 10.0 {
+                return None; // Behind camera plane
+            }
+
+            let scale = focal_dist / z_cam;
+            let screen_x = center.x + x1 * scale;
+            let screen_y = center.y + y2 * scale;
+
+            Some((Pos2::new(screen_x, screen_y), scale, z_cam))
+        };
+
+        // Draw Orbital Rings (XZ plane)
+        for ring_radius in [80.0f32, 160.0, 240.0] {
+            let segments = 48;
+            let mut ring_pts = Vec::new();
+            for seg in 0..=segments {
+                let theta = (seg as f32 / segments as f32) * std::f32::consts::TAU;
+                let rx = ring_radius * theta.cos();
+                let rz = ring_radius * theta.sin();
+                if let Some((pt, _, _)) = project_3d([rx, 0.0, rz]) {
+                    ring_pts.push(pt);
+                }
+            }
+            for w in ring_pts.windows(2) {
+                painter.line_segment([w[0], w[1]], Stroke::new(1.0, Color32::from_rgba_unmultiplied(40, 60, 95, 50)));
             }
         }
 
+        // 4. Filter & Collect Projected Nodes
+        let filter = self.galaxy_filter_category.clone();
+        let star_map: HashMap<String, GalaxyStar> = self.galaxy_stars.iter().map(|s| (s.id.clone(), s.clone())).collect();
+
+        // 5. Draw 3D Constellation Edges & Dynamic Traveling Pulses
+        let mut drawn_edges = std::collections::HashSet::new();
         for star in &self.galaxy_stars {
-            let pos = Pos2::new(
-                center.x + star.pos[0] * self.camera_zoom,
-                center.y + star.pos[1] * self.camera_zoom,
+            if filter != "All" && star.category != filter {
+                continue;
+            }
+
+            if let Some((p1, scale1, _)) = project_3d(star.pos) {
+                for target_id in &star.connected_to {
+                    let edge_key = if star.id < *target_id {
+                        format!("{}:{}", star.id, target_id)
+                    } else {
+                        format!("{}:{}", target_id, star.id)
+                    };
+
+                    if drawn_edges.insert(edge_key) {
+                        if let Some(target_star) = star_map.get(target_id) {
+                            if let Some((p2, scale2, _)) = project_3d(target_star.pos) {
+                                // Constellation Wire
+                                let alpha = ((scale1 + scale2) * 45.0).clamp(20.0, 140.0) as u8;
+                                painter.line_segment(
+                                    [p1, p2],
+                                    Stroke::new(1.2, Color32::from_rgba_unmultiplied(56, 139, 253, alpha)),
+                                );
+
+                                // Animated Real-Time Execution Pulse
+                                let pulse_phase = (time_sec * 0.8 + (star.domain_opcode as f32 * 0.1)) % 1.0;
+                                let pulse_pos = Pos2::new(
+                                    p1.x + (p2.x - p1.x) * pulse_phase,
+                                    p1.y + (p2.y - p1.y) * pulse_phase,
+                                );
+                                let pulse_scale = (scale1 + (scale2 - scale1) * pulse_phase).max(0.5);
+
+                                painter.circle_filled(
+                                    pulse_pos,
+                                    3.5 * pulse_scale,
+                                    Color32::from_rgba_unmultiplied(255, 255, 255, 220),
+                                );
+                                painter.circle_stroke(
+                                    pulse_pos,
+                                    6.0 * pulse_scale,
+                                    Stroke::new(1.0, Color32::from_rgba_unmultiplied(100, 200, 255, 160)),
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // 6. Draw 3D Star Nodes (Z-Sorted from Back to Front)
+        let mut projected_stars = Vec::new();
+        for star in &self.galaxy_stars {
+            if filter != "All" && star.category != filter {
+                continue;
+            }
+            if let Some((pos_2d, scale, z_cam)) = project_3d(star.pos) {
+                projected_stars.push((star, pos_2d, scale, z_cam));
+            }
+        }
+
+        // Sort descending by z_cam (draw furthest first)
+        projected_stars.sort_by(|a, b| b.3.partial_cmp(&a.3).unwrap_or(std::cmp::Ordering::Equal));
+
+        let click_pos = if response.clicked() { response.interact_pointer_pos() } else { None };
+        let mut clicked_star_id = None;
+
+        for (star, pos_2d, scale, z_cam) in &projected_stars {
+            let is_selected = self.selected_galaxy_star_id.as_deref() == Some(star.id.as_str());
+            let base_radius = if is_selected { 14.0 } else { 9.0 };
+            let radius = (base_radius * scale).clamp(4.0, 28.0);
+
+            // Hit Testing
+            if let Some(cp) = click_pos {
+                if cp.distance(*pos_2d) <= radius * 1.5 {
+                    clicked_star_id = Some(star.id.clone());
+                }
+            }
+
+            // Depth Fog Factor (dim stars deep in space)
+            let fog_factor = (1.0 - (z_cam - 150.0) / 700.0).clamp(0.25, 1.0);
+            let alpha = (255.0 * fog_factor) as u8;
+
+            // Outer Aura Glow
+            let pulse = ((time_sec * 2.5 + star.activity_level * 5.0).sin() * 0.5 + 0.5) * 0.4 + 0.6;
+            painter.circle_filled(
+                *pos_2d,
+                radius * (1.6 + (1.0 - fog_factor) * 0.4) * pulse,
+                Color32::from_rgba_unmultiplied(star.color.r(), star.color.g(), star.color.b(), (45.0 * fog_factor) as u8),
             );
 
-            painter.circle_filled(pos, 10.0 * self.camera_zoom, Color32::from_rgba_unmultiplied(star.color.r(), star.color.g(), star.color.b(), 50));
-            painter.circle_filled(pos, 5.0 * self.camera_zoom, star.color);
+            // Core Solid Star Node
+            let star_color = Color32::from_rgba_unmultiplied(star.color.r(), star.color.g(), star.color.b(), alpha);
+            painter.circle_filled(*pos_2d, radius, star_color);
+
+            // Selection Highlight Rings
+            if is_selected {
+                painter.circle_stroke(
+                    *pos_2d,
+                    radius + 5.0 * scale,
+                    Stroke::new(2.0, Color32::from_rgb(255, 255, 255)),
+                );
+                painter.circle_stroke(
+                    *pos_2d,
+                    radius + 9.0 * scale,
+                    Stroke::new(1.0, Color32::from_rgba_unmultiplied(theme.accent().r(), theme.accent().g(), theme.accent().b(), 180)),
+                );
+            }
+
+            // Node Name Label
+            let text_color = if is_selected {
+                Color32::WHITE
+            } else {
+                Color32::from_rgba_unmultiplied(220, 230, 245, (200.0 * fog_factor) as u8)
+            };
+            let font_size = (11.0 * scale).clamp(9.0, 14.0);
 
             painter.text(
-                pos + Vec2::new(10.0, -10.0),
-                egui::Align2::LEFT_BOTTOM,
+                *pos_2d + Vec2::new(radius + 4.0, -font_size * 0.5),
+                egui::Align2::LEFT_CENTER,
                 &star.name,
-                egui::FontId::proportional(12.0),
-                Color32::WHITE,
+                egui::FontId::proportional(font_size),
+                text_color,
             );
+        }
+
+        if let Some(id) = clicked_star_id {
+            self.selected_galaxy_star_id = Some(id);
+        }
+
+        ui.add_space(8.0);
+
+        // 7. Interactive Specialist Detail Inspector Panel
+        if let Some(ref sel_id) = self.selected_galaxy_star_id.clone() {
+            if let Some(star) = star_map.get(sel_id) {
+                egui::Frame::group(ui.style())
+                    .fill(theme.card_bg())
+                    .stroke(Stroke::new(1.0, theme.border_color()))
+                    .corner_radius(CornerRadius::same(6))
+                    .show(ui, |ui| {
+                        ui.horizontal(|ui| {
+                            let (r, g, b) = (star.color.r(), star.color.g(), star.color.b());
+                            ui.label(
+                                egui::RichText::new("✦")
+                                    .color(Color32::from_rgb(r, g, b))
+                                    .size(20.0)
+                                    .strong(),
+                            );
+                            ui.heading(
+                                egui::RichText::new(&star.name)
+                                    .color(Color32::from_rgb(r, g, b))
+                                    .strong(),
+                            );
+                            ui.label(
+                                egui::RichText::new(format!("Domain Opcode: 0x{:04X}", star.domain_opcode))
+                                    .color(Color32::from_rgb(180, 190, 210)),
+                            );
+                            ui.label(
+                                egui::RichText::new(format!("Category: {}", star.category))
+                                    .color(theme.accent()),
+                            );
+                            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                                ui.label(format!("3D Coordinates: [{:.0}, {:.0}, {:.0}]", star.pos[0], star.pos[1], star.pos[2]));
+                            });
+                        });
+
+                        ui.add_space(4.0);
+                        ui.label(egui::RichText::new(&star.description).italics());
+                        ui.add_space(4.0);
+
+                        ui.horizontal(|ui| {
+                            ui.label(egui::RichText::new("Synaptic Links:").strong());
+                            for target in &star.connected_to {
+                                if let Some(target_star) = star_map.get(target) {
+                                    if ui.button(format!("🔗 {}", target_star.name)).clicked() {
+                                        self.selected_galaxy_star_id = Some(target.clone());
+                                    }
+                                }
+                            }
+
+                            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                                if ui.button(egui::RichText::new("⚡ Dispatch Task Intent").strong()).clicked() {
+                                    self.show_toast(
+                                        "Specialist Dispatched",
+                                        format!("Transmitted task intent packet to {} (0x{:04X})", star.name, star.domain_opcode),
+                                        ToastLevel::Success,
+                                    );
+                                }
+                                if ui.button("🔍 Query Substrate").clicked() {
+                                    self.show_toast(
+                                        "Substrate Indexed",
+                                        format!("Queried memory substrate for {}", star.name),
+                                        ToastLevel::Info,
+                                    );
+                                }
+                            });
+                        });
+                    });
+            }
         }
     }
 
@@ -4178,39 +4561,39 @@ impl AaroneousDesktopApp {
         }
     }
 
-    /// Renders the Zero-Copy SWMR Synapse Bus Monitor (Dev Mode)
-    fn render_synapse_monitor_view(&mut self, ui: &mut egui::Ui) {
+    /// Renders the Zero-Copy SWMR Interconnect Bus Monitor (Dev Mode)
+    fn render_interconnect_monitor_view(&mut self, ui: &mut egui::Ui) {
         let theme = self.settings.theme;
 
-        ui.heading(egui::RichText::new("🧠 Zero-Copy SWMR Shared Memory Synapse (Internal Bus)").color(theme.accent()).strong());
+        ui.heading(egui::RichText::new("⚡ Zero-Copy SWMR Shared Memory Interconnect Bus").color(theme.accent()).strong());
         ui.label("Direct inspection of the 64 MB kernel memory-mapped ring buffer and generation clock.");
         ui.separator();
 
         ui.horizontal(|ui| {
             egui::Frame::group(ui.style()).show(ui, |ui| {
                 ui.set_min_size(Vec2::new(200.0, 90.0));
-                ui.label("Synapse Integrity:");
-                ui.heading(format!("{:.1}%", self.synapse_integrity));
-                ui.add(egui::ProgressBar::new(self.synapse_integrity / 100.0).text("Dopamine Balanced"));
+                ui.label("Bus Integrity:");
+                ui.heading(format!("{:.1}%", self.bus_integrity));
+                ui.add(egui::ProgressBar::new(self.bus_integrity / 100.0).text("Dynamic Equilibrium Verified"));
             });
 
             egui::Frame::group(ui.style()).show(ui, |ui| {
                 ui.set_min_size(Vec2::new(200.0, 90.0));
                 ui.label("Understanding Score:");
-                ui.heading(format!("{:.1}%", self.synapse_understanding));
-                ui.add(egui::ProgressBar::new(self.synapse_understanding / 100.0).text("Cognitive Alignment"));
+                ui.heading(format!("{:.1}%", self.bus_understanding));
+                ui.add(egui::ProgressBar::new(self.bus_understanding / 100.0).text("Alignment Verified"));
             });
 
             egui::Frame::group(ui.style()).show(ui, |ui| {
                 ui.set_min_size(Vec2::new(200.0, 90.0));
                 ui.label("Throughput Rate:");
-                ui.heading(format!("{:.0} pkts/sec", self.synapse_events_per_sec));
+                ui.heading(format!("{:.0} pkts/sec", self.bus_events_per_sec));
                 ui.label(egui::RichText::new("Sub-microsecond latency").color(Color32::from_rgb(63, 185, 80)));
             });
         });
 
         ui.add_space(16.0);
-        ui.label(format!("Shared Memory Path: {}", self.synapse_path.display()));
+        ui.label(format!("Shared Memory Path: {}", self.bus_path.display()));
         ui.label("Mmap Buffer Size: 64 MB");
     }
 
@@ -4244,7 +4627,7 @@ impl AaroneousDesktopApp {
 
                 self.chat_history.push((
                     "System".to_string(),
-                    format!("Intent injected into primary.synapse (#{}).", self.synapse_generation),
+                    format!("Intent injected into interconnect.bus (#{}).", self.bus_generation),
                     Color32::from_rgb(210, 153, 34),
                 ));
                 self.show_toast("Intent Dispatched", "Dispatched to shared memory bus.", ToastLevel::Success);
@@ -4538,32 +4921,32 @@ impl AaroneousDesktopApp {
         }
     }
 
-    /// Polls the live SWMR Synapse shared memory file
-    fn poll_live_synapse(&mut self) {
-        if let Some(mmap) = &self.synapse_mmap
+    /// Polls the live SWMR Interconnect Bus shared memory file
+    fn poll_live_bus(&mut self) {
+        if let Some(mmap) = &self.bus_mmap
             && mmap.len() >= 64
         {
             let tick_bytes = &mmap[0..8];
             let tick = u64::from_le_bytes(tick_bytes.try_into().unwrap_or([0; 8]));
             if tick > 0 {
-                self.synapse_generation = tick;
+                self.bus_generation = tick;
             }
 
             let integrity = mmap[38];
             if integrity > 0 {
-                self.synapse_integrity = integrity as f32;
+                self.bus_integrity = integrity as f32;
             }
 
             let understanding = mmap[39];
             if understanding > 0 {
-                self.synapse_understanding = understanding as f32;
+                self.bus_understanding = understanding as f32;
             }
         }
     }
 
-    /// Injects user task intent into the live shared memory synapse
+    /// Injects user task intent into the live shared memory interconnect bus
     fn inject_live_intent(&mut self, intent: &str) {
-        if let Some(mmap) = &mut self.synapse_mmap {
+        if let Some(mmap) = &mut self.bus_mmap {
             let task_id = Uuid::new_v4();
             let id_bytes = task_id.as_bytes();
 
@@ -4575,9 +4958,9 @@ impl AaroneousDesktopApp {
                 mmap[32..32 + payload_len].copy_from_slice(&payload[..payload_len]);
                 mmap[32 + payload_len..4096].fill(0);
 
-                let new_tick = self.synapse_generation + 1;
+                let new_tick = self.bus_generation + 1;
                 mmap[0..8].copy_from_slice(&new_tick.to_le_bytes());
-                self.synapse_generation = new_tick;
+                self.bus_generation = new_tick;
 
                 let _ = mmap.flush();
             }

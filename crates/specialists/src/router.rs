@@ -8,7 +8,7 @@ use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use tracing::info;
 
-use crate::traits::{MnlpPacket, MnlpResponse, RelicEngine, SovereignSpecialist, SpecialistHealth};
+use crate::traits::{DomainSubEngine, MnlpPacket, MnlpResponse, SovereignSpecialist, SpecialistHealth};
 
 /// Distributed node state packet in the P2P mesh
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -19,14 +19,17 @@ pub struct MeshPeerState {
     pub is_connected: bool,
 }
 
-/// FederationBus Relic Engine: Zero-copy P2P packet bus and distributed network
+/// MeshRouterEngine: Zero-copy P2P packet bus and distributed network sub-engine
 #[derive(Debug, Clone)]
-pub struct FederationBusRelic {
+pub struct MeshRouterEngine {
     pub packets_routed: u64,
     pub connected_peers: usize,
 }
 
-impl Default for FederationBusRelic {
+/// Backwards-compatible alias
+pub type FederationBusRelic = MeshRouterEngine;
+
+impl Default for MeshRouterEngine {
     fn default() -> Self {
         Self {
             packets_routed: 0,
@@ -35,28 +38,29 @@ impl Default for FederationBusRelic {
     }
 }
 
-impl RelicEngine for FederationBusRelic {
-    fn relic_name(&self) -> &'static str {
-        "FederationBus"
+impl DomainSubEngine for MeshRouterEngine {
+    fn engine_name(&self) -> &'static str {
+        "MeshRouter"
     }
 
     fn supervisor_name(&self) -> &'static str {
         "Router"
     }
 
-    fn relic_status(&self) -> String {
+    fn engine_status(&self) -> String {
         format!(
-            "FederationBus Mesh Bus: {} packets routed across {} connected peers",
+            "MeshRouter Bus: {} packets routed across {} connected peers",
             self.packets_routed, self.connected_peers
         )
     }
 }
 
-/// Router Sovereign Specialist
+/// Router Specialist
 pub struct RouterSpecialist {
     pub tokens: f32,
     pub max_tokens: f32,
-    pub bus: FederationBusRelic,
+    pub mesh_router: MeshRouterEngine,
+    pub bus: MeshRouterEngine,
 }
 
 impl Default for RouterSpecialist {
@@ -70,7 +74,8 @@ impl RouterSpecialist {
         Self {
             tokens: 100.0,
             max_tokens: 100.0,
-            bus: FederationBusRelic::default(),
+            mesh_router: MeshRouterEngine::default(),
+            bus: MeshRouterEngine::default(),
         }
     }
 

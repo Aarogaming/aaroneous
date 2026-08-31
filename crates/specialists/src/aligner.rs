@@ -8,7 +8,7 @@ use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use tracing::info;
 
-use crate::traits::{MnlpPacket, MnlpResponse, RelicEngine, SovereignSpecialist, SpecialistHealth};
+use crate::traits::{DomainSubEngine, MnlpPacket, MnlpResponse, SovereignSpecialist, SpecialistHealth};
 
 /// Cognitive load and conversational resonance alignment report
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -18,14 +18,17 @@ pub struct SymbioticResonanceReport {
     pub translated_message: String,
 }
 
-/// HarmonyEngine Relic Engine: Human cognitive alignment & symbiotic tuning matrix
+/// AlignmentEngine: Human cognitive alignment & symbiotic tuning matrix sub-engine
 #[derive(Debug, Clone)]
-pub struct HarmonyEngineRelic {
+pub struct AlignmentEngine {
     pub interactions_aligned: u64,
     pub current_resonance_score: f32,
 }
 
-impl Default for HarmonyEngineRelic {
+/// Backwards-compatible alias
+pub type HarmonyEngineRelic = AlignmentEngine;
+
+impl Default for AlignmentEngine {
     fn default() -> Self {
         Self {
             interactions_aligned: 0,
@@ -34,29 +37,30 @@ impl Default for HarmonyEngineRelic {
     }
 }
 
-impl RelicEngine for HarmonyEngineRelic {
-    fn relic_name(&self) -> &'static str {
-        "HarmonyEngine"
+impl DomainSubEngine for AlignmentEngine {
+    fn engine_name(&self) -> &'static str {
+        "AlignmentEngine"
     }
 
     fn supervisor_name(&self) -> &'static str {
         "Aligner"
     }
 
-    fn relic_status(&self) -> String {
+    fn engine_status(&self) -> String {
         format!(
-            "HarmonyEngine Matrix: {} interactions tuned with {:.1}% alignment score",
+            "AlignmentEngine Matrix: {} interactions tuned with {:.1}% alignment score",
             self.interactions_aligned,
             self.current_resonance_score * 100.0
         )
     }
 }
 
-/// Aligner Sovereign Specialist
+/// Aligner Specialist
 pub struct AlignerSpecialist {
     pub tokens: f32,
     pub max_tokens: f32,
-    pub resonance: HarmonyEngineRelic,
+    pub alignment_engine: AlignmentEngine,
+    pub resonance: AlignmentEngine,
 }
 
 impl Default for AlignerSpecialist {
@@ -70,7 +74,8 @@ impl AlignerSpecialist {
         Self {
             tokens: 100.0,
             max_tokens: 100.0,
-            resonance: HarmonyEngineRelic::default(),
+            alignment_engine: AlignmentEngine::default(),
+            resonance: AlignmentEngine::default(),
         }
     }
 

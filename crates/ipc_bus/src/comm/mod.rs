@@ -16,6 +16,7 @@ impl AgentBus {
     pub fn create_server(&self) -> Result<NamedPipeServer> {
         let server = ServerOptions::new()
             .first_pipe_instance(true)
+            .reject_remote_clients(true)
             .create(&self.pipe_path)
             .with_context(|| format!("Failed to create named pipe server at {}", self.pipe_path))?;
         Ok(server)

@@ -3,6 +3,7 @@ use a_run::enzyme_runner::EnzymeRunner;
 use a_run::hox_registry::HoxRegistry;
 use a_run::splicing_engine::WasmSplicingEngine;
 use a_run::unified_learning::{UnifiedLearningConfig, UnifiedLearningLoop};
+use autonomic_adaptation as evolution;
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 use parking_lot::RwLock;
@@ -761,7 +762,7 @@ fn run_cli(cli: Cli) -> Result<()> {
             println!("  mesh        Inspect Multi-Hive P2P federation, gossip consensus quorum, and cluster health");
             println!("  simulate    Execute closed-loop multimodal sensory-motor pipeline in Isolated Desktop");
             println!("  hud         Launch the Unified Maelstrom Telemetry HUD desktop interface");
-            println!("  distill-all Distill and birth .si solid-state models for all 9 Sovereign Specialists");
+            println!("  distill-all Distill and birth .si solid-state models for all 9 Specialists");
             println!("  evolve      Execute autonomous background self-evolution AST mutation cycles");
             println!("  si          Machine-native SI toolkit:");
             println!("                inspect, benchmark, skills, train, distill,");
@@ -1078,15 +1079,15 @@ async fn run_galaxy_pipeline(steps: usize) -> Result<()> {
     println!("   Clustering Metric   : 32-dim Cosine Gravity + N-Body Relaxation\n");
 
     let engine = omni::OmniEngine::default();
-    println!("   [Step 1] Ingesting Specialist Federation into 3D Space...");
+    println!("   [Step 1] Ingesting Specialists into 3D Space...");
     let spec_count = engine.ingest_standard_specialists().await;
     println!("   -> Registered {} Specialist Star-Nodes.", spec_count);
 
     println!("\n   [Step 2] Ingesting Workspace Architecture into 3D Space...");
     let crate_count = engine.ingest_workspace_crates(&[
-        "nervous_system", "compute", "evolution", "biology",
-        "orchestrator", "chimera", "marionette", "specialists",
-        "paths", "transpiler", "omni", "a_run"
+        "ipc_bus", "compute", "evolution", "biology",
+        "orchestrator", "adaptation_engine", "desktop_emulator", "specialists",
+        "paths", "transpiler", "omni", "hypervisor"
     ]).await;
     println!("   -> Registered {} Architecture Star-Nodes.", crate_count);
 
@@ -1231,7 +1232,7 @@ async fn run_drive_pipeline(
 
     let distribution = engine.calculate_token_distribution(tokens);
     println!("\n=================================================================");
-    println!("⚡ Specialist Federation Metabolic Token Distribution ({:.0} pool):", tokens);
+    println!("⚡ Specialist Metabolic Token Distribution ({:.0} pool):", tokens);
     println!("-----------------------------------------------------------------");
     for alloc in distribution {
         println!("   {:12} (0x{:04X}) | {:4.0} tokens | {}", alloc.specialist_name, alloc.domain_opcode, alloc.allocated_tokens, alloc.boost_reason);
@@ -1571,7 +1572,7 @@ fn run_distill_all_pipeline(
     }
 
     println!("=================================================================");
-    println!("✅ Full 9-Specialist Federation .si Containers Distilled & Verified.");
+    println!("✅ Full 9-Specialist .si Containers Distilled & Verified.");
     println!("=================================================================\n");
     Ok(())
 }
@@ -1673,7 +1674,7 @@ fn run_flagship_pipeline(iterations: usize) -> Result<()> {
                 println!("=================================================================");
                 println!(" 🚀 AARONEOUS FLAGSHIP WORKFLOW: 5-STEP END-TO-END PIPELINE");
                 println!("=================================================================");
-                println!("   Architecture : Machine-Native Rust Hypervisor + 9 Sovereign Specialists");
+                println!("   Architecture : Machine-Native Rust Hypervisor + 9 Specialists");
                 println!("   Pipeline     : Ingest ➔ MDP Route ➔ Sentinel Guard ➔ Persist SI ➔ Studio Telemetry\n");
 
                 let _total_start = std::time::Instant::now();

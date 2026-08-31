@@ -184,7 +184,7 @@ impl DynamicUiSynthesizer {
                     DynamicUiNode::TextInput {
                         id: "inp_target".to_string(),
                         label: "Target File / Parameter:".to_string(),
-                        value: "crates/nervous_system/src/lib.rs".to_string(),
+                        value: "crates/ipc_bus/src/lib.rs".to_string(),
                     },
                     DynamicUiNode::Button {
                         id: "btn_execute".to_string(),

@@ -16,7 +16,7 @@ use crate::traits::HidAction;
 use crate::traits::{HidCommand, MarionetteHost, ProbingTrace, VisualObservation};
 
 #[cfg(feature = "native-win32")]
-use windows::Win32::Foundation::HWND;
+use windows::Win32::Foundation::{HWND, POINT};
 #[cfg(feature = "native-win32")]
 use windows::Win32::Graphics::Gdi::{
     BITMAPINFO, BITMAPINFOHEADER, CreateCompatibleBitmap, CreateCompatibleDC, DIB_RGB_COLORS,
@@ -29,7 +29,7 @@ use windows::Win32::UI::Input::KeyboardAndMouse::{
     MOUSEINPUT, SendInput,
 };
 #[cfg(feature = "native-win32")]
-use windows::Win32::UI::WindowsAndMessaging::{GetSystemMetrics, SYSTEM_METRICS_INDEX};
+use windows::Win32::UI::WindowsAndMessaging::{GetCursorPos, GetSystemMetrics, SYSTEM_METRICS_INDEX};
 
 /// Native Win32 Marionette Host implementation
 #[allow(dead_code)]
@@ -250,6 +250,18 @@ impl MarionetteHost for NativeWin32Marionette {
 
         #[cfg(feature = "native-win32")]
         unsafe {
+            // Emergency Failsafe: if cursor is parked in top-left screen corner (0,0), abort input immediately
+            let mut cursor_pt = POINT { x: 0, y: 0 };
+            if GetCursorPos(&mut cursor_pt).is_ok() && cursor_pt.x <= 5 && cursor_pt.y <= 5 {
+                warn!(
+                    target: "marionette::native",
+                    pos_x = cursor_pt.x,
+                    pos_y = cursor_pt.y,
+                    "Emergency failsafe triggered: cursor in corner (0,0). Aborting synthetic input injection."
+                );
+                return Ok(());
+            }
+
             for action in &command.actions {
                 match action {
                     HidAction::MouseMove { delta_x, delta_y } => {
@@ -297,5 +309,80 @@ impl MarionetteHost for NativeWin32Marionette {
 
     fn is_live_emulation_active(&self) -> bool {
         self.check_host_safety_permit()
+    }
+}
+
+/// Direct3D / DXGI Hardware-Aligned Framebuffer descriptor for zero-copy GPU video streaming
+#[derive(Debug, Clone)]
+pub struct DxgiHardwareFrameBuffer {
+    pub width: u32,
+    pub height: u32,
+    pub row_pitch: usize,
+    pub pixel_data: Vec<u8>,
+    pub timestamp_ms: u64,
+}
+
+impl DxgiHardwareFrameBuffer {
+    pub fn new(width: u32, height: u32) -> Self {
+        // Standard 256-byte row pitch alignment for direct DirectX 12 / Vulkan texture uploading
+        let unaligned_pitch = (width as usize) * 4;
+        let row_pitch = (unaligned_pitch + 255) & !255;
+        let total_bytes = row_pitch * (height as usize);
+        Self {
+            width,
+            height,
+            row_pitch,
+            pixel_data: vec![0u8; total_bytes],
+            timestamp_ms: 0,
+        }
+    }
+
+    pub fn copy_rgba_frame(&mut self, src_rgba: &[u8], src_width: u32, src_height: u32) -> Result<()> {
+        if src_width != self.width || src_height != self.height {
+            bail!(
+                "Frame dimensions do not match buffer ({}x{} vs {}x{})",
+                src_width, src_height, self.width, self.height
+            );
+        }
+        let src_pitch = (src_width as usize) * 4;
+        for y in 0..(src_height as usize) {
+            let src_start = y * src_pitch;
+            let src_end = src_start + src_pitch;
+            let dst_start = y * self.row_pitch;
+            let dst_end = dst_start + src_pitch;
+            if src_end <= src_rgba.len() && dst_end <= self.pixel_data.len() {
+                self.pixel_data[dst_start..dst_end].copy_from_slice(&src_rgba[src_start..src_end]);
+            }
+        }
+        self.timestamp_ms = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|d| d.as_millis() as u64)
+            .unwrap_or(0);
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_dxgi_hardware_framebuffer_stride_alignment() {
+        let fb = DxgiHardwareFrameBuffer::new(100, 100);
+        // 100 * 4 = 400 bytes, rounded up to next 256 boundary is 512 bytes
+        assert_eq!(fb.row_pitch, 512);
+        assert_eq!(fb.pixel_data.len(), 512 * 100);
+    }
+
+    #[test]
+    fn test_dxgi_hardware_framebuffer_copy() {
+        let mut fb = DxgiHardwareFrameBuffer::new(2, 2);
+        let src = vec![
+            255, 0, 0, 255,   0, 255, 0, 255,
+            0, 0, 255, 255,   255, 255, 255, 255,
+        ];
+        let res = fb.copy_rgba_frame(&src, 2, 2);
+        assert!(res.is_ok());
+        assert!(fb.timestamp_ms > 0);
     }
 }

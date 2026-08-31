@@ -12,9 +12,9 @@ dependencies = [
  "async-nats",
  "async-stream",
  "async-trait",
+ "autonomic_adaptation",
  "axum",
  "bincode",
- "biology",
  "bytemuck",
  "byteorder",
  "bytes",
@@ -35,11 +35,11 @@ dependencies = [
  "egui",
  "egui_extras",
  "enigo",
- "evolution",
  "futures",
  "futures-channel",
  "futures-core",
  "futures-util",
+ "governance",
  "governor",
  "hex",
  "http-body-util",
@@ -127,11 +127,11 @@ dependencies = [
  "aaroneous_paths",
  "anyhow",
  "async-trait",
- "biology",
  "candle-core",
  "chrono",
  "compute",
  "goblin",
+ "governance",
  "ipc_bus",
  "notify",
  "omni",
@@ -653,6 +653,32 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f2032f911046de80f0a198e0901378627c33f59ea0ac00e363d481118bd70a53"
 
 [[package]]
+name = "autonomic_adaptation"
+version = "0.1.0"
+dependencies = [
+ "aaroneous_paths",
+ "adaptation_engine",
+ "anyhow",
+ "candle-core",
+ "candle-nn",
+ "candle-transformers",
+ "chrono",
+ "compute",
+ "hf-hub",
+ "ipc_bus",
+ "rand 0.8.7",
+ "serde",
+ "serde_json",
+ "strum 0.26.3",
+ "tempfile",
+ "thiserror 2.0.20",
+ "tokenizers",
+ "tokio",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
 name = "aws-lc-rs"
 version = "1.18.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -962,19 +988,6 @@ dependencies = [
  "rustc-hash 2.1.3",
  "shlex 1.3.0",
  "syn 2.0.119",
-]
-
-[[package]]
-name = "biology"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "compute",
- "rand 0.8.7",
- "serde",
- "strum 0.26.3",
- "sysinfo 0.30.13",
- "tracing",
 ]
 
 [[package]]
@@ -3573,31 +3586,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "evolution"
-version = "0.1.0"
-dependencies = [
- "aaroneous_paths",
- "adaptation_engine",
- "anyhow",
- "candle-core",
- "candle-nn",
- "candle-transformers",
- "chrono",
- "compute",
- "hf-hub",
- "ipc_bus",
- "rand 0.8.7",
- "serde",
- "serde_json",
- "strum 0.26.3",
- "thiserror 2.0.20",
- "tokenizers",
- "tokio",
- "tracing",
- "uuid",
-]
-
-[[package]]
 name = "fallible-iterator"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4355,6 +4343,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "governance"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "compute",
+ "rand 0.8.7",
+ "serde",
+ "strum 0.26.3",
+ "sysinfo 0.30.13",
+ "tracing",
+]
+
+[[package]]
 name = "governor"
 version = "0.10.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4906,6 +4907,7 @@ dependencies = [
 name = "ipc_bus"
 version = "0.2.0"
 dependencies = [
+ "aaroneous_paths",
  "anyhow",
  "crossbeam",
  "dirs 5.0.1",
@@ -6495,9 +6497,9 @@ dependencies = [
  "aaroneous_paths",
  "anyhow",
  "async-trait",
- "biology",
  "chrono",
  "compute",
+ "governance",
  "ipc_bus",
  "memmap2 0.9.11",
  "rand 0.8.7",
@@ -8578,10 +8580,10 @@ dependencies = [
  "adaptation_engine",
  "anyhow",
  "async-trait",
+ "autonomic_adaptation",
  "chrono",
  "compute",
  "desktop_emulator",
- "evolution",
  "ipc_bus",
  "omni",
  "serde",

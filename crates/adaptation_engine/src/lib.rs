@@ -32,14 +32,14 @@ pub use analysis::{
     ConstellationUpdate, ExperimentDesign, ExperimentResult, Hypothesis, PipelineSummary,
     ScientificPipeline, TestOutcome, Verdict, VerificationResult,
 };
-pub use ast_parser::{AstObservation, AstParser, FunctionSignature};
+pub use ast_parser::{AstDiffResult, AstObservation, AstParser, FunctionSignature, SourceLanguage};
 pub use dev_tools::{CompilerDiagnosticItem, DevToolsEngine, WorkspaceFileItem};
 pub use disassembly::{BasicBlock, BinaryInspector, BinaryManifest, BinarySection, DisassembledInstruction};
 pub use error_interceptor::{InterceptedProcessError, ProcessErrorInterceptor};
 pub use mutation::{CodeMutator, PatchProposal};
 pub use parallel_scanner::{BatchScanReport, ParallelScanner};
 pub use pattern_rewriter::{PatternMatch, PatternRewriter, StructuralPatch};
-pub use protocol_bridge::{ChimeraProtocolBridge, MnlpPatchPacket};
+pub use protocol_bridge::{ChimeraProtocolBridge, MnlpPatchPacket, MnlpProtocolBridge};
 pub use repo_watcher::{RepoWatcher, SourceChangeEvent};
 pub use sandbox::ShadowSandbox;
 pub use scientific_loop::{AdaptationHypothesis, ScientificLoop, VerificationReport};
@@ -48,6 +48,8 @@ pub use self_repair::{CompilerDiagnostic, SelfRepairEngine, SelfRepairReport};
 
 pub extern crate ipc_bus as nervous_system;
 pub use ipc_bus;
+pub extern crate governance as biology;
+pub use governance;
 
 use anyhow::Result;
 use ipc_bus::SynapseState;

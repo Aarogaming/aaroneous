@@ -18,8 +18,8 @@ pub use continuous_evolution::{
     ContinuousSelfEvolutionEngine, SelfEvolutionConfig, SelfEvolutionCycleReport,
 };
 pub use neurochemistry::{
-    AutonomicImpulse, ImpulseKind, NeurochemicalHomeostasisEngine, NeurochemicalLevels,
-    SpecialistTokenAllocation,
+    AdaptationHomeostasisLevels, AutonomicHomeostasisEngine, AutonomicImpulse, ImpulseKind,
+    NeurochemicalHomeostasisEngine, NeurochemicalLevels, SpecialistTokenAllocation,
 };
 
 // Re-export candle & neural persona
@@ -27,8 +27,11 @@ pub use candle_persona_engine::{
     CandlePersonaEngine, DiscoveredGgufModel, GenerationConfig, GgufModelMetadata,
 };
 
-// Re-export genetics
-pub use genetics::{GeneticCategory, GeneticLocus, LociSource, SpecialistGenome};
+// Re-export parameter configuration & genetics
+pub use genetics::{
+    AgentConfigProfile, GeneticCategory, GeneticLocus, LociSource, ParameterGenome, ParameterLocus,
+    SpecialistGenome,
+};
 
 // Re-export digestion & personas
 pub use self_digestion::{
@@ -41,7 +44,8 @@ pub use skills::{
     FusedSkill, Skill, SkillOrigin, SkillRegistry, SkillType, SpecialistSkillSet, PersonaRank,
 };
 pub use persona_fusion::{
-    CompositePersonaVector, ExperiencePersonaLayer, FusedEmergentSkill, NarrativeVoiceLayer,
-    PersonalityPersonaLayer, RelationalPersonaLayer, PersonaFusionEngine, SpecialistPersonaLayer,
+    CapabilityFusionEngine, CompositePersonaVector, CompoundAgentProfile, ExperiencePersonaLayer,
+    FusedEmergentSkill, NarrativeVoiceLayer, OlympianPersonaVector, PersonalityPersonaLayer,
+    PersonaFusionEngine, RelationalPersonaLayer, SpecialistPersonaLayer,
 };
 pub use workspace::WorkspacePaths;

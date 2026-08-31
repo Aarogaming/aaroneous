@@ -10,16 +10,19 @@ use std::sync::Arc;
 use tracing::info;
 
 use desktop_emulator::{HidCommand, DesktopEmulator, VisualObservation};
-use crate::traits::{MnlpPacket, MnlpResponse, RelicEngine, SovereignSpecialist, SpecialistHealth};
+use crate::traits::{DomainSubEngine, MnlpPacket, MnlpResponse, SovereignSpecialist, SpecialistHealth};
 
-/// GatekeeperEngine Relic Engine wrapper for Perceiver
+/// PerceptionGateEngine: Spatial-Kinetic perception & HID bridge sub-engine
 #[derive(Debug, Clone)]
-pub struct GatekeeperEngineRelic {
+pub struct PerceptionGateEngine {
     pub frames_processed: usize,
     pub avg_compute_savings_pct: f32,
 }
 
-impl Default for GatekeeperEngineRelic {
+/// Backwards-compatible alias
+pub type GatekeeperEngineRelic = PerceptionGateEngine;
+
+impl Default for PerceptionGateEngine {
     fn default() -> Self {
         Self {
             frames_processed: 0,
@@ -28,29 +31,30 @@ impl Default for GatekeeperEngineRelic {
     }
 }
 
-impl RelicEngine for GatekeeperEngineRelic {
-    fn relic_name(&self) -> &'static str {
-        "GatekeeperEngine"
+impl DomainSubEngine for PerceptionGateEngine {
+    fn engine_name(&self) -> &'static str {
+        "PerceptionGate"
     }
 
     fn supervisor_name(&self) -> &'static str {
         "Perceiver"
     }
 
-    fn relic_status(&self) -> String {
+    fn engine_status(&self) -> String {
         format!(
-            "GatekeeperEngine Epigenetic Gating: {} frames processed ({:.1}% avg compute saved)",
+            "PerceptionGate Epigenetic Gating: {} frames processed ({:.1}% avg compute saved)",
             self.frames_processed, self.avg_compute_savings_pct
         )
     }
 }
 
-/// Perceiver Sovereign Specialist
+/// Perceiver Specialist
 pub struct PerceiverSpecialist {
     pub tokens: f32,
     pub max_tokens: f32,
     pub marionette: Arc<DesktopEmulator>,
-    pub relic: GatekeeperEngineRelic,
+    pub perception_gate: PerceptionGateEngine,
+    pub relic: PerceptionGateEngine,
 }
 
 impl Default for PerceiverSpecialist {
@@ -66,7 +70,8 @@ impl PerceiverSpecialist {
             tokens: 100.0,
             max_tokens: 100.0,
             marionette: engine,
-            relic: GatekeeperEngineRelic::default(),
+            perception_gate: PerceptionGateEngine::default(),
+            relic: PerceptionGateEngine::default(),
         }
     }
 

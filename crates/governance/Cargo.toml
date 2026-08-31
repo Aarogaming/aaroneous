@@ -1,9 +1,9 @@
 [package]
-name = "biology"
+name = "governance"
 version = "0.1.0"
 edition = "2021"
 authors = ["Aaron"]
-description = "Thermodynamic and token-bucket metabolic governor for Aaroneous"
+description = "Hardware thermal governor and compute token resource manager for Aaroneous"
 license.workspace = true
 repository.workspace = true
 

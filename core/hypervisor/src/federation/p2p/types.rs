@@ -61,12 +61,16 @@ impl P2pNodeId {
         Self(format!("stub-{:032x}", nanos))
     }
 
-    /// Get a short display version (first 8 chars)
+    /// Get a short display version (first 8 chars, UTF-8 safe)
     pub fn short(&self) -> String {
         if self.0.len() <= 12 {
             self.0.clone()
         } else {
-            format!("{}…", &self.0[..12])
+            // Find the 12th character boundary for UTF-8 safety
+            match self.0.char_indices().nth(12) {
+                Some((idx, _)) => format!("{}…", &self.0[..idx]),
+                None => self.0.clone(),
+            }
         }
     }
 }

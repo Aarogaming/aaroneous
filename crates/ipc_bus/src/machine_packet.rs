@@ -108,7 +108,8 @@ impl MachinePacket {
             return None;
         }
         let ptr = bytes.as_ptr();
-        if (ptr as usize) % mem::align_of::<Self>() != 0 {
+        // Enforce 8-byte pointer boundary alignment for memory safety
+        if (ptr as usize) % 8 != 0 {
             return None;
         }
         unsafe { Some(&*(ptr as *const Self)) }

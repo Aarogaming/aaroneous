@@ -1,12 +1,12 @@
 //! crates/biology/src/homeostasis.rs
-//! Autonomous Multi-Factor Biological Homeostasis & Metabolic Equilibrium Governor
-//! inspired by Linux cgroups v2 resource controllers and biological metabolic feedback loops.
+//! Autonomous Multi-Factor Closed-Loop Feedback & Dynamic Equilibrium Governor
+//! inspired by Linux cgroups v2 resource controllers and adaptive control theory.
 
 use serde::{Deserialize, Serialize};
 
-/// Current Homeostasis State across the entire hive
+/// Current Dynamic Equilibrium State across the sovereign runtime
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct HomeostasisState {
+pub struct DynamicEquilibriumState {
     pub global_energy_reserve: f32, // 0.0 to 1000.0 tokens
     pub thermal_dissipation_rate: f32, // Tokens regenerated per second
     pub active_cognitive_load: f32,    // Current burn rate
@@ -14,23 +14,27 @@ pub struct HomeostasisState {
     pub throttle_factor: f32, // 1.0 = normal, 0.5 = 50% throttle, 0.0 = emergency halt
 }
 
-/// Master Homeostasis Governor regulating token reserves and metabolic safety
-pub struct HomeostasisGovernor {
-    state: HomeostasisState,
+pub type HomeostasisState = DynamicEquilibriumState;
+
+/// Master Feedback Regulator governing token budgets and runtime execution safety
+pub struct FeedbackRegulator {
+    state: DynamicEquilibriumState,
     max_energy_reserve: f32,
     overheat_threshold: f32,
 }
 
-impl Default for HomeostasisGovernor {
+pub type HomeostasisGovernor = FeedbackRegulator;
+
+impl Default for FeedbackRegulator {
     fn default() -> Self {
         Self::new(1000.0, 50.0, 80.0)
     }
 }
 
-impl HomeostasisGovernor {
+impl FeedbackRegulator {
     pub fn new(max_energy: f32, regen_rate: f32, overheat_threshold: f32) -> Self {
         Self {
-            state: HomeostasisState {
+            state: DynamicEquilibriumState {
                 global_energy_reserve: max_energy,
                 thermal_dissipation_rate: regen_rate,
                 active_cognitive_load: 0.0,
@@ -42,7 +46,7 @@ impl HomeostasisGovernor {
         }
     }
 
-    pub fn state(&self) -> &HomeostasisState {
+    pub fn state(&self) -> &DynamicEquilibriumState {
         &self.state
     }
 

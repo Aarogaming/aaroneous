@@ -1,13 +1,14 @@
 use crate::autonomic_loop::SynapseState;
 
-pub struct DopamineSystem;
+/// Machine-Native Reinforcement & Feedback Signal Processor
+pub struct FeedbackSignalProcessor;
 
-impl DopamineSystem {
-    /// Processes rewards/penalties based on enzyme execution results.
-    /// This directly modifies the homeostatic meters in the Synapse.
-    pub fn process_event(&self, state: &mut SynapseState, event_type: DopamineEvent) {
+impl FeedbackSignalProcessor {
+    /// Processes rewards/penalties based on worker execution results.
+    /// This directly modifies the equilibrium meters in the Shared Interconnect Bus.
+    pub fn process_event(&self, state: &mut SynapseState, event_type: FeedbackEvent) {
         match event_type {
-            DopamineEvent::SuccessfulIngestion(tier) => {
+            FeedbackEvent::SuccessfulIngestion(tier) => {
                 // High reward for high-value public documents
                 let reward = match tier {
                     0 => 15, // Public (High value for learning)
@@ -17,24 +18,16 @@ impl DopamineSystem {
                 state.curiosity_drive = state.curiosity_drive.saturating_sub(reward);
                 state.understanding_score = state.understanding_score.saturating_add(reward / 2);
                 state.integrity_score = state.integrity_score.saturating_add(2);
-                println!(
-                    "[Dopamine] +Reward: Ingestion successful (Tier {}). Curiosity satisfied.",
-                    tier
-                );
             }
-            DopamineEvent::ExecutionFailure(severity) => {
+            FeedbackEvent::ExecutionFailure(severity) => {
                 // Penalty for failures (Integrity drop)
                 let penalty = (severity as u32) * 10;
                 state.integrity_score = state.integrity_score.saturating_sub(penalty);
                 state.understanding_score = state.understanding_score.saturating_sub(5);
-                // Failures increase curiosity (need to figure out why it failed)
+                // Failures increase exploration demand (need to determine failure cause)
                 state.curiosity_drive = state.curiosity_drive.saturating_add(10);
-                println!(
-                    "[Dopamine] -Penalty: Execution failure (Severity {}). Integrity compromised.",
-                    severity
-                );
             }
-            DopamineEvent::InternalCoherenceCheck(passed) => {
+            FeedbackEvent::InternalCoherenceCheck(passed) => {
                 if passed {
                     state.integrity_score = state.integrity_score.saturating_add(1);
                 } else {
@@ -46,8 +39,13 @@ impl DopamineSystem {
     }
 }
 
-pub enum DopamineEvent {
+pub enum FeedbackEvent {
     SuccessfulIngestion(u8), // contains license_tier
     ExecutionFailure(u8),    // contains severity (1-10)
     InternalCoherenceCheck(bool),
 }
+
+// Backwards-compatible aliases
+pub type DopamineSystem = FeedbackSignalProcessor;
+pub type DopamineEvent = FeedbackEvent;
+pub type RewardSignalProcessor = FeedbackSignalProcessor;

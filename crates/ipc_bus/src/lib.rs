@@ -22,7 +22,7 @@ pub mod nucleotide_packet {
 pub use specialist_bus::{install_specialist_panic_hook, SpecialistSynapseBus, SpecialistSpmcChannel, TensorSlot, TENSOR_DIM};
 pub use spmc_synapse_bus::{SharedSynapseBus, SpmcSynapseBus, SynapsePacket};
 
-pub use persistent_grimoire::{GrimoireRecord, PersistentGrimoireStore};
+pub use persistent_grimoire::{GrimoireRecord, PersistentGrimoireStore, PersistentWalStore, WalRecord};
 pub use scheme_router::{CapabilityFlags, SchemeCapabilityGate, SchemeUri};
 
 // Windows-specific named pipe communication (AgentBus)

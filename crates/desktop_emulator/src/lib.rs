@@ -1,6 +1,7 @@
 //! crates/desktop_emulator
 //! Unified frontend user emulation, visual perception, backend probing, and datalogging organ for Aaroneous.
 
+pub mod audio_analyzer;
 pub mod epigenetic_vision;
 pub mod event_recorder;
 pub mod game_player;
@@ -10,9 +11,10 @@ pub mod probing;
 pub mod protocol_bridge;
 pub mod sensory_motor_loop;
 pub mod traits;
+pub mod vision_latent;
 pub mod window_target;
 
-pub use sensory_motor_loop::{SensoryMotorCycleReport, SensoryMotorPipeline};
+pub use audio_analyzer::{AudioEventObservation, AudioFrequencySpectrum, WasapiAudioStreamAnalyzer};
 pub use epigenetic_vision::{
     EpigeneticGatingResult, EpigeneticVisionGater, DEFAULT_DELTA_THRESHOLD,
     DEFAULT_HYSTERESIS_FRAMES, GRID_HEIGHT, GRID_SIZE, GRID_WIDTH, SECTORS_PER_COL,
@@ -21,10 +23,12 @@ pub use epigenetic_vision::{
 pub use event_recorder::{FramebufferAnalyzer, RecordedInputEvent, SessionRecording};
 pub use game_player::{AutonomousGameAgent, GamePolicyAction, PlaythroughState};
 pub use mock::MockMarionette;
-pub use native_win32::NativeWin32Marionette;
+pub use native_win32::{DxgiHardwareFrameBuffer, NativeWin32Marionette};
 pub use probing::ProcessProbeLogger;
 pub use protocol_bridge::{MarionetteProtocolBridge, MnlpPerceptionPacket};
+pub use sensory_motor_loop::{SensoryMotorCycleReport, SensoryMotorPipeline};
 pub use traits::{HidAction, HidCommand, MarionetteHost, ProbingTrace, VisualObservation};
+pub use vision_latent::{SolidStateVisionPipeline, VisionLatentObservation};
 pub use window_target::{AudioCaptureModifier, CaptureModifiers, CaptureTarget, DiscoveredWindow, WindowDiscoveryEngine};
 
 use anyhow::Result;

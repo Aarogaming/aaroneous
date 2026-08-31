@@ -32,6 +32,8 @@ impl Default for MnlpPatchPacket {
 /// Machine-Native Linking Protocol bridge for Adaptation Engine patch proposals
 pub struct ChimeraProtocolBridge;
 
+pub type MnlpProtocolBridge = ChimeraProtocolBridge;
+
 impl ChimeraProtocolBridge {
     pub fn encode_patch(patch: &PatchProposal, patch_id: u64) -> Result<Vec<u8>> {
         let json_payload = serde_json::to_vec(patch)?;

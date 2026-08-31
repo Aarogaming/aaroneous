@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use tracing::info;
 
-use crate::traits::{MnlpPacket, MnlpResponse, RelicEngine, SovereignSpecialist, SpecialistHealth};
+use crate::traits::{DomainSubEngine, MnlpPacket, MnlpResponse, SovereignSpecialist, SpecialistHealth};
 
 /// Synthesized research knowledge item
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -20,15 +20,18 @@ pub struct KnowledgeSynthesis {
     pub confidence_score: f32,
 }
 
-/// KnowledgeStore Relic Engine: Semantic research vault and citation index
+/// KnowledgeStoreEngine: Semantic research vault and citation index sub-engine
 #[derive(Debug, Clone, Default)]
-pub struct KnowledgeStoreRelic {
+pub struct KnowledgeStoreEngine {
     pub indexed_documents: usize,
     pub citation_graph: HashMap<String, Vec<String>>,
 }
 
-impl RelicEngine for KnowledgeStoreRelic {
-    fn relic_name(&self) -> &'static str {
+/// Backwards-compatible alias
+pub type KnowledgeStoreRelic = KnowledgeStoreEngine;
+
+impl DomainSubEngine for KnowledgeStoreEngine {
+    fn engine_name(&self) -> &'static str {
         "KnowledgeStore"
     }
 
@@ -36,7 +39,7 @@ impl RelicEngine for KnowledgeStoreRelic {
         "Synthesizer"
     }
 
-    fn relic_status(&self) -> String {
+    fn engine_status(&self) -> String {
         format!(
             "KnowledgeStore Vault: {} documents indexed, {} citation nodes",
             self.indexed_documents,
@@ -45,12 +48,13 @@ impl RelicEngine for KnowledgeStoreRelic {
     }
 }
 
-/// Synthesizer Sovereign Specialist
+/// Synthesizer Specialist
 pub struct SynthesizerSpecialist {
     pub tokens: f32,
     pub max_tokens: f32,
     pub knowledge_cache: HashMap<String, KnowledgeSynthesis>,
-    pub grimoire: KnowledgeStoreRelic,
+    pub knowledge_base: KnowledgeStoreEngine,
+    pub grimoire: KnowledgeStoreEngine,
 }
 
 impl Default for SynthesizerSpecialist {
@@ -65,7 +69,8 @@ impl SynthesizerSpecialist {
             tokens: 100.0,
             max_tokens: 100.0,
             knowledge_cache: HashMap::new(),
-            grimoire: KnowledgeStoreRelic::default(),
+            knowledge_base: KnowledgeStoreEngine::default(),
+            grimoire: KnowledgeStoreEngine::default(),
         }
     }
 

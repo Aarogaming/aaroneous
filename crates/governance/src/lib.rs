@@ -4,9 +4,12 @@ pub mod metabolic_governor;
 pub mod thermodynamic_governor;
 
 pub use biology::{
-    SpecialistHealth, SpecialistMetabolism, SystemBiology, SystemHealthReport, ThrottleState,
+    SpecialistExecutionBudget, SpecialistHealth, SpecialistMetabolism, SystemBiology,
+    SystemHealthGovernor, SystemHealthReport, ThrottleState,
 };
-pub use homeostasis::{HomeostasisGovernor, HomeostasisState};
+pub use homeostasis::{
+    DynamicEquilibriumState, FeedbackRegulator, HomeostasisGovernor, HomeostasisState,
+};
 pub use metabolic_governor::{
     GovernanceAction, MetabolicForecast, MetabolicGovernorConfig, PredictiveMetabolicGovernor,
 };

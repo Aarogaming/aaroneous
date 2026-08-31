@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
 use tracing::info;
 
-use crate::traits::{MnlpPacket, MnlpResponse, RelicEngine, SovereignSpecialist, SpecialistHealth};
+use crate::traits::{DomainSubEngine, MnlpPacket, MnlpResponse, SovereignSpecialist, SpecialistHealth};
 
 /// A subtask in an Orchestrator Directed Acyclic Graph (DAG)
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -22,36 +22,40 @@ pub struct TaskNode {
     pub completed: bool,
 }
 
-/// OrchestratorCore Relic Engine: Autonomous task scheduler and token multiplier
+/// TaskSchedulerEngine: Autonomous task scheduler and token multiplier sub-engine
 #[derive(Debug, Clone, Default)]
-pub struct OrchestratorCoreRelic {
+pub struct TaskSchedulerEngine {
     pub active_dag_count: usize,
     pub total_tasks_scheduled: usize,
 }
 
-impl RelicEngine for OrchestratorCoreRelic {
-    fn relic_name(&self) -> &'static str {
-        "OrchestratorCore"
+/// Backwards-compatible alias
+pub type OrchestratorCoreRelic = TaskSchedulerEngine;
+
+impl DomainSubEngine for TaskSchedulerEngine {
+    fn engine_name(&self) -> &'static str {
+        "TaskScheduler"
     }
 
     fn supervisor_name(&self) -> &'static str {
         "Orchestrator"
     }
 
-    fn relic_status(&self) -> String {
+    fn engine_status(&self) -> String {
         format!(
-            "OrchestratorCore Active: {} DAGs, {} tasks scheduled",
+            "TaskScheduler Active: {} DAGs, {} tasks scheduled",
             self.active_dag_count, self.total_tasks_scheduled
         )
     }
 }
 
-/// Orchestrator Sovereign Specialist
+/// Orchestrator Specialist
 pub struct OrchestratorSpecialist {
     pub tokens: f32,
     pub max_tokens: f32,
     pub task_queue: VecDeque<TaskNode>,
-    pub draupnir: OrchestratorCoreRelic,
+    pub scheduler: TaskSchedulerEngine,
+    pub draupnir: TaskSchedulerEngine,
 }
 
 impl Default for OrchestratorSpecialist {
@@ -66,7 +70,8 @@ impl OrchestratorSpecialist {
             tokens: 100.0,
             max_tokens: 100.0,
             task_queue: VecDeque::new(),
-            draupnir: OrchestratorCoreRelic::default(),
+            scheduler: TaskSchedulerEngine::default(),
+            draupnir: TaskSchedulerEngine::default(),
         }
     }
 
@@ -101,8 +106,9 @@ impl OrchestratorSpecialist {
             },
         ];
 
-        self.draupnir.active_dag_count += 1;
-        self.draupnir.total_tasks_scheduled += tasks.len();
+        self.scheduler.active_dag_count += 1;
+        self.scheduler.total_tasks_scheduled += tasks.len();
+        self.draupnir = self.scheduler.clone();
 
         for t in &tasks {
             self.task_queue.push_back(t.clone());

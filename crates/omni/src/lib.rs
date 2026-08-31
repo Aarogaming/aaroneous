@@ -61,7 +61,7 @@ impl OmniEngine {
         }
     }
 
-    /// Ingest the 9 Sovereign Domain Specialists into the 3D Omni Galaxy
+    /// Ingest the 9 Specialists into the 3D Omni Galaxy
     pub async fn ingest_standard_specialists(&self) -> usize {
         let specialists = [
             ("orchestrator", "Orchestrator (Strategic Cortex)", -800.0, 500.0, 950.0, 0x0100),
@@ -87,7 +87,7 @@ impl OmniEngine {
                 id,
                 title,
                 StarNodeType::Specialist,
-                "SpecialistFederation",
+                "Specialists",
                 SpatialCoord::new(x, y, z),
                 &format!("federation://{}", id),
             )

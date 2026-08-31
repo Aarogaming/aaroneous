@@ -16,6 +16,10 @@ pub enum ExecutableAction {
         operation: FileOp,
         content: Option<String>,
     },
+    ExecuteMicroBytecode {
+        program: crate::micro_vm::VmProgram,
+        gas_limit: Option<u64>,
+    },
     SpawnWasm {
         enzyme_path: PathBuf,
         input_data: Vec<u8>,
@@ -67,19 +71,57 @@ pub struct ActionExecutor {
     pub biology: SystemBiology,
     pub constellation: ConstellationCanvas,
     pub wasm_path: PathBuf,
+    pub allowed_roots: Vec<PathBuf>,
     pub execution_history: Vec<ActionResult>,
     pub max_history: usize,
 }
 
 impl ActionExecutor {
     pub fn new(wasm_path: PathBuf) -> Self {
+        let mut allowed_roots = Vec::new();
+        let ws = aaroneous_paths::WorkspacePaths::discover();
+        allowed_roots.push(ws.root().clone());
+        allowed_roots.push(std::env::temp_dir());
+
         Self {
             biology: SystemBiology::new(),
             constellation: ConstellationCanvas::new(),
             wasm_path,
+            allowed_roots,
             execution_history: Vec::new(),
             max_history: 100,
         }
+    }
+
+    /// Verifies that a target file path is safely confined within allowed workspace roots
+    pub fn validate_sandbox_path(&self, path: &Path) -> Result<PathBuf, String> {
+        // Disallow relative parent directory traversal
+        if path.components().any(|c| matches!(c, std::path::Component::ParentDir)) {
+            return Err(format!("Parent directory traversal ('..') is disallowed: {}", path.display()));
+        }
+
+        // Canonicalize or normalize path
+        let resolved = if path.is_absolute() {
+            path.to_path_buf()
+        } else {
+            aaroneous_paths::WorkspacePaths::discover().root().join(path)
+        };
+
+        // If path exists, check canonical path against allowed roots
+        let canonical_check = resolved.canonicalize().unwrap_or_else(|_| resolved.clone());
+        let is_allowed = self.allowed_roots.iter().any(|root| {
+            let root_canonical = root.canonicalize().unwrap_or_else(|_| root.clone());
+            canonical_check.starts_with(&root_canonical) || resolved.starts_with(root)
+        });
+
+        if !is_allowed {
+            return Err(format!(
+                "Security violation: path '{}' is outside allowed workspace boundaries",
+                path.display()
+            ));
+        }
+
+        Ok(resolved)
     }
 
     /// Execute a single action
@@ -92,6 +134,9 @@ impl ActionExecutor {
                 operation,
                 content,
             } => self.execute_file_operation(&path, operation, content.as_deref()),
+            ExecutableAction::ExecuteMicroBytecode { program, gas_limit } => {
+                self.execute_micro_bytecode(&program, gas_limit)
+            }
             ExecutableAction::SpawnWasm {
                 enzyme_path,
                 input_data,
@@ -126,31 +171,58 @@ impl ActionExecutor {
         result
     }
 
-    /// Execute a file operation
+    /// Execute a file operation with strict sandbox confinement validation
     fn execute_file_operation(
         &self,
         path: &Path,
         operation: FileOp,
         content: Option<&str>,
     ) -> ActionResult {
+        // Validate source path
+        let target_path = match self.validate_sandbox_path(path) {
+            Ok(p) => p,
+            Err(err) => {
+                return ActionResult {
+                    action_type: "file_operation".to_string(),
+                    success: false,
+                    duration_ms: 0.0,
+                    message: format!("Sandbox security violation: {}", err),
+                    metadata: serde_json::json!({"path": path.to_string_lossy(), "security_error": true}),
+                };
+            }
+        };
+
+        // Validate destination path for move/copy
+        if let FileOp::Move(ref dest) | FileOp::Copy(ref dest) = operation {
+            if let Err(err) = self.validate_sandbox_path(dest) {
+                return ActionResult {
+                    action_type: "file_operation".to_string(),
+                    success: false,
+                    duration_ms: 0.0,
+                    message: format!("Sandbox security violation on destination: {}", err),
+                    metadata: serde_json::json!({"dest": dest.to_string_lossy(), "security_error": true}),
+                };
+            }
+        }
+
         let result = match operation {
             FileOp::Create => {
                 if let Some(content) = content {
-                    fs::write(path, content).map(|_| ())
+                    fs::write(&target_path, content).map(|_| ())
                 } else {
-                    fs::write(path, "").map(|_| ())
+                    fs::write(&target_path, "").map(|_| ())
                 }
             }
             FileOp::Modify => {
                 if let Some(content) = content {
-                    fs::write(path, content).map(|_| ())
+                    fs::write(&target_path, content).map(|_| ())
                 } else {
                     Ok(())
                 }
             }
-            FileOp::Delete => fs::remove_file(path),
-            FileOp::Move(ref dest) => fs::rename(path, dest),
-            FileOp::Copy(ref dest) => fs::copy(path, dest).map(|_| ()),
+            FileOp::Delete => fs::remove_file(&target_path),
+            FileOp::Move(ref dest) => fs::rename(&target_path, dest),
+            FileOp::Copy(ref dest) => fs::copy(&target_path, dest).map(|_| ()),
         };
 
         match result {
@@ -167,6 +239,46 @@ impl ActionExecutor {
                 duration_ms: 0.0,
                 message: format!("File operation failed: {}", e),
                 metadata: serde_json::json!({"path": path.to_string_lossy(), "error": e.to_string()}),
+            },
+        }
+    }
+
+    /// Executes a sandboxed micro-worker bytecode program with strict gas and memory limits
+    fn execute_micro_bytecode(
+        &self,
+        program: &crate::micro_vm::VmProgram,
+        gas_limit: Option<u64>,
+    ) -> ActionResult {
+        let gas = gas_limit.unwrap_or(crate::micro_vm::DEFAULT_GAS_LIMIT);
+        let mut vm = crate::micro_vm::MicroBytecodeVm::with_limits(
+            gas,
+            crate::micro_vm::DEFAULT_MEMORY_LIMIT,
+        );
+        let start = std::time::Instant::now();
+        match vm.execute(program) {
+            Ok(result) => ActionResult {
+                action_type: "execute_micro_bytecode".to_string(),
+                success: true,
+                duration_ms: start.elapsed().as_secs_f64() * 1000.0,
+                message: format!(
+                    "Micro-bytecode execution succeeded: {} instructions executed, {} gas consumed",
+                    result.instructions_executed, result.gas_consumed
+                ),
+                metadata: serde_json::json!({
+                    "instructions_executed": result.instructions_executed,
+                    "gas_consumed": result.gas_consumed,
+                    "gas_remaining": result.gas_remaining,
+                    "r0": result.registers[0],
+                }),
+            },
+            Err(e) => ActionResult {
+                action_type: "execute_micro_bytecode".to_string(),
+                success: false,
+                duration_ms: start.elapsed().as_secs_f64() * 1000.0,
+                message: format!("Micro-bytecode execution error: {}", e),
+                metadata: serde_json::json!({
+                    "error": e.to_string(),
+                }),
             },
         }
     }
@@ -421,5 +533,48 @@ mod tests {
 
         assert_eq!(stats.total_executions, 0);
         assert_eq!(stats.success_rate, 0.0);
+    }
+
+    #[test]
+    fn test_sandbox_path_containment_and_rejection() {
+        let executor = ActionExecutor::new(PathBuf::from("test.wasm"));
+
+        // Path traversal should be rejected
+        let traversal_path = PathBuf::from("../../../etc/passwd");
+        assert!(executor.validate_sandbox_path(&traversal_path).is_err());
+
+        // File operation with path escape returns failure action result
+        let action = ExecutableAction::FileOperation {
+            path: traversal_path,
+            operation: FileOp::Create,
+            content: Some("malicious content".to_string()),
+        };
+        let mut exec = ActionExecutor::new(PathBuf::from("test.wasm"));
+        let rt = tokio::runtime::Builder::new_current_thread().build().unwrap();
+        let res = rt.block_on(exec.execute(action));
+        assert!(!res.success);
+        assert!(res.message.contains("Sandbox security violation"));
+    }
+
+    #[test]
+    fn test_micro_bytecode_action_execution() {
+        let mut executor = ActionExecutor::new(PathBuf::from("test.wasm"));
+        let program = crate::micro_vm::VmProgram::new(vec![
+            crate::micro_vm::VmInstruction::MovImm { dst: 0, val: 100 },
+            crate::micro_vm::VmInstruction::MovImm { dst: 1, val: 250 },
+            crate::micro_vm::VmInstruction::Add { dst: 0, src: 1 },
+            crate::micro_vm::VmInstruction::Halt,
+        ]);
+
+        let action = ExecutableAction::ExecuteMicroBytecode {
+            program,
+            gas_limit: Some(10_000),
+        };
+
+        let rt = tokio::runtime::Builder::new_current_thread().build().unwrap();
+        let res = rt.block_on(executor.execute(action));
+        assert!(res.success);
+        assert!(res.message.contains("Micro-bytecode execution succeeded"));
+        assert_eq!(res.metadata["r0"], 350);
     }
 }

@@ -1,9 +1,9 @@
 [package]
-name = "evolution"
+name = "autonomic_adaptation"
 version = "0.1.0"
 edition = "2021"
 authors.workspace = true
-description = "Continuous self-evolution engine, neurochemistry, genetics, and persona fusion"
+description = "Continuous adaptive control engine, hyperparameter optimization, and GGUF model ingestion"
 license.workspace = true
 repository.workspace = true
 
@@ -27,3 +27,6 @@ candle-nn = "0.8"
 candle-transformers = "0.8"
 tokenizers = { version = "0.21", default-features = false, features = ["onig"] }
 hf-hub = "0.3"
+
+[dev-dependencies]
+tempfile = "3.8"

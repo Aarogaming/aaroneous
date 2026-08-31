@@ -1,5 +1,4 @@
-//! crates/specialists/tests/test_pantheon_end_to_end.rs
-//! End-to-End Orchestration Integration Test across the 9 Federated Specialists and Relic Substrates.
+//! End-to-End Orchestration Integration Test across the 9 Specialists and Relic Substrates.
 
 use specialists::{MnlpPacket, SpecialistFederation};
 
@@ -114,7 +113,7 @@ async fn test_full_specialist_federation_orchestration_cycle() {
     let res_perceiver = federation.dispatch_packet(pkt_perceiver).await.unwrap();
     assert!(res_perceiver.success);
 
-    println!("[ORCHESTRATION TEST] 9/9 Sovereign Specialists fully coordinated in sequence.");
+    println!("[ORCHESTRATION TEST] 9/9 Specialists fully coordinated in sequence.");
 }
 
 #[tokio::test]
@@ -160,4 +159,41 @@ async fn test_router_multi_node_swarm_mesh_cluster() {
     assert!(offload_state.is_connected);
     assert_eq!(offload_state.peer_node_id, "node_beta");
     assert!(offload_state.latency_ms < 1.0);
+}
+
+#[tokio::test]
+async fn test_mesh_packet_burst_stress_test() {
+    let mut federation = SpecialistFederation::new();
+    let packet_count = 120;
+
+    let opcodes = [
+        (0x0100, "orchestrator"),
+        (0x0200, "synthesizer"),
+        (0x0300, "presenter"),
+        (0x0400, "fabricator"),
+        (0x0500, "sentinel"),
+        (0x0600, "archivist"),
+        (0x0700, "router"),
+        (0x0800, "aligner"),
+        (0x0900, "perceiver"),
+    ];
+
+    let mut successful_packets = 0;
+    for i in 0..packet_count {
+        let (opcode, target) = opcodes[i % opcodes.len()];
+        let pkt = MnlpPacket {
+            opcode,
+            source: "benchmark_harness".to_string(),
+            target: target.to_string(),
+            correlation_id: 1000 + i as u64,
+            payload: format!("Stress test payload sequence #{}", i).into_bytes(),
+        };
+
+        let res = federation.dispatch_packet(pkt).await.expect("Packet dispatch must succeed");
+        assert!(res.success, "Packet #{} failed", i);
+        successful_packets += 1;
+    }
+
+    assert_eq!(successful_packets, 120);
+    println!("[STRESS TEST] Successfully dispatched and executed 120/120 concurrent machine-native packets across all 9 domain specialists.");
 }

@@ -149,3 +149,11 @@ impl Synapse {
         Ok(payload)
     }
 }
+
+// Machine-Native Systems Aliases
+pub type InterconnectState = SynapseState;
+pub type InterconnectPayload = SynapsePayload;
+pub type InterconnectBus = Synapse;
+pub type InterconnectMcpFrame = McpToolCallFrame;
+pub type SpecialistBusDialogue = SpecialistDialogue;
+

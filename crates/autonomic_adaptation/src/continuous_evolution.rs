@@ -211,11 +211,64 @@ impl ContinuousSelfEvolutionEngine {
             duration_ms,
         })
     }
+
+    /// Dynamically steers the dynamic adaptation matrix based on dopamine reinforcement signals
+    pub fn adapt_from_reward(
+        &mut self,
+        state_x: &[f32],
+        target_action: u16,
+        reward: f32,
+        container: &mut SolidStateSiContainer,
+    ) -> Result<f32> {
+        let base_lr = 0.005f32;
+        let dopamine = self.neurochemistry.levels.dopamine;
+        let effective_lr = base_lr * (1.0 + dopamine);
+
+        if reward >= 0.0 {
+            // Positive reinforcement: register anchor transition to prevent forgetting
+            let delta = vec![reward * 0.01; container.adaptation.out_dim];
+            container.adaptation.add_anchor_state(state_x.to_vec(), target_action, delta);
+            self.neurochemistry.levels.dopamine = (self.neurochemistry.levels.dopamine + 0.05 * reward).min(1.0);
+            self.neurochemistry.levels.serotonin = (self.neurochemistry.levels.serotonin + 0.02 * reward).min(1.0);
+        } else {
+            // Negative error penalty: apply TD(lambda) and OGP error steering
+            let error_vector = vec![-reward * 0.02; container.adaptation.out_dim];
+            container.adaptation.apply_error_penalty(state_x, &error_vector, effective_lr);
+            self.neurochemistry.levels.dopamine = (self.neurochemistry.levels.dopamine - 0.05).max(0.1);
+            self.neurochemistry.levels.noradrenaline = (self.neurochemistry.levels.noradrenaline + 0.08).min(1.0);
+        }
+
+        Ok(effective_lr)
+    }
+
+    /// Distills high-frequency execution traces into an immutable canonical .si cartridge v3.0
+    pub fn crystallize_habit_cartridge(
+        &self,
+        core_weights: &[u8],
+        dynamic_adapter: &[u8],
+        habit_traces: &[Vec<u8>],
+        out_path: impl AsRef<Path>,
+    ) -> Result<PathBuf> {
+        let mut skill_payload = Vec::new();
+        for trace in habit_traces {
+            skill_payload.extend_from_slice(&(trace.len() as u32).to_le_bytes());
+            skill_payload.extend_from_slice(trace);
+        }
+
+        compute::si_spec::SiCartridgeEngine::pack_cartridge(
+            core_weights,
+            dynamic_adapter,
+            &skill_payload,
+            compute::si_spec::SI_FLAG_TIER_3_REFLEX | compute::si_spec::SI_FLAG_TIER_1_CORTEX,
+            out_path,
+        )
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use compute::si_ssm::SiSsmConfig;
 
     #[test]
     fn test_continuous_self_evolution_cycle() {
@@ -246,5 +299,37 @@ mod tests {
 
         // Verify dopamine satisfaction boosted
         assert!(engine.neurochemistry.levels.dopamine > 0.65);
+    }
+
+    #[test]
+    fn test_dopamine_gated_adaptation_and_crystallization() {
+        let config = SelfEvolutionConfig::default();
+        let mut engine = ContinuousSelfEvolutionEngine::new(config);
+
+        let ssm_config = SiSsmConfig::default();
+        let mut container = SolidStateSiContainer::new("test_agent", ssm_config);
+
+        let state_x = vec![0.1f32; 256];
+        let lr = engine.adapt_from_reward(&state_x, 0x0400, 1.0, &mut container).unwrap();
+        assert!(lr > 0.005);
+        assert_eq!(container.adaptation.anchor_buffer.len(), 1);
+
+        // Test error penalty with negative reward
+        let penalty_lr = engine.adapt_from_reward(&state_x, 0x0400, -1.0, &mut container).unwrap();
+        assert!(penalty_lr > 0.0);
+        assert!(container.adaptation.error_corrections_count > 0);
+
+        // Test habit crystallization
+        let temp = tempfile::tempdir().unwrap();
+        let cart_path = temp.path().join("crystallized_agent.si");
+        let traces = vec![b"EXEC_STEP_1".to_vec(), b"EXEC_STEP_2".to_vec()];
+
+        let res = engine.crystallize_habit_cartridge(&[0xAA; 128], &[0xBB; 64], &traces, &cart_path);
+        assert!(res.is_ok());
+
+        let report = compute::si_spec::SiCartridgeEngine::verify_cartridge(&cart_path).unwrap();
+        assert!(report.is_valid);
+        assert!(report.is_reflex);
+        assert!(report.is_cortex);
     }
 }

@@ -1,4 +1,4 @@
-//! crates/nervous_system/src/scheme_router.rs
+//! crates/ipc_bus/src/scheme_router.rs
 //! Universal Scheme URI Router & Capability-Based Access Control
 //! Adapted from Redox OS Scheme Architecture (`libredox`).
 //! Provides URI routing (`specialist://`, `synapse://`, `forge://`) and capability authorization.

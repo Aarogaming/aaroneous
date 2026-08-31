@@ -1,4 +1,4 @@
-//! crates/nervous_system/src/disruptor.rs
+//! crates/ipc_bus/src/disruptor.rs
 //! High-throughput, lock-free ring buffer and sequence-guarded event broadcaster
 //! inspired by the LMAX Disruptor and Aeron IPC architectures.
 

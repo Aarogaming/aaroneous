@@ -11,9 +11,15 @@ pub struct HoxCapability {
     pub permissions: HoxPermissions,
 }
 
+/// Modern capability descriptor alias
+pub type CapabilityDescriptor = HoxCapability;
+
 pub struct HoxRegistry {
     db: Mutex<Connection>,
 }
+
+/// Modern capability schema registry alias
+pub type CapabilitySchemaRegistry = HoxRegistry;
 
 impl HoxRegistry {
     pub fn new(path: &str) -> Result<Self> {

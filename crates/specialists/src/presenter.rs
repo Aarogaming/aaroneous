@@ -8,7 +8,7 @@ use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use tracing::info;
 
-use crate::traits::{MnlpPacket, MnlpResponse, RelicEngine, SovereignSpecialist, SpecialistHealth};
+use crate::traits::{DomainSubEngine, MnlpPacket, MnlpResponse, SovereignSpecialist, SpecialistHealth};
 
 /// UI Presentation frame streamed to BusVisualizer
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -20,14 +20,17 @@ pub struct UiPresentationFrame {
     pub status_message: String,
 }
 
-/// DisplayBuffer Relic Engine: Optical HUD Telemetry and visual streamer
+/// DisplayBufferEngine: Optical HUD Telemetry and visual streamer sub-engine
 #[derive(Debug, Clone)]
-pub struct DisplayBufferRelic {
+pub struct DisplayBufferEngine {
     pub frames_streamed: u64,
     pub hud_layers_active: usize,
 }
 
-impl Default for DisplayBufferRelic {
+/// Backwards-compatible alias
+pub type DisplayBufferRelic = DisplayBufferEngine;
+
+impl Default for DisplayBufferEngine {
     fn default() -> Self {
         Self {
             frames_streamed: 0,
@@ -36,8 +39,8 @@ impl Default for DisplayBufferRelic {
     }
 }
 
-impl RelicEngine for DisplayBufferRelic {
-    fn relic_name(&self) -> &'static str {
+impl DomainSubEngine for DisplayBufferEngine {
+    fn engine_name(&self) -> &'static str {
         "DisplayBuffer"
     }
 
@@ -45,7 +48,7 @@ impl RelicEngine for DisplayBufferRelic {
         "Presenter"
     }
 
-    fn relic_status(&self) -> String {
+    fn engine_status(&self) -> String {
         format!(
             "DisplayBuffer Optical Streamer: {} frames delivered across {} HUD layers",
             self.frames_streamed, self.hud_layers_active
@@ -53,11 +56,12 @@ impl RelicEngine for DisplayBufferRelic {
     }
 }
 
-/// Presenter Sovereign Specialist
+/// Presenter Specialist
 pub struct PresenterSpecialist {
     pub tokens: f32,
     pub max_tokens: f32,
-    pub glass: DisplayBufferRelic,
+    pub display_buffer: DisplayBufferEngine,
+    pub glass: DisplayBufferEngine,
     pub omni_engine: std::sync::Arc<omni::OmniEngine>,
 }
 
@@ -73,14 +77,16 @@ impl PresenterSpecialist {
         Self {
             tokens: 100.0,
             max_tokens: 100.0,
-            glass: DisplayBufferRelic::default(),
+            display_buffer: DisplayBufferEngine::default(),
+            glass: DisplayBufferEngine::default(),
             omni_engine,
         }
     }
 
     /// Composes a UI frame for frontend rendering
     pub fn compose_ui_frame(&mut self, active_view: &str, status: &str) -> UiPresentationFrame {
-        self.glass.frames_streamed += 1;
+        self.display_buffer.frames_streamed += 1;
+        self.glass.frames_streamed = self.display_buffer.frames_streamed;
         info!(target: "specialist::presenter", %active_view, "Composing visual UI presentation frame");
 
         UiPresentationFrame {
@@ -96,13 +102,41 @@ impl PresenterSpecialist {
     pub async fn populate_omni_galaxy(&self) -> Result<(usize, usize)> {
         let spec_count = self.omni_engine.ingest_standard_specialists().await;
         let crate_count = self.omni_engine.ingest_workspace_crates(&[
-            "nervous_system", "compute", "evolution", "biology",
-            "orchestrator", "chimera", "marionette", "specialists",
-            "paths", "transpiler", "omni", "a_run"
+            "ipc_bus", "compute", "evolution", "biology",
+            "orchestrator", "adaptation_engine", "desktop_emulator", "specialists",
+            "paths", "transpiler", "omni", "hypervisor"
         ]).await;
 
         self.omni_engine.step_gravitational_physics(0.1).await;
         Ok((spec_count, crate_count))
+    }
+
+    /// Computes an adaptive layout recommendation based on operator interaction heatmap
+    pub fn compute_adaptive_layout(&self, heatmap: &InteractionHeatmap) -> serde_json::Value {
+        serde_json::json!({
+            "primary_view": heatmap.primary_focus_view,
+            "total_interactions": heatmap.total_interactions,
+            "recommended_scale": if heatmap.total_interactions > 100 { 1.1 } else { 1.0 },
+            "high_density_mode": heatmap.total_interactions > 50,
+        })
+    }
+}
+
+/// Operator Interaction Heatmap and Layout Optimization
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct InteractionHeatmap {
+    pub view_focus_counts: std::collections::HashMap<String, u64>,
+    pub total_interactions: u64,
+    pub primary_focus_view: String,
+}
+
+impl InteractionHeatmap {
+    pub fn record_focus(&mut self, view: &str) {
+        *self.view_focus_counts.entry(view.to_string()).or_insert(0) += 1;
+        self.total_interactions += 1;
+        if let Some((top_view, _)) = self.view_focus_counts.iter().max_by_key(|(_, &c)| c) {
+            self.primary_focus_view = top_view.clone();
+        }
     }
 }
 
@@ -172,5 +206,21 @@ mod tests {
         let frame = presenter.compose_ui_frame("OmniGalaxyView", "Exploring sector 4");
         assert_eq!(frame.active_view, "OmniGalaxyView");
         assert_eq!(presenter.glass.frames_streamed, 1);
+    }
+
+    #[test]
+    fn test_interaction_heatmap_adaptive_layout() {
+        let presenter = PresenterSpecialist::new();
+        let mut heatmap = InteractionHeatmap::default();
+        heatmap.record_focus("GalaxyMap3D");
+        heatmap.record_focus("GalaxyMap3D");
+        heatmap.record_focus("ScreenAutomation");
+
+        assert_eq!(heatmap.primary_focus_view, "GalaxyMap3D");
+        assert_eq!(heatmap.total_interactions, 3);
+
+        let layout = presenter.compute_adaptive_layout(&heatmap);
+        assert_eq!(layout["primary_view"], "GalaxyMap3D");
+        assert_eq!(layout["total_interactions"], 3);
     }
 }

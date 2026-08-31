@@ -6,8 +6,8 @@ use std::collections::HashMap;
 use std::time::Instant;
 use strum::{Display, EnumIter, EnumString};
 
-/// Global metabolic state for the entire Aaroneous hive
-pub struct SystemBiology {
+/// Global resource & execution rate governor for the entire Aaroneous runtime
+pub struct SystemHealthGovernor {
     pub expression_rate: f32, // Global multiplier for all specialist rates (0.0-1.0)
     pub tokens: f32,          // Global token pool
     pub last_regen: Instant,
@@ -15,9 +15,11 @@ pub struct SystemBiology {
     pub throttle_state: ThrottleState,
 }
 
-/// Per-specialist metabolic state
+pub type SystemBiology = SystemHealthGovernor;
+
+/// Per-specialist execution budget and token allocation
 #[derive(Debug, Clone)]
-pub struct SpecialistMetabolism {
+pub struct SpecialistExecutionBudget {
     pub specialist_id: String,
     pub tokens: f32,     // Individual token allocation
     pub max_tokens: f32, // Token ceiling for this specialist
@@ -25,11 +27,13 @@ pub struct SpecialistMetabolism {
     pub last_regen: Instant,
     pub execution_count: u64, // Number of times this specialist has executed
 
-    // Paradox / Tension Spectrums (Legacy Ingest)
+    // Tension Spectrums (Control Goals)
     pub ambition: f32,   // Goal-seeking drive (0.0-1.0)
     pub strictness: f32, // Compliance/Audit drive (0.0-1.0)
     pub stability: f32,  // Risk-aversion drive (0.0-1.0)
 }
+
+pub type SpecialistMetabolism = SpecialistExecutionBudget;
 
 impl Default for SpecialistMetabolism {
     fn default() -> Self {

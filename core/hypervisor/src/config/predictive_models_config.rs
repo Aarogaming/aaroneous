@@ -268,7 +268,7 @@ impl Default for RuntimeConfig {
             dynamic_tuning_enabled: true,
             parameter_update_interval: 60.0,
             parameter_persistence_enabled: true,
-            parameter_persistence_path: "config/predictive_models.json".to_string(),
+            parameter_persistence_path: "config/predictive_models.toml".to_string(),
         }
     }
 }
@@ -447,7 +447,7 @@ mod tests {
             dynamic_tuning_enabled: true,
             parameter_update_interval: 60.0,
             parameter_persistence_enabled: true,
-            parameter_persistence_path: "config/predictive_models.json".to_string(),
+            parameter_persistence_path: "config/predictive_models.toml".to_string(),
         };
 
         let config = PredictiveModelsConfig::new(kalman, hmm, predictive, observability, runtime);

@@ -9,37 +9,41 @@ use chrono::Utc;
 use tracing::info;
 
 use adaptation_engine::{AdaptationEngine, PatchProposal};
-use crate::traits::{MnlpPacket, MnlpResponse, RelicEngine, SovereignSpecialist, SpecialistHealth};
+use crate::traits::{DomainSubEngine, MnlpPacket, MnlpResponse, SovereignSpecialist, SpecialistHealth};
 
-/// CompilerCore Relic Engine: Autonomous build automation and software forge
+/// CompilerForgeEngine: Autonomous build automation and software forge sub-engine
 #[derive(Debug, Clone, Default)]
-pub struct CompilerCoreRelic {
+pub struct CompilerForgeEngine {
     pub total_adaptations_forged: usize,
     pub active_build_pipelines: usize,
 }
 
-impl RelicEngine for CompilerCoreRelic {
-    fn relic_name(&self) -> &'static str {
-        "CompilerCore"
+/// Backwards-compatible alias
+pub type CompilerCoreRelic = CompilerForgeEngine;
+
+impl DomainSubEngine for CompilerForgeEngine {
+    fn engine_name(&self) -> &'static str {
+        "CompilerForge"
     }
 
     fn supervisor_name(&self) -> &'static str {
         "DevTools"
     }
 
-    fn relic_status(&self) -> String {
+    fn engine_status(&self) -> String {
         format!(
-            "CompilerCore Engine: {} code adaptations forged, {} build pipelines active",
+            "CompilerForge Engine: {} code adaptations forged, {} build pipelines active",
             self.total_adaptations_forged, self.active_build_pipelines
         )
     }
 }
 
-/// DevTools Sovereign Specialist
+/// DevTools Specialist
 pub struct DevToolsSpecialist {
     pub tokens: f32,
     pub max_tokens: f32,
-    pub forge: CompilerCoreRelic,
+    pub compiler_forge: CompilerForgeEngine,
+    pub forge: CompilerForgeEngine,
 }
 
 pub type FabricatorSpecialist = DevToolsSpecialist;
@@ -55,7 +59,8 @@ impl DevToolsSpecialist {
         Self {
             tokens: 100.0,
             max_tokens: 100.0,
-            forge: CompilerCoreRelic::default(),
+            compiler_forge: CompilerForgeEngine::default(),
+            forge: CompilerForgeEngine::default(),
         }
     }
 

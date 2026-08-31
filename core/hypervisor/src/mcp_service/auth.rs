@@ -56,6 +56,11 @@ struct ApiKeyInfo {
     active: bool,
 }
 
+fn hash_key(key: &str) -> String {
+    let digest = crate::system_integrity::sha256_digest(key.as_bytes());
+    hex::encode(digest)
+}
+
 impl ApiKeyAuth {
     /// Create new API key authenticator
     pub fn new() -> Self {
@@ -64,24 +69,27 @@ impl ApiKeyAuth {
         }
     }
 
-    /// Register an API key
+    /// Register an API key (stores cryptographic SHA-256 hash)
     pub fn register_key(
         &mut self,
         key: impl Into<String>,
         principal_id: impl Into<String>,
         scopes: Vec<String>,
     ) {
+        let key_str = key.into();
+        let key_hash = hash_key(&key_str);
         let info = ApiKeyInfo {
             principal_id: principal_id.into(),
             scopes,
             active: true,
         };
-        self.valid_keys.insert(key.into(), info);
+        self.valid_keys.insert(key_hash, info);
     }
 
     /// Revoke an API key
     pub fn revoke_key(&mut self, key: &str) {
-        if let Some(info) = self.valid_keys.get_mut(key) {
+        let key_hash = hash_key(key);
+        if let Some(info) = self.valid_keys.get_mut(&key_hash) {
             info.active = false;
         }
     }
@@ -92,8 +100,9 @@ impl AuthProvider for ApiKeyAuth {
     async fn authenticate(&self, credentials: &str) -> Result<AuthToken, String> {
         // Extract API key from "Bearer <key>" or just "<key>"
         let key = credentials.strip_prefix("Bearer ").unwrap_or(credentials);
+        let key_hash = hash_key(key);
 
-        let info = self.valid_keys.get(key).ok_or("Invalid API key")?;
+        let info = self.valid_keys.get(&key_hash).ok_or("Invalid API key")?;
 
         if !info.active {
             return Err("API key revoked".to_string());
@@ -114,7 +123,8 @@ impl AuthProvider for ApiKeyAuth {
             return Ok(false);
         }
 
-        let info = self.valid_keys.get(&token.token).ok_or("Token not found")?;
+        let key_hash = hash_key(&token.token);
+        let info = self.valid_keys.get(&key_hash).ok_or("Token not found")?;
 
         Ok(info.active)
     }

@@ -70,23 +70,12 @@
 
 ---
 
-## 📊 Live Benchmark Performance
+## ⚡ Zero-Copy Solid-State Neural Architecture
 
-Measured on generated `.si` binary cartridges:
-
-```
-=================================================================
-   AARONEOUS .SI MEMORY-MAPPED EXECUTION ENGINE BENCHMARK (500 PASSES)
-=================================================================
-  Container Size   : 3.73 MB (SINT v3, 64-byte SIMD aligned)
-  p50 Latency      : 9 µs (0.009 milliseconds!)
-  p95 Latency      : 11 µs
-  p99 Latency      : 23 µs
-  Throughput       : 102,606 operations / second
-  Memory Bandwidth : 112.63 MB / second
-  LLM Compute      : 0.0% (Zero prompt tokens)
-=================================================================
-```
+The Aaroneous runtime executes `.si` v3.0 cartridges via direct virtual memory mapping:
+- **Zero Heap Allocations**: Model weights and parameter loci are addressed directly from page-aligned memory maps.
+- **Cache Alignment**: 64-byte aligned SIMD layout for streaming vector operations.
+- **Continuous Online Adaptation**: Real-time closed-loop parameter steering without external cloud or web runtimes.
 
 ---
 
@@ -135,24 +124,24 @@ a_run si benchmark data/models/chimera_ast.si --iterations 500
 ```
 d:\Aaroneous\
 ├── crates/
-│   ├── compute/            # SiForge, SSM engine, 9-Specialist Distillation, Router, ReflexWorker
-│   ├── paths/              # Dynamic zero-hardcoded workspace path resolver
-│   ├── nervous_system/     # 128-byte cache-aligned 11-channel lock-free SPMC synapse bus
-│   ├── orchestrator/       # Thread affinity allocator, Compaction Engine memory compactor & .sissm resurrection
-│   ├── specialists/        # SpecialistFederation: 9 Sovereign Domain Engines & Relic Substrates
-│   ├── evolution/          # ContinuousSelfEvolutionEngine, NeurochemicalHomeostasisEngine & genetics
-│   ├── chimera/            # AutonomousScientificEngine, AST mutation & shadow sandbox verification
-│   ├── marionette/         # OS kinetic interaction, EpigeneticVisionGater (16x16) & Isolated Desktop loop
-│   ├── transpiler/         # AST parser & distillation trajectory miner
-│   ├── biology/            # Cellular automata & homeostatic feedback loops
-│   └── omni/               # 3D Galaxy Concept Graph & N-body Barnes-Hut gravitational clustering
+│   ├── compute/                # SiForge, SSM engine, 9-Specialist Distillation, Router, ReflexWorker
+│   ├── paths/                  # Dynamic zero-hardcoded workspace path resolver
+│   ├── ipc_bus/                # Lock-free SPMC shared memory bus, LMAX ring buffer & persistent WAL
+│   ├── orchestrator/           # Thread affinity allocator, Compaction Engine & MDP router
+│   ├── specialists/            # SpecialistFederation: 9 Sovereign Domain Engines & Substrates
+│   ├── autonomic_adaptation/   # Continuous adaptive control, hyperparameter search & GGUF model ingestion
+│   ├── adaptation_engine/      # Polyglot AST parsing, incremental diffing, FFI synthesis & shadow sandbox
+│   ├── desktop_emulator/       # OS Win32 HID input injection, DXGI zero-copy screen capture & HUD overlay
+│   ├── transpiler/             # AST parser & distillation trajectory miner
+│   ├── governance/             # Hardware thermal monitoring, compute token budgeting & closed-loop throttling
+│   └── omni/                   # 3D Galaxy Concept Graph & N-body Barnes-Hut gravitational clustering
 ├── core/
-│   └── hypervisor/         # Unified Desktop HUD (a_hud.rs), Live P2P TCP Daemon & CLI (a_run.rs)
+│   └── hypervisor/             # Sovereign Desktop HUD (a_hud.rs), Live P2P TCP Daemon & CLI (a_run.rs)
 ├── data/
-│   ├── models/             # Birthed .si solid-state neural containers
-│   └── skills/             # Crystallized .si muscle memory cartridges
-├── deploy/                 # Automated Windows install and release packaging scripts
-└── dist/                   # Standalone release zip archives
+│   ├── models/                 # Birthed .si solid-state neural containers
+│   └── skills/                 # Crystallized .si muscle memory cartridges
+├── deploy/                     # Automated Windows install and release packaging scripts
+└── dist/                       # Standalone release zip archives
 ```
 
 ---

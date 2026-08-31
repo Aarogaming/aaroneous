@@ -9,7 +9,7 @@ repository.workspace = true
 
 [dependencies]
 ipc_bus = { path = "../ipc_bus" }
-biology = { path = "../biology" }
+governance = { path = "../governance" }
 compute = { path = "../compute" }
 aaroneous_paths = { path = "../paths" }
 tokio = { version = "1.0", features = ["full"] }

@@ -8,22 +8,37 @@
 use serde::{Deserialize, Serialize};
 use tracing::info;
 
-/// 4-Channel Neurochemical State Vector
+/// 4-Channel Homeostatic State Vector (Machine-Native System Dynamics)
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
-pub struct NeurochemicalLevels {
-    /// Reward prediction error, goal achievement satisfaction, and exploratory momentum (0.0 to 1.0)
+pub struct AdaptationHomeostasisLevels {
+    /// Positive reinforcement momentum, reward prediction error & plasticity drive (0.0 to 1.0)
+    pub plasticity_drive: f32,
+    /// System harmony, convergence stability index, and error variance dampening (0.0 to 1.0)
+    pub stability_index: f32,
+    /// Urgency signal, alert level, gradient pressure, and anomaly responsiveness (0.0 to 1.0)
+    pub gradient_pressure: f32,
+    /// Contextual attention weight, focus selectivity, and memory consolidation (0.0 to 1.0)
+    pub attention_weight: f32,
+    // Machine-native mirrored fields for compatibility
+    #[serde(default)]
     pub dopamine: f32,
-    /// Federation harmony, stability, satiety, and cognitive stress dampening (0.0 to 1.0)
+    #[serde(default)]
     pub serotonin: f32,
-    /// Vigilance, alert level, urgency, and anomaly responsiveness (0.0 to 1.0)
+    #[serde(default)]
     pub noradrenaline: f32,
-    /// Learning rate plasticity, sensory focus, and synaptic consolidation (0.0 to 1.0)
+    #[serde(default)]
     pub acetylcholine: f32,
 }
 
-impl Default for NeurochemicalLevels {
+pub type NeurochemicalLevels = AdaptationHomeostasisLevels;
+
+impl Default for AdaptationHomeostasisLevels {
     fn default() -> Self {
         Self {
+            plasticity_drive: 0.50,
+            stability_index: 0.50,
+            gradient_pressure: 0.30,
+            attention_weight: 0.60,
             dopamine: 0.50,
             serotonin: 0.50,
             noradrenaline: 0.30,
@@ -32,35 +47,60 @@ impl Default for NeurochemicalLevels {
     }
 }
 
-impl NeurochemicalLevels {
-    pub fn new(dopamine: f32, serotonin: f32, noradrenaline: f32, acetylcholine: f32) -> Self {
+impl AdaptationHomeostasisLevels {
+    /// Initializes homeostatic state vector using machine-native parameters
+    pub fn new(plasticity_drive: f32, stability_index: f32, gradient_pressure: f32, attention_weight: f32) -> Self {
+        let p = plasticity_drive.clamp(0.0, 1.0);
+        let s = stability_index.clamp(0.0, 1.0);
+        let g = gradient_pressure.clamp(0.0, 1.0);
+        let a = attention_weight.clamp(0.0, 1.0);
         Self {
-            dopamine: dopamine.clamp(0.0, 1.0),
-            serotonin: serotonin.clamp(0.0, 1.0),
-            noradrenaline: noradrenaline.clamp(0.0, 1.0),
-            acetylcholine: acetylcholine.clamp(0.0, 1.0),
+            plasticity_drive: p,
+            stability_index: s,
+            gradient_pressure: g,
+            attention_weight: a,
+            dopamine: p,
+            serotonin: s,
+            noradrenaline: g,
+            acetylcholine: a,
         }
     }
 
-    /// Boredom index increases when both vigilance and reward momentum are low
-    pub fn boredom_index(&self) -> f32 {
-        ((1.0 - self.noradrenaline) * (1.0 - self.dopamine)).clamp(0.0, 1.0)
+    /// Syncs legacy and machine-native fields
+    pub fn sync_channels(&mut self) {
+        if self.dopamine != self.plasticity_drive {
+            self.plasticity_drive = self.dopamine;
+        }
+        if self.serotonin != self.stability_index {
+            self.stability_index = self.serotonin;
+        }
+        if self.noradrenaline != self.gradient_pressure {
+            self.gradient_pressure = self.noradrenaline;
+        }
+        if self.acetylcholine != self.attention_weight {
+            self.attention_weight = self.acetylcholine;
+        }
     }
 
-    /// Curiosity drive combines plasticity (ACh), boredom, and lack of satiation
+    /// Stagnation index increases when both gradient pressure and plasticity drive are low
+    pub fn boredom_index(&self) -> f32 {
+        ((1.0 - self.gradient_pressure) * (1.0 - self.plasticity_drive)).clamp(0.0, 1.0)
+    }
+
+    /// Exploration drive combines attention weight, stagnation index, and stability delta
     pub fn curiosity_drive(&self) -> f32 {
-        let raw = (1.0 - self.serotonin) * 0.4 + self.acetylcholine * 0.4 + self.boredom_index() * 0.2;
+        let raw = (1.0 - self.stability_index) * 0.4 + self.attention_weight * 0.4 + self.boredom_index() * 0.2;
         raw.clamp(0.0, 1.0)
     }
 
-    /// Stress index spikes when vigilance is high but serotonin stability is low
+    /// Error stress index spikes when gradient pressure is high but stability index is low
     pub fn stress_index(&self) -> f32 {
-        (self.noradrenaline * (1.0 - self.serotonin)).clamp(0.0, 1.0)
+        (self.gradient_pressure * (1.0 - self.stability_index)).clamp(0.0, 1.0)
     }
 
-    /// Metabolic token consumption multiplier
+    /// Resource token consumption multiplier
     pub fn metabolic_multiplier(&self) -> f32 {
-        let boost = self.dopamine * 0.4;
+        let boost = self.plasticity_drive * 0.4;
         let drain = self.stress_index() * 0.2;
         (1.0 + boost - drain).clamp(0.5, 2.0)
     }
@@ -94,12 +134,14 @@ pub struct SpecialistTokenAllocation {
     pub boost_reason: String,
 }
 
-/// Master Neurochemical Homeostasis Engine
+/// Master Neurochemical Homeostasis Engine (Machine-Native Autonomic Homeostasis)
 pub struct NeurochemicalHomeostasisEngine {
     pub levels: NeurochemicalLevels,
     pub baseline: NeurochemicalLevels,
     pub half_life_sec: f32,
 }
+
+pub type AutonomicHomeostasisEngine = NeurochemicalHomeostasisEngine;
 
 impl Default for NeurochemicalHomeostasisEngine {
     fn default() -> Self {

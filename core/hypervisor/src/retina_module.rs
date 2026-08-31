@@ -237,7 +237,7 @@ impl RetinaModule {
     /// to convert a slice of token IDs back into a human-readable string.
     pub fn decode_tokens(&self, token_ids: &[u32]) -> Result<String> {
         let ids: Vec<u32> = token_ids.iter().copied().collect();
-        let decoded = self.tokenizer.decode(&ids)
+        let decoded = self.tokenizer.decode(&ids, true)
             .map_err(|e| anyhow!("Token decoding failed: {}", e))?;
         Ok(decoded)
     }
@@ -251,3 +251,9 @@ impl RetinaModule {
         Ok(encoding.get_ids().to_vec())
     }
 }
+
+// Machine-Native Systems Aliases
+pub type WebIngestionEngine = RetinaModule;
+pub type TokenIngestionEngine = RetinaModule;
+pub type WebSamplerModule = RetinaModule;
+pub type SharedBusWebIngest = SynapseWebIngest;

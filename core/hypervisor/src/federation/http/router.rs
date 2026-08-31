@@ -439,18 +439,31 @@ fn build_route_limit_registry() -> (
 /// If the env var is unset, authentication is disabled only for a loopback
 /// server; non-loopback startup is rejected by `HttpStatusServer`.
 ///
-/// Set the key before starting the server:
-/// ```sh
-/// $env:AARONEOUS_API_KEY = "my-secret-key"
-/// cargo run --bin aaroneous -- start
-/// ```
+/// Constant-time byte slice comparison to prevent timing side-channel attacks
+fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
+    if a.len() != b.len() {
+        return false;
+    }
+    let mut diff = 0u8;
+    for (&x, &y) in a.iter().zip(b.iter()) {
+        diff |= x ^ y;
+    }
+    diff == 0
+}
+
+/// API key authentication middleware.
+///
+/// Reads `AARONEOUS_API_KEY` from the environment at call time.
+/// If set, every request to any route other than `/healthz` and `/readyz`
+/// must include `Authorization: Bearer <key>` (case-insensitive prefix).
+/// Uses constant-time byte comparison to eliminate timing side-channels.
 async fn api_key_auth(
     headers: HeaderMap,
     req: axum::extract::Request<Body>,
     next: Next,
 ) -> Response {
     let Some(required_key) = std::env::var("AARONEOUS_API_KEY").ok() else {
-        // Auth disabled â€” pass through
+        // Auth disabled — pass through for local development
         return next.run(req).await;
     };
 
@@ -469,7 +482,7 @@ async fn api_key_auth(
         });
 
     match provided {
-        Some(key) if key == required_key => next.run(req).await,
+        Some(key) if constant_time_eq(key.as_bytes(), required_key.as_bytes()) => next.run(req).await,
         _ => (
             StatusCode::UNAUTHORIZED,
             Json(serde_json::json!({
@@ -739,6 +752,8 @@ pub fn router(state: AppState) -> Router {
         .route("/results", get(get_results))
         // SSE stream: push new results as they arrive (polls every 500ms)
         .route("/results/stream", get(stream_results))
+        // Real-time live telemetry stream for MaelstromUI & frontends
+        .route("/v1/telemetry/stream", get(stream_telemetry))
         // Session management: create a session, get session details
         .route("/sessions", get(list_sessions).post(create_session))
         .route(
@@ -1457,6 +1472,31 @@ async fn stream_results(
         };
 
         Some((Ok(event), (seen, ticker, fed)))
+    });
+
+    Sse::new(stream).keep_alive(KeepAlive::default())
+}
+
+/// Real-time live telemetry stream for MaelstromUI & frontend visualization clients
+async fn stream_telemetry(
+    State(state): State<AppState>,
+) -> Sse<impl futures_util::stream::Stream<Item = Result<Event, Infallible>>> {
+    let fed = state.federation.clone();
+    let init = (
+        tokio::time::interval(std::time::Duration::from_millis(500)),
+        fed,
+    );
+
+    let stream = futures_util::stream::unfold(init, |s| async move {
+        let (mut ticker, fed) = s;
+        ticker.tick().await;
+
+        let summary = fed.learning_summary();
+        let envelope = StatusEnvelope::from_summary(&fed, summary);
+        let data = serde_json::to_string(&envelope).unwrap_or_default();
+        let event = Event::default().data(data).event("telemetry");
+
+        Some((Ok(event), (ticker, fed)))
     });
 
     Sse::new(stream).keep_alive(KeepAlive::default())

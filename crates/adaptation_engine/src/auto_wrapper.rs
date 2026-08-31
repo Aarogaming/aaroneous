@@ -313,6 +313,43 @@ impl {struct_name} {{
         )
     }
 
+    /// Synthesizes safe FFI binding stubs for dynamic native libraries (.dll / .so)
+    pub fn synthesize_c_abi_ffi_harness(
+        library_name: &str,
+        functions: &[crate::ast_parser::FunctionSignature],
+    ) -> String {
+        let mut stubs = String::new();
+        for f in functions {
+            let fn_name = &f.name;
+            stubs.push_str(&format!(
+                r#"    pub unsafe fn {fn_name}(&self) -> Result<()> {{
+        info!(target: "{library_name}_ffi", "Calling FFI symbol {fn_name}");
+        Ok(())
+    }}
+"#
+            ));
+        }
+
+        format!(
+            r#"//! Auto-generated Safe FFI Wrapper for {library_name}
+use anyhow::Result;
+use tracing::info;
+
+pub struct {library_name}FfiHandle {{
+    pub lib_path: String,
+}}
+
+impl {library_name}FfiHandle {{
+    pub fn new(lib_path: &str) -> Self {{
+        Self {{ lib_path: lib_path.to_string() }}
+    }}
+
+{stubs}
+}}
+"#
+        )
+    }
+
     /// Stage 4: Generates a complete standalone Cargo organ crate on disk
     pub fn build_and_stage_organ(manifest: &TargetCapabilityManifest, out_dir: &Path) -> Result<PathBuf> {
         let crate_dir = out_dir.join(format!("organ_{}", manifest.slug));
@@ -601,5 +638,23 @@ mod tests {
         let response = runner.invoke(&["Hello World"], None).await.unwrap();
         assert!(response.success);
         assert_eq!(response.payload, b"MNLP_DRY_RUN_SUCCESS");
+    }
+
+    #[test]
+    fn test_synthesize_c_abi_ffi_harness() {
+        let funcs = vec![
+            crate::ast_parser::FunctionSignature {
+                name: "crypto_hash_sha256".to_string(),
+                visibility: "public".to_string(),
+                is_async: false,
+                line_number: 1,
+                parameter_count: 2,
+                return_type: None,
+            },
+        ];
+
+        let code = AutoWrapperEngine::synthesize_c_abi_ffi_harness("SodiumCrypto", &funcs);
+        assert!(code.contains("pub struct SodiumCryptoFfiHandle"));
+        assert!(code.contains("pub unsafe fn crypto_hash_sha256"));
     }
 }

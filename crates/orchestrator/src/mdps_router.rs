@@ -28,9 +28,9 @@ pub enum TaskType {
     Custom(String),
 }
 
-/// Represents a specialist that can handle tasks
+/// Represents specialist routing metadata and capacity in the MDP router
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Specialist {
+pub struct SpecialistRoute {
     pub id: String,
     pub name: String,
     pub skills: Vec<String>,
@@ -38,6 +38,9 @@ pub struct Specialist {
     pub success_rate: f64, // Historical success rate (0.0-1.0)
     pub avg_completion_time: f64, // Average time to complete tasks (seconds)
 }
+
+/// Backwards-compatible alias for SpecialistRoute
+pub type Specialist = SpecialistRoute;
 
 /// MDP state for task routing
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]

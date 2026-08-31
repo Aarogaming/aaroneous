@@ -10,6 +10,9 @@ pub struct WasmSplicingEngine {
     workspace_root: PathBuf,
 }
 
+pub type WasmHotSwapEngine = WasmSplicingEngine;
+pub type PluginHotSwapEngine = WasmSplicingEngine;
+
 impl WasmSplicingEngine {
     pub fn new(hox_registry: std::sync::Arc<HoxRegistry>, workspace_root: PathBuf) -> Self {
         Self {

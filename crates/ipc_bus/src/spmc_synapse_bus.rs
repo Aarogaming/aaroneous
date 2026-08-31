@@ -1,4 +1,4 @@
-//! crates/nervous_system/src/spmc_synapse_bus.rs
+//! crates/ipc_bus/src/spmc_synapse_bus.rs
 //! Lock-Free Single-Producer Multi-Consumer (SPMC) Synapse Bus using Crossbeam ArrayQueue.
 //! 
 //! Key Performance & Architectural Pillars:

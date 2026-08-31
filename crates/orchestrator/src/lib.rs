@@ -12,18 +12,21 @@ pub mod intent_engine;
 pub mod linguistic_transducer;
 pub mod llm;
 pub mod mdps_router;
-pub mod pantheon_orchestrator;
+pub mod tier_allocator;
+pub use tier_allocator as pantheon_orchestrator;
 pub mod swarm_balancer;
 pub mod workflow_engine;
 pub mod workspace;
 
 pub extern crate ipc_bus as nervous_system;
 pub use ipc_bus;
+pub extern crate governance as biology;
+pub use governance;
 
 pub use compaction_engine::{
     CompactionSummary, CompactionEngine, HibernationManifest, SpecialistHibernationState,
 };
-pub use pantheon_orchestrator::{pin_current_thread_to_core, PantheonOrchestrator};
+pub use tier_allocator::{pin_current_thread_to_core, TierRuntimeAllocator, PantheonOrchestrator};
 
 pub use dynamic_ui::{
     DynamicUiNode, DynamicUiSynthesizer, DynamicWindowManifest, NonOverlapSolver, RectAabb,
@@ -44,11 +47,17 @@ pub use hive_runtime::{HiveRuntime, HiveRuntimeConfig, RuntimeStatistics, Runtim
 
 // Re-export intelligence & router
 pub use llm::{LLMClient, LLMConfig, ProviderType, TaskAnalysis, TaskAnalysisContext};
-pub use mdps_router::{RoutableTask, RoutingDecision, Specialist, TaskRoutingEngine, TaskType};
+pub use mdps_router::{RoutableTask, RoutingDecision, SpecialistRoute, Specialist, TaskRoutingEngine, TaskType};
 pub use workflow_engine::{StepStatus, WorkflowGraph, WorkflowStep};
 pub use workspace::WorkspacePaths;
 pub use intent_engine::{IntentEngine, ParsedIntent, DispatchResult};
 pub use swarm_balancer::{SwarmBalancer, SwarmWorker, SwarmHealth};
+
+/// Aligned type alias for the MDP Task Router
+pub type MdpTaskRouter = TaskRoutingEngine;
+
+/// Aligned type alias for the Swarm Load Balancer
+pub type SwarmLoadBalancer = SwarmBalancer;
 
 use nervous_system::SharedMemorySynapse;
 

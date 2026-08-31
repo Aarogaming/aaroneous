@@ -124,6 +124,80 @@ impl GpuTensorAccelerator {
 
         Ok(hidden_states)
     }
+
+    /// Fast matrix-vector product for parallel linear projections: y = M * x
+    pub fn compute_matrix_vector_product(
+        &self,
+        matrix: &[f32],
+        vector: &[f32],
+        rows: usize,
+        cols: usize,
+    ) -> Result<Vec<f32>> {
+        if matrix.len() != rows * cols {
+            anyhow::bail!("Matrix dimension mismatch: expected {}, got {}", rows * cols, matrix.len());
+        }
+        if vector.len() != cols {
+            anyhow::bail!("Vector dimension mismatch: expected {}, got {}", cols, vector.len());
+        }
+
+        let mut output = vec![0.0f32; rows];
+        for r in 0..rows {
+            let row_offset = r * cols;
+            let mut sum = 0.0f32;
+            for c in 0..cols {
+                sum += matrix[row_offset + c] * vector[c];
+            }
+            output[r] = sum;
+        }
+
+        Ok(output)
+    }
+
+    /// Single-step accelerated State Space Model recurrence step: h_t = A * h_{t-1} + B * u_t
+    pub fn compute_ssm_recurrence(
+        &self,
+        prev_hidden: &[f32],
+        a_diag: &[f32],
+        b_vec: &[f32],
+        input_scalar: f32,
+    ) -> Result<Vec<f32>> {
+        let dim = prev_hidden.len();
+        if a_diag.len() != dim || b_vec.len() != dim {
+            anyhow::bail!("SSM dimension mismatch: {} vs A:{} vs B:{}", dim, a_diag.len(), b_vec.len());
+        }
+
+        let mut next_hidden = vec![0.0f32; dim];
+        for i in 0..dim {
+            next_hidden[i] = a_diag[i] * prev_hidden[i] + b_vec[i] * input_scalar;
+        }
+
+        Ok(next_hidden)
+    }
+
+    /// Computes numerically stable softmax probabilities over a slice of logits
+    pub fn compute_softmax_probabilities(&self, logits: &[f32]) -> Vec<f32> {
+        if logits.is_empty() {
+            return Vec::new();
+        }
+
+        let max_val = logits.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
+        let mut exp_sum = 0.0f32;
+        let mut exp_vals = Vec::with_capacity(logits.len());
+
+        for &val in logits {
+            let exp_v = (val - max_val).exp();
+            exp_vals.push(exp_v);
+            exp_sum += exp_v;
+        }
+
+        if exp_sum > 0.0 {
+            for v in &mut exp_vals {
+                *v /= exp_sum;
+            }
+        }
+
+        exp_vals
+    }
 }
 
 #[cfg(test)]
@@ -165,5 +239,45 @@ mod tests {
         assert_eq!(states[0], 1.0);
         // Second step: h_1 = 0.9 * 1.0 + 1.0 = 1.9
         assert!((states[d_model] - 1.9).abs() < 1e-5);
+    }
+
+    #[test]
+    fn test_matrix_vector_product_acceleration() {
+        let acc = GpuTensorAccelerator::new();
+        let matrix = vec![
+            1.0f32, 2.0f32,
+            3.0f32, 4.0f32,
+        ];
+        let vector = vec![5.0f32, 6.0f32];
+        let res = acc.compute_matrix_vector_product(&matrix, &vector, 2, 2).unwrap();
+        // 1*5 + 2*6 = 17
+        // 3*5 + 4*6 = 39
+        assert_eq!(res, vec![17.0, 39.0]);
+    }
+
+    #[test]
+    fn test_ssm_recurrence_acceleration() {
+        let acc = GpuTensorAccelerator::new();
+        let prev_h = vec![1.0f32, 2.0f32];
+        let a_diag = vec![0.5f32, 0.25f32];
+        let b_vec = vec![2.0f32, 3.0f32];
+        let u = 1.5f32;
+
+        let next_h = acc.compute_ssm_recurrence(&prev_h, &a_diag, &b_vec, u).unwrap();
+        // h0 = 0.5 * 1.0 + 2.0 * 1.5 = 0.5 + 3.0 = 3.5
+        // h1 = 0.25 * 2.0 + 3.0 * 1.5 = 0.5 + 4.5 = 5.0
+        assert_eq!(next_h, vec![3.5, 5.0]);
+    }
+
+    #[test]
+    fn test_softmax_probabilities_stability() {
+        let acc = GpuTensorAccelerator::new();
+        let logits = vec![1000.0f32, 1001.0f32, 1002.0f32];
+        let probs = acc.compute_softmax_probabilities(&logits);
+        assert_eq!(probs.len(), 3);
+        let sum: f32 = probs.iter().sum();
+        assert!((sum - 1.0).abs() < 1e-5);
+        assert!(probs[2] > probs[1]);
+        assert!(probs[1] > probs[0]);
     }
 }

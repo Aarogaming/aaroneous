@@ -1,5 +1,5 @@
-//! crates/orchestrator/src/pantheon_orchestrator.rs
-//! Hypervisor Thread Allocator & Multi-Tier Specialist Orchestrator.
+//! crates/orchestrator/src/tier_allocator.rs
+//! Hypervisor Thread Allocator & Multi-Tier Runtime Allocator.
 //!
 //! Features:
 //! 1. Reads .si Tier Designation Flags (Cortex, Router, Reflex) to allocate CPU cores and memory maps.
@@ -52,16 +52,19 @@ pub fn pin_current_thread_to_core(core_id: usize) -> bool {
     }
 }
 
-/// The Multi-Tier Specialist Orchestrator
-pub struct PantheonOrchestrator {
+/// The Multi-Tier Runtime and Thread Allocator
+pub struct TierRuntimeAllocator {
     pub available_cores: Vec<usize>,
     pub bus: Arc<SpecialistSynapseBus>,
     pub spawned_threads: Vec<JoinHandle<()>>,
     pub shutdown_signal: Arc<AtomicBool>,
 }
 
-impl PantheonOrchestrator {
-    /// Creates a new orchestrator with a Federated SPMC synapse bus and discovered core count
+/// Backwards-compatible alias
+pub type PantheonOrchestrator = TierRuntimeAllocator;
+
+impl TierRuntimeAllocator {
+    /// Creates a new allocator with a Federated SPMC synapse bus and discovered core count
     pub fn new(bus: Arc<SpecialistSynapseBus>) -> Self {
         let num_cpus = num_cpus::get_physical().max(2);
         let available_cores = (0..num_cpus).rev().collect(); // Allocate highest physical cores first
@@ -163,7 +166,7 @@ mod tests {
     #[test]
     fn test_specialist_orchestrator_mount_and_shutdown() {
         let bus = Arc::new(SpecialistSynapseBus::new_federation());
-        let mut orchestrator = PantheonOrchestrator::new(bus);
+        let mut orchestrator = TierRuntimeAllocator::new(bus);
 
         let config = SiSsmConfig {
             model_name: "Test-Cortex".to_string(),
@@ -186,5 +189,35 @@ mod tests {
         assert_eq!(orchestrator.spawned_threads.len(), 2);
         thread::sleep(Duration::from_millis(50));
         orchestrator.shutdown();
+    }
+
+    #[test]
+    fn test_multi_tier_hardware_pinning_and_scaling() {
+        let bus = Arc::new(SpecialistSynapseBus::new_federation());
+        let mut allocator = TierRuntimeAllocator::new(bus);
+
+        let config = SiSsmConfig {
+            model_name: "Hardware-Scaler".to_string(),
+            state_dim: 64,
+            d_model: 16,
+            d_state: 4,
+            d_conv: 2,
+            dt_rank: 2,
+            num_layers: 1,
+            num_opcodes: 4,
+            param_count: 5_000,
+        };
+
+        // Pin 3 tiers to hardware cores
+        let c1 = SolidStateSiContainer::new("Tier1-Container", config.clone());
+        let c2 = SolidStateSiContainer::new("Tier2-Container", config.clone());
+        let c3 = SolidStateSiContainer::new("Tier3-Container", config);
+
+        assert!(allocator.mount_container(c1, SiTierFlags::TIER_1_CORTEX, 0).is_ok());
+        assert!(allocator.mount_container(c2, SiTierFlags::TIER_2_ROUTER, 1).is_ok());
+        assert!(allocator.mount_container(c3, SiTierFlags::TIER_3_REFLEX, 2).is_ok());
+
+        assert_eq!(allocator.spawned_threads.len(), 3);
+        allocator.shutdown();
     }
 }

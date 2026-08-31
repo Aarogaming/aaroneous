@@ -1,4 +1,4 @@
-//! crates/nervous_system/src/specialist_bus.rs
+//! crates/ipc_bus/src/specialist_bus.rs
 //! Multi-Specialist Lock-Free Partitioned SPMC Synapse Bus for 10+ Machine-Native Neural Containers.
 //! Features:
 //! 1. Dedicated Single-Producer Multi-Consumer (SPMC) rings per specialist with 128-byte prefetcher-safe cursor isolation.

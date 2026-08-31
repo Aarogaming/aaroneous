@@ -380,6 +380,15 @@ impl SelfCorrectionEnzyme {
     }
 }
 
+// ── Modern Micro-Task Worker Aliases ──────────────────────────────────────────
+pub type ExplorationWorker = CuriosityEnzyme;
+pub type CuriosityWorker = CuriosityEnzyme;
+pub type ResearchWorker = ResearchEnzyme;
+pub type ExecutionWorker = ExecutionEnzyme;
+pub type ProtocolGatewayWorker = DiplomatEnzyme;
+pub type DiplomatWorker = DiplomatEnzyme;
+pub type SelfCorrectionWorker = SelfCorrectionEnzyme;
+
 #[cfg(test)]
 mod enzyme_types_tests {
     use super::*;

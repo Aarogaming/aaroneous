@@ -4,6 +4,7 @@
 
 | Version | Supported          |
 |---------|-------------------|
+| 0.4.x   | :white_check_mark: |
 | 0.3.x   | :white_check_mark: |
 | < 0.3   | :x:                |
 
@@ -26,14 +27,18 @@ If you discover a security vulnerability within Aaroneous, please send an email 
 - **Initial assessment**: Within 1 week
 - **Fix or mitigation**: Within 2 weeks for critical vulnerabilities
 
-## Security Considerations
+## Security Architecture & Containment Hardening
 
-Aaroneous operates with elevated system privileges (Win32 HID interception, desktop automation, memory-mapped I/O). Key security boundaries:
+Aaroneous operates with elevated system capabilities (Win32 HID interception, desktop automation, memory-mapped I/O). Key security boundaries include:
 
-- **Isolated Desktop Isolation**: Win32 `CreateDesktopW` sandboxing for kinetic execution
-- **Sentinel**: Deep SVDD anomaly detection on all agent outputs
-- **Capability restrictions**: Agents have explicit `enzyme_subset` allowlists
-- **No network exposure by default**: Federation requires explicit `--bind` flag
+- **Workspace Path Containment Jail**: Canonical path verification in `ActionExecutor::validate_sandbox_path` enforcing strict boundary isolation against directory traversal (`../`).
+- **Sandboxed Pure-Rust Micro-VM**: Gas-metered (`VmError::GasExhausted`) and bounds-checked linear memory execution (`VmError::MemoryOutOfBounds`) for untrusted dynamic plugins.
+- **Constant-Time Authentication**: Side-channel resistant token comparison via `subtle::ConstantTimeEq` on all protected endpoints.
+- **Named Pipe Client Restriction**: Localhost impersonation enforcement rejecting remote network clients in `ipc_bus::comm`.
+- **HID Emergency Cursor Failsafe**: Instant mouse/keyboard input release upon cursor traversal to the screen boundary corner.
+- **Isolated Desktop Sandbox**: Win32 `CreateDesktopW` sandboxing for kinetic execution.
+- **Sentinel Anomaly Detection**: Deep SVDD anomaly detection and safe hypersphere manifold snapping on latent agent vectors.
+- **SHA-256 System Integrity Monitoring**: Automatic hash verification of workspace files and in-memory credential hashing.
 
 ## Best Practices
 

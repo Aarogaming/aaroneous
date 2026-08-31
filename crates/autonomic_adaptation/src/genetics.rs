@@ -104,6 +104,10 @@ pub struct SpecialistGenome {
     pub specialization_score: f64,
 }
 
+pub type ParameterLocus = GeneticLocus;
+pub type AgentConfigProfile = SpecialistGenome;
+pub type ParameterGenome = SpecialistGenome;
+
 impl SpecialistGenome {
     pub fn new(specialist_id: String, specialist_name: String, base_model: String) -> Self {
         Self {

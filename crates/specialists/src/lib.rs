@@ -14,22 +14,24 @@ pub mod traits;
 
 pub extern crate ipc_bus as nervous_system;
 pub use ipc_bus;
+pub extern crate autonomic_adaptation as evolution;
+pub use autonomic_adaptation;
 
-pub use aligner::{AlignerSpecialist, HarmonyEngineRelic, SymbioticResonanceReport};
-pub use archivist::{ArchivistSpecialist, MemoryIndexRelic};
-pub use dev_tools::{CompilerCoreRelic, DevToolsSpecialist, FabricatorSpecialist};
-pub use orchestrator::{OrchestratorCoreRelic, OrchestratorSpecialist, TaskNode};
-pub use perceiver::{GatekeeperEngineRelic, PerceiverSpecialist};
-pub use presenter::{DisplayBufferRelic, PresenterSpecialist, UiPresentationFrame};
-pub use router::{FederationBusRelic, MeshPeerState, RouterSpecialist};
-pub use sentinel::{AuditEngineRelic, SecurityAuditReport, SentinelSpecialist};
-pub use synthesizer::{KnowledgeStoreRelic, KnowledgeSynthesis, SynthesizerSpecialist};
-pub use traits::{MnlpPacket, MnlpResponse, RelicEngine, SovereignSpecialist, SpecialistHealth};
+pub use aligner::{AlignerSpecialist, AlignmentEngine, HarmonyEngineRelic, SymbioticResonanceReport};
+pub use archivist::{ArchivistSpecialist, MemoryIndexEngine, MemoryIndexRelic};
+pub use dev_tools::{CompilerCoreRelic, CompilerForgeEngine, DevToolsSpecialist, FabricatorSpecialist};
+pub use orchestrator::{OrchestratorCoreRelic, OrchestratorSpecialist, TaskNode, TaskSchedulerEngine};
+pub use perceiver::{GatekeeperEngineRelic, PerceptionGateEngine, PerceiverSpecialist};
+pub use presenter::{DisplayBufferEngine, DisplayBufferRelic, PresenterSpecialist, UiPresentationFrame};
+pub use router::{FederationBusRelic, MeshPeerState, MeshRouterEngine, RouterSpecialist};
+pub use sentinel::{AuditEngineRelic, SecurityAuditEngine, SecurityAuditReport, SentinelSpecialist};
+pub use synthesizer::{KnowledgeStoreEngine, KnowledgeStoreRelic, KnowledgeSynthesis, SynthesizerSpecialist};
+pub use traits::{DomainSubEngine, MnlpPacket, MnlpResponse, RelicEngine, Specialist, SovereignSpecialist, SpecialistHealth};
 
 use anyhow::{bail, Result};
 use std::collections::HashMap;
 
-/// The Unified Specialist Federation managing all 9 Sovereign Domain Specialists
+/// The Unified Specialist Federation / Pool managing all 9 Specialists
 pub struct SpecialistFederation {
     pub orchestrator: OrchestratorSpecialist,
     pub synthesizer: SynthesizerSpecialist,
@@ -41,6 +43,12 @@ pub struct SpecialistFederation {
     pub aligner: AlignerSpecialist,
     pub perceiver: PerceiverSpecialist,
 }
+
+/// Simplified alias for the Specialist Federation
+pub type Specialists = SpecialistFederation;
+
+/// Hub alias for the Specialist Federation
+pub type SpecialistHub = SpecialistFederation;
 
 /// Backwards-compatible alias for the Specialist Federation
 pub type SpecialistFederationAlias = SpecialistFederation;
