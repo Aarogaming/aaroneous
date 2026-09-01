@@ -38,7 +38,10 @@ pub mod shared_memory {
     };
 }
 
-pub use disruptor::{DisruptorRingBuffer, PaddedAtomicU64, RingBufferEntry};
+pub use disruptor::{
+    CacheAlignedAtomicU64, CacheAlignedAtomicUsize, DisruptorRingBuffer, PaddedAtomicU64,
+    RingBufferEntry,
+};
 pub use intent_log::{
     create_log_entry, GenerationSnapshot, IntentLog, LogEntryHeader, LogReader, ReplayReport,
     SnapshotStore, LOG_ENTRY_HEADER_SIZE, LOG_MAGIC,
@@ -46,7 +49,7 @@ pub use intent_log::{
 pub use metrics::{MetricsCollector, MetricsSnapshot, SharedMetricsCollector, SlabMetricEntry};
 pub use mutation_intent::{IntentQueue, IntentValidator, MutationIntent};
 pub use machine_packet::{
-    packet_types, priorities, LinearMemoryBridge, MachinePacket, NucleotidePacket,
+    packet_types, priorities, LinearMemoryBridge, MachinePacket, AlignedBitstreamPacket,
     SlabBackedBridge, WASMLinearMemoryBridge,
 };
 pub use preparedness_notice::{NoticeBroadcast, PreparednessNotice};

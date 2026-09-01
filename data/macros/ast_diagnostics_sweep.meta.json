@@ -1,0 +1,11 @@
+{
+  "macro_name": "AST Diagnostics Sweep",
+  "description": "Direct compiler diagnostics scan and AST node alignment",
+  "hotkey": "Alt+2",
+  "file_path": "D:\\Aaroneous\\data\\macros\\ast_diagnostics_sweep.si",
+  "file_size_bytes": 798,
+  "latent_dim": 3,
+  "node_count": 2,
+  "thermodynamic_cost": 0.04,
+  "latency_us": 42
+}

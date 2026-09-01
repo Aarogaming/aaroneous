@@ -317,7 +317,7 @@ impl Specialist for Sentinel {
                 )
             }
             SpecialistId::Archivist => {
-                // Any → Archivist: record data to DNA Bank
+                // Any → Archivist: record data to ArtifactRegistry
                 format!(
                     "Delegated data recording from {:?} to Archivist. \
                      Recording: {}",

@@ -66,7 +66,7 @@ use crate::concept_drift::ConceptDriftDetector;
 use crate::dopamine_system::{DopamineEvent, DopamineSystem, FeedbackSignalProcessor};
 use crate::enzyme_runner::EnzymeRunner;
 use crate::enzyme_types::{CuriosityEnzyme, DiplomatEnzyme, SelfCorrectionEnzyme};
-use crate::epigenetic_orchestrator::EpigeneticOrchestrator;
+use crate::delta_orchestrator::DeltaOrchestrator;
 use crate::executive_plan::{ExecutivePlan, StepStatus};
 use crate::federation::hive_db::PersistenceManager as HivePersistence;
 use crate::hox_registry::HoxRegistry;
@@ -179,7 +179,7 @@ pub struct AutonomicNervousSystem {
     nlm_sentinel: Arc<NlmSentinel>,
     prefrontal_cortex: Arc<PrefrontalCortex>,
     dopamine_system: Arc<DopamineSystem>,
-    epigenetic_orchestrator: Arc<EpigeneticOrchestrator>,
+    epigenetic_orchestrator: Arc<DeltaOrchestrator>,
     self_correction_enzyme: Arc<SelfCorrectionEnzyme>,
     neural_pruning_enzyme: Arc<NeuralPruningEnzyme>,
     diplomat_enzyme: Arc<DiplomatEnzyme>,
@@ -288,7 +288,7 @@ impl AutonomicNervousSystem {
             nlm_sentinel: Arc::new(NlmSentinel::new()?),
             prefrontal_cortex: Arc::new(PrefrontalCortex),
             dopamine_system: Arc::new(FeedbackSignalProcessor),
-            epigenetic_orchestrator: Arc::new(EpigeneticOrchestrator::new()),
+            epigenetic_orchestrator: Arc::new(DeltaOrchestrator::new()),
             self_correction_enzyme: Arc::new(SelfCorrectionEnzyme::new()),
             neural_pruning_enzyme: Arc::new(NeuralPruningEnzyme::new(60)),
             diplomat_enzyme: Arc::new(DiplomatEnzyme::new()),

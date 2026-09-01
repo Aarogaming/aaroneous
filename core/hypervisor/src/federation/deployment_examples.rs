@@ -189,7 +189,7 @@ mod examples {
 
         println!("Target: {:?}", config.manifest.target);
         println!("Modules: {}", config.manifest.modules.len());
-        println!("DNA Bank: {}", config.dna_bank_path);
+        println!("ArtifactRegistry: {}", config.artifact_registry_path);
         println!("Model Cache: {}", config.model_cache_path);
         println!("Log Level: {}", config.log_level);
         println!("Metrics Enabled: {}", config.enable_metrics);
@@ -213,16 +213,16 @@ mod examples {
 
     /// Example 8: Custom configuration with paths
     ///
-    /// Configure custom DNA Bank and model cache locations
+    /// Configure custom ArtifactRegistry and model cache locations
     #[test]
     fn example_custom_configuration() {
         println!("\n=== Example 8: Custom Configuration ===");
 
         let mut config = DeploymentConfig::new(DeploymentTarget::Desktop)
-            .with_dna_path("/var/lib/aaroneous/dna_bank")
+            .with_artifact_registry_path("/var/lib/aaroneous/artifact_registry")
             .with_log_level("debug");
 
-        println!("DNA Bank Path: {}", config.dna_bank_path);
+        println!("ArtifactRegistry Path: {}", config.artifact_registry_path);
         println!("Log Level: {}", config.log_level);
 
         // Disable learning for server
@@ -230,7 +230,7 @@ mod examples {
 
         println!("Learning Enabled: {}", config.enable_learning);
 
-        assert_eq!(config.dna_bank_path, "/var/lib/aaroneous/dna_bank");
+        assert_eq!(config.artifact_registry_path, "/var/lib/aaroneous/artifact_registry");
         assert_eq!(config.log_level, "debug");
         assert!(!config.enable_learning);
     }
@@ -318,7 +318,7 @@ services:
   aaroneous:
     image: aaroneous:latest
     volumes:
-      - aaroneous-dna:/var/lib/aaroneous/dna_bank
+      - aaroneous-artifacts:/var/lib/aaroneous/artifact_registry
       - aaroneous-models:/var/cache/aaroneous/models
     environment:
       - AARONEOUS_LOG_LEVEL=info
@@ -375,14 +375,14 @@ spec:
             memory: "8Gi"
             cpu: "4"
         volumeMounts:
-        - name: dna-bank
-          mountPath: /var/lib/aaroneous/dna_bank
+        - name: artifact-registry
+          mountPath: /var/lib/aaroneous/artifact_registry
         - name: model-cache
           mountPath: /var/cache/aaroneous/models
       volumes:
-      - name: dna-bank
+      - name: artifact-registry
         persistentVolumeClaim:
-          claimName: aaroneous-dna
+          claimName: aaroneous-artifacts
       - name: model-cache
         persistentVolumeClaim:
           claimName: aaroneous-models

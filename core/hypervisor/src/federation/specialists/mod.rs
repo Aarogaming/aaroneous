@@ -10,7 +10,7 @@ pub mod symbiotic;
 /// - Omnipresent (1GB): P2P sync & multi-device coordination
 /// - Symbiotic (500MB): Biometric polling & state classification
 /// - Phygital (1GB): AR/VR & spatial rendering
-/// - Archivist (500MB): DNA Bank persistence & memory reflection
+/// - Archivist (500MB): ArtifactRegistry persistence & memory reflection
 ///
 /// Plus the runtime-spawnable generic specialist:
 /// - GenericSpecialist: any-domain sovereign backed by any GGUF model

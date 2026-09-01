@@ -103,7 +103,7 @@ impl PresenterSpecialist {
         let spec_count = self.omni_engine.ingest_standard_specialists().await;
         let crate_count = self.omni_engine.ingest_workspace_crates(&[
             "ipc_bus", "compute", "evolution", "biology",
-            "orchestrator", "adaptation_engine", "desktop_emulator", "specialists",
+            "orchestrator", "adaptation_engine", "platform_bridge", "specialists",
             "paths", "transpiler", "omni", "hypervisor"
         ]).await;
 

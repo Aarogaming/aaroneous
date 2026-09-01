@@ -15,10 +15,12 @@ serde_json = "1.0"
 tokio = { version = "1.0", features = ["full"] }
 tracing = "0.1"
 chrono = { version = "0.4", features = ["serde"] }
-desktop_emulator = { path = "../desktop_emulator" }
+platform_bridge = { path = "../platform_bridge" }
 adaptation_engine = { path = "../adaptation_engine" }
 omni = { path = "../omni" }
 ipc_bus = { path = "../ipc_bus" }
 compute = { path = "../compute" }
 paths = { package = "aaroneous_paths", path = "../paths" }
 autonomic_adaptation = { path = "../autonomic_adaptation" }
+aaroneous_sdk = { path = "../../sdk/rust" }
+libloading = "0.8"

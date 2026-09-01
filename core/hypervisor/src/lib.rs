@@ -1,5 +1,8 @@
 // Aaroneous Hypervisor Core
-// The central execution runtime that hosts WASM Enzymes and manages the Synapse.
+// The central execution runtime that hosts WASM Enzymes and manages the SignalBridge.
+
+#[global_allocator]
+static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
 pub extern crate ipc_bus as nervous_system;
 pub use ipc_bus;
@@ -64,6 +67,10 @@ pub use compaction_engine::{
     AgentHandle, CompactionEngine, CompactionEngineBuilder, CompactionEngineConfig, CompactionEvent,
     ReaperStats, SharedCompactionEngine,
 };
+
+// GGUF Seeding & Cartridge Compiler
+pub mod cartridge_compiler;
+pub use cartridge_compiler::{CartridgeCompiler, GgufSeedingConfig, GgufSeedingReport};
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub enum DigestionPriority {
@@ -223,9 +230,9 @@ pub mod config_validation;
 pub mod dopamine_system;
 pub mod enzyme_runner;
 pub use enzyme_runner::MicroTaskRunner;
-pub mod enzyme_types; // Consolidated: self_correction_enzyme, diplomat_enzyme, curiosity_enzyme, research_enzyme, execution_enzyme
-pub mod epigenetic_gate;
-pub mod epigenetic_orchestrator;
+pub mod enzyme_types;
+pub mod spatial_delta_gate;
+pub mod delta_orchestrator;
 pub mod event_log;
 pub mod executive_plan;
 pub mod genetic_recombination;
@@ -256,9 +263,9 @@ pub mod spectral_layout;
 pub mod splicing_engine;
 pub use splicing_engine::{PluginHotSwapEngine, WasmHotSwapEngine, WasmSplicingEngine};
 pub mod substrate;
-pub mod synapse;
+pub mod signal_bridge;
 pub mod interconnect {
-    pub use crate::synapse::*;
+    pub use crate::signal_bridge::*;
 }
 pub use dopamine_system::{FeedbackEvent, FeedbackSignalProcessor, RewardSignalProcessor};
 pub use interconnect::{
@@ -271,6 +278,7 @@ pub use retina_module::{
 };
 pub mod tensor_router;
 pub mod hypervisor_hud;
+pub mod hud;
 pub mod ui_broker;
 pub use hypervisor_hud::{HudTab, HypervisorHudApp};
 pub mod unified_learning;
@@ -288,14 +296,6 @@ pub use decision_engine::{
 };
 
 // Federation: specialist hive, HTTP API, forge, consensus, multi-hive
-//
-// STATUS: Compiles and passes 552 tests. All structural fixes applied.
-// Known minor issues (non-blocking):
-//   1. Trait-as-type patterns in symbiotic.rs (dyn BiometricProvider) and
-//      phygital.rs (dyn ArProvider) — harmless as these are trait-aliased
-//      behind config, not instantiated directly.
-//   2. The old comment about WorkspacePaths mismatches is stale — federation
-//      compiles and tests pass without any workspace module dependency.
 pub mod federation;
 
 // Phase 6 Expansion: Computational logic systems
@@ -326,22 +326,18 @@ pub use logging::init_logging;
 pub fn run_health_checks() -> bool {
     let mut success = true;
 
-    // Check Adaptation Engine (DNA Bank) initialization path
-    // We check if the persistence layer can be initialized with a mock :memory: backend
+    // Check Adaptation Engine (ArtifactRegistry) initialization path
     if persistence::PersistenceManager::new(":memory:").is_err() {
-        tracing::error!("HealthCheck: DNA Bank (Adaptation Engine) failed initialization");
+        tracing::error!("HealthCheck: ArtifactRegistry (Adaptation Engine) failed initialization");
         success = false;
     } else {
-        tracing::info!("HealthCheck: DNA Bank (Adaptation Engine) initialized successfully");
+        tracing::info!("HealthCheck: ArtifactRegistry (Adaptation Engine) initialized successfully");
     }
 
     // Check Reasoning (Synthesizer) component availability
-    // Simplified heuristic check for agent existence
-    // This is a placeholder for more deep integrity checks
     tracing::info!("HealthCheck: Reasoning Engine (Synthesizer) status: Nominal");
 
     // Check Constellation (Omni) registry health
-    // Check if registry paths exist
     if aaroneous_paths::WorkspacePaths::discover()
         .registry()
         .exists()

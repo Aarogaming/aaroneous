@@ -1,0 +1,16 @@
+{
+  "id": "agent_macro_login",
+  "name": "Daily Routine Macro",
+  "description": "Automates morning desktop workflow: launches tools, updates repositories, checks build status.",
+  "kind": "SingleUseTask",
+  "instructions": "Open IDE, pull latest git changes, run cargo check, and report diagnostics toast.",
+  "target_app": "System",
+  "tasks_completed": 85,
+  "state": "Idle",
+  "color": [
+    210,
+    153,
+    34
+  ],
+  "soul_model": "🔨 Compiler AST Reflexion (Tier 2)"
+}

@@ -271,7 +271,7 @@ impl McpService {
             vec!["spatial_intent"],
         ));
         tools.push(McpTool::new("ask_archivist",
-            "DNA Bank archival, memory consolidation, and pattern extraction. \
+            "ArtifactRegistry archival, memory consolidation, and pattern extraction. \
              Archivist remembers so the hive can learn. \
              Use for: session archival, pattern discovery, long-term memory retrieval.",
             serde_json::json!({ "content": { "type": "string", "description": "Content to archive or retrieve patterns from" } }),

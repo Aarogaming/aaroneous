@@ -3,16 +3,16 @@
 //!
 //! Consolidates 4 Core Visual Telemetry Viewports:
 //! 1. 🌌 3D Omni Galaxy View: Star-Nodes, Gravitational Clustering, Semantic Cosine Distance.
-//! 2. ⚡ SPMC Synapse & Sentinel SVDD: 256-Bar Latent Vector Oscilloscope & Threat Gauge.
-//! 3. 👁️ Epigenetic Vision & Sensory Grid: 16x16 Motion Saliency Mask & Compute Savings.
-//! 4. 🧬 Neurochemical Homeostasis: 4-Channel Neurotransmitters, Curiosity Impulses & Token Pool.
+//! 2. ⚡ SPMC SignalBridge & Sentinel SVDD: 256-Bar Latent Vector Signal Analyzer & Threat Gauge.
+//! 3. 👁️ Spatial Delta Vision & Sensory Grid: 16x16 Motion Saliency Mask & Compute Savings.
+//! 4. 🧬 System Thermodynamics: 4-Channel Feedback Signals, Curiosity Impulses & Token Pool.
 
 use std::sync::Arc;
 use eframe::egui::{self, Color32, RichText, Stroke, Ui, Vec2};
 use serde::{Deserialize, Serialize};
 
 use evolution::{NeurochemicalHomeostasisEngine, NeurochemicalLevels};
-use desktop_emulator::SensoryMotorPipeline;
+use platform_bridge::SensoryMotorPipeline;
 use nervous_system::specialist_bus::{SpecialistSynapseBus, TENSOR_DIM};
 use omni::{OmniEngine, SpatialCoord, StarNode, StarNodeType};
 
@@ -22,9 +22,9 @@ use crate::bus_visualizer::BusVisualizer;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum HudTab {
     Galaxy3D,
-    SynapseOscilloscope,
-    EpigeneticSensory,
-    NeurochemistryDrive,
+    SignalAnalyzer,
+    SpatialDeltaSensory,
+    SystemThermodynamics,
 }
 
 /// The Master Unified Hypervisor HUD Desktop App
@@ -296,9 +296,9 @@ impl eframe::App for HypervisorHudApp {
             ui.separator();
 
             ui.selectable_value(&mut self.active_tab, HudTab::Galaxy3D, "🌌 3D Galaxy");
-            ui.selectable_value(&mut self.active_tab, HudTab::SynapseOscilloscope, "⚡ Bus & SVDD");
-            ui.selectable_value(&mut self.active_tab, HudTab::EpigeneticSensory, "👁️ Epigenetic Vision");
-            ui.selectable_value(&mut self.active_tab, HudTab::NeurochemistryDrive, "🧬 Neurochemistry");
+            ui.selectable_value(&mut self.active_tab, HudTab::SignalAnalyzer, "⚡ Bus & SVDD");
+            ui.selectable_value(&mut self.active_tab, HudTab::SpatialDeltaSensory, "👁️ Spatial Delta Vision");
+            ui.selectable_value(&mut self.active_tab, HudTab::SystemThermodynamics, "🧬 System Thermodynamics");
 
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 ui.checkbox(&mut self.is_simulating, "Live 60Hz Sim");
@@ -312,9 +312,9 @@ impl eframe::App for HypervisorHudApp {
         let ctx = ui.ctx().clone();
         match self.active_tab {
             HudTab::Galaxy3D => self.render_galaxy_tab(ui),
-            HudTab::SynapseOscilloscope => self.bus_visualizer.update_ui(&ctx, ui),
-            HudTab::EpigeneticSensory => self.render_epigenetic_tab(ui),
-            HudTab::NeurochemistryDrive => self.render_neurochemistry_tab(ui),
+            HudTab::SignalAnalyzer => self.bus_visualizer.update_ui(&ctx, ui),
+            HudTab::SpatialDeltaSensory => self.render_epigenetic_tab(ui),
+            HudTab::SystemThermodynamics => self.render_neurochemistry_tab(ui),
         }
     }
 }
@@ -332,7 +332,7 @@ mod tests {
         app.step_simulation();
         assert_eq!(app.tick_counter, 1);
 
-        app.active_tab = HudTab::NeurochemistryDrive;
-        assert_eq!(app.active_tab, HudTab::NeurochemistryDrive);
+        app.active_tab = HudTab::SystemThermodynamics;
+        assert_eq!(app.active_tab, HudTab::SystemThermodynamics);
     }
 }

@@ -1,5 +1,5 @@
-//! crates/desktop_emulator
-//! Unified frontend user emulation, visual perception, backend probing, and datalogging organ for Aaroneous.
+//! crates/platform_bridge
+//! Unified frontend platform bridge, visual perception, backend probing, and datalogging organ for Aaroneous.
 
 pub mod audio_analyzer;
 pub mod epigenetic_vision;
@@ -7,6 +7,7 @@ pub mod event_recorder;
 pub mod game_player;
 pub mod mock;
 pub mod native_win32;
+pub mod observability;
 pub mod probing;
 pub mod protocol_bridge;
 pub mod sensory_motor_loop;
@@ -24,6 +25,12 @@ pub use event_recorder::{FramebufferAnalyzer, RecordedInputEvent, SessionRecordi
 pub use game_player::{AutonomousGameAgent, GamePolicyAction, PlaythroughState};
 pub use mock::MockMarionette;
 pub use native_win32::{DxgiHardwareFrameBuffer, NativeWin32Marionette};
+pub use observability::{
+    enable_mmcss_time_critical, read_cpu_timestamp, set_thread_performance_affinity,
+    AcousticFeatureExtractor, AcousticLatent, EtwKernelConsumer, HardwareCycleProfiler,
+    KernelTraceEvent, RawInputListener, RawInputPacket, SensorPowerGate, SensorPowerMode,
+    UiaElementNode, UiaTreeWalker, WasapiCaptureConfig, WasapiLoopbackCapture,
+};
 pub use probing::ProcessProbeLogger;
 pub use protocol_bridge::{MarionetteProtocolBridge, MnlpPerceptionPacket};
 pub use sensory_motor_loop::{SensoryMotorCycleReport, SensoryMotorPipeline};

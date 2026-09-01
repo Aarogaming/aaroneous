@@ -1,106 +1,11 @@
-use serde::{Deserialize, Serialize};
+pub mod types;
+pub use types::*;
+
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::{Mutex, RwLock, mpsc};
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct P2pNodeId(pub String);
-
-impl P2pNodeId {
-    pub fn new(id: &str) -> Self {
-        Self(id.to_string())
-    }
-
-    pub fn short(&self) -> String {
-        let char_count = self.0.chars().count();
-        if char_count <= 12 {
-            self.0.clone()
-        } else {
-            let truncated: String = self.0.chars().take(12).collect();
-            format!("{}…", truncated)
-        }
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum P2pError {
-    ConnectionFailed(String),
-    Timeout(u64),
-    SerializationError(String),
-    Network(String),
-    InvalidEndpoint(String),
-}
-
-impl std::fmt::Display for P2pError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            P2pError::ConnectionFailed(s) => write!(f, "Connection failed: {}", s),
-            P2pError::Timeout(ms) => write!(f, "Timeout after {}ms", ms),
-            P2pError::SerializationError(s) => write!(f, "Serialization error: {}", s),
-            P2pError::Network(s) => write!(f, "P2P network error: {}", s),
-            P2pError::InvalidEndpoint(s) => write!(f, "Invalid endpoint: {}", s),
-        }
-    }
-}
-
-impl std::error::Error for P2pError {}
-
-impl From<serde_json::Error> for P2pError {
-    fn from(e: serde_json::Error) -> Self {
-        P2pError::SerializationError(e.to_string())
-    }
-}
-
-impl From<std::io::Error> for P2pError {
-    fn from(e: std::io::Error) -> Self {
-        P2pError::Network(e.to_string())
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum SyncMessageKind {
-    FullState,
-    Delta,
-    StateSync,
-    Heartbeat,
-    ConflictDetected,
-    SyncRequest,
-    Request,
-    Response,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SyncMessage {
-    pub kind: SyncMessageKind,
-    pub payload: Vec<u8>,
-    pub from: String,
-    pub timestamp: u64,
-    pub intent_version: u32,
-}
-
-impl SyncMessage {
-    pub fn full_state(data: Vec<u8>) -> Self {
-        Self {
-            kind: SyncMessageKind::FullState,
-            payload: data,
-            from: String::new(),
-            timestamp: 0,
-            intent_version: 0,
-        }
-    }
-
-    pub fn heartbeat() -> Self {
-        Self {
-            kind: SyncMessageKind::Heartbeat,
-            payload: vec![],
-            from: String::new(),
-            timestamp: 0,
-            intent_version: 0,
-        }
-    }
-}
 
 /// Sovereign P2P Hypervisor Node with Async Stream & Channel Multiplexing
 pub struct P2pNode {
@@ -268,11 +173,7 @@ impl P2pNode {
     }
 }
 
-pub mod types {
-    pub use super::{P2pError, P2pNodeId, SyncMessage, SyncMessageKind};
-}
-
-#[cfg(feature = "p2p-iroh")]
+#[cfg(any(feature = "p2p-iroh", feature = "fleet"))]
 pub mod iroh_node;
 
 #[cfg(test)]

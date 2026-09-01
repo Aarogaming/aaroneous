@@ -17,7 +17,7 @@ pub mod sentinel;
 /// - Omnipresent (1GB): P2P sync, multi-device coordination
 /// - Symbiotic (500MB): Biometric polling, state classification
 /// - Phygital (1GB): AR/VR, depth processing, landmarks
-/// - Archivist (500MB): DNA Bank persistence, reflection
+/// - Archivist (500MB): ArtifactRegistry persistence, reflection
 // ── Core specialist system ──────────────────────────────────────────────────
 pub mod specialist;
 pub mod specialists;
@@ -55,14 +55,17 @@ pub mod bootstrap;
 pub mod cli;
 pub mod component_registry;
 pub mod deployment_examples;
-pub mod dna_bank;
+pub mod artifact_registry;
 pub mod graph;
 pub mod links;
 pub mod multi_hive;
 pub mod optimization;
 pub mod p2p;
+pub mod fleet_scheduler;
 pub mod tasks;
 pub mod tensor_vault;
+
+pub use fleet_scheduler::{FleetScheduler, FleetTask, PeerLoadMetric};
 
 // runtime.rs was a standalone design prototype (model cache + deployment manifest runtime)
 // that was never connected to any production code. Its useful concepts (ModelManager,
@@ -140,8 +143,8 @@ pub use bootstrap::{
 };
 pub use cli::{AaroneosCLI, CLIResult, Command, ExpandArgs, InitArgs, PortableArgs, StatusArgs};
 pub use component_registry::{AgentBundle, ComponentRegistry};
-pub use dna_bank::{
-    BackupInfo, ConsolidationStats, DNABank, DNABankStats, DNAEvent, EventQuery, Pattern,
+pub use artifact_registry::{
+    BackupInfo, ConsolidationStats, ArtifactRegistry, ArtifactRegistryStats, ArtifactEvent, EventQuery, Pattern,
 };
 pub use multi_hive::{
     ClusterConfig, ConsensusEngine, DistributedSpecialistRegistry, FederatedLearningEngine,

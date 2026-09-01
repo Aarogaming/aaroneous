@@ -320,6 +320,8 @@ pub struct DxgiHardwareFrameBuffer {
     pub row_pitch: usize,
     pub pixel_data: Vec<u8>,
     pub timestamp_ms: u64,
+    /// D3D11 / DXGI Shared Handle for direct zero-copy GPU-to-GPU texture interop with wgpu
+    pub shared_handle: Option<usize>,
 }
 
 impl DxgiHardwareFrameBuffer {
@@ -334,7 +336,14 @@ impl DxgiHardwareFrameBuffer {
             row_pitch,
             pixel_data: vec![0u8; total_bytes],
             timestamp_ms: 0,
+            shared_handle: None,
         }
+    }
+
+    /// Associates an existing Direct3D 11/12 GPU shared texture handle for zero-copy VRAM interop.
+    pub fn with_shared_handle(mut self, handle: usize) -> Self {
+        self.shared_handle = Some(handle);
+        self
     }
 
     pub fn copy_rgba_frame(&mut self, src_rgba: &[u8], src_width: u32, src_height: u32) -> Result<()> {
@@ -360,6 +369,275 @@ impl DxgiHardwareFrameBuffer {
             .unwrap_or(0);
         Ok(())
     }
+}
+
+/// DXGI Desktop Duplication capture backend.
+///
+/// Uses the Windows DXGI Desktop Duplication API for GPU-accelerated
+/// screen capture at near-zero CPU overhead. Falls back to GDI when
+/// DXGI is unavailable (e.g., remote desktop sessions).
+#[cfg(feature = "native-win32")]
+pub struct DxgiCaptureBackend {
+    duplication: Option<windows::Win32::Graphics::Dxgi::IDXGIOutputDuplication>,
+    device: Option<windows::Win32::Graphics::Direct3D11::ID3D11Device>,
+    context: Option<windows::Win32::Graphics::Direct3D11::ID3D11DeviceContext>,
+    staging_texture: Option<windows::Win32::Graphics::Direct3D11::ID3D11Texture2D>,
+    width: u32,
+    height: u32,
+    initialized: bool,
+}
+
+#[cfg(feature = "native-win32")]
+impl DxgiCaptureBackend {
+    pub fn new() -> Self {
+        Self {
+            duplication: None,
+            device: None,
+            context: None,
+            staging_texture: None,
+            width: 0,
+            height: 0,
+            initialized: false,
+        }
+    }
+
+    /// Initialize DXGI Desktop Duplication pipeline.
+    ///
+    /// Creates a D3D11 device, enumerates adapters/outputs, and acquires
+    /// the desktop output duplication interface.
+    pub fn initialize(&mut self) -> Result<()> {
+        use windows::core::Interface;
+        use windows::Win32::Foundation::HMODULE;
+        use windows::Win32::Graphics::Dxgi::*;
+        use windows::Win32::Graphics::Dxgi::Common::{DXGI_FORMAT_B8G8R8A8_UNORM, DXGI_SAMPLE_DESC};
+        use windows::Win32::Graphics::Direct3D::*;
+        use windows::Win32::Graphics::Direct3D11::*;
+
+        unsafe {
+            // Create D3D11 device with hardware acceleration
+            let mut device = None;
+            let mut context = None;
+
+            let feature_levels = [D3D_FEATURE_LEVEL_11_0, D3D_FEATURE_LEVEL_10_1];
+
+            let result = D3D11CreateDevice(
+                None,
+                D3D_DRIVER_TYPE_HARDWARE,
+                HMODULE::default(),
+                D3D11_CREATE_DEVICE_FLAG(0),
+                Some(&feature_levels),
+                D3D11_SDK_VERSION,
+                Some(&mut device),
+                None,
+                Some(&mut context),
+            );
+
+            if result.is_err() {
+                // Fallback to WARP (software rasterizer)
+                let result_warp = D3D11CreateDevice(
+                    None,
+                    D3D_DRIVER_TYPE_WARP,
+                    HMODULE::default(),
+                    D3D11_CREATE_DEVICE_FLAG(0),
+                    Some(&feature_levels),
+                    D3D11_SDK_VERSION,
+                    Some(&mut device),
+                    None,
+                    Some(&mut context),
+                );
+                result_warp.map_err(|e| anyhow::anyhow!("D3D11 WARP device creation failed: {}", e))?;
+            }
+
+            let device = device.ok_or_else(|| anyhow::anyhow!("D3D11 device is None"))?;
+            let context = context.ok_or_else(|| anyhow::anyhow!("D3D11 context is None"))?;
+
+            // Enumerate DXGI adapter and output
+            let dxgi_device: IDXGIDevice = device.cast()?;
+            let adapter: IDXGIAdapter = dxgi_device.GetParent()?;
+            let output = adapter.EnumOutputs(0)?;
+            let output1: IDXGIOutput1 = output.cast()?;
+
+            // Get output description for dimensions
+            let desc = output.GetDesc()?;
+            self.width = (desc.DesktopCoordinates.right - desc.DesktopCoordinates.left) as u32;
+            self.height = (desc.DesktopCoordinates.bottom - desc.DesktopCoordinates.top) as u32;
+
+            // Create desktop duplication
+            let duplication = output1.DuplicateOutput(&device)?;
+
+            // Create staging texture for CPU readback
+            let tex_desc = D3D11_TEXTURE2D_DESC {
+                Width: self.width,
+                Height: self.height,
+                MipLevels: 1,
+                ArraySize: 1,
+                Format: DXGI_FORMAT_B8G8R8A8_UNORM,
+                SampleDesc: DXGI_SAMPLE_DESC {
+                    Count: 1,
+                    Quality: 0,
+                },
+                Usage: D3D11_USAGE_STAGING,
+                BindFlags: 0,
+                CPUAccessFlags: D3D11_CPU_ACCESS_READ.0 as u32,
+                MiscFlags: 0,
+            };
+
+            let mut staging_texture = None;
+            device.CreateTexture2D(&tex_desc, None, Some(&mut staging_texture))?;
+
+            self.duplication = Some(duplication);
+            self.device = Some(device);
+            self.context = Some(context);
+            self.staging_texture = staging_texture;
+            self.initialized = true;
+
+            info!(
+                target: "dxgi_capture",
+                width = self.width,
+                height = self.height,
+                "DXGI Desktop Duplication initialized"
+            );
+        }
+
+        Ok(())
+    }
+
+    /// Acquire the next desktop frame and convert to BGRA pixel buffer.
+    ///
+    /// Returns the frame as a BGRA byte slice suitable for luminance conversion.
+    pub fn capture_frame_bgra(&mut self, buffer: &mut [u8]) -> Result<()> {
+        use windows::core::Interface;
+        use windows::Win32::Graphics::Dxgi::*;
+        use windows::Win32::Graphics::Direct3D11::*;
+
+        if !self.initialized {
+            bail!("DXGI capture not initialized");
+        }
+
+        let duplication = self.duplication.as_ref()
+            .ok_or_else(|| anyhow::anyhow!("DXGI duplication not available"))?;
+        let context = self.context.as_ref()
+            .ok_or_else(|| anyhow::anyhow!("D3D11 context not available"))?;
+        let staging = self.staging_texture.as_ref()
+            .ok_or_else(|| anyhow::anyhow!("Staging texture not available"))?;
+
+        unsafe {
+            // Acquire next frame with 16ms timeout (~60fps)
+            let mut frame_info = DXGI_OUTDUPL_FRAME_INFO::default();
+            let mut resource = None;
+
+            let acquire_result = duplication.AcquireNextFrame(
+                16,
+                &mut frame_info,
+                &mut resource,
+            );
+
+            match acquire_result {
+                Ok(()) => {
+                    let resource = resource.ok_or_else(|| anyhow::anyhow!("Frame resource is None"))?;
+                    let desktop_texture: ID3D11Texture2D = resource.cast()?;
+
+                    // Copy to staging texture for CPU readback
+                    context.CopyResource(staging, &desktop_texture);
+
+                    // Map staging texture for CPU access
+                    let mut mapped = D3D11_MAPPED_SUBRESOURCE::default();
+                    context.Map(
+                        staging,
+                        0,
+                        D3D11_MAP_READ,
+                        0,
+                        Some(&mut mapped),
+                    )?;
+
+                    // Copy from mapped texture to output buffer
+                    let src_pitch = mapped.RowPitch as usize;
+                    let dst_pitch = (self.width as usize) * 4;
+
+                    for y in 0..(self.height as usize) {
+                        let src_offset = y * src_pitch;
+                        let dst_offset = y * dst_pitch;
+                        if src_offset + dst_pitch <= mapped.pData as usize + mapped.RowPitch as usize * self.height as usize
+                            && dst_offset + dst_pitch <= buffer.len()
+                        {
+                            let src_slice = std::slice::from_raw_parts(
+                                (mapped.pData as *const u8).add(src_offset),
+                                dst_pitch,
+                            );
+                            buffer[dst_offset..dst_offset + dst_pitch].copy_from_slice(src_slice);
+                        }
+                    }
+
+                    context.Unmap(staging, 0);
+                    duplication.ReleaseFrame()?;
+
+                    Ok(())
+                }
+                Err(e) => {
+                    // DXGI_ERROR_WAIT_TIMEOUT means no new frame
+                    if e.code() == DXGI_ERROR_WAIT_TIMEOUT {
+                        bail!("No new frame available (timeout)");
+                    }
+                    bail!("DXGI AcquireNextFrame failed: {}", e);
+                }
+            }
+        }
+    }
+
+    pub fn is_initialized(&self) -> bool {
+        self.initialized
+    }
+
+    pub fn dimensions(&self) -> (u32, u32) {
+        (self.width, self.height)
+    }
+}
+
+/// Convenience: capture a single frame via DXGI and convert to 128x128 luminance grid.
+///
+/// Returns `None` if DXGI is unavailable or the frame capture fails.
+#[cfg(feature = "native-win32")]
+pub fn capture_dxgi_frame_128x128() -> Option<Vec<f32>> {
+    use DxgiCaptureBackend;
+
+    let mut backend = DxgiCaptureBackend::new();
+    if backend.initialize().is_err() {
+        return None;
+    }
+
+    let (w, h) = backend.dimensions();
+    let mut bgra_buffer = vec![0u8; (w as usize) * (h as usize) * 4];
+
+    if backend.capture_frame_bgra(&mut bgra_buffer).is_err() {
+        return None;
+    }
+
+    // Downscale to 128x128 with box filter and convert to luminance
+    let mut grid = vec![0.0f32; 128 * 128];
+    let scale_x = w as f32 / 128.0;
+    let scale_y = h as f32 / 128.0;
+
+    for dy in 0..128usize {
+        for dx in 0..128usize {
+            let src_x = (dx as f32 * scale_x) as usize;
+            let src_y = (dy as f32 * scale_y) as usize;
+            let src_idx = (src_y * w as usize + src_x) * 4;
+            if src_idx + 3 < bgra_buffer.len() {
+                let b = bgra_buffer[src_idx] as f32;
+                let g = bgra_buffer[src_idx + 1] as f32;
+                let r = bgra_buffer[src_idx + 2] as f32;
+                // ITU-R BT.601 luminance
+                grid[dy * 128 + dx] = (r * 0.299 + g * 0.587 + b * 0.114) / 255.0;
+            }
+        }
+    }
+
+    Some(grid)
+}
+
+#[cfg(not(feature = "native-win32"))]
+pub fn capture_dxgi_frame_128x128() -> Option<Vec<f32>> {
+    None
 }
 
 #[cfg(test)]

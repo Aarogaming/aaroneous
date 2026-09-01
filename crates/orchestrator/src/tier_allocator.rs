@@ -13,7 +13,7 @@ use std::thread::{self, JoinHandle};
 use std::time::Duration;
 use anyhow::{bail, Result};
 
-use compute::latent_router::HermesRouter;
+use compute::latent_router::LatentOrthogonalRouter;
 use compute::reflex_worker::ReflexWorker;
 use compute::si_packer::SiTierFlags;
 use compute::si_solid_state::SolidStateSiContainer;
@@ -109,7 +109,7 @@ impl TierRuntimeAllocator {
             let handle = thread::Builder::new()
                 .name(format!("Router-{}", worker_id))
                 .spawn(move || {
-                    let mut router = HermesRouter::default();
+                    let mut router = LatentOrthogonalRouter::default();
                     let dummy_intent = vec![0.1f32; 4096];
                     let mut routed = 0u64;
 

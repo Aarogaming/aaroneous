@@ -26,7 +26,6 @@
 /// - No CRDT integration yet (callers send/receive opaque messages)
 use super::types::{P2pError, P2pNodeId, SyncMessage};
 use iroh::{Endpoint, EndpointAddr, PublicKey, endpoint::presets};
-use n0_future::StreamExt;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::Mutex;
@@ -318,7 +317,9 @@ mod tests {
         tokio::time::sleep(Duration::from_millis(500)).await;
 
         // Send a message
-        let msg = SyncMessage::heartbeat(sender_id, 42);
+        let mut msg = SyncMessage::heartbeat();
+        msg.intent_version = 42;
+        msg.from = sender_id.0.clone();
         sender.send(&listener_id, msg.clone()).await.unwrap();
 
         // Wait for recv

@@ -14,7 +14,7 @@ use wgpu::{
     util::DeviceExt,
 };
 
-use crate::epigenetic_gate::EpigeneticGateMatrix;
+use crate::spatial_delta_gate::SpatialDeltaGateMatrix;
 use crate::win32_intercept::hid_bridge::MotorIntent;
 
 pub const GRID_SIZE: usize = 128 * 128;
@@ -175,7 +175,7 @@ impl WgpuReflexPipeline {
     pub async fn execute_frame(
         &self,
         pixels: &[f32; GRID_SIZE],
-        gate_matrix: Option<&EpigeneticGateMatrix>,
+        gate_matrix: Option<&SpatialDeltaGateMatrix>,
     ) -> Vec<f32> {
         // Upload pixel data to GPU
         self.queue.write_buffer(
@@ -296,7 +296,7 @@ impl WgpuReflexPipeline {
     pub fn compute_motor_intent(
         &self,
         intents: &[f32],
-        gate_matrix: &EpigeneticGateMatrix,
+        gate_matrix: &SpatialDeltaGateMatrix,
     ) -> MotorIntent {
         // Aggregate intent values across active genome tracks
         let mut sum_x: f32 = 0.0;

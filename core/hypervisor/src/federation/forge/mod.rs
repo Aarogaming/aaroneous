@@ -1042,7 +1042,7 @@ impl SovereignProfile {
                     compact enough for AR overlay always-resident deployment.".into(),
             },
 
-            // ── Archivist: DNA Bank, memory, pattern learning ──────────────
+            // ── Archivist: ArtifactRegistry, memory, pattern learning ──────────────
             // Memory consolidation — summarise, pattern-extract, archive.
             // Gemma-2-2B-IT: excellent at summarization tasks, small, fast.
             // Not a coder model — trained on diverse text with strong recall patterns.
@@ -1064,7 +1064,7 @@ impl SovereignProfile {
                     "gemma2", 2614,
                     "Gemma-2-2B excels at summarisation, pattern extraction, and knowledge \
                      consolidation tasks. Its training data emphasises factual recall and \
-                     coherent long-form synthesis — aligned with DNA Bank archival work. \
+                     coherent long-form synthesis — aligned with ArtifactRegistry archival work. \
                      Smaller size means low memory cost for the always-present Archivist.",
                     false,
                 )),

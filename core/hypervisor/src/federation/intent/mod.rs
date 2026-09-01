@@ -8,7 +8,7 @@ use crate::federation::specialist::{ProposalPriority, SpecialistId};
 /// - Scaled by Symbiotic based on biometric state (stress, fatigue)
 /// - Interpreted by Visionary to generate design variants
 /// - Anchored by Phygital in physical space via AR landmarks
-/// - Archived by Archivist in the DNA Bank for pattern learning
+/// - Archived by Archivist in the ArtifactRegistry for pattern learning
 /// - Arbitrated by Sentinel when multiple intents compete for resources
 ///
 /// # Examples
@@ -112,7 +112,7 @@ pub enum IntentSource {
     Sync { from_device: String },
     /// Inferred from biometric state (e.g., Symbiotic detected focus → generated intent)
     Inferred,
-    /// Loaded from the DNA Bank as a recurring pattern
+    /// Loaded from the ArtifactRegistry as a recurring pattern
     DnaPattern { pattern_id: String },
 }
 

@@ -257,6 +257,31 @@ impl SpecialistSynapseBus {
 
         dead_channels
     }
+
+    /// Publishes a 256-dimensional latent vector to a designated specialist channel
+    pub fn publish_latent_vector(&self, channel_id: usize, latent: &[f32; TENSOR_DIM]) -> Result<u64> {
+        if channel_id >= self.channels.len() {
+            bail!("Specialist channel {} out of range", channel_id);
+        }
+        self.channels[channel_id].publish_tensor(latent)
+    }
+
+    /// Queries the most recent 256-dimensional latent vector from a designated specialist channel
+    pub fn query_channel_latent(&self, channel_id: usize) -> Option<[f32; TENSOR_DIM]> {
+        if channel_id >= self.channels.len() {
+            return None;
+        }
+        self.channels[channel_id].read_latest(300)
+    }
+
+    /// Iterates across all active channels and drains the latest 256-dim latent vectors into a callback
+    pub fn drain_active_latents<F: FnMut(usize, &[f32; TENSOR_DIM])>(&self, mut callback: F) {
+        for (i, channel) in self.channels.iter().enumerate() {
+            if let Some(latent) = channel.read_latest(100) {
+                callback(i, &latent);
+            }
+        }
+    }
 }
 
 #[cfg(test)]

@@ -16,7 +16,7 @@ pub const CORTEX_INTENT_DIM: usize = 4096;
 pub const SUBGOAL_DIM: usize = GUARDRAIL_DIM; // 256
 
 /// Tier 2: Router Latent Intent Router & Safety Interceptor
-pub struct HermesRouter {
+pub struct LatentOrthogonalRouter {
     /// Orthogonal projection matrix [4096 x 256]
     pub projection_matrix: Vec<f32>,
     /// Tier 2 Safety Auditor (Deep SVDD Safe Hypersphere)
@@ -27,13 +27,13 @@ pub struct HermesRouter {
     pub total_intercepts_count: u64,
 }
 
-impl Default for HermesRouter {
+impl Default for LatentOrthogonalRouter {
     fn default() -> Self {
         Self::new(10.0)
     }
 }
 
-impl HermesRouter {
+impl LatentOrthogonalRouter {
     /// Creates a new Router with a standard projection matrix and Sentinel safety radius R
     pub fn new(safety_radius: f32) -> Self {
         let size = CORTEX_INTENT_DIM * SUBGOAL_DIM;
@@ -133,7 +133,7 @@ mod tests {
 
     #[test]
     fn test_hermes_router_projection_and_sentinel_guardrail() {
-        let mut router = HermesRouter::new(5.0);
+        let mut router = LatentOrthogonalRouter::new(5.0);
         let channel = SpecialistSpmcChannel::new(0, "Router-Test");
 
         // 1. Safe Cortex intent

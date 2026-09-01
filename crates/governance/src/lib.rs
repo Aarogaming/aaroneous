@@ -2,6 +2,9 @@ pub mod biology;
 pub mod homeostasis;
 pub mod metabolic_governor;
 pub mod thermodynamic_governor;
+pub mod lattice_verifier;
+pub mod rollback_journal;
+pub mod z3_prover;
 
 pub use biology::{
     SpecialistExecutionBudget, SpecialistHealth, SpecialistMetabolism, SystemBiology,
@@ -10,9 +13,12 @@ pub use biology::{
 pub use homeostasis::{
     DynamicEquilibriumState, FeedbackRegulator, HomeostasisGovernor, HomeostasisState,
 };
+pub use lattice_verifier::{LatticeVerifier, VerificationReport};
 pub use metabolic_governor::{
     GovernanceAction, MetabolicForecast, MetabolicGovernorConfig, PredictiveMetabolicGovernor,
 };
+pub use rollback_journal::{GenerationSnapshot, GenerationalJournal};
 pub use thermodynamic_governor::{
     ThermodynamicAction, ThermodynamicForecast, ThermodynamicGovernor, ThermodynamicGovernorConfig,
 };
+pub use z3_prover::{NonInterferenceReport, Z3Prover};

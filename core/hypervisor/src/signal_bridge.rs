@@ -62,14 +62,14 @@ impl SpecialistDialogue {
 }
 
 #[derive(Archive, Serialize, Deserialize, Debug, Clone)]
-pub struct SynapseState {
+pub struct SignalBridgeState {
     pub clock_tick: u64,
     pub latent_vector: [f32; 1024],
     pub mcp_frame: Option<McpToolCallFrame>,
     pub dialogue: Vec<SpecialistDialogue>,
 }
 
-impl SynapseState {
+impl SignalBridgeState {
     pub fn from_zero_copy(
         zc: &ZeroCopyState,
         tool_registry: &[(u64, String)],
@@ -96,18 +96,18 @@ impl SynapseState {
 }
 
 #[derive(Archive, Serialize, Deserialize, Debug)]
-pub struct SynapsePayload {
+pub struct SignalBridgePayload {
     pub key: String,
     pub data: Vec<u8>,
     pub timestamp: u64,
 }
 
-pub struct Synapse {
+pub struct SignalBridge {
     mmap: MmapMut,
     serialized_len: usize,
 }
 
-impl Synapse {
+impl SignalBridge {
     pub fn new(path: &Path, size: usize) -> Result<Self> {
         let file = OpenOptions::new()
             .read(true)
@@ -125,10 +125,10 @@ impl Synapse {
         })
     }
 
-    pub fn write_payload(&mut self, payload: &SynapsePayload) -> Result<()> {
+    pub fn write_payload(&mut self, payload: &SignalBridgePayload) -> Result<()> {
         let buf = rkyv::to_bytes::<rkyv::rancor::Error>(payload)?;
         if buf.len() > self.mmap.len() {
-            return Err(anyhow!("Payload too large for synapse"));
+            return Err(anyhow!("Payload too large for signal bridge"));
         }
 
         self.serialized_len = buf.len();
@@ -137,12 +137,12 @@ impl Synapse {
         Ok(())
     }
 
-    pub fn read_payload(&self) -> Result<SynapsePayload> {
+    pub fn read_payload(&self) -> Result<SignalBridgePayload> {
         if self.serialized_len == 0 {
             return Err(anyhow!("No payload written"));
         }
 
-        let payload = rkyv::from_bytes::<SynapsePayload, rkyv::rancor::Error>(
+        let payload = rkyv::from_bytes::<SignalBridgePayload, rkyv::rancor::Error>(
             &self.mmap[..self.serialized_len],
         )
         .map_err(|e| anyhow!("Failed to deserialize payload: {:?}", e))?;
@@ -151,9 +151,9 @@ impl Synapse {
 }
 
 // Machine-Native Systems Aliases
-pub type InterconnectState = SynapseState;
-pub type InterconnectPayload = SynapsePayload;
-pub type InterconnectBus = Synapse;
+pub type InterconnectState = SignalBridgeState;
+pub type InterconnectPayload = SignalBridgePayload;
+pub type InterconnectBus = SignalBridge;
 pub type InterconnectMcpFrame = McpToolCallFrame;
 pub type SpecialistBusDialogue = SpecialistDialogue;
 

@@ -9,3 +9,9 @@ repository.workspace = true
 
 [dependencies]
 ipc_bus = { path = "../../crates/ipc_bus" }
+si_ir = { path = "../../crates/si_ir" }
+anyhow = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+libloading = "0.8"
+parking_lot = "0.12"

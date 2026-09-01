@@ -25,7 +25,7 @@ pub enum Command {
 /// Arguments for `aaroneous --init`
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct InitArgs {
-    pub dna_path: Option<String>,
+    pub artifact_registry_path: Option<String>,
     pub model_cache_path: Option<String>,
     pub log_level: Option<String>,
 }
@@ -39,14 +39,14 @@ impl Default for InitArgs {
 impl InitArgs {
     pub fn new() -> Self {
         Self {
-            dna_path: None,
+            artifact_registry_path: None,
             model_cache_path: None,
             log_level: None,
         }
     }
 
-    pub fn with_dna_path(mut self, path: String) -> Self {
-        self.dna_path = Some(path);
+    pub fn with_artifact_registry_path(mut self, path: String) -> Self {
+        self.artifact_registry_path = Some(path);
         self
     }
 
@@ -113,7 +113,7 @@ pub enum ConfigArgs {
     },
     Set {
         manifest_path: String,
-        dna_path: Option<String>,
+        artifact_registry_path: Option<String>,
         log_level: Option<String>,
     },
 }
@@ -212,8 +212,8 @@ impl AaroneosCLI {
                 let mut i = 1;
                 while i < args.len() {
                     match args[i] {
-                        "--dna-path" if i + 1 < args.len() => {
-                            init_args.dna_path = Some(args[i + 1].to_string());
+                        "--artifact-registry" if i + 1 < args.len() => {
+                            init_args.artifact_registry_path = Some(args[i + 1].to_string());
                             i += 2;
                         }
                         "--log-level" if i + 1 < args.len() => {
@@ -298,14 +298,14 @@ impl AaroneosCLI {
                     })),
                     "set" if args.len() >= 4 => {
                         let manifest_path = args[2].to_string();
-                        let mut dna_path = None;
+                        let mut artifact_registry_path = None;
                         let mut log_level = None;
 
                         let mut i = 3;
                         while i < args.len() {
                             match args[i] {
-                                "--dna-path" if i + 1 < args.len() => {
-                                    dna_path = Some(args[i + 1].to_string());
+                                "--artifact-registry" if i + 1 < args.len() => {
+                                    artifact_registry_path = Some(args[i + 1].to_string());
                                     i += 2;
                                 }
                                 "--log-level" if i + 1 < args.len() => {
@@ -318,7 +318,7 @@ impl AaroneosCLI {
 
                         Ok(Command::Config(ConfigArgs::Set {
                             manifest_path,
-                            dna_path,
+                            artifact_registry_path,
                             log_level,
                         }))
                     }
@@ -366,8 +366,8 @@ impl AaroneosCLI {
 
         let mut config = DeploymentConfig::new(DeploymentTarget::Desktop);
 
-        if let Some(dna_path) = args.dna_path {
-            config = config.with_dna_path(&dna_path);
+        if let Some(artifact_registry_path) = args.artifact_registry_path {
+            config = config.with_artifact_registry_path(&artifact_registry_path);
         }
 
         if let Some(log_level) = args.log_level {
@@ -452,13 +452,13 @@ impl AaroneosCLI {
 
             ConfigArgs::Set {
                 manifest_path,
-                dna_path,
+                artifact_registry_path,
                 log_level,
             } => {
                 let mut config = DeploymentConfig::new(DeploymentTarget::Desktop);
 
-                if let Some(dna) = dna_path {
-                    config = config.with_dna_path(&dna);
+                if let Some(path) = artifact_registry_path {
+                    config = config.with_artifact_registry_path(&path);
                 }
 
                 if let Some(level) = log_level {
@@ -528,7 +528,7 @@ Examples:
   aaroneous status
 
 Options:
-  --dna-path PATH           DNA Bank location
+  --artifact-registry PATH   ArtifactRegistry location
   --model-cache PATH        Model cache path
   --log-level LEVEL         Log level (debug/info/warn/error)
   --target TARGET           Deployment target (mobile/tablet/desktop/server)
@@ -555,12 +555,12 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_init_with_dna_path() {
-        let result = AaroneosCLI::parse_args(vec!["--init", "--dna-path", "/custom/path"]);
+    fn test_parse_init_with_artifact_registry_path() {
+        let result = AaroneosCLI::parse_args(vec!["--init", "--artifact-registry", "/custom/path"]);
         assert!(result.is_ok());
         match result.unwrap() {
             Command::Init(args) => {
-                assert_eq!(args.dna_path, Some("/custom/path".to_string()));
+                assert_eq!(args.artifact_registry_path, Some("/custom/path".to_string()));
             }
             _ => panic!("Expected Init command"),
         }
@@ -700,10 +700,10 @@ mod tests {
     #[test]
     fn test_init_args_builder() {
         let args = InitArgs::new()
-            .with_dna_path("/custom".to_string())
+            .with_artifact_registry_path("/custom".to_string())
             .with_log_level("debug".to_string());
 
-        assert_eq!(args.dna_path, Some("/custom".to_string()));
+        assert_eq!(args.artifact_registry_path, Some("/custom".to_string()));
         assert_eq!(args.log_level, Some("debug".to_string()));
     }
 

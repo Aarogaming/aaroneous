@@ -92,8 +92,7 @@ impl ShmemCapture {
 
     /// Perform a zero-copy frame capture.
     ///
-    /// On Windows with DXGI: maps the compositor's backbuffer pointer
-    /// directly into the mmap region (pointer swap, no pixel copy).
+    /// On Windows with DXGI: uses Desktop Duplication API for GPU-accelerated capture.
     /// Fallback: Win32 GDI StretchBlt into the mmap buffer.
     pub fn capture_frame(&mut self) -> Result<u64, String> {
         if !self.active.load(Ordering::Acquire) {
@@ -109,7 +108,26 @@ impl ShmemCapture {
 
         #[cfg(target_os = "windows")]
         {
-            self.capture_win32(&mut buf)?;
+            if self.config.prefer_dxgi {
+                // Try DXGI Desktop Duplication first
+                if let Some(dxgi_grid) = platform_bridge::native_win32::capture_dxgi_frame_128x128() {
+                    // Convert f32 luminance grid to BGRA buffer for mmap storage
+                    for (i, &lum) in dxgi_grid.iter().enumerate() {
+                        let byte = (lum * 255.0) as u8;
+                        let idx = i * 4;
+                        if idx + 3 < buf.len() {
+                            buf[idx] = byte;     // B
+                            buf[idx + 1] = byte; // G
+                            buf[idx + 2] = byte; // R
+                            buf[idx + 3] = 255;  // A
+                        }
+                    }
+                } else {
+                    self.capture_win32(&mut buf)?;
+                }
+            } else {
+                self.capture_win32(&mut buf)?;
+            }
         }
         #[cfg(not(target_os = "windows"))]
         {
@@ -169,7 +187,16 @@ impl ShmemCapture {
         self.active.store(false, Ordering::Release);
         self.mmap = None;
     }
+}
 
+impl Drop for ShmemCapture {
+    fn drop(&mut self) {
+        self.active.store(false, Ordering::Release);
+        self.mmap = None;
+    }
+}
+
+impl ShmemCapture {
     fn buffer_size(width: u32, height: u32) -> usize {
         (width as usize) * (height as usize) * 4
     }

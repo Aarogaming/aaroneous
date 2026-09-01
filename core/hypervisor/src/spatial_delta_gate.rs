@@ -1,4 +1,4 @@
-// Epigenetic Visual Gating Matrix
+// Spatial Delta Gate — Visual Gating Matrix
 // Implements zero-compute skipping on static screen regions via binary bitmask overlay.
 //
 // Maps a 128x128 screen pixel grid into sectors, tracks visual delta frame-over-frame,
@@ -12,7 +12,7 @@ pub const GRID_WIDTH: usize = 128;
 pub const GRID_HEIGHT: usize = 128;
 pub const GRID_SIZE: usize = GRID_WIDTH * GRID_HEIGHT;
 
-/// Sector size for epigenetic gating (8x8 pixel blocks)
+/// Sector size for spatial delta gating (8x8 pixel blocks)
 pub const SECTOR_SIZE: usize = 8;
 pub const SECTORS_PER_ROW: usize = GRID_WIDTH / SECTOR_SIZE; // 16
 pub const SECTORS_PER_COL: usize = GRID_HEIGHT / SECTOR_SIZE; // 16
@@ -21,7 +21,7 @@ pub const TOTAL_SECTORS: usize = SECTORS_PER_ROW * SECTORS_PER_COL; // 256
 /// Delta threshold to consider a sector "active" (changed)
 pub const DELTA_THRESHOLD: f32 = 0.02;
 
-/// Epigenetic gate state for a single sector
+/// Spatial delta gate state for a single sector
 #[repr(C)]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct SectorGate {
@@ -33,11 +33,11 @@ pub struct SectorGate {
     pub frames_since_change: u32,
 }
 
-/// The complete epigenetic gating matrix overlay
+/// The complete spatial delta gating matrix overlay
 /// Maps directly over the 128x128 input screen grid as a 256-sector bitmask
 #[repr(C)]
 #[derive(Debug, Clone)]
-pub struct EpigeneticGateMatrix {
+pub struct SpatialDeltaGateMatrix {
     /// 256 sector gates (16x16 grid of 8x8 pixel blocks)
     pub sectors: [SectorGate; TOTAL_SECTORS],
     /// Packed 256-bit mask for fast SIMD/WebGPU transfer (4x u64)
@@ -48,13 +48,13 @@ pub struct EpigeneticGateMatrix {
     pub frame_id: u64,
 }
 
-impl Default for EpigeneticGateMatrix {
+impl Default for SpatialDeltaGateMatrix {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl EpigeneticGateMatrix {
+impl SpatialDeltaGateMatrix {
     pub fn new() -> Self {
         let mut sectors = [SectorGate::default(); TOTAL_SECTORS];
         for s in sectors.iter_mut() {
@@ -100,7 +100,7 @@ impl EpigeneticGateMatrix {
                 let mean = sum / count as f32;
                 let delta = (mean - gate.mean_intensity).abs();
 
-                // Update epigenetic flag based on visual delta
+                // Update spatial delta flag based on visual delta
                 if delta > DELTA_THRESHOLD {
                     gate.active = 1;
                     gate.frames_since_change = 0;
@@ -286,23 +286,23 @@ impl AtomicGateState {
 }
 
 /// Integration struct for the WASM hypervisor reflex loop
-/// Combines gate matrix with frame buffer for complete epigenetic processing
-pub struct VisualGatePipeline {
-    pub gate_matrix: EpigeneticGateMatrix,
+/// Combines gate matrix with frame buffer for complete spatial delta processing
+pub struct SpatialDeltaPipeline {
+    pub gate_matrix: SpatialDeltaGateMatrix,
     pub frame_buffer: FrameBuffer,
     pub atomic_state: AtomicGateState,
 }
 
-impl Default for VisualGatePipeline {
+impl Default for SpatialDeltaPipeline {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl VisualGatePipeline {
+impl SpatialDeltaPipeline {
     pub fn new() -> Self {
         Self {
-            gate_matrix: EpigeneticGateMatrix::new(),
+            gate_matrix: SpatialDeltaGateMatrix::new(),
             frame_buffer: FrameBuffer::new(),
             atomic_state: AtomicGateState::new(),
         }
@@ -315,7 +315,7 @@ impl VisualGatePipeline {
         let current = self.frame_buffer.swap();
         current.copy_from_slice(new_frame);
 
-        // Update epigenetic gates
+        // Update spatial delta gates
         let active = self.gate_matrix.update(self.frame_buffer.get_current());
 
         // Update atomic state for cross-thread visibility
@@ -343,14 +343,14 @@ mod tests {
 
     #[test]
     fn test_gate_matrix_initial_state() {
-        let matrix = EpigeneticGateMatrix::new();
+        let matrix = SpatialDeltaGateMatrix::new();
         assert_eq!(matrix.active_count, TOTAL_SECTORS as u32);
         assert_eq!(matrix.skip_ratio(), 0.0);
     }
 
     #[test]
     fn test_gate_matrix_static_frames_gate_off() {
-        let mut matrix = EpigeneticGateMatrix::new();
+        let mut matrix = SpatialDeltaGateMatrix::new();
         let frame = [0.5f32; GRID_SIZE];
 
         // First frame: all active (initial state)
@@ -372,7 +372,7 @@ mod tests {
 
     #[test]
     fn test_gate_matrix_motion_keeps_active() {
-        let mut matrix = EpigeneticGateMatrix::new();
+        let mut matrix = SpatialDeltaGateMatrix::new();
         let mut rng = rand::rngs::StdRng::seed_from_u64(42);
 
         // Alternate between near-0 and near-1 base frames to guarantee
@@ -390,7 +390,7 @@ mod tests {
 
     #[test]
     fn test_packed_mask_correctness() {
-        let mut matrix = EpigeneticGateMatrix::new();
+        let mut matrix = SpatialDeltaGateMatrix::new();
         let frame = [0.5f32; GRID_SIZE];
 
         matrix.update(&frame);
@@ -405,7 +405,7 @@ mod tests {
 
     #[test]
     fn test_pixel_active_lookup() {
-        let matrix = EpigeneticGateMatrix::new();
+        let matrix = SpatialDeltaGateMatrix::new();
         assert!(matrix.is_pixel_active(0, 0));
         assert!(matrix.is_pixel_active(64, 64));
         assert!(matrix.is_pixel_active(127, 127));
@@ -414,7 +414,7 @@ mod tests {
 
     #[test]
     fn test_force_sector_active() {
-        let mut matrix = EpigeneticGateMatrix::new();
+        let mut matrix = SpatialDeltaGateMatrix::new();
         let frame = [0.5f32; GRID_SIZE];
 
         // Gate everything off
@@ -442,7 +442,7 @@ mod tests {
 
     #[test]
     fn test_skip_ratio_calculation() {
-        let mut matrix = EpigeneticGateMatrix::new();
+        let mut matrix = SpatialDeltaGateMatrix::new();
         assert_eq!(matrix.skip_ratio(), 0.0);
 
         // Manually gate off half the sectors

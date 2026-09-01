@@ -1,0 +1,16 @@
+{
+  "id": "agent_file_cleaner",
+  "name": "Download & Workspace Cleaner",
+  "description": "Single-use task bot that categorizes downloads and cleans temporary build artifacts.",
+  "kind": "SingleUseTask",
+  "instructions": "Scan Downloads folder, sort PDFs/ZIPs/images into folders, and delete files older than 30 days.",
+  "target_app": "D:\\Aaroneous",
+  "tasks_completed": 28,
+  "state": "Idle",
+  "color": [
+    63,
+    185,
+    80
+  ],
+  "soul_model": "⚡ Machine-Native Task Engine"
+}

@@ -21,7 +21,7 @@ impl ExecutionEnzyme {
             println!("[ExecutionEnzyme] Executing step: {} with args: {}", tool_name, args);
             
             // In a real WASM environment, this would call host-provided functions
-            // mapped to the Synapse mmap.
+            // mapped to the SignalBridge mmap.
             Self::simulate_host_call(tool_name, args, frame)?;
         }
 

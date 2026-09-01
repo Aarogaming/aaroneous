@@ -195,7 +195,7 @@ impl Manifest {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DeploymentConfig {
     pub manifest: Manifest,
-    pub dna_bank_path: String,
+    pub artifact_registry_path: String,
     pub model_cache_path: String,
     pub log_level: String,
     pub enable_metrics: bool,
@@ -207,7 +207,7 @@ impl DeploymentConfig {
         let manifest = Manifest::new(target.clone());
         Self {
             manifest,
-            dna_bank_path: ".aaroneous/dna_bank".to_string(),
+            artifact_registry_path: ".aaroneous/artifact_registry".to_string(),
             model_cache_path: ".aaroneous/models".to_string(),
             log_level: "info".to_string(),
             enable_metrics: true,
@@ -215,8 +215,8 @@ impl DeploymentConfig {
         }
     }
 
-    pub fn with_dna_path(mut self, path: &str) -> Self {
-        self.dna_bank_path = path.to_string();
+    pub fn with_artifact_registry_path(mut self, path: &str) -> Self {
+        self.artifact_registry_path = path.to_string();
         self
     }
 
@@ -243,7 +243,7 @@ total_size_mb = {}
 enabled = [{}]
 
 [paths]
-dna_bank = "{}"
+artifact_registry = "{}"
 model_cache = "{}"
 
 [logging]
@@ -261,7 +261,7 @@ learning = {}
                 .map(|n| format!("\"{}\"", n))
                 .collect::<Vec<_>>()
                 .join(", "),
-            self.dna_bank_path,
+            self.artifact_registry_path,
             self.model_cache_path,
             self.log_level,
             self.enable_metrics,
@@ -478,10 +478,10 @@ mod tests {
     }
 
     #[test]
-    fn test_deployment_config_with_dna_path() {
-        let config = DeploymentConfig::new(DeploymentTarget::Desktop).with_dna_path("/custom/path");
+    fn test_deployment_config_with_artifact_registry_path() {
+        let config = DeploymentConfig::new(DeploymentTarget::Desktop).with_artifact_registry_path("/custom/path");
 
-        assert_eq!(config.dna_bank_path, "/custom/path");
+        assert_eq!(config.artifact_registry_path, "/custom/path");
     }
 
     #[test]

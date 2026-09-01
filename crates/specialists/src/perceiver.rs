@@ -9,7 +9,7 @@ use chrono::Utc;
 use std::sync::Arc;
 use tracing::info;
 
-use desktop_emulator::{HidCommand, DesktopEmulator, VisualObservation};
+use platform_bridge::{HidCommand, DesktopEmulator, VisualObservation};
 use crate::traits::{DomainSubEngine, MnlpPacket, MnlpResponse, SovereignSpecialist, SpecialistHealth};
 
 /// PerceptionGateEngine: Spatial-Kinetic perception & HID bridge sub-engine
@@ -82,7 +82,7 @@ impl PerceiverSpecialist {
     }
 
     /// Captures a spatial visual frame gated by the 16x16 epigenetic motion saliency matrix
-    pub async fn capture_epigenetic_gated_frame(&mut self) -> Result<(VisualObservation, desktop_emulator::EpigeneticGatingResult)> {
+    pub async fn capture_epigenetic_gated_frame(&mut self) -> Result<(VisualObservation, platform_bridge::EpigeneticGatingResult)> {
         info!(target: "specialist::perceiver", "Capturing epigenetic gated visual perception across the gatekeeper");
         let (obs, result) = self.marionette.pull_epigenetic_perception().await?;
 

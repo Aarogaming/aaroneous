@@ -1,0 +1,11 @@
+{
+  "macro_name": "Smart Git Sync",
+  "description": "High-speed clean, stash, and git index verification",
+  "hotkey": "Alt+1",
+  "file_path": "D:\\Aaroneous\\data\\macros\\smart_git_sync.si",
+  "file_size_bytes": 728,
+  "latent_dim": 3,
+  "node_count": 2,
+  "thermodynamic_cost": 0.07,
+  "latency_us": 42
+}

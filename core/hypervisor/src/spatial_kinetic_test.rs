@@ -3,21 +3,21 @@
 
 #[cfg(test)]
 mod spatial_kinetic_integration_tests {
-    use crate::epigenetic_gate::{EpigeneticGateMatrix, GRID_SIZE, VisualGatePipeline};
+    use crate::spatial_delta_gate::{SpatialDeltaGateMatrix, GRID_SIZE, SpatialDeltaPipeline};
     use crate::win32_intercept::hid_bridge::{ACTION_CLICK, ACTION_MOUSE_MOVE, MotorIntent};
     use rand::RngExt;
     use rand::SeedableRng;
 
     #[test]
     fn test_gate_matrix_initial_state() {
-        let matrix = EpigeneticGateMatrix::new();
+        let matrix = SpatialDeltaGateMatrix::new();
         assert_eq!(matrix.active_sector_count(), 256);
         assert!((matrix.skip_ratio() - 0.0).abs() < 0.001);
     }
 
     #[test]
     fn test_gate_matrix_static_frames_gate_off() {
-        let mut matrix = EpigeneticGateMatrix::new();
+        let mut matrix = SpatialDeltaGateMatrix::new();
         let frame = [0.5f32; GRID_SIZE];
 
         // First frame: all active
@@ -39,7 +39,7 @@ mod spatial_kinetic_integration_tests {
 
     #[test]
     fn test_gate_matrix_motion_keeps_active() {
-        let mut matrix = EpigeneticGateMatrix::new();
+        let mut matrix = SpatialDeltaGateMatrix::new();
         let mut rng = rand::rngs::StdRng::seed_from_u64(42);
 
         for i in 0..10 {
@@ -69,7 +69,7 @@ mod spatial_kinetic_integration_tests {
 
     #[test]
     fn test_visual_gate_pipeline_integration() {
-        let mut pipeline = VisualGatePipeline::new();
+        let mut pipeline = SpatialDeltaPipeline::new();
         let frame = [0.5f32; GRID_SIZE];
 
         // Process first frame
@@ -91,7 +91,7 @@ mod spatial_kinetic_integration_tests {
 
     #[test]
     fn test_gate_matrix_packed_mask_correctness() {
-        let mut matrix = EpigeneticGateMatrix::new();
+        let mut matrix = SpatialDeltaGateMatrix::new();
         let frame = [0.5f32; GRID_SIZE];
 
         // Gate everything off
@@ -110,7 +110,7 @@ mod spatial_kinetic_integration_tests {
 
     #[test]
     fn test_pixel_active_lookup() {
-        let matrix = EpigeneticGateMatrix::new();
+        let matrix = SpatialDeltaGateMatrix::new();
         assert!(matrix.is_pixel_active(0, 0));
         assert!(matrix.is_pixel_active(64, 64));
         assert!(matrix.is_pixel_active(127, 127));
@@ -119,7 +119,7 @@ mod spatial_kinetic_integration_tests {
 
     #[test]
     fn test_skip_ratio_calculation() {
-        let mut matrix = EpigeneticGateMatrix::new();
+        let mut matrix = SpatialDeltaGateMatrix::new();
         assert_eq!(matrix.skip_ratio(), 0.0);
 
         // Manually gate off half the sectors
@@ -133,7 +133,7 @@ mod spatial_kinetic_integration_tests {
 
     #[test]
     fn test_sub_16ms_perception_to_motor_reflex_benchmark() {
-        let mut pipeline = VisualGatePipeline::new();
+        let mut pipeline = SpatialDeltaPipeline::new();
         let mut rng = rand::rngs::StdRng::seed_from_u64(1337);
 
         let total_frames = 100usize;

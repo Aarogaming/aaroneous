@@ -124,7 +124,7 @@ impl PacketSlot {
         self.checksum = self.compute_checksum();
     }
 
-    /// Reset slot to free state
+    /// Reset slot to free state, zeroing all data including payload
     pub fn reset(&mut self) {
         self.sequence = 0;
         self.status = SLOT_FREE;
@@ -135,6 +135,7 @@ impl PacketSlot {
         self.checksum = 0;
         self.source_id = 0;
         self.generation = 0;
+        self.payload = [0; 208];
     }
 }
 

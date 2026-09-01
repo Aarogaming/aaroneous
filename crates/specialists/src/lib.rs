@@ -3,6 +3,7 @@
 
 pub mod aligner;
 pub mod archivist;
+pub mod code_specialist;
 pub mod dev_tools;
 pub mod orchestrator;
 pub mod perceiver;

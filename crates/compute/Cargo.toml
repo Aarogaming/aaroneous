@@ -3,11 +3,12 @@ name = "compute"
 version = "0.1.0"
 edition = "2021"
 authors.workspace = true
-description = "SSM engine, .si containers, CKA+InfoNCE distillation, and SiForge builder"
+description = "SSM engine, .si containers, CKA+InfoNCE distillation, Cranelift JIT, and SiForge builder"
 license.workspace = true
 repository.workspace = true
 
 [dependencies]
+si_ir = { path = "../si_ir" }
 aaroneous_paths = { path = "../paths" }
 ipc_bus = { path = "../ipc_bus" }
 rand = "0.8"
@@ -23,6 +24,17 @@ burn-wgpu = "0.21.0"
 memmap2 = "0.9"
 rustfft = "6.2"
 statrs = "0.17"
+hnsw_rs = "0.3"
+parking_lot = "0.12"
+
+# Cranelift Native JIT compilation
+cranelift = "0.116"
+cranelift-codegen = "0.116"
+cranelift-frontend = "0.116"
+target-lexicon = "0.13"
+
+[target.'cfg(target_os = "windows")'.dependencies]
+windows = { version = "0.62", features = ["Win32_System_Memory"] }
 
 [dev-dependencies]
 tempfile = "3.8"

@@ -460,7 +460,7 @@ mod tests {
         let p2 = Proposal::new(
             SpecialistId::Archivist,
             "backup".to_string(),
-            "Backup DNA Bank".to_string(),
+            "Backup ArtifactRegistry".to_string(),
             0.95,
             ProposalPriority::Background,
         );

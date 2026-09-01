@@ -14,6 +14,13 @@
 pub extern crate ipc_bus as nervous_system;
 pub use ipc_bus;
 
+pub mod dynamic_plugin;
+
+pub use dynamic_plugin::{
+    CreateSpecialistFn, DynamicSpecialistLoader, GetManifestFn, SpecialistEngine,
+    SpecialistPluginManifest, SPECIALIST_ABI_VERSION,
+};
+
 pub use ipc_bus::{
     MachinePacket, PersistentGrimoireStore, PersistentWalStore, SpecialistSynapseBus,
     SpmcSynapseBus, SynapsePacket, WalRecord,

@@ -1,4 +1,4 @@
-/// DNA Bank: Persistent Learning Memory
+/// Artifact Registry: Persistent Learning Memory
 ///
 /// Implements long-term memory for the hive using a tiered storage system:
 /// - Hot tier (in-memory): Recent events and patterns (1-7 days)
@@ -7,22 +7,22 @@
 ///
 /// # Storage backends
 ///
-/// - **Default (no feature)**: `BTreeMap<String, DNAEvent>` - fast for tests and dev,
+/// - **Default (no feature)**: `BTreeMap<String, ArtifactEvent>` - fast for tests and dev,
 ///   no native dependencies, data lost on restart.
 /// - **`rocksdb-dna` feature**: RocksDB column families on disk - durable storage,
 ///   survives restarts, handles millions of events without memory pressure.
 ///   Requires RocksDB native library (compiled from source on first use).
 ///
-/// Use `DNABank::new()` for in-memory or `DNABank::open(path)` for RocksDB.
+/// Use `ArtifactRegistry::new()` for in-memory or `ArtifactRegistry::open(path)` for RocksDB.
 /// All public methods are identical regardless of backend.
 use crate::federation::specialist::SpecialistId;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-/// Event in the DNA Bank
+/// Event in the ArtifactRegistry
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct DNAEvent {
+pub struct ArtifactEvent {
     pub id: String,
     pub timestamp: u64,
     pub specialist: SpecialistId,
@@ -32,7 +32,7 @@ pub struct DNAEvent {
     pub metadata: HashMap<String, String>,
 }
 
-impl DNAEvent {
+impl ArtifactEvent {
     pub fn new(
         specialist: SpecialistId,
         event_type: String,
@@ -128,7 +128,7 @@ impl EventQuery {
         self
     }
 
-    pub fn matches(&self, event: &DNAEvent) -> bool {
+    pub fn matches(&self, event: &ArtifactEvent) -> bool {
         if let Some(specialist) = self.specialist
             && event.specialist != specialist
         {
@@ -225,11 +225,11 @@ impl Pattern {
     }
 }
 
-/// DNA Bank: Main persistent storage
-pub struct DNABank {
+/// ArtifactRegistry: Main persistent storage
+pub struct ArtifactRegistry {
     // Hot tier storage - BTreeMap by default, RocksDB via `rocksdb-dna` feature
     #[cfg(not(feature = "rocksdb-dna"))]
-    pub events: BTreeMap<String, DNAEvent>,
+    pub events: BTreeMap<String, ArtifactEvent>,
     #[cfg(feature = "rocksdb-dna")]
     pub events: rocksdb_storage::RocksDbEvents,
 
@@ -240,18 +240,18 @@ pub struct DNABank {
     pub total_patterns_discovered: u64,
     pub last_consolidated: u64,
 
-    /// Path this DNA Bank was opened from. `None` for pure in-memory instances.
+    /// Path this ArtifactRegistry was opened from. `None` for pure in-memory instances.
     pub db_path: Option<std::path::PathBuf>,
 }
 
-impl Default for DNABank {
+impl Default for ArtifactRegistry {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl DNABank {
-    /// Create an in-memory DNA Bank (default, no disk I/O, data lost on drop).
+impl ArtifactRegistry {
+    /// Create an in-memory ArtifactRegistry (default, no disk I/O, data lost on drop).
     pub fn new() -> Self {
         Self {
             #[cfg(not(feature = "rocksdb-dna"))]
@@ -269,13 +269,13 @@ impl DNABank {
         }
     }
 
-    /// Open (or create) a DNA Bank backed by RocksDB at `path`.
+    /// Open (or create) an ArtifactRegistry backed by RocksDB at `path`.
     ///
     /// When the `rocksdb-dna` feature is enabled, this opens a RocksDB
-    /// database at the given path and returns a DNA Bank backed by it.
+    /// database at the given path and returns an ArtifactRegistry backed by it.
     ///
     /// Without the `rocksdb-dna` feature, this is identical to `new()` —
-    /// the path is ignored and an in-memory bank is returned. This means
+    /// the path is ignored and an in-memory registry is returned. This means
     /// application code can always call `open()`, and storage will be
     /// durable only when the feature is enabled.
     #[allow(unused_variables)]
@@ -309,7 +309,7 @@ impl DNABank {
         }
     }
 
-    /// Whether this DNA Bank is backed by durable disk storage.
+    /// Whether this ArtifactRegistry is backed by durable disk storage.
     pub fn is_persistent(&self) -> bool {
         #[cfg(feature = "rocksdb-dna")]
         return true;
@@ -318,7 +318,7 @@ impl DNABank {
     }
 
     /// Record an event
-    pub fn record_event(&mut self, event: DNAEvent) -> Result<String, String> {
+    pub fn record_event(&mut self, event: ArtifactEvent) -> Result<String, String> {
         let id = event.id.clone();
         self.events.insert(id.clone(), event);
         self.total_events_stored += 1;
@@ -326,8 +326,8 @@ impl DNABank {
     }
 
     /// Query events
-    pub fn query(&self, query: &EventQuery) -> Vec<DNAEvent> {
-        let mut results: Vec<DNAEvent> = self
+    pub fn query(&self, query: &EventQuery) -> Vec<ArtifactEvent> {
+        let mut results: Vec<ArtifactEvent> = self
             .events
             .values()
             .filter(|event| query.matches(event))
@@ -342,7 +342,7 @@ impl DNABank {
     }
 
     /// Get event by ID
-    pub fn get_event(&self, id: &str) -> Option<DNAEvent> {
+    pub fn get_event(&self, id: &str) -> Option<ArtifactEvent> {
         self.events.get(id).cloned()
     }
 
@@ -426,10 +426,10 @@ impl DNABank {
     }
 
     /// Get statistics
-    pub fn stats(&self) -> DNABankStats {
+    pub fn stats(&self) -> ArtifactRegistryStats {
         let oldest_event = self.events.values().min_by_key(|e| e.timestamp);
 
-        DNABankStats {
+        ArtifactRegistryStats {
             total_events: self.events.len(),
             total_patterns: self.patterns.len(),
             total_stored: self.total_events_stored,
@@ -473,9 +473,9 @@ pub struct ConsolidationStats {
     pub consolidation_time_ms: u32,
 }
 
-/// DNA Bank statistics
+/// ArtifactRegistry statistics
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct DNABankStats {
+pub struct ArtifactRegistryStats {
     pub total_events: usize,
     pub total_patterns: usize,
     pub total_stored: u64,
@@ -508,7 +508,7 @@ mod tests {
 
     #[test]
     fn test_dna_event_creation() {
-        let event = DNAEvent::new(
+        let event = ArtifactEvent::new(
             SpecialistId::Visionary,
             "design_generation".to_string(),
             "success".to_string(),
@@ -534,7 +534,7 @@ mod tests {
 
     #[test]
     fn test_event_query_matching() {
-        let event = DNAEvent::new(
+        let event = ArtifactEvent::new(
             SpecialistId::Visionary,
             "design_generation".to_string(),
             "success".to_string(),
@@ -584,8 +584,8 @@ mod tests {
 
     #[test]
     fn test_dna_bank_record_event() {
-        let mut bank = DNABank::new();
-        let event = DNAEvent::new(
+        let mut bank = ArtifactRegistry::new();
+        let event = ArtifactEvent::new(
             SpecialistId::Visionary,
             "design_generation".to_string(),
             "success".to_string(),
@@ -600,10 +600,10 @@ mod tests {
 
     #[test]
     fn test_dna_bank_query_events() {
-        let mut bank = DNABank::new();
+        let mut bank = ArtifactRegistry::new();
 
         for _ in 0..5 {
-            let event = DNAEvent::new(
+            let event = ArtifactEvent::new(
                 SpecialistId::Visionary,
                 "design_generation".to_string(),
                 "success".to_string(),
@@ -620,10 +620,10 @@ mod tests {
 
     #[test]
     fn test_dna_bank_query_with_limit() {
-        let mut bank = DNABank::new();
+        let mut bank = ArtifactRegistry::new();
 
         for _ in 0..10 {
-            let event = DNAEvent::new(
+            let event = ArtifactEvent::new(
                 SpecialistId::Visionary,
                 "design_generation".to_string(),
                 "success".to_string(),
@@ -639,10 +639,10 @@ mod tests {
 
     #[test]
     fn test_dna_bank_extract_patterns() {
-        let mut bank = DNABank::new();
+        let mut bank = ArtifactRegistry::new();
 
         for i in 0..5 {
-            let event = DNAEvent::new(
+            let event = ArtifactEvent::new(
                 SpecialistId::Visionary,
                 "design_generation".to_string(),
                 if i < 4 {
@@ -665,10 +665,10 @@ mod tests {
 
     #[test]
     fn test_dna_bank_stats() {
-        let mut bank = DNABank::new();
+        let mut bank = ArtifactRegistry::new();
 
         for _ in 0..5 {
-            let event = DNAEvent::new(
+            let event = ArtifactEvent::new(
                 SpecialistId::Visionary,
                 "design_generation".to_string(),
                 "success".to_string(),
@@ -685,11 +685,11 @@ mod tests {
 
     #[test]
     fn test_dna_bank_consolidation() {
-        let mut bank = DNABank::new();
+        let mut bank = ArtifactRegistry::new();
 
         // Add events
         for _ in 0..10 {
-            let event = DNAEvent::new(
+            let event = ArtifactEvent::new(
                 SpecialistId::Visionary,
                 "design_generation".to_string(),
                 "success".to_string(),
@@ -704,9 +704,9 @@ mod tests {
 
     #[test]
     fn test_dna_bank_backup_info() {
-        let mut bank = DNABank::new();
+        let mut bank = ArtifactRegistry::new();
 
-        let event = DNAEvent::new(
+        let event = ArtifactEvent::new(
             SpecialistId::Visionary,
             "design_generation".to_string(),
             "success".to_string(),
@@ -721,9 +721,9 @@ mod tests {
 
     #[test]
     fn test_dna_bank_clear() {
-        let mut bank = DNABank::new();
+        let mut bank = ArtifactRegistry::new();
 
-        let event = DNAEvent::new(
+        let event = ArtifactEvent::new(
             SpecialistId::Visionary,
             "design_generation".to_string(),
             "success".to_string(),
@@ -737,11 +737,11 @@ mod tests {
 
     #[test]
     fn test_dna_bank_mixed_events() {
-        let mut bank = DNABank::new();
+        let mut bank = ArtifactRegistry::new();
 
         for specialist in &[SpecialistId::Visionary, SpecialistId::Omnipresent] {
             for i in 0..3 {
-                let event = DNAEvent::new(
+                let event = ArtifactEvent::new(
                     *specialist,
                     "operation".to_string(),
                     if i < 2 {
@@ -768,9 +768,9 @@ mod tests {
 
     #[test]
     fn test_dna_bank_get_event() {
-        let mut bank = DNABank::new();
+        let mut bank = ArtifactRegistry::new();
 
-        let event = DNAEvent::new(
+        let event = ArtifactEvent::new(
             SpecialistId::Visionary,
             "design_generation".to_string(),
             "success".to_string(),
@@ -786,10 +786,10 @@ mod tests {
 
     #[test]
     fn test_dna_bank_query_patterns() {
-        let mut bank = DNABank::new();
+        let mut bank = ArtifactRegistry::new();
 
         for i in 0..5 {
-            let event = DNAEvent::new(
+            let event = ArtifactEvent::new(
                 SpecialistId::Visionary,
                 "design_generation".to_string(),
                 if i < 4 {
@@ -811,7 +811,7 @@ mod tests {
     #[test]
     #[cfg(not(feature = "rocksdb-dna"))]
     fn test_dna_bank_is_not_persistent_by_default() {
-        let bank = DNABank::new();
+        let bank = ArtifactRegistry::new();
         assert!(
             !bank.is_persistent(),
             "in-memory bank should not be persistent"
@@ -822,7 +822,7 @@ mod tests {
     #[cfg(not(feature = "rocksdb-dna"))]
     fn test_dna_bank_open_without_rocksdb_feature_returns_in_memory() {
         // Without the rocksdb-dna feature, open() returns an in-memory bank
-        let bank = DNABank::open("/tmp/does-not-matter").expect("open should succeed");
+        let bank = ArtifactRegistry::open("/tmp/does-not-matter").expect("open should succeed");
         assert!(!bank.is_persistent());
     }
 }
@@ -833,14 +833,14 @@ mod tests {
 
 #[cfg(feature = "rocksdb-dna")]
 mod rocksdb_storage {
-    use super::DNAEvent;
+    use super::ArtifactEvent;
     use std::collections::BTreeMap;
     use std::path::Path;
 
     /// RocksDB-backed event store.
     ///
     /// Implements the same insert/get/remove/values/len/iter surface as
-    /// `BTreeMap<String, DNAEvent>` so `DNABank`'s methods can use either
+    /// `BTreeMap<String, ArtifactEvent>` so `ArtifactRegistry`'s methods can use either
     /// backend without being rewritten.
     ///
     /// Events are serialized to JSON bytes before storage so the schema is
@@ -848,7 +848,7 @@ mod rocksdb_storage {
     pub struct RocksDbEvents {
         db: rocksdb::DB,
         /// In-memory cache so `values()` doesn't require multiple RocksDB scans.
-        cache: BTreeMap<String, DNAEvent>,
+        cache: BTreeMap<String, ArtifactEvent>,
     }
 
     impl RocksDbEvents {
@@ -867,7 +867,7 @@ mod rocksdb_storage {
             for result in iter {
                 let (key_bytes, val_bytes) = result?;
                 let key = String::from_utf8_lossy(&key_bytes).to_string();
-                if let Ok(event) = serde_json::from_slice::<DNAEvent>(&val_bytes) {
+                if let Ok(event) = serde_json::from_slice::<ArtifactEvent>(&val_bytes) {
                     cache.insert(key, event);
                 }
             }
@@ -875,7 +875,7 @@ mod rocksdb_storage {
             Ok(Self { db, cache })
         }
 
-        /// In-memory-backed instance (for tests / `DNABank::new()`).
+        /// In-memory-backed instance (for tests / `ArtifactRegistry::new()`).
         /// All operations succeed but nothing is written to disk.
         pub fn in_memory() -> Self {
             // Use a temp directory so it's cleaned up when dropped.
@@ -890,14 +890,14 @@ mod rocksdb_storage {
         }
 
         /// Insert an event.
-        pub fn insert(&mut self, id: String, event: DNAEvent) {
-            let bytes = serde_json::to_vec(&event).expect("DNAEvent serialization");
+        pub fn insert(&mut self, id: String, event: ArtifactEvent) {
+            let bytes = serde_json::to_vec(&event).expect("ArtifactEvent serialization");
             let _ = self.db.put(id.as_bytes(), &bytes);
             self.cache.insert(id, event);
         }
 
         /// Get an event by ID.
-        pub fn get(&self, id: &str) -> Option<&DNAEvent> {
+        pub fn get(&self, id: &str) -> Option<&ArtifactEvent> {
             self.cache.get(id)
         }
 
@@ -908,7 +908,7 @@ mod rocksdb_storage {
         }
 
         /// Iterate all events (via in-memory cache).
-        pub fn values(&self) -> impl Iterator<Item = &DNAEvent> {
+        pub fn values(&self) -> impl Iterator<Item = &ArtifactEvent> {
             self.cache.values()
         }
 

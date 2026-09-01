@@ -11,10 +11,12 @@ use crate::slab_allocator::{PacketSlot, SlabAllocator};
 /// Uniform packet topology - strict binary layout understood by host and guest runtimes
 /// #[repr(C, align(8))] ensures predictable memory layout across FFI and IPC boundaries
 #[repr(C, align(8))]
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct MachinePacket {
     /// Packet type identifier (magic: 0xAA55_0001)
     pub magic: u32,
+    /// Explicit padding to maintain 8-byte alignment for subsequent fields
+    pub _padding: [u8; 4],
     /// Packet sequence number (monotonic)
     pub sequence: u64,
     /// Source specialist/agent ID hash
@@ -36,7 +38,7 @@ pub struct MachinePacket {
 }
 
 /// Backward compatibility alias
-pub type NucleotidePacket = MachinePacket;
+pub type AlignedBitstreamPacket = MachinePacket;
 
 impl MachinePacket {
     pub const MAGIC: u32 = 0xAA55_0001;
@@ -52,6 +54,7 @@ impl MachinePacket {
     ) -> Self {
         let mut pkt = Self {
             magic: Self::MAGIC,
+            _padding: [0; 4],
             sequence,
             source_id,
             packet_type,
@@ -88,6 +91,21 @@ impl MachinePacket {
         acc = acc.wrapping_add(self.reserved[6] as u32);
         acc = acc.wrapping_add(self.reserved[7] as u32);
         acc
+    }
+
+    /// Verify packet checksum
+    pub fn verify_checksum(&self) -> bool {
+        self.checksum == self.compute_checksum()
+    }
+
+    /// Zero-copy in-place struct view directly from shared memory buffer (Mechanical Sympathy).
+    /// Eliminates heap allocation and copying during IPC message processing.
+    #[inline(always)]
+    pub fn from_slice_in_place(bytes: &[u8]) -> Option<&Self> {
+        if bytes.len() < Self::HEADER_SIZE {
+            return None;
+        }
+        bytemuck::try_from_bytes(&bytes[..Self::HEADER_SIZE]).ok()
     }
 
     /// Verify packet integrity
@@ -312,11 +330,11 @@ mod tests {
 
     #[test]
     fn test_packet_roundtrip() {
-        let packet = NucleotidePacket::new(1, 42, packet_types::INTENT, priorities::HIGH, 100, 64);
+        let packet = AlignedBitstreamPacket::new(1, 42, packet_types::INTENT, priorities::HIGH, 100, 64);
         assert!(packet.verify());
 
         let bytes = packet.as_bytes();
-        let reconstructed = NucleotidePacket::from_bytes(bytes).unwrap();
+        let reconstructed = AlignedBitstreamPacket::from_bytes(bytes).unwrap();
         assert_eq!(reconstructed.sequence, 1);
         assert_eq!(reconstructed.source_id, 42);
         assert!(reconstructed.verify());
@@ -325,17 +343,17 @@ mod tests {
     #[test]
     fn test_packet_size() {
         // Should be aligned to 8 bytes
-        assert_eq!(NucleotidePacket::HEADER_SIZE % 8, 0);
+        assert_eq!(AlignedBitstreamPacket::HEADER_SIZE % 8, 0);
     }
 
     #[test]
     fn test_from_bytes_unaligned_rejected() {
-        let buffer = vec![0u8; NucleotidePacket::HEADER_SIZE + 8];
+        let buffer = vec![0u8; AlignedBitstreamPacket::HEADER_SIZE + 8];
         let base_ptr = buffer.as_ptr() as usize;
         let misaligned_offset = if base_ptr % 8 == 0 { 1 } else { 8 - (base_ptr % 8) + 1 };
-        let slice = &buffer[misaligned_offset..misaligned_offset + NucleotidePacket::HEADER_SIZE];
+        let slice = &buffer[misaligned_offset..misaligned_offset + AlignedBitstreamPacket::HEADER_SIZE];
         assert_eq!((slice.as_ptr() as usize) % 8, 1);
-        assert!(NucleotidePacket::from_bytes(slice).is_none());
+        assert!(AlignedBitstreamPacket::from_bytes(slice).is_none());
     }
 
     #[test]
@@ -437,5 +455,18 @@ mod tests {
         let freed = bridge.free_all_committed();
         assert_eq!(freed, 3);
         assert_eq!(bridge.stats().committed_count, 0);
+    }
+
+    #[test]
+    fn test_machine_packet_zero_copy_in_place_reading() {
+        let pkt = MachinePacket::new(100, 200, packet_types::INTENT, priorities::CRITICAL, 64, 128);
+        let bytes = bytemuck::bytes_of(&pkt);
+
+        let in_place = MachinePacket::from_slice_in_place(bytes).expect("In-place view failed");
+        assert_eq!(in_place.sequence, 100);
+        assert_eq!(in_place.source_id, 200);
+        assert_eq!(in_place.packet_type, packet_types::INTENT);
+        assert_eq!(in_place.priority, priorities::CRITICAL);
+        assert!(in_place.verify());
     }
 }

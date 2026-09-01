@@ -5,7 +5,7 @@
 /// - Consensus decision timing
 /// - Multi-hive federation overhead
 /// - Specialist response times
-/// - DNA Bank event processing
+/// - ArtifactRegistry event processing
 /// - Optimization effectiveness (quantization, GPU, caching)
 
 use std::time::{Duration, Instant};
@@ -336,7 +336,7 @@ pub mod federation_benchmarks {
                 self.events_per_batch, self.batch_count
             ));
 
-            // Simulate DNA Bank event processing
+            // Simulate ArtifactRegistry event processing
             for _ in 0..self.batch_count {
                 let start = Instant::now();
                 

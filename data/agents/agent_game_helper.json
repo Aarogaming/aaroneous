@@ -1,0 +1,16 @@
+{
+  "id": "agent_game_helper",
+  "name": "Game Companion Bot",
+  "description": "Automates repetitive in-game grinding, assists aiming, and triggers macro dodges.",
+  "kind": "SmartMacroLoop",
+  "instructions": "Monitor health bar, auto-trigger dodge when attack indicator appears, and farm resource loop.",
+  "target_app": "Active Game Window",
+  "tasks_completed": 142,
+  "state": "Running",
+  "color": [
+    56,
+    139,
+    253
+  ],
+  "soul_model": "⚡ Burn WGPU Motor Reflex (Tier 1)"
+}

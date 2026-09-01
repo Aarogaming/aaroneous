@@ -8,7 +8,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use crate::epigenetic_gate::{GRID_SIZE, VisualGatePipeline};
+use crate::spatial_delta_gate::{GRID_SIZE, SpatialDeltaPipeline};
 use crate::wgpu_reflex_pipeline::WgpuReflexPipeline;
 use crate::win32_intercept::capture::Win32ScreenCapture;
 use crate::win32_intercept::hid_bridge::{HIDOutputBridge, MotorIntent};
@@ -60,7 +60,7 @@ pub struct EngineTelemetry {
 pub struct SpatialKineticEngine {
     config: SpatialKineticConfig,
     capture: Win32ScreenCapture,
-    gate_pipeline: VisualGatePipeline,
+    gate_pipeline: SpatialDeltaPipeline,
     hid_bridge: HIDOutputBridge,
     wgpu_pipeline: Option<Arc<WgpuReflexPipeline>>,
     telemetry: EngineTelemetry,
@@ -74,7 +74,7 @@ impl SpatialKineticEngine {
         Self {
             config: config.clone(),
             capture: Win32ScreenCapture::new(),
-            gate_pipeline: VisualGatePipeline::new(),
+            gate_pipeline: SpatialDeltaPipeline::new(),
             hid_bridge: HIDOutputBridge::new().with_sensitivity(config.mouse_sensitivity),
             wgpu_pipeline: None,
             telemetry: EngineTelemetry {

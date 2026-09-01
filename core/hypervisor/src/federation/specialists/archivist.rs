@@ -1,7 +1,7 @@
-/// Archivist Specialist: Memory Persistence & DNA Bank
+/// Archivist Specialist: Memory Persistence & ArtifactRegistry
 ///
 /// Archivist is the hive's long-term memory. It:
-/// - Persists Intent, decisions, and feedback to DNA Bank (RocksDB)
+/// - Persists Intent, decisions, and feedback to ArtifactRegistry (RocksDB)
 /// - Analyzes event logs for patterns (skill usage, time patterns)
 /// - Extracts learnings (what works, what doesn't)
 /// - Proposes background consolidation during deep idle
@@ -9,7 +9,7 @@
 /// - Compresses cold data (move old records to archive tier)
 ///
 /// Size: 500MB GGUF model (pattern extraction)
-/// Portable: 50MB core + variable DNA Bank size
+/// Portable: 50MB core + variable ArtifactRegistry size
 /// Domain: Memory / Pattern Learning
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
@@ -124,7 +124,7 @@ impl crate::federation::learn_persist::PersistableLearning for ArchivistLearning
     }
 }
 
-/// Event record in the DNA Bank
+/// Event record in the ArtifactRegistry
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EventRecord {
     pub id: String,
@@ -156,9 +156,9 @@ pub struct HistoricalPattern {
     pub examples: Vec<String>, // Event IDs
 }
 
-/// DNA Bank statistics
+/// Artifact Registry statistics
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct DNABankStats {
+pub struct ArtifactRegistryStats {
     pub total_events: usize,
     pub size_bytes: u64,
     pub oldest_event_age_days: u32,
@@ -197,14 +197,14 @@ pub struct Archivist {
     id: SpecialistId,
     pub events: Vec<EventRecord>,
     pub patterns: Vec<HistoricalPattern>,
-    pub stats: DNABankStats,
+    pub stats: ArtifactRegistryStats,
     pub consolidation_queue: Vec<ConsolidationTask>,
     pub learning: Arc<Mutex<ArchivistLearningData>>,
-    /// The DNA Bank: persistent long-term memory for the hive.
+    /// The ArtifactRegistry: persistent long-term memory for the hive.
     /// When `Some`, all events recorded via `record_event()` are also
-    /// persisted to the DNA Bank for pattern extraction across restarts.
+    /// persisted to the ArtifactRegistry for pattern extraction across restarts.
     /// When `None`, events are only kept in-memory.
-    pub dna_bank: Option<Arc<Mutex<crate::federation::dna_bank::DNABank>>>,
+    pub artifact_registry: Option<Arc<Mutex<crate::federation::artifact_registry::ArtifactRegistry>>>,
     /// Atomic counter for total executions recorded via `execute()` (&self path).
     /// Separate from `stats.total_events` (which requires &mut self via
     /// `record_event()`), this allows `propose()` to detect whether the specialist
@@ -221,7 +221,7 @@ impl Archivist {
             id: SpecialistId::Archivist,
             events: vec![],
             patterns: vec![],
-            stats: DNABankStats {
+            stats: ArtifactRegistryStats {
                 total_events: 0,
                 size_bytes: 0,
                 oldest_event_age_days: 0,
@@ -231,7 +231,7 @@ impl Archivist {
             },
             consolidation_queue: vec![],
             learning: Arc::new(Mutex::new(ArchivistLearningData::new())),
-            dna_bank: None,
+            artifact_registry: None,
             executions_seen: Arc::new(std::sync::atomic::AtomicU64::new(0)),
         }
     }
@@ -242,26 +242,26 @@ impl Archivist {
             .load(std::sync::atomic::Ordering::Relaxed)
     }
 
-    /// Attach a DNA Bank for durable event persistence.
+    /// Attach an ArtifactRegistry for durable event persistence.
     ///
     /// After this call, every `record_event()` call also records to the
-    /// DNA Bank. The DNA Bank can be RocksDB-backed (with `--features
+    /// ArtifactRegistry. The ArtifactRegistry can be RocksDB-backed (with `--features
     /// rocksdb-dna`) or in-memory (default).
-    pub fn with_dna_bank(mut self, bank: Arc<Mutex<crate::federation::dna_bank::DNABank>>) -> Self {
-        self.dna_bank = Some(bank);
+    pub fn with_artifact_registry(mut self, bank: Arc<Mutex<crate::federation::artifact_registry::ArtifactRegistry>>) -> Self {
+        self.artifact_registry = Some(bank);
         self
     }
 
-    /// Attach an in-memory DNA Bank (no extra setup required).
-    pub fn with_in_memory_dna_bank(self) -> Self {
-        self.with_dna_bank(Arc::new(Mutex::new(
-            crate::federation::dna_bank::DNABank::new(),
+    /// Attach an in-memory ArtifactRegistry (no extra setup required).
+    pub fn with_in_memory_artifact_registry(self) -> Self {
+        self.with_artifact_registry(Arc::new(Mutex::new(
+            crate::federation::artifact_registry::ArtifactRegistry::new(),
         )))
     }
 
-    /// Whether a DNA Bank is attached
-    pub fn has_dna_bank(&self) -> bool {
-        self.dna_bank.is_some()
+    /// Whether an ArtifactRegistry is attached
+    pub fn has_artifact_registry(&self) -> bool {
+        self.artifact_registry.is_some()
     }
 
     /// Save this specialist's current learning state to a persistence manager.
@@ -297,10 +297,10 @@ impl Archivist {
         Ok(true)
     }
 
-    /// Record an event to the DNA Bank
+    /// Record an event to the ArtifactRegistry
     pub fn record_event(&mut self, record: EventRecord) {
-        // Persist to DNA Bank if attached (before moving the record)
-        if let Some(bank) = &self.dna_bank {
+        // Persist to ArtifactRegistry if attached (before moving the record)
+        if let Some(bank) = &self.artifact_registry {
             let outcome_str = match record.outcome {
                 EventOutcome::Success => "success",
                 EventOutcome::PartialSuccess => "partial",
@@ -318,13 +318,13 @@ impl Archivist {
                 "Archivist" | "archivist" => crate::federation::specialist::SpecialistId::Archivist,
                 _ => crate::federation::specialist::SpecialistId::Archivist,
             };
-            let dna_event = crate::federation::dna_bank::DNAEvent::new(
+            let dna_event = crate::federation::artifact_registry::ArtifactEvent::new(
                 specialist_id,
                 record.event_type.clone(),
                 outcome_str.to_string(),
                 0, // duration_ms not tracked in EventRecord
             );
-            // Best-effort: don't fail if DNA Bank is locked (contention)
+            // Best-effort: don't fail if ArtifactRegistry is locked (contention)
             if let Some(mut db) = bank.try_lock() {
                 let _ = db.record_event(dna_event);
             }
@@ -542,7 +542,7 @@ impl Specialist for Archivist {
         Ok(vec![ProposedAction {
             id: format!("archivist-consolidate-{}", uuid()),
             specialist: SpecialistId::Archivist,
-            action_type: "consolidate_dna_bank".to_string(),
+            action_type: "consolidate_artifact_registry".to_string(),
             description: format!(
                 "Consolidate: {} events, {} patterns (work: {:?})",
                 self.stats.total_events, self.stats.pattern_count, primary_task.task_type
@@ -586,9 +586,9 @@ impl Specialist for Archivist {
             .get("intent")
             .cloned()
             .unwrap_or_else(|| decision.action.chars().take(60).collect());
-        let dna_attached = self.dna_bank.is_some();
+        let dna_attached = self.artifact_registry.is_some();
         let output = format!(
-            "[Archivist] Observed {} execution(s) | {} patterns | Archive: {} MB | DNA Bank: {} | Intent: '{}'",
+            "[Archivist] Observed {} execution(s) | {} patterns | Archive: {} MB | ArtifactRegistry: {} | Intent: '{}'",
             executions,
             self.stats.pattern_count,
             self.stats.archive_size_bytes / 1_000_000,
@@ -628,18 +628,18 @@ impl Specialist for Archivist {
         } // Lock released here
 
         tracing::debug!(
-            "Archivist: {} executions seen (DNA Bank: {})",
+            "Archivist: {} executions seen (ArtifactRegistry: {})",
             total_seen,
-            if self.dna_bank.is_some() {
+            if self.artifact_registry.is_some() {
                 "attached"
             } else {
                 "none"
             }
         );
 
-        // Record to DNA Bank if attached — this is the durable event log for
+        // Record to ArtifactRegistry if attached — this is the durable event log for
         // all Archivist executions, enabling pattern extraction on replay.
-        if self.dna_bank.is_some() {
+        if self.artifact_registry.is_some() {
             let mut metadata = HashMap::new();
             metadata.insert("proposal_id".to_string(), decision.proposal_id.clone());
             metadata.insert("action".to_string(), decision.action.clone());
@@ -659,8 +659,8 @@ impl Specialist for Archivist {
 
             // Write directly to the bank using &self-compatible try_lock(),
             // bypassing the &mut self record_event() on Archivist.
-            if let Some(bank) = &self.dna_bank {
-                let dna_event = crate::federation::dna_bank::DNAEvent {
+            if let Some(bank) = &self.artifact_registry {
+                let dna_event = crate::federation::artifact_registry::ArtifactEvent {
                     id: event.id.clone(),
                     timestamp: event.timestamp,
                     specialist: SpecialistId::Archivist,
@@ -715,7 +715,7 @@ impl Specialist for Archivist {
         vec![
             SpecialistCapability {
                 name: "event_recording".to_string(),
-                description: "Record events to DNA Bank (RocksDB)".to_string(),
+                description: "Record events to ArtifactRegistry (RocksDB)".to_string(),
                 required_resources: ResourceRequest {
                     gpu_percent: 0.0,
                     cpu_percent: 5.0,

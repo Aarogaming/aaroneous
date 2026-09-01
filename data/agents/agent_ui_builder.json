@@ -1,0 +1,16 @@
+{
+  "id": "agent_ui_builder",
+  "name": "Instant Tool Synthesizer",
+  "description": "Generates draggable native desktop calculators, performance monitors, and tools on demand.",
+  "kind": "Assistant",
+  "instructions": "Listen for prompt queries and compile dynamic UI window manifests without restarting.",
+  "target_app": "Aaroneous Desktop",
+  "tasks_completed": 64,
+  "state": "Idle",
+  "color": [
+    163,
+    113,
+    247
+  ],
+  "soul_model": "🧠 Qwen2.5-Coder-14B / Candle (Tier 3)"
+}

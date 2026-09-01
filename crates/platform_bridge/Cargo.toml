@@ -1,5 +1,5 @@
 [package]
-name = "desktop_emulator"
+name = "platform_bridge"
 version = "0.1.0"
 edition = "2021"
 authors = ["Aaron"]
@@ -14,14 +14,26 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 tokio = { version = "1.0", features = ["full"] }
 tracing = "0.1"
+parking_lot = "0.12"
+rustfft = "6.2"
 compute = { path = "../compute" }
 windows = { version = "0.62", features = [
     "Win32_Foundation",
     "Win32_Graphics_Gdi",
+    "Win32_Graphics_Dxgi",
+    "Win32_Graphics_Dxgi_Common",
+    "Win32_Graphics_Direct3D",
+    "Win32_Graphics_Direct3D11",
     "Win32_UI_Input_KeyboardAndMouse",
-    "Win32_UI_WindowsAndMessaging"
+    "Win32_UI_WindowsAndMessaging",
+    "Win32_UI_Accessibility",
+    "Win32_Media_Audio",
+    "Win32_Media_Audio_Endpoints",
+    "Win32_System_Com",
 ], optional = true }
+
+windows-capture = { version = "1.5", optional = true }
 
 [features]
 default = []
-native-win32 = ["dep:windows"]
+native-win32 = ["dep:windows", "dep:windows-capture"]

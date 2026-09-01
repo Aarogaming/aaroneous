@@ -17,6 +17,11 @@ pub mod sandbox;
 pub mod scientific_loop;
 pub mod self_rebuild;
 pub mod self_repair;
+pub mod streaming_adaptation;
+
+pub use streaming_adaptation::{
+    StreamingAdaptationReport, StreamingLoraAdaptationPipeline, LATENT_DIM,
+};
 
 pub use auto_wrapper::{
     AutoWrapperEngine, NativeOrganRunner, OrganResponse, ProbeValidationReport,

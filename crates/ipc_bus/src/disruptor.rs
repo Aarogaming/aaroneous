@@ -5,7 +5,7 @@
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 
-/// 64-byte Cacheline padded atomic counter to eliminate CPU false sharing
+/// 64-byte Cacheline padded atomic counter to eliminate CPU false sharing (Mechanical Sympathy)
 #[repr(align(64))]
 #[derive(Debug)]
 pub struct PaddedAtomicU64 {
@@ -29,6 +29,52 @@ impl PaddedAtomicU64 {
 
     pub fn increment(&self) -> u64 {
         self.value.fetch_add(1, Ordering::AcqRel)
+    }
+}
+
+/// Explicit 64-byte cache-line aligned atomic U64
+#[repr(align(64))]
+#[derive(Debug)]
+pub struct CacheAlignedAtomicU64(pub AtomicU64);
+
+impl CacheAlignedAtomicU64 {
+    pub fn new(initial: u64) -> Self {
+        Self(AtomicU64::new(initial))
+    }
+
+    pub fn get(&self) -> u64 {
+        self.0.load(Ordering::Acquire)
+    }
+
+    pub fn set(&self, val: u64) {
+        self.0.store(val, Ordering::Release)
+    }
+
+    pub fn increment(&self) -> u64 {
+        self.0.fetch_add(1, Ordering::AcqRel)
+    }
+}
+
+/// Explicit 64-byte cache-line aligned atomic Usize
+#[repr(align(64))]
+#[derive(Debug)]
+pub struct CacheAlignedAtomicUsize(pub std::sync::atomic::AtomicUsize);
+
+impl CacheAlignedAtomicUsize {
+    pub fn new(initial: usize) -> Self {
+        Self(std::sync::atomic::AtomicUsize::new(initial))
+    }
+
+    pub fn get(&self) -> usize {
+        self.0.load(Ordering::Acquire)
+    }
+
+    pub fn set(&self, val: usize) {
+        self.0.store(val, Ordering::Release)
+    }
+
+    pub fn increment(&self) -> usize {
+        self.0.fetch_add(1, Ordering::AcqRel)
     }
 }
 

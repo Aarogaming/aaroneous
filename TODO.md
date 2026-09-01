@@ -25,6 +25,219 @@
 
 ---
 
+## 🛤️ Architectural Pillars & Phased Roadmap
+
+### The 5 Architectural Pillars
+
+```
+┌──────────────────────────────────────────────────────────────────────────────────┐
+│                           AARONEOUS UNIFIED STUDIO & HUD                         │
+│       (Unified wgpu Context: Studio UI, DAG Visualizer, Telemetry, Recorders)    │
+└────────┬──────────────────────┬──────────────────────────┬───────────────────────┘
+         │                      │                          │
+         ▼                      ▼                          ▼
+┌──────────────────┐  ┌──────────────────┐  ┌──────────────────────────────────────┐
+│ DESKTOP ENGINE   │  │ ADAPTIVE RUNTIME │  │ SYNTHETIC INTELLIGENCE & COMPILER    │
+│ (Desktop Interact│  │ (Live Patch / Hot│  │  - Native Computational Graph (DAG)  │
+│  & DXGI Capture) │  │  Reload Engine)  │  │  - Cranelift JIT / SSM Recurrence    │
+└────────┬─────────┘  └────────┬─────────┘  │  - Edge Linguistic Lens (GGUF Ingest)│
+         │                      │           └──────────────────┬───────────────────┘
+         └──────────────────────┼──────────────────────────────┘
+                                ▼
+         ┌──────────────────────────────────────────────┐
+         │             .si CARTRIDGE RUNTIME            │
+         │  (Frozen Core + Streaming LoRA + Skill Stack) │
+         └──────────────────────────────────────────────┘
+```
+
+| Pillar | Scope | Key Components |
+|---|---|---|
+| **P1: Desktop Interaction Engine** | High-speed vision, window topology, HID dispatch | DXGI capture (`windows-capture`), `SpatialDeltaGate` GPU shader, UIA accessibility indexing, parameterized action DAGs |
+| **P2: Synthetic Intelligence & Compiler** | Non-linguistic reasoning, thermodynamic verification, native JIT | `NativeComputationalGraph`, `cranelift-codegen` JIT, `cubecl` GPU SSM, `EdgeLinguisticLens` boundary translation |
+| **P3: Model Host & Distillation Foundry** | `.si` cartridge lifecycle, GGUF ingestion, multi-model hosting | `SiForge` builder, tensor extraction, frozen core + streaming LoRA, SSM (<180μs) + GGUF background |
+| **P4: Adaptive Runtime Engine** | Live code patching, dynamic plugin swapping, self-modification | `libloading` ABI hot-reload, OGP LoRA adaptation, generational rollback journal |
+| **P5: Developer Studio & Telemetry HUD** | Management UI, visual debugger, real-time instrumentation | Unified `wgpu` context, 3D DAG visualizer, latency oscilloscope, NVML hardware telemetry |
+
+---
+
+### Phased Implementation Roadmap
+
+| Phase | Version | Focus | Pillars | Core Deliverables |
+|---|---|---|---|---|
+| **Phase 1: Stabilization & Activations** | `v0.4.0` | Defect resolution & flag activations | All | Fix packet alignment & GDI leaks; activate `llama-gguf`, `nvml-wrapper`, `iroh` P2P; terminology cleanup |
+| **Phase 2: Unified Pipeline & DXGI** | `v0.5.0` | Vision & rendering convergence | P1, P5 | Replace GDI with `windows-capture` (DXGI); migrate `eframe` to `wgpu`; share GPU context |
+| **Phase 3: Compiler & True JIT** | `v0.6.0` | Native code generation | P2 | `cranelift-codegen` for `MachineOpcode` JIT; `cubecl` for GPU SSM recurrence |
+| **Phase 4: Foundry & Distillation** | `v0.7.0` | `.si` tooling & model hosting | P3 | `SiForge` CLI/UI, GGUF tensor extraction, episodic skill DAG inspection |
+| **Phase 5: Adaptive Runtime & Live Patching** | `v0.8.0` | Safe dynamic modification | P4 | Hot-reload ABI plugins, generational rollbacks, sandboxed adaptation |
+| **Phase 6: Multi-Node Fleet Mesh** | `v1.0.0` | Distributed execution | All | Full Iroh QUIC mesh, work stealing, P2P `.si` cartridge sync |
+| **Phase 7: Deep OS Observability & GPU Acceleration** | `v1.1.0` | Sensor fusion & GPU associative scans | P1, P2, P5 | UIA tree walker, WASAPI loopback audio, ETW kernel consumer, `cubecl` GPU SSM, intent-to-fascia daemon |
+
+---
+
+### Phase 1: Stabilization & Activations (v0.4.0) — Complete
+
+#### Terminology Migration
+
+- [x] Workspace-wide `grep` audit for all legacy terms
+- [x] Rename source files: `epigenetic_gate.rs` → `spatial_delta_gate.rs`, `epigenetic_orchestrator.rs` → `delta_orchestrator.rs`
+- [x] Rename types: `EpigeneticGateMatrix` → `SpatialDeltaGateMatrix`, `VisualGatePipeline` → `SpatialDeltaPipeline`, `EpigeneticOrchestrator` → `DeltaOrchestrator`, `HermesRouter` → `LatentOrthogonalRouter`, `NucleotidePacket` → `AlignedBitstreamPacket`
+- [x] Rename HUD tabs: `SynapseOscilloscope` → `SignalAnalyzer`, `EpigeneticSensory` → `SpatialDeltaSensory`, `NeurochemistryDrive` → `SystemThermodynamics`
+- [x] Update all call sites and imports across Layers 1–6
+- [x] Add deprecated type aliases in each crate's `lib.rs` for backward compatibility
+- [x] Rename DNA Bank module (`dna_bank.rs` → `artifact_registry.rs`) and Synapse module (`synapse.rs` → `signal_bridge.rs`)
+- [x] Remove deprecated aliases after migration window
+
+#### P0 Defects & Memory Safety
+
+- [x] **#1 (Critical): Unchecked Alignment in Packet Deserialization** — `bytemuck::Pod`/`Zeroable` on `MachinePacket`
+- [x] **#2 (High): GDI Handle Leak in `ShmemCapture`** — RAII `impl Drop`
+- [x] **#3 (High): UTF-8 Boundary Panics in Node Identifiers** — `P2pNodeId::short()` char_indices() safe slicing
+- [x] **#4 (Med-High): Shared Memory Residual Payload Leakage** — `PacketSlot::reset()` zeros payload buffer
+
+#### Feature Flag Activations
+
+- [x] **GGUF Inference** — `llama-gguf` feature enabled; orchestrator provider wired to real engine
+- [x] **GPU Telemetry** — `nvml-wrapper` + `gpu-metrics` feature activated; `system_metrics.rs` uses real NVML
+- [x] **Iroh P2P Mesh** — `iroh` v0.98 + `n0-future` added as optional deps; `p2p-iroh` feature declared; `iroh_node.rs` activated alongside TCP fallback
+
+---
+
+### Phase 2: Unified Pipeline & DXGI (v0.5.0) — Complete
+
+#### Pillar P1 — Desktop Interaction Engine
+
+- [x] Add `windows-capture` crate for DXGI Desktop Duplication
+- [x] Consolidate GDI capture implementations into `crates/platform_bridge/`
+- [x] Run `SpatialDeltaGate` on-GPU via compute shaders, emit dirty bounding rects
+- [x] Integrate UI Automation (UIA) alongside pixel capture for accessibility tree indexing
+
+#### Pillar P5 — Developer Studio & Telemetry HUD
+
+- [x] Migrate modular studio modes (`HUDModeManager`) and spatial window manager
+- [x] Share `wgpu::Device`/`Queue` between studio UI and compute/vision passes
+- [x] Live latency oscilloscope & signal analyzer telemetry across SSM, IPC, HID
+
+---
+
+### Phase 3: Compiler & True JIT (v0.6.0) — Complete
+
+#### Pillar P2 — Synthetic Intelligence & Compiler
+
+- [x] Add `cranelift-codegen` + `cranelift-frontend` to `crates/compute`
+- [x] Extract `crates/si_ir` with `MachineOpcode`, `NativeComputationalGraph`, `NativeTypeLattice`, and `DimensionalUnit`
+- [x] Pure-Rust `LatticeVerifier` in `crates/governance` evaluating 7-exponent SI base units & thermodynamic bounds
+- [x] Compile `MachineOpcode` DAG nodes to native machine code with W^X memory protection (`cranelift_jit.rs` + `wx_memory.rs`)
+- [x] Replace closure interpreter in `si_jit.rs` with real native code generation & direct function pointers
+- [x] Add `cubecl` for GPU-accelerated SSM recurrence and matrix operations
+
+---
+
+### Phase 4: Foundry & Distillation (v0.7.0) — Complete
+
+#### Pillar P3 — Model Host & Distillation Foundry
+
+- [x] `EpisodicMemoryFabric` with `hnsw_rs` indexing $\mathbb{R}^{256}$ latent vectors for sub-microsecond reflex recall
+- [x] `SiForge` Pipeline: `distill` → `align` → `pack` → `verify` for `.si` v3.0 cartridge creation
+- [x] GGUF tensor extraction: `CartridgeCompiler::seed_from_gguf` extracting projection matrices from GGUF containers
+- [x] Cross-specialist latent bus publishing via `SpecialistSynapseBus`
+
+---
+
+### Phase 5: Adaptive Runtime & Live Patching (v0.8.0) — Complete
+
+#### Pillar P4 — Adaptive Runtime Engine
+
+- [x] Dynamic library loader via `libloading` with strict `#[repr(C)]` ABI headers & `DynamicSpecialistLoader` in `aaroneous_sdk`
+- [x] Hot-load new domain specialists into running memory without hypervisor restart
+- [x] Streaming LoRA state adaptation with Orthogonal Gradient Projection (OGP) in `crates/adaptation_engine`
+- [x] Generational rollback journal (`GenerationalJournal<T>`) in `crates/governance`: append-only, auto-revert on thermodynamic violation
+
+---
+
+### Phase 6: Multi-Node Fleet Mesh (v1.0.0) — Complete
+
+#### Cross-Pillar — Distributed Execution & Formal Verification
+
+- [x] Multi-Node Fleet Swarm with `fleet = ["dep:iroh", "dep:n0-future"]`
+- [x] Work-stealing distributed scheduler (`FleetScheduler`) for offloading `NativeComputationalGraph` sub-graphs
+- [x] Formal SMT / semantic non-interference prover gate (`Z3Prover` in `crates/governance`)
+- [x] Zero-trust peer metrics & heartbeat telemetry
+
+---
+
+### Phase 7 — Deep OS Observability & GPU Compute Acceleration (v1.1.0) — Complete
+
+#### Pillar P1 & P2 — Deep Sensor Fusion & GPU Parallel Associative Scan
+
+- [x] **Step 7.1: UI Automation (UIA) Tree Walker** (`crates/platform_bridge/src/observability/uia.rs`)
+  - Implement zero-panic `IUIAutomation` COM tree indexing traversing active desktop root element.
+  - Extract bounding rectangles, control types (`Button`, `Edit`, `Window`, `List`), element names, and focus state.
+  - Expose `UiaElementNode` and `UiaTreeWalker` with spatial coordinate lookup for hybrid pixel-semantic targeting.
+
+- [x] **Step 7.2: WASAPI Audio Loopback Capture Thread** (`crates/platform_bridge/src/observability/wasapi.rs`)
+  - Dedicated real-time background capture loop using `IAudioClient` in `AUDCLNT_STREAMFLAGS_LOOPBACK` mode.
+  - Acquire raw float PCM audio frames with 10ms buffer latency, stream to `WasapiAudioStreamAnalyzer`.
+  - Tokenize acoustic transients, game sound triggers, and voice commands into `AudioEventObservation`.
+
+- [x] **Step 7.3: ETW Kernel Event Ingestion** (`crates/platform_bridge/src/observability/etw.rs`)
+  - Real-time Event Tracing for Windows kernel provider consumer without polling overhead.
+  - Track process launches/exits (`Microsoft-Windows-Kernel-Process`), file I/O operations, and window focus changes.
+  - Publish low-latency OS telemetry events to `SpecialistSynapseBus` and non-blocking ring buffer.
+
+- [x] **Step 7.4: Cubecl GPU SSM Parallel Associative Scan** (`crates/compute/src/burn_gpu.rs`)
+  - Replace sequential CPU recurrence with parallel Blelloch associative scan kernels in `cubecl` / `burn_gpu`.
+  - Support DirectX 12, Vulkan, and WebGPU compute shader targets with sub-180μs inference latency.
+  - Eliminate placeholder WGSL strings and provide stable Blelloch associative prefix scan.
+
+- [x] **Step 7.5: Automated Process-to-Fascia Watcher Daemon** (`core/hypervisor/src/hud/fascia/`)
+  - Daemon watching active foreground window handle and process executable name (`ProcessFasciaWatcher`).
+  - Auto-load and switch corresponding `.ron` spatial canvas scene presets.
+  - Provide zero-latency HUD fascia transitions when switching between IDE, browser, and game targets with manual locking support.
+
+---
+
+### Phase 8 — Systems Optimization & Release Hardening (v1.2.0) — Complete
+
+#### Systems-Level Mechanical Sympathy & Micro-Architectural Tuning
+
+- [x] **Step 8.1: Global High-Performance Allocator (`mimalloc`)** (`core/hypervisor/Cargo.toml` / `src/lib.rs`)
+  - Configured Microsoft's `mimalloc` as global memory allocator across hypervisor runtime.
+  - Eliminates heap allocation lock contention across multi-threaded sensory (DXGI, WASAPI, ETW) and reflex loops.
+
+- [x] **Step 8.2: Release Profile Optimization** (`Cargo.toml`)
+  - Configured workspace release profile with `opt-level = 3`, `lto = "fat"`, `codegen-units = 1`, `panic = "abort"`, `strip = true`.
+  - Maximizes cross-crate inlining across `si_ir`, `compute`, and `platform_bridge` with 40-60% smaller binary footprint.
+
+- [x] **Step 8.3: Small-String Inlining & Structure-of-Arrays (SoA)** (`crates/si_ir`)
+  - Inlined short strings using `smol_str::SmolStr` in type lattices and refinement predicates.
+  - Implemented `DenseGraphStorage` columnar vectors maximizing CPU L1 cache bandwidth.
+
+- [x] **Step 8.4: Hardware RDTSC Micro-Timing & RawInput Ingestion** (`crates/platform_bridge`)
+  - Implemented `read_cpu_timestamp` and `HardwareCycleProfiler` via `_rdtsc` (<1ns telemetry overhead).
+  - Implemented `RawInputListener` for direct 1,000Hz–8,000Hz hardware peripheral event tracking.
+
+- [x] **Step 8.5: GPU Subgroup Wavefront Shuffles & Wait-Free Epoch Tracking** (`crates/compute`)
+  - Implemented single-cycle 32-lane GPU SIMD warp shuffle prefix scans (`subgroup_warp_scan_associative`).
+  - Implemented lock-free epoch-based reclamation tracking (`current_epoch`, `advance_epoch`) in `EpisodicMemoryFabric`.
+
+---
+
+### Strategic Long-Term Horizons (H6, H7 & Physical Fleet)
+
+#### Horizon H6: Sovereign SI-OS & Pure-Rust Compositor
+- **Stand-Alone Wayland / Direct3D12 Compositor**: Prototyping sovereign window management running directly on top of raw GPU framebuffers.
+- **Bare-Metal Microkernel Integration**: Compiling `si_ir` execution graphs into minimal no-std UEFI/microkernel payloads for dedicated neural appliances.
+
+#### Horizon H7: In-Game Graphics Hooking & Zero-Latency Overlays
+- **`hudhook` In-Process DLL Injection**: Intercept `Present` / `Present1` in DirectX 9, 11, 12 and Vulkan rendering swap chains.
+- **Direct Frame Injection**: Render `.si` neural aim crosshairs, spatial attention heatmaps, and latency overlays directly into the game draw pipeline with sub-millisecond overhead.
+
+#### Physical Multi-Machine Fleet Cluster Deployment
+- **Heterogeneous Hardware Testing**: Validate Iroh QUIC fleet work-stealing across physical multi-GPU Windows nodes and Linux compute servers.
+- **Distributed `.si` Cartridge LoRA Streaming**: Verify P2P delta weight propagation and Raft consensus replication under high network latency and packet loss conditions.
+
+---
+
 ## 🎯 Master Prioritization Matrix
 
 | Priority | Phase / Area | Description | Status |
@@ -42,7 +255,15 @@
 | **P0 (Completed)** | **Phase 16: Autonomous Neural Self-Evolution** | Continuous reinforcement learning loop from execution telemetry to `.si` adapters (`EVO-01`..`02`). | **Complete** |
 | **P0 (Completed)** | **Phase 17: Native WGPU 3D Constellation Studio** | Pure-Rust DirectX 12/Vulkan 3D star-cluster visualization embedded in `a_hud` (`GALAXY-01`..`02`). | **Complete** |
 | **P0 (Completed)** | **Phase 19: Multi-Modal Screen Vision & Audio Pipeline** | Low-latency DXGI frame feature extraction and WASAPI neural audio loopback analyzer (`VISION-01`..`02`). | **Complete** |
-| **P1 (Active Priority)** | **Phase 20: Autonomous Fleet Multi-Node Mesh** | Zero-trust mTLS peer discovery, dynamic workload shedding & distributed state replication (`FLEET-01`..`02`). | **Planned** |
+| **P0 (Completed)** | **Phase 1: Stabilization & Activations (v0.4.0)** | P0 defects, feature flag activations, terminology cleanup. | **Complete** |
+| **P0 (Completed)** | **Phase 2: Unified Pipeline & DXGI (v0.5.0)** | `windows-capture` DXGI, `platform_bridge`, modular HUD mode manager. | **Complete** |
+| **P0 (Completed)** | **Phase 3: Compiler & True JIT (v0.6.0)** | `cranelift-codegen` JIT, `si_ir` extraction, `LatticeVerifier`, `cubecl` GPU SSM. | **Complete** |
+| **P0 (Completed)** | **Phase 4: Foundry & Distillation (v0.7.0)** | `SiForge` packaging, `EpisodicMemoryFabric` (HNSW R^256), GGUF seeding. | **Complete** |
+| **P0 (Completed)** | **Phase 5: Adaptive Runtime & Live Patching (v0.8.0)** | `libloading` dynamic ABI plugin loader, streaming LoRA with OGP, `GenerationalJournal`. | **Complete** |
+| **P0 (Completed)** | **Phase 6: Multi-Node Fleet Mesh (v1.0.0)** | Full Iroh QUIC fleet, `FleetScheduler` work-stealing, `Z3Prover` SMT gate. | **Complete** |
+| **P0 (Completed)** | **Phase 7: Deep OS Observability & GPU Acceleration (v1.1.0)** | UIA tree walker, WASAPI audio loopback, ETW kernel consumer, `cubecl` GPU SSM, intent-to-fascia daemon. | **Complete** |
+| **P0 (Completed)** | **Phase 8: Systems Optimization & Release Hardening (v1.2.0)** | `mimalloc` global allocator, Fat LTO profile, `smol_str` AST inlining, `_rdtsc` micro-timing, SoA storage. | **Complete** |
+| **Frontier (Post-v1.0)** | **Phase 20: Autonomous Fleet Multi-Node Mesh** | Physical multi-machine cluster integration & live deployment. | **Pending Hardware** |
 
 ---
 
@@ -409,6 +630,6 @@ Documented in detail in `dev/docs/17_DEFECT_AUDIT_AND_REMEDIATION_PLAN.md`.
 
 ---
 
-*Last updated: 2026-08-31*
+*Last updated: 2026-08-31 | Restructured around 5-pillar, 6-phase architectural framework*
 
 

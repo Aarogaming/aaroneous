@@ -40,6 +40,16 @@ pub mod si_decoder;
 pub mod si_motor_tree;
 pub mod isolated_desktop;
 pub mod si_spec;
+pub mod wx_memory;
+pub mod cranelift_jit;
+pub mod episodic_memory;
+
+pub use wx_memory::WxMemoryRegion;
+pub use cranelift_jit::{CraneliftJitEngine, NativeExecutionFn};
+pub use episodic_memory::{
+    simd_cosine_similarity_256, simd_dot_product_256, AcousticReflexMatcher, EpisodicMemoryFabric,
+    SearchResult, TrajectoryMetadata, LATENT_VECTOR_DIM,
+};
 
 pub use burn_gpu::{GpuTensorAccelerator, GpuTensorProfile};
 pub use si_spec::{
@@ -73,7 +83,7 @@ pub use si_packer::{
     TensorDescriptor, ALIGNMENT_BYTES, SINT_PACKER_MAGIC, SINT_PACKER_VERSION,
 };
 pub use si_forge::SiForge;
-pub use latent_router::{HermesRouter, CORTEX_INTENT_DIM, SUBGOAL_DIM};
+pub use latent_router::{LatentOrthogonalRouter, CORTEX_INTENT_DIM, SUBGOAL_DIM};
 pub use reflex_worker::ReflexWorker;
 pub use si_decoder::{ActionDecoder, DecodedActionCommand, DECODER_INTENT_DIM};
 pub use si_motor_tree::{MotorCortex, MotorSkillNode, SkillType, StarState, MOTOR_INTENT_DIM};

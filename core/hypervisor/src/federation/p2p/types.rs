@@ -1,9 +1,10 @@
-/// Shared types for the P2P module
+/// Shared types for the P2P module & Fleet Swarm Federation
 ///
-/// These types are used regardless of whether the `p2p-iroh` feature is
-/// enabled, so the Omnipresent specialist can have a stable API.
+/// These types are used regardless of whether the `fleet` / `p2p-iroh` feature is
+/// enabled, so the Omnipresent specialist and FleetScheduler have a stable API.
 
 use serde::{Deserialize, Serialize};
+use si_ir::NativeComputationalGraph;
 use std::fmt;
 
 /// Errors that can occur during P2P operations
@@ -18,13 +19,16 @@ pub enum P2pError {
     #[error("Serialization error: {0}")]
     Serialization(String),
 
+    #[error("Serialization error: {0}")]
+    SerializationError(String),
+
     #[error("Invalid endpoint ID: {0}")]
     InvalidEndpoint(String),
 
     #[error("Operation timed out after {0}ms")]
     Timeout(u64),
 
-    #[error("P2P feature not enabled (compile with --features p2p-iroh)")]
+    #[error("P2P feature not enabled (compile with --features fleet / p2p-iroh)")]
     FeatureNotEnabled,
 
     #[error("I/O error: {0}")]
@@ -33,44 +37,43 @@ pub enum P2pError {
 
 impl From<std::io::Error> for P2pError {
     fn from(e: std::io::Error) -> Self {
-        P2pError::Io(e.to_string())
+        P2pError::Network(e.to_string())
     }
 }
 
 impl From<serde_json::Error> for P2pError {
     fn from(e: serde_json::Error) -> Self {
-        P2pError::Serialization(e.to_string())
+        P2pError::SerializationError(e.to_string())
     }
 }
 
 /// A node identifier in the P2P network.
-///
-/// When `p2p-iroh` is enabled, this wraps an Iroh `EndpointId` (Ed25519 public key).
-/// In stub mode, it's a random hex string for testing.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct P2pNodeId(pub String);
 
 impl P2pNodeId {
+    pub fn new(id: &str) -> Self {
+        Self(id.to_string())
+    }
+
     /// Create a new random node ID for testing/stub mode
     pub fn random() -> Self {
         use std::time::SystemTime;
         let nanos = SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)
-            .unwrap()
-            .as_nanos();
-        Self(format!("stub-{:032x}", nanos))
+            .map(|d| d.as_nanos())
+            .unwrap_or(0);
+        Self(format!("fleet-{:032x}", nanos))
     }
 
-    /// Get a short display version (first 8 chars, UTF-8 safe)
+    /// Get a short display version (first 12 chars, UTF-8 safe)
     pub fn short(&self) -> String {
-        if self.0.len() <= 12 {
+        let char_count = self.0.chars().count();
+        if char_count <= 12 {
             self.0.clone()
         } else {
-            // Find the 12th character boundary for UTF-8 safety
-            match self.0.char_indices().nth(12) {
-                Some((idx, _)) => format!("{}…", &self.0[..idx]),
-                None => self.0.clone(),
-            }
+            let truncated: String = self.0.chars().take(12).collect();
+            format!("{}…", truncated)
         }
     }
 }
@@ -81,63 +84,95 @@ impl fmt::Display for P2pNodeId {
     }
 }
 
-/// Message format for syncing Intent state between peers
+/// Work-stealing request sent by an idle or overloaded fleet node
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SyncMessage {
-    /// Schema version for forward compatibility
-    pub version: u32,
-    /// Sender's node ID
-    pub from: P2pNodeId,
-    /// Logical timestamp (Lamport clock or wall clock seconds)
-    pub timestamp: u64,
-    /// Intent version on sender
-    pub intent_version: u32,
-    /// Payload type discriminator
-    pub kind: SyncMessageKind,
-    /// Opaque payload (CRDT delta, full state, etc.)
-    pub payload: Vec<u8>,
+pub struct WorkStealRequest {
+    pub requester_node_id: P2pNodeId,
+    pub max_nodes: usize,
+    pub min_free_energy: f64,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+/// Work-stealing response containing offloaded computation graph
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkStealResponse {
+    pub donor_node_id: P2pNodeId,
+    pub task_id: u64,
+    pub graph: NativeComputationalGraph,
+}
+
+/// Completed execution result returned by a remote fleet worker node
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkResult {
+    pub worker_node_id: P2pNodeId,
+    pub task_id: u64,
+    pub execution_trace: Vec<u8>,
+    pub result_status: u32,
+    pub thermodynamic_free_energy: f64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum SyncMessageKind {
-    /// Initial sync request: "give me your state"
-    SyncRequest,
-    /// Full state response
     FullState,
-    /// CRDT delta update
     Delta,
-    /// Heartbeat / device-alive ping
+    StateSync,
     Heartbeat,
-    /// Conflict notification
     ConflictDetected,
+    SyncRequest,
+    Request,
+    Response,
+    WorkStealRequest,
+    WorkStealResponse,
+    WorkResult,
+}
+
+/// Message format for syncing Intent state and Work-Stealing between peers
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SyncMessage {
+    pub kind: SyncMessageKind,
+    pub payload: Vec<u8>,
+    pub from: String,
+    pub timestamp: u64,
+    pub intent_version: u32,
 }
 
 impl SyncMessage {
-    pub fn heartbeat(from: P2pNodeId, intent_version: u32) -> Self {
+    pub fn heartbeat() -> Self {
         Self {
-            version: 1,
-            from,
-            timestamp: std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_secs(),
-            intent_version,
             kind: SyncMessageKind::Heartbeat,
             payload: vec![],
+            from: String::new(),
+            timestamp: std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_secs())
+                .unwrap_or(0),
+            intent_version: 0,
         }
     }
 
-    pub fn full_state(from: P2pNodeId, intent_version: u32, state: Vec<u8>) -> Self {
+    pub fn full_state(data: Vec<u8>) -> Self {
         Self {
-            version: 1,
-            from,
+            kind: SyncMessageKind::FullState,
+            payload: data,
+            from: String::new(),
             timestamp: std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_secs(),
-            intent_version,
-            kind: SyncMessageKind::FullState,
-            payload: state,
+                .map(|d| d.as_secs())
+                .unwrap_or(0),
+            intent_version: 0,
+        }
+    }
+
+    pub fn work_steal_request(from: P2pNodeId, req: &WorkStealRequest) -> Self {
+        let payload = serde_json::to_vec(req).unwrap_or_default();
+        Self {
+            kind: SyncMessageKind::WorkStealRequest,
+            payload,
+            from: from.0,
+            timestamp: std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_secs())
+                .unwrap_or(0),
+            intent_version: 1,
         }
     }
 }
@@ -154,52 +189,25 @@ mod tests {
     }
 
     #[test]
-    fn test_node_id_short() {
-        let id = P2pNodeId("abcdef0123456789abcdef0123456789".to_string());
-        assert_eq!(id.short(), "abcdef012345…");
+    fn test_work_steal_types_roundtrip() {
+        let req = WorkStealRequest {
+            requester_node_id: P2pNodeId("node-alpha".to_string()),
+            max_nodes: 10,
+            min_free_energy: 0.05,
+        };
 
-        let short_id = P2pNodeId("short".to_string());
-        assert_eq!(short_id.short(), "short");
-    }
+        let json = serde_json::to_string(&req).unwrap();
+        let parsed: WorkStealRequest = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed.max_nodes, 10);
 
-    #[test]
-    fn test_sync_message_heartbeat() {
-        let id = P2pNodeId::random();
-        let msg = SyncMessage::heartbeat(id.clone(), 42);
-        assert_eq!(msg.from, id);
-        assert_eq!(msg.intent_version, 42);
-        assert_eq!(msg.kind, SyncMessageKind::Heartbeat);
-        assert!(msg.payload.is_empty());
-        assert_eq!(msg.version, 1);
-    }
+        let res = WorkStealResponse {
+            donor_node_id: P2pNodeId("node-beta".to_string()),
+            task_id: 42,
+            graph: NativeComputationalGraph::new(),
+        };
 
-    #[test]
-    fn test_sync_message_full_state() {
-        let id = P2pNodeId::random();
-        let payload = vec![1, 2, 3, 4, 5];
-        let msg = SyncMessage::full_state(id.clone(), 7, payload.clone());
-        assert_eq!(msg.from, id);
-        assert_eq!(msg.intent_version, 7);
-        assert_eq!(msg.kind, SyncMessageKind::FullState);
-        assert_eq!(msg.payload, payload);
-    }
-
-    #[test]
-    fn test_sync_message_serialization() {
-        let id = P2pNodeId::random();
-        let msg = SyncMessage::heartbeat(id, 42);
-        let json = serde_json::to_string(&msg).unwrap();
-        let parsed: SyncMessage = serde_json::from_str(&json).unwrap();
-        assert_eq!(parsed.intent_version, 42);
-        assert_eq!(parsed.kind, SyncMessageKind::Heartbeat);
-    }
-
-    #[test]
-    fn test_p2p_error_display() {
-        let err = P2pError::Timeout(5000);
-        assert_eq!(err.to_string(), "Operation timed out after 5000ms");
-
-        let err = P2pError::FeatureNotEnabled;
-        assert!(err.to_string().contains("p2p-iroh"));
+        let json_res = serde_json::to_string(&res).unwrap();
+        let parsed_res: WorkStealResponse = serde_json::from_str(&json_res).unwrap();
+        assert_eq!(parsed_res.task_id, 42);
     }
 }

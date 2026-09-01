@@ -3,17 +3,17 @@ use anyhow::{Result, anyhow};
 use parking_lot::RwLock;
 use std::sync::Arc;
 
-pub struct EpigeneticOrchestrator {
+pub struct DeltaOrchestrator {
     active_switches: Arc<RwLock<Option<HoxChromosome>>>,
 }
 
-impl Default for EpigeneticOrchestrator {
+impl Default for DeltaOrchestrator {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl EpigeneticOrchestrator {
+impl DeltaOrchestrator {
     pub fn new() -> Self {
         Self {
             active_switches: Arc::new(RwLock::new(None)),
@@ -24,7 +24,7 @@ impl EpigeneticOrchestrator {
     /// In a full implementation, this notifies the GGUF loader to swap LoRA adapters in VRAM.
     pub fn express_chromosome(&self, chromosome: HoxChromosome) -> Result<()> {
         println!(
-            "[EpigeneticOrchestrator] Expressing chromosome for: {}",
+            "[DeltaOrchestrator] Expressing chromosome for: {}",
             chromosome.agent_id
         );
 
@@ -38,21 +38,21 @@ impl EpigeneticOrchestrator {
 
         // 2. Notify internal runner to swap LoRAs (Simulated)
         for lora in &chromosome.epigenetic_switches.active_loras {
-            println!("[EpigeneticOrchestrator] Splicing Rank-1 LoRA: {}", lora);
+            println!("[DeltaOrchestrator] Splicing Rank-1 LoRA: {}", lora);
         }
 
         // 3. Update the active switches
         let mut guard = self.active_switches.write();
         *guard = Some(chromosome);
 
-        println!("[EpigeneticOrchestrator] Hot-swap complete. Functional phenotype expressed.");
+        println!("[DeltaOrchestrator] Hot-swap complete. Functional phenotype expressed.");
         Ok(())
     }
 
     /// Bypasses text parsing by injecting raw latent vectors into the forward pass.
     pub fn inject_latent_state(&self, _vector: &[f32; 1024]) {
         println!(
-            "[EpigeneticOrchestrator] Injecting latent activation vector (1024-dim) into attention head."
+            "[DeltaOrchestrator] Injecting latent activation vector (1024-dim) into attention head."
         );
         // Forward this vector to the LLM backend (e.g., llama.cpp/candle)
     }
@@ -60,7 +60,7 @@ impl EpigeneticOrchestrator {
     /// Extracts the hidden states (latent thought) from the LLM backend.
     /// This is the inverse of injection: it captures the "thought" before it becomes text.
     pub fn extract_hidden_state(&self, output_vector: &mut [f32; 1024]) -> Result<()> {
-        println!("[EpigeneticOrchestrator] Extracting post-attention hidden states...");
+        println!("[DeltaOrchestrator] Extracting post-attention hidden states...");
 
         // Simulated extraction: In a real system, this pulls from the KV cache or transformer block
         for (i, val) in output_vector.iter_mut().enumerate() {
@@ -82,7 +82,7 @@ impl EpigeneticOrchestrator {
         };
 
         println!(
-            "[EpigeneticOrchestrator] Neural Splicing triggered. Loading {} functional phenotype.",
+            "[DeltaOrchestrator] Neural Splicing triggered. Loading {} functional phenotype.",
             agent_id
         );
     }

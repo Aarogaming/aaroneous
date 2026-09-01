@@ -4650,7 +4650,7 @@ async fn openai_list_models(State(state): State<AppState>) -> impl IntoResponse 
         serde_json::json!({ "id": "router",    "object": "model", "created": now_ts, "owned_by": "aaroneous", "description": "P2P mesh sync specialist" }),
         serde_json::json!({ "id": "aligner",       "object": "model", "created": now_ts, "owned_by": "aaroneous", "description": "Biometric / human state specialist" }),
         serde_json::json!({ "id": "perceiver",      "object": "model", "created": now_ts, "owned_by": "aaroneous", "description": "AR/VR spatial specialist" }),
-        serde_json::json!({ "id": "archivist",  "object": "model", "created": now_ts, "owned_by": "aaroneous", "description": "Memory / DNA Bank specialist" }),
+        serde_json::json!({ "id": "archivist",  "object": "model", "created": now_ts, "owned_by": "aaroneous", "description": "Memory / ArtifactRegistry specialist" }),
     ];
     // Dynamic sovereigns
     for s in dynamic.iter() {

@@ -92,7 +92,7 @@ impl SpecialistId {
             SpecialistId::Omnipresent => "P2P multi-device sync & mesh coordination across realms",
             SpecialistId::Symbiotic => "Biometric classification & human state adaptation",
             SpecialistId::Phygital => "AR/VR spatial rendering — physical/digital threshold",
-            SpecialistId::Archivist => "DNA Bank memory consolidation & pattern learning",
+            SpecialistId::Archivist => "ArtifactRegistry memory consolidation & pattern learning",
             SpecialistId::Custom(_) => "Dynamic specialist",
         }
     }

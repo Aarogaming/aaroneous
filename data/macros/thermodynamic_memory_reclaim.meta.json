@@ -1,0 +1,11 @@
+{
+  "macro_name": "Thermodynamic Memory Reclaim",
+  "description": "Flushes inactive latent ring buffers and reclaims system memory",
+  "hotkey": "Alt+3",
+  "file_path": "D:\\Aaroneous\\data\\macros\\thermodynamic_memory_reclaim.si",
+  "file_size_bytes": 534,
+  "latent_dim": 3,
+  "node_count": 1,
+  "thermodynamic_cost": 0.01,
+  "latency_us": 42
+}

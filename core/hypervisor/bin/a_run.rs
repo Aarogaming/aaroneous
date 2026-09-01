@@ -1031,13 +1031,13 @@ async fn run_vision_pipeline(frames: usize) -> Result<()> {
     println!("   Sector Matrix : 16x16 grid of 8x8 pixel blocks (256 sectors)");
     println!("   Delta Filter  : > 0.02 delta threshold (3-frame hysteresis)\n");
 
-    let mut gater = desktop_emulator::EpigeneticVisionGater::new();
+    let mut gater = platform_bridge::EpigeneticVisionGater::new();
     let mut total_saved = 0.0f32;
     let mut total_us = 0u64;
 
     for f in 1..=frames {
         // Generate test sensory frame with moving cursor/element in frame 3+
-        let mut frame = vec![0.1f32; desktop_emulator::GRID_SIZE];
+        let mut frame = vec![0.1f32; platform_bridge::GRID_SIZE];
         if f >= 3 {
             // Mutate sector (4, 4) to simulate mouse cursor or UI motion
             for dy in 32..40 {
@@ -1086,7 +1086,7 @@ async fn run_galaxy_pipeline(steps: usize) -> Result<()> {
     println!("\n   [Step 2] Ingesting Workspace Architecture into 3D Space...");
     let crate_count = engine.ingest_workspace_crates(&[
         "ipc_bus", "compute", "evolution", "biology",
-        "orchestrator", "adaptation_engine", "desktop_emulator", "specialists",
+        "orchestrator", "adaptation_engine", "platform_bridge", "specialists",
         "paths", "transpiler", "omni", "hypervisor"
     ]).await;
     println!("   -> Registered {} Architecture Star-Nodes.", crate_count);
@@ -1434,7 +1434,7 @@ async fn run_simulate_pipeline(frames: usize) -> Result<()> {
     println!("   Loop Stages  : Epigenetic Vision (16x16) ➔ SVDD Guardrail ➔ Action Decoder ➔ Isolated Desktop");
     println!("   Frame Stream : {} consecutive synthetic evaluation frames\n", frames);
 
-    let mut pipeline = desktop_emulator::SensoryMotorPipeline::new("Aaroneous_Live_Simulation");
+    let mut pipeline = platform_bridge::SensoryMotorPipeline::new("Aaroneous_Live_Simulation");
 
     for f in 1..=frames {
         // Generate test frame with dynamic moving target
