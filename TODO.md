@@ -272,6 +272,8 @@
 | **P1 (Strategic Blueprint)** | **Phase 26: Automotive & Embedded Industrial Logic Controller** | Low-latency CANbus translation, active aero/cooling control, distributed microsecond powertrain mesh. | **Blueprint** |
 | **P1 (Active Blueprint)** | **Phase 27: Full-Tilt Hardware Saturation & Zero-Copy VRAM Hardening** | In-VRAM DXGI DirectCompute, Pre-computed SMT Proof Caches, Contiguous Unified Tensor Buffers, QUIC Datagrams. | **Blueprint** |
 | **P1 (Active Blueprint)** | **Phase 28: 3D Spatial Constellation Engine & Galactic Node Roaming** | Wgpu 3D node-graph galaxy visualizer, 6-DOF orbital camera navigation, live synapse pulse particle physics. | **Blueprint** |
+| **P0 (Active Blueprint)** | **Phase 29: The Crucible: Sealed Virtual Self-Play & Interactive Verification Studio** | Hermetic airgapped sandbox, Teacher-Apprentice adversarial self-play, live SMT proof badge & thermodynamic gauge. | **Blueprint** |
+| **P1 (Active Blueprint)** | **Phase 30: Zero-Friction End-User Simplicity & Single-Click Ecosystem** | 1-Click `.si-pack` installer, auto-hardware profile detection, visual cartridge drag-and-drop, and conversational tuning. | **Blueprint** |
 
 ---
 
@@ -742,6 +744,30 @@ Documented in detail in `dev/docs/17_DEFECT_AUDIT_AND_REMEDIATION_PLAN.md`.
 
 ---
 
-*Last updated: 2026-09-03 | Complete 5-pillar, 28-phase architectural framework*
+### Phase 29: The Crucible: Sealed Virtual Self-Play & Interactive Verification Studio (Blueprint)
+*Hermetic airgapped sandbox, Teacher-Apprentice adversarial self-play, live SMT proof badge, and thermodynamic gauge.*
+
+- [ ] **CRUCIBLE-01: Hermetic Airgapped W^X Memory Sandbox**
+  - Implement `CrucibleSandbox` in `crates/compute/src/crucible.rs`: isolate self-play loops in non-networked W^X memory regions with zero physical actuator write privileges, simulating virtual environments (mazes, wind tunnels) at 10,000 accelerated cycles per minute.
+- [ ] **CRUCIBLE-02: Localhost LMStudio & Cloud API Teacher-Apprentice Pipeline**
+  - Implement `OpenAiLocalClient` in `crates/orchestrator`: stream challenges from local LMStudio (Qwen 2.5 / Llama 3) to apprentice `.si` cores, generating verified Opcode DAG training episodes.
+- [ ] **CRUCIBLE-03: Studio Dual-Stream Interro-Probe & Live SMT Verification HUD**
+  - Interactive Direct3D12/Vulkan panel in the Studio displaying teacher prompt streams, apprentice opcode execution, live $\Delta F$ thermodynamic free-energy gauges, and green SMT non-interference proof badges.
+
+---
+
+### Phase 30: Zero-Friction End-User Simplicity & Single-Click Ecosystem (Blueprint)
+*Eliminating technical barriers for non-developer power users: 1-click installer, visual drag-and-drop, and conversational tuning.*
+
+- [ ] **SIMPLE-01: 1-Click Standalone Installer & Hardware Auto-Tuner**
+  - Single lightweight native binary installer (~30MB) that automatically inspects host GPU/CPU capabilities, selecting and configuring the optimal profile (Master Studio, Headless Daemon, or Embedded Bridge).
+- [ ] **SIMPLE-02: Visual Drag-and-Drop Cartridge Manager (`.si-pack`)**
+  - Simple GUI window allowing users to drag a `.si` or `.si-pack` file directly into the application to instantly mount new skills into the 16-organ MoE register with zero CLI commands or configuration files.
+- [ ] **SIMPLE-03: Conversational Personality & Goal Alignment Intercom**
+  - Plain-English natural voice/text interface allowing everyday users to dictate what they want Aaroneous to focus on ("Optimize my track cornering", "Help me write Rust code", "Drive carefully in the rain"), automatically compiling user intent into dynamic Conductor gating weights.
+
+---
+
+*Last updated: 2026-09-03 | Complete 5-pillar, 30-phase architectural framework*
 
 
