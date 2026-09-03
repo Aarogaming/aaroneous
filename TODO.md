@@ -271,6 +271,7 @@
 | **P0 (Completed)** | **Phase 25: Universal MoE Organ Register & Cartridge Stacker** | 13-Organ sparse memory-mapped register, Top-K dynamic routing, autonomous cartridge consolidation & SVD merging. | **Complete** |
 | **P1 (Strategic Blueprint)** | **Phase 26: Automotive & Embedded Industrial Logic Controller** | Low-latency CANbus translation, active aero/cooling control, distributed microsecond powertrain mesh. | **Blueprint** |
 | **P1 (Active Blueprint)** | **Phase 27: Full-Tilt Hardware Saturation & Zero-Copy VRAM Hardening** | In-VRAM DXGI DirectCompute, Pre-computed SMT Proof Caches, Contiguous Unified Tensor Buffers, QUIC Datagrams. | **Blueprint** |
+| **P1 (Active Blueprint)** | **Phase 28: 3D Spatial Constellation Engine & Galactic Node Roaming** | Wgpu 3D node-graph galaxy visualizer, 6-DOF orbital camera navigation, live synapse pulse particle physics. | **Blueprint** |
 
 ---
 
@@ -725,6 +726,20 @@ Documented in detail in `dev/docs/17_DEFECT_AUDIT_AND_REMEDIATION_PLAN.md`.
 
 ---
 
-*Last updated: 2026-09-03 | Complete 5-pillar, 27-phase architectural framework*
+### Phase 28: 3D Spatial Constellation Engine & Galactic Node Roaming (Blueprint)
+*3D spatial immersion canvas, 6-DOF orbital camera navigation, live synapse pulse particle physics, and galactic node roaming.*
+
+- [ ] **SPACE-01: Wgpu 3D Galactic Node-Graph Visualizer**
+  - Implement `GalacticConstellationCanvas` in `core/hypervisor/src/hud/constellation/`: render mounted `.si` cartridges, MoE organ registers, and active computational nodes as glowing 3D star clusters and celestial bodies.
+- [ ] **SPACE-02: 6-DOF Orbital & Free-Flight Camera Controller**
+  - Smooth pan, pitch, yaw, zoom, and hyper-jump navigation through the neural constellation using Fitts's Law minimum-jerk camera splines.
+- [ ] **SPACE-03: Live Synapse Pulse Particle System**
+  - Procedural GPU particle pipelines in `wgpu` depicting high-speed telemetry vectors, LoRA parameter deltas, and inter-organ messages flowing between nodes like stellar lightning.
+- [ ] **SPACE-04: Deep Node Inspection & Tactile Dive**
+  - Click or zoom directly into any star/node to dive into its internal opcode DAG, live thermodynamic free-energy dissipation graph, and SMT lattice bounds.
+
+---
+
+*Last updated: 2026-09-03 | Complete 5-pillar, 28-phase architectural framework*
 
 
