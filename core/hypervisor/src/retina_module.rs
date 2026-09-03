@@ -17,44 +17,10 @@ pub struct SynapseWebIngest {
     pub token_buffer: [u32; 8192], // Token IDs directly for SLM consumption
 }
 
-/// Configurable Web Compliance Policy Engine
-#[derive(Debug, Clone)]
-pub struct CompliancePolicyEngine {
-    blocked_domains: Vec<String>,
-}
+pub use platform_bridge::{WebComplianceConfig, WebIngestionAdapter};
 
-impl Default for CompliancePolicyEngine {
-    fn default() -> Self {
-        Self {
-            blocked_domains: vec![
-                "twitter.com".to_string(),
-                "facebook.com".to_string(),
-                "instagram.com".to_string(),
-                "tiktok.com".to_string(),
-            ],
-        }
-    }
-}
-
-impl CompliancePolicyEngine {
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    pub fn with_blocked_domains(domains: Vec<String>) -> Self {
-        Self {
-            blocked_domains: domains,
-        }
-    }
-
-    pub fn block_domain(&mut self, domain: impl Into<String>) {
-        self.blocked_domains.push(domain.into());
-    }
-
-    pub fn is_domain_blocked(&self, host: &str) -> bool {
-        self.blocked_domains.iter().any(|b| host.contains(b))
-    }
-}
+/// Backward-compatible alias for the web compliance policy engine
+pub type CompliancePolicyEngine = WebComplianceConfig;
 
 pub struct RetinaModule {
     tokenizer: Tokenizer,
@@ -153,7 +119,7 @@ impl RetinaModule {
         let host = parsed_url.host_str().ok_or_else(|| anyhow!("Invalid host in URL"))?;
         
         // 1. Configurable Policy Engine Domain Check
-        if self.compliance_engine.is_domain_blocked(host) {
+        if !self.compliance_engine.is_domain_permitted(host) {
             println!("[Retina] Host {} is blocked by CompliancePolicyEngine.", host);
             return Ok(false);
         }
