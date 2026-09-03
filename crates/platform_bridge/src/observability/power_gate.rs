@@ -9,8 +9,10 @@ use serde::{Deserialize, Serialize};
 
 /// Tri-State Sensor Power Mode
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Default)]
 pub enum SensorPowerMode {
     /// Level 0: WASAPI low-power background acoustic monitor only (<0.1% CPU)
+    #[default]
     Level0IdleListen,
     /// Level 1: Screen spatial delta gate active at 16x16 resolution
     Level1AmbientAwareness,
@@ -18,11 +20,6 @@ pub enum SensorPowerMode {
     Level2ActiveFoveation,
 }
 
-impl Default for SensorPowerMode {
-    fn default() -> Self {
-        Self::Level0IdleListen
-    }
-}
 
 /// Adaptive Sensor Power Gate Manager
 #[derive(Debug, Clone)]

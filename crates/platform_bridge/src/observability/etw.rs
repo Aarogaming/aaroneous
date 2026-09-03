@@ -135,7 +135,7 @@ impl EtwKernelConsumer {
                 while is_running.load(Ordering::SeqCst) {
                     thread::sleep(Duration::from_millis(50));
                     tick += 1;
-                    if tick % 20 == 0 {
+                    if tick.is_multiple_of(20) {
                         let now = SystemTime::now()
                             .duration_since(UNIX_EPOCH)
                             .unwrap_or_default()
