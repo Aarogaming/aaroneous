@@ -56,6 +56,10 @@
 - **Microsecond Benchmarker**: Profiles zero-copy memory-mapped throughput and latency over hundreds of passes.
 - **Task Distiller**: Transpiles human action sequences directly into machine-native execution graphs.
 
+### 5. 🌐 Universal Tool Dual-Face Architecture & MCP Hub
+- **Dual-Face Execution**: Every capability tool implements the unified `UniversalTool` trait—exposing standard JSON input/output schemas for Cloud REST APIs and LLM MCP servers (Claude Desktop, Cursor, OpenCode), while concurrently executing zero-copy $\mathbb{R}^{256}$ latent tensor transformations for native `.si` models in VRAM ($< 15\mu\text{s}$).
+- **Standard Tool Catalog**: Pre-populated with security audit (`security.audit`), AST repair (`code.repair`), pattern rewrite (`code.rewrite_pattern`), self-review (`review.audit_source`), semantic query (`knowledge.semantic_query`), vector search (`memory.search_vector`), UI layout solver (`ui.layout_solve`), and multi-modal sensory status (`platform.sensory_status`).
+
 ### 6. 🏛️ Tri-Tiered Layered Control System
 - **Tier 1 (Strategic Cortex - $\mathbb{R}^{4096}$):** Long-horizon task decomposition and high-dimensional semantic planning running on background OS threads (`SiTierFlags::TIER_1_CORTEX`).
 - **Tier 2 (Router - $\mathbb{R}^{4096} \to \mathbb{R}^{256}$):** Subgoal projection with inline **Sentinel Deep SVDD** guardrail audit ($< 2\mu\text{s}$ safe manifold snap: $\mathbf{S}_{\text{snapped}} = \mathbf{c} + R \frac{\mathbf{S} - \mathbf{c}}{\|\mathbf{S} - \mathbf{c}\|_2}$) and atomic broadcasting over Channel 0 of the lock-free SPMC synapse bus (`SiTierFlags::TIER_2_ROUTER`).
@@ -119,24 +123,27 @@ a_run si benchmark data/models/chimera_ast.si --iterations 500
 
 ---
 
-## 📂 Workspace Architecture (12 Rust Crates & Desktop Hypervisor)
+## 📂 Workspace Architecture (16 Rust Crates & Desktop Hypervisor)
 
 ```
 d:\Aaroneous\
 ├── crates/
-│   ├── compute/                # SiForge, SSM engine, 9-Specialist Distillation, Router, ReflexWorker
+│   ├── compute/                # SiForge, SSM engine, Sparse MoE Register, Continuous Macro-SSM, NPU bridge
 │   ├── paths/                  # Dynamic zero-hardcoded workspace path resolver
 │   ├── ipc_bus/                # Lock-free SPMC shared memory bus, LMAX ring buffer & persistent WAL
-│   ├── orchestrator/           # Thread affinity allocator, Compaction Engine & MDP router
-│   ├── specialists/            # SpecialistFederation: 9 Sovereign Domain Engines & Substrates
+│   ├── orchestrator/           # Thread affinity allocator, Compaction Engine & Hardware Auto-Tuner
+│   ├── specialists/            # SpecialistFederation: Universal Tools, Codebase Auditor, Substrates
 │   ├── autonomic_adaptation/   # Continuous adaptive control, hyperparameter search & GGUF model ingestion
-│   ├── adaptation_engine/      # Polyglot AST parsing, incremental diffing, FFI synthesis & shadow sandbox
-│   ├── desktop_emulator/       # OS Win32 HID input injection, DXGI zero-copy screen capture & HUD overlay
+│   ├── adaptation_engine/      # Polyglot AST parsing, Component Forge, FFI synthesis & shadow sandbox
+│   ├── platform_bridge/        # OS Win32 HID input injection, DXGI zero-copy screen capture & WASAPI loopback
 │   ├── transpiler/             # AST parser & distillation trajectory miner
-│   ├── governance/             # Hardware thermal monitoring, compute token budgeting & closed-loop throttling
-│   └── omni/                   # 3D Galaxy Concept Graph & N-body Barnes-Hut gravitational clustering
+│   ├── governance/             # Hardware thermal monitoring, Z3 SMT non-interference & SI lattice checks
+│   ├── omni/                   # 3D Galaxy Concept Graph & N-body Barnes-Hut gravitational clustering
+│   ├── si_format/              # Canonical .si container binary layout, SIMD alignment & CRC32
+│   ├── si_ir/                  # Computational graphs, MachineOpcode IR & type lattice
+│   └── universal_native_template/ # Zero-overhead native component template
 ├── core/
-│   └── hypervisor/             # Sovereign Desktop HUD (a_hud.rs), Live P2P TCP Daemon & CLI (a_run.rs)
+│   └── hypervisor/             # Sovereign Desktop HUD (a_hud.rs), Live MCP Service, Raft Cluster & CLI (a_run.rs)
 ├── data/
 │   ├── models/                 # Birthed .si solid-state neural containers
 │   └── skills/                 # Crystallized .si muscle memory cartridges

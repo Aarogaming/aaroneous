@@ -4,6 +4,42 @@ All notable changes to Aaroneous.
 
 > **Architectural Note:** References in historical changelog sections (< v0.1.0) to `components/*` describe the legacy monolithic prototype layout. In v0.1.0+, all components were refactored into `core/hypervisor` and the 12 sovereign `crates/*` workspace crates.
 
+## [1.5.0] - 2026-09-03
+
+### 🛠️ Universal Tool Dual-Face Architecture, MoE Expert Register & Clean Systems Modernization
+
+#### Universal Toolset & Live MCP Auto-Discovery
+- **`crates/specialists/src/universal_tool.rs` & `tools.rs`**:
+  - Implemented the `UniversalTool` dual-face trait supporting both standard JSON parameter calls (`call_json`) for Cloud REST and LLM MCP callers, and zero-copy $\mathbb{R}^{256}$ latent tensor transformations (`call_latent`) for native `.si` models in VRAM.
+  - Implemented concrete, zero-loss tool wrappers across all capability domains:
+    - `security.audit` (`0x0500`): Deep SVDD safe manifold constraint verification.
+    - `code.repair` (`0x0400`): Atomic AST code mutation with MD5 verification via `adaptation_engine::CodeMutator`.
+    - `code.rewrite_pattern` (`0x0410`): Structural AST pattern replacement across source files.
+    - `review.audit_source` (`0x0750`): In-house codebase review auditing `.unwrap()`, `unsafe`, and file size limits.
+    - `knowledge.semantic_query` (`0x0200`): Indexed semantic knowledge retrieval with confidence scoring.
+    - `memory.search_vector` (`0x0600`): 3D spatial knowledge graph bounding frustum queries (`SpatialFrustum`) and nearest-neighbor search.
+    - `ui.layout_solve` (`0x0300`): AABB collision-free 2D window and widget layout resolver.
+    - `platform.sensory_status` (`0x0900`): Multi-modal sensory inspection across 120 FPS DXGI screen capture, 48kHz WASAPI audio loopback, and CANbus.
+- **`core/hypervisor/src/mcp_service/service.rs`**:
+  - Embedded `universal_tools: Arc<specialists::ToolRegistry>` into `McpService`.
+  - Auto-registered the complete universal tool catalog into the MCP `tools/list` schema for Claude Desktop, Cursor, and OpenCode.
+  - Dynamically routed incoming MCP tool requests through `universal_tools.call_by_name()`.
+
+#### Autonomous Codebase Self-Audit
+- **`crates/specialists/src/codebase_auditor.rs`**:
+  - Implemented `CodebaseReviewSpecialist`, `CodebaseReviewEngine`, and `AutonomousAuditReport` under Domain Opcode `0x0750`.
+  - Integrated into `SpecialistFederation` with automated detection of unauthorized `unsafe` blocks, production `.unwrap()` calls, and line length debt.
+
+#### Canonical Systems Terminology Modernization
+- **`crates/compute/src/si_moe_register.rs`**:
+  - Completely phased out biological and analogical references ("organ") in favor of standard machine learning and systems engineering terminology: `CartridgeDescriptor`, `ExpertSlot`, `mount_expert()`, and `active_expert_slots`.
+- **`crates/adaptation_engine/src/auto_wrapper.rs`**:
+  - Standardized on `ComponentResponse`, `NativeComponentRunner`, and `MAX_COMPONENT_STDOUT_BYTES`.
+- **`core/hypervisor/bin/a_run.rs`**:
+  - Aligned CLI commands, banners, and documentation to `SYSTEM COMPONENT FORGE` and `models/components/`.
+
+---
+
 ## [0.4.0] - 2026-08-31
 
 ### 🛡️ Security Hardening, Subsystem Realignment, Sandboxed Micro-VM, GPU Compute & Live Telemetry
