@@ -7,8 +7,10 @@ static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 pub extern crate ipc_bus as nervous_system;
 pub use ipc_bus;
 pub extern crate autonomic_adaptation as evolution;
+pub use autonomic_adaptation as adaptation;
 pub use autonomic_adaptation;
 pub extern crate governance as biology;
+pub use governance as system_health;
 pub use governance;
 
 pub mod sabs {

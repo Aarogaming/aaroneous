@@ -1,4 +1,5 @@
 pub mod biology;
+pub use biology as system_health;
 pub mod homeostasis;
 pub mod metabolic_governor;
 pub mod thermodynamic_governor;
