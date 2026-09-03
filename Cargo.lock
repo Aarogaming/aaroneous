@@ -7894,6 +7894,7 @@ dependencies = [
  "reqwest 0.12.28",
  "serde",
  "serde_json",
+ "si_ir",
  "strum 0.26.3",
  "thiserror 2.0.20",
  "tokio",
