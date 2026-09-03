@@ -270,6 +270,7 @@
 | **P0 (Completed)** | **Phase 24: Continuous Macro-SSM World-Scale Predictive Engine** | Infinite-horizon continuous state recurrence (dx/dt = Ax + Bu), R^4096 macro latent state, GPU Blelloch scans. | **Complete** |
 | **P0 (Completed)** | **Phase 25: Universal MoE Organ Register & Cartridge Stacker** | 13-Organ sparse memory-mapped register, Top-K dynamic routing, autonomous cartridge consolidation & SVD merging. | **Complete** |
 | **P1 (Strategic Blueprint)** | **Phase 26: Automotive & Embedded Industrial Logic Controller** | Low-latency CANbus translation, active aero/cooling control, distributed microsecond powertrain mesh. | **Blueprint** |
+| **P1 (Active Blueprint)** | **Phase 27: Full-Tilt Hardware Saturation & Zero-Copy VRAM Hardening** | In-VRAM DXGI DirectCompute, Pre-computed SMT Proof Caches, Contiguous Unified Tensor Buffers, QUIC Datagrams. | **Blueprint** |
 
 ---
 
@@ -710,6 +711,20 @@ Documented in detail in `dev/docs/17_DEFECT_AUDIT_AND_REMEDIATION_PLAN.md`.
 
 ---
 
-*Last updated: 2026-09-03 | Complete 5-pillar, 26-phase architectural framework*
+### Phase 27: Full-Tilt Hardware Saturation & Zero-Copy VRAM Hardening (Blueprint)
+*Eliminating PCIe bus bottlenecks, SMT solver stalls, MoE cache thrashing, and packet loss jitter under maximum load.*
+
+- [ ] **PERF-01: In-VRAM DXGI DirectCompute Pipeline**
+  - Bind `ID3D11Texture2D` / `ID3D12Resource` handles directly to `cubecl` compute shaders, executing `SpatialDeltaGate` and sensory tokenization on-die in VRAM without PCIe host transfers.
+- [ ] **PERF-02: Pre-Computed SMT Non-Interference Proof Cache**
+  - Offline mathematical proof certification during `.si` compilation with fast-path bounded linear lattice evaluation, capping runtime safety checks at $< 1\mu\text{s}$ with zero solver timeouts.
+- [ ] **PERF-03: Contiguous Unified Tensor Buffer Array for MoE**
+  - Pre-allocate a single contiguous VRAM slab for all 16 organ slots with fixed stride offsets, eliminating GPU L2 cache misses and texture allocation churn.
+- [ ] **PERF-04: Unreliable QUIC Datagram Telemetry Streaming (RFC 9221)**
+  - Transmit high-frequency LoRA parameter deltas and state vectors over un-sequenced QUIC datagrams, dropping stale packets to prevent head-of-line wireless latency spikes.
+
+---
+
+*Last updated: 2026-09-03 | Complete 5-pillar, 27-phase architectural framework*
 
 
