@@ -60,6 +60,10 @@ Aaroneous follows a 5-pillar, phased execution model progressing from foundation
 | **Phase 6: Multi-Node Fleet Mesh** | `v1.0.0` | Distributed execution & SMT gate | **Complete** | Full Iroh QUIC fleet, `FleetScheduler` work-stealing, `Z3Prover` non-interference formal gate |
 | **Phase 7: Deep OS Observability & GPU Acceleration** | `v1.1.0` | Sensor fusion & GPU associative scans | **Complete** | UI Automation tree indexing, WASAPI audio loopback, ETW kernel ingestion, `cubecl` GPU SSM, intent-to-fascia daemon |
 | **Phase 8: Systems Optimization & Release Hardening** | `v1.2.0` | Mechanical sympathy & micro-architectural tuning | **Complete** | `mimalloc` global allocator, Fat LTO profile, `smol_str` AST inlining, `_rdtsc` micro-timing, SoA storage |
+| **Phases 9–17: Native Performance & 3D Galaxy Studio** | `v1.2.0` | Micro-architectural tuning & native 3D HUD | **Complete** | Native WGPU 3D Constellation Studio, SSE telemetry streamer, Raft consensus engine, polyglot tree-sitter |
+| **Phases 18–24: Sovereign Cartridge & Formal Governance** | `v1.3.0` | `.si` container standard & Z3 SMT action interlocks | **Complete** | Canonical `.si` v3.0 format, Z3 SMT non-interference gates, Fitts's law Bézier kinematics, Continuous Macro-SSM |
+| **Phases 25–29: Hardware Saturation & Sparse MoE** | `v1.4.0` | Memory-mapped MoE module registers & self-play | **Complete** | 16-slot sparse expert register, CAN 2.0B/FD, contiguous VRAM slab, Crucible virtual sandbox |
+| **Phases 30–33: Machine-Native Intent & Heterogeneous NPU** | `v1.5.0` | Frictionless user ecosystem & NPU offloading | **Complete** | Auto-tuner, drag-and-drop `.si-pack`, decoupled Linguistic Lens, `.lib` state bank, 45 TOPS NPU acceleration |
 
 ---
 

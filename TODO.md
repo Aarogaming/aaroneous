@@ -71,6 +71,10 @@
 | **Phase 5: Adaptive Runtime & Live Patching** | `v0.8.0` | Safe dynamic modification | P4 | Hot-reload ABI plugins, generational rollbacks, sandboxed adaptation |
 | **Phase 6: Multi-Node Fleet Mesh** | `v1.0.0` | Distributed execution | All | Full Iroh QUIC mesh, work stealing, P2P `.si` cartridge sync |
 | **Phase 7: Deep OS Observability & GPU Acceleration** | `v1.1.0` | Sensor fusion & GPU associative scans | P1, P2, P5 | UIA tree walker, WASAPI loopback audio, ETW kernel consumer, `cubecl` GPU SSM, intent-to-fascia daemon |
+| **Phases 8–17: Native Performance & 3D Galaxy Studio** | `v1.2.0` | Micro-architectural hardening & 3D cosmos | All | `mimalloc`, Fat LTO, `smol_str`, native WGPU 3D Constellation Studio, SSE telemetry |
+| **Phases 18–24: Sovereign Cartridge & Formal Governance** | `v1.3.0` | `.si` container standard & Z3 SMT action interlocks | P2, P3, P4 | Canonical `.si` v3.0, Z3 SMT non-interference gates, Fitts's law Bézier kinematics, Macro-SSM recurrence |
+| **Phases 25–29: Hardware Saturation & Sparse MoE** | `v1.4.0` | Memory-mapped MoE module registers & self-play | P1, P2, P3 | 16-slot sparse expert register, CAN 2.0B/FD, contiguous VRAM slab, Crucible virtual sandbox |
+| **Phases 30–33: Machine-Native Intent & Heterogeneous NPU** | `v1.5.0` | Frictionless user ecosystem & NPU offloading | All | Auto-tuner, drag-and-drop `.si-pack`, decoupled Linguistic Lens, `.lib` state bank, 45 TOPS NPU acceleration |
 
 ---
 
