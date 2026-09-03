@@ -38,7 +38,7 @@ pub enum UniversalActuatorCommand {
 
 /// The Universal Sensory Feed Trait (Perception Inputs)
 pub trait SensoryFeedAdapter: Send + Sync {
-    /// Identifier for the feed (e.g. "DXGI-Screen-4K", "BoeBot-Ocular-Cam", "OBDII-CAN-Feed")
+    /// Identifier for the feed (e.g. "DXGI-Screen-4K", "Optical-Sensor-Array", "Raw-CAN-Bus")
     fn feed_name(&self) -> &str;
 
     /// Samples a fresh observation, normalized into latent vector representation
@@ -50,7 +50,7 @@ pub trait SensoryFeedAdapter: Send + Sync {
 
 /// The Universal Physical Actuator Trait (Motor & Peripheral Outputs)
 pub trait PhysicalActuatorAdapter: Send + Sync {
-    /// Identifier for the actuator (e.g. "Win32-SendInput", "BoeBot-Serial-Servos", "CAN-FD-Actuator")
+    /// Identifier for the actuator (e.g. "Win32-SendInput", "Serial-UART-Channel", "CAN-FD-Bus")
     fn actuator_name(&self) -> &str;
 
     /// Validates safety boundaries before physical dispatch

@@ -1,13 +1,14 @@
-// crates/platform_bridge/src/robotics/boebot.rs
-//! Dual-Ocular Autonomous BOE-Bot Navigator & Wireless Bridge.
+// crates/platform_bridge/src/robotics/differential_drive.rs
+//! Generic Dual-Perspective Ocular Navigator & Differential Drive Controller.
 //!
-//! Supports:
-//! 1. "Driver's Seat" First-Person POV: Front-facing mobile/mini camera detecting corridor
+//! Provides hardware-agnostic locomotion control for any 2-wheeled mobile platform,
+//! AGV (Automated Guided Vehicle), or rover:
+//! 1. "Driver Perspective" First-Person POV: Front-facing optical sensor classifying corridor
 //!    openings, wall vanishing points, and dead-ends in real-time.
-//! 2. Optional "Satellite Eye" Top-Down Overlay: Overhead global camera solving global
-//!    maze topology and fusing coordinates with local driver perspective.
-//! 3. High-Speed Wireless Serial Bridge: Streams Fitts's Law kinetic motion commands
-//!    ('F', 'B', 'L', 'R', 'S') and receives whisker collision telemetry.
+//! 2. "Observer Perspective" Top-Down Overlay: Overhead global tracking solving topological
+//!    navigation and fusing global coordinates with local vehicle perspective.
+//! 3. Kinetic Locomotion Dispatch: Streams smooth motion vectors
+//!    (Forward, Reverse, PivotLeft, PivotRight, Stop) with whisker/proximity fail-safes.
 
 use anyhow::{bail, Result};
 use serde::{Deserialize, Serialize};
@@ -15,9 +16,9 @@ use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
 
 use crate::kinetic_synthesizer::{KineticTrajectorySynthesizer, Point2D};
 
-/// Navigation direction commanded by Aaroneous
+/// Locomotion direction commanded by the controller
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum BoeBotCommand {
+pub enum DifferentialDriveCommand {
     Forward,
     Reverse,
     PivotLeft,
@@ -25,9 +26,9 @@ pub enum BoeBotCommand {
     Stop,
 }
 
-impl BoeBotCommand {
-    /// Serial byte sent over Bluetooth/Wi-Fi to BS2
-    pub fn to_serial_byte(&self) -> u8 {
+impl DifferentialDriveCommand {
+    /// Standard serial control byte representation
+    pub fn to_control_byte(&self) -> u8 {
         match self {
             Self::Forward => b'F',
             Self::Reverse => b'B',
@@ -38,44 +39,44 @@ impl BoeBotCommand {
     }
 }
 
-/// Vision perspective active on the robot
+/// Vision perspective active on the mobile platform
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum OcularPerspective {
-    DriversSeatFirstPerson,
-    SatelliteTopDown,
-    DualSensorFusion,
+    DriverPerspectiveFirstPerson,
+    ObserverPerspectiveTopDown,
+    DualPerspectiveFusion,
 }
 
-/// Visual corridor classification from driver's seat camera
+/// Visual spatial corridor clearance analysis
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CorridorCorridorAnalysis {
+pub struct CorridorClearanceAnalysis {
     pub left_clearance: f32,
     pub center_clearance: f32,
     pub right_clearance: f32,
     pub detected_dead_end: bool,
-    pub recommended_action: BoeBotCommand,
+    pub recommended_action: DifferentialDriveCommand,
 }
 
-/// The Dual-Ocular BOE-Bot Autonomous Navigator
-pub struct BoeBotOcularNavigator {
+/// The Dual-Perspective Autonomous Navigator
+pub struct DualPerspectiveOcularNavigator {
     perspective: OcularPerspective,
     pub kinetic_synthesizer: KineticTrajectorySynthesizer,
-    pub is_wireless_active: AtomicBool,
+    pub is_active: AtomicBool,
     last_dispatched_command: AtomicU8,
 }
 
-impl Default for BoeBotOcularNavigator {
+impl Default for DualPerspectiveOcularNavigator {
     fn default() -> Self {
-        Self::new(OcularPerspective::DriversSeatFirstPerson)
+        Self::new(OcularPerspective::DriverPerspectiveFirstPerson)
     }
 }
 
-impl BoeBotOcularNavigator {
+impl DualPerspectiveOcularNavigator {
     pub fn new(perspective: OcularPerspective) -> Self {
         Self {
             perspective,
             kinetic_synthesizer: KineticTrajectorySynthesizer::default(),
-            is_wireless_active: AtomicBool::new(true),
+            is_active: AtomicBool::new(true),
             last_dispatched_command: AtomicU8::new(b'S'),
         }
     }
@@ -88,17 +89,17 @@ impl BoeBotOcularNavigator {
         self.perspective
     }
 
-    /// Ingests a camera frame (Driver's Seat POV or Satellite) and computes real-time maze navigation command
-    pub fn evaluate_ocular_frame(&self, frame_rgb: &[u8], width: u32, height: u32) -> Result<CorridorCorridorAnalysis> {
+    /// Ingests an optical sensor frame and computes real-time corridor navigation command
+    pub fn evaluate_ocular_frame(&self, frame_rgb: &[u8], width: u32, height: u32) -> Result<CorridorClearanceAnalysis> {
         if frame_rgb.is_empty() || width == 0 || height == 0 {
-            bail!("Invalid camera frame dimensions");
+            bail!("Invalid optical frame dimensions");
         }
 
         // Divide lower visual horizon into 3 spatial sectors: Left, Center, Right corridors
         let bytes_per_pixel = (frame_rgb.len() / (width as usize * height as usize)).max(1);
         let row_stride = width as usize * bytes_per_pixel;
 
-        // Sample the forward bottom 40% region of the camera frame (the corridor floor & walls)
+        // Sample the forward bottom 40% region of the camera frame
         let start_row = (height as usize * 6) / 10;
         let mut left_luminance: u64 = 0;
         let mut center_luminance: u64 = 0;
@@ -111,7 +112,6 @@ impl BoeBotOcularNavigator {
             for x in 0..width as usize {
                 let pixel_idx = (y * row_stride) + (x * bytes_per_pixel);
                 if pixel_idx + 2 < frame_rgb.len() {
-                    // Simple grayscale luma: Y = 0.299R + 0.587G + 0.114B
                     let luma = (frame_rgb[pixel_idx] as u32 * 77
                         + frame_rgb[pixel_idx + 1] as u32 * 150
                         + frame_rgb[pixel_idx + 2] as u32 * 29)
@@ -134,23 +134,22 @@ impl BoeBotOcularNavigator {
         let center_clearance = (center_luminance as f32 / divisor) / 255.0;
         let right_clearance = (right_luminance as f32 / divisor) / 255.0;
 
-        // Wall proximity threshold: lower luma / darker obstacle threshold
         let dead_end = center_clearance < 0.18 && left_clearance < 0.18 && right_clearance < 0.18;
 
         let recommended_action = if dead_end {
-            BoeBotCommand::PivotLeft // 180 spin on dead end
+            DifferentialDriveCommand::PivotLeft // 180 spin on dead end
         } else if center_clearance >= left_clearance && center_clearance >= right_clearance && center_clearance > 0.25 {
-            BoeBotCommand::Forward // Open corridor ahead
+            DifferentialDriveCommand::Forward // Open corridor ahead
         } else if left_clearance > right_clearance {
-            BoeBotCommand::PivotLeft // Left corridor opening
+            DifferentialDriveCommand::PivotLeft // Left corridor opening
         } else {
-            BoeBotCommand::PivotRight // Right corridor opening
+            DifferentialDriveCommand::PivotRight // Right corridor opening
         };
 
         self.last_dispatched_command
-            .store(recommended_action.to_serial_byte(), Ordering::Release);
+            .store(recommended_action.to_control_byte(), Ordering::Release);
 
-        Ok(CorridorCorridorAnalysis {
+        Ok(CorridorClearanceAnalysis {
             left_clearance,
             center_clearance,
             right_clearance,
@@ -159,36 +158,34 @@ impl BoeBotOcularNavigator {
         })
     }
 
-    /// Fuses Satellite Overhead coordinates with Driver's Seat POV
-    pub fn fuse_satellite_target(
+    /// Fuses Observer Overhead coordinates with Driver POV
+    pub fn fuse_observer_target(
         &self,
-        driver_analysis: &CorridorCorridorAnalysis,
-        robot_pos: Point2D,
-        satellite_exit_target: Point2D,
-    ) -> BoeBotCommand {
-        // If driver POV detects imminent collision, prioritize driver reflex
+        driver_analysis: &CorridorClearanceAnalysis,
+        vehicle_pos: Point2D,
+        observer_exit_target: Point2D,
+    ) -> DifferentialDriveCommand {
         if driver_analysis.detected_dead_end || driver_analysis.center_clearance < 0.15 {
             return driver_analysis.recommended_action;
         }
 
-        // Otherwise, steer smoothly towards satellite global waypoint
-        let dx = satellite_exit_target.x - robot_pos.x;
-        let dy = satellite_exit_target.y - robot_pos.y;
+        let dx = observer_exit_target.x - vehicle_pos.x;
+        let dy = observer_exit_target.y - vehicle_pos.y;
 
         if dx.abs() > dy.abs() {
             if dx > 0.0 {
-                BoeBotCommand::PivotRight
+                DifferentialDriveCommand::PivotRight
             } else {
-                BoeBotCommand::PivotLeft
+                DifferentialDriveCommand::PivotLeft
             }
         } else if dy > 0.0 {
-            BoeBotCommand::Forward
+            DifferentialDriveCommand::Forward
         } else {
-            BoeBotCommand::Reverse
+            DifferentialDriveCommand::Reverse
         }
     }
 
-    /// Gets the most recent command ready to transmit wirelessly
+    /// Gets the most recent command ready to transmit
     pub fn active_command_byte(&self) -> u8 {
         self.last_dispatched_command.load(Ordering::Acquire)
     }
@@ -199,10 +196,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_ocular_navigator_drivers_seat_analysis() {
-        let nav = BoeBotOcularNavigator::new(OcularPerspective::DriversSeatFirstPerson);
+    fn test_ocular_navigator_driver_perspective_analysis() {
+        let nav = DualPerspectiveOcularNavigator::new(OcularPerspective::DriverPerspectiveFirstPerson);
 
-        // Generate synthetic camera frame (320x240 RGB) with clear center corridor
         let width = 320u32;
         let height = 240u32;
         let mut synthetic_frame = vec![50u8; (width * height * 3) as usize]; // dark walls
@@ -218,26 +214,26 @@ mod tests {
         }
 
         let analysis = nav.evaluate_ocular_frame(&synthetic_frame, width, height).unwrap();
-        assert_eq!(analysis.recommended_action, BoeBotCommand::Forward);
+        assert_eq!(analysis.recommended_action, DifferentialDriveCommand::Forward);
         assert!(!analysis.detected_dead_end);
         assert_eq!(nav.active_command_byte(), b'F');
     }
 
     #[test]
-    fn test_ocular_navigator_satellite_fusion() {
-        let nav = BoeBotOcularNavigator::new(OcularPerspective::DualSensorFusion);
-        let clear_analysis = CorridorCorridorAnalysis {
+    fn test_ocular_navigator_observer_fusion() {
+        let nav = DualPerspectiveOcularNavigator::new(OcularPerspective::DualPerspectiveFusion);
+        let clear_analysis = CorridorClearanceAnalysis {
             left_clearance: 0.5,
             center_clearance: 0.8,
             right_clearance: 0.5,
             detected_dead_end: false,
-            recommended_action: BoeBotCommand::Forward,
+            recommended_action: DifferentialDriveCommand::Forward,
         };
 
-        let robot_pos = Point2D::new(10.0, 10.0);
-        let goal_pos = Point2D::new(50.0, 10.0); // Exit is to the right
+        let vehicle_pos = Point2D::new(10.0, 10.0);
+        let goal_pos = Point2D::new(50.0, 10.0);
 
-        let cmd = nav.fuse_satellite_target(&clear_analysis, robot_pos, goal_pos);
-        assert_eq!(cmd, BoeBotCommand::PivotRight);
+        let cmd = nav.fuse_observer_target(&clear_analysis, vehicle_pos, goal_pos);
+        assert_eq!(cmd, DifferentialDriveCommand::PivotRight);
     }
 }

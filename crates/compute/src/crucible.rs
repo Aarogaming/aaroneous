@@ -33,9 +33,9 @@ pub struct CrucibleDuelReport {
 /// A simulated virtual environment scenario
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum VirtualScenario {
-    MazeNavigation { grid_size: u32, dead_ends: u32 },
-    ActiveAeroCornering { speed_mph: f32, surface_friction: f32 },
-    LogicArithmeticInvariance { operations: usize, precision_bits: u8 },
+    ConstrainedSpatialPathfinding { obstacle_density: f32, spatial_dimensions: u8 },
+    DynamicClosedLoopRegulation { target_tolerance: f32, disturbance_frequency_hz: f32 },
+    AlgebraicInvariantProof { operations: usize, precision_bits: u8 },
 }
 
 /// The Sealed Crucible Sandbox
@@ -159,13 +159,13 @@ mod tests {
         };
         graph.nodes.insert(1, node);
 
-        let scenario = VirtualScenario::ActiveAeroCornering {
-            speed_mph: 85.0,
-            surface_friction: 0.95,
+        let scenario = VirtualScenario::DynamicClosedLoopRegulation {
+            target_tolerance: 0.01,
+            disturbance_frequency_hz: 60.0,
         };
 
         let report = sandbox
-            .run_duel(scenario, "Compute optimal downforce angle", &graph)
+            .run_duel(scenario, "Regulate high-frequency control loop", &graph)
             .unwrap();
 
         assert!(report.is_mathematically_valid);
