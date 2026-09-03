@@ -17,9 +17,9 @@ pub mod vision_latent;
 pub mod window_target;
 
 pub use adapters::{
-    AdapterSynthesizer, DeviceHardwareSpec, NormalizedObservation, PhysicalActuatorAdapter,
-    SensoryFeedAdapter, SynthesizedActuatorAdapter, UniversalActuatorCommand,
-    UniversalAdapterRegistry, VirtualSimActuator,
+    AdapterSynthesizer, DeviceHardwareSpec, MarionetteActuatorAdapter, MarionetteSensoryAdapter,
+    NormalizedObservation, PhysicalActuatorAdapter, SensoryFeedAdapter, SynthesizedActuatorAdapter,
+    UniversalActuatorCommand, UniversalAdapterRegistry, VirtualSimActuator,
 };
 pub use robotics::{BoeBotCommand, BoeBotOcularNavigator, CorridorCorridorAnalysis, OcularPerspective};
 

@@ -10,4 +10,7 @@ pub mod audit;
 pub mod utils;
 pub mod verify;
 
-pub use audit::{audit, jit_audit, AuditResult};
+pub use audit::{
+    audit, audit_arch, jit_audit, AArch64Auditor, AuditResult, InstructionSetAuditor, TargetArch,
+    X86_64Auditor,
+};

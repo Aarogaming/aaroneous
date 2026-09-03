@@ -97,6 +97,122 @@ impl PhysicalActuatorAdapter for VirtualSimActuator {
     }
 }
 
+/// Adapter bridging any `MarionetteHost` visual perception into a `SensoryFeedAdapter`
+pub struct MarionetteSensoryAdapter {
+    name: String,
+    host: std::sync::Arc<tokio::sync::Mutex<dyn crate::traits::MarionetteHost>>,
+}
+
+impl MarionetteSensoryAdapter {
+    pub fn new(name: impl Into<String>, host: std::sync::Arc<tokio::sync::Mutex<dyn crate::traits::MarionetteHost>>) -> Self {
+        Self {
+            name: name.into(),
+            host,
+        }
+    }
+}
+
+impl SensoryFeedAdapter for MarionetteSensoryAdapter {
+    fn feed_name(&self) -> &str {
+        &self.name
+    }
+
+    fn sample_observation(&mut self) -> Result<NormalizedObservation> {
+        let host = self.host.clone();
+        let obs = tokio::task::block_in_place(|| {
+            tokio::runtime::Handle::current().block_on(async {
+                let mut h = host.lock().await;
+                h.pull_visual_perception().await
+            })
+        })?;
+
+        Ok(NormalizedObservation {
+            source_id: self.name.clone(),
+            timestamp_us: obs.timestamp_us,
+            latent_feature_vector: obs.grid,
+            metadata_tag: format!("width={},height={}", obs.width, obs.height),
+        })
+    }
+
+    fn is_healthy(&self) -> bool {
+        true
+    }
+}
+
+/// Adapter bridging `UniversalActuatorCommand` to a `MarionetteHost` peripheral input
+pub struct MarionetteActuatorAdapter {
+    name: String,
+    host: std::sync::Arc<tokio::sync::Mutex<dyn crate::traits::MarionetteHost>>,
+    sequence_id: u64,
+}
+
+impl MarionetteActuatorAdapter {
+    pub fn new(name: impl Into<String>, host: std::sync::Arc<tokio::sync::Mutex<dyn crate::traits::MarionetteHost>>) -> Self {
+        Self {
+            name: name.into(),
+            host,
+            sequence_id: 0,
+        }
+    }
+}
+
+impl PhysicalActuatorAdapter for MarionetteActuatorAdapter {
+    fn actuator_name(&self) -> &str {
+        &self.name
+    }
+
+    fn verify_safety_bounds(&self, cmd: &UniversalActuatorCommand) -> bool {
+        match cmd {
+            UniversalActuatorCommand::MoveCursorRelative { dx, dy } => dx.abs() <= 10000 && dy.abs() <= 10000,
+            UniversalActuatorCommand::MoveCursorAbsolute { x, y } => *x >= 0 && *y >= 0,
+            _ => true,
+        }
+    }
+
+    fn dispatch(&mut self, cmd: UniversalActuatorCommand) -> Result<()> {
+        let action = match cmd {
+            UniversalActuatorCommand::MoveCursorRelative { dx, dy } => {
+                crate::traits::HidAction::MouseMove { delta_x: dx, delta_y: dy }
+            }
+            UniversalActuatorCommand::MouseButton { button_code, is_down: _ } => {
+                if button_code == 1 {
+                    crate::traits::HidAction::LeftClick
+                } else {
+                    crate::traits::HidAction::RightClick
+                }
+            }
+            UniversalActuatorCommand::KeyPress { key_code, is_down } => {
+                if is_down {
+                    crate::traits::HidAction::KeyPress { key_code }
+                } else {
+                    crate::traits::HidAction::KeyRelease { key_code }
+                }
+            }
+            _ => return Ok(()),
+        };
+
+        self.sequence_id += 1;
+        let hid_cmd = crate::traits::HidCommand {
+            actions: vec![action],
+            sequence_id: self.sequence_id,
+            timestamp_us: std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_micros() as u64)
+                .unwrap_or(0),
+        };
+
+        let host = self.host.clone();
+        tokio::task::block_in_place(|| {
+            tokio::runtime::Handle::current().block_on(async {
+                let mut h = host.lock().await;
+                h.inject_hid_event(hid_cmd).await
+            })
+        })?;
+
+        Ok(())
+    }
+}
+
 /// Dynamic Runtime Adapter Registry
 #[derive(Default)]
 pub struct UniversalAdapterRegistry {
