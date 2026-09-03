@@ -130,6 +130,8 @@ pub struct McpService {
     pub request_count: Arc<std::sync::atomic::AtomicU64>,
     /// Per-session conversation context for multi-turn MCP tool calls.
     pub sessions: Arc<RwLock<HashMap<String, Vec<String>>>>,
+    /// Universal tool registry bridging Cloud, LLMs, and native .si models
+    pub universal_tools: Arc<specialists::ToolRegistry>,
     /// Workspace root for file tools (read_code, search_code, list_files).
     ///
     /// Resolution order:
@@ -149,6 +151,8 @@ impl McpService {
 
         tracing::info!("MCP workspace root: {}", workspace_root.display());
 
+        let universal_tools = Arc::new(specialists::build_standard_tool_registry());
+
         Self {
             config,
             federation: None,
@@ -157,6 +161,7 @@ impl McpService {
             started_at: std::time::Instant::now(),
             request_count: Arc::new(std::sync::atomic::AtomicU64::new(0)),
             sessions: Arc::new(RwLock::new(HashMap::new())),
+            universal_tools,
             workspace_root,
         }
     }
@@ -392,6 +397,27 @@ impl McpService {
             }),
             vec!["name"],
         ));
+
+        // Register plug-and-play Universal Tools
+        for desc in self.universal_tools.list_tools() {
+            let props = desc
+                .parameters_schema
+                .get("properties")
+                .cloned()
+                .unwrap_or_else(|| serde_json::json!({}));
+            let required = desc
+                .parameters_schema
+                .get("required")
+                .and_then(|r| r.as_array())
+                .map(|arr| {
+                    arr.iter()
+                        .filter_map(|v| v.as_str())
+                        .collect::<Vec<_>>()
+                })
+                .unwrap_or_default();
+
+            tools.push(McpTool::new(&desc.name, &desc.description, props, required));
+        }
 
         info!("Registered {} MCP tools", tools.len());
     }
@@ -749,7 +775,13 @@ impl McpService {
             "signal_wasms" => return self.tool_signal_wasms(args).await,
             "memory_sync" => return self.tool_memory_sync(args).await,
             "federated_task_dispatch" => return self.tool_federated_task_dispatch(args).await,
-            _ => return Err(anyhow::anyhow!("Unknown tool: {}", tool_name)),
+            _ => {
+                // Check if this is a registered Universal Tool (e.g. security.audit, code.repair)
+                if let Ok(result) = self.universal_tools.call_by_name(tool_name, args.clone()).await {
+                    return Ok(serde_json::to_string_pretty(&result)?);
+                }
+                return Err(anyhow::anyhow!("Unknown tool: {}", tool_name));
+            }
         };
 
         let input = args
