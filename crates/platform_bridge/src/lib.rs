@@ -34,7 +34,8 @@ pub use observability::{
     enable_mmcss_time_critical, read_cpu_timestamp, set_thread_performance_affinity,
     AcousticFeatureExtractor, AcousticLatent, EtwKernelConsumer, HardwareCycleProfiler,
     KernelTraceEvent, RawInputListener, RawInputPacket, SensorPowerGate, SensorPowerMode,
-    UiaElementNode, UiaTreeWalker, WasapiCaptureConfig, WasapiLoopbackCapture,
+    ShadowDistillationTap, ShadowExchange, UiaElementNode, UiaTreeWalker, WasapiCaptureConfig,
+    WasapiLoopbackCapture,
 };
 pub use probing::ProcessProbeLogger;
 pub use protocol_bridge::{MarionetteProtocolBridge, MnlpPerceptionPacket};
