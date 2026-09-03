@@ -8,6 +8,7 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
+si_format = { path = "../si_format" }
 si_ir = { path = "../si_ir" }
 aaroneous_paths = { path = "../paths" }
 ipc_bus = { path = "../ipc_bus" }

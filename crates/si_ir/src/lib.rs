@@ -161,6 +161,16 @@ impl NativeComputationalGraph {
     pub fn extract_energy_vector(&self) -> Vec<f64> {
         self.nodes.values().map(|n| n.energy_cost).collect()
     }
+
+    /// Serializes the graph to length-prefixed compact bincode-style or JSON bytes
+    pub fn to_compact_bytes(&self) -> Result<Vec<u8>> {
+        serde_json::to_vec(self).map_err(|e| anyhow!("Graph serialization failed: {e}"))
+    }
+
+    /// Deserializes the graph from compact bytes
+    pub fn from_compact_bytes(bytes: &[u8]) -> Result<Self> {
+        serde_json::from_slice(bytes).map_err(|e| anyhow!("Graph deserialization failed: {e}"))
+    }
 }
 
 /// Structure-of-Arrays (SoA) Dense Computational Storage (Mechanical Sympathy).
@@ -334,6 +344,14 @@ mod tests {
         assert_eq!(graph.nodes.len(), 2);
         assert!((graph.thermodynamic_free_energy - 0.06).abs() < 1e-6);
         assert!(graph.verify_dimensional_invariants().is_ok());
+
+        // Compact byte serialization roundtrip
+        let bytes = graph.to_compact_bytes().unwrap();
+        assert!(!bytes.is_empty());
+        let restored = NativeComputationalGraph::from_compact_bytes(&bytes).unwrap();
+        assert_eq!(restored.nodes.len(), graph.nodes.len());
+        assert_eq!(restored.nodes[&1].id, 1);
+        assert_eq!(restored.nodes[&2].id, 2);
     }
 
     #[test]

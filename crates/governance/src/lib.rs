@@ -5,6 +5,7 @@ pub mod thermodynamic_governor;
 pub mod lattice_verifier;
 pub mod rollback_journal;
 pub mod z3_prover;
+pub mod jit_audit;
 
 pub use biology::{
     SpecialistExecutionBudget, SpecialistHealth, SpecialistMetabolism, SystemBiology,

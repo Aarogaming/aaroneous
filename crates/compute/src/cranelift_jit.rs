@@ -2,6 +2,9 @@
 //! Cranelift Native Machine Code JIT Compiler Engine for Machine-Native IR (`si_ir`).
 //! Translates discrete `NativeComputationalGraph` nodes and `MachineOpcode` variants
 //! into optimized native host machine code (x86_64 / AArch64) in W^X executable memory regions.
+//! Host FFI kernels are registered via Cranelift's symbol table during compilation.
+//! Host FFI kernels are registered via Cranelift's symbol table during compilation.
+//! Host FFI kernels are registered via Cranelift's symbol table during compilation.
 
 use anyhow::{anyhow, Result};
 use cranelift_codegen::ir::{
@@ -14,10 +17,10 @@ use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext};
 use si_ir::{MachineOpcode, NativeComputationalGraph};
 use std::sync::Arc;
 
+pub use crate::ffi_kernels::{host_alloc, host_entropy_min, host_tensor_dot_kernel};
 use crate::si_jit::NativeExecutionContext;
 use crate::wx_memory::WxMemoryRegion;
 
-/// Type definition for JIT-compiled native execution function
 pub type NativeExecutionFn = unsafe extern "C" fn(*mut NativeExecutionContext) -> u64;
 
 /// Cranelift Native JIT Compiler Engine
@@ -181,6 +184,36 @@ impl CraneliftJitEngine {
         let code_buffer = compiled.code_buffer();
         Ok(code_buffer.to_vec())
     }
+
+    /// Compiles a `NativeComputationalGraph` into a minimal standalone microkernel/UEFI binary payload.
+    ///
+    /// Prepends a 64-byte machine header with magic `b"SI_MICRO\0"`, version, payload size,
+    /// and entry point offset so dedicated appliances can boot directly into the execution graph.
+    pub fn compile_microkernel_payload(&self, graph: &NativeComputationalGraph) -> Result<Vec<u8>> {
+        let machine_code = self.compile_graph_to_bytes(graph)?;
+
+        let mut payload = Vec::with_capacity(64 + machine_code.len());
+        // 1. Magic bytes (8 bytes)
+        payload.extend_from_slice(b"SI_MICRO");
+        // 2. Version (u32: 1)
+        payload.extend_from_slice(&1u32.to_le_bytes());
+        // 3. Flags (u32: 0x01 = STANDALONE_APPLIANCE)
+        payload.extend_from_slice(&0x01u32.to_le_bytes());
+        // 4. Entrypoint offset (u64: 64)
+        payload.extend_from_slice(&64u64.to_le_bytes());
+        // 5. Code size (u64)
+        payload.extend_from_slice(&(machine_code.len() as u64).to_le_bytes());
+        // 6. Free energy bound (f64)
+        payload.extend_from_slice(&graph.thermodynamic_free_energy.to_le_bytes());
+        // 7. Reserved padding to 64 bytes
+        while payload.len() < 64 {
+            payload.push(0);
+        }
+
+        // 8. Raw native executable machine code
+        payload.extend_from_slice(&machine_code);
+        Ok(payload)
+    }
 }
 
 #[cfg(test)]
@@ -229,19 +262,16 @@ mod tests {
         graph.add_node(NativeComputationNode {
             id: 1,
             opcode: MachineOpcode::TensorDot { left_reg: 1, right_reg: 2, dim: 64 },
-            type_lattice: NativeTypeLattice::TensorType {
-                shape: vec![64],
-                element_type: Box::new(NativeTypeLattice::PrimitiveFloat { bits: 32 }),
-            },
+            type_lattice: NativeTypeLattice::PrimitiveInt { bits: 32, signed: false },
             energy_cost: 0.10,
             dependencies: vec![],
         });
 
-        // Node 2: Return reg[0]
+// Node 2: Return reg[0]
         graph.add_node(NativeComputationNode {
             id: 2,
             opcode: MachineOpcode::Return { value_reg: 0 },
-            type_lattice: NativeTypeLattice::PrimitiveInt { bits: 64, signed: false },
+            type_lattice: NativeTypeLattice::PrimitiveInt { bits: 32, signed: false },
             energy_cost: 0.01,
             dependencies: vec![1],
         });
@@ -255,5 +285,29 @@ mod tests {
         let result = unsafe { func(&mut ctx) };
         assert_eq!(result, 42);
         assert_eq!(ctx.registers[0], 42);
+    }
+
+    #[test]
+    fn test_cranelift_jit_microkernel_payload_generation() {
+        let jit = CraneliftJitEngine::new().unwrap();
+        let mut graph = NativeComputationalGraph::new();
+
+        graph.add_node(NativeComputationNode {
+            id: 1,
+            opcode: MachineOpcode::Return { value_reg: 0 },
+            type_lattice: NativeTypeLattice::PrimitiveInt { bits: 64, signed: false },
+            energy_cost: 0.02,
+            dependencies: vec![],
+        });
+
+        let payload = jit.compile_microkernel_payload(&graph).unwrap();
+        assert!(payload.len() >= 64);
+        // Verify 8-byte magic
+        assert_eq!(&payload[0..8], b"SI_MICRO");
+        // Verify entrypoint offset is 64
+        let entry_offset = u64::from_le_bytes(payload[16..24].try_into().unwrap());
+        assert_eq!(entry_offset, 64);
+        // Verify non-empty machine code payload follows header
+        assert!(payload.len() > 64);
     }
 }

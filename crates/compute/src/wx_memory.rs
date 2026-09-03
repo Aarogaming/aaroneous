@@ -28,7 +28,7 @@ impl WxMemoryRegion {
 
         // Align allocation size to page boundary (4KB standard)
         let page_size = 4096;
-        let alloc_size = ((code.len() + page_size - 1) / page_size) * page_size;
+        let alloc_size = code.len().div_ceil(page_size) * page_size;
 
         #[cfg(target_os = "windows")]
         {

@@ -42,13 +42,19 @@ pub mod isolated_desktop;
 pub mod si_spec;
 pub mod wx_memory;
 pub mod cranelift_jit;
+pub mod ffi_kernels;
 pub mod episodic_memory;
+pub mod hippo;
 
 pub use wx_memory::WxMemoryRegion;
 pub use cranelift_jit::{CraneliftJitEngine, NativeExecutionFn};
 pub use episodic_memory::{
     simd_cosine_similarity_256, simd_dot_product_256, AcousticReflexMatcher, EpisodicMemoryFabric,
     SearchResult, TrajectoryMetadata, LATENT_VECTOR_DIM,
+};
+pub use hippo::{
+    generate_hippo_discretized, generate_hippo_legendre, discretize_bilinear,
+    HippoLegendreMatrices,
 };
 
 pub use burn_gpu::{GpuTensorAccelerator, GpuTensorProfile};
