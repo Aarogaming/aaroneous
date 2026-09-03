@@ -19,12 +19,16 @@ use tokio::io::AsyncReadExt;
 use tokio::process::Command;
 use tracing::info;
 
-const MAX_ORGAN_STDOUT_BYTES: usize = 16 * 1024 * 1024;
-const MAX_ORGAN_STDERR_BYTES: usize = 1024 * 1024;
+const MAX_COMPONENT_STDOUT_BYTES: usize = 16 * 1024 * 1024;
+const MAX_COMPONENT_STDERR_BYTES: usize = 1024 * 1024;
+
+// Backwards-compatible constants
+const MAX_ORGAN_STDOUT_BYTES: usize = MAX_COMPONENT_STDOUT_BYTES;
+const MAX_ORGAN_STDERR_BYTES: usize = MAX_COMPONENT_STDERR_BYTES;
 
 /// Standard Machine-Native Linking Protocol (MNLP) Response for Wrapped Components
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct OrganResponse {
+pub struct ComponentResponse {
     pub success: bool,
     pub opcode: u16,
     pub correlation_id: u64,
@@ -32,8 +36,9 @@ pub struct OrganResponse {
     pub payload: Vec<u8>,
 }
 
-/// Canonical systems engineering alias for wrapped component responses
-pub type ComponentExecutionResponse = OrganResponse;
+/// Backwards-compatible alias for wrapped component responses
+pub type OrganResponse = ComponentResponse;
+pub type ComponentExecutionResponse = ComponentResponse;
 
 /// Classification of the ingested target software
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -398,15 +403,15 @@ tracing = "0.1"
 }
 
 /// In-Memory Process Runner that executes the wrapped component and formats MNLP responses
-pub struct NativeOrganRunner {
+pub struct NativeComponentRunner {
     pub manifest: TargetCapabilityManifest,
     pub is_dry_run: bool,
 }
 
-/// Canonical systems engineering alias for native component process runner
-pub type NativeComponentRunner = NativeOrganRunner;
+/// Backwards-compatible alias for native component process runner
+pub type NativeOrganRunner = NativeComponentRunner;
 
-impl NativeOrganRunner {
+impl NativeComponentRunner {
     pub fn new(manifest: TargetCapabilityManifest) -> Self {
         Self {
             manifest,
@@ -414,8 +419,8 @@ impl NativeOrganRunner {
         }
     }
 
-    /// Execute the underlying target tool with arguments and convert to an OrganResponse
-    pub async fn invoke(&self, args: &[&str], input_payload: Option<&[u8]>) -> Result<OrganResponse> {
+    /// Execute the underlying target tool with arguments and convert to an ComponentResponse
+    pub async fn invoke(&self, args: &[&str], input_payload: Option<&[u8]>) -> Result<ComponentResponse> {
         let start = Instant::now();
 
         if self.is_dry_run {
@@ -528,8 +533,8 @@ impl NativeOrganRunner {
         }
     }
 
-    /// Process a raw binary payload and correlation ID into an OrganResponse
-    pub async fn handle_raw_request(&self, correlation_id: u64, raw_payload: &[u8]) -> Result<OrganResponse> {
+    /// Process a raw binary payload and correlation ID into a ComponentResponse
+    pub async fn handle_raw_request(&self, correlation_id: u64, raw_payload: &[u8]) -> Result<ComponentResponse> {
         let args_str = String::from_utf8_lossy(raw_payload);
         let args: Vec<&str> = if args_str.trim().is_empty() {
             vec!["--version"]

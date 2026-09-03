@@ -25,8 +25,9 @@ pub use streaming_adaptation::{
 };
 
 pub use auto_wrapper::{
-    AutoWrapperEngine, ComponentExecutionResponse, NativeComponentRunner, NativeOrganRunner,
-    OrganResponse, ProbeValidationReport, TargetCapabilityManifest, TargetProgramType,
+    AutoWrapperEngine, ComponentExecutionResponse, ComponentResponse, NativeComponentRunner,
+    NativeOrganRunner, OrganResponse, ProbeValidationReport, TargetCapabilityManifest,
+    TargetProgramType,
 };
 pub use autonomous_scientific::{
     AutonomousScientificEngine, HypothesisCategory, ScientificCycleReport, TestedHypothesis,
