@@ -274,6 +274,8 @@
 | **P1 (Active Blueprint)** | **Phase 28: 3D Spatial Constellation Engine & Galactic Node Roaming** | Wgpu 3D node-graph galaxy visualizer, 6-DOF orbital camera navigation, live synapse pulse particle physics. | **Blueprint** |
 | **P0 (Active Blueprint)** | **Phase 29: The Crucible: Sealed Virtual Self-Play & Interactive Verification Studio** | Hermetic airgapped sandbox, Teacher-Apprentice adversarial self-play, live SMT proof badge & thermodynamic gauge. | **Blueprint** |
 | **P1 (Active Blueprint)** | **Phase 30: Zero-Friction End-User Simplicity & Single-Click Ecosystem** | 1-Click `.si-pack` installer, auto-hardware profile detection, visual cartridge drag-and-drop, and conversational tuning. | **Blueprint** |
+| **P0 (Active Blueprint)** | **Phase 31: Machine-Native Intent Mapping & Linguistic Lens Architecture** | Decoupled lightweight edge language lens, language-free R^4096 intent manifold, direct Opcode DAG synthesis. | **Blueprint** |
+| **P1 (Active Blueprint)** | **Phase 32: The `.lib` Binary State Bank & Dynamic Neuro-Symbiosis** | Zero-copy columnar tensor vault (`.lib`), SIMD-compressed physical logs, cross-agent telepathic sub-symbolic syncing. | **Blueprint** |
 
 ---
 
@@ -768,6 +770,30 @@ Documented in detail in `dev/docs/17_DEFECT_AUDIT_AND_REMEDIATION_PLAN.md`.
 
 ---
 
-*Last updated: 2026-09-03 | Complete 5-pillar, 30-phase architectural framework*
+### Phase 31: Machine-Native Intent Mapping & Linguistic Lens Architecture (Blueprint)
+*Decoupled edge language processing, language-free R^4096 topological intent manifold, and direct Opcode DAG synthesis.*
+
+- [ ] **INTENT-01: Decoupled Edge Linguistic Lens (`LinguisticLens`)**
+  - Implement pluggable edge tokenizer/translator in `crates/orchestrator`: converts incoming human voice/text tokens into continuous $\mathbb{R}^{256}/\mathbb{R}^{4096}$ intent vectors without running core intelligence through slow text generation loops.
+- [ ] **INTENT-02: Universal Semantic-Execution Invariant Mapping**
+  - Map intent manifolds directly into `NativeComputationalGraph` goal nodes governed by 7-exponent SI dimensional constraints, eliminating syntax errors, prompt injection, and hallucinations at the algebraic level.
+- [ ] **INTENT-03: Multi-Lingual Swappable Edge Adapters**
+  - Enable instantaneous swapping of the edge language lens (English, Japanese, German, Spanish) without modifying or retraining the underlying spatial, physical, or logical core.
+
+---
+
+### Phase 32: The `.lib` Binary State Bank & Dynamic Neuro-Symbiosis (Blueprint)
+*Zero-copy columnar tensor vault (`.lib`), SIMD-compressed physical telemetry, and sub-symbolic P2P agent telepathy.*
+
+- [ ] **LIB-01: Zero-Copy Memory-Mapped Columnar State Bank (`StateBankLib`)**
+  - Implement `.lib` binary format in `crates/compute`: 64-byte aligned, SIMD-compressed columnar storage for nanosecond hardware timestamps, 7-exponent SI units, 120 FPS visual latents, and raw peripheral packets with zero text serialization overhead.
+- [ ] **LIB-02: Microcontroller Direct-DMA Log Streaming**
+  - Enable bare-metal microcontrollers (RP2350, ESP32) to write structured `.lib` records directly to SPI/SD media without dynamic heap allocations.
+- [ ] **LIB-03: Sub-Symbolic Multi-Agent Telepathy (Direct Latent Sync)**
+  - Swarm nodes exchange raw `.lib` tensor frames and LoRA delta packets over QUIC datagrams, sharing complex spatial maneuvers and environmental awareness without natural language conversion.
+
+---
+
+*Last updated: 2026-09-03 | Complete 5-pillar, 32-phase architectural framework*
 
 
