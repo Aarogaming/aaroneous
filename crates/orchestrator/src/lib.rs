@@ -5,6 +5,7 @@ pub mod agents;
 pub mod archetypes;
 pub mod aura_ui;
 pub mod aura_ui_manifest;
+pub mod cartridge_manager;
 pub mod control;
 pub mod dynamic_ui;
 pub mod compaction_engine;
@@ -22,6 +23,9 @@ pub mod swarm_balancer;
 pub mod workflow_engine;
 pub mod workspace;
 
+pub use cartridge_manager::{
+    CartridgePackManager, CartridgePackManifest, HardwareAutoTuner, HostSystemProfile,
+};
 pub use crucible_provider::{CrucibleTeacherEndpoint, TeacherBackendConfig, UniversalHttpTeacher};
 pub use linguistic_intercom::{ExecutionDomain, LinguisticIntercom, TransducedIntent};
 pub use lmstudio_client::{ChatChoice, ChatCompletionRequest, ChatCompletionResponse, ChatMessage, LmStudioClient};
