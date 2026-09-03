@@ -1,6 +1,4 @@
-//! crates/platform_bridge
-//! Unified frontend platform bridge, visual perception, backend probing, and datalogging organ for Aaroneous.
-
+pub mod adapters;
 pub mod audio_analyzer;
 pub mod epigenetic_vision;
 pub mod event_recorder;
@@ -18,6 +16,10 @@ pub mod traits;
 pub mod vision_latent;
 pub mod window_target;
 
+pub use adapters::{
+    NormalizedObservation, PhysicalActuatorAdapter, SensoryFeedAdapter, UniversalActuatorCommand,
+    UniversalAdapterRegistry, VirtualSimActuator,
+};
 pub use robotics::{BoeBotCommand, BoeBotOcularNavigator, CorridorCorridorAnalysis, OcularPerspective};
 
 pub use audio_analyzer::{AudioEventObservation, AudioFrequencySpectrum, WasapiAudioStreamAnalyzer};
