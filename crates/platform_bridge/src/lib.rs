@@ -12,10 +12,13 @@ pub mod native_win32;
 pub mod observability;
 pub mod probing;
 pub mod protocol_bridge;
+pub mod robotics;
 pub mod sensory_motor_loop;
 pub mod traits;
 pub mod vision_latent;
 pub mod window_target;
+
+pub use robotics::{BoeBotCommand, BoeBotOcularNavigator, CorridorCorridorAnalysis, OcularPerspective};
 
 pub use audio_analyzer::{AudioEventObservation, AudioFrequencySpectrum, WasapiAudioStreamAnalyzer};
 pub use epigenetic_vision::{
