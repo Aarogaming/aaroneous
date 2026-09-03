@@ -35,8 +35,8 @@ pub use router::{FederationBusRelic, MeshPeerState, MeshRouterEngine, RouterSpec
 pub use sentinel::{AuditEngineRelic, SecurityAuditEngine, SecurityAuditReport, SentinelSpecialist};
 pub use synthesizer::{KnowledgeStoreEngine, KnowledgeStoreRelic, KnowledgeSynthesis, SynthesizerSpecialist};
 pub use tools::{
-    build_standard_tool_registry, CodeRepairTool, CodebaseReviewTool, SecurityAuditTool,
-    StructuralRewriteTool,
+    build_standard_tool_registry, CodeRepairTool, CodebaseReviewTool, KnowledgeSemanticTool,
+    MemoryIndexTool, PlatformSensoryTool, SecurityAuditTool, StructuralRewriteTool, UiLayoutTool,
 };
 pub use traits::{DomainSubEngine, MnlpPacket, MnlpResponse, RelicEngine, Specialist, SovereignSpecialist, SpecialistHealth};
 pub use universal_tool::{ToolDescriptor, ToolRegistry, UniversalTool};
