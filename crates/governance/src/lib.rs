@@ -25,7 +25,7 @@ pub use metrics_exporter::{
     InMemoryMetricsSink, MetricObservation, UniversalMetricsExporter, UniversalMetricsSink,
 };
 pub use rollback_journal::{GenerationSnapshot, GenerationalJournal};
-pub use smt_action_interlock::{InterlockAuditCertificate, SmtActionInterlock};
+pub use smt_action_interlock::{InterlockAuditCertificate, SmtActionInterlock, SmtProofCache, SmtProofKey};
 pub use thermodynamic_governor::{
     ThermodynamicAction, ThermodynamicForecast, ThermodynamicGovernor, ThermodynamicGovernorConfig,
 };

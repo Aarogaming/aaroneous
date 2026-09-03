@@ -47,6 +47,8 @@ pub struct SiMoERegister {
     top_k: usize,
     cycle_counter: AtomicU64,
     co_activation_matrix: HashMap<(usize, usize), u64>,
+    contiguous_tensor_slab: Vec<f32>,
+    stride_floats: usize,
 }
 
 impl SiMoERegister {
@@ -57,13 +59,28 @@ impl SiMoERegister {
             slots.push(None);
         }
 
+        let stride_floats = 256;
+        let slab_size = capacity * stride_floats;
+
         Self {
             slots,
             conductor_slot: None,
             top_k: top_k.max(1),
             cycle_counter: AtomicU64::new(1),
             co_activation_matrix: HashMap::new(),
+            contiguous_tensor_slab: vec![0.0f32; slab_size],
+            stride_floats,
         }
+    }
+
+    /// Access the contiguous pre-allocated VRAM/RAM tensor buffer slab for zero allocation churn
+    pub fn contiguous_tensor_slab(&self) -> &[f32] {
+        &self.contiguous_tensor_slab
+    }
+
+    /// Stride in floats between consecutive organ slots in the contiguous slab
+    pub fn stride_floats(&self) -> usize {
+        self.stride_floats
     }
 
     /// Default 16-slot register with Top-3 active execution
@@ -259,5 +276,9 @@ mod tests {
 
         let merge_candidates = register.find_merge_candidates(3);
         assert!(!merge_candidates.is_empty(), "Consistently co-activating organs must be identified");
+
+        // PERF-03: Contiguous pre-allocated VRAM slab verification
+        assert_eq!(register.contiguous_tensor_slab().len(), 8 * 256);
+        assert_eq!(register.stride_floats(), 256);
     }
 }
