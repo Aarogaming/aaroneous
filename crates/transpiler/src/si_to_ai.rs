@@ -30,7 +30,7 @@ impl SiToAiTranspiler {
             "You are a specialized AI co-pilot working with the Aaroneous Synthetic Intelligence engine.\n\
              Domain: {}\n\
              Task ID: {}\n\
-             Output format: Strict code block or structured JSON with zero conversational conversational preamble.",
+             Output format: Strict code block or structured JSON with zero conversational preamble.",
             domain, task_id
         );
 
