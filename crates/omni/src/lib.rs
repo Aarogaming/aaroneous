@@ -7,6 +7,7 @@ pub mod matrix;
 pub mod protocol_bridge;
 pub mod query_engine;
 pub mod spatial_coord;
+pub mod spatial_layout;
 pub mod star_node;
 pub mod vector_index;
 
@@ -25,6 +26,7 @@ pub use protocol_bridge::{
 };
 pub use query_engine::{OmniQueryEngine, OmniQueryFilter, SpatialFrustum};
 pub use spatial_coord::SpatialCoord;
+pub use spatial_layout::{NonOverlapSolver, RectAabb, WindowArrangementStrategy};
 pub use star_node::{LinkType, Priority, StarNode, StarNodeStatus, StarNodeType};
 pub use vector_index::{BoundingBox3D, VectorDocument, VectorIndexEngine, VectorSearchResult};
 
