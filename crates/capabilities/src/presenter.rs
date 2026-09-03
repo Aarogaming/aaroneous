@@ -202,7 +202,7 @@ mod tests {
         let mut presenter = PresenterSpecialist::new();
         let frame = presenter.compose_ui_frame("OmniGalaxyView", "Exploring sector 4");
         assert_eq!(frame.active_view, "OmniGalaxyView");
-        assert_eq!(presenter.glass.frames_streamed, 1);
+        assert_eq!(presenter.display_buffer.frames_streamed, 1);
     }
 
     #[test]

@@ -3,7 +3,7 @@ resolver = "2"
 
 members = [
     "crates/ipc_bus",
-    "crates/specialists",
+    "crates/capabilities",
     "crates/orchestrator",
     "crates/autonomic_adaptation",
     "crates/adaptation_engine",
