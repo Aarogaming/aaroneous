@@ -12,7 +12,9 @@ pub mod presenter;
 pub mod router;
 pub mod sentinel;
 pub mod synthesizer;
+pub mod tools;
 pub mod traits;
+pub mod universal_tool;
 
 pub extern crate ipc_bus as nervous_system;
 pub use ipc_bus;
@@ -32,7 +34,12 @@ pub use presenter::{DisplayBufferEngine, DisplayBufferRelic, PresenterSpecialist
 pub use router::{FederationBusRelic, MeshPeerState, MeshRouterEngine, RouterSpecialist};
 pub use sentinel::{AuditEngineRelic, SecurityAuditEngine, SecurityAuditReport, SentinelSpecialist};
 pub use synthesizer::{KnowledgeStoreEngine, KnowledgeStoreRelic, KnowledgeSynthesis, SynthesizerSpecialist};
+pub use tools::{
+    build_standard_tool_registry, CodeRepairTool, CodebaseReviewTool, SecurityAuditTool,
+    StructuralRewriteTool,
+};
 pub use traits::{DomainSubEngine, MnlpPacket, MnlpResponse, RelicEngine, Specialist, SovereignSpecialist, SpecialistHealth};
+pub use universal_tool::{ToolDescriptor, ToolRegistry, UniversalTool};
 
 use anyhow::{bail, Result};
 use std::collections::HashMap;
