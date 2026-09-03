@@ -22,7 +22,7 @@ use tracing::info;
 const MAX_ORGAN_STDOUT_BYTES: usize = 16 * 1024 * 1024;
 const MAX_ORGAN_STDERR_BYTES: usize = 1024 * 1024;
 
-/// Standard Machine-Native Linking Protocol (MNLP) Response for Wrapped Organs
+/// Standard Machine-Native Linking Protocol (MNLP) Response for Wrapped Components
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct OrganResponse {
     pub success: bool,
@@ -31,6 +31,9 @@ pub struct OrganResponse {
     pub message: String,
     pub payload: Vec<u8>,
 }
+
+/// Canonical systems engineering alias for wrapped component responses
+pub type ComponentExecutionResponse = OrganResponse;
 
 /// Classification of the ingested target software
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -394,11 +397,14 @@ tracing = "0.1"
     }
 }
 
-/// In-Memory Process Runner that executes the wrapped organ and formats MNLP responses
+/// In-Memory Process Runner that executes the wrapped component and formats MNLP responses
 pub struct NativeOrganRunner {
     pub manifest: TargetCapabilityManifest,
     pub is_dry_run: bool,
 }
+
+/// Canonical systems engineering alias for native component process runner
+pub type NativeComponentRunner = NativeOrganRunner;
 
 impl NativeOrganRunner {
     pub fn new(manifest: TargetCapabilityManifest) -> Self {
