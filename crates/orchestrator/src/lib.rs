@@ -9,6 +9,7 @@ pub mod control;
 pub mod dynamic_ui;
 pub mod compaction_engine;
 pub mod hive_runtime;
+pub mod crucible_provider;
 pub mod intent_engine;
 pub mod linguistic_transducer;
 pub mod llm;
@@ -20,6 +21,7 @@ pub mod swarm_balancer;
 pub mod workflow_engine;
 pub mod workspace;
 
+pub use crucible_provider::{CrucibleTeacherEndpoint, TeacherBackendConfig, UniversalHttpTeacher};
 pub use lmstudio_client::{ChatChoice, ChatCompletionRequest, ChatCompletionResponse, ChatMessage, LmStudioClient};
 
 pub extern crate ipc_bus as nervous_system;
