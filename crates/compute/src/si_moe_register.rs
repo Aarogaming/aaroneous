@@ -1,22 +1,25 @@
 // crates/compute/src/si_moe_register.rs
-//! Universal Sparse MoE Organ Register & Dynamic Routing Engine.
+//! Universal Sparse MoE Module Register & Dynamic Routing Engine.
 //!
-//! Maintains a memory-mapped sparse register of specialized `.si` cartridges ("Organs").
-//! 1 Conductor Organ evaluates sparse latent gating scalars across all registered specialists.
-//! Evaluates ONLY the Top-K (default K=3) active organs per execution cycle, keeping the
-//! remaining mounted organs at 0% CPU and GPU utilization.
+//! Maintains a memory-mapped sparse register of specialized `.si` cartridges ("Experts").
+//! 1 Conductor Expert evaluates sparse latent gating scalars across all registered specialists.
+//! Evaluates ONLY the Top-K (default K=3) active experts per execution cycle, keeping the
+//! remaining mounted experts at 0% CPU and GPU utilization.
 
 use anyhow::{bail, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
 
-pub const DEFAULT_MAX_ORGAN_SLOTS: usize = 16;
+pub const DEFAULT_MAX_EXPERT_SLOTS: usize = 16;
 pub const DEFAULT_ACTIVE_TOP_K: usize = 3;
 
-/// Telemetry metadata for a mounted `.si` organ
+// Backwards-compatible type alias
+pub const DEFAULT_MAX_ORGAN_SLOTS: usize = DEFAULT_MAX_EXPERT_SLOTS;
+
+/// Telemetry metadata for a mounted `.si` expert cartridge
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct OrganDescriptor {
+pub struct CartridgeDescriptor {
     pub slot_id: usize,
     pub cartridge_id: String,
     pub domain_name: String,
@@ -24,25 +27,38 @@ pub struct OrganDescriptor {
     pub total_activations: u64,
 }
 
-/// A slot within the Sparse Organ Register
-pub struct OrganSlot {
-    pub descriptor: OrganDescriptor,
+// Backwards-compatible type alias
+pub type OrganDescriptor = CartridgeDescriptor;
+
+/// A slot within the Sparse Expert Register
+pub struct ExpertSlot {
+    pub descriptor: CartridgeDescriptor,
     pub is_active: bool,
     pub gating_weight: f32,
 }
+
+// Backwards-compatible type alias
+pub type OrganSlot = ExpertSlot;
 
 /// Outcome of a sparse MoE execution cycle
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MoEExecutionReport {
     pub cycle_id: u64,
-    pub active_organ_slots: Vec<usize>,
+    pub active_expert_slots: Vec<usize>,
     pub gating_weights: HashMap<usize, f32>,
     pub latency_us: u64,
 }
 
-/// The Universal Sparse MoE Organ Register
+impl MoEExecutionReport {
+    /// Backwards-compatible accessor for active slots
+    pub fn active_organ_slots(&self) -> &[usize] {
+        &self.active_expert_slots
+    }
+}
+
+/// The Universal Sparse MoE Module Register
 pub struct SiMoERegister {
-    slots: Vec<Option<OrganSlot>>,
+    slots: Vec<Option<ExpertSlot>>,
     conductor_slot: Option<usize>,
     top_k: usize,
     cycle_counter: AtomicU64,
@@ -78,18 +94,18 @@ impl SiMoERegister {
         &self.contiguous_tensor_slab
     }
 
-    /// Stride in floats between consecutive organ slots in the contiguous slab
+    /// Stride in floats between consecutive expert slots in the contiguous slab
     pub fn stride_floats(&self) -> usize {
         self.stride_floats
     }
 
     /// Default 16-slot register with Top-3 active execution
     pub fn default_register() -> Self {
-        Self::new(DEFAULT_MAX_ORGAN_SLOTS, DEFAULT_ACTIVE_TOP_K)
+        Self::new(DEFAULT_MAX_EXPERT_SLOTS, DEFAULT_ACTIVE_TOP_K)
     }
 
-    /// Mounts an `.si` organ into a specific register slot
-    pub fn mount_organ(
+    /// Mounts an `.si` expert into a specific register slot
+    pub fn mount_expert(
         &mut self,
         slot_id: usize,
         cartridge_id: impl Into<String>,
@@ -103,7 +119,7 @@ impl SiMoERegister {
         let cid = cartridge_id.into();
         let dom = domain.into();
 
-        let desc = OrganDescriptor {
+        let desc = CartridgeDescriptor {
             slot_id,
             cartridge_id: cid,
             domain_name: dom,
@@ -115,13 +131,24 @@ impl SiMoERegister {
             self.conductor_slot = Some(slot_id);
         }
 
-        self.slots[slot_id] = Some(OrganSlot {
+        self.slots[slot_id] = Some(ExpertSlot {
             descriptor: desc,
             is_active: false,
             gating_weight: 0.0,
         });
 
         Ok(())
+    }
+
+    /// Backwards-compatible alias for mount_expert
+    pub fn mount_organ(
+        &mut self,
+        slot_id: usize,
+        cartridge_id: impl Into<String>,
+        domain: impl Into<String>,
+        is_conductor: bool,
+    ) -> Result<()> {
+        self.mount_expert(slot_id, cartridge_id, domain, is_conductor)
     }
 
     /// Atomically verifies and mounts a canonical `.si` cartridge file into a register slot
@@ -151,20 +178,20 @@ impl SiMoERegister {
             .and_then(|s| s.to_str())
             .unwrap_or("unnamed_cartridge");
 
-        self.mount_organ(slot_id, file_name, "CanonicalExecutionBlock", is_conductor)
+        self.mount_expert(slot_id, file_name, "CanonicalExecutionBlock", is_conductor)
     }
 
-    /// Number of mounted organs
+    /// Number of mounted experts
     pub fn mounted_count(&self) -> usize {
         self.slots.iter().filter(|s| s.is_some()).count()
     }
 
-    /// Evaluates conductor gating and dispatches execution ONLY to the Top-K active organs
+    /// Evaluates conductor gating and dispatches execution ONLY to the Top-K active experts
     pub fn dispatch_cycle(&mut self, state_vector: &[f32]) -> Result<MoEExecutionReport> {
         let cycle_id = self.cycle_counter.fetch_add(1, Ordering::Relaxed);
         let start_time = std::time::Instant::now();
 
-        // 1. Calculate sparse gating scalars across all mounted non-conductor specialist organs
+        // 1. Calculate sparse gating scalars across all mounted non-conductor specialist experts
         let mut candidate_scores: Vec<(usize, f32)> = Vec::new();
 
         for (idx, slot_opt) in self.slots.iter_mut().enumerate() {
@@ -182,7 +209,7 @@ impl SiMoERegister {
             }
         }
 
-        // 2. Select Top-K highest scoring organs
+        // 2. Select Top-K highest scoring experts
         candidate_scores.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
         let selected_indices: Vec<usize> = candidate_scores
             .iter()
@@ -190,7 +217,7 @@ impl SiMoERegister {
             .map(|(idx, _)| *idx)
             .collect();
 
-        // 3. Mark selected organs active, keep all other mounted organs completely inactive
+        // 3. Mark selected experts active, keep all other mounted experts completely inactive
         let mut gating_map = HashMap::new();
         for (idx, slot_opt) in self.slots.iter_mut().enumerate() {
             if let Some(slot) = slot_opt {
@@ -221,13 +248,13 @@ impl SiMoERegister {
 
         Ok(MoEExecutionReport {
             cycle_id,
-            active_organ_slots: selected_indices,
+            active_expert_slots: selected_indices,
             gating_weights: gating_map,
             latency_us: elapsed_us,
         })
     }
 
-    /// Identifies organ clusters that co-fire together frequently and are candidates for SVD merging
+    /// Identifies expert clusters that co-fire together frequently and are candidates for SVD merging
     pub fn find_merge_candidates(&self, co_fire_threshold: u64) -> Vec<(usize, usize, u64)> {
         self.co_activation_matrix
             .iter()
@@ -252,13 +279,13 @@ mod tests {
         let mut register = SiMoERegister::new(8, 2); // 8 slots, Top-2 active
 
         // Mount conductor
-        register.mount_organ(0, "cortex_conductor", "GlobalConductor", true).unwrap();
+        register.mount_expert(0, "cortex_conductor", "GlobalConductor", true).unwrap();
 
-        // Mount 4 specialist organs
-        register.mount_organ(1, "ocular_vision", "Vision", false).unwrap();
-        register.mount_organ(2, "kinetic_aim", "Kinematics", false).unwrap();
-        register.mount_organ(3, "wasapi_audio", "Audio", false).unwrap();
-        register.mount_organ(4, "automotive_can", "Automotive", false).unwrap();
+        // Mount 4 specialist experts
+        register.mount_expert(1, "ocular_vision", "Vision", false).unwrap();
+        register.mount_expert(2, "kinetic_aim", "Kinematics", false).unwrap();
+        register.mount_expert(3, "wasapi_audio", "Audio", false).unwrap();
+        register.mount_expert(4, "automotive_can", "Automotive", false).unwrap();
 
         assert_eq!(register.mounted_count(), 5);
 
@@ -266,8 +293,8 @@ mod tests {
         let state = vec![1.2, 0.8, 2.5, 0.1, 0.4];
         let report = register.dispatch_cycle(&state).unwrap();
 
-        // Exactly Top-2 organs must be selected
-        assert_eq!(report.active_organ_slots.len(), 2);
+        // Exactly Top-2 experts must be selected
+        assert_eq!(report.active_expert_slots.len(), 2);
 
         // Run 5 cycles to generate co-activation history
         for _ in 0..5 {
@@ -275,7 +302,7 @@ mod tests {
         }
 
         let merge_candidates = register.find_merge_candidates(3);
-        assert!(!merge_candidates.is_empty(), "Consistently co-activating organs must be identified");
+        assert!(!merge_candidates.is_empty(), "Consistently co-activating experts must be identified");
 
         // PERF-03: Contiguous pre-allocated VRAM slab verification
         assert_eq!(register.contiguous_tensor_slab().len(), 8 * 256);

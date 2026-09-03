@@ -75,7 +75,10 @@ pub use hippo::{
     HippoLegendreMatrices,
 };
 pub use macro_ssm::{ContinuousMacroSsm, MacroSsmConfig, MACRO_LATENT_DIM, MACRO_STATE_DIM};
-pub use si_moe_register::{MoEExecutionReport, OrganDescriptor, OrganSlot, SiMoERegister};
+pub use si_moe_register::{
+    CartridgeDescriptor, ExpertSlot, MoEExecutionReport, OrganDescriptor, OrganSlot, SiMoERegister,
+    DEFAULT_MAX_EXPERT_SLOTS, DEFAULT_MAX_ORGAN_SLOTS,
+};
 
 pub use burn_gpu::{GpuTensorAccelerator, GpuTensorProfile};
 pub use si_spec::{

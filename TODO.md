@@ -682,15 +682,15 @@ Documented in detail in `dev/docs/17_DEFECT_AUDIT_AND_REMEDIATION_PLAN.md`.
 
 ---
 
-### Phase 25: Universal MoE Organ Register & Cartridge Stacker (Complete)
-*Sparse multi-organ routing register, sub-50μs Top-K gating, and SVD cartridge consolidation.*
+### Phase 25: Universal MoE Module Register & Cartridge Stacker (Complete)
+*Sparse multi-expert routing register, sub-50μs Top-K gating, and SVD cartridge consolidation.*
 
-- [x] **MOE-01: Sparse Multi-Organ Memory-Mapped Register (`SiMoERegister`)**
-  - Implemented sparse 16-slot organ register in `crates/compute`: mounts multiple `.si` specialist cartridges simultaneously with zero idle CPU/GPU consumption.
+- [x] **MOE-01: Sparse Multi-Module Memory-Mapped Register (`SiMoERegister`)**
+  - Implemented sparse 16-slot expert register in `crates/compute`: mounts multiple `.si` specialist cartridges simultaneously with zero idle CPU/GPU consumption.
 - [x] **MOE-02: Top-K Latent Dynamic Conductor Routing**
-  - Conductor evaluates sparse gating scalars across mounted specialist limbs, executing only the Top-K (default K=3) active organs per cycle with microsecond latency.
+  - Conductor evaluates sparse gating scalars across mounted specialist cartridges, executing only the Top-K (default K=3) active experts per cycle with microsecond latency.
 - [x] **MOE-03: Autonomous Cartridge Stacker & SVD Merger (`SiConsolidator`)**
-  - Implemented `co_activation_matrix` tracking inter-organ co-activation telemetry to identify candidate clusters for future SVD cartridge consolidation.
+  - Implemented `co_activation_matrix` tracking inter-expert co-activation telemetry to identify candidate clusters for future SVD cartridge consolidation.
 
 ---
 
@@ -774,7 +774,7 @@ Documented in detail in `dev/docs/17_DEFECT_AUDIT_AND_REMEDIATION_PLAN.md`.
 *DirectML / Qualcomm / Intel NPU tensor offloading (45 TOPS), quantum unitary SSM Hamiltonian execution, and near-zero-watt continuous reflexes.*
 
 - [x] **NPU-01: DirectML & Native NPU Acceleration Engine (`NpuTensorBackend`)**
-  - Implemented NPU hardware dispatch in `crates/compute`: binds the 16-organ MoE register to 45+ TOPS NPU matrix math at $< 2\text{W}$ power draw with `DynamicSiliconRouter` battery-saver hopping.
+  - Implemented NPU hardware dispatch in `crates/compute`: binds the 16-slot expert MoE register to 45+ TOPS NPU matrix math at $< 2\text{W}$ power draw with `DynamicSiliconRouter` battery-saver hopping.
 - [x] **NPU-03: Quantum Hamiltonian Unitary Operator Bridge (`QuantumMacroSsm`)**
   - Implemented Cayley bilinear transform and SSM transition mapping in `crates/compute/src/macro_ssm.rs`.
 
