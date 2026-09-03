@@ -42,12 +42,14 @@ pub mod isolated_desktop;
 pub mod si_spec;
 pub mod wx_memory;
 pub mod cranelift_jit;
+pub mod crucible;
 pub mod ffi_kernels;
 pub mod episodic_memory;
 pub mod hippo;
 pub mod macro_ssm;
 pub mod si_moe_register;
 
+pub use crucible::{CrucibleDuelReport, CrucibleSandbox, VirtualScenario};
 pub use wx_memory::WxMemoryRegion;
 pub use cranelift_jit::{CraneliftJitEngine, NativeExecutionFn};
 pub use episodic_memory::{

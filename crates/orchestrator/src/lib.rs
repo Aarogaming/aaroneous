@@ -12,12 +12,15 @@ pub mod hive_runtime;
 pub mod intent_engine;
 pub mod linguistic_transducer;
 pub mod llm;
+pub mod lmstudio_client;
 pub mod mdps_router;
 pub mod tier_allocator;
 pub use tier_allocator as pantheon_orchestrator;
 pub mod swarm_balancer;
 pub mod workflow_engine;
 pub mod workspace;
+
+pub use lmstudio_client::{ChatChoice, ChatCompletionRequest, ChatCompletionResponse, ChatMessage, LmStudioClient};
 
 pub extern crate ipc_bus as nervous_system;
 pub use ipc_bus;
