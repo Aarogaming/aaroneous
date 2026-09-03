@@ -698,17 +698,19 @@ Documented in detail in `dev/docs/17_DEFECT_AUDIT_AND_REMEDIATION_PLAN.md`.
 
 ---
 
-### Phase 26: Automotive & Embedded Industrial Logic Controller (Blueprint)
-*Microsecond CANbus/FlexRay vehicular module translation, active aerodynamic control, and distributed powertrain reflex mesh.*
+### Phase 26: Automotive, Embedded Robotics & Head-Unit Bridge (Blueprint)
+*Microsecond CANbus vehicular translation, active aerodynamic hindsight adaptation, BOE-Bot ocular cybernetics, and Android head-unit app canning.*
 
 - [ ] **AUTO-01: Low-Latency CAN 2.0B / CAN-FD & Industrial I/O Abstraction**
   - Implement `AutomotiveBusBridge` in `crates/platform_bridge`: zero-copy 1Mbps CAN 2.0B, 5Mbps CAN-FD, and SPI/I2C peripheral frame packetization with microsecond hardware timestamping.
 - [ ] **AUTO-02: Universal Inter-Module Translation Engine**
   - Real-time bidirectional translation between disparate automotive ECUs (Engine ECU $\leftrightarrow$ Transmission TCU $\leftrightarrow$ Active Aero Controller), translating proprietary arbitration IDs and bitfields at $< 15\mu\text{s}$ latency without gateway latency penalties.
-- [ ] **AUTO-03: Predictive Dynamic Aero & Thermal Regulation Reflexes**
-  - State Space Model (SSM) reflex loop running on vehicle dynamics (G-force, yaw rate, wheel slip, coolant/intake temps) adjusting active wing angles, brake cooling ducts, and radiator louvers in $< 180\mu\text{s}$.
-- [ ] **AUTO-04: Distributed Vehicular Sub-Swarm Telemetry & Fail-Safe Fence**
-  - Distributed `si_micro` nodes sharing vehicle state across local bus topologies with SMT-verified physical interlock gates (instantly reverting to mechanical fail-safe states if sensor loss or thermodynamic bounds are tripped).
+- [ ] **AUTO-03: Predictive Dynamic Aero & Closed-Loop Hindsight Adaptation**
+  - Continuous State Space Model (SSM) reflex loop evaluating post-maneuver telemetry ("Could we have used the wing better?"), computing residual hindsight deltas and updating Streaming LoRA weights to pre-correct aerodynamic handling in $< 180\mu\text{s}$.
+- [ ] **AUTO-04: Android Head-Unit Replacement & Sandboxed App Canning**
+  - Bare-metal flashing over OEM Android automotive SoCs (Snapdragon 8155/8295) with hardware CAN access, isolating consumer Android apps (Spotify, Maps) in an airgapped Waydroid container surface without CANbus privileges.
+- [ ] **AUTO-05: Wireless BOE-Bot Cybernetic Ocular Robotics Suite**
+  - Complete integration of `BoeBotOcularNavigator` and wireless serial telemetry bridge, enabling driver's seat first-person POV and satellite top-down maze traversal on classroom micro-controllers.
 
 ---
 
