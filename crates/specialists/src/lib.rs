@@ -4,6 +4,7 @@
 pub mod aligner;
 pub mod archivist;
 pub mod code_specialist;
+pub mod codebase_auditor;
 pub mod dev_tools;
 pub mod orchestrator;
 pub mod perceiver;
@@ -20,6 +21,10 @@ pub use autonomic_adaptation;
 
 pub use aligner::{AlignerSpecialist, AlignmentEngine, HarmonyEngineRelic, SymbioticResonanceReport};
 pub use archivist::{ArchivistSpecialist, MemoryIndexEngine, MemoryIndexRelic};
+pub use codebase_auditor::{
+    AuditFinding, AuditSeverity, AutonomousAuditReport, CodebaseReviewEngine,
+    CodebaseReviewSpecialist,
+};
 pub use dev_tools::{CompilerCoreRelic, CompilerForgeEngine, DevToolsSpecialist, FabricatorSpecialist};
 pub use orchestrator::{OrchestratorCoreRelic, OrchestratorSpecialist, TaskNode, TaskSchedulerEngine};
 pub use perceiver::{GatekeeperEngineRelic, PerceptionGateEngine, PerceiverSpecialist};
