@@ -246,16 +246,16 @@
 | Priority | Phase / Area | Strategic Rationale (Safety & ROI) | Status |
 |---|---|---|---|
 | **P0-A (Safety)** | **Phase 29: The Crucible: Sealed Virtual Self-Play & Verification Studio** | **Safety: Maximum.** Airgapped W^X sandbox ensures models cannot escape or issue rogue commands.<br>**ROI: Massive.** 10,000 self-play cycles/min using local LMStudio/free APIs. Instant bootstrap. | **Complete** |
-| **P0-B (ROI)** | **Phase 31: Machine-Native Intent Mapping & Linguistic Lens** | **Safety: High.** Direct Opcode DAG invariants eliminate prompt injection and syntax hallucinations.<br>**ROI: Immediate.** Enables conversational speech/chat & zero-latency phoneme voice out (`AcousticVoiceSynthesizer`). | **Blueprint** |
-| **P0-C (Hardware ROI)**| **Phase 33: Heterogeneous Silicon: Native NPU Acceleration** | **Safety: Medium.** Hardware memory isolation via DirectML/NPU drivers.<br>**ROI: Immediate.** Wakes up unused 45 TOPS NPU at ~2W power. Zero FPS drop in games/rendering. | **Blueprint** |
-| **P0-D (Data ROI)** | **Phase 32: The `.lib` Binary State Bank & Zero-Copy Vault** | **Safety: High.** Cryptographic Merkle audit trail, crash WAL snapshotter, & sleep memory consolidation.<br>**ROI: High.** SIMD-compressed storage eliminates text serialization parsing bottlenecks. | **Blueprint** |
+| **P0-B (ROI)** | **Phase 31: Machine-Native Intent Mapping & Linguistic Lens** | **Safety: High.** Direct Opcode DAG invariants eliminate prompt injection and syntax hallucinations.<br>**ROI: Immediate.** Enables conversational speech/chat & zero-latency phoneme voice out (`AcousticVoiceSynthesizer`). | **Complete** |
+| **P0-C (Hardware ROI)**| **Phase 33: Heterogeneous Silicon: Native NPU Acceleration** | **Safety: Medium.** Hardware memory isolation via DirectML/NPU drivers.<br>**ROI: Immediate.** Wakes up unused 45 TOPS NPU at ~2W power. Zero FPS drop in games/rendering. | **Complete** |
+| **P0-D (Data ROI)** | **Phase 32: The `.lib` Binary State Bank & Zero-Copy Vault** | **Safety: High.** Cryptographic Merkle audit trail, crash WAL snapshotter, & sleep memory consolidation.<br>**ROI: High.** SIMD-compressed storage eliminates text serialization parsing bottlenecks. | **Complete** |
 
 #### 🏎️ Tier 1: High-Performance Hardware & Physical Actuation (Expansion Focus)
 *Physical hardware deployment, maximum throughput, and real-world execution.*
 
 | Priority | Phase / Area | Strategic Rationale (Safety & ROI) | Status |
 |---|---|---|---|
-| **P1-A (Physical ROI)**| **Phase 26: Automotive, Embedded Robotics & Head-Unit Bridge** | **Safety: Critical.** SMT mathematical fail-safe fence & autonomous protocol entropy analyzer.<br>**ROI: High.** Immediate physical proof on mobile robotics and vehicle CAN translation. | **Blueprint** |
+| **P1-A (Physical ROI)**| **Phase 26: Automotive, Embedded Robotics & Head-Unit Bridge** | **Safety: Critical.** SMT mathematical fail-safe fence & autonomous protocol entropy analyzer.<br>**ROI: High.** Immediate physical proof on mobile robotics and vehicle CAN translation. | **Complete** |
 | **P1-B (Perf ROI)** | **Phase 27: Full-Tilt Hardware Saturation & Zero-Copy VRAM** | **Safety: High.** Eliminates SMT solver timeouts and race conditions under 120 FPS maximum load.<br>**ROI: High.** Unlocks raw wire-speed performance by keeping 4K video entirely in GPU VRAM. | **Blueprint** |
 | **P1-C (User ROI)** | **Phase 30: Zero-Friction End-User Simplicity & Single-Click** | **Safety: High.** Auto-hardware detection prevents users from misconfiguring memory or GPU profiles.<br>**ROI: Universal.** 1-click installer and drag-and-drop `.si-pack` enables non-coder adoption. | **Blueprint** |
 

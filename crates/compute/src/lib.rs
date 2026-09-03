@@ -53,8 +53,8 @@ pub mod silicon_backend;
 pub mod state_bank;
 
 pub use silicon_backend::{
-    CpuSimdBackend, DynamicSiliconRouter, SiliconHardwareType, SiliconTelemetryReport,
-    UniversalTensorBackend,
+    CpuSimdBackend, DynamicSiliconRouter, NpuTensorBackend, SiliconHardwareType,
+    SiliconTelemetryReport, UniversalTensorBackend,
 };
 pub use state_bank::{
     StateBankHeader, StateBankRecord, UniversalStateBank, STATE_BANK_MAGIC, STATE_BANK_VERSION,

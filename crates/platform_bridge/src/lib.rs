@@ -1,5 +1,6 @@
 pub mod adapters;
 pub mod audio_analyzer;
+pub mod audio_synthesizer;
 pub mod epigenetic_vision;
 pub mod event_recorder;
 pub mod game_player;
@@ -22,8 +23,12 @@ pub use adapters::{
     NormalizedObservation, PhysicalActuatorAdapter, SensoryFeedAdapter, SynthesizedActuatorAdapter,
     UniversalActuatorCommand, UniversalAdapterRegistry, VirtualSimActuator,
 };
+pub use audio_synthesizer::{AcousticVoiceSynthesizer, FormantSpec};
 pub use web_ingest::{WebComplianceConfig, WebIngestionAdapter};
-pub use robotics::{BoeBotCommand, BoeBotOcularNavigator, CorridorCorridorAnalysis, OcularPerspective};
+pub use robotics::{
+    AutomotiveBusBridge, BoeBotCommand, BoeBotOcularNavigator, CanFrame, CorridorCorridorAnalysis,
+    OcularPerspective, ProtocolEntropyAnalyzer,
+};
 
 pub use audio_analyzer::{AudioEventObservation, AudioFrequencySpectrum, WasapiAudioStreamAnalyzer};
 pub use epigenetic_vision::{
