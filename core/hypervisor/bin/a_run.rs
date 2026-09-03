@@ -65,14 +65,14 @@ enum Commands {
         #[arg(short, long, default_value = "isolated")]
         profile: String, // isolated, cooperative, in-place
     },
-    /// Autonomously wrap an external binary or CLI tool into a sovereign machine-native organ
+    /// Autonomously wrap an external binary or CLI tool into a machine-native component
     Wrap {
         /// Path to target executable or dynamic library
         target: PathBuf,
-        /// Custom name for the organ
+        /// Custom name for the component
         #[arg(short, long)]
         name: Option<String>,
-        /// Destination directory for the generated organ crate
+        /// Destination directory for the generated component crate
         #[arg(short, long)]
         out: Option<PathBuf>,
     },
@@ -753,7 +753,7 @@ fn run_cli(cli: Cli) -> Result<()> {
             println!("  bootstrap   Bootstrap the first .si base model from Translation Dataset");
             println!("  forge       Birth a new .si model container via SiForge");
             println!("  boot        Boot Aaroneous sovereign runtime under an execution profile");
-            println!("  wrap        Autonomously wrap an external binary into a sovereign organ");
+            println!("  wrap        Autonomously wrap an external binary into a machine-native component");
             println!("  vision      Benchmark GPU-accelerated epigenetic visual motion gating");
             println!("  galaxy      Ingest and inspect 3D Omni Galaxy with gravitational clustering");
             println!("  hypothesis  Execute autonomous scientific AST hypothesis loop");
@@ -986,17 +986,17 @@ fn run_pack_si_pipeline(
 
 /// Runs the 4-Stage Software Auto-Wrapping Pipeline
 async fn run_wrap_pipeline(target: &std::path::Path, name: Option<&str>, out: Option<PathBuf>) -> Result<()> {
-    let out_dir = out.unwrap_or_else(|| aaroneous_paths::WorkspacePaths::discover().models().join("organs"));
+    let out_dir = out.unwrap_or_else(|| aaroneous_paths::WorkspacePaths::discover().models().join("components"));
     println!("=================================================================");
-    println!(" 🧬 AARONEOUS STEM CELL: AUTONOMOUS SOFTWARE AUTO-WRAPPER");
+    println!(" [SYSTEM COMPONENT FORGE] AUTONOMOUS SOFTWARE AUTO-WRAPPER");
     println!("=================================================================");
     println!("   [Stage 1] Ingesting Target: {:?}", target);
 
     let manifest = adaptation_engine::AutoWrapperEngine::inspect_target(target, name)?;
-    println!("   -> Organ Name   : {}", manifest.name);
-    println!("   -> Organ Slug   : {}", manifest.slug);
-    println!("   -> Program Type : {:?}", manifest.program_type);
-    println!("   -> Domain Opcode: 0x{:04X}", manifest.domain_opcode);
+    println!("   -> Component Name : {}", manifest.name);
+    println!("   -> Component Slug : {}", manifest.slug);
+    println!("   -> Program Type   : {:?}", manifest.program_type);
+    println!("   -> Domain Opcode  : 0x{:04X}", manifest.domain_opcode);
 
     println!("\n   [Stage 2] Executing Non-Destructive Interface Probing...");
     let probe = adaptation_engine::AutoWrapperEngine::probe_target(&manifest).await?;
@@ -1010,13 +1010,13 @@ async fn run_wrap_pipeline(target: &std::path::Path, name: Option<&str>, out: Op
     println!("\n   [Stage 3] Synthesizing Native Rust MNLP Adapter Harness...");
     let staged_crate = adaptation_engine::AutoWrapperEngine::build_and_stage_organ(&manifest, &out_dir)?;
 
-    println!("\n   [Stage 4] Organ Staging & Verification Complete:");
+    println!("\n   [Stage 4] Component Staging & Verification Complete:");
     println!("   -> Staged Crate Dir: {:?}", staged_crate);
     println!("   -> Cargo Definition: {:?}", staged_crate.join("Cargo.toml"));
     println!("   -> Harness Source  : {:?}", staged_crate.join("src/lib.rs"));
     println!("   -> Manifest Meta   : {:?}", staged_crate.join("manifest.json"));
     println!("=================================================================");
-    println!("✅ Sovereign Organ '{}' successfully birthed & ready for SPMC Synapse Bus.", manifest.name);
+    println!("✅ Native Component '{}' successfully generated & ready for Bus dispatch.", manifest.name);
     println!("=================================================================\n");
 
     Ok(())
