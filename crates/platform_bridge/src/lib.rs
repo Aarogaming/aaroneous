@@ -6,6 +6,7 @@ pub mod epigenetic_vision;
 pub mod event_recorder;
 pub mod game_player;
 pub mod hooking;
+pub mod kinetic_synthesizer;
 pub mod mock;
 pub mod native_win32;
 pub mod observability;
@@ -23,6 +24,9 @@ pub use epigenetic_vision::{
     SECTORS_PER_ROW, SECTOR_SIZE, TOTAL_SECTORS,
 };
 pub use event_recorder::{FramebufferAnalyzer, RecordedInputEvent, SessionRecording};
+pub use kinetic_synthesizer::{
+    KineticTrajectoryConfig, KineticTrajectoryPoint, KineticTrajectorySynthesizer, Point2D,
+};
 pub use game_player::{AutonomousGameAgent, GamePolicyAction, PlaythroughState};
 pub use hooking::{
     OverlayPrimitive, OverlaySubmitter, PresentHookConfig, PresentHookHandle, Rgba8,
