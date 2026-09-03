@@ -9,6 +9,7 @@ pub mod modes;
 pub mod navigation;
 pub mod state;
 pub mod theme;
+pub mod transformer_bridge;
 pub mod views;
 
 pub use app::StudioApp;
@@ -18,6 +19,7 @@ pub use fascia::ProcessFasciaWatcher;
 pub use navigation::{CommandAction, CommandPalette, NavSection, ToastLevel, ToastNotification};
 pub use state::{CustomAgent, SharedHudState, UserSettings};
 pub use theme::HudTheme;
+pub use transformer_bridge::{BackendTelemetryFrame, FrontendCommandSignal, FrontendTransformerBridge};
 pub use views::HudView;
 
 use eframe::egui;

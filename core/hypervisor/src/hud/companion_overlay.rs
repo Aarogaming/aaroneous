@@ -46,6 +46,7 @@ pub struct CompanionTelemetryOverlay {
     pub chat_input_buffer: String,
     pub last_intercom_reply: String,
     pub is_expanded: bool,
+    pub transformer_bridge: Option<crate::hud::FrontendTransformerBridge>,
 }
 
 impl Default for CompanionTelemetryOverlay {
@@ -58,6 +59,7 @@ impl Default for CompanionTelemetryOverlay {
             chat_input_buffer: String::new(),
             last_intercom_reply: "Aaroneous Core ready. System equilibrium nominal.".to_string(),
             is_expanded: false,
+            transformer_bridge: Some(crate::hud::FrontendTransformerBridge::new()),
         }
     }
 }
@@ -119,6 +121,14 @@ impl CompanionTelemetryOverlay {
                             && !self.chat_input_buffer.trim().is_empty()
                         {
                             let query = self.chat_input_buffer.trim().to_string();
+
+                            // Dispatch typed signal across the transformer bridge to backend
+                            if let Some(bridge) = &self.transformer_bridge {
+                                bridge.dispatch_command(crate::hud::FrontendCommandSignal::TransduceLinguisticIntent {
+                                    prompt: query.clone(),
+                                });
+                            }
+
                             self.last_intercom_reply = format!("Intent transducted: [{}]. Opcode graph executed.", query);
                             self.chat_input_buffer.clear();
                         }
