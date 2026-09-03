@@ -1,4 +1,4 @@
-//! crates/compute/src/hermes_router.rs
+// crates/compute/src/latent_router.rs
 //! Tier 2: Router Latent Intent Router & Sentinel Latent Manifold Interceptor.
 //!
 //! Features:
@@ -132,7 +132,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_hermes_router_projection_and_sentinel_guardrail() {
+    fn test_latent_router_projection_and_sentinel_guardrail() {
         let mut router = LatentOrthogonalRouter::new(5.0);
         let channel = SpecialistSpmcChannel::new(0, "Router-Test");
 

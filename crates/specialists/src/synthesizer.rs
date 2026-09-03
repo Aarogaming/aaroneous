@@ -54,7 +54,6 @@ pub struct SynthesizerSpecialist {
     pub max_tokens: f32,
     pub knowledge_cache: HashMap<String, KnowledgeSynthesis>,
     pub knowledge_base: KnowledgeStoreEngine,
-    pub grimoire: KnowledgeStoreEngine,
 }
 
 impl Default for SynthesizerSpecialist {
@@ -70,7 +69,6 @@ impl SynthesizerSpecialist {
             max_tokens: 100.0,
             knowledge_cache: HashMap::new(),
             knowledge_base: KnowledgeStoreEngine::default(),
-            grimoire: KnowledgeStoreEngine::default(),
         }
     }
 
@@ -88,8 +86,8 @@ impl SynthesizerSpecialist {
             confidence_score: 0.98,
         };
 
-        self.grimoire.indexed_documents += 1;
-        self.grimoire.citation_graph.insert(query.to_string(), synthesis.citations.clone());
+        self.knowledge_base.indexed_documents += 1;
+        self.knowledge_base.citation_graph.insert(query.to_string(), synthesis.citations.clone());
         self.knowledge_cache.insert(query.to_string(), synthesis.clone());
 
         synthesis
@@ -115,7 +113,7 @@ impl SovereignSpecialist for SynthesizerSpecialist {
             success: true,
             opcode: self.domain_opcode(),
             correlation_id: packet.correlation_id,
-            message: format!("Synthesizer synthesized knowledge for '{}'", query),
+            message: "Knowledge synthesized successfully".to_string(),
             payload,
         })
     }
@@ -146,6 +144,6 @@ mod tests {
         let mut synthesizer = SynthesizerSpecialist::new();
         let k = synthesizer.synthesize("Machine-Native Linking");
         assert_eq!(k.confidence_score, 0.98);
-        assert_eq!(synthesizer.grimoire.indexed_documents, 1);
+        assert_eq!(synthesizer.knowledge_base.indexed_documents, 1);
     }
 }

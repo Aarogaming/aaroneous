@@ -54,7 +54,6 @@ pub struct PerceiverSpecialist {
     pub max_tokens: f32,
     pub marionette: Arc<DesktopEmulator>,
     pub perception_gate: PerceptionGateEngine,
-    pub relic: PerceptionGateEngine,
 }
 
 impl Default for PerceiverSpecialist {
@@ -71,7 +70,6 @@ impl PerceiverSpecialist {
             max_tokens: 100.0,
             marionette: engine,
             perception_gate: PerceptionGateEngine::default(),
-            relic: PerceptionGateEngine::default(),
         }
     }
 
@@ -86,10 +84,10 @@ impl PerceiverSpecialist {
         info!(target: "specialist::perceiver", "Capturing epigenetic gated visual perception across the gatekeeper");
         let (obs, result) = self.marionette.pull_epigenetic_perception().await?;
 
-        self.relic.frames_processed += 1;
-        let count = self.relic.frames_processed as f32;
-        self.relic.avg_compute_savings_pct =
-            ((self.relic.avg_compute_savings_pct * (count - 1.0)) + obs.compute_savings_pct) / count;
+        self.perception_gate.frames_processed += 1;
+        let count = self.perception_gate.frames_processed as f32;
+        self.perception_gate.avg_compute_savings_pct =
+            ((self.perception_gate.avg_compute_savings_pct * (count - 1.0)) + obs.compute_savings_pct) / count;
 
         Ok((obs, result))
     }

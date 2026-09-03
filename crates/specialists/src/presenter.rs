@@ -61,7 +61,6 @@ pub struct PresenterSpecialist {
     pub tokens: f32,
     pub max_tokens: f32,
     pub display_buffer: DisplayBufferEngine,
-    pub glass: DisplayBufferEngine,
     pub omni_engine: std::sync::Arc<omni::OmniEngine>,
 }
 
@@ -78,7 +77,6 @@ impl PresenterSpecialist {
             tokens: 100.0,
             max_tokens: 100.0,
             display_buffer: DisplayBufferEngine::default(),
-            glass: DisplayBufferEngine::default(),
             omni_engine,
         }
     }
@@ -86,7 +84,6 @@ impl PresenterSpecialist {
     /// Composes a UI frame for frontend rendering
     pub fn compose_ui_frame(&mut self, active_view: &str, status: &str) -> UiPresentationFrame {
         self.display_buffer.frames_streamed += 1;
-        self.glass.frames_streamed = self.display_buffer.frames_streamed;
         info!(target: "specialist::presenter", %active_view, "Composing visual UI presentation frame");
 
         UiPresentationFrame {

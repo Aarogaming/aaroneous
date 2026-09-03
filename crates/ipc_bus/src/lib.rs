@@ -7,8 +7,9 @@ pub mod machine_packet;
 pub mod metrics;
 pub mod mutation_intent;
 pub mod specialist_bus;
-pub mod persistent_grimoire;
-pub use persistent_grimoire as wal_store;
+pub mod persistent_wal;
+pub use persistent_wal as persistent_grimoire;
+pub use persistent_wal as wal_store;
 pub mod preparedness_notice;
 pub mod scheme_router;
 pub mod slab_allocator;
@@ -29,7 +30,7 @@ pub mod nucleotide_packet {
 pub use specialist_bus::{install_specialist_panic_hook, SpecialistSynapseBus, SpecialistSpmcChannel, TensorSlot, TENSOR_DIM};
 pub use spmc_synapse_bus::{SharedSynapseBus, SpmcSynapseBus, SynapsePacket};
 
-pub use persistent_grimoire::{GrimoireRecord, PersistentGrimoireStore, PersistentWalStore, WalRecord};
+pub use persistent_wal::{GrimoireRecord, PersistentGrimoireStore, PersistentWalStore, WalRecord};
 pub use scheme_router::{CapabilityFlags, SchemeCapabilityGate, SchemeUri};
 
 // Windows-specific named pipe communication (AgentBus)
