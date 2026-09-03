@@ -13,6 +13,12 @@ pub mod scheme_router;
 pub mod slab_allocator;
 pub mod spmc_synapse_bus;
 pub mod swmr_synapse;
+pub mod universal_protocol;
+
+pub use universal_protocol::{
+    UniversalClientRequest, UniversalServerBroadcast, UCP_DEFAULT_WS_PORT, UCP_NAMED_PIPE_PATH,
+    UCP_PROTOCOL_VERSION,
+};
 
 // Backward compatibility module alias
 pub mod nucleotide_packet {
