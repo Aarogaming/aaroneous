@@ -265,6 +265,7 @@
 | **P0 (Completed)** | **Phase 8: Systems Optimization & Release Hardening (v1.2.0)** | `mimalloc` global allocator, Fat LTO profile, `smol_str` AST inlining, `_rdtsc` micro-timing, SoA storage. | **Complete** |
 | **P0 (Completed)** | **Phase 20: Autonomous Fleet Multi-Node Mesh** | Zero-trust peer heartbeats, load telemetry, distributed work-stealing & state synchronization. | **Complete** |
 | **P0 (Completed)** | **Phase 21: Sovereign OS Compositor & Zero-Latency Overlays** | Pure-Rust spatial window tiling, bare-metal microkernel payloads, DX11/12 swapchain hooking. | **Complete** |
+| **P1 (Active Blueprint)** | **Phase 22: Human-Kinetic User Emulation & Live Desktop Distillation** | Multi-modal DXGI video observation, Fitts's Law cubic Bézier trajectory synthesis, UIA process optimization. | **In Progress** |
 
 ---
 
@@ -643,6 +644,20 @@ Documented in detail in `dev/docs/17_DEFECT_AUDIT_AND_REMEDIATION_PLAN.md`.
 
 ---
 
-*Last updated: 2026-09-02 | Complete 5-pillar, 21-phase architectural framework*
+### Phase 22: Human-Kinetic User Emulation & Live Desktop Distillation (In Progress)
+*Autonomous process optimization from live video observation and anti-cheat compliant kinetic mouse synthesis.*
+
+- [ ] **KINETIC-01: Fitts's Law & Minimum-Jerk Bézier Trajectory Synthesizer**
+  - Implement `KineticTrajectorySynthesizer` in `crates/platform_bridge`: generate natural cubic Bézier curves with biological bell-shaped velocity profiles and physiological 8–12Hz micro-jitter to prevent heuristic bot detection.
+- [ ] **KINETIC-02: Multi-Modal Desktop Workflow Observer & Pruning Engine**
+  - Implement `DesktopWorkflowObserver` correlating DXGI video frame hashes, UIA semantic element targets, and 1000Hz raw peripheral inputs into consolidated, non-redundant training episodes.
+- [ ] **KINETIC-03: Process Optimization & Causal Habit Crystallization**
+  - Automatically prune human hesitation, slips, and dead-time, compiling streamlined desktop workflows into `.si` Block 3 habit graphs.
+- [ ] **KINETIC-04: Human-Mimicking Marionette Replay Dispatch**
+  - Wire synthesized trajectories into `NativeWin32Marionette` for undetectable, human-emulated autonomous execution across desktop apps and games.
+
+---
+
+*Last updated: 2026-09-02 | Complete 5-pillar, 22-phase architectural framework*
 
 
