@@ -41,11 +41,23 @@ impl AiToSiTranspiler {
             });
         }
 
-        // If no code fence is present, check if raw response is direct code
+        // If no code fence is present, detect language dynamically from syntax heuristics
         let trimmed = raw_ai_response.trim();
-        if trimmed.starts_with("fn ") || trimmed.starts_with("pub fn ") || trimmed.starts_with("use ") || trimmed.starts_with("struct ") {
+        let detected_lang = if trimmed.starts_with("fn ") || trimmed.starts_with("pub fn ") || trimmed.starts_with("use ") || trimmed.starts_with("struct ") || trimmed.starts_with("impl ") {
+            Some("rust")
+        } else if trimmed.starts_with("def ") || trimmed.starts_with("import ") || trimmed.starts_with("from ") || trimmed.starts_with("class ") {
+            Some("python")
+        } else if trimmed.starts_with("function ") || trimmed.starts_with("export ") || trimmed.starts_with("const ") || trimmed.starts_with("interface ") {
+            Some("typescript")
+        } else if trimmed.starts_with("#include ") || trimmed.starts_with("int main") || trimmed.starts_with("void ") {
+            Some("cpp")
+        } else {
+            None
+        };
+
+        if let Some(lang) = detected_lang {
             return Ok(ExtractedCodePayload {
-                language: "rust".to_string(),
+                language: lang.to_string(),
                 source_code: trimmed.to_string(),
                 is_valid: true,
             });

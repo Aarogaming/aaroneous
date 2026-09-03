@@ -79,13 +79,85 @@ impl ShadowSandbox {
         }
         Ok(())
     }
+}
 
-    /// Execute syntax check strictly within shadow directory
+pub trait UniversalToolchainAdapter: Send + Sync {
+    fn language_extension(&self) -> &'static str;
+    fn build_check_command(&self, file_name: &str, working_dir: &Path) -> Command;
+}
+
+pub struct RustcToolchain;
+impl UniversalToolchainAdapter for RustcToolchain {
+    fn language_extension(&self) -> &'static str {
+        "rs"
+    }
+    fn build_check_command(&self, file_name: &str, working_dir: &Path) -> Command {
+        let mut c = Command::new("rustc");
+        c.arg("--crate-type=lib")
+            .arg("--emit=metadata")
+            .arg(file_name)
+            .current_dir(working_dir);
+        c
+    }
+}
+
+pub struct PythonToolchain;
+impl UniversalToolchainAdapter for PythonToolchain {
+    fn language_extension(&self) -> &'static str {
+        "py"
+    }
+    fn build_check_command(&self, file_name: &str, working_dir: &Path) -> Command {
+        let mut c = Command::new("python");
+        c.arg("-m")
+            .arg("py_compile")
+            .arg(file_name)
+            .current_dir(working_dir);
+        c
+    }
+}
+
+pub struct UniversalToolchainRegistry {
+    adapters: std::collections::HashMap<&'static str, Box<dyn UniversalToolchainAdapter>>,
+}
+
+impl Default for UniversalToolchainRegistry {
+    fn default() -> Self {
+        let mut reg = Self {
+            adapters: std::collections::HashMap::new(),
+        };
+        reg.register(Box::new(RustcToolchain));
+        reg.register(Box::new(PythonToolchain));
+        reg
+    }
+}
+
+impl UniversalToolchainRegistry {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn register(&mut self, adapter: Box<dyn UniversalToolchainAdapter>) {
+        self.adapters.insert(adapter.language_extension(), adapter);
+    }
+
+    pub fn get_command(&self, ext: &str, file_name: &str, working_dir: &Path) -> Command {
+        if let Some(adapter) = self.adapters.get(ext) {
+            adapter.build_check_command(file_name, working_dir)
+        } else {
+            // Default fallback toolchain is rustc
+            RustcToolchain.build_check_command(file_name, working_dir)
+        }
+    }
+}
+
+impl ShadowSandbox {
+    /// Execute syntax check strictly within shadow directory using universal toolchains
     pub fn execute_syntax_check(&self, file_name: &str) -> Result<(bool, String)> {
         let safe_name = Path::new(file_name)
             .file_name()
-            .ok_or_else(|| anyhow::anyhow!("Invalid filename for shadow execution"))?;
-        let target_path = self.shadow_dir.join(safe_name);
+            .ok_or_else(|| anyhow::anyhow!("Invalid filename for shadow execution"))?
+            .to_string_lossy();
+        let target_path = self.shadow_dir.join(safe_name.as_ref());
 
         if !target_path.exists() {
             anyhow::bail!(
@@ -100,29 +172,9 @@ impl ShadowSandbox {
             .extension()
             .and_then(|e| e.to_str())
             .unwrap_or("");
-        let mut cmd = match ext {
-            "rs" => {
-                let mut c = Command::new("rustc");
-                c.arg("--crate-type=lib")
-                    .arg("--emit=metadata")
-                    .arg(safe_name);
-                c
-            }
-            "py" => {
-                let mut c = Command::new("python");
-                c.arg("-m").arg("py_compile").arg(safe_name);
-                c
-            }
-            _ => {
-                let mut c = Command::new("rustc");
-                c.arg("--crate-type=lib")
-                    .arg("--emit=metadata")
-                    .arg(safe_name);
-                c
-            }
-        };
 
-        cmd.current_dir(&self.shadow_dir);
+        let registry = UniversalToolchainRegistry::default();
+        let mut cmd = registry.get_command(ext, &safe_name, &self.shadow_dir);
 
         let mut child = cmd
             .stdout(std::process::Stdio::piped())

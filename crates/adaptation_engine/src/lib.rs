@@ -40,7 +40,10 @@ pub use analysis::{
 };
 pub use ast_parser::{AstDiffResult, AstObservation, AstParser, FunctionSignature, SourceLanguage};
 pub use dev_tools::{CompilerDiagnosticItem, DevToolsEngine, WorkspaceFileItem};
-pub use disassembly::{BasicBlock, BinaryInspector, BinaryManifest, BinarySection, DisassembledInstruction};
+pub use disassembly::{
+    BasicBlock, BinaryFormatKind, BinaryInspector, BinaryManifest, BinarySection,
+    DisassembledInstruction, TargetArchitecture,
+};
 pub use error_interceptor::{InterceptedProcessError, ProcessErrorInterceptor};
 pub use mutation::{CodeMutator, PatchProposal};
 pub use parallel_scanner::{BatchScanReport, ParallelScanner};

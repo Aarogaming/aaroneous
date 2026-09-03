@@ -37,6 +37,54 @@ pub struct BasicBlock {
     pub successors: Vec<usize>,
 }
 
+/// Structured Binary File Format Kind
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum BinaryFormatKind {
+    PeWindows,
+    ElfLinux,
+    MachOMac,
+    RawBytecode,
+    Unknown,
+}
+
+impl BinaryFormatKind {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::PeWindows => "PE_WINDOWS",
+            Self::ElfLinux => "ELF_LINUX",
+            Self::MachOMac => "MACH_O",
+            Self::RawBytecode => "RAW_BYTECODE",
+            Self::Unknown => "UNKNOWN",
+        }
+    }
+}
+
+/// Target Hardware CPU Instruction Set Architecture
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum TargetArchitecture {
+    X86_64,
+    AArch64,
+    X86_32,
+    Arm32,
+    RiscV,
+    WebAssembly,
+    Unknown,
+}
+
+impl TargetArchitecture {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::X86_64 => "x86_64",
+            Self::AArch64 => "aarch64",
+            Self::X86_32 => "x86",
+            Self::Arm32 => "arm",
+            Self::RiscV => "riscv",
+            Self::WebAssembly => "wasm",
+            Self::Unknown => "unknown",
+        }
+    }
+}
+
 /// Comprehensive metadata extracted from an executable or shared library
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BinaryManifest {
