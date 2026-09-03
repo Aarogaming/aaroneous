@@ -67,6 +67,9 @@ pub enum PersonaRank {
     Rank5Transcendent = 5,
 }
 
+/// Canonical systems engineering alias for capability maturity level
+pub type CapabilityMaturityLevel = PersonaRank;
+
 impl PersonaRank {
     pub fn name(&self) -> &str {
         match self {

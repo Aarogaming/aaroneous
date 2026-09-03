@@ -41,7 +41,8 @@ pub use self_digestion::{
 
 // Re-export skills & leveling
 pub use skills::{
-    FusedSkill, Skill, SkillOrigin, SkillRegistry, SkillType, SpecialistSkillSet, PersonaRank,
+    CapabilityMaturityLevel, FusedSkill, PersonaRank, Skill, SkillOrigin, SkillRegistry, SkillType,
+    SpecialistSkillSet,
 };
 pub use persona_fusion::{
     CapabilityFusionEngine, CompositePersonaVector, CompoundAgentProfile, ExperiencePersonaLayer,
