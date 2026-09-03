@@ -20,6 +20,7 @@ dependencies = [
  "bytes",
  "candle-core",
  "candle-nn",
+ "capabilities",
  "cgmath",
  "chromiumoxide",
  "chrono",
@@ -77,7 +78,6 @@ dependencies = [
  "sha2 0.10.9",
  "shared_memory",
  "si_ir",
- "specialists",
  "strum 0.26.3",
  "strum_macros 0.26.4",
  "sysinfo 0.39.6",
@@ -1625,6 +1625,28 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_plain",
+ "tracing",
+]
+
+[[package]]
+name = "capabilities"
+version = "0.1.0"
+dependencies = [
+ "aaroneous_paths",
+ "aaroneous_sdk",
+ "adaptation_engine",
+ "anyhow",
+ "async-trait",
+ "autonomic_adaptation",
+ "chrono",
+ "compute",
+ "ipc_bus",
+ "libloading 0.8.9",
+ "omni",
+ "platform_bridge",
+ "serde",
+ "serde_json",
+ "tokio",
  "tracing",
 ]
 
@@ -10209,28 +10231,6 @@ name = "sorted-index-buffer"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ea06cc588e43c632923a55450401b8f25e628131571d4e1baea1bdfdb2b5ed06"
-
-[[package]]
-name = "specialists"
-version = "0.1.0"
-dependencies = [
- "aaroneous_paths",
- "aaroneous_sdk",
- "adaptation_engine",
- "anyhow",
- "async-trait",
- "autonomic_adaptation",
- "chrono",
- "compute",
- "ipc_bus",
- "libloading 0.8.9",
- "omni",
- "platform_bridge",
- "serde",
- "serde_json",
- "tokio",
- "tracing",
-]
 
 [[package]]
 name = "spez"
