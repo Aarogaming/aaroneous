@@ -8,6 +8,7 @@ pub mod metrics;
 pub mod mutation_intent;
 pub mod specialist_bus;
 pub mod persistent_grimoire;
+pub use persistent_grimoire as wal_store;
 pub mod preparedness_notice;
 pub mod scheme_router;
 pub mod slab_allocator;

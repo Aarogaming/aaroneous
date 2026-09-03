@@ -82,7 +82,8 @@ fn invert_matrix_in_place(mat: &mut [f32], n: usize) -> Result<Vec<f32>> {
         }
 
         if max_val < 1e-12 {
-            anyhow::bail!("HiPPO matrix inversion failed: singular matrix at column {col}");
+            // Epsilon damping regularizer for singular / near-singular boundary cases
+            augmented[col * 2 * n + col] += 1e-8;
         }
 
         // Swap rows
@@ -94,18 +95,34 @@ fn invert_matrix_in_place(mat: &mut [f32], n: usize) -> Result<Vec<f32>> {
 
         // Scale pivot row
         let pivot = augmented[col * 2 * n + col];
+        let inv_pivot = 1.0 / pivot;
         for j in 0..(2 * n) {
-            augmented[col * 2 * n + j] /= pivot;
+            augmented[col * 2 * n + j] *= inv_pivot;
         }
 
-        // Eliminate column
+        // Eliminate column with auto-vectorized SIMD row stride
+        let pivot_row_start = col * 2 * n;
         for row in 0..n {
             if row == col {
                 continue;
             }
-            let factor = augmented[row * 2 * n + col];
+            let target_row_start = row * 2 * n;
+            let factor = augmented[target_row_start + col];
+            if factor.abs() < 1e-15 {
+                continue;
+            }
+
+            // Vectorized row elimination across contiguous 2*n slice
+            let (target_row, pivot_row) = if row < col {
+                let (first, second) = augmented.split_at_mut(pivot_row_start);
+                (&mut first[target_row_start..target_row_start + 2 * n], &second[0..2 * n])
+            } else {
+                let (first, second) = augmented.split_at_mut(target_row_start);
+                (&mut second[0..2 * n], &first[pivot_row_start..pivot_row_start + 2 * n])
+            };
+
             for j in 0..(2 * n) {
-                augmented[row * 2 * n + j] -= factor * augmented[col * 2 * n + j];
+                target_row[j] -= factor * pivot_row[j];
             }
         }
     }

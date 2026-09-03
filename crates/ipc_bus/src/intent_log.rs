@@ -187,8 +187,52 @@ impl IntentLog {
         self.entry_count
     }
 
+    pub fn write_offset(&self) -> usize {
+        self.write_offset
+    }
+
     pub fn path(&self) -> &Path {
         &self.path
+    }
+
+    /// Rotates the active log file to an archived segment path and re-initializes a fresh log file
+    pub fn rotate_segment(&mut self, archive_path: &Path) -> Result<()> {
+        self.mmap.flush()?;
+        drop(std::mem::replace(&mut self.mmap, unsafe {
+            MmapOptions::new()
+                .map_mut(&self.file)
+                .context("Failed to temporary remap")?
+        }));
+
+        // Move current file to archive destination
+        if let Some(parent) = archive_path.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        std::fs::rename(&self.path, archive_path)?;
+
+        // Re-create a fresh log file at the canonical path
+        let fresh_file = OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .open(&self.path)?;
+
+        fresh_file.set_len(LOG_INITIAL_SIZE as u64)?;
+        let fresh_mmap = unsafe {
+            MmapOptions::new().map_mut(&fresh_file)?
+        };
+
+        self.file = fresh_file;
+        self.mmap = fresh_mmap;
+        self.write_offset = 8;
+        self.entry_count = 0;
+
+        // Initialize header with 0 entries
+        self.mmap[0..8].copy_from_slice(&0u64.to_le_bytes());
+        self.mmap.flush()?;
+
+        Ok(())
     }
 }
 
@@ -593,5 +637,34 @@ mod tests {
 
         snapshot.generation = 99;
         assert!(!snapshot.verify());
+    }
+
+    #[test]
+    fn test_intent_log_segment_rotation() {
+        let active_path = temp_path("rotate_active");
+        let archive_path = temp_path("rotate_archive");
+        let _ = std::fs::remove_file(&active_path);
+        let _ = std::fs::remove_file(&archive_path);
+
+        let mut log = IntentLog::new(&active_path).unwrap();
+        let header = create_log_entry(0, 100, packet_types::INTENT, 1, 1, 0);
+        log.append(&header, b"test_payload").unwrap();
+        assert_eq!(log.entry_count(), 1);
+
+        log.rotate_segment(&archive_path).unwrap();
+        assert_eq!(log.entry_count(), 0);
+        assert_eq!(log.write_offset(), 8);
+
+        // Verify archive has original entry
+        let reader = LogReader::open(&archive_path).unwrap();
+        assert_eq!(reader.entry_count(), 1);
+
+        // Verify new active log accepts new entries
+        let header2 = create_log_entry(0, 200, packet_types::NOTIFICATION, 1, 2, 1);
+        log.append(&header2, b"new_payload").unwrap();
+        assert_eq!(log.entry_count(), 1);
+
+        let _ = std::fs::remove_file(&active_path);
+        let _ = std::fs::remove_file(&archive_path);
     }
 }
