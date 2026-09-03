@@ -238,45 +238,33 @@
 
 ---
 
-## 🎯 Master Prioritization Matrix
+### 🎯 Master Prioritization Matrix (Re-Prioritized by Safety & ROI)
 
-| Priority | Phase / Area | Description | Status |
+#### 🛡️ Tier 0: Critical Safety, Containment & High-Velocity ROI (Immediate Focus)
+*Direct safety containment, zero-risk learning loops, and immediate user-facing value.*
+
+| Priority | Phase / Area | Strategic Rationale (Safety & ROI) | Status |
 |---|---|---|---|
-| **P0 (Completed)** | **Phase 7: Security Hardening** | Containment Sandboxing (SEC-01 through SEC-07): Workspace path jail, CORS lockdown, constant-time bearer tokens, Named Pipe DACL, HID mouse failsafe, SHA-256 integrity hashing. | **Complete** |
-| **P0 (Completed)** | **Phase 8: Subsystem Realignment** | Modernize legacy/metaphorical naming to systems engineering standards (ARCH-01 through ARCH-05: Specialist sub-engines, WAL store, Micro-task workers, Capability registries, HUD telemetry). | **Complete** |
-| **P0 (Completed)** | **Phase 5: Extended Verification** | End-to-end multi-node mesh stress test (120 concurrent packets), multi-tier CPU pinning, full cross-crate suite verification. | **Complete** |
-| **P0 (Completed)** | **Phase 10: Multi-Host Mesh & Wire Transport** | Framed streaming socket multiplexer, direct peer channels, remote task transfer (`REMOTE-01`..`03`). | **Complete** |
-| **P0 (Completed)** | **Phase 11: Sandboxed Bytecode Runtime** | Gas-metered pure-Rust VM for dynamic user plugins and micro-tasks (`SANDBOX-01`..`02`). | **Complete** |
-| **P0 (Completed)** | **Phase 12: GPU Direct3D12/Vulkan Compute** | `wgpu` compute shaders for SSM inference & DXGI zero-copy screen capture (`GPU-01`..`02`). | **Complete** |
-| **P0 (Completed)** | **Phase 13: MaelstromUI Live Telemetry** | WebSocket/WebTransport real-time telemetry streaming & dynamic layout tuning (`UI-01`..`02`). | **Complete** |
-| **P0 (Completed)** | **Phase 14: Multi-Node Distributed Consensus** | High-availability Raft/Paxos consensus log replication across multi-host nodes (`HA-01`..`02`). | **Complete** |
-| **P0 (Completed)** | **Phase 18: Sovereign .si Cartridge Standard** | Canonical binary format v3.0, 64-byte alignment, CRC32, zero-copy mmap & tooling suite (`SI-SPEC-01`..`03`). | **Complete** |
-| **P0 (Completed)** | **Phase 15: Polyglot Runtime AST Auto-Wrapper** | Streaming AST parsing & runtime dynamic binding compiler in `adaptation_engine` (`AST-01`..`02`). | **Complete** |
-| **P0 (Completed)** | **Phase 16: Autonomous Neural Self-Evolution** | Continuous reinforcement learning loop from execution telemetry to `.si` adapters (`EVO-01`..`02`). | **Complete** |
-| **P0 (Completed)** | **Phase 17: Native WGPU 3D Constellation Studio** | Pure-Rust DirectX 12/Vulkan 3D star-cluster visualization embedded in `a_hud` (`GALAXY-01`..`02`). | **Complete** |
-| **P0 (Completed)** | **Phase 19: Multi-Modal Screen Vision & Audio Pipeline** | Low-latency DXGI frame feature extraction and WASAPI neural audio loopback analyzer (`VISION-01`..`02`). | **Complete** |
-| **P0 (Completed)** | **Phase 1: Stabilization & Activations (v0.4.0)** | P0 defects, feature flag activations, terminology cleanup. | **Complete** |
-| **P0 (Completed)** | **Phase 2: Unified Pipeline & DXGI (v0.5.0)** | `windows-capture` DXGI, `platform_bridge`, modular HUD mode manager. | **Complete** |
-| **P0 (Completed)** | **Phase 3: Compiler & True JIT (v0.6.0)** | `cranelift-codegen` JIT, `si_ir` extraction, `LatticeVerifier`, `cubecl` GPU SSM. | **Complete** |
-| **P0 (Completed)** | **Phase 4: Foundry & Distillation (v0.7.0)** | `SiForge` packaging, `EpisodicMemoryFabric` (HNSW R^256), GGUF seeding. | **Complete** |
-| **P0 (Completed)** | **Phase 5: Adaptive Runtime & Live Patching (v0.8.0)** | `libloading` dynamic ABI plugin loader, streaming LoRA with OGP, `GenerationalJournal`. | **Complete** |
-| **P0 (Completed)** | **Phase 6: Multi-Node Fleet Mesh (v1.0.0)** | Full Iroh QUIC fleet, `FleetScheduler` work-stealing, `Z3Prover` SMT gate. | **Complete** |
-| **P0 (Completed)** | **Phase 7: Deep OS Observability & GPU Acceleration (v1.1.0)** | UIA tree walker, WASAPI audio loopback, ETW kernel consumer, `cubecl` GPU SSM, intent-to-fascia daemon. | **Complete** |
-| **P0 (Completed)** | **Phase 8: Systems Optimization & Release Hardening (v1.2.0)** | `mimalloc` global allocator, Fat LTO profile, `smol_str` AST inlining, `_rdtsc` micro-timing, SoA storage. | **Complete** |
-| **P0 (Completed)** | **Phase 20: Autonomous Fleet Multi-Node Mesh** | Zero-trust peer heartbeats, load telemetry, distributed work-stealing & state synchronization. | **Complete** |
-| **P0 (Completed)** | **Phase 21: Sovereign OS Compositor & Zero-Latency Overlays** | Pure-Rust spatial window tiling, bare-metal microkernel payloads, DX11/12 swapchain hooking. | **Complete** |
-| **P0 (Completed)** | **Phase 22: Formal SMT Mathematical Safety Gate & Thermodynamic Interlock** | Z3 non-interference algebraic proofs, 7-exponent SI dimensional lattice invariants, thermodynamic killswitch. | **Complete** |
-| **P0 (Completed)** | **Phase 23: Live Desktop Video Feed & Human-Kinetic Distillation** | DXGI video observation, Fitts's Law cubic Bézier trajectory synthesizer, UIA process optimization. | **Complete** |
-| **P0 (Completed)** | **Phase 24: Continuous Macro-SSM World-Scale Predictive Engine** | Infinite-horizon continuous state recurrence (dx/dt = Ax + Bu), R^4096 macro latent state, GPU Blelloch scans. | **Complete** |
-| **P0 (Completed)** | **Phase 25: Universal MoE Organ Register & Cartridge Stacker** | 13-Organ sparse memory-mapped register, Top-K dynamic routing, autonomous cartridge consolidation & SVD merging. | **Complete** |
-| **P1 (Strategic Blueprint)** | **Phase 26: Automotive & Embedded Industrial Logic Controller** | Low-latency CANbus translation, active aero/cooling control, distributed microsecond powertrain mesh. | **Blueprint** |
-| **P1 (Active Blueprint)** | **Phase 27: Full-Tilt Hardware Saturation & Zero-Copy VRAM Hardening** | In-VRAM DXGI DirectCompute, Pre-computed SMT Proof Caches, Contiguous Unified Tensor Buffers, QUIC Datagrams. | **Blueprint** |
-| **P1 (Active Blueprint)** | **Phase 28: 3D Spatial Constellation Engine & Galactic Node Roaming** | Wgpu 3D node-graph galaxy visualizer, 6-DOF orbital camera navigation, live synapse pulse particle physics. | **Blueprint** |
-| **P0 (Active Blueprint)** | **Phase 29: The Crucible: Sealed Virtual Self-Play & Interactive Verification Studio** | Hermetic airgapped sandbox, Teacher-Apprentice adversarial self-play, live SMT proof badge & thermodynamic gauge. | **Blueprint** |
-| **P1 (Active Blueprint)** | **Phase 30: Zero-Friction End-User Simplicity & Single-Click Ecosystem** | 1-Click `.si-pack` installer, auto-hardware profile detection, visual cartridge drag-and-drop, and conversational tuning. | **Blueprint** |
-| **P0 (Active Blueprint)** | **Phase 31: Machine-Native Intent Mapping & Linguistic Lens Architecture** | Decoupled lightweight edge language lens, language-free R^4096 intent manifold, direct Opcode DAG synthesis. | **Blueprint** |
-| **P1 (Active Blueprint)** | **Phase 32: The `.lib` Binary State Bank & Dynamic Neuro-Symbiosis** | Zero-copy columnar tensor vault (`.lib`), SIMD-compressed physical logs, cross-agent telepathic sub-symbolic syncing. | **Blueprint** |
-| **P0 (Active Blueprint)** | **Phase 33: Heterogeneous Silicon: Native NPU & Quantum Hamiltonian Acceleration** | DirectML / ONNX NPU tensor offloading (45 TOPS), quantum unitary SSM emulation, zero-watt idle background reflexes. | **Blueprint** |
+| **P0-A (Safety)** | **Phase 29: The Crucible: Sealed Virtual Self-Play & Verification Studio** | **Safety: Maximum.** Airgapped W^X sandbox ensures models cannot escape or issue rogue commands.<br>**ROI: Massive.** 10,000 self-play cycles/min using local LMStudio/free APIs. Instant bootstrap. | **Blueprint** |
+| **P0-B (ROI)** | **Phase 31: Machine-Native Intent Mapping & Linguistic Lens** | **Safety: High.** Direct Opcode DAG invariants eliminate prompt injection and syntax hallucinations.<br>**ROI: Immediate.** Enables conversational speech/chat without slowing down core reflexes. | **Blueprint** |
+| **P0-C (Hardware ROI)**| **Phase 33: Heterogeneous Silicon: Native NPU Acceleration** | **Safety: Medium.** Hardware memory isolation via DirectML/NPU drivers.<br>**ROI: Immediate.** Wakes up unused 45 TOPS NPU at ~2W power. Zero FPS drop in games/rendering. | **Blueprint** |
+| **P0-D (Data ROI)** | **Phase 32: The `.lib` Binary State Bank & Zero-Copy Vault** | **Safety: High.** Cryptographic Merkle tree audit trail ("Black Box" legal/mechanical protection).<br>**ROI: High.** SIMD-compressed storage eliminates text serialization parsing bottlenecks. | **Blueprint** |
+
+#### 🏎️ Tier 1: High-Performance Hardware & Physical Actuation (Expansion Focus)
+*Physical hardware deployment, maximum throughput, and real-world execution.*
+
+| Priority | Phase / Area | Strategic Rationale (Safety & ROI) | Status |
+|---|---|---|---|
+| **P1-A (Physical ROI)**| **Phase 26: Automotive, Embedded Robotics & Head-Unit Bridge** | **Safety: Critical.** SMT mathematical fail-safe fence protects vehicles and BOE-Bot servos.<br>**ROI: High.** Immediate physical proof in college robotics lab and vehicle CAN translation. | **Blueprint** |
+| **P1-B (Perf ROI)** | **Phase 27: Full-Tilt Hardware Saturation & Zero-Copy VRAM** | **Safety: High.** Eliminates SMT solver timeouts and race conditions under 120 FPS maximum load.<br>**ROI: High.** Unlocks raw wire-speed performance by keeping 4K video entirely in GPU VRAM. | **Blueprint** |
+| **P1-C (User ROI)** | **Phase 30: Zero-Friction End-User Simplicity & Single-Click** | **Safety: High.** Auto-hardware detection prevents users from misconfiguring memory or GPU profiles.<br>**ROI: Universal.** 1-click installer and drag-and-drop `.si-pack` enables non-coder adoption. | **Blueprint** |
+
+#### 🌌 Tier 2: Spatial Immersion & Deep Future Frontiers (Exploration Focus)
+*Visual spatial immersion, long-term research, and quantum horizons.*
+
+| Priority | Phase / Area | Strategic Rationale (Safety & ROI) | Status |
+|---|---|---|---|
+| **P2-A (Spatial ROI)**| **Phase 28: 3D Spatial Constellation Engine & Galactic Roaming** | **Safety: Low.** Read-only visual spatial HUD canvas.<br>**ROI: High Immersion.** Converts abstract node telemetry into an interactive 3D galaxy. | **Blueprint** |
 
 ---
 
