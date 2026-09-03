@@ -1,11 +1,11 @@
 // core/hypervisor/src/hud/companion_overlay.rs
-//! Interactive Cognitive Node & Companion Telemetry Overlay.
+//! Cognitive Execution Node & Desktop Telemetry Overlay.
 //!
 //! Provides a compact, non-intrusive desktop widget representing the live
-//! cognitive state of Aaroneous:
+//! execution state of Aaroneous:
 //! 1. Real-Time System Equilibrium Indicator (Free Energy ΔF & Shannon Entropy).
-//! 2. Active Conductor & Sparse Specialist Organ Limbs.
-//! 3. Conversational Linguistic Intercom Input & Speech Synthesis.
+//! 2. Active Conductor & Specialist Execution Modules.
+//! 3. Conversational Linguistic Intercom Input & Direct Opcode Transduction.
 //! 4. Drag-and-Drop `.si` / `.si-pack` Cartridge Ingestion.
 
 use eframe::egui;
@@ -14,9 +14,9 @@ use serde::{Deserialize, Serialize};
 /// Equilibrium status computed from thermodynamic metrics
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum EquilibriumState {
-    NominalEquilibrium,   // ΔF <= 0.02 (Calm / Blue)
+    NominalEquilibrium,   // ΔF <= 0.02 (Nominal / Blue)
     ActiveSynthesis,      // 0.02 < ΔF <= 0.05 (Active / Cyan)
-    BoundaryInterlock,    // ΔF > 0.05 (Trip / Amber)
+    BoundaryInterlock,    // ΔF > 0.05 (Safety Cutoff / Red)
 }
 
 impl EquilibriumState {
@@ -37,12 +37,12 @@ impl EquilibriumState {
     }
 }
 
-/// The Interactive Cognitive Node Desktop Overlay Widget
+/// The Desktop Telemetry Overlay Widget
 pub struct CompanionTelemetryOverlay {
     pub free_energy_delta: f32,
     pub cycle_latency_us: u64,
     pub active_conductor: String,
-    pub active_organs: Vec<String>,
+    pub active_modules: Vec<String>,
     pub chat_input_buffer: String,
     pub last_intercom_reply: String,
     pub is_expanded: bool,
@@ -54,9 +54,9 @@ impl Default for CompanionTelemetryOverlay {
             free_energy_delta: 0.012,
             cycle_latency_us: 14,
             active_conductor: "conductor_desktop_v1.si".to_string(),
-            active_organs: vec!["OcularVision".to_string(), "KineticAim".to_string()],
+            active_modules: vec!["OpticalPerception".to_string(), "KineticDispatch".to_string()],
             chat_input_buffer: String::new(),
-            last_intercom_reply: "Aaroneous Sovereign Node ready. System equilibrium nominal.".to_string(),
+            last_intercom_reply: "Aaroneous Core ready. System equilibrium nominal.".to_string(),
             is_expanded: false,
         }
     }
@@ -109,7 +109,7 @@ impl CompanionTelemetryOverlay {
                 ui.add_space(8.0);
                 ui.group(|ui| {
                     ui.label(format!("Active Conductor: {}", self.active_conductor));
-                    ui.label(format!("Active Limbs: [{}]", self.active_organs.join(", ")));
+                    ui.label(format!("Active Modules: [{}]", self.active_modules.join(", ")));
 
                     ui.add_space(6.0);
                     ui.horizontal(|ui| {

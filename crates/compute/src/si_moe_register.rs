@@ -107,6 +107,36 @@ impl SiMoERegister {
         Ok(())
     }
 
+    /// Atomically verifies and mounts a canonical `.si` cartridge file into a register slot
+    pub fn mount_cartridge_file(
+        &mut self,
+        slot_id: usize,
+        path: impl AsRef<std::path::Path>,
+        is_conductor: bool,
+    ) -> Result<()> {
+        let path_ref = path.as_ref();
+        if !path_ref.exists() {
+            bail!("Cartridge file does not exist: {:?}", path_ref);
+        }
+
+        let file_bytes = std::fs::read(path_ref)?;
+        if file_bytes.len() < 64 {
+            bail!("Cartridge file is smaller than 64-byte SINT header");
+        }
+
+        // Validate magic bytes 'SINT'
+        if &file_bytes[0..4] != crate::si_spec::SI_CANONICAL_MAGIC {
+            bail!("Invalid cartridge magic: expected 'SINT'");
+        }
+
+        let file_name = path_ref
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or("unnamed_cartridge");
+
+        self.mount_organ(slot_id, file_name, "CanonicalExecutionBlock", is_conductor)
+    }
+
     /// Number of mounted organs
     pub fn mounted_count(&self) -> usize {
         self.slots.iter().filter(|s| s.is_some()).count()

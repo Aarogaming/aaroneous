@@ -601,6 +601,9 @@ pub struct SharedHudState {
     pub auto_pilot_telemetry: crate::hud::auto_pilot::AutoPilotTelemetry,
     pub auto_pilot_toggle_requested: bool,
     pub auto_pilot_kill_requested: bool,
+
+    // Compact Desktop Telemetry Overlay Widget
+    pub companion_overlay: crate::hud::CompanionTelemetryOverlay,
 }
 
 impl Default for SharedHudState {
@@ -959,6 +962,7 @@ impl Default for SharedHudState {
             auto_pilot_telemetry: crate::hud::auto_pilot::AutoPilotTelemetry::default(),
             auto_pilot_toggle_requested: false,
             auto_pilot_kill_requested: false,
+            companion_overlay: crate::hud::CompanionTelemetryOverlay::default(),
         }
     }
 }
