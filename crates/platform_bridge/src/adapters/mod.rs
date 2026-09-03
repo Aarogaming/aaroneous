@@ -249,6 +249,19 @@ impl UniversalAdapterRegistry {
         reg
     }
 
+    /// Samples observations across all registered sensory feeds
+    pub fn sample_all_feeds(&mut self) -> Vec<NormalizedObservation> {
+        let mut observations = Vec::new();
+        for feed in self.sensory_feeds.values_mut() {
+            if feed.is_healthy() {
+                if let Ok(obs) = feed.sample_observation() {
+                    observations.push(obs);
+                }
+            }
+        }
+        observations
+    }
+
     /// Dispatches a command to a named actuator, validating safety bounds first
     pub fn dispatch_to_actuator(&mut self, actuator_name: &str, cmd: UniversalActuatorCommand) -> Result<()> {
         if let Some(actuator) = self.actuators.get_mut(actuator_name) {
@@ -313,5 +326,11 @@ mod tests {
         };
 
         assert!(registry.dispatch_to_actuator("Test-Sim", cmd).is_ok());
+
+        // Sample sensory feeds
+        let observations = registry.sample_all_feeds();
+        assert_eq!(observations.len(), 1);
+        assert_eq!(observations[0].source_id, "Mock-Ocular-Feed");
+        assert_eq!(observations[0].latent_feature_vector.len(), 3);
     }
 }

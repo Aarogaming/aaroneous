@@ -65,3 +65,36 @@ pub extern "C" fn aas_process(input: *mut AasBuffer, output: *mut AasBuffer) -> 
 
     AAS_STATUS_OK
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_aas_buffer_simd_alignment() {
+        let mut aligned_storage = [0u8; 128];
+        let ptr = aligned_storage.as_mut_ptr();
+        let offset = (AAS_ALIGNMENT_BYTES - (ptr as usize % AAS_ALIGNMENT_BYTES)) % AAS_ALIGNMENT_BYTES;
+        let aligned_ptr = unsafe { ptr.add(offset) as *mut c_void };
+
+        let buf = AasBuffer {
+            data: aligned_ptr,
+            size: 64,
+            capacity: 64,
+        };
+
+        assert!(buf.is_simd_aligned());
+        assert!(buf.is_valid_bounds());
+    }
+
+    #[test]
+    fn test_aas_buffer_null_safety() {
+        let buf = AasBuffer {
+            data: std::ptr::null_mut(),
+            size: 0,
+            capacity: 0,
+        };
+
+        assert!(!buf.is_simd_aligned());
+    }
+}
