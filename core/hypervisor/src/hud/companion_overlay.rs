@@ -106,7 +106,7 @@ impl CompanionTelemetryOverlay {
             ui.add_space(4.0);
             ui.label(egui::RichText::new(&self.last_intercom_reply).italics().color(egui::Color32::LIGHT_GRAY));
 
-            // Expanded View: Organ Register & Intent Input
+            // Expanded View: Module Register & Intent Input
             if self.is_expanded {
                 ui.add_space(8.0);
                 ui.group(|ui| {
