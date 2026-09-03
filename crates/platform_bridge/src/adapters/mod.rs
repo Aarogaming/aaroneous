@@ -6,9 +6,13 @@
 //! 2. `PhysicalActuatorAdapter`: Generic action dispatchers (Win32 Mouse, BOE-Bot Serial, CANbus, Virtual Sim).
 //! 3. `AdapterRegistry`: Dynamic runtime registry managing active plug-and-play adapters.
 
+pub mod synthesizer;
+
 use anyhow::{bail, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+
+pub use synthesizer::{AdapterSynthesizer, DeviceHardwareSpec, SynthesizedActuatorAdapter};
 
 /// Generic normalized observation emitted by any sensory adapter
 #[derive(Debug, Clone, Serialize, Deserialize)]
