@@ -27,7 +27,7 @@ impl AasBuffer {
         if self.data.is_null() {
             return false;
         }
-        (self.data as usize) % AAS_ALIGNMENT_BYTES == 0
+        (self.data as usize).is_multiple_of(AAS_ALIGNMENT_BYTES)
     }
 
     /// Validates that the buffer bounds are within capacity
@@ -41,7 +41,12 @@ pub extern "C" fn aas_init() -> i32 {
     AAS_STATUS_OK
 }
 
+/// Dynamic plugin entrypoint with C ABI
+///
+/// # Safety
+/// The caller must ensure that `input` and `output` point to valid memory or are null.
 #[no_mangle]
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
 pub extern "C" fn aas_process(input: *mut AasBuffer, output: *mut AasBuffer) -> i32 {
     if input.is_null() || output.is_null() {
         return AAS_STATUS_ERR_NULL_PTR;

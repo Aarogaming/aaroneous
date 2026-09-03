@@ -249,17 +249,18 @@ impl FleetScheduler {
                 Ok(None)
             }
             SyncMessageKind::WorkStealRequest => {
-                if let Ok(req) = serde_json::from_slice::<WorkStealRequest>(&msg.payload) {
-                    if let Some(resp) = self.respond_to_work_steal(&req) {
-                        let payload = serde_json::to_vec(&resp)?;
-                        return Ok(Some(SyncMessage {
-                            kind: SyncMessageKind::WorkStealResponse,
-                            payload,
-                            from: self.local_node_id.0.clone(),
-                            timestamp: ts,
-                            intent_version: 1,
-                        }));
-                    }
+                if let Some(resp) = serde_json::from_slice::<WorkStealRequest>(&msg.payload)
+                    .ok()
+                    .and_then(|req| self.respond_to_work_steal(&req))
+                {
+                    let payload = serde_json::to_vec(&resp)?;
+                    return Ok(Some(SyncMessage {
+                        kind: SyncMessageKind::WorkStealResponse,
+                        payload,
+                        from: self.local_node_id.0.clone(),
+                        timestamp: ts,
+                        intent_version: 1,
+                    }));
                 }
                 Ok(None)
             }

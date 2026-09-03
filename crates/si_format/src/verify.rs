@@ -19,7 +19,7 @@ pub const MIN_VERSION: u32 = 3;
 /// # Errors
 /// Returns `Err` if the magic bytes are missing or incorrect.
 pub fn validate_magic_bytes(mmap: &[u8]) -> Result<()> {
-    if mmap.len() < 4 || &mmap[0..4] != SINT_PACKER_MAGIC {
+    if mmap.len() < 4 || mmap[0..4] != SINT_PACKER_MAGIC {
         bail!("Missing or invalid SINT magic bytes");
     }
     Ok(())
@@ -45,13 +45,13 @@ pub fn validate_version(version: u32) -> Result<()> {
 /// # Errors
 /// Returns `Err` if the offset is not 64-byte aligned or the length is not a multiple of 4.
 pub fn validate_tensor_descriptor(offset: u64, length: u64) -> Result<()> {
-    if (offset as usize) % ALIGNMENT_BYTES != 0 {
+    if !(offset as usize).is_multiple_of(ALIGNMENT_BYTES) {
         bail!(
             "Tensor byte_offset {} is not 64-byte aligned",
             offset
         );
     }
-    if (length as usize) % 4 != 0 {
+    if !(length as usize).is_multiple_of(4) {
         bail!(
             "Tensor byte_length {} is not a multiple of 4 (f32)",
             length

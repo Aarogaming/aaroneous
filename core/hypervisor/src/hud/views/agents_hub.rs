@@ -147,11 +147,9 @@ impl HudView for AgentsHubView {
         if let Some(agent) = to_spawn {
             state.spawn_agent_execution(&agent);
         }
-        if let Some(idx) = to_delete {
-            if idx < state.custom_agents.len() {
-                let agent = state.custom_agents.remove(idx);
-                agent.delete_from_disk();
-            }
+        if let Some(idx) = to_delete.filter(|&idx| idx < state.custom_agents.len()) {
+            let agent = state.custom_agents.remove(idx);
+            agent.delete_from_disk();
         }
 
         ui.add_space(8.0);

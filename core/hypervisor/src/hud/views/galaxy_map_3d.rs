@@ -164,34 +164,32 @@ impl HudView for Galaxy3DView {
                     };
 
                     if drawn_edges.insert(edge_key) {
-                        if let Some(target_star) = star_map.get(target_id) {
-                            if let Some((p2, scale2, _)) = project_3d(target_star.pos) {
-                                // Constellation Wire
-                                let alpha = ((scale1 + scale2) * 45.0).clamp(20.0, 140.0) as u8;
-                                painter.line_segment(
-                                    [p1, p2],
-                                    Stroke::new(1.2, Color32::from_rgba_unmultiplied(56, 139, 253, alpha)),
-                                );
+                        if let Some((p2, scale2, _)) = star_map.get(target_id).and_then(|target_star| project_3d(target_star.pos)) {
+                            // Constellation Wire
+                            let alpha = ((scale1 + scale2) * 45.0).clamp(20.0, 140.0) as u8;
+                            painter.line_segment(
+                                [p1, p2],
+                                Stroke::new(1.2, Color32::from_rgba_unmultiplied(56, 139, 253, alpha)),
+                            );
 
-                                // Animated Real-Time Execution Pulse
-                                let pulse_phase = (time_sec * 0.8 + (star.domain_opcode as f32 * 0.1)) % 1.0;
-                                let pulse_pos = Pos2::new(
-                                    p1.x + (p2.x - p1.x) * pulse_phase,
-                                    p1.y + (p2.y - p1.y) * pulse_phase,
-                                );
-                                let pulse_scale = (scale1 + (scale2 - scale1) * pulse_phase).max(0.5);
+                            // Animated Real-Time Execution Pulse
+                            let pulse_phase = (time_sec * 0.8 + (star.domain_opcode as f32 * 0.1)) % 1.0;
+                            let pulse_pos = Pos2::new(
+                                p1.x + (p2.x - p1.x) * pulse_phase,
+                                p1.y + (p2.y - p1.y) * pulse_phase,
+                            );
+                            let pulse_scale = (scale1 + (scale2 - scale1) * pulse_phase).max(0.5);
 
-                                painter.circle_filled(
-                                    pulse_pos,
-                                    3.5 * pulse_scale,
-                                    Color32::from_rgba_unmultiplied(255, 255, 255, 220),
-                                );
-                                painter.circle_stroke(
-                                    pulse_pos,
-                                    6.0 * pulse_scale,
-                                    Stroke::new(1.0, Color32::from_rgba_unmultiplied(100, 200, 255, 160)),
-                                );
-                            }
+                            painter.circle_filled(
+                                pulse_pos,
+                                3.5 * pulse_scale,
+                                Color32::from_rgba_unmultiplied(255, 255, 255, 220),
+                            );
+                            painter.circle_stroke(
+                                pulse_pos,
+                                6.0 * pulse_scale,
+                                Stroke::new(1.0, Color32::from_rgba_unmultiplied(100, 200, 255, 160)),
+                            );
                         }
                     }
                 }
@@ -221,10 +219,8 @@ impl HudView for Galaxy3DView {
             let radius = (base_radius * scale).clamp(4.0, 28.0);
 
             // Hit Testing
-            if let Some(cp) = click_pos {
-                if cp.distance(*pos_2d) <= radius * 1.5 {
-                    clicked_star_id = Some(star.id.clone());
-                }
+            if let Some(_cp) = click_pos.filter(|cp| cp.distance(*pos_2d) <= radius * 1.5) {
+                clicked_star_id = Some(star.id.clone());
             }
 
             // Depth Fog Factor (dim stars deep in space)
@@ -281,55 +277,53 @@ impl HudView for Galaxy3DView {
         ui.add_space(8.0);
 
         // 7. Interactive Specialist Detail Inspector Panel
-        if let Some(ref sel_id) = state.selected_galaxy_star_id.clone() {
-            if let Some(star) = star_map.get(sel_id) {
-                egui::Frame::group(ui.style())
-                    .fill(theme.card_bg())
-                    .stroke(Stroke::new(1.0, theme.border_color()))
-                    .corner_radius(CornerRadius::same(6))
-                    .show(ui, |ui| {
-                        ui.horizontal(|ui| {
-                            let (r, g, b) = (star.color.r(), star.color.g(), star.color.b());
-                            ui.label(
-                                egui::RichText::new("✦")
-                                    .color(Color32::from_rgb(r, g, b))
-                                    .size(20.0)
-                                    .strong(),
-                            );
-                            ui.heading(
-                                egui::RichText::new(&star.name)
-                                    .color(Color32::from_rgb(r, g, b))
-                                    .strong(),
-                            );
-                            ui.label(
-                                egui::RichText::new(format!("Domain Opcode: 0x{:04X}", star.domain_opcode))
-                                    .color(Color32::from_rgb(180, 190, 210)),
-                            );
-                            ui.label(
-                                egui::RichText::new(format!("Category: {}", star.category))
-                                    .color(theme.accent()),
-                            );
-                            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                                ui.label(format!("3D Coordinates: [{:.0}, {:.0}, {:.0}]", star.pos[0], star.pos[1], star.pos[2]));
-                            });
-                        });
-
-                        ui.add_space(4.0);
-                        ui.label(egui::RichText::new(&star.description).italics());
-                        ui.add_space(4.0);
-
-                        ui.horizontal(|ui| {
-                            ui.label(egui::RichText::new("Synaptic Links:").strong());
-                            for target in &star.connected_to {
-                                if let Some(target_star) = star_map.get(target) {
-                                    if ui.button(format!("🔗 {}", target_star.name)).clicked() {
-                                        state.selected_galaxy_star_id = Some(target.clone());
-                                    }
-                                }
-                            }
+        if let Some(star) = state.selected_galaxy_star_id.as_ref().and_then(|sel_id| star_map.get(sel_id)) {
+            egui::Frame::group(ui.style())
+                .fill(theme.card_bg())
+                .stroke(Stroke::new(1.0, theme.border_color()))
+                .corner_radius(CornerRadius::same(6))
+                .show(ui, |ui| {
+                    ui.horizontal(|ui| {
+                        let (r, g, b) = (star.color.r(), star.color.g(), star.color.b());
+                        ui.label(
+                            egui::RichText::new("✦")
+                                .color(Color32::from_rgb(r, g, b))
+                                .size(20.0)
+                                .strong(),
+                        );
+                        ui.heading(
+                            egui::RichText::new(&star.name)
+                                .color(Color32::from_rgb(r, g, b))
+                                .strong(),
+                        );
+                        ui.label(
+                            egui::RichText::new(format!("Domain Opcode: 0x{:04X}", star.domain_opcode))
+                                .color(Color32::from_rgb(180, 190, 210)),
+                        );
+                        ui.label(
+                            egui::RichText::new(format!("Category: {}", star.category))
+                                .color(theme.accent()),
+                        );
+                        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                            ui.label(format!("3D Coordinates: [{:.0}, {:.0}, {:.0}]", star.pos[0], star.pos[1], star.pos[2]));
                         });
                     });
-            }
+
+                    ui.add_space(4.0);
+                    ui.label(egui::RichText::new(&star.description).italics());
+                    ui.add_space(4.0);
+
+                    ui.horizontal(|ui| {
+                        ui.label(egui::RichText::new("Synaptic Links:").strong());
+                        for target in &star.connected_to {
+                            if let Some(target_star) = star_map.get(target) {
+                                if ui.button(format!("🔗 {}", target_star.name)).clicked() {
+                                    state.selected_galaxy_star_id = Some(target.clone());
+                                }
+                            }
+                        }
+                    });
+                });
         }
     }
 }

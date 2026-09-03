@@ -46,7 +46,7 @@ impl HudView for SpatialSensoryView {
                             ui.label(egui::RichText::new("Submit Hive Task Intent:").strong());
                             ui.add(egui::TextEdit::singleline(&mut state.hive_intent_input).desired_width(420.0));
                             if ui.button("⚡ Dispatch Intent").clicked() && !state.hive_intent_input.trim().is_empty() {
-                                state.hive_routing_decision = Some(format!("Routed intent to Synthesizer (0x0200) & DevTools (0x0400)"));
+                                state.hive_routing_decision = Some("Routed intent to Synthesizer (0x0200) & DevTools (0x0400)".to_string());
                                 state.hive_routing_trace.push(format!("Task: '{}' -> Completed.", state.hive_intent_input));
                                 state.hive_intent_input.clear();
                             }

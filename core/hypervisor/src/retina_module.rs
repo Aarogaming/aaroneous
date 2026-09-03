@@ -17,15 +17,67 @@ pub struct SynapseWebIngest {
     pub token_buffer: [u32; 8192], // Token IDs directly for SLM consumption
 }
 
+/// Configurable Web Compliance Policy Engine
+#[derive(Debug, Clone)]
+pub struct CompliancePolicyEngine {
+    blocked_domains: Vec<String>,
+}
+
+impl Default for CompliancePolicyEngine {
+    fn default() -> Self {
+        Self {
+            blocked_domains: vec![
+                "twitter.com".to_string(),
+                "facebook.com".to_string(),
+                "instagram.com".to_string(),
+                "tiktok.com".to_string(),
+            ],
+        }
+    }
+}
+
+impl CompliancePolicyEngine {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn with_blocked_domains(domains: Vec<String>) -> Self {
+        Self {
+            blocked_domains: domains,
+        }
+    }
+
+    pub fn block_domain(&mut self, domain: impl Into<String>) {
+        self.blocked_domains.push(domain.into());
+    }
+
+    pub fn is_domain_blocked(&self, host: &str) -> bool {
+        self.blocked_domains.iter().any(|b| host.contains(b))
+    }
+}
+
 pub struct RetinaModule {
     tokenizer: Tokenizer,
+    compliance_engine: CompliancePolicyEngine,
 }
 
 impl RetinaModule {
     pub fn new(tokenizer_path: &str) -> Result<Self> {
         let tokenizer = Tokenizer::from_file(tokenizer_path)
             .map_err(|e| anyhow!("Failed to load tokenizer: {}", e))?;
-        Ok(Self { tokenizer })
+        Ok(Self {
+            tokenizer,
+            compliance_engine: CompliancePolicyEngine::default(),
+        })
+    }
+
+    pub fn with_compliance(tokenizer_path: &str, compliance_engine: CompliancePolicyEngine) -> Result<Self> {
+        let tokenizer = Tokenizer::from_file(tokenizer_path)
+            .map_err(|e| anyhow!("Failed to load tokenizer: {}", e))?;
+        Ok(Self {
+            tokenizer,
+            compliance_engine,
+        })
     }
 
     /// Internalized safe-crawler: Bypasses external APIs, converts web to tokens.
@@ -100,10 +152,9 @@ impl RetinaModule {
         let parsed_url = url::Url::parse(url)?;
         let host = parsed_url.host_str().ok_or_else(|| anyhow!("Invalid host in URL"))?;
         
-        // 1. Hardcoded blocklist
-        let blocklist = vec!["twitter.com", "facebook.com", "instagram.com", "tiktok.com"];
-        if blocklist.iter().any(|&b| host.contains(b)) {
-            println!("[Retina] Host {} is in the hardcoded blocklist.", host);
+        // 1. Configurable Policy Engine Domain Check
+        if self.compliance_engine.is_domain_blocked(host) {
+            println!("[Retina] Host {} is blocked by CompliancePolicyEngine.", host);
             return Ok(false);
         }
 
