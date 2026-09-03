@@ -135,6 +135,7 @@ impl CrucibleSandbox {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use si_ir::{DimensionalUnit, MachineOpcode, NativeComputationNode};
 
     #[test]
     fn test_crucible_sandbox_duel_lifecycle() {
