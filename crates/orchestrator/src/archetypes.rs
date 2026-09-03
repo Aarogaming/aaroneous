@@ -1,4 +1,4 @@
-use anyhow::{Result, Context};
+use anyhow::Result;
 use serde::{Serialize, Deserialize};
 #[cfg(feature = "llama-gguf")]
 use candle_core::CandleBackend; // Optional: for Synthesizer's LLM inference backend
@@ -68,14 +68,14 @@ impl Archetype {
     }
 
     /// Returns the archetype's primary action opcode range.
-    pub fn action_opcode_range(&self) -> (u8, u8) {
+    pub fn action_opcode_range(&self) -> std::ops::RangeInclusive<u8> {
         match self {
-            Archetype::Orchestrator => (0x10..=0x1F),   // 0x10-0x1F: Orchestration ops  
-            Archetype::Presenter => (0x20..=0x3F),  // 0x20-0x3F: Rendering/visualization
-            Archetype::Synthesizer => (0xA0..=0xAF), // 0xA0-AF: Linguistic translation ops  
-            Archetype::Sentinel => (0xB0..=0xBF),  // 0xB0-BF: Security/sandboxing operations
-            Archetype::Archivist => (0xC0..=0xCF), // 0xC0-CF: Data ingestion/indexing
-            Archetype::Fabricator => (0xD0..=0xDF), // 0xD0-DF: WASM compilation ops  
+            Archetype::Orchestrator => 0x10..=0x1F, // 0x10-0x1F: Orchestration ops  
+            Archetype::Presenter => 0x20..=0x3F,    // 0x20-0x3F: Rendering/visualization
+            Archetype::Synthesizer => 0xA0..=0xAF,  // 0xA0-AF: Linguistic translation ops  
+            Archetype::Sentinel => 0xB0..=0xBF,     // 0xB0-BF: Security/sandboxing operations
+            Archetype::Archivist => 0xC0..=0xCF,    // 0xC0-CF: Data ingestion/indexing
+            Archetype::Fabricator => 0xD0..=0xDF,   // 0xD0-DF: WASM compilation ops  
         }
     }
 
@@ -141,10 +141,13 @@ impl NativeThinker for Archetype {
             urgency: 0.1f32.min(self.base_frequency() as f32 / 5000.0), // Scale by frequency  
             target_hash: self.hash(),                                    // Hash of archetype itself (self-reference)
             resource_bias: [0.0; 4],                                     // No specific resource request yet
-            action_opcode: *Self::action_opcode_range(self).start() as u8,   // Use minimum opcode for this type  
+            action_opcode: *Self::action_opcode_range(self).start(),     // Use minimum opcode for this type  
         })
     }
 
+    fn archetype(&self) -> Archetype {
+        self.clone()
+    }
 }
 
 
@@ -153,7 +156,7 @@ impl Archetype {
     pub fn hash(&self) -> u64 {
         use std::hash::{Hash, Hasher};
         let mut hasher = std::collections::hash_map::DefaultHasher::new();
-        self.hash(&mut hasher);
+        Hash::hash(self, &mut hasher);
         hasher.finish()
     }
 
@@ -167,4 +170,69 @@ impl Archetype {
 
 // Synthesizer-specific implementation goes in a separate file when llama-gguf feature is enabled.
 // Fabricator-specific WASM loading logic would go here (using wasmtime/wasi).
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_archetype_properties_and_signatures() {
+        let archetypes = [
+            Archetype::Orchestrator,
+            Archetype::Presenter,
+            Archetype::Synthesizer,
+            Archetype::Sentinel,
+            Archetype::Archivist,
+            Archetype::Fabricator,
+        ];
+
+        for a in &archetypes {
+            assert!(a.base_frequency() > 0);
+            assert!(!a.primary_resource().is_empty());
+            assert!(!a.as_str().is_empty());
+            assert!(a.hash() > 0);
+            assert_eq!(a.archetype(), a.clone());
+        }
+
+        assert_eq!(Archetype::Orchestrator.base_frequency(), 1000);
+        assert_eq!(Archetype::Presenter.base_frequency(), 60);
+        assert_eq!(Archetype::Synthesizer.base_frequency(), 5);
+        assert_eq!(Archetype::Sentinel.base_frequency(), 200);
+        assert_eq!(Archetype::Archivist.base_frequency(), 100);
+        assert_eq!(Archetype::Fabricator.base_frequency(), 5);
+    }
+
+    #[test]
+    fn test_archetype_opcode_ranges_are_disjoint() {
+        let r1 = Archetype::action_opcode_range(&Archetype::Orchestrator);
+        let r2 = Archetype::action_opcode_range(&Archetype::Presenter);
+        let r3 = Archetype::action_opcode_range(&Archetype::Synthesizer);
+        let r4 = Archetype::action_opcode_range(&Archetype::Sentinel);
+        let r5 = Archetype::action_opcode_range(&Archetype::Archivist);
+        let r6 = Archetype::action_opcode_range(&Archetype::Fabricator);
+
+        assert_eq!(r1, 0x10..=0x1F);
+        assert_eq!(r2, 0x20..=0x3F);
+        assert_eq!(r3, 0xA0..=0xAF);
+        assert_eq!(r4, 0xB0..=0xBF);
+        assert_eq!(r5, 0xC0..=0xCF);
+        assert_eq!(r6, 0xD0..=0xDF);
+    }
+
+    #[test]
+    fn test_force_vector_serialization() {
+        let fv = ForceVector {
+            urgency: 0.75,
+            target_hash: 123456789,
+            resource_bias: [1.0, 0.5, 0.2, 0.1],
+            action_opcode: 0x81,
+        };
+
+        let json = serde_json::to_string(&fv).unwrap();
+        let restored: ForceVector = serde_json::from_str(&json).unwrap();
+        assert!((restored.urgency - 0.75).abs() < 1e-6);
+        assert_eq!(restored.target_hash, 123456789);
+        assert_eq!(restored.action_opcode, 0x81);
+    }
+}
 

@@ -4,6 +4,7 @@
 pub mod ai_to_si;
 pub mod model_converter;
 pub mod polyglot;
+pub mod prefix_cache_integration;
 pub mod reflection_loop;
 pub mod si_distiller;
 pub mod si_to_ai;
@@ -13,6 +14,9 @@ pub use model_converter::{ModelConverter, ModelManifest, QuantizationType};
 pub use polyglot::{
     CircuitBreakerState, MetricsCollector, PolyglotCapsule, PolyglotFoundry, SelfHealingState,
     TelemetryBuffer, TelemetryEntry, TelemetryLevel,
+};
+pub use prefix_cache_integration::{
+    parse_nl_to_opcode_dag, GgufModelRunner, PrefixCache, PrefixCacheEntry, PromptPrefixKey,
 };
 pub use reflection_loop::{ReflectionFeedback, ReflectionLoopEngine};
 pub use si_distiller::{DistillationBatchReport, SiDistillationMiner};

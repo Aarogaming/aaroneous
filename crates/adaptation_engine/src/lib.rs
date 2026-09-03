@@ -20,7 +20,8 @@ pub mod self_repair;
 pub mod streaming_adaptation;
 
 pub use streaming_adaptation::{
-    StreamingAdaptationReport, StreamingLoraAdaptationPipeline, LATENT_DIM,
+    apply_adaptation, StreamingAdaptationReport, StreamingLoraAdaptationPipeline, DEFAULT_LORA_RANK,
+    LATENT_DIM,
 };
 
 pub use auto_wrapper::{

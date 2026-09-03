@@ -2,6 +2,7 @@
 //! Multi-Agent Federation, Hive Runtime, MDP Task Routing, and Control Plane for Aaroneous.
 
 pub mod agents;
+pub mod archetypes;
 pub mod aura_ui;
 pub mod aura_ui_manifest;
 pub mod control;
@@ -38,6 +39,7 @@ pub use agents::{
     create_relic, create_specialist, Agent, AgentType, BaseAgent, CognitiveBias, Domain,
     RelicAgent, SpecialistAgent, UserAgent,
 };
+pub use archetypes::{Archetype, ForceVector, NativeThinker};
 
 // Re-export control plane
 pub use control::{parse_control_message, ControlMessage, ControlPlane, SpecialistState};

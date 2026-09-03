@@ -234,6 +234,20 @@ impl Agent for UserAgent {
     }
 }
 
+impl UserAgent {
+    pub fn new(id: impl Into<String>, username: impl Into<String>, role: impl Into<String>, persona: impl Into<String>) -> Self {
+        Self {
+            id: id.into(),
+            username: username.into(),
+            role: role.into(),
+            persona: persona.into(),
+            cognitive_bias: CognitiveBias::default(),
+            permissions: vec!["all".to_string()],
+            active_session: None,
+        }
+    }
+}
+
 impl Default for UserAgent {
     fn default() -> Self {
         UserAgent {
@@ -617,5 +631,55 @@ pub fn create_relic(name: &str, supervisor_id: &str) -> Option<RelicAgent> {
             status: "active".to_string(),
         }),
         _ => None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_specialist_creation_and_agent_trait() {
+        let specialist = create_specialist("orchestrator").expect("orchestrator specialist should exist");
+        assert_eq!(specialist.agent_id(), "specialist_orchestrator");
+        assert_eq!(specialist.agent_type(), AgentType::Specialist);
+        assert_eq!(specialist.domain, Domain::Leadership);
+        assert_eq!(specialist.get_role(), "Strategic Orchestrator & Leader");
+        assert!(specialist.get_cognitive_bias().analytical_depth >= 85);
+        assert!(!specialist.get_persona().is_empty());
+    }
+
+    #[test]
+    fn test_relic_creation_and_supervision() {
+        let relic = create_relic("display_buffer", "specialist_presenter").expect("display_buffer relic should exist");
+        assert_eq!(relic.agent_id(), "relic_display_buffer");
+        assert_eq!(relic.agent_type(), AgentType::Relic);
+        assert_eq!(relic.supervisor_id, "specialist_presenter");
+        assert_eq!(relic.status, "active");
+        assert_eq!(relic.get_role(), "Visual Operator & Perception Engine");
+    }
+
+    #[test]
+    fn test_user_agent_instantiation() {
+        let user = UserAgent::new("user_aaron", "Aaron", "Architect", "Curious and rigorous");
+        assert_eq!(user.agent_id(), "user_aaron");
+        assert_eq!(user.agent_type(), AgentType::User);
+        assert_eq!(user.get_role(), "Architect");
+        assert_eq!(user.get_persona(), "Curious and rigorous");
+    }
+
+    #[test]
+    fn test_all_specialists_and_relics_catalogs() {
+        let names = ["presenter", "synthesizer", "orchestrator", "sentinel", "archivist", "fabricator"];
+        for name in &names {
+            let s = create_specialist(name);
+            assert!(s.is_some(), "Specialist {} should be constructable", name);
+        }
+
+        let relics = ["display_buffer", "knowledge_store", "orchestrator_core", "memory_index", "compiler_core", "audit_engine"];
+        for r in &relics {
+            let rel = create_relic(r, "sup_01");
+            assert!(rel.is_some(), "Relic {} should be constructable", r);
+        }
     }
 }

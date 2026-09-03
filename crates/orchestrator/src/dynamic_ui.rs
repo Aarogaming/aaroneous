@@ -197,6 +197,25 @@ impl DynamicUiSynthesizer {
             DynamicWindowManifest::new("dyn_custom_tool", "🛠️ Custom AI Widget", root)
         }
     }
+
+    /// Asynchronously synthesizes a dynamic UI window using an LLMClient with fallback to rule-based synthesis
+    pub async fn synthesize_window_with_llm(
+        prompt: &str,
+        client: Option<&crate::llm::LLMClient>,
+    ) -> DynamicWindowManifest {
+        if let Some(llm) = client {
+            let system_prompt = "You are a dynamic UI synthesizer. Given an intent, generate a JSON dynamic UI window definition. \
+Return JSON matching DynamicWindowManifest with fields: window_id, title, root (with type, props). \
+If unable to parse, return empty or fallback.";
+            if let Ok(response) = llm.generate_domain_response(system_prompt, prompt, "ui_synthesis").await {
+                if let Ok(manifest) = DynamicWindowManifest::from_json(&response) {
+                    return manifest;
+                }
+            }
+        }
+        // Fallback to deterministic template synthesizer
+        Self::synthesize_window_from_prompt(prompt)
+    }
 }
 
 /// Rectangular Area for Axis-Aligned Bounding Box (AABB) Collision Prevention
@@ -423,6 +442,13 @@ mod tests {
                 assert!(!rects[i].intersects(&rects[j], 0.0));
             }
         }
+    }
+
+    #[tokio::test]
+    async fn test_dynamic_ui_synthesis_with_llm_fallback() {
+        let win = DynamicUiSynthesizer::synthesize_window_with_llm("gpu metrics and vram monitor", None).await;
+        assert_eq!(win.window_id, "dyn_gpu_telemetry");
+        assert!(win.is_visible);
     }
 }
 
