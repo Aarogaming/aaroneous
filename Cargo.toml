@@ -12,6 +12,7 @@ members = [
     "crates/governance",
     "crates/compute",
     "crates/si_ir",
+    "crates/si_format",
     "crates/platform_bridge",
     "crates/paths",
     "core/hypervisor",

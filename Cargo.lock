@@ -2003,6 +2003,7 @@ dependencies = [
  "rustfft",
  "serde",
  "serde_json",
+ "si_format",
  "si_ir",
  "statrs",
  "target-lexicon",
@@ -4946,6 +4947,7 @@ dependencies = [
  "compute",
  "rand 0.8.7",
  "serde",
+ "si_format",
  "si_ir",
  "strum 0.26.3",
  "sysinfo 0.30.13",
@@ -9963,6 +9965,15 @@ name = "shlex"
 version = "2.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f8fadd59c855ef2080decdef8ff161eb6661b86933c9d82e5ba29dc602a55aba"
+
+[[package]]
+name = "si_format"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "serde",
+ "thiserror 2.0.20",
+]
 
 [[package]]
 name = "si_ir"
