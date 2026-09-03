@@ -11,6 +11,7 @@ repository.workspace = true
 ipc_bus = { path = "../ipc_bus" }
 governance = { path = "../governance" }
 compute = { path = "../compute" }
+si_ir = { path = "../si_ir" }
 aaroneous_paths = { path = "../paths" }
 tokio = { version = "1.0", features = ["full"] }
 serde = { version = "1.0", features = ["derive"] }

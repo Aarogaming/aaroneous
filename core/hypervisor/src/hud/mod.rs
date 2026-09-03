@@ -3,6 +3,7 @@
 
 pub mod app;
 pub mod auto_pilot;
+pub mod companion_overlay;
 pub mod fascia;
 pub mod modes;
 pub mod navigation;
@@ -12,6 +13,7 @@ pub mod views;
 
 pub use app::StudioApp;
 pub use auto_pilot::{AutoPilotController, AutoPilotState, AutoPilotTelemetry};
+pub use companion_overlay::{CompanionTelemetryOverlay, EquilibriumState};
 pub use fascia::ProcessFasciaWatcher;
 pub use navigation::{CommandAction, CommandPalette, NavSection, ToastLevel, ToastNotification};
 pub use state::{CustomAgent, SharedHudState, UserSettings};
