@@ -132,7 +132,7 @@ d:\Aaroneous\
 │   ├── paths/                  # Dynamic zero-hardcoded workspace path resolver
 │   ├── ipc_bus/                # Lock-free SPMC shared memory bus, LMAX ring buffer & persistent WAL
 │   ├── orchestrator/           # Thread affinity allocator, Compaction Engine & Hardware Auto-Tuner
-│   ├── specialists/            # SpecialistFederation: Universal Tools, Codebase Auditor, Substrates
+│   ├── capabilities/           # Universal Capability Toolset, Codebase Auditor, Substrates & MCP Tools
 │   ├── autonomic_adaptation/   # Continuous adaptive control, hyperparameter search & GGUF model ingestion
 │   ├── adaptation_engine/      # Polyglot AST parsing, Component Forge, FFI synthesis & shadow sandbox
 │   ├── platform_bridge/        # OS Win32 HID input injection, DXGI zero-copy screen capture & WASAPI loopback
