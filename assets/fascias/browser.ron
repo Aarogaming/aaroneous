@@ -1,0 +1,27 @@
+(
+    version: 1,
+    canvas_pan: (0.0, 0.0),
+    canvas_zoom: 1.0,
+    grid_snap_enabled: true,
+    grid_size: 20.0,
+    windows: {
+        "screen_automation": (
+            window_id: "screen_automation",
+            title: "Web Automation & Vision Stream",
+            pos: (40.0, 40.0),
+            size: (640.0, 480.0),
+            is_open: true,
+            is_minimized: false,
+            z_order: 1,
+        ),
+        "macro_hub": (
+            window_id: "macro_hub",
+            title: "Smart Macros Hub",
+            pos: (700.0, 40.0),
+            size: (480.0, 360.0),
+            is_open: true,
+            is_minimized: false,
+            z_order: 2,
+        ),
+    },
+)

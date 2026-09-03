@@ -362,6 +362,50 @@ impl SpatialCanvasScene {
         let scene = ron::from_str::<Self>(&content)?;
         Ok(scene)
     }
+
+    /// Automatically tiles open spatial windows into a non-overlapping grid (Compositor mode)
+    pub fn arrange_tiled_grid(&mut self, viewport_width: f32, viewport_height: f32, padding: f32) {
+        let open_keys: Vec<String> = self.windows
+            .iter()
+            .filter(|(_, w)| w.is_open && !w.is_minimized)
+            .map(|(k, _)| k.clone())
+            .collect();
+
+        if open_keys.is_empty() {
+            return;
+        }
+
+        let count = open_keys.len();
+        let cols = (count as f32).sqrt().ceil() as usize;
+        let rows = (count + cols - 1) / cols;
+
+        let available_w = (viewport_width - (cols as f32 + 1.0) * padding).max(200.0);
+        let available_h = (viewport_height - (rows as f32 + 1.0) * padding).max(200.0);
+
+        let cell_w = (available_w / cols as f32).max(280.0);
+        let cell_h = (available_h / rows as f32).max(200.0);
+
+        for (idx, key) in open_keys.iter().enumerate() {
+            let col = idx % cols;
+            let row = idx / cols;
+            let x = padding + col as f32 * (cell_w + padding);
+            let y = padding + row as f32 * (cell_h + padding);
+
+            if let Some(win) = self.windows.get_mut(key) {
+                win.pos = (x, y);
+                win.size = (cell_w, cell_h);
+                win.z_order = idx + 1;
+            }
+        }
+    }
+
+    /// Brings a spatial window to the top of the z-order stack
+    pub fn bring_to_front(&mut self, window_id: &str) {
+        let max_z = self.windows.values().map(|w| w.z_order).max().unwrap_or(0);
+        if let Some(win) = self.windows.get_mut(window_id) {
+            win.z_order = max_z + 1;
+        }
+    }
 }
 
 /// A Star Node in the 3D Galaxy Canvas (Phase 17 Sovereign 3D Cosmos)
@@ -552,6 +596,11 @@ pub struct SharedHudState {
 
     // Spatial Canvas Scene & Window Topology
     pub spatial_canvas_scene: SpatialCanvasScene,
+
+    // Auto-Pilot Controller Telemetry & Control Signals
+    pub auto_pilot_telemetry: crate::hud::auto_pilot::AutoPilotTelemetry,
+    pub auto_pilot_toggle_requested: bool,
+    pub auto_pilot_kill_requested: bool,
 }
 
 impl Default for SharedHudState {
@@ -907,6 +956,9 @@ impl Default for SharedHudState {
             swarm_live_quorums: 3,
             swarm_offload_count: 12,
             spatial_canvas_scene: SpatialCanvasScene::new(),
+            auto_pilot_telemetry: crate::hud::auto_pilot::AutoPilotTelemetry::default(),
+            auto_pilot_toggle_requested: false,
+            auto_pilot_kill_requested: false,
         }
     }
 }
@@ -1213,5 +1265,24 @@ mod tests {
         state.handle_canvas_pan_zoom(Vec2::ZERO, 0.0, false, false, true);
         assert_eq!(state.spatial_canvas_scene.canvas_pan, (0.0, 0.0));
         assert_eq!(state.spatial_canvas_scene.canvas_zoom, 1.0);
+    }
+
+    #[test]
+    fn test_spatial_canvas_arrange_tiled_grid_and_z_order() {
+        let mut scene = SpatialCanvasScene::new();
+        assert_eq!(scene.windows.len(), 2);
+
+        scene.arrange_tiled_grid(1920.0, 1080.0, 10.0);
+        let win1 = &scene.windows["screen_automation"];
+        let win2 = &scene.windows["workbench"];
+
+        // Verify windows do not overlap and have valid layout dimensions
+        assert!(win1.size.0 >= 280.0);
+        assert!(win2.size.0 >= 280.0);
+        assert_ne!(win1.pos, win2.pos);
+
+        // Bring win1 to front
+        scene.bring_to_front("screen_automation");
+        assert!(scene.windows["screen_automation"].z_order > scene.windows["workbench"].z_order);
     }
 }

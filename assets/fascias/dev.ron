@@ -1,0 +1,27 @@
+(
+    version: 1,
+    canvas_pan: (100.0, 50.0),
+    canvas_zoom: 1.0,
+    grid_snap_enabled: true,
+    grid_size: 20.0,
+    windows: {
+        "workbench": (
+            window_id: "workbench",
+            title: "Code Studio & Compiler Diagnostics",
+            pos: (40.0, 40.0),
+            size: (800.0, 600.0),
+            is_open: true,
+            is_minimized: false,
+            z_order: 1,
+        ),
+        "telemetry": (
+            window_id: "telemetry",
+            title: "Live Runtime Telemetry",
+            pos: (860.0, 40.0),
+            size: (400.0, 300.0),
+            is_open: true,
+            is_minimized: false,
+            z_order: 2,
+        ),
+    },
+)

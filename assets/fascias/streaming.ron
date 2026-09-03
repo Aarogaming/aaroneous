@@ -1,0 +1,27 @@
+(
+    version: 1,
+    canvas_pan: (20.0, 20.0),
+    canvas_zoom: 0.95,
+    grid_snap_enabled: true,
+    grid_size: 20.0,
+    windows: {
+        "screen_automation": (
+            window_id: "screen_automation",
+            title: "OBS Streaming & Video Loopback Capture",
+            pos: (40.0, 40.0),
+            size: (720.0, 540.0),
+            is_open: true,
+            is_minimized: false,
+            z_order: 1,
+        ),
+        "telemetry": (
+            window_id: "telemetry",
+            title: "Audio Spectrum & Dropped Frame Analyzer",
+            pos: (780.0, 40.0),
+            size: (440.0, 320.0),
+            is_open: true,
+            is_minimized: false,
+            z_order: 2,
+        ),
+    },
+)

@@ -72,6 +72,27 @@ pub fn render_transparent_hud(ctx: &egui::Context, state: &mut SharedHudState) {
             ui.checkbox(&mut state.overlay_show_aim_crosshair, "Show Targeting Reticle");
         });
 
+    // Render Sub-Frame Overlay Primitives (Aim Crosshair / Reticle) directly on the screen
+    if state.overlay_show_aim_crosshair {
+        let painter = ctx.layer_painter(egui::LayerId::new(egui::Order::Foreground, egui::Id::new("overlay_primitives_reticle")));
+        let screen = ctx.content_rect();
+        let target_pos = egui::pos2(
+            screen.min.x + (screen.width() * state.bot_aim_target[0]).clamp(0.0, screen.width()),
+            screen.min.y + (screen.height() * state.bot_aim_target[1]).clamp(0.0, screen.height()),
+        );
+
+        let accent_color = theme.accent();
+        // Inner circle
+        painter.circle_stroke(target_pos, 16.0, Stroke::new(1.5, accent_color));
+        painter.circle_filled(target_pos, 2.5, Color32::from_rgb(255, 60, 60));
+
+        // Crosshair reticle lines
+        painter.line_segment([egui::pos2(target_pos.x - 24.0, target_pos.y), egui::pos2(target_pos.x - 6.0, target_pos.y)], Stroke::new(1.5, accent_color));
+        painter.line_segment([egui::pos2(target_pos.x + 6.0, target_pos.y), egui::pos2(target_pos.x + 24.0, target_pos.y)], Stroke::new(1.5, accent_color));
+        painter.line_segment([egui::pos2(target_pos.x, target_pos.y - 24.0), egui::pos2(target_pos.x, target_pos.y - 6.0)], Stroke::new(1.5, accent_color));
+        painter.line_segment([egui::pos2(target_pos.x, target_pos.y + 6.0), egui::pos2(target_pos.x, target_pos.y + 24.0)], Stroke::new(1.5, accent_color));
+    }
+
     state.is_ingame_overlay_open = open;
     if killswitch_triggered {
         state.game_agent.trigger_killswitch("Overlay killswitch triggered");

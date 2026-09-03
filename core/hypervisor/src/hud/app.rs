@@ -107,6 +107,8 @@ impl StudioApp {
                 self.toasts.push("Macro Executed", format!("Ran macro '{name}'."), ToastLevel::Info);
             }
             CommandAction::TileWindowsGrid => {
+                let rect = ctx.content_rect();
+                self.state.spatial_canvas_scene.arrange_tiled_grid(rect.width(), rect.height(), 20.0);
                 self.toasts.push("Layout Applied", "Arranged tool windows in zero-overlap grid.", ToastLevel::Info);
             }
             CommandAction::SetTheme(theme) => {

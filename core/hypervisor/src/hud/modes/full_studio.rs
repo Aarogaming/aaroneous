@@ -16,7 +16,7 @@ pub fn render_full_studio(
     let theme = state.settings.theme;
 
     // ── Top Header ──────────────────────────────────────────────────────────
-    egui::TopBottomPanel::top("hud_top_header")
+    egui::Panel::top("hud_top_header")
         .frame(
             egui::Frame::side_top_panel(ui.style())
                 .fill(theme.panel_bg())
@@ -71,7 +71,7 @@ pub fn render_full_studio(
         });
 
     // ── Bottom Status Bar ───────────────────────────────────────────────────
-    egui::TopBottomPanel::bottom("hud_bottom_status_bar")
+    egui::Panel::bottom("hud_bottom_status_bar")
         .frame(
             egui::Frame::side_top_panel(ui.style())
                 .fill(theme.panel_bg())
@@ -112,14 +112,14 @@ pub fn render_full_studio(
         });
 
     // ── Left Sidebar Navigation Rail ────────────────────────────────────────
-    egui::SidePanel::left("hud_left_sidebar")
+    egui::Panel::left("hud_left_sidebar")
         .frame(
             egui::Frame::side_top_panel(ui.style())
                 .fill(theme.panel_bg())
                 .stroke(Stroke::new(1.0, theme.border_color())),
         )
         .resizable(false)
-        .default_width(170.0)
+        .default_size(170.0)
         .show_inside(ui, |ui| {
             ui.add_space(4.0);
             let sections = [

@@ -123,6 +123,51 @@ pub enum SyncMessageKind {
     WorkStealRequest,
     WorkStealResponse,
     WorkResult,
+    CartridgeLoraDeltaSync,
+}
+
+/// Dynamic .si LoRA Delta Synchronization Payload for P2P Mesh Weight Propagation
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CartridgeLoraDeltaSync {
+    pub cartridge_id: String,
+    pub adaptation_cycle: u64,
+    pub rank: usize,
+    pub lora_b_delta: Vec<f32>,
+    pub orthogonality_score: f32,
+    pub free_energy_reduction: f32,
+}
+
+/// Target operating system and compute backend of a heterogeneous cluster node
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum PlatformOs {
+    WindowsDirectX,
+    LinuxVulkan,
+    DarwinMetal,
+    BareMetalMicrokernel,
+}
+
+/// Hardware specification describing compute capabilities of a cluster node
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct ClusterNodeHardwareSpec {
+    pub os: PlatformOs,
+    pub cpu_cores: u32,
+    pub gpu_device_name: String,
+    pub total_vram_mb: u32,
+    pub supports_fp16: bool,
+    pub supports_simd_warp_scan: bool,
+}
+
+impl Default for ClusterNodeHardwareSpec {
+    fn default() -> Self {
+        Self {
+            os: PlatformOs::WindowsDirectX,
+            cpu_cores: 16,
+            gpu_device_name: "Host Accelerated Device".to_string(),
+            total_vram_mb: 8192,
+            supports_fp16: true,
+            supports_simd_warp_scan: true,
+        }
+    }
 }
 
 /// Message format for syncing Intent state and Work-Stealing between peers

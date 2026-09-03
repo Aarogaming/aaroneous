@@ -1,5 +1,6 @@
 // core/hypervisor/src/hud/views/screen_automation.rs
-//! Screen & Audio capture view, Discord-style window picker, and vision feed preview.
+//! Screen & Audio capture view, Discord-style window picker, vision feed preview,
+//! and Master Auto-Pilot engagement toggle with live microsecond telemetry.
 
 use crate::hud::state::{ScreenShareTab, SharedHudState};
 use crate::hud::views::HudView;
@@ -37,6 +38,87 @@ impl HudView for ScreenAutomationView {
         ui.label(
             "DirectX 12 / DXGI desktop duplication and window-specific capture with epigenetic delta gating.",
         );
+        ui.separator();
+
+        // ── Auto-Pilot Master Engage Section ────────────────────────────────────
+        ui.horizontal(|ui| {
+            ui.heading(
+                egui::RichText::new("🤖 Auto-Pilot Control")
+                    .color(theme.accent())
+                    .strong(),
+            );
+        });
+
+        ui.horizontal(|ui| {
+            let pilot_tele = &state.auto_pilot_telemetry;
+            let is_engaged = pilot_tele.state == crate::hud::auto_pilot::AutoPilotState::Engaged;
+            let is_emergency = pilot_tele.state == crate::hud::auto_pilot::AutoPilotState::EmergencyStop;
+
+            let engage_label = if is_engaged {
+                "🔴 DISENGAGE Auto-Pilot"
+            } else if is_emergency {
+                "⚠️ RESET & Engage"
+            } else {
+                "🟢 ENGAGE Auto-Pilot (F9)"
+            };
+
+            let button_color = if is_engaged {
+                egui::Color32::from_rgb(220, 50, 50)
+            } else if is_emergency {
+                egui::Color32::from_rgb(255, 165, 0)
+            } else {
+                egui::Color32::from_rgb(50, 200, 50)
+            };
+
+            if ui
+                .add(egui::Button::new(
+                    egui::RichText::new(engage_label).strong().color(egui::Color32::WHITE),
+                ).fill(button_color).min_size(Vec2::new(200.0, 32.0)))
+                .clicked()
+            {
+                state.auto_pilot_toggle_requested = true;
+            }
+
+            ui.separator();
+
+            // Kill switch
+            if ui
+                .add(egui::Button::new(
+                    egui::RichText::new("🛑 EMERGENCY STOP").strong().color(egui::Color32::WHITE),
+                ).fill(egui::Color32::from_rgb(180, 0, 0)).min_size(Vec2::new(160.0, 32.0)))
+                .clicked()
+            {
+                state.auto_pilot_kill_requested = true;
+            }
+        });
+
+        // ── Live Telemetry Gauges ────────────────────────────────────────────────
+        ui.add_space(4.0);
+        let tele = &state.auto_pilot_telemetry;
+        ui.horizontal(|ui| {
+            ui.label(format!("Status: {:?}", tele.state));
+            ui.separator();
+            ui.label(format!("Tick: {}", tele.loop_iteration));
+            ui.separator();
+            ui.label(format!("Latency: {:.1}μs", tele.last_tick_latency_us));
+            ui.separator();
+            ui.label(format!("Avg: {:.1}μs", tele.avg_tick_latency_us));
+            ui.separator();
+            ui.label(format!("FPS: {:.0}", tele.active_fps));
+        });
+        ui.horizontal(|ui| {
+            ui.label(format!("Memory Hits: {}", tele.memory_recall_hits));
+            ui.separator();
+            ui.label(format!("JIT Execs: {}", tele.jit_executions));
+            ui.separator();
+            ui.label(format!("HID Actions: {}", tele.hid_actions_dispatched));
+            ui.separator();
+            ui.label(format!("Free Energy: {:.4}", tele.free_energy));
+            ui.separator();
+            let onset_indicator = if tele.audio_onset_active { "🔊 ACTIVE" } else { "🔇 idle" };
+            ui.label(format!("Audio Onset: {onset_indicator}"));
+        });
+
         ui.separator();
 
         // ── Window & Screen Picker ──────────────────────────────────────────────

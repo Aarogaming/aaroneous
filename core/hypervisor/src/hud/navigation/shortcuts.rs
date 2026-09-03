@@ -24,7 +24,7 @@ impl ShortcutsModal {
         }
 
         let mut open = self.is_open;
-        let screen_rect = ctx.screen_rect();
+        let screen_rect = ctx.content_rect();
         let modal_width = 520.0f32.min(screen_rect.width() - 40.0);
 
         egui::Window::new("⌨️ Keyboard Shortcuts Reference")

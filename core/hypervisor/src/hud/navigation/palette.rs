@@ -91,8 +91,7 @@ impl CommandPalette {
             .collect();
 
         let mut executed_action = None;
-
-        let screen_rect = ctx.screen_rect();
+        let screen_rect = ctx.content_rect();
         let modal_width = 560.0f32.min(screen_rect.width() - 40.0);
         let modal_height = 380.0f32.min(screen_rect.height() - 80.0);
 

@@ -60,7 +60,7 @@ impl ToastNotificationManager {
             return;
         }
 
-        let screen_rect = ctx.screen_rect();
+        let screen_rect = ctx.content_rect();
         let mut y_offset = screen_rect.max.y - 45.0;
 
         for toast in self.toasts.iter().rev() {

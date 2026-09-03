@@ -105,12 +105,23 @@ impl ProcessFasciaWatcher {
             );
 
             // Attempt to load scene from disk or synthesize default spatial preset
-            if let Ok(loaded_scene) = SpatialCanvasScene::load_from_disk(&target_path) {
+            let resolved_path = if target_path.is_relative() {
+                aaroneous_paths::WorkspacePaths::discover().root().join(&target_path)
+            } else {
+                target_path.clone()
+            };
+
+            if let Ok(loaded_scene) = SpatialCanvasScene::load_from_disk(&resolved_path) {
+                hud_state.spatial_canvas_scene = loaded_scene;
+            } else if let Ok(loaded_scene) = SpatialCanvasScene::load_from_disk(&target_path) {
                 hud_state.spatial_canvas_scene = loaded_scene;
             } else {
                 // Synthesize active spatial preset for known domain
                 if clean_proc.contains("code") || clean_proc.contains("devenv") {
                     hud_state.spatial_canvas_scene.canvas_pan = (100.0, 50.0);
+                    hud_state.spatial_canvas_scene.canvas_zoom = 1.0;
+                } else if clean_proc.contains("chrome") || clean_proc.contains("edge") {
+                    hud_state.spatial_canvas_scene.canvas_pan = (0.0, 0.0);
                     hud_state.spatial_canvas_scene.canvas_zoom = 1.0;
                 }
             }
@@ -143,6 +154,7 @@ mod tests {
         assert!(res.is_some());
         assert_eq!(watcher.current_process(), Some("code.exe"));
         assert_eq!(watcher.current_scene_name(), Some("dev"));
+        assert_eq!(hud_state.spatial_canvas_scene.canvas_pan, (100.0, 50.0));
 
         // Manual lock
         watcher.set_manual_lock(true);
@@ -154,6 +166,7 @@ mod tests {
         assert_eq!(watcher.current_process(), Some("chrome.exe"));
         // Scene stays dev
         assert_eq!(watcher.current_scene_name(), Some("dev"));
+        assert_eq!(hud_state.spatial_canvas_scene.canvas_pan, (100.0, 50.0));
 
         // Unlock
         watcher.toggle_manual_lock();
@@ -162,5 +175,6 @@ mod tests {
         let res_unlocked = watcher.on_process_focus_changed("chrome.exe", &mut hud_state);
         assert!(res_unlocked.is_some());
         assert_eq!(watcher.current_scene_name(), Some("browser"));
+        assert_eq!(hud_state.spatial_canvas_scene.canvas_pan, (0.0, 0.0));
     }
 }
