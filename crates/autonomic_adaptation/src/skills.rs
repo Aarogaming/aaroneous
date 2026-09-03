@@ -1,6 +1,6 @@
-// Aaroneous Skill System
-// Capability registration, leveling, fusion, awakening, and rank evolution
-// Inspired by Rimaru's soul rank system from "That Time I Got Reincarnated As A Slime"
+// crates/autonomic_adaptation/src/skills.rs
+//! Capability registration, leveling, compositional fusion, and maturity progression.
+//! Tracks operational capability levels, performance metrics, and skill consolidation.
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -43,7 +43,7 @@ pub enum SkillOrigin {
     Awakened, // Evolved from a mastered skill
 }
 
-/// Specialist's soul rank - represents overall power and maturity
+/// Specialist capability maturity level — represents verified reliability and performance
 #[derive(
     Clone,
     Copy,
@@ -70,11 +70,11 @@ pub enum PersonaRank {
 impl PersonaRank {
     pub fn name(&self) -> &str {
         match self {
-            PersonaRank::Rank1NovellyDigested => "Newly Digested",
-            PersonaRank::Rank2IntegratedSpecialist => "Integrated Specialist",
-            PersonaRank::Rank3Journeyman => "Trusted Member",
-            PersonaRank::Rank4Master => "Domain Expert",
-            PersonaRank::Rank5Transcendent => "Transcendent Specialist",
+            PersonaRank::Rank1NovellyDigested => "Level 1: Newly Integrated",
+            PersonaRank::Rank2IntegratedSpecialist => "Level 2: Verified Specialist",
+            PersonaRank::Rank3Journeyman => "Level 3: Benchmarked Member",
+            PersonaRank::Rank4Master => "Level 4: Domain Expert",
+            PersonaRank::Rank5Transcendent => "Level 5: Autonomous Reflex",
         }
     }
 }

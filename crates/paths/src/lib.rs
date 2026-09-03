@@ -210,10 +210,89 @@ impl WorkspacePaths {
         std::fs::create_dir_all(self.cache())?;
         Ok(())
     }
+}
 
+/// Dynamic Model Hub Detector
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ModelHubDetector {
+    pub name: String,
+    pub relative_to_home: Option<PathBuf>,
+    pub relative_to_local_data: Option<PathBuf>,
+}
+
+/// Universal Model Hub Registry for dynamic local model discovery
+#[derive(Debug, Clone, Default)]
+pub struct UniversalModelHubRegistry {
+    detectors: Vec<ModelHubDetector>,
+}
+
+impl UniversalModelHubRegistry {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn with_default_hubs() -> Self {
+        let mut reg = Self::new();
+        reg.register_home_hub("LM Studio Cache (~/.cache/lm-studio)", Path::new(".cache/lm-studio/models"));
+        reg.register_home_hub("LM Studio Default (~/.lmstudio/models)", Path::new(".lmstudio/models"));
+        reg.register_home_hub("Ollama Models (~/.ollama/models)", Path::new(".ollama/models"));
+        reg.register_home_hub("HuggingFace Hub Cache", Path::new(".cache/huggingface/hub"));
+        reg.register_local_data_hub("Ollama LocalAppData", Path::new("Ollama/models"));
+        reg.register_local_data_hub("Jan.ai Models", Path::new("jan/models"));
+        reg.register_local_data_hub("GPT4All Models", Path::new("nomic.ai/GPT4All"));
+        reg
+    }
+
+    pub fn register_home_hub(&mut self, name: impl Into<String>, rel_path: impl AsRef<Path>) {
+        self.detectors.push(ModelHubDetector {
+            name: name.into(),
+            relative_to_home: Some(rel_path.as_ref().to_path_buf()),
+            relative_to_local_data: None,
+        });
+    }
+
+    pub fn register_local_data_hub(&mut self, name: impl Into<String>, rel_path: impl AsRef<Path>) {
+        self.detectors.push(ModelHubDetector {
+            name: name.into(),
+            relative_to_home: None,
+            relative_to_local_data: Some(rel_path.as_ref().to_path_buf()),
+        });
+    }
+
+    pub fn discover_locations(&self) -> Vec<ModelHubLocation> {
+        let mut hubs = Vec::new();
+        let home = dirs::home_dir();
+        let local_data = dirs::data_local_dir();
+
+        for d in &self.detectors {
+            if let Some(rel) = &d.relative_to_home {
+                if let Some(h) = &home {
+                    let target = h.join(rel);
+                    hubs.push(ModelHubLocation {
+                        name: d.name.clone(),
+                        exists: target.exists(),
+                        path: target,
+                    });
+                }
+            } else if let Some(rel) = &d.relative_to_local_data {
+                if let Some(ld) = &local_data {
+                    let target = ld.join(rel);
+                    hubs.push(ModelHubLocation {
+                        name: d.name.clone(),
+                        exists: target.exists(),
+                        path: target,
+                    });
+                }
+            }
+        }
+        hubs
+    }
+}
+
+impl WorkspacePaths {
     // ── Local LLM & GGUF Model Hub Auto-Discovery ─────────────────────
 
-    /// Returns standard default paths for popular local LLM managers (LM Studio, Ollama, HuggingFace, Jan, etc.)
+    /// Returns standard default paths for popular local LLM managers dynamically
     pub fn get_known_model_hubs(&self) -> Vec<ModelHubLocation> {
         let mut hubs = Vec::new();
 
@@ -225,62 +304,9 @@ impl WorkspacePaths {
             path: ws_models,
         });
 
-        // 2. LM Studio Default Cache Paths
-        if let Some(home) = dirs::home_dir() {
-            let lm_studio_cache = home.join(".cache").join("lm-studio").join("models");
-            hubs.push(ModelHubLocation {
-                name: "LM Studio Cache (~/.cache/lm-studio)".to_string(),
-                exists: lm_studio_cache.exists(),
-                path: lm_studio_cache,
-            });
-
-            let lm_studio_dir = home.join(".lmstudio").join("models");
-            hubs.push(ModelHubLocation {
-                name: "LM Studio Default (~/.lmstudio/models)".to_string(),
-                exists: lm_studio_dir.exists(),
-                path: lm_studio_dir,
-            });
-
-            // 3. Ollama Default Model Cache
-            let ollama_home = home.join(".ollama").join("models");
-            hubs.push(ModelHubLocation {
-                name: "Ollama Models (~/.ollama/models)".to_string(),
-                exists: ollama_home.exists(),
-                path: ollama_home,
-            });
-
-            // 4. HuggingFace Hub Cache
-            let hf_hub = home.join(".cache").join("huggingface").join("hub");
-            hubs.push(ModelHubLocation {
-                name: "HuggingFace Hub Cache".to_string(),
-                exists: hf_hub.exists(),
-                path: hf_hub,
-            });
-        }
-
-        // 5. LocalAppData hubs (Windows / Linux)
-        if let Some(local_data) = dirs::data_local_dir() {
-            let ollama_local = local_data.join("Ollama").join("models");
-            hubs.push(ModelHubLocation {
-                name: "Ollama LocalAppData".to_string(),
-                exists: ollama_local.exists(),
-                path: ollama_local,
-            });
-
-            let jan_models = local_data.join("jan").join("models");
-            hubs.push(ModelHubLocation {
-                name: "Jan.ai Models".to_string(),
-                exists: jan_models.exists(),
-                path: jan_models,
-            });
-
-            let gpt4all = local_data.join("nomic.ai").join("GPT4All");
-            hubs.push(ModelHubLocation {
-                name: "GPT4All Models".to_string(),
-                exists: gpt4all.exists(),
-                path: gpt4all,
-            });
-        }
+        // 2. Discover from Universal Registry
+        let registry = UniversalModelHubRegistry::with_default_hubs();
+        hubs.extend(registry.discover_locations());
 
         hubs
     }
