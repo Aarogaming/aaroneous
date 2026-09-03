@@ -266,6 +266,7 @@
 | **P0 (Completed)** | **Phase 20: Autonomous Fleet Multi-Node Mesh** | Zero-trust peer heartbeats, load telemetry, distributed work-stealing & state synchronization. | **Complete** |
 | **P0 (Completed)** | **Phase 21: Sovereign OS Compositor & Zero-Latency Overlays** | Pure-Rust spatial window tiling, bare-metal microkernel payloads, DX11/12 swapchain hooking. | **Complete** |
 | **P1 (Active Blueprint)** | **Phase 22: Human-Kinetic User Emulation & Live Desktop Distillation** | Multi-modal DXGI video observation, Fitts's Law cubic Bézier trajectory synthesis, UIA process optimization. | **In Progress** |
+| **P2 (Strategic Blueprint)** | **Phase 26: Automotive & Embedded Industrial Logic Controller** | Low-latency CANbus translation, active aero/cooling control, distributed microsecond powertrain mesh. | **Blueprint** |
 
 ---
 
@@ -658,6 +659,20 @@ Documented in detail in `dev/docs/17_DEFECT_AUDIT_AND_REMEDIATION_PLAN.md`.
 
 ---
 
-*Last updated: 2026-09-02 | Complete 5-pillar, 22-phase architectural framework*
+### Phase 26: Automotive & Embedded Industrial Logic Controller (Blueprint)
+*Microsecond CANbus/FlexRay vehicular module translation, active aerodynamic control, and distributed powertrain reflex mesh.*
+
+- [ ] **AUTO-01: Low-Latency CAN 2.0B / CAN-FD & Industrial I/O Abstraction**
+  - Implement `AutomotiveBusBridge` in `crates/platform_bridge`: zero-copy 1Mbps CAN 2.0B, 5Mbps CAN-FD, and SPI/I2C peripheral frame packetization with microsecond hardware timestamping.
+- [ ] **AUTO-02: Universal Inter-Module Translation Engine**
+  - Real-time bidirectional translation between disparate automotive ECUs (Engine ECU $\leftrightarrow$ Transmission TCU $\leftrightarrow$ Active Aero Controller), translating proprietary arbitration IDs and bitfields at $< 15\mu\text{s}$ latency without gateway latency penalties.
+- [ ] **AUTO-03: Predictive Dynamic Aero & Thermal Regulation Reflexes**
+  - State Space Model (SSM) reflex loop running on vehicle dynamics (G-force, yaw rate, wheel slip, coolant/intake temps) adjusting active wing angles, brake cooling ducts, and radiator louvers in $< 180\mu\text{s}$.
+- [ ] **AUTO-04: Distributed Vehicular Sub-Swarm Telemetry & Fail-Safe Fence**
+  - Distributed `si_micro` nodes sharing vehicle state across local bus topologies with SMT-verified physical interlock gates (instantly reverting to mechanical fail-safe states if sensor loss or thermodynamic bounds are tripped).
+
+---
+
+*Last updated: 2026-09-02 | Complete 5-pillar, 26-phase architectural framework*
 
 
