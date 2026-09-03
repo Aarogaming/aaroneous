@@ -65,7 +65,7 @@ pub use runtime_governor::{BudgetExecutor, RuntimeGovernor, TaskPriority, execut
 pub mod compaction_engine;
 pub use compaction_engine::{
     AgentHandle, CompactionEngine, CompactionEngineBuilder, CompactionEngineConfig, CompactionEvent,
-    ReaperStats, SharedCompactionEngine,
+    ReaperStats, SharedCompactionEngine, SlabCompactionEngine,
 };
 
 // GGUF Seeding & Cartridge Compiler
@@ -106,8 +106,8 @@ pub use biology::{
 };
 // Re-export Digestion and Agents
 pub use crate::agents::{
-    Agent, AgentType, BaseAgent, CognitiveBias, Domain, RelicAgent, SpecialistAgent, UserAgent,
-    create_relic, create_specialist,
+    create_reference_agent, create_relic, create_specialist, Agent, AgentType, BaseAgent,
+    BaselineReferenceAgent, CognitiveBias, Domain, RelicAgent, SpecialistAgent, UserAgent,
 };
 pub use crate::digestion::{
     DigestionConfig, DigestionEngine, DigestionEvent, DigestionTask, ExperienceProfile,

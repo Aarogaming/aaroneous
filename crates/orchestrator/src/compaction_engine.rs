@@ -53,14 +53,17 @@ pub struct CompactionSummary {
     pub hibernated_manifests: Vec<HibernationManifest>,
 }
 
-/// Master Compaction Engine & Resurrection Engine
-pub struct CompactionEngine {
+/// Master Specialist Disk Hibernation & Resurrection Engine
+pub struct SpecialistHibernationEngine {
     pub hibernation_dir: PathBuf,
     pub active_specialists: HashMap<String, SpecialistHibernationState>,
     pub hibernated_specialists: HashMap<String, HibernationManifest>,
 }
 
-impl Default for CompactionEngine {
+/// Backward-compatible alias for the specialist hibernation engine
+pub type CompactionEngine = SpecialistHibernationEngine;
+
+impl Default for SpecialistHibernationEngine {
     fn default() -> Self {
         let dir = aaroneous_paths::WorkspacePaths::discover()
             .models()
@@ -69,7 +72,7 @@ impl Default for CompactionEngine {
     }
 }
 
-impl CompactionEngine {
+impl SpecialistHibernationEngine {
     pub fn new(hibernation_dir: PathBuf) -> Self {
         let _ = fs::create_dir_all(&hibernation_dir);
         Self {

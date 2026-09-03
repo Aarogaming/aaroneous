@@ -96,15 +96,18 @@ pub trait AgentHandle: Send + Sync {
     fn is_alive(&self) -> bool;
 }
 
-/// The Compaction Engine - monitors and reaps fragmented WASM agents
-pub struct CompactionEngine {
+/// The Slab Compaction Engine - monitors and reaps fragmented WASM agent slabs
+pub struct SlabCompactionEngine {
     config: CompactionEngineConfig,
     event_tx: mpsc::UnboundedSender<CompactionEvent>,
     reaped_agents: std::collections::HashMap<String, u32>,
     running: bool,
 }
 
-impl CompactionEngine {
+/// Backward-compatible alias for the slab compaction engine
+pub type CompactionEngine = SlabCompactionEngine;
+
+impl SlabCompactionEngine {
     pub fn new(config: CompactionEngineConfig) -> (Self, mpsc::UnboundedReceiver<CompactionEvent>) {
         let (event_tx, event_rx) = mpsc::unbounded_channel();
         let reaper = Self {

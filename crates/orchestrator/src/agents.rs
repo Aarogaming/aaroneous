@@ -135,6 +135,9 @@ impl Default for SpecialistAgent {
     }
 }
 
+/// Baseline reference agent (canonical systems engineering designation for smart artifacts supervised by a specialist)
+pub type BaselineReferenceAgent = RelicAgent;
+
 /// Relic type - smart artifact supervised by a specialist
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RelicAgent {
@@ -476,6 +479,11 @@ pub fn create_specialist(name: &str) -> Option<SpecialistAgent> {
         }),
         _ => None,
     }
+}
+
+/// Predefined reference artifact factory methods (canonical systems designation)
+pub fn create_reference_agent(name: &str, supervisor_id: &str) -> Option<BaselineReferenceAgent> {
+    create_relic(name, supervisor_id)
 }
 
 /// Predefined relic factory methods

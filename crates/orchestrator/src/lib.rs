@@ -32,7 +32,8 @@ pub extern crate governance as biology;
 pub use governance;
 
 pub use compaction_engine::{
-    CompactionSummary, CompactionEngine, HibernationManifest, SpecialistHibernationState,
+    CompactionEngine, CompactionSummary, HibernationManifest, SpecialistHibernationEngine,
+    SpecialistHibernationState,
 };
 pub use tier_allocator::{pin_current_thread_to_core, TierRuntimeAllocator, PantheonOrchestrator};
 
@@ -43,8 +44,8 @@ pub use dynamic_ui::{
 
 // Re-export agent types
 pub use agents::{
-    create_relic, create_specialist, Agent, AgentType, BaseAgent, CognitiveBias, Domain,
-    RelicAgent, SpecialistAgent, UserAgent,
+    create_reference_agent, create_relic, create_specialist, Agent, AgentType, BaseAgent,
+    BaselineReferenceAgent, CognitiveBias, Domain, RelicAgent, SpecialistAgent, UserAgent,
 };
 pub use archetypes::{Archetype, ForceVector, NativeThinker};
 
