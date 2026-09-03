@@ -48,3 +48,42 @@ impl OmniProtocolBridge {
         Ok(snapshot)
     }
 }
+
+/// Generic 3D Spatial Visual Primitive for Any Presentation Layer
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct UniversalSpatialPoint {
+    pub id: String,
+    pub label: String,
+    pub coords: [f32; 3],
+    pub color_rgba: [u8; 4],
+    pub radius: f32,
+    pub energy_level: f32,
+}
+
+/// Generic Link Primitive between two spatial nodes
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct UniversalSpatialLink {
+    pub source_id: String,
+    pub target_id: String,
+    pub intensity: f32,
+}
+
+/// Universal Spatial Canvas Sink Trait (decouples 3D simulation from rendering engine)
+pub trait UniversalSpatialCanvasSink: Send + Sync {
+    fn render_scene(&mut self, points: &[UniversalSpatialPoint], links: &[UniversalSpatialLink]) -> Result<()>;
+}
+
+/// Headless in-memory sink for unit tests, CLI dumps, or remote WebSocket streams
+#[derive(Default)]
+pub struct InMemorySpatialCanvasSink {
+    pub last_points: Vec<UniversalSpatialPoint>,
+    pub last_links: Vec<UniversalSpatialLink>,
+}
+
+impl UniversalSpatialCanvasSink for InMemorySpatialCanvasSink {
+    fn render_scene(&mut self, points: &[UniversalSpatialPoint], links: &[UniversalSpatialLink]) -> Result<()> {
+        self.last_points = points.to_vec();
+        self.last_links = links.to_vec();
+        Ok(())
+    }
+}

@@ -125,6 +125,14 @@ impl UniversalAdapterRegistry {
         self.actuators.len()
     }
 
+    /// Initializes a default desktop environment with native perception and action simulation
+    pub fn default_desktop() -> Self {
+        let mut reg = Self::new();
+        // Register virtual desktop simulator actuator for deterministic test/offline execution
+        reg.register_actuator(Box::new(VirtualSimActuator::new("DesktopVirtualActuator")));
+        reg
+    }
+
     /// Dispatches a command to a named actuator, validating safety bounds first
     pub fn dispatch_to_actuator(&mut self, actuator_name: &str, cmd: UniversalActuatorCommand) -> Result<()> {
         if let Some(actuator) = self.actuators.get_mut(actuator_name) {

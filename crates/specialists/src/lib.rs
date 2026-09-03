@@ -107,6 +107,68 @@ impl SpecialistFederation {
     }
 }
 
+/// Dynamic Universal Specialist Registry allowing runtime registration and hot-swapping
+pub struct UniversalSpecialistRegistry {
+    specialists: HashMap<u16, Box<dyn Specialist>>,
+}
+
+impl Default for UniversalSpecialistRegistry {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl UniversalSpecialistRegistry {
+    pub fn new() -> Self {
+        Self {
+            specialists: HashMap::new(),
+        }
+    }
+
+    /// Default registry initialized with the standard 9 sovereign specialists
+    pub fn with_default_federation() -> Self {
+        let mut reg = Self::new();
+        reg.register_specialist(Box::new(OrchestratorSpecialist::new()));
+        reg.register_specialist(Box::new(SynthesizerSpecialist::new()));
+        reg.register_specialist(Box::new(PresenterSpecialist::new()));
+        reg.register_specialist(Box::new(DevToolsSpecialist::new()));
+        reg.register_specialist(Box::new(SentinelSpecialist::new()));
+        reg.register_specialist(Box::new(ArchivistSpecialist::new()));
+        reg.register_specialist(Box::new(RouterSpecialist::new()));
+        reg.register_specialist(Box::new(AlignerSpecialist::new()));
+        reg.register_specialist(Box::new(PerceiverSpecialist::new()));
+        reg
+    }
+
+    /// Registers or hot-swaps a specialist dynamically by its domain opcode
+    pub fn register_specialist(&mut self, specialist: Box<dyn Specialist>) {
+        let opcode = specialist.domain_opcode();
+        self.specialists.insert(opcode, specialist);
+    }
+
+    /// Dispatches an incoming machine-native packet dynamically by opcode
+    pub async fn dispatch_packet(&mut self, packet: MnlpPacket) -> Result<MnlpResponse> {
+        let opcode = packet.opcode;
+        match self.specialists.get_mut(&opcode) {
+            Some(spec) => spec.handle_packet(packet).await,
+            None => bail!("No specialist registered for domain opcode: 0x{:04X}", opcode),
+        }
+    }
+
+    /// Collects health reports across all registered specialists
+    pub fn collect_health_reports(&self) -> HashMap<&'static str, SpecialistHealth> {
+        let mut reports = HashMap::new();
+        for spec in self.specialists.values() {
+            reports.insert(spec.name(), spec.health_report());
+        }
+        reports
+    }
+
+    pub fn registered_count(&self) -> usize {
+        self.specialists.len()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

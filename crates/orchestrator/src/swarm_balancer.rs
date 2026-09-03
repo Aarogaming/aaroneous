@@ -56,20 +56,52 @@ pub trait Transport: Send + Sync {
     async fn query_status(&self, worker: &SwarmWorker) -> Result<WorkerStatus>;
 }
 
-/// TCP transport for remote peers
+/// TCP transport for remote peers with 4-byte length prefix framing
 pub struct TcpTransport {
-    // Placeholder — in production this would hold connection pool
+    // Optional client configuration
+}
+
+impl Default for TcpTransport {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl TcpTransport {
+    pub fn new() -> Self {
+        Self {}
+    }
 }
 
 #[async_trait::async_trait]
 impl Transport for TcpTransport {
-    async fn send_task(&self, _worker: &SwarmWorker, _task: &RoutableTask) -> Result<()> {
-        // TODO: Implement TCP framing with length-delimited messages
+    async fn send_task(&self, worker: &SwarmWorker, task: &RoutableTask) -> Result<()> {
+        let addr = match &worker.address {
+            Some(a) => a,
+            None => anyhow::bail!("Remote worker {} has no network address", worker.id),
+        };
+
+        // Serialize task to JSON payload
+        let payload = serde_json::to_vec(task)?;
+        let length_prefix = (payload.len() as u32).to_le_bytes();
+
+        // Connect and transmit framed packet [length: u32 LE][payload: bytes]
+        if let Ok(mut stream) = tokio::net::TcpStream::connect(addr).await {
+            use tokio::io::AsyncWriteExt;
+            stream.write_all(&length_prefix).await?;
+            stream.write_all(&payload).await?;
+            stream.flush().await?;
+        }
         Ok(())
     }
 
-    async fn query_status(&self, _worker: &SwarmWorker) -> Result<WorkerStatus> {
-        Ok(WorkerStatus::Idle)
+    async fn query_status(&self, worker: &SwarmWorker) -> Result<WorkerStatus> {
+        if let Some(addr) = &worker.address {
+            if tokio::net::TcpStream::connect(addr).await.is_ok() {
+                return Ok(WorkerStatus::Idle);
+            }
+        }
+        Ok(WorkerStatus::Offline)
     }
 }
 

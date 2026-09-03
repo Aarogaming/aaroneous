@@ -19,7 +19,10 @@ pub use matrix::{
     rate_distortion_analysis, spectral_clustering, SabEmbedding, SabManifest, SabMatrix,
     SabMatrixBuilder, SabMetadata, SabSimilarityMatrix, SabSurface,
 };
-pub use protocol_bridge::{OmniGalaxySnapshot, OmniProtocolBridge};
+pub use protocol_bridge::{
+    InMemorySpatialCanvasSink, OmniGalaxySnapshot, OmniProtocolBridge, UniversalSpatialCanvasSink,
+    UniversalSpatialLink, UniversalSpatialPoint,
+};
 pub use query_engine::{OmniQueryEngine, OmniQueryFilter, SpatialFrustum};
 pub use spatial_coord::SpatialCoord;
 pub use star_node::{LinkType, Priority, StarNode, StarNodeStatus, StarNodeType};
