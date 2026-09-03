@@ -37,7 +37,7 @@ pub use traits::{DomainSubEngine, MnlpPacket, MnlpResponse, RelicEngine, Special
 use anyhow::{bail, Result};
 use std::collections::HashMap;
 
-/// The Unified Specialist Federation / Pool managing all 9 Specialists
+/// The Unified Specialist Federation / Pool managing all 10 Specialists
 pub struct SpecialistFederation {
     pub orchestrator: OrchestratorSpecialist,
     pub synthesizer: SynthesizerSpecialist,
@@ -48,6 +48,7 @@ pub struct SpecialistFederation {
     pub router: RouterSpecialist,
     pub aligner: AlignerSpecialist,
     pub perceiver: PerceiverSpecialist,
+    pub codebase_auditor: CodebaseReviewSpecialist,
 }
 
 /// Simplified alias for the Specialist Federation
@@ -77,6 +78,7 @@ impl SpecialistFederation {
             router: RouterSpecialist::new(),
             aligner: AlignerSpecialist::new(),
             perceiver: PerceiverSpecialist::new(),
+            codebase_auditor: CodebaseReviewSpecialist::new(),
         }
     }
 
@@ -90,6 +92,7 @@ impl SpecialistFederation {
             0x0500 => self.sentinel.handle_packet(packet).await,
             0x0600 => self.archivist.handle_packet(packet).await,
             0x0700 => self.router.handle_packet(packet).await,
+            0x0750 => self.codebase_auditor.handle_packet(packet).await,
             0x0800 => self.aligner.handle_packet(packet).await,
             0x0900 => self.perceiver.handle_packet(packet).await,
             _ => bail!("Unknown domain opcode: 0x{:04X}", packet.opcode),
@@ -106,6 +109,7 @@ impl SpecialistFederation {
         reports.insert(self.sentinel.name(), self.sentinel.health_report());
         reports.insert(self.archivist.name(), self.archivist.health_report());
         reports.insert(self.router.name(), self.router.health_report());
+        reports.insert(self.codebase_auditor.name(), self.codebase_auditor.health_report());
         reports.insert(self.aligner.name(), self.aligner.health_report());
         reports.insert(self.perceiver.name(), self.perceiver.health_report());
         reports
@@ -215,9 +219,20 @@ mod tests {
         let res_sentinel = federation.dispatch_packet(pkt_sentinel).await.unwrap();
         assert!(res_sentinel.success);
 
-        // 4. Test Health collection across all 9 specialists
+        // 4. Test CodebaseReviewSpecialist (0x0750)
+        let pkt_auditor = MnlpPacket {
+            opcode: 0x0750,
+            source: "user".to_string(),
+            target: "CodebaseReviewSpecialist".to_string(),
+            correlation_id: 4,
+            payload: b"pub fn safe_calc(a: i32) -> i32 { a * 2 }".to_vec(),
+        };
+        let res_auditor = federation.dispatch_packet(pkt_auditor).await.unwrap();
+        assert!(res_auditor.success);
+
+        // 5. Test Health collection across all 10 specialists
         let health = federation.collect_health_reports();
-        assert_eq!(health.len(), 9);
+        assert_eq!(health.len(), 10);
         assert!(health.contains_key("Orchestrator"));
         assert!(health.contains_key("Synthesizer"));
         assert!(health.contains_key("Presenter"));
@@ -225,6 +240,7 @@ mod tests {
         assert!(health.contains_key("Sentinel"));
         assert!(health.contains_key("Archivist"));
         assert!(health.contains_key("Router"));
+        assert!(health.contains_key("CodebaseReviewSpecialist"));
         assert!(health.contains_key("Aligner"));
         assert!(health.contains_key("Perceiver"));
     }
