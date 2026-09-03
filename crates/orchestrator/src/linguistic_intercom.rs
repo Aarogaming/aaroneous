@@ -14,20 +14,20 @@ use serde::{Deserialize, Serialize};
 
 use si_ir::{DimensionalUnit, MachineOpcode, NativeComputationNode, NativeComputationalGraph, NativeTypeLattice};
 
-/// Operational mode requested by the user
+/// Generic operational execution domain
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum OperationalProfile {
-    DesktopCoPilot,
-    AutomotiveActiveAero,
-    RoboticsOcularMaze,
-    SilentBackgroundReflex,
+pub enum ExecutionDomain {
+    InteractiveDesktop,
+    RealTimeTelemetryControl,
+    LowPowerBackgroundReflex,
+    AutonomousWorkflow,
 }
 
 /// Structured intent extracted from conversational user input
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TransducedIntent {
     pub raw_prompt: String,
-    pub profile: OperationalProfile,
+    pub domain: ExecutionDomain,
     pub primary_objective: String,
     pub parameter_modulations: Vec<(String, f32)>,
     pub synthesized_goal_graph: NativeComputationalGraph,
@@ -35,30 +35,30 @@ pub struct TransducedIntent {
 
 /// The Linguistic Intercom Engine
 pub struct LinguisticIntercom {
-    active_profile: OperationalProfile,
+    active_domain: ExecutionDomain,
     total_transductions: u64,
 }
 
 impl Default for LinguisticIntercom {
     fn default() -> Self {
-        Self::new(OperationalProfile::DesktopCoPilot)
+        Self::new(ExecutionDomain::InteractiveDesktop)
     }
 }
 
 impl LinguisticIntercom {
-    pub fn new(default_profile: OperationalProfile) -> Self {
+    pub fn new(default_domain: ExecutionDomain) -> Self {
         Self {
-            active_profile: default_profile,
+            active_domain: default_domain,
             total_transductions: 0,
         }
     }
 
-    pub fn active_profile(&self) -> OperationalProfile {
-        self.active_profile
+    pub fn active_domain(&self) -> ExecutionDomain {
+        self.active_domain
     }
 
-    pub fn set_profile(&mut self, profile: OperationalProfile) {
-        self.active_profile = profile;
+    pub fn set_domain(&mut self, domain: ExecutionDomain) {
+        self.active_domain = domain;
     }
 
     /// Transduces conversational user input into a mathematically verified NativeComputationalGraph
@@ -71,52 +71,47 @@ impl LinguisticIntercom {
         self.total_transductions += 1;
         let lower = trimmed.to_lowercase();
 
-        // 1. Detect profile and intent modulation
-        let (profile, primary_objective, parameter_modulations) = if lower.contains("aero")
-            || lower.contains("wing")
-            || lower.contains("car")
-            || lower.contains("track")
-        {
-            let mut mods = Vec::new();
-            if lower.contains("rain") || lower.contains("wet") {
-                mods.push(("DownforceTargetBias".to_string(), 0.15)); // +15% downforce in rain
-            }
-            (
-                OperationalProfile::AutomotiveActiveAero,
-                "OptimizeAerodynamicStability".to_string(),
-                mods,
-            )
-        } else if lower.contains("robot")
-            || lower.contains("maze")
-            || lower.contains("boebot")
-            || lower.contains("servo")
+        // Detect generic execution domain and intent parameters
+        let (domain, primary_objective, parameter_modulations) = if lower.contains("control")
+            || lower.contains("realtime")
+            || lower.contains("telemetry")
+            || lower.contains("actuator")
         {
             (
-                OperationalProfile::RoboticsOcularMaze,
-                "TraversePhysicalMaze".to_string(),
-                vec![("CorneringSmoothingSpline".to_string(), 1.0)],
+                ExecutionDomain::RealTimeTelemetryControl,
+                "RealTimeHardwareRegulation".to_string(),
+                vec![("LoopFrequencyHz".to_string(), 1000.0)],
             )
-        } else if lower.contains("silent") || lower.contains("background") || lower.contains("sleep") {
+        } else if lower.contains("workflow")
+            || lower.contains("task")
+            || lower.contains("automate")
+            || lower.contains("batch")
+        {
             (
-                OperationalProfile::SilentBackgroundReflex,
+                ExecutionDomain::AutonomousWorkflow,
+                "ExecuteAutomatedWorkflow".to_string(),
+                Vec::new(),
+            )
+        } else if lower.contains("silent") || lower.contains("background") || lower.contains("sleep") || lower.contains("idle") {
+            (
+                ExecutionDomain::LowPowerBackgroundReflex,
                 "LowPowerSensorySurveillance".to_string(),
                 Vec::new(),
             )
         } else {
             (
-                OperationalProfile::DesktopCoPilot,
-                "AssistDesktopWorkflow".to_string(),
+                ExecutionDomain::InteractiveDesktop,
+                "InteractiveDesktopAssistance".to_string(),
                 Vec::new(),
             )
         };
 
-        self.active_profile = profile;
+        self.active_domain = domain;
 
-        // 2. Synthesize machine-native computational graph
+        // Synthesize machine-native computational graph
         let mut graph = NativeComputationalGraph::new();
         graph.thermodynamic_free_energy = 0.01;
 
-        // Create base goal node with 7-exponent SI units
         let goal_node = NativeComputationNode {
             id: 1,
             opcode: MachineOpcode::Alloc {
@@ -134,7 +129,7 @@ impl LinguisticIntercom {
 
         Ok(TransducedIntent {
             raw_prompt: trimmed.to_string(),
-            profile,
+            domain,
             primary_objective,
             parameter_modulations,
             synthesized_goal_graph: graph,
@@ -144,18 +139,18 @@ impl LinguisticIntercom {
     /// Formulates natural conversational feedback from machine execution results
     pub fn formulate_response(&self, intent: &TransducedIntent, success: bool) -> String {
         if success {
-            match intent.profile {
-                OperationalProfile::AutomotiveActiveAero => {
-                    format!("Aerodynamic profile updated: [{}]. Downforce parameters locked and verified.", intent.primary_objective)
+            match intent.domain {
+                ExecutionDomain::RealTimeTelemetryControl => {
+                    format!("Real-time control channel engaged: [{}]. Regulation parameters locked.", intent.primary_objective)
                 }
-                OperationalProfile::RoboticsOcularMaze => {
-                    format!("Ocular robotics navigation active: [{}]. Trajectory splines verified.", intent.primary_objective)
+                ExecutionDomain::AutonomousWorkflow => {
+                    format!("Workflow objective registered: [{}]. Operational graphs queued.", intent.primary_objective)
                 }
-                OperationalProfile::SilentBackgroundReflex => {
+                ExecutionDomain::LowPowerBackgroundReflex => {
                     "Background reflex engaged at nominal low-power equilibrium.".to_string()
                 }
-                OperationalProfile::DesktopCoPilot => {
-                    format!("Intent recognized: [{}]. Operational goals compiled to JIT.", intent.primary_objective)
+                ExecutionDomain::InteractiveDesktop => {
+                    format!("Intent recognized: [{}]. Goals compiled to JIT.", intent.primary_objective)
                 }
             }
         } else {
@@ -169,27 +164,17 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_linguistic_intercom_automotive_transduction() {
+    fn test_linguistic_intercom_generic_domain_transduction() {
         let mut intercom = LinguisticIntercom::default();
-        let prompt = "Hey Aaroneous, trim the rear wing for wet track conditions";
 
-        let transduced = intercom.transduce_intent(prompt).unwrap();
-        assert_eq!(transduced.profile, OperationalProfile::AutomotiveActiveAero);
-        assert_eq!(transduced.primary_objective, "OptimizeAerodynamicStability");
-        assert!(!transduced.parameter_modulations.is_empty());
-        assert_eq!(transduced.synthesized_goal_graph.nodes.len(), 1);
+        let control_intent = intercom.transduce_intent("Engage realtime telemetry control").unwrap();
+        assert_eq!(control_intent.domain, ExecutionDomain::RealTimeTelemetryControl);
+        assert_eq!(control_intent.primary_objective, "RealTimeHardwareRegulation");
 
-        let response = intercom.formulate_response(&transduced, true);
-        assert!(response.contains("Downforce parameters locked"));
-    }
+        let workflow_intent = intercom.transduce_intent("Automate batch build workflow").unwrap();
+        assert_eq!(workflow_intent.domain, ExecutionDomain::AutonomousWorkflow);
 
-    #[test]
-    fn test_linguistic_intercom_robotics_transduction() {
-        let mut intercom = LinguisticIntercom::default();
-        let prompt = "Navigate the maze smoothly on the robot";
-
-        let transduced = intercom.transduce_intent(prompt).unwrap();
-        assert_eq!(transduced.profile, OperationalProfile::RoboticsOcularMaze);
-        assert_eq!(transduced.primary_objective, "TraversePhysicalMaze");
+        let desktop_intent = intercom.transduce_intent("Help me format code in my IDE").unwrap();
+        assert_eq!(desktop_intent.domain, ExecutionDomain::InteractiveDesktop);
     }
 }

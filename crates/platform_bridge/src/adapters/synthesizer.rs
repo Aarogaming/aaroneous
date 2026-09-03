@@ -48,16 +48,9 @@ impl PhysicalActuatorAdapter for SynthesizedActuatorAdapter {
 
     fn verify_safety_bounds(&self, cmd: &UniversalActuatorCommand) -> bool {
         match cmd {
-            UniversalActuatorCommand::VehicleActiveAero { wing_angle_deg, .. } => {
+            UniversalActuatorCommand::AnalogChannel { normalized_value, .. } => {
                 let (min_safe, max_safe) = self.spec.safe_value_range;
-                *wing_angle_deg >= min_safe && *wing_angle_deg <= max_safe
-            }
-            UniversalActuatorCommand::RobotLocomotion { left_speed, right_speed } => {
-                let (min_safe, max_safe) = self.spec.safe_value_range;
-                *left_speed >= min_safe
-                    && *left_speed <= max_safe
-                    && *right_speed >= min_safe
-                    && *right_speed <= max_safe
+                *normalized_value >= min_safe && *normalized_value <= max_safe
             }
             UniversalActuatorCommand::EmergencyStop => true,
             _ => true,
@@ -73,12 +66,8 @@ impl PhysicalActuatorAdapter for SynthesizedActuatorAdapter {
         }
 
         match cmd {
-            UniversalActuatorCommand::VehicleActiveAero { wing_angle_deg, .. } => {
-                self.last_dispatched_raw_value = wing_angle_deg;
-                self.total_dispatches += 1;
-            }
-            UniversalActuatorCommand::RobotLocomotion { left_speed, .. } => {
-                self.last_dispatched_raw_value = left_speed;
+            UniversalActuatorCommand::AnalogChannel { normalized_value, .. } => {
+                self.last_dispatched_raw_value = normalized_value;
                 self.total_dispatches += 1;
             }
             UniversalActuatorCommand::EmergencyStop => {
@@ -123,29 +112,29 @@ mod tests {
     #[test]
     fn test_autonomous_adapter_synthesis_and_safety_enforcement() {
         let spec = DeviceHardwareSpec {
-            device_name: "Corvette-Rear-Active-Wing".to_string(),
-            bus_type: "CAN-FD".to_string(),
-            base_address_or_port: 0x3F2,
-            max_voltage: 14.4,
-            max_current_amps: 25.0,
-            safe_value_range: (0.0, 35.0), // Safe wing angle: 0 to 35 degrees
-            unit_dimension: "AngleDeg".to_string(),
+            device_name: "Precision-Servo-PWM".to_string(),
+            bus_type: "Hardware-PWM".to_string(),
+            base_address_or_port: 0x1A,
+            max_voltage: 5.0,
+            max_current_amps: 2.0,
+            safe_value_range: (0.0, 100.0), // Safe operating duty cycle: 0% to 100%
+            unit_dimension: "DutyCyclePercent".to_string(),
         };
 
         let mut adapter = AdapterSynthesizer::synthesize_actuator(spec).unwrap();
-        assert_eq!(adapter.actuator_name(), "Corvette-Rear-Active-Wing");
+        assert_eq!(adapter.actuator_name(), "Precision-Servo-PWM");
 
-        // Test safe dispatch (22 degrees)
-        let safe_cmd = UniversalActuatorCommand::VehicleActiveAero {
-            wing_angle_deg: 22.0,
-            brake_duct_percent: 50.0,
+        // Test safe dispatch (75% duty cycle)
+        let safe_cmd = UniversalActuatorCommand::AnalogChannel {
+            channel_id: 1,
+            normalized_value: 75.0,
         };
         assert!(adapter.dispatch(safe_cmd).is_ok());
 
-        // Test unsafe dispatch (45 degrees - exceeds 35 degree structural limit!)
-        let unsafe_cmd = UniversalActuatorCommand::VehicleActiveAero {
-            wing_angle_deg: 45.0,
-            brake_duct_percent: 50.0,
+        // Test unsafe dispatch (125% - exceeds 100% boundary limit!)
+        let unsafe_cmd = UniversalActuatorCommand::AnalogChannel {
+            channel_id: 1,
+            normalized_value: 125.0,
         };
         assert!(!adapter.verify_safety_bounds(&unsafe_cmd));
         assert!(adapter.dispatch(unsafe_cmd).is_err());

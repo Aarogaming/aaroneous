@@ -23,7 +23,7 @@ pub mod workflow_engine;
 pub mod workspace;
 
 pub use crucible_provider::{CrucibleTeacherEndpoint, TeacherBackendConfig, UniversalHttpTeacher};
-pub use linguistic_intercom::{LinguisticIntercom, OperationalProfile, TransducedIntent};
+pub use linguistic_intercom::{ExecutionDomain, LinguisticIntercom, TransducedIntent};
 pub use lmstudio_client::{ChatChoice, ChatCompletionRequest, ChatCompletionResponse, ChatMessage, LmStudioClient};
 
 pub extern crate ipc_bus as nervous_system;

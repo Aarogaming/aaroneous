@@ -23,16 +23,16 @@ pub struct NormalizedObservation {
     pub metadata_tag: String,
 }
 
-/// Generic action command dispatched to any physical actuator
+/// Generic action command dispatched to any physical or virtual actuator
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum UniversalActuatorCommand {
     MoveCursorRelative { dx: i32, dy: i32 },
     MoveCursorAbsolute { x: i32, y: i32 },
     MouseButton { button_code: u8, is_down: bool },
     KeyPress { key_code: u16, is_down: bool },
-    RobotLocomotion { left_speed: f32, right_speed: f32 },
-    VehicleActiveAero { wing_angle_deg: f32, brake_duct_percent: f32 },
-    RawCanPacket { arbitration_id: u32, payload: Vec<u8> },
+    AnalogChannel { channel_id: u16, normalized_value: f32 },
+    DigitalState { pin_or_index: u16, is_high: bool },
+    RawBusFrame { bus_address: u32, payload: Vec<u8> },
     EmergencyStop,
 }
 
@@ -183,9 +183,9 @@ mod tests {
         assert_eq!(registry.actuator_count(), 1);
 
         // Dispatch command to virtual actuator
-        let cmd = UniversalActuatorCommand::RobotLocomotion {
-            left_speed: 0.8,
-            right_speed: 0.8,
+        let cmd = UniversalActuatorCommand::AnalogChannel {
+            channel_id: 1,
+            normalized_value: 0.8,
         };
 
         assert!(registry.dispatch_to_actuator("Test-Sim", cmd).is_ok());
