@@ -264,7 +264,7 @@
 
 | Priority | Phase / Area | Strategic Rationale (Safety & ROI) | Status |
 |---|---|---|---|
-| **P2-A (Spatial ROI)**| **Phase 28: 3D Spatial Constellation Engine & Galactic Roaming** | **Safety: Low.** Read-only visual spatial HUD canvas.<br>**ROI: High Immersion.** Converts abstract node telemetry into an interactive 3D galaxy. | **Blueprint** |
+| **P2-A (Spatial ROI)**| **Phase 28: 3D Spatial Constellation Engine & Galactic Roaming** | **Safety: Low.** Read-only visual spatial HUD canvas.<br>**ROI: High Immersion.** Converts abstract node telemetry into an interactive 3D galaxy. | **Complete** |
 
 ---
 

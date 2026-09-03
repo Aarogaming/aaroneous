@@ -2,6 +2,7 @@
 //! Universal 3D Galaxy semantic data navigation, star-node clustering, and visual search engine for Aaroneous.
 
 pub mod ecs_galaxy;
+pub mod galactic_roaming;
 pub mod galaxy_cluster;
 pub mod matrix;
 pub mod protocol_bridge;
@@ -10,6 +11,10 @@ pub mod spatial_coord;
 pub mod spatial_layout;
 pub mod star_node;
 pub mod vector_index;
+
+pub use galactic_roaming::{
+    GalacticRoamingCameraController, SynapsePulseParticle, SynapsePulseParticleSystem, Vec3,
+};
 
 pub use ecs_galaxy::{
     ConstellationLinks, EcsGalaxyEngine, MetabolicEnergy, SemanticEmbedding, SpatialTransform,
