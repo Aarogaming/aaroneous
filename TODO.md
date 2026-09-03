@@ -378,21 +378,24 @@
 ## Crate Versioning & Path Status
 
 | Crate | Path | Current Version | Status |
-|-------|------|----------------|--------|
-| `aaroneous` (workspace) | `Cargo.toml` | `0.1.0` | Root workspace |
+|---|---|---|---|
+| `aaroneous` (workspace) | `Cargo.toml` | `0.3.2` | Root workspace |
 | `a_run` | `core/hypervisor/` | `0.1.0` | Clean |
 | `compute` | `crates/compute/` | `0.1.0` | Clean |
 | `ipc_bus` | `crates/ipc_bus/` | `0.2.0` | Clean |
 | `orchestrator` | `crates/orchestrator/` | `0.1.0` | Clean |
-| `biology` | `crates/biology/` | `0.1.0` | Clean |
+| `governance` (`biology`) | `crates/governance/` | `0.1.0` | Clean |
 | `adaptation_engine` | `crates/adaptation_engine/` | `0.1.0` | Clean |
-| `evolution` | `crates/evolution/` | `0.1.0` | Clean |
-| `desktop_emulator` | `crates/desktop_emulator/` | `0.1.0` | Clean |
+| `autonomic_adaptation` (`evolution`) | `crates/autonomic_adaptation/` | `0.1.0` | Clean |
+| `platform_bridge` (`desktop_emulator`) | `crates/platform_bridge/` | `0.1.0` | Clean |
 | `omni` | `crates/omni/` | `0.1.0` | Clean |
 | `paths` | `crates/paths/` | `0.1.0` | Clean |
 | `specialists` | `crates/specialists/` | `0.1.0` | Clean |
 | `transpiler` | `crates/transpiler/` | `0.1.0` | Clean |
+| `si_ir` | `crates/si_ir/` | `0.1.0` | Clean |
+| `si_format` | `crates/si_format/` | `0.1.0` | Clean |
 | `aaroneous_sdk` | `sdk/rust/` | `0.1.0` | Clean |
+| `universal-native-template` | `templates/universal_native/` | `0.1.0` | Clean |
 
 ---
 
