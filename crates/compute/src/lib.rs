@@ -46,6 +46,7 @@ pub mod ffi_kernels;
 pub mod episodic_memory;
 pub mod hippo;
 pub mod macro_ssm;
+pub mod si_moe_register;
 
 pub use wx_memory::WxMemoryRegion;
 pub use cranelift_jit::{CraneliftJitEngine, NativeExecutionFn};
@@ -58,6 +59,7 @@ pub use hippo::{
     HippoLegendreMatrices,
 };
 pub use macro_ssm::{ContinuousMacroSsm, MacroSsmConfig, MACRO_LATENT_DIM, MACRO_STATE_DIM};
+pub use si_moe_register::{MoEExecutionReport, OrganDescriptor, OrganSlot, SiMoERegister};
 
 pub use burn_gpu::{GpuTensorAccelerator, GpuTensorProfile};
 pub use si_spec::{

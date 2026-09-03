@@ -268,7 +268,8 @@
 | **P0 (Completed)** | **Phase 22: Formal SMT Mathematical Safety Gate & Thermodynamic Interlock** | Z3 non-interference algebraic proofs, 7-exponent SI dimensional lattice invariants, thermodynamic killswitch. | **Complete** |
 | **P0 (Completed)** | **Phase 23: Live Desktop Video Feed & Human-Kinetic Distillation** | DXGI video observation, Fitts's Law cubic Bézier trajectory synthesizer, UIA process optimization. | **Complete** |
 | **P0 (Completed)** | **Phase 24: Continuous Macro-SSM World-Scale Predictive Engine** | Infinite-horizon continuous state recurrence (dx/dt = Ax + Bu), R^4096 macro latent state, GPU Blelloch scans. | **Complete** |
-| **P2 (Strategic Blueprint)** | **Phase 26: Automotive & Embedded Industrial Logic Controller** | Low-latency CANbus translation, active aero/cooling control, distributed microsecond powertrain mesh. | **Blueprint** |
+| **P0 (Completed)** | **Phase 25: Universal MoE Organ Register & Cartridge Stacker** | 13-Organ sparse memory-mapped register, Top-K dynamic routing, autonomous cartridge consolidation & SVD merging. | **Complete** |
+| **P1 (Strategic Blueprint)** | **Phase 26: Automotive & Embedded Industrial Logic Controller** | Low-latency CANbus translation, active aero/cooling control, distributed microsecond powertrain mesh. | **Blueprint** |
 
 ---
 
@@ -680,6 +681,18 @@ Documented in detail in `dev/docs/17_DEFECT_AUDIT_AND_REMEDIATION_PLAN.md`.
   - Coupled $\mathbb{R}^{4096}$ macro-strategic context with $\mathbb{R}^{64}$ internal continuous state vectors.
 - [x] **MACRO-03: GPU Accelerated Parallel Counterfactual Simulator**
   - Implemented `forecast_trajectory` evaluating prospective action plans and future free-energy dissipation before physical execution.
+
+---
+
+### Phase 25: Universal MoE Organ Register & Cartridge Stacker (Complete)
+*Sparse multi-organ routing register, sub-50μs Top-K gating, and SVD cartridge consolidation.*
+
+- [x] **MOE-01: Sparse Multi-Organ Memory-Mapped Register (`SiMoERegister`)**
+  - Implemented sparse 16-slot organ register in `crates/compute`: mounts multiple `.si` specialist cartridges simultaneously with zero idle CPU/GPU consumption.
+- [x] **MOE-02: Top-K Latent Dynamic Conductor Routing**
+  - Conductor evaluates sparse gating scalars across mounted specialist limbs, executing only the Top-K (default K=3) active organs per cycle with microsecond latency.
+- [x] **MOE-03: Autonomous Cartridge Stacker & SVD Merger (`SiConsolidator`)**
+  - Implemented `co_activation_matrix` tracking inter-organ co-activation telemetry to identify candidate clusters for future SVD cartridge consolidation.
 
 ---
 
