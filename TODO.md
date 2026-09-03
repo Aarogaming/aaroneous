@@ -246,16 +246,16 @@
 | Priority | Phase / Area | Strategic Rationale (Safety & ROI) | Status |
 |---|---|---|---|
 | **P0-A (Safety)** | **Phase 29: The Crucible: Sealed Virtual Self-Play & Verification Studio** | **Safety: Maximum.** Airgapped W^X sandbox ensures models cannot escape or issue rogue commands.<br>**ROI: Massive.** 10,000 self-play cycles/min using local LMStudio/free APIs. Instant bootstrap. | **Complete** |
-| **P0-B (ROI)** | **Phase 31: Machine-Native Intent Mapping & Linguistic Lens** | **Safety: High.** Direct Opcode DAG invariants eliminate prompt injection and syntax hallucinations.<br>**ROI: Immediate.** Enables conversational speech/chat without slowing down core reflexes. | **Blueprint** |
+| **P0-B (ROI)** | **Phase 31: Machine-Native Intent Mapping & Linguistic Lens** | **Safety: High.** Direct Opcode DAG invariants eliminate prompt injection and syntax hallucinations.<br>**ROI: Immediate.** Enables conversational speech/chat & zero-latency phoneme voice out (`AcousticVoiceSynthesizer`). | **Blueprint** |
 | **P0-C (Hardware ROI)**| **Phase 33: Heterogeneous Silicon: Native NPU Acceleration** | **Safety: Medium.** Hardware memory isolation via DirectML/NPU drivers.<br>**ROI: Immediate.** Wakes up unused 45 TOPS NPU at ~2W power. Zero FPS drop in games/rendering. | **Blueprint** |
-| **P0-D (Data ROI)** | **Phase 32: The `.lib` Binary State Bank & Zero-Copy Vault** | **Safety: High.** Cryptographic Merkle tree audit trail ("Black Box" legal/mechanical protection).<br>**ROI: High.** SIMD-compressed storage eliminates text serialization parsing bottlenecks. | **Blueprint** |
+| **P0-D (Data ROI)** | **Phase 32: The `.lib` Binary State Bank & Zero-Copy Vault** | **Safety: High.** Cryptographic Merkle audit trail, crash WAL snapshotter, & sleep memory consolidation.<br>**ROI: High.** SIMD-compressed storage eliminates text serialization parsing bottlenecks. | **Blueprint** |
 
 #### 🏎️ Tier 1: High-Performance Hardware & Physical Actuation (Expansion Focus)
 *Physical hardware deployment, maximum throughput, and real-world execution.*
 
 | Priority | Phase / Area | Strategic Rationale (Safety & ROI) | Status |
 |---|---|---|---|
-| **P1-A (Physical ROI)**| **Phase 26: Automotive, Embedded Robotics & Head-Unit Bridge** | **Safety: Critical.** SMT mathematical fail-safe fence protects vehicles and BOE-Bot servos.<br>**ROI: High.** Immediate physical proof in college robotics lab and vehicle CAN translation. | **Blueprint** |
+| **P1-A (Physical ROI)**| **Phase 26: Automotive, Embedded Robotics & Head-Unit Bridge** | **Safety: Critical.** SMT mathematical fail-safe fence & autonomous protocol entropy analyzer.<br>**ROI: High.** Immediate physical proof on mobile robotics and vehicle CAN translation. | **Blueprint** |
 | **P1-B (Perf ROI)** | **Phase 27: Full-Tilt Hardware Saturation & Zero-Copy VRAM** | **Safety: High.** Eliminates SMT solver timeouts and race conditions under 120 FPS maximum load.<br>**ROI: High.** Unlocks raw wire-speed performance by keeping 4K video entirely in GPU VRAM. | **Blueprint** |
 | **P1-C (User ROI)** | **Phase 30: Zero-Friction End-User Simplicity & Single-Click** | **Safety: High.** Auto-hardware detection prevents users from misconfiguring memory or GPU profiles.<br>**ROI: Universal.** 1-click installer and drag-and-drop `.si-pack` enables non-coder adoption. | **Blueprint** |
 
@@ -702,8 +702,10 @@ Documented in detail in `dev/docs/17_DEFECT_AUDIT_AND_REMEDIATION_PLAN.md`.
   - Continuous State Space Model (SSM) reflex loop evaluating post-maneuver telemetry ("Could we have used the wing better?"), computing residual hindsight deltas and updating Streaming LoRA weights to pre-correct aerodynamic handling in $< 180\mu\text{s}$.
 - [ ] **AUTO-04: Android Head-Unit Replacement & Sandboxed App Canning**
   - Bare-metal flashing over OEM Android automotive SoCs (Snapdragon 8155/8295) with hardware CAN access, isolating consumer Android apps (Spotify, Maps) in an airgapped Waydroid container surface without CANbus privileges.
-- [ ] **AUTO-05: Wireless BOE-Bot Cybernetic Ocular Robotics Suite**
-  - Complete integration of `BoeBotOcularNavigator` and wireless serial telemetry bridge, enabling driver's seat first-person POV and satellite top-down maze traversal on classroom micro-controllers.
+- [ ] **AUTO-05: Wireless Cybernetic Mobile Robotics Suite**
+  - Complete integration of `DualPerspectiveOcularNavigator` and wireless serial telemetry bridge, enabling driver perspective first-person POV and observer top-down navigation on classroom micro-controllers.
+- [ ] **AUTO-06: Autonomous Packet Entropy & Protocol Reverser (`ProtocolEntropyAnalyzer`)**
+  - Shannon entropy analysis per bit/byte offset across unknown serial/CAN streams, automatically detecting cyclic message counters, CRC checksums, and continuous physical floating-point channels without manual hardware datasheets.
 
 ---
 
@@ -768,6 +770,8 @@ Documented in detail in `dev/docs/17_DEFECT_AUDIT_AND_REMEDIATION_PLAN.md`.
   - Map intent manifolds directly into `NativeComputationalGraph` goal nodes governed by 7-exponent SI dimensional constraints, eliminating syntax errors, prompt injection, and hallucinations at the algebraic level.
 - [ ] **INTENT-03: Multi-Lingual Swappable Edge Adapters**
   - Enable instantaneous swapping of the edge language lens (English, Japanese, German, Spanish) without modifying or retraining the underlying spatial, physical, or logical core.
+- [ ] **INTENT-04: Zero-Latency Local Speech Synthesis (`AcousticVoiceSynthesizer`)**
+  - Pure-Rust embedded formant/phoneme synthesizer running in $< 5\text{ms}$ on CPU/NPU, speaking natural real-time responses to user commands without cloud API dependencies or heavy Python runtimes.
 
 ---
 
@@ -780,6 +784,10 @@ Documented in detail in `dev/docs/17_DEFECT_AUDIT_AND_REMEDIATION_PLAN.md`.
   - Enable bare-metal microcontrollers (RP2350, ESP32) to write structured `.lib` records directly to SPI/SD media without dynamic heap allocations.
 - [ ] **LIB-03: Sub-Symbolic Multi-Agent Telepathy (Direct Latent Sync)**
   - Swarm nodes exchange raw `.lib` tensor frames and LoRA delta packets over QUIC datagrams, sharing complex spatial maneuvers and environmental awareness without natural language conversion.
+- [ ] **LIB-04: Thermodynamic Sleep Memory Consolidation (`EpisodicConsolidationWorker`)**
+  - SVD and principal-component clustering over $\mathbb{R}^{256}$ associative memory graphs during low-power idle states, pruning dead vectors and preventing catastrophic interference over months of continuous operation.
+- [ ] **LIB-05: Non-Volatile WAL Flight Recorder (`CrashJournalSnapshotter`)**
+  - Single-page mmap Write-Ahead-Log guaranteeing instant $< 8\text{ms}$ state restoration and physical fail-safe line drop upon unexpected power loss or kernel panic.
 
 ---
 
