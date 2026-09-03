@@ -193,16 +193,16 @@ impl ActionExecutor {
         };
 
         // Validate destination path for move/copy
-        if let FileOp::Move(ref dest) | FileOp::Copy(ref dest) = operation {
-            if let Err(err) = self.validate_sandbox_path(dest) {
-                return ActionResult {
-                    action_type: "file_operation".to_string(),
-                    success: false,
-                    duration_ms: 0.0,
-                    message: format!("Sandbox security violation on destination: {}", err),
-                    metadata: serde_json::json!({"dest": dest.to_string_lossy(), "security_error": true}),
-                };
-            }
+        if let FileOp::Move(ref dest) | FileOp::Copy(ref dest) = operation
+            && let Err(err) = self.validate_sandbox_path(dest)
+        {
+            return ActionResult {
+                action_type: "file_operation".to_string(),
+                success: false,
+                duration_ms: 0.0,
+                message: format!("Sandbox security violation on destination: {}", err),
+                metadata: serde_json::json!({"dest": dest.to_string_lossy(), "security_error": true}),
+            };
         }
 
         let result = match operation {

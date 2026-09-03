@@ -240,13 +240,13 @@ impl HippoLegendreMatrices {
     pub fn step(&self, state: &mut [f32], input: f32) {
         let n = self.state_dim;
         let mut new_state = vec![0.0f32; n];
-        for i in 0..n {
+        for (i, out_val) in new_state.iter_mut().enumerate().take(n) {
             let mut sum = 0.0f32;
-            for j in 0..n {
-                sum += self.a_discrete[i * n + j] * state[j];
+            for (j, &st) in state.iter().enumerate().take(n) {
+                sum += self.a_discrete[i * n + j] * st;
             }
             sum += self.b_discrete[i] * input;
-            new_state[i] = sum;
+            *out_val = sum;
         }
         state.copy_from_slice(&new_state);
     }

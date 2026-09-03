@@ -163,14 +163,15 @@ impl HudView for Galaxy3DView {
                         format!("{}:{}", target_id, star.id)
                     };
 
-                    if drawn_edges.insert(edge_key) {
-                        if let Some((p2, scale2, _)) = star_map.get(target_id).and_then(|target_star| project_3d(target_star.pos)) {
-                            // Constellation Wire
-                            let alpha = ((scale1 + scale2) * 45.0).clamp(20.0, 140.0) as u8;
-                            painter.line_segment(
-                                [p1, p2],
-                                Stroke::new(1.2, Color32::from_rgba_unmultiplied(56, 139, 253, alpha)),
-                            );
+                    if drawn_edges.insert(edge_key)
+                        && let Some((p2, scale2, _)) = star_map.get(target_id).and_then(|target_star| project_3d(target_star.pos))
+                    {
+                        // Constellation Wire
+                        let alpha = ((scale1 + scale2) * 45.0).clamp(20.0, 140.0) as u8;
+                        painter.line_segment(
+                            [p1, p2],
+                            Stroke::new(1.2, Color32::from_rgba_unmultiplied(56, 139, 253, alpha)),
+                        );
 
                             // Animated Real-Time Execution Pulse
                             let pulse_phase = (time_sec * 0.8 + (star.domain_opcode as f32 * 0.1)) % 1.0;
@@ -193,7 +194,6 @@ impl HudView for Galaxy3DView {
                         }
                     }
                 }
-            }
         }
 
         // 6. Draw 3D Star Nodes (Z-Sorted from Back to Front)
@@ -316,10 +316,10 @@ impl HudView for Galaxy3DView {
                     ui.horizontal(|ui| {
                         ui.label(egui::RichText::new("Synaptic Links:").strong());
                         for target in &star.connected_to {
-                            if let Some(target_star) = star_map.get(target) {
-                                if ui.button(format!("🔗 {}", target_star.name)).clicked() {
-                                    state.selected_galaxy_star_id = Some(target.clone());
-                                }
+                            if let Some(target_star) = star_map.get(target)
+                                && ui.button(format!("🔗 {}", target_star.name)).clicked()
+                            {
+                                state.selected_galaxy_star_id = Some(target.clone());
                             }
                         }
                     });

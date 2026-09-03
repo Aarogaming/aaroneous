@@ -1,7 +1,7 @@
-/// Shared types for the P2P module & Fleet Swarm Federation
-///
-/// These types are used regardless of whether the `fleet` / `p2p-iroh` feature is
-/// enabled, so the Omnipresent specialist and FleetScheduler have a stable API.
+//! Shared types for the P2P module & Fleet Swarm Federation
+//!
+//! These types are used regardless of whether the `fleet` / `p2p-iroh` feature is
+//! enabled, so the Omnipresent specialist and FleetScheduler have a stable API.
 
 use serde::{Deserialize, Serialize};
 use si_ir::NativeComputationalGraph;

@@ -442,7 +442,7 @@ impl ConsensusEngine {
             && res.vote_granted
         {
             self.election_votes.insert(res.voter_id.clone());
-            let quorum = (self.peers.len() + 1) / 2 + 1;
+            let quorum = (self.peers.len() + 2).div_ceil(2);
             if self.election_votes.len() >= quorum {
                 self.raft_state.role = RaftRole::Leader;
                 self.raft_state.leader_id = Some(self.node_id.clone());

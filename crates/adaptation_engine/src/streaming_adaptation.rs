@@ -61,22 +61,22 @@ impl StreamingLoraAdaptationPipeline {
 
         // 1. Intermediate low-rank projection: h = A * input (size: rank)
         let mut intermediate = vec![0.0f32; self.rank];
-        for r in 0..self.rank {
+        for (r, inter_val) in intermediate.iter_mut().enumerate().take(self.rank) {
             let mut sum = 0.0f32;
             let a_offset = r * self.d_model;
-            for i in 0..self.d_model {
-                sum += self.lora_a[a_offset + i] * input[i];
+            for (i, &inp) in input.iter().enumerate().take(self.d_model) {
+                sum += self.lora_a[a_offset + i] * inp;
             }
-            intermediate[r] = sum;
+            *inter_val = sum;
         }
 
         // 2. Output expansion: delta = B * intermediate (size: d_model)
-        for i in 0..self.d_model {
+        for (i, out_val) in output.iter_mut().enumerate().take(self.d_model) {
             let mut sum = 0.0f32;
-            for r in 0..self.rank {
-                sum += self.lora_b[i * self.rank + r] * intermediate[r];
+            for (r, &inter) in intermediate.iter().enumerate().take(self.rank) {
+                sum += self.lora_b[i * self.rank + r] * inter;
             }
-            output[i] += sum;
+            *out_val += sum;
         }
 
         Ok(())
@@ -101,10 +101,10 @@ impl StreamingLoraAdaptationPipeline {
         let scale = self.learning_rate / (grad_norm + 1e-6);
         let mut delta_norm_accum = 0.0f32;
 
-        for i in 0..self.d_model {
+        for (i, &grad) in error_gradient.iter().enumerate().take(self.d_model) {
             for r in 0..self.rank {
                 let idx = i * self.rank + r;
-                let step = scale * error_gradient[i] * 0.1;
+                let step = scale * grad * 0.1;
                 self.lora_b[idx] += step;
                 delta_norm_accum += step * step;
             }

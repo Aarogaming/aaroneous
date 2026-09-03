@@ -377,7 +377,7 @@ impl SpatialCanvasScene {
 
         let count = open_keys.len();
         let cols = (count as f32).sqrt().ceil() as usize;
-        let rows = (count + cols - 1) / cols;
+        let rows = count.div_ceil(cols);
 
         let available_w = (viewport_width - (cols as f32 + 1.0) * padding).max(200.0);
         let available_h = (viewport_height - (rows as f32 + 1.0) * padding).max(200.0);
@@ -1132,7 +1132,7 @@ impl SharedHudState {
         }
 
         self.telemetry_tick_counter += 1;
-        if self.telemetry_tick_counter % 4 == 0 {
+        if self.telemetry_tick_counter.is_multiple_of(4) {
             self.telemetry_fps_history.push(self.measured_fps);
             if self.telemetry_fps_history.len() > 60 {
                 self.telemetry_fps_history.remove(0);

@@ -34,6 +34,10 @@ pub use si_format::verify::{MIN_VERSION, SINT_PACKER_MAGIC};
 /// Packer format version — v3 enforces tensor-descriptor manifest with explicit byte offsets
 pub const SINT_PACKER_VERSION: u32 = 3;
 
+/// Tuple representing an uncompressed tensor descriptor entry for container assembly:
+/// (name, data_bytes, shape, is_lora, payload_type)
+pub type RawTensorPayload = (String, Vec<u8>, Vec<usize>, bool, PayloadType);
+
 // ────────────────────────────────────────────────────────────────────────────
 // Tier Designation Flags (Offset 0x08 in .si SINT header)
 // ────────────────────────────────────────────────────────────────────────────
@@ -187,7 +191,7 @@ impl SiPacker {
         lora_rank: usize,
         core_weights: HashMap<String, Vec<f32>>,
     ) -> Result<()> {
-        let mut all_tensors: Vec<(String, Vec<u8>, Vec<usize>, bool, PayloadType)> = Vec::new();
+        let mut all_tensors: Vec<RawTensorPayload> = Vec::new();
 
         let mut sorted_cores: Vec<(String, Vec<f32>)> = core_weights.into_iter().collect();
         sorted_cores.sort_by(|a, b| a.0.cmp(&b.0));

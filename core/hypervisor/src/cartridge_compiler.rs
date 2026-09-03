@@ -57,7 +57,7 @@ impl CartridgeCompiler {
         let mut seeded_block1 = Vec::new();
         let mut extracted_tensors_count = 0;
 
-        for (_file, meta) in &gguf_index.0 {
+        for meta in gguf_index.0.values() {
             for (name, tensor) in &meta.tensors {
                 // Seed attention projection, feed-forward or output projections
                 if name.contains("weight") || name.contains("proj") || name.contains("attn") {

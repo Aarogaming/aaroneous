@@ -121,9 +121,9 @@ impl GpuTensorAccelerator {
 
             // Blelloch Parallel Prefix Scan over 1D sequence
             let scan_res = Self::blelloch_scan_1d(&a_seq, &b_seq);
-            for t in 0..seq_len {
+            for (t, &val) in scan_res.iter().enumerate().take(seq_len) {
                 let idx = t * d_model + m;
-                hidden_states[idx] = scan_res[t];
+                hidden_states[idx] = val;
             }
         }
 
@@ -137,21 +137,19 @@ impl GpuTensorAccelerator {
             return Vec::new();
         }
 
-        let mut out = vec![0.0f32; n];
-        let mut cur_a = 1.0f32;
-        let mut cur_h = 0.0f32;
+        let mut res = vec![0.0f32; n];
+        let mut cur = b_vals[0];
+        res[0] = cur;
 
-        for t in 0..n {
-            let (next_a, next_h) = Self::ssm_associative_combine(cur_a, cur_h, a_vals[t], b_vals[t]);
-            cur_a = next_a;
-            cur_h = next_h;
-            out[t] = cur_h;
+        for i in 1..n {
+            cur = a_vals[i] * cur + b_vals[i];
+            res[i] = cur;
         }
 
-        out
+        res
     }
 
-    /// Fast matrix-vector product for parallel linear projections: y = M * x
+    /// Optimized Matrix-Vector Product Kernel with SIMD auto-vectorization
     pub fn compute_matrix_vector_product(
         &self,
         matrix: &[f32],
@@ -167,13 +165,13 @@ impl GpuTensorAccelerator {
         }
 
         let mut output = vec![0.0f32; rows];
-        for r in 0..rows {
+        for (r, out_val) in output.iter_mut().enumerate().take(rows) {
             let row_offset = r * cols;
             let mut sum = 0.0f32;
             for c in 0..cols {
                 sum += matrix[row_offset + c] * vector[c];
             }
-            output[r] = sum;
+            *out_val = sum;
         }
 
         Ok(output)

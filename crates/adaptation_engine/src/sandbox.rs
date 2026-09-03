@@ -50,7 +50,7 @@ impl ShadowSandbox {
         let temp_path = self.shadow_dir.join(format!("{}.tmp.{}", safe_name.to_string_lossy(), std::process::id()));
         
         fs::write(&temp_path, content).context("Failed to write temporary shadow file")?;
-        if let Err(_) = fs::rename(&temp_path, &target_path) {
+        if fs::rename(&temp_path, &target_path).is_err() {
             let _ = fs::remove_file(&target_path);
             fs::rename(&temp_path, &target_path).context("Failed to atomically commit shadow file")?;
         }
@@ -73,7 +73,7 @@ impl ShadowSandbox {
 
         let temp_live = live_target.with_extension(format!("tmp.{}", std::process::id()));
         fs::copy(&shadow_path, &temp_live)?;
-        if let Err(_) = fs::rename(&temp_live, live_target) {
+        if fs::rename(&temp_live, live_target).is_err() {
             let _ = fs::remove_file(live_target);
             fs::rename(&temp_live, live_target)?;
         }

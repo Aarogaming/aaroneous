@@ -96,9 +96,7 @@ impl RetinaModule {
                 (*synapse_ptr).is_legal = 1;
                 (*synapse_ptr).raw_token_count = count as u32;
 
-                for i in 0..count {
-                    (*synapse_ptr).token_buffer[i] = tokens[i];
-                }
+                (&mut (*synapse_ptr).token_buffer)[..count].copy_from_slice(&tokens[..count]);
             }
 
             println!("[Retina] Ingestion complete. {} tokens written to synapse.", count);
@@ -240,8 +238,8 @@ impl RetinaModule {
         // Zero-copy transfer from the internal 2D/3D rendering system.
         // This bypasses O3DE in favor of the project's native graphics stack.
         
-        for i in 0..1024 {
-            latent_buffer[i] = (i as f32 / 1024.0).sin(); // Simulated visual pattern
+        for (i, val) in latent_buffer.iter_mut().enumerate().take(1024) {
+            *val = (i as f32 / 1024.0).sin(); // Simulated visual pattern
         }
         
         println!("[Retina] wgpu framebuffer mapping active.");
@@ -253,7 +251,7 @@ impl RetinaModule {
     /// Inverse of the tokenization in `ingest_url()`. Uses the same tokenizer
     /// to convert a slice of token IDs back into a human-readable string.
     pub fn decode_tokens(&self, token_ids: &[u32]) -> Result<String> {
-        let ids: Vec<u32> = token_ids.iter().copied().collect();
+        let ids: Vec<u32> = token_ids.to_vec();
         let decoded = self.tokenizer.decode(&ids, true)
             .map_err(|e| anyhow!("Token decoding failed: {}", e))?;
         Ok(decoded)

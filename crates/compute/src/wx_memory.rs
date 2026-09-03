@@ -123,6 +123,11 @@ impl WxMemoryRegion {
         self.size
     }
 
+    /// Returns whether the allocated region is empty
+    pub fn is_empty(&self) -> bool {
+        self.size == 0
+    }
+
     /// Returns whether the memory region is currently in Executable (RX) mode
     pub fn is_executable(&self) -> bool {
         self.is_executable

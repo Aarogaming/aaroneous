@@ -140,8 +140,8 @@ impl AstParser {
                             parameter_count: param_count,
                             return_type: None,
                         });
-                    } else if trimmed.starts_with("class ") {
-                        let class_name = trimmed[6..].split('(').next().unwrap_or("").split(':').next().unwrap_or("unknown").trim().to_string();
+                    } else if let Some(rest) = trimmed.strip_prefix("class ") {
+                        let class_name = rest.split('(').next().unwrap_or("").split(':').next().unwrap_or("unknown").trim().to_string();
                         structs.push(class_name);
                     }
                 }

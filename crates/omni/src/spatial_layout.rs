@@ -92,7 +92,7 @@ impl NonOverlapSolver {
             }
             WindowArrangementStrategy::TileGrid { columns } => {
                 let cols = columns.max(1);
-                let rows = (n + cols - 1) / cols;
+                let rows = n.div_ceil(cols);
 
                 let total_pad_x = padding * (cols as f32 + 1.0);
                 let total_pad_y = padding * (rows as f32 + 1.0);

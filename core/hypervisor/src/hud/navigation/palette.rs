@@ -154,11 +154,11 @@ impl CommandPalette {
                                     self.selected_idx - 1
                                 };
                             }
-                            if ui.input(|i| i.key_pressed(Key::Enter)) {
-                                if let Some((_, _, action)) = filtered.get(self.selected_idx) {
-                                    executed_action = Some(action.clone());
-                                    self.is_open = false;
-                                }
+                            if ui.input(|i| i.key_pressed(Key::Enter))
+                                && let Some((_, _, action)) = filtered.get(self.selected_idx)
+                            {
+                                executed_action = Some(action.clone());
+                                self.is_open = false;
                             }
 
                             egui::ScrollArea::vertical().max_height(modal_height - 60.0).show(ui, |ui| {

@@ -81,7 +81,7 @@ impl UniversalStateBank {
             let mut header_buf = [0u8; STATE_BANK_HEADER_SIZE];
             file.read_exact(&mut header_buf)?;
 
-            if &header_buf[0..4] != &STATE_BANK_MAGIC {
+            if header_buf[0..4] != STATE_BANK_MAGIC {
                 bail!("Invalid State Bank file magic: expected 'SLIB'");
             }
 
@@ -107,8 +107,10 @@ impl UniversalStateBank {
                 records: Vec::new(),
             })
         } else {
-            let mut header = StateBankHeader::default();
-            header.latent_dim = latent_dim;
+            let header = StateBankHeader {
+                latent_dim,
+                ..Default::default()
+            };
 
             let bank = Self {
                 file_path: p,

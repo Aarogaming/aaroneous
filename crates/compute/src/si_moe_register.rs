@@ -142,7 +142,7 @@ impl SiMoERegister {
         }
 
         // Validate magic bytes 'SINT'
-        if &file_bytes[0..4] != crate::si_spec::SI_CANONICAL_MAGIC {
+        if file_bytes[0..4] != crate::si_spec::SI_CANONICAL_MAGIC {
             bail!("Invalid cartridge magic: expected 'SINT'");
         }
 
