@@ -73,6 +73,63 @@ impl DimensionalUnit {
     }
 }
 
+/// Universal Measured or Actuated Physical Quantity with 7-Exponent Dimensional Tracking
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct UniversalPhysicalQuantity {
+    pub value: f64,
+    pub unit: DimensionalUnit,
+    pub uncertainty: f32,
+}
+
+impl UniversalPhysicalQuantity {
+    pub fn new(value: f64, unit: DimensionalUnit, uncertainty: f32) -> Self {
+        Self { value, unit, uncertainty }
+    }
+
+    pub fn dimensionless(value: f64) -> Self {
+        Self::new(value, DimensionalUnit::DIMENSIONLESS, 0.0)
+    }
+
+    pub fn meters(value: f64) -> Self {
+        Self::new(value, DimensionalUnit::LENGTH_METER, 0.0)
+    }
+
+    pub fn seconds(value: f64) -> Self {
+        Self::new(value, DimensionalUnit::TIME_SECOND, 0.0)
+    }
+
+    pub fn velocity(value: f64) -> Self {
+        Self::new(value, DimensionalUnit::VELOCITY, 0.0)
+    }
+
+    pub fn newtons(value: f64) -> Self {
+        Self::new(value, DimensionalUnit::FORCE_NEWTON, 0.0)
+    }
+
+    pub fn multiply(&self, other: &Self) -> Self {
+        Self {
+            value: self.value * other.value,
+            unit: self.unit.multiply(&other.unit),
+            uncertainty: self.uncertainty + other.uncertainty,
+        }
+    }
+
+    pub fn divide(&self, other: &Self) -> Option<Self> {
+        if other.value.abs() < 1e-15 {
+            return None;
+        }
+        Some(Self {
+            value: self.value / other.value,
+            unit: self.unit.divide(&other.unit),
+            uncertainty: self.uncertainty + other.uncertainty,
+        })
+    }
+
+    pub fn assert_compatible(&self, target_unit: &DimensionalUnit) -> bool {
+        self.unit == *target_unit
+    }
+}
+
 /// Machine-Native Low-Level Computational Opcode
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum MachineOpcode {

@@ -49,6 +49,16 @@ pub mod episodic_memory;
 pub mod hippo;
 pub mod macro_ssm;
 pub mod si_moe_register;
+pub mod silicon_backend;
+pub mod state_bank;
+
+pub use silicon_backend::{
+    CpuSimdBackend, DynamicSiliconRouter, SiliconHardwareType, SiliconTelemetryReport,
+    UniversalTensorBackend,
+};
+pub use state_bank::{
+    StateBankHeader, StateBankRecord, UniversalStateBank, STATE_BANK_MAGIC, STATE_BANK_VERSION,
+};
 
 pub use cognitive_equilibrium::{
     AttentionSpectrum, CognitiveEquilibriumCoordinator, SomaticVitals, TriModalDecisionReport,

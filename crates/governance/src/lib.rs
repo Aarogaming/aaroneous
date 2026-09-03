@@ -6,6 +6,7 @@ pub mod lattice_verifier;
 pub mod rollback_journal;
 pub mod z3_prover;
 pub mod jit_audit;
+pub mod metrics_exporter;
 pub mod smt_action_interlock;
 
 pub use biology::{
@@ -18,6 +19,9 @@ pub use homeostasis::{
 pub use lattice_verifier::{LatticeVerifier, VerificationReport};
 pub use metabolic_governor::{
     GovernanceAction, MetabolicForecast, MetabolicGovernorConfig, PredictiveMetabolicGovernor,
+};
+pub use metrics_exporter::{
+    InMemoryMetricsSink, MetricObservation, UniversalMetricsExporter, UniversalMetricsSink,
 };
 pub use rollback_journal::{GenerationSnapshot, GenerationalJournal};
 pub use smt_action_interlock::{InterlockAuditCertificate, SmtActionInterlock};
