@@ -276,6 +276,7 @@
 | **P1 (Active Blueprint)** | **Phase 30: Zero-Friction End-User Simplicity & Single-Click Ecosystem** | 1-Click `.si-pack` installer, auto-hardware profile detection, visual cartridge drag-and-drop, and conversational tuning. | **Blueprint** |
 | **P0 (Active Blueprint)** | **Phase 31: Machine-Native Intent Mapping & Linguistic Lens Architecture** | Decoupled lightweight edge language lens, language-free R^4096 intent manifold, direct Opcode DAG synthesis. | **Blueprint** |
 | **P1 (Active Blueprint)** | **Phase 32: The `.lib` Binary State Bank & Dynamic Neuro-Symbiosis** | Zero-copy columnar tensor vault (`.lib`), SIMD-compressed physical logs, cross-agent telepathic sub-symbolic syncing. | **Blueprint** |
+| **P0 (Active Blueprint)** | **Phase 33: Heterogeneous Silicon: Native NPU & Quantum Hamiltonian Acceleration** | DirectML / ONNX NPU tensor offloading (45 TOPS), quantum unitary SSM emulation, zero-watt idle background reflexes. | **Blueprint** |
 
 ---
 
@@ -794,6 +795,18 @@ Documented in detail in `dev/docs/17_DEFECT_AUDIT_AND_REMEDIATION_PLAN.md`.
 
 ---
 
-*Last updated: 2026-09-03 | Complete 5-pillar, 32-phase architectural framework*
+### Phase 33: Heterogeneous Silicon: Native NPU & Quantum Hamiltonian Acceleration (Blueprint)
+*DirectML / Qualcomm / Intel NPU tensor offloading (45 TOPS), quantum unitary SSM Hamiltonian execution, and near-zero-watt continuous reflexes.*
+
+- [ ] **NPU-01: DirectML & Native NPU Acceleration Engine (`NpuTensorBackend`)**
+  - Implement NPU hardware dispatch in `crates/compute`: bind the 16-organ MoE register and `.si` Block 1 weights to Windows DirectML and ONNX Runtime NPU execution providers (Qualcomm Hexagon, Intel AI Boost, AMD XDNA), offloading 45+ TOPS of matrix math from the main GPU/CPU at $< 2\text{W}$ power draw.
+- [ ] **NPU-02: Always-On Zero-Watt Background Sensory Reflexes**
+  - Route the `SpatialDeltaGate` vision filter, WASAPI audio loopback, and `KineticTrajectorySynthesizer` exclusively through the NPU, allowing Aaroneous to maintain full 120 FPS situational awareness and anti-cheat mouse smoothing while your primary GPU and CPU stay 100% free for gaming or rendering.
+- [ ] **NPU-03: Quantum Hamiltonian Unitary Operator Bridge (`QuantumMacroSsm`)**
+  - Map the Continuous Macro-SSM bilinear Cayley transition matrix $(\mathbf{I} - \frac{\Delta t}{2}\mathbf{A})^{-1}(\mathbf{I} + \frac{\Delta t}{2}\mathbf{A})$ into unitary Hamiltonian operators ($\hat{\mathbf{U}} = e^{-i\hat{\mathbf{H}}t/\hbar}$), enabling lossless execution across simulated quantum state-vectors and hardware QPUs (OpenQASM / Qiskit) with destructive SMT safety interference.
+
+---
+
+*Last updated: 2026-09-03 | Complete 5-pillar, 33-phase architectural framework*
 
 
