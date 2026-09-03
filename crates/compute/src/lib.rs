@@ -45,6 +45,7 @@ pub mod cranelift_jit;
 pub mod ffi_kernels;
 pub mod episodic_memory;
 pub mod hippo;
+pub mod macro_ssm;
 
 pub use wx_memory::WxMemoryRegion;
 pub use cranelift_jit::{CraneliftJitEngine, NativeExecutionFn};
@@ -56,6 +57,7 @@ pub use hippo::{
     generate_hippo_discretized, generate_hippo_legendre, discretize_bilinear,
     HippoLegendreMatrices,
 };
+pub use macro_ssm::{ContinuousMacroSsm, MacroSsmConfig, MACRO_LATENT_DIM, MACRO_STATE_DIM};
 
 pub use burn_gpu::{GpuTensorAccelerator, GpuTensorProfile};
 pub use si_spec::{
