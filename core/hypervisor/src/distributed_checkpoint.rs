@@ -339,7 +339,7 @@ mod tests {
         let peers = vec!["node_2".to_string(), "node_3".to_string()];
         let mut manager = DistributedCheckpointManager::new("node_1", peers, 60);
 
-        let checkpoint_id = manager.begin_checkpoint();
+        let _checkpoint_id = manager.begin_checkpoint();
         let snapshot = ComponentSnapshot {
             component_name: "models".to_string(),
             state_data: vec![1, 2, 3],

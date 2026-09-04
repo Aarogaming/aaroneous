@@ -618,7 +618,7 @@ mod tests {
             SymbolicNode::Expression {
                 operator: MathOperator::Multiply,
                 left,
-                right,
+                right: _,
             } => {
                 // cos(x) * 1  after simplification
                 assert!(matches!(

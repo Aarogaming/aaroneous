@@ -37,10 +37,12 @@ mod sync_consistency_tests {
             }
         }
 
+        #[allow(dead_code)]
         fn is_synchronized(&self) -> bool {
             self.state.lock().unwrap().synchronized
         }
 
+        #[allow(dead_code)]
         fn get_state(&self) -> RegistryState {
             self.state.lock().unwrap().clone()
         }
@@ -60,7 +62,7 @@ mod sync_consistency_tests {
             None
         }
 
-        fn synchronize_state(&mut self, ctx: &WorkspaceContext) -> Result<(), String> {
+        fn synchronize_state(&mut self, _ctx: &WorkspaceContext) -> Result<(), String> {
             if !self.state.lock().unwrap().initialized {
                 return Err("Not initialized".to_string());
             }
@@ -120,7 +122,7 @@ mod sync_consistency_tests {
 
         assert_eq!(master.registry_count(), 5);
 
-        let ctx = WorkspaceContext::default();
+        let _ctx = WorkspaceContext::default();
 
         // Initialize all registries
         let init_result = master.initialize();
@@ -177,7 +179,7 @@ mod sync_consistency_tests {
         let mut master = MasterRegistry::new();
         master.add_registry(Box::new(StatefulMockRegistry::new()));
 
-        let original_ctx = WorkspaceContext::default();
+        let _original_ctx = WorkspaceContext::default();
 
         let _ = master.initialize();
 

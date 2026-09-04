@@ -378,7 +378,7 @@ mod tests {
     #[test]
     fn test_cleanup_old_data() {
         let agg = MetricsAggregator::new(1.0, 1000, 0); // 0 second retention
-        let mut tags = HashMap::new();
+        let tags = HashMap::new();
 
         agg.record_metric("metric1", 10.0, tags);
         agg.cleanup_old_data();

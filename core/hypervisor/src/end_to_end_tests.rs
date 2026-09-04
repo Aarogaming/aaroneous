@@ -322,7 +322,7 @@ mod end_to_end_tests {
             let specialist = if cycle % 2 == 0 { "spec_a" } else { "spec_b" };
             let reward = ((cycle as f32 % 3.0) / 3.0) - 0.5;
 
-            let result = learning_loop.learn_from_dopamine(&task_features, specialist, reward, 0.8);
+            let _result = learning_loop.learn_from_dopamine(&task_features, specialist, reward, 0.8);
 
             // Verify state remains valid
             assert!(!learning_loop.system_state.learning_rate.is_nan());

@@ -152,6 +152,8 @@ mod spatial_kinetic_integration_tests {
             total_active_sectors += active as u64;
         }
 
+        assert!(total_active_sectors > 0, "Expected active sectors during motion frames");
+
         let elapsed = start.elapsed();
         let avg_latency_us = (elapsed.as_micros() as f64) / (total_frames as f64);
         let avg_latency_ms = avg_latency_us / 1000.0;

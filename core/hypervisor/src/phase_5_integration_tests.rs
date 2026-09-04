@@ -38,7 +38,7 @@ mod phase_5_biological_integration_tests {
         bio.register_specialist("spec_a", 100);
 
         // Normal regen rate at 1.0x
-        let initial_tokens = bio.specialist_metabolism["spec_a"].tokens;
+        let _initial_tokens = bio.specialist_metabolism["spec_a"].tokens;
         bio.update_metabolism();
 
         // At reduced expression rate (0.5x), regen should be slower

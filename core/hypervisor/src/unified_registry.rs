@@ -526,7 +526,7 @@ mod tests {
         }
 
         {
-            let mut reg = Registry::<TestEntry>::with_persistence(RegistryConfig {
+            let reg = Registry::<TestEntry>::with_persistence(RegistryConfig {
                 persist_path: Some(path.clone()),
                 ..Default::default()
             });

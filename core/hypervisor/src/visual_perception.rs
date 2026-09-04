@@ -292,7 +292,7 @@ mod tests {
                 delta[(y * 8 + x) as usize] = 255;
             }
         }
-        let removed = immunity.filter_delta(&mut delta, 8);
+        let _removed = immunity.filter_delta(&mut delta, 8);
         // Dense region should be preserved
         assert!(
             delta[1 * 8 + 1] != 0,

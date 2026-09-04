@@ -233,7 +233,7 @@ mod tests {
     #[test]
     fn test_lorentz_clock_sync() {
         let mut clock = LorentzClock::new(100.0, 100.0);
-        let local = clock.sync(5.0);
+        let _local = clock.sync(5.0);
         assert_eq!(clock.local_ticks, 5);
         assert_eq!(clock.ref_ticks, 5);
     }

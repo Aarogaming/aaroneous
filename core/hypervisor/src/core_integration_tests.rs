@@ -4,7 +4,7 @@
 
 #[cfg(test)]
 mod core_integration_tests {
-    use super::*;
+    
 
     // ========================================================================
     // PHASE I: CRITICAL FIXES (Fixes #1-3)

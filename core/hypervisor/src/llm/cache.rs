@@ -117,8 +117,8 @@ mod tests {
     fn test_cache_ttl() {
         // TTL is configured but hard to test reliably in tests
         // Just verify cache can be created with different TTL values
-        let cache1 = LLMCache::new(1);
-        let cache2 = LLMCache::new(3600);
+        let _cache1 = LLMCache::new(1);
+        let _cache2 = LLMCache::new(3600);
         // If we get here without panic, TTL configuration works
         assert!(true);
     }

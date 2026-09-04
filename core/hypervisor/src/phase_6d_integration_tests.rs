@@ -50,10 +50,12 @@ mod phase_6d_integration_tests {
             self.entities.lock().unwrap().insert(id, info);
         }
 
+        #[allow(dead_code)]
         fn get_query_history(&self) -> Vec<String> {
             self.state.lock().unwrap().query_history.clone()
         }
 
+        #[allow(dead_code)]
         fn sync_count(&self) -> usize {
             self.state.lock().unwrap().sync_count
         }
@@ -130,7 +132,7 @@ mod phase_6d_integration_tests {
         let mut master = MasterRegistry::new();
 
         // Create registries with sample entities
-        let mut unified_reg = IntegrationMockRegistry::new(RegistryType::Unified);
+        let unified_reg = IntegrationMockRegistry::new(RegistryType::Unified);
         unified_reg.add_entity(
             "entity-1".to_string(),
             EntityInfo {
@@ -142,7 +144,7 @@ mod phase_6d_integration_tests {
             },
         );
 
-        let mut hox_reg = IntegrationMockRegistry::new(RegistryType::HoxCapability);
+        let hox_reg = IntegrationMockRegistry::new(RegistryType::HoxCapability);
         hox_reg.add_entity(
             "entity-2".to_string(),
             EntityInfo {
@@ -186,7 +188,7 @@ mod phase_6d_integration_tests {
     fn test_registry_health_status_propagation() {
         let mut master = MasterRegistry::new();
 
-        let mut healthy_reg = IntegrationMockRegistry::new(RegistryType::Unified);
+        let healthy_reg = IntegrationMockRegistry::new(RegistryType::Unified);
         healthy_reg.add_entity(
             "healthy-entity".to_string(),
             EntityInfo {
@@ -198,7 +200,7 @@ mod phase_6d_integration_tests {
             },
         );
 
-        let mut degraded_reg = IntegrationMockRegistry::new(RegistryType::HoxCapability);
+        let degraded_reg = IntegrationMockRegistry::new(RegistryType::HoxCapability);
         degraded_reg.add_entity(
             "degraded-entity".to_string(),
             EntityInfo {
@@ -272,7 +274,7 @@ mod phase_6d_integration_tests {
         master.set_active_era(PhaseEra::ThreeC);
 
         // Create a registry that requires SixD
-        let mut ctx = WorkspaceContext::default();
+        let ctx = WorkspaceContext::default();
         assert_eq!(ctx.current_era, PhaseEra::SixD);
 
         // Registry should fail if era is wrong
@@ -294,7 +296,7 @@ mod phase_6d_integration_tests {
         let mut master = MasterRegistry::new();
 
         // Add multiple registries
-        for i in 0..10 {
+        for _i in 0..10 {
             master.add_registry(Box::new(IntegrationMockRegistry::new(
                 RegistryType::Unified,
             )));
@@ -315,7 +317,7 @@ mod phase_6d_integration_tests {
     fn test_entity_last_seen_tracking() {
         let mut master = MasterRegistry::new();
 
-        let mut reg = IntegrationMockRegistry::new(RegistryType::Unified);
+        let reg = IntegrationMockRegistry::new(RegistryType::Unified);
         reg.add_entity(
             "tracked-entity".to_string(),
             EntityInfo {
