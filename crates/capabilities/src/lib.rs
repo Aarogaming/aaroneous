@@ -56,6 +56,7 @@ pub struct SpecialistFederation {
     pub aligner: AlignerSpecialist,
     pub perceiver: PerceiverSpecialist,
     pub codebase_auditor: CodebaseReviewSpecialist,
+    pub event_bus: ipc_bus::UniversalEventBus<MnlpPacket>,
 }
 
 /// Simplified alias for the Specialist Federation
@@ -91,7 +92,28 @@ impl SpecialistFederation {
             aligner: AlignerSpecialist::new(),
             perceiver: PerceiverSpecialist::new(),
             codebase_auditor: CodebaseReviewSpecialist::new(),
+            event_bus: ipc_bus::UniversalEventBus::new(),
         }
+    }
+
+    /// Subscribes a consumer to receive packets dispatched through the federation event bus
+    pub fn subscribe_events(&self, topic: &str, subscriber_id: &str) -> ipc_bus::EventSubscriber<MnlpPacket> {
+        self.event_bus.subscribe(topic, subscriber_id)
+    }
+
+    /// Publishes an MNLP packet to the federation event bus with sequence ordering
+    pub fn publish_event(&self, topic: &str, packet: MnlpPacket, timestamp_us: u64) -> u64 {
+        self.event_bus.publish(topic, packet, timestamp_us)
+    }
+
+    /// Drains all available pending events from a subscriber and dispatches them sequentially
+    pub async fn process_pending_events(&mut self, subscriber: &ipc_bus::EventSubscriber<MnlpPacket>) -> Vec<Result<MnlpResponse>> {
+        let mut responses = Vec::new();
+        while let Some(envelope) = subscriber.try_recv() {
+            let res = self.dispatch_packet(envelope.payload).await;
+            responses.push(res);
+        }
+        responses
     }
 
     /// Dispatches a machine-native packet to the appropriate sovereign specialist by opcode
@@ -256,4 +278,41 @@ mod tests {
         assert!(health.contains_key("Aligner"));
         assert!(health.contains_key("Perceiver"));
     }
+
+    #[tokio::test]
+    async fn test_specialist_federation_event_bus() {
+        let mut federation = SpecialistFederation::new();
+
+        // Subscribe to all specialist dispatch events
+        let subscriber = federation.subscribe_events("specialist.dispatch", "test_worker");
+
+        // Publish 2 packets to the event bus
+        let pkt1 = MnlpPacket {
+            opcode: 0x0100,
+            source: "macro_planner".to_string(),
+            target: "orchestrator".to_string(),
+            correlation_id: 201,
+            payload: b"Plan macro trajectory".to_vec(),
+        };
+        let pkt2 = MnlpPacket {
+            opcode: 0x0750,
+            source: "macro_planner".to_string(),
+            target: "codebase_auditor".to_string(),
+            correlation_id: 202,
+            payload: b"fn test_audit() {}".to_vec(),
+        };
+
+        let seq1 = federation.publish_event("specialist.dispatch", pkt1, 1000);
+        let seq2 = federation.publish_event("specialist.dispatch", pkt2, 2000);
+
+        assert_eq!(seq1, 0);
+        assert_eq!(seq2, 1);
+
+        // Process pending events through federation
+        let results = federation.process_pending_events(&subscriber).await;
+        assert_eq!(results.len(), 2);
+        assert!(results[0].as_ref().is_ok_and(|r| r.success));
+        assert!(results[1].as_ref().is_ok_and(|r| r.success));
+    }
 }
+
