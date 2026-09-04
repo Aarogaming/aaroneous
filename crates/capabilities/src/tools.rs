@@ -1,4 +1,4 @@
-//! crates/specialists/src/tools.rs
+//! crates/capabilities/src/tools.rs
 //! Concrete Universal Tools wrapping existing specialist engines.
 //!
 //! Provides zero-loss delegation:
@@ -11,7 +11,6 @@
 use anyhow::{Context, Result};
 use async_trait::async_trait;
 use serde_json::json;
-use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
@@ -79,19 +78,55 @@ impl UniversalTool for SecurityAuditTool {
         let mut engine = self.engine.lock().await;
         engine.audits_performed += 1;
 
-        // Check for basic safety patterns
-        let is_malicious = target.contains("PAGE_EXECUTE_READWRITE")
-            || target.contains("malware")
-            || target.contains("rm -rf /");
+        let mut violations = Vec::new();
 
+        // 1. Path Traversal
+        if target.contains("../") || target.contains("..\\") || target.contains("/etc/passwd") || target.contains("/etc/shadow") {
+            violations.push("Path traversal pattern detected (directory boundary escape)".to_string());
+        }
+
+        // 2. Command Injection
+        if target.contains("rm -rf")
+            || target.contains("powershell -enc")
+            || target.contains("cmd.exe /c")
+            || target.contains("| sh")
+            || target.contains("| bash")
+            || target.contains("; rm")
+        {
+            violations.push("Arbitrary command injection pattern detected".to_string());
+        }
+
+        // 3. Memory Corruption & Unapproved Privilege Escalation
+        if target.contains("PAGE_EXECUTE_READWRITE")
+            || target.contains("VirtualAlloc")
+            || target.contains("WriteProcessMemory")
+            || target.contains("CreateRemoteThread")
+            || target.contains("malware")
+        {
+            violations.push("Dangerous memory manipulation or executable allocation detected".to_string());
+        }
+
+        // 4. Secret and Key Leak Detection
+        if target.contains("sk-") || target.contains("ghp_") || target.contains("AKIA") || target.contains("BEGIN PRIVATE KEY") {
+            violations.push("Exposed private key or API credential signature detected".to_string());
+        }
+
+        let is_malicious = !violations.is_empty();
         if is_malicious {
             engine.threats_blocked += 1;
         }
 
+        let risk_score = if is_malicious {
+            (violations.len() as f32 * 0.25).clamp(0.25, 1.0)
+        } else {
+            0.0
+        };
+
         Ok(json!({
             "target": target,
             "is_safe": !is_malicious,
-            "violations_detected": if is_malicious { vec!["Threat signature detected"] } else { vec![] },
+            "risk_score": risk_score,
+            "violations_detected": violations,
             "total_audits_performed": engine.audits_performed,
             "threats_blocked": engine.threats_blocked
         }))
@@ -329,8 +364,15 @@ impl UniversalTool for CodebaseReviewTool {
 
 // ── 5. Knowledge Semantic Search Tool ────────────────────────────────────────
 
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct KnowledgeRecord {
+    pub topic: String,
+    pub summary: String,
+    pub tags: Vec<String>,
+}
+
 pub struct KnowledgeSemanticTool {
-    cache: Arc<Mutex<HashMap<String, String>>>,
+    records: Arc<Mutex<Vec<KnowledgeRecord>>>,
 }
 
 impl Default for KnowledgeSemanticTool {
@@ -341,17 +383,40 @@ impl Default for KnowledgeSemanticTool {
 
 impl KnowledgeSemanticTool {
     pub fn new() -> Self {
-        let mut initial = HashMap::new();
-        initial.insert(
-            "rust".to_string(),
-            "Rust systems programming: memory safety without garbage collection, ownership semantics.".to_string(),
-        );
-        initial.insert(
-            "mcp".to_string(),
-            "Model Context Protocol: open standard for AI assistants to access tools and context.".to_string(),
-        );
+        let initial = vec![
+            KnowledgeRecord {
+                topic: "rust".to_string(),
+                summary: "Rust systems programming: memory safety without garbage collection, strict ownership semantics, no unwrap in production.".to_string(),
+                tags: vec!["safety".to_string(), "systems".to_string(), "compiler".to_string()],
+            },
+            KnowledgeRecord {
+                topic: "mcp".to_string(),
+                summary: "Model Context Protocol: open standard for AI assistants to discover, authenticate, and execute tools and context schemas.".to_string(),
+                tags: vec!["protocol".to_string(), "ai".to_string(), "tools".to_string()],
+            },
+            KnowledgeRecord {
+                topic: "ssm".to_string(),
+                summary: "State Space Models: continuous differential recurrence (dx/dt = Ax + Bu) and Blelloch parallel associative prefix scans for sub-180us inference.".to_string(),
+                tags: vec!["neural".to_string(), "compute".to_string(), "ssm".to_string()],
+            },
+            KnowledgeRecord {
+                topic: "wx_memory".to_string(),
+                summary: "Write XOR Execute memory management strictly segregating write-permission compilation pages from executable machine code.".to_string(),
+                tags: vec!["security".to_string(), "jit".to_string(), "memory".to_string()],
+            },
+            KnowledgeRecord {
+                topic: "smt_interlock".to_string(),
+                summary: "Satisfiability Modulo Theories formal verification gate certifying non-interference and dimensional invariants before JIT execution.".to_string(),
+                tags: vec!["formal_verification".to_string(), "safety".to_string(), "governance".to_string()],
+            },
+            KnowledgeRecord {
+                topic: "ipc_disruptor".to_string(),
+                summary: "LMAX lock-free single-producer multi-consumer ring buffer and persistent write-ahead log for zero-copy inter-process communication.".to_string(),
+                tags: vec!["concurrency".to_string(), "ipc".to_string(), "performance".to_string()],
+            },
+        ];
         Self {
-            cache: Arc::new(Mutex::new(initial)),
+            records: Arc::new(Mutex::new(initial)),
         }
     }
 }
@@ -371,36 +436,101 @@ impl UniversalTool for KnowledgeSemanticTool {
     }
 
     fn description(&self) -> &'static str {
-        "Queries indexed knowledge bases and research citations by topic or semantic query."
+        "Queries or extends indexed knowledge bases and research citations by topic, keyword, or semantic concept."
     }
 
     fn parameters_schema(&self) -> serde_json::Value {
         json!({
             "type": "object",
             "properties": {
-                "query": { "type": "string", "description": "Research topic or query" }
-            },
-            "required": ["query"]
+                "action": { "type": "string", "enum": ["query", "insert", "list"], "description": "Operation to perform" },
+                "query": { "type": "string", "description": "Research topic or query for search" },
+                "topic": { "type": "string", "description": "Topic name for insertion" },
+                "summary": { "type": "string", "description": "Content summary for insertion" },
+                "tags": { "type": "array", "items": { "type": "string" }, "description": "Search tags for insertion" }
+            }
         })
     }
 
     async fn call_json(&self, params: serde_json::Value) -> Result<serde_json::Value> {
-        let query = params.get("query").and_then(|v| v.as_str()).context("Missing 'query'")?;
-        let cache = self.cache.lock().await;
+        let action = params.get("action").and_then(|v| v.as_str()).unwrap_or("query");
+        let mut store = self.records.lock().await;
 
-        let query_lower = query.to_lowercase();
-        let matches: Vec<_> = cache
-            .iter()
-            .filter(|(k, _)| query_lower.contains(&k.to_lowercase()) || k.contains(&query_lower))
-            .map(|(k, v)| json!({ "topic": k, "summary": v }))
-            .collect();
+        match action {
+            "insert" => {
+                let topic = params.get("topic").and_then(|v| v.as_str()).context("Missing 'topic'")?;
+                let summary = params.get("summary").and_then(|v| v.as_str()).context("Missing 'summary'")?;
+                let tags = params.get("tags").and_then(|v| v.as_array()).map(|arr| {
+                    arr.iter().filter_map(|x| x.as_str().map(|s| s.to_string())).collect()
+                }).unwrap_or_default();
 
-        Ok(json!({
-            "query": query,
-            "matches_count": matches.len(),
-            "results": matches,
-            "confidence_score": if matches.is_empty() { 0.5 } else { 0.95 }
-        }))
+                store.push(KnowledgeRecord {
+                    topic: topic.to_string(),
+                    summary: summary.to_string(),
+                    tags,
+                });
+
+                Ok(json!({
+                    "status": "inserted",
+                    "total_entries": store.len(),
+                    "topic": topic
+                }))
+            }
+            "list" => {
+                let topics: Vec<String> = store.iter().map(|r| r.topic.clone()).collect();
+                Ok(json!({
+                    "total_entries": store.len(),
+                    "topics": topics
+                }))
+            }
+            _ => {
+                let query = params.get("query").and_then(|v| v.as_str()).unwrap_or("");
+                let query_tokens: Vec<String> = query.to_lowercase().split_whitespace().map(|s| s.to_string()).collect();
+
+                let mut scored: Vec<(f32, &KnowledgeRecord)> = store.iter().map(|rec| {
+                    let mut score = 0.0f32;
+                    let topic_lower = rec.topic.to_lowercase();
+                    let summary_lower = rec.summary.to_lowercase();
+
+                    if topic_lower == query.to_lowercase() {
+                        score += 10.0;
+                    }
+
+                    for token in &query_tokens {
+                        if topic_lower.contains(token) {
+                            score += 3.0;
+                        }
+                        if summary_lower.contains(token) {
+                            score += 1.0;
+                        }
+                        for tag in &rec.tags {
+                            if tag.to_lowercase().contains(token) {
+                                score += 2.0;
+                            }
+                        }
+                    }
+                    (score, rec)
+                }).filter(|(score, _)| *score > 0.0).collect();
+
+                scored.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
+
+                let matches: Vec<_> = scored.iter().map(|(score, rec)| {
+                    json!({
+                        "topic": rec.topic,
+                        "summary": rec.summary,
+                        "tags": rec.tags,
+                        "relevance_score": score
+                    })
+                }).collect();
+
+                Ok(json!({
+                    "query": query,
+                    "matches_count": matches.len(),
+                    "results": matches,
+                    "confidence_score": if matches.is_empty() { 0.0 } else { 0.95 }
+                }))
+            }
+        }
     }
 
     fn call_latent(&self, input: &[f32; 256], output: &mut [f32; 256]) -> Result<()> {
@@ -544,7 +674,9 @@ impl UniversalTool for UiLayoutTool {
             "properties": {
                 "window_count": { "type": "integer", "description": "Number of active windows to place" },
                 "canvas_width": { "type": "number", "description": "Canvas width in pixels" },
-                "canvas_height": { "type": "number", "description": "Canvas height in pixels" }
+                "canvas_height": { "type": "number", "description": "Canvas height in pixels" },
+                "strategy": { "type": "string", "enum": ["tiled", "grid", "master_stack", "horizontal", "vertical"], "description": "Tiling algorithm strategy" },
+                "padding": { "type": "number", "description": "Padding margin in pixels" }
             },
             "required": ["window_count", "canvas_width", "canvas_height"]
         })
@@ -554,21 +686,89 @@ impl UniversalTool for UiLayoutTool {
         let count = params.get("window_count").and_then(|v| v.as_u64()).unwrap_or(3) as usize;
         let width = params.get("canvas_width").and_then(|v| v.as_f64()).unwrap_or(1920.0) as f32;
         let height = params.get("canvas_height").and_then(|v| v.as_f64()).unwrap_or(1080.0) as f32;
+        let strategy = params.get("strategy").and_then(|v| v.as_str()).unwrap_or("horizontal");
+        let padding = params.get("padding").and_then(|v| v.as_f64()).unwrap_or(10.0) as f32;
 
-        let slot_w = width / (count as f32).max(1.0);
-        let mut layouts = Vec::new();
-        for i in 0..count {
-            layouts.push(json!({
-                "window_index": i,
-                "x": (i as f32) * slot_w,
-                "y": 50.0,
-                "width": slot_w * 0.95,
-                "height": height - 100.0
-            }));
+        let mut layouts = Vec::with_capacity(count);
+
+        match strategy {
+            "master_stack" if count > 1 => {
+                let master_w = (width - padding * 3.0) * 0.60;
+                let stack_w = (width - padding * 3.0) * 0.40;
+                // Master window
+                layouts.push(json!({
+                    "window_index": 0,
+                    "x": padding,
+                    "y": padding,
+                    "width": master_w,
+                    "height": height - padding * 2.0,
+                    "role": "master"
+                }));
+                // Stacked windows
+                let stack_count = count - 1;
+                let stack_h = (height - padding * (stack_count as f32 + 1.0)) / stack_count as f32;
+                for i in 1..count {
+                    let idx = i - 1;
+                    layouts.push(json!({
+                        "window_index": i,
+                        "x": padding * 2.0 + master_w,
+                        "y": padding + (idx as f32) * (stack_h + padding),
+                        "width": stack_w,
+                        "height": stack_h,
+                        "role": "stack"
+                    }));
+                }
+            }
+            "vertical" => {
+                let slot_h = (height - padding * (count as f32 + 1.0)) / count.max(1) as f32;
+                for i in 0..count {
+                    layouts.push(json!({
+                        "window_index": i,
+                        "x": padding,
+                        "y": padding + (i as f32) * (slot_h + padding),
+                        "width": width - padding * 2.0,
+                        "height": slot_h,
+                        "role": "vertical_slot"
+                    }));
+                }
+            }
+            "grid" | "tiled" if count > 2 => {
+                let cols = (count as f32).sqrt().ceil() as usize;
+                let rows = count.div_ceil(cols);
+                let slot_w = (width - padding * (cols as f32 + 1.0)) / cols as f32;
+                let slot_h = (height - padding * (rows as f32 + 1.0)) / rows as f32;
+                for i in 0..count {
+                    let r = i / cols;
+                    let c = i % cols;
+                    layouts.push(json!({
+                        "window_index": i,
+                        "x": padding + (c as f32) * (slot_w + padding),
+                        "y": padding + (r as f32) * (slot_h + padding),
+                        "width": slot_w,
+                        "height": slot_h,
+                        "role": "grid_cell"
+                    }));
+                }
+            }
+            _ => {
+                // Horizontal tiling
+                let slot_w = (width - padding * (count as f32 + 1.0)) / count.max(1) as f32;
+                for i in 0..count {
+                    layouts.push(json!({
+                        "window_index": i,
+                        "x": padding + (i as f32) * (slot_w + padding),
+                        "y": padding,
+                        "width": slot_w,
+                        "height": height - padding * 2.0,
+                        "role": "horizontal_slot"
+                    }));
+                }
+            }
         }
 
         Ok(json!({
             "canvas_dimensions": [width, height],
+            "strategy_applied": strategy,
             "windows_placed": count,
             "resolved_slots": layouts
         }))
@@ -612,27 +812,36 @@ impl UniversalTool for PlatformSensoryTool {
     }
 
     fn description(&self) -> &'static str {
-        "Inspects multi-modal sensory capture status: DXGI screen, WASAPI audio loopback, and CANbus."
+        "Inspects multi-modal sensory capture status: DXGI screen, WASAPI audio loopback, CANbus, and hardware cycle profiling."
     }
 
     fn parameters_schema(&self) -> serde_json::Value {
         json!({
             "type": "object",
             "properties": {
-                "include_telemetry": { "type": "boolean", "description": "Include timing telemetry" }
+                "include_telemetry": { "type": "boolean", "description": "Include CPU cycle hardware timing telemetry" }
             }
         })
     }
 
-    async fn call_json(&self, _params: serde_json::Value) -> Result<serde_json::Value> {
+    async fn call_json(&self, params: serde_json::Value) -> Result<serde_json::Value> {
+        let registry = platform_bridge::UniversalAdapterRegistry::live_environment();
+        let include_telemetry = params.get("include_telemetry").and_then(|v| v.as_bool()).unwrap_or(false);
+        let cpu_cycle = if include_telemetry {
+            Some(platform_bridge::read_cpu_timestamp())
+        } else {
+            None
+        };
+
         Ok(json!({
-            "dxgi_capture": "active",
-            "dxgi_fps": 120,
-            "wasapi_loopback": "streaming",
-            "audio_sample_rate": 48000,
-            "canbus_bridge": "online",
+            "sensory_feeds_active": registry.sensory_feed_count(),
+            "actuators_active": registry.actuator_count(),
+            "sensory_feed_names": registry.sensory_feed_names(),
+            "actuator_names": registry.actuator_names(),
+            "platform_os": std::env::consts::OS,
+            "architecture": std::env::consts::ARCH,
             "entropy_analysis_active": true,
-            "epigenetic_compute_savings_pct": 68.4
+            "cpu_hardware_timestamp": cpu_cycle,
         }))
     }
 
@@ -663,7 +872,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_universal_tool_json_and_latent_execution() {
-        let registry = build_standard_tool_registry();
+        let mut registry = build_standard_tool_registry();
         assert_eq!(registry.len(), 8);
 
         // 1. Test JSON call via Cloud/LLM interface
@@ -724,11 +933,22 @@ mod tests {
             .unwrap();
         assert_eq!(ui_res["windows_placed"], 2);
 
-        // 6. Test Platform Sensory Status
+        // 6. Test Platform Sensory Status (Live Hardware & Adapter Inspection)
         let plat_res = registry
             .call_by_name("platform.sensory_status", json!({}))
             .await
             .unwrap();
-        assert_eq!(plat_res["dxgi_fps"], 120);
+        assert!(plat_res["actuators_active"].as_u64().unwrap() >= 1);
+        assert!(plat_res["platform_os"].is_string());
+
+        // 7. Test category filtering and dynamic unregistering
+        let sec_tools = registry.filter_by_category("security");
+        assert_eq!(sec_tools.len(), 1);
+        assert_eq!(sec_tools[0].name, "security.audit");
+
+        let initial_len = registry.len();
+        assert!(registry.unregister("security.audit"));
+        assert_eq!(registry.len(), initial_len - 1);
+        assert!(!registry.unregister("security.audit")); // Duplicate unregister returns false
     }
 }

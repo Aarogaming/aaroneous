@@ -7,17 +7,27 @@
 
 use anyhow::{Context, Result};
 use chrono::Utc;
-use memmap2::Mmap;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs::{self, File, OpenOptions};
-use std::io::Write;
+use std::io::{Read, Write};
 use std::path::PathBuf;
 use std::time::Instant;
 use tracing::info;
 
 /// 128-byte aligned magic header for .sissm hibernation containers
 pub const SISSM_MAGIC: &[u8; 8] = b"SISSM\x01\x00\x00";
+
+/// Policy strategy for selecting specialists to hibernate during high RAM pressure
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CompactionPolicy {
+    /// Evict specialists with longest dormancy first
+    LongestDormancy,
+    /// Evict specialists with lowest remaining tokens first
+    TokenExhaustion,
+    /// Evict specialists with largest memory footprint first to maximize freed RAM
+    LargestFootprint,
+}
 
 /// Snapshot state of a dormant specialist ready for hibernation
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -82,6 +92,19 @@ impl SpecialistHibernationEngine {
         }
     }
 
+    /// Checks if a specialist is currently hibernated on disk
+    pub fn is_hibernated(&self, specialist_id: &str) -> bool {
+        self.hibernated_specialists.contains_key(specialist_id)
+    }
+
+    /// Total bytes currently stored across all hibernated containers
+    pub fn total_hibernated_bytes(&self) -> usize {
+        self.hibernated_specialists
+            .values()
+            .map(|m| m.hibernated_bytes)
+            .sum()
+    }
+
     /// Registers an active specialist in the working memory table
     pub fn register_specialist(&mut self, state: SpecialistHibernationState) {
         self.active_specialists.insert(state.specialist_id.clone(), state);
@@ -143,7 +166,7 @@ impl SpecialistHibernationEngine {
         Ok(manifest)
     }
 
-    /// Resurrects a hibernated specialist via zero-copy memory mapping in under 10ms
+    /// Resurrects a hibernated specialist safely into working memory in under 10ms
     pub fn resurrect_specialist(&mut self, specialist_id: &str) -> Result<(SpecialistHibernationState, u64)> {
         let start = Instant::now();
 
@@ -152,18 +175,18 @@ impl SpecialistHibernationEngine {
             .remove(specialist_id)
             .with_context(|| format!("Specialist '{}' is not hibernated", specialist_id))?;
 
-        let file = File::open(&manifest.file_path)
+        let mut file = File::open(&manifest.file_path)
             .with_context(|| format!("Failed to open hibernation file: {:?}", manifest.file_path))?;
 
-        // Zero-copy memory map
-        let mmap = unsafe { Mmap::map(&file)? };
+        let mut buffer = Vec::new();
+        file.read_to_end(&mut buffer)?;
 
-        if mmap.len() < 128 || &mmap[0..8] != SISSM_MAGIC {
+        if buffer.len() < 128 || &buffer[0..8] != SISSM_MAGIC {
             anyhow::bail!("Corrupted .sissm hibernation container for '{}'", specialist_id);
         }
 
-        let payload_len = u64::from_le_bytes(mmap[10..18].try_into()?) as usize;
-        let payload_slice = &mmap[128..128 + payload_len];
+        let payload_len = u64::from_le_bytes(buffer[10..18].try_into()?) as usize;
+        let payload_slice = &buffer[128..128 + payload_len];
 
         let state: SpecialistHibernationState = serde_json::from_slice(payload_slice)?;
         let duration_us = start.elapsed().as_micros() as u64;
@@ -172,7 +195,7 @@ impl SpecialistHibernationEngine {
             target: "orchestrator::resurrection",
             specialist_id,
             duration_us,
-            "Resurrected specialist from .sissm container via zero-copy mmap"
+            "Resurrected specialist from .sissm container"
         );
 
         self.active_specialists
@@ -184,23 +207,49 @@ impl SpecialistHibernationEngine {
         Ok((state, duration_us))
     }
 
-    /// Automatically evaluates memory pressure and reaps dormant specialists if pressure > threshold
-    pub fn auto_compact(&mut self, memory_pressure_pct: f32) -> Result<CompactionSummary> {
+    /// Automatically evaluates memory pressure and reaps dormant specialists using configurable policy
+    pub fn auto_compact_with_policy(
+        &mut self,
+        memory_pressure_pct: f32,
+        policy: CompactionPolicy,
+        target_mb_to_free: Option<f32>,
+    ) -> Result<CompactionSummary> {
         let mut reaped_manifests = Vec::new();
         let mut total_freed_bytes = 0usize;
 
         if memory_pressure_pct > 80.0 {
-            let candidate_ids: Vec<String> = self
+            let mut candidates: Vec<(&String, &SpecialistHibernationState)> = self
                 .active_specialists
                 .iter()
                 .filter(|(_, state)| state.dormancy_duration_sec > 10 || state.tokens < 10.0)
-                .map(|(id, _)| id.clone())
                 .collect();
+
+            // Sort candidates according to chosen eviction policy
+            match policy {
+                CompactionPolicy::LongestDormancy => {
+                    candidates.sort_by_key(|b| std::cmp::Reverse(b.1.dormancy_duration_sec));
+                }
+                CompactionPolicy::TokenExhaustion => {
+                    candidates.sort_by(|a, b| a.1.tokens.partial_cmp(&b.1.tokens).unwrap_or(std::cmp::Ordering::Equal));
+                }
+                CompactionPolicy::LargestFootprint => {
+                    candidates.sort_by_key(|b| std::cmp::Reverse(b.1.active_memory_bytes));
+                }
+            }
+
+            let candidate_ids: Vec<String> = candidates.into_iter().map(|(id, _)| id.clone()).collect();
 
             for id in candidate_ids {
                 if let Ok(manifest) = self.reap_and_hibernate(&id) {
                     total_freed_bytes += manifest.uncompressed_bytes;
                     reaped_manifests.push(manifest);
+
+                    if let Some(target_mb) = target_mb_to_free {
+                        let current_freed_mb = total_freed_bytes as f32 / (1024.0 * 1024.0);
+                        if current_freed_mb >= target_mb {
+                            break;
+                        }
+                    }
                 }
             }
         }
@@ -213,6 +262,11 @@ impl SpecialistHibernationEngine {
             remaining_active: self.active_specialists.len(),
             hibernated_manifests: reaped_manifests,
         })
+    }
+
+    /// Automatically evaluates memory pressure and reaps dormant specialists (default policy)
+    pub fn auto_compact(&mut self, memory_pressure_pct: f32) -> Result<CompactionSummary> {
+        self.auto_compact_with_policy(memory_pressure_pct, CompactionPolicy::LongestDormancy, None)
     }
 }
 

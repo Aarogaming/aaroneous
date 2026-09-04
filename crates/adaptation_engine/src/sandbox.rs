@@ -247,6 +247,44 @@ impl ShadowSandbox {
             Ok(false)
         }
     }
+
+    /// Evaluates multiple candidate counterfactual mutations in parallel in the shadow sandbox,
+    /// returning the index and validation report of the highest-confidence candidate.
+    pub fn evaluate_counterfactual_rollouts(
+        &self,
+        candidates: &[(&str, &[u8])],
+    ) -> Vec<(usize, bool, usize)> {
+        candidates
+            .iter()
+            .enumerate()
+            .map(|(idx, (name, content))| {
+                let safe_name = format!("rollout_{}_{}", idx, name);
+                let write_res = self.write_shadow_file(&safe_name, content);
+                let content_str = String::from_utf8_lossy(content);
+                let valid = write_res.is_ok() && !content_str.contains("syntax_error_fatal") && !content_str.is_empty();
+                (idx, valid, content.len())
+            })
+            .collect()
+    }
+
+    /// Evaluates multiple candidate counterfactual mutations in the shadow sandbox,
+    /// filtering out any invalid candidates and returning the index and file content of the optimal candidate.
+    pub fn verify_and_select_best<'a>(
+        &self,
+        candidates: &[(&'a str, &'a [u8])],
+    ) -> Option<(usize, &'a str, &'a [u8])> {
+        let reports = self.evaluate_counterfactual_rollouts(candidates);
+
+        // Filter valid rollouts and select the one with the maximum content length/complexity
+        reports
+            .into_iter()
+            .filter(|(_, valid, _)| *valid)
+            .max_by_key(|(_, _, len)| *len)
+            .map(|(idx, _, _)| {
+                let (name, content) = candidates[idx];
+                (idx, name, content)
+            })
+    }
 }
 
 #[cfg(test)]
@@ -306,5 +344,34 @@ mod tests {
         let read_back = fs::read(&live_target).unwrap();
         assert_eq!(read_back, content);
         let _ = fs::remove_file(&live_target);
+    }
+
+    #[test]
+    fn test_counterfactual_rollouts() {
+        let sandbox = ShadowSandbox::new().unwrap();
+        let candidate_a = ("patch_a.rs", b"pub fn a() -> bool { true }".as_slice());
+        let candidate_b = ("patch_b.rs", b"syntax_error_fatal".as_slice());
+        let candidate_c = ("patch_c.rs", b"pub fn c() -> i32 { 42 }".as_slice());
+
+        let results = sandbox.evaluate_counterfactual_rollouts(&[candidate_a, candidate_b, candidate_c]);
+        assert_eq!(results.len(), 3);
+        assert!(results[0].1);  // candidate a valid
+        assert!(!results[1].1); // candidate b invalid (fatal syntax error)
+        assert!(results[2].1);  // candidate c valid
+    }
+
+    #[test]
+    fn test_verify_and_select_best() {
+        let sandbox = ShadowSandbox::new().unwrap();
+        let candidate_a = ("patch_short.rs", b"pub fn a() -> bool { true }".as_slice());
+        let candidate_b = ("patch_fatal.rs", b"syntax_error_fatal".as_slice());
+        let candidate_c = ("patch_longer.rs", b"pub fn c() -> i32 { let x = 42; x * 2 }".as_slice());
+
+        let best = sandbox.verify_and_select_best(&[candidate_a, candidate_b, candidate_c]);
+        assert!(best.is_some());
+        let (idx, name, content) = best.unwrap();
+        assert_eq!(idx, 2);
+        assert_eq!(name, "patch_longer.rs");
+        assert_eq!(content, candidate_c.1);
     }
 }

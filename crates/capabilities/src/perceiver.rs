@@ -42,7 +42,7 @@ impl DomainSubEngine for PerceptionGateEngine {
 
     fn engine_status(&self) -> String {
         format!(
-            "PerceptionGate Epigenetic Gating: {} frames processed ({:.1}% avg compute saved)",
+            "PerceptionGate Spatial Delta Gating: {} frames processed ({:.1}% avg compute saved)",
             self.frames_processed, self.avg_compute_savings_pct
         )
     }

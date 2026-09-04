@@ -14,3 +14,9 @@ pub use audit::{
     audit, audit_arch, jit_audit, AArch64Auditor, AuditResult, InstructionSetAuditor, TargetArch,
     X86_64Auditor,
 };
+pub use verify::{
+    validate_capability_mask, validate_magic_bytes, validate_payload_checksum, validate_range,
+    validate_tensor_descriptor, validate_version, CAPABILITY_HARDWARE_ACCEL,
+    CAPABILITY_JIT_EXECUTION, CAPABILITY_NETWORK_MESH, CAPABILITY_READ_STORAGE,
+    CAPABILITY_WRITE_STORAGE, MIN_VERSION, SINT_PACKER_MAGIC,
+};

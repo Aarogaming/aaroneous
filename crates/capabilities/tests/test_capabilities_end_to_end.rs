@@ -1,14 +1,14 @@
-//! End-to-End Orchestration Integration Test across the 9 Specialists and Relic Substrates.
+//! End-to-End Orchestration Integration Test across the Unified Capability Federation & Substrates.
 
-use specialists::{MnlpPacket, SpecialistFederation};
+use capabilities::{MnlpPacket, SpecialistFederation};
 
 #[tokio::test]
-async fn test_full_specialist_federation_orchestration_cycle() {
+async fn test_full_capabilities_federation_orchestration_cycle() {
     let mut federation = SpecialistFederation::new();
 
-    // Verify all 9 specialists are online and healthy
+    // Verify all 10 specialists in federation are online and healthy
     let health_map = federation.collect_health_reports();
-    assert_eq!(health_map.len(), 9);
+    assert_eq!(health_map.len(), 10);
     for (name, health) in &health_map {
         assert!(!health.is_dormant, "Specialist {} is dormant", name);
         assert!(health.tokens > 0.0, "Specialist {} has no metabolic tokens", name);

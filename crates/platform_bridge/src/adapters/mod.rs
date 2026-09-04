@@ -213,6 +213,55 @@ impl PhysicalActuatorAdapter for MarionetteActuatorAdapter {
     }
 }
 
+/// Sensory feed adapter bridging an `OtEdgeGateway` into the universal adapter ecosystem
+pub struct OtSensoryAdapter {
+    name: String,
+    gateway: std::sync::Arc<crate::ot_bridge::OtEdgeGateway>,
+}
+
+impl OtSensoryAdapter {
+    pub fn new(name: impl Into<String>, gateway: std::sync::Arc<crate::ot_bridge::OtEdgeGateway>) -> Self {
+        Self {
+            name: name.into(),
+            gateway,
+        }
+    }
+}
+
+impl SensoryFeedAdapter for OtSensoryAdapter {
+    fn feed_name(&self) -> &str {
+        &self.name
+    }
+
+    fn sample_observation(&mut self) -> Result<NormalizedObservation> {
+        let state = self.gateway.read_registers();
+        let mut latent_vec = vec![0.0f32; 16];
+        for (i, &reg) in state.holding_registers.iter().take(16).enumerate() {
+            latent_vec[i] = reg as f32;
+        }
+
+        let timestamp_us = state.last_telemetry
+            .map(|t| t.uptime_ms * 1000)
+            .unwrap_or_else(|| {
+                std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .map(|d| d.as_micros() as u64)
+                    .unwrap_or(0)
+            });
+
+        Ok(NormalizedObservation {
+            source_id: self.name.clone(),
+            timestamp_us,
+            latent_feature_vector: latent_vec,
+            metadata_tag: "OT_INDUSTRIAL_REGISTERS".to_string(),
+        })
+    }
+
+    fn is_healthy(&self) -> bool {
+        true
+    }
+}
+
 /// Dynamic Runtime Adapter Registry
 #[derive(Default)]
 pub struct UniversalAdapterRegistry {
@@ -241,12 +290,71 @@ impl UniversalAdapterRegistry {
         self.actuators.len()
     }
 
+    pub fn sensory_feed_names(&self) -> Vec<String> {
+        self.sensory_feeds.keys().cloned().collect()
+    }
+
+    pub fn actuator_names(&self) -> Vec<String> {
+        self.actuators.keys().cloned().collect()
+    }
+
+    /// Initializes an environment with auto-detected physical and virtual adapters.
+    ///
+    /// - On Windows with interactive desktop: mounts live DXGI capture and SendInput actuator.
+    /// - On systems with physical or virtual serial/OT ports: mounts live OT Edge Bridge.
+    /// - Registers virtual simulation adapters as deterministic fallbacks with clear capability tags.
+    pub fn live_environment() -> Self {
+        let mut reg = Self::new();
+
+        // 1. Ingest/Sensory Feeds
+        #[cfg(all(target_os = "windows", feature = "native-win32"))]
+        {
+            let emulator = std::sync::Arc::new(tokio::sync::Mutex::new(
+                crate::native_win32::NativeWin32Marionette::new(false),
+            ));
+            reg.register_sensory_feed(Box::new(MarionetteSensoryAdapter::new(
+                "Windows-Native-Desktop-DXGI",
+                emulator,
+            )));
+        }
+
+        // 2. OT / Hardware Serial Ingest
+        if let Ok(ports) = tokio_serial::available_ports() {
+            for port in ports {
+                let name = format!("OT-Serial-Feed-{}", port.port_name);
+                let (gateway, _rx) = crate::ot_bridge::OtEdgeGateway::new(crate::ot_bridge::OtBridgeConfig {
+                    port_name: port.port_name.clone(),
+                    baud_rate: 115_200,
+                    heartbeat_interval_ms: 250,
+                });
+                reg.register_sensory_feed(Box::new(OtSensoryAdapter {
+                    name,
+                    gateway: std::sync::Arc::new(gateway),
+                }));
+            }
+        }
+
+        // 3. Actuator Outputs
+        #[cfg(all(target_os = "windows", feature = "native-win32"))]
+        {
+            let emulator = std::sync::Arc::new(tokio::sync::Mutex::new(
+                crate::native_win32::NativeWin32Marionette::new(false),
+            ));
+            reg.register_actuator(Box::new(MarionetteActuatorAdapter::new(
+                "Windows-SendInput-Actuator",
+                emulator,
+            )));
+        }
+
+        // Always register virtual simulator actuator for sandboxed validation
+        reg.register_actuator(Box::new(VirtualSimActuator::new("Virtual-Sandbox-Actuator")));
+
+        reg
+    }
+
     /// Initializes a default desktop environment with native perception and action simulation
     pub fn default_desktop() -> Self {
-        let mut reg = Self::new();
-        // Register virtual desktop simulator actuator for deterministic test/offline execution
-        reg.register_actuator(Box::new(VirtualSimActuator::new("DesktopVirtualActuator")));
-        reg
+        Self::live_environment()
     }
 
     /// Samples observations across all registered sensory feeds

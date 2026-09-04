@@ -52,6 +52,37 @@ impl SynapseBridge {
     }
 }
 
+/// Typed event bus client bridge for hypervisor and plugin communication
+pub struct EventBusBridge<T: Clone> {
+    bus: ipc_bus::UniversalEventBus<T>,
+}
+
+impl<T: Clone> Default for EventBusBridge<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl<T: Clone> EventBusBridge<T> {
+    pub fn new() -> Self {
+        Self {
+            bus: ipc_bus::UniversalEventBus::new(),
+        }
+    }
+
+    pub fn publish(&self, topic: &str, payload: T) -> u64 {
+        let ts = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_micros() as u64)
+            .unwrap_or(0);
+        self.bus.publish(topic, payload, ts)
+    }
+
+    pub fn subscribe(&self, topic: &str, subscriber_id: &str) -> ipc_bus::EventSubscriber<T> {
+        self.bus.subscribe(topic, subscriber_id)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -74,5 +105,16 @@ mod tests {
         store.put("sdk_key", b"sdk_value").unwrap();
         assert_eq!(store.get("sdk_key"), Some(b"sdk_value".as_slice()));
         let _ = std::fs::remove_file(&temp_dir);
+    }
+
+    #[test]
+    fn test_event_bus_bridge() {
+        let bridge = EventBusBridge::<String>::new();
+        let sub = bridge.subscribe("sensor.temp", "worker_1");
+        let seq = bridge.publish("sensor.temp", "24.5C".to_string());
+        assert_eq!(seq, 0);
+
+        let evt = sub.try_recv().unwrap();
+        assert_eq!(evt.payload, "24.5C");
     }
 }

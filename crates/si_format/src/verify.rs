@@ -60,10 +60,36 @@ pub fn validate_tensor_descriptor(offset: u64, length: u64) -> Result<()> {
     Ok(())
 }
 
+/// Capability permissions for sandboxed execution
+pub const CAPABILITY_READ_STORAGE: u32 = 1 << 0;
+pub const CAPABILITY_WRITE_STORAGE: u32 = 1 << 1;
+pub const CAPABILITY_NETWORK_MESH: u32 = 1 << 2;
+pub const CAPABILITY_HARDWARE_ACCEL: u32 = 1 << 3;
+pub const CAPABILITY_JIT_EXECUTION: u32 = 1 << 4;
+
+/// Validates that required capabilities are permitted by the granted capability mask
+pub fn validate_capability_mask(granted_mask: u32, required_mask: u32) -> Result<()> {
+    if (granted_mask & required_mask) != required_mask {
+        let missing = required_mask & !granted_mask;
+        bail!("Capability violation: missing required permissions (mask 0x{:08X})", missing);
+    }
+    Ok(())
+}
+
+/// Simple 32-bit FNV-1a checksum verification for sovereign container payload integrity
+pub fn validate_payload_checksum(data: &[u8], expected_fnv1a: u32) -> Result<()> {
+    let mut hash: u32 = 0x811c9dc5;
+    for &byte in data {
+        hash ^= byte as u32;
+        hash = hash.wrapping_mul(0x01000193);
+    }
+    if hash != expected_fnv1a {
+        bail!("Payload integrity check failed: expected 0x{:08X}, got 0x{:08X}", expected_fnv1a, hash);
+    }
+    Ok(())
+}
+
 /// Validates that a given offset and payload size fit within the mapped region.
-///
-/// # Errors
-/// Returns `Err` if the range exceeds the available memory-mapped bytes.
 pub fn validate_range(mmap_len: usize, start: usize, end: usize) -> Result<()> {
     if end > mmap_len {
         bail!(
@@ -132,5 +158,24 @@ mod tests {
         let start = 0;
         let end = 128;
         assert!(validate_range(mmap_len, start, end).is_err());
+    }
+
+    #[test]
+    fn test_validate_capability_mask() {
+        let granted = CAPABILITY_READ_STORAGE | CAPABILITY_HARDWARE_ACCEL;
+        assert!(validate_capability_mask(granted, CAPABILITY_READ_STORAGE).is_ok());
+        assert!(validate_capability_mask(granted, CAPABILITY_JIT_EXECUTION).is_err());
+    }
+
+    #[test]
+    fn test_validate_payload_checksum() {
+        let payload = b"SOVEREIGN_CART_DATA";
+        let mut hash: u32 = 0x811c9dc5;
+        for &b in payload {
+            hash ^= b as u32;
+            hash = hash.wrapping_mul(0x01000193);
+        }
+        assert!(validate_payload_checksum(payload, hash).is_ok());
+        assert!(validate_payload_checksum(payload, hash + 1).is_err());
     }
 }

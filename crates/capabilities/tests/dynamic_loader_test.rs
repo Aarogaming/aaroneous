@@ -1,9 +1,9 @@
-//! crates/specialists/tests/dynamic_loader_test.rs
+//! crates/capabilities/tests/dynamic_loader_test.rs
 //! Integration test for Dynamic Specialist Plugin Loader and Live Hot-Swapping.
 
 use aaroneous_sdk::dynamic_plugin::{DynamicSpecialistLoader, SpecialistEngine};
 use anyhow::Result;
-use specialists::code_specialist::CodeSpecialist;
+use capabilities::code_specialist::CodeSpecialist;
 
 struct UpdatedCodeSpecialist {
     name: String,

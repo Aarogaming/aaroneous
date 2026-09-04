@@ -46,7 +46,7 @@ pub use disassembly::{
     DisassembledInstruction, TargetArchitecture,
 };
 pub use error_interceptor::{InterceptedProcessError, ProcessErrorInterceptor};
-pub use mutation::{CodeMutator, PatchProposal};
+pub use mutation::{fnv1a, CodeMutator, PatchProposal};
 pub use parallel_scanner::{BatchScanReport, ParallelScanner};
 pub use pattern_rewriter::{PatternMatch, PatternRewriter, StructuralPatch};
 pub use protocol_bridge::{ChimeraProtocolBridge, MnlpPatchPacket, MnlpProtocolBridge};

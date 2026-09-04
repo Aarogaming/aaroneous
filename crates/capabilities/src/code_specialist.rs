@@ -1,4 +1,4 @@
-//! crates/specialists/src/code_specialist.rs
+//! crates/capabilities/src/code_specialist.rs
 //! Concrete Dynamic Domain Specialist Plugin implementing the Aaroneous `SpecialistEngine` C-ABI.
 //! Provides code manipulation, AST analysis dispatch, and 256-dimensional latent transformation.
 

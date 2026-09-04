@@ -1,4 +1,4 @@
-//! crates/specialists/src/codebase_auditor.rs
+//! crates/capabilities/src/codebase_auditor.rs
 //! In-House Autonomous Codebase Review Specialist.
 //!
 //! Provides programmatic self-auditing across:
@@ -110,11 +110,13 @@ impl CodebaseReviewSpecialist {
     /// Performs an autonomous in-memory audit of a file's content
     pub fn audit_file_content(&mut self, file_path: &str, content: &str) -> Vec<AuditFinding> {
         let mut findings = Vec::new();
+        let is_test = file_path.contains("test") || file_path.ends_with("_test.rs") || file_path.starts_with("tests/");
+        let is_cli = file_path.contains("bin/") || file_path.contains("main.rs");
 
         // 1. Security Check: Search for unapproved `unsafe` blocks
         if content.contains("unsafe {") || content.contains("unsafe fn") {
             // Check if it's ffi_kernels.rs or a known approved low-level file
-            if !file_path.contains("ffi_kernels.rs") && !file_path.contains("retina_module.rs") {
+            if !file_path.contains("ffi_kernels.rs") && !file_path.contains("retina_module.rs") && !file_path.contains("rdtsc.rs") {
                 findings.push(AuditFinding {
                     category: "Security".to_string(),
                     severity: AuditSeverity::High,
@@ -125,27 +127,108 @@ impl CodebaseReviewSpecialist {
             }
         }
 
-        // 2. Security Check: Search for unhandled `.unwrap()` in production paths
-        if !file_path.contains("test") && content.contains(".unwrap()") {
+        // 2. Reliability Check: Search for unhandled `.unwrap()` in production paths
+        if !is_test && content.contains(".unwrap()") {
             findings.push(AuditFinding {
                 category: "Reliability".to_string(),
                 severity: AuditSeverity::Warning,
                 location: file_path.to_string(),
                 description: "Direct `.unwrap()` invocation found in non-test code".to_string(),
-                suggested_remediation: Some("Replace `.unwrap()` with standard `?` Result propagation".to_string()),
+                suggested_remediation: Some("Replace `.unwrap()` with standard `?` Result propagation or fallback".to_string()),
             });
         }
 
-        // 3. Technical Debt Check: Excessive lines or coupling
-        let line_count = content.lines().count();
-        if line_count > 1500 {
+        // 3. Reliability Check: Search for `.expect(` in production paths
+        if !is_test && content.contains(".expect(") {
             findings.push(AuditFinding {
-                category: "TechDebt".to_string(),
+                category: "Reliability".to_string(),
+                severity: AuditSeverity::Warning,
+                location: file_path.to_string(),
+                description: "Direct `.expect(...)` invocation found in non-test code".to_string(),
+                suggested_remediation: Some("Replace `.expect()` with structured error handling via `anyhow` or `thiserror`".to_string()),
+            });
+        }
+
+        // 4. Robustness Check: Search for direct `panic!(` invocations
+        if !is_test && content.contains("panic!(") {
+            findings.push(AuditFinding {
+                category: "Reliability".to_string(),
+                severity: AuditSeverity::High,
+                location: file_path.to_string(),
+                description: "Direct `panic!(...)` macro call found in production code".to_string(),
+                suggested_remediation: Some("Return an error Result rather than terminating the runtime process".to_string()),
+            });
+        }
+
+        // 5. Incompleteness Check: Search for `todo!(` or `unimplemented!(` stubs
+        if !is_test && (content.contains("todo!(") || content.contains("unimplemented!(")) {
+            findings.push(AuditFinding {
+                category: "Completeness".to_string(),
+                severity: AuditSeverity::Warning,
+                location: file_path.to_string(),
+                description: "Unimplemented stub (`todo!` or `unimplemented!`) detected".to_string(),
+                suggested_remediation: Some("Complete implementation or provide graceful fallback error return".to_string()),
+            });
+        }
+
+        // 6. Security Check: Hardcoded API keys or private certificates
+        let contains_secret = content.contains("sk-")
+            || content.contains("ghp_")
+            || content.contains("AKIA")
+            || content.contains("BEGIN RSA PRIVATE KEY")
+            || content.contains("BEGIN PRIVATE KEY");
+        if contains_secret && !is_test {
+            findings.push(AuditFinding {
+                category: "Security".to_string(),
+                severity: AuditSeverity::Critical,
+                location: file_path.to_string(),
+                description: "Potential hardcoded credential or secret key token signature detected".to_string(),
+                suggested_remediation: Some("Extract secrets into environment variables or local secure vault".to_string()),
+            });
+        }
+
+        // 7. Observability Check: Direct console printing in library crates
+        if !is_test && !is_cli && (content.contains("println!(") || content.contains("eprintln!(")) {
+            findings.push(AuditFinding {
+                category: "Observability".to_string(),
                 severity: AuditSeverity::Info,
                 location: file_path.to_string(),
-                description: format!("File exceeds 1,500 lines ({} lines)", line_count),
-                suggested_remediation: Some("Decompose monolithic file into smaller modular submodules".to_string()),
+                description: "Direct `println!` or `eprintln!` in library crate instead of structured `tracing`".to_string(),
+                suggested_remediation: Some("Use `tracing::info!`, `tracing::warn!`, or `tracing::error!` for structured logs".to_string()),
             });
+        }
+
+        // 8. Technical Debt & Complexity Check: Polyglot AST analysis
+        if let Ok(obs) = adaptation_engine::ast_parser::AstParser::parse_source(file_path, content) {
+            if obs.line_count > 1500 {
+                findings.push(AuditFinding {
+                    category: "TechDebt".to_string(),
+                    severity: AuditSeverity::Info,
+                    location: file_path.to_string(),
+                    description: format!("File exceeds 1,500 lines ({} lines)", obs.line_count),
+                    suggested_remediation: Some("Decompose monolithic file into smaller modular submodules".to_string()),
+                });
+            }
+            if obs.complexity_score > 50.0 {
+                findings.push(AuditFinding {
+                    category: "TechDebt".to_string(),
+                    severity: AuditSeverity::Warning,
+                    location: file_path.to_string(),
+                    description: format!("High cyclomatic/structural complexity detected (score {:.1})", obs.complexity_score),
+                    suggested_remediation: Some("Refactor deeply nested logic into smaller pure helper functions".to_string()),
+                });
+            }
+        } else {
+            let line_count = content.lines().count();
+            if line_count > 1500 {
+                findings.push(AuditFinding {
+                    category: "TechDebt".to_string(),
+                    severity: AuditSeverity::Info,
+                    location: file_path.to_string(),
+                    description: format!("File exceeds 1,500 lines ({} lines)", line_count),
+                    suggested_remediation: Some("Decompose monolithic file into smaller modular submodules".to_string()),
+                });
+            }
         }
 
         self.engine.total_findings_flagged += findings.len();

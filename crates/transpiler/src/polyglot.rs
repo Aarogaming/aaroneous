@@ -160,6 +160,18 @@ impl PolyglotFoundry {
         foundry
     }
 
+    fn lock_telemetry(&self) -> std::sync::MutexGuard<'_, TelemetryBuffer> {
+        self.telemetry_buffer.lock().unwrap_or_else(|p| p.into_inner())
+    }
+
+    fn lock_metrics(&self) -> std::sync::MutexGuard<'_, MetricsCollector> {
+        self.metrics_collector.lock().unwrap_or_else(|p| p.into_inner())
+    }
+
+    fn lock_healing(&self) -> std::sync::MutexGuard<'_, SelfHealingState> {
+        self.healing_state.lock().unwrap_or_else(|p| p.into_inner())
+    }
+
     pub fn register_capsule(&mut self, capsule: PolyglotCapsule) {
         self.capsules.insert(capsule.name.clone(), capsule);
     }
@@ -178,14 +190,8 @@ impl PolyglotFoundry {
                 ],
             },
         );
-        self.telemetry_buffer
-            .lock()
-            .unwrap()
-            .register_language("rust");
-        self.metrics_collector
-            .lock()
-            .unwrap()
-            .register_language("rust");
+        self.lock_telemetry().register_language("rust");
+        self.lock_metrics().register_language("rust");
     }
 
     pub fn register_c_capsule(&mut self) {
@@ -202,11 +208,8 @@ impl PolyglotFoundry {
                 ],
             },
         );
-        self.telemetry_buffer.lock().unwrap().register_language("c");
-        self.metrics_collector
-            .lock()
-            .unwrap()
-            .register_language("c");
+        self.lock_telemetry().register_language("c");
+        self.lock_metrics().register_language("c");
     }
 
     pub fn register_python_capsule(&mut self) {
@@ -223,14 +226,8 @@ impl PolyglotFoundry {
                 ],
             },
         );
-        self.telemetry_buffer
-            .lock()
-            .unwrap()
-            .register_language("python");
-        self.metrics_collector
-            .lock()
-            .unwrap()
-            .register_language("python");
+        self.lock_telemetry().register_language("python");
+        self.lock_metrics().register_language("python");
     }
 
     pub fn register_text_capsule(&mut self) {
@@ -247,26 +244,32 @@ impl PolyglotFoundry {
                 ],
             },
         );
-        self.telemetry_buffer
-            .lock()
-            .unwrap()
-            .register_language("text");
-        self.metrics_collector
-            .lock()
-            .unwrap()
-            .register_language("text");
+        self.lock_telemetry().register_language("text");
+        self.lock_metrics().register_language("text");
     }
 
     pub fn detect_language(&self, input: &str) -> String {
         let trimmed = input.trim_start();
-        if trimmed.starts_with("#include") || trimmed.starts_with("#pragma") {
+        if trimmed.starts_with("#include") || trimmed.starts_with("#pragma") || trimmed.starts_with("int main(") {
             "c".to_string()
-        } else if trimmed.starts_with("fn ") || trimmed.starts_with("pub fn ") || trimmed.starts_with("#[") {
+        } else if trimmed.starts_with("template<") || trimmed.starts_with("namespace ") {
+            "cpp".to_string()
+        } else if trimmed.starts_with("fn ") || trimmed.starts_with("pub fn ") || trimmed.starts_with("#[") || trimmed.starts_with("use std::") {
             "rust".to_string()
         } else if trimmed.starts_with("def ") || trimmed.starts_with("import ") || trimmed.starts_with("from ") {
             "python".to_string()
-        } else if trimmed.starts_with("function ") || trimmed.starts_with("const ") || trimmed.starts_with("let ") {
+        } else if trimmed.starts_with("package ") || trimmed.starts_with("func ") {
+            "go".to_string()
+        } else if trimmed.starts_with("interface ") || trimmed.starts_with("type ") {
+            "typescript".to_string()
+        } else if trimmed.starts_with("function ") || trimmed.starts_with("const ") || trimmed.starts_with("let ") || trimmed.starts_with("var ") {
             "javascript".to_string()
+        } else if trimmed.starts_with("#!/bin/") || trimmed.starts_with("echo ") || trimmed.starts_with("chmod ") {
+            "shell".to_string()
+        } else if trimmed.to_uppercase().starts_with("SELECT ") || trimmed.to_uppercase().starts_with("INSERT INTO ") || trimmed.to_uppercase().starts_with("CREATE TABLE ") {
+            "sql".to_string()
+        } else if (trimmed.starts_with('{') && trimmed.trim_end().ends_with('}')) || (trimmed.starts_with('[') && trimmed.trim_end().ends_with(']')) {
+            "json".to_string()
         } else {
             "text".to_string()
         }
@@ -280,9 +283,21 @@ impl PolyglotFoundry {
         self.capsules.values().collect()
     }
 
+    /// Batch detection across multiple code snippets or file contents
+    pub fn batch_detect_languages<'a, I, S>(&self, inputs: I) -> Vec<String>
+    where
+        I: IntoIterator<Item = &'a S>,
+        S: AsRef<str> + 'a + ?Sized,
+    {
+        inputs
+            .into_iter()
+            .map(|s| self.detect_language(s.as_ref()))
+            .collect()
+    }
+
     pub fn record_failure(&self) {
         self.failure_tracker.fetch_add(1, Ordering::SeqCst);
-        let mut state = self.healing_state.lock().unwrap();
+        let mut state = self.lock_healing();
         let current_failures = self.failure_tracker.load(Ordering::SeqCst);
 
         if current_failures >= state.failure_threshold as u64 {
@@ -296,7 +311,7 @@ impl PolyglotFoundry {
     pub fn record_success(&self) {
         self.failure_tracker.store(0, Ordering::SeqCst);
         self.recovery_counter.fetch_add(1, Ordering::SeqCst);
-        let mut state = self.healing_state.lock().unwrap();
+        let mut state = self.lock_healing();
         let recovery_count = self.recovery_counter.load(Ordering::SeqCst);
 
         if recovery_count >= state.recovery_threshold {
@@ -308,15 +323,15 @@ impl PolyglotFoundry {
     }
 
     pub fn is_circuit_open(&self) -> bool {
-        self.healing_state.lock().unwrap().circuit_breaker_state == CircuitBreakerState::Open
+        self.lock_healing().circuit_breaker_state == CircuitBreakerState::Open
     }
 
     pub fn is_circuit_closed(&self) -> bool {
-        self.healing_state.lock().unwrap().circuit_breaker_state == CircuitBreakerState::Closed
+        self.lock_healing().circuit_breaker_state == CircuitBreakerState::Closed
     }
 
     pub fn get_health_state(&self) -> SelfHealingState {
-        self.healing_state.lock().unwrap().clone()
+        self.lock_healing().clone()
     }
 }
 
@@ -332,6 +347,9 @@ mod tests {
         assert_eq!(foundry.detect_language("#include <stdio.h>"), "c");
         assert_eq!(foundry.detect_language("def run_task(): pass"), "python");
         assert_eq!(foundry.detect_language("const x = 42;"), "javascript");
+        assert_eq!(foundry.detect_language("package main\nfunc main() {}"), "go");
+        assert_eq!(foundry.detect_language("SELECT * FROM users;"), "sql");
+        assert_eq!(foundry.detect_language("{\"name\": \"value\"}"), "json");
         assert_eq!(foundry.detect_language("plain text prompt"), "text");
     }
 
@@ -353,5 +371,17 @@ mod tests {
         }
 
         assert!(foundry.is_circuit_closed());
+    }
+
+    #[test]
+    fn test_batch_detect_languages() {
+        let foundry = PolyglotFoundry::new();
+        let snippets = [
+            "fn compute() {}",
+            "#include <stdlib.h>",
+            "import os",
+        ];
+        let detected = foundry.batch_detect_languages(&snippets);
+        assert_eq!(detected, vec!["rust", "c", "python"]);
     }
 }

@@ -53,7 +53,7 @@ impl SelfRepairEngine {
 
         for i in 0..lines.len() {
             let line = lines[i];
-            if line.contains("error[") || line.contains("SyntaxError:") || line.contains("error:") {
+            if line.contains("error[") || line.contains("SyntaxError:") || line.contains("error:") || line.contains("warning:") {
                 let error_code = if let Some(start) = line.find("error[") {
                     let rest = &line[start + 6..];
                     if let Some(end) = rest.find(']') {
@@ -61,6 +61,8 @@ impl SelfRepairEngine {
                     } else {
                         "UNKNOWN_ERROR".to_string()
                     }
+                } else if line.contains("warning:") {
+                    "COMPILATION_WARNING".to_string()
                 } else {
                     "COMPILATION_ERROR".to_string()
                 };
@@ -134,6 +136,34 @@ impl SelfRepairEngine {
             }
         }
 
+        // 3. Auto-Repair Rule 3: Replace placeholder 'todo!()' / 'unimplemented!()' with safe default stubs
+        if current_source.contains("todo!()") {
+            let (rewritten, patches) = PatternRewriter::rewrite_source(
+                file_path,
+                &current_source,
+                "todo!()",
+                "Default::default()",
+            )?;
+            if !patches.is_empty() {
+                current_source = rewritten;
+                applied_patches.extend(patches);
+            }
+        }
+
+        // 4. Auto-Repair Rule 4: Strip unnecessary 'mut' keyword when compiler reports E0596/unused_mut
+        if diagnostics.iter().any(|d| d.message.contains("variable does not need to be mutable") || d.error_code == "unused_mut") {
+            let (rewritten, patches) = PatternRewriter::rewrite_source(
+                file_path,
+                &current_source,
+                "let mut :[var] =",
+                "let :[var] =",
+            )?;
+            if !patches.is_empty() {
+                current_source = rewritten;
+                applied_patches.extend(patches);
+            }
+        }
+
         // 3. Test the proposed repair in isolated ShadowSandbox
         let is_verified = self.sandbox.verify_and_inject_feedback(
             file_path,
@@ -198,5 +228,20 @@ error[E0432]: unresolved import `crate::invalid::Module`
         assert!(report.is_verified);
         assert_eq!(report.patches_applied.len(), 2);
         assert_eq!(synapse.integrity_score, 85);
+    }
+
+    #[test]
+    fn test_universal_diagnostic_repairs() {
+        let engine = SelfRepairEngine::new().unwrap();
+        let buggy_code = "let mut x = todo!();\n";
+        let fake_error = "warning: variable does not need to be mutable\n --> test.rs:1:5\n";
+
+        let mut synapse = SynapseState::default();
+        let report = engine
+            .attempt_repair("test.rs", buggy_code, fake_error, &mut synapse)
+            .unwrap();
+
+        assert!(report.is_verified);
+        assert_eq!(report.patches_applied.len(), 2); // 1 for todo!(), 1 for mut
     }
 }

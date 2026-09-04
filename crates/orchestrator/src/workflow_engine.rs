@@ -91,6 +91,35 @@ impl WorkflowGraph {
         );
     }
 
+    /// Dynamically resolves any unassigned steps ("auto", "unassigned", or empty)
+    /// by delegating to the optimal Markov Decision Process policy in `TaskRoutingEngine`.
+    pub fn resolve_unassigned_steps_via_mdp(&mut self, router: &mut crate::mdps_router::TaskRoutingEngine) -> usize {
+        let mut resolved_count = 0;
+
+        for step in self.steps.values_mut() {
+            let needs_routing = step.assigned_specialist.is_empty()
+                || step.assigned_specialist.eq_ignore_ascii_case("auto")
+                || step.assigned_specialist.eq_ignore_ascii_case("unassigned");
+
+            if needs_routing {
+                let routable = crate::mdps_router::RoutableTask {
+                    id: step.step_id.clone(),
+                    task_type: crate::mdps_router::TaskType::Custom(step.action_name.clone()),
+                    complexity: 0.5,
+                    urgency: 0.5,
+                    required_skills: vec![step.action_name.clone()],
+                    estimated_cost: 1.0,
+                };
+
+                let decision = router.find_optimal_specialist(&routable);
+                step.assigned_specialist = decision.specialist_name;
+                resolved_count += 1;
+            }
+        }
+
+        resolved_count
+    }
+
     /// Identifies all steps ready for execution (all dependencies completed)
     pub fn get_ready_steps(&self) -> Vec<WorkflowStep> {
         let mut ready = Vec::new();
@@ -138,12 +167,98 @@ impl WorkflowGraph {
     }
 
     /// Rolls back any running or pending steps when a fatal failure occurs
-    fn trigger_rollback(&mut self) {
+    pub fn trigger_rollback(&mut self) {
         for step in self.steps.values_mut() {
-            if step.status == StepStatus::Running || step.status == StepStatus::Pending {
+            if step.status == StepStatus::Pending || step.status == StepStatus::Running {
                 step.status = StepStatus::RolledBack;
             }
         }
+    }
+
+    /// Prunes an entire branch of dependent steps starting from a target root step
+    pub fn prune_branch(&mut self, root_step_id: &str) -> usize {
+        let mut to_prune = HashSet::new();
+        to_prune.insert(root_step_id.to_string());
+
+        let mut changed = true;
+        while changed {
+            changed = false;
+            for (id, step) in &self.steps {
+                if !to_prune.contains(id) && step.dependencies.iter().any(|dep| to_prune.contains(dep)) {
+                    to_prune.insert(id.clone());
+                    changed = true;
+                }
+            }
+        }
+
+        let pruned_count = to_prune.len();
+        for id in to_prune {
+            self.steps.remove(&id);
+        }
+        pruned_count
+    }
+
+    /// Captures a lightweight checkpoint state vector of all completed step IDs
+    pub fn checkpoint(&self) -> Vec<String> {
+        let mut completed: Vec<String> = self
+            .steps
+            .iter()
+            .filter(|(_, s)| s.status == StepStatus::Completed)
+            .map(|(id, _)| id.clone())
+            .collect();
+        completed.sort();
+        completed
+    }
+
+    /// Asynchronously executes all currently ready steps concurrently via the provided runner closure.
+    /// Ready steps are marked Running, executed in parallel futures, and results applied atomically upon join.
+    pub async fn execute_ready_steps_concurrent<F, Fut>(&mut self, runner: F) -> usize
+    where
+        F: Fn(WorkflowStep) -> Fut + Send + Sync + 'static,
+        Fut: std::future::Future<Output = (String, std::result::Result<(), String>)> + Send + 'static,
+    {
+        let ready_steps = self.get_ready_steps();
+        if ready_steps.is_empty() {
+            return 0;
+        }
+
+        let ready_count = ready_steps.len();
+
+        // Mark all ready steps as Running
+        for step in &ready_steps {
+            if let Some(s) = self.steps.get_mut(&step.step_id) {
+                s.status = StepStatus::Running;
+            }
+        }
+
+        // Spawn parallel tasks using tokio::task::JoinSet
+        let mut join_set = tokio::task::JoinSet::new();
+        let runner_arc = std::sync::Arc::new(runner);
+
+        for step in ready_steps {
+            let r = runner_arc.clone();
+            join_set.spawn(async move {
+                r(step).await
+            });
+        }
+
+        // Collect concurrent results and update workflow state
+        while let Some(res) = join_set.join_next().await {
+            match res {
+                Ok((step_id, Ok(()))) => {
+                    self.complete_step(&step_id);
+                }
+                Ok((step_id, Err(err))) => {
+                    self.fail_step(&step_id, &err);
+                }
+                Err(_join_err) => {
+                    self.is_failed = true;
+                    self.trigger_rollback();
+                }
+            }
+        }
+
+        ready_count
     }
 
     // ─── Persistence ───────────────────────────────────────────────
@@ -225,6 +340,80 @@ impl WorkflowGraph {
             }
         }
         Ok(ids)
+    }
+
+    /// Converts the multi-step orchestrator workflow into a machine-native computational DAG (`si_ir::NativeComputationalGraph`).
+    /// Maps each workflow step to a deterministic node, mapping step dependencies into topological graph edges.
+    pub fn to_computational_graph(&self) -> si_ir::NativeComputationalGraph {
+        let mut graph = si_ir::NativeComputationalGraph::new();
+        let mut step_to_node_id: HashMap<String, u64> = HashMap::new();
+
+        // 1. Assign deterministic 1-indexed node IDs
+        for (idx, step_id) in self.steps.keys().enumerate() {
+            step_to_node_id.insert(step_id.clone(), (idx + 1) as u64);
+        }
+
+        // 2. Build computation nodes with resolved topological dependencies
+        for (step_id, step) in &self.steps {
+            let node_id = step_to_node_id[step_id];
+            let dep_node_ids: Vec<u64> = step
+                .dependencies
+                .iter()
+                .filter_map(|dep_id| step_to_node_id.get(dep_id).copied())
+                .collect();
+
+            let (opcode, lattice, energy) = match step.action_name.as_str() {
+                "Alloc" | "Allocate" => (
+                    si_ir::MachineOpcode::Alloc {
+                        size_bytes: step.payload.len().max(64),
+                        align: 64,
+                    },
+                    si_ir::NativeTypeLattice::LinearMemoryPointer {
+                        mutability: true,
+                        alignment: 64,
+                    },
+                    0.005,
+                ),
+                "TensorDot" | "MatrixMultiply" => (
+                    si_ir::MachineOpcode::TensorDot {
+                        left_reg: 1,
+                        right_reg: 2,
+                        dim: 64,
+                    },
+                    si_ir::NativeTypeLattice::TensorType {
+                        shape: vec![64, 64],
+                        element_type: Box::new(si_ir::NativeTypeLattice::PrimitiveFloat { bits: 32 }),
+                    },
+                    0.015,
+                ),
+                _ => (
+                    si_ir::MachineOpcode::Call {
+                        function_id: node_id,
+                        arg_regs: vec![],
+                    },
+                    si_ir::NativeTypeLattice::PrimitiveInt {
+                        bits: 64,
+                        signed: false,
+                    },
+                    0.001,
+                ),
+            };
+
+            graph.add_node(si_ir::NativeComputationNode {
+                id: node_id,
+                opcode,
+                type_lattice: lattice,
+                energy_cost: energy,
+                dependencies: dep_node_ids,
+            });
+        }
+
+        if !step_to_node_id.is_empty() {
+            graph.entry_node = 1;
+            graph.exit_node = step_to_node_id.len() as u64;
+        }
+
+        graph
     }
 }
 
@@ -470,5 +659,95 @@ mod tests {
         // Directory doesn't exist
         let ids = WorkflowGraph::list_persisted(&dir).unwrap();
         assert!(ids.is_empty());
+    }
+
+    #[test]
+    fn test_workflow_prune_and_checkpoint() {
+        let mut wf = WorkflowGraph::new("test_prune");
+        wf.add_step("root", "Planner", "Plan", "{}", vec![], 2);
+        wf.add_step("branch_a", "Worker", "Work", "{}", vec!["root".to_string()], 2);
+        wf.add_step("branch_b", "Worker", "Work", "{}", vec!["branch_a".to_string()], 2);
+        wf.add_step("independent", "Worker", "Work", "{}", vec![], 2);
+
+        wf.complete_step("independent");
+        let cp = wf.checkpoint();
+        assert_eq!(cp, vec!["independent".to_string()]);
+
+        let pruned = wf.prune_branch("branch_a");
+        assert_eq!(pruned, 2); // branch_a and branch_b
+        assert!(wf.steps.contains_key("root"));
+        assert!(wf.steps.contains_key("independent"));
+        assert!(!wf.steps.contains_key("branch_a"));
+        assert!(!wf.steps.contains_key("branch_b"));
+    }
+
+    #[tokio::test]
+    async fn test_concurrent_step_execution() {
+        let mut wf = WorkflowGraph::new("test_concurrent");
+        wf.add_step("step1", "WorkerA", "ProcessA", "{}", vec![], 2);
+        wf.add_step("step2", "WorkerB", "ProcessB", "{}", vec![], 2);
+        wf.add_step("step3", "Aggregator", "Aggregate", "{}", vec!["step1".to_string(), "step2".to_string()], 2);
+
+        // First round: step1 and step2 are ready and run concurrently
+        let executed = wf
+            .execute_ready_steps_concurrent(|step| async move {
+                (step.step_id, Ok(()))
+            })
+            .await;
+
+        assert_eq!(executed, 2);
+        assert_eq!(wf.steps["step1"].status, StepStatus::Completed);
+        assert_eq!(wf.steps["step2"].status, StepStatus::Completed);
+        assert_eq!(wf.steps["step3"].status, StepStatus::Pending);
+
+        // Second round: step3 dependencies now satisfied
+        let executed2 = wf
+            .execute_ready_steps_concurrent(|step| async move {
+                (step.step_id, Ok(()))
+            })
+            .await;
+
+        assert_eq!(executed2, 1);
+        assert!(wf.is_completed);
+    }
+
+    #[test]
+    fn test_resolve_unassigned_steps_via_mdp() {
+        let mut wf = WorkflowGraph::new("test_mdp_routing");
+        wf.add_step("step_explicit", "Fabricator", "Compile", "{}", vec![], 2);
+        wf.add_step("step_auto", "auto", "AuditSecurity", "{}", vec![], 2);
+
+        let mut router = crate::mdps_router::TaskRoutingEngine::new(vec![
+            crate::mdps_router::Specialist {
+                id: "spec_sentinel".to_string(),
+                name: "Sentinel".to_string(),
+                skills: vec!["AuditSecurity".to_string()],
+                capacity: 1.0,
+                success_rate: 0.95,
+                avg_completion_time: 2.0,
+            },
+        ]);
+
+        let resolved = wf.resolve_unassigned_steps_via_mdp(&mut router);
+        assert_eq!(resolved, 1);
+        assert_eq!(wf.steps["step_explicit"].assigned_specialist, "Fabricator");
+        assert_eq!(wf.steps["step_auto"].assigned_specialist, "Sentinel");
+    }
+
+    #[test]
+    fn test_to_computational_graph_conversion() {
+        let mut wf = WorkflowGraph::new("test_ir_conversion");
+        wf.add_step("s1", "Fabricator", "Alloc", "payload_data", vec![], 2);
+        wf.add_step("s2", "Synthesizer", "TensorDot", "{}", vec!["s1".to_string()], 2);
+
+        let graph = wf.to_computational_graph();
+        assert_eq!(graph.nodes.len(), 2);
+        assert_eq!(graph.entry_node, 1);
+        assert_eq!(graph.exit_node, 2);
+        assert!(graph.thermodynamic_free_energy > 0.0);
+
+        // Check topological dependency resolution
+        let node_s2 = graph.nodes.values().find(|n| matches!(n.opcode, si_ir::MachineOpcode::TensorDot { .. })).unwrap();
+        assert_eq!(node_s2.dependencies.len(), 1);
     }
 }

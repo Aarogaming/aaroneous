@@ -219,6 +219,22 @@ impl SmtActionInterlock {
         self.z3_prover.verify_non_interference(graph_a, graph_b)
     }
 
+    /// Evaluates custom algebraic constraints and invariant predicates against state vectors
+    pub fn verify_algebraic_invariant<F>(&self, state_name: &str, state_vector: &[f64], predicate: F) -> Result<bool>
+    where
+        F: Fn(&[f64]) -> bool,
+    {
+        if self.emergency_killswitch_tripped.load(Ordering::Acquire) {
+            bail!("Hardware interlock tripped: Execution forbidden by active emergency killswitch");
+        }
+
+        if predicate(state_vector) {
+            Ok(true)
+        } else {
+            bail!("Algebraic invariant violation on state '{}': constraint predicate failed", state_name);
+        }
+    }
+
     /// Manually or automatically trip the hardware emergency killswitch
     pub fn trip_killswitch(&self) {
         self.emergency_killswitch_tripped.store(true, Ordering::Release);
@@ -232,6 +248,22 @@ impl SmtActionInterlock {
     /// Query killswitch state
     pub fn is_killswitch_active(&self) -> bool {
         self.emergency_killswitch_tripped.load(Ordering::Acquire)
+    }
+
+    /// Evaluates a batch of candidate action graphs, returning certificates for all candidates
+    pub fn batch_verify_action_graphs(
+        &self,
+        graphs: &[&NativeComputationalGraph],
+    ) -> Result<Vec<InterlockAuditCertificate>> {
+        if self.emergency_killswitch_tripped.load(Ordering::Acquire) {
+            bail!("Hardware interlock tripped: Execution forbidden by active emergency killswitch");
+        }
+
+        let mut certs = Vec::with_capacity(graphs.len());
+        for graph in graphs {
+            certs.push(self.evaluate_action_graph(graph)?);
+        }
+        Ok(certs)
     }
 }
 
@@ -327,5 +359,35 @@ mod tests {
         interlock.reset_killswitch();
         assert!(!interlock.is_killswitch_active());
         assert!(interlock.evaluate_action_graph(&graph).is_ok());
+    }
+
+    #[test]
+    fn test_algebraic_invariant_evaluation() {
+        let interlock = SmtActionInterlock::strict();
+        let state = vec![100.0, 50.0, 25.0]; // Positive resource counts
+        let valid = interlock.verify_algebraic_invariant("resource_bounds", &state, |s| {
+            s.iter().all(|&val| val >= 0.0) && s[0] >= s[1]
+        });
+        assert!(valid.is_ok());
+
+        let invalid = interlock.verify_algebraic_invariant("negative_budget", &[-1.0, 5.0], |s| {
+            s.iter().all(|&val| val >= 0.0)
+        });
+        assert!(invalid.is_err());
+    }
+
+    #[test]
+    fn test_batch_verify_action_graphs() {
+        let interlock = SmtActionInterlock::new(0.10);
+        let mut graph_a = NativeComputationalGraph::new();
+        graph_a.thermodynamic_free_energy = 0.02;
+
+        let mut graph_b = NativeComputationalGraph::new();
+        graph_b.thermodynamic_free_energy = 0.15; // Exceeds bound
+
+        let results = interlock.batch_verify_action_graphs(&[&graph_a, &graph_b]).unwrap();
+        assert_eq!(results.len(), 2);
+        assert!(results[0].is_authorized);
+        assert!(!results[1].is_authorized);
     }
 }

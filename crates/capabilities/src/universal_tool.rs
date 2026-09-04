@@ -1,4 +1,4 @@
-//! crates/specialists/src/universal_tool.rs
+//! crates/capabilities/src/universal_tool.rs
 //! Universal Tool Interface and Dual-Face Execution Adapter for Aaroneous.
 //!
 //! Bridges three distinct execution models into a single, clean capability:
@@ -96,6 +96,25 @@ impl ToolRegistry {
     /// Exports all tool descriptors for MCP discovery (tools/list) and OpenAPI docs
     pub fn list_tools(&self) -> Vec<ToolDescriptor> {
         self.tools_by_name.values().map(|t| t.descriptor()).collect()
+    }
+
+    /// Filters registered tools by category name (e.g. "security", "code", "memory")
+    pub fn filter_by_category(&self, category: &str) -> Vec<ToolDescriptor> {
+        self.tools_by_name
+            .values()
+            .filter(|t| t.category() == category)
+            .map(|t| t.descriptor())
+            .collect()
+    }
+
+    /// Unregisters a tool by name dynamically
+    pub fn unregister(&mut self, name: &str) -> bool {
+        if let Some(tool) = self.tools_by_name.remove(name) {
+            self.tools_by_opcode.remove(&tool.opcode());
+            true
+        } else {
+            false
+        }
     }
 
     /// Number of registered tools

@@ -3,6 +3,10 @@ use anyhow::Result;
 
 pub struct PrefrontalCortex;
 
+/// Architectural Terminology Standard: ExecutivePlanner
+pub type ExecutivePlanner = PrefrontalCortex;
+pub type StrategicPlanner = PrefrontalCortex;
+
 impl PrefrontalCortex {
     /// Generates a multi-step execution plan based on a high-level intent.
     pub async fn draft_plan(&self, intent: &str) -> Result<ExecutivePlan> {

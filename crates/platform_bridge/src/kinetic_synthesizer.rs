@@ -164,6 +164,39 @@ impl KineticTrajectorySynthesizer {
 
         points
     }
+
+    /// Synthesizes touch swipe gestures with acceleration and deceleration curves
+    pub fn synthesize_touch_swipe(
+        &self,
+        start: Point2D,
+        direction: (f64, f64),
+        distance: f64,
+    ) -> Vec<KineticTrajectoryPoint> {
+        let mag = (direction.0 * direction.0 + direction.1 * direction.1).sqrt();
+        let (dir_x, dir_y) = if mag > 1e-6 {
+            (direction.0 / mag, direction.1 / mag)
+        } else {
+            (0.0, 1.0)
+        };
+
+        let target = Point2D::new(start.x + dir_x * distance, start.y + dir_y * distance);
+        self.synthesize_trajectory(start, target, 50.0)
+    }
+
+    /// Generates human-like typing rhythm with variable inter-keystroke intervals (IKIs)
+    pub fn synthesize_typing_delays(&self, char_count: usize, target_wpm: f64) -> Vec<u64> {
+        let base_delay_ms = (60_000.0 / (target_wpm * 5.0)).max(30.0);
+        let mut delays_us = Vec::with_capacity(char_count);
+
+        for i in 0..char_count {
+            // Mild sinusoidal cadence variance + pseudorandom jitter
+            let cadence = (i as f64 * 0.7).sin() * (base_delay_ms * 0.15);
+            let delay_ms = (base_delay_ms + cadence).max(20.0);
+            delays_us.push((delay_ms * 1000.0).round() as u64);
+        }
+
+        delays_us
+    }
 }
 
 #[cfg(test)]
@@ -200,6 +233,20 @@ mod tests {
         // Timestamps must be monotonic
         for window in trajectory.windows(2) {
             assert!(window[1].timestamp_offset_us >= window[0].timestamp_offset_us);
+        }
+    }
+
+    #[test]
+    fn test_touch_swipe_and_typing_delays() {
+        let synthesizer = KineticTrajectorySynthesizer::default();
+        let swipe = synthesizer.synthesize_touch_swipe(Point2D::new(0.0, 0.0), (0.0, 1.0), 300.0);
+        assert!(!swipe.is_empty());
+        assert_eq!(swipe.last().unwrap().y, 300);
+
+        let delays = synthesizer.synthesize_typing_delays(10, 60.0);
+        assert_eq!(delays.len(), 10);
+        for &d in &delays {
+            assert!(d >= 20_000, "delay must be >= 20ms in us");
         }
     }
 }

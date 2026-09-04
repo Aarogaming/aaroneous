@@ -1,5 +1,5 @@
-//! crates/specialists
-//! The Specialist Federation of 9 Sovereign Domain Engines and their paired Relic Substrates for Aaroneous.
+//! crates/capabilities
+//! The Capabilities Federation of 9 Sovereign Domain Engines and their paired Relic Substrates for Aaroneous.
 
 pub mod aligner;
 pub mod archivist;
@@ -60,6 +60,11 @@ pub struct SpecialistFederation {
 
 /// Simplified alias for the Specialist Federation
 pub type Specialists = SpecialistFederation;
+
+/// The Unified Capability Federation
+pub type CapabilityFederation = SpecialistFederation;
+pub type Capabilities = SpecialistFederation;
+pub type CapabilityPool = SpecialistFederation;
 
 /// Hub alias for the Specialist Federation
 pub type SpecialistHub = SpecialistFederation;

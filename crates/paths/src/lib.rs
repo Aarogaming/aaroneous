@@ -197,6 +197,14 @@ impl WorkspacePaths {
         self.root.join(".sab").join("shadow")
     }
 
+    pub fn cartridges(&self) -> PathBuf {
+        self.models().join("cartridges")
+    }
+
+    pub fn cartridges_inbox(&self) -> PathBuf {
+        self.cartridges().join("inbox")
+    }
+
     /// Creates all standard root directories if they do not exist
     pub fn ensure_directories(&self) -> std::io::Result<()> {
         std::fs::create_dir_all(self.crates())?;
@@ -382,6 +390,42 @@ pub fn resolve_synapse_path(name: &str) -> PathBuf {
     WorkspacePaths::discover().synapse_named(name)
 }
 
+/// Hierarchical configuration registry supporting cascading overrides:
+/// Defaults -> Machine Profile -> Workspace Project -> Environment Overrides
+#[derive(Debug, Clone, Default)]
+pub struct FederationConfigRegistry {
+    entries: std::collections::HashMap<String, String>,
+}
+
+impl FederationConfigRegistry {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Inserts or overrides a configuration key-value pair
+    pub fn set(&mut self, key: impl Into<String>, value: impl Into<String>) {
+        self.entries.insert(key.into(), value.into());
+    }
+
+    /// Resolves configuration key: checks environment variables first, then registry entries
+    pub fn get(&self, key: &str) -> Option<String> {
+        let env_key = format!("AARONEOUS_{}", key.to_uppercase().replace('.', "_"));
+        if let Ok(val) = std::env::var(&env_key) {
+            return Some(val);
+        }
+        self.entries.get(key).cloned()
+    }
+
+    /// Resolves configuration key with default fallback
+    pub fn get_or<'a>(&'a self, key: &str, default: &'a str) -> &'a str {
+        if let Some(val) = self.entries.get(key) {
+            val.as_str()
+        } else {
+            default
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -393,6 +437,8 @@ mod tests {
         assert_eq!(paths.crates(), paths.root().join("crates"));
         assert_eq!(paths.specialists(), paths.crates().join("specialists"));
         assert_eq!(paths.models(), paths.root().join("models"));
+        assert_eq!(paths.cartridges(), paths.models().join("cartridges"));
+        assert_eq!(paths.cartridges_inbox(), paths.cartridges().join("inbox"));
     }
 
     #[test]
@@ -406,5 +452,16 @@ mod tests {
     fn test_resolve_synapse_path() {
         let path = resolve_synapse_path("primary");
         assert!(path.to_string_lossy().ends_with("primary.synapse"));
+    }
+
+    #[test]
+    fn test_federation_config_registry() {
+        let mut reg = FederationConfigRegistry::new();
+        reg.set("studio.theme", "dark");
+        reg.set("runtime.threads", "8");
+
+        assert_eq!(reg.get_or("studio.theme", "light"), "dark");
+        assert_eq!(reg.get_or("studio.font", "monospace"), "monospace");
+        assert_eq!(reg.get("runtime.threads"), Some("8".to_string()));
     }
 }

@@ -130,6 +130,52 @@ impl UniversalPhysicalQuantity {
     }
 }
 
+impl std::ops::Add for UniversalPhysicalQuantity {
+    type Output = Result<Self>;
+
+    fn add(self, rhs: Self) -> Result<Self> {
+        if self.unit != rhs.unit {
+            return Err(anyhow!("Dimensional mismatch in addition: {:?} vs {:?}", self.unit, rhs.unit));
+        }
+        Ok(Self {
+            value: self.value + rhs.value,
+            unit: self.unit,
+            uncertainty: (self.uncertainty.powi(2) + rhs.uncertainty.powi(2)).sqrt(),
+        })
+    }
+}
+
+impl std::ops::Sub for UniversalPhysicalQuantity {
+    type Output = Result<Self>;
+
+    fn sub(self, rhs: Self) -> Result<Self> {
+        if self.unit != rhs.unit {
+            return Err(anyhow!("Dimensional mismatch in subtraction: {:?} vs {:?}", self.unit, rhs.unit));
+        }
+        Ok(Self {
+            value: self.value - rhs.value,
+            unit: self.unit,
+            uncertainty: (self.uncertainty.powi(2) + rhs.uncertainty.powi(2)).sqrt(),
+        })
+    }
+}
+
+impl std::ops::Mul for UniversalPhysicalQuantity {
+    type Output = Self;
+
+    fn mul(self, rhs: Self) -> Self {
+        self.multiply(&rhs)
+    }
+}
+
+impl std::ops::Div for UniversalPhysicalQuantity {
+    type Output = Result<Self>;
+
+    fn div(self, rhs: Self) -> Result<Self> {
+        self.divide(&rhs).ok_or_else(|| anyhow!("Division by zero in UniversalPhysicalQuantity"))
+    }
+}
+
 /// Machine-Native Low-Level Computational Opcode
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum MachineOpcode {
@@ -227,6 +273,78 @@ impl NativeComputationalGraph {
     /// Deserializes the graph from compact bytes
     pub fn from_compact_bytes(bytes: &[u8]) -> Result<Self> {
         serde_json::from_slice(bytes).map_err(|e| anyhow!("Graph deserialization failed: {e}"))
+    }
+
+    /// Synthesizes a deterministic computational DAG from raw system probing event traces.
+    /// Maps observed process events and syscall payloads into native computational nodes.
+    pub fn synthesize_from_traces<I, T, E, P>(traces: I) -> Self
+    where
+        I: IntoIterator<Item = (T, E, P, u64)>,
+        T: AsRef<str>,
+        E: AsRef<str>,
+        P: AsRef<str>,
+    {
+        let mut graph = Self::new();
+        let mut prev_id = 0u64;
+
+        for (idx, (_target_process, event_type, payload, _timestamp_us)) in traces.into_iter().enumerate() {
+            let node_id = (idx as u64) + 1;
+            let ev = event_type.as_ref();
+            let pl = payload.as_ref();
+
+            let (opcode, lattice, energy) = match ev {
+                "alloc" | "memory_alloc" => {
+                    let size = pl.parse::<usize>().unwrap_or(64);
+                    (
+                        MachineOpcode::Alloc { size_bytes: size, align: 64 },
+                        NativeTypeLattice::LinearMemoryPointer { mutability: true, alignment: 64 },
+                        0.005,
+                    )
+                }
+                "tensor_op" | "dot" => {
+                    (
+                        MachineOpcode::TensorDot { left_reg: 1, right_reg: 2, dim: 64 },
+                        NativeTypeLattice::TensorType {
+                            shape: vec![64, 64],
+                            element_type: Box::new(NativeTypeLattice::PrimitiveFloat { bits: 32 }),
+                        },
+                        0.015,
+                    )
+                }
+                "entropy" | "stabilize" => {
+                    (
+                        MachineOpcode::EntropyMinimization { state_reg: 1 },
+                        NativeTypeLattice::PrimitiveFloat { bits: 64 },
+                        0.002,
+                    )
+                }
+                _ => {
+                    (
+                        MachineOpcode::Call { function_id: node_id, arg_regs: vec![] },
+                        NativeTypeLattice::PrimitiveInt { bits: 64, signed: false },
+                        0.001,
+                    )
+                }
+            };
+
+            let dependencies = if prev_id > 0 { vec![prev_id] } else { vec![] };
+            graph.add_node(NativeComputationNode {
+                id: node_id,
+                opcode,
+                type_lattice: lattice,
+                energy_cost: energy,
+                dependencies,
+            });
+
+            prev_id = node_id;
+        }
+
+        if prev_id > 0 {
+            graph.entry_node = 1;
+            graph.exit_node = prev_id;
+        }
+
+        graph
     }
 }
 
@@ -449,5 +567,52 @@ mod tests {
         assert_eq!(storage.len(), 2);
         assert!((storage.total_free_energy() - 0.15).abs() < 1e-6);
         assert_eq!(storage.dimensional_units[1], DimensionalUnit::ENERGY_JOULE);
+    }
+
+    #[test]
+    fn test_physical_quantity_operator_overloads() {
+        let m1 = UniversalPhysicalQuantity::meters(10.0);
+        let m2 = UniversalPhysicalQuantity::meters(5.0);
+        let sum = (m1 + m2).unwrap();
+        assert_eq!(sum.value, 15.0);
+        assert_eq!(sum.unit, DimensionalUnit::LENGTH_METER);
+
+        let diff = (m1 - m2).unwrap();
+        assert_eq!(diff.value, 5.0);
+
+        let force = UniversalPhysicalQuantity::newtons(2.0);
+        let work = force * m1;
+        assert_eq!(work.value, 20.0);
+        assert_eq!(work.unit, DimensionalUnit::ENERGY_JOULE);
+
+        let distance = (work / force).unwrap();
+        assert_eq!(distance.value, 10.0);
+        assert_eq!(distance.unit, DimensionalUnit::LENGTH_METER);
+
+        // Mismatched dimension addition must error
+        let err = m1 + force;
+        assert!(err.is_err());
+    }
+
+    #[test]
+    fn test_synthesize_from_traces() {
+        let raw_traces = vec![
+            ("subsystem_a", "memory_alloc", "128", 1000u64),
+            ("subsystem_a", "tensor_op", "dot_product", 1010u64),
+            ("subsystem_a", "stabilize", "free_energy", 1020u64),
+            ("subsystem_a", "generic_call", "payload", 1030u64),
+        ];
+
+        let graph = NativeComputationalGraph::synthesize_from_traces(raw_traces);
+        assert_eq!(graph.nodes.len(), 4);
+        assert_eq!(graph.entry_node, 1);
+        assert_eq!(graph.exit_node, 4);
+
+        // Verify topological dependencies: node 2 depends on 1, 3 on 2, 4 on 3
+        assert_eq!(graph.nodes[&2].dependencies, vec![1]);
+        assert_eq!(graph.nodes[&3].dependencies, vec![2]);
+        assert_eq!(graph.nodes[&4].dependencies, vec![3]);
+
+        assert!(graph.thermodynamic_free_energy > 0.0);
     }
 }
