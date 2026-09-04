@@ -4,6 +4,44 @@ All notable changes to Aaroneous.
 
 > **Architectural Note:** References in historical changelog sections (< v0.1.0) to `components/*` describe the legacy monolithic prototype layout. In v0.1.0+, all components were refactored into `core/hypervisor` and the 12 sovereign `crates/*` workspace crates.
 
+## [1.6.0] - 2026-09-04
+
+### ⚡ Industrial OT Edge Mesh, Universal Event Bus & Hardware Model Discovery
+
+#### Deterministic COBS Wire Framing & Industrial OT Bridge
+- **`crates/aaroneous_wire/`**:
+  - Implemented standalone `aaroneous_wire` crate providing zero-allocation Consistent Overhead Byte Stuffing (COBS) framing and deframing.
+  - Implemented `TelemetryPacket` with 8 multi-channel sensor slots (`AnalogInput`, `DigitalInput`, `PwmOutput`, `TemperatureCelsius`, `PressureBar`, `CurrentAmperes`), calibrated `f32` representations, error bitmasks, and CRC16-CCITT packet verification.
+  - Implemented `CommandPacket` supporting remote register mutations, discrete output pinning, PWM duty cycle modulation, sensor calibration, emergency stop triggers, and CAN 2.0B frame encapsulation.
+- **`crates/platform_bridge/src/ot_bridge.rs`**:
+  - Implemented `OtEdgeGateway` and thread-safe `IndustrialRegisterBank` (64 holding registers, 32 discrete inputs) bridging physical serial/USB byte streams with host runtime memory.
+  - Added full asynchronous command dispatch channel and bidirectional loopback validation for framed commands and telemetry.
+- **`core/hypervisor/src/hud/workbench.rs`**:
+  - Integrated dedicated **OT Edge Gateway** workbench tab in Maelstrom HUD with live hardware port selector, baud rate toggles, holding register tables, and discrete coil status visualizers.
+
+#### Universal Event Bus & Extended Mathematical Substrates
+- **`crates/ipc_bus/src/universal_event_bus.rs`**:
+  - Implemented `UniversalEventBus` providing high-throughput lock-free publish/subscribe messaging across all 17 workspace crates.
+  - Integrated `SequenceBarrier` for strictly monotonic event sequence ordering, preventing out-of-order execution in concurrent reactive loops.
+- **`crates/compute/src/`**:
+  - Added `UniversalTensorBuffer` with contiguous layout transformations, multi-format numeric representations, and fast tensor transposition.
+  - Enhanced mathematical substrates with SIMD-aligned linear algebra, stochastic distributions, and topological graph operations.
+
+#### Pluggable Model Backend & Capability Specialists
+- **`crates/orchestrator/src/llm/providers/backend_trait.rs`**:
+  - Implemented universal `ModelBackend` abstraction unifying in-process Candle execution, external LM Studio endpoints, and fast deterministic mock backends.
+  - Integrated automatic token consumption calculation (`div_ceil`) and dynamic context window guards.
+- **`crates/capabilities/`**:
+  - Aligned all 9 domain capabilities to `crates/capabilities` taxonomy with universal tool integration.
+
+#### Hardware Discovery & Test Mock Audit
+- **`core/hypervisor/tests/test_real_system_sampling.rs`**:
+  - Added integration test discovering real on-disk GGUF models (`~/.lmstudio/models`) and physical serial hardware COM ports.
+- **`core/hypervisor/`**:
+  - Audited test mocks across hypervisor integration tests, eliminating all dead code, unused mutability warnings, and unused variable assignments.
+
+---
+
 ## [1.5.0] - 2026-09-03
 
 ### 🛠️ Universal Tool Dual-Face Architecture, MoE Expert Register & Clean Systems Modernization

@@ -75,6 +75,7 @@
 | **Phases 18–24: Sovereign Cartridge & Formal Governance** | `v1.3.0` | `.si` container standard & Z3 SMT action interlocks | P2, P3, P4 | Canonical `.si` v3.0, Z3 SMT non-interference gates, Fitts's law Bézier kinematics, Macro-SSM recurrence |
 | **Phases 25–29: Hardware Saturation & Sparse MoE** | `v1.4.0` | Memory-mapped MoE module registers & self-play | P1, P2, P3 | 16-slot sparse expert register, CAN 2.0B/FD, contiguous VRAM slab, Crucible virtual sandbox |
 | **Phases 30–33: Machine-Native Intent & Heterogeneous NPU** | `v1.5.0` | Frictionless user ecosystem & NPU offloading | All | Auto-tuner, drag-and-drop `.si-pack`, decoupled Linguistic Lens, `.lib` state bank, 45 TOPS NPU acceleration |
+| **Phase 34: Industrial OT Edge Mesh & Event Bus** | `v1.6.0` | Deterministic fieldbus & monotonic IPC | P1, P5 | COBS `aaroneous_wire`, `OtEdgeGateway`, Workbench OT tab, `UniversalEventBus` |
 
 ---
 
@@ -784,6 +785,22 @@ Documented in detail in `dev/docs/17_DEFECT_AUDIT_AND_REMEDIATION_PLAN.md`.
 
 ---
 
-*Last updated: 2026-09-03 | Complete 5-pillar, 33-phase architectural framework*
+### Phase 34: Industrial OT Edge Mesh, Universal Event Bus & Hardware Model Discovery (Complete)
+*Physical fieldbus communication, deterministic COBS wire framing, industrial register mapping, and sequence-barriered universal event bus.*
+
+- [x] **WIRE-01: Deterministic COBS Wire Framing (`aaroneous_wire`)**
+  - Implemented standalone `crates/aaroneous_wire`: zero-allocation Consistent Overhead Byte Stuffing (COBS) framed telemetry and command packets with CRC16-CCITT integrity verification, heartbeat keepalives, CAN frame encapsulation, and sub-millisecond serialization.
+- [x] **WIRE-02: Industrial OT Edge Gateway (`OtEdgeGateway`)**
+  - Implemented `crates/platform_bridge/src/ot_bridge.rs`: translates serial/USB byte streams into 64 holding registers and 32 discrete inputs, bidirectional command packet loopback testing, and edge PLC/MCU synchronization.
+- [x] **WIRE-03: Real-Time Workbench OT Edge Tab (`Maelstrom HUD`)**
+  - Integrated live Modbus/serial telemetry view into `core/hypervisor/src/hud/workbench.rs`: real-time display of analog channels, calibrated voltages, error flags, and discrete coils.
+- [x] **WIRE-04: Universal Event Bus with Monotonic Sequence Barrier (`ipc_bus`)**
+  - Implemented `crates/ipc_bus/src/universal_event_bus.rs`: lock-free pub/sub dispatch across 17 workspace crates with zero-copy topic routing, sequence barriered event ordering, and ring buffer integration.
+- [x] **WIRE-05: Real-System Hardware & Model Sampling (`hypervisor`)**
+  - Implemented `core/hypervisor/tests/test_real_system_sampling.rs`: automatic scanning of local GGUF model repositories and physical serial COM ports.
+
+---
+
+*Last updated: 2026-09-04 | Complete 5-pillar, 34-phase architectural framework*
 
 
