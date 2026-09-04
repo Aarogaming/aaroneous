@@ -99,8 +99,20 @@ impl OtEdgeGateway {
         let message = decode_frame(raw_frame)
             .map_err(|e| anyhow!("Failed to decode wire frame: {:?}", e))?;
 
-        if let WireMessage::Telemetry(ref telem) = message {
-            self.ingest_telemetry(telem.clone());
+        match &message {
+            WireMessage::Telemetry(telem) => {
+                self.ingest_telemetry(telem.clone());
+            }
+            WireMessage::Command(cmd) => match cmd {
+                CommandPacket::SetRegister { address, value } => {
+                    let _ = self.set_holding_register(*address as usize, *value);
+                }
+                CommandPacket::SetDigitalOut { pin, state } => {
+                    let _ = self.set_discrete_input(*pin as usize, *state);
+                }
+                _ => {}
+            },
+            _ => {}
         }
 
         Ok(message)
@@ -185,4 +197,46 @@ mod tests {
         assert!(gateway.set_holding_register(100, 1).is_err());
         assert!(gateway.set_discrete_input(100, false).is_err());
     }
+
+    #[tokio::test]
+    async fn test_ot_gateway_command_pipeline_and_loopback() {
+        let (gateway, mut rx) = OtEdgeGateway::new(OtBridgeConfig::default());
+
+        // 1. Test host sending command over internal mpsc channel
+        let test_cmd = CommandPacket::SetRegister {
+            address: 7,
+            value: 8888,
+        };
+        assert!(gateway.send_command(test_cmd.clone()).await.is_ok());
+
+        let received = rx.recv().await;
+        assert_eq!(received, Some(test_cmd));
+
+        // 2. Test edge ingestion of framed SetRegister command packet
+        let reg_cmd = CommandPacket::SetRegister {
+            address: 12,
+            value: 4321,
+        };
+        let mut frame_buf = [0u8; MAX_FRAMED_SIZE];
+        let frame = encode_frame(&WireMessage::Command(reg_cmd), &mut frame_buf).expect("Encodes cleanly");
+
+        let decoded = gateway.ingest_raw_frame(frame).expect("Decodes cleanly");
+        assert!(matches!(decoded, WireMessage::Command(CommandPacket::SetRegister { .. })));
+
+        let state = gateway.read_registers();
+        assert_eq!(state.holding_registers[12], 4321);
+
+        // 3. Test edge ingestion of framed SetDigitalOut command packet
+        let dio_cmd = CommandPacket::SetDigitalOut {
+            pin: 4,
+            state: true,
+        };
+        let frame = encode_frame(&WireMessage::Command(dio_cmd), &mut frame_buf).expect("Encodes cleanly");
+        let decoded = gateway.ingest_raw_frame(frame).expect("Decodes cleanly");
+        assert!(matches!(decoded, WireMessage::Command(CommandPacket::SetDigitalOut { .. })));
+
+        let state = gateway.read_registers();
+        assert!(state.discrete_inputs[4]);
+    }
 }
+
