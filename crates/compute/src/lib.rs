@@ -51,6 +51,9 @@ pub mod macro_ssm;
 pub mod si_moe_register;
 pub mod silicon_backend;
 pub mod state_bank;
+pub mod tensor_buffer;
+
+pub use tensor_buffer::{TensorBuffer, UniversalTensorView};
 
 pub use silicon_backend::{
     CpuSimdBackend, DynamicSiliconRouter, NpuTensorBackend, SiliconHardwareType,

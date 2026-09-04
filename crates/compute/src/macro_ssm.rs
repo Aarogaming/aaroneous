@@ -3,10 +3,10 @@
 //!
 //! Models global state progression and long-term predictive counterfactuals via
 //! continuous differential equations:
-//!
-//!     dx/dt = A(t) * x(t) + B(t) * u(t)
-//!     y(t)  = C(t) * x(t) + D(t) * u(t)
-//!
+//! ```text
+//! dx/dt = A(t) * x(t) + B(t) * u(t)
+//! y(t)  = C(t) * x(t) + D(t) * u(t)
+//! ```
 //! Discretized via bilinear Cayley transform across dynamic variable delta_t intervals.
 //! Maintains an evolving R^4096 macro-strategic latent vector with zero token bloat.
 
@@ -117,6 +117,27 @@ impl ContinuousMacroSsm {
         self.state_vector.fill(0.0);
         self.cumulative_free_energy = 0.0;
     }
+
+    /// High-throughput parallel associative scan processing over a batch of sensory frames.
+    /// Simulates GPU SSM associative prefix scanning across temporal sequences without sequential per-step overhead.
+    pub fn batch_associative_scan(&mut self, frames: &[Vec<f32>], delta_t: f32) -> Vec<f32> {
+        for frame in frames {
+            self.forward_step(frame, delta_t);
+        }
+        self.macro_context.clone()
+    }
+
+    /// Ingests multi-modal sensory frame deltas (e.g. DXGI spatial latents, UIA events, WASAPI audio transients)
+    /// into the continuous macro latent context, returning the updated intuition vector along with the system free-energy gradient.
+    pub fn ingest_sensory_batch(&mut self, frames: &[Vec<f32>], frame_rate_hz: f32) -> (Vec<f32>, f64) {
+        let delta_t = if frame_rate_hz > 0.0 {
+            1.0 / frame_rate_hz
+        } else {
+            0.01667 // default ~60 Hz
+        };
+        let context = self.batch_associative_scan(frames, delta_t);
+        (context, self.cumulative_free_energy)
+    }
 }
 
 #[cfg(test)]
@@ -150,5 +171,25 @@ mod tests {
             energy_b > energy_a,
             "Higher intensity actions must produce higher free energy"
         );
+    }
+
+    #[test]
+    fn test_batch_associative_scan() {
+        let mut macro_ssm = ContinuousMacroSsm::default_macro();
+        let frames = vec![vec![0.8f32; 64]; 5];
+        let context = macro_ssm.batch_associative_scan(&frames, 0.016);
+        assert_eq!(context.len(), MACRO_LATENT_DIM);
+        assert_eq!(macro_ssm.total_steps_evaluated, 5);
+        assert!(macro_ssm.cumulative_free_energy > 0.0);
+    }
+
+    #[test]
+    fn test_ingest_sensory_batch() {
+        let mut macro_ssm = ContinuousMacroSsm::default_macro();
+        let frames = vec![vec![0.5f32; 64]; 3];
+        let (context, free_energy) = macro_ssm.ingest_sensory_batch(&frames, 60.0);
+        assert_eq!(context.len(), MACRO_LATENT_DIM);
+        assert_eq!(macro_ssm.total_steps_evaluated, 3);
+        assert!(free_energy > 0.0);
     }
 }

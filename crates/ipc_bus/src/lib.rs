@@ -15,7 +15,10 @@ pub mod scheme_router;
 pub mod slab_allocator;
 pub mod spmc_synapse_bus;
 pub mod swmr_synapse;
+pub mod universal_event_bus;
 pub mod universal_protocol;
+
+pub use universal_event_bus::{EventEnvelope, EventSubscriber, SequenceBarrier, UniversalEventBus};
 
 pub use universal_protocol::{
     UniversalClientRequest, UniversalServerBroadcast, UCP_DEFAULT_WS_PORT, UCP_NAMED_PIPE_PATH,
