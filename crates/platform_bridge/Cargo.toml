@@ -17,6 +17,8 @@ tracing = "0.1"
 parking_lot = "0.12"
 rustfft = "6.2"
 compute = { path = "../compute" }
+aaroneous_wire = { path = "../aaroneous_wire" }
+tokio-serial = "5.4"
 windows = { version = "0.62", features = [
     "Win32_Foundation",
     "Win32_Graphics_Gdi",

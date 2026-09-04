@@ -206,6 +206,7 @@ pub enum DevStudioTab {
     SiMacroHub,
     SiSkillTree,
     SpecialistsAndFrontier,
+    OtEdgeGateway,
 }
 
 /// Discord-Style Screen & Application Sharing Mode
@@ -604,6 +605,11 @@ pub struct SharedHudState {
 
     // Compact Desktop Telemetry Overlay Widget
     pub companion_overlay: crate::hud::CompanionTelemetryOverlay,
+
+    // Industrial Edge & OT Gateway State
+    pub industrial_registers: platform_bridge::ot_bridge::IndustrialRegisterBank,
+    pub ot_available_ports: Vec<String>,
+    pub ot_selected_port: String,
 }
 
 impl Default for SharedHudState {
@@ -909,7 +915,7 @@ impl Default for SharedHudState {
             workbench_diagnostics: Vec::new(),
             workbench_status_msg: "Developer Workbench Ready".to_string(),
             last_backup_path: None,
-            forge_file_path: "crates/specialists/src/dev_tools.rs".to_string(),
+            forge_file_path: "crates/capabilities/src/dev_tools.rs".to_string(),
             forge_source_code: "pub fn execute_work() {\n    log(\"Starting task...\");\n}".to_string(),
             forge_search_pattern: "log(:[msg]);".to_string(),
             forge_replace_template: "tracing::info!(:[msg]);".to_string(),
@@ -963,6 +969,13 @@ impl Default for SharedHudState {
             auto_pilot_toggle_requested: false,
             auto_pilot_kill_requested: false,
             companion_overlay: crate::hud::CompanionTelemetryOverlay::default(),
+            industrial_registers: platform_bridge::ot_bridge::IndustrialRegisterBank::default(),
+            ot_available_ports: tokio_serial::available_ports()
+                .unwrap_or_default()
+                .into_iter()
+                .map(|p| p.port_name)
+                .collect(),
+            ot_selected_port: "COM1".to_string(),
         }
     }
 }

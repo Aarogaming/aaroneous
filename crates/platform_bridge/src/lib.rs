@@ -9,6 +9,7 @@ pub mod kinetic_synthesizer;
 pub mod mock;
 pub mod native_win32;
 pub mod observability;
+pub mod ot_bridge;
 pub mod probing;
 pub mod protocol_bridge;
 pub mod robotics;

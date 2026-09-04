@@ -15,6 +15,7 @@ members = [
     "crates/si_format",
     "crates/platform_bridge",
     "crates/paths",
+    "crates/aaroneous_wire",
     "core/hypervisor",
     "sdk/rust",
     "templates/universal_native",
@@ -22,6 +23,7 @@ members = [
 
 exclude = [
     "MaelstromUI/src-tauri",
+    "firmware",
 ]
 
 [workspace.package]

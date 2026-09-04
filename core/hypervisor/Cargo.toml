@@ -54,6 +54,8 @@ adaptation_engine = { path = "../../crates/adaptation_engine" }
 platform_bridge = { path = "../../crates/platform_bridge" }
 specialists = { package = "capabilities", path = "../../crates/capabilities" }
 aaroneous_paths = { path = "../../crates/paths" }
+aaroneous_wire = { path = "../../crates/aaroneous_wire" }
+tokio-serial = "5.4"
 transpiler = { path = "../../crates/transpiler" }
 si_ir = { path = "../../crates/si_ir" }
 anyhow = "1.0"
