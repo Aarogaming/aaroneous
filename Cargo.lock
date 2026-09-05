@@ -6,12 +6,10 @@ version = 4
 name = "a_run"
 version = "0.1.0"
 dependencies = [
- "aaroneous_api",
  "aaroneous_paths",
  "aaroneous_wire",
  "adaptation_engine",
  "anyhow",
- "arboard",
  "async-nats",
  "async-stream",
  "async-trait",
@@ -83,7 +81,6 @@ dependencies = [
  "si_ir",
  "strum 0.26.3",
  "strum_macros 0.26.4",
- "subtle",
  "sysinfo 0.39.6",
  "tar",
  "tempfile",
@@ -4314,22 +4311,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "flight_controller"
-version = "0.3.2"
-dependencies = [
- "anyhow",
- "chrono",
- "clap",
- "regex",
- "serde",
- "serde_json",
- "thiserror 2.0.20",
- "tokio",
- "tracing",
- "tracing-subscriber",
-]
-
-[[package]]
 name = "float-ord"
 version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8010,7 +7991,6 @@ dependencies = [
  "ipc_bus",
  "llama-gguf",
  "memmap2 0.9.11",
- "notify",
  "rand 0.8.7",
  "reqwest 0.12.28",
  "serde",
@@ -8393,12 +8373,10 @@ dependencies = [
  "anyhow",
  "async-trait",
  "compute",
- "nvml-wrapper",
  "parking_lot",
  "rustfft",
  "serde",
  "serde_json",
- "sysinfo 0.30.13",
  "tokio",
  "tokio-serial",
  "tracing",
