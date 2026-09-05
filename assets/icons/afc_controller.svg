@@ -1,0 +1,61 @@
+﻿<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <!-- Background Gradient: Deep Cockpit Obsidian -->
+    <linearGradient id="afcBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#141720"/>
+      <stop offset="50%" stop-color="#0E1017"/>
+      <stop offset="100%" stop-color="#07080B"/>
+    </linearGradient>
+
+    <!-- Neon Telemetry Cyan Gradient -->
+    <linearGradient id="neonCyan" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#00F0FF"/>
+      <stop offset="100%" stop-color="#0077FF"/>
+    </linearGradient>
+
+    <!-- Thermal Afterburner / Alert Orange Gradient -->
+    <linearGradient id="thermalThrust" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#FF5500"/>
+      <stop offset="50%" stop-color="#FF9E44"/>
+      <stop offset="100%" stop-color="#FFE680"/>
+    </linearGradient>
+
+    <!-- HUD Reticle Glow -->
+    <filter id="hudGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="8" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Base Squircle Container -->
+  <rect x="20" y="20" width="472" height="472" rx="108" fill="url(#afcBg)" stroke="#1F2533" stroke-width="4"/>
+
+  <!-- Compass / Reticle Telemetry Ring -->
+  <circle cx="256" cy="256" r="184" fill="none" stroke="#1D2330" stroke-width="6"/>
+  <circle cx="256" cy="256" r="184" fill="none" stroke="url(#neonCyan)" stroke-width="5"
+          stroke-dasharray="140 30 180 30" stroke-linecap="round" filter="url(#hudGlow)"/>
+
+  <!-- Outer Pitch Ladder Indices -->
+  <line x1="64" y1="256" x2="112" y2="256" stroke="url(#neonCyan)" stroke-width="4" stroke-linecap="round"/>
+  <line x1="400" y1="256" x2="448" y2="256" stroke="url(#neonCyan)" stroke-width="4" stroke-linecap="round"/>
+  <line x1="256" y1="64" x2="256" y2="112" stroke="url(#neonCyan)" stroke-width="4" stroke-linecap="round"/>
+  <line x1="256" y1="400" x2="256" y2="448" stroke="url(#neonCyan)" stroke-width="4" stroke-linecap="round"/>
+
+  <!-- Elevation Vector Arrow Guide Lines (45-degree angle pointing up-right) -->
+  <line x1="120" y1="392" x2="392" y2="120" stroke="#222A3A" stroke-width="3" stroke-dasharray="8 8"/>
+
+  <!-- Primary Flight Horizon Stealth Chevron (Elevate-Right Vector) -->
+  <polygon points="330,110 390,260 270,225 210,340 180,310 245,210 170,195" 
+           fill="#10141D" stroke="url(#neonCyan)" stroke-width="7" stroke-linejoin="round" filter="url(#hudGlow)"/>
+
+  <!-- Thermal Thrust Vector Flare -->
+  <polygon points="270,225 210,340 235,270" fill="url(#thermalThrust)"/>
+
+  <!-- Tactical Reticle Aim Crosshair Center -->
+  <circle cx="256" cy="256" r="44" fill="none" stroke="#263042" stroke-width="2"/>
+  <circle cx="256" cy="256" r="8" fill="#FFFFFF"/>
+  <circle cx="256" cy="256" r="2" fill="#00F0FF"/>
+</svg>
