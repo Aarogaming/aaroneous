@@ -6,6 +6,12 @@ All notable changes to Aaroneous.
 
 ## [Unreleased]
 
+### Automated Audit Remediations [2026-09-05 18:07]
+- **CRIT-01: libloading Unchecked DLL Execution (SEC-01)**: Remediated and verified via autonomous audit cycle.
+- **CRIT-02: GDI Handle Leak & Vision Blindness (SEC-02)**: Remediated and verified via autonomous audit cycle.
+- **CRIT-03: Catastrophic GDI Memory Leak in Screen Capture**: Remediated and verified via autonomous audit cycle.
+
+
 ### 🚀 Autonomous Flight Controller (AFC) Open-Source Integration
 - **`dev/tools/afc/` (AFC Architecture Integration)**:
   - **Rig Engine Integration (`afc::router`)**: Implemented direct async TCP HTTP REST routing to local LLMs (LM Studio/Ollama `/v1/chat/completions`), type-safe JSON extractor with markdown fence stripping, and typed tool call registries for `propose_patch` and `report_defect`.

@@ -24,6 +24,7 @@ pub struct StudioApp {
     pub shortcuts: ShortcutsModal,
     pub fascia_watcher: ProcessFasciaWatcher,
     pub guide: crate::hud::onboarding::OnboardingGuide,
+    pub console_os: crate::hud::modes::ConsoleOsLauncher,
 }
 
 impl Default for StudioApp {
@@ -64,6 +65,7 @@ impl Default for StudioApp {
             shortcuts: ShortcutsModal::new(),
             fascia_watcher: ProcessFasciaWatcher::default(),
             guide,
+            console_os: crate::hud::modes::ConsoleOsLauncher::new(),
         }
     }
 }
@@ -83,17 +85,17 @@ impl StudioApp {
             }
             CommandAction::ToggleCompactOverlay => {
                 self.state.app_window_mode = match self.state.app_window_mode {
-                    AppWindowMode::FullStudio => {
-                        ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(egui::vec2(
-                            340.0, 60.0,
-                        )));
-                        AppWindowMode::CompactRecorderOverlay
-                    }
                     AppWindowMode::CompactRecorderOverlay => {
                         ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(egui::vec2(
                             1240.0, 840.0,
                         )));
                         AppWindowMode::FullStudio
+                    }
+                    _ => {
+                        ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(egui::vec2(
+                            340.0, 60.0,
+                        )));
+                        AppWindowMode::CompactRecorderOverlay
                     }
                 };
             }
@@ -193,6 +195,13 @@ impl eframe::App for StudioApp {
         if ctx.input(|i| i.key_pressed(Key::F10)) {
             self.execute_command(CommandAction::ToggleCompactOverlay, &ctx);
         }
+        if ctx.input(|i| i.key_pressed(Key::F11)) {
+            self.state.app_window_mode = match self.state.app_window_mode {
+                AppWindowMode::ConsoleGameOS => AppWindowMode::UtilityDashboard,
+                AppWindowMode::UtilityDashboard => AppWindowMode::ConsoleGameOS,
+                _ => AppWindowMode::ConsoleGameOS,
+            };
+        }
         if ctx.input(|i| i.key_pressed(Key::F12)) {
             self.state.is_ingame_overlay_open = !self.state.is_ingame_overlay_open;
         }
@@ -245,6 +254,12 @@ impl eframe::App for StudioApp {
             }
             AppWindowMode::CompactRecorderOverlay => {
                 render_compact_recorder_overlay(ui, &mut self.state);
+            }
+            AppWindowMode::UtilityDashboard => {
+                crate::hud::modes::render_utility_dashboard(ui, &mut self.state);
+            }
+            AppWindowMode::ConsoleGameOS => {
+                self.console_os.render(ui, &mut self.state);
             }
         }
 

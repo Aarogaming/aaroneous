@@ -234,6 +234,8 @@ pub enum ScreenShareTab {
 pub enum AppWindowMode {
     FullStudio,
     CompactRecorderOverlay,
+    UtilityDashboard,
+    ConsoleGameOS,
 }
 
 /// Persistent User Preferences (100% Dynamic Paths)

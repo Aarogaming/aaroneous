@@ -84,6 +84,14 @@ pub fn render_full_studio(
                         *toggle_palette = true;
                     }
 
+                    if ui.button("🎮 Console-OS (F11)").clicked() {
+                        state.app_window_mode = AppWindowMode::ConsoleGameOS;
+                    }
+
+                    if ui.button("🎛️ Utility Dash").clicked() {
+                        state.app_window_mode = AppWindowMode::UtilityDashboard;
+                    }
+
                     if ui.button("🪟 Mini-HUD (F10)").clicked() {
                         state.app_window_mode = AppWindowMode::CompactRecorderOverlay;
                         ui.ctx().send_viewport_cmd(egui::ViewportCommand::InnerSize(egui::vec2(
