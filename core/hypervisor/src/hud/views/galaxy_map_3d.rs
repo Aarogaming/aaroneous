@@ -141,6 +141,32 @@ impl HudView for Galaxy3DView {
             Some((Pos2::new(screen_x, screen_y), scale, z_cam))
         };
 
+        // Render Deep Parallax Starfield (Magical game-like backdrop)
+        for i in 0..120 {
+            // Deterministic pseudo-random 3D positions spread in a sphere
+            let seed = (i as f32) * 12.9898;
+            let star_x = (seed.sin() * 800.0) % 600.0;
+            let star_y = ((seed * 1.5).cos() * 600.0) % 400.0;
+            let star_z = ((seed * 2.3).sin() * 800.0) % 600.0;
+
+            if let Some((pos_2d, scale, z_cam)) = project_3d([star_x, star_y, star_z]) {
+                if canvas_rect.contains(pos_2d) {
+                    let twinkle = ((time_sec * 3.0 + i as f32 * 1.7).sin() * 0.5 + 0.5).clamp(0.2, 1.0);
+                    let star_alpha = ((180.0 * twinkle) * (1.0 - (z_cam / 1200.0).clamp(0.0, 0.8))) as u8;
+                    let star_radius = (1.5 * scale).clamp(0.8, 2.5);
+                    
+                    // Subtle tint variations (blue-white, gold, purple)
+                    let tint = match i % 4 {
+                        0 => Color32::from_rgba_unmultiplied(180, 220, 255, star_alpha),
+                        1 => Color32::from_rgba_unmultiplied(255, 235, 180, star_alpha),
+                        2 => Color32::from_rgba_unmultiplied(210, 180, 255, star_alpha),
+                        _ => Color32::from_rgba_unmultiplied(255, 255, 255, star_alpha),
+                    };
+                    painter.circle_filled(pos_2d, star_radius, tint);
+                }
+            }
+        }
+
         // Draw Orbital Rings (XZ plane)
         for ring_radius in [80.0f32, 160.0, 240.0] {
             let segments = 48;
@@ -284,8 +310,26 @@ impl HudView for Galaxy3DView {
             );
             painter.circle_filled(*pos_2d, radius, star_color);
 
-            // Selection Highlight Rings
+            // Selection Highlight Rings & Shockwave Ripple
             if is_selected {
+                // Dynamic expanding shockwave ripple
+                let ripple_phase = (time_sec * 1.8) % 1.0;
+                let ripple_radius = radius + (ripple_phase * 22.0 * scale);
+                let ripple_alpha = ((1.0 - ripple_phase) * 160.0) as u8;
+                painter.circle_stroke(
+                    *pos_2d,
+                    ripple_radius,
+                    Stroke::new(
+                        1.5,
+                        Color32::from_rgba_unmultiplied(
+                            theme.accent().r(),
+                            theme.accent().g(),
+                            theme.accent().b(),
+                            ripple_alpha,
+                        ),
+                    ),
+                );
+
                 painter.circle_stroke(
                     *pos_2d,
                     radius + 5.0 * scale,
@@ -355,20 +399,22 @@ impl HudView for Galaxy3DView {
                         );
                         ui.label(
                             egui::RichText::new(format!(
-                                "Domain Opcode: 0x{:04X}",
-                                star.domain_opcode
+                                "Mastery: Lv. {}",
+                                ((star.domain_opcode % 10) + 1)
                             ))
-                            .color(Color32::from_rgb(180, 190, 210)),
+                            .color(Color32::from_rgb(255, 215, 0))
+                            .strong(),
                         );
                         ui.label(
-                            egui::RichText::new(format!("Category: {}", star.category))
+                            egui::RichText::new(format!("Role: {}", star.category))
                                 .color(theme.accent()),
                         );
                         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                            ui.label(format!(
-                                "3D Coordinates: [{:.0}, {:.0}, {:.0}]",
-                                star.pos[0], star.pos[1], star.pos[2]
-                            ));
+                            ui.label(
+                                egui::RichText::new("✨ Ready")
+                                    .color(Color32::from_rgb(100, 220, 140))
+                                    .strong(),
+                            );
                         });
                     });
 

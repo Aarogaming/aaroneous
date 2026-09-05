@@ -277,6 +277,7 @@ impl HudView for AgentsHubView {
                     });
 
                 if let Some(agent) = to_spawn {
+                    state.award_xp(25, "Executed Automation Task");
                     state.spawn_agent_execution(&agent);
                 }
                 if let Some(idx) = to_delete.filter(|&idx| idx < state.custom_agents.len()) {

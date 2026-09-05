@@ -224,6 +224,7 @@ impl HudView for SiForgeView {
                                     if ui.button(egui::RichText::new("⚡ Build Verified Model Package").color(Color32::WHITE).strong()).clicked() {
                                         state.forge_safety_verified = true;
                                         state.forge_safety_certificate = Some("CERT-SAFE-OK: 0 conflict invariants proved".to_string());
+                                        state.award_xp(100, "Built Verified Offline Model");
                                         state.forge_distillation_status = format!(
                                             "Successfully generated '{}' package. Verified safe, conflict-free, and ready to deploy.",
                                             role_label

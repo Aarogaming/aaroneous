@@ -635,6 +635,11 @@ pub struct SharedHudState {
     pub recall_search_query: String,
     pub recall_search_results: Vec<(String, f32, String)>, // title, similarity, latency
 
+    // Gamified Productivity Progression
+    pub user_xp: u64,
+    pub user_level: u32,
+    pub xp_notification: Option<String>,
+
     // Spatial Canvas Scene & Window Topology
     pub spatial_canvas_scene: SpatialCanvasScene,
 
@@ -1048,6 +1053,9 @@ impl Default for SharedHudState {
             audio_last_event_desc: None,
             recall_search_query: String::new(),
             recall_search_results: Vec::new(),
+            user_xp: 350,
+            user_level: 2,
+            xp_notification: None,
             spatial_canvas_scene: SpatialCanvasScene::new(),
             auto_pilot_telemetry: crate::hud::auto_pilot::AutoPilotTelemetry::default(),
             auto_pilot_toggle_requested: false,
@@ -1070,6 +1078,17 @@ impl SharedHudState {
             .unwrap_or_else(|| std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")));
         self.dev_tools_engine = adaptation_engine::DevToolsEngine::new(&root);
         self.workspace_tree_items = self.dev_tools_engine.scan_workspace_tree(4);
+    }
+
+    pub fn award_xp(&mut self, amount: u64, reason: &str) {
+        self.user_xp += amount;
+        let xp_for_next_level = (self.user_level as u64) * 250;
+        if self.user_xp >= xp_for_next_level {
+            self.user_level += 1;
+            self.xp_notification = Some(format!("🎉 LEVEL UP! Reached Level {} (+{} XP: {})", self.user_level, amount, reason));
+        } else {
+            self.xp_notification = Some(format!("✨ +{} XP ({})", amount, reason));
+        }
     }
 
     pub fn save_scene_to_disk(&self, path: &std::path::Path) -> anyhow::Result<()> {

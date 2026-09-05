@@ -43,24 +43,39 @@ pub fn render_full_studio(
                     .settings
                     .selected_gguf_model
                     .as_deref()
-                    .unwrap_or("⚡ Solid-State SI Native");
+                    .unwrap_or("⚡ Local Assistant");
                 ui.label(
                     egui::RichText::new(format!("🧠 {persona_name}"))
                         .size(11.0)
                         .color(theme.accent()),
                 );
 
+                ui.separator();
+
+                // Gamified Productivity Level & XP Badge
+                let level = state.user_level;
+                let xp = state.user_xp;
+                let next_xp = (level as u64) * 250;
+                let progress = (xp as f32 / next_xp as f32).clamp(0.0, 1.0);
+                ui.horizontal(|ui| {
+                    ui.label(egui::RichText::new(format!("⭐ Lv. {}", level)).strong().color(Color32::from_rgb(255, 215, 0)));
+                    ui.add(egui::ProgressBar::new(progress).text(format!("{}/{} XP", xp, next_xp)).desired_width(110.0));
+                    if let Some(notif) = &state.xp_notification {
+                        ui.label(egui::RichText::new(notif).color(Color32::from_rgb(63, 185, 80)).strong().size(11.0));
+                    }
+                });
+
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    if ui.button(if state.settings.modular_canvas_mode { "🪟 Standard Mode" } else { "📐 Modular Canvas" }).clicked() {
+                    if ui.button(if state.settings.modular_canvas_mode { "🪟 Standard Mode" } else { "📐 Modular Workspace" }).clicked() {
                         state.settings.modular_canvas_mode = !state.settings.modular_canvas_mode;
                         state.settings.save_to_disk();
                     }
 
-                    if ui.button("❓ (Ctrl+/)").clicked() {
+                    if ui.button("❓ Guide (Ctrl+/)").clicked() {
                         *toggle_shortcuts = true;
                     }
 
-                    if ui.button("🔍 Command Palette (Ctrl+K)").clicked() {
+                    if ui.button("🔍 Action Palette (Ctrl+K)").clicked() {
                         *toggle_palette = true;
                     }
 
@@ -74,7 +89,7 @@ pub fn render_full_studio(
                         ));
                     }
 
-                    if ui.button("🔴 Rec (F9)").clicked() {
+                    if ui.button("🔴 Rec Macro (F9)").clicked() {
                         state.toggle_recording();
                     }
                 });
@@ -96,7 +111,7 @@ pub fn render_full_studio(
                     .filter(|a| a.state == crate::hud::state::AgentExecutionState::Running)
                     .count();
                 ui.label(
-                    egui::RichText::new(format!("🤖 Active Bots: {active_count}"))
+                    egui::RichText::new(format!("🤖 Active Companions: {active_count}"))
                         .size(11.0)
                         .color(if active_count > 0 {
                             Color32::from_rgb(63, 185, 80)
@@ -107,21 +122,21 @@ pub fn render_full_studio(
 
                 ui.separator();
                 ui.label(
-                    egui::RichText::new("⚡ DXGI Desktop Duplication: ACTIVE")
+                    egui::RichText::new("⚡ Display Stream: 60 FPS (Ultra-Low Latency)")
                         .size(11.0)
                         .color(Color32::from_rgb(63, 185, 80)),
                 );
 
                 ui.separator();
                 ui.label(
-                    egui::RichText::new(format!("Bus Integrity: {:.1}%", state.bus_integrity))
+                    egui::RichText::new(format!("✨ System Harmony: {:.0}%", state.bus_integrity))
                         .size(11.0)
                         .color(theme.accent()),
                 );
 
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                     ui.label(
-                        egui::RichText::new(format!("FPS: {:.0}", state.measured_fps))
+                        egui::RichText::new(format!("Framerate: {:.0} FPS", state.measured_fps))
                             .size(11.0)
                             .strong()
                             .color(theme.accent()),
@@ -142,16 +157,16 @@ pub fn render_full_studio(
         .show_inside(ui, |ui| {
             ui.add_space(4.0);
             let sections = [
-                (NavSection::Agents, "🤖 Agents & Swarm"),
-                (NavSection::ScreenAutomation, "👁️ Screen & Motor"),
-                (NavSection::SiForge, "⚡ SI Forge & Mind"),
-                (NavSection::GalaxyMap3D, "🌌 3D Galaxy"),
+                (NavSection::Agents, "🤖 Companions & Team"),
+                (NavSection::ScreenAutomation, "🎮 Screen & Auto-Pilot"),
+                (NavSection::SiForge, "⚡ Create & Train"),
+                (NavSection::GalaxyMap3D, "🌌 Cosmos Map"),
                 (NavSection::Settings, "⚙️ Settings"),
             ];
 
             let dev_sections = [
-                (NavSection::DevStudio, "🛠️ Dev Studio"),
-                (NavSection::InterconnectMonitor, "⚡ Bus Monitor"),
+                (NavSection::DevStudio, "🛠️ Power Tools"),
+                (NavSection::InterconnectMonitor, "⚡ Live Link"),
             ];
 
             for (sec, label) in sections {

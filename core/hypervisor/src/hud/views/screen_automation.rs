@@ -23,7 +23,7 @@ impl HudView for ScreenAutomationView {
 
         ui.horizontal(|ui| {
             ui.heading(
-                egui::RichText::new("👁️ Epigenetic Vision & Sandboxed Motor Engine")
+                egui::RichText::new("🎮 Screen Capture & Auto-Pilot Engine")
                     .color(theme.accent())
                     .strong(),
             );
@@ -41,7 +41,7 @@ impl HudView for ScreenAutomationView {
         });
 
         ui.label(
-            "DirectX 12 / DXGI desktop duplication and window-specific capture with epigenetic delta gating.",
+            "Ultra-low latency window-specific capture, direct display mirroring, and automated action execution.",
         );
         ui.separator();
 
@@ -215,22 +215,22 @@ impl HudView for ScreenAutomationView {
 
                 ui.add_space(8.0);
                 ui.separator();
-                ui.label(egui::RichText::new("Capture Modifiers & Filters:").strong());
+                ui.label(egui::RichText::new("Display Performance & Filters:").strong());
                 ui.horizontal(|ui| {
-                    ui.label("Target FPS:");
+                    ui.label("Display Target Rate:");
                     ui.add(
                         egui::Slider::new(&mut state.capture_modifiers.target_fps, 15..=120)
                             .text("FPS"),
                     );
                 });
                 ui.horizontal(|ui| {
-                    ui.label("Entropy Threshold:");
+                    ui.label("Motion Sensitivity:");
                     ui.add(
                         egui::Slider::new(
                             &mut state.capture_modifiers.entropy_threshold,
                             0.01..=0.20,
                         )
-                        .text("Threshold"),
+                        .text("Sensitivity"),
                     );
                 });
             });
