@@ -1,13 +1,20 @@
-// crates/flight_controller/src/main.rs
 use anyhow::Result;
 use clap::Parser;
-use flight_controller::{FlightConfig, FlightEngine};
+use flight_controller::{launch_gui, FlightConfig, FlightEngine};
 
-#[tokio::main]
-async fn main() -> Result<()> {
+fn main() -> Result<()> {
     tracing_subscriber::fmt().init();
 
     let config = FlightConfig::parse();
-    let engine = FlightEngine::new(config)?;
-    engine.run().await
+
+    if config.gui {
+        launch_gui(config).map_err(|e| anyhow::anyhow!("GUI runtime error: {e}"))?;
+        Ok(())
+    } else {
+        let rt = tokio::runtime::Runtime::new()?;
+        rt.block_on(async {
+            let engine = FlightEngine::new(config)?;
+            engine.run().await
+        })
+    }
 }

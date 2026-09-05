@@ -55,4 +55,8 @@ pub struct FlightConfig {
     /// Workspace repository root directory
     #[arg(long)]
     pub repo_root: Option<PathBuf>,
+
+    /// Launch interactive Desktop GUI HUD
+    #[arg(long, default_value_t = false)]
+    pub gui: bool,
 }
