@@ -44,6 +44,7 @@ pub struct FlightControllerApp {
     pub last_probe_time: Instant,
     pub tx_cmd: Sender<FlightCommand>,
     pub rx_event: Receiver<FlightEvent>,
+    pub show_advanced_telemetry: bool,
 }
 
 impl FlightControllerApp {
@@ -73,6 +74,7 @@ impl FlightControllerApp {
             last_probe_time: Instant::now(),
             tx_cmd,
             rx_event,
+            show_advanced_telemetry: false,
         };
 
         // Spawn background worker thread
@@ -234,16 +236,16 @@ impl eframe::App for FlightControllerApp {
                         let badge_text = match active_model {
                             Some(active) => {
                                 if *model_matched {
-                                    format!("[Online] {provider}: {}", active.identifier)
+                                    format!("[Online] {}", active.identifier)
                                 } else {
                                     format!(
-                                        "[Mismatch] {} differs from configured target '{}'",
+                                        "[Mismatch] {} ≠ '{}'",
                                         active.identifier, configured_model
                                     )
                                 }
                             }
                             None => {
-                                format!("[Warning] {provider}: No Model Loaded in Memory")
+                                format!("[Warning] No Model Loaded")
                             }
                         };
                         let badge_color = match active_model {
@@ -262,55 +264,41 @@ impl eframe::App for FlightControllerApp {
                                 .color(badge_color)
                                 .strong(),
                         );
+                        
+                        // Collapsible advanced telemetry button (outside hover UI)
+                        if ui.button("🔬 Advanced Telemetry").clicked() {
+                            self.show_advanced_telemetry = !self.show_advanced_telemetry;
+                        }
+                        if self.show_advanced_telemetry {
+                            ui.add_space(2.0);
+                            ui.horizontal_wrapped(|ui| {
+                                if let Some(active) = active_model {
+                                    ui.label(format!("Hash: {}", active.model_hash));
+                                    ui.label(format!("VRAM: {:?}", active.size_vram));
+                                    ui.label(format!("Context: {:?}", active.context_length));
+                                }
+                                ui.label(format!("Endpoint: {}", endpoint));
+                            });
+                        }
+                        
                         badge.on_hover_ui(|ui| {
                             ui.label(egui::RichText::new(format!("Provider: {provider}")).strong());
                             ui.label(format!("Endpoint: {endpoint}"));
                             ui.label(format!("Configured in OpenCode: {configured_model}"));
-                            ui.separator();
                             if let Some(active) = active_model {
+                                ui.separator();
                                 ui.label(
-                                    egui::RichText::new("Active In-Memory Model:")
+                                    egui::RichText::new("Active Model:")
                                         .strong()
                                         .color(egui::Color32::from_rgb(80, 230, 130)),
                                 );
-                                ui.label(format!("  Identifier: {}", active.identifier));
-                                ui.label(format!("  Name: {}", active.display_name));
-                                ui.label(format!("  Status: {}", active.status));
+                                ui.label(format!("  {}", active.identifier));
                                 if let Some(ref sz) = active.size_vram {
-                                    ui.label(format!("  Size / VRAM: {}", sz));
+                                    ui.label(format!("  VRAM: {}", sz));
                                 }
                                 if let Some(ctx) = active.context_length {
-                                    ui.label(format!("  Context Window: {} tokens", ctx));
+                                    ui.label(format!("  Context: {}T", ctx));
                                 }
-                                if *model_matched {
-                                    ui.label(
-                                        egui::RichText::new("  Status: Ready for Flight (Matched)")
-                                            .color(egui::Color32::GREEN),
-                                    );
-                                } else {
-                                    ui.label(
-                                        egui::RichText::new(
-                                            "  Warning: Loaded model differs from opencode.json target",
-                                        )
-                                        .color(egui::Color32::YELLOW),
-                                    );
-                                }
-                            } else {
-                                ui.label(
-                                    egui::RichText::new(
-                                        "WARNING: Server online, but NO model loaded in memory!",
-                                    )
-                                    .color(egui::Color32::YELLOW),
-                                );
-                                ui.label("Load your model in LM Studio before starting flight.");
-                            }
-                            ui.separator();
-                            ui.label(format!(
-                                "Available Models on Endpoint ({}):",
-                                discovered_models.len()
-                            ));
-                            for m in discovered_models {
-                                ui.label(format!("  - {m}"));
                             }
                         });
                     }
