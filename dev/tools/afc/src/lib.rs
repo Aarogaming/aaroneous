@@ -9,6 +9,9 @@ pub mod hardware;
 pub mod llm;
 pub mod model_probe;
 pub mod queue;
+pub mod recipe;
+pub mod router;
+pub mod state;
 
 pub use config::FlightConfig;
 pub use engine::FlightEngine;

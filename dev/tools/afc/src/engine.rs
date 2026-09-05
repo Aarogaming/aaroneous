@@ -6,6 +6,7 @@ use crate::git::GitEngine;
 use crate::hardware::HardwareMonitor;
 use crate::llm::LlmOrchestrator;
 use crate::queue::QueueManager;
+use crate::state::{FlightState, StateMachine};
 use anyhow::Result;
 use chrono::Local;
 use std::path::PathBuf;
@@ -30,6 +31,8 @@ impl FlightEngine {
         info!("              [Out-of-Tree Sovereign Hypervisor]          ");
         info!("==========================================================");
         info!("Target Repository: {:?}", self.repo_root);
+
+        let mut state_machine = StateMachine::new();
 
         let logs_dir = self
             .repo_root
@@ -81,6 +84,13 @@ impl FlightEngine {
             // ----------------------------------------------------
             if self.config.phase_plan {
                 info!("[PHASE 1: PLAN] Running Frontier Architect...");
+                state_machine.transition_to(
+                    FlightState::Planning {
+                        spec_focus: "Frontier Architect Roadmap".into(),
+                    },
+                    format!("Cycle {cycle}: Phase 1 Plan"),
+                )?;
+
                 if let Err(e) =
                     LlmOrchestrator::run_plan(&self.repo_root, self.config.watchdog_timeout_secs)
                         .await
@@ -95,6 +105,13 @@ impl FlightEngine {
             // ----------------------------------------------------
             if self.config.phase_audit {
                 info!("[PHASE 2: AUDIT] Running Safety & Debt Audit...");
+                state_machine.transition_to(
+                    FlightState::Auditing {
+                        category: "Holistic Architectural & Resilience Audit".into(),
+                    },
+                    format!("Cycle {cycle}: Phase 2 Audit"),
+                )?;
+
                 if self.config.audit_health {
                     let _ = LlmOrchestrator::run_specialized_audit(
                         &self.repo_root,
@@ -136,6 +153,17 @@ impl FlightEngine {
                         let subtask_num = idx + 1;
                         info!("Cycle {cycle} - Remediation subtask {subtask_num}: '{task_title}'");
 
+                        state_machine.transition_to(
+                            FlightState::IsolatedRemediation {
+                                task_id: format!("cycle_{cycle}_task_{subtask_num}"),
+                                target_file: PathBuf::new(),
+                                target_lines: (0, 0),
+                                defect_description: task_title.clone(),
+                                compiler_feedback: None,
+                            },
+                            format!("Cycle {cycle}: Task {subtask_num} remediation"),
+                        )?;
+
                         let subtask_log =
                             logs_dir.join(format!("subtask_{cycle}_{subtask_num}.log"));
                         let fix_result = LlmOrchestrator::run_fix(
@@ -155,6 +183,13 @@ impl FlightEngine {
                         }
 
                         // Validation Gates
+                        state_machine.transition_to(
+                            FlightState::VerificationGate {
+                                modified_files: Vec::new(),
+                            },
+                            format!("Cycle {cycle}: Task {subtask_num} validation gate"),
+                        )?;
+
                         let check_res = Gatekeeper::check_workspace(&self.repo_root).await;
                         let mut validation_failed = check_res.is_err();
 
@@ -206,29 +241,36 @@ impl FlightEngine {
             // ----------------------------------------------------
             if self.config.phase_verify {
                 info!("[PHASE 5: VERIFY] Running Workspace Gatekeeper...");
+                state_machine.transition_to(
+                    FlightState::VerificationGate {
+                        modified_files: Vec::new(),
+                    },
+                    format!("Cycle {cycle}: Phase 5 Verification"),
+                )?;
+
                 if self.config.enforce_format {
                     let _ = Gatekeeper::format_workspace(&self.repo_root).await;
                 }
 
-                if let Err(e) = Gatekeeper::check_workspace(&self.repo_root).await {
-                    error!("Workspace compilation failed at end of cycle {cycle}: {e}");
+                let pipeline_report = Gatekeeper::run_verification_pipeline(
+                    &self.repo_root,
+                    self.config.clippy_gate,
+                    self.config.run_tests,
+                    false, // Format already handled above
+                )
+                .await?;
+
+                if !pipeline_report.passed {
+                    if let Some(ref err) = pipeline_report.failure_summary {
+                        error!("Workspace verification pipeline failed at cycle {cycle}:\n{err}");
+                    } else {
+                        error!("Workspace verification pipeline failed at cycle {cycle}");
+                    }
                     if self.config.auto_cycles == 1 {
                         break;
                     }
                 } else {
-                    info!("Workspace compilation clean!");
-
-                    if self.config.clippy_gate {
-                        let _ = Gatekeeper::inspect_clippy(&self.repo_root).await;
-                    }
-
-                    if self.config.run_tests {
-                        if let Err(e) = Gatekeeper::test_workspace(&self.repo_root).await {
-                            error!("Workspace tests failed: {e}");
-                        } else {
-                            info!("All workspace unit tests passed!");
-                        }
-                    }
+                    info!("All workspace verification gates passed cleanly!");
 
                     if self.config.run_security {
                         let _ = Gatekeeper::audit_security(&self.repo_root).await;
@@ -240,6 +282,12 @@ impl FlightEngine {
                     if self.config.phase_commit && GitEngine::is_dirty(&self.repo_root).await? {
                         let commit_msg =
                             format!("chore(flight): verified autonomous cycle {cycle} [skip ci]");
+                        state_machine.transition_to(
+                            FlightState::CommitLedger {
+                                commit_message: commit_msg.clone(),
+                            },
+                            format!("Cycle {cycle}: Phase 6 Commit"),
+                        )?;
                         GitEngine::atomic_commit(&self.repo_root, &commit_msg).await?;
                     }
                 }
@@ -261,6 +309,17 @@ impl FlightEngine {
             if let Ok(()) = Gatekeeper::build_release(&self.repo_root).await {
                 DeliveryEngine::package_artifacts(&self.repo_root).await?;
             }
+        }
+
+        state_machine.transition_to(
+            FlightState::Completed,
+            "All autonomous cycles completed successfully",
+        )?;
+
+        // Write state transitions log
+        let transitions_log = logs_dir.join("state_transitions.json");
+        if let Ok(serialized) = serde_json::to_string_pretty(&state_machine.history) {
+            let _ = fs::write(&transitions_log, serialized).await;
         }
 
         info!("==========================================================");
