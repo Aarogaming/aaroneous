@@ -90,6 +90,29 @@ impl LlmOrchestrator {
         Self::run_opencode_command(repo_path, &args, timeout_secs, None).await
     }
 
+    pub async fn run_specialized_audit(
+        repo_path: &Path,
+        command: &str,
+        focus_prompt: Option<&str>,
+        timeout_secs: u64,
+    ) -> Result<String> {
+        info!("LlmOrchestrator: Initiating specialized audit command '{command}'...");
+        let mut args = vec![
+            "opencode",
+            "run",
+            "--agent",
+            "auditor",
+            "--command",
+            command,
+            "--thinking",
+            "--auto",
+        ];
+        if let Some(prompt) = focus_prompt {
+            args.push(prompt);
+        }
+        Self::run_opencode_command(repo_path, &args, timeout_secs, None).await
+    }
+
     pub async fn run_fix(
         repo_path: &Path,
         task_title: &str,

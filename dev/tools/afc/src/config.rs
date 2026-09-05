@@ -58,6 +58,47 @@ pub struct FlightConfig {
     /// Launch interactive Desktop GUI HUD
     #[arg(long, default_value_t = false)]
     pub gui: bool,
+
+    // ── Phase Selection Toggles ─────────────────────────────────────────────
+    #[arg(long, default_value_t = true)]
+    pub phase_plan: bool,
+
+    #[arg(long, default_value_t = true)]
+    pub phase_audit: bool,
+
+    #[arg(long, default_value_t = true)]
+    pub phase_fix: bool,
+
+    #[arg(long, default_value_t = true)]
+    pub phase_sweep: bool,
+
+    #[arg(long, default_value_t = true)]
+    pub phase_verify: bool,
+
+    #[arg(long, default_value_t = true)]
+    pub phase_commit: bool,
+
+    #[arg(long, default_value_t = true)]
+    pub phase_deliver: bool,
+
+    // ── Audit Types Multiselect ─────────────────────────────────────────────
+    #[arg(long, default_value_t = true)]
+    pub audit_security: bool,
+
+    #[arg(long, default_value_t = true)]
+    pub audit_panics: bool,
+
+    #[arg(long, default_value_t = true)]
+    pub audit_concurrency: bool,
+
+    #[arg(long, default_value_t = true)]
+    pub audit_dead_code: bool,
+
+    #[arg(long, default_value_t = true)]
+    pub audit_health: bool,
+
+    #[arg(long, default_value_t = true)]
+    pub audit_resilience: bool,
 }
 
 impl FlightConfig {

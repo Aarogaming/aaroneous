@@ -1,11 +1,13 @@
 // dev/tools/afc/src/gui.rs
 use crate::config::FlightConfig;
+use crate::model_probe::{ModelEndpointStatus, ModelProbe};
 use crate::queue::QueueManager;
 use eframe::egui;
 use std::collections::VecDeque;
 use std::path::PathBuf;
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::thread;
+use std::time::{Duration, Instant};
 
 #[derive(Debug, Clone)]
 pub enum FlightEvent {
@@ -14,14 +16,16 @@ pub enum FlightEvent {
     Log(String),
     HardwareUpdated(u32, String),
     TaskUpdated(Vec<String>),
+    ModelProbeUpdated(ModelEndpointStatus),
     Completed,
     Error(String),
 }
 
 #[derive(Debug, Clone)]
 pub enum FlightCommand {
-    Start,
+    Start(FlightConfig),
     Stop,
+    ProbeModel,
 }
 
 pub struct FlightControllerApp {
@@ -35,6 +39,8 @@ pub struct FlightControllerApp {
     pub pending_tasks: Vec<String>,
     pub gpu_temp: u32,
     pub vram_str: String,
+    pub model_status: ModelEndpointStatus,
+    pub last_probe_time: Instant,
     pub tx_cmd: Sender<FlightCommand>,
     pub rx_event: Receiver<FlightEvent>,
 }
@@ -62,12 +68,14 @@ impl FlightControllerApp {
             pending_tasks: Vec::new(),
             gpu_temp: 0,
             vram_str: "0 MB".to_string(),
+            model_status: ModelEndpointStatus::Unconfigured,
+            last_probe_time: Instant::now(),
             tx_cmd,
             rx_event,
         };
 
+        // Spawn background worker thread
         let worker_root = repo_root.clone();
-        let worker_config = config;
         thread::spawn(move || {
             let rt = match tokio::runtime::Runtime::new() {
                 Ok(r) => r,
@@ -85,24 +93,28 @@ impl FlightControllerApp {
                     .join("active")
                     .join("ACTIVE_AUDIT_QUEUE.md");
 
+                // Initial task queue poll
                 if let Ok(tasks) = QueueManager::find_pending_tasks(&queue_path).await {
                     let _ = tx_event.send(FlightEvent::TaskUpdated(tasks));
                 }
 
+                // Initial model probe
+                let status = ModelProbe::check_endpoint(&worker_root).await;
+                let _ = tx_event.send(FlightEvent::ModelProbeUpdated(status));
+
                 while let Ok(cmd) = rx_cmd.recv() {
                     match cmd {
-                        FlightCommand::Start => {
+                        FlightCommand::Start(active_cfg) => {
                             let _ = tx_event.send(FlightEvent::Log(
                                 "[AFC Engine] Starting autonomous flight cycle...".to_string(),
                             ));
-                            let engine =
-                                match crate::engine::FlightEngine::new(worker_config.clone()) {
-                                    Ok(eng) => eng,
-                                    Err(e) => {
-                                        let _ = tx_event.send(FlightEvent::Error(format!("{e}")));
-                                        continue;
-                                    }
-                                };
+                            let engine = match crate::engine::FlightEngine::new(active_cfg) {
+                                Ok(eng) => eng,
+                                Err(e) => {
+                                    let _ = tx_event.send(FlightEvent::Error(format!("{e}")));
+                                    continue;
+                                }
+                            };
 
                             let _ = tx_event.send(FlightEvent::PhaseChanged("Active Flight"));
                             if let Err(e) = engine.run().await {
@@ -119,6 +131,10 @@ impl FlightControllerApp {
                         FlightCommand::Stop => {
                             let _ = tx_event
                                 .send(FlightEvent::Log("[AFC Engine] Stopped.".to_string()));
+                        }
+                        FlightCommand::ProbeModel => {
+                            let status = ModelProbe::check_endpoint(&worker_root).await;
+                            let _ = tx_event.send(FlightEvent::ModelProbeUpdated(status));
                         }
                     }
                 }
@@ -140,7 +156,7 @@ impl FlightControllerApp {
                     self.active_phase = phase;
                 }
                 FlightEvent::Log(msg) => {
-                    if self.logs.len() >= 200 {
+                    if self.logs.len() >= 250 {
                         self.logs.pop_front();
                     }
                     self.logs.push_back(msg);
@@ -151,6 +167,9 @@ impl FlightControllerApp {
                 }
                 FlightEvent::TaskUpdated(tasks) => {
                     self.pending_tasks = tasks;
+                }
+                FlightEvent::ModelProbeUpdated(status) => {
+                    self.model_status = status;
                 }
                 FlightEvent::Completed => {
                     self.running = false;
@@ -166,21 +185,73 @@ impl FlightControllerApp {
                 }
             }
         }
+
+        // Auto probe model endpoint every 10 seconds
+        if self.last_probe_time.elapsed() > Duration::from_secs(10) {
+            self.last_probe_time = Instant::now();
+            let _ = self.tx_cmd.send(FlightCommand::ProbeModel);
+        }
     }
 }
 
 impl eframe::App for FlightControllerApp {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         self.poll_events();
-        ui.ctx()
-            .request_repaint_after(std::time::Duration::from_millis(100));
+        ui.ctx().request_repaint_after(Duration::from_millis(100));
 
-        // Top Control Bar
-        egui::Panel::top("flight_control_bar").show_inside(ui, |ui| {
+        // ── Top Bar: Mission Control & Provider Recognition ───────────────────
+        egui::Panel::top("flight_top_bar").show_inside(ui, |ui| {
             ui.add_space(6.0);
             ui.horizontal(|ui| {
                 ui.heading("✈ Aaroneous Flight Controller");
-                ui.label(egui::RichText::new("v0.1.0 [Isolated Tool]").color(egui::Color32::GRAY));
+                ui.label(egui::RichText::new("v0.1.0").color(egui::Color32::GRAY));
+
+                ui.separator();
+
+                // Provider Recognition Badge
+                match &self.model_status {
+                    ModelEndpointStatus::Connected {
+                        provider,
+                        configured_model,
+                        discovered_models,
+                    } => {
+                        let badge = ui.label(
+                            egui::RichText::new(format!("🟢 {provider}: {configured_model}"))
+                                .color(egui::Color32::from_rgb(80, 230, 130))
+                                .strong(),
+                        );
+                        badge.on_hover_ui(|ui| {
+                            ui.label(format!("Provider: {provider}"));
+                            ui.label(format!("Active Model: {configured_model}"));
+                            ui.separator();
+                            ui.label("Discovered Endpoint Models:");
+                            for m in discovered_models {
+                                ui.label(format!("  • {m}"));
+                            }
+                        });
+                    }
+                    ModelEndpointStatus::Disconnected {
+                        provider,
+                        target_endpoint,
+                        reason,
+                    } => {
+                        let badge = ui.label(
+                            egui::RichText::new(format!("🔴 {provider} Offline"))
+                                .color(egui::Color32::from_rgb(255, 90, 90))
+                                .strong(),
+                        );
+                        badge.on_hover_ui(|ui| {
+                            ui.label(format!("Endpoint: {target_endpoint}"));
+                            ui.label(format!("Status: {reason}"));
+                        });
+                    }
+                    ModelEndpointStatus::Unconfigured => {
+                        ui.label(
+                            egui::RichText::new("⚪ Checking AI Provider...")
+                                .color(egui::Color32::GRAY),
+                        );
+                    }
+                }
 
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                     let status_color = if self.running {
@@ -215,7 +286,7 @@ impl eframe::App for FlightControllerApp {
             });
             ui.add_space(4.0);
 
-            // Mission Control Buttons
+            // Primary Control Row
             ui.horizontal(|ui| {
                 if !self.running {
                     if ui
@@ -228,7 +299,7 @@ impl eframe::App for FlightControllerApp {
                     {
                         self.running = true;
                         self.active_phase = "Launching...";
-                        let _ = self.tx_cmd.send(FlightCommand::Start);
+                        let _ = self.tx_cmd.send(FlightCommand::Start(self.config.clone()));
                     }
                 } else if ui
                     .button(
@@ -243,19 +314,63 @@ impl eframe::App for FlightControllerApp {
                     let _ = self.tx_cmd.send(FlightCommand::Stop);
                 }
 
-                ui.separator();
+                if ui.button("🔄 Probe Model").clicked() {
+                    let _ = self.tx_cmd.send(FlightCommand::ProbeModel);
+                }
 
-                ui.checkbox(&mut self.config.clippy_gate, "Clippy Gate");
-                ui.checkbox(&mut self.config.run_tests, "Test Gate");
-                ui.checkbox(&mut self.config.run_security, "Security Gate");
-                ui.checkbox(&mut self.config.enforce_format, "Fmt Gate");
-                ui.checkbox(&mut self.config.auto_rollback, "Auto Rollback");
-                ui.checkbox(&mut self.config.build_artifacts, "Release Package");
+                ui.separator();
+                ui.label("Cycles:");
+                ui.add(egui::DragValue::new(&mut self.config.auto_cycles).range(1..=50));
             });
             ui.add_space(4.0);
         });
 
-        // Left Panel: Queue & Gates
+        // ── Multiselect Phase & Audit Control Panels ──────────────────────────
+        egui::Panel::top("multiselect_panel").show_inside(ui, |ui| {
+            ui.add_space(2.0);
+            ui.collapsing("⚙ Pipeline Phase Selection (Multiselect)", |ui| {
+                ui.horizontal_wrapped(|ui| {
+                    ui.checkbox(&mut self.config.phase_plan, "1. Plan (Architect)");
+                    ui.checkbox(&mut self.config.phase_audit, "2. Audit (Forensics)");
+                    ui.checkbox(&mut self.config.phase_fix, "3. Fix (Remediate)");
+                    ui.checkbox(&mut self.config.phase_sweep, "4. Sweep (Archive)");
+                    ui.checkbox(&mut self.config.phase_verify, "5. Verify (Gates)");
+                    ui.checkbox(&mut self.config.phase_commit, "6. Commit (Git)");
+                    ui.checkbox(&mut self.config.phase_deliver, "7. Deliver (Release)");
+                });
+            });
+
+            ui.collapsing("🔍 Forensic Audit Types (Multiselect)", |ui| {
+                ui.horizontal_wrapped(|ui| {
+                    ui.checkbox(&mut self.config.audit_security, "🛡️ Security & CVEs");
+                    ui.checkbox(&mut self.config.audit_panics, "⚠️ Panic & Unwrap Removal");
+                    ui.checkbox(
+                        &mut self.config.audit_concurrency,
+                        "🔒 Concurrency & Lock Safety",
+                    );
+                    ui.checkbox(&mut self.config.audit_dead_code, "🗑️ Dead Code & Stubs");
+                    ui.checkbox(&mut self.config.audit_health, "🏥 SystemsHealthAuditor");
+                    ui.checkbox(
+                        &mut self.config.audit_resilience,
+                        "⚡ AdvancedResilienceAuditor",
+                    );
+                });
+            });
+
+            ui.collapsing("🛡️ CI/CD Quality Gatekeeper Toggles", |ui| {
+                ui.horizontal_wrapped(|ui| {
+                    ui.checkbox(&mut self.config.clippy_gate, "Clippy Gate");
+                    ui.checkbox(&mut self.config.run_tests, "Test Gate");
+                    ui.checkbox(&mut self.config.run_security, "Cargo Audit Gate");
+                    ui.checkbox(&mut self.config.enforce_format, "Auto Format Gate");
+                    ui.checkbox(&mut self.config.auto_rollback, "Auto Rollback on Error");
+                    ui.checkbox(&mut self.config.build_artifacts, "Release Package Zip");
+                });
+            });
+            ui.add_space(2.0);
+        });
+
+        // ── Left Panel: Active Queue Checklist ────────────────────────────────
         egui::Panel::left("queue_panel")
             .resizable(true)
             .default_size(320.0)
@@ -286,7 +401,7 @@ impl eframe::App for FlightControllerApp {
                 });
             });
 
-        // Central Area: Live Logs & Telemetry
+        // ── Central Area: Live Mission Telemetry & Output ─────────────────────
         ui.vertical(|ui| {
             ui.add_space(4.0);
             ui.horizontal(|ui| {
@@ -333,8 +448,8 @@ pub fn launch_gui(config: FlightConfig) -> Result<(), eframe::Error> {
     let native_options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_title("Aaroneous Flight Controller")
-            .with_inner_size([1100.0, 700.0])
-            .with_min_inner_size([640.0, 400.0]),
+            .with_inner_size([1180.0, 780.0])
+            .with_min_inner_size([720.0, 480.0]),
         ..Default::default()
     };
 

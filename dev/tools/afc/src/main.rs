@@ -1,7 +1,9 @@
 // dev/tools/afc/src/main.rs
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+
+use afc::{launch_gui, FlightConfig, FlightEngine};
 use anyhow::Result;
 use clap::Parser;
-use afc::{launch_gui, FlightConfig, FlightEngine};
 
 fn main() -> Result<()> {
     tracing_subscriber::fmt().init();
