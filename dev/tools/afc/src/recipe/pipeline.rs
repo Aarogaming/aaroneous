@@ -79,7 +79,7 @@ impl RecipePipeline {
         })
     }
 
-    /// Pre-configured Verification Gate Pipeline
+    /// Pre-configured Verification Gate Pipeline executing via Git Bash
     pub fn verification_gates(
         repo_root: &Path,
         enforce_clippy: bool,
@@ -87,35 +87,110 @@ impl RecipePipeline {
         enforce_fmt: bool,
     ) -> Self {
         let mut pipeline = Self::new("Verification Gates");
+        let cwd = repo_root.to_path_buf();
 
         if enforce_fmt {
-            let fmt_step = Step::new("Cargo Format Gate", "cargo", repo_root.to_path_buf())
-                .args(["fmt", "--check"])
-                .with_timeout(Duration::from_secs(60));
+            let fmt_step = Step::bash(
+                "Cargo Format Gate",
+                "cargo fmt --all -- --check",
+                cwd.clone(),
+            )
+            .with_timeout(Duration::from_secs(60));
             pipeline = pipeline.add_step(fmt_step);
         }
 
+        let check_step = Step::bash("Cargo Check Gate", "cargo check --workspace", cwd.clone())
+            .with_timeout(Duration::from_secs(180));
+        pipeline = pipeline.add_step(check_step);
+
         if enforce_clippy {
-            let clippy_step = Step::new("Clippy Lint Gate", "cargo", repo_root.to_path_buf())
-                .args([
-                    "clippy",
-                    "--all-targets",
-                    "--all-features",
-                    "--",
-                    "-D",
-                    "warnings",
-                ])
-                .with_timeout(Duration::from_secs(300));
+            let clippy_step = Step::bash(
+                "Clippy Lint Gate",
+                "cargo clippy --workspace --all-targets --all-features -- -D warnings",
+                cwd.clone(),
+            )
+            .with_timeout(Duration::from_secs(300));
             pipeline = pipeline.add_step(clippy_step);
         }
 
         if enforce_test {
-            let test_step = Step::new("Unit Test Gate", "cargo", repo_root.to_path_buf())
-                .args(["test", "--workspace"])
+            let test_step = Step::bash("Unit Test Gate", "cargo test --workspace", cwd.clone())
                 .with_timeout(Duration::from_secs(300));
             pipeline = pipeline.add_step(test_step);
         }
 
         pipeline
+    }
+
+    /// Comprehensive Systems Health & Architectural Parity Pipeline
+    /// Translates the 4-phase SystemsHealthAuditor directives into actionable execution stages
+    pub fn systems_health_pipeline(repo_root: &Path) -> Self {
+        let cwd = repo_root.to_path_buf();
+        Self::new("Comprehensive Systems Health Pipeline")
+            .add_step(
+                Step::bash(
+                    "Phase 1: Format Verification",
+                    "cargo fmt --all -- --check",
+                    cwd.clone(),
+                )
+                .with_timeout(Duration::from_secs(60)),
+            )
+            .add_step(
+                Step::bash(
+                    "Phase 2: Compilation & AST Check",
+                    "cargo check --workspace",
+                    cwd.clone(),
+                )
+                .with_timeout(Duration::from_secs(240)),
+            )
+            .add_step(
+                Step::bash(
+                    "Phase 3: Structural Correctness (Clippy Hygiene)",
+                    "cargo clippy --workspace --all-targets --all-features -- -D warnings",
+                    cwd.clone(),
+                )
+                .with_timeout(Duration::from_secs(300)),
+            )
+            .add_step(
+                Step::bash(
+                    "Phase 4: Concurrency & State Invariant Tests",
+                    "cargo test --workspace",
+                    cwd.clone(),
+                )
+                .with_timeout(Duration::from_secs(360)),
+            )
+            .add_step(
+                Step::bash(
+                    "Phase 5: Supply Chain & Duplicate Sweep",
+                    "cargo tree -d",
+                    cwd.clone(),
+                )
+                .with_timeout(Duration::from_secs(120)),
+            )
+            .add_step(
+                Step::bash(
+                    "Phase 6: Release Build Verification",
+                    "cargo build --release -p a_run",
+                    cwd,
+                )
+                .with_timeout(Duration::from_secs(480)),
+            )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_systems_health_pipeline_construction() {
+        let repo = Path::new(".");
+        let pipeline = RecipePipeline::systems_health_pipeline(repo);
+        assert_eq!(pipeline.steps.len(), 6);
+        assert_eq!(pipeline.steps[0].name, "Phase 1: Format Verification");
+        assert_eq!(
+            pipeline.steps[5].name,
+            "Phase 6: Release Build Verification"
+        );
     }
 }

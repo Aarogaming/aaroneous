@@ -38,6 +38,44 @@ pub enum ModelEndpointStatus {
     Unconfigured,
 }
 
+impl ModelEndpointStatus {
+    pub fn is_connected(&self) -> bool {
+        matches!(self, ModelEndpointStatus::Connected { .. })
+    }
+
+    pub fn host_and_port(&self) -> (String, u16) {
+        match self {
+            ModelEndpointStatus::Connected { endpoint, .. } => {
+                let trimmed = endpoint
+                    .trim_start_matches("http://")
+                    .trim_start_matches("https://");
+                let parts: Vec<&str> = trimmed.split(':').collect();
+                let host = parts.first().unwrap_or(&"127.0.0.1").to_string();
+                let port = parts
+                    .get(1)
+                    .and_then(|p| p.split('/').next())
+                    .and_then(|p| p.parse::<u16>().ok())
+                    .unwrap_or(1234);
+                (host, port)
+            }
+            _ => ("127.0.0.1".to_string(), 1234),
+        }
+    }
+
+    pub fn resolved_model_id(&self) -> String {
+        match self {
+            ModelEndpointStatus::Connected {
+                active_model: Some(info),
+                ..
+            } => info.identifier.clone(),
+            ModelEndpointStatus::Connected {
+                configured_model, ..
+            } if !configured_model.is_empty() => configured_model.clone(),
+            _ => "qwen2.5-coder-7b-instruct".to_string(),
+        }
+    }
+}
+
 #[derive(Debug, Deserialize)]
 struct OpenCodeConfig {
     #[serde(default)]

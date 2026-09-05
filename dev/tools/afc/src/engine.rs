@@ -166,13 +166,57 @@ impl FlightEngine {
 
                         let subtask_log =
                             logs_dir.join(format!("subtask_{cycle}_{subtask_num}.log"));
-                        let fix_result = LlmOrchestrator::run_fix(
-                            &self.repo_root,
-                            task_title,
-                            self.config.watchdog_timeout_secs,
-                            &subtask_log,
-                        )
-                        .await;
+
+                        let endpoint_status =
+                            crate::model_probe::ModelProbe::check_endpoint(&self.repo_root).await;
+
+                        let fix_result = if endpoint_status.is_connected() {
+                            info!("Cycle {cycle} - Engaging Sovereign REPL loop with local model for '{task_title}'");
+                            match self
+                                .run_sovereign_repl(task_title, 8, &mut state_machine)
+                                .await
+                            {
+                                Ok(summary) => {
+                                    if summary.completed {
+                                        info!(
+                                            "Sovereign REPL successfully resolved '{task_title}': {}",
+                                            summary.outcome_summary
+                                        );
+                                        Ok(())
+                                    } else {
+                                        warn!("Sovereign REPL ended without completion. Falling back to CLI agent...");
+                                        LlmOrchestrator::run_fix(
+                                            &self.repo_root,
+                                            task_title,
+                                            self.config.watchdog_timeout_secs,
+                                            &subtask_log,
+                                        )
+                                        .await
+                                        .map(|_| ())
+                                    }
+                                }
+                                Err(e) => {
+                                    warn!("Sovereign REPL loop error: {e}. Falling back to CLI agent...");
+                                    LlmOrchestrator::run_fix(
+                                        &self.repo_root,
+                                        task_title,
+                                        self.config.watchdog_timeout_secs,
+                                        &subtask_log,
+                                    )
+                                    .await
+                                    .map(|_| ())
+                                }
+                            }
+                        } else {
+                            LlmOrchestrator::run_fix(
+                                &self.repo_root,
+                                task_title,
+                                self.config.watchdog_timeout_secs,
+                                &subtask_log,
+                            )
+                            .await
+                            .map(|_| ())
+                        };
 
                         if let Err(e) = fix_result {
                             error!("Fix agent watchdog timeout or execution failure on '{task_title}': {e}");
@@ -252,13 +296,18 @@ impl FlightEngine {
                     let _ = Gatekeeper::format_workspace(&self.repo_root).await;
                 }
 
-                let pipeline_report = Gatekeeper::run_verification_pipeline(
-                    &self.repo_root,
-                    self.config.clippy_gate,
-                    self.config.run_tests,
-                    false, // Format already handled above
-                )
-                .await?;
+                let pipeline_report = if self.config.audit_health {
+                    info!("Running Comprehensive Systems Health Pipeline (6 stages)...");
+                    Gatekeeper::run_systems_health_pipeline(&self.repo_root).await?
+                } else {
+                    Gatekeeper::run_verification_pipeline(
+                        &self.repo_root,
+                        self.config.clippy_gate,
+                        self.config.run_tests,
+                        false, // Format already handled above
+                    )
+                    .await?
+                };
 
                 if !pipeline_report.passed {
                     if let Some(ref err) = pipeline_report.failure_summary {
@@ -327,5 +376,25 @@ impl FlightEngine {
         info!("==========================================================");
 
         Ok(())
+    }
+
+    /// Run an autonomous Sovereign REPL cycle against the local LLM endpoint
+    pub async fn run_sovereign_repl(
+        &self,
+        task_prompt: &str,
+        max_turns: usize,
+        state_machine: &mut StateMachine,
+    ) -> Result<crate::repl::ReplSummary> {
+        let probe = crate::model_probe::ModelProbe::check_endpoint(&self.repo_root).await;
+        let (endpoint_url, model_name) = match probe {
+            crate::model_probe::ModelEndpointStatus::Connected { ref endpoint, .. } => {
+                (endpoint.clone(), probe.resolved_model_id())
+            }
+            _ => ("http://127.0.0.1:1234".to_string(), "qwen2.5-coder-7b-instruct".to_string()),
+        };
+        let client = crate::router::TypedRouterClient::new(endpoint_url, 1234, None);
+        let repl = crate::repl::SovereignRepl::new(self.repo_root.clone(), client, model_name);
+        repl.run_autonomous_cycle(task_prompt, max_turns, state_machine)
+            .await
     }
 }

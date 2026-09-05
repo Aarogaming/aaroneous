@@ -10,6 +10,7 @@ pub mod llm;
 pub mod model_probe;
 pub mod queue;
 pub mod recipe;
+pub mod repl;
 pub mod router;
 pub mod state;
 
@@ -17,3 +18,4 @@ pub use config::FlightConfig;
 pub use engine::FlightEngine;
 pub use gui::launch_gui;
 pub use model_probe::{ModelEndpointStatus, ModelProbe};
+pub use repl::{ReplSummary, SovereignRepl};
