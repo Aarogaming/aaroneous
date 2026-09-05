@@ -231,27 +231,30 @@ impl eframe::App for FlightControllerApp {
                         model_matched,
                         auth_authenticated: _,
                     } => {
-                        let (badge_text, badge_color) = match active_model {
+                        let badge_text = match active_model {
                             Some(active) => {
                                 if *model_matched {
-                                    (
-                                        format!("[Online] {provider}: {} (Active)", active.identifier),
-                                        egui::Color32::from_rgb(80, 230, 130),
-                                    )
+                                    format!("[Online] {provider}: {}", active.identifier)
                                 } else {
-                                    (
-                                        format!(
-                                            "[Mismatch] {provider}: {} (Expected: {configured_model})",
-                                            active.identifier
-                                        ),
-                                        egui::Color32::from_rgb(255, 180, 60),
+                                    format!(
+                                        "[Mismatch] {} differs from configured target '{}'",
+                                        active.identifier, configured_model
                                     )
                                 }
                             }
-                            None => (
-                                format!("[Warning] {provider}: No Model Loaded in Memory"),
-                                egui::Color32::from_rgb(255, 180, 60),
-                            ),
+                            None => {
+                                format!("[Warning] {provider}: No Model Loaded in Memory")
+                            }
+                        };
+                        let badge_color = match active_model {
+                            Some(_) => {
+                                if *model_matched {
+                                    egui::Color32::from_rgb(80, 230, 130)
+                                } else {
+                                    egui::Color32::from_rgb(255, 180, 60)
+                                }
+                            }
+                            None => egui::Color32::from_rgb(255, 180, 60),
                         };
 
                         let badge = ui.label(
