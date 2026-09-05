@@ -3,7 +3,7 @@
 //! Ingests quantized transformer projection matrices from standard GGUF weights
 //! and seeds Block 1 (Frozen SSM / Projection Core) of sovereign `.si` cartridges.
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result, anyhow};
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
@@ -51,8 +51,12 @@ impl CartridgeCompiler {
             .map_err(|e| anyhow!("Failed to read source GGUF header/index: {:?}", e))?;
 
         // 2. Extract projection tensors and weights
-        let gguf_bytes = fs::read(&config.source_gguf_path)
-            .with_context(|| format!("Failed to read GGUF bytes from {:?}", config.source_gguf_path))?;
+        let gguf_bytes = fs::read(&config.source_gguf_path).with_context(|| {
+            format!(
+                "Failed to read GGUF bytes from {:?}",
+                config.source_gguf_path
+            )
+        })?;
 
         let mut seeded_block1 = Vec::new();
         let mut extracted_tensors_count = 0;

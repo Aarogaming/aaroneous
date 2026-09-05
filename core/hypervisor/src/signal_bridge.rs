@@ -156,4 +156,3 @@ pub type InterconnectPayload = SignalBridgePayload;
 pub type InterconnectBus = SignalBridge;
 pub type InterconnectMcpFrame = McpToolCallFrame;
 pub type SpecialistBusDialogue = SpecialistDialogue;
-

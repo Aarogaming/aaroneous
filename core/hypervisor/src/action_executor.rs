@@ -96,15 +96,23 @@ impl ActionExecutor {
     /// Verifies that a target file path is safely confined within allowed workspace roots
     pub fn validate_sandbox_path(&self, path: &Path) -> Result<PathBuf, String> {
         // Disallow relative parent directory traversal
-        if path.components().any(|c| matches!(c, std::path::Component::ParentDir)) {
-            return Err(format!("Parent directory traversal ('..') is disallowed: {}", path.display()));
+        if path
+            .components()
+            .any(|c| matches!(c, std::path::Component::ParentDir))
+        {
+            return Err(format!(
+                "Parent directory traversal ('..') is disallowed: {}",
+                path.display()
+            ));
         }
 
         // Canonicalize or normalize path
         let resolved = if path.is_absolute() {
             path.to_path_buf()
         } else {
-            aaroneous_paths::WorkspacePaths::discover().root().join(path)
+            aaroneous_paths::WorkspacePaths::discover()
+                .root()
+                .join(path)
         };
 
         // If path exists, check canonical path against allowed roots
@@ -550,7 +558,9 @@ mod tests {
             content: Some("malicious content".to_string()),
         };
         let mut exec = ActionExecutor::new(PathBuf::from("test.wasm"));
-        let rt = tokio::runtime::Builder::new_current_thread().build().unwrap();
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .build()
+            .unwrap();
         let res = rt.block_on(exec.execute(action));
         assert!(!res.success);
         assert!(res.message.contains("Sandbox security violation"));
@@ -571,7 +581,9 @@ mod tests {
             gas_limit: Some(10_000),
         };
 
-        let rt = tokio::runtime::Builder::new_current_thread().build().unwrap();
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .build()
+            .unwrap();
         let res = rt.block_on(executor.execute(action));
         assert!(res.success);
         assert!(res.message.contains("Micro-bytecode execution succeeded"));

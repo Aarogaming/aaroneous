@@ -129,7 +129,14 @@ impl ProcessProbeLogger {
             .rev()
             .take(count)
             .rev()
-            .map(|t| (t.target_process.clone(), t.event_type.clone(), t.payload.clone(), t.timestamp_us))
+            .map(|t| {
+                (
+                    t.target_process.clone(),
+                    t.event_type.clone(),
+                    t.payload.clone(),
+                    t.timestamp_us,
+                )
+            })
             .collect()
     }
 }
@@ -142,12 +149,14 @@ mod tests {
     fn test_probing_logger_capacity() {
         let mut logger = ProcessProbeLogger::new(3);
         for i in 0..5 {
-            logger.record_trace(ProbingTrace {
-                target_process: "target.exe".to_string(),
-                event_type: "mem_read".to_string(),
-                payload: format!("payload_{}", i),
-                timestamp_us: i as u64,
-            }).unwrap();
+            logger
+                .record_trace(ProbingTrace {
+                    target_process: "target.exe".to_string(),
+                    event_type: "mem_read".to_string(),
+                    payload: format!("payload_{}", i),
+                    timestamp_us: i as u64,
+                })
+                .unwrap();
         }
 
         assert_eq!(logger.traces.len(), 3);
@@ -163,26 +172,32 @@ mod tests {
         assert!(logger.is_monitored_process("game.exe"));
         assert!(!logger.is_monitored_process("calc.exe"));
 
-        logger.record_trace(ProbingTrace {
-            target_process: "game.exe".to_string(),
-            event_type: "render_frame".to_string(),
-            payload: "frame_1".to_string(),
-            timestamp_us: 1000,
-        }).unwrap();
+        logger
+            .record_trace(ProbingTrace {
+                target_process: "game.exe".to_string(),
+                event_type: "render_frame".to_string(),
+                payload: "frame_1".to_string(),
+                timestamp_us: 1000,
+            })
+            .unwrap();
 
-        logger.record_trace(ProbingTrace {
-            target_process: "game.exe".to_string(),
-            event_type: "input_poll".to_string(),
-            payload: "mouse".to_string(),
-            timestamp_us: 2000,
-        }).unwrap();
+        logger
+            .record_trace(ProbingTrace {
+                target_process: "game.exe".to_string(),
+                event_type: "input_poll".to_string(),
+                payload: "mouse".to_string(),
+                timestamp_us: 2000,
+            })
+            .unwrap();
 
-        logger.record_trace(ProbingTrace {
-            target_process: "game.exe".to_string(),
-            event_type: "render_frame".to_string(),
-            payload: "frame_2".to_string(),
-            timestamp_us: 3000,
-        }).unwrap();
+        logger
+            .record_trace(ProbingTrace {
+                target_process: "game.exe".to_string(),
+                event_type: "render_frame".to_string(),
+                payload: "frame_2".to_string(),
+                timestamp_us: 3000,
+            })
+            .unwrap();
 
         let render_events = logger.get_traces_by_event_type("render_frame", 10);
         assert_eq!(render_events.len(), 2);

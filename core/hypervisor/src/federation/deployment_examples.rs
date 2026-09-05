@@ -230,7 +230,10 @@ mod examples {
 
         println!("Learning Enabled: {}", config.enable_learning);
 
-        assert_eq!(config.artifact_registry_path, "/var/lib/aaroneous/artifact_registry");
+        assert_eq!(
+            config.artifact_registry_path,
+            "/var/lib/aaroneous/artifact_registry"
+        );
         assert_eq!(config.log_level, "debug");
         assert!(!config.enable_learning);
     }

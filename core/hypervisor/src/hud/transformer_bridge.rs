@@ -8,16 +8,23 @@
 //!    (cycle latencies, thermodynamic equilibrium, active modules, response feedback).
 //! 3. `FrontendTransformerBridge`: Crossbeam channel pair insulating UI from core runtime.
 
-use crossbeam_channel::{unbounded, Receiver, Sender};
+use crossbeam_channel::{Receiver, Sender, unbounded};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
 /// Signals emitted from any presentation layer (Desktop GUI, CLI, Web, Mobile)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum FrontendCommandSignal {
-    TransduceLinguisticIntent { prompt: String },
-    MountCartridgePackage { slot_index: usize, file_path: PathBuf },
-    SetExecutionDomain { domain_id: u8 },
+    TransduceLinguisticIntent {
+        prompt: String,
+    },
+    MountCartridgePackage {
+        slot_index: usize,
+        file_path: PathBuf,
+    },
+    SetExecutionDomain {
+        domain_id: u8,
+    },
     EmergencyCutoff,
 }
 
@@ -37,7 +44,10 @@ impl Default for BackendTelemetryFrame {
             timestamp_us: 0,
             free_energy_delta: 0.012,
             cycle_latency_us: 14,
-            active_modules: vec!["OpticalPerception".to_string(), "KineticDispatch".to_string()],
+            active_modules: vec![
+                "OpticalPerception".to_string(),
+                "KineticDispatch".to_string(),
+            ],
             response_feedback: "Aaroneous Core nominal. Signal transformer active.".to_string(),
         }
     }

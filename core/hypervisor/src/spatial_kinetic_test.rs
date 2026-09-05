@@ -3,7 +3,7 @@
 
 #[cfg(test)]
 mod spatial_kinetic_integration_tests {
-    use crate::spatial_delta_gate::{SpatialDeltaGateMatrix, GRID_SIZE, SpatialDeltaPipeline};
+    use crate::spatial_delta_gate::{GRID_SIZE, SpatialDeltaGateMatrix, SpatialDeltaPipeline};
     use crate::win32_intercept::hid_bridge::{ACTION_CLICK, ACTION_MOUSE_MOVE, MotorIntent};
     use rand::RngExt;
     use rand::SeedableRng;
@@ -152,17 +152,28 @@ mod spatial_kinetic_integration_tests {
             total_active_sectors += active as u64;
         }
 
-        assert!(total_active_sectors > 0, "Expected active sectors during motion frames");
+        assert!(
+            total_active_sectors > 0,
+            "Expected active sectors during motion frames"
+        );
 
         let elapsed = start.elapsed();
         let avg_latency_us = (elapsed.as_micros() as f64) / (total_frames as f64);
         let avg_latency_ms = avg_latency_us / 1000.0;
 
         // Sub-16ms requirement (target is sub-1ms for pure CPU gating step)
-        assert!(avg_latency_ms < 1.0, "Average perception latency too high: {:.3}ms (must be < 1.0ms)", avg_latency_ms);
+        assert!(
+            avg_latency_ms < 1.0,
+            "Average perception latency too high: {:.3}ms (must be < 1.0ms)",
+            avg_latency_ms
+        );
 
         // Compute savings: Most static sectors should be gated off after warmup
         let skip_ratio = pipeline.gate_matrix.skip_ratio();
-        assert!(skip_ratio > 0.50, "Epigenetic skip ratio should exceed 50%, got {:.2}%", skip_ratio * 100.0);
+        assert!(
+            skip_ratio > 0.50,
+            "Epigenetic skip ratio should exceed 50%, got {:.2}%",
+            skip_ratio * 100.0
+        );
     }
 }

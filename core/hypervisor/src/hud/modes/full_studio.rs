@@ -51,6 +51,11 @@ pub fn render_full_studio(
                 );
 
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    if ui.button(if state.settings.modular_canvas_mode { "🪟 Standard Mode" } else { "📐 Modular Canvas" }).clicked() {
+                        state.settings.modular_canvas_mode = !state.settings.modular_canvas_mode;
+                        state.settings.save_to_disk();
+                    }
+
                     if ui.button("❓ (Ctrl+/)").clicked() {
                         *toggle_shortcuts = true;
                     }
@@ -61,6 +66,12 @@ pub fn render_full_studio(
 
                     if ui.button("🪟 Mini-HUD (F10)").clicked() {
                         state.app_window_mode = AppWindowMode::CompactRecorderOverlay;
+                        ui.ctx().send_viewport_cmd(egui::ViewportCommand::InnerSize(egui::vec2(
+                            380.0, 180.0,
+                        )));
+                        ui.ctx().send_viewport_cmd(egui::ViewportCommand::WindowLevel(
+                            egui::viewport::WindowLevel::AlwaysOnTop,
+                        ));
                     }
 
                     if ui.button("🔴 Rec (F9)").clicked() {
@@ -79,11 +90,19 @@ pub fn render_full_studio(
         )
         .show_inside(ui, |ui| {
             ui.horizontal(|ui| {
-                let active_count = state.custom_agents.iter().filter(|a| a.state == crate::hud::state::AgentExecutionState::Running).count();
+                let active_count = state
+                    .custom_agents
+                    .iter()
+                    .filter(|a| a.state == crate::hud::state::AgentExecutionState::Running)
+                    .count();
                 ui.label(
                     egui::RichText::new(format!("🤖 Active Bots: {active_count}"))
                         .size(11.0)
-                        .color(if active_count > 0 { Color32::from_rgb(63, 185, 80) } else { Color32::GRAY }),
+                        .color(if active_count > 0 {
+                            Color32::from_rgb(63, 185, 80)
+                        } else {
+                            Color32::GRAY
+                        }),
                 );
 
                 ui.separator();
@@ -158,8 +177,15 @@ pub fn render_full_studio(
                         ui.horizontal(|ui| {
                             if is_selected {
                                 // Sleek vertical accent bar on the left
-                                let (rect, _) = ui.allocate_exact_size(Vec2::new(3.0, 14.0), egui::Sense::hover());
-                                ui.painter().rect_filled(rect, CornerRadius::same(1), theme.accent());
+                                let (rect, _) = ui.allocate_exact_size(
+                                    Vec2::new(3.0, 14.0),
+                                    egui::Sense::hover(),
+                                );
+                                ui.painter().rect_filled(
+                                    rect,
+                                    CornerRadius::same(1),
+                                    theme.accent(),
+                                );
                                 ui.add_space(3.0);
                             }
 
@@ -168,16 +194,15 @@ pub fn render_full_studio(
                             } else {
                                 Color32::from_rgb(220, 225, 235)
                             };
-                            let rt = egui::RichText::new(label)
-                                .size(12.5)
-                                .color(text_color);
+                            let rt = egui::RichText::new(label).size(12.5).color(text_color);
                             ui.label(rt);
                         });
                     });
 
                 // Make the entire frame clickable without triggering egui's text selection bounding box
                 let interact_rect = resp.response.rect;
-                let click_resp = ui.interact(interact_rect, ui.id().with(sec), egui::Sense::click());
+                let click_resp =
+                    ui.interact(interact_rect, ui.id().with(sec), egui::Sense::click());
                 if click_resp.clicked() {
                     state.nav_section = sec;
                 }
@@ -217,8 +242,15 @@ pub fn render_full_studio(
                             ui.set_width(ui.available_width());
                             ui.horizontal(|ui| {
                                 if is_selected {
-                                    let (rect, _) = ui.allocate_exact_size(Vec2::new(3.0, 14.0), egui::Sense::hover());
-                                    ui.painter().rect_filled(rect, CornerRadius::same(1), theme.accent());
+                                    let (rect, _) = ui.allocate_exact_size(
+                                        Vec2::new(3.0, 14.0),
+                                        egui::Sense::hover(),
+                                    );
+                                    ui.painter().rect_filled(
+                                        rect,
+                                        CornerRadius::same(1),
+                                        theme.accent(),
+                                    );
                                     ui.add_space(3.0);
                                 }
                                 let text_color = if is_selected {
@@ -231,7 +263,8 @@ pub fn render_full_studio(
                         });
 
                     let interact_rect = resp.response.rect;
-                    let click_resp = ui.interact(interact_rect, ui.id().with(sec), egui::Sense::click());
+                    let click_resp =
+                        ui.interact(interact_rect, ui.id().with(sec), egui::Sense::click());
                     if click_resp.clicked() {
                         state.nav_section = sec;
                     }
@@ -242,20 +275,26 @@ pub fn render_full_studio(
 
     // ── Central Viewport Container ──────────────────────────────────────────
     egui::CentralPanel::default()
-        .frame(
-            egui::Frame::central_panel(ui.style())
-                .fill(theme.bg_color()),
-        )
+        .frame(egui::Frame::central_panel(ui.style()).fill(theme.bg_color()))
         .show_inside(ui, |ui| {
             // Map nav_section to appropriate view
             let target_view_id = match state.nav_section {
-                NavSection::GalaxyMap3D | NavSection::Galaxy3D | NavSection::Cosmos3D => "galaxy_map_3d",
-                NavSection::SiForge | NavSection::LearningAndSelfPlay | NavSection::LivingMind => "si_forge",
+                NavSection::GalaxyMap3D | NavSection::Galaxy3D | NavSection::Cosmos3D => {
+                    "galaxy_map_3d"
+                }
+                NavSection::SiForge | NavSection::LearningAndSelfPlay | NavSection::LivingMind => {
+                    "si_forge"
+                }
                 NavSection::ScreenAutomation | NavSection::ScreenCapture => "screen_automation",
                 NavSection::InterconnectMonitor | NavSection::Console => "signal_analyzer",
-                NavSection::Agents | NavSection::Specialists | NavSection::SwarmMesh | NavSection::GhostStation => "agents_hub",
+                NavSection::Agents
+                | NavSection::Specialists
+                | NavSection::SwarmMesh
+                | NavSection::GhostStation => "agents_hub",
                 NavSection::Settings => "settings",
-                NavSection::DevStudio | NavSection::GameStudio | NavSection::CustomTools => "workbench",
+                NavSection::DevStudio | NavSection::GameStudio | NavSection::CustomTools => {
+                    "workbench"
+                }
                 _ => "agents_hub",
             };
 

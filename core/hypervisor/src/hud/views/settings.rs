@@ -197,12 +197,41 @@ impl HudView for SettingsView {
 
             // ── Section 5: Safety & Automation ──────────────────────────────────────
             ui.label(egui::RichText::new("🛡️ SAFETY & AUTOMATION").strong());
+            if ui.checkbox(&mut state.settings.close_to_tray, "Close to System Notification Tray (Keep Background Daemon Running)").changed() {
+                state.settings.save_to_disk();
+            }
+            if ui.checkbox(&mut state.settings.modular_canvas_mode, "Default to Modular Canvas Studio Mode").changed() {
+                state.settings.save_to_disk();
+            }
             if ui.checkbox(&mut state.settings.allow_host_input, "Allow Live Host HID Injection (Hardware Input Safety Permit)").changed() {
                 state.settings.save_to_disk();
             }
             if ui.checkbox(&mut state.settings.auto_recompile_on_save, "Auto-Recompile Code on Save").changed() {
                 state.settings.save_to_disk();
             }
+
+            ui.add_space(16.0);
+
+            // ── Section 6: Project Workspace Root ───────────────────────────────────
+            ui.label(egui::RichText::new("📁 PROJECT WORKSPACE ROOT").strong());
+            let current_root = state.settings.workspace_root_override.clone()
+                .unwrap_or_else(|| std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from(".")));
+
+            ui.horizontal(|ui| {
+                ui.label(egui::RichText::new(format!("{}", current_root.display())).color(theme.accent()).size(12.0));
+                if ui.button("📂 Choose Folder...").clicked()
+                    && let Some(folder) = rfd::FileDialog::new().set_title("Select Project Workspace Root").pick_folder()
+                {
+                    state.settings.workspace_root_override = Some(folder);
+                    state.settings.save_to_disk();
+                    state.rescan_workspace_files();
+                }
+                if state.settings.workspace_root_override.is_some() && ui.button("Reset to Default").clicked() {
+                    state.settings.workspace_root_override = None;
+                    state.settings.save_to_disk();
+                    state.rescan_workspace_files();
+                }
+            });
 
             ui.add_space(20.0);
             if ui.button("💾 Save Settings to Disk").clicked() {

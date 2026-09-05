@@ -9,7 +9,7 @@
 
 use eframe::egui::{self, Color32, ProgressBar, RichText, ScrollArea, TextStyle, Ui};
 use std::path::PathBuf;
-use std::sync::mpsc::{channel, Receiver};
+use std::sync::mpsc::{Receiver, channel};
 use std::thread;
 
 use compute::si_forge::SiForge;
@@ -79,9 +79,14 @@ impl DistillStudio {
         let samples = self.samples;
 
         thread::spawn(move || {
-            let _ = log_tx.send(format!("🔥 [SiForge] Initializing birthing process for '{}' ({})", name, tier.label()));
+            let _ = log_tx.send(format!(
+                "🔥 [SiForge] Initializing birthing process for '{}' ({})",
+                name,
+                tier.label()
+            ));
             let _ = log_tx.send(format!("   -> Target Architecture: {}", tier.label()));
-            let _ = log_tx.send("   -> Step 1: Synthesizing / loading teacher trajectories...".into());
+            let _ =
+                log_tx.send("   -> Step 1: Synthesizing / loading teacher trajectories...".into());
             let _ = status_tx.send(DistillStatus::Distilling(0.3));
 
             let paths = aaroneous_paths::WorkspacePaths::discover();
@@ -98,14 +103,20 @@ impl DistillStudio {
                 .with_training_params(epochs, 16, 0.001, samples);
 
             let _ = status_tx.send(DistillStatus::Distilling(0.7));
-            let _ = log_tx.send("   -> Step 2: Training 2-layer GeLU bridge with CKA + InfoNCE loss...".into());
+            let _ = log_tx.send(
+                "   -> Step 2: Training 2-layer GeLU bridge with CKA + InfoNCE loss...".into(),
+            );
 
             let _ = status_tx.send(DistillStatus::Packing);
-            let _ = log_tx.send("   -> Step 3: Packing 64-byte aligned solid-state container...".into());
+            let _ = log_tx
+                .send("   -> Step 3: Packing 64-byte aligned solid-state container...".into());
 
             match forge.birth(&out_dir) {
                 Ok(path) => {
-                    let _ = log_tx.send(format!("✅ Successfully birthed and verified at {:?}", path));
+                    let _ = log_tx.send(format!(
+                        "✅ Successfully birthed and verified at {:?}",
+                        path
+                    ));
                     let _ = status_tx.send(DistillStatus::Complete(path));
                 }
                 Err(e) => {
@@ -131,7 +142,9 @@ impl DistillStudio {
         }
 
         ui.heading("⚒️ Machine-Native SiForge Studio");
-        ui.label("Configure, distill, and pack solid-state .si containers with 64-byte SIMD alignment.");
+        ui.label(
+            "Configure, distill, and pack solid-state .si containers with 64-byte SIMD alignment.",
+        );
         ui.add_space(8.0);
 
         // 2. Configuration Form
@@ -156,13 +169,22 @@ impl DistillStudio {
             ui.add_space(4.0);
             ui.label(RichText::new("Architectural Tier Designation:").strong());
             ui.horizontal(|ui| {
-                if ui.selectable_label(self.selected_tier.is_cortex(), "Tier 1: Cortex (R^4096)").clicked() {
+                if ui
+                    .selectable_label(self.selected_tier.is_cortex(), "Tier 1: Cortex (R^4096)")
+                    .clicked()
+                {
                     self.selected_tier = SiTierFlags::TIER_1_CORTEX;
                 }
-                if ui.selectable_label(self.selected_tier.is_router(), "Tier 2: Router (R^256)").clicked() {
+                if ui
+                    .selectable_label(self.selected_tier.is_router(), "Tier 2: Router (R^256)")
+                    .clicked()
+                {
                     self.selected_tier = SiTierFlags::TIER_2_ROUTER;
                 }
-                if ui.selectable_label(self.selected_tier.is_reflex(), "Tier 3: Reflex (R^256)").clicked() {
+                if ui
+                    .selectable_label(self.selected_tier.is_reflex(), "Tier 3: Reflex (R^256)")
+                    .clicked()
+                {
                     self.selected_tier = SiTierFlags::TIER_3_REFLEX;
                 }
             });
@@ -171,32 +193,43 @@ impl DistillStudio {
         ui.add_space(8.0);
 
         // 3. Action Controls & Real-Time Status Progress
-        ui.group(|ui| {
-            match &self.current_status {
-                DistillStatus::Idle => {
-                    if ui.button(RichText::new("🔥 Birth .si Container").size(15.0).color(Color32::WHITE)).clicked() {
-                        self.dispatch_birthing_thread();
-                    }
+        ui.group(|ui| match &self.current_status {
+            DistillStatus::Idle => {
+                if ui
+                    .button(
+                        RichText::new("🔥 Birth .si Container")
+                            .size(15.0)
+                            .color(Color32::WHITE),
+                    )
+                    .clicked()
+                {
+                    self.dispatch_birthing_thread();
                 }
-                DistillStatus::Distilling(progress) => {
-                    ui.label(RichText::new("⚙️ Distilling Latent Topological Manifold...").color(Color32::YELLOW));
-                    ui.add(ProgressBar::new(*progress).animate(true).show_percentage());
+            }
+            DistillStatus::Distilling(progress) => {
+                ui.label(
+                    RichText::new("⚙️ Distilling Latent Topological Manifold...")
+                        .color(Color32::YELLOW),
+                );
+                ui.add(ProgressBar::new(*progress).animate(true).show_percentage());
+            }
+            DistillStatus::Packing => {
+                ui.label(
+                    RichText::new("📦 Packing 64-Byte Aligned Solid-State Memory Map...")
+                        .color(Color32::LIGHT_BLUE),
+                );
+                ui.add(ProgressBar::new(1.0).animate(true));
+            }
+            DistillStatus::Complete(path) => {
+                ui.colored_label(Color32::GREEN, format!("✅ Deployed to {:?}", path));
+                if ui.button("Distill Another Model").clicked() {
+                    self.current_status = DistillStatus::Idle;
                 }
-                DistillStatus::Packing => {
-                    ui.label(RichText::new("📦 Packing 64-Byte Aligned Solid-State Memory Map...").color(Color32::LIGHT_BLUE));
-                    ui.add(ProgressBar::new(1.0).animate(true));
-                }
-                DistillStatus::Complete(path) => {
-                    ui.colored_label(Color32::GREEN, format!("✅ Deployed to {:?}", path));
-                    if ui.button("Distill Another Model").clicked() {
-                        self.current_status = DistillStatus::Idle;
-                    }
-                }
-                DistillStatus::Error(err) => {
-                    ui.colored_label(Color32::RED, format!("❌ Failed: {}", err));
-                    if ui.button("Retry").clicked() {
-                        self.current_status = DistillStatus::Idle;
-                    }
+            }
+            DistillStatus::Error(err) => {
+                ui.colored_label(Color32::RED, format!("❌ Failed: {}", err));
+                if ui.button("Retry").clicked() {
+                    self.current_status = DistillStatus::Idle;
                 }
             }
         });
@@ -205,14 +238,17 @@ impl DistillStudio {
 
         // 4. Live Log Scroll Area
         ui.label(RichText::new("Distillation Execution Logs:").strong());
-        ScrollArea::vertical().stick_to_bottom(true).max_height(160.0).show(ui, |ui| {
-            ui.add_sized(
-                [ui.available_width(), 140.0],
-                egui::TextEdit::multiline(&mut self.log_buffer)
-                    .font(TextStyle::Monospace)
-                    .interactive(false),
-            );
-        });
+        ScrollArea::vertical()
+            .stick_to_bottom(true)
+            .max_height(160.0)
+            .show(ui, |ui| {
+                ui.add_sized(
+                    [ui.available_width(), 140.0],
+                    egui::TextEdit::multiline(&mut self.log_buffer)
+                        .font(TextStyle::Monospace)
+                        .interactive(false),
+                );
+            });
 
         if self.current_status != DistillStatus::Idle {
             ctx.request_repaint(); // Keep responsive 60Hz telemetry

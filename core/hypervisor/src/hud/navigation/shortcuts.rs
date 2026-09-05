@@ -48,8 +48,14 @@ impl ShortcutsModal {
                 ui.separator();
 
                 let shortcuts = [
-                    ("Ctrl + K  /  Ctrl + P", "Open Command Palette with fuzzy action search"),
-                    ("Middle-Click / Space + Drag", "Pan the Spatial Window Canvas"),
+                    (
+                        "Ctrl + K  /  Ctrl + P",
+                        "Open Command Palette with fuzzy action search",
+                    ),
+                    (
+                        "Middle-Click / Space + Drag",
+                        "Pan the Spatial Window Canvas",
+                    ),
                     ("Ctrl + Scroll Wheel", "Zoom Spatial Canvas (0.5x – 2.0x)"),
                     ("Home  /  0", "Reset Spatial Canvas Pan & Zoom to Origin"),
                     ("F9", "Start / Stop Macro Action Recording"),

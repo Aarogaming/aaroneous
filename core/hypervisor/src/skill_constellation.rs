@@ -9,8 +9,8 @@
 //! 3. Dynamic glowing constellation threads connecting stars with similarity > 0.75.
 //! 4. Skyrim-style interactive pan/zoom navigation and detailed lore/telemetry tooltips.
 
+use compute::si_motor_tree::{MOTOR_INTENT_DIM, MotorSkillNode, StarState};
 use eframe::egui::{self, Align2, Color32, FontId, Pos2, RichText, Sense, Stroke, Ui, Vec2};
-use compute::si_motor_tree::{MotorSkillNode, StarState, MOTOR_INTENT_DIM};
 
 /// A Star Node in the Constellation Visualizer
 #[derive(Clone, Debug)]
@@ -65,18 +65,23 @@ impl Default for SkillConstellationCanvas {
         let mut stars = Vec::new();
 
         let mut v1 = [0.0f32; MOTOR_INTENT_DIM];
-        v1[0] = 0.9; v1[1] = 0.3;
+        v1[0] = 0.9;
+        v1[1] = 0.3;
         stars.push(VisualStarNode {
             id: "BASE_UI_TREE".into(),
             label: "Identify UI Automation Tree".into(),
-            state: StarState::Crystallized { addr: 0x7FFA_1111, time_ns: 120 },
+            state: StarState::Crystallized {
+                addr: 0x7FFA_1111,
+                time_ns: 120,
+            },
             latent_vector: v1,
             pos: Pos2::new(100.0, 100.0),
             velocity: Vec2::ZERO,
         });
 
         let mut v2 = [0.0f32; MOTOR_INTENT_DIM];
-        v2[0] = 0.85; v2[1] = 0.35;
+        v2[0] = 0.85;
+        v2[1] = 0.35;
         stars.push(VisualStarNode {
             id: "AUTH_TRAVERSAL".into(),
             label: "Sovereign Auth Traversal".into(),
@@ -87,7 +92,8 @@ impl Default for SkillConstellationCanvas {
         });
 
         let mut v3 = [0.0f32; MOTOR_INTENT_DIM];
-        v3[0] = 0.80; v3[1] = 0.40;
+        v3[0] = 0.80;
+        v3[1] = 0.40;
         stars.push(VisualStarNode {
             id: "DATA_INJECTION".into(),
             label: "Direct Memory Stream".into(),
@@ -102,7 +108,10 @@ impl Default for SkillConstellationCanvas {
         stars.push(VisualStarNode {
             id: "AST_MUTATE".into(),
             label: "In-Place AST Mutation".into(),
-            state: StarState::Crystallized { addr: 0x7FFA_4444, time_ns: 85 },
+            state: StarState::Crystallized {
+                addr: 0x7FFA_4444,
+                time_ns: 85,
+            },
             latent_vector: v4,
             pos: Pos2::new(-150.0, -100.0),
             velocity: Vec2::ZERO,
@@ -213,7 +222,10 @@ impl SkillConstellationCanvas {
 
                     painter.line_segment(
                         [start_screen, target_screen],
-                        Stroke::new(2.0 * zoom, Color32::from_rgba_unmultiplied(120, 180, 255, alpha)),
+                        Stroke::new(
+                            2.0 * zoom,
+                            Color32::from_rgba_unmultiplied(120, 180, 255, alpha),
+                        ),
                     );
                 }
             }
@@ -228,7 +240,7 @@ impl SkillConstellationCanvas {
 
                 let (color, radius_mult, has_glow) = match &star.state {
                     StarState::Neural { .. } => (Color32::from_rgb(90, 140, 255), 1.0, false), // Dim Blue
-                    StarState::Compiling => (Color32::from_rgb(255, 210, 50), 1.25, true),     // Pulsing Yellow
+                    StarState::Compiling => (Color32::from_rgb(255, 210, 50), 1.25, true), // Pulsing Yellow
                     StarState::Crystallized { .. } => (Color32::from_rgb(50, 255, 130), 1.4, true), // Brilliant Gold/Green
                 };
 
@@ -270,16 +282,28 @@ impl SkillConstellationCanvas {
                         ui.separator();
                         match &star.state {
                             StarState::Neural { variance } => {
-                                ui.colored_label(Color32::LIGHT_BLUE, "Status: Neural Inference (Online Learning)");
+                                ui.colored_label(
+                                    Color32::LIGHT_BLUE,
+                                    "Status: Neural Inference (Online Learning)",
+                                );
                                 ui.label(format!("LoRA Gradient Variance: {:.4}", variance));
                             }
                             StarState::Compiling => {
-                                ui.colored_label(Color32::YELLOW, "Status: JIT Compiling to Bare-Metal");
+                                ui.colored_label(
+                                    Color32::YELLOW,
+                                    "Status: JIT Compiling to Bare-Metal",
+                                );
                                 ui.label("W^X Memory Arena: Flipping RW -> RX");
                             }
                             StarState::Crystallized { addr, time_ns } => {
-                                ui.colored_label(Color32::GREEN, "Status: Mastered Reflex (Crystallized)");
-                                ui.label(RichText::new(format!("Memory Address: {:#X}", addr)).monospace());
+                                ui.colored_label(
+                                    Color32::GREEN,
+                                    "Status: Mastered Reflex (Crystallized)",
+                                );
+                                ui.label(
+                                    RichText::new(format!("Memory Address: {:#X}", addr))
+                                        .monospace(),
+                                );
                                 ui.label(format!("Execution Latency: {} ns (< 1µs)", time_ns));
                             }
                         }

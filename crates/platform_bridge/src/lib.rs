@@ -25,26 +25,28 @@ pub use adapters::{
     UniversalActuatorCommand, UniversalAdapterRegistry, VirtualSimActuator,
 };
 pub use audio_synthesizer::{AcousticVoiceSynthesizer, FormantSpec};
-pub use web_ingest::{WebComplianceConfig, WebIngestionAdapter};
 pub use robotics::{
     AutomotiveBusBridge, BoeBotCommand, BoeBotOcularNavigator, CanFrame, CorridorCorridorAnalysis,
     OcularPerspective, ProtocolEntropyAnalyzer,
 };
+pub use web_ingest::{WebComplianceConfig, WebIngestionAdapter};
 
-pub use audio_analyzer::{AudioEventObservation, AudioFrequencySpectrum, WasapiAudioStreamAnalyzer};
+pub use audio_analyzer::{
+    AudioEventObservation, AudioFrequencySpectrum, WasapiAudioStreamAnalyzer,
+};
 pub use epigenetic_vision::{
     EpigeneticGatingResult, EpigeneticVisionGater, DEFAULT_DELTA_THRESHOLD,
     DEFAULT_HYSTERESIS_FRAMES, GRID_HEIGHT, GRID_SIZE, GRID_WIDTH, SECTORS_PER_COL,
     SECTORS_PER_ROW, SECTOR_SIZE, TOTAL_SECTORS,
 };
 pub use event_recorder::{FramebufferAnalyzer, RecordedInputEvent, SessionRecording};
-pub use kinetic_synthesizer::{
-    KineticTrajectoryConfig, KineticTrajectoryPoint, KineticTrajectorySynthesizer, Point2D,
-};
 pub use game_player::{AutonomousGameAgent, GamePolicyAction, PlaythroughState};
 pub use hooking::{
     OverlayPrimitive, OverlaySubmitter, PresentHookConfig, PresentHookHandle, Rgba8,
     SubFrameOverlayBatch, SwapChainHookManager,
+};
+pub use kinetic_synthesizer::{
+    KineticTrajectoryConfig, KineticTrajectoryPoint, KineticTrajectorySynthesizer, Point2D,
 };
 pub use mock::MockMarionette;
 pub use native_win32::{DxgiHardwareFrameBuffer, NativeWin32Marionette};
@@ -60,7 +62,10 @@ pub use protocol_bridge::{MarionetteProtocolBridge, MnlpPerceptionPacket};
 pub use sensory_motor_loop::{SensoryMotorCycleReport, SensoryMotorPipeline};
 pub use traits::{HidAction, HidCommand, MarionetteHost, ProbingTrace, VisualObservation};
 pub use vision_latent::{SolidStateVisionPipeline, VisionLatentObservation};
-pub use window_target::{AudioCaptureModifier, CaptureModifiers, CaptureTarget, DiscoveredWindow, WindowDiscoveryEngine};
+pub use window_target::{
+    AudioCaptureModifier, CaptureModifiers, CaptureTarget, DiscoveredScreen, DiscoveredWindow,
+    WindowDiscoveryEngine,
+};
 
 use anyhow::Result;
 use std::sync::Arc;
@@ -111,7 +116,9 @@ impl DesktopEmulator {
     }
 
     /// Ingest the next visual frame through the epigenetic motion saliency gate (zeroing static background)
-    pub async fn pull_epigenetic_perception(&self) -> Result<(VisualObservation, EpigeneticGatingResult)> {
+    pub async fn pull_epigenetic_perception(
+        &self,
+    ) -> Result<(VisualObservation, EpigeneticGatingResult)> {
         // 1. Raw frame capture
         let raw_obs = self.pull_visual_perception().await?;
 
@@ -123,7 +130,9 @@ impl DesktopEmulator {
 
         // 3. Ingest masked perception
         let mut host = self.host.lock().await;
-        let mut gated_obs = host.pull_visual_perception_gated(&gating_result.bool_mask).await?;
+        let mut gated_obs = host
+            .pull_visual_perception_gated(&gating_result.bool_mask)
+            .await?;
         gated_obs.active_sectors_count = gating_result.active_sectors_count;
         gated_obs.compute_savings_pct = gating_result.compute_savings_pct;
         gated_obs.gating_latency_us = gating_result.duration_us;

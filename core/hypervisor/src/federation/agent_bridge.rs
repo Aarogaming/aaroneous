@@ -21,9 +21,9 @@ pub fn agent_name_to_specialist_id(name: &str) -> Option<SpecialistId> {
     match name.to_lowercase().as_str() {
         "presenter" => Some(SpecialistId::Visionary), // UI/UX → Design Generation
         "synthesizer" => Some(SpecialistId::Sentinel), // Knowledge/Leadership → Orchestration
-        "orchestrator" => Some(SpecialistId::Sentinel),   // Leadership/Strategy → Orchestration
+        "orchestrator" => Some(SpecialistId::Sentinel), // Leadership/Strategy → Orchestration
         "fabricator" => Some(SpecialistId::Phygital), // Manufacturing → Spatial/Rendering
-        "sentinel" => Some(SpecialistId::Sentinel),  // Security → Arbitration/Oversight
+        "sentinel" => Some(SpecialistId::Sentinel),   // Security → Arbitration/Oversight
         "archivist" => Some(SpecialistId::Archivist), // Experience/Memory → Archives
         _ => None,
     }

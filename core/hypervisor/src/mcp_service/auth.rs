@@ -167,8 +167,10 @@ impl OAuth2Auth {
 impl AuthProvider for OAuth2Auth {
     async fn authenticate(&self, credentials: &str) -> Result<AuthToken, String> {
         let _ = credentials;
-        Err("OAuth2 authentication is not configured; use a verified provider or ApiKeyAuth"
-            .to_string())
+        Err(
+            "OAuth2 authentication is not configured; use a verified provider or ApiKeyAuth"
+                .to_string(),
+        )
     }
 
     async fn verify_token(&self, token: &AuthToken) -> Result<bool, String> {

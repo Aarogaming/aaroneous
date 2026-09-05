@@ -3,8 +3,8 @@ use a_run::enzyme_runner::EnzymeRunner;
 use a_run::hox_registry::HoxRegistry;
 use a_run::splicing_engine::WasmSplicingEngine;
 use a_run::unified_learning::{UnifiedLearningConfig, UnifiedLearningLoop};
-use autonomic_adaptation as evolution;
 use anyhow::Result;
+use autonomic_adaptation as evolution;
 use clap::{Parser, Subcommand};
 use parking_lot::RwLock;
 use std::path::PathBuf;
@@ -487,7 +487,11 @@ fn run_cli(cli: Cli) -> Result<()> {
                 println!("  AARONEOUS MACHINE-NATIVE .SI INSPECTOR REPORT");
                 println!("=================================================================");
                 println!("File Name        : {}", report.file_name);
-                println!("File Size        : {:.2} KB ({} bytes)", report.file_size_bytes as f64 / 1024.0, report.file_size_bytes);
+                println!(
+                    "File Size        : {:.2} KB ({} bytes)",
+                    report.file_size_bytes as f64 / 1024.0,
+                    report.file_size_bytes
+                );
                 println!("Container Magic  : {}", report.magic);
                 println!("Format Version   : v{}", report.version);
                 println!("Goal Opcode      : 0x{:04X}", report.goal_opcode);
@@ -497,9 +501,19 @@ fn run_cli(cli: Cli) -> Result<()> {
                 println!("Free Energy Cost : {:.4} J/op", report.total_energy_cost);
                 println!("Opcodes Used     : {:?}", report.opcodes_used);
                 if let Some(ssm) = report.embedded_ssm {
-                    println!("Embedded SSM     : {} ({} layers, {} params)", ssm.model_name, ssm.num_layers, ssm.param_count);
+                    println!(
+                        "Embedded SSM     : {} ({} layers, {} params)",
+                        ssm.model_name, ssm.num_layers, ssm.param_count
+                    );
                 }
-                println!("mmap-Compatible  : {}", if report.is_mmap_compatible { "YES (< 50µs zero-copy)" } else { "NO" });
+                println!(
+                    "mmap-Compatible  : {}",
+                    if report.is_mmap_compatible {
+                        "YES (< 50µs zero-copy)"
+                    } else {
+                        "NO"
+                    }
+                );
                 println!("=================================================================");
                 Ok(())
             }
@@ -515,9 +529,18 @@ fn run_cli(cli: Cli) -> Result<()> {
                 println!("p50 Latency      : {} µs", bench.p50_latency_us);
                 println!("p95 Latency      : {} µs", bench.p95_latency_us);
                 println!("p99 Latency      : {} µs", bench.p99_latency_us);
-                println!("Min / Max Latency: {} µs / {} µs", bench.min_latency_us, bench.max_latency_us);
-                println!("Throughput       : {:.0} ops/sec", bench.throughput_ops_per_sec);
-                println!("Memory Bandwidth : {:.2} MB/sec", bench.bandwidth_mb_per_sec);
+                println!(
+                    "Min / Max Latency: {} µs / {} µs",
+                    bench.min_latency_us, bench.max_latency_us
+                );
+                println!(
+                    "Throughput       : {:.0} ops/sec",
+                    bench.throughput_ops_per_sec
+                );
+                println!(
+                    "Memory Bandwidth : {:.2} MB/sec",
+                    bench.bandwidth_mb_per_sec
+                );
                 println!("=================================================================");
                 Ok(())
             }
@@ -530,14 +553,23 @@ fn run_cli(cli: Cli) -> Result<()> {
                 }
 
                 println!("=================================================================");
-                println!("  AARONEOUS MACHINE-NATIVE SKILL TREE ({} SKILLS)", engine.skills.len());
+                println!(
+                    "  AARONEOUS MACHINE-NATIVE SKILL TREE ({} SKILLS)",
+                    engine.skills.len()
+                );
                 println!("=================================================================");
                 for (id, skill) in &engine.skills {
                     println!("[{}] {}", skill.status.badge(), skill.name);
                     println!("  ID             : {}", id);
                     println!("  Intent Trigger : \"{}\"", skill.trigger_intent);
-                    println!("  Compression    : {:.1}x reduction", skill.step_compression_ratio);
-                    println!("  Thermodynamics : {:.3} J/op", skill.thermodynamic_efficiency);
+                    println!(
+                        "  Compression    : {:.1}x reduction",
+                        skill.step_compression_ratio
+                    );
+                    println!(
+                        "  Thermodynamics : {:.3} J/op",
+                        skill.thermodynamic_efficiency
+                    );
                     println!("  Latency Avg    : {} µs", skill.latency_avg_us);
                     println!("  Fitness Score  : {:.2}/1.0", skill.intrinsic_score);
                     println!("-----------------------------------------------------------------");
@@ -548,30 +580,55 @@ fn run_cli(cli: Cli) -> Result<()> {
                 println!("Initializing Pure Rust Machine-Native SI Model Trainer...");
                 let config = compute::SiModelConfig::default();
                 let model = compute::SiModel::new(config, *gpu)?;
-                let mut trainer = compute::SiModelTrainer::new(model, compute::SiTrainerConfig::default());
-                
+                let mut trainer =
+                    compute::SiModelTrainer::new(model, compute::SiTrainerConfig::default());
+
                 let mut graph = compute::NativeComputationalGraph::new();
                 graph.add_node(compute::NativeComputationNode {
                     id: 1,
-                    opcode: compute::MachineOpcode::Alloc { size_bytes: 4096, align: 64 },
-                    type_lattice: compute::NativeTypeLattice::LinearMemoryPointer { mutability: true, alignment: 64 },
+                    opcode: compute::MachineOpcode::Alloc {
+                        size_bytes: 4096,
+                        align: 64,
+                    },
+                    type_lattice: compute::NativeTypeLattice::LinearMemoryPointer {
+                        mutability: true,
+                        alignment: 64,
+                    },
                     energy_cost: 0.04,
                     dependencies: Vec::new(),
                 });
                 graph.add_node(compute::NativeComputationNode {
                     id: 2,
-                    opcode: compute::MachineOpcode::Call { function_id: 0x7777, arg_regs: vec![1] },
-                    type_lattice: compute::NativeTypeLattice::PrimitiveInt { bits: 32, signed: true },
+                    opcode: compute::MachineOpcode::Call {
+                        function_id: 0x7777,
+                        arg_regs: vec![1],
+                    },
+                    type_lattice: compute::NativeTypeLattice::PrimitiveInt {
+                        bits: 32,
+                        signed: true,
+                    },
                     energy_cost: 0.06,
                     dependencies: vec![1],
                 });
 
-                let packet = compute::SiThoughtPacket::new(0x0600, compute::DimensionalUnit::DIMENSIONLESS, vec![0.5; 1024], graph);
+                let packet = compute::SiThoughtPacket::new(
+                    0x0600,
+                    compute::DimensionalUnit::DIMENSIONLESS,
+                    vec![0.5; 1024],
+                    graph,
+                );
                 let packets = vec![packet; 10];
 
                 for e in 1..=*epochs {
                     let report = trainer.train_epoch_batch(e, &packets)?;
-                    println!("Epoch {:02}/{:02} | Loss: {:.4} | Opcode Accuracy: {:.1}% | Duration: {}ms", e, epochs, report.mean_total_loss, report.opcode_accuracy_percent, report.duration_ms);
+                    println!(
+                        "Epoch {:02}/{:02} | Loss: {:.4} | Opcode Accuracy: {:.1}% | Duration: {}ms",
+                        e,
+                        epochs,
+                        report.mean_total_loss,
+                        report.opcode_accuracy_percent,
+                        report.duration_ms
+                    );
                 }
                 println!("Training completed successfully.");
                 Ok(())
@@ -580,15 +637,28 @@ fn run_cli(cli: Cli) -> Result<()> {
                 let engine = compute::SiToolEngine;
                 let target_path = out.clone().unwrap_or_else(|| {
                     let paths = aaroneous_paths::WorkspacePaths::discover();
-                    paths.data().join("macros").join(format!("{}.si", name.to_lowercase().replace(' ', "_")))
+                    paths
+                        .data()
+                        .join("macros")
+                        .join(format!("{}.si", name.to_lowercase().replace(' ', "_")))
                 });
 
                 let path = engine.distill_task_sequence(name, steps, &target_path)?;
-                println!("Successfully distilled task '{}' into machine-native cartridge: {:?}", name, path);
+                println!(
+                    "Successfully distilled task '{}' into machine-native cartridge: {:?}",
+                    name, path
+                );
                 Ok(())
             }
-            SiCommands::DistillTeacher { teacher_dim, samples, out } => {
-                println!("Distilling teacher latents (dim={}) via 2-Layer GeLU Bottleneck Bridge...", teacher_dim);
+            SiCommands::DistillTeacher {
+                teacher_dim,
+                samples,
+                out,
+            } => {
+                println!(
+                    "Distilling teacher latents (dim={}) via 2-Layer GeLU Bottleneck Bridge...",
+                    teacher_dim
+                );
                 let bridge = compute::LatentGELUBottleneckBridge::new(*teacher_dim, 1024, 256);
                 let engine = compute::SiToolEngine;
 
@@ -606,15 +676,19 @@ fn run_cli(cli: Cli) -> Result<()> {
                     paths.data().join("datasets").join("teacher_distilled.si")
                 });
 
-                let path = engine.distill_teacher_trajectory(&bridge, &teacher_latents, &target_path)?;
-                println!("Successfully distilled {} teacher frames into .si dataset: {:?}", samples, path);
+                let path =
+                    engine.distill_teacher_trajectory(&bridge, &teacher_latents, &target_path)?;
+                println!(
+                    "Successfully distilled {} teacher frames into .si dataset: {:?}",
+                    samples, path
+                );
                 Ok(())
             }
             SiCommands::Dream { cycles, sigma, out } => {
                 let paths = aaroneous_paths::WorkspacePaths::discover();
-                let target_path = out.clone().unwrap_or_else(|| {
-                    paths.data().join("models").join("agent_dreamed.si")
-                });
+                let target_path = out
+                    .clone()
+                    .unwrap_or_else(|| paths.data().join("models").join("agent_dreamed.si"));
 
                 let config = compute::SiSsmConfig {
                     model_name: "Aaroneous-Dream-SSM".to_string(),
@@ -628,122 +702,151 @@ fn run_cli(cli: Cli) -> Result<()> {
                     param_count: 50_000,
                 };
 
-                let mut container = compute::SolidStateSiContainer::new("Aaroneous-Dream-Agent", config);
+                let mut container =
+                    compute::SolidStateSiContainer::new("Aaroneous-Dream-Agent", config);
                 let anchor = compute::si_solid_state::AnchorTransition {
                     state_t: vec![0.5f32; 256],
                     expected_action: 0x01,
                     expected_delta: vec![0.0f32; 256],
                 };
-                container.adaptation.add_anchor_state(anchor.state_t.clone(), 0x01, anchor.expected_delta.clone());
+                container.adaptation.add_anchor_state(
+                    anchor.state_t.clone(),
+                    0x01,
+                    anchor.expected_delta.clone(),
+                );
 
                 let mut engine = compute::SiSelfPlayEngine::new(0.05, *sigma);
                 engine.add_golden_anchor(anchor);
 
-                println!("🌙 Initiating Autonomous Dream Phase ({} cycles, σ={})...", cycles, sigma);
+                println!(
+                    "🌙 Initiating Autonomous Dream Phase ({} cycles, σ={})...",
+                    cycles, sigma
+                );
                 let results = engine.run_dream_cycle(&mut container.adaptation, *cycles);
                 let successful = results.iter().filter(|r| r.reward > 0.0).count();
 
                 container.save_to_file(&target_path)?;
-                println!("✨ Dream phase complete: {}/{} puzzles resolved cleanly. Saved to: {:?}", successful, cycles, target_path);
+                println!(
+                    "✨ Dream phase complete: {}/{} puzzles resolved cleanly. Saved to: {:?}",
+                    successful, cycles, target_path
+                );
                 Ok(())
             }
-            SiCommands::Bootstrap { name, samples, epochs, out } => {
-                run_bootstrap_pipeline(name, *samples, *epochs, out.clone())
-            }
-            SiCommands::PackSi { model_id, out, d_model, d_state, lora_rank } => {
-                run_pack_si_pipeline(model_id, out, *d_model, *d_state, *lora_rank)
-            }
-            SiCommands::Forge { name, tier, dataset, epochs, samples, out } => {
-                run_forge_pipeline(name, *tier, dataset.clone(), *epochs, *samples, out.clone())
-            }
+            SiCommands::Bootstrap {
+                name,
+                samples,
+                epochs,
+                out,
+            } => run_bootstrap_pipeline(name, *samples, *epochs, out.clone()),
+            SiCommands::PackSi {
+                model_id,
+                out,
+                d_model,
+                d_state,
+                lora_rank,
+            } => run_pack_si_pipeline(model_id, out, *d_model, *d_state, *lora_rank),
+            SiCommands::Forge {
+                name,
+                tier,
+                dataset,
+                epochs,
+                samples,
+                out,
+            } => run_forge_pipeline(name, *tier, dataset.clone(), *epochs, *samples, out.clone()),
             SiCommands::Wrap { target, name, out } => {
                 run_async(run_wrap_pipeline(target, name.as_deref(), out.clone()))
             }
-            SiCommands::Vision { frames } => {
-                run_async(run_vision_pipeline(*frames))
-            }
-            SiCommands::Galaxy { steps } => {
-                run_async(run_galaxy_pipeline(*steps))
-            }
-            SiCommands::Hypothesis { path } => {
-                run_async(run_hypothesis_pipeline(path))
-            }
-            SiCommands::Reap { pressure } => {
-                run_async(run_reap_pipeline(*pressure))
-            }
-            SiCommands::Drive { dopamine, serotonin, noradrenaline, acetylcholine, tokens } => {
-                run_async(run_drive_pipeline(*dopamine, *serotonin, *noradrenaline, *acetylcholine, *tokens))
-            }
-            SiCommands::Mesh { nodes, live } => {
-                run_async(run_mesh_pipeline(*nodes, *live))
-            }
-            SiCommands::Daemon { bind, peers, heartbeat } => {
-                run_async(run_daemon_pipeline(bind, peers, *heartbeat))
-            }
-            SiCommands::Simulate { frames } => {
-                run_async(run_simulate_pipeline(*frames))
-            }
-            SiCommands::Hud { headless } => {
-                run_hud_pipeline(*headless)
-            }
-            SiCommands::DistillAll { samples, epochs, out } => {
-                run_distill_all_pipeline(*samples, *epochs, out.clone())
-            }
-            SiCommands::Evolve { cycles, threshold, out } => {
-                run_evolve_pipeline(*cycles, *threshold, out.clone())
-            }
+            SiCommands::Vision { frames } => run_async(run_vision_pipeline(*frames)),
+            SiCommands::Galaxy { steps } => run_async(run_galaxy_pipeline(*steps)),
+            SiCommands::Hypothesis { path } => run_async(run_hypothesis_pipeline(path)),
+            SiCommands::Reap { pressure } => run_async(run_reap_pipeline(*pressure)),
+            SiCommands::Drive {
+                dopamine,
+                serotonin,
+                noradrenaline,
+                acetylcholine,
+                tokens,
+            } => run_async(run_drive_pipeline(
+                *dopamine,
+                *serotonin,
+                *noradrenaline,
+                *acetylcholine,
+                *tokens,
+            )),
+            SiCommands::Mesh { nodes, live } => run_async(run_mesh_pipeline(*nodes, *live)),
+            SiCommands::Daemon {
+                bind,
+                peers,
+                heartbeat,
+            } => run_async(run_daemon_pipeline(bind, peers, *heartbeat)),
+            SiCommands::Simulate { frames } => run_async(run_simulate_pipeline(*frames)),
+            SiCommands::Hud { headless } => run_hud_pipeline(*headless),
+            SiCommands::DistillAll {
+                samples,
+                epochs,
+                out,
+            } => run_distill_all_pipeline(*samples, *epochs, out.clone()),
+            SiCommands::Evolve {
+                cycles,
+                threshold,
+                out,
+            } => run_evolve_pipeline(*cycles, *threshold, out.clone()),
         },
-        Some(Commands::Bootstrap { name, samples, epochs, out }) => {
-            run_bootstrap_pipeline(name, *samples, *epochs, out.clone())
-        }
-        Some(Commands::Forge { name, tier, dataset, epochs, samples, out }) => {
-            run_forge_pipeline(name, *tier, dataset.clone(), *epochs, *samples, out.clone())
-        }
-        Some(Commands::Boot { profile }) => {
-            run_boot_pipeline(profile)
-        }
+        Some(Commands::Bootstrap {
+            name,
+            samples,
+            epochs,
+            out,
+        }) => run_bootstrap_pipeline(name, *samples, *epochs, out.clone()),
+        Some(Commands::Forge {
+            name,
+            tier,
+            dataset,
+            epochs,
+            samples,
+            out,
+        }) => run_forge_pipeline(name, *tier, dataset.clone(), *epochs, *samples, out.clone()),
+        Some(Commands::Boot { profile }) => run_boot_pipeline(profile),
         Some(Commands::Wrap { target, name, out }) => {
             run_async(run_wrap_pipeline(target, name.as_deref(), out.clone()))
         }
-        Some(Commands::Vision { frames }) => {
-            run_async(run_vision_pipeline(*frames))
-        }
-        Some(Commands::Galaxy { steps }) => {
-            run_async(run_galaxy_pipeline(*steps))
-        }
-        Some(Commands::Hypothesis { path }) => {
-            run_async(run_hypothesis_pipeline(path))
-        }
-        Some(Commands::Reap { pressure }) => {
-            run_async(run_reap_pipeline(*pressure))
-        }
-        Some(Commands::Drive { dopamine, serotonin, noradrenaline, acetylcholine, tokens }) => {
-            run_async(run_drive_pipeline(*dopamine, *serotonin, *noradrenaline, *acetylcholine, *tokens))
-        }
-        Some(Commands::Mesh { nodes, live }) => {
-            run_async(run_mesh_pipeline(*nodes, *live))
-        }
-        Some(Commands::Daemon { bind, peers, heartbeat }) => {
-            run_async(run_daemon_pipeline(bind, peers, *heartbeat))
-        }
-        Some(Commands::Simulate { frames }) => {
-            run_async(run_simulate_pipeline(*frames))
-        }
-        Some(Commands::Hud { headless }) => {
-            run_hud_pipeline(*headless)
-        }
-        Some(Commands::DistillAll { samples, epochs, out }) => {
-            run_distill_all_pipeline(*samples, *epochs, out.clone())
-        }
-        Some(Commands::Evolve { cycles, threshold, out }) => {
-            run_evolve_pipeline(*cycles, *threshold, out.clone())
-        }
-        Some(Commands::Flagship { iterations }) => {
-            run_flagship_pipeline(*iterations)
-        }
-        Some(Commands::Mcp { host, port }) => {
-            run_async(run_mcp_pipeline(host, *port))
-        }
+        Some(Commands::Vision { frames }) => run_async(run_vision_pipeline(*frames)),
+        Some(Commands::Galaxy { steps }) => run_async(run_galaxy_pipeline(*steps)),
+        Some(Commands::Hypothesis { path }) => run_async(run_hypothesis_pipeline(path)),
+        Some(Commands::Reap { pressure }) => run_async(run_reap_pipeline(*pressure)),
+        Some(Commands::Drive {
+            dopamine,
+            serotonin,
+            noradrenaline,
+            acetylcholine,
+            tokens,
+        }) => run_async(run_drive_pipeline(
+            *dopamine,
+            *serotonin,
+            *noradrenaline,
+            *acetylcholine,
+            *tokens,
+        )),
+        Some(Commands::Mesh { nodes, live }) => run_async(run_mesh_pipeline(*nodes, *live)),
+        Some(Commands::Daemon {
+            bind,
+            peers,
+            heartbeat,
+        }) => run_async(run_daemon_pipeline(bind, peers, *heartbeat)),
+        Some(Commands::Simulate { frames }) => run_async(run_simulate_pipeline(*frames)),
+        Some(Commands::Hud { headless }) => run_hud_pipeline(*headless),
+        Some(Commands::DistillAll {
+            samples,
+            epochs,
+            out,
+        }) => run_distill_all_pipeline(*samples, *epochs, out.clone()),
+        Some(Commands::Evolve {
+            cycles,
+            threshold,
+            out,
+        }) => run_evolve_pipeline(*cycles, *threshold, out.clone()),
+        Some(Commands::Flagship { iterations }) => run_flagship_pipeline(*iterations),
+        Some(Commands::Mcp { host, port }) => run_async(run_mcp_pipeline(host, *port)),
         None => {
             println!("Usage: a_run [COMMAND]");
             println!("Commands:");
@@ -753,20 +856,38 @@ fn run_cli(cli: Cli) -> Result<()> {
             println!("  bootstrap   Bootstrap the first .si base model from Translation Dataset");
             println!("  forge       Birth a new .si model container via SiForge");
             println!("  boot        Boot Aaroneous sovereign runtime under an execution profile");
-            println!("  wrap        Autonomously wrap an external binary into a machine-native component");
+            println!(
+                "  wrap        Autonomously wrap an external binary into a machine-native component"
+            );
             println!("  vision      Benchmark GPU-accelerated epigenetic visual motion gating");
-            println!("  galaxy      Ingest and inspect 3D Omni Galaxy with gravitational clustering");
+            println!(
+                "  galaxy      Ingest and inspect 3D Omni Galaxy with gravitational clustering"
+            );
             println!("  hypothesis  Execute autonomous scientific AST hypothesis loop");
-            println!("  reap        Trigger Compaction Engine memory compaction and instant resurrection");
-            println!("  drive       Inspect proactive neurochemical homeostatic drive and token rebalancing");
-            println!("  mesh        Inspect Multi-Hive P2P federation, gossip consensus quorum, and cluster health");
-            println!("  simulate    Execute closed-loop multimodal sensory-motor pipeline in Isolated Desktop");
+            println!(
+                "  reap        Trigger Compaction Engine memory compaction and instant resurrection"
+            );
+            println!(
+                "  drive       Inspect proactive neurochemical homeostatic drive and token rebalancing"
+            );
+            println!(
+                "  mesh        Inspect Multi-Hive P2P federation, gossip consensus quorum, and cluster health"
+            );
+            println!(
+                "  simulate    Execute closed-loop multimodal sensory-motor pipeline in Isolated Desktop"
+            );
             println!("  hud         Launch the Unified Maelstrom Telemetry HUD desktop interface");
-            println!("  distill-all Distill and birth .si solid-state models for all 9 Specialists");
-            println!("  evolve      Execute autonomous background self-evolution AST mutation cycles");
+            println!(
+                "  distill-all Distill and birth .si solid-state models for all 9 Specialists"
+            );
+            println!(
+                "  evolve      Execute autonomous background self-evolution AST mutation cycles"
+            );
             println!("  si          Machine-native SI toolkit:");
             println!("                inspect, benchmark, skills, train, distill,");
-            println!("                distill-teacher, dream, bootstrap, pack-si, forge, wrap, vision, galaxy, hypothesis, reap, drive, mesh, daemon, simulate, hud, distill-all, evolve");
+            println!(
+                "                distill-teacher, dream, bootstrap, pack-si, forge, wrap, vision, galaxy, hypothesis, reap, drive, mesh, daemon, simulate, hud, distill-all, evolve"
+            );
             Ok(())
         }
     }
@@ -812,7 +933,10 @@ fn run_boot_pipeline(profile: &str) -> Result<()> {
         "isolated" | "sovereign" => {
             println!("   -> Forging Sovereign Sandbox: Allocating Win32 Isolated Desktop...");
             let ghost = compute::IsolatedDesktop::forge("Aaroneous_Isolated_Desktop")?;
-            println!("   -> Isolated Desktop active and secured (Handle ID: {:#X}).", ghost.handle_id);
+            println!(
+                "   -> Isolated Desktop active and secured (Handle ID: {:#X}).",
+                ghost.handle_id
+            );
         }
         "cooperative" => {
             println!("   -> Engaging cooperative sidecar mode (Non-invasive memory telemetry).");
@@ -834,30 +958,50 @@ fn run_boot_pipeline(profile: &str) -> Result<()> {
         description: "Absolute hardware coordinate shift".into(),
         skill_type: compute::SkillType::Primitive { opcode_id: 0x01 },
         intent_embedding: intent,
-        state: compute::StarState::Crystallized { addr: 0x7FFA_4001, time_ns: 120 },
+        state: compute::StarState::Crystallized {
+            addr: 0x7FFA_4001,
+            time_ns: 120,
+        },
         children: vec![],
         execution_count: 100,
         success_count: 100,
     });
 
-    println!("   -> Motor Cortex online: {} skills indexed ({} crystallized).", motor_cortex.len(), motor_cortex.total_crystallized);
-    println!("   -> Multi-Tier Federated Bus channels: {}", bus.channels.len());
+    println!(
+        "   -> Motor Cortex online: {} skills indexed ({} crystallized).",
+        motor_cortex.len(),
+        motor_cortex.total_crystallized
+    );
+    println!(
+        "   -> Multi-Tier Federated Bus channels: {}",
+        bus.channels.len()
+    );
     println!("⚡ Aaroneous Hypervisor fully operational.");
     println!("==================================================\n");
 
     Ok(())
 }
 
-fn run_bootstrap_pipeline(name: &str, samples: usize, epochs: usize, out: Option<PathBuf>) -> Result<()> {
+fn run_bootstrap_pipeline(
+    name: &str,
+    samples: usize,
+    epochs: usize,
+    out: Option<PathBuf>,
+) -> Result<()> {
     let paths = aaroneous_paths::WorkspacePaths::discover();
-    let target_path = out.unwrap_or_else(|| {
-        paths.data().join("models").join(format!("{}.si", name))
-    });
+    let target_path =
+        out.unwrap_or_else(|| paths.data().join("models").join(format!("{}.si", name)));
 
-    println!("📜 Synthesizing Translation Dataset Oracle Trajectories ({} micro-tasks)...", samples);
+    println!(
+        "📜 Synthesizing Translation Dataset Oracle Trajectories ({} micro-tasks)...",
+        samples
+    );
     let dataset = compute::TranslationDataset::synthesize_synthetic_corpus(samples);
 
-    println!("🧠 Initializing Offline Bootstrap Distillation Harness (Model: {}, Epochs: {})...", name, epochs);
+    println!(
+        "🧠 Initializing Offline Bootstrap Distillation Harness (Model: {}, Epochs: {})...",
+        name, epochs
+    );
     let config = compute::BootstrapConfig {
         model_name: name.to_string(),
         epochs,
@@ -869,7 +1013,9 @@ fn run_bootstrap_pipeline(name: &str, samples: usize, epochs: usize, out: Option
     };
 
     let mut harness = compute::SiDistillationHarness::new(config);
-    println!("🔥 Running 2-Layer GeLU Bottleneck + CKA & InfoNCE Distillation into Solid-State Base SSM...");
+    println!(
+        "🔥 Running 2-Layer GeLU Bottleneck + CKA & InfoNCE Distillation into Solid-State Base SSM..."
+    );
     let report = harness.bootstrap_base_model(&dataset, &target_path)?;
 
     println!("=================================================================");
@@ -877,7 +1023,10 @@ fn run_bootstrap_pipeline(name: &str, samples: usize, epochs: usize, out: Option
     println!("=================================================================");
     println!("Model Name         : {}", report.model_name);
     println!("Samples Distilled  : {}", report.samples_processed);
-    println!("Final CKA Metric   : {:.4} (Geometry alignment to 70B teacher)", report.final_cka_alignment);
+    println!(
+        "Final CKA Metric   : {:.4} (Geometry alignment to 70B teacher)",
+        report.final_cka_alignment
+    );
     println!("InfoNCE Loss       : {:.4}", report.final_infonce_loss);
     println!("MSE Delta Loss     : {:.4}", report.final_mse_delta_loss);
     println!("Duration           : {} ms", report.total_duration_ms);
@@ -920,23 +1069,47 @@ fn run_pack_si_pipeline(
 
     // in_proj: [state_dim → d_model]  (state_dim = 1024 standard)
     let state_dim = 1024usize;
-    core_weights.insert("ssm_in_proj".to_string(),      vec![0.02f32; state_dim * d_model]);
-    core_weights.insert("ssm_out_delta".to_string(),    vec![0.01f32; d_model * state_dim]);
-    core_weights.insert("ssm_opcode_head".to_string(),  vec![0.01f32; d_model * 64]);
-    core_weights.insert("ssm_energy_head".to_string(),  vec![0.01f32; d_model]);
+    core_weights.insert(
+        "ssm_in_proj".to_string(),
+        vec![0.02f32; state_dim * d_model],
+    );
+    core_weights.insert(
+        "ssm_out_delta".to_string(),
+        vec![0.01f32; d_model * state_dim],
+    );
+    core_weights.insert("ssm_opcode_head".to_string(), vec![0.01f32; d_model * 64]);
+    core_weights.insert("ssm_energy_head".to_string(), vec![0.01f32; d_model]);
 
     // Per-layer SSM blocks: in_proj, a_log, b_proj, c_proj, d_skip, out_proj
     let num_layers = 2usize;
     for layer in 0..num_layers {
-        core_weights.insert(format!("layer{layer}_in_proj"),  vec![0.02f32; d_model * d_model * 2]);
-        core_weights.insert(format!("layer{layer}_a_log"),    vec![-1.0f32; d_model * d_state]);
-        core_weights.insert(format!("layer{layer}_b_proj"),   vec![0.02f32; d_model * d_state]);
-        core_weights.insert(format!("layer{layer}_c_proj"),   vec![0.02f32; d_model * d_state]);
-        core_weights.insert(format!("layer{layer}_d_skip"),   vec![1.0f32;  d_model]);
-        core_weights.insert(format!("layer{layer}_out_proj"), vec![0.02f32; d_model * d_model]);
+        core_weights.insert(
+            format!("layer{layer}_in_proj"),
+            vec![0.02f32; d_model * d_model * 2],
+        );
+        core_weights.insert(
+            format!("layer{layer}_a_log"),
+            vec![-1.0f32; d_model * d_state],
+        );
+        core_weights.insert(
+            format!("layer{layer}_b_proj"),
+            vec![0.02f32; d_model * d_state],
+        );
+        core_weights.insert(
+            format!("layer{layer}_c_proj"),
+            vec![0.02f32; d_model * d_state],
+        );
+        core_weights.insert(format!("layer{layer}_d_skip"), vec![1.0f32; d_model]);
+        core_weights.insert(
+            format!("layer{layer}_out_proj"),
+            vec![0.02f32; d_model * d_model],
+        );
     }
 
-    println!("📊 Core tensors: {} (+ 2 dynamic LoRA adapters)", core_weights.len());
+    println!(
+        "📊 Core tensors: {} (+ 2 dynamic LoRA adapters)",
+        core_weights.len()
+    );
 
     if let Some(parent) = out.parent() {
         std::fs::create_dir_all(parent)?;
@@ -955,7 +1128,11 @@ fn run_pack_si_pipeline(
     println!("d_model      : {}", loader.manifest.d_model);
     println!("d_state      : {}", loader.manifest.d_state);
     println!("LoRA Rank    : {}", loader.manifest.lora_rank);
-    println!("Tensors      : {} ({} immutable + 2 mutable LoRA adapters)", names.len(), names.len() - 2);
+    println!(
+        "Tensors      : {} ({} immutable + 2 mutable LoRA adapters)",
+        names.len(),
+        names.len() - 2
+    );
     println!();
     for desc in &loader.manifest.tensors {
         println!(
@@ -969,7 +1146,10 @@ fn run_pack_si_pipeline(
     }
 
     // Spot-check alignment
-    let misaligned: Vec<&str> = loader.manifest.tensors.iter()
+    let misaligned: Vec<&str> = loader
+        .manifest
+        .tensors
+        .iter()
         .filter(|t| !(t.byte_offset as usize).is_multiple_of(compute::ALIGNMENT_BYTES))
         .map(|t| t.name.as_str())
         .collect();
@@ -985,8 +1165,16 @@ fn run_pack_si_pipeline(
 }
 
 /// Runs the 4-Stage Software Auto-Wrapping Pipeline
-async fn run_wrap_pipeline(target: &std::path::Path, name: Option<&str>, out: Option<PathBuf>) -> Result<()> {
-    let out_dir = out.unwrap_or_else(|| aaroneous_paths::WorkspacePaths::discover().models().join("components"));
+async fn run_wrap_pipeline(
+    target: &std::path::Path,
+    name: Option<&str>,
+    out: Option<PathBuf>,
+) -> Result<()> {
+    let out_dir = out.unwrap_or_else(|| {
+        aaroneous_paths::WorkspacePaths::discover()
+            .models()
+            .join("components")
+    });
     println!("=================================================================");
     println!(" [SYSTEM COMPONENT FORGE] AUTONOMOUS SOFTWARE AUTO-WRAPPER");
     println!("=================================================================");
@@ -1004,19 +1192,35 @@ async fn run_wrap_pipeline(target: &std::path::Path, name: Option<&str>, out: Op
     println!("   -> Probe Latency   : {} µs", probe.probe_duration_us);
     println!("   -> Exit Code       : {}", probe.exit_code);
     if !probe.stdout_sample.is_empty() {
-        println!("   -> Stdout Sample   : {}", probe.stdout_sample.lines().next().unwrap_or(""));
+        println!(
+            "   -> Stdout Sample   : {}",
+            probe.stdout_sample.lines().next().unwrap_or("")
+        );
     }
 
     println!("\n   [Stage 3] Synthesizing Native Rust MNLP Adapter Harness...");
-    let staged_crate = adaptation_engine::AutoWrapperEngine::build_and_stage_organ(&manifest, &out_dir)?;
+    let staged_crate =
+        adaptation_engine::AutoWrapperEngine::build_and_stage_organ(&manifest, &out_dir)?;
 
     println!("\n   [Stage 4] Component Staging & Verification Complete:");
     println!("   -> Staged Crate Dir: {:?}", staged_crate);
-    println!("   -> Cargo Definition: {:?}", staged_crate.join("Cargo.toml"));
-    println!("   -> Harness Source  : {:?}", staged_crate.join("src/lib.rs"));
-    println!("   -> Manifest Meta   : {:?}", staged_crate.join("manifest.json"));
+    println!(
+        "   -> Cargo Definition: {:?}",
+        staged_crate.join("Cargo.toml")
+    );
+    println!(
+        "   -> Harness Source  : {:?}",
+        staged_crate.join("src/lib.rs")
+    );
+    println!(
+        "   -> Manifest Meta   : {:?}",
+        staged_crate.join("manifest.json")
+    );
     println!("=================================================================");
-    println!("✅ Native Component '{}' successfully generated & ready for Bus dispatch.", manifest.name);
+    println!(
+        "✅ Native Component '{}' successfully generated & ready for Bus dispatch.",
+        manifest.name
+    );
     println!("=================================================================\n");
 
     Ok(())
@@ -1052,8 +1256,10 @@ async fn run_vision_pipeline(frames: usize) -> Result<()> {
         total_us += result.duration_us;
 
         println!("-----------------------------------------------------------------");
-        println!("  FRAME #{:02} | Active: {:3}/256 | Saved: {:5.1}% | Gating: {:3} µs", 
-            f, result.active_sectors_count, result.compute_savings_pct, result.duration_us);
+        println!(
+            "  FRAME #{:02} | Active: {:3}/256 | Saved: {:5.1}% | Gating: {:3} µs",
+            f, result.active_sectors_count, result.compute_savings_pct, result.duration_us
+        );
         println!("-----------------------------------------------------------------");
         let ascii = gater.render_ascii_grid(&result.bool_mask);
         println!("{}\n", ascii);
@@ -1062,9 +1268,15 @@ async fn run_vision_pipeline(frames: usize) -> Result<()> {
     let avg_saved = total_saved / frames as f32;
     let avg_us = total_us / frames as u64;
     println!("=================================================================");
-    println!("📊 Epigenetic Visual Gating Summary ({} frames evaluated):", frames);
+    println!(
+        "📊 Epigenetic Visual Gating Summary ({} frames evaluated):",
+        frames
+    );
     println!("   -> Average Compute Savings : {:.1}%", avg_saved);
-    println!("   -> Average Saliency Latency: {} µs (target < 50 µs)", avg_us);
+    println!(
+        "   -> Average Saliency Latency: {} µs (target < 50 µs)",
+        avg_us
+    );
     println!("   -> SIMD 256-bit Bitmask   : Active (4x u64 words)");
     println!("=================================================================\n");
     Ok(())
@@ -1075,7 +1287,9 @@ async fn run_galaxy_pipeline(steps: usize) -> Result<()> {
     println!("=================================================================");
     println!(" 🌌 AARONEOUS OMNI: 3D SEMANTIC GALAXY DATA NAVIGATION ENGINE");
     println!("=================================================================");
-    println!("   Spatial Coordinates : X: Domain [-1000..+1000], Y: Temporal [-800..+800], Z: Priority [-500..+1000]");
+    println!(
+        "   Spatial Coordinates : X: Domain [-1000..+1000], Y: Temporal [-800..+800], Z: Priority [-500..+1000]"
+    );
     println!("   Clustering Metric   : 32-dim Cosine Gravity + N-Body Relaxation\n");
 
     let engine = omni::OmniEngine::default();
@@ -1084,14 +1298,28 @@ async fn run_galaxy_pipeline(steps: usize) -> Result<()> {
     println!("   -> Registered {} Specialist Star-Nodes.", spec_count);
 
     println!("\n   [Step 2] Ingesting Workspace Architecture into 3D Space...");
-    let crate_count = engine.ingest_workspace_crates(&[
-        "ipc_bus", "compute", "evolution", "biology",
-        "orchestrator", "adaptation_engine", "platform_bridge", "specialists",
-        "paths", "transpiler", "omni", "hypervisor"
-    ]).await;
+    let crate_count = engine
+        .ingest_workspace_crates(&[
+            "ipc_bus",
+            "compute",
+            "evolution",
+            "biology",
+            "orchestrator",
+            "adaptation_engine",
+            "platform_bridge",
+            "specialists",
+            "paths",
+            "transpiler",
+            "omni",
+            "hypervisor",
+        ])
+        .await;
     println!("   -> Registered {} Architecture Star-Nodes.", crate_count);
 
-    println!("\n   [Step 3] Running {} N-Body Gravitational Physics Relaxation Steps...", steps);
+    println!(
+        "\n   [Step 3] Running {} N-Body Gravitational Physics Relaxation Steps...",
+        steps
+    );
     for s in 1..=steps {
         engine.step_gravitational_physics(0.1).await;
         if s % 5 == 0 || s == steps {
@@ -1106,8 +1334,16 @@ async fn run_galaxy_pipeline(steps: usize) -> Result<()> {
     println!("   -> Galaxy Clusters  : {}", snapshot.total_galaxies);
     println!("-----------------------------------------------------------------");
     for (i, gal) in snapshot.galaxies.iter().enumerate() {
-        println!("   [Galaxy #{:02}] {:20} | Stars: {:2} | Center: ({:6.1}, {:6.1}, {:6.1}) | Radius: {:5.1}",
-            i + 1, gal.name, gal.star_ids.len(), gal.center.x, gal.center.y, gal.center.z, gal.radius);
+        println!(
+            "   [Galaxy #{:02}] {:20} | Stars: {:2} | Center: ({:6.1}, {:6.1}, {:6.1}) | Radius: {:5.1}",
+            i + 1,
+            gal.name,
+            gal.star_ids.len(),
+            gal.center.x,
+            gal.center.y,
+            gal.center.z,
+            gal.radius
+        );
     }
     println!("=================================================================\n");
     Ok(())
@@ -1123,7 +1359,10 @@ async fn run_hypothesis_pipeline(path: &std::path::Path) -> Result<()> {
 
     let report = adaptation_engine::AutonomousScientificEngine::scan_file(path).await?;
     println!("   [Phase 1: OBSERVE]");
-    println!("   -> Functions Observed : {}", report.total_functions_observed);
+    println!(
+        "   -> Functions Observed : {}",
+        report.total_functions_observed
+    );
     println!("   -> Hypotheses Tested  : {}", report.hypotheses_tested);
 
     println!("\n   [Phase 2-4: HYPOTHESIZE ➔ EXPERIMENT ➔ VERIFY]");
@@ -1131,16 +1370,29 @@ async fn run_hypothesis_pipeline(path: &std::path::Path) -> Result<()> {
         println!("-----------------------------------------------------------------");
         println!("   Hypothesis #{:02}: {:?}", i + 1, h.category);
         println!("   -> Description : {}", h.description);
-        println!("   -> Prior Conf  : {:.1}% ➔ Posterior: {:.1}%", h.prior_confidence * 100.0, h.posterior_confidence * 100.0);
+        println!(
+            "   -> Prior Conf  : {:.1}% ➔ Posterior: {:.1}%",
+            h.prior_confidence * 100.0,
+            h.posterior_confidence * 100.0
+        );
         println!("   -> Speedup Est : +{:.1}%", h.performance_delta_pct);
         println!("   -> Verdict     : {}", h.verdict);
     }
 
     println!("=================================================================");
     println!("📊 Scientific Cycle Summary:");
-    println!("   -> Total Hypotheses Accepted: {} / {}", report.hypotheses_accepted, report.hypotheses_tested);
-    println!("   -> Mean Posterior Confidence: {:.1}%", report.avg_posterior_confidence * 100.0);
-    println!("   -> Cycle Execution Latency  : {} µs", report.cycle_duration_us);
+    println!(
+        "   -> Total Hypotheses Accepted: {} / {}",
+        report.hypotheses_accepted, report.hypotheses_tested
+    );
+    println!(
+        "   -> Mean Posterior Confidence: {:.1}%",
+        report.avg_posterior_confidence * 100.0
+    );
+    println!(
+        "   -> Cycle Execution Latency  : {} µs",
+        report.cycle_duration_us
+    );
     println!("=================================================================\n");
     Ok(())
 }
@@ -1150,7 +1402,10 @@ async fn run_reap_pipeline(pressure: f32) -> Result<()> {
     println!("=================================================================");
     println!(" 💀 AARONEOUS ORCHESTRATOR: COMPACTION ENGINE & INSTANT RESURRECTION");
     println!("=================================================================");
-    println!("   System Memory Pressure : {:.1}% (Compaction Threshold: 80.0%)", pressure);
+    println!(
+        "   System Memory Pressure : {:.1}% (Compaction Threshold: 80.0%)",
+        pressure
+    );
     println!("   Hibernation Format     : 128-byte aligned zero-copy .sissm containers\n");
 
     let temp_dir = std::env::temp_dir().join("aaroneous_hibernation_bench");
@@ -1177,19 +1432,27 @@ async fn run_reap_pipeline(pressure: f32) -> Result<()> {
         });
     }
 
-    println!("   [Stage 1] Pre-Compaction Working Set: {} Active Specialists", reaper.active_specialists.len());
+    println!(
+        "   [Stage 1] Pre-Compaction Working Set: {} Active Specialists",
+        reaper.active_specialists.len()
+    );
 
     println!("\n   [Stage 2] Executing Autonomic Memory Compaction Sweep...");
     let summary = reaper.auto_compact(pressure)?;
     println!("   -> Specialists Reaped : {}", summary.specialists_reaped);
-    println!("   -> Total RAM Freed    : {:.1} MB", summary.total_ram_freed_mb);
+    println!(
+        "   -> Total RAM Freed    : {:.1} MB",
+        summary.total_ram_freed_mb
+    );
     println!("   -> Remaining Active   : {}", summary.remaining_active);
 
     println!("\n   [Stage 3] Testing Zero-Copy Sub-10ms Instant Resurrection...");
     for manifest in &summary.hibernated_manifests {
         let (resurrected, duration_us) = reaper.resurrect_specialist(&manifest.specialist_id)?;
-        println!("   -> Resurrected '{}' (0x{:04X}) in {} µs (Target < 10,000 µs)",
-            resurrected.specialist_id, resurrected.domain_opcode, duration_us);
+        println!(
+            "   -> Resurrected '{}' (0x{:04X}) in {} µs (Target < 10,000 µs)",
+            resurrected.specialist_id, resurrected.domain_opcode, duration_us
+        );
     }
 
     println!("=================================================================");
@@ -1214,28 +1477,53 @@ async fn run_drive_pipeline(
     println!("   Noradrenaline (Vigilance)     : {:.2}", noradrenaline);
     println!("   Acetylcholine (Plasticity)    : {:.2}\n", acetylcholine);
 
-    let levels = evolution::NeurochemicalLevels::new(dopamine, serotonin, noradrenaline, acetylcholine);
+    let levels =
+        evolution::NeurochemicalLevels::new(dopamine, serotonin, noradrenaline, acetylcholine);
     let engine = evolution::NeurochemicalHomeostasisEngine::new(levels);
 
     println!("   [Homeostatic Indices]");
-    println!("   -> Boredom Index       : {:.1}%", levels.boredom_index() * 100.0);
-    println!("   -> Curiosity Drive     : {:.1}%", levels.curiosity_drive() * 100.0);
-    println!("   -> Stress Index        : {:.1}%", levels.stress_index() * 100.0);
-    println!("   -> Metabolic Multiplier: {:.2}x", levels.metabolic_multiplier());
+    println!(
+        "   -> Boredom Index       : {:.1}%",
+        levels.boredom_index() * 100.0
+    );
+    println!(
+        "   -> Curiosity Drive     : {:.1}%",
+        levels.curiosity_drive() * 100.0
+    );
+    println!(
+        "   -> Stress Index        : {:.1}%",
+        levels.stress_index() * 100.0
+    );
+    println!(
+        "   -> Metabolic Multiplier: {:.2}x",
+        levels.metabolic_multiplier()
+    );
 
     let impulses = engine.evaluate_autonomic_impulses();
     println!("\n   [Autonomic Proactive Impulses: {}]", impulses.len());
     for (i, imp) in impulses.iter().enumerate() {
-        println!("   [{:02}] {:?} (Urgency: {:.1}%) ➔ Target: {}", i + 1, imp.kind, imp.urgency * 100.0, imp.target_domain);
+        println!(
+            "   [{:02}] {:?} (Urgency: {:.1}%) ➔ Target: {}",
+            i + 1,
+            imp.kind,
+            imp.urgency * 100.0,
+            imp.target_domain
+        );
         println!("        Rationale: {}", imp.rationale);
     }
 
     let distribution = engine.calculate_token_distribution(tokens);
     println!("\n=================================================================");
-    println!("⚡ Specialist Metabolic Token Distribution ({:.0} pool):", tokens);
+    println!(
+        "⚡ Specialist Metabolic Token Distribution ({:.0} pool):",
+        tokens
+    );
     println!("-----------------------------------------------------------------");
     for alloc in distribution {
-        println!("   {:12} (0x{:04X}) | {:4.0} tokens | {}", alloc.specialist_name, alloc.domain_opcode, alloc.allocated_tokens, alloc.boost_reason);
+        println!(
+            "   {:12} (0x{:04X}) | {:4.0} tokens | {}",
+            alloc.specialist_name, alloc.domain_opcode, alloc.allocated_tokens, alloc.boost_reason
+        );
     }
     println!("=================================================================\n");
     Ok(())
@@ -1247,11 +1535,24 @@ async fn run_mesh_pipeline(nodes_count: usize, live: bool) -> Result<()> {
     println!(" 🌐 AARONEOUS FEDERATION: MULTI-HIVE CLUSTER & GOSSIP CONSENSUS");
     println!("=================================================================");
     println!("   Cluster Protocol : Multi-Hive P2P Mesh + Gossip Consensus (>66% Quorum)");
-    println!("   Topology Scale   : {} Hive Nodes in Federated Mesh", nodes_count);
-    println!("   Execution Mode   : {}\n", if live { "⚡ LIVE ASYNCHRONOUS TCP SOCKETS" } else { "In-Memory Topology Simulation" });
+    println!(
+        "   Topology Scale   : {} Hive Nodes in Federated Mesh",
+        nodes_count
+    );
+    println!(
+        "   Execution Mode   : {}\n",
+        if live {
+            "⚡ LIVE ASYNCHRONOUS TCP SOCKETS"
+        } else {
+            "In-Memory Topology Simulation"
+        }
+    );
 
     if live {
-        println!("   [Stage 1] Booting {} Live Asynchronous P2P TCP Daemons...", nodes_count);
+        println!(
+            "   [Stage 1] Booting {} Live Asynchronous P2P TCP Daemons...",
+            nodes_count
+        );
         let base_port = 18100;
         let mut daemons = Vec::new();
 
@@ -1282,20 +1583,37 @@ async fn run_mesh_pipeline(nodes_count: usize, live: bool) -> Result<()> {
         tokio::time::sleep(tokio::time::Duration::from_millis(250)).await;
 
         for daemon in &daemons {
-            println!("   -> [{}] Connected Live Sockets: {}", daemon.config.node_id, daemon.connected_peer_count());
+            println!(
+                "   -> [{}] Connected Live Sockets: {}",
+                daemon.config.node_id,
+                daemon.connected_peer_count()
+            );
         }
 
         println!("\n   [Stage 3] Broadcasting Live Byzantine Gossip Proposal over TCP...");
         let proposal_id = "prop_live_migrate_specialist";
         let proposal_val = "Authorize Specialist State Migration to Cluster Leader";
-        daemons[0].broadcast_gossip(proposal_id, proposal_val).await?;
+        daemons[0]
+            .broadcast_gossip(proposal_id, proposal_val)
+            .await?;
         tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
 
-        let (quorum, yes_votes, no_votes) = daemons[0].check_gossip_quorum(proposal_id, nodes_count);
+        let (quorum, yes_votes, no_votes) =
+            daemons[0].check_gossip_quorum(proposal_id, nodes_count);
         println!("   -> Proposal ID     : {}", proposal_id);
         println!("   -> Value Payload   : {}", proposal_val);
-        println!("   -> Live TCP Votes  : {} YES / {} NO (Total: {})", yes_votes, no_votes, nodes_count);
-        println!("   -> Quorum Reached  : {}", if quorum { "✅ LIVE_QUORUM_ACHIEVED (>66% over TCP)" } else { "❌ QUORUM_FAILED" });
+        println!(
+            "   -> Live TCP Votes  : {} YES / {} NO (Total: {})",
+            yes_votes, no_votes, nodes_count
+        );
+        println!(
+            "   -> Quorum Reached  : {}",
+            if quorum {
+                "✅ LIVE_QUORUM_ACHIEVED (>66% over TCP)"
+            } else {
+                "❌ QUORUM_FAILED"
+            }
+        );
 
         println!("\n   [Stage 4] Benchmarking Swarm Micro-Task TCP Offloading...");
         let mut offloader = a_run::federation::multi_hive::swarm_offloader::SwarmOffloader::new(
@@ -1336,7 +1654,7 @@ async fn run_mesh_pipeline(nodes_count: usize, live: bool) -> Result<()> {
     }
 
     let mut cluster = a_run::federation::multi_hive::hive_cluster::HiveCluster::new(
-        a_run::federation::multi_hive::hive_cluster::ClusterConfig::default()
+        a_run::federation::multi_hive::hive_cluster::ClusterConfig::default(),
     );
 
     // Bootstrap local primary hive node
@@ -1357,9 +1675,15 @@ async fn run_mesh_pipeline(nodes_count: usize, live: bool) -> Result<()> {
 
     println!("   [Stage 1] Cluster Membership Established:");
     println!("   -> Total Hive Nodes     : {}", cluster.nodes.len());
-    println!("   -> Cluster Leader       : {}", cluster.leader_node_id.as_deref().unwrap_or("None"));
+    println!(
+        "   -> Cluster Leader       : {}",
+        cluster.leader_node_id.as_deref().unwrap_or("None")
+    );
     println!("   -> Total Specialists    : {}", cluster.total_specialists);
-    println!("   -> Total Model Capacity : {} MB", cluster.total_capacity_mb);
+    println!(
+        "   -> Total Model Capacity : {} MB",
+        cluster.total_capacity_mb
+    );
 
     println!("\n   [Stage 2] Simulating Gossip Quorum Consensus on Model Migration...");
     let mut gossip = a_run::federation::multi_hive::consensus::GossipMessage::new(
@@ -1377,16 +1701,34 @@ async fn run_mesh_pipeline(nodes_count: usize, live: bool) -> Result<()> {
 
     println!("   -> Proposal ID     : {}", gossip.proposal_id);
     println!("   -> Value Payload   : {}", gossip.value);
-    println!("   -> Vote Tally      : {} YES / {} NO (Total: {})", yes_votes, no_votes, cluster.nodes.len());
-    println!("   -> Quorum Reached  : {}", if quorum { "✅ QUORUM_ACHIEVED (>66%)" } else { "❌ QUORUM_FAILED" });
+    println!(
+        "   -> Vote Tally      : {} YES / {} NO (Total: {})",
+        yes_votes,
+        no_votes,
+        cluster.nodes.len()
+    );
+    println!(
+        "   -> Quorum Reached  : {}",
+        if quorum {
+            "✅ QUORUM_ACHIEVED (>66%)"
+        } else {
+            "❌ QUORUM_FAILED"
+        }
+    );
 
     println!("\n=================================================================");
     println!("🌟 Multi-Hive Federated Mesh Summary:");
     println!("-----------------------------------------------------------------");
     for (id, node) in &cluster.nodes {
         let is_leader = cluster.leader_node_id.as_deref() == Some(id.as_str());
-        println!("   {:20} | {:15} | Status: {:?} | Utilization: {:4.1}% | Leader: {}",
-            node.node_id, node.address, node.status, node.utilization(), if is_leader { "⭐ YES" } else { "  NO" });
+        println!(
+            "   {:20} | {:15} | Status: {:?} | Utilization: {:4.1}% | Leader: {}",
+            node.node_id,
+            node.address,
+            node.status,
+            node.utilization(),
+            if is_leader { "⭐ YES" } else { "  NO" }
+        );
     }
     println!("=================================================================\n");
     Ok(())
@@ -1402,7 +1744,14 @@ async fn run_daemon_pipeline(bind: &str, peers: &[String], heartbeat: u64) -> Re
     println!("   Heartbeat        : {} ms\n", heartbeat);
 
     let config = a_run::federation::multi_hive::live_daemon::LiveP2PConfig {
-        node_id: format!("hive-sovereign-{}", uuid::Uuid::new_v4().to_string().chars().take(6).collect::<String>()),
+        node_id: format!(
+            "hive-sovereign-{}",
+            uuid::Uuid::new_v4()
+                .to_string()
+                .chars()
+                .take(6)
+                .collect::<String>()
+        ),
         bind_addr: bind.to_string(),
         initial_peers: peers.to_vec(),
         heartbeat_interval_ms: heartbeat,
@@ -1415,8 +1764,12 @@ async fn run_daemon_pipeline(bind: &str, peers: &[String], heartbeat: u64) -> Re
     println!("   P2P Daemon is running. Stepping 3 health heartbeat cycles...");
     for i in 1..=3 {
         tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
-        println!("   -> Heartbeat Cycle #{:02}: Active Connections: {} | Tasks Processed: {}",
-            i, daemon.connected_peer_count(), daemon.total_tasks_processed());
+        println!(
+            "   -> Heartbeat Cycle #{:02}: Active Connections: {} | Tasks Processed: {}",
+            i,
+            daemon.connected_peer_count(),
+            daemon.total_tasks_processed()
+        );
     }
 
     daemon.stop();
@@ -1431,8 +1784,13 @@ async fn run_simulate_pipeline(frames: usize) -> Result<()> {
     println!("=================================================================");
     println!(" 🎮 AARONEOUS MARIONETTE: CLOSED-LOOP SENSORY-MOTOR PIPELINE");
     println!("=================================================================");
-    println!("   Loop Stages  : Epigenetic Vision (16x16) ➔ SVDD Guardrail ➔ Action Decoder ➔ Isolated Desktop");
-    println!("   Frame Stream : {} consecutive synthetic evaluation frames\n", frames);
+    println!(
+        "   Loop Stages  : Epigenetic Vision (16x16) ➔ SVDD Guardrail ➔ Action Decoder ➔ Isolated Desktop"
+    );
+    println!(
+        "   Frame Stream : {} consecutive synthetic evaluation frames\n",
+        frames
+    );
 
     let mut pipeline = platform_bridge::SensoryMotorPipeline::new("Aaroneous_Live_Simulation");
 
@@ -1453,18 +1811,38 @@ async fn run_simulate_pipeline(frames: usize) -> Result<()> {
         let report = pipeline.step_cycle(&raw_frame).await?;
 
         println!("-----------------------------------------------------------------");
-        println!("   Frame #{:02} | Gating Savings: {:5.1}% ({} active / 256 sectors)",
-            f, report.compute_savings_pct, report.active_sectors);
-        println!("   -> SVDD Hypersphere : Distance: {:.2} / Max Radius: {:.2} ({})",
-            report.svdd_distance, report.svdd_radius, if report.is_safe { "✅ SAFE" } else { "🛡️ PROJECTED" });
-        println!("   -> Decoded Opcode   : {:?} (Action ID: {}, Confidence: {:.1}%)",
-            report.decoded_action.opcode, report.decoded_action.action_id, report.decoded_action.confidence * 100.0);
-        println!("   -> Decoded Spatial  : [X: {:.2}, Y: {:.2}, W: {:.2}, H: {:.2}]",
-            report.decoded_action.spatial_coords[0], report.decoded_action.spatial_coords[1],
-            report.decoded_action.spatial_coords[2], report.decoded_action.spatial_coords[3]);
+        println!(
+            "   Frame #{:02} | Gating Savings: {:5.1}% ({} active / 256 sectors)",
+            f, report.compute_savings_pct, report.active_sectors
+        );
+        println!(
+            "   -> SVDD Hypersphere : Distance: {:.2} / Max Radius: {:.2} ({})",
+            report.svdd_distance,
+            report.svdd_radius,
+            if report.is_safe {
+                "✅ SAFE"
+            } else {
+                "🛡️ PROJECTED"
+            }
+        );
+        println!(
+            "   -> Decoded Opcode   : {:?} (Action ID: {}, Confidence: {:.1}%)",
+            report.decoded_action.opcode,
+            report.decoded_action.action_id,
+            report.decoded_action.confidence * 100.0
+        );
+        println!(
+            "   -> Decoded Spatial  : [X: {:.2}, Y: {:.2}, W: {:.2}, H: {:.2}]",
+            report.decoded_action.spatial_coords[0],
+            report.decoded_action.spatial_coords[1],
+            report.decoded_action.spatial_coords[2],
+            report.decoded_action.spatial_coords[3]
+        );
         println!("   -> Motor Actions    : {:?}", report.hid_actions);
-        println!("   -> Cycle Latencies  : Gating: {} µs | Audit: {} ns | Total Loop: {} µs",
-            report.gating_latency_us, report.audit_duration_ns, report.total_cycle_latency_us);
+        println!(
+            "   -> Cycle Latencies  : Gating: {} µs | Audit: {} ns | Total Loop: {} µs",
+            report.gating_latency_us, report.audit_duration_ns, report.total_cycle_latency_us
+        );
     }
 
     println!("=================================================================");
@@ -1478,23 +1856,42 @@ fn run_hud_pipeline(headless: bool) -> Result<()> {
     println!("=================================================================");
     println!(" ⚡ AARONEOUS HYPERVISOR: UNIFIED MAELSTROM TELEMETRY HUD");
     println!("=================================================================");
-    println!("   Viewports : 🌌 3D Galaxy | ⚡ Synapse & SVDD | 👁️ Epigenetic Vision | 🧬 Neurochemistry");
-    println!("   Mode      : {}\n", if headless { "Headless Evaluation Loop" } else { "Native Desktop Window (egui/eframe)" });
+    println!(
+        "   Viewports : 🌌 3D Galaxy | ⚡ Synapse & SVDD | 👁️ Epigenetic Vision | 🧬 Neurochemistry"
+    );
+    println!(
+        "   Mode      : {}\n",
+        if headless {
+            "Headless Evaluation Loop"
+        } else {
+            "Native Desktop Window (egui/eframe)"
+        }
+    );
 
     if headless {
         println!("   [Stage 1] Initializing Hypervisor HUD Subsystems...");
         let mut app = a_run::HypervisorHudApp::new();
-        println!("   -> Omni 3D Galaxy Viewport       : Ready ({} Star-Nodes)", run_async(app.omni_engine.total_stars()));
-        println!("   -> SPMC Specialist Bus & SVDD Gauge : Ready (R = {:.1})", app.bus_visualizer.sentinel_radius);
+        println!(
+            "   -> Omni 3D Galaxy Viewport       : Ready ({} Star-Nodes)",
+            run_async(app.omni_engine.total_stars())
+        );
+        println!(
+            "   -> SPMC Specialist Bus & SVDD Gauge : Ready (R = {:.1})",
+            app.bus_visualizer.sentinel_radius
+        );
         println!("   -> Epigenetic Vision Sensor Grid : Ready (16x16 / 256 Sectors)");
-        println!("   -> Neurochemistry Homeostasis    : Ready (Dopamine: {:.2}, ACh: {:.2})",
-            app.neurochemistry.levels.dopamine, app.neurochemistry.levels.acetylcholine);
+        println!(
+            "   -> Neurochemistry Homeostasis    : Ready (Dopamine: {:.2}, ACh: {:.2})",
+            app.neurochemistry.levels.dopamine, app.neurochemistry.levels.acetylcholine
+        );
 
         println!("\n   [Stage 2] Stepping 10 Real-Time 60Hz Telemetry Cycles...");
         for i in 1..=10 {
             app.step_simulation();
-            println!("   -> Cycle #{:02}: Active Sectors: {:3} | Savings: {:5.1}% | Galaxy Physics Relaxed",
-                i, app.last_frame_active_sectors, app.last_frame_savings_pct);
+            println!(
+                "   -> Cycle #{:02}: Active Sectors: {:3} | Savings: {:5.1}% | Galaxy Physics Relaxed",
+                i, app.last_frame_active_sectors, app.last_frame_savings_pct
+            );
         }
 
         println!("=================================================================");
@@ -1520,13 +1917,11 @@ fn run_hud_pipeline(headless: bool) -> Result<()> {
 }
 
 /// Distills and births .si solid-state models for all 9 Sovereign Domain Specialists
-fn run_distill_all_pipeline(
-    samples: usize,
-    epochs: usize,
-    out_dir: Option<PathBuf>,
-) -> Result<()> {
+fn run_distill_all_pipeline(samples: usize, epochs: usize, out_dir: Option<PathBuf>) -> Result<()> {
     let out = out_dir.unwrap_or_else(|| {
-        aaroneous_paths::WorkspacePaths::default().models().join("distilled_federation")
+        aaroneous_paths::WorkspacePaths::default()
+            .models()
+            .join("distilled_federation")
     });
 
     println!("=================================================================");
@@ -1543,9 +1938,7 @@ fn run_distill_all_pipeline(
         .stack_size(32 * 1024 * 1024)
         .spawn(move || {
             compute::si_distillation_harness::SiDistillationHarness::distill_all_9_specialists(
-                &out_clone,
-                samples,
-                epochs,
+                &out_clone, samples, epochs,
             )
         })?
         .join()
@@ -1553,7 +1946,10 @@ fn run_distill_all_pipeline(
 
     println!("\n   [Stage 2] Benchmarking Memory-Mapped Zero-Copy Execution Latencies...");
     println!("-----------------------------------------------------------------");
-    println!("   {:12} | {:10} | {:12} | {:10} | {:10}", "Specialist", "Alignment", "InfoNCE", "Duration", "File Size");
+    println!(
+        "   {:12} | {:10} | {:12} | {:10} | {:10}",
+        "Specialist", "Alignment", "InfoNCE", "Duration", "File Size"
+    );
     println!("-----------------------------------------------------------------");
 
     for report in &reports {
@@ -1562,7 +1958,8 @@ fn run_distill_all_pipeline(
             .unwrap_or(0);
         let spec_name = report.model_name.replace("_sovereign_v1", "");
 
-        println!("   {:12} | CKA: {:5.1}% | Loss: {:6.4} | {:6} ms | {:6} KB",
+        println!(
+            "   {:12} | CKA: {:5.1}% | Loss: {:6.4} | {:6} ms | {:6} KB",
             spec_name,
             report.final_cka_alignment * 100.0,
             report.final_infonce_loss,
@@ -1578,11 +1975,7 @@ fn run_distill_all_pipeline(
 }
 
 /// Executes autonomous background self-evolution AST mutation & skill stack promotion cycles
-fn run_evolve_pipeline(
-    cycles: usize,
-    threshold: f64,
-    out: Option<PathBuf>,
-) -> Result<()> {
+fn run_evolve_pipeline(cycles: usize, threshold: f64, out: Option<PathBuf>) -> Result<()> {
     std::thread::Builder::new()
         .name("evolution_worker".into())
         .stack_size(32 * 1024 * 1024)
@@ -1777,10 +2170,14 @@ fn run_flagship_pipeline(iterations: usize) -> Result<()> {
 /// Launches the Model Context Protocol (MCP) HTTP + SSE server
 async fn run_mcp_pipeline(host: &str, port: u16) -> Result<()> {
     let addr_str = format!("{}:{}", host, port);
-    let addr: std::net::SocketAddr = addr_str.parse()
+    let addr: std::net::SocketAddr = addr_str
+        .parse()
         .map_err(|e| anyhow::anyhow!("Invalid MCP server address '{}': {}", addr_str, e))?;
 
-    let config = a_run::mcp_service::ServiceConfig { http_addr: addr, ..Default::default() };
+    let config = a_run::mcp_service::ServiceConfig {
+        http_addr: addr,
+        ..Default::default()
+    };
 
     let service = Arc::new(a_run::mcp_service::McpService::new(config));
     service.register_sovereign_tools().await;
@@ -1794,5 +2191,8 @@ async fn run_mcp_pipeline(host: &str, port: u16) -> Result<()> {
     println!("   Authentication    : Authorization: Bearer <AARONEOUS_API_KEY>");
     println!("=================================================================\n");
 
-    server.run(service).await.map_err(|e| anyhow::anyhow!("MCP server error: {}", e))
+    server
+        .run(service)
+        .await
+        .map_err(|e| anyhow::anyhow!("MCP server error: {}", e))
 }

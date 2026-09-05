@@ -6,12 +6,12 @@ use crate::constellation_ui::{ConstellationCanvas, NodeMetrics};
 use crate::decision_engine::{
     AutonomousDecisionEngine, DecisionTask, ExecutionOutcome, TaskEvaluation,
 };
+use crate::intelligence::{IntelligenceEngine, LLMConfig, ProviderType, Specialist, TaskType};
 use crate::metadata_ingestor::{
     MetadataAnalysis, MetadataEvent, MetadataIngestor, MetadataIngestorConfig,
 };
 use biology::SystemHealthReport;
 use compute::thermodynamics::SystemPhase;
-use crate::intelligence::{IntelligenceEngine, LLMConfig, ProviderType, Specialist, TaskType};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::process::Command;
@@ -655,10 +655,19 @@ mod tests {
 
     #[test]
     fn test_daemon_state_variants() {
-        assert!(matches!(DaemonState::Initializing, DaemonState::Initializing));
+        assert!(matches!(
+            DaemonState::Initializing,
+            DaemonState::Initializing
+        ));
         assert!(matches!(DaemonState::Running, DaemonState::Running));
         assert!(matches!(DaemonState::Throttled, DaemonState::Throttled));
-        assert!(matches!(DaemonState::Error("test".into()), DaemonState::Error(_)));
-        assert!(matches!(DaemonState::ShuttingDown, DaemonState::ShuttingDown));
+        assert!(matches!(
+            DaemonState::Error("test".into()),
+            DaemonState::Error(_)
+        ));
+        assert!(matches!(
+            DaemonState::ShuttingDown,
+            DaemonState::ShuttingDown
+        ));
     }
 }

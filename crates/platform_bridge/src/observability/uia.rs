@@ -206,7 +206,9 @@ impl UiaTreeWalker {
         }
         #[cfg(not(all(target_os = "windows", feature = "native-win32")))]
         {
-            Err(anyhow!("Native Win32 UIA is disabled in this build configuration"))
+            Err(anyhow!(
+                "Native Win32 UIA is disabled in this build configuration"
+            ))
         }
     }
 
@@ -227,7 +229,9 @@ mod tests {
     #[test]
     fn test_uia_element_tree_structure_and_point_query() {
         let walker = UiaTreeWalker::new_mock(None);
-        let root = walker.walk_window_tree(0x1234).expect("Failed to walk mock tree");
+        let root = walker
+            .walk_window_tree(0x1234)
+            .expect("Failed to walk mock tree");
 
         assert_eq!(root.name, "Aaroneous Main Window");
         assert_eq!(root.control_type, "Window");

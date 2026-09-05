@@ -269,7 +269,7 @@ impl super::LLMProvider for MockProvider {
                 "research" | "knowledge_synthesis" | "external_research" => {
                     let intent = context.intent.chars().take(80).collect::<String>();
                     let json = format!(
-                         r#"{{"mock":true,"source":"synthesizer_mock","query":"{}","summary":"Mock placeholder — no real synthesis","key_findings":["This is a mock response","Enable --features llama-gguf for real Synthesizer research"],"confidence":0.3}}"#,
+                        r#"{{"mock":true,"source":"synthesizer_mock","query":"{}","summary":"Mock placeholder — no real synthesis","key_findings":["This is a mock response","Enable --features llama-gguf for real Synthesizer research"],"confidence":0.3}}"#,
                         intent
                     );
                     return Ok(DesignGeneration {
@@ -290,7 +290,7 @@ impl super::LLMProvider for MockProvider {
                 "fabrication" | "maintenance" | "infrastructure" | "construction" => {
                     let intent = context.intent.chars().take(100).collect::<String>();
                     let json = format!(
-                         r#"{{"mock":true,"source":"fabricator_mock","task":"{}","plan":[{{"step":1,"action":"Assess requirements","status":"planned"}},{{"step":2,"action":"Identify dependencies","status":"planned"}},{{"step":3,"action":"Generate build manifest","status":"planned"}}],"note":"Enable --features llama-gguf for real Fabricator build planning"}}"#,
+                        r#"{{"mock":true,"source":"fabricator_mock","task":"{}","plan":[{{"step":1,"action":"Assess requirements","status":"planned"}},{{"step":2,"action":"Identify dependencies","status":"planned"}},{{"step":3,"action":"Generate build manifest","status":"planned"}}],"note":"Enable --features llama-gguf for real Fabricator build planning"}}"#,
                         intent
                     );
                     return Ok(DesignGeneration {
@@ -309,7 +309,7 @@ impl super::LLMProvider for MockProvider {
                     });
                 }
                 "mesh_sync" | "p2p" | "multi_device" => {
-                     let json = r#"{"mock":true,"source":"router_mock","devices":[],"conflicts":[],"bandwidth_mbps":0,"status":"no_p2p_attached","note":"Enable --features p2p-iroh for real Router mesh sync"}"#;
+                    let json = r#"{"mock":true,"source":"router_mock","devices":[],"conflicts":[],"bandwidth_mbps":0,"status":"no_p2p_attached","note":"Enable --features p2p-iroh for real Router mesh sync"}"#;
                     return Ok(DesignGeneration {
                         intent: context.intent.clone(),
                         variants: vec![DesignVariant {
@@ -328,7 +328,7 @@ impl super::LLMProvider for MockProvider {
                 "spatial" | "ar_vr" | "physical_digital" => {
                     let intent = context.intent.chars().take(80).collect::<String>();
                     let json = format!(
-                         r#"{{"mock":true,"source":"perceiver_mock","intent":"{}","spatial":{{"anchor_count":1,"device":"simulated","frame_rate_fps":60,"ar_available":false,"render_mode":"simulated"}},"anchors":[{{"prototype_id":"synth-mock","design_variant":"{}","landmark":"arm-reach-default","model":"/models/synth.glb","scale":1.0,"ar_available":false,"source":"intent_derived"}}],"note":"Enable --features ar-openxr for real Perceiver AR rendering"}}"#,
+                        r#"{{"mock":true,"source":"perceiver_mock","intent":"{}","spatial":{{"anchor_count":1,"device":"simulated","frame_rate_fps":60,"ar_available":false,"render_mode":"simulated"}},"anchors":[{{"prototype_id":"synth-mock","design_variant":"{}","landmark":"arm-reach-default","model":"/models/synth.glb","scale":1.0,"ar_available":false,"source":"intent_derived"}}],"note":"Enable --features ar-openxr for real Perceiver AR rendering"}}"#,
                         intent, intent
                     );
                     return Ok(DesignGeneration {
@@ -347,7 +347,7 @@ impl super::LLMProvider for MockProvider {
                     });
                 }
                 "biometric" | "human_state" | "user_adaptation" => {
-                     let json = r#"{"mock":true,"source":"aligner_mock","state":"unknown","stress":0.5,"fatigue":0.3,"readiness":70,"recommendation":"continue","defer_interruptions":false,"note":"Enable biometric sensor or --features biometric-ble for real Aligner readings"}"#;
+                    let json = r#"{"mock":true,"source":"aligner_mock","state":"unknown","stress":0.5,"fatigue":0.3,"readiness":70,"recommendation":"continue","defer_interruptions":false,"note":"Enable biometric sensor or --features biometric-ble for real Aligner readings"}"#;
                     return Ok(DesignGeneration {
                         intent: context.intent.clone(),
                         variants: vec![DesignVariant {
@@ -364,7 +364,7 @@ impl super::LLMProvider for MockProvider {
                     });
                 }
                 "memory_consolidation" | "archival" => {
-                     let json = r#"{"mock":true,"source":"archivist_mock","consolidated_events":0,"patterns_discovered":0,"dna_bank_size_mb":0,"note":"Archivist accumulates patterns across sessions — submit more intents to build memory"}"#;
+                    let json = r#"{"mock":true,"source":"archivist_mock","consolidated_events":0,"patterns_discovered":0,"dna_bank_size_mb":0,"note":"Archivist accumulates patterns across sessions — submit more intents to build memory"}"#;
                     return Ok(DesignGeneration {
                         intent: context.intent.clone(),
                         variants: vec![DesignVariant {

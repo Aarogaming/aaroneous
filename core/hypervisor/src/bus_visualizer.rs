@@ -8,8 +8,8 @@
 //! 4. Deep SVDD Centroid baseline curve overlay and "ORTHOGONAL SNAP ENGAGED" warning indicator.
 
 use eframe::egui::{self, Color32, Pos2, ProgressBar, Rect, RichText, Stroke, Ui, Vec2};
-use std::sync::atomic::Ordering;
 use std::sync::Arc;
+use std::sync::atomic::Ordering;
 
 use nervous_system::specialist_bus::{SpecialistSynapseBus, TENSOR_DIM};
 
@@ -77,7 +77,10 @@ impl BusVisualizer {
                 let (gauge_color, status_text) = if threat_ratio < 0.7 {
                     (Color32::from_rgb(0, 255, 128), "SAFE (In-Distribution)")
                 } else if threat_ratio <= 1.0 {
-                    (Color32::from_rgb(255, 200, 0), "ELEVATED (Approaching Boundary)")
+                    (
+                        Color32::from_rgb(255, 200, 0),
+                        "ELEVATED (Approaching Boundary)",
+                    )
                 } else {
                     (Color32::from_rgb(255, 50, 50), "⚠️ ORTHOGONAL SNAP ENGAGED")
                 };
@@ -87,12 +90,29 @@ impl BusVisualizer {
 
             ui.add(
                 ProgressBar::new((threat_ratio / 1.0).min(1.0))
-                    .fill(if threat_ratio > 1.0 { Color32::RED } else if threat_ratio > 0.7 { Color32::YELLOW } else { Color32::GREEN })
-                    .text(format!("{:.3} / {:.3} R ({:.1}%)", current_distance, self.sentinel_radius, threat_ratio * 100.0)),
+                    .fill(if threat_ratio > 1.0 {
+                        Color32::RED
+                    } else if threat_ratio > 0.7 {
+                        Color32::YELLOW
+                    } else {
+                        Color32::GREEN
+                    })
+                    .text(format!(
+                        "{:.3} / {:.3} R ({:.1}%)",
+                        current_distance,
+                        self.sentinel_radius,
+                        threat_ratio * 100.0
+                    )),
             );
 
             if threat_ratio > 1.0 {
-                ui.colored_label(Color32::RED, format!("🚨 Out-of-Distribution Vector Snapped (Total Interceptions: {})", self.total_snaps_observed));
+                ui.colored_label(
+                    Color32::RED,
+                    format!(
+                        "🚨 Out-of-Distribution Vector Snapped (Total Interceptions: {})",
+                        self.total_snaps_observed
+                    ),
+                );
             }
         });
 
@@ -105,12 +125,18 @@ impl BusVisualizer {
                 ui.label(format!("Cursor Epoch: {}", self.last_seq_numbers[0]));
             });
 
-            let (response, painter) = ui.allocate_painter(Vec2::new(ui.available_width(), 160.0), egui::Sense::hover());
+            let (response, painter) =
+                ui.allocate_painter(Vec2::new(ui.available_width(), 160.0), egui::Sense::hover());
             let rect = response.rect;
 
             // Background void
             painter.rect_filled(rect, 4.0, Color32::from_rgb(12, 16, 22));
-            painter.rect_stroke(rect, egui::CornerRadius::same(4), Stroke::new(1.0, Color32::from_rgb(35, 45, 60)), egui::StrokeKind::Inside);
+            painter.rect_stroke(
+                rect,
+                egui::CornerRadius::same(4),
+                Stroke::new(1.0, Color32::from_rgb(35, 45, 60)),
+                egui::StrokeKind::Inside,
+            );
 
             let bar_width = (rect.width() / TENSOR_DIM as f32).max(1.0);
             let center_y = rect.center().y;
@@ -121,9 +147,15 @@ impl BusVisualizer {
                 let x = rect.left() + i as f32 * bar_width;
                 let h = (val.abs() * max_bar_h * 0.5).clamp(1.0, max_bar_h);
                 let bar_rect = if val >= 0.0 {
-                    Rect::from_min_max(Pos2::new(x, center_y - h), Pos2::new(x + bar_width * 0.85, center_y))
+                    Rect::from_min_max(
+                        Pos2::new(x, center_y - h),
+                        Pos2::new(x + bar_width * 0.85, center_y),
+                    )
                 } else {
-                    Rect::from_min_max(Pos2::new(x, center_y), Pos2::new(x + bar_width * 0.85, center_y + h))
+                    Rect::from_min_max(
+                        Pos2::new(x, center_y),
+                        Pos2::new(x + bar_width * 0.85, center_y + h),
+                    )
                 };
 
                 let color = if val > 0.5 {
@@ -145,7 +177,10 @@ impl BusVisualizer {
                 points.push(Pos2::new(x, y));
             }
             for i in 0..points.len().saturating_sub(1) {
-                painter.line_segment([points[i], points[i + 1]], Stroke::new(1.5, Color32::from_rgba_unmultiplied(255, 220, 0, 180)));
+                painter.line_segment(
+                    [points[i], points[i + 1]],
+                    Stroke::new(1.5, Color32::from_rgba_unmultiplied(255, 220, 0, 180)),
+                );
             }
         });
 
@@ -153,9 +188,21 @@ impl BusVisualizer {
 
         // 4. Specialist Subscribers Status
         ui.horizontal(|ui| {
-            for (i, name) in ["Router", "Desktop Emulator", "Adaptation Engine", "Sentinel"].iter().enumerate() {
+            for (i, name) in [
+                "Router",
+                "Desktop Emulator",
+                "Adaptation Engine",
+                "Sentinel",
+            ]
+            .iter()
+            .enumerate()
+            {
                 let is_active = self.last_seq_numbers[i] > 0;
-                let badge_color = if is_active { Color32::GREEN } else { Color32::GRAY };
+                let badge_color = if is_active {
+                    Color32::GREEN
+                } else {
+                    Color32::GRAY
+                };
                 ui.colored_label(badge_color, format!("● {}", name));
             }
         });

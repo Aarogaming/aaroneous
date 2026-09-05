@@ -409,11 +409,7 @@ impl McpService {
                 .parameters_schema
                 .get("required")
                 .and_then(|r| r.as_array())
-                .map(|arr| {
-                    arr.iter()
-                        .filter_map(|v| v.as_str())
-                        .collect::<Vec<_>>()
-                })
+                .map(|arr| arr.iter().filter_map(|v| v.as_str()).collect::<Vec<_>>())
                 .unwrap_or_default();
 
             tools.push(McpTool::new(&desc.name, &desc.description, props, required));
@@ -777,7 +773,11 @@ impl McpService {
             "federated_task_dispatch" => return self.tool_federated_task_dispatch(args).await,
             _ => {
                 // Check if this is a registered Universal Tool (e.g. security.audit, code.repair)
-                if let Ok(result) = self.universal_tools.call_by_name(tool_name, args.clone()).await {
+                if let Ok(result) = self
+                    .universal_tools
+                    .call_by_name(tool_name, args.clone())
+                    .await
+                {
                     return Ok(serde_json::to_string_pretty(&result)?);
                 }
                 return Err(anyhow::anyhow!("Unknown tool: {}", tool_name));
@@ -1052,10 +1052,9 @@ impl McpService {
 
         // ── Path containment: reject reads outside workspace ──────────────
         #[allow(clippy::collapsible_if)]
-        if let (Ok(canonical), Ok(workspace_canonical)) = (
-            resolved.canonicalize(),
-            self.workspace_root.canonicalize(),
-        ) {
+        if let (Ok(canonical), Ok(workspace_canonical)) =
+            (resolved.canonicalize(), self.workspace_root.canonicalize())
+        {
             if !canonical.starts_with(&workspace_canonical) {
                 anyhow::bail!(
                     "Access denied: path '{}' is outside the workspace root '{}'",
@@ -1134,10 +1133,9 @@ impl McpService {
 
         // ── Path containment: reject searches outside workspace ───────────
         #[allow(clippy::collapsible_if)]
-        if let (Ok(canonical), Ok(workspace_canonical)) = (
-            root.canonicalize(),
-            self.workspace_root.canonicalize(),
-        ) {
+        if let (Ok(canonical), Ok(workspace_canonical)) =
+            (root.canonicalize(), self.workspace_root.canonicalize())
+        {
             if !canonical.starts_with(&workspace_canonical) {
                 anyhow::bail!(
                     "Access denied: search path '{}' is outside the workspace root '{}'",
@@ -1233,10 +1231,9 @@ impl McpService {
 
         // ── Path containment: reject listing outside workspace ────────────
         #[allow(clippy::collapsible_if)]
-        if let (Ok(canonical), Ok(workspace_canonical)) = (
-            path.canonicalize(),
-            self.workspace_root.canonicalize(),
-        ) {
+        if let (Ok(canonical), Ok(workspace_canonical)) =
+            (path.canonicalize(), self.workspace_root.canonicalize())
+        {
             if !canonical.starts_with(&workspace_canonical) {
                 anyhow::bail!(
                     "Access denied: path '{}' is outside the workspace root '{}'",

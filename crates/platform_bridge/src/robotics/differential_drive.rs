@@ -90,7 +90,12 @@ impl DualPerspectiveOcularNavigator {
     }
 
     /// Ingests an optical sensor frame and computes real-time corridor navigation command
-    pub fn evaluate_ocular_frame(&self, frame_rgb: &[u8], width: u32, height: u32) -> Result<CorridorClearanceAnalysis> {
+    pub fn evaluate_ocular_frame(
+        &self,
+        frame_rgb: &[u8],
+        width: u32,
+        height: u32,
+    ) -> Result<CorridorClearanceAnalysis> {
         if frame_rgb.is_empty() || width == 0 || height == 0 {
             bail!("Invalid optical frame dimensions");
         }
@@ -138,7 +143,10 @@ impl DualPerspectiveOcularNavigator {
 
         let recommended_action = if dead_end {
             DifferentialDriveCommand::PivotLeft // 180 spin on dead end
-        } else if center_clearance >= left_clearance && center_clearance >= right_clearance && center_clearance > 0.25 {
+        } else if center_clearance >= left_clearance
+            && center_clearance >= right_clearance
+            && center_clearance > 0.25
+        {
             DifferentialDriveCommand::Forward // Open corridor ahead
         } else if left_clearance > right_clearance {
             DifferentialDriveCommand::PivotLeft // Left corridor opening
@@ -197,7 +205,8 @@ mod tests {
 
     #[test]
     fn test_ocular_navigator_driver_perspective_analysis() {
-        let nav = DualPerspectiveOcularNavigator::new(OcularPerspective::DriverPerspectiveFirstPerson);
+        let nav =
+            DualPerspectiveOcularNavigator::new(OcularPerspective::DriverPerspectiveFirstPerson);
 
         let width = 320u32;
         let height = 240u32;
@@ -213,8 +222,13 @@ mod tests {
             }
         }
 
-        let analysis = nav.evaluate_ocular_frame(&synthetic_frame, width, height).unwrap();
-        assert_eq!(analysis.recommended_action, DifferentialDriveCommand::Forward);
+        let analysis = nav
+            .evaluate_ocular_frame(&synthetic_frame, width, height)
+            .unwrap();
+        assert_eq!(
+            analysis.recommended_action,
+            DifferentialDriveCommand::Forward
+        );
         assert!(!analysis.detected_dead_end);
         assert_eq!(nav.active_command_byte(), b'F');
     }

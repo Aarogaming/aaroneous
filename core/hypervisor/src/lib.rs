@@ -47,12 +47,12 @@ pub mod hive {
 }
 
 pub mod intelligence {
+    pub use orchestrator::IntelligenceEngine;
     pub use orchestrator::aura_ui::*;
     pub use orchestrator::aura_ui_manifest::*;
     pub use orchestrator::linguistic_transducer::*;
     pub use orchestrator::llm::*;
     pub use orchestrator::mdps_router::*;
-    pub use orchestrator::IntelligenceEngine;
 }
 
 pub mod scientific_analyzer {
@@ -66,8 +66,8 @@ pub use runtime_governor::{BudgetExecutor, RuntimeGovernor, TaskPriority, execut
 // Compaction Engine Pattern
 pub mod compaction_engine;
 pub use compaction_engine::{
-    AgentHandle, CompactionEngine, CompactionEngineBuilder, CompactionEngineConfig, CompactionEvent,
-    ReaperStats, SharedCompactionEngine, SlabCompactionEngine,
+    AgentHandle, CompactionEngine, CompactionEngineBuilder, CompactionEngineConfig,
+    CompactionEvent, ReaperStats, SharedCompactionEngine, SlabCompactionEngine,
 };
 
 // GGUF Seeding & Cartridge Compiler
@@ -93,11 +93,11 @@ pub use crate::sabs::{SabManifest, SabMatrix, SabMatrixBuilder, SabSurface};
 
 // Re-export Skills and Genetics
 pub use crate::genetics::{
-    BreedingOperation, GeneticAnalyzer, GeneticCategory, GeneticLocus, SpecialistGenome,
-    EpigeneticState, LociSource,
+    BreedingOperation, EpigeneticState, GeneticAnalyzer, GeneticCategory, GeneticLocus, LociSource,
+    SpecialistGenome,
 };
 pub use crate::skills::{
-    FusedSkill, Skill, SkillOrigin, SkillRegistry, SkillType, PersonaRank, SpecialistSkillSet,
+    FusedSkill, PersonaRank, Skill, SkillOrigin, SkillRegistry, SkillType, SpecialistSkillSet,
 };
 
 // Re-export Biology with thermodynamic governor
@@ -108,8 +108,8 @@ pub use biology::{
 };
 // Re-export Digestion and Agents
 pub use crate::agents::{
-    create_reference_agent, create_relic, create_specialist, Agent, AgentType, BaseAgent,
-    BaselineReferenceAgent, CognitiveBias, Domain, RelicAgent, SpecialistAgent, UserAgent,
+    Agent, AgentType, BaseAgent, BaselineReferenceAgent, CognitiveBias, Domain, RelicAgent,
+    SpecialistAgent, UserAgent, create_reference_agent, create_relic, create_specialist,
 };
 pub use crate::digestion::{
     DigestionConfig, DigestionEngine, DigestionEvent, DigestionTask, ExperienceProfile,
@@ -117,13 +117,13 @@ pub use crate::digestion::{
 };
 
 // Re-export Constellation and Control Plane
-pub use crate::control::{ControlMessage, ControlPlane, SpecialistState, parse_control_message};
 pub use crate::constellation::{
     ClusteringContext, Constellation, ConstellationNode, ConstellationQuery,
     GalacticClusteringEngine, GalaxyCluster, LinkType, NodeStatus, NodeType, OmniEngine,
-    OmniProtocolBridge, OmniQueryEngine, OmniQueryFilter, Priority, RelationshipType,
-    SpatialCoord, SpatialFrustum, StarNode, StarNodeStatus, StarNodeType,
+    OmniProtocolBridge, OmniQueryEngine, OmniQueryFilter, Priority, RelationshipType, SpatialCoord,
+    SpatialFrustum, StarNode, StarNodeStatus, StarNodeType,
 };
+pub use crate::control::{ControlMessage, ControlPlane, SpecialistState, parse_control_message};
 
 // Re-export Hive
 pub use crate::hive::{HiveRuntime, HiveRuntimeConfig, RuntimeStatistics, RuntimeStatus};
@@ -162,8 +162,8 @@ pub use autonomic_loop::AutonomicNervousSystem;
 // Sandboxed Micro-Worker Bytecode Virtual Machine
 pub mod micro_vm;
 pub use micro_vm::{
-    MicroBytecodeVm, VmError, VmExecutionResult, VmInstruction, VmProgram,
-    DEFAULT_GAS_LIMIT, DEFAULT_MEMORY_LIMIT, REGISTER_COUNT,
+    DEFAULT_GAS_LIMIT, DEFAULT_MEMORY_LIMIT, MicroBytecodeVm, REGISTER_COUNT, VmError,
+    VmExecutionResult, VmInstruction, VmProgram,
 };
 
 // Consensus Engine for High-Availability
@@ -232,9 +232,8 @@ pub mod config_validation;
 pub mod dopamine_system;
 pub mod enzyme_runner;
 pub use enzyme_runner::MicroTaskRunner;
-pub mod enzyme_types;
-pub mod spatial_delta_gate;
 pub mod delta_orchestrator;
+pub mod enzyme_types;
 pub mod event_log;
 pub mod executive_plan;
 pub mod genetic_recombination;
@@ -245,6 +244,7 @@ pub mod hid_driver;
 pub mod hox_map_schema;
 pub mod hox_persistence;
 pub mod hox_registry;
+pub mod spatial_delta_gate;
 pub use hox_registry::CapabilitySchemaRegistry;
 pub mod llm;
 pub mod lora_adapter_vault;
@@ -264,8 +264,8 @@ pub mod specialist_memory;
 pub mod spectral_layout;
 pub mod splicing_engine;
 pub use splicing_engine::{PluginHotSwapEngine, WasmHotSwapEngine, WasmSplicingEngine};
-pub mod substrate;
 pub mod signal_bridge;
+pub mod substrate;
 pub mod interconnect {
     pub use crate::signal_bridge::*;
 }
@@ -278,9 +278,9 @@ pub mod retina_module;
 pub use retina_module::{
     SharedBusWebIngest, TokenIngestionEngine, WebIngestionEngine, WebSamplerModule,
 };
-pub mod tensor_router;
-pub mod hypervisor_hud;
 pub mod hud;
+pub mod hypervisor_hud;
+pub mod tensor_router;
 pub mod ui_broker;
 pub use hypervisor_hud::{HudTab, HypervisorHudApp};
 pub mod unified_learning;
@@ -333,7 +333,9 @@ pub fn run_health_checks() -> bool {
         tracing::error!("HealthCheck: ArtifactRegistry (Adaptation Engine) failed initialization");
         success = false;
     } else {
-        tracing::info!("HealthCheck: ArtifactRegistry (Adaptation Engine) initialized successfully");
+        tracing::info!(
+            "HealthCheck: ArtifactRegistry (Adaptation Engine) initialized successfully"
+        );
     }
 
     // Check Reasoning (Synthesizer) component availability
@@ -373,27 +375,27 @@ pub mod quantum_surface;
 pub mod relativity_engine;
 
 // Phase 6 Additions: Agent protocols, visual perception, reasoning, execution, compression, hardware layer
+pub mod bus_visualizer;
 pub mod compression;
 pub mod execution;
 pub mod hardware_layer;
 pub mod inter_agent;
 pub mod reasoning;
+pub mod skill_constellation;
+pub mod studio_ui;
 pub mod system_metrics;
 pub mod task_routing;
 pub mod visual_perception;
-pub mod studio_ui;
-pub mod bus_visualizer;
-pub mod skill_constellation;
 
 pub use action_executor::{ActionExecutor, ExecutableAction, FileOp};
-pub use studio_ui::{DistillStatus, DistillStudio};
+pub use bus_visualizer::BusVisualizer;
 pub use hox_persistence::{HoxPersistenceManager, RegistrySnapshot, SnapshotInfo};
 pub use hox_registry::HoxRegistry;
 pub use lora_adapter_vault::{LiveLoraAdapter, LoraAdapterVault};
 pub use metadata_ingestor::{MetadataIngestor, MetadataIngestorConfig};
 pub use orchestration_daemon::{DaemonState, OrchestrationDaemon, OrchestrationDaemonConfig};
 pub use skill_constellation::{SkillConstellationCanvas, VisualStarNode};
-pub use bus_visualizer::BusVisualizer;
+pub use studio_ui::{DistillStatus, DistillStudio};
 pub use system_metrics::{GpuMetrics, SystemMetricsCollector, ThermalMetrics, ThermalStatus};
 pub use task_routing::{ExecutionContext, ExecutionRoute, TaskRouter};
 

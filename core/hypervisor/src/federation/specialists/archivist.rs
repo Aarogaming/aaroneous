@@ -204,7 +204,8 @@ pub struct Archivist {
     /// When `Some`, all events recorded via `record_event()` are also
     /// persisted to the ArtifactRegistry for pattern extraction across restarts.
     /// When `None`, events are only kept in-memory.
-    pub artifact_registry: Option<Arc<Mutex<crate::federation::artifact_registry::ArtifactRegistry>>>,
+    pub artifact_registry:
+        Option<Arc<Mutex<crate::federation::artifact_registry::ArtifactRegistry>>>,
     /// Atomic counter for total executions recorded via `execute()` (&self path).
     /// Separate from `stats.total_events` (which requires &mut self via
     /// `record_event()`), this allows `propose()` to detect whether the specialist
@@ -247,7 +248,10 @@ impl Archivist {
     /// After this call, every `record_event()` call also records to the
     /// ArtifactRegistry. The ArtifactRegistry can be RocksDB-backed (with `--features
     /// rocksdb-dna`) or in-memory (default).
-    pub fn with_artifact_registry(mut self, bank: Arc<Mutex<crate::federation::artifact_registry::ArtifactRegistry>>) -> Self {
+    pub fn with_artifact_registry(
+        mut self,
+        bank: Arc<Mutex<crate::federation::artifact_registry::ArtifactRegistry>>,
+    ) -> Self {
         self.artifact_registry = Some(bank);
         self
     }

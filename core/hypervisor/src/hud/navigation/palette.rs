@@ -47,37 +47,117 @@ impl CommandPalette {
         }
     }
 
-    pub fn render(
-        &mut self,
-        ctx: &egui::Context,
-        theme: HudTheme,
-    ) -> Option<CommandAction> {
+    pub fn render(&mut self, ctx: &egui::Context, theme: HudTheme) -> Option<CommandAction> {
         if !self.is_open {
             return None;
         }
 
         let all_commands = vec![
-            ("👥 Specialists Deck", "Open Domain Specialists and Hive routing", CommandAction::Navigate(NavSection::Specialists)),
-            ("🌌 3D Omni Galaxy Graph", "Explore 3D spatial knowledge graph", CommandAction::Navigate(NavSection::GalaxyMap3D)),
-            ("🧬 Learning & Self-Play", "View neurochemistry & Alice vs Bob dreams", CommandAction::Navigate(NavSection::LearningAndSelfPlay)),
-            ("⚡ Solid-State SI Forge", "Compile native .si models & AST diffs", CommandAction::Navigate(NavSection::SiForge)),
-            ("👁️ Screen & Motor Engine", "Discord-style window picker & vision", CommandAction::Navigate(NavSection::ScreenAutomation)),
-            ("🌐 Federation P2P Swarm", "Multi-hive quorum & work offloading", CommandAction::Navigate(NavSection::SwarmMesh)),
-            ("🤖 SI Agents & Workflows", "Create and run persistent automation bots", CommandAction::Navigate(NavSection::Agents)),
-            ("⚙️ Preferences & Model Hub", "Configure themes and scan local GGUF models", CommandAction::Navigate(NavSection::Settings)),
-            ("🛠️ Developer Workbench", "Source tree, code editor & live diffs", CommandAction::Navigate(NavSection::DevStudio)),
-            ("⚡ Shared Memory Bus Monitor", "Inspect zero-copy SWMR 64MB ring buffer", CommandAction::Navigate(NavSection::InterconnectMonitor)),
-            ("💬 Internal IPC Chat", "Send task intents directly into bus", CommandAction::Navigate(NavSection::Console)),
-            ("🔴 Toggle Macro Recording (F9)", "Start or stop live action demonstration", CommandAction::ToggleRecording),
-            ("🪟 Toggle Compact Mini-HUD (F10)", "Switch between full studio and floating recorder", CommandAction::ToggleCompactOverlay),
-            ("🎮 In-Game Transparent Overlay (F12)", "Launch transparent bot overlay", CommandAction::ToggleInGameOverlay),
-            ("🔄 Rescan All GGUF Model Hubs", "Auto-discover LM Studio, Ollama, HuggingFace", CommandAction::RescanModels),
-            ("💎 Mine SI Distillation Corpus", "Extract high-density synthetic reasoning traces", CommandAction::MineSiDistillation),
-            ("📐 Tile Windows in 2-Col Grid", "Zero-overlap arrangement for dynamic tools", CommandAction::TileWindowsGrid),
-            ("🎨 Theme: Cobalt Dark", "Switch to Cobalt Dark theme", CommandAction::SetTheme(HudTheme::CobaltDark)),
-            ("🎨 Theme: Obsidian Slate", "Switch to Obsidian Slate theme", CommandAction::SetTheme(HudTheme::ObsidianSlate)),
-            ("🎨 Theme: Emerald Matrix", "Switch to Emerald Matrix theme", CommandAction::SetTheme(HudTheme::EmeraldMatrix)),
-            ("🎨 Theme: Amber Sovereign", "Switch to Amber Sovereign theme", CommandAction::SetTheme(HudTheme::AmberSovereign)),
+            (
+                "👥 Specialists Deck",
+                "Open Domain Specialists and Hive routing",
+                CommandAction::Navigate(NavSection::Specialists),
+            ),
+            (
+                "🌌 3D Omni Galaxy Graph",
+                "Explore 3D spatial knowledge graph",
+                CommandAction::Navigate(NavSection::GalaxyMap3D),
+            ),
+            (
+                "🧬 Learning & Self-Play",
+                "View neurochemistry & Alice vs Bob dreams",
+                CommandAction::Navigate(NavSection::LearningAndSelfPlay),
+            ),
+            (
+                "⚡ Solid-State SI Forge",
+                "Compile native .si models & AST diffs",
+                CommandAction::Navigate(NavSection::SiForge),
+            ),
+            (
+                "👁️ Screen & Motor Engine",
+                "Discord-style window picker & vision",
+                CommandAction::Navigate(NavSection::ScreenAutomation),
+            ),
+            (
+                "🌐 Federation P2P Swarm",
+                "Multi-hive quorum & work offloading",
+                CommandAction::Navigate(NavSection::SwarmMesh),
+            ),
+            (
+                "🤖 SI Agents & Workflows",
+                "Create and run persistent automation bots",
+                CommandAction::Navigate(NavSection::Agents),
+            ),
+            (
+                "⚙️ Preferences & Model Hub",
+                "Configure themes and scan local GGUF models",
+                CommandAction::Navigate(NavSection::Settings),
+            ),
+            (
+                "🛠️ Developer Workbench",
+                "Source tree, code editor & live diffs",
+                CommandAction::Navigate(NavSection::DevStudio),
+            ),
+            (
+                "⚡ Shared Memory Bus Monitor",
+                "Inspect zero-copy SWMR 64MB ring buffer",
+                CommandAction::Navigate(NavSection::InterconnectMonitor),
+            ),
+            (
+                "💬 Internal IPC Chat",
+                "Send task intents directly into bus",
+                CommandAction::Navigate(NavSection::Console),
+            ),
+            (
+                "🔴 Toggle Macro Recording (F9)",
+                "Start or stop live action demonstration",
+                CommandAction::ToggleRecording,
+            ),
+            (
+                "🪟 Toggle Compact Mini-HUD (F10)",
+                "Switch between full studio and floating recorder",
+                CommandAction::ToggleCompactOverlay,
+            ),
+            (
+                "🎮 In-Game Transparent Overlay (F12)",
+                "Launch transparent bot overlay",
+                CommandAction::ToggleInGameOverlay,
+            ),
+            (
+                "🔄 Rescan All GGUF Model Hubs",
+                "Auto-discover LM Studio, Ollama, HuggingFace",
+                CommandAction::RescanModels,
+            ),
+            (
+                "💎 Mine SI Distillation Corpus",
+                "Extract high-density synthetic reasoning traces",
+                CommandAction::MineSiDistillation,
+            ),
+            (
+                "📐 Tile Windows in 2-Col Grid",
+                "Zero-overlap arrangement for dynamic tools",
+                CommandAction::TileWindowsGrid,
+            ),
+            (
+                "🎨 Theme: Cobalt Dark",
+                "Switch to Cobalt Dark theme",
+                CommandAction::SetTheme(HudTheme::CobaltDark),
+            ),
+            (
+                "🎨 Theme: Obsidian Slate",
+                "Switch to Obsidian Slate theme",
+                CommandAction::SetTheme(HudTheme::ObsidianSlate),
+            ),
+            (
+                "🎨 Theme: Emerald Matrix",
+                "Switch to Emerald Matrix theme",
+                CommandAction::SetTheme(HudTheme::EmeraldMatrix),
+            ),
+            (
+                "🎨 Theme: Amber Sovereign",
+                "Switch to Amber Sovereign theme",
+                CommandAction::SetTheme(HudTheme::AmberSovereign),
+            ),
         ];
 
         let query_lower = self.query.to_lowercase();

@@ -98,7 +98,10 @@ impl AcousticFeatureExtractor {
             } else {
                 0.0
             };
-            buffer.push(Complex { re: sample, im: 0.0 });
+            buffer.push(Complex {
+                re: sample,
+                im: 0.0,
+            });
         }
 
         // Execute forward FFT
@@ -163,11 +166,16 @@ mod tests {
             pcm.push(sample);
         }
 
-        let (latent, _is_onset) = extractor.process_frame(&pcm).expect("Frame processing failed");
+        let (latent, _is_onset) = extractor
+            .process_frame(&pcm)
+            .expect("Frame processing failed");
         assert_eq!(latent.0.len(), 256);
 
         // Verify L2 normalization
         let norm: f32 = latent.0.iter().map(|&x| x * x).sum::<f32>().sqrt();
-        assert!((norm - 1.0).abs() < 1e-3, "Latent should be unit-normalized");
+        assert!(
+            (norm - 1.0).abs() < 1e-3,
+            "Latent should be unit-normalized"
+        );
     }
 }

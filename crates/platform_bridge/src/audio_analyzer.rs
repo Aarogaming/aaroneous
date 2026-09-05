@@ -11,13 +11,13 @@ use std::time::{SystemTime, UNIX_EPOCH};
 /// 8-Band Frequency Spectrum Energy Distribution
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct AudioFrequencySpectrum {
-    pub sub_bass: f32,    // 20 Hz - 60 Hz
-    pub bass: f32,        // 60 Hz - 250 Hz
-    pub low_mid: f32,     // 250 Hz - 500 Hz
-    pub mid: f32,         // 500 Hz - 2000 Hz
-    pub high_mid: f32,    // 2000 Hz - 4000 Hz
-    pub presence: f32,    // 4000 Hz - 6000 Hz
-    pub brilliance: f32,  // 6000 Hz - 20000 Hz
+    pub sub_bass: f32,   // 20 Hz - 60 Hz
+    pub bass: f32,       // 60 Hz - 250 Hz
+    pub low_mid: f32,    // 250 Hz - 500 Hz
+    pub mid: f32,        // 500 Hz - 2000 Hz
+    pub high_mid: f32,   // 2000 Hz - 4000 Hz
+    pub presence: f32,   // 4000 Hz - 6000 Hz
+    pub brilliance: f32, // 6000 Hz - 20000 Hz
     pub total_energy: f32,
 }
 
@@ -131,7 +131,8 @@ impl WasapiAudioStreamAnalyzer {
         let is_speech = vocal_band_energy > 0.15 && rms_db > -45.0;
 
         // Determine dominant frequency band
-        let dominant_band = if spectrum.sub_bass > spectrum.bass && spectrum.sub_bass > spectrum.mid {
+        let dominant_band = if spectrum.sub_bass > spectrum.bass && spectrum.sub_bass > spectrum.mid
+        {
             "Sub-Bass (20-60 Hz)".to_string()
         } else if spectrum.bass > spectrum.mid && spectrum.bass > spectrum.high_mid {
             "Bass (60-250 Hz)".to_string()
@@ -222,7 +223,9 @@ mod tests {
             samples.push((std::f32::consts::TAU * freq * t).sin() * 0.8);
         }
 
-        let obs = analyzer.analyze_pcm_buffer(&samples).expect("Analysis failed");
+        let obs = analyzer
+            .analyze_pcm_buffer(&samples)
+            .expect("Analysis failed");
         assert!(obs.rms_volume_db > -10.0);
         assert!(obs.peak_amplitude > 0.7);
         assert!(obs.spectrum.mid > 0.01);
@@ -233,7 +236,9 @@ mod tests {
         let mut analyzer = WasapiAudioStreamAnalyzer::new(48000, 2);
         let silence = vec![0.0f32; 960];
 
-        let obs = analyzer.analyze_pcm_buffer(&silence).expect("Analysis failed");
+        let obs = analyzer
+            .analyze_pcm_buffer(&silence)
+            .expect("Analysis failed");
         assert!(obs.rms_volume_db <= -90.0);
         assert_eq!(obs.peak_amplitude, 0.0);
         assert!(!obs.is_speech_active);

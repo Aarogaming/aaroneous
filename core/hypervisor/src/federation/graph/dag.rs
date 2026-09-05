@@ -428,7 +428,11 @@ pub fn model_lineage_graph(registry_json: &serde_json::Value) -> SovereignGraph 
         ("perceiver", "Perceiver", "perceiver-qwen2.5-7b.gguf"),
         ("archivist", "Archivist", "archivist-qwen2.5-7b.gguf"),
         ("synthesizer", "Synthesizer", "synthesizer-qwen2.5-7b.gguf"),
-        ("orchestrator", "Orchestrator", "orchestrator-qwen2.5-7b.gguf"),
+        (
+            "orchestrator",
+            "Orchestrator",
+            "orchestrator-qwen2.5-7b.gguf",
+        ),
         ("sentinel", "Sentinel", "sentinel-qwen2.5-7b.gguf"),
         ("fabricator", "Fabricator", "fabricator-qwen2.5-7b.gguf"),
     ];

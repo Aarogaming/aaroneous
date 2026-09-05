@@ -3,9 +3,9 @@
 
 use crate::digestion::SpecialistPersona;
 use crate::genetics::SpecialistGenome;
+use crate::skills::Skill;
 use rusqlite::{Connection, OptionalExtension, Result as SqlResult, params};
 use serde_json::json;
-use crate::skills::Skill;
 
 /// Persistence manager for the Aaroneous hive
 pub struct PersistenceManager {
@@ -832,9 +832,7 @@ pub type SemanticEmbeddingRecord = (
 
 impl PersistenceManager {
     /// Load all semantic embeddings from the database
-    pub fn load_all_embeddings(
-        &self,
-    ) -> SqlResult<Vec<SemanticEmbeddingRecord>> {
+    pub fn load_all_embeddings(&self) -> SqlResult<Vec<SemanticEmbeddingRecord>> {
         let mut stmt = self.db.prepare(
             "SELECT id, text, vector_json, metadata_json, access_count FROM semantic_embeddings",
         )?;
@@ -1278,10 +1276,10 @@ mod tests {
         );
 
         // Create a minimal persona structure
-        use chrono::Utc;
         use crate::digestion::{
             ExperienceProfile, NarrativeProfile, PersonalityProfile, RelationalProfile,
         };
+        use chrono::Utc;
 
         let persona = SpecialistPersona {
             specialist_id: "test_id".to_string(),
@@ -1365,10 +1363,10 @@ mod tests {
             "base_model".to_string(),
         );
 
-        use chrono::Utc;
         use crate::digestion::{
             ExperienceProfile, NarrativeProfile, PersonalityProfile, RelationalProfile,
         };
+        use chrono::Utc;
 
         let persona = SpecialistPersona {
             specialist_id: "test_1".to_string(),

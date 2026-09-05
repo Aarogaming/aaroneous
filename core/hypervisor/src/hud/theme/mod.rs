@@ -52,10 +52,10 @@ impl HudTheme {
 
     pub fn accent(&self) -> Color32 {
         match self {
-            HudTheme::CobaltDark => Color32::from_rgb(56, 139, 253),     // Electric Cobalt
-            HudTheme::ObsidianSlate => Color32::from_rgb(121, 192, 255),  // Ice Blue
-            HudTheme::EmeraldMatrix => Color32::from_rgb(63, 185, 80),    // Emerald
-            HudTheme::AmberSovereign => Color32::from_rgb(210, 153, 34),  // Amber Gold
+            HudTheme::CobaltDark => Color32::from_rgb(56, 139, 253), // Electric Cobalt
+            HudTheme::ObsidianSlate => Color32::from_rgb(121, 192, 255), // Ice Blue
+            HudTheme::EmeraldMatrix => Color32::from_rgb(63, 185, 80), // Emerald
+            HudTheme::AmberSovereign => Color32::from_rgb(210, 153, 34), // Amber Gold
         }
     }
 

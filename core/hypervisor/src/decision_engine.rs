@@ -2,6 +2,7 @@
 // The "brain" that orchestrates compute, biology, and intelligence for optimal task execution
 // Now uses thermodynamic governance with Free Energy Principle
 
+use crate::intelligence::{IntelligenceEngine, RoutableTask, RoutingDecision, TaskType};
 use crate::specialist_memory::{
     MemoryEntry, MemoryType, SharedMemoryRegistry, SpecialistMemoryStore,
 };
@@ -9,7 +10,6 @@ use biology::{
     SystemBiology, SystemHealthReport, ThermodynamicGovernor, ThermodynamicGovernorConfig,
 };
 use compute::{ComputeEngine, entropy};
-use crate::intelligence::{IntelligenceEngine, RoutableTask, RoutingDecision, TaskType};
 use rand::SeedableRng;
 use serde::{Deserialize, Serialize};
 
@@ -569,7 +569,9 @@ mod tests {
             cache_ttl_secs: 3600,
         };
 
-        IntelligenceEngine::new_async(config, specialists).await.expect("Failed to create test intelligence engine")
+        IntelligenceEngine::new_async(config, specialists)
+            .await
+            .expect("Failed to create test intelligence engine")
     }
 
     #[tokio::test]

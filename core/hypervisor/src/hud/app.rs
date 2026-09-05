@@ -2,8 +2,12 @@
 //! Main `StudioApp` struct, event loop, and render dispatcher.
 
 use crate::hud::fascia::ProcessFasciaWatcher;
-use crate::hud::modes::{render_compact_recorder_overlay, render_full_studio, render_transparent_hud};
-use crate::hud::navigation::{CommandAction, CommandPalette, ShortcutsModal, ToastLevel, ToastNotificationManager};
+use crate::hud::modes::{
+    render_compact_recorder_overlay, render_full_studio, render_transparent_hud,
+};
+use crate::hud::navigation::{
+    CommandAction, CommandPalette, ShortcutsModal, ToastLevel, ToastNotificationManager,
+};
 use crate::hud::state::{AppWindowMode, SharedHudState};
 use crate::hud::views::{
     AgentsHubView, Galaxy3DView, HudView, ScreenAutomationView, SettingsView, SiForgeView,
@@ -27,7 +31,10 @@ impl Default for StudioApp {
         let mut toasts = ToastNotificationManager::new();
         toasts.push(
             "Aaroneous Online",
-            format!("Discovered {} local GGUF models across local hubs.", state.discovered_gguf_models.len()),
+            format!(
+                "Discovered {} local GGUF models across local hubs.",
+                state.discovered_gguf_models.len()
+            ),
             ToastLevel::Success,
         );
 
@@ -70,11 +77,15 @@ impl StudioApp {
             CommandAction::ToggleCompactOverlay => {
                 self.state.app_window_mode = match self.state.app_window_mode {
                     AppWindowMode::FullStudio => {
-                        ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(egui::vec2(340.0, 60.0)));
+                        ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(egui::vec2(
+                            340.0, 60.0,
+                        )));
                         AppWindowMode::CompactRecorderOverlay
                     }
                     AppWindowMode::CompactRecorderOverlay => {
-                        ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(egui::vec2(1240.0, 840.0)));
+                        ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(egui::vec2(
+                            1240.0, 840.0,
+                        )));
                         AppWindowMode::FullStudio
                     }
                 };
@@ -97,19 +108,42 @@ impl StudioApp {
             }
             CommandAction::RescanModels => {
                 self.state.rescan_local_models();
-                self.toasts.push("Hubs Rescanned", format!("Discovered {} models.", self.state.discovered_gguf_models.len()), ToastLevel::Info);
+                self.toasts.push(
+                    "Hubs Rescanned",
+                    format!(
+                        "Discovered {} models.",
+                        self.state.discovered_gguf_models.len()
+                    ),
+                    ToastLevel::Info,
+                );
             }
             CommandAction::MineSiDistillation => {
                 let _ = self.state.si_miner.mine_starter_distillation_corpus();
-                self.toasts.push("Mining Complete", "Mined starter synthetic reasoning traces.", ToastLevel::Success);
+                self.toasts.push(
+                    "Mining Complete",
+                    "Mined starter synthetic reasoning traces.",
+                    ToastLevel::Success,
+                );
             }
             CommandAction::RunSiMacro(name, _path) => {
-                self.toasts.push("Macro Executed", format!("Ran macro '{name}'."), ToastLevel::Info);
+                self.toasts.push(
+                    "Macro Executed",
+                    format!("Ran macro '{name}'."),
+                    ToastLevel::Info,
+                );
             }
             CommandAction::TileWindowsGrid => {
                 let rect = ctx.content_rect();
-                self.state.spatial_canvas_scene.arrange_tiled_grid(rect.width(), rect.height(), 20.0);
-                self.toasts.push("Layout Applied", "Arranged tool windows in zero-overlap grid.", ToastLevel::Info);
+                self.state.spatial_canvas_scene.arrange_tiled_grid(
+                    rect.width(),
+                    rect.height(),
+                    20.0,
+                );
+                self.toasts.push(
+                    "Layout Applied",
+                    "Arranged tool windows in zero-overlap grid.",
+                    ToastLevel::Info,
+                );
             }
             CommandAction::SetTheme(theme) => {
                 self.state.settings.theme = theme;
@@ -122,6 +156,20 @@ impl StudioApp {
 impl eframe::App for StudioApp {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         let ctx = ui.ctx().clone();
+
+        // Intercept close event if close_to_tray is enabled
+        if ctx.input(|i| i.viewport().close_requested()) {
+            if self.state.settings.close_to_tray {
+                ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
+                ctx.send_viewport_cmd(egui::ViewportCommand::Visible(false));
+                self.state.is_minimized_to_tray = true;
+                self.toasts.push(
+                    "Minimized to Tray",
+                    "Aaroneous is still running in the background. Open from taskbar or tray.",
+                    ToastLevel::Info,
+                );
+            }
+        }
 
         // Poll asynchronous background worker messages & telemetry
         self.state.poll_background_messages();
@@ -141,17 +189,21 @@ impl eframe::App for StudioApp {
         if ctx.input(|i| i.key_pressed(Key::F12)) {
             self.state.is_ingame_overlay_open = !self.state.is_ingame_overlay_open;
         }
-        if ctx.input(|i| (i.modifiers.ctrl && i.key_pressed(Key::Slash)) || i.key_pressed(Key::Questionmark)) {
+        if ctx.input(|i| {
+            (i.modifiers.ctrl && i.key_pressed(Key::Slash)) || i.key_pressed(Key::Questionmark)
+        }) {
             self.shortcuts.toggle();
         }
 
         // ── Spatial Canvas Interaction Shortcuts (Pan, Zoom, Reset) ────────────
         let drag_delta = ctx.input(|i| i.pointer.delta());
         let scroll_delta = ctx.input(|i| i.smooth_scroll_delta.y);
-        let is_space_drag = ctx.input(|i| i.key_down(Key::Space) && i.pointer.is_decidedly_dragging());
+        let is_space_drag =
+            ctx.input(|i| i.key_down(Key::Space) && i.pointer.is_decidedly_dragging());
         let is_middle_drag = ctx.input(|i| i.pointer.middle_down());
         let is_ctrl_zoom = ctx.input(|i| i.modifiers.ctrl);
-        let reset_hotkey = ctx.input(|i| i.key_pressed(Key::Home) || (i.modifiers.ctrl && i.key_pressed(Key::Num0)));
+        let reset_hotkey = ctx
+            .input(|i| i.key_pressed(Key::Home) || (i.modifiers.ctrl && i.key_pressed(Key::Num0)));
 
         self.state.handle_canvas_pan_zoom(
             drag_delta,

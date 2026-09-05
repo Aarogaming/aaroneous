@@ -60,7 +60,7 @@ impl SwarmOffloader {
 
     /// Evaluates local pressure and either executes locally or offloads over TCP
     pub async fn dispatch_task(&mut self, task: SwarmTask) -> Result<SwarmExecutionOutcome> {
-        let should_offload = self.local_pressure_pct >= self.offload_threshold_pct 
+        let should_offload = self.local_pressure_pct >= self.offload_threshold_pct
             && self.daemon.connected_peer_count() > 0;
 
         if should_offload {
@@ -72,10 +72,10 @@ impl SwarmOffloader {
                 "⚡ High local pressure: Offloading micro-task to swarm peer"
             );
 
-            let (res, duration_us, peer_id) = self.daemon.offload_task_to_peer(
-                task.domain_opcode,
-                task.input_payload,
-            ).await?;
+            let (res, duration_us, peer_id) = self
+                .daemon
+                .offload_task_to_peer(task.domain_opcode, task.input_payload)
+                .await?;
 
             self.tasks_offloaded_count += 1;
             Ok(SwarmExecutionOutcome::OffloadedToPeer {

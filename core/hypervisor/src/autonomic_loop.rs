@@ -63,10 +63,10 @@ impl LegacySharedMemorySynapse {
 }
 
 use crate::concept_drift::ConceptDriftDetector;
+use crate::delta_orchestrator::DeltaOrchestrator;
 use crate::dopamine_system::{DopamineEvent, DopamineSystem, FeedbackSignalProcessor};
 use crate::enzyme_runner::EnzymeRunner;
 use crate::enzyme_types::{CuriosityEnzyme, DiplomatEnzyme, SelfCorrectionEnzyme};
-use crate::delta_orchestrator::DeltaOrchestrator;
 use crate::executive_plan::{ExecutivePlan, StepStatus};
 use crate::federation::hive_db::PersistenceManager as HivePersistence;
 use crate::hox_registry::HoxRegistry;

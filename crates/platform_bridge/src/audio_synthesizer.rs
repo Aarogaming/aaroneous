@@ -17,12 +17,48 @@ pub struct FormantSpec {
 }
 
 impl FormantSpec {
-    pub const VOWEL_A: Self = Self { f1: 800.0, f2: 1200.0, f3: 2500.0, bandwidth: 80.0, duration_ms: 120.0 };
-    pub const VOWEL_E: Self = Self { f1: 500.0, f2: 1800.0, f3: 2600.0, bandwidth: 70.0, duration_ms: 100.0 };
-    pub const VOWEL_I: Self = Self { f1: 300.0, f2: 2300.0, f3: 3000.0, bandwidth: 60.0, duration_ms: 90.0 };
-    pub const VOWEL_O: Self = Self { f1: 500.0, f2: 900.0, f3: 2400.0, bandwidth: 80.0, duration_ms: 110.0 };
-    pub const VOWEL_U: Self = Self { f1: 350.0, f2: 800.0, f3: 2300.0, bandwidth: 80.0, duration_ms: 100.0 };
-    pub const SILENCE: Self = Self { f1: 0.0, f2: 0.0, f3: 0.0, bandwidth: 0.0, duration_ms: 50.0 };
+    pub const VOWEL_A: Self = Self {
+        f1: 800.0,
+        f2: 1200.0,
+        f3: 2500.0,
+        bandwidth: 80.0,
+        duration_ms: 120.0,
+    };
+    pub const VOWEL_E: Self = Self {
+        f1: 500.0,
+        f2: 1800.0,
+        f3: 2600.0,
+        bandwidth: 70.0,
+        duration_ms: 100.0,
+    };
+    pub const VOWEL_I: Self = Self {
+        f1: 300.0,
+        f2: 2300.0,
+        f3: 3000.0,
+        bandwidth: 60.0,
+        duration_ms: 90.0,
+    };
+    pub const VOWEL_O: Self = Self {
+        f1: 500.0,
+        f2: 900.0,
+        f3: 2400.0,
+        bandwidth: 80.0,
+        duration_ms: 110.0,
+    };
+    pub const VOWEL_U: Self = Self {
+        f1: 350.0,
+        f2: 800.0,
+        f3: 2300.0,
+        bandwidth: 80.0,
+        duration_ms: 100.0,
+    };
+    pub const SILENCE: Self = Self {
+        f1: 0.0,
+        f2: 0.0,
+        f3: 0.0,
+        bandwidth: 0.0,
+        duration_ms: 50.0,
+    };
 }
 
 /// Real-Time Acoustic Voice Synthesizer

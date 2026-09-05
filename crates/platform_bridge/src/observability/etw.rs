@@ -205,7 +205,10 @@ impl EtwKernelConsumer {
     /// Filters recent events matching a specific process ID.
     pub fn filter_events_by_pid(&self, target_pid: u32) -> Vec<KernelTraceEvent> {
         let buf = self.ring_buffer.lock();
-        buf.iter().filter(|e| e.pid() == target_pid).cloned().collect()
+        buf.iter()
+            .filter(|e| e.pid() == target_pid)
+            .cloned()
+            .collect()
     }
 
     /// Checks if the ETW consumer is currently active.

@@ -70,7 +70,10 @@ fn test_wasapi_loopback_capture_streaming_integration() {
 
     let _event = capture.poll_latest_event();
     let latent = capture.poll_latest_latent();
-    assert!(latent.is_some(), "Should extract 256-D acoustic latent vector");
+    assert!(
+        latent.is_some(),
+        "Should extract 256-D acoustic latent vector"
+    );
 
     capture.stop().expect("Capture stop failed");
     assert!(!capture.is_active());
@@ -78,7 +81,9 @@ fn test_wasapi_loopback_capture_streaming_integration() {
 
 #[test]
 fn test_acoustic_latent_to_reflex_matcher_closed_loop() {
-    use compute::episodic_memory::{AcousticReflexMatcher, EpisodicMemoryFabric, TrajectoryMetadata};
+    use compute::episodic_memory::{
+        AcousticReflexMatcher, EpisodicMemoryFabric, TrajectoryMetadata,
+    };
     use platform_bridge::observability::{AcousticFeatureExtractor, FFT_SIZE};
     use std::sync::Arc;
 
@@ -116,7 +121,10 @@ fn test_acoustic_latent_to_reflex_matcher_closed_loop() {
     assert!(matched_reflex.is_some());
     let reflex = matched_reflex.unwrap();
     assert_eq!(reflex.id, 9001);
-    assert_eq!(reflex.metadata.action_summary, "Trigger Sound Cue Action [F]");
+    assert_eq!(
+        reflex.metadata.action_summary,
+        "Trigger Sound Cue Action [F]"
+    );
     assert!(reflex.similarity > 0.95);
 }
 
@@ -158,7 +166,10 @@ fn test_etw_kernel_consumer_integration() {
     // Poll recent 2
     let recent = etw.poll_recent_events(2);
     assert_eq!(recent.len(), 2);
-    assert!(matches!(recent[0], KernelTraceEvent::WindowFocusChanged { .. }));
+    assert!(matches!(
+        recent[0],
+        KernelTraceEvent::WindowFocusChanged { .. }
+    ));
 
     // Drain
     let all = etw.drain_events();

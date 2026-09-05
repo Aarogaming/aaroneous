@@ -3,7 +3,9 @@
 // and verifies that live wire telemetry updates the industrial register bank.
 
 use aaroneous_paths::WorkspacePaths;
-use aaroneous_wire::{encode_frame, ChannelKind, ChannelValue, TelemetryPacket, WireMessage, MAX_FRAMED_SIZE};
+use aaroneous_wire::{
+    ChannelKind, ChannelValue, MAX_FRAMED_SIZE, TelemetryPacket, WireMessage, encode_frame,
+};
 use platform_bridge::ot_bridge::{OtBridgeConfig, OtEdgeGateway};
 
 #[tokio::test]
@@ -11,20 +13,34 @@ async fn test_real_system_sampling_and_ot_interconnect() {
     // 1. Sample real-world local model hubs (LM Studio default location)
     let ws = WorkspacePaths::discover();
     let detected_models = ws.scan_all_gguf_models(&[]);
-    
-    println!(">>> Real-World Sample: Discovered {} GGUF models on disk.", detected_models.len());
+
+    println!(
+        ">>> Real-World Sample: Discovered {} GGUF models on disk.",
+        detected_models.len()
+    );
     for m in detected_models.iter().take(5) {
-        println!("    - Model: {} ({}) from {}", m.file_name, m.formatted_size, m.source_hub);
+        println!(
+            "    - Model: {} ({}) from {}",
+            m.file_name, m.formatted_size, m.source_hub
+        );
     }
     if !detected_models.is_empty() {
-        println!(">>> Verified {} local GGUF models discovered.", detected_models.len());
+        println!(
+            ">>> Verified {} local GGUF models discovered.",
+            detected_models.len()
+        );
     } else {
-        println!(">>> Notice: No local GGUF models found at default hub paths; running in headless mode.");
+        println!(
+            ">>> Notice: No local GGUF models found at default hub paths; running in headless mode."
+        );
     }
 
     // 2. Sample real-world serial/COM ports available on the host OS
     let available_ports = tokio_serial::available_ports().unwrap_or_default();
-    println!(">>> Real-World Sample: Discovered {} physical/virtual serial ports.", available_ports.len());
+    println!(
+        ">>> Real-World Sample: Discovered {} physical/virtual serial ports.",
+        available_ports.len()
+    );
     for p in &available_ports {
         println!("    - Port: {:?} (Type: {:?})", p.port_name, p.port_type);
     }
@@ -65,7 +81,9 @@ async fn test_real_system_sampling_and_ot_interconnect() {
     let wire_frame = encode_frame(&msg, &mut frame_buffer).expect("COBS frame encodes");
 
     // Ingest wire frame into edge gateway
-    let decoded_msg = gateway.ingest_raw_frame(wire_frame).expect("Decodes cleanly");
+    let decoded_msg = gateway
+        .ingest_raw_frame(wire_frame)
+        .expect("Decodes cleanly");
     assert_eq!(decoded_msg, msg);
 
     // Verify holding registers and discrete states match
@@ -75,10 +93,23 @@ async fn test_real_system_sampling_and_ot_interconnect() {
     assert_eq!(reg_bank.discrete_inputs[1], true);
 
     // Test Host -> Edge Command dispatch
-    gateway.send_command(aaroneous_wire::CommandPacket::SetDigitalOut { pin: 13, state: true })
+    gateway
+        .send_command(aaroneous_wire::CommandPacket::SetDigitalOut {
+            pin: 13,
+            state: true,
+        })
         .await
         .expect("Command sent");
 
-    let received_cmd = cmd_rx.recv().await.expect("Command received on worker channel");
-    assert_eq!(received_cmd, aaroneous_wire::CommandPacket::SetDigitalOut { pin: 13, state: true });
+    let received_cmd = cmd_rx
+        .recv()
+        .await
+        .expect("Command received on worker channel");
+    assert_eq!(
+        received_cmd,
+        aaroneous_wire::CommandPacket::SetDigitalOut {
+            pin: 13,
+            state: true
+        }
+    );
 }

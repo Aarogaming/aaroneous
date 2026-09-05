@@ -3,7 +3,7 @@
 //! Balances compute across sovereign nodes via Iroh/QUIC mesh, offloading
 //! sub-graphs (`NativeComputationalGraph`) to idle peers when local thresholds are exceeded.
 
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, VecDeque};
@@ -84,7 +84,9 @@ impl FleetScheduler {
 
     /// Updates or registers load metrics reported by a peer node
     pub fn record_peer_metric(&self, metric: PeerLoadMetric) {
-        self.peer_metrics.write().insert(metric.node_id.clone(), metric);
+        self.peer_metrics
+            .write()
+            .insert(metric.node_id.clone(), metric);
     }
 
     /// Evaluates incoming work-steal request from an idle peer and donates a task if available
@@ -111,7 +113,10 @@ impl FleetScheduler {
     }
 
     /// Offloads pending task to the least loaded fleet peer if local capacity is saturated
-    pub fn offload_excess_work(&self, current_local_load_pct: f32) -> Option<(P2pNodeId, WorkStealResponse)> {
+    pub fn offload_excess_work(
+        &self,
+        current_local_load_pct: f32,
+    ) -> Option<(P2pNodeId, WorkStealResponse)> {
         if current_local_load_pct < self.offload_threshold_pct {
             return None;
         }
@@ -129,16 +134,17 @@ impl FleetScheduler {
             .min_by(|a, b| {
                 let load_a = a.cpu_load_pct + a.gpu_load_pct;
                 let load_b = b.cpu_load_pct + b.gpu_load_pct;
-                load_a.partial_cmp(&load_b).unwrap_or(std::cmp::Ordering::Equal)
+                load_a
+                    .partial_cmp(&load_b)
+                    .unwrap_or(std::cmp::Ordering::Equal)
             })?;
 
         let task = queue.pop_back()?;
         let target_node = best_peer.node_id.clone();
 
-        self.in_flight_remote_tasks.write().insert(
-            task.task_id,
-            (target_node.clone(), task.graph.clone()),
-        );
+        self.in_flight_remote_tasks
+            .write()
+            .insert(task.task_id, (target_node.clone(), task.graph.clone()));
 
         Some((
             target_node,
@@ -154,7 +160,9 @@ impl FleetScheduler {
     pub fn integrate_remote_result(&self, result: WorkResult) -> Result<()> {
         let mut in_flight = self.in_flight_remote_tasks.write();
         if let Some((_peer, _graph)) = in_flight.remove(&result.task_id) {
-            self.completed_results.write().insert(result.task_id, result);
+            self.completed_results
+                .write()
+                .insert(result.task_id, result);
             Ok(())
         } else {
             Err(anyhow!(
@@ -210,7 +218,11 @@ impl FleetScheduler {
     }
 
     /// Creates an outbound WorkStealRequest SyncMessage
-    pub fn create_work_steal_request(&self, max_nodes: usize, min_free_energy: f64) -> Result<SyncMessage> {
+    pub fn create_work_steal_request(
+        &self,
+        max_nodes: usize,
+        min_free_energy: f64,
+    ) -> Result<SyncMessage> {
         let ts = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .map(|d| d.as_millis() as u64)
@@ -295,7 +307,10 @@ impl FleetScheduler {
     }
 
     /// Broadcasts an adapted .si LoRA delta payload across the P2P mesh
-    pub fn create_lora_delta_broadcast(&self, delta: &CartridgeLoraDeltaSync) -> Result<SyncMessage> {
+    pub fn create_lora_delta_broadcast(
+        &self,
+        delta: &CartridgeLoraDeltaSync,
+    ) -> Result<SyncMessage> {
         let ts = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .map(|d| d.as_millis() as u64)
@@ -367,7 +382,9 @@ mod tests {
         assert_eq!(local_node.pending_task_count(), 2);
 
         // Remote node generates a heartbeat
-        let heartbeat = remote_node.create_heartbeat_message(25.0, 10.0, 0.02).unwrap();
+        let heartbeat = remote_node
+            .create_heartbeat_message(25.0, 10.0, 0.02)
+            .unwrap();
         let resp = local_node
             .handle_incoming_sync_message(&remote_node.local_node_id, &heartbeat)
             .unwrap();
@@ -480,7 +497,9 @@ mod tests {
         assert_eq!(local_win.pending_task_count(), 1);
 
         // Offload excess work to idle Linux compute peer
-        let (target, steal_resp) = local_win.offload_excess_work(85.0).expect("Should offload to Linux node");
+        let (target, steal_resp) = local_win
+            .offload_excess_work(85.0)
+            .expect("Should offload to Linux node");
         assert_eq!(target, remote_linux.local_node_id);
         assert_eq!(steal_resp.task_id, t_id);
         assert_eq!(local_win.in_flight_task_count(), 1);

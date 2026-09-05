@@ -2,15 +2,15 @@
 //! Shared HUD state, window modes, DPI scaling, and Spatial Canvas state.
 
 use aaroneous_paths::{DiscoveredGgufModel, ModelHubLocation, WorkspacePaths};
-use crossbeam_channel::{unbounded, Receiver, Sender};
+use crossbeam_channel::{Receiver, Sender, unbounded};
 use eframe::egui::{self, Color32, Pos2, Vec2};
 use memmap2::{MmapMut, MmapOptions};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs::{self, OpenOptions};
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
 use std::time::{Duration, Instant};
 use uuid::Uuid;
@@ -21,9 +21,9 @@ use crate::hud::theme::HudTheme;
 /// Type of User Automation Agent
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum AgentKind {
-    SingleUseTask,   // 1-shot automation (e.g. download report, organize folder)
-    SmartMacroLoop,  // Repeating macro / game companion
-    Assistant,       // Conversational helper / UI builder
+    SingleUseTask,  // 1-shot automation (e.g. download report, organize folder)
+    SmartMacroLoop, // Repeating macro / game companion
+    Assistant,      // Conversational helper / UI builder
 }
 
 impl AgentKind {
@@ -104,57 +104,48 @@ impl CustomAgent {
         }
 
         if agents.is_empty() {
-            let default_target = WorkspacePaths::discover().root().to_string_lossy().to_string();
+            let default_target = WorkspacePaths::discover()
+                .root()
+                .to_string_lossy()
+                .to_string();
 
-            // Seed starter agents and persist them to disk
+            // Seed starter agents with real executable capabilities and 0 initial task counts
             let starters = vec![
                 CustomAgent {
-                    id: "agent_game_helper".to_string(),
-                    name: "Game Companion Bot".to_string(),
-                    description: "Automates repetitive in-game grinding, assists aiming, and triggers macro dodges.".to_string(),
-                    kind: AgentKind::SmartMacroLoop,
-                    instructions: "Monitor health bar, auto-trigger dodge when attack indicator appears, and farm resource loop.".to_string(),
-                    target_app: "Active Game Window".to_string(),
-                    tasks_completed: 142,
-                    state: AgentExecutionState::Running,
+                    id: "agent_window_radar".to_string(),
+                    name: "Window & Process Radar (Demo)".to_string(),
+                    description: "Live sensory probe that enumerates active desktop windows and measures capture frame rates.".to_string(),
+                    kind: AgentKind::SingleUseTask,
+                    instructions: "Probe Windows OS desktop handles, measure capture latency, and log active process telemetry.".to_string(),
+                    target_app: "OS Desktop".to_string(),
+                    tasks_completed: 0,
+                    state: AgentExecutionState::Idle,
                     color: [56, 139, 253],
-                    soul_model: Some("⚡ Burn WGPU Motor Reflex (Tier 1)".to_string()),
+                    soul_model: Some("⚡ Win32 Desktop Sensor Gate".to_string()),
                 },
                 CustomAgent {
-                    id: "agent_file_cleaner".to_string(),
-                    name: "Download & Workspace Cleaner".to_string(),
-                    description: "Single-use task bot that categorizes downloads and cleans temporary build artifacts.".to_string(),
+                    id: "agent_workspace_pruner".to_string(),
+                    name: "Workspace Cache Pruner".to_string(),
+                    description: "Cleans temporary build artifacts, old debug logs, and stale cache files safely.".to_string(),
                     kind: AgentKind::SingleUseTask,
-                    instructions: "Scan Downloads folder, sort PDFs/ZIPs/images into folders, and delete files older than 30 days.".to_string(),
-                    target_app: default_target,
-                    tasks_completed: 28,
+                    instructions: "Scan local workspace directories and remove ephemeral scratch files.".to_string(),
+                    target_app: default_target.clone(),
+                    tasks_completed: 0,
                     state: AgentExecutionState::Idle,
                     color: [63, 185, 80],
-                    soul_model: Some("⚡ Machine-Native Task Engine".to_string()),
+                    soul_model: Some("⚡ Native Storage Pruner".to_string()),
                 },
                 CustomAgent {
-                    id: "agent_ui_builder".to_string(),
-                    name: "Instant Tool Synthesizer".to_string(),
-                    description: "Generates draggable native desktop calculators, performance monitors, and tools on demand.".to_string(),
-                    kind: AgentKind::Assistant,
-                    instructions: "Listen for prompt queries and compile dynamic UI window manifests without restarting.".to_string(),
-                    target_app: "Aaroneous Desktop".to_string(),
-                    tasks_completed: 64,
+                    id: "agent_macro_reflex".to_string(),
+                    name: "Smart Macro Dispatcher".to_string(),
+                    description: "High-speed JIT reactive automation loop with real-time microsecond event telemetry.".to_string(),
+                    kind: AgentKind::SmartMacroLoop,
+                    instructions: "Execute high-frequency macro loops on the memory bus with thermodynamic eligibility monitoring.".to_string(),
+                    target_app: "Active Application".to_string(),
+                    tasks_completed: 0,
                     state: AgentExecutionState::Idle,
                     color: [163, 113, 247],
-                    soul_model: Some("🧠 Qwen2.5-Coder-14B / Candle (Tier 3)".to_string()),
-                },
-                CustomAgent {
-                    id: "agent_macro_login".to_string(),
-                    name: "Daily Routine Macro".to_string(),
-                    description: "Automates morning desktop workflow: launches tools, updates repositories, checks build status.".to_string(),
-                    kind: AgentKind::SingleUseTask,
-                    instructions: "Open IDE, pull latest git changes, run cargo check, and report diagnostics toast.".to_string(),
-                    target_app: "System".to_string(),
-                    tasks_completed: 85,
-                    state: AgentExecutionState::Idle,
-                    color: [210, 153, 34],
-                    soul_model: Some("🔨 Compiler AST Reflexion (Tier 2)".to_string()),
+                    soul_model: Some("⚡ Cranelift JIT Macro Reflex".to_string()),
                 },
             ];
 
@@ -193,7 +184,11 @@ pub struct AutomationEventLog {
 #[derive(Debug, Clone)]
 pub enum BackgroundAgentMessage {
     EventLog(AutomationEventLog),
-    TaskFinished { agent_id: String, success: bool, msg: String },
+    TaskFinished {
+        agent_id: String,
+        success: bool,
+        msg: String,
+    },
 }
 
 /// Dev Studio Sub-Views
@@ -252,6 +247,9 @@ pub struct UserSettings {
     pub dev_mode: bool,
     pub custom_models_dir: Option<PathBuf>,
     pub selected_gguf_model: Option<String>,
+    pub close_to_tray: bool,
+    pub modular_canvas_mode: bool,
+    pub workspace_root_override: Option<PathBuf>,
 }
 
 impl Default for UserSettings {
@@ -267,13 +265,18 @@ impl Default for UserSettings {
             dev_mode: false,
             custom_models_dir: None,
             selected_gguf_model: None,
+            close_to_tray: true,
+            modular_canvas_mode: false,
+            workspace_root_override: None,
         }
     }
 }
 
 impl UserSettings {
     pub fn config_path() -> PathBuf {
-        WorkspacePaths::discover().config().join("hud_settings.json")
+        WorkspacePaths::discover()
+            .config()
+            .join("hud_settings.json")
     }
 
     pub fn load_from_disk() -> Self {
@@ -382,7 +385,8 @@ impl SpatialCanvasScene {
 
     /// Automatically tiles open spatial windows into a non-overlapping grid (Compositor mode)
     pub fn arrange_tiled_grid(&mut self, viewport_width: f32, viewport_height: f32, padding: f32) {
-        let open_keys: Vec<String> = self.windows
+        let open_keys: Vec<String> = self
+            .windows
             .iter()
             .filter(|(_, w)| w.is_open && !w.is_minimized)
             .map(|(k, _)| k.clone())
@@ -528,6 +532,8 @@ pub struct SharedHudState {
 
     // Discord-Style Screen & Application Sharing Picker
     pub screen_share_tab: ScreenShareTab,
+    pub discovered_screens: Vec<platform_bridge::DiscoveredScreen>,
+    pub selected_screen_idx: usize,
     pub discovered_windows: Vec<platform_bridge::DiscoveredWindow>,
     pub selected_window_idx: usize,
     pub capture_modifiers: platform_bridge::CaptureModifiers,
@@ -610,6 +616,8 @@ pub struct SharedHudState {
     pub forge_samples_count: usize,
     pub forge_epochs_count: usize,
     pub forge_distillation_status: String,
+    pub foundry_wizard_step: usize,
+    pub forge_input_source: usize,
     pub swarm_live_quorums: usize,
     pub swarm_offload_count: usize,
 
@@ -640,7 +648,11 @@ impl Default for SharedHudState {
         let (bg_tx, bg_rx) = unbounded();
 
         // Scan Local LLM Model Hubs
-        let custom_dirs = settings.custom_models_dir.as_ref().map(|p| vec![p.clone()]).unwrap_or_default();
+        let custom_dirs = settings
+            .custom_models_dir
+            .as_ref()
+            .map(|p| vec![p.clone()])
+            .unwrap_or_default();
         let model_hubs = ws.get_known_model_hubs();
         let discovered_gguf_models = ws.scan_all_gguf_models(&custom_dirs);
 
@@ -691,9 +703,27 @@ impl Default for SharedHudState {
         }
 
         let event_logs = vec![
-            AutomationEventLog { timestamp_ms: 1040, source: "Game Companion Bot".to_string(), action: "Triggered macro dodge [Shift+A]".to_string(), latency_us: 340.0, success: true },
-            AutomationEventLog { timestamp_ms: 2180, source: "Download Cleaner".to_string(), action: "Scanned folder targets".to_string(), latency_us: 1200.0, success: true },
-            AutomationEventLog { timestamp_ms: 3450, source: "Instant Tool Synthesizer".to_string(), action: "Generated Game Stats widget".to_string(), latency_us: 840.0, success: true },
+            AutomationEventLog {
+                timestamp_ms: 1040,
+                source: "Game Companion Bot".to_string(),
+                action: "Triggered macro dodge [Shift+A]".to_string(),
+                latency_us: 340.0,
+                success: true,
+            },
+            AutomationEventLog {
+                timestamp_ms: 2180,
+                source: "Download Cleaner".to_string(),
+                action: "Scanned folder targets".to_string(),
+                latency_us: 1200.0,
+                success: true,
+            },
+            AutomationEventLog {
+                timestamp_ms: 3450,
+                source: "Instant Tool Synthesizer".to_string(),
+                action: "Generated Game Stats widget".to_string(),
+                latency_us: 840.0,
+                success: true,
+            },
         ];
 
         let galaxy_stars = vec![
@@ -847,11 +877,17 @@ impl Default for SharedHudState {
         let dev_tools_engine = adaptation_engine::DevToolsEngine::default();
         let workspace_tree_items = dev_tools_engine.scan_workspace_tree(2);
 
-        let discovered_windows = platform_bridge::WindowDiscoveryEngine::enumerate_available_targets().unwrap_or_default();
+        let discovered_windows =
+            platform_bridge::WindowDiscoveryEngine::enumerate_available_targets()
+                .unwrap_or_default();
+        let discovered_screens =
+            platform_bridge::WindowDiscoveryEngine::enumerate_screens()
+                .unwrap_or_default();
         let default_target_app = ws.root().to_string_lossy().to_string();
 
         let si_miner = transpiler::SiDistillationMiner::default();
-        let (si_corpus_count, si_corpus_bytes, si_corpus_avg_energy) = si_miner.get_live_metrics().unwrap_or((0, 0, 0.0));
+        let (si_corpus_count, si_corpus_bytes, si_corpus_avg_energy) =
+            si_miner.get_live_metrics().unwrap_or((0, 0, 0.0));
 
         Self {
             nav_section: NavSection::Agents,
@@ -911,6 +947,8 @@ impl Default for SharedHudState {
             emulation_session_name: "speedrun_macro_1".to_string(),
             emulation_status_msg: "Game Emulation Agent Ready".to_string(),
             screen_share_tab: ScreenShareTab::Applications,
+            discovered_screens,
+            selected_screen_idx: 0,
             discovered_windows,
             selected_window_idx: 0,
             capture_modifiers: platform_bridge::CaptureModifiers::default(),
@@ -982,6 +1020,8 @@ impl Default for SharedHudState {
             forge_samples_count: 20,
             forge_epochs_count: 2,
             forge_distillation_status: "Ready to distill .si student models.".into(),
+            foundry_wizard_step: 0,
+            forge_input_source: 0,
             swarm_live_quorums: 3,
             swarm_offload_count: 12,
             spatial_canvas_scene: SpatialCanvasScene::new(),
@@ -1001,6 +1041,13 @@ impl Default for SharedHudState {
 }
 
 impl SharedHudState {
+    pub fn rescan_workspace_files(&mut self) {
+        let root = self.settings.workspace_root_override.clone()
+            .unwrap_or_else(|| std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")));
+        self.dev_tools_engine = adaptation_engine::DevToolsEngine::new(&root);
+        self.workspace_tree_items = self.dev_tools_engine.scan_workspace_tree(4);
+    }
+
     pub fn save_scene_to_disk(&self, path: &std::path::Path) -> anyhow::Result<()> {
         self.spatial_canvas_scene.save_to_disk(path)
     }
@@ -1056,7 +1103,11 @@ impl SharedHudState {
                         self.event_logs.remove(0);
                     }
                 }
-                BackgroundAgentMessage::TaskFinished { agent_id, success, msg } => {
+                BackgroundAgentMessage::TaskFinished {
+                    agent_id,
+                    success,
+                    msg,
+                } => {
                     if let Some(agent) = self.custom_agents.iter_mut().find(|a| a.id == agent_id) {
                         agent.state = if success {
                             agent.tasks_completed += 1;
@@ -1105,7 +1156,8 @@ impl SharedHudState {
             }
             AgentKind::SmartMacroLoop => {
                 let cancel_flag = Arc::new(AtomicBool::new(false));
-                self.active_loop_flags.insert(agent_id.clone(), cancel_flag.clone());
+                self.active_loop_flags
+                    .insert(agent_id.clone(), cancel_flag.clone());
 
                 thread::spawn(move || {
                     let mut step = 1;
@@ -1189,9 +1241,12 @@ impl SharedHudState {
     pub fn toggle_recording(&mut self) {
         match &self.game_agent.state {
             platform_bridge::PlaythroughState::Idle => {
-                let _ = self.game_agent.start_recording(&self.emulation_session_name);
+                let _ = self
+                    .game_agent
+                    .start_recording(&self.emulation_session_name);
                 self.recording_start_instant = Some(Instant::now());
-                self.emulation_status_msg = "Recording started (60 FPS action stream)...".to_string();
+                self.emulation_status_msg =
+                    "Recording started (60 FPS action stream)...".to_string();
             }
             platform_bridge::PlaythroughState::Recording { .. } => {
                 let _ = self.game_agent.stop_recording();
@@ -1275,7 +1330,9 @@ mod tests {
             },
         );
 
-        scene.save_to_disk(&scene_path).expect("Failed to save scene");
+        scene
+            .save_to_disk(&scene_path)
+            .expect("Failed to save scene");
         assert!(scene_path.exists());
 
         let loaded = SpatialCanvasScene::load_from_disk(&scene_path).expect("Failed to load scene");

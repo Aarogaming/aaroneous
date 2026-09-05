@@ -237,7 +237,11 @@ impl StateSpaceModel {
         let mut output = vec![0.0; self.input_dim];
         for (i, out) in output.iter_mut().enumerate() {
             let c_row = &self.c[i * self.state_dim..(i + 1) * self.state_dim];
-            *out = c_row.iter().zip(&self.state).map(|(c_val, st)| c_val * st).sum();
+            *out = c_row
+                .iter()
+                .zip(&self.state)
+                .map(|(c_val, st)| c_val * st)
+                .sum();
         }
         output
     }

@@ -52,9 +52,14 @@ impl ProcessFasciaWatcher {
     }
 
     /// Registers a process image to spatial scene preset mapping.
-    pub fn register_mapping(&mut self, process_name: impl Into<String>, scene_path: impl AsRef<Path>) {
+    pub fn register_mapping(
+        &mut self,
+        process_name: impl Into<String>,
+        scene_path: impl AsRef<Path>,
+    ) {
         let key = process_name.into().to_lowercase();
-        self.mapping_table.insert(key, scene_path.as_ref().to_path_buf());
+        self.mapping_table
+            .insert(key, scene_path.as_ref().to_path_buf());
     }
 
     /// Toggles the manual canvas layout lock.
@@ -106,7 +111,9 @@ impl ProcessFasciaWatcher {
 
             // Attempt to load scene from disk or synthesize default spatial preset
             let resolved_path = if target_path.is_relative() {
-                aaroneous_paths::WorkspacePaths::discover().root().join(&target_path)
+                aaroneous_paths::WorkspacePaths::discover()
+                    .root()
+                    .join(&target_path)
             } else {
                 target_path.clone()
             };

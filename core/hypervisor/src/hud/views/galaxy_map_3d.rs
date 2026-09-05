@@ -47,7 +47,15 @@ impl HudView for Galaxy3DView {
         // 2. Category Filter Chips
         ui.horizontal_wrapped(|ui| {
             ui.label(egui::RichText::new("Filter Cluster:").strong());
-            for cat in ["All", "Specialists", "Reflex", "Memory", "Security", "Networking", "Capture"] {
+            for cat in [
+                "All",
+                "Specialists",
+                "Reflex",
+                "Memory",
+                "Security",
+                "Networking",
+                "Capture",
+            ] {
                 let is_selected = state.galaxy_filter_category == cat;
                 if ui.selectable_label(is_selected, cat).clicked() {
                     state.galaxy_filter_category = cat.to_string();
@@ -72,12 +80,14 @@ impl HudView for Galaxy3DView {
         let canvas_rect = response.rect;
         let center = canvas_rect.center() + state.camera_pan;
 
-        // Mouse Drag Orbit & Zoom Controls
+        // Mouse Drag Orbit & Zoom Controls (Natural pitch & yaw orientation)
         if response.dragged_by(egui::PointerButton::Primary) {
             let delta = response.drag_delta();
             state.camera_rotation.0 += delta.x * 0.008; // Yaw
-            state.camera_rotation.1 = (state.camera_rotation.1 - delta.y * 0.008).clamp(-1.4, 1.4); // Pitch
-        } else if response.dragged_by(egui::PointerButton::Secondary) || response.dragged_by(egui::PointerButton::Middle) {
+            state.camera_rotation.1 = (state.camera_rotation.1 + delta.y * 0.008).clamp(-1.4, 1.4); // Natural Pitch
+        } else if response.dragged_by(egui::PointerButton::Secondary)
+            || response.dragged_by(egui::PointerButton::Middle)
+        {
             state.camera_pan += response.drag_delta();
         }
 
@@ -89,7 +99,11 @@ impl HudView for Galaxy3DView {
         }
 
         // Background Cosmos Backdrop
-        painter.rect_filled(canvas_rect, CornerRadius::same(6), Color32::from_rgb(8, 10, 16));
+        painter.rect_filled(
+            canvas_rect,
+            CornerRadius::same(6),
+            Color32::from_rgb(8, 10, 16),
+        );
 
         // Draw 3D Concentric Orbital Rings on Ground Plane (XZ)
         let (yaw, pitch) = state.camera_rotation;
@@ -140,13 +154,20 @@ impl HudView for Galaxy3DView {
                 }
             }
             for w in ring_pts.windows(2) {
-                painter.line_segment([w[0], w[1]], Stroke::new(1.0, Color32::from_rgba_unmultiplied(40, 60, 95, 50)));
+                painter.line_segment(
+                    [w[0], w[1]],
+                    Stroke::new(1.0, Color32::from_rgba_unmultiplied(40, 60, 95, 50)),
+                );
             }
         }
 
         // 4. Filter & Collect Projected Nodes
         let filter = state.galaxy_filter_category.clone();
-        let star_map: HashMap<String, GalaxyStar> = state.galaxy_stars.iter().map(|s| (s.id.clone(), s.clone())).collect();
+        let star_map: HashMap<String, GalaxyStar> = state
+            .galaxy_stars
+            .iter()
+            .map(|s| (s.id.clone(), s.clone()))
+            .collect();
 
         // 5. Draw 3D Constellation Edges & Dynamic Traveling Pulses
         let mut drawn_edges = std::collections::HashSet::new();
@@ -164,7 +185,9 @@ impl HudView for Galaxy3DView {
                     };
 
                     if drawn_edges.insert(edge_key)
-                        && let Some((p2, scale2, _)) = star_map.get(target_id).and_then(|target_star| project_3d(target_star.pos))
+                        && let Some((p2, scale2, _)) = star_map
+                            .get(target_id)
+                            .and_then(|target_star| project_3d(target_star.pos))
                     {
                         // Constellation Wire
                         let alpha = ((scale1 + scale2) * 45.0).clamp(20.0, 140.0) as u8;
@@ -173,27 +196,34 @@ impl HudView for Galaxy3DView {
                             Stroke::new(1.2, Color32::from_rgba_unmultiplied(56, 139, 253, alpha)),
                         );
 
-                            // Animated Real-Time Execution Pulse
-                            let pulse_phase = (time_sec * 0.8 + (star.domain_opcode as f32 * 0.1)) % 1.0;
-                            let pulse_pos = Pos2::new(
-                                p1.x + (p2.x - p1.x) * pulse_phase,
-                                p1.y + (p2.y - p1.y) * pulse_phase,
-                            );
-                            let pulse_scale = (scale1 + (scale2 - scale1) * pulse_phase).max(0.5);
+                        // Animated Real-Time Execution Pulse (Driven by live bus activity)
+                        let bus_speed_multiplier = (state.bus_events_per_sec / 1000.0).clamp(0.5, 4.0);
+                        let star_activity = star.activity_level.clamp(0.1, 1.0);
+                        let pulse_phase = (time_sec * (0.6 * bus_speed_multiplier * star_activity)
+                            + (star.domain_opcode as f32 * 0.05))
+                            % 1.0;
+                        let pulse_pos = Pos2::new(
+                            p1.x + (p2.x - p1.x) * pulse_phase,
+                            p1.y + (p2.y - p1.y) * pulse_phase,
+                        );
+                        let pulse_scale = (scale1 + (scale2 - scale1) * pulse_phase).max(0.5);
 
-                            painter.circle_filled(
-                                pulse_pos,
-                                3.5 * pulse_scale,
-                                Color32::from_rgba_unmultiplied(255, 255, 255, 220),
-                            );
-                            painter.circle_stroke(
-                                pulse_pos,
-                                6.0 * pulse_scale,
-                                Stroke::new(1.0, Color32::from_rgba_unmultiplied(100, 200, 255, 160)),
-                            );
-                        }
+                        // Glow color shifts with live activity: active white/cyan when bus is active
+                        let pulse_color = if state.is_live_bus {
+                            Color32::from_rgba_unmultiplied(230, 250, 255, 240)
+                        } else {
+                            Color32::from_rgba_unmultiplied(180, 200, 230, 160)
+                        };
+
+                        painter.circle_filled(pulse_pos, 3.5 * pulse_scale, pulse_color);
+                        painter.circle_stroke(
+                            pulse_pos,
+                            6.5 * pulse_scale,
+                            Stroke::new(1.0, Color32::from_rgba_unmultiplied(56, 139, 253, 180)),
+                        );
                     }
                 }
+            }
         }
 
         // 6. Draw 3D Star Nodes (Z-Sorted from Back to Front)
@@ -210,7 +240,11 @@ impl HudView for Galaxy3DView {
         // Sort descending by z_cam (draw furthest first)
         projected_stars.sort_by(|a, b| b.3.partial_cmp(&a.3).unwrap_or(std::cmp::Ordering::Equal));
 
-        let click_pos = if response.clicked() { response.interact_pointer_pos() } else { None };
+        let click_pos = if response.clicked() {
+            response.interact_pointer_pos()
+        } else {
+            None
+        };
         let mut clicked_star_id = None;
 
         for (star, pos_2d, scale, z_cam) in &projected_stars {
@@ -228,15 +262,26 @@ impl HudView for Galaxy3DView {
             let alpha = (255.0 * fog_factor) as u8;
 
             // Outer Aura Glow
-            let pulse = ((time_sec * 2.5 + star.activity_level * 5.0).sin() * 0.5 + 0.5) * 0.4 + 0.6;
+            let pulse =
+                ((time_sec * 2.5 + star.activity_level * 5.0).sin() * 0.5 + 0.5) * 0.4 + 0.6;
             painter.circle_filled(
                 *pos_2d,
                 radius * (1.6 + (1.0 - fog_factor) * 0.4) * pulse,
-                Color32::from_rgba_unmultiplied(star.color.r(), star.color.g(), star.color.b(), (45.0 * fog_factor) as u8),
+                Color32::from_rgba_unmultiplied(
+                    star.color.r(),
+                    star.color.g(),
+                    star.color.b(),
+                    (45.0 * fog_factor) as u8,
+                ),
             );
 
             // Core Solid Star Node
-            let star_color = Color32::from_rgba_unmultiplied(star.color.r(), star.color.g(), star.color.b(), alpha);
+            let star_color = Color32::from_rgba_unmultiplied(
+                star.color.r(),
+                star.color.g(),
+                star.color.b(),
+                alpha,
+            );
             painter.circle_filled(*pos_2d, radius, star_color);
 
             // Selection Highlight Rings
@@ -249,7 +294,15 @@ impl HudView for Galaxy3DView {
                 painter.circle_stroke(
                     *pos_2d,
                     radius + 9.0 * scale,
-                    Stroke::new(1.0, Color32::from_rgba_unmultiplied(theme.accent().r(), theme.accent().g(), theme.accent().b(), 180)),
+                    Stroke::new(
+                        1.0,
+                        Color32::from_rgba_unmultiplied(
+                            theme.accent().r(),
+                            theme.accent().g(),
+                            theme.accent().b(),
+                            180,
+                        ),
+                    ),
                 );
             }
 
@@ -277,7 +330,11 @@ impl HudView for Galaxy3DView {
         ui.add_space(8.0);
 
         // 7. Interactive Specialist Detail Inspector Panel
-        if let Some(star) = state.selected_galaxy_star_id.as_ref().and_then(|sel_id| star_map.get(sel_id)) {
+        if let Some(star) = state
+            .selected_galaxy_star_id
+            .as_ref()
+            .and_then(|sel_id| star_map.get(sel_id))
+        {
             egui::Frame::group(ui.style())
                 .fill(theme.card_bg())
                 .stroke(Stroke::new(1.0, theme.border_color()))
@@ -297,15 +354,21 @@ impl HudView for Galaxy3DView {
                                 .strong(),
                         );
                         ui.label(
-                            egui::RichText::new(format!("Domain Opcode: 0x{:04X}", star.domain_opcode))
-                                .color(Color32::from_rgb(180, 190, 210)),
+                            egui::RichText::new(format!(
+                                "Domain Opcode: 0x{:04X}",
+                                star.domain_opcode
+                            ))
+                            .color(Color32::from_rgb(180, 190, 210)),
                         );
                         ui.label(
                             egui::RichText::new(format!("Category: {}", star.category))
                                 .color(theme.accent()),
                         );
                         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                            ui.label(format!("3D Coordinates: [{:.0}, {:.0}, {:.0}]", star.pos[0], star.pos[1], star.pos[2]));
+                            ui.label(format!(
+                                "3D Coordinates: [{:.0}, {:.0}, {:.0}]",
+                                star.pos[0], star.pos[1], star.pos[2]
+                            ));
                         });
                     });
 

@@ -19,7 +19,9 @@ pub use fascia::ProcessFasciaWatcher;
 pub use navigation::{CommandAction, CommandPalette, NavSection, ToastLevel, ToastNotification};
 pub use state::{CustomAgent, SharedHudState, UserSettings};
 pub use theme::HudTheme;
-pub use transformer_bridge::{BackendTelemetryFrame, FrontendCommandSignal, FrontendTransformerBridge};
+pub use transformer_bridge::{
+    BackendTelemetryFrame, FrontendCommandSignal, FrontendTransformerBridge,
+};
 pub use views::HudView;
 
 use eframe::egui;

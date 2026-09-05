@@ -110,16 +110,17 @@ impl ShmemCapture {
         {
             if self.config.prefer_dxgi {
                 // Try DXGI Desktop Duplication first
-                if let Some(dxgi_grid) = platform_bridge::native_win32::capture_dxgi_frame_128x128() {
+                if let Some(dxgi_grid) = platform_bridge::native_win32::capture_dxgi_frame_128x128()
+                {
                     // Convert f32 luminance grid to BGRA buffer for mmap storage
                     for (i, &lum) in dxgi_grid.iter().enumerate() {
                         let byte = (lum * 255.0) as u8;
                         let idx = i * 4;
                         if idx + 3 < buf.len() {
-                            buf[idx] = byte;     // B
+                            buf[idx] = byte; // B
                             buf[idx + 1] = byte; // G
                             buf[idx + 2] = byte; // R
-                            buf[idx + 3] = 255;  // A
+                            buf[idx + 3] = 255; // A
                         }
                     }
                 } else {

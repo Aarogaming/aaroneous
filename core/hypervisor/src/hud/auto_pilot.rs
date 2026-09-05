@@ -8,8 +8,8 @@
 //!   4. Dispatches validated HID hardware actions via platform_bridge
 //!   5. Intercepts emergency abort conditions (cursor at origin, free-energy violation)
 
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::time::Instant;
 
 use serde::{Deserialize, Serialize};

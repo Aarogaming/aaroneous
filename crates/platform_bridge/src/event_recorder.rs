@@ -102,9 +102,19 @@ mod tests {
     #[test]
     fn test_session_event_recording_duration() {
         let mut session = SessionRecording::new("session_login");
-        session.record_event(RecordedInputEvent::MouseMove { x: 100, y: 200, timestamp_us: 1000 });
-        session.record_event(RecordedInputEvent::MouseDown { button: 1, timestamp_us: 1500 });
-        session.record_event(RecordedInputEvent::MouseUp { button: 1, timestamp_us: 2000 });
+        session.record_event(RecordedInputEvent::MouseMove {
+            x: 100,
+            y: 200,
+            timestamp_us: 1000,
+        });
+        session.record_event(RecordedInputEvent::MouseDown {
+            button: 1,
+            timestamp_us: 1500,
+        });
+        session.record_event(RecordedInputEvent::MouseUp {
+            button: 1,
+            timestamp_us: 2000,
+        });
 
         assert_eq!(session.events.len(), 3);
         assert_eq!(session.duration_us(), 1000); // 2000 - 1000

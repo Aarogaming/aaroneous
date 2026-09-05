@@ -44,7 +44,10 @@ impl SolidStateVisionPipeline {
     }
 
     /// Extracts a 64-dimensional spatial latent vector from a DXGI framebuffer
-    pub fn extract_latents(&mut self, frame: &DxgiHardwareFrameBuffer) -> Result<VisionLatentObservation> {
+    pub fn extract_latents(
+        &mut self,
+        frame: &DxgiHardwareFrameBuffer,
+    ) -> Result<VisionLatentObservation> {
         if frame.width == 0 || frame.height == 0 || frame.pixel_data.is_empty() {
             bail!("Cannot extract vision latents from empty framebuffer");
         }
@@ -92,7 +95,11 @@ impl SolidStateVisionPipeline {
                     }
                 }
 
-                let cell_val = if sample_count > 0 { cell_lum_sum / sample_count as f32 } else { 0.0 };
+                let cell_val = if sample_count > 0 {
+                    cell_lum_sum / sample_count as f32
+                } else {
+                    0.0
+                };
                 let idx = gy * grid_w + gx;
                 embedding[idx] = cell_val;
                 total_lum += cell_val;
@@ -181,7 +188,9 @@ mod tests {
                 raw[offset + 3] = 255;
             }
         }
-        frame.copy_rgba_frame(&raw, 64, 64).expect("Failed to copy frame");
+        frame
+            .copy_rgba_frame(&raw, 64, 64)
+            .expect("Failed to copy frame");
 
         let obs = pipeline.extract_latents(&frame).expect("Failed extraction");
         assert_eq!(obs.latent_embedding.len(), 64);

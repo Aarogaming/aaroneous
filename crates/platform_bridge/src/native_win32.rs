@@ -2,9 +2,9 @@
 //! Native Win32 GDI screen capture and SendInput peripheral bridge.
 //! Strictly double-guarded by compile-time feature flags AND runtime environment checks.
 
-use anyhow::{bail, Result};
 #[cfg(feature = "native-win32")]
 use anyhow::Context;
+use anyhow::{bail, Result};
 use async_trait::async_trait;
 use std::time::{SystemTime, UNIX_EPOCH};
 #[cfg(feature = "native-win32")]
@@ -19,17 +19,19 @@ use crate::traits::{HidCommand, MarionetteHost, ProbingTrace, VisualObservation}
 use windows::Win32::Foundation::{HWND, POINT};
 #[cfg(feature = "native-win32")]
 use windows::Win32::Graphics::Gdi::{
-    BITMAPINFO, BITMAPINFOHEADER, CreateCompatibleBitmap, CreateCompatibleDC, DIB_RGB_COLORS,
-    DeleteDC, DeleteObject, GetDC, GetDIBits, HBITMAP, HDC, ReleaseDC, SRCCOPY, SelectObject,
-    StretchBlt,
+    CreateCompatibleBitmap, CreateCompatibleDC, DeleteDC, DeleteObject, GetDC, GetDIBits,
+    ReleaseDC, SelectObject, StretchBlt, BITMAPINFO, BITMAPINFOHEADER, DIB_RGB_COLORS, HBITMAP,
+    HDC, SRCCOPY,
 };
 #[cfg(feature = "native-win32")]
 use windows::Win32::UI::Input::KeyboardAndMouse::{
-    INPUT, INPUT_0, INPUT_MOUSE, MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP, MOUSEEVENTF_MOVE,
-    MOUSEINPUT, SendInput,
+    SendInput, INPUT, INPUT_0, INPUT_MOUSE, MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP,
+    MOUSEEVENTF_MOVE, MOUSEINPUT,
 };
 #[cfg(feature = "native-win32")]
-use windows::Win32::UI::WindowsAndMessaging::{GetCursorPos, GetSystemMetrics, SYSTEM_METRICS_INDEX};
+use windows::Win32::UI::WindowsAndMessaging::{
+    GetCursorPos, GetSystemMetrics, SYSTEM_METRICS_INDEX,
+};
 
 /// Native Win32 Marionette Host implementation
 #[allow(dead_code)]
@@ -103,7 +105,9 @@ impl NativeWin32Marionette {
         if !self.allow_live_input {
             return false;
         }
-        std::env::var("AARONEOUS_ALLOW_HOST_INPUT").map(|v| v == "1").unwrap_or(false)
+        std::env::var("AARONEOUS_ALLOW_HOST_INPUT")
+            .map(|v| v == "1")
+            .unwrap_or(false)
     }
 
     #[allow(dead_code)]
@@ -141,8 +145,16 @@ impl MarionetteHost for NativeWin32Marionette {
             let hdc_memory = self.hdc_memory.context("GDI memory DC not initialized")?;
 
             let result = StretchBlt(
-                hdc_memory, 0, 0, 128, 128,
-                Some(hdc_screen), 0, 0, self.screen_width, self.screen_height,
+                hdc_memory,
+                0,
+                0,
+                128,
+                128,
+                Some(hdc_screen),
+                0,
+                0,
+                self.screen_width,
+                self.screen_height,
                 SRCCOPY,
             );
 
@@ -205,7 +217,10 @@ impl MarionetteHost for NativeWin32Marionette {
         }
     }
 
-    async fn pull_visual_perception_gated(&mut self, gate_mask: &[bool; 256]) -> Result<VisualObservation> {
+    async fn pull_visual_perception_gated(
+        &mut self,
+        gate_mask: &[bool; 256],
+    ) -> Result<VisualObservation> {
         let mut obs = self.pull_visual_perception().await?;
         let sector_size = 8;
         let sectors_per_row = 16;
@@ -284,13 +299,27 @@ impl MarionetteHost for NativeWin32Marionette {
                         let down = INPUT {
                             r#type: INPUT_MOUSE,
                             Anonymous: INPUT_0 {
-                                mi: MOUSEINPUT { dx: 0, dy: 0, mouseData: 0, dwFlags: MOUSEEVENTF_LEFTDOWN, time: 0, dwExtraInfo: 0 },
+                                mi: MOUSEINPUT {
+                                    dx: 0,
+                                    dy: 0,
+                                    mouseData: 0,
+                                    dwFlags: MOUSEEVENTF_LEFTDOWN,
+                                    time: 0,
+                                    dwExtraInfo: 0,
+                                },
                             },
                         };
                         let up = INPUT {
                             r#type: INPUT_MOUSE,
                             Anonymous: INPUT_0 {
-                                mi: MOUSEINPUT { dx: 0, dy: 0, mouseData: 0, dwFlags: MOUSEEVENTF_LEFTUP, time: 0, dwExtraInfo: 0 },
+                                mi: MOUSEINPUT {
+                                    dx: 0,
+                                    dy: 0,
+                                    mouseData: 0,
+                                    dwFlags: MOUSEEVENTF_LEFTUP,
+                                    time: 0,
+                                    dwExtraInfo: 0,
+                                },
                             },
                         };
                         SendInput(&[down, up], std::mem::size_of::<INPUT>() as i32);
@@ -346,11 +375,19 @@ impl DxgiHardwareFrameBuffer {
         self
     }
 
-    pub fn copy_rgba_frame(&mut self, src_rgba: &[u8], src_width: u32, src_height: u32) -> Result<()> {
+    pub fn copy_rgba_frame(
+        &mut self,
+        src_rgba: &[u8],
+        src_width: u32,
+        src_height: u32,
+    ) -> Result<()> {
         if src_width != self.width || src_height != self.height {
             bail!(
                 "Frame dimensions do not match buffer ({}x{} vs {}x{})",
-                src_width, src_height, self.width, self.height
+                src_width,
+                src_height,
+                self.width,
+                self.height
             );
         }
         let src_pitch = (src_width as usize) * 4;
@@ -408,10 +445,12 @@ impl DxgiCaptureBackend {
     pub fn initialize(&mut self) -> Result<()> {
         use windows::core::Interface;
         use windows::Win32::Foundation::HMODULE;
-        use windows::Win32::Graphics::Dxgi::*;
-        use windows::Win32::Graphics::Dxgi::Common::{DXGI_FORMAT_B8G8R8A8_UNORM, DXGI_SAMPLE_DESC};
         use windows::Win32::Graphics::Direct3D::*;
         use windows::Win32::Graphics::Direct3D11::*;
+        use windows::Win32::Graphics::Dxgi::Common::{
+            DXGI_FORMAT_B8G8R8A8_UNORM, DXGI_SAMPLE_DESC,
+        };
+        use windows::Win32::Graphics::Dxgi::*;
 
         unsafe {
             // Create D3D11 device with hardware acceleration
@@ -445,7 +484,8 @@ impl DxgiCaptureBackend {
                     None,
                     Some(&mut context),
                 );
-                result_warp.map_err(|e| anyhow::anyhow!("D3D11 WARP device creation failed: {}", e))?;
+                result_warp
+                    .map_err(|e| anyhow::anyhow!("D3D11 WARP device creation failed: {}", e))?;
             }
 
             let device = device.ok_or_else(|| anyhow::anyhow!("D3D11 device is None"))?;
@@ -507,18 +547,24 @@ impl DxgiCaptureBackend {
     /// Returns the frame as a BGRA byte slice suitable for luminance conversion.
     pub fn capture_frame_bgra(&mut self, buffer: &mut [u8]) -> Result<()> {
         use windows::core::Interface;
-        use windows::Win32::Graphics::Dxgi::*;
         use windows::Win32::Graphics::Direct3D11::*;
+        use windows::Win32::Graphics::Dxgi::*;
 
         if !self.initialized {
             bail!("DXGI capture not initialized");
         }
 
-        let duplication = self.duplication.as_ref()
+        let duplication = self
+            .duplication
+            .as_ref()
             .ok_or_else(|| anyhow::anyhow!("DXGI duplication not available"))?;
-        let context = self.context.as_ref()
+        let context = self
+            .context
+            .as_ref()
             .ok_or_else(|| anyhow::anyhow!("D3D11 context not available"))?;
-        let staging = self.staging_texture.as_ref()
+        let staging = self
+            .staging_texture
+            .as_ref()
             .ok_or_else(|| anyhow::anyhow!("Staging texture not available"))?;
 
         unsafe {
@@ -526,15 +572,12 @@ impl DxgiCaptureBackend {
             let mut frame_info = DXGI_OUTDUPL_FRAME_INFO::default();
             let mut resource = None;
 
-            let acquire_result = duplication.AcquireNextFrame(
-                16,
-                &mut frame_info,
-                &mut resource,
-            );
+            let acquire_result = duplication.AcquireNextFrame(16, &mut frame_info, &mut resource);
 
             match acquire_result {
                 Ok(()) => {
-                    let resource = resource.ok_or_else(|| anyhow::anyhow!("Frame resource is None"))?;
+                    let resource =
+                        resource.ok_or_else(|| anyhow::anyhow!("Frame resource is None"))?;
                     let desktop_texture: ID3D11Texture2D = resource.cast()?;
 
                     // Copy to staging texture for CPU readback
@@ -542,13 +585,7 @@ impl DxgiCaptureBackend {
 
                     // Map staging texture for CPU access
                     let mut mapped = D3D11_MAPPED_SUBRESOURCE::default();
-                    context.Map(
-                        staging,
-                        0,
-                        D3D11_MAP_READ,
-                        0,
-                        Some(&mut mapped),
-                    )?;
+                    context.Map(staging, 0, D3D11_MAP_READ, 0, Some(&mut mapped))?;
 
                     // Copy from mapped texture to output buffer
                     let src_pitch = mapped.RowPitch as usize;
@@ -557,7 +594,9 @@ impl DxgiCaptureBackend {
                     for y in 0..(self.height as usize) {
                         let src_offset = y * src_pitch;
                         let dst_offset = y * dst_pitch;
-                        if src_offset + dst_pitch <= mapped.pData as usize + mapped.RowPitch as usize * self.height as usize
+                        if src_offset + dst_pitch
+                            <= mapped.pData as usize
+                                + mapped.RowPitch as usize * self.height as usize
                             && dst_offset + dst_pitch <= buffer.len()
                         {
                             let src_slice = std::slice::from_raw_parts(
@@ -656,8 +695,7 @@ mod tests {
     fn test_dxgi_hardware_framebuffer_copy() {
         let mut fb = DxgiHardwareFrameBuffer::new(2, 2);
         let src = vec![
-            255, 0, 0, 255,   0, 255, 0, 255,
-            0, 0, 255, 255,   255, 255, 255, 255,
+            255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255, 255, 255, 255, 255,
         ];
         let res = fb.copy_rgba_frame(&src, 2, 2);
         assert!(res.is_ok());

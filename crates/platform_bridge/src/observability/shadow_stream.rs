@@ -49,7 +49,12 @@ impl ShadowDistillationTap {
     }
 
     /// Transparently intercepts a message exchange, storing a shadow copy while allowing flow to proceed.
-    pub fn intercept_exchange(&self, provider: impl Into<String>, prompt: &str, response: &str) -> Result<u64> {
+    pub fn intercept_exchange(
+        &self,
+        provider: impl Into<String>,
+        prompt: &str,
+        response: &str,
+    ) -> Result<u64> {
         if !self.is_active.load(Ordering::Acquire) {
             bail!("Shadow tap is disengaged");
         }
@@ -138,7 +143,11 @@ mod tests {
 
         // 1. Intercept exchanges
         let id1 = tap
-            .intercept_exchange("gemini-2.5", "Write a rust function", "fn add(a: i32, b: i32) -> i32 { a + b }")
+            .intercept_exchange(
+                "gemini-2.5",
+                "Write a rust function",
+                "fn add(a: i32, b: i32) -> i32 { a + b }",
+            )
             .unwrap();
         let id2 = tap
             .intercept_exchange("copilot", "Fix syntax error", "use std::sync::Arc;")

@@ -29,8 +29,13 @@ impl HudView for ScreenAutomationView {
             );
 
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                if ui.button("🔄 Refresh Windows").clicked() {
-                    state.discovered_windows = platform_bridge::WindowDiscoveryEngine::enumerate_available_targets().unwrap_or_default();
+                if ui.button("🔄 Refresh Targets").clicked() {
+                    state.discovered_windows =
+                        platform_bridge::WindowDiscoveryEngine::enumerate_available_targets()
+                            .unwrap_or_default();
+                    state.discovered_screens =
+                        platform_bridge::WindowDiscoveryEngine::enumerate_screens()
+                            .unwrap_or_default();
                 }
             });
         });
@@ -52,7 +57,8 @@ impl HudView for ScreenAutomationView {
         ui.horizontal(|ui| {
             let pilot_tele = &state.auto_pilot_telemetry;
             let is_engaged = pilot_tele.state == crate::hud::auto_pilot::AutoPilotState::Engaged;
-            let is_emergency = pilot_tele.state == crate::hud::auto_pilot::AutoPilotState::EmergencyStop;
+            let is_emergency =
+                pilot_tele.state == crate::hud::auto_pilot::AutoPilotState::EmergencyStop;
 
             let engage_label = if is_engaged {
                 "🔴 DISENGAGE Auto-Pilot"
@@ -71,9 +77,15 @@ impl HudView for ScreenAutomationView {
             };
 
             if ui
-                .add(egui::Button::new(
-                    egui::RichText::new(engage_label).strong().color(egui::Color32::WHITE),
-                ).fill(button_color).min_size(Vec2::new(200.0, 32.0)))
+                .add(
+                    egui::Button::new(
+                        egui::RichText::new(engage_label)
+                            .strong()
+                            .color(egui::Color32::WHITE),
+                    )
+                    .fill(button_color)
+                    .min_size(Vec2::new(200.0, 32.0)),
+                )
                 .clicked()
             {
                 state.auto_pilot_toggle_requested = true;
@@ -83,9 +95,15 @@ impl HudView for ScreenAutomationView {
 
             // Kill switch
             if ui
-                .add(egui::Button::new(
-                    egui::RichText::new("🛑 EMERGENCY STOP").strong().color(egui::Color32::WHITE),
-                ).fill(egui::Color32::from_rgb(180, 0, 0)).min_size(Vec2::new(160.0, 32.0)))
+                .add(
+                    egui::Button::new(
+                        egui::RichText::new("🛑 EMERGENCY STOP")
+                            .strong()
+                            .color(egui::Color32::WHITE),
+                    )
+                    .fill(egui::Color32::from_rgb(180, 0, 0))
+                    .min_size(Vec2::new(160.0, 32.0)),
+                )
                 .clicked()
             {
                 state.auto_pilot_kill_requested = true;
@@ -98,10 +116,16 @@ impl HudView for ScreenAutomationView {
         ui.horizontal(|ui| {
             let state_color = match tele.state {
                 crate::hud::auto_pilot::AutoPilotState::Engaged => Color32::from_rgb(63, 185, 80),
-                crate::hud::auto_pilot::AutoPilotState::EmergencyStop => Color32::from_rgb(248, 81, 73),
+                crate::hud::auto_pilot::AutoPilotState::EmergencyStop => {
+                    Color32::from_rgb(248, 81, 73)
+                }
                 _ => Color32::GRAY,
             };
-            ui.label(egui::RichText::new(format!("● {:?}", tele.state)).color(state_color).strong());
+            ui.label(
+                egui::RichText::new(format!("● {:?}", tele.state))
+                    .color(state_color)
+                    .strong(),
+            );
             ui.separator();
             ui.label(format!("Latency: {:.1}μs", tele.avg_tick_latency_us));
             ui.separator();
@@ -116,8 +140,16 @@ impl HudView for ScreenAutomationView {
 
         // ── Window & Screen Picker ──────────────────────────────────────────────
         ui.horizontal(|ui| {
-            ui.selectable_value(&mut state.screen_share_tab, ScreenShareTab::Applications, "🪟 Applications");
-            ui.selectable_value(&mut state.screen_share_tab, ScreenShareTab::Screens, "🖥️ Entire Screen");
+            ui.selectable_value(
+                &mut state.screen_share_tab,
+                ScreenShareTab::Applications,
+                "🪟 Applications",
+            );
+            ui.selectable_value(
+                &mut state.screen_share_tab,
+                ScreenShareTab::Screens,
+                "🖥️ Entire Screen",
+            );
         });
 
         ui.add_space(8.0);
@@ -125,39 +157,89 @@ impl HudView for ScreenAutomationView {
         ui.columns(2, |cols| {
             // Left Column: Discovered Target Windows
             cols[0].vertical(|ui| {
-                ui.label(egui::RichText::new("Select Capture Target:").strong());
-                egui::ScrollArea::vertical().max_height(280.0).show(ui, |ui| {
-                    if state.discovered_windows.is_empty() {
-                        ui.label(egui::RichText::new("No active application windows detected.").italics());
-                    } else {
-                        for (i, win) in state.discovered_windows.iter().enumerate() {
-                            let is_selected = state.selected_window_idx == i;
-                            let title_text = if win.title.is_empty() { "[Untitled Window]" } else { &win.title };
-                            let label = format!("{} ({})", title_text, win.process_name);
+                match state.screen_share_tab {
+                    ScreenShareTab::Applications => {
+                        ui.label(egui::RichText::new("Select Application Target:").strong());
+                        egui::ScrollArea::vertical()
+                            .max_height(280.0)
+                            .show(ui, |ui| {
+                                if state.discovered_windows.is_empty() {
+                                    ui.label(
+                                        egui::RichText::new("No active application windows detected.")
+                                            .italics(),
+                                    );
+                                } else {
+                                    for (i, win) in state.discovered_windows.iter().enumerate() {
+                                        let is_selected = state.selected_window_idx == i;
+                                        let title_text = if win.title.is_empty() {
+                                            "[Untitled Window]"
+                                        } else {
+                                            &win.title
+                                        };
+                                        let label = format!("{} ({})", title_text, win.process_name);
 
-                            if ui.selectable_label(is_selected, label).clicked() {
-                                state.selected_window_idx = i;
-                            }
-                        }
+                                        if ui.selectable_label(is_selected, label).clicked() {
+                                            state.selected_window_idx = i;
+                                        }
+                                    }
+                                }
+                            });
                     }
-                });
+                    ScreenShareTab::Screens => {
+                        ui.label(egui::RichText::new("Select Physical Display:").strong());
+                        egui::ScrollArea::vertical()
+                            .max_height(280.0)
+                            .show(ui, |ui| {
+                                if state.discovered_screens.is_empty() {
+                                    ui.label(
+                                        egui::RichText::new("No active screens detected.")
+                                            .italics(),
+                                    );
+                                } else {
+                                    for (i, scr) in state.discovered_screens.iter().enumerate() {
+                                        let is_selected = state.selected_screen_idx == i;
+                                        let label = format!("🖥️ {} [{}x{}]", scr.name, scr.resolution.0, scr.resolution.1);
+
+                                        if ui.selectable_label(is_selected, label).clicked() {
+                                            state.selected_screen_idx = i;
+                                            state.capture_modifiers.target = platform_bridge::CaptureTarget::EntireDisplay {
+                                                display_id: scr.display_id,
+                                                name: scr.name.clone(),
+                                            };
+                                        }
+                                    }
+                                }
+                            });
+                    }
+                }
 
                 ui.add_space(8.0);
                 ui.separator();
                 ui.label(egui::RichText::new("Capture Modifiers & Filters:").strong());
                 ui.horizontal(|ui| {
                     ui.label("Target FPS:");
-                    ui.add(egui::Slider::new(&mut state.capture_modifiers.target_fps, 15..=120).text("FPS"));
+                    ui.add(
+                        egui::Slider::new(&mut state.capture_modifiers.target_fps, 15..=120)
+                            .text("FPS"),
+                    );
                 });
                 ui.horizontal(|ui| {
                     ui.label("Entropy Threshold:");
-                    ui.add(egui::Slider::new(&mut state.capture_modifiers.entropy_threshold, 0.01..=0.20).text("Threshold"));
+                    ui.add(
+                        egui::Slider::new(
+                            &mut state.capture_modifiers.entropy_threshold,
+                            0.01..=0.20,
+                        )
+                        .text("Threshold"),
+                    );
                 });
             });
 
             // Right Column: Live Viewport Preview
             cols[1].vertical(|ui| {
-                ui.label(egui::RichText::new("Live Perceptual Stream (128x128 Gated Grid)").strong());
+                ui.label(
+                    egui::RichText::new("Live Perceptual Stream (128x128 Gated Grid)").strong(),
+                );
 
                 if state.viewport_texture.is_none() {
                     let mut dummy_rgba = vec![0u8; 128 * 128 * 4];
@@ -167,8 +249,13 @@ impl HudView for ScreenAutomationView {
                         dummy_rgba[i * 4 + 2] = 200;
                         dummy_rgba[i * 4 + 3] = 255;
                     }
-                    let color_img = egui::ColorImage::from_rgba_unmultiplied([128, 128], &dummy_rgba);
-                    state.viewport_texture = Some(ui.ctx().load_texture("vision_stream_tex", color_img, TextureOptions::NEAREST));
+                    let color_img =
+                        egui::ColorImage::from_rgba_unmultiplied([128, 128], &dummy_rgba);
+                    state.viewport_texture = Some(ui.ctx().load_texture(
+                        "vision_stream_tex",
+                        color_img,
+                        TextureOptions::NEAREST,
+                    ));
                 }
 
                 if let Some(texture) = &state.viewport_texture {

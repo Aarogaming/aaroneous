@@ -1536,12 +1536,16 @@ impl Federation {
 
         if let Some(json_str) = has_decomposition {
             let dag_opt =
-                crate::federation::graph::dag::task_dag_from_orchestrator_output(&id, &json_str).ok();
+                crate::federation::graph::dag::task_dag_from_orchestrator_output(&id, &json_str)
+                    .ok();
             if let Some(dag) = dag_opt {
                 // Execute the DAG layer by layer
                 use crate::federation::specialist::Specialist;
                 let layers = dag.parallel_layers();
-                info!("Executing Orchestrator DAG with {} parallel layers", layers.len());
+                info!(
+                    "Executing Orchestrator DAG with {} parallel layers",
+                    layers.len()
+                );
                 for (layer_idx, layer) in layers.into_iter().enumerate() {
                     info!("Executing DAG Layer {}", layer_idx);
                     let mut layer_futures: Vec<DagFuture> = Vec::new();
@@ -1719,10 +1723,14 @@ impl Federation {
                                     })
                                     .collect();
                                 if !assigned.is_empty() {
-                                    intent
-                                        .context
-                                        .insert("orchestrator_assigned_to".to_string(), assigned.join(","));
-                                    info!("Orchestrator assigned tasks to: {}", assigned.join(", "));
+                                    intent.context.insert(
+                                        "orchestrator_assigned_to".to_string(),
+                                        assigned.join(","),
+                                    );
+                                    info!(
+                                        "Orchestrator assigned tasks to: {}",
+                                        assigned.join(", ")
+                                    );
                                 }
                             }
                         }

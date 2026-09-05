@@ -73,9 +73,13 @@ impl KineticTrajectorySynthesizer {
 
     /// Computes duration based on Fitts's Law: T = a + b * log2(1 + D / W)
     pub fn calculate_fitts_duration_ms(&self, distance: f64, target_width: f64) -> u64 {
-        let effective_width = if target_width <= 1.0 { 16.0 } else { target_width };
+        let effective_width = if target_width <= 1.0 {
+            16.0
+        } else {
+            target_width
+        };
         let index_of_difficulty = (1.0 + distance / effective_width).log2();
-        
+
         let estimated_ms = (80.0 + 110.0 * index_of_difficulty).round() as u64;
         estimated_ms.clamp(self.config.min_duration_ms, self.config.max_duration_ms)
     }
@@ -111,15 +115,21 @@ impl KineticTrajectorySynthesizer {
         let normal_x = -dy * self.config.curve_deviation_factor;
         let normal_y = dx * self.config.curve_deviation_factor;
 
-        let p1 = Point2D::new(start.x + dx * 0.25 + normal_x * 0.6, start.y + dy * 0.25 + normal_y * 0.6);
-        let p2 = Point2D::new(start.x + dx * 0.75 + normal_x * 0.4, start.y + dy * 0.75 + normal_y * 0.4);
+        let p1 = Point2D::new(
+            start.x + dx * 0.25 + normal_x * 0.6,
+            start.y + dy * 0.25 + normal_y * 0.6,
+        );
+        let p2 = Point2D::new(
+            start.x + dx * 0.75 + normal_x * 0.4,
+            start.y + dy * 0.75 + normal_y * 0.4,
+        );
 
         let mut points = Vec::with_capacity(num_steps);
         let mut prev_point = start;
 
         for i in 0..=num_steps {
             let linear_t = (i as f64) / (num_steps as f64);
-            
+
             // Apply minimum-jerk bell-shaped velocity profile: s(t) = 10*t^3 - 15*t^4 + 6*t^5
             let t = 10.0 * linear_t.powi(3) - 15.0 * linear_t.powi(4) + 6.0 * linear_t.powi(5);
 

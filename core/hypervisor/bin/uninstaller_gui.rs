@@ -1,12 +1,12 @@
-﻿//! Aaroneous Uninstaller GUI
+//! Aaroneous Uninstaller GUI
 //! Professional graphical uninstaller desktop application for Aaroneous Sovereign Hypervisor & Studio.
 
 #![windows_subsystem = "windows"]
 
+use eframe::egui;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::thread;
-use eframe::egui;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum UninstallPage {
@@ -80,10 +80,18 @@ impl AaroneousUninstallApp {
 
             // Step 1: Remove Shortcuts
             log("Removing Desktop and Start Menu shortcuts...", 0.20);
-            let desktop_path = dirs::desktop_dir().unwrap_or_else(|| PathBuf::from(r"C:\Users\Public\Desktop"));
+            let desktop_path =
+                dirs::desktop_dir().unwrap_or_else(|| PathBuf::from(r"C:\Users\Public\Desktop"));
             let start_menu_path = dirs::data_dir()
-                .map(|p| p.join("Microsoft").join("Windows").join("Start Menu").join("Programs"))
-                .unwrap_or_else(|| PathBuf::from(r"C:\ProgramData\Microsoft\Windows\Start Menu\Programs"));
+                .map(|p| {
+                    p.join("Microsoft")
+                        .join("Windows")
+                        .join("Start Menu")
+                        .join("Programs")
+                })
+                .unwrap_or_else(|| {
+                    PathBuf::from(r"C:\ProgramData\Microsoft\Windows\Start Menu\Programs")
+                });
 
             let _ = std::fs::remove_file(desktop_path.join("Aaroneous.lnk"));
             let _ = std::fs::remove_file(desktop_path.join("Aaroneous Sovereign HUD.lnk"));
@@ -106,7 +114,10 @@ if ($uPath -like '*{bin_dir_str}*') {{
                 .output();
 
             // Step 3: Remove Registry Entry
-            log("Removing Windows Add/Remove Programs registry entry...", 0.70);
+            log(
+                "Removing Windows Add/Remove Programs registry entry...",
+                0.70,
+            );
             let ps_reg_script = r#"$key = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\Aaroneous'
 if (Test-Path $key) { Remove-Item -Recurse -Force $key }
 "#;
@@ -186,16 +197,30 @@ impl eframe::App for AaroneousUninstallApp {
                 ui.add_space(8.0);
                 ui.label("Are you sure you want to completely remove Aaroneous and all its components from this computer?");
                 ui.add_space(6.0);
-                ui.label(format!("Installation Directory: {}", self.install_dir.display()));
+                ui.label(format!(
+                    "Installation Directory: {}",
+                    self.install_dir.display()
+                ));
 
                 ui.add_space(14.0);
                 ui.group(|ui| {
-                    ui.checkbox(&mut self.purge_user_data, "Also remove user data, models, and databases ('data/', 'hive.db')");
+                    ui.checkbox(
+                        &mut self.purge_user_data,
+                        "Also remove user data, models, and databases ('data/', 'hive.db')",
+                    );
                 });
 
                 ui.add_space(20.0);
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::BOTTOM), |ui| {
-                    if ui.button(egui::RichText::new("Uninstall 🗑️").size(14.0).strong().color(egui::Color32::from_rgb(255, 100, 100))).clicked() {
+                    if ui
+                        .button(
+                            egui::RichText::new("Uninstall 🗑️")
+                                .size(14.0)
+                                .strong()
+                                .color(egui::Color32::from_rgb(255, 100, 100)),
+                        )
+                        .clicked()
+                    {
                         self.start_uninstallation();
                     }
                     if ui.button("Cancel").clicked() {
@@ -216,24 +241,37 @@ impl eframe::App for AaroneousUninstallApp {
 
                 ui.add(egui::ProgressBar::new(pct).show_percentage().animate(true));
                 ui.add_space(8.0);
-                ui.label(egui::RichText::new(&status).color(egui::Color32::from_rgb(255, 180, 180)));
+                ui.label(
+                    egui::RichText::new(&status).color(egui::Color32::from_rgb(255, 180, 180)),
+                );
 
                 ui.add_space(10.0);
-                egui::ScrollArea::vertical().max_height(120.0).show(ui, |ui| {
-                    for line in &logs {
-                        ui.label(egui::RichText::new(format!("> {}", line)).size(11.0).color(egui::Color32::from_rgb(140, 155, 175)));
-                    }
-                });
+                egui::ScrollArea::vertical()
+                    .max_height(120.0)
+                    .show(ui, |ui| {
+                        for line in &logs {
+                            ui.label(
+                                egui::RichText::new(format!("> {}", line))
+                                    .size(11.0)
+                                    .color(egui::Color32::from_rgb(140, 155, 175)),
+                            );
+                        }
+                    });
             }
 
             UninstallPage::Completed => {
                 ui.heading("✅ Uninstallation Complete");
                 ui.add_space(10.0);
-                ui.label("Aaroneous Sovereign Hypervisor was successfully removed from your computer.");
+                ui.label(
+                    "Aaroneous Sovereign Hypervisor was successfully removed from your computer.",
+                );
                 ui.add_space(16.0);
 
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::BOTTOM), |ui| {
-                    if ui.button(egui::RichText::new("Close").size(14.0).strong()).clicked() {
+                    if ui
+                        .button(egui::RichText::new("Close").size(14.0).strong())
+                        .clicked()
+                    {
                         std::process::exit(0);
                     }
                 });
@@ -243,7 +281,9 @@ impl eframe::App for AaroneousUninstallApp {
                 ui.heading("❌ Uninstallation Error");
                 ui.add_space(10.0);
                 let err = if let Ok(p) = self.progress.lock() {
-                    p.error_message.clone().unwrap_or_else(|| "Unknown error occurred.".into())
+                    p.error_message
+                        .clone()
+                        .unwrap_or_else(|| "Unknown error occurred.".into())
                 } else {
                     "Lock error".into()
                 };

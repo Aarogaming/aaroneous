@@ -8,8 +8,7 @@
 use serde::{Deserialize, Serialize};
 
 /// Tri-State Sensor Power Mode
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum SensorPowerMode {
     /// Level 0: WASAPI low-power background acoustic monitor only (<0.1% CPU)
     #[default]
@@ -19,7 +18,6 @@ pub enum SensorPowerMode {
     /// Level 2: High-resolution DXGI capture, UIA tree walk, and HID reflex dispatch
     Level2ActiveFoveation,
 }
-
 
 /// Adaptive Sensor Power Gate Manager
 #[derive(Debug, Clone)]

@@ -3,20 +3,28 @@
 //! Integrates vision-based action policies, reinforcement learning reward calculation,
 //! and hardware HID injection with fail-safe safety killswitches.
 
+use crate::event_recorder::{RecordedInputEvent, SessionRecording};
+use crate::traits::{HidAction, HidCommand, VisualObservation};
 use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
 use std::time::Instant;
-use crate::event_recorder::{RecordedInputEvent, SessionRecording};
-use crate::traits::{HidAction, HidCommand, VisualObservation};
 
 /// State of the Autonomous Playthrough Engine
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum PlaythroughState {
     Idle,
-    Recording { session_id: String, frames_recorded: usize },
-    AutonomousPlaying { steps_executed: usize, cumulative_reward: f32 },
+    Recording {
+        session_id: String,
+        frames_recorded: usize,
+    },
+    AutonomousPlaying {
+        steps_executed: usize,
+        cumulative_reward: f32,
+    },
     Paused,
-    EmergencyHalted { reason: String },
+    EmergencyHalted {
+        reason: String,
+    },
 }
 
 /// A discretized game/task policy action
@@ -75,7 +83,11 @@ impl AutonomousGameAgent {
     pub fn record_demonstration_event(&mut self, event: RecordedInputEvent) {
         if let Some(rec) = &mut self.active_recording {
             rec.record_event(event);
-            if let PlaythroughState::Recording { session_id, frames_recorded } = &self.state {
+            if let PlaythroughState::Recording {
+                session_id,
+                frames_recorded,
+            } = &self.state
+            {
                 self.state = PlaythroughState::Recording {
                     session_id: session_id.clone(),
                     frames_recorded: *frames_recorded + 1,
@@ -114,7 +126,10 @@ impl AutonomousGameAgent {
     }
 
     /// Evaluates visual perception and predicts next autonomous motor action
-    pub fn evaluate_autonomous_step(&mut self, frame: &VisualObservation) -> Result<Option<HidCommand>> {
+    pub fn evaluate_autonomous_step(
+        &mut self,
+        frame: &VisualObservation,
+    ) -> Result<Option<HidCommand>> {
         if self.safety_killswitch_tripped {
             self.state = PlaythroughState::EmergencyHalted {
                 reason: "Safety killswitch active".to_string(),
@@ -142,11 +157,18 @@ impl AutonomousGameAgent {
                 let event = &demo.events[event_idx];
 
                 let actions = match event {
-                    RecordedInputEvent::MouseMove { x, y, .. } => vec![HidAction::MouseMove { delta_x: *x, delta_y: *y }],
+                    RecordedInputEvent::MouseMove { x, y, .. } => vec![HidAction::MouseMove {
+                        delta_x: *x,
+                        delta_y: *y,
+                    }],
                     RecordedInputEvent::MouseDown { .. } => vec![HidAction::LeftClick],
                     RecordedInputEvent::MouseUp { .. } => vec![],
-                    RecordedInputEvent::KeyDown { key_code, .. } => vec![HidAction::KeyPress { key_code: *key_code as u16 }],
-                    RecordedInputEvent::KeyUp { key_code, .. } => vec![HidAction::KeyRelease { key_code: *key_code as u16 }],
+                    RecordedInputEvent::KeyDown { key_code, .. } => vec![HidAction::KeyPress {
+                        key_code: *key_code as u16,
+                    }],
+                    RecordedInputEvent::KeyUp { key_code, .. } => vec![HidAction::KeyRelease {
+                        key_code: *key_code as u16,
+                    }],
                     RecordedInputEvent::FrameCapture { .. } => vec![],
                 };
 
@@ -162,7 +184,10 @@ impl AutonomousGameAgent {
 
         // Default exploratory action
         Ok(Some(HidCommand {
-            actions: vec![HidAction::MouseMove { delta_x: (steps % 10) as i32, delta_y: (steps % 10) as i32 }],
+            actions: vec![HidAction::MouseMove {
+                delta_x: (steps % 10) as i32,
+                delta_y: (steps % 10) as i32,
+            }],
             sequence_id: steps as u64,
             timestamp_us: self.start_time.elapsed().as_micros() as u64,
         }))
@@ -195,8 +220,15 @@ mod tests {
 
         // 1. Record demonstration
         agent.start_recording("speedrun_level_1").unwrap();
-        agent.record_demonstration_event(RecordedInputEvent::MouseMove { x: 100, y: 200, timestamp_us: 1000 });
-        agent.record_demonstration_event(RecordedInputEvent::MouseDown { button: 1, timestamp_us: 2000 });
+        agent.record_demonstration_event(RecordedInputEvent::MouseMove {
+            x: 100,
+            y: 200,
+            timestamp_us: 1000,
+        });
+        agent.record_demonstration_event(RecordedInputEvent::MouseDown {
+            button: 1,
+            timestamp_us: 2000,
+        });
 
         let count = agent.stop_recording().unwrap();
         assert_eq!(count, 2);
@@ -210,7 +242,10 @@ mod tests {
 
         // 3. Test Killswitch
         agent.trigger_killswitch("User pressed emergency escape");
-        assert!(matches!(agent.state, PlaythroughState::EmergencyHalted { .. }));
+        assert!(matches!(
+            agent.state,
+            PlaythroughState::EmergencyHalted { .. }
+        ));
         let blocked = agent.evaluate_autonomous_step(&frame).unwrap();
         assert!(blocked.is_none());
     }

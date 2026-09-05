@@ -133,7 +133,11 @@ impl GeodesicField {
         let mut result = vec![0.0; n];
         for (i, res) in result.iter_mut().enumerate().take(n) {
             let row = &self.curvature[i * self.dimensions..i * self.dimensions + n];
-            *res = row.iter().zip(position.iter().take(n)).map(|(c, p)| c * p).sum();
+            *res = row
+                .iter()
+                .zip(position.iter().take(n))
+                .map(|(c, p)| c * p)
+                .sum();
         }
         result
     }

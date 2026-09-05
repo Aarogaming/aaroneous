@@ -19,11 +19,19 @@ impl SystemThermoView {
         ui.vertical(|ui| {
             ui.label(egui::RichText::new(title).strong().size(12.0));
             let height = 90.0;
-            let (response, painter) = ui.allocate_painter(Vec2::new(ui.available_width(), height), egui::Sense::hover());
+            let (response, painter) = ui.allocate_painter(
+                Vec2::new(ui.available_width(), height),
+                egui::Sense::hover(),
+            );
             let rect = response.rect;
 
             painter.rect_filled(rect, CornerRadius::same(4), Color32::from_rgb(10, 14, 20));
-            painter.rect_stroke(rect, CornerRadius::same(4), Stroke::new(1.0, Color32::from_rgb(30, 40, 55)), egui::StrokeKind::Outside);
+            painter.rect_stroke(
+                rect,
+                CornerRadius::same(4),
+                Stroke::new(1.0, Color32::from_rgb(30, 40, 55)),
+                egui::StrokeKind::Outside,
+            );
 
             if points.len() >= 2 {
                 let dx = rect.width() / (points.len() - 1) as f32;
@@ -78,13 +86,31 @@ impl HudView for SystemThermoView {
 
         ui.columns(2, |cols| {
             cols[0].vertical(|ui| {
-                Self::render_plot_canvas(ui, "⚡ Live Framerate (FPS)", &state.telemetry_fps_history, theme.accent(), (100.0, 140.0));
+                Self::render_plot_canvas(
+                    ui,
+                    "⚡ Live Framerate (FPS)",
+                    &state.telemetry_fps_history,
+                    theme.accent(),
+                    (100.0, 140.0),
+                );
                 ui.add_space(8.0);
-                Self::render_plot_canvas(ui, "⏱️ Execution Latency (ms)", &state.telemetry_latency_history, Color32::from_rgb(255, 120, 0), (0.0, 1.0));
+                Self::render_plot_canvas(
+                    ui,
+                    "⏱️ Execution Latency (ms)",
+                    &state.telemetry_latency_history,
+                    Color32::from_rgb(255, 120, 0),
+                    (0.0, 1.0),
+                );
             });
 
             cols[1].vertical(|ui| {
-                Self::render_plot_canvas(ui, "📈 Cumulative Reward Curve", &state.telemetry_reward_history, Color32::from_rgb(63, 185, 80), (0.0, 80.0));
+                Self::render_plot_canvas(
+                    ui,
+                    "📈 Cumulative Reward Curve",
+                    &state.telemetry_reward_history,
+                    Color32::from_rgb(63, 185, 80),
+                    (0.0, 80.0),
+                );
                 ui.add_space(8.0);
 
                 egui::Frame::group(ui.style())
@@ -93,18 +119,32 @@ impl HudView for SystemThermoView {
                     .corner_radius(CornerRadius::same(6))
                     .show(ui, |ui| {
                         ui.set_min_width(ui.available_width());
-                        ui.label(egui::RichText::new("Hardware Acceleration & Subsystems").strong());
+                        ui.label(
+                            egui::RichText::new("Hardware Acceleration & Subsystems").strong(),
+                        );
                         ui.horizontal(|ui| {
                             ui.label("DirectX 12 Duplication:");
-                            ui.label(egui::RichText::new("ONLINE").color(Color32::from_rgb(63, 185, 80)).strong());
+                            ui.label(
+                                egui::RichText::new("ONLINE")
+                                    .color(Color32::from_rgb(63, 185, 80))
+                                    .strong(),
+                            );
                         });
                         ui.horizontal(|ui| {
                             ui.label("Epigenetic Delta Gating:");
-                            ui.label(egui::RichText::new("ACTIVE (16x16)").color(theme.accent()).strong());
+                            ui.label(
+                                egui::RichText::new("ACTIVE (16x16)")
+                                    .color(theme.accent())
+                                    .strong(),
+                            );
                         });
                         ui.horizontal(|ui| {
                             ui.label("Shared Memory Interconnect:");
-                            ui.label(egui::RichText::new("64 MB MMAP").color(Color32::from_rgb(210, 153, 34)).strong());
+                            ui.label(
+                                egui::RichText::new("64 MB MMAP")
+                                    .color(Color32::from_rgb(210, 153, 34))
+                                    .strong(),
+                            );
                         });
                     });
             });

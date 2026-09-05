@@ -26,13 +26,34 @@ pub struct NormalizedObservation {
 /// Generic action command dispatched to any physical or virtual actuator
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum UniversalActuatorCommand {
-    MoveCursorRelative { dx: i32, dy: i32 },
-    MoveCursorAbsolute { x: i32, y: i32 },
-    MouseButton { button_code: u8, is_down: bool },
-    KeyPress { key_code: u16, is_down: bool },
-    AnalogChannel { channel_id: u16, normalized_value: f32 },
-    DigitalState { pin_or_index: u16, is_high: bool },
-    RawBusFrame { bus_address: u32, payload: Vec<u8> },
+    MoveCursorRelative {
+        dx: i32,
+        dy: i32,
+    },
+    MoveCursorAbsolute {
+        x: i32,
+        y: i32,
+    },
+    MouseButton {
+        button_code: u8,
+        is_down: bool,
+    },
+    KeyPress {
+        key_code: u16,
+        is_down: bool,
+    },
+    AnalogChannel {
+        channel_id: u16,
+        normalized_value: f32,
+    },
+    DigitalState {
+        pin_or_index: u16,
+        is_high: bool,
+    },
+    RawBusFrame {
+        bus_address: u32,
+        payload: Vec<u8>,
+    },
     EmergencyStop,
 }
 
@@ -104,7 +125,10 @@ pub struct MarionetteSensoryAdapter {
 }
 
 impl MarionetteSensoryAdapter {
-    pub fn new(name: impl Into<String>, host: std::sync::Arc<tokio::sync::Mutex<dyn crate::traits::MarionetteHost>>) -> Self {
+    pub fn new(
+        name: impl Into<String>,
+        host: std::sync::Arc<tokio::sync::Mutex<dyn crate::traits::MarionetteHost>>,
+    ) -> Self {
         Self {
             name: name.into(),
             host,
@@ -147,7 +171,10 @@ pub struct MarionetteActuatorAdapter {
 }
 
 impl MarionetteActuatorAdapter {
-    pub fn new(name: impl Into<String>, host: std::sync::Arc<tokio::sync::Mutex<dyn crate::traits::MarionetteHost>>) -> Self {
+    pub fn new(
+        name: impl Into<String>,
+        host: std::sync::Arc<tokio::sync::Mutex<dyn crate::traits::MarionetteHost>>,
+    ) -> Self {
         Self {
             name: name.into(),
             host,
@@ -163,7 +190,9 @@ impl PhysicalActuatorAdapter for MarionetteActuatorAdapter {
 
     fn verify_safety_bounds(&self, cmd: &UniversalActuatorCommand) -> bool {
         match cmd {
-            UniversalActuatorCommand::MoveCursorRelative { dx, dy } => dx.abs() <= 10000 && dy.abs() <= 10000,
+            UniversalActuatorCommand::MoveCursorRelative { dx, dy } => {
+                dx.abs() <= 10000 && dy.abs() <= 10000
+            }
             UniversalActuatorCommand::MoveCursorAbsolute { x, y } => *x >= 0 && *y >= 0,
             _ => true,
         }
@@ -172,9 +201,15 @@ impl PhysicalActuatorAdapter for MarionetteActuatorAdapter {
     fn dispatch(&mut self, cmd: UniversalActuatorCommand) -> Result<()> {
         let action = match cmd {
             UniversalActuatorCommand::MoveCursorRelative { dx, dy } => {
-                crate::traits::HidAction::MouseMove { delta_x: dx, delta_y: dy }
+                crate::traits::HidAction::MouseMove {
+                    delta_x: dx,
+                    delta_y: dy,
+                }
             }
-            UniversalActuatorCommand::MouseButton { button_code, is_down: _ } => {
+            UniversalActuatorCommand::MouseButton {
+                button_code,
+                is_down: _,
+            } => {
                 if button_code == 1 {
                     crate::traits::HidAction::LeftClick
                 } else {
@@ -220,7 +255,10 @@ pub struct OtSensoryAdapter {
 }
 
 impl OtSensoryAdapter {
-    pub fn new(name: impl Into<String>, gateway: std::sync::Arc<crate::ot_bridge::OtEdgeGateway>) -> Self {
+    pub fn new(
+        name: impl Into<String>,
+        gateway: std::sync::Arc<crate::ot_bridge::OtEdgeGateway>,
+    ) -> Self {
         Self {
             name: name.into(),
             gateway,
@@ -240,7 +278,8 @@ impl SensoryFeedAdapter for OtSensoryAdapter {
             latent_vec[i] = reg as f32;
         }
 
-        let timestamp_us = state.last_telemetry
+        let timestamp_us = state
+            .last_telemetry
             .map(|t| t.uptime_ms * 1000)
             .unwrap_or_else(|| {
                 std::time::SystemTime::now()
@@ -275,11 +314,13 @@ impl UniversalAdapterRegistry {
     }
 
     pub fn register_sensory_feed(&mut self, feed: Box<dyn SensoryFeedAdapter>) {
-        self.sensory_feeds.insert(feed.feed_name().to_string(), feed);
+        self.sensory_feeds
+            .insert(feed.feed_name().to_string(), feed);
     }
 
     pub fn register_actuator(&mut self, actuator: Box<dyn PhysicalActuatorAdapter>) {
-        self.actuators.insert(actuator.actuator_name().to_string(), actuator);
+        self.actuators
+            .insert(actuator.actuator_name().to_string(), actuator);
     }
 
     pub fn sensory_feed_count(&self) -> usize {
@@ -322,11 +363,12 @@ impl UniversalAdapterRegistry {
         if let Ok(ports) = tokio_serial::available_ports() {
             for port in ports {
                 let name = format!("OT-Serial-Feed-{}", port.port_name);
-                let (gateway, _rx) = crate::ot_bridge::OtEdgeGateway::new(crate::ot_bridge::OtBridgeConfig {
-                    port_name: port.port_name.clone(),
-                    baud_rate: 115_200,
-                    heartbeat_interval_ms: 250,
-                });
+                let (gateway, _rx) =
+                    crate::ot_bridge::OtEdgeGateway::new(crate::ot_bridge::OtBridgeConfig {
+                        port_name: port.port_name.clone(),
+                        baud_rate: 115_200,
+                        heartbeat_interval_ms: 250,
+                    });
                 reg.register_sensory_feed(Box::new(OtSensoryAdapter {
                     name,
                     gateway: std::sync::Arc::new(gateway),
@@ -347,7 +389,9 @@ impl UniversalAdapterRegistry {
         }
 
         // Always register virtual simulator actuator for sandboxed validation
-        reg.register_actuator(Box::new(VirtualSimActuator::new("Virtual-Sandbox-Actuator")));
+        reg.register_actuator(Box::new(VirtualSimActuator::new(
+            "Virtual-Sandbox-Actuator",
+        )));
 
         reg
     }
@@ -371,14 +415,24 @@ impl UniversalAdapterRegistry {
     }
 
     /// Dispatches a command to a named actuator, validating safety bounds first
-    pub fn dispatch_to_actuator(&mut self, actuator_name: &str, cmd: UniversalActuatorCommand) -> Result<()> {
+    pub fn dispatch_to_actuator(
+        &mut self,
+        actuator_name: &str,
+        cmd: UniversalActuatorCommand,
+    ) -> Result<()> {
         if let Some(actuator) = self.actuators.get_mut(actuator_name) {
             if !actuator.verify_safety_bounds(&cmd) {
-                bail!("Safety boundary violation: Command rejected by actuator [{}]", actuator_name);
+                bail!(
+                    "Safety boundary violation: Command rejected by actuator [{}]",
+                    actuator_name
+                );
             }
             actuator.dispatch(cmd)
         } else {
-            bail!("Actuator [{}] is not registered in the adapter ecosystem", actuator_name);
+            bail!(
+                "Actuator [{}] is not registered in the adapter ecosystem",
+                actuator_name
+            );
         }
     }
 }

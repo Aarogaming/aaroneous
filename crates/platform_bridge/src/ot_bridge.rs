@@ -79,7 +79,7 @@ impl OtEdgeGateway {
     /// Update internal state from an ingested `TelemetryPacket`.
     pub fn ingest_telemetry(&self, packet: TelemetryPacket) {
         let mut guard = self.registers.write();
-        
+
         // Map channels to Modbus holding registers & discrete flags
         for ch_opt in packet.channels.iter().flatten() {
             let idx = ch_opt.channel_id as usize;
@@ -90,14 +90,14 @@ impl OtEdgeGateway {
                 guard.discrete_inputs[idx] = ch_opt.raw_value > 0;
             }
         }
-        
+
         guard.last_telemetry = Some(packet);
     }
 
     /// Ingest a raw framed slice coming from serial or socket.
     pub fn ingest_raw_frame(&self, raw_frame: &[u8]) -> Result<WireMessage> {
-        let message = decode_frame(raw_frame)
-            .map_err(|e| anyhow!("Failed to decode wire frame: {:?}", e))?;
+        let message =
+            decode_frame(raw_frame).map_err(|e| anyhow!("Failed to decode wire frame: {:?}", e))?;
 
         match &message {
             WireMessage::Telemetry(telem) => {
@@ -120,7 +120,10 @@ impl OtEdgeGateway {
 
     /// Queue a command packet for transmission to the edge node.
     pub async fn send_command(&self, cmd: CommandPacket) -> Result<()> {
-        self.cmd_tx.send(cmd).await.map_err(|e| anyhow!("Failed to queue command: {}", e))
+        self.cmd_tx
+            .send(cmd)
+            .await
+            .map_err(|e| anyhow!("Failed to queue command: {}", e))
     }
 
     /// Directly update a holding register value
@@ -218,10 +221,14 @@ mod tests {
             value: 4321,
         };
         let mut frame_buf = [0u8; MAX_FRAMED_SIZE];
-        let frame = encode_frame(&WireMessage::Command(reg_cmd), &mut frame_buf).expect("Encodes cleanly");
+        let frame =
+            encode_frame(&WireMessage::Command(reg_cmd), &mut frame_buf).expect("Encodes cleanly");
 
         let decoded = gateway.ingest_raw_frame(frame).expect("Decodes cleanly");
-        assert!(matches!(decoded, WireMessage::Command(CommandPacket::SetRegister { .. })));
+        assert!(matches!(
+            decoded,
+            WireMessage::Command(CommandPacket::SetRegister { .. })
+        ));
 
         let state = gateway.read_registers();
         assert_eq!(state.holding_registers[12], 4321);
@@ -231,12 +238,15 @@ mod tests {
             pin: 4,
             state: true,
         };
-        let frame = encode_frame(&WireMessage::Command(dio_cmd), &mut frame_buf).expect("Encodes cleanly");
+        let frame =
+            encode_frame(&WireMessage::Command(dio_cmd), &mut frame_buf).expect("Encodes cleanly");
         let decoded = gateway.ingest_raw_frame(frame).expect("Decodes cleanly");
-        assert!(matches!(decoded, WireMessage::Command(CommandPacket::SetDigitalOut { .. })));
+        assert!(matches!(
+            decoded,
+            WireMessage::Command(CommandPacket::SetDigitalOut { .. })
+        ));
 
         let state = gateway.read_registers();
         assert!(state.discrete_inputs[4]);
     }
 }
-

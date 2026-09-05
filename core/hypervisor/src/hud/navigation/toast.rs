@@ -40,7 +40,12 @@ impl ToastNotificationManager {
         }
     }
 
-    pub fn push(&mut self, title: impl Into<String>, message: impl Into<String>, level: ToastLevel) {
+    pub fn push(
+        &mut self,
+        title: impl Into<String>,
+        message: impl Into<String>,
+        level: ToastLevel,
+    ) {
         self.counter += 1;
         self.toasts.push(ToastNotification {
             id: self.counter,
@@ -54,7 +59,8 @@ impl ToastNotificationManager {
 
     pub fn render(&mut self, ctx: &egui::Context, theme: HudTheme) {
         let now = Instant::now();
-        self.toasts.retain(|t| now.duration_since(t.created).as_secs_f32() < t.duration_secs);
+        self.toasts
+            .retain(|t| now.duration_since(t.created).as_secs_f32() < t.duration_secs);
 
         if self.toasts.is_empty() {
             return;

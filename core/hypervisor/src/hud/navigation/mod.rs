@@ -16,14 +16,14 @@ use serde::{Deserialize, Serialize};
 pub enum NavSection {
     // Cognitive Hypervisor Main Deck
     #[serde(alias = "Pantheon")]
-    Specialists,          // 👥 9 Domain Specialists & Hive Intent
-    GalaxyMap3D,          // 🌌 3D Omni Knowledge Galaxy
-    LearningAndSelfPlay,  // 🧬 Neurochemistry & Self-Play Learning
-    SiForge,              // ⚡ Solid-State SI Model Forge & Compiler
-    ScreenAutomation,     // 👁️ Epigenetic Vision & Sandboxed Motor Engine
-    SwarmMesh,            // 🌐 FederationBus Multi-Hive P2P Swarm Mesh
-    Agents,               // 🤖 Autonomous SI Agents & Workflows
-    Settings,             // ⚙️ Preferences, Model Hub & Shaders
+    Specialists, // 👥 9 Domain Specialists & Hive Intent
+    GalaxyMap3D,         // 🌌 3D Omni Knowledge Galaxy
+    LearningAndSelfPlay, // 🧬 Neurochemistry & Self-Play Learning
+    SiForge,             // ⚡ Solid-State SI Model Forge & Compiler
+    ScreenAutomation,    // 👁️ Epigenetic Vision & Sandboxed Motor Engine
+    SwarmMesh,           // 🌐 FederationBus Multi-Hive P2P Swarm Mesh
+    Agents,              // 🤖 Autonomous SI Agents & Workflows
+    Settings,            // ⚙️ Preferences, Model Hub & Shaders
 
     // Developer Mode Views (Unlocked in Settings)
     DevStudio,
@@ -53,7 +53,9 @@ impl NavSection {
             NavSection::SwarmMesh | NavSection::GhostStation => "🌐 Swarm Mesh",
             NavSection::Agents => "🤖 Agents Hub",
             NavSection::Settings => "⚙️ Settings",
-            NavSection::DevStudio | NavSection::GameStudio | NavSection::CustomTools => "🛠️ Dev Studio",
+            NavSection::DevStudio | NavSection::GameStudio | NavSection::CustomTools => {
+                "🛠️ Dev Studio"
+            }
             NavSection::InterconnectMonitor => "⚡ Bus Monitor",
             NavSection::Console => "💬 Chat Console",
             NavSection::Home => "🏠 Home Hub",

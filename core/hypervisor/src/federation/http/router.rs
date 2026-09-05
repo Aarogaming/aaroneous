@@ -482,7 +482,9 @@ async fn api_key_auth(
         });
 
     match provided {
-        Some(key) if constant_time_eq(key.as_bytes(), required_key.as_bytes()) => next.run(req).await,
+        Some(key) if constant_time_eq(key.as_bytes(), required_key.as_bytes()) => {
+            next.run(req).await
+        }
         _ => (
             StatusCode::UNAUTHORIZED,
             Json(serde_json::json!({
@@ -5436,7 +5438,7 @@ async fn wait_for_new_results(
         .iter()
         .skip(count_before)
         .map(|r| {
-        // Use sovereign display name (e.g. "Router") not persistence key ("Omnipresent")
+            // Use sovereign display name (e.g. "Router") not persistence key ("Omnipresent")
             let display_name = r
                 .specialist_name
                 .as_deref()

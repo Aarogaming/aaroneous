@@ -48,7 +48,9 @@ impl PhysicalActuatorAdapter for SynthesizedActuatorAdapter {
 
     fn verify_safety_bounds(&self, cmd: &UniversalActuatorCommand) -> bool {
         match cmd {
-            UniversalActuatorCommand::AnalogChannel { normalized_value, .. } => {
+            UniversalActuatorCommand::AnalogChannel {
+                normalized_value, ..
+            } => {
                 let (min_safe, max_safe) = self.spec.safe_value_range;
                 *normalized_value >= min_safe && *normalized_value <= max_safe
             }
@@ -66,7 +68,9 @@ impl PhysicalActuatorAdapter for SynthesizedActuatorAdapter {
         }
 
         match cmd {
-            UniversalActuatorCommand::AnalogChannel { normalized_value, .. } => {
+            UniversalActuatorCommand::AnalogChannel {
+                normalized_value, ..
+            } => {
                 self.last_dispatched_raw_value = normalized_value;
                 self.total_dispatches += 1;
             }
@@ -88,7 +92,9 @@ pub struct AdapterSynthesizer;
 
 impl AdapterSynthesizer {
     /// Ingests a hardware specification, formally verifies safety, and compiles an adapter
-    pub fn synthesize_actuator(spec: DeviceHardwareSpec) -> Result<Box<dyn PhysicalActuatorAdapter>> {
+    pub fn synthesize_actuator(
+        spec: DeviceHardwareSpec,
+    ) -> Result<Box<dyn PhysicalActuatorAdapter>> {
         // 1. Audit hardware specification validity
         if spec.device_name.is_empty() {
             bail!("Hardware spec must have a valid device name");

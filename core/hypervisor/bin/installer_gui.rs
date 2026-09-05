@@ -3,10 +3,10 @@
 
 // #![windows_subsystem = "windows"]  // temporarily disabled to debug launch
 
+use eframe::egui;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::thread;
-use eframe::egui;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum WizardPage {
@@ -99,16 +99,22 @@ impl AaroneousSetupApp {
                         return parent.to_path_buf();
                     }
                     if let Some(grandparent) = parent.parent()
-                        && (grandparent.join("target").exists() || grandparent.join("Cargo.toml").exists())
+                        && (grandparent.join("target").exists()
+                            || grandparent.join("Cargo.toml").exists())
                     {
                         return grandparent.to_path_buf();
                     }
                 }
-                aaroneous_paths::WorkspacePaths::discover().root().to_path_buf()
+                aaroneous_paths::WorkspacePaths::discover()
+                    .root()
+                    .to_path_buf()
             };
 
             let source_root = discover_source_root();
-            log(&format!("Discovered source assets at: {}", source_root.display()), 0.05);
+            log(
+                &format!("Discovered source assets at: {}", source_root.display()),
+                0.05,
+            );
 
             // Step 1: Create Directories
             log("Creating target directories...", 0.15);
@@ -128,7 +134,10 @@ impl AaroneousSetupApp {
             let _ = std::fs::create_dir_all(&mcp_dir);
 
             // Step 2: Copy Executables
-            log("Installing binary executables (aaroneous.exe, a_run.exe)...", 0.35);
+            log(
+                "Installing binary executables (aaroneous.exe, a_run.exe)...",
+                0.35,
+            );
             let possible_bins = vec![
                 source_root.join("target").join("release"),
                 source_root.join("bin"),
@@ -150,7 +159,10 @@ impl AaroneousSetupApp {
             copy_if_found("aaroneous-uninstall.exe", &target_dir.join("uninstall.exe"));
 
             // Step 3: Copy Assets & Configs
-            log("Deploying configurations, shaders, and MCP profiles...", 0.55);
+            log(
+                "Deploying configurations, shaders, and MCP profiles...",
+                0.55,
+            );
             let copy_dir_contents = |src: &Path, dst: &Path| {
                 if let Ok(entries) = std::fs::read_dir(src) {
                     for entry in entries.flatten() {
@@ -169,10 +181,16 @@ impl AaroneousSetupApp {
             copy_dir_contents(&source_root.join("deploy").join("mcp_clients"), &mcp_dir);
 
             // Step 4: Windows Registry Registration
-            log("Registering Aaroneous in Windows Add/Remove Programs...", 0.70);
+            log(
+                "Registering Aaroneous in Windows Add/Remove Programs...",
+                0.70,
+            );
             let install_dir_str = target_dir.to_string_lossy().to_string();
             let main_exe_str = bin_dir.join("aaroneous.exe").to_string_lossy().to_string();
-            let uninstall_exe_str = target_dir.join("uninstall.exe").to_string_lossy().to_string();
+            let uninstall_exe_str = target_dir
+                .join("uninstall.exe")
+                .to_string_lossy()
+                .to_string();
 
             let ps_reg_script = format!(
                 r#"$key = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\Aaroneous'
@@ -192,23 +210,37 @@ Set-ItemProperty -Path $key -Name 'UninstallString' -Value '{uninstall_exe_str}'
             // Step 5: Shortcuts Creation
             if create_desktop || create_start_menu {
                 log("Creating desktop and Start menu shortcuts...", 0.85);
-                let desktop_path = dirs::desktop_dir().unwrap_or_else(|| PathBuf::from(r"C:\Users\Public\Desktop"));
+                let desktop_path = dirs::desktop_dir()
+                    .unwrap_or_else(|| PathBuf::from(r"C:\Users\Public\Desktop"));
                 let start_menu_path = dirs::data_dir()
-                    .map(|p| p.join("Microsoft").join("Windows").join("Start Menu").join("Programs"))
-                    .unwrap_or_else(|| PathBuf::from(r"C:\ProgramData\Microsoft\Windows\Start Menu\Programs"));
+                    .map(|p| {
+                        p.join("Microsoft")
+                            .join("Windows")
+                            .join("Start Menu")
+                            .join("Programs")
+                    })
+                    .unwrap_or_else(|| {
+                        PathBuf::from(r"C:\ProgramData\Microsoft\Windows\Start Menu\Programs")
+                    });
 
                 let mut ps_shortcut_script = String::new();
                 ps_shortcut_script.push_str("$ws = New-Object -ComObject WScript.Shell\n");
 
                 if create_desktop {
-                    let d_link = desktop_path.join("Aaroneous.lnk").to_string_lossy().to_string();
+                    let d_link = desktop_path
+                        .join("Aaroneous.lnk")
+                        .to_string_lossy()
+                        .to_string();
                     ps_shortcut_script.push_str(&format!(
                         "$s = $ws.CreateShortcut('{d_link}'); $s.TargetPath = '{main_exe_str}'; $s.WorkingDirectory = '{install_dir_str}'; $s.Save()\n"
                     ));
                 }
 
                 if create_start_menu {
-                    let s_link = start_menu_path.join("Aaroneous.lnk").to_string_lossy().to_string();
+                    let s_link = start_menu_path
+                        .join("Aaroneous.lnk")
+                        .to_string_lossy()
+                        .to_string();
                     ps_shortcut_script.push_str(&format!(
                         "$s = $ws.CreateShortcut('{s_link}'); $s.TargetPath = '{main_exe_str}'; $s.WorkingDirectory = '{install_dir_str}'; $s.Save()\n"
                     ));
@@ -311,7 +343,10 @@ impl eframe::App for AaroneousSetupApp {
 
                 ui.add_space(20.0);
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::BOTTOM), |ui| {
-                    if ui.button(egui::RichText::new("Next >").size(14.0).strong()).clicked() {
+                    if ui
+                        .button(egui::RichText::new("Next >").size(14.0).strong())
+                        .clicked()
+                    {
                         self.current_page = WizardPage::Configuration;
                     }
                 });
@@ -335,15 +370,35 @@ impl eframe::App for AaroneousSetupApp {
                 ui.group(|ui| {
                     ui.label(egui::RichText::new("System Integrations:").strong());
                     ui.add_space(4.0);
-                    ui.checkbox(&mut self.options.create_desktop_shortcut, "Create Desktop Shortcut ('Aaroneous')");
-                    ui.checkbox(&mut self.options.create_start_menu_shortcut, "Create Start Menu Entry");
-                    ui.checkbox(&mut self.options.add_to_user_path, "Add Aaroneous 'bin/' to Windows User PATH (for 'a_run' & 'aaroneous' CLI)");
-                    ui.checkbox(&mut self.options.launch_after_install, "Launch Aaroneous Desktop Studio upon completion");
+                    ui.checkbox(
+                        &mut self.options.create_desktop_shortcut,
+                        "Create Desktop Shortcut ('Aaroneous')",
+                    );
+                    ui.checkbox(
+                        &mut self.options.create_start_menu_shortcut,
+                        "Create Start Menu Entry",
+                    );
+                    ui.checkbox(
+                        &mut self.options.add_to_user_path,
+                        "Add Aaroneous 'bin/' to Windows User PATH (for 'a_run' & 'aaroneous' CLI)",
+                    );
+                    ui.checkbox(
+                        &mut self.options.launch_after_install,
+                        "Launch Aaroneous Desktop Studio upon completion",
+                    );
                 });
 
                 ui.add_space(20.0);
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::BOTTOM), |ui| {
-                    if ui.button(egui::RichText::new("Install ⚡").size(14.0).strong().color(egui::Color32::from_rgb(0, 255, 204))).clicked() {
+                    if ui
+                        .button(
+                            egui::RichText::new("Install ⚡")
+                                .size(14.0)
+                                .strong()
+                                .color(egui::Color32::from_rgb(0, 255, 204)),
+                        )
+                        .clicked()
+                    {
                         self.start_installation();
                     }
                     if ui.button("< Back").clicked() {
@@ -364,14 +419,22 @@ impl eframe::App for AaroneousSetupApp {
 
                 ui.add(egui::ProgressBar::new(pct).show_percentage().animate(true));
                 ui.add_space(8.0);
-                ui.label(egui::RichText::new(&status).color(egui::Color32::from_rgb(180, 220, 255)));
+                ui.label(
+                    egui::RichText::new(&status).color(egui::Color32::from_rgb(180, 220, 255)),
+                );
 
                 ui.add_space(10.0);
-                egui::ScrollArea::vertical().max_height(140.0).show(ui, |ui| {
-                    for line in &logs {
-                        ui.label(egui::RichText::new(format!("> {}", line)).size(11.0).color(egui::Color32::from_rgb(140, 155, 175)));
-                    }
-                });
+                egui::ScrollArea::vertical()
+                    .max_height(140.0)
+                    .show(ui, |ui| {
+                        for line in &logs {
+                            ui.label(
+                                egui::RichText::new(format!("> {}", line))
+                                    .size(11.0)
+                                    .color(egui::Color32::from_rgb(140, 155, 175)),
+                            );
+                        }
+                    });
             }
 
             WizardPage::Completed => {
@@ -383,17 +446,33 @@ impl eframe::App for AaroneousSetupApp {
                 ui.add_space(14.0);
 
                 ui.group(|ui| {
-                    ui.label(egui::RichText::new("Quick Start:").strong().color(egui::Color32::from_rgb(0, 255, 204)));
+                    ui.label(
+                        egui::RichText::new("Quick Start:")
+                            .strong()
+                            .color(egui::Color32::from_rgb(0, 255, 204)),
+                    );
                     ui.label("• Launch 'Aaroneous' from your Desktop or Start Menu.");
                     ui.label("• Run 'a_run flagship' in any terminal to benchmark 500 cycles/sec.");
-                    ui.label("• Run 'a_run mcp' to start the local Claude Desktop & Cursor tool server.");
+                    ui.label(
+                        "• Run 'a_run mcp' to start the local Claude Desktop & Cursor tool server.",
+                    );
                 });
 
                 ui.add_space(20.0);
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::BOTTOM), |ui| {
-                    if ui.button(egui::RichText::new("Finish").size(14.0).strong().color(egui::Color32::from_rgb(0, 255, 204))).clicked() {
+                    if ui
+                        .button(
+                            egui::RichText::new("Finish")
+                                .size(14.0)
+                                .strong()
+                                .color(egui::Color32::from_rgb(0, 255, 204)),
+                        )
+                        .clicked()
+                    {
                         if self.options.launch_after_install {
-                            let main_exe = PathBuf::from(&self.options.install_dir).join("bin").join("aaroneous.exe");
+                            let main_exe = PathBuf::from(&self.options.install_dir)
+                                .join("bin")
+                                .join("aaroneous.exe");
                             if main_exe.exists() {
                                 let _ = std::process::Command::new(main_exe).spawn();
                             }
@@ -407,7 +486,9 @@ impl eframe::App for AaroneousSetupApp {
                 ui.heading("❌ Installation Error");
                 ui.add_space(10.0);
                 let err = if let Ok(p) = self.progress.lock() {
-                    p.error_message.clone().unwrap_or_else(|| "Unknown error occurred.".into())
+                    p.error_message
+                        .clone()
+                        .unwrap_or_else(|| "Unknown error occurred.".into())
                 } else {
                     "Lock error".into()
                 };

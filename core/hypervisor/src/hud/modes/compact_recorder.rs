@@ -16,17 +16,31 @@ pub fn render_compact_recorder_overlay(ui: &mut egui::Ui, state: &mut SharedHudS
 
             // Top Bar: Brand, Session Status & Window Expansion
             ui.horizontal(|ui| {
-                ui.label(egui::RichText::new("Aaroneous").strong().color(theme.accent()));
+                ui.label(
+                    egui::RichText::new("Aaroneous")
+                        .strong()
+                        .color(theme.accent()),
+                );
                 ui.separator();
 
                 // Recording State Status
                 match &state.game_agent.state {
-                    platform_bridge::PlaythroughState::Recording { frames_recorded, .. } => {
-                        let elapsed = state.recording_start_instant.map(|s| s.elapsed().as_secs()).unwrap_or(0);
+                    platform_bridge::PlaythroughState::Recording {
+                        frames_recorded, ..
+                    } => {
+                        let elapsed = state
+                            .recording_start_instant
+                            .map(|s| s.elapsed().as_secs())
+                            .unwrap_or(0);
                         ui.label(
-                            egui::RichText::new(format!("🔴 {:02}:{:02} ({} acts)", elapsed / 60, elapsed % 60, frames_recorded))
-                                .color(Color32::RED)
-                                .strong(),
+                            egui::RichText::new(format!(
+                                "🔴 {:02}:{:02} ({} acts)",
+                                elapsed / 60,
+                                elapsed % 60,
+                                frames_recorded
+                            ))
+                            .color(Color32::RED)
+                            .strong(),
                         );
                         if ui.button("⏹️ Stop").clicked() {
                             state.toggle_recording();
@@ -42,6 +56,16 @@ pub fn render_compact_recorder_overlay(ui: &mut egui::Ui, state: &mut SharedHudS
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                     if ui.button("🪟 Full Studio").clicked() {
                         state.app_window_mode = AppWindowMode::FullStudio;
+                        ui.ctx().send_viewport_cmd(egui::ViewportCommand::InnerSize(egui::vec2(
+                            1240.0, 840.0,
+                        )));
+                        ui.ctx().send_viewport_cmd(egui::ViewportCommand::WindowLevel(
+                            if state.settings.always_on_top {
+                                egui::viewport::WindowLevel::AlwaysOnTop
+                            } else {
+                                egui::viewport::WindowLevel::Normal
+                            },
+                        ));
                     }
                 });
             });

@@ -560,7 +560,10 @@ mod tests {
         assert!(result.is_ok());
         match result.unwrap() {
             Command::Init(args) => {
-                assert_eq!(args.artifact_registry_path, Some("/custom/path".to_string()));
+                assert_eq!(
+                    args.artifact_registry_path,
+                    Some("/custom/path".to_string())
+                );
             }
             _ => panic!("Expected Init command"),
         }

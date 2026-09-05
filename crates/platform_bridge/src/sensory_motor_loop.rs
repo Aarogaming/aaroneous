@@ -8,13 +8,13 @@
 //! 4. Multi-Headed Action Decoder (R^256 -> Discrete MachineOpcode + 4D Coords, <10µs)
 //! 5. Isolated Desktop Sandbox Actuator (Isolated Win32 Virtual Desktop / Mock Emulation)
 
-use std::time::Instant;
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
+use std::time::Instant;
 use tracing::info;
 
 use compute::isolated_desktop::IsolatedDesktop;
-use compute::latent_guardrail::{GUARDRAIL_DIM, LatentAuditVerdict, SafeHypersphereManifold};
+use compute::latent_guardrail::{LatentAuditVerdict, SafeHypersphereManifold, GUARDRAIL_DIM};
 use compute::machine_native::MachineOpcode;
 use compute::si_decoder::{ActionDecoder, DecodedActionCommand};
 
@@ -67,13 +67,12 @@ impl SensoryMotorPipeline {
         ]);
 
         let decoder = ActionDecoder::new(16, 8);
-        let ghost_desktop = IsolatedDesktop::forge(desktop_name).unwrap_or_else(|_| {
-            IsolatedDesktop {
+        let ghost_desktop =
+            IsolatedDesktop::forge(desktop_name).unwrap_or_else(|_| IsolatedDesktop {
                 name: desktop_name.to_string(),
                 handle_id: 0,
                 is_isolated: false,
-            }
-        });
+            });
 
         Self {
             gater,
@@ -86,7 +85,11 @@ impl SensoryMotorPipeline {
     }
 
     /// Projects 16x16 epigenetic sector activations into an R^256 spatial-semantic latent intent vector
-    pub fn project_latent_intent(&self, gated: &EpigeneticGatingResult, raw_frame: &[f32]) -> Vec<f32> {
+    pub fn project_latent_intent(
+        &self,
+        gated: &EpigeneticGatingResult,
+        raw_frame: &[f32],
+    ) -> Vec<f32> {
         let mut intent = vec![0.0f32; GUARDRAIL_DIM];
 
         // 1. Ingest 256 sector saliency values directly
@@ -124,7 +127,10 @@ impl SensoryMotorPipeline {
         let dx = (cmd.spatial_coords[0] * 50.0) as i32;
         let dy = (cmd.spatial_coords[1] * 50.0) as i32;
 
-        actions.push(HidAction::MouseMove { delta_x: dx, delta_y: dy });
+        actions.push(HidAction::MouseMove {
+            delta_x: dx,
+            delta_y: dy,
+        });
 
         match cmd.opcode {
             MachineOpcode::Call { .. } => {
@@ -237,7 +243,11 @@ mod tests {
         let report_final = pipeline.step_cycle(&frame_motion).await.unwrap();
 
         assert_eq!(report_final.frame_idx, 5);
-        assert!(report_final.compute_savings_pct > 80.0, "Expected >80% savings, got {:.1}%", report_final.compute_savings_pct);
+        assert!(
+            report_final.compute_savings_pct > 80.0,
+            "Expected >80% savings, got {:.1}%",
+            report_final.compute_savings_pct
+        );
         assert!(report_final.total_cycle_latency_us < 50_000); // Sub-50ms execution
     }
 }

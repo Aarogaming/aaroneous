@@ -143,7 +143,10 @@ impl SystemMetricsCollector {
             if let Ok(nvml) = nvml_wrapper::Nvml::init() {
                 if let Ok(device) = nvml.device_by_index(self._nvml_device_index) {
                     let utilization = device.utilization_rates().ok();
-                    let gpu_load = utilization.as_ref().map(|u| u.gpu as f64 / 100.0).unwrap_or(0.5);
+                    let gpu_load = utilization
+                        .as_ref()
+                        .map(|u| u.gpu as f64 / 100.0)
+                        .unwrap_or(0.5);
 
                     let temp = device
                         .temperature(nvml_wrapper::enum_wrappers::device::TemperatureSensor::Gpu)
@@ -153,7 +156,11 @@ impl SystemMetricsCollector {
                     let memory_used = mem.as_ref().map(|m| m.used).unwrap_or(2_000_000_000);
                     let memory_total = mem.as_ref().map(|m| m.total).unwrap_or(8_000_000_000);
 
-                    let power = device.power_usage().ok().map(|p| p as f64 / 1000.0).unwrap_or(150.0);
+                    let power = device
+                        .power_usage()
+                        .ok()
+                        .map(|p| p as f64 / 1000.0)
+                        .unwrap_or(150.0);
 
                     return GpuMetrics {
                         load: gpu_load,

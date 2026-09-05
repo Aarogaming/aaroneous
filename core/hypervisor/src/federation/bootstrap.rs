@@ -479,7 +479,8 @@ mod tests {
 
     #[test]
     fn test_deployment_config_with_artifact_registry_path() {
-        let config = DeploymentConfig::new(DeploymentTarget::Desktop).with_artifact_registry_path("/custom/path");
+        let config = DeploymentConfig::new(DeploymentTarget::Desktop)
+            .with_artifact_registry_path("/custom/path");
 
         assert_eq!(config.artifact_registry_path, "/custom/path");
     }

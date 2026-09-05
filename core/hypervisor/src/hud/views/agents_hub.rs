@@ -1,7 +1,9 @@
 // core/hypervisor/src/hud/views/agents_hub.rs
 //! Autonomous SI Agents, Specialists Hive & Swarm Mesh view.
 
-use crate::hud::state::{AgentExecutionState, AgentKind, AgentsSubTab, CustomAgent, SharedHudState};
+use crate::hud::state::{
+    AgentExecutionState, AgentKind, AgentsSubTab, CustomAgent, SharedHudState,
+};
 use crate::hud::views::HudView;
 use eframe::egui::{self, Color32, CornerRadius, Stroke, Vec2};
 
@@ -79,7 +81,11 @@ impl HudView for AgentsHubView {
                         ui.label(egui::RichText::new(label).strong().color(text_color));
                     });
 
-                let click_resp = ui.interact(resp.response.rect, ui.id().with(tab as usize), egui::Sense::click());
+                let click_resp = ui.interact(
+                    resp.response.rect,
+                    ui.id().with(tab as usize),
+                    egui::Sense::click(),
+                );
                 if click_resp.clicked() {
                     state.agents_subtab = tab;
                 }
@@ -255,6 +261,13 @@ impl HudView for AgentsHubView {
                                                     "Tasks Done: {}",
                                                     agent.tasks_completed
                                                 ));
+
+                                                if ui.button("⚡ Bind Macro").clicked() {
+                                                    state.macro_name_input = format!("{}_macro", agent.name.to_lowercase().replace(' ', "_"));
+                                                    state.macro_desc_input = agent.description.clone();
+                                                    state.si_forge_subtab = crate::hud::state::SiForgeSubTab::SmartMacros;
+                                                    state.nav_section = crate::hud::navigation::NavSection::SiForge;
+                                                }
                                             },
                                         );
                                     });
@@ -284,7 +297,11 @@ impl HudView for AgentsHubView {
                     .max_height(140.0)
                     .show(ui, |ui| {
                         if state.event_logs.is_empty() {
-                            ui.label(egui::RichText::new("No automation events logged yet.").italics().color(Color32::GRAY));
+                            ui.label(
+                                egui::RichText::new("No automation events logged yet.")
+                                    .italics()
+                                    .color(Color32::GRAY),
+                            );
                         } else {
                             for log in state.event_logs.iter().rev() {
                                 ui.horizontal(|ui| {

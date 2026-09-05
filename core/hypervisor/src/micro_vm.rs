@@ -29,7 +29,11 @@ impl std::fmt::Display for VmError {
         match self {
             VmError::GasExhausted => write!(f, "Execution gas exhausted"),
             VmError::MemoryOutOfBounds { address, limit } => {
-                write!(f, "Memory access out of bounds: address {} >= limit {}", address, limit)
+                write!(
+                    f,
+                    "Memory access out of bounds: address {} >= limit {}",
+                    address, limit
+                )
             }
             VmError::InvalidRegister(reg) => write!(f, "Invalid register index: r{}", reg),
             VmError::InvalidOpcode(op) => write!(f, "Invalid instruction opcode: 0x{:02X}", op),
@@ -346,7 +350,11 @@ impl MicroBytecodeVm {
                         self.pc += 1;
                     }
                 }
-                VmInstruction::JmpIfGreater { reg_a, reg_b, target } => {
+                VmInstruction::JmpIfGreater {
+                    reg_a,
+                    reg_b,
+                    target,
+                } => {
                     let a = self.check_reg(*reg_a)?;
                     let b = self.check_reg(*reg_b)?;
                     if self.registers[a] > self.registers[b] {
@@ -408,13 +416,16 @@ mod tests {
         let mut vm = MicroBytecodeVm::new();
         // Compute sum(10..1)
         let program = VmProgram::new(vec![
-            VmInstruction::MovImm { dst: 0, val: 0 },   // r0 = accumulator (0)
-            VmInstruction::MovImm { dst: 1, val: 10 },  // r1 = counter (10)
-            VmInstruction::MovImm { dst: 2, val: 1 },   // r2 = step (1)
+            VmInstruction::MovImm { dst: 0, val: 0 }, // r0 = accumulator (0)
+            VmInstruction::MovImm { dst: 1, val: 10 }, // r1 = counter (10)
+            VmInstruction::MovImm { dst: 2, val: 1 }, // r2 = step (1)
             // Loop start (pc = 3)
-            VmInstruction::Add { dst: 0, src: 1 },      // r0 += r1
-            VmInstruction::Sub { dst: 1, src: 2 },      // r1 -= 1
-            VmInstruction::JmpIfNotZero { cond_reg: 1, target: 3 }, // if r1 != 0 goto 3
+            VmInstruction::Add { dst: 0, src: 1 }, // r0 += r1
+            VmInstruction::Sub { dst: 1, src: 2 }, // r1 -= 1
+            VmInstruction::JmpIfNotZero {
+                cond_reg: 1,
+                target: 3,
+            }, // if r1 != 0 goto 3
             VmInstruction::Halt,
         ]);
 
@@ -443,7 +454,10 @@ mod tests {
         let mut vm = MicroBytecodeVm::with_limits(1000, 1024);
         let program = VmProgram::new(vec![
             VmInstruction::MovImm { dst: 0, val: 99999 }, // Far out of 1024B bounds
-            VmInstruction::LoadMem { dst: 1, addr_reg: 0 },
+            VmInstruction::LoadMem {
+                dst: 1,
+                addr_reg: 0,
+            },
         ]);
 
         let result = vm.execute(&program);

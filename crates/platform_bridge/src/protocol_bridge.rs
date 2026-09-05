@@ -45,7 +45,10 @@ impl MnlpPerceptionPacket {
         }
         let magic = u32::from_le_bytes(bytes[0..4].try_into()?);
         if magic != Self::MAGIC {
-            return Err(anyhow!("Invalid MnlpPerceptionPacket magic: 0x{:08X}", magic));
+            return Err(anyhow!(
+                "Invalid MnlpPerceptionPacket magic: 0x{:08X}",
+                magic
+            ));
         }
         let timestamp_us = u64::from_le_bytes(bytes[8..16].try_into()?);
         let frame_id = u64::from_le_bytes(bytes[16..24].try_into()?);
@@ -91,7 +94,8 @@ impl MarionetteProtocolBridge {
             payload_size: (observation.grid.len() * 4) as u32,
         };
 
-        let mut bytes = Vec::with_capacity(MnlpPerceptionPacket::HEADER_SIZE + observation.grid.len() * 4);
+        let mut bytes =
+            Vec::with_capacity(MnlpPerceptionPacket::HEADER_SIZE + observation.grid.len() * 4);
         bytes.extend_from_slice(&header.to_bytes());
 
         for &f in &observation.grid {
@@ -140,7 +144,9 @@ mod tests {
     #[test]
     fn test_perception_packet_roundtrip() {
         let observation = VisualObservation::new(
-            vec![0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6],
+            vec![
+                0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6,
+            ],
             4,
             4,
             42000,
@@ -161,7 +167,10 @@ mod tests {
     #[test]
     fn test_hid_command_json_roundtrip() {
         let cmd = HidCommand {
-            actions: vec![HidAction::MouseMove { delta_x: 12, delta_y: -3 }],
+            actions: vec![HidAction::MouseMove {
+                delta_x: 12,
+                delta_y: -3,
+            }],
             sequence_id: 1,
             timestamp_us: 1000,
         };

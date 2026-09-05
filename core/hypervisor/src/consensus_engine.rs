@@ -509,7 +509,8 @@ impl ConsensusEngine {
         // Verify prev_log_index and prev_log_term
         if req.prev_log_index > 0 {
             let idx = (req.prev_log_index - 1) as usize;
-            if idx >= self.raft_state.log.len() || self.raft_state.log[idx].term != req.prev_log_term
+            if idx >= self.raft_state.log.len()
+                || self.raft_state.log[idx].term != req.prev_log_term
             {
                 return RaftAppendEntriesResponse {
                     term: self.raft_state.current_term,
@@ -532,8 +533,7 @@ impl ConsensusEngine {
 
         // Advance commit index
         if req.leader_commit > self.raft_state.commit_index {
-            self.raft_state.commit_index =
-                req.leader_commit.min(self.raft_state.log.len() as u64);
+            self.raft_state.commit_index = req.leader_commit.min(self.raft_state.log.len() as u64);
         }
 
         RaftAppendEntriesResponse {
@@ -701,7 +701,11 @@ mod tests {
         assert_eq!(node1.role(), RaftRole::Candidate);
         assert_eq!(req.term, 1);
 
-        let mut node2 = ConsensusEngine::new("node_2", vec!["node_1".to_string(), "node_3".to_string()], 0.6);
+        let mut node2 = ConsensusEngine::new(
+            "node_2",
+            vec!["node_1".to_string(), "node_3".to_string()],
+            0.6,
+        );
         let resp2 = node2.handle_vote_request(&req);
         assert!(resp2.vote_granted);
 
@@ -719,7 +723,9 @@ mod tests {
         leader.start_election();
         leader.raft_state.role = RaftRole::Leader;
 
-        let append_req = leader.append_wal_mutation(b"WAL_RECORD_TX_001".to_vec()).unwrap();
+        let append_req = leader
+            .append_wal_mutation(b"WAL_RECORD_TX_001".to_vec())
+            .unwrap();
         assert_eq!(append_req.entries.len(), 1);
         assert_eq!(append_req.entries[0].index, 1);
 

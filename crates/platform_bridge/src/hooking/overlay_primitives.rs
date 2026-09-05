@@ -17,12 +17,42 @@ pub struct Rgba8 {
 }
 
 impl Rgba8 {
-    pub const RED: Self = Self { r: 255, g: 0, b: 0, a: 255 };
-    pub const GREEN: Self = Self { r: 0, g: 255, b: 0, a: 255 };
-    pub const BLUE: Self = Self { r: 0, g: 150, b: 255, a: 255 };
-    pub const YELLOW: Self = Self { r: 255, g: 215, b: 0, a: 255 };
-    pub const CYAN: Self = Self { r: 0, g: 255, b: 255, a: 255 };
-    pub const WHITE: Self = Self { r: 255, g: 255, b: 255, a: 255 };
+    pub const RED: Self = Self {
+        r: 255,
+        g: 0,
+        b: 0,
+        a: 255,
+    };
+    pub const GREEN: Self = Self {
+        r: 0,
+        g: 255,
+        b: 0,
+        a: 255,
+    };
+    pub const BLUE: Self = Self {
+        r: 0,
+        g: 150,
+        b: 255,
+        a: 255,
+    };
+    pub const YELLOW: Self = Self {
+        r: 255,
+        g: 215,
+        b: 0,
+        a: 255,
+    };
+    pub const CYAN: Self = Self {
+        r: 0,
+        g: 255,
+        b: 255,
+        a: 255,
+    };
+    pub const WHITE: Self = Self {
+        r: 255,
+        g: 255,
+        b: 255,
+        a: 255,
+    };
 
     pub fn with_alpha(mut self, alpha: u8) -> Self {
         self.a = alpha;

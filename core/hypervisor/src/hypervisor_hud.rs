@@ -7,14 +7,14 @@
 //! 3. 👁️ Spatial Delta Vision & Sensory Grid: 16x16 Motion Saliency Mask & Compute Savings.
 //! 4. 🧬 System Thermodynamics: 4-Channel Feedback Signals, Curiosity Impulses & Token Pool.
 
-use std::sync::Arc;
 use eframe::egui::{self, Color32, RichText, Stroke, Ui, Vec2};
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 
 use evolution::{NeurochemicalHomeostasisEngine, NeurochemicalLevels};
-use platform_bridge::SensoryMotorPipeline;
 use nervous_system::specialist_bus::{SpecialistSynapseBus, TENSOR_DIM};
 use omni::{OmniEngine, SpatialCoord, StarNode, StarNodeType};
+use platform_bridge::SensoryMotorPipeline;
 
 use crate::bus_visualizer::BusVisualizer;
 
@@ -66,7 +66,8 @@ impl HypervisorHudApp {
 
         let bus_visualizer = BusVisualizer::new(bus, centroid, radius);
         let sensory_pipeline = SensoryMotorPipeline::new("Aaroneous_Hypervisor_HUD");
-        let neurochemistry = NeurochemicalHomeostasisEngine::new(NeurochemicalLevels::new(0.85, 0.50, 0.35, 0.90));
+        let neurochemistry =
+            NeurochemicalHomeostasisEngine::new(NeurochemicalLevels::new(0.85, 0.50, 0.35, 0.90));
 
         let mut app = Self {
             active_tab: HudTab::Galaxy3D,
@@ -90,19 +91,71 @@ impl HypervisorHudApp {
     pub fn bootstrap_sample_data(&mut self) {
         // Seed standard specialists into Omni Galaxy if empty
         let specs = [
-            ("orchestrator", "Orchestrator (Orchestration)", "Orchestration", SpatialCoord::new(-450.0, 300.0, 800.0)),
-            ("synthesizer", "Synthesizer (Knowledge)", "Knowledge", SpatialCoord::new(200.0, -150.0, 600.0)),
-            ("presenter", "Presenter (Presentation)", "UI", SpatialCoord::new(500.0, 400.0, 400.0)),
-            ("fabricator", "Fabricator (Forge)", "Fabrication", SpatialCoord::new(-200.0, -500.0, 700.0)),
-            ("sentinel", "Sentinel (Security)", "Security", SpatialCoord::new(0.0, 0.0, 950.0)),
-            ("archivist", "Archivist (Memory)", "Memory", SpatialCoord::new(350.0, -350.0, 500.0)),
-            ("router", "Router (Router)", "Network", SpatialCoord::new(-600.0, 100.0, 450.0)),
-            ("aligner", "Aligner (Symbiosis)", "Symbiosis", SpatialCoord::new(150.0, 550.0, 300.0)),
-            ("perceiver", "Perceiver (Perception)", "Vision", SpatialCoord::new(-350.0, 600.0, 650.0)),
+            (
+                "orchestrator",
+                "Orchestrator (Orchestration)",
+                "Orchestration",
+                SpatialCoord::new(-450.0, 300.0, 800.0),
+            ),
+            (
+                "synthesizer",
+                "Synthesizer (Knowledge)",
+                "Knowledge",
+                SpatialCoord::new(200.0, -150.0, 600.0),
+            ),
+            (
+                "presenter",
+                "Presenter (Presentation)",
+                "UI",
+                SpatialCoord::new(500.0, 400.0, 400.0),
+            ),
+            (
+                "fabricator",
+                "Fabricator (Forge)",
+                "Fabrication",
+                SpatialCoord::new(-200.0, -500.0, 700.0),
+            ),
+            (
+                "sentinel",
+                "Sentinel (Security)",
+                "Security",
+                SpatialCoord::new(0.0, 0.0, 950.0),
+            ),
+            (
+                "archivist",
+                "Archivist (Memory)",
+                "Memory",
+                SpatialCoord::new(350.0, -350.0, 500.0),
+            ),
+            (
+                "router",
+                "Router (Router)",
+                "Network",
+                SpatialCoord::new(-600.0, 100.0, 450.0),
+            ),
+            (
+                "aligner",
+                "Aligner (Symbiosis)",
+                "Symbiosis",
+                SpatialCoord::new(150.0, 550.0, 300.0),
+            ),
+            (
+                "perceiver",
+                "Perceiver (Perception)",
+                "Vision",
+                SpatialCoord::new(-350.0, 600.0, 650.0),
+            ),
         ];
 
         for (id, title, domain, coord) in specs {
-            let star = StarNode::new(id, title, StarNodeType::Specialist, domain, coord, "omni://specialist");
+            let star = StarNode::new(
+                id,
+                title,
+                StarNodeType::Specialist,
+                domain,
+                coord,
+                "omni://specialist",
+            );
             let engine = self.omni_engine.clone();
             block_on_future(async move {
                 engine.insert_node(star).await;
@@ -155,9 +208,7 @@ impl HypervisorHudApp {
         ui.add_space(8.0);
 
         let engine = self.omni_engine.clone();
-        let nodes = block_on_future(async move {
-            engine.get_all_nodes().await
-        });
+        let nodes = block_on_future(async move { engine.get_all_nodes().await });
 
         ui.horizontal(|ui| {
             ui.label(format!("Total Star-Nodes: {}", nodes.len()));
@@ -173,23 +224,29 @@ impl HypervisorHudApp {
         ui.separator();
 
         egui::ScrollArea::vertical().show(ui, |ui| {
-            egui::Grid::new("galaxy_grid").striped(true).min_col_width(100.0).show(ui, |ui| {
-                ui.label(RichText::new("Node ID").strong());
-                ui.label(RichText::new("Type").strong());
-                ui.label(RichText::new("Domain").strong());
-                ui.label(RichText::new("3D Coordinates (X, Y, Z)").strong());
-                ui.label(RichText::new("Mass").strong());
-                ui.end_row();
-
-                for (_, node) in nodes {
-                    ui.label(&node.id);
-                    ui.label(format!("{:?}", node.node_type));
-                    ui.label(&node.domain);
-                    ui.label(format!("({:+.1}, {:+.1}, {:+.1})", node.spatial_coord.x, node.spatial_coord.y, node.spatial_coord.z));
-                    ui.label(format!("{:.2}", node.activity_pulse));
+            egui::Grid::new("galaxy_grid")
+                .striped(true)
+                .min_col_width(100.0)
+                .show(ui, |ui| {
+                    ui.label(RichText::new("Node ID").strong());
+                    ui.label(RichText::new("Type").strong());
+                    ui.label(RichText::new("Domain").strong());
+                    ui.label(RichText::new("3D Coordinates (X, Y, Z)").strong());
+                    ui.label(RichText::new("Mass").strong());
                     ui.end_row();
-                }
-            });
+
+                    for (_, node) in nodes {
+                        ui.label(&node.id);
+                        ui.label(format!("{:?}", node.node_type));
+                        ui.label(&node.domain);
+                        ui.label(format!(
+                            "({:+.1}, {:+.1}, {:+.1})",
+                            node.spatial_coord.x, node.spatial_coord.y, node.spatial_coord.z
+                        ));
+                        ui.label(format!("{:.2}", node.activity_pulse));
+                        ui.end_row();
+                    }
+                });
         });
     }
 
@@ -200,14 +257,27 @@ impl HypervisorHudApp {
         ui.add_space(8.0);
 
         ui.horizontal(|ui| {
-            ui.label(RichText::new(format!("Active Sectors: {} / 256", self.last_frame_active_sectors)).strong());
-            ui.label(RichText::new(format!("Compute Savings: {:.1}%", self.last_frame_savings_pct)).color(Color32::from_rgb(0, 255, 128)));
+            ui.label(
+                RichText::new(format!(
+                    "Active Sectors: {} / 256",
+                    self.last_frame_active_sectors
+                ))
+                .strong(),
+            );
+            ui.label(
+                RichText::new(format!(
+                    "Compute Savings: {:.1}%",
+                    self.last_frame_savings_pct
+                ))
+                .color(Color32::from_rgb(0, 255, 128)),
+            );
         });
 
         ui.add_space(8.0);
 
         // 16x16 interactive grid canvas
-        let (rect, _response) = ui.allocate_exact_size(Vec2::new(320.0, 320.0), egui::Sense::hover());
+        let (rect, _response) =
+            ui.allocate_exact_size(Vec2::new(320.0, 320.0), egui::Sense::hover());
         let painter = ui.painter_at(rect);
 
         let cell_w = rect.width() / 16.0;
@@ -232,7 +302,12 @@ impl HypervisorHudApp {
                 };
 
                 painter.rect_filled(cell_rect, 2.0, fill_color);
-                painter.rect_stroke(cell_rect, 1.0, Stroke::new(1.0, Color32::from_rgb(45, 48, 60)), egui::StrokeKind::Inside);
+                painter.rect_stroke(
+                    cell_rect,
+                    1.0,
+                    Stroke::new(1.0, Color32::from_rgb(45, 48, 60)),
+                    egui::StrokeKind::Inside,
+                );
             }
         }
     }
@@ -250,14 +325,23 @@ impl HypervisorHudApp {
             ui.horizontal(|ui| {
                 ui.label(format!("Dopamine (Reward): {:.2}", levels.dopamine));
                 ui.label(format!("Serotonin (Harmony): {:.2}", levels.serotonin));
-                ui.label(format!("Noradrenaline (Vigilance): {:.2}", levels.noradrenaline));
-                ui.label(format!("Acetylcholine (Plasticity): {:.2}", levels.acetylcholine));
+                ui.label(format!(
+                    "Noradrenaline (Vigilance): {:.2}",
+                    levels.noradrenaline
+                ));
+                ui.label(format!(
+                    "Acetylcholine (Plasticity): {:.2}",
+                    levels.acetylcholine
+                ));
             });
 
             ui.add_space(4.0);
             ui.horizontal(|ui| {
                 ui.label(format!("Boredom: {:.1}%", levels.boredom_index() * 100.0));
-                ui.label(format!("Curiosity: {:.1}%", levels.curiosity_drive() * 100.0));
+                ui.label(format!(
+                    "Curiosity: {:.1}%",
+                    levels.curiosity_drive() * 100.0
+                ));
                 ui.label(format!("Stress: {:.1}%", levels.stress_index() * 100.0));
                 ui.label(format!("Metabolism: {:.2}x", levels.metabolic_multiplier()));
             });
@@ -267,21 +351,24 @@ impl HypervisorHudApp {
         ui.heading("⚡ Specialist Federation Token Allocations (900 Pool)");
 
         let tokens = self.neurochemistry.calculate_token_distribution(900.0);
-        egui::Grid::new("tokens_grid").striped(true).min_col_width(120.0).show(ui, |ui| {
-            ui.label(RichText::new("Specialist").strong());
-            ui.label(RichText::new("Opcode").strong());
-            ui.label(RichText::new("Tokens").strong());
-            ui.label(RichText::new("Allocation Rationale").strong());
-            ui.end_row();
-
-            for alloc in tokens {
-                ui.label(&alloc.specialist_name);
-                ui.label(format!("0x{:04X}", alloc.domain_opcode));
-                ui.label(format!("{:.0}", alloc.allocated_tokens));
-                ui.label(&alloc.boost_reason);
+        egui::Grid::new("tokens_grid")
+            .striped(true)
+            .min_col_width(120.0)
+            .show(ui, |ui| {
+                ui.label(RichText::new("Specialist").strong());
+                ui.label(RichText::new("Opcode").strong());
+                ui.label(RichText::new("Tokens").strong());
+                ui.label(RichText::new("Allocation Rationale").strong());
                 ui.end_row();
-            }
-        });
+
+                for alloc in tokens {
+                    ui.label(&alloc.specialist_name);
+                    ui.label(format!("0x{:04X}", alloc.domain_opcode));
+                    ui.label(format!("{:.0}", alloc.allocated_tokens));
+                    ui.label(&alloc.boost_reason);
+                    ui.end_row();
+                }
+            });
     }
 }
 
@@ -292,13 +379,29 @@ impl eframe::App for HypervisorHudApp {
 
         // 1. Top Bar Navigation Panel
         ui.horizontal(|ui| {
-            ui.heading(RichText::new("⚡ AARONEOUS HYPERVISOR HUD").strong().color(Color32::from_rgb(0, 210, 255)));
+            ui.heading(
+                RichText::new("⚡ AARONEOUS HYPERVISOR HUD")
+                    .strong()
+                    .color(Color32::from_rgb(0, 210, 255)),
+            );
             ui.separator();
 
             ui.selectable_value(&mut self.active_tab, HudTab::Galaxy3D, "🌌 3D Galaxy");
-            ui.selectable_value(&mut self.active_tab, HudTab::SignalAnalyzer, "⚡ Bus & SVDD");
-            ui.selectable_value(&mut self.active_tab, HudTab::SpatialDeltaSensory, "👁️ Spatial Delta Vision");
-            ui.selectable_value(&mut self.active_tab, HudTab::SystemThermodynamics, "🧬 System Thermodynamics");
+            ui.selectable_value(
+                &mut self.active_tab,
+                HudTab::SignalAnalyzer,
+                "⚡ Bus & SVDD",
+            );
+            ui.selectable_value(
+                &mut self.active_tab,
+                HudTab::SpatialDeltaSensory,
+                "👁️ Spatial Delta Vision",
+            );
+            ui.selectable_value(
+                &mut self.active_tab,
+                HudTab::SystemThermodynamics,
+                "🧬 System Thermodynamics",
+            );
 
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 ui.checkbox(&mut self.is_simulating, "Live 60Hz Sim");

@@ -81,7 +81,10 @@ pub trait MarionetteHost: Send + Sync {
     async fn pull_visual_perception(&mut self) -> Result<VisualObservation>;
 
     /// Ingest a visual frame masked by an epigenetic gate (256 sectors)
-    async fn pull_visual_perception_gated(&mut self, gate_mask: &[bool; 256]) -> Result<VisualObservation>;
+    async fn pull_visual_perception_gated(
+        &mut self,
+        gate_mask: &[bool; 256],
+    ) -> Result<VisualObservation>;
 
     /// Submit a motor action command (safe mock logging or guarded live execution)
     async fn inject_hid_event(&mut self, command: HidCommand) -> Result<()>;

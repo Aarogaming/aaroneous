@@ -44,11 +44,11 @@ impl MockMarionette {
 impl MarionetteHost for MockMarionette {
     async fn pull_visual_perception(&mut self) -> Result<VisualObservation> {
         self.frame_counter += 1;
-        
+
         // Generate a 128x128 synthetic test pattern
         let mut grid = vec![0.0f32; 128 * 128];
         let phase = (self.frame_counter % 100) as f32 / 100.0;
-        
+
         for y in 0..128 {
             for x in 0..128 {
                 let val = ((x as f32 / 128.0) + (y as f32 / 128.0) + phase) % 1.0;
@@ -69,9 +69,12 @@ impl MarionetteHost for MockMarionette {
         })
     }
 
-    async fn pull_visual_perception_gated(&mut self, gate_mask: &[bool; 256]) -> Result<VisualObservation> {
+    async fn pull_visual_perception_gated(
+        &mut self,
+        gate_mask: &[bool; 256],
+    ) -> Result<VisualObservation> {
         let mut observation = self.pull_visual_perception().await?;
-        
+
         // Apply 16x16 sector gate mask
         let sector_size = 8;
         let sectors_per_row = 16;
@@ -106,9 +109,9 @@ impl MarionetteHost for MockMarionette {
 
     async fn inject_hid_event(&mut self, command: HidCommand) -> Result<()> {
         info!(
-            target: "marionette::mock", 
-            seq = command.sequence_id, 
-            action_count = command.actions.len(), 
+            target: "marionette::mock",
+            seq = command.sequence_id,
+            action_count = command.actions.len(),
             "Recorded sandboxed motor intent (Zero OS side-effects)"
         );
         self.command_history.push(command);
@@ -149,7 +152,10 @@ mod tests {
     async fn test_mock_marionette_hid_sandboxing() {
         let mut host = MockMarionette::new();
         let cmd = HidCommand {
-            actions: vec![HidAction::MouseMove { delta_x: 100, delta_y: 200 }],
+            actions: vec![HidAction::MouseMove {
+                delta_x: 100,
+                delta_y: 200,
+            }],
             sequence_id: 1,
             timestamp_us: MockMarionette::now_us(),
         };

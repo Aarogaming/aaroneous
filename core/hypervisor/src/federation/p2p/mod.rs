@@ -85,7 +85,11 @@ impl P2pNode {
     }
 
     /// Connects to a remote peer over a network TCP stream
-    pub async fn connect_remote_stream(&self, peer_id: P2pNodeId, target_addr: &str) -> Result<(), P2pError> {
+    pub async fn connect_remote_stream(
+        &self,
+        peer_id: P2pNodeId,
+        target_addr: &str,
+    ) -> Result<(), P2pError> {
         let mut stream = TcpStream::connect(target_addr).await.map_err(|e| {
             P2pError::ConnectionFailed(format!("Failed to connect to {}: {}", target_addr, e))
         })?;
@@ -125,7 +129,10 @@ impl P2pNode {
                 let _ = peer_inbox.send((self_id.clone(), msg)).await;
             }
         });
-        self.peers.write().await.insert(peer.id.clone(), self_to_peer_tx);
+        self.peers
+            .write()
+            .await
+            .insert(peer.id.clone(), self_to_peer_tx);
 
         let (peer_to_self_tx, mut peer_to_self_rx) = mpsc::channel::<SyncMessage>(256);
         let self_inbox = self.inbox_tx.clone();
@@ -135,7 +142,10 @@ impl P2pNode {
                 let _ = self_inbox.send((peer_id.clone(), msg)).await;
             }
         });
-        peer.peers.write().await.insert(self.id.clone(), peer_to_self_tx);
+        peer.peers
+            .write()
+            .await
+            .insert(self.id.clone(), peer_to_self_tx);
     }
 
     pub async fn stop(&mut self) {
@@ -153,7 +163,10 @@ impl P2pNode {
             })?;
             Ok(())
         } else {
-            Err(P2pError::InvalidEndpoint(format!("Peer not found: {}", to.0)))
+            Err(P2pError::InvalidEndpoint(format!(
+                "Peer not found: {}",
+                to.0
+            )))
         }
     }
 
@@ -212,7 +225,10 @@ mod tests {
             intent_version: 1,
         };
 
-        node_a.send(P2pNodeId::new("hive_node_b"), msg).await.unwrap();
+        node_a
+            .send(P2pNodeId::new("hive_node_b"), msg)
+            .await
+            .unwrap();
 
         let (from, received_msg) = node_b.receive().await.unwrap();
         assert_eq!(from.0, "hive_node_a");
@@ -225,7 +241,10 @@ mod tests {
         let local_addr = receiver.bind_listener("127.0.0.1:0").await.unwrap();
 
         let sender = P2pNode::new(P2pNodeId::new("socket_sender"));
-        sender.connect_remote_stream(P2pNodeId::new("socket_receiver"), &local_addr).await.unwrap();
+        sender
+            .connect_remote_stream(P2pNodeId::new("socket_receiver"), &local_addr)
+            .await
+            .unwrap();
 
         let msg = SyncMessage {
             kind: SyncMessageKind::StateSync,
@@ -235,11 +254,13 @@ mod tests {
             intent_version: 2,
         };
 
-        sender.send(P2pNodeId::new("socket_receiver"), msg).await.unwrap();
+        sender
+            .send(P2pNodeId::new("socket_receiver"), msg)
+            .await
+            .unwrap();
 
         let (from, received) = receiver.receive().await.unwrap();
         assert_eq!(from.0, "socket_sender");
         assert_eq!(received.payload, b"Wire transport verified");
     }
 }
-

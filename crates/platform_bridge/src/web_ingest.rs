@@ -68,7 +68,10 @@ impl WebIngestionAdapter {
     pub fn set_target_url(&mut self, url: impl Into<String>) -> Result<()> {
         let u = url.into();
         if !self.compliance.is_domain_permitted(&u) {
-            anyhow::bail!("Web Ingestion Blocked: Domain violates compliance rules: {}", u);
+            anyhow::bail!(
+                "Web Ingestion Blocked: Domain violates compliance rules: {}",
+                u
+            );
         }
         self.active_target_url = Some(u);
         Ok(())
@@ -86,7 +89,10 @@ impl SensoryFeedAdapter for WebIngestionAdapter {
 
     fn sample_observation(&mut self) -> Result<NormalizedObservation> {
         self.observation_sequence += 1;
-        let target = self.active_target_url.clone().unwrap_or_else(|| "about:blank".to_string());
+        let target = self
+            .active_target_url
+            .clone()
+            .unwrap_or_else(|| "about:blank".to_string());
 
         // Emit normalized perception observation
         Ok(NormalizedObservation {

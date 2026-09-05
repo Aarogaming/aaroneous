@@ -3,13 +3,13 @@
 //! Provides asynchronous bi-directional framing, peer discovery, heartbeat latency tracking,
 //! live Byzantine gossip broadcasts, and distributed swarm task offloading.
 
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::net::SocketAddr;
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
@@ -20,10 +20,7 @@ use tracing::{debug, info, warn};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum DaemonWirePacket {
     /// Heartbeat ping to calculate real-time network latency
-    Ping {
-        from_node: String,
-        send_ts_ms: u64,
-    },
+    Ping { from_node: String, send_ts_ms: u64 },
     /// Heartbeat pong response
     Pong {
         from_node: String,
@@ -84,7 +81,14 @@ pub struct LiveP2PConfig {
 impl Default for LiveP2PConfig {
     fn default() -> Self {
         Self {
-            node_id: format!("hive-{}", uuid::Uuid::new_v4().to_string().chars().take(8).collect::<String>()),
+            node_id: format!(
+                "hive-{}",
+                uuid::Uuid::new_v4()
+                    .to_string()
+                    .chars()
+                    .take(8)
+                    .collect::<String>()
+            ),
             bind_addr: "127.0.0.1:8001".to_string(),
             initial_peers: Vec::new(),
             heartbeat_interval_ms: 2000,
@@ -139,7 +143,9 @@ impl LiveP2PDaemon {
     pub async fn start(&self) -> Result<()> {
         let listener = TcpListener::bind(&self.config.bind_addr)
             .await
-            .with_context(|| format!("Failed to bind LiveP2PDaemon on {}", self.config.bind_addr))?;
+            .with_context(|| {
+                format!("Failed to bind LiveP2PDaemon on {}", self.config.bind_addr)
+            })?;
 
         self.is_running.store(true, Ordering::SeqCst);
         info!(
@@ -187,7 +193,9 @@ impl LiveP2PDaemon {
         // Spawn periodic heartbeat loop
         let daemon_heartbeat = self.clone();
         tokio::spawn(async move {
-            let mut interval = tokio::time::interval(Duration::from_millis(daemon_heartbeat.config.heartbeat_interval_ms));
+            let mut interval = tokio::time::interval(Duration::from_millis(
+                daemon_heartbeat.config.heartbeat_interval_ms,
+            ));
             while daemon_heartbeat.is_running.load(Ordering::Relaxed) {
                 interval.tick().await;
                 daemon_heartbeat.send_heartbeats().await;
@@ -228,7 +236,9 @@ impl LiveP2PDaemon {
             while let Some(packet) = rx.recv().await {
                 if let Ok(encoded) = serde_json::to_vec(&packet) {
                     let len = (encoded.len() as u32).to_le_bytes();
-                    if writer.write_all(&len).await.is_err() || writer.write_all(&encoded).await.is_err() {
+                    if writer.write_all(&len).await.is_err()
+                        || writer.write_all(&encoded).await.is_err()
+                    {
                         break;
                     }
                     let _ = writer.flush().await;
@@ -237,11 +247,16 @@ impl LiveP2PDaemon {
         });
 
         // Send initial Ping with our node identity
-        let now_ms = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_millis() as u64;
-        let _ = tx.send(DaemonWirePacket::Ping {
-            from_node: self.config.node_id.clone(),
-            send_ts_ms: now_ms,
-        }).await;
+        let now_ms = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis() as u64;
+        let _ = tx
+            .send(DaemonWirePacket::Ping {
+                from_node: self.config.node_id.clone(),
+                send_ts_ms: now_ms,
+            })
+            .await;
 
         let mut peer_node_id: Option<String> = None;
 
@@ -251,7 +266,8 @@ impl LiveP2PDaemon {
             match reader.read_exact(&mut len_buf).await {
                 Ok(_) => {
                     let len = u32::from_le_bytes(len_buf) as usize;
-                    if len > 32 * 1024 * 1024 { // 32MB safety limit
+                    if len > 32 * 1024 * 1024 {
+                        // 32MB safety limit
                         bail!("Frame size {} exceeds 32MB safety limit", len);
                     }
                     let mut payload = vec![0u8; len];
@@ -263,16 +279,21 @@ impl LiveP2PDaemon {
                             && let Some(id) = sender_id
                         {
                             peer_node_id = Some(id.clone());
-                            self.outbound_channels.write().insert(id.clone(), tx.clone());
-                            self.peers.write().insert(id.clone(), LivePeerInfo {
-                                peer_id: id,
-                                address: addr.to_string(),
-                                latency_ms: 1.0,
-                                is_connected: true,
-                                messages_sent: 1,
-                                messages_received: 1,
-                                last_seen_ms: now_ms,
-                            });
+                            self.outbound_channels
+                                .write()
+                                .insert(id.clone(), tx.clone());
+                            self.peers.write().insert(
+                                id.clone(),
+                                LivePeerInfo {
+                                    peer_id: id,
+                                    address: addr.to_string(),
+                                    latency_ms: 1.0,
+                                    is_connected: true,
+                                    messages_sent: 1,
+                                    messages_received: 1,
+                                    last_seen_ms: now_ms,
+                                },
+                            );
                         }
                     }
                 }
@@ -292,18 +313,33 @@ impl LiveP2PDaemon {
     }
 
     /// Processes an incoming wire packet and routes responses
-    async fn process_packet(&self, packet: DaemonWirePacket, reply_tx: &mpsc::Sender<DaemonWirePacket>) -> Result<Option<String>> {
-        let now_ms = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_millis() as u64;
+    async fn process_packet(
+        &self,
+        packet: DaemonWirePacket,
+        reply_tx: &mpsc::Sender<DaemonWirePacket>,
+    ) -> Result<Option<String>> {
+        let now_ms = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis() as u64;
 
         match packet {
-            DaemonWirePacket::Ping { from_node, send_ts_ms } => {
-                let _ = reply_tx.send(DaemonWirePacket::Pong {
-                    from_node: self.config.node_id.clone(),
-                    orig_send_ts_ms: send_ts_ms,
-                }).await;
+            DaemonWirePacket::Ping {
+                from_node,
+                send_ts_ms,
+            } => {
+                let _ = reply_tx
+                    .send(DaemonWirePacket::Pong {
+                        from_node: self.config.node_id.clone(),
+                        orig_send_ts_ms: send_ts_ms,
+                    })
+                    .await;
                 Ok(Some(from_node))
             }
-            DaemonWirePacket::Pong { from_node, orig_send_ts_ms } => {
+            DaemonWirePacket::Pong {
+                from_node,
+                orig_send_ts_ms,
+            } => {
                 let rtt = (now_ms.saturating_sub(orig_send_ts_ms)) as f32;
                 if let Some(peer) = self.peers.write().get_mut(&from_node) {
                     peer.latency_ms = (peer.latency_ms * 0.7) + (rtt * 0.3);
@@ -312,7 +348,12 @@ impl LiveP2PDaemon {
                 }
                 Ok(Some(from_node))
             }
-            DaemonWirePacket::GossipProposal { proposal_id, proposer, value, timestamp_ms: _ } => {
+            DaemonWirePacket::GossipProposal {
+                proposal_id,
+                proposer,
+                value,
+                timestamp_ms: _,
+            } => {
                 info!(
                     target: "federation::consensus",
                     %proposal_id,
@@ -320,30 +361,45 @@ impl LiveP2PDaemon {
                     %value,
                     "🗳️ Received Live Byzantine Gossip Proposal over TCP"
                 );
-                self.proposals_received.write().insert(proposal_id.clone(), (proposer.clone(), value));
+                self.proposals_received
+                    .write()
+                    .insert(proposal_id.clone(), (proposer.clone(), value));
 
                 // Auto-evaluate proposal: vote YES if well-formed
                 let vote = true;
-                self.gossip_votes.write()
+                self.gossip_votes
+                    .write()
                     .entry(proposal_id.clone())
                     .or_default()
                     .insert(self.config.node_id.clone(), vote);
 
-                let _ = reply_tx.send(DaemonWirePacket::GossipVote {
-                    proposal_id,
-                    voter: self.config.node_id.clone(),
-                    vote,
-                }).await;
+                let _ = reply_tx
+                    .send(DaemonWirePacket::GossipVote {
+                        proposal_id,
+                        voter: self.config.node_id.clone(),
+                        vote,
+                    })
+                    .await;
                 Ok(Some(proposer))
             }
-            DaemonWirePacket::GossipVote { proposal_id, voter, vote } => {
-                self.gossip_votes.write()
+            DaemonWirePacket::GossipVote {
+                proposal_id,
+                voter,
+                vote,
+            } => {
+                self.gossip_votes
+                    .write()
                     .entry(proposal_id)
                     .or_default()
                     .insert(voter.clone(), vote);
                 Ok(Some(voter))
             }
-            DaemonWirePacket::TaskOffloadRequest { task_id, caller_node, opcode, payload } => {
+            DaemonWirePacket::TaskOffloadRequest {
+                task_id,
+                caller_node,
+                opcode,
+                payload,
+            } => {
                 info!(
                     target: "federation::swarm",
                     %task_id,
@@ -367,16 +423,22 @@ impl LiveP2PDaemon {
                 self.tasks_processed_count.fetch_add(1, Ordering::Relaxed);
                 let duration_us = start.elapsed().as_micros() as u64;
 
-                let _ = reply_tx.send(DaemonWirePacket::TaskOffloadResponse {
-                    task_id,
-                    worker_node: self.config.node_id.clone(),
-                    success: true,
-                    result_payload: result_data,
-                    duration_us,
-                }).await;
+                let _ = reply_tx
+                    .send(DaemonWirePacket::TaskOffloadResponse {
+                        task_id,
+                        worker_node: self.config.node_id.clone(),
+                        success: true,
+                        result_payload: result_data,
+                        duration_us,
+                    })
+                    .await;
                 Ok(Some(caller_node))
             }
-            DaemonWirePacket::TaskOffloadResponse { ref task_id, ref worker_node, .. } => {
+            DaemonWirePacket::TaskOffloadResponse {
+                ref task_id,
+                ref worker_node,
+                ..
+            } => {
                 let node = worker_node.clone();
                 if let Some(sender) = self.pending_tasks.write().remove(task_id) {
                     let _ = sender.send(packet);
@@ -388,19 +450,27 @@ impl LiveP2PDaemon {
 
     /// Sends heartbeats to all connected peers
     async fn send_heartbeats(&self) {
-        let now_ms = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_millis() as u64;
+        let now_ms = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis() as u64;
         let channels = self.outbound_channels.read().clone();
         for (_, tx) in channels {
-            let _ = tx.send(DaemonWirePacket::Ping {
-                from_node: self.config.node_id.clone(),
-                send_ts_ms: now_ms,
-            }).await;
+            let _ = tx
+                .send(DaemonWirePacket::Ping {
+                    from_node: self.config.node_id.clone(),
+                    send_ts_ms: now_ms,
+                })
+                .await;
         }
     }
 
     /// Broadcasts a gossip proposal across all connected peers
     pub async fn broadcast_gossip(&self, proposal_id: &str, value: &str) -> Result<()> {
-        let now_ms = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_millis() as u64;
+        let now_ms = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis() as u64;
         let packet = DaemonWirePacket::GossipProposal {
             proposal_id: proposal_id.to_string(),
             proposer: self.config.node_id.clone(),
@@ -409,7 +479,8 @@ impl LiveP2PDaemon {
         };
 
         // Self-vote YES
-        self.gossip_votes.write()
+        self.gossip_votes
+            .write()
             .entry(proposal_id.to_string())
             .or_default()
             .insert(self.config.node_id.clone(), true);
@@ -422,7 +493,11 @@ impl LiveP2PDaemon {
     }
 
     /// Checks if Byzantine 2/3 Quorum is achieved for a proposal
-    pub fn check_gossip_quorum(&self, proposal_id: &str, total_cluster_nodes: usize) -> (bool, usize, usize) {
+    pub fn check_gossip_quorum(
+        &self,
+        proposal_id: &str,
+        total_cluster_nodes: usize,
+    ) -> (bool, usize, usize) {
         let votes = self.gossip_votes.read();
         if let Some(proposal_votes) = votes.get(proposal_id) {
             let yes_count = proposal_votes.values().filter(|&&v| v).count();
@@ -436,7 +511,11 @@ impl LiveP2PDaemon {
     }
 
     /// Offloads a micro-task to the lowest-latency connected peer hive
-    pub async fn offload_task_to_peer(&self, opcode: u16, payload: Vec<u8>) -> Result<(Vec<u8>, u64, String)> {
+    pub async fn offload_task_to_peer(
+        &self,
+        opcode: u16,
+        payload: Vec<u8>,
+    ) -> Result<(Vec<u8>, u64, String)> {
         let target_peer = {
             let peers = self.peers.read();
             let mut connected_peers: Vec<_> = peers.values().filter(|p| p.is_connected).collect();
@@ -449,7 +528,10 @@ impl LiveP2PDaemon {
 
         let tx = {
             let channels = self.outbound_channels.read();
-            channels.get(&target_peer).cloned().context("Peer channel closed")?
+            channels
+                .get(&target_peer)
+                .cloned()
+                .context("Peer channel closed")?
         };
 
         let task_id = uuid::Uuid::new_v4().to_string();
@@ -461,11 +543,21 @@ impl LiveP2PDaemon {
             caller_node: self.config.node_id.clone(),
             opcode,
             payload,
-        }).await.context("Failed to transmit offload packet")?;
+        })
+        .await
+        .context("Failed to transmit offload packet")?;
 
         // Await remote execution response with timeout
-        match tokio::time::timeout(Duration::from_millis(self.config.task_timeout_ms), resp_rx).await {
-            Ok(Ok(DaemonWirePacket::TaskOffloadResponse { task_id: _, worker_node, success, result_payload, duration_us })) => {
+        match tokio::time::timeout(Duration::from_millis(self.config.task_timeout_ms), resp_rx)
+            .await
+        {
+            Ok(Ok(DaemonWirePacket::TaskOffloadResponse {
+                task_id: _,
+                worker_node,
+                success,
+                result_payload,
+                duration_us,
+            })) => {
                 if success {
                     Ok((result_payload, duration_us, worker_node))
                 } else {
@@ -476,7 +568,10 @@ impl LiveP2PDaemon {
             Ok(Err(_)) => bail!("Task response channel dropped"),
             Err(_) => {
                 self.pending_tasks.write().remove(&task_id);
-                bail!("Task offload request timed out after {} ms", self.config.task_timeout_ms);
+                bail!(
+                    "Task offload request timed out after {} ms",
+                    self.config.task_timeout_ms
+                );
             }
         }
     }
@@ -517,7 +612,10 @@ mod tests {
         assert_eq!(daemon_b.connected_peer_count(), 1);
 
         // Test Live Byzantine Gossip Broadcast
-        daemon_a.broadcast_gossip("prop_001", "Update Global AST Vector").await.unwrap();
+        daemon_a
+            .broadcast_gossip("prop_001", "Update Global AST Vector")
+            .await
+            .unwrap();
         tokio::time::sleep(Duration::from_millis(150)).await;
 
         let (quorum, yes_votes, _) = daemon_a.check_gossip_quorum("prop_001", 2);
@@ -525,7 +623,10 @@ mod tests {
         assert_eq!(yes_votes, 2);
 
         // Test Swarm Task Offload from B to A
-        let (result, duration_us, worker) = daemon_b.offload_task_to_peer(0x0700, vec![1, 2, 3, 4]).await.unwrap();
+        let (result, duration_us, worker) = daemon_b
+            .offload_task_to_peer(0x0700, vec![1, 2, 3, 4])
+            .await
+            .unwrap();
         assert_eq!(worker, "hive-node-alpha");
         assert_eq!(result, vec![2, 3, 4, 5]);
         let _ = duration_us;
