@@ -378,6 +378,9 @@ impl eframe::App for StudioApp {
             self.state.show_achievements_modal = show_modal;
         }
 
+        // Operator Identity & Companion Modal
+        crate::hud::views::user_profile_modal::render_user_profile_modal(&ctx, &mut self.state);
+
         // Toast Notifications
         self.toasts.render(&ctx, theme);
 

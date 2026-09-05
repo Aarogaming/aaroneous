@@ -186,11 +186,25 @@ impl ConsoleOsLauncher {
             ui.separator();
 
             // Level & Achievements Pill
-            ui.label(
-                egui::RichText::new(format!("⭐ Lv. {}  •  🏆 {}/{}", state.user_level, state.achievements.unlocked_count(), state.achievements.total_count()))
-                    .color(Color32::from_rgb(255, 215, 0))
-                    .strong(),
-            );
+            if ui.button(egui::RichText::new(format!("⭐ Lv. {}  •  🏆 {}/{}", state.user_level, state.achievements.unlocked_count(), state.achievements.total_count()))
+                .color(Color32::from_rgb(255, 215, 0))
+                .strong()).clicked() {
+                state.show_achievements_modal = true;
+            }
+
+            ui.separator();
+
+            // Active User Profile & Flow State Pill
+            let prof = state.user_identity_engine.active_profile();
+            let flow_pct = (state.user_identity_engine.flow_score() * 100.0).round() as u32;
+            let user_badge = if prof.is_guest {
+                format!("👤 {} [Guest • {}%]", prof.display_name, flow_pct)
+            } else {
+                format!("👤 {} [Flow {}%]", prof.display_name, flow_pct)
+            };
+            if ui.button(egui::RichText::new(user_badge).color(Color32::from_rgb(56, 139, 253)).strong()).clicked() {
+                state.show_user_profile_modal = true;
+            }
 
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 if ui.button("🎛️ Utility Dashboard (F11)").clicked() {

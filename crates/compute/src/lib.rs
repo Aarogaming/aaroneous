@@ -2,56 +2,61 @@ pub mod automata;
 pub mod bayesian;
 pub mod burn_gpu;
 pub mod category;
+pub mod cognitive_equilibrium;
 pub mod control;
+pub mod cranelift_jit;
+pub mod crucible;
 pub mod entropy;
+pub mod episodic_memory;
+pub mod ffi_kernels;
 pub mod game_theory;
 pub mod graph;
+pub mod hippo;
 pub mod information;
+pub mod isolated_desktop;
 pub mod kalman;
+pub mod latent_guardrail;
+pub mod latent_router;
 pub mod linalg;
 pub mod machine_native;
+pub mod macro_ssm;
 pub mod mdps;
 pub mod mpc;
+pub mod multimodal_ssm;
 pub mod optimize;
 pub mod predictive_coding;
-pub mod signal;
-pub mod stochastic;
-pub mod thermodynamics;
-pub mod topology;
-pub mod si_binary;
-pub mod si_model;
-pub mod si_trainer;
-pub mod si_macro;
-pub mod si_ssm;
-pub mod si_skill_tree;
-pub mod si_tool;
-pub mod si_solid_state;
-pub mod latent_guardrail;
-pub mod si_self_play;
-pub mod si_jit;
-pub mod multimodal_ssm;
-pub mod translation_dataset;
-pub mod si_distillation_harness;
-pub mod si_packer;
-pub mod si_forge;
-pub mod latent_router;
 pub mod reflex_worker;
+pub mod si_binary;
 pub mod si_decoder;
-pub mod si_motor_tree;
-pub mod isolated_desktop;
-pub mod si_spec;
-pub mod wx_memory;
-pub mod cranelift_jit;
-pub mod cognitive_equilibrium;
-pub mod crucible;
-pub mod ffi_kernels;
-pub mod episodic_memory;
-pub mod hippo;
-pub mod macro_ssm;
+pub mod si_distillation_harness;
+pub mod si_forge;
+pub mod si_jit;
+pub mod si_macro;
+pub mod si_model;
 pub mod si_moe_register;
+pub mod si_motor_tree;
+pub mod si_packer;
+pub mod si_self_play;
+pub mod si_skill_tree;
+pub mod si_solid_state;
+pub mod si_spec;
+pub mod si_ssm;
+pub mod si_tool;
+pub mod si_trainer;
+pub mod signal;
 pub mod silicon_backend;
 pub mod state_bank;
+pub mod stochastic;
 pub mod tensor_buffer;
+pub mod thermodynamics;
+pub mod topology;
+pub mod translation_dataset;
+pub mod user_baseline;
+pub mod wx_memory;
+
+pub use user_baseline::{
+    AttentionState, KinematicBiomarkers, UserIdentityEngine, UserProfile,
+};
 
 pub use tensor_buffer::{TensorBuffer, UniversalTensorView};
 
@@ -66,60 +71,77 @@ pub use state_bank::{
 pub use cognitive_equilibrium::{
     AttentionSpectrum, CognitiveEquilibriumCoordinator, SomaticVitals, TriModalDecisionReport,
 };
-pub use crucible::{CrucibleDuelReport, CrucibleSandbox, VirtualScenario};
-pub use wx_memory::WxMemoryRegion;
 pub use cranelift_jit::{CraneliftJitEngine, NativeExecutionFn};
+pub use crucible::{CrucibleDuelReport, CrucibleSandbox, VirtualScenario};
 pub use episodic_memory::{
     simd_cosine_similarity_256, simd_dot_product_256, AcousticReflexMatcher, EpisodicMemoryFabric,
     SearchResult, TrajectoryMetadata, LATENT_VECTOR_DIM,
 };
 pub use hippo::{
-    generate_hippo_discretized, generate_hippo_legendre, discretize_bilinear,
-    HippoLegendreMatrices,
+    discretize_bilinear, generate_hippo_discretized, generate_hippo_legendre, HippoLegendreMatrices,
 };
 pub use macro_ssm::{ContinuousMacroSsm, MacroSsmConfig, MACRO_LATENT_DIM, MACRO_STATE_DIM};
 pub use si_moe_register::{
     CartridgeDescriptor, ExpertSlot, MoEExecutionReport, OrganDescriptor, OrganSlot, SiMoERegister,
     DEFAULT_MAX_EXPERT_SLOTS, DEFAULT_MAX_ORGAN_SLOTS,
 };
+pub use wx_memory::WxMemoryRegion;
 
 pub use burn_gpu::{GpuTensorAccelerator, GpuTensorProfile};
+pub use isolated_desktop::IsolatedDesktop;
+pub use latent_guardrail::{
+    ArgusSafetySentinel, LatentAuditVerdict, SafeHypersphereManifold, GUARDRAIL_DIM,
+};
+pub use latent_router::{LatentOrthogonalRouter, CORTEX_INTENT_DIM, SUBGOAL_DIM};
+pub use machine_native::{
+    DimensionalUnit, EdgeLinguisticLens, MachineNativePredictionEngine, MachineOpcode,
+    NativeComputationNode, NativeComputationalGraph, NativeTypeLattice,
+};
+pub use multimodal_ssm::{
+    AcousticIntentProjector, MultimodalSensoryFrame, PixelDiffProjector,
+    TemporalModalitySynchronizer, MULTIMODAL_LATENT_DIM,
+};
+pub use reflex_worker::ReflexWorker;
+pub use si_binary::{SiCorpusStore, SiThoughtHeader, SiThoughtPacket, SI_MAGIC_BYTES};
+pub use si_decoder::{ActionDecoder, DecodedActionCommand, DECODER_INTENT_DIM};
+pub use si_distillation_harness::{BootstrapConfig, BootstrapReport, SiDistillationHarness};
+pub use si_forge::SiForge;
+pub use si_jit::{
+    CompiledReflexHandle, CrystallizationMetrics, MemoryProtectionState, NativeExecutionContext,
+    SiJitCompilerEngine, JIT_INTENT_DIM,
+};
+pub use si_macro::{SiMacroEngine, SiMacroMetadata};
+pub use si_model::{
+    SiGraphLayer, SiModel, SiModelConfig, SiModelPrediction, SI_MODEL_MAGIC, SI_OPCODE_VOCAB_SIZE,
+};
+pub use si_motor_tree::{MotorCortex, MotorSkillNode, SkillType, StarState, MOTOR_INTENT_DIM};
+pub use si_packer::{
+    compute_padding, SiContainerManifest, SiPacker, SiSolidStateLoader, SiTierFlags,
+    TensorDescriptor, ALIGNMENT_BYTES, SINT_PACKER_MAGIC, SINT_PACKER_VERSION,
+};
+pub use si_self_play::{AsymmetricDuelReport, DreamGoal, SelfPlayStepResult, SiSelfPlayEngine};
+pub use si_skill_tree::{SiSkillModule, SkillExpansionEngine, SkillMaturityStatus};
+pub use si_solid_state::{
+    DynamicAdaptationMatrix, OnlineCorrectionReport, SafetyCheckResult, SiOnlineLearner,
+    SolidStateSiContainer, SI_SOLID_STATE_MAGIC, SI_SOLID_STATE_VERSION,
+};
 pub use si_spec::{
     compute_crc32, SiCartridgeDeconstructed, SiCartridgeDiffReport, SiCartridgeEngine,
     SiCartridgeHeader, SiCartridgeReport, SI_CANONICAL_MAGIC, SI_CANONICAL_VERSION,
     SI_FLAG_TIER_1_CORTEX, SI_FLAG_TIER_2_ROUTER, SI_FLAG_TIER_3_REFLEX, SI_HEADER_SIZE,
 };
-pub use machine_native::{
-    DimensionalUnit, EdgeLinguisticLens, MachineNativePredictionEngine, MachineOpcode,
-    NativeComputationNode, NativeComputationalGraph, NativeTypeLattice,
+pub use si_ssm::{
+    SiSsmConfig, SiStateSpaceModel, SsmLayerBlock, SsmStatePrediction, TreeSsmNode, SI_SSM_MAGIC,
+    SI_SSM_VERSION,
 };
-pub use si_binary::{SiCorpusStore, SiThoughtHeader, SiThoughtPacket, SI_MAGIC_BYTES};
-pub use si_model::{SiGraphLayer, SiModel, SiModelConfig, SiModelPrediction, SI_MODEL_MAGIC, SI_OPCODE_VOCAB_SIZE};
-pub use si_trainer::{gelu, gelu_prime, LatentGELUBottleneckBridge, SiModelTrainer, SiTrainerConfig, TrainingEpochReport};
-pub use si_macro::{SiMacroEngine, SiMacroMetadata};
-pub use si_ssm::{SiSsmConfig, SiStateSpaceModel, SsmLayerBlock, SsmStatePrediction, TreeSsmNode, SI_SSM_MAGIC, SI_SSM_VERSION};
-pub use si_skill_tree::{SiSkillModule, SkillExpansionEngine, SkillMaturityStatus};
 pub use si_tool::{SiBenchmarkReport, SiInspectorReport, SiToolEngine};
-pub use si_solid_state::{
-    DynamicAdaptationMatrix, OnlineCorrectionReport, SafetyCheckResult, SiOnlineLearner, SolidStateSiContainer,
-    SI_SOLID_STATE_MAGIC, SI_SOLID_STATE_VERSION,
+pub use si_trainer::{
+    gelu, gelu_prime, LatentGELUBottleneckBridge, SiModelTrainer, SiTrainerConfig,
+    TrainingEpochReport,
 };
-pub use latent_guardrail::{ArgusSafetySentinel, LatentAuditVerdict, SafeHypersphereManifold, GUARDRAIL_DIM};
-pub use si_self_play::{AsymmetricDuelReport, DreamGoal, SelfPlayStepResult, SiSelfPlayEngine};
-pub use si_jit::{CompiledReflexHandle, CrystallizationMetrics, MemoryProtectionState, NativeExecutionContext, SiJitCompilerEngine, JIT_INTENT_DIM};
-pub use multimodal_ssm::{AcousticIntentProjector, MultimodalSensoryFrame, PixelDiffProjector, TemporalModalitySynchronizer, MULTIMODAL_LATENT_DIM};
-pub use translation_dataset::{TranslationDataset, RosettaTrajectoryStep, ROSETTA_LATENT_DIM, ROSETTA_TEACHER_DIM};
-pub use si_distillation_harness::{BootstrapConfig, BootstrapReport, SiDistillationHarness};
-pub use si_packer::{
-    compute_padding, SiContainerManifest, SiPacker, SiSolidStateLoader, SiTierFlags,
-    TensorDescriptor, ALIGNMENT_BYTES, SINT_PACKER_MAGIC, SINT_PACKER_VERSION,
+pub use translation_dataset::{
+    RosettaTrajectoryStep, TranslationDataset, ROSETTA_LATENT_DIM, ROSETTA_TEACHER_DIM,
 };
-pub use si_forge::SiForge;
-pub use latent_router::{LatentOrthogonalRouter, CORTEX_INTENT_DIM, SUBGOAL_DIM};
-pub use reflex_worker::ReflexWorker;
-pub use si_decoder::{ActionDecoder, DecodedActionCommand, DECODER_INTENT_DIM};
-pub use si_motor_tree::{MotorCortex, MotorSkillNode, SkillType, StarState, MOTOR_INTENT_DIM};
-pub use isolated_desktop::IsolatedDesktop;
 pub extern crate ipc_bus as nervous_system;
 pub use ipc_bus;
 use ipc_bus::SharedMemorySynapse;
@@ -347,6 +369,9 @@ mod tests {
         let input = vec![1.0];
         let result = engine.execute("nonexistent_task", &input);
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("Unknown compute task"));
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Unknown compute task"));
     }
 }

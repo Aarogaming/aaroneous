@@ -6,11 +6,11 @@ pub mod archetypes;
 pub mod aura_ui;
 pub mod aura_ui_manifest;
 pub mod cartridge_manager;
-pub mod control;
-pub mod dynamic_ui;
 pub mod compaction_engine;
-pub mod hive_runtime;
+pub mod control;
 pub mod crucible_provider;
+pub mod dynamic_ui;
+pub mod hive_runtime;
 pub mod intent_engine;
 pub mod linguistic_intercom;
 pub mod linguistic_transducer;
@@ -27,8 +27,12 @@ pub use cartridge_manager::{
     CartridgePackManager, CartridgePackManifest, HardwareAutoTuner, HostSystemProfile,
 };
 pub use crucible_provider::{CrucibleTeacherEndpoint, TeacherBackendConfig, UniversalHttpTeacher};
-pub use linguistic_intercom::{ExecutionDomain, LinguisticIntercom, TransducedIntent};
-pub use lmstudio_client::{ChatChoice, ChatCompletionRequest, ChatCompletionResponse, ChatMessage, LmStudioClient};
+pub use linguistic_intercom::{
+    CompanionPersona, ExecutionDomain, LinguisticIntercom, TransducedIntent,
+};
+pub use lmstudio_client::{
+    ChatChoice, ChatCompletionRequest, ChatCompletionResponse, ChatMessage, LmStudioClient,
+};
 
 pub extern crate ipc_bus as nervous_system;
 pub use ipc_bus;
@@ -39,7 +43,7 @@ pub use compaction_engine::{
     CompactionEngine, CompactionSummary, HibernationManifest, SpecialistHibernationEngine,
     SpecialistHibernationState,
 };
-pub use tier_allocator::{pin_current_thread_to_core, TierRuntimeAllocator, PantheonOrchestrator};
+pub use tier_allocator::{pin_current_thread_to_core, PantheonOrchestrator, TierRuntimeAllocator};
 
 pub use dynamic_ui::{
     DynamicUiNode, DynamicUiSynthesizer, DynamicWindowManifest, NonOverlapSolver, RectAabb,
@@ -60,12 +64,14 @@ pub use control::{parse_control_message, ControlMessage, ControlPlane, Specialis
 pub use hive_runtime::{HiveRuntime, HiveRuntimeConfig, RuntimeStatistics, RuntimeStatus};
 
 // Re-export intelligence & router
+pub use intent_engine::{DispatchResult, IntentEngine, ParsedIntent};
 pub use llm::{LLMClient, LLMConfig, ProviderType, TaskAnalysis, TaskAnalysisContext};
-pub use mdps_router::{RoutableTask, RoutingDecision, SpecialistRoute, Specialist, TaskRoutingEngine, TaskType};
+pub use mdps_router::{
+    RoutableTask, RoutingDecision, Specialist, SpecialistRoute, TaskRoutingEngine, TaskType,
+};
+pub use swarm_balancer::{SwarmBalancer, SwarmHealth, SwarmWorker};
 pub use workflow_engine::{StepStatus, WorkflowGraph, WorkflowStep};
 pub use workspace::WorkspacePaths;
-pub use intent_engine::{IntentEngine, ParsedIntent, DispatchResult};
-pub use swarm_balancer::{SwarmBalancer, SwarmWorker, SwarmHealth};
 
 /// Aligned type alias for the MDP Task Router
 pub type MdpTaskRouter = TaskRoutingEngine;
@@ -91,10 +97,12 @@ impl IntelligenceEngine {
         })
     }
 
-    pub async fn new_async(config: LLMConfig, specialists: Vec<Specialist>) -> anyhow::Result<Self> {
+    pub async fn new_async(
+        config: LLMConfig,
+        specialists: Vec<Specialist>,
+    ) -> anyhow::Result<Self> {
         Ok(Self {
-            synapse: SharedMemorySynapse::new("SAB_STORE", 1024 * 1024)
-                .await?,
+            synapse: SharedMemorySynapse::new("SAB_STORE", 1024 * 1024).await?,
             client: LLMClient::new(config),
             router: TaskRoutingEngine::new(specialists),
         })

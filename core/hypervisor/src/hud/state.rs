@@ -663,6 +663,11 @@ pub struct SharedHudState {
     pub industrial_registers: platform_bridge::ot_bridge::IndustrialRegisterBank,
     pub ot_available_ports: Vec<String>,
     pub ot_selected_port: String,
+
+    // User Kinematic Biometrics, Multi-User Identity & Conversational Intercom
+    pub user_identity_engine: compute::UserIdentityEngine,
+    pub show_user_profile_modal: bool,
+    pub intercom: orchestrator::LinguisticIntercom,
 }
 
 impl Default for SharedHudState {
@@ -1078,6 +1083,9 @@ impl Default for SharedHudState {
                 .map(|p| p.port_name)
                 .collect(),
             ot_selected_port: "COM1".to_string(),
+            user_identity_engine: compute::UserIdentityEngine::default(),
+            show_user_profile_modal: false,
+            intercom: orchestrator::LinguisticIntercom::default(),
         }
     }
 }

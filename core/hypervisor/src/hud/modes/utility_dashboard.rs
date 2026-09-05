@@ -21,6 +21,17 @@ pub fn render_utility_dashboard(ui: &mut egui::Ui, state: &mut SharedHudState) {
                         .size(15.0),
                 );
 
+                let prof = state.user_identity_engine.active_profile();
+                let flow_pct = (state.user_identity_engine.flow_score() * 100.0).round() as u32;
+                let user_badge = if prof.is_guest {
+                    format!("👤 {} [Guest • {}%]", prof.display_name, flow_pct)
+                } else {
+                    format!("👤 {} [Flow {}%]", prof.display_name, flow_pct)
+                };
+                if ui.button(egui::RichText::new(user_badge).color(Color32::from_rgb(56, 139, 253)).strong()).clicked() {
+                    state.show_user_profile_modal = true;
+                }
+
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                     if ui.button("🎮 Switch to Console-OS (F11)").clicked() {
                         state.app_window_mode = AppWindowMode::ConsoleGameOS;

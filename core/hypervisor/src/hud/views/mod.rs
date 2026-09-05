@@ -10,6 +10,7 @@ pub mod signal_analyzer;
 pub mod skill_constellation_3d;
 pub mod spatial_sensory;
 pub mod system_thermo;
+pub mod user_profile_modal;
 pub mod workbench;
 
 pub use agents_hub::AgentsHubView;
