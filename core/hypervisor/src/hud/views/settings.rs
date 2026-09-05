@@ -209,6 +209,9 @@ impl HudView for SettingsView {
             if ui.checkbox(&mut state.settings.auto_recompile_on_save, "Auto-Optimize Routines on Save").changed() {
                 state.settings.save_to_disk();
             }
+            if ui.checkbox(&mut state.settings.show_welcome_guide_on_startup, "Show Interactive Onboarding Guide on Launch").changed() {
+                state.settings.save_to_disk();
+            }
 
             ui.add_space(16.0);
 

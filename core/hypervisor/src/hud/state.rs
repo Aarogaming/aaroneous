@@ -216,15 +216,17 @@ pub enum AgentsSubTab {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SiForgeSubTab {
     CartridgeFoundry,
+    SkillConstellation,
     NeurochemistryAndPlay,
     SmartMacros,
 }
 
-/// Discord-Style Screen & Application Sharing Mode
+/// Discord-Style Screen & Application Sharing Mode + Routine Builder
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ScreenShareTab {
     Screens,
     Applications,
+    RoutineBuilder,
 }
 
 /// Application Window Display Mode
@@ -250,6 +252,7 @@ pub struct UserSettings {
     pub close_to_tray: bool,
     pub modular_canvas_mode: bool,
     pub workspace_root_override: Option<PathBuf>,
+    pub show_welcome_guide_on_startup: bool,
 }
 
 impl Default for UserSettings {
@@ -268,6 +271,7 @@ impl Default for UserSettings {
             close_to_tray: true,
             modular_canvas_mode: false,
             workspace_root_override: None,
+            show_welcome_guide_on_startup: true,
         }
     }
 }
@@ -639,6 +643,8 @@ pub struct SharedHudState {
     pub user_xp: u64,
     pub user_level: u32,
     pub xp_notification: Option<String>,
+    pub achievements: crate::hud::achievements::AchievementManager,
+    pub show_achievements_modal: bool,
 
     // Spatial Canvas Scene & Window Topology
     pub spatial_canvas_scene: SpatialCanvasScene,
@@ -1056,6 +1062,8 @@ impl Default for SharedHudState {
             user_xp: 350,
             user_level: 2,
             xp_notification: None,
+            achievements: crate::hud::achievements::AchievementManager::default(),
+            show_achievements_modal: false,
             spatial_canvas_scene: SpatialCanvasScene::new(),
             auto_pilot_telemetry: crate::hud::auto_pilot::AutoPilotTelemetry::default(),
             auto_pilot_toggle_requested: false,
@@ -1088,6 +1096,14 @@ impl SharedHudState {
             self.xp_notification = Some(format!("🎉 LEVEL UP! Reached Level {} (+{} XP: {})", self.user_level, amount, reason));
         } else {
             self.xp_notification = Some(format!("✨ +{} XP ({})", amount, reason));
+        }
+    }
+
+    pub fn trigger_achievement_progress(&mut self, achievement_id: &str, amount: u64) {
+        if let Some(unlocked) = self.achievements.record_progress(achievement_id, amount) {
+            let xp = unlocked.xp_reward;
+            let title = unlocked.title.clone();
+            self.award_xp(xp, &format!("Achievement Unlocked: {}", title));
         }
     }
 

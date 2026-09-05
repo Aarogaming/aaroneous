@@ -138,7 +138,7 @@ impl HudView for ScreenAutomationView {
 
         ui.separator();
 
-        // ── Window & Screen Picker ──────────────────────────────────────────────
+        // ── Window, Screen & Routine Picker ──────────────────────────────────────
         ui.horizontal(|ui| {
             ui.selectable_value(
                 &mut state.screen_share_tab,
@@ -150,14 +150,66 @@ impl HudView for ScreenAutomationView {
                 ScreenShareTab::Screens,
                 "🖥️ Entire Screen",
             );
+            ui.selectable_value(
+                &mut state.screen_share_tab,
+                ScreenShareTab::RoutineBuilder,
+                "🛠️ Routine Builder",
+            );
         });
 
         ui.add_space(8.0);
 
         ui.columns(2, |cols| {
-            // Left Column: Discovered Target Windows
+            // Left Column: Discovered Target Windows / Routine Builder
             cols[0].vertical(|ui| {
                 match state.screen_share_tab {
+                    ScreenShareTab::RoutineBuilder => {
+                        ui.label(egui::RichText::new("🛠️ Visual Routine Builder & Training").strong().color(theme.accent()));
+                        ui.label("Chain mouse, keyboard, and delay steps into an automated skill routine.");
+                        ui.add_space(4.0);
+
+                        egui::ScrollArea::vertical()
+                            .max_height(240.0)
+                            .show(ui, |ui| {
+                                let steps = [
+                                    ("1. 🖱️ Move to Target", "Bézier curve to [X: 420, Y: 360] (35ms)", true),
+                                    ("2. 🖱️ Left Click", "Simulate human tap (65ms release)", true),
+                                    ("3. ⏱️ Sensory Delay", "Wait 150ms for frame update", true),
+                                    ("4. ⌨️ Key Sequence", "Press [Ctrl+S] to save workspace", true),
+                                ];
+
+                                for (name, desc, ok) in steps {
+                                    egui::Frame::group(ui.style())
+                                        .fill(theme.card_bg())
+                                        .corner_radius(eframe::egui::CornerRadius::same(4))
+                                        .show(ui, |ui| {
+                                            ui.horizontal(|ui| {
+                                                ui.label(egui::RichText::new(name).strong());
+                                                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                                                    if ok {
+                                                        ui.label(egui::RichText::new("Ready").color(Color32::from_rgb(63, 185, 80)).size(11.0));
+                                                    }
+                                                });
+                                            });
+                                            ui.label(egui::RichText::new(desc).size(10.5).color(Color32::GRAY));
+                                        });
+                                    ui.add_space(2.0);
+                                }
+                            });
+
+                        ui.add_space(4.0);
+                        ui.horizontal(|ui| {
+                            if ui.button("▶️ Test Emulate (F12)").clicked() {
+                                state.is_ingame_overlay_open = true;
+                                state.trigger_achievement_progress("ghost_in_the_machine", 1);
+                                state.award_xp(25, "Tested Routine Emulation");
+                            }
+                            if ui.button(egui::RichText::new("⚡ Train & Pack into .si").strong().color(Color32::WHITE)).clicked() {
+                                state.trigger_achievement_progress("routine_architect", 1);
+                                state.award_xp(150, "Created & Trained .si Routine");
+                            }
+                        });
+                    }
                     ScreenShareTab::Applications => {
                         ui.label(egui::RichText::new("Select Application Target:").strong());
                         egui::ScrollArea::vertical()

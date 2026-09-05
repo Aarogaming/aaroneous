@@ -43,6 +43,7 @@ impl HudView for SiForgeView {
         ui.horizontal(|ui| {
             let tabs = [
                 (SiForgeSubTab::CartridgeFoundry, "⚡ Model Foundry"),
+                (SiForgeSubTab::SkillConstellation, "🌌 Skill Constellations"),
                 (
                     SiForgeSubTab::NeurochemistryAndPlay,
                     "🧠 Performance Tuning & Practice",
@@ -350,6 +351,11 @@ impl HudView for SiForgeView {
                         });
                     });
                 });
+            }
+
+            SiForgeSubTab::SkillConstellation => {
+                let mut constellation_view = crate::hud::views::SkillConstellation3DView::default();
+                constellation_view.render(ui, state);
             }
 
             SiForgeSubTab::NeurochemistryAndPlay => {

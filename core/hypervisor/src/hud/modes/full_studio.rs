@@ -58,8 +58,13 @@ pub fn render_full_studio(
                 let next_xp = (level as u64) * 250;
                 let progress = (xp as f32 / next_xp as f32).clamp(0.0, 1.0);
                 ui.horizontal(|ui| {
-                    ui.label(egui::RichText::new(format!("⭐ Lv. {}", level)).strong().color(Color32::from_rgb(255, 215, 0)));
+                    if ui.button(egui::RichText::new(format!("⭐ Lv. {}", level)).strong().color(Color32::from_rgb(255, 215, 0))).clicked() {
+                        state.show_achievements_modal = !state.show_achievements_modal;
+                    }
                     ui.add(egui::ProgressBar::new(progress).text(format!("{}/{} XP", xp, next_xp)).desired_width(110.0));
+                    if ui.button(egui::RichText::new(format!("🏆 {}/{}", state.achievements.unlocked_count(), state.achievements.total_count())).color(Color32::from_rgb(255, 200, 80)).size(11.0)).clicked() {
+                        state.show_achievements_modal = !state.show_achievements_modal;
+                    }
                     if let Some(notif) = &state.xp_notification {
                         ui.label(egui::RichText::new(notif).color(Color32::from_rgb(63, 185, 80)).strong().size(11.0));
                     }

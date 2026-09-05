@@ -1,12 +1,14 @@
 // core/hypervisor/src/hud/mod.rs
 //! Aaroneous Desktop Studio & Spatial Window Manager HUD.
 
+pub mod achievements;
 pub mod app;
 pub mod auto_pilot;
 pub mod companion_overlay;
 pub mod fascia;
 pub mod modes;
 pub mod navigation;
+pub mod onboarding;
 pub mod state;
 pub mod theme;
 pub mod transformer_bridge;
