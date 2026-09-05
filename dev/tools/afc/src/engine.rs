@@ -264,7 +264,7 @@ impl FlightEngine {
         }
 
         info!("==========================================================");
-        info!("🎉 Autonomous Flight Controller execution complete!");
+        info!("Autonomous Flight Controller execution complete!");
         info!("==========================================================");
 
         Ok(())

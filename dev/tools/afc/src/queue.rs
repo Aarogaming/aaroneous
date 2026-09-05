@@ -131,7 +131,7 @@ impl QueueManager {
         let now = Local::now().format("%Y-%m-%d %H:%M").to_string();
         info!("Sweep: Archiving {swept_count} resolved task(s)");
 
-        let repair_header = format!("\n### 🛠️ Batch Remediation Sweep [{now}]\n\n");
+        let repair_header = format!("\n### Batch Remediation Sweep [{now}]\n\n");
         let repair_block = format!("{repair_header}{}\n", repair_entries.join("\n\n"));
         if repair_log_path.exists() {
             let mut existing = fs::read_to_string(repair_log_path)
@@ -147,7 +147,7 @@ impl QueueManager {
             let changelog_content = fs::read_to_string(changelog_path).await.unwrap_or_default();
             if changelog_content.contains("## [Unreleased]") {
                 let unreleased_block = format!(
-                    "## [Unreleased]\n\n### 🛡️ Automated Audit Remediations [{now}]\n{}\n",
+                    "## [Unreleased]\n\n### Automated Audit Remediations [{now}]\n{}\n",
                     changelog_entries.join("\n")
                 );
                 let updated = changelog_content.replacen("## [Unreleased]", &unreleased_block, 1);

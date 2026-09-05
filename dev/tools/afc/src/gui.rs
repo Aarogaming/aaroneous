@@ -203,7 +203,7 @@ impl eframe::App for FlightControllerApp {
         egui::Panel::top("flight_top_bar").show_inside(ui, |ui| {
             ui.add_space(6.0);
             ui.horizontal(|ui| {
-                ui.heading("✈ Aaroneous Flight Controller");
+                ui.heading("Aaroneous Flight Controller");
                 ui.label(egui::RichText::new("v0.1.0").color(egui::Color32::GRAY));
 
                 ui.separator();
@@ -216,7 +216,7 @@ impl eframe::App for FlightControllerApp {
                         discovered_models,
                     } => {
                         let badge = ui.label(
-                            egui::RichText::new(format!("🟢 {provider}: {configured_model}"))
+                            egui::RichText::new(format!("[Online] {provider}: {configured_model}"))
                                 .color(egui::Color32::from_rgb(80, 230, 130))
                                 .strong(),
                         );
@@ -226,7 +226,7 @@ impl eframe::App for FlightControllerApp {
                             ui.separator();
                             ui.label("Discovered Endpoint Models:");
                             for m in discovered_models {
-                                ui.label(format!("  • {m}"));
+                                ui.label(format!("  - {m}"));
                             }
                         });
                     }
@@ -236,7 +236,7 @@ impl eframe::App for FlightControllerApp {
                         reason,
                     } => {
                         let badge = ui.label(
-                            egui::RichText::new(format!("🔴 {provider} Offline"))
+                            egui::RichText::new(format!("[Offline] {provider}"))
                                 .color(egui::Color32::from_rgb(255, 90, 90))
                                 .strong(),
                         );
@@ -247,7 +247,7 @@ impl eframe::App for FlightControllerApp {
                     }
                     ModelEndpointStatus::Unconfigured => {
                         ui.label(
-                            egui::RichText::new("⚪ Checking AI Provider...")
+                            egui::RichText::new("[Checking] AI Provider...")
                                 .color(egui::Color32::GRAY),
                         );
                     }
@@ -263,7 +263,7 @@ impl eframe::App for FlightControllerApp {
                     };
 
                     ui.label(
-                        egui::RichText::new(format!("● {}", self.active_phase))
+                        egui::RichText::new(format!("[{}]", self.active_phase))
                             .color(status_color)
                             .strong(),
                     );
@@ -291,7 +291,7 @@ impl eframe::App for FlightControllerApp {
                 if !self.running {
                     if ui
                         .button(
-                            egui::RichText::new("▶ Launch Autonomous Flight")
+                            egui::RichText::new("Launch Autonomous Flight")
                                 .color(egui::Color32::GREEN)
                                 .strong(),
                         )
@@ -303,7 +303,7 @@ impl eframe::App for FlightControllerApp {
                     }
                 } else if ui
                     .button(
-                        egui::RichText::new("⏹ Abort Flight")
+                        egui::RichText::new("Abort Flight")
                             .color(egui::Color32::RED)
                             .strong(),
                     )
@@ -314,7 +314,7 @@ impl eframe::App for FlightControllerApp {
                     let _ = self.tx_cmd.send(FlightCommand::Stop);
                 }
 
-                if ui.button("🔄 Probe Model").clicked() {
+                if ui.button("Probe Model").clicked() {
                     let _ = self.tx_cmd.send(FlightCommand::ProbeModel);
                 }
 
@@ -328,7 +328,7 @@ impl eframe::App for FlightControllerApp {
         // ── Multiselect Phase & Audit Control Panels ──────────────────────────
         egui::Panel::top("multiselect_panel").show_inside(ui, |ui| {
             ui.add_space(2.0);
-            ui.collapsing("⚙ Pipeline Phase Selection (Multiselect)", |ui| {
+            ui.collapsing("Pipeline Phase Selection (Multiselect)", |ui| {
                 ui.horizontal_wrapped(|ui| {
                     ui.checkbox(&mut self.config.phase_plan, "1. Plan (Architect)");
                     ui.checkbox(&mut self.config.phase_audit, "2. Audit (Forensics)");
@@ -340,24 +340,24 @@ impl eframe::App for FlightControllerApp {
                 });
             });
 
-            ui.collapsing("🔍 Forensic Audit Types (Multiselect)", |ui| {
+            ui.collapsing("Forensic Audit Types (Multiselect)", |ui| {
                 ui.horizontal_wrapped(|ui| {
-                    ui.checkbox(&mut self.config.audit_security, "🛡️ Security & CVEs");
-                    ui.checkbox(&mut self.config.audit_panics, "⚠️ Panic & Unwrap Removal");
+                    ui.checkbox(&mut self.config.audit_security, "Security & CVEs");
+                    ui.checkbox(&mut self.config.audit_panics, "Panic & Unwrap Removal");
                     ui.checkbox(
                         &mut self.config.audit_concurrency,
-                        "🔒 Concurrency & Lock Safety",
+                        "Concurrency & Lock Safety",
                     );
-                    ui.checkbox(&mut self.config.audit_dead_code, "🗑️ Dead Code & Stubs");
-                    ui.checkbox(&mut self.config.audit_health, "🏥 SystemsHealthAuditor");
+                    ui.checkbox(&mut self.config.audit_dead_code, "Dead Code & Stubs");
+                    ui.checkbox(&mut self.config.audit_health, "SystemsHealthAuditor");
                     ui.checkbox(
                         &mut self.config.audit_resilience,
-                        "⚡ AdvancedResilienceAuditor",
+                        "AdvancedResilienceAuditor",
                     );
                 });
             });
 
-            ui.collapsing("🛡️ CI/CD Quality Gatekeeper Toggles", |ui| {
+            ui.collapsing("CI/CD Quality Gatekeeper Toggles", |ui| {
                 ui.horizontal_wrapped(|ui| {
                     ui.checkbox(&mut self.config.clippy_gate, "Clippy Gate");
                     ui.checkbox(&mut self.config.run_tests, "Test Gate");
@@ -377,7 +377,7 @@ impl eframe::App for FlightControllerApp {
             .show_inside(ui, |ui| {
                 ui.add_space(4.0);
                 ui.horizontal(|ui| {
-                    ui.label(egui::RichText::new("📋 Active Audit Queue").strong());
+                    ui.label(egui::RichText::new("Active Audit Queue").strong());
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                         ui.label(format!("{} pending", self.pending_tasks.len()));
                     });
@@ -387,13 +387,13 @@ impl eframe::App for FlightControllerApp {
                 egui::ScrollArea::vertical().show(ui, |ui| {
                     if self.pending_tasks.is_empty() {
                         ui.label(
-                            egui::RichText::new("✨ Queue is empty! No pending defects.")
+                            egui::RichText::new("Queue is empty. No pending defects.")
                                 .color(egui::Color32::GRAY),
                         );
                     } else {
                         for task in &self.pending_tasks {
                             ui.horizontal(|ui| {
-                                ui.label("⏳");
+                                ui.label("-");
                                 ui.label(egui::RichText::new(task).small());
                             });
                         }
@@ -405,7 +405,7 @@ impl eframe::App for FlightControllerApp {
         ui.vertical(|ui| {
             ui.add_space(4.0);
             ui.horizontal(|ui| {
-                ui.label(egui::RichText::new("📡 Live Mission Telemetry").strong());
+                ui.label(egui::RichText::new("Live Mission Telemetry").strong());
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                     if ui.button("Clear Logs").clicked() {
                         self.logs.clear();
