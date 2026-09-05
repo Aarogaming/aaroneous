@@ -6,10 +6,12 @@ version = 4
 name = "a_run"
 version = "0.1.0"
 dependencies = [
+ "aaroneous_api",
  "aaroneous_paths",
  "aaroneous_wire",
  "adaptation_engine",
  "anyhow",
+ "arboard",
  "async-nats",
  "async-stream",
  "async-trait",
@@ -81,6 +83,7 @@ dependencies = [
  "si_ir",
  "strum 0.26.3",
  "strum_macros 0.26.4",
+ "subtle",
  "sysinfo 0.39.6",
  "tar",
  "tempfile",
@@ -102,6 +105,14 @@ dependencies = [
  "windows 0.62.2",
  "windows-service",
  "zstd",
+]
+
+[[package]]
+name = "aaroneous_api"
+version = "0.1.0"
+dependencies = [
+ "eframe",
+ "egui",
 ]
 
 [[package]]
@@ -3930,6 +3941,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "34aa73646ffb006b8f5147f3dc182bd4bcb190227ce861fc4a4844bf8e3cb2c0"
 
 [[package]]
+name = "encoding_rs"
+version = "0.8.35"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "75030f3c4f45dafd7586dd6780965a8c7e8e285a5ecb86713e63a79c5b2766f3"
+dependencies = [
+ "cfg-if",
+]
+
+[[package]]
 name = "endi"
 version = "1.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4291,6 +4311,22 @@ checksum = "843fba2746e448b37e26a819579957415c8cef339bf08564fe8b7ddbd959573c"
 dependencies = [
  "crc32fast",
  "miniz_oxide",
+]
+
+[[package]]
+name = "flight_controller"
+version = "0.3.2"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "clap",
+ "regex",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.20",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]
@@ -5453,9 +5489,11 @@ dependencies = [
  "percent-encoding",
  "pin-project-lite",
  "socket2",
+ "system-configuration",
  "tokio",
  "tower-service",
  "tracing",
+ "windows-registry",
 ]
 
 [[package]]
@@ -7972,6 +8010,7 @@ dependencies = [
  "ipc_bus",
  "llama-gguf",
  "memmap2 0.9.11",
+ "notify",
  "rand 0.8.7",
  "reqwest 0.12.28",
  "serde",
@@ -8354,10 +8393,12 @@ dependencies = [
  "anyhow",
  "async-trait",
  "compute",
+ "nvml-wrapper",
  "parking_lot",
  "rustfft",
  "serde",
  "serde_json",
+ "sysinfo 0.30.13",
  "tokio",
  "tokio-serial",
  "tracing",
@@ -9361,8 +9402,11 @@ checksum = "219c5811de6525e5416c7d5d53bb656d3afdbc6c5af816e0802bcfa42dbdc1c3"
 dependencies = [
  "base64 0.22.1",
  "bytes",
+ "encoding_rs",
+ "futures-channel",
  "futures-core",
  "futures-util",
+ "h2",
  "http",
  "http-body",
  "http-body-util",
@@ -9371,6 +9415,7 @@ dependencies = [
  "hyper-util",
  "js-sys",
  "log",
+ "mime",
  "percent-encoding",
  "pin-project-lite",
  "quinn",
@@ -9775,6 +9820,18 @@ name = "scopeguard"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "94143f37725109f92c262ed2cf5e59bce7498c01bcc1502d7b9afe439a4e9f49"
+
+[[package]]
+name = "scratchpad"
+version = "0.1.0"
+dependencies = [
+ "aaroneous_api",
+ "eframe",
+ "egui",
+ "reqwest 0.13.4",
+ "serde",
+ "serde_json",
+]
 
 [[package]]
 name = "scroll"
