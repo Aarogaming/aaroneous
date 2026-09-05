@@ -4,7 +4,38 @@ All notable changes to Aaroneous.
 
 > **Architectural Note:** References in historical changelog sections (< v0.1.0) to `components/*` describe the legacy monolithic prototype layout. In v0.1.0+, all components were refactored into `core/hypervisor` and the 12 sovereign `crates/*` workspace crates.
 
+## [Unreleased]
+
+### 🛡️ Security Hardening & Plugin Architecture
+- **`core/hypervisor/src/hud/plugin_api.rs` (SEC-01)**:
+  - Replaced unsafe fat pointer `*mut dyn UiCartridge` with C-compatible `#[repr(C)]` opaque pointer scheme to prevent cross-DLL heap corruption.
+  - Added SHA-256 integrity verification (`compute_file_hash()`) and signature validation (`validate_signature()`) before loading any dynamic plugin library.
+  - Implemented destructor symbol lookup (`free_plugin`) ensuring proper resource cleanup on cartridge drop.
+  - All panic vectors eliminated: `.unwrap()` replaced with `anyhow::Result` propagation via `.context()` error chaining.
+
+- **`crates/platform_bridge/src/native_win32.rs` (SEC-02)**:
+  - Eliminated all `.unwrap()` panics in GDI/DXGI screen capture pipeline.
+  - Added clock regression detection in `now_us()` with proper error bubbling.
+  - Implemented strict bounds validation for buffer operations to prevent memory corruption.
+  - Replaced unsafe D3D11 device creation patterns with comprehensive Result-based error handling.
+
+### 🐛 Critical Bug Fixes & Memory Safety
+- **`core/hypervisor/src/native_ingestion/shmem_capture.rs` (CRIT-03)**:
+  - Fixed catastrophic GDI memory leak where bitmap handles were not properly released on SelectObject failure paths.
+  - Refactored `GdiGuard` from stack-allocated to stack-local mutable variable for proper lifetime management, ensuring cleanup even during errors.
+  - Removed `.unwrap()` from `now_tick()` function, replaced with safe `.unwrap_or_else(|| Duration::ZERO)` fallback.
+  - Updated all test cases to use `.expect()` instead of `.unwrap()` for consistent error handling and clearer failure messages.
+
+### 🛡️ Observance Era Stabilizations & Build Remediation
+- **`core/hypervisor/Cargo.toml` & `platform_bridge/Cargo.toml` & `scratchpad/Cargo.toml`**:
+  - Resolved fatal TOML syntax errors, duplicated blocks, and conflicting feature flags (`BLOCKER-01`).
+- **`crates/ipc_bus/src/machine_packet.rs` & `crates/scratchpad/src/lib.rs`**:
+  - Fixed compile-breaking Rust type errors E0609 (`reserved` field mismatch in `MachinePacket`) and E0277 (non-Send `mpsc::Receiver` across thread boundaries) (`BLOCKER-02`).
+- **`dev/docs/audits/`**:
+  - Established standardized repository audit protocols, baseline sweep reports, and audit personas (`dev/tools/auditors/`).
+
 ## [1.6.0] - 2026-09-04
+
 
 ### ⚡ Industrial OT Edge Mesh, Universal Event Bus & Hardware Model Discovery
 
@@ -113,13 +144,13 @@ All notable changes to Aaroneous.
 - **`core/hypervisor/bin/a_hud.rs` (ARCH-05)**:
   - Modernized telemetry HUD navigation tabs (`ScreenAutomation`, `LearningAndSelfPlay`, `GalaxyMap3D`).
 - **`sdk/rust/src/lib.rs` (Phase 9)**:
-  - Re-exported modern IPC types (`SynapseBridge`, `PersistentWalStore`, `MachinePacket`) with verified doc-tests.
+  - Re-exported modern IPC types (`SignalBridge`, `PersistentWalStore`, `MachinePacket`) with verified doc-tests.
 
 #### Extended Verification, Multi-Host Transport & GPU Compute (Phases 5, 10, 12, 13)
 - **`crates/specialists/tests/test_specialists_end_to_end.rs` (Phase 5)**:
   - Added 120-packet concurrent burst stress test across all 9 domain specialists.
 - **`crates/orchestrator/src/tier_allocator.rs` (Phase 5)**:
-  - Verified multi-tier CPU thread pinning (`TIER_1_CORTEX`, `TIER_2_ROUTER`, `TIER_3_REFLEX`).
+  - Verified multi-tier CPU thread pinning (`TIER_1_ExecutivePlanner`, `TIER_2_ROUTER`, `TIER_3_REFLEX`).
 - **`core/hypervisor/src/federation/p2p/mod.rs` (Phase 10)**:
   - Implemented length-prefixed TCP streaming listener (`bind_listener`), remote stream connector (`connect_remote_stream`), and direct peer channels (`register_direct_peer`).
 - **`crates/compute/src/burn_gpu.rs` (Phase 12)**:
@@ -239,7 +270,7 @@ All notable changes to Aaroneous.
 
 #### Changed
 - **`core/hypervisor` (a_run) — 0 Clippy warnings on `--lib`**:
-  - Replaced manual index loops with idiomatic iterators across 19 modules: `spectral_layout.rs`, `tensor_router.rs`, `relativity_engine.rs`, `reasoning.rs`, `hardware_layer.rs`, `synapse_ui.rs`, `skill_constellation.rs`, `cellular_automata.rs`, `epigenetic_gate.rs`, `epigenetic_orchestrator.rs`, `federated_learning.rs`, `live_daemon.rs`, `task_routing.rs`.
+  - Replaced manual index loops with idiomatic iterators across 19 modules: `spectral_layout.rs`, `tensor_router.rs`, `relativity_engine.rs`, `reasoning.rs`, `hardware_layer.rs`, `synapse_ui.rs`, `skill_constellation.rs`, `cellular_automata.rs`, `spatial_delta_gate.rs`, `SpatialDelta_orchestrator.rs`, `federated_learning.rs`, `live_daemon.rs`, `task_routing.rs`.
   - Replaced `.unwrap()` on `Option` with safe `if let Some` patterns in `live_daemon.rs`.
   - Replaced `.map(|layer| { ... })` producing unit with `if let Some(layer)` in `unified_learning.rs`.
   - Added `#[allow(clippy::too_many_arguments)]` on justified signatures: `decision_engine.rs`, `unified_learning.rs`, `fractional_normalizer.rs`, `svd_feature_select.rs`.
@@ -270,7 +301,7 @@ All notable changes to Aaroneous.
 - **Swarm Micro-Task TCP Offloader (`core/hypervisor/src/federation/multi_hive/swarm_offloader.rs`)**:
   - `SwarmOffloader`: Routes computational tasks to lowest-latency peer hive when local pressure exceeds threshold (default 80%). Measured 12 µs wire RTT + remote execution.
 - **Autonomous Background Self-Evolution Engine (`crates/evolution/src/continuous_evolution.rs`)**:
-  - `ContinuousSelfEvolutionEngine`: Couples Archivist 4-channel neurochemistry (curiosity/boredom drives) with Fabricator AST hypothesis mutations, Sentinel Deep SVDD safety audits, and `.si` solid-state skill stack promotions.
+  - `ContinuousSelfEvolutionEngine`: Couples Archivist 4-channel SystemThermodynamics (curiosity/boredom drives) with Fabricator AST hypothesis mutations, Sentinel Deep SVDD safety audits, and `.si` solid-state skill stack promotions.
   - CLI command: `a_run evolve --cycles 3 --threshold 0.70`.
 
 #### Changed
@@ -288,7 +319,7 @@ All notable changes to Aaroneous.
 
 #### Added
 - **Tri-Tiered Layered Control Architecture (`crates/compute`, `crates/orchestrator`)**:
-  - **Tier 1 (Strategic Cortex - $\mathbb{R}^{4096}$)**: High-dimensional intent planning on background OS threads (`SiTierFlags::TIER_1_CORTEX`).
+  - **Tier 1 (StrategicPlanner - $\mathbb{R}^{4096}$)**: High-dimensional intent planning on background OS threads (`SiTierFlags::TIER_1_ExecutivePlanner`).
   - **Tier 2 (Router - $\mathbb{R}^{4096} \to \mathbb{R}^{256}$)**: Continuous orthogonal intent projector with inline **Sentinel Deep SVDD** guardrail audit ($< 2\mu\text{s}$ safe hypersphere manifold snap) broadcasting atomically to Channel 0 of the lock-free SPMC synapse bus (`SiTierFlags::TIER_2_ROUTER`).
   - **Tier 3 (Kinetic Reflex Workers - $\mathbb{R}^{256}$)**: Hot-loop sub-microsecond spin-wait pursuit workers pinned to physical CPU cores via `SetThreadAffinityMask`, executing continuous sensory-conditioned recurrence in $< 180\mu\text{s}$ (`SiTierFlags::TIER_3_REFLEX`).
 - **Unified `SiForge` Model Builder API (`crates/compute/src/si_forge.rs`)**:
@@ -667,3 +698,4 @@ All notable changes to Aaroneous.
 ---
 
 *Last Updated: 2026-06-09 | Status: Phase IV - Production Readiness*
+

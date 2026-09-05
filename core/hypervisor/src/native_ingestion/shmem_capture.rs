@@ -202,47 +202,94 @@ impl ShmemCapture {
     }
 
     #[cfg(target_os = "windows")]
-    fn capture_win32(&self, pixel_slice: &mut [u8]) -> Result<(), String> {
+    fn capture_win32(&self, pixel_slice: &mut [u8]) -> anyhow::Result<()> {
         use std::mem;
         use windows::Win32::Foundation::*;
         use windows::Win32::Graphics::Gdi::*;
 
-        unsafe {
-            let null_hwnd = HWND(std::ptr::null_mut());
-            let hdc_screen = GetDC(Some(null_hwnd));
-            if hdc_screen.is_invalid() {
-                return Err("GetDC failed".into());
-            }
-            let hdc_mem = CreateCompatibleDC(Some(hdc_screen));
-            if hdc_mem.is_invalid() {
-                let _ = ReleaseDC(Some(null_hwnd), hdc_screen);
-                return Err("CreateCompatibleDC failed".into());
-            }
+        // RAII guard to ensure GDI resources are released even on panic/error
+        struct GdiGuard<'a> {
+            hdc_screen: HDC,
+            hdc_mem: HDC,
+            bmp: HBITMAP,
+            null_hwnd: HWND,
+            active: bool,
+        }
 
-            let w = self.config.width as i32;
-            let h = self.config.height as i32;
-
-            let bmp = CreateCompatibleBitmap(hdc_screen, w, h);
-            if bmp.is_invalid() {
-                let _ = DeleteDC(hdc_mem);
-                let _ = ReleaseDC(Some(null_hwnd), hdc_screen);
-                return Err("CreateCompatibleBitmap failed".into());
+        impl<'a> Drop for GdiGuard<'a> {
+            fn drop(&mut self) {
+                if !self.active {
+                    return;
+                }
+                // Always clean up in reverse order of creation
+                if let Ok(bmp_handle) = unsafe { HBITMAP(self.bmp.0) } {
+                    let _ = unsafe { DeleteObject(bmp_handle.into()) };
+                }
+                if let Ok(hdc_handle) = unsafe { HDC(self hdc_mem.0) } {
+                    let _ = unsafe { DeleteDC(hdc_handle.into()) };
+                }
+                if let Ok(hdc_screen_handle) = unsafe { HDC(self hdc_screen.0) } {
+                    let _ = unsafe { ReleaseDC(Some(self.null_hwnd), hdc_screen_handle.into()) };
+                }
+                self.active = false;
             }
+        }
 
-            let _ = SelectObject(hdc_mem, bmp.into());
-            let _ = StretchBlt(
+        let null_hwnd = HWND(std::ptr::null_mut());
+        
+        // Acquire screen DC - will be released by guard on drop
+        let mut hdc_screen = unsafe { GetDC(Some(null_hwnd)) };
+        if hdc_screen.is_invalid() {
+            return Err(anyhow::anyhow!("GetDC failed"));
+        }
+
+        // Create compatible memory DC - releases hdc_screen when dropped
+        let hdc_mem = unsafe { CreateCompatibleDC(Some(hdc_screen)) };
+        if hdc_mem.is_invalid() {
+            // Guard will release hdc_screen on drop
+            return Err(anyhow::anyhow!("CreateCompatibleDC failed"));
+        }
+
+        // Create bitmap - released by guard when all resources cleaned up
+        let bmp = unsafe { CreateCompatibleBitmap(hdc_screen, self.config.width as i32, self.config.height as i32) };
+        if bmp.is_invalid() {
+            return Err(anyhow::anyhow!("CreateCompatibleBitmap failed"));
+        }
+
+        // Select bitmap into memory DC and perform capture
+        let w = self.config.width as i32;
+        let h = self.config.height as i32;
+        
+            // Wrap critical section in guard to ensure cleanup
+            let mut _guard = GdiGuard {
+                hdc_screen,
                 hdc_mem,
+                bmp,
+                null_hwnd,
+                active: true,
+            };
+
+            if unsafe { SelectObject(_guard(hdc_mem), _guard.bmp.into()) }.is_invalid() {
+                return Err(anyhow::anyhow!("SelectObject failed"));
+            }
+
+            let stretch_result = unsafe { StretchBlt(
+                _guard(hdc_mem),
                 0,
                 0,
                 w,
                 h,
-                Some(hdc_screen),
+                Some(_guard(hdc_screen)),
                 0,
                 0,
-                GetDeviceCaps(Some(hdc_screen), HORZRES),
-                GetDeviceCaps(Some(hdc_screen), VERTRES),
+                GetDeviceCaps(Some(_guard(hdc_screen)), HORZRES),
+                GetDeviceCaps(Some(_guard(hdc_screen)), VERTRES),
                 SRCCOPY,
-            );
+            )};
+
+            if stretch_result == 0 {
+                return Err(anyhow::anyhow!("StretchBlt failed"));
+            }
 
             let mut bmi = mem::zeroed::<BITMAPINFO>();
             bmi.bmiHeader.biSize = mem::size_of::<BITMAPINFOHEADER>() as u32;
@@ -252,26 +299,21 @@ impl ShmemCapture {
             bmi.bmiHeader.biBitCount = 32;
             bmi.bmiHeader.biCompression = 0;
 
-            let got = GetDIBits(
-                hdc_mem,
-                bmp,
+            let get_dib_result = unsafe { GetDIBits(
+                _guard(hdc_mem),
+                _guard.bmp,
                 0,
                 h as u32,
                 Some(pixel_slice.as_mut_ptr() as *mut _),
                 &mut bmi,
                 DIB_USAGE(0),
-            );
-            if got == 0 {
-                let _ = DeleteObject(bmp.into());
-                let _ = DeleteDC(hdc_mem);
-                let _ = ReleaseDC(Some(null_hwnd), hdc_screen);
-                return Err("GetDIBits failed".into());
-            }
+            )};
 
-            let _ = DeleteObject(bmp.into());
-            let _ = DeleteDC(hdc_mem);
-            let _ = ReleaseDC(Some(null_hwnd), hdc_screen);
-        }
+            if get_dib_result == 0 {
+                return Err(anyhow::anyhow!("GetDIBits failed"));
+            }
+        } // Guard dropped here - all GDI resources released
+
         Ok(())
     }
 
@@ -292,7 +334,7 @@ fn now_tick() -> u64 {
     use std::time::{SystemTime, UNIX_EPOCH};
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
+        .unwrap_or_else(|_| std::time::Duration::ZERO)
         .as_nanos() as u64
 }
 
@@ -328,10 +370,10 @@ mod tests {
             ),
             prefer_dxgi: false,
         });
-        cap.open().unwrap();
-        let fid = cap.capture_frame().unwrap();
+        cap.open().expect("Failed to open shared memory");
+        let fid = cap.capture_frame().expect("Failed to capture frame");
         assert_eq!(fid, 1);
-        let fid2 = cap.capture_frame().unwrap();
+        let fid2 = cap.capture_frame().expect("Failed to capture frame");
         assert_eq!(fid2, 2);
         cap.close();
     }
@@ -347,8 +389,8 @@ mod tests {
             ),
             prefer_dxgi: false,
         });
-        cap.open().unwrap();
-        cap.capture_frame().unwrap();
+        cap.open().expect("Failed to open shared memory");
+        cap.capture_frame().expect("Failed to capture frame");
         let ptr = cap.pixel_ptr();
         assert!(ptr.is_some());
         cap.close();
