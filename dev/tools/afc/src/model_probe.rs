@@ -65,13 +65,12 @@ impl ModelEndpointStatus {
     pub fn resolved_model_id(&self) -> String {
         match self {
             ModelEndpointStatus::Connected {
-                active_model: Some(info),
-                ..
+                active_model: Some(info), ..
             } => info.identifier.clone(),
-            ModelEndpointStatus::Connected {
-                configured_model, ..
-            } if !configured_model.is_empty() => configured_model.clone(),
-            _ => "qwen2.5-coder-7b-instruct".to_string(),
+            ModelEndpointStatus::Connected { configured_model, .. } => {
+                configured_model.clone()
+            }
+            _ => "local".to_string(), // Generic fallback - indicates endpoint reachable but model not detected
         }
     }
 }
