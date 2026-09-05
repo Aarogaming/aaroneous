@@ -4,7 +4,7 @@
 use crate::hud::navigation::NavSection;
 use crate::hud::state::{AppWindowMode, SharedHudState};
 use crate::hud::views::HudView;
-use eframe::egui::{self, Color32, CornerRadius, Stroke};
+use eframe::egui::{self, Color32, CornerRadius, Stroke, Vec2};
 
 pub fn render_full_studio(
     ui: &mut egui::Ui,
@@ -123,37 +123,120 @@ pub fn render_full_studio(
         .show_inside(ui, |ui| {
             ui.add_space(4.0);
             let sections = [
-                (NavSection::Specialists, "👥 Specialists"),
-                (NavSection::GalaxyMap3D, "🌌 3D Galaxy"),
-                (NavSection::LearningAndSelfPlay, "🧬 Learning"),
-                (NavSection::SiForge, "⚡ SI Forge"),
+                (NavSection::Agents, "🤖 Agents & Swarm"),
                 (NavSection::ScreenAutomation, "👁️ Screen & Motor"),
-                (NavSection::SwarmMesh, "🌐 Swarm Mesh"),
-                (NavSection::Agents, "🤖 Agents Hub"),
+                (NavSection::SiForge, "⚡ SI Forge & Mind"),
+                (NavSection::GalaxyMap3D, "🌌 3D Galaxy"),
+                (NavSection::Settings, "⚙️ Settings"),
+            ];
+
+            let dev_sections = [
                 (NavSection::DevStudio, "🛠️ Dev Studio"),
                 (NavSection::InterconnectMonitor, "⚡ Bus Monitor"),
-                (NavSection::Settings, "⚙️ Settings"),
             ];
 
             for (sec, label) in sections {
                 let is_selected = state.nav_section == sec;
-                let bg_color = if is_selected { theme.card_bg() } else { Color32::TRANSPARENT };
-                let stroke = if is_selected { Stroke::new(1.0, theme.accent()) } else { Stroke::NONE };
+                let bg_color = if is_selected {
+                    theme.card_bg()
+                } else {
+                    Color32::TRANSPARENT
+                };
+                let stroke = if is_selected {
+                    Stroke::new(1.0, theme.accent())
+                } else {
+                    Stroke::NONE
+                };
 
-                egui::Frame::group(ui.style())
+                let resp = egui::Frame::NONE
                     .fill(bg_color)
                     .stroke(stroke)
-                    .corner_radius(CornerRadius::same(4))
+                    .corner_radius(CornerRadius::same(6))
+                    .inner_margin(egui::Margin::symmetric(8, 6))
                     .show(ui, |ui| {
                         ui.set_width(ui.available_width());
-                        let rt = egui::RichText::new(label)
-                            .size(12.0)
-                            .color(if is_selected { theme.accent() } else { Color32::from_rgb(220, 225, 235) });
-                        if ui.selectable_label(is_selected, rt).clicked() {
-                            state.nav_section = sec;
-                        }
+                        ui.horizontal(|ui| {
+                            if is_selected {
+                                // Sleek vertical accent bar on the left
+                                let (rect, _) = ui.allocate_exact_size(Vec2::new(3.0, 14.0), egui::Sense::hover());
+                                ui.painter().rect_filled(rect, CornerRadius::same(1), theme.accent());
+                                ui.add_space(3.0);
+                            }
+
+                            let text_color = if is_selected {
+                                theme.accent()
+                            } else {
+                                Color32::from_rgb(220, 225, 235)
+                            };
+                            let rt = egui::RichText::new(label)
+                                .size(12.5)
+                                .color(text_color);
+                            ui.label(rt);
+                        });
                     });
+
+                // Make the entire frame clickable without triggering egui's text selection bounding box
+                let interact_rect = resp.response.rect;
+                let click_resp = ui.interact(interact_rect, ui.id().with(sec), egui::Sense::click());
+                if click_resp.clicked() {
+                    state.nav_section = sec;
+                }
+                ui.add_space(3.0);
+            }
+
+            if state.settings.dev_mode {
+                ui.add_space(8.0);
+                ui.separator();
+                ui.label(
+                    egui::RichText::new("DEVELOPER")
+                        .size(9.5)
+                        .strong()
+                        .color(Color32::from_rgb(140, 150, 165)),
+                );
                 ui.add_space(2.0);
+
+                for (sec, label) in dev_sections {
+                    let is_selected = state.nav_section == sec;
+                    let bg_color = if is_selected {
+                        theme.card_bg()
+                    } else {
+                        Color32::TRANSPARENT
+                    };
+                    let stroke = if is_selected {
+                        Stroke::new(1.0, theme.accent())
+                    } else {
+                        Stroke::NONE
+                    };
+
+                    let resp = egui::Frame::NONE
+                        .fill(bg_color)
+                        .stroke(stroke)
+                        .corner_radius(CornerRadius::same(6))
+                        .inner_margin(egui::Margin::symmetric(8, 6))
+                        .show(ui, |ui| {
+                            ui.set_width(ui.available_width());
+                            ui.horizontal(|ui| {
+                                if is_selected {
+                                    let (rect, _) = ui.allocate_exact_size(Vec2::new(3.0, 14.0), egui::Sense::hover());
+                                    ui.painter().rect_filled(rect, CornerRadius::same(1), theme.accent());
+                                    ui.add_space(3.0);
+                                }
+                                let text_color = if is_selected {
+                                    theme.accent()
+                                } else {
+                                    Color32::from_rgb(200, 205, 215)
+                                };
+                                ui.label(egui::RichText::new(label).size(12.0).color(text_color));
+                            });
+                        });
+
+                    let interact_rect = resp.response.rect;
+                    let click_resp = ui.interact(interact_rect, ui.id().with(sec), egui::Sense::click());
+                    if click_resp.clicked() {
+                        state.nav_section = sec;
+                    }
+                    ui.add_space(2.0);
+                }
             }
         });
 
@@ -167,13 +250,13 @@ pub fn render_full_studio(
             // Map nav_section to appropriate view
             let target_view_id = match state.nav_section {
                 NavSection::GalaxyMap3D | NavSection::Galaxy3D | NavSection::Cosmos3D => "galaxy_map_3d",
-                NavSection::SiForge => "si_forge",
+                NavSection::SiForge | NavSection::LearningAndSelfPlay | NavSection::LivingMind => "si_forge",
                 NavSection::ScreenAutomation | NavSection::ScreenCapture => "screen_automation",
                 NavSection::InterconnectMonitor | NavSection::Console => "signal_analyzer",
-                NavSection::Agents => "agents_hub",
+                NavSection::Agents | NavSection::Specialists | NavSection::SwarmMesh | NavSection::GhostStation => "agents_hub",
                 NavSection::Settings => "settings",
                 NavSection::DevStudio | NavSection::GameStudio | NavSection::CustomTools => "workbench",
-                _ => "spatial_sensory",
+                _ => "agents_hub",
             };
 
             for view in views.iter_mut() {

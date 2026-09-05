@@ -4,7 +4,7 @@
 
 use crate::hud::state::{ScreenShareTab, SharedHudState};
 use crate::hud::views::HudView;
-use eframe::egui::{self, TextureOptions, Vec2};
+use eframe::egui::{self, Color32, TextureOptions, Vec2};
 
 #[derive(Default)]
 pub struct ScreenAutomationView;
@@ -92,31 +92,24 @@ impl HudView for ScreenAutomationView {
             }
         });
 
-        // ── Live Telemetry Gauges ────────────────────────────────────────────────
-        ui.add_space(4.0);
+        // ── Clean Compact Telemetry Gauge ──────────────────────────────────────
+        ui.add_space(2.0);
         let tele = &state.auto_pilot_telemetry;
         ui.horizontal(|ui| {
-            ui.label(format!("Status: {:?}", tele.state));
+            let state_color = match tele.state {
+                crate::hud::auto_pilot::AutoPilotState::Engaged => Color32::from_rgb(63, 185, 80),
+                crate::hud::auto_pilot::AutoPilotState::EmergencyStop => Color32::from_rgb(248, 81, 73),
+                _ => Color32::GRAY,
+            };
+            ui.label(egui::RichText::new(format!("● {:?}", tele.state)).color(state_color).strong());
             ui.separator();
-            ui.label(format!("Tick: {}", tele.loop_iteration));
-            ui.separator();
-            ui.label(format!("Latency: {:.1}μs", tele.last_tick_latency_us));
-            ui.separator();
-            ui.label(format!("Avg: {:.1}μs", tele.avg_tick_latency_us));
+            ui.label(format!("Latency: {:.1}μs", tele.avg_tick_latency_us));
             ui.separator();
             ui.label(format!("FPS: {:.0}", tele.active_fps));
-        });
-        ui.horizontal(|ui| {
-            ui.label(format!("Memory Hits: {}", tele.memory_recall_hits));
             ui.separator();
             ui.label(format!("JIT Execs: {}", tele.jit_executions));
             ui.separator();
-            ui.label(format!("HID Actions: {}", tele.hid_actions_dispatched));
-            ui.separator();
-            ui.label(format!("Free Energy: {:.4}", tele.free_energy));
-            ui.separator();
-            let onset_indicator = if tele.audio_onset_active { "🔊 ACTIVE" } else { "🔇 idle" };
-            ui.label(format!("Audio Onset: {onset_indicator}"));
+            ui.label(format!("Actions: {}", tele.hid_actions_dispatched));
         });
 
         ui.separator();

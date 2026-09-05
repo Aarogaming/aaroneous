@@ -209,6 +209,22 @@ pub enum DevStudioTab {
     OtEdgeGateway,
 }
 
+/// Sub-tabs for Agents Hub
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AgentsSubTab {
+    CustomAgents,
+    Specialists,
+    SwarmMesh,
+}
+
+/// Sub-tabs for SI Forge & Learning
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SiForgeSubTab {
+    CartridgeFoundry,
+    NeurochemistryAndPlay,
+    SmartMacros,
+}
+
 /// Discord-Style Screen & Application Sharing Mode
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ScreenShareTab {
@@ -427,6 +443,8 @@ pub struct GalaxyStar {
 pub struct SharedHudState {
     pub nav_section: NavSection,
     pub dev_tab: DevStudioTab,
+    pub agents_subtab: AgentsSubTab,
+    pub si_forge_subtab: SiForgeSubTab,
     pub start_time: Instant,
     pub last_frame_instant: Instant,
 
@@ -836,8 +854,10 @@ impl Default for SharedHudState {
         let (si_corpus_count, si_corpus_bytes, si_corpus_avg_energy) = si_miner.get_live_metrics().unwrap_or((0, 0, 0.0));
 
         Self {
-            nav_section: NavSection::Specialists,
+            nav_section: NavSection::Agents,
             dev_tab: DevStudioTab::Workbench,
+            agents_subtab: AgentsSubTab::CustomAgents,
+            si_forge_subtab: SiForgeSubTab::CartridgeFoundry,
             start_time: Instant::now(),
             last_frame_instant: Instant::now(),
             app_window_mode: AppWindowMode::FullStudio,
