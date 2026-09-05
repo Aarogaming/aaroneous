@@ -26,6 +26,7 @@ pub enum FlightCommand {
     Start(FlightConfig),
     Stop,
     ProbeModel,
+    AutoProbeModel,
 }
 
 pub struct FlightControllerApp {
@@ -98,8 +99,11 @@ impl FlightControllerApp {
                     let _ = tx_event.send(FlightEvent::TaskUpdated(tasks));
                 }
 
-                // Initial model probe
-                let status = ModelProbe::check_endpoint(&worker_root).await;
+                // Initial model probe with diagnostic telemetry
+                let (status, probe_logs) = ModelProbe::check_endpoint_with_logs(&worker_root).await;
+                for msg in probe_logs {
+                    let _ = tx_event.send(FlightEvent::Log(msg));
+                }
                 let _ = tx_event.send(FlightEvent::ModelProbeUpdated(status));
 
                 while let Ok(cmd) = rx_cmd.recv() {
@@ -133,6 +137,14 @@ impl FlightControllerApp {
                                 .send(FlightEvent::Log("[AFC Engine] Stopped.".to_string()));
                         }
                         FlightCommand::ProbeModel => {
+                            let (status, probe_logs) =
+                                ModelProbe::check_endpoint_with_logs(&worker_root).await;
+                            for msg in probe_logs {
+                                let _ = tx_event.send(FlightEvent::Log(msg));
+                            }
+                            let _ = tx_event.send(FlightEvent::ModelProbeUpdated(status));
+                        }
+                        FlightCommand::AutoProbeModel => {
                             let status = ModelProbe::check_endpoint(&worker_root).await;
                             let _ = tx_event.send(FlightEvent::ModelProbeUpdated(status));
                         }
@@ -186,10 +198,10 @@ impl FlightControllerApp {
             }
         }
 
-        // Auto probe model endpoint every 10 seconds
-        if self.last_probe_time.elapsed() > Duration::from_secs(10) {
+        // Auto probe model endpoint silently every 15 seconds
+        if self.last_probe_time.elapsed() > Duration::from_secs(15) {
             self.last_probe_time = Instant::now();
-            let _ = self.tx_cmd.send(FlightCommand::ProbeModel);
+            let _ = self.tx_cmd.send(FlightCommand::AutoProbeModel);
         }
     }
 }
@@ -212,19 +224,88 @@ impl eframe::App for FlightControllerApp {
                 match &self.model_status {
                     ModelEndpointStatus::Connected {
                         provider,
+                        endpoint,
                         configured_model,
+                        active_model,
                         discovered_models,
+                        model_matched,
+                        auth_authenticated: _,
                     } => {
+                        let (badge_text, badge_color) = match active_model {
+                            Some(active) => {
+                                if *model_matched {
+                                    (
+                                        format!("[Online] {provider}: {} (Active)", active.identifier),
+                                        egui::Color32::from_rgb(80, 230, 130),
+                                    )
+                                } else {
+                                    (
+                                        format!(
+                                            "[Mismatch] {provider}: {} (Expected: {configured_model})",
+                                            active.identifier
+                                        ),
+                                        egui::Color32::from_rgb(255, 180, 60),
+                                    )
+                                }
+                            }
+                            None => (
+                                format!("[Warning] {provider}: No Model Loaded in Memory"),
+                                egui::Color32::from_rgb(255, 180, 60),
+                            ),
+                        };
+
                         let badge = ui.label(
-                            egui::RichText::new(format!("[Online] {provider}: {configured_model}"))
-                                .color(egui::Color32::from_rgb(80, 230, 130))
+                            egui::RichText::new(badge_text)
+                                .color(badge_color)
                                 .strong(),
                         );
                         badge.on_hover_ui(|ui| {
-                            ui.label(format!("Provider: {provider}"));
-                            ui.label(format!("Active Model: {configured_model}"));
+                            ui.label(egui::RichText::new(format!("Provider: {provider}")).strong());
+                            ui.label(format!("Endpoint: {endpoint}"));
+                            ui.label(format!("Configured in OpenCode: {configured_model}"));
                             ui.separator();
-                            ui.label("Discovered Endpoint Models:");
+                            if let Some(active) = active_model {
+                                ui.label(
+                                    egui::RichText::new("Active In-Memory Model:")
+                                        .strong()
+                                        .color(egui::Color32::from_rgb(80, 230, 130)),
+                                );
+                                ui.label(format!("  Identifier: {}", active.identifier));
+                                ui.label(format!("  Name: {}", active.display_name));
+                                ui.label(format!("  Status: {}", active.status));
+                                if let Some(ref sz) = active.size_vram {
+                                    ui.label(format!("  Size / VRAM: {}", sz));
+                                }
+                                if let Some(ctx) = active.context_length {
+                                    ui.label(format!("  Context Window: {} tokens", ctx));
+                                }
+                                if *model_matched {
+                                    ui.label(
+                                        egui::RichText::new("  Status: Ready for Flight (Matched)")
+                                            .color(egui::Color32::GREEN),
+                                    );
+                                } else {
+                                    ui.label(
+                                        egui::RichText::new(
+                                            "  Warning: Loaded model differs from opencode.json target",
+                                        )
+                                        .color(egui::Color32::YELLOW),
+                                    );
+                                }
+                            } else {
+                                ui.label(
+                                    egui::RichText::new(
+                                        "WARNING: Server online, but NO model loaded in memory!",
+                                    )
+                                    .color(egui::Color32::YELLOW),
+                                );
+                                ui.label("Load your model in LM Studio before starting flight.");
+                            }
+                            ui.separator();
+                            ui.label(format!(
+                                "Available Models on Endpoint ({}):",
+                                discovered_models.len()
+                            ));
                             for m in discovered_models {
                                 ui.label(format!("  - {m}"));
                             }
@@ -241,9 +322,21 @@ impl eframe::App for FlightControllerApp {
                                 .strong(),
                         );
                         badge.on_hover_ui(|ui| {
+                            ui.label(format!("Provider: {provider}"));
                             ui.label(format!("Endpoint: {target_endpoint}"));
-                            ui.label(format!("Status: {reason}"));
+                            ui.separator();
+                            ui.label(
+                                egui::RichText::new(format!("Failure: {reason}"))
+                                    .color(egui::Color32::RED),
+                            );
                         });
+                    }
+                    ModelEndpointStatus::Probing { provider } => {
+                        ui.label(
+                            egui::RichText::new(format!("[Probing] Connecting to {provider}..."))
+                                .color(egui::Color32::from_rgb(80, 200, 255))
+                                .strong(),
+                        );
                     }
                     ModelEndpointStatus::Unconfigured => {
                         ui.label(
@@ -315,6 +408,12 @@ impl eframe::App for FlightControllerApp {
                 }
 
                 if ui.button("Probe Model").clicked() {
+                    self.logs.push_back(
+                        "[Model Probe] Querying AI provider and active model status...".to_string(),
+                    );
+                    self.model_status = ModelEndpointStatus::Probing {
+                        provider: "AI Provider".to_string(),
+                    };
                     let _ = self.tx_cmd.send(FlightCommand::ProbeModel);
                 }
 

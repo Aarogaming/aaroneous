@@ -4,7 +4,7 @@ use std::path::PathBuf;
 
 /// Aaroneous Autonomous Flight Controller (AFC)
 /// Out-of-tree Sovereign CI/CD Daemon & GUI Hypervisor
-#[derive(Parser, Debug, Clone)]
+#[derive(Parser, Debug, Clone, Default)]
 #[command(name = "afc", author, version, about)]
 pub struct FlightConfig {
     /// Number of autonomous cycles to run
@@ -108,23 +108,36 @@ impl FlightConfig {
             return path.clone();
         }
 
-        // Try current working directory
-        let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
-        if cwd.join(".git").exists() || cwd.join("Cargo.toml").exists() {
-            return cwd;
-        }
+        let is_repo_root = |p: &std::path::Path| {
+            (p.join(".git").exists() || p.join("core").join("hypervisor").exists())
+                && (p.join("opencode.json").exists() || p.join("crates").exists())
+        };
 
-        // Fallback: check parent directories of the running executable
-        if let Ok(exe_path) = std::env::current_exe() {
-            let mut parent = exe_path.as_path();
+        // 1. Try current working directory or its parents
+        if let Ok(cwd) = std::env::current_dir() {
+            if is_repo_root(&cwd) {
+                return cwd;
+            }
+            let mut parent = cwd.as_path();
             while let Some(p) = parent.parent() {
-                if p.join(".git").exists() || p.join("Cargo.toml").exists() {
+                if is_repo_root(p) {
                     return p.to_path_buf();
                 }
                 parent = p;
             }
         }
 
-        cwd
+        // 2. Check parent directories of the running executable
+        if let Ok(exe_path) = std::env::current_exe() {
+            let mut parent = exe_path.as_path();
+            while let Some(p) = parent.parent() {
+                if is_repo_root(p) {
+                    return p.to_path_buf();
+                }
+                parent = p;
+            }
+        }
+
+        std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."))
     }
 }
