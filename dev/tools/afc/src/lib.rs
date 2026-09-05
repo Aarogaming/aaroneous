@@ -1,4 +1,4 @@
-// crates/flight_controller/src/lib.rs
+// dev/tools/afc/src/lib.rs
 pub mod config;
 pub mod delivery;
 pub mod engine;

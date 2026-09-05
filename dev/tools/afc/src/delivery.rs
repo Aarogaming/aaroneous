@@ -1,4 +1,4 @@
-// crates/flight_controller/src/delivery.rs
+// dev/tools/afc/src/delivery.rs
 use anyhow::{Context, Result};
 use chrono::Local;
 use std::path::Path;
@@ -9,7 +9,6 @@ use tracing::{info, warn};
 pub struct DeliveryEngine;
 
 impl DeliveryEngine {
-    /// Package compiled release binaries into timestamped archive under releases/.
     pub async fn package_artifacts(repo_path: &Path) -> Result<()> {
         let release_dir = repo_path.join("releases");
         if !release_dir.exists() {
@@ -28,7 +27,6 @@ impl DeliveryEngine {
             return Ok(());
         }
 
-        // Collect all .exe files in target/release
         let mut exe_files = Vec::new();
         if let Ok(mut entries) = fs::read_dir(&target_release).await {
             while let Ok(Some(entry)) = entries.next_entry().await {
@@ -44,7 +42,6 @@ impl DeliveryEngine {
             return Ok(());
         }
 
-        // Use native tar.exe (available on Windows 10/11) to create zip
         let mut tar_cmd = Command::new("tar");
         tar_cmd.arg("-a").arg("-c").arg("-f").arg(&zip_path);
 
@@ -58,7 +55,6 @@ impl DeliveryEngine {
                 info!("Release archive successfully packaged: {:?}", zip_path);
             }
             _ => {
-                // Fallback: copy exes directly to release_dir
                 for exe in &exe_files {
                     if let Some(file_name) = exe.file_name() {
                         let dest = release_dir.join(file_name);

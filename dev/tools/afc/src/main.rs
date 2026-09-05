@@ -1,6 +1,7 @@
+// dev/tools/afc/src/main.rs
 use anyhow::Result;
 use clap::Parser;
-use flight_controller::{launch_gui, FlightConfig, FlightEngine};
+use afc::{launch_gui, FlightConfig, FlightEngine};
 
 fn main() -> Result<()> {
     tracing_subscriber::fmt().init();

@@ -1,4 +1,4 @@
-// crates/flight_controller/src/engine.rs
+// dev/tools/afc/src/engine.rs
 use crate::config::FlightConfig;
 use crate::delivery::DeliveryEngine;
 use crate::gatekeeper::Gatekeeper;
@@ -6,7 +6,7 @@ use crate::git::GitEngine;
 use crate::hardware::HardwareMonitor;
 use crate::llm::LlmOrchestrator;
 use crate::queue::QueueManager;
-use anyhow::{Context, Result};
+use anyhow::Result;
 use chrono::Local;
 use std::path::PathBuf;
 use tokio::fs;
@@ -20,21 +20,17 @@ pub struct FlightEngine {
 
 impl FlightEngine {
     pub fn new(config: FlightConfig) -> Result<Self> {
-        let repo_root = match &config.repo_root {
-            Some(path) => path.clone(),
-            None => std::env::current_dir().context("Failed to get current working directory")?,
-        };
-
+        let repo_root = config.resolve_repo_root();
         Ok(Self { config, repo_root })
     }
 
     pub async fn run(&self) -> Result<()> {
         info!("==========================================================");
         info!("        AARONEOUS AUTONOMOUS FLIGHT CONTROLLER (AFC)      ");
-        info!("              [Rust-Native Sovereign CI/CD Engine]        ");
+        info!("              [Out-of-Tree Sovereign Hypervisor]          ");
         info!("==========================================================");
+        info!("Target Repository: {:?}", self.repo_root);
 
-        // Ensure logs directory exists
         let logs_dir = self
             .repo_root
             .join("dev")
@@ -45,7 +41,6 @@ impl FlightEngine {
             fs::create_dir_all(&logs_dir).await?;
         }
 
-        // Branch safety: protect main/master
         let current_branch = GitEngine::current_branch(&self.repo_root).await?;
         if self.config.auto_branch && (current_branch == "main" || current_branch == "master") {
             let date_tag = Local::now().format("%Y%m%d-%H%M").to_string();
@@ -79,7 +74,6 @@ impl FlightEngine {
             );
             info!("==========================================================");
 
-            // Hardware thermal check
             HardwareMonitor::check_gpu_thermals(self.config.max_gpu_temp).await?;
 
             // ----------------------------------------------------
@@ -217,7 +211,6 @@ impl FlightEngine {
                 }
             }
 
-            // Check storage footprint
             HardwareMonitor::check_build_cache_size(&self.repo_root, 30).await?;
 
             if cycle < self.config.auto_cycles {

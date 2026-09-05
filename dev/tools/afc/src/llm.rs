@@ -1,4 +1,4 @@
-// crates/flight_controller/src/llm.rs
+// dev/tools/afc/src/llm.rs
 use anyhow::{bail, Context, Result};
 use std::path::Path;
 use std::process::Stdio;
@@ -10,7 +10,6 @@ use tracing::{info, warn};
 pub struct LlmOrchestrator;
 
 impl LlmOrchestrator {
-    /// Execute an OpenCode CLI command with strict watchdog timeout enforcement.
     async fn run_opencode_command(
         repo_path: &Path,
         args: &[&str],
@@ -60,7 +59,6 @@ impl LlmOrchestrator {
         }
     }
 
-    /// Phase 1: Plan
     pub async fn run_plan(repo_path: &Path, timeout_secs: u64) -> Result<String> {
         info!("LlmOrchestrator: Initiating Phase 1 Plan...");
         let args = [
@@ -77,7 +75,6 @@ impl LlmOrchestrator {
         Self::run_opencode_command(repo_path, &args, timeout_secs, None).await
     }
 
-    /// Phase 2: Audit
     pub async fn run_audit(repo_path: &Path, timeout_secs: u64) -> Result<String> {
         info!("LlmOrchestrator: Initiating Phase 2 Audit...");
         let args = [
@@ -93,7 +90,6 @@ impl LlmOrchestrator {
         Self::run_opencode_command(repo_path, &args, timeout_secs, None).await
     }
 
-    /// Phase 3: Fix
     pub async fn run_fix(
         repo_path: &Path,
         task_title: &str,

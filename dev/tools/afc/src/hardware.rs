@@ -1,4 +1,4 @@
-// crates/flight_controller/src/hardware.rs
+// dev/tools/afc/src/hardware.rs
 use anyhow::Result;
 use std::path::Path;
 use tokio::process::Command;
@@ -8,7 +8,6 @@ use tracing::{info, warn};
 pub struct HardwareMonitor;
 
 impl HardwareMonitor {
-    /// Query NVIDIA GPU temperature and VRAM utilization; throttle if threshold exceeded.
     pub async fn check_gpu_thermals(max_temp: u32) -> Result<()> {
         let output = Command::new("nvidia-smi")
             .args([
@@ -19,7 +18,6 @@ impl HardwareMonitor {
             .await;
 
         let Ok(out) = output else {
-            // nvidia-smi not available or non-NVIDIA system
             return Ok(());
         };
 
@@ -46,7 +44,6 @@ impl HardwareMonitor {
         Ok(())
     }
 
-    /// Check the total size of target/ directory to prevent disk exhaustion.
     pub async fn check_build_cache_size(repo_path: &Path, max_gb: u64) -> Result<()> {
         let target_dir = repo_path.join("target");
         if !target_dir.exists() {
@@ -73,14 +70,14 @@ impl HardwareMonitor {
         let total_gb = total_bytes / (1024 * 1024 * 1024);
         if total_gb >= max_gb {
             warn!(
-                "Build cache size is {total_gb} GB (threshold: {max_gb} GB). Running cargo clean..."
+                "Build cache size is {total_gb} GB (threshold: {max_gb} GB). Running cargo clean on target repo..."
             );
             let _ = Command::new("cargo")
                 .current_dir(repo_path)
                 .arg("clean")
                 .output()
                 .await;
-            info!("Build cache cleaned successfully.");
+            info!("Target repo build cache cleaned successfully.");
         }
 
         Ok(())

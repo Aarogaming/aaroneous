@@ -1,10 +1,9 @@
-// crates/flight_controller/src/config.rs
+// dev/tools/afc/src/config.rs
 use clap::Parser;
 use std::path::PathBuf;
 
 /// Aaroneous Autonomous Flight Controller (AFC)
-/// Native Rust daemon orchestrating autonomous code auditing, remediation,
-/// validation gates, and delivery.
+/// Out-of-tree Sovereign CI/CD Daemon & GUI Hypervisor
 #[derive(Parser, Debug, Clone)]
 #[command(name = "afc", author, version, about)]
 pub struct FlightConfig {
@@ -52,11 +51,37 @@ pub struct FlightConfig {
     #[arg(long, default_value_t = 300)]
     pub watchdog_timeout_secs: u64,
 
-    /// Workspace repository root directory
+    /// Target Aaroneous repository root directory (auto-detects if omitted)
     #[arg(long)]
     pub repo_root: Option<PathBuf>,
 
     /// Launch interactive Desktop GUI HUD
     #[arg(long, default_value_t = false)]
     pub gui: bool,
+}
+
+impl FlightConfig {
+    /// Resolve the target repository path
+    pub fn resolve_repo_root(&self) -> PathBuf {
+        if let Some(ref path) = self.repo_root {
+            return path.clone();
+        }
+
+        // Try current working directory
+        let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+        if cwd.join(".git").exists() || cwd.join("Cargo.toml").exists() {
+            return cwd;
+        }
+
+        // Fallback: check parent directories (e.g. if run from dev/tools/afc)
+        let mut parent = cwd.as_path();
+        while let Some(p) = parent.parent() {
+            if p.join(".git").exists() {
+                return p.to_path_buf();
+            }
+            parent = p;
+        }
+
+        PathBuf::from("d:\\Aaroneous")
+    }
 }

@@ -1,4 +1,4 @@
-// crates/flight_controller/src/gatekeeper.rs
+// dev/tools/afc/src/gatekeeper.rs
 use anyhow::{bail, Context, Result};
 use std::path::Path;
 use tokio::process::Command;
@@ -7,9 +7,8 @@ use tracing::{error, info, warn};
 pub struct Gatekeeper;
 
 impl Gatekeeper {
-    /// Verify workspace compilation (`cargo check --workspace`).
     pub async fn check_workspace(repo_path: &Path) -> Result<()> {
-        info!("Gatekeeper: Running cargo check --workspace");
+        info!("Gatekeeper: Running cargo check --workspace on target repo");
         let output = Command::new("cargo")
             .current_dir(repo_path)
             .args(["check", "--workspace"])
@@ -25,9 +24,8 @@ impl Gatekeeper {
         Ok(())
     }
 
-    /// Execute workspace unit and integration test suite (`cargo test --workspace`).
     pub async fn test_workspace(repo_path: &Path) -> Result<()> {
-        info!("Gatekeeper: Running cargo test --workspace");
+        info!("Gatekeeper: Running cargo test --workspace on target repo");
         let output = Command::new("cargo")
             .current_dir(repo_path)
             .args(["test", "--workspace"])
@@ -43,9 +41,8 @@ impl Gatekeeper {
         Ok(())
     }
 
-    /// Enforce workspace code formatting (`cargo fmt --all`).
     pub async fn format_workspace(repo_path: &Path) -> Result<()> {
-        info!("Gatekeeper: Running cargo fmt --all");
+        info!("Gatekeeper: Running cargo fmt --all on target repo");
         let output = Command::new("cargo")
             .current_dir(repo_path)
             .args(["fmt", "--all"])
@@ -61,9 +58,8 @@ impl Gatekeeper {
         Ok(())
     }
 
-    /// Inspect code quality using Clippy (`cargo clippy --workspace --no-deps`).
     pub async fn inspect_clippy(repo_path: &Path) -> Result<bool> {
-        info!("Gatekeeper: Running cargo clippy --workspace --no-deps");
+        info!("Gatekeeper: Running cargo clippy --workspace --no-deps on target repo");
         let output = Command::new("cargo")
             .current_dir(repo_path)
             .args(["clippy", "--workspace", "--no-deps"])
@@ -80,7 +76,6 @@ impl Gatekeeper {
         }
     }
 
-    /// Check dependencies for security vulnerabilities (`cargo audit`).
     pub async fn audit_security(repo_path: &Path) -> Result<()> {
         info!("Gatekeeper: Checking supply chain security via cargo audit");
         let check_cmd = Command::new("cargo")
@@ -119,7 +114,6 @@ impl Gatekeeper {
         Ok(())
     }
 
-    /// Build release binaries for deployment packaging.
     pub async fn build_release(repo_path: &Path) -> Result<()> {
         info!("Gatekeeper: Compiling release binaries via cargo build --release -p a_run");
         let output = Command::new("cargo")

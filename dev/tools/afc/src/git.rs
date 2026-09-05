@@ -1,4 +1,4 @@
-// crates/flight_controller/src/git.rs
+// dev/tools/afc/src/git.rs
 use anyhow::{bail, Context, Result};
 use std::path::Path;
 use tokio::process::Command;
@@ -7,7 +7,6 @@ use tracing::{info, warn};
 pub struct GitEngine;
 
 impl GitEngine {
-    /// Retrieve the current active git branch name.
     pub async fn current_branch(repo_path: &Path) -> Result<String> {
         let output = Command::new("git")
             .current_dir(repo_path)
@@ -25,7 +24,6 @@ impl GitEngine {
         Ok(branch)
     }
 
-    /// Create and switch to a new git branch.
     pub async fn checkout_new_branch(repo_path: &Path, branch_name: &str) -> Result<()> {
         info!("Branch safety: checking out new branch '{branch_name}'");
         let output = Command::new("git")
@@ -43,7 +41,6 @@ impl GitEngine {
         Ok(())
     }
 
-    /// Check if the working tree has unstaged or staged changes.
     pub async fn is_dirty(repo_path: &Path) -> Result<bool> {
         let output = Command::new("git")
             .current_dir(repo_path)
@@ -61,7 +58,6 @@ impl GitEngine {
         Ok(!status.is_empty())
     }
 
-    /// Roll back all unstaged working tree changes to preserve repository integrity.
     pub async fn rollback_working_tree(repo_path: &Path) -> Result<()> {
         warn!("Executing git rollback to restore clean working tree");
         let output = Command::new("git")
@@ -79,7 +75,6 @@ impl GitEngine {
         Ok(())
     }
 
-    /// Stage all changes and create an atomic commit.
     pub async fn atomic_commit(repo_path: &Path, message: &str) -> Result<()> {
         let add_out = Command::new("git")
             .current_dir(repo_path)

@@ -1,4 +1,4 @@
-// crates/flight_controller/src/gui.rs
+// dev/tools/afc/src/gui.rs
 use crate::config::FlightConfig;
 use crate::queue::QueueManager;
 use eframe::egui;
@@ -46,10 +46,7 @@ impl FlightControllerApp {
         visuals.panel_fill = egui::Color32::from_rgb(14, 16, 22);
         cc.egui_ctx.set_visuals(visuals);
 
-        let repo_root = config
-            .repo_root
-            .clone()
-            .unwrap_or_else(|| std::env::current_dir().unwrap_or_default());
+        let repo_root = config.resolve_repo_root();
 
         let (tx_event, rx_event) = channel::<FlightEvent>();
         let (tx_cmd, rx_cmd) = channel::<FlightCommand>();
@@ -69,7 +66,6 @@ impl FlightControllerApp {
             rx_event,
         };
 
-        // Spawn background worker thread
         let worker_root = repo_root.clone();
         let worker_config = config;
         thread::spawn(move || {
@@ -89,7 +85,6 @@ impl FlightControllerApp {
                     .join("active")
                     .join("ACTIVE_AUDIT_QUEUE.md");
 
-                // Initial task queue poll
                 if let Ok(tasks) = QueueManager::find_pending_tasks(&queue_path).await {
                     let _ = tx_event.send(FlightEvent::TaskUpdated(tasks));
                 }
@@ -98,7 +93,7 @@ impl FlightControllerApp {
                     match cmd {
                         FlightCommand::Start => {
                             let _ = tx_event.send(FlightEvent::Log(
-                                "[AFC Engine] Starting flight cycle...".to_string(),
+                                "[AFC Engine] Starting autonomous flight cycle...".to_string(),
                             ));
                             let engine =
                                 match crate::engine::FlightEngine::new(worker_config.clone()) {
@@ -117,7 +112,6 @@ impl FlightControllerApp {
                                 let _ = tx_event.send(FlightEvent::Completed);
                             }
 
-                            // Refresh tasks
                             if let Ok(tasks) = QueueManager::find_pending_tasks(&queue_path).await {
                                 let _ = tx_event.send(FlightEvent::TaskUpdated(tasks));
                             }
@@ -186,7 +180,7 @@ impl eframe::App for FlightControllerApp {
             ui.add_space(6.0);
             ui.horizontal(|ui| {
                 ui.heading("✈ Aaroneous Flight Controller");
-                ui.label(egui::RichText::new("v0.3.2").color(egui::Color32::GRAY));
+                ui.label(egui::RichText::new("v0.1.0 [Isolated Tool]").color(egui::Color32::GRAY));
 
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                     let status_color = if self.running {
@@ -236,19 +230,17 @@ impl eframe::App for FlightControllerApp {
                         self.active_phase = "Launching...";
                         let _ = self.tx_cmd.send(FlightCommand::Start);
                     }
-                } else {
-                    if ui
-                        .button(
-                            egui::RichText::new("⏹ Abort Flight")
-                                .color(egui::Color32::RED)
-                                .strong(),
-                        )
-                        .clicked()
-                    {
-                        self.running = false;
-                        self.active_phase = "Aborted";
-                        let _ = self.tx_cmd.send(FlightCommand::Stop);
-                    }
+                } else if ui
+                    .button(
+                        egui::RichText::new("⏹ Abort Flight")
+                            .color(egui::Color32::RED)
+                            .strong(),
+                    )
+                    .clicked()
+                {
+                    self.running = false;
+                    self.active_phase = "Aborted";
+                    let _ = self.tx_cmd.send(FlightCommand::Stop);
                 }
 
                 ui.separator();

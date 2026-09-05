@@ -1,4 +1,4 @@
-// crates/flight_controller/src/queue.rs
+// dev/tools/afc/src/queue.rs
 use anyhow::{Context, Result};
 use chrono::Local;
 use regex::Regex;
@@ -9,7 +9,6 @@ use tracing::info;
 pub struct QueueManager;
 
 impl QueueManager {
-    /// Extract titles of all pending `[ ]` tasks in the active audit queue.
     pub async fn find_pending_tasks(queue_path: &Path) -> Result<Vec<String>> {
         if !queue_path.exists() {
             return Ok(Vec::new());
@@ -31,7 +30,6 @@ impl QueueManager {
         Ok(tasks)
     }
 
-    /// Safely mark a specific task as completed `[x]` using literal string replacement.
     pub async fn mark_task_completed(queue_path: &Path, task_title: &str) -> Result<()> {
         if !queue_path.exists() {
             return Ok(());
@@ -55,7 +53,6 @@ impl QueueManager {
         Ok(())
     }
 
-    /// Sweep all `[x]` tasks into REPAIR_LOG.md and CHANGELOG.md, then purge them from the queue.
     pub async fn sweep_completed_tasks(
         queue_path: &Path,
         repair_log_path: &Path,
@@ -81,7 +78,6 @@ impl QueueManager {
 
         for line in content.lines() {
             if let Some(caps) = header_re.captures(line) {
-                // Flush previous swept task if any
                 if let Some(title) = current_swept_title.take() {
                     let details = current_swept_details.join("\n");
                     repair_entries.push(format!("- **{title}**\n  {details}"));
@@ -98,7 +94,6 @@ impl QueueManager {
                 }
                 current_swept_title = Some(title);
             } else if current_swept_title.is_some() {
-                // If this is a new top-level markdown task or header, end current swept task
                 if task_start_re.is_match(line) || line.starts_with('#') {
                     if let Some(title) = current_swept_title.take() {
                         let details = current_swept_details.join("\n");
@@ -110,7 +105,6 @@ impl QueueManager {
                     }
                     remaining_lines.push(line.to_string());
                 } else {
-                    // Indented details of the swept task
                     let trimmed = line.trim();
                     if !trimmed.is_empty() {
                         current_swept_details.push(trimmed.to_string());
@@ -121,7 +115,6 @@ impl QueueManager {
             }
         }
 
-        // Flush final swept task if ended at EOF
         if let Some(title) = current_swept_title.take() {
             let details = current_swept_details.join("\n");
             repair_entries.push(format!("- **{title}**\n  {details}"));
@@ -138,7 +131,6 @@ impl QueueManager {
         let now = Local::now().format("%Y-%m-%d %H:%M").to_string();
         info!("Sweep: Archiving {swept_count} resolved task(s)");
 
-        // 1. Append to REPAIR_LOG.md
         let repair_header = format!("\n### 🛠️ Batch Remediation Sweep [{now}]\n\n");
         let repair_block = format!("{repair_header}{}\n", repair_entries.join("\n\n"));
         if repair_log_path.exists() {
@@ -151,7 +143,6 @@ impl QueueManager {
             fs::write(repair_log_path, repair_block).await?;
         }
 
-        // 2. Sync to CHANGELOG.md under ## [Unreleased]
         if changelog_path.exists() {
             let changelog_content = fs::read_to_string(changelog_path).await.unwrap_or_default();
             if changelog_content.contains("## [Unreleased]") {
@@ -164,7 +155,6 @@ impl QueueManager {
             }
         }
 
-        // 3. Write cleaned queue
         let cleaned_queue = remaining_lines.join("\n");
         fs::write(queue_path, cleaned_queue.trim()).await?;
 
