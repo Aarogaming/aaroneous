@@ -11,6 +11,24 @@ All notable changes to Aaroneous.
 - **CRIT-02: GDI Handle Leak & Vision Blindness (SEC-02)**: Remediated and verified via autonomous audit cycle.
 - **CRIT-03: Catastrophic GDI Memory Leak in Screen Capture**: Remediated and verified via autonomous audit cycle.
 
+### 🎮 Phase 34–37: Console-OS Shell, User Kinematics & Merlin Companion
+- **Decoupled Multi-Modal HUD Shells (`core/hypervisor/src/hud/modes/`)**:
+  - `modes/utility_dashboard.rs`: Minimal, high-density 2-column workstation companion with emergency killswitch and system harmony metrics.
+  - `modes/console_os.rs`: Game-system / Big-Picture console launcher with spatial arrow-key/gamepad navigation (`active_focus_idx`), Hero showcase header, and ambient 3D starfield backdrop.
+  - Hotkey switching: `F11` (Console-OS ↔ Utility Dashboard), `F10` (Mini-HUD), `F12` (Zero-latency click-through transparent overlay).
+- **Gamification Engine & Routines (`core/hypervisor/src/hud/achievements.rs`)**:
+  - Progressive milestone tracking across 5 categories awarding XP and levels.
+  - Visual Routine Builder (`screen_automation.rs`) with Bézier mouse movements, click taps, and direct compilation to `.si` model cartridges (`+150 XP`).
+  - 3D Constellation Skill Tree (`skill_constellation_3d.rs`) with perspective projection across 4 capability clusters.
+- **User Kinematic Profiling & Anomaly Isolation (`crates/compute/src/user_baseline.rs`)**:
+  - `KinematicBiomarkers`: 7-D online feature vector tracking cursor velocity/jerk, Fitts's law deceleration, and keystroke flight/dwell dynamics.
+  - `AttentionState`: State machine driving training gates (`DeepFlow`, `Deliberating`, `Skimming`, `Distracted`, `Fatigued`) to reject out-of-context activity.
+  - `UserIdentityEngine`: Cosine similarity classifier that detects foreign users and auto-provisions isolated guest profiles to protect personal baseline models.
+- **Merlin Cognitive Companion Persona (`crates/orchestrator/src/linguistic_intercom.rs`)**:
+  - Designated assistant persona **Merlin** delivering warm, perceptive dialogue adapted to the operator's real-time flow state and identity.
+  - User Profile & Companion Sync Modal (`user_profile_modal.rs`) with operator switcher, live flow harmony indicator, biomarker radar grid, and Merlin presence.
+  - Top bar flow state pills (`👤 Aaron [Flow 96%]`) integrated across all desktop modes.
+
 
 ### 🚀 Autonomous Flight Controller (AFC) Open-Source Integration
 - **`dev/tools/afc/` (AFC Architecture Integration)**:

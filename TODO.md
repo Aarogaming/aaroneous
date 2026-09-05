@@ -227,6 +227,32 @@
 
 ---
 
+### Phase 34–37: Console-OS Shell, User Kinematics & Merlin Companion (v1.6.0) — Complete
+
+#### Decoupled Window Lifecycle, Gamified Skills, Biometric Baselines & AI Companion
+
+- [x] **Step 34.1: Decoupled Multi-Modal HUD Shells (`core/hypervisor/src/hud/modes/`)**
+  - **Mode A: Minimal Utility Dashboard (`utility_dashboard.rs`)**: Stripped, high-density 2-column workstation companion with emergency killswitch, system harmony, and live event telemetry.
+  - **Mode B: Console-OS Launcher (`console_os.rs`)**: Big-Picture / Console-style launcher with spatial gamepad/arrow-key cartridge navigation (`active_focus_idx`), Hero showcase header, and ambient 3D starfield backdrop.
+  - **Lifecycle Switching (`app.rs`)**: Hotkeys `F11` (Console-OS ↔ Utility Dashboard), `F10` (Compact Mini-HUD), `F12` (Zero-latency click-through transparent overlay) over a unified `wgpu` surface.
+
+- [x] **Step 35.1: Gamification Engine & Visual Routine Builder**
+  - **Milestone & Achievement System (`core/hypervisor/src/hud/achievements.rs`)**: Progressive milestone tracking across 5 categories (*Foundations*, *Routines & Emulation*, *Model Crafting*, *Constellation Skills*, *Speed & Reflex*) awarding XP and levels.
+  - **Visual Routine Chaining (`screen_automation.rs`)**: Mouse Bézier trajectories, click taps, delays, and hotkey sequences with transparent HUD playback and direct compilation into `.si` model cartridges (`+150 XP`).
+  - **3D Constellation Skill Tree (`skill_constellation_3d.rs`)**: 3D spatial perspective projection of perk nodes across 4 capability clusters (*Perception*, *Kinematics*, *Reflex*, *Thermodynamics*) with energy line shaders.
+
+- [x] **Step 36.1: User Kinematic Profiler & Anomaly Isolation (`crates/compute/src/user_baseline.rs`)**
+  - **`KinematicBiomarkers`**: 7-dimensional online feature vector measuring cursor velocity/jerk curves, Fitts's law deceleration sharpness, keystroke dwell/flight times, and correction rate.
+  - **`AttentionState`**: State machine driving training gates (`DeepFlow`, `Deliberating`, `Skimming`, `Distracted`, `Fatigued`) to reject out-of-domain context and prevent data poisoning.
+  - **`UserIdentityEngine`**: Cosine similarity classifier that detects foreign operators and auto-provisions isolated guest profiles (`Guest Operator #N`) to protect personal baselines.
+
+- [x] **Step 37.1: Merlin Cognitive Companion Persona (`crates/orchestrator/src/linguistic_intercom.rs`)**
+  - **`CompanionPersona`**: Officially designated as **Merlin**, providing warm, perceptive, and cordial status dialogue adapted to the operator's real-time flow state and identity.
+  - **Operator Identity & Companion Sync Modal (`user_profile_modal.rs`)**: Interactive modal with operator switcher, live flow harmony indicator, biomarker radar grid, and Merlin presence feedback.
+  - **Universal Top Bar Badges**: Added clickable operator flow pills (`👤 Aaron [Flow 96%]`) across Console-OS, Utility Dashboard, and Full Studio headers.
+
+---
+
 ### Strategic Long-Term Horizons (H6, H7 & Physical Fleet)
 
 #### Horizon H6: Sovereign SI-OS & Pure-Rust Compositor (Complete)
