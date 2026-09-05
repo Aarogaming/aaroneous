@@ -1,4 +1,4 @@
-﻿// core/hypervisor/src/hud/views/user_profile_modal.rs
+// core/hypervisor/src/hud/views/user_profile_modal.rs
 //! User Profile, Kinematic Calibration & JARVIS Companion Modal.
 //!
 //! Visualizes:
@@ -187,7 +187,7 @@ pub fn render_user_profile_modal(ctx: &egui::Context, state: &mut SharedHudState
             // Companion Interaction & Speech
             ui.group(|ui| {
                 ui.horizontal(|ui| {
-                    ui.label(RichText::new("🎙️ Companion Presence (JARVIS Persona)").strong().size(13.0));
+                    ui.label(RichText::new("🔮 Merlin (Cognitive Companion)").strong().size(13.0).color(Color32::from_rgb(163, 113, 247)));
                 });
                 ui.add_space(4.0);
 
@@ -198,7 +198,7 @@ pub fn render_user_profile_modal(ctx: &egui::Context, state: &mut SharedHudState
                 let greeting = state.intercom.companion.generate_greeting(&active_name, is_guest, flow);
                 
                 ui.horizontal(|ui| {
-                    ui.label(RichText::new("Aaroneous:").color(Color32::from_rgb(56, 139, 253)).strong());
+                    ui.label(RichText::new("Merlin:").color(Color32::from_rgb(163, 113, 247)).strong());
                     ui.label(RichText::new(format!("\"{}\"", greeting)).italics().color(Color32::from_gray(210)));
                 });
             });

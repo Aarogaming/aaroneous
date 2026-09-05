@@ -1,4 +1,4 @@
-﻿// crates/orchestrator/src/linguistic_intercom.rs
+// crates/orchestrator/src/linguistic_intercom.rs
 //! Linguistic Intercom & Intent Transduction Channel with Interactive Companion ("JARVIS" Persona).
 //!
 //! Provides a bidirectional communication channel between human natural language
@@ -47,7 +47,7 @@ pub struct CompanionPersona {
 impl Default for CompanionPersona {
     fn default() -> Self {
         Self {
-            name: "Aaroneous Companion".to_string(),
+            name: "Merlin".to_string(),
             primary_operator_name: "Aaron".to_string(),
         }
     }
