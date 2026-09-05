@@ -63,6 +63,30 @@ impl TypedExtractor {
 
         Self::extract_json::<T>(&matching.function.arguments)
     }
+
+    /// Static method to extract tool call from response message (JSON format)
+    pub fn extract_tool_call(message: &crate::router::types::ResponseMessage) -> Option<crate::router::types::ToolCall> {
+        if let Some(content) = &message.content {
+            if let Ok(val) = serde_json::from_str::<serde_json::Value>(content) {
+                if let (Some(name), Some(args)) = (val.get("name").and_then(|n| n.as_str()), val.get("arguments")) {
+                    let args_str = match serde_json::to_string(&args) {
+                        Ok(s) => s,
+                        Err(_) => "{}".to_string(),
+                    };
+                    return Some(crate::router::types::ToolCall {
+                        id: "tool_call_1".to_string(),
+                        function: crate::router::types::ToolCallFunction {
+                            name: name.to_string(),
+                            arguments: args_str,
+                        },
+                        r#type: "function".to_string(),
+                    });
+                }
+            }
+        }
+
+        None
+    }
 }
 
 #[cfg(test)]

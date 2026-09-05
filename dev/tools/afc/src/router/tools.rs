@@ -113,4 +113,48 @@ impl ToolRegistry {
             },
         }
     }
+
+    /// Return sovereign REPL tool set for autonomous remediation
+    pub fn sovereign_tools() -> Vec<ToolDefinition> {
+        vec![
+            ToolDefinition {
+                r#type: "function".to_string(),
+                function: FunctionDefinition {
+                    name: "run_terminal".to_string(),
+                    description: "Execute shell command in Git Bash within the repository root."
+                        .to_string(),
+                    parameters: json!({
+                        "type": "object",
+                        "properties": {
+                            "command": {
+                                "type": "string",
+                                "description": "Shell command to execute via Git Bash"
+                            }
+                        },
+                        "required": ["command"],
+                        "additionalProperties": false
+                    }),
+                },
+            },
+            ToolDefinition {
+                r#type: "function".to_string(),
+                function: FunctionDefinition {
+                    name: "complete_task".to_string(),
+                    description: "Mark the current task as complete with a summary."
+                        .to_string(),
+                    parameters: json!({
+                        "type": "object",
+                        "properties": {
+                            "summary": {
+                                "type": "string",
+                                "description": "Brief summary of completed work"
+                            }
+                        },
+                        "required": ["summary"],
+                        "additionalProperties": false
+                    }),
+                },
+            },
+        ]
+    }
 }

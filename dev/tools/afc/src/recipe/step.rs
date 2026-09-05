@@ -92,4 +92,15 @@ impl Step {
             elapsed,
         })
     }
+
+    pub fn bash(name: impl Into<String>, command: impl Into<String>, cwd: PathBuf) -> Self {
+        Self::new(name, command, cwd)
+    }
+
+    pub fn run_terminal(&self, cwd: PathBuf) -> Step {
+        let mut step = self.clone();
+        step.command = format!("bash -c '{}'", &self.command);
+        step.cwd = cwd;
+        step
+    }
 }

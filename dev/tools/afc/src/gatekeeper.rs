@@ -167,4 +167,10 @@ impl Gatekeeper {
 
         Ok(())
     }
+
+    /// Execute comprehensive systems health pipeline via RecipePipeline
+    pub async fn run_systems_health_pipeline(repo_path: &Path) -> Result<PipelineReport> {
+        let pipeline = RecipePipeline::systems_health_pipeline(repo_path);
+        pipeline.run().await
+    }
 }

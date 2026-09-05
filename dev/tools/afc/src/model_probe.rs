@@ -14,7 +14,6 @@ pub struct ActiveModelInfo {
     pub status: String,
     pub size_vram: Option<String>,
     pub context_length: Option<usize>,
-    pub model_hash: String,
 }
 
 #[derive(Debug, Clone)]
@@ -44,10 +43,6 @@ impl ModelEndpointStatus {
         matches!(self, ModelEndpointStatus::Connected { .. })
     }
 
-    pub fn auth_authenticated(&self) -> bool {
-        matches!(self, ModelEndpointStatus::Connected { auth_authenticated: true, .. })
-    }
-
     pub fn host_and_port(&self) -> (String, u16) {
         match self {
             ModelEndpointStatus::Connected { endpoint, .. } => {
@@ -70,23 +65,15 @@ impl ModelEndpointStatus {
     pub fn resolved_model_id(&self) -> String {
         match self {
             ModelEndpointStatus::Connected {
-                active_model: Some(info), ..
+                active_model: Some(info),
+                ..
             } => info.identifier.clone(),
-            ModelEndpointStatus::Connected { configured_model, .. } => {
-                configured_model.clone()
-            }
-            _ => "local".to_string(), // Generic fallback - indicates endpoint reachable but model not detected
+            ModelEndpointStatus::Connected {
+                configured_model, ..
+            } if !configured_model.is_empty() => configured_model.clone(),
+            _ => "qwen2.5-coder-7b-instruct".to_string(),
         }
     }
-}
-
-/// Generate a simple hash for model identifier (first 16 chars of uppercase hex)
-pub fn generate_model_hash(identifier: &str) -> String {
-    let mut sum = 0u32;
-    for byte in identifier.bytes() {
-        sum = sum.wrapping_mul(31).wrapping_add(byte as u32);
-    }
-    format!("{:x}", sum)[..8].to_string()
 }
 
 #[derive(Debug, Deserialize)]
@@ -145,7 +132,6 @@ impl ModelProbe {
                         status: "Cloud Host Ready".to_string(),
                         size_vram: None,
                         context_length: Some(128_000),
-                        model_hash: generate_model_hash(&configured_model),
                     }),
                     discovered_models: vec!["copilot-chat".to_string()],
                     model_matched: true,
@@ -168,7 +154,6 @@ impl ModelProbe {
                         status: "Cloud Host Ready".to_string(),
                         size_vram: None,
                         context_length: None,
-                        model_hash: generate_model_hash(&configured_model),
                     }),
                     discovered_models: vec!["hf-inference".to_string()],
                     model_matched: true,
@@ -406,7 +391,6 @@ impl ModelProbe {
                     status: "Cloud API Ready".to_string(),
                     size_vram: None,
                     context_length: Some(1_000_000),
-                    model_hash: generate_model_hash(&configured_model),
                 }),
                 discovered_models: vec![
                     "gemini-1.5-pro".to_string(),
@@ -582,12 +566,11 @@ async fn probe_lms_cli() -> LmsCliResult {
         .map(|c| c as usize);
 
     LmsCliResult::Model(ActiveModelInfo {
-        identifier: identifier.clone(),
+        identifier,
         display_name,
         status,
         size_vram,
         context_length,
-        model_hash: generate_model_hash(&identifier),
     })
 }
 
@@ -683,11 +666,10 @@ async fn probe_ollama_running(host: &str, port: u16) -> Option<ActiveModelInfo> 
 
     Some(ActiveModelInfo {
         identifier: name.clone(),
-        display_name: name.clone(),
+        display_name: name,
         status: "Running in VRAM".to_string(),
         size_vram,
         context_length: None,
-        model_hash: generate_model_hash(&name),
     })
 }
 

@@ -38,6 +38,16 @@ impl SovereignRepl {
         }
     }
 
+    /// Helper to extract argument from JSON string (returns owned String)
+    fn get_json_arg(&self, json_str: &str, key: &str) -> Option<String> {
+        let value: serde_json::Value = serde_json::from_str(json_str).ok()?;
+        if let Some(s) = value.get(key).and_then(|v| v.as_str()) {
+            Some(s.to_string())
+        } else {
+            None
+        }
+    }
+
     /// Run the infinite/bounded sovereign REPL loop until completion or turn limit
     pub async fn run_autonomous_cycle(
         &self,
@@ -137,7 +147,8 @@ impl SovereignRepl {
             }
 
             // 3. Catch tool call via TypedExtractor (supporting OpenAI tool_calls, XML, JSON fences)
-            let tool_call_opt = TypedExtractor::extract_tool_call(&response)?;
+            let assistant_message = response.choices.first().map(|c| &c.message);
+            let tool_call_opt = assistant_message.and_then(|msg| TypedExtractor::extract_tool_call(msg));
             let tool_call = match tool_call_opt {
                 Some(tc) => tc,
                 None => {
@@ -163,21 +174,21 @@ impl SovereignRepl {
             };
 
             tool_calls_executed += 1;
+            
+            // Parse JSON arguments string
+            let args_json = &tool_call.function.arguments;
+
             info!(
                 "[Sovereign REPL] Tool call: '{}' with arguments: {}",
-                tool_call.name, tool_call.arguments
+                tool_call.function.name, args_json
             );
 
             // 4. Execute tool via sovereign engines
-            match tool_call.name.as_str() {
+            match tool_call.function.name.as_str() {
                 "complete_task" => {
                     completed = true;
-                    outcome_summary = tool_call
-                        .arguments
-                        .get("summary")
-                        .and_then(|s| s.as_str())
-                        .unwrap_or("Task completed successfully")
-                        .to_string();
+                    outcome_summary = self.get_json_arg(args_json, "summary")
+                        .unwrap_or_else(|| "Task completed successfully".to_string());
 
                     info!("[Sovereign REPL] Task Complete: {outcome_summary}");
                     state_machine.transition_to(
@@ -187,11 +198,8 @@ impl SovereignRepl {
                     break;
                 }
                 "run_terminal" => {
-                    let cmd_str = tool_call
-                        .arguments
-                        .get("command")
-                        .and_then(|c| c.as_str())
-                        .unwrap_or("");
+                    let cmd_str = self.get_json_arg(args_json, "command")
+                        .unwrap_or_default();
 
                     if cmd_str.trim().is_empty() {
                         messages.push(ChatMessage::tool(
@@ -202,7 +210,8 @@ impl SovereignRepl {
                     }
 
                     info!("[Sovereign REPL] Executing via Git Bash: {cmd_str}");
-                    let step = Step::run_terminal(cmd_str, self.repo_root.clone());
+                    let step = Step::bash("run_terminal", cmd_str, self.repo_root.clone())
+                        .run_terminal(self.repo_root.clone());
                     let output = step.execute().await?;
 
                     let mut result_text = format!("Exit Code: {}\n", output.code);
@@ -218,25 +227,16 @@ impl SovereignRepl {
                     messages.push(ChatMessage::tool("run_terminal", result_text));
                 }
                 "propose_patch" => {
-                    let file_path = tool_call
-                        .arguments
-                        .get("file_path")
-                        .and_then(|f| f.as_str())
-                        .unwrap_or("");
-                    let target_content = tool_call
-                        .arguments
-                        .get("target_content")
-                        .and_then(|t| t.as_str())
-                        .unwrap_or("");
-                    let replacement = tool_call
-                        .arguments
-                        .get("replacement_content")
-                        .and_then(|r| r.as_str())
-                        .unwrap_or("");
+                    let file_path = self.get_json_arg(args_json, "file_path")
+                        .unwrap_or_default();
+                    let target_content = self.get_json_arg(args_json, "target_content")
+                        .unwrap_or_default();
+                    let replacement = self.get_json_arg(args_json, "replacement_content")
+                        .unwrap_or_default();
 
-                    let abs_path = self.repo_root.join(file_path);
+                    let abs_path = self.repo_root.join(&file_path);
                     let patch_feedback =
-                        Self::apply_patch(&abs_path, target_content, replacement).await;
+                        Self::apply_patch(&abs_path, &target_content, &replacement).await;
 
                     if patch_feedback.contains("applied cleanly") {
                         // Run validation gate
@@ -257,11 +257,8 @@ impl SovereignRepl {
                     }
                 }
                 "report_defect" => {
-                    let desc = tool_call
-                        .arguments
-                        .get("description")
-                        .and_then(|d| d.as_str())
-                        .unwrap_or("");
+                    let desc = self.get_json_arg(args_json, "description")
+                        .unwrap_or_default();
                     info!("[Sovereign REPL] Defect reported: {desc}");
                     messages.push(ChatMessage::tool(
                         "report_defect",

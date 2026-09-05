@@ -28,6 +28,14 @@ impl ChatMessage {
             content: content.into(),
         }
     }
+
+    /// Create a tool response message
+    pub fn tool(_type: impl Into<String>, content: impl Into<String>) -> Self {
+        Self {
+            role: "tool".to_string(),
+            content: content.into(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -84,6 +92,26 @@ pub struct ResponseMessage {
     pub content: Option<String>,
     #[serde(default)]
     pub tool_calls: Option<Vec<ToolCall>>,
+}
+
+impl ResponseMessage {
+    /// Convert to ChatMessage format (for context building)
+    pub fn to_chat_message(&self) -> crate::router::types::ChatMessage {
+        match &self.content {
+            Some(c) if !c.is_empty() => crate::router::types::ChatMessage {
+                role: self.role.clone(),
+                content: c.clone(),
+            },
+            None => crate::router::types::ChatMessage {
+                role: self.role.clone(),
+                content: String::new(),
+            },
+            _ => crate::router::types::ChatMessage {
+                role: "assistant".to_string(),
+                content: String::new(),
+            },
+        }
+    }
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]

@@ -176,6 +176,11 @@ impl RecipePipeline {
                 .with_timeout(Duration::from_secs(480)),
             )
     }
+
+    /// Systems Health Verification Pipeline (alternative name)
+    pub fn systems_health_verification(repo_root: &Path) -> Self {
+        Self::systems_health_pipeline(repo_root)
+    }
 }
 
 #[cfg(test)]
