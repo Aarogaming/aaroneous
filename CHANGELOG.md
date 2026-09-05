@@ -6,11 +6,18 @@ All notable changes to Aaroneous.
 
 ## [Unreleased]
 
+### 🚀 Autonomous Flight Controller (AFC) Open-Source Integration
+- **`dev/tools/afc/` (AFC Architecture Integration)**:
+  - **Rig Engine Integration (`afc::router`)**: Implemented direct async TCP HTTP REST routing to local LLMs (LM Studio/Ollama `/v1/chat/completions`), type-safe JSON extractor with markdown fence stripping, and typed tool call registries for `propose_patch` and `report_defect`.
+  - **Picocode Engine Integration (`afc::recipe`)**: Implemented compiler diagnostics filtering (`DiagnosticsFilter`) extracting compact `error[E...]` and location patterns from raw build logs; created step runner (`Step`) with timeout control and Windows `CREATE_NO_WINDOW` (`0x0800_0000`) flag; built chainable verification gate pipeline (`RecipePipeline`).
+  - **Gitoxide-Inspired Sovereign Git (`afc::git`)**: Implemented pure-Rust in-process inspection of `.git/HEAD` branch and commit SHA-1 without spawning subprocesses; windowless atomic commit execution.
+  - **Axocoatl Engine Integration (`afc::state`)**: Implemented micro-state machine (`StateMachine`, `FlightState`) tracking explicit transitions with JSON audit trail persistence; added bounded delta-only context sanitizer (<1,500 tokens) to conserve KV cache and maximize local LLM throughput.
+
 ### 🛡️ Security Hardening & Plugin Architecture
-- **`core/hypervisor/src/hud/plugin_api.rs` (SEC-01)**:
+- **`core/hypervisor/src/hud/plugin_api.rs` (SEC-01, SEC-03)**:
   - Replaced unsafe fat pointer `*mut dyn UiCartridge` with C-compatible `#[repr(C)]` opaque pointer scheme to prevent cross-DLL heap corruption.
   - Added SHA-256 integrity verification (`compute_file_hash()`) and signature validation (`validate_signature()`) before loading any dynamic plugin library.
-  - Implemented destructor symbol lookup (`free_plugin`) ensuring proper resource cleanup on cartridge drop.
+  - Implemented destructor symbol lookup (`free_plugin`) ensuring proper resource cleanup on cartridge drop via `unload_dynamic_plugin()`.
   - All panic vectors eliminated: `.unwrap()` replaced with `anyhow::Result` propagation via `.context()` error chaining.
 
 - **`crates/platform_bridge/src/native_win32.rs` (SEC-02)**:
@@ -25,6 +32,28 @@ All notable changes to Aaroneous.
   - Refactored `GdiGuard` from stack-allocated to stack-local mutable variable for proper lifetime management, ensuring cleanup even during errors.
   - Removed `.unwrap()` from `now_tick()` function, replaced with safe `.unwrap_or_else(|| Duration::ZERO)` fallback.
   - Updated all test cases to use `.expect()` instead of `.unwrap()` for consistent error handling and clearer failure messages.
+- **`crates/autonomic_adaptation/src/genetics.rs` (CRIT-10)**:
+  - Fixed NaN panic in `find_closest_relative()` by replacing `partial_cmp().unwrap()` with `partial_cmp().unwrap_or(Ordering::Equal)`.
+  - Fixed NaN panic in `find_breeding_candidates()` sort comparator at line 413.
+- **`crates/omni/src/matrix/sab_tensor.rs` (CRIT-11)**:
+  - Fixed NaN panic in `high_mutual_info_pairs()` by replacing `partial_cmp().unwrap()` with `partial_cmp().unwrap_or(Ordering::Equal)`.
+
+### 🛡️ Security Hardening & Path Traversal Prevention
+- **`core/hypervisor/src/action_executor.rs` (SEC-06)**:
+  - Fixed sandbox path validation to canonicalize parent directory rather than raw fallback, preventing symlink-based traversal bypasses.
+  - Replaced `.unwrap_or_else(|_| resolved.clone())` with proper error bubbling for canonicalization failures.
+  - Canonicalized all allowed roots consistently before comparison to prevent race conditions and symlink attacks.
+  - Return canonicalized path on success instead of unresolved path for consistent security boundaries.
+
+### 🛡️ Security Hardening & Timing Attack Prevention
+- **`core/hypervisor/src/mcp_service/http_api.rs` (SEC-04)**:
+  - Replaced variable-time string comparison (`==`) with constant-time `subtle::ConstantTimeEq` for API key validation.
+  - Mitigates timing attack side-channels that could leak API key characters through response time analysis.
+### 🛡️ Security Hardening & Lock Ordering
+- **`crates/orchestrator/src/hive_runtime.rs` (CRIT-07)**:
+  - Fixed lock inversion deadlock in `complete_task()` by acquiring `task_log` lock before `router` lock.
+  - Ensured consistent lock ordering across all methods to prevent deadlocks from circular wait conditions.
+  - Maintained same-lock-holding pattern for performance (no unnecessary unlock/relock cycles).
 
 ### 🛡️ Observance Era Stabilizations & Build Remediation
 - **`core/hypervisor/Cargo.toml` & `platform_bridge/Cargo.toml` & `scratchpad/Cargo.toml`**:
