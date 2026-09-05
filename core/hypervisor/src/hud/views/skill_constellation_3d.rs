@@ -7,6 +7,7 @@ use crate::hud::state::SharedHudState;
 use crate::hud::views::HudView;
 use eframe::egui::{self, Color32, CornerRadius, Pos2, Stroke, Vec2};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ConstellationSkillNode {
@@ -22,159 +23,25 @@ pub struct ConstellationSkillNode {
     pub description: String,
 }
 
-#[derive(Default)]
 pub struct SkillConstellation3DView {
     pub selected_node_id: Option<String>,
     pub filter_cluster: String,
+    pub nodes: Vec<ConstellationSkillNode>,
 }
 
-impl HudView for SkillConstellation3DView {
-    fn id(&self) -> &'static str {
-        "skill_constellation_3d"
+impl Default for SkillConstellation3DView {
+    fn default() -> Self {
+        Self {
+            selected_node_id: Some("percept_root".to_string()),
+            filter_cluster: String::new(),
+            nodes: Self::default_nodes(),
+        }
     }
+}
 
-    fn title(&self) -> &'static str {
-        "🌌 Constellation Skills"
-    }
-
-    fn render(&mut self, ui: &mut egui::Ui, state: &mut SharedHudState) {
-        let theme = state.settings.theme;
-        let time_sec = state.start_time.elapsed().as_secs_f32();
-
-        // 1. Header & Mastery Currency Bar
-        ui.horizontal(|ui| {
-            ui.heading(
-                egui::RichText::new("🌌 3D Model Skill Constellation")
-                    .color(theme.accent())
-                    .strong(),
-            );
-
-            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                if ui.button("🔄 Reset View").clicked() {
-                    state.camera_pan = Vec2::ZERO;
-                    state.camera_zoom = 1.0;
-                    state.camera_rotation = (0.3, 0.2);
-                }
-                ui.label(
-                    egui::RichText::new(format!("⭐ Available Mastery: {} pts", state.user_level * 2))
-                        .color(Color32::from_rgb(255, 215, 0))
-                        .strong(),
-                );
-            });
-        });
-
-        ui.label(
-            "Spatial Progression Architecture: Unlock and master capabilities across Perception, Kinematics, Reflex, and Thermodynamic clusters.",
-        );
-        ui.add_space(4.0);
-
-        // 2. Cluster Filter Selector
-        ui.horizontal(|ui| {
-            ui.label(egui::RichText::new("Branch Focus:").strong());
-            for cluster in ["All", "Perception", "Kinematics", "Reflex", "Thermodynamics"] {
-                let is_sel = if self.filter_cluster.is_empty() {
-                    cluster == "All"
-                } else {
-                    self.filter_cluster == cluster
-                };
-                if ui.selectable_label(is_sel, cluster).clicked() {
-                    self.filter_cluster = if cluster == "All" {
-                        String::new()
-                    } else {
-                        cluster.to_string()
-                    };
-                }
-            }
-        });
-        ui.separator();
-
-        // 3. Allocate 3D Canvas
-        let canvas_height = 420.0;
-        let (response, painter) = ui.allocate_painter(
-            Vec2::new(ui.available_width(), canvas_height),
-            egui::Sense::click_and_drag(),
-        );
-
-        let canvas_rect = response.rect;
-        let center = canvas_rect.center() + state.camera_pan;
-
-        // Camera Drag & Zoom Controls
-        if response.dragged_by(egui::PointerButton::Primary) {
-            let delta = response.drag_delta();
-            state.camera_rotation.0 += delta.x * 0.008; // Yaw
-            state.camera_rotation.1 = (state.camera_rotation.1 + delta.y * 0.008).clamp(-1.4, 1.4); // Pitch
-        } else if response.dragged_by(egui::PointerButton::Secondary)
-            || response.dragged_by(egui::PointerButton::Middle)
-        {
-            state.camera_pan += response.drag_delta();
-        }
-
-        let scroll_delta = ui.input(|i| i.smooth_scroll_delta.y);
-        if response.hovered() && scroll_delta.abs() > 0.1 {
-            let factor = if scroll_delta > 0.0 { 1.1 } else { 0.9 };
-            state.camera_zoom = (state.camera_zoom * factor).clamp(0.5, 3.5);
-        }
-
-        // Space Backdrop
-        painter.rect_filled(
-            canvas_rect,
-            CornerRadius::same(8),
-            Color32::from_rgb(6, 8, 14),
-        );
-
-        // 3D Perspective Projection
-        let (yaw, pitch) = state.camera_rotation;
-        let cos_y = yaw.cos();
-        let sin_y = yaw.sin();
-        let cos_p = pitch.cos();
-        let sin_p = pitch.sin();
-        let focal_dist = 500.0;
-        let cam_dist = 450.0 / state.camera_zoom;
-
-        let project_3d = |pos: [f32; 3]| -> Option<(Pos2, f32, f32)> {
-            let x = pos[0];
-            let y = pos[1];
-            let z = pos[2];
-
-            let x1 = x * cos_y - z * sin_y;
-            let z1 = x * sin_y + z * cos_y;
-
-            let y2 = y * cos_p - z1 * sin_p;
-            let z2 = y * sin_p + z1 * cos_p;
-
-            let z_cam = z2 + cam_dist;
-            if z_cam <= 10.0 {
-                return None;
-            }
-
-            let scale = focal_dist / z_cam;
-            let screen_x = center.x + x1 * scale;
-            let screen_y = center.y + y2 * scale;
-
-            Some((Pos2::new(screen_x, screen_y), scale, z_cam))
-        };
-
-        // Nebula Background Stars
-        for i in 0..80 {
-            let seed = (i as f32) * 17.13;
-            let sx = (seed.sin() * 700.0) % 500.0;
-            let sy = ((seed * 1.7).cos() * 500.0) % 350.0;
-            let sz = ((seed * 2.1).sin() * 700.0) % 500.0;
-            if let Some((pt, scale, z_cam)) = project_3d([sx, sy, sz]) {
-                if canvas_rect.contains(pt) {
-                    let tw = ((time_sec * 2.5 + i as f32 * 1.5).sin() * 0.5 + 0.5).clamp(0.2, 1.0);
-                    let alpha = ((140.0 * tw) * (1.0 - (z_cam / 1100.0).clamp(0.0, 0.8))) as u8;
-                    painter.circle_filled(
-                        pt,
-                        (1.2 * scale).clamp(0.6, 2.0),
-                        Color32::from_rgba_unmultiplied(190, 210, 255, alpha),
-                    );
-                }
-            }
-        }
-
-        // Constellation Skill Nodes Setup
-        let nodes = vec![
+impl SkillConstellation3DView {
+    fn default_nodes() -> Vec<ConstellationSkillNode> {
+        vec![
             // Perception Cluster (Cyan)
             ConstellationSkillNode {
                 id: "percept_root".to_string(),
@@ -295,43 +162,222 @@ impl HudView for SkillConstellation3DView {
                 cost_points: 3,
                 is_unlocked: false,
                 mastery_level: 0,
-                pos: [120.0, -150.0, 30.0],
+                pos: [140.0, -140.0, 40.0],
                 connections: vec![],
-                description: "Packs entire skill routines into sub-100KB memory-mapped cartridges.".to_string(),
+                description: "Compacts dormant state weights into zero-copy SIMD memory banks.".to_string(),
             },
-        ];
+        ]
+    }
+}
 
-        let node_map: std::collections::HashMap<_, _> = nodes.iter().map(|n| (n.id.clone(), n.clone())).collect();
+impl HudView for SkillConstellation3DView {
+    fn id(&self) -> &'static str {
+        "skill_constellation_3d"
+    }
 
-        // Draw Constellation Connection Wires
-        for node in &nodes {
-            if !self.filter_cluster.is_empty() && node.cluster != self.filter_cluster {
-                continue;
+    fn title(&self) -> &'static str {
+        "🌌 Constellation Skills"
+    }
+
+    fn render(&mut self, ui: &mut egui::Ui, state: &mut SharedHudState) {
+        let theme = state.settings.theme;
+        let time_sec = state.start_time.elapsed().as_secs_f32();
+
+        // 1. Header & Mastery Currency Bar
+        ui.horizontal(|ui| {
+            ui.heading(
+                egui::RichText::new("🌌 3D Model Skill Constellation")
+                    .color(theme.accent())
+                    .strong(),
+            );
+
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                if ui.button("🔄 Reset View").clicked() {
+                    state.camera_pan = Vec2::ZERO;
+                    state.camera_zoom = 1.0;
+                    state.camera_rotation = (0.3, 0.2);
+                }
+                ui.label(
+                    egui::RichText::new(format!("⭐ Available Mastery: {} pts", state.user_level * 2))
+                        .color(Color32::from_rgb(255, 215, 0))
+                        .strong(),
+                );
+            });
+        });
+
+        ui.label(
+            "Spatial Progression Architecture: Unlock and master capabilities across Perception, Kinematics, Reflex, and Thermodynamic clusters.",
+        );
+        ui.add_space(4.0);
+
+        // 2. Cluster Filter Selector
+        ui.horizontal(|ui| {
+            ui.label(egui::RichText::new("Branch Focus:").strong());
+            for cluster in ["All", "Perception", "Kinematics", "Reflex", "Thermodynamics"] {
+                let is_sel = if self.filter_cluster.is_empty() {
+                    cluster == "All"
+                } else {
+                    self.filter_cluster == cluster
+                };
+                if ui.selectable_label(is_sel, cluster).clicked() {
+                    self.filter_cluster = if cluster == "All" {
+                        String::new()
+                    } else {
+                        cluster.to_string()
+                    };
+                }
             }
-            if let Some((p1, scale1, _)) = project_3d(node.pos) {
+        });
+        ui.separator();
+
+        // 3. Allocate 3D Canvas
+        let canvas_height = 420.0;
+        let (response, painter) = ui.allocate_painter(
+            Vec2::new(ui.available_width(), canvas_height),
+            egui::Sense::click_and_drag(),
+        );
+
+        let canvas_rect = response.rect;
+        let center = canvas_rect.center() + state.camera_pan;
+
+        // Camera Drag & Zoom Controls
+        if response.dragged_by(egui::PointerButton::Primary) {
+            let delta = response.drag_delta();
+            state.camera_rotation.0 += delta.x * 0.008; // Yaw
+            state.camera_rotation.1 = (state.camera_rotation.1 + delta.y * 0.008).clamp(-1.4, 1.4); // Pitch
+        } else if response.dragged_by(egui::PointerButton::Secondary)
+            || response.dragged_by(egui::PointerButton::Middle)
+        {
+            state.camera_pan += response.drag_delta();
+        }
+
+        let scroll_delta = ui.input(|i| i.smooth_scroll_delta.y);
+        if response.hovered() && scroll_delta.abs() > 0.1 {
+            let factor = if scroll_delta > 0.0 { 1.1 } else { 0.9 };
+            state.camera_zoom = (state.camera_zoom * factor).clamp(0.5, 3.5);
+        }
+
+        // Draw Canvas Backdrop
+        painter.rect_filled(canvas_rect, CornerRadius::same(8), Color32::from_rgb(8, 12, 20));
+        painter.rect_stroke(
+            canvas_rect,
+            CornerRadius::same(8),
+            Stroke::new(1.0, Color32::from_rgba_unmultiplied(60, 80, 120, 100)),
+            egui::StrokeKind::Inside,
+        );
+
+        // 3D Perspective Projection Function
+        let yaw = state.camera_rotation.0;
+        let pitch: f32 = state.camera_rotation.1;
+        let zoom = state.camera_zoom;
+
+        let project_3d = |pos: [f32; 3]| -> Option<(Pos2, f32, f32)> {
+            let x = pos[0];
+            let y = pos[1];
+            let z = pos[2];
+
+            // 1. Yaw rotation (around Y axis)
+            let cos_y = yaw.cos();
+            let sin_y = yaw.sin();
+            let x1 = x * cos_y + z * sin_y;
+            let z1 = -x * sin_y + z * cos_y;
+
+            // 2. Pitch rotation (around X axis)
+            let cos_p = pitch.cos();
+            let sin_p = pitch.sin();
+            let y2 = y * cos_p - z1 * sin_p;
+            let z2 = y * sin_p + z1 * cos_p;
+
+            // Camera distance offset
+            let cam_dist = 500.0;
+            let z_cam = z2 + cam_dist;
+            if z_cam <= 20.0 {
+                return None;
+            }
+
+            let fov = 450.0 * zoom;
+            let screen_x = center.x + (x1 * fov) / z_cam;
+            let screen_y = center.y - (y2 * fov) / z_cam;
+            let scale = fov / z_cam;
+
+            Some((Pos2::new(screen_x, screen_y), scale, z_cam))
+        };
+
+        // Render Ambient Background Star Field
+        for i in 0..70 {
+            let seed = (i as f32) * 123.456;
+            let sx = (seed * 17.3).sin() * 400.0;
+            let sy = (seed * 29.7).cos() * 250.0;
+            let sz = (seed * 43.1).sin() * 300.0;
+
+            if let Some((pt, scale, z_cam)) = project_3d([sx, sy, sz]) {
+                if canvas_rect.contains(pt) {
+                    let tw = ((time_sec * 2.5 + i as f32 * 1.5).sin() * 0.5 + 0.5).clamp(0.2, 1.0);
+                    let alpha = ((140.0 * tw) * (1.0 - (z_cam / 1100.0).clamp(0.0, 0.8))) as u8;
+                    painter.circle_filled(
+                        pt,
+                        (1.2 * scale).clamp(0.6, 2.4),
+                        Color32::from_rgba_unmultiplied(190, 210, 255, alpha),
+                    );
+                }
+            }
+        }
+
+        // Build position cache & lookup map
+        let mut node_positions: HashMap<String, (Pos2, f32)> = HashMap::new();
+        let mut sorted_nodes: Vec<&ConstellationSkillNode> = self
+            .nodes
+            .iter()
+            .filter(|n| self.filter_cluster.is_empty() || n.cluster == self.filter_cluster)
+            .collect();
+
+        // Sort by Z for proper 3D depth rendering (furthest first)
+        sorted_nodes.sort_by(|a, b| {
+            let za = a.pos[2];
+            let zb = b.pos[2];
+            za.partial_cmp(&zb).unwrap_or(std::cmp::Ordering::Equal)
+        });
+
+        for node in &self.nodes {
+            if let Some((pos_2d, scale, _)) = project_3d(node.pos) {
+                node_positions.insert(node.id.clone(), (pos_2d, scale));
+            }
+        }
+
+        let node_map: HashMap<String, ConstellationSkillNode> =
+            self.nodes.iter().map(|n| (n.id.clone(), n.clone())).collect();
+
+        // Draw Constellation Energy Wires (Connections)
+        for node in &self.nodes {
+            if let Some(&(p1, scale1)) = node_positions.get(&node.id) {
                 for conn_id in &node.connections {
                     if let Some(target) = node_map.get(conn_id) {
                         if let Some((p2, scale2, _)) = project_3d(target.pos) {
                             let wire_color = if node.is_unlocked && target.is_unlocked {
                                 Color32::from_rgba_unmultiplied(120, 190, 255, 180)
                             } else {
-                                Color32::from_rgba_unmultiplied(60, 80, 110, 80)
+                                Color32::from_rgba_unmultiplied(70, 85, 110, 90)
                             };
 
-                            painter.line_segment([p1, p2], Stroke::new(1.5, wire_color));
+                            let wire_width = if node.is_unlocked && target.is_unlocked {
+                                (2.5 * scale1.min(scale2)).clamp(1.5, 4.0)
+                            } else {
+                                (1.0 * scale1.min(scale2)).clamp(0.8, 2.0)
+                            };
 
-                            // Animated Energy Particle along unlocked wires
+                            painter.line_segment([p1, p2], Stroke::new(wire_width, wire_color));
+
+                            // Animated energy pulse traveling along active connections
                             if node.is_unlocked && target.is_unlocked {
-                                let phase = (time_sec * 0.8) % 1.0;
-                                let particle_pos = Pos2::new(
-                                    p1.x + (p2.x - p1.x) * phase,
-                                    p1.y + (p2.y - p1.y) * phase,
+                                let t_pulse = (time_sec * 1.5 + (node.tier as f32) * 0.4) % 1.0;
+                                let pulse_pos = Pos2::new(
+                                    p1.x + (p2.x - p1.x) * t_pulse,
+                                    p1.y + (p2.y - p1.y) * t_pulse,
                                 );
-                                let particle_scale = (scale1 + (scale2 - scale1) * phase).max(0.5);
                                 painter.circle_filled(
-                                    particle_pos,
-                                    3.0 * particle_scale,
-                                    Color32::from_rgb(220, 245, 255),
+                                    pulse_pos,
+                                    (2.5 * scale1).clamp(1.5, 4.5),
+                                    Color32::from_rgb(255, 255, 255),
                                 );
                             }
                         }
@@ -340,43 +386,39 @@ impl HudView for SkillConstellation3DView {
             }
         }
 
-        // Draw Nodes
-        let mut clicked_id = None;
-        let click_pos = if response.clicked() {
-            response.interact_pointer_pos()
-        } else {
-            None
-        };
+        // Draw Constellation Skill Nodes
+        let mut clicked_id: Option<String> = None;
+        let mouse_pos = ui.input(|i| i.pointer.hover_pos());
 
-        for node in &nodes {
-            if !self.filter_cluster.is_empty() && node.cluster != self.filter_cluster {
-                continue;
-            }
-            if let Some((pos_2d, scale, z_cam)) = project_3d(node.pos) {
+        for node in &sorted_nodes {
+            if let Some(&(pos_2d, scale)) = node_positions.get(&node.id) {
+                let radius = (12.0 * scale).clamp(8.0, 28.0);
                 let is_selected = self.selected_node_id.as_deref() == Some(node.id.as_str());
-                let radius = (if is_selected { 14.0 } else { 10.0 } * scale).clamp(5.0, 26.0);
+                let is_hovered = mouse_pos.map_or(false, |mp| mp.distance(pos_2d) <= radius + 4.0);
 
-                if let Some(_cp) = click_pos.filter(|cp| cp.distance(pos_2d) <= radius * 1.5) {
+                if is_hovered && ui.input(|i| i.pointer.primary_clicked()) {
                     clicked_id = Some(node.id.clone());
                 }
 
-                let fog = (1.0 - (z_cam - 150.0) / 700.0).clamp(0.3, 1.0);
-                let (r, g, b) = match node.cluster.as_str() {
-                    "Perception" => (56, 139, 253),
-                    "Kinematics" => (255, 200, 80),
-                    "Reflex" => (163, 113, 247),
-                    "Thermodynamics" => (63, 185, 80),
-                    _ => (200, 200, 200),
+                // Determine Node Cluster Color
+                let base_color = match node.cluster.as_str() {
+                    "Perception" => Color32::from_rgb(56, 189, 248),   // Cyan
+                    "Kinematics" => Color32::from_rgb(251, 191, 36),   // Amber/Gold
+                    "Reflex" => Color32::from_rgb(168, 85, 247),       // Purple
+                    "Thermodynamics" => Color32::from_rgb(52, 211, 153),// Emerald
+                    _ => Color32::from_rgb(148, 163, 184),
                 };
 
                 let node_color = if node.is_unlocked {
-                    Color32::from_rgba_unmultiplied(r, g, b, (255.0 * fog) as u8)
+                    base_color
                 } else {
-                    Color32::from_rgba_unmultiplied(80, 90, 110, (180.0 * fog) as u8)
+                    Color32::from_rgb(60, 70, 85)
                 };
 
-                // Halo glow
+                // Outer pulsing glow if unlocked
                 if node.is_unlocked {
+                    let (r, g, b) = (base_color.r(), base_color.g(), base_color.b());
+                    let fog = (1.0 - (node.pos[2] / 800.0).clamp(0.0, 0.7)).max(0.2);
                     let pulse = ((time_sec * 2.5).sin() * 0.5 + 0.5) * 0.3 + 0.7;
                     painter.circle_filled(
                         pos_2d,
@@ -421,6 +463,9 @@ impl HudView for SkillConstellation3DView {
         ui.add_space(8.0);
 
         // 4. Selected Perk Inspector Panel
+        let mut toggle_unlock_id: Option<String> = None;
+        let mut upgrade_mastery_id: Option<String> = None;
+
         if let Some(node) = self
             .selected_node_id
             .as_ref()
@@ -457,10 +502,10 @@ impl HudView for SkillConstellation3DView {
                         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                             if !node.is_unlocked {
                                 if ui.button(egui::RichText::new("⚡ Unlock Perk").strong().color(Color32::WHITE)).clicked() {
-                                    state.award_xp(150, "Unlocked Constellation Skill Perk");
+                                    toggle_unlock_id = Some(node.id.clone());
                                 }
                             } else if ui.button("⚡ Upgrade Mastery (+1)").clicked() {
-                                state.award_xp(75, "Upgraded Skill Mastery");
+                                upgrade_mastery_id = Some(node.id.clone());
                             }
                         });
                     });
@@ -468,6 +513,23 @@ impl HudView for SkillConstellation3DView {
                     ui.add_space(4.0);
                     ui.label(egui::RichText::new(&node.description).italics());
                 });
+        }
+
+        // Apply stateful unlocks and mastery upgrades
+        if let Some(id) = toggle_unlock_id {
+            if let Some(target_node) = self.nodes.iter_mut().find(|n| n.id == id) {
+                target_node.is_unlocked = true;
+                target_node.mastery_level = 1;
+                state.award_xp(150, "Unlocked Constellation Skill Perk");
+                state.trigger_achievement_progress("constellation_initiate", 1);
+            }
+        }
+        if let Some(id) = upgrade_mastery_id {
+            if let Some(target_node) = self.nodes.iter_mut().find(|n| n.id == id) {
+                target_node.mastery_level += 1;
+                state.award_xp(75, "Upgraded Skill Mastery");
+                state.trigger_achievement_progress("mastery_ascendant", 1);
+            }
         }
     }
 }

@@ -1,4 +1,4 @@
-﻿// core/hypervisor/src/hud/onboarding.rs
+// core/hypervisor/src/hud/onboarding.rs
 //! Interactive User Onboarding and Quick Guided Tour.
 //! Teaches new users how to operate Aaroneous. Can be dismissed and never shown on startup,
 //! while remaining readily accessible anytime via the top header or Guide button.
@@ -7,19 +7,10 @@ use crate::hud::state::SharedHudState;
 use crate::hud::theme::HudTheme;
 use eframe::egui::{self, Color32, CornerRadius, Stroke};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct OnboardingGuide {
     pub is_open: bool,
     pub current_step: usize,
-}
-
-impl Default for OnboardingGuide {
-    fn default() -> Self {
-        Self {
-            is_open: false,
-            current_step: 0,
-        }
-    }
 }
 
 impl OnboardingGuide {

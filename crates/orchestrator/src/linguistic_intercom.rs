@@ -64,9 +64,7 @@ impl CompanionPersona {
     /// Creates an intelligent, context-aware greeting adapted to user identity and flow
     pub fn generate_greeting(&self, user_name: &str, is_guest: bool, flow_score: f32) -> String {
         if is_guest {
-            format!(
-                "Welcome to Aaroneous. I am your computational companion. I've initialized an isolated workspace for you—feel free to explore or give commands."
-            )
+            "Welcome to Aaroneous. I am Merlin, your computational companion. I've initialized an isolated workspace for you—feel free to explore or give commands.".to_string()
         } else {
             let flow_pct = (flow_score * 100.0).round() as u32;
             if flow_pct >= 90 {

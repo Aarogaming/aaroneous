@@ -229,6 +229,17 @@ impl eframe::App for StudioApp {
             reset_hotkey,
         );
 
+        // ── Ingest Live Pointer Kinematics into User Baseline Engine ────────────
+        let ptr_vel = ctx.input(|i| i.pointer.velocity());
+        let speed = ptr_vel.length();
+        if speed > 10.0 {
+            let mut bio = self.state.user_identity_engine.active_profile().baseline_biomarkers.clone();
+            bio.mean_cursor_speed = (bio.mean_cursor_speed * 0.95) + (speed * 0.05);
+            if let Some(notice) = self.state.user_identity_engine.ingest_kinematics(bio) {
+                self.toasts.push("Identity Sync", notice, ToastLevel::Info);
+            }
+        }
+
         let theme = self.state.settings.theme;
 
         // ── Render Active Window Mode ───────────────────────────────────────────
