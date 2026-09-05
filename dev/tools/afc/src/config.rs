@@ -73,15 +73,17 @@ impl FlightConfig {
             return cwd;
         }
 
-        // Fallback: check parent directories (e.g. if run from dev/tools/afc)
-        let mut parent = cwd.as_path();
-        while let Some(p) = parent.parent() {
-            if p.join(".git").exists() {
-                return p.to_path_buf();
+        // Fallback: check parent directories of the running executable
+        if let Ok(exe_path) = std::env::current_exe() {
+            let mut parent = exe_path.as_path();
+            while let Some(p) = parent.parent() {
+                if p.join(".git").exists() || p.join("Cargo.toml").exists() {
+                    return p.to_path_buf();
+                }
+                parent = p;
             }
-            parent = p;
         }
 
-        PathBuf::from("d:\\Aaroneous")
+        cwd
     }
 }

@@ -1,3 +1,5 @@
 @echo off
-cd /d "D:\Aaroneous"
-start "" "D:\Aaroneous\dev\tools\afc\target\release\afc.exe" --gui
+setlocal
+set "SCRIPT_DIR=%~dp0"
+cd /d "%SCRIPT_DIR%..\.."
+start "" "%SCRIPT_DIR%afc\target\release\afc.exe" --gui
