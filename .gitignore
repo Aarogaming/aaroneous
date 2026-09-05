@@ -58,4 +58,6 @@ bin/a-run.exe
 
 # Temp files
 *.tmp
+nul
+**/nul
 *.bak

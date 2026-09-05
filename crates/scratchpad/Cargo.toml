@@ -1,0 +1,16 @@
+[package]
+name = "scratchpad"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+eframe = { version = "0.34", default-features = false }
+egui = "0.34"
+aaroneous_api = { path = "../aaroneous_api" }
+
+reqwest = { version = "0.13", features = ["blocking", "json"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"

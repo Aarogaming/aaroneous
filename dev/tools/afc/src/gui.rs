@@ -429,13 +429,13 @@ impl eframe::App for FlightControllerApp {
             ui.add_space(2.0);
             ui.collapsing("Pipeline Phase Selection (Multiselect)", |ui| {
                 ui.horizontal_wrapped(|ui| {
-                    ui.checkbox(&mut self.config.phase_plan, "1. Plan (Architect)");
-                    ui.checkbox(&mut self.config.phase_audit, "2. Audit (Forensics)");
-                    ui.checkbox(&mut self.config.phase_fix, "3. Fix (Remediate)");
-                    ui.checkbox(&mut self.config.phase_sweep, "4. Sweep (Archive)");
-                    ui.checkbox(&mut self.config.phase_verify, "5. Verify (Gates)");
-                    ui.checkbox(&mut self.config.phase_commit, "6. Commit (Git)");
-                    ui.checkbox(&mut self.config.phase_deliver, "7. Deliver (Release)");
+                    ui.checkbox(&mut self.config.phase_plan, "1. Plan");
+                    ui.checkbox(&mut self.config.phase_audit, "2. Audit");
+                    ui.checkbox(&mut self.config.phase_fix, "3. Fix");
+                    ui.checkbox(&mut self.config.phase_sweep, "4. Sweep");
+                    ui.checkbox(&mut self.config.phase_verify, "5. Verify");
+                    ui.checkbox(&mut self.config.phase_commit, "6. Commit");
+                    ui.checkbox(&mut self.config.phase_deliver, "7. Deliver");
                 });
             });
 
