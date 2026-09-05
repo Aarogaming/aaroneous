@@ -196,17 +196,17 @@ impl HudView for SettingsView {
             ui.add_space(16.0);
 
             // ── Section 5: Safety & Automation ──────────────────────────────────────
-            ui.label(egui::RichText::new("🛡️ SAFETY & AUTOMATION").strong());
-            if ui.checkbox(&mut state.settings.close_to_tray, "Close to System Notification Tray (Keep Background Daemon Running)").changed() {
+            ui.label(egui::RichText::new("🛡️ SAFETY & RELIABILITY").strong());
+            if ui.checkbox(&mut state.settings.close_to_tray, "Close to System Tray (Keep Automation Running)").changed() {
                 state.settings.save_to_disk();
             }
-            if ui.checkbox(&mut state.settings.modular_canvas_mode, "Default to Modular Canvas Studio Mode").changed() {
+            if ui.checkbox(&mut state.settings.modular_canvas_mode, "Default to Modular Workspace Mode").changed() {
                 state.settings.save_to_disk();
             }
-            if ui.checkbox(&mut state.settings.allow_host_input, "Allow Live Host HID Injection (Hardware Input Safety Permit)").changed() {
+            if ui.checkbox(&mut state.settings.allow_host_input, "Allow Direct Keyboard & Mouse Automation").changed() {
                 state.settings.save_to_disk();
             }
-            if ui.checkbox(&mut state.settings.auto_recompile_on_save, "Auto-Recompile Code on Save").changed() {
+            if ui.checkbox(&mut state.settings.auto_recompile_on_save, "Auto-Optimize Routines on Save").changed() {
                 state.settings.save_to_disk();
             }
 

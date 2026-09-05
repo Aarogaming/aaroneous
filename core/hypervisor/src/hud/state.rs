@@ -618,8 +618,22 @@ pub struct SharedHudState {
     pub forge_distillation_status: String,
     pub foundry_wizard_step: usize,
     pub forge_input_source: usize,
+    pub forge_safety_verified: bool,
+    pub forge_safety_certificate: Option<String>,
     pub swarm_live_quorums: usize,
     pub swarm_offload_count: usize,
+
+    // Deep OS Sensory Inputs (Normalized UI)
+    pub deep_ui_reader_enabled: bool,
+    pub deep_ui_discovered_elements: usize,
+    pub deep_ui_focused_element: Option<String>,
+    pub audio_monitor_enabled: bool,
+    pub audio_current_level_db: f32,
+    pub audio_last_event_desc: Option<String>,
+
+    // Instant Recall Experience Bank
+    pub recall_search_query: String,
+    pub recall_search_results: Vec<(String, f32, String)>, // title, similarity, latency
 
     // Spatial Canvas Scene & Window Topology
     pub spatial_canvas_scene: SpatialCanvasScene,
@@ -1022,8 +1036,18 @@ impl Default for SharedHudState {
             forge_distillation_status: "Ready to distill .si student models.".into(),
             foundry_wizard_step: 0,
             forge_input_source: 0,
+            forge_safety_verified: false,
+            forge_safety_certificate: None,
             swarm_live_quorums: 3,
             swarm_offload_count: 12,
+            deep_ui_reader_enabled: false,
+            deep_ui_discovered_elements: 0,
+            deep_ui_focused_element: None,
+            audio_monitor_enabled: false,
+            audio_current_level_db: -42.0,
+            audio_last_event_desc: None,
+            recall_search_query: String::new(),
+            recall_search_results: Vec::new(),
             spatial_canvas_scene: SpatialCanvasScene::new(),
             auto_pilot_telemetry: crate::hud::auto_pilot::AutoPilotTelemetry::default(),
             auto_pilot_toggle_requested: false,
