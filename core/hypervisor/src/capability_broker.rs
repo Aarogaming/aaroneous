@@ -612,6 +612,96 @@ impl CapabilityBroker {
                 }))
             }),
         );
+
+        // 13. DEV-02: Automated AST Pattern Rewriting & Patch Verification
+        self.register(
+            CapabilityDescriptor {
+                id: "code.ast_rewrite".to_string(),
+                name: "Automated AST Pattern Rewriter".to_string(),
+                description: "Applies Comby-style structural pattern replacements across source files without LLM round-trips".to_string(),
+                category: CapabilityCategory::DevTools,
+                parameters: vec![
+                    CapabilityParameter {
+                        name: "pattern".to_string(),
+                        description: "Comby structural pattern with :[holes]".to_string(),
+                        param_type: "string".to_string(),
+                        required: true,
+                        default_value: None,
+                    },
+                    CapabilityParameter {
+                        name: "template".to_string(),
+                        description: "Replacement template with :[holes]".to_string(),
+                        param_type: "string".to_string(),
+                        required: true,
+                        default_value: None,
+                    },
+                    CapabilityParameter {
+                        name: "source".to_string(),
+                        description: "Source code to transform".to_string(),
+                        param_type: "string".to_string(),
+                        required: true,
+                        default_value: None,
+                    },
+                ],
+                mutating: false,
+                available: true,
+            },
+            Box::new(|params| {
+                let pattern = params.get("pattern").and_then(|v| v.as_str()).unwrap_or("fn :[name]()");
+                let template = params.get("template").and_then(|v| v.as_str()).unwrap_or("pub fn :[name]()");
+                let source = params.get("source").and_then(|v| v.as_str()).unwrap_or("fn compute() {}");
+
+                match adaptation_engine::pattern_rewriter::PatternRewriter::rewrite_source("virtual.rs", source, pattern, template) {
+                    Ok((rewritten, patches)) => {
+                        let count = patches.len();
+                        Ok(serde_json::json!({
+                            "status": "ready",
+                            "matches_count": count,
+                            "rewritten_code": rewritten,
+                            "patches": patches,
+                        }))
+                    }
+                    Err(e) => Err(format!("Pattern rewrite failed: {e}")),
+                }
+            }),
+        );
+
+        // 14. EXEC-01: Neurochemical & Dopamine Reinforcement Engine for Agent Loops
+        self.register(
+            CapabilityDescriptor {
+                id: "autonomic.dopamine_equilibrium".to_string(),
+                name: "Homeostatic Dopamine Equilibrium Engine".to_string(),
+                description: "Inspects and modulates the 4-channel neurochemical homeostasis vector".to_string(),
+                category: CapabilityCategory::Specialist,
+                parameters: vec![
+                    CapabilityParameter {
+                        name: "reward".to_string(),
+                        description: "Plasticity reward impulse (-1.0 to 1.0)".to_string(),
+                        param_type: "number".to_string(),
+                        required: false,
+                        default_value: Some(serde_json::json!(0.1)),
+                    },
+                ],
+                mutating: true,
+                available: true,
+            },
+            Box::new(|params| {
+                let reward = params.get("reward").and_then(|v| v.as_f64()).unwrap_or(0.1) as f32;
+                let mut levels = autonomic_adaptation::neurochemistry::AdaptationHomeostasisLevels::default();
+                let updated = (levels.plasticity_drive + reward).clamp(0.0, 1.0);
+                levels.plasticity_drive = updated;
+                levels.dopamine = updated;
+                levels.sync_channels();
+                Ok(serde_json::json!({
+                    "status": "ready",
+                    "plasticity_drive": levels.plasticity_drive,
+                    "stability_index": levels.stability_index,
+                    "gradient_pressure": levels.gradient_pressure,
+                    "attention_weight": levels.attention_weight,
+                    "equilibrium_ratio": levels.plasticity_drive / (levels.stability_index + 0.001),
+                }))
+            }),
+        );
     }
 }
 
@@ -736,5 +826,28 @@ mod tests {
         assert!(guard_res.success);
         assert_eq!(guard_res.payload["status"], "ready");
         assert_eq!(guard_res.payload["is_safe"], true);
+    }
+
+    #[test]
+    fn test_ast_rewrite_and_dopamine_capabilities() {
+        let broker = CapabilityBroker::default();
+        let rewrite_res = broker.execute(
+            "code.ast_rewrite",
+            serde_json::json!({
+                "pattern": "fn :[name]()",
+                "template": "pub fn :[name]()",
+                "source": "fn compute_score() {}"
+            }),
+        );
+        assert!(rewrite_res.success);
+        assert_eq!(rewrite_res.payload["status"], "ready");
+        assert_eq!(rewrite_res.payload["matches_count"], 1);
+        assert!(rewrite_res.payload["rewritten_code"].as_str().unwrap().contains("pub fn compute_score()"));
+
+        let dop_res = broker.execute("autonomic.dopamine_equilibrium", serde_json::json!({ "reward": 0.2 }));
+        assert!(dop_res.success);
+        assert_eq!(dop_res.payload["status"], "ready");
+        let plasticity = dop_res.payload["plasticity_drive"].as_f64().unwrap_or(0.0);
+        assert!((plasticity - 0.7).abs() < 1e-4);
     }
 }

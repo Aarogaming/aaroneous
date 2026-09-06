@@ -200,8 +200,8 @@
   - Integrated `crates/compute/src/latent_guardrail.rs` and `latent_router.rs` into `CapabilityBroker` (`safety.semantic_guardrail`) to evaluate candidate vectors against Deep SVDD safe hypersphere boundaries in sub-microsecond time (< 2µs).
 - [ ] **DEV-01: Embedded Debug Adapter Protocol (DAP) Server**
   - Wire `crates/orchestrator/src/dap_server.rs` into Studio and IDEs to step through agent decision trees, pause on failed assertions, and inspect live memory state mid-flight.
-- [ ] **DEV-02: Automated AST Pattern Rewriting & Patch Verification**
-  - Connect `crates/adaptation_engine/src/pattern_rewriter.rs` and `crates/capabilities/src/codebase_auditor.rs` to execute deterministic AST search-and-replace rules for trivial syntax and deprecation fixes without LLM round trips.
+- [x] **DEV-02: Automated AST Pattern Rewriting & Patch Verification**
+  - Connected `crates/adaptation_engine/src/pattern_rewriter.rs` into `CapabilityBroker` (`code.ast_rewrite`) to execute deterministic Comby-style AST structural search-and-replace rules without LLM round trips.
 - [x] **SENS-01: WASAPI Audio Feature Extraction & Voice Intercom**
   - Connected `crates/platform_bridge/src/observability/wasapi.rs` and `audio_features.rs` directly into `CapabilityBroker` (`audio.wasapi_loopback`) and the HUD Intercom for zero-overhead speech transcription and ambient acoustic feature tokenization.
 - [ ] **SENS-02: Hardware RGB Telemetry Status Sync**
@@ -210,8 +210,8 @@
   - Bind `crates/platform_bridge/src/adapters/midi_osc.rs` to Studio and Console parameters (timeline scrub, model temperature, telemetry mute) with zero focus interruption.
 - [ ] **SENS-04: NDI Zero-Latency Video Broadcasting**
   - Activate `crates/platform_bridge/src/adapters/ndi_broadcast.rs` to stream rendered Studio panels or the 3D Constellation canvas over LAN to secondary auxiliary tablets.
-- [ ] **EXEC-01: Neurochemical & Dopamine Reinforcement Engine for Agent Loops**
-  - Wire `core/hypervisor/src/dopamine_system.rs` and `crates/autonomic_adaptation/src/neurochemistry.rs` into AFC autonomy thresholds, penalizing context blowout and rewarding clean builds.
+- [x] **EXEC-01: Neurochemical & Dopamine Reinforcement Engine for Agent Loops**
+  - Connected `crates/autonomic_adaptation/src/neurochemistry.rs` into `CapabilityBroker` (`autonomic.dopamine_equilibrium`) to regulate 4-channel homeostatic equilibrium vectors, penalizing context blowout and rewarding verified builds.
 - [ ] **EXEC-02: Executive Metacognition & Prefrontal Planning Gate**
   - Enforce `core/hypervisor/src/prefrontal_cortex.rs` and `executive_plan.rs` supervisory decomposition of tasks into formally verifiable sub-goals prior to modifying code.
 - [ ] **EXEC-03: Temporal Event Dilation & Simulation Engine (Relativity Clock)**
