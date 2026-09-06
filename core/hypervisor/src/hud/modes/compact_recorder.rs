@@ -54,7 +54,7 @@ pub fn render_compact_recorder_overlay(ui: &mut egui::Ui, state: &mut SharedHudS
                 }
 
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    if ui.button("🪟 Full Studio").clicked() {
+                    if ui.button("🪟 Studio").clicked() {
                         state.app_window_mode = AppWindowMode::FullStudio;
                         ui.ctx().send_viewport_cmd(egui::ViewportCommand::InnerSize(egui::vec2(
                             1240.0, 840.0,

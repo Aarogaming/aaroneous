@@ -4,7 +4,7 @@
 //! natural Bezier cursor motions, key taps, and action routines with live preview.
 
 use crate::hud::state::SharedHudState;
-use eframe::egui::{self, Color32, CornerRadius, Stroke, Vec2};
+use eframe::egui::{self, Color32, CornerRadius, Stroke};
 
 pub fn render_transparent_hud(ctx: &egui::Context, state: &mut SharedHudState) {
     if !state.is_ingame_overlay_open {
@@ -19,8 +19,12 @@ pub fn render_transparent_hud(ctx: &egui::Context, state: &mut SharedHudState) {
     egui::Window::new("🎮 Transparent Companion Overlay (F12)")
         .open(&mut open)
         .resizable(true)
+        .collapsible(true)
         .default_size([400.0, 260.0])
-        .anchor(egui::Align2::RIGHT_TOP, Vec2::new(-20.0, 20.0))
+        .default_pos(egui::pos2(
+            ctx.content_rect().width() - 430.0,
+            30.0,
+        ))
         .frame(
             egui::Frame::window(&ctx.global_style())
                 .fill(Color32::from_rgba_unmultiplied(13, 17, 23, 225))
@@ -53,6 +57,58 @@ pub fn render_transparent_hud(ctx: &egui::Context, state: &mut SharedHudState) {
             });
 
             ui.separator();
+            // ── Live Situational Guidance Feed (Backseat Driver) ──
+            let is_agent_active = matches!(
+                state.game_agent.state,
+                platform_bridge::PlaythroughState::Recording { .. }
+                    | platform_bridge::PlaythroughState::AutonomousPlaying { .. }
+            );
+            let foreground_hint = if is_agent_active {
+                "Active Autopilot: Executing targeted gameplay routine with natural Bézier dispersion."
+            } else if state.is_live_bus {
+                "Companion Standby: Zero-copy ring buffer online (64MB). Monitoring application events."
+            } else {
+                "Tactical Co-Pilot: Monitoring foreground activity. Ready for voice or intercom dispatch."
+            };
+
+            egui::Frame::group(ui.style())
+                .fill(Color32::from_rgba_unmultiplied(20, 28, 45, 230))
+                .stroke(Stroke::new(1.0, theme.accent()))
+                .corner_radius(CornerRadius::same(6))
+                .inner_margin(egui::Margin::symmetric(8, 6))
+                .show(ui, |ui| {
+                    ui.horizontal(|ui| {
+                        ui.label(egui::RichText::new("🧭 CO-PILOT GUIDANCE").color(theme.accent()).strong().size(11.0));
+                        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                            ui.label(egui::RichText::new("LIVE").color(Color32::from_rgb(63, 185, 80)).strong().size(9.5));
+                        });
+                    });
+                    ui.label(egui::RichText::new(foreground_hint).color(Color32::from_rgb(220, 230, 245)).size(11.5));
+                });
+
+            ui.add_space(4.0);
+
+            // ── Quick Intercom Command Input ──
+            ui.horizontal(|ui| {
+                ui.label(egui::RichText::new("💬").size(14.0));
+                let resp = ui.add(
+                    egui::TextEdit::singleline(&mut state.chat_input)
+                        .hint_text("Ask co-pilot or dispatch routine...")
+                        .desired_width(ui.available_width() - 65.0),
+                );
+                let send_clicked = ui.button("Send").clicked();
+                if (send_clicked || (resp.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter))))
+                    && !state.chat_input.trim().is_empty()
+                {
+                    let prompt = state.chat_input.trim().to_string();
+                    state.chat_history.push(("User".to_string(), prompt.clone(), Color32::from_rgb(120, 180, 255)));
+                    let reply = format!("Roger. Queued intent for execution: \"{}\"", prompt);
+                    state.chat_history.push(("Co-Pilot".to_string(), reply, Color32::from_rgb(63, 185, 80)));
+                    state.chat_input.clear();
+                }
+            });
+
+            ui.add_space(4.0);
 
             ui.horizontal(|ui| {
                 let mode_label = if state.overlay_click_through {
@@ -67,12 +123,12 @@ pub fn render_transparent_hud(ctx: &egui::Context, state: &mut SharedHudState) {
 
             // Active Emulation Task Status
             ui.horizontal(|ui| {
-                ui.label(egui::RichText::new("Emulation Mode:").strong());
-                ui.label(egui::RichText::new("Natural Bezier Curves").color(Color32::from_rgb(63, 185, 80)));
+                ui.label(egui::RichText::new("Emulation Mode:").strong().size(11.0));
+                ui.label(egui::RichText::new("Natural Bezier Curves").color(Color32::from_rgb(63, 185, 80)).size(11.0));
             });
 
             ui.horizontal(|ui| {
-                ui.label("Routine Progress:");
+                ui.label(egui::RichText::new("Routine Progress:").size(11.0));
                 let progress_val = ((time_sec * 0.35).sin() * 0.5 + 0.5).clamp(0.05, 0.95);
                 ui.add(egui::ProgressBar::new(progress_val).text(format!("{:.0}%", progress_val * 100.0)));
             });
@@ -122,11 +178,11 @@ pub fn render_transparent_hud(ctx: &egui::Context, state: &mut SharedHudState) {
             ui.horizontal(|ui| {
                 ui.checkbox(
                     &mut state.overlay_show_aim_crosshair,
-                    "Show Cursor Aim Reticle",
+                    "Cursor Aim Reticle",
                 );
                 ui.checkbox(
                     &mut state.overlay_show_bot_telemetry,
-                    "Human Jitter Emulation",
+                    "Human Jitter",
                 );
             });
         });

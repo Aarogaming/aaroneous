@@ -104,25 +104,34 @@ impl ConsoleOsLauncher {
         // ── 1. Spatial Navigation State Machine (Gamepad / Arrow Keys) ──────────
         let total_cards = cartridges.len();
         let cols = 3;
-        if ui.input(|i| i.key_pressed(Key::ArrowRight)) {
+        if ui.input(|i| i.key_pressed(Key::ArrowRight) || i.key_pressed(Key::D)) {
             self.active_focus_idx = (self.active_focus_idx + 1) % total_cards;
         }
-        if ui.input(|i| i.key_pressed(Key::ArrowLeft)) {
+        if ui.input(|i| i.key_pressed(Key::ArrowLeft) || i.key_pressed(Key::A)) {
             self.active_focus_idx = (self.active_focus_idx + total_cards - 1) % total_cards;
         }
-        if ui.input(|i| i.key_pressed(Key::ArrowDown)) && self.active_focus_idx + cols < total_cards {
+        if ui.input(|i| i.key_pressed(Key::ArrowDown) || i.key_pressed(Key::S)) && self.active_focus_idx + cols < total_cards {
             self.active_focus_idx += cols;
         }
-        if ui.input(|i| i.key_pressed(Key::ArrowUp)) && self.active_focus_idx >= cols {
+        if ui.input(|i| i.key_pressed(Key::ArrowUp) || i.key_pressed(Key::W)) && self.active_focus_idx >= cols {
             self.active_focus_idx -= cols;
         }
 
-        // Enter or Space launches focused cartridge into Studio
+        // Enter or Space (Gamepad [A]) launches focused cartridge into Studio
         if ui.input(|i| i.key_pressed(Key::Enter) || i.key_pressed(Key::Space)) {
             self.was_fullscreen = false;
             ui.ctx().send_viewport_cmd(egui::ViewportCommand::Fullscreen(false));
             ui.ctx().send_viewport_cmd(egui::ViewportCommand::InnerSize(egui::vec2(1240.0, 840.0)));
             state.nav_section = cartridges[self.active_focus_idx].section;
+            state.app_window_mode = AppWindowMode::FullStudio;
+            return;
+        }
+
+        // Escape (Gamepad [B]) backs out to Studio
+        if ui.input(|i| i.key_pressed(Key::Escape)) {
+            self.was_fullscreen = false;
+            ui.ctx().send_viewport_cmd(egui::ViewportCommand::Fullscreen(false));
+            ui.ctx().send_viewport_cmd(egui::ViewportCommand::InnerSize(egui::vec2(1240.0, 840.0)));
             state.app_window_mode = AppWindowMode::FullStudio;
             return;
         }
@@ -455,6 +464,20 @@ impl ConsoleOsLauncher {
                             state.app_window_mode = AppWindowMode::FullStudio;
                         }
                     }
+                });
+
+                ui.add_space(10.0);
+
+                // ── 7. Console Gamepad Legend Bar (Xbox / Steam Deck standard) ──
+                ui.horizontal(|ui| {
+                    ui.label(egui::RichText::new("🎮 CONTROLLER READY:").color(Color32::from_rgb(140, 160, 190)).size(11.0 * scale_factor).strong());
+                    ui.label(egui::RichText::new("  [A / Enter] Launch Cartridge  ").color(Color32::WHITE).size(11.0 * scale_factor));
+                    ui.label(egui::RichText::new("•").color(Color32::DARK_GRAY));
+                    ui.label(egui::RichText::new("  [B / Esc] Return to Studio  ").color(Color32::WHITE).size(11.0 * scale_factor));
+                    ui.label(egui::RichText::new("•").color(Color32::DARK_GRAY));
+                    ui.label(egui::RichText::new("  [D-Pad / WASD] Navigate Grid  ").color(Color32::WHITE).size(11.0 * scale_factor));
+                    ui.label(egui::RichText::new("•").color(Color32::DARK_GRAY));
+                    ui.label(egui::RichText::new("  [F12] Backseat HUD  ").color(Color32::WHITE).size(11.0 * scale_factor));
                 });
             });
     }
