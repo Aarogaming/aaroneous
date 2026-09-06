@@ -83,9 +83,11 @@ struct RegisteredCapability {
 }
 
 /// Intermediary Capability Broker with lock-free LMAX Disruptor audit ring buffer (MEM-02)
+/// and token-bucket input debouncing (CMD-02)
 pub struct CapabilityBroker {
     capabilities: std::sync::RwLock<HashMap<String, RegisteredCapability>>,
     disruptor_ring: std::sync::Mutex<ipc_bus::disruptor::DisruptorRingBuffer<String>>,
+    debounce_log: std::sync::Mutex<HashMap<String, Instant>>,
 }
 
 impl Default for CapabilityBroker {
@@ -101,6 +103,7 @@ impl CapabilityBroker {
         Self {
             capabilities: std::sync::RwLock::new(HashMap::new()),
             disruptor_ring: std::sync::Mutex::new(ipc_bus::disruptor::DisruptorRingBuffer::new(1024)),
+            debounce_log: std::sync::Mutex::new(HashMap::new()),
         }
     }
 
@@ -157,10 +160,31 @@ impl CapabilityBroker {
             .collect()
     }
 
-    /// Execute a capability with input parameters
+    /// Execute a capability with input parameters and input debounce protection (CMD-02)
     pub fn execute(&self, id: &str, params: serde_json::Value) -> CapabilityExecutionOutcome {
         let start = Instant::now();
+
         let caps = self.capabilities.read().unwrap_or_else(|e| e.into_inner());
+
+        // CMD-02: Protect against input flood on mutating actions (gamepad oscillations / key bounce)
+        if let Some(entry) = caps.get(id) {
+            if entry.descriptor.mutating {
+                if let Ok(mut log) = self.debounce_log.lock() {
+                    if let Some(prev) = log.get(id) {
+                        if start.duration_since(*prev) < std::time::Duration::from_millis(15) {
+                            return CapabilityExecutionOutcome {
+                                capability_id: id.to_string(),
+                                success: false,
+                                latency_us: 0,
+                                payload: serde_json::Value::Null,
+                                error: Some("Debounced: execution rate throttled (15ms token bucket)".to_string()),
+                            };
+                        }
+                    }
+                    log.insert(id.to_string(), start);
+                }
+            }
+        }
 
         let outcome = if let Some(entry) = caps.get(id) {
             match (entry.executor)(params) {
@@ -540,5 +564,22 @@ mod tests {
         let tsc_res = broker.execute("timing.rdtsc_profiler", serde_json::json!({}));
         assert!(tsc_res.success);
         assert_eq!(tsc_res.payload["precision"], "sub-microsecond");
+    }
+
+    #[test]
+    fn test_capability_debouncing_token_bucket() {
+        let broker = CapabilityBroker::default();
+        let first = broker.execute("specialist.dispatch_intent", serde_json::json!({ "intent": "task 1" }));
+        assert!(first.success);
+
+        // Immediate subsequent mutating call (< 15ms) should debounce
+        let second = broker.execute("specialist.dispatch_intent", serde_json::json!({ "intent": "task 2" }));
+        assert!(!second.success);
+        assert!(second.error.unwrap_or_default().contains("Debounced"));
+
+        // Wait 20ms and call should succeed
+        std::thread::sleep(std::time::Duration::from_millis(20));
+        let third = broker.execute("specialist.dispatch_intent", serde_json::json!({ "intent": "task 3" }));
+        assert!(third.success);
     }
 }

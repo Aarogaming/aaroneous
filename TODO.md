@@ -134,8 +134,8 @@
   - Replace ad-hoc `String` heap allocations during 120 FPS render ticks with borrowed slices or `SmolStr` directly from the 64MB memory-mapped ring buffer.
 - [ ] **CMD-01: Compile-Time Strongly Typed Command Registry**
   - Transition Action Palette macros to static enum and trait definitions to prevent string typo failures and bypass JSON serialization overhead.
-- [ ] **CMD-02: Input Debouncing & Ring Buffer Queue Backpressure**
-  - Protect `CapabilityBroker` from input flood (gamepad analog stick oscillations or rapid key repeats) via token-bucket debouncing.
+- [x] **CMD-02: Input Debouncing & Ring Buffer Queue Backpressure**
+  - Protected `CapabilityBroker` from input flood (gamepad analog stick oscillations or rapid key repeats) via a 15ms token-bucket debouncing filter on mutating operations.
 - [x] **STAB-01: Isolated Panic Boundaries for Visual Shells**
   - Implemented `std::panic::catch_unwind` isolation around `render_full_studio`, `ConsoleOsLauncher::render`, `render_transparent_hud`, and `render_compact_recorder_overlay` in `core/hypervisor/src/hud/app.rs`: recovers into a visual safe-mode banner without terminating hypervisor background tasks or auto-pilot loops.
 - [ ] **STAB-02: Unified Structured Tracing Filtered per Shell**
