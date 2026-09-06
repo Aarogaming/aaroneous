@@ -936,6 +936,22 @@ Documented in detail in `dev/docs/17_DEFECT_AUDIT_AND_REMEDIATION_PLAN.md`.
   - Wire `crates/autonomic_adaptation/src/self_digestion.rs` to continuously crawl the workspace AST, removing orphaned interfaces to maintain compact model context.
 - [ ] **GEN-03: 3D Constellation & Galaxy Node Graph Visualization**
   - Integrate `core/hypervisor/src/constellation_3d.rs`, `galaxy_map_3d.rs`, and `crates/omni/src/ecs_galaxy.rs` into the Studio shell for real-time spatial graph telemetry.
+- [ ] **PERC-01: Windows UI Automation (UIA) Tree Interception**
+  - Connect `crates/platform_bridge/src/observability/uia.rs` to extract native button states, text controls, and accessibility hierarchies in background threads with zero GPU vision overhead.
+- [ ] **PERC-02: Zero-Latency Win32 Desktop Duplication Direct into Shared Memory**
+  - Wire `core/hypervisor/src/win32_intercept/capture.rs` and `shmem_capture.rs` to stream frames directly from the DirectX Desktop Duplication API into shared memory for instantaneous perception.
+- [ ] **HW-01: CAN Bus Telemetry Gateway for Vehicle & Engine Telemetry**
+  - Wire `crates/platform_bridge/src/robotics/canbus.rs` into the `CapabilityBroker` and Studio dashboard to ingest vehicle OBD-II metrics and ECU states directly.
+- [ ] **HW-02: Direct GPIO & Serial Port Microcontroller Polling**
+  - Connect serial port and GPIO interfaces from `data/fabrication/` into the `CapabilityBroker` to allow agents to directly trigger and monitor physical hardware pins and relays.
+- [ ] **XR-01: OpenXR Native Spatial Rig Provider**
+  - Connect `core/hypervisor/src/federation/ar/openxr_provider.rs` to project the 3D Constellation galaxy and DAG visualizer into mixed-reality headsets for immersive spatial debugging.
+- [ ] **BIO-01: Bluetooth Low-Energy (BLE) Biometric Telemetry Streaming**
+  - Wire `core/hypervisor/src/federation/biometric/ble_provider.rs` directly into the engine's `dopamine_system` and user baseline engine to dynamically regulate UI intensity and notification cadences from wearable biometrics.
+- [ ] **RESIL-01: Dynamic Self-Rebuild & In-Flight Binary Swapping**
+  - Connect `crates/adaptation_engine/src/self_rebuild.rs` and `self_repair.rs` to trigger automated compilations, verify binary integrity, and hot-swap executables without losing hypervisor background session state.
+- [ ] **RESIL-02: Automated Scientific Hypothesis Engine**
+  - Enforce `crates/adaptation_engine/src/analysis/hypothesis.rs` and `experiment.rs` in autonomous loops to formalize explicit hypotheses and record experimental outcomes directly into `episodic_memory`.
 
 ---
 
