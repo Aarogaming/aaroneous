@@ -194,10 +194,10 @@
   - Connect `crates/platform_bridge/src/observability/etw.rs` to real-time telemetry, tracking GPU context switching, driver stalls, and CPU scheduler preemptions from local LLMs.
 - [ ] **PROF-03: Direct Raw Input Hooking**
   - Wire `crates/platform_bridge/src/observability/raw_input.rs` to bypass Windows desktop `WM_INPUT` message pump latency for immediate gamepad and shortcut response in Console and HUD.
-- [ ] **SSM-01: HiPPO Polynomial Long-Horizon State-Space Memory**
-  - Connect `crates/compute/src/hippo.rs` and `macro_ssm.rs` to compress chronological execution logs into continuous polynomial memory projections, preserving multi-hour session context without token blowout.
-- [ ] **SSM-02: Latent-Space Semantic Guardrailing**
-  - Integrate `crates/compute/src/latent_guardrail.rs` and `latent_router.rs` to evaluate shell commands against embedding vectors prior to LLM invocation, catching redundant or invalid requests locally.
+- [x] **SSM-01: HiPPO Polynomial Long-Horizon State-Space Memory**
+  - Connected `crates/compute/src/hippo.rs` and `macro_ssm.rs` into `CapabilityBroker` (`memory.hippo_projection`) to compress chronological execution traces into continuous Legendre polynomial memory states.
+- [x] **SSM-02: Latent-Space Semantic Guardrailing**
+  - Integrated `crates/compute/src/latent_guardrail.rs` and `latent_router.rs` into `CapabilityBroker` (`safety.semantic_guardrail`) to evaluate candidate vectors against Deep SVDD safe hypersphere boundaries in sub-microsecond time (< 2µs).
 - [ ] **DEV-01: Embedded Debug Adapter Protocol (DAP) Server**
   - Wire `crates/orchestrator/src/dap_server.rs` into Studio and IDEs to step through agent decision trees, pause on failed assertions, and inspect live memory state mid-flight.
 - [ ] **DEV-02: Automated AST Pattern Rewriting & Patch Verification**

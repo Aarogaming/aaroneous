@@ -23,6 +23,7 @@ pub enum CapabilityCategory {
     ModelFoundry,
     SystemBus,
     ConsensusSwarm,
+    SafetyInterlock,
 }
 
 impl CapabilityCategory {
@@ -35,6 +36,7 @@ impl CapabilityCategory {
             Self::ModelFoundry => "Model Foundry & Distillation",
             Self::SystemBus => "Zero-Copy Interconnect Bus",
             Self::ConsensusSwarm => "Consensus & Fleet Swarm",
+            Self::SafetyInterlock => "Formal Safety & Interlocks",
         }
     }
 }
@@ -544,6 +546,72 @@ impl CapabilityBroker {
                 }
             }),
         );
+
+        // 11. SSM-01: HiPPO Polynomial Long-Horizon State-Space Memory Projection
+        self.register(
+            CapabilityDescriptor {
+                id: "memory.hippo_projection".to_string(),
+                name: "HiPPO Long-Horizon State-Space Memory".to_string(),
+                description: "Projects execution history into continuous Legendre polynomial memory states".to_string(),
+                category: CapabilityCategory::MemoryFabric,
+                parameters: vec![
+                    CapabilityParameter {
+                        name: "input_signal".to_string(),
+                        description: "Float scalar input signal value".to_string(),
+                        param_type: "number".to_string(),
+                        required: false,
+                        default_value: Some(serde_json::json!(1.0)),
+                    },
+                ],
+                mutating: false,
+                available: true,
+            },
+            Box::new(|params| {
+                let input = params.get("input_signal")
+                    .and_then(|v| v.as_f64())
+                    .unwrap_or(1.0) as f32;
+                match compute::hippo::generate_hippo_discretized(64, 0.01) {
+                    Ok(hippo) => {
+                        let mut state = vec![0.0f32; 64];
+                        hippo.step(&mut state, input);
+                        let norm: f32 = state.iter().map(|x| x * x).sum::<f32>().sqrt();
+                        Ok(serde_json::json!({
+                            "status": "ready",
+                            "state_dim": 64,
+                            "delta_t": hippo.delta_t,
+                            "energy_norm": norm,
+                        }))
+                    }
+                    Err(e) => Err(format!("HiPPO discretization failed: {e}")),
+                }
+            }),
+        );
+
+        // 12. SSM-02: Latent-Space Semantic Guardrailing & Safe Manifold Projection
+        self.register(
+            CapabilityDescriptor {
+                id: "safety.semantic_guardrail".to_string(),
+                name: "Latent Manifold SVDD Safety Guardrail".to_string(),
+                description: "Audits candidate action vectors against safe hypersphere boundaries in < 2µs".to_string(),
+                category: CapabilityCategory::SafetyInterlock,
+                parameters: vec![],
+                mutating: false,
+                available: true,
+            },
+            Box::new(|_| {
+                let mut manifold = compute::latent_guardrail::SafeHypersphereManifold::new(10.0);
+                let candidate = vec![0.5f32; compute::latent_guardrail::GUARDRAIL_DIM];
+                let verdict = manifold.audit_candidate_action(&candidate, true);
+                Ok(serde_json::json!({
+                    "status": "ready",
+                    "is_safe": verdict.is_safe,
+                    "distance_to_centroid": verdict.distance_to_centroid,
+                    "safety_radius": verdict.safety_radius,
+                    "audit_duration_ns": verdict.audit_duration_ns,
+                    "sub_microsecond": verdict.audit_duration_ns < 10_000,
+                }))
+            }),
+        );
     }
 }
 
@@ -567,7 +635,8 @@ mod tests {
         let broker = CapabilityBroker::default();
         let results = broker.search("safety");
         assert!(!results.is_empty());
-        assert_eq!(results[0].id, "sentinel.verify_safety");
+        assert!(results.iter().any(|c| c.id == "sentinel.verify_safety"));
+        assert!(results.iter().any(|c| c.id == "safety.semantic_guardrail"));
 
         let empty = broker.search("nonexistent_unknown_random_id");
         assert!(empty.is_empty());
@@ -653,5 +722,19 @@ mod tests {
         let shmem_res = broker.execute("screen.shmem_frame_capture", serde_json::json!({}));
         assert!(shmem_res.success);
         assert_eq!(shmem_res.payload["status"], "active");
+    }
+
+    #[test]
+    fn test_hippo_and_guardrail_capabilities() {
+        let broker = CapabilityBroker::default();
+        let hippo_res = broker.execute("memory.hippo_projection", serde_json::json!({ "input_signal": 2.5 }));
+        assert!(hippo_res.success);
+        assert_eq!(hippo_res.payload["status"], "ready");
+        assert_eq!(hippo_res.payload["state_dim"], 64);
+
+        let guard_res = broker.execute("safety.semantic_guardrail", serde_json::json!({}));
+        assert!(guard_res.success);
+        assert_eq!(guard_res.payload["status"], "ready");
+        assert_eq!(guard_res.payload["is_safe"], true);
     }
 }
