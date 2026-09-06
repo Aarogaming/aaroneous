@@ -6,6 +6,44 @@ use crate::hud::theme::HudTheme;
 use eframe::egui::{self, Color32, CornerRadius, Key, Stroke};
 use std::path::PathBuf;
 
+/// Strongly-typed capability invocations bypassing string parsing
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum CapabilityCommand {
+    InspectUia,
+    RdtscProfile,
+    MineDistillation,
+    CargoDiagnostics,
+    HnswSearch(String),
+    DispatchIntent(String),
+    Dynamic {
+        id: String,
+        params: serde_json::Value,
+    },
+}
+
+impl CapabilityCommand {
+    pub fn id(&self) -> &str {
+        match self {
+            Self::InspectUia => "screen.inspect_uia",
+            Self::RdtscProfile => "timing.rdtsc_profiler",
+            Self::MineDistillation => "forge.mine_distillation",
+            Self::CargoDiagnostics => "workbench.cargo_diagnostics",
+            Self::HnswSearch(_) => "memory.hnsw_search",
+            Self::DispatchIntent(_) => "specialist.dispatch_intent",
+            Self::Dynamic { id, .. } => id.as_str(),
+        }
+    }
+
+    pub fn params(&self) -> serde_json::Value {
+        match self {
+            Self::HnswSearch(q) => serde_json::json!({ "query": q }),
+            Self::DispatchIntent(intent) => serde_json::json!({ "intent": intent }),
+            Self::Dynamic { params, .. } => params.clone(),
+            _ => serde_json::json!({}),
+        }
+    }
+}
+
 /// Command Action for the Global Command Palette
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CommandAction {
@@ -21,10 +59,7 @@ pub enum CommandAction {
     RunSiMacro(String, PathBuf),
     TileWindowsGrid,
     SetTheme(HudTheme),
-    ExecuteCapability {
-        id: String,
-        params: serde_json::Value,
-    },
+    ExecuteCapability(CapabilityCommand),
 }
 
 #[derive(Default)]
@@ -182,13 +217,20 @@ impl CommandPalette {
         // Dynamically inject broker capabilities
         if let Some(broker) = broker {
             for cap in broker.list_capabilities() {
-                all_commands.push((
-                    format!("⚡ [{}] {}", cap.category.label(), cap.name),
-                    cap.description.clone(),
-                    CommandAction::ExecuteCapability {
+                let cmd = match cap.id.as_str() {
+                    "screen.inspect_uia" => CapabilityCommand::InspectUia,
+                    "timing.rdtsc_profiler" => CapabilityCommand::RdtscProfile,
+                    "forge.mine_distillation" => CapabilityCommand::MineDistillation,
+                    "workbench.cargo_diagnostics" => CapabilityCommand::CargoDiagnostics,
+                    _ => CapabilityCommand::Dynamic {
                         id: cap.id.clone(),
                         params: serde_json::json!({}),
                     },
+                };
+                all_commands.push((
+                    format!("⚡ [{}] {}", cap.category.label(), cap.name),
+                    cap.description.clone(),
+                    CommandAction::ExecuteCapability(cmd),
                 ));
             }
         }

@@ -164,8 +164,10 @@ impl StudioApp {
                 self.state.settings.theme = theme;
                 self.state.settings.save_to_disk();
             }
-            CommandAction::ExecuteCapability { id, params } => {
-                let outcome = self.state.capability_broker.execute(&id, params);
+            CommandAction::ExecuteCapability(cmd) => {
+                let id = cmd.id();
+                let params = cmd.params();
+                let outcome = self.state.capability_broker.execute(id, params);
                 if outcome.success {
                     self.toasts.push(
                         "Capability Executed",
