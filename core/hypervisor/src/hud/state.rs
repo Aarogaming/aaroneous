@@ -1365,6 +1365,7 @@ impl SharedHudState {
                 user_xp: self.user_xp,
                 flow_score: flow,
                 active_profile_name: active_profile,
+                pacing: self.state_publisher.pacing(),
             });
         }
     }

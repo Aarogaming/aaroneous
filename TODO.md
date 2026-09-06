@@ -834,18 +834,18 @@ Documented in detail in `dev/docs/17_DEFECT_AUDIT_AND_REMEDIATION_PLAN.md`.
   - Implemented `core/hypervisor/src/capability_broker.rs`: dynamic self-describing capability registry and latency-tracked execution dispatch across 7 domains connecting Action Palette, Intercom, and Specialists.
 - [x] **SHELL-02: Zero-Lock Engine State Publisher & Projections (`EngineStatePublisher`)**
   - Implemented `core/hypervisor/src/hud/state_snapshot.rs`: lock-free point-in-time state snapshots with shell-tailored projections (`StudioProjection`, `ConsoleProjection`, `HudProjection`) eliminating rendering locks.
-- [ ] **PERF-01: Event-Driven Frame Pacing & Dirty-Flag Invalidation**
-  - Replace continuous 120Hz repainting with reactive wakeups: idles presentation when state generation and input queues are quiet, conserving CPU/GPU thermals for inference.
-- [ ] **PERF-02: Resource Governor & Thermal/VRAM Backpressure**
-  - Dynamic UI pacing (`FullPerformance`, `ThermalThrottled`, `CriticalVramSave`): down-clocks rendering or pauses 3D canvas when VRAM > 90% or GPU junction > 82°C.
+- [x] **PERF-01: Event-Driven Frame Pacing & Dirty-Flag Invalidation**
+  - Implemented reactive frame pacing in `core/hypervisor/src/hud/app.rs`: detects dirty `EngineSnapshot::bus_generation`, recent user interaction, and active modals, dropping idle repainting to a quiet 250ms cadence (4 FPS) to free up host cycles for inference.
+- [x] **PERF-02: Resource Governor & Thermal/VRAM Backpressure**
+  - Implemented `GovernorPacing` (`FullPerformance`, `ThermalThrottled`, `CriticalVramSave`) in `core/hypervisor/src/hud/state_snapshot.rs`: dynamically throttles shell target frame durations (8ms, 16ms, 33ms) based on hardware headroom.
 - [ ] **PERF-03: Zero-Copy String Interning & Memory-Mapped Telemetry**
   - Replace ad-hoc `String` heap allocations during 120 FPS render ticks with borrowed slices or `SmolStr` directly from the 64MB memory-mapped ring buffer.
 - [ ] **CMD-01: Compile-Time Strongly Typed Command Registry**
   - Transition Action Palette macros to static enum and trait definitions to prevent string typo failures and bypass JSON serialization overhead.
 - [ ] **CMD-02: Input Debouncing & Ring Buffer Queue Backpressure**
   - Protect `CapabilityBroker` from input flood (gamepad analog stick oscillations or rapid key repeats) via token-bucket debouncing.
-- [ ] **STAB-01: Isolated Panic Boundaries for Visual Shells**
-  - Enclose shell rendering routines within `std::panic::catch_unwind` boundaries: guarantees background hypervisor loops and auto-pilot persist if a graphics driver or UI window fails.
+- [x] **STAB-01: Isolated Panic Boundaries for Visual Shells**
+  - Implemented `std::panic::catch_unwind` isolation around `render_full_studio`, `ConsoleOsLauncher::render`, `render_transparent_hud`, and `render_compact_recorder_overlay` in `core/hypervisor/src/hud/app.rs`: recovers into a visual safe-mode banner without terminating hypervisor background tasks or auto-pilot loops.
 - [ ] **STAB-02: Unified Structured Tracing Filtered per Shell**
   - Configure tiered `tracing::LevelFilter` per shell: HUD (`WARN/ERROR`), Console (`INFO`), Studio (`DEBUG/TRACE`).
 - [ ] **STAB-03: Hot-Reloadable Styling & Spatial Canvas Layouts**

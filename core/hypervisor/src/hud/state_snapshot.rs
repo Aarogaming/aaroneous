@@ -1,4 +1,4 @@
-﻿// core/hypervisor/src/hud/state_snapshot.rs
+// core/hypervisor/src/hud/state_snapshot.rs
 //! Lock-Free Read Snapshot & Engine State Projection for Studio, Console, and HUD.
 //!
 //! Enforces lightweight, zero-copy presentation state sharing:
@@ -7,9 +7,46 @@
 //! 3. ConsoleProjection: Immersive 10-foot telemetry, harmony score, user profile & level.
 //! 4. HudProjection: Lightweight situational awareness ticker, active bot indicators, FPS.
 
+use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use parking_lot::RwLock;
+
+/// Dynamic resource pacing mode regulating shell rendering budgets
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum GovernorPacing {
+    /// Full performance target (120+ FPS) when thermal/VRAM headroom is nominal
+    FullPerformance,
+    /// Balanced frame pacing (60 FPS) under moderate thermal load or active background inference
+    ThermalThrottled,
+    /// Critical power/VRAM preservation (30 FPS, idle at 4 FPS) during heavy local LLM generation
+    CriticalVramSave,
+}
+
+impl GovernorPacing {
+    /// Target frame duration in milliseconds
+    pub fn target_frame_ms(&self) -> u64 {
+        match self {
+            Self::FullPerformance => 8,   // ~120 FPS
+            Self::ThermalThrottled => 16, // ~60 FPS
+            Self::CriticalVramSave => 33, // ~30 FPS
+        }
+    }
+
+    /// Target FPS numeric cap
+    pub fn target_fps(&self) -> f32 {
+        match self {
+            Self::FullPerformance => 120.0,
+            Self::ThermalThrottled => 60.0,
+            Self::CriticalVramSave => 30.0,
+        }
+    }
+}
+
+impl Default for GovernorPacing {
+    fn default() -> Self {
+        Self::FullPerformance
+    }
+}
 
 /// Point-in-time snapshot of the hypervisor core engine state
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -27,6 +64,7 @@ pub struct EngineSnapshot {
     pub user_xp: u64,
     pub flow_score: f32,
     pub active_profile_name: String,
+    pub pacing: GovernorPacing,
 }
 
 impl Default for EngineSnapshot {
@@ -45,6 +83,7 @@ impl Default for EngineSnapshot {
             user_xp: 0,
             flow_score: 0.85,
             active_profile_name: "Default Operator".to_string(),
+            pacing: GovernorPacing::FullPerformance,
         }
     }
 }
@@ -97,6 +136,20 @@ impl EngineStatePublisher {
     pub fn publish(&self, snapshot: EngineSnapshot) {
         let mut w = self.current.write();
         *w = Arc::new(snapshot);
+    }
+
+    /// Update dynamic resource governor pacing mode
+    pub fn set_pacing(&self, pacing: GovernorPacing) {
+        let mut w = self.current.write();
+        let mut snap = (**w).clone();
+        snap.pacing = pacing;
+        snap.bus_generation = snap.bus_generation.wrapping_add(1);
+        *w = Arc::new(snap);
+    }
+
+    /// Read current governor pacing
+    pub fn pacing(&self) -> GovernorPacing {
+        self.current.read().pacing
     }
 
     /// Shell reader: gets a cloned Arc pointer with zero lock contention
@@ -161,6 +214,7 @@ mod tests {
             user_xp: 1250,
             flow_score: 0.95,
             active_profile_name: "Aaron".to_string(),
+            pacing: GovernorPacing::FullPerformance,
         });
 
         let studio = publ.project_studio();
@@ -174,5 +228,20 @@ mod tests {
         let hud = publ.project_hud();
         assert!(hud.active_guidance.contains("Synthesizer"));
         assert!(hud.is_nominal);
+    }
+
+    #[test]
+    fn test_governor_pacing_transitions() {
+        let publ = EngineStatePublisher::new();
+        assert_eq!(publ.pacing(), GovernorPacing::FullPerformance);
+
+        publ.set_pacing(GovernorPacing::CriticalVramSave);
+        assert_eq!(publ.pacing(), GovernorPacing::CriticalVramSave);
+        assert_eq!(publ.pacing().target_frame_ms(), 33);
+        assert_eq!(publ.pacing().target_fps(), 30.0);
+
+        publ.set_pacing(GovernorPacing::ThermalThrottled);
+        assert_eq!(publ.pacing(), GovernorPacing::ThermalThrottled);
+        assert_eq!(publ.pacing().target_frame_ms(), 16);
     }
 }

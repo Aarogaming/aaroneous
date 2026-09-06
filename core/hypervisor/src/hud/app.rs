@@ -15,6 +15,8 @@ use crate::hud::views::{
 };
 use eframe::egui::{self, Color32, Key};
 
+use std::time::{Duration, Instant};
+
 /// The primary Aaroneous Desktop Studio application
 pub struct StudioApp {
     pub state: SharedHudState,
@@ -25,6 +27,9 @@ pub struct StudioApp {
     pub fascia_watcher: ProcessFasciaWatcher,
     pub guide: crate::hud::onboarding::OnboardingGuide,
     pub console_os: crate::hud::modes::ConsoleOsLauncher,
+    pub last_rendered_generation: u64,
+    pub last_interaction_instant: Instant,
+    pub shell_panic_recovered: bool,
 }
 
 impl Default for StudioApp {
@@ -64,6 +69,9 @@ impl Default for StudioApp {
             fascia_watcher: ProcessFasciaWatcher::default(),
             guide,
             console_os: crate::hud::modes::ConsoleOsLauncher::new(),
+            last_rendered_generation: 0,
+            last_interaction_instant: Instant::now(),
+            shell_panic_recovered: false,
         }
     }
 }
@@ -264,41 +272,58 @@ impl eframe::App for StudioApp {
 
         let theme = self.state.settings.theme;
 
-        // ── Render Active Window Mode ───────────────────────────────────────────
-        match self.state.app_window_mode {
-            AppWindowMode::FullStudio => {
-                let mut toggle_palette = false;
-                let mut toggle_shortcuts = false;
-                let mut toggle_guide = false;
+        // ── Render Active Window Mode (with Panic Boundary Resilience) ───────────
+        let mode = self.state.app_window_mode;
+        let mut toggle_palette = false;
+        let mut toggle_shortcuts = false;
+        let mut toggle_guide = false;
 
-                render_full_studio(
-                    ui,
-                    &mut self.state,
-                    &mut self.views,
-                    &mut toggle_palette,
-                    &mut toggle_shortcuts,
-                    &mut toggle_guide,
-                );
+        let render_outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            match mode {
+                AppWindowMode::FullStudio => {
+                    render_full_studio(
+                        ui,
+                        &mut self.state,
+                        &mut self.views,
+                        &mut toggle_palette,
+                        &mut toggle_shortcuts,
+                        &mut toggle_guide,
+                    );
+                }
+                AppWindowMode::CompactRecorderOverlay => {
+                    render_compact_recorder_overlay(ui, &mut self.state);
+                }
+                AppWindowMode::UtilityDashboard => {
+                    crate::hud::modes::render_utility_dashboard(ui, &mut self.state);
+                }
+                AppWindowMode::ConsoleGameOS => {
+                    self.console_os.render(ui, &mut self.state);
+                }
+            }
+        }));
 
-                if toggle_palette {
-                    self.palette.toggle();
+        if render_outcome.is_err() {
+            self.shell_panic_recovered = true;
+            ui.vertical_centered(|ui| {
+                ui.add_space(30.0);
+                ui.heading(egui::RichText::new("⚠️ Visual Shell Recovered").color(Color32::from_rgb(255, 100, 100)).strong());
+                ui.label("A graphics anomaly or layout fault was isolated by the STAB-01 boundary.");
+                ui.label("Core hypervisor background tasks, specialists, and state persist nominally.");
+                if ui.button("🔄 Reset to Full Studio Mode").clicked() {
+                    self.state.app_window_mode = AppWindowMode::FullStudio;
+                    self.shell_panic_recovered = false;
                 }
-                if toggle_shortcuts {
-                    self.shortcuts.toggle();
-                }
-                if toggle_guide {
-                    self.guide.is_open = true;
-                }
-            }
-            AppWindowMode::CompactRecorderOverlay => {
-                render_compact_recorder_overlay(ui, &mut self.state);
-            }
-            AppWindowMode::UtilityDashboard => {
-                crate::hud::modes::render_utility_dashboard(ui, &mut self.state);
-            }
-            AppWindowMode::ConsoleGameOS => {
-                self.console_os.render(ui, &mut self.state);
-            }
+            });
+        }
+
+        if toggle_palette {
+            self.palette.toggle();
+        }
+        if toggle_shortcuts {
+            self.shortcuts.toggle();
+        }
+        if toggle_guide {
+            self.guide.is_open = true;
         }
 
         // ── Floating Windows & Overlays ─────────────────────────────────────────
@@ -422,7 +447,31 @@ impl eframe::App for StudioApp {
         // Toast Notifications
         self.toasts.render(&ctx, theme);
 
-        // Repaint request for continuous high-framerate rendering
-        ctx.request_repaint();
+        // ── Dynamic Event-Driven Frame Pacing (PERF-01 & PERF-02) ───────────────
+        let current_snap = self.state.state_publisher.snapshot();
+        let is_state_dirty = current_snap.bus_generation != self.last_rendered_generation;
+        let is_interacting = ctx.input(|i| {
+            i.pointer.is_moving()
+                || i.pointer.any_down()
+                || !i.events.is_empty()
+                || i.viewport().focused.unwrap_or(true)
+        });
+
+        let now = Instant::now();
+        if is_interacting {
+            self.last_interaction_instant = now;
+        }
+
+        let is_recent_interaction = now.duration_since(self.last_interaction_instant) < Duration::from_millis(1200);
+        let pacing = current_snap.pacing;
+        self.last_rendered_generation = current_snap.bus_generation;
+
+        if is_state_dirty || is_recent_interaction || self.palette.is_open || self.state.is_ingame_overlay_open {
+            // Actively interacting or state changed: pace at governor target frame duration
+            ctx.request_repaint_after(Duration::from_millis(pacing.target_frame_ms()));
+        } else {
+            // Idle state: drop to power-saving cadence (4 FPS / 250ms), preserving CPU/VRAM for inference
+            ctx.request_repaint_after(Duration::from_millis(250));
+        }
     }
 }
