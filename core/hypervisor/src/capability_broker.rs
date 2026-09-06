@@ -1,4 +1,4 @@
-﻿// core/hypervisor/src/capability_broker.rs
+// core/hypervisor/src/capability_broker.rs
 //! Intermediary Capability Broker & Dynamic Function Catalog.
 //!
 //! Bridges frontend presentation layers (Studio, Console, HUD Overlay, Command Palette, Intercom)
@@ -82,9 +82,10 @@ struct RegisteredCapability {
     executor: CapabilityExecutor,
 }
 
-/// Intermediary Capability Broker
+/// Intermediary Capability Broker with lock-free LMAX Disruptor audit ring buffer (MEM-02)
 pub struct CapabilityBroker {
     capabilities: std::sync::RwLock<HashMap<String, RegisteredCapability>>,
+    disruptor_ring: std::sync::Mutex<ipc_bus::disruptor::DisruptorRingBuffer<String>>,
 }
 
 impl Default for CapabilityBroker {
@@ -99,7 +100,13 @@ impl CapabilityBroker {
     pub fn new() -> Self {
         Self {
             capabilities: std::sync::RwLock::new(HashMap::new()),
+            disruptor_ring: std::sync::Mutex::new(ipc_bus::disruptor::DisruptorRingBuffer::new(1024)),
         }
+    }
+
+    /// Access sequence cursor of the Disruptor upstream command log
+    pub fn disruptor_cursor(&self) -> u64 {
+        self.disruptor_ring.lock().map(|r| r.cursor()).unwrap_or(0)
     }
 
     /// Register an execution endpoint with its metadata descriptor
@@ -155,7 +162,7 @@ impl CapabilityBroker {
         let start = Instant::now();
         let caps = self.capabilities.read().unwrap_or_else(|e| e.into_inner());
 
-        if let Some(entry) = caps.get(id) {
+        let outcome = if let Some(entry) = caps.get(id) {
             match (entry.executor)(params) {
                 Ok(val) => {
                     let latency = start.elapsed().as_micros() as u64;
@@ -187,7 +194,14 @@ impl CapabilityBroker {
                 payload: serde_json::Value::Null,
                 error: Some(format!("Unknown capability: '{id}'")),
             }
+        };
+
+        // MEM-02: Publish upstream command execution to LMAX Disruptor audit stream
+        if let Ok(mut ring) = self.disruptor_ring.lock() {
+            ring.publish(format!("{}:{}us:{}", id, outcome.latency_us, outcome.success));
         }
+
+        outcome
     }
 
     /// Pre-populates all sovereign backend engine functions
@@ -453,5 +467,17 @@ mod tests {
         let outcome = broker.execute("unknown.op", serde_json::json!({}));
         assert!(!outcome.success);
         assert!(outcome.error.is_some());
+    }
+
+    #[test]
+    fn test_disruptor_command_logging() {
+        let broker = CapabilityBroker::default();
+        assert_eq!(broker.disruptor_cursor(), 0);
+
+        broker.execute("sentinel.verify_safety", serde_json::json!({ "target": "safe_task" }));
+        assert_eq!(broker.disruptor_cursor(), 1);
+
+        broker.execute("specialist.dispatch_intent", serde_json::json!({ "intent": "inspect code" }));
+        assert_eq!(broker.disruptor_cursor(), 2);
     }
 }

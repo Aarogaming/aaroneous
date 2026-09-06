@@ -184,8 +184,8 @@
   - Intermittently inject dropped packets, synthetic VRAM pressure spikes, and simulated I/O errors via `chaos_monkey.rs` during automated tests to formally certify fault-recovery resilience.
 - [ ] **MEM-01: Zero-Copy Memory-Mapped Deserialization (`rkyv` Archives)**
   - Integrate `rkyv` zero-copy archiving (validated in `core/hypervisor/src/rkyv_test.rs`) for telemetry trees across thread and process boundaries, allowing shells to read snapshot bytes directly in-place without heap allocations.
-- [ ] **MEM-02: LMAX Disruptor Lock-Free Ring Buffer Upstream Command Queue**
-  - Connect `crates/ipc_bus/src/disruptor.rs` for upstream shell-to-engine command ingress, avoiding crossbeam channel cache-line bouncing and locking command latency in the sub-microsecond range.
+- [x] **MEM-02: LMAX Disruptor Lock-Free Ring Buffer Upstream Command Queue**
+  - Connected `crates/ipc_bus/src/disruptor.rs` into `CapabilityBroker` for upstream shell-to-engine command ingress and execution logging, avoiding crossbeam channel cache-line bouncing and locking command latency in the sub-microsecond range.
 - [ ] **MEM-03: Single-Writer Multi-Reader (SWMR) Synapse Bus**
   - Leverage `crates/ipc_bus/src/swmr_synapse.rs` and `spmc_synapse_bus.rs` for atomic broadcast slots where the hypervisor writes state monotonically and all shells read concurrently without lock contention.
 - [ ] **PROF-01: Cycle-Accurate Hardware Timing (RDTSC Engine Ticks)**
@@ -254,8 +254,8 @@
   - Implement SIMD-accelerated multi-pattern string search (via `aho-corasick`) in `crates/capabilities/src/fs_crawl.rs` and `simd_xor_delta.rs` for extracting tool calls, fence boundaries, and token markers from raw model streams without heap allocations.
 - [ ] **ARCH-05: Arena Bump Allocation for Ephemeral Flight Contexts (The `bumpalo` Model)**
   - Allocate temporary token chunks, `si_distiller` buffers, and `tensor_router` flight cycle payloads into a scratch bump-allocation arena (`bumpalo`), resetting the entire arena in an $O(1)$ pointer reset at the end of each flight cycle to completely eliminate heap fragmentation.
-- [ ] **ARCH-06: Compile-Time Typestate Invariants for Plan Safety (The Typestate Model)**
-  - Refactor `executive_plan.rs` into compile-time typestates (`DraftPlan` $\to$ `VerifiedPlan` $\to$ `ExecutingPlan`); statically guarantees that the `action_executor` can only physically consume plans that have passed the `compliance_gatekeeper` and `smt_action_interlock` at compile time.
+- [x] **ARCH-06: Compile-Time Typestate Invariants for Plan Safety (The Typestate Model)**
+  - Refactored `executive_plan.rs` into compile-time typestates (`ExecutivePlanState<Draft>` $\to$ `ExecutivePlanState<Verified>` $\to$ `ExecutivePlanState<Executing>`); statically guarantees that plans can only execute after formal mathematical validation via `verify_with_proof` or `verify_interlock` through `SmtActionInterlock`.
 
 ---
 
