@@ -257,8 +257,23 @@
 - [x] **ARCH-06: Compile-Time Typestate Invariants for Plan Safety (The Typestate Model)**
   - Refactored `executive_plan.rs` into compile-time typestates (`ExecutivePlanState<Draft>` $\to$ `ExecutivePlanState<Verified>` $\to$ `ExecutivePlanState<Executing>`); statically guarantees that plans can only execute after formal mathematical validation via `verify_with_proof` or `verify_interlock` through `SmtActionInterlock`.
 
+
+---
+
+## 🌐 Open-Source Ecosystem Adaptation & Synergy Matrix
+
+Comprehensive evaluation of open-source Rust AI/ML/NPU/Systems crates for frictionless integration and mechanical alignment with Aaroneous.
+
+### Synergistic Integration Tiers
+
+| Tier | Architectural Domain | Recommended Crates | Strategic Synergy with Aaroneous | Integration Scope |
+|---|---|---|---|---|
+| **Tier 1: Hardware & NPU Acceleration** | DirectML / QNN / ONNX | `ort` (ONNX Runtime bindings), `tract` | Hardware offloading on Windows Copilot+ NPUs (45 TOPS at ~2W); direct-to-silicon execution bypassing CUDA/Vulkan host bottlenecks; fallback quantized inference via pure-Rust `tract`. | `crates/compute/src/ort_engine.rs`, `Phase 33` |
+| **Tier 2: Constrained Grammar & Fast Inference** | Guided Sampling & Local LLMs | `kalosm`, `mistral.rs` | Enforces machine-native regex/CFG grammar constraints on token generation; eliminates JSON hallucination and syntax repair loops; multi-engine batching (GGUF, Safetensors). | `core/hypervisor/src/linguistic_lens/`, `LLM-01` |
+| **Tier 3: Structural AST Saturation & Rewriting** | E-Graph Equivalence & Polyglot Parsing | `egg` (e-graphs), `ast-grep` | Structural equality saturation for `si_ir` DAG graph optimization; pattern matching and automated AST code refactoring without full LLM round-trips. | `crates/adaptation_engine/src/pattern_rewriter.rs`, `DEV-02` |
+| **Tier 4: Columnar Vector & Memory Fabric** | Persistent Zero-Copy Vector Database | `lancedb` (Apache Arrow / Lance format) | Upgrades ephemeral in-memory `hnsw_rs` to zero-copy memory-mapped disk persistence; allows instant vector lookups across multi-gigabyte `.lib` state banks. | `crates/omni/src/vector_fabric.rs`, `P0-D` |
+| **Tier 5: Zero-Overhead Edge Telemetry & Visuals** | Pub/Sub Fieldbus & Visual Inspection | `zenoh`, `rerun` | Zero-copy micro-broker pub/sub for out-of-process shell isolates and multi-node swarm mesh; rich native Rust multimodal logging (tensors, 3D meshes, frame captures). | `crates/ipc_bus/src/zenoh_gateway.rs`, `DIST-02` |
+
 ---
 
 *Last updated: 2026-09-06 | Complete 5-pillar, 38-phase architectural framework*
-
-
