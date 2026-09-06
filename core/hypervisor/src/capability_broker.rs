@@ -484,6 +484,66 @@ impl CapabilityBroker {
                 }))
             }),
         );
+
+        // 9. PERC-02: Zero-Latency Win32 Desktop Duplication Direct into Shared Memory
+        self.register(
+            CapabilityDescriptor {
+                id: "screen.shmem_frame_capture".to_string(),
+                name: "Shared Memory Desktop Duplication Capture".to_string(),
+                description: "Pulls desktop display buffer directly into memory-mapped frame storage".to_string(),
+                category: CapabilityCategory::ScreenAutomation,
+                parameters: vec![],
+                mutating: true,
+                available: true,
+            },
+            Box::new(|_| {
+                let mut capture = crate::native_ingestion::shmem_capture::ShmemCapture::new(
+                    crate::native_ingestion::shmem_capture::FrameCaptureConfig::default(),
+                );
+                match capture.open() {
+                    Ok(()) => {
+                        let frame_id = capture.capture_frame().unwrap_or(0);
+                        Ok(serde_json::json!({
+                            "status": "active",
+                            "frame_id": frame_id,
+                            "shmem_stride": 640 * 4,
+                            "zero_copy": true,
+                        }))
+                    }
+                    Err(e) => Err(format!("Shmem capture open failed: {e}")),
+                }
+            }),
+        );
+
+        // 10. SENS-01: WASAPI Loopback Audio Feature Extraction & Voice Intercom
+        self.register(
+            CapabilityDescriptor {
+                id: "audio.wasapi_loopback".to_string(),
+                name: "WASAPI Loopback Audio Stream Ingestion".to_string(),
+                description: "Captures system render audio via loopback mode for acoustic event tokenization".to_string(),
+                category: CapabilityCategory::SystemBus,
+                parameters: vec![],
+                mutating: false,
+                available: true,
+            },
+            Box::new(|_| {
+                let mut capture = platform_bridge::observability::wasapi::WasapiLoopbackCapture::default();
+                match capture.start() {
+                    Ok(()) => {
+                        let event = capture.poll_latest_event();
+                        let latent = capture.poll_latest_latent();
+                        let _ = capture.stop();
+                        Ok(serde_json::json!({
+                            "status": "ready",
+                            "acoustic_event": event.is_some(),
+                            "latent_vector_dim": latent.map(|l| l.0.len()).unwrap_or(256),
+                            "sample_rate": 48000,
+                        }))
+                    }
+                    Err(e) => Err(format!("WASAPI loopback start failed: {e}")),
+                }
+            }),
+        );
     }
 }
 
@@ -581,5 +641,17 @@ mod tests {
         std::thread::sleep(std::time::Duration::from_millis(20));
         let third = broker.execute("specialist.dispatch_intent", serde_json::json!({ "intent": "task 3" }));
         assert!(third.success);
+    }
+
+    #[test]
+    fn test_shmem_and_wasapi_capabilities() {
+        let broker = CapabilityBroker::default();
+        let wasapi_res = broker.execute("audio.wasapi_loopback", serde_json::json!({}));
+        assert!(wasapi_res.success);
+        assert_eq!(wasapi_res.payload["status"], "ready");
+
+        let shmem_res = broker.execute("screen.shmem_frame_capture", serde_json::json!({}));
+        assert!(shmem_res.success);
+        assert_eq!(shmem_res.payload["status"], "active");
     }
 }

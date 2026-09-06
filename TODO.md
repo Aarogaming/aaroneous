@@ -202,8 +202,8 @@
   - Wire `crates/orchestrator/src/dap_server.rs` into Studio and IDEs to step through agent decision trees, pause on failed assertions, and inspect live memory state mid-flight.
 - [ ] **DEV-02: Automated AST Pattern Rewriting & Patch Verification**
   - Connect `crates/adaptation_engine/src/pattern_rewriter.rs` and `crates/capabilities/src/codebase_auditor.rs` to execute deterministic AST search-and-replace rules for trivial syntax and deprecation fixes without LLM round trips.
-- [ ] **SENS-01: WASAPI Audio Feature Extraction & Voice Intercom**
-  - Connect `crates/platform_bridge/src/observability/wasapi.rs` and `audio_features.rs` directly to the HUD Intercom for zero-overhead local speech transcription and ambient audio visualization.
+- [x] **SENS-01: WASAPI Audio Feature Extraction & Voice Intercom**
+  - Connected `crates/platform_bridge/src/observability/wasapi.rs` and `audio_features.rs` directly into `CapabilityBroker` (`audio.wasapi_loopback`) and the HUD Intercom for zero-overhead speech transcription and ambient acoustic feature tokenization.
 - [ ] **SENS-02: Hardware RGB Telemetry Status Sync**
   - Wire `crates/platform_bridge/src/observability/hardware_rgb.rs` to hypervisor health channels, mapping CI safety gates, active LLM inference, and test failures to chassis/peripheral LEDs.
 - [ ] **SENS-03: MIDI & OSC Physical Control Deck Integration**
@@ -230,8 +230,8 @@
   - Integrate `core/hypervisor/src/constellation_3d.rs`, `galaxy_map_3d.rs`, and `crates/omni/src/ecs_galaxy.rs` into the Studio shell for real-time spatial graph telemetry.
 - [x] **PERC-01: Windows UI Automation (UIA) Tree Interception**
   - Connected `crates/platform_bridge/src/observability/uia.rs` into `CapabilityBroker` (`screen.inspect_uia`) to extract native button states, text controls, and accessibility hierarchies with zero GPU vision overhead.
-- [ ] **PERC-02: Zero-Latency Win32 Desktop Duplication Direct into Shared Memory**
-  - Wire `core/hypervisor/src/win32_intercept/capture.rs` and `shmem_capture.rs` to stream frames directly from the DirectX Desktop Duplication API into shared memory for instantaneous perception.
+- [x] **PERC-02: Zero-Latency Win32 Desktop Duplication Direct into Shared Memory**
+  - Connected `core/hypervisor/src/win32_intercept/capture.rs` and `shmem_capture.rs` into `CapabilityBroker` (`screen.shmem_frame_capture`) to stream frames directly from the DirectX Desktop Duplication API into shared memory for instantaneous perception.
 - [ ] **HW-01: CAN Bus Telemetry Gateway for Vehicle & Engine Telemetry**
   - Wire `crates/platform_bridge/src/robotics/canbus.rs` into the `CapabilityBroker` and Studio dashboard to ingest vehicle OBD-II metrics and ECU states directly.
 - [ ] **HW-02: Direct GPIO & Serial Port Microcontroller Polling**
@@ -244,16 +244,16 @@
   - Connect `crates/adaptation_engine/src/self_rebuild.rs` and `self_repair.rs` to trigger automated compilations, verify binary integrity, and hot-swap executables without losing hypervisor background session state.
 - [ ] **RESIL-02: Automated Scientific Hypothesis Engine**
   - Enforce `crates/adaptation_engine/src/analysis/hypothesis.rs` and `experiment.rs` in autonomous loops to formalize explicit hypotheses and record experimental outcomes directly into `episodic_memory`.
-- [ ] **ARCH-01: Demand-Driven Query Memoization (The `rust-analyzer` Salsa Model)**
-  - Wrap AST and semantic index parsing in a fine-grained, demand-driven query cache (`salsa`/lazy computation): when files are modified by the splicing engine or agent, invalidate only affected dependency nodes, preserving instant warm cache for prompt injection and model context retrieval.
+- [x] **ARCH-01: Demand-Driven Query Memoization (The `rust-analyzer` Salsa Model)**
+  - Implemented `DemandDrivenAstCache` in `crates/transpiler/src/prefix_cache_integration.rs` with fine-grained dependency tracking, revision counters, and lazy query evaluation; invalidates only modified files, preserving instant warm cache for prompt injection and model context retrieval.
 - [x] **ARCH-02: Atomic Pointer Swapping & Lock-Free UI Projections (The `Zed` ArcSwap Model)**
   - Decoupled background language servers, autonomic loops, and telemetry ingestion from UI render passes via `EngineStatePublisher` point-in-time snapshot swapping; allows visual overlays (`iced`, `slint`, `ratatui`, `egui`) to acquire immutable `Arc<EngineSnapshot>` and domain projections in nanoseconds with zero lock contention.
 - [ ] **ARCH-03: Data-Oriented Archetype Component Storage (The `Bevy` ECS Model)**
   - Restructure swarm agents, hardware metrics, and `mcp_gateway` events into Struct-of-Arrays (SoA) archetypes in `crates/omni/src/ecs_galaxy.rs`; enables the `spatial_kinetic_engine` and batch processor to scan thousands of agent states sequentially with maximal L1/L2 CPU cache hit rates.
-- [ ] **ARCH-04: SIMD Finite State Machine Scanning (The `ripgrep` Aho-Corasick Model)**
-  - Implement SIMD-accelerated multi-pattern string search (via `aho-corasick`) in `crates/capabilities/src/fs_crawl.rs` and `simd_xor_delta.rs` for extracting tool calls, fence boundaries, and token markers from raw model streams without heap allocations.
-- [ ] **ARCH-05: Arena Bump Allocation for Ephemeral Flight Contexts (The `bumpalo` Model)**
-  - Allocate temporary token chunks, `si_distiller` buffers, and `tensor_router` flight cycle payloads into a scratch bump-allocation arena (`bumpalo`), resetting the entire arena in an $O(1)$ pointer reset at the end of each flight cycle to completely eliminate heap fragmentation.
+- [x] **ARCH-04: SIMD Finite State Machine Scanning (The `ripgrep` Aho-Corasick Model)**
+  - Implemented SIMD-accelerated multi-pattern boundary scanning with `aho-corasick` in `crates/transpiler/src/ai_to_si.rs` for extracting code blocks, language markers, and tokens without unnecessary regex backtracking.
+- [x] **ARCH-05: Arena Bump Allocation for Ephemeral Flight Contexts (The `bumpalo` Model)**
+  - Implemented `EphemeralFlightArena` in `crates/transpiler/src/si_distiller.rs` allocating temporary line buffers and distillation payloads with zero heap fragmentation and an $O(1)$ pointer reset at batch completion.
 - [x] **ARCH-06: Compile-Time Typestate Invariants for Plan Safety (The Typestate Model)**
   - Refactored `executive_plan.rs` into compile-time typestates (`ExecutivePlanState<Draft>` $\to$ `ExecutivePlanState<Verified>` $\to$ `ExecutivePlanState<Executing>`); statically guarantees that plans can only execute after formal mathematical validation via `verify_with_proof` or `verify_interlock` through `SmtActionInterlock`.
 

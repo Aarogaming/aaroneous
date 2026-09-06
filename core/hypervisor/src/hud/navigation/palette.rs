@@ -11,6 +11,8 @@ use std::path::PathBuf;
 pub enum CapabilityCommand {
     InspectUia,
     RdtscProfile,
+    ShmemFrameCapture,
+    WasapiLoopback,
     MineDistillation,
     CargoDiagnostics,
     HnswSearch(String),
@@ -26,6 +28,8 @@ impl CapabilityCommand {
         match self {
             Self::InspectUia => "screen.inspect_uia",
             Self::RdtscProfile => "timing.rdtsc_profiler",
+            Self::ShmemFrameCapture => "screen.shmem_frame_capture",
+            Self::WasapiLoopback => "audio.wasapi_loopback",
             Self::MineDistillation => "forge.mine_distillation",
             Self::CargoDiagnostics => "workbench.cargo_diagnostics",
             Self::HnswSearch(_) => "memory.hnsw_search",
@@ -220,6 +224,8 @@ impl CommandPalette {
                 let cmd = match cap.id.as_str() {
                     "screen.inspect_uia" => CapabilityCommand::InspectUia,
                     "timing.rdtsc_profiler" => CapabilityCommand::RdtscProfile,
+                    "screen.shmem_frame_capture" => CapabilityCommand::ShmemFrameCapture,
+                    "audio.wasapi_loopback" => CapabilityCommand::WasapiLoopback,
                     "forge.mine_distillation" => CapabilityCommand::MineDistillation,
                     "workbench.cargo_diagnostics" => CapabilityCommand::CargoDiagnostics,
                     _ => CapabilityCommand::Dynamic {
