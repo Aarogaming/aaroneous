@@ -421,6 +421,10 @@ impl AutonomicNervousSystem {
         info!(target: "autonomic_loop", ?tick_rate, "heartbeat initiated");
 
         thread::spawn(move || {
+            // OS-01 & Mechanical Sympathy: Elevate reflex loop priority and pin to physical P-Cores
+            platform_bridge::observability::mmcss::enable_mmcss_time_critical("Games");
+            platform_bridge::observability::mmcss::set_thread_performance_affinity(0x05); // Pin to P-Core #0 and #2
+
             let rt = tokio::runtime::Runtime::new().unwrap();
             let _task_router = TaskRouter::new(
                 Some(enzyme_runner_for_router),

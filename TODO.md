@@ -170,8 +170,8 @@
   - Connect `crates/governance/src/smt_action_interlock.rs` as a mandatory pre-commit gate before applying AST rewrites, proving non-interference and invariant safety mathematically to eliminate rollbacks.
 - [ ] **SAFE-02: Sandboxed In-Process Micro-VM & WASM Enzyme Isolation**
   - Enforce `core/hypervisor/src/micro_vm.rs` gas-metered execution on all ad-hoc diagnostic scripts and custom automation macros, isolating host OS files and child process creation.
-- [ ] **OS-01: MMCSS Thread Priority Boosting & Core Affinity Pinning**
-  - Register the hypervisor reflex loop and capability broker with Windows MMCSS ("Games" / "Pro Audio" profile via `mmcss.rs`) to prevent scheduler preemption during heavy local LLM inference.
+- [x] **OS-01: MMCSS Thread Priority Boosting & Core Affinity Pinning**
+  - Registered hypervisor reflex loop with Windows MMCSS ("Games" profile via `platform_bridge::observability::mmcss`) and set thread performance affinity to physical P-Cores to prevent hyperthreaded cache thrashing during local LLM inference.
 - [ ] **OS-02: Direct DXGI / Vulkan Swapchain Present Hooking**
   - Inject telemetry overlay directly into graphics presentation via `swapchain_present.rs`, eliminating DWM desktop composition lag for true zero-latency in-game overlays.
 - [ ] **ACCEL-01: WGSL Reflex Compute Shader Pipeline Offloading**
