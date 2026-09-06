@@ -170,6 +170,25 @@ pub struct AgentPipelineNode {
     pub output_connected_to: Option<String>,
 }
 
+/// Action type for automated routine steps
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum RoutineAction {
+    MouseMove { x: i32, y: i32, duration_ms: u32 },
+    MouseClick { button: String, release_delay_ms: u32 },
+    KeySequence { keys: String },
+    Delay { delay_ms: u32 },
+}
+
+/// Dynamic Routine Step for Screen & Motor Automation
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RoutineStep {
+    pub id: String,
+    pub name: String,
+    pub description: String,
+    pub action: RoutineAction,
+    pub is_enabled: bool,
+}
+
 /// Live Automation Event Record (Streamed from Background Workers)
 #[derive(Debug, Clone)]
 pub struct AutomationEventLog {
@@ -668,6 +687,9 @@ pub struct SharedHudState {
     pub user_identity_engine: compute::UserIdentityEngine,
     pub show_user_profile_modal: bool,
     pub intercom: orchestrator::LinguisticIntercom,
+
+    // Dynamic Visual Routine Builder Steps
+    pub routine_steps: Vec<RoutineStep>,
 }
 
 impl Default for SharedHudState {
@@ -734,27 +756,36 @@ impl Default for SharedHudState {
             telemetry_reward_history.push(((i as f32 * 0.3).sin().abs() * 20.0) + (i as f32 * 0.6));
         }
 
-        let event_logs = vec![
-            AutomationEventLog {
-                timestamp_ms: 1040,
-                source: "Game Companion Bot".to_string(),
-                action: "Triggered macro dodge [Shift+A]".to_string(),
-                latency_us: 340.0,
-                success: true,
+        let event_logs = Vec::new();
+
+        let routine_steps = vec![
+            RoutineStep {
+                id: "step_1".to_string(),
+                name: "1. 🖱️ Move to Target".to_string(),
+                description: "Bézier curve to [X: 420, Y: 360] (35ms)".to_string(),
+                action: RoutineAction::MouseMove { x: 420, y: 360, duration_ms: 35 },
+                is_enabled: true,
             },
-            AutomationEventLog {
-                timestamp_ms: 2180,
-                source: "Download Cleaner".to_string(),
-                action: "Scanned folder targets".to_string(),
-                latency_us: 1200.0,
-                success: true,
+            RoutineStep {
+                id: "step_2".to_string(),
+                name: "2. 🖱️ Left Click".to_string(),
+                description: "Simulate human tap (65ms release)".to_string(),
+                action: RoutineAction::MouseClick { button: "Left".to_string(), release_delay_ms: 65 },
+                is_enabled: true,
             },
-            AutomationEventLog {
-                timestamp_ms: 3450,
-                source: "Instant Tool Synthesizer".to_string(),
-                action: "Generated Game Stats widget".to_string(),
-                latency_us: 840.0,
-                success: true,
+            RoutineStep {
+                id: "step_3".to_string(),
+                name: "3. ⏱️ Sensory Delay".to_string(),
+                description: "Wait 150ms for frame update".to_string(),
+                action: RoutineAction::Delay { delay_ms: 150 },
+                is_enabled: true,
+            },
+            RoutineStep {
+                id: "step_4".to_string(),
+                name: "4. ⌨️ Key Sequence".to_string(),
+                description: "Press [Ctrl+S] to save workspace".to_string(),
+                action: RoutineAction::KeySequence { keys: "Ctrl+S".to_string() },
+                is_enabled: true,
             },
         ];
 
@@ -1086,6 +1117,7 @@ impl Default for SharedHudState {
             user_identity_engine: compute::UserIdentityEngine::default(),
             show_user_profile_modal: false,
             intercom: orchestrator::LinguisticIntercom::default(),
+            routine_steps,
         }
     }
 }
@@ -1369,6 +1401,49 @@ impl SharedHudState {
                 let _ = mmap.flush();
             }
         }
+    }
+
+    pub fn register_new_macro(&mut self, name: &str, hotkey: Option<&str>, desc: &str) -> anyhow::Result<()> {
+        let mut g = compute::NativeComputationalGraph::new();
+        g.add_node(compute::NativeComputationNode {
+            id: 1,
+            opcode: compute::MachineOpcode::Alloc {
+                size_bytes: 4096,
+                align: 64,
+            },
+            type_lattice: compute::NativeTypeLattice::LinearMemoryPointer {
+                mutability: true,
+                alignment: 64,
+            },
+            energy_cost: 0.015,
+            dependencies: Vec::new(),
+        });
+        g.add_node(compute::NativeComputationNode {
+            id: 2,
+            opcode: compute::MachineOpcode::Call {
+                function_id: 0x9004,
+                arg_regs: vec![1],
+            },
+            type_lattice: compute::NativeTypeLattice::PrimitiveInt {
+                bits: 32,
+                signed: true,
+            },
+            energy_cost: 0.025,
+            dependencies: vec![1],
+        });
+
+        let packet = compute::SiThoughtPacket::new(
+            0x0115,
+            compute::DimensionalUnit::DIMENSIONLESS,
+            vec![0.5, 0.5, 0.1],
+            g,
+        );
+
+        self.si_macro_engine
+            .save_macro(name, desc, hotkey, &packet)?;
+        self.saved_si_macros = self.si_macro_engine.list_macros()?;
+        self.award_xp(100, "Compiled Machine-Native Smart Macro");
+        Ok(())
     }
 }
 

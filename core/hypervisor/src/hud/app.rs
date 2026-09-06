@@ -11,7 +11,7 @@ use crate::hud::navigation::{
 use crate::hud::state::{AppWindowMode, SharedHudState};
 use crate::hud::views::{
     AgentsHubView, Galaxy3DView, HudView, ScreenAutomationView, SettingsView, SiForgeView,
-    SignalAnalyzerView, SpatialSensoryView, SystemCareView, SystemThermoView, WorkbenchView,
+    SignalAnalyzerView, SpatialSensoryView, SystemThermoView, WorkbenchView,
 };
 use eframe::egui::{self, Color32, Key};
 
@@ -39,14 +39,13 @@ impl Default for StudioApp {
         );
 
         let views: Vec<Box<dyn HudView>> = vec![
-            Box::new(SystemCareView::default()),
+            Box::new(AgentsHubView),
             Box::new(SpatialSensoryView),
             Box::new(Galaxy3DView),
             Box::new(SiForgeView),
             Box::new(ScreenAutomationView),
             Box::new(SignalAnalyzerView),
             Box::new(SystemThermoView),
-            Box::new(AgentsHubView),
             Box::new(SettingsView),
             Box::new(WorkbenchView),
         ];

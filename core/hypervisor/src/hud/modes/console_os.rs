@@ -252,23 +252,6 @@ impl ConsoleOsLauncher {
                     state.app_window_mode = AppWindowMode::FullStudio;
                 }
 
-                if ui.add(egui::Button::new(egui::RichText::new("🚀 BOOST").color(Color32::WHITE).strong().size(11.5 * scale_factor)).fill(Color32::from_rgb(35, 134, 54))).clicked() {
-                    state.rescan_local_models();
-                    state.poll_live_bus();
-                    let mut bio = state.user_identity_engine.active_profile().baseline_biomarkers.clone();
-                    bio.correction_rate = (bio.correction_rate * 0.9).max(0.01);
-                    state.user_identity_engine.ingest_kinematics(bio);
-                    state.award_xp(40, "Console-OS Quick Boost");
-                    let now_ms = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_millis() as u64;
-                    state.event_logs.push(crate::hud::state::AutomationEventLog {
-                        timestamp_ms: now_ms,
-                        source: "Console-OS".to_string(),
-                        action: "Rapid memory & ring buffer alignment optimized".to_string(),
-                        latency_us: 12.0,
-                        success: true,
-                    });
-                }
-
                 ui.label(
                     egui::RichText::new(format!("60 FPS  •  Harmony {:.0}%", state.bus_integrity))
                         .color(Color32::from_rgb(63, 185, 80))

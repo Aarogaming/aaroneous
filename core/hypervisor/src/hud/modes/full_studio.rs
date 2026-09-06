@@ -189,8 +189,8 @@ pub fn render_full_studio(
         .show_inside(ui, |ui| {
             ui.add_space(4.0);
             let sections = [
-                (NavSection::Dashboard, "⚡ SystemCare"),
                 (NavSection::Agents, "🤖 Companions & Team"),
+                (NavSection::Specialists, "👥 9 Specialists"),
                 (NavSection::ScreenAutomation, "🎮 Screen & Auto-Pilot"),
                 (NavSection::SiForge, "⚡ Create & Train"),
                 (NavSection::GalaxyMap3D, "🌌 Cosmos Map"),
@@ -337,7 +337,7 @@ pub fn render_full_studio(
         .show_inside(ui, |ui| {
             // Map nav_section to appropriate view
             let target_view_id = match state.nav_section {
-                NavSection::Dashboard => "system_care",
+                NavSection::Dashboard | NavSection::Specialists => "spatial_sensory",
                 NavSection::GalaxyMap3D | NavSection::Galaxy3D | NavSection::Cosmos3D => {
                     "galaxy_map_3d"
                 }
@@ -347,7 +347,6 @@ pub fn render_full_studio(
                 NavSection::ScreenAutomation | NavSection::ScreenCapture => "screen_automation",
                 NavSection::InterconnectMonitor | NavSection::Console => "signal_analyzer",
                 NavSection::Agents
-                | NavSection::Specialists
                 | NavSection::SwarmMesh
                 | NavSection::GhostStation => "agents_hub",
                 NavSection::Settings => "settings",

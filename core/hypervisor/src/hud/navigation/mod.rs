@@ -14,6 +14,9 @@ use serde::{Deserialize, Serialize};
 /// Navigation Categories in the Left Sidebar
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum NavSection {
+    // Primary Executive & SystemCare Dashboard
+    Dashboard,           // ⚡ SystemCare & Health Hub
+
     // Cognitive Hypervisor Main Deck
     #[serde(alias = "Pantheon")]
     Specialists, // 👥 9 Domain Specialists & Hive Intent
@@ -45,7 +48,7 @@ pub enum NavSection {
 impl NavSection {
     pub fn display_label(&self) -> &'static str {
         match self {
-            NavSection::Specialists => "👥 Specialists",
+            NavSection::Dashboard | NavSection::Specialists => "👥 Specialists",
             NavSection::GalaxyMap3D | NavSection::Galaxy3D | NavSection::Cosmos3D => "🌌 3D Galaxy",
             NavSection::LearningAndSelfPlay | NavSection::LivingMind => "🧬 Learning & Self-Play",
             NavSection::SiForge => "⚡ SI Forge",
