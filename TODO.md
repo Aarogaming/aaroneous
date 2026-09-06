@@ -910,6 +910,32 @@ Documented in detail in `dev/docs/17_DEFECT_AUDIT_AND_REMEDIATION_PLAN.md`.
   - Wire `crates/orchestrator/src/dap_server.rs` into Studio and IDEs to step through agent decision trees, pause on failed assertions, and inspect live memory state mid-flight.
 - [ ] **DEV-02: Automated AST Pattern Rewriting & Patch Verification**
   - Connect `crates/adaptation_engine/src/pattern_rewriter.rs` and `crates/capabilities/src/codebase_auditor.rs` to execute deterministic AST search-and-replace rules for trivial syntax and deprecation fixes without LLM round trips.
+- [ ] **SENS-01: WASAPI Audio Feature Extraction & Voice Intercom**
+  - Connect `crates/platform_bridge/src/observability/wasapi.rs` and `audio_features.rs` directly to the HUD Intercom for zero-overhead local speech transcription and ambient audio visualization.
+- [ ] **SENS-02: Hardware RGB Telemetry Status Sync**
+  - Wire `crates/platform_bridge/src/observability/hardware_rgb.rs` to hypervisor health channels, mapping CI safety gates, active LLM inference, and test failures to chassis/peripheral LEDs.
+- [ ] **SENS-03: MIDI & OSC Physical Control Deck Integration**
+  - Bind `crates/platform_bridge/src/adapters/midi_osc.rs` to Studio and Console parameters (timeline scrub, model temperature, telemetry mute) with zero focus interruption.
+- [ ] **SENS-04: NDI Zero-Latency Video Broadcasting**
+  - Activate `crates/platform_bridge/src/adapters/ndi_broadcast.rs` to stream rendered Studio panels or the 3D Constellation canvas over LAN to secondary auxiliary tablets.
+- [ ] **EXEC-01: Neurochemical & Dopamine Reinforcement Engine for Agent Loops**
+  - Wire `core/hypervisor/src/dopamine_system.rs` and `crates/autonomic_adaptation/src/neurochemistry.rs` into AFC autonomy thresholds, penalizing context blowout and rewarding clean builds.
+- [ ] **EXEC-02: Executive Metacognition & Prefrontal Planning Gate**
+  - Enforce `core/hypervisor/src/prefrontal_cortex.rs` and `executive_plan.rs` supervisory decomposition of tasks into formally verifiable sub-goals prior to modifying code.
+- [ ] **EXEC-03: Temporal Event Dilation & Simulation Engine (Relativity Clock)**
+  - Integrate `core/hypervisor/src/relativity_engine.rs` to decouple task execution from wall-clock time, allowing stress tests and regressions to run at virtual warp speeds.
+- [ ] **MATH-01: Game-Theoretic Multi-Agent Resource Arbitration (Nash Equilibrium)**
+  - Connect `crates/compute/src/game_theory.rs` to arbitrate competing specialist access to limited VRAM and CPU cycles without thread starvation or priority inversion.
+- [ ] **MATH-02: Thermodynamic Entropy Budgeting & Metabolic Governance**
+  - Integrate `crates/compute/src/thermodynamics.rs` and `crates/governance/src/metabolic_governor.rs` to enforce hourly thermodynamic entropy caps and prevent workstation thermal throttling.
+- [ ] **MATH-03: Symbolic Algebraic Simplification for Static Bounds Checking**
+  - Wire `core/hypervisor/src/symbolic_math.rs` ahead of rustc compilation to catch out-of-bounds slice indexing and array panics symbolically.
+- [ ] **GEN-01: HOX Gene-Regulatory Network for Specialist Agent Breeding**
+  - Connect `core/hypervisor/src/hox_registry.rs` and `hox_breeding_simulator.rs` to dynamically evolve task-specialized sub-agent personas and parameter archetypes.
+- [ ] **GEN-02: Autonomic Codebase Self-Digestion (Dead-Code Harvesting)**
+  - Wire `crates/autonomic_adaptation/src/self_digestion.rs` to continuously crawl the workspace AST, removing orphaned interfaces to maintain compact model context.
+- [ ] **GEN-03: 3D Constellation & Galaxy Node Graph Visualization**
+  - Integrate `core/hypervisor/src/constellation_3d.rs`, `galaxy_map_3d.rs`, and `crates/omni/src/ecs_galaxy.rs` into the Studio shell for real-time spatial graph telemetry.
 
 ---
 
