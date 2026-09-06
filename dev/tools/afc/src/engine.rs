@@ -9,7 +9,7 @@ use crate::queue::QueueManager;
 use crate::state::{FlightState, StateMachine};
 use anyhow::Result;
 
-use std::sync::{Arc};
+// use std::sync::{Arc}; // Already imported at module level
 
 use chrono::Local;
 use std::path::PathBuf;
