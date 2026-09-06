@@ -137,11 +137,6 @@ pub fn render_full_studio(
         )
         .show_inside(ui, |ui| {
             ui.horizontal(|ui| {
-                let active_count = state
-                    .custom_agents
-                    .iter()
-                    .filter(|a| a.state == crate::hud::state::AgentExecutionState::Running)
-                    .count();
                 let proj = state.state_publisher.project_studio();
                 ui.label(
                     egui::RichText::new(format!("🤖 Active Companions: {}", proj.active_companions_count))

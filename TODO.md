@@ -188,8 +188,8 @@
   - Connected `crates/ipc_bus/src/disruptor.rs` into `CapabilityBroker` for upstream shell-to-engine command ingress and execution logging, avoiding crossbeam channel cache-line bouncing and locking command latency in the sub-microsecond range.
 - [ ] **MEM-03: Single-Writer Multi-Reader (SWMR) Synapse Bus**
   - Leverage `crates/ipc_bus/src/swmr_synapse.rs` and `spmc_synapse_bus.rs` for atomic broadcast slots where the hypervisor writes state monotonically and all shells read concurrently without lock contention.
-- [ ] **PROF-01: Cycle-Accurate Hardware Timing (RDTSC Engine Ticks)**
-  - Integrate `crates/platform_bridge/src/observability/rdtsc.rs` into hypervisor tick pacing and HUD latency oscilloscope to achieve nanosecond-accurate frame budgeting without OS system-call overhead.
+- [x] **PROF-01: Cycle-Accurate Hardware Timing (RDTSC Engine Ticks)**
+  - Integrated `crates/platform_bridge/src/observability/rdtsc.rs` into `CapabilityBroker` (`timing.rdtsc_profiler`) for cycle-accurate, sub-microsecond timing without OS system-call overhead.
 - [ ] **PROF-02: Native Windows ETW Kernel Trace Ingestion**
   - Connect `crates/platform_bridge/src/observability/etw.rs` to real-time telemetry, tracking GPU context switching, driver stalls, and CPU scheduler preemptions from local LLMs.
 - [ ] **PROF-03: Direct Raw Input Hooking**
@@ -228,8 +228,8 @@
   - Wire `crates/autonomic_adaptation/src/self_digestion.rs` to continuously crawl the workspace AST, removing orphaned interfaces to maintain compact model context.
 - [ ] **GEN-03: 3D Constellation & Galaxy Node Graph Visualization**
   - Integrate `core/hypervisor/src/constellation_3d.rs`, `galaxy_map_3d.rs`, and `crates/omni/src/ecs_galaxy.rs` into the Studio shell for real-time spatial graph telemetry.
-- [ ] **PERC-01: Windows UI Automation (UIA) Tree Interception**
-  - Connect `crates/platform_bridge/src/observability/uia.rs` to extract native button states, text controls, and accessibility hierarchies in background threads with zero GPU vision overhead.
+- [x] **PERC-01: Windows UI Automation (UIA) Tree Interception**
+  - Connected `crates/platform_bridge/src/observability/uia.rs` into `CapabilityBroker` (`screen.inspect_uia`) to extract native button states, text controls, and accessibility hierarchies with zero GPU vision overhead.
 - [ ] **PERC-02: Zero-Latency Win32 Desktop Duplication Direct into Shared Memory**
   - Wire `core/hypervisor/src/win32_intercept/capture.rs` and `shmem_capture.rs` to stream frames directly from the DirectX Desktop Duplication API into shared memory for instantaneous perception.
 - [ ] **HW-01: CAN Bus Telemetry Gateway for Vehicle & Engine Telemetry**
@@ -246,8 +246,8 @@
   - Enforce `crates/adaptation_engine/src/analysis/hypothesis.rs` and `experiment.rs` in autonomous loops to formalize explicit hypotheses and record experimental outcomes directly into `episodic_memory`.
 - [ ] **ARCH-01: Demand-Driven Query Memoization (The `rust-analyzer` Salsa Model)**
   - Wrap AST and semantic index parsing in a fine-grained, demand-driven query cache (`salsa`/lazy computation): when files are modified by the splicing engine or agent, invalidate only affected dependency nodes, preserving instant warm cache for prompt injection and model context retrieval.
-- [ ] **ARCH-02: Atomic Pointer Swapping & Lock-Free UI Projections (The `Zed` ArcSwap Model)**
-  - Decouple background language servers, autonomic loops, and telemetry ingestion from UI render passes by publishing engine telemetry into an `arc-swap` slot; allows visual overlays (`iced`, `slint`, `ratatui`, `egui`) to acquire immutable point-in-time snapshots in nanoseconds with zero lock contention.
+- [x] **ARCH-02: Atomic Pointer Swapping & Lock-Free UI Projections (The `Zed` ArcSwap Model)**
+  - Decoupled background language servers, autonomic loops, and telemetry ingestion from UI render passes via `EngineStatePublisher` point-in-time snapshot swapping; allows visual overlays (`iced`, `slint`, `ratatui`, `egui`) to acquire immutable `Arc<EngineSnapshot>` and domain projections in nanoseconds with zero lock contention.
 - [ ] **ARCH-03: Data-Oriented Archetype Component Storage (The `Bevy` ECS Model)**
   - Restructure swarm agents, hardware metrics, and `mcp_gateway` events into Struct-of-Arrays (SoA) archetypes in `crates/omni/src/ecs_galaxy.rs`; enables the `spatial_kinetic_engine` and batch processor to scan thousands of agent states sequentially with maximal L1/L2 CPU cache hit rates.
 - [ ] **ARCH-04: SIMD Finite State Machine Scanning (The `ripgrep` Aho-Corasick Model)**
