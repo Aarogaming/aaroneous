@@ -37,7 +37,7 @@ pub fn render_utility_dashboard(ui: &mut egui::Ui, state: &mut SharedHudState) {
                         state.app_window_mode = AppWindowMode::ConsoleGameOS;
                     }
 
-                    if ui.button("🪟 Utility Desktop").clicked() {
+                    if ui.button("🪟 Studio").clicked() {
                         state.app_window_mode = AppWindowMode::FullStudio;
                         ui.ctx().send_viewport_cmd(egui::ViewportCommand::InnerSize(egui::vec2(1240.0, 840.0)));
                     }

@@ -117,7 +117,7 @@ impl ConsoleOsLauncher {
             self.active_focus_idx -= cols;
         }
 
-        // Enter or Space launches focused cartridge into Utility Desktop
+        // Enter or Space launches focused cartridge into Studio
         if ui.input(|i| i.key_pressed(Key::Enter) || i.key_pressed(Key::Space)) {
             self.was_fullscreen = false;
             ui.ctx().send_viewport_cmd(egui::ViewportCommand::Fullscreen(false));
@@ -236,7 +236,7 @@ impl ConsoleOsLauncher {
             }
 
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                if ui.button("🪟 Utility Desktop (F11 / Esc)").clicked() {
+                if ui.button("🪟 Studio (F11 / Esc)").clicked() {
                     self.was_fullscreen = false;
                     ui.ctx().send_viewport_cmd(egui::ViewportCommand::Fullscreen(false));
                     ui.ctx().send_viewport_cmd(egui::ViewportCommand::InnerSize(egui::vec2(1240.0, 840.0)));
