@@ -21,6 +21,10 @@ pub enum CommandAction {
     RunSiMacro(String, PathBuf),
     TileWindowsGrid,
     SetTheme(HudTheme),
+    ExecuteCapability {
+        id: String,
+        params: serde_json::Value,
+    },
 }
 
 #[derive(Default)]
@@ -47,12 +51,22 @@ impl CommandPalette {
         }
     }
 
-    pub fn render(&mut self, ctx: &egui::Context, theme: HudTheme) -> Option<CommandAction> {
+    pub fn render(
+        &mut self,
+        ctx: &egui::Context,
+        theme: HudTheme,
+        broker: Option<&crate::capability_broker::CapabilityBroker>,
+    ) -> Option<CommandAction> {
         if !self.is_open {
             return None;
         }
 
-        let all_commands = vec![
+        let base_commands: &[(&str, &str, CommandAction)] = &[
+            (
+                "⚡ SystemCare Dashboard",
+                "Open central health score, memory defrag, and one-click system optimizer",
+                CommandAction::Navigate(NavSection::Dashboard),
+            ),
             (
                 "🤖 Companions & Team",
                 "Open autonomous companions and collaborative team hub",
@@ -160,6 +174,25 @@ impl CommandPalette {
             ),
         ];
 
+        let mut all_commands: Vec<(String, String, CommandAction)> = base_commands
+            .iter()
+            .map(|(n, d, a)| (n.to_string(), d.to_string(), a.clone()))
+            .collect();
+
+        // Dynamically inject broker capabilities
+        if let Some(broker) = broker {
+            for cap in broker.list_capabilities() {
+                all_commands.push((
+                    format!("⚡ [{}] {}", cap.category.label(), cap.name),
+                    cap.description.clone(),
+                    CommandAction::ExecuteCapability {
+                        id: cap.id.clone(),
+                        params: serde_json::json!({}),
+                    },
+                ));
+            }
+        }
+
         let query_lower = self.query.to_lowercase();
         let filtered: Vec<_> = all_commands
             .into_iter()
@@ -263,7 +296,7 @@ impl CommandPalette {
                                             ui.horizontal(|ui| {
                                                 ui.vertical(|ui| {
                                                     ui.label(
-                                                        egui::RichText::new(*name)
+                                                        egui::RichText::new(name)
                                                             .strong()
                                                             .size(13.0)
                                                             .color(if is_selected {
@@ -273,7 +306,7 @@ impl CommandPalette {
                                                             }),
                                                     );
                                                     ui.label(
-                                                        egui::RichText::new(*desc)
+                                                        egui::RichText::new(desc)
                                                             .size(11.0)
                                                             .color(Color32::GRAY),
                                                     );

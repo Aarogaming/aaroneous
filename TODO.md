@@ -827,6 +827,56 @@ Documented in detail in `dev/docs/17_DEFECT_AUDIT_AND_REMEDIATION_PLAN.md`.
 
 ---
 
-*Last updated: 2026-09-04 | Complete 5-pillar, 34-phase architectural framework*
+### Phase 38: Triad Shell Convergence, Resource Governance & Micro-Latency Architecture (In Progress)
+*Low-overhead state-sharing, adaptive dirty-flag frame pacing, thermal/VRAM backpressure, and isolated shell resilience.*
+
+- [x] **SHELL-01: Intermediary Capability Broker (`CapabilityBroker`)**
+  - Implemented `core/hypervisor/src/capability_broker.rs`: dynamic self-describing capability registry and latency-tracked execution dispatch across 7 domains connecting Action Palette, Intercom, and Specialists.
+- [x] **SHELL-02: Zero-Lock Engine State Publisher & Projections (`EngineStatePublisher`)**
+  - Implemented `core/hypervisor/src/hud/state_snapshot.rs`: lock-free point-in-time state snapshots with shell-tailored projections (`StudioProjection`, `ConsoleProjection`, `HudProjection`) eliminating rendering locks.
+- [ ] **PERF-01: Event-Driven Frame Pacing & Dirty-Flag Invalidation**
+  - Replace continuous 120Hz repainting with reactive wakeups: idles presentation when state generation and input queues are quiet, conserving CPU/GPU thermals for inference.
+- [ ] **PERF-02: Resource Governor & Thermal/VRAM Backpressure**
+  - Dynamic UI pacing (`FullPerformance`, `ThermalThrottled`, `CriticalVramSave`): down-clocks rendering or pauses 3D canvas when VRAM > 90% or GPU junction > 82°C.
+- [ ] **PERF-03: Zero-Copy String Interning & Memory-Mapped Telemetry**
+  - Replace ad-hoc `String` heap allocations during 120 FPS render ticks with borrowed slices or `SmolStr` directly from the 64MB memory-mapped ring buffer.
+- [ ] **CMD-01: Compile-Time Strongly Typed Command Registry**
+  - Transition Action Palette macros to static enum and trait definitions to prevent string typo failures and bypass JSON serialization overhead.
+- [ ] **CMD-02: Input Debouncing & Ring Buffer Queue Backpressure**
+  - Protect `CapabilityBroker` from input flood (gamepad analog stick oscillations or rapid key repeats) via token-bucket debouncing.
+- [ ] **STAB-01: Isolated Panic Boundaries for Visual Shells**
+  - Enclose shell rendering routines within `std::panic::catch_unwind` boundaries: guarantees background hypervisor loops and auto-pilot persist if a graphics driver or UI window fails.
+- [ ] **STAB-02: Unified Structured Tracing Filtered per Shell**
+  - Configure tiered `tracing::LevelFilter` per shell: HUD (`WARN/ERROR`), Console (`INFO`), Studio (`DEBUG/TRACE`).
+- [ ] **STAB-03: Hot-Reloadable Styling & Spatial Canvas Layouts**
+  - Extend `.ron` spatial canvas persistence to theme tokens and window layouts for zero-recompile visual iteration.
+- [ ] **UX-01: Seamless Gamepad / Keyboard Focus Snapping Across Studio & Console**
+  - Unify D-Pad / Arrow navigation across Console cards and Studio sidebar tabs.
+- [ ] **UX-02: Audio-Loopback Intercom Activation (`WasapiVoiceTrigger`)**
+  - Connect WASAPI loopback capture directly to the HUD intercom for hands-free co-pilot intent triggers.
+- [ ] **SHELL-03: Detached Transparent Window Pipeline (Click-Through Win32 HUD)**
+  - Spawn standalone click-through viewport with `WS_EX_TRANSPARENT | WS_EX_LAYERED` attributes so the HUD floats unobtrusively over IDEs without stealing input focus.
+- [ ] **SHELL-04: 2D Spatial Focus Grid for 10-Foot Console Navigation**
+  - Replace 1D index snapping with a 2D geometric nearest-neighbor spatial navigator for analog stick and D-pad movement across asymmetrical cartridge panels.
+- [ ] **SHELL-05: Headless Autonomous Flight Target (`--headless`)**
+  - Decouple engine lifecycle from display context: execute full ANS loop, background AST mutation, and test repairs in headless environments without initializing GUI graphics.
+- [ ] **DIST-01: Delta-Compressed Telemetry Streams (`EngineDelta`)**
+  - Transmit bitmask-tagged differential state deltas instead of full monolithic struct snapshots across high-frequency 200Hz IPC channels.
+- [ ] **DIST-02: Zero-Copy Multi-Process Shared Memory (`shm`) Ring Buffer**
+  - Wire memory-mapped circular ring buffer for out-of-process visual shell isolates, providing $< 1\mu\text{s}$ state synchronization without socket serialization.
+- [ ] **DIST-03: Black-Box Flight Recorder (Deterministic Event Replay)**
+  - Journal causal sequence of capability broker commands, inputs, and state hashes into a 16MB circular `.flight` binary log for deterministic debugging of model stalls or build failures.
+- [ ] **LLM-01: Prefix Cache-Aware Prompt Templating**
+  - Pin immutable system prompts, specialist tool schemas, and repository guidelines to byte offsets $0..K$ to maximize KV-cache reuse in LM Studio / llama.cpp.
+- [ ] **LLM-02: Context-Aware Workspace Slicing & AST Pruning**
+  - Prune private function bodies and non-essential implementations before injecting codebase context into local models, preserving attention span on public APIs and active diffs.
+- [ ] **SWARM-01: Multi-Hive Swarm Sub-Agent Offloading (`SwarmOffloader`)**
+  - Connect `core/hypervisor/src/federation/multi_hive/swarm_offloader.rs` to autonomic sub-agents: offloads heavy AST parsing, SVDD audits, and test generation to peer nodes when workstation load exceeds threshold.
+- [ ] **ADAPT-01: Streaming Self-Correction & Autonomous Pacing Regulation**
+  - Wire `streaming_adaptation.rs` into the hypervisor main loop: dynamically adjusts telemetry polling cadences and JIT recompilation rates based on real-time system thermodynamics and CPU/GPU pressure.
+
+---
+
+*Last updated: 2026-09-06 | Complete 5-pillar, 38-phase architectural framework*
 
 

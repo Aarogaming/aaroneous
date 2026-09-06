@@ -10,6 +10,7 @@ pub mod modes;
 pub mod navigation;
 pub mod onboarding;
 pub mod state;
+pub mod state_snapshot;
 pub mod theme;
 pub mod transformer_bridge;
 pub mod views;
@@ -20,6 +21,7 @@ pub use companion_overlay::{CompanionTelemetryOverlay, EquilibriumState};
 pub use fascia::ProcessFasciaWatcher;
 pub use navigation::{CommandAction, CommandPalette, NavSection, ToastLevel, ToastNotification};
 pub use state::{CustomAgent, SharedHudState, UserSettings};
+pub use state_snapshot::{ConsoleProjection, EngineSnapshot, EngineStatePublisher, HudProjection, StudioProjection};
 pub use theme::HudTheme;
 pub use transformer_bridge::{
     BackendTelemetryFrame, FrontendCommandSignal, FrontendTransformerBridge,

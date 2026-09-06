@@ -58,17 +58,18 @@ pub fn render_transparent_hud(ctx: &egui::Context, state: &mut SharedHudState) {
 
             ui.separator();
             // ── Live Situational Guidance Feed (Backseat Driver) ──
+            let proj = state.state_publisher.project_hud();
             let is_agent_active = matches!(
                 state.game_agent.state,
                 platform_bridge::PlaythroughState::Recording { .. }
                     | platform_bridge::PlaythroughState::AutonomousPlaying { .. }
             );
             let foreground_hint = if is_agent_active {
-                "Active Autopilot: Executing targeted gameplay routine with natural Bézier dispersion."
+                "Active Autopilot: Executing targeted gameplay routine with natural Bézier dispersion.".to_string()
             } else if state.is_live_bus {
-                "Companion Standby: Zero-copy ring buffer online (64MB). Monitoring application events."
+                "Companion Standby: Zero-copy ring buffer online (64MB). Monitoring application events.".to_string()
             } else {
-                "Tactical Co-Pilot: Monitoring foreground activity. Ready for voice or intercom dispatch."
+                proj.active_guidance
             };
 
             egui::Frame::group(ui.style())
@@ -80,7 +81,7 @@ pub fn render_transparent_hud(ctx: &egui::Context, state: &mut SharedHudState) {
                     ui.horizontal(|ui| {
                         ui.label(egui::RichText::new("🧭 CO-PILOT GUIDANCE").color(theme.accent()).strong().size(11.0));
                         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                            ui.label(egui::RichText::new("LIVE").color(Color32::from_rgb(63, 185, 80)).strong().size(9.5));
+                            ui.label(egui::RichText::new(format!("LIVE • {:.0} FPS", proj.measured_fps)).color(Color32::from_rgb(63, 185, 80)).strong().size(9.5));
                         });
                     });
                     ui.label(egui::RichText::new(foreground_hint).color(Color32::from_rgb(220, 230, 245)).size(11.5));
@@ -102,8 +103,24 @@ pub fn render_transparent_hud(ctx: &egui::Context, state: &mut SharedHudState) {
                 {
                     let prompt = state.chat_input.trim().to_string();
                     state.chat_history.push(("User".to_string(), prompt.clone(), Color32::from_rgb(120, 180, 255)));
-                    let reply = format!("Roger. Queued intent for execution: \"{}\"", prompt);
+
+                    // Route through Intermediary Capability Broker
+                    let outcome = state.capability_broker.execute(
+                        "specialist.dispatch_intent",
+                        serde_json::json!({ "intent": prompt }),
+                    );
+
+                    let reply = if outcome.success {
+                        let specialist = outcome.payload.get("assigned_specialist")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("Orchestrator");
+                        format!("Routed to {} [{}µs]: Dispatching intent.", specialist, outcome.latency_us)
+                    } else {
+                        format!("Intent dispatch failed: {}", outcome.error.unwrap_or_default())
+                    };
+
                     state.chat_history.push(("Co-Pilot".to_string(), reply, Color32::from_rgb(63, 185, 80)));
+                    state.inject_live_intent(&prompt);
                     state.chat_input.clear();
                 }
             });

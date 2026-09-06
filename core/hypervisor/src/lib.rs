@@ -282,6 +282,8 @@ pub mod hud;
 pub mod hypervisor_hud;
 pub mod tensor_router;
 pub mod ui_broker;
+pub mod capability_broker;
+pub use capability_broker::{CapabilityBroker, CapabilityCategory, CapabilityDescriptor, CapabilityExecutionOutcome};
 pub use hypervisor_hud::{HudTab, HypervisorHudApp};
 pub mod unified_learning;
 pub mod unified_registry;

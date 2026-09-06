@@ -142,10 +142,11 @@ pub fn render_full_studio(
                     .iter()
                     .filter(|a| a.state == crate::hud::state::AgentExecutionState::Running)
                     .count();
+                let proj = state.state_publisher.project_studio();
                 ui.label(
-                    egui::RichText::new(format!("🤖 Active Companions: {active_count}"))
+                    egui::RichText::new(format!("🤖 Active Companions: {}", proj.active_companions_count))
                         .size(11.0)
-                        .color(if active_count > 0 {
+                        .color(if proj.active_companions_count > 0 {
                             Color32::from_rgb(63, 185, 80)
                         } else {
                             Color32::GRAY
@@ -154,21 +155,21 @@ pub fn render_full_studio(
 
                 ui.separator();
                 ui.label(
-                    egui::RichText::new("⚡ Display Stream: 60 FPS (Ultra-Low Latency)")
+                    egui::RichText::new(format!("⚡ Display Stream: {:.0} FPS (Ultra-Low Latency)", proj.measured_fps))
                         .size(11.0)
                         .color(Color32::from_rgb(63, 185, 80)),
                 );
 
                 ui.separator();
                 ui.label(
-                    egui::RichText::new(format!("✨ System Harmony: {:.0}%", state.bus_integrity))
+                    egui::RichText::new(format!("✨ System Harmony: {:.0}%", proj.bus_integrity))
                         .size(11.0)
                         .color(theme.accent()),
                 );
 
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                     ui.label(
-                        egui::RichText::new(format!("Framerate: {:.0} FPS", state.measured_fps))
+                        egui::RichText::new(format!("Framerate: {:.0} FPS", proj.measured_fps))
                             .size(11.0)
                             .strong()
                             .color(theme.accent()),

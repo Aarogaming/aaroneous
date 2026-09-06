@@ -688,6 +688,12 @@ pub struct SharedHudState {
     pub show_user_profile_modal: bool,
     pub intercom: orchestrator::LinguisticIntercom,
 
+    // Intermediary Capability Broker & Dynamic Function Catalog
+    pub capability_broker: Arc<crate::capability_broker::CapabilityBroker>,
+
+    // Zero-Lock Engine State Publisher & Presentation Projections
+    pub state_publisher: Arc<crate::hud::state_snapshot::EngineStatePublisher>,
+
     // Dynamic Visual Routine Builder Steps
     pub routine_steps: Vec<RoutineStep>,
 }
@@ -1117,6 +1123,8 @@ impl Default for SharedHudState {
             user_identity_engine: compute::UserIdentityEngine::default(),
             show_user_profile_modal: false,
             intercom: orchestrator::LinguisticIntercom::default(),
+            capability_broker: Arc::new(crate::capability_broker::CapabilityBroker::default()),
+            state_publisher: Arc::new(crate::hud::state_snapshot::EngineStatePublisher::default()),
             routine_steps,
         }
     }
@@ -1336,6 +1344,28 @@ impl SharedHudState {
             if self.telemetry_reward_history.len() > 60 {
                 self.telemetry_reward_history.remove(0);
             }
+
+            // Sync snapshot into EngineStatePublisher for zero-lock presentation access
+            let active_profile = self.user_identity_engine.active_profile().display_name.clone();
+            let flow = self.user_identity_engine.flow_score();
+            let active_agents = self.custom_agents.iter().filter(|a| a.state == AgentExecutionState::Running).count();
+            let last_ev = self.event_logs.last().map(|e| e.action.clone()).unwrap_or_else(|| "Nominal".to_string());
+
+            self.state_publisher.publish(crate::hud::state_snapshot::EngineSnapshot {
+                timestamp_ms: std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_millis() as u64,
+                measured_fps: self.measured_fps,
+                bus_integrity: self.bus_integrity,
+                bus_understanding: self.bus_understanding,
+                bus_generation: self.bus_generation,
+                active_specialist: "Orchestrator".to_string(),
+                active_companions_count: active_agents,
+                running_macros_count: self.saved_si_macros.len(),
+                last_event_desc: last_ev,
+                user_level: self.user_level,
+                user_xp: self.user_xp,
+                flow_score: flow,
+                active_profile_name: active_profile,
+            });
         }
     }
 

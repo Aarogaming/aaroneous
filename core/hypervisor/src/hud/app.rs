@@ -156,6 +156,23 @@ impl StudioApp {
                 self.state.settings.theme = theme;
                 self.state.settings.save_to_disk();
             }
+            CommandAction::ExecuteCapability { id, params } => {
+                let outcome = self.state.capability_broker.execute(&id, params);
+                if outcome.success {
+                    self.toasts.push(
+                        "Capability Executed",
+                        format!("{} completed in {}µs", outcome.capability_id, outcome.latency_us),
+                        ToastLevel::Success,
+                    );
+                } else {
+                    let err = outcome.error.unwrap_or_else(|| "Unknown failure".to_string());
+                    self.toasts.push(
+                        "Execution Failed",
+                        format!("{}: {}", outcome.capability_id, err),
+                        ToastLevel::Error,
+                    );
+                }
+            }
         }
     }
 }
@@ -288,7 +305,7 @@ impl eframe::App for StudioApp {
         render_transparent_hud(&ctx, &mut self.state);
 
         // Command Palette Modal
-        if let Some(action) = self.palette.render(&ctx, theme) {
+        if let Some(action) = self.palette.render(&ctx, theme, Some(&self.state.capability_broker)) {
             self.execute_command(action, &ctx);
         }
 

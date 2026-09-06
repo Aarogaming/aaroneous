@@ -252,8 +252,9 @@ impl ConsoleOsLauncher {
                     state.app_window_mode = AppWindowMode::FullStudio;
                 }
 
+                let proj = state.state_publisher.project_console();
                 ui.label(
-                    egui::RichText::new(format!("60 FPS  •  Harmony {:.0}%", state.bus_integrity))
+                    egui::RichText::new(format!("{}  •  {}", proj.display_badge, proj.harmony_label))
                         .color(Color32::from_rgb(63, 185, 80))
                         .size(11.0 * scale_factor),
                 );
