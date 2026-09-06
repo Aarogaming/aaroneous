@@ -890,6 +890,26 @@ Documented in detail in `dev/docs/17_DEFECT_AUDIT_AND_REMEDIATION_PLAN.md`.
   - Ingest latent trajectory drift scores from `concept_drift.rs`: automatically detect model degenerate loops or repetitive failures, triggering automated context compaction and prompt recalibration.
 - [ ] **DRIFT-02: Chaos Monkey Fault Injection for Safety & Rollback Hardening**
   - Intermittently inject dropped packets, synthetic VRAM pressure spikes, and simulated I/O errors via `chaos_monkey.rs` during automated tests to formally certify fault-recovery resilience.
+- [ ] **MEM-01: Zero-Copy Memory-Mapped Deserialization (`rkyv` Archives)**
+  - Integrate `rkyv` zero-copy archiving (validated in `core/hypervisor/src/rkyv_test.rs`) for telemetry trees across thread and process boundaries, allowing shells to read snapshot bytes directly in-place without heap allocations.
+- [ ] **MEM-02: LMAX Disruptor Lock-Free Ring Buffer Upstream Command Queue**
+  - Connect `crates/ipc_bus/src/disruptor.rs` for upstream shell-to-engine command ingress, avoiding crossbeam channel cache-line bouncing and locking command latency in the sub-microsecond range.
+- [ ] **MEM-03: Single-Writer Multi-Reader (SWMR) Synapse Bus**
+  - Leverage `crates/ipc_bus/src/swmr_synapse.rs` and `spmc_synapse_bus.rs` for atomic broadcast slots where the hypervisor writes state monotonically and all shells read concurrently without lock contention.
+- [ ] **PROF-01: Cycle-Accurate Hardware Timing (RDTSC Engine Ticks)**
+  - Integrate `crates/platform_bridge/src/observability/rdtsc.rs` into hypervisor tick pacing and HUD latency oscilloscope to achieve nanosecond-accurate frame budgeting without OS system-call overhead.
+- [ ] **PROF-02: Native Windows ETW Kernel Trace Ingestion**
+  - Connect `crates/platform_bridge/src/observability/etw.rs` to real-time telemetry, tracking GPU context switching, driver stalls, and CPU scheduler preemptions from local LLMs.
+- [ ] **PROF-03: Direct Raw Input Hooking**
+  - Wire `crates/platform_bridge/src/observability/raw_input.rs` to bypass Windows desktop `WM_INPUT` message pump latency for immediate gamepad and shortcut response in Console and HUD.
+- [ ] **SSM-01: HiPPO Polynomial Long-Horizon State-Space Memory**
+  - Connect `crates/compute/src/hippo.rs` and `macro_ssm.rs` to compress chronological execution logs into continuous polynomial memory projections, preserving multi-hour session context without token blowout.
+- [ ] **SSM-02: Latent-Space Semantic Guardrailing**
+  - Integrate `crates/compute/src/latent_guardrail.rs` and `latent_router.rs` to evaluate shell commands against embedding vectors prior to LLM invocation, catching redundant or invalid requests locally.
+- [ ] **DEV-01: Embedded Debug Adapter Protocol (DAP) Server**
+  - Wire `crates/orchestrator/src/dap_server.rs` into Studio and IDEs to step through agent decision trees, pause on failed assertions, and inspect live memory state mid-flight.
+- [ ] **DEV-02: Automated AST Pattern Rewriting & Patch Verification**
+  - Connect `crates/adaptation_engine/src/pattern_rewriter.rs` and `crates/capabilities/src/codebase_auditor.rs` to execute deterministic AST search-and-replace rules for trivial syntax and deprecation fixes without LLM round trips.
 
 ---
 
