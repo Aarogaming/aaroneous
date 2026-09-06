@@ -4,7 +4,7 @@
 use crate::hud::navigation::NavSection;
 use crate::hud::state::{AppWindowMode, SharedHudState};
 use crate::hud::views::HudView;
-use eframe::egui::{self, Color32, CornerRadius, Stroke, Vec2};
+use eframe::egui::{self, Color32, CornerRadius, Pos2, Stroke, Vec2};
 
 pub fn render_full_studio(
     ui: &mut egui::Ui,
@@ -12,6 +12,7 @@ pub fn render_full_studio(
     views: &mut [Box<dyn HudView>],
     toggle_palette: &mut bool,
     toggle_shortcuts: &mut bool,
+    toggle_guide: &mut bool,
 ) {
     let theme = state.settings.theme;
 
@@ -31,7 +32,7 @@ pub fn render_full_studio(
                         .color(theme.accent()),
                 );
                 ui.label(
-                    egui::RichText::new("v0.5.0")
+                    egui::RichText::new("v1.6.0")
                         .size(11.0)
                         .color(Color32::from_rgb(140, 150, 170)),
                 );
@@ -90,7 +91,11 @@ pub fn render_full_studio(
                         state.settings.save_to_disk();
                     }
 
-                    if ui.button("❓ Guide (Ctrl+/)").clicked() {
+                    if ui.button("🚀 Tour Guide").clicked() {
+                        *toggle_guide = true;
+                    }
+
+                    if ui.button("❓ Hotkeys (Ctrl+/)").clicked() {
                         *toggle_shortcuts = true;
                     }
 
@@ -98,12 +103,8 @@ pub fn render_full_studio(
                         *toggle_palette = true;
                     }
 
-                    if ui.button("🎮 Console-OS (F11)").clicked() {
+                    if ui.button("🎮 Console Mode (F11)").clicked() {
                         state.app_window_mode = AppWindowMode::ConsoleGameOS;
-                    }
-
-                    if ui.button("🎛️ Utility Dash").clicked() {
-                        state.app_window_mode = AppWindowMode::UtilityDashboard;
                     }
 
                     if ui.button("🪟 Mini-HUD (F10)").clicked() {
@@ -114,6 +115,10 @@ pub fn render_full_studio(
                         ui.ctx().send_viewport_cmd(egui::ViewportCommand::WindowLevel(
                             egui::viewport::WindowLevel::AlwaysOnTop,
                         ));
+                    }
+
+                    if ui.button("🎮 In-Game HUD (F12)").clicked() {
+                        state.is_ingame_overlay_open = !state.is_ingame_overlay_open;
                     }
 
                     if ui.button("🔴 Rec Macro (F9)").clicked() {
@@ -184,6 +189,7 @@ pub fn render_full_studio(
         .show_inside(ui, |ui| {
             ui.add_space(4.0);
             let sections = [
+                (NavSection::Dashboard, "⚡ SystemCare"),
                 (NavSection::Agents, "🤖 Companions & Team"),
                 (NavSection::ScreenAutomation, "🎮 Screen & Auto-Pilot"),
                 (NavSection::SiForge, "⚡ Create & Train"),
@@ -198,56 +204,59 @@ pub fn render_full_studio(
 
             for (sec, label) in sections {
                 let is_selected = state.nav_section == sec;
+                let available_w = ui.available_width();
+                let row_size = Vec2::new(available_w, 28.0);
+                let (rect, resp) = ui.allocate_exact_size(row_size, egui::Sense::click());
+                let resp = resp.on_hover_cursor(egui::CursorIcon::PointingHand);
+
+                if resp.clicked() {
+                    state.nav_section = sec;
+                }
+
+                let is_hovered = resp.hovered();
                 let bg_color = if is_selected {
                     theme.card_bg()
+                } else if is_hovered {
+                    Color32::from_rgba_unmultiplied(255, 255, 255, 12)
                 } else {
                     Color32::TRANSPARENT
                 };
+
                 let stroke = if is_selected {
                     Stroke::new(1.0, theme.accent())
+                } else if is_hovered {
+                    Stroke::new(1.0, Color32::from_rgba_unmultiplied(255, 255, 255, 24))
                 } else {
                     Stroke::NONE
                 };
 
-                let resp = egui::Frame::NONE
-                    .fill(bg_color)
-                    .stroke(stroke)
-                    .corner_radius(CornerRadius::same(6))
-                    .inner_margin(egui::Margin::symmetric(8, 6))
-                    .show(ui, |ui| {
-                        ui.set_width(ui.available_width());
-                        ui.horizontal(|ui| {
-                            if is_selected {
-                                // Sleek vertical accent bar on the left
-                                let (rect, _) = ui.allocate_exact_size(
-                                    Vec2::new(3.0, 14.0),
-                                    egui::Sense::hover(),
-                                );
-                                ui.painter().rect_filled(
-                                    rect,
-                                    CornerRadius::same(1),
-                                    theme.accent(),
-                                );
-                                ui.add_space(3.0);
-                            }
+                ui.painter().rect(rect, CornerRadius::same(6), bg_color, stroke, egui::StrokeKind::Inside);
 
-                            let text_color = if is_selected {
-                                theme.accent()
-                            } else {
-                                Color32::from_rgb(220, 225, 235)
-                            };
-                            let rt = egui::RichText::new(label).size(12.5).color(text_color);
-                            ui.label(rt);
-                        });
-                    });
-
-                // Make the entire frame clickable without triggering egui's text selection bounding box
-                let interact_rect = resp.response.rect;
-                let click_resp =
-                    ui.interact(interact_rect, ui.id().with(sec), egui::Sense::click());
-                if click_resp.clicked() {
-                    state.nav_section = sec;
+                if is_selected {
+                    let bar_rect = egui::Rect::from_min_size(
+                        Pos2::new(rect.min.x + 4.0, rect.center().y - 7.0),
+                        Vec2::new(3.0, 14.0),
+                    );
+                    ui.painter().rect_filled(bar_rect, CornerRadius::same(1), theme.accent());
                 }
+
+                let text_pos = Pos2::new(rect.min.x + if is_selected { 14.0 } else { 8.0 }, rect.center().y);
+                let text_color = if is_selected {
+                    theme.accent()
+                } else if is_hovered {
+                    Color32::WHITE
+                } else {
+                    Color32::from_rgb(220, 225, 235)
+                };
+
+                ui.painter().text(
+                    text_pos,
+                    egui::Align2::LEFT_CENTER,
+                    label,
+                    egui::FontId::proportional(12.5),
+                    text_color,
+                );
+
                 ui.add_space(3.0);
             }
 
@@ -264,52 +273,59 @@ pub fn render_full_studio(
 
                 for (sec, label) in dev_sections {
                     let is_selected = state.nav_section == sec;
+                    let available_w = ui.available_width();
+                    let row_size = Vec2::new(available_w, 26.0);
+                    let (rect, resp) = ui.allocate_exact_size(row_size, egui::Sense::click());
+                    let resp = resp.on_hover_cursor(egui::CursorIcon::PointingHand);
+
+                    if resp.clicked() {
+                        state.nav_section = sec;
+                    }
+
+                    let is_hovered = resp.hovered();
                     let bg_color = if is_selected {
                         theme.card_bg()
+                    } else if is_hovered {
+                        Color32::from_rgba_unmultiplied(255, 255, 255, 12)
                     } else {
                         Color32::TRANSPARENT
                     };
+
                     let stroke = if is_selected {
                         Stroke::new(1.0, theme.accent())
+                    } else if is_hovered {
+                        Stroke::new(1.0, Color32::from_rgba_unmultiplied(255, 255, 255, 24))
                     } else {
                         Stroke::NONE
                     };
 
-                    let resp = egui::Frame::NONE
-                        .fill(bg_color)
-                        .stroke(stroke)
-                        .corner_radius(CornerRadius::same(6))
-                        .inner_margin(egui::Margin::symmetric(8, 6))
-                        .show(ui, |ui| {
-                            ui.set_width(ui.available_width());
-                            ui.horizontal(|ui| {
-                                if is_selected {
-                                    let (rect, _) = ui.allocate_exact_size(
-                                        Vec2::new(3.0, 14.0),
-                                        egui::Sense::hover(),
-                                    );
-                                    ui.painter().rect_filled(
-                                        rect,
-                                        CornerRadius::same(1),
-                                        theme.accent(),
-                                    );
-                                    ui.add_space(3.0);
-                                }
-                                let text_color = if is_selected {
-                                    theme.accent()
-                                } else {
-                                    Color32::from_rgb(200, 205, 215)
-                                };
-                                ui.label(egui::RichText::new(label).size(12.0).color(text_color));
-                            });
-                        });
+                    ui.painter().rect(rect, CornerRadius::same(6), bg_color, stroke, egui::StrokeKind::Inside);
 
-                    let interact_rect = resp.response.rect;
-                    let click_resp =
-                        ui.interact(interact_rect, ui.id().with(sec), egui::Sense::click());
-                    if click_resp.clicked() {
-                        state.nav_section = sec;
+                    if is_selected {
+                        let bar_rect = egui::Rect::from_min_size(
+                            Pos2::new(rect.min.x + 4.0, rect.center().y - 7.0),
+                            Vec2::new(3.0, 14.0),
+                        );
+                        ui.painter().rect_filled(bar_rect, CornerRadius::same(1), theme.accent());
                     }
+
+                    let text_pos = Pos2::new(rect.min.x + if is_selected { 14.0 } else { 8.0 }, rect.center().y);
+                    let text_color = if is_selected {
+                        theme.accent()
+                    } else if is_hovered {
+                        Color32::WHITE
+                    } else {
+                        Color32::from_rgb(200, 205, 215)
+                    };
+
+                    ui.painter().text(
+                        text_pos,
+                        egui::Align2::LEFT_CENTER,
+                        label,
+                        egui::FontId::proportional(12.0),
+                        text_color,
+                    );
+
                     ui.add_space(2.0);
                 }
             }
@@ -321,6 +337,7 @@ pub fn render_full_studio(
         .show_inside(ui, |ui| {
             // Map nav_section to appropriate view
             let target_view_id = match state.nav_section {
+                NavSection::Dashboard => "system_care",
                 NavSection::GalaxyMap3D | NavSection::Galaxy3D | NavSection::Cosmos3D => {
                     "galaxy_map_3d"
                 }

@@ -11,7 +11,7 @@ use crate::hud::navigation::{
 use crate::hud::state::{AppWindowMode, SharedHudState};
 use crate::hud::views::{
     AgentsHubView, Galaxy3DView, HudView, ScreenAutomationView, SettingsView, SiForgeView,
-    SignalAnalyzerView, SpatialSensoryView, SystemThermoView, WorkbenchView,
+    SignalAnalyzerView, SpatialSensoryView, SystemCareView, SystemThermoView, WorkbenchView,
 };
 use eframe::egui::{self, Color32, Key};
 
@@ -30,17 +30,16 @@ pub struct StudioApp {
 impl Default for StudioApp {
     fn default() -> Self {
         let state = SharedHudState::default();
-        let mut toasts = ToastNotificationManager::new();
+        let mut toasts = ToastNotificationManager::default();
+
         toasts.push(
-            "Aaroneous Online",
-            format!(
-                "Discovered {} local GGUF models across local hubs.",
-                state.discovered_gguf_models.len()
-            ),
+            "Kernel Initialized",
+            "Aaroneous hypervisor and SWMR shared-memory bridge active.",
             ToastLevel::Success,
         );
 
         let views: Vec<Box<dyn HudView>> = vec![
+            Box::new(SystemCareView::default()),
             Box::new(SpatialSensoryView),
             Box::new(Galaxy3DView),
             Box::new(SiForgeView),
@@ -196,11 +195,18 @@ impl eframe::App for StudioApp {
             self.execute_command(CommandAction::ToggleCompactOverlay, &ctx);
         }
         if ctx.input(|i| i.key_pressed(Key::F11)) {
-            self.state.app_window_mode = match self.state.app_window_mode {
-                AppWindowMode::ConsoleGameOS => AppWindowMode::UtilityDashboard,
-                AppWindowMode::UtilityDashboard => AppWindowMode::ConsoleGameOS,
-                _ => AppWindowMode::ConsoleGameOS,
-            };
+            match self.state.app_window_mode {
+                AppWindowMode::ConsoleGameOS => {
+                    self.console_os.was_fullscreen = false;
+                    ctx.send_viewport_cmd(egui::ViewportCommand::Fullscreen(false));
+                    ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(egui::vec2(1240.0, 840.0)));
+                    self.state.app_window_mode = AppWindowMode::FullStudio;
+                }
+                _ => {
+                    self.state.app_window_mode = AppWindowMode::ConsoleGameOS;
+                    self.console_os.was_fullscreen = false;
+                }
+            }
         }
         if ctx.input(|i| i.key_pressed(Key::F12)) {
             self.state.is_ingame_overlay_open = !self.state.is_ingame_overlay_open;
@@ -247,6 +253,7 @@ impl eframe::App for StudioApp {
             AppWindowMode::FullStudio => {
                 let mut toggle_palette = false;
                 let mut toggle_shortcuts = false;
+                let mut toggle_guide = false;
 
                 render_full_studio(
                     ui,
@@ -254,6 +261,7 @@ impl eframe::App for StudioApp {
                     &mut self.views,
                     &mut toggle_palette,
                     &mut toggle_shortcuts,
+                    &mut toggle_guide,
                 );
 
                 if toggle_palette {
@@ -261,6 +269,9 @@ impl eframe::App for StudioApp {
                 }
                 if toggle_shortcuts {
                     self.shortcuts.toggle();
+                }
+                if toggle_guide {
+                    self.guide.is_open = true;
                 }
             }
             AppWindowMode::CompactRecorderOverlay => {
@@ -295,13 +306,20 @@ impl eframe::App for StudioApp {
             let modal_width = 580.0f32.min(screen_rect.width() - 40.0);
             let modal_height = 420.0f32.min(screen_rect.height() - 60.0);
 
-            egui::Area::new(egui::Id::new("achievements_mastery_modal"))
-                .fixed_pos(egui::pos2(
-                    (screen_rect.width() - modal_width) * 0.5,
-                    (screen_rect.height() - modal_height) * 0.4,
-                ))
-                .order(egui::Order::Foreground)
-                .show(&ctx, |ui| {
+            let default_pos = egui::pos2(
+                (screen_rect.width() - modal_width) * 0.5,
+                (screen_rect.height() - modal_height) * 0.4,
+            );
+
+            egui::Window::new("🏆 Achievements & Mastery Training")
+                .open(&mut show_modal)
+                .default_pos(default_pos)
+                .default_size(egui::vec2(modal_width, modal_height))
+                .min_width(380.0)
+                .min_height(280.0)
+                .resizable(true)
+                .collapsible(true)
+                .frame(
                     egui::Frame::window(&ctx.global_style())
                         .fill(theme.panel_bg())
                         .stroke(eframe::egui::Stroke::new(1.5, theme.accent()))
@@ -311,79 +329,72 @@ impl eframe::App for StudioApp {
                             blur: 24,
                             spread: 4,
                             color: Color32::from_black_alpha(200),
-                        })
+                        }),
+                )
+                .show(&ctx, |ui| {
+                    ui.horizontal(|ui| {
+                        ui.label(
+                            egui::RichText::new("Track and master shortcuts, routines, and telemetry.")
+                                .color(Color32::from_rgb(180, 190, 210))
+                                .size(12.0),
+                        );
+                        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                            ui.label(
+                                egui::RichText::new(format!(
+                                    "Unlocked: {} / {}",
+                                    self.state.achievements.unlocked_count(),
+                                    self.state.achievements.total_count()
+                                ))
+                                .color(Color32::from_rgb(255, 215, 0))
+                                .strong(),
+                            );
+                        });
+                    });
+
+                    ui.separator();
+                    ui.add_space(4.0);
+
+                    egui::ScrollArea::vertical()
+                        .max_height(360.0)
                         .show(ui, |ui| {
-                            ui.set_width(modal_width);
-                            ui.set_height(modal_height);
+                            for ach in &self.state.achievements.achievements {
+                                let bg = if ach.is_unlocked {
+                                    Color32::from_rgba_unmultiplied(20, 45, 30, 200)
+                                } else {
+                                    theme.card_bg()
+                                };
+                                let border = if ach.is_unlocked {
+                                    Color32::from_rgb(63, 185, 80)
+                                } else {
+                                    theme.border_color()
+                                };
 
-                            ui.horizontal(|ui| {
-                                ui.heading(
-                                    egui::RichText::new("🏆 Achievements & Mastery Training")
-                                        .color(theme.accent())
-                                        .strong(),
-                                );
-                                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                                    if ui.button("✕ Close").clicked() {
-                                        show_modal = false;
-                                    }
-                                    ui.label(
-                                        egui::RichText::new(format!(
-                                            "Unlocked: {} / {}",
-                                            self.state.achievements.unlocked_count(),
-                                            self.state.achievements.total_count()
-                                        ))
-                                        .color(Color32::from_rgb(255, 215, 0))
-                                        .strong(),
-                                    );
-                                });
-                            });
-
-                            ui.separator();
-                            ui.label("Progress through milestones as you build routines, train models, and master hotkeys.");
-                            ui.add_space(6.0);
-
-                            egui::ScrollArea::vertical()
-                                .max_height(320.0)
-                                .show(ui, |ui| {
-                                    for ach in &self.state.achievements.achievements {
-                                        let bg = if ach.is_unlocked {
-                                            Color32::from_rgba_unmultiplied(20, 45, 30, 200)
-                                        } else {
-                                            theme.card_bg()
-                                        };
-                                        let border = if ach.is_unlocked {
-                                            Color32::from_rgb(63, 185, 80)
-                                        } else {
-                                            theme.border_color()
-                                        };
-
-                                        egui::Frame::group(ui.style())
-                                            .fill(bg)
-                                            .stroke(eframe::egui::Stroke::new(1.0, border))
-                                            .corner_radius(eframe::egui::CornerRadius::same(6))
-                                            .show(ui, |ui| {
+                                egui::Frame::group(ui.style())
+                                    .fill(bg)
+                                    .stroke(eframe::egui::Stroke::new(1.0, border))
+                                    .corner_radius(eframe::egui::CornerRadius::same(6))
+                                    .show(ui, |ui| {
+                                        ui.horizontal(|ui| {
+                                            ui.label(egui::RichText::new(&ach.icon).size(20.0));
+                                            ui.vertical(|ui| {
                                                 ui.horizontal(|ui| {
-                                                    ui.label(egui::RichText::new(&ach.icon).size(20.0));
-                                                    ui.vertical(|ui| {
-                                                        ui.horizontal(|ui| {
-                                                            ui.label(egui::RichText::new(&ach.title).strong());
-                                                            if ach.is_unlocked {
-                                                                ui.label(egui::RichText::new("✓ UNLOCKED").color(Color32::from_rgb(63, 185, 80)).strong().size(10.5));
-                                                            } else {
-                                                                ui.label(egui::RichText::new(format!("{}/{}", ach.current_progress, ach.target_progress)).color(Color32::GRAY).size(10.5));
-                                                            }
-                                                        });
-                                                        ui.label(egui::RichText::new(&ach.description).size(11.0).color(Color32::from_rgb(180, 190, 210)));
-                                                    });
-
-                                                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                                                        ui.label(egui::RichText::new(format!("+{} XP", ach.xp_reward)).color(Color32::from_rgb(255, 215, 0)).strong());
-                                                    });
+                                                    ui.label(egui::RichText::new(&ach.title).strong());
+                                                    if ach.is_unlocked {
+                                                        ui.label(egui::RichText::new("✓ UNLOCKED").color(Color32::from_rgb(63, 185, 80)).strong().size(10.5));
+                                                    } else {
+                                                        ui.label(egui::RichText::new(format!("{}/{}", ach.current_progress, ach.target_progress)).color(Color32::GRAY).size(10.5));
+                                                    }
                                                 });
+                                                ui.label(egui::RichText::new(&ach.description).size(11.0).color(Color32::from_rgb(180, 190, 210)));
                                             });
-                                        ui.add_space(3.0);
-                                    }
-                                });
+
+                                            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                                                ui.label(egui::RichText::new(format!("+{} XP", ach.xp_reward)).color(Color32::from_rgb(255, 215, 0)).strong());
+                                            });
+                                        });
+                                    });
+                                ui.add_space(3.0);
+                            }
                         });
                 });
             self.state.show_achievements_modal = show_modal;

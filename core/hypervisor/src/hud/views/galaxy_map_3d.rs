@@ -91,11 +91,12 @@ impl HudView for Galaxy3DView {
             state.camera_pan += response.drag_delta();
         }
 
-        // Scroll Zoom
+        // Scroll Zoom (Gentle, proportional sensitivity with smooth limits)
         let scroll_delta = ui.input(|i| i.smooth_scroll_delta.y);
         if response.hovered() && scroll_delta.abs() > 0.1 {
-            let zoom_factor = if scroll_delta > 0.0 { 1.1 } else { 0.9 };
-            state.camera_zoom = (state.camera_zoom * zoom_factor).clamp(0.4, 3.5);
+            // Use subtle exponential step (e.g. 1.0 + delta * 0.0025) instead of huge 1.1/0.9 multipliers
+            let zoom_delta = (scroll_delta * 0.003).clamp(-0.15, 0.15);
+            state.camera_zoom = (state.camera_zoom * (1.0 + zoom_delta)).clamp(0.65, 2.2);
         }
 
         // Background Cosmos Backdrop
@@ -111,8 +112,8 @@ impl HudView for Galaxy3DView {
         let sin_y = yaw.sin();
         let cos_p = pitch.cos();
         let sin_p = pitch.sin();
-        let focal_dist = 500.0;
-        let cam_dist = 450.0 / state.camera_zoom;
+        let focal_dist = 520.0;
+        let cam_dist = 520.0 / state.camera_zoom;
 
         // 3D Projection Closure
         let project_3d = |pos: [f32; 3]| -> Option<(Pos2, f32, f32)> {
@@ -222,10 +223,11 @@ impl HudView for Galaxy3DView {
                             Stroke::new(1.2, Color32::from_rgba_unmultiplied(56, 139, 253, alpha)),
                         );
 
-                        // Animated Real-Time Execution Pulse (Driven by live bus activity)
-                        let bus_speed_multiplier = (state.bus_events_per_sec / 1000.0).clamp(0.5, 4.0);
+                        // Animated Real-Time Execution Pulse (Driven by live bus activity and active specialist routing)
+                        let is_edge_active = state.is_live_bus || state.hive_routing_decision.is_some() || state.custom_agents.iter().any(|a| matches!(a.state, crate::hud::state::AgentExecutionState::Running));
+                        let bus_speed_multiplier = ((state.bus_events_per_sec / 800.0) + (if is_edge_active { 1.2 } else { 0.3 })).clamp(0.4, 4.5);
                         let star_activity = star.activity_level.clamp(0.1, 1.0);
-                        let pulse_phase = (time_sec * (0.6 * bus_speed_multiplier * star_activity)
+                        let pulse_phase = (time_sec * (0.7 * bus_speed_multiplier * star_activity)
                             + (star.domain_opcode as f32 * 0.05))
                             % 1.0;
                         let pulse_pos = Pos2::new(
@@ -234,18 +236,19 @@ impl HudView for Galaxy3DView {
                         );
                         let pulse_scale = (scale1 + (scale2 - scale1) * pulse_phase).max(0.5);
 
-                        // Glow color shifts with live activity: active white/cyan when bus is active
-                        let pulse_color = if state.is_live_bus {
-                            Color32::from_rgba_unmultiplied(230, 250, 255, 240)
+                        // Glow color shifts with live activity: bright cyan/gold when active routing occurs
+                        let pulse_color = if is_edge_active {
+                            Color32::from_rgba_unmultiplied(240, 255, 255, 245)
                         } else {
-                            Color32::from_rgba_unmultiplied(180, 200, 230, 160)
+                            Color32::from_rgba_unmultiplied(120, 160, 220, 140)
                         };
 
-                        painter.circle_filled(pulse_pos, 3.5 * pulse_scale, pulse_color);
+                        let pulse_radius = if is_edge_active { 4.2 * pulse_scale } else { 2.5 * pulse_scale };
+                        painter.circle_filled(pulse_pos, pulse_radius, pulse_color);
                         painter.circle_stroke(
                             pulse_pos,
-                            6.5 * pulse_scale,
-                            Stroke::new(1.0, Color32::from_rgba_unmultiplied(56, 139, 253, 180)),
+                            pulse_radius * 2.0,
+                            Stroke::new(1.0, Color32::from_rgba_unmultiplied(56, 139, 253, if is_edge_active { 220 } else { 100 })),
                         );
                     }
                 }
@@ -275,8 +278,8 @@ impl HudView for Galaxy3DView {
 
         for (star, pos_2d, scale, z_cam) in &projected_stars {
             let is_selected = state.selected_galaxy_star_id.as_deref() == Some(star.id.as_str());
-            let base_radius = if is_selected { 14.0 } else { 9.0 };
-            let radius = (base_radius * scale).clamp(4.0, 28.0);
+            let base_radius = if is_selected { 13.0 } else { 8.5 };
+            let radius = (base_radius * scale.clamp(0.6, 1.4)).clamp(6.0, 18.0);
 
             // Hit Testing
             if let Some(_cp) = click_pos.filter(|cp| cp.distance(*pos_2d) <= radius * 1.5) {

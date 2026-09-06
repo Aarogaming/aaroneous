@@ -33,12 +33,11 @@ pub fn render_utility_dashboard(ui: &mut egui::Ui, state: &mut SharedHudState) {
                 }
 
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    if ui.button("🎮 Switch to Console-OS (F11)").clicked() {
+                    if ui.button("🎮 Switch to Console Mode (F11)").clicked() {
                         state.app_window_mode = AppWindowMode::ConsoleGameOS;
-                        ui.ctx().send_viewport_cmd(egui::ViewportCommand::InnerSize(egui::vec2(1280.0, 800.0)));
                     }
 
-                    if ui.button("🪟 Full Studio").clicked() {
+                    if ui.button("🪟 Utility Desktop").clicked() {
                         state.app_window_mode = AppWindowMode::FullStudio;
                         ui.ctx().send_viewport_cmd(egui::ViewportCommand::InnerSize(egui::vec2(1240.0, 840.0)));
                     }
