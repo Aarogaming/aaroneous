@@ -36,9 +36,9 @@ impl FlightEngine {
         info!("Target Repository: {:?}", self.repo_root);
 
         // Multi-threaded: wrap in Arc<Mutex> for concurrent access
-        use tokio::sync::Mutex;
+        use std::sync::{Arc, Mutex};
         let shared_state_machine = Arc::new(Mutex::new(StateMachine::new()));
-        let mut state_machine = shared_state_machine.blocking_lock();
+        let mut state_machine = shared_state_machine.lock().unwrap();
 
 
         let logs_dir = self
