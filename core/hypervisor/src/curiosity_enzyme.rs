@@ -29,19 +29,23 @@ impl CuriosityEnzyme {
     pub fn identify_knowledge_gaps(&mut self, index: &SemanticIndex) -> Vec<String> {
         println!("[CuriosityEnzyme] Analyzing Semantic Index for structural gaps...");
         
-        // 1. Structural Gap Detection (Mocked)
+        // 1. Structural Gap Detection based on semantic density and coverage
         let mut gaps = Vec::new();
         
         if index.entries.is_empty() {
-            if !self.known_concepts.contains("general intelligence") {
-                gaps.push("general intelligence and system self-awareness".to_string());
+            if !self.known_concepts.contains("unindexed_workspace") {
+                gaps.push("workspace semantic index empty; unindexed environment".to_string());
             }
-        } else if index.entries.len() < 5 {
-            if !self.known_concepts.contains("advanced Rust") {
-                gaps.push("advanced Rust systems programming patterns".to_string());
-            }
-            if !self.known_concepts.contains("WASM sandboxing") {
-                gaps.push("WASM sandboxing security protocols".to_string());
+        } else {
+            // Find topics with low connectivity or zero access
+            for entry in &index.entries {
+                if entry.access_count == 0 {
+                    let subject = entry.metadata.get("subject").unwrap_or(&entry.id).clone();
+                    let gap = format!("unreferenced knowledge cluster: {subject}");
+                    if !self.known_concepts.contains(&gap) {
+                        gaps.push(gap);
+                    }
+                }
             }
         }
 

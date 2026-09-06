@@ -39,8 +39,7 @@ impl DiplomatEnzyme {
                 Err(anyhow!("External agent rejected request: Status {}", resp.status()))
             }
             Err(e) => {
-                println!("[DiplomatEnzyme] Warning: External network failure ({}), falling back to mock", e);
-                Ok(format!("Task submitted to {}. External ID: {}", target_url, uuid::Uuid::new_v4()))
+                Err(anyhow!("External network failure communicating with {}: {}", target_url, e))
             }
         }
     }

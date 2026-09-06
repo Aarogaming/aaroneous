@@ -828,9 +828,21 @@ impl AutonomicNervousSystem {
                 // --- PHASE 3: OPERATIONAL EXECUTION (The Sentinel) ---
                 if state.intent_vector_id != [0; 16] {
                     let task_id = uuid::Uuid::from_bytes(state.intent_vector_id).to_string();
-                    let mock_intent_text = "Perform search for MIT licensed code on GitHub";
+                    let payload_len = state
+                        .intent_payload
+                        .iter()
+                        .position(|&b| b == 0)
+                        .unwrap_or(state.intent_payload.len());
+                    let payload_str = std::str::from_utf8(&state.intent_payload[..payload_len])
+                        .unwrap_or("")
+                        .trim();
+                    let intent_text = if !payload_str.is_empty() {
+                        payload_str
+                    } else {
+                        "Synchronize specialist state and inspect workspace graph"
+                    };
 
-                    let intent_tier = nlm_sentinel.classify_intent(mock_intent_text);
+                    let intent_tier = nlm_sentinel.classify_intent(intent_text);
 
                     if intent_tier == IntentTier::Violation {
                         warn!(target: "autonomic_loop", %task_id, "safety violation; blocking task");
@@ -860,10 +872,10 @@ impl AutonomicNervousSystem {
 
                     debug!(target: "autonomic_loop", %task_id, tier = state.sovereignty_tier, "intent approved; executing");
 
-                    if mock_intent_text.contains("Perform search") {
+                    {
                         let mut plan_guard = active_plan.write();
                         if let Ok(new_plan) =
-                            rt.block_on(prefrontal_cortex.draft_plan(mock_intent_text))
+                            rt.block_on(prefrontal_cortex.draft_plan(intent_text))
                         {
                             *plan_guard = Some(new_plan);
                             debug!(target: "autonomic_loop", "multi-step plan generated");
@@ -879,8 +891,8 @@ impl AutonomicNervousSystem {
                             "sovereignty_tier".to_string(),
                             state.sovereignty_tier.to_string(),
                         );
-                        let id = index.index_text(mock_intent_text, metadata);
-                        let result_str = mock_intent_text.to_string();
+                        let id = index.index_text(intent_text, metadata);
+                        let result_str = intent_text.to_string();
                         drop(index);
                         let index = semantic_index.read();
                         if let Some(entry) = index.entries.iter().find(|e| e.id == id) {
