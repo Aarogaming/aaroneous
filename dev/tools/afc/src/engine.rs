@@ -8,6 +8,9 @@ use crate::llm::LlmOrchestrator;
 use crate::queue::QueueManager;
 use crate::state::{FlightState, StateMachine};
 use anyhow::Result;
+
+use std::sync::{Arc};
+
 use chrono::Local;
 use std::path::PathBuf;
 use tokio::fs;
@@ -32,7 +35,11 @@ impl FlightEngine {
         info!("==========================================================");
         info!("Target Repository: {:?}", self.repo_root);
 
-        let mut state_machine = StateMachine::new();
+        // Multi-threaded: wrap in Arc<Mutex> for concurrent access
+        use tokio::sync::Mutex;
+        let shared_state_machine = Arc::new(Mutex::new(StateMachine::new()));
+        let mut state_machine = shared_state_machine.blocking_lock();
+
 
         let logs_dir = self
             .repo_root
