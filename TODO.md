@@ -114,93 +114,6 @@
 
 ---
 
-## Critical — Compilation Errors
-
-### 1. `archetypes.rs` — Duplicate `impl NativeThinker for Archetype`
-
-**File:** `crates/orchestrator/src/archetypes.rs` lines 137-148 and 170-178
-**Issue:** Rust does not allow multiple `impl` blocks for the same trait on the same type.
-**Status:** FIXED — Removed duplicate impl blocks, kept single default implementation.
-
-### 2. `archetypes.rs` — `#` Used Instead of `//` for Comments
-
-**File:** `crates/orchestrator/src/archetypes.rs` lines 63, 74, 85-90, 142-144
-**Issue:** `#` is not a valid Rust comment delimiter. Causes syntax errors.
-**Status:** FIXED — Replaced all `#` comment lines with `//`.
-
----
-
-## Safety Violations
-
-### 3. `.unwrap()` Calls in Critical Paths
-
-**Files:**
-- `orchestrator/src/lib.rs:58` — `IntelligenceEngine::new()`
-- `orchestrator/src/lib.rs:67` — `IntelligenceEngine::new_async()`
-- `orchestrator/src/hive_runtime.rs:35` — `HiveRuntime::new()`
-
-**Status:** FIXED — All `.unwrap()` calls replaced with `?` operator. Functions now return `Result`.
-
----
-
-## Functional Gaps — Core Orchestration
-
-### 4. MDP Transition Matrix Never Learns
-
-**File:** `orchestrator/src/mdps_router.rs`
-**Issue:** Transition matrix initialized as uniform priors (1/125 for all next states). Never updated from actual routing outcomes. Only the value function is iterated — the "MDP" is effectively a static reward lookup.
-**Status:** FIXED — Added `update_transition_matrix()` method with Bayesian learning. After each task completion, transition probabilities are updated based on observed state transitions.
-
-### 5. `required_skills` Ignored in Routing
-
-**File:** `orchestrator/src/mdps_router.rs` — `find_optimal_specialist()`
-**Issue:** `RoutableTask.required_skills` field exists but is never consulted during routing. Specialists are matched only by complexity, urgency, and load.
-**Status:** FIXED — Skill matching added to `calculate_expected_reward()` and `find_optimal_specialist()`. Specialists without required skills receive a -2.0 penalty. Routing decision includes skill match count in reasoning.
-
-### 6. `HiveRuntime` — Skeletal Implementation
-
-**File:** `orchestrator/src/hive_runtime.rs` (53 lines total)
-**Issue:** Only `register_agent` and `get_status`. No task dispatch, no lifecycle management, no integration with `ControlPlane`.
-**Status:** FIXED — Full implementation with: `start()`, `stop()`, `dispatch_task()`, `complete_task()`, task logging, router initialization from registered agents, and 4 new unit tests.
-
-### 7. `adjust_resource_allocation` — No-Op
-
-**File:** `orchestrator/src/control.rs:382-409`
-**Issue:** Verifies specialist exists but never applies VRAM or context_size changes.
-**Status:** FIXED — Now updates specialist status with resource allocation parameters and tracks the operation in execution count.
-
-**Status:** FIXED — `aura_ui.rs` now re-exports from `aura_ui_manifest.rs` as backward-compatible type aliases.
-
----
-
-## LLM Integration Gaps
-
-### 9. LLM Providers — Empty Module
-
-**File:** `orchestrator/src/llm/providers/mod.rs`
-**Issue:** Only a placeholder comment. No provider implementations.
-**Status:** FIXED — Implemented `OpenAIProvider` (reqwest-based with chat completion + embeddings) and `GgufProvider` (local inference stub with path validation).
-
-### 10. `get_last_hidden_state()` — Hardcoded Zero Vector
-
-**File:** `orchestrator/src/llm/client.rs:72`
-**Issue:** Always returns `vec![0.0; 1024]`. Not connected to actual model inference.
-**Status:** FIXED — Now caches the last embedding/hidden state from `compute_embeddings()`. OpenAI provider returns real embeddings; non-OpenAI providers generate deterministic pseudo-embeddings.
-
-### 11. `LinguisticTransducer` — Empty Skeleton
-
-**File:** `orchestrator/src/linguistic_transducer.rs`
-**Issue:** Just a bidirectional HashMap with no CAS definitions or linguistic rules.
-**Status:** FIXED — Full CAS vocabulary (18 commands across all 6 domains), `CasCommand` struct, `parse_intent()` keyword-based intent detection, `opcode_to_mnemonic()`/`mnemonic_to_opcode()` lookup, 10 new unit tests.
-
-### 12. `DynamicUiSynthesizer` — Rule-Based, Not LLM
-
-**File:** `orchestrator/src/dynamic_ui.rs:96`
-**Issue:** Named "synthesizer" but uses only keyword matching. No LLM calls.
-**Status:** FIXED — Implemented `synthesize_window_with_llm()` allowing dynamic prompt-to-UI generation via `LLMClient` with graceful deterministic template fallback and automated unit tests.
-
----
-
 ## Active & Frontier Roadmap
 
 > [!TIP]
@@ -331,6 +244,18 @@
   - Connect `crates/adaptation_engine/src/self_rebuild.rs` and `self_repair.rs` to trigger automated compilations, verify binary integrity, and hot-swap executables without losing hypervisor background session state.
 - [ ] **RESIL-02: Automated Scientific Hypothesis Engine**
   - Enforce `crates/adaptation_engine/src/analysis/hypothesis.rs` and `experiment.rs` in autonomous loops to formalize explicit hypotheses and record experimental outcomes directly into `episodic_memory`.
+- [ ] **ARCH-01: Demand-Driven Query Memoization (The `rust-analyzer` Salsa Model)**
+  - Wrap AST and semantic index parsing in a fine-grained, demand-driven query cache (`salsa`/lazy computation): when files are modified by the splicing engine or agent, invalidate only affected dependency nodes, preserving instant warm cache for prompt injection and model context retrieval.
+- [ ] **ARCH-02: Atomic Pointer Swapping & Lock-Free UI Projections (The `Zed` ArcSwap Model)**
+  - Decouple background language servers, autonomic loops, and telemetry ingestion from UI render passes by publishing engine telemetry into an `arc-swap` slot; allows visual overlays (`iced`, `slint`, `ratatui`, `egui`) to acquire immutable point-in-time snapshots in nanoseconds with zero lock contention.
+- [ ] **ARCH-03: Data-Oriented Archetype Component Storage (The `Bevy` ECS Model)**
+  - Restructure swarm agents, hardware metrics, and `mcp_gateway` events into Struct-of-Arrays (SoA) archetypes in `crates/omni/src/ecs_galaxy.rs`; enables the `spatial_kinetic_engine` and batch processor to scan thousands of agent states sequentially with maximal L1/L2 CPU cache hit rates.
+- [ ] **ARCH-04: SIMD Finite State Machine Scanning (The `ripgrep` Aho-Corasick Model)**
+  - Implement SIMD-accelerated multi-pattern string search (via `aho-corasick`) in `crates/capabilities/src/fs_crawl.rs` and `simd_xor_delta.rs` for extracting tool calls, fence boundaries, and token markers from raw model streams without heap allocations.
+- [ ] **ARCH-05: Arena Bump Allocation for Ephemeral Flight Contexts (The `bumpalo` Model)**
+  - Allocate temporary token chunks, `si_distiller` buffers, and `tensor_router` flight cycle payloads into a scratch bump-allocation arena (`bumpalo`), resetting the entire arena in an $O(1)$ pointer reset at the end of each flight cycle to completely eliminate heap fragmentation.
+- [ ] **ARCH-06: Compile-Time Typestate Invariants for Plan Safety (The Typestate Model)**
+  - Refactor `executive_plan.rs` into compile-time typestates (`DraftPlan` $\to$ `VerifiedPlan` $\to$ `ExecutingPlan`); statically guarantees that the `action_executor` can only physically consume plans that have passed the `compliance_gatekeeper` and `smt_action_interlock` at compile time.
 
 ---
 
