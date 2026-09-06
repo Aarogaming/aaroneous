@@ -65,6 +65,7 @@ Aaroneous follows a 5-pillar, phased execution model progressing from foundation
 | **Phases 25–29: Hardware Saturation & Sparse MoE** | `v1.4.0` | Memory-mapped MoE module registers & self-play | **Complete** | 16-slot sparse expert register, CAN 2.0B/FD, contiguous VRAM slab, Crucible virtual sandbox |
 | **Phases 30–33: Machine-Native Intent & Heterogeneous NPU** | `v1.5.0` | Frictionless user ecosystem & NPU offloading | **Complete** | Auto-tuner, drag-and-drop `.si-pack`, decoupled Linguistic Lens, `.lib` state bank, 45 TOPS NPU acceleration |
 | **Phases 34–37: Console-OS Shell, User Kinematics & Merlin Companion** | `v1.6.0` | Biometric profiling, gamified routines & interactive assistant | **Complete** | Decoupled Console-OS/Utility Dashboard, 3D Constellation Skills, UserBaseline kinematics, foreign user quarantine, Merlin companion |
+| **Phase 38: Triad Shell Convergence, Resource Governance & Micro-Latency** | `v1.7.0` | Capability broker, zero-lock state snapshots, resource governor & rkyv/disruptor | **In Progress** | `CapabilityBroker`, `EngineStatePublisher`, dirty-flag pacing, thermal backpressure, `rkyv` archives, LMAX disruptor, RDTSC, HiPPO SSM |
 
 ---
 
