@@ -874,6 +874,22 @@ Documented in detail in `dev/docs/17_DEFECT_AUDIT_AND_REMEDIATION_PLAN.md`.
   - Connect `core/hypervisor/src/federation/multi_hive/swarm_offloader.rs` to autonomic sub-agents: offloads heavy AST parsing, SVDD audits, and test generation to peer nodes when workstation load exceeds threshold.
 - [ ] **ADAPT-01: Streaming Self-Correction & Autonomous Pacing Regulation**
   - Wire `streaming_adaptation.rs` into the hypervisor main loop: dynamically adjusts telemetry polling cadences and JIT recompilation rates based on real-time system thermodynamics and CPU/GPU pressure.
+- [ ] **SAFE-01: SMT Formal Verification Interlock Gatekeeper (`Z3Prover`)**
+  - Connect `crates/governance/src/smt_action_interlock.rs` as a mandatory pre-commit gate before applying AST rewrites, proving non-interference and invariant safety mathematically to eliminate rollbacks.
+- [ ] **SAFE-02: Sandboxed In-Process Micro-VM & WASM Enzyme Isolation**
+  - Enforce `core/hypervisor/src/micro_vm.rs` gas-metered execution on all ad-hoc diagnostic scripts and custom automation macros, isolating host OS files and child process creation.
+- [ ] **OS-01: MMCSS Thread Priority Boosting & Core Affinity Pinning**
+  - Register the hypervisor reflex loop and capability broker with Windows MMCSS ("Games" / "Pro Audio" profile via `mmcss.rs`) to prevent scheduler preemption during heavy local LLM inference.
+- [ ] **OS-02: Direct DXGI / Vulkan Swapchain Present Hooking**
+  - Inject telemetry overlay directly into graphics presentation via `swapchain_present.rs`, eliminating DWM desktop composition lag for true zero-latency in-game overlays.
+- [ ] **ACCEL-01: WGSL Reflex Compute Shader Pipeline Offloading**
+  - Activate `wgpu_reflex_pipeline.rs` compute shaders for 128x128 screen delta gating and sensory diff aggregation on GPU, bypassing CPU host round-trips.
+- [ ] **ACCEL-02: Cranelift JIT Compilation for Hot Enzyme Rules**
+  - Compile high-frequency routing paths, telemetry transforms, and filter pipelines directly into native machine instructions via `cranelift_jit.rs` to eliminate AST evaluation overhead.
+- [ ] **DRIFT-01: Concept Drift & Autonomic Cognitive Equilibrium Monitor**
+  - Ingest latent trajectory drift scores from `concept_drift.rs`: automatically detect model degenerate loops or repetitive failures, triggering automated context compaction and prompt recalibration.
+- [ ] **DRIFT-02: Chaos Monkey Fault Injection for Safety & Rollback Hardening**
+  - Intermittently inject dropped packets, synthetic VRAM pressure spikes, and simulated I/O errors via `chaos_monkey.rs` during automated tests to formally certify fault-recovery resilience.
 
 ---
 
