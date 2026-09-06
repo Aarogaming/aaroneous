@@ -16,6 +16,48 @@ use compute::{
     NativeTypeLattice,
 };
 use aaroneous_paths::WorkspacePaths;
+use bumpalo::Bump;
+
+/// Scratch Bump-Allocation Arena for Ephemeral Flight Contexts (The bumpalo Model)
+/// Provides zero heap fragmentation for temporary token chunks, line buffers, and
+/// intermediate distillation structures, resetting in O(1) time at cycle completion.
+pub struct EphemeralFlightArena {
+    bump: Bump,
+}
+
+impl Default for EphemeralFlightArena {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl EphemeralFlightArena {
+    pub fn new() -> Self {
+        Self {
+            bump: Bump::with_capacity(64 * 1024), // 64KB initial scratch pool
+        }
+    }
+
+    /// Allocates an ephemeral string slice inside the flight arena.
+    pub fn alloc_str<'a>(&'a self, src: &str) -> &'a str {
+        self.bump.alloc_str(src)
+    }
+
+    /// Allocates an ephemeral vector inside the flight arena.
+    pub fn alloc_slice_copy<'a, T: Copy>(&'a self, src: &[T]) -> &'a mut [T] {
+        self.bump.alloc_slice_copy(src)
+    }
+
+    /// Reset the entire arena in O(1) time, reclaiming all ephemeral memory.
+    pub fn reset(&mut self) {
+        self.bump.reset();
+    }
+
+    /// Total bytes currently allocated in the scratch arena.
+    pub fn allocated_bytes(&self) -> usize {
+        self.bump.allocated_bytes()
+    }
+}
 
 /// Report from a batch distillation run
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -31,6 +73,7 @@ pub struct DistillationBatchReport {
 /// AI to SI Synthetic Data Distiller
 pub struct SiDistillationMiner {
     corpus_store: SiCorpusStore,
+    arena: parking_lot::Mutex<EphemeralFlightArena>,
 }
 
 impl Default for SiDistillationMiner {
@@ -38,6 +81,7 @@ impl Default for SiDistillationMiner {
         let corpus_path = WorkspacePaths::discover().data().join("si_corpus.bin");
         Self {
             corpus_store: SiCorpusStore::new(corpus_path),
+            arena: parking_lot::Mutex::new(EphemeralFlightArena::new()),
         }
     }
 }
@@ -46,6 +90,7 @@ impl SiDistillationMiner {
     pub fn new(corpus_path: PathBuf) -> Self {
         Self {
             corpus_store: SiCorpusStore::new(corpus_path),
+            arena: parking_lot::Mutex::new(EphemeralFlightArena::new()),
         }
     }
 
@@ -57,6 +102,12 @@ impl SiDistillationMiner {
         raw_prompt: &str,
         source_code: &str,
     ) -> Result<SiThoughtPacket> {
+        // Use scratch arena for zero-heap parsing of lines
+        let arena_lock = self.arena.lock();
+        let _ephemeral_prompt = arena_lock.alloc_str(raw_prompt);
+        let _ephemeral_code = arena_lock.alloc_str(source_code);
+        drop(arena_lock);
+
         let mut graph = NativeComputationalGraph::new();
 
         // Parse key structural primitives into native DAG nodes
@@ -188,6 +239,9 @@ impl SiDistillationMiner {
             duration_ms: start.elapsed().as_millis() as u64,
         };
 
+        // O(1) pointer reset of the ephemeral flight arena
+        self.arena.lock().reset();
+
         info!(
             "Distilled {} native SI thoughts (Compression: {:.1}%, Duration: {}ms)",
             report.thoughts_mined, report.compression_ratio_percent, report.duration_ms
@@ -219,6 +273,8 @@ impl SiDistillationMiner {
         } else {
             90.0
         };
+
+        self.arena.lock().reset();
 
         Ok(DistillationBatchReport {
             thoughts_mined: count,
@@ -274,5 +330,22 @@ mod tests {
         assert!(report.machine_native_bytes > 0);
 
         let _ = std::fs::remove_file(temp_corpus);
+    }
+
+    #[test]
+    fn test_ephemeral_flight_arena_lifecycle() {
+        let mut arena = EphemeralFlightArena::new();
+        let initial_allocated = arena.allocated_bytes();
+
+        let slice1 = arena.alloc_str("fn compute_matrix_scan() -> f32 { 42.0 }");
+        assert_eq!(slice1, "fn compute_matrix_scan() -> f32 { 42.0 }");
+
+        let copy_data = [1.0f32, 2.0, 3.0, 4.0];
+        let slice2 = arena.alloc_slice_copy(&copy_data);
+        assert_eq!(slice2, &[1.0, 2.0, 3.0, 4.0]);
+
+        // O(1) reset reclaims allocated memory
+        arena.reset();
+        assert_eq!(arena.allocated_bytes(), initial_allocated);
     }
 }

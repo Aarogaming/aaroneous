@@ -7,7 +7,10 @@ use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::sync::OnceLock;
 
+use aho_corasick::AhoCorasick;
+
 static CODE_FENCE_RE: OnceLock<Regex> = OnceLock::new();
+static CODE_FENCE_FINDER: OnceLock<AhoCorasick> = OnceLock::new();
 
 /// Parsed Machine-Native payload extracted from AI response
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -23,22 +26,32 @@ pub struct AiToSiTranspiler;
 impl AiToSiTranspiler {
     /// Extracts clean executable code from raw markdown or LLM response text
     pub fn extract_code(raw_ai_response: &str) -> Result<ExtractedCodePayload> {
-        let code_fence_re = CODE_FENCE_RE.get_or_init(|| {
-            Regex::new(r"```([a-zA-Z0-9_-]*)\r?\n([\s\S]*?)(?:```|$)").unwrap_or_else(|_| {
-                Regex::new("").expect("fallback regex must be valid")
-            })
+        // Fast SIMD check via Aho-Corasick for presence of code fences before running full regex
+        let finder = CODE_FENCE_FINDER.get_or_init(|| {
+            AhoCorasick::builder()
+                .build(["```rust", "```python", "```ts", "```typescript", "```cpp", "```c", "```sh", "```json", "```"])
+                .expect("AhoCorasick automaton build should never fail")
         });
 
-        if let Some(captures) = code_fence_re.captures(raw_ai_response) {
-            let lang = captures.get(1).map(|m| m.as_str().trim().to_string()).unwrap_or_else(|| "rust".to_string());
-            let code = captures.get(2).map(|m| m.as_str().trim().to_string()).unwrap_or_default();
-
-            let clean_lang = if lang.is_empty() { "rust".to_string() } else { lang };
-            return Ok(ExtractedCodePayload {
-                language: clean_lang,
-                source_code: code,
-                is_valid: true,
+        if let Some(m) = finder.find(raw_ai_response) {
+            // Fast match located via SIMD multi-pattern scan; use regex to extract balanced slice
+            let code_fence_re = CODE_FENCE_RE.get_or_init(|| {
+                Regex::new(r"```([a-zA-Z0-9_-]*)\r?\n([\s\S]*?)(?:```|$)").unwrap_or_else(|_| {
+                    Regex::new("").expect("fallback regex must be valid")
+                })
             });
+
+            if let Some(captures) = code_fence_re.captures(&raw_ai_response[m.start()..]) {
+                let lang = captures.get(1).map(|m| m.as_str().trim().to_string()).unwrap_or_else(|| "rust".to_string());
+                let code = captures.get(2).map(|m| m.as_str().trim().to_string()).unwrap_or_default();
+
+                let clean_lang = if lang.is_empty() { "rust".to_string() } else { lang };
+                return Ok(ExtractedCodePayload {
+                    language: clean_lang,
+                    source_code: code,
+                    is_valid: true,
+                });
+            }
         }
 
         // If no code fence is present, detect language dynamically from syntax heuristics

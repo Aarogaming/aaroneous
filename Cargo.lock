@@ -11474,9 +11474,12 @@ name = "transpiler"
 version = "0.1.0"
 dependencies = [
  "aaroneous_paths",
+ "aho-corasick",
  "anyhow",
  "async-trait",
+ "bumpalo",
  "compute",
+ "parking_lot",
  "regex",
  "serde",
  "serde_json",

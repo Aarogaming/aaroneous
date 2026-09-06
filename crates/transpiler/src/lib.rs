@@ -16,10 +16,11 @@ pub use polyglot::{
     TelemetryBuffer, TelemetryEntry, TelemetryLevel,
 };
 pub use prefix_cache_integration::{
-    parse_nl_to_opcode_dag, GgufModelRunner, PrefixCache, PrefixCacheEntry, PromptPrefixKey,
+    parse_nl_to_opcode_dag, DemandDrivenAstCache, GgufModelRunner, MemoizedAstEntry, PrefixCache,
+    PrefixCacheEntry, PromptPrefixKey,
 };
 pub use reflection_loop::{ReflectionFeedback, ReflectionLoopEngine};
-pub use si_distiller::{DistillationBatchReport, SiDistillationMiner};
+pub use si_distiller::{DistillationBatchReport, EphemeralFlightArena, SiDistillationMiner};
 pub use si_to_ai::{AiPromptContext, SiToAiTranspiler};
 
 use anyhow::Result;

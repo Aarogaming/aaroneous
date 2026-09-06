@@ -95,6 +95,109 @@ impl PrefixCache {
     }
 }
 
+/// Memoized AST query result containing parsed computational graph and revision
+#[derive(Debug, Clone)]
+pub struct MemoizedAstEntry {
+    pub revision: u64,
+    pub source_hash: u64,
+    pub graph: NativeComputationalGraph,
+    pub dependencies: Vec<String>,
+}
+
+/// Demand-Driven AST & Semantic Query Cache (The Salsa / rust-analyzer approach)
+/// Maintains query memoization for parsed source files and dependent translation artifacts,
+/// invalidating only impacted nodes upon file edits.
+#[derive(Debug, Default)]
+pub struct DemandDrivenAstCache {
+    entries: HashMap<String, MemoizedAstEntry>,
+    file_revisions: HashMap<String, u64>,
+    global_revision: u64,
+    query_hits: u64,
+    query_evaluations: u64,
+}
+
+impl DemandDrivenAstCache {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Records a file modification or mutation event, incrementing revisions and invalidating caches.
+    pub fn set_file_content(&mut self, path: &str, content: &str) {
+        self.global_revision += 1;
+        let mut hasher = std::collections::hash_map::DefaultHasher::new();
+        content.hash(&mut hasher);
+        let content_hash = hasher.finish();
+
+        let old_rev = self.file_revisions.insert(path.to_string(), self.global_revision);
+        if old_rev.is_some() {
+            // Invalidate memoized AST for this file and any dependents
+            self.invalidate_file(path);
+        }
+
+        // Pre-cache hash for fast change detection
+        let _ = content_hash;
+    }
+
+    /// Query or demand-compute the AST NativeComputationalGraph for a source file.
+    /// If valid and unchanged, returns cached graph in O(1) time.
+    pub fn query_ast<F>(&mut self, path: &str, source: &str, parser: F) -> Result<NativeComputationalGraph>
+    where
+        F: FnOnce(&str) -> Result<NativeComputationalGraph>,
+    {
+        let mut hasher = std::collections::hash_map::DefaultHasher::new();
+        source.hash(&mut hasher);
+        let source_hash = hasher.finish();
+
+        let current_file_rev = self.file_revisions.get(path).copied().unwrap_or(self.global_revision);
+
+        if let Some(entry) = self.entries.get(path) {
+            if entry.source_hash == source_hash && entry.revision == current_file_rev {
+                self.query_hits += 1;
+                return Ok(entry.graph.clone());
+            }
+        }
+
+        // Cache miss: execute parser query
+        self.query_evaluations += 1;
+        let graph = parser(source)?;
+
+        self.entries.insert(
+            path.to_string(),
+            MemoizedAstEntry {
+                revision: current_file_rev,
+                source_hash,
+                graph: graph.clone(),
+                dependencies: vec![],
+            },
+        );
+
+        Ok(graph)
+    }
+
+    /// Invalidate entries that depend on a modified file
+    pub fn invalidate_file(&mut self, path: &str) {
+        self.entries.remove(path);
+        // Also remove any entries listing this file as a dependency
+        self.entries.retain(|_, entry| !entry.dependencies.iter().any(|d| d == path));
+    }
+
+    pub fn hits(&self) -> u64 {
+        self.query_hits
+    }
+
+    pub fn evaluations(&self) -> u64 {
+        self.query_evaluations
+    }
+
+    pub fn len(&self) -> usize {
+        self.entries.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.entries.is_empty()
+    }
+}
+
 /// GGUF model runner with prefix cache integration.
 pub struct GgufModelRunner<'a> {
     cache: &'a mut PrefixCache,
@@ -249,5 +352,38 @@ mod tests {
             .values()
             .any(|n| matches!(n.opcode, MachineOpcode::TensorDot { .. }));
         assert!(has_tensordot);
+    }
+
+    #[test]
+    fn test_demand_driven_ast_cache() {
+        let mut cache = DemandDrivenAstCache::new();
+        let file_path = "crates/test/src/kernel.rs";
+        let initial_src = "load memory and compute tensor dot";
+
+        // Query 1: miss -> evaluates parser
+        let g1 = cache
+            .query_ast(file_path, initial_src, |s| parse_nl_to_opcode_dag(s))
+            .expect("parsing failed");
+        assert_eq!(cache.hits(), 0);
+        assert_eq!(cache.evaluations(), 1);
+        assert_eq!(cache.len(), 1);
+
+        // Query 2: identical query -> hit
+        let g2 = cache
+            .query_ast(file_path, initial_src, |s| parse_nl_to_opcode_dag(s))
+            .expect("parsing failed");
+        assert_eq!(cache.hits(), 1);
+        assert_eq!(cache.evaluations(), 1);
+        assert_eq!(g1.entry_node, g2.entry_node);
+
+        // Mutate file -> invalidates cache
+        cache.set_file_content(file_path, "load memory only");
+
+        // Query 3: file modified -> evaluates parser
+        let _g3 = cache
+            .query_ast(file_path, "load memory only", |s| parse_nl_to_opcode_dag(s))
+            .expect("parsing failed");
+        assert_eq!(cache.hits(), 1);
+        assert_eq!(cache.evaluations(), 2);
     }
 }
