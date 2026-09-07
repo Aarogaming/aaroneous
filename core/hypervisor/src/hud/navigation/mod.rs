@@ -65,3 +65,28 @@ impl NavSection {
         }
     }
 }
+
+impl NavSection {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Dashboard => "dashboard",
+            Self::Specialists => "specialists",
+            Self::GalaxyMap3D | Self::Galaxy3D => "galaxy_3d",
+            Self::LearningAndSelfPlay => "learning_and_self_play",
+            Self::SiForge => "si_forge",
+            Self::ScreenAutomation | Self::ScreenCapture => "screen_auto",
+            Self::SwarmMesh => "swarm_mesh",
+            Self::Agents => "agents",
+            Self::Settings => "settings",
+            Self::DevStudio => "dev_studio",
+            Self::InterconnectMonitor => "interconnect_monitor",
+            Self::Console => "console",
+            Self::Cosmos3D => "cosmos_3d",
+            Self::LivingMind => "living_mind",
+            Self::GhostStation => "ghost_station",
+            Self::GameStudio => "game_studio",
+            Self::CustomTools => "custom_tools",
+            Self::Home => "home",
+        }
+    }
+}

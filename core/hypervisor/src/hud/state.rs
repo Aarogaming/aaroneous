@@ -1129,8 +1129,16 @@ impl Default for SharedHudState {
         }
     }
 }
-
 impl SharedHudState {
+    pub fn navigate_to_dashboard(&mut self) { self.nav_section = NavSection::Dashboard; }
+    pub fn navigate_to_specialists(&mut self) { self.nav_section = NavSection::Specialists; }
+    pub fn navigate_to_galaxy_3d(&mut self) { self.nav_section = NavSection::GalaxyMap3D; }
+    pub fn navigate_to_si_forge(&mut self) { self.nav_section = NavSection::SiForge; }
+    pub fn navigate_to_screen_auto(&mut self) { self.nav_section = NavSection::ScreenAutomation; }
+    pub fn navigate_to_swarm_mesh(&mut self) { self.nav_section = NavSection::SwarmMesh; }
+    pub fn navigate_to_agents(&mut self) { self.nav_section = NavSection::Agents; }
+    pub fn navigate_to_settings(&mut self) { self.nav_section = NavSection::Settings; }
+    pub fn navigate_to_dev_studio(&mut self) { self.nav_section = NavSection::DevStudio; }
     pub fn rescan_workspace_files(&mut self) {
         let root = self.settings.workspace_root_override.clone()
             .unwrap_or_else(|| std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")));
