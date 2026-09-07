@@ -132,7 +132,7 @@
   - Implemented `GovernorPacing` (`FullPerformance`, `ThermalThrottled`, `CriticalVramSave`) in `core/hypervisor/src/hud/state_snapshot.rs`: dynamically throttles shell target frame durations (8ms, 16ms, 33ms) based on hardware headroom.
 - [ ] **PERF-03: Zero-Copy String Interning & Memory-Mapped Telemetry**
   - Replace ad-hoc `String` heap allocations during 120 FPS render ticks with borrowed slices or `SmolStr` directly from the 64MB memory-mapped ring buffer.
-- [ ] **CMD-01: Compile-Time Strongly Typed Command Registry**
+- [x] **CMD-01: Compile-Time Strongly Typed Command Registry**
   - Transition Action Palette macros to static enum and trait definitions to prevent string typo failures and bypass JSON serialization overhead.
 - [x] **CMD-02: Input Debouncing & Ring Buffer Queue Backpressure**
   - Protected `CapabilityBroker` from input flood (gamepad analog stick oscillations or rapid key repeats) via a 15ms token-bucket debouncing filter on mutating operations.
