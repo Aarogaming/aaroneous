@@ -130,7 +130,7 @@
   - Implemented reactive frame pacing in `core/hypervisor/src/hud/app.rs`: detects dirty `EngineSnapshot::bus_generation`, recent user interaction, and active modals, dropping idle repainting to a quiet 250ms cadence (4 FPS) to free up host cycles for inference.
 - [x] **PERF-02: Resource Governor & Thermal/VRAM Backpressure**
   - Implemented `GovernorPacing` (`FullPerformance`, `ThermalThrottled`, `CriticalVramSave`) in `core/hypervisor/src/hud/state_snapshot.rs`: dynamically throttles shell target frame durations (8ms, 16ms, 33ms) based on hardware headroom.
-- [ ] **PERF-03: Zero-Copy String Interning & Memory-Mapped Telemetry**
+- [x] **PERF-03: Zero-Copy String Interning & Memory-Mapped Telemetry**
   - Replace ad-hoc `String` heap allocations during 120 FPS render ticks with borrowed slices or `SmolStr` directly from the 64MB memory-mapped ring buffer.
 - [x] **CMD-01: Compile-Time Strongly Typed Command Registry**
   - Transition Action Palette macros to static enum and trait definitions to prevent string typo failures and bypass JSON serialization overhead.

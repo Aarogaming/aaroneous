@@ -14,6 +14,7 @@ use crate::hud::views::{
     SignalAnalyzerView, SpatialSensoryView, SystemThermoView, WorkbenchView,
 };
 use eframe::egui::{self, Color32, Key};
+use smol_str::SmolStr;
 
 use std::time::{Duration, Instant};
 
@@ -171,14 +172,14 @@ impl StudioApp {
                 if outcome.success {
                     self.toasts.push(
                         "Capability Executed",
-                        format!("{} completed in {}µs", outcome.capability_id, outcome.latency_us),
+                        SmolStr::new(format!("{} completed in {}µs", outcome.capability_id, outcome.latency_us)),
                         ToastLevel::Success,
                     );
                 } else {
                     let err = outcome.error.unwrap_or_else(|| "Unknown failure".to_string());
                     self.toasts.push(
                         "Execution Failed",
-                        format!("{}: {}", outcome.capability_id, err),
+                        SmolStr::new(format!("{}: {}", outcome.capability_id, err)),
                         ToastLevel::Error,
                     );
                 }
@@ -425,14 +426,14 @@ impl eframe::App for StudioApp {
                                                     if ach.is_unlocked {
                                                         ui.label(egui::RichText::new("✓ UNLOCKED").color(Color32::from_rgb(63, 185, 80)).strong().size(10.5));
                                                     } else {
-                                                        ui.label(egui::RichText::new(format!("{}/{}", ach.current_progress, ach.target_progress)).color(Color32::GRAY).size(10.5));
+                                                        ui.label(egui::RichText::new(SmolStr::new(format!("{}/{}", ach.current_progress, ach.target_progress))).color(Color32::GRAY).size(10.5));
                                                     }
                                                 });
                                                 ui.label(egui::RichText::new(&ach.description).size(11.0).color(Color32::from_rgb(180, 190, 210)));
                                             });
 
                                             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                                                ui.label(egui::RichText::new(format!("+{} XP", ach.xp_reward)).color(Color32::from_rgb(255, 215, 0)).strong());
+                                                ui.label(egui::RichText::new(SmolStr::new(format!("+{} XP", ach.xp_reward))).color(Color32::from_rgb(255, 215, 0)).strong());
                                             });
                                         });
                                     });
