@@ -79,6 +79,7 @@ dependencies = [
  "sha2 0.10.9",
  "shared_memory",
  "si_ir",
+ "smol_str",
  "strum 0.26.3",
  "strum_macros 0.26.4",
  "sysinfo 0.39.6",

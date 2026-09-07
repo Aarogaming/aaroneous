@@ -138,7 +138,7 @@
   - Protected `CapabilityBroker` from input flood (gamepad analog stick oscillations or rapid key repeats) via a 15ms token-bucket debouncing filter on mutating operations.
 - [x] **STAB-01: Isolated Panic Boundaries for Visual Shells**
   - Implemented `std::panic::catch_unwind` isolation around `render_full_studio`, `ConsoleOsLauncher::render`, `render_transparent_hud`, and `render_compact_recorder_overlay` in `core/hypervisor/src/hud/app.rs`: recovers into a visual safe-mode banner without terminating hypervisor background tasks or auto-pilot loops.
-- [ ] **STAB-02: Unified Structured Tracing Filtered per Shell**
+- [x] **STAB-02: Unified Structured Tracing Filtered per Shell**
   - Configure tiered `tracing::LevelFilter` per shell: HUD (`WARN/ERROR`), Console (`INFO`), Studio (`DEBUG/TRACE`).
 - [ ] **STAB-03: Hot-Reloadable Styling & Spatial Canvas Layouts**
   - Extend `.ron` spatial canvas persistence to theme tokens and window layouts for zero-recompile visual iteration.

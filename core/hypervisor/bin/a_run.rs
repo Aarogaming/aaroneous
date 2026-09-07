@@ -1853,6 +1853,8 @@ async fn run_simulate_pipeline(frames: usize) -> Result<()> {
 
 /// Launches the Unified Maelstrom Telemetry HUD & Visualizer desktop interface
 fn run_hud_pipeline(headless: bool) -> Result<()> {
+    // Initialize HUD shell with quiet logging (WARN/ERROR)
+    a_run::init_shell_logging(a_run::ShellType::Hud);
     println!("=================================================================");
     println!(" ⚡ AARONEOUS HYPERVISOR: UNIFIED MAELSTROM TELEMETRY HUD");
     println!("=================================================================");

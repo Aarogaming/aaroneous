@@ -16,6 +16,7 @@
 // Existing `println!` calls in the codebase are left untouched in
 // this pass; a follow-up commit can sweep them.
 
+use tracing_subscriber::EnvFilter;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 static INITIALIZED: AtomicBool = AtomicBool::new(false);
@@ -106,4 +107,31 @@ mod tests {
         // (someone else did). Either way, no panic.
         let _ = first;
     }
+}
+
+/// Shell-specific tracing level configuration.
+/// 
+/// HUD: WARN/ERROR (quiet for inference focus)
+/// Console: INFO (operational visibility)  
+/// Studio: DEBUG/TRACE (development debugging)
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ShellType {
+    Hud,      // Visual overlay - quiet logging
+    Console,  // Terminal mode - operational logs
+    Studio,   // Dev environment - full debug output
+}
+
+/// Install shell-specific tracing level filters.
+pub fn init_shell_logging(shell: ShellType) {
+    let filter = match shell {
+        ShellType::Hud => EnvFilter::new("info,a_run=warn"),
+        ShellType::Console => EnvFilter::new("info"),
+        ShellType::Studio => EnvFilter::new("debug,a_run=trace"),
+    };
+
+    use tracing_subscriber::{fmt, prelude::*};
+    let _ = tracing_subscriber::registry()
+        .with(filter)
+        .with(fmt::layer().with_target(true).with_level(true))
+        .try_init();
 }
