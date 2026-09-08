@@ -122,24 +122,6 @@
 ### Phase 38: Triad Shell Convergence, Resource Governance & Micro-Latency Architecture (In Progress)
 *Low-overhead state-sharing, adaptive dirty-flag frame pacing, thermal/VRAM backpressure, and isolated shell resilience.*
 
-- [x] **SHELL-01: Intermediary Capability Broker (`CapabilityBroker`)**
-  - Implemented `core/hypervisor/src/capability_broker.rs`: dynamic self-describing capability registry and latency-tracked execution dispatch across 7 domains connecting Action Palette, Intercom, and Specialists.
-- [x] **SHELL-02: Zero-Lock Engine State Publisher & Projections (`EngineStatePublisher`)**
-  - Implemented `core/hypervisor/src/hud/state_snapshot.rs`: lock-free point-in-time state snapshots with shell-tailored projections (`StudioProjection`, `ConsoleProjection`, `HudProjection`) eliminating rendering locks.
-- [x] **PERF-01: Event-Driven Frame Pacing & Dirty-Flag Invalidation**
-  - Implemented reactive frame pacing in `core/hypervisor/src/hud/app.rs`: detects dirty `EngineSnapshot::bus_generation`, recent user interaction, and active modals, dropping idle repainting to a quiet 250ms cadence (4 FPS) to free up host cycles for inference.
-- [x] **PERF-02: Resource Governor & Thermal/VRAM Backpressure**
-  - Implemented `GovernorPacing` (`FullPerformance`, `ThermalThrottled`, `CriticalVramSave`) in `core/hypervisor/src/hud/state_snapshot.rs`: dynamically throttles shell target frame durations (8ms, 16ms, 33ms) based on hardware headroom.
-- [x] **PERF-03: Zero-Copy String Interning & Memory-Mapped Telemetry**
-  - Replace ad-hoc `String` heap allocations during 120 FPS render ticks with borrowed slices or `SmolStr` directly from the 64MB memory-mapped ring buffer.
-- [x] **CMD-01: Compile-Time Strongly Typed Command Registry**
-  - Transition Action Palette macros to static enum and trait definitions to prevent string typo failures and bypass JSON serialization overhead.
-- [x] **CMD-02: Input Debouncing & Ring Buffer Queue Backpressure**
-  - Protected `CapabilityBroker` from input flood (gamepad analog stick oscillations or rapid key repeats) via a 15ms token-bucket debouncing filter on mutating operations.
-- [x] **STAB-01: Isolated Panic Boundaries for Visual Shells**
-  - Implemented `std::panic::catch_unwind` isolation around `render_full_studio`, `ConsoleOsLauncher::render`, `render_transparent_hud`, and `render_compact_recorder_overlay` in `core/hypervisor/src/hud/app.rs`: recovers into a visual safe-mode banner without terminating hypervisor background tasks or auto-pilot loops.
-- [x] **STAB-02: Unified Structured Tracing Filtered per Shell**
-  - Configure tiered `tracing::LevelFilter` per shell: HUD (`WARN/ERROR`), Console (`INFO`), Studio (`DEBUG/TRACE`).
 - [ ] **STAB-03: Hot-Reloadable Styling & Spatial Canvas Layouts**
   - Extend `.ron` spatial canvas persistence to theme tokens and window layouts for zero-recompile visual iteration.
 - [ ] **UX-01: Seamless Gamepad / Keyboard Focus Snapping Across Studio & Console**
