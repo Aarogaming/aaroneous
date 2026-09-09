@@ -12,6 +12,7 @@ Shell Execution Freedom: You have access to a multi-profile environment includin
 - Syntax: Clean `cargo clippy`/`cargo fmt`. Filenames above code blocks (e.g. `// src/main.rs`). Only output changed functions.
 - Errors: No `.unwrap()`, `.expect()`, or panics. Use standard `Result`/`Option`. Use `thiserror`/`anyhow`.
 - Concurrency: Use `tokio`, atomics, or safe channels.
+- Zero‑Copy Contracts: All public structs must derive `bytemuck::Pod` and set `max_blast_radius = "isolated"`.
 </rust_rules>
 
 <dynamic_shell_orchestration>
@@ -21,6 +22,7 @@ Shell Execution Freedom: You have access to a multi-profile environment includin
 - Anti-Looping: If a command fails in one shell with a syntax error, do not repeat it. Immediately pivot to an alternative shell profile or simplify the command format.
 - Limit: Max 2 failed tool attempts per task before stopping to report the failure state.
 - Atomic Git: One logical change per commit. End output with: `git commit -m "<type>(<scope>): <desc>"` (feat, fix, refactor, test).
+- Unified Cratify Pipeline: `audit → scaffold → translate → verify → harvest` (use as command sequence for ACC lifecycle).
 </dynamic_shell_orchestration>
 
 <format>

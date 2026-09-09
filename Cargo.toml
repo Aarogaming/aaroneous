@@ -20,7 +20,9 @@ members = [
     "crates/aaroneous_wire",
     "core/hypervisor",
     "sdk/rust",
-    "templates/universal_native",
+        "crates/plugin_api",
+    "crates/hotload", "crates/core-contracts", "crates/cratify",
+
 ]
 
 exclude = [

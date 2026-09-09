@@ -17,8 +17,8 @@ sysinfo = "0.30"
 compute = { path = "../compute" }
 si_ir = { path = "../si_ir" }
 si_format = { path = "../si_format" }
-z3 = { version = "0.12", optional = true }
+z3 = { version = "0.9", optional = true }
 
 [features]
 default = []
-z3-prover = ["dep:z3"]
+z3-prover = ["z3"]

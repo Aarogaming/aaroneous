@@ -68,14 +68,21 @@ impl UiCartridge for ScratchpadCartridge {
     }
 }
 
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn create_plugin() -> *mut dyn UiCartridge {
-    let plugin: Box<dyn UiCartridge> = Box::new(ScratchpadCartridge::new());
-    Box::into_raw(plugin)
+/// Opaque type for C FFI compatibility.
+pub struct UiCartridgeOpaque {
+    inner: Box<dyn UiCartridge>,
 }
 
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn free_plugin(ptr: *mut dyn UiCartridge) {
+pub unsafe extern "C" fn create_plugin() -> *mut UiCartridgeOpaque {
+    let plugin = UiCartridgeOpaque {
+        inner: Box::new(ScratchpadCartridge::new()),
+    };
+    Box::into_raw(Box::new(plugin))
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn free_plugin(ptr: *mut UiCartridgeOpaque) {
     if !ptr.is_null() {
         unsafe {
             let _ = Box::from_raw(ptr);

@@ -1,5 +1,156 @@
 # ⚡ Aaroneous: Sovereign Machine-Native Execution Engine
 
+> **Aaroneous: Sovereign Machine-Native Execution Engine**
+> A pure Rust autonomic hypervisor and solid-state neural execution substrate powered by **Continuous Selective State-Space Models (SSM)**, **Real-Time Dynamic Adaptation Matrices**, and **Zero-Copy Memory-Mapped `.si` Cartridges**.
+
+---
+
+## 🌌 Overview
+
+**Aaroneous** is a next‑generation sovereign AI runtime and developer desktop hypervisor, built entirely in Rust. Unlike traditional LLM frameworks that wrap Python around static, multi‑gigabyte models with slow text tokenizers, running many heavy language models simultaneously destroys consumer PC performance through VRAM and KV‑cache thrashing.
+
+```text
+┌────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│                        THE AARONEOUS SOLID-STATE EXECUTION ENGINE SUBSTRATE                                          │
+├────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                                        │
+│  ONE FILE (.si) ──► Mounted via `memmap2` in < 50µs directly into Active Virtual Memory                │
+│                                                                                                        │
+│  ┌──────────────────────────────────────────────────────────────────────────────────────────────────┐  │
+│  │ [BLOCK 1: FROZEN CORE SSM WEIGHTS] (Aaroneous-SSM-4M)                                           │  │
+│  │ • 4× Selective State‑Space recurrent layers (S4 / Mamba recurrence: h_t = Ā h_{t-1} + B̄ u_t)    │  │
+│  │ • Immutable base model: eliminates catastrophic forgetting of grammar, types, and hardware ops.  │  │
+│  ├──────────────────────────────────────────────────────────────────────────────────────────────────┤  │
+│  │ [BLOCK 2: DYNAMIC ADAPTATION MATRIX] (Streaming LoRA / Real‑Time Error Correction)               │  │
+│  │ • Mutable Low‑Rank delta matrices: ΔW = A_adapt · B_adapt (Rank r = 16, ~64 KB RAM footprint)    │  │
+│  │ • On runtime error/panic: Instant in‑place gradient step (< 50 µs) steers weights away!           │  │
+│  │ • On task success: Instant reinforcement step cements optimal latent route.                     │  │
+│  ├──────────────────────────────────────────────────────────────────────────────────────────────────┤  │
+│  │ [BLOCK 3: EPISODIC SKILL STACK] (Mined AST DAGs, Habits & Execution Pathways)                   │  │
+│  │ • Mined computational DAGs, hotkeys, dimensional signatures, and habits.                         │  │
+│  └──────────────────────────────────────────────────────────────────────────────────────────────────┘  │
+│                                                                                                        │
+└────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 🚀 Key Architectural Pillars
+
+### 1. 🧬 Pure Rust Selective State‑Space Model (`SiStateSpaceModel`)
+- Continuous‑time state‑space recurrence ($h_t = \bar{\mathbf{A}} h_{t-1} + \bar{\mathbf{B}} u_t$, $y_t = \mathbf{C} h_t + \mathbf{D} u_t$).
+- 4 layers, 1024‑element state vectors, 256 model dimension, 64 state rank (~890 k parameters $\approx$ 3.56 MB RAM footprint).
+- Sub‑millisecond single‑pass inference ($< 180\mu\text{s}$).
+
+### 2. ⚡ Dynamic Adaptation Matrix & Real‑Time Error Steering (`DynamicAdaptationMatrix`)
+- Immutable frozen core + mutable low‑rank adapter.
+- `on_runtime_error` applies an < 50 µs gradient step, steering away from repeats.
+
+### 3. 💎 Autonomous Skill‑Expansion & Meta‑Learning Engine (`SkillExpansionEngine`)
+- Thermodynamic free‑energy minimization drives habit graduation:
+  $$\text{🌱 Candidate} \rightarrow \text{🧪 Validated} \rightarrow \text{💎 Crystallized} \rightarrow \text{⚡ Core Reflex}$$
+- Graduated habits are frozen into portable `.si` cartridges.
+
+### 4. 🛠️ Execution Engine Tool Suite (`SiToolEngine` & CLI)
+- Container Inspector, Microsecond Benchmarker, Task Distiller.
+
+### 5. 🌐 Universal Tool Dual‑Face Architecture & MCP Hub
+- Tools expose JSON schemas for cloud APIs while executing zero‑copy $\mathbb{R}^{256}$ tensor ops in‑process.
+
+### 6. 🏛️ Tri‑Tiered Layered Control System
+- Tier 1 Strategic Cortex, Tier 2 Router with Sentinel Deep SVDD guardrail, Tier 3 Kinetic Reflex workers (CPU‑core pinned).
+
+### 7. 🔥 `SiForge` Unified Model Builder API
+- End‑to‑end distillation → SIMD‑aligned `.si` v3 containers → Zero‑copy mapping.
+
+### 8. 🛡️ Sovereign Windows Isolated Desktop Sandbox
+- Process‑level isolation via `CreateDesktopW` prevents input hijacking.
+
+---
+
+## ⚡ Zero‑Copy Solid‑State Neural Architecture
+
+Aaroneous executes `.si` v3.0 cartridges via **memory‑mapped (`mmap`) binary layouts**:
+- **Zero Heap Allocations** – Direct page‑aligned access.
+- **Cache Alignment** – 64‑byte SIMD layout.
+- **Zero‑Copy Contracts** – Public structs derive `bytemuck::Pod` (`core-contracts`).
+- **Shared‑Memory IPC** – `MachinePacket` with `rkyv` serialization, no JSON copies.
+- **Process‑Level Isolation** – `max_blast_radius = "isolated"` enforces sandbox per ACC.
+
+---
+
+## 📦 Quick Start & CLI Usage
+
+### Cratify – Unified Lifecycle Orchestrator
+```
+audit → scaffold → translate → verify → harvest
+```
+- `audit` – Verify contracts.
+- `scaffold` – Generate ACC skeleton with `crates/<crate>/cratify.toml` manifest.
+- `translate` – Convert specifications into Rust code & zero‑copy structs.
+- `verify` – Run static analysis & sandbox tests.
+- `harvest` – Package compiled ACC into a deployable `.si` cartridge.
+
+### Build and Launch HUD
+```powershell
+cargo run --release -p a_run --bin aaroneous
+cargo run --release -p a_run --bin a_run -- --help
+```
+
+### Sovereign Hypervisor Commands (`a_run`)
+```powershell
+a_run distill-all --samples 10 --epochs 1 --out models/distilled_federation
+
+a_run mesh --nodes 4 --live
+
+a_run daemon --bind 127.0.0.1:8001 --heartbeat 1500
+
+a_run evolve --cycles 3 --threshold 0.70
+
+a_run forge --name chimera_ast --tier 3 --samples 20 --epochs 1
+
+a_run boot --profile isolated
+
+a_run simulate --frames 5
+
+a_run si benchmark data/models/chimera_ast.si --iterations 500
+```
+
+---
+
+## 📂 Workspace Architecture (16 Rust Crates & Desktop Hypervisor)
+```
+d:\Aaroneous\
+├── crates/
+│   ├── compute/                # SiForge, SSM engine, Sparse MoE Register, NPU bridge
+│   ├── paths/                  # Dynamic workspace path resolver
+│   ├── ipc_bus/                # Lock‑free SPMC bus, LMAX disruptor, persistent WAL
+│   ├── orchestrator/           # Thread affinity, compaction engine, auto‑tuner
+│   ├── capabilities/           # Universal toolset, code auditor, MCP tools
+│   ├── autonomic_adaptation/   # Adaptive control, hyperparameter search, GGUF ingestion
+│   ├── adaptation_engine/      # Polyglot AST parser, component forge, FFI synthesis
+│   ├── platform_bridge/        # Win32 HID injection, DXGI zero‑copy capture, WASAPI loopback
+│   ├── transpiler/             # AST parser & distillation miner
+│   ├── governance/             # Thermal monitoring, Z3 SMT gates, SI lattice checks
+│   ├── omni/                   # 3D galaxy graph, Barnes‑Hut clustering
+│   ├── si_format/              # Canonical `.si` layout, SIMD alignment, CRC32
+│   ├── si_ir/                  # Computational graphs, MachineOpcode IR, type lattice
+│   └── universal_native_template/ # Zero‑overhead component template
+├── core/
+│   └── hypervisor/             # HUD, MCP service, Raft cluster, CLI (`a_run`)
+├── data/
+│   ├── models/                 # Birthed `.si` cartridges
+│   └── skills/                 # Crystallized `.si` muscle‑memory cartridges
+├── deploy/                     # Windows install & packaging scripts
+└── dist/                       # Release zip archives
+```
+
+---
+
+## 📜 License
+Licensed under the MIT License. See [LICENSE](LICENSE) for details.
+
+
 > **Aaroneous: Sovereign Machine-Native Execution Engine**  
 > A pure Rust autonomic hypervisor and solid-state neural execution substrate powered by **Continuous Selective State-Space Models (SSM)**, **Real-Time Dynamic Adaptation Matrices**, and **Zero-Copy Memory-Mapped `.si` Cartridges**.
 ---

@@ -164,10 +164,10 @@
   - Ingest latent trajectory drift scores from `concept_drift.rs`: automatically detect model degenerate loops or repetitive failures, triggering automated context compaction and prompt recalibration.
 - [ ] **DRIFT-02: Chaos Monkey Fault Injection for Safety & Rollback Hardening**
   - Intermittently inject dropped packets, synthetic VRAM pressure spikes, and simulated I/O errors via `chaos_monkey.rs` during automated tests to formally certify fault-recovery resilience.
-- [ ] **MEM-01: Zero-Copy Memory-Mapped Deserialization (`rkyv` Archives)**
-  - Integrate `rkyv` zero-copy archiving (validated in `core/hypervisor/src/rkyv_test.rs`) for telemetry trees across thread and process boundaries, allowing shells to read snapshot bytes directly in-place without heap allocations.
-- [x] **MEM-02: LMAX Disruptor Lock-Free Ring Buffer Upstream Command Queue**
-  - Connected `crates/ipc_bus/src/disruptor.rs` into `CapabilityBroker` for upstream shell-to-engine command ingress and execution logging, avoiding crossbeam channel cache-line bouncing and locking command latency in the sub-microsecond range.
+- [ ] **MEM-01: Zero-Copy Serialization & Tracer-Bullet Observability**
+  - Implement `rkyv` schema-driven archiving with `trace-point` injection to visualize memory-layout drift across persistent state vaults.
+- [ ] **MEM-02: Tracer-Bullet Validation & Binary Pruning Engine**
+  - Automated binary pruning (`dead-code` / `unused-assets`) using `cargo-bloat` logic integrated into `SiForge` to keep core memory footprints under 512MB.
 - [ ] **MEM-03: Single-Writer Multi-Reader (SWMR) Synapse Bus**
   - Leverage `crates/ipc_bus/src/swmr_synapse.rs` and `spmc_synapse_bus.rs` for atomic broadcast slots where the hypervisor writes state monotonically and all shells read concurrently without lock contention.
 - [x] **PROF-01: Cycle-Accurate Hardware Timing (RDTSC Engine Ticks)**

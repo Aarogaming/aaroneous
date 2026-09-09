@@ -1,0 +1,11 @@
+[package]
+name = "inner_loop"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0"
+thiserror = "2.0"
+tokio = { version = "1.0", features = ["full"] }
+state_serialization = { path = "../state_serialization" }
+verification = { path = "../verification" }

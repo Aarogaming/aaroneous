@@ -1,0 +1,4 @@
+name = "cratify"
+version = "0.1.0"
+description = "Aaroneous Crate Component lifecycle automation — scaffold, audit, translate, and verify ACCs"
+dependencies = ["core-contracts"]

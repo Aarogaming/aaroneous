@@ -5,10 +5,30 @@ use std::ffi::CString;
 use std::os::raw::c_char;
 
 // Host functions provided by the Hypervisor
+#[cfg(target_arch = "wasm32")]
+#[link(wasm_import_module = "env")]
 extern "C" {
     fn synapse_write(offset: u32, ptr: *const c_char, len: u32) -> i32;
     fn synapse_read(offset: u32, buffer: *mut c_char, len: u32) -> i32;
     fn get_timestamp() -> u64;
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+#[no_mangle]
+pub extern "C" fn synapse_write(_offset: u32, _ptr: *const c_char, _len: u32) -> i32 {
+    0
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+#[no_mangle]
+pub extern "C" fn synapse_read(_offset: u32, _buffer: *mut c_char, _len: u32) -> i32 {
+    0
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+#[no_mangle]
+pub extern "C" fn get_timestamp() -> u64 {
+    0
 }
 
 /// Simple pseudo-random number generator (Xorshift32)

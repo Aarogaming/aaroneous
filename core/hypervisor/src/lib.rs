@@ -6,9 +6,23 @@ static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
 pub extern crate ipc_bus as nervous_system;
 pub use ipc_bus;
+// Updated external crate references
 pub extern crate autonomic_adaptation as evolution;
-pub use autonomic_adaptation as adaptation;
-pub use autonomic_adaptation;
+// pub use adaptation_engine as adaptation;
+// pub use adaptation_engine;
+
+// Re-export evolution (autonomic_adaptation) sections
+pub use evolution::genetics::{
+    BreedingOperation, EpigeneticState, GeneticAnalyzer, GeneticCategory,
+    GeneticLocus, LociSource, SpecialistGenome,
+};
+pub use evolution::skills::{
+    FusedSkill, PersonaRank, Skill, SkillOrigin, SkillRegistry, SkillType, SpecialistSkillSet,
+};
+pub use evolution::self_digestion::{
+    DigestionConfig, DigestionEngine, DigestionEvent, DigestionTask, ExperienceProfile,
+    NarrativeProfile, PersonalityProfile, RelationalProfile, SpecialistPersona,
+};
 pub extern crate governance as biology;
 pub use governance as system_health;
 pub use governance;
@@ -285,6 +299,75 @@ pub mod ui_broker;
 pub mod capability_broker;
 pub use capability_broker::{CapabilityBroker, CapabilityCategory, CapabilityDescriptor, CapabilityExecutionOutcome};
 pub use hypervisor_hud::{HudTab, HypervisorHudApp};
+
+// === Plugin Manager Integration ===
+
+use once_cell::sync::Lazy;
+use std::collections::HashMap;
+use std::sync::Mutex;
+use plugin_api::{PluginDescriptor, Plugin};
+
+/// Global plugin manager singleton.
+pub static PLUGIN_MANAGER: Lazy<Mutex<PluginManager>> = Lazy::new(|| Mutex::new(PluginManager::new()));
+
+pub struct PluginManager {
+    registry: HashMap<String, PluginDescriptor>,
+    // Store loaded plugin handles to keep them alive.
+    _loaded: Vec<Library>, // Store Library objects
+
+}
+
+impl PluginManager {
+    pub fn new() -> Self {
+        Self {
+            registry: HashMap::new(),
+            _loaded: Vec::new(),
+        }
+    }
+
+    /// Register a plugin descriptor.
+    pub fn register(&mut self, descriptor: PluginDescriptor) -> Result<(), anyhow::Error> {
+        if self.registry.contains_key(&descriptor.name) {
+            anyhow::bail!(format!("Plugin '{}' already registered", descriptor.name));
+        }
+        self.registry.insert(descriptor.name.clone(), descriptor);
+        Ok(())
+    }
+
+    /// Load a dynamic plugin via hotload crate and register it.
+    pub fn load_dynamic(&mut self, path: &std::path::Path) -> Result<(), anyhow::Error> {
+        let lib = hotload::load_module(path)?;
+        // Store the library to keep it alive.
+        self._loaded.push(lib);
+        Ok(())
+    }
+}
+
+/// Initialize plugins at hypervisor startup.
+pub fn init_plugins() -> Result<(), anyhow::Error> {
+    let plugins_dir = std::env::var("AARONEOUS_PLUGIN_PATH").unwrap_or_else(|_| "plugins".into());
+    let entries = std::fs::read_dir(&plugins_dir)?;
+    for entry in entries {
+        let entry = entry?;
+        let path = entry.path();
+        if path.extension().and_then(|s| s.to_str()) == Some("dll") {
+            let mut manager = PLUGIN_MANAGER.lock().map_err(|e| anyhow::anyhow!(format!("Mutex poisoned: {}", e)))?;
+            manager.load_dynamic(&path)?;
+        }
+    }
+    Ok(())
+}
+
+// Duplicate Plugin Manager block removed (kept earlier implementation)
+
+#[cfg(feature = "fault_injector")]
+pub mod fault_injector;
+#[cfg(feature = "fault_injector")]
+pub use fault_injector::FaultInjector;
+#[cfg(feature = "knowledge_gap")]
+pub mod knowledge_gap_detector;
+#[cfg(feature = "knowledge_gap")]
+pub use knowledge_gap_detector::KnowledgeGapDetector;
 pub mod unified_learning;
 pub mod unified_registry;
 pub mod wgpu_reflex_pipeline;
@@ -324,7 +407,7 @@ pub use resilience::{
 
 // Structured logging facade: single init point, idempotent
 pub mod logging;
-pub use logging::init_logging;
+pub use logging::{init_logging, ShellType, init_shell_logging};
 
 /// Run internal health check for system startup
 pub fn run_health_checks() -> bool {

@@ -54,6 +54,15 @@ impl A2AProtocol {
             };
             self.agents.insert(agent_id, flag);
             self.pending.push(flag);
+            // Notify plugins about flag change (non‑blocking, errors ignored)
+            if let Ok(mut manager) = crate::PLUGIN_MANAGER.lock() {
+                // Create a minimal packet placeholder using explicit constructor
+                let pkt = crate::ipc_bus::MachinePacket::new(0, 0, 0, 0, 0, 0);
+                for plugin in manager._loaded.iter_mut() {
+                    let _ = plugin.handle(pkt.clone());
+                }
+            }
+
         }
         changed
     }

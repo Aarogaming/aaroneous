@@ -12,6 +12,7 @@ ipc_bus = { path = "../ipc_bus" }
 governance = { path = "../governance" }
 compute = { path = "../compute" }
 si_ir = { path = "../si_ir" }
+candle-core = "0.9"
 aaroneous_paths = { path = "../paths" }
 tokio = { version = "1.0", features = ["full"] }
 serde = { version = "1.0", features = ["derive"] }
@@ -29,5 +30,5 @@ tracing = "0.1"
 llama-gguf = { version = "0.14", optional = true, default-features = false, features = ["cpu"] }
 
 [features]
-default = []
+default = ["llama-gguf"]
 llama-gguf = ["dep:llama-gguf"]

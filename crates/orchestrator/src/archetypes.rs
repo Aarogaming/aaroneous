@@ -1,7 +1,7 @@
 use anyhow::Result;
 use serde::{Serialize, Deserialize};
 #[cfg(feature = "llama-gguf")]
-use candle_core::CandleBackend; // Optional: for Synthesizer's LLM inference backend
+
 
 /// The "Machine-Native" Output.
 /// Instead of words, agents emit Force Vectors that alter the system state directly.

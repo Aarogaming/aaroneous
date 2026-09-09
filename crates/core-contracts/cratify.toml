@@ -1,0 +1,4 @@
+name = "core-contracts"
+version = "0.1.0"
+description = "Core microkernel ABI contracts — IpcHeader, ComponentManifest, QueryDescriptor, and capability bitflags"
+dependencies = []

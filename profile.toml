@@ -1,0 +1,2 @@
+﻿[profile.default]
+enabled_crates = [\n    " compute\,\n \audio_video\,\n \platform_bridge\,\n \shell_tui\\n]

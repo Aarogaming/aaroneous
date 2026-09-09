@@ -43,10 +43,11 @@ name = "phase_x_smoke"
 harness = false
 
 [dependencies]
-rustc-hash = "^2.1.0"
+moka = { version = "0.12", features = ["future"] }
 ipc_bus = { path = "../../crates/ipc_bus" }
 omni = { path = "../../crates/omni" }
-autonomic_adaptation = { path = "../../crates/autonomic_adaptation" }
+hotload = { path = "../../crates/hotload" }
+plugin_api = { path = "../../crates/plugin_api" }
 governance = { path = "../../crates/governance" }
 orchestrator = { path = "../../crates/orchestrator" }
 compute = { path = "../../crates/compute" }
@@ -123,7 +124,8 @@ windows-service = "0.8"
 		enigo = "0.2.1"
 
 async-trait = "0.1"
-moka = { version = "0.12", features = ["future"] }
+
+autonomic_adaptation = { path = "../../crates/autonomic_adaptation" }
 sha2 = "0.10"
 which = "5.0"
 axum = { version = "0.7", features = ["macros"] }
@@ -140,7 +142,7 @@ zstd = "0.13"
 ron = "0.8"
 
 
-[dev-dependencies]
+once_cell = "1.19"
 http-body-util = "0.1"
 tower = { version = "0.5", features = ["util"] }
 criterion = { version = "0.5", default-features = false, features = ["cargo_bench_support"] }
