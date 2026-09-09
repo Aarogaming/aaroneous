@@ -120,7 +120,7 @@ mod tests {
 
     #[test]
     fn test_gguf_tensor_seeding_workflow() {
-        let dir = tempdir().unwrap();
+        let dir = tempdir().map_err(|e| HypervisorError::RuntimeError(e.to_string()))?;
         let fake_gguf_path = dir.path().join("source_model.gguf");
 
         // Write a minimal valid GGUF header for test
