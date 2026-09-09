@@ -5,7 +5,8 @@
 /// Each node maintains a prediction and updates based on prediction error.
 /// ε = observation - prediction
 /// Δprediction = learning_rate * ε
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy, PartialEq, bytemuck::Pod, bytemuck::Zeroable)]
+#[repr(C)]
 pub struct PredictiveNode {
     pub prediction: f64,
     pub precision: f64, // Inverse variance (confidence in prediction)
@@ -159,15 +160,11 @@ impl HierarchicalPredictiveCoding {
 
     /// Get prediction from top layer.
     pub fn get_top_prediction(&self) -> Vec<f64> {
-        if self.layers.is_empty() {
-            return vec![];
-        }
         self.layers
             .last()
-            .unwrap()
-            .iter()
-            .map(|n| n.prediction)
-            .collect()
+            .map_or_else(Vec::new, |layer| {
+                layer.iter().map(|n| n.prediction).collect()
+            })
     }
 
     /// Get prediction errors from all layers.
@@ -261,7 +258,10 @@ impl PredictiveController {
             self.action_values
                 .iter()
                 .enumerate()
-                .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
+                .max_by(|(_, a), (_, b)| {
+                    a.partial_cmp(b)
+                        .unwrap_or(std::cmp::Ordering::Equal)
+                })
                 .map(|(i, _)| i)
                 .unwrap_or(0)
         }

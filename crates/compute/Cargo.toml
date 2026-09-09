@@ -27,6 +27,7 @@ rustfft = "6.2"
 statrs = "0.17"
 hnsw_rs = "0.3"
 parking_lot = "0.12"
+bytemuck = { version = "1.12", features = ["derive"] }
 
 # Cranelift Native JIT compilation
 cranelift = "0.116"
