@@ -181,7 +181,7 @@ impl RealTimeDashboard {
     pub fn record_metric_value(&mut self, metric_name: &str, value: f64) {
         let timestamp = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
+            .unwrap_or_else(|_| std::time::Duration::from_secs(0))
             .as_secs();
 
         let entry = HistoricalValue { timestamp, value };
@@ -212,7 +212,7 @@ impl RealTimeDashboard {
                 id: format!("alert_{}", uuid::Uuid::new_v4()),
                 timestamp: std::time::SystemTime::now()
                     .duration_since(std::time::UNIX_EPOCH)
-                    .unwrap()
+                    .unwrap_or_else(|_| std::time::Duration::new(0, 0))
                     .as_secs(),
                 metric_name: metric_name.to_string(),
                 current_value: value,

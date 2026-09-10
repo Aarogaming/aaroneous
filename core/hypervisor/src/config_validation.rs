@@ -401,31 +401,33 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_required_field_missing() {
+    fn test_required_field_missing() -> anyhow::Result<()> {
         let schema = Schema::new()
             .field("name", vec![SchemaRule::Required])
             .field("value", vec![SchemaRule::Required, SchemaRule::IsNumber]);
 
         let json = r#"{"name": "test"}"#;
-        let value: Value = serde_json::from_str(json).unwrap();
+        let value: Value = serde_json::from_str(json)?;
         let result = schema.validate(&value);
 
         assert!(!result.valid);
         assert!(result.errors.iter().any(|e| e.path == "value"));
+        Ok(())
     }
 
     #[test]
-    fn test_type_validation() {
+    fn test_type_validation() -> anyhow::Result<()> {
         let schema = Schema::new()
             .field("count", vec![SchemaRule::Required, SchemaRule::IsNumber])
             .field("label", vec![SchemaRule::Required, SchemaRule::IsString]);
 
         let json = r#"{"count": "not_a_number", "label": 123}"#;
-        let value: Value = serde_json::from_str(json).unwrap();
+        let value: Value = serde_json::from_str(json)?;
         let result = schema.validate(&value);
 
         assert!(!result.valid);
         assert_eq!(result.errors.len(), 2);
+        Ok(())
     }
 
     #[test]

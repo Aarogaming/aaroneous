@@ -558,9 +558,13 @@ mod tests {
             content: Some("malicious content".to_string()),
         };
         let mut exec = ActionExecutor::new(PathBuf::from("test.wasm"));
-        let rt = tokio::runtime::Builder::new_current_thread()
-            .build()
-            .unwrap();
+        // Build a runtime, propagating errors via Result for test safety
+        fn build_rt() -> Result<tokio::runtime::Runtime, HypervisorError> {
+            tokio::runtime::Builder::new_current_thread()
+                .build()
+                .map_err(|e| HypervisorError::RuntimeError(e.to_string()))
+        }
+        let rt = build_rt()?;
         let res = rt.block_on(exec.execute(action));
         assert!(!res.success);
         assert!(res.message.contains("Sandbox security violation"));
@@ -583,7 +587,7 @@ mod tests {
 
         let rt = tokio::runtime::Builder::new_current_thread()
             .build()
-            .unwrap();
+            .map_err(|e| HypervisorError::RuntimeError(e.to_string()))?;
         let res = rt.block_on(executor.execute(action));
         assert!(res.success);
         assert!(res.message.contains("Micro-bytecode execution succeeded"));

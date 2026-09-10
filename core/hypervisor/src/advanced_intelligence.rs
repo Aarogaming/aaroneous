@@ -15,6 +15,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
 use std::sync::{Arc, RwLock};
 use tracing::info;
+use crate::util::{lock_write, lock_read, opt_to_result};
 
 /// Time series data point
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -143,7 +144,7 @@ impl AnomalyDetector {
             metric_name,
         };
 
-        let mut history = self.history.write().unwrap();
+        let mut history = lock_write(&self.history)?;
         history.push(point);
 
         // Cleanup old data
@@ -152,8 +153,8 @@ impl AnomalyDetector {
     }
 
     pub fn detect_anomaly(&self, metric_name: &str, current_value: f32) -> AnomalyDetection {
-        let history = self.history.read().unwrap();
-        let thresholds = self.thresholds.read().unwrap();
+        let history = lock_read(&self.history)?;
+        let thresholds = lock_read(&self.thresholds)?;
 
         let values: Vec<f32> = history
             .iter()
@@ -173,7 +174,21 @@ impl AnomalyDetector {
             };
         }
 
-        let stats = MetricStatistics::calculate(&values).unwrap();
+        let stats = match MetricStatistics::calculate(&values) {
+            Some(s) => s,
+            None => {
+                return AnomalyDetection {
+                    anomaly_detected: false,
+                    severity: AnomalySeverity::Low,
+                    metric_name: metric_name.to_string(),
+                    current_value,
+                    expected_range: (0.0, 100.0),
+                    confidence: 0.0,
+                    recommendation: "Insufficient data for stats".to_string(),
+                };
+            }
+        };
+
         let lower_bound = stats.mean - (stats.standard_deviation * thresholds.std_dev_multiplier);
         let upper_bound = stats.mean + (stats.standard_deviation * thresholds.std_dev_multiplier);
 
@@ -255,7 +270,7 @@ impl Forecaster {
     }
 
     pub fn record_point(&self, point: TimeSeriesPoint) {
-        let mut history = self.history.write().unwrap();
+        let mut history = lock_write(&self.history)?;
         history.push_back(point);
 
         // Keep last 100 points
@@ -265,7 +280,7 @@ impl Forecaster {
     }
 
     pub fn forecast(&self, metric_name: &str, hours_ahead: u32) -> Option<Forecast> {
-        let history = self.history.read().unwrap();
+        let history = lock_read(&self.history)?;
 
         let points: Vec<(f64, f64)> = history
             .iter()
@@ -372,7 +387,7 @@ impl AutoScaler {
         current_memory: f32,
         forecast_cpu: f32,
     ) -> ScalingDecision {
-        let current = *self.current_nodes.read().unwrap();
+        let current = *lock_read(&self.current_nodes)?;
 
         // Check if we need to scale up
         if current_cpu > self.cpu_threshold_high || forecast_cpu > 90.0 {
@@ -419,7 +434,7 @@ impl AutoScaler {
             return Err("Target outside node limits".to_string());
         }
 
-        let mut current = self.current_nodes.write().unwrap();
+        let mut current = lock_write(&self.current_nodes)?;
         *current = target_nodes;
         info!("Auto-scaling: {} nodes", target_nodes);
         Ok(())
@@ -465,7 +480,7 @@ impl SelfHealingEngine {
     }
 
     pub fn record_failure(&self, component: String) {
-        let mut failures = self.recent_failures.write().unwrap();
+        let mut failures = lock_write(&self.recent_failures)?;
         failures.push_back((Utc::now(), component));
 
         while failures.len() > 100 {
@@ -474,7 +489,7 @@ impl SelfHealingEngine {
     }
 
     pub fn diagnose_and_heal(&self, component: &str) -> Option<SelfHealingAction> {
-        let failures = self.recent_failures.read().unwrap();
+        let failures = lock_read(&self.recent_failures)?;
         let recent_count = failures
             .iter()
             .filter(|(t, c)| {
@@ -621,9 +636,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_metric_statistics() {
+    fn test_metric_statistics() -> Result<(), anyhow::Error> {
         let values = vec![10.0, 20.0, 30.0, 40.0, 50.0];
-        let stats = MetricStatistics::calculate(&values).unwrap();
+        let stats = MetricStatistics::calculate(&values)?;
         assert_eq!(stats.mean, 30.0);
         assert!(stats.standard_deviation > 0.0);
     }

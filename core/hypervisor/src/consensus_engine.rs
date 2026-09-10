@@ -295,9 +295,10 @@ impl ConsensusEngine {
         }
 
         // Find proposal with highest confidence
+        // Find proposal with highest confidence; treat incomparable values as equal
         let best = proposals
             .iter()
-            .max_by(|a, b| a.confidence.partial_cmp(&b.confidence).unwrap())
+            .max_by(|a, b| a.confidence.partial_cmp(&b.confidence).unwrap_or(std::cmp::Ordering::Equal))
             .cloned()?;
 
         println!(

@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct ScheduledTask {
-    pub id: String,
+    pub id: TaskId,
     pub name: String,
     pub cron_expression: Option<String>,
     pub interval_secs: Option<u64>,
@@ -12,7 +12,7 @@ pub struct ScheduledTask {
 }
 
 pub struct AutonomousScheduler {
-    pub tasks: HashMap<String, ScheduledTask>,
+    pub tasks: HashMap<TaskId, ScheduledTask>,
 }
 
 impl Default for AutonomousScheduler {

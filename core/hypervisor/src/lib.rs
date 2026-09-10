@@ -306,6 +306,7 @@ use once_cell::sync::Lazy;
 use std::collections::HashMap;
 use std::sync::Mutex;
 use plugin_api::{PluginDescriptor, Plugin};
+use libloading::Library;
 
 /// Global plugin manager singleton.
 pub static PLUGIN_MANAGER: Lazy<Mutex<PluginManager>> = Lazy::new(|| Mutex::new(PluginManager::new()));
@@ -336,7 +337,7 @@ impl PluginManager {
 
     /// Load a dynamic plugin via hotload crate and register it.
     pub fn load_dynamic(&mut self, path: &std::path::Path) -> Result<(), anyhow::Error> {
-        let lib = hotload::load_module(path)?;
+        let lib = Library::new(path)?;
         // Store the library to keep it alive.
         self._loaded.push(lib);
         Ok(())
@@ -407,6 +408,7 @@ pub use resilience::{
 
 // Structured logging facade: single init point, idempotent
 pub mod logging;
+pub use libloading::Library;
 pub use logging::{init_logging, ShellType, init_shell_logging};
 
 /// Run internal health check for system startup

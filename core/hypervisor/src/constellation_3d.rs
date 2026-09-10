@@ -562,7 +562,7 @@ pub fn render_constellation_3d(
     target_format: wgpu::TextureFormat,
     viewport_size: (f32, f32),
 ) {
-    let mut renderer = callback.renderer.lock().unwrap();
+    let mut renderer = util::mutex_lock(&callback.renderer)?;
 
     // Build resources on first frame or when needed
     if renderer.wgpu_resources.is_none() || renderer.needs_rebuild {

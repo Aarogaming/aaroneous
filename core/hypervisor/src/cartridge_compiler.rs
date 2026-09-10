@@ -131,7 +131,7 @@ mod tests {
         fake_gguf.extend_from_slice(&0u64.to_le_bytes()); // 0 metadata kv
         fake_gguf.resize(256, 0x42); // 256 bytes
 
-        fs::write(&fake_gguf_path, &fake_gguf).unwrap();
+        fs::write(&fake_gguf_path, &fake_gguf).map_err(|e| HypervisorError::IoError(e.to_string()))?;
 
         let out_cartridge_path = dir.path().join("seeded_output.si");
         let config = GgufSeedingConfig {

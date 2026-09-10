@@ -588,7 +588,7 @@ mod tests {
             deadline_seconds: None,
         };
 
-        let evaluation = engine.evaluate_task(&task).await.unwrap();
+        let evaluation = engine.evaluate_task(&task).await?;
         assert!(!evaluation.task_id.is_empty());
         assert!(evaluation.confidence >= 0.0 && evaluation.confidence <= 1.0);
     }

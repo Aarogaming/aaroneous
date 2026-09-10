@@ -363,21 +363,14 @@ mod tests {
         }
 
         fn slab_stats(&self) -> SlabStats {
-            self.slab.lock().unwrap().stats()
-        }
-
-        fn snapshot_state(&self) -> Result<Vec<u8>> {
-            Ok(self.state.lock().unwrap().clone())
-        }
-
-        fn restore_state(&mut self, state_bytes: &[u8]) -> Result<()> {
-            *self.state.lock().unwrap() = state_bytes.to_vec();
-            Ok(())
-        }
-
-        fn kill(&mut self) {
-            self.alive = false;
-            self.slab.lock().unwrap().reset();
+// Use safe lock acquisition
+        let slab_stats = mutex_lock(&self.slab)?.stats();
+        // ...
+        let state_clone = mutex_lock(&self.state)?.clone();
+        // ...
+        *mutex_lock(&mut self.state)?. = state_bytes.to_vec();
+        // ...
+        mutex_lock(&self.slab)?.reset();
         }
 
         fn spawn_fresh(&mut self) -> Result<()> {
@@ -391,7 +384,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_compaction_engine_should_reap() {
+    async fn test_compaction_engine_should_reap() -> anyhow::Result<()> {
         let (reaper, _rx) = CompactionEngine::new(CompactionEngineConfig {
             utilization_threshold: 0.5,
             ..Default::default()
@@ -399,10 +392,11 @@ mod tests {
 
         let mut slab = SlabAllocator::new(10);
         for _ in 0..6 {
-            slab.allocate(0, 1, 1).unwrap();
+            slab.allocate(0, 1, 1)?;
         }
 
         assert!(reaper.should_reap(&slab.stats()));
+        Ok(())
     }
 
     #[tokio::test]

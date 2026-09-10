@@ -425,7 +425,7 @@ impl AutonomicNervousSystem {
             platform_bridge::observability::mmcss::enable_mmcss_time_critical("Games");
             platform_bridge::observability::mmcss::set_thread_performance_affinity(0x05); // Pin to P-Core #0 and #2
 
-            let rt = tokio::runtime::Runtime::new().unwrap();
+            let rt = tokio::runtime::Runtime::new().map_err(|e| HypervisorError::RuntimeError(e.to_string()))?;
             let _task_router = TaskRouter::new(
                 Some(enzyme_runner_for_router),
                 Some(learning_loop_for_router),
