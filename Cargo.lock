@@ -8259,6 +8259,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "orchestration_plane"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "llm_gateway",
+ "mcp_server",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "orchestrator"
 version = "0.1.0"
 dependencies = [

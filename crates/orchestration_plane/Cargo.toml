@@ -12,8 +12,7 @@ tracing = "0.1"
 # Workspace crates
 mcp_server = { path = "../mcp_server" }
 llm_gateway = { path = "../llm_gateway" }
-mutation_engine = { path = "../mutation_engine" }
-runtime_monitor = { path = "../runtime_monitor" }
+
 
 [lib]
 path = "src/lib.rs"

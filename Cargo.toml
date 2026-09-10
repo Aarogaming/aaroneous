@@ -30,6 +30,7 @@ members = [
     "crates/mutation_engine",
     "crates/runtime_monitor",
     "crates/mcp_server",
+    "crates/orchestration_plane",
 ]
 
 exclude = [
