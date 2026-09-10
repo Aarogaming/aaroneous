@@ -10,8 +10,8 @@ use crate::action_executor::{ActionExecutor, ActionResult, ExecutionStats};
 use crate::decision_engine::{AutonomousDecisionEngine, DecisionTask, ExecutionOutcome, TaskEvaluation};
 use crate::intelligence::{IntelligenceEngine, LLMConfig, ProviderType};
 use crate::metadata_ingestor::{MetadataAnalysis, MetadataEvent, MetadataIngestor, MetadataIngestorConfig};
-use crate::thermodynamics::SystemPhase;
-use crate::biology::SystemHealthReport;
+use crate::duty_cycle::ExecutionPhase;
+use crate::subsystem_health::SubsystemHealthReport;
 
 /// Configuration for the orchestration daemon
 #[derive(Debug, Clone)]
