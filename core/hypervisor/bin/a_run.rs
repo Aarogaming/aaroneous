@@ -144,12 +144,8 @@ enum Commands {
         #[arg(short, long, default_value = "5")]
         frames: usize,
     },
-    /// Launch the Unified Maelstrom Telemetry HUD & Visualizer desktop interface
-    Hud {
-        /// Run in headless simulation mode without spawning a native OS window
-        #[arg(long)]
-        headless: bool,
-    },
+    /// Launch the Aaroneous Studio HUD (Please run `aaroneous` or `cargo run -p studio_hud --bin aaroneous`)
+    Hud,
     /// Distill and birth .si solid-state models for all 9 Sovereign Domain Specialists
     DistillAll {
         /// Number of trajectory samples per specialist domain
@@ -361,12 +357,8 @@ enum SiCommands {
         #[arg(short, long, default_value = "5")]
         frames: usize,
     },
-    /// Launch the Unified Maelstrom Telemetry HUD & Visualizer desktop interface
-    Hud {
-        /// Run in headless simulation mode without spawning a native OS window
-        #[arg(long)]
-        headless: bool,
-    },
+    /// Launch the Aaroneous Studio HUD (Please run `aaroneous` or `cargo run -p studio_hud --bin aaroneous`)
+    Hud,
     /// Distill and birth .si solid-state models for all 9 Sovereign Domain Specialists
     DistillAll {
         /// Number of trajectory samples per specialist domain
@@ -780,7 +772,7 @@ fn run_cli(cli: Cli) -> Result<()> {
                 heartbeat,
             } => run_async(run_daemon_pipeline(bind, peers, *heartbeat)),
             SiCommands::Simulate { frames } => run_async(run_simulate_pipeline(*frames)),
-            SiCommands::Hud { headless } => run_hud_pipeline(*headless),
+            SiCommands::Hud => run_hud_pipeline(),
             SiCommands::DistillAll {
                 samples,
                 epochs,
@@ -834,7 +826,7 @@ fn run_cli(cli: Cli) -> Result<()> {
             heartbeat,
         }) => run_async(run_daemon_pipeline(bind, peers, *heartbeat)),
         Some(Commands::Simulate { frames }) => run_async(run_simulate_pipeline(*frames)),
-        Some(Commands::Hud { headless }) => run_hud_pipeline(*headless),
+        Some(Commands::Hud) => run_hud_pipeline(),
         Some(Commands::DistillAll {
             samples,
             epochs,
@@ -1851,71 +1843,20 @@ async fn run_simulate_pipeline(frames: usize) -> Result<()> {
     Ok(())
 }
 
-/// Launches the Unified Maelstrom Telemetry HUD & Visualizer desktop interface
-fn run_hud_pipeline(headless: bool) -> Result<()> {
-    // Initialize HUD shell with quiet logging (WARN/ERROR)
-    a_run::init_shell_logging(a_run::ShellType::Hud);
+/// Launches the Studio HUD notice directing the operator to the standalone binary
+fn run_hud_pipeline() -> Result<()> {
     println!("=================================================================");
-    println!(" ⚡ AARONEOUS HYPERVISOR: UNIFIED MAELSTROM TELEMETRY HUD");
+    println!(" ⚡ AARONEOUS STUDIO HUD: DECOUPLED ARCHITECTURE NOTICE");
     println!("=================================================================");
-    println!(
-        "   Viewports : 🌌 3D Galaxy | ⚡ Synapse & SVDD | 👁️ Epigenetic Vision | 🧬 Neurochemistry"
-    );
-    println!(
-        "   Mode      : {}\n",
-        if headless {
-            "Headless Evaluation Loop"
-        } else {
-            "Native Desktop Window (egui/eframe)"
-        }
-    );
-
-    if headless {
-        println!("   [Stage 1] Initializing Hypervisor HUD Subsystems...");
-        let mut app = a_run::HypervisorHudApp::new();
-        println!(
-            "   -> Omni 3D Galaxy Viewport       : Ready ({} Star-Nodes)",
-            run_async(app.omni_engine.total_stars())
-        );
-        println!(
-            "   -> SPMC Specialist Bus & SVDD Gauge : Ready (R = {:.1})",
-            app.bus_visualizer.sentinel_radius
-        );
-        println!("   -> Epigenetic Vision Sensor Grid : Ready (16x16 / 256 Sectors)");
-        println!(
-            "   -> Neurochemistry Homeostasis    : Ready (Dopamine: {:.2}, ACh: {:.2})",
-            app.neurochemistry.levels.dopamine, app.neurochemistry.levels.acetylcholine
-        );
-
-        println!("\n   [Stage 2] Stepping 10 Real-Time 60Hz Telemetry Cycles...");
-        for i in 1..=10 {
-            app.step_simulation();
-            println!(
-                "   -> Cycle #{:02}: Active Sectors: {:3} | Savings: {:5.1}% | Galaxy Physics Relaxed",
-                i, app.last_frame_active_sectors, app.last_frame_savings_pct
-            );
-        }
-
-        println!("=================================================================");
-        println!("✅ Unified Hypervisor HUD Headless Pipeline Verified.");
-        println!("=================================================================\n");
-        Ok(())
-    } else {
-        println!("   Launching native desktop window...");
-        let native_options = eframe::NativeOptions {
-            viewport: egui::ViewportBuilder::default()
-                .with_inner_size([1100.0, 750.0])
-                .with_title("Aaroneous Hypervisor HUD — Unified Telemetry Engine"),
-            ..Default::default()
-        };
-
-        let _ = eframe::run_native(
-            "Aaroneous Hypervisor HUD",
-            native_options,
-            Box::new(|_cc| Ok(Box::new(a_run::HypervisorHudApp::new()))),
-        );
-        Ok(())
-    }
+    println!("   The Developer Studio & Telemetry HUD has been decoupled from the");
+    println!("   hypervisor core into a standalone crate (`crates/studio_hud`).");
+    println!();
+    println!("   To launch the native desktop window, run:");
+    println!("       cargo run -p studio_hud --bin aaroneous");
+    println!("   or invoke the built binary:");
+    println!("       target/release/aaroneous.exe");
+    println!("=================================================================\n");
+    Ok(())
 }
 
 /// Distills and births .si solid-state models for all 9 Sovereign Domain Specialists

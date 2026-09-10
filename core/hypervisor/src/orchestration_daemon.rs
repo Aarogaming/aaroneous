@@ -2,10 +2,10 @@
 // Long-running service that ties together metadata ingestion, decision making, and action execution
 
 use crate::action_executor::{ActionExecutor, ActionResult, ExecutionStats};
-use crate::constellation_ui::{ConstellationCanvas, NodeMetrics};
 use crate::decision_engine::{
     AutonomousDecisionEngine, DecisionTask, ExecutionOutcome, TaskEvaluation,
 };
+use crate::state_snapshot::{NodeMetrics, SpatialCanvasState};
 use crate::intelligence::{IntelligenceEngine, LLMConfig, ProviderType, Specialist, TaskType};
 use crate::metadata_ingestor::{
     MetadataAnalysis, MetadataEvent, MetadataIngestor, MetadataIngestorConfig,
@@ -61,7 +61,7 @@ pub struct OrchestrationDaemon {
     pub ingestor: MetadataIngestor,
     pub decision_engine: AutonomousDecisionEngine,
     pub executor: ActionExecutor,
-    pub constellation: ConstellationCanvas,
+    pub constellation: SpatialCanvasState,
     pub state: DaemonState,
     pub lifecycle: Box<dyn LifecycleManager>,
     pub start_time: Instant,
@@ -233,7 +233,7 @@ impl OrchestrationDaemon {
             ingestor: MetadataIngestor::new(ingestor_config),
             decision_engine,
             executor,
-            constellation: ConstellationCanvas::new(),
+            constellation: SpatialCanvasState::new(),
             state: DaemonState::Initializing,
             lifecycle: Box::new(ProcessLifecycleManager {
                 managed_agents: HashMap::new(),
@@ -394,14 +394,7 @@ impl OrchestrationDaemon {
         _result: &ActionResult,
         evaluation: &TaskEvaluation,
     ) {
-        // Create or update a node for this task
         let node_id = format!("node_{}", evaluation.task_id);
-
-        // Check if node exists
-        if !self.constellation.nodes.iter().any(|n| n.id == node_id) {
-            // Would create a new ConstellationNode here
-            // For now, just update metrics
-        }
 
         let metrics = NodeMetrics {
             entropy: evaluation.entropy,
@@ -411,15 +404,7 @@ impl OrchestrationDaemon {
             mdp_value: evaluation.routing.confidence,
         };
 
-        // Update in constellation
-        if let Some(index) = self
-            .constellation
-            .nodes
-            .iter()
-            .position(|n| n.id == node_id)
-        {
-            self.constellation.update_node_metrics(index, metrics);
-        }
+        self.constellation.update_node_metrics(node_id, metrics);
     }
 
     /// Get current daemon status

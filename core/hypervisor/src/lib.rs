@@ -157,12 +157,6 @@ pub use crate::scientific_analyzer::{
     ScientificPipeline, TestOutcome, VerificationResult,
 };
 
-// Native Constellation UI (egui/ratatui)
-pub mod constellation_3d;
-pub mod constellation_ui;
-pub use constellation_3d::Constellation3D;
-pub use constellation_ui::{ConstellationCanvas, NodeMetrics};
-
 // Autonomic Nervous System
 pub mod autonomic_loop;
 pub use autonomic_loop::AutonomicNervousSystem;
@@ -286,13 +280,15 @@ pub mod retina_module;
 pub use retina_module::{
     SharedBusWebIngest, TokenIngestionEngine, WebIngestionEngine, WebSamplerModule,
 };
-pub mod hud;
-pub mod hypervisor_hud;
+pub mod state_snapshot;
+pub use state_snapshot::{
+    ConsoleProjection, EngineSnapshot, EngineStatePublisher, GovernorPacing, HudProjection,
+    NodeMetrics, SpatialCanvasState, StudioProjection,
+};
 pub mod tensor_router;
 pub mod ui_broker;
 pub mod capability_broker;
 pub use capability_broker::{CapabilityBroker, CapabilityCategory, CapabilityDescriptor, CapabilityExecutionOutcome};
-pub use hypervisor_hud::{HudTab, HypervisorHudApp};
 
 // === Plugin Manager Integration ===
 
@@ -455,29 +451,25 @@ pub mod quantum_surface;
 pub mod relativity_engine;
 
 // Phase 6 Additions: Agent protocols, visual perception, reasoning, execution, compression, hardware layer
-pub mod bus_visualizer;
 pub mod compression;
 pub mod execution;
 pub mod hardware_layer;
 pub mod inter_agent;
 pub mod reasoning;
-pub mod skill_constellation;
-pub mod studio_ui;
 pub mod system_metrics;
 pub mod task_routing;
 pub mod visual_perception;
 
 pub use action_executor::{ActionExecutor, ExecutableAction, FileOp};
-pub use bus_visualizer::BusVisualizer;
 pub use hox_persistence::{HoxPersistenceManager, RegistrySnapshot, SnapshotInfo};
 pub use hox_registry::HoxRegistry;
 pub use lora_adapter_vault::{LiveLoraAdapter, LoraAdapterVault};
 pub use metadata_ingestor::{MetadataIngestor, MetadataIngestorConfig};
 pub use orchestration_daemon::{DaemonState, OrchestrationDaemon, OrchestrationDaemonConfig};
-pub use skill_constellation::{SkillConstellationCanvas, VisualStarNode};
-pub use studio_ui::{DistillStatus, DistillStudio};
 pub use system_metrics::{GpuMetrics, SystemMetricsCollector, ThermalMetrics, ThermalStatus};
 pub use task_routing::{ExecutionContext, ExecutionRoute, TaskRouter};
+
+
 
 #[cfg(test)]
 mod synaptic_test;

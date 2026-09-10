@@ -1,0 +1,66 @@
+[package]
+name = "studio_hud"
+version = "0.1.0"
+edition = "2024"
+authors.workspace = true
+description = "Aaroneous Pillar 5: Desktop Studio & Telemetry HUD native egui/wgpu presentation layer"
+license.workspace = true
+repository.workspace = true
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "aaroneous"
+path = "src/bin/aaroneous.rs"
+
+[[bin]]
+name = "aaroneous-setup"
+path = "src/bin/installer_gui.rs"
+
+[[bin]]
+name = "aaroneous-uninstall"
+path = "src/bin/uninstaller_gui.rs"
+
+[dependencies]
+dirs = "5.0"
+
+# Workspace crates
+a_run = { path = "../../core/hypervisor" }
+ipc_bus = { path = "../ipc_bus" }
+omni = { path = "../omni" }
+compute = { path = "../compute" }
+orchestrator = { path = "../orchestrator" }
+autonomic_adaptation = { path = "../autonomic_adaptation" }
+governance = { path = "../governance" }
+platform_bridge = { path = "../platform_bridge", features = ["native-win32"] }
+specialists = { package = "capabilities", path = "../capabilities" }
+aaroneous_paths = { path = "../paths" }
+aaroneous_wire = { path = "../aaroneous_wire" }
+adaptation_engine = { path = "../adaptation_engine" }
+transpiler = { path = "../transpiler" }
+tokio-serial = "5.4"
+
+# GUI and Graphics
+eframe = { version = "0.34", default-features = false, features = ["glow", "default_fonts"] }
+egui = "0.34"
+egui_extras = { version = "0.34", features = ["default"] }
+rfd = "0.15"
+wgpu = "29.0"
+cgmath = "0.18"
+bytemuck = "1.14"
+
+# Core Utilities & Concurrency
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+crossbeam-channel = "0.5"
+parking_lot = "0.12"
+memmap2 = "0.9"
+uuid = { version = "1.0", features = ["v4", "serde"] }
+tracing = "0.1"
+anyhow = "1.0"
+smol_str = "0.2"
+ron = "0.8"
+notify = "6.1"
+tokio = { version = "^1.40.0", features = ["rt", "time", "sync", "tracing"] }
+chrono = "0.4"

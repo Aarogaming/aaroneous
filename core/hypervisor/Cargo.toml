@@ -11,10 +11,6 @@ repository.workspace = true
 path = "src/lib.rs"
 
 [[bin]]
-name = "aaroneous"
-path = "bin/aaroneous.rs"
-
-[[bin]]
 name = "a_run"
 path = "bin/a_run.rs"
 
@@ -29,14 +25,6 @@ path = "bin/genome_compiler.rs"
 [[bin]]
 name = "synapse_dump"
 path = "bin/synapse_dump.rs"
-
-[[bin]]
-name = "aaroneous-setup"
-path = "bin/installer_gui.rs"
-
-[[bin]]
-name = "aaroneous-uninstall"
-path = "bin/uninstaller_gui.rs"
 
 [[bench]]
 name = "phase_x_smoke"
@@ -80,10 +68,6 @@ parking_lot = "0.12"
 rand = "0.10"
 rand_distr = "0.6"
 ratatui = { version = "0.30", features = ["serde"] }
-eframe = { version = "0.34", default-features = false, features = ["glow", "default_fonts"] }
-egui = "0.34"
-egui_extras = { version = "0.34", features = ["default"] }
-rfd = "0.15"
 ctrlc = "3.4"
 memmap2 = "0.9"
 windows = { version = "0.62", features = ["Win32_Foundation", "Win32_Graphics_Gdi", "Win32_UI_Input_KeyboardAndMouse", "Win32_UI_WindowsAndMessaging", "Win32_Graphics_Dxgi", "Win32_Graphics_Direct3D12"] }

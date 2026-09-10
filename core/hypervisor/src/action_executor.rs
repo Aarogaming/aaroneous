@@ -1,8 +1,7 @@
 // Action Executor
 // Executes decisions made by the decision engine: file ops, throttling, notifications
-
-use crate::constellation_ui::{ConstellationCanvas, NodeMetrics};
 use crate::decision_engine::{Action, TaskEvaluation};
+use crate::state_snapshot::{NodeMetrics, SpatialCanvasState};
 use biology::SystemBiology;
 use serde::{Deserialize, Serialize};
 use std::fs;
@@ -69,7 +68,7 @@ pub struct ActionResult {
 /// Action Executor - executes decisions and tracks outcomes
 pub struct ActionExecutor {
     pub biology: SystemBiology,
-    pub constellation: ConstellationCanvas,
+    pub constellation: SpatialCanvasState,
     pub wasm_path: PathBuf,
     pub allowed_roots: Vec<PathBuf>,
     pub execution_history: Vec<ActionResult>,
@@ -85,7 +84,7 @@ impl ActionExecutor {
 
         Self {
             biology: SystemBiology::new(),
-            constellation: ConstellationCanvas::new(),
+            constellation: SpatialCanvasState::new(),
             wasm_path,
             allowed_roots,
             execution_history: Vec::new(),
@@ -366,34 +365,18 @@ impl ActionExecutor {
     /// Update a constellation node with new metrics
     fn update_constellation_node(&mut self, node_id: &str, metrics: NodeMetrics) -> ActionResult {
         let metrics_clone = metrics.clone();
+        self.constellation.update_node_metrics(node_id, metrics);
 
-        if let Some(index) = self
-            .constellation
-            .nodes
-            .iter()
-            .position(|n| n.id == node_id)
-        {
-            self.constellation.update_node_metrics(index, metrics);
-
-            ActionResult {
-                action_type: "update_constellation".to_string(),
-                success: true,
-                duration_ms: 0.0,
-                message: format!("Updated metrics for node {}", node_id),
-                metadata: serde_json::json!({
-                    "node_id": node_id,
-                    "entropy": metrics_clone.entropy,
-                    "confidence": metrics_clone.confidence,
-                }),
-            }
-        } else {
-            ActionResult {
-                action_type: "update_constellation".to_string(),
-                success: false,
-                duration_ms: 0.0,
-                message: format!("Node not found: {}", node_id),
-                metadata: serde_json::json!({"node_id": node_id}),
-            }
+        ActionResult {
+            action_type: "update_constellation".to_string(),
+            success: true,
+            duration_ms: 0.0,
+            message: format!("Updated metrics for node {}", node_id),
+            metadata: serde_json::json!({
+                "node_id": node_id,
+                "entropy": metrics_clone.entropy,
+                "confidence": metrics_clone.confidence,
+            }),
         }
     }
 

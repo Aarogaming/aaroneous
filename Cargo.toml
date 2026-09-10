@@ -26,6 +26,7 @@ members = [
     "crates/core-contracts",
     "crates/cratify",
     "crates/biology",
+    "crates/studio_hud",
 ]
 
 exclude = [
@@ -35,8 +36,8 @@ exclude = [
 
 [workspace.package]
 version = "0.3.2"
-edition = "2021"
-rust-version = "1.75"
+edition = "2024"
+rust-version = "1.85"
 authors = ["Aaron"]
 description = "Sovereign machine-native synthetic intelligence runtime and desktop hypervisor"
 license = "MIT"

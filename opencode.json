@@ -16,5 +16,22 @@
         "args": ["/k"]
       }
     }
+  },
+  "provider": {
+    "lmstudio": {
+      "models": {
+        "qwen3.5-9b": {
+          "limit": {
+            "context": 131072,
+            "input": 131072,
+            "output": 8192
+          }
+        }
+      }
+    }
+  },
+  "compaction": {
+    "auto": true,
+    "reserved": 8192
   }
 }
