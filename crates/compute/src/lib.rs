@@ -140,6 +140,9 @@ pub use si_trainer::{
     gelu, gelu_prime, LatentGELUBottleneckBridge, SiModelTrainer, SiTrainerConfig,
     TrainingEpochReport,
 };
+pub use state_bank::{
+    update_rls, AdaptationError, RlsState, STATE_BANK_HEADER_SIZE,
+};
 pub use translation_dataset::{
     RosettaTrajectoryStep, TranslationDataset, ROSETTA_LATENT_DIM, ROSETTA_TEACHER_DIM,
 };
