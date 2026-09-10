@@ -1,0 +1,19 @@
+[package]
+name = "orchestration_plane"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0"
+tokio = { version = "1.0", features = ["full"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tracing = "0.1"
+# Workspace crates
+mcp_server = { path = "../mcp_server" }
+llm_gateway = { path = "../llm_gateway" }
+mutation_engine = { path = "../mutation_engine" }
+runtime_monitor = { path = "../runtime_monitor" }
+
+[lib]
+path = "src/lib.rs"
