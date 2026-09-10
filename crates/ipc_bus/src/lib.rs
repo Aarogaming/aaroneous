@@ -13,8 +13,12 @@ pub use persistent_wal as wal_store;
 pub mod preparedness_notice;
 pub mod scheme_router;
 pub mod slab_allocator;
-pub mod spmc_synapse_bus;
-pub mod swmr_synapse;
+pub mod spmc_shm_bus;
+pub mod swmr_shm;
+pub mod shared_channel;
+pub use spmc_shm_bus as spmc_synapse_bus;
+pub use swmr_shm as swmr_synapse;
+pub use shared_channel as synapse;
 pub mod universal_event_bus;
 pub mod universal_protocol;
 

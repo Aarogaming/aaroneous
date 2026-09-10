@@ -1,16 +1,21 @@
 //! crates/omni
 //! Universal 3D Galaxy semantic data navigation, star-node clustering, and visual search engine for Aaroneous.
 
-pub mod ecs_galaxy;
-pub mod galactic_roaming;
-pub mod galaxy_cluster;
+pub mod ecs_cluster;
+pub mod cluster_routing;
+pub mod node_cluster;
 pub mod matrix;
 pub mod protocol_bridge;
 pub mod query_engine;
 pub mod spatial_coord;
 pub mod spatial_layout;
-pub mod star_node;
+pub mod node_descriptor;
 pub mod vector_index;
+
+pub use ecs_cluster as ecs_galaxy;
+pub use cluster_routing as galactic_roaming;
+pub use node_cluster as galaxy_cluster;
+pub use node_descriptor as star_node;
 
 pub use galactic_roaming::{
     GalacticRoamingCameraController, SynapsePulseParticle, SynapsePulseParticleSystem, Vec3,

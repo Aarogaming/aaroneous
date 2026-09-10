@@ -19,12 +19,12 @@ name = "spatial_kinetic"
 path = "bin/spatial_kinetic.rs"
 
 [[bin]]
-name = "genome_compiler"
-path = "bin/genome_compiler.rs"
+name = "profile_compiler"
+path = "bin/profile_compiler.rs"
 
 [[bin]]
-name = "synapse_dump"
-path = "bin/synapse_dump.rs"
+name = "shm_dump"
+path = "bin/shm_dump.rs"
 
 [[bench]]
 name = "phase_x_smoke"

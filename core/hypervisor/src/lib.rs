@@ -157,9 +157,10 @@ pub use crate::scientific_analyzer::{
     ScientificPipeline, TestOutcome, VerificationResult,
 };
 
-// Autonomic Nervous System
-pub mod autonomic_loop;
-pub use autonomic_loop::AutonomicNervousSystem;
+// Runtime Supervisory Loop
+pub mod supervisory_loop;
+pub use supervisory_loop as autonomic_loop;
+pub use supervisory_loop::AutonomicNervousSystem;
 
 // Sandboxed Micro-Worker Bytecode Virtual Machine
 pub mod micro_vm;
@@ -226,28 +227,38 @@ pub use performance_benchmark::{
     BenchmarkOperation, BenchmarkResult, BenchmarkSummary, PerformanceBenchmark,
 };
 
-// Core modules needed by ANS
+// Core modules needed by runtime supervisor
 pub mod action_executor;
-pub mod chromosome_registry;
+pub mod capability_registry;
+pub use capability_registry as chromosome_registry;
 pub mod concept_drift;
 pub mod config_validation;
-pub mod dopamine_system;
-pub mod enzyme_runner;
-pub use enzyme_runner::MicroTaskRunner;
+pub mod reward_system;
+pub use reward_system as dopamine_system;
+pub mod worker_runner;
+pub use worker_runner as enzyme_runner;
+pub use worker_runner::MicroTaskRunner;
 pub mod delta_orchestrator;
-pub mod enzyme_types;
+pub mod worker_types;
+pub use worker_types as enzyme_types;
 pub mod event_log;
 pub mod executive_plan;
-pub mod genetic_recombination;
-pub mod genome_compiler;
-pub mod genome_trait_loader;
+pub mod profile_merger;
+pub use profile_merger as genetic_recombination;
+pub mod profile_compiler;
+pub use profile_compiler as genome_compiler;
+pub mod trait_loader;
+pub use trait_loader as genome_trait_loader;
 pub mod hardened_env;
 pub mod hid_driver;
-pub mod hox_map_schema;
-pub mod hox_persistence;
-pub mod hox_registry;
+pub mod profile_schema;
+pub use profile_schema as hox_map_schema;
+pub mod profile_persistence;
+pub use profile_persistence as hox_persistence;
+pub mod profile_registry;
+pub use profile_registry as hox_registry;
 pub mod spatial_delta_gate;
-pub use hox_registry::CapabilitySchemaRegistry;
+pub use profile_registry::CapabilitySchemaRegistry;
 pub use llm_gateway as llm;
 pub use llm_gateway::McpGateway;
 pub mod lora_adapter_vault;
@@ -259,7 +270,8 @@ pub mod neural_pruning;
 pub mod nlm_sentinel;
 pub mod orchestration_daemon;
 pub mod persistence;
-pub mod prefrontal_cortex;
+pub mod intent_orchestrator;
+pub use intent_orchestrator as prefrontal_cortex;
 pub mod sandboxed_network;
 pub mod semantic_indexing;
 pub mod spatial_kinetic_engine;
@@ -272,13 +284,14 @@ pub mod substrate;
 pub mod interconnect {
     pub use crate::signal_bridge::*;
 }
-pub use dopamine_system::{FeedbackEvent, FeedbackSignalProcessor, RewardSignalProcessor};
+pub use reward_system::{FeedbackEvent, FeedbackSignalProcessor, RewardSignalProcessor};
 pub use interconnect::{
     InterconnectBus, InterconnectMcpFrame, InterconnectPayload, InterconnectState,
     SpecialistBusDialogue,
 };
-pub mod retina_module;
-pub use retina_module::{
+pub mod screen_capture;
+pub use screen_capture as retina_module;
+pub use screen_capture::{
     SharedBusWebIngest, TokenIngestionEngine, WebIngestionEngine, WebSamplerModule,
 };
 pub mod state_snapshot;
@@ -473,7 +486,7 @@ pub use task_routing::{ExecutionContext, ExecutionRoute, TaskRouter};
 
 
 #[cfg(test)]
-mod synaptic_test;
+mod bus_test;
 
 #[cfg(test)]
 mod rkyv_test;

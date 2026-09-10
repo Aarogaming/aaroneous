@@ -23,7 +23,8 @@ pub mod specialist;
 pub mod specialists;
 
 // ── Lifecycle & orchestration ───────────────────────────────────────────────
-pub mod hive;
+pub mod cluster;
+pub use cluster as hive;
 pub mod host;
 
 // ── Intent & session management ─────────────────────────────────────────────
@@ -31,11 +32,13 @@ pub mod intent;
 pub mod session;
 
 // ── Persistence bridge ──────────────────────────────────────────────────────
-pub mod hive_db;
+pub mod cluster_db;
+pub use cluster_db as hive_db;
 pub mod learn_persist;
 
-// ── Model DNA & sovereign packages ──────────────────────────────────────────
-pub mod dna;
+// ── Model Profiles & sovereign packages ─────────────────────────────────────
+pub mod profiles;
+pub use profiles as dna;
 pub mod model_registry;
 pub mod sovereign_package;
 
@@ -51,7 +54,8 @@ pub mod enterprise;
 // ── Speculative modules (compile but not wired into active paths) ───────────
 pub mod ar;
 pub mod artifact_registry;
-pub mod biometric;
+pub mod telemetry_signals;
+pub use telemetry_signals as biometric;
 pub mod bootstrap;
 pub mod cli;
 pub mod component_registry;
@@ -59,7 +63,8 @@ pub mod deployment_examples;
 pub mod fleet_scheduler;
 pub mod graph;
 pub mod links;
-pub mod multi_hive;
+pub mod multi_cluster;
+pub use multi_cluster as multi_hive;
 pub mod optimization;
 pub mod p2p;
 pub mod tasks;

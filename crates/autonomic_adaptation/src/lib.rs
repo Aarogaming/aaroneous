@@ -4,9 +4,12 @@
 
 pub mod candle_persona_engine;
 pub mod continuous_evolution;
-pub mod genetics;
-pub mod neurochemistry;
-pub mod self_digestion;
+pub mod capability_spec;
+pub mod loss_metrics;
+pub mod artifact_pruning;
+pub use capability_spec as genetics;
+pub use loss_metrics as neurochemistry;
+pub use artifact_pruning as self_digestion;
 pub mod skills;
 pub mod persona_fusion;
 pub mod workspace;

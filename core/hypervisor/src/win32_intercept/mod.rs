@@ -3,8 +3,9 @@
 
 pub mod capture;
 pub mod hid_bridge;
-pub mod synapse_io;
+pub mod shm_io;
+pub use shm_io as synapse_io;
 
 pub use capture::Win32ScreenCapture;
 pub use hid_bridge::HIDOutputBridge;
-pub use synapse_io::SynapseChannel;
+pub use shm_io::SynapseChannel;

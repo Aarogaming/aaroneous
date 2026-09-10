@@ -1,8 +1,11 @@
-pub mod biology;
-pub use biology as system_health;
-pub mod homeostasis;
+pub mod system_limits;
+pub mod resource_governor;
 pub mod metabolic_governor;
-pub mod thermodynamic_governor;
+pub mod throughput_governor;
+pub use system_limits as biology;
+pub use system_limits as system_health;
+pub use resource_governor as homeostasis;
+pub use throughput_governor as thermodynamic_governor;
 pub mod lattice_verifier;
 pub mod rollback_journal;
 pub mod z3_prover;
