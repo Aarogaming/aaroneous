@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 /// Authentication provider trait
 #[async_trait::async_trait]
@@ -34,7 +35,11 @@ pub struct AuthToken {
 impl AuthToken {
     /// Check if token is expired
     pub fn is_expired(&self) -> bool {
-        chrono::Utc::now().timestamp_millis() > self.expires_at
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis() as i64;
+        now > self.expires_at
     }
 
     /// Check if token has required scope
