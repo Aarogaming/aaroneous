@@ -2,8 +2,8 @@
 // Direct integration with llama.cpp for local GGUF model inference
 // Uses Qwen models (or other open source GGUF)
 
-use crate::llm::types::*;
-use crate::workspace::WorkspacePaths;
+use crate::types::*;
+use aaroneous_paths::WorkspacePaths;
 use anyhow::{Result, anyhow};
 use async_trait::async_trait;
 use std::path::PathBuf;
@@ -74,15 +74,16 @@ impl GGUFProvider {
     /// fallback even if it doesn't exist (so `LLMConfig::gguf_model_path`
     /// is always populated with a sane value).
     pub fn default_qwen_path() -> PathBuf {
+        let wp = WorkspacePaths::discover();
         let locations: Vec<PathBuf> = vec![
             // Crystallized sovereign models (preferred — domain-specialized)
-            WorkspacePaths::sovereign_model("presenter"),
-            WorkspacePaths::sovereign_model("aligner"),
+            wp.sovereign_model("presenter"),
+            wp.sovereign_model("aligner"),
             // Foundation model fallback
-            WorkspacePaths::models().join("foundation_v1.gguf"),
+            wp.models().join("foundation_v1.gguf"),
             // Legacy/abliterated variants
-            WorkspacePaths::models().join("qwen2.5-1.5b-instruct-abliterated.gguf"),
-            WorkspacePaths::models().join("qwen2.5-1.5b.gguf"),
+            wp.models().join("qwen2.5-1.5b-instruct-abliterated.gguf"),
+            wp.models().join("qwen2.5-1.5b.gguf"),
             // Relative paths for CI/development
             PathBuf::from("./models/qwen2.5-1.5b.gguf"),
             PathBuf::from("./models/qwen-1.8b.gguf"),
@@ -95,7 +96,7 @@ impl GGUFProvider {
         }
 
         // Default: workspace preferred path (may not exist yet)
-        WorkspacePaths::models().join("qwen2.5-1.5b-instruct-abliterated.gguf")
+        wp.models().join("qwen2.5-1.5b-instruct-abliterated.gguf")
     }
 
     /// Generate text from a prompt using the loaded GGUF model.

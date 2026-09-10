@@ -1,7 +1,7 @@
 // Mock LLM Provider
 // Used for testing without calling real APIs
 
-use crate::llm::types::*;
+use crate::types::*;
 use anyhow::Result;
 use async_trait::async_trait;
 use tracing::debug;
@@ -141,7 +141,7 @@ impl super::LLMProvider for MockProvider {
         debug!("Mock chat: domain={} user='{:.60}'", domain, user_message);
         // Route through generate_design with the domain hint so the structured
         // mock responses fire (task_orchestration → JSON task graph, etc.)
-        let ctx = crate::llm::types::DesignContext {
+        let ctx = crate::types::DesignContext {
             intent: format!("[SYSTEM: {}]\n\n{}", system_prompt, user_message),
             style_hints: vec![domain.to_string()],
             constraints: vec![format!("domain: {}", domain)],

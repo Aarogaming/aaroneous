@@ -1,6 +1,6 @@
 use anyhow::{Result, anyhow};
 use serde_json::Value;
-use crate::nervous_system::shared_memory::McpToolCallFrame;
+use ipc_bus::shared_memory::McpToolCallFrame;
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 

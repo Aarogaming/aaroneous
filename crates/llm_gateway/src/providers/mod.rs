@@ -11,7 +11,7 @@ pub use local::LocalLLMProvider;
 pub use mock::MockProvider;
 pub use openai::OpenAIProvider;
 
-use crate::llm::types::*;
+use crate::types::*;
 use anyhow::Result;
 use async_trait::async_trait;
 

@@ -46,6 +46,7 @@ dependencies = [
  "iroh",
  "libloading 0.9.0",
  "llama-gguf",
+ "llm_gateway",
  "log",
  "memmap2 0.9.11",
  "mimalloc",
@@ -6534,6 +6535,26 @@ dependencies = [
  "tonic-build",
  "tracing",
  "unicode-normalization",
+]
+
+[[package]]
+name = "llm_gateway"
+version = "0.1.0"
+dependencies = [
+ "aaroneous_paths",
+ "anyhow",
+ "async-trait",
+ "dirs 5.0.1",
+ "ipc_bus",
+ "llama-gguf",
+ "moka",
+ "parking_lot",
+ "reqwest 0.13.5",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tracing",
+ "which 5.0.0",
 ]
 
 [[package]]

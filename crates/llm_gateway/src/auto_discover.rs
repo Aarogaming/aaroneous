@@ -1,9 +1,9 @@
 // Automatic Model Discovery
 // Automatically detects installed model loading software and loads models on startup
 
-use crate::llm::model_environment::{ModelEnvironment, ModelEnvironmentDetector};
-use crate::llm::model_loader::ModelLoader;
-use crate::llm::model_registry::ModelInfo;
+use crate::model_environment::{ModelEnvironment, ModelEnvironmentDetector};
+use crate::model_loader::ModelLoader;
+use crate::model_registry::ModelInfo;
 use anyhow::Result;
 use std::sync::OnceLock;
 use tracing::{debug, info};
@@ -165,7 +165,7 @@ mod tests {
 
     #[test]
     fn test_auto_discovery_result_with_models() {
-        use crate::llm::model_registry::ModelType;
+        use crate::model_registry::ModelType;
         use std::path::PathBuf;
 
         let model = ModelInfo {

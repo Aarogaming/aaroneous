@@ -1,7 +1,7 @@
 // Model Loader
 // Manages model discovery, verification, and recommendation
 
-use crate::llm::model_registry::{ModelInfo, ModelRegistry, ModelType};
+use crate::model_registry::{ModelInfo, ModelRegistry, ModelType};
 use anyhow::Result;
 use std::path::PathBuf;
 use tracing::{info, warn};

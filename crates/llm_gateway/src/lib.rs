@@ -4,6 +4,7 @@
 
 pub mod auto_discover;
 pub mod cache;
+pub mod mcp_gateway;
 pub mod model_environment;
 pub mod model_loader;
 pub mod model_registry;
@@ -11,6 +12,7 @@ pub mod providers;
 pub mod rate_limiter;
 pub mod types;
 
+pub use mcp_gateway::McpGateway;
 pub use model_environment::{DetectedEnvironment, ModelEnvironment, ModelEnvironmentDetector};
 pub use model_loader::{ModelLoader, TOP_RECOMMENDED_MODELS};
 pub use model_registry::{ModelInfo, ModelRegistry, ModelType};

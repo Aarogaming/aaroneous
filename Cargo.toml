@@ -21,12 +21,12 @@ members = [
     "core/hypervisor",
     "sdk/rust",
     "crates/plugin_api",
-    "crates/aaroneous_wire",
     "crates/hotload",
     "crates/core-contracts",
     "crates/cratify",
     "crates/biology",
     "crates/studio_hud",
+    "crates/llm_gateway",
 ]
 
 exclude = [

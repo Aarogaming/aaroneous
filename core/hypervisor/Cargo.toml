@@ -32,6 +32,7 @@ harness = false
 
 [dependencies]
 moka = { version = "0.12", features = ["future"] }
+llm_gateway = { path = "../../crates/llm_gateway" }
 ipc_bus = { path = "../../crates/ipc_bus" }
 omni = { path = "../../crates/omni" }
 hotload = { path = "../../crates/hotload" }
@@ -137,7 +138,7 @@ anyhow = "1.0"
 [features]
 default = []
 # Local LLM inference support via llama.cpp GGUF format
-llama-gguf = ["dep:llama-gguf"]
+llama-gguf = ["dep:llama-gguf", "llm_gateway/llama-gguf"]
 # GPU telemetry via NVIDIA Management Library
 gpu-metrics = ["dep:nvml-wrapper"]
 # P2P mesh via Iroh QUIC transport / Fleet Federation

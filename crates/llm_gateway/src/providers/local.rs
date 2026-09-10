@@ -1,7 +1,7 @@
 // Local LLM Provider
 // Integration with local models via Ollama, vLLM, etc.
 
-use crate::llm::types::*;
+use crate::types::*;
 use anyhow::{Result, anyhow};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};

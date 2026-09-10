@@ -1,7 +1,7 @@
 // OpenAI Provider
 // Integration with OpenAI API (GPT-4, GPT-3.5, etc.)
 
-use crate::llm::types::*;
+use crate::types::*;
 use anyhow::{Result, anyhow};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
