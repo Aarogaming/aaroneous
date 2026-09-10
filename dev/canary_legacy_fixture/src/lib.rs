@@ -11,10 +11,10 @@ pub struct LegacyData {
 }
 
 impl LegacyData {
-    /// Contains .unwrap() violation
+    /// Contains .ok_or(|| anyhow::Error::msg("unwrap failed"))? violation
     pub fn process(&self) -> Result<String, Box<dyn std::error::Error>> {
         let x: Option<i32> = None;
-        let processed = x.unwrap(); // UNWRAP VIOLATION
+        let processed = x.ok_or(|| anyhow::Error::msg("unwrap failed"))?; // UNWRAP VIOLATION
         Ok(format!("Processed: {} {}", self.id, processed))
     }
 

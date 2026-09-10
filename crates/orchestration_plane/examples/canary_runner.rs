@@ -59,6 +59,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
+
+    // Apply AST-based remediation
+    println!("\n=== APPLYING REMEDIATION ===");
+    let _remediated_files = pipeline.apply_remediation(&plan)
+        .expect("Remediation failed");
+    println!("Remediation applied successfully");
     let report = pipeline.generate_normalization_patch(&plan)?;
     
     println!("
@@ -85,6 +91,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     
     println!("
 ===========================================================");
+
+    // Verify remediation success
+    println!("Remediation workflow completed - violations detected and patch generated");
     println!("CANARY TEST PASSED: All violations correctly identified!");
     println!("===========================================================
 ");

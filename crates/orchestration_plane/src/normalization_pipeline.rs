@@ -2,6 +2,7 @@
 // Scans codebase for violations of ACC standards
 
 use std::path::{Path, PathBuf};
+use anyhow::Result;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -114,6 +115,28 @@ impl NormalizationPipeline {
         }
 
         violations
+    }
+
+    /// Apply AST-based remediation to violating files
+    pub fn apply_remediation(&self, plan: &IngestionPlan) -> Result<Vec<PathBuf>, Box<dyn std::error::Error>> {
+        use mutation_engine::remediate_source;
+
+        let mut remediated_files = Vec::new();
+
+        for file_path in &plan.scanned_files {
+            // Read source file
+            let source = std::fs::read_to_string(file_path)?;
+
+            // Apply mutation engine remediation
+            let remediated = remediate_source(&source)
+                .map_err(|e| format!("Failed to remediate {}: {}", file_path.display(), e))?;
+
+            // Write back the remediated code (prettyplease not needed for simple replacements)
+            std::fs::write(file_path, remediated)?;
+            remediated_files.push(file_path.clone());
+        }
+
+        Ok(remediated_files)
     }
 
     /// Generate normalization patch for the plan
