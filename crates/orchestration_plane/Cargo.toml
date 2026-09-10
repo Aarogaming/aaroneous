@@ -4,15 +4,14 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-anyhow = "1.0"
-tokio = { version = "1.0", features = ["full"] }
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-tracing = "0.1"
-# Workspace crates
-mcp_server = { path = "../mcp_server" }
-llm_gateway = { path = "../llm_gateway" }
-
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+anyhow = { workspace = true }
+syn = { version = "2.0", features = ["full", "visit", "visit-mut"] }
+quote = "1.0"
+walkdir = "2.3"
 
 [lib]
 path = "src/lib.rs"
