@@ -4,6 +4,7 @@ use crate::federation::forge;
 /// The router is factored out from the server so tests can drive it
 /// in-process via `tower::ServiceExt::oneshot` without binding a real port.
 use crate::federation::hive::{Federation, LearningSummary, SpecialistLearningSummary};
+use crate::federation::hive::scheduler::{AutonomousScheduler, ScheduledTask};
 use crate::input_validation::{
     ValidationError, validate_bytes, validate_optional_string, validate_string,
 };
@@ -912,16 +913,17 @@ struct AddTaskRequest {
     interval_secs: Option<u64>,
 }
 
-async fn add_scheduled_task(
+ async fn add_scheduled_task(
     State(state): State<AppState>,
     Json(req): Json<AddTaskRequest>,
 ) -> impl IntoResponse {
     let mut scheduler = state.federation.scheduler.write().await;
-    let task = crate::federation::hive::scheduler::ScheduledTask {
-        id: uuid::Uuid::new_v4().to_string(),
+    let task_id = uuid::Uuid::new_v4();
+    let task = ScheduledTask {
+        id: task_id,
         name: req.name,
         cron_expression: None,
-        interval_secs: req.interval_secs,
+        interval_secs: Some(req.interval_secs.unwrap_or(0)),
         intent_content: req.intent_content,
         last_run_ms: 0,
         status: "Scheduled".to_string(),
@@ -930,12 +932,12 @@ async fn add_scheduled_task(
     Json(serde_json::json!({"ok": true, "task": task}))
 }
 
-async fn delete_scheduled_task(
+ async fn delete_scheduled_task(
     State(state): State<AppState>,
-    Path(id): Path<String>,
+    Path(id): Path<uuid::Uuid>,
 ) -> impl IntoResponse {
     let mut scheduler = state.federation.scheduler.write().await;
-    scheduler.remove_task(&id);
+    scheduler.remove_task(&id.to_string());
     Json(serde_json::json!({"ok": true}))
 }
 

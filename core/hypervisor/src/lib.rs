@@ -1,3 +1,5 @@
+#![recursion_limit = "512"]
+
 // Aaroneous Hypervisor Core
 // The central execution runtime that hosts WASM Enzymes and manages the SignalBridge.
 
@@ -11,21 +13,13 @@ pub extern crate autonomic_adaptation as evolution;
 // pub use adaptation_engine as adaptation;
 // pub use adaptation_engine;
 
-// Re-export evolution (autonomic_adaptation) sections
-pub use evolution::genetics::{
-    BreedingOperation, EpigeneticState, GeneticAnalyzer, GeneticCategory,
-    GeneticLocus, LociSource, SpecialistGenome,
-};
-pub use evolution::skills::{
-    FusedSkill, PersonaRank, Skill, SkillOrigin, SkillRegistry, SkillType, SpecialistSkillSet,
-};
-pub use evolution::self_digestion::{
-    DigestionConfig, DigestionEngine, DigestionEvent, DigestionTask, ExperienceProfile,
-    NarrativeProfile, PersonalityProfile, RelationalProfile, SpecialistPersona,
-};
+pub mod error;
+pub mod util;
+
 pub extern crate governance as biology;
 pub use governance as system_health;
 pub use governance;
+pub extern crate hotload;
 
 pub mod sabs {
     pub use omni::matrix::*;
@@ -337,7 +331,7 @@ impl PluginManager {
 
     /// Load a dynamic plugin via hotload crate and register it.
     pub fn load_dynamic(&mut self, path: &std::path::Path) -> Result<(), anyhow::Error> {
-        let lib = Library::new(path)?;
+        let lib = hotload::load_module(path)?;
         // Store the library to keep it alive.
         self._loaded.push(lib);
         Ok(())
@@ -408,7 +402,6 @@ pub use resilience::{
 
 // Structured logging facade: single init point, idempotent
 pub mod logging;
-pub use libloading::Library;
 pub use logging::{init_logging, ShellType, init_shell_logging};
 
 /// Run internal health check for system startup

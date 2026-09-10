@@ -2,6 +2,7 @@
 // Embedded directly into egui via PaintCallback for zero-overhead native rendering
 
 use crate::ConstellationNode;
+use crate::util;
 use bytemuck::{Pod, Zeroable};
 use cgmath::{Deg, EuclideanSpace, InnerSpace, Matrix4, Point3, Vector3, perspective};
 use std::collections::HashMap;
@@ -562,7 +563,10 @@ pub fn render_constellation_3d(
     target_format: wgpu::TextureFormat,
     viewport_size: (f32, f32),
 ) {
-    let mut renderer = util::mutex_lock(&callback.renderer)?;
+    let mut renderer = match util::mutex_lock(&callback.renderer) {
+        Ok(r) => r,
+        Err(_) => return, // Can't lock mutex, bail out gracefully
+    };
 
     // Build resources on first frame or when needed
     if renderer.wgpu_resources.is_none() || renderer.needs_rebuild {

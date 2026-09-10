@@ -1,4 +1,4 @@
-use crate::SpecialistAgent;
+use crate::{SpecialistAgent, create_specialist};
 use crate::federation::specialist::{
     Conflict, Decision, DelegateRequest, DelegateResponse, ExecutionResult, ExecutionStatus,
     NegotiationResult, ProposalPriority, ProposedAction, ResourceRequest, Specialist,
@@ -388,7 +388,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_bridge_creation() {
-        let agent = crate::create_specialist("presenter").unwrap();
+        let agent = create_specialist("presenter").unwrap();
         let bridge = SpecialistAgentBridge::new(agent);
 
         assert!(bridge.is_ok());
@@ -398,7 +398,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_bridge_propose() {
-        let agent = crate::create_specialist("presenter").unwrap();
+        let agent = create_specialist("presenter").unwrap();
         let bridge = SpecialistAgentBridge::new(agent).unwrap();
 
         let context = SpecialistContext {

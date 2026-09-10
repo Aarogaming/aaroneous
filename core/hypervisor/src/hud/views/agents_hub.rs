@@ -418,7 +418,6 @@ impl HudView for AgentsHubView {
                                 && !state.hive_intent_input.trim().is_empty()
                             {
                                 let intent_text = state.hive_intent_input.trim().to_string();
-
                                 // Route through Intermediary Capability Broker
                                 let outcome = state.capability_broker.execute(
                                     "specialist.dispatch_intent",

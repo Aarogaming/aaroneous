@@ -20,7 +20,7 @@ use crate::si_binary::SiThoughtPacket;
 use crate::si_ssm::{SiSsmConfig, SiStateSpaceModel, SsmStatePrediction};
 
 /// Magic identifier for Solid-State SI Containers: 'SINT' (Synthetic Intelligence Native Topology)
-pub const SI_SOLID_STATE_MAGIC: [u8; 4] = [b'S', b'I', b'N', b'T'];
+pub const SI_SOLID_STATE_MAGIC: [u8; 4] = *b"SINT";
 pub const SI_SOLID_STATE_VERSION: u16 = 2; // Version 2 enforces 64-byte cache-line alignment
 
 /// Enforced 64-byte alignment constant for SIMD vectorization & cache-line boundaries

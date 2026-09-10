@@ -1,21 +1,5 @@
-/// Predictive Models Configuration
-///
-/// Externalizes Kalman filter and HMM parameters for runtime tuning
-/// without recompilation.
-///
-/// This module provides configuration structs for:
-/// - Kalman filter parameters (process noise, measurement noise, covariance)
-/// - HMM parameters (states, symbols, transition matrix, emission matrix)
-/// - Predictive model tuning (confidence thresholds, update rates)
-/// - Observability configuration (telemetry, tracing, metrics)
-/// - Runtime tuning (dynamic updates, persistence)
 use serde::{Deserialize, Serialize};
 
-/// Kalman filter configuration
-///
-/// Controls the Kalman filter behavior for state estimation.
-/// Process noise (q) controls how much the filter trusts the model.
-/// Measurement noise (r) controls how much the filter trusts measurements.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct KalmanConfig {
     /// Process noise variance (q)

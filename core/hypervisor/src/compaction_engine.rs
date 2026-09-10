@@ -363,18 +363,29 @@ mod tests {
         }
 
         fn slab_stats(&self) -> SlabStats {
-// Use safe lock acquisition
-        let slab_stats = mutex_lock(&self.slab)?.stats();
-        // ...
-        let state_clone = mutex_lock(&self.state)?.clone();
-        // ...
-        *mutex_lock(&mut self.state)?. = state_bytes.to_vec();
-        // ...
-        mutex_lock(&self.slab)?.reset();
+            let guard = self.slab.lock().unwrap();
+            guard.stats()
+        }
+
+        fn snapshot_state(&self) -> Result<Vec<u8>> {
+            let state_guard = self.state.lock().unwrap();
+            Ok(state_guard.clone())
+        }
+
+        fn restore_state(&mut self, state_bytes: &[u8]) -> Result<()> {
+            let mut state_guard = self.state.lock().unwrap();
+            *state_guard = state_bytes.to_vec();
+            Ok(())
+        }
+
+        fn kill(&mut self) {
+            self.alive = false;
         }
 
         fn spawn_fresh(&mut self) -> Result<()> {
             self.alive = true;
+            let mut state_guard = self.state.lock().unwrap();
+            *state_guard = vec![1, 2, 3, 4];
             Ok(())
         }
 

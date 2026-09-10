@@ -1,4 +1,4 @@
-﻿// crates/compute/src/user_baseline.rs
+// crates/compute/src/user_baseline.rs
 //! Continuous User Kinematic Profiler, Identity Anomaly Detector & Multi-User Manager.
 //!
 //! 1. `UserKinematicProfile`: Online estimators for mouse velocity/jerk curves,
@@ -12,9 +12,10 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 /// Qualitative mental & operational state of the operator
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum AttentionState {
     /// Optimal flow; minimal micro-delays, smooth velocity, high intent focus
+    #[default]
     DeepFlow,
     /// Deliberate calculation; steady pauses before precision clicks/keystrokes
     Deliberating,
@@ -26,11 +27,7 @@ pub enum AttentionState {
     Fatigued,
 }
 
-impl Default for AttentionState {
-    fn default() -> Self {
-        Self::DeepFlow
-    }
-}
+// Removed manual impl Default
 
 /// Dynamic kinematic biomarkers characterizing an operator's physical interaction style
 #[derive(Debug, Clone, Serialize, Deserialize)]

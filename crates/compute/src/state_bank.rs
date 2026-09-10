@@ -19,7 +19,7 @@ use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 
 /// Magic identifier for `.lib` files: 'SLIB' (State Library Binary)
-pub const STATE_BANK_MAGIC: [u8; 4] = [b'S', b'L', b'I', b'B'];
+pub const STATE_BANK_MAGIC: [u8; 4] = *b"SLIB";
 pub const STATE_BANK_VERSION: u16 = 1;
 pub const STATE_BANK_HEADER_SIZE: usize = 64;
 

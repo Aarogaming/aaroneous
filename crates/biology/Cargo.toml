@@ -1,0 +1,8 @@
+[package]
+name = "biology"
+version = "0.1.0"
+edition = "2021"
+description = "Minimal stub crate for biology module used by mcp_server"
+license = "MIT"
+
+[dependencies]

@@ -5,6 +5,7 @@
 /// task steps into a single cryptographic state root for external
 /// verification without re-execution.
 use std::collections::HashMap;
+use plugin_api::Plugin;
 
 // ── A2A Binary Protocol ──────────────────────────────────────────────
 
@@ -55,12 +56,8 @@ impl A2AProtocol {
             self.agents.insert(agent_id, flag);
             self.pending.push(flag);
             // Notify plugins about flag change (non‑blocking, errors ignored)
-            if let Ok(mut manager) = crate::PLUGIN_MANAGER.lock() {
-                // Create a minimal packet placeholder using explicit constructor
-                let pkt = crate::ipc_bus::MachinePacket::new(0, 0, 0, 0, 0, 0);
-                for plugin in manager._loaded.iter_mut() {
-                    let _ = plugin.handle(pkt.clone());
-                }
+            if let Ok(_manager) = crate::PLUGIN_MANAGER.lock() {
+                // Future C-ABI hook invocation via symbol table
             }
 
         }

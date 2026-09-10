@@ -153,7 +153,7 @@ fn inspect_item(item: Item, info: &mut CodeInfo) {
                 .map(|arg| match arg {
                     syn::FnArg::Receiver(_) => "self".to_string(),
                     syn::FnArg::Typed(pat_type) => {
-                        let ty = type_to_string(&*pat_type.ty);
+                        let ty = type_to_string(&pat_type.ty);
                         let pat = pat_type.pat.clone();
                         let pat_str = quote::quote!(#pat).to_string();
                         format!("{}: {}", pat_str, ty)
@@ -162,7 +162,7 @@ fn inspect_item(item: Item, info: &mut CodeInfo) {
                 .collect();
             let output = match &sig.output {
                 syn::ReturnType::Default => None,
-                syn::ReturnType::Type(_, ty) => Some(type_to_string(&*ty)),
+                syn::ReturnType::Type(_, ty) => Some(type_to_string(ty)),
             };
             let block = &func.block;
             let body = quote::quote!(#block).to_string();
@@ -275,7 +275,7 @@ fn inspect_item(item: Item, info: &mut CodeInfo) {
         Item::Type(type_alias) => {
             let name = type_alias.ident.to_string();
             let visibility = format_visibility(&type_alias.vis);
-            let ty = type_to_string(&*type_alias.ty);
+            let ty = type_to_string(&type_alias.ty);
             info.type_aliases.push(TypeAliasInfo {
                 name,
                 visibility,
@@ -285,7 +285,7 @@ fn inspect_item(item: Item, info: &mut CodeInfo) {
         Item::Const(const_item) => {
             let name = const_item.ident.to_string();
             let visibility = format_visibility(&const_item.vis);
-            let ty = type_to_string(&*const_item.ty);
+            let ty = type_to_string(&const_item.ty);
             info.consts.push(ConstInfo {
                 name,
                 visibility,
@@ -295,7 +295,7 @@ fn inspect_item(item: Item, info: &mut CodeInfo) {
         Item::Static(static_item) => {
             let name = static_item.ident.to_string();
             let visibility = format_visibility(&static_item.vis);
-            let ty = type_to_string(&*static_item.ty);
+            let ty = type_to_string(&static_item.ty);
             let is_mut = matches!(static_item.mutability, syn::StaticMutability::Mut(_));
             info.statics.push(StaticInfo {
                 name,

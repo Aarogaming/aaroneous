@@ -1,4 +1,7 @@
 use std::collections::HashMap;
+use uuid::Uuid;
+
+pub type TaskId = Uuid;
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct ScheduledTask {
@@ -33,6 +36,9 @@ impl AutonomousScheduler {
     }
 
     pub fn remove_task(&mut self, id: &str) {
-        self.tasks.remove(id);
+        let task_id = uuid::Uuid::parse_str(id).ok();
+        if let Some(tid) = task_id {
+            self.tasks.remove(&tid);
+        }
     }
 }

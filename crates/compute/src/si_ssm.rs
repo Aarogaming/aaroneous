@@ -16,7 +16,7 @@ use crate::machine_native::{DimensionalUnit, MachineOpcode, NativeComputationNod
 use crate::si_binary::SiThoughtPacket;
 
 /// Magic identifier for Machine-Native State-Space Models: 'SISSM'
-pub const SI_SSM_MAGIC: [u8; 5] = [b'S', b'I', b'S', b'S', b'M'];
+pub const SI_SSM_MAGIC: [u8; 5] = *b"SISSM";
 pub const SI_SSM_VERSION: u16 = 1;
 
 /// Configuration for the Machine-Native Selective State-Space Model

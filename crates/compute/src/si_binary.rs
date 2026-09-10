@@ -12,7 +12,7 @@ use std::path::{Path, PathBuf};
 use crate::machine_native::{DimensionalUnit, NativeComputationalGraph};
 
 /// Magic header for Machine-Native SI binary streams: 'SIMN' (Synthetic Intelligence Machine Native)
-pub const SI_MAGIC_BYTES: [u8; 4] = [b'S', b'I', b'M', b'N'];
+pub const SI_MAGIC_BYTES: [u8; 4] = *b"SIMN";
 pub const SI_CURRENT_VERSION: u16 = 1;
 
 /// Machine-Native Thought Header

@@ -25,9 +25,7 @@ members = [
     "crates/hotload",
     "crates/core-contracts",
     "crates/cratify",
-    "crates/runtime_monitor",
     "crates/biology",
-    "crates/mcp_server", "crates/llm_gateway", "crates/orchestration_plane", "crates/mutation_engine",
 ]
 
 exclude = [

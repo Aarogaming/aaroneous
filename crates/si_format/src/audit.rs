@@ -106,6 +106,7 @@ impl InstructionSetAuditor for AArch64Auditor {
         TargetArch::AArch64
     }
 
+#[allow(clippy::chunks_exact_to_as_chunks)]
     fn audit(&self, bytecode: &[u8]) -> Result<AuditResult> {
         if bytecode.is_empty() {
             return Ok(AuditResult::Allowed);

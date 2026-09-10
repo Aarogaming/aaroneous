@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
 
+use crate::error::HypervisorError;
 use crate::federation::forge::read_gguf;
 use compute::si_forge::SiForge;
 use compute::si_packer::SiTierFlags;

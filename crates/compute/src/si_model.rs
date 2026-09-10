@@ -19,7 +19,7 @@ pub const SI_OPCODE_VOCAB_SIZE: usize = 64;
 pub const SI_LATENT_DIM: usize = 1024;
 pub const SI_DEFAULT_HIDDEN_DIM: usize = 256;
 pub const SI_DEFAULT_NUM_LAYERS: usize = 6;
-pub const SI_MODEL_MAGIC: [u8; 4] = [b'S', b'I', b'M', b'D']; // Synthetic Intelligence Model
+pub const SI_MODEL_MAGIC: [u8; 4] = *b"SIMD";
 
 /// Configuration for the Machine-Native SI Model
 #[derive(Debug, Clone, Serialize, Deserialize)]

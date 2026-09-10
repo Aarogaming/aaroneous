@@ -16,6 +16,7 @@ use std::time::Instant;
 /// Functional domain category
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum CapabilityCategory {
+    General,
     Specialist,
     ScreenAutomation,
     DevTools,
@@ -29,6 +30,7 @@ pub enum CapabilityCategory {
 impl CapabilityCategory {
     pub fn label(&self) -> &'static str {
         match self {
+            Self::General => "General Operations",
             Self::Specialist => "Specialists & Guild",
             Self::ScreenAutomation => "Screen & Motor Vision",
             Self::DevTools => "Developer Power Tools",

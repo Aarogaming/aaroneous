@@ -31,7 +31,7 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 
 /// Magic identifier for Canonical `.si` Cartridges: 'SINT' (Synthetic Intelligence Native Topology)
-pub const SI_CANONICAL_MAGIC: [u8; 4] = [b'S', b'I', b'N', b'T'];
+pub const SI_CANONICAL_MAGIC: [u8; 4] = *b"SINT";
 
 /// Canonical Specification Version 3.0
 pub const SI_CANONICAL_VERSION: u16 = 3;

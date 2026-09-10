@@ -376,8 +376,8 @@ async fn run_import(
                     model_name: model_name.clone(),
                     parameter_count: (dna.parameter_count_m * 1_000_000.0) as u64,
                     created_at: chrono::Utc::now(),
-                    priority: crate::digestion::DigestionPriority::Normal,
-                    status: crate::digestion::DigestionStatus::StructuralAnalysis,
+                    priority: autonomic_adaptation::self_digestion::DigestionPriority::Normal,
+                    status: autonomic_adaptation::self_digestion::DigestionStatus::StructuralAnalysis,
                     estimated_duration_minutes: 1,
                 };
 

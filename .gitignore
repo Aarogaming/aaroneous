@@ -22,6 +22,8 @@ docs/history/agents/**/target/
 
 # Fabrication Module Target Caches
 data/fabrication/**/target/
+# Sandbox fabrication vendor directory
+data/fabrication/**
 
 # Generated runtime state and exported artifacts
 cache/

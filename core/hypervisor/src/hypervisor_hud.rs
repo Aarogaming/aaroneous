@@ -11,7 +11,7 @@ use eframe::egui::{self, Color32, RichText, Stroke, Ui, Vec2};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
-use evolution::specialists::evolution::{NeurochemicalHomeostasisEngine, NeurochemicalLevels};
+use evolution::neurochemistry::{NeurochemicalHomeostasisEngine, NeurochemicalLevels};
 use nervous_system::specialist_bus::{SpecialistSynapseBus, TENSOR_DIM};
 use omni::{OmniEngine, SpatialCoord, StarNode, StarNodeType};
 use platform_bridge::SensoryMotorPipeline;

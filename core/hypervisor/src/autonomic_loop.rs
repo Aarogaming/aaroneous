@@ -7,7 +7,8 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::thread;
 use std::time::{Duration, Instant};
-use tracing::{debug, info, warn};
+use tracing::{debug, error, info, warn};
+use crate::error::HypervisorError;
 
 /// Maximum allowed wall-clock duration for a single tick. If a tick exceeds
 /// this we log a warning and continue the loop on the next iteration. This
@@ -425,7 +426,13 @@ impl AutonomicNervousSystem {
             platform_bridge::observability::mmcss::enable_mmcss_time_critical("Games");
             platform_bridge::observability::mmcss::set_thread_performance_affinity(0x05); // Pin to P-Core #0 and #2
 
-            let rt = tokio::runtime::Runtime::new().map_err(|e| HypervisorError::RuntimeError(e.to_string()))?;
+            let rt = match tokio::runtime::Runtime::new() {
+                Ok(r) => r,
+                Err(e) => {
+                    error!(target: "autonomic_loop", ?e, "Failed to create Tokio runtime");
+                    return;
+                }
+            };
             let _task_router = TaskRouter::new(
                 Some(enzyme_runner_for_router),
                 Some(learning_loop_for_router),

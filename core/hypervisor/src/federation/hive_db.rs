@@ -1,7 +1,7 @@
 // Aaroneous Persistence Layer - SQLite Integration
 // Handles saving/loading specialists, skills, constellations, and event history
 
-use crate::digestion::SpecialistPersona;
+use crate::SpecialistPersona;
 use crate::genetics::SpecialistGenome;
 use crate::skills::Skill;
 use rusqlite::{Connection, OptionalExtension, Result as SqlResult, params};

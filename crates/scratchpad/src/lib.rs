@@ -15,6 +15,12 @@ impl ScratchpadCartridge {
     }
 }
 
+impl Default for ScratchpadCartridge {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl UiCartridge for ScratchpadCartridge {
     fn name(&self) -> &str {
         "Native Scratchpad"
@@ -69,6 +75,7 @@ impl UiCartridge for ScratchpadCartridge {
 }
 
 /// Opaque type for C FFI compatibility.
+#[allow(dead_code)]
 pub struct UiCartridgeOpaque {
     inner: Box<dyn UiCartridge>,
 }

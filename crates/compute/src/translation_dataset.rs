@@ -11,7 +11,7 @@ use std::path::Path;
 
 pub const ROSETTA_TEACHER_DIM: usize = 4096;
 pub const ROSETTA_LATENT_DIM: usize = 256;
-pub const ROSETTA_MAGIC: [u8; 4] = [b'R', b'O', b'S', b'T'];
+pub const ROSETTA_MAGIC: [u8; 4] = *b"ROST";
 
 /// A single step in a software or OS micro-task trajectory
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -167,8 +167,9 @@ impl StudioApp {
             }
             CommandAction::ExecuteCapability(cmd) => {
                 let id = cmd.id();
-                let params = cmd.params();
-                let outcome = self.state.capability_broker.execute(id, params);
+                let params = serde_json::to_string(&cmd.params()).unwrap_or_default();
+                let params_val: serde_json::Value = if params.is_empty() { serde_json::Value::Null } else { serde_json::from_str(&params).unwrap_or(serde_json::Value::Null) };
+                let outcome = self.state.capability_broker.execute(id, params_val);
                 if outcome.success {
                     self.toasts.push(
                         "Capability Executed",
