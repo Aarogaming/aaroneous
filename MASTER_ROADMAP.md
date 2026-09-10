@@ -18,6 +18,23 @@ Aaroneous is a self‑compiling, zero‑copy, AGI‑centric OS substrate that un
 
 ---
 
+### Systemic Execution Loop
+
+All ongoing feature cycles and autonomous runtime evolution adhere to the systemic progression:
+$$\textbf{Observe} \longrightarrow \textbf{Hypothesize} \longrightarrow \textbf{Design} \longrightarrow \textbf{Implement} \longrightarrow \textbf{Test} \longrightarrow \textbf{Deploy} \longrightarrow \textbf{Measure} \longrightarrow \textbf{Learn} \longrightarrow \textbf{Repeat}$$
+
+- **Observe**: Gather deep sensory telemetry (DXGI, UIA, ETW, audio loopback) and profile hotspot bottlenecks.
+- **Hypothesize**: Formulate concrete behavioral hypotheses regarding efficiency gains, AST mutations, or routing.
+- **Design**: Model zero-copy structs (`bytemuck::Pod`), verify SMT non-interference, and establish API invariants.
+- **Implement**: Write memory-safe, panic-free Rust adhering to strict blast radius isolation.
+- **Test**: Execute unit test suites, integration harnesses, and Cratify ABI certification.
+- **Deploy**: Mount into running hypervisor via `.si` containers or hot-loaded C-ABI plugins.
+- **Measure**: Sample nanosecond hardware counters (`_rdtsc`), VRAM budgets, and thermal stability.
+- **Learn**: Record trajectory outcomes into HNSW associative memory and update streaming LoRA deltas.
+- **Repeat**: Feed learned weights into observation for continuous recursive refinement.
+
+---
+
 ### Current State (Baseline)
 - **Hypervisor core** (`core/hypervisor/src/lib.rs`) is a library of re‑exports with no single entry‑point or orchestrated event loop. Runtime is started by scattered binaries.
 - **IPC / Data Path** (`crates/ipc_bus`) provides zero‑copy binary envelopes (`MachinePacket` with `rkyv`) and a disruptor ring buffer, but some hot paths still emit JSON strings, creating hidden copies.

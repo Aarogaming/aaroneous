@@ -79,6 +79,24 @@ Aaroneous executes `.si` v3.0 cartridges via **memory‑mapped (`mmap`) binary l
 
 ---
 
+## 🔄 The Systemic Engineering Loop
+
+Aaroneous engineering and autonomous agent operations adhere to a recursive, self-refining execution loop:
+
+$$\textbf{Observe} \longrightarrow \textbf{Hypothesize} \longrightarrow \textbf{Design} \longrightarrow \textbf{Implement} \longrightarrow \textbf{Test} \longrightarrow \textbf{Deploy} \longrightarrow \textbf{Measure} \longrightarrow \textbf{Learn} \longrightarrow \textbf{Repeat}$$
+
+1. **Observe**: Capture deep OS telemetry, DXGI visual frames, UIA trees, ETW kernel traces, and system bottlenecks.
+2. **Hypothesize**: Formulate concrete hypotheses on system behavior, performance optimization, or cognitive intent.
+3. **Design**: Construct zero-copy contracts (`bytemuck::Pod`), lock-free ring topologies, and clean API boundaries.
+4. **Implement**: Write strictly safe, zero-panic Rust with deterministic memory layouts (`max_blast_radius = "isolated"`).
+5. **Test**: Execute full-spectrum harness suites (unit, integration, ABI stability, and Cratify certification).
+6. **Deploy**: Stage into sandboxed `.si` containers, hot-loaded modules, or standalone binaries.
+7. **Measure**: Benchmark sub-microsecond RDTSC timings, thermal/VRAM backpressure, and throughput metrics.
+8. **Learn**: Consolidate residual adaptation matrices into permanent habit stacks and state banks.
+9. **Repeat**: Re-enter observation to drive the next generational evolution cycle.
+
+---
+
 ## 📦 Quick Start & CLI Usage
 
 ### Cratify – Unified Lifecycle Orchestrator
@@ -91,9 +109,12 @@ audit → scaffold → translate → verify → harvest
 - `verify` – Run static analysis & sandbox tests.
 - `harvest` – Package compiled ACC into a deployable `.si` cartridge.
 
-### Build and Launch HUD
+### Build and Launch Desktop Studio & HUD
 ```powershell
-cargo run --release -p a_run --bin aaroneous
+# Standalone Studio HUD (Eframe / WGPU Desktop Application)
+cargo run --release -p studio_hud --bin aaroneous
+
+# Headless Hypervisor CLI
 cargo run --release -p a_run --bin a_run -- --help
 ```
 

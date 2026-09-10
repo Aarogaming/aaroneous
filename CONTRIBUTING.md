@@ -11,6 +11,26 @@ Thank you for your interest in contributing to Aaroneous — a sovereign machine
 
 ## Development Workflow
 
+### The Systemic Loop
+
+All engineering work, feature implementations, and agent workflows in Aaroneous adhere to a continuous, disciplined closed-loop cycle:
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│                    THE AARONEOUS SYSTEMIC LOOP                   │
+│                                                                  │
+│  1. OBSERVE    ─► Telemetry, system state, profilers, user needs  │
+│  2. HYPOTHESIZE─► Formulate expected behavior & performance root │
+│  3. DESIGN     ─► Architecture, zero-copy contracts, API shapes  │
+│  4. IMPLEMENT  ─► Rust code (safe, zero-copy, Pod, no-unwrap)    │
+│  5. TEST       ─► Harness validation, clippy, unit & integration  │
+│  6. DEPLOY     ─► Sandboxed cartridge activation / binary stage  │
+│  7. MEASURE    ─► Microsecond RDTSC timings, thermal/VRAM impact │
+│  8. LEARN      ─► Residual error capture, habit crystallization  │
+│  9. REPEAT     ─► Next generational step with consolidated state │
+└──────────────────────────────────────────────────────────────────┘
+```
+
 ### Branch Naming
 
 - `feat/short-description` — new features

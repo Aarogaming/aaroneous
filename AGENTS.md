@@ -23,6 +23,8 @@ Shell Execution Freedom: You have access to a multi-profile environment includin
 - Limit: Max 2 failed tool attempts per task before stopping to report the failure state.
 - Atomic Git: One logical change per commit. End output with: `git commit -m "<type>(<scope>): <desc>"` (feat, fix, refactor, test).
 - Unified Cratify Pipeline: `audit → scaffold → translate → verify → harvest` (use as command sequence for ACC lifecycle).
+- Systemic Execution Loop: Every autonomous agent and engineering operation must cycle strictly through:
+  `Observe → Hypothesize → Design → Implement → Test → Deploy → Measure → Learn → Repeat`
 </dynamic_shell_orchestration>
 
 <format>
