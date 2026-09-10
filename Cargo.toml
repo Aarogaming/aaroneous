@@ -20,13 +20,17 @@ members = [
     "crates/aaroneous_wire",
     "core/hypervisor",
     "sdk/rust",
-        "crates/plugin_api",
-    "crates/hotload", "crates/core-contracts", "crates/cratify",
-
+    "crates/plugin_api",
+    "crates/aaroneous_wire",
+    "crates/hotload",
+    "crates/core-contracts",
+    "crates/cratify",
+    "crates/runtime_monitor",
+    "crates/biology",
+    "crates/mcp_server", "crates/llm_gateway", "crates/orchestration_plane", "crates/mutation_engine",
 ]
 
 exclude = [
-    "MaelstromUI/src-tauri",
     "firmware",
     "dev/tools/afc",
 ]
@@ -50,6 +54,7 @@ serde_json = "1.0"
 tokio = { version = "1.0", features = ["full"] }
 thiserror = "2.0"
 anyhow = "1.0"
+reqwest = { version = "0.13", default-features = false, features = ["json", "stream", "rustls"] }
 chrono = "0.4"
 uuid = { version = "1.0", features = ["v4", "serde"] }
 tracing = "0.1"
@@ -65,3 +70,5 @@ lto = "fat"            # Cross-crate inlining across si_ir, compute, and platfor
 codegen-units = 1      # Maximizes compiler optimization across the entire workspace
 panic = "abort"        # Removes unwinding landing pads (makes Cranelift W^X memory leaner)
 strip = true           # Strips debug symbols from the final standalone binary
+
+
