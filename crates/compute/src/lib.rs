@@ -53,6 +53,7 @@ pub use entropy_metrics as thermodynamics;
 pub mod topology;
 pub mod translation_dataset;
 pub mod user_baseline;
+pub mod token_consumer;
 pub mod wx_memory;
 
 pub use user_baseline::{
@@ -379,3 +380,4 @@ mod tests {
             .contains("Unknown compute task"));
     }
 }
+pub use token_consumer::MachineToken;
