@@ -17,6 +17,7 @@ pub mod sensory_motor_loop;
 pub mod traits;
 pub mod vision_latent;
 pub mod web_ingest;
+pub mod token_emitter;
 pub mod window_target;
 
 pub use adapters::{

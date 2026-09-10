@@ -18,6 +18,8 @@ parking_lot = "0.12"
 rustfft = "6.2"
 compute = { path = "../compute" }
 aaroneous_wire = { path = "../aaroneous_wire" }
+si_ir = { path = "../si_ir" }
+ipc_bus = { path = "../ipc_bus" }
 tokio-serial = "5.4"
 windows = { version = "0.62", features = [
     "Win32_Foundation",
