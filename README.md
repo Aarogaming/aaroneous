@@ -139,10 +139,12 @@ a_run si benchmark data/models/chimera_ast.si --iterations 500
 
 ---
 
-## 📂 Workspace Architecture (16 Rust Crates & Desktop Hypervisor)
+## 📂 Workspace Architecture (22 Rust Crates & Desktop Hypervisor)
 ```
 d:\Aaroneous\
 ├── crates/
+│   ├── studio_hud/             # Pillar 5: Desktop Studio & Telemetry HUD native GUI
+│   ├── llm_gateway/            # Decoupled sovereign & remote LLM gateway & MCP bridge
 │   ├── compute/                # SiForge, SSM engine, Sparse MoE Register, NPU bridge
 │   ├── paths/                  # Dynamic workspace path resolver
 │   ├── ipc_bus/                # Lock‑free SPMC bus, LMAX disruptor, persistent WAL
@@ -153,15 +155,16 @@ d:\Aaroneous\
 │   ├── platform_bridge/        # Win32 HID injection, DXGI zero‑copy capture, WASAPI loopback
 │   ├── transpiler/             # AST parser & distillation miner
 │   ├── governance/             # Thermal monitoring, Z3 SMT gates, SI lattice checks
-│   ├── omni/                   # 3D galaxy graph, Barnes‑Hut clustering
+│   ├── omni/                   # 3D spatial graph, clustering, and vector search
 │   ├── si_format/              # Canonical `.si` layout, SIMD alignment, CRC32
 │   ├── si_ir/                  # Computational graphs, MachineOpcode IR, type lattice
-│   └── universal_native_template/ # Zero‑overhead component template
+│   ├── core-contracts/         # Zero-copy memory contracts & Pod derivations
+│   └── cratify/                # Workspace decoupling & ACC governance certification engine
 ├── core/
-│   └── hypervisor/             # HUD, MCP service, Raft cluster, CLI (`a_run`)
+│   └── hypervisor/             # Headless runtime engine (`a_run`, `profile_compiler`, `shm_dump`)
 ├── data/
 │   ├── models/                 # Birthed `.si` cartridges
-│   └── skills/                 # Crystallized `.si` muscle‑memory cartridges
+│   └── skills/                 # Crystallized `.si` execution cartridges
 ├── deploy/                     # Windows install & packaging scripts
 └── dist/                       # Release zip archives
 ```
