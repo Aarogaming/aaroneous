@@ -147,7 +147,7 @@ pub struct McpService {
 impl McpService {
     pub fn new(config: ServiceConfig) -> Self {
         // Discover workspace root at startup — dynamically resolved via aaroneous_paths
-        let workspace_root = aaroneous_paths::WorkspacePaths::discover().root().clone();
+        let workspace_root = aaroneous_paths::WorkspacePaths::from_config(WorkspacePathsConfig::default()).root().clone();
 
         tracing::info!("MCP workspace root: {}", workspace_root.display());
 

@@ -313,6 +313,13 @@ use std::sync::Mutex;
 use plugin_api::{PluginDescriptor, Plugin};
 use libloading::Library;
 
+/// Plugin configuration POD for constructor injection
+#[repr(C)]
+#[derive(Debug, Clone, Copy, Default)]
+pub struct PluginConfig {
+    pub path: std::ffi::OsStr,
+}
+
 /// Global plugin manager singleton.
 pub static PLUGIN_MANAGER: Lazy<Mutex<PluginManager>> = Lazy::new(|| Mutex::new(PluginManager::new()));
 
@@ -320,11 +327,10 @@ pub struct PluginManager {
     registry: HashMap<String, PluginDescriptor>,
     // Store loaded plugin handles to keep them alive.
     _loaded: Vec<Library>, // Store Library objects
-
 }
 
 impl PluginManager {
-    pub fn new() -> Self {
+    pub fn new(config: PluginConfig) -> Self {
         Self {
             registry: HashMap::new(),
             _loaded: Vec::new(),
@@ -349,10 +355,9 @@ impl PluginManager {
     }
 }
 
-/// Initialize plugins at hypervisor startup.
-pub fn init_plugins() -> Result<(), anyhow::Error> {
-    let plugins_dir = std::env::var("AARONEOUS_PLUGIN_PATH").unwrap_or_else(|_| "plugins".into());
-    let entries = std::fs::read_dir(&plugins_dir)?;
+/// Initialize plugins at hypervisor startup via config injection.
+pub fn init_plugins(config: PluginConfig) -> Result<(), anyhow::Error> {
+    let entries = std::fs::read_dir(&config.path)?;
     for entry in entries {
         let entry = entry?;
         let path = entry.path();
@@ -433,10 +438,8 @@ pub fn run_health_checks() -> bool {
     tracing::info!("HealthCheck: Reasoning Engine (Synthesizer) status: Nominal");
 
     // Check Constellation (Omni) registry health
-    if aaroneous_paths::WorkspacePaths::discover()
-        .registry()
-        .exists()
-    {
+    let ws = aaroneous_paths::WorkspacePaths::from_config(aaroneous_paths::WorkspacePathsConfig::default());
+    if ws.registry().exists() {
         tracing::info!("HealthCheck: Constellation Registry (Omni) status: Nominal");
     } else {
         tracing::warn!(

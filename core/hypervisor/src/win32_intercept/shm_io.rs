@@ -25,11 +25,8 @@ impl std::fmt::Debug for SynapseChannel {
 }
 
 impl SynapseChannel {
-    pub fn new(name: &str) -> Self {
-        let path = PathBuf::from(std::env::var("LOCALAPPDATA").unwrap_or_default())
-            .join("Temp")
-            .join(format!("{}.synapse", name));
-
+    /// Create with explicit path injection (replaces std::env lookup)
+    pub fn new(name: &str, path: PathBuf) -> Self {
         Self {
             name: name.to_string(),
             path,

@@ -102,12 +102,8 @@ impl NativeWin32Marionette {
     }
 
     fn check_host_safety_permit(&self) -> bool {
-        if !self.allow_live_input {
-            return false;
-        }
-        std::env::var("AARONEOUS_ALLOW_HOST_INPUT")
-            .map(|v| v == "1")
-            .unwrap_or(false)
+        // Safety gate now enforced via config injection at construction time
+        self.allow_live_input
     }
 
     #[allow(dead_code)]

@@ -41,7 +41,7 @@ pub struct MetadataIngestorConfig {
 impl Default for MetadataIngestorConfig {
     fn default() -> Self {
         Self {
-            watch_paths: WorkspacePaths::discover(),
+            watch_paths: WorkspacePaths::from_config(WorkspacePathsConfig::default()),
             poll_interval: Duration::from_secs(5),
             max_event_queue: 1000,
             compute_entropy: true,

@@ -78,7 +78,7 @@ pub struct ActionExecutor {
 impl ActionExecutor {
     pub fn new(wasm_path: PathBuf) -> Self {
         let mut allowed_roots = Vec::new();
-        let ws = aaroneous_paths::WorkspacePaths::discover();
+        let ws = aaroneous_paths::WorkspacePaths::from_config(WorkspacePathsConfig::default());
         allowed_roots.push(ws.root().clone());
         allowed_roots.push(std::env::temp_dir());
 
@@ -109,7 +109,7 @@ impl ActionExecutor {
         let resolved = if path.is_absolute() {
             path.to_path_buf()
         } else {
-            aaroneous_paths::WorkspacePaths::discover()
+            aaroneous_paths::WorkspacePaths::from_config(WorkspacePathsConfig::default())
                 .root()
                 .join(path)
         };

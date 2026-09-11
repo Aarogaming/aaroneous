@@ -51,7 +51,7 @@ pub type GenerationJobs =
 
 // ── Workspace path helpers ───────────────────────────────────────────
 fn workspace_paths() -> aaroneous_paths::WorkspacePaths {
-    aaroneous_paths::WorkspacePaths::discover()
+    aaroneous_paths::WorkspacePaths::from_config(aaroneous_paths::WorkspacePathsConfig::default())
 }
 
 fn workspace_models_dir() -> std::path::PathBuf {

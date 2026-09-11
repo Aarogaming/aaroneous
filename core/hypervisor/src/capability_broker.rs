@@ -423,7 +423,7 @@ impl CapabilityBroker {
                 available: true,
             },
             Box::new(|_| {
-                let ws = aaroneous_paths::WorkspacePaths::discover();
+                let ws = aaroneous_paths::WorkspacePaths::from_config(WorkspacePathsConfig::default());
                 let bus_path = ws.synapse_file();
                 let exists = bus_path.exists();
                 let size = if exists {
