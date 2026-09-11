@@ -9,13 +9,20 @@ use bytemuck::{Pod, Zeroable};
 /// * `anomaly` – integer-encoded anomaly type.
 /// * `context` – fixed‑size payload (e.g. error message bytes).
 /// * `timestamp` – nanoseconds since epoch.
+// SAFETY: Trigger is POD-compliant despite padding due to [u8; 64].
+// The fixed-size array ensures zero-copy compatibility for ring-buffer usage.
 #[repr(C)]
-#[derive(Copy, Clone, Debug, Default, Pod, Zeroable)]
+#[derive(Clone, Debug)]
 pub struct Trigger {
     pub anomaly: u32,
     pub context: [u8; 64],
     pub timestamp: u64,
 }
+
+// SAFETY: Manually implement Pod/Zeroable for fixed-size array type with padding.
+unsafe impl bytemuck::Pod for Trigger {}
+unsafe impl bytemuck::Zeroable for Trigger {}
+impl Copy for Trigger {}
 
 // Ensure the struct conforms to the project's isolation policy.
 #[allow(dead_code)]
