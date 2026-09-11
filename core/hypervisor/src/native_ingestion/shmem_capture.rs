@@ -33,7 +33,7 @@ impl FrameCaptureConfig {
         Self {
             width,
             height,
-            shmem_path: std::path::PathBuf::from("aaroneous_fb.shmem"),
+            shmem_path: std::path::PathBuf::from("fb.shmem"),
             prefer_dxgi: true,
         }
     }

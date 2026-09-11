@@ -11,7 +11,7 @@ repository.workspace = true
 path = "src/lib.rs"
 
 [[bin]]
-name = "a_run"
+name = "hypervisor"
 path = "bin/a_run.rs"
 
 [[bin]]
