@@ -1,7 +1,7 @@
 [package]
 name = "studio_hud"
 version = "0.1.0"
-edition = "2024"
+edition.workspace = true
 authors.workspace = true
 description = "Aaroneous Pillar 5: Desktop Studio & Telemetry HUD native egui/wgpu presentation layer"
 license.workspace = true

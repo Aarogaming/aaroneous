@@ -1,7 +1,7 @@
 [package]
 name = "afc"
 version = "0.1.0"
-edition = "2021"
+edition.workspace = true
 authors = ["Aaron"]
 description = "Aaroneous Autonomous Flight Controller - Out-of-tree Sovereign CI/CD Hypervisor"
 

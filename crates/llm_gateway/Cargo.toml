@@ -1,7 +1,7 @@
 [package]
 name = "llm_gateway"
 version = "0.1.0"
-edition = "2024"
+edition.workspace = true
 authors.workspace = true
 description = "Aaroneous: Decoupled LLM provider gateway, local discovery, prompt caching, and MCP translation bridge"
 license.workspace = true

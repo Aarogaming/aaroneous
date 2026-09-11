@@ -1,7 +1,7 @@
 [package]
 name = "a_run"
 version = "0.1.0"
-edition = "2024"
+edition.workspace = true
 authors.workspace = true
 description = "Central hypervisor: CLI daemon, egui HUD, MCP service, Win32 HID bridge"
 license.workspace = true

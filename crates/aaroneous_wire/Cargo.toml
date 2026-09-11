@@ -1,7 +1,7 @@
 ﻿[package]
 name = "aaroneous_wire"
 version = "0.1.0"
-edition = "2021"
+edition.workspace = true
 authors.workspace = true
 description = "Universal #![no_std] compatible wire protocol, COBS framing, and telemetry serialization for MCUs, Android, and PC"
 license.workspace = true

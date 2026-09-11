@@ -1,7 +1,7 @@
 [package]
 name = "ipc_bus"
 version = "0.2.0"
-edition = "2021"
+edition.workspace = true
 authors.workspace = true
 description = "Machine-Native Linking Protocol & Zero-Copy SPMC Shared Memory Bus"
 license.workspace = true

@@ -1,7 +1,7 @@
 [package]
 name = "aaroneous_hud"
 version = "0.1.0"
-edition = "2024"
+edition.workspace = true
 authors = ["Aaron"]
 description = "HUD/UI layer for Aaroneous, extracted from hypervisor core"
 license = "MIT"
