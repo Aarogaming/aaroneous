@@ -19,7 +19,7 @@ pub struct ClusterConfig {
 impl Default for ClusterConfig {
     fn default() -> Self {
         Self {
-            cluster_name: "aaroneous-cluster".to_string(),
+            cluster_name: "hive-cluster".to_string(),
             node_id: uuid::Uuid::new_v4().to_string(),
             listen_addr: "127.0.0.1:8001".to_string(),
             discovery_interval_ms: 5000,

@@ -2226,7 +2226,7 @@ impl Forge {
                 // Aaroneous-specific provenance key — always present
                 kv.push((
                     "general.source".to_string(),
-                    MetaValue::String("aaroneous-forge".to_string()),
+                    MetaValue::String("forge".to_string()),
                 ));
                 kv.push((
                     "general.recipe_id".to_string(),
