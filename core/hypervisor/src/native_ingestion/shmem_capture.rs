@@ -309,7 +309,13 @@ mod tests {
     use super::*;
 
     fn temp_shmem_path(name: &str) -> std::path::PathBuf {
-        std::env::temp_dir().join(format!("aaroneous_test_{}.shmem", name))
+        let mut path = std::path::PathBuf::from("target/tmp");
+        path.push(format!("test_{}.shmem", name));
+        // Ensure directory exists
+        if let Err(e) = std::fs::create_dir_all("target/tmp") {
+            panic!("Failed to create target/tmp: {}", e);
+        }
+        path
     }
 
     fn cleanup(path: &std::path::Path) {
