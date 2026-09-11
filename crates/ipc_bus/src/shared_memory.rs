@@ -114,7 +114,8 @@ pub struct SharedMemorySynapse {
 
 impl SharedMemorySynapse {
     pub fn new(name: &str, size: usize) -> Result<Self> {
-        let path = aaroneous_paths::resolve_synapse_path(name);
+        let config = aaroneous_paths::WorkspacePathsConfig::default();
+        let path = aaroneous_paths::resolve_synapse_path(name, &config);
         
         let file = OpenOptions::new()
             .read(true)

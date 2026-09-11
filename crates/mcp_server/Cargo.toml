@@ -17,6 +17,7 @@ sha2 = "0.10"
 uuid = { workspace = true }
 anyhow = { workspace = true }
 async-stream = "0.3"
+bytemuck = { workspace = true }
 
 [features]
 default = []

@@ -12,6 +12,10 @@ anyhow = { workspace = true }
 mutation_engine = { path = "../mutation_engine" }
 prettyplease = "0.2"
 walkdir = "2.3"
+uuid = { version = "1.0", features = ["v4"] }
+hex = "0.4"
+bytemuck = { workspace = true }
+a_run = { path = "../../core/hypervisor" }
 
-[lib]
-path = "src/lib.rs"
+[dev-dependencies]
+tempfile = "3.8"

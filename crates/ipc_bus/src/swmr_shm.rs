@@ -230,9 +230,15 @@ impl GenerationCounter {
     }
 }
 
-/// Platform-agnostic workspace path resolution
-pub fn resolve_synapse_path(name: &str) -> PathBuf {
-    aaroneous_paths::resolve_synapse_path(name)
+/// Platform-agnostic workspace path resolution with config injection
+pub fn resolve_synapse_path(name: &str, config: &aaroneous_paths::WorkspacePathsConfig) -> PathBuf {
+    aaroneous_paths::resolve_synapse_path(name, config)
+}
+
+/// Convenience function for default config (for backward compatibility)
+pub fn resolve_synapse_path_default(name: &str) -> PathBuf {
+    let config = aaroneous_paths::WorkspacePathsConfig::default();
+    resolve_synapse_path(name, &config)
 }
 
 /// The SWMR Synapse - Single Writer, Multi-Reader zero-copy shared memory
@@ -268,7 +274,8 @@ impl SWMRSynapse {
     /// Runs fully synchronously and does not nest runtimes
     pub fn new_sync(name: &str, size: usize) -> Result<Self> {
         let size = size.min(MAX_SYNAPSE_SIZE);
-        let path = resolve_synapse_path(name);
+        let config = aaroneous_paths::WorkspacePathsConfig::default();
+        let path = resolve_synapse_path(name, &config);
 
         // Ensure parent directory exists
         if let Some(parent) = path.parent() {
@@ -341,7 +348,8 @@ impl SWMRSynapse {
 
     pub async fn new(name: &str, size: usize) -> Result<Self> {
         let size = size.min(MAX_SYNAPSE_SIZE);
-        let path = resolve_synapse_path(name);
+        let config = aaroneous_paths::WorkspacePathsConfig::default();
+        let path = resolve_synapse_path(name, &config);
 
         // Ensure parent directory exists
         if let Some(parent) = path.parent() {

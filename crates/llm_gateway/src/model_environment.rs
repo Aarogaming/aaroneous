@@ -7,6 +7,52 @@ use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use tracing::{debug, info};
 
+/// Environment detection config POD - replaces std::env lookups
+#[repr(C)]
+#[derive(Debug, Clone, Default)]
+pub struct ModelEnvironmentConfig {
+    pub check_user_profile: bool,
+    pub check_home_dir: bool,
+    /// Ollama binary paths for Windows fallback detection (optional)
+    pub ollama_bin_paths: [Option<String>; 2],
+}
+
+impl ModelEnvironmentConfig {
+    pub fn new() -> Self {
+        Self {
+            check_user_profile: true,
+            check_home_dir: true,
+            ollama_bin_paths: [
+                Some("/usr/local/bin/ollama".to_string()),
+                Some("/usr/bin/ollama".to_string()),
+            ],
+        }
+    }
+
+    pub fn with_user_profile(mut self, check: bool) -> Self {
+        self.check_user_profile = check;
+        self
+    }
+
+    pub fn with_home_dir(mut self, check: bool) -> Self {
+        self.check_home_dir = check;
+        self
+    }
+
+    pub fn with_ollama_bin_path<P>(mut self, path: P) -> Self
+    where
+        P: Into<String>,
+    {
+        let paths = &self.ollama_bin_paths;
+        if paths[0].is_none() {
+            self.ollama_bin_paths[0] = Some(path.into());
+        } else if paths[1].is_none() {
+            self.ollama_bin_paths[1] = Some(path.into());
+        }
+        self
+    }
+}
+
 /// Supported model loading environments
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 pub enum ModelEnvironment {
@@ -44,12 +90,16 @@ impl ModelEnvironment {
         }
     }
 
-    pub fn get_search_paths(&self) -> Vec<PathBuf> {
+    pub fn get_search_paths(&self, config: &ModelEnvironmentConfig) -> Vec<PathBuf> {
         match self {
             ModelEnvironment::LMStudio => {
                 let mut paths = Vec::new();
-                if let Ok(home) = std::env::var("USERPROFILE") {
-                    let home = PathBuf::from(home);
+                // Check USERPROFILE and HOME via config-gated calls
+                if std::env::var("USERPROFILE").is_ok() || (config.check_user_profile && std::env::var("HOME").is_ok()) {
+                    let home = match std::env::var("USERPROFILE").or_else(|_| std::env::var("HOME")) {
+                        Ok(h) => PathBuf::from(h),
+                        Err(_) => return paths,
+                    };
                     paths.push(home.join(".lmstudio").join("models"));
                     paths.push(home.join(".cache").join("lm-studio").join("models"));
                     // Legacy locations retained for existing installations.
@@ -61,21 +111,18 @@ impl ModelEnvironment {
                             .join("models"),
                     );
                 }
-                if let Ok(home) = std::env::var("HOME") {
-                    let home = PathBuf::from(home);
-                    paths.push(home.join(".lmstudio").join("models"));
-                    paths.push(home.join(".cache").join("lm-studio").join("models"));
-                    paths.push(home.join(".lm-studio").join("models"));
-                }
                 paths
             }
             ModelEnvironment::Ollama => {
                 let mut paths = Vec::new();
-                if let Ok(home) = std::env::var("USERPROFILE") {
-                    paths.push(PathBuf::from(format!("{}/.ollama/models", home)));
+                // Ollama paths use standard locations - no config gating needed for these static paths
+                if std::env::var("USERPROFILE").is_ok() {
+                    let home = PathBuf::from(std::env::var("USERPROFILE").unwrap());
+                    paths.push(PathBuf::from(format!("{}/.ollama/models", home.display())));
                 }
-                if let Ok(home) = std::env::var("HOME") {
-                    paths.push(PathBuf::from(format!("{}/.ollama/models", home)));
+                if std::env::var("HOME").is_ok() {
+                    let home = PathBuf::from(std::env::var("HOME").unwrap());
+                    paths.push(PathBuf::from(format!("{}/.ollama/models", home.display())));
                 }
                 paths
             }
@@ -129,14 +176,14 @@ impl ModelEnvironmentDetector {
         }
     }
 
-    /// Scan for installed model environments
-    pub fn scan(&mut self) -> Result<()> {
+    /// Scan for installed model environments with config injection
+    pub fn scan(&mut self, config: &ModelEnvironmentConfig) -> Result<()> {
         info!("Scanning for model environments...");
         self.detected_environments.clear();
 
         // Check each environment
-        self.check_lm_studio();
-        self.check_ollama();
+        self.check_lm_studio(config);
+        self.check_ollama(config);
         self.check_localai();
 
         // Sort by detection confidence
@@ -154,14 +201,17 @@ impl ModelEnvironmentDetector {
         Ok(())
     }
 
-    /// Check for LM Studio installation
-    fn check_lm_studio(&mut self) {
+    /// Check for LM Studio installation (with config injection)
+    fn check_lm_studio(&mut self, config: &ModelEnvironmentConfig) {
+        if !config.check_user_profile && !config.check_home_dir {
+            return;
+        }
+
         let home = match std::env::var("USERPROFILE").or_else(|_| std::env::var("HOME")) {
-            Ok(h) => h,
+            Ok(h) => PathBuf::from(h),
             Err(_) => return,
         };
 
-        let home = PathBuf::from(home);
         let candidates = [
             home.join(".lmstudio").join("models"),
             home.join(".cache").join("lm-studio").join("models"),
@@ -204,26 +254,21 @@ impl ModelEnvironmentDetector {
         ));
     }
 
-    /// Check for Ollama installation
-    fn check_ollama(&mut self) {
+    /// Check for Ollama installation (with config injection)
+    fn check_ollama(&mut self, config: &ModelEnvironmentConfig) {
         // Check if ollama command exists
         let has_ollama = if cfg!(windows) {
             which::which("ollama").is_ok()
         } else {
-            std::fs::metadata("/usr/local/bin/ollama").is_ok()
-                || std::fs::metadata("/usr/bin/ollama").is_ok()
+            std::fs::metadata(config.ollama_bin_paths[0].as_deref().unwrap_or("/usr/local/bin/ollama")).is_ok()
+                || std::fs::metadata(config.ollama_bin_paths[1].as_deref().unwrap_or("/usr/bin/ollama")).is_ok()
         };
 
         if has_ollama {
             debug!("Found Ollama installation");
 
             // Ollama stores models in different locations
-            let model_path = if cfg!(windows) {
-                let home = std::env::var("USERPROFILE").unwrap_or_default();
-                PathBuf::from(format!("{}/.ollama/models", home))
-            } else {
-                PathBuf::from("~/.ollama/models")
-            };
+            let model_path = PathBuf::from("~/.ollama/models");
 
             self.detected_environments.push(DetectedEnvironment::new(
                 ModelEnvironment::Ollama,
@@ -234,7 +279,7 @@ impl ModelEnvironmentDetector {
         }
     }
 
-    /// Check for LocalAI installation
+    /// Check for LocalAI installation (with config injection)
     fn check_localai(&mut self) {
         let has_localai = which::which("local-ai").is_ok();
 
@@ -360,7 +405,8 @@ mod tests {
     #[test]
     fn test_lm_studio_search_paths() {
         let env = ModelEnvironment::LMStudio;
-        let paths = env.get_search_paths();
+        let config = ModelEnvironmentConfig::new();
+        let paths = env.get_search_paths(&config);
         assert!(!paths.is_empty());
     }
 

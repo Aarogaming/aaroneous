@@ -24,6 +24,24 @@ pub struct ModelHubLocation {
     pub exists: bool,
 }
 
+/// Config POD for workspace discovery - replaces env var injection
+#[repr(C)]
+#[derive(Debug, Clone, Default)]
+pub struct WorkspacePathsConfig {
+    pub explicit_root: Option<PathBuf>,
+}
+
+impl WorkspacePathsConfig {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn with_explicit_root(mut self, root: PathBuf) -> Self {
+        self.explicit_root = Some(root);
+        self
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct WorkspacePaths {
     root: PathBuf,
@@ -31,18 +49,17 @@ pub struct WorkspacePaths {
 
 impl Default for WorkspacePaths {
     fn default() -> Self {
-        Self::discover()
+        Self::discover(&WorkspacePathsConfig::new())
     }
 }
 
 impl WorkspacePaths {
     /// Discover and construct workspace paths dynamically without hardcoded drive letters.
-    pub fn discover() -> Self {
-        // 1. Check explicit environment variable
-        if let Ok(env_root) = std::env::var("AARONEOUS_WORKSPACE") {
-            let p = PathBuf::from(env_root);
-            if p.exists() {
-                return Self { root: p };
+    pub fn discover(config: &WorkspacePathsConfig) -> Self {
+        // 1. Use explicit root from config (replaces env var lookup)
+        if let Some(explicit_root) = &config.explicit_root {
+            if explicit_root.exists() {
+                return Self { root: explicit_root.clone() };
             }
         }
 
@@ -85,6 +102,11 @@ impl WorkspacePaths {
     /// Construct from an explicit root path.
     pub fn from_root(root: PathBuf) -> Self {
         Self { root }
+    }
+
+    /// Construct from config POD (preferred pattern).
+    pub fn from_config(config: WorkspacePathsConfig) -> Self {
+        Self::discover(&config)
     }
 
     /// The workspace root directory.
@@ -144,13 +166,6 @@ impl WorkspacePaths {
         } else {
             format!("{}.synapse", name)
         };
-
-        if let Ok(env_root) = std::env::var("AARONEOUS_WORKSPACE") {
-            let p = PathBuf::from(env_root);
-            if p.exists() {
-                return p.join(&file_name);
-            }
-        }
 
         std::env::temp_dir().join(file_name)
     }
@@ -386,8 +401,8 @@ fn format_bytes(bytes: u64) -> String {
 }
 
 /// Platform-agnostic workspace synapse path resolution
-pub fn resolve_synapse_path(name: &str) -> PathBuf {
-    WorkspacePaths::discover().synapse_named(name)
+pub fn resolve_synapse_path(name: &str, config: &WorkspacePathsConfig) -> PathBuf {
+    WorkspacePaths::discover(config).synapse_named(name)
 }
 
 /// Hierarchical configuration registry supporting cascading overrides:
@@ -432,7 +447,7 @@ mod tests {
 
     #[test]
     fn test_workspace_paths_discovery_no_hardcoding() {
-        let paths = WorkspacePaths::discover();
+        let paths = WorkspacePaths::discover(&WorkspacePathsConfig::new());
         assert!(!paths.root().as_os_str().is_empty());
         assert_eq!(paths.crates(), paths.root().join("crates"));
         assert_eq!(paths.specialists(), paths.crates().join("specialists"));
@@ -443,14 +458,15 @@ mod tests {
 
     #[test]
     fn test_known_model_hubs_exist() {
-        let paths = WorkspacePaths::discover();
+        let paths = WorkspacePaths::discover(&WorkspacePathsConfig::new());
         let hubs = paths.get_known_model_hubs();
         assert!(!hubs.is_empty());
     }
 
     #[test]
     fn test_resolve_synapse_path() {
-        let path = resolve_synapse_path("primary");
+        let config = WorkspacePathsConfig::new();
+        let path = resolve_synapse_path("primary", &config);
         assert!(path.to_string_lossy().ends_with("primary.synapse"));
     }
 

@@ -46,6 +46,27 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use tracing::{debug, info};
 
+/// MCP HTTP+SSE transport configuration.
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, bytemuck::Pod, bytemuck::Zeroable)]
+pub struct McpServiceConfig {
+    pub port: u16,
+    pub bind_addr: [u8; 4], // IPv4 octets  
+    pub auth_key: Option<String>,
+    pub _pad: [u8; 7],
+}
+
+impl Default for McpServiceConfig {
+    fn default() -> Self {
+        Self {
+            port: 0,
+            bind_addr: [127, 0, 0, 1],
+            auth_key: None,
+            _pad: [0; 7],
+        }
+    }
+}
+
 // ── State ─────────────────────────────────────────────────────────────────────
 
 /// Session-keyed SSE response channels for Claude Desktop.
@@ -71,7 +92,7 @@ pub struct HttpServer {
 }
 
 impl HttpServer {
-    pub fn new(addr: SocketAddr) -> Self {
+    pub fn new(addr: SocketAddr, cfg: McpServiceConfig) -> Self {
         Self { addr }
     }
 
@@ -80,13 +101,11 @@ impl HttpServer {
     }
 
     /// Build and start the MCP HTTP+SSE server.
-    pub async fn run(self, service: Arc<McpService>) -> Result<(), Box<dyn std::error::Error>> {
-        let has_api_key = std::env::var("AARONEOUS_API_KEY")
-            .map(|key| !key.is_empty())
-            .unwrap_or(false);
+    pub async fn run(self, service: Arc<McpService>, cfg: McpServiceConfig) -> Result<(), Box<dyn std::error::Error>> {
+        let has_api_key = cfg.auth_key.is_some();
         if !self.addr.ip().is_loopback() && !has_api_key {
             return Err(format!(
-                "refusing non-loopback MCP bind {} without AARONEOUS_API_KEY",
+                "refusing non-loopback MCP bind {} without auth key",
                 self.addr
             )
             .into());
@@ -105,7 +124,10 @@ impl HttpServer {
             .route("/mcp", post(handle_mcp_post))
             // SSE transport (for Claude Desktop / streaming clients)
             .route("/sse", get(handle_sse))
-            .layer(axum::middleware::from_fn(mcp_api_key_auth));
+            .layer(axum::middleware::from_fn(move |headers: HeaderMap, req: axum::extract::Request<Body>, next: Next| {
+                let auth_key = cfg.auth_key.clone();
+                mcp_api_key_auth_inner(headers, req, next, auth_key)
+            }));
 
         let public = Router::new()
             // Health probe (unauthenticated)
@@ -136,21 +158,14 @@ impl HttpServer {
 
 // ── Auth Middleware ───────────────────────────────────────────────────────────
 
-/// API-key auth guard for MCP routes.
-///
-/// Mirrors the federation router's `api_key_auth` middleware:
-/// - If `AARONEOUS_API_KEY` env var is **not** set → pass through for loopback
-///   development servers; non-loopback startup is rejected by `HttpServer`.
-/// - If set → require `Authorization: Bearer <key>` header on every request.
-async fn mcp_api_key_auth(
+/// API-key auth guard for MCP routes (called with pre-configured key).
+async fn mcp_api_key_auth_inner(
     headers: HeaderMap,
     req: axum::extract::Request<Body>,
     next: Next,
+    auth_key: Option<String>,
 ) -> Response {
-    let Some(required_key) = std::env::var("AARONEOUS_API_KEY").ok() else {
-        // Auth not configured — pass through
-        return next.run(req).await;
-    };
+    let required_key = auth_key.clone().unwrap_or_default();
 
     let provided = headers
         .get("authorization")

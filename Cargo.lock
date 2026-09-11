@@ -2021,6 +2021,7 @@ dependencies = [
  "cranelift",
  "cranelift-codegen",
  "cranelift-frontend",
+ "hex",
  "hnsw_rs",
  "ipc_bus",
  "memmap2 0.9.11",
@@ -2037,6 +2038,7 @@ dependencies = [
  "target-lexicon",
  "tempfile",
  "tracing",
+ "uuid",
  "windows 0.62.2",
 ]
 
@@ -3932,6 +3934,17 @@ name = "embedded-io"
 version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "edd0f118536f44f5ccd48bcb8b111bdc3de888b58c74639dfb034a357d0f206d"
+
+[[package]]
+name = "emulator_harness"
+version = "0.3.2"
+dependencies = [
+ "bytemuck",
+ "cratify",
+ "ipc_bus",
+ "si_format",
+ "thiserror 1.0.69",
+]
 
 [[package]]
 name = "encode_unicode"
@@ -6721,6 +6734,7 @@ dependencies = [
  "async-stream",
  "async-trait",
  "axum",
+ "bytemuck",
  "hex",
  "serde",
  "serde_json",
@@ -8266,13 +8280,18 @@ dependencies = [
 name = "orchestration_plane"
 version = "0.1.0"
 dependencies = [
+ "a_run",
  "anyhow",
+ "bytemuck",
+ "hex",
  "mutation_engine",
  "prettyplease",
  "serde",
  "serde_json",
+ "tempfile",
  "tokio",
  "tracing",
+ "uuid",
  "walkdir",
 ]
 

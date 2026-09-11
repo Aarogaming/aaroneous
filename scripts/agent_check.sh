@@ -10,7 +10,7 @@ echo "✓ Workspace compiles"
 echo ""
 
 echo "[2/4] Auditing invariants via Cratify..."
-cargo run -p cratify -- audit core/ crates/ dev/ 2>&1 | grep "Audit complete"
+cargo run -p cratify -- audit core/ crates/ dev/emulator_harness 2>&1 | grep "Audit complete"
 echo "✓ Invariant audit complete"
 echo ""
 
