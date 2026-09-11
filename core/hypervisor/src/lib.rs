@@ -437,7 +437,7 @@ pub fn run_health_checks() -> bool {
     tracing::info!("HealthCheck: Reasoning Engine (Synthesizer) status: Nominal");
 
     // Check Constellation (Omni) registry health
-    let ws = aaroneous_paths::WorkspacePaths::from_config(aaroneous_paths::WorkspacePathsConfig::default());
+    let ws = paths::WorkspacePaths::from_config(paths::WorkspacePathsConfig::default());
     if ws.registry().exists() {
         tracing::info!("HealthCheck: Constellation Registry (Omni) status: Nominal");
     } else {

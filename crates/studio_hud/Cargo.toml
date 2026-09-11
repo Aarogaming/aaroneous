@@ -35,7 +35,7 @@ autonomic_adaptation = { path = "../autonomic_adaptation" }
 governance = { path = "../governance" }
 platform_bridge = { path = "../platform_bridge", features = ["native-win32"] }
 specialists = { package = "capabilities", path = "../capabilities" }
-aaroneous_paths = { path = "../paths" }
+paths = { path = "../paths" }
 aaroneous_wire = { path = "../aaroneous_wire" }
 adaptation_engine = { path = "../adaptation_engine" }
 transpiler = { path = "../transpiler" }

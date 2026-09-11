@@ -15,7 +15,7 @@ use compute::{
     DimensionalUnit, MachineOpcode, NativeComputationNode, NativeComputationalGraph,
     NativeTypeLattice,
 };
-use aaroneous_paths::{WorkspacePaths, WorkspacePathsConfig};
+use paths::{WorkspacePaths, WorkspacePathsConfig};
 use bumpalo::Bump;
 
 /// Scratch Bump-Allocation Arena for Ephemeral Flight Contexts (The bumpalo Model)

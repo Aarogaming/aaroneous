@@ -75,7 +75,7 @@ pub type CompactionEngine = SpecialistHibernationEngine;
 
 impl Default for SpecialistHibernationEngine {
     fn default() -> Self {
-        let dir = aaroneous_paths::WorkspacePaths::discover(&aaroneous_paths::WorkspacePathsConfig::new())
+        let dir = paths::WorkspacePaths::discover(&paths::WorkspacePathsConfig::new())
             .models()
             .join("hibernation");
         Self::new(dir)

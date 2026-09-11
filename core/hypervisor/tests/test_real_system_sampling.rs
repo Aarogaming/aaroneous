@@ -2,7 +2,7 @@
 // Tests real-system discovery (LM Studio local GGUFs, physical serial ports)
 // and verifies that live wire telemetry updates the industrial register bank.
 
-use aaroneous_paths::WorkspacePaths;
+use paths::WorkspacePaths;
 use aaroneous_wire::{
     ChannelKind, ChannelValue, MAX_FRAMED_SIZE, TelemetryPacket, WireMessage, encode_frame,
 };

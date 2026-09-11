@@ -231,13 +231,13 @@ impl GenerationCounter {
 }
 
 /// Platform-agnostic workspace path resolution with config injection
-pub fn resolve_synapse_path(name: &str, config: &aaroneous_paths::WorkspacePathsConfig) -> PathBuf {
-    aaroneous_paths::resolve_synapse_path(name, config)
+pub fn resolve_synapse_path(name: &str, config: &paths::WorkspacePathsConfig) -> PathBuf {
+    paths::resolve_synapse_path(name, config)
 }
 
 /// Convenience function for default config (for backward compatibility)
 pub fn resolve_synapse_path_default(name: &str) -> PathBuf {
-    let config = aaroneous_paths::WorkspacePathsConfig::default();
+    let config = paths::WorkspacePathsConfig::default();
     resolve_synapse_path(name, &config)
 }
 
@@ -274,7 +274,7 @@ impl SWMRSynapse {
     /// Runs fully synchronously and does not nest runtimes
     pub fn new_sync(name: &str, size: usize) -> Result<Self> {
         let size = size.min(MAX_SYNAPSE_SIZE);
-        let config = aaroneous_paths::WorkspacePathsConfig::default();
+        let config = paths::WorkspacePathsConfig::default();
         let path = resolve_synapse_path(name, &config);
 
         // Ensure parent directory exists
@@ -348,7 +348,7 @@ impl SWMRSynapse {
 
     pub async fn new(name: &str, size: usize) -> Result<Self> {
         let size = size.min(MAX_SYNAPSE_SIZE);
-        let config = aaroneous_paths::WorkspacePathsConfig::default();
+        let config = paths::WorkspacePathsConfig::default();
         let path = resolve_synapse_path(name, &config);
 
         // Ensure parent directory exists

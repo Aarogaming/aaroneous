@@ -1,7 +1,7 @@
 // core/hypervisor/src/hud/state.rs
 //! Shared HUD state, window modes, DPI scaling, and Spatial Canvas state.
 
-use aaroneous_paths::{DiscoveredGgufModel, ModelHubLocation, WorkspacePaths};
+use paths::{DiscoveredGgufModel, ModelHubLocation, WorkspacePaths};
 use crossbeam_channel::{Receiver, Sender, unbounded};
 use eframe::egui::{self, Color32, Pos2, Vec2};
 use memmap2::{MmapMut, MmapOptions};

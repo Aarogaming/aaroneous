@@ -34,7 +34,7 @@ pub struct SiMacroEngine {
 
 impl Default for SiMacroEngine {
     fn default() -> Self {
-        let ws = aaroneous_paths::WorkspacePaths::from_config(aaroneous_paths::WorkspacePathsConfig::default());
+        let ws = paths::WorkspacePaths::from_config(paths::WorkspacePathsConfig::default());
         Self {
             macros_dir: ws.data().join("macros"),
         }

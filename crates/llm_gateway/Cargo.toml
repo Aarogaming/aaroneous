@@ -12,7 +12,7 @@ dirs = "5.0"
 
 # Workspace crates
 ipc_bus = { path = "../ipc_bus" }
-aaroneous_paths = { path = "../paths" }
+paths = { path = "../paths" }
 
 # Core Utilities & Concurrency
 serde = { version = "1.0", features = ["derive"] }

@@ -10,7 +10,7 @@ repository.workspace = true
 [dependencies]
 si_format = { path = "../si_format" }
 si_ir = { path = "../si_ir" }
-aaroneous_paths = { path = "../paths" }
+paths = { path = "../paths" }
 ipc_bus = { path = "../ipc_bus" }
 rand = "0.8"
 serde = { version = "1.0", features = ["derive"] }

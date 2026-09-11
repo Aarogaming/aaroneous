@@ -2,7 +2,7 @@
 // Executes decisions made by the decision engine: file ops, throttling, notifications
 use crate::decision_engine::{Action, TaskEvaluation};
 use crate::state_snapshot::{NodeMetrics, SpatialCanvasState};
-use aaroneous_paths::WorkspacePathsConfig;
+use paths::WorkspacePathsConfig;
 use biology::SystemBiology;
 use serde::{Deserialize, Serialize};
 use std::fs;
@@ -79,7 +79,7 @@ pub struct ActionExecutor {
 impl ActionExecutor {
     pub fn new(wasm_path: PathBuf) -> Self {
         let mut allowed_roots = Vec::new();
-        let ws = aaroneous_paths::WorkspacePaths::from_config(WorkspacePathsConfig::default());
+        let ws = paths::WorkspacePaths::from_config(WorkspacePathsConfig::default());
         allowed_roots.push(ws.root().clone());
         allowed_roots.push(std::env::temp_dir());
 
@@ -110,7 +110,7 @@ impl ActionExecutor {
         let resolved = if path.is_absolute() {
             path.to_path_buf()
         } else {
-            aaroneous_paths::WorkspacePaths::from_config(WorkspacePathsConfig::default())
+            paths::WorkspacePaths::from_config(WorkspacePathsConfig::default())
                 .root()
                 .join(path)
         };

@@ -34,7 +34,7 @@ use tracing::{debug, info};
 
 use crate::federation::hive::Federation;
 use crate::mcp_service::{CapabilityDomain, ServiceConfig};
-use aaroneous_paths::WorkspacePathsConfig;
+use paths::WorkspacePathsConfig;
 
 pub const DEFAULT_CODE_READ_LIMIT_LINES: u64 = 200;
 pub const DEFAULT_SEARCH_MAX_MATCHES: u64 = 20;
@@ -147,8 +147,8 @@ pub struct McpService {
 
 impl McpService {
     pub fn new(config: ServiceConfig) -> Self {
-        // Discover workspace root at startup — dynamically resolved via aaroneous_paths
-        let workspace_root = aaroneous_paths::WorkspacePaths::from_config(WorkspacePathsConfig::default()).root().clone();
+        // Discover workspace root at startup — dynamically resolved via paths
+        let workspace_root = paths::WorkspacePaths::from_config(WorkspacePathsConfig::default()).root().clone();
 
         tracing::info!("MCP workspace root: {}", workspace_root.display());
 

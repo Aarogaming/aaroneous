@@ -89,7 +89,7 @@ impl DistillStudio {
                 log_tx.send("   -> Step 1: Synthesizing / loading teacher trajectories...".into());
             let _ = status_tx.send(DistillStatus::Distilling(0.3));
 
-            let paths = aaroneous_paths::WorkspacePaths::discover();
+            let paths = paths::WorkspacePaths::discover();
             let out_dir = paths.data().join("models");
             let dataset_path = if dataset_str.is_empty() {
                 paths.data().join("datasets").join("translation_corpus.si")

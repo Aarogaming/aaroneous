@@ -29,7 +29,7 @@ pub struct LegacySharedMemorySynapse {
 
 impl LegacySharedMemorySynapse {
     pub fn new(name: &str, size: usize) -> Result<Self> {
-        let path = aaroneous_paths::resolve_synapse_path(name, &aaroneous_paths::WorkspacePathsConfig::default());
+        let path = paths::resolve_synapse_path(name, &paths::WorkspacePathsConfig::default());
 
         let file = OpenOptions::new()
             .read(true)

@@ -80,8 +80,8 @@ impl Default for HttpServiceConfig {
 }
 
 // ── Workspace path helpers ───────────────────────────────────────────
-fn workspace_paths() -> aaroneous_paths::WorkspacePaths {
-    aaroneous_paths::WorkspacePaths::from_config(aaroneous_paths::WorkspacePathsConfig::default())
+fn workspace_paths() -> paths::WorkspacePaths {
+    paths::WorkspacePaths::from_config(paths::WorkspacePathsConfig::default())
 }
 
 fn workspace_models_dir() -> std::path::PathBuf {

@@ -10,7 +10,7 @@ repository.workspace = true
 [dependencies]
 compute = { path = "../compute" }
 si_ir = { path = "../si_ir" }
-aaroneous_paths = { path = "../paths" }
+paths = { path = "../paths" }
 async-trait = "0.1"
 anyhow = "1.0"
 serde = { version = "1.0", features = ["derive"] }

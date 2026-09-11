@@ -449,7 +449,7 @@ fn run_cli(cli: Cli) -> Result<()> {
         }
         Some(Commands::Inject { intent }) => {
             println!("Injecting intent: {}", intent);
-            let paths = aaroneous_paths::WorkspacePaths::discover();
+            let paths = paths::WorkspacePaths::discover();
             let path = paths.synapse_file();
 
             use memmap2::MmapOptions;
@@ -628,7 +628,7 @@ fn run_cli(cli: Cli) -> Result<()> {
             SiCommands::Distill { name, steps, out } => {
                 let engine = compute::SiToolEngine;
                 let target_path = out.clone().unwrap_or_else(|| {
-                    let paths = aaroneous_paths::WorkspacePaths::discover();
+                    let paths = paths::WorkspacePaths::discover();
                     paths
                         .data()
                         .join("macros")
@@ -664,7 +664,7 @@ fn run_cli(cli: Cli) -> Result<()> {
                 }
 
                 let target_path = out.clone().unwrap_or_else(|| {
-                    let paths = aaroneous_paths::WorkspacePaths::discover();
+                    let paths = paths::WorkspacePaths::discover();
                     paths.data().join("datasets").join("teacher_distilled.si")
                 });
 
@@ -677,7 +677,7 @@ fn run_cli(cli: Cli) -> Result<()> {
                 Ok(())
             }
             SiCommands::Dream { cycles, sigma, out } => {
-                let paths = aaroneous_paths::WorkspacePaths::discover();
+                let paths = paths::WorkspacePaths::discover();
                 let target_path = out
                     .clone()
                     .unwrap_or_else(|| paths.data().join("models").join("agent_dreamed.si"));
@@ -899,7 +899,7 @@ fn run_forge_pipeline(
         _ => compute::si_packer::SiTierFlags::TIER_3_REFLEX,
     };
 
-    let paths = aaroneous_paths::WorkspacePaths::discover();
+    let paths = paths::WorkspacePaths::discover();
     let out_dir = out.unwrap_or_else(|| paths.data().join("models"));
 
     let mut forge = compute::SiForge::new(name)
@@ -980,7 +980,7 @@ fn run_bootstrap_pipeline(
     epochs: usize,
     out: Option<PathBuf>,
 ) -> Result<()> {
-    let paths = aaroneous_paths::WorkspacePaths::discover();
+    let paths = paths::WorkspacePaths::discover();
     let target_path =
         out.unwrap_or_else(|| paths.data().join("models").join(format!("{}.si", name)));
 
@@ -1163,7 +1163,7 @@ async fn run_wrap_pipeline(
     out: Option<PathBuf>,
 ) -> Result<()> {
     let out_dir = out.unwrap_or_else(|| {
-        aaroneous_paths::WorkspacePaths::discover()
+        paths::WorkspacePaths::discover()
             .models()
             .join("components")
     });
@@ -1862,7 +1862,7 @@ fn run_hud_pipeline() -> Result<()> {
 /// Distills and births .si solid-state models for all 9 Sovereign Domain Specialists
 fn run_distill_all_pipeline(samples: usize, epochs: usize, out_dir: Option<PathBuf>) -> Result<()> {
     let out = out_dir.unwrap_or_else(|| {
-        aaroneous_paths::WorkspacePaths::default()
+        paths::WorkspacePaths::default()
             .models()
             .join("distilled_federation")
     });

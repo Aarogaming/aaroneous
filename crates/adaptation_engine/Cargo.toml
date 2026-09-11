@@ -9,7 +9,7 @@ repository.workspace = true
 
 [dependencies]
 ipc_bus = { path = "../ipc_bus" }
-aaroneous_paths = { path = "../paths" }
+paths = { path = "../paths" }
 compute = { path = "../compute" }
 governance = { path = "../governance" }
 omni = { path = "../omni" }

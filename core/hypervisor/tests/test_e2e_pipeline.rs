@@ -15,7 +15,7 @@ use std::time::Duration;
 #[tokio::test]
 async fn test_full_pipeline_metadata_to_action() {
     // Step 1: Create metadata ingestor
-    let paths = aaroneous_paths::WorkspacePaths::discover();
+    let paths = paths::WorkspacePaths::discover();
     let config = MetadataIngestorConfig {
         watch_paths: vec![paths.root().clone()],
         poll_interval: Duration::from_secs(1),
@@ -226,7 +226,7 @@ fn test_action_executor_file_operations() {
 #[test]
 fn test_wasm_enzyme_exists() {
     // Verify the compute enzyme WASM file was built
-    let paths = aaroneous_paths::WorkspacePaths::discover();
+    let paths = paths::WorkspacePaths::discover();
     let wasm_path = paths
         .extensions()
         .join("wasm\\compute_enzyme\\target\\wasm32-unknown-unknown\\release\\compute_enzyme.wasm");

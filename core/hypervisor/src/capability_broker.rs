@@ -12,7 +12,7 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::time::Instant;
-use aaroneous_paths::WorkspacePathsConfig;
+use paths::WorkspacePathsConfig;
 
 /// Functional domain category
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -424,7 +424,7 @@ impl CapabilityBroker {
                 available: true,
             },
             Box::new(|_| {
-                let ws = aaroneous_paths::WorkspacePaths::from_config(WorkspacePathsConfig::default());
+                let ws = paths::WorkspacePaths::from_config(WorkspacePathsConfig::default());
                 let bus_path = ws.synapse_file();
                 let exists = bus_path.exists();
                 let size = if exists {

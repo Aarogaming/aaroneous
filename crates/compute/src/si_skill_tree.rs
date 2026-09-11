@@ -95,7 +95,7 @@ pub struct SkillExpansionEngine {
 
 impl Default for SkillExpansionEngine {
     fn default() -> Self {
-        let paths = aaroneous_paths::WorkspacePaths::from_config(aaroneous_paths::WorkspacePathsConfig::default());
+        let paths = paths::WorkspacePaths::from_config(paths::WorkspacePathsConfig::default());
         let skills_dir = paths.data().join("skills");
         let _ = fs::create_dir_all(&skills_dir);
 
