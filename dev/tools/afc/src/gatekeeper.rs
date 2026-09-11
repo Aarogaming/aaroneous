@@ -146,10 +146,10 @@ impl Gatekeeper {
     }
 
     pub async fn build_release(repo_path: &Path) -> Result<()> {
-        info!("Gatekeeper: Compiling release binaries via cargo build --release -p a_run");
+        info!("Gatekeeper: Compiling release binaries via cargo build --release -p hypervisor");
         let mut cmd = Command::new("cargo");
         cmd.current_dir(repo_path);
-        cmd.args(["build", "--release", "-p", "a_run"]);
+        cmd.args(["build", "--release", "-p", "hypervisor"]);
         #[cfg(windows)]
         cmd.creation_flags(0x0800_0000); // CREATE_NO_WINDOW
 

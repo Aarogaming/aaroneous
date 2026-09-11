@@ -61,7 +61,7 @@ impl SelfRebuildEngine {
         })
     }
 
-    /// Compiles a target binary (e.g. `a_hud` or `a_run`)
+    /// Compiles a target binary (e.g. `a_hud` or `hypervisor`)
     pub fn build_binary(&self, pkg: &str, bin_name: &str, release: bool) -> Result<RebuildReport> {
         let start = Instant::now();
         let mut args = vec!["build", "-p", pkg, "--bin", bin_name];

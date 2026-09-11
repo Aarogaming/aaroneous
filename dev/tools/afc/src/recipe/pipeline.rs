@@ -170,7 +170,7 @@ impl RecipePipeline {
             .add_step(
                 Step::bash(
                     "Phase 6: Release Build Verification",
-                    "cargo build --release -p a_run",
+                    "cargo build --release hypervisor",
                     cwd,
                 )
                 .with_timeout(Duration::from_secs(480)),
