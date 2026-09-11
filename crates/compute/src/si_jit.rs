@@ -82,15 +82,15 @@ pub struct SiJitCompilerEngine {
 
 impl Default for SiJitCompilerEngine {
     fn default() -> Self {
-        Self::new()
+        Self::new(CraneliftJitEngine::default(), Arc::new(EpisodicMemoryFabric::default()))
     }
 }
 
 impl SiJitCompilerEngine {
-    pub fn new() -> Self {
+    pub fn new(jit_backend: CraneliftJitEngine, memory_fabric: Arc<EpisodicMemoryFabric>) -> Self {
         Self {
-            jit_backend: CraneliftJitEngine::default(),
-            memory_fabric: Arc::new(EpisodicMemoryFabric::default()),
+            jit_backend,
+            memory_fabric,
             compiled_registry: Vec::new(),
             intent_routing_lut: HashMap::new(),
             maturity_threshold_count: 50,
@@ -276,7 +276,7 @@ mod tests {
 
     #[test]
     fn test_jit_cranelift_crystallization_and_fast_bypass() {
-        let mut jit = SiJitCompilerEngine::new();
+        let mut jit = SiJitCompilerEngine::default();
 
         let mut graph = NativeComputationalGraph::new();
         graph.add_node(NativeComputationNode {
@@ -321,7 +321,7 @@ mod tests {
 
     #[test]
     fn test_crystallization_maturity_evaluation() {
-        let jit = SiJitCompilerEngine::new();
+        let jit = SiJitCompilerEngine::default();
 
         // Immature: N < 50
         let m1 = jit.evaluate_maturity(20, 0.001, 0.02);

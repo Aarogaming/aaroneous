@@ -21,16 +21,16 @@ pub struct MachineNativePredictionEngine {
 
 impl Default for MachineNativePredictionEngine {
     fn default() -> Self {
-        Self {
-            gpu_accelerator: GpuTensorAccelerator::new(),
-            state_vector: vec![0.0; 512],
-        }
+        Self::new(GpuTensorAccelerator::new())
     }
 }
 
 impl MachineNativePredictionEngine {
-    pub fn new() -> Self {
-        Self::default()
+    pub fn new(gpu_accelerator: GpuTensorAccelerator) -> Self {
+        Self {
+            gpu_accelerator,
+            state_vector: vec![0.0; 512],
+        }
     }
 
     /// Predicts optimal next graph state by minimizing thermodynamic free energy on GPU
@@ -155,7 +155,7 @@ mod tests {
         assert_eq!(graph.nodes.len(), 2);
         assert!(graph.verify_dimensional_invariants().is_ok());
 
-        let mut engine = MachineNativePredictionEngine::new();
+        let mut engine = MachineNativePredictionEngine::default();
         let optimized = engine.predict_optimal_mutation(&graph).unwrap();
 
         assert!(optimized.thermodynamic_free_energy > 0.0);

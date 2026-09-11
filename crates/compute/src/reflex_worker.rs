@@ -15,7 +15,7 @@ use std::time::Instant;
 use anyhow::Result;
 
 use crate::machine_native::MachineOpcode;
-use crate::si_solid_state::{SiOnlineLearner, SolidStateSiContainer};
+use crate::si_solid_state::SiOnlineLearner;
 use crate::si_ssm::SsmStatePrediction;
 use nervous_system::specialist_bus::SpecialistSpmcChannel;
 
@@ -30,17 +30,16 @@ pub struct ReflexWorker {
 }
 
 impl ReflexWorker {
-    /// Creates a new ReflexWorker from a loaded .si container
-    pub fn new(worker_id: u16, name: &str, container: SolidStateSiContainer, use_gpu: bool) -> Result<Self> {
-        let learner = SiOnlineLearner::new(container, use_gpu)?;
-        Ok(Self {
+    /// Creates a new ReflexWorker with a pre-built learner (constructor injection)
+    pub fn new(worker_id: u16, name: &str, learner: SiOnlineLearner) -> Self {
+        Self {
             worker_id,
             name: name.to_string(),
             learner,
             last_processed_seq: 0,
             total_steps_executed: 0,
             avg_step_latency_us: 0,
-        })
+        }
     }
 
     /// Single non-blocking tick of the kinetic pursuit loop
@@ -122,6 +121,7 @@ impl ReflexWorker {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::si_solid_state::SolidStateSiContainer;
     use crate::si_ssm::SiSsmConfig;
     use nervous_system::specialist_bus::TENSOR_DIM;
 
@@ -140,7 +140,8 @@ mod tests {
         };
 
         let container = SolidStateSiContainer::new("Reflex Test", config);
-        let mut worker = ReflexWorker::new(1, "DesktopEmulator-Worker", container, false).unwrap();
+        let learner = SiOnlineLearner::new(container, false).unwrap();
+        let mut worker = ReflexWorker::new(1, "DesktopEmulator-Worker", learner);
         let channel = SpecialistSpmcChannel::new(0, "Router-Channel");
 
         // Step before any publishing -> returns None

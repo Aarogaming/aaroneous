@@ -161,14 +161,14 @@ pub struct ComputeEngine {
 
 impl Default for ComputeEngine {
     fn default() -> Self {
-        Self::new()
+        Self::new(SharedMemorySynapse::new_sync("SAB_STORE", 1024 * 1024).unwrap())
     }
 }
 
 impl ComputeEngine {
-    pub fn new() -> Self {
+    pub fn new(synapse: SharedMemorySynapse) -> Self {
         Self {
-            synapse: SharedMemorySynapse::new_sync("SAB_STORE", 1024 * 1024).unwrap(),
+            synapse,
             rng: rand::rngs::StdRng::from_entropy(),
         }
     }
@@ -235,7 +235,7 @@ mod tests {
 
     #[test]
     fn test_compute_engine_new() {
-        let engine = ComputeEngine::new();
+        let engine = ComputeEngine::default();
         drop(engine);
     }
 
@@ -247,7 +247,7 @@ mod tests {
 
     #[test]
     fn test_execute_monte_carlo() {
-        let mut engine = ComputeEngine::new();
+        let mut engine = ComputeEngine::default();
         let input = vec![0.5, 0.3];
         let result = engine.execute("monte_carlo", &input);
         assert!(result.is_ok());
@@ -257,7 +257,7 @@ mod tests {
 
     #[test]
     fn test_execute_markov() {
-        let mut engine = ComputeEngine::new();
+        let mut engine = ComputeEngine::default();
         let input = vec![0.7, 0.3];
         let result = engine.execute("markov", &input);
         assert!(result.is_ok());
@@ -265,7 +265,7 @@ mod tests {
 
     #[test]
     fn test_execute_bayesian() {
-        let mut engine = ComputeEngine::new();
+        let mut engine = ComputeEngine::default();
         let input = vec![0.5, 0.3, 0.2];
         let result = engine.execute("bayesian", &input);
         assert!(result.is_ok());
@@ -275,7 +275,7 @@ mod tests {
 
     #[test]
     fn test_execute_entropy() {
-        let mut engine = ComputeEngine::new();
+        let mut engine = ComputeEngine::default();
         let input = vec![0.25, 0.25, 0.25, 0.25];
         let result = engine.execute("entropy", &input);
         assert!(result.is_ok());
@@ -285,7 +285,7 @@ mod tests {
 
     #[test]
     fn test_execute_cosine() {
-        let mut engine = ComputeEngine::new();
+        let mut engine = ComputeEngine::default();
         let input = vec![1.0, 0.0, 0.0, 1.0];
         let result = engine.execute("cosine", &input);
         assert!(result.is_ok());
@@ -293,7 +293,7 @@ mod tests {
 
     #[test]
     fn test_execute_pid() {
-        let mut engine = ComputeEngine::new();
+        let mut engine = ComputeEngine::default();
         let input = vec![1.0, 0.5, 0.1];
         let result = engine.execute("pid", &input);
         assert!(result.is_ok());
@@ -301,7 +301,7 @@ mod tests {
 
     #[test]
     fn test_execute_fft() {
-        let mut engine = ComputeEngine::new();
+        let mut engine = ComputeEngine::default();
         let input = vec![1.0, 0.0, 0.0, 0.0];
         let result = engine.execute("fft", &input);
         assert!(result.is_ok());
@@ -309,7 +309,7 @@ mod tests {
 
     #[test]
     fn test_execute_nash() {
-        let mut engine = ComputeEngine::new();
+        let mut engine = ComputeEngine::default();
         let input = vec![0.5, 0.5, 0.5];
         let result = engine.execute("nash", &input);
         assert!(result.is_ok());
@@ -317,7 +317,7 @@ mod tests {
 
     #[test]
     fn test_execute_optimize_ga() {
-        let mut engine = ComputeEngine::new();
+        let mut engine = ComputeEngine::default();
         let input = vec![0.1, 0.2, 0.3, 0.4, 0.5];
         let result = engine.execute("optimize_ga", &input);
         assert!(result.is_ok());
@@ -325,7 +325,7 @@ mod tests {
 
     #[test]
     fn test_execute_boltzmann() {
-        let mut engine = ComputeEngine::new();
+        let mut engine = ComputeEngine::default();
         let input = vec![1.0, -0.5, 0.3, -0.8];
         let result = engine.execute("boltzmann", &input);
         assert!(result.is_ok());
@@ -335,7 +335,7 @@ mod tests {
 
     #[test]
     fn test_execute_free_energy() {
-        let mut engine = ComputeEngine::new();
+        let mut engine = ComputeEngine::default();
         let input = vec![0.5, 0.3, 0.2];
         let result = engine.execute("free_energy", &input);
         assert!(result.is_ok());
@@ -344,7 +344,7 @@ mod tests {
 
     #[test]
     fn test_execute_free_energy_insufficient_input() {
-        let mut engine = ComputeEngine::new();
+        let mut engine = ComputeEngine::default();
         let input = vec![0.5, 0.3];
         let result = engine.execute("free_energy", &input);
         assert!(result.is_ok());
@@ -353,7 +353,7 @@ mod tests {
 
     #[test]
     fn test_execute_mutual_info() {
-        let mut engine = ComputeEngine::new();
+        let mut engine = ComputeEngine::default();
         let input = vec![0.3, 0.2, 0.1];
         let result = engine.execute("mutual_info", &input);
         assert!(result.is_ok());
@@ -361,7 +361,7 @@ mod tests {
 
     #[test]
     fn test_execute_mutual_info_insufficient() {
-        let mut engine = ComputeEngine::new();
+        let mut engine = ComputeEngine::default();
         let input = vec![0.3, 0.2];
         let result = engine.execute("mutual_info", &input);
         assert!(result.is_ok());
@@ -370,7 +370,7 @@ mod tests {
 
     #[test]
     fn test_execute_unknown_task() {
-        let mut engine = ComputeEngine::new();
+        let mut engine = ComputeEngine::default();
         let input = vec![1.0];
         let result = engine.execute("nonexistent_task", &input);
         assert!(result.is_err());

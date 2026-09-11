@@ -50,10 +50,10 @@ pub struct OrchestrationDaemon {
 }
 
 impl OrchestrationDaemon {
-    pub fn new(config: OrchestrationDaemonConfig) -> Self {
+    pub fn new(config: OrchestrationDaemonConfig, executor: ActionExecutor) -> Self {
         Self {
             config,
-            executor: ActionExecutor::default(),
+            executor,
             state: DaemonState::Initializing,
             start_time: Instant::now(),
         }
@@ -75,6 +75,6 @@ impl OrchestrationDaemon {
 
 impl Default for OrchestrationDaemon {
     fn default() -> Self {
-        Self::new(OrchestrationDaemonConfig::default())
+        Self::new(OrchestrationDaemonConfig::default(), ActionExecutor::default())
     }
 }
