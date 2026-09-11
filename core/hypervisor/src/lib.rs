@@ -15,6 +15,7 @@ pub extern crate autonomic_adaptation as evolution;
 
 pub mod error;
 pub mod util;
+pub mod state;
 
 pub extern crate governance as biology;
 pub use governance as system_health;

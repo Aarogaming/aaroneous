@@ -44,6 +44,7 @@ dependencies = [
  "http-body-util",
  "ipc_bus",
  "iroh",
+ "lazy_static",
  "libloading 0.9.0",
  "llama-gguf",
  "llm_gateway",

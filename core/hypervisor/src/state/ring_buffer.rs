@@ -12,14 +12,14 @@
 
 use std::mem::MaybeUninit;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use bytemuck::{Pod, Zeroable};
+// Removed Pod/Zeroable - RingBuffer is a container, not data storage
 
 /// Fixed‑capacity lock‑free ring buffer.
 #[repr(C)]
-#[derive(Copy, Clone, Debug, Default, Pod, Zeroable)]
+#[derive(Debug)]
 pub struct RingBuffer<T, const CAP: usize>
 where
-    T: Copy + Default + Pod,
+    T: Copy + Default,
 {
     // Storage for items. `MaybeUninit` avoids constructing `T` unnecessarily.
     buffer: [MaybeUninit<T>; CAP],
@@ -31,13 +31,13 @@ where
 
 impl<T, const CAP: usize> RingBuffer<T, CAP>
 where
-    T: Copy + Default + Pod,
+    T: Copy + Default,
 {
     /// Create a new empty buffer.
     pub const fn new() -> Self {
         // SAFETY: An array of `MaybeUninit` is always valid.
         Self {
-            buffer: unsafe { MaybeUninit::uninit().assume_init() },
+            buffer: [MaybeUninit::uninit(); CAP],
             head: AtomicUsize::new(0),
             tail: AtomicUsize::new(0),
         }
@@ -59,8 +59,10 @@ where
 
     /// Push a value onto the buffer. Returns `Ok(())` on success or `Err(value)`
     /// if the buffer is full.
+    /// Push a value onto the buffer. Returns `Ok(())` on success or `Err(value)`
+    /// if the buffer is full.
     #[inline]
-    pub fn push(&self, value: T) -> Result<(), T> {
+    pub fn push(&mut self, value: T) -> Result<(), T> {
         let tail = self.tail.load(Ordering::SeqCst);
         let head = self.head.load(Ordering::SeqCst);
         if (tail + 1) % CAP == head % CAP {
@@ -69,8 +71,11 @@ where
         }
         let idx = tail % CAP;
         // SAFETY: We have exclusive write access to this slot because `tail` is
-        // only advanced after the write.
-        unsafe { *self.buffer.get_unchecked(idx).as_ptr() = value };
+        // only advanced after the write. Initialize with Default before writing.
+        unsafe { 
+            let mut slot = self.buffer.get_unchecked_mut(idx);
+            *slot.as_mut_ptr() = value;
+        };
         self.tail.store(tail.wrapping_add(1), Ordering::SeqCst);
         Ok(())
     }
