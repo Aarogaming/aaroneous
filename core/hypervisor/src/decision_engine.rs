@@ -89,7 +89,7 @@ impl AutonomousDecisionEngine {
             biology: SystemBiology::new(),
             governor: ThermodynamicGovernor::new(ThermodynamicGovernorConfig::default()),
             intelligence,
-            compute: ComputeEngine::new(),
+            compute: ComputeEngine::default(),
             rng: rand::rngs::StdRng::from_seed(rand::random()),
             prior_success_count: 10.0, // Laplace smoothing
             prior_failure_count: 2.0,
@@ -575,7 +575,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_evaluate_task() {
+    async fn test_evaluate_task() -> Result<(), Box<dyn std::error::Error>> {
         let intelligence = create_test_intelligence().await;
         let mut engine = AutonomousDecisionEngine::new(intelligence);
 
@@ -591,6 +591,7 @@ mod tests {
         let evaluation = engine.evaluate_task(&task).await?;
         assert!(!evaluation.task_id.is_empty());
         assert!(evaluation.confidence >= 0.0 && evaluation.confidence <= 1.0);
+        Ok(())
     }
 
     #[tokio::test]

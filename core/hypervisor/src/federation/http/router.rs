@@ -830,7 +830,10 @@ pub fn router(state: AppState) -> Router {
         // `AppState.rate_limiter`; `from_fn` would discard the
         // router's state type.
         .layer(cors)
-        .layer(middleware::from_fn(api_key_auth))
+        .layer(middleware::from_fn_with_state(
+            state.clone(),
+            api_key_auth,
+        ))
         .layer(middleware::from_fn_with_state(
             state.clone(),
             rate_limit_middleware,

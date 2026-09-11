@@ -264,6 +264,9 @@ impl Visionary {
             enable_caching: true,
             cache_ttl_secs: 600,
             gguf_model_path: Some(path.clone()),
+            rate_limit: None,
+            local_endpoint: None,
+            local_model: None,
         };
         let client = LLMClient::new(config).await.unwrap();
         tracing::info!("Visionary: GGUF loaded from {}", path.display());
@@ -284,6 +287,9 @@ impl Visionary {
             enable_caching: true,
             cache_ttl_secs: 600,
             gguf_model_path: None,
+            rate_limit: None,
+            local_endpoint: None,
+            local_model: None,
         };
         let client = Arc::new(LLMClient::new(config).await?);
         Ok(Self::new().with_llm(client))
@@ -1302,6 +1308,9 @@ mod tests {
             enable_caching: false,
             cache_ttl_secs: 60,
             gguf_model_path: None,
+            rate_limit: None,
+            local_endpoint: None,
+            local_model: None,
         };
         let client = LLMClient::new(config).await.unwrap();
 

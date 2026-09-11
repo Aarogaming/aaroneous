@@ -493,6 +493,7 @@ pub struct ExecutionStats {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::error::HypervisorError;
 
     #[test]
     fn test_executor_creation() {
@@ -528,7 +529,7 @@ mod tests {
     }
 
     #[test]
-    fn test_sandbox_path_containment_and_rejection() {
+    fn test_sandbox_path_containment_and_rejection() -> Result<(), Box<dyn std::error::Error>> {
         let executor = ActionExecutor::new(PathBuf::from("test.wasm"));
 
         // Path traversal should be rejected
@@ -552,10 +553,11 @@ mod tests {
         let res = rt.block_on(exec.execute(action));
         assert!(!res.success);
         assert!(res.message.contains("Sandbox security violation"));
+        Ok(())
     }
 
     #[test]
-    fn test_micro_bytecode_action_execution() {
+    fn test_micro_bytecode_action_execution() -> Result<(), Box<dyn std::error::Error>> {
         let mut executor = ActionExecutor::new(PathBuf::from("test.wasm"));
         let program = crate::micro_vm::VmProgram::new(vec![
             crate::micro_vm::VmInstruction::MovImm { dst: 0, val: 100 },
@@ -576,5 +578,6 @@ mod tests {
         assert!(res.success);
         assert!(res.message.contains("Micro-bytecode execution succeeded"));
         assert_eq!(res.metadata["r0"], 350);
+        Ok(())
     }
 }

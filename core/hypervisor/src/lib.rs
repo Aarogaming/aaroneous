@@ -314,14 +314,13 @@ use plugin_api::{PluginDescriptor, Plugin};
 use libloading::Library;
 
 /// Plugin configuration POD for constructor injection
-#[repr(C)]
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Debug, Clone)]
 pub struct PluginConfig {
-    pub path: std::ffi::OsStr,
+    pub path: std::path::PathBuf,
 }
 
 /// Global plugin manager singleton.
-pub static PLUGIN_MANAGER: Lazy<Mutex<PluginManager>> = Lazy::new(|| Mutex::new(PluginManager::new()));
+pub static PLUGIN_MANAGER: Lazy<Mutex<PluginManager>> = Lazy::new(|| Mutex::new(PluginManager::new(PluginConfig { path: std::path::PathBuf::new() })));
 
 pub struct PluginManager {
     registry: HashMap<String, PluginDescriptor>,

@@ -1,8 +1,7 @@
 // Metadata Ingestor
 // Watches files, git, system metrics, and feeds them to the compute engine
 
-use crate::workspace::WorkspacePaths;
-use aaroneous_paths::WorkspacePathsConfig;
+use crate::workspace::{WorkspaceConfig, WorkspacePaths};
 use compute::ComputeEngine;
 use serde::{Deserialize, Serialize};
 use std::fs;
@@ -42,7 +41,7 @@ pub struct MetadataIngestorConfig {
 impl Default for MetadataIngestorConfig {
     fn default() -> Self {
         Self {
-            watch_paths: WorkspacePaths::from_config(WorkspacePathsConfig::default()),
+            watch_paths: vec![WorkspacePaths::from_config(WorkspaceConfig::default()).root().clone()],
             poll_interval: Duration::from_secs(5),
             max_event_queue: 1000,
             compute_entropy: true,
@@ -104,7 +103,7 @@ impl MetadataIngestor {
 
         Self {
             config,
-            compute: ComputeEngine::new(),
+            compute: ComputeEngine::default(),
             event_queue: Vec::new(),
             file_hashes: std::collections::HashMap::new(),
             last_system_metrics: None,

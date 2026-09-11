@@ -3,9 +3,8 @@
 
 use std::path::{Path, PathBuf};
 
-/// Config POD for workspace root resolution
-#[repr(C)]
-#[derive(Debug, Clone, Copy, Default)]
+/// Config for workspace root resolution
+#[derive(Debug, Clone, Default)]
 pub struct WorkspaceConfig {
     pub explicit_root: Option<PathBuf>,
 }
@@ -30,6 +29,10 @@ impl WorkspacePaths {
     pub fn from_config(config: WorkspaceConfig) -> Self {
         let root = config.explicit_root.unwrap_or_else(|| default_workspace_root());
         Self { root }
+    }
+
+    pub fn root(&self) -> &PathBuf {
+        &self.root
     }
 
     pub fn workspace_root() -> PathBuf {

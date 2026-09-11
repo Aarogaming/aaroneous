@@ -403,7 +403,7 @@ mod tests {
 
         let mut slab = SlabAllocator::new(10);
         for _ in 0..6 {
-            slab.allocate(0, 1, 1)?;
+            slab.allocate(0, 1, 1).ok_or_else(|| anyhow::anyhow!("slab alloc failed"))?;
         }
 
         assert!(reaper.should_reap(&slab.stats()));

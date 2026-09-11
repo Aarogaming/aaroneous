@@ -6,7 +6,7 @@
 
 #[cfg(test)]
 mod tests {
-    use super::super::router::{AppState, GenerationJobStatus, StatusEnvelope, router};
+    use super::super::router::{AppState, GenerationJobStatus, HttpServiceConfig, StatusEnvelope, router};
     use crate::federation::hive::{Federation, SpecialistLearningSummary};
     use crate::federation::links::{Link, LinkType};
     use crate::federation::specialist::{Decision, ResourceRequest, Specialist, SpecialistId};
@@ -55,7 +55,7 @@ mod tests {
 
     /// Helper: send a GET request through the router and return (status, body bytes).
     async fn get(fed: Arc<Federation>, path: &str) -> (StatusCode, Vec<u8>) {
-        let app = router(AppState::new(fed));
+        let app = router(AppState::new(fed, HttpServiceConfig::default()));
         let req = Request::builder().uri(path).body(Body::empty()).unwrap();
         let response = app
             .oneshot(req)
@@ -87,7 +87,7 @@ mod tests {
     #[tokio::test]
     async fn test_healthz_sets_x_request_id_header() {
         let fed = fresh_federation_with_all();
-        let app = router(AppState::new(fed));
+        let app = router(AppState::new(fed, HttpServiceConfig::default()));
         let req = Request::builder()
             .uri("/healthz")
             .body(Body::empty())
@@ -107,7 +107,7 @@ mod tests {
     #[tokio::test]
     async fn test_healthz_preserves_client_x_request_id_header() {
         let fed = fresh_federation_with_all();
-        let app = router(AppState::new(fed));
+        let app = router(AppState::new(fed, HttpServiceConfig::default()));
         let req = Request::builder()
             .uri("/healthz")
             .header("x-request-id", "client-request-123")
@@ -128,7 +128,7 @@ mod tests {
     #[tokio::test]
     async fn test_admin_drain_rejects_new_requests() {
         let fed = fresh_federation_with_all();
-        let app = router(AppState::new(fed));
+        let app = router(AppState::new(fed, HttpServiceConfig::default()));
 
         let drain_req = Request::builder()
             .method("POST")
@@ -154,7 +154,7 @@ mod tests {
             uuid::Uuid::new_v4()
         ));
 
-        let state = AppState::new_with_state_path(fed.clone(), temp_path.clone());
+        let state = AppState::new_with_state_path(fed.clone(), temp_path.clone(), HttpServiceConfig::default());
         let initial_links_len = state.links.read().await.len();
         state
             .generation_jobs
@@ -174,7 +174,7 @@ mod tests {
 
         state.persist_cargo_state_to(&temp_path).await;
 
-        let loaded = AppState::new_with_state_path(fed.clone(), temp_path.clone());
+        let loaded = AppState::new_with_state_path(fed.clone(), temp_path.clone(), HttpServiceConfig::default());
         let jobs = loaded.generation_jobs.lock().await;
         assert!(jobs.contains_key("job-1"));
         drop(jobs);
@@ -342,7 +342,7 @@ mod tests {
         let fed = fresh_federation_with_all();
         // Port 0 = let OS pick a free port
         let addr = "127.0.0.1:0".parse().unwrap();
-        let server = HttpStatusServer::spawn(addr, fed)
+        let server = HttpStatusServer::spawn(addr, fed, HttpServiceConfig::default())
             .await
             .expect("server should spawn");
 
@@ -386,7 +386,7 @@ mod tests {
         // Try to bind to an address we know we can't (port 1, requires privileges
         // on most systems).
         let addr = "127.0.0.1:1".parse().unwrap();
-        let result = HttpStatusServer::spawn(addr, fed).await;
+        let result = HttpStatusServer::spawn(addr, fed, HttpServiceConfig::default()).await;
 
         // On systems where this *does* succeed (running as root), we just
         // accept that and shut down. We're testing the error path's shape,
@@ -414,7 +414,7 @@ mod tests {
     #[tokio::test]
     async fn test_validation_chat_completions_empty_messages() {
         let fed = fresh_federation_with_all();
-        let state = AppState::new(fed.clone());
+        let state = AppState::new(fed.clone(), HttpServiceConfig::default());
         let body = serde_json::json!({ "model": "presenter", "messages": [] });
         let (status, _, body_bytes) = post_json(state.clone(), "/v1/chat/completions", &body).await;
         assert_eq!(status, StatusCode::BAD_REQUEST);
@@ -425,7 +425,7 @@ mod tests {
     #[tokio::test]
     async fn test_validation_chat_completions_oversized_model() {
         let fed = fresh_federation_with_all();
-        let state = AppState::new(fed.clone());
+        let state = AppState::new(fed.clone(), HttpServiceConfig::default());
         // 200-char model name exceeds the 128-byte limit.
         let long_model = "x".repeat(200);
         let body = serde_json::json!({
@@ -441,7 +441,7 @@ mod tests {
     #[tokio::test]
     async fn test_validation_chat_completions_control_char_in_role() {
         let fed = fresh_federation_with_all();
-        let state = AppState::new(fed.clone());
+        let state = AppState::new(fed.clone(), HttpServiceConfig::default());
         // Tab in role: validate_string rejects control chars.
         let body = serde_json::json!({
             "model": "presenter",
@@ -454,7 +454,7 @@ mod tests {
     #[tokio::test]
     async fn test_validation_submit_intent_oversized_content() {
         let fed = fresh_federation_with_all();
-        let state = AppState::new(fed.clone());
+        let state = AppState::new(fed.clone(), HttpServiceConfig::default());
         // 64KB exceeds the 32KB cap.
         let big = "x".repeat(64 * 1024);
         let body = serde_json::json!({ "content": big });
@@ -467,7 +467,7 @@ mod tests {
     #[tokio::test]
     async fn test_validation_create_session_empty_user_name() {
         let fed = fresh_federation_with_all();
-        let state = AppState::new(fed.clone());
+        let state = AppState::new(fed.clone(), HttpServiceConfig::default());
         let body = serde_json::json!({ "user_name": "" });
         let (status, _, body_bytes) = post_json(state.clone(), "/sessions", &body).await;
         assert_eq!(status, StatusCode::BAD_REQUEST);
@@ -478,7 +478,7 @@ mod tests {
     #[tokio::test]
     async fn test_validation_completions_oversized_prompt() {
         let fed = fresh_federation_with_all();
-        let state = AppState::new(fed.clone());
+        let state = AppState::new(fed.clone(), HttpServiceConfig::default());
         // 512KB prompt exceeds the 256KB cap.
         let big = "x".repeat(512 * 1024);
         let body = serde_json::json!({
@@ -527,7 +527,7 @@ mod tests {
     /// would race against the refill; instead we cap burst
     /// and turn refill off.
     fn state_with_tight_rate_limit(fed: Arc<Federation>, burst: f64) -> AppState {
-        let mut s = AppState::new(fed);
+        let mut s = AppState::new(fed, HttpServiceConfig::default());
         s.rate_limiter = Arc::new(TokenBucketLimiter::new(TokenBucketConfig {
             burst,
             // No refill so the bucket drains deterministically.
@@ -663,7 +663,7 @@ mod tests {
         // and confirm the chat route and the default route
         // consume tokens independently.
         let fed = fresh_federation_with_all();
-        let mut state = AppState::new(fed.clone());
+        let mut state = AppState::new(fed.clone(), HttpServiceConfig::default());
         // Tight chat bucket: burst=2, refill off.
         let chat_limiter = Arc::new(TokenBucketLimiter::new(TokenBucketConfig {
             burst: 2.0,
@@ -741,7 +741,7 @@ mod tests {
         // production callers register breakers). The shape
         // must be stable so dashboards can depend on it.
         let fed = fresh_federation_with_all();
-        let state = AppState::new(fed.clone());
+        let state = AppState::new(fed.clone(), HttpServiceConfig::default());
         let (status, _, body) = get_with(state.clone(), "/metrics/breakers", None).await;
         assert_eq!(status, StatusCode::OK);
         let v: serde_json::Value = serde_json::from_slice(&body).expect("valid JSON");
@@ -758,7 +758,7 @@ mod tests {
         // (burst=20) gives plenty of headroom; we hit
         // /status 25 times in a tight loop from the same
         // peer. The first 20 are 200; the rest are 429.
-        let server = HttpStatusServer::spawn("127.0.0.1:0".parse().unwrap(), fed)
+        let server = HttpStatusServer::spawn("127.0.0.1:0".parse().unwrap(), fed, HttpServiceConfig::default())
             .await
             .expect("spawn server");
         let local = server.local_addr();

@@ -18,13 +18,12 @@ pub struct ShmemFrameHeader {
 
 /// Configuration for the shared-memory frame capture.
 /// POD struct for zero-copy config injection (replaces std::env)
-#[repr(C)]
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Debug, Clone)]
 pub struct FrameCaptureConfig {
     pub width: u32,
     pub height: u32,
     /// Path to the shared memory backing file - injected at construction time
-    pub shmem_path: std::ffi::OsStr,
+    pub shmem_path: std::path::PathBuf,
     /// When true, uses Win32 DXGI duplication API (fastest).
     pub prefer_dxgi: bool,
 }
@@ -34,12 +33,12 @@ impl FrameCaptureConfig {
         Self {
             width,
             height,
-            shmem_path: std::ffi::OsStr::new("aaroneous_fb.shmem"),
+            shmem_path: std::path::PathBuf::from("aaroneous_fb.shmem"),
             prefer_dxgi: true,
         }
     }
 
-    pub fn with_path(mut self, path: impl Into<std::ffi::OsStr>) -> Self {
+    pub fn with_path(mut self, path: impl Into<std::path::PathBuf>) -> Self {
         self.shmem_path = path.into();
         self
     }
