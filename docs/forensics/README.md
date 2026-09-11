@@ -32,3 +32,24 @@ See `0001_aas_omni_galaxy_view.md` for a complete example.
 | 0001 | AAS Omni Galaxy View | Legacy Python Suite | Rebased | `test_omni_nan_saturation` |
 
 
+
+
+
+## Verification Checklist
+
+Before committing any forensic documentation:
+
+- [ ] Case study follows template structure (Provenance, Intent, Pathology, Rebase, Invariants)
+- [ ] Corresponding negative test exists in `tests/negative_contracts/`
+- [ ] Cratify audit passes for all modified crates
+- [ ] Workspace compiles without errors: `cargo check --workspace`
+- [ ] All derive macros are explicit (no manual unsafe impls)
+
+
+## Next Steps
+
+1. Add more case studies to `docs/forensics/` following the template
+2. Extend `tests/negative_contracts/` with additional regression tests
+3. Integrate verification loop into CI/CD pipeline
+
+
