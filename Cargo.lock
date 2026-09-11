@@ -7004,6 +7004,10 @@ version = "0.3.2"
 dependencies = [
  "anyhow",
  "bytemuck",
+ "prettyplease",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.119",
  "thiserror 2.0.20",
 ]
 
@@ -8263,12 +8267,13 @@ name = "orchestration_plane"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "llm_gateway",
- "mcp_server",
+ "mutation_engine",
+ "prettyplease",
  "serde",
  "serde_json",
  "tokio",
  "tracing",
+ "walkdir",
 ]
 
 [[package]]
@@ -8667,15 +8672,18 @@ dependencies = [
  "anyhow",
  "async-trait",
  "compute",
+ "ipc_bus",
  "parking_lot",
  "rustfft",
  "serde",
  "serde_json",
+ "si_ir",
  "tokio",
  "tokio-serial",
  "tracing",
  "windows 0.62.2",
  "windows-capture",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -9883,13 +9891,12 @@ dependencies = [
 
 [[package]]
 name = "runtime_monitor"
-version = "0.3.2"
+version = "0.1.0"
 dependencies = [
  "a_run",
  "anyhow",
  "bytemuck",
  "crossbeam-queue",
- "once_cell",
 ]
 
 [[package]]
