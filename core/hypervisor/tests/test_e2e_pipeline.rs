@@ -1,14 +1,14 @@
 // End-to-End Integration Test
 // Tests the full pipeline: metadata ingestion → compute → decision → action
 
-use a_run::action_executor::{ActionExecutor, ExecutableAction, FileOp};
-use a_run::decision_engine::{AutonomousDecisionEngine, DecisionTask, ExecutionOutcome};
-use a_run::metadata_ingestor::{MetadataIngestor, MetadataIngestorConfig};
-use a_run::orchestration_daemon::{DaemonState, OrchestrationDaemon, OrchestrationDaemonConfig};
-use a_run::{
+use hypervisor::action_executor::{ActionExecutor, ExecutableAction, FileOp};
+use hypervisor::decision_engine::{AutonomousDecisionEngine, DecisionTask, ExecutionOutcome};
+use hypervisor::metadata_ingestor::{MetadataIngestor, MetadataIngestorConfig};
+use hypervisor::orchestration_daemon::{DaemonState, OrchestrationDaemon, OrchestrationDaemonConfig};
+use hypervisor::{
     GovernanceAction, MetabolicGovernorConfig, PredictiveMetabolicGovernor, SystemBiology,
 };
-use a_run::{IntelligenceEngine, IntelligentSpecialist, LLMConfig, ProviderType, TaskType};
+use hypervisor::{IntelligenceEngine, IntelligentSpecialist, LLMConfig, ProviderType, TaskType};
 use std::path::PathBuf;
 use std::time::Duration;
 

@@ -6,8 +6,8 @@
 ///
 /// ```no_run
 /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
-/// use a_run::federation::hive::Federation;
-/// use a_run::persistence::PersistenceManager;
+/// use hypervisor::federation::hive::Federation;
+/// use hypervisor::persistence::PersistenceManager;
 ///
 /// let pm = PersistenceManager::new("hive.db")?;
 /// let fed = Federation::builder(pm)
@@ -280,9 +280,9 @@ impl FederationBuilder {
     ///
     /// ```no_run
     /// # async fn example() -> anyhow::Result<()> {
-    /// use a_run::federation::specialists::GenericSpecialist;
-    /// use a_run::federation::hive::Federation;
-    /// use a_run::persistence::PersistenceManager;
+    /// use hypervisor::federation::specialists::GenericSpecialist;
+    /// use hypervisor::federation::hive::Federation;
+    /// use hypervisor::persistence::PersistenceManager;
     ///
     /// let coder = GenericSpecialist::new("CodeReviewer", "code_review")
     ///     .with_gguf_path("models/qwen-code-1.8b.gguf").await;

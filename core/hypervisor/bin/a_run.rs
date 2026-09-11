@@ -1,8 +1,8 @@
-use a_run::AutonomicNervousSystem;
-use a_run::enzyme_runner::EnzymeRunner;
-use a_run::hox_registry::HoxRegistry;
-use a_run::splicing_engine::WasmSplicingEngine;
-use a_run::unified_learning::{UnifiedLearningConfig, UnifiedLearningLoop};
+use hypervisor::AutonomicNervousSystem;
+use hypervisor::enzyme_runner::EnzymeRunner;
+use hypervisor::hox_registry::HoxRegistry;
+use hypervisor::splicing_engine::WasmSplicingEngine;
+use hypervisor::unified_learning::{UnifiedLearningConfig, UnifiedLearningLoop};
 use anyhow::Result;
 use autonomic_adaptation as evolution;
 use clap::{Parser, Subcommand};
@@ -13,7 +13,7 @@ use tokio::time::Duration;
 use uuid::Uuid;
 
 #[derive(Parser)]
-#[command(name = "a_run")]
+#[command(name = "hypervisor")]
 #[command(about = "Aaroneous Autonomic Nervous System & Machine-Native SI CLI", long_about = None)]
 struct Cli {
     #[command(subcommand)]
@@ -395,7 +395,7 @@ fn run_async<F: std::future::Future>(f: F) -> F::Output {
 }
 
 fn main() -> Result<()> {
-    let (_init, _guard) = a_run::init_logging();
+    let (_init, _guard) = hypervisor::init_logging();
     let cli = Cli::parse();
     std::thread::Builder::new()
         .name("aaroneous_main".into())
@@ -840,7 +840,7 @@ fn run_cli(cli: Cli) -> Result<()> {
         Some(Commands::Flagship { iterations }) => run_flagship_pipeline(*iterations),
         Some(Commands::Mcp { host, port }) => run_async(run_mcp_pipeline(host, *port)),
         None => {
-            println!("Usage: a_run [COMMAND]");
+            println!("Usage: hypervisor [COMMAND]");
             println!("Commands:");
             println!("  start       Start autonomic nervous system loop");
             println!("  inject      Inject task intent into shared synapse");
@@ -1034,7 +1034,7 @@ fn run_bootstrap_pipeline(
 /// from the Translation Dataset so the command is immediately runnable.
 ///
 /// Usage:
-///   a_run si pack-si base_router_v1 --out data/models/base_router_packed.si \
+///   hypervisor si pack-si base_router_v1 --out data/models/base_router_packed.si \
 ///                                    --d-model 256 --d-state 16 --lora-rank 16
 fn run_pack_si_pipeline(
     model_id: &str,
@@ -1551,14 +1551,14 @@ async fn run_mesh_pipeline(nodes_count: usize, live: bool) -> Result<()> {
         for i in 0..nodes_count {
             let port = base_port + i;
             let node_id = format!("hive-live-node-{:02}", i + 1);
-            let config = a_run::federation::multi_hive::live_daemon::LiveP2PConfig {
+            let config = hypervisor::federation::multi_hive::live_daemon::LiveP2PConfig {
                 node_id: node_id.clone(),
                 bind_addr: format!("127.0.0.1:{}", port),
                 initial_peers: Vec::new(),
                 heartbeat_interval_ms: 1000,
                 task_timeout_ms: 3000,
             };
-            let daemon = a_run::federation::multi_hive::live_daemon::LiveP2PDaemon::new(config);
+            let daemon = hypervisor::federation::multi_hive::live_daemon::LiveP2PDaemon::new(config);
             daemon.start().await?;
             println!("   -> Booted [{}] listening on 127.0.0.1:{}", node_id, port);
             daemons.push(daemon);
@@ -1608,13 +1608,13 @@ async fn run_mesh_pipeline(nodes_count: usize, live: bool) -> Result<()> {
         );
 
         println!("\n   [Stage 4] Benchmarking Swarm Micro-Task TCP Offloading...");
-        let mut offloader = a_run::federation::multi_hive::swarm_offloader::SwarmOffloader::new(
+        let mut offloader = hypervisor::federation::multi_hive::swarm_offloader::SwarmOffloader::new(
             Arc::new(daemons[1].clone()),
             80.0,
         );
         offloader.update_pressure(92.5); // High local pressure triggers remote offload
 
-        let task = a_run::federation::multi_hive::swarm_offloader::SwarmTask {
+        let task = hypervisor::federation::multi_hive::swarm_offloader::SwarmTask {
             task_id: "task_offload_ast_verification".to_string(),
             domain_opcode: 0x0700,
             input_payload: vec![10, 20, 30, 40, 50],
@@ -1623,13 +1623,13 @@ async fn run_mesh_pipeline(nodes_count: usize, live: bool) -> Result<()> {
 
         let outcome = offloader.dispatch_task(task).await?;
         match outcome {
-            a_run::federation::multi_hive::swarm_offloader::SwarmExecutionOutcome::OffloadedToPeer { peer_node_id, duration_us, result_payload } => {
+            hypervisor::federation::multi_hive::swarm_offloader::SwarmExecutionOutcome::OffloadedToPeer { peer_node_id, duration_us, result_payload } => {
                 println!("   -> Swarm Dispatch  : ⚡ OFFLOADED_OVER_TCP");
                 println!("   -> Remote Worker   : {}", peer_node_id);
                 println!("   -> Wire RTT + Exec : {} µs", duration_us);
                 println!("   -> Output Verified : {:?} (Signature: OK)", result_payload);
             }
-            a_run::federation::multi_hive::swarm_offloader::SwarmExecutionOutcome::ExecutedLocally { duration_us, .. } => {
+            hypervisor::federation::multi_hive::swarm_offloader::SwarmExecutionOutcome::ExecutedLocally { duration_us, .. } => {
                 println!("   -> Swarm Dispatch  : Local ({} µs)", duration_us);
             }
         }
@@ -1645,12 +1645,12 @@ async fn run_mesh_pipeline(nodes_count: usize, live: bool) -> Result<()> {
         return Ok(());
     }
 
-    let mut cluster = a_run::federation::multi_hive::hive_cluster::HiveCluster::new(
-        a_run::federation::multi_hive::hive_cluster::ClusterConfig::default(),
+    let mut cluster = hypervisor::federation::multi_hive::hive_cluster::HiveCluster::new(
+        hypervisor::federation::multi_hive::hive_cluster::ClusterConfig::default(),
     );
 
     // Bootstrap local primary hive node
-    let local_node = a_run::federation::multi_hive::hive_cluster::HiveNode::new(
+    let local_node = hypervisor::federation::multi_hive::hive_cluster::HiveNode::new(
         "hive-alpha-primary".to_string(),
         "127.0.0.1:8001".to_string(),
     );
@@ -1658,7 +1658,7 @@ async fn run_mesh_pipeline(nodes_count: usize, live: bool) -> Result<()> {
 
     // Bootstrap peer hive nodes
     for i in 1..nodes_count {
-        let peer = a_run::federation::multi_hive::hive_cluster::HiveNode::new(
+        let peer = hypervisor::federation::multi_hive::hive_cluster::HiveNode::new(
             format!("hive-peer-{:02}", i),
             format!("127.0.0.1:800{}", i + 1),
         );
@@ -1678,7 +1678,7 @@ async fn run_mesh_pipeline(nodes_count: usize, live: bool) -> Result<()> {
     );
 
     println!("\n   [Stage 2] Simulating Gossip Quorum Consensus on Model Migration...");
-    let mut gossip = a_run::federation::multi_hive::consensus::GossipMessage::new(
+    let mut gossip = hypervisor::federation::multi_hive::consensus::GossipMessage::new(
         "prop_migrate_router_v1".to_string(),
         "hive-alpha-primary".to_string(),
         "Migrate Router to Hive-Peer-01".to_string(),
@@ -1735,7 +1735,7 @@ async fn run_daemon_pipeline(bind: &str, peers: &[String], heartbeat: u64) -> Re
     println!("   Initial Peers    : {:?}", peers);
     println!("   Heartbeat        : {} ms\n", heartbeat);
 
-    let config = a_run::federation::multi_hive::live_daemon::LiveP2PConfig {
+    let config = hypervisor::federation::multi_hive::live_daemon::LiveP2PConfig {
         node_id: format!(
             "hive-sovereign-{}",
             uuid::Uuid::new_v4()
@@ -1750,7 +1750,7 @@ async fn run_daemon_pipeline(bind: &str, peers: &[String], heartbeat: u64) -> Re
         task_timeout_ms: 5000,
     };
 
-    let daemon = a_run::federation::multi_hive::live_daemon::LiveP2PDaemon::new(config);
+    let daemon = hypervisor::federation::multi_hive::live_daemon::LiveP2PDaemon::new(config);
     daemon.start().await?;
 
     println!("   P2P Daemon is running. Stepping 3 health heartbeat cycles...");
@@ -2117,14 +2117,14 @@ async fn run_mcp_pipeline(host: &str, port: u16) -> Result<()> {
         .parse()
         .map_err(|e| anyhow::anyhow!("Invalid MCP server address '{}': {}", addr_str, e))?;
 
-    let config = a_run::mcp_service::ServiceConfig {
+    let config = hypervisor::mcp_service::ServiceConfig {
         http_addr: addr,
         ..Default::default()
     };
 
-    let service = Arc::new(a_run::mcp_service::McpService::new(config));
+    let service = Arc::new(hypervisor::mcp_service::McpService::new(config));
     service.register_sovereign_tools().await;
-    let server = a_run::mcp_service::http_api::HttpServer::new(addr);
+    let server = hypervisor::mcp_service::http_api::HttpServer::new(addr);
 
     println!("=================================================================");
     println!(" 🪐 AARONEOUS SOVEREIGN MCP SERVER (JSON-RPC 2.0 + SSE)");

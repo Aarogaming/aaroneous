@@ -27,10 +27,10 @@
 //! - The `/healthz`, `/readyz`, `/status`, `/status/{kind}` endpoints
 //! - Specialist execution driving live status updates
 
-use a_run::federation::hive::Federation;
-use a_run::federation::http::HttpStatusServer;
-use a_run::federation::specialist::{Decision, ResourceRequest, Specialist, SpecialistId};
-use a_run::persistence::PersistenceManager;
+use hypervisor::federation::hive::Federation;
+use hypervisor::federation::http::HttpStatusServer;
+use hypervisor::federation::specialist::{Decision, ResourceRequest, Specialist, SpecialistId};
+use hypervisor::persistence::PersistenceManager;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;

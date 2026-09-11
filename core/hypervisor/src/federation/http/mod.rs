@@ -20,9 +20,9 @@ pub mod rest_api;
 /// ```no_run
 /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
 /// use std::sync::Arc;
-/// use a_run::federation::hive::Federation;
-/// use a_run::federation::http::HttpStatusServer;
-/// use a_run::persistence::PersistenceManager;
+/// use hypervisor::federation::hive::Federation;
+/// use hypervisor::federation::http::HttpStatusServer;
+/// use hypervisor::persistence::PersistenceManager;
 ///
 /// let pm = PersistenceManager::new("hive.db")?;
 /// let fed = Arc::new(Federation::builder(pm).with_all().build());

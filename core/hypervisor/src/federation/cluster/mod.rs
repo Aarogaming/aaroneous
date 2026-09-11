@@ -21,8 +21,8 @@
 /// ```no_run
 /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
 /// use std::time::Duration;
-/// use a_run::federation::hive::{Federation, FederationConfig};
-/// use a_run::persistence::PersistenceManager;
+/// use hypervisor::federation::hive::{Federation, FederationConfig};
+/// use hypervisor::persistence::PersistenceManager;
 ///
 /// let pm = PersistenceManager::new("hive.db")?;
 /// let fed = Federation::builder(pm)
@@ -264,8 +264,8 @@ impl Federation {
     /// # Example
     ///
     /// ```no_run
-    /// # async fn example(fed: &a_run::federation::hive::Federation) {
-    /// use a_run::federation::specialists::GenericSpecialist;
+    /// # async fn example(fed: &hypervisor::federation::hive::Federation) {
+    /// use hypervisor::federation::specialists::GenericSpecialist;
     ///
     /// let s = GenericSpecialist::new("LegalAnalyst", "legal")
     ///     .with_gguf_path("models/qwen-legal-1.8b.gguf").await;
@@ -624,8 +624,8 @@ impl Federation {
     ///
     /// ```no_run
     /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
-    /// use a_run::federation::hive::Federation;
-    /// use a_run::persistence::PersistenceManager;
+    /// use hypervisor::federation::hive::Federation;
+    /// use hypervisor::persistence::PersistenceManager;
     ///
     /// let pm = PersistenceManager::new("hive.db")?;
     /// let fed = Federation::builder(pm).with_all().build();

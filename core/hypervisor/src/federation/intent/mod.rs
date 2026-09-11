@@ -14,8 +14,8 @@ use crate::federation::specialist::{ProposalPriority, SpecialistId};
 /// # Examples
 ///
 /// ```
-/// use a_run::federation::intent::Intent;
-/// use a_run::federation::IntentPriority;
+/// use hypervisor::federation::intent::Intent;
+/// use hypervisor::federation::IntentPriority;
 ///
 /// let intent = Intent::new("dashboard redesign")
 ///     .with_priority(IntentPriority::High)

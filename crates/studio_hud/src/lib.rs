@@ -6,8 +6,8 @@ pub use crate as hud;
 pub extern crate ipc_bus as nervous_system;
 pub extern crate autonomic_adaptation as evolution;
 
-pub use a_run::capability_broker;
-pub use a_run::util;
+pub use hypervisor::capability_broker;
+pub use hypervisor::util;
 pub use omni::{ConstellationNode, NodeType, SpatialCoord, StarNode, StarNodeType};
 
 pub mod achievements;

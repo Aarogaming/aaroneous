@@ -11,13 +11,13 @@
 
 use std::path::PathBuf;
 
-use a_run::spatial_kinetic_engine::{SpatialKineticConfig, SpatialKineticEngine};
+use hypervisor::spatial_kinetic_engine::{SpatialKineticConfig, SpatialKineticEngine};
 
 #[tokio::main]
 #[allow(clippy::await_holding_lock)]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Install logging
-    let (_init, _guard) = a_run::init_logging();
+    let (_init, _guard) = hypervisor::init_logging();
 
     let args: Vec<String> = std::env::args().collect();
 
@@ -96,7 +96,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let engine = SpatialKineticEngine::new(config);
 
     // Perform internal health checks
-    if !a_run::run_health_checks() {
+    if !hypervisor::run_health_checks() {
         tracing::error!("Internal health checks failed! Engine aborting startup.");
         std::process::exit(1);
     }

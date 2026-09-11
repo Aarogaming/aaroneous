@@ -308,33 +308,47 @@ fn now_tick() -> u64 {
 mod tests {
     use super::*;
 
+    fn temp_shmem_path(name: &str) -> std::path::PathBuf {
+        std::env::temp_dir().join(format!("aaroneous_test_{}.shmem", name))
+    }
+
+    fn cleanup(path: &std::path::Path) {
+        let _ = std::fs::remove_file(path);
+    }
+
     #[test]
     fn test_shmem_open_close() {
-        let mut cap = ShmemCapture::new(FrameCaptureConfig::new(64, 64).with_path(r"C:\Temp\aaroneous_test_shmem.shmem"));
+        let path = temp_shmem_path("open_close");
+        let mut cap = ShmemCapture::new(FrameCaptureConfig::new(64, 64).with_path(&path));
         assert!(cap.open().is_ok());
         assert!(cap.is_active());
         cap.close();
         assert!(!cap.is_active());
+        cleanup(&path);
     }
 
     #[test]
     fn test_shmem_capture_frame() {
-        let mut cap = ShmemCapture::new(FrameCaptureConfig::new(32, 32).with_path(r"C:\Temp\aaroneous_test_shmem2.shmem"));
+        let path = temp_shmem_path("capture_frame");
+        let mut cap = ShmemCapture::new(FrameCaptureConfig::new(32, 32).with_path(&path));
         cap.open().unwrap();
         let fid = cap.capture_frame().unwrap();
         assert_eq!(fid, 1);
         let fid2 = cap.capture_frame().unwrap();
         assert_eq!(fid2, 2);
         cap.close();
+        cleanup(&path);
     }
 
     #[test]
     fn test_shmem_pixel_ptr() {
-        let mut cap = ShmemCapture::new(FrameCaptureConfig::new(16, 16).with_path(r"C:\Temp\aaroneous_test_shmem3.shmem"));
+        let path = temp_shmem_path("pixel_ptr");
+        let mut cap = ShmemCapture::new(FrameCaptureConfig::new(16, 16).with_path(&path));
         cap.open().unwrap();
         cap.capture_frame().unwrap();
         let ptr = cap.pixel_ptr();
         assert!(ptr.is_some());
         cap.close();
+        cleanup(&path);
     }
 }

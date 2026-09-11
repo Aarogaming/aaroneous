@@ -758,7 +758,12 @@ mod tests {
         // (burst=20) gives plenty of headroom; we hit
         // /status 25 times in a tight loop from the same
         // peer. The first 20 are 200; the rest are 429.
-        let server = HttpStatusServer::spawn("127.0.0.1:0".parse().unwrap(), fed, HttpServiceConfig::default())
+        let cfg = HttpServiceConfig {
+            rate_limit_burst: 20,
+            rate_limit_requests_per_sec: 20,
+            ..Default::default()
+        };
+        let server = HttpStatusServer::spawn("127.0.0.1:0".parse().unwrap(), fed, cfg)
             .await
             .expect("spawn server");
         let local = server.local_addr();

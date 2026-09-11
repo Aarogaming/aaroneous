@@ -9,7 +9,7 @@ use tokio::sync::Mutex;
 use tracing::{error, info};
 
 // Import the LLMProvider trait from the hypervisor crate.
-use a_run::llm::providers::*;
+use hypervisor::llm::providers::*;
 
 /// Wrapper around an LLMProvider that performs HTTP requests via reqwest and
 /// emits a `Trigger` into the runtime monitor ring buffer after each successful call.

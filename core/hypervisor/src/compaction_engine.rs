@@ -384,6 +384,8 @@ mod tests {
 
         fn spawn_fresh(&mut self) -> Result<()> {
             self.alive = true;
+            let cap = self.slab.lock().unwrap().capacity();
+            self.slab = Mutex::new(SlabAllocator::new(cap));
             let mut state_guard = self.state.lock().unwrap();
             *state_guard = vec![1, 2, 3, 4];
             Ok(())

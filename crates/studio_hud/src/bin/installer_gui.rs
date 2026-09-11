@@ -135,7 +135,7 @@ impl AaroneousSetupApp {
 
             // Step 2: Copy Executables
             log(
-                "Installing binary executables (aaroneous.exe, a_run.exe)...",
+                "Installing binary executables (aaroneous.exe, hypervisor.exe)...",
                 0.35,
             );
             let possible_bins = vec![
@@ -155,7 +155,7 @@ impl AaroneousSetupApp {
             };
 
             copy_if_found("aaroneous.exe", &bin_dir.join("aaroneous.exe"));
-            copy_if_found("a_run.exe", &bin_dir.join("a_run.exe"));
+            copy_if_found("hypervisor.exe", &bin_dir.join("hypervisor.exe"));
             copy_if_found("aaroneous-uninstall.exe", &target_dir.join("uninstall.exe"));
 
             // Step 3: Copy Assets & Configs
@@ -380,7 +380,7 @@ impl eframe::App for AaroneousSetupApp {
                     );
                     ui.checkbox(
                         &mut self.options.add_to_user_path,
-                        "Add Aaroneous 'bin/' to Windows User PATH (for 'a_run' & 'aaroneous' CLI)",
+                        "Add Aaroneous 'bin/' to Windows User PATH (for 'hypervisor' & 'aaroneous' CLI)",
                     );
                     ui.checkbox(
                         &mut self.options.launch_after_install,
@@ -452,9 +452,9 @@ impl eframe::App for AaroneousSetupApp {
                             .color(egui::Color32::from_rgb(0, 255, 204)),
                     );
                     ui.label("• Launch 'Aaroneous' from your Desktop or Start Menu.");
-                    ui.label("• Run 'a_run flagship' in any terminal to benchmark 500 cycles/sec.");
+                    ui.label("• Run 'hypervisor flagship' in any terminal to benchmark 500 cycles/sec.");
                     ui.label(
-                        "• Run 'a_run mcp' to start the local Claude Desktop & Cursor tool server.",
+                        "• Run 'hypervisor mcp' to start the local Claude Desktop & Cursor tool server.",
                     );
                 });
 

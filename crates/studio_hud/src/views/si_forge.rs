@@ -271,7 +271,7 @@ impl HudView for SiForgeView {
 
                         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                             if ui.button("⚡ Execute Self-Rebuild & Compile").clicked() {
-                                match state.rebuilder_engine.check_crate("a_run") {
+                                match state.rebuilder_engine.check_crate("hypervisor") {
                                     Ok(rep) => {
                                         state.forge_status_msg = format!(
                                             "Self-Rebuild OK ({}ms): Clean compile.",

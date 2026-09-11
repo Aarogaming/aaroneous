@@ -44,7 +44,7 @@
 /// # Usage
 ///
 /// ```no_run
-/// use a_run::federation::forge::{Forge, ForgeRecipe, SplicingSegment, GgufIndex, GgufMeta, TensorMeta};
+/// use hypervisor::federation::forge::{Forge, ForgeRecipe, SplicingSegment, GgufIndex, GgufMeta, TensorMeta};
 /// use std::collections::HashMap;
 ///
 /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
@@ -343,7 +343,7 @@ impl SplicingStrategy {
 /// # Example
 ///
 /// ```no_run
-/// use a_run::federation::forge::{read_gguf, recipe_from_two_models, SplicingStrategy};
+/// use hypervisor::federation::forge::{read_gguf, recipe_from_two_models, SplicingStrategy};
 ///
 /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
 /// let (mut index_a, _) = read_gguf("models/qwen2.5-1.5b.gguf")?;
@@ -473,7 +473,7 @@ pub fn recipe_from_two_models(
 /// # Example
 ///
 /// ```no_run
-/// use a_run::federation::forge::{read_gguf, recipe_from_single_model, TensorKind};
+/// use hypervisor::federation::forge::{read_gguf, recipe_from_single_model, TensorKind};
 ///
 /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
 /// let (index, _) = read_gguf("models/qwen-finetuned.gguf")?;
@@ -540,7 +540,7 @@ pub fn recipe_from_single_model(
 /// # Example
 ///
 /// ```
-/// use a_run::federation::forge::domain_tensor_keywords;
+/// use hypervisor::federation::forge::domain_tensor_keywords;
 /// let keywords = domain_tensor_keywords("code_review");
 /// assert!(keywords.iter().any(|k| k.contains("ffn")));
 /// ```
@@ -1614,7 +1614,7 @@ pub struct GgufParsedMeta {
 /// # Usage
 ///
 /// ```no_run
-/// use a_run::federation::forge::read_gguf;
+/// use hypervisor::federation::forge::read_gguf;
 ///
 /// # async fn example() -> anyhow::Result<()> {
 /// let (index, meta) = read_gguf("models/qwen2.5-1.5b.gguf")?;

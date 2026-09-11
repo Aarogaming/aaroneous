@@ -17,7 +17,7 @@
 /// # Usage
 ///
 /// ```no_run
-/// use a_run::federation::specialists::GenericSpecialist;
+/// use hypervisor::federation::specialists::GenericSpecialist;
 ///
 /// # async fn example() -> anyhow::Result<()> {
 /// let specialist = GenericSpecialist::new("CodeReviewer", "code_review")

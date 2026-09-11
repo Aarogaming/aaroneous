@@ -27,11 +27,11 @@
 //! - `Federation::learning_summary()` diagnostic
 //! - SQLite persistence + restart recovery via `learn_persist`
 
-use a_run::federation::hive::{Federation, LearningSummary};
-use a_run::federation::specialist::{
+use hypervisor::federation::hive::{Federation, LearningSummary};
+use hypervisor::federation::specialist::{
     Decision, ExecutionStatus, ResourceRequest, Specialist, SpecialistId,
 };
-use a_run::persistence::PersistenceManager;
+use hypervisor::persistence::PersistenceManager;
 use std::collections::HashMap;
 use std::sync::Arc;
 
