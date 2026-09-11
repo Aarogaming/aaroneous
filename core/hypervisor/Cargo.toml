@@ -12,7 +12,7 @@ path = "src/lib.rs"
 
 [[bin]]
 name = "hypervisor"
-path = "bin/a_run.rs"
+path = "bin/hypervisor.rs"
 
 [[bin]]
 name = "spatial_kinetic"
