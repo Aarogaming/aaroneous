@@ -91,46 +91,13 @@ pub struct ModelRegistry {
 }
 
 impl ModelRegistry {
-    /// Create new model registry
-    pub fn new() -> Self {
+    /// Create new model registry with injected search paths
+    pub fn new(search_paths: Vec<PathBuf>) -> Self {
         Self {
             models: Vec::new(),
             index: std::collections::HashMap::new(),
-            search_paths: Self::default_search_paths(),
+            search_paths,
         }
-    }
-
-    /// Get default search paths for models
-    fn default_search_paths() -> Vec<PathBuf> {
-        let mut paths = Vec::new();
-
-        // LM Studio paths
-        if let Ok(home) = std::env::var("USERPROFILE") {
-            let home = PathBuf::from(home);
-            paths.push(home.join(".lmstudio").join("models"));
-            paths.push(home.join(".cache").join("lm-studio").join("models"));
-            // Legacy locations retained for existing installations.
-            paths.push(home.join(".lm-studio").join("models"));
-            paths.push(
-                home.join("AppData")
-                    .join("Local")
-                    .join("LM Studio")
-                    .join("models"),
-            );
-        }
-
-        // Common locations
-        paths.push(PathBuf::from("./models"));
-        paths.push(PathBuf::from("../models"));
-        paths.push(PathBuf::from("C:/LM Studio/models"));
-        paths.push(PathBuf::from("D:/models"));
-
-        // Environment variable
-        if let Ok(model_path) = std::env::var("AARONEOUS_MODELS_PATH") {
-            paths.push(PathBuf::from(model_path));
-        }
-
-        paths
     }
 
     /// Scan for available GGUF models
@@ -264,7 +231,7 @@ impl ModelRegistry {
 
 impl Default for ModelRegistry {
     fn default() -> Self {
-        Self::new()
+        Self::new(Vec::new())
     }
 }
 
@@ -291,8 +258,9 @@ mod tests {
 
     #[test]
     fn test_registry_creation() {
-        let registry = ModelRegistry::new();
-        assert!(!registry.search_paths.is_empty());
+        let registry = ModelRegistry::new(vec![PathBuf::from("/mock/models")]);
+        assert_eq!(registry.search_paths.len(), 1);
+        assert_eq!(registry.search_paths[0], PathBuf::from("/mock/models"));
     }
 
     #[test]

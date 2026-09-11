@@ -27,13 +27,7 @@ struct LocalResponse {
 }
 
 impl LocalLLMProvider {
-    pub async fn new() -> Result<Self> {
-        let endpoint = std::env::var("LOCAL_LLM_ENDPOINT")
-            .unwrap_or_else(|_| "http://localhost:11434".to_string());
-
-        let model =
-            std::env::var("LOCAL_LLM_MODEL").unwrap_or_else(|_| "mistral:latest".to_string());
-
+    pub async fn new(endpoint: String, model: String) -> Result<Self> {
         info!("Initialized Local LLM provider at: {}", endpoint);
 
         Ok(Self {
@@ -375,7 +369,11 @@ mod tests {
     #[tokio::test]
     #[ignore] // Requires local LLM running
     async fn test_local_provider_creation() {
-        let result = LocalLLMProvider::new().await;
+        let result = LocalLLMProvider::new(
+            "http://localhost:11434".to_string(),
+            "mistral:latest".to_string(),
+        )
+        .await;
         assert!(result.is_ok());
     }
 

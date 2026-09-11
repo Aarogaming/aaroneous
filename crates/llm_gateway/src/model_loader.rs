@@ -25,7 +25,7 @@ impl ModelLoader {
     /// Create new model loader
     pub fn new() -> Self {
         Self {
-            registry: ModelRegistry::new(),
+            registry: ModelRegistry::new(Vec::new()),
         }
     }
 
@@ -159,7 +159,7 @@ mod tests {
     #[test]
     fn test_loader_creation() {
         let loader = ModelLoader::new();
-        assert!(!loader.registry.search_paths.is_empty());
+        assert!(loader.registry.search_paths.is_empty());
     }
 
     #[tokio::test]

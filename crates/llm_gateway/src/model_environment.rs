@@ -15,6 +15,8 @@ pub struct ModelEnvironmentConfig {
     pub check_home_dir: bool,
     /// Ollama binary paths for Windows fallback detection (optional)
     pub ollama_bin_paths: [Option<String>; 2],
+    /// Injected home directory path (replaces USERPROFILE / HOME reads)
+    pub home_dir: Option<PathBuf>,
 }
 
 impl ModelEnvironmentConfig {
@@ -26,6 +28,7 @@ impl ModelEnvironmentConfig {
                 Some("/usr/local/bin/ollama".to_string()),
                 Some("/usr/bin/ollama".to_string()),
             ],
+            home_dir: None,
         }
     }
 
@@ -49,6 +52,14 @@ impl ModelEnvironmentConfig {
         } else if paths[1].is_none() {
             self.ollama_bin_paths[1] = Some(path.into());
         }
+        self
+    }
+
+    pub fn with_home_path<P>(mut self, path: P) -> Self
+    where
+        P: Into<PathBuf>,
+    {
+        self.home_dir = Some(path.into());
         self
     }
 }
@@ -94,15 +105,9 @@ impl ModelEnvironment {
         match self {
             ModelEnvironment::LMStudio => {
                 let mut paths = Vec::new();
-                // Check USERPROFILE and HOME via config-gated calls
-                if std::env::var("USERPROFILE").is_ok() || (config.check_user_profile && std::env::var("HOME").is_ok()) {
-                    let home = match std::env::var("USERPROFILE").or_else(|_| std::env::var("HOME")) {
-                        Ok(h) => PathBuf::from(h),
-                        Err(_) => return paths,
-                    };
+                if let Some(ref home) = config.home_dir {
                     paths.push(home.join(".lmstudio").join("models"));
                     paths.push(home.join(".cache").join("lm-studio").join("models"));
-                    // Legacy locations retained for existing installations.
                     paths.push(home.join(".lm-studio").join("models"));
                     paths.push(
                         home.join("AppData")
@@ -115,14 +120,8 @@ impl ModelEnvironment {
             }
             ModelEnvironment::Ollama => {
                 let mut paths = Vec::new();
-                // Ollama paths use standard locations - no config gating needed for these static paths
-                if std::env::var("USERPROFILE").is_ok() {
-                    let home = PathBuf::from(std::env::var("USERPROFILE").unwrap());
-                    paths.push(PathBuf::from(format!("{}/.ollama/models", home.display())));
-                }
-                if std::env::var("HOME").is_ok() {
-                    let home = PathBuf::from(std::env::var("HOME").unwrap());
-                    paths.push(PathBuf::from(format!("{}/.ollama/models", home.display())));
+                if let Some(ref home) = config.home_dir {
+                    paths.push(home.join(".ollama").join("models"));
                 }
                 paths
             }
@@ -207,9 +206,9 @@ impl ModelEnvironmentDetector {
             return;
         }
 
-        let home = match std::env::var("USERPROFILE").or_else(|_| std::env::var("HOME")) {
-            Ok(h) => PathBuf::from(h),
-            Err(_) => return,
+        let home = match config.home_dir {
+            Some(ref h) => h.clone(),
+            None => return,
         };
 
         let candidates = [
@@ -405,9 +404,10 @@ mod tests {
     #[test]
     fn test_lm_studio_search_paths() {
         let env = ModelEnvironment::LMStudio;
-        let config = ModelEnvironmentConfig::new();
+        let config = ModelEnvironmentConfig::new().with_home_path("/mock/home");
         let paths = env.get_search_paths(&config);
         assert!(!paths.is_empty());
+        assert!(paths.iter().all(|p| p.starts_with("/mock/home")));
     }
 
     #[test]

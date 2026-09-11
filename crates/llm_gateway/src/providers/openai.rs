@@ -48,10 +48,7 @@ struct Usage {
 }
 
 impl OpenAIProvider {
-    pub async fn new() -> Result<Self> {
-        let api_key = std::env::var("OPENAI_API_KEY")
-            .map_err(|_| anyhow!("OPENAI_API_KEY environment variable not set"))?;
-
+    pub async fn new(api_key: String) -> Result<Self> {
         info!("Initialized OpenAI provider");
 
         Ok(Self {
@@ -506,9 +503,9 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    #[ignore] // Requires OPENAI_API_KEY
+    #[ignore] // Requires API key
     async fn test_openai_provider_creation() {
-        let result = OpenAIProvider::new().await;
+        let result = OpenAIProvider::new("mock-api-key".to_string()).await;
         assert!(result.is_ok());
     }
 }

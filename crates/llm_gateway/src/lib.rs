@@ -44,6 +44,12 @@ pub struct LLMConfig {
     pub enable_caching: bool,
     pub cache_ttl_secs: u64,
     pub gguf_model_path: Option<PathBuf>,
+    /// Rate limit: max calls per hour (0 = unlimited for local GGUF)
+    pub rate_limit: Option<u32>,
+    /// Local LLM endpoint URL (for ProviderType::Local)
+    pub local_endpoint: Option<String>,
+    /// Local LLM model name (for ProviderType::Local)
+    pub local_model: Option<String>,
 }
 
 impl Default for LLMConfig {
@@ -59,6 +65,9 @@ impl Default for LLMConfig {
             enable_caching: true,
             cache_ttl_secs: 3600,
             gguf_model_path: None,
+            rate_limit: None,
+            local_endpoint: None,
+            local_model: None,
         }
     }
 }
@@ -80,8 +89,18 @@ impl LLMClient {
         );
 
         let provider: Arc<dyn LLMProvider> = match config.provider_type {
-            ProviderType::OpenAI => Arc::new(providers::OpenAIProvider::new().await?),
-            ProviderType::Local => Arc::new(providers::LocalLLMProvider::new().await?),
+            ProviderType::OpenAI => {
+                let api_key = config.api_key.clone()
+                    .ok_or_else(|| anyhow::anyhow!("OPENAI_API_KEY must be provided via LLMConfig"))?;
+                Arc::new(providers::OpenAIProvider::new(api_key).await?)
+            }
+            ProviderType::Local => {
+                let endpoint = config.local_endpoint.clone()
+                    .unwrap_or_else(|| "http://localhost:11434".to_string());
+                let model = config.local_model.clone()
+                    .unwrap_or_else(|| "mistral:latest".to_string());
+                Arc::new(providers::LocalLLMProvider::new(endpoint, model).await?)
+            }
             ProviderType::GGUF => {
                 let model_path = if let Some(path) = config.gguf_model_path.clone() {
                     // Use explicitly configured path
@@ -116,12 +135,7 @@ impl LLMClient {
         };
 
         let cache = cache::LLMCache::new(config.cache_ttl_secs);
-        // 0 = unlimited for local GGUF inference (no API cost, no external throttle).
-        // Set AARONEOUS_LLM_RATE_LIMIT env var to a positive integer to cap it.
-        let rate_limit = std::env::var("AARONEOUS_LLM_RATE_LIMIT")
-            .ok()
-            .and_then(|s| s.parse::<u32>().ok())
-            .unwrap_or(0);
+        let rate_limit = config.rate_limit.unwrap_or(0);
         let rate_limiter = rate_limiter::RateLimiter::new(rate_limit);
 
         info!("LLM client initialized successfully");
@@ -407,6 +421,9 @@ mod tests {
             enable_caching: true,
             cache_ttl_secs: 3600,
             gguf_model_path: None,
+            rate_limit: None,
+            local_endpoint: None,
+            local_model: None,
         };
 
         let client = LLMClient::new(config).await;
@@ -426,6 +443,9 @@ mod tests {
             enable_caching: true,
             cache_ttl_secs: 3600,
             gguf_model_path: None,
+            rate_limit: None,
+            local_endpoint: None,
+            local_model: None,
         };
 
         let client = LLMClient::new(config).await.unwrap();
