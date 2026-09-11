@@ -250,7 +250,7 @@ impl PredictiveController {
             + self.reward_predictor.mean_absolute_error();
 
         // Boltzmann exploration based on prediction error
-        if rng.gen::<f64>() < self.exploration_rate * total_error {
+        if rng.r#gen::<f64>() < self.exploration_rate * total_error {
             // Explore: random action
             rng.gen_range(0..self.action_values.len())
         } else {

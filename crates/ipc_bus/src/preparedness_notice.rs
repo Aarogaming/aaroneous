@@ -16,8 +16,8 @@ pub struct PreparednessNotice {
 }
 
 impl PreparednessNotice {
-    pub fn is_for_generation(&self, gen: u64) -> bool {
-        self.generation == gen
+    pub fn is_for_generation(&self, generation_id: u64) -> bool {
+        self.generation == generation_id
     }
 }
 

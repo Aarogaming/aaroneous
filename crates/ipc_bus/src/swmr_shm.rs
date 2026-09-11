@@ -697,8 +697,8 @@ mod tests {
         tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
 
         // Read back - verify generation incremented
-        let gen = reader.generation();
-        assert!(gen >= 1, "Generation should have incremented, got {}", gen);
+        let generation_id = reader.generation();
+        assert!(generation_id >= 1, "Generation should have incremented, got {}", generation_id);
 
         writer_handle
             .submit_intent(MutationIntent {
@@ -820,15 +820,15 @@ mod tests {
 
     #[tokio::test]
     async fn test_generation_counter() {
-        let gen = GenerationCounter::new();
-        assert_eq!(gen.generation(), 0);
-        assert!(!gen.is_swapping());
+        let generation_id = GenerationCounter::new();
+        assert_eq!(generation_id.generation(), 0);
+        assert!(!generation_id.is_swapping());
 
-        assert!(gen.begin_swap());
-        assert!(gen.is_swapping());
+        assert!(generation_id .begin_swap());
+        assert!(generation_id .is_swapping());
 
-        gen.end_swap();
-        assert!(!gen.is_swapping());
-        assert_eq!(gen.generation(), 1);
+        generation_id.end_swap();
+        assert!(!generation_id.is_swapping());
+        assert_eq!(generation_id.generation(), 1);
     }
 }
