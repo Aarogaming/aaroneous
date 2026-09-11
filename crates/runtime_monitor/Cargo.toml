@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-bytemuck = { version = "1.14", features = ["derive"] }
+bytemuck = { version = "1.20", features = ["derive"] }
 hypervisor = { path = "../../core/hypervisor", package = "a_run" }
 crossbeam-queue = "0.3"
 anyhow = "1.0"
