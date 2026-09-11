@@ -34,6 +34,7 @@ use tracing::{debug, info};
 
 use crate::federation::hive::Federation;
 use crate::mcp_service::{CapabilityDomain, ServiceConfig};
+use aaroneous_paths::WorkspacePathsConfig;
 
 pub const DEFAULT_CODE_READ_LIMIT_LINES: u64 = 200;
 pub const DEFAULT_SEARCH_MAX_MATCHES: u64 = 20;

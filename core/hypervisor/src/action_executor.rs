@@ -2,6 +2,7 @@
 // Executes decisions made by the decision engine: file ops, throttling, notifications
 use crate::decision_engine::{Action, TaskEvaluation};
 use crate::state_snapshot::{NodeMetrics, SpatialCanvasState};
+use aaroneous_paths::WorkspacePathsConfig;
 use biology::SystemBiology;
 use serde::{Deserialize, Serialize};
 use std::fs;

@@ -332,7 +332,6 @@ mod tests {
     #[test]
     fn test_shmem_pixel_ptr() {
         let mut cap = ShmemCapture::new(FrameCaptureConfig::new(16, 16).with_path(r"C:\Temp\aaroneous_test_shmem3.shmem"));
-        });
         cap.open().unwrap();
         cap.capture_frame().unwrap();
         let ptr = cap.pixel_ptr();

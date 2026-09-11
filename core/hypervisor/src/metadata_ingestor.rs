@@ -2,6 +2,7 @@
 // Watches files, git, system metrics, and feeds them to the compute engine
 
 use crate::workspace::WorkspacePaths;
+use aaroneous_paths::WorkspacePathsConfig;
 use compute::ComputeEngine;
 use serde::{Deserialize, Serialize};
 use std::fs;
