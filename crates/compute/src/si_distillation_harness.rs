@@ -187,6 +187,7 @@ impl SiDistillationHarness {
 }
 
 #[cfg(test)]
+#[allow(ambient_authority)]
 mod tests {
     use super::*;
     use std::fs;

@@ -193,6 +193,26 @@ impl<'ast> Visit<'ast> for AmbientAuthorityVisitor<'_> {
         visit::visit_expr_call(self, node);
     }
 
+    fn visit_item_mod(&mut self, node: &'ast syn::ItemMod) {
+        let prev_exempt = self.is_exempt;
+        self.check_inner_attributes(&node.attrs);
+        if let Some((_, items)) = &node.content {
+            // Check inner attributes inside the module if any
+            for item in items {
+                let _ = item;
+            }
+        }
+        visit::visit_item_mod(self, node);
+        self.is_exempt = prev_exempt;
+    }
+
+    fn visit_item_fn(&mut self, node: &'ast syn::ItemFn) {
+        let prev_exempt = self.is_exempt;
+        self.check_inner_attributes(&node.attrs);
+        visit::visit_item_fn(self, node);
+        self.is_exempt = prev_exempt;
+    }
+
     fn visit_expr_method_call(&mut self, node: &'ast ExprMethodCall) {
         if self.is_exempt {
             return;

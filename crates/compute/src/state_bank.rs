@@ -328,6 +328,7 @@ pub fn update_rls<const DIM: usize, const DIM_SQ: usize>(
 }
 
 #[cfg(test)]
+#[allow(ambient_authority)]
 mod tests {
     use super::*;
 

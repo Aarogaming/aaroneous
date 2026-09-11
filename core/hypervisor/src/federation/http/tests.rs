@@ -5,6 +5,7 @@
 /// and equally exercises the routes, handlers, and serialization.
 
 #[cfg(test)]
+#[allow(ambient_authority)]
 mod tests {
     use super::super::router::{AppState, GenerationJobStatus, HttpServiceConfig, StatusEnvelope, router};
     use crate::federation::hive::{Federation, SpecialistLearningSummary};
