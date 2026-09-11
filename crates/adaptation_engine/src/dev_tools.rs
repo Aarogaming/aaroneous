@@ -38,7 +38,7 @@ pub struct DevToolsEngine {
 impl Default for DevToolsEngine {
     fn default() -> Self {
         Self {
-            workspace_root: aaroneous_paths::WorkspacePaths::discover()
+            workspace_root: aaroneous_paths::WorkspacePaths::discover(&aaroneous_paths::WorkspacePathsConfig::new())
                 .root()
                 .to_path_buf(),
         }

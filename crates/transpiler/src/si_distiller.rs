@@ -15,7 +15,7 @@ use compute::{
     DimensionalUnit, MachineOpcode, NativeComputationNode, NativeComputationalGraph,
     NativeTypeLattice,
 };
-use aaroneous_paths::WorkspacePaths;
+use aaroneous_paths::{WorkspacePaths, WorkspacePathsConfig};
 use bumpalo::Bump;
 
 /// Scratch Bump-Allocation Arena for Ephemeral Flight Contexts (The bumpalo Model)
@@ -78,7 +78,7 @@ pub struct SiDistillationMiner {
 
 impl Default for SiDistillationMiner {
     fn default() -> Self {
-        let corpus_path = WorkspacePaths::discover().data().join("si_corpus.bin");
+        let corpus_path = WorkspacePaths::discover(&WorkspacePathsConfig::new()).data().join("si_corpus.bin");
         Self {
             corpus_store: SiCorpusStore::new(corpus_path),
             arena: parking_lot::Mutex::new(EphemeralFlightArena::new()),

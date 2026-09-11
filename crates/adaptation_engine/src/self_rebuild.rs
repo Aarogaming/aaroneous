@@ -26,7 +26,7 @@ pub struct SelfRebuildEngine {
 impl Default for SelfRebuildEngine {
     fn default() -> Self {
         Self {
-            workspace_root: aaroneous_paths::WorkspacePaths::discover()
+            workspace_root: aaroneous_paths::WorkspacePaths::discover(&aaroneous_paths::WorkspacePathsConfig::new())
                 .root()
                 .to_path_buf(),
         }
