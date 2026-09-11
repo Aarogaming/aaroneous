@@ -1,7 +1,9 @@
 // Normalization Pipeline Integration Tests
 #![allow(ambient_authority)]
 
-use orchestration_plane::normalization_pipeline::{NormalizationPipeline, InvariantSeverity};
+use orchestration_plane::normalization_pipeline::{
+    IngestionPlan, InvariantSeverity, InvariantViolation, NormalizationPipeline,
+};
 use std::path::PathBuf;
 use std::fs;
 use std::env;
