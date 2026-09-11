@@ -1,4 +1,5 @@
 #![recursion_limit = "256"]
+#![allow(ambient_authority)]
 
 // Spatial-Kinetic Engine Binary
 // Standalone executable that runs the universal spatial-kinetic reflex loop.

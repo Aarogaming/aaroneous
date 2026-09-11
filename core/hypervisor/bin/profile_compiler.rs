@@ -1,3 +1,5 @@
+#![allow(ambient_authority)]
+
 use std::env;
 
 fn main() {

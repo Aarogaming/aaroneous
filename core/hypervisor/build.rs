@@ -1,4 +1,6 @@
 // Simplified build script: copy JSON files as raw bytes into a binary blob
+#![allow(ambient_authority)]
+
 use std::env;
 use std::fs::{self, File};
 use std::io::Write;

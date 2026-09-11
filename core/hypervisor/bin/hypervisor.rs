@@ -1,3 +1,5 @@
+#![allow(ambient_authority)]
+
 use hypervisor::AutonomicNervousSystem;
 use hypervisor::enzyme_runner::EnzymeRunner;
 use hypervisor::hox_registry::HoxRegistry;
@@ -398,7 +400,7 @@ fn main() -> Result<()> {
     let (_init, _guard) = hypervisor::init_logging();
     let cli = Cli::parse();
     std::thread::Builder::new()
-        .name("aaroneous_main".into())
+        .name("main".into())
         .stack_size(32 * 1024 * 1024)
         .spawn(move || run_cli(cli))?
         .join()
@@ -1400,7 +1402,7 @@ async fn run_reap_pipeline(pressure: f32) -> Result<()> {
     );
     println!("   Hibernation Format     : 128-byte aligned zero-copy .sissm containers\n");
 
-    let temp_dir = std::env::temp_dir().join("aaroneous_hibernation_bench");
+    let temp_dir = std::env::temp_dir().join("hypervisor_hibernation_bench");
     let mut reaper = orchestrator::CompactionEngine::new(temp_dir);
 
     // Register active specialists with simulated footprints

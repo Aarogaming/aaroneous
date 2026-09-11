@@ -5,6 +5,7 @@
 //!
 //! This benchmark quantifies the real-world latency gains from explicit padding.
 
+#![allow(ambient_authority)]
 
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Instant;

@@ -1,4 +1,5 @@
 // Batch Cratification CLI - Automated multi-crate normalization and certification
+#![allow(ambient_authority)]
 
 use anyhow::Result;
 use std::env;
