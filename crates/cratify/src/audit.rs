@@ -49,6 +49,8 @@ pub enum AuditRule {
     ZeroCopyStructs,
     /// Forbidden crate dependencies that violate scaling-law constraints.
     ForbiddenDeps,
+    /// Forbids `aaroneous_*` prefix stutter in package names and IPC channels.
+    NoAaroneousPrefix,
     /// Module exceeds recommended function count (scaling-law blast radius).
     ScalingLawBlastRadius,
 }
@@ -62,6 +64,7 @@ impl fmt::Display for AuditRule {
             Self::NoPrintln => write!(f, "no-println"),
             Self::ZeroCopyStructs => write!(f, "zero-copy-structs"),
             Self::ForbiddenDeps => write!(f, "forbidden-deps"),
+            Self::NoAaroneousPrefix => write!(f, "no-aaroneous-prefix"),
             Self::ScalingLawBlastRadius => write!(f, "scaling-law-blast-radius"),
         }
     }
@@ -290,6 +293,7 @@ pub fn audit_path(path: &Path, config: &AuditConfig) -> Result<AuditReport> {
         };
         if cargo_path.exists() {
             audit_forbidden_deps(&cargo_path, &mut combined)?;
+            audit_no_aaroneous_prefix(&cargo_path, &mut combined)?;
         }
     }
 
@@ -641,6 +645,60 @@ fn audit_blast_radius(
     }
 }
 
+fn audit_no_aaroneous_prefix(cargo_path: &Path, report: &mut AuditReport) -> Result<()> {
+    let content = fs::read_to_string(cargo_path)
+        .with_context(|| format!("Failed to read {:?}", cargo_path))?;
+    let doc: toml::Value = toml::from_str(&content)
+        .with_context(|| format!("Failed to parse {:?}", cargo_path))?;
+
+    let label = cargo_path
+        .file_name()
+        .map(|n| n.to_string_lossy().into_owned())
+        .unwrap_or_else(|| cargo_path.display().to_string());
+
+    // Check package name in [package] section
+    if let Some(package) = doc.get("package").and_then(|v| v.as_table()) {
+        if let Some(name) = package.get("name").and_then(|v| v.as_str()) {
+            if name.starts_with("aaroneous_") {
+                report.push(AuditViolation {
+                    rule: AuditRule::NoAaroneousPrefix,
+                    severity: AuditSeverity::Error,
+                    location: label.clone(),
+                    message: format!(
+                        "Package `{}` uses forbidden `aaroneous_*` prefix — violates naming constraints",
+                        name
+                    ),
+                });
+            }
+        }
+    }
+
+    // Collect all dependency names from [dependencies], [dev-dependencies], [build-dependencies]
+    let mut all_deps: Vec<String> = Vec::new();
+    for section in &["dependencies", "dev-dependencies", "build-dependencies"] {
+        if let Some(deps) = doc.get(*section).and_then(|v| v.as_table()) {
+            all_deps.extend(deps.keys().cloned());
+        }
+    }
+
+    // Check dependencies for aaroneous_* prefix
+    for dep in &all_deps {
+        if dep.starts_with("aaroneous_") {
+            report.push(AuditViolation {
+                rule: AuditRule::NoAaroneousPrefix,
+                severity: AuditSeverity::Error,
+                location: label.clone(),
+                message: format!(
+                    "Dependency `{}` uses forbidden `aaroneous_*` prefix — violates naming constraints",
+                    dep
+                ),
+            });
+        }
+    }
+
+    Ok(())
+}
+
 fn audit_forbidden_deps(cargo_path: &Path, report: &mut AuditReport) -> Result<()> {
     let content = fs::read_to_string(cargo_path)
         .with_context(|| format!("Failed to read {:?}", cargo_path))?;
@@ -858,5 +916,73 @@ mod tests {
         let violations = report.violations_for_rule(AuditRule::ForbiddenDeps);
         assert_eq!(violations.len(), 1);
         assert!(violations[0].message.contains("hyper"));
+    }
+
+    #[test]
+    fn audit_aaroneous_prefix_detection() {
+        let dir = tempfile::tempdir().unwrap();
+        
+        // Test package name with aaroneous_* prefix
+        let cargo_path = dir.path().join("Cargo.toml");
+        fs::write(
+            &cargo_path,
+            "[package]\nname = \"aaroneous_test\"\nversion = \"0.1.0\"\n",
+        )
+        .unwrap();
+        
+        let mut report = AuditReport::new();
+        audit_no_aaroneous_prefix(&cargo_path, &mut report).unwrap();
+        let violations = report.violations_for_rule(AuditRule::NoAaroneousPrefix);
+        assert_eq!(violations.len(), 1);
+        assert!(violations[0].message.contains("aaroneous_test"));
+    }
+
+    #[test]
+    fn audit_aaroneous_prefix_clean_package() {
+        let dir = tempfile::tempdir().unwrap();
+        let cargo_path = dir.path().join("Cargo.toml");
+        fs::write(
+            &cargo_path,
+            "[package]\nname = \"clean_test\"\nversion = \"0.1.0\"\n",
+        )
+        .unwrap();
+        
+        let mut report = AuditReport::new();
+        audit_no_aaroneous_prefix(&cargo_path, &mut report).unwrap();
+        let violations = report.violations_for_rule(AuditRule::NoAaroneousPrefix);
+        assert_eq!(violations.len(), 0);
+    }
+
+    #[test]
+    fn audit_aaroneous_prefix_dependency_detection() {
+        let dir = tempfile::tempdir().unwrap();
+        let cargo_path = dir.path().join("Cargo.toml");
+        fs::write(
+            &cargo_path,
+            "[dependencies]\naaroneous_wire = \"0.1\"\nserde = \"1.0\"\n",
+        )
+        .unwrap();
+        
+        let mut report = AuditReport::new();
+        audit_no_aaroneous_prefix(&cargo_path, &mut report).unwrap();
+        let violations = report.violations_for_rule(AuditRule::NoAaroneousPrefix);
+        assert_eq!(violations.len(), 1);
+        assert!(violations[0].message.contains("aaroneous_wire"));
+    }
+
+    #[test]
+    fn audit_aaroneous_prefix_clean_dependency() {
+        let dir = tempfile::tempdir().unwrap();
+        let cargo_path = dir.path().join("Cargo.toml");
+        fs::write(
+            &cargo_path,
+            "[dependencies]\nwire = \"0.1\"\nserde = \"1.0\"\n",
+        )
+        .unwrap();
+        
+        let mut report = AuditReport::new();
+        audit_no_aaroneous_prefix(&cargo_path, &mut report).unwrap();
+        let violations = report.violations_for_rule(AuditRule::NoAaroneousPrefix);
+        assert_eq!(violations.len(), 0);
     }
 }

@@ -25,8 +25,8 @@ struct Cli {
 enum Commands {
     /// Inspect a codebase for anti‑patterns and scaling‑law compliance.
     Audit {
-        /// Path to the source directory or file.
-        path: PathBuf,
+        /// Paths to the source directory or file.
+        paths: Vec<PathBuf>,
     },
     /// Generate a new satellite crate skeleton.
     Scaffold {
@@ -84,12 +84,30 @@ enum Commands {
     },
 }
 
+use std::process::ExitCode;
+
 #[tokio::main]
-async fn main() -> Result<()> {
+async fn main() -> Result<ExitCode> {
     let cli = Cli::parse();
 
     match cli.command {
-        Commands::Audit { path } => audit::run(path, cli.strict).await?,
+        Commands::Audit { paths } => {
+            let target_paths = if paths.is_empty() {
+                vec![
+                    std::path::PathBuf::from("core/hypervisor"),
+                    std::path::PathBuf::from("crates/compute"),
+                    std::path::PathBuf::from("crates/orchestration_plane"),
+                    std::path::PathBuf::from("crates/llm_gateway"),
+                ]
+            } else {
+                paths
+            };
+
+            match cratify::run_workspace_audit(target_paths) {
+                Ok(()) => return Ok(ExitCode::SUCCESS),
+                Err(code) => return Ok(code),
+            }
+        }
         Commands::Scaffold { name } => scaffold::run(&name).await?,
         Commands::Translate { path, target, endpoint } => {
             translate::run(path, &target, endpoint).await?
@@ -199,5 +217,5 @@ async fn main() -> Result<()> {
         },
     }
 
-    Ok(())
+    Ok(ExitCode::SUCCESS)
 }
