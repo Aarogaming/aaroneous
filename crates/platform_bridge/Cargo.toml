@@ -20,6 +20,13 @@ compute = { path = "../compute" }
 aaroneous_wire = { path = "../aaroneous_wire" }
 si_ir = { path = "../si_ir" }
 ipc_bus = { path = "../ipc_bus" }
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.52", features = [
+    "Win32_System_Performance",
+    "Win32_System_SystemInformation", 
+    "Win32_System_ProcessStatus"
+]}
 tokio-serial = "5.4"
 windows = { version = "0.62", features = [
     "Win32_Foundation",

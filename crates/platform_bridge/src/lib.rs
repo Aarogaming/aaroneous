@@ -18,6 +18,7 @@ pub mod traits;
 pub mod vision_latent;
 pub mod web_ingest;
 pub mod token_emitter;
+pub mod live_sampler;
 pub mod window_target;
 
 pub use adapters::{
