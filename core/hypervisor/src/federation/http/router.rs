@@ -49,6 +49,36 @@ pub enum GenerationJobStatus {
 pub type GenerationJobs =
     Arc<tokio::sync::Mutex<std::collections::HashMap<String, GenerationJobStatus>>>;
 
+/// HTTP service configuration for federation status API.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct HttpServiceConfig {
+    pub port: u16,
+    pub bind_addr: [u8; 4],
+    pub max_payload_bytes: u32,
+    pub auth_key: Option<String>,
+    pub cors_allowed_origin: Option<String>,
+    pub rate_limit_burst: u32,
+    pub rate_limit_requests_per_sec: u32,
+    /// User home directory for scanning external tool model directories.
+    /// If None, external model scanning is skipped.
+    pub home_dir: Option<String>,
+}
+
+impl Default for HttpServiceConfig {
+    fn default() -> Self {
+        Self {
+            port: 0,
+            bind_addr: [127, 0, 0, 1],
+            max_payload_bytes: 10 * 1024 * 1024,
+            auth_key: None,
+            cors_allowed_origin: None,
+            rate_limit_burst: 100,
+            rate_limit_requests_per_sec: 10,
+            home_dir: None,
+        }
+    }
+}
+
 // ── Workspace path helpers ───────────────────────────────────────────
 fn workspace_paths() -> aaroneous_paths::WorkspacePaths {
     aaroneous_paths::WorkspacePaths::from_config(aaroneous_paths::WorkspacePathsConfig::default())
@@ -93,9 +123,7 @@ fn workspace_exports_dir() -> std::path::PathBuf {
     workspace_paths().exports()
 }
 fn workspace_cargo_state_path() -> std::path::PathBuf {
-    std::env::var_os("AARONEOUS_CARGO_STATE_PATH")
-        .map(std::path::PathBuf::from)
-        .unwrap_or_else(|| workspace_paths().root().join("cargo_state.json"))
+    workspace_paths().root().join("cargo_state.json")
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -141,19 +169,22 @@ pub struct AppState {
     /// Drain flag. Once set, new requests are rejected with 503
     /// so shutdown can wait for in-flight work to finish.
     pub draining: Arc<AtomicBool>,
+    /// HTTP service configuration for CORS, rate limiting, auth.
+    pub http_service_cfg: HttpServiceConfig,
 }
 
 impl AppState {
-    pub fn new(federation: Arc<Federation>) -> Self {
-        Self::new_with_state_path(federation, workspace_cargo_state_path())
+    pub fn new(federation: Arc<Federation>, cfg: HttpServiceConfig) -> Self {
+        Self::new_with_state_path(federation, workspace_cargo_state_path(), cfg)
     }
 
     pub(crate) fn new_with_state_path(
         federation: Arc<Federation>,
         state_path: std::path::PathBuf,
+        cfg: HttpServiceConfig,
     ) -> Self {
         let links_reg = crate::federation::links::load_links().unwrap_or_default();
-        let (default_limiter, route_limits) = build_route_limit_registry();
+        let (default_limiter, route_limits) = build_route_limit_registry(&cfg);
         let mut generation_jobs = std::collections::HashMap::new();
         let mut vault = crate::federation::tensor_vault::TensorVault::new();
         let mut links_vec = links_reg.list();
@@ -176,6 +207,7 @@ impl AppState {
             rate_limiter: default_limiter,
             route_limits,
             draining: Arc::new(AtomicBool::new(false)),
+            http_service_cfg: cfg,
         }
     }
 
@@ -273,33 +305,12 @@ impl AppState {
     }
 }
 
-/// Build a `TokenBucketConfig` from environment variables.
-///
-/// `AARONEOUS_RATE_LIMIT_BURST` overrides the default burst (20).
-/// `AARONEOUS_RATE_LIMIT_REFILL` overrides the default refill (10.0/s).
-/// `AARONEOUS_RATE_LIMIT_OFF=1` disables rate limiting (used in tests
-/// and for operators who run the server behind their own gateway).
-fn rate_limit_config_from_env() -> TokenBucketConfig {
-    let mut cfg = TokenBucketConfig::default();
-    if let Ok(v) = std::env::var("AARONEOUS_RATE_LIMIT_BURST")
-        && let Ok(b) = v.parse::<f64>()
-        && b.is_finite()
-        && b > 0.0
-    {
-        cfg.burst = b;
-    }
-    if let Ok(v) = std::env::var("AARONEOUS_RATE_LIMIT_REFILL")
-        && let Ok(r) = v.parse::<f64>()
-        && r.is_finite()
-        && r >= 0.0
-    {
-        cfg.refill_per_second = r;
-    }
-    if std::env::var("AARONEOUS_RATE_LIMIT_OFF").ok().as_deref() == Some("1") {
-        cfg.burst = f64::INFINITY;
-        cfg.refill_per_second = f64::INFINITY;
-    }
-    cfg
+/// Build a `TokenBucketConfig` from the HTTP service configuration.
+fn rate_limit_config_from_service_cfg(cfg: &HttpServiceConfig) -> TokenBucketConfig {
+    let mut cfg_out = TokenBucketConfig::default();
+    cfg_out.burst = cfg.rate_limit_burst as f64;
+    cfg_out.refill_per_second = cfg.rate_limit_requests_per_sec as f64;
+    cfg_out
 }
 
 /// Per-route rate-limit profile. The prefix is matched against
@@ -378,47 +389,24 @@ const ROUTE_LIMIT_PROFILES: &[RouteLimitProfile] = &[
     },
 ];
 
-/// Map an uppercase profile name to the env-var key, in priority
-/// order. We try both `AARONEOUS_RATE_LIMIT_<NAME>_BURST` and the
-/// shorthand `<NAME>_BURST` to be forgiving.
-fn parse_profile_env(name_upper: &str, field: &str) -> Option<f64> {
-    let v = std::env::var(format!("AARONEOUS_RATE_LIMIT_{}_{}", name_upper, field))
-        .ok()
-        .or_else(|| std::env::var(format!("{}_{}", name_upper, field)).ok())?;
-    v.parse::<f64>().ok().filter(|x| x.is_finite() && *x >= 0.0)
-}
-
-/// Profile name used for env-var overrides. Derived from the
-/// prefix by stripping slashes and uppercasing. Profile names
-/// are stable identifiers in the docs and changelog.
-fn profile_name_for_prefix(prefix: &str) -> String {
-    prefix
-        .trim_start_matches('/')
-        .replace(['/', '-'], "_")
-        .to_uppercase()
-}
-
 /// Build the per-route rate-limit registry and return it
 /// alongside the default limiter. Sorts routes by prefix
 /// length descending so the middleware does a single linear
 /// pass and uses the longest match.
-fn build_route_limit_registry() -> (
+fn build_route_limit_registry(cfg: &HttpServiceConfig) -> (
     Arc<TokenBucketLimiter>,
     Vec<(String, Arc<TokenBucketLimiter>)>,
 ) {
-    let default = Arc::new(TokenBucketLimiter::new(rate_limit_config_from_env()));
+    let default = Arc::new(TokenBucketLimiter::new(rate_limit_config_from_service_cfg(cfg)));
     let mut routes: Vec<(String, Arc<TokenBucketLimiter>)> = ROUTE_LIMIT_PROFILES
         .iter()
         .map(|p| {
-            let name = profile_name_for_prefix(p.prefix);
-            let burst = parse_profile_env(&name, "BURST").unwrap_or(p.burst);
-            let refill = parse_profile_env(&name, "REFILL").unwrap_or(p.refill_per_second);
-            let cfg = TokenBucketConfig {
-                burst,
-                refill_per_second: refill,
+            let route_cfg = TokenBucketConfig {
+                burst: cfg.rate_limit_burst as f64,
+                refill_per_second: cfg.rate_limit_requests_per_sec as f64,
                 idle_eviction: Some(std::time::Duration::from_secs(600)),
             };
-            (p.prefix.to_string(), Arc::new(TokenBucketLimiter::new(cfg)))
+            (p.prefix.to_string(), Arc::new(TokenBucketLimiter::new(route_cfg)))
         })
         .collect();
     // Longest prefix first so the middleware picks the
@@ -454,19 +442,20 @@ fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
 
 /// API key authentication middleware.
 ///
-/// Reads `AARONEOUS_API_KEY` from the environment at call time.
+/// Reads auth key from AppState configuration.
 /// If set, every request to any route other than `/healthz` and `/readyz`
 /// must include `Authorization: Bearer <key>` (case-insensitive prefix).
 /// Uses constant-time byte comparison to eliminate timing side-channels.
 async fn api_key_auth(
+    State(state): State<AppState>,
     headers: HeaderMap,
     req: axum::extract::Request<Body>,
     next: Next,
 ) -> Response {
-    let Some(required_key) = std::env::var("AARONEOUS_API_KEY").ok() else {
-        // Auth disabled — pass through for local development
+    let required_key = state.http_service_cfg.auth_key.clone();
+    if required_key.is_none() {
         return next.run(req).await;
-    };
+    }
 
     // Allow liveness/readiness probes and model listing without auth
     let path = req.uri().path();
@@ -483,7 +472,7 @@ async fn api_key_auth(
         });
 
     match provided {
-        Some(key) if constant_time_eq(key.as_bytes(), required_key.as_bytes()) => {
+        Some(key) if constant_time_eq(key.as_bytes(), required_key.as_deref().unwrap_or_default().as_bytes()) => {
             next.run(req).await
         }
         _ => (
@@ -703,19 +692,17 @@ async fn request_context_middleware(mut req: Request<Body>, next: Next) -> Respo
 
 pub fn router(state: AppState) -> Router {
     // CORS: allow any origin by default.
-    // In production, set AARONEOUS_CORS_ORIGIN=https://yourdomain.com
-    // to restrict to a specific origin.
-    let cors = match std::env::var("AARONEOUS_CORS_ORIGIN") {
-        Ok(origin) if !origin.is_empty() => {
-            let hv: axum::http::HeaderValue = origin
-                .parse()
-                .unwrap_or_else(|_| axum::http::HeaderValue::from_static("*"));
-            CorsLayer::new()
-                .allow_origin(AllowOrigin::exact(hv))
-                .allow_methods([Method::GET, Method::POST, Method::DELETE, Method::OPTIONS])
-                .allow_headers(Any)
-        }
-        _ => CorsLayer::permissive(), // Dev mode: allow any origin
+    // In production, configure cors_allowed_origin to restrict to a specific origin.
+    let cors = if let Some(ref origin) = state.http_service_cfg.cors_allowed_origin {
+        let hv: axum::http::HeaderValue = origin
+            .parse()
+            .unwrap_or_else(|_| axum::http::HeaderValue::from_static("*"));
+        CorsLayer::new()
+            .allow_origin(AllowOrigin::exact(hv))
+            .allow_methods([Method::GET, Method::POST, Method::DELETE, Method::OPTIONS])
+            .allow_headers(Any)
+    } else {
+        CorsLayer::permissive()
     };
 
     Router::new()
@@ -2047,11 +2034,18 @@ async fn cluster_status(State(state): State<AppState>) -> Json<serde_json::Value
 // ====================================================================
 
 /// GET /models/external — Scan common directories for existing GGUF models
-async fn list_external_models() -> Json<serde_json::Value> {
+async fn list_external_models(
+    State(state): State<AppState>,
+) -> Json<serde_json::Value> {
     let mut found_models = Vec::new();
 
     // Check LM Studio default directory on Windows
-    let home = std::env::var("USERPROFILE").unwrap_or_else(|_| "C:\\".to_string());
+    let Some(home) = state.http_service_cfg.home_dir.clone() else {
+        return Json(serde_json::json!({
+            "models": [],
+            "note": "Home directory not configured; external model scanning disabled"
+        }));
+    };
 
     // Search Paths
     let lm_studio_dir = std::path::PathBuf::from(&home)

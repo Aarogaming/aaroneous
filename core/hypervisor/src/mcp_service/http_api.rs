@@ -47,13 +47,11 @@ use std::sync::Arc;
 use tracing::{debug, info};
 
 /// MCP HTTP+SSE transport configuration.
-#[repr(C)]
-#[derive(Clone, Copy, Debug, PartialEq, Eq, bytemuck::Pod, bytemuck::Zeroable)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct McpServiceConfig {
     pub port: u16,
-    pub bind_addr: [u8; 4], // IPv4 octets  
+    pub bind_addr: [u8; 4],
     pub auth_key: Option<String>,
-    pub _pad: [u8; 7],
 }
 
 impl Default for McpServiceConfig {
@@ -62,7 +60,6 @@ impl Default for McpServiceConfig {
             port: 0,
             bind_addr: [127, 0, 0, 1],
             auth_key: None,
-            _pad: [0; 7],
         }
     }
 }
