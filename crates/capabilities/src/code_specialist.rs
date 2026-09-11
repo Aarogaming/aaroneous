@@ -57,14 +57,14 @@ impl SpecialistEngine for CodeSpecialist {
 }
 
 /// Dynamic ABI Entrypoint: Instantiates the Code Specialist
-#[no_mangle]
+#[unsafe(no_mangle)]
 #[allow(improper_ctypes_definitions)]
 pub extern "C" fn aaroneous_create_specialist() -> *mut dyn SpecialistEngine {
     Box::into_raw(Box::new(CodeSpecialist::new()))
 }
 
 /// Dynamic ABI Entrypoint: Queries the Plugin Manifest
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn aaroneous_specialist_manifest() -> SpecialistPluginManifest {
     SpecialistPluginManifest {
         abi_version: SPECIALIST_ABI_VERSION,

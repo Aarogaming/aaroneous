@@ -23,7 +23,7 @@ use nervous_system::specialist_bus::SpecialistSynapseBus;
 pub fn pin_current_thread_to_core(core_id: usize) -> bool {
     #[cfg(windows)]
     {
-        extern "system" {
+        unsafe extern "system" {
             fn GetCurrentThread() -> isize;
             fn SetThreadAffinityMask(hThread: isize, dwThreadAffinityMask: usize) -> usize;
         }

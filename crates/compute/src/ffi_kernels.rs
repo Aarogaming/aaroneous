@@ -6,7 +6,7 @@ use std::alloc::{alloc, Layout};
 /// # Safety
 /// Caller must ensure `a_ptr`, `b_ptr`, and `out_ptr` point to valid memory buffers
 /// of lengths `m * k`, `k * n`, and `m * n` respectively.
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn host_tensor_dot_kernel(
     a_ptr: *const f32,
     b_ptr: *const f32,
@@ -35,7 +35,7 @@ pub unsafe extern "C" fn host_tensor_dot_kernel(
 /// # Safety
 /// Caller must ensure `size` fits within available host memory and subsequent accesses
 /// obey standard alignment invariants.
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn host_alloc(size: usize, align: usize) -> *mut u8 {
     if size == 0 {
         return std::ptr::null_mut();
@@ -49,7 +49,7 @@ pub unsafe extern "C" fn host_alloc(size: usize, align: usize) -> *mut u8 {
 ///
 /// # Safety
 /// Caller must ensure `state_ptr` is either null or points to an array of at least `len` floats.
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn host_entropy_min(state_ptr: *mut f32, len: usize) {
     if state_ptr.is_null() || len == 0 {
         return;

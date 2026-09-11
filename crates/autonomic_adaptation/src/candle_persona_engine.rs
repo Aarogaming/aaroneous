@@ -264,7 +264,7 @@ impl CandlePersonaEngine {
 
             let mut rng = rand::thread_rng();
             use rand::Rng;
-            let sample_val: f32 = rng.gen::<f32>() * sum_p;
+            let sample_val: f32 = rng.r#gen::<f32>() * sum_p;
             let mut acc = 0.0f32;
 
             for &(idx, p) in &indexed_probs {

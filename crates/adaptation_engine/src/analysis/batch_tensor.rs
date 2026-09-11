@@ -168,7 +168,7 @@ pub fn batch_generate_hypotheses(observations: &[AstObservation]) -> Vec<Vec<Hyp
             let similar_files: Vec<usize> = similarity[i]
                 .iter()
                 .enumerate()
-                .filter(|(j, &sim)| *j != i && sim > 0.7)
+                .filter(|&(j, &sim)| j != i && sim > 0.7)
                 .map(|(j, _)| j)
                 .collect();
 
