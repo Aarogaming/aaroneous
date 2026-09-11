@@ -7,10 +7,10 @@ mod error_interceptor;
 pub use hypervisor::state::telemetry::Trigger;
 // pub use streaming_adaptation::StreamingLoraAdaptationPipeline; // TEMPORARILY DISABLED
 
-/// Push a trigger onto the telemetry ring buffer using safe hypervisor API.
+/// Push a trigger onto the telemetry ring buffer using SWMR-safe hypervisor API.
 pub fn push_trigger(trigger: Trigger) {
-    // SAFETY: Caller must ensure exclusive access to TELEMETRY_BUFFER
-    hypervisor::state::telemetry::push_telemetry(trigger).expect("Telemetry buffer full - queue overflow");
+    // SAFETY: Single-writer guarantee - this is the only writer in runtime_monitor crate
+    hypervisor::state::telemetry::push_telemetry_safe(trigger).expect("Telemetry buffer full - queue overflow");
 }
 
 // Re-export telemetry buffer for external access

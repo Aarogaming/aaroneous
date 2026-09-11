@@ -12,6 +12,7 @@
 
 use std::mem::MaybeUninit;
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::cell::UnsafeCell;
 // Removed Pod/Zeroable - RingBuffer is a container, not data storage
 
 /// Fixed‑capacity lock‑free ring buffer.
@@ -22,7 +23,7 @@ where
     T: Copy + Default,
 {
     // Storage for items. `MaybeUninit` avoids constructing `T` unnecessarily.
-    buffer: [MaybeUninit<T>; CAP],
+    buffer: UnsafeCell<[MaybeUninit<T>; CAP]>,
     // Index of the next element to read.
     head: AtomicUsize,
     // Index of the next slot to write.
@@ -37,7 +38,7 @@ where
     pub const fn new() -> Self {
         // SAFETY: An array of `MaybeUninit` is always valid.
         Self {
-            buffer: [MaybeUninit::uninit(); CAP],
+            buffer: UnsafeCell::new([MaybeUninit::uninit(); CAP]),
             head: AtomicUsize::new(0),
             tail: AtomicUsize::new(0),
         }
@@ -93,6 +94,25 @@ where
         let value = unsafe { self.buffer.get_unchecked(idx).assume_init_read() };
         self.head.store(head.wrapping_add(1), Ordering::SeqCst);
         Some(value)
+
+    /// Get raw mutable pointer to buffer (for direct atomic access).
+    #[inline]
+    pub fn buffer_mut(&mut self) -> &mut [MaybeUninit<T>; CAP] {
+        // SAFETY: We have &mut self, so we can safely cast the UnsafeCell contents
+        unsafe { &mut *self.buffer.get() }
+    }
+
+    /// Get current tail index.
+    #[inline]
+    pub fn tail(&self) -> usize {
+        self.tail.load(std::sync::atomic::Ordering::SeqCst)
+    }
+
+    /// Get current head index.
+    #[inline]
+    pub fn head(&self) -> usize {
+        self.head.load(std::sync::atomic::Ordering::SeqCst)
+    }
     }
 }
 
