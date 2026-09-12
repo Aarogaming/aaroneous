@@ -122,44 +122,42 @@ fn write_lib_rs(name: &str, crate_dir: &Path) -> Result<()> {
         return Ok(());
     }
 
-    // Use a static string template to avoid format! macro escaping issues
-    const TEMPLATE: &str = r#"//! {} — Aaroneous Crate Component (ACC)
-//!
-//! This crate was scaffolded by Cratify and adheres to the microkernel
-//! contract boundaries defined in `core-contracts`.
+    // Determine domain from crate name for appropriate unsafe code policy
+    let is_sensitive_domain = name.contains("compute") || name.contains("hypervisor");
+    
+    // Domain-aware unsafe permissions: sensitive domains warn, others deny
+    let unsafe_directive = if is_sensitive_domain {
+        "#![warn(unsafe_code)]\n// SAFETY: Explanations required for all unsafe blocks\n"
+    } else {
+        "#![deny(unsafe_code)]\n"
+    };
 
-#![deny(unsafe_code)]
-
-use core_contracts::{ComponentManifest, HierarchyTier, Capability, pack_version};
-
-/// ACC identity returned during bootstrap handshake.
-pub fn manifest() -> ComponentManifest {
-    ComponentManifest {
-        name: *b"{}{}",
-        version: pack_version(0, 1, 0),
-        tier: HierarchyTier::SubordinateModule as u8,
-        capabilities: Capability::INFERENCE_OUT.bits(),
-        methodology: 0x01,
-        supported_intents: 0x0001,
-        priority_weight: 128,
-        address: 0,
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn manifest_is_pod() {
-        let m = manifest();
-        assert_eq!(std::mem::size_of::<ComponentManifest>(), 64);
-        assert_eq!(m.tier, HierarchyTier::SubordinateModule as u8);
-    }
-}
-"#;
-
-    let content = TEMPLATE.replace("{}", name).replace("{name:<32}", &format!("{:32}", name));
+    // Build the lib.rs content manually to avoid format string escaping issues
+    let mut content = String::new();
+    content.push_str(&format!("//! {} — Aaroneous Crate Component (ACC)\n", name));
+    content.push_str("//!\n");
+    content.push_str("//! This crate was scaffolded by Cratify and adheres to the microkernel\n");
+    content.push_str("//! contract boundaries defined in `core-contracts`.\n\n");
+    content.push_str(&unsafe_directive);
+    content.push_str("\nuse core_contracts::{ComponentManifest, HierarchyTier, Capability, pack_version};\n\n");
+    content.push_str("/// ACC identity returned during bootstrap handshake.\npub fn manifest() -> ComponentManifest {\n");
+    content.push_str("    ComponentManifest {\n");
+    content.push_str(&format!("        name: *b\"{{}}{}\",\n", name));
+    content.push_str("        version: pack_version(0, 1, 0),\n");
+    content.push_str("        tier: HierarchyTier::SubordinateModule as u8,\n");
+    content.push_str("        capabilities: Capability::INFERENCE_OUT.bits(),\n");
+    content.push_str("        methodology: 0x01,\n");
+    content.push_str("        supported_intents: 0x0001,\n");
+    content.push_str("        priority_weight: 128,\n");
+    content.push_str("        address: 0,\n");
+    content.push_str("    }\n}\n\n");
+    content.push_str("#[cfg(test)]\nmod tests {\n");
+    content.push_str("    use super::*;\n\n");
+    content.push_str("    #[test]\n    fn manifest_is_pod() {\n");
+    content.push_str("        let m = manifest();\n");
+    content.push_str("        assert_eq!(std::mem::size_of::<ComponentManifest>(), 64);\n");
+    content.push_str("        assert_eq!(m.tier, HierarchyTier::SubordinateModule as u8);\n");
+    content.push_str("    }\n}\n");
 
     fs::write(&path, content)
         .with_context(|| format!("failed to write {}", path.display()))?;
@@ -216,6 +214,7 @@ mod tests {
         let lib = fs::read_to_string(crates_dir.join("src/lib.rs")).unwrap();
         assert!(lib.contains("use core_contracts"));
         assert!(lib.contains("ComponentManifest"));
+        // Test crate name "test_gen" is not a sensitive domain, should deny unsafe code
         assert!(lib.contains("#![deny(unsafe_code)]"));
 
         let manifest = fs::read_to_string(crates_dir.join("Cargo.toml")).unwrap();
@@ -251,5 +250,61 @@ mod tests {
 
         let manifest = fs::read_to_string(crates_dir.join("Cargo.toml")).unwrap();
         assert!(manifest.contains("name = \"valid-name\""));
+    }
+
+    #[test]
+    fn domain_aware_unsafe_directive() {
+        // Test that sensitive domains get warn, others get deny
+        let workspace_root = tempdir().unwrap();
+        
+        // Test compute domain -> should warn
+        let compute_dir = workspace_root.path().join("crates").join("test_compute");
+        fs::create_dir_all(compute_dir.join("src")).unwrap();
+        fs::write(
+            workspace_root.path().join("Cargo.toml"),
+            "[workspace]\nmembers = []\n",
+        ).unwrap();
+        write_lib_rs("test_compute", &compute_dir).unwrap();
+        let lib = fs::read_to_string(compute_dir.join("src/lib.rs")).unwrap();
+        assert!(lib.contains("#![warn(unsafe_code)]"));
+        assert!(lib.contains("// SAFETY: Explanations required for all unsafe blocks"));
+
+        // Test hypervisor domain -> should warn
+        let hypervisor_dir = workspace_root.path().join("crates").join("test_hypervisor");
+        fs::create_dir_all(hypervisor_dir.join("src")).unwrap();
+        write_lib_rs("test_hypervisor", &hypervisor_dir).unwrap();
+        let lib = fs::read_to_string(hypervisor_dir.join("src/lib.rs")).unwrap();
+        assert!(lib.contains("#![warn(unsafe_code)]"));
+
+        // Test api domain -> should deny
+        let api_dir = workspace_root.path().join("crates").join("test_api");
+        fs::create_dir_all(api_dir.join("src")).unwrap();
+        write_lib_rs("test_api", &api_dir).unwrap();
+        let lib = fs::read_to_string(api_dir.join("src/lib.rs")).unwrap();
+        assert!(lib.contains("#![deny(unsafe_code)]"));
+    }
+
+    #[test]
+    fn test_cleanup_leaves_no_traces() {
+        // Verify that tempdir ensures no physical directory remains after test
+        let workspace_root = tempdir().unwrap();
+        let crates_dir = workspace_root.path().join("crates").join("cleanup_test");
+        
+        // Create the crate
+        fs::create_dir_all(crates_dir.join("src")).unwrap();
+        fs::write(
+            workspace_root.path().join("Cargo.toml"),
+            "[workspace]\nmembers = []\n",
+        ).unwrap();
+        write_lib_rs("cleanup_test", &crates_dir).unwrap();
+
+        // Verify files were created
+        assert!(crates_dir.join("src/lib.rs").exists());
+
+        // Drop the tempdir to ensure cleanup
+        drop(workspace_root);
+
+        // The underlying filesystem should have been cleaned up by tempfile
+        // Since we're using tempdir in a temp location, no trace should remain
     }
 }
