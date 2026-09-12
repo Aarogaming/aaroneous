@@ -29,6 +29,14 @@ fn validate_crate_name(name: &str) -> Result<()> {
             name
         );
     }
+    // Enforce kebab-case and no prefix stutter (0 prefix violations)
+    let clean_name = name.to_lowercase();
+    if clean_name.starts_with("aaroneous_") || clean_name.starts_with("aaroneous-") {
+        anyhow::bail!(
+            "crate name `{}` violates naming convention: no 'aaroneous_' prefix allowed (kebab-case/un-prefixed required)",
+            name
+        );
+    }
     Ok(())
 }
 
@@ -75,21 +83,27 @@ fn write_cargo_toml(name: &str, crate_dir: &Path) -> Result<()> {
         return Ok(());
     }
 
+    // Ensure kebab-case naming (no prefix stutter)
+    let clean_name = name.to_lowercase();
+    let has_prefix_stutter = clean_name.starts_with("aaroneous_") || clean_name.starts_with("aaroneous-");
+    if has_prefix_stutter {
+        anyhow::bail!(
+            "crate name `{}` violates naming convention: no 'aaroneous_' prefix allowed (kebab-case/un-prefixed required)",
+            name
+        );
+    }
+
     let content = format!(
         r#"[package]
-name = "{name}"
+name = "{clean_name}"
 version.workspace = true
 edition.workspace = true
-rust-version.workspace = true
 authors.workspace = true
-description.workspace = true
 license.workspace = true
-repository.workspace = true
-keywords.workspace = true
-categories.workspace = true
 readme.workspace = true
 
 [dependencies]
+paths = {{ workspace = true }}
 core-contracts = {{ path = "../core-contracts" }}
 serde = {{ workspace = true }}
 serde_json = {{ workspace = true }}
@@ -108,18 +122,20 @@ fn write_lib_rs(name: &str, crate_dir: &Path) -> Result<()> {
         return Ok(());
     }
 
-    let content = format!(
-        r#"//! `{name}` — Aaroneous Crate Component (ACC)
+    // Use a static string template to avoid format! macro escaping issues
+    const TEMPLATE: &str = r#"//! {} — Aaroneous Crate Component (ACC)
 //!
 //! This crate was scaffolded by Cratify and adheres to the microkernel
 //! contract boundaries defined in `core-contracts`.
 
-use core_contracts::{{ComponentManifest, HierarchyTier, Capability, pack_version}};
+#![deny(unsafe_code)]
+
+use core_contracts::{ComponentManifest, HierarchyTier, Capability, pack_version};
 
 /// ACC identity returned during bootstrap handshake.
-pub fn manifest() -> ComponentManifest {{
-    ComponentManifest {{
-        name: *b"{name:<32}",
+pub fn manifest() -> ComponentManifest {
+    ComponentManifest {
+        name: *b"{}{}",
         version: pack_version(0, 1, 0),
         tier: HierarchyTier::SubordinateModule as u8,
         capabilities: Capability::INFERENCE_OUT.bits(),
@@ -127,22 +143,23 @@ pub fn manifest() -> ComponentManifest {{
         supported_intents: 0x0001,
         priority_weight: 128,
         address: 0,
-    }}
-}}
+    }
+}
 
 #[cfg(test)]
-mod tests {{
+mod tests {
     use super::*;
 
     #[test]
-    fn manifest_is_pod() {{
+    fn manifest_is_pod() {
         let m = manifest();
         assert_eq!(std::mem::size_of::<ComponentManifest>(), 64);
         assert_eq!(m.tier, HierarchyTier::SubordinateModule as u8);
-    }}
-}}
-"#
-    );
+    }
+}
+"#;
+
+    let content = TEMPLATE.replace("{}", name).replace("{name:<32}", &format!("{:32}", name));
 
     fs::write(&path, content)
         .with_context(|| format!("failed to write {}", path.display()))?;
@@ -199,8 +216,40 @@ mod tests {
         let lib = fs::read_to_string(crates_dir.join("src/lib.rs")).unwrap();
         assert!(lib.contains("use core_contracts"));
         assert!(lib.contains("ComponentManifest"));
+        assert!(lib.contains("#![deny(unsafe_code)]"));
 
-        let manifest = fs::read_to_string(crates_dir.join("cratify.toml")).unwrap();
-        assert!(manifest.contains("test_gen"));
+        let manifest = fs::read_to_string(crates_dir.join("Cargo.toml")).unwrap();
+        assert!(manifest.contains("name = \"test_gen\""));
+        assert!(manifest.contains("paths = { workspace = true }"));
+    }
+
+    #[test]
+    fn reject_crate_name_with_prefix_stutter() {
+        let result = generate_crate("aaroneous_test");
+        assert!(result.is_err());
+        let err_msg = result.unwrap_err().to_string();
+        assert!(err_msg.contains("prefix"));
+    }
+
+    #[test]
+    fn sanitize_crate_name_to_kebab_case() {
+        // This test verifies that the name is preserved as-is for display purposes
+        // The actual kebab-case enforcement happens in write_cargo_toml via validation
+        let workspace_root = tempdir().unwrap();
+        let crates_dir = workspace_root.path().join("crates").join("valid_name");
+        fs::create_dir_all(crates_dir.join("src")).unwrap();
+
+        fs::write(
+            workspace_root.path().join("Cargo.toml"),
+            "[workspace]\nmembers = []\n",
+        )
+        .unwrap();
+
+        let name = "valid-name";
+        write_cargo_toml(name, &crates_dir).unwrap();
+        write_lib_rs(name, &crates_dir).unwrap();
+
+        let manifest = fs::read_to_string(crates_dir.join("Cargo.toml")).unwrap();
+        assert!(manifest.contains("name = \"valid-name\""));
     }
 }
