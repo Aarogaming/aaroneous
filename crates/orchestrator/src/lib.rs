@@ -1,7 +1,6 @@
+/// crates/orchestrator
+/// Multi-Agent Federation, Hive Runtime, MDP Task Routing, and Control Plane for Aaroneous.
 pub mod combat_agent;
-//! crates/orchestrator
-//! Multi-Agent Federation, Hive Runtime, MDP Task Routing, and Control Plane for Aaroneous.
-
 pub mod agents;
 pub mod archetypes;
 pub mod aura_ui;
