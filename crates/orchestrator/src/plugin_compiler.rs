@@ -12,7 +12,7 @@ pub struct PluginCompiler {
 
 impl PluginCompiler {
     pub fn new() -> Self {
-        let staging_dir = std::env::temp_dir().join("plugin_staging");
+        let staging_dir = tempfile::tempdir().unwrap().into_path().join("plugin_staging");
         let _ = std::fs::create_dir_all(&staging_dir);
         Self { staging_dir }
     }

@@ -8269,6 +8269,7 @@ dependencies = [
  "serde_json",
  "si_ir",
  "strum 0.26.3",
+ "tempfile",
  "thiserror 2.0.20",
  "tokio",
  "tracing",
