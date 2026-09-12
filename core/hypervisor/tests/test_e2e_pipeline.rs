@@ -203,7 +203,8 @@ fn test_action_executor_file_operations() {
     let dir = tempdir().unwrap();
     let test_file = dir.path().join("test.txt");
 
-    let mut executor = ActionExecutor::new(PathBuf::from("test.wasm"));
+    let mut executor = ActionExecutor::new(PathBuf::from("test.wasm"))
+        .with_allowed_root(dir.path().to_path_buf());
 
     // Test file creation
     let action = ExecutableAction::FileOperation {
@@ -230,7 +231,7 @@ fn test_wasm_enzyme_exists() {
     let paths = paths::WorkspacePaths::discover(&WorkspacePathsConfig::default());
     let wasm_path = paths
         .extensions()
-        .join("wasm\\compute_enzyme\\target\\wasm32-unknown-unknown\\release\\compute_enzyme.wasm");
+        .join("wasm\\compute_worker\\target\\wasm32-unknown-unknown\\release\\compute_enzyme.wasm");
     assert!(
         wasm_path.exists(),
         "Compute enzyme WASM should exist at {:?}",
@@ -240,7 +241,7 @@ fn test_wasm_enzyme_exists() {
     // Verify the test enzyme WASM file exists
     let test_wasm_path = paths
         .extensions()
-        .join("wasm\\test_enzyme\\target\\wasm32-unknown-unknown\\release\\test_enzyme.wasm");
+        .join("wasm\\test_worker\\target\\wasm32-unknown-unknown\\release\\test_enzyme.wasm");
     assert!(
         test_wasm_path.exists(),
         "Test enzyme WASM should exist at {:?}",

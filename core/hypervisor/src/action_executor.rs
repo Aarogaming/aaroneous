@@ -91,7 +91,11 @@ impl ActionExecutor {
         }
     }
 
-    /// Verifies that a target file path is safely confined within allowed workspace roots
+    pub fn with_allowed_root(mut self, root: PathBuf) -> Self {
+        self.allowed_roots.push(root);
+        self
+    }
+
     pub fn validate_sandbox_path(&self, path: &Path) -> Result<PathBuf, String> {
         // Disallow relative parent directory traversal
         if path
