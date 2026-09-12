@@ -14,6 +14,7 @@ pub struct RewriteSummary {
     pub env_temp_dir_rewrites: usize,
     pub env_current_dir_rewrites: usize,
     pub env_var_rewrites: usize,
+    pub stripped_banned_imports: usize,
     pub injected_imports: HashSet<String>,
 }
 
@@ -49,6 +50,19 @@ impl AmbientAstRewriter {
 
     /// Rewrite in-place an already parsed `syn::File`.
     pub fn rewrite_ast(&mut self, file: &mut File) {
+        // Strip out banned ambient imports (`use std::env;`, `use std::fs;`)
+        let mut filtered_items = Vec::with_capacity(file.items.len());
+        for item in file.items.drain(..) {
+            if let Item::Use(item_use) = &item {
+                if Self::is_banned_use_tree(&item_use.tree, "") {
+                    self.summary.stripped_banned_imports += 1;
+                    continue;
+                }
+            }
+            filtered_items.push(item);
+        }
+        file.items = filtered_items;
+
         self.visit_file_mut(file);
 
         // Inject missing imports at the top of the file
@@ -77,6 +91,47 @@ impl AmbientAstRewriter {
         if !new_items.is_empty() {
             new_items.extend(file.items.clone());
             file.items = new_items;
+        }
+    }
+
+    fn is_banned_use_tree(tree: &syn::UseTree, prefix: &str) -> bool {
+        match tree {
+            syn::UseTree::Path(use_path) => {
+                let current = if prefix.is_empty() {
+                    use_path.ident.to_string()
+                } else {
+                    format!("{prefix}::{}", use_path.ident)
+                };
+                if current == "std::env" || current.starts_with("std::env::")
+                    || current == "std::fs" || current.starts_with("std::fs::") {
+                    return true;
+                }
+                Self::is_banned_use_tree(&use_path.tree, &current)
+            }
+            syn::UseTree::Name(name) => {
+                let full = if prefix.is_empty() {
+                    name.ident.to_string()
+                } else {
+                    format!("{prefix}::{}", name.ident)
+                };
+                full == "std::env" || full.starts_with("std::env::")
+                    || full == "std::fs" || full.starts_with("std::fs::")
+            }
+            syn::UseTree::Rename(use_rename) => {
+                let full = if prefix.is_empty() {
+                    use_rename.ident.to_string()
+                } else {
+                    format!("{prefix}::{}", use_rename.ident)
+                };
+                full == "std::env" || full.starts_with("std::env::")
+                    || full == "std::fs" || full.starts_with("std::fs::")
+            }
+            syn::UseTree::Glob(_) => {
+                prefix.starts_with("std::env") || prefix.starts_with("std::fs")
+            }
+            syn::UseTree::Group(use_group) => {
+                use_group.items.iter().any(|item| Self::is_banned_use_tree(item, prefix))
+            }
         }
     }
 }
@@ -141,7 +196,6 @@ impl VisitMut for AmbientAstRewriter {
     }
 
     fn visit_item_use_mut(&mut self, node: &mut ItemUse) {
-        // Strip out direct banned imports `use std::env;`
         visit_mut::visit_item_use_mut(self, node);
     }
 }
@@ -190,5 +244,23 @@ mod tests {
         assert_eq!(summary.env_current_dir_rewrites, 1);
         assert!(!rewritten.contains("std::env::current_dir()"));
         assert!(rewritten.contains("paths::WorkspacePaths::default().root().clone()"));
+    }
+
+    #[test]
+    fn test_rewriter_strips_banned_imports() {
+        let mut rewriter = AmbientAstRewriter::new();
+        let source = r#"
+            use std::env;
+            use std::fs;
+            use std::path::PathBuf;
+
+            pub fn check() {}
+        "#;
+
+        let (rewritten, summary) = rewriter.rewrite_source(source).unwrap();
+        assert_eq!(summary.stripped_banned_imports, 2);
+        assert!(!rewritten.contains("use std::env;"));
+        assert!(!rewritten.contains("use std::fs;"));
+        assert!(rewritten.contains("use std::path::PathBuf;"));
     }
 }

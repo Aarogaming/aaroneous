@@ -164,7 +164,6 @@ pub fn run_harvest(
         };
 
         summary.files_ingested += 1;
-        summary.total_ambient_risks += report.ambient_risks.len();
 
         match &report.target_domain {
             Domain::Compute => summary.compute_count += 1,
@@ -187,42 +186,91 @@ pub fn run_harvest(
         let total_file_rewrites = rewrite_summary.canonicalize_rewrites
             + rewrite_summary.env_temp_dir_rewrites
             + rewrite_summary.env_current_dir_rewrites
-            + rewrite_summary.env_var_rewrites;
+            + rewrite_summary.env_var_rewrites
+            + rewrite_summary.stripped_banned_imports;
         summary.total_rewrites += total_file_rewrites;
 
+        // 3. Post-Remediation Verification & Parity Check
+        // Re-analyze remediated AST to verify remaining ambient risks
+        let post_report = match classifier.classify_source(file_name, &remediated_code) {
+            Ok(r) => r,
+            Err(e) => {
+                eprintln!("[POST-CHECK ERROR] Failed to parse remediated {:?}: {}", file_path, e);
+                continue;
+            }
+        };
+
+        summary.total_ambient_risks += post_report.ambient_risks.len();
+
+        let unhandled_risks = post_report.ambient_risks.len();
+        let status = if unhandled_risks == 0 {
+            "REMEDIATED (0 unhandled)"
+        } else {
+            "QUARANTINED"
+        };
+
         println!(
-            "-> {:<25} | Domain: {:<16} | Items: {:<2} | Risks: {:<2} | Rewrites: {}",
+            "-> {:<25} | Domain: {:<16} | Items: {:<2} | Pre-Risks: {:<2} | Rewrites: {:<2} | Status: {}",
             file_name,
             report.target_domain.to_string(),
             report.public_items.len(),
             report.ambient_risks.len(),
-            total_file_rewrites
+            total_file_rewrites,
+            status
         );
 
         if !report.ambient_risks.is_empty() {
             for risk in &report.ambient_risks {
-                println!("   [RISK] L{}:{} -> {}", risk.line, risk.column, risk.symbol);
+                println!("   [PRE-REWRITE RISK] L{}:{} -> {}", risk.line, risk.column, risk.symbol);
             }
         }
 
-        // 3. Domain Grafting
+        if unhandled_risks > 0 {
+            for risk in &post_report.ambient_risks {
+                println!("   [UNHANDLED RISK] L{}:{} -> {}", risk.line, risk.column, risk.symbol);
+            }
+        }
+
+        // 4. Domain Grafting or Quarantine Isolation
         match &report.target_domain {
             Domain::Novel(candidate_name) => {
                 println!("   [NOVEL DOMAIN] Candidate: `{}` (Score < 0.60 threshold). Tagged for staging.", candidate_name);
                 summary.novel_candidates.push(report);
             }
             _ => {
-                if dry_run {
-                    let planned_rel_dir = match &report.target_domain {
-                        Domain::Compute => "crates/compute/src/",
-                        Domain::Hypervisor => "core/hypervisor/src/",
-                        Domain::IpcBus => "crates/ipc_bus/src/",
-                        Domain::Orchestrator => "crates/orchestrator/src/",
-                        Domain::Novel(_) => "crates/orchestration_plane/src/",
-                    };
-                    println!("   [PLANNED GRAFT] {} -> {}{}", file_name, planned_rel_dir, file_name);
+                if unhandled_risks > 0 {
+                    if dry_run {
+                        println!(
+                            "   [QUARANTINE SIMULATED] {} unhandled risks -> staging/quarantine/{}",
+                            unhandled_risks,
+                            orchestration_plane::grafter::sanitize_module_name(file_name)
+                        );
+                    } else {
+                        println!(
+                            "   [QUARANTINED] Module contains unhandled risks. Routing to staging/quarantine/..."
+                        );
+                        let q_report = orchestration_plane::grafter::quarantine_module(
+                            &post_report,
+                            &remediated_code,
+                            workspace_root,
+                        ).with_context(|| format!("Failed to quarantine {:?}", file_name))?;
+                        println!("   [QUARANTINED] Isolated at: {:?}", q_report.destination_file);
+                        summary.graft_reports.push(q_report);
+                    }
+                } else if dry_run {
+                    let planned_dest = orchestration_plane::grafter::resolve_domain_crate_path(
+                        &report.target_domain,
+                        workspace_root,
+                    );
+                    let sanitized = orchestration_plane::grafter::sanitize_module_name(file_name);
+                    println!(
+                        "   [PLANNED GRAFT] {} -> {}/src/{}.rs",
+                        file_name,
+                        planned_dest.strip_prefix(workspace_root).unwrap_or(&planned_dest).display(),
+                        sanitized
+                    );
                 } else {
-                    let graft_result = graft_module(&report, &remediated_code, workspace_root)
+                    let graft_result = graft_module(&post_report, &remediated_code, workspace_root)
                         .with_context(|| format!("Failed to graft {:?}", file_name))?;
                     println!(
                         "   [GRAFTED] Written to: {:?} (Updated: {:?})",
@@ -244,8 +292,8 @@ pub fn run_harvest(
     println!("  - IpcBus:           {}", summary.ipc_bus_count);
     println!("  - Orchestrator:     {}", summary.orchestrator_count);
     println!("  - Novel Domain:     {}", summary.novel_count);
-    println!("Ambient Risks Found:  {}", summary.total_ambient_risks);
-    println!("AST Rewrites Applied: {}", summary.total_rewrites);
+    println!("Remaining Ambient Risks: {}", summary.total_ambient_risks);
+    println!("AST Rewrites Applied:    {}", summary.total_rewrites);
     println!("=================================");
 
     Ok(summary)

@@ -80,6 +80,6 @@ fn test_pipeline_classify_rewrite_and_graft() {
     let grafted_content = fs::read_to_string(&graft_report.destination_file).unwrap();
     assert!(grafted_content.contains("paths::normalize_path(&path)"));
 
-    let lib_rs = fs::read_to_string(&graft_report.updated_lib_rs).unwrap();
+    let lib_rs = fs::read_to_string(graft_report.updated_lib_rs.as_ref().unwrap()).unwrap();
     assert!(lib_rs.contains("pub mod simd_kernel;"));
 }
