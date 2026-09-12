@@ -156,7 +156,7 @@ impl ModelRegistry {
                 continue;
             }
 
-            let canonical_path = path.canonicalize().unwrap_or_else(|_| path.clone());
+            let canonical_path = paths::normalize_path(&path);
             if !seen_paths.insert(canonical_path) {
                 continue;
             }

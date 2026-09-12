@@ -1052,17 +1052,14 @@ impl McpService {
         };
 
         // ── Path containment: reject reads outside workspace ──────────────
-        #[allow(clippy::collapsible_if)]
-        if let (Ok(canonical), Ok(workspace_canonical)) =
-            (resolved.canonicalize(), self.workspace_root.canonicalize())
-        {
-            if !canonical.starts_with(&workspace_canonical) {
-                anyhow::bail!(
-                    "Access denied: path '{}' is outside the workspace root '{}'",
-                    path_str,
-                    self.workspace_root.display()
-                );
-            }
+        let norm_resolved = paths::normalize_path(&resolved);
+        let norm_workspace = paths::normalize_path(&self.workspace_root);
+        if !norm_resolved.starts_with(&norm_workspace) {
+            anyhow::bail!(
+                "Access denied: path '{}' is outside the workspace root '{}'",
+                path_str,
+                self.workspace_root.display()
+            );
         }
 
         if !resolved.exists() {
@@ -1133,17 +1130,14 @@ impl McpService {
         }
 
         // ── Path containment: reject searches outside workspace ───────────
-        #[allow(clippy::collapsible_if)]
-        if let (Ok(canonical), Ok(workspace_canonical)) =
-            (root.canonicalize(), self.workspace_root.canonicalize())
-        {
-            if !canonical.starts_with(&workspace_canonical) {
-                anyhow::bail!(
-                    "Access denied: search path '{}' is outside the workspace root '{}'",
-                    search_path,
-                    self.workspace_root.display()
-                );
-            }
+        let norm_root = paths::normalize_path(root);
+        let norm_workspace = paths::normalize_path(&self.workspace_root);
+        if !norm_root.starts_with(&norm_workspace) {
+            anyhow::bail!(
+                "Access denied: search path '{}' is outside the workspace root '{}'",
+                search_path,
+                self.workspace_root.display()
+            );
         }
 
         // Walk files matching glob
@@ -1231,17 +1225,14 @@ impl McpService {
         }
 
         // ── Path containment: reject listing outside workspace ────────────
-        #[allow(clippy::collapsible_if)]
-        if let (Ok(canonical), Ok(workspace_canonical)) =
-            (path.canonicalize(), self.workspace_root.canonicalize())
-        {
-            if !canonical.starts_with(&workspace_canonical) {
-                anyhow::bail!(
-                    "Access denied: path '{}' is outside the workspace root '{}'",
-                    path_str,
-                    self.workspace_root.display()
-                );
-            }
+        let norm_path = paths::normalize_path(path);
+        let norm_workspace = paths::normalize_path(&self.workspace_root);
+        if !norm_path.starts_with(&norm_workspace) {
+            anyhow::bail!(
+                "Access denied: path '{}' is outside the workspace root '{}'",
+                path_str,
+                self.workspace_root.display()
+            );
         }
 
         let ext_filter = if glob_filter.is_empty() {

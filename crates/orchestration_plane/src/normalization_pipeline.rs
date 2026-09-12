@@ -174,6 +174,7 @@ impl NormalizationPipeline {
 }
 
 #[cfg(test)]
+#[allow(ambient_authority)]
 mod tests {
     use super::*;
 

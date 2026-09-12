@@ -400,6 +400,22 @@ fn format_bytes(bytes: u64) -> String {
     }
 }
 
+/// Pure path normalization that resolves '.' and '..' components deterministically
+/// without accessing the filesystem or invoking ambient canonicalization.
+pub fn normalize_path<P: AsRef<Path>>(path: P) -> PathBuf {
+    let mut normalized = PathBuf::new();
+    for component in path.as_ref().components() {
+        match component {
+            std::path::Component::CurDir => {}
+            std::path::Component::ParentDir => {
+                normalized.pop();
+            }
+            c => normalized.push(c.as_os_str()),
+        }
+    }
+    normalized
+}
+
 /// Platform-agnostic workspace synapse path resolution
 pub fn resolve_synapse_path(name: &str, config: &WorkspacePathsConfig) -> PathBuf {
     WorkspacePaths::discover(config).synapse_named(name)

@@ -255,7 +255,9 @@ impl AutonomicNervousSystem {
             }
         }
 
-        let workspace_root = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+        let workspace_root = paths::WorkspacePaths::from_config(paths::WorkspacePathsConfig::default())
+            .root()
+            .clone();
 
         // PHASE IV: Initialize predictive models
         let kalman_filter = Arc::new(RwLock::new(KalmanFilter1D::new(

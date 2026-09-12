@@ -78,10 +78,8 @@ pub struct ActionExecutor {
 
 impl ActionExecutor {
     pub fn new(wasm_path: PathBuf) -> Self {
-        let mut allowed_roots = Vec::new();
         let ws = paths::WorkspacePaths::from_config(WorkspacePathsConfig::default());
-        allowed_roots.push(ws.root().clone());
-        allowed_roots.push(std::env::temp_dir());
+        let allowed_roots = vec![ws.root().clone(), ws.cache()];
 
         Self {
             biology: SystemBiology::new(),
@@ -108,18 +106,18 @@ impl ActionExecutor {
 
         // Canonicalize or normalize path
         let resolved = if path.is_absolute() {
-            path.to_path_buf()
+            paths::normalize_path(path)
         } else {
-            paths::WorkspacePaths::from_config(WorkspacePathsConfig::default())
-                .root()
-                .join(path)
+            paths::normalize_path(
+                &paths::WorkspacePaths::from_config(WorkspacePathsConfig::default())
+                    .root()
+                    .join(path),
+            )
         };
 
-        // If path exists, check canonical path against allowed roots
-        let canonical_check = resolved.canonicalize().unwrap_or_else(|_| resolved.clone());
         let is_allowed = self.allowed_roots.iter().any(|root| {
-            let root_canonical = root.canonicalize().unwrap_or_else(|_| root.clone());
-            canonical_check.starts_with(&root_canonical) || resolved.starts_with(root)
+            let root_norm = paths::normalize_path(root);
+            resolved.starts_with(&root_norm)
         });
 
         if !is_allowed {
