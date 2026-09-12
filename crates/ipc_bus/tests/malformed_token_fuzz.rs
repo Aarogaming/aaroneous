@@ -14,6 +14,7 @@ struct TestMessage {
     header: u32,
     payload: [u8; 64],
     checksum: u16,
+    _pad: u16,
 }
 
 
@@ -56,14 +57,12 @@ fn test_fuzz_garbage_payload() {
 #[test]
 fn test_fuzz_truncated_message() {
     // Simulate receiving only partial byte stream
-    let truncated = [0u8; 32];  // Only half of TestMessage (104 bytes)
-    
+    let truncated = [0u8; 32];  // Only part of TestMessage
+
     // Should saturate/reject without panic
-    let result = unsafe {
-        bytemuck::try_from_bytes::<TestMessage>(&truncated)
-    };
+    let result = bytemuck::try_from_bytes::<TestMessage>(&truncated);
     
-    assert!(result.is_none(), "Truncated message should be rejected");
+    assert!(result.is_err(), "Truncated message should be rejected");
 }
 
 
@@ -74,13 +73,13 @@ fn test_fuzz_invalid_checksum() {
         header: 1,
         payload: [0u8; 64],
         checksum: 0x1234,
+        _pad: 0,
     };
     
-    let mut corrupt_msg = bytemuck::cast_slice(&valid_msg)
-        .to_vec();
+    let mut corrupt_msg = bytemuck::bytes_of(&valid_msg).to_vec();
     
     // Corrupt the checksum
-    corrupt_msg[104..].copy_from_slice(&[0xFF, 0xFF]);
+    corrupt_msg[68..70].copy_from_slice(&[0xFF, 0xFF]);
     
     let result = validate_checksum(&corrupt_msg);
     assert_eq!(result, false, "Corrupt checksum should fail validation");

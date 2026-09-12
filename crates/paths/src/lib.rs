@@ -496,4 +496,80 @@ mod tests {
         assert_eq!(reg.get_or("studio.font", "monospace"), "monospace");
         assert_eq!(reg.get("runtime.threads"), Some("8".to_string()));
     }
+
+    #[test]
+    fn test_normalize_path_adversarial_matrix() {
+        // 1. Excessive upward directory traversal escapes
+        assert_eq!(
+            normalize_path("../../../../etc/shadow"),
+            PathBuf::from("")
+        );
+        assert_eq!(
+            normalize_path("C:\\..\\..\\Windows\\System32"),
+            PathBuf::from("C:\\Windows\\System32")
+        );
+        assert_eq!(
+            normalize_path("/../../../../etc/passwd"),
+            PathBuf::from("/etc/passwd")
+        );
+
+        // 2. Redundant separators and mixed path delimiters
+        assert_eq!(
+            normalize_path("foo//bar\\\\baz/../qux"),
+            PathBuf::from("foo/bar/qux")
+        );
+        assert_eq!(
+            normalize_path("a///b/c/../../d"),
+            PathBuf::from("a/d")
+        );
+
+        // 3. Current-dir noise and trailing slash retention / normalization
+        assert_eq!(
+            normalize_path("./a/./b/../c/."),
+            PathBuf::from("a/c")
+        );
+        assert_eq!(
+            normalize_path("./././"),
+            PathBuf::from("")
+        );
+        assert_eq!(
+            normalize_path("a/b/c/"),
+            PathBuf::from("a/b/c")
+        );
+
+        // 4. Windows drive letter prefixes and root preservation
+        assert_eq!(
+            normalize_path("C:foo/../bar"),
+            PathBuf::from("C:bar")
+        );
+        assert_eq!(
+            normalize_path("C:\\foo\\..\\bar"),
+            PathBuf::from("C:\\bar")
+        );
+        #[cfg(windows)]
+        {
+            assert_eq!(
+                normalize_path(r"\\?\C:\foo\..\bar"),
+                PathBuf::from(r"\\?\C:\bar")
+            );
+            assert_eq!(
+                normalize_path(r"\\server\share\a\..\b"),
+                PathBuf::from(r"\\server\share\b")
+            );
+        }
+
+        // 5. Empty path strings and whitespace inputs
+        assert_eq!(
+            normalize_path(""),
+            PathBuf::from("")
+        );
+        assert_eq!(
+            normalize_path("   "),
+            PathBuf::from("   ")
+        );
+        assert_eq!(
+            normalize_path("   /../foo"),
+            PathBuf::from("foo")
+        );
+    }
 }

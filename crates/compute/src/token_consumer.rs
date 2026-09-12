@@ -1,6 +1,6 @@
 // Token Consumer - Continuous State Adaptation from MachineToken frames
 
-use anyhow::{Result, Error};
+use anyhow::Result;
 
 /// Error type for state adaptation failures
 #[derive(Debug)]
