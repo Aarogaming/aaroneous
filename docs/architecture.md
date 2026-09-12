@@ -1,96 +1,61 @@
-# Aaroneous Architecture Specification
+﻿# System Architecture Specification & SCADA/PLC Invariants
 
+> **TIER 2 ARCHITECTURAL REFERENCE**  
+> **SCOPE**: Pure Logic Controller (PLC / SCADA) Architecture, Deterministic State Transition Machines, and Boundary Isolation.  
+> **BINDING FOR**: All workspace kernels (`core/hypervisor`, `crates/compute`, `crates/orchestration_plane`, `crates/llm_gateway`, etc.).
 
-## Version
-**1.7.0** - Phase 38 Immune Ledger Active
+---
 
+## 1. The Core Architectural Invariant (PLC Model)
 
-## System Invariants
+The `aaroneous` monorepo implements a deterministic, real-time, low-latency **Pure Logic Controller (PLC / SCADA)** architecture. Every core component operates on a strict cyclical scan or discrete step execution paradigm.
 
-### Hot-Path Memory Model
-All critical paths must use zero-allocation patterns:
-- Stack-allocated arrays ([T; N]) over heap vectors
-- bytemuck::Pod types for lock-free transmission
-- Lock-free SWMR buffers for telemetry and state
+### 1.1 Pure State Transition Machines
 
-### Type Safety Contract
-```rust
-// All shared structures must:
-#[repr(C)]           // Fixed layout, ABI-compatible
-#[derive(Pod, Zeroable)]  // Safe zero-copy serialization
-pub struct MyType { ... }
+All domain kernels (`core/hypervisor`, `crates/compute`, `crates/orchestration_plane`, `crates/llm_gateway`, etc.) MUST be implemented as pure, deterministic state machines:
+
+$$S_{t+1} = f(S_t, I)$$
+
+- **Deterministic Function**: Given prior state $S_t$ and input payload $I$, the output state $S_{t+1}$ and emitted events MUST be deterministic and reproducible.
+- **Zero Side-Effects in Reducers**: Domain engines MUST NOT perform side effects, background network I/O, file system reads, or hidden async task launches during state reduction.
+- **Three-Phase Scan Separation**:
+  1. **Input Acquisition (Phase 1)**: Poll hardware, network, IPC, or timers into fixed-size, stack-allocated input frames.
+  2. **State Reduction (Phase 2)**: Execute pure state transition $S_{t+1} = f(S_t, I)$. No I/O, no blocking, no heap allocation.
+  3. **Telemetry & Actuation Output (Phase 3)**: Emit telemetry records to lock-free ring buffers and dispatch actions over bounded channels.
+
+```
+       +---------------------------------------------+
+       |           Input Acquisition (I/O)           |
+       +---------------------------------------------+
+                              |
+                              v  Input Frame (I)
+       +---------------------------------------------+
+       |   Pure State Transition Reducer:            |
+       |             S_{t+1} = f(S_t, I)             |
+       |   * ZERO side effects                       |
+       |   * ZERO heap allocations                   |
+       |   * ZERO ambient authority                  |
+       +---------------------------------------------+
+                              |
+                              v  State Delta (S_{t+1}) + Events
+       +---------------------------------------------+
+       |      Telemetry & Actuation Output (I/O)     |
+       +---------------------------------------------+
 ```
 
-### Concurrency Model
-- Single-writer: Static buffers with atomic indices
-- Multi-reader: Immutable references only
-- No mutexes in telemetry hot paths
+---
 
+## 2. Constructor Dependency & Configuration Injection
 
-## Phase 38: Immune Ledger
+To preserve determinism and eliminate ambient authority:
+- **Explicit Injection**: All dependencies, static buffers, communication handles, and configuration parameters MUST be passed explicitly into constructor functions (e.g., `Engine::new(config, buffer)`).
+- **No Self-Instantiation**: Sub-components, inner structs, or domain logic must NEVER instantiate their own external dependencies or construct global services.
+- **No Ambient Reads**: Sub-components must never read external state, system clocks, file descriptors, or environment settings outside what is explicitly provided via constructor or tick inputs.
 
-The Immune Ledger transforms legacy failures into permanent enforcement barriers.
+---
 
-### Three Synchronized Components
+## 3. Concurrency & Memory Model
 
-1. **Ingestion RFC** (docs/rfc/RFC-0005-FORENSIC-INGESTION.md)
-   - Standard operating procedure for legacy code assimilation
-   - Defines containment, triage, synthesis, and codification workflow
-
-
-2. **Forensic Record Schema** (docs/forensics/)
-   - Versioned autopsy reports for each dissected module
-   - Documents provenance, pathology, rebase, and invariants
-
-
-3. **Negative Knowledge Ledger** (tests/negative_contracts/)
-   - Concrete tests proving legacy failures are blocked
-   - Regression guards ensuring anti-patterns cannot recur
-
-
-### Verification Loop
-
-bash
-# Step 1: Verify forensics entries have corresponding tests
-for report in docs/forensics/*.md; do
-    artifact=$(basename "$report" .md)
-    if ! grep -q "test_${artifact}" tests/negative_contracts/*.rs; then
-        echo "MISSING TEST: $artifact"
-        exit 1
-    fi
-done
-
-# Step 2: Run Cratify audit across all trees
-cargo run -p cratify -- audit crates/ core/ dev/
-
-# Step 3: Workspace compilation
-cargo check --workspace
-```
-
-
-## Directory Structure
-
-docs/
-├── ARCHITECTURE.md                  # This file
-├── rfc/
-│   └── RFC-0005-FORENSIC-INGESTION.md  # Ingestion methodology
-└── forensics/
-    ├── README.md                    # Index of case studies
-    ├── 0001_aas_omni_galaxy_view.md # Case study: Omni knowledge graph
-    └── 0002_<name>.md              # Future case studies
-
-tests/
-└── negative_contracts/
-    └── test_omni_anti_patterns.rs   # Regression tests from case studies
-
-dev/
-├── emulator_harness/                # Trace-driven state extraction
-└── legacy_staging/                  # Isolated legacy analysis sandbox
-
-
-## References
-
-- RFC-0001: Zero-Allocation Hot Path Constraints
-- RFC-0003: Cratify Governance Invariants
-- Phase 38 Specification: Immune Ledger & Negative Knowledge
-
+- **SWMR (Single-Writer / Multiple-Reader)**: Atomic sequence indexing over pre-allocated static ring buffers (`SwrnRingBuffer`).
+- **No Mutexes on Hot Paths**: `std::sync::Mutex`, `parking_lot::Mutex`, and `RwLock` are prohibited in telemetry, state extraction, or IPC hot paths to avoid thread parking latency spikes.
+- **No Deferred Static Initialization**: `OnceLock` and `lazy_static` for runtime state are banned. Initialize all buffers statically or at startup before starting the control loop.
