@@ -291,23 +291,9 @@ impl SWMRSynapse {
         {
             Ok(file) => (file, path),
             Err(_) => {
-                let temp_path = std::env::temp_dir().join(format!(
-                    "synapse_{}_{}_{}.tmp",
-                    name,
-                    std::process::id(),
-                    std::time::SystemTime::now()
-                        .duration_since(std::time::UNIX_EPOCH)
-                        .map(|d| d.as_nanos())
-                        .unwrap_or(0)
-                ));
-                let file = std::fs::OpenOptions::new()
-                    .read(true)
-                    .write(true)
-                    .create(true)
-                    .truncate(false)
-                    .open(&temp_path)
-                    .context("Failed to open synapse file")?;
-                (file, temp_path)
+                // CRATIFY: Ambient fallback disabled. This path should never be reached in production.
+                // If synapse directory cannot be opened, return error rather than using ambient temp_dir.
+                return Err(anyhow::anyhow!("Failed to open synapse file at {:?}. This is a critical configuration error.", &path));
             }
         };
 
@@ -721,8 +707,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_swmr_with_intent_logging() {
-        let log_path = std::env::temp_dir().join("test_intent.log");
-        let snapshot_path = std::env::temp_dir().join("test_snapshots.json");
+        let temp_dir = tempfile::tempdir().unwrap();
+        let log_path = temp_dir.path().join("test_intent.log");
+        let snapshot_path = temp_dir.path().join("test_snapshots.json");
         let _ = std::fs::remove_file(&log_path);
         let _ = std::fs::remove_file(&snapshot_path);
 

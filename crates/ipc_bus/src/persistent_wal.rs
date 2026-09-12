@@ -251,8 +251,8 @@ mod tests {
 
     #[test]
     fn test_persistent_grimoire_reboot_durability() {
-        let temp_dir = std::env::temp_dir().join(format!("grimoire_test_{}", PersistentGrimoireStore::now_ms()));
-        let db_path = temp_dir.join("grimoire.db");
+        let temp_dir = tempfile::tempdir().unwrap();
+        let db_path = temp_dir.path().join(format!("grimoire_test_{}", PersistentGrimoireStore::now_ms()));
 
         // 1. Write records in session 1
         {

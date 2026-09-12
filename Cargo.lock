@@ -5917,6 +5917,7 @@ dependencies = [
  "rkyv 0.7.46",
  "serde",
  "serde_json",
+ "tempfile",
  "tokio",
  "tracing",
 ]
