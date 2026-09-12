@@ -19,5 +19,9 @@ syn = { version = "2.0", features = ["full", "visit", "visit-mut"] }
 proc-macro2 = { version = "1.0", features = ["span-locations"] }
 paths = { path = "../paths" }
 
+[[bin]]
+name = "harvest"
+path = "src/bin/harvest.rs"
+
 [dev-dependencies]
 tempfile = "3.8"
