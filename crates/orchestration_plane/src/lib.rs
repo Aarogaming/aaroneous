@@ -10,6 +10,7 @@ pub mod subsystem_health;
 pub mod normalization_pipeline;
 pub mod github_poller;
 pub mod batch_runner;
+pub mod domain_classifier;
 
 pub use orchestration_daemon::{DaemonState, OrchestrationDaemon, OrchestrationDaemonConfig};
 pub use action_executor::{ActionExecutor, ActionResult, ExecutionStats};
@@ -20,3 +21,7 @@ pub use duty_cycle::ExecutionPhase;
 pub use subsystem_health::SubsystemHealthReport;
 pub use normalization_pipeline::NormalizationPipeline;
 pub use github_poller::{GitHubPoller, JobStatus, PollerStats};
+pub use domain_classifier::{
+    AmbientRiskSite, ClassifierConfig, Domain, DomainClassifier, IngestionReport, ItemKind,
+    PublicItem,
+};

@@ -15,7 +15,8 @@ walkdir = "2.3"
 uuid = { version = "1.0", features = ["v4"] }
 hex = "0.4"
 bytemuck = { workspace = true }
-hypervisor = { path = "../../core/hypervisor" }
+syn = { version = "2.0", features = ["full", "visit"] }
+proc-macro2 = { version = "1.0", features = ["span-locations"] }
 
 [dev-dependencies]
 tempfile = "3.8"
