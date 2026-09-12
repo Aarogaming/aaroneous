@@ -11,6 +11,8 @@ pub mod normalization_pipeline;
 pub mod github_poller;
 pub mod batch_runner;
 pub mod domain_classifier;
+pub mod ast_transformer;
+pub mod grafter;
 
 pub use orchestration_daemon::{DaemonState, OrchestrationDaemon, OrchestrationDaemonConfig};
 pub use action_executor::{ActionExecutor, ActionResult, ExecutionStats};
@@ -25,3 +27,5 @@ pub use domain_classifier::{
     AmbientRiskSite, ClassifierConfig, Domain, DomainClassifier, IngestionReport, ItemKind,
     PublicItem,
 };
+pub use ast_transformer::{AmbientAstRewriter, RewriteSummary};
+pub use grafter::{graft_module, graft_module_to_crate, GraftReport};
