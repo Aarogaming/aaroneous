@@ -9,6 +9,7 @@ use anyhow::Result;
 use autonomic_adaptation as evolution;
 use clap::{Parser, Subcommand};
 use parking_lot::RwLock;
+use paths::WorkspacePathsConfig;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::time::Duration;
@@ -451,7 +452,7 @@ fn run_cli(cli: Cli) -> Result<()> {
         }
         Some(Commands::Inject { intent }) => {
             println!("Injecting intent: {}", intent);
-            let paths = paths::WorkspacePaths::discover();
+            let paths = paths::WorkspacePaths::discover(&WorkspacePathsConfig::default());
             let path = paths.synapse_file();
 
             use memmap2::MmapOptions;
@@ -574,8 +575,13 @@ fn run_cli(cli: Cli) -> Result<()> {
                 println!("Initializing Pure Rust Machine-Native SI Model Trainer...");
                 let config = compute::SiModelConfig::default();
                 let model = compute::SiModel::new(config, *gpu)?;
+                let bridge = compute::LatentGELUBottleneckBridge::new(
+                    compute::ROSETTA_TEACHER_DIM,
+                    1024,
+                    256,
+                );
                 let mut trainer =
-                    compute::SiModelTrainer::new(model, compute::SiTrainerConfig::default());
+                    compute::SiModelTrainer::new(model, compute::SiTrainerConfig::default(), bridge);
 
                 let mut graph = compute::NativeComputationalGraph::new();
                 graph.add_node(compute::NativeComputationNode {
@@ -630,7 +636,7 @@ fn run_cli(cli: Cli) -> Result<()> {
             SiCommands::Distill { name, steps, out } => {
                 let engine = compute::SiToolEngine;
                 let target_path = out.clone().unwrap_or_else(|| {
-                    let paths = paths::WorkspacePaths::discover();
+                    let paths = paths::WorkspacePaths::discover(&WorkspacePathsConfig::default());
                     paths
                         .data()
                         .join("macros")
@@ -666,7 +672,7 @@ fn run_cli(cli: Cli) -> Result<()> {
                 }
 
                 let target_path = out.clone().unwrap_or_else(|| {
-                    let paths = paths::WorkspacePaths::discover();
+                    let paths = paths::WorkspacePaths::discover(&WorkspacePathsConfig::default());
                     paths.data().join("datasets").join("teacher_distilled.si")
                 });
 
@@ -679,7 +685,7 @@ fn run_cli(cli: Cli) -> Result<()> {
                 Ok(())
             }
             SiCommands::Dream { cycles, sigma, out } => {
-                let paths = paths::WorkspacePaths::discover();
+                let paths = paths::WorkspacePaths::discover(&WorkspacePathsConfig::default());
                 let target_path = out
                     .clone()
                     .unwrap_or_else(|| paths.data().join("models").join("agent_dreamed.si"));
@@ -901,7 +907,7 @@ fn run_forge_pipeline(
         _ => compute::si_packer::SiTierFlags::TIER_3_REFLEX,
     };
 
-    let paths = paths::WorkspacePaths::discover();
+    let paths = paths::WorkspacePaths::discover(&WorkspacePathsConfig::default());
     let out_dir = out.unwrap_or_else(|| paths.data().join("models"));
 
     let mut forge = compute::SiForge::new(name)
@@ -982,7 +988,7 @@ fn run_bootstrap_pipeline(
     epochs: usize,
     out: Option<PathBuf>,
 ) -> Result<()> {
-    let paths = paths::WorkspacePaths::discover();
+    let paths = paths::WorkspacePaths::discover(&WorkspacePathsConfig::default());
     let target_path =
         out.unwrap_or_else(|| paths.data().join("models").join(format!("{}.si", name)));
 
@@ -1006,7 +1012,12 @@ fn run_bootstrap_pipeline(
         target_cka_threshold: 0.85,
     };
 
-    let mut harness = compute::SiDistillationHarness::new(config);
+    let bridge = compute::LatentGELUBottleneckBridge::new(
+        compute::ROSETTA_TEACHER_DIM,
+        1024,
+        256,
+    );
+    let mut harness = compute::SiDistillationHarness::new(config, bridge);
     println!(
         "🔥 Running 2-Layer GeLU Bottleneck + CKA & InfoNCE Distillation into Solid-State Base SSM..."
     );
@@ -1165,7 +1176,7 @@ async fn run_wrap_pipeline(
     out: Option<PathBuf>,
 ) -> Result<()> {
     let out_dir = out.unwrap_or_else(|| {
-        paths::WorkspacePaths::discover()
+        paths::WorkspacePaths::discover(&WorkspacePathsConfig::default())
             .models()
             .join("components")
     });
@@ -2126,7 +2137,8 @@ async fn run_mcp_pipeline(host: &str, port: u16) -> Result<()> {
 
     let service = Arc::new(hypervisor::mcp_service::McpService::new(config));
     service.register_sovereign_tools().await;
-    let server = hypervisor::mcp_service::http_api::HttpServer::new(addr);
+    let mcp_cfg = hypervisor::mcp_service::http_api::McpServiceConfig::default();
+    let server = hypervisor::mcp_service::http_api::HttpServer::new(addr, mcp_cfg);
 
     println!("=================================================================");
     println!(" 🪐 AARONEOUS SOVEREIGN MCP SERVER (JSON-RPC 2.0 + SSE)");

@@ -111,7 +111,7 @@ impl ProcessFasciaWatcher {
 
             // Attempt to load scene from disk or synthesize default spatial preset
             let resolved_path = if target_path.is_relative() {
-                paths::WorkspacePaths::discover()
+                paths::WorkspacePaths::discover(&paths::WorkspacePathsConfig::default())
                     .root()
                     .join(&target_path)
             } else {

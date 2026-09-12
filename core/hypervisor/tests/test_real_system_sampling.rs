@@ -2,7 +2,7 @@
 // Tests real-system discovery (LM Studio local GGUFs, physical serial ports)
 // and verifies that live wire telemetry updates the industrial register bank.
 
-use paths::WorkspacePaths;
+use paths::{WorkspacePaths, WorkspacePathsConfig};
 use wire::{
     ChannelKind, ChannelValue, MAX_FRAMED_SIZE, TelemetryPacket, WireMessage, encode_frame,
 };
@@ -11,7 +11,7 @@ use platform_bridge::ot_bridge::{OtBridgeConfig, OtEdgeGateway};
 #[tokio::test]
 async fn test_real_system_sampling_and_ot_interconnect() {
     // 1. Sample real-world local model hubs (LM Studio default location)
-    let ws = WorkspacePaths::discover();
+    let ws = WorkspacePaths::discover(&WorkspacePathsConfig::default());
     let detected_models = ws.scan_all_gguf_models(&[]);
 
     println!(

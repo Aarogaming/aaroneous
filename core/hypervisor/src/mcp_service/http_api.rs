@@ -86,11 +86,12 @@ pub struct McpAppState {
 
 pub struct HttpServer {
     addr: SocketAddr,
+    cfg: McpServiceConfig,
 }
 
 impl HttpServer {
     pub fn new(addr: SocketAddr, cfg: McpServiceConfig) -> Self {
-        Self { addr }
+        Self { addr, cfg }
     }
 
     pub fn addr(&self) -> SocketAddr {
@@ -98,8 +99,8 @@ impl HttpServer {
     }
 
     /// Build and start the MCP HTTP+SSE server.
-    pub async fn run(self, service: Arc<McpService>, cfg: McpServiceConfig) -> Result<(), Box<dyn std::error::Error>> {
-        let has_api_key = cfg.auth_key.is_some();
+    pub async fn run(self, service: Arc<McpService>) -> Result<(), Box<dyn std::error::Error>> {
+        let has_api_key = self.cfg.auth_key.is_some();
         if !self.addr.ip().is_loopback() && !has_api_key {
             return Err(format!(
                 "refusing non-loopback MCP bind {} without auth key",
@@ -116,14 +117,14 @@ impl HttpServer {
 
         // Build separate routers: protected routes get auth middleware,
         // health/discovery routes remain unauthenticated.
+        let auth_key = self.cfg.auth_key.clone();
         let protected = Router::new()
             // MCP JSON-RPC 2.0 transport (primary)
             .route("/mcp", post(handle_mcp_post))
             // SSE transport (for Claude Desktop / streaming clients)
             .route("/sse", get(handle_sse))
             .layer(axum::middleware::from_fn(move |headers: HeaderMap, req: axum::extract::Request<Body>, next: Next| {
-                let auth_key = cfg.auth_key.clone();
-                mcp_api_key_auth_inner(headers, req, next, auth_key)
+                mcp_api_key_auth_inner(headers, req, next, auth_key.clone())
             }));
 
         let public = Router::new()

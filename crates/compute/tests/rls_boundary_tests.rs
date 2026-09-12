@@ -11,7 +11,7 @@ use bytemuck::{Pod, Zeroable};
 
 /// Covariance matrix with explicit positive-definiteness invariant
 #[repr(C)]
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Pod, Zeroable)]
+#[derive(Clone, Copy, Debug, PartialEq, Pod, Zeroable)]
 struct CovarianceMatrix {
     p00: f32,
     p01: f32,

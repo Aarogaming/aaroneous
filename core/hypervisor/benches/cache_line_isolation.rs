@@ -8,24 +8,23 @@
 #![allow(ambient_authority)]
 
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 
-/// Properly aligned telemetry struct (40 bytes, 8-byte cache line)
-#[repr(C)]
-#[derive(Clone, Copy, Debug)]
+/// Properly aligned telemetry struct (64 bytes, 64-byte cache line)
+#[repr(C, align(64))]
+#[derive(Debug)]
 struct AlignedTelemetry {
-    #[repr(align(64))]
     counter: AtomicUsize,
     value: u64,
     timestamp: u64,
-    reserved: [u8; 52],  // Pad to 64-byte cache line
+    reserved: [u8; 40],  // Pad to 64-byte cache line (8 + 8 + 8 + 40 = 64)
 }
 
 
 /// Improperly aligned telemetry (false sharing vulnerability)
 #[repr(C)]
-#[derive(Clone, Copy, Debug)]
+#[derive(Debug)]
 struct UnalignedTelemetry {
     counter: AtomicUsize,
     value: u64,
@@ -39,11 +38,11 @@ fn benchmark_aligned_writers(num_threads: usize, iterations: usize) -> std::time
     
     for _ in 0..num_threads {
         let handle = std::thread::spawn(move || {
-            let telemetry = AlignedTelemetry {
+            let mut telemetry = AlignedTelemetry {
                 counter: AtomicUsize::new(0),
                 value: 0,
                 timestamp: 0,
-                reserved: [0u8; 52],
+                reserved: [0u8; 40],
             };
             
             let start = Instant::now();
@@ -73,7 +72,7 @@ fn benchmark_unaligned_writers(num_threads: usize, iterations: usize) -> std::ti
     
     for _ in 0..num_threads {
         let handle = std::thread::spawn(move || {
-            let telemetry = UnalignedTelemetry {
+            let mut telemetry = UnalignedTelemetry {
                 counter: AtomicUsize::new(0),
                 value: 0,
                 timestamp: 0,

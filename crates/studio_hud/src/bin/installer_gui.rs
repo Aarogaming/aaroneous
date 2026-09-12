@@ -105,7 +105,7 @@ impl AaroneousSetupApp {
                         return grandparent.to_path_buf();
                     }
                 }
-                paths::WorkspacePaths::discover()
+                paths::WorkspacePaths::discover(&paths::WorkspacePathsConfig::default())
                     .root()
                     .to_path_buf()
             };

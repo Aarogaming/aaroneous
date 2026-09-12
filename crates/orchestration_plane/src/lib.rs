@@ -9,6 +9,7 @@ pub mod duty_cycle;
 pub mod subsystem_health;
 pub mod normalization_pipeline;
 pub mod github_poller;
+pub mod batch_runner;
 
 pub use orchestration_daemon::{DaemonState, OrchestrationDaemon, OrchestrationDaemonConfig};
 pub use action_executor::{ActionExecutor, ActionResult, ExecutionStats};

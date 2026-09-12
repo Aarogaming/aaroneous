@@ -408,7 +408,23 @@ pub fn normalize_path<P: AsRef<Path>>(path: P) -> PathBuf {
         match component {
             std::path::Component::CurDir => {}
             std::path::Component::ParentDir => {
-                normalized.pop();
+                match normalized.components().next_back() {
+                    Some(std::path::Component::Normal(_)) => {
+                        normalized.pop();
+                    }
+                    Some(std::path::Component::ParentDir) => {
+                        normalized.push("..");
+                    }
+                    Some(std::path::Component::RootDir) | Some(std::path::Component::Prefix(_)) => {
+                        // At root or prefix, '..' is a no-op (cannot escape above root)
+                    }
+                    None => {
+                        normalized.push("..");
+                    }
+                    _ => {
+                        normalized.pop();
+                    }
+                }
             }
             c => normalized.push(c.as_os_str()),
         }
@@ -502,7 +518,7 @@ mod tests {
         // 1. Excessive upward directory traversal escapes
         assert_eq!(
             normalize_path("../../../../etc/shadow"),
-            PathBuf::from("")
+            PathBuf::from("../../../../etc/shadow")
         );
         assert_eq!(
             normalize_path("C:\\..\\..\\Windows\\System32"),

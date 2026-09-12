@@ -47,8 +47,8 @@ fn main() -> Result<()> {
         // Simulate compute::token_consumer processing (placeholder)
         // In production: stream tokens to RLS adaptor for real-time convergence analysis
         
-        // Checkpoint every 250ms
-        if (start.elapsed().as_secs() * 1_000_000 + start.elapsed().subsec_nanos() as u128 / 1000) % SAMPLE_INTERVAL_US == 0 {
+        // Checkpoint every 1ms
+        if start.elapsed().as_micros() % (SAMPLE_INTERVAL_US as u128) == 0 {
             // Verify zero heap allocations during active sampling
             // (Rust's stack-allocated state ensures this)
             allocation_count += 1; // Placeholder counter
