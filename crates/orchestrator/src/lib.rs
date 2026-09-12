@@ -1,3 +1,4 @@
+pub mod combat_agent;
 //! crates/orchestrator
 //! Multi-Agent Federation, Hive Runtime, MDP Task Routing, and Control Plane for Aaroneous.
 
@@ -121,3 +122,4 @@ impl IntelligenceEngine {
             .update_specialist_performance(specialist_id, success, completion_time);
     }
 }
+

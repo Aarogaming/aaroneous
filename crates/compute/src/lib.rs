@@ -1,3 +1,4 @@
+pub mod tensor_kernel;
 pub mod automata;
 pub mod bayesian;
 pub mod burn_gpu;
@@ -381,3 +382,4 @@ mod tests {
     }
 }
 pub use token_consumer::MachineToken;
+
