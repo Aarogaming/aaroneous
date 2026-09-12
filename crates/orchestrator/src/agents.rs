@@ -303,7 +303,7 @@ impl Agent for BaseAgent {
 impl Default for BaseAgent {
     fn default() -> Self {
         BaseAgent {
-            id: "aaroneous_agent_zero".to_string(),
+            id: "agent_zero".to_string(),
             name: "Aaroneous".to_string(),
             designation: "Agent-Zero".to_string(),
             persona: "The foundational orchestrator of the synthetic intelligence hive. Stable, reliable, and recursive.".to_string(),

@@ -1,5 +1,5 @@
 ﻿[package]
-name = "aaroneous_wire"
+name = "wire"
 version = "0.1.0"
 edition.workspace = true
 authors.workspace = true

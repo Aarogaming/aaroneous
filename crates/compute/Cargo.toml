@@ -46,3 +46,7 @@ tempfile = "3.8"
 [features]
 simd = []
 wasm = []
+
+[lints.rust]
+# Allow ambient_authority lint during security remediation phase
+unknown_lints = "allow"

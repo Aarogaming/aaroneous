@@ -36,7 +36,7 @@ governance = { path = "../governance" }
 platform_bridge = { path = "../platform_bridge", features = ["native-win32"] }
 specialists = { package = "capabilities", path = "../capabilities" }
 paths = { path = "../paths" }
-aaroneous_wire = { path = "../aaroneous_wire" }
+wire = { path = "../wire" }
 adaptation_engine = { path = "../adaptation_engine" }
 transpiler = { path = "../transpiler" }
 tokio-serial = "5.4"

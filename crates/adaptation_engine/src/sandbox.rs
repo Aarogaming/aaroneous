@@ -19,7 +19,7 @@ pub struct ShadowSandbox {
 impl ShadowSandbox {
     /// Create a new shadow sandbox inside the specified or default `.sab/shadow` workspace
     pub fn new() -> Result<Self> {
-        let shadow_dir = std::env::temp_dir().join("aaroneous_shadow_sandbox");
+        let shadow_dir = std::env::temp_dir().join("sandbox_shadow");
         if !shadow_dir.exists() {
             fs::create_dir_all(&shadow_dir)
                 .context("Failed to create shadow sandbox directory")?;
@@ -337,7 +337,7 @@ mod tests {
 
         sandbox.write_shadow_file(test_file, content).unwrap();
 
-        let live_target = std::env::temp_dir().join("aaroneous_live_test").join("promoted.rs");
+        let live_target = std::env::temp_dir().join("live_target").join("promoted.rs");
         sandbox.promote_to_live(test_file, &live_target).unwrap();
 
         assert!(live_target.exists());

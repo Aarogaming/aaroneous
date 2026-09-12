@@ -3,7 +3,7 @@
 // and verifies that live wire telemetry updates the industrial register bank.
 
 use paths::WorkspacePaths;
-use aaroneous_wire::{
+use wire::{
     ChannelKind, ChannelValue, MAX_FRAMED_SIZE, TelemetryPacket, WireMessage, encode_frame,
 };
 use platform_bridge::ot_bridge::{OtBridgeConfig, OtEdgeGateway};
@@ -94,7 +94,7 @@ async fn test_real_system_sampling_and_ot_interconnect() {
 
     // Test Host -> Edge Command dispatch
     gateway
-        .send_command(aaroneous_wire::CommandPacket::SetDigitalOut {
+        .send_command(wire::CommandPacket::SetDigitalOut {
             pin: 13,
             state: true,
         })
@@ -107,7 +107,7 @@ async fn test_real_system_sampling_and_ot_interconnect() {
         .expect("Command received on worker channel");
     assert_eq!(
         received_cmd,
-        aaroneous_wire::CommandPacket::SetDigitalOut {
+        wire::CommandPacket::SetDigitalOut {
             pin: 13,
             state: true
         }

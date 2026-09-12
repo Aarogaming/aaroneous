@@ -15,15 +15,15 @@ name = "hypervisor"
 path = "bin/hypervisor.rs"
 
 [[bin]]
-name = "spatial_kinetic"
+name = "spatial-kinetic"
 path = "bin/spatial_kinetic.rs"
 
 [[bin]]
-name = "profile_compiler"
+name = "profile-compiler"
 path = "bin/profile_compiler.rs"
 
 [[bin]]
-name = "shm_dump"
+name = "shm-dump"
 path = "bin/shm_dump.rs"
 
 [[bench]]
@@ -44,7 +44,7 @@ adaptation_engine = { path = "../../crates/adaptation_engine" }
 platform_bridge = { path = "../../crates/platform_bridge", features = ["native-win32"] }
 specialists = { package = "capabilities", path = "../../crates/capabilities" }
 paths = { path = "../../crates/paths" }
-aaroneous_wire = { path = "../../crates/aaroneous_wire" }
+wire = { path = "../../crates/wire" }
 tokio-serial = "5.4"
 transpiler = { path = "../../crates/transpiler" }
 si_ir = { path = "../../crates/si_ir" }
@@ -151,3 +151,6 @@ standalone = []
 [lints.rust]
 # Feature-gated modules reference future deps not yet added
 unexpected_cfgs = "allow"
+
+# Allow ambient_authority lint during security remediation phase
+unknown_lints = "allow"

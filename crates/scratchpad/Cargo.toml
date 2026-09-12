@@ -9,8 +9,7 @@ crate-type = ["cdylib"]
 [dependencies]
 eframe = { version = "0.34", default-features = false }
 egui = "0.34"
-aaroneous_api = { path = "../aaroneous_api" }
+api = { path = "../api" }
 
-reqwest = { version = "0.13", features = ["blocking", "json"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"

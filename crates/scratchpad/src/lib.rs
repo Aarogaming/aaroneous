@@ -1,4 +1,4 @@
-use aaroneous_api::UiCartridge;
+use api::UiCartridge;
 use eframe::egui;
 
 pub struct ScratchpadCartridge {

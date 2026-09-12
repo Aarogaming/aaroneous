@@ -17,7 +17,7 @@ tracing = "0.1"
 parking_lot = "0.12"
 rustfft = "6.2"
 compute = { path = "../compute" }
-aaroneous_wire = { path = "../aaroneous_wire" }
+wire = { path = "../wire" }
 si_ir = { path = "../si_ir" }
 ipc_bus = { path = "../ipc_bus" }
 

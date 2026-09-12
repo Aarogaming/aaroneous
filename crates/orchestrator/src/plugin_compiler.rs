@@ -12,7 +12,7 @@ pub struct PluginCompiler {
 
 impl PluginCompiler {
     pub fn new() -> Self {
-        let staging_dir = std::env::temp_dir().join("aaroneous_plugins");
+        let staging_dir = std::env::temp_dir().join("plugin_staging");
         let _ = std::fs::create_dir_all(&staging_dir);
         Self { staging_dir }
     }
@@ -35,7 +35,7 @@ edition = "2021"
 crate-type = ["cdylib"]
 
 [dependencies]
-aaroneous_api = {{ path = "d:/Aaroneous/crates/aaroneous_api" }}
+api = {{ path = "d:/Aaroneous/crates/api" }}
 eframe = "0.34"
 "#,
             plugin_name

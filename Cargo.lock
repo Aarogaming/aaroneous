@@ -3,36 +3,6 @@
 version = 4
 
 [[package]]
-name = "aaroneous_api"
-version = "0.1.0"
-dependencies = [
- "eframe",
- "egui",
-]
-
-[[package]]
-name = "aaroneous_sdk"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "ipc_bus",
- "libloading 0.8.9",
- "parking_lot",
- "serde",
- "serde_json",
- "si_ir",
-]
-
-[[package]]
-name = "aaroneous_wire"
-version = "0.1.0"
-dependencies = [
- "crc",
- "postcard",
- "serde",
-]
-
-[[package]]
 name = "accesskit"
 version = "0.24.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -279,6 +249,14 @@ name = "anyhow"
 version = "1.0.104"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "330a5ed07fa54e4702c9d6c4174f74427fc0ef6e214bbd677ae50a5099946470"
+
+[[package]]
+name = "api"
+version = "0.1.0"
+dependencies = [
+ "eframe",
+ "egui",
+]
 
 [[package]]
 name = "approx"
@@ -1521,7 +1499,6 @@ dependencies = [
 name = "capabilities"
 version = "0.1.0"
 dependencies = [
- "aaroneous_sdk",
  "adaptation_engine",
  "anyhow",
  "async-trait",
@@ -1533,6 +1510,7 @@ dependencies = [
  "omni",
  "paths",
  "platform_bridge",
+ "sdk",
  "serde",
  "serde_json",
  "tokio",
@@ -5553,7 +5531,6 @@ dependencies = [
 name = "hypervisor"
 version = "0.1.0"
 dependencies = [
- "aaroneous_wire",
  "adaptation_engine",
  "anyhow",
  "async-nats",
@@ -5648,6 +5625,7 @@ dependencies = [
  "which 5.0.0",
  "windows 0.62.2",
  "windows-service",
+ "wire",
  "zstd",
 ]
 
@@ -8669,7 +8647,6 @@ checksum = "b4596b6d070b27117e987119b4dac604f3c58cfb0b191112e24771b2faeac1a6"
 name = "platform_bridge"
 version = "0.1.0"
 dependencies = [
- "aaroneous_wire",
  "anyhow",
  "async-trait",
  "compute",
@@ -8685,6 +8662,7 @@ dependencies = [
  "windows 0.62.2",
  "windows-capture",
  "windows-sys 0.52.0",
+ "wire",
 ]
 
 [[package]]
@@ -9729,11 +9707,8 @@ checksum = "16a1cfa75cc186dd73d5818e510e042e40927bccc9c236b061cea97e1eb08029"
 dependencies = [
  "base64 0.23.1",
  "bytes",
- "encoding_rs",
- "futures-channel",
  "futures-core",
  "futures-util",
- "h2",
  "http",
  "http-body",
  "http-body-util",
@@ -9742,7 +9717,6 @@ dependencies = [
  "hyper-util",
  "js-sys",
  "log",
- "mime",
  "percent-encoding",
  "pin-project-lite",
  "quinn",
@@ -10173,10 +10147,9 @@ checksum = "94143f37725109f92c262ed2cf5e59bce7498c01bcc1502d7b9afe439a4e9f49"
 name = "scratchpad"
 version = "0.1.0"
 dependencies = [
- "aaroneous_api",
+ "api",
  "eframe",
  "egui",
- "reqwest 0.13.5",
  "serde",
  "serde_json",
 ]
@@ -10199,6 +10172,19 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.119",
+]
+
+[[package]]
+name = "sdk"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "ipc_bus",
+ "libloading 0.8.9",
+ "parking_lot",
+ "serde",
+ "serde_json",
+ "si_ir",
 ]
 
 [[package]]
@@ -10892,7 +10878,6 @@ dependencies = [
 name = "studio_hud"
 version = "0.1.0"
 dependencies = [
- "aaroneous_wire",
  "adaptation_engine",
  "anyhow",
  "autonomic_adaptation",
@@ -10927,6 +10912,7 @@ dependencies = [
  "transpiler",
  "uuid",
  "wgpu",
+ "wire",
 ]
 
 [[package]]
@@ -13633,6 +13619,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "23b97319f7b8343df12cc98938e5c3eb436064524c8d2b4e30a1d3a36eecdf81"
 dependencies = [
  "memchr",
+]
+
+[[package]]
+name = "wire"
+version = "0.1.0"
+dependencies = [
+ "crc",
+ "postcard",
+ "serde",
 ]
 
 [[package]]

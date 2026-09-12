@@ -276,7 +276,7 @@ mod tests {
 
     #[test]
     fn test_compaction_engine_hibernation_and_resurrection() {
-        let test_dir = std::env::temp_dir().join("aaroneous_compaction_engine_unit_test");
+        let test_dir = std::env::temp_dir().join("compaction_unit_test");
         let _ = fs::create_dir_all(&test_dir);
         let mut reaper = CompactionEngine::new(test_dir.clone());
 

@@ -1,4 +1,4 @@
-use aaroneous_api::UiCartridge;
+use api::UiCartridge;
 use anyhow::{Context, Result};
 use eframe::egui;
 use libloading::{Library, Symbol};

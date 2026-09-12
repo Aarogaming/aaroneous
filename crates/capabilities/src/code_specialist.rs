@@ -2,7 +2,7 @@
 //! Concrete Dynamic Domain Specialist Plugin implementing the Aaroneous `SpecialistEngine` C-ABI.
 //! Provides code manipulation, AST analysis dispatch, and 256-dimensional latent transformation.
 
-use aaroneous_sdk::dynamic_plugin::{SpecialistEngine, SpecialistPluginManifest, SPECIALIST_ABI_VERSION};
+use sdk::dynamic_plugin::{SpecialistEngine, SpecialistPluginManifest, SPECIALIST_ABI_VERSION};
 use anyhow::Result;
 use std::os::raw::c_char;
 

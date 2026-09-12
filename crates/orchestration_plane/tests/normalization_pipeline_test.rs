@@ -1,4 +1,5 @@
 // Normalization Pipeline Integration Tests
+#![allow(unknown_lints)]
 #![allow(ambient_authority)]
 
 use orchestration_plane::normalization_pipeline::{

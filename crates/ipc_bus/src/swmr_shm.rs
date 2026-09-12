@@ -721,8 +721,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_swmr_with_intent_logging() {
-        let log_path = std::env::temp_dir().join("aaroneous_test_intent.log");
-        let snapshot_path = std::env::temp_dir().join("aaroneous_test_snapshots.json");
+        let log_path = std::env::temp_dir().join("test_intent.log");
+        let snapshot_path = std::env::temp_dir().join("test_snapshots.json");
         let _ = std::fs::remove_file(&log_path);
         let _ = std::fs::remove_file(&snapshot_path);
 

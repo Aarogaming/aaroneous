@@ -480,7 +480,7 @@ mod tests {
 
     #[test]
     fn test_save_and_load() {
-        let dir = std::env::temp_dir().join("aaroneous_test_workflows");
+        let dir = std::env::temp_dir().join("workflow_tests");
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).unwrap();
 
@@ -499,7 +499,7 @@ mod tests {
 
     #[test]
     fn test_list_persisted() {
-        let dir = std::env::temp_dir().join("aaroneous_test_list");
+        let dir = std::env::temp_dir().join("list_tests");
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(dir.join(".aaroneous/workflows")).unwrap();
 
@@ -532,7 +532,7 @@ mod tests {
 
     #[test]
     fn test_save_default_creates_directory() {
-        let dir = std::env::temp_dir().join("aaroneous_test_save_default");
+        let dir = std::env::temp_dir().join("save_default_tests");
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).unwrap();
 
@@ -549,7 +549,7 @@ mod tests {
 
     #[test]
     fn test_load_default_nonexistent() {
-        let dir = std::env::temp_dir().join("aaroneous_test_load_nonexist");
+        let dir = std::env::temp_dir().join("load_nonexist_tests");
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).unwrap();
 
@@ -642,7 +642,7 @@ mod tests {
 
     #[test]
     fn test_list_persisted_empty_dir() {
-        let dir = std::env::temp_dir().join("aaroneous_test_empty_wf");
+        let dir = std::env::temp_dir().join("empty_workflow_tests");
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).unwrap();
 
@@ -654,7 +654,7 @@ mod tests {
 
     #[test]
     fn test_list_persisted_nonexistent_dir() {
-        let dir = std::env::temp_dir().join("aaroneous_test_nonexist_wf_dir");
+        let dir = std::env::temp_dir().join("nonexist_workflow_dir_tests");
         let _ = fs::remove_dir_all(&dir);
         // Directory doesn't exist
         let ids = WorkflowGraph::list_persisted(&dir).unwrap();
