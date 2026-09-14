@@ -59,12 +59,12 @@ pub use hooking::{
 pub use kinetic_synthesizer::{
     KineticTrajectoryConfig, KineticTrajectoryPoint, KineticTrajectorySynthesizer, Point2D,
 };
-pub use mock::MockPlatformHost;
 #[allow(deprecated)]
 pub use mock::MockMarionette;
-pub use native_win32::{DxgiHardwareFrameBuffer, Win32PlatformHost};
+pub use mock::MockPlatformHost;
 #[allow(deprecated)]
 pub use native_win32::NativeWin32Marionette;
+pub use native_win32::{DxgiHardwareFrameBuffer, Win32PlatformHost};
 pub use observability::{
     AcousticFeatureExtractor, AcousticLatent, EtwKernelConsumer, HardwareCycleProfiler,
     KernelTraceEvent, RawInputListener, RawInputPacket, SensorPowerGate, SensorPowerMode,
@@ -73,13 +73,13 @@ pub use observability::{
     set_thread_performance_affinity,
 };
 pub use probing::ProcessProbeLogger;
-pub use protocol_bridge::{MnlpPerceptionPacket, PlatformProtocolBridge};
 #[allow(deprecated)]
 pub use protocol_bridge::MarionetteProtocolBridge;
+pub use protocol_bridge::{MnlpPerceptionPacket, PlatformProtocolBridge};
 pub use sensory_motor_loop::{SensoryMotorCycleReport, SensoryMotorPipeline};
-pub use traits::{HidAction, HidCommand, PlatformHost, ProbingTrace, VisualObservation};
 #[allow(deprecated)]
 pub use traits::MarionetteHost;
+pub use traits::{HidAction, HidCommand, PlatformHost, ProbingTrace, VisualObservation};
 pub use vision_latent::{SolidStateVisionPipeline, VisionLatentObservation};
 pub use window_target::{
     AudioCaptureModifier, CaptureModifiers, CaptureTarget, DiscoveredScreen, DiscoveredWindow,

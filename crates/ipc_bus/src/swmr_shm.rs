@@ -1131,7 +1131,7 @@ mod tests {
         let publisher = SwmrSnapshotPublisher::open_or_create(&shm_path).unwrap();
         let reader = SwmrSnapshotReader::open(&shm_path);
 
-        let snap = EngineSnapshotPod {
+        let mut snap = EngineSnapshotPod {
             timestamp_ms: 100,
             ..Default::default()
         };

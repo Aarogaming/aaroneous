@@ -38,7 +38,7 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          $clangDir = 'C:\Program Files\LLVMin'
+          $clangDir = 'C:\Program Files\LLVM\bin'
           if (!(Test-Path "$clangDir\libclang.dll")) { throw 'LLVM libclang is required' }
           "LIBCLANG_PATH=$clangDir" >> $env:GITHUB_ENV
 

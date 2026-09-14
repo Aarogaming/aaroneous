@@ -43,11 +43,9 @@ windows = { version = "0.62", features = [
     "Win32_System_Com",
 ], optional = true }
 
-windows-capture = { version = "1.5", optional = true }
-
 [features]
 default = ["midi-osc", "ndi-broadcast", "hooking-injector"]
-native-win32 = ["dep:windows", "dep:windows-capture"]
+native-win32 = ["dep:windows"]
 midi-osc = []
 ndi-broadcast = []
 hooking-injector = []

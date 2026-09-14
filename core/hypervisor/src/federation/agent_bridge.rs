@@ -356,8 +356,8 @@ fn uuid() -> String {
 
 #[cfg(test)]
 mod tests {
-    use crate::create_specialist;
     use super::*;
+    use crate::create_specialist;
 
     #[test]
     fn test_agent_name_to_specialist_id() {

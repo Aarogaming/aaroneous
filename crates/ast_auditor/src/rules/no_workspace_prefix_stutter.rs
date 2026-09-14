@@ -102,6 +102,10 @@ impl<'a> PrefixStutterVisitor<'a> {
             || s.contains("metric")
     }
 
+    fn is_external_executable_name(s: &str) -> bool {
+        s.ends_with(".exe")
+    }
+
     fn check_identifier(&mut self, ident: &Ident, kind: &str) {
         let name = ident.to_string();
         if name.starts_with(PREFIX_LOWER) || name.starts_with(STEM_PASCAL) {
@@ -159,6 +163,9 @@ impl<'ast> Visit<'ast> for PrefixStutterVisitor<'_> {
         {
             // Metrics and OpenTelemetry exemption
             if Self::is_exempt_metric_identifier(&val) {
+                return;
+            }
+            if Self::is_external_executable_name(&val) {
                 return;
             }
 
