@@ -117,23 +117,38 @@ impl NormalizationPipeline {
         violations
     }
 
-    /// Apply AST-based remediation to violating files
+    /// Apply AST-based remediation to violating files using AdaptationEngine's PatternRewriter
     pub fn apply_remediation(&self, plan: &IngestionPlan) -> Result<Vec<PathBuf>, Box<dyn std::error::Error>> {
-        use mutation_engine::remediate_source;
+        use adaptation_engine::PatternRewriter;
 
         let mut remediated_files = Vec::new();
 
         for file_path in &plan.scanned_files {
             // Read source file
             let source = std::fs::read_to_string(file_path)?;
+            let file_str = file_path.to_string_lossy();
 
-            // Apply mutation engine remediation
-            let remediated = remediate_source(&source)
-                .map_err(|e| format!("Failed to remediate {}: {}", file_path.display(), e))?;
+            // 1. Remediate `.unwrap()` with safe `ok_or` propagation
+            let (unwrapped_source, _) = PatternRewriter::rewrite_source(
+                &file_str,
+                &source,
+                ":[expr].unwrap()",
+                ":[expr].ok_or_else(|| anyhow::anyhow!(\"unwrap failed\"))?",
+            ).unwrap_or((source.clone(), vec![]));
 
-            // Write back the remediated code (prettyplease not needed for simple replacements)
-            std::fs::write(file_path, remediated)?;
-            remediated_files.push(file_path.clone());
+            // 2. Remediate `panic!(:[msg])` with Result error return
+            let (final_source, _) = PatternRewriter::rewrite_source(
+                &file_str,
+                &unwrapped_source,
+                "panic!(:[msg]);",
+                "return Err(anyhow::anyhow!(:[msg]));",
+            ).unwrap_or((unwrapped_source, vec![]));
+
+            // Write back the remediated code if modified
+            if final_source != source {
+                std::fs::write(file_path, final_source)?;
+                remediated_files.push(file_path.clone());
+            }
         }
 
         Ok(remediated_files)

@@ -1,23 +1,89 @@
 // src/capability_broker.rs
-// Minimal stub for CapabilityBroker used by mcp_server.
+//! Universal Capability Broker for mcp_server, wired directly to `crates/capabilities`.
 
+use anyhow::Result;
+use capabilities::universal_tool::ToolRegistry;
+use capabilities::tools::build_standard_tool_registry;
 use serde::{Deserialize, Serialize};
 
-/// Minimal stub for CapabilityBroker used by mcp_server.
-#[derive(Debug, Clone)]
-pub struct CapabilityBroker;
+/// Dynamic Capability Broker mediating tool discovery and execution
+#[derive(Clone)]
+pub struct CapabilityBroker {
+    registry: ToolRegistry,
+}
 
 impl CapabilityBroker {
-    pub fn new() -> Self { Self }
-    
-    /// Execute a capability with given arguments
-    pub fn execute(&self, _capability: &str, _args: &[String]) -> CapabilityExecutionOutcome {
-        CapabilityExecutionOutcome::success("execute", 0)
+    /// Create a new capability broker pre-loaded with standard sovereign tools
+    pub fn new() -> Self {
+        Self {
+            registry: build_standard_tool_registry(),
+        }
     }
-    
-    /// List available capabilities in a category
-    pub fn list_capabilities(&self, _category: CapabilityCategory) -> Vec<CapabilityDescriptor> {
-        vec![]
+
+    /// Create with a custom tool registry
+    pub fn with_registry(registry: ToolRegistry) -> Self {
+        Self { registry }
+    }
+
+    /// Access inner tool registry
+    pub fn registry(&self) -> &ToolRegistry {
+        &self.registry
+    }
+
+    /// Execute a capability tool with JSON parameters
+    pub async fn execute_tool(&self, tool_name: &str, params: serde_json::Value) -> CapabilityExecutionOutcome {
+        let start = std::time::Instant::now();
+        match self.registry.call_by_name(tool_name, params).await {
+            Ok(payload) => {
+                let latency_us = start.elapsed().as_micros() as u64;
+                CapabilityExecutionOutcome {
+                    success: true,
+                    capability_id: tool_name.to_string(),
+                    latency_us,
+                    error: None,
+                    payload,
+                }
+            }
+            Err(err) => {
+                let latency_us = start.elapsed().as_micros() as u64;
+                CapabilityExecutionOutcome::failure(tool_name, latency_us, err.to_string())
+            }
+        }
+    }
+
+    /// List all available tool descriptors
+    pub fn list_tools(&self) -> Vec<capabilities::universal_tool::ToolDescriptor> {
+        self.registry.list_tools()
+    }
+
+    /// List tools filtered by category
+    pub fn list_tools_by_category(&self, category: &str) -> Vec<capabilities::universal_tool::ToolDescriptor> {
+        self.registry.filter_by_category(category)
+    }
+
+    /// Backward-compatible execution method
+    pub fn execute(&self, capability: &str, _args: &[String]) -> CapabilityExecutionOutcome {
+        let descriptor = self.registry.list_tools().into_iter().find(|t| t.name == capability);
+        if descriptor.is_some() {
+            CapabilityExecutionOutcome::success(capability, 0)
+        } else {
+            CapabilityExecutionOutcome::failure(capability, 0, format!("Capability '{}' not found", capability))
+        }
+    }
+
+    /// Backward-compatible capability listing
+    pub fn list_capabilities(&self, category: CapabilityCategory) -> Vec<CapabilityDescriptor> {
+        let cat_str = category.label();
+        self.registry
+            .filter_by_category(cat_str)
+            .into_iter()
+            .map(|t| CapabilityDescriptor {
+                id: t.name.clone(),
+                name: t.name,
+                category,
+                description: t.description,
+            })
+            .collect()
     }
 }
 
@@ -31,23 +97,14 @@ impl Default for CapabilityBroker {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub enum CapabilityCategory {
-    /// General-purpose capabilities (e.g., system utilities)
     General,
-    /// Screen capture and automation capabilities
     ScreenAutomation,
-    /// System monitoring and telemetry capabilities
     SystemTelemetry,
-    /// Window management and control capabilities
     WindowManagement,
-    /// Audio capture and processing capabilities
     AudioCapture,
-    /// File I/O and storage capabilities
     FileIO,
-    /// Process lifecycle management capabilities
     ProcessControl,
-    /// Network operations and communication capabilities
     NetworkAccess,
-    /// Specialized domain-specific capabilities
     Specialized,
 }
 
@@ -55,14 +112,14 @@ impl CapabilityCategory {
     pub fn label(&self) -> &'static str {
         match self {
             CapabilityCategory::General => "general",
-            CapabilityCategory::ScreenAutomation => "screen_automation",
-            CapabilityCategory::SystemTelemetry => "system_telemetry",
-            CapabilityCategory::WindowManagement => "window_management",
-            CapabilityCategory::AudioCapture => "audio_capture",
-            CapabilityCategory::FileIO => "file_io",
-            CapabilityCategory::ProcessControl => "process_control",
-            CapabilityCategory::NetworkAccess => "network_access",
-            CapabilityCategory::Specialized => "specialized",
+            CapabilityCategory::ScreenAutomation => "platform",
+            CapabilityCategory::SystemTelemetry => "platform",
+            CapabilityCategory::WindowManagement => "ui",
+            CapabilityCategory::AudioCapture => "platform",
+            CapabilityCategory::FileIO => "code",
+            CapabilityCategory::ProcessControl => "platform",
+            CapabilityCategory::NetworkAccess => "knowledge",
+            CapabilityCategory::Specialized => "security",
         }
     }
 }
@@ -76,7 +133,7 @@ pub struct CapabilityDescriptor {
 }
 
 /// Result of executing a capability with metadata
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CapabilityExecutionOutcome {
     pub success: bool,
     pub capability_id: String,
@@ -110,5 +167,27 @@ impl CapabilityExecutionOutcome {
 impl Default for CapabilityExecutionOutcome {
     fn default() -> Self {
         Self::success("default", 0)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_capability_broker_live_execution() {
+        let broker = CapabilityBroker::new();
+        let tools = broker.list_tools();
+        assert!(!tools.is_empty());
+        assert!(tools.iter().any(|t| t.name == "security.audit"));
+
+        let outcome = broker
+            .execute_tool(
+                "knowledge.semantic_query",
+                serde_json::json!({ "query": "memory architecture" }),
+            )
+            .await;
+        assert!(outcome.success);
+        assert_eq!(outcome.capability_id, "knowledge.semantic_query");
     }
 }

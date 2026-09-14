@@ -41,6 +41,7 @@ impl McpTool {
 pub struct McpService {
     pub config: ServiceConfig,
     pub tools: Arc<RwLock<Vec<McpTool>>>,
+    pub capability_broker: Arc<crate::capability_broker::CapabilityBroker>,
     pub request_count: Arc<AtomicU64>,
     pub workspace_root: PathBuf,
     started_at: std::time::Instant,
@@ -61,6 +62,7 @@ impl McpService {
         Self {
             config,
             tools: Arc::new(RwLock::new(Vec::new())),
+            capability_broker: Arc::new(crate::capability_broker::CapabilityBroker::new()),
             request_count: Arc::new(AtomicU64::new(0)),
             workspace_root,
             started_at: std::time::Instant::now(),
@@ -74,45 +76,13 @@ impl McpService {
 
     /// Register standard workspace tooling into the MCP service.
     pub async fn register_standard_tools(&self) {
-        self.register_tool(McpTool::new(
-            "review.pattern_conformance",
-            "Reviews workspace source files against declarative architectural patterns (Arrow SoA, Typestates, Gitoxide in-process VCS, DAZ/FTZ, etc.) and emits synthesis recommendations.",
-            serde_json::json!({
-                "target_paths": {
-                    "type": "array",
-                    "items": { "type": "string" },
-                    "description": "Paths to files or directories to review"
-                },
-                "registry_path": {
-                    "type": "string",
-                    "description": "Optional path to pattern definitions registry"
-                }
-            }),
-            vec!["target_paths"],
-        )).await;
-
-        self.register_tool(McpTool::new(
-            "audit.workspace",
-            "Audits workspace targets for zero-ambient-authority and AST invariant violations.",
-            serde_json::json!({
-                "paths": {
-                    "type": "array",
-                    "items": { "type": "string" },
-                    "description": "Target directories or files to audit"
-                }
-            }),
-            vec![],
-        )).await;
-
-        self.register_tool(McpTool::new(
-            "governance.verify_action",
-            "Validates proposed AST mutations or component patches through SMT non-interference checks.",
-            serde_json::json!({
-                "action_id": { "type": "string", "description": "Unique identifier of proposed action" },
-                "description": { "type": "string", "description": "Description of the operation" }
-            }),
-            vec!["action_id"],
-        )).await;
+        for desc in self.capability_broker.list_tools() {
+            self.register_tool(McpTool {
+                name: desc.name,
+                description: desc.description,
+                input_schema: desc.parameters_schema,
+            }).await;
+        }
     }
 
     pub async fn list_tools(&self) -> Vec<McpTool> {
@@ -145,14 +115,76 @@ impl McpService {
         &self.workspace_root
     }
 
-    /// Handle JSON-RPC request (stub implementation)
-    pub async fn handle_jsonrpc(&self, _request: serde_json::Value) -> JsonRpcResponse {
-        // Stub implementation - returns success response
-        JsonRpcResponse {
-            jsonrpc: "2.0".to_string(),
-            id: None,
-            result: Some(serde_json::json!({ "status": "ok" })),
-            error: None,
+    /// Handle JSON-RPC request adhering to Model Context Protocol (MCP) 2024-11-05
+    pub async fn handle_jsonrpc(&self, request: serde_json::Value) -> JsonRpcResponse {
+        self.increment_request();
+        let id = request.get("id").cloned();
+        let method = match request.get("method").and_then(|m| m.as_str()) {
+            Some(m) => m,
+            None => return JsonRpcResponse::err(id, -32600, "Invalid Request: missing method"),
+        };
+
+        match method {
+            "initialize" => {
+                JsonRpcResponse::success(id, serde_json::json!({
+                    "protocolVersion": "2024-11-05",
+                    "capabilities": {
+                        "tools": { "listChanged": false }
+                    },
+                    "serverInfo": {
+                        "name": "aaroneous-mcp",
+                        "version": env!("CARGO_PKG_VERSION")
+                    }
+                }))
+            }
+            "ping" => {
+                JsonRpcResponse::success(id, serde_json::json!({ "status": "pong" }))
+            }
+            "tools/list" => {
+                let descriptors = self.capability_broker.list_tools();
+                let tool_list: Vec<serde_json::Value> = descriptors
+                    .into_iter()
+                    .map(|d| serde_json::json!({
+                        "name": d.name,
+                        "description": d.description,
+                        "inputSchema": d.parameters_schema,
+                    }))
+                    .collect();
+                JsonRpcResponse::success(id, serde_json::json!({ "tools": tool_list }))
+            }
+            "tools/call" => {
+                let params = match request.get("params") {
+                    Some(p) => p,
+                    None => return JsonRpcResponse::err(id, -32602, "Invalid params: params object missing"),
+                };
+                let tool_name = match params.get("name").and_then(|n| n.as_str()) {
+                    Some(n) => n,
+                    None => return JsonRpcResponse::err(id, -32602, "Invalid params: missing tool name"),
+                };
+                let arguments = params.get("arguments").cloned().unwrap_or_else(|| serde_json::json!({}));
+
+                let outcome = self.capability_broker.execute_tool(tool_name, arguments).await;
+                if outcome.success {
+                    JsonRpcResponse::success(id, serde_json::json!({
+                        "content": [{
+                            "type": "text",
+                            "text": serde_json::to_string_pretty(&outcome.payload).unwrap_or_default(),
+                        }],
+                        "isError": false,
+                        "_meta": { "latency_us": outcome.latency_us }
+                    }))
+                } else {
+                    JsonRpcResponse::success(id, serde_json::json!({
+                        "content": [{
+                            "type": "text",
+                            "text": outcome.error.unwrap_or_else(|| "Tool execution failed".to_string()),
+                        }],
+                        "isError": true,
+                        "_meta": { "latency_us": outcome.latency_us }
+                    }))
+                }
+            }
+            _ => JsonRpcResponse::err(id, -32601, &format!("Method not found: {}", method)),
         }
     }
 }
@@ -232,10 +264,52 @@ mod tests {
         let service = McpService::new(ServiceConfig::default());
         service.register_standard_tools().await;
         let tools = service.list_tools().await;
-        assert_eq!(tools.len(), 3);
-        assert!(tools.iter().any(|t| t.name == "review.pattern_conformance"));
-        assert!(tools.iter().any(|t| t.name == "audit.workspace"));
-        assert!(tools.iter().any(|t| t.name == "governance.verify_action"));
+        assert!(!tools.is_empty());
+        assert!(tools.iter().any(|t| t.name == "security.audit"));
+        assert!(tools.iter().any(|t| t.name == "review.audit_source"));
+    }
+
+    #[tokio::test]
+    async fn test_jsonrpc_dispatch_lifecycle() {
+        let service = McpService::new(ServiceConfig::default());
+
+        // 1. Initialize
+        let init_req = serde_json::json!({
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "initialize",
+            "params": {}
+        });
+        let init_resp = service.handle_jsonrpc(init_req).await;
+        assert!(init_resp.error.is_none());
+        assert_eq!(init_resp.result.unwrap()["serverInfo"]["name"], "aaroneous-mcp");
+
+        // 2. Tools list
+        let list_req = serde_json::json!({
+            "jsonrpc": "2.0",
+            "id": 2,
+            "method": "tools/list",
+            "params": {}
+        });
+        let list_resp = service.handle_jsonrpc(list_req).await;
+        assert!(list_resp.error.is_none());
+        let tools_val = &list_resp.result.unwrap()["tools"];
+        assert!(tools_val.as_array().unwrap().len() >= 5);
+
+        // 3. Tools call
+        let call_req = serde_json::json!({
+            "jsonrpc": "2.0",
+            "id": 3,
+            "method": "tools/call",
+            "params": {
+                "name": "knowledge.semantic_query",
+                "arguments": { "query": "hypervisor" }
+            }
+        });
+        let call_resp = service.handle_jsonrpc(call_req).await;
+        assert!(call_resp.error.is_none());
+        let res_val = call_resp.result.unwrap();
+        assert_eq!(res_val["isError"], false);
     }
 
     #[test]
