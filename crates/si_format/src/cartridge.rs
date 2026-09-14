@@ -124,7 +124,7 @@ impl<B: AsRef<[u8]>> Cartridge<Raw, B> {
 
         // 3. Alignment check: pointer address must be 64-byte aligned
         let ptr_addr = data.as_ptr() as usize;
-        if ptr_addr % ALIGNMENT_BYTES != 0 {
+        if !ptr_addr.is_multiple_of(ALIGNMENT_BYTES) {
             return Err(CartridgeError::MisalignedOffset { offset: ptr_addr });
         }
 

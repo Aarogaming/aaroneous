@@ -1,8 +1,8 @@
 use anyhow::Result;
 use notify::{Config, RecommendedWatcher, RecursiveMode, Watcher};
 use std::path::Path;
-use std::sync::mpsc::channel;
 use std::sync::Arc;
+use std::sync::mpsc::channel;
 use std::thread;
 use tracing::{error, info};
 
@@ -56,8 +56,8 @@ impl DirectoryWatcher {
                                         "File changed: {:?}. Embedding into Episodic Memory...",
                                         file_path
                                     );
-                                    let _ = pipeline
-                                        .embed_and_insert(&content, "#file_system_event");
+                                    let _ =
+                                        pipeline.embed_and_insert(&content, "#file_system_event");
                                 }
                             }
                         }

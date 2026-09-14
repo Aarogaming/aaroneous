@@ -9,12 +9,12 @@ use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
-use crate::translation_dataset::{TranslationDataset, ROSETTA_LATENT_DIM, ROSETTA_TEACHER_DIM};
 use crate::si_solid_state::SolidStateSiContainer;
 use crate::si_ssm::SiSsmConfig;
 use crate::si_trainer::LatentGELUBottleneckBridge;
+use crate::translation_dataset::{ROSETTA_LATENT_DIM, ROSETTA_TEACHER_DIM, TranslationDataset};
 
-use crate::si_trainer::{run_bootstrapper, BootstrapperConfig};
+use crate::si_trainer::{BootstrapperConfig, run_bootstrapper};
 
 /// Bootstrap Training Configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -120,9 +120,11 @@ impl SiDistillationHarness {
 
         // 4. Extract real metrics from the final epoch
         let last = epoch_reports.last();
-        let final_cka     = last.map(|r| (1.0 - r.cka_loss as f64).clamp(0.0, 1.0)).unwrap_or(0.0);
+        let final_cka = last
+            .map(|r| (1.0 - r.cka_loss as f64).clamp(0.0, 1.0))
+            .unwrap_or(0.0);
         let final_infonce = last.map(|r| r.infonce_loss as f64).unwrap_or(0.0);
-        let final_mse     = last.map(|r| r.ce_loss as f64).unwrap_or(0.0);
+        let final_mse = last.map(|r| r.ce_loss as f64).unwrap_or(0.0);
 
         // 5. Save bootable .si container to disk with 64-byte alignment and magic headers
         let target_path = out_path.as_ref().to_path_buf();
@@ -165,7 +167,11 @@ impl SiDistillationHarness {
 
         let mut reports = Vec::new();
         for (name, opcode) in specs {
-            let dataset = TranslationDataset::synthesize_specialist_corpus(name, opcode, samples_per_specialist);
+            let dataset = TranslationDataset::synthesize_specialist_corpus(
+                name,
+                opcode,
+                samples_per_specialist,
+            );
             let config = BootstrapConfig {
                 model_name: format!("{}_sovereign_v1", name),
                 epochs,
@@ -176,7 +182,10 @@ impl SiDistillationHarness {
                 target_cka_threshold: 0.80,
             };
 
-            let mut harness = SiDistillationHarness::new(config, LatentGELUBottleneckBridge::new(ROSETTA_TEACHER_DIM, 1024, ROSETTA_LATENT_DIM));
+            let mut harness = SiDistillationHarness::new(
+                config,
+                LatentGELUBottleneckBridge::new(ROSETTA_TEACHER_DIM, 1024, ROSETTA_LATENT_DIM),
+            );
             let target_file = out_dir_path.join(format!("{}.si", name));
             let report = harness.bootstrap_base_model(&dataset, &target_file)?;
             reports.push(report);

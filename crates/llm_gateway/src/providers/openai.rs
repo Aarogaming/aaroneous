@@ -503,7 +503,6 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    #[ignore] // Requires API key
     async fn test_openai_provider_creation() {
         let result = OpenAIProvider::new("mock-api-key".to_string()).await;
         assert!(result.is_ok());

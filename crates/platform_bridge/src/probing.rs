@@ -67,7 +67,7 @@ impl ProcessProbeLogger {
             self.traces.pop_front();
         }
         debug!(
-            target: "marionette::probing",
+            target: "platform_bridge::probing",
             process = %trace.target_process,
             event = %trace.event_type,
             "Captured backend execution trace"

@@ -14,8 +14,8 @@ pub extern crate autonomic_adaptation as evolution;
 // pub use adaptation_engine;
 
 pub mod error;
-pub mod util;
 pub mod state;
+pub mod util;
 
 pub extern crate governance as biology;
 pub use governance as system_health;
@@ -90,8 +90,8 @@ pub enum DigestionPriority {
     High,
 }
 
-pub mod onboarding;
 pub mod assimilation;
+pub mod onboarding;
 
 // Re-export SABs for universal access
 pub use crate::sabs::{SabManifest, SabMatrix, SabMatrixBuilder, SabSurface};
@@ -156,10 +156,10 @@ pub use crate::scientific_analyzer::{
 
 // Runtime Supervisory Loop
 pub mod supervisory_loop;
-pub use supervisory_loop::{AutonomousControlLoop, SupervisoryDaemon};
+pub use supervisory_loop as autonomic_loop;
 #[allow(deprecated)]
 pub use supervisory_loop::AutonomicNervousSystem;
-pub use supervisory_loop as autonomic_loop;
+pub use supervisory_loop::{AutonomousControlLoop, SupervisoryDaemon};
 
 // Sandboxed Micro-Worker Bytecode Virtual Machine
 pub mod micro_vm;
@@ -257,9 +257,10 @@ pub use profile_persistence as hox_persistence;
 pub mod profile_registry;
 pub use profile_registry as hox_registry;
 pub mod spatial_delta_gate;
-pub use profile_registry::CapabilitySchemaRegistry;
 pub use llm_gateway as llm;
 pub use llm_gateway::McpGateway;
+pub use profile_registry::CapabilitySchemaRegistry;
+pub mod intent_orchestrator;
 pub mod lora_adapter_vault;
 pub mod mcp_service;
 pub mod metadata_ingestor;
@@ -269,10 +270,10 @@ pub mod neural_pruning;
 pub mod nlm_sentinel;
 pub mod orchestration_daemon;
 pub mod persistence;
-pub mod intent_orchestrator;
 pub use intent_orchestrator as prefrontal_cortex;
 pub mod sandboxed_network;
 pub mod semantic_indexing;
+#[cfg(windows)]
 pub mod spatial_kinetic_engine;
 pub mod specialist_memory;
 pub mod spectral_layout;
@@ -283,11 +284,11 @@ pub mod substrate;
 pub mod interconnect {
     pub use crate::signal_bridge::*;
 }
-pub use reward_system::{FeedbackEvent, FeedbackSignalProcessor, RewardSignalProcessor};
 pub use interconnect::{
     InterconnectBus, InterconnectMcpFrame, InterconnectPayload, InterconnectState,
     SpecialistBusDialogue,
 };
+pub use reward_system::{FeedbackEvent, FeedbackSignalProcessor, RewardSignalProcessor};
 pub mod screen_capture;
 pub use screen_capture as retina_module;
 pub use screen_capture::{
@@ -298,18 +299,20 @@ pub use state_snapshot::{
     ConsoleProjection, EngineSnapshot, EngineStatePublisher, GovernorPacing, HudProjection,
     NodeMetrics, SpatialCanvasState, StudioProjection,
 };
+pub mod capability_broker;
 pub mod tensor_router;
 pub mod ui_broker;
-pub mod capability_broker;
-pub use capability_broker::{CapabilityBroker, CapabilityCategory, CapabilityDescriptor, CapabilityExecutionOutcome};
+pub use capability_broker::{
+    CapabilityBroker, CapabilityCategory, CapabilityDescriptor, CapabilityExecutionOutcome,
+};
 
 // === Plugin Manager Integration ===
 
+use libloading::Library;
 use once_cell::sync::Lazy;
+use plugin_api::PluginDescriptor;
 use std::collections::HashMap;
 use std::sync::Mutex;
-use plugin_api::{PluginDescriptor, Plugin};
-use libloading::Library;
 
 /// Plugin configuration POD for constructor injection
 #[derive(Debug, Clone)]
@@ -318,7 +321,11 @@ pub struct PluginConfig {
 }
 
 /// Global plugin manager singleton.
-pub static PLUGIN_MANAGER: Lazy<Mutex<PluginManager>> = Lazy::new(|| Mutex::new(PluginManager::new(PluginConfig { path: std::path::PathBuf::new() })));
+pub static PLUGIN_MANAGER: Lazy<Mutex<PluginManager>> = Lazy::new(|| {
+    Mutex::new(PluginManager::new(PluginConfig {
+        path: std::path::PathBuf::new(),
+    }))
+});
 
 pub struct PluginManager {
     registry: HashMap<String, PluginDescriptor>,
@@ -327,7 +334,7 @@ pub struct PluginManager {
 }
 
 impl PluginManager {
-    pub fn new(config: PluginConfig) -> Self {
+    pub fn new(_config: PluginConfig) -> Self {
         Self {
             registry: HashMap::new(),
             _loaded: Vec::new(),
@@ -359,7 +366,9 @@ pub fn init_plugins(config: PluginConfig) -> Result<(), anyhow::Error> {
         let entry = entry?;
         let path = entry.path();
         if path.extension().and_then(|s| s.to_str()) == Some("dll") {
-            let mut manager = PLUGIN_MANAGER.lock().map_err(|e| anyhow::anyhow!(format!("Mutex poisoned: {}", e)))?;
+            let mut manager = PLUGIN_MANAGER
+                .lock()
+                .map_err(|e| anyhow::anyhow!(format!("Mutex poisoned: {}", e)))?;
             manager.load_dynamic(&path)?;
         }
     }
@@ -381,6 +390,7 @@ pub mod unified_registry;
 pub mod wgpu_reflex_pipeline;
 pub mod win32_intercept;
 pub mod workspace;
+#[cfg(windows)]
 pub use spatial_kinetic_engine::{SpatialKineticConfig, SpatialKineticEngine};
 
 // Autonomous Decision Engine
@@ -415,7 +425,7 @@ pub use resilience::{
 
 // Structured logging facade: single init point, idempotent
 pub mod logging;
-pub use logging::{init_logging, ShellType, init_shell_logging};
+pub use logging::{ShellType, init_logging, init_shell_logging};
 
 /// Run internal health check for system startup
 pub fn run_health_checks() -> bool {
@@ -476,16 +486,16 @@ pub mod task_routing;
 pub mod visual_perception;
 
 #[cfg(any(feature = "testing", feature = "simulation", test))]
-pub mod simulation_testbed;
-#[cfg(any(feature = "testing", feature = "simulation", test))]
 pub mod chaos_monkey;
+#[cfg(any(feature = "testing", feature = "simulation", test))]
+pub mod simulation_testbed;
 #[cfg(any(feature = "testing", feature = "simulation", test))]
 pub mod task_worker;
 
 #[cfg(any(feature = "testing", feature = "simulation", test))]
-pub use simulation_testbed::SimulationTestbed;
-#[cfg(any(feature = "testing", feature = "simulation", test))]
 pub use chaos_monkey::ChaosMonkey;
+#[cfg(any(feature = "testing", feature = "simulation", test))]
+pub use simulation_testbed::SimulationTestbed;
 #[cfg(any(feature = "testing", feature = "simulation", test))]
 pub use task_worker::ExecutionEnzyme;
 
@@ -531,8 +541,6 @@ pub async fn run_hypervisor(
     daemon.shutdown();
     Ok(())
 }
-
-
 
 #[cfg(test)]
 mod bus_test;

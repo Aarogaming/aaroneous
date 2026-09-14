@@ -3,7 +3,7 @@
 //! Operates natively on 1024-dimensional continuous Synapse state vectors (S_t)
 //! predicting state deltas (ΔS = S_{t+1} - S_t) and action opcodes in < 200µs.
 
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use candle_core::{Device, Tensor};
 use memmap2::Mmap;
 use serde::{Deserialize, Serialize};
@@ -12,7 +12,10 @@ use std::io::Write;
 use std::path::Path;
 use std::time::Instant;
 
-use crate::machine_native::{DimensionalUnit, MachineOpcode, NativeComputationNode, NativeComputationalGraph, NativeTypeLattice};
+use crate::machine_native::{
+    DimensionalUnit, MachineOpcode, NativeComputationNode, NativeComputationalGraph,
+    NativeTypeLattice,
+};
 use crate::si_binary::SiThoughtPacket;
 
 /// Magic identifier for Machine-Native State-Space Models: 'SISSM'
@@ -23,14 +26,14 @@ pub const SI_SSM_VERSION: u16 = 1;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SiSsmConfig {
     pub model_name: String,
-    pub state_dim: usize,       // 1024 (Synapse State Vector dimension)
-    pub d_model: usize,         // 256 (Inner projection dimension)
-    pub d_state: usize,         // 64 (SSM recurrent hidden state rank N)
-    pub d_conv: usize,          // 4 (1D causal convolution kernel)
-    pub dt_rank: usize,         // 16 (Time-step delta rank)
-    pub num_layers: usize,      // 4 layers
-    pub num_opcodes: usize,     // 64 discrete machine opcodes
-    pub param_count: usize,     // Total parameter count
+    pub state_dim: usize,   // 1024 (Synapse State Vector dimension)
+    pub d_model: usize,     // 256 (Inner projection dimension)
+    pub d_state: usize,     // 64 (SSM recurrent hidden state rank N)
+    pub d_conv: usize,      // 4 (1D causal convolution kernel)
+    pub dt_rank: usize,     // 16 (Time-step delta rank)
+    pub num_layers: usize,  // 4 layers
+    pub num_opcodes: usize, // 64 discrete machine opcodes
+    pub param_count: usize, // Total parameter count
 }
 
 impl Default for SiSsmConfig {
@@ -62,18 +65,24 @@ impl Default for SiSsmConfig {
 
 /// Single State-Space Selective Layer Block
 pub struct SsmLayerBlock {
-    pub in_proj: Tensor,      // (d_model, d_model * 2)
-    pub conv_weight: Tensor,  // (d_model, d_conv)
-    pub dt_proj: Tensor,      // (dt_rank, d_model)
-    pub a_log: Tensor,        // (d_model, d_state)
-    pub b_proj: Tensor,       // (d_model, d_state)
-    pub c_proj: Tensor,       // (d_model, d_state)
-    pub d_skip: Tensor,       // (d_model)
-    pub out_proj: Tensor,     // (d_model, d_model)
+    pub in_proj: Tensor,     // (d_model, d_model * 2)
+    pub conv_weight: Tensor, // (d_model, d_conv)
+    pub dt_proj: Tensor,     // (dt_rank, d_model)
+    pub a_log: Tensor,       // (d_model, d_state)
+    pub b_proj: Tensor,      // (d_model, d_state)
+    pub c_proj: Tensor,      // (d_model, d_state)
+    pub d_skip: Tensor,      // (d_model)
+    pub out_proj: Tensor,    // (d_model, d_model)
 }
 
 impl SsmLayerBlock {
-    pub fn new(d_model: usize, d_state: usize, d_conv: usize, dt_rank: usize, device: &Device) -> Result<Self> {
+    pub fn new(
+        d_model: usize,
+        d_state: usize,
+        d_conv: usize,
+        dt_rank: usize,
+        device: &Device,
+    ) -> Result<Self> {
         let in_proj = Tensor::randn(0.0f32, 0.02f32, (d_model, d_model * 2), device)?;
         let conv_weight = Tensor::randn(0.0f32, 0.02f32, (d_model, d_conv), device)?;
         let dt_proj = Tensor::randn(0.0f32, 0.02f32, (dt_rank, d_model), device)?;
@@ -112,11 +121,13 @@ impl SsmLayerBlock {
         let a_bar = self.a_log.exp()?;
         let u_col = u_act.squeeze(0)?.unsqueeze(1)?; // (d_model, 1)
         let b_term = u_col.broadcast_mul(&self.b_proj)?; // (d_model, d_state)
-        
+
         let new_hidden = (prev_hidden.broadcast_mul(&a_bar)? + b_term)?;
-        
+
         // Output computation: y_i = C_i^T * h_{t, i} + D_i * u_i
-        let c_term = (new_hidden.broadcast_mul(&self.c_proj)?).sum_keepdim(1)?.squeeze(1)?; // (d_model)
+        let c_term = (new_hidden.broadcast_mul(&self.c_proj)?)
+            .sum_keepdim(1)?
+            .squeeze(1)?; // (d_model)
         let d_term = (u_act.squeeze(0)? * &self.d_skip)?; // (d_model)
         let y = (c_term + d_term)?.unsqueeze(0)?; // (1, d_model)
 
@@ -147,11 +158,11 @@ pub struct SsmStatePrediction {
 pub struct SiStateSpaceModel {
     pub config: SiSsmConfig,
     pub device: Device,
-    pub in_proj: Tensor,        // (state_dim -> d_model)
+    pub in_proj: Tensor, // (state_dim -> d_model)
     pub layers: Vec<SsmLayerBlock>,
-    pub out_delta: Tensor,      // (d_model -> state_dim)
-    pub opcode_head: Tensor,    // (d_model -> num_opcodes)
-    pub energy_head: Tensor,    // (d_model -> 1)
+    pub out_delta: Tensor,   // (d_model -> state_dim)
+    pub opcode_head: Tensor, // (d_model -> num_opcodes)
+    pub energy_head: Tensor, // (d_model -> 1)
 }
 
 impl SiStateSpaceModel {
@@ -164,7 +175,7 @@ impl SiStateSpaceModel {
         };
 
         let in_proj = Tensor::randn(0.0f32, 0.02f32, (config.state_dim, config.d_model), &device)?;
-        
+
         let mut layers = Vec::with_capacity(config.num_layers);
         for _ in 0..config.num_layers {
             layers.push(SsmLayerBlock::new(
@@ -176,8 +187,14 @@ impl SiStateSpaceModel {
             )?);
         }
 
-        let out_delta = Tensor::randn(0.0f32, 0.02f32, (config.d_model, config.state_dim), &device)?;
-        let opcode_head = Tensor::randn(0.0f32, 0.02f32, (config.d_model, config.num_opcodes), &device)?;
+        let out_delta =
+            Tensor::randn(0.0f32, 0.02f32, (config.d_model, config.state_dim), &device)?;
+        let opcode_head = Tensor::randn(
+            0.0f32,
+            0.02f32,
+            (config.d_model, config.num_opcodes),
+            &device,
+        )?;
         let energy_head = Tensor::randn(0.0f32, 0.02f32, (config.d_model, 1), &device)?;
 
         Ok(Self {
@@ -201,10 +218,18 @@ impl SiStateSpaceModel {
         let _denormal_guard = crate::denormal::DenormalGuard::new();
 
         if current_state.len() != self.config.state_dim {
-            bail!("Input state dimension mismatch: expected {}, got {}", self.config.state_dim, current_state.len());
+            bail!(
+                "Input state dimension mismatch: expected {}, got {}",
+                self.config.state_dim,
+                current_state.len()
+            );
         }
 
-        let state_tensor = Tensor::from_vec(current_state.to_vec(), (1, self.config.state_dim), &self.device)?;
+        let state_tensor = Tensor::from_vec(
+            current_state.to_vec(),
+            (1, self.config.state_dim),
+            &self.device,
+        )?;
         let mut x = state_tensor.matmul(&self.in_proj)?;
 
         // Pass through Selective State-Space recurrence layers
@@ -212,7 +237,11 @@ impl SiStateSpaceModel {
             let prev_h = if i < hidden_states.len() {
                 hidden_states[i].clone()
             } else {
-                Tensor::zeros((self.config.d_model, self.config.d_state), candle_core::DType::F32, &self.device)?
+                Tensor::zeros(
+                    (self.config.d_model, self.config.d_state),
+                    candle_core::DType::F32,
+                    &self.device,
+                )?
             };
 
             let (next_x, next_h) = layer.forward(&x, &prev_h)?;
@@ -245,15 +274,33 @@ impl SiStateSpaceModel {
             }
         }
 
-        let energy_val: f32 = energy_val_tensor.squeeze(0)?.to_vec1()?.first().copied().unwrap_or(0.04);
+        let energy_val: f32 = energy_val_tensor
+            .squeeze(0)?
+            .to_vec1()?
+            .first()
+            .copied()
+            .unwrap_or(0.04);
         let latency = start.elapsed().as_micros() as u64;
 
         let predicted_opcode = match best_opcode_id % 6 {
-            0 => MachineOpcode::Alloc { size_bytes: 4096, align: 64 },
+            0 => MachineOpcode::Alloc {
+                size_bytes: 4096,
+                align: 64,
+            },
             1 => MachineOpcode::Load { address_reg: 1 },
-            2 => MachineOpcode::Store { address_reg: 1, value_reg: 2 },
-            3 => MachineOpcode::BranchIf { condition_reg: 1, target_block: 2 },
-            4 => MachineOpcode::TensorDot { left_reg: 1, right_reg: 2, dim: 64 },
+            2 => MachineOpcode::Store {
+                address_reg: 1,
+                value_reg: 2,
+            },
+            3 => MachineOpcode::BranchIf {
+                condition_reg: 1,
+                target_block: 2,
+            },
+            4 => MachineOpcode::TensorDot {
+                left_reg: 1,
+                right_reg: 2,
+                dim: 64,
+            },
             _ => MachineOpcode::Return { value_reg: 0 },
         };
 
@@ -275,28 +322,68 @@ impl SiStateSpaceModel {
         let mut map = HashMap::new();
 
         // 1. Core projections and heads
-        map.insert("ssm_in_proj".to_string(), self.in_proj.flatten_all()?.to_vec1()?);
-        map.insert("ssm_out_delta".to_string(), self.out_delta.flatten_all()?.to_vec1()?);
-        map.insert("ssm_opcode_head".to_string(), self.opcode_head.flatten_all()?.to_vec1()?);
-        map.insert("ssm_energy_head".to_string(), self.energy_head.flatten_all()?.to_vec1()?);
+        map.insert(
+            "ssm_in_proj".to_string(),
+            self.in_proj.flatten_all()?.to_vec1()?,
+        );
+        map.insert(
+            "ssm_out_delta".to_string(),
+            self.out_delta.flatten_all()?.to_vec1()?,
+        );
+        map.insert(
+            "ssm_opcode_head".to_string(),
+            self.opcode_head.flatten_all()?.to_vec1()?,
+        );
+        map.insert(
+            "ssm_energy_head".to_string(),
+            self.energy_head.flatten_all()?.to_vec1()?,
+        );
 
         // 2. Per-layer Selective State-Space blocks
         for (i, layer) in self.layers.iter().enumerate() {
-            map.insert(format!("layer{i}_in_proj"), layer.in_proj.flatten_all()?.to_vec1()?);
-            map.insert(format!("layer{i}_conv_weight"), layer.conv_weight.flatten_all()?.to_vec1()?);
-            map.insert(format!("layer{i}_dt_proj"), layer.dt_proj.flatten_all()?.to_vec1()?);
-            map.insert(format!("layer{i}_a_log"), layer.a_log.flatten_all()?.to_vec1()?);
-            map.insert(format!("layer{i}_b_proj"), layer.b_proj.flatten_all()?.to_vec1()?);
-            map.insert(format!("layer{i}_c_proj"), layer.c_proj.flatten_all()?.to_vec1()?);
-            map.insert(format!("layer{i}_d_skip"), layer.d_skip.flatten_all()?.to_vec1()?);
-            map.insert(format!("layer{i}_out_proj"), layer.out_proj.flatten_all()?.to_vec1()?);
+            map.insert(
+                format!("layer{i}_in_proj"),
+                layer.in_proj.flatten_all()?.to_vec1()?,
+            );
+            map.insert(
+                format!("layer{i}_conv_weight"),
+                layer.conv_weight.flatten_all()?.to_vec1()?,
+            );
+            map.insert(
+                format!("layer{i}_dt_proj"),
+                layer.dt_proj.flatten_all()?.to_vec1()?,
+            );
+            map.insert(
+                format!("layer{i}_a_log"),
+                layer.a_log.flatten_all()?.to_vec1()?,
+            );
+            map.insert(
+                format!("layer{i}_b_proj"),
+                layer.b_proj.flatten_all()?.to_vec1()?,
+            );
+            map.insert(
+                format!("layer{i}_c_proj"),
+                layer.c_proj.flatten_all()?.to_vec1()?,
+            );
+            map.insert(
+                format!("layer{i}_d_skip"),
+                layer.d_skip.flatten_all()?.to_vec1()?,
+            );
+            map.insert(
+                format!("layer{i}_out_proj"),
+                layer.out_proj.flatten_all()?.to_vec1()?,
+            );
         }
 
         Ok(map)
     }
 
     /// Exports trained weights into a compact `.si` binary container alongside execution AST
-    pub fn export_to_si_container(&self, _macro_name: &str, target_path: impl AsRef<Path>) -> Result<()> {
+    pub fn export_to_si_container(
+        &self,
+        _macro_name: &str,
+        target_path: impl AsRef<Path>,
+    ) -> Result<()> {
         let path = target_path.as_ref();
         if let Some(parent) = path.parent() {
             fs::create_dir_all(parent)?;
@@ -305,26 +392,40 @@ impl SiStateSpaceModel {
         let mut graph = NativeComputationalGraph::new();
         graph.add_node(NativeComputationNode {
             id: 1,
-            opcode: MachineOpcode::Alloc { size_bytes: 4096, align: 64 },
-            type_lattice: NativeTypeLattice::LinearMemoryPointer { mutability: true, alignment: 64 },
+            opcode: MachineOpcode::Alloc {
+                size_bytes: 4096,
+                align: 64,
+            },
+            type_lattice: NativeTypeLattice::LinearMemoryPointer {
+                mutability: true,
+                alignment: 64,
+            },
             energy_cost: 0.02,
             dependencies: Vec::new(),
         });
         graph.add_node(NativeComputationNode {
             id: 2,
             opcode: MachineOpcode::EntropyMinimization { state_reg: 1 },
-            type_lattice: NativeTypeLattice::PhysicalQuantity { unit: DimensionalUnit::ENERGY_JOULE, precision: 64 },
+            type_lattice: NativeTypeLattice::PhysicalQuantity {
+                unit: DimensionalUnit::ENERGY_JOULE,
+                precision: 64,
+            },
             energy_cost: 0.03,
             dependencies: vec![1],
         });
 
-        let packet = SiThoughtPacket::new(0x0700, DimensionalUnit::ENERGY_JOULE, vec![0.5; self.config.state_dim], graph);
+        let packet = SiThoughtPacket::new(
+            0x0700,
+            DimensionalUnit::ENERGY_JOULE,
+            vec![0.5; self.config.state_dim],
+            graph,
+        );
         let binary_packet = packet.to_binary()?;
 
         let mut file = File::create(path)?;
         file.write_all(&SI_SSM_MAGIC)?;
         file.write_all(&SI_SSM_VERSION.to_le_bytes())?;
-        
+
         let config_json = serde_json::to_vec(&self.config)?;
         file.write_all(&(config_json.len() as u32).to_le_bytes())?;
         file.write_all(&config_json)?;
@@ -409,7 +510,12 @@ impl SiStateSpaceModel {
             h_u
         }
 
-        let root_state = evaluate_node(root_id, &node_map, &mut computed_states, self.config.state_dim);
+        let root_state = evaluate_node(
+            root_id,
+            &node_map,
+            &mut computed_states,
+            self.config.state_dim,
+        );
         Ok(root_state)
     }
 }
@@ -448,7 +554,9 @@ mod tests {
             Tensor::zeros((32, 16), candle_core::DType::F32, &model.device).unwrap(),
         ];
 
-        let pred = model.forward_state_step(&current_state, &mut hidden_states).expect("SSM forward failed");
+        let pred = model
+            .forward_state_step(&current_state, &mut hidden_states)
+            .expect("SSM forward failed");
         assert_eq!(pred.predicted_state.len(), 128);
         assert_eq!(pred.delta_state.len(), 128);
         assert!(pred.confidence_score >= 0.0);
@@ -473,10 +581,13 @@ mod tests {
         };
 
         let model = SiStateSpaceModel::new(config, false).unwrap();
-        model.export_to_si_container("Test SSM Macro", &target_path).expect("Export failed");
+        model
+            .export_to_si_container("Test SSM Macro", &target_path)
+            .expect("Export failed");
         assert!(target_path.exists());
 
-        let loaded = SiStateSpaceModel::load_from_si_container(&target_path, false).expect("Load failed");
+        let loaded =
+            SiStateSpaceModel::load_from_si_container(&target_path, false).expect("Load failed");
         assert_eq!(loaded.config.model_name, "Export-SSM");
         assert_eq!(loaded.config.state_dim, 64);
     }
@@ -516,7 +627,9 @@ mod tests {
             },
         ];
 
-        let root_embedding = model.scan_tree_hierarchy(&nodes, 1).expect("Tree scan failed");
+        let root_embedding = model
+            .scan_tree_hierarchy(&nodes, 1)
+            .expect("Tree scan failed");
         assert_eq!(root_embedding.len(), 32);
         assert!(root_embedding.iter().all(|&x| x > 0.0));
     }

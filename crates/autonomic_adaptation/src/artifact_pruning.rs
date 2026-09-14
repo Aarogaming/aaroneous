@@ -2,9 +2,9 @@
 // Autonomous GGUF model ingestion, genetic extraction, persona generation, and integration
 // Allows Aaroneous to consume models in background and create new specialists
 
+use crate::genetics::{GeneticCategory, GeneticLocus, LociSource, SpecialistGenome};
 use crate::workspace::{WorkspacePaths, WorkspacePathsConfig};
 use chrono::{DateTime, Utc};
-use crate::genetics::{GeneticCategory, GeneticLocus, LociSource, SpecialistGenome};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::sync::Arc;

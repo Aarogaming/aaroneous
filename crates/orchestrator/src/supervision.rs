@@ -1,46 +1,19 @@
-//! # Supervision Component Block
-//!
-//! Provides isolated process and task lifecycle supervision, restart policies,
-//! and backoff enforcement for the Aaroneous Component Framework.
-//!
-//! ## Example
-//! ```rust
-//! use orchestrator::supervision::{Supervisor, SupervisorConfig, SupervisorBudget, RestartPolicy, SupervisedTask};
-//! use anyhow::Result;
-//!
-//! struct Worker;
-//! impl SupervisedTask for Worker {
-//!     fn name(&self) -> &str { "worker" }
-//!     fn step(&mut self) -> Result<()> { Ok(()) }
-//!     fn on_panic(&mut self, _err: &str) -> Result<()> { Ok(()) }
-//! }
-//!
-//! let mut supervisor = Supervisor::new(SupervisorConfig::default());
-//! supervisor.register_task(
-//!     Box::new(Worker),
-//!     RestartPolicy::OnFailure { max_retries: 3, backoff_ms: 100 },
-//!     SupervisorBudget { max_restarts: 5, window_duration_secs: 60, cpu_affinity_mask: None },
-//! );
-//! let status = supervisor.tick();
-//! assert_eq!(status.len(), 1);
-//! ```
+//! Control-plane task supervision with injected monotonic time. Registration
+//! and status collection allocate; this adapter is not a real-time reducer.
+//! It retries task steps, not OS processes. Panics are process failures under
+//! the workspace's release `panic = "abort"` profile.
+#![deny(unsafe_code)]
 
-use anyhow::Result;
-use std::collections::HashMap;
-use std::time::{Duration, Instant};
+use anyhow::{Result, bail};
+use std::collections::BTreeMap;
 
-/// Policy defining how a failed or panicking task should be handled.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RestartPolicy {
-    /// Never attempt to restart the task once it returns an error.
     Never,
-    /// Immediately restart the task on every cycle regardless of errors.
     Always,
-    /// Restart up to `max_retries` times with exponential or fixed `backoff_ms`.
     OnFailure { max_retries: u32, backoff_ms: u64 },
 }
 
-/// Bounded failure budget and execution constraints for a supervised component.
 #[derive(Debug, Clone)]
 pub struct SupervisorBudget {
     pub max_restarts: u32,
@@ -48,7 +21,6 @@ pub struct SupervisorBudget {
     pub cpu_affinity_mask: Option<u64>,
 }
 
-/// Operational state of a supervised task.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum TaskStatus {
     Idle,
@@ -60,7 +32,13 @@ pub enum TaskStatus {
 pub trait SupervisedTask {
     fn name(&self) -> &str;
     fn step(&mut self) -> Result<()>;
+    /// Compatibility callback for a host with an unwind boundary; this adapter
+    /// does not claim to recover from process-aborting panics.
     fn on_panic(&mut self, err: &str) -> Result<()>;
+    /// A task-specific OS adapter must explicitly support requested affinity.
+    fn configure_affinity(&mut self, _mask: u64) -> Result<()> {
+        bail!("Task does not provide an affinity adapter")
+    }
 }
 
 #[derive(Debug, Clone, Default)]
@@ -68,186 +46,239 @@ pub struct SupervisorConfig {
     pub default_backoff_ms: u64,
 }
 
+struct TaskEntry {
+    task: Box<dyn SupervisedTask + Send>,
+    policy: RestartPolicy,
+    budget: SupervisorBudget,
+    status: TaskStatus,
+    failures: u32,
+    retry_at_ms: u64,
+    window_start_ms: u64,
+    restarts_in_window: u32,
+}
+
 pub struct Supervisor {
-    _config: SupervisorConfig,
-    tasks: HashMap<
-        String,
-        (
-            Box<dyn SupervisedTask + Send>,
-            RestartPolicy,
-            SupervisorBudget,
-            TaskStatus,
-            u32,
-            Instant,
-        ),
-    >,
+    config: SupervisorConfig,
+    tasks: BTreeMap<String, TaskEntry>,
+    last_tick_ms: u64,
 }
 
 impl Supervisor {
     pub fn new(config: SupervisorConfig) -> Self {
-        Supervisor {
-            _config: config,
-            tasks: HashMap::new(),
+        Self {
+            config,
+            tasks: BTreeMap::new(),
+            last_tick_ms: 0,
         }
     }
 
     pub fn register_task(
         &mut self,
-        task: Box<dyn SupervisedTask + Send>,
+        mut task: Box<dyn SupervisedTask + Send>,
         policy: RestartPolicy,
         budget: SupervisorBudget,
-    ) {
+    ) -> Result<()> {
+        if self.tasks.contains_key(task.name()) {
+            bail!("Task already registered");
+        }
+        if budget.window_duration_secs == 0 {
+            bail!("Restart window must be nonzero");
+        }
+        if let Some(mask) = budget.cpu_affinity_mask {
+            if mask == 0 {
+                bail!("Affinity mask must be nonzero");
+            }
+            task.configure_affinity(mask)?;
+        }
         self.tasks.insert(
-            task.name().to_string(),
-            (task, policy, budget, TaskStatus::Idle, 0, Instant::now()),
+            task.name().to_owned(),
+            TaskEntry {
+                task,
+                policy,
+                budget,
+                status: TaskStatus::Idle,
+                failures: 0,
+                retry_at_ms: self.last_tick_ms,
+                window_start_ms: self.last_tick_ms,
+                restarts_in_window: 0,
+            },
         );
+        Ok(())
     }
 
-    pub fn tick(&mut self) -> Vec<(String, TaskStatus)> {
-        let mut results = Vec::new();
-        for (name, (task, policy, _budget, status, consecutive_failures, next_allowed_retry)) in
-            self.tasks.iter_mut()
-        {
-            match status {
-                TaskStatus::Idle | TaskStatus::Running => {
-                    *status = TaskStatus::Running;
-                    if let Err(e) = task.step() {
-                        *consecutive_failures += 1;
-                        match policy {
-                            RestartPolicy::Never => {
-                                *status = TaskStatus::Terminated {
-                                    reason: e.to_string(),
-                                };
-                            }
-                            RestartPolicy::Always => {
-                                *status = TaskStatus::Degraded {
-                                    consecutive_failures: *consecutive_failures,
-                                };
-                                *next_allowed_retry = Instant::now();
-                            }
-                            RestartPolicy::OnFailure {
-                                max_retries,
-                                backoff_ms,
-                            } => {
-                                if *consecutive_failures <= *max_retries {
-                                    *status = TaskStatus::Degraded {
-                                        consecutive_failures: *consecutive_failures,
-                                    };
-                                    *next_allowed_retry =
-                                        Instant::now() + Duration::from_millis(*backoff_ms);
-                                } else {
-                                    *status = TaskStatus::Terminated {
-                                        reason: e.to_string(),
-                                    };
-                                }
-                            }
-                        }
-                    }
+    /// `now_ms` is supplied by acquisition. Equal inputs and task outcomes give
+    /// equal scheduling decisions. Backwards time is rejected without mutation.
+    pub fn tick(&mut self, now_ms: u64) -> Result<Vec<(String, TaskStatus)>> {
+        if now_ms < self.last_tick_ms {
+            bail!("Supervisor time moved backwards");
+        }
+        self.last_tick_ms = now_ms;
+        for entry in self.tasks.values_mut() {
+            if matches!(entry.status, TaskStatus::Terminated { .. }) {
+                continue;
+            }
+            let window_ms = entry.budget.window_duration_secs.saturating_mul(1000);
+            if now_ms.saturating_sub(entry.window_start_ms) >= window_ms {
+                entry.window_start_ms = now_ms;
+                entry.restarts_in_window = 0;
+            }
+            if matches!(entry.status, TaskStatus::Degraded { .. }) {
+                if now_ms < entry.retry_at_ms
+                    || entry.restarts_in_window >= entry.budget.max_restarts
+                {
+                    continue;
                 }
-                TaskStatus::Degraded { .. } => match policy {
-                    RestartPolicy::Never => {
-                        *status = TaskStatus::Terminated {
-                            reason: "Never restart policy enforced".to_string(),
+                entry.restarts_in_window += 1;
+            }
+            match entry.task.step() {
+                Ok(()) => {
+                    entry.failures = 0;
+                    entry.status = TaskStatus::Running;
+                }
+                Err(error) => {
+                    entry.failures = entry.failures.saturating_add(1);
+                    let backoff = match entry.policy {
+                        RestartPolicy::Never => None,
+                        RestartPolicy::Always => Some(self.config.default_backoff_ms),
+                        RestartPolicy::OnFailure {
+                            max_retries,
+                            backoff_ms,
+                        } if entry.failures <= max_retries => Some(backoff_ms),
+                        RestartPolicy::OnFailure { .. } => None,
+                    };
+                    if let Some(backoff) = backoff {
+                        entry.status = TaskStatus::Degraded {
+                            consecutive_failures: entry.failures,
+                        };
+                        entry.retry_at_ms = now_ms.saturating_add(backoff);
+                    } else {
+                        entry.status = TaskStatus::Terminated {
+                            reason: error.to_string(),
                         };
                     }
-                    RestartPolicy::Always => {
-                        *status = TaskStatus::Idle;
-                    }
-                    RestartPolicy::OnFailure { max_retries, .. } => {
-                        if *consecutive_failures <= *max_retries {
-                            if Instant::now() >= *next_allowed_retry {
-                                *status = TaskStatus::Idle;
-                            }
-                        } else {
-                            *status = TaskStatus::Terminated {
-                                reason: "Max retries exceeded".to_string(),
-                            };
-                        }
-                    }
-                },
-                TaskStatus::Terminated { .. } => {}
+                }
             }
-            results.push((name.clone(), status.clone()));
         }
-        results
+        Ok(self
+            .tasks
+            .iter()
+            .map(|(name, entry)| (name.clone(), entry.status.clone()))
+            .collect())
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use anyhow::anyhow;
-
-    struct MockTask {
-        name: String,
-        should_fail: bool,
+    struct Worker {
+        outcomes: std::collections::VecDeque<bool>,
     }
-
-    impl MockTask {
-        fn new(name: &str, should_fail: bool) -> Self {
-            MockTask {
-                name: name.to_string(),
-                should_fail,
-            }
-        }
-    }
-
-    impl SupervisedTask for MockTask {
+    impl SupervisedTask for Worker {
         fn name(&self) -> &str {
-            &self.name
+            "worker"
         }
-
         fn step(&mut self) -> Result<()> {
-            if self.should_fail {
-                Err(anyhow!("Task failed"))
-            } else {
+            if self.outcomes.pop_front().unwrap_or(false) {
                 Ok(())
+            } else {
+                bail!("failed")
             }
         }
-
-        fn on_panic(&mut self, _err: &str) -> Result<()> {
+        fn on_panic(&mut self, _: &str) -> Result<()> {
             Ok(())
         }
     }
-
+    fn budget() -> SupervisorBudget {
+        SupervisorBudget {
+            max_restarts: 1,
+            window_duration_secs: 1,
+            cpu_affinity_mask: None,
+        }
+    }
     #[test]
-    fn test_supervisor_tick_and_restart() {
-        let config = SupervisorConfig::default();
-        let mut supervisor = Supervisor::new(config);
-
-        let task1 = Box::new(MockTask::new("task1", true));
-        let policy1 = RestartPolicy::OnFailure {
-            max_retries: 2,
-            backoff_ms: 10,
-        };
-        let budget1 = SupervisorBudget {
-            max_restarts: 3,
-            window_duration_secs: 60,
-            cpu_affinity_mask: None,
-        };
-        supervisor.register_task(task1, policy1, budget1);
-
-        let task2 = Box::new(MockTask::new("task2", false));
-        let policy2 = RestartPolicy::Never;
-        let budget2 = SupervisorBudget {
-            max_restarts: 3,
-            window_duration_secs: 60,
-            cpu_affinity_mask: None,
-        };
-        supervisor.register_task(task2, policy2, budget2);
-
-        let results = supervisor.tick();
-        assert_eq!(results.len(), 2);
+    fn backoff_budget_and_window_are_enforced() -> Result<()> {
+        let mut supervisor = Supervisor::new(SupervisorConfig {
+            default_backoff_ms: 10,
+        });
+        supervisor.register_task(
+            Box::new(Worker {
+                outcomes: [false, false, true].into(),
+            }),
+            RestartPolicy::Always,
+            budget(),
+        )?;
         assert_eq!(
-            results.iter().find(|(n, _)| n == "task1").unwrap().1,
+            supervisor.tick(0)?[0].1,
             TaskStatus::Degraded {
                 consecutive_failures: 1
             }
         );
         assert_eq!(
-            results.iter().find(|(n, _)| n == "task2").unwrap().1,
-            TaskStatus::Running
+            supervisor.tick(9)?[0].1,
+            TaskStatus::Degraded {
+                consecutive_failures: 1
+            }
+        );
+        assert_eq!(
+            supervisor.tick(10)?[0].1,
+            TaskStatus::Degraded {
+                consecutive_failures: 2
+            }
+        );
+        assert_eq!(
+            supervisor.tick(999)?[0].1,
+            TaskStatus::Degraded {
+                consecutive_failures: 2
+            }
+        );
+        assert_eq!(supervisor.tick(1000)?[0].1, TaskStatus::Running);
+        assert!(supervisor.tick(999).is_err());
+        Ok(())
+    }
+    #[test]
+    fn successful_step_resets_consecutive_failure_limit() -> Result<()> {
+        let mut supervisor = Supervisor::new(SupervisorConfig::default());
+        let mut limits = budget();
+        limits.max_restarts = 10;
+        supervisor.register_task(
+            Box::new(Worker {
+                outcomes: [false, true, false, false].into(),
+            }),
+            RestartPolicy::OnFailure {
+                max_retries: 1,
+                backoff_ms: 0,
+            },
+            limits,
+        )?;
+        supervisor.tick(0)?;
+        assert_eq!(supervisor.tick(1)?[0].1, TaskStatus::Running);
+        assert_eq!(
+            supervisor.tick(2)?[0].1,
+            TaskStatus::Degraded {
+                consecutive_failures: 1
+            }
+        );
+        assert!(matches!(
+            supervisor.tick(3)?[0].1,
+            TaskStatus::Terminated { .. }
+        ));
+        Ok(())
+    }
+    #[test]
+    fn unsupported_affinity_is_not_silently_ignored() {
+        let mut supervisor = Supervisor::new(SupervisorConfig::default());
+        let mut limits = budget();
+        limits.cpu_affinity_mask = Some(1);
+        assert!(
+            supervisor
+                .register_task(
+                    Box::new(Worker {
+                        outcomes: [].into()
+                    }),
+                    RestartPolicy::Never,
+                    limits
+                )
+                .is_err()
         );
     }
 }
-

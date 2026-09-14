@@ -19,7 +19,7 @@
 //! └───────────────────────────────────────────────────────────────────┘
 //! ```
 
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use memmap2::Mmap;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -28,7 +28,7 @@ use std::io::Write;
 use std::path::Path;
 
 use si_format::audit::jit_audit;
-pub use si_format::utils::{align_to_64, compute_padding, ALIGNMENT_BYTES};
+pub use si_format::utils::{ALIGNMENT_BYTES, align_to_64, compute_padding};
 pub use si_format::verify::{MIN_VERSION, SINT_PACKER_MAGIC};
 
 /// Packer format version — v3 enforces tensor-descriptor manifest with explicit byte offsets
@@ -217,7 +217,10 @@ impl SiPacker {
             PayloadType::LoRA,
         ));
 
-        let payload_sizes: Vec<u64> = all_tensors.iter().map(|(_, data, _, _, _)| data.len() as u64).collect();
+        let payload_sizes: Vec<u64> = all_tensors
+            .iter()
+            .map(|(_, data, _, _, _)| data.len() as u64)
+            .collect();
         let header_prefix: u64 = 20; // 4 (magic) + 4 (version) + 4 (flags) + 8 (toc_len)
 
         let compute_layout = |manifest_len_guess: u64| -> (Vec<u64>, u64) {
@@ -239,15 +242,17 @@ impl SiPacker {
                 .iter()
                 .zip(&payload_sizes)
                 .zip(offsets)
-                .map(|(((name, _, shape, mutable, ptype), &blen), &offset)| TensorDescriptor {
-                    name: name.clone(),
-                    shape: shape.clone(),
-                    dtype: "F32".to_string(),
-                    byte_offset: offset,
-                    byte_length: blen,
-                    is_mutable: *mutable,
-                    payload_type: *ptype,
-                })
+                .map(
+                    |(((name, _, shape, mutable, ptype), &blen), &offset)| TensorDescriptor {
+                        name: name.clone(),
+                        shape: shape.clone(),
+                        dtype: "F32".to_string(),
+                        byte_offset: offset,
+                        byte_length: blen,
+                        is_mutable: *mutable,
+                        payload_type: *ptype,
+                    },
+                )
                 .collect();
             SiContainerManifest {
                 model_identifier: model_id.to_string(),
@@ -369,7 +374,12 @@ impl SiSolidStateLoader {
 
         let manifest: SiContainerManifest = bincode_deserialize(manifest_bytes)?;
 
-        Ok(Self { manifest, tier_flags, _file: file, mmap })
+        Ok(Self {
+            manifest,
+            tier_flags,
+            _file: file,
+            mmap,
+        })
     }
 
     pub fn get_tensor_slice(&self, name: &str) -> Option<&[f32]> {
@@ -386,18 +396,24 @@ impl SiSolidStateLoader {
             raw_slice.as_ptr() as usize
         );
 
-        debug_assert_eq!(raw_slice.len() % 4, 0, "Tensor byte length is not a multiple of 4");
+        debug_assert_eq!(
+            raw_slice.len() % 4,
+            0,
+            "Tensor byte length is not a multiple of 4"
+        );
         let float_count = raw_slice.len() / 4;
-        let f32_slice = unsafe {
-            std::slice::from_raw_parts(raw_slice.as_ptr() as *const f32, float_count)
-        };
+        let f32_slice =
+            unsafe { std::slice::from_raw_parts(raw_slice.as_ptr() as *const f32, float_count) };
 
         Some(f32_slice)
     }
 
     /// Loads a JIT Reflex and routes it through the Governance security audit gate.
     pub fn load_jit_reflex(&self, name: &str) -> Result<&[u8]> {
-        let desc = self.manifest.tensors.iter()
+        let desc = self
+            .manifest
+            .tensors
+            .iter()
             .find(|p| p.name == name && p.payload_type == PayloadType::JitReflex)
             .context(format!("JIT Reflex '{}' not found", name))?;
 
@@ -421,11 +437,19 @@ impl SiSolidStateLoader {
     }
 
     pub fn shape(&self, name: &str) -> Option<&[usize]> {
-        self.manifest.tensors.iter().find(|t| t.name == name).map(|t| t.shape.as_slice())
+        self.manifest
+            .tensors
+            .iter()
+            .find(|t| t.name == name)
+            .map(|t| t.shape.as_slice())
     }
 
     pub fn tensor_names(&self) -> Vec<&str> {
-        self.manifest.tensors.iter().map(|t| t.name.as_str()).collect()
+        self.manifest
+            .tensors
+            .iter()
+            .map(|t| t.name.as_str())
+            .collect()
     }
 }
 
@@ -461,15 +485,7 @@ mod tests {
         core.insert("ssm_in_proj".to_string(), vec![0.1f32; 256 * 32]);
         core.insert("ssm_out_proj".to_string(), vec![0.2f32; 32 * 256]);
 
-        SiPacker::pack_to_si(
-            &tmp,
-            "test_model",
-            32,
-            8,
-            4,
-            core,
-        )
-        .expect("pack_to_si failed");
+        SiPacker::pack_to_si(&tmp, "test_model", 32, 8, 4, core).expect("pack_to_si failed");
 
         let loader = SiSolidStateLoader::load(&tmp).expect("load failed");
         assert_eq!(loader.manifest.model_identifier, "test_model");

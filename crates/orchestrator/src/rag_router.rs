@@ -1,8 +1,8 @@
 use crate::memory_pipeline::EpisodicInsertionPipeline;
 use crate::web_crawler::WebCrawler;
 use anyhow::Result;
-use std::sync::Arc;
 use compute::episodic_memory::EpisodicMemoryFabric;
+use std::sync::Arc;
 
 /// SEMANTIC-10: Dynamic RAG Pipeline
 /// Automatically routes semantic queries between the Vector DB (Episodic Fabric),
@@ -16,7 +16,10 @@ pub struct DynamicRagPipeline {
 pub type RagRouter = DynamicRagPipeline;
 
 impl DynamicRagPipeline {
-    pub fn new(memory_fabric: Arc<EpisodicMemoryFabric>, insertion_pipeline: Arc<EpisodicInsertionPipeline>) -> Self {
+    pub fn new(
+        memory_fabric: Arc<EpisodicMemoryFabric>,
+        insertion_pipeline: Arc<EpisodicInsertionPipeline>,
+    ) -> Self {
         Self {
             memory_fabric,
             web_crawler: WebCrawler::new(insertion_pipeline),
@@ -37,11 +40,14 @@ impl DynamicRagPipeline {
         // 2. Otherwise route to the HNSW R^256 Episodic Memory Fabric
         // Query vector placeholder until local embedding model is wired
         let query_vector = [0.1f32; compute::episodic_memory::LATENT_VECTOR_DIM];
-        
+
         // Return top 5 matches
         let matches = self.memory_fabric.recall_nearest(&query_vector, 5);
         for m in matches {
-            results.push(format!("Found Memory Trajectory #{} (Distance: {:.3}, Similarity: {:.3})", m.id, m.distance, m.similarity));
+            results.push(format!(
+                "Found Memory Trajectory #{} (Distance: {:.3}, Similarity: {:.3})",
+                m.id, m.distance, m.similarity
+            ));
         }
 
         Ok(results)

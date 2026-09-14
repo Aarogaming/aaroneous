@@ -1,10 +1,9 @@
 //! Observability Aggregator - Unified Telemetry Pipeline
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 
 use crate::native_ingestion::{
-    dxgi_swapchain::DxgiCaptureMetrics,
-    rgb_telemetry::RgbTelemetryMetrics,
+    dxgi_swapchain::DxgiCaptureMetrics, rgb_telemetry::RgbTelemetryMetrics,
 };
 
 struct DxgiSink {
@@ -20,7 +19,7 @@ impl Default for DxgiSink {
 }
 
 impl DxgiSink {
-    pub fn on_frame(&self, frame_id: u64, _metrics: &DxgiCaptureMetrics) {
+    pub fn on_frame(&self, _frame_id: u64, _metrics: &DxgiCaptureMetrics) {
         let _ = self.frames_received.fetch_add(1, Ordering::SeqCst);
     }
 }
@@ -80,29 +79,6 @@ enum DataSink {
     Rgb(RgbSink),
 }
 
-impl DataSink {
-    fn on_frame(&self, frame_id: u64, metrics: &DxgiCaptureMetrics) {
-        match self {
-            DataSink::Dxgi(sink) => sink.on_frame(frame_id, metrics),
-            _ => {}
-        }
-    }
-
-    fn on_event(&self, event_id: u64, data: &str) {
-        match self {
-            DataSink::Etw(sink) => sink.on_event(event_id, data),
-            _ => {}
-        }
-    }
-
-    fn on_update(&self, update_id: u64, metrics: &RgbTelemetryMetrics) {
-        match self {
-            DataSink::Rgb(sink) => sink.on_update(update_id, metrics),
-            _ => {}
-        }
-    }
-}
-
 pub struct ObservabilityAggregator {
     pub active: Arc<AtomicBool>,
     pub frame_counter: AtomicU64,
@@ -153,7 +129,7 @@ impl ObservabilityAggregator {
     }
 
     pub fn on_etw_event(&self, event_id: u64, data: &str) {
-        let counter = self.event_counter.fetch_add(1, Ordering::SeqCst) + 1;
+        let _counter = self.event_counter.fetch_add(1, Ordering::SeqCst) + 1;
         for sink in &self.data_sources {
             if let DataSink::Etw(sink) = sink {
                 sink.on_event(event_id, data);
@@ -198,10 +174,10 @@ mod tests {
     fn test_data_sink_dispatch() {
         let aggregator = ObservabilityAggregator::default();
         aggregator.start().unwrap();
-        
+
         let metrics = DxgiCaptureMetrics::new(60, &[5000u64; 60]);
         aggregator.on_dxgi_frame(&metrics);
-        
+
         assert!(aggregator.is_active());
     }
 
@@ -209,11 +185,11 @@ mod tests {
     fn test_etw_event_routing() {
         let aggregator = ObservabilityAggregator::default();
         aggregator.start().unwrap();
-        
+
         aggregator.on_etw_event(5, "process_create");
         aggregator.on_etw_event(15, "file_io");
         aggregator.on_etw_event(25, "network");
-        
+
         assert!(aggregator.is_active());
     }
 
@@ -221,10 +197,10 @@ mod tests {
     fn test_rgb_update_dispatch() {
         let aggregator = ObservabilityAggregator::default();
         aggregator.start().unwrap();
-        
+
         let metrics = RgbTelemetryMetrics::default();
         aggregator.on_rgb_update(&metrics);
-        
+
         assert!(aggregator.is_active());
     }
 }

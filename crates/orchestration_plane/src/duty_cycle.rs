@@ -30,10 +30,10 @@ impl Default for AdaptiveDutyGovernor {
 
 impl AdaptiveDutyGovernor {
     /// Adjust duty cycle based on residual error metric.
-    /// 
+    ///
     /// # Arguments
     /// * `residual_error` - Normalized prediction residual (0.0 = perfect, higher = worse)
-    /// 
+    ///
     /// # Returns
     /// Current execution phase AFTER adjustment
     pub fn adjust_duty_cycle(&mut self, residual_error: f32) -> ExecutionPhase {
@@ -44,7 +44,7 @@ impl AdaptiveDutyGovernor {
         } else {
             self.current_phase = ExecutionPhase::Nominal;
         }
-        
+
         self.current_phase
     }
 

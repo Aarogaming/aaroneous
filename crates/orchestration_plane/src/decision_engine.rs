@@ -1,5 +1,10 @@
 #[derive(Debug, Clone)]
-pub enum DecisionTask { ProcessMetadata, EvaluateCapability, ExecuteAction, Unknown }
+pub enum DecisionTask {
+    ProcessMetadata,
+    EvaluateCapability,
+    ExecuteAction,
+    Unknown,
+}
 
 #[derive(Debug, Clone)]
 pub struct ExecutionError(pub String);
@@ -34,7 +39,15 @@ impl std::fmt::Display for ExecutionOutcome {
 }
 
 #[derive(Debug, Clone)]
-pub enum TaskEvaluation { Complete, Pending, Failed }
+pub enum TaskEvaluation {
+    Complete,
+    Pending,
+    Failed,
+}
 
 pub struct AutonomousDecisionEngine;
-impl Default for AutonomousDecisionEngine { fn default() -> Self { Self } }
+impl Default for AutonomousDecisionEngine {
+    fn default() -> Self {
+        Self
+    }
+}

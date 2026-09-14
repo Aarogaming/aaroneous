@@ -92,7 +92,11 @@ impl WorkspacePaths {
 
         let data_root = Self::discover_external_data_root(config, &root);
 
-        Self { root, temp_dir, data_root }
+        Self {
+            root,
+            temp_dir,
+            data_root,
+        }
     }
 
     #[allow(ambient_authority)]
@@ -172,7 +176,11 @@ impl WorkspacePaths {
             .map(|p| p.join("Aaroneous").join("tmp"))
             .unwrap_or_else(|| root.join(".tmp"));
         let data_root = Self::discover_external_data_root(&WorkspacePathsConfig::new(), &root);
-        Self { root, temp_dir, data_root }
+        Self {
+            root,
+            temp_dir,
+            data_root,
+        }
     }
 
     /// Construct from config POD (preferred pattern).
@@ -299,7 +307,11 @@ impl WorkspacePaths {
     }
 
     pub fn omni_galaxy_map(&self) -> PathBuf {
-        self.dev().join("tools").join("omni").join("output").join("omni_galaxy_map.json")
+        self.dev()
+            .join("tools")
+            .join("omni")
+            .join("output")
+            .join("omni_galaxy_map.json")
     }
 
     pub fn extensions(&self) -> PathBuf {
@@ -364,9 +376,18 @@ impl UniversalModelHubRegistry {
 
     pub fn with_default_hubs() -> Self {
         let mut reg = Self::new();
-        reg.register_home_hub("LM Studio Cache (~/.cache/lm-studio)", Path::new(".cache/lm-studio/models"));
-        reg.register_home_hub("LM Studio Default (~/.lmstudio/models)", Path::new(".lmstudio/models"));
-        reg.register_home_hub("Ollama Models (~/.ollama/models)", Path::new(".ollama/models"));
+        reg.register_home_hub(
+            "LM Studio Cache (~/.cache/lm-studio)",
+            Path::new(".cache/lm-studio/models"),
+        );
+        reg.register_home_hub(
+            "LM Studio Default (~/.lmstudio/models)",
+            Path::new(".lmstudio/models"),
+        );
+        reg.register_home_hub(
+            "Ollama Models (~/.ollama/models)",
+            Path::new(".ollama/models"),
+        );
         reg.register_home_hub("HuggingFace Hub Cache", Path::new(".cache/huggingface/hub"));
         reg.register_local_data_hub("Ollama LocalAppData", Path::new("Ollama/models"));
         reg.register_local_data_hub("Jan.ai Models", Path::new("jan/models"));
@@ -405,15 +426,15 @@ impl UniversalModelHubRegistry {
                         path: target,
                     });
                 }
-            } else if let Some(rel) = &d.relative_to_local_data {
-                if let Some(ld) = &local_data {
-                    let target = ld.join(rel);
-                    hubs.push(ModelHubLocation {
-                        name: d.name.clone(),
-                        exists: target.exists(),
-                        path: target,
-                    });
-                }
+            } else if let Some(rel) = &d.relative_to_local_data
+                && let Some(ld) = &local_data
+            {
+                let target = ld.join(rel);
+                hubs.push(ModelHubLocation {
+                    name: d.name.clone(),
+                    exists: target.exists(),
+                    path: target,
+                });
             }
         }
         hubs
@@ -465,7 +486,12 @@ impl WorkspacePaths {
     }
 
     /// Recursively scans a directory up to `max_depth` for `.gguf` files
-    fn scan_directory_for_gguf(dir: &Path, source_hub: &str, out: &mut Vec<DiscoveredGgufModel>, max_depth: usize) {
+    fn scan_directory_for_gguf(
+        dir: &Path,
+        source_hub: &str,
+        out: &mut Vec<DiscoveredGgufModel>,
+        max_depth: usize,
+    ) {
         if max_depth == 0 {
             return;
         }
@@ -474,20 +500,24 @@ impl WorkspacePaths {
             for entry in entries.flatten() {
                 let path = entry.path();
                 if path.is_file() {
-                    if let Some(ext) = path.extension().and_then(|s| s.to_str()) {
-                        if ext.eq_ignore_ascii_case("gguf") {
-                            let file_name = path.file_name().unwrap_or_default().to_string_lossy().to_string();
-                            let size_bytes = entry.metadata().map(|m| m.len()).unwrap_or(0);
-                            let formatted_size = format_bytes(size_bytes);
+                    if let Some(ext) = path.extension().and_then(|s| s.to_str())
+                        && ext.eq_ignore_ascii_case("gguf")
+                    {
+                        let file_name = path
+                            .file_name()
+                            .unwrap_or_default()
+                            .to_string_lossy()
+                            .to_string();
+                        let size_bytes = entry.metadata().map(|m| m.len()).unwrap_or(0);
+                        let formatted_size = format_bytes(size_bytes);
 
-                            out.push(DiscoveredGgufModel {
-                                file_name,
-                                full_path: path,
-                                size_bytes,
-                                formatted_size,
-                                source_hub: source_hub.to_string(),
-                            });
-                        }
+                        out.push(DiscoveredGgufModel {
+                            file_name,
+                            full_path: path,
+                            size_bytes,
+                            formatted_size,
+                            source_hub: source_hub.to_string(),
+                        });
                     }
                 } else if path.is_dir() {
                     Self::scan_directory_for_gguf(&path, source_hub, out, max_depth - 1);
@@ -606,7 +636,10 @@ mod tests {
         assert_eq!(paths.data_root(), &custom_root);
         assert_eq!(paths.data(), custom_root);
         assert_eq!(paths.si_models(), custom_root.join("models"));
-        assert_eq!(paths.cartridges(), custom_root.join("models").join("cartridges"));
+        assert_eq!(
+            paths.cartridges(),
+            custom_root.join("models").join("cartridges")
+        );
         assert_eq!(paths.skill_storage(), custom_root.join("skills"));
         assert_eq!(paths.state_banks(), custom_root.join("state_banks"));
     }
@@ -618,7 +651,10 @@ mod tests {
         let paths = WorkspacePaths::discover(&config);
         assert_eq!(paths.data(), PathBuf::from(r"D:\ArcData"));
         assert_eq!(paths.si_models(), PathBuf::from(r"D:\ArcData\models"));
-        assert_eq!(paths.cartridges(), PathBuf::from(r"D:\ArcData\models\cartridges"));
+        assert_eq!(
+            paths.cartridges(),
+            PathBuf::from(r"D:\ArcData\models\cartridges")
+        );
     }
 
     #[test]
@@ -667,34 +703,16 @@ mod tests {
             normalize_path("foo//bar\\\\baz/../qux"),
             PathBuf::from("foo/bar/qux")
         );
-        assert_eq!(
-            normalize_path("a///b/c/../../d"),
-            PathBuf::from("a/d")
-        );
+        assert_eq!(normalize_path("a///b/c/../../d"), PathBuf::from("a/d"));
 
         // 3. Current-dir noise and trailing slash retention / normalization
-        assert_eq!(
-            normalize_path("./a/./b/../c/."),
-            PathBuf::from("a/c")
-        );
-        assert_eq!(
-            normalize_path("./././"),
-            PathBuf::from("")
-        );
-        assert_eq!(
-            normalize_path("a/b/c/"),
-            PathBuf::from("a/b/c")
-        );
+        assert_eq!(normalize_path("./a/./b/../c/."), PathBuf::from("a/c"));
+        assert_eq!(normalize_path("./././"), PathBuf::from(""));
+        assert_eq!(normalize_path("a/b/c/"), PathBuf::from("a/b/c"));
 
         // 4. Windows drive letter prefixes and root preservation
-        assert_eq!(
-            normalize_path("C:foo/../bar"),
-            PathBuf::from("C:bar")
-        );
-        assert_eq!(
-            normalize_path("C:\\foo\\..\\bar"),
-            PathBuf::from("C:\\bar")
-        );
+        assert_eq!(normalize_path("C:foo/../bar"), PathBuf::from("C:bar"));
+        assert_eq!(normalize_path("C:\\foo\\..\\bar"), PathBuf::from("C:\\bar"));
         #[cfg(windows)]
         {
             assert_eq!(
@@ -708,17 +726,8 @@ mod tests {
         }
 
         // 5. Empty path strings and whitespace inputs
-        assert_eq!(
-            normalize_path(""),
-            PathBuf::from("")
-        );
-        assert_eq!(
-            normalize_path("   "),
-            PathBuf::from("   ")
-        );
-        assert_eq!(
-            normalize_path("   /../foo"),
-            PathBuf::from("foo")
-        );
+        assert_eq!(normalize_path(""), PathBuf::from(""));
+        assert_eq!(normalize_path("   "), PathBuf::from("   "));
+        assert_eq!(normalize_path("   /../foo"), PathBuf::from("foo"));
     }
 }

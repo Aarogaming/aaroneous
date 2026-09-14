@@ -36,7 +36,11 @@ pub trait ModelBackend: Send + Sync {
     fn backend_name(&self) -> &str;
 
     /// Generates completion text given system and user prompts
-    async fn generate_response(&self, system_prompt: &str, user_prompt: &str) -> Result<ModelResponse>;
+    async fn generate_response(
+        &self,
+        system_prompt: &str,
+        user_prompt: &str,
+    ) -> Result<ModelResponse>;
 
     /// Estimate token count for a text input
     fn estimate_tokens(&self, text: &str) -> usize {
@@ -51,7 +55,11 @@ impl ModelBackend for super::openai::OpenAIProvider {
         "OpenAI-Compatible"
     }
 
-    async fn generate_response(&self, system_prompt: &str, user_prompt: &str) -> Result<ModelResponse> {
+    async fn generate_response(
+        &self,
+        system_prompt: &str,
+        user_prompt: &str,
+    ) -> Result<ModelResponse> {
         let text = self.chat_completion(system_prompt, user_prompt).await?;
         let completion_tokens = text.len().div_ceil(4);
         let prompt_tokens = (system_prompt.len() + user_prompt.len()).div_ceil(4);
@@ -73,7 +81,11 @@ impl ModelBackend for super::gguf::GgufProvider {
         "Local-GGUF"
     }
 
-    async fn generate_response(&self, system_prompt: &str, user_prompt: &str) -> Result<ModelResponse> {
+    async fn generate_response(
+        &self,
+        system_prompt: &str,
+        user_prompt: &str,
+    ) -> Result<ModelResponse> {
         let text = self.chat_completion(system_prompt, user_prompt).await?;
         let completion_tokens = text.len().div_ceil(4);
         let prompt_tokens = (system_prompt.len() + user_prompt.len()).div_ceil(4);

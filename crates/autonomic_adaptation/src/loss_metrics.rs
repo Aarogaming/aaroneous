@@ -49,7 +49,12 @@ impl Default for AdaptationHomeostasisLevels {
 
 impl AdaptationHomeostasisLevels {
     /// Initializes homeostatic state vector using machine-native parameters
-    pub fn new(plasticity_drive: f32, stability_index: f32, gradient_pressure: f32, attention_weight: f32) -> Self {
+    pub fn new(
+        plasticity_drive: f32,
+        stability_index: f32,
+        gradient_pressure: f32,
+        attention_weight: f32,
+    ) -> Self {
         let p = plasticity_drive.clamp(0.0, 1.0);
         let s = stability_index.clamp(0.0, 1.0);
         let g = gradient_pressure.clamp(0.0, 1.0);
@@ -89,7 +94,9 @@ impl AdaptationHomeostasisLevels {
 
     /// Exploration drive combines attention weight, stagnation index, and stability delta
     pub fn curiosity_drive(&self) -> f32 {
-        let raw = (1.0 - self.stability_index) * 0.4 + self.attention_weight * 0.4 + self.boredom_index() * 0.2;
+        let raw = (1.0 - self.stability_index) * 0.4
+            + self.attention_weight * 0.4
+            + self.boredom_index() * 0.2;
         raw.clamp(0.0, 1.0)
     }
 
@@ -162,14 +169,24 @@ impl NeurochemicalHomeostasisEngine {
     pub fn step_homeostasis(&mut self, dt_sec: f32) {
         let decay = (-dt_sec / self.half_life_sec).exp();
 
-        self.levels.dopamine = self.baseline.dopamine + (self.levels.dopamine - self.baseline.dopamine) * decay;
-        self.levels.serotonin = self.baseline.serotonin + (self.levels.serotonin - self.baseline.serotonin) * decay;
-        self.levels.noradrenaline = self.baseline.noradrenaline + (self.levels.noradrenaline - self.baseline.noradrenaline) * decay;
-        self.levels.acetylcholine = self.baseline.acetylcholine + (self.levels.acetylcholine - self.baseline.acetylcholine) * decay;
+        self.levels.dopamine =
+            self.baseline.dopamine + (self.levels.dopamine - self.baseline.dopamine) * decay;
+        self.levels.serotonin =
+            self.baseline.serotonin + (self.levels.serotonin - self.baseline.serotonin) * decay;
+        self.levels.noradrenaline = self.baseline.noradrenaline
+            + (self.levels.noradrenaline - self.baseline.noradrenaline) * decay;
+        self.levels.acetylcholine = self.baseline.acetylcholine
+            + (self.levels.acetylcholine - self.baseline.acetylcholine) * decay;
     }
 
     /// Injects a neurochemical stimulus surge (e.g. from task success, anomaly, or new discovery)
-    pub fn inject_stimulus(&mut self, d_dopamine: f32, d_serotonin: f32, d_noradrenaline: f32, d_acetylcholine: f32) {
+    pub fn inject_stimulus(
+        &mut self,
+        d_dopamine: f32,
+        d_serotonin: f32,
+        d_noradrenaline: f32,
+        d_acetylcholine: f32,
+    ) {
         self.levels.dopamine = (self.levels.dopamine + d_dopamine).clamp(0.0, 1.0);
         self.levels.serotonin = (self.levels.serotonin + d_serotonin).clamp(0.0, 1.0);
         self.levels.noradrenaline = (self.levels.noradrenaline + d_noradrenaline).clamp(0.0, 1.0);
@@ -205,7 +222,9 @@ impl NeurochemicalHomeostasisEngine {
                 kind: ImpulseKind::OptimizeAstHypotheses,
                 urgency: curiosity * 0.9,
                 target_domain: "Fabricator (0x0400)".to_string(),
-                rationale: "Plasticity (ACh) optimal for AST hypothesis formulation and code optimization".to_string(),
+                rationale:
+                    "Plasticity (ACh) optimal for AST hypothesis formulation and code optimization"
+                        .to_string(),
             });
         }
 
@@ -229,7 +248,11 @@ impl NeurochemicalHomeostasisEngine {
             });
         }
 
-        impulses.sort_by(|a, b| b.urgency.partial_cmp(&a.urgency).unwrap_or(std::cmp::Ordering::Equal));
+        impulses.sort_by(|a, b| {
+            b.urgency
+                .partial_cmp(&a.urgency)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
         impulses
     }
 
@@ -242,15 +265,60 @@ impl NeurochemicalHomeostasisEngine {
 
         // Dynamic weight factors based on neurochemical drives
         let weights = [
-            ("Orchestrator", 0x0100, 1.0 + d * 0.5, "Strategic cortex driven by dopamine momentum"),
-            ("Synthesizer", 0x0200, 1.0 + a * 0.8, "Semantic knowledge boosted by acetylcholine plasticity"),
-            ("Presenter", 0x0300, 1.0 + s * 0.4, "Visual experience sustained by serotonin harmony"),
-            ("Fabricator", 0x0400, 1.0 + d * 0.7, "Forge & engineering energized by reward prediction"),
-            ("Sentinel", 0x0500, 1.0 + n * 0.9, "Auditor & safety heightened by noradrenaline vigilance"),
-            ("Archivist", 0x0600, 1.0 + s * 0.5 + a * 0.3, "Memory chronicler consolidating balanced states"),
-            ("Router", 0x0700, 1.0 + n * 0.4 + d * 0.3, "Router & mesh maintaining active throughput"),
-            ("Aligner", 0x0800, 1.0 + s * 0.6, "Temporal resonance aligned with baseline harmony"),
-            ("Perceiver", 0x0900, 1.0 + n * 0.8 + a * 0.4, "Sensory gating responsive to vigilance and focus"),
+            (
+                "Orchestrator",
+                0x0100,
+                1.0 + d * 0.5,
+                "Strategic cortex driven by dopamine momentum",
+            ),
+            (
+                "Synthesizer",
+                0x0200,
+                1.0 + a * 0.8,
+                "Semantic knowledge boosted by acetylcholine plasticity",
+            ),
+            (
+                "Presenter",
+                0x0300,
+                1.0 + s * 0.4,
+                "Visual experience sustained by serotonin harmony",
+            ),
+            (
+                "Fabricator",
+                0x0400,
+                1.0 + d * 0.7,
+                "Forge & engineering energized by reward prediction",
+            ),
+            (
+                "Sentinel",
+                0x0500,
+                1.0 + n * 0.9,
+                "Auditor & safety heightened by noradrenaline vigilance",
+            ),
+            (
+                "Archivist",
+                0x0600,
+                1.0 + s * 0.5 + a * 0.3,
+                "Memory chronicler consolidating balanced states",
+            ),
+            (
+                "Router",
+                0x0700,
+                1.0 + n * 0.4 + d * 0.3,
+                "Router & mesh maintaining active throughput",
+            ),
+            (
+                "Aligner",
+                0x0800,
+                1.0 + s * 0.6,
+                "Temporal resonance aligned with baseline harmony",
+            ),
+            (
+                "Perceiver",
+                0x0900,
+                1.0 + n * 0.8 + a * 0.4,
+                "Sensory gating responsive to vigilance and focus",
+            ),
         ];
 
         let total_weight: f32 = weights.iter().map(|(_, _, w, _)| *w).sum();
@@ -284,7 +352,8 @@ mod tests {
 
     #[test]
     fn test_homeostasis_decay() {
-        let mut engine = NeurochemicalHomeostasisEngine::new(NeurochemicalLevels::new(1.0, 1.0, 1.0, 1.0));
+        let mut engine =
+            NeurochemicalHomeostasisEngine::new(NeurochemicalLevels::new(1.0, 1.0, 1.0, 1.0));
         engine.step_homeostasis(60.0); // 1 half-life
         assert!(engine.levels.dopamine < 1.0);
         assert!(engine.levels.dopamine > 0.5);
@@ -292,7 +361,8 @@ mod tests {
 
     #[test]
     fn test_autonomic_impulses_and_token_distribution() {
-        let engine = NeurochemicalHomeostasisEngine::new(NeurochemicalLevels::new(0.1, 0.2, 0.1, 0.9));
+        let engine =
+            NeurochemicalHomeostasisEngine::new(NeurochemicalLevels::new(0.1, 0.2, 0.1, 0.9));
         let impulses = engine.evaluate_autonomic_impulses();
         assert!(!impulses.is_empty());
         assert_eq!(impulses[0].kind, ImpulseKind::ExploreKnowledgeGaps);

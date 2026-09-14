@@ -3,20 +3,22 @@
 //! Zero-Copy, High-Density Binary Representation of Discrete Thoughts, AST DAGs,
 //! Physical Dimensional Invariants, and Thermodynamic Energy Vectors.
 
-use anyhow::{bail, Result};
+use crate::machine_native::{DimensionalUnit, NativeComputationalGraph};
+use anyhow::{Result, bail};
 use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 use serde::{Deserialize, Serialize};
 use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::path::{Path, PathBuf};
-use crate::machine_native::{DimensionalUnit, NativeComputationalGraph};
 
 /// Magic header for Machine-Native SI binary streams: 'SIMN' (Synthetic Intelligence Machine Native)
 pub const SI_MAGIC_BYTES: [u8; 4] = *b"SIMN";
 pub const SI_CURRENT_VERSION: u16 = 1;
 
 /// Machine-Native Thought Header
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Archive, RkyvSerialize, RkyvDeserialize)]
+#[derive(
+    Debug, Clone, PartialEq, Serialize, Deserialize, Archive, RkyvSerialize, RkyvDeserialize,
+)]
 #[archive(check_bytes)]
 pub struct SiThoughtHeader {
     pub magic: [u8; 4],
@@ -227,7 +229,9 @@ impl SiCorpusStore {
             let record_len = u32::from_le_bytes(bytes[cursor..cursor + 4].try_into()?) as usize;
             cursor += 4;
             if cursor + record_len <= bytes.len() {
-                if let Ok(thought) = SiThoughtPacket::from_binary(&bytes[cursor..cursor + record_len]) {
+                if let Ok(thought) =
+                    SiThoughtPacket::from_binary(&bytes[cursor..cursor + record_len])
+                {
                     count += 1;
                     total_energy += thought.header.thermodynamic_free_energy;
                 }
@@ -237,7 +241,11 @@ impl SiCorpusStore {
             }
         }
 
-        let avg_energy = if count > 0 { total_energy / count as f64 } else { 0.0 };
+        let avg_energy = if count > 0 {
+            total_energy / count as f64
+        } else {
+            0.0
+        };
         Ok((count, total_bytes, avg_energy))
     }
 }
@@ -245,22 +253,34 @@ impl SiCorpusStore {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::machine_native::{DimensionalUnit, MachineOpcode, NativeComputationNode, NativeComputationalGraph, NativeTypeLattice};
+    use crate::machine_native::{
+        DimensionalUnit, MachineOpcode, NativeComputationNode, NativeComputationalGraph,
+        NativeTypeLattice,
+    };
 
     #[test]
     fn test_si_thought_packet_binary_roundtrip() {
         let mut graph = NativeComputationalGraph::new();
         graph.add_node(NativeComputationNode {
             id: 1,
-            opcode: MachineOpcode::Alloc { size_bytes: 64, align: 8 },
-            type_lattice: NativeTypeLattice::LinearMemoryPointer { mutability: true, alignment: 8 },
+            opcode: MachineOpcode::Alloc {
+                size_bytes: 64,
+                align: 8,
+            },
+            type_lattice: NativeTypeLattice::LinearMemoryPointer {
+                mutability: true,
+                alignment: 8,
+            },
             energy_cost: 0.12,
             dependencies: Vec::new(),
         });
         graph.add_node(NativeComputationNode {
             id: 2,
             opcode: MachineOpcode::EntropyMinimization { state_reg: 1 },
-            type_lattice: NativeTypeLattice::PrimitiveInt { bits: 64, signed: false },
+            type_lattice: NativeTypeLattice::PrimitiveInt {
+                bits: 64,
+                signed: false,
+            },
             energy_cost: 0.05,
             dependencies: vec![1],
         });

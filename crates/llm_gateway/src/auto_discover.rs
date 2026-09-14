@@ -1,7 +1,9 @@
 // Automatic Model Discovery
 // Automatically detects installed model loading software and loads models on startup
 
-use crate::model_environment::{ModelEnvironment, ModelEnvironmentConfig, ModelEnvironmentDetector};
+use crate::model_environment::{
+    ModelEnvironment, ModelEnvironmentConfig, ModelEnvironmentDetector,
+};
 use crate::model_loader::ModelLoader;
 use crate::model_registry::ModelInfo;
 use anyhow::Result;
@@ -45,7 +47,7 @@ pub async fn auto_discover_models(config: &ModelEnvironmentConfig) -> Result<Aut
 
         // Create loader and add paths from detected environment
         let mut loader = ModelLoader::new();
-        let search_paths = env.get_search_paths(&config);
+        let search_paths = env.get_search_paths(config);
 
         for path in search_paths {
             loader.add_search_path(path);

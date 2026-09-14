@@ -329,7 +329,9 @@ mod tests {
     #[test]
     fn test_dispatch() {
         let mut engine = IntentEngine::new();
-        let result = engine.parse_and_dispatch("Review the security of this module").unwrap();
+        let result = engine
+            .parse_and_dispatch("Review the security of this module")
+            .unwrap();
         assert!(!result.task_id.is_empty());
         assert!(!result.routing.specialist_id.is_empty());
         assert!(result.routing.confidence > 0.0);
@@ -377,29 +379,82 @@ mod tests {
     fn test_cas_to_task_type_mappings() {
         let engine = IntentEngine::new();
 
-        let cmd_gen = CasCommand { opcode: 0, mnemonic: "GENERATE".to_string(), description: "".to_string(), domain: "".to_string() };
-        assert!(matches!(engine.cas_to_task_type(&cmd_gen), TaskType::CodeGeneration));
+        let cmd_gen = CasCommand {
+            opcode: 0,
+            mnemonic: "GENERATE".to_string(),
+            description: "".to_string(),
+            domain: "".to_string(),
+        };
+        assert!(matches!(
+            engine.cas_to_task_type(&cmd_gen),
+            TaskType::CodeGeneration
+        ));
 
-        let cmd_refine = CasCommand { opcode: 0, mnemonic: "REFINE".to_string(), description: "".to_string(), domain: "".to_string() };
-        assert!(matches!(engine.cas_to_task_type(&cmd_refine), TaskType::Refactor));
+        let cmd_refine = CasCommand {
+            opcode: 0,
+            mnemonic: "REFINE".to_string(),
+            description: "".to_string(),
+            domain: "".to_string(),
+        };
+        assert!(matches!(
+            engine.cas_to_task_type(&cmd_refine),
+            TaskType::Refactor
+        ));
 
-        let cmd_analyze = CasCommand { opcode: 0, mnemonic: "ANALYZE".to_string(), description: "".to_string(), domain: "".to_string() };
-        assert!(matches!(engine.cas_to_task_type(&cmd_analyze), TaskType::Analysis));
+        let cmd_analyze = CasCommand {
+            opcode: 0,
+            mnemonic: "ANALYZE".to_string(),
+            description: "".to_string(),
+            domain: "".to_string(),
+        };
+        assert!(matches!(
+            engine.cas_to_task_type(&cmd_analyze),
+            TaskType::Analysis
+        ));
 
-        let cmd_remember = CasCommand { opcode: 0, mnemonic: "REMEMBER".to_string(), description: "".to_string(), domain: "".to_string() };
-        assert!(matches!(engine.cas_to_task_type(&cmd_remember), TaskType::Ingestion));
+        let cmd_remember = CasCommand {
+            opcode: 0,
+            mnemonic: "REMEMBER".to_string(),
+            description: "".to_string(),
+            domain: "".to_string(),
+        };
+        assert!(matches!(
+            engine.cas_to_task_type(&cmd_remember),
+            TaskType::Ingestion
+        ));
 
-        let cmd_visualize = CasCommand { opcode: 0, mnemonic: "VISUALIZE".to_string(), description: "".to_string(), domain: "".to_string() };
-        assert!(matches!(engine.cas_to_task_type(&cmd_visualize), TaskType::Documentation));
+        let cmd_visualize = CasCommand {
+            opcode: 0,
+            mnemonic: "VISUALIZE".to_string(),
+            description: "".to_string(),
+            domain: "".to_string(),
+        };
+        assert!(matches!(
+            engine.cas_to_task_type(&cmd_visualize),
+            TaskType::Documentation
+        ));
 
-        let cmd_unknown = CasCommand { opcode: 0, mnemonic: "UNKNOWN".to_string(), description: "".to_string(), domain: "".to_string() };
-        assert!(matches!(engine.cas_to_task_type(&cmd_unknown), TaskType::Custom(_)));
+        let cmd_unknown = CasCommand {
+            opcode: 0,
+            mnemonic: "UNKNOWN".to_string(),
+            description: "".to_string(),
+            domain: "".to_string(),
+        };
+        assert!(matches!(
+            engine.cas_to_task_type(&cmd_unknown),
+            TaskType::Custom(_)
+        ));
     }
 
     #[test]
     fn test_extract_skills_by_keyword() {
         let engine = IntentEngine::new();
-        let cmd = CasCommand { opcode: 0, mnemonic: "GENERATE".to_string(), description: "".to_string(), domain: "".to_string() };
+        let cmd = CasCommand {
+            opcode: 0,
+            mnemonic: "GENERATE".to_string(),
+            description: "".to_string(),
+            domain: "".to_string(),
+        };
 
         let skills = engine.extract_skills("Write a Python function", &cmd);
         assert!(skills.contains(&"python".to_string()));
@@ -453,7 +508,9 @@ mod tests {
     #[test]
     fn test_parse_and_dispatch_integration() {
         let mut engine = IntentEngine::new();
-        let result = engine.parse_and_dispatch("Review the security of this module").unwrap();
+        let result = engine
+            .parse_and_dispatch("Review the security of this module")
+            .unwrap();
         assert!(!result.task_id.is_empty());
         assert!(!result.routing.specialist_id.is_empty());
         assert!(result.routing.confidence > 0.0);
@@ -462,7 +519,12 @@ mod tests {
     #[test]
     fn test_extract_skills_deduplication() {
         let engine = IntentEngine::new();
-        let cmd = CasCommand { opcode: 0, mnemonic: "GENERATE".to_string(), description: "".to_string(), domain: "".to_string() };
+        let cmd = CasCommand {
+            opcode: 0,
+            mnemonic: "GENERATE".to_string(),
+            description: "".to_string(),
+            domain: "".to_string(),
+        };
         let skills = engine.extract_skills("Test the Rust code with tests", &cmd);
         let rust_count = skills.iter().filter(|s| *s == "rust").count();
         assert_eq!(rust_count, 1);
@@ -472,6 +534,9 @@ mod tests {
     fn test_default_is_same_as_new() {
         let engine1 = IntentEngine::new();
         let engine2 = IntentEngine::default();
-        assert_eq!(engine1.transducer().vocabulary().len(), engine2.transducer().vocabulary().len());
+        assert_eq!(
+            engine1.transducer().vocabulary().len(),
+            engine2.transducer().vocabulary().len()
+        );
     }
 }

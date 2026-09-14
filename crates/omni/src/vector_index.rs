@@ -16,7 +16,12 @@ pub struct VectorDocument {
 }
 
 impl VectorDocument {
-    pub fn new(id: impl Into<String>, coords: [f32; 3], embedding: Vec<f32>, payload: impl Into<String>) -> Self {
+    pub fn new(
+        id: impl Into<String>,
+        coords: [f32; 3],
+        embedding: Vec<f32>,
+        payload: impl Into<String>,
+    ) -> Self {
         Self {
             id: id.into(),
             coordinates: coords,
@@ -142,7 +147,11 @@ impl VectorIndexEngine {
         }
 
         // Sort descending by similarity score
-        results.sort_by(|a, b| b.similarity_score.partial_cmp(&a.similarity_score).unwrap_or(Ordering::Equal));
+        results.sort_by(|a, b| {
+            b.similarity_score
+                .partial_cmp(&a.similarity_score)
+                .unwrap_or(Ordering::Equal)
+        });
         results.truncate(top_k);
         results
     }

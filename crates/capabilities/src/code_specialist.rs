@@ -2,8 +2,8 @@
 //! Concrete Dynamic Domain Specialist Plugin implementing the Aaroneous `SpecialistEngine` C-ABI.
 //! Provides code manipulation, AST analysis dispatch, and 256-dimensional latent transformation.
 
-use sdk::dynamic_plugin::{SpecialistEngine, SpecialistPluginManifest, SPECIALIST_ABI_VERSION};
 use anyhow::Result;
+use sdk::dynamic_plugin::{SPECIALIST_ABI_VERSION, SpecialistEngine, SpecialistPluginManifest};
 use std::os::raw::c_char;
 
 static PLUGIN_NAME: &[u8] = b"CodeSpecialist\0";
@@ -14,6 +14,12 @@ static PLUGIN_VERSION: &[u8] = b"0.1.0\0";
 pub struct CodeSpecialist {
     name: String,
     version: String,
+}
+
+impl Default for CodeSpecialist {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl CodeSpecialist {

@@ -1,40 +1,17 @@
+# Use the same canonical gate on Windows. Prefer Git Bash over a broken or
+# differently configured WSL distribution; callers may pass an explicit path.
+param([string]$BashPath = "")
 $ErrorActionPreference = "Stop"
-
-function Write-ColoredHeader {
-    param (
-        [string]$header
-    )
-    Write-Host "`n[$header]" -ForegroundColor Cyan
+if (-not $BashPath) {
+    $gitCommand = Get-Command git -ErrorAction Stop
+    $gitRoot = Split-Path (Split-Path $gitCommand.Source -Parent) -Parent
+    $candidate = Join-Path $gitRoot "bin/bash.exe"
+    if (Test-Path -LiteralPath $candidate) { $BashPath = $candidate }
+    else { $BashPath = (Get-Command bash -ErrorAction Stop).Source }
 }
-
-Write-ColoredHeader "Gate 1: Workspace Cargo Check"
-cargo check --workspace --all-targets
-if ($LASTEXITCODE -ne 0) {
-    Write-Host "Workspace Cargo Check failed." -ForegroundColor Red
-    exit 1
-}
-
-Write-ColoredHeader "Gate 2: Architectural AST Audit"
-cargo run -p ast_auditor -- audit core/hypervisor crates/compute crates/orchestration_plane crates/llm_gateway
-if ($LASTEXITCODE -ne 0) {
-    Write-Host "Architectural AST Audit failed." -ForegroundColor Red
-    exit 1
-}
-
-Write-ColoredHeader "Gate 3: Monorepo Unit Test Suite"
-cargo test --workspace --lib
-if ($LASTEXITCODE -ne 0) {
-    Write-Host "Monorepo Unit Test Suite failed." -ForegroundColor Red
-    exit 1
-}
-
-Write-ColoredHeader "Gate 4: Golden Dogfooding Harness Verification"
-cargo test -p emulator_harness
-if ($LASTEXITCODE -ne 0) {
-    Write-Host "Golden Dogfooding Harness Verification failed." -ForegroundColor Red
-    exit 1
-}
-
-Write-Host "`n[SUCCESS] ALL ARCHITECTURAL GATES PASSED CLEANLY." -ForegroundColor Green
-exit 0
-
+Push-Location (Split-Path $PSScriptRoot -Parent)
+try {
+    & $BashPath scripts/agent_check.sh
+    $gateStatus = $LASTEXITCODE
+} finally { Pop-Location }
+exit $gateStatus

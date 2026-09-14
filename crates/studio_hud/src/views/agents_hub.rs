@@ -62,7 +62,7 @@ impl HudView for AgentsHubView {
                     Color32::TRANSPARENT
                 };
                 let stroke = if is_selected {
-                    Stroke::new(1.0, theme.accent())
+                    Stroke::new(1.0_f32, theme.accent())
                 } else {
                     Stroke::NONE
                 };
@@ -104,7 +104,7 @@ impl HudView for AgentsHubView {
                 if state.is_creating_agent {
                     egui::Frame::group(ui.style())
                         .fill(theme.card_bg())
-                        .stroke(Stroke::new(1.5, theme.accent()))
+                        .stroke(Stroke::new(1.5_f32, theme.accent()))
                         .corner_radius(CornerRadius::same(8))
                         .show(ui, |ui| {
                             ui.set_min_width(ui.available_width());
@@ -211,7 +211,7 @@ impl HudView for AgentsHubView {
                         for (idx, agent) in state.custom_agents.iter_mut().enumerate() {
                             egui::Frame::group(ui.style())
                                 .fill(theme.card_bg())
-                                .stroke(Stroke::new(1.0, theme.border_color()))
+                                .stroke(Stroke::new(1.0_f32, theme.border_color()))
                                 .corner_radius(CornerRadius::same(6))
                                 .show(ui, |ui| {
                                     ui.set_min_width(ui.available_width());
@@ -291,7 +291,7 @@ impl HudView for AgentsHubView {
                 // Instant Recall Experience Bank (HNSW Memory Fabric)
                 egui::Frame::group(ui.style())
                     .fill(theme.card_bg())
-                    .stroke(Stroke::new(1.0, theme.border_color()))
+                    .stroke(Stroke::new(1.0_f32, theme.border_color()))
                     .corner_radius(CornerRadius::same(6))
                     .show(ui, |ui| {
                         ui.set_min_width(ui.available_width());
@@ -403,7 +403,7 @@ impl HudView for AgentsHubView {
                 // Task Intent Input Deck
                 egui::Frame::group(ui.style())
                     .fill(theme.card_bg())
-                    .stroke(Stroke::new(1.0, theme.border_color()))
+                    .stroke(Stroke::new(1.0_f32, theme.border_color()))
                     .corner_radius(CornerRadius::same(8))
                     .show(ui, |ui| {
                         ui.set_min_width(ui.available_width());
@@ -526,7 +526,7 @@ impl HudView for AgentsHubView {
                         for (name, opcode, desc, color) in &specialists {
                             egui::Frame::group(ui.style())
                                 .fill(theme.card_bg())
-                                .stroke(Stroke::new(1.0, theme.border_color()))
+                                .stroke(Stroke::new(1.0_f32, theme.border_color()))
                                 .corner_radius(CornerRadius::same(6))
                                 .show(ui, |ui| {
                                     ui.set_min_width(ui.available_width());
@@ -569,7 +569,7 @@ impl HudView for AgentsHubView {
                     egui::Frame::group(ui.style())
                         .fill(theme.card_bg())
                         .corner_radius(CornerRadius::same(8))
-                        .stroke(Stroke::new(1.0, theme.border_color()))
+                        .stroke(Stroke::new(1.0_f32, theme.border_color()))
                         .show(ui, |ui| {
                             ui.set_min_size(Vec2::new(180.0, 70.0));
                             ui.label("Active Quorums:");
@@ -578,7 +578,7 @@ impl HudView for AgentsHubView {
                     egui::Frame::group(ui.style())
                         .fill(theme.card_bg())
                         .corner_radius(CornerRadius::same(8))
-                        .stroke(Stroke::new(1.0, theme.border_color()))
+                        .stroke(Stroke::new(1.0_f32, theme.border_color()))
                         .show(ui, |ui| {
                             ui.set_min_size(Vec2::new(180.0, 70.0));
                             ui.label("Tasks Offloaded:");

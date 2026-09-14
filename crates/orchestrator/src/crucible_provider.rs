@@ -8,7 +8,7 @@
 //! 4. OpenRouter / Cloud OpenAI-compatible endpoints
 //! 5. Auto-Discovery (probes local ports to auto-bind available engines)
 
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use async_trait::async_trait;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
@@ -89,23 +89,23 @@ impl UniversalHttpTeacher {
             .unwrap_or_else(|_| Client::new());
 
         // Probe LMStudio (1234)
-        if let Ok(res) = client.get("http://localhost:1234/v1/models").send().await {
-            if res.status().is_success() {
-                return Some(Self::new(TeacherBackendConfig::LmStudio {
-                    endpoint: "http://localhost:1234/v1".to_string(),
-                    model: "local-model".to_string(),
-                }));
-            }
+        if let Ok(res) = client.get("http://localhost:1234/v1/models").send().await
+            && res.status().is_success()
+        {
+            return Some(Self::new(TeacherBackendConfig::LmStudio {
+                endpoint: "http://localhost:1234/v1".to_string(),
+                model: "local-model".to_string(),
+            }));
         }
 
         // Probe Ollama (11434)
-        if let Ok(res) = client.get("http://localhost:11434/api/tags").send().await {
-            if res.status().is_success() {
-                return Some(Self::new(TeacherBackendConfig::Ollama {
-                    endpoint: "http://localhost:11434/v1".to_string(),
-                    model: "deepseek-r1".to_string(),
-                }));
-            }
+        if let Ok(res) = client.get("http://localhost:11434/api/tags").send().await
+            && res.status().is_success()
+        {
+            return Some(Self::new(TeacherBackendConfig::Ollama {
+                endpoint: "http://localhost:11434/v1".to_string(),
+                model: "deepseek-r1".to_string(),
+            }));
         }
 
         None
@@ -126,21 +126,33 @@ impl CrucibleTeacherEndpoint for UniversalHttpTeacher {
 
     async fn generate_challenge(&self, scenario_description: &str) -> Result<String> {
         let (endpoint, model, api_key) = match &self.config {
-            TeacherBackendConfig::LmStudio { endpoint, model } => (endpoint.as_str(), model.as_str(), None),
-            TeacherBackendConfig::Ollama { endpoint, model } => (endpoint.as_str(), model.as_str(), None),
-            TeacherBackendConfig::HuggingFace { endpoint, api_key, model } => {
-                (endpoint.as_str(), model.as_str(), Some(api_key.as_str()))
+            TeacherBackendConfig::LmStudio { endpoint, model } => {
+                (endpoint.as_str(), model.as_str(), None)
             }
-            TeacherBackendConfig::OpenRouter { api_key, model } => {
-                ("https://openrouter.ai/api/v1", model.as_str(), Some(api_key.as_str()))
+            TeacherBackendConfig::Ollama { endpoint, model } => {
+                (endpoint.as_str(), model.as_str(), None)
             }
-            TeacherBackendConfig::GenericOpenAiCompatible { endpoint, api_key, model } => {
-                (endpoint.as_str(), model.as_str(), api_key.as_deref())
-            }
+            TeacherBackendConfig::HuggingFace {
+                endpoint,
+                api_key,
+                model,
+            } => (endpoint.as_str(), model.as_str(), Some(api_key.as_str())),
+            TeacherBackendConfig::OpenRouter { api_key, model } => (
+                "https://openrouter.ai/api/v1",
+                model.as_str(),
+                Some(api_key.as_str()),
+            ),
+            TeacherBackendConfig::GenericOpenAiCompatible {
+                endpoint,
+                api_key,
+                model,
+            } => (endpoint.as_str(), model.as_str(), api_key.as_deref()),
         };
 
         let system_prompt = "You are the Crucible Master. Generate a precise, mathematical or physical coding scenario for testing an apprentice autonomous agent. Emphasize boundary conditions, friction, or edge cases.";
-        let user_prompt = format!("Generate an adversarial test challenge for the following scenario: {scenario_description}");
+        let user_prompt = format!(
+            "Generate an adversarial test challenge for the following scenario: {scenario_description}"
+        );
 
         let req = ChatCompletionRequest {
             model: model.to_string(),
@@ -170,7 +182,10 @@ impl CrucibleTeacherEndpoint for UniversalHttpTeacher {
         if !response.status().is_success() {
             let status = response.status();
             let body = response.text().await.unwrap_or_default();
-            bail!("Teacher provider [{}] returned HTTP {status}: {body}", self.provider_name());
+            bail!(
+                "Teacher provider [{}] returned HTTP {status}: {body}",
+                self.provider_name()
+            );
         }
 
         let resp_body: ChatCompletionResponse = response.json().await?;
@@ -185,13 +200,15 @@ impl CrucibleTeacherEndpoint for UniversalHttpTeacher {
         let (endpoint, api_key) = match &self.config {
             TeacherBackendConfig::LmStudio { endpoint, .. } => (endpoint.as_str(), None),
             TeacherBackendConfig::Ollama { endpoint, .. } => (endpoint.as_str(), None),
-            TeacherBackendConfig::HuggingFace { endpoint, api_key, .. } => (endpoint.as_str(), Some(api_key.as_str())),
+            TeacherBackendConfig::HuggingFace {
+                endpoint, api_key, ..
+            } => (endpoint.as_str(), Some(api_key.as_str())),
             TeacherBackendConfig::OpenRouter { api_key, .. } => {
                 ("https://openrouter.ai/api/v1", Some(api_key.as_str()))
             }
-            TeacherBackendConfig::GenericOpenAiCompatible { endpoint, api_key, .. } => {
-                (endpoint.as_str(), api_key.as_deref())
-            }
+            TeacherBackendConfig::GenericOpenAiCompatible {
+                endpoint, api_key, ..
+            } => (endpoint.as_str(), api_key.as_deref()),
         };
 
         let url = format!("{}/models", endpoint.trim_end_matches('/'));

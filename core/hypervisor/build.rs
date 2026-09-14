@@ -11,7 +11,9 @@ fn main() -> anyhow::Result<()> {
     // CARGO_MANIFEST_DIR points to core/hypervisor
     let manifest_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR")?);
     // repository root is two levels up
-    let repo_root = manifest_dir.parent().and_then(|p| p.parent())
+    let repo_root = manifest_dir
+        .parent()
+        .and_then(|p| p.parent())
         .ok_or_else(|| anyhow::anyhow!("Unable to find repo root"))?;
     let config_dir = repo_root.join("config");
     let out_dir = PathBuf::from(env::var("OUT_DIR")?);

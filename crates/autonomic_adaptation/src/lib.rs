@@ -2,18 +2,18 @@
 //! Biological and Persona Evolution Engine for Aaroneous.
 //! Unifies chromosome genetics, GGUF model persona extraction, and skill ranking.
 
-pub mod candle_persona_engine;
-pub mod continuous_evolution;
-pub mod capability_spec;
-pub mod loss_metrics;
 pub mod artifact_pruning;
+pub mod candle_persona_engine;
+pub mod capability_spec;
+pub mod continuous_evolution;
+pub mod loss_metrics;
+pub use artifact_pruning as self_digestion;
 pub use capability_spec as genetics;
 pub use loss_metrics as neurochemistry;
-pub use artifact_pruning as self_digestion;
-pub mod skills;
 pub mod persona_fusion;
-pub mod workspace;
+pub mod skills;
 pub mod streaming_adaptation;
+pub mod workspace;
 
 pub use streaming_adaptation::{
     AdaptationError, AutonomousPacingRegulator, PacingConfig, PacingDecision, PacingTier,
@@ -49,13 +49,13 @@ pub use self_digestion::{
 };
 
 // Re-export skills & leveling
+pub use persona_fusion::{
+    CapabilityFusionEngine, CompositePersonaVector, CompoundAgentProfile, ExperiencePersonaLayer,
+    FusedEmergentSkill, NarrativeVoiceLayer, OlympianPersonaVector, PersonaFusionEngine,
+    PersonalityPersonaLayer, RelationalPersonaLayer, SpecialistPersonaLayer,
+};
 pub use skills::{
     CapabilityMaturityLevel, FusedSkill, PersonaRank, Skill, SkillOrigin, SkillRegistry, SkillType,
     SpecialistSkillSet,
-};
-pub use persona_fusion::{
-    CapabilityFusionEngine, CompositePersonaVector, CompoundAgentProfile, ExperiencePersonaLayer,
-    FusedEmergentSkill, NarrativeVoiceLayer, OlympianPersonaVector, PersonalityPersonaLayer,
-    PersonaFusionEngine, RelationalPersonaLayer, SpecialistPersonaLayer,
 };
 pub use workspace::WorkspacePaths;

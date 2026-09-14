@@ -8,7 +8,6 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
 
-use crate::error::HypervisorError;
 use crate::federation::forge::read_gguf;
 use compute::si_forge::SiForge;
 use compute::si_packer::SiTierFlags;
@@ -116,6 +115,7 @@ impl CartridgeCompiler {
 
 #[cfg(test)]
 mod tests {
+    use crate::error::HypervisorError;
     use super::*;
     use tempfile::tempdir;
 
@@ -132,7 +132,8 @@ mod tests {
         fake_gguf.extend_from_slice(&0u64.to_le_bytes()); // 0 metadata kv
         fake_gguf.resize(256, 0x42); // 256 bytes
 
-        fs::write(&fake_gguf_path, &fake_gguf).map_err(|e| HypervisorError::IoError(e.to_string()))?;
+        fs::write(&fake_gguf_path, &fake_gguf)
+            .map_err(|e| HypervisorError::IoError(e.to_string()))?;
 
         let out_cartridge_path = dir.path().join("seeded_output.si");
         let config = GgufSeedingConfig {

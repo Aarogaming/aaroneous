@@ -6,7 +6,7 @@
 //! 2. AI LLM (OpenCode, Claude, Cursor): Anthropic/OpenAI JSON-RPC 2.0 MCP Tool Calls.
 //! 3. Native .si Models: Direct zero-copy R^256 latent vector transformations in VRAM.
 
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -73,12 +73,17 @@ impl ToolRegistry {
 
     /// Registers a universal tool into the registry
     pub fn register(&mut self, tool: Arc<dyn UniversalTool>) {
-        self.tools_by_name.insert(tool.name().to_string(), tool.clone());
+        self.tools_by_name
+            .insert(tool.name().to_string(), tool.clone());
         self.tools_by_opcode.insert(tool.opcode(), tool);
     }
 
     /// Dispatches a JSON call by tool name (Cloud / LLM MCP path)
-    pub async fn call_by_name(&self, name: &str, params: serde_json::Value) -> Result<serde_json::Value> {
+    pub async fn call_by_name(
+        &self,
+        name: &str,
+        params: serde_json::Value,
+    ) -> Result<serde_json::Value> {
         match self.tools_by_name.get(name) {
             Some(tool) => tool.call_json(params).await,
             None => bail!("Tool not found in registry: {}", name),
@@ -86,7 +91,12 @@ impl ToolRegistry {
     }
 
     /// Dispatches a zero-copy latent transformation by opcode (.si model path)
-    pub fn call_by_opcode(&self, opcode: u16, input: &[f32; 256], output: &mut [f32; 256]) -> Result<()> {
+    pub fn call_by_opcode(
+        &self,
+        opcode: u16,
+        input: &[f32; 256],
+        output: &mut [f32; 256],
+    ) -> Result<()> {
         match self.tools_by_opcode.get(&opcode) {
             Some(tool) => tool.call_latent(input, output),
             None => bail!("Tool opcode 0x{:04X} not found in registry", opcode),
@@ -95,7 +105,10 @@ impl ToolRegistry {
 
     /// Exports all tool descriptors for MCP discovery (tools/list) and OpenAPI docs
     pub fn list_tools(&self) -> Vec<ToolDescriptor> {
-        self.tools_by_name.values().map(|t| t.descriptor()).collect()
+        self.tools_by_name
+            .values()
+            .map(|t| t.descriptor())
+            .collect()
     }
 
     /// Filters registered tools by category name (e.g. "security", "code", "memory")

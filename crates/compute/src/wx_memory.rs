@@ -5,7 +5,7 @@
 //! Phase 2 (Crystallization & Seal): Memory is transitioned to Read-Execute (RX), strictly non-writeable.
 //! On Drop: Cleanly deallocates virtual memory pages back to the host OS.
 
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use std::ptr::NonNull;
 
 /// RAII Container for JIT-compiled native executable code pages
@@ -33,22 +33,19 @@ impl WxMemoryRegion {
         #[cfg(target_os = "windows")]
         {
             use windows::Win32::System::Memory::{
-                VirtualAlloc, VirtualProtect, MEM_COMMIT, MEM_RESERVE, PAGE_EXECUTE_READ,
-                PAGE_PROTECTION_FLAGS, PAGE_READWRITE,
+                MEM_COMMIT, MEM_RESERVE, PAGE_EXECUTE_READ, PAGE_PROTECTION_FLAGS, PAGE_READWRITE,
+                VirtualAlloc, VirtualProtect,
             };
 
             // Phase 1: Allocate as Read-Write
-            let raw_ptr = unsafe {
-                VirtualAlloc(
-                    None,
-                    alloc_size,
-                    MEM_COMMIT | MEM_RESERVE,
-                    PAGE_READWRITE,
-                )
-            };
+            let raw_ptr =
+                unsafe { VirtualAlloc(None, alloc_size, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE) };
 
             if raw_ptr.is_null() {
-                return Err(anyhow!("VirtualAlloc failed to allocate {} bytes", alloc_size));
+                return Err(anyhow!(
+                    "VirtualAlloc failed to allocate {} bytes",
+                    alloc_size
+                ));
             }
 
             let non_null = match NonNull::new(raw_ptr as *mut u8) {
@@ -63,18 +60,12 @@ impl WxMemoryRegion {
 
             // Phase 2: Lock page to Read-Execute (RX) - W^X enforcement
             let mut old_protect = PAGE_PROTECTION_FLAGS(0);
-            let protect_success = unsafe {
-                VirtualProtect(
-                    raw_ptr,
-                    alloc_size,
-                    PAGE_EXECUTE_READ,
-                    &mut old_protect,
-                )
-            };
+            let protect_success =
+                unsafe { VirtualProtect(raw_ptr, alloc_size, PAGE_EXECUTE_READ, &mut old_protect) };
 
             if let Err(e) = protect_success {
                 // Clean up on protection failure
-                use windows::Win32::System::Memory::{VirtualFree, MEM_RELEASE};
+                use windows::Win32::System::Memory::{MEM_RELEASE, VirtualFree};
                 unsafe {
                     let _ = VirtualFree(raw_ptr, 0, MEM_RELEASE);
                 }
@@ -97,7 +88,8 @@ impl WxMemoryRegion {
 
             mmap[..code.len()].copy_from_slice(code);
 
-            let exec_mmap = mmap.make_exec()
+            let exec_mmap = mmap
+                .make_exec()
                 .map_err(|e| anyhow!("mprotect to RX failed: {e}"))?;
 
             let ptr = NonNull::new(exec_mmap.as_ptr() as *mut u8)
@@ -139,7 +131,7 @@ impl WxMemoryRegion {
     /// The caller must ensure the function signature `F` matches the compiled calling convention
     /// and ABI of the machine code in this region.
     pub unsafe fn as_fn_ptr<F: Copy>(&self) -> F {
-        std::mem::transmute_copy(&self.ptr.as_ptr())
+        unsafe { std::mem::transmute_copy(&self.ptr.as_ptr()) }
     }
 }
 
@@ -147,7 +139,7 @@ impl Drop for WxMemoryRegion {
     fn drop(&mut self) {
         #[cfg(target_os = "windows")]
         {
-            use windows::Win32::System::Memory::{VirtualFree, MEM_RELEASE};
+            use windows::Win32::System::Memory::{MEM_RELEASE, VirtualFree};
             unsafe {
                 let _ = VirtualFree(self.ptr.as_ptr() as *mut _, 0, MEM_RELEASE);
             }

@@ -15,7 +15,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum NavSection {
     // Primary Executive & SystemCare Dashboard
-    Dashboard,           // ⚡ SystemCare & Health Hub
+    Dashboard, // ⚡ SystemCare & Health Hub
 
     // Cognitive Hypervisor Main Deck
     #[serde(alias = "Pantheon")]

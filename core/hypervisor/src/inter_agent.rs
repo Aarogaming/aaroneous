@@ -5,7 +5,6 @@
 /// task steps into a single cryptographic state root for external
 /// verification without re-execution.
 use std::collections::HashMap;
-use plugin_api::Plugin;
 
 // ── A2A Binary Protocol ──────────────────────────────────────────────
 
@@ -59,7 +58,6 @@ impl A2AProtocol {
             if let Ok(_manager) = crate::PLUGIN_MANAGER.lock() {
                 // Future C-ABI hook invocation via symbol table
             }
-
         }
         changed
     }

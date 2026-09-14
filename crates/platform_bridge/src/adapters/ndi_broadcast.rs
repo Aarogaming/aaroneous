@@ -20,7 +20,10 @@ impl NdiBroadcaster {
 
     /// Starts broadcasting the HUD backbuffer over NDI
     pub fn start_broadcast(&mut self) -> Result<()> {
-        info!("Starting NDI Broadcast for stream '{}'...", self.stream_name);
+        info!(
+            "Starting NDI Broadcast for stream '{}'...",
+            self.stream_name
+        );
         // Note: Production implementation requires the ndi or ndi-sys crate
         self.is_broadcasting = true;
         Ok(())

@@ -1,9 +1,8 @@
 // src/capability_broker.rs
 //! Universal Capability Broker for mcp_server, wired directly to `crates/capabilities`.
 
-use anyhow::Result;
-use capabilities::universal_tool::ToolRegistry;
 use capabilities::tools::build_standard_tool_registry;
+use capabilities::universal_tool::ToolRegistry;
 use serde::{Deserialize, Serialize};
 
 /// Dynamic Capability Broker mediating tool discovery and execution
@@ -31,7 +30,11 @@ impl CapabilityBroker {
     }
 
     /// Execute a capability tool with JSON parameters
-    pub async fn execute_tool(&self, tool_name: &str, params: serde_json::Value) -> CapabilityExecutionOutcome {
+    pub async fn execute_tool(
+        &self,
+        tool_name: &str,
+        params: serde_json::Value,
+    ) -> CapabilityExecutionOutcome {
         let start = std::time::Instant::now();
         match self.registry.call_by_name(tool_name, params).await {
             Ok(payload) => {
@@ -57,17 +60,28 @@ impl CapabilityBroker {
     }
 
     /// List tools filtered by category
-    pub fn list_tools_by_category(&self, category: &str) -> Vec<capabilities::universal_tool::ToolDescriptor> {
+    pub fn list_tools_by_category(
+        &self,
+        category: &str,
+    ) -> Vec<capabilities::universal_tool::ToolDescriptor> {
         self.registry.filter_by_category(category)
     }
 
     /// Backward-compatible execution method
     pub fn execute(&self, capability: &str, _args: &[String]) -> CapabilityExecutionOutcome {
-        let descriptor = self.registry.list_tools().into_iter().find(|t| t.name == capability);
+        let descriptor = self
+            .registry
+            .list_tools()
+            .into_iter()
+            .find(|t| t.name == capability);
         if descriptor.is_some() {
             CapabilityExecutionOutcome::success(capability, 0)
         } else {
-            CapabilityExecutionOutcome::failure(capability, 0, format!("Capability '{}' not found", capability))
+            CapabilityExecutionOutcome::failure(
+                capability,
+                0,
+                format!("Capability '{}' not found", capability),
+            )
         }
     }
 

@@ -160,11 +160,9 @@ impl HierarchicalPredictiveCoding {
 
     /// Get prediction from top layer.
     pub fn get_top_prediction(&self) -> Vec<f64> {
-        self.layers
-            .last()
-            .map_or_else(Vec::new, |layer| {
-                layer.iter().map(|n| n.prediction).collect()
-            })
+        self.layers.last().map_or_else(Vec::new, |layer| {
+            layer.iter().map(|n| n.prediction).collect()
+        })
     }
 
     /// Get prediction errors from all layers.
@@ -258,10 +256,7 @@ impl PredictiveController {
             self.action_values
                 .iter()
                 .enumerate()
-                .max_by(|(_, a), (_, b)| {
-                    a.partial_cmp(b)
-                        .unwrap_or(std::cmp::Ordering::Equal)
-                })
+                .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
                 .map(|(i, _)| i)
                 .unwrap_or(0)
         }

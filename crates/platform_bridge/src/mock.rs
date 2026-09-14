@@ -1,29 +1,31 @@
 //! mock.rs
-//! Safe mock implementation of MarionetteHost for development, testing, and sandboxed execution.
+//! Safe mock implementation of PlatformHost for development, testing, and sandboxed execution.
 //! Guaranteed to never move the host mouse cursor or inject OS keyboard strokes.
+
+#![warn(unsafe_code)]
 
 use anyhow::Result;
 use async_trait::async_trait;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tracing::{debug, info};
 
-use crate::traits::{HidCommand, MarionetteHost, ProbingTrace, VisualObservation};
+use crate::traits::{HidCommand, PlatformHost, ProbingTrace, VisualObservation};
 
-/// Mock Marionette backend: 100% sandboxed and memory-isolated
+/// Mock PlatformHost backend: 100% sandboxed and memory-isolated
 #[derive(Debug, Clone)]
-pub struct MockMarionette {
+pub struct MockPlatformHost {
     pub frame_counter: u64,
     pub command_history: Vec<HidCommand>,
     pub trace_history: Vec<ProbingTrace>,
 }
 
-impl Default for MockMarionette {
+impl Default for MockPlatformHost {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl MockMarionette {
+impl MockPlatformHost {
     pub fn new() -> Self {
         Self {
             frame_counter: 0,
@@ -41,7 +43,7 @@ impl MockMarionette {
 }
 
 #[async_trait]
-impl MarionetteHost for MockMarionette {
+impl PlatformHost for MockPlatformHost {
     async fn pull_visual_perception(&mut self) -> Result<VisualObservation> {
         self.frame_counter += 1;
 
@@ -56,7 +58,7 @@ impl MarionetteHost for MockMarionette {
             }
         }
 
-        debug!(target: "marionette::mock", frame = self.frame_counter, "Generated synthetic visual frame");
+        debug!(target: "platform_bridge::mock", frame = self.frame_counter, "Generated synthetic visual frame");
 
         Ok(VisualObservation {
             grid,
@@ -109,7 +111,7 @@ impl MarionetteHost for MockMarionette {
 
     async fn inject_hid_event(&mut self, command: HidCommand) -> Result<()> {
         info!(
-            target: "marionette::mock",
+            target: "platform_bridge::mock",
             seq = command.sequence_id,
             action_count = command.actions.len(),
             "Recorded sandboxed motor intent (Zero OS side-effects)"
@@ -120,7 +122,7 @@ impl MarionetteHost for MockMarionette {
 
     async fn log_probe_trace(&mut self, trace: ProbingTrace) -> Result<()> {
         info!(
-            target: "marionette::mock",
+            target: "platform_bridge::mock",
             process = %trace.target_process,
             event = %trace.event_type,
             "Logged process probe trace"
@@ -134,14 +136,17 @@ impl MarionetteHost for MockMarionette {
     }
 }
 
+#[deprecated(note = "Use MockPlatformHost instead")]
+pub type MockMarionette = MockPlatformHost;
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::traits::HidAction;
 
     #[tokio::test]
-    async fn test_mock_marionette_visual_capture() {
-        let mut host = MockMarionette::new();
+    async fn test_mock_platform_host_visual_capture() {
+        let mut host = MockPlatformHost::new();
         let frame = host.pull_visual_perception().await.unwrap();
         assert_eq!(frame.grid.len(), 128 * 128);
         assert_eq!(frame.width, 128);
@@ -149,20 +154,20 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_mock_marionette_hid_sandboxing() {
-        let mut host = MockMarionette::new();
+    async fn test_mock_platform_host_hid_sandboxing() {
+        let mut host = MockPlatformHost::new();
         let cmd = HidCommand {
             actions: vec![HidAction::MouseMove {
                 delta_x: 100,
                 delta_y: 200,
             }],
             sequence_id: 1,
-            timestamp_us: MockMarionette::now_us(),
+            timestamp_us: MockPlatformHost::now_us(),
         };
 
         // Guaranteed to not move the physical mouse
         host.inject_hid_event(cmd).await.unwrap();
         assert_eq!(host.command_history.len(), 1);
-        assert!(!host.is_live_emulation_active());
+        assert_eq!(host.command_history[0].actions.len(), 1);
     }
 }

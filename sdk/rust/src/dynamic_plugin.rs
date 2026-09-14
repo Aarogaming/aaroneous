@@ -73,9 +73,10 @@ impl DynamicSpecialistLoader {
                 .map_err(|e| anyhow!("Failed to load dynamic library at {:?}: {e}", path))?;
 
             // 1. Verify ABI Manifest
-            let manifest_sym: Symbol<GetManifestFn> = lib
-                .get(b"specialist_manifest\0")
-                .map_err(|e| anyhow!("Missing manifest symbol 'aaroneous_specialist_manifest': {e}"))?;
+            let manifest_sym: Symbol<GetManifestFn> =
+                lib.get(b"specialist_manifest\0").map_err(|e| {
+                    anyhow!("Missing manifest symbol 'aaroneous_specialist_manifest': {e}")
+                })?;
 
             let manifest = manifest_sym();
             if manifest.abi_version != SPECIALIST_ABI_VERSION {
@@ -93,9 +94,10 @@ impl DynamicSpecialistLoader {
             let version = ver_cstr.to_str()?.to_string();
 
             // 2. Instantiate Specialist Engine
-            let create_sym: Symbol<CreateSpecialistFn> = lib
-                .get(b"create_specialist\0")
-                .map_err(|e| anyhow!("Missing entrypoint symbol 'aaroneous_create_specialist': {e}"))?;
+            let create_sym: Symbol<CreateSpecialistFn> =
+                lib.get(b"create_specialist\0").map_err(|e| {
+                    anyhow!("Missing entrypoint symbol 'aaroneous_create_specialist': {e}")
+                })?;
 
             let raw_ptr = create_sym();
             if raw_ptr.is_null() {
@@ -121,12 +123,16 @@ impl DynamicSpecialistLoader {
     /// Atomically hot-swaps an existing specialist plugin with an updated shared library version
     pub fn hot_swap_specialist(&self, name: &str, new_path: &Path) -> Result<()> {
         if !new_path.exists() {
-            return Err(anyhow!("New shared library does not exist at {:?}", new_path));
+            return Err(anyhow!(
+                "New shared library does not exist at {:?}",
+                new_path
+            ));
         }
 
         unsafe {
-            let lib = Library::new(new_path)
-                .map_err(|e| anyhow!("Failed to load new dynamic library at {:?}: {e}", new_path))?;
+            let lib = Library::new(new_path).map_err(|e| {
+                anyhow!("Failed to load new dynamic library at {:?}: {e}", new_path)
+            })?;
 
             let manifest_sym: Symbol<GetManifestFn> = lib
                 .get(b"specialist_manifest\0")
@@ -243,7 +249,9 @@ mod tests {
         assert_eq!(plugins.len(), 1);
         assert_eq!(plugins[0].0, "Mock-Vision");
 
-        let res = loader.execute_specialist_action("Mock-Vision", b"hello").unwrap();
+        let res = loader
+            .execute_specialist_action("Mock-Vision", b"hello")
+            .unwrap();
         assert_eq!(res, b"olleh");
     }
 }

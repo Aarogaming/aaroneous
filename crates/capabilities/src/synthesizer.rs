@@ -9,7 +9,9 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use tracing::info;
 
-use crate::traits::{DomainSubEngine, MnlpPacket, MnlpResponse, SovereignSpecialist, SpecialistHealth};
+use crate::traits::{
+    DomainSubEngine, MnlpPacket, MnlpResponse, SovereignSpecialist, SpecialistHealth,
+};
 
 /// Synthesized research knowledge item
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -78,7 +80,10 @@ impl SynthesizerSpecialist {
 
         let synthesis = KnowledgeSynthesis {
             topic: query.to_string(),
-            summary: format!("Synthesized structural patterns and operational specifications for '{}'", query),
+            summary: format!(
+                "Synthesized structural patterns and operational specifications for '{}'",
+                query
+            ),
             citations: vec![
                 "dev/docs/06_MACHINE_NATIVE_LINKING_PROTOCOL.md".to_string(),
                 "dev/docs/11_OMNI_GALAXY_DATA_NAVIGATION_SPEC.md".to_string(),
@@ -87,8 +92,11 @@ impl SynthesizerSpecialist {
         };
 
         self.knowledge_base.indexed_documents += 1;
-        self.knowledge_base.citation_graph.insert(query.to_string(), synthesis.citations.clone());
-        self.knowledge_cache.insert(query.to_string(), synthesis.clone());
+        self.knowledge_base
+            .citation_graph
+            .insert(query.to_string(), synthesis.citations.clone());
+        self.knowledge_cache
+            .insert(query.to_string(), synthesis.clone());
 
         synthesis
     }

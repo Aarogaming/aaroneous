@@ -4,9 +4,9 @@
 //! The engine is intentionally generic: callers can specify which file extensions to treat as source, and which AST extraction strategy to use.
 
 use anyhow::{Context, Result};
+use ast_auditor::inspect;
 use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
-use ast_auditor::inspect;
 
 /// Strategy for extracting AST information from a source file.
 #[derive(Debug, Clone, Copy)]
@@ -55,27 +55,38 @@ pub struct CodeInfo {
 
 /// Extract components from a source directory tree using the supplied configuration.
 /// Returns a vector of `CrateSpec` – one per matching file discovered.
-pub fn extract_source_tree<P: AsRef<Path>>(src: P, config: &SourceExtractionConfig) -> Result<Vec<CrateSpec>> {
+pub fn extract_source_tree<P: AsRef<Path>>(
+    src: P,
+    config: &SourceExtractionConfig,
+) -> Result<Vec<CrateSpec>> {
     let mut specs = Vec::new();
     for entry in WalkDir::new(&src).into_iter().filter_map(|e| e.ok()) {
         let path = entry.path();
-        if path.is_file() {
-            if let Some(ext) = path.extension().and_then(|s| s.to_str()) {
-                if config.extensions.iter().any(|e| e == ext) {
-                    let code_info = match config.strategy {
-                        ParseStrategy::Inspect => {
-                            let info = inspect::inspect_code(path).with_context(|| format!("Inspect failed on {:?}", path))?;
-                            CodeInfo {
-                                functions: info.functions,
-                                structs: info.structs,
-                                enums: info.enums,
-                            }
-                        }
-                    };
-                    let name = path.file_stem().and_then(|s| s.to_str()).unwrap_or("unknown").to_string();
-                    specs.push(CrateSpec { name, source_path: path.to_path_buf(), code_info });
+        if path.is_file()
+            && let Some(ext) = path.extension().and_then(|s| s.to_str())
+            && config.extensions.iter().any(|e| e == ext)
+        {
+            let code_info = match config.strategy {
+                ParseStrategy::Inspect => {
+                    let info = inspect::inspect_code(path)
+                        .with_context(|| format!("Inspect failed on {:?}", path))?;
+                    CodeInfo {
+                        functions: info.functions,
+                        structs: info.structs,
+                        enums: info.enums,
+                    }
                 }
-            }
+            };
+            let name = path
+                .file_stem()
+                .and_then(|s| s.to_str())
+                .unwrap_or("unknown")
+                .to_string();
+            specs.push(CrateSpec {
+                name,
+                source_path: path.to_path_buf(),
+                code_info,
+            });
         }
     }
     Ok(specs)
@@ -95,16 +106,20 @@ pub use extract_source_path as harvest_path;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tempfile::tempdir;
     use std::fs::File;
     use std::io::Write;
+    use tempfile::tempdir;
 
     #[test]
     fn test_extract_source_path_simple() {
         let dir = tempdir().unwrap();
         let file_path = dir.path().join("example.rs");
         let mut f = File::create(&file_path).unwrap();
-        writeln!(f, "pub fn hello() -> u32 {{ 42 }}\npub struct Data {{ id: u64 }}").unwrap();
+        writeln!(
+            f,
+            "pub fn hello() -> u32 {{ 42 }}\npub struct Data {{ id: u64 }}"
+        )
+        .unwrap();
         let specs = extract_source_path(dir.path()).expect("extract_source_path");
         assert_eq!(specs.len(), 1);
         assert_eq!(specs[0].name, "example");

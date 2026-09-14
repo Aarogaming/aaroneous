@@ -12,7 +12,7 @@
 //! 2. Append-only columnar layout matching SIMD vector width.
 //! 3. Cryptographic CRC32 block verification.
 
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use serde::{Deserialize, Serialize};
 use std::fs::{File, OpenOptions};
 use std::io::{Read, Write};
@@ -210,9 +210,14 @@ pub enum AdaptationError {
 impl std::fmt::Display for AdaptationError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            AdaptationError::DimensionMismatch => write!(f, "Dimension mismatch in adaptation update"),
+            AdaptationError::DimensionMismatch => {
+                write!(f, "Dimension mismatch in adaptation update")
+            }
             AdaptationError::NumericDivergence => {
-                write!(f, "Numeric divergence or NaN encountered in adaptation filter")
+                write!(
+                    f,
+                    "Numeric divergence or NaN encountered in adaptation filter"
+                )
             }
             AdaptationError::ParameterExceedsBounds => {
                 write!(f, "Unbounded parameter value exceeds threshold limit")
@@ -255,7 +260,11 @@ impl<const DIM: usize, const DIM_SQ: usize> RlsState<DIM, DIM_SQ> {
         Self {
             weights: [0.0f32; DIM],
             p_matrix,
-            lambda: if lambda > 0.0 && lambda <= 1.0 { lambda } else { 0.99 },
+            lambda: if lambda > 0.0 && lambda <= 1.0 {
+                lambda
+            } else {
+                0.99
+            },
             parameter_bound,
             step_count: 0,
         }
@@ -278,13 +287,13 @@ pub fn update_rls<const DIM: usize, const DIM_SQ: usize>(
 
     // 1. Compute Pi = P * input (vector of size DIM)
     let mut pi = [0.0f32; DIM];
-    for r in 0..DIM {
+    for (r, value) in pi.iter_mut().enumerate() {
         let mut sum = 0.0f32;
         let row_offset = r * DIM;
         for c in 0..DIM {
             sum += state.p_matrix[row_offset + c] * input[c];
         }
-        pi[r] = sum;
+        *value = sum;
     }
 
     // 2. Denominator: denom = lambda + input^T * Pi
@@ -314,10 +323,10 @@ pub fn update_rls<const DIM: usize, const DIM_SQ: usize>(
 
     // 5. Update P = (P - k * Pi^T) / lambda
     let inv_lambda = 1.0f32 / state.lambda;
-    for r in 0..DIM {
+    for (r, gain) in k.iter().enumerate() {
         let row_offset = r * DIM;
         for c in 0..DIM {
-            let update_delta = k[r] * pi[c];
+            let update_delta = gain * pi[c];
             state.p_matrix[row_offset + c] =
                 (state.p_matrix[row_offset + c] - update_delta) * inv_lambda;
         }

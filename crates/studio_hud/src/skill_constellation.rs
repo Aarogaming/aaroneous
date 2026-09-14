@@ -257,7 +257,11 @@ impl SkillConstellationCanvas {
 
                 // Star Solid Core
                 painter.circle_filled(screen_pos, current_radius, color);
-                painter.circle_stroke(screen_pos, current_radius, Stroke::new(1.5, Color32::WHITE));
+                painter.circle_stroke(
+                    screen_pos,
+                    current_radius,
+                    Stroke::new(1.5_f32, Color32::WHITE),
+                );
 
                 // Star Label
                 painter.text(

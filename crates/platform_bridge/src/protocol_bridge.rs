@@ -1,60 +1,80 @@
 //! protocol_bridge.rs
 //! Machine-Native Linking Protocol (MNLP) adapter for Marionette.
-//! Marshals sensory frames and motor intents directly to binary packets with zero unsafe code.
+//! Zero-copy serialization for high-throughput vision and telemetry.
 
-use anyhow::{anyhow, Result};
-use serde::{Deserialize, Serialize};
+#![deny(unsafe_code)]
+
+use anyhow::{Result, anyhow};
+use std::mem::size_of;
 
 use crate::traits::{HidCommand, VisualObservation};
 
-/// Binary packet for sensory frame broadcast over the Machine-Native Linking Protocol
+/// Fixed 32-byte header for binary perception packet
 #[repr(C)]
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct MnlpPerceptionPacket {
-    pub magic: u32,
+    pub magic: [u8; 4],
     pub timestamp_us: u64,
     pub frame_id: u64,
     pub width: u16,
     pub height: u16,
     pub payload_size: u32,
+    pub _reserved: [u8; 4],
 }
 
 impl MnlpPerceptionPacket {
-    pub const HEADER_SIZE: usize = 32;
-    pub const MAGIC: u32 = 0x4141524F; // 'AARO'
+    pub const MAGIC: [u8; 4] = *b"MNLP";
+    pub const HEADER_SIZE: usize = size_of::<MnlpPerceptionPacket>();
 
     pub fn to_bytes(&self) -> [u8; Self::HEADER_SIZE] {
         let mut buf = [0u8; Self::HEADER_SIZE];
-        buf[0..4].copy_from_slice(&self.magic.to_le_bytes());
-        // 4..8 reserved / 64-bit alignment padding
-        buf[8..16].copy_from_slice(&self.timestamp_us.to_le_bytes());
-        buf[16..24].copy_from_slice(&self.frame_id.to_le_bytes());
-        buf[24..26].copy_from_slice(&self.width.to_le_bytes());
-        buf[26..28].copy_from_slice(&self.height.to_le_bytes());
-        buf[28..32].copy_from_slice(&self.payload_size.to_le_bytes());
+        buf[0..4].copy_from_slice(&self.magic);
+        buf[4..12].copy_from_slice(&self.timestamp_us.to_le_bytes());
+        buf[12..20].copy_from_slice(&self.frame_id.to_le_bytes());
+        buf[20..22].copy_from_slice(&self.width.to_le_bytes());
+        buf[22..24].copy_from_slice(&self.height.to_le_bytes());
+        buf[24..28].copy_from_slice(&self.payload_size.to_le_bytes());
+        buf[28..32].copy_from_slice(&self._reserved);
         buf
     }
 
     pub fn from_bytes(bytes: &[u8]) -> Result<Self> {
         if bytes.len() < Self::HEADER_SIZE {
             return Err(anyhow!(
-                "Buffer too small for MnlpPerceptionPacket header: {} < {}",
-                bytes.len(),
-                Self::HEADER_SIZE
+                "Packet too small: expected {}, got {}",
+                Self::HEADER_SIZE,
+                bytes.len()
             ));
         }
-        let magic = u32::from_le_bytes(bytes[0..4].try_into()?);
+
+        let mut magic = [0u8; 4];
+        magic.copy_from_slice(&bytes[0..4]);
         if magic != Self::MAGIC {
-            return Err(anyhow!(
-                "Invalid MnlpPerceptionPacket magic: 0x{:08X}",
-                magic
-            ));
+            return Err(anyhow!("Invalid magic: {:?}", magic));
         }
-        let timestamp_us = u64::from_le_bytes(bytes[8..16].try_into()?);
-        let frame_id = u64::from_le_bytes(bytes[16..24].try_into()?);
-        let width = u16::from_le_bytes(bytes[24..26].try_into()?);
-        let height = u16::from_le_bytes(bytes[26..28].try_into()?);
-        let payload_size = u32::from_le_bytes(bytes[28..32].try_into()?);
+
+        let mut ts_bytes = [0u8; 8];
+        ts_bytes.copy_from_slice(&bytes[4..12]);
+        let timestamp_us = u64::from_le_bytes(ts_bytes);
+
+        let mut frame_bytes = [0u8; 8];
+        frame_bytes.copy_from_slice(&bytes[12..20]);
+        let frame_id = u64::from_le_bytes(frame_bytes);
+
+        let mut w_bytes = [0u8; 2];
+        w_bytes.copy_from_slice(&bytes[20..22]);
+        let width = u16::from_le_bytes(w_bytes);
+
+        let mut h_bytes = [0u8; 2];
+        h_bytes.copy_from_slice(&bytes[22..24]);
+        let height = u16::from_le_bytes(h_bytes);
+
+        let mut size_bytes = [0u8; 4];
+        size_bytes.copy_from_slice(&bytes[24..28]);
+        let payload_size = u32::from_le_bytes(size_bytes);
+
+        let mut res_bytes = [0u8; 4];
+        res_bytes.copy_from_slice(&bytes[28..32]);
 
         Ok(Self {
             magic,
@@ -63,27 +83,19 @@ impl MnlpPerceptionPacket {
             width,
             height,
             payload_size,
+            _reserved: res_bytes,
         })
     }
 }
 
-impl Default for MnlpPerceptionPacket {
-    fn default() -> Self {
-        Self {
-            magic: Self::MAGIC,
-            timestamp_us: 0,
-            frame_id: 0,
-            width: 128,
-            height: 128,
-            payload_size: (128 * 128 * 4) as u32,
-        }
-    }
-}
+/// Bridges Marionette visual observations into machine-native byte slices
+#[deprecated(note = "Use PlatformProtocolBridge instead")]
+pub type MarionetteProtocolBridge = PlatformProtocolBridge;
 
 /// Bridges Marionette visual observations into machine-native byte slices
-pub struct MarionetteProtocolBridge;
+pub struct PlatformProtocolBridge;
 
-impl MarionetteProtocolBridge {
+impl PlatformProtocolBridge {
     pub fn encode_perception(observation: &VisualObservation, frame_id: u64) -> Result<Vec<u8>> {
         let header = MnlpPerceptionPacket {
             magic: MnlpPerceptionPacket::MAGIC,
@@ -92,6 +104,7 @@ impl MarionetteProtocolBridge {
             width: observation.width as u16,
             height: observation.height as u16,
             payload_size: (observation.grid.len() * 4) as u32,
+            _reserved: [0u8; 4],
         };
 
         let mut bytes =
@@ -118,8 +131,8 @@ impl MarionetteProtocolBridge {
         }
 
         let mut grid = Vec::with_capacity(expected_floats);
-        for chunk in float_bytes[..expected_floats * 4].chunks_exact(4) {
-            grid.push(f32::from_le_bytes(chunk.try_into()?));
+        for chunk in float_bytes[..expected_floats * 4].as_chunks::<4>().0 {
+            grid.push(f32::from_le_bytes(*chunk));
         }
 
         Ok((header, grid))
@@ -152,10 +165,10 @@ mod tests {
             42000,
         );
 
-        let encoded = MarionetteProtocolBridge::encode_perception(&observation, 99).unwrap();
+        let encoded = PlatformProtocolBridge::encode_perception(&observation, 99).unwrap();
         assert_eq!(encoded.len(), MnlpPerceptionPacket::HEADER_SIZE + 16 * 4);
 
-        let (header, grid) = MarionetteProtocolBridge::decode_perception(&encoded).unwrap();
+        let (header, grid) = PlatformProtocolBridge::decode_perception(&encoded).unwrap();
         assert_eq!(header.frame_id, 99);
         assert_eq!(header.timestamp_us, 42000);
         assert_eq!(header.width, 4);
@@ -174,8 +187,8 @@ mod tests {
             sequence_id: 1,
             timestamp_us: 1000,
         };
-        let encoded = MarionetteProtocolBridge::encode_hid_command(&cmd).unwrap();
-        let decoded = MarionetteProtocolBridge::decode_hid_command(&encoded).unwrap();
+        let encoded = PlatformProtocolBridge::encode_hid_command(&cmd).unwrap();
+        let decoded = PlatformProtocolBridge::decode_hid_command(&encoded).unwrap();
         assert_eq!(decoded.sequence_id, 1);
         assert_eq!(decoded.actions.len(), 1);
         match &decoded.actions[0] {

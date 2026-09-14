@@ -130,7 +130,7 @@ impl SystemBiology {
         self.last_regen = now;
 
         // Update specialist metabolism
-        for (_, metabolism) in self.specialist_metabolism.iter_mut() {
+        for metabolism in self.specialist_metabolism.values_mut() {
             let elapsed_spec = now.duration_since(metabolism.last_regen).as_secs_f32();
             let spec_regen = metabolism.regen_rate * self.expression_rate;
             metabolism.tokens =
@@ -153,12 +153,12 @@ impl SystemBiology {
 
     /// Consume a token from specialist's pool
     pub fn consume_specialist_token(&mut self, specialist_id: &str) -> bool {
-        if let Some(metabolism) = self.specialist_metabolism.get_mut(specialist_id) {
-            if metabolism.tokens >= 1.0 {
-                metabolism.tokens -= 1.0;
-                metabolism.execution_count += 1;
-                return true;
-            }
+        if let Some(metabolism) = self.specialist_metabolism.get_mut(specialist_id)
+            && metabolism.tokens >= 1.0
+        {
+            metabolism.tokens -= 1.0;
+            metabolism.execution_count += 1;
+            return true;
         }
         false
     }
@@ -169,7 +169,7 @@ impl SystemBiology {
         self.expression_rate = clamped_rate;
 
         // Recalculate specialist regen rates based on new global rate
-        for (_, metabolism) in self.specialist_metabolism.iter_mut() {
+        for metabolism in self.specialist_metabolism.values_mut() {
             // Preserve relative distribution, adjust absolute rates
             metabolism.max_tokens = (metabolism.regen_rate * 10.0 * clamped_rate).max(1.0);
         }
@@ -291,9 +291,11 @@ mod tests {
     fn test_specialist_registration() {
         let mut biology = SystemBiology::new();
         biology.register_specialist("specialist_presenter", 20000);
-        assert!(biology
-            .get_specialist_metabolism("specialist_presenter")
-            .is_some());
+        assert!(
+            biology
+                .get_specialist_metabolism("specialist_presenter")
+                .is_some()
+        );
     }
 
     #[test]

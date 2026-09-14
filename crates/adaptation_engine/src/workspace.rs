@@ -1,6 +1,6 @@
 use anyhow::{Context, Result};
-use std::path::{Path, PathBuf};
 use std::fs;
+use std::path::{Path, PathBuf};
 use toml_edit::Document;
 
 /// Find the workspace root (directory containing Cargo.toml with a [workspace] table).
@@ -19,7 +19,10 @@ pub fn find_workspace_root(start: &Path) -> Result<PathBuf> {
             break;
         }
     }
-    anyhow::bail!("workspace root not found (no Cargo.toml with [workspace] above {:?})", start)
+    anyhow::bail!(
+        "workspace root not found (no Cargo.toml with [workspace] above {:?})",
+        start
+    )
 }
 
 /// Insert a new member into the root Cargo.toml if it does not already exist.

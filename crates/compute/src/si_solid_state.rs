@@ -7,7 +7,7 @@
 //!
 //! Enforces 64-byte alignment for cache-line and SIMD AVX-512 / ARM NEON vectorization.
 
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use candle_core::Tensor;
 use memmap2::Mmap;
 use serde::{Deserialize, Serialize};
@@ -47,20 +47,20 @@ pub struct SafetyCheckResult {
 /// TD(λ) Eligibility Traces for temporal credit assignment, and Orthogonal Gradient Projection (OGP).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DynamicAdaptationMatrix {
-    pub in_dim: usize,            // 256 (d_model)
-    pub rank: usize,              // 16 (Low-rank adaptation rank r)
-    pub out_dim: usize,           // 256 (d_model)
-    pub scaling: f32,             // alpha / rank
-    pub weight_decay: f32,        // L2 regularization decay rate (e.g. 1e-4)
-    pub gamma: f32,               // Temporal discount factor (e.g. 0.95)
-    pub lambda: f32,              // Eligibility trace decay rate (e.g. 0.80)
-    pub matrix_a: Vec<f32>,       // in_dim x rank (256 x 16 = 4,096 floats)
-    pub matrix_b: Vec<f32>,       // rank x out_dim (16 x 256 = 4,096 floats)
-    pub momentum_a: Vec<f32>,     // Optimizer momentum for A
-    pub momentum_b: Vec<f32>,     // Optimizer momentum for B
-    pub trace_a: Vec<f32>,        // TD(λ) Eligibility trace for Matrix A
-    pub trace_b: Vec<f32>,        // TD(λ) Eligibility trace for Matrix B
-    pub protected_subspace: Vec<Vec<f32>>, // Orthogonal Gradient Projection (OGP) basis vectors
+    pub in_dim: usize,                        // 256 (d_model)
+    pub rank: usize,                          // 16 (Low-rank adaptation rank r)
+    pub out_dim: usize,                       // 256 (d_model)
+    pub scaling: f32,                         // alpha / rank
+    pub weight_decay: f32,                    // L2 regularization decay rate (e.g. 1e-4)
+    pub gamma: f32,                           // Temporal discount factor (e.g. 0.95)
+    pub lambda: f32,                          // Eligibility trace decay rate (e.g. 0.80)
+    pub matrix_a: Vec<f32>,                   // in_dim x rank (256 x 16 = 4,096 floats)
+    pub matrix_b: Vec<f32>,                   // rank x out_dim (16 x 256 = 4,096 floats)
+    pub momentum_a: Vec<f32>,                 // Optimizer momentum for A
+    pub momentum_b: Vec<f32>,                 // Optimizer momentum for B
+    pub trace_a: Vec<f32>,                    // TD(λ) Eligibility trace for Matrix A
+    pub trace_b: Vec<f32>,                    // TD(λ) Eligibility trace for Matrix B
+    pub protected_subspace: Vec<Vec<f32>>,    // Orthogonal Gradient Projection (OGP) basis vectors
     pub anchor_buffer: Vec<AnchorTransition>, // Anchor states to guarantee baseline fidelity
     pub max_anchors: usize,
     pub error_corrections_count: u64,
@@ -204,7 +204,12 @@ impl DynamicAdaptationMatrix {
     }
 
     /// Adds a verified anchor transition to the replay buffer to protect baseline skills
-    pub fn add_anchor_state(&mut self, state_t: Vec<f32>, expected_action: u16, expected_delta: Vec<f32>) {
+    pub fn add_anchor_state(
+        &mut self,
+        state_t: Vec<f32>,
+        expected_action: u16,
+        expected_delta: Vec<f32>,
+    ) {
         if self.anchor_buffer.len() >= self.max_anchors {
             self.anchor_buffer.remove(0);
         }
@@ -271,13 +276,15 @@ impl DynamicAdaptationMatrix {
             .zip(self.trace_b.chunks_exact(self.out_dim))
             .enumerate()
         {
-            for (o, (&error_value, trace_value)) in projected_error.iter().zip(trace_row).enumerate() {
+            for (o, (&error_value, trace_value)) in
+                projected_error.iter().zip(trace_row).enumerate()
+            {
                 let grad = -intermediate[r] * error_value * self.scaling;
                 let trace_contribution = trace_value * -error_value;
                 let combined_grad = 0.7 * grad + 0.3 * trace_contribution;
 
                 momentum_row[o] = beta * momentum_row[o] + (1.0 - beta) * combined_grad;
-                
+
                 let decayed_val = matrix_row[o] * (1.0 - lr * self.weight_decay);
                 let update = lr * momentum_row[o];
                 matrix_row[o] = decayed_val - update;
@@ -308,7 +315,7 @@ impl DynamicAdaptationMatrix {
                 let combined_grad = 0.7 * grad + 0.3 * trace_contribution;
 
                 *momentum_value = beta * *momentum_value + (1.0 - beta) * combined_grad;
-                
+
                 let decayed_val = *matrix_value * (1.0 - lr * self.weight_decay);
                 let update = lr * *momentum_value;
                 *matrix_value = decayed_val - update;
@@ -342,7 +349,8 @@ impl DynamicAdaptationMatrix {
                 let idx = r * self.out_dim + o;
                 let grad = intermediate_value * target_value * self.scaling;
                 self.momentum_b[idx] = beta * self.momentum_b[idx] + (1.0 - beta) * grad;
-                self.matrix_b[idx] = self.matrix_b[idx] * (1.0 - lr * self.weight_decay) + lr * self.momentum_b[idx];
+                self.matrix_b[idx] =
+                    self.matrix_b[idx] * (1.0 - lr * self.weight_decay) + lr * self.momentum_b[idx];
             }
         }
 
@@ -396,9 +404,9 @@ pub struct OnlineCorrectionReport {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SolidStateSiContainer {
     pub container_name: String,
-    pub config: SiSsmConfig,                       // Block 1: Base Architecture Config
-    pub adaptation: DynamicAdaptationMatrix,       // Block 2: Mutable Dynamic Adapter
-    pub skill_stack: Vec<SiThoughtPacket>,         // Block 3: Episodic Skills & AST DAGs
+    pub config: SiSsmConfig, // Block 1: Base Architecture Config
+    pub adaptation: DynamicAdaptationMatrix, // Block 2: Mutable Dynamic Adapter
+    pub skill_stack: Vec<SiThoughtPacket>, // Block 3: Episodic Skills & AST DAGs
 }
 
 impl SolidStateSiContainer {
@@ -423,7 +431,7 @@ impl SolidStateSiContainer {
         }
 
         let mut file = File::create(path)?;
-        
+
         // Write Magic and Version
         file.write_all(&SI_SOLID_STATE_MAGIC)?;
         file.write_all(&SI_SOLID_STATE_VERSION.to_le_bytes())?;
@@ -433,8 +441,8 @@ impl SolidStateSiContainer {
         let payload_len = payload_json.len() as u32;
         let payload_offset = SI_ALIGNMENT_BYTES as u32; // Offset = 64 bytes for SIMD alignment
 
-        file.write_all(&payload_len.to_le_bytes())?;      // bytes 6..10
-        file.write_all(&payload_offset.to_le_bytes())?;   // bytes 10..14
+        file.write_all(&payload_len.to_le_bytes())?; // bytes 6..10
+        file.write_all(&payload_offset.to_le_bytes())?; // bytes 10..14
 
         // Pad header out to exactly 64 bytes
         let header_used = 14;
@@ -511,7 +519,9 @@ impl SiOnlineLearner {
 
     /// Forward pass with fused frozen core and dynamic adaptation matrix: y = Core(x) + Adapter(x)
     pub fn forward_adapted_step(&mut self, state_t: &[f32]) -> Result<SsmStatePrediction> {
-        let mut pred = self.model.forward_state_step(state_t, &mut self.hidden_states)?;
+        let mut pred = self
+            .model
+            .forward_state_step(state_t, &mut self.hidden_states)?;
 
         let in_slice = if state_t.len() >= self.container.adaptation.in_dim {
             &state_t[0..self.container.adaptation.in_dim]
@@ -519,7 +529,7 @@ impl SiOnlineLearner {
             state_t
         };
         let adapter_delta = self.container.adaptation.forward_delta_with_trace(in_slice);
-        
+
         for (i, &d) in adapter_delta.iter().enumerate() {
             if i < pred.predicted_state.len() {
                 pred.predicted_state[i] += d;
@@ -531,7 +541,12 @@ impl SiOnlineLearner {
     }
 
     /// Triggers an immediate in-place error correction update when an execution failure occurs
-    pub fn on_runtime_error(&mut self, current_state: &[f32], error_signature: &[f32], lr: f32) -> OnlineCorrectionReport {
+    pub fn on_runtime_error(
+        &mut self,
+        current_state: &[f32],
+        error_signature: &[f32],
+        lr: f32,
+    ) -> OnlineCorrectionReport {
         let start = Instant::now();
         let in_slice = if current_state.len() >= self.container.adaptation.in_dim {
             &current_state[0..self.container.adaptation.in_dim]
@@ -545,7 +560,9 @@ impl SiOnlineLearner {
             error_signature
         };
 
-        self.container.adaptation.apply_error_penalty(in_slice, err_slice, lr);
+        self.container
+            .adaptation
+            .apply_error_penalty(in_slice, err_slice, lr);
         let duration = start.elapsed().as_micros() as u64;
         let retention = self.container.adaptation.verify_anchor_retention();
 
@@ -564,7 +581,12 @@ impl SiOnlineLearner {
     }
 
     /// Triggers positive reinforcement update when a task succeeds efficiently
-    pub fn on_runtime_success(&mut self, current_state: &[f32], target_delta: &[f32], lr: f32) -> OnlineCorrectionReport {
+    pub fn on_runtime_success(
+        &mut self,
+        current_state: &[f32],
+        target_delta: &[f32],
+        lr: f32,
+    ) -> OnlineCorrectionReport {
         let start = Instant::now();
         let in_slice = if current_state.len() >= self.container.adaptation.in_dim {
             &current_state[0..self.container.adaptation.in_dim]
@@ -578,7 +600,9 @@ impl SiOnlineLearner {
             target_delta
         };
 
-        self.container.adaptation.apply_success_reinforcement(in_slice, delta_slice, lr);
+        self.container
+            .adaptation
+            .apply_success_reinforcement(in_slice, delta_slice, lr);
         let duration = start.elapsed().as_micros() as u64;
         let retention = self.container.adaptation.verify_anchor_retention();
 
@@ -621,24 +645,40 @@ mod tests {
         };
 
         let mut container = SolidStateSiContainer::new("Agent Alpha", config);
-        
+
         let mut graph = NativeComputationalGraph::new();
         graph.add_node(NativeComputationNode {
             id: 1,
-            opcode: MachineOpcode::Alloc { size_bytes: 2048, align: 32 },
-            type_lattice: NativeTypeLattice::LinearMemoryPointer { mutability: true, alignment: 32 },
+            opcode: MachineOpcode::Alloc {
+                size_bytes: 2048,
+                align: 32,
+            },
+            type_lattice: NativeTypeLattice::LinearMemoryPointer {
+                mutability: true,
+                alignment: 32,
+            },
             energy_cost: 0.02,
             dependencies: Vec::new(),
         });
-        container.append_skill(SiThoughtPacket::new(0x0111, DimensionalUnit::DIMENSIONLESS, vec![0.1; 128], graph));
+        container.append_skill(SiThoughtPacket::new(
+            0x0111,
+            DimensionalUnit::DIMENSIONLESS,
+            vec![0.1; 128],
+            graph,
+        ));
 
-        container.adaptation.add_anchor_state(vec![0.5; 32], 0x0111, vec![0.0; 32]);
+        container
+            .adaptation
+            .add_anchor_state(vec![0.5; 32], 0x0111, vec![0.0; 32]);
         container.adaptation.protect_skill_subspace(vec![1.0; 32]);
 
-        container.save_to_file(&target_path).expect("Save solid state container failed");
+        container
+            .save_to_file(&target_path)
+            .expect("Save solid state container failed");
         assert!(target_path.exists());
 
-        let loaded = SolidStateSiContainer::load_from_file(&target_path).expect("Load solid state container failed");
+        let loaded = SolidStateSiContainer::load_from_file(&target_path)
+            .expect("Load solid state container failed");
         assert_eq!(loaded.container_name, "Agent Alpha");
         assert_eq!(loaded.config.model_name, "SolidState-Agent-Alpha");
         assert_eq!(loaded.adaptation.rank, 16);
@@ -667,11 +707,21 @@ mod tests {
 
         // 1. Initial forward pass creates TD(λ) eligibility traces
         let _ = learner.forward_adapted_step(&state_t).unwrap();
-        assert!(learner.container.adaptation.trace_a.iter().any(|&t| t.abs() > 0.0));
+        assert!(
+            learner
+                .container
+                .adaptation
+                .trace_a
+                .iter()
+                .any(|&t| t.abs() > 0.0)
+        );
 
         // 2. Protect a core skill direction via OGP
         let protected_dir = vec![0.1f32; 32];
-        learner.container.adaptation.protect_skill_subspace(protected_dir);
+        learner
+            .container
+            .adaptation
+            .protect_skill_subspace(protected_dir);
 
         // 3. Simulate runtime error with an error direction vector
         let error_sig = vec![1.0f32; 32];

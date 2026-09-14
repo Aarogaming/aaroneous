@@ -2,7 +2,7 @@
 //! Dynamic Declarative UI Engine & Real-Time AI Window Synthesizer
 //! Enables AI specialists to emit, modify, and hot-reload native UI windows at runtime with zero re-compilation.
 
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use serde::{Deserialize, Serialize};
 
 /// Dynamic UI Component Node in the Declarative UI Tree
@@ -68,7 +68,11 @@ pub struct DynamicWindowManifest {
 }
 
 impl DynamicWindowManifest {
-    pub fn new(window_id: impl Into<String>, title: impl Into<String>, root: DynamicUiNode) -> Self {
+    pub fn new(
+        window_id: impl Into<String>,
+        title: impl Into<String>,
+        root: DynamicUiNode,
+    ) -> Self {
         Self {
             window_id: window_id.into(),
             title: title.into(),
@@ -80,7 +84,8 @@ impl DynamicWindowManifest {
     }
 
     pub fn to_json(&self) -> Result<String> {
-        serde_json::to_string_pretty(self).map_err(|e| anyhow!("Failed to serialize dynamic UI: {}", e))
+        serde_json::to_string_pretty(self)
+            .map_err(|e| anyhow!("Failed to serialize dynamic UI: {}", e))
     }
 
     pub fn from_json(json: &str) -> Result<Self> {
@@ -207,10 +212,12 @@ impl DynamicUiSynthesizer {
             let system_prompt = "You are a dynamic UI synthesizer. Given an intent, generate a JSON dynamic UI window definition. \
 Return JSON matching DynamicWindowManifest with fields: window_id, title, root (with type, props). \
 If unable to parse, return empty or fallback.";
-            if let Ok(response) = llm.generate_domain_response(system_prompt, prompt, "ui_synthesis").await {
-                if let Ok(manifest) = DynamicWindowManifest::from_json(&response) {
-                    return manifest;
-                }
+            if let Ok(response) = llm
+                .generate_domain_response(system_prompt, prompt, "ui_synthesis")
+                .await
+                && let Ok(manifest) = DynamicWindowManifest::from_json(&response)
+            {
+                return manifest;
             }
         }
         // Fallback to deterministic template synthesizer
@@ -229,7 +236,12 @@ pub struct RectAabb {
 
 impl RectAabb {
     pub fn new(x: f32, y: f32, width: f32, height: f32) -> Self {
-        Self { x, y, width, height }
+        Self {
+            x,
+            y,
+            width,
+            height,
+        }
     }
 
     pub fn intersects(&self, other: &RectAabb, padding: f32) -> bool {
@@ -340,7 +352,8 @@ impl NonOverlapSolver {
             WindowArrangementStrategy::AabbRepulsion => {
                 let mut placed: Vec<RectAabb> = Vec::new();
                 for &(w, h) in window_sizes {
-                    let mut candidate = RectAabb::new(screen_bounds.x + padding, screen_bounds.y + padding, w, h);
+                    let mut candidate =
+                        RectAabb::new(screen_bounds.x + padding, screen_bounds.y + padding, w, h);
                     let mut attempts = 0;
                     while attempts < 100 {
                         let mut has_overlap = false;
@@ -348,7 +361,9 @@ impl NonOverlapSolver {
                             if candidate.intersects(existing, padding) {
                                 has_overlap = true;
                                 candidate.x += existing.width + padding;
-                                if candidate.x + candidate.width > screen_bounds.x + screen_bounds.width {
+                                if candidate.x + candidate.width
+                                    > screen_bounds.x + screen_bounds.width
+                                {
                                     candidate.x = screen_bounds.x + padding;
                                     candidate.y += existing.height + padding;
                                 }
@@ -404,7 +419,9 @@ mod tests {
 
     #[test]
     fn test_dynamic_ui_synthesis_from_prompt() {
-        let win = DynamicUiSynthesizer::synthesize_window_from_prompt("Create an automated game controller");
+        let win = DynamicUiSynthesizer::synthesize_window_from_prompt(
+            "Create an automated game controller",
+        );
         assert_eq!(win.window_id, "dyn_game_agent");
         assert!(win.is_visible);
     }
@@ -446,9 +463,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_dynamic_ui_synthesis_with_llm_fallback() {
-        let win = DynamicUiSynthesizer::synthesize_window_with_llm("gpu metrics and vram monitor", None).await;
+        let win =
+            DynamicUiSynthesizer::synthesize_window_with_llm("gpu metrics and vram monitor", None)
+                .await;
         assert_eq!(win.window_id, "dyn_gpu_telemetry");
         assert!(win.is_visible);
     }
 }
-

@@ -1,5 +1,5 @@
 use anyhow::Result;
-use compute::episodic_memory::{EpisodicMemoryFabric, TrajectoryMetadata, LATENT_VECTOR_DIM};
+use compute::episodic_memory::{EpisodicMemoryFabric, LATENT_VECTOR_DIM, TrajectoryMetadata};
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -51,6 +51,10 @@ mod tests {
     fn test_memory_pipeline_insertion() {
         let fabric = Arc::new(EpisodicMemoryFabric::default());
         let pipeline = EpisodicInsertionPipeline::new(fabric);
-        assert!(pipeline.embed_and_insert("test action intent", "test_domain").is_ok());
+        assert!(
+            pipeline
+                .embed_and_insert("test action intent", "test_domain")
+                .is_ok()
+        );
     }
 }

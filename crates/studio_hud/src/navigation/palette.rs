@@ -277,7 +277,7 @@ impl CommandPalette {
             .show(ctx, |ui| {
                 egui::Frame::window(&ctx.global_style())
                     .fill(theme.panel_bg())
-                    .stroke(Stroke::new(1.5, theme.accent()))
+                    .stroke(Stroke::new(1.5_f32, theme.accent()))
                     .corner_radius(CornerRadius::same(10))
                     .shadow(egui::Shadow {
                         offset: [0, 8],
@@ -346,7 +346,7 @@ impl CommandPalette {
                                     let item_resp = egui::Frame::group(ui.style())
                                         .fill(bg_color)
                                         .stroke(if is_selected {
-                                            Stroke::new(1.0, theme.accent())
+                                            Stroke::new(1.0_f32, theme.accent())
                                         } else {
                                             Stroke::NONE
                                         })

@@ -98,7 +98,11 @@ impl HttpServer {
     }
 
     /// Build and start the MCP HTTP+SSE server.
-    pub async fn run(self, service: Arc<McpService>, cfg: McpServiceConfig) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn run(
+        self,
+        service: Arc<McpService>,
+        cfg: McpServiceConfig,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let has_api_key = cfg.auth_key.is_some();
         if !self.addr.ip().is_loopback() && !has_api_key {
             return Err(format!(
@@ -121,10 +125,12 @@ impl HttpServer {
             .route("/mcp", post(handle_mcp_post))
             // SSE transport (for Claude Desktop / streaming clients)
             .route("/sse", get(handle_sse))
-            .layer(axum::middleware::from_fn(move |headers: HeaderMap, req: axum::extract::Request<Body>, next: Next| {
-                let auth_key = cfg.auth_key.clone();
-                mcp_api_key_auth_inner(headers, req, next, auth_key)
-            }));
+            .layer(axum::middleware::from_fn(
+                move |headers: HeaderMap, req: axum::extract::Request<Body>, next: Next| {
+                    let auth_key = cfg.auth_key.clone();
+                    mcp_api_key_auth_inner(headers, req, next, auth_key)
+                },
+            ));
 
         let public = Router::new()
             // Health probe (unauthenticated)

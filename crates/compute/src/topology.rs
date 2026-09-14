@@ -173,11 +173,7 @@ mod tests {
     #[test]
     fn test_betti_cycle_detection() {
         // Triangle graph: 3 vertices, 3 edges -> 1 component (b0=1), 1 cycle (b1=1)
-        let adj = vec![
-            0.0, 1.0, 1.0,
-            1.0, 0.0, 1.0,
-            1.0, 1.0, 0.0,
-        ];
+        let adj = vec![0.0, 1.0, 1.0, 1.0, 0.0, 1.0, 1.0, 1.0, 0.0];
         let (b0, b1) = betti_numbers(&adj, 3, 0.5);
         assert_eq!(b0, 1);
         assert_eq!(b1, 1);
@@ -190,11 +186,7 @@ mod tests {
     #[test]
     fn test_tree_graph_no_cycles() {
         // Line graph: 0-1-2 -> 3 vertices, 2 edges -> b0=1, b1=0
-        let adj = vec![
-            0.0, 1.0, 0.0,
-            1.0, 0.0, 1.0,
-            0.0, 1.0, 0.0,
-        ];
+        let adj = vec![0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0];
         let (b0, b1) = betti_numbers(&adj, 3, 0.5);
         assert_eq!(b0, 1);
         assert_eq!(b1, 0);

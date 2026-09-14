@@ -7,7 +7,7 @@
 //! 3. Proves mathematical safety bounds via SMT bounds checking.
 //! 4. Registers the new synthesized adapter into the `UniversalAdapterRegistry` in microseconds.
 
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use serde::{Deserialize, Serialize};
 
 use crate::adapters::{PhysicalActuatorAdapter, UniversalActuatorCommand};

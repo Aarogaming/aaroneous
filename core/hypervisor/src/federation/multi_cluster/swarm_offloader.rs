@@ -70,7 +70,12 @@ pub struct SwarmTask {
 }
 
 impl SwarmTask {
-    pub fn new(task_id: impl Into<String>, domain_opcode: u16, input_payload: Vec<u8>, priority: u8) -> Self {
+    pub fn new(
+        task_id: impl Into<String>,
+        domain_opcode: u16,
+        input_payload: Vec<u8>,
+        priority: u8,
+    ) -> Self {
         Self {
             task_id: task_id.into(),
             domain_opcode,
@@ -83,7 +88,11 @@ impl SwarmTask {
         Self::new(task_id, OPCODE_AST_PARSE, ast_payload, priority)
     }
 
-    pub fn new_test_generation(task_id: impl Into<String>, test_spec: Vec<u8>, priority: u8) -> Self {
+    pub fn new_test_generation(
+        task_id: impl Into<String>,
+        test_spec: Vec<u8>,
+        priority: u8,
+    ) -> Self {
         Self::new(task_id, OPCODE_TEST_GENERATION, test_spec, priority)
     }
 
@@ -304,7 +313,8 @@ mod tests {
     #[test]
     fn test_orchestrator_task_conversion() {
         let task_id = uuid::Uuid::new_v4();
-        let meta = orchestrator::TaskMetadata::new(task_id, orchestrator::PriorityTier::Critical, 100);
+        let meta =
+            orchestrator::TaskMetadata::new(task_id, orchestrator::PriorityTier::Critical, 100);
         let swarm_task = SwarmTask::from_orchestrator(&meta, OPCODE_TEST_GENERATION, vec![1, 2, 3]);
 
         assert_eq!(swarm_task.task_id, task_id.to_string());

@@ -88,16 +88,24 @@ impl ThermodynamicTelemetry {
     /// Validate that all telemetry scalar metrics are finite numbers.
     pub fn validate(&self) -> Result<(), AdaptationError> {
         if !self.cpu_load_pct.is_finite() {
-            return Err(AdaptationError::InvalidTelemetry("cpu_load_pct is non-finite"));
+            return Err(AdaptationError::InvalidTelemetry(
+                "cpu_load_pct is non-finite",
+            ));
         }
         if !self.cpu_temp_c.is_finite() {
-            return Err(AdaptationError::InvalidTelemetry("cpu_temp_c is non-finite"));
+            return Err(AdaptationError::InvalidTelemetry(
+                "cpu_temp_c is non-finite",
+            ));
         }
         if !self.gpu_temp_c.is_finite() {
-            return Err(AdaptationError::InvalidTelemetry("gpu_temp_c is non-finite"));
+            return Err(AdaptationError::InvalidTelemetry(
+                "gpu_temp_c is non-finite",
+            ));
         }
         if !self.memory_pressure_pct.is_finite() {
-            return Err(AdaptationError::InvalidTelemetry("memory_pressure_pct is non-finite"));
+            return Err(AdaptationError::InvalidTelemetry(
+                "memory_pressure_pct is non-finite",
+            ));
         }
         Ok(())
     }
@@ -205,11 +213,12 @@ impl Default for PacingConfig {
 impl PacingConfig {
     /// Construct a configuration using a specified baseline interval.
     pub fn default_with_baseline(baseline: Duration) -> Self {
-        let mut cfg = Self::default();
-        cfg.baseline_interval = baseline;
-        cfg.min_interval = baseline.min(Duration::from_millis(4));
-        cfg.max_interval = (baseline * 10).max(Duration::from_millis(500));
-        cfg
+        Self {
+            baseline_interval: baseline,
+            min_interval: baseline.min(Duration::from_millis(4)),
+            max_interval: (baseline * 10).max(Duration::from_millis(500)),
+            ..Self::default()
+        }
     }
 
     /// Validate configuration invariants.
@@ -422,8 +431,8 @@ impl StreamingSelfCorrectionFilter {
         let error_us = elapsed_us - target_us;
 
         // Accumulate integral error with saturation clamp
-        self.integral_error_us = (self.integral_error_us + error_us)
-            .clamp(-self.max_integral_us, self.max_integral_us);
+        self.integral_error_us =
+            (self.integral_error_us + error_us).clamp(-self.max_integral_us, self.max_integral_us);
 
         // Correction offset
         let correction_us = (self.integral_error_us as f32 * self.integral_gain) as i64;
@@ -461,7 +470,11 @@ mod tests {
         assert_eq!(telemetry.vram_pressure_pct(), 50.0);
         assert_eq!(telemetry.max_temperature(), 45.0);
         let stress = telemetry.composite_stress_index();
-        assert!(stress >= 0.0 && stress <= 0.5, "Expected low stress, got {}", stress);
+        assert!(
+            stress >= 0.0 && stress <= 0.5,
+            "Expected low stress, got {}",
+            stress
+        );
 
         // Test VRAM saturation
         telemetry.vram_used_bytes = 8 * 1024 * 1024 * 1024;

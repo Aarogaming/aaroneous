@@ -9,7 +9,7 @@ use std::hash::{Hash, Hasher};
 
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
-use si_ir::{MachineOpcode, NativeComputationalGraph, NativeComputationNode, NativeTypeLattice};
+use si_ir::{MachineOpcode, NativeComputationNode, NativeComputationalGraph, NativeTypeLattice};
 
 /// Deterministic prompt prefix key computed from tokenized or normalized input text.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -128,7 +128,9 @@ impl DemandDrivenAstCache {
         content.hash(&mut hasher);
         let content_hash = hasher.finish();
 
-        let old_rev = self.file_revisions.insert(path.to_string(), self.global_revision);
+        let old_rev = self
+            .file_revisions
+            .insert(path.to_string(), self.global_revision);
         if old_rev.is_some() {
             // Invalidate memoized AST for this file and any dependents
             self.invalidate_file(path);
@@ -140,7 +142,12 @@ impl DemandDrivenAstCache {
 
     /// Query or demand-compute the AST NativeComputationalGraph for a source file.
     /// If valid and unchanged, returns cached graph in O(1) time.
-    pub fn query_ast<F>(&mut self, path: &str, source: &str, parser: F) -> Result<NativeComputationalGraph>
+    pub fn query_ast<F>(
+        &mut self,
+        path: &str,
+        source: &str,
+        parser: F,
+    ) -> Result<NativeComputationalGraph>
     where
         F: FnOnce(&str) -> Result<NativeComputationalGraph>,
     {
@@ -148,13 +155,18 @@ impl DemandDrivenAstCache {
         source.hash(&mut hasher);
         let source_hash = hasher.finish();
 
-        let current_file_rev = self.file_revisions.get(path).copied().unwrap_or(self.global_revision);
+        let current_file_rev = self
+            .file_revisions
+            .get(path)
+            .copied()
+            .unwrap_or(self.global_revision);
 
-        if let Some(entry) = self.entries.get(path) {
-            if entry.source_hash == source_hash && entry.revision == current_file_rev {
-                self.query_hits += 1;
-                return Ok(entry.graph.clone());
-            }
+        if let Some(entry) = self.entries.get(path)
+            && entry.source_hash == source_hash
+            && entry.revision == current_file_rev
+        {
+            self.query_hits += 1;
+            return Ok(entry.graph.clone());
         }
 
         // Cache miss: execute parser query
@@ -178,7 +190,8 @@ impl DemandDrivenAstCache {
     pub fn invalidate_file(&mut self, path: &str) {
         self.entries.remove(path);
         // Also remove any entries listing this file as a dependency
-        self.entries.retain(|_, entry| !entry.dependencies.iter().any(|d| d == path));
+        self.entries
+            .retain(|_, entry| !entry.dependencies.iter().any(|d| d == path));
     }
 
     pub fn hits(&self) -> u64 {
@@ -251,7 +264,10 @@ pub fn parse_nl_to_opcode_dag(query: &str) -> Result<NativeComputationalGraph> {
             NativeComputationNode {
                 id: current_id,
                 opcode: MachineOpcode::Load { address_reg: 0 },
-                type_lattice: NativeTypeLattice::PrimitiveInt { bits: 64, signed: false },
+                type_lattice: NativeTypeLattice::PrimitiveInt {
+                    bits: 64,
+                    signed: false,
+                },
                 energy_cost: 0.001,
                 dependencies: vec![],
             },
@@ -264,10 +280,18 @@ pub fn parse_nl_to_opcode_dag(query: &str) -> Result<NativeComputationalGraph> {
             current_id,
             NativeComputationNode {
                 id: current_id,
-                opcode: MachineOpcode::TensorDot { left_reg: 1, right_reg: 2, dim: 64 },
+                opcode: MachineOpcode::TensorDot {
+                    left_reg: 1,
+                    right_reg: 2,
+                    dim: 64,
+                },
                 type_lattice: NativeTypeLattice::PrimitiveFloat { bits: 32 },
                 energy_cost: 0.005,
-                dependencies: if current_id > 1 { vec![current_id - 1] } else { vec![] },
+                dependencies: if current_id > 1 {
+                    vec![current_id - 1]
+                } else {
+                    vec![]
+                },
             },
         );
         current_id += 1;
@@ -278,10 +302,16 @@ pub fn parse_nl_to_opcode_dag(query: &str) -> Result<NativeComputationalGraph> {
         current_id,
         NativeComputationNode {
             id: current_id,
-            opcode: MachineOpcode::Return { value_reg: (current_id - 1) as u16 },
+            opcode: MachineOpcode::Return {
+                value_reg: (current_id - 1) as u16,
+            },
             type_lattice: NativeTypeLattice::PrimitiveFloat { bits: 32 },
             energy_cost: 0.0001,
-            dependencies: if current_id > 1 { vec![current_id - 1] } else { vec![] },
+            dependencies: if current_id > 1 {
+                vec![current_id - 1]
+            } else {
+                vec![]
+            },
         },
     );
 

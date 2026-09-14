@@ -1,10 +1,10 @@
+use ipc_bus::SharedMemorySynapse;
+use ipc_bus::SynapseState;
+use parking_lot::RwLock;
+use rand::RngExt;
 use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
-use parking_lot::RwLock;
-use rand::RngExt;
-use ipc_bus::SharedMemorySynapse;
-use ipc_bus::SynapseState;
 
 pub struct ChaosMonkey {
     synapse: Arc<RwLock<SharedMemorySynapse>>,
@@ -44,14 +44,14 @@ impl ChaosMonkey {
 
     pub fn start(self) {
         println!("[ChaosMonkey] Initialized. Prepared to disrupt homeostasis.");
-        
+
         thread::spawn(move || {
             let mut rng = rand::rng();
             loop {
                 // Randomly disrupt every 30-60 seconds
                 let sleep_secs = rng.random_range(30..60);
                 thread::sleep(Duration::from_secs(sleep_secs));
-                
+
                 let action = rng.random_range(0..3);
                 self.disrupt_once(action);
             }

@@ -1,8 +1,6 @@
 //! Aaroneous Setup GUI
 //! Professional graphical installer desktop application for Aaroneous Sovereign Hypervisor & Studio.
 
-#![allow(workspace_prefix_stutter)]
-
 use eframe::egui;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};

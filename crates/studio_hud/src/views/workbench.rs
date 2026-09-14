@@ -93,7 +93,10 @@ impl HudView for WorkbenchView {
                                     );
                                     let is_selected = state.selected_tree_idx == i;
                                     let row_w = ui.available_width();
-                                    let (row_rect, resp) = ui.allocate_exact_size(Vec2::new(row_w, 22.0), egui::Sense::click());
+                                    let (row_rect, resp) = ui.allocate_exact_size(
+                                        Vec2::new(row_w, 22.0),
+                                        egui::Sense::click(),
+                                    );
                                     let resp = resp.on_hover_cursor(egui::CursorIcon::PointingHand);
 
                                     if resp.clicked() {
@@ -115,7 +118,8 @@ impl HudView for WorkbenchView {
                                     } else {
                                         Color32::TRANSPARENT
                                     };
-                                    ui.painter().rect_filled(row_rect, CornerRadius::same(4), bg);
+                                    ui.painter()
+                                        .rect_filled(row_rect, CornerRadius::same(4), bg);
 
                                     let text_color = if is_selected {
                                         theme.accent()
@@ -147,23 +151,39 @@ impl HudView for WorkbenchView {
                                 .color(theme.accent()),
                             );
 
-                            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                                if ui.button(egui::RichText::new("💾 Save").strong().color(Color32::WHITE)).clicked() {
-                                    if let Some(item) = state.workspace_tree_items.get(state.selected_tree_idx) {
-                                        if !item.is_dir {
-                                            match std::fs::write(&item.path, &state.workbench_file_content) {
-                                                Ok(_) => {
-                                                    state.workbench_status_msg = format!("Saved {} successfully.", state.workbench_active_file);
-                                                    state.award_xp(15, "Saved Source Code File");
-                                                }
-                                                Err(e) => {
-                                                    state.workbench_status_msg = format!("Failed to save file: {e}");
-                                                }
+                            ui.with_layout(
+                                egui::Layout::right_to_left(egui::Align::Center),
+                                |ui| {
+                                    if ui
+                                        .button(
+                                            egui::RichText::new("💾 Save")
+                                                .strong()
+                                                .color(Color32::WHITE),
+                                        )
+                                        .clicked()
+                                        && let Some(item) =
+                                            state.workspace_tree_items.get(state.selected_tree_idx)
+                                        && !item.is_dir
+                                    {
+                                        match std::fs::write(
+                                            &item.path,
+                                            &state.workbench_file_content,
+                                        ) {
+                                            Ok(_) => {
+                                                state.workbench_status_msg = format!(
+                                                    "Saved {} successfully.",
+                                                    state.workbench_active_file
+                                                );
+                                                state.award_xp(15, "Saved Source Code File");
+                                            }
+                                            Err(e) => {
+                                                state.workbench_status_msg =
+                                                    format!("Failed to save file: {e}");
                                             }
                                         }
                                     }
-                                }
-                            });
+                                },
+                            );
                         });
                         ui.separator();
                         let editor_h = (ui.available_height() - 20.0).max(300.0);
@@ -265,12 +285,16 @@ impl HudView for WorkbenchView {
 
                 let mut to_run = None;
                 if state.saved_si_macros.is_empty() {
-                    ui.label(egui::RichText::new("No registered macros found.").italics().color(Color32::GRAY));
+                    ui.label(
+                        egui::RichText::new("No registered macros found.")
+                            .italics()
+                            .color(Color32::GRAY),
+                    );
                 } else {
                     for m in &state.saved_si_macros {
                         egui::Frame::group(ui.style())
                             .fill(theme.card_bg())
-                            .stroke(eframe::egui::Stroke::new(1.0, theme.border_color()))
+                            .stroke(eframe::egui::Stroke::new(1.0_f32, theme.border_color()))
                             .corner_radius(eframe::egui::CornerRadius::same(6))
                             .show(ui, |ui| {
                                 ui.horizontal(|ui| {
@@ -285,16 +309,19 @@ impl HudView for WorkbenchView {
                                             .size(11.0),
                                     );
 
-                                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                                        if ui.button("▶ Execute").clicked() {
-                                            to_run = Some(m.file_path.clone());
-                                        }
-                                        ui.label(
-                                            egui::RichText::new(&m.description)
-                                                .size(11.0)
-                                                .color(Color32::from_rgb(180, 190, 205)),
-                                        );
-                                    });
+                                    ui.with_layout(
+                                        egui::Layout::right_to_left(egui::Align::Center),
+                                        |ui| {
+                                            if ui.button("▶ Execute").clicked() {
+                                                to_run = Some(m.file_path.clone());
+                                            }
+                                            ui.label(
+                                                egui::RichText::new(&m.description)
+                                                    .size(11.0)
+                                                    .color(Color32::from_rgb(180, 190, 205)),
+                                            );
+                                        },
+                                    );
                                 });
                             });
                         ui.add_space(2.0);

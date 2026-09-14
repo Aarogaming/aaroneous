@@ -93,7 +93,10 @@ impl WorkflowGraph {
 
     /// Dynamically resolves any unassigned steps ("auto", "unassigned", or empty)
     /// by delegating to the optimal Markov Decision Process policy in `TaskRoutingEngine`.
-    pub fn resolve_unassigned_steps_via_mdp(&mut self, router: &mut crate::mdps_router::TaskRoutingEngine) -> usize {
+    pub fn resolve_unassigned_steps_via_mdp(
+        &mut self,
+        router: &mut crate::mdps_router::TaskRoutingEngine,
+    ) -> usize {
         let mut resolved_count = 0;
 
         for step in self.steps.values_mut() {
@@ -133,7 +136,10 @@ impl WorkflowGraph {
 
         for step in self.steps.values() {
             if step.status == StepStatus::Pending {
-                let deps_satisfied = step.dependencies.iter().all(|dep| completed_steps.contains(dep));
+                let deps_satisfied = step
+                    .dependencies
+                    .iter()
+                    .all(|dep| completed_steps.contains(dep));
                 if deps_satisfied {
                     ready.push(step.clone());
                 }
@@ -149,7 +155,10 @@ impl WorkflowGraph {
             step.status = StepStatus::Completed;
         }
 
-        self.is_completed = self.steps.values().all(|s| s.status == StepStatus::Completed);
+        self.is_completed = self
+            .steps
+            .values()
+            .all(|s| s.status == StepStatus::Completed);
     }
 
     /// Handles a step failure with automatic retry logic or cascade rollback
@@ -184,7 +193,9 @@ impl WorkflowGraph {
         while changed {
             changed = false;
             for (id, step) in &self.steps {
-                if !to_prune.contains(id) && step.dependencies.iter().any(|dep| to_prune.contains(dep)) {
+                if !to_prune.contains(id)
+                    && step.dependencies.iter().any(|dep| to_prune.contains(dep))
+                {
                     to_prune.insert(id.clone());
                     changed = true;
                 }
@@ -215,7 +226,9 @@ impl WorkflowGraph {
     pub async fn execute_ready_steps_concurrent<F, Fut>(&mut self, runner: F) -> usize
     where
         F: Fn(WorkflowStep) -> Fut + Send + Sync + 'static,
-        Fut: std::future::Future<Output = (String, std::result::Result<(), String>)> + Send + 'static,
+        Fut: std::future::Future<Output = (String, std::result::Result<(), String>)>
+            + Send
+            + 'static,
     {
         let ready_steps = self.get_ready_steps();
         if ready_steps.is_empty() {
@@ -279,10 +292,12 @@ impl WorkflowGraph {
 
     /// Save the workflow to disk at the configured persist_path
     pub fn save(&self) -> Result<()> {
-        let path = self
-            .persist_path
-            .as_ref()
-            .ok_or_else(|| anyhow::anyhow!("No persist_path configured for workflow {}", self.workflow_id))?;
+        let path = self.persist_path.as_ref().ok_or_else(|| {
+            anyhow::anyhow!(
+                "No persist_path configured for workflow {}",
+                self.workflow_id
+            )
+        })?;
         self.save_to(path)
     }
 
@@ -337,10 +352,10 @@ impl WorkflowGraph {
         for entry in std::fs::read_dir(&dir)? {
             let entry = entry?;
             let path = entry.path();
-            if path.extension().and_then(|e| e.to_str()) == Some("json") {
-                if let Some(stem) = path.file_stem().and_then(|s| s.to_str()) {
-                    ids.push(stem.to_string());
-                }
+            if path.extension().and_then(|e| e.to_str()) == Some("json")
+                && let Some(stem) = path.file_stem().and_then(|s| s.to_str())
+            {
+                ids.push(stem.to_string());
             }
         }
         Ok(ids)
@@ -386,7 +401,9 @@ impl WorkflowGraph {
                     },
                     si_ir::NativeTypeLattice::TensorType {
                         shape: vec![64, 64],
-                        element_type: Box::new(si_ir::NativeTypeLattice::PrimitiveFloat { bits: 32 }),
+                        element_type: Box::new(si_ir::NativeTypeLattice::PrimitiveFloat {
+                            bits: 32,
+                        }),
                     },
                     0.015,
                 ),
@@ -431,8 +448,22 @@ mod tests {
         let mut workflow = WorkflowGraph::new("wf_code_adaptation");
 
         workflow.add_step("step_1", "Synthesizer", "DecompileIntent", "{}", vec![], 2);
-        workflow.add_step("step_2", "Fabricator", "ForgePatch", "{}", vec!["step_1".to_string()], 2);
-        workflow.add_step("step_3", "Sentinel", "SecurityAudit", "{}", vec!["step_2".to_string()], 1);
+        workflow.add_step(
+            "step_2",
+            "Fabricator",
+            "ForgePatch",
+            "{}",
+            vec!["step_1".to_string()],
+            2,
+        );
+        workflow.add_step(
+            "step_3",
+            "Sentinel",
+            "SecurityAudit",
+            "{}",
+            vec!["step_2".to_string()],
+            1,
+        );
 
         let ready = workflow.get_ready_steps();
         assert_eq!(ready.len(), 1);
@@ -457,15 +488,28 @@ mod tests {
     fn test_workflow_retry_and_rollback() {
         let mut workflow = WorkflowGraph::new("wf_failing");
         workflow.add_step("step_1", "Fabricator", "Compile", "{}", vec![], 1);
-        workflow.add_step("step_2", "Sentinel", "Audit", "{}", vec!["step_1".to_string()], 1);
+        workflow.add_step(
+            "step_2",
+            "Sentinel",
+            "Audit",
+            "{}",
+            vec!["step_1".to_string()],
+            1,
+        );
 
         workflow.fail_step("step_1", "Compile Error 1");
         assert_eq!(workflow.steps.get("step_1").unwrap().retry_count, 1);
-        assert_eq!(workflow.steps.get("step_1").unwrap().status, StepStatus::Pending);
+        assert_eq!(
+            workflow.steps.get("step_1").unwrap().status,
+            StepStatus::Pending
+        );
 
         workflow.fail_step("step_1", "Compile Error 2");
         assert!(workflow.is_failed);
-        assert_eq!(workflow.steps.get("step_2").unwrap().status, StepStatus::RolledBack);
+        assert_eq!(
+            workflow.steps.get("step_2").unwrap().status,
+            StepStatus::RolledBack
+        );
     }
 
     #[test]
@@ -484,7 +528,10 @@ mod tests {
 
     #[test]
     fn test_save_and_load() {
-        let dir = tempfile::tempdir().unwrap().into_path().join("workflow_tests");
+        let dir = tempfile::tempdir()
+            .unwrap()
+            .into_path()
+            .join("workflow_tests");
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).unwrap();
 
@@ -537,7 +584,10 @@ mod tests {
 
     #[test]
     fn test_save_default_creates_directory() {
-        let dir = tempfile::tempdir().unwrap().into_path().join("save_default_tests");
+        let dir = tempfile::tempdir()
+            .unwrap()
+            .into_path()
+            .join("save_default_tests");
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).unwrap();
 
@@ -554,7 +604,10 @@ mod tests {
 
     #[test]
     fn test_load_default_nonexistent() {
-        let dir = tempfile::tempdir().unwrap().into_path().join("load_nonexist_tests");
+        let dir = tempfile::tempdir()
+            .unwrap()
+            .into_path()
+            .join("load_nonexist_tests");
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).unwrap();
 
@@ -577,7 +630,14 @@ mod tests {
         let mut wf = WorkflowGraph::new("parallel");
         wf.add_step("a", "Synthesizer", "Analyze", "{}", vec![], 0);
         wf.add_step("b", "Sentinel", "Audit", "{}", vec![], 0);
-        wf.add_step("c", "Fabricator", "Build", "{}", vec!["a".to_string(), "b".to_string()], 0);
+        wf.add_step(
+            "c",
+            "Fabricator",
+            "Build",
+            "{}",
+            vec!["a".to_string(), "b".to_string()],
+            0,
+        );
 
         let ready = wf.get_ready_steps();
         assert_eq!(ready.len(), 2); // Both a and b should be ready
@@ -608,7 +668,10 @@ mod tests {
 
         wf.fail_step("s1", "Error 3"); // retry_count=2 (capped), status=Failed
         assert!(wf.is_failed);
-        assert!(matches!(wf.steps.get("s1").unwrap().status, StepStatus::Failed(_)));
+        assert!(matches!(
+            wf.steps.get("s1").unwrap().status,
+            StepStatus::Failed(_)
+        ));
     }
 
     #[test]
@@ -623,13 +686,23 @@ mod tests {
         // s1 should remain Completed
         assert_eq!(wf.steps.get("s1").unwrap().status, StepStatus::Completed);
         // s2 should be Failed
-        assert!(matches!(wf.steps.get("s2").unwrap().status, StepStatus::Failed(_)));
+        assert!(matches!(
+            wf.steps.get("s2").unwrap().status,
+            StepStatus::Failed(_)
+        ));
     }
 
     #[test]
     fn test_serialize_preserves_all_fields() {
         let mut wf = WorkflowGraph::new("full_serialize");
-        wf.add_step("s1", "Orchestrator", "Orchestrate", "payload1", vec!["dep1".to_string()], 3);
+        wf.add_step(
+            "s1",
+            "Orchestrator",
+            "Orchestrate",
+            "payload1",
+            vec!["dep1".to_string()],
+            3,
+        );
         wf.steps.get_mut("s1").unwrap().status = StepStatus::Running;
         wf.steps.get_mut("s1").unwrap().retry_count = 1;
 
@@ -647,7 +720,10 @@ mod tests {
 
     #[test]
     fn test_list_persisted_empty_dir() {
-        let dir = tempfile::tempdir().unwrap().into_path().join("empty_workflow_tests");
+        let dir = tempfile::tempdir()
+            .unwrap()
+            .into_path()
+            .join("empty_workflow_tests");
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).unwrap();
 
@@ -659,7 +735,10 @@ mod tests {
 
     #[test]
     fn test_list_persisted_nonexistent_dir() {
-        let dir = tempfile::tempdir().unwrap().into_path().join("nonexist_workflow_dir_tests");
+        let dir = tempfile::tempdir()
+            .unwrap()
+            .into_path()
+            .join("nonexist_workflow_dir_tests");
         let _ = fs::remove_dir_all(&dir);
         // Directory doesn't exist
         let ids = WorkflowGraph::list_persisted(&dir).unwrap();
@@ -670,8 +749,22 @@ mod tests {
     fn test_workflow_prune_and_checkpoint() {
         let mut wf = WorkflowGraph::new("test_prune");
         wf.add_step("root", "Planner", "Plan", "{}", vec![], 2);
-        wf.add_step("branch_a", "Worker", "Work", "{}", vec!["root".to_string()], 2);
-        wf.add_step("branch_b", "Worker", "Work", "{}", vec!["branch_a".to_string()], 2);
+        wf.add_step(
+            "branch_a",
+            "Worker",
+            "Work",
+            "{}",
+            vec!["root".to_string()],
+            2,
+        );
+        wf.add_step(
+            "branch_b",
+            "Worker",
+            "Work",
+            "{}",
+            vec!["branch_a".to_string()],
+            2,
+        );
         wf.add_step("independent", "Worker", "Work", "{}", vec![], 2);
 
         wf.complete_step("independent");
@@ -691,13 +784,18 @@ mod tests {
         let mut wf = WorkflowGraph::new("test_concurrent");
         wf.add_step("step1", "WorkerA", "ProcessA", "{}", vec![], 2);
         wf.add_step("step2", "WorkerB", "ProcessB", "{}", vec![], 2);
-        wf.add_step("step3", "Aggregator", "Aggregate", "{}", vec!["step1".to_string(), "step2".to_string()], 2);
+        wf.add_step(
+            "step3",
+            "Aggregator",
+            "Aggregate",
+            "{}",
+            vec!["step1".to_string(), "step2".to_string()],
+            2,
+        );
 
         // First round: step1 and step2 are ready and run concurrently
         let executed = wf
-            .execute_ready_steps_concurrent(|step| async move {
-                (step.step_id, Ok(()))
-            })
+            .execute_ready_steps_concurrent(|step| async move { (step.step_id, Ok(())) })
             .await;
 
         assert_eq!(executed, 2);
@@ -707,9 +805,7 @@ mod tests {
 
         // Second round: step3 dependencies now satisfied
         let executed2 = wf
-            .execute_ready_steps_concurrent(|step| async move {
-                (step.step_id, Ok(()))
-            })
+            .execute_ready_steps_concurrent(|step| async move { (step.step_id, Ok(())) })
             .await;
 
         assert_eq!(executed2, 1);
@@ -722,16 +818,15 @@ mod tests {
         wf.add_step("step_explicit", "Fabricator", "Compile", "{}", vec![], 2);
         wf.add_step("step_auto", "auto", "AuditSecurity", "{}", vec![], 2);
 
-        let mut router = crate::mdps_router::TaskRoutingEngine::new(vec![
-            crate::mdps_router::Specialist {
+        let mut router =
+            crate::mdps_router::TaskRoutingEngine::new(vec![crate::mdps_router::Specialist {
                 id: "spec_sentinel".to_string(),
                 name: "Sentinel".to_string(),
                 skills: vec!["AuditSecurity".to_string()],
                 capacity: 1.0,
                 success_rate: 0.95,
                 avg_completion_time: 2.0,
-            },
-        ]);
+            }]);
 
         let resolved = wf.resolve_unassigned_steps_via_mdp(&mut router);
         assert_eq!(resolved, 1);
@@ -743,7 +838,14 @@ mod tests {
     fn test_to_computational_graph_conversion() {
         let mut wf = WorkflowGraph::new("test_ir_conversion");
         wf.add_step("s1", "Fabricator", "Alloc", "payload_data", vec![], 2);
-        wf.add_step("s2", "Synthesizer", "TensorDot", "{}", vec!["s1".to_string()], 2);
+        wf.add_step(
+            "s2",
+            "Synthesizer",
+            "TensorDot",
+            "{}",
+            vec!["s1".to_string()],
+            2,
+        );
 
         let graph = wf.to_computational_graph();
         assert_eq!(graph.nodes.len(), 2);
@@ -752,7 +854,11 @@ mod tests {
         assert!(graph.thermodynamic_free_energy > 0.0);
 
         // Check topological dependency resolution
-        let node_s2 = graph.nodes.values().find(|n| matches!(n.opcode, si_ir::MachineOpcode::TensorDot { .. })).unwrap();
+        let node_s2 = graph
+            .nodes
+            .values()
+            .find(|n| matches!(n.opcode, si_ir::MachineOpcode::TensorDot { .. }))
+            .unwrap();
         assert_eq!(node_s2.dependencies.len(), 1);
     }
 }

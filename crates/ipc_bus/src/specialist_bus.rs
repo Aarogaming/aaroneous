@@ -8,9 +8,9 @@
 //! 5. 10ms Watchdog Epochs & Fault Isolation: Dead or poisoned specialist channels are zero-padded (S_i = 0).
 //! 6. Zero-Copy & SIMD Multi-Specialist Tensor Fusion: S_exec = ⨁_{i=1}^k S_i.
 
-use anyhow::{bail, Result};
-use std::sync::atomic::{AtomicU64, AtomicU8, Ordering};
+use anyhow::{Result, bail};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU8, AtomicU64, Ordering};
 use std::time::{Duration, Instant};
 
 /// Tensor payload size: 256 floats * 4 bytes = 1024 bytes
@@ -42,11 +42,11 @@ impl AlignedAtomicU64 {
 /// A single 1024-byte Tensor Slot in the SPMC Ring (128-byte aligned)
 #[repr(C, align(128))]
 pub struct TensorSlot {
-    pub state: AtomicU8,                  // SLOT_STATE_*
-    pub sequence: AtomicU64,              // Monotonic sequence index
-    pub producer_id: AtomicU64,           // Specialist channel ID
-    pub timestamp_us: AtomicU64,          // Timestamp in microseconds
-    pub payload: [f32; TENSOR_DIM],       // 256-dim continuous latent state S_t
+    pub state: AtomicU8,            // SLOT_STATE_*
+    pub sequence: AtomicU64,        // Monotonic sequence index
+    pub producer_id: AtomicU64,     // Specialist channel ID
+    pub timestamp_us: AtomicU64,    // Timestamp in microseconds
+    pub payload: [f32; TENSOR_DIM], // 256-dim continuous latent state S_t
 }
 
 impl Default for TensorSlot {
@@ -65,10 +65,10 @@ impl Default for TensorSlot {
 pub struct SpecialistSpmcChannel {
     pub channel_id: u16,
     pub name: String,
-    pub write_cursor: AlignedAtomicU64,   // Solely mutated by the designated producer (Ordering::Release)
-    pub heartbeat_epoch: AlignedAtomicU64,// 128-byte aligned watchdog epoch counter
+    pub write_cursor: AlignedAtomicU64, // Solely mutated by the designated producer (Ordering::Release)
+    pub heartbeat_epoch: AlignedAtomicU64, // 128-byte aligned watchdog epoch counter
     pub last_heartbeat: parking_lot::Mutex<Instant>,
-    pub is_alive: AtomicU8,               // 1 = Active, 0 = Dead/Isolated
+    pub is_alive: AtomicU8, // 1 = Active, 0 = Dead/Isolated
     pub slots: Box<[TensorSlot; RING_CAPACITY_PER_CHANNEL]>,
 }
 
@@ -106,8 +106,12 @@ impl SpecialistSpmcChannel {
 
         // 1. Claim slot: FREE -> WRITING
         slot.state.store(SLOT_STATE_WRITING, Ordering::Relaxed);
-        slot.producer_id.store(self.channel_id as u64, Ordering::Relaxed);
-        slot.timestamp_us.store(Instant::now().elapsed().as_micros() as u64, Ordering::Relaxed);
+        slot.producer_id
+            .store(self.channel_id as u64, Ordering::Relaxed);
+        slot.timestamp_us.store(
+            Instant::now().elapsed().as_micros() as u64,
+            Ordering::Relaxed,
+        );
 
         // 2. Zero-copy write payload
         unsafe {
@@ -167,7 +171,9 @@ impl SpecialistSpmcChannel {
     pub fn poison(&self) {
         let seq = self.write_cursor.value.load(Ordering::Relaxed);
         let slot_idx = (seq as usize) % RING_CAPACITY_PER_CHANNEL;
-        self.slots[slot_idx].state.store(SLOT_STATE_POISONED, Ordering::Release);
+        self.slots[slot_idx]
+            .state
+            .store(SLOT_STATE_POISONED, Ordering::Release);
         self.is_alive.store(0, Ordering::Release);
     }
 }
@@ -177,7 +183,10 @@ pub fn install_specialist_panic_hook(channel: Arc<SpecialistSpmcChannel>) {
     let default_hook = std::panic::take_hook();
     std::panic::set_hook(Box::new(move |info| {
         channel.poison();
-        eprintln!("[Aaroneous Synapse] Specialist channel '{}' panicked: {:?}", channel.name, info);
+        eprintln!(
+            "[Aaroneous Synapse] Specialist channel '{}' panicked: {:?}",
+            channel.name, info
+        );
         default_hook(info);
     }));
 }
@@ -259,7 +268,11 @@ impl SpecialistSynapseBus {
     }
 
     /// Publishes a 256-dimensional latent vector to a designated specialist channel
-    pub fn publish_latent_vector(&self, channel_id: usize, latent: &[f32; TENSOR_DIM]) -> Result<u64> {
+    pub fn publish_latent_vector(
+        &self,
+        channel_id: usize,
+        latent: &[f32; TENSOR_DIM],
+    ) -> Result<u64> {
         if channel_id >= self.channels.len() {
             bail!("Specialist channel {} out of range", channel_id);
         }

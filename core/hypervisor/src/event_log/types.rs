@@ -68,7 +68,7 @@ impl EventLog {
         }
     }
 
-    pub async fn append(&self, event: FederationEvent) -> Result<(), ()> {
+    pub async fn append(&self, event: FederationEvent) -> Result<(), std::convert::Infallible> {
         self.record(event);
         Ok(())
     }

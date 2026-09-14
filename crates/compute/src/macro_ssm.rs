@@ -93,7 +93,8 @@ impl ContinuousMacroSsm {
         for j in 0..d_model {
             let state_idx = j % d_state;
             let contribution = self.state_vector[state_idx] * 0.05;
-            self.macro_context[j] = self.macro_context[j] * self.config.free_energy_decay + contribution;
+            self.macro_context[j] =
+                self.macro_context[j] * self.config.free_energy_decay + contribution;
         }
 
         // Compute step free energy
@@ -104,7 +105,11 @@ impl ContinuousMacroSsm {
     }
 
     /// Performs counterfactual branching: evaluates prospective trajectory across future horizon
-    pub fn forecast_trajectory(&self, prospective_inputs: &[Vec<f32>], delta_t: f32) -> (f64, Vec<f32>) {
+    pub fn forecast_trajectory(
+        &self,
+        prospective_inputs: &[Vec<f32>],
+        delta_t: f32,
+    ) -> (f64, Vec<f32>) {
         let mut cloned = self.clone();
         for input in prospective_inputs {
             cloned.forward_step(input, delta_t);
@@ -129,7 +134,11 @@ impl ContinuousMacroSsm {
 
     /// Ingests multi-modal sensory frame deltas (e.g. DXGI spatial latents, UIA events, WASAPI audio transients)
     /// into the continuous macro latent context, returning the updated intuition vector along with the system free-energy gradient.
-    pub fn ingest_sensory_batch(&mut self, frames: &[Vec<f32>], frame_rate_hz: f32) -> (Vec<f32>, f64) {
+    pub fn ingest_sensory_batch(
+        &mut self,
+        frames: &[Vec<f32>],
+        frame_rate_hz: f32,
+    ) -> (Vec<f32>, f64) {
         let delta_t = if frame_rate_hz > 0.0 {
             1.0 / frame_rate_hz
         } else {

@@ -2,13 +2,15 @@
 //! Sentinel (The All-Seeing Guardian) & AuditEngine (Cryptographic Vault & Security Gatekeeper).
 //! Domain Opcode: 0x0500 (SECURITY_GOVERNANCE)
 
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use async_trait::async_trait;
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use tracing::{info, warn};
 
-use crate::traits::{DomainSubEngine, MnlpPacket, MnlpResponse, SovereignSpecialist, SpecialistHealth};
+use crate::traits::{
+    DomainSubEngine, MnlpPacket, MnlpResponse, SovereignSpecialist, SpecialistHealth,
+};
 
 /// Security audit verification report
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -81,7 +83,11 @@ impl SentinelSpecialist {
     }
 
     /// Audits a proposed operation or payload for host safety
-    pub fn audit_operation(&mut self, operation_name: &str, payload_bytes: &[u8]) -> Result<SecurityAuditReport> {
+    pub fn audit_operation(
+        &mut self,
+        operation_name: &str,
+        payload_bytes: &[u8],
+    ) -> Result<SecurityAuditReport> {
         self.sentinel.audits_performed += 1;
         info!(target: "specialist::sentinel", %operation_name, "Auditing operation for host safety compliance");
 
@@ -89,7 +95,8 @@ impl SentinelSpecialist {
         let payload_str = String::from_utf8_lossy(payload_bytes);
 
         // Check for unconstrained OS hijacking patterns
-        if payload_str.contains("SendInput") && !payload_str.contains("AARONEOUS_ALLOW_HOST_INPUT") {
+        if payload_str.contains("SendInput") && !payload_str.contains("AARONEOUS_ALLOW_HOST_INPUT")
+        {
             violations.push("Unguarded host OS SendInput call detected".to_string());
         }
         if payload_str.contains("format C:") || payload_str.contains("rm -rf /") {
@@ -136,7 +143,10 @@ impl SovereignSpecialist for SentinelSpecialist {
         let payload = serde_json::to_vec(&report)?;
 
         if !report.is_safe {
-            bail!("Sentinel rejected packet due to safety violations: {:?}", report.violations_detected);
+            bail!(
+                "Sentinel rejected packet due to safety violations: {:?}",
+                report.violations_detected
+            );
         }
 
         Ok(MnlpResponse {
@@ -172,10 +182,14 @@ mod tests {
     #[test]
     fn test_sentinel_safety_audit() {
         let mut sentinel = SentinelSpecialist::new();
-        let safe_report = sentinel.audit_operation("compute", b"let x = 1 + 2;").unwrap();
+        let safe_report = sentinel
+            .audit_operation("compute", b"let x = 1 + 2;")
+            .unwrap();
         assert!(safe_report.is_safe);
 
-        let unsafe_report = sentinel.audit_operation("hid", b"SendInput(&input);").unwrap();
+        let unsafe_report = sentinel
+            .audit_operation("hid", b"SendInput(&input);")
+            .unwrap();
         assert!(!unsafe_report.is_safe);
         assert_eq!(sentinel.sentinel.threats_blocked, 1);
     }

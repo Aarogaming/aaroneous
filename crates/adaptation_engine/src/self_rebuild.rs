@@ -2,7 +2,7 @@
 //! Autonomous Ouroboros Self-Rebuild & Binary Reload Engine
 //! Enables Aaroneous to compile, verify, and reload its own crates and binaries on demand.
 
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -50,7 +50,12 @@ impl SelfRebuildEngine {
 
         let duration_ms = start.elapsed().as_millis() as u64;
         let is_success = output.status.success();
-        let stdout_summary = String::from_utf8_lossy(if is_success { &output.stdout } else { &output.stderr }).to_string();
+        let stdout_summary = String::from_utf8_lossy(if is_success {
+            &output.stdout
+        } else {
+            &output.stderr
+        })
+        .to_string();
 
         Ok(RebuildReport {
             target_crate: crate_name.to_string(),
@@ -76,10 +81,19 @@ impl SelfRebuildEngine {
 
         let duration_ms = start.elapsed().as_millis() as u64;
         let is_success = output.status.success();
-        let stdout_summary = String::from_utf8_lossy(if is_success { &output.stdout } else { &output.stderr }).to_string();
+        let stdout_summary = String::from_utf8_lossy(if is_success {
+            &output.stdout
+        } else {
+            &output.stderr
+        })
+        .to_string();
 
         let profile = if release { "release" } else { "debug" };
-        let mut bin_path = self.workspace_root.join("target").join(profile).join(bin_name);
+        let mut bin_path = self
+            .workspace_root
+            .join("target")
+            .join(profile)
+            .join(bin_name);
         #[cfg(target_os = "windows")]
         {
             bin_path.set_extension("exe");

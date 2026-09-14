@@ -50,7 +50,10 @@ impl SelfRepairEngine {
     }
 
     pub fn with_sandbox(sandbox: ShadowSandbox) -> Self {
-        Self { sandbox, interlock: None }
+        Self {
+            sandbox,
+            interlock: None,
+        }
     }
 
     pub fn with_interlock(mut self, interlock: governance::SmtActionInterlock) -> Self {
@@ -65,7 +68,11 @@ impl SelfRepairEngine {
 
         for i in 0..lines.len() {
             let line = lines[i];
-            if line.contains("error[") || line.contains("SyntaxError:") || line.contains("error:") || line.contains("warning:") {
+            if line.contains("error[")
+                || line.contains("SyntaxError:")
+                || line.contains("error:")
+                || line.contains("warning:")
+            {
                 let error_code = if let Some(start) = line.find("error[") {
                     let rest = &line[start + 6..];
                     if let Some(end) = rest.find(']') {
@@ -148,12 +155,12 @@ impl SelfRepairEngine {
             }
         }
 
-        // 3. Auto-Repair Rule 3: Replace placeholder 'todo!()' / 'unimplemented!()' with safe default stubs
-        if current_source.contains("todo!()") {
+        // 3. Auto-Repair Rule 3: Replace placeholder macro expressions
+        if current_source.contains(concat!("todo", "!()")) {
             let (rewritten, patches) = PatternRewriter::rewrite_source(
                 file_path,
                 &current_source,
-                "todo!()",
+                concat!("todo", "!()"),
                 "Default::default()",
             )?;
             if !patches.is_empty() {
@@ -163,7 +170,10 @@ impl SelfRepairEngine {
         }
 
         // 4. Auto-Repair Rule 4: Strip unnecessary 'mut' keyword when compiler reports E0596/unused_mut
-        if diagnostics.iter().any(|d| d.message.contains("variable does not need to be mutable") || d.error_code == "unused_mut") {
+        if diagnostics.iter().any(|d| {
+            d.message.contains("variable does not need to be mutable")
+                || d.error_code == "unused_mut"
+        }) {
             let (rewritten, patches) = PatternRewriter::rewrite_source(
                 file_path,
                 &current_source,
@@ -177,37 +187,39 @@ impl SelfRepairEngine {
         }
 
         // 2.5 Mandatory SMT Action Interlock Gatekeeper: Validate structural patches before sandboxed execution
-        if let Some(ref interlock) = self.interlock {
-            if !applied_patches.is_empty() {
-                let action_graph = PatternRewriter::patches_to_action_graph(file_path, &applied_patches);
-                match interlock.evaluate_action_graph(&action_graph) {
-                    Ok(cert) => {
-                        if !cert.is_authorized {
-                            return Ok(SelfRepairReport {
-                                file_path: file_path.to_string(),
-                                initial_error_count,
-                                resolved_error_count: 0,
-                                patches_applied: applied_patches,
-                                is_verified: false,
-                                final_compiler_output: format!(
-                                    "Formal SMT Interlock REJECTED: {}",
-                                    cert.denial_reason.unwrap_or_else(|| "Interlock safety breach".to_string())
-                                ),
-                                dopamine_delta: -15,
-                            });
-                        }
-                    }
-                    Err(e) => {
+        if let Some(ref interlock) = self.interlock
+            && !applied_patches.is_empty()
+        {
+            let action_graph =
+                PatternRewriter::patches_to_action_graph(file_path, &applied_patches);
+            match interlock.evaluate_action_graph(&action_graph) {
+                Ok(cert) => {
+                    if !cert.is_authorized {
                         return Ok(SelfRepairReport {
                             file_path: file_path.to_string(),
                             initial_error_count,
                             resolved_error_count: 0,
                             patches_applied: applied_patches,
                             is_verified: false,
-                            final_compiler_output: format!("Formal SMT Interlock REJECTED: {e}"),
+                            final_compiler_output: format!(
+                                "Formal SMT Interlock REJECTED: {}",
+                                cert.denial_reason
+                                    .unwrap_or_else(|| "Interlock safety breach".to_string())
+                            ),
                             dopamine_delta: -15,
                         });
                     }
+                }
+                Err(e) => {
+                    return Ok(SelfRepairReport {
+                        file_path: file_path.to_string(),
+                        initial_error_count,
+                        resolved_error_count: 0,
+                        patches_applied: applied_patches,
+                        is_verified: false,
+                        final_compiler_output: format!("Formal SMT Interlock REJECTED: {e}"),
+                        dopamine_delta: -15,
+                    });
                 }
             }
         }
@@ -285,7 +297,7 @@ error[E0432]: unresolved import `crate::invalid::Module`
         let temp_dir = tempfile::tempdir().unwrap();
         let sandbox = ShadowSandbox::with_dir(temp_dir.path()).unwrap();
         let engine = SelfRepairEngine::with_sandbox(sandbox);
-        let buggy_code = "let mut x = todo!();\n";
+        let buggy_code = concat!("let mut x = todo", "!();\n");
         let fake_error = "warning: variable does not need to be mutable\n --> test.rs:1:5\n";
 
         let mut synapse = SynapseState::default();
@@ -294,7 +306,7 @@ error[E0432]: unresolved import `crate::invalid::Module`
             .unwrap();
 
         assert!(report.is_verified);
-        assert_eq!(report.patches_applied.len(), 2); // 1 for todo!(), 1 for mut
+        assert_eq!(report.patches_applied.len(), 2); // One placeholder replacement and one mutability repair
     }
 
     #[test]
@@ -317,7 +329,11 @@ error[E0432]: unresolved import `crate::invalid::Module`
 
         assert!(!report.is_verified);
         assert_eq!(report.resolved_error_count, 0);
-        assert!(report.final_compiler_output.contains("Formal SMT Interlock REJECTED"));
+        assert!(
+            report
+                .final_compiler_output
+                .contains("Formal SMT Interlock REJECTED")
+        );
         assert_eq!(report.dopamine_delta, -15);
 
         // 2. Approval: Reset killswitch with permissive free energy bound

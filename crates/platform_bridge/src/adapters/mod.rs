@@ -18,7 +18,7 @@ pub use midi_osc::HardwareControllerHooks;
 pub use ndi_broadcast::NdiBroadcaster;
 pub use synthesizer::{AdapterSynthesizer, DeviceHardwareSpec, SynthesizedActuatorAdapter};
 
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -126,16 +126,20 @@ impl PhysicalActuatorAdapter for VirtualSimActuator {
     }
 }
 
-/// Adapter bridging any `MarionetteHost` visual perception into a `SensoryFeedAdapter`
-pub struct MarionetteSensoryAdapter {
+/// Backwards compatibility alias for `DisplayCaptureAdapter`
+#[deprecated(note = "Use DisplayCaptureAdapter instead")]
+pub type MarionetteSensoryAdapter = DisplayCaptureAdapter;
+
+/// Adapter bridging any `PlatformHost` visual perception into a `SensoryFeedAdapter`
+pub struct DisplayCaptureAdapter {
     name: String,
-    host: std::sync::Arc<tokio::sync::Mutex<dyn crate::traits::MarionetteHost>>,
+    host: std::sync::Arc<tokio::sync::Mutex<dyn crate::traits::PlatformHost>>,
 }
 
-impl MarionetteSensoryAdapter {
+impl DisplayCaptureAdapter {
     pub fn new(
         name: impl Into<String>,
-        host: std::sync::Arc<tokio::sync::Mutex<dyn crate::traits::MarionetteHost>>,
+        host: std::sync::Arc<tokio::sync::Mutex<dyn crate::traits::PlatformHost>>,
     ) -> Self {
         Self {
             name: name.into(),
@@ -144,7 +148,7 @@ impl MarionetteSensoryAdapter {
     }
 }
 
-impl SensoryFeedAdapter for MarionetteSensoryAdapter {
+impl SensoryFeedAdapter for DisplayCaptureAdapter {
     fn feed_name(&self) -> &str {
         &self.name
     }
@@ -171,17 +175,21 @@ impl SensoryFeedAdapter for MarionetteSensoryAdapter {
     }
 }
 
-/// Adapter bridging `UniversalActuatorCommand` to a `MarionetteHost` peripheral input
-pub struct MarionetteActuatorAdapter {
+/// Backwards compatibility alias for `PeripheralActuatorAdapter`
+#[deprecated(note = "Use PeripheralActuatorAdapter instead")]
+pub type MarionetteActuatorAdapter = PeripheralActuatorAdapter;
+
+/// Adapter bridging `UniversalActuatorCommand` to a `PlatformHost` peripheral input
+pub struct PeripheralActuatorAdapter {
     name: String,
-    host: std::sync::Arc<tokio::sync::Mutex<dyn crate::traits::MarionetteHost>>,
+    host: std::sync::Arc<tokio::sync::Mutex<dyn crate::traits::PlatformHost>>,
     sequence_id: u64,
 }
 
-impl MarionetteActuatorAdapter {
+impl PeripheralActuatorAdapter {
     pub fn new(
         name: impl Into<String>,
-        host: std::sync::Arc<tokio::sync::Mutex<dyn crate::traits::MarionetteHost>>,
+        host: std::sync::Arc<tokio::sync::Mutex<dyn crate::traits::PlatformHost>>,
     ) -> Self {
         Self {
             name: name.into(),
@@ -191,7 +199,7 @@ impl MarionetteActuatorAdapter {
     }
 }
 
-impl PhysicalActuatorAdapter for MarionetteActuatorAdapter {
+impl PhysicalActuatorAdapter for PeripheralActuatorAdapter {
     fn actuator_name(&self) -> &str {
         &self.name
     }
@@ -359,9 +367,9 @@ impl UniversalAdapterRegistry {
         #[cfg(all(target_os = "windows", feature = "native-win32"))]
         {
             let emulator = std::sync::Arc::new(tokio::sync::Mutex::new(
-                crate::native_win32::NativeWin32Marionette::new(false),
+                crate::native_win32::Win32PlatformHost::new(false),
             ));
-            reg.register_sensory_feed(Box::new(MarionetteSensoryAdapter::new(
+            reg.register_sensory_feed(Box::new(DisplayCaptureAdapter::new(
                 "Windows-Native-Desktop-DXGI",
                 emulator,
             )));
@@ -388,9 +396,9 @@ impl UniversalAdapterRegistry {
         #[cfg(all(target_os = "windows", feature = "native-win32"))]
         {
             let emulator = std::sync::Arc::new(tokio::sync::Mutex::new(
-                crate::native_win32::NativeWin32Marionette::new(false),
+                crate::native_win32::Win32PlatformHost::new(false),
             ));
-            reg.register_actuator(Box::new(MarionetteActuatorAdapter::new(
+            reg.register_actuator(Box::new(PeripheralActuatorAdapter::new(
                 "Windows-SendInput-Actuator",
                 emulator,
             )));
@@ -413,10 +421,10 @@ impl UniversalAdapterRegistry {
     pub fn sample_all_feeds(&mut self) -> Vec<NormalizedObservation> {
         let mut observations = Vec::new();
         for feed in self.sensory_feeds.values_mut() {
-            if feed.is_healthy() {
-                if let Ok(obs) = feed.sample_observation() {
-                    observations.push(obs);
-                }
+            if feed.is_healthy()
+                && let Ok(obs) = feed.sample_observation()
+            {
+                observations.push(obs);
             }
         }
         observations

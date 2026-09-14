@@ -157,10 +157,10 @@ impl Hypothesis {
             risks.push("Many parameters (potential coupling)".to_string());
         }
 
-        if let Some(ref return_type) = structure.signature.return_type {
-            if return_type.contains("Result") || return_type.contains("Option") {
-                risks.push("Fallible operation".to_string());
-            }
+        if let Some(ref return_type) = structure.signature.return_type
+            && (return_type.contains("Result") || return_type.contains("Option"))
+        {
+            risks.push("Fallible operation".to_string());
         }
 
         if structure.line_range.1 - structure.line_range.0 > 100 {

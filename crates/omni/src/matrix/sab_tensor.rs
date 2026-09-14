@@ -118,9 +118,8 @@ impl SabSimilarityMatrix {
         let n = self.surface_names.len();
         let mut pairs = Vec::new();
 
-        for i in 0..n {
-            for j in (i + 1)..n {
-                let mi = self.mutual_info_matrix[i][j];
+        for (i, row) in self.mutual_info_matrix.iter().enumerate().take(n) {
+            for (j, &mi) in row.iter().enumerate().take(n).skip(i + 1) {
                 if mi > threshold {
                     pairs.push((i, j, mi));
                 }

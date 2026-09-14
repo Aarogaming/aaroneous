@@ -153,7 +153,10 @@ impl<'ast> Visit<'ast> for PrefixStutterVisitor<'_> {
         }
 
         let val = node.value();
-        if val.starts_with(PREFIX_LOWER) || val.starts_with(PREFIX_SLASH) || val.starts_with(PREFIX_DASH) {
+        if val.starts_with(PREFIX_LOWER)
+            || val.starts_with(PREFIX_SLASH)
+            || val.starts_with(PREFIX_DASH)
+        {
             // Metrics and OpenTelemetry exemption
             if Self::is_exempt_metric_identifier(&val) {
                 return;
@@ -192,17 +195,28 @@ pub fn audit_manifest_stutter(
                     line: 1,
                     column: 1,
                     target: format!("package.name = \"{name}\""),
-                    remediation: format!("Rename crate to strip prefix stutter (e.g. `{}`)", name.trim_start_matches(PREFIX_LOWER).trim_start_matches(PREFIX_DASH)),
+                    remediation: format!(
+                        "Rename crate to strip prefix stutter (e.g. `{}`)",
+                        name.trim_start_matches(PREFIX_LOWER)
+                            .trim_start_matches(PREFIX_DASH)
+                    ),
                 });
             }
         }
     }
 
     // 2. Dependencies check
-    let dep_tables = ["dependencies", "dev-dependencies", "build-dependencies", "workspace.dependencies"];
+    let dep_tables = [
+        "dependencies",
+        "dev-dependencies",
+        "build-dependencies",
+        "workspace.dependencies",
+    ];
     for table_key in dep_tables {
         let table_opt = if table_key.starts_with("workspace.") {
-            manifest_toml.get("workspace").and_then(|w| w.get("dependencies"))
+            manifest_toml
+                .get("workspace")
+                .and_then(|w| w.get("dependencies"))
         } else {
             manifest_toml.get(table_key)
         };
@@ -214,13 +228,17 @@ pub fn audit_manifest_stutter(
                     _ => false,
                 };
 
-                if is_internal && (dep_name.starts_with(PREFIX_LOWER) || dep_name.starts_with(PREFIX_DASH)) {
+                if is_internal
+                    && (dep_name.starts_with(PREFIX_LOWER) || dep_name.starts_with(PREFIX_DASH))
+                {
                     violations.push(PrefixStutterViolation {
                         file_path: pbuf.clone(),
                         line: 1,
                         column: 1,
                         target: format!("{table_key}.{dep_name}"),
-                        remediation: format!("Remove stutter prefix from internal dependency `{dep_name}`."),
+                        remediation: format!(
+                            "Remove stutter prefix from internal dependency `{dep_name}`."
+                        ),
                     });
                 }
             }

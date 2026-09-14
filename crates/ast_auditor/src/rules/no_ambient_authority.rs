@@ -11,8 +11,8 @@ use std::path::{Path, PathBuf};
 use syn::spanned::Spanned;
 use syn::visit::{self, Visit};
 use syn::{
-    Attribute, ExprCall, ExprMethodCall, File, ItemUse, Meta, Path as SynPath,
-    UseGroup, UsePath, UseRename, UseTree,
+    Attribute, ExprCall, ExprMethodCall, File, ItemUse, Meta, Path as SynPath, UseGroup, UsePath,
+    UseRename, UseTree,
 };
 
 /// Structured violation record for ambient authority breaches.
@@ -144,7 +144,14 @@ impl<'a> AmbientAuthorityVisitor<'a> {
             if let Some(last) = segments.last() {
                 if matches!(
                     last.as_str(),
-                    "var" | "var_os" | "set_var" | "remove_var" | "temp_dir" | "current_dir" | "args" | "args_os"
+                    "var"
+                        | "var_os"
+                        | "set_var"
+                        | "remove_var"
+                        | "temp_dir"
+                        | "current_dir"
+                        | "args"
+                        | "args_os"
                 ) {
                     return Some(path_str);
                 }

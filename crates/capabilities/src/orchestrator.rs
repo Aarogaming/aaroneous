@@ -9,7 +9,9 @@ use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
 use tracing::info;
 
-use crate::traits::{DomainSubEngine, MnlpPacket, MnlpResponse, SovereignSpecialist, SpecialistHealth};
+use crate::traits::{
+    DomainSubEngine, MnlpPacket, MnlpResponse, SovereignSpecialist, SpecialistHealth,
+};
 
 /// A subtask in an Orchestrator Directed Acyclic Graph (DAG)
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -98,7 +100,10 @@ impl OrchestratorSpecialist {
             },
             TaskNode {
                 task_id: "task_3_audit".to_string(),
-                description: format!("Security and safety verification for: {}", intent_description),
+                description: format!(
+                    "Security and safety verification for: {}",
+                    intent_description
+                ),
                 assigned_specialist: "Sentinel".to_string(),
                 token_cost: 5.0,
                 dependencies: vec!["task_2_forge".to_string()],

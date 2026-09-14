@@ -1,7 +1,7 @@
 //! crates/adaptation_engine/src/protocol_bridge.rs
 //! Machine-Native Linking Protocol (MNLP) patch serialization and dispatch for Adaptation Engine.
 
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use serde::{Deserialize, Serialize};
 
 use crate::mutation::PatchProposal;

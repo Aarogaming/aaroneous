@@ -19,8 +19,8 @@ pub struct RosettaTrajectoryStep {
     pub task_id: u64,
     pub description: String,
     pub teacher_hidden_state: Vec<f32>, // 4096-dim Oracle reasoning vector
-    pub expected_opcode: u16,           // Discrete MachineOpcode (e.g. 0x01: Alloc, 0x04: TensorDot)
-    pub target_state_delta: Vec<f32>,   // 256-dim next-state delta (ΔS = S_{t+1} - S_t)
+    pub expected_opcode: u16, // Discrete MachineOpcode (e.g. 0x01: Alloc, 0x04: TensorDot)
+    pub target_state_delta: Vec<f32>, // 256-dim next-state delta (ΔS = S_{t+1} - S_t)
 }
 
 /// The Translation Dataset containing thousands of trajectory steps
@@ -50,58 +50,177 @@ impl TranslationDataset {
     }
 
     /// Synthesizes tailored micro-task trajectories for a specific Sovereign Specialist Domain
-    pub fn synthesize_specialist_corpus(specialist_name: &str, domain_opcode: u16, sample_count: usize) -> Self {
-        let mut dataset = Self::new(&format!("Translation-{}-0x{:04X}", specialist_name, domain_opcode));
+    pub fn synthesize_specialist_corpus(
+        specialist_name: &str,
+        domain_opcode: u16,
+        sample_count: usize,
+    ) -> Self {
+        let mut dataset = Self::new(&format!(
+            "Translation-{}-0x{:04X}",
+            specialist_name, domain_opcode
+        ));
         dataset.sample_count = sample_count;
 
         let templates: &[(&str, u16, f32)] = match specialist_name.to_lowercase().as_str() {
             "orchestrator" => &[
-                ("Orchestrator: Schedule distributed specialist pipeline execution", 0x01, 0.05),
-                ("Orchestrator: Evaluate Byzantine quorum consensus vote threshold", 0x02, 0.04),
-                ("Orchestrator: Allocate metabolic energy tokens across federation", 0x03, 0.03),
+                (
+                    "Orchestrator: Schedule distributed specialist pipeline execution",
+                    0x01,
+                    0.05,
+                ),
+                (
+                    "Orchestrator: Evaluate Byzantine quorum consensus vote threshold",
+                    0x02,
+                    0.04,
+                ),
+                (
+                    "Orchestrator: Allocate metabolic energy tokens across federation",
+                    0x03,
+                    0.03,
+                ),
             ],
             "synthesizer" => &[
-                ("Synthesizer: Query 3D Omni Galaxy knowledge subgraph", 0x02, 0.05),
-                ("Synthesizer: Link cross-domain ontology concepts in AST", 0x04, 0.06),
-                ("Synthesizer: Ingest scientific research paper into semantic index", 0x01, 0.04),
+                (
+                    "Synthesizer: Query 3D Omni Galaxy knowledge subgraph",
+                    0x02,
+                    0.05,
+                ),
+                (
+                    "Synthesizer: Link cross-domain ontology concepts in AST",
+                    0x04,
+                    0.06,
+                ),
+                (
+                    "Synthesizer: Ingest scientific research paper into semantic index",
+                    0x01,
+                    0.04,
+                ),
             ],
             "presenter" => &[
-                ("Presenter: Render 60Hz 3D Star-Graph constellation viewport", 0x01, 0.06),
-                ("Presenter: Project latent state activations onto 256-bar oscilloscope", 0x04, 0.05),
-                ("Presenter: Compose reactive HUD dashboard widget", 0x03, 0.04),
+                (
+                    "Presenter: Render 60Hz 3D Star-Graph constellation viewport",
+                    0x01,
+                    0.06,
+                ),
+                (
+                    "Presenter: Project latent state activations onto 256-bar oscilloscope",
+                    0x04,
+                    0.05,
+                ),
+                (
+                    "Presenter: Compose reactive HUD dashboard widget",
+                    0x03,
+                    0.04,
+                ),
             ],
             "fabricator" => &[
-                ("Fabricator: Generate SIMD-quantized Q4_K_M forward kernel", 0x04, 0.08),
-                ("Fabricator: Compile and link native WASM bytecode module", 0x01, 0.05),
-                ("Fabricator: Optimize AST computational DAG node ordering", 0x03, 0.04),
+                (
+                    "Fabricator: Generate SIMD-quantized Q4_K_M forward kernel",
+                    0x04,
+                    0.08,
+                ),
+                (
+                    "Fabricator: Compile and link native WASM bytecode module",
+                    0x01,
+                    0.05,
+                ),
+                (
+                    "Fabricator: Optimize AST computational DAG node ordering",
+                    0x03,
+                    0.04,
+                ),
             ],
             "sentinel" => &[
-                ("Sentinel: Audit candidate action state tensor against SVDD safe manifold", 0x05, 0.07),
-                ("Sentinel: Orthogonally project rogue latent vector onto safe boundary", 0x06, 0.09),
-                ("Sentinel: Verify memory-mapped container zero-copy bounds check", 0x02, 0.03),
+                (
+                    "Sentinel: Audit candidate action state tensor against SVDD safe manifold",
+                    0x05,
+                    0.07,
+                ),
+                (
+                    "Sentinel: Orthogonally project rogue latent vector onto safe boundary",
+                    0x06,
+                    0.09,
+                ),
+                (
+                    "Sentinel: Verify memory-mapped container zero-copy bounds check",
+                    0x02,
+                    0.03,
+                ),
             ],
             "archivist" => &[
-                ("Archivist: Trigger Compaction Engine zero-copy memory compaction on NVMe", 0x01, 0.05),
-                ("Archivist: Step 4-channel neurochemical homeostatic decay", 0x04, 0.04),
-                ("Archivist: Calculate proactive curiosity drive impulse", 0x03, 0.06),
+                (
+                    "Archivist: Trigger Compaction Engine zero-copy memory compaction on NVMe",
+                    0x01,
+                    0.05,
+                ),
+                (
+                    "Archivist: Step 4-channel neurochemical homeostatic decay",
+                    0x04,
+                    0.04,
+                ),
+                (
+                    "Archivist: Calculate proactive curiosity drive impulse",
+                    0x03,
+                    0.06,
+                ),
             ],
             "router" => &[
-                ("Router: Broadcast zero-copy tensor packet across SPMC synapse", 0x01, 0.04),
-                ("Router: Route multi-node gossip proposal to P2P peer", 0x02, 0.05),
-                ("Router: Synchronize state across federated hive nodes", 0x03, 0.03),
+                (
+                    "Router: Broadcast zero-copy tensor packet across SPMC synapse",
+                    0x01,
+                    0.04,
+                ),
+                (
+                    "Router: Route multi-node gossip proposal to P2P peer",
+                    0x02,
+                    0.05,
+                ),
+                (
+                    "Router: Synchronize state across federated hive nodes",
+                    0x03,
+                    0.03,
+                ),
             ],
             "aligner" => &[
-                ("Aligner: Synchronize relativistic chrono-scheduler clocks", 0x02, 0.03),
-                ("Aligner: Align temporal resonance frequency across specialist loops", 0x04, 0.04),
-                ("Aligner: Predict time-to-completion for autonomous chimera cycle", 0x03, 0.05),
+                (
+                    "Aligner: Synchronize relativistic chrono-scheduler clocks",
+                    0x02,
+                    0.03,
+                ),
+                (
+                    "Aligner: Align temporal resonance frequency across specialist loops",
+                    0x04,
+                    0.04,
+                ),
+                (
+                    "Aligner: Predict time-to-completion for autonomous chimera cycle",
+                    0x03,
+                    0.05,
+                ),
             ],
             "perceiver" => &[
-                ("Perceiver: Evaluate 16x16 epigenetic visual motion gating delta", 0x01, 0.07),
-                ("Perceiver: Skip dormant screen sectors to achieve >90% compute savings", 0x06, 0.06),
-                ("Perceiver: Project raw visual luminance into R^256 spatial latent intent", 0x04, 0.08),
+                (
+                    "Perceiver: Evaluate 16x16 epigenetic visual motion gating delta",
+                    0x01,
+                    0.07,
+                ),
+                (
+                    "Perceiver: Skip dormant screen sectors to achieve >90% compute savings",
+                    0x06,
+                    0.06,
+                ),
+                (
+                    "Perceiver: Project raw visual luminance into R^256 spatial latent intent",
+                    0x04,
+                    0.08,
+                ),
             ],
             _ => &[
-                ("General: Execute computational instruction step", 0x01, 0.05),
+                (
+                    "General: Execute computational instruction step",
+                    0x01,
+                    0.05,
+                ),
                 ("General: Evaluate latent state transition", 0x04, 0.04),
             ],
         };
@@ -117,7 +236,12 @@ impl TranslationDataset {
             }
 
             // Normalize teacher state onto hypersphere
-            let norm: f32 = teacher_state.iter().map(|x| x * x).sum::<f32>().sqrt().max(1e-6);
+            let norm: f32 = teacher_state
+                .iter()
+                .map(|x| x * x)
+                .sum::<f32>()
+                .sqrt()
+                .max(1e-6);
             for x in teacher_state.iter_mut() {
                 *x /= norm;
             }
@@ -154,8 +278,11 @@ impl TranslationDataset {
             ("perceiver", 0x0900),
         ];
 
-        specs.iter()
-            .map(|(name, opcode)| Self::synthesize_specialist_corpus(name, *opcode, sample_count_per_domain))
+        specs
+            .iter()
+            .map(|(name, opcode)| {
+                Self::synthesize_specialist_corpus(name, *opcode, sample_count_per_domain)
+            })
             .collect()
     }
 
@@ -214,8 +341,14 @@ mod tests {
     fn test_translation_dataset_synthesis_and_roundtrip() {
         let dataset = TranslationDataset::synthesize_synthetic_corpus(10);
         assert_eq!(dataset.steps.len(), 10);
-        assert_eq!(dataset.steps[0].teacher_hidden_state.len(), ROSETTA_TEACHER_DIM);
-        assert_eq!(dataset.steps[0].target_state_delta.len(), ROSETTA_LATENT_DIM);
+        assert_eq!(
+            dataset.steps[0].teacher_hidden_state.len(),
+            ROSETTA_TEACHER_DIM
+        );
+        assert_eq!(
+            dataset.steps[0].target_state_delta.len(),
+            ROSETTA_LATENT_DIM
+        );
 
         let temp_dir = std::env::temp_dir();
         let path = temp_dir.join("test_rosetta_stone.bin");
@@ -239,7 +372,10 @@ mod tests {
 
         let loaded = TranslationDataset::load_from_file(&path).unwrap();
         assert_eq!(loaded.sample_count, 180);
-        assert_eq!(loaded.steps[179].expected_opcode, unified.steps[179].expected_opcode);
+        assert_eq!(
+            loaded.steps[179].expected_opcode,
+            unified.steps[179].expected_opcode
+        );
         let _ = fs::remove_file(path);
     }
 }

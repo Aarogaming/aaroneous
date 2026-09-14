@@ -41,16 +41,15 @@ pub fn simd_dot_product_256(a: &[f32; LATENT_VECTOR_DIM], b: &[f32; LATENT_VECTO
 
 /// Ultra-low latency 256-D SIMD cosine similarity.
 #[inline(always)]
-pub fn simd_cosine_similarity_256(a: &[f32; LATENT_VECTOR_DIM], b: &[f32; LATENT_VECTOR_DIM]) -> f32 {
+pub fn simd_cosine_similarity_256(
+    a: &[f32; LATENT_VECTOR_DIM],
+    b: &[f32; LATENT_VECTOR_DIM],
+) -> f32 {
     let dot = simd_dot_product_256(a, b);
     let norm_a = simd_dot_product_256(a, a).sqrt();
     let norm_b = simd_dot_product_256(b, b).sqrt();
     let denom = norm_a * norm_b;
-    if denom > 1e-8 {
-        dot / denom
-    } else {
-        0.0
-    }
+    if denom > 1e-8 { dot / denom } else { 0.0 }
 }
 
 /// Metadata associated with an episodic trajectory or skill pathway
@@ -138,12 +137,15 @@ impl EpisodicMemoryFabric {
     /// Returns current active generation epoch counter (Wait-Free EBR).
     #[inline(always)]
     pub fn current_epoch(&self) -> u64 {
-        self.current_epoch.load(std::sync::atomic::Ordering::Acquire)
+        self.current_epoch
+            .load(std::sync::atomic::Ordering::Acquire)
     }
 
     /// Advances the active generation epoch counter upon background LoRA or JIT crystallizations.
     pub fn advance_epoch(&self) -> u64 {
-        self.current_epoch.fetch_add(1, std::sync::atomic::Ordering::AcqRel) + 1
+        self.current_epoch
+            .fetch_add(1, std::sync::atomic::Ordering::AcqRel)
+            + 1
     }
 
     /// Inserts a 256-dimensional latent trajectory into the associative memory fabric
@@ -168,11 +170,7 @@ impl EpisodicMemoryFabric {
     }
 
     /// Recalls the top-K nearest trajectory vectors with sub-microsecond latency
-    pub fn recall_nearest(
-        &self,
-        query: &[f32; LATENT_VECTOR_DIM],
-        k: usize,
-    ) -> Vec<SearchResult> {
+    pub fn recall_nearest(&self, query: &[f32; LATENT_VECTOR_DIM], k: usize) -> Vec<SearchResult> {
         let ef_search = (k * 2).max(32);
         let neighbours = self.index.read().search(query.as_slice(), k, ef_search);
 
@@ -228,10 +226,10 @@ impl AcousticReflexMatcher {
     /// Returns the highest similarity match if it exceeds the confidence threshold.
     pub fn match_acoustic_reflex(&self, latent: &[f32; LATENT_VECTOR_DIM]) -> Option<SearchResult> {
         let nearest = self.fabric.recall_nearest(latent, 1);
-        if let Some(best) = nearest.into_iter().next() {
-            if best.similarity >= self.similarity_threshold {
-                return Some(best);
-            }
+        if let Some(best) = nearest.into_iter().next()
+            && best.similarity >= self.similarity_threshold
+        {
+            return Some(best);
         }
         None
     }
@@ -293,7 +291,10 @@ mod tests {
         let results = fabric.recall_nearest(&query, 1);
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].id, 101);
-        assert_eq!(results[0].metadata.action_summary, "Move Cursor to Target A");
+        assert_eq!(
+            results[0].metadata.action_summary,
+            "Move Cursor to Target A"
+        );
         assert!(results[0].similarity > 0.95);
 
         // AcousticReflexMatcher test

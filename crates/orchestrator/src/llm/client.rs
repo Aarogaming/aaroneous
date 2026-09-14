@@ -2,7 +2,9 @@
 //! Production-Grade LLM Client supporting OpenAI, Ollama, Local GGUF, and Autonomous Fallback.
 
 use crate::llm::providers::{GgufProvider, OpenAIProvider};
-use crate::llm::types::{LLMConfig, ProviderType, TaskAnalysis, TaskAnalysisContext, DesignContext};
+use crate::llm::types::{
+    DesignContext, LLMConfig, ProviderType, TaskAnalysis, TaskAnalysisContext,
+};
 use anyhow::{Context, Result};
 
 pub struct LLMClient {
@@ -32,7 +34,9 @@ impl LLMClient {
         match self.config.provider_type {
             ProviderType::OpenAI => {
                 let system_prompt = "You are a cognitive task analyzer. Estimate complexity (0.0 to 1.0), required skills, token count, and approach. Return JSON with fields: complexity, required_skills, estimated_tokens, recommended_approach, confidence_percentage, potential_risks.";
-                let response = self.generate_domain_response(system_prompt, prompt, "analysis").await?;
+                let response = self
+                    .generate_domain_response(system_prompt, prompt, "analysis")
+                    .await?;
 
                 // Try to parse the response as JSON, fall back to defaults
                 if let Ok(data) = serde_json::from_str::<serde_json::Value>(&response) {
@@ -40,17 +44,26 @@ impl LLMClient {
                         complexity: data["complexity"].as_f64().unwrap_or(0.7),
                         required_skills: data["required_skills"]
                             .as_array()
-                            .map(|a| a.iter().filter_map(|v| v.as_str().map(String::from)).collect())
+                            .map(|a| {
+                                a.iter()
+                                    .filter_map(|v| v.as_str().map(String::from))
+                                    .collect()
+                            })
                             .unwrap_or_else(|| vec!["analysis".to_string()]),
                         estimated_tokens: data["estimated_tokens"].as_u64().unwrap_or(250) as u32,
                         recommended_approach: data["recommended_approach"]
                             .as_str()
                             .unwrap_or(&response)
                             .to_string(),
-                        confidence_percentage: data["confidence_percentage"].as_u64().unwrap_or(85) as u32,
+                        confidence_percentage: data["confidence_percentage"].as_u64().unwrap_or(85)
+                            as u32,
                         potential_risks: data["potential_risks"]
                             .as_array()
-                            .map(|a| a.iter().filter_map(|v| v.as_str().map(String::from)).collect())
+                            .map(|a| {
+                                a.iter()
+                                    .filter_map(|v| v.as_str().map(String::from))
+                                    .collect()
+                            })
                             .unwrap_or_default(),
                     })
                 } else {
@@ -65,11 +78,13 @@ impl LLMClient {
                 }
             }
             ProviderType::GGUF => {
-                let response = self.generate_domain_response(
-                    "You are a cognitive task analyzer.",
-                    prompt,
-                    "analysis",
-                ).await?;
+                let response = self
+                    .generate_domain_response(
+                        "You are a cognitive task analyzer.",
+                        prompt,
+                        "analysis",
+                    )
+                    .await?;
                 Ok(TaskAnalysis {
                     complexity: 0.6,
                     required_skills: vec!["general".to_string()],
@@ -95,7 +110,10 @@ impl LLMClient {
             ProviderType::OpenAI | ProviderType::GGUF => {
                 let prompt = format!(
                     "File: {} ({})\nDomain: {}\nData Sample:\n{}",
-                    context.file_name, context.file_type, context.specialist_domain, context.data_sample
+                    context.file_name,
+                    context.file_type,
+                    context.specialist_domain,
+                    context.data_sample
                 );
                 self.analyze_task(&prompt).await
             }
@@ -171,19 +189,14 @@ impl LLMClient {
                     .await
                     .with_context(|| format!("GGUF inference failed for domain '{}'", domain))
             }
-            ProviderType::Mock => {
-                Ok(format!(
-                    "[Mock Engine] Specialist {} response to: {}",
-                    domain, user_prompt
-                ))
-            }
+            ProviderType::Mock => Ok(format!(
+                "[Mock Engine] Specialist {} response to: {}",
+                domain, user_prompt
+            )),
         }
     }
 
-    pub async fn generate_design(
-        &self,
-        context: &DesignContext,
-    ) -> Result<String> {
+    pub async fn generate_design(&self, context: &DesignContext) -> Result<String> {
         let system_prompt = format!(
             "Generate UI/UX layout variants. Style: {}. Constraints: {:?}",
             context.style, context.constraints
@@ -215,7 +228,10 @@ mod tests {
         let config = LLMConfig::default();
         let client = LLMClient::new(config);
 
-        let analysis = client.analyze_task("Refactor authentication module").await.unwrap();
+        let analysis = client
+            .analyze_task("Refactor authentication module")
+            .await
+            .unwrap();
         assert!(analysis.complexity > 0.0);
         assert!(!analysis.required_skills.is_empty());
     }
