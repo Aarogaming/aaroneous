@@ -23,6 +23,14 @@ Every crate in this repository is an independent, plug-and-play component block 
 
 ---
 
+## 0.1 Local Agent Delegation & Model Bias
+
+- **Default Agent Bias**: `qwen3.5:9b-q6` (Ollama at `http://localhost:11434`, model tag: `qwen3.5:9b-q6`).
+- **Autonomous Task Offloading**: When delegating code generation, method synthesis, refactoring, and test fixtures to local GPU models via `scripts/local_agent_delegate.ps1`, agents must default to `qwen3.5:9b-q6`.
+- **Reasoning Runaway Suppression**: When invoking `qwen3.5:9b-q6`, always provide a calibrated system prompt (e.g. `"You are a senior Rust systems programmer. Do NOT output any lengthy thinking trace or reasoning. Output only pure, complete Rust code."`) with `-Temperature 0.0` and generous token headroom (`-NumPredict 4096+`).
+
+---
+
 ## 1. Pure State Machine & Dependency Injection Rules
 
 - **Deterministic State Reducers**: Domain engines operate as pure state transitions $S_{t+1} = f(S_t, I)$. No side effects, no background network I/O, and no hidden async task launches during state reduction.
