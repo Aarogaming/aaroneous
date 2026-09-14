@@ -95,6 +95,7 @@ bin/a-run.exe
 *.tmp.*
 *.driveupload/
 .tmp.driveupload/
+*.gdoc
 *.bak
 
 # Local agent delegation scratch files
