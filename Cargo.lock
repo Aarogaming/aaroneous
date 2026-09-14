@@ -986,10 +986,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "biology"
-version = "0.1.0"
-
-[[package]]
 name = "bit-set"
 version = "0.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6676,6 +6672,7 @@ dependencies = [
  "async-stream",
  "async-trait",
  "axum",
+ "capabilities",
  "hex",
  "serde",
  "serde_json",
@@ -6924,19 +6921,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.119",
-]
-
-[[package]]
-name = "mutation_engine"
-version = "0.3.2"
-dependencies = [
- "anyhow",
- "bytemuck",
- "prettyplease",
- "proc-macro2",
- "quote",
- "syn 2.0.119",
- "thiserror 2.0.20",
 ]
 
 [[package]]
@@ -8184,11 +8168,11 @@ dependencies = [
 name = "orchestration_plane"
 version = "0.1.0"
 dependencies = [
+ "adaptation_engine",
  "anyhow",
  "bytemuck",
  "hex",
  "ipc_bus",
- "mutation_engine",
  "paths",
  "prettyplease",
  "proc-macro2",
@@ -8219,6 +8203,7 @@ dependencies = [
  "notify",
  "paths",
  "rand 0.8.8",
+ "regex",
  "reqwest 0.12.28",
  "serde",
  "serde_json",

@@ -1,4 +1,4 @@
-﻿# Aaroneous – Master Roadmap (vX.Y.Z)
+# Aaroneous – Master Roadmap (vX.Y.Z)
 
 ## Table of Contents
 1. [Executive Summary](#executive-summary)  
@@ -33,8 +33,8 @@ Following Cratify Batches 1 & 2, the workspace has eliminated monolithic couplin
 
 | Horizon | Architectural Domain | Status | Technical Mechanism & Target Deliverables |
 |---|---|---|---|
-| **H1** | **Autonomous Skill Synthesis & Trace Crystallization** | **Phase 2 Decoupling (Near Completion)** | Automatic extraction of high-frequency execution traces into compiled Cranelift native plugins embedded in .si Block 3 habit stacks. mutation_engine & untime_monitor integrated; mcp_server & orchestration_plane in active completion. |
-| **H2** | **Deep OS Observability & Multi-Modal Sensor Fusion** | **Expanding** | Quad-stream sensory pipeline: DXGI screen capture + UIA element tree + WASAPI loopback audio + non-polling ETW kernel events. Expansion targets: si_ir Machine Tokenizer, in-memory RLS adaptive filter in crates/compute/src/state_bank.rs, synthetic trace mining harness via llm_gateway, continuous telemetry ingestion via ing_buffer.rs. |
+| **H1** | **Autonomous Skill Synthesis & Trace Crystallization** | **Complete** | Automatic extraction of high-frequency execution traces into compiled Cranelift native plugins embedded in .si Block 3 habit stacks. `adaptation_engine` (AST pattern rewriter), `runtime_monitor`, `mcp_server`, and `orchestration_plane` fully integrated. |
+| **H2** | **Deep OS Observability & Multi-Modal Sensor Fusion** | **Expanding** | Quad-stream sensory pipeline: DXGI screen capture + UIA element tree + WASAPI loopback audio + non-polling ETW kernel events. Expansion targets: si_ir Machine Tokenizer, in-memory RLS adaptive filter in crates/compute/src/state_bank.rs, synthetic trace mining harness via llm_gateway, continuous telemetry ingestion via ing_buffer.rs. |
 | **H3** | **Formal SMT & Thermodynamic Verification** | **Active Standard** | Continuous lattice validation of 7-exponent SI base units with SMT-backed algebraic non-interference proofs for concurrent task graphs (crates/governance). |
 | **H4** | **Associative Vector Memory Fabric** | **Complete** | In-memory hnsw_rs indexing over $\mathbb{R}^{256}$ latent trajectories providing $< 1\mu\text{s}$ nearest-neighbor habit and reflex recall. |
 | **H5** | **Heterogeneous Fleet Swarm & Work-Stealing** | **Active Standard** | Multi-host Iroh QUIC mesh with Ed25519 node identities, dynamic load telemetry, and decentralized work-stealing for heavy computation graphs. |
@@ -74,12 +74,12 @@ All ongoing feature cycles and autonomous runtime evolution adhere to the system
 ### Prioritized Action Plan (Threaded & Parallel)
 
 #### 🔥 Critical (Sequential & In-Flight)
-- [x] **Decouple HUD from Hypervisor** – Extracted to crates/studio_hud (_run is 100% headless).
+- [x] **Decouple HUD from Hypervisor** – Extracted to crates/studio_hud (`a_run` is 100% headless).
 - [x] **Decouple LLM Gateway from Hypervisor** – Extracted to crates/llm_gateway.
-- [x] **Integrate mutation_engine** – Bytemuck Pod MutationHeader, zero-panic patch synthesizer.
-- [x] **Integrate untime_monitor** – Zero-copy telemetry ingestion and POD trigger events.
-- [ ] **Complete Assimilation Pipeline** – Finalize crates/mcp_server and crates/orchestration_plane headless compilation.
-- [ ] **Define un_hypervisor()** in core/hypervisor/src/lib.rs connecting RuntimeGovernor, supervised tasks, and the central Disruptor.
+- [x] **Consolidate mutation_engine into adaptation_engine** – Bytemuck Pod MutationHeader, zero-panic Comby-style AST patch rewriter.
+- [x] **Integrate runtime_monitor** – Zero-copy telemetry ingestion and SWMR POD trigger events.
+- [x] **Complete Assimilation Pipeline** – Finalized `crates/mcp_server` and `crates/orchestration_plane` headless compilation, live tool dispatch, and zero-ambient invariant conformance.
+- [ ] **Define run_hypervisor()** in core/hypervisor/src/lib.rs connecting RuntimeGovernor, supervised tasks, and the central Disruptor.
 - [ ] **Add supervision.rs** implementing a Supervisor struct with restart policy and budget registration.
 - [ ] **Convert CapabilityBroker** to issue signed CapabilityToken objects and integrate Windows Job sandbox creation.
 

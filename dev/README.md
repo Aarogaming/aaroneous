@@ -21,21 +21,21 @@ Welcome to the **`dev`** project. This directory serves as the permanent homebas
 
 | Document | Title & Description |
 | :--- | :--- |
-| [00_SYNTHETIC_INTELLIGENCE_MANIFESTO.md](file:///d:/Aaroneous/dev/docs/00_SYNTHETIC_INTELLIGENCE_MANIFESTO.md) | Philosophy: non-human-language machine-native intelligence, tensor thought, and native communication. |
-| [01_PROJECT_TAXONOMY_AND_ROLES.md](file:///d:/Aaroneous/dev/docs/01_PROJECT_TAXONOMY_AND_ROLES.md) | Official definitions: Aaroneous, Desktop Emulator, Adaptation Engine, Orchestrator, Synthesizer, and Presenter. |
-| [02_SYSTEM_ARCHITECTURE_BLUEPRINT.md](file:///d:/Aaroneous/dev/docs/02_SYSTEM_ARCHITECTURE_BLUEPRINT.md) | Modular blueprint, IPC/NATS topology, and shared memory pipelines. |
-| [03_CODEBASE_CENSUS_AND_FORENSIC_AUDIT.md](file:///d:/Aaroneous/dev/docs/03_CODEBASE_CENSUS_AND_FORENSIC_AUDIT.md) | Exhaustive audit of all 41 directories and 29 Cargo crates. |
-| [04_DUPLICATE_IMPLEMENTATION_ANALYSIS.md](file:///d:/Aaroneous/dev/docs/04_DUPLICATE_IMPLEMENTATION_ANALYSIS.md) | Forensic analysis of duplicated/conflicting Desktop Emulator, Adaptation Engine, and Synapse implementations. |
-| [05_WASM_PHASEOUT_AND_DEPRECATION_PLAN.md](file:///d:/Aaroneous/dev/docs/05_WASM_PHASEOUT_AND_DEPRECATION_PLAN.md) | Step-by-step roadmap to purge WASM/WIT layers in favor of native compiled shared libraries. |
-| [06_MACHINE_NATIVE_LINKING_PROTOCOL.md](file:///d:/Aaroneous/dev/docs/06_MACHINE_NATIVE_LINKING_PROTOCOL.md) | Canonical binary interchange specification for inter-program communication. |
-| [07_HOST_SAFETY_AND_ISOLATION_SPEC.md](file:///d:/Aaroneous/dev/docs/07_HOST_SAFETY_AND_ISOLATION_SPEC.md) | Post-mortem of host PC lockups/hijacking and mandatory safety isolation rules. |
-| [08_MODULAR_RESTRUCTURING_ROADMAP.md](file:///d:/Aaroneous/dev/docs/08_MODULAR_RESTRUCTURING_ROADMAP.md) | Phased execution guide for separating the monolith into linked standalone programs. |
-| [09_STEM_CELL_META_ARCHITECTURE.md](file:///d:/Aaroneous/dev/docs/09_STEM_CELL_META_ARCHITECTURE.md) | Technical specification of the pluripotent stem cell engine ("the program that programs with programs"). |
-| [10_AUTO_WRAPPING_AND_ADAPTATION_SPEC.md](file:///d:/Aaroneous/dev/docs/10_AUTO_WRAPPING_AND_ADAPTATION_SPEC.md) | Four-stage pipeline for automatically wrapping external programs into sovereign utilities. |
-| [11_OMNI_GALAXY_DATA_NAVIGATION_SPEC.md](file:///d:/Aaroneous/dev/docs/11_OMNI_GALAXY_DATA_NAVIGATION_SPEC.md) | The 3D star-node and galactic clustering architecture for content-based semantic navigation and visual search. |
-| [12_MASTER_FEATURE_AND_SUBSYSTEM_INVENTORY.md](file:///d:/Aaroneous/dev/docs/12_MASTER_FEATURE_AND_SUBSYSTEM_INVENTORY.md) | Exhaustive deconstruction and tagging of all 10 major computational and biological engines in Aaroneous. |
-| [13_DECONSTRUCTION_AND_REORGANIZATION_METHODOLOGY.md](file:///d:/Aaroneous/dev/docs/13_DECONSTRUCTION_AND_REORGANIZATION_METHODOLOGY.md) | The 4-stage ledger & non-destructive staging pipeline for systematic codebase restructuring. |
-| [14_SOVEREIGN_SPECIALISTS_AND_RELICS_ROSTER.md](file:///d:/Aaroneous/dev/docs/14_SOVEREIGN_SPECIALISTS_AND_RELICS_ROSTER.md) | The modernized Specialist Federation of 9 Sovereign Domain Specialists and their paired Relic Substrates. |
+| [00_SYNTHETIC_INTELLIGENCE_MANIFESTO.md](file:///d:/Aaroneous/docs/archive/stale_sprawl/00_SYNTHETIC_INTELLIGENCE_MANIFESTO.md) | Philosophy: non-human-language machine-native intelligence, tensor thought, and native communication. |
+| [01_PROJECT_TAXONOMY_AND_ROLES.md](file:///d:/Aaroneous/docs/archive/stale_sprawl/01_PROJECT_TAXONOMY_AND_ROLES.md) | Official definitions: Aaroneous, Desktop Emulator, Adaptation Engine, Orchestrator, Synthesizer, and Presenter. |
+| [02_SYSTEM_ARCHITECTURE_BLUEPRINT.md](file:///d:/Aaroneous/docs/archive/stale_sprawl/02_SYSTEM_ARCHITECTURE_BLUEPRINT.md) | Modular blueprint, IPC/NATS topology, and shared memory pipelines. |
+| [03_CODEBASE_CENSUS_AND_FORENSIC_AUDIT.md](file:///d:/Aaroneous/docs/archive/stale_sprawl/03_CODEBASE_CENSUS_AND_FORENSIC_AUDIT.md) | Exhaustive audit of all 41 directories and 29 Cargo crates. |
+| [04_DUPLICATE_IMPLEMENTATION_ANALYSIS.md](file:///d:/Aaroneous/docs/archive/stale_sprawl/04_DUPLICATE_IMPLEMENTATION_ANALYSIS.md) | Forensic analysis of duplicated/conflicting Desktop Emulator, Adaptation Engine, and Synapse implementations. |
+| [05_WASM_PHASEOUT_AND_DEPRECATION_PLAN.md](file:///d:/Aaroneous/docs/archive/stale_sprawl/05_WASM_PHASEOUT_AND_DEPRECATION_PLAN.md) | Step-by-step roadmap to purge WASM/WIT layers in favor of native compiled shared libraries. |
+| [06_MACHINE_NATIVE_LINKING_PROTOCOL.md](file:///d:/Aaroneous/docs/archive/stale_sprawl/06_MACHINE_NATIVE_LINKING_PROTOCOL.md) | Canonical binary interchange specification for inter-program communication. |
+| [07_HOST_SAFETY_AND_ISOLATION_SPEC.md](file:///d:/Aaroneous/docs/archive/stale_sprawl/07_HOST_SAFETY_AND_ISOLATION_SPEC.md) | Post-mortem of host PC lockups/hijacking and mandatory safety isolation rules. |
+| [08_MODULAR_RESTRUCTURING_ROADMAP.md](file:///d:/Aaroneous/docs/archive/stale_sprawl/08_MODULAR_RESTRUCTURING_ROADMAP.md) | Phased execution guide for separating the monolith into linked standalone programs. |
+| [09_STEM_CELL_META_ARCHITECTURE.md](file:///d:/Aaroneous/docs/archive/stale_sprawl/09_STEM_CELL_META_ARCHITECTURE.md) | Technical specification of the pluripotent stem cell engine ("the program that programs with programs"). |
+| [10_AUTO_WRAPPING_AND_ADAPTATION_SPEC.md](file:///d:/Aaroneous/docs/archive/stale_sprawl/10_AUTO_WRAPPING_AND_ADAPTATION_SPEC.md) | Four-stage pipeline for automatically wrapping external programs into sovereign utilities. |
+| [11_OMNI_GALAXY_DATA_NAVIGATION_SPEC.md](file:///d:/Aaroneous/docs/archive/stale_sprawl/11_OMNI_GALAXY_DATA_NAVIGATION_SPEC.md) | The 3D star-node and galactic clustering architecture for content-based semantic navigation and visual search. |
+| [12_MASTER_FEATURE_AND_SUBSYSTEM_INVENTORY.md](file:///d:/Aaroneous/docs/archive/stale_sprawl/12_MASTER_FEATURE_AND_SUBSYSTEM_INVENTORY.md) | Exhaustive deconstruction and tagging of all 10 major computational and biological engines in Aaroneous. |
+| [13_DECONSTRUCTION_AND_REORGANIZATION_METHODOLOGY.md](file:///d:/Aaroneous/docs/archive/stale_sprawl/13_DECONSTRUCTION_AND_REORGANIZATION_METHODOLOGY.md) | The 4-stage ledger & non-destructive staging pipeline for systematic codebase restructuring. |
+| [14_SOVEREIGN_SPECIALISTS_AND_RELICS_ROSTER.md](file:///d:/Aaroneous/docs/archive/stale_sprawl/14_SOVEREIGN_SPECIALISTS_AND_RELICS_ROSTER.md) | The modernized Specialist Federation of 9 Sovereign Domain Specialists and their paired Relic Substrates. |
 
 ---
 

@@ -239,11 +239,11 @@ impl WorkflowGraph {
         for step in ready_steps {
             let r = runner_arc.clone();
             let sem = semaphore.clone();
-            // Bound concurrency to prevent threadpool starvation
-            join_set.spawn(async move {
+            let step_task = async move {
                 let _permit = sem.acquire().await;
                 r(step).await
-            });
+            };
+            join_set.spawn(step_task);
         }
 
         // Collect concurrent results and update workflow state

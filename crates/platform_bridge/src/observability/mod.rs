@@ -11,6 +11,7 @@ pub mod rdtsc;
 pub mod shadow_stream;
 pub mod uia;
 pub mod wasapi;
+pub mod gpu_monitor;
 
 pub use audio_features::{AcousticFeatureExtractor, AcousticLatent, FFT_SIZE, LATENT_DIM};
 pub use etw::{EtwKernelConsumer, KernelTraceEvent, DEFAULT_MAX_RING_CAPACITY};
@@ -21,3 +22,4 @@ pub use rdtsc::{read_cpu_timestamp, HardwareCycleProfiler};
 pub use shadow_stream::{ShadowDistillationTap, ShadowExchange};
 pub use uia::{UiaElementNode, UiaTreeWalker};
 pub use wasapi::{WasapiCaptureConfig, WasapiLoopbackCapture};
+pub use gpu_monitor::{GpuMemoryMonitor, GpuTelemetry};

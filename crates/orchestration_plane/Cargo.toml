@@ -9,7 +9,7 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 tracing = { workspace = true }
 anyhow = { workspace = true }
-mutation_engine = { path = "../mutation_engine" }
+adaptation_engine = { path = "../adaptation_engine" }
 prettyplease = "0.2"
 walkdir = "2.3"
 uuid = { version = "1.0", features = ["v4"] }

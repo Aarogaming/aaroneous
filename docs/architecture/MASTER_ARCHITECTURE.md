@@ -43,7 +43,7 @@ The repository operates as a single Cargo workspace consisting of 31 member crat
 +---------------------------------------------------------------------------------------+
 |                         RING 2: ORCHESTRATION & CONTROL PLANE                         |
 |   crates/orchestrator | crates/orchestration_plane | crates/governance                |
-|   crates/autonomic_adaptation | crates/mutation_engine | crates/runtime_monitor       |
+|   crates/autonomic_adaptation | crates/runtime_monitor                                |
 +---------------------------------------------------------------------------------------+
                                           │
                                           │ Lock-Free SWMR Ring Buffers / Zero-Copy Pod

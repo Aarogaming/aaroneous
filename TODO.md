@@ -135,7 +135,7 @@ $$\textbf{Observe} \longrightarrow \textbf{Hypothesize} \longrightarrow \textbf{
 ## Active & Frontier Roadmap
 
 > [!TIP]
-> **Completed Phases & Defects Archive**: Detailed task-level records for completed historical phases (Phases 1 through 37) and defect remediation audits are preserved in [dev/docs/blueprints/COMPLETED_PHASES_ARCHIVE.md](file:///d:/Aaroneous/dev/docs/blueprints/COMPLETED_PHASES_ARCHIVE.md).
+> **Completed Phases & Defects Archive**: Detailed task-level records for completed historical phases (Phases 1 through 37) and defect remediation audits are preserved in [docs/archive/stale_sprawl/blueprints/COMPLETED_PHASES_ARCHIVE.md](file:///d:/Aaroneous/docs/archive/stale_sprawl/blueprints/COMPLETED_PHASES_ARCHIVE.md).
 
 ### Phase 38: Triad Shell Convergence, Resource Governance & Micro-Latency Architecture (In Progress)
 *Low-overhead state-sharing, adaptive dirty-flag frame pacing, thermal/VRAM backpressure, and isolated shell resilience.*
@@ -232,17 +232,21 @@ $$\textbf{Observe} \longrightarrow \textbf{Hypothesize} \longrightarrow \textbf{
   - Connected `crates/platform_bridge/src/observability/uia.rs` into `CapabilityBroker` (`screen.inspect_uia`) to extract native button states, text controls, and accessibility hierarchies with zero GPU vision overhead.
 - [x] **PERC-02: Zero-Latency Win32 Desktop Duplication Direct into Shared Memory**
   - Connected `core/hypervisor/src/win32_intercept/capture.rs` and `shmem_capture.rs` into `CapabilityBroker` (`screen.shmem_frame_capture`) to stream frames directly from the DirectX Desktop Duplication API into shared memory for instantaneous perception.
-- [ ] **HW-01: CAN Bus Telemetry Gateway for Vehicle & Engine Telemetry**
+### 🔬 Speculative Frontier & Research Scaffolds (Exploratory / Unwired)
+> [!WARNING]
+> **Frontier Research Notice**: The following items represent speculative architectural explorations and future hardware integration targets. Code modules associated with these items (e.g. in `core/hypervisor/src/federation/`) contain compiling prototype types and interfaces, but are intentionally decoupled from production runtime gates until physical hardware and formal verification bridges are commissioned.
+
+- [ ] **HW-01: CAN Bus Telemetry Gateway for Vehicle & Engine Telemetry [Frontier / Hardware-Bound]**
   - Wire `crates/platform_bridge/src/robotics/canbus.rs` into the `CapabilityBroker` and Studio dashboard to ingest vehicle OBD-II metrics and ECU states directly.
-- [ ] **HW-02: Direct GPIO & Serial Port Microcontroller Polling**
+- [ ] **HW-02: Direct GPIO & Serial Port Microcontroller Polling [Frontier / Hardware-Bound]**
   - Connect serial port and GPIO interfaces from `data/fabrication/` into the `CapabilityBroker` to allow agents to directly trigger and monitor physical hardware pins and relays.
-- [ ] **XR-01: OpenXR Native Spatial Rig Provider**
+- [ ] **XR-01: OpenXR Native Spatial Rig Provider [Frontier / Prototype]**
   - Connect `core/hypervisor/src/federation/ar/openxr_provider.rs` to project the 3D Constellation galaxy and DAG visualizer into mixed-reality headsets for immersive spatial debugging.
-- [ ] **BIO-01: Bluetooth Low-Energy (BLE) Biometric Telemetry Streaming**
+- [ ] **BIO-01: Bluetooth Low-Energy (BLE) Biometric Telemetry Streaming [Frontier / Prototype]**
   - Wire `core/hypervisor/src/federation/biometric/ble_provider.rs` directly into the engine's `dopamine_system` and user baseline engine to dynamically regulate UI intensity and notification cadences from wearable biometrics.
-- [ ] **RESIL-01: Dynamic Self-Rebuild & In-Flight Binary Swapping**
+- [ ] **RESIL-01: Dynamic Self-Rebuild & In-Flight Binary Swapping [Frontier / Prototype]**
   - Connect `crates/adaptation_engine/src/self_rebuild.rs` and `self_repair.rs` to trigger automated compilations, verify binary integrity, and hot-swap executables without losing hypervisor background session state.
-- [ ] **RESIL-02: Automated Scientific Hypothesis Engine**
+- [ ] **RESIL-02: Automated Scientific Hypothesis Engine [Frontier / Prototype]**
   - Enforce `crates/adaptation_engine/src/analysis/hypothesis.rs` and `experiment.rs` in autonomous loops to formalize explicit hypotheses and record experimental outcomes directly into `episodic_memory`.
 - [x] **ARCH-01: Demand-Driven Query Memoization (The `rust-analyzer` Salsa Model)**
   - Implemented `DemandDrivenAstCache` in `crates/transpiler/src/prefix_cache_integration.rs` with fine-grained dependency tracking, revision counters, and lazy query evaluation; invalidates only modified files, preserving instant warm cache for prompt injection and model context retrieval.

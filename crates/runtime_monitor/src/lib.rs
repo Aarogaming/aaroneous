@@ -1,7 +1,6 @@
 //! Runtime Monitor fast-path crate.
 
 mod types;
-// mod streaming_adaptation; // TEMPORARILY DISABLED
 mod error_interceptor;
 
 pub use hypervisor::state::telemetry::{Trigger, push_telemetry, telemetry_ring_buffer};
