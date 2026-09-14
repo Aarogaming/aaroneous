@@ -32,18 +32,21 @@ pub const ACTION_DRAG_END: u64 = 1 << 11;
 /// Converts motor intents to Win32 SendInput hardware events
 pub struct HIDOutputBridge {
     mouse_sensitivity: f32,
+    /// Runtime permit for host input - injected at construction (replaces std::env check)
+    allow_host_input: bool,
 }
 
 impl Default for HIDOutputBridge {
     fn default() -> Self {
-        Self::new()
+        Self::new(false)
     }
 }
 
 impl HIDOutputBridge {
-    pub fn new() -> Self {
+    pub fn new(allow_host_input: bool) -> Self {
         Self {
             mouse_sensitivity: 1.0,
+            allow_host_input,
         }
     }
 
@@ -52,11 +55,14 @@ impl HIDOutputBridge {
         self
     }
 
+    pub fn with_host_input_permit(mut self, permit: bool) -> Self {
+        self.allow_host_input = permit;
+        self
+    }
+
     pub fn execute_intent(&self, intent: &MotorIntent) {
-        // Keep this low-level bridge fail-closed as well as the higher-level
-        // Desktop Emulator host. Direct callers must explicitly opt into live host
-        // input through the same runtime safety permit.
-        if std::env::var("AARONEOUS_ALLOW_HOST_INPUT").as_deref() != Ok("1") {
+        // Safety gate now enforced via config injection at construction time
+        if !self.allow_host_input {
             return;
         }
 

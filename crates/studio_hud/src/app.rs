@@ -31,6 +31,8 @@ pub struct StudioApp {
     pub last_rendered_generation: u64,
     pub last_interaction_instant: Instant,
     pub shell_panic_recovered: bool,
+    pub cached_hwnd: Option<isize>,
+    pub last_synced_click_through: Option<bool>,
 }
 
 impl Default for StudioApp {
@@ -73,6 +75,8 @@ impl Default for StudioApp {
             last_rendered_generation: 0,
             last_interaction_instant: Instant::now(),
             shell_panic_recovered: false,
+            cached_hwnd: None,
+            last_synced_click_through: None,
         }
     }
 }
@@ -111,7 +115,7 @@ impl StudioApp {
                 ctx.send_viewport_cmd(egui::ViewportCommand::Minimized(true));
             }
             CommandAction::ToggleInGameOverlay => {
-                self.state.is_ingame_overlay_open = !self.state.is_ingame_overlay_open;
+                self.toggle_transparent_overlay_mode(ctx);
             }
             CommandAction::ToggleDevMode => {
                 self.state.settings.dev_mode = !self.state.settings.dev_mode;
@@ -187,6 +191,59 @@ impl StudioApp {
             }
         }
     }
+
+    /// Synchronizes native Win32 window extended styles (WS_EX_TRANSPARENT | WS_EX_LAYERED)
+    /// and eframe viewport commands with the current `overlay_click_through` state.
+    pub fn sync_click_through_state(&mut self, ctx: &egui::Context) {
+        if self.cached_hwnd.is_none() {
+            self.cached_hwnd = platform_bridge::TransparentWindowPipeline::find_own_window()
+                .ok()
+                .flatten();
+        }
+
+        let click_through = self.state.overlay_click_through;
+        if let Some(hwnd) = self.cached_hwnd {
+            let _ = platform_bridge::TransparentWindowPipeline::apply_click_through(hwnd, click_through);
+            if click_through {
+                let _ = platform_bridge::TransparentWindowPipeline::set_always_on_top(hwnd, true);
+            }
+        }
+
+        ctx.send_viewport_cmd(egui::ViewportCommand::MousePassthrough(click_through));
+        if click_through {
+            ctx.send_viewport_cmd(egui::ViewportCommand::WindowLevel(egui::WindowLevel::AlwaysOnTop));
+            self.toasts.push(
+                "HUD: Pass-Through Mode",
+                "Clicks pass through to underlying applications (F12 to unlock).",
+                ToastLevel::Success,
+            );
+        } else {
+            self.toasts.push(
+                "HUD: Interactive Mode",
+                "Overlay controls interactive (F12 for click-through).",
+                ToastLevel::Info,
+            );
+        }
+    }
+
+    /// Dynamically toggles between interactive studio mode and detached transparent overlay mode (SHELL-03).
+    pub fn toggle_transparent_overlay_mode(&mut self, ctx: &egui::Context) {
+        match self.state.app_window_mode {
+            AppWindowMode::TransparentOverlay => {
+                self.state.app_window_mode = AppWindowMode::FullStudio;
+                self.state.overlay_click_through = false;
+                self.last_synced_click_through = Some(false);
+                self.sync_click_through_state(ctx);
+            }
+            _ => {
+                self.state.app_window_mode = AppWindowMode::TransparentOverlay;
+                self.state.is_ingame_overlay_open = true;
+                self.state.overlay_click_through = true;
+                self.last_synced_click_through = Some(true);
+                self.sync_click_through_state(ctx);
+            }
+        }
+    }
 }
 
 impl eframe::App for StudioApp {
@@ -236,8 +293,13 @@ impl eframe::App for StudioApp {
                 }
             }
         }
-        if ctx.input(|i| i.key_pressed(Key::F12)) {
-            self.state.is_ingame_overlay_open = !self.state.is_ingame_overlay_open;
+        let f12_pressed = ctx.input(|i| i.key_pressed(Key::F12))
+            || platform_bridge::TransparentWindowPipeline::check_global_toggle_hotkey();
+        if f12_pressed {
+            self.toggle_transparent_overlay_mode(&ctx);
+        } else if self.last_synced_click_through != Some(self.state.overlay_click_through) {
+            self.last_synced_click_through = Some(self.state.overlay_click_through);
+            self.sync_click_through_state(&ctx);
         }
         if ctx.input(|i| {
             (i.modifiers.ctrl && i.key_pressed(Key::Slash)) || i.key_pressed(Key::Questionmark)
@@ -302,6 +364,9 @@ impl eframe::App for StudioApp {
                 }
                 AppWindowMode::ConsoleGameOS => {
                     self.console_os.render(ui, &mut self.state);
+                }
+                AppWindowMode::TransparentOverlay => {
+                    // Detached transparent overlay: main canvas background remains clear
                 }
             }
         }));
@@ -477,5 +542,30 @@ impl eframe::App for StudioApp {
             // Idle state: drop to power-saving cadence (4 FPS / 250ms), preserving CPU/VRAM for inference
             ctx.request_repaint_after(Duration::from_millis(250));
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_transparent_overlay_mode_transitions() {
+        let mut app = StudioApp::new();
+        assert_eq!(app.state.app_window_mode, AppWindowMode::FullStudio);
+        assert!(!app.state.overlay_click_through);
+
+        let ctx = egui::Context::default();
+
+        // Toggle into transparent overlay mode
+        app.toggle_transparent_overlay_mode(&ctx);
+        assert_eq!(app.state.app_window_mode, AppWindowMode::TransparentOverlay);
+        assert!(app.state.overlay_click_through);
+        assert!(app.state.is_ingame_overlay_open);
+
+        // Toggle back to interactive studio mode
+        app.toggle_transparent_overlay_mode(&ctx);
+        assert_eq!(app.state.app_window_mode, AppWindowMode::FullStudio);
+        assert!(!app.state.overlay_click_through);
     }
 }

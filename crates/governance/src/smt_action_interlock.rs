@@ -14,10 +14,39 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, RwLock};
+use thiserror::Error;
 
 use si_ir::NativeComputationalGraph;
 use crate::lattice_verifier::{LatticeVerifier, VerificationReport};
 use crate::z3_prover::{NonInterferenceReport, Z3Prover};
+
+/// Structured errors emitted during formal SMT verification, thermodynamic gating, and interlock checks.
+#[derive(Debug, Error, Clone, PartialEq)]
+pub enum GovernanceError {
+    #[error("Hardware emergency killswitch is active: {0}")]
+    KillswitchTripped(String),
+
+    #[error("Thermodynamic free-energy dissipation {actual:.4} exceeds strict bound {max:.4}")]
+    ThermodynamicBoundExceeded { actual: f64, max: f64 },
+
+    #[error("Structural lattice dimensional invariant violation: {0}")]
+    LatticeViolation(String),
+
+    #[error("SMT formal non-interference conflict on registers: {conflicting_registers:?}")]
+    NonInterferenceConflict { conflicting_registers: Vec<u16> },
+
+    #[error("Algebraic invariant violation on state '{state_name}': {reason}")]
+    AlgebraicInvariantViolation { state_name: String, reason: String },
+
+    #[error("Memory or register boundary violation: register {register} exceeds valid space")]
+    MemorySafetyViolation { register: u16 },
+
+    #[error("Executive plan interlock verification rejected: {0}")]
+    PlanVerificationRejected(String),
+
+    #[error("General governance validation error: {0}")]
+    ValidationError(String),
+}
 
 /// Pre-computed SMT Proof Cache Key
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -96,9 +125,43 @@ impl SmtActionInterlock {
         &self.proof_cache
     }
 
+    /// Access the Z3 SMT prover
+    pub fn z3_prover(&self) -> &Z3Prover {
+        &self.z3_prover
+    }
+
     /// Default strict configuration (max free energy = 0.05).
     pub fn strict() -> Self {
         Self::new(0.05)
+    }
+
+    /// Evaluates action graph with strict GovernanceError return type, proving non-interference and boundary safety.
+    pub fn evaluate_action_gate(&self, graph: &NativeComputationalGraph) -> Result<InterlockAuditCertificate, GovernanceError> {
+        if self.emergency_killswitch_tripped.load(Ordering::Acquire) {
+            return Err(GovernanceError::KillswitchTripped(
+                "Execution forbidden by active emergency killswitch".to_string(),
+            ));
+        }
+
+        // Prove memory bounds and dimensional consistency via Z3Prover
+        self.z3_prover.prove_action_safety(graph)?;
+
+        // Prove thermodynamic dissipation bound
+        if graph.thermodynamic_free_energy > self.max_free_energy_bound {
+            return Err(GovernanceError::ThermodynamicBoundExceeded {
+                actual: graph.thermodynamic_free_energy,
+                max: self.max_free_energy_bound,
+            });
+        }
+
+        let cert = self.evaluate_action_graph(graph).map_err(|e| GovernanceError::ValidationError(e.to_string()))?;
+        if !cert.is_authorized {
+            return Err(GovernanceError::ValidationError(
+                cert.denial_reason.clone().unwrap_or_else(|| "Interlock authorization denied".to_string()),
+            ));
+        }
+
+        Ok(cert)
     }
 
     /// Evaluates and formally proves a single action graph before Cranelift JIT or hardware dispatch.
@@ -389,5 +452,33 @@ mod tests {
         assert_eq!(results.len(), 2);
         assert!(results[0].is_authorized);
         assert!(!results[1].is_authorized);
+    }
+
+    #[test]
+    fn test_evaluate_action_gate_typed_errors() {
+        let interlock = SmtActionInterlock::new(0.05);
+
+        // 1. Thermodynamic bound exceeded
+        let mut high_energy_graph = NativeComputationalGraph::new();
+        high_energy_graph.thermodynamic_free_energy = 0.12;
+        let err = interlock.evaluate_action_gate(&high_energy_graph).unwrap_err();
+        match err {
+            GovernanceError::ThermodynamicBoundExceeded { actual, max } => {
+                assert!((actual - 0.12).abs() < 1e-6);
+                assert!((max - 0.05).abs() < 1e-6);
+            }
+            other => panic!("Expected ThermodynamicBoundExceeded, got {:?}", other),
+        }
+
+        // 2. Killswitch active error
+        interlock.trip_killswitch();
+        let safe_graph = NativeComputationalGraph::new();
+        let err = interlock.evaluate_action_gate(&safe_graph).unwrap_err();
+        assert!(matches!(err, GovernanceError::KillswitchTripped(_)));
+        interlock.reset_killswitch();
+
+        // 3. Success case
+        let cert = interlock.evaluate_action_gate(&safe_graph).unwrap();
+        assert!(cert.is_authorized);
     }
 }

@@ -89,7 +89,7 @@ impl AutonomousDecisionEngine {
             biology: SystemBiology::new(),
             governor: ThermodynamicGovernor::new(ThermodynamicGovernorConfig::default()),
             intelligence,
-            compute: ComputeEngine::new(),
+            compute: ComputeEngine::default(),
             rng: rand::rngs::StdRng::from_seed(rand::random()),
             prior_success_count: 10.0, // Laplace smoothing
             prior_failure_count: 2.0,
@@ -294,6 +294,47 @@ impl AutonomousDecisionEngine {
             }
 
             Action::Reject => ExecutionOutcome::Rejected("Task rejected".to_string()),
+        }
+    }
+
+    /// Process a typestate assimilation record and tick the state machine forward.
+    pub async fn process_assimilation_cycle(&mut self, record: crate::assimilation::AssimilationRecord) -> crate::assimilation::AssimilationRecord {
+        use crate::assimilation::{AssimilationPhase, AssimilationTask, Idle, Quarantined, Auditing, Synthesizing, Certifying, AuditResult};
+        use crate::nervous_system::universal_protocol::{FixedString256, FixedString64};
+        use core::marker::PhantomData;
+
+        match record.phase {
+            0 => { // Idle -> Quarantined
+                let task: AssimilationTask<Idle> = AssimilationTask { record, _marker: PhantomData };
+                let quarantined = task.quarantine(FixedString256::default());
+                quarantined.record
+            }
+            1 => { // Quarantined -> Auditing
+                let task: AssimilationTask<Quarantined> = AssimilationTask { record, _marker: PhantomData };
+                let auditing = task.begin_audit();
+                auditing.record
+            }
+            2 => { // Auditing -> Synthesizing or Rejected
+                let task: AssimilationTask<Auditing> = AssimilationTask { record, _marker: PhantomData };
+                match task.conclude_audit(AuditResult::Pass(FixedString64::default())) {
+                    Ok(synthesizing) => synthesizing.record,
+                    Err(rejected) => rejected.record,
+                }
+            }
+            3 => { // Synthesizing -> Certifying
+                let task: AssimilationTask<Synthesizing> = AssimilationTask { record, _marker: PhantomData };
+                let certifying = task.finalize_synthesis();
+                certifying.record
+            }
+            4 => { // Certifying -> Committed, Synthesizing, or Rejected
+                let task: AssimilationTask<Certifying> = AssimilationTask { record, _marker: PhantomData };
+                match task.certify(true, 3) {
+                    Ok(committed) => committed.record,
+                    Err(Ok(synthesizing)) => synthesizing.record,
+                    Err(Err(rejected)) => rejected.record,
+                }
+            }
+            _ => record // Committed or Rejected
         }
     }
 
@@ -575,7 +616,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_evaluate_task() {
+    async fn test_evaluate_task() -> Result<(), Box<dyn std::error::Error>> {
         let intelligence = create_test_intelligence().await;
         let mut engine = AutonomousDecisionEngine::new(intelligence);
 
@@ -591,34 +632,21 @@ mod tests {
         let evaluation = engine.evaluate_task(&task).await?;
         assert!(!evaluation.task_id.is_empty());
         assert!(evaluation.confidence >= 0.0 && evaluation.confidence <= 1.0);
+        Ok(())
     }
 
     #[tokio::test]
-    async fn test_ingestion_cycle() {
+    async fn test_assimilation_cycle() {
         let intelligence = create_test_intelligence().await;
         let mut engine = AutonomousDecisionEngine::new(intelligence);
 
-        let tasks = vec![
-            DecisionTask {
-                id: "task_1".to_string(),
-                description: "Task 1".to_string(),
-                task_type: TaskType::CodeGeneration,
-                raw_input: "Simple task".to_string(),
-                priority: 0.8,
-                deadline_seconds: None,
-            },
-            DecisionTask {
-                id: "task_2".to_string(),
-                description: "Task 2".to_string(),
-                task_type: TaskType::BugFix,
-                raw_input: "Fix bug".to_string(),
-                priority: 0.5,
-                deadline_seconds: None,
-            },
-        ];
+        let initial_record = crate::assimilation::AssimilationTask::<crate::assimilation::Idle>::new([0; 16], 0).record;
 
-        let report = engine.process_ingestion_cycle(tasks).await;
-        assert_eq!(report.total_tasks, 2);
+        let after_step_1 = engine.process_assimilation_cycle(initial_record).await;
+        assert_eq!(after_step_1.phase, crate::assimilation::AssimilationPhase::Quarantined as u32);
+        
+        let after_step_2 = engine.process_assimilation_cycle(after_step_1).await;
+        assert_eq!(after_step_2.phase, crate::assimilation::AssimilationPhase::Auditing as u32);
     }
 
     #[tokio::test]

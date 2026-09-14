@@ -258,7 +258,7 @@ impl SiMoERegister {
     pub fn find_merge_candidates(&self, co_fire_threshold: u64) -> Vec<(usize, usize, u64)> {
         self.co_activation_matrix
             .iter()
-            .filter(|(_, &count)| count >= co_fire_threshold)
+            .filter(|&(_, &count)| count >= co_fire_threshold)
             .map(|(&(a, b), &count)| (a, b, count))
             .collect()
     }

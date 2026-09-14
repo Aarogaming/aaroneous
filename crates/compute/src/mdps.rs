@@ -33,7 +33,7 @@ impl MarkovChain {
     /// Simulate one transition step
     pub fn step(&self, current_state: usize, rng: &mut impl Rng) -> usize {
         let probs = &self.transition_matrix[current_state];
-        let roll: f64 = rng.gen();
+        let roll: f64 = rng.r#gen::<f64>();
         let mut cumulative = 0.0;
         for (next, &p) in probs.iter().enumerate() {
             cumulative += p;

@@ -1,7 +1,7 @@
 // Aaroneous Agent Taxonomy Module
 // Defines core Agent, Specialist, Relic, and User classes with trait-based composition
 
-use crate::workspace::WorkspacePaths;
+use crate::workspace::{WorkspacePaths, WorkspacePathsConfig};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
@@ -112,7 +112,7 @@ impl Agent for SpecialistAgent {
 
 impl Default for SpecialistAgent {
     fn default() -> Self {
-        let paths = WorkspacePaths::discover();
+        let paths = WorkspacePaths::discover(&WorkspacePathsConfig::new());
         SpecialistAgent {
             id: "specialist_default".to_string(),
             name: "Template".to_string(),
@@ -180,7 +180,7 @@ impl Agent for RelicAgent {
 
 impl Default for RelicAgent {
     fn default() -> Self {
-        let paths = WorkspacePaths::discover();
+        let paths = WorkspacePaths::discover(&WorkspacePathsConfig::new());
         RelicAgent {
             id: "relic_default".to_string(),
             name: "Template".to_string(),
@@ -303,7 +303,7 @@ impl Agent for BaseAgent {
 impl Default for BaseAgent {
     fn default() -> Self {
         BaseAgent {
-            id: "aaroneous_agent_zero".to_string(),
+            id: "agent_zero".to_string(),
             name: "Aaroneous".to_string(),
             designation: "Agent-Zero".to_string(),
             persona: "The foundational orchestrator of the synthetic intelligence hive. Stable, reliable, and recursive.".to_string(),
@@ -321,7 +321,7 @@ impl Default for BaseAgent {
 
 /// Predefined specialist factory methods
 pub fn create_specialist(name: &str) -> Option<SpecialistAgent> {
-    let paths = crate::workspace::WorkspacePaths::discover();
+    let paths = crate::workspace::WorkspacePaths::discover(&WorkspacePathsConfig::new());
     match name.to_lowercase().as_str() {
         "presenter" => Some(SpecialistAgent {
             id: "specialist_presenter".to_string(),
@@ -488,7 +488,7 @@ pub fn create_reference_agent(name: &str, supervisor_id: &str) -> Option<Baselin
 
 /// Predefined relic factory methods
 pub fn create_relic(name: &str, supervisor_id: &str) -> Option<RelicAgent> {
-    let paths = crate::workspace::WorkspacePaths::discover();
+    let paths = crate::workspace::WorkspacePaths::discover(&WorkspacePathsConfig::new());
     match name.to_lowercase().as_str() {
         "display_buffer" => Some(RelicAgent {
             id: "relic_display_buffer".to_string(),

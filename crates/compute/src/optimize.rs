@@ -38,7 +38,7 @@ pub fn anneal_step(
 ) -> f64 {
     let neighbor = current + rng.gen_range(-0.5..0.5);
     let delta = objective(neighbor) - objective(current);
-    if delta > 0.0 || rng.gen::<f64>() < (-delta / temperature.max(1e-10)).exp() {
+    if delta > 0.0 || rng.r#gen::<f64>() < (-delta / temperature.max(1e-10)).exp() {
         neighbor
     } else {
         current
@@ -67,7 +67,7 @@ pub fn simulated_anneal_minimize(
         let delta = neighbor_score - current_score;
 
         // Minimization: accept if delta < 0 (better) or with Boltzmann probability if delta >= 0
-        if delta < 0.0 || rng.gen::<f64>() < (-delta / temp).exp() {
+        if delta < 0.0 || rng.r#gen::<f64>() < (-delta / temp).exp() {
             current = neighbor;
             current_score = neighbor_score;
 
@@ -102,7 +102,7 @@ pub fn genetic_step(population: &[f64], rng: &mut impl Rng) -> Result<Vec<f64>> 
     }
     // Crossover & mutation
     for i in 0..(offspring.len() / 2) {
-        if rng.gen::<f64>() < 0.7 {
+        if rng.r#gen::<f64>() < 0.7 {
             let child = (offspring[i * 2] + offspring[i * 2 + 1]) / 2.0;
             offspring[i * 2] = child + rng.gen_range(-0.1..0.1);
         }

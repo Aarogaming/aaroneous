@@ -218,7 +218,7 @@ impl HudView for SettingsView {
             // ── Section 6: Project Workspace Root ───────────────────────────────────
             ui.label(egui::RichText::new("📁 PROJECT WORKSPACE ROOT").strong());
             let current_root = state.settings.workspace_root_override.clone()
-                .unwrap_or_else(|| std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from(".")));
+                .unwrap_or_else(|| paths::WorkspacePaths::default().root().to_path_buf());
 
             ui.horizontal(|ui| {
                 ui.label(egui::RichText::new(format!("{}", current_root.display())).color(theme.accent()).size(12.0));

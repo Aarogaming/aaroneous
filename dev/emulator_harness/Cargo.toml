@@ -1,0 +1,18 @@
+[package]
+name = "emulator_harness"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+
+[dependencies]
+bytemuck = { version = "1.20", features = ["derive"] }
+ipc_bus = { path = "../../crates/ipc_bus" }
+si_format = { path = "../../crates/si_format" }
+thiserror = "1.0"
+
+
+[dev-dependencies]
+ast_auditor = { path = "../../crates/ast_auditor" }
+

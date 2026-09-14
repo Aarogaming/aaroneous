@@ -23,7 +23,7 @@ pub mod http_api;
 ///
 /// ```rust,no_run
 /// # use std::error::Error;
-/// # use a_run::mcp_service::{McpService, ServiceConfig};
+/// # use hypervisor::mcp_service::{McpService, ServiceConfig};
 /// # async fn example() -> Result<(), Box<dyn Error>> {
 ///     // Create service
 ///     let config = ServiceConfig::new()

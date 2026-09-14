@@ -2,6 +2,9 @@
 //! Centralized, Dynamic Workspace and Model Path Resolver for Aaroneous.
 //! ZERO Hardcoded Paths: Discovers root directories, user data paths, and local model hubs dynamically.
 
+#![deny(unsafe_code)]
+#![allow(unknown_lints)]
+
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -24,72 +27,167 @@ pub struct ModelHubLocation {
     pub exists: bool,
 }
 
+/// Config POD for workspace discovery - replaces env var injection
+#[repr(C)]
+#[derive(Debug, Clone, Default)]
+pub struct WorkspacePathsConfig {
+    pub explicit_root: Option<PathBuf>,
+    pub temp_dir: Option<PathBuf>,
+    pub external_data_root: Option<PathBuf>,
+}
+
+impl WorkspacePathsConfig {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn with_explicit_root(mut self, root: PathBuf) -> Self {
+        self.explicit_root = Some(root);
+        self
+    }
+
+    pub fn with_temp_dir(mut self, temp: PathBuf) -> Self {
+        self.temp_dir = Some(temp);
+        self
+    }
+
+    pub fn with_external_data_root(mut self, data_root: PathBuf) -> Self {
+        self.external_data_root = Some(data_root);
+        self
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct WorkspacePaths {
     root: PathBuf,
+    temp_dir: PathBuf,
+    data_root: PathBuf,
 }
 
 impl Default for WorkspacePaths {
     fn default() -> Self {
-        Self::discover()
+        Self::discover(&WorkspacePathsConfig::new())
     }
 }
 
 impl WorkspacePaths {
     /// Discover and construct workspace paths dynamically without hardcoded drive letters.
-    pub fn discover() -> Self {
-        // 1. Check explicit environment variable
-        if let Ok(env_root) = std::env::var("AARONEOUS_WORKSPACE") {
-            let p = PathBuf::from(env_root);
-            if p.exists() {
-                return Self { root: p };
+    pub fn discover(config: &WorkspacePathsConfig) -> Self {
+        // 1. Use explicit root from config (replaces env var lookup)
+        let root = if let Some(explicit_root) = &config.explicit_root {
+            if explicit_root.exists() {
+                explicit_root.clone()
+            } else {
+                Self::discover_root_from_system()
+            }
+        } else {
+            Self::discover_root_from_system()
+        };
+
+        let temp_dir = config.temp_dir.clone().unwrap_or_else(|| {
+            dirs::cache_dir()
+                .map(|p| p.join("Aaroneous").join("tmp"))
+                .unwrap_or_else(|| root.join(".tmp"))
+        });
+
+        let data_root = Self::discover_external_data_root(config, &root);
+
+        Self { root, temp_dir, data_root }
+    }
+
+    #[allow(ambient_authority)]
+    fn discover_external_data_root(config: &WorkspacePathsConfig, root: &Path) -> PathBuf {
+        // 1. Explicitly configured external data root via constructor injection
+        if let Some(ref external) = config.external_data_root {
+            return external.clone();
+        }
+
+        // 2. Check environment variable ARC_DATA_ROOT
+        if let Ok(env_path) = std::env::var("ARC_DATA_ROOT") {
+            let trimmed = env_path.trim();
+            if !trimmed.is_empty() {
+                return PathBuf::from(trimmed);
             }
         }
 
-        // 2. Check current working directory or traverse upward to find workspace marker
+        // 3. Default to sibling directory outside the git repository (e.g. D:\ArcData alongside D:\Aaroneous)
+        if let Some(parent) = root.parent() {
+            let sibling = parent.join("ArcData");
+            return sibling;
+        }
+
+        // 4. Safe fallback if root has no parent
+        root.join("data")
+    }
+
+    #[allow(ambient_authority)]
+    fn discover_root_from_system() -> PathBuf {
+        let is_repo_root = |dir: &Path| {
+            dir.join("Cargo.toml").exists()
+                && (dir.join("crates").exists() || dir.join("core").exists())
+        };
+
+        // 1. Check CARGO_MANIFEST_DIR (active during cargo test/run with external target-dir)
+        if let Ok(manifest_dir) = std::env::var("CARGO_MANIFEST_DIR") {
+            let mut curr = Some(Path::new(&manifest_dir));
+            while let Some(dir) = curr {
+                if is_repo_root(dir) {
+                    return dir.to_path_buf();
+                }
+                curr = dir.parent();
+            }
+        }
+
+        // 2. Check current working directory and traverse upward
         if let Ok(cwd) = std::env::current_dir() {
-            let mut curr = cwd.as_path();
-            loop {
-                if curr.join("Cargo.toml").exists() && (curr.join("crates").exists() || curr.join("core").exists()) {
-                    return Self { root: curr.to_path_buf() };
+            let mut curr = Some(cwd.as_path());
+            while let Some(dir) = curr {
+                if is_repo_root(dir) {
+                    return dir.to_path_buf();
                 }
-                match curr.parent() {
-                    Some(parent) => curr = parent,
-                    None => break,
-                }
+                curr = dir.parent();
             }
         }
 
-        // 3. Check current executable parent directory
+        // 3. Check current executable parent directory and traverse upward
         if let Ok(exe) = std::env::current_exe() {
-            if let Some(exe_dir) = exe.parent() {
-                if exe_dir.join("Cargo.toml").exists() {
-                    return Self { root: exe_dir.to_path_buf() };
+            let mut curr = exe.parent();
+            while let Some(dir) = curr {
+                if is_repo_root(dir) {
+                    return dir.to_path_buf();
                 }
-                if let Some(parent) = exe_dir.parent() {
-                    if parent.join("Cargo.toml").exists() {
-                        return Self { root: parent.to_path_buf() };
-                    }
-                }
+                curr = dir.parent();
             }
         }
 
         // 4. Default to standard OS Application Data Directory
-        let app_data = dirs::data_local_dir()
+        dirs::data_local_dir()
             .map(|p| p.join("Aaroneous"))
-            .unwrap_or_else(|| std::env::temp_dir().join("Aaroneous"));
-
-        Self { root: app_data }
+            .unwrap_or_else(|| PathBuf::from("."))
     }
 
     /// Construct from an explicit root path.
     pub fn from_root(root: PathBuf) -> Self {
-        Self { root }
+        let temp_dir = dirs::cache_dir()
+            .map(|p| p.join("Aaroneous").join("tmp"))
+            .unwrap_or_else(|| root.join(".tmp"));
+        let data_root = Self::discover_external_data_root(&WorkspacePathsConfig::new(), &root);
+        Self { root, temp_dir, data_root }
+    }
+
+    /// Construct from config POD (preferred pattern).
+    pub fn from_config(config: WorkspacePathsConfig) -> Self {
+        Self::discover(&config)
     }
 
     /// The workspace root directory.
     pub fn root(&self) -> &PathBuf {
         &self.root
+    }
+
+    /// The workspace temp directory.
+    pub fn temp_dir(&self) -> &PathBuf {
+        &self.temp_dir
     }
 
     // ── Core directories ──────────────────────────────────────────────
@@ -110,8 +208,30 @@ impl WorkspacePaths {
         self.root.join("config")
     }
 
+    /// The external data root directory.
+    pub fn data_root(&self) -> &PathBuf {
+        &self.data_root
+    }
+
+    /// Alias for external data root.
+    pub fn external_data_root(&self) -> &PathBuf {
+        &self.data_root
+    }
+
     pub fn data(&self) -> PathBuf {
-        self.root.join("data")
+        self.data_root.clone()
+    }
+
+    pub fn si_models(&self) -> PathBuf {
+        self.data().join("models")
+    }
+
+    pub fn state_banks(&self) -> PathBuf {
+        self.data().join("state_banks")
+    }
+
+    pub fn skill_storage(&self) -> PathBuf {
+        self.data().join("skills")
     }
 
     pub fn agents(&self) -> PathBuf {
@@ -145,14 +265,7 @@ impl WorkspacePaths {
             format!("{}.synapse", name)
         };
 
-        if let Ok(env_root) = std::env::var("AARONEOUS_WORKSPACE") {
-            let p = PathBuf::from(env_root);
-            if p.exists() {
-                return p.join(&file_name);
-            }
-        }
-
-        std::env::temp_dir().join(file_name)
+        self.temp_dir.join(file_name)
     }
 
     pub fn hive_db(&self) -> PathBuf {
@@ -190,7 +303,12 @@ impl WorkspacePaths {
     }
 
     pub fn extensions(&self) -> PathBuf {
-        self.data().join("extensions")
+        let in_tree = self.root.join("data").join("extensions");
+        if in_tree.exists() {
+            in_tree
+        } else {
+            self.data().join("extensions")
+        }
     }
 
     pub fn shadow_sandbox(&self) -> PathBuf {
@@ -198,7 +316,7 @@ impl WorkspacePaths {
     }
 
     pub fn cartridges(&self) -> PathBuf {
-        self.models().join("cartridges")
+        self.si_models().join("cartridges")
     }
 
     pub fn cartridges_inbox(&self) -> PathBuf {
@@ -216,6 +334,11 @@ impl WorkspacePaths {
         std::fs::create_dir_all(self.exports())?;
         std::fs::create_dir_all(self.logs())?;
         std::fs::create_dir_all(self.cache())?;
+        std::fs::create_dir_all(self.si_models())?;
+        std::fs::create_dir_all(self.skill_storage())?;
+        std::fs::create_dir_all(self.state_banks())?;
+        std::fs::create_dir_all(self.cartridges())?;
+        std::fs::create_dir_all(self.cartridges_inbox())?;
         Ok(())
     }
 }
@@ -385,9 +508,41 @@ fn format_bytes(bytes: u64) -> String {
     }
 }
 
+/// Pure path normalization that resolves '.' and '..' components deterministically
+/// without accessing the filesystem or invoking ambient canonicalization.
+pub fn normalize_path<P: AsRef<Path>>(path: P) -> PathBuf {
+    let mut normalized = PathBuf::new();
+    for component in path.as_ref().components() {
+        match component {
+            std::path::Component::CurDir => {}
+            std::path::Component::ParentDir => {
+                match normalized.components().next_back() {
+                    Some(std::path::Component::Normal(_)) => {
+                        normalized.pop();
+                    }
+                    Some(std::path::Component::ParentDir) => {
+                        normalized.push("..");
+                    }
+                    Some(std::path::Component::RootDir) | Some(std::path::Component::Prefix(_)) => {
+                        // At root or prefix, '..' is a no-op (cannot escape above root)
+                    }
+                    None => {
+                        normalized.push("..");
+                    }
+                    _ => {
+                        normalized.pop();
+                    }
+                }
+            }
+            c => normalized.push(c.as_os_str()),
+        }
+    }
+    normalized
+}
+
 /// Platform-agnostic workspace synapse path resolution
-pub fn resolve_synapse_path(name: &str) -> PathBuf {
-    WorkspacePaths::discover().synapse_named(name)
+pub fn resolve_synapse_path(name: &str, config: &WorkspacePathsConfig) -> PathBuf {
+    WorkspacePaths::discover(config).synapse_named(name)
 }
 
 /// Hierarchical configuration registry supporting cascading overrides:
@@ -402,17 +557,17 @@ impl FederationConfigRegistry {
         Self::default()
     }
 
+    pub fn from_entries(entries: std::collections::HashMap<String, String>) -> Self {
+        Self { entries }
+    }
+
     /// Inserts or overrides a configuration key-value pair
     pub fn set(&mut self, key: impl Into<String>, value: impl Into<String>) {
         self.entries.insert(key.into(), value.into());
     }
 
-    /// Resolves configuration key: checks environment variables first, then registry entries
+    /// Resolves configuration key from injected registry entries
     pub fn get(&self, key: &str) -> Option<String> {
-        let env_key = format!("AARONEOUS_{}", key.to_uppercase().replace('.', "_"));
-        if let Ok(val) = std::env::var(&env_key) {
-            return Some(val);
-        }
         self.entries.get(key).cloned()
     }
 
@@ -432,25 +587,51 @@ mod tests {
 
     #[test]
     fn test_workspace_paths_discovery_no_hardcoding() {
-        let paths = WorkspacePaths::discover();
+        let paths = WorkspacePaths::discover(&WorkspacePathsConfig::new());
         assert!(!paths.root().as_os_str().is_empty());
         assert_eq!(paths.crates(), paths.root().join("crates"));
         assert_eq!(paths.specialists(), paths.crates().join("specialists"));
         assert_eq!(paths.models(), paths.root().join("models"));
-        assert_eq!(paths.cartridges(), paths.models().join("cartridges"));
+        assert_eq!(paths.cartridges(), paths.si_models().join("cartridges"));
         assert_eq!(paths.cartridges_inbox(), paths.cartridges().join("inbox"));
+        assert_eq!(paths.state_banks(), paths.data().join("state_banks"));
+        assert_eq!(paths.skill_storage(), paths.data().join("skills"));
+    }
+
+    #[test]
+    fn test_external_data_root_config_injection() {
+        let custom_root = PathBuf::from("X:\\CustomDataRoot");
+        let config = WorkspacePathsConfig::new().with_external_data_root(custom_root.clone());
+        let paths = WorkspacePaths::discover(&config);
+        assert_eq!(paths.data_root(), &custom_root);
+        assert_eq!(paths.data(), custom_root);
+        assert_eq!(paths.si_models(), custom_root.join("models"));
+        assert_eq!(paths.cartridges(), custom_root.join("models").join("cartridges"));
+        assert_eq!(paths.skill_storage(), custom_root.join("skills"));
+        assert_eq!(paths.state_banks(), custom_root.join("state_banks"));
+    }
+
+    #[test]
+    fn test_external_data_root_sibling_resolution() {
+        let repo_root = PathBuf::from(r"D:\Aaroneous");
+        let config = WorkspacePathsConfig::new().with_explicit_root(repo_root);
+        let paths = WorkspacePaths::discover(&config);
+        assert_eq!(paths.data(), PathBuf::from(r"D:\ArcData"));
+        assert_eq!(paths.si_models(), PathBuf::from(r"D:\ArcData\models"));
+        assert_eq!(paths.cartridges(), PathBuf::from(r"D:\ArcData\models\cartridges"));
     }
 
     #[test]
     fn test_known_model_hubs_exist() {
-        let paths = WorkspacePaths::discover();
+        let paths = WorkspacePaths::discover(&WorkspacePathsConfig::new());
         let hubs = paths.get_known_model_hubs();
         assert!(!hubs.is_empty());
     }
 
     #[test]
     fn test_resolve_synapse_path() {
-        let path = resolve_synapse_path("primary");
+        let config = WorkspacePathsConfig::new();
+        let path = resolve_synapse_path("primary", &config);
         assert!(path.to_string_lossy().ends_with("primary.synapse"));
     }
 
@@ -463,5 +644,81 @@ mod tests {
         assert_eq!(reg.get_or("studio.theme", "light"), "dark");
         assert_eq!(reg.get_or("studio.font", "monospace"), "monospace");
         assert_eq!(reg.get("runtime.threads"), Some("8".to_string()));
+    }
+
+    #[test]
+    fn test_normalize_path_adversarial_matrix() {
+        // 1. Excessive upward directory traversal escapes
+        assert_eq!(
+            normalize_path("../../../../etc/shadow"),
+            PathBuf::from("../../../../etc/shadow")
+        );
+        assert_eq!(
+            normalize_path("C:\\..\\..\\Windows\\System32"),
+            PathBuf::from("C:\\Windows\\System32")
+        );
+        assert_eq!(
+            normalize_path("/../../../../etc/passwd"),
+            PathBuf::from("/etc/passwd")
+        );
+
+        // 2. Redundant separators and mixed path delimiters
+        assert_eq!(
+            normalize_path("foo//bar\\\\baz/../qux"),
+            PathBuf::from("foo/bar/qux")
+        );
+        assert_eq!(
+            normalize_path("a///b/c/../../d"),
+            PathBuf::from("a/d")
+        );
+
+        // 3. Current-dir noise and trailing slash retention / normalization
+        assert_eq!(
+            normalize_path("./a/./b/../c/."),
+            PathBuf::from("a/c")
+        );
+        assert_eq!(
+            normalize_path("./././"),
+            PathBuf::from("")
+        );
+        assert_eq!(
+            normalize_path("a/b/c/"),
+            PathBuf::from("a/b/c")
+        );
+
+        // 4. Windows drive letter prefixes and root preservation
+        assert_eq!(
+            normalize_path("C:foo/../bar"),
+            PathBuf::from("C:bar")
+        );
+        assert_eq!(
+            normalize_path("C:\\foo\\..\\bar"),
+            PathBuf::from("C:\\bar")
+        );
+        #[cfg(windows)]
+        {
+            assert_eq!(
+                normalize_path(r"\\?\C:\foo\..\bar"),
+                PathBuf::from(r"\\?\C:\bar")
+            );
+            assert_eq!(
+                normalize_path(r"\\server\share\a\..\b"),
+                PathBuf::from(r"\\server\share\b")
+            );
+        }
+
+        // 5. Empty path strings and whitespace inputs
+        assert_eq!(
+            normalize_path(""),
+            PathBuf::from("")
+        );
+        assert_eq!(
+            normalize_path("   "),
+            PathBuf::from("   ")
+        );
+        assert_eq!(
+            normalize_path("   /../foo"),
+            PathBuf::from("foo")
+        );
     }
 }

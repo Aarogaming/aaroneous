@@ -31,7 +31,7 @@ impl RuntimeGovernor {
         // I/O Runtime: 2 threads, optimized for low-latency networking
         let io_runtime = Builder::new_multi_thread()
             .worker_threads(2)
-            .thread_name("aaroneous-io")
+            .thread_name("io-governor")
             .thread_stack_size(2 * 1024 * 1024) // 2MB stack
             .enable_all()
             .build()?;
@@ -43,7 +43,7 @@ impl RuntimeGovernor {
 
         let compute_runtime = Builder::new_multi_thread()
             .worker_threads(cpu_count.max(4))
-            .thread_name("aaroneous-compute")
+            .thread_name("compute-governor")
             .thread_stack_size(8 * 1024 * 1024) // 8MB stack for deep recursion
             .enable_all()
             .build()?;

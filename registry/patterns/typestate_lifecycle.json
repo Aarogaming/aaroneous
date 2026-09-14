@@ -1,0 +1,17 @@
+{
+  "id": "typestate_lifecycle",
+  "name": "Typestate Machine Transitions",
+  "category": "state_safety",
+  "origin_predecessor": "Embedded-HAL / Rust Type System",
+  "description": "Encodes protocol, pipeline, and hardware lifecycle states into zero-sized phantom type parameters at compile time, eliminating runtime state validation checks.",
+  "target_crates": ["orchestrator", "compute", "hypervisor", "adaptation_engine"],
+  "detection": {
+    "recommended_markers": ["PhantomData", "Typestate", "Idle", "Quarantined", "Committed"],
+    "anti_patterns": ["pub is_initialized: bool", "pub is_quarantined: bool", "pub is_ready: bool"]
+  },
+  "recommendations": [
+    "Encode operational phases into generic type parameters using core::marker::PhantomData.",
+    "Implement state transitions by consuming self by-value (pub fn advance(self) -> Task<NextState>) to prevent use-after-transition bugs.",
+    "Eliminate runtime boolean state flags (e.g., is_initialized, is_valid) in favor of static compiler-enforced typestates."
+  ]
+}

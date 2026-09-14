@@ -31,9 +31,9 @@ pub mod config;
 /// ```no_run
 /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
 /// use std::sync::Arc;
-/// use a_run::federation::specialists::Visionary;
-/// use a_run::federation::host::{SpecialistHost, HostConfig};
-/// use a_run::persistence::PersistenceManager;
+/// use hypervisor::federation::specialists::Visionary;
+/// use hypervisor::federation::host::{SpecialistHost, HostConfig};
+/// use hypervisor::persistence::PersistenceManager;
 ///
 /// let pm = Arc::new(tokio::sync::Mutex::new(PersistenceManager::new("hive.db")?));
 /// let visionary = Arc::new(Visionary::new());

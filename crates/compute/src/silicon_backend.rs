@@ -149,17 +149,16 @@ pub struct DynamicSiliconRouter {
 
 impl Default for DynamicSiliconRouter {
     fn default() -> Self {
-        let cpu = Box::new(CpuSimdBackend::default());
-        Self {
-            backends: vec![cpu],
-            active_idx: 0,
-        }
+        Self::new(vec![Box::new(CpuSimdBackend::default())])
     }
 }
 
 impl DynamicSiliconRouter {
-    pub fn new() -> Self {
-        Self::default()
+    pub fn new(backends: Vec<Box<dyn UniversalTensorBackend>>) -> Self {
+        Self {
+            backends,
+            active_idx: 0,
+        }
     }
 
     pub fn register_backend(&mut self, backend: Box<dyn UniversalTensorBackend>) {
@@ -204,7 +203,7 @@ mod tests {
 
     #[test]
     fn test_silicon_backend_recurrence_and_selection() {
-        let mut router = DynamicSiliconRouter::new();
+        let mut router = DynamicSiliconRouter::default();
         assert_eq!(router.active_backend().hardware_type(), SiliconHardwareType::CentralProcessingUnit);
 
         let mut state = vec![1.0; 8];

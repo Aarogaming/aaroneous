@@ -231,13 +231,17 @@ impl WorkflowGraph {
             }
         }
 
-        // Spawn parallel tasks using tokio::task::JoinSet
+        // Spawn parallel tasks using tokio::task::JoinSet with bounded concurrency backpressure
         let mut join_set = tokio::task::JoinSet::new();
         let runner_arc = std::sync::Arc::new(runner);
+        let semaphore = std::sync::Arc::new(tokio::sync::Semaphore::new(16));
 
         for step in ready_steps {
             let r = runner_arc.clone();
+            let sem = semaphore.clone();
+            // Bound concurrency to prevent threadpool starvation
             join_set.spawn(async move {
+                let _permit = sem.acquire().await;
                 r(step).await
             });
         }
@@ -480,7 +484,7 @@ mod tests {
 
     #[test]
     fn test_save_and_load() {
-        let dir = std::env::temp_dir().join("aaroneous_test_workflows");
+        let dir = tempfile::tempdir().unwrap().into_path().join("workflow_tests");
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).unwrap();
 
@@ -499,7 +503,7 @@ mod tests {
 
     #[test]
     fn test_list_persisted() {
-        let dir = std::env::temp_dir().join("aaroneous_test_list");
+        let dir = tempfile::tempdir().unwrap().into_path().join("list_tests");
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(dir.join(".aaroneous/workflows")).unwrap();
 
@@ -524,7 +528,8 @@ mod tests {
 
     #[test]
     fn test_new_with_persist() {
-        let path = std::env::temp_dir().join("test_wf_persist.json");
+        let temp_dir = tempfile::tempdir().unwrap().into_path();
+        let path = temp_dir.join("test_wf_persist.json");
         let wf = WorkflowGraph::new_with_persist("wf_persist", path.clone());
         assert_eq!(wf.workflow_id, "wf_persist");
         assert_eq!(wf.persist_path, Some(path));
@@ -532,7 +537,7 @@ mod tests {
 
     #[test]
     fn test_save_default_creates_directory() {
-        let dir = std::env::temp_dir().join("aaroneous_test_save_default");
+        let dir = tempfile::tempdir().unwrap().into_path().join("save_default_tests");
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).unwrap();
 
@@ -549,7 +554,7 @@ mod tests {
 
     #[test]
     fn test_load_default_nonexistent() {
-        let dir = std::env::temp_dir().join("aaroneous_test_load_nonexist");
+        let dir = tempfile::tempdir().unwrap().into_path().join("load_nonexist_tests");
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).unwrap();
 
@@ -642,7 +647,7 @@ mod tests {
 
     #[test]
     fn test_list_persisted_empty_dir() {
-        let dir = std::env::temp_dir().join("aaroneous_test_empty_wf");
+        let dir = tempfile::tempdir().unwrap().into_path().join("empty_workflow_tests");
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).unwrap();
 
@@ -654,7 +659,7 @@ mod tests {
 
     #[test]
     fn test_list_persisted_nonexistent_dir() {
-        let dir = std::env::temp_dir().join("aaroneous_test_nonexist_wf_dir");
+        let dir = tempfile::tempdir().unwrap().into_path().join("nonexist_workflow_dir_tests");
         let _ = fs::remove_dir_all(&dir);
         // Directory doesn't exist
         let ids = WorkflowGraph::list_persisted(&dir).unwrap();

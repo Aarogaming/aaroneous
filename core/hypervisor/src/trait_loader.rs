@@ -131,6 +131,7 @@ pub fn register_traits(registry: &mut Registry<GenomeTrait>, traits_dir: &Path) 
 }
 
 #[cfg(test)]
+#[allow(ambient_authority)]
 mod tests {
     use super::*;
     use crate::unified_registry::RegistryConfig;

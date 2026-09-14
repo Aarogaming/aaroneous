@@ -5,7 +5,7 @@
 //!
 //! ## Example
 //! ```rust
-//! use aaroneous_sdk::SynapseBridge;
+//! use sdk::SynapseBridge;
 //!
 //! let bridge = SynapseBridge::connect();
 //! println!("Connected to federation with {} active channels", bridge.channel_count());

@@ -384,6 +384,8 @@ mod tests {
 
         fn spawn_fresh(&mut self) -> Result<()> {
             self.alive = true;
+            let cap = self.slab.lock().unwrap().capacity();
+            self.slab = Mutex::new(SlabAllocator::new(cap));
             let mut state_guard = self.state.lock().unwrap();
             *state_guard = vec![1, 2, 3, 4];
             Ok(())
@@ -403,7 +405,7 @@ mod tests {
 
         let mut slab = SlabAllocator::new(10);
         for _ in 0..6 {
-            slab.allocate(0, 1, 1)?;
+            slab.allocate(0, 1, 1).ok_or_else(|| anyhow::anyhow!("slab alloc failed"))?;
         }
 
         assert!(reaper.should_reap(&slab.stats()));

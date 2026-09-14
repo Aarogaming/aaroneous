@@ -74,7 +74,7 @@ impl DynamicSpecialistLoader {
 
             // 1. Verify ABI Manifest
             let manifest_sym: Symbol<GetManifestFn> = lib
-                .get(b"aaroneous_specialist_manifest\0")
+                .get(b"specialist_manifest\0")
                 .map_err(|e| anyhow!("Missing manifest symbol 'aaroneous_specialist_manifest': {e}"))?;
 
             let manifest = manifest_sym();
@@ -94,7 +94,7 @@ impl DynamicSpecialistLoader {
 
             // 2. Instantiate Specialist Engine
             let create_sym: Symbol<CreateSpecialistFn> = lib
-                .get(b"aaroneous_create_specialist\0")
+                .get(b"create_specialist\0")
                 .map_err(|e| anyhow!("Missing entrypoint symbol 'aaroneous_create_specialist': {e}"))?;
 
             let raw_ptr = create_sym();
@@ -129,7 +129,7 @@ impl DynamicSpecialistLoader {
                 .map_err(|e| anyhow!("Failed to load new dynamic library at {:?}: {e}", new_path))?;
 
             let manifest_sym: Symbol<GetManifestFn> = lib
-                .get(b"aaroneous_specialist_manifest\0")
+                .get(b"specialist_manifest\0")
                 .map_err(|e| anyhow!("Missing manifest symbol: {e}"))?;
 
             let manifest = manifest_sym();
@@ -138,7 +138,7 @@ impl DynamicSpecialistLoader {
             }
 
             let create_sym: Symbol<CreateSpecialistFn> = lib
-                .get(b"aaroneous_create_specialist\0")
+                .get(b"create_specialist\0")
                 .map_err(|e| anyhow!("Missing create symbol: {e}"))?;
 
             let raw_ptr = create_sym();

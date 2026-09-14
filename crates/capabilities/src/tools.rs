@@ -362,6 +362,92 @@ impl UniversalTool for CodebaseReviewTool {
     }
 }
 
+// ── 4b. Pattern Conformance Review Tool ──────────────────────────────────────
+
+pub struct PatternConformanceTool;
+
+impl Default for PatternConformanceTool {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl PatternConformanceTool {
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+#[async_trait]
+impl UniversalTool for PatternConformanceTool {
+    fn name(&self) -> &'static str {
+        "review.pattern_conformance"
+    }
+
+    fn opcode(&self) -> u16 {
+        0x0760 // PATTERN_CONFORMANCE_REVIEW
+    }
+
+    fn category(&self) -> &'static str {
+        "review"
+    }
+
+    fn description(&self) -> &'static str {
+        "Reviews source files or directories against declarative architectural patterns (Arrow SoA, Typestates, Gitoxide in-process VCS, DAZ/FTZ, etc.) and emits synthesis recommendations."
+    }
+
+    fn parameters_schema(&self) -> serde_json::Value {
+        json!({
+            "type": "object",
+            "properties": {
+                "target_paths": {
+                    "type": "array",
+                    "items": { "type": "string" },
+                    "description": "Paths to files or directories to review (relative to workspace root)"
+                },
+                "registry_path": {
+                    "type": "string",
+                    "description": "Optional path to pattern registry directory (defaults to registry/patterns)"
+                }
+            },
+            "required": ["target_paths"]
+        })
+    }
+
+    async fn call_json(&self, params: serde_json::Value) -> Result<serde_json::Value> {
+        let target_paths: Vec<String> = params
+            .get("target_paths")
+            .and_then(|v| v.as_array())
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|x| x.as_str().map(|s| s.to_string()))
+                    .collect()
+            })
+            .unwrap_or_default();
+
+        if target_paths.is_empty() {
+            return Err(anyhow::anyhow!("'target_paths' cannot be empty"));
+        }
+
+        let registry_path = params
+            .get("registry_path")
+            .and_then(|v| v.as_str())
+            .map(std::path::PathBuf::from);
+
+        let report = ast_auditor::run_pattern_review(&target_paths, registry_path)
+            .map_err(|e| anyhow::anyhow!("Pattern review failed: {e}"))?;
+
+        serde_json::to_value(&report).map_err(|e| anyhow::anyhow!("Failed to serialize report: {e}"))
+    }
+
+    fn call_latent(&self, input: &[f32; 256], output: &mut [f32; 256]) -> Result<()> {
+        output.copy_from_slice(input);
+        output[2] = output[2].abs(); // Enforce positive audit compliance axis
+        output[4] = 1.0; // Pattern synthesis alignment signal
+        Ok(())
+    }
+}
+
 // ── 5. Knowledge Semantic Search Tool ────────────────────────────────────────
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -859,6 +945,7 @@ pub fn build_standard_tool_registry() -> ToolRegistry {
     registry.register(Arc::new(CodeRepairTool::new()));
     registry.register(Arc::new(StructuralRewriteTool::new()));
     registry.register(Arc::new(CodebaseReviewTool::new()));
+    registry.register(Arc::new(PatternConformanceTool::new()));
     registry.register(Arc::new(KnowledgeSemanticTool::new()));
     registry.register(Arc::new(MemoryIndexTool::new()));
     registry.register(Arc::new(UiLayoutTool::new()));
@@ -873,7 +960,7 @@ mod tests {
     #[tokio::test]
     async fn test_universal_tool_json_and_latent_execution() {
         let mut registry = build_standard_tool_registry();
-        assert_eq!(registry.len(), 8);
+        assert_eq!(registry.len(), 9);
 
         // 1. Test JSON call via Cloud/LLM interface
         let sec_res = registry

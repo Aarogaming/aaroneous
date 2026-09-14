@@ -120,7 +120,7 @@ mod tests {
     use tempfile::tempdir;
 
     #[test]
-    fn test_gguf_tensor_seeding_workflow() {
+    fn test_gguf_tensor_seeding_workflow() -> Result<(), Box<dyn std::error::Error>> {
         let dir = tempdir().map_err(|e| HypervisorError::RuntimeError(e.to_string()))?;
         let fake_gguf_path = dir.path().join("source_model.gguf");
 
@@ -147,5 +147,6 @@ mod tests {
         let report = CartridgeCompiler::seed_from_gguf(&config).expect("Seeding failed");
         assert_eq!(report.model_id, "gguf_seeded_reflex");
         assert!(out_cartridge_path.exists());
+        Ok(())
     }
 }

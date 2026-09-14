@@ -26,7 +26,7 @@ use std::convert::Infallible;
 /// ```json
 /// {
 ///   "mcpServers": {
-///     "aaroneous": {
+///     "hypervisor": {
 ///       "url": "http://localhost:8766/sse",
 ///       "transport": "sse"
 ///     }
@@ -38,13 +38,31 @@ use std::convert::Infallible;
 /// ```json
 /// {
 ///   "cursor.mcp.servers": {
-///     "aaroneous": { "url": "http://localhost:8766/mcp", "transport": "http" }
+///     "hypervisor": { "url": "http://localhost:8766/mcp", "transport": "http" }
 ///   }
 /// }
 /// ```
 use std::net::SocketAddr;
 use std::sync::Arc;
 use tracing::{debug, info};
+
+/// MCP HTTP+SSE transport configuration.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct McpServiceConfig {
+    pub port: u16,
+    pub bind_addr: [u8; 4],
+    pub auth_key: Option<String>,
+}
+
+impl Default for McpServiceConfig {
+    fn default() -> Self {
+        Self {
+            port: 0,
+            bind_addr: [127, 0, 0, 1],
+            auth_key: None,
+        }
+    }
+}
 
 // ── State ─────────────────────────────────────────────────────────────────────
 
@@ -68,11 +86,12 @@ pub struct McpAppState {
 
 pub struct HttpServer {
     addr: SocketAddr,
+    cfg: McpServiceConfig,
 }
 
 impl HttpServer {
-    pub fn new(addr: SocketAddr) -> Self {
-        Self { addr }
+    pub fn new(addr: SocketAddr, cfg: McpServiceConfig) -> Self {
+        Self { addr, cfg }
     }
 
     pub fn addr(&self) -> SocketAddr {
@@ -81,12 +100,10 @@ impl HttpServer {
 
     /// Build and start the MCP HTTP+SSE server.
     pub async fn run(self, service: Arc<McpService>) -> Result<(), Box<dyn std::error::Error>> {
-        let has_api_key = std::env::var("AARONEOUS_API_KEY")
-            .map(|key| !key.is_empty())
-            .unwrap_or(false);
+        let has_api_key = self.cfg.auth_key.is_some();
         if !self.addr.ip().is_loopback() && !has_api_key {
             return Err(format!(
-                "refusing non-loopback MCP bind {} without AARONEOUS_API_KEY",
+                "refusing non-loopback MCP bind {} without auth key",
                 self.addr
             )
             .into());
@@ -100,12 +117,15 @@ impl HttpServer {
 
         // Build separate routers: protected routes get auth middleware,
         // health/discovery routes remain unauthenticated.
+        let auth_key = self.cfg.auth_key.clone();
         let protected = Router::new()
             // MCP JSON-RPC 2.0 transport (primary)
             .route("/mcp", post(handle_mcp_post))
             // SSE transport (for Claude Desktop / streaming clients)
             .route("/sse", get(handle_sse))
-            .layer(axum::middleware::from_fn(mcp_api_key_auth));
+            .layer(axum::middleware::from_fn(move |headers: HeaderMap, req: axum::extract::Request<Body>, next: Next| {
+                mcp_api_key_auth_inner(headers, req, next, auth_key.clone())
+            }));
 
         let public = Router::new()
             // Health probe (unauthenticated)
@@ -136,21 +156,14 @@ impl HttpServer {
 
 // ── Auth Middleware ───────────────────────────────────────────────────────────
 
-/// API-key auth guard for MCP routes.
-///
-/// Mirrors the federation router's `api_key_auth` middleware:
-/// - If `AARONEOUS_API_KEY` env var is **not** set → pass through for loopback
-///   development servers; non-loopback startup is rejected by `HttpServer`.
-/// - If set → require `Authorization: Bearer <key>` header on every request.
-async fn mcp_api_key_auth(
+/// API-key auth guard for MCP routes (called with pre-configured key).
+async fn mcp_api_key_auth_inner(
     headers: HeaderMap,
     req: axum::extract::Request<Body>,
     next: Next,
+    auth_key: Option<String>,
 ) -> Response {
-    let Some(required_key) = std::env::var("AARONEOUS_API_KEY").ok() else {
-        // Auth not configured — pass through
-        return next.run(req).await;
-    };
+    let required_key = auth_key.clone().unwrap_or_default();
 
     let provided = headers
         .get("authorization")
@@ -187,7 +200,7 @@ async fn handle_mcp_post(
         Ok(v) => v,
         Err(e) => {
             let err = JsonRpcResponse::err(None, -32700, &format!("Parse error: {}", e));
-            return Json(serde_json::to_value(err).unwrap()).into_response();
+            return Json(serde_json::to_value(err).unwrap_or_default()).into_response();
         }
     };
 
@@ -199,8 +212,7 @@ async fn handle_mcp_post(
     );
 
     // Handle batch or single
-    if raw.is_array() {
-        let requests = raw.as_array().unwrap();
+    if let Some(requests) = raw.as_array() {
         let mut responses = Vec::new();
         for req in requests {
             // Skip notifications (no id field)
@@ -209,7 +221,7 @@ async fn handle_mcp_post(
                 continue;
             }
             let resp = state.service.handle_jsonrpc(req.clone()).await;
-            responses.push(serde_json::to_value(resp).unwrap());
+            responses.push(serde_json::to_value(resp).unwrap_or_default());
         }
         return Json(Value::Array(responses)).into_response();
     }
@@ -238,7 +250,7 @@ async fn handle_mcp_post(
         }
     }
 
-    Json(serde_json::to_value(resp).unwrap()).into_response()
+    Json(serde_json::to_value(resp).unwrap_or_default()).into_response()
 }
 
 /// GET /sse — Server-Sent Events transport for Claude Desktop.
@@ -276,8 +288,8 @@ async fn handle_sse(State(state): State<McpAppState>) -> impl IntoResponse {
         // Announce readiness
         let init = serde_json::json!({
             "jsonrpc": "2.0", "method": "notifications/message",
-            "params": { "level": "info", "logger": "aaroneous",
-                "data": format!("Aaroneous MCP ready — {} tools | {}", tool_count, endpoint_url) }
+            "params": { "level": "info", "logger": "hypervisor_mcp",
+                "data": format!("Hypervisor MCP ready — {} tools | {}", tool_count, endpoint_url) }
         });
         yield Ok::<Event, Infallible>(
             Event::default().event("message")
@@ -321,7 +333,7 @@ async fn handle_health(State(state): State<McpAppState>) -> impl IntoResponse {
     let tool_count = state.service.tools.read().await.len();
     Json(serde_json::json!({
         "status": "healthy",
-        "name": "Aaroneous MCP Server",
+        "name": "Hypervisor MCP Server",
         "version": env!("CARGO_PKG_VERSION"),
         "protocol": "MCP 2024-11-05",
         "transport": ["http", "sse"],
@@ -345,8 +357,8 @@ async fn handle_root(State(state): State<McpAppState>) -> impl IntoResponse {
 
     let addr = state.bind_addr;
     Json(serde_json::json!({
-        "name": "Aaroneous",
-        "description": "Sovereign AI hive — 9 specialized agents powered by abliterated non-coding base models",
+        "name": "Hypervisor",
+        "description": "Sovereign runtime — 9 specialized agents powered by abliterated non-coding base models",
         "version": env!("CARGO_PKG_VERSION"),
         "protocol": "MCP/2024-11-05",
         "transport": {
@@ -356,7 +368,7 @@ async fn handle_root(State(state): State<McpAppState>) -> impl IntoResponse {
         "tools": tool_names,
         "claude_desktop_config": {
             "mcpServers": {
-                "aaroneous": {
+                "hypervisor": {
                     "url": format!("http://{}/sse", addr),
                     "transport": "sse"
                 }
@@ -364,7 +376,7 @@ async fn handle_root(State(state): State<McpAppState>) -> impl IntoResponse {
         },
         "cursor_config": {
             "cursor.mcp.servers": {
-                "aaroneous": {
+                "hypervisor": {
                     "url": format!("http://{}/mcp", addr),
                     "transport": "http"
                 }

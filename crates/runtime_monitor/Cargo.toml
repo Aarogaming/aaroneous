@@ -1,0 +1,10 @@
+[package]
+name = "runtime_monitor"
+version = "0.1.0"
+edition.workspace = true
+
+[dependencies]
+bytemuck = { version = "1.20", features = ["derive"] }
+hypervisor = { path = "../../core/hypervisor" }
+crossbeam-queue = "0.3"
+anyhow = "1.0"

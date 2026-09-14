@@ -35,10 +35,10 @@ function Write-FlightLog {
 
 Clear-Host
 Write-Host "==========================================================" -ForegroundColor Magenta
-Write-Host "        AARONEOUS AUTONOMOUS FLIGHT CONTROLLER (PAF)      " -ForegroundColor Magenta
+Write-Host "        AARONEOUS AUTONOMOUS RUNTIME CONTROLLER (ARC)     " -ForegroundColor Magenta
 Write-Host "              [Plan -> Audit -> Fix Engine]              " -ForegroundColor Magenta
 Write-Host "==========================================================" -ForegroundColor Magenta
-Write-FlightLog "Flight controller session initialized."
+Write-FlightLog "Runtime Controller session initialized."
 
 $QueuePath = "$RepoRoot\dev\docs\audits\active\ACTIVE_AUDIT_QUEUE.md"
 $RepairLogPath = "$RepoRoot\dev\docs\audits\REPAIR_LOG.md"
@@ -383,5 +383,5 @@ if ($BuildArtifacts -and $LASTEXITCODE -eq 0) {
 }
 
 Write-Host "`n==========================================================" -ForegroundColor Cyan
-Write-Host "🎉 Flight Controller finished execution!" -ForegroundColor Cyan
+Write-Host "🎉 Runtime Controller finished execution!" -ForegroundColor Cyan
 Write-Host "==========================================================" -ForegroundColor Cyan

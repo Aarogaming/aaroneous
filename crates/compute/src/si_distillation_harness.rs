@@ -64,9 +64,7 @@ pub struct SiDistillationHarness {
 }
 
 impl SiDistillationHarness {
-    pub fn new(config: BootstrapConfig) -> Self {
-        let bottleneck_dim = 1024;
-        let bridge = LatentGELUBottleneckBridge::new(config.teacher_dim, bottleneck_dim, config.latent_dim);
+    pub fn new(config: BootstrapConfig, bridge: LatentGELUBottleneckBridge) -> Self {
         Self { config, bridge }
     }
 
@@ -178,7 +176,7 @@ impl SiDistillationHarness {
                 target_cka_threshold: 0.80,
             };
 
-            let mut harness = SiDistillationHarness::new(config);
+            let mut harness = SiDistillationHarness::new(config, LatentGELUBottleneckBridge::new(ROSETTA_TEACHER_DIM, 1024, ROSETTA_LATENT_DIM));
             let target_file = out_dir_path.join(format!("{}.si", name));
             let report = harness.bootstrap_base_model(&dataset, &target_file)?;
             reports.push(report);
@@ -189,6 +187,7 @@ impl SiDistillationHarness {
 }
 
 #[cfg(test)]
+#[allow(ambient_authority)]
 mod tests {
     use super::*;
     use std::fs;
@@ -197,7 +196,8 @@ mod tests {
     fn test_bootstrap_base_model_from_rosetta_dataset() {
         let dataset = TranslationDataset::synthesize_synthetic_corpus(8);
         let config = BootstrapConfig::default();
-        let mut harness = SiDistillationHarness::new(config);
+        let bridge = LatentGELUBottleneckBridge::new(config.teacher_dim, 1024, config.latent_dim);
+        let mut harness = SiDistillationHarness::new(config, bridge);
 
         let temp_dir = std::env::temp_dir();
         let out_path = temp_dir.join("test_base_router.si");

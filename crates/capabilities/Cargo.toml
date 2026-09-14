@@ -1,7 +1,7 @@
 [package]
 name = "capabilities"
 version = "0.1.0"
-edition = "2021"
+edition.workspace = true
 authors = ["Aaron"]
 description = "Universal Capability Toolset, MCP Service Tools, and Domain Execution Substrates"
 license.workspace = true
@@ -20,7 +20,8 @@ adaptation_engine = { path = "../adaptation_engine" }
 omni = { path = "../omni" }
 ipc_bus = { path = "../ipc_bus" }
 compute = { path = "../compute" }
-paths = { package = "aaroneous_paths", path = "../paths" }
+paths = { package = "paths", path = "../paths" }
 autonomic_adaptation = { path = "../autonomic_adaptation" }
-aaroneous_sdk = { path = "../../sdk/rust" }
+ast_auditor = { path = "../ast_auditor" }
+sdk = { path = "../../sdk/rust" }
 libloading = "0.8"

@@ -21,7 +21,7 @@ edition = "2021"
 
 [dependencies]
 nervous_system = { path = "../nervous_system" }
-aaroneous_paths = { path = "../paths" }
+paths = { path = "../paths" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 tracing = "0.1"

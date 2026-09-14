@@ -62,7 +62,7 @@ Write-Host "  RAM Usage: $memUsedPct%" -ForegroundColor $(if ($memUsedPct -gt 85
 Write-Host ""
 Write-Host "======================================================" -ForegroundColor Cyan
 if ($issuesFound -eq 0) {
-    Write-Host "  Status: System is SAFE. No runaway processes or locked synapses." -ForegroundColor Green
+    Write-Host "  Status: System is SAFE. No runaway processes or locked shared memory segments." -ForegroundColor Green
 } else {
     Write-Host "  Status: $issuesFound issue(s) detected. Review warnings above." -ForegroundColor Red
 }

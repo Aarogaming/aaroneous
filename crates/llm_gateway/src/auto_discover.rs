@@ -1,7 +1,7 @@
 // Automatic Model Discovery
 // Automatically detects installed model loading software and loads models on startup
 
-use crate::model_environment::{ModelEnvironment, ModelEnvironmentDetector};
+use crate::model_environment::{ModelEnvironment, ModelEnvironmentConfig, ModelEnvironmentDetector};
 use crate::model_loader::ModelLoader;
 use crate::model_registry::ModelInfo;
 use anyhow::Result;
@@ -30,13 +30,13 @@ impl AutoDiscoveryResult {
     }
 }
 
-/// Perform auto-discovery (should be called once at startup)
-pub async fn auto_discover_models() -> Result<AutoDiscoveryResult> {
+/// Perform auto-discovery (should be called once at startup) with config injection
+pub async fn auto_discover_models(config: &ModelEnvironmentConfig) -> Result<AutoDiscoveryResult> {
     info!("🔍 Auto-discovering model environment and GGUF models...");
 
-    // Detect environment
+    // Detect environment with config injection
     let mut detector = ModelEnvironmentDetector::new();
-    detector.scan()?;
+    detector.scan(config)?;
 
     let detected_env = detector.get_best_environment().map(|e| e.environment);
 
@@ -45,7 +45,7 @@ pub async fn auto_discover_models() -> Result<AutoDiscoveryResult> {
 
         // Create loader and add paths from detected environment
         let mut loader = ModelLoader::new();
-        let search_paths = env.get_search_paths();
+        let search_paths = env.get_search_paths(&config);
 
         for path in search_paths {
             loader.add_search_path(path);
@@ -99,7 +99,7 @@ pub async fn auto_discover_models() -> Result<AutoDiscoveryResult> {
 /// Get auto-discovered models (initializes on first call)
 pub async fn get_auto_discovered_models() -> Result<&'static AutoDiscoveryResult> {
     if AUTO_DISCOVERED_MODELS.get().is_none() {
-        let result = auto_discover_models().await?;
+        let result = auto_discover_models(&ModelEnvironmentConfig::default()).await?;
         let _ = AUTO_DISCOVERED_MODELS.set(result);
     }
 

@@ -236,7 +236,7 @@ mod tests {
 
     #[test]
     fn test_cartridge_pack_ingestion_and_lifecycle() {
-        let temp_dir = std::env::temp_dir();
+        let temp_dir = tempfile::tempdir().unwrap().into_path();
         let pack_file = temp_dir.join("test_navigation.si-pack");
         std::fs::write(&pack_file, b"SI_PACK_MOCK_DATA").unwrap();
 
@@ -257,7 +257,7 @@ mod tests {
 
     #[test]
     fn test_sint_cartridge_validation_and_mount() {
-        let temp_dir = std::env::temp_dir();
+        let temp_dir = tempfile::tempdir().unwrap().into_path();
         let mut mgr = CartridgePackManager::new(&temp_dir);
 
         let valid_sint = b"SINT\x03\x00\x00\x00\x00\x00\x00\x00";
@@ -273,9 +273,8 @@ mod tests {
 
     #[test]
     fn test_crystallize_workflow_habit() {
-        let temp_dir = std::env::temp_dir().join("habit_test_dir");
-        let _ = std::fs::create_dir_all(&temp_dir);
-        let mut mgr = CartridgePackManager::new(&temp_dir);
+        let temp_dir = tempfile::tempdir().unwrap().into_path();
+        let mut mgr = CartridgePackManager::new(temp_dir.clone());
 
         let mut wf = crate::workflow_engine::WorkflowGraph::new("code_synthesis_habit");
         wf.add_step("s1", "Fabricator", "Alloc", "buffer_64", vec![], 2);

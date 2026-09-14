@@ -85,7 +85,7 @@ pub fn monte_carlo_simulate(
     for _ in 0..iterations {
         // Sample from normal distribution (Box-Muller transform)
         let u1: f64 = rng.gen_range(1e-10..1.0);
-        let u2: f64 = rng.gen();
+        let u2: f64 = rng.r#gen::<f64>();
         let z = (-2.0 * u1.ln()).sqrt() * (2.0 * std::f64::consts::PI * u2).cos();
         let sample = mean + std_dev * z;
         results.push(sample);
@@ -141,9 +141,9 @@ pub fn metropolis_hastings_step(
     rng: &mut impl Rng,
     log_likelihood: impl Fn(f64) -> f64,
 ) -> f64 {
-    let proposal = current + proposal_std * (rng.gen::<f64>() * 2.0 - 1.0);
+    let proposal = current + proposal_std * (rng.r#gen::<f64>() * 2.0 - 1.0);
     let log_alpha = log_likelihood(proposal) - log_likelihood(current);
-    if rng.gen::<f64>() < log_alpha.exp() {
+    if rng.r#gen::<f64>() < log_alpha.exp() {
         proposal
     } else {
         current
@@ -179,7 +179,7 @@ pub fn run_mcmc_chain(
         let accepted = if log_alpha >= 0.0 {
             true
         } else {
-            rng.gen::<f64>() < log_alpha.exp()
+            rng.r#gen::<f64>() < log_alpha.exp()
         };
 
         if accepted {
@@ -222,7 +222,8 @@ mod tests {
 
     #[test]
     fn test_bootstrap_resampling() {
-        let mut rng = rand::thread_rng();
+        use rand::SeedableRng;
+        let mut rng = rand::rngs::StdRng::seed_from_u64(0x42DEADBEEF);
         let data = vec![10.0, 12.0, 11.0, 10.5, 11.5];
         let means = bootstrap_resample(&data, 100, &mut rng);
         assert_eq!(means.len(), 100);
@@ -233,7 +234,8 @@ mod tests {
 
     #[test]
     fn test_mcmc_chain_gaussian() {
-        let mut rng = rand::thread_rng();
+        use rand::SeedableRng;
+        let mut rng = rand::rngs::StdRng::seed_from_u64(0x1337C0D3);
         // Target: standard normal distribution N(0, 1) -> log_p = -0.5 * x^2
         let log_p = |x: f64| -0.5 * x * x;
         let chain = run_mcmc_chain(0.0, 500, 100, 2, 0.5, &mut rng, log_p);

@@ -2,7 +2,7 @@
 // Autonomous GGUF model ingestion, genetic extraction, persona generation, and integration
 // Allows Aaroneous to consume models in background and create new specialists
 
-use crate::workspace::WorkspacePaths;
+use crate::workspace::{WorkspacePaths, WorkspacePathsConfig};
 use chrono::{DateTime, Utc};
 use crate::genetics::{GeneticCategory, GeneticLocus, LociSource, SpecialistGenome};
 use serde::{Deserialize, Serialize};
@@ -23,7 +23,7 @@ pub struct DigestionConfig {
 
 impl Default for DigestionConfig {
     fn default() -> Self {
-        let paths = WorkspacePaths::discover();
+        let paths = WorkspacePaths::discover(&WorkspacePathsConfig::new());
         Self {
             inbox_folder: paths.models_inbox(),
             watch_interval_seconds: 10,

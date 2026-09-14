@@ -199,7 +199,136 @@ impl UniversalStateBank {
     }
 }
 
+/// Errors during real-time adaptive parameter updates.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AdaptationError {
+    DimensionMismatch,
+    NumericDivergence,
+    ParameterExceedsBounds,
+}
+
+impl std::fmt::Display for AdaptationError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            AdaptationError::DimensionMismatch => write!(f, "Dimension mismatch in adaptation update"),
+            AdaptationError::NumericDivergence => {
+                write!(f, "Numeric divergence or NaN encountered in adaptation filter")
+            }
+            AdaptationError::ParameterExceedsBounds => {
+                write!(f, "Unbounded parameter value exceeds threshold limit")
+            }
+        }
+    }
+}
+
+impl std::error::Error for AdaptationError {}
+
+/// Fixed-size in-memory Recursive Least Squares (RLS) state for continuous M-SLM trajectory tracking.
+/// Operates without heap allocations on the sub-microsecond fast-path.
+/// `DIM` is parameter count, and `DIM_SQ` is `DIM * DIM` for the covariance matrix.
+#[derive(Debug, Clone)]
+pub struct RlsState<const DIM: usize, const DIM_SQ: usize> {
+    /// Estimated parameter weight vector
+    pub weights: [f32; DIM],
+    /// Inverse covariance matrix (flattened row-major: DIM x DIM)
+    pub p_matrix: [f32; DIM_SQ],
+    /// Exponential forgetting factor (typically in (0.9, 1.0])
+    pub lambda: f32,
+    /// Maximum allowed parameter amplitude for bounded dynamicism
+    pub parameter_bound: f32,
+    /// Total adaptation steps applied
+    pub step_count: u64,
+}
+
+impl<const DIM: usize, const DIM_SQ: usize> RlsState<DIM, DIM_SQ> {
+    pub fn new(delta: f32, lambda: f32, parameter_bound: f32) -> Self {
+        assert_eq!(
+            DIM_SQ,
+            DIM * DIM,
+            "DIM_SQ must equal DIM * DIM for covariance matrix"
+        );
+        let mut p_matrix = [0.0f32; DIM_SQ];
+        // Initialize P = delta * I
+        for i in 0..DIM {
+            p_matrix[i * DIM + i] = delta;
+        }
+        Self {
+            weights: [0.0f32; DIM],
+            p_matrix,
+            lambda: if lambda > 0.0 && lambda <= 1.0 { lambda } else { 0.99 },
+            parameter_bound,
+            step_count: 0,
+        }
+    }
+}
+
+/// Fixed-size non-panicking RLS covariance matrix update for real-time state adaptation.
+/// Complexity: O(DIM^2) without dynamic heap allocation.
+pub fn update_rls<const DIM: usize, const DIM_SQ: usize>(
+    state: &mut RlsState<DIM, DIM_SQ>,
+    error: f32,
+    input: &[f32; DIM],
+) -> std::result::Result<(), AdaptationError> {
+    if DIM_SQ != DIM * DIM {
+        return Err(AdaptationError::DimensionMismatch);
+    }
+    if error.is_nan() || error.is_infinite() {
+        return Err(AdaptationError::NumericDivergence);
+    }
+
+    // 1. Compute Pi = P * input (vector of size DIM)
+    let mut pi = [0.0f32; DIM];
+    for r in 0..DIM {
+        let mut sum = 0.0f32;
+        let row_offset = r * DIM;
+        for c in 0..DIM {
+            sum += state.p_matrix[row_offset + c] * input[c];
+        }
+        pi[r] = sum;
+    }
+
+    // 2. Denominator: denom = lambda + input^T * Pi
+    let mut input_t_pi = 0.0f32;
+    for i in 0..DIM {
+        input_t_pi += input[i] * pi[i];
+    }
+    let denom = state.lambda + input_t_pi;
+    if denom.abs() < 1e-12 || denom.is_nan() {
+        return Err(AdaptationError::NumericDivergence);
+    }
+
+    // 3. Kalman gain: k = Pi / denom
+    let mut k = [0.0f32; DIM];
+    for i in 0..DIM {
+        k[i] = pi[i] / denom;
+    }
+
+    // 4. Update weights: weights = weights + k * error
+    for i in 0..DIM {
+        let new_w = state.weights[i] + k[i] * error;
+        if new_w.abs() > state.parameter_bound {
+            return Err(AdaptationError::ParameterExceedsBounds);
+        }
+        state.weights[i] = new_w;
+    }
+
+    // 5. Update P = (P - k * Pi^T) / lambda
+    let inv_lambda = 1.0f32 / state.lambda;
+    for r in 0..DIM {
+        let row_offset = r * DIM;
+        for c in 0..DIM {
+            let update_delta = k[r] * pi[c];
+            state.p_matrix[row_offset + c] =
+                (state.p_matrix[row_offset + c] - update_delta) * inv_lambda;
+        }
+    }
+
+    state.step_count += 1;
+    Ok(())
+}
+
 #[cfg(test)]
+#[allow(ambient_authority)]
 mod tests {
     use super::*;
 
@@ -225,5 +354,21 @@ mod tests {
         assert_eq!(reopened.header.record_count, 1);
 
         let _ = std::fs::remove_file(path);
+    }
+
+    #[test]
+    fn test_rls_adaptive_math_and_bounds() {
+        let mut rls = RlsState::<4, 16>::new(100.0, 0.99, 10.0);
+        let input = [1.0f32, 0.5f32, -0.2f32, 0.1f32];
+        let error = 0.5f32;
+
+        assert!(update_rls(&mut rls, error, &input).is_ok());
+        assert_eq!(rls.step_count, 1);
+        assert!(rls.weights.iter().any(|&w| w != 0.0));
+
+        // Test parameter bounds protection
+        let huge_error = 1000.0f32;
+        let bounds_err = update_rls(&mut rls, huge_error, &input);
+        assert_eq!(bounds_err, Err(AdaptationError::ParameterExceedsBounds));
     }
 }

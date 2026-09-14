@@ -5,5 +5,7 @@
 pub struct SystemBiology;
 
 impl SystemBiology {
-    pub fn new() -> Self { Self }
+    pub fn new() -> Self {
+        SystemBiology
+    }
 }

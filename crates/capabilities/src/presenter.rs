@@ -131,7 +131,7 @@ impl InteractionHeatmap {
     pub fn record_focus(&mut self, view: &str) {
         *self.view_focus_counts.entry(view.to_string()).or_insert(0) += 1;
         self.total_interactions += 1;
-        if let Some((top_view, _)) = self.view_focus_counts.iter().max_by_key(|(_, &c)| c) {
+        if let Some((top_view, _)) = self.view_focus_counts.iter().max_by_key(|&(_, &c)| c) {
             self.primary_focus_view = top_view.clone();
         }
     }

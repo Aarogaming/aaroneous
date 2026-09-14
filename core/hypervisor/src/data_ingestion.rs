@@ -235,7 +235,7 @@ pub struct IngestionConfig {
 
 impl Default for IngestionConfig {
     fn default() -> Self {
-        let paths = WorkspacePaths::discover();
+        let paths = WorkspacePaths::from_config(WorkspacePathsConfig::default());
         let data = paths.data();
         Self {
             inbox_path: paths.inbox(),

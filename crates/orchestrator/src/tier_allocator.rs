@@ -16,6 +16,7 @@ use anyhow::{bail, Result};
 use compute::latent_router::LatentOrthogonalRouter;
 use compute::reflex_worker::ReflexWorker;
 use compute::si_packer::SiTierFlags;
+use compute::si_solid_state::SiOnlineLearner;
 use compute::si_solid_state::SolidStateSiContainer;
 use nervous_system::specialist_bus::SpecialistSynapseBus;
 
@@ -23,7 +24,7 @@ use nervous_system::specialist_bus::SpecialistSynapseBus;
 pub fn pin_current_thread_to_core(core_id: usize) -> bool {
     #[cfg(windows)]
     {
-        extern "system" {
+        unsafe extern "system" {
             fn GetCurrentThread() -> isize;
             fn SetThreadAffinityMask(hThread: isize, dwThreadAffinityMask: usize) -> usize;
         }
@@ -132,11 +133,11 @@ impl TierRuntimeAllocator {
                 .name(format!("Reflex-Specialist-{}", worker_id))
                 .spawn(move || {
                     pin_current_thread_to_core(core_id);
-                    if let Ok(mut worker) = ReflexWorker::new(worker_id, &name, container, false) {
-                        let channel = &bus.channels[channel_idx];
-                        let _ = worker.run_continuous(channel, shutdown, None);
-                        println!("🎯 [Orchestrator] Reflex '{}' shutdown after {} kinetic steps.", name, worker.total_steps_executed);
-                    }
+                    let learner = SiOnlineLearner::new(container, false).unwrap();
+                    let mut worker = ReflexWorker::new(worker_id, &name, learner);
+                    let channel = &bus.channels[channel_idx];
+                    let _ = worker.run_continuous(channel, shutdown, None);
+                    println!("🎯 [Orchestrator] Reflex '{}' shutdown after {} kinetic steps.", name, worker.total_steps_executed);
                 })?;
             self.spawned_threads.push(handle);
         } else {

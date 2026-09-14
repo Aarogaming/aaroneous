@@ -14,7 +14,11 @@ pub use federated_learning::{FederatedLearningEngine, GradientUpdate, ModelMerge
 pub use hive_cluster::{ClusterConfig, HiveCluster, HiveNode, HiveNodeStatus};
 pub use live_daemon::{DaemonWirePacket, LiveP2PConfig, LiveP2PDaemon, LivePeerInfo};
 pub use p2p_network::{MessageType, P2PNetwork, PeerMessage};
-pub use swarm_offloader::{SwarmExecutionOutcome, SwarmOffloader, SwarmTask};
+pub use swarm_offloader::{
+    BackpressureMetrics, SwarmExecutionOutcome, SwarmOffloader, SwarmTask,
+    OPCODE_AST_PARSE, OPCODE_EPIGENETIC_GATING, OPCODE_GENERIC_COMPUTE,
+    OPCODE_SVDD_SECURITY_AUDIT, OPCODE_TEST_GENERATION,
+};
 
 pub struct MultihiveFederation {
     clusters: Vec<HiveCluster>,

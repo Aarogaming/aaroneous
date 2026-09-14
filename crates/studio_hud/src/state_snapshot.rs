@@ -7,8 +7,12 @@
 //! 3. ConsoleProjection: Immersive 10-foot telemetry, harmony score, user profile & level.
 //! 4. HudProjection: Lightweight situational awareness ticker, active bot indicators, FPS.
 
+use core_contracts::EngineSnapshotPod;
+use ipc_bus::SwmrSnapshotReader;
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
+use std::path::Path;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 
 /// Dynamic resource pacing mode regulating shell rendering budgets
@@ -114,9 +118,65 @@ pub struct HudProjection {
     pub is_nominal: bool,
 }
 
-/// Thread-safe lock-free state publisher connecting core loop to shells
+impl From<&EngineSnapshotPod> for EngineSnapshot {
+    fn from(pod: &EngineSnapshotPod) -> Self {
+        Self {
+            timestamp_ms: pod.timestamp_ms,
+            measured_fps: pod.measured_fps,
+            bus_integrity: pod.bus_integrity,
+            bus_understanding: pod.bus_understanding,
+            bus_generation: pod.bus_generation,
+            active_specialist: pod.active_specialist_str().to_string(),
+            active_companions_count: pod.active_companions_count as usize,
+            running_macros_count: pod.running_macros_count as usize,
+            last_event_desc: pod.last_event_desc_str().to_string(),
+            user_level: pod.user_level,
+            user_xp: pod.user_xp,
+            flow_score: pod.flow_score,
+            active_profile_name: pod.active_profile_name_str().to_string(),
+            pacing: match pod.pacing {
+                0 => GovernorPacing::FullPerformance,
+                1 => GovernorPacing::ThermalThrottled,
+                _ => GovernorPacing::CriticalVramSave,
+            },
+        }
+    }
+}
+
+impl From<&EngineSnapshot> for EngineSnapshotPod {
+    fn from(snap: &EngineSnapshot) -> Self {
+        let mut pod = Self {
+            timestamp_ms: snap.timestamp_ms,
+            bus_generation: snap.bus_generation,
+            user_xp: snap.user_xp,
+            measured_fps: snap.measured_fps,
+            bus_integrity: snap.bus_integrity,
+            bus_understanding: snap.bus_understanding,
+            flow_score: snap.flow_score,
+            user_level: snap.user_level,
+            active_companions_count: snap.active_companions_count as u32,
+            running_macros_count: snap.running_macros_count as u32,
+            pacing: match snap.pacing {
+                GovernorPacing::FullPerformance => 0,
+                GovernorPacing::ThermalThrottled => 1,
+                GovernorPacing::CriticalVramSave => 2,
+            },
+            active_specialist: [0; 32],
+            active_profile_name: [0; 32],
+            last_event_desc: [0; 128],
+        };
+        pod.set_active_specialist(&snap.active_specialist);
+        pod.set_active_profile_name(&snap.active_profile_name);
+        pod.set_last_event_desc(&snap.last_event_desc);
+        pod
+    }
+}
+
+/// Thread-safe lock-free state publisher connecting core loop to shells via SWMR shared memory
 pub struct EngineStatePublisher {
     current: RwLock<Arc<EngineSnapshot>>,
+    shm_reader: Option<SwmrSnapshotReader>,
+    last_seq: AtomicU64,
 }
 
 impl Default for EngineStatePublisher {
@@ -127,9 +187,51 @@ impl Default for EngineStatePublisher {
 
 impl EngineStatePublisher {
     pub fn new() -> Self {
+        let config = paths::WorkspacePathsConfig::default();
+        let path = paths::resolve_synapse_path("engine_state", &config);
+        let shm_reader = Some(SwmrSnapshotReader::open(&path));
         Self {
             current: RwLock::new(Arc::new(EngineSnapshot::default())),
+            shm_reader,
+            last_seq: AtomicU64::new(0),
         }
+    }
+
+    pub fn new_with_shm_path(path: &Path) -> Self {
+        let shm_reader = Some(SwmrSnapshotReader::open(path));
+        Self {
+            current: RwLock::new(Arc::new(EngineSnapshot::default())),
+            shm_reader,
+            last_seq: AtomicU64::new(0),
+        }
+    }
+
+    pub fn new_in_memory() -> Self {
+        Self {
+            current: RwLock::new(Arc::new(EngineSnapshot::default())),
+            shm_reader: None,
+            last_seq: AtomicU64::new(0),
+        }
+    }
+
+    /// Return the last read sequence number from shared memory
+    pub fn last_sequence(&self) -> u64 {
+        self.last_seq.load(Ordering::Relaxed)
+    }
+
+    /// Poll the SWMR shared memory ring buffer for new engine snapshot updates.
+    /// Returns true if an updated snapshot was acquired.
+    pub fn poll_shm(&self) -> bool {
+        if let Some(ref reader) = self.shm_reader {
+            let last = self.last_seq.load(Ordering::Relaxed);
+            if let Some(entry) = reader.read_next(last) {
+                self.last_seq.store(entry.sequence, Ordering::Relaxed);
+                let mut w = self.current.write();
+                *w = Arc::new(EngineSnapshot::from(&entry.snapshot));
+                return true;
+            }
+        }
+        false
     }
 
     /// Core engine publish: swaps the current snapshot reference in sub-microsecond time
@@ -149,11 +251,13 @@ impl EngineStatePublisher {
 
     /// Read current governor pacing
     pub fn pacing(&self) -> GovernorPacing {
+        self.poll_shm();
         self.current.read().pacing
     }
 
-    /// Shell reader: gets a cloned Arc pointer with zero lock contention
+    /// Shell reader: checks SWMR shared memory for updates, then returns cloned Arc pointer
     pub fn snapshot(&self) -> Arc<EngineSnapshot> {
+        self.poll_shm();
         self.current.read().clone()
     }
 
@@ -196,7 +300,7 @@ mod tests {
 
     #[test]
     fn test_engine_state_publisher_projections() {
-        let publ = EngineStatePublisher::new();
+        let publ = EngineStatePublisher::new_in_memory();
         let init = publ.snapshot();
         assert_eq!(init.measured_fps, 120.0);
 
@@ -232,7 +336,7 @@ mod tests {
 
     #[test]
     fn test_governor_pacing_transitions() {
-        let publ = EngineStatePublisher::new();
+        let publ = EngineStatePublisher::new_in_memory();
         assert_eq!(publ.pacing(), GovernorPacing::FullPerformance);
 
         publ.set_pacing(GovernorPacing::CriticalVramSave);
@@ -243,5 +347,65 @@ mod tests {
         publ.set_pacing(GovernorPacing::ThermalThrottled);
         assert_eq!(publ.pacing(), GovernorPacing::ThermalThrottled);
         assert_eq!(publ.pacing().target_frame_ms(), 16);
+    }
+
+    #[test]
+    fn test_studio_hud_shm_bridge() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let shm_path = tmp.path().join("test_studio_engine_state.synapse");
+
+        let publisher = ipc_bus::SwmrSnapshotPublisher::open_or_create(&shm_path)
+            .expect("publisher create");
+        let reader = EngineStatePublisher::new_with_shm_path(&shm_path);
+
+        // Before any publish from hypervisor, reader falls back to default nominal state
+        let init = reader.snapshot();
+        assert_eq!(init.measured_fps, 120.0);
+
+        // Hypervisor publishes out-of-process snapshot into SWMR ring
+        let mut pod = EngineSnapshotPod::default();
+        pod.bus_generation = 42;
+        pod.measured_fps = 165.0;
+        pod.user_xp = 9999;
+        pod.set_active_specialist("TelemetryIsolate");
+        pod.set_active_profile_name("Commander");
+        pod.set_last_event_desc("SHM lock-free sync nominal");
+        publisher.publish(&pod).expect("publish frame");
+
+        // Studio HUD reader polls SHM and reflects update
+        let updated = reader.snapshot();
+        assert_eq!(reader.last_sequence(), 1);
+        assert_eq!(updated.bus_generation, 42);
+        assert_eq!(updated.measured_fps, 165.0);
+        assert_eq!(updated.user_xp, 9999);
+        assert_eq!(updated.active_specialist, "TelemetryIsolate");
+        assert_eq!(updated.active_profile_name, "Commander");
+        assert_eq!(updated.last_event_desc, "SHM lock-free sync nominal");
+
+        // Polling again without new frames returns false (no unnecessary redraw/cloning)
+        assert!(!reader.poll_shm());
+        assert_eq!(reader.last_sequence(), 1);
+
+        // Hypervisor publishes frame 2
+        pod.bus_generation = 43;
+        pod.measured_fps = 144.0;
+        publisher.publish(&pod).expect("publish frame 2");
+
+        assert!(reader.poll_shm());
+        assert_eq!(reader.last_sequence(), 2);
+        let updated2 = reader.snapshot();
+        assert_eq!(updated2.bus_generation, 43);
+        assert_eq!(updated2.measured_fps, 144.0);
+
+        // Projections in studio_hud are immediately accurate
+        let studio = reader.project_studio();
+        assert_eq!(studio.measured_fps, 144.0);
+        assert_eq!(studio.last_event, "SHM lock-free sync nominal");
+
+        let console = reader.project_console();
+        assert!(console.user_badge.contains("Commander"));
+
+        let hud = reader.project_hud();
+        assert!(hud.active_guidance.contains("TelemetryIsolate"));
     }
 }

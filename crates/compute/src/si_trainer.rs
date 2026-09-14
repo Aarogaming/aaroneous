@@ -341,8 +341,7 @@ pub struct SiModelTrainer {
 }
 
 impl SiModelTrainer {
-    pub fn new(model: SiModel, config: SiTrainerConfig) -> Self {
-        let bridge = LatentGELUBottleneckBridge::new(4096, 1024, 256);
+    pub fn new(model: SiModel, config: SiTrainerConfig, bridge: LatentGELUBottleneckBridge) -> Self {
         Self {
             model,
             config,
@@ -500,11 +499,11 @@ pub struct Bootstrapper {
 impl Bootstrapper {
     /// Initializes the Bootstrapper with Kaiming-uniform weights for the
     /// classifier head and delegates bridge init to `LatentGELUBottleneckBridge`.
-    pub fn new(teacher_dim: usize, student_dim: usize, config: BootstrapperConfig) -> Self {
+    pub fn new(bridge: LatentGELUBottleneckBridge, config: BootstrapperConfig) -> Self {
         use rand::Rng;
         let mut rng = rand::thread_rng();
 
-        let bridge = LatentGELUBottleneckBridge::new(teacher_dim, 1024, student_dim);
+        let student_dim = bridge.student_dim;
         let limit = (6.0 / (student_dim + config.num_opcodes) as f32).sqrt();
         let classifier_w: Vec<f32> = (0..student_dim * config.num_opcodes)
             .map(|_| rng.gen_range(-limit..limit))
@@ -711,7 +710,7 @@ pub fn run_bootstrapper(
     let batch_size = config.batch_size;
     let epochs = config.epochs;
 
-    let mut model = Bootstrapper::new(teacher_dim, student_dim, config.clone());
+    let mut model = Bootstrapper::new(LatentGELUBottleneckBridge::new(teacher_dim, 1024, student_dim), config.clone());
     let mut reports = Vec::with_capacity(epochs);
     let steps = &dataset.steps;
     let total = steps.len();
@@ -816,7 +815,8 @@ mod tests {
         };
 
         let model = SiModel::new(config, false).expect("Model init failed");
-        let mut trainer = SiModelTrainer::new(model, SiTrainerConfig::default());
+        let bridge = LatentGELUBottleneckBridge::new(4096, 1024, 64);
+        let mut trainer = SiModelTrainer::new(model, SiTrainerConfig::default(), bridge);
 
         let mut graph = NativeComputationalGraph::new();
         graph.add_node(NativeComputationNode {
@@ -867,7 +867,7 @@ mod tests {
             infonce_weight: 0.1,
             temperature: 0.07,
         };
-        let model = Bootstrapper::new(32, 8, config);
+        let model = Bootstrapper::new(LatentGELUBottleneckBridge::new(32, 1024, 8), config);
         let teacher = vec![0.1f32; 32];
         let (student, logits) = model.forward(&teacher);
         assert_eq!(student.len(), 8, "Student state should be student_dim=8");
@@ -887,7 +887,7 @@ mod tests {
             infonce_weight: 0.1,
             temperature: 0.07,
         };
-        let mut model = Bootstrapper::new(32, 8, config);
+        let mut model = Bootstrapper::new(LatentGELUBottleneckBridge::new(32, 1024, 8), config);
 
         let teacher_states = vec![vec![1.0f32; 32], vec![-1.0f32; 32], vec![0.5f32; 32], vec![-0.5f32; 32]];
         let target_opcodes: Vec<u16> = vec![0, 1, 2, 3];

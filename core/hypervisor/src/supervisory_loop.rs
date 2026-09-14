@@ -29,7 +29,7 @@ pub struct LegacySharedMemorySynapse {
 
 impl LegacySharedMemorySynapse {
     pub fn new(name: &str, size: usize) -> Result<Self> {
-        let path = aaroneous_paths::resolve_synapse_path(name);
+        let path = paths::resolve_synapse_path(name, &paths::WorkspacePathsConfig::default());
 
         let file = OpenOptions::new()
             .read(true)
@@ -171,7 +171,8 @@ impl Default for SynapseState {
     }
 }
 
-pub struct AutonomicNervousSystem {
+/// Sovereign core supervisory daemon running the deterministic control loop.
+pub struct SupervisoryDaemon {
     synapse: Arc<RwLock<LegacySharedMemorySynapse>>,
     enzyme_runner: Arc<EnzymeRunner>,
     _hox_registry: Arc<HoxRegistry>,
@@ -211,9 +212,24 @@ pub struct AutonomicNervousSystem {
     /// spawned thread can use it to enforce `TICK_WATCHDOG` from inside
     /// the loop without holding a mutable borrow of the system struct.
     pub tick_start: Arc<RwLock<Instant>>,
+    /// IPC SWMR shared-memory state snapshot publisher for decoupled shells
+    pub state_publisher: Arc<crate::state_snapshot::EngineStatePublisher>,
+    /// Dynamic autonomic pacing regulator managing thermodynamic backoff
+    pub pacing_regulator: Arc<parking_lot::RwLock<autonomic_adaptation::AutonomousPacingRegulator>>,
+    /// Black-box flight recorder for deterministic event replay and forensic audit
+    pub flight_recorder: Option<Arc<parking_lot::Mutex<ipc_bus::FlightRecorder>>>,
+    /// Formal SMT action interlock gatekeeper
+    pub smt_interlock: Arc<parking_lot::RwLock<governance::SmtActionInterlock>>,
 }
 
-impl AutonomicNervousSystem {
+/// Backward-compatible alias for standard control systems nomenclature
+pub type AutonomousControlLoop = SupervisoryDaemon;
+
+/// Legacy biological nomenclature alias
+#[deprecated(note = "Use SupervisoryDaemon instead")]
+pub type AutonomicNervousSystem = SupervisoryDaemon;
+
+impl SupervisoryDaemon {
     pub fn new(
         synapse_name: &str,
         tick_rate_ms: u64,
@@ -222,6 +238,33 @@ impl AutonomicNervousSystem {
         splicing_engine: Arc<WasmSplicingEngine>,
         learning_loop: Arc<RwLock<UnifiedLearningLoop>>,
         db_path: Option<&str>,
+    ) -> Result<Self> {
+        let pacing_regulator = Arc::new(parking_lot::RwLock::new(
+            autonomic_adaptation::AutonomousPacingRegulator::default_with_baseline(
+                Duration::from_millis(tick_rate_ms),
+            ),
+        ));
+        Self::new_with_pacing(
+            synapse_name,
+            tick_rate_ms,
+            enzyme_runner,
+            hox_registry,
+            splicing_engine,
+            learning_loop,
+            db_path,
+            pacing_regulator,
+        )
+    }
+
+    pub fn new_with_pacing(
+        synapse_name: &str,
+        tick_rate_ms: u64,
+        enzyme_runner: Arc<EnzymeRunner>,
+        hox_registry: Arc<HoxRegistry>,
+        splicing_engine: Arc<WasmSplicingEngine>,
+        learning_loop: Arc<RwLock<UnifiedLearningLoop>>,
+        db_path: Option<&str>,
+        pacing_regulator: Arc<parking_lot::RwLock<autonomic_adaptation::AutonomousPacingRegulator>>,
     ) -> Result<Self> {
         let size = std::mem::size_of::<SynapseState>();
         let synapse = LegacySharedMemorySynapse::new(synapse_name, size)?;
@@ -255,7 +298,9 @@ impl AutonomicNervousSystem {
             }
         }
 
-        let workspace_root = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+        let workspace_root = paths::WorkspacePaths::from_config(paths::WorkspacePathsConfig::default())
+            .root()
+            .clone();
 
         // PHASE IV: Initialize predictive models
         let kalman_filter = Arc::new(RwLock::new(KalmanFilter1D::new(
@@ -313,7 +358,29 @@ impl AutonomicNervousSystem {
             shutdown: Arc::new(AtomicBool::new(false)),
             max_ticks: Arc::new(AtomicU64::new(DEFAULT_MAX_TICKS)),
             tick_start: Arc::new(RwLock::new(Instant::now())),
+            state_publisher: Arc::new(crate::state_snapshot::EngineStatePublisher::new()),
+            pacing_regulator,
+            flight_recorder: None,
+            smt_interlock: Arc::new(parking_lot::RwLock::new(governance::SmtActionInterlock::strict())),
         })
+    }
+
+    /// Attaches an optional black-box flight recorder to the autonomic loop.
+    pub fn with_flight_recorder(
+        mut self,
+        recorder: Arc<parking_lot::Mutex<ipc_bus::FlightRecorder>>,
+    ) -> Self {
+        self.flight_recorder = Some(recorder);
+        self
+    }
+
+    /// Attaches an SMT formal action interlock gatekeeper
+    pub fn with_smt_interlock(
+        mut self,
+        interlock: Arc<parking_lot::RwLock<governance::SmtActionInterlock>>,
+    ) -> Self {
+        self.smt_interlock = interlock;
+        self
     }
 
     /// Request the autonomic loop to exit at the next iteration boundary.
@@ -335,6 +402,13 @@ impl AutonomicNervousSystem {
     /// Returns `true` if `request_shutdown` has been called.
     pub fn is_shutdown_requested(&self) -> bool {
         self.shutdown.load(Ordering::SeqCst)
+    }
+
+    /// Return access to the autonomous pacing regulator
+    pub fn pacing_regulator(
+        &self,
+    ) -> Arc<parking_lot::RwLock<autonomic_adaptation::AutonomousPacingRegulator>> {
+        self.pacing_regulator.clone()
     }
 
     pub fn get_synapse(&self) -> Arc<RwLock<LegacySharedMemorySynapse>> {
@@ -418,6 +492,10 @@ impl AutonomicNervousSystem {
         let tick_start = self.tick_start.clone();
         let kalman_filter = self.kalman_filter.clone();
         let hmm_model = self.hmm_model.clone();
+        let state_publisher = self.state_publisher.clone();
+        let pacing_regulator = self.pacing_regulator.clone();
+        let flight_recorder = self.flight_recorder.clone();
+        let smt_interlock = self.smt_interlock.clone();
 
         info!(target: "autonomic_loop", ?tick_rate, "heartbeat initiated");
 
@@ -425,6 +503,9 @@ impl AutonomicNervousSystem {
             // OS-01 & Mechanical Sympathy: Elevate reflex loop priority and pin to physical P-Cores
             platform_bridge::observability::mmcss::enable_mmcss_time_critical("Games");
             platform_bridge::observability::mmcss::set_thread_performance_affinity(0x05); // Pin to P-Core #0 and #2
+
+            let mut drift_filter =
+                autonomic_adaptation::StreamingSelfCorrectionFilter::default();
 
             let rt = match tokio::runtime::Runtime::new() {
                 Ok(r) => r,
@@ -567,6 +648,30 @@ impl AutonomicNervousSystem {
                 // --- THERMAL MONITORING: Check system health ---
                 let thermal_metrics = metrics_collector.get_thermal_metrics();
                 let thermal_factor = metrics_collector.get_throttle_factor();
+                let gpu_metrics = metrics_collector.get_gpu_metrics();
+
+                // Dynamic thermodynamic telemetry acquisition for autonomic pacing
+                let thermodynamic_telemetry = autonomic_adaptation::ThermodynamicTelemetry {
+                    cpu_load_pct: (metrics_collector.get_backpressure_level() * 100.0) as f32,
+                    cpu_temp_c: thermal_metrics.cpu_temperature as f32,
+                    gpu_temp_c: gpu_metrics.temperature as f32,
+                    vram_used_bytes: gpu_metrics.memory_used,
+                    vram_total_bytes: gpu_metrics.memory_total,
+                    memory_pressure_pct: state.memory_pressure as f32,
+                };
+
+                let pacing_decision = {
+                    let mut regulator = pacing_regulator.write();
+                    regulator
+                        .compute_next_cadence(&thermodynamic_telemetry)
+                        .unwrap_or(autonomic_adaptation::PacingDecision {
+                            target_cadence: tick_rate,
+                            throttle_tier: autonomic_adaptation::PacingTier::Nominal,
+                            decimation_factor: 1,
+                            task_deferral_probability: 0.0,
+                            composite_stress: 0.0,
+                        })
+                };
 
                 // Update Kalman filter with actual measurement
                 {
@@ -940,6 +1045,16 @@ impl AutonomicNervousSystem {
                                     }
                                 }
 
+                                // SAFE-01: Formal SMT Action Interlock Gatekeeper
+                                {
+                                    let interlock = smt_interlock.read();
+                                    if interlock.is_killswitch_active() {
+                                        warn!(target: "autonomic_loop", %step_id, "interlock killswitch active; aborting step");
+                                        step.status = StepStatus::Failed("Interlock killswitch active".to_string());
+                                        continue;
+                                    }
+                                }
+
                                 debug!(target: "autonomic_loop", %step_id, %specialist_id, "executing plan step");
 
                                 // FIX #7: INTEGRATION - Specialist memory consultation for decision making
@@ -1128,7 +1243,30 @@ impl AutonomicNervousSystem {
 
                 // --- PHASE 5: MCP TOOL EXECUTION ---
                 if state.mcp_tool_call.status == 1 {
+                    // SAFE-01: Gate MCP tool execution through SmtActionInterlock
+                    {
+                        let interlock = smt_interlock.read();
+                        if interlock.is_killswitch_active() {
+                            warn!(target: "autonomic_loop", call_id = state.mcp_tool_call.call_id, "interlock killswitch active; blocking tool execution");
+                            state.mcp_tool_call.status = 3; // Failed
+                            Self::write_state(&synapse.read(), &state);
+                            continue;
+                        }
+                    }
+
                     state.mcp_tool_call.status = 2; // Executing
+
+                    if let Some(ref recorder_mutex) = flight_recorder {
+                        let mut rec = recorder_mutex.lock();
+                        let _ = rec.record_transition(
+                            core_contracts::FlightEventKind::IntentDispatched,
+                            0x01,
+                            state.mcp_tool_call.call_id,
+                            state.mcp_tool_call.tool_name_hash,
+                            state.mcp_tool_call.status as u64,
+                            &state.mcp_tool_call.arguments_payload[..64],
+                        );
+                    }
 
                     let mut hasher = std::collections::hash_map::DefaultHasher::new();
                     use std::hash::{Hash, Hasher};
@@ -1235,7 +1373,9 @@ impl AutonomicNervousSystem {
                 }
 
                 // --- PHASE 8: NEURAL PRUNING (Homeostasis) ---
-                if state.clock_tick % 1000 == 0 || state.memory_pressure > 90 {
+                if (state.clock_tick % 1000 == 0 || state.memory_pressure > 90)
+                    && (tick_count % (pacing_decision.decimation_factor as u64) == 0)
+                {
                     let mut archive = crate::neural_pruning::PrunedArchive::new();
                     neural_pruning_enzyme.prune_constellation(&mut Vec::new(), &mut archive);
                 }
@@ -1255,6 +1395,35 @@ impl AutonomicNervousSystem {
                     Self::write_state(&syn, &state);
                 }
 
+                // --- Phase 3 Actuation/Telemetry: SWMR zero-copy SHM snapshot emission ---
+                {
+                    let mut pod = core_contracts::EngineSnapshotPod::default();
+                    pod.timestamp_ms = state.clock_tick.saturating_mul(tick_rate.as_millis() as u64);
+                    pod.bus_generation = state.clock_tick;
+                    pod.bus_integrity = (state.integrity_score as f32).clamp(0.0, 100.0);
+                    pod.bus_understanding = (state.understanding_score as f32).clamp(0.0, 100.0);
+                    pod.flow_score = (1.0 - state.concept_drift).clamp(0.0, 1.0);
+                    pod.pacing = match pacing_decision.throttle_tier {
+                        autonomic_adaptation::PacingTier::Nominal => 0,
+                        autonomic_adaptation::PacingTier::MetabolicThrottle => 1,
+                        autonomic_adaptation::PacingTier::ThermalCritical
+                        | autonomic_adaptation::PacingTier::DormantPreservation => 2,
+                    };
+                    let _ = state_publisher.publish_pod(&pod);
+
+                    if let Some(ref recorder_mutex) = flight_recorder {
+                        let mut rec = recorder_mutex.lock();
+                        let _ = rec.record_transition(
+                            core_contracts::FlightEventKind::TelemetryTick,
+                            0x01, // Hypervisor
+                            state.clock_tick,
+                            state.integrity_score as u64,
+                            state.understanding_score as u64,
+                            &state.intent_vector_id,
+                        );
+                    }
+                }
+
                 let elapsed = start.elapsed();
                 // --- TICK WATCHDOG ---
                 if elapsed > TICK_WATCHDOG {
@@ -1266,10 +1435,208 @@ impl AutonomicNervousSystem {
                         "tick exceeded watchdog budget"
                     );
                 }
-                if elapsed < tick_rate {
-                    thread::sleep(tick_rate - elapsed);
+                let corrected_sleep =
+                    drift_filter.compute_sleep_duration(elapsed, pacing_decision.target_cadence);
+                if !corrected_sleep.is_zero() {
+                    thread::sleep(corrected_sleep);
                 }
             }
         });
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use autonomic_adaptation::{
+        AutonomousPacingRegulator, PacingConfig, PacingTier, ThermodynamicTelemetry,
+    };
+
+    #[test]
+    fn test_supervisory_daemon_pacing_constructor_injection() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let synapse_name = "test_ans_pacing_synapse";
+
+        let enzyme_runner = Arc::new(EnzymeRunner::new().expect("enzyme runner"));
+        let hox_path = tmp.path().join("test_hox.db");
+        let hox_registry = Arc::new(
+            HoxRegistry::new(hox_path.to_str().expect("path str")).expect("hox registry"),
+        );
+        let workspace_root = tmp.path().to_path_buf();
+        let splicing_engine =
+            Arc::new(WasmSplicingEngine::new(hox_registry.clone(), workspace_root));
+        let learning_loop = Arc::new(RwLock::new(UnifiedLearningLoop::new(
+            crate::unified_learning::UnifiedLearningConfig::default(),
+            0,
+            vec![],
+        )));
+
+        let custom_config = PacingConfig {
+            baseline_interval: Duration::from_millis(25),
+            min_interval: Duration::from_millis(5),
+            max_interval: Duration::from_millis(500),
+            thermal_warning_c: 70.0,
+            thermal_critical_c: 80.0,
+            thermal_emergency_c: 90.0,
+            vram_warning_pct: 70.0,
+            vram_critical_pct: 85.0,
+            ewma_alpha: 0.5,
+        };
+
+        let regulator = Arc::new(parking_lot::RwLock::new(
+            AutonomousPacingRegulator::new(custom_config).expect("valid config"),
+        ));
+
+        let db_path = tmp.path().join("test_hive.db");
+        let daemon = SupervisoryDaemon::new_with_pacing(
+            synapse_name,
+            25,
+            enzyme_runner,
+            hox_registry,
+            splicing_engine,
+            learning_loop,
+            db_path.to_str(),
+            regulator.clone(),
+        )
+        .expect("SupervisoryDaemon instantiation");
+
+        assert_eq!(
+            daemon.pacing_regulator().read().current_cadence(),
+            Duration::from_millis(25)
+        );
+        assert_eq!(
+            daemon.pacing_regulator().read().current_tier(),
+            PacingTier::Nominal
+        );
+    }
+
+    #[test]
+    fn test_autonomic_pacing_thermal_backoff_and_recovery() {
+        let custom_config = PacingConfig {
+            baseline_interval: Duration::from_millis(10),
+            min_interval: Duration::from_millis(2),
+            max_interval: Duration::from_millis(200),
+            thermal_warning_c: 75.0,
+            thermal_critical_c: 85.0,
+            thermal_emergency_c: 95.0,
+            vram_warning_pct: 75.0,
+            vram_critical_pct: 90.0,
+            ewma_alpha: 0.4,
+        };
+
+        let mut regulator =
+            AutonomousPacingRegulator::new(custom_config).expect("valid config");
+
+        // 1. Nominal operating temperature (45°C)
+        let nominal = ThermodynamicTelemetry {
+            cpu_temp_c: 45.0,
+            gpu_temp_c: 42.0,
+            ..Default::default()
+        };
+        let decision1 = regulator.compute_next_cadence(&nominal).expect("decision");
+        assert_eq!(decision1.throttle_tier, PacingTier::Nominal);
+        assert_eq!(decision1.target_cadence, Duration::from_millis(10));
+
+        // 2. Severe thermal spike (88°C)
+        let critical = ThermodynamicTelemetry {
+            cpu_temp_c: 88.0,
+            gpu_temp_c: 82.0,
+            ..Default::default()
+        };
+        let decision2 = regulator.compute_next_cadence(&critical).expect("decision");
+        assert_eq!(decision2.throttle_tier, PacingTier::ThermalCritical);
+        assert_eq!(decision2.target_cadence, Duration::from_millis(40)); // 4x backoff
+        assert_eq!(decision2.decimation_factor, 4);
+
+        // 3. Recovery to cool range (40°C)
+        let cool = ThermodynamicTelemetry {
+            cpu_temp_c: 40.0,
+            gpu_temp_c: 38.0,
+            cpu_load_pct: 5.0,
+            vram_used_bytes: 1024,
+            vram_total_bytes: 8 * 1024 * 1024 * 1024,
+            memory_pressure_pct: 10.0,
+        };
+        for _ in 0..10 {
+            let _ = regulator.compute_next_cadence(&cool).expect("decision");
+        }
+        assert_eq!(regulator.current_tier(), PacingTier::Nominal);
+        assert_eq!(regulator.current_cadence(), Duration::from_millis(10));
+    }
+
+    #[test]
+    fn test_autonomic_pacing_vram_saturation() {
+        let mut regulator =
+            AutonomousPacingRegulator::default_with_baseline(Duration::from_millis(10));
+
+        let vram_heavy = ThermodynamicTelemetry {
+            cpu_temp_c: 50.0,
+            gpu_temp_c: 50.0,
+            vram_used_bytes: 7800 * 1024 * 1024,
+            vram_total_bytes: 8000 * 1024 * 1024, // 97.5% VRAM
+            ..Default::default()
+        };
+
+        let decision = regulator.compute_next_cadence(&vram_heavy).expect("decision");
+        assert_eq!(decision.throttle_tier, PacingTier::ThermalCritical);
+        assert_eq!(decision.target_cadence, Duration::from_millis(40));
+        assert_eq!(decision.task_deferral_probability, 0.75);
+    }
+
+    #[test]
+    fn test_supervisory_daemon_flight_recorder_integration() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let synapse_name = "test_ans_flight_recorder_synapse";
+
+        let enzyme_runner = Arc::new(EnzymeRunner::new().expect("enzyme runner"));
+        let hox_path = tmp.path().join("test_hox.db");
+        let hox_registry = Arc::new(
+            HoxRegistry::new(hox_path.to_str().expect("path str")).expect("hox registry"),
+        );
+        let workspace_root = tmp.path().to_path_buf();
+        let splicing_engine =
+            Arc::new(WasmSplicingEngine::new(hox_registry.clone(), workspace_root));
+        let learning_loop = Arc::new(RwLock::new(UnifiedLearningLoop::new(
+            crate::unified_learning::UnifiedLearningConfig::default(),
+            0,
+            vec![],
+        )));
+
+        let db_path = tmp.path().join("test_hive.db");
+        let flight_log_path = tmp.path().join("test_flight.flight");
+        let recorder = Arc::new(parking_lot::Mutex::new(
+            ipc_bus::FlightRecorder::open_or_create(&flight_log_path).expect("open flight log"),
+        ));
+
+        let daemon = SupervisoryDaemon::new(
+            synapse_name,
+            10,
+            enzyme_runner,
+            hox_registry,
+            splicing_engine,
+            learning_loop,
+            db_path.to_str(),
+        )
+        .expect("daemon new")
+        .with_flight_recorder(recorder.clone());
+
+        daemon.set_max_ticks(3);
+        daemon.start();
+
+        // Allow ticks to complete
+        std::thread::sleep(Duration::from_millis(150));
+        daemon.request_shutdown();
+
+        // Verify flight events were recorded
+        let replayer = ipc_bus::FlightReplayer::open(&flight_log_path).expect("replayer open");
+        let (oldest, latest) = replayer.available_event_range().expect("range");
+        assert!(latest >= 1, "Expected at least 1 recorded event, found {}", latest);
+        assert_eq!(oldest, 1);
+
+        let event = replayer.read_event(1).expect("read first event");
+        assert_eq!(event.event_kind, core_contracts::FlightEventKind::TelemetryTick as u16);
+        assert_eq!(event.source_id, 0x01);
+        assert!(event.verify_checksum());
+    }
+}
+

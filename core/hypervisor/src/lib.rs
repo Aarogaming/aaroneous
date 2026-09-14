@@ -15,6 +15,7 @@ pub extern crate autonomic_adaptation as evolution;
 
 pub mod error;
 pub mod util;
+pub mod state;
 
 pub extern crate governance as biology;
 pub use governance as system_health;
@@ -89,12 +90,8 @@ pub enum DigestionPriority {
     High,
 }
 
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
-pub enum DigestionStatus {
-    StructuralAnalysis,
-    Ready,
-    Complete,
-}
+pub mod onboarding;
+pub mod assimilation;
 
 // Re-export SABs for universal access
 pub use crate::sabs::{SabManifest, SabMatrix, SabMatrixBuilder, SabSurface};
@@ -159,8 +156,10 @@ pub use crate::scientific_analyzer::{
 
 // Runtime Supervisory Loop
 pub mod supervisory_loop;
-pub use supervisory_loop as autonomic_loop;
+pub use supervisory_loop::{AutonomousControlLoop, SupervisoryDaemon};
+#[allow(deprecated)]
 pub use supervisory_loop::AutonomicNervousSystem;
+pub use supervisory_loop as autonomic_loop;
 
 // Sandboxed Micro-Worker Bytecode Virtual Machine
 pub mod micro_vm;
@@ -312,18 +311,23 @@ use std::sync::Mutex;
 use plugin_api::{PluginDescriptor, Plugin};
 use libloading::Library;
 
+/// Plugin configuration POD for constructor injection
+#[derive(Debug, Clone)]
+pub struct PluginConfig {
+    pub path: std::path::PathBuf,
+}
+
 /// Global plugin manager singleton.
-pub static PLUGIN_MANAGER: Lazy<Mutex<PluginManager>> = Lazy::new(|| Mutex::new(PluginManager::new()));
+pub static PLUGIN_MANAGER: Lazy<Mutex<PluginManager>> = Lazy::new(|| Mutex::new(PluginManager::new(PluginConfig { path: std::path::PathBuf::new() })));
 
 pub struct PluginManager {
     registry: HashMap<String, PluginDescriptor>,
     // Store loaded plugin handles to keep them alive.
     _loaded: Vec<Library>, // Store Library objects
-
 }
 
 impl PluginManager {
-    pub fn new() -> Self {
+    pub fn new(config: PluginConfig) -> Self {
         Self {
             registry: HashMap::new(),
             _loaded: Vec::new(),
@@ -348,10 +352,9 @@ impl PluginManager {
     }
 }
 
-/// Initialize plugins at hypervisor startup.
-pub fn init_plugins() -> Result<(), anyhow::Error> {
-    let plugins_dir = std::env::var("AARONEOUS_PLUGIN_PATH").unwrap_or_else(|_| "plugins".into());
-    let entries = std::fs::read_dir(&plugins_dir)?;
+/// Initialize plugins at hypervisor startup via config injection.
+pub fn init_plugins(config: PluginConfig) -> Result<(), anyhow::Error> {
+    let entries = std::fs::read_dir(&config.path)?;
     for entry in entries {
         let entry = entry?;
         let path = entry.path();
@@ -432,10 +435,8 @@ pub fn run_health_checks() -> bool {
     tracing::info!("HealthCheck: Reasoning Engine (Synthesizer) status: Nominal");
 
     // Check Constellation (Omni) registry health
-    if aaroneous_paths::WorkspacePaths::discover()
-        .registry()
-        .exists()
-    {
+    let ws = paths::WorkspacePaths::from_config(paths::WorkspacePathsConfig::default());
+    if ws.registry().exists() {
         tracing::info!("HealthCheck: Constellation Registry (Omni) status: Nominal");
     } else {
         tracing::warn!(
@@ -473,6 +474,20 @@ pub mod reasoning;
 pub mod system_metrics;
 pub mod task_routing;
 pub mod visual_perception;
+
+#[cfg(any(feature = "testing", feature = "simulation", test))]
+pub mod simulation_testbed;
+#[cfg(any(feature = "testing", feature = "simulation", test))]
+pub mod chaos_monkey;
+#[cfg(any(feature = "testing", feature = "simulation", test))]
+pub mod task_worker;
+
+#[cfg(any(feature = "testing", feature = "simulation", test))]
+pub use simulation_testbed::SimulationTestbed;
+#[cfg(any(feature = "testing", feature = "simulation", test))]
+pub use chaos_monkey::ChaosMonkey;
+#[cfg(any(feature = "testing", feature = "simulation", test))]
+pub use task_worker::ExecutionEnzyme;
 
 pub use action_executor::{ActionExecutor, ExecutableAction, FileOp};
 pub use hox_persistence::{HoxPersistenceManager, RegistrySnapshot, SnapshotInfo};

@@ -186,9 +186,7 @@ impl SabMatrix {
     }
 
     pub fn load_generated() -> Result<Self> {
-        let registry_dir = std::env::current_dir()
-            .context("Failed to determine current working directory")?
-            .join("registry");
+        let registry_dir = paths::WorkspacePaths::default().root().join("registry");
 
         Self::load_generated_from_registry_dir(registry_dir)
     }
@@ -217,9 +215,7 @@ impl SabMatrix {
     }
 
     pub fn refresh_generated_cache() -> Result<Self> {
-        let registry_dir = std::env::current_dir()
-            .context("Failed to determine current working directory")?
-            .join("registry");
+        let registry_dir = paths::WorkspacePaths::default().root().join("registry");
 
         if registry_dir.exists() {
             Self::refresh_generated_cache_from_registry_dir(registry_dir)
@@ -309,12 +305,8 @@ mod tests {
 
     #[test]
     fn builder_adds_new_manifest_surface() {
-        let temp_dir = std::env::temp_dir().join(format!("sab-matrix-test-{}", std::process::id()));
-
-        if temp_dir.exists() {
-            fs::remove_dir_all(&temp_dir).unwrap();
-        }
-        fs::create_dir_all(&temp_dir).unwrap();
+        let temp = tempfile::tempdir().unwrap();
+        let temp_dir = temp.path().to_path_buf();
 
         let manifest_path = temp_dir.join("sab_observability.json");
         let manifest = r#"{
@@ -332,19 +324,12 @@ mod tests {
 
         assert_eq!(surface.name, "observability_pipeline");
         assert_eq!(surface.best_fit_module, "src/enterprise_monitoring.rs");
-
-        fs::remove_dir_all(&temp_dir).unwrap();
     }
 
     #[test]
     fn saves_and_loads_generated_matrix() {
-        let temp_dir =
-            std::env::temp_dir().join(format!("sab-matrix-cache-test-{}", std::process::id()));
-
-        if temp_dir.exists() {
-            fs::remove_dir_all(&temp_dir).unwrap();
-        }
-        fs::create_dir_all(&temp_dir).unwrap();
+        let temp = tempfile::tempdir().unwrap();
+        let temp_dir = temp.path().to_path_buf();
 
         let matrix = SabMatrix {
             schema_version: "1.0".to_string(),
@@ -378,19 +363,12 @@ mod tests {
                 .best_fit_module,
             "src/test.rs"
         );
-
-        fs::remove_dir_all(&temp_dir).unwrap();
     }
 
     #[test]
     fn stale_generated_matrix_rebuilds_when_manifest_changes() {
-        let temp_dir =
-            std::env::temp_dir().join(format!("sab-matrix-stale-test-{}", std::process::id()));
-
-        if temp_dir.exists() {
-            fs::remove_dir_all(&temp_dir).unwrap();
-        }
-        fs::create_dir_all(&temp_dir).unwrap();
+        let temp = tempfile::tempdir().unwrap();
+        let temp_dir = temp.path().to_path_buf();
 
         let baseline = SabMatrix {
             schema_version: "1.0".to_string(),
@@ -429,19 +407,12 @@ mod tests {
                 .best_fit_module,
             "src/new_feature.rs"
         );
-
-        fs::remove_dir_all(&temp_dir).unwrap();
     }
 
     #[test]
     fn refresh_generated_cache_forces_rebuild_and_save() {
-        let temp_dir =
-            std::env::temp_dir().join(format!("sab-matrix-refresh-test-{}", std::process::id()));
-
-        if temp_dir.exists() {
-            fs::remove_dir_all(&temp_dir).unwrap();
-        }
-        fs::create_dir_all(&temp_dir).unwrap();
+        let temp = tempfile::tempdir().unwrap();
+        let temp_dir = temp.path().to_path_buf();
 
         let manifest_path = temp_dir.join("sab_refresh.json");
         let manifest = r#"{
@@ -461,7 +432,5 @@ mod tests {
             "refresh_surface"
         );
         assert!(temp_dir.join("sab_matrix.generated.json").exists());
-
-        fs::remove_dir_all(&temp_dir).unwrap();
     }
 }

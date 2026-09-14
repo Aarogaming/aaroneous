@@ -29,7 +29,7 @@ pub enum FlightCommand {
     AutoProbeModel,
 }
 
-pub struct FlightControllerApp {
+pub struct RuntimeControllerApp {
     pub config: FlightConfig,
     pub repo_root: PathBuf,
     pub running: bool,
@@ -46,7 +46,10 @@ pub struct FlightControllerApp {
     pub rx_event: Receiver<FlightEvent>,
 }
 
-impl FlightControllerApp {
+/// Backward-compatible alias for RuntimeControllerApp
+pub type FlightControllerApp = RuntimeControllerApp;
+
+impl RuntimeControllerApp {
     pub fn new(cc: &eframe::CreationContext<'_>, config: FlightConfig) -> Self {
         let mut visuals = egui::Visuals::dark();
         visuals.window_fill = egui::Color32::from_rgb(18, 20, 26);
@@ -206,7 +209,7 @@ impl FlightControllerApp {
     }
 }
 
-impl eframe::App for FlightControllerApp {
+impl eframe::App for RuntimeControllerApp {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         self.poll_events();
         ui.ctx().request_repaint_after(Duration::from_millis(100));
@@ -215,7 +218,7 @@ impl eframe::App for FlightControllerApp {
         egui::Panel::top("flight_top_bar").show_inside(ui, |ui| {
             ui.add_space(6.0);
             ui.horizontal(|ui| {
-                ui.heading("Aaroneous Flight Controller");
+                ui.heading("Aaroneous Runtime Controller");
                 ui.label(egui::RichText::new("v0.1.0").color(egui::Color32::GRAY));
 
                 ui.separator();
@@ -546,15 +549,15 @@ impl eframe::App for FlightControllerApp {
 pub fn launch_gui(config: FlightConfig) -> Result<(), eframe::Error> {
     let native_options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
-            .with_title("Aaroneous Flight Controller")
+            .with_title("Aaroneous Runtime Controller")
             .with_inner_size([1180.0, 780.0])
             .with_min_inner_size([720.0, 480.0]),
         ..Default::default()
     };
 
     eframe::run_native(
-        "Aaroneous Flight Controller",
+        "Aaroneous Runtime Controller",
         native_options,
-        Box::new(|cc| Ok(Box::new(FlightControllerApp::new(cc, config)))),
+        Box::new(|cc| Ok(Box::new(RuntimeControllerApp::new(cc, config)))),
     )
 }

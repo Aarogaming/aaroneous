@@ -75,7 +75,7 @@ pub type CompactionEngine = SpecialistHibernationEngine;
 
 impl Default for SpecialistHibernationEngine {
     fn default() -> Self {
-        let dir = aaroneous_paths::WorkspacePaths::discover()
+        let dir = paths::WorkspacePaths::discover(&paths::WorkspacePathsConfig::new())
             .models()
             .join("hibernation");
         Self::new(dir)
@@ -276,8 +276,7 @@ mod tests {
 
     #[test]
     fn test_compaction_engine_hibernation_and_resurrection() {
-        let test_dir = std::env::temp_dir().join("aaroneous_compaction_engine_unit_test");
-        let _ = fs::create_dir_all(&test_dir);
+        let test_dir = tempfile::tempdir().unwrap().into_path();
         let mut reaper = CompactionEngine::new(test_dir.clone());
 
         // 1. Register test specialist with 32MB simulated memory footprint

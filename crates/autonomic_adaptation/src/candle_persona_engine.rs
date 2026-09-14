@@ -73,7 +73,7 @@ impl CandlePersonaEngine {
 
     /// Auto-discovers local GGUF models across known workspace and system paths
     pub fn discover_local_models() -> Vec<DiscoveredGgufModel> {
-        let ws = aaroneous_paths::WorkspacePaths::discover();
+        let ws = paths::WorkspacePaths::discover(&paths::WorkspacePathsConfig::new());
         let hubs = ws.get_known_model_hubs();
         let mut search_paths = Vec::new();
         for hub in hubs {
@@ -264,7 +264,7 @@ impl CandlePersonaEngine {
 
             let mut rng = rand::thread_rng();
             use rand::Rng;
-            let sample_val: f32 = rng.gen::<f32>() * sum_p;
+            let sample_val: f32 = rng.r#gen::<f32>() * sum_p;
             let mut acc = 0.0f32;
 
             for &(idx, p) in &indexed_probs {

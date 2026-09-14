@@ -3,7 +3,7 @@
 // Uses Qwen models (or other open source GGUF)
 
 use crate::types::*;
-use aaroneous_paths::WorkspacePaths;
+use paths::{WorkspacePaths, WorkspacePathsConfig};
 use anyhow::{Result, anyhow};
 use async_trait::async_trait;
 use std::path::PathBuf;
@@ -74,7 +74,7 @@ impl GGUFProvider {
     /// fallback even if it doesn't exist (so `LLMConfig::gguf_model_path`
     /// is always populated with a sane value).
     pub fn default_qwen_path() -> PathBuf {
-        let wp = WorkspacePaths::discover();
+        let wp = WorkspacePaths::discover(&WorkspacePathsConfig::new());
         let locations: Vec<PathBuf> = vec![
             // Crystallized sovereign models (preferred — domain-specialized)
             wp.sovereign_model("presenter"),

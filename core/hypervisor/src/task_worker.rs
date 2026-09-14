@@ -1,5 +1,5 @@
 use anyhow::{Result, anyhow};
-use crate::nervous_system::shared_memory::McpToolCallFrame;
+use ipc_bus::shared_memory::McpToolCallFrame;
 use serde_json::Value;
 
 pub struct ExecutionEnzyme;
@@ -39,9 +39,9 @@ impl ExecutionEnzyme {
                         println!("  +3 Host Result: File content loaded ({} bytes).", len);
                         Ok(())
                     }
-                    Err(e) => Err(anyhow!("Failed to read file {}: {}", path, e))
+                    Err(e) => Err(anyhow!("Failed to read file {}: {}", path, e)),
                 }
-            },
+            }
             "write_file" => {
                 let path = args["path"].as_str().unwrap_or("");
                 let content = args["content"].as_str().unwrap_or("");
@@ -50,9 +50,9 @@ impl ExecutionEnzyme {
                         println!("  +3 Host Result: Buffer flushed to disk ({}).", path);
                         Ok(())
                     }
-                    Err(e) => Err(anyhow!("Failed to write file {}: {}", path, e))
+                    Err(e) => Err(anyhow!("Failed to write file {}: {}", path, e)),
                 }
-            },
+            }
             "http_request" => {
                 let url = args["url"].as_str().unwrap_or("");
                 if url.starts_with("http") {
@@ -60,4 +60,66 @@ impl ExecutionEnzyme {
                     Ok(())
                 } else {
                     Err(anyhow!("Invalid URL for HTTP request: {}", url))
-} } _ => return Err(anyhow!("Unknown tool: {}", name)), } } }
+                }
+            }
+            _ => Err(anyhow!("Unknown tool: {}", name)),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::tempdir;
+
+    #[test]
+    fn test_execute_chain_success() {
+        let dir = tempdir().expect("tempdir");
+        let test_file = dir.path().join("test.txt");
+        let test_file_str = test_file.to_str().unwrap().replace('\\', "/");
+
+        let plan = serde_json::json!({
+            "steps": [
+                {
+                    "tool": "write_file",
+                    "arguments": {
+                        "path": test_file_str,
+                        "content": "hello world"
+                    }
+                },
+                {
+                    "tool": "read_file",
+                    "arguments": {
+                        "path": test_file_str
+                    }
+                },
+                {
+                    "tool": "http_request",
+                    "arguments": {
+                        "url": "https://localhost:8080/health"
+                    }
+                }
+            ]
+        });
+
+        let mut frame = McpToolCallFrame::default();
+        let res = ExecutionEnzyme::execute_chain(&plan.to_string(), &mut frame);
+        assert!(res.is_ok());
+    }
+
+    #[test]
+    fn test_execute_chain_invalid_tool() {
+        let plan = serde_json::json!({
+            "steps": [
+                {
+                    "tool": "nonexistent_tool",
+                    "arguments": {}
+                }
+            ]
+        });
+
+        let mut frame = McpToolCallFrame::default();
+        let res = ExecutionEnzyme::execute_chain(&plan.to_string(), &mut frame);
+        assert!(res.is_err());
+    }
+}

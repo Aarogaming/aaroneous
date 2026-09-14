@@ -20,7 +20,7 @@
 /// # Example
 ///
 /// ```
-/// use a_run::federation::session::{Session, SessionManager};
+/// use hypervisor::federation::session::{Session, SessionManager};
 ///
 /// let mut manager = SessionManager::new();
 /// let session_id = manager.create_session("aaron", None);

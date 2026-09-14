@@ -1,7 +1,7 @@
 // core/hypervisor/src/hud/state.rs
 //! Shared HUD state, window modes, DPI scaling, and Spatial Canvas state.
 
-use aaroneous_paths::{DiscoveredGgufModel, ModelHubLocation, WorkspacePaths};
+use paths::{DiscoveredGgufModel, ModelHubLocation, WorkspacePaths, WorkspacePathsConfig};
 use crossbeam_channel::{Receiver, Sender, unbounded};
 use eframe::egui::{self, Color32, Pos2, Vec2};
 use memmap2::{MmapMut, MmapOptions};
@@ -63,7 +63,7 @@ pub struct CustomAgent {
 
 impl CustomAgent {
     pub fn agents_dir() -> PathBuf {
-        WorkspacePaths::discover().agents()
+        WorkspacePaths::discover(&WorkspacePathsConfig::default()).agents()
     }
 
     pub fn file_path(&self) -> PathBuf {
@@ -104,7 +104,7 @@ impl CustomAgent {
         }
 
         if agents.is_empty() {
-            let default_target = WorkspacePaths::discover()
+            let default_target = WorkspacePaths::discover(&WorkspacePathsConfig::default())
                 .root()
                 .to_string_lossy()
                 .to_string();
@@ -255,6 +255,7 @@ pub enum AppWindowMode {
     CompactRecorderOverlay,
     UtilityDashboard,
     ConsoleGameOS,
+    TransparentOverlay,
 }
 
 /// Persistent User Preferences (100% Dynamic Paths)
@@ -299,7 +300,7 @@ impl Default for UserSettings {
 
 impl UserSettings {
     pub fn config_path() -> PathBuf {
-        WorkspacePaths::discover()
+        WorkspacePaths::discover(&WorkspacePathsConfig::default())
             .config()
             .join("hud_settings.json")
     }
@@ -700,7 +701,7 @@ pub struct SharedHudState {
 
 impl Default for SharedHudState {
     fn default() -> Self {
-        let ws = WorkspacePaths::discover();
+        let ws = WorkspacePaths::discover(&WorkspacePathsConfig::default());
         let _ = ws.ensure_directories();
 
         let settings = UserSettings::load_from_disk();
@@ -1141,7 +1142,7 @@ impl SharedHudState {
     pub fn navigate_to_dev_studio(&mut self) { self.nav_section = NavSection::DevStudio; }
     pub fn rescan_workspace_files(&mut self) {
         let root = self.settings.workspace_root_override.clone()
-            .unwrap_or_else(|| std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")));
+            .unwrap_or_else(|| paths::WorkspacePaths::default().root().to_path_buf());
         self.dev_tools_engine = adaptation_engine::DevToolsEngine::new(&root);
         self.workspace_tree_items = self.dev_tools_engine.scan_workspace_tree(4);
     }
@@ -1200,7 +1201,7 @@ impl SharedHudState {
         }
     }
     pub fn rescan_local_models(&mut self) {
-        let ws = WorkspacePaths::discover();
+        let ws = WorkspacePaths::discover(&WorkspacePathsConfig::default());
         let custom_dirs = self
             .settings
             .custom_models_dir

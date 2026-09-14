@@ -1,118 +1,85 @@
-# Agent Configuration
+# Repository Operating Directives & Agent Constitution (`aaroneous`)
 
-## System Prompt
-
-<system>
-Role: Expert multi-platform Rust engineer. Editor: OpenCode Desktop.
-Shell Execution Freedom: You have access to a multi-profile environment including Git Bash, PowerShell, and native Windows CMD. You are explicitly authorized to use any terminal setup required for the operation.
-</system>
-
-<rust_rules>
-- Safety: Strict ownership/borrowing/lifetimes. No `unsafe`.
-- Syntax: Clean `cargo clippy`/`cargo fmt`. Filenames above code blocks (e.g. `// src/main.rs`). Only output changed functions.
-- Errors: No `.unwrap()`, `.expect()`, or panics. Use standard `Result`/`Option`. Use `thiserror`/`anyhow`.
-- Concurrency: Use `tokio`, atomics, or safe channels.
-- Zero‑Copy Contracts: All public structs must derive `bytemuck::Pod` and set `max_blast_radius = "isolated"`.
-</rust_rules>
-
-<dynamic_shell_orchestration>
-- Contextual Routing: Choose the shell that guarantees execution success. Use Git Bash for standard POSIX commands (ls, grep, cat). Use PowerShell or CMD for native Windows paths, system operations, or binary execution.
-- Syntax Alignment: Match your command syntax perfectly to the chosen shell profile. Do not mix Windows backward slashes into Bash scripts, and do not use Unix pipes (`| head`) in CMD.
-- Tool Preference: For reading files or navigating directories, always prefer native OpenCode API tools (`Read`, `ViewDirectory`) to completely bypass shell path parsing limitations.
-- Anti-Looping: If a command fails in one shell with a syntax error, do not repeat it. Immediately pivot to an alternative shell profile or simplify the command format.
-- Limit: Max 2 failed tool attempts per task before stopping to report the failure state.
-- Atomic Git: One logical change per commit. End output with: `git commit -m "<type>(<scope>): <desc>"` (feat, fix, refactor, test).
-- Unified Cratify Pipeline: `audit → scaffold → translate → verify → harvest` (use as command sequence for ACC lifecycle).
-- Systemic Execution Loop: Every autonomous agent and engineering operation must cycle strictly through:
-  `Observe → Hypothesize → Design → Implement → Test → Deploy → Measure → Learn → Repeat`
-</dynamic_shell_orchestration>
-
-<format>
-1. Concise architecture explanation (max 2 sentences).
-2. Filename + code block.
-3. Cargo verification or test commands specified for the appropriate shell.
-4. Conventional Git commit command block.
-</format>
+> **STATUS**: BINDING MACHINE CONTRACT & CONSTITUTION  
+> **APPLIES TO**: ALL AUTONOMOUS AGENTS (OpenCode, Qwen, Claude, LM Studio, Human Contributors)  
+> **WORKSPACE**: `aaroneous` (Pure Logic Controller / SCADA architecture in Rust 2024)  
+> **LAST UPDATED**: 2026-09-11
 
 ---
 
-## Active Roadmap & Frontier Framework
+## 1. Pure State Machine & Dependency Injection Rules
 
-Aaroneous follows a 5-pillar, phased execution model progressing from foundational stabilization into deep OS observability and autonomous execution. See `TODO.md` for full details.
-
-### Architectural Pillars
-
-| Pillar | Scope | Key Components |
-|---|---|---|
-| **P1: Desktop Interaction Engine** | High-speed vision, window topology, HID dispatch, deep OS telemetry | DXGI capture (`windows-capture`), UIA tree walker, WASAPI audio loopback, ETW kernel consumer, `SpatialDeltaGate` |
-| **P2: Synthetic Intelligence & Compiler** | Non-linguistic reasoning, thermodynamic verification, native JIT | `NativeComputationalGraph`, `cranelift-codegen` JIT, `cubecl` GPU SSM associative scan, SMT non-interference prover |
-| **P3: Model Host & Distillation Foundry** | `.si` cartridge lifecycle, GGUF ingestion, multi-model hosting | `SiForge` builder, tensor extraction, frozen core + streaming LoRA, HNSW $\mathbb{R}^{256}$ associative memory |
-| **P4: Adaptive Runtime Engine** | Live code patching, dynamic plugin swapping, self-modification | `libloading` C-ABI hot-reload, OGP LoRA adaptation, generational rollback journal |
-| **P5: Developer Studio & Telemetry HUD** | Management UI, visual debugger, real-time instrumentation | Unified `wgpu` context, 3D DAG visualizer, latency oscilloscope, NVML hardware telemetry, spatial scene persistence |
+- **Deterministic State Reducers**: Domain engines operate as pure state transitions $S_{t+1} = f(S_t, I)$. No side effects, no background network I/O, and no hidden async task launches during state reduction.
+- **Three-Phase Scan Separation**: Strict separation between Input Acquisition (I/O), State Reduction (pure, non-allocating computation), and Telemetry/Actuation Output.
+- **Constructor Injection Only**: All static buffers, handles, and configs MUST be passed into constructors (e.g., `Engine::new(config, buffer)`). Sub-components must NEVER instantiate their own dependencies or global services.
+- **No Ambient Reads**: Sub-components must never read system clocks, environment variables, or files outside what is explicitly passed via constructor or tick inputs.
 
 ---
 
-### Phased Progression
+## 2. Zero Ambient Authority
 
-| Phase | Version | Focus | Status | Key Deliverables |
-|---|---|---|---|---|
-| **Phase 1: Stabilization & Activations** | `v0.4.0` | Defect resolution & flag activations | **Complete** | Fix packet alignment & GDI leaks; activate `llama-gguf`, `nvml-wrapper`, `iroh` P2P; terminology cleanup |
-| **Phase 2: Unified Pipeline & DXGI** | `v0.5.0` | Vision & rendering convergence | **Complete** | DXGI desktop capture (`platform_bridge`), modular HUD modes (`HUDModeManager`), spatial window manager |
-| **Phase 3: Compiler & True JIT** | `v0.6.0` | Native code generation | **Complete** | `si_ir` extraction, `LatticeVerifier` dimensional unit checks, `cranelift-codegen` JIT compilation with W^X memory |
-| **Phase 4: Foundry & Distillation** | `v0.7.0` | `.si` tooling & associative memory | **Complete** | `SiForge` pipeline (`distill`, `align`, `pack`, `verify`), `EpisodicMemoryFabric` (HNSW $\mathbb{R}^{256}$), GGUF seeding |
-| **Phase 5: Adaptive Runtime & Live Patching** | `v0.8.0` | Safe dynamic modification | **Complete** | `libloading` dynamic C-ABI loader, streaming LoRA with OGP, `GenerationalJournal` thermodynamic rollback |
-| **Phase 6: Multi-Node Fleet Mesh** | `v1.0.0` | Distributed execution & SMT gate | **Complete** | Full Iroh QUIC fleet, `FleetScheduler` work-stealing, `Z3Prover` non-interference formal gate |
-| **Phase 7: Deep OS Observability & GPU Acceleration** | `v1.1.0` | Sensor fusion & GPU associative scans | **Complete** | UI Automation tree indexing, WASAPI audio loopback, ETW kernel ingestion, `cubecl` GPU SSM, intent-to-fascia daemon |
-| **Phase 8: Systems Optimization & Release Hardening** | `v1.2.0` | Mechanical sympathy & micro-architectural tuning | **Complete** | `mimalloc` global allocator, Fat LTO profile, `smol_str` AST inlining, `_rdtsc` micro-timing, SoA storage |
-| **Phases 9–17: Native Performance & 3D Galaxy Studio** | `v1.2.0` | Micro-architectural tuning & native 3D HUD | **Complete** | Native WGPU 3D Constellation Studio, SSE telemetry streamer, Raft consensus engine, polyglot tree-sitter |
-| **Phases 18–24: Sovereign Cartridge & Formal Governance** | `v1.3.0` | `.si` container standard & Z3 SMT action interlocks | **Complete** | Canonical `.si` v3.0 format, Z3 SMT non-interference gates, Fitts's law Bézier kinematics, Continuous Macro-SSM |
-| **Phases 25–29: Hardware Saturation & Sparse MoE** | `v1.4.0` | Memory-mapped MoE module registers & self-play | **Complete** | 16-slot sparse expert register, CAN 2.0B/FD, contiguous VRAM slab, Crucible virtual sandbox |
-| **Phases 30–33: Machine-Native Intent & Heterogeneous NPU** | `v1.5.0` | Frictionless user ecosystem & NPU offloading | **Complete** | Auto-tuner, drag-and-drop `.si-pack`, decoupled Linguistic Lens, `.lib` state bank, 45 TOPS NPU acceleration |
-| **Phases 34–37: Console-OS Shell, User Kinematics & Merlin Companion** | `v1.6.0` | Biometric profiling, gamified routines & interactive assistant | **Complete** | Decoupled Console-OS/Utility Dashboard, 3D Constellation Skills, UserBaseline kinematics, foreign user quarantine, Merlin companion |
-| **Phase 38: Triad Shell Convergence, Resource Governance & Micro-Latency** | `v1.7.0` | Capability broker, zero-lock state snapshots, resource governor & rkyv/disruptor | **In Progress** | `CapabilityBroker`, `EngineStatePublisher`, dirty-flag pacing, thermal backpressure, `rkyv` archives, LMAX disruptor, RDTSC, HiPPO SSM |
+- **Explicitly Banned Functions**: `std::env::var`, `std::env::var_os`, `std::env::set_var`, `std::env::remove_var`, `std::env::temp_dir`, `std::env::current_dir` (outside bootstrap CLI entrypoints), and `.canonicalize()` (use `paths::normalize_path`).
+- **Configuration Injection**: All file paths, endpoint URIs, and credentials arrive via typed configuration structs (`WorkspacePathsConfig`, `ShmSegmentConfig`).
+- **Test Sandboxing**: Tests must construct explicit test configs and use `tempfile::tempdir()` for filesystem isolation; tests MUST NEVER touch ambient host environment variables or temp folders.
 
 ---
 
-### The 7-Horizon Frontier Matrix
+## 3. Zero-Heap Allocation & Memory Geometry
 
-| Horizon | Architectural Domain | Technical Mechanism & Target Deliverables |
-|---|---|---|
-| **H1** | **Autonomous Skill Synthesis & Trace Crystallization** | Automatic extraction of high-frequency execution traces into compiled Cranelift native plugins embedded in `.si` Block 3 habit stacks. |
-| **H2** | **Deep OS Observability & Multi-Modal Sensor Fusion** | Quad-stream sensory pipeline: DXGI screen capture + UIA element tree + WASAPI loopback audio + non-polling ETW kernel events. |
-| **H3** | **Formal SMT & Thermodynamic Verification** | Continuous lattice validation of 7-exponent SI base units with SMT-backed algebraic non-interference proofs for concurrent task graphs. |
-| **H4** | **Associative Vector Memory Fabric** | In-memory `hnsw_rs` indexing over $\mathbb{R}^{256}$ latent trajectories providing $< 1\mu\text{s}$ nearest-neighbor habit and reflex recall. |
-| **H5** | **Heterogeneous Fleet Swarm & Work-Stealing** | Multi-host Iroh QUIC mesh with Ed25519 node identities, dynamic load telemetry, and decentralized work-stealing for heavy computation graphs. |
-| **H6** | **Sovereign SI-OS & Compositor** | Fluid RON spatial window canvas evolving toward a standalone Wayland/Direct3D12 compositor and bare-metal microkernel substrate. |
-| **H7** | **In-Game Graphics Hooking & Zero-Latency Overlays** | In-process graphics injection via `hudhook` for DirectX 9/11/12 and Vulkan rendering pipelines with sub-frame action overlays. |
+- **No Heap on Hot Paths**: In `core/hypervisor`, `crates/ipc_bus`, `crates/compute`, `dev/emulator_harness`, and frame ingestors, never allocate dynamic heap memory.
+- **Banned Types & Macros on Hot Paths**: `String`, `Vec`, `Box`, `format!`, `.to_string()`, and unbounded collections (`HashMap`, `BTreeMap`). Use stack arrays (`[T; N]`), bounded ring buffers (`SwrnRingBuffer`), and fixed slices.
+- **Memory Geometry & ABI Safety**: All boundary types and IPC messages must use `#[repr(C)]`, derive `bytemuck::Pod` and `bytemuck::Zeroable`, and include explicit padding fields (e.g., `pub _pad0: u16`) for natural alignment.
+- **Concurrency & Statics**: Single-Writer/Multiple-Reader (SWMR) over pre-allocated ring buffers. No `std::sync::Mutex`, `parking_lot::Mutex`, or `RwLock` on hot paths. No `OnceLock` or `lazy_static` for runtime state.
 
 ---
 
-### Phase 7 Architecture Specification (`v1.1.0`)
+## 4. Cratify & Naming Rules
 
-1. **UI Automation (UIA) Engine (`crates/platform_bridge/src/observability/uia.rs`):**
-   - Direct integration with Windows `IUIAutomation` to walk the active accessibility element tree in parallel with DXGI screen acquisition.
-   - Extracts bounding rectangles, control types, accessibility names, and input focus states into structured metadata.
-2. **WASAPI Audio Loopback Capture (`crates/platform_bridge/src/observability/wasapi.rs`):**
-   - Dedicated background capture thread using `IAudioClient` in loopback mode (`AUDCLNT_STREAMFLAGS_LOOPBACK`).
-   - Streams raw PCM audio frames directly into `WasapiAudioStreamAnalyzer` for real-time acoustic event tokenization.
-3. **ETW Kernel Ingestion (`crates/platform_bridge/src/observability/etw.rs`):**
-   - Real-time Event Tracing for Windows (ETW) consumer listening for process creation/termination, file I/O operations, and registry mutations without polling.
-4. **Real GPU SSM Compute (`crates/compute/src/burn_gpu.rs`):**
-   - High-throughput parallel associative scan compute shaders written in `cubecl` replacing CPU sequential recurrence loops for ultra-low latency inference ($< 180\mu\text{s}$).
-5. **Intent-to-Fascia Watcher Daemon (`core/hypervisor/src/hud/fascia/`):**
-   - Process & window title watcher monitoring foreground window transitions and dynamically loading matching `.ron` spatial canvas scenes via `notify` file watching.
+- **Zero Prefix Stutter**: DO NOT prepend `aaroneous_` or `aaroneous-` to crates, packages, internal types, modules, or IPC channels. (Exemption: external Prometheus/OpenTelemetry metrics namespaces).
+- **Generic Systems Terminology**: Use standard systems names (`hypervisor`, `paths`, `wire`, `hud`, `api`, `bridge`, `controller`, `ingestor`, `pipeline`). Avoid monikers or puns.
+- **Domain-Aware Unsafe Permissions**: Standard domain crates (`api`, `hud`, `wire`, `orchestrator`, `paths`) MUST declare `#![deny(unsafe_code)]`. Performance/kernel crates (`compute`, `hypervisor`) may declare `#![warn(unsafe_code)]` with documented `// SAFETY:` comments.
+- **Mandatory Tempdir in Tests**: Unit and integration tests must use `tempfile::tempdir()` for filesystem testing.
 
 ---
 
-### Terminology Migration Reference
+## 5. Banned Anti-Patterns
 
-| Legacy Term | Target Engineering Term | Domain / Scope |
-|---|---|---|
-| `epigenetic_gate` / `epigenetic sensory` | `TemporalSparsityFilter` / `SpatialDeltaGate` | Vision capture / compute shaders |
-| `HermesRouter` | `LatentOrthogonalRouter` / `ProjectionRouter` | Layer 4 routing |
-| `Cortex` | `ExecutivePlanner` / `StrategicPlanner` | Layer 4 compute |
-| `Synapse` / `SynapseBridge` / `Oscilloscope` | `SignalBridge` / `BusChannel` / `SignalAnalyzer` | IPC / Telemetry |
-| `NucleotidePacket` | `AlignedBitstreamPacket` / `FrameChunk` | IPC / Serialization |
-| `DNA Bank` / `RocksDB DNA` | `ArtifactRegistry` / `StateBank` | Persistence |
-| `Genome binary` | `ModelCartridge` / `CartridgeBinary` | `.si` runtime containers |
-| `Neurochemistry` | `SystemThermodynamics` / `TelemetryState` | Telemetry UI / Metrics |
+- **No Stubs**: `todo!()` and `unimplemented!()` are strictly forbidden in committed code.
+- **No Unsafe Implementations**: Manual `unsafe impl Pod` or `unsafe impl Zeroable` is banned (derive only).
+- **No Unchecked Transmutes**: `unsafe transmute` on unaligned or static data is banned.
+- **No Unhandled Panics**: `.unwrap()` and `.expect()` are banned on hot paths and production error-handling paths. Propagate errors via `Result`.
+
+---
+
+## 6. Sequential Verification Gate Protocol
+
+Agents must NEVER declare work complete based solely on `cargo check`. Every agent MUST run and verify the following sequence before completing a task:
+
+```bash
+# 1. Full Workspace Compilation (all targets, tests, benches)
+cargo check --workspace --all-targets
+
+# 2. Workspace Test Suite (Functional determinism)
+cargo test --workspace
+
+# 3. Structural & Semantic Invariant Audit (MUST EXIT 0)
+cargo run -p ast_auditor -- audit core/ crates/
+
+# 4. Zero-Stub & Soundness Inspection (Must return empty)
+! git grep -n -E "(\btodo!\(|\bunimplemented!\(|unsafe impl.*Pod)" -- "crates/" "core/" "dev/"
+
+# 5. Golden Dogfooding Harness Verification
+cargo test -p emulator_harness
+
+# 6. Full Self-Verification Gate Script
+bash scripts/agent_check.sh
+```
+
+---
+
+## 7. Deep Architecture & Ingestion References
+
+For exhaustive architectural philosophy, historical background, and forensic protocols:
+- **System Architecture & PLC Reductions**: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+- **Forensic Ingestion Protocol & Quarantine**: [docs/FORENSICS_RFC0005.md](docs/FORENSICS_RFC0005.md)
+- **Cratify Invariant & Governance Specification**: [docs/CRATIFY_SPEC.md](docs/CRATIFY_SPEC.md)

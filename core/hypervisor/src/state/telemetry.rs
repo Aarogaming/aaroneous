@@ -1,26 +1,36 @@
 // src/state/telemetry.rs
 
-use bytemuck::{Pod, Zeroable};
-use super::ring_buffer::RingBuffer;
+use super::ring_buffer::SwmrRingBuffer;
 
-/// Telemetry trigger used for fast‑path error reporting.
 #[repr(C)]
-#[derive(Copy, Clone, Debug, Pod, Zeroable)]
+#[derive(Clone, Copy, Debug, PartialEq, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct Trigger {
-    pub anomaly: u32,
-    pub context: [u8; 64],
-    pub timestamp: u64,
+    pub timestamp_qpc: u64,
+    pub error_code: u32,
+    pub severity: u16,
+    pub reserved: u16,
+    pub message: [u8; 64],
 }
 
-// Static telemetry buffer with capacity 1024 entries.
-static TELEMETRY_BUFFER: RingBuffer<Trigger, 1024> = RingBuffer::new();
-
-/// Return a reference to the global telemetry ring buffer.
-pub fn telemetry_ring_buffer() -> &'static RingBuffer<Trigger, 1024> {
-    &TELEMETRY_BUFFER
+impl Default for Trigger {
+    fn default() -> Self {
+        Self::ZERO
+    }
 }
 
-/// Push a trigger onto the buffer (lock‑free). Returns Err if buffer full.
-pub fn push_telemetry(trigger: Trigger) -> Result<(), Trigger> {
-    TELEMETRY_BUFFER.push(trigger)
+impl Trigger {
+    pub const ZERO: Self = Self {
+        timestamp_qpc: 0,
+        error_code: 0,
+        severity: 0,
+        reserved: 0,
+        message: [0u8; 64],
+    };
 }
+
+pub static TELEMETRY_BUFFER: SwmrRingBuffer<Trigger, 1024> = 
+    SwmrRingBuffer::new(Trigger::ZERO);
+
+pub fn push_telemetry(trigger: Trigger) -> bool { TELEMETRY_BUFFER.push(trigger) }
+pub fn pop_telemetry() -> Option<Trigger> { TELEMETRY_BUFFER.pop() }
+pub fn telemetry_ring_buffer() -> &'static SwmrRingBuffer<Trigger, 1024> { &TELEMETRY_BUFFER }

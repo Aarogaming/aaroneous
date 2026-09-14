@@ -75,7 +75,7 @@ impl SpatialKineticEngine {
             config: config.clone(),
             capture: Win32ScreenCapture::new(),
             gate_pipeline: SpatialDeltaPipeline::new(),
-            hid_bridge: HIDOutputBridge::new().with_sensitivity(config.mouse_sensitivity),
+            hid_bridge: HIDOutputBridge::new(config.enable_hid_output).with_sensitivity(config.mouse_sensitivity),
             wgpu_pipeline: None,
             telemetry: EngineTelemetry {
                 frame_id: 0,

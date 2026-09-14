@@ -11,7 +11,7 @@
 /// We want the federation's main work (executing specialists, checkpointing)
 /// to keep running while the HTTP server is just monitoring. A dedicated
 /// task isolates the server's failures from the federation's hot path.
-use super::router::{AppState, router};
+use super::router::{AppState, router, HttpServiceConfig};
 use crate::federation::hive::Federation;
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -67,10 +67,9 @@ impl HttpStatusServer {
     pub async fn spawn(
         addr: SocketAddr,
         federation: Arc<Federation>,
+        cfg: HttpServiceConfig,
     ) -> Result<Self, HttpServerError> {
-        let has_api_key = std::env::var("AARONEOUS_API_KEY")
-            .map(|key| !key.is_empty())
-            .unwrap_or(false);
+        let has_api_key = cfg.auth_key.is_some();
         if !addr.ip().is_loopback() && !has_api_key {
             return Err(HttpServerError::UnauthenticatedRemoteBind { addr });
         }
@@ -81,7 +80,7 @@ impl HttpStatusServer {
 
         let local_addr = listener.local_addr().map_err(HttpServerError::LocalAddr)?;
 
-        let state = AppState::new(federation);
+        let state = AppState::new(federation, cfg);
         // Start background vault indexing — non-blocking, fires and forgets
         state.start_vault_indexing();
         // Start link dispatcher — delivers federation events to webhooks/Discord/Slack/etc.

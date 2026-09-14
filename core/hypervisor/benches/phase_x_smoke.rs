@@ -3,18 +3,18 @@
 // that `cargo bench` produces a baseline number, and so that
 // regressions show up as a non-zero delta in CI.
 //
-// Run with: `cargo bench -p a_run`
-// Or one suite: `cargo bench -p a_run --bench phase_x_smoke`
+// Run with: `cargo bench -p hypervisor`
+// Or one suite: `cargo bench -p hypervisor --bench phase_x_smoke`
 
 use criterion::{Criterion, criterion_group, criterion_main};
 use std::time::Duration;
 
-use a_run::input_validation::{
+use hypervisor::input_validation::{
     ValidationError, validate_bytes, validate_enum, validate_identifier, validate_range,
     validate_string,
 };
-use a_run::rate_limit::{TokenBucketConfig, TokenBucketLimiter, key_from_request};
-use a_run::resilience::{CircuitBreaker, CircuitBreakerConfig, RetryPolicy};
+use hypervisor::rate_limit::{TokenBucketConfig, TokenBucketLimiter, key_from_request};
+use hypervisor::resilience::{CircuitBreaker, CircuitBreakerConfig, RetryPolicy};
 
 fn bench_rate_limit_check(c: &mut Criterion) {
     let rl = TokenBucketLimiter::new(TokenBucketConfig {

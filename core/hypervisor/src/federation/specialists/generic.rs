@@ -17,7 +17,7 @@
 /// # Usage
 ///
 /// ```no_run
-/// use a_run::federation::specialists::GenericSpecialist;
+/// use hypervisor::federation::specialists::GenericSpecialist;
 ///
 /// # async fn example() -> anyhow::Result<()> {
 /// let specialist = GenericSpecialist::new("CodeReviewer", "code_review")
@@ -205,6 +205,9 @@ impl GenericSpecialist {
             enable_caching: true,
             cache_ttl_secs: 600,
             gguf_model_path: None,
+            rate_limit: None,
+            local_endpoint: None,
+            local_model: None,
         };
         self.llm = Some(Arc::new(LLMClient::new(config).await?));
         Ok(self)
@@ -231,6 +234,9 @@ impl GenericSpecialist {
             enable_caching: true,
             cache_ttl_secs: 3600,
             gguf_model_path: Some(path.clone()),
+            rate_limit: None,
+            local_endpoint: None,
+            local_model: None,
         };
         let client = LLMClient::new(config).await.unwrap();
         info!(

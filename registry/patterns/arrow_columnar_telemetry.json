@@ -1,0 +1,17 @@
+{
+  "id": "arrow_columnar_telemetry",
+  "name": "Arrow Columnar SoA Telemetry",
+  "category": "memory_geometry",
+  "origin_predecessor": "Apache Arrow / Bevy ECS",
+  "description": "Structure-of-Arrays (SoA) layout with validity bitmasks for zero-copy column batch processing without per-element heap allocation or pointer indirection.",
+  "target_crates": ["compute", "ipc_bus", "wire", "api"],
+  "detection": {
+    "recommended_markers": ["bytemuck::Pod", "repr(C)", "bitmask", "validity"],
+    "anti_patterns": ["Vec<Option<", "Vec<Box<", "Vec<String>"]
+  },
+  "recommendations": [
+    "Adopt Structure of Arrays (SoA) layout for high-frequency telemetry streams to enable SIMD vectorization and cache locality.",
+    "Use contiguous fixed-size bitmasks to track nullability/validity instead of per-record Option<T> or Box<T> wrappers.",
+    "Ensure all column buffers derive bytemuck::Pod and bytemuck::Zeroable with repr(C) geometry."
+  ]
+}

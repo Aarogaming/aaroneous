@@ -121,6 +121,47 @@ impl CodeMutator {
         }
         Ok(patch.patch_content.clone())
     }
+
+    /// Validates and applies a patch proposal if and only if it satisfies the formal SMT action interlock.
+    /// Synthesizes a formal action graph from the patch delta and verifies dimensional lattice and thermodynamic bounds.
+    pub fn apply_patch_interlocked(
+        source_code: &str,
+        patch: &PatchProposal,
+        interlock: &governance::SmtActionInterlock,
+    ) -> Result<(String, governance::InterlockAuditCertificate)> {
+        // 1. Build a formal action graph for the proposed patch
+        let mut graph = si_ir::NativeComputationalGraph::new();
+        let delta_bytes = (patch.patch_content.len() as isize - source_code.len() as isize).unsigned_abs();
+        let dissipation = 0.001 * (1.0 + (delta_bytes as f64 * 0.0001));
+
+        graph.add_node(si_ir::NativeComputationNode {
+            id: 1,
+            opcode: si_ir::MachineOpcode::Call {
+                function_id: 1,
+                arg_regs: vec![],
+            },
+            type_lattice: si_ir::NativeTypeLattice::PrimitiveInt { bits: 64, signed: false },
+            energy_cost: dissipation,
+            dependencies: vec![],
+        });
+        graph.entry_node = 1;
+        graph.exit_node = 1;
+        graph.thermodynamic_free_energy = dissipation;
+
+        // 2. Evaluate with SMT formal action interlock
+        let cert = interlock.evaluate_action_graph(&graph)?;
+
+        if !cert.is_authorized {
+            bail!(
+                "SMT Action Interlock rejected patch for '{}': {}",
+                patch.target_file,
+                cert.denial_reason.clone().unwrap_or_else(|| "Unknown violation".to_string())
+            );
+        }
+
+        let applied = Self::apply_patch(source_code, patch)?;
+        Ok((applied, cert))
+    }
 }
 
 pub mod fnv1a {
@@ -180,5 +221,28 @@ mod tests {
         )
         .unwrap();
         assert!(patch.patch_content.contains("if let Ok(val) = risky_call() { val } else { 0 }"));
+    }
+
+    #[test]
+    fn test_apply_patch_interlocked() {
+        let src = "fn run() { panic!(\"error\"); }";
+        let patch = CodeMutator::synthesize_repair(
+            "main.rs",
+            src,
+            "panic!(\"error\");",
+            "eprintln!(\"graceful error\");",
+        )
+        .unwrap();
+
+        // 1. Success with strict interlock
+        let interlock = governance::SmtActionInterlock::strict();
+        let (applied, cert) = CodeMutator::apply_patch_interlocked(src, &patch, &interlock).unwrap();
+        assert_eq!(applied, patch.patch_content);
+        assert!(cert.is_authorized);
+
+        // 2. Failure with tripped killswitch
+        interlock.trip_killswitch();
+        let result = CodeMutator::apply_patch_interlocked(src, &patch, &interlock);
+        assert!(result.is_err());
     }
 }

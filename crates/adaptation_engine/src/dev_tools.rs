@@ -38,7 +38,7 @@ pub struct DevToolsEngine {
 impl Default for DevToolsEngine {
     fn default() -> Self {
         Self {
-            workspace_root: aaroneous_paths::WorkspacePaths::discover()
+            workspace_root: paths::WorkspacePaths::discover(&paths::WorkspacePathsConfig::new())
                 .root()
                 .to_path_buf(),
         }
@@ -203,7 +203,8 @@ mod tests {
 
     #[test]
     fn test_patch_application_and_backup_revert() {
-        let temp_file = std::env::temp_dir().join(format!("dev_tool_test_{}.rs", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_micros()));
+        let temp = tempfile::tempdir().unwrap();
+        let temp_file = temp.path().join("dev_tool_test.rs");
         fs::write(&temp_file, "original content").unwrap();
 
         let engine = DevToolsEngine::default();
@@ -215,7 +216,5 @@ mod tests {
         // Revert
         engine.revert_backup(&temp_file, &backup).unwrap();
         assert_eq!(fs::read_to_string(&temp_file).unwrap(), "original content");
-
-        let _ = fs::remove_file(temp_file);
     }
 }

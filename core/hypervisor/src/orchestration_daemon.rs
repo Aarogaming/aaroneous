@@ -68,7 +68,10 @@ pub struct OrchestrationDaemon {
     pub cycles_completed: u64,
     pub tasks_processed: u64,
     pub actions_executed: u64,
+    pub assimilations_processed: u64,
     pub last_cycle_duration: Duration,
+    pub assimilation_tx: tokio::sync::mpsc::Sender<Vec<u8>>,
+    pub assimilation_rx: tokio::sync::mpsc::Receiver<Vec<u8>>,
 }
 
 /// Agent status
@@ -175,6 +178,7 @@ pub struct DaemonStatus {
     pub cycles_completed: u64,
     pub tasks_processed: u64,
     pub actions_executed: u64,
+    pub assimilations_processed: u64,
     pub metabolic_health: SystemHealthReport,
     pub execution_stats: ExecutionStats,
     pub last_cycle_duration_ms: f64,
@@ -227,6 +231,7 @@ impl OrchestrationDaemon {
         let decision_engine = AutonomousDecisionEngine::new(intelligence);
         let executor = ActionExecutor::new(config.wasm_enzyme_path.clone());
         let ingestor_config = config.ingestor_config.clone();
+        let (assimilation_tx, assimilation_rx) = tokio::sync::mpsc::channel(128);
 
         Ok(Self {
             config,
@@ -242,7 +247,10 @@ impl OrchestrationDaemon {
             cycles_completed: 0,
             tasks_processed: 0,
             actions_executed: 0,
+            assimilations_processed: 0,
             last_cycle_duration: Duration::ZERO,
+            assimilation_tx,
+            assimilation_rx,
         })
     }
 
@@ -301,6 +309,17 @@ impl OrchestrationDaemon {
 
     /// Run a single cycle
     async fn run_cycle(&mut self) -> Result<(), String> {
+        // Step 0: Ingest pending zero-copy assimilation frames over the IPC bus non-blockingly
+        while let Ok(frame_bytes) = self.assimilation_rx.try_recv() {
+            if let Ok(broadcast) = self.process_assimilation_frame(&frame_bytes) {
+                tracing::info!(
+                    "[OrchestrationDaemon] Processed assimilation frame: broadcast_type={}, seq={}",
+                    broadcast.broadcast_type,
+                    broadcast.sequence
+                );
+            }
+        }
+
         // Step 1: Ingest metadata
         let events = self.ingestor.process_pending_events();
 
@@ -407,6 +426,25 @@ impl OrchestrationDaemon {
         self.constellation.update_node_metrics(node_id, metrics);
     }
 
+    /// Submit a raw zero-copy binary assimilation frame to the daemon's ingestion channel
+    pub fn submit_assimilation_frame(&self, frame: &[u8]) -> Result<(), String> {
+        self.assimilation_tx
+            .try_send(frame.to_vec())
+            .map_err(|e| format!("Failed to submit assimilation frame: {e}"))
+    }
+
+    /// Reactive event reducer: process an assimilation frame synchronously
+    /// without blocking the core microkernel loop.
+    pub fn process_assimilation_frame(
+        &mut self,
+        bytes: &[u8],
+    ) -> Result<ipc_bus::universal_protocol::UniversalServerBroadcast, crate::error::HypervisorError> {
+        let transitioned = crate::assimilation::handle_assimilation_event(bytes)?;
+        self.assimilations_processed += 1;
+        let broadcast = transitioned.to_broadcast(self.assimilations_processed, 0);
+        Ok(broadcast)
+    }
+
     /// Get current daemon status
     pub fn get_status(&self) -> DaemonStatus {
         DaemonStatus {
@@ -415,6 +453,7 @@ impl OrchestrationDaemon {
             cycles_completed: self.cycles_completed,
             tasks_processed: self.tasks_processed,
             actions_executed: self.actions_executed,
+            assimilations_processed: self.assimilations_processed,
             metabolic_health: self.decision_engine.biology.get_health_report(),
             execution_stats: self.executor.get_stats(),
             last_cycle_duration_ms: self.last_cycle_duration.as_secs_f64() * 1000.0,
@@ -654,5 +693,23 @@ mod tests {
             DaemonState::ShuttingDown,
             DaemonState::ShuttingDown
         ));
+    }
+
+    #[test]
+    fn test_daemon_assimilation_frame_processing() {
+        let config = OrchestrationDaemonConfig::default();
+        let mut daemon = OrchestrationDaemon::new(config).expect("failed to create daemon");
+        let initial = crate::assimilation::AssimilationRecord::new([5u8; 16], 1234);
+        let bytes = bytemuck::bytes_of(&initial);
+
+        let broadcast = daemon.process_assimilation_frame(bytes).expect("processing frame must succeed");
+        assert_eq!(broadcast.broadcast_type, ipc_bus::universal_protocol::UcpBroadcastType::AssimilationState as u32);
+        assert_eq!(daemon.assimilations_processed, 1);
+        assert_eq!(daemon.get_status().assimilations_processed, 1);
+
+        // Test non-blocking channel submission
+        let bytes2 = bytemuck::bytes_of(&initial);
+        daemon.submit_assimilation_frame(bytes2).expect("submission must succeed");
+        assert_eq!(daemon.assimilation_rx.try_recv().is_ok(), true);
     }
 }

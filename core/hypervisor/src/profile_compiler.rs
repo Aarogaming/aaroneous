@@ -23,7 +23,7 @@ use byteorder::{LittleEndian, ReadBytesExt};
 ///
 /// ```rust,ignore
 /// use std::path::PathBuf;
-/// use a_run::genome_compiler::{GenomeCompiler, CompileConfig};
+/// use hypervisor::genome_compiler::{GenomeCompiler, CompileConfig};
 ///
 /// let config = CompileConfig {
 ///     input: PathBuf::from("models/my-model.gguf"),

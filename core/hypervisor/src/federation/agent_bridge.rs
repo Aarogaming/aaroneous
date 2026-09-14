@@ -67,10 +67,10 @@ impl SpecialistAgentBridge {
     ///
     /// ```no_run
     /// # async fn example() -> anyhow::Result<()> {
-    /// use a_run::federation::agent_bridge::SpecialistAgentBridge;
-    /// use a_run::federation::specialists::Visionary;
-    /// use a_run::federation::learn_persist::PersistableLearning;
-    /// use a_run::create_specialist;
+    /// use hypervisor::federation::agent_bridge::SpecialistAgentBridge;
+    /// use hypervisor::federation::specialists::Visionary;
+    /// use hypervisor::federation::learn_persist::PersistableLearning;
+    /// use hypervisor::create_specialist;
     ///
     /// let agent = create_specialist("presenter").unwrap();
     /// let bridge = SpecialistAgentBridge::new(agent)?;

@@ -1,9 +1,9 @@
 [package]
 name = "afc"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 authors = ["Aaron"]
-description = "Aaroneous Autonomous Flight Controller - Out-of-tree Sovereign CI/CD Hypervisor"
+description = "Aaroneous Autonomous Runtime Controller - Out-of-tree Sovereign CI/CD Hypervisor"
 
 [[bin]]
 name = "afc"

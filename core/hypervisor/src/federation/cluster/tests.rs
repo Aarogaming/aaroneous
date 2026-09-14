@@ -5,6 +5,7 @@
 /// the whole hive, and per-host config overrides.
 
 #[cfg(test)]
+#[allow(ambient_authority)]
 mod tests {
     use super::super::*;
     use crate::federation::host::HostConfig;

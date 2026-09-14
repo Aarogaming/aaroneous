@@ -10,6 +10,8 @@
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
+use core_contracts::EngineSnapshotPod;
+use ipc_bus::SwmrSnapshotPublisher;
 
 /// Dynamic resource pacing mode regulating shell rendering budgets
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -142,9 +144,64 @@ pub struct HudProjection {
     pub is_nominal: bool,
 }
 
+impl From<&EngineSnapshot> for EngineSnapshotPod {
+    fn from(snap: &EngineSnapshot) -> Self {
+        let mut pod = Self {
+            timestamp_ms: snap.timestamp_ms,
+            bus_generation: snap.bus_generation,
+            user_xp: snap.user_xp,
+            measured_fps: snap.measured_fps,
+            bus_integrity: snap.bus_integrity,
+            bus_understanding: snap.bus_understanding,
+            flow_score: snap.flow_score,
+            user_level: snap.user_level,
+            active_companions_count: snap.active_companions_count as u32,
+            running_macros_count: snap.running_macros_count as u32,
+            pacing: match snap.pacing {
+                GovernorPacing::FullPerformance => 0,
+                GovernorPacing::ThermalThrottled => 1,
+                GovernorPacing::CriticalVramSave => 2,
+            },
+            active_specialist: [0; 32],
+            active_profile_name: [0; 32],
+            last_event_desc: [0; 128],
+        };
+        pod.set_active_specialist(&snap.active_specialist);
+        pod.set_active_profile_name(&snap.active_profile_name);
+        pod.set_last_event_desc(&snap.last_event_desc);
+        pod
+    }
+}
+
+impl From<&EngineSnapshotPod> for EngineSnapshot {
+    fn from(pod: &EngineSnapshotPod) -> Self {
+        Self {
+            timestamp_ms: pod.timestamp_ms,
+            measured_fps: pod.measured_fps,
+            bus_integrity: pod.bus_integrity,
+            bus_understanding: pod.bus_understanding,
+            bus_generation: pod.bus_generation,
+            active_specialist: pod.active_specialist_str().to_string(),
+            active_companions_count: pod.active_companions_count as usize,
+            running_macros_count: pod.running_macros_count as usize,
+            last_event_desc: pod.last_event_desc_str().to_string(),
+            user_level: pod.user_level,
+            user_xp: pod.user_xp,
+            flow_score: pod.flow_score,
+            active_profile_name: pod.active_profile_name_str().to_string(),
+            pacing: match pod.pacing {
+                0 => GovernorPacing::FullPerformance,
+                1 => GovernorPacing::ThermalThrottled,
+                _ => GovernorPacing::CriticalVramSave,
+            },
+        }
+    }
+}
+
 /// Thread-safe lock-free state publisher connecting core loop to shells
 pub struct EngineStatePublisher {
     current: RwLock<Arc<EngineSnapshot>>,
+    shm_publisher: Option<SwmrSnapshotPublisher>,
 }
 
 impl Default for EngineStatePublisher {
@@ -155,13 +212,47 @@ impl Default for EngineStatePublisher {
 
 impl EngineStatePublisher {
     pub fn new() -> Self {
+        let config = paths::WorkspacePathsConfig::default();
+        let path = paths::resolve_synapse_path("engine_state", &config);
+        let shm_publisher = SwmrSnapshotPublisher::open_or_create(&path).ok();
         Self {
             current: RwLock::new(Arc::new(EngineSnapshot::default())),
+            shm_publisher,
+        }
+    }
+
+    pub fn new_with_shm_path(path: &std::path::Path) -> Self {
+        let shm_publisher = SwmrSnapshotPublisher::open_or_create(path).ok();
+        Self {
+            current: RwLock::new(Arc::new(EngineSnapshot::default())),
+            shm_publisher,
+        }
+    }
+
+    pub fn new_in_memory() -> Self {
+        Self {
+            current: RwLock::new(Arc::new(EngineSnapshot::default())),
+            shm_publisher: None,
         }
     }
 
     /// Core engine publish: swaps the current snapshot reference in sub-microsecond time
+    /// and emits the POD frame to the shared memory ring buffer without blocking.
     pub fn publish(&self, snapshot: EngineSnapshot) {
+        if let Some(ref shm) = self.shm_publisher {
+            let pod = EngineSnapshotPod::from(&snapshot);
+            let _ = shm.publish(&pod);
+        }
+        let mut w = self.current.write();
+        *w = Arc::new(snapshot);
+    }
+
+    /// Pure zero-allocation monotonic point-in-time state emission into shared memory.
+    pub fn publish_pod(&self, pod: &EngineSnapshotPod) {
+        if let Some(ref shm) = self.shm_publisher {
+            let _ = shm.publish(pod);
+        }
+        let snapshot = EngineSnapshot::from(pod);
         let mut w = self.current.write();
         *w = Arc::new(snapshot);
     }
@@ -172,6 +263,10 @@ impl EngineStatePublisher {
         let mut snap = (**w).clone();
         snap.pacing = pacing;
         snap.bus_generation = snap.bus_generation.wrapping_add(1);
+        if let Some(ref shm) = self.shm_publisher {
+            let pod = EngineSnapshotPod::from(&snap);
+            let _ = shm.publish(&pod);
+        }
         *w = Arc::new(snap);
     }
 
@@ -271,5 +366,28 @@ mod tests {
         publ.set_pacing(GovernorPacing::ThermalThrottled);
         assert_eq!(publ.pacing(), GovernorPacing::ThermalThrottled);
         assert_eq!(publ.pacing().target_frame_ms(), 16);
+    }
+
+    #[test]
+    fn test_engine_state_publisher_shm_bridge() {
+        let dir = tempfile::tempdir().unwrap();
+        let shm_path = dir.path().join("test_engine_state.synapse");
+        let publ = EngineStatePublisher::new_with_shm_path(&shm_path);
+
+        let mut pod = EngineSnapshotPod::default();
+        pod.timestamp_ms = 999;
+        pod.bus_generation = 7;
+        pod.measured_fps = 165.0;
+        pod.set_active_specialist("Synthesizer");
+        pod.set_last_event_desc("SHM published");
+        publ.publish_pod(&pod);
+
+        let reader = ipc_bus::SwmrSnapshotReader::open(&shm_path);
+        let read = reader.read_latest().expect("read latest pod");
+        assert_eq!(read.timestamp_ms, 999);
+        assert_eq!(read.bus_generation, 7);
+        assert_eq!(read.measured_fps, 165.0);
+        assert_eq!(read.active_specialist_str(), "Synthesizer");
+        assert_eq!(read.last_event_desc_str(), "SHM published");
     }
 }

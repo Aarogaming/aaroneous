@@ -1,0 +1,17 @@
+{
+  "id": "tower_backpressure_service",
+  "name": "Tower Backpressure & Load Shedding",
+  "category": "distributed_systems",
+  "origin_predecessor": "Tower Service Trait / Finagle",
+  "description": "Enforces explicit backpressure checks and capacity polling before request dispatch, shedding excess load gracefully when rings or inference queues are saturated.",
+  "target_crates": ["orchestrator", "mcp_server", "llm_gateway", "api"],
+  "detection": {
+    "recommended_markers": ["poll_ready", "capacity", "try_send", "Backpressure", "is_full"],
+    "anti_patterns": ["unbounded_channel", "loop { thread::sleep", "spawn(async move"]
+  },
+  "recommendations": [
+    "Check channel and queue capacity (poll_ready or try_send) before enqueuing requests to prevent memory runaway.",
+    "Return explicit backpressure errors (e.g., Error::ServiceSaturated) to allow caller retry or graceful degradation.",
+    "Reject unbounded queue creation on network and IPC boundaries."
+  ]
+}

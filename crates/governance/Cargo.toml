@@ -1,7 +1,7 @@
 [package]
 name = "governance"
 version = "0.1.0"
-edition = "2021"
+edition.workspace = true
 authors = ["Aaron"]
 description = "Hardware thermal governor and compute token resource manager for Aaroneous"
 license.workspace = true
@@ -13,7 +13,7 @@ strum = { version = "0.26", features = ["derive"] }
 tracing = "0.1"
 anyhow = "1.0"
 rand = "0.8"
-sysinfo = "0.30"
+thiserror = { workspace = true }
 compute = { path = "../compute" }
 si_ir = { path = "../si_ir" }
 si_format = { path = "../si_format" }

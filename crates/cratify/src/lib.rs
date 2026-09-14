@@ -1,18 +1,28 @@
-//! Cratify — Aaroneous Crate Component lifecycle automation.
+//! Cratify — Universal Sovereign Cratification CLI & Orchestration Bridge.
 //!
-//! Provides AST inspection, static audit analysis, LLM translation routing,
-//! crate generation, workspace harvesting, and cryptographic certification
-//! for the ACC standard.
+//! Re-exports modular capabilities from `ast_auditor`, `transpiler`, and `adaptation_engine`.
 
-pub mod inspect;
-pub mod audit;
-pub mod translate;
-pub mod generator;
-pub mod harvest;
-pub mod scaffold;
-pub mod verify;
-pub mod workspace;
-pub mod fascia;
-pub mod certify;
-pub mod ring;
-pub mod python_to_rust;
+#![deny(unsafe_code)]
+
+pub use ast_auditor;
+pub use transpiler;
+pub use adaptation_engine;
+
+// Convenience re-exports
+pub use ast_auditor::{run_workspace_audit, UnifiedAuditReport};
+pub use transpiler::{create_crate_scaffold, create_crate_scaffold_at, scaffold_crate, scaffold_crate_at};
+pub use adaptation_engine::{harvest, harvest_path, CrateSpec, HarvestConfig, ParseStrategy};
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_reexports_availability() {
+        let report = UnifiedAuditReport::default();
+        assert!(!report.has_failures());
+
+        let config = HarvestConfig::default();
+        assert_eq!(config.extensions, vec!["rs".to_string()]);
+    }
+}

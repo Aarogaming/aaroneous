@@ -9,6 +9,10 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
 use si_ir::{MachineOpcode, NativeComputationalGraph};
+use crate::smt_action_interlock::GovernanceError;
+
+/// Maximum allowable hardware register address before triggering memory safety violation
+pub const MAX_HARDWARE_REGISTER: u16 = 8192;
 
 /// Verification report output by the SMT Non-Interference Prover
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -39,6 +43,52 @@ impl Z3Prover {
 
     pub fn with_timeout_ms(timeout_ms: u32) -> Self {
         Self { timeout_ms }
+    }
+
+    /// Mathematically proves single-graph safety invariants:
+    /// 1. Physical dimensional unit coherence (7-exponent SI lattice)
+    /// 2. Bounded register footprints preventing hardware memory buffer overruns
+    pub fn prove_action_safety(&self, graph: &NativeComputationalGraph) -> Result<bool, GovernanceError> {
+        // 1. Verify physical dimensional unit invariants
+        if let Err(e) = graph.verify_dimensional_invariants() {
+            return Err(GovernanceError::LatticeViolation(e.to_string()));
+        }
+
+        // 2. Verify register boundaries
+        let (reads, writes) = self.extract_register_footprint(graph);
+        for &r in &reads {
+            if r > MAX_HARDWARE_REGISTER {
+                return Err(GovernanceError::MemorySafetyViolation { register: r });
+            }
+        }
+        for &w in &writes {
+            if w > MAX_HARDWARE_REGISTER {
+                return Err(GovernanceError::MemorySafetyViolation { register: w });
+            }
+        }
+
+        Ok(true)
+    }
+
+    /// Strict non-interference check returning Result<(), GovernanceError>
+    pub fn prove_strict_non_interference(
+        &self,
+        graph_a: &NativeComputationalGraph,
+        graph_b: &NativeComputationalGraph,
+    ) -> Result<(), GovernanceError> {
+        self.prove_action_safety(graph_a)?;
+        self.prove_action_safety(graph_b)?;
+
+        let report = self.verify_non_interference(graph_a, graph_b)
+            .map_err(|e| GovernanceError::ValidationError(e.to_string()))?;
+
+        if !report.is_non_interfering {
+            return Err(GovernanceError::NonInterferenceConflict {
+                conflicting_registers: report.conflicting_write_registers,
+            });
+        }
+
+        Ok(())
     }
 
     /// Proves non-interference between two computational sub-graphs
@@ -219,5 +269,76 @@ mod tests {
         let report = prover.verify_non_interference(&graph_a, &graph_b).unwrap();
         assert!(!report.is_non_interfering);
         assert_eq!(report.conflicting_write_registers, vec![10]);
+    }
+
+    #[test]
+    fn test_z3_prover_memory_safety_bounds() {
+        let prover = Z3Prover::new();
+
+        let mut safe_graph = NativeComputationalGraph::new();
+        safe_graph.add_node(NativeComputationNode {
+            id: 1,
+            opcode: MachineOpcode::Load { address_reg: 100 },
+            type_lattice: NativeTypeLattice::PhysicalQuantity {
+                unit: DimensionalUnit::DIMENSIONLESS,
+                precision: 32,
+            },
+            energy_cost: 0.001,
+            dependencies: vec![],
+        });
+        assert!(prover.prove_action_safety(&safe_graph).is_ok());
+
+        // Out-of-bounds register > MAX_HARDWARE_REGISTER
+        let mut unsafe_graph = NativeComputationalGraph::new();
+        unsafe_graph.add_node(NativeComputationNode {
+            id: 2,
+            opcode: MachineOpcode::Load { address_reg: 9000 },
+            type_lattice: NativeTypeLattice::PhysicalQuantity {
+                unit: DimensionalUnit::DIMENSIONLESS,
+                precision: 32,
+            },
+            energy_cost: 0.001,
+            dependencies: vec![],
+        });
+        let err = prover.prove_action_safety(&unsafe_graph).unwrap_err();
+        assert_eq!(err, GovernanceError::MemorySafetyViolation { register: 9000 });
+    }
+
+    #[test]
+    fn test_z3_prover_strict_non_interference() {
+        let prover = Z3Prover::new();
+
+        let mut graph_a = NativeComputationalGraph::new();
+        graph_a.add_node(NativeComputationNode {
+            id: 1,
+            opcode: MachineOpcode::Store { address_reg: 10, value_reg: 5 },
+            type_lattice: NativeTypeLattice::PhysicalQuantity {
+                unit: DimensionalUnit::DIMENSIONLESS,
+                precision: 32,
+            },
+            energy_cost: 0.001,
+            dependencies: vec![],
+        });
+
+        let mut graph_b = NativeComputationalGraph::new();
+        graph_b.add_node(NativeComputationNode {
+            id: 2,
+            opcode: MachineOpcode::Store { address_reg: 10, value_reg: 6 },
+            type_lattice: NativeTypeLattice::PhysicalQuantity {
+                unit: DimensionalUnit::DIMENSIONLESS,
+                precision: 32,
+            },
+            energy_cost: 0.001,
+            dependencies: vec![],
+        });
+
+        let result = prover.prove_strict_non_interference(&graph_a, &graph_b);
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            GovernanceError::NonInterferenceConflict { conflicting_registers } => {
+                assert_eq!(conflicting_registers, vec![10]);
+            }
+            other => panic!("Expected NonInterferenceConflict, got {:?}", other),
+        }
     }
 }

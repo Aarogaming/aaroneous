@@ -12,6 +12,7 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::time::Instant;
+use paths::WorkspacePathsConfig;
 
 /// Functional domain category
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -423,7 +424,7 @@ impl CapabilityBroker {
                 available: true,
             },
             Box::new(|_| {
-                let ws = aaroneous_paths::WorkspacePaths::discover();
+                let ws = paths::WorkspacePaths::from_config(WorkspacePathsConfig::default());
                 let bus_path = ws.synapse_file();
                 let exists = bus_path.exists();
                 let size = if exists {
@@ -653,17 +654,84 @@ impl CapabilityBroker {
                 let template = params.get("template").and_then(|v| v.as_str()).unwrap_or("pub fn :[name]()");
                 let source = params.get("source").and_then(|v| v.as_str()).unwrap_or("fn compute() {}");
 
-                match adaptation_engine::pattern_rewriter::PatternRewriter::rewrite_source("virtual.rs", source, pattern, template) {
-                    Ok((rewritten, patches)) => {
+                let interlock = governance::SmtActionInterlock::strict();
+                match adaptation_engine::pattern_rewriter::PatternRewriter::rewrite_source_interlocked("virtual.rs", source, pattern, template, &interlock) {
+                    Ok((rewritten, patches, cert)) => {
                         let count = patches.len();
                         Ok(serde_json::json!({
-                            "status": "ready",
+                            "status": if cert.is_authorized { "ready" } else { "rejected" },
                             "matches_count": count,
                             "rewritten_code": rewritten,
                             "patches": patches,
+                            "interlock_authorized": cert.is_authorized,
+                            "free_energy_dissipation": cert.free_energy_dissipation,
+                            "smt_non_interference_verified": cert.smt_non_interference_verified,
+                            "denial_reason": cert.denial_reason,
                         }))
                     }
                     Err(e) => Err(format!("Pattern rewrite failed: {e}")),
+                }
+            }),
+        );
+
+        // 13b. SAFE-01: SMT Formal Verification Interlock Gatekeeper (Z3Prover)
+        self.register(
+            CapabilityDescriptor {
+                id: "safety.smt_interlock_gate".to_string(),
+                name: "SMT Formal Action Interlock Gatekeeper".to_string(),
+                description: "Proves mathematical non-interference, physical dimensional consistency, and thermodynamic bounds before action execution".to_string(),
+                category: CapabilityCategory::SafetyInterlock,
+                parameters: vec![
+                    CapabilityParameter {
+                        name: "free_energy".to_string(),
+                        description: "Estimated thermodynamic free-energy dissipation".to_string(),
+                        param_type: "number".to_string(),
+                        required: false,
+                        default_value: Some(serde_json::json!(0.01)),
+                    },
+                    CapabilityParameter {
+                        name: "node_count".to_string(),
+                        description: "Action graph node count".to_string(),
+                        param_type: "number".to_string(),
+                        required: false,
+                        default_value: Some(serde_json::json!(1)),
+                    },
+                ],
+                mutating: false,
+                available: true,
+            },
+            Box::new(|params| {
+                let energy = params.get("free_energy").and_then(|v| v.as_f64()).unwrap_or(0.01);
+                let count = params.get("node_count").and_then(|v| v.as_u64()).unwrap_or(1) as usize;
+                let interlock = governance::SmtActionInterlock::strict();
+
+                let mut graph = si_ir::NativeComputationalGraph::new();
+                graph.thermodynamic_free_energy = energy;
+                for i in 1..=count {
+                    graph.add_node(si_ir::NativeComputationNode {
+                        id: i as u64,
+                        opcode: si_ir::MachineOpcode::Alloc { size_bytes: 64, align: 8 },
+                        type_lattice: si_ir::NativeTypeLattice::PrimitiveInt { bits: 64, signed: false },
+                        energy_cost: energy / (count.max(1) as f64),
+                        dependencies: vec![],
+                    });
+                }
+
+                match interlock.evaluate_action_gate(&graph) {
+                    Ok(cert) => Ok(serde_json::json!({
+                        "status": "ready",
+                        "is_authorized": cert.is_authorized,
+                        "graph_id": cert.graph_id,
+                        "timestamp_ms": cert.timestamp_ms,
+                        "free_energy_dissipation": cert.free_energy_dissipation,
+                        "smt_non_interference_verified": cert.smt_non_interference_verified,
+                        "denial_reason": cert.denial_reason,
+                    })),
+                    Err(e) => Ok(serde_json::json!({
+                        "status": "rejected",
+                        "is_authorized": false,
+                        "denial_reason": e.to_string(),
+                    })),
                 }
             }),
         );
@@ -704,6 +772,46 @@ impl CapabilityBroker {
                 }))
             }),
         );
+
+        // 14. CCPSE-01: Continuous Conformance & Architectural Pattern Synthesis Reviewer
+        self.register(
+            CapabilityDescriptor {
+                id: "review.pattern_conformance".to_string(),
+                name: "Architectural Pattern Conformance Reviewer".to_string(),
+                description: "Evaluates workspace code against declarative architectural patterns (Arrow SoA, Typestates, Gitoxide in-process VCS, DAZ/FTZ) and emits synthesis recommendations".to_string(),
+                category: CapabilityCategory::DevTools,
+                parameters: vec![
+                    CapabilityParameter {
+                        name: "target_paths".to_string(),
+                        description: "Target paths or directory to review".to_string(),
+                        param_type: "string".to_string(),
+                        required: false,
+                        default_value: Some(serde_json::json!("crates/orchestrator")),
+                    },
+                ],
+                mutating: false,
+                available: true,
+            },
+            Box::new(|params| {
+                let path_str = params.get("target_paths")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("crates/orchestrator");
+                let targets: Vec<&str> = path_str.split(',').map(|s| s.trim()).filter(|s| !s.is_empty()).collect();
+                let ws = paths::WorkspacePaths::from_config(WorkspacePathsConfig::default());
+                let registry_dir = ws.root().join("registry/patterns");
+
+                match ast_auditor::run_pattern_review(&targets, Some(registry_dir)) {
+                    Ok(report) => Ok(serde_json::json!({
+                        "patterns_evaluated": report.patterns_evaluated,
+                        "files_scanned": report.files_scanned,
+                        "positive_adoptions": report.positive_adoptions,
+                        "opportunities_identified": report.opportunities_identified,
+                        "observations": report.observations,
+                    })),
+                    Err(e) => Err(format!("Pattern conformance review failed: {e}")),
+                }
+            }),
+        );
     }
 }
 
@@ -720,6 +828,7 @@ mod tests {
         assert!(caps.iter().any(|c| c.id == "sentinel.verify_safety"));
         assert!(caps.iter().any(|c| c.id == "workbench.cargo_diagnostics"));
         assert!(caps.iter().any(|c| c.id == "memory.hnsw_search"));
+        assert!(caps.iter().any(|c| c.id == "review.pattern_conformance"));
     }
 
     #[test]
@@ -844,6 +953,7 @@ mod tests {
         assert!(rewrite_res.success);
         assert_eq!(rewrite_res.payload["status"], "ready");
         assert_eq!(rewrite_res.payload["matches_count"], 1);
+        assert_eq!(rewrite_res.payload["interlock_authorized"], true);
         assert!(rewrite_res.payload["rewritten_code"].as_str().unwrap().contains("pub fn compute_score()"));
 
         let dop_res = broker.execute("autonomic.dopamine_equilibrium", serde_json::json!({ "reward": 0.2 }));
@@ -851,5 +961,30 @@ mod tests {
         assert_eq!(dop_res.payload["status"], "ready");
         let plasticity = dop_res.payload["plasticity_drive"].as_f64().unwrap_or(0.0);
         assert!((plasticity - 0.7).abs() < 1e-4);
+    }
+
+    #[test]
+    fn test_smt_interlock_gate_capability() {
+        let broker = CapabilityBroker::default();
+
+        // 1. Valid low-energy action graph passes
+        let pass_res = broker.execute(
+            "safety.smt_interlock_gate",
+            serde_json::json!({ "free_energy": 0.02, "node_count": 3 }),
+        );
+        assert!(pass_res.success);
+        assert_eq!(pass_res.payload["status"], "ready");
+        assert_eq!(pass_res.payload["is_authorized"], true);
+        assert_eq!(pass_res.payload["smt_non_interference_verified"], true);
+
+        // 2. High-energy action graph rejected by thermodynamic bound (> 0.05 strict)
+        let reject_res = broker.execute(
+            "safety.smt_interlock_gate",
+            serde_json::json!({ "free_energy": 0.25, "node_count": 5 }),
+        );
+        assert!(reject_res.success);
+        assert_eq!(reject_res.payload["status"], "rejected");
+        assert_eq!(reject_res.payload["is_authorized"], false);
+        assert!(reject_res.payload["denial_reason"].as_str().unwrap().contains("Thermodynamic"));
     }
 }

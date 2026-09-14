@@ -51,8 +51,18 @@ pub struct TaskRecord {
 
 impl HiveRuntime {
     pub fn new(_config: &HiveRuntimeConfig) -> anyhow::Result<Self> {
+        let synapse = match SharedMemorySynapse::new_sync("SAB_STORE", 1024 * 1024) {
+            Ok(s) => s,
+            Err(_) => {
+                use std::sync::atomic::{AtomicUsize, Ordering};
+                static COUNTER: AtomicUsize = AtomicUsize::new(0);
+                let counter = COUNTER.fetch_add(1, Ordering::SeqCst);
+                let fallback = format!("SAB_STORE_{}_{}", std::process::id(), counter);
+                SharedMemorySynapse::new_sync(&fallback, 1024 * 1024)?
+            }
+        };
         Ok(Self {
-            synapse: SharedMemorySynapse::new_sync("SAB_STORE", 1024 * 1024)?,
+            synapse,
             biology: SystemBiology::new(),
             agents: RwLock::new(HashMap::new()),
             control_plane: ControlPlane::new(),

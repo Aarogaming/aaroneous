@@ -530,9 +530,8 @@ mod tests {
     use crate::machine_packet::packet_types;
 
     fn temp_path(name: &str) -> PathBuf {
-        let mut path = std::env::temp_dir();
-        path.push(format!("aaroneous_test_{}", name));
-        path
+        let temp_dir = tempfile::tempdir().unwrap();
+        temp_dir.path().to_path_buf().join(format!("aaroneous_test_{}", name))
     }
 
     #[test]

@@ -1,7 +1,7 @@
 [package]
-name = "a_run"
+name = "hypervisor"
 version = "0.1.0"
-edition = "2024"
+edition.workspace = true
 authors.workspace = true
 description = "Central hypervisor: CLI daemon, egui HUD, MCP service, Win32 HID bridge"
 license.workspace = true
@@ -11,19 +11,19 @@ repository.workspace = true
 path = "src/lib.rs"
 
 [[bin]]
-name = "a_run"
-path = "bin/a_run.rs"
+name = "hypervisor"
+path = "bin/hypervisor.rs"
 
 [[bin]]
-name = "spatial_kinetic"
+name = "spatial-kinetic"
 path = "bin/spatial_kinetic.rs"
 
 [[bin]]
-name = "profile_compiler"
+name = "profile-compiler"
 path = "bin/profile_compiler.rs"
 
 [[bin]]
-name = "shm_dump"
+name = "shm-dump"
 path = "bin/shm_dump.rs"
 
 [[bench]]
@@ -34,6 +34,7 @@ harness = false
 moka = { version = "0.12", features = ["future"] }
 llm_gateway = { path = "../../crates/llm_gateway" }
 ipc_bus = { path = "../../crates/ipc_bus" }
+core-contracts = { path = "../../crates/core-contracts" }
 omni = { path = "../../crates/omni" }
 hotload = { path = "../../crates/hotload" }
 plugin_api = { path = "../../crates/plugin_api" }
@@ -43,8 +44,9 @@ compute = { path = "../../crates/compute" }
 adaptation_engine = { path = "../../crates/adaptation_engine" }
 platform_bridge = { path = "../../crates/platform_bridge", features = ["native-win32"] }
 specialists = { package = "capabilities", path = "../../crates/capabilities" }
-aaroneous_paths = { path = "../../crates/paths" }
-aaroneous_wire = { path = "../../crates/aaroneous_wire" }
+ast_auditor = { path = "../../crates/ast_auditor" }
+paths = { path = "../../crates/paths" }
+wire = { path = "../../crates/wire" }
 tokio-serial = "5.4"
 transpiler = { path = "../../crates/transpiler" }
 si_ir = { path = "../../crates/si_ir" }
@@ -146,8 +148,13 @@ fleet = ["dep:iroh", "dep:n0-future"]
 p2p-iroh = ["fleet"]
 # Standalone mode: disables all external native build-time probes
 standalone = []
+simulation = []
+testing = ["simulation"]
 
 
 [lints.rust]
 # Feature-gated modules reference future deps not yet added
 unexpected_cfgs = "allow"
+
+# Allow ambient_authority lint during security remediation phase
+unknown_lints = "allow"

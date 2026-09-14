@@ -1,17 +1,21 @@
-﻿use notify::{Config, RecommendedWatcher, RecursiveMode, Watcher};
+use anyhow::Result;
+use notify::{Config, RecommendedWatcher, RecursiveMode, Watcher};
 use std::path::Path;
 use std::sync::mpsc::channel;
-use std::thread;
-use anyhow::Result;
-use tracing::{info, error};
-use crate::memory_pipeline::EpisodicInsertionPipeline;
 use std::sync::Arc;
+use std::thread;
+use tracing::{error, info};
+
+use crate::memory_pipeline::EpisodicInsertionPipeline;
 
 /// SEMANTIC-07: Background File System Watcher
 /// Silently watches directories and automatically ingests modified files into the Vector DB.
 pub struct DirectoryWatcher {
     pipeline: Arc<EpisodicInsertionPipeline>,
 }
+
+/// Alias for `DirectoryWatcher`
+pub type FsWatcher = DirectoryWatcher;
 
 impl DirectoryWatcher {
     pub fn new(pipeline: Arc<EpisodicInsertionPipeline>) -> Self {
@@ -48,8 +52,12 @@ impl DirectoryWatcher {
                             for file_path in event.paths {
                                 // Skip massive files or binaries here in production
                                 if let Ok(content) = std::fs::read_to_string(&file_path) {
-                                    info!("File changed: {:?}. Embedding into Episodic Memory...", file_path);
-                                    let _ = pipeline.embed_and_insert(&content, "#file_system_event");
+                                    info!(
+                                        "File changed: {:?}. Embedding into Episodic Memory...",
+                                        file_path
+                                    );
+                                    let _ = pipeline
+                                        .embed_and_insert(&content, "#file_system_event");
                                 }
                             }
                         }
@@ -60,5 +68,20 @@ impl DirectoryWatcher {
         });
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use compute::episodic_memory::EpisodicMemoryFabric;
+
+    #[test]
+    fn test_fs_watcher_creation() {
+        let fabric = Arc::new(EpisodicMemoryFabric::default());
+        let pipeline = Arc::new(EpisodicInsertionPipeline::new(fabric));
+        let watcher = FsWatcher::new(pipeline);
+        let temp = tempfile::tempdir().unwrap();
+        assert!(watcher.watch_directory(temp.path()).is_ok());
     }
 }

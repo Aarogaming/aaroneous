@@ -34,6 +34,7 @@ use tracing::{debug, info};
 
 use crate::federation::hive::Federation;
 use crate::mcp_service::{CapabilityDomain, ServiceConfig};
+use paths::WorkspacePathsConfig;
 
 pub const DEFAULT_CODE_READ_LIMIT_LINES: u64 = 200;
 pub const DEFAULT_SEARCH_MAX_MATCHES: u64 = 20;
@@ -133,21 +134,14 @@ pub struct McpService {
     /// Universal tool registry bridging Cloud, LLMs, and native .si models
     pub universal_tools: Arc<specialists::ToolRegistry>,
     /// Workspace root for file tools (read_code, search_code, list_files).
-    ///
-    /// Resolution order:
-    /// 1. `AARONEOUS_WORKSPACE` environment variable
-    /// 2. `std::env::current_dir()` (process working directory)
-    /// 3. Hardcoded `D:\Aaroneous` fallback (only for self-development)
-    ///
-    /// Claude Desktop / Cursor: set `AARONEOUS_WORKSPACE=${workspaceFolder}`
-    /// in the MCP server environment config.
+    /// Injected via `WorkspacePathsConfig` or builder method `with_workspace_root`.
     pub workspace_root: std::path::PathBuf,
 }
 
 impl McpService {
     pub fn new(config: ServiceConfig) -> Self {
-        // Discover workspace root at startup — dynamically resolved via aaroneous_paths
-        let workspace_root = aaroneous_paths::WorkspacePaths::discover().root().clone();
+        // Discover workspace root at startup — dynamically resolved via paths
+        let workspace_root = paths::WorkspacePaths::from_config(WorkspacePathsConfig::default()).root().clone();
 
         tracing::info!("MCP workspace root: {}", workspace_root.display());
 
@@ -164,6 +158,12 @@ impl McpService {
             universal_tools,
             workspace_root,
         }
+    }
+
+    /// Builder method for explicit constructor injection of the workspace root.
+    pub fn with_workspace_root(mut self, root: std::path::PathBuf) -> Self {
+        self.workspace_root = root;
+        self
     }
 
     /// Attach the live federation so tools can call sovereigns.
@@ -1051,17 +1051,14 @@ impl McpService {
         };
 
         // ── Path containment: reject reads outside workspace ──────────────
-        #[allow(clippy::collapsible_if)]
-        if let (Ok(canonical), Ok(workspace_canonical)) =
-            (resolved.canonicalize(), self.workspace_root.canonicalize())
-        {
-            if !canonical.starts_with(&workspace_canonical) {
-                anyhow::bail!(
-                    "Access denied: path '{}' is outside the workspace root '{}'",
-                    path_str,
-                    self.workspace_root.display()
-                );
-            }
+        let norm_resolved = paths::normalize_path(&resolved);
+        let norm_workspace = paths::normalize_path(&self.workspace_root);
+        if !norm_resolved.starts_with(&norm_workspace) {
+            anyhow::bail!(
+                "Access denied: path '{}' is outside the workspace root '{}'",
+                path_str,
+                self.workspace_root.display()
+            );
         }
 
         if !resolved.exists() {
@@ -1132,17 +1129,14 @@ impl McpService {
         }
 
         // ── Path containment: reject searches outside workspace ───────────
-        #[allow(clippy::collapsible_if)]
-        if let (Ok(canonical), Ok(workspace_canonical)) =
-            (root.canonicalize(), self.workspace_root.canonicalize())
-        {
-            if !canonical.starts_with(&workspace_canonical) {
-                anyhow::bail!(
-                    "Access denied: search path '{}' is outside the workspace root '{}'",
-                    search_path,
-                    self.workspace_root.display()
-                );
-            }
+        let norm_root = paths::normalize_path(root);
+        let norm_workspace = paths::normalize_path(&self.workspace_root);
+        if !norm_root.starts_with(&norm_workspace) {
+            anyhow::bail!(
+                "Access denied: search path '{}' is outside the workspace root '{}'",
+                search_path,
+                self.workspace_root.display()
+            );
         }
 
         // Walk files matching glob
@@ -1230,17 +1224,14 @@ impl McpService {
         }
 
         // ── Path containment: reject listing outside workspace ────────────
-        #[allow(clippy::collapsible_if)]
-        if let (Ok(canonical), Ok(workspace_canonical)) =
-            (path.canonicalize(), self.workspace_root.canonicalize())
-        {
-            if !canonical.starts_with(&workspace_canonical) {
-                anyhow::bail!(
-                    "Access denied: path '{}' is outside the workspace root '{}'",
-                    path_str,
-                    self.workspace_root.display()
-                );
-            }
+        let norm_path = paths::normalize_path(path);
+        let norm_workspace = paths::normalize_path(&self.workspace_root);
+        if !norm_path.starts_with(&norm_workspace) {
+            anyhow::bail!(
+                "Access denied: path '{}' is outside the workspace root '{}'",
+                path_str,
+                self.workspace_root.display()
+            );
         }
 
         let ext_filter = if glob_filter.is_empty() {

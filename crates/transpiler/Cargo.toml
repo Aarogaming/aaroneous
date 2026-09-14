@@ -1,7 +1,7 @@
 [package]
 name = "transpiler"
 version = "0.1.0"
-edition = "2021"
+edition.workspace = true
 authors = ["Aaron"]
 description = "Synthetic Intelligence (SI) to Conventional AI Inter-Intelligence Translation and Model Conversion Bridge"
 license.workspace = true
@@ -10,7 +10,7 @@ repository.workspace = true
 [dependencies]
 compute = { path = "../compute" }
 si_ir = { path = "../si_ir" }
-aaroneous_paths = { path = "../paths" }
+paths = { path = "../paths" }
 async-trait = "0.1"
 anyhow = "1.0"
 serde = { version = "1.0", features = ["derive"] }
@@ -21,3 +21,7 @@ regex = "1.10"
 bumpalo = "3.20"
 aho-corasick = "1.1"
 parking_lot = "0.12"
+toml = "0.8"
+
+[dev-dependencies]
+tempfile = { workspace = true }

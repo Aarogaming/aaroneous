@@ -2,6 +2,7 @@
 // Executes decisions made by the decision engine: file ops, throttling, notifications
 use crate::decision_engine::{Action, TaskEvaluation};
 use crate::state_snapshot::{NodeMetrics, SpatialCanvasState};
+use paths::WorkspacePathsConfig;
 use biology::SystemBiology;
 use serde::{Deserialize, Serialize};
 use std::fs;
@@ -77,10 +78,8 @@ pub struct ActionExecutor {
 
 impl ActionExecutor {
     pub fn new(wasm_path: PathBuf) -> Self {
-        let mut allowed_roots = Vec::new();
-        let ws = aaroneous_paths::WorkspacePaths::discover();
-        allowed_roots.push(ws.root().clone());
-        allowed_roots.push(std::env::temp_dir());
+        let ws = paths::WorkspacePaths::from_config(WorkspacePathsConfig::default());
+        let allowed_roots = vec![ws.root().clone(), ws.cache()];
 
         Self {
             biology: SystemBiology::new(),
@@ -92,7 +91,11 @@ impl ActionExecutor {
         }
     }
 
-    /// Verifies that a target file path is safely confined within allowed workspace roots
+    pub fn with_allowed_root(mut self, root: PathBuf) -> Self {
+        self.allowed_roots.push(root);
+        self
+    }
+
     pub fn validate_sandbox_path(&self, path: &Path) -> Result<PathBuf, String> {
         // Disallow relative parent directory traversal
         if path
@@ -107,18 +110,18 @@ impl ActionExecutor {
 
         // Canonicalize or normalize path
         let resolved = if path.is_absolute() {
-            path.to_path_buf()
+            paths::normalize_path(path)
         } else {
-            aaroneous_paths::WorkspacePaths::discover()
-                .root()
-                .join(path)
+            paths::normalize_path(
+                &paths::WorkspacePaths::from_config(WorkspacePathsConfig::default())
+                    .root()
+                    .join(path),
+            )
         };
 
-        // If path exists, check canonical path against allowed roots
-        let canonical_check = resolved.canonicalize().unwrap_or_else(|_| resolved.clone());
         let is_allowed = self.allowed_roots.iter().any(|root| {
-            let root_canonical = root.canonicalize().unwrap_or_else(|_| root.clone());
-            canonical_check.starts_with(&root_canonical) || resolved.starts_with(root)
+            let root_norm = paths::normalize_path(root);
+            resolved.starts_with(&root_norm)
         });
 
         if !is_allowed {
@@ -492,6 +495,7 @@ pub struct ExecutionStats {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::error::HypervisorError;
 
     #[test]
     fn test_executor_creation() {
@@ -527,7 +531,7 @@ mod tests {
     }
 
     #[test]
-    fn test_sandbox_path_containment_and_rejection() {
+    fn test_sandbox_path_containment_and_rejection() -> Result<(), Box<dyn std::error::Error>> {
         let executor = ActionExecutor::new(PathBuf::from("test.wasm"));
 
         // Path traversal should be rejected
@@ -551,10 +555,11 @@ mod tests {
         let res = rt.block_on(exec.execute(action));
         assert!(!res.success);
         assert!(res.message.contains("Sandbox security violation"));
+        Ok(())
     }
 
     #[test]
-    fn test_micro_bytecode_action_execution() {
+    fn test_micro_bytecode_action_execution() -> Result<(), Box<dyn std::error::Error>> {
         let mut executor = ActionExecutor::new(PathBuf::from("test.wasm"));
         let program = crate::micro_vm::VmProgram::new(vec![
             crate::micro_vm::VmInstruction::MovImm { dst: 0, val: 100 },
@@ -575,5 +580,6 @@ mod tests {
         assert!(res.success);
         assert!(res.message.contains("Micro-bytecode execution succeeded"));
         assert_eq!(res.metadata["r0"], 350);
+        Ok(())
     }
 }

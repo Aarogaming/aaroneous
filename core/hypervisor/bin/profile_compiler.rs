@@ -1,3 +1,5 @@
+#![allow(ambient_authority)]
+
 use std::env;
 
 fn main() {
@@ -7,7 +9,7 @@ fn main() {
 
     let args: Vec<String> = env::args().skip(1).collect();
 
-    if let Err(e) = a_run::genome_compiler::run_cli(&args) {
+    if let Err(e) = hypervisor::genome_compiler::run_cli(&args) {
         eprintln!("Error: {}", e);
         std::process::exit(1);
     }

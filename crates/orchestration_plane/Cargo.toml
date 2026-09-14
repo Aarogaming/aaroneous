@@ -1,0 +1,35 @@
+[package]
+name = "orchestration_plane"
+version = "0.1.0"
+edition.workspace = true
+
+[dependencies]
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+anyhow = { workspace = true }
+mutation_engine = { path = "../mutation_engine" }
+prettyplease = "0.2"
+walkdir = "2.3"
+uuid = { version = "1.0", features = ["v4"] }
+hex = "0.4"
+bytemuck = { workspace = true }
+syn = { version = "2.0", features = ["full", "visit", "visit-mut"] }
+proc-macro2 = { version = "1.0", features = ["span-locations"] }
+paths = { path = "../paths" }
+ipc_bus = { path = "../ipc_bus" }
+
+[lints.cargo]
+non_kebab_case_bins = "allow"
+
+[[bin]]
+name = "source_extraction"
+path = "src/bin/source_extraction.rs"
+
+[[bin]]
+name = "harvest"
+path = "src/bin/harvest.rs"
+
+[dev-dependencies]
+tempfile = "3.8"

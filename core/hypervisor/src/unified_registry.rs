@@ -387,6 +387,7 @@ fn now_secs() -> u64 {
 }
 
 #[cfg(test)]
+#[allow(ambient_authority)]
 mod tests {
     use super::*;
 

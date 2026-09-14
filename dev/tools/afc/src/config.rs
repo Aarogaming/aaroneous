@@ -2,7 +2,7 @@
 use clap::Parser;
 use std::path::PathBuf;
 
-/// Aaroneous Autonomous Flight Controller (AFC)
+/// Aaroneous Autonomous Runtime Controller (ARC)
 /// Out-of-tree Sovereign CI/CD Daemon & GUI Hypervisor
 #[derive(Parser, Debug, Clone, Default)]
 #[command(name = "afc", author, version, about)]
@@ -100,6 +100,8 @@ pub struct FlightConfig {
     #[arg(long, default_value_t = true)]
     pub audit_resilience: bool,
 }
+
+pub type RuntimeConfig = FlightConfig;
 
 impl FlightConfig {
     /// Resolve the target repository path

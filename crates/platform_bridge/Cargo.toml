@@ -1,7 +1,7 @@
 [package]
 name = "platform_bridge"
 version = "0.1.0"
-edition = "2021"
+edition.workspace = true
 authors = ["Aaron"]
 description = "Universal frontend user emulation, visual perception, backend probing, and datalogging engine"
 license.workspace = true
@@ -17,7 +17,16 @@ tracing = "0.1"
 parking_lot = "0.12"
 rustfft = "6.2"
 compute = { path = "../compute" }
-aaroneous_wire = { path = "../aaroneous_wire" }
+wire = { path = "../wire" }
+si_ir = { path = "../si_ir" }
+ipc_bus = { path = "../ipc_bus" }
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.52", features = [
+    "Win32_System_Performance",
+    "Win32_System_SystemInformation", 
+    "Win32_System_ProcessStatus"
+]}
 tokio-serial = "5.4"
 windows = { version = "0.62", features = [
     "Win32_Foundation",
@@ -37,5 +46,8 @@ windows = { version = "0.62", features = [
 windows-capture = { version = "1.5", optional = true }
 
 [features]
-default = []
+default = ["midi-osc", "ndi-broadcast", "hooking-injector"]
 native-win32 = ["dep:windows", "dep:windows-capture"]
+midi-osc = []
+ndi-broadcast = []
+hooking-injector = []

@@ -1,0 +1,22 @@
+[package]
+name = "mcp_server"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+tokio = { workspace = true }
+axum = { version = "0.7", features = ["ws", "macros"] }
+tower = { version = "0.5", features = ["full"] }
+tracing = { workspace = true }
+async-trait = "0.1"
+hex = "0.4"
+sha2 = "0.10"
+uuid = { workspace = true }
+anyhow = { workspace = true }
+async-stream = "0.3"
+
+[features]
+default = []

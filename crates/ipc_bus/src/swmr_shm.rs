@@ -2,6 +2,8 @@
 // Eliminates data races by enforcing exclusive write access while maintaining zero-copy reads.
 
 use anyhow::{Context, Result};
+use bytemuck::{Pod, Zeroable};
+use core_contracts::EngineSnapshotPod;
 use memmap2::{MmapMut, MmapOptions};
 use rkyv::{archived_root, Archive, Deserialize, Serialize};
 use std::fs;
@@ -230,9 +232,15 @@ impl GenerationCounter {
     }
 }
 
-/// Platform-agnostic workspace path resolution
-pub fn resolve_synapse_path(name: &str) -> PathBuf {
-    aaroneous_paths::resolve_synapse_path(name)
+/// Platform-agnostic workspace path resolution with config injection
+pub fn resolve_synapse_path(name: &str, config: &paths::WorkspacePathsConfig) -> PathBuf {
+    paths::resolve_synapse_path(name, config)
+}
+
+/// Convenience function for default config (for backward compatibility)
+pub fn resolve_synapse_path_default(name: &str) -> PathBuf {
+    let config = paths::WorkspacePathsConfig::default();
+    resolve_synapse_path(name, &config)
 }
 
 /// The SWMR Synapse - Single Writer, Multi-Reader zero-copy shared memory
@@ -268,7 +276,20 @@ impl SWMRSynapse {
     /// Runs fully synchronously and does not nest runtimes
     pub fn new_sync(name: &str, size: usize) -> Result<Self> {
         let size = size.min(MAX_SYNAPSE_SIZE);
-        let path = resolve_synapse_path(name);
+        let config = paths::WorkspacePathsConfig::default();
+        let path = resolve_synapse_path(name, &config);
+
+        // Ensure parent directory exists
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent).context("Failed to create synapse directory")?;
+        }
+
+        Self::new_at(&path, size)
+    }
+
+    /// Create a synapse at the specified path (for test isolation)
+    pub fn new_at(path: &PathBuf, size: usize) -> Result<Self> {
+        let size = size.min(MAX_SYNAPSE_SIZE);
 
         // Ensure parent directory exists
         if let Some(parent) = path.parent() {
@@ -280,27 +301,11 @@ impl SWMRSynapse {
             .write(true)
             .create(true)
             .truncate(false)
-            .open(&path)
+            .open(path)
         {
-            Ok(file) => (file, path),
-            Err(_) => {
-                let temp_path = std::env::temp_dir().join(format!(
-                    "synapse_{}_{}_{}.tmp",
-                    name,
-                    std::process::id(),
-                    std::time::SystemTime::now()
-                        .duration_since(std::time::UNIX_EPOCH)
-                        .map(|d| d.as_nanos())
-                        .unwrap_or(0)
-                ));
-                let file = std::fs::OpenOptions::new()
-                    .read(true)
-                    .write(true)
-                    .create(true)
-                    .truncate(false)
-                    .open(&temp_path)
-                    .context("Failed to open synapse file")?;
-                (file, temp_path)
+            Ok(file) => (file, path.clone()),
+            Err(e) => {
+                return Err(anyhow::anyhow!("Failed to open synapse file at {:?}: {}", &path, e));
             }
         };
 
@@ -341,7 +346,8 @@ impl SWMRSynapse {
 
     pub async fn new(name: &str, size: usize) -> Result<Self> {
         let size = size.min(MAX_SYNAPSE_SIZE);
-        let path = resolve_synapse_path(name);
+        let config = paths::WorkspacePathsConfig::default();
+        let path = resolve_synapse_path(name, &config);
 
         // Ensure parent directory exists
         if let Some(parent) = path.parent() {
@@ -668,9 +674,434 @@ impl SynapseWriterHandle {
     }
 }
 
+// ── Out-of-Process Zero-Copy Snapshot Bridge ─────────────────────────
+
+pub const SNAPSHOT_SHM_MAGIC: u64 = 0x5357_4D52_534E_4150; // "SWMRSNAP"
+pub const SNAPSHOT_SHM_VERSION: u32 = 2;
+pub const SNAPSHOT_RING_SLOTS: usize = 64;
+pub const SNAPSHOT_RING_HEADER_SIZE: usize = 32;
+pub const SNAPSHOT_SEGMENT_SIZE: usize = 64 * 1024; // 64 KB pre-allocated
+
+#[repr(C)]
+#[derive(Clone, Copy, Debug, Pod, Zeroable)]
+pub struct SnapshotRingHeader {
+    pub magic: u64,
+    pub version: u32,
+    pub slot_count: u32,
+    pub write_sequence: u64,
+    pub slot_size: u32,
+    pub _pad: u32,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Debug, Pod, Zeroable)]
+pub struct SnapshotRingSlot {
+    pub sequence_begin: u64,
+    pub sequence_end: u64,
+    pub snapshot: EngineSnapshotPod,
+}
+
+/// Read result entry containing the monotonic sequence, snapshot payload, and any detected dropped frames
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct SnapshotReadEntry {
+    pub sequence: u64,
+    pub snapshot: EngineSnapshotPod,
+    pub dropped_frames: u64,
+}
+
+/// Out-of-process Zero-Copy SWMR Snapshot Publisher.
+/// Monotonically publishes `EngineSnapshotPod` into pre-allocated shared memory ring buffer.
+pub struct SwmrSnapshotPublisher {
+    mmap: parking_lot::RwLock<memmap2::MmapMut>,
+    path: PathBuf,
+    sequence: std::sync::atomic::AtomicU64,
+}
+
+impl SwmrSnapshotPublisher {
+    pub fn open_or_create(path: &std::path::Path) -> Result<Self> {
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent).context("Failed to create synapse directory")?;
+        }
+
+        let file = std::fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create(true)
+            .truncate(false)
+            .open(path)
+            .with_context(|| format!("Failed to open/create snapshot shm at {:?}", path))?;
+
+        let current_len = file.metadata()?.len();
+        if current_len < SNAPSHOT_SEGMENT_SIZE as u64 {
+            file.set_len(SNAPSHOT_SEGMENT_SIZE as u64)?;
+        }
+
+        let mut mmap = unsafe { memmap2::MmapOptions::new().map_mut(&file)? };
+
+        let slot_size = std::mem::size_of::<SnapshotRingSlot>();
+        let mut initial_seq = 0u64;
+
+        // Check if header is initialized
+        let header_slice = &mmap[..SNAPSHOT_RING_HEADER_SIZE];
+        let existing_header: Option<&SnapshotRingHeader> = bytemuck::try_from_bytes(header_slice).ok();
+        let needs_init = match existing_header {
+            Some(h) => {
+                h.magic != SNAPSHOT_SHM_MAGIC
+                    || h.version != SNAPSHOT_SHM_VERSION
+                    || h.slot_count != SNAPSHOT_RING_SLOTS as u32
+            }
+            None => true,
+        };
+
+        if needs_init {
+            let header = SnapshotRingHeader {
+                magic: SNAPSHOT_SHM_MAGIC,
+                version: SNAPSHOT_SHM_VERSION,
+                slot_count: SNAPSHOT_RING_SLOTS as u32,
+                write_sequence: 0,
+                slot_size: slot_size as u32,
+                _pad: 0,
+            };
+            mmap[..SNAPSHOT_RING_HEADER_SIZE].copy_from_slice(bytemuck::bytes_of(&header));
+
+            // Initialize default slots with matching begin/end sequence = 0
+            let initial_slot = SnapshotRingSlot {
+                sequence_begin: 0,
+                sequence_end: 0,
+                snapshot: EngineSnapshotPod::default(),
+            };
+            let slot_bytes = bytemuck::bytes_of(&initial_slot);
+            for i in 0..SNAPSHOT_RING_SLOTS {
+                let offset = SNAPSHOT_RING_HEADER_SIZE + i * slot_size;
+                mmap[offset..offset + slot_size].copy_from_slice(slot_bytes);
+            }
+            mmap.flush()?;
+        } else if let Some(h) = existing_header {
+            initial_seq = h.write_sequence;
+        }
+
+        Ok(Self {
+            mmap: parking_lot::RwLock::new(mmap),
+            path: path.to_path_buf(),
+            sequence: std::sync::atomic::AtomicU64::new(initial_seq),
+        })
+    }
+
+    /// Pure zero-allocation monotonic point-in-time state emission into shared memory.
+    /// Employs atomic double-barrier seqlock fencing to prevent torn reads across process boundaries.
+    pub fn publish(&self, snapshot: &EngineSnapshotPod) -> Result<u64> {
+        let seq = self.sequence.fetch_add(1, std::sync::atomic::Ordering::SeqCst) + 1;
+        let slot_idx = ((seq - 1) as usize) & (SNAPSHOT_RING_SLOTS - 1);
+        let slot_size = std::mem::size_of::<SnapshotRingSlot>();
+        let offset = SNAPSHOT_RING_HEADER_SIZE + slot_idx * slot_size;
+
+        let mut guard = self.mmap.write();
+        if offset + slot_size <= guard.len() {
+            // Step 1: Invalidate sequence_begin to mark slot as being mutated
+            let slot_slice = &mut guard[offset..offset + slot_size];
+            let slot_mut: &mut SnapshotRingSlot = bytemuck::try_from_bytes_mut(slot_slice)
+                .map_err(|e| anyhow::anyhow!("Corrupt slot layout at offset {}: {:?}", offset, e))?;
+            slot_mut.sequence_begin = 0;
+            std::sync::atomic::fence(std::sync::atomic::Ordering::Release);
+
+            // Step 2: Write snapshot payload and sequence_end
+            slot_mut.snapshot = *snapshot;
+            slot_mut.sequence_end = seq;
+            std::sync::atomic::fence(std::sync::atomic::Ordering::Release);
+
+            // Step 3: Write sequence_begin matching sequence_end
+            slot_mut.sequence_begin = seq;
+            std::sync::atomic::fence(std::sync::atomic::Ordering::Release);
+
+            // Step 4: Update write sequence in header
+            let header_mut: &mut SnapshotRingHeader = bytemuck::try_from_bytes_mut(
+                &mut guard[..SNAPSHOT_RING_HEADER_SIZE],
+            )
+            .map_err(|e| anyhow::anyhow!("Corrupt header layout: {:?}", e))?;
+            header_mut.write_sequence = seq;
+        }
+        Ok(seq)
+    }
+
+    pub fn path(&self) -> &std::path::Path {
+        &self.path
+    }
+
+    pub fn current_sequence(&self) -> u64 {
+        self.sequence.load(std::sync::atomic::Ordering::Acquire)
+    }
+}
+
+/// Out-of-process Zero-Copy SWMR Snapshot Reader.
+/// Maps the shared memory segment point-in-time with zero lock contention.
+pub struct SwmrSnapshotReader {
+    mmap: parking_lot::RwLock<Option<memmap2::Mmap>>,
+    path: PathBuf,
+}
+
+impl SwmrSnapshotReader {
+    pub fn open(path: &std::path::Path) -> Self {
+        let mmap = Self::try_map(path);
+        Self {
+            mmap: parking_lot::RwLock::new(mmap),
+            path: path.to_path_buf(),
+        }
+    }
+
+    fn try_map(path: &std::path::Path) -> Option<memmap2::Mmap> {
+        let file = std::fs::OpenOptions::new().read(true).open(path).ok()?;
+        unsafe { memmap2::MmapOptions::new().map(&file).ok() }
+    }
+
+    /// Read the latest snapshot frame point-in-time.
+    /// Returns `None` if the segment is uninitialized or no frame has been published.
+    pub fn read_latest(&self) -> Option<EngineSnapshotPod> {
+        self.read_next(0).map(|entry| entry.snapshot)
+    }
+
+    /// Read the latest snapshot frame or return `EngineSnapshotPod::default()`
+    pub fn read_latest_or_default(&self) -> EngineSnapshotPod {
+        self.read_latest().unwrap_or_default()
+    }
+
+    /// Reads the next available snapshot since `last_seen_seq`.
+    /// Returns `None` if no newer frame has been published or if the segment is unavailable.
+    /// Detects lag/wrap-around and reports `dropped_frames`.
+    pub fn read_next(&self, last_seen_seq: u64) -> Option<SnapshotReadEntry> {
+        // Fast path: existing memory map
+        {
+            let guard = self.mmap.read();
+            if let Some(ref mmap) = *guard {
+                if let Some(entry) = Self::read_from_mmap(mmap, last_seen_seq) {
+                    return Some(entry);
+                }
+            }
+        }
+
+        // Slow path: attempt to reopen/refresh mapping (e.g. file was just created by writer)
+        {
+            let mut guard = self.mmap.write();
+            *guard = Self::try_map(&self.path);
+            if let Some(ref mmap) = *guard {
+                return Self::read_from_mmap(mmap, last_seen_seq);
+            }
+        }
+
+        None
+    }
+
+    fn read_from_mmap(mmap: &memmap2::Mmap, last_seen_seq: u64) -> Option<SnapshotReadEntry> {
+        let slot_size = std::mem::size_of::<SnapshotRingSlot>();
+        let min_len = SNAPSHOT_RING_HEADER_SIZE + SNAPSHOT_RING_SLOTS * slot_size;
+        if mmap.len() < min_len {
+            return None;
+        }
+
+        let header: &SnapshotRingHeader = bytemuck::try_from_bytes(&mmap[..SNAPSHOT_RING_HEADER_SIZE]).ok()?;
+        if header.magic != SNAPSHOT_SHM_MAGIC || header.version != SNAPSHOT_SHM_VERSION {
+            return None;
+        }
+
+        let seq_hdr = header.write_sequence;
+        if seq_hdr == 0 || seq_hdr <= last_seen_seq {
+            return None;
+        }
+
+        std::sync::atomic::fence(std::sync::atomic::Ordering::Acquire);
+
+        let slot_idx = ((seq_hdr - 1) as usize) & (SNAPSHOT_RING_SLOTS - 1);
+        let offset = SNAPSHOT_RING_HEADER_SIZE + slot_idx * slot_size;
+
+        let slot: &SnapshotRingSlot = bytemuck::try_from_bytes(&mmap[offset..offset + slot_size]).ok()?;
+
+        std::sync::atomic::fence(std::sync::atomic::Ordering::Acquire);
+
+        // Seqlock verification:
+        // 1. Both begin and end sequence markers must match the observed header sequence.
+        // 2. The publisher must not have wrapped around during reading.
+        if slot.sequence_begin != seq_hdr || slot.sequence_end != seq_hdr {
+            return None; // Torn or in-flight write
+        }
+
+        let seq_hdr_after = header.write_sequence;
+        if seq_hdr_after.saturating_sub(seq_hdr) >= SNAPSHOT_RING_SLOTS as u64 {
+            return None; // Publisher wrapped around while reader was reading
+        }
+
+        let dropped = if last_seen_seq == 0 {
+            0
+        } else {
+            (seq_hdr - last_seen_seq).saturating_sub(1)
+        };
+
+        Some(SnapshotReadEntry {
+            sequence: seq_hdr,
+            snapshot: slot.snapshot,
+            dropped_frames: dropped,
+        })
+    }
+
+    pub fn path(&self) -> &std::path::Path {
+        &self.path
+    }
+}
+
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_swmr_snapshot_ring_out_of_process_emulation() {
+        let dir = tempfile::tempdir().unwrap();
+        let shm_path = dir.path().join("test_engine_snapshot.shm");
+
+        // 1. Reader before publisher exists
+        let reader = SwmrSnapshotReader::open(&shm_path);
+        assert!(reader.read_latest().is_none());
+        assert_eq!(reader.read_latest_or_default(), EngineSnapshotPod::default());
+
+        // 2. Initialize publisher
+        let publisher = SwmrSnapshotPublisher::open_or_create(&shm_path).unwrap();
+
+        // 3. Publish initial snapshot
+        let mut snap1 = EngineSnapshotPod::default();
+        snap1.timestamp_ms = 12345;
+        snap1.bus_generation = 1;
+        snap1.measured_fps = 144.0;
+        snap1.bus_integrity = 99.9;
+        snap1.set_active_specialist("Orchestrator");
+        snap1.set_last_event_desc("Cluster nominal");
+        let seq1 = publisher.publish(&snap1).unwrap();
+        assert_eq!(seq1, 1);
+
+        // 4. Reader reads point-in-time
+        let read1 = reader.read_latest().expect("read snapshot 1");
+        assert_eq!(read1.timestamp_ms, 12345);
+        assert_eq!(read1.measured_fps, 144.0);
+        assert_eq!(read1.bus_integrity, 99.9);
+        assert_eq!(read1.active_specialist_str(), "Orchestrator");
+        assert_eq!(read1.last_event_desc_str(), "Cluster nominal");
+
+        // 5. Publish multiple frames monotonically (wrap around slot count of 64)
+        for i in 2..=200 {
+            let mut snap = EngineSnapshotPod::default();
+            snap.timestamp_ms = 1000 + i as u64;
+            snap.bus_generation = i as u64;
+            snap.user_level = i as u32;
+            publisher.publish(&snap).unwrap();
+        }
+
+        // 6. Reader reads latest point-in-time frame after 200 writes
+        let read_latest = reader.read_latest().expect("read latest snapshot");
+        assert_eq!(read_latest.timestamp_ms, 1200);
+        assert_eq!(read_latest.bus_generation, 200);
+        assert_eq!(read_latest.user_level, 200);
+    }
+
+    #[test]
+    fn test_swmr_ring_stale_and_dropped_frame_detection() {
+        let dir = tempfile::tempdir().unwrap();
+        let shm_path = dir.path().join("test_dropped_frames.shm");
+
+        let publisher = SwmrSnapshotPublisher::open_or_create(&shm_path).unwrap();
+        let reader = SwmrSnapshotReader::open(&shm_path);
+
+        let mut snap = EngineSnapshotPod::default();
+        snap.timestamp_ms = 100;
+        publisher.publish(&snap).unwrap();
+
+        // First read with last_seen_seq = 0
+        let entry1 = reader.read_next(0).expect("entry 1");
+        assert_eq!(entry1.sequence, 1);
+        assert_eq!(entry1.dropped_frames, 0);
+
+        // Reading again with last_seen_seq = 1 returns None (no new frames)
+        assert!(reader.read_next(1).is_none());
+
+        // Publish 5 more frames (sequences 2..=6)
+        for i in 2..=6 {
+            snap.timestamp_ms = 100 + i as u64;
+            publisher.publish(&snap).unwrap();
+        }
+
+        // Reader was at seq 1, now reads seq 6 -> 4 dropped frames (2, 3, 4, 5)
+        let entry6 = reader.read_next(1).expect("entry 6");
+        assert_eq!(entry6.sequence, 6);
+        assert_eq!(entry6.dropped_frames, 4);
+    }
+
+    #[test]
+    fn test_swmr_ring_seqlock_torn_read_prevention() {
+        let dir = tempfile::tempdir().unwrap();
+        let shm_path = dir.path().join("test_torn_read.shm");
+
+        let publisher = SwmrSnapshotPublisher::open_or_create(&shm_path).unwrap();
+        let reader = SwmrSnapshotReader::open(&shm_path);
+
+        let snap = EngineSnapshotPod::default();
+        publisher.publish(&snap).unwrap();
+
+        // Mutate the raw slot in mmap to simulate in-flight / torn write (sequence_begin != sequence_end)
+        let slot_size = std::mem::size_of::<SnapshotRingSlot>();
+        let offset = SNAPSHOT_RING_HEADER_SIZE; // slot 0
+        {
+            let mut guard = publisher.mmap.write();
+            let slot_mut: &mut SnapshotRingSlot = bytemuck::from_bytes_mut(&mut guard[offset..offset + slot_size]);
+            slot_mut.sequence_begin = 999; // Mismatched begin vs end (1)
+        }
+
+        // Reader must detect mismatch and return None without panic
+        assert!(reader.read_latest().is_none());
+    }
+
+    #[test]
+    fn test_swmr_ring_concurrent_writer_multiple_readers() {
+        let dir = tempfile::tempdir().unwrap();
+        let shm_path = dir.path().join("test_concurrent_swmr.shm");
+
+        let publisher = std::sync::Arc::new(SwmrSnapshotPublisher::open_or_create(&shm_path).unwrap());
+        let total_frames = 500u64;
+
+        // Spawn 3 concurrent reader threads
+        let mut reader_handles = Vec::new();
+        for _ in 0..3 {
+            let path_clone = shm_path.clone();
+            let handle = std::thread::spawn(move || {
+                let reader = SwmrSnapshotReader::open(&path_clone);
+                let mut last_seq = 0u64;
+                let mut frames_received = 0u64;
+
+                while last_seq < total_frames {
+                    if let Some(entry) = reader.read_next(last_seq) {
+                        assert!(entry.sequence > last_seq, "Monotonic sequence invariant violated");
+                        assert_eq!(entry.snapshot.timestamp_ms, entry.sequence * 10);
+                        last_seq = entry.sequence;
+                        frames_received += 1;
+                    } else {
+                        std::thread::yield_now();
+                    }
+                }
+                frames_received
+            });
+            reader_handles.push(handle);
+        }
+
+        // Writer publishes frames continuously
+        for seq in 1..=total_frames {
+            let mut snap = EngineSnapshotPod::default();
+            snap.timestamp_ms = seq * 10;
+            snap.bus_generation = seq;
+            publisher.publish(&snap).unwrap();
+            std::thread::yield_now();
+        }
+
+        // Await readers
+        for handle in reader_handles {
+            let frames = handle.join().expect("reader thread completed");
+            assert!(frames > 0, "Reader must receive frames");
+        }
+    }
 
     #[tokio::test]
     async fn test_swmr_basic_read_write() {
@@ -697,8 +1128,8 @@ mod tests {
         tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
 
         // Read back - verify generation incremented
-        let gen = reader.generation();
-        assert!(gen >= 1, "Generation should have incremented, got {}", gen);
+        let generation_id = reader.generation();
+        assert!(generation_id >= 1, "Generation should have incremented, got {}", generation_id);
 
         writer_handle
             .submit_intent(MutationIntent {
@@ -713,8 +1144,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_swmr_with_intent_logging() {
-        let log_path = std::env::temp_dir().join("aaroneous_test_intent.log");
-        let snapshot_path = std::env::temp_dir().join("aaroneous_test_snapshots.json");
+        let temp_dir = tempfile::tempdir().unwrap();
+        let log_path = temp_dir.path().join("test_intent.log");
+        let snapshot_path = temp_dir.path().join("test_snapshots.json");
         let _ = std::fs::remove_file(&log_path);
         let _ = std::fs::remove_file(&snapshot_path);
 
@@ -820,15 +1252,15 @@ mod tests {
 
     #[tokio::test]
     async fn test_generation_counter() {
-        let gen = GenerationCounter::new();
-        assert_eq!(gen.generation(), 0);
-        assert!(!gen.is_swapping());
+        let generation_id = GenerationCounter::new();
+        assert_eq!(generation_id.generation(), 0);
+        assert!(!generation_id.is_swapping());
 
-        assert!(gen.begin_swap());
-        assert!(gen.is_swapping());
+        assert!(generation_id .begin_swap());
+        assert!(generation_id .is_swapping());
 
-        gen.end_swap();
-        assert!(!gen.is_swapping());
-        assert_eq!(gen.generation(), 1);
+        generation_id.end_swap();
+        assert!(!generation_id.is_swapping());
+        assert_eq!(generation_id.generation(), 1);
     }
 }

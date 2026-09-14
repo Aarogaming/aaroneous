@@ -61,7 +61,7 @@ pub fn kl_divergence(p: &[f64], q: &[f64]) -> f64 {
     assert_eq!(p.len(), q.len());
     p.iter()
         .zip(q.iter())
-        .filter(|(&pi, &qi)| pi > 0.0 && qi > 0.0)
+        .filter(|&(&pi, &qi)| pi > 0.0 && qi > 0.0)
         .map(|(&pi, &qi)| pi * (pi / qi).log2())
         .sum()
 }
@@ -199,7 +199,7 @@ pub fn cross_entropy(p: &[f64], q: &[f64]) -> f64 {
     assert_eq!(p.len(), q.len());
     p.iter()
         .zip(q.iter())
-        .filter(|(&pi, &qi)| pi > 0.0 && qi > 0.0)
+        .filter(|&(&pi, &qi)| pi > 0.0 && qi > 0.0)
         .map(|(&pi, &qi)| -pi * qi.log2())
         .sum()
 }

@@ -1,0 +1,31 @@
+// src/lib.rs
+
+pub mod orchestration_daemon;
+pub mod action_executor;
+pub mod decision_engine;
+pub mod intelligence;
+pub mod metadata_ingestor;
+pub mod duty_cycle;
+pub mod subsystem_health;
+pub mod normalization_pipeline;
+pub mod github_poller;
+pub mod batch_runner;
+pub mod domain_classifier;
+pub mod ast_transformer;
+pub mod grafter;
+
+pub use orchestration_daemon::{DaemonState, OrchestrationDaemon, OrchestrationDaemonConfig};
+pub use action_executor::{ActionExecutor, ActionResult, ExecutionStats};
+pub use decision_engine::{AutonomousDecisionEngine, DecisionTask, ExecutionOutcome, TaskEvaluation};
+pub use intelligence::{IntelligenceEngine, LLMConfig, ProviderType};
+pub use metadata_ingestor::{MetadataAnalysis, MetadataEvent, MetadataIngestor, MetadataIngestorConfig};
+pub use duty_cycle::ExecutionPhase;
+pub use subsystem_health::SubsystemHealthReport;
+pub use normalization_pipeline::NormalizationPipeline;
+pub use github_poller::{GitHubPoller, JobStatus, PollerStats};
+pub use domain_classifier::{
+    AmbientRiskSite, ClassifierConfig, Domain, DomainClassifier, IngestionReport, ItemKind,
+    PublicItem,
+};
+pub use ast_transformer::{AmbientAstRewriter, RewriteSummary};
+pub use grafter::{graft_module, graft_module_to_crate, GraftReport};

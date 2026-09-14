@@ -17,7 +17,7 @@ pub struct IsolatedDesktop {
 }
 
 #[cfg(windows)]
-extern "system" {
+unsafe extern "system" {
     fn CreateDesktopW(
         lpszDesktop: *const u16,
         lpszDevice: *const u16,

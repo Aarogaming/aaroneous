@@ -17,29 +17,36 @@ pub struct ShmemFrameHeader {
 }
 
 /// Configuration for the shared-memory frame capture.
+/// POD struct for zero-copy config injection (replaces std::env)
+#[derive(Debug, Clone)]
 pub struct FrameCaptureConfig {
-    /// Width of the capture grid in pixels.
     pub width: u32,
-    /// Height of the capture grid in pixels.
     pub height: u32,
-    /// Path to the shared memory backing file.
-    pub shmem_path: String,
+    /// Path to the shared memory backing file - injected at construction time
+    pub shmem_path: std::path::PathBuf,
     /// When true, uses Win32 DXGI duplication API (fastest).
-    /// Falls back to GDI StretchBlt when unsupported.
     pub prefer_dxgi: bool,
+}
+
+impl FrameCaptureConfig {
+    pub fn new(width: u32, height: u32) -> Self {
+        Self {
+            width,
+            height,
+            shmem_path: std::path::PathBuf::from("fb.shmem"),
+            prefer_dxgi: true,
+        }
+    }
+
+    pub fn with_path(mut self, path: impl Into<std::path::PathBuf>) -> Self {
+        self.shmem_path = path.into();
+        self
+    }
 }
 
 impl Default for FrameCaptureConfig {
     fn default() -> Self {
-        Self {
-            width: 640,
-            height: 480,
-            shmem_path: format!(
-                r"{}\aaroneous_fb.shmem",
-                std::env::var("TEMP").unwrap_or_else(|_| r"C:\Temp".into())
-            ),
-            prefer_dxgi: true,
-        }
+        Self::new(640, 480)
     }
 }
 
@@ -301,57 +308,53 @@ fn now_tick() -> u64 {
 mod tests {
     use super::*;
 
+    fn temp_shmem_path(name: &str) -> std::path::PathBuf {
+        let mut path = std::path::PathBuf::from("target/tmp");
+        path.push(format!("test_{}.shmem", name));
+        // Ensure directory exists
+        if let Err(e) = std::fs::create_dir_all("target/tmp") {
+            panic!("Failed to create target/tmp: {}", e);
+        }
+        path
+    }
+
+    fn cleanup(path: &std::path::Path) {
+        let _ = std::fs::remove_file(path);
+    }
+
     #[test]
     fn test_shmem_open_close() {
-        let mut cap = ShmemCapture::new(FrameCaptureConfig {
-            width: 64,
-            height: 64,
-            shmem_path: format!(
-                r"{}\aaroneous_test_shmem.shmem",
-                std::env::var("TEMP").unwrap_or_else(|_| r"C:\Temp".into())
-            ),
-            prefer_dxgi: false,
-        });
+        let path = temp_shmem_path("open_close");
+        let mut cap = ShmemCapture::new(FrameCaptureConfig::new(64, 64).with_path(&path));
         assert!(cap.open().is_ok());
         assert!(cap.is_active());
         cap.close();
         assert!(!cap.is_active());
+        cleanup(&path);
     }
 
     #[test]
     fn test_shmem_capture_frame() {
-        let mut cap = ShmemCapture::new(FrameCaptureConfig {
-            width: 32,
-            height: 32,
-            shmem_path: format!(
-                r"{}\aaroneous_test_shmem2.shmem",
-                std::env::var("TEMP").unwrap_or_else(|_| r"C:\Temp".into())
-            ),
-            prefer_dxgi: false,
-        });
+        let path = temp_shmem_path("capture_frame");
+        let mut cap = ShmemCapture::new(FrameCaptureConfig::new(32, 32).with_path(&path));
         cap.open().unwrap();
         let fid = cap.capture_frame().unwrap();
         assert_eq!(fid, 1);
         let fid2 = cap.capture_frame().unwrap();
         assert_eq!(fid2, 2);
         cap.close();
+        cleanup(&path);
     }
 
     #[test]
     fn test_shmem_pixel_ptr() {
-        let mut cap = ShmemCapture::new(FrameCaptureConfig {
-            width: 16,
-            height: 16,
-            shmem_path: format!(
-                r"{}\aaroneous_test_shmem3.shmem",
-                std::env::var("TEMP").unwrap_or_else(|_| r"C:\Temp".into())
-            ),
-            prefer_dxgi: false,
-        });
+        let path = temp_shmem_path("pixel_ptr");
+        let mut cap = ShmemCapture::new(FrameCaptureConfig::new(16, 16).with_path(&path));
         cap.open().unwrap();
         cap.capture_frame().unwrap();
         let ptr = cap.pixel_ptr();
         assert!(ptr.is_some());
         cap.close();
+        cleanup(&path);
     }
 }

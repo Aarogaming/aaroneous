@@ -410,15 +410,7 @@ impl LiveP2PDaemon {
                 );
 
                 let start = Instant::now();
-                // Execute task computation: increment test buffer or generate cryptographic proof
-                let mut result_data = payload.clone();
-                if result_data.is_empty() {
-                    result_data = vec![0xAA; 32];
-                } else {
-                    for b in result_data.iter_mut() {
-                        *b = b.wrapping_add(1);
-                    }
-                }
+                let result_data = Self::execute_task_payload(opcode, &payload);
 
                 self.tasks_processed_count.fetch_add(1, Ordering::Relaxed);
                 let duration_us = start.elapsed().as_micros() as u64;
@@ -510,21 +502,102 @@ impl LiveP2PDaemon {
         }
     }
 
+    /// Executes micro-task payload deterministically based on opcode
+    pub fn execute_task_payload(opcode: u16, payload: &[u8]) -> Vec<u8> {
+        match opcode {
+            0x0701 => {
+                // OPCODE_TEST_GENERATION: Synthesizes test batch response
+                let mut out = Vec::with_capacity(payload.len() + 4);
+                out.extend_from_slice(b"GEN:");
+                for b in payload {
+                    out.push(b.wrapping_add(2));
+                }
+                out
+            }
+            0x0702 => {
+                // OPCODE_SVDD_SECURITY_AUDIT: SVDD security seal
+                let mut out = Vec::with_capacity(payload.len() + 5);
+                out.extend_from_slice(b"SEAL:");
+                for b in payload {
+                    out.push(b.wrapping_add(0x10));
+                }
+                out
+            }
+            _ => {
+                // 0x0700 (OPCODE_AST_PARSE) and default micro-task execution
+                if payload.is_empty() {
+                    vec![0xAA; 32]
+                } else {
+                    payload.iter().map(|b| b.wrapping_add(1)).collect()
+                }
+            }
+        }
+    }
+
+    /// Selects the connected peer hive with lowest EWMA latency, strictly panic-free
+    pub fn select_best_peer(&self) -> Result<String> {
+        let peers = self.peers.read();
+        let channels = self.outbound_channels.read();
+        let mut candidates: Vec<_> = peers
+            .values()
+            .filter(|p| p.is_connected && channels.contains_key(&p.peer_id))
+            .collect();
+        if candidates.is_empty() {
+            bail!("No connected peer hives available for swarm task offloading");
+        }
+        // Panic-free total ordering over f32 latency
+        candidates.sort_by(|a, b| a.latency_ms.total_cmp(&b.latency_ms));
+        Ok(candidates[0].peer_id.clone())
+    }
+
+    /// Explicitly records an RTT sample for a peer and applies EWMA smoothing (alpha = 0.3)
+    pub fn record_peer_latency(&self, peer_id: &str, rtt_ms: f32) {
+        let now_ms = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis() as u64;
+        if let Some(peer) = self.peers.write().get_mut(peer_id) {
+            peer.latency_ms = (peer.latency_ms * 0.7) + (rtt_ms * 0.3);
+            peer.last_seen_ms = now_ms;
+        }
+    }
+
+    /// Injects a mock peer and outbound channel for test isolation
+    pub fn inject_mock_peer(
+        &self,
+        peer_id: &str,
+        address: &str,
+        latency_ms: f32,
+        tx: mpsc::Sender<DaemonWirePacket>,
+    ) {
+        let now_ms = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis() as u64;
+        self.peers.write().insert(
+            peer_id.to_string(),
+            LivePeerInfo {
+                peer_id: peer_id.to_string(),
+                address: address.to_string(),
+                latency_ms,
+                is_connected: true,
+                messages_sent: 0,
+                messages_received: 0,
+                last_seen_ms: now_ms,
+            },
+        );
+        self.outbound_channels
+            .write()
+            .insert(peer_id.to_string(), tx);
+    }
+
     /// Offloads a micro-task to the lowest-latency connected peer hive
     pub async fn offload_task_to_peer(
         &self,
         opcode: u16,
         payload: Vec<u8>,
     ) -> Result<(Vec<u8>, u64, String)> {
-        let target_peer = {
-            let peers = self.peers.read();
-            let mut connected_peers: Vec<_> = peers.values().filter(|p| p.is_connected).collect();
-            if connected_peers.is_empty() {
-                bail!("No connected peer hives available for swarm task offloading");
-            }
-            connected_peers.sort_by(|a, b| a.latency_ms.partial_cmp(&b.latency_ms).unwrap());
-            connected_peers[0].peer_id.clone()
-        };
+        let target_peer = self.select_best_peer()?;
 
         let tx = {
             let channels = self.outbound_channels.read();
@@ -634,5 +707,45 @@ mod tests {
 
         daemon_a.stop();
         daemon_b.stop();
+    }
+
+    #[tokio::test]
+    async fn test_select_best_peer_ewma_weighting() {
+        let daemon = LiveP2PDaemon::new(LiveP2PConfig::default());
+        let (tx_a, _rx_a) = mpsc::channel(10);
+        let (tx_b, _rx_b) = mpsc::channel(10);
+
+        daemon.inject_mock_peer("node-alpha", "127.0.0.1:9001", 20.0, tx_a);
+        daemon.inject_mock_peer("node-beta", "127.0.0.1:9002", 5.0, tx_b);
+
+        // Initially node-beta has lower latency (5.0 vs 20.0)
+        let best = daemon.select_best_peer().unwrap();
+        assert_eq!(best, "node-beta");
+
+        // Record several low RTT samples for node-alpha (EWMA smoothing: alpha = 0.3)
+        for _ in 0..10 {
+            daemon.record_peer_latency("node-alpha", 1.0);
+        }
+
+        // node-alpha EWMA latency should now be lower than node-beta
+        let best_after = daemon.select_best_peer().unwrap();
+        assert_eq!(best_after, "node-alpha");
+    }
+
+    #[test]
+    fn test_execute_task_payload_opcodes() {
+        // Opcode 0x0700: AST Parse (transforms with +1 for compatibility)
+        let res_ast = LiveP2PDaemon::execute_task_payload(0x0700, &[10, 20, 30]);
+        assert_eq!(res_ast, vec![11, 21, 31]);
+
+        // Opcode 0x0701: Test generation (GEN: prefix)
+        let res_test = LiveP2PDaemon::execute_task_payload(0x0701, &[1, 2]);
+        assert_eq!(&res_test[..4], b"GEN:");
+        assert_eq!(&res_test[4..], &[3, 4]);
+
+        // Opcode 0x0702: Security audit (SEAL: prefix)
+        let res_sec = LiveP2PDaemon::execute_task_payload(0x0702, &[0x05]);
+        assert_eq!(&res_sec[..5], b"SEAL:");
+        assert_eq!(&res_sec[5..], &[0x15]);
     }
 }

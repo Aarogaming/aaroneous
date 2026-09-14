@@ -120,7 +120,7 @@ impl DevToolsSpecialist {
         let initial_graph = compute::EdgeLinguisticLens::intent_to_native_graph(intent);
         initial_graph.verify_dimensional_invariants()?;
 
-        let mut engine = compute::MachineNativePredictionEngine::new();
+        let mut engine = compute::MachineNativePredictionEngine::default();
         let optimized = engine.predict_optimal_mutation(&initial_graph)?;
         let explanation = compute::EdgeLinguisticLens::native_graph_to_explanation(&optimized);
 
@@ -168,7 +168,7 @@ impl SovereignSpecialist for FabricatorSpecialist {
         
         if payload_str.starts_with("wrap:") {
             let target_path = payload_str.trim_start_matches("wrap:").trim();
-            let temp_out = paths::WorkspacePaths::discover().models().join("organs");
+            let temp_out = paths::WorkspacePaths::discover(&paths::WorkspacePathsConfig::new()).models().join("organs");
             let (manifest, crate_path) = self.forge_organ_wrapper(target_path, None, &temp_out).await?;
             
             return Ok(MnlpResponse {

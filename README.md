@@ -1,197 +1,22 @@
 # ⚡ Aaroneous: Sovereign Machine-Native Execution Engine
 
-> **Aaroneous: Sovereign Machine-Native Execution Engine**
-> A pure Rust autonomic hypervisor and solid-state neural execution substrate powered by **Continuous Selective State-Space Models (SSM)**, **Real-Time Dynamic Adaptation Matrices**, and **Zero-Copy Memory-Mapped `.si` Cartridges**.
+> **A pure Rust autonomic hypervisor and solid-state neural execution substrate powered by Continuous Selective State-Space Models (SSM), Real-Time Dynamic Adaptation Matrices, and Zero-Copy Memory-Mapped `.si` Cartridges.**
 
 ---
 
 ## 🌌 Overview
 
-**Aaroneous** is a next‑generation sovereign AI runtime and developer desktop hypervisor, built entirely in Rust. Unlike traditional LLM frameworks that wrap Python around static, multi‑gigabyte models with slow text tokenizers, running many heavy language models simultaneously destroys consumer PC performance through VRAM and KV‑cache thrashing.
+**Aaroneous** is a sovereign synthetic intelligence runtime and Pure Logic Controller (PLC / SCADA) execution engine built entirely in modern pure Rust (2024 edition). Unlike traditional agent frameworks that wrap Python around static, multi-gigabyte models with slow text tokenizers, Aaroneous operates on a strict **Sterile Execution Plane (SEP)**: sub-microsecond determinism, zero heap allocation on hot paths, zero ambient authority, and zero-copy memory-mapped binary contracts.
 
 ```text
 ┌────────────────────────────────────────────────────────────────────────────────────────────────────────┐
-│                        THE AARONEOUS SOLID-STATE EXECUTION ENGINE SUBSTRATE                                          │
+│                        THE AARONEOUS SOLID-STATE EXECUTION ENGINE SUBSTRATE                            │
 ├────────────────────────────────────────────────────────────────────────────────────────────────────────┤
 │                                                                                                        │
 │  ONE FILE (.si) ──► Mounted via `memmap2` in < 50µs directly into Active Virtual Memory                │
 │                                                                                                        │
 │  ┌──────────────────────────────────────────────────────────────────────────────────────────────────┐  │
-│  │ [BLOCK 1: FROZEN CORE SSM WEIGHTS] (Aaroneous-SSM-4M)                                           │  │
-│  │ • 4× Selective State‑Space recurrent layers (S4 / Mamba recurrence: h_t = Ā h_{t-1} + B̄ u_t)    │  │
-│  │ • Immutable base model: eliminates catastrophic forgetting of grammar, types, and hardware ops.  │  │
-│  ├──────────────────────────────────────────────────────────────────────────────────────────────────┤  │
-│  │ [BLOCK 2: DYNAMIC ADAPTATION MATRIX] (Streaming LoRA / Real‑Time Error Correction)               │  │
-│  │ • Mutable Low‑Rank delta matrices: ΔW = A_adapt · B_adapt (Rank r = 16, ~64 KB RAM footprint)    │  │
-│  │ • On runtime error/panic: Instant in‑place gradient step (< 50 µs) steers weights away!           │  │
-│  │ • On task success: Instant reinforcement step cements optimal latent route.                     │  │
-│  ├──────────────────────────────────────────────────────────────────────────────────────────────────┤  │
-│  │ [BLOCK 3: EPISODIC SKILL STACK] (Mined AST DAGs, Habits & Execution Pathways)                   │  │
-│  │ • Mined computational DAGs, hotkeys, dimensional signatures, and habits.                         │  │
-│  └──────────────────────────────────────────────────────────────────────────────────────────────────┘  │
-│                                                                                                        │
-└────────────────────────────────────────────────────────────────────────────────────────────────────────┘
-```
-
----
-
-## 🚀 Key Architectural Pillars
-
-### 1. 🧬 Pure Rust Selective State‑Space Model (`SiStateSpaceModel`)
-- Continuous‑time state‑space recurrence ($h_t = \bar{\mathbf{A}} h_{t-1} + \bar{\mathbf{B}} u_t$, $y_t = \mathbf{C} h_t + \mathbf{D} u_t$).
-- 4 layers, 1024‑element state vectors, 256 model dimension, 64 state rank (~890 k parameters $\approx$ 3.56 MB RAM footprint).
-- Sub‑millisecond single‑pass inference ($< 180\mu\text{s}$).
-
-### 2. ⚡ Dynamic Adaptation Matrix & Real‑Time Error Steering (`DynamicAdaptationMatrix`)
-- Immutable frozen core + mutable low‑rank adapter.
-- `on_runtime_error` applies an < 50 µs gradient step, steering away from repeats.
-
-### 3. 💎 Autonomous Skill‑Expansion & Meta‑Learning Engine (`SkillExpansionEngine`)
-- Thermodynamic free‑energy minimization drives habit graduation:
-  $$\text{🌱 Candidate} \rightarrow \text{🧪 Validated} \rightarrow \text{💎 Crystallized} \rightarrow \text{⚡ Core Reflex}$$
-- Graduated habits are frozen into portable `.si` cartridges.
-
-### 4. 🛠️ Execution Engine Tool Suite (`SiToolEngine` & CLI)
-- Container Inspector, Microsecond Benchmarker, Task Distiller.
-
-### 5. 🌐 Universal Tool Dual‑Face Architecture & MCP Hub
-- Tools expose JSON schemas for cloud APIs while executing zero‑copy $\mathbb{R}^{256}$ tensor ops in‑process.
-
-### 6. 🏛️ Tri‑Tiered Layered Control System
-- Tier 1 Strategic Cortex, Tier 2 Router with Sentinel Deep SVDD guardrail, Tier 3 Kinetic Reflex workers (CPU‑core pinned).
-
-### 7. 🔥 `SiForge` Unified Model Builder API
-- End‑to‑end distillation → SIMD‑aligned `.si` v3 containers → Zero‑copy mapping.
-
-### 8. 🛡️ Sovereign Windows Isolated Desktop Sandbox
-- Process‑level isolation via `CreateDesktopW` prevents input hijacking.
-
----
-
-## ⚡ Zero‑Copy Solid‑State Neural Architecture
-
-Aaroneous executes `.si` v3.0 cartridges via **memory‑mapped (`mmap`) binary layouts**:
-- **Zero Heap Allocations** – Direct page‑aligned access.
-- **Cache Alignment** – 64‑byte SIMD layout.
-- **Zero‑Copy Contracts** – Public structs derive `bytemuck::Pod` (`core-contracts`).
-- **Shared‑Memory IPC** – `MachinePacket` with `rkyv` serialization, no JSON copies.
-- **Process‑Level Isolation** – `max_blast_radius = "isolated"` enforces sandbox per ACC.
-
----
-
-## 🔄 The Systemic Engineering Loop
-
-Aaroneous engineering and autonomous agent operations adhere to a recursive, self-refining execution loop:
-
-$$\textbf{Observe} \longrightarrow \textbf{Hypothesize} \longrightarrow \textbf{Design} \longrightarrow \textbf{Implement} \longrightarrow \textbf{Test} \longrightarrow \textbf{Deploy} \longrightarrow \textbf{Measure} \longrightarrow \textbf{Learn} \longrightarrow \textbf{Repeat}$$
-
-1. **Observe**: Capture deep OS telemetry, DXGI visual frames, UIA trees, ETW kernel traces, and system bottlenecks.
-2. **Hypothesize**: Formulate concrete hypotheses on system behavior, performance optimization, or cognitive intent.
-3. **Design**: Construct zero-copy contracts (`bytemuck::Pod`), lock-free ring topologies, and clean API boundaries.
-4. **Implement**: Write strictly safe, zero-panic Rust with deterministic memory layouts (`max_blast_radius = "isolated"`).
-5. **Test**: Execute full-spectrum harness suites (unit, integration, ABI stability, and Cratify certification).
-6. **Deploy**: Stage into sandboxed `.si` containers, hot-loaded modules, or standalone binaries.
-7. **Measure**: Benchmark sub-microsecond RDTSC timings, thermal/VRAM backpressure, and throughput metrics.
-8. **Learn**: Consolidate residual adaptation matrices into permanent habit stacks and state banks.
-9. **Repeat**: Re-enter observation to drive the next generational evolution cycle.
-
----
-
-## 📦 Quick Start & CLI Usage
-
-### Cratify – Unified Lifecycle Orchestrator
-```
-audit → scaffold → translate → verify → harvest
-```
-- `audit` – Verify contracts.
-- `scaffold` – Generate ACC skeleton with `crates/<crate>/cratify.toml` manifest.
-- `translate` – Convert specifications into Rust code & zero‑copy structs.
-- `verify` – Run static analysis & sandbox tests.
-- `harvest` – Package compiled ACC into a deployable `.si` cartridge.
-
-### Build and Launch Desktop Studio & HUD
-```powershell
-# Standalone Studio HUD (Eframe / WGPU Desktop Application)
-cargo run --release -p studio_hud --bin aaroneous
-
-# Headless Hypervisor CLI
-cargo run --release -p a_run --bin a_run -- --help
-```
-
-### Sovereign Hypervisor Commands (`a_run`)
-```powershell
-a_run distill-all --samples 10 --epochs 1 --out models/distilled_federation
-
-a_run mesh --nodes 4 --live
-
-a_run daemon --bind 127.0.0.1:8001 --heartbeat 1500
-
-a_run evolve --cycles 3 --threshold 0.70
-
-a_run forge --name chimera_ast --tier 3 --samples 20 --epochs 1
-
-a_run boot --profile isolated
-
-a_run simulate --frames 5
-
-a_run si benchmark data/models/chimera_ast.si --iterations 500
-```
-
----
-
-## 📂 Workspace Architecture (22 Rust Crates & Desktop Hypervisor)
-```
-d:\Aaroneous\
-├── crates/
-│   ├── studio_hud/             # Pillar 5: Desktop Studio & Telemetry HUD native GUI
-│   ├── llm_gateway/            # Decoupled sovereign & remote LLM gateway & MCP bridge
-│   ├── compute/                # SiForge, SSM engine, Sparse MoE Register, NPU bridge
-│   ├── paths/                  # Dynamic workspace path resolver
-│   ├── ipc_bus/                # Lock‑free SPMC bus, LMAX disruptor, persistent WAL
-│   ├── orchestrator/           # Thread affinity, compaction engine, auto‑tuner
-│   ├── capabilities/           # Universal toolset, code auditor, MCP tools
-│   ├── autonomic_adaptation/   # Adaptive control, hyperparameter search, GGUF ingestion
-│   ├── adaptation_engine/      # Polyglot AST parser, component forge, FFI synthesis
-│   ├── platform_bridge/        # Win32 HID injection, DXGI zero‑copy capture, WASAPI loopback
-│   ├── transpiler/             # AST parser & distillation miner
-│   ├── governance/             # Thermal monitoring, Z3 SMT gates, SI lattice checks
-│   ├── omni/                   # 3D spatial graph, clustering, and vector search
-│   ├── si_format/              # Canonical `.si` layout, SIMD alignment, CRC32
-│   ├── si_ir/                  # Computational graphs, MachineOpcode IR, type lattice
-│   ├── core-contracts/         # Zero-copy memory contracts & Pod derivations
-│   └── cratify/                # Workspace decoupling & ACC governance certification engine
-├── core/
-│   └── hypervisor/             # Headless runtime engine (`a_run`, `profile_compiler`, `shm_dump`)
-├── data/
-│   ├── models/                 # Birthed `.si` cartridges
-│   └── skills/                 # Crystallized `.si` execution cartridges
-├── deploy/                     # Windows install & packaging scripts
-└── dist/                       # Release zip archives
-```
-
----
-
-## 📜 License
-Licensed under the MIT License. See [LICENSE](LICENSE) for details.
-
-
-> **Aaroneous: Sovereign Machine-Native Execution Engine**  
-> A pure Rust autonomic hypervisor and solid-state neural execution substrate powered by **Continuous Selective State-Space Models (SSM)**, **Real-Time Dynamic Adaptation Matrices**, and **Zero-Copy Memory-Mapped `.si` Cartridges**.
----
-
-## 🌌 Overview
-
-**Aaroneous** is a next-generation sovereign AI runtime and developer desktop hypervisor, built entirely in Rust. Unlike traditional LLM frameworks that wrap Python around static, multi-gigabyte models with slow text tokenizers, running many heavy language models simultaneously destroys consumer PC performance through VRAM and KV-cache thrashing.
-
-```
-┌────────────────────────────────────────────────────────────────────────────────────────────────────────┐
-│                        THE AARONEOUS SOLID-STATE EXECUTION ENGINE SUBSTRATE                                          │
-├────────────────────────────────────────────────────────────────────────────────────────────────────────┤
-│                                                                                                        │
-│  ONE FILE (.si) ──► Mounted via `memmap2` in < 50µs directly into Active Virtual Memory                │
-│                                                                                                        │
-│  ┌──────────────────────────────────────────────────────────────────────────────────────────────────┐  │
-│  │ [BLOCK 1: FROZEN CORE SSM WEIGHTS] (Aaroneous-SSM-4M)                                           │  │
+│  │ [BLOCK 1: FROZEN CORE SSM WEIGHTS] (Continuous HiPPO State-Space Recurrence)                     │  │
 │  │ • 4× Selective State-Space recurrent layers (S4 / Mamba recurrence: h_t = Ā h_{t-1} + B̄ u_t)    │  │
 │  │ • Immutable base model: eliminates catastrophic forgetting of grammar, types, and hardware ops.  │  │
 │  ├──────────────────────────────────────────────────────────────────────────────────────────────────┤  │
@@ -214,119 +39,154 @@ Licensed under the MIT License. See [LICENSE](LICENSE) for details.
 ### 1. 🧬 Pure Rust Selective State-Space Model (`SiStateSpaceModel`)
 - Continuous-time state-space recurrence ($h_t = \bar{\mathbf{A}} h_{t-1} + \bar{\mathbf{B}} u_t$, $y_t = \mathbf{C} h_t + \mathbf{D} u_t$).
 - 4 layers, 1024-element state vectors, 256 model dimension, 64 state rank (~890k parameters $\approx$ 3.56 MB RAM footprint).
-- Sub-millisecond single-pass state-to-action inference ($< 180\mu\text{s}$).
+- Sub-millisecond single-pass state-to-action inference ($< 180\,\mu\text{s}$).
 
 ### 2. ⚡ Dynamic Adaptation Matrix & Real-Time Error Steering (`DynamicAdaptationMatrix`)
-- Eliminates catastrophic forgetting by pairing an immutable frozen core with a mutable low-rank adapter.
-- When an execution error or compiler panic occurs, `on_runtime_error` calculates an immediate negative gradient step, modifying the adapter in $< 50\mu\text{s}$ so the model automatically steers away from repeating the mistake.
+- Eliminates catastrophic forgetting by pairing an immutable frozen core with a mutable low-rank adapter ($\Delta W = A_{\text{adapt}} \cdot B_{\text{adapt}}$).
+- When an execution error or compiler panic occurs, `on_runtime_error` applies an immediate negative gradient step in $< 50\,\mu\text{s}$, steering the model away from repeated failures.
 
-### 3. 💎 Autonomous Skill-Expansion & Meta-Learning Engine (`SkillExpansionEngine`)
+### 3. 💎 Autonomous Skill Expansion & Thermodynamic Minimization (`SkillExpansionEngine`)
 - Self-development loop driven by thermodynamic free energy minimization ($F = E - T \cdot S$) and step compression.
-- Automatically graduates workflows through a formal maturity ladder:
+- Automatically graduates candidate workflows through a formal maturity ladder:
   $$\text{🌱 Candidate} \longrightarrow \text{🧪 Validated} \longrightarrow \text{💎 Crystallized Module} \longrightarrow \text{⚡ Core Reflex}$$
-- High-fitness habits are automatically frozen into portable `.si` cartridges.
+- High-fitness habits are frozen into portable, memory-mapped `.si` cartridges.
 
-### 4. 🛠️ Complete Execution Engine Tool Suite (`SiToolEngine` & CLI)
-- **Container Inspector**: Extracts magic headers (`SIMN`/`SISSM`/`SINT`), AST nodes, energy dissipation, dimensional invariants, and embedded SSM parameters.
-- **Microsecond Benchmarker**: Profiles zero-copy memory-mapped throughput and latency over hundreds of passes.
-- **Task Distiller**: Transpiles human action sequences directly into machine-native execution graphs.
+### 4. 🛠️ Universal Capability Toolset (`UniversalTool` & MCP Hub)
+- **Dual-Face Execution**: Every capability tool implements the `UniversalTool` trait—exposing standard JSON schemas for external MCP clients (Claude Desktop, Cursor, OpenCode), while concurrently executing zero-copy $\mathbb{R}^{256}$ latent tensor transformations for native `.si` models in VRAM ($< 15\,\mu\text{s}$).
+- Standard catalog covers AST repair, pattern rewriting, security audits, semantic queries, and multi-modal sensory inspection.
 
-### 5. 🌐 Universal Tool Dual-Face Architecture & MCP Hub
-- **Dual-Face Execution**: Every capability tool implements the unified `UniversalTool` trait—exposing standard JSON input/output schemas for Cloud REST APIs and LLM MCP servers (Claude Desktop, Cursor, OpenCode), while concurrently executing zero-copy $\mathbb{R}^{256}$ latent tensor transformations for native `.si` models in VRAM ($< 15\mu\text{s}$).
-- **Standard Tool Catalog**: Pre-populated with security audit (`security.audit`), AST repair (`code.repair`), pattern rewrite (`code.rewrite_pattern`), self-review (`review.audit_source`), semantic query (`knowledge.semantic_query`), vector search (`memory.search_vector`), UI layout solver (`ui.layout_solve`), and multi-modal sensory status (`platform.sensory_status`).
-
-### 6. 🏛️ Tri-Tiered Layered Control System
-- **Tier 1 (Strategic Cortex - $\mathbb{R}^{4096}$):** Long-horizon task decomposition and high-dimensional semantic planning running on background OS threads (`SiTierFlags::TIER_1_CORTEX`).
-- **Tier 2 (Router - $\mathbb{R}^{4096} \to \mathbb{R}^{256}$):** Subgoal projection with inline **Sentinel Deep SVDD** guardrail audit ($< 2\mu\text{s}$ safe manifold snap: $\mathbf{S}_{\text{snapped}} = \mathbf{c} + R \frac{\mathbf{S} - \mathbf{c}}{\|\mathbf{S} - \mathbf{c}\|_2}$) and atomic broadcasting over Channel 0 of the lock-free SPMC synapse bus (`SiTierFlags::TIER_2_ROUTER`).
-- **Tier 3 (Kinetic Reflex Workers - $\mathbb{R}^{256}$):** Dedicated physical CPU-core pinned workers (`SetThreadAffinityMask`) executing sub-microsecond spin-wait pursuit loops, continuous sensory-conditioned state recurrence ($< 180\mu\text{s}$), and multi-headed action decoding (`SiTierFlags::TIER_3_REFLEX`).
-
-### 7. 🔥 The `SiForge` Unified Model Builder API
-- Fully integrated Rust Builder pipeline (`SiForge::new("model_name").with_tier(tier).with_training_data(dataset).birth(dir)`).
-- End-to-end multi-objective teacher distillation (CKA + InfoNCE + CE) $\to$ State-Space parameter extraction $\to$ SINT v3 64-byte SIMD aligned container generation $\to$ Zero-copy memory mapping verification.
-
-### 8. 🛡️ Sovereign Windows Isolated Desktop Sandbox
-- Headless process and kinetic UI isolation via Win32 `CreateDesktopW` FFI, preventing robotic actions from stealing host keyboard/mouse focus or interfering with the developer's foreground work.
+### 5. 🏛️ Layered Protection Rings & PLC Reducer Architecture
+- **Ring 0 (Microkernel Host)**: `core/hypervisor` duty cycle executing cyclical 3-phase scans ($S_{t+1} = f(S_t, I)$).
+- **Ring 1 (Interconnect & Compute)**: `ipc_bus` lock-free SWMR ring buffers, `compute` continuous SSM and bond-graph physics compilation, `core-contracts` zero-copy Pod definitions.
+- **Ring 2 (Control & Orchestration)**: `orchestrator` typestate event reducers, `orchestration_plane`, `governance` thermal/safety interlocks.
+- **Ring 3 (Ingress & Transducers)**: `capabilities`, `llm_gateway` stateless transport, `platform_bridge` Win32 HID and DXGI screen capture.
+- **Ring 4 (Presentation)**: `api` and `studio_hud` desktop GUI on `egui`/`eframe` 0.34 with zero raw pointer leakage.
 
 ---
 
 ## ⚡ Zero-Copy Solid-State Neural Architecture
 
-The Aaroneous runtime executes `.si` v3.0 cartridges via direct virtual memory mapping:
+The Aaroneous runtime executes `.si` v3.0 cartridges via direct virtual memory mapping (`memmap2`):
 - **Zero Heap Allocations**: Model weights and parameter loci are addressed directly from page-aligned memory maps.
-- **Cache Alignment**: 64-byte aligned SIMD layout for streaming vector operations.
-- **Continuous Online Adaptation**: Real-time closed-loop parameter steering without external cloud or web runtimes.
+- **Cache Alignment**: 64-byte aligned SIMD layout for streaming vector operations (`align(64)`).
+- **Zero-Copy Contracts**: Public boundary types implement `#[repr(C)]` and derive `bytemuck::Pod` + `bytemuck::Zeroable`.
+- **Shared-Memory IPC**: Lock-free SWMR ring buffers communicate via discrete zero-copy frames over `ipc_bus`.
 
 ---
 
 ## 📦 Quick Start & CLI Usage
 
-### Build and Launch HUD
+### Build and Launch Desktop Studio HUD
 ```powershell
-# Run the Desktop Hypervisor HUD
-cargo run --release -p a_run --bin aaroneous
+# Native Desktop Studio & Telemetry HUD (Eframe / WGPU)
+cargo run --release -p studio_hud --bin aaroneous
 
-# Run the Autonomic Engine & CLI
-cargo run --release -p a_run --bin a_run -- --help
+# Headless Microkernel Hypervisor CLI
+cargo run --release -p hypervisor --bin a_run -- --help
 ```
 
-### Sovereign Hypervisor & Forge Commands (`a_run`)
+### Static Analysis & AST Invariant Audit
 ```powershell
-# 1. Distill & birth .si solid-state models for all 9 Sovereign Specialists
+# Run the AST Auditor across the entire workspace (Must report 0 violations)
+cargo run -p ast_auditor -- audit core/ crates/
+```
+
+### Sovereign Hypervisor Commands (`a_run`)
+```powershell
+# 1. Distill & birth .si solid-state models for Sovereign Specialists
 a_run distill-all --samples 10 --epochs 1 --out models/distilled_federation
 
-# 2. Boot a live 4-node Multi-Hive P2P TCP Mesh cluster & verify gossip consensus
+# 2. Boot a live 4-node P2P cluster & verify gossip consensus
 a_run mesh --nodes 4 --live
 
-# 3. Launch an active sovereign P2P socket daemon node
+# 3. Launch an active sovereign socket daemon node
 a_run daemon --bind 127.0.0.1:8001 --heartbeat 1500
 
-# 4. Execute autonomous background self-evolution AST mutation & skill promotion
+# 4. Execute autonomous background self-evolution AST mutation
 a_run evolve --cycles 3 --threshold 0.70
 
 # 5. Forge a new Tier 3 Kinetic Reflex .si container from scratch
 a_run forge --name chimera_ast --tier 3 --samples 20 --epochs 1
 
-# 6. Boot the Hypervisor in an isolated sovereign Isolated Desktop
-a_run boot --profile isolated
-
-# 7. Run closed-loop multimodal sensory-motor pipeline in Isolated Desktop
-a_run simulate --frames 5
-
-# 8. Benchmark zero-copy memory-mapped execution
+# 6. Benchmark zero-copy memory-mapped execution latency
 a_run si benchmark data/models/chimera_ast.si --iterations 500
 ```
 
 ---
 
-## 📂 Workspace Architecture (16 Rust Crates & Desktop Hypervisor)
+## 📂 Workspace Architecture
 
-```
+```text
 d:\Aaroneous\
+├── core/
+│   └── hypervisor/             # Microkernel host, execution duty cycle, a_run, profile_compiler
 ├── crates/
-│   ├── compute/                # SiForge, SSM engine, Sparse MoE Register, Continuous Macro-SSM, NPU bridge
-│   ├── paths/                  # Dynamic zero-hardcoded workspace path resolver
-│   ├── ipc_bus/                # Lock-free SPMC shared memory bus, LMAX ring buffer & persistent WAL
-│   ├── orchestrator/           # Thread affinity allocator, Compaction Engine & Hardware Auto-Tuner
-│   ├── capabilities/           # Universal Capability Toolset, Codebase Auditor, Substrates & MCP Tools
-│   ├── autonomic_adaptation/   # Continuous adaptive control, hyperparameter search & GGUF model ingestion
-│   ├── adaptation_engine/      # Polyglot AST parsing, Component Forge, FFI synthesis & shadow sandbox
-│   ├── platform_bridge/        # OS Win32 HID input injection, DXGI zero-copy screen capture & WASAPI loopback
+│   ├── api/                    # Presentation boundary, public types, egui/eframe bridge
+│   ├── studio_hud/             # Native Desktop Studio & Telemetry HUD (egui/eframe 0.34)
+│   ├── ipc_bus/                # Lock-free SWMR ring buffers, LMAX disruptor, UCP protocol
+│   ├── compute/                # SiForge, SSM engine, Sparse MoE, bond-graph physics compiler
+│   ├── orchestrator/           # Typestate task assimilation, priority scheduler, thread affinity
+│   ├── orchestration_plane/    # Orchestration daemon integration, domain classification
+│   ├── llm_gateway/            # Stateless transducer transport layer (HTTP/REST/MCP)
+│   ├── capabilities/           # UniversalTool registry, security audit, code repair tools
+│   ├── platform_bridge/        # Win32 HID injection, DXGI zero-copy screen capture, WASAPI
+│   ├── governance/             # Thermal monitoring, Z3 SMT gates, SI lattice verification
+│   ├── autonomic_adaptation/   # Continuous adaptive control, LoRA adaptation, GGUF ingestion
+│   ├── adaptation_engine/      # Polyglot AST parsing, component forge, shadow sandbox
 │   ├── transpiler/             # AST parser & distillation trajectory miner
-│   ├── governance/             # Hardware thermal monitoring, Z3 SMT non-interference & SI lattice checks
-│   ├── omni/                   # 3D Galaxy Concept Graph & N-body Barnes-Hut gravitational clustering
+│   ├── omni/                   # 3D Concept Galaxy Graph & Barnes-Hut gravitational clustering
+│   ├── ast_auditor/            # Static analysis AST linter enforcing workspace invariants
+│   ├── paths/                  # Configuration-injected path resolver (zero ambient authority)
+│   ├── core-contracts/         # Zero-copy memory contracts & Pod/Zeroable derivations
 │   ├── si_format/              # Canonical .si container binary layout, SIMD alignment & CRC32
 │   ├── si_ir/                  # Computational graphs, MachineOpcode IR & type lattice
-│   └── universal_native_template/ # Zero-overhead native component template
-├── core/
-│   └── hypervisor/             # Sovereign Desktop HUD (a_hud.rs), Live MCP Service, Raft Cluster & CLI (a_run.rs)
-├── data/
-│   ├── models/                 # Birthed .si solid-state neural containers
-│   └── skills/                 # Crystallized .si muscle memory cartridges
-├── deploy/                     # Automated Windows install and release packaging scripts
-└── dist/                       # Standalone release zip archives
+│   ├── wire/                   # Network protocol framing and zero-copy packet wire serialization
+│   ├── mcp_server/             # Model Context Protocol server exposing Aaroneous to external tools
+│   ├── mutation_engine/        # Safe AST transformation, layout normalizer, panic replacer
+│   ├── runtime_monitor/        # Telemetry inspection, thread liveness, and watchdog supervisor
+│   └── biology/                # Bio-inspired cellular automata & state decay simulations
+├── dev/
+│   ├── emulator_harness/       # Golden execution harness, trace capture, regression testbed
+│   ├── legacy_staging/         # Quarantine sandbox for external/historical code ingestion
+│   └── tools/                  # Diagnostics, host safety monitors, maintenance scripts
+├── data/                       # Fallback in-tree data root (gitignored)
+└── docs/
+    ├── architecture.md         # Master Architecture Portal & PLC/SCADA Invariants
+    └── architecture/           # Canonical Subsystem Specifications
+        ├── MASTER_ARCHITECTURE.md         # Unified 6-pillar master specification
+        ├── architecture_overview.md       # Workspace topology & subsystem rings
+        ├── assimilation_specification.md  # 360B wire contracts & typestate machine
+        ├── llm_manager_scheduler.md       # Stateless transducer & priority backoff heap
+        ├── physics_compiler_dynamics.md   # Bond-graph duality & symplectic integration
+        └── human_interface_intent_mirror.md # HIAL, Intent DAG & 3-option intent mirror
+
+EXTERNAL DECOUPLED STORAGE (Zero-Clutter Architecture):
+├── C:\CargoTargetCache\        # Global Cargo target build cache (`target-dir`)
+└── D:\ArcData\                 # Externalized Neural & State Substrate (`ARC_DATA_ROOT`)
+    ├── models/                 # Birthed .si solid-state neural cartridges
+    ├── skills/                 # Crystallized .si muscle memory cartridges
+    ├── state_banks/            # Episodic state records & trajectory checkpoints
+    └── agents/                 # Specialist agent snapshots & persistent memory
 ```
 
 ---
 
-## 📜 License
+## 📜 Canonical Documentation Portal
+
+For exhaustive technical specifications across all subsystems, consult:
+- **[Unified Master Architecture](docs/architecture/MASTER_ARCHITECTURE.md)**
+- **[System Architecture Specification](docs/architecture.md)**
+- **[Workspace Topology & Subsystem Rings](docs/architecture/architecture_overview.md)**
+- **[Event-Driven Asset Assimilation](docs/architecture/assimilation_specification.md)**
+- **[LLM Manager & Priority Scheduler](docs/architecture/llm_manager_scheduler.md)**
+- **[Scale-Invariant Dynamics & Physics Compiler](docs/architecture/physics_compiler_dynamics.md)**
+- **[Decoupled Human Node & Intent Mirror](docs/architecture/human_interface_intent_mirror.md)**
+- **[Architectural Constraints & Dependency Injection](docs/ARCHITECTURAL_CONSTRAINTS.md)**
+- **[Compiler Invariant Governance & AST Auditor](docs/CRATIFY_SPEC.md)**
+- **[Forensic Ingestion Protocol (RFC-0005)](docs/FORENSICS_RFC0005.md)**
+
+---
+
+## ⚖️ License
+
 Licensed under the MIT License. See [LICENSE](LICENSE) for details.

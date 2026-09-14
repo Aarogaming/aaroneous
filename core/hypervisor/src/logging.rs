@@ -41,7 +41,7 @@ fn install_subscriber() -> tracing_appender::non_blocking::WorkerGuard {
 
     let filter = EnvFilter::try_from_env("AARONEOUS_LOG")
         .or_else(|_| EnvFilter::try_from_env("RUST_LOG"))
-        .unwrap_or_else(|_| EnvFilter::new("info,a_run=debug"));
+        .unwrap_or_else(|_| EnvFilter::new("info,hypervisor=debug"));
 
     // Rotating file appender: logs/aaroneous.log
     let file_appender = tracing_appender::rolling::daily("logs", "aaroneous.log");
@@ -124,9 +124,9 @@ pub enum ShellType {
 /// Install shell-specific tracing level filters.
 pub fn init_shell_logging(shell: ShellType) {
     let filter = match shell {
-        ShellType::Hud => EnvFilter::new("info,a_run=warn"),
+        ShellType::Hud => EnvFilter::new("info,hypervisor=warn"),
         ShellType::Console => EnvFilter::new("info"),
-        ShellType::Studio => EnvFilter::new("debug,a_run=trace"),
+        ShellType::Studio => EnvFilter::new("debug,hypervisor=trace"),
     };
 
     use tracing_subscriber::{fmt, prelude::*};

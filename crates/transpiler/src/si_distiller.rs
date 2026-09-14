@@ -15,7 +15,7 @@ use compute::{
     DimensionalUnit, MachineOpcode, NativeComputationNode, NativeComputationalGraph,
     NativeTypeLattice,
 };
-use aaroneous_paths::WorkspacePaths;
+use paths::{WorkspacePaths, WorkspacePathsConfig};
 use bumpalo::Bump;
 
 /// Scratch Bump-Allocation Arena for Ephemeral Flight Contexts (The bumpalo Model)
@@ -78,7 +78,7 @@ pub struct SiDistillationMiner {
 
 impl Default for SiDistillationMiner {
     fn default() -> Self {
-        let corpus_path = WorkspacePaths::discover().data().join("si_corpus.bin");
+        let corpus_path = WorkspacePaths::discover(&WorkspacePathsConfig::new()).data().join("si_corpus.bin");
         Self {
             corpus_store: SiCorpusStore::new(corpus_path),
             arena: parking_lot::Mutex::new(EphemeralFlightArena::new()),
@@ -92,6 +92,11 @@ impl SiDistillationMiner {
             corpus_store: SiCorpusStore::new(corpus_path),
             arena: parking_lot::Mutex::new(EphemeralFlightArena::new()),
         }
+    }
+
+    pub fn from_config(config: &WorkspacePathsConfig) -> Self {
+        let corpus_path = WorkspacePaths::discover(config).data().join("si_corpus.bin");
+        Self::new(corpus_path)
     }
 
     /// Distills a task specification and synthesized code snippet into a verified Machine-Native SI Thought Packet
@@ -298,9 +303,9 @@ mod tests {
 
     #[test]
     fn test_si_distiller_mining() {
-        let nanos = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos();
-        let temp_corpus = std::env::temp_dir().join(format!("test_corpus_{}.bin", nanos));
-        let miner = SiDistillationMiner::new(temp_corpus.clone());
+        let temp = tempfile::tempdir().unwrap();
+        let temp_corpus = temp.path().join("test_corpus.bin");
+        let miner = SiDistillationMiner::new(temp_corpus);
 
         let report = miner.mine_starter_distillation_corpus().expect("Distillation failed");
         assert_eq!(report.thoughts_mined, 4);
@@ -310,15 +315,22 @@ mod tests {
         let (count, bytes, _avg_energy) = miner.get_live_metrics().unwrap();
         assert_eq!(count, 4);
         assert!(bytes > 0);
+    }
 
-        let _ = std::fs::remove_file(temp_corpus);
+    #[test]
+    fn test_si_distiller_from_config() {
+        let temp = tempfile::tempdir().unwrap();
+        let config = WorkspacePathsConfig::new().with_explicit_root(temp.path().to_path_buf());
+        let miner = SiDistillationMiner::from_config(&config);
+        let (count, _, _) = miner.get_live_metrics().unwrap();
+        assert_eq!(count, 0);
     }
 
     #[test]
     fn test_mine_from_source_corpus() {
-        let nanos = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos();
-        let temp_corpus = std::env::temp_dir().join(format!("test_source_corpus_{}.bin", nanos));
-        let miner = SiDistillationMiner::new(temp_corpus.clone());
+        let temp = tempfile::tempdir().unwrap();
+        let temp_corpus = temp.path().join("test_source_corpus.bin");
+        let miner = SiDistillationMiner::new(temp_corpus);
 
         let traces = vec![
             ("Parse AST tokens", "pub fn parse(s: &str) -> Vec<&str> { s.split_whitespace().collect() }", 0x0100),
@@ -328,8 +340,6 @@ mod tests {
         let report = miner.mine_from_source_corpus(&traces).unwrap();
         assert_eq!(report.thoughts_mined, 2);
         assert!(report.machine_native_bytes > 0);
-
-        let _ = std::fs::remove_file(temp_corpus);
     }
 
     #[test]

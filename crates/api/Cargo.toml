@@ -1,0 +1,8 @@
+﻿[package]
+name = "api"
+version = "0.1.0"
+edition.workspace = true
+
+[dependencies]
+eframe = { version = "0.34", default-features = false }
+egui = "0.34"

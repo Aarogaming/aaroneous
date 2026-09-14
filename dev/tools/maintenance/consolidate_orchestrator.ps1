@@ -26,7 +26,7 @@ edition = "2021"
 nervous_system = { path = "../nervous_system" }
 biology = { path = "../biology" }
 compute = { path = "../compute" }
-aaroneous_paths = { path = "../paths" }
+paths = { path = "../paths" }
 tokio = { version = "1.0", features = ["full"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"

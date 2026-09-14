@@ -1,7 +1,7 @@
 [package]
 name = "llm_gateway"
 version = "0.1.0"
-edition = "2024"
+edition.workspace = true
 authors.workspace = true
 description = "Aaroneous: Decoupled LLM provider gateway, local discovery, prompt caching, and MCP translation bridge"
 license.workspace = true
@@ -12,7 +12,9 @@ dirs = "5.0"
 
 # Workspace crates
 ipc_bus = { path = "../ipc_bus" }
-aaroneous_paths = { path = "../paths" }
+paths = { path = "../paths" }
+transpiler = { path = "../transpiler" }
+si_ir = { path = "../si_ir" }
 
 # Core Utilities & Concurrency
 serde = { version = "1.0", features = ["derive"] }

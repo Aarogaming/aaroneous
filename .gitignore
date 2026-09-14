@@ -1,44 +1,77 @@
+# Build targets and artifacts
+/target/
 target/
-*.gguf
-*.bin
-*.log
-*.db
+**/target/
 *.dll
 *.exe
 *.pdb
-*.sovereign
-*.si
 *.wasm
+*.o
+*.a
+*.so
+*.dylib
+
+# Flight recorder replay logs and transient binary caches
+*.flight
+**/*.flight
+query-cache.bin
+**/query-cache.bin
+*.bin
+*.log
+*.shmem
+fb.shmem
+
+# Neural weights, models, and sensory-interface files
+data/models/
+data/models/**
+data/models/*.si
+*.gguf
+*.si
+*.sovereign
+
+# Quarantined legacy repos and historical staging
+dev/legacy_staging/
+dev/legacy_staging/**
+dev/archive/
+dev/archive/**
+
+# Databases & local state
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
 .sab/
-node_modules/
-dist/
-__pycache__/
-.ruff_cache/
-*.tmp
+data/sabs/
 .synapse/
-
-# Historical Agent Cache Targets
-docs/history/agents/**/target/
-
-# Fabrication Module Target Caches
-data/fabrication/**/target/
-# Sandbox fabrication vendor directory
-data/fabrication/**
-
-# Generated runtime state and exported artifacts
 cache/
 logs/
 data/chromosomes/
 data/exports/
-data/models/
 data/hud_settings.json
 core/hypervisor/cargo_state.json
 core/hypervisor/links_registry.json
 core/hypervisor/logs/
 dev/archive/logs/
-dev/archive/
 
-# IDE / Editor configs (developer-specific)
+# Historical Agent & Sandbox targets
+docs/history/agents/**/target/
+data/fabrication/**/target/
+data/fabrication/**
+
+# Python & Node artifacts
+node_modules/
+dist/
+__pycache__/
+*.pyc
+.ruff_cache/
+
+# OS and filesystem artifacts
+desktop.ini
+**/desktop.ini
+.DS_Store
+Thumbs.db
+
+# IDE & Editor configs (developer-specific)
 .opencode.json
 opencode.json
 .zed/
@@ -52,14 +85,20 @@ opencode.json
 **/.cargo/config.toml
 .cargo/windows-build-workaround.bat
 
-# Binary artifacts that should not be tracked
-data/sabs/
+# Standalone binary packages
 bin/nats/*.exe
 bin/nats/*.dll
 bin/a-run.exe
 
 # Temp files
 *.tmp
-nul
-**/nul
+*.tmp.*
+*.driveupload/
+.tmp.driveupload/
+*.gdoc
 *.bak
+
+# Local agent delegation scratch files
+scripts/prompt_*.txt
+scripts/output_*.rs
+[Nn][Uu][Ll]

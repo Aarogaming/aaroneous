@@ -1,7 +1,7 @@
 [package]
 name = "compute"
 version = "0.1.0"
-edition = "2021"
+edition.workspace = true
 authors.workspace = true
 description = "SSM engine, .si containers, CKA+InfoNCE distillation, Cranelift JIT, and SiForge builder"
 license.workspace = true
@@ -10,7 +10,7 @@ repository.workspace = true
 [dependencies]
 si_format = { path = "../si_format" }
 si_ir = { path = "../si_ir" }
-aaroneous_paths = { path = "../paths" }
+paths = { path = "../paths" }
 ipc_bus = { path = "../ipc_bus" }
 rand = "0.8"
 serde = { version = "1.0", features = ["derive"] }
@@ -28,6 +28,8 @@ statrs = "0.17"
 hnsw_rs = "0.3"
 parking_lot = "0.12"
 bytemuck = { version = "1.12", features = ["derive"] }
+uuid = { version = "1.0", features = ["v4"] }
+hex = "0.4"
 
 # Cranelift Native JIT compilation
 cranelift = "0.116"
@@ -44,3 +46,7 @@ tempfile = "3.8"
 [features]
 simd = []
 wasm = []
+
+[lints.rust]
+# Allow ambient_authority lint during security remediation phase
+unknown_lints = "allow"

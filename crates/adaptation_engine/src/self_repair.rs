@@ -29,12 +29,14 @@ pub struct SelfRepairReport {
 /// Fabricator Self-Repair & Code Evolution Engine
 pub struct SelfRepairEngine {
     sandbox: ShadowSandbox,
+    interlock: Option<governance::SmtActionInterlock>,
 }
 
 impl Default for SelfRepairEngine {
     fn default() -> Self {
         Self::new().unwrap_or_else(|_| Self {
             sandbox: ShadowSandbox::new().unwrap(),
+            interlock: None,
         })
     }
 }
@@ -43,7 +45,17 @@ impl SelfRepairEngine {
     pub fn new() -> Result<Self> {
         Ok(Self {
             sandbox: ShadowSandbox::new()?,
+            interlock: None,
         })
+    }
+
+    pub fn with_sandbox(sandbox: ShadowSandbox) -> Self {
+        Self { sandbox, interlock: None }
+    }
+
+    pub fn with_interlock(mut self, interlock: governance::SmtActionInterlock) -> Self {
+        self.interlock = Some(interlock);
+        self
     }
 
     /// Parses compiler stderr into structured diagnostic records
@@ -164,6 +176,42 @@ impl SelfRepairEngine {
             }
         }
 
+        // 2.5 Mandatory SMT Action Interlock Gatekeeper: Validate structural patches before sandboxed execution
+        if let Some(ref interlock) = self.interlock {
+            if !applied_patches.is_empty() {
+                let action_graph = PatternRewriter::patches_to_action_graph(file_path, &applied_patches);
+                match interlock.evaluate_action_graph(&action_graph) {
+                    Ok(cert) => {
+                        if !cert.is_authorized {
+                            return Ok(SelfRepairReport {
+                                file_path: file_path.to_string(),
+                                initial_error_count,
+                                resolved_error_count: 0,
+                                patches_applied: applied_patches,
+                                is_verified: false,
+                                final_compiler_output: format!(
+                                    "Formal SMT Interlock REJECTED: {}",
+                                    cert.denial_reason.unwrap_or_else(|| "Interlock safety breach".to_string())
+                                ),
+                                dopamine_delta: -15,
+                            });
+                        }
+                    }
+                    Err(e) => {
+                        return Ok(SelfRepairReport {
+                            file_path: file_path.to_string(),
+                            initial_error_count,
+                            resolved_error_count: 0,
+                            patches_applied: applied_patches,
+                            is_verified: false,
+                            final_compiler_output: format!("Formal SMT Interlock REJECTED: {e}"),
+                            dopamine_delta: -15,
+                        });
+                    }
+                }
+            }
+        }
+
         // 3. Test the proposed repair in isolated ShadowSandbox
         let is_verified = self.sandbox.verify_and_inject_feedback(
             file_path,
@@ -212,7 +260,9 @@ error[E0432]: unresolved import `crate::invalid::Module`
 
     #[test]
     fn test_autonomous_self_repair_cycle() {
-        let engine = SelfRepairEngine::new().unwrap();
+        let temp_dir = tempfile::tempdir().unwrap();
+        let sandbox = ShadowSandbox::with_dir(temp_dir.path()).unwrap();
+        let engine = SelfRepairEngine::with_sandbox(sandbox);
         let buggy_code = "use digestion::Specialist;\nuse crate::crate::skills::Skill;\n";
         let fake_error = "error[E0432]: unresolved import\n --> test.rs:1:5\n";
 
@@ -232,7 +282,9 @@ error[E0432]: unresolved import `crate::invalid::Module`
 
     #[test]
     fn test_universal_diagnostic_repairs() {
-        let engine = SelfRepairEngine::new().unwrap();
+        let temp_dir = tempfile::tempdir().unwrap();
+        let sandbox = ShadowSandbox::with_dir(temp_dir.path()).unwrap();
+        let engine = SelfRepairEngine::with_sandbox(sandbox);
         let buggy_code = "let mut x = todo!();\n";
         let fake_error = "warning: variable does not need to be mutable\n --> test.rs:1:5\n";
 
@@ -243,5 +295,42 @@ error[E0432]: unresolved import `crate::invalid::Module`
 
         assert!(report.is_verified);
         assert_eq!(report.patches_applied.len(), 2); // 1 for todo!(), 1 for mut
+    }
+
+    #[test]
+    fn test_self_repair_smt_interlock_rejection_and_approval() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let sandbox = ShadowSandbox::with_dir(temp_dir.path()).unwrap();
+        let buggy_code = "use digestion::Specialist;\n";
+        let fake_error = "error[E0432]: unresolved import\n --> test.rs:1:5\n";
+
+        // 1. Rejection: Killswitch active on SmtActionInterlock
+        let interlock = governance::SmtActionInterlock::strict();
+        interlock.trip_killswitch();
+
+        let engine = SelfRepairEngine::with_sandbox(sandbox).with_interlock(interlock);
+        let mut synapse = SynapseState::default();
+
+        let report = engine
+            .attempt_repair("test.rs", buggy_code, fake_error, &mut synapse)
+            .unwrap();
+
+        assert!(!report.is_verified);
+        assert_eq!(report.resolved_error_count, 0);
+        assert!(report.final_compiler_output.contains("Formal SMT Interlock REJECTED"));
+        assert_eq!(report.dopamine_delta, -15);
+
+        // 2. Approval: Reset killswitch with permissive free energy bound
+        let temp_dir2 = tempfile::tempdir().unwrap();
+        let sandbox2 = ShadowSandbox::with_dir(temp_dir2.path()).unwrap();
+        let permissive_interlock = governance::SmtActionInterlock::new(0.50);
+        let engine2 = SelfRepairEngine::with_sandbox(sandbox2).with_interlock(permissive_interlock);
+
+        let report2 = engine2
+            .attempt_repair("test.rs", buggy_code, fake_error, &mut synapse)
+            .unwrap();
+
+        assert!(report2.is_verified);
+        assert_eq!(report2.patches_applied.len(), 1);
     }
 }
