@@ -2,8 +2,24 @@
 
 > **STATUS**: BINDING MACHINE CONTRACT & CONSTITUTION  
 > **APPLIES TO**: ALL AUTONOMOUS AGENTS (OpenCode, Qwen, Claude, LM Studio, Human Contributors)  
-> **WORKSPACE**: `aaroneous` (Pure Logic Controller / SCADA architecture in Rust 2024)  
-> **LAST UPDATED**: 2026-09-11
+> **WORKSPACE**: `aaroneous` (Type-Safe Rust Component Framework & SCADA/PLC Architecture)  
+> **CORE IDENTITY**: Aaroneous is **NOT** a monolithic app. It is a strict, type-safe **Rust Component Framework** for building interchangeable, safe, zero-allocation execution blocks & plugins.  
+> **LAST UPDATED**: 2026-09-14
+
+---
+
+## 0. Component Framework Architecture & Topology
+
+Every crate in this repository is an independent, plug-and-play component block with strict trait boundaries, zero-copy contracts, and zero-allocation critical paths:
+
+- **`core/hypervisor/`**: Headless microkernel host & execution loop.
+- **`crates/orchestrator/`**: Task scheduling & core affinity.
+- **`crates/platform_bridge/`**: OS abstractions (DXGI, Win32, WASAPI).
+- **`crates/ipc_bus/`**: Lock-free SPMC/SWMR ring buffers & WAL.
+- **`crates/capabilities/`**: `UniversalTool` & domain specialist registry.
+- **`crates/governance/`**: Z3 SMT verification & safety interlocks.
+- **`crates/compute/`**: Solid-state SSM, .si container engine, JIT compiler.
+- **`crates/api/` & `crates/studio_hud/`**: Presentation layer and GUI viewports.
 
 ---
 

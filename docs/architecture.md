@@ -1,15 +1,16 @@
-# System Architecture Specification & SCADA/PLC Invariants
+# System Architecture Specification & Component Framework Invariants
 
 > **TIER 2 ARCHITECTURAL MASTER REFERENCE**  
-> **SCOPE**: Pure Logic Controller (PLC / SCADA) Architecture, Deterministic State Transition Machines, Subsystem Specifications, and Boundary Isolation.  
-> **BINDING FOR**: All workspace kernels (`core/hypervisor`, `crates/compute`, `crates/orchestrator`, `crates/orchestration_plane`, `crates/llm_gateway`, etc.).  
-> **LAST UPDATED**: 2026-09-12
+> **SCOPE**: Rust Component Framework Architecture, Deterministic State Transition Machines, Subsystem Topology, and Boundary Isolation.  
+> **BINDING FOR**: All workspace components (`core/hypervisor`, `crates/orchestrator`, `crates/platform_bridge`, `crates/ipc_bus`, `crates/capabilities`, `crates/governance`, etc.).  
+> **CORE IDENTITY**: Aaroneous is **NOT** a monolithic app. It is a strict, type-safe **Rust Component Framework** for building interchangeable, safe, zero-allocation execution blocks & plugins.  
+> **LAST UPDATED**: 2026-09-14
 
 ---
 
-## 1. The Core Architectural Invariant (PLC Model)
+## 1. The Core Architectural Invariant (PLC Model & Component Blocks)
 
-The `aaroneous` monorepo implements a deterministic, real-time, low-latency **Pure Logic Controller (PLC / SCADA)** architecture. Every core component operates on a strict cyclical scan or discrete step execution paradigm.
+The `aaroneous` workspace implements a deterministic, real-time, low-latency **Rust Component Framework** operating on a Pure Logic Controller (PLC / SCADA) execution model. Every component block operates on a strict cyclical scan or discrete step execution paradigm, designed to be completely modular, interchangeable, and hot-swappable.
 
 ### 1.1 Pure State Transition Machines
 

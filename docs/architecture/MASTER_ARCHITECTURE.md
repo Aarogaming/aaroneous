@@ -3,15 +3,16 @@
 > **STATUS**: CANONICAL UNIFIED ARCHITECTURAL SPECIFICATION (TIER 1 MASTER SPEC)  
 > **STANDARD**: Sterile Execution Plane (SEP) / Zero-Allocation Substrate / SCADA-PLC Invariants  
 > **WORKSPACE**: `aaroneous` (Pure Rust 2024 Edition)  
-> **LAST UPDATED**: 2026-09-12
+> **CORE IDENTITY**: Aaroneous is **NOT** a monolithic app. It is a strict, type-safe **Rust Component Framework** for building interchangeable, safe, zero-allocation execution blocks & plugins.  
+> **LAST UPDATED**: 2026-09-14
 
 ---
 
 ## Executive Architectural Summary
 
-The **Aaroneous** engine is a sovereign, machine-native synthetic intelligence runtime and Pure Logic Controller (PLC / SCADA) hypervisor written in pure Rust 2024. Designed from first principles to eliminate garbage-collection jitter, Python interpreter latency, and unconstrained agent loops, Aaroneous establishes a deterministic, memory-safe execution substrate governed by 6 unified architectural pillars:
+The **Aaroneous** project is an atomic, type-safe **Rust Component Framework** for building interchangeable, safe, zero-allocation execution blocks and plugins operating on a Pure Logic Controller (PLC / SCADA) execution substrate. Designed from first principles to eliminate garbage-collection jitter, Python interpreter latency, and unconstrained agent loops, Aaroneous establishes a deterministic, memory-safe execution substrate governed by 6 unified architectural pillars:
 
-1. **Workspace Topology & Protection Rings**: 31 member crates, pure atomic modularity, `core/hypervisor` microkernel host, and a strict ban on `aaroneous_` namespace stutters.
+1. **Workspace Topology & Protection Rings**: Independent plug-and-play component blocks, pure atomic modularity, `core/hypervisor` microkernel host, and a strict ban on `aaroneous_` namespace stutters.
 2. **Event-Driven Asset Assimilation**: 360-byte zero-copy `AssimilationRecord`, `AssimilationTask<State>` compile-time typestate machine, and Step 0 non-blocking microkernel duty cycle drain.
 3. **LLM Manager & Priority-Constrained Scheduler**: Decoupled stateless transport (`crates/llm_gateway`) vs stateful control (`crates/orchestrator`), mathematical transducer loop ($\mathcal{T}: \Sigma^* \times \mathcal{G} \to \Omega$), dynamic `PriorityHeap`, and jittered priority-weighted exponential backoff.
 4. **Scale-Invariant Dynamics & Physics Compilation**: Multi-domain Bond-Graph Effort/Flow duality, symplectic Hamiltonian integration ($d\mathcal{H}/dt \approx 0$), analytical fast-forwarding, and thermodynamic state freezing at equilibrium ($dG \approx 0$).
@@ -20,9 +21,9 @@ The **Aaroneous** engine is a sovereign, machine-native synthetic intelligence r
 
 ---
 
-## Pillar 1: Workspace Topology & Layered Protection Rings
+## Pillar 1: Component Framework Topology & Layered Protection Rings
 
-The repository operates as a single Cargo workspace consisting of 31 member crates, completely devoid of directory or package naming prefixes (`aaroneous_*` ban). 
+The repository operates as a single Cargo workspace consisting of discrete, single-responsibility component crates, completely devoid of directory or package naming prefixes (`aaroneous_*` ban).
 
 ```text
 +---------------------------------------------------------------------------------------+

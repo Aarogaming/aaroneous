@@ -3,13 +3,14 @@
 > **CANONICAL SPECIFICATION**  
 > **SCOPE**: Monorepo Directory Topology, Layered Protection Rings, Subsystem Invariants, and Crate Boundaries.  
 > **BINDING FOR**: All workspace components (`core/`, `crates/`, `dev/`, `sdk/`).  
-> **LAST UPDATED**: 2026-09-12
+> **CORE IDENTITY**: Aaroneous is **NOT** a monolithic app. It is a strict, type-safe **Rust Component Framework** for building interchangeable, safe, zero-allocation execution blocks & plugins.  
+> **LAST UPDATED**: 2026-09-14
 
 ---
 
 ## 1. Executive Architectural Model
 
-The `aaroneous` framework is a sovereign, machine-native synthetic intelligence runtime and Pure Logic Controller (PLC / SCADA) architecture implemented in modern pure Rust (2024 edition). The system is designed from first principles for sub-microsecond determinism, zero-heap hot-path execution, zero ambient authority, and strict hierarchical separation between execution, control, and presentation planes.
+The `aaroneous` framework is a strict, type-safe **Rust Component Framework** for building interchangeable, safe, zero-allocation execution blocks, plugins, and Pure Logic Controller (PLC / SCADA) state-space reducers. The system is designed from first principles for sub-microsecond determinism, zero-heap hot-path execution, zero ambient authority, and strict hierarchical separation between execution, control, and presentation planes.
 
 ```
 +---------------------------------------------------------------------------------------+

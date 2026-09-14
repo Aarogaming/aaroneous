@@ -1,12 +1,23 @@
-# ⚡ Aaroneous: Sovereign Machine-Native Execution Engine
+# ⚡ Aaroneous: Rust Component Framework & Sovereign Execution Substrate
 
-> **A pure Rust autonomic hypervisor and solid-state neural execution substrate powered by Continuous Selective State-Space Models (SSM), Real-Time Dynamic Adaptation Matrices, and Zero-Copy Memory-Mapped `.si` Cartridges.**
+> **A strict, type-safe Rust Component Framework for building interchangeable, safe, zero-allocation execution blocks, plugins, and SCADA/PLC state-space controllers.**
 
 ---
 
-## 🌌 Overview
+## 🌌 Overview & Core Identity
 
-**Aaroneous** is a sovereign synthetic intelligence runtime and Pure Logic Controller (PLC / SCADA) execution engine built entirely in modern pure Rust (2024 edition). Unlike traditional agent frameworks that wrap Python around static, multi-gigabyte models with slow text tokenizers, Aaroneous operates on a strict **Sterile Execution Plane (SEP)**: sub-microsecond determinism, zero heap allocation on hot paths, zero ambient authority, and zero-copy memory-mapped binary contracts.
+**Aaroneous is NOT a monolithic application.** It is an atomic, type-safe **Rust Component Framework** designed from first principles for building interchangeable, safe, zero-allocation execution blocks and plugins. Operating on a strict **Sterile Execution Plane (SEP)**, every component in the framework enforces sub-microsecond determinism, zero heap allocation on hot paths, zero ambient authority, and zero-copy memory-mapped binary contracts.
+
+### 🧩 Crate Topology & Component Architecture
+The framework decomposes execution into isolated, modular component blocks:
+- **`core/hypervisor/`**: Headless microkernel host, hardware timer duty cycle, and execution loop.
+- **`crates/orchestrator/`**: Task scheduling, core affinity, and typestate event reduction.
+- **`crates/platform_bridge/`**: OS abstraction layer (DXGI, Win32 HID, WASAPI loopback).
+- **`crates/ipc_bus/`**: Lock-free SPMC/SWMR shared-memory ring buffers and persistent WAL.
+- **`crates/capabilities/`**: `UniversalTool` interface & domain specialist registry.
+- **`crates/governance/`**: Formal Z3 SMT verification & thermodynamic safety interlocks.
+- **`crates/compute/`**: Solid-state SSM engine, .si container format, and Cranelift JIT compiler.
+- **`crates/api/` & `crates/studio_hud/`**: Presentation layer and GUI viewports (`egui`/`eframe` 0.34).
 
 ```text
 ┌────────────────────────────────────────────────────────────────────────────────────────────────────────┐
