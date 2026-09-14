@@ -14,7 +14,9 @@ impl std::fmt::Display for AdaptationError {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
             AdaptationError::InvalidTokenFormat => write!(f, "Token format invalid"),
-            AdaptationError::ParameterDriftExceeded(drift) => write!(f, "Parameter drift exceeded: {}", drift),
+            AdaptationError::ParameterDriftExceeded(drift) => {
+                write!(f, "Parameter drift exceeded: {}", drift)
+            }
             AdaptationError::CovarianceSingularity => write!(f, "Covariance matrix singular"),
         }
     }
@@ -27,6 +29,10 @@ impl std::error::Error for AdaptationError {}
 pub struct MachineToken([u8; 32]);
 
 impl MachineToken {
+    pub fn as_bytes(&self) -> &[u8; 32] {
+        &self.0
+    }
+
     pub fn new(data: [u8; 32]) -> Self {
         Self(data)
     }
@@ -44,7 +50,12 @@ impl<const DIM: usize, const DIM_SQ: usize> StateAdaptor<DIM, DIM_SQ> {
         Self {
             covariance_matrix: initial_covariance,
             parameters: [0.0f32; DIM],
-            lambda: if foraging_gain > 0.99 { 0.99 } else { foraging_gain }.max(0.95),
+            lambda: if foraging_gain > 0.99 {
+                0.99
+            } else {
+                foraging_gain
+            }
+            .max(0.95),
         }
     }
 

@@ -42,8 +42,8 @@ pub fn fft_basic(input: &[f64]) -> anyhow::Result<Vec<f64>> {
 
 /// Industrial SIMD-accelerated FFT using RustFFT (arbitrary length)
 pub fn fft_industrial(input: &[f64]) -> anyhow::Result<Vec<f64>> {
-    use rustfft::num_complex::Complex;
     use rustfft::FftPlanner;
+    use rustfft::num_complex::Complex;
 
     if input.is_empty() {
         return Ok(vec![]);

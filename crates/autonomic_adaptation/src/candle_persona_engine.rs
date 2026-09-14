@@ -2,7 +2,7 @@
 //! Pure Rust Neural Persona & GGUF Tensor Engine powered by HuggingFace Candle & Tokenizers.
 //! Directly extracts quantized model weights, computes semantic latent vectors, and powers Synthesizer's KnowledgeStore.
 
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use candle_core::quantized::gguf_file;
 use candle_core::{Device, Tensor};
 use serde::{Deserialize, Serialize};
@@ -84,26 +84,30 @@ impl CandlePersonaEngine {
 
         let mut found_models = Vec::new();
         for dir in search_paths {
-            if dir.exists() && dir.is_dir() {
-                if let Ok(entries) = std::fs::read_dir(dir) {
-                    for entry in entries.flatten() {
-                        let path = entry.path();
-                        if path.is_file() {
-                            if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
-                                if ext.eq_ignore_ascii_case("gguf") {
-                                    let size_bytes = entry.metadata().map(|m| m.len()).unwrap_or(0);
-                                    let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("unknown").to_string();
-                                    let metadata = Self::inspect_gguf_model(&path).ok();
+            if dir.exists()
+                && dir.is_dir()
+                && let Ok(entries) = std::fs::read_dir(dir)
+            {
+                for entry in entries.flatten() {
+                    let path = entry.path();
+                    if path.is_file()
+                        && let Some(ext) = path.extension().and_then(|e| e.to_str())
+                        && ext.eq_ignore_ascii_case("gguf")
+                    {
+                        let size_bytes = entry.metadata().map(|m| m.len()).unwrap_or(0);
+                        let name = path
+                            .file_name()
+                            .and_then(|n| n.to_str())
+                            .unwrap_or("unknown")
+                            .to_string();
+                        let metadata = Self::inspect_gguf_model(&path).ok();
 
-                                    found_models.push(DiscoveredGgufModel {
-                                        name,
-                                        file_path: path,
-                                        size_bytes,
-                                        metadata,
-                                    });
-                                }
-                            }
-                        }
+                        found_models.push(DiscoveredGgufModel {
+                            name,
+                            file_path: path,
+                            size_bytes,
+                            metadata,
+                        });
                     }
                 }
             }
@@ -131,10 +135,10 @@ impl CandlePersonaEngine {
                 if let gguf_file::Value::U64(val) = v {
                     context_length = Some(*val);
                 }
-            } else if k.ends_with(".embedding_length") {
-                if let gguf_file::Value::U64(val) = v {
-                    embedding_length = Some(*val);
-                }
+            } else if k.ends_with(".embedding_length")
+                && let gguf_file::Value::U64(val) = v
+            {
+                embedding_length = Some(*val);
             }
         }
 
@@ -184,7 +188,9 @@ impl CandlePersonaEngine {
     /// Computes high-precision cosine similarity between two latent vectors using Candle tensors
     pub fn cosine_similarity(&self, a: &[f32], b: &[f32]) -> Result<f32> {
         if a.is_empty() || b.is_empty() || a.len() != b.len() {
-            return Err(anyhow!("Vectors must be non-empty and of identical dimension"));
+            return Err(anyhow!(
+                "Vectors must be non-empty and of identical dimension"
+            ));
         }
 
         let tensor_a = Tensor::from_slice(a, (a.len(),), &self.device)?;
@@ -202,7 +208,11 @@ impl CandlePersonaEngine {
     }
 
     /// Computes batch cosine similarities between a query vector and an array of target vectors
-    pub fn batch_cosine_similarities(&self, query: &[f32], targets: &[Vec<f32>]) -> Result<Vec<f32>> {
+    pub fn batch_cosine_similarities(
+        &self,
+        query: &[f32],
+        targets: &[Vec<f32>],
+    ) -> Result<Vec<f32>> {
         if query.is_empty() {
             return Err(anyhow!("Query vector cannot be empty"));
         }
@@ -235,7 +245,8 @@ impl CandlePersonaEngine {
 
             // Index-probability pairs sorted descending
             let mut indexed_probs: Vec<(usize, f32)> = raw_probs.into_iter().enumerate().collect();
-            indexed_probs.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+            indexed_probs
+                .sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
 
             // Top-k truncation
             if config.top_k > 0 && config.top_k < indexed_probs.len() {

@@ -1,13 +1,13 @@
 #![allow(ambient_authority)]
 
+use anyhow::Result;
+use autonomic_adaptation as evolution;
+use clap::{Parser, Subcommand};
 use hypervisor::SupervisoryDaemon;
 use hypervisor::enzyme_runner::EnzymeRunner;
 use hypervisor::hox_registry::HoxRegistry;
 use hypervisor::splicing_engine::WasmSplicingEngine;
 use hypervisor::unified_learning::{UnifiedLearningConfig, UnifiedLearningLoop};
-use anyhow::Result;
-use autonomic_adaptation as evolution;
-use clap::{Parser, Subcommand};
 use parking_lot::RwLock;
 use paths::WorkspacePathsConfig;
 use std::path::PathBuf;
@@ -580,8 +580,11 @@ fn run_cli(cli: Cli) -> Result<()> {
                     1024,
                     256,
                 );
-                let mut trainer =
-                    compute::SiModelTrainer::new(model, compute::SiTrainerConfig::default(), bridge);
+                let mut trainer = compute::SiModelTrainer::new(
+                    model,
+                    compute::SiTrainerConfig::default(),
+                    bridge,
+                );
 
                 let mut graph = compute::NativeComputationalGraph::new();
                 graph.add_node(compute::NativeComputationNode {
@@ -1012,11 +1015,7 @@ fn run_bootstrap_pipeline(
         target_cka_threshold: 0.85,
     };
 
-    let bridge = compute::LatentGELUBottleneckBridge::new(
-        compute::ROSETTA_TEACHER_DIM,
-        1024,
-        256,
-    );
+    let bridge = compute::LatentGELUBottleneckBridge::new(compute::ROSETTA_TEACHER_DIM, 1024, 256);
     let mut harness = compute::SiDistillationHarness::new(config, bridge);
     println!(
         "🔥 Running 2-Layer GeLU Bottleneck + CKA & InfoNCE Distillation into Solid-State Base SSM..."
@@ -1571,7 +1570,8 @@ async fn run_mesh_pipeline(nodes_count: usize, live: bool) -> Result<()> {
                 heartbeat_interval_ms: 1000,
                 task_timeout_ms: 3000,
             };
-            let daemon = hypervisor::federation::multi_hive::live_daemon::LiveP2PDaemon::new(config);
+            let daemon =
+                hypervisor::federation::multi_hive::live_daemon::LiveP2PDaemon::new(config);
             daemon.start().await?;
             println!("   -> Booted [{}] listening on 127.0.0.1:{}", node_id, port);
             daemons.push(daemon);
@@ -1621,10 +1621,11 @@ async fn run_mesh_pipeline(nodes_count: usize, live: bool) -> Result<()> {
         );
 
         println!("\n   [Stage 4] Benchmarking Swarm Micro-Task TCP Offloading...");
-        let mut offloader = hypervisor::federation::multi_hive::swarm_offloader::SwarmOffloader::new(
-            Arc::new(daemons[1].clone()),
-            80.0,
-        );
+        let mut offloader =
+            hypervisor::federation::multi_hive::swarm_offloader::SwarmOffloader::new(
+                Arc::new(daemons[1].clone()),
+                80.0,
+            );
         offloader.update_pressure(92.5); // High local pressure triggers remote offload
 
         let task = hypervisor::federation::multi_hive::swarm_offloader::SwarmTask {

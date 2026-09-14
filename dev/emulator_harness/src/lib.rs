@@ -4,32 +4,26 @@
 //! and state transition extraction for assimilating legacy binaries
 //! and foreign code into certified Aaroneous substrates.
 
-
 pub mod reducer;
 pub mod types;
 
-
-pub use reducer::{extract_state_delta, StateDelta, TraceError};
+pub use reducer::{StateDelta, TraceError, extract_state_delta};
 pub use types::TraceEvent;
-
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
 
     #[test]
     fn test_trace_event_pod_layout() {
         assert_eq!(core::mem::size_of::<TraceEvent>(), 40);
         assert_eq!(core::mem::align_of::<TraceEvent>(), 8);
 
-
         let event = TraceEvent::ZERO;
         let bytes = bytemuck::bytes_of(&event);
         let back: &TraceEvent = bytemuck::from_bytes(bytes);
         assert_eq!(back.timestamp_qpc, 0);
     }
-
 
     #[test]
     fn test_zero_allocation_reduction() {
@@ -56,11 +50,9 @@ mod tests {
             },
         ];
 
-
         let delta = extract_state_delta(&events, 0xCAFE).expect("Failed to reduce delta");
         assert_eq!(delta.initial_val, 0);
         assert_eq!(delta.final_val, 100);
         assert_eq!(delta.write_count, 2);
     }
 }
-

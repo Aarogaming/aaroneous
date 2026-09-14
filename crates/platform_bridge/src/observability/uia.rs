@@ -2,7 +2,7 @@
 //! Windows UI Automation (UIA) Tree Walker & Accessibility Structure Ingestion.
 //! Traverses the active `IUIAutomation` desktop and window hierarchy in parallel with DXGI screen acquisition.
 
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use serde::{Deserialize, Serialize};
 
 /// Structured node representing an accessible UI Automation element.

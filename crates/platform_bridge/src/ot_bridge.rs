@@ -2,11 +2,11 @@
 //! Ingests byte streams over serial/USB, decodes COBS framed `aaroneous_wire` packets,
 //! maintains industrial register states, and exposes telemetry.
 
-use wire::{decode_frame, CommandPacket, TelemetryPacket, WireMessage};
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use parking_lot::RwLock;
 use std::sync::Arc;
 use tokio::sync::mpsc;
+use wire::{CommandPacket, TelemetryPacket, WireMessage, decode_frame};
 
 /// Simulated or physical transport interface.
 #[derive(Debug, Clone)]
@@ -155,7 +155,7 @@ impl OtEdgeGateway {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use wire::{encode_frame, ChannelKind, ChannelValue, MAX_FRAMED_SIZE};
+    use wire::{ChannelKind, ChannelValue, MAX_FRAMED_SIZE, encode_frame};
 
     #[test]
     fn test_ot_gateway_telemetry_ingestion() {

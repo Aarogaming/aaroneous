@@ -2,7 +2,7 @@
 //! Ingests token streams, markdown responses, and JSON outputs from AI models,
 //! strips conversational fluff, and parses clean machine-native payloads.
 
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::sync::OnceLock;
@@ -29,23 +29,42 @@ impl AiToSiTranspiler {
         // Fast SIMD check via Aho-Corasick for presence of code fences before running full regex
         let finder = CODE_FENCE_FINDER.get_or_init(|| {
             AhoCorasick::builder()
-                .build(["```rust", "```python", "```ts", "```typescript", "```cpp", "```c", "```sh", "```json", "```"])
+                .build([
+                    "```rust",
+                    "```python",
+                    "```ts",
+                    "```typescript",
+                    "```cpp",
+                    "```c",
+                    "```sh",
+                    "```json",
+                    "```",
+                ])
                 .expect("AhoCorasick automaton build should never fail")
         });
 
         if let Some(m) = finder.find(raw_ai_response) {
             // Fast match located via SIMD multi-pattern scan; use regex to extract balanced slice
             let code_fence_re = CODE_FENCE_RE.get_or_init(|| {
-                Regex::new(r"```([a-zA-Z0-9_-]*)\r?\n([\s\S]*?)(?:```|$)").unwrap_or_else(|_| {
-                    Regex::new("").expect("fallback regex must be valid")
-                })
+                Regex::new(r"```([a-zA-Z0-9_-]*)\r?\n([\s\S]*?)(?:```|$)")
+                    .unwrap_or_else(|_| Regex::new("").expect("fallback regex must be valid"))
             });
 
             if let Some(captures) = code_fence_re.captures(&raw_ai_response[m.start()..]) {
-                let lang = captures.get(1).map(|m| m.as_str().trim().to_string()).unwrap_or_else(|| "rust".to_string());
-                let code = captures.get(2).map(|m| m.as_str().trim().to_string()).unwrap_or_default();
+                let lang = captures
+                    .get(1)
+                    .map(|m| m.as_str().trim().to_string())
+                    .unwrap_or_else(|| "rust".to_string());
+                let code = captures
+                    .get(2)
+                    .map(|m| m.as_str().trim().to_string())
+                    .unwrap_or_default();
 
-                let clean_lang = if lang.is_empty() { "rust".to_string() } else { lang };
+                let clean_lang = if lang.is_empty() {
+                    "rust".to_string()
+                } else {
+                    lang
+                };
                 return Ok(ExtractedCodePayload {
                     language: clean_lang,
                     source_code: code,
@@ -56,13 +75,29 @@ impl AiToSiTranspiler {
 
         // If no code fence is present, detect language dynamically from syntax heuristics
         let trimmed = raw_ai_response.trim();
-        let detected_lang = if trimmed.starts_with("fn ") || trimmed.starts_with("pub fn ") || trimmed.starts_with("use ") || trimmed.starts_with("struct ") || trimmed.starts_with("impl ") {
+        let detected_lang = if trimmed.starts_with("fn ")
+            || trimmed.starts_with("pub fn ")
+            || trimmed.starts_with("use ")
+            || trimmed.starts_with("struct ")
+            || trimmed.starts_with("impl ")
+        {
             Some("rust")
-        } else if trimmed.starts_with("def ") || trimmed.starts_with("import ") || trimmed.starts_with("from ") || trimmed.starts_with("class ") {
+        } else if trimmed.starts_with("def ")
+            || trimmed.starts_with("import ")
+            || trimmed.starts_with("from ")
+            || trimmed.starts_with("class ")
+        {
             Some("python")
-        } else if trimmed.starts_with("function ") || trimmed.starts_with("export ") || trimmed.starts_with("const ") || trimmed.starts_with("interface ") {
+        } else if trimmed.starts_with("function ")
+            || trimmed.starts_with("export ")
+            || trimmed.starts_with("const ")
+            || trimmed.starts_with("interface ")
+        {
             Some("typescript")
-        } else if trimmed.starts_with("#include ") || trimmed.starts_with("int main") || trimmed.starts_with("void ") {
+        } else if trimmed.starts_with("#include ")
+            || trimmed.starts_with("int main")
+            || trimmed.starts_with("void ")
+        {
             Some("cpp")
         } else {
             None

@@ -40,7 +40,8 @@ impl ConsoleOsLauncher {
 
         // ── Auto-Fullscreen Enforcement ─────────────────────────────────────────
         if !self.was_fullscreen {
-            ui.ctx().send_viewport_cmd(egui::ViewportCommand::Fullscreen(true));
+            ui.ctx()
+                .send_viewport_cmd(egui::ViewportCommand::Fullscreen(true));
             self.was_fullscreen = true;
         }
 
@@ -110,18 +111,24 @@ impl ConsoleOsLauncher {
         if ui.input(|i| i.key_pressed(Key::ArrowLeft) || i.key_pressed(Key::A)) {
             self.active_focus_idx = (self.active_focus_idx + total_cards - 1) % total_cards;
         }
-        if ui.input(|i| i.key_pressed(Key::ArrowDown) || i.key_pressed(Key::S)) && self.active_focus_idx + cols < total_cards {
+        if ui.input(|i| i.key_pressed(Key::ArrowDown) || i.key_pressed(Key::S))
+            && self.active_focus_idx + cols < total_cards
+        {
             self.active_focus_idx += cols;
         }
-        if ui.input(|i| i.key_pressed(Key::ArrowUp) || i.key_pressed(Key::W)) && self.active_focus_idx >= cols {
+        if ui.input(|i| i.key_pressed(Key::ArrowUp) || i.key_pressed(Key::W))
+            && self.active_focus_idx >= cols
+        {
             self.active_focus_idx -= cols;
         }
 
         // Enter or Space (Gamepad [A]) launches focused cartridge into Studio
         if ui.input(|i| i.key_pressed(Key::Enter) || i.key_pressed(Key::Space)) {
             self.was_fullscreen = false;
-            ui.ctx().send_viewport_cmd(egui::ViewportCommand::Fullscreen(false));
-            ui.ctx().send_viewport_cmd(egui::ViewportCommand::InnerSize(egui::vec2(1240.0, 840.0)));
+            ui.ctx()
+                .send_viewport_cmd(egui::ViewportCommand::Fullscreen(false));
+            ui.ctx()
+                .send_viewport_cmd(egui::ViewportCommand::InnerSize(egui::vec2(1240.0, 840.0)));
             state.nav_section = cartridges[self.active_focus_idx].section;
             state.app_window_mode = AppWindowMode::FullStudio;
             return;
@@ -130,15 +137,18 @@ impl ConsoleOsLauncher {
         // Escape (Gamepad [B]) backs out to Studio
         if ui.input(|i| i.key_pressed(Key::Escape)) {
             self.was_fullscreen = false;
-            ui.ctx().send_viewport_cmd(egui::ViewportCommand::Fullscreen(false));
-            ui.ctx().send_viewport_cmd(egui::ViewportCommand::InnerSize(egui::vec2(1240.0, 840.0)));
+            ui.ctx()
+                .send_viewport_cmd(egui::ViewportCommand::Fullscreen(false));
+            ui.ctx()
+                .send_viewport_cmd(egui::ViewportCommand::InnerSize(egui::vec2(1240.0, 840.0)));
             state.app_window_mode = AppWindowMode::FullStudio;
             return;
         }
 
         // ── 2. Fullscreen Canvas & 3D Star Particle Field ───────────────────────
         let available_size = ui.available_size();
-        let (response, painter) = ui.allocate_painter(available_size, egui::Sense::click_and_drag());
+        let (response, painter) =
+            ui.allocate_painter(available_size, egui::Sense::click_and_drag());
         let rect = response.rect;
 
         // Dark Nebula Background
@@ -168,7 +178,10 @@ impl ConsoleOsLauncher {
                 return None;
             }
             let scale = focal_dist / z_cam;
-            Some((Pos2::new(center.x + x1 * scale, center.y + y2 * scale), scale))
+            Some((
+                Pos2::new(center.x + x1 * scale, center.y + y2 * scale),
+                scale,
+            ))
         };
 
         // Render ambient glowing 3D particle lattice
@@ -177,16 +190,16 @@ impl ConsoleOsLauncher {
             let px = (seed.sin() * 800.0) % 700.0;
             let py = ((seed * 1.6).cos() * 500.0) % 350.0;
             let pz = ((seed * 2.4).sin() * 800.0) % 700.0;
-            if let Some((pt, scale)) = project_3d([px, py, pz]) {
-                if rect.contains(pt) {
-                    let tw = ((time_sec * 2.0 + i as f32 * 1.3).sin() * 0.5 + 0.5).clamp(0.2, 1.0);
-                    let alpha = ((120.0 * tw) * scale.clamp(0.3, 1.0)) as u8;
-                    painter.circle_filled(
-                        pt,
-                        (1.6 * scale).clamp(0.8, 3.0),
-                        Color32::from_rgba_unmultiplied(140, 180, 255, alpha),
-                    );
-                }
+            if let Some((pt, scale)) = project_3d([px, py, pz])
+                && rect.contains(pt)
+            {
+                let tw = ((time_sec * 2.0 + i as f32 * 1.3).sin() * 0.5 + 0.5).clamp(0.2, 1.0);
+                let alpha = ((120.0 * tw) * scale.clamp(0.3, 1.0)) as u8;
+                painter.circle_filled(
+                    pt,
+                    (1.6 * scale).clamp(0.8, 3.0),
+                    Color32::from_rgba_unmultiplied(140, 180, 255, alpha),
+                );
             }
         }
 
@@ -223,10 +236,20 @@ impl ConsoleOsLauncher {
             ui.separator();
 
             // Level & Achievements Pill
-            if ui.button(egui::RichText::new(format!("⭐ Lv. {}  •  🏆 {}/{}", state.user_level, state.achievements.unlocked_count(), state.achievements.total_count()))
-                .color(Color32::from_rgb(255, 215, 0))
-                .size(12.0 * scale_factor)
-                .strong()).clicked() {
+            if ui
+                .button(
+                    egui::RichText::new(format!(
+                        "⭐ Lv. {}  •  🏆 {}/{}",
+                        state.user_level,
+                        state.achievements.unlocked_count(),
+                        state.achievements.total_count()
+                    ))
+                    .color(Color32::from_rgb(255, 215, 0))
+                    .size(12.0 * scale_factor)
+                    .strong(),
+                )
+                .clicked()
+            {
                 state.show_achievements_modal = true;
             }
 
@@ -240,23 +263,38 @@ impl ConsoleOsLauncher {
             } else {
                 format!("👤 {} [Flow {}%]", prof.display_name, flow_pct)
             };
-            if ui.button(egui::RichText::new(user_badge).color(Color32::from_rgb(56, 139, 253)).size(12.0 * scale_factor).strong()).clicked() {
+            if ui
+                .button(
+                    egui::RichText::new(user_badge)
+                        .color(Color32::from_rgb(56, 139, 253))
+                        .size(12.0 * scale_factor)
+                        .strong(),
+                )
+                .clicked()
+            {
                 state.show_user_profile_modal = true;
             }
 
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 if ui.button("🪟 Studio (F11 / Esc)").clicked() {
                     self.was_fullscreen = false;
-                    ui.ctx().send_viewport_cmd(egui::ViewportCommand::Fullscreen(false));
-                    ui.ctx().send_viewport_cmd(egui::ViewportCommand::InnerSize(egui::vec2(1240.0, 840.0)));
+                    ui.ctx()
+                        .send_viewport_cmd(egui::ViewportCommand::Fullscreen(false));
+                    ui.ctx()
+                        .send_viewport_cmd(egui::ViewportCommand::InnerSize(egui::vec2(
+                            1240.0, 840.0,
+                        )));
                     state.app_window_mode = AppWindowMode::FullStudio;
                 }
 
                 let proj = state.state_publisher.project_console();
                 ui.label(
-                    egui::RichText::new(format!("{}  •  {}", proj.display_badge, proj.harmony_label))
-                        .color(Color32::from_rgb(63, 185, 80))
-                        .size(11.0 * scale_factor),
+                    egui::RichText::new(format!(
+                        "{}  •  {}",
+                        proj.display_badge, proj.harmony_label
+                    ))
+                    .color(Color32::from_rgb(63, 185, 80))
+                    .size(11.0 * scale_factor),
                 );
             });
         });
@@ -272,9 +310,12 @@ impl ConsoleOsLauncher {
         let mut hero_ui = ui.new_child(egui::UiBuilder::new().max_rect(hero_rect));
         egui::Frame::group(hero_ui.style())
             .fill(Color32::from_rgba_unmultiplied(18, 24, 38, 225))
-            .stroke(Stroke::new(2.0, theme.accent()))
+            .stroke(Stroke::new(2.0_f32, theme.accent()))
             .corner_radius(CornerRadius::same(12))
-            .inner_margin(egui::Margin::symmetric((18.0 * scale_factor) as i8, (12.0 * scale_factor) as i8))
+            .inner_margin(egui::Margin::symmetric(
+                (18.0 * scale_factor) as i8,
+                (12.0 * scale_factor) as i8,
+            ))
             .shadow(egui::Shadow {
                 offset: [0, 8],
                 blur: 28,
@@ -283,10 +324,7 @@ impl ConsoleOsLauncher {
             })
             .show(&mut hero_ui, |ui| {
                 ui.horizontal(|ui| {
-                    ui.label(
-                        egui::RichText::new(focused.icon)
-                            .size(46.0 * scale_factor),
-                    );
+                    ui.label(egui::RichText::new(focused.icon).size(46.0 * scale_factor));
                     ui.add_space(10.0 * scale_factor);
 
                     ui.vertical(|ui| {
@@ -335,20 +373,30 @@ impl ConsoleOsLauncher {
                                 .clicked()
                             {
                                 self.was_fullscreen = false;
-                                ui.ctx().send_viewport_cmd(egui::ViewportCommand::Fullscreen(false));
-                                ui.ctx().send_viewport_cmd(egui::ViewportCommand::InnerSize(egui::vec2(1240.0, 840.0)));
+                                ui.ctx()
+                                    .send_viewport_cmd(egui::ViewportCommand::Fullscreen(false));
+                                ui.ctx().send_viewport_cmd(egui::ViewportCommand::InnerSize(
+                                    egui::vec2(1240.0, 840.0),
+                                ));
                                 state.nav_section = focused.section;
                                 state.app_window_mode = AppWindowMode::FullStudio;
                             }
 
-                            if ui.add(
-                                egui::Button::new(
-                                    egui::RichText::new("⚙️ Config").size(12.0 * scale_factor)
-                                ).min_size(Vec2::new(70.0 * scale_factor, 28.0 * scale_factor))
-                            ).clicked() {
+                            if ui
+                                .add(
+                                    egui::Button::new(
+                                        egui::RichText::new("⚙️ Config").size(12.0 * scale_factor),
+                                    )
+                                    .min_size(Vec2::new(70.0 * scale_factor, 28.0 * scale_factor)),
+                                )
+                                .clicked()
+                            {
                                 self.was_fullscreen = false;
-                                ui.ctx().send_viewport_cmd(egui::ViewportCommand::Fullscreen(false));
-                                ui.ctx().send_viewport_cmd(egui::ViewportCommand::InnerSize(egui::vec2(1240.0, 840.0)));
+                                ui.ctx()
+                                    .send_viewport_cmd(egui::ViewportCommand::Fullscreen(false));
+                                ui.ctx().send_viewport_cmd(egui::ViewportCommand::InnerSize(
+                                    egui::vec2(1240.0, 840.0),
+                                ));
                                 state.nav_section = NavSection::Settings;
                                 state.app_window_mode = AppWindowMode::FullStudio;
                             }
@@ -371,7 +419,8 @@ impl ConsoleOsLauncher {
             .show(&mut grid_ui, |ui| {
                 let col_count = if available_w > 1200.0 { 3 } else { 2 };
                 let spacing = 12.0 * scale_factor;
-                let usable_w = (ui.available_width() - (spacing * (col_count as f32 - 1.0))).max(300.0);
+                let usable_w =
+                    (ui.available_width() - (spacing * (col_count as f32 - 1.0))).max(300.0);
                 let card_w = usable_w / (col_count as f32);
                 let card_h = (115.0 * scale_factor).clamp(95.0, 150.0);
 
@@ -393,21 +442,33 @@ impl ConsoleOsLauncher {
 
                         let resp = egui::Frame::group(ui.style())
                             .fill(bg_color)
-                            .stroke(Stroke::new(if is_focused { 2.0 } else { 1.0 }, stroke_color))
+                            .stroke(Stroke::new(
+                                if is_focused { 2.0 } else { 1.0_f32 },
+                                stroke_color,
+                            ))
                             .corner_radius(CornerRadius::same(10))
-                            .inner_margin(egui::Margin::symmetric((12.0 * scale_factor) as i8, (10.0 * scale_factor) as i8))
+                            .inner_margin(egui::Margin::symmetric(
+                                (12.0 * scale_factor) as i8,
+                                (10.0 * scale_factor) as i8,
+                            ))
                             .show(ui, |ui| {
                                 ui.set_width(card_w);
                                 ui.set_height(card_h);
 
                                 ui.horizontal(|ui| {
-                                    ui.label(egui::RichText::new(cart.icon).size(24.0 * scale_factor));
+                                    ui.label(
+                                        egui::RichText::new(cart.icon).size(24.0 * scale_factor),
+                                    );
                                     ui.vertical(|ui| {
                                         ui.label(
                                             egui::RichText::new(cart.title)
                                                 .strong()
                                                 .size(13.0 * scale_factor)
-                                                .color(if is_focused { Color32::WHITE } else { Color32::from_rgb(220, 225, 235) }),
+                                                .color(if is_focused {
+                                                    Color32::WHITE
+                                                } else {
+                                                    Color32::from_rgb(220, 225, 235)
+                                                }),
                                         );
                                         ui.label(
                                             egui::RichText::new(cart.subtitle)
@@ -416,14 +477,17 @@ impl ConsoleOsLauncher {
                                         );
                                     });
 
-                                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                                        ui.label(
-                                            egui::RichText::new(cart.status)
-                                                .color(cart.status_color)
-                                                .size(9.5 * scale_factor)
-                                                .strong(),
-                                        );
-                                    });
+                                    ui.with_layout(
+                                        egui::Layout::right_to_left(egui::Align::Center),
+                                        |ui| {
+                                            ui.label(
+                                                egui::RichText::new(cart.status)
+                                                    .color(cart.status_color)
+                                                    .size(9.5 * scale_factor)
+                                                    .strong(),
+                                            );
+                                        },
+                                    );
                                 });
 
                                 ui.add_space(4.0 * scale_factor);
@@ -436,14 +500,18 @@ impl ConsoleOsLauncher {
 
                         // Click or hover snapping
                         let interact_rect = resp.response.rect;
-                        let click_resp = ui.interact(interact_rect, ui.id().with(idx), egui::Sense::click());
+                        let click_resp =
+                            ui.interact(interact_rect, ui.id().with(idx), egui::Sense::click());
                         if click_resp.hovered() {
                             self.active_focus_idx = idx;
                         }
                         if click_resp.clicked() {
                             self.was_fullscreen = false;
-                            ui.ctx().send_viewport_cmd(egui::ViewportCommand::Fullscreen(false));
-                            ui.ctx().send_viewport_cmd(egui::ViewportCommand::InnerSize(egui::vec2(1240.0, 840.0)));
+                            ui.ctx()
+                                .send_viewport_cmd(egui::ViewportCommand::Fullscreen(false));
+                            ui.ctx().send_viewport_cmd(egui::ViewportCommand::InnerSize(
+                                egui::vec2(1240.0, 840.0),
+                            ));
                             state.nav_section = cart.section;
                             state.app_window_mode = AppWindowMode::FullStudio;
                         }
@@ -454,14 +522,35 @@ impl ConsoleOsLauncher {
 
                 // ── 7. Console Gamepad Legend Bar (Xbox / Steam Deck standard) ──
                 ui.horizontal(|ui| {
-                    ui.label(egui::RichText::new("🎮 CONTROLLER READY:").color(Color32::from_rgb(140, 160, 190)).size(11.0 * scale_factor).strong());
-                    ui.label(egui::RichText::new("  [A / Enter] Launch Cartridge  ").color(Color32::WHITE).size(11.0 * scale_factor));
+                    ui.label(
+                        egui::RichText::new("🎮 CONTROLLER READY:")
+                            .color(Color32::from_rgb(140, 160, 190))
+                            .size(11.0 * scale_factor)
+                            .strong(),
+                    );
+                    ui.label(
+                        egui::RichText::new("  [A / Enter] Launch Cartridge  ")
+                            .color(Color32::WHITE)
+                            .size(11.0 * scale_factor),
+                    );
                     ui.label(egui::RichText::new("•").color(Color32::DARK_GRAY));
-                    ui.label(egui::RichText::new("  [B / Esc] Return to Studio  ").color(Color32::WHITE).size(11.0 * scale_factor));
+                    ui.label(
+                        egui::RichText::new("  [B / Esc] Return to Studio  ")
+                            .color(Color32::WHITE)
+                            .size(11.0 * scale_factor),
+                    );
                     ui.label(egui::RichText::new("•").color(Color32::DARK_GRAY));
-                    ui.label(egui::RichText::new("  [D-Pad / WASD] Navigate Grid  ").color(Color32::WHITE).size(11.0 * scale_factor));
+                    ui.label(
+                        egui::RichText::new("  [D-Pad / WASD] Navigate Grid  ")
+                            .color(Color32::WHITE)
+                            .size(11.0 * scale_factor),
+                    );
                     ui.label(egui::RichText::new("•").color(Color32::DARK_GRAY));
-                    ui.label(egui::RichText::new("  [F12] Backseat HUD  ").color(Color32::WHITE).size(11.0 * scale_factor));
+                    ui.label(
+                        egui::RichText::new("  [F12] Backseat HUD  ")
+                            .color(Color32::WHITE)
+                            .size(11.0 * scale_factor),
+                    );
                 });
             });
     }

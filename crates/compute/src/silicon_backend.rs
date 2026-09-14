@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 /// Classification of physical or simulated computing substrate
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum SiliconHardwareType {
-    NeuralProcessingUnit, // DirectML / Hexagon / Intel AI Boost / AMD XDNA
+    NeuralProcessingUnit,   // DirectML / Hexagon / Intel AI Boost / AMD XDNA
     GraphicsProcessingUnit, // DirectX 12 / Vulkan Compute Shaders
     CentralProcessingUnit,  // Cranelift Native JIT / AVX2
     QuantumProcessingUnit,  // Unitary Hamiltonian State Vector
@@ -93,7 +93,7 @@ pub struct NpuTensorBackend {
 impl Default for NpuTensorBackend {
     fn default() -> Self {
         Self {
-            power_watts: 2.0, // Sub-2W low power continuous acceleration
+            power_watts: 2.0,  // Sub-2W low power continuous acceleration
             tops_rating: 45.0, // 45 TOPS rating
         }
     }
@@ -204,7 +204,10 @@ mod tests {
     #[test]
     fn test_silicon_backend_recurrence_and_selection() {
         let mut router = DynamicSiliconRouter::default();
-        assert_eq!(router.active_backend().hardware_type(), SiliconHardwareType::CentralProcessingUnit);
+        assert_eq!(
+            router.active_backend().hardware_type(),
+            SiliconHardwareType::CentralProcessingUnit
+        );
 
         let mut state = vec![1.0; 8];
         let input = vec![2.0; 8];

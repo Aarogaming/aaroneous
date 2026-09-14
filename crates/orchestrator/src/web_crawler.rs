@@ -1,7 +1,7 @@
+use crate::memory_pipeline::EpisodicInsertionPipeline;
 use reqwest::Client;
 use std::sync::Arc;
 use tokio::sync::Semaphore;
-use crate::memory_pipeline::EpisodicInsertionPipeline;
 
 /// Error type for crawler backpressure and load shedding scenarios.
 #[derive(Debug, thiserror::Error, PartialEq, Eq)]
@@ -25,7 +25,10 @@ impl WebCrawler {
     }
 
     /// Creates a new `WebCrawler` with a specified maximum concurrent crawling capacity.
-    pub fn with_capacity(pipeline: Arc<EpisodicInsertionPipeline>, max_concurrent_crawls: usize) -> Self {
+    pub fn with_capacity(
+        pipeline: Arc<EpisodicInsertionPipeline>,
+        max_concurrent_crawls: usize,
+    ) -> Self {
         Self {
             pipeline,
             client: Client::new(),
@@ -46,7 +49,10 @@ impl WebCrawler {
     /// Attempts to ingest a URL in the background, enforcing bounded concurrency.
     /// If permits are exhausted, returns `CrawlerBackpressureError::ServiceSaturated`
     /// to shed excess load immediately without consuming worker threads.
-    pub fn try_ingest_url_background(&self, url: impl Into<String>) -> Result<(), CrawlerBackpressureError> {
+    pub fn try_ingest_url_background(
+        &self,
+        url: impl Into<String>,
+    ) -> Result<(), CrawlerBackpressureError> {
         let permit = self
             .semaphore
             .clone()
@@ -58,23 +64,29 @@ impl WebCrawler {
         let pipeline = self.pipeline.clone();
         let task = async move {
             let _permit = permit;
-            if let Ok(response) = client.get(&url).send().await {
-                if let Ok(html) = response.text().await {
-                    // Primitive stripping of HTML tags for raw text extraction
-                    let raw_text = html
-                        .replace('<', " <")
-                        .replace('>', "> ");
-                    
-                    let mut clean_text = String::new();
-                    let mut in_tag = false;
-                    for c in raw_text.chars() {
-                        if c == '<' { in_tag = true; continue; }
-                        if c == '>' { in_tag = false; continue; }
-                        if !in_tag { clean_text.push(c); }
-                    }
+            if let Ok(response) = client.get(&url).send().await
+                && let Ok(html) = response.text().await
+            {
+                // Primitive stripping of HTML tags for raw text extraction
+                let raw_text = html.replace('<', " <").replace('>', "> ");
 
-                    let _ = pipeline.embed_and_insert(&clean_text, &format!("#web_scrape {}", url));
+                let mut clean_text = String::new();
+                let mut in_tag = false;
+                for c in raw_text.chars() {
+                    if c == '<' {
+                        in_tag = true;
+                        continue;
+                    }
+                    if c == '>' {
+                        in_tag = false;
+                        continue;
+                    }
+                    if !in_tag {
+                        clean_text.push(c);
+                    }
                 }
+
+                let _ = pipeline.embed_and_insert(&clean_text, &format!("#web_scrape {}", url));
             }
         };
         tokio::task::spawn(task);

@@ -113,7 +113,7 @@ impl ToastNotificationManager {
                 toast_rect,
                 CornerRadius::same(6),
                 bg,
-                Stroke::new(1.2, border),
+                Stroke::new(1.2_f32, border),
                 egui::StrokeKind::Outside,
             );
 

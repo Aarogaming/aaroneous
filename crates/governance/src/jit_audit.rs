@@ -5,4 +5,4 @@
 //! auditing buffers against unauthorized system calls, hardware interrupts, or
 //! privileged instruction execution.
 
-pub use si_format::audit::{audit, jit_audit, AuditResult};
+pub use si_format::audit::{AuditResult, audit, jit_audit};

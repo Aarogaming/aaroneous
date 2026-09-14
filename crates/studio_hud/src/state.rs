@@ -1,10 +1,10 @@
 // core/hypervisor/src/hud/state.rs
 //! Shared HUD state, window modes, DPI scaling, and Spatial Canvas state.
 
-use paths::{DiscoveredGgufModel, ModelHubLocation, WorkspacePaths, WorkspacePathsConfig};
 use crossbeam_channel::{Receiver, Sender, unbounded};
 use eframe::egui::{self, Color32, Pos2, Vec2};
 use memmap2::{MmapMut, MmapOptions};
+use paths::{DiscoveredGgufModel, ModelHubLocation, WorkspacePaths, WorkspacePathsConfig};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs::{self, OpenOptions};
@@ -173,10 +173,21 @@ pub struct AgentPipelineNode {
 /// Action type for automated routine steps
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum RoutineAction {
-    MouseMove { x: i32, y: i32, duration_ms: u32 },
-    MouseClick { button: String, release_delay_ms: u32 },
-    KeySequence { keys: String },
-    Delay { delay_ms: u32 },
+    MouseMove {
+        x: i32,
+        y: i32,
+        duration_ms: u32,
+    },
+    MouseClick {
+        button: String,
+        release_delay_ms: u32,
+    },
+    KeySequence {
+        keys: String,
+    },
+    Delay {
+        delay_ms: u32,
+    },
 }
 
 /// Dynamic Routine Step for Screen & Motor Automation
@@ -770,14 +781,21 @@ impl Default for SharedHudState {
                 id: "step_1".to_string(),
                 name: "1. 🖱️ Move to Target".to_string(),
                 description: "Bézier curve to [X: 420, Y: 360] (35ms)".to_string(),
-                action: RoutineAction::MouseMove { x: 420, y: 360, duration_ms: 35 },
+                action: RoutineAction::MouseMove {
+                    x: 420,
+                    y: 360,
+                    duration_ms: 35,
+                },
                 is_enabled: true,
             },
             RoutineStep {
                 id: "step_2".to_string(),
                 name: "2. 🖱️ Left Click".to_string(),
                 description: "Simulate human tap (65ms release)".to_string(),
-                action: RoutineAction::MouseClick { button: "Left".to_string(), release_delay_ms: 65 },
+                action: RoutineAction::MouseClick {
+                    button: "Left".to_string(),
+                    release_delay_ms: 65,
+                },
                 is_enabled: true,
             },
             RoutineStep {
@@ -791,7 +809,9 @@ impl Default for SharedHudState {
                 id: "step_4".to_string(),
                 name: "4. ⌨️ Key Sequence".to_string(),
                 description: "Press [Ctrl+S] to save workspace".to_string(),
-                action: RoutineAction::KeySequence { keys: "Ctrl+S".to_string() },
+                action: RoutineAction::KeySequence {
+                    keys: "Ctrl+S".to_string(),
+                },
                 is_enabled: true,
             },
         ];
@@ -951,8 +971,7 @@ impl Default for SharedHudState {
             platform_bridge::WindowDiscoveryEngine::enumerate_available_targets()
                 .unwrap_or_default();
         let discovered_screens =
-            platform_bridge::WindowDiscoveryEngine::enumerate_screens()
-                .unwrap_or_default();
+            platform_bridge::WindowDiscoveryEngine::enumerate_screens().unwrap_or_default();
         let default_target_app = ws.root().to_string_lossy().to_string();
 
         let si_miner = transpiler::SiDistillationMiner::default();
@@ -1131,17 +1150,38 @@ impl Default for SharedHudState {
     }
 }
 impl SharedHudState {
-    pub fn navigate_to_dashboard(&mut self) { self.nav_section = NavSection::Dashboard; }
-    pub fn navigate_to_specialists(&mut self) { self.nav_section = NavSection::Specialists; }
-    pub fn navigate_to_galaxy_3d(&mut self) { self.nav_section = NavSection::GalaxyMap3D; }
-    pub fn navigate_to_si_forge(&mut self) { self.nav_section = NavSection::SiForge; }
-    pub fn navigate_to_screen_auto(&mut self) { self.nav_section = NavSection::ScreenAutomation; }
-    pub fn navigate_to_swarm_mesh(&mut self) { self.nav_section = NavSection::SwarmMesh; }
-    pub fn navigate_to_agents(&mut self) { self.nav_section = NavSection::Agents; }
-    pub fn navigate_to_settings(&mut self) { self.nav_section = NavSection::Settings; }
-    pub fn navigate_to_dev_studio(&mut self) { self.nav_section = NavSection::DevStudio; }
+    pub fn navigate_to_dashboard(&mut self) {
+        self.nav_section = NavSection::Dashboard;
+    }
+    pub fn navigate_to_specialists(&mut self) {
+        self.nav_section = NavSection::Specialists;
+    }
+    pub fn navigate_to_galaxy_3d(&mut self) {
+        self.nav_section = NavSection::GalaxyMap3D;
+    }
+    pub fn navigate_to_si_forge(&mut self) {
+        self.nav_section = NavSection::SiForge;
+    }
+    pub fn navigate_to_screen_auto(&mut self) {
+        self.nav_section = NavSection::ScreenAutomation;
+    }
+    pub fn navigate_to_swarm_mesh(&mut self) {
+        self.nav_section = NavSection::SwarmMesh;
+    }
+    pub fn navigate_to_agents(&mut self) {
+        self.nav_section = NavSection::Agents;
+    }
+    pub fn navigate_to_settings(&mut self) {
+        self.nav_section = NavSection::Settings;
+    }
+    pub fn navigate_to_dev_studio(&mut self) {
+        self.nav_section = NavSection::DevStudio;
+    }
     pub fn rescan_workspace_files(&mut self) {
-        let root = self.settings.workspace_root_override.clone()
+        let root = self
+            .settings
+            .workspace_root_override
+            .clone()
             .unwrap_or_else(|| paths::WorkspacePaths::default().root().to_path_buf());
         self.dev_tools_engine = adaptation_engine::DevToolsEngine::new(&root);
         self.workspace_tree_items = self.dev_tools_engine.scan_workspace_tree(4);
@@ -1152,7 +1192,10 @@ impl SharedHudState {
         let xp_for_next_level = (self.user_level as u64) * 250;
         if self.user_xp >= xp_for_next_level {
             self.user_level += 1;
-            self.xp_notification = Some(format!("🎉 LEVEL UP! Reached Level {} (+{} XP: {})", self.user_level, amount, reason));
+            self.xp_notification = Some(format!(
+                "🎉 LEVEL UP! Reached Level {} (+{} XP: {})",
+                self.user_level, amount, reason
+            ));
         } else {
             self.xp_notification = Some(format!("✨ +{} XP ({})", amount, reason));
         }
@@ -1355,27 +1398,43 @@ impl SharedHudState {
             }
 
             // Sync snapshot into EngineStatePublisher for zero-lock presentation access
-            let active_profile = self.user_identity_engine.active_profile().display_name.clone();
+            let active_profile = self
+                .user_identity_engine
+                .active_profile()
+                .display_name
+                .clone();
             let flow = self.user_identity_engine.flow_score();
-            let active_agents = self.custom_agents.iter().filter(|a| a.state == AgentExecutionState::Running).count();
-            let last_ev = self.event_logs.last().map(|e| e.action.clone()).unwrap_or_else(|| "Nominal".to_string());
+            let active_agents = self
+                .custom_agents
+                .iter()
+                .filter(|a| a.state == AgentExecutionState::Running)
+                .count();
+            let last_ev = self
+                .event_logs
+                .last()
+                .map(|e| e.action.clone())
+                .unwrap_or_else(|| "Nominal".to_string());
 
-            self.state_publisher.publish(crate::hud::state_snapshot::EngineSnapshot {
-                timestamp_ms: std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_millis() as u64,
-                measured_fps: self.measured_fps,
-                bus_integrity: self.bus_integrity,
-                bus_understanding: self.bus_understanding,
-                bus_generation: self.bus_generation,
-                active_specialist: "Orchestrator".to_string(),
-                active_companions_count: active_agents,
-                running_macros_count: self.saved_si_macros.len(),
-                last_event_desc: last_ev,
-                user_level: self.user_level,
-                user_xp: self.user_xp,
-                flow_score: flow,
-                active_profile_name: active_profile,
-                pacing: self.state_publisher.pacing(),
-            });
+            self.state_publisher
+                .publish(crate::hud::state_snapshot::EngineSnapshot {
+                    timestamp_ms: std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .unwrap_or_default()
+                        .as_millis() as u64,
+                    measured_fps: self.measured_fps,
+                    bus_integrity: self.bus_integrity,
+                    bus_understanding: self.bus_understanding,
+                    bus_generation: self.bus_generation,
+                    active_specialist: "Orchestrator".to_string(),
+                    active_companions_count: active_agents,
+                    running_macros_count: self.saved_si_macros.len(),
+                    last_event_desc: last_ev,
+                    user_level: self.user_level,
+                    user_xp: self.user_xp,
+                    flow_score: flow,
+                    active_profile_name: active_profile,
+                    pacing: self.state_publisher.pacing(),
+                });
         }
     }
 
@@ -1443,7 +1502,12 @@ impl SharedHudState {
         }
     }
 
-    pub fn register_new_macro(&mut self, name: &str, hotkey: Option<&str>, desc: &str) -> anyhow::Result<()> {
+    pub fn register_new_macro(
+        &mut self,
+        name: &str,
+        hotkey: Option<&str>,
+        desc: &str,
+    ) -> anyhow::Result<()> {
         let mut g = compute::NativeComputationalGraph::new();
         g.add_node(compute::NativeComputationNode {
             id: 1,

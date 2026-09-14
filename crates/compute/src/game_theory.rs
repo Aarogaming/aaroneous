@@ -2,7 +2,7 @@
 //! Game Theory primitives (Nash Equilibrium, Auction Mechanisms, Shapley Values).
 //! Used for multi-agent resource bidding, conflict resolution, consensus, and incentive alignment.
 
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use std::cmp::Ordering;
 
 /// Safely compares two f64 values without panicking on NaN.
@@ -61,12 +61,16 @@ pub struct VickreyAuctionResult {
 }
 
 /// Evaluates a second-price sealed-bid Vickrey auction with optional reserve price.
-pub fn evaluate_vickrey_auction(bids: &[AuctionBid], reserve_price: f64) -> Option<VickreyAuctionResult> {
+pub fn evaluate_vickrey_auction(
+    bids: &[AuctionBid],
+    reserve_price: f64,
+) -> Option<VickreyAuctionResult> {
     if bids.is_empty() {
         return None;
     }
 
-    let mut valid_bids: Vec<&AuctionBid> = bids.iter().filter(|b| b.amount >= reserve_price).collect();
+    let mut valid_bids: Vec<&AuctionBid> =
+        bids.iter().filter(|b| b.amount >= reserve_price).collect();
     if valid_bids.is_empty() {
         return None;
     }
@@ -100,7 +104,12 @@ pub struct NormalFormGame {
 }
 
 impl NormalFormGame {
-    pub fn new(p1_strategies: usize, p2_strategies: usize, p1_payoffs: Vec<f64>, p2_payoffs: Vec<f64>) -> Result<Self> {
+    pub fn new(
+        p1_strategies: usize,
+        p2_strategies: usize,
+        p1_payoffs: Vec<f64>,
+        p2_payoffs: Vec<f64>,
+    ) -> Result<Self> {
         let expected_size = p1_strategies * p2_strategies;
         if p1_payoffs.len() != expected_size || p2_payoffs.len() != expected_size {
             bail!("Payoff matrix size mismatch: expected {}", expected_size);
@@ -192,9 +201,18 @@ mod tests {
     #[test]
     fn test_vickrey_auction_structured() {
         let bids = vec![
-            AuctionBid { bidder_id: "NodeA".to_string(), amount: 15.0 },
-            AuctionBid { bidder_id: "NodeB".to_string(), amount: 25.0 },
-            AuctionBid { bidder_id: "NodeC".to_string(), amount: 10.0 },
+            AuctionBid {
+                bidder_id: "NodeA".to_string(),
+                amount: 15.0,
+            },
+            AuctionBid {
+                bidder_id: "NodeB".to_string(),
+                amount: 25.0,
+            },
+            AuctionBid {
+                bidder_id: "NodeC".to_string(),
+                amount: 10.0,
+            },
         ];
         let res = evaluate_vickrey_auction(&bids, 5.0).unwrap();
         assert_eq!(res.winner_id, "NodeB");

@@ -1,16 +1,16 @@
+pub mod capture_pipeline;
 pub mod chebyshev_trajectory;
+pub mod dxgi_swapchain;
+pub mod etw_kernel_trace;
 pub mod fractional_normalizer;
 pub mod fs_crawl;
 pub mod hardware_governor;
-pub mod shmem_capture;
-pub mod dxgi_swapchain;
-pub mod etw_kernel_trace;
-pub mod rgb_telemetry;
 pub mod observability_aggregator;
-pub mod capture_pipeline;
-pub mod telemetry_export;
+pub mod rgb_telemetry;
+pub mod shmem_capture;
 pub mod simd_xor_delta;
 pub mod svd_feature_select;
+pub mod telemetry_export;
 pub mod video_stream;
 
 pub use chebyshev_trajectory::{evaluate_chebyshev, fit_chebyshev};

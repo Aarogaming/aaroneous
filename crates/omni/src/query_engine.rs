@@ -51,31 +51,31 @@ impl OmniQueryEngine {
             .values()
             .filter(|node| {
                 // Node type filter
-                if let Some(ref types) = filter.node_types {
-                    if !types.contains(&node.node_type) {
-                        return false;
-                    }
+                if let Some(ref types) = filter.node_types
+                    && !types.contains(&node.node_type)
+                {
+                    return false;
                 }
 
                 // Status filter
-                if let Some(ref statuses) = filter.statuses {
-                    if !statuses.contains(&node.status) {
-                        return false;
-                    }
+                if let Some(ref statuses) = filter.statuses
+                    && !statuses.contains(&node.status)
+                {
+                    return false;
                 }
 
                 // Domain filter
-                if let Some(ref domains) = filter.domains {
-                    if !domains.iter().any(|d| node.domain.contains(d)) {
-                        return false;
-                    }
+                if let Some(ref domains) = filter.domains
+                    && !domains.iter().any(|d| node.domain.contains(d))
+                {
+                    return false;
                 }
 
                 // Spatial frustum filter
-                if let Some(ref frustum) = filter.spatial_frustum {
-                    if !frustum.contains(&node.spatial_coord) {
-                        return false;
-                    }
+                if let Some(ref frustum) = filter.spatial_frustum
+                    && !frustum.contains(&node.spatial_coord)
+                {
+                    return false;
                 }
 
                 true
@@ -113,8 +113,22 @@ mod tests {
     #[test]
     fn test_frustum_query() {
         let mut nodes = HashMap::new();
-        let star1 = StarNode::new("s1", "Star 1", StarNodeType::Feature, "Core", SpatialCoord::new(10.0, 10.0, 10.0), "uri1");
-        let star2 = StarNode::new("s2", "Star 2", StarNodeType::Feature, "Core", SpatialCoord::new(500.0, 500.0, 500.0), "uri2");
+        let star1 = StarNode::new(
+            "s1",
+            "Star 1",
+            StarNodeType::Feature,
+            "Core",
+            SpatialCoord::new(10.0, 10.0, 10.0),
+            "uri1",
+        );
+        let star2 = StarNode::new(
+            "s2",
+            "Star 2",
+            StarNodeType::Feature,
+            "Core",
+            SpatialCoord::new(500.0, 500.0, 500.0),
+            "uri2",
+        );
         nodes.insert("s1".to_string(), star1);
         nodes.insert("s2".to_string(), star2);
 

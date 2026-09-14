@@ -1,10 +1,10 @@
-use std::sync::Arc;
-use std::time::Duration;
-use parking_lot::RwLock;
 use nervous_system::SharedMemorySynapse;
 use nervous_system::shared_memory::SynapseState;
-use std::thread;
+use parking_lot::RwLock;
 use rand::Rng;
+use std::sync::Arc;
+use std::thread;
+use std::time::Duration;
 
 /// Fault Injector (formerly ChaosMonkey)
 pub struct FaultInjector {

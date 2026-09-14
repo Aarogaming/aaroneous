@@ -1,7 +1,5 @@
 //! GPU monitoring module for platform observability.
 
-use std::time::Duration;
-
 /// GPU telemetry data structure.
 #[derive(Debug, Clone, PartialEq)]
 pub struct GpuTelemetry {

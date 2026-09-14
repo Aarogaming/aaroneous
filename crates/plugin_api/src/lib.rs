@@ -1,8 +1,12 @@
-// Plugin API for Aaroneous hypervisor
+//! In-process Rust plugin contracts for a single compiled dependency graph.
+//! Descriptors are control-plane data and may allocate. This trait is not a
+//! stable dynamic-library ABI: do not pass its trait objects across DLL boundaries.
+//! Dynamic entry points, version negotiation and ownership require a separate ABI.
+#![deny(unsafe_code)]
 
 use anyhow::Result;
-use serde::{Deserialize, Serialize};
 use ipc_bus::MachinePacket;
+use serde::{Deserialize, Serialize};
 
 /// Minimal representation of a capability.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -19,7 +23,7 @@ pub struct PluginDescriptor {
     pub requires: Vec<CapabilityDescriptor>,
 }
 
-/// Trait that every dynamically loaded plugin must implement.
+/// Contract for in-process plugins built with the host.
 pub trait Plugin: Send + Sync {
     /// Return the descriptor describing the plugin.
     fn descriptor(&self) -> PluginDescriptor;

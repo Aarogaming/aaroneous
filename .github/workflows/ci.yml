@@ -3,6 +3,7 @@ name: CI
 on:
   push:
     branches: [main]
+  workflow_dispatch:
   pull_request:
     branches: [main]
 
@@ -25,21 +26,40 @@ jobs:
         with:
           components: rustfmt, clippy
 
+      - name: Linux native build dependencies
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libclang-dev libudev-dev libasound2-dev libssl-dev pkg-config cmake
+
+      - name: Windows native compiler environment
+        if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Locate Windows libclang
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $clangDir = 'C:\Program Files\LLVMin'
+          if (!(Test-Path "$clangDir\libclang.dll")) { throw 'LLVM libclang is required' }
+          "LIBCLANG_PATH=$clangDir" >> $env:GITHUB_ENV
+
       - uses: Swatinem/rust-cache@v2
 
       - name: Formatting (Ubuntu only)
         if: matrix.os == 'ubuntu-latest'
         run: cargo fmt --all -- --check
 
-      - name: Clippy (Ubuntu only)
-        if: matrix.os == 'ubuntu-latest'
+      - name: Strict Clippy
         run: cargo clippy --workspace -- -D warnings
 
-      - name: Workspace check
-        run: cargo check --workspace
-
-      - name: Tests
-        run: cargo test --workspace
+      - name: Canonical repository verification
+        shell: bash
+        run: bash scripts/agent_check.sh
 
       - name: Release binary check
-        run: cargo check --release --bin aaroneous --bin a_run
+        run: cargo check --release --bin aaroneous --bin hypervisor
+
+      - name: Optional runtime features (compile only)
+        run: cargo check -p hypervisor --all-targets --features llama-gguf,gpu-metrics,fleet,testing,standalone
+
+      - name: Iroh compatibility feature (compile only)
+        run: cargo check -p hypervisor --all-targets --features p2p-iroh

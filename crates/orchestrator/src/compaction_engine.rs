@@ -107,7 +107,8 @@ impl SpecialistHibernationEngine {
 
     /// Registers an active specialist in the working memory table
     pub fn register_specialist(&mut self, state: SpecialistHibernationState) {
-        self.active_specialists.insert(state.specialist_id.clone(), state);
+        self.active_specialists
+            .insert(state.specialist_id.clone(), state);
     }
 
     /// Reaps a dormant specialist, serializes state to .sissm on disk, and frees active memory
@@ -167,7 +168,10 @@ impl SpecialistHibernationEngine {
     }
 
     /// Resurrects a hibernated specialist safely into working memory in under 10ms
-    pub fn resurrect_specialist(&mut self, specialist_id: &str) -> Result<(SpecialistHibernationState, u64)> {
+    pub fn resurrect_specialist(
+        &mut self,
+        specialist_id: &str,
+    ) -> Result<(SpecialistHibernationState, u64)> {
         let start = Instant::now();
 
         let manifest = self
@@ -175,14 +179,18 @@ impl SpecialistHibernationEngine {
             .remove(specialist_id)
             .with_context(|| format!("Specialist '{}' is not hibernated", specialist_id))?;
 
-        let mut file = File::open(&manifest.file_path)
-            .with_context(|| format!("Failed to open hibernation file: {:?}", manifest.file_path))?;
+        let mut file = File::open(&manifest.file_path).with_context(|| {
+            format!("Failed to open hibernation file: {:?}", manifest.file_path)
+        })?;
 
         let mut buffer = Vec::new();
         file.read_to_end(&mut buffer)?;
 
         if buffer.len() < 128 || &buffer[0..8] != SISSM_MAGIC {
-            anyhow::bail!("Corrupted .sissm hibernation container for '{}'", specialist_id);
+            anyhow::bail!(
+                "Corrupted .sissm hibernation container for '{}'",
+                specialist_id
+            );
         }
 
         let payload_len = u64::from_le_bytes(buffer[10..18].try_into()?) as usize;
@@ -230,14 +238,19 @@ impl SpecialistHibernationEngine {
                     candidates.sort_by_key(|b| std::cmp::Reverse(b.1.dormancy_duration_sec));
                 }
                 CompactionPolicy::TokenExhaustion => {
-                    candidates.sort_by(|a, b| a.1.tokens.partial_cmp(&b.1.tokens).unwrap_or(std::cmp::Ordering::Equal));
+                    candidates.sort_by(|a, b| {
+                        a.1.tokens
+                            .partial_cmp(&b.1.tokens)
+                            .unwrap_or(std::cmp::Ordering::Equal)
+                    });
                 }
                 CompactionPolicy::LargestFootprint => {
                     candidates.sort_by_key(|b| std::cmp::Reverse(b.1.active_memory_bytes));
                 }
             }
 
-            let candidate_ids: Vec<String> = candidates.into_iter().map(|(id, _)| id.clone()).collect();
+            let candidate_ids: Vec<String> =
+                candidates.into_iter().map(|(id, _)| id.clone()).collect();
 
             for id in candidate_ids {
                 if let Ok(manifest) = self.reap_and_hibernate(&id) {
@@ -306,7 +319,11 @@ mod tests {
         assert_eq!(resurrected.domain_opcode, 0x0900);
         assert_eq!(reaper.active_specialists.len(), 1);
         assert_eq!(reaper.hibernated_specialists.len(), 0);
-        assert!(duration_us < 10_000, "Resurrection took {} µs, expected < 10,000 µs", duration_us);
+        assert!(
+            duration_us < 10_000,
+            "Resurrection took {} µs, expected < 10,000 µs",
+            duration_us
+        );
 
         let _ = fs::remove_dir_all(&test_dir);
     }

@@ -6,13 +6,11 @@
 //! Host FFI kernels are registered via Cranelift's symbol table during compilation.
 //! Host FFI kernels are registered via Cranelift's symbol table during compilation.
 
-use anyhow::{anyhow, Result};
-use cranelift_codegen::ir::{
-    types, AbiParam, Function, InstBuilder, MemFlags, Signature,
-};
+use anyhow::{Result, anyhow};
+use cranelift_codegen::Context;
+use cranelift_codegen::ir::{AbiParam, Function, InstBuilder, MemFlags, Signature, types};
 use cranelift_codegen::isa::{self, TargetIsa};
 use cranelift_codegen::settings::{self, Configurable, Flags};
-use cranelift_codegen::Context;
 use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext};
 use si_ir::{MachineOpcode, NativeComputationalGraph};
 use std::sync::Arc;
@@ -38,9 +36,11 @@ impl CraneliftJitEngine {
     /// Initializes Cranelift JIT engine for the current host architecture
     pub fn new() -> Result<Self> {
         let mut flag_builder = settings::builder();
-        flag_builder.set("opt_level", "speed_and_size")
+        flag_builder
+            .set("opt_level", "speed_and_size")
             .map_err(|e| anyhow!("Failed to set Cranelift opt_level: {e}"))?;
-        flag_builder.set("is_pic", "true")
+        flag_builder
+            .set("is_pic", "true")
             .map_err(|e| anyhow!("Failed to set Cranelift is_pic: {e}"))?;
 
         let flags = Flags::new(flag_builder);
@@ -72,10 +72,8 @@ impl CraneliftJitEngine {
         // Return value: u64
         sig.returns.push(AbiParam::new(types::I64));
 
-        let mut func = Function::with_name_signature(
-            cranelift_codegen::ir::UserFuncName::user(0, 0),
-            sig,
-        );
+        let mut func =
+            Function::with_name_signature(cranelift_codegen::ir::UserFuncName::user(0, 0), sig);
 
         let mut fn_builder_ctx = FunctionBuilderContext::new();
         let mut builder = FunctionBuilder::new(&mut func, &mut fn_builder_ctx);
@@ -97,71 +95,131 @@ impl CraneliftJitEngine {
                     // memory_pool is offset 128 in NativeExecutionContext
                     let pool_offset = builder.ins().iadd_imm(ctx_ptr, 128);
                     // Store pool_offset into registers[0] (offset 0)
-                    builder.ins().store(MemFlags::trusted(), pool_offset, ctx_ptr, 0);
+                    builder
+                        .ins()
+                        .store(MemFlags::trusted(), pool_offset, ctx_ptr, 0);
 
                     // Store size_bytes into registers[1] (offset 8)
                     let size_val = builder.ins().iconst(types::I64, *size_bytes as i64);
-                    builder.ins().store(MemFlags::trusted(), size_val, ctx_ptr, 8);
+                    builder
+                        .ins()
+                        .store(MemFlags::trusted(), size_val, ctx_ptr, 8);
                 }
                 MachineOpcode::Load { address_reg } => {
                     let addr_offset = ((*address_reg as i32) * 8).min(120);
-                    let loaded_val = builder.ins().load(types::I64, MemFlags::trusted(), ctx_ptr, addr_offset);
-                    builder.ins().store(MemFlags::trusted(), loaded_val, ctx_ptr, 0);
+                    let loaded_val =
+                        builder
+                            .ins()
+                            .load(types::I64, MemFlags::trusted(), ctx_ptr, addr_offset);
+                    builder
+                        .ins()
+                        .store(MemFlags::trusted(), loaded_val, ctx_ptr, 0);
                 }
-                MachineOpcode::Store { address_reg, value_reg } => {
+                MachineOpcode::Store {
+                    address_reg,
+                    value_reg,
+                } => {
                     let val_offset = ((*value_reg as i32) * 8).min(120);
                     let addr_offset = ((*address_reg as i32) * 8).min(120);
-                    let val = builder.ins().load(types::I64, MemFlags::trusted(), ctx_ptr, val_offset);
-                    builder.ins().store(MemFlags::trusted(), val, ctx_ptr, addr_offset);
+                    let val =
+                        builder
+                            .ins()
+                            .load(types::I64, MemFlags::trusted(), ctx_ptr, val_offset);
+                    builder
+                        .ins()
+                        .store(MemFlags::trusted(), val, ctx_ptr, addr_offset);
                 }
                 MachineOpcode::BranchIf { condition_reg, .. } => {
                     let cond_offset = ((*condition_reg as i32) * 8).min(120);
-                    let cond_val = builder.ins().load(types::I64, MemFlags::trusted(), ctx_ptr, cond_offset);
+                    let cond_val =
+                        builder
+                            .ins()
+                            .load(types::I64, MemFlags::trusted(), ctx_ptr, cond_offset);
                     let zero = builder.ins().iconst(types::I64, 0);
-                    let is_non_zero = builder.ins().icmp(cranelift_codegen::ir::condcodes::IntCC::NotEqual, cond_val, zero);
+                    let is_non_zero = builder.ins().icmp(
+                        cranelift_codegen::ir::condcodes::IntCC::NotEqual,
+                        cond_val,
+                        zero,
+                    );
 
                     let then_block = builder.create_block();
                     let merge_block = builder.create_block();
 
-                    builder.ins().brif(is_non_zero, then_block, &[], merge_block, &[]);
+                    builder
+                        .ins()
+                        .brif(is_non_zero, then_block, &[], merge_block, &[]);
                     builder.switch_to_block(then_block);
                     builder.seal_block(then_block);
 
                     // Set status_code (offset 4224) to 1
                     let status_one = builder.ins().iconst(types::I32, 1);
-                    builder.ins().store(MemFlags::trusted(), status_one, ctx_ptr, 4224);
+                    builder
+                        .ins()
+                        .store(MemFlags::trusted(), status_one, ctx_ptr, 4224);
                     builder.ins().jump(merge_block, &[]);
 
                     builder.switch_to_block(merge_block);
                     builder.seal_block(merge_block);
                 }
-                MachineOpcode::Call { function_id, arg_regs } => {
+                MachineOpcode::Call {
+                    function_id,
+                    arg_regs,
+                } => {
                     // Update status_code with low 32 bits of function_id
-                    let fn_code = builder.ins().iconst(types::I32, (*function_id & 0xFFFFFFFF) as i64);
-                    builder.ins().store(MemFlags::trusted(), fn_code, ctx_ptr, 4224);
+                    let fn_code = builder
+                        .ins()
+                        .iconst(types::I32, (*function_id & 0xFFFFFFFF) as i64);
+                    builder
+                        .ins()
+                        .store(MemFlags::trusted(), fn_code, ctx_ptr, 4224);
                     if let Some(&first_arg) = arg_regs.first() {
                         let arg_offset = ((first_arg as i32) * 8).min(120);
-                        let arg_val = builder.ins().load(types::I64, MemFlags::trusted(), ctx_ptr, arg_offset);
-                        builder.ins().store(MemFlags::trusted(), arg_val, ctx_ptr, 0);
+                        let arg_val = builder.ins().load(
+                            types::I64,
+                            MemFlags::trusted(),
+                            ctx_ptr,
+                            arg_offset,
+                        );
+                        builder
+                            .ins()
+                            .store(MemFlags::trusted(), arg_val, ctx_ptr, 0);
                     }
                 }
-                MachineOpcode::TensorDot { left_reg, right_reg, .. } => {
+                MachineOpcode::TensorDot {
+                    left_reg,
+                    right_reg,
+                    ..
+                } => {
                     let left_offset = ((*left_reg as i32) * 8).min(120);
                     let right_offset = ((*right_reg as i32) * 8).min(120);
-                    let left_val = builder.ins().load(types::I64, MemFlags::trusted(), ctx_ptr, left_offset);
-                    let right_val = builder.ins().load(types::I64, MemFlags::trusted(), ctx_ptr, right_offset);
+                    let left_val =
+                        builder
+                            .ins()
+                            .load(types::I64, MemFlags::trusted(), ctx_ptr, left_offset);
+                    let right_val =
+                        builder
+                            .ins()
+                            .load(types::I64, MemFlags::trusted(), ctx_ptr, right_offset);
                     let prod = builder.ins().imul(left_val, right_val);
                     builder.ins().store(MemFlags::trusted(), prod, ctx_ptr, 0);
                 }
                 MachineOpcode::EntropyMinimization { state_reg } => {
                     let reg_offset = ((*state_reg as i32) * 8).min(120);
-                    let val = builder.ins().load(types::I64, MemFlags::trusted(), ctx_ptr, reg_offset);
+                    let val =
+                        builder
+                            .ins()
+                            .load(types::I64, MemFlags::trusted(), ctx_ptr, reg_offset);
                     let minimized = builder.ins().ushr_imm(val, 1);
-                    builder.ins().store(MemFlags::trusted(), minimized, ctx_ptr, reg_offset);
+                    builder
+                        .ins()
+                        .store(MemFlags::trusted(), minimized, ctx_ptr, reg_offset);
                 }
                 MachineOpcode::Return { value_reg } => {
                     let ret_offset = ((*value_reg as i32) * 8).min(120);
-                    let ret_val = builder.ins().load(types::I64, MemFlags::trusted(), ctx_ptr, ret_offset);
+                    let ret_val =
+                        builder
+                            .ins()
+                            .load(types::I64, MemFlags::trusted(), ctx_ptr, ret_offset);
                     builder.ins().return_(&[ret_val]);
                     returned = true;
                     break;
@@ -229,8 +287,14 @@ mod tests {
         // Node 1: Alloc 2048 bytes (writes pool ptr to reg[0], 2048 to reg[1])
         graph.add_node(NativeComputationNode {
             id: 1,
-            opcode: MachineOpcode::Alloc { size_bytes: 2048, align: 64 },
-            type_lattice: NativeTypeLattice::LinearMemoryPointer { mutability: true, alignment: 64 },
+            opcode: MachineOpcode::Alloc {
+                size_bytes: 2048,
+                align: 64,
+            },
+            type_lattice: NativeTypeLattice::LinearMemoryPointer {
+                mutability: true,
+                alignment: 64,
+            },
             energy_cost: 0.05,
             dependencies: vec![],
         });
@@ -239,7 +303,10 @@ mod tests {
         graph.add_node(NativeComputationNode {
             id: 2,
             opcode: MachineOpcode::Return { value_reg: 1 },
-            type_lattice: NativeTypeLattice::PrimitiveInt { bits: 64, signed: false },
+            type_lattice: NativeTypeLattice::PrimitiveInt {
+                bits: 64,
+                signed: false,
+            },
             energy_cost: 0.01,
             dependencies: vec![1],
         });
@@ -261,17 +328,27 @@ mod tests {
         // Node 1: Store reg[1] * reg[2] -> reg[0]
         graph.add_node(NativeComputationNode {
             id: 1,
-            opcode: MachineOpcode::TensorDot { left_reg: 1, right_reg: 2, dim: 64 },
-            type_lattice: NativeTypeLattice::PrimitiveInt { bits: 32, signed: false },
+            opcode: MachineOpcode::TensorDot {
+                left_reg: 1,
+                right_reg: 2,
+                dim: 64,
+            },
+            type_lattice: NativeTypeLattice::PrimitiveInt {
+                bits: 32,
+                signed: false,
+            },
             energy_cost: 0.10,
             dependencies: vec![],
         });
 
-// Node 2: Return reg[0]
+        // Node 2: Return reg[0]
         graph.add_node(NativeComputationNode {
             id: 2,
             opcode: MachineOpcode::Return { value_reg: 0 },
-            type_lattice: NativeTypeLattice::PrimitiveInt { bits: 32, signed: false },
+            type_lattice: NativeTypeLattice::PrimitiveInt {
+                bits: 32,
+                signed: false,
+            },
             energy_cost: 0.01,
             dependencies: vec![1],
         });
@@ -295,7 +372,10 @@ mod tests {
         graph.add_node(NativeComputationNode {
             id: 1,
             opcode: MachineOpcode::Return { value_reg: 0 },
-            type_lattice: NativeTypeLattice::PrimitiveInt { bits: 64, signed: false },
+            type_lattice: NativeTypeLattice::PrimitiveInt {
+                bits: 64,
+                signed: false,
+            },
             energy_cost: 0.02,
             dependencies: vec![],
         });

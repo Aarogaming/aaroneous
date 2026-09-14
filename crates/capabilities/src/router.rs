@@ -8,7 +8,9 @@ use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use tracing::info;
 
-use crate::traits::{DomainSubEngine, MnlpPacket, MnlpResponse, SovereignSpecialist, SpecialistHealth};
+use crate::traits::{
+    DomainSubEngine, MnlpPacket, MnlpResponse, SovereignSpecialist, SpecialistHealth,
+};
 
 /// Distributed node state packet in the P2P mesh
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -200,7 +202,8 @@ mod tests {
         assert_eq!(router.bus.connected_peers, 4); // 1 local + 3 remote
         assert_eq!(router.bus.packets_routed, 3);
 
-        let is_synced = router.sync_swarm_manifest("node_alpha", &["orchestrator", "synthesizer", "fabricator"]);
+        let is_synced = router
+            .sync_swarm_manifest("node_alpha", &["orchestrator", "synthesizer", "fabricator"]);
         assert!(is_synced);
         assert_eq!(router.bus.packets_routed, 4);
     }

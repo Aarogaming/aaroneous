@@ -1,11 +1,10 @@
 //! Compile-time typed command registry for strongly-typed navigation & actions.
 
-use std::rc::Rc;
 use serde::{Deserialize, Serialize};
+use std::rc::Rc;
 
 use crate::hud::navigation::NavSection;
 use crate::hud::state::SharedHudState;
-
 
 /// Capability-based dynamic command for runtime capabilities.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -16,11 +15,18 @@ pub struct CapabilityCommand {
 
 impl CapabilityCommand {
     pub fn new(id: impl Into<String>, params: serde_json::Value) -> Self {
-        Self { id: id.into(), params }
+        Self {
+            id: id.into(),
+            params,
+        }
     }
 
-    pub fn id(&self) -> &str { &self.id }
-    pub fn params(&self) -> &serde_json::Value { &self.params }
+    pub fn id(&self) -> &str {
+        &self.id
+    }
+    pub fn params(&self) -> &serde_json::Value {
+        &self.params
+    }
 }
 
 pub type CommandExecutor = Rc<dyn Fn() + Send + Sync>;

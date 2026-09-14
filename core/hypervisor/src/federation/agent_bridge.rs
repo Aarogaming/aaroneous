@@ -1,4 +1,4 @@
-use crate::{SpecialistAgent, create_specialist};
+use crate::SpecialistAgent;
 use crate::federation::specialist::{
     Conflict, Decision, DelegateRequest, DelegateResponse, ExecutionResult, ExecutionStatus,
     NegotiationResult, ProposalPriority, ProposedAction, ResourceRequest, Specialist,
@@ -356,6 +356,7 @@ fn uuid() -> String {
 
 #[cfg(test)]
 mod tests {
+    use crate::create_specialist;
     use super::*;
 
     #[test]

@@ -92,14 +92,19 @@ impl LLMClient {
 
         let provider: Arc<dyn LLMProvider> = match config.provider_type {
             ProviderType::OpenAI => {
-                let api_key = config.api_key.clone()
-                    .ok_or_else(|| anyhow::anyhow!("OPENAI_API_KEY must be provided via LLMConfig"))?;
+                let api_key = config.api_key.clone().ok_or_else(|| {
+                    anyhow::anyhow!("OPENAI_API_KEY must be provided via LLMConfig")
+                })?;
                 Arc::new(providers::OpenAIProvider::new(api_key).await?)
             }
             ProviderType::Local => {
-                let endpoint = config.local_endpoint.clone()
+                let endpoint = config
+                    .local_endpoint
+                    .clone()
                     .unwrap_or_else(|| "http://localhost:11434".to_string());
-                let model = config.local_model.clone()
+                let model = config
+                    .local_model
+                    .clone()
                     .unwrap_or_else(|| "mistral:latest".to_string());
                 Arc::new(providers::LocalLLMProvider::new(endpoint, model).await?)
             }
@@ -162,8 +167,12 @@ impl LLMClient {
         &self,
         path: &str,
         content: &str,
-    ) -> Result<(transpiler::prefix_cache_integration::PromptPrefixKey, String)> {
-        self.ast_prefix_mgr.format_pinned_code_context(path, content)
+    ) -> Result<(
+        transpiler::prefix_cache_integration::PromptPrefixKey,
+        String,
+    )> {
+        self.ast_prefix_mgr
+            .format_pinned_code_context(path, content)
     }
 
     /// Analyze a task to determine best approach
@@ -337,7 +346,11 @@ impl LLMClient {
 
         let mut hasher = std::collections::hash_map::DefaultHasher::new();
         std::hash::Hash::hash(&(domain, system_prompt, user_prompt), &mut hasher);
-        let cache_key = format!("domain:{}:{:016x}", domain, std::hash::Hasher::finish(&hasher));
+        let cache_key = format!(
+            "domain:{}:{:016x}",
+            domain,
+            std::hash::Hasher::finish(&hasher)
+        );
 
         if self.config.enable_caching
             && let Some(cached) = self.cache.get::<String>(&cache_key).await
@@ -379,7 +392,8 @@ impl LLMClient {
         user_message: &str,
         domain: &str,
     ) -> Result<String> {
-        self.generate_domain_response(system_prompt, user_message, domain).await
+        self.generate_domain_response(system_prompt, user_message, domain)
+            .await
     }
 
     /// Perform a chat completion with deterministic AST prefix context pinning.
@@ -395,7 +409,10 @@ impl LLMClient {
         file_path: &str,
         file_content: &str,
         domain: &str,
-    ) -> Result<(transpiler::prefix_cache_integration::PromptPrefixKey, String)> {
+    ) -> Result<(
+        transpiler::prefix_cache_integration::PromptPrefixKey,
+        String,
+    )> {
         let (prefix_key, pinned_ast_context) = self.pin_code_context(file_path, file_content)?;
         let combined_system = if system_prompt.is_empty() {
             pinned_ast_context
@@ -524,7 +541,9 @@ mod tests {
             local_model: None,
         };
 
-        let client = LLMClient::new(config).await.expect("client creation failed");
+        let client = LLMClient::new(config)
+            .await
+            .expect("client creation failed");
 
         // Basic chat test
         let chat_res = client

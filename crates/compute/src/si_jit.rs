@@ -9,14 +9,14 @@
 //! 4. In-Process Associative Memory Fabric (H4 HNSW) for sub-microsecond trajectory retrieval.
 //! 5. De-Crystallization & Hardware Trap Fallback: Flushes poisoned JIT handles and restores continuous SSM learning.
 
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Instant;
 
 use crate::cranelift_jit::{CraneliftJitEngine, NativeExecutionFn};
-use crate::episodic_memory::{EpisodicMemoryFabric, TrajectoryMetadata, LATENT_VECTOR_DIM};
+use crate::episodic_memory::{EpisodicMemoryFabric, LATENT_VECTOR_DIM, TrajectoryMetadata};
 use crate::machine_native::NativeComputationalGraph;
 use crate::wx_memory::WxMemoryRegion;
 
@@ -25,9 +25,9 @@ pub const JIT_INTENT_DIM: usize = LATENT_VECTOR_DIM;
 /// W^X Memory Protection State
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum MemoryProtectionState {
-    ReadWrite,  // Mutable during compilation
-    ReadExecute,// Immutable & Executable during execution (W^X compliance)
-    Revoked,    // De-crystallized / Poisoned
+    ReadWrite,   // Mutable during compilation
+    ReadExecute, // Immutable & Executable during execution (W^X compliance)
+    Revoked,     // De-crystallized / Poisoned
 }
 
 /// Context passed to JIT-compiled native execution routines
@@ -54,8 +54,8 @@ pub struct CompiledReflexHandle {
     pub name: String,
     pub instruction_count: usize,
     pub memory_state: MemoryProtectionState,
-    pub intent_centroid: Vec<f32>,       // 256-dim intent vector
-    pub confidence_radius: f32,          // Maximum Euclidean radius for O(1) bypass
+    pub intent_centroid: Vec<f32>, // 256-dim intent vector
+    pub confidence_radius: f32,    // Maximum Euclidean radius for O(1) bypass
     pub memory_region: Option<WxMemoryRegion>,
     pub execution_fn: Option<NativeExecutionFn>,
 }
@@ -64,8 +64,8 @@ pub struct CompiledReflexHandle {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CrystallizationMetrics {
     pub execution_count: u64,
-    pub gradient_variance: f32,          // Var(∇W) across recent updates
-    pub thermodynamic_free_energy: f64,  // Thermodynamic stability metric
+    pub gradient_variance: f32,         // Var(∇W) across recent updates
+    pub thermodynamic_free_energy: f64, // Thermodynamic stability metric
     pub is_mature_for_jit: bool,
 }
 
@@ -82,7 +82,10 @@ pub struct SiJitCompilerEngine {
 
 impl Default for SiJitCompilerEngine {
     fn default() -> Self {
-        Self::new(CraneliftJitEngine::default(), Arc::new(EpisodicMemoryFabric::default()))
+        Self::new(
+            CraneliftJitEngine::default(),
+            Arc::new(EpisodicMemoryFabric::default()),
+        )
     }
 }
 
@@ -196,16 +199,14 @@ impl SiJitCompilerEngine {
 
         // HNSW Recall from Episodic Memory Fabric
         let candidates = self.memory_fabric.recall_nearest(&query, 1);
-        if let Some(best) = candidates.first() {
-            if best.similarity >= 0.70 {
-                if let Some(handle_idx) = best.metadata.crystallized_handle_idx {
-                    if handle_idx < self.compiled_registry.len() {
-                        let handle = &self.compiled_registry[handle_idx];
-                        if handle.memory_state == MemoryProtectionState::ReadExecute {
-                            return Some(handle_idx);
-                        }
-                    }
-                }
+        if let Some(best) = candidates.first()
+            && best.similarity >= 0.70
+            && let Some(handle_idx) = best.metadata.crystallized_handle_idx
+            && handle_idx < self.compiled_registry.len()
+        {
+            let handle = &self.compiled_registry[handle_idx];
+            if handle.memory_state == MemoryProtectionState::ReadExecute {
+                return Some(handle_idx);
             }
         }
 
@@ -281,15 +282,24 @@ mod tests {
         let mut graph = NativeComputationalGraph::new();
         graph.add_node(NativeComputationNode {
             id: 1,
-            opcode: MachineOpcode::Alloc { size_bytes: 512, align: 64 },
-            type_lattice: NativeTypeLattice::LinearMemoryPointer { mutability: true, alignment: 64 },
+            opcode: MachineOpcode::Alloc {
+                size_bytes: 512,
+                align: 64,
+            },
+            type_lattice: NativeTypeLattice::LinearMemoryPointer {
+                mutability: true,
+                alignment: 64,
+            },
             energy_cost: 0.01,
             dependencies: Vec::new(),
         });
         graph.add_node(NativeComputationNode {
             id: 2,
             opcode: MachineOpcode::Return { value_reg: 1 },
-            type_lattice: NativeTypeLattice::PrimitiveInt { bits: 64, signed: false },
+            type_lattice: NativeTypeLattice::PrimitiveInt {
+                bits: 64,
+                signed: false,
+            },
             energy_cost: 0.01,
             dependencies: vec![1],
         });

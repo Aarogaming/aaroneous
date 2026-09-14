@@ -338,7 +338,7 @@ impl HudView for ScreenAutomationView {
                 // UI Element Reader Deck
                 egui::Frame::group(ui.style())
                     .fill(theme.card_bg())
-                    .stroke(eframe::egui::Stroke::new(1.0, theme.border_color()))
+                    .stroke(eframe::egui::Stroke::new(1.0_f32, theme.border_color()))
                     .corner_radius(eframe::egui::CornerRadius::same(6))
                     .show(ui, |ui| {
                         ui.set_width(ui.available_width() * 0.48);
@@ -372,7 +372,7 @@ impl HudView for ScreenAutomationView {
                 // Audio Monitor Deck
                 egui::Frame::group(ui.style())
                     .fill(theme.card_bg())
-                    .stroke(eframe::egui::Stroke::new(1.0, theme.border_color()))
+                    .stroke(eframe::egui::Stroke::new(1.0_f32, theme.border_color()))
                     .corner_radius(eframe::egui::CornerRadius::same(6))
                     .show(ui, |ui| {
                         ui.set_width(ui.available_width());

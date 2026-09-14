@@ -3,7 +3,7 @@
 //! Defines the native computational graph DAG, algebraic type lattices,
 //! dimensional SI physical invariants (7 SI base units), and thermodynamic free-energy bounds.
 
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
@@ -24,20 +24,124 @@ pub struct DimensionalUnit {
 }
 
 impl DimensionalUnit {
-    pub const DIMENSIONLESS: Self = Self { mass: 0, length: 0, time: 0, current: 0, temperature: 0, amount: 0, luminosity: 0 };
-    pub const LENGTH_METER: Self = Self { mass: 0, length: 1, time: 0, current: 0, temperature: 0, amount: 0, luminosity: 0 };
-    pub const MASS_KILOGRAM: Self = Self { mass: 1, length: 0, time: 0, current: 0, temperature: 0, amount: 0, luminosity: 0 };
-    pub const TIME_SECOND: Self = Self { mass: 0, length: 0, time: 1, current: 0, temperature: 0, amount: 0, luminosity: 0 };
-    pub const CURRENT_AMPERE: Self = Self { mass: 0, length: 0, time: 0, current: 1, temperature: 0, amount: 0, luminosity: 0 };
-    pub const TEMPERATURE_KELVIN: Self = Self { mass: 0, length: 0, time: 0, current: 0, temperature: 1, amount: 0, luminosity: 0 };
-    pub const AMOUNT_MOLE: Self = Self { mass: 0, length: 0, time: 0, current: 0, temperature: 0, amount: 1, luminosity: 0 };
-    pub const LUMEN_CANDELA: Self = Self { mass: 0, length: 0, time: 0, current: 0, temperature: 0, amount: 0, luminosity: 1 };
+    pub const DIMENSIONLESS: Self = Self {
+        mass: 0,
+        length: 0,
+        time: 0,
+        current: 0,
+        temperature: 0,
+        amount: 0,
+        luminosity: 0,
+    };
+    pub const LENGTH_METER: Self = Self {
+        mass: 0,
+        length: 1,
+        time: 0,
+        current: 0,
+        temperature: 0,
+        amount: 0,
+        luminosity: 0,
+    };
+    pub const MASS_KILOGRAM: Self = Self {
+        mass: 1,
+        length: 0,
+        time: 0,
+        current: 0,
+        temperature: 0,
+        amount: 0,
+        luminosity: 0,
+    };
+    pub const TIME_SECOND: Self = Self {
+        mass: 0,
+        length: 0,
+        time: 1,
+        current: 0,
+        temperature: 0,
+        amount: 0,
+        luminosity: 0,
+    };
+    pub const CURRENT_AMPERE: Self = Self {
+        mass: 0,
+        length: 0,
+        time: 0,
+        current: 1,
+        temperature: 0,
+        amount: 0,
+        luminosity: 0,
+    };
+    pub const TEMPERATURE_KELVIN: Self = Self {
+        mass: 0,
+        length: 0,
+        time: 0,
+        current: 0,
+        temperature: 1,
+        amount: 0,
+        luminosity: 0,
+    };
+    pub const AMOUNT_MOLE: Self = Self {
+        mass: 0,
+        length: 0,
+        time: 0,
+        current: 0,
+        temperature: 0,
+        amount: 1,
+        luminosity: 0,
+    };
+    pub const LUMEN_CANDELA: Self = Self {
+        mass: 0,
+        length: 0,
+        time: 0,
+        current: 0,
+        temperature: 0,
+        amount: 0,
+        luminosity: 1,
+    };
 
-    pub const VELOCITY: Self = Self { mass: 0, length: 1, time: -1, current: 0, temperature: 0, amount: 0, luminosity: 0 };
-    pub const ACCELERATION: Self = Self { mass: 0, length: 1, time: -2, current: 0, temperature: 0, amount: 0, luminosity: 0 };
-    pub const FORCE_NEWTON: Self = Self { mass: 1, length: 1, time: -2, current: 0, temperature: 0, amount: 0, luminosity: 0 };
-    pub const ENERGY_JOULE: Self = Self { mass: 1, length: 2, time: -2, current: 0, temperature: 0, amount: 0, luminosity: 0 };
-    pub const POWER_WATT: Self = Self { mass: 1, length: 2, time: -3, current: 0, temperature: 0, amount: 0, luminosity: 0 };
+    pub const VELOCITY: Self = Self {
+        mass: 0,
+        length: 1,
+        time: -1,
+        current: 0,
+        temperature: 0,
+        amount: 0,
+        luminosity: 0,
+    };
+    pub const ACCELERATION: Self = Self {
+        mass: 0,
+        length: 1,
+        time: -2,
+        current: 0,
+        temperature: 0,
+        amount: 0,
+        luminosity: 0,
+    };
+    pub const FORCE_NEWTON: Self = Self {
+        mass: 1,
+        length: 1,
+        time: -2,
+        current: 0,
+        temperature: 0,
+        amount: 0,
+        luminosity: 0,
+    };
+    pub const ENERGY_JOULE: Self = Self {
+        mass: 1,
+        length: 2,
+        time: -2,
+        current: 0,
+        temperature: 0,
+        amount: 0,
+        luminosity: 0,
+    };
+    pub const POWER_WATT: Self = Self {
+        mass: 1,
+        length: 2,
+        time: -3,
+        current: 0,
+        temperature: 0,
+        amount: 0,
+        luminosity: 0,
+    };
 
     pub fn multiply(&self, other: &Self) -> Self {
         Self {
@@ -86,7 +190,11 @@ pub struct UniversalPhysicalQuantity {
 
 impl UniversalPhysicalQuantity {
     pub fn new(value: f64, unit: DimensionalUnit, uncertainty: f32) -> Self {
-        Self { value, unit, uncertainty }
+        Self {
+            value,
+            unit,
+            uncertainty,
+        }
     }
 
     pub fn dimensionless(value: f64) -> Self {
@@ -138,7 +246,11 @@ impl std::ops::Add for UniversalPhysicalQuantity {
 
     fn add(self, rhs: Self) -> Result<Self> {
         if self.unit != rhs.unit {
-            return Err(anyhow!("Dimensional mismatch in addition: {:?} vs {:?}", self.unit, rhs.unit));
+            return Err(anyhow!(
+                "Dimensional mismatch in addition: {:?} vs {:?}",
+                self.unit,
+                rhs.unit
+            ));
         }
         Ok(Self {
             value: self.value + rhs.value,
@@ -153,7 +265,11 @@ impl std::ops::Sub for UniversalPhysicalQuantity {
 
     fn sub(self, rhs: Self) -> Result<Self> {
         if self.unit != rhs.unit {
-            return Err(anyhow!("Dimensional mismatch in subtraction: {:?} vs {:?}", self.unit, rhs.unit));
+            return Err(anyhow!(
+                "Dimensional mismatch in subtraction: {:?} vs {:?}",
+                self.unit,
+                rhs.unit
+            ));
         }
         Ok(Self {
             value: self.value - rhs.value,
@@ -175,21 +291,44 @@ impl std::ops::Div for UniversalPhysicalQuantity {
     type Output = Result<Self>;
 
     fn div(self, rhs: Self) -> Result<Self> {
-        self.divide(&rhs).ok_or_else(|| anyhow!("Division by zero in UniversalPhysicalQuantity"))
+        self.divide(&rhs)
+            .ok_or_else(|| anyhow!("Division by zero in UniversalPhysicalQuantity"))
     }
 }
 
 /// Machine-Native Low-Level Computational Opcode
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum MachineOpcode {
-    Alloc { size_bytes: usize, align: usize },
-    Load { address_reg: u16 },
-    Store { address_reg: u16, value_reg: u16 },
-    BranchIf { condition_reg: u16, target_block: u32 },
-    Call { function_id: u64, arg_regs: Vec<u16> },
-    TensorDot { left_reg: u16, right_reg: u16, dim: usize },
-    EntropyMinimization { state_reg: u16 },
-    Return { value_reg: u16 },
+    Alloc {
+        size_bytes: usize,
+        align: usize,
+    },
+    Load {
+        address_reg: u16,
+    },
+    Store {
+        address_reg: u16,
+        value_reg: u16,
+    },
+    BranchIf {
+        condition_reg: u16,
+        target_block: u32,
+    },
+    Call {
+        function_id: u64,
+        arg_regs: Vec<u16>,
+    },
+    TensorDot {
+        left_reg: u16,
+        right_reg: u16,
+        dim: usize,
+    },
+    EntropyMinimization {
+        state_reg: u16,
+    },
+    Return {
+        value_reg: u16,
+    },
 }
 
 impl MachineOpcode {
@@ -212,12 +351,29 @@ pub use smol_str::SmolStr;
 /// Type Lattice and Algebraic Verification Bounds
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum NativeTypeLattice {
-    PrimitiveInt { bits: u8, signed: bool },
-    PrimitiveFloat { bits: u8 },
-    PhysicalQuantity { unit: DimensionalUnit, precision: u8 },
-    TensorType { shape: Vec<usize>, element_type: Box<NativeTypeLattice> },
-    LinearMemoryPointer { mutability: bool, alignment: usize },
-    InvariantRefinement { base: Box<NativeTypeLattice>, constraint_predicate: smol_str::SmolStr },
+    PrimitiveInt {
+        bits: u8,
+        signed: bool,
+    },
+    PrimitiveFloat {
+        bits: u8,
+    },
+    PhysicalQuantity {
+        unit: DimensionalUnit,
+        precision: u8,
+    },
+    TensorType {
+        shape: Vec<usize>,
+        element_type: Box<NativeTypeLattice>,
+    },
+    LinearMemoryPointer {
+        mutability: bool,
+        alignment: usize,
+    },
+    InvariantRefinement {
+        base: Box<NativeTypeLattice>,
+        constraint_predicate: smol_str::SmolStr,
+    },
 }
 
 /// Node in the Machine-Native Computational DAG
@@ -255,8 +411,14 @@ impl NativeComputationalGraph {
         for node in self.nodes.values() {
             if let MachineOpcode::TensorDot { .. } = &node.opcode {
                 match &node.type_lattice {
-                    NativeTypeLattice::TensorType { .. } | NativeTypeLattice::PhysicalQuantity { .. } => {}
-                    _ => return Err(anyhow!("Dimensional invariant violation on node {}", node.id)),
+                    NativeTypeLattice::TensorType { .. }
+                    | NativeTypeLattice::PhysicalQuantity { .. } => {}
+                    _ => {
+                        return Err(anyhow!(
+                            "Dimensional invariant violation on node {}",
+                            node.id
+                        ));
+                    }
                 }
             }
         }
@@ -290,7 +452,9 @@ impl NativeComputationalGraph {
         let mut graph = Self::new();
         let mut prev_id = 0u64;
 
-        for (idx, (_target_process, event_type, payload, _timestamp_us)) in traces.into_iter().enumerate() {
+        for (idx, (_target_process, event_type, payload, _timestamp_us)) in
+            traces.into_iter().enumerate()
+        {
             let node_id = (idx as u64) + 1;
             let ev = event_type.as_ref();
             let pl = payload.as_ref();
@@ -299,35 +463,45 @@ impl NativeComputationalGraph {
                 "alloc" | "memory_alloc" => {
                     let size = pl.parse::<usize>().unwrap_or(64);
                     (
-                        MachineOpcode::Alloc { size_bytes: size, align: 64 },
-                        NativeTypeLattice::LinearMemoryPointer { mutability: true, alignment: 64 },
+                        MachineOpcode::Alloc {
+                            size_bytes: size,
+                            align: 64,
+                        },
+                        NativeTypeLattice::LinearMemoryPointer {
+                            mutability: true,
+                            alignment: 64,
+                        },
                         0.005,
                     )
                 }
-                "tensor_op" | "dot" => {
-                    (
-                        MachineOpcode::TensorDot { left_reg: 1, right_reg: 2, dim: 64 },
-                        NativeTypeLattice::TensorType {
-                            shape: vec![64, 64],
-                            element_type: Box::new(NativeTypeLattice::PrimitiveFloat { bits: 32 }),
-                        },
-                        0.015,
-                    )
-                }
-                "entropy" | "stabilize" => {
-                    (
-                        MachineOpcode::EntropyMinimization { state_reg: 1 },
-                        NativeTypeLattice::PrimitiveFloat { bits: 64 },
-                        0.002,
-                    )
-                }
-                _ => {
-                    (
-                        MachineOpcode::Call { function_id: node_id, arg_regs: vec![] },
-                        NativeTypeLattice::PrimitiveInt { bits: 64, signed: false },
-                        0.001,
-                    )
-                }
+                "tensor_op" | "dot" => (
+                    MachineOpcode::TensorDot {
+                        left_reg: 1,
+                        right_reg: 2,
+                        dim: 64,
+                    },
+                    NativeTypeLattice::TensorType {
+                        shape: vec![64, 64],
+                        element_type: Box::new(NativeTypeLattice::PrimitiveFloat { bits: 32 }),
+                    },
+                    0.015,
+                ),
+                "entropy" | "stabilize" => (
+                    MachineOpcode::EntropyMinimization { state_reg: 1 },
+                    NativeTypeLattice::PrimitiveFloat { bits: 64 },
+                    0.002,
+                ),
+                _ => (
+                    MachineOpcode::Call {
+                        function_id: node_id,
+                        arg_regs: vec![],
+                    },
+                    NativeTypeLattice::PrimitiveInt {
+                        bits: 64,
+                        signed: false,
+                    },
+                    0.001,
+                ),
             };
 
             let dependencies = if prev_id > 0 { vec![prev_id] } else { vec![] };
@@ -439,7 +613,11 @@ impl EphemeralExecutionArena {
         let aligned_offset = (self.offset + align - 1) & !(align - 1);
 
         if aligned_offset + size_bytes > self.capacity {
-            return Err(anyhow!("EphemeralExecutionArena out of capacity (requested {} bytes, remaining {})", size_bytes, self.capacity.saturating_sub(self.offset)));
+            return Err(anyhow!(
+                "EphemeralExecutionArena out of capacity (requested {} bytes, remaining {})",
+                size_bytes,
+                self.capacity.saturating_sub(self.offset)
+            ));
         }
 
         self.offset = aligned_offset + size_bytes;
@@ -506,15 +684,24 @@ mod tests {
         let mut graph = NativeComputationalGraph::new();
         graph.add_node(NativeComputationNode {
             id: 1,
-            opcode: MachineOpcode::Alloc { size_bytes: 128, align: 8 },
-            type_lattice: NativeTypeLattice::LinearMemoryPointer { mutability: true, alignment: 8 },
+            opcode: MachineOpcode::Alloc {
+                size_bytes: 128,
+                align: 8,
+            },
+            type_lattice: NativeTypeLattice::LinearMemoryPointer {
+                mutability: true,
+                alignment: 8,
+            },
             energy_cost: 0.05,
             dependencies: vec![],
         });
         graph.add_node(NativeComputationNode {
             id: 2,
             opcode: MachineOpcode::Return { value_reg: 0 },
-            type_lattice: NativeTypeLattice::PrimitiveInt { bits: 64, signed: false },
+            type_lattice: NativeTypeLattice::PrimitiveInt {
+                bits: 64,
+                signed: false,
+            },
             energy_cost: 0.01,
             dependencies: vec![1],
         });
@@ -565,8 +752,20 @@ mod tests {
     #[test]
     fn test_dense_graph_storage_soa() {
         let mut storage = DenseGraphStorage::with_capacity(16);
-        storage.push_node(1, MachineOpcode::Return { value_reg: 0 }, DimensionalUnit::DIMENSIONLESS, 0.05, 0);
-        storage.push_node(2, MachineOpcode::Return { value_reg: 1 }, DimensionalUnit::ENERGY_JOULE, 0.10, 1);
+        storage.push_node(
+            1,
+            MachineOpcode::Return { value_reg: 0 },
+            DimensionalUnit::DIMENSIONLESS,
+            0.05,
+            0,
+        );
+        storage.push_node(
+            2,
+            MachineOpcode::Return { value_reg: 1 },
+            DimensionalUnit::ENERGY_JOULE,
+            0.10,
+            1,
+        );
         assert_eq!(storage.len(), 2);
         assert!((storage.total_free_energy() - 0.15).abs() < 1e-6);
         assert_eq!(storage.dimensional_units[1], DimensionalUnit::ENERGY_JOULE);

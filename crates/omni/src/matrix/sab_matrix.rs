@@ -142,7 +142,8 @@ impl SabMatrixBuilder {
 
 impl SabMatrix {
     pub fn load_default() -> Result<Self> {
-        let matrix: SabMatrix = serde_json::from_str(include_str!("../../registry/sab_matrix.json"))?;
+        let matrix: SabMatrix =
+            serde_json::from_str(include_str!("../../registry/sab_matrix.json"))?;
         Ok(matrix)
     }
 
@@ -196,10 +197,10 @@ impl SabMatrix {
 
         if registry_dir.exists() {
             let builder = SabMatrixBuilder::new(&registry_dir);
-            if !builder.cache_is_stale()? {
-                if let Some(matrix) = Self::load_cached_from_registry_dir(&registry_dir)? {
-                    return Ok(matrix);
-                }
+            if !builder.cache_is_stale()?
+                && let Some(matrix) = Self::load_cached_from_registry_dir(&registry_dir)?
+            {
+                return Ok(matrix);
             }
 
             SabMatrixBuilder::new(registry_dir).build_and_save()

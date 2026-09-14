@@ -89,7 +89,7 @@ impl NetworkDataStream {
     pub fn digest_network_bytes(&mut self, raw_web_data: &[u8], target_vsa: &mut [u64; 128]) {
         self.bytes_received += raw_web_data.len() as u64;
 
-        for (index, chunk) in raw_web_data.chunks_exact(64).enumerate() {
+        for (index, chunk) in raw_web_data.as_chunks::<64>().0.iter().enumerate() {
             let mut hasher = SeaHasher::new();
             hasher.write(chunk);
             let chunk_hash = hasher.finish();
@@ -109,7 +109,7 @@ impl NetworkDataStream {
     /// to the expected target. Returns true if they match.
     pub fn verify_digest(raw_web_data: &[u8], expected: &[u64; 128]) -> bool {
         let mut computed = [0u64; 128];
-        for (index, chunk) in raw_web_data.chunks_exact(64).enumerate() {
+        for (index, chunk) in raw_web_data.as_chunks::<64>().0.iter().enumerate() {
             let mut hasher = SeaHasher::new();
             hasher.write(chunk);
             let chunk_hash = hasher.finish();
@@ -123,7 +123,7 @@ impl NetworkDataStream {
 // ── GGUF Raw Binary Seek Loop (no model runtime) ──────────────────────
 
 /// GGUF file magic bytes (v3).
-const GGUF_MAGIC: [u8; 4] = [b'G', b'G', b'U', b'F'];
+const GGUF_MAGIC: [u8; 4] = *b"GGUF";
 
 /// GGUF version 3 identifier.
 const GGUF_VERSION: u32 = 3;

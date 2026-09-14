@@ -3,7 +3,7 @@
 //!
 //! Provides zero-copy vehicular telemetry packetization and autonomous protocol reverse engineering.
 
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use serde::{Deserialize, Serialize};
 
 /// Standard or Extended CAN / CAN-FD Frame Packet

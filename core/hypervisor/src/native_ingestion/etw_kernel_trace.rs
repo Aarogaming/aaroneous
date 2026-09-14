@@ -1,7 +1,6 @@
 //! Windows ETW Kernel Trace Ingestion - Real-time Process & IO Telemetry
-use std::collections::HashMap;
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 
 #[derive(Debug, Clone)]
 pub struct EtwKernelConfig {

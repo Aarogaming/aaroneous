@@ -23,7 +23,7 @@ pub const DEFAULT_DELTA_THRESHOLD: f32 = 0.02;
 pub const DEFAULT_HYSTERESIS_FRAMES: u32 = 3;
 
 mod serde_bool_256 {
-    use serde::{de::SeqAccess, de::Visitor, Deserializer, Serializer};
+    use serde::{Deserializer, Serializer, de::SeqAccess, de::Visitor};
     use std::fmt;
 
     pub fn serialize<S>(arr: &[bool; 256], serializer: S) -> Result<S::Ok, S::Error>

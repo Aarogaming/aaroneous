@@ -298,43 +298,68 @@ impl AutonomousDecisionEngine {
     }
 
     /// Process a typestate assimilation record and tick the state machine forward.
-    pub async fn process_assimilation_cycle(&mut self, record: crate::assimilation::AssimilationRecord) -> crate::assimilation::AssimilationRecord {
-        use crate::assimilation::{AssimilationPhase, AssimilationTask, Idle, Quarantined, Auditing, Synthesizing, Certifying, AuditResult};
-        use crate::nervous_system::universal_protocol::{FixedString256, FixedString64};
+    pub async fn process_assimilation_cycle(
+        &mut self,
+        record: crate::assimilation::AssimilationRecord,
+    ) -> crate::assimilation::AssimilationRecord {
+        use crate::assimilation::{
+            AssimilationTask, AuditResult, Auditing, Certifying, Idle, Quarantined, Synthesizing,
+        };
+        use crate::nervous_system::universal_protocol::{FixedString64, FixedString256};
         use core::marker::PhantomData;
 
         match record.phase {
-            0 => { // Idle -> Quarantined
-                let task: AssimilationTask<Idle> = AssimilationTask { record, _marker: PhantomData };
+            0 => {
+                // Idle -> Quarantined
+                let task: AssimilationTask<Idle> = AssimilationTask {
+                    record,
+                    _marker: PhantomData,
+                };
                 let quarantined = task.quarantine(FixedString256::default());
                 quarantined.record
             }
-            1 => { // Quarantined -> Auditing
-                let task: AssimilationTask<Quarantined> = AssimilationTask { record, _marker: PhantomData };
+            1 => {
+                // Quarantined -> Auditing
+                let task: AssimilationTask<Quarantined> = AssimilationTask {
+                    record,
+                    _marker: PhantomData,
+                };
                 let auditing = task.begin_audit();
                 auditing.record
             }
-            2 => { // Auditing -> Synthesizing or Rejected
-                let task: AssimilationTask<Auditing> = AssimilationTask { record, _marker: PhantomData };
+            2 => {
+                // Auditing -> Synthesizing or Rejected
+                let task: AssimilationTask<Auditing> = AssimilationTask {
+                    record,
+                    _marker: PhantomData,
+                };
                 match task.conclude_audit(AuditResult::Pass(FixedString64::default())) {
                     Ok(synthesizing) => synthesizing.record,
                     Err(rejected) => rejected.record,
                 }
             }
-            3 => { // Synthesizing -> Certifying
-                let task: AssimilationTask<Synthesizing> = AssimilationTask { record, _marker: PhantomData };
+            3 => {
+                // Synthesizing -> Certifying
+                let task: AssimilationTask<Synthesizing> = AssimilationTask {
+                    record,
+                    _marker: PhantomData,
+                };
                 let certifying = task.finalize_synthesis();
                 certifying.record
             }
-            4 => { // Certifying -> Committed, Synthesizing, or Rejected
-                let task: AssimilationTask<Certifying> = AssimilationTask { record, _marker: PhantomData };
+            4 => {
+                // Certifying -> Committed, Synthesizing, or Rejected
+                let task: AssimilationTask<Certifying> = AssimilationTask {
+                    record,
+                    _marker: PhantomData,
+                };
                 match task.certify(true, 3) {
                     Ok(committed) => committed.record,
                     Err(Ok(synthesizing)) => synthesizing.record,
                     Err(Err(rejected)) => rejected.record,
                 }
             }
-            _ => record // Committed or Rejected
+            _ => record, // Committed or Rejected
         }
     }
 
@@ -640,13 +665,21 @@ mod tests {
         let intelligence = create_test_intelligence().await;
         let mut engine = AutonomousDecisionEngine::new(intelligence);
 
-        let initial_record = crate::assimilation::AssimilationTask::<crate::assimilation::Idle>::new([0; 16], 0).record;
+        let initial_record =
+            crate::assimilation::AssimilationTask::<crate::assimilation::Idle>::new([0; 16], 0)
+                .record;
 
         let after_step_1 = engine.process_assimilation_cycle(initial_record).await;
-        assert_eq!(after_step_1.phase, crate::assimilation::AssimilationPhase::Quarantined as u32);
-        
+        assert_eq!(
+            after_step_1.phase,
+            crate::assimilation::AssimilationPhase::Quarantined as u32
+        );
+
         let after_step_2 = engine.process_assimilation_cycle(after_step_1).await;
-        assert_eq!(after_step_2.phase, crate::assimilation::AssimilationPhase::Auditing as u32);
+        assert_eq!(
+            after_step_2.phase,
+            crate::assimilation::AssimilationPhase::Auditing as u32
+        );
     }
 
     #[tokio::test]

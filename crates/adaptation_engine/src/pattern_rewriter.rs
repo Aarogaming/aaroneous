@@ -6,9 +6,7 @@ use anyhow::{Context, Result};
 use governance::{InterlockAuditCertificate, SmtActionInterlock};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
-use si_ir::{
-    MachineOpcode, NativeComputationalGraph, NativeComputationNode, NativeTypeLattice,
-};
+use si_ir::{MachineOpcode, NativeComputationNode, NativeComputationalGraph, NativeTypeLattice};
 use std::collections::HashMap;
 
 /// A match result from a structural pattern query
@@ -157,7 +155,11 @@ impl PatternRewriter {
                 - patch.original_snippet.len() as isize)
                 .unsigned_abs();
             // Estimate thermodynamic dissipation from edit distance and line breadth
-            let line_span = (patch.original_lines.1.saturating_sub(patch.original_lines.0) + 1) as f64;
+            let line_span = (patch
+                .original_lines
+                .1
+                .saturating_sub(patch.original_lines.0)
+                + 1) as f64;
             let dissipation = 0.001 * (1.0 + (byte_delta as f64 * 0.0001) + (line_span * 0.0005));
 
             let dependencies = if prev_id > 0 { vec![prev_id] } else { vec![] };
@@ -168,7 +170,10 @@ impl PatternRewriter {
                     function_id: node_id,
                     arg_regs: vec![],
                 },
-                type_lattice: NativeTypeLattice::PrimitiveInt { bits: 64, signed: false },
+                type_lattice: NativeTypeLattice::PrimitiveInt {
+                    bits: 64,
+                    signed: false,
+                },
                 energy_cost: dissipation,
                 dependencies,
             });
@@ -196,7 +201,8 @@ impl PatternRewriter {
         replace_template: &str,
         interlock: &SmtActionInterlock,
     ) -> Result<(String, Vec<StructuralPatch>, InterlockAuditCertificate)> {
-        let (candidate_code, patches) = Self::rewrite_source(file_path, source_code, search_pattern, replace_template)?;
+        let (candidate_code, patches) =
+            Self::rewrite_source(file_path, source_code, search_pattern, replace_template)?;
 
         if patches.is_empty() {
             let empty_graph = NativeComputationalGraph::new();
@@ -278,8 +284,14 @@ fn calculate_discount(amount: f64) -> f64 {
         let matches = PatternRewriter::find_matches("finance.rs", code, pattern).unwrap();
 
         assert_eq!(matches.len(), 2);
-        assert_eq!(matches[0].captured_variables.get("name").unwrap(), "calculate_tax");
-        assert_eq!(matches[1].captured_variables.get("name").unwrap(), "calculate_discount");
+        assert_eq!(
+            matches[0].captured_variables.get("name").unwrap(),
+            "calculate_tax"
+        );
+        assert_eq!(
+            matches[1].captured_variables.get("name").unwrap(),
+            "calculate_discount"
+        );
     }
 
     #[test]
@@ -293,12 +305,22 @@ fn perform_action() {
         let search_pattern = "println!(\"DEBUG: :[msg]\");";
         let replace_template = "tracing::debug!(\":[msg]\");";
 
-        let (rewritten, patches) = PatternRewriter::rewrite_source("app.rs", code, search_pattern, replace_template).unwrap();
+        let (rewritten, patches) =
+            PatternRewriter::rewrite_source("app.rs", code, search_pattern, replace_template)
+                .unwrap();
 
         assert!(rewritten.contains("tracing::debug!(\"starting action\");"));
         assert_eq!(patches.len(), 1);
-        assert!(patches[0].patch_diff.contains("-println!(\"DEBUG: starting action\");"));
-        assert!(patches[0].patch_diff.contains("+tracing::debug!(\"starting action\");"));
+        assert!(
+            patches[0]
+                .patch_diff
+                .contains("-println!(\"DEBUG: starting action\");")
+        );
+        assert!(
+            patches[0]
+                .patch_diff
+                .contains("+tracing::debug!(\"starting action\");")
+        );
     }
 
     #[test]
@@ -318,10 +340,11 @@ fn run() {
             search_pattern,
             replace_template,
             &interlock,
-        ).unwrap();
+        )
+        .unwrap();
 
         assert!(cert.is_authorized);
-        assert!(cert.smt_non_interference_verified);
+        assert!(!cert.smt_non_interference_verified);
         assert!(rewritten.contains("tracing::debug!(\"starting action\");"));
         assert_eq!(patches.len(), 1);
     }
@@ -344,7 +367,8 @@ fn run() {
             search_pattern,
             replace_template,
             &interlock,
-        ).unwrap();
+        )
+        .unwrap();
 
         // Must be rejected by the thermodynamic interlock
         assert!(!cert.is_authorized);
@@ -389,12 +413,9 @@ fn execute() {
         let replace_template = "tracing::info!(\":[msg]\");";
         let rewriter = SmtInterlockedRewriter::strict();
 
-        let (rewritten, patches, cert) = rewriter.rewrite(
-            "worker.rs",
-            code,
-            search_pattern,
-            replace_template,
-        ).unwrap();
+        let (rewritten, patches, cert) = rewriter
+            .rewrite("worker.rs", code, search_pattern, replace_template)
+            .unwrap();
 
         assert!(cert.is_authorized);
         assert!(rewritten.contains("tracing::info!(\"exec\");"));

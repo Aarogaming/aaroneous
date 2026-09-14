@@ -1,7 +1,7 @@
 //! crates/adaptation_engine/src/mutation.rs
 //! Code patch synthesis, diff generation, and AST-level transformations.
 
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use serde::{Deserialize, Serialize};
 use tracing::info;
 
@@ -131,7 +131,8 @@ impl CodeMutator {
     ) -> Result<(String, governance::InterlockAuditCertificate)> {
         // 1. Build a formal action graph for the proposed patch
         let mut graph = si_ir::NativeComputationalGraph::new();
-        let delta_bytes = (patch.patch_content.len() as isize - source_code.len() as isize).unsigned_abs();
+        let delta_bytes =
+            (patch.patch_content.len() as isize - source_code.len() as isize).unsigned_abs();
         let dissipation = 0.001 * (1.0 + (delta_bytes as f64 * 0.0001));
 
         graph.add_node(si_ir::NativeComputationNode {
@@ -140,7 +141,10 @@ impl CodeMutator {
                 function_id: 1,
                 arg_regs: vec![],
             },
-            type_lattice: si_ir::NativeTypeLattice::PrimitiveInt { bits: 64, signed: false },
+            type_lattice: si_ir::NativeTypeLattice::PrimitiveInt {
+                bits: 64,
+                signed: false,
+            },
             energy_cost: dissipation,
             dependencies: vec![],
         });
@@ -155,7 +159,9 @@ impl CodeMutator {
             bail!(
                 "SMT Action Interlock rejected patch for '{}': {}",
                 patch.target_file,
-                cert.denial_reason.clone().unwrap_or_else(|| "Unknown violation".to_string())
+                cert.denial_reason
+                    .clone()
+                    .unwrap_or_else(|| "Unknown violation".to_string())
             );
         }
 
@@ -201,7 +207,8 @@ mod tests {
     #[test]
     fn test_line_replacement_and_diff() {
         let src = "line 1\nline 2\nline 3";
-        let patch = CodeMutator::synthesize_line_replacement("test.rs", src, 1, "line 2 modified").unwrap();
+        let patch =
+            CodeMutator::synthesize_line_replacement("test.rs", src, 1, "line 2 modified").unwrap();
         assert_eq!(patch.patch_content, "line 1\nline 2 modified\nline 3");
 
         let diff = CodeMutator::generate_unified_diff(src, &patch.patch_content, "test.rs");
@@ -220,7 +227,11 @@ mod tests {
             " { val } else { 0 }",
         )
         .unwrap();
-        assert!(patch.patch_content.contains("if let Ok(val) = risky_call() { val } else { 0 }"));
+        assert!(
+            patch
+                .patch_content
+                .contains("if let Ok(val) = risky_call() { val } else { 0 }")
+        );
     }
 
     #[test]
@@ -236,7 +247,8 @@ mod tests {
 
         // 1. Success with strict interlock
         let interlock = governance::SmtActionInterlock::strict();
-        let (applied, cert) = CodeMutator::apply_patch_interlocked(src, &patch, &interlock).unwrap();
+        let (applied, cert) =
+            CodeMutator::apply_patch_interlocked(src, &patch, &interlock).unwrap();
         assert_eq!(applied, patch.patch_content);
         assert!(cert.is_authorized);
 

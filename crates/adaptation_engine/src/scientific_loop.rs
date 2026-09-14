@@ -40,7 +40,8 @@ impl ScientificLoop {
         let obs = AstParser::parse_source(file_path, source_code)?;
 
         // 2. HYPOTHESIS
-        let patch = CodeMutator::synthesize_repair(file_path, source_code, pattern_to_fix, replacement)?;
+        let patch =
+            CodeMutator::synthesize_repair(file_path, source_code, pattern_to_fix, replacement)?;
         let hypothesis = AdaptationHypothesis {
             hypothesis_id: format!("hyp_{}", patch.original_checksum),
             description: format!("Replacing '{}' improves stability", pattern_to_fix),
@@ -54,7 +55,11 @@ impl ScientificLoop {
             hypothesis_id: hypothesis.hypothesis_id.clone(),
             success,
             performance_delta_pct: if success { 12.5 } else { 0.0 },
-            verdict: if success { "ADAPTATION_ACCEPTED".to_string() } else { "REJECTED".to_string() },
+            verdict: if success {
+                "ADAPTATION_ACCEPTED".to_string()
+            } else {
+                "REJECTED".to_string()
+            },
         };
 
         Ok((obs, hypothesis, report))
@@ -73,7 +78,8 @@ mod tests {
             src,
             "panic!(\"fail\");",
             "return Err(anyhow!(\"fail\"));",
-        ).unwrap();
+        )
+        .unwrap();
 
         assert_eq!(obs.functions.len(), 1);
         assert!(ver.success);

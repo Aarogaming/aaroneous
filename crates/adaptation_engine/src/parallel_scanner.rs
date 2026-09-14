@@ -54,17 +54,19 @@ impl ParallelScanner {
     }
 
     /// Parallel scan of files on disk matching extensions
-    pub fn scan_directory_parallel(dir_path: impl AsRef<Path>, extensions: &[&str]) -> Result<Vec<PathBuf>> {
+    pub fn scan_directory_parallel(
+        dir_path: impl AsRef<Path>,
+        extensions: &[&str],
+    ) -> Result<Vec<PathBuf>> {
         let mut matched_files = Vec::new();
         if let Ok(entries) = std::fs::read_dir(dir_path) {
             for entry in entries.flatten() {
                 let path = entry.path();
-                if path.is_file() {
-                    if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
-                        if extensions.contains(&ext) {
-                            matched_files.push(path);
-                        }
-                    }
+                if path.is_file()
+                    && let Some(ext) = path.extension().and_then(|e| e.to_str())
+                    && extensions.contains(&ext)
+                {
+                    matched_files.push(path);
                 }
             }
         }
@@ -78,9 +80,18 @@ mod tests {
 
     #[test]
     fn test_parallel_scanner_multi_file_processing() {
-        let file1 = ("main.rs", "fn main() { println!(\"hello\"); }\nfn helper() {}");
-        let file2 = ("lib.rs", "pub fn compute_sum(a: i32, b: i32) -> i32 { a + b }");
-        let file3 = ("util.py", "def process_data():\n    pass\ndef log():\n    pass");
+        let file1 = (
+            "main.rs",
+            "fn main() { println!(\"hello\"); }\nfn helper() {}",
+        );
+        let file2 = (
+            "lib.rs",
+            "pub fn compute_sum(a: i32, b: i32) -> i32 { a + b }",
+        );
+        let file3 = (
+            "util.py",
+            "def process_data():\n    pass\ndef log():\n    pass",
+        );
 
         let files = vec![file1, file2, file3];
         let report = ParallelScanner::scan_sources_parallel(&files);

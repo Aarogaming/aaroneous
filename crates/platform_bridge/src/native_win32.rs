@@ -13,7 +13,7 @@ use tracing::warn;
 
 #[cfg(feature = "native-win32")]
 use crate::traits::HidAction;
-use crate::traits::{HidCommand, MarionetteHost, ProbingTrace, VisualObservation};
+use crate::traits::{HidCommand, PlatformHost, ProbingTrace, VisualObservation};
 
 #[cfg(feature = "native-win32")]
 use windows::Win32::Foundation::{HWND, POINT};
@@ -33,9 +33,9 @@ use windows::Win32::UI::WindowsAndMessaging::{
     GetCursorPos, GetSystemMetrics, SYSTEM_METRICS_INDEX,
 };
 
-/// Native Win32 Marionette Host implementation
+/// Native Win32 PlatformHost implementation
 #[allow(dead_code)]
-pub struct NativeWin32Marionette {
+pub struct Win32PlatformHost {
     #[cfg(feature = "native-win32")]
     hdc_screen: Option<HDC>,
     #[cfg(feature = "native-win32")]
@@ -48,16 +48,20 @@ pub struct NativeWin32Marionette {
     pub allow_live_input: bool,
 }
 
-unsafe impl Send for NativeWin32Marionette {}
-unsafe impl Sync for NativeWin32Marionette {}
+unsafe impl Send for Win32PlatformHost {}
+unsafe impl Sync for Win32PlatformHost {}
 
-impl Default for NativeWin32Marionette {
+impl Default for Win32PlatformHost {
     fn default() -> Self {
         Self::new(false)
     }
 }
 
-impl NativeWin32Marionette {
+/// Backwards compatibility alias for `Win32PlatformHost`
+#[deprecated(note = "Use Win32PlatformHost instead")]
+pub type NativeWin32Marionette = Win32PlatformHost;
+
+impl Win32PlatformHost {
     pub fn new(allow_live_input: bool) -> Self {
         Self {
             #[cfg(feature = "native-win32")]
@@ -91,7 +95,7 @@ impl NativeWin32Marionette {
 
             SelectObject(hdc_memory, hbitmap.into());
             info!(
-                target: "marionette::native",
+                target: "platform_bridge::win32",
                 width = self.screen_width,
                 height = self.screen_height,
                 "Win32 GDI screen capture initialized"
@@ -115,7 +119,7 @@ impl NativeWin32Marionette {
     }
 }
 
-impl Drop for NativeWin32Marionette {
+impl Drop for Win32PlatformHost {
     fn drop(&mut self) {
         #[cfg(feature = "native-win32")]
         unsafe {
@@ -133,7 +137,7 @@ impl Drop for NativeWin32Marionette {
 }
 
 #[async_trait]
-impl MarionetteHost for NativeWin32Marionette {
+impl PlatformHost for Win32PlatformHost {
     async fn pull_visual_perception(&mut self) -> Result<VisualObservation> {
         #[cfg(feature = "native-win32")]
         unsafe {
@@ -252,7 +256,7 @@ impl MarionetteHost for NativeWin32Marionette {
     async fn inject_hid_event(&mut self, command: HidCommand) -> Result<()> {
         if !self.check_host_safety_permit() {
             warn!(
-                target: "marionette::native",
+                target: "platform_bridge::win32",
                 seq = command.sequence_id,
                 "Live input blocked by safety guard (AARONEOUS_ALLOW_HOST_INPUT != 1)"
             );
@@ -265,7 +269,7 @@ impl MarionetteHost for NativeWin32Marionette {
             let mut cursor_pt = POINT { x: 0, y: 0 };
             if GetCursorPos(&mut cursor_pt).is_ok() && cursor_pt.x <= 5 && cursor_pt.y <= 5 {
                 warn!(
-                    target: "marionette::native",
+                    target: "platform_bridge::win32",
                     pos_x = cursor_pt.x,
                     pos_y = cursor_pt.y,
                     "Emergency failsafe triggered: cursor in corner (0,0). Aborting synthetic input injection."

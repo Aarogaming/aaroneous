@@ -377,7 +377,8 @@ async fn run_import(
                     parameter_count: (dna.parameter_count_m * 1_000_000.0) as u64,
                     created_at: chrono::Utc::now(),
                     priority: autonomic_adaptation::self_digestion::DigestionPriority::Normal,
-                    status: autonomic_adaptation::self_digestion::DigestionStatus::StructuralAnalysis,
+                    status:
+                        autonomic_adaptation::self_digestion::DigestionStatus::StructuralAnalysis,
                     estimated_duration_minutes: 1,
                 };
 

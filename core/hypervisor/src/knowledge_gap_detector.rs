@@ -55,7 +55,11 @@ impl KnowledgeGapDetector {
         for entry in &index.entries {
             let age_days = (now - entry.last_accessed).num_days();
             if age_days > 7 {
-                let subject = entry.metadata.get("subject").unwrap_or(&"unknown".to_string()).clone();
+                let subject = entry
+                    .metadata
+                    .get("subject")
+                    .unwrap_or(&"unknown".to_string())
+                    .clone();
                 let gap = format!("re-verify stale knowledge: {subject}");
                 if !self.known_concepts.contains(&gap) {
                     gaps.push(gap);
@@ -67,10 +71,16 @@ impl KnowledgeGapDetector {
     }
 
     /// Predicts future knowledge requirements based on current plan trajectories.
-    pub fn forecast_requirements(&self, active_plan: &Option<crate::executive_plan::ExecutivePlan>) -> Vec<String> {
+    pub fn forecast_requirements(
+        &self,
+        active_plan: &Option<crate::executive_plan::ExecutivePlan>,
+    ) -> Vec<String> {
         let mut forecast = Vec::new();
         if let Some(plan) = active_plan {
-            println!("[KnowledgeGapDetector] Forecasting requirements for plan: {}", plan.goal);
+            println!(
+                "[KnowledgeGapDetector] Forecasting requirements for plan: {}",
+                plan.goal
+            );
 
             // If the plan involves "WASM", predict a need for "WIT-bindings" research
             if plan.goal.to_lowercase().contains("wasm") {
@@ -100,7 +110,10 @@ impl KnowledgeGapDetector {
 
         let intent = format!("Synthesize lore to bridge identified gaps: {}", target);
 
-        println!("[KnowledgeGapDetector] Formulated aggregate hunger intent: {}", intent);
+        println!(
+            "[KnowledgeGapDetector] Formulated aggregate hunger intent: {}",
+            intent
+        );
         Ok(intent)
     }
 }

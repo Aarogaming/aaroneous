@@ -28,7 +28,7 @@ pub fn render_transparent_hud(ctx: &egui::Context, state: &mut SharedHudState) {
         .frame(
             egui::Frame::window(&ctx.global_style())
                 .fill(Color32::from_rgba_unmultiplied(13, 17, 23, 225))
-                .stroke(Stroke::new(1.5, theme.accent()))
+                .stroke(Stroke::new(1.5_f32, theme.accent()))
                 .corner_radius(CornerRadius::same(8)),
         )
         .show(ctx, |ui| {
@@ -74,7 +74,7 @@ pub fn render_transparent_hud(ctx: &egui::Context, state: &mut SharedHudState) {
 
             egui::Frame::group(ui.style())
                 .fill(Color32::from_rgba_unmultiplied(20, 28, 45, 230))
-                .stroke(Stroke::new(1.0, theme.accent()))
+                .stroke(Stroke::new(1.0_f32, theme.accent()))
                 .corner_radius(CornerRadius::same(6))
                 .inner_margin(egui::Margin::symmetric(8, 6))
                 .show(ui, |ui| {
@@ -229,11 +229,19 @@ pub fn render_transparent_hud(ctx: &egui::Context, state: &mut SharedHudState) {
         );
         painter.line_segment(
             [prev_pos, target_pos],
-            Stroke::new(2.0, Color32::from_rgba_unmultiplied(accent_color.r(), accent_color.g(), accent_color.b(), 120)),
+            Stroke::new(
+                2.0_f32,
+                Color32::from_rgba_unmultiplied(
+                    accent_color.r(),
+                    accent_color.g(),
+                    accent_color.b(),
+                    120,
+                ),
+            ),
         );
 
         // Inner circle & target pip
-        painter.circle_stroke(target_pos, 16.0, Stroke::new(1.5, accent_color));
+        painter.circle_stroke(target_pos, 16.0, Stroke::new(1.5_f32, accent_color));
         painter.circle_filled(target_pos, 2.5, Color32::from_rgb(255, 60, 60));
 
         // Crosshair reticle lines
@@ -242,28 +250,28 @@ pub fn render_transparent_hud(ctx: &egui::Context, state: &mut SharedHudState) {
                 egui::pos2(target_pos.x - 22.0, target_pos.y),
                 egui::pos2(target_pos.x - 6.0, target_pos.y),
             ],
-            Stroke::new(1.5, accent_color),
+            Stroke::new(1.5_f32, accent_color),
         );
         painter.line_segment(
             [
                 egui::pos2(target_pos.x + 6.0, target_pos.y),
                 egui::pos2(target_pos.x + 22.0, target_pos.y),
             ],
-            Stroke::new(1.5, accent_color),
+            Stroke::new(1.5_f32, accent_color),
         );
         painter.line_segment(
             [
                 egui::pos2(target_pos.x, target_pos.y - 22.0),
                 egui::pos2(target_pos.x, target_pos.y - 6.0),
             ],
-            Stroke::new(1.5, accent_color),
+            Stroke::new(1.5_f32, accent_color),
         );
         painter.line_segment(
             [
                 egui::pos2(target_pos.x, target_pos.y + 6.0),
                 egui::pos2(target_pos.x, target_pos.y + 22.0),
             ],
-            Stroke::new(1.5, accent_color),
+            Stroke::new(1.5_f32, accent_color),
         );
     }
 

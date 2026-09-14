@@ -330,7 +330,8 @@ mod tests {
 
     #[test]
     fn test_packet_roundtrip() {
-        let packet = AlignedBitstreamPacket::new(1, 42, packet_types::INTENT, priorities::HIGH, 100, 64);
+        let packet =
+            AlignedBitstreamPacket::new(1, 42, packet_types::INTENT, priorities::HIGH, 100, 64);
         assert!(packet.verify());
 
         let bytes = packet.as_bytes();
@@ -348,10 +349,15 @@ mod tests {
 
     #[test]
     fn test_from_bytes_unaligned_rejected() {
-        let buffer = vec![0u8; AlignedBitstreamPacket::HEADER_SIZE + 8];
+        let buffer = [0u8; AlignedBitstreamPacket::HEADER_SIZE + 8];
         let base_ptr = buffer.as_ptr() as usize;
-        let misaligned_offset = if base_ptr % 8 == 0 { 1 } else { 8 - (base_ptr % 8) + 1 };
-        let slice = &buffer[misaligned_offset..misaligned_offset + AlignedBitstreamPacket::HEADER_SIZE];
+        let misaligned_offset = if base_ptr.is_multiple_of(8) {
+            1
+        } else {
+            8 - (base_ptr % 8) + 1
+        };
+        let slice =
+            &buffer[misaligned_offset..misaligned_offset + AlignedBitstreamPacket::HEADER_SIZE];
         assert_eq!((slice.as_ptr() as usize) % 8, 1);
         assert!(AlignedBitstreamPacket::from_bytes(slice).is_none());
     }
@@ -459,7 +465,14 @@ mod tests {
 
     #[test]
     fn test_machine_packet_zero_copy_in_place_reading() {
-        let pkt = MachinePacket::new(100, 200, packet_types::INTENT, priorities::CRITICAL, 64, 128);
+        let pkt = MachinePacket::new(
+            100,
+            200,
+            packet_types::INTENT,
+            priorities::CRITICAL,
+            64,
+            128,
+        );
         let bytes = bytemuck::bytes_of(&pkt);
 
         let in_place = MachinePacket::from_slice_in_place(bytes).expect("In-place view failed");

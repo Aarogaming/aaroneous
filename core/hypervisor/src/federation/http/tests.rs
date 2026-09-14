@@ -7,7 +7,9 @@
 #[cfg(test)]
 #[allow(ambient_authority)]
 mod tests {
-    use super::super::router::{AppState, GenerationJobStatus, HttpServiceConfig, StatusEnvelope, router};
+    use super::super::router::{
+        AppState, GenerationJobStatus, HttpServiceConfig, StatusEnvelope, router,
+    };
     use crate::federation::hive::{Federation, SpecialistLearningSummary};
     use crate::federation::links::{Link, LinkType};
     use crate::federation::specialist::{Decision, ResourceRequest, Specialist, SpecialistId};
@@ -155,7 +157,11 @@ mod tests {
             uuid::Uuid::new_v4()
         ));
 
-        let state = AppState::new_with_state_path(fed.clone(), temp_path.clone(), HttpServiceConfig::default());
+        let state = AppState::new_with_state_path(
+            fed.clone(),
+            temp_path.clone(),
+            HttpServiceConfig::default(),
+        );
         let initial_links_len = state.links.read().await.len();
         state
             .generation_jobs
@@ -175,7 +181,11 @@ mod tests {
 
         state.persist_cargo_state_to(&temp_path).await;
 
-        let loaded = AppState::new_with_state_path(fed.clone(), temp_path.clone(), HttpServiceConfig::default());
+        let loaded = AppState::new_with_state_path(
+            fed.clone(),
+            temp_path.clone(),
+            HttpServiceConfig::default(),
+        );
         let jobs = loaded.generation_jobs.lock().await;
         assert!(jobs.contains_key("job-1"));
         drop(jobs);

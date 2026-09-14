@@ -17,7 +17,12 @@ pub struct RectAabb {
 
 impl RectAabb {
     pub fn new(x: f32, y: f32, width: f32, height: f32) -> Self {
-        Self { x, y, width, height }
+        Self {
+            x,
+            y,
+            width,
+            height,
+        }
     }
 
     pub fn intersects(&self, other: &RectAabb, padding: f32) -> bool {
@@ -112,13 +117,17 @@ impl NonOverlapSolver {
             }
             WindowArrangementStrategy::Cascade => {
                 let offset_step = 32.0;
-                let (default_w, default_h) = window_sizes.first().copied().unwrap_or((400.0, 300.0));
+                let (default_w, default_h) =
+                    window_sizes.first().copied().unwrap_or((400.0, 300.0));
 
                 (0..n)
                     .map(|i| {
                         let x = screen_bounds.x + padding + (i as f32 * offset_step);
                         let y = screen_bounds.y + padding + (i as f32 * offset_step);
-                        let (w, h) = window_sizes.get(i).copied().unwrap_or((default_w, default_h));
+                        let (w, h) = window_sizes
+                            .get(i)
+                            .copied()
+                            .unwrap_or((default_w, default_h));
                         RectAabb::new(x, y, w, h)
                     })
                     .collect()
@@ -160,18 +169,22 @@ impl NonOverlapSolver {
                                 boxes[j].x += push_x * 0.5;
                                 boxes[j].y += push_y * 0.5;
 
-                                boxes[i].x = boxes[i]
-                                    .x
-                                    .clamp(screen_bounds.x, screen_bounds.x + screen_bounds.width - boxes[i].width);
-                                boxes[i].y = boxes[i]
-                                    .y
-                                    .clamp(screen_bounds.y, screen_bounds.y + screen_bounds.height - boxes[i].height);
-                                boxes[j].x = boxes[j]
-                                    .x
-                                    .clamp(screen_bounds.x, screen_bounds.x + screen_bounds.width - boxes[j].width);
-                                boxes[j].y = boxes[j]
-                                    .y
-                                    .clamp(screen_bounds.y, screen_bounds.y + screen_bounds.height - boxes[j].height);
+                                boxes[i].x = boxes[i].x.clamp(
+                                    screen_bounds.x,
+                                    screen_bounds.x + screen_bounds.width - boxes[i].width,
+                                );
+                                boxes[i].y = boxes[i].y.clamp(
+                                    screen_bounds.y,
+                                    screen_bounds.y + screen_bounds.height - boxes[i].height,
+                                );
+                                boxes[j].x = boxes[j].x.clamp(
+                                    screen_bounds.x,
+                                    screen_bounds.x + screen_bounds.width - boxes[j].width,
+                                );
+                                boxes[j].y = boxes[j].y.clamp(
+                                    screen_bounds.y,
+                                    screen_bounds.y + screen_bounds.height - boxes[j].height,
+                                );
                             }
                         }
                     }

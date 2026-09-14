@@ -28,9 +28,14 @@ impl Trigger {
     };
 }
 
-pub static TELEMETRY_BUFFER: SwmrRingBuffer<Trigger, 1024> = 
-    SwmrRingBuffer::new(Trigger::ZERO);
+pub static TELEMETRY_BUFFER: SwmrRingBuffer<Trigger, 1024> = SwmrRingBuffer::new(Trigger::ZERO);
 
-pub fn push_telemetry(trigger: Trigger) -> bool { TELEMETRY_BUFFER.push(trigger) }
-pub fn pop_telemetry() -> Option<Trigger> { TELEMETRY_BUFFER.pop() }
-pub fn telemetry_ring_buffer() -> &'static SwmrRingBuffer<Trigger, 1024> { &TELEMETRY_BUFFER }
+pub fn push_telemetry(trigger: Trigger) -> bool {
+    TELEMETRY_BUFFER.push(trigger)
+}
+pub fn pop_telemetry() -> Option<Trigger> {
+    TELEMETRY_BUFFER.pop()
+}
+pub fn telemetry_ring_buffer() -> &'static SwmrRingBuffer<Trigger, 1024> {
+    &TELEMETRY_BUFFER
+}

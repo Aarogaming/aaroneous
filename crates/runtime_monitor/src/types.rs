@@ -2,19 +2,17 @@
 
 //! Types for the runtime_monitor crate.
 
-use bytemuck::{Pod, Zeroable};
-
 /// Telemetry trigger used for fast-path error reporting.
-/// 
+///
 /// SAFETY: All fields are POD-compliant primitives or fixed-size arrays with no padding.
 #[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct Trigger {
-    pub timestamp_qpc: u64,  // Query Performance Counter (8 bytes)
-    pub error_code: u32,     // Error classification (4 bytes)  
-    pub severity: u16,       // Severity level (2 bytes)
-    pub reserved: u16,       // Explicit padding to 4-byte boundary (2 bytes)
-    pub message: [u8; 64],   // Raw error context (64 bytes)
+    pub timestamp_qpc: u64, // Query Performance Counter (8 bytes)
+    pub error_code: u32,    // Error classification (4 bytes)
+    pub severity: u16,      // Severity level (2 bytes)
+    pub reserved: u16,      // Explicit padding to 4-byte boundary (2 bytes)
+    pub message: [u8; 64],  // Raw error context (64 bytes)
 }
 
 impl Default for Trigger {

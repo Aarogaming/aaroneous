@@ -1,4 +1,4 @@
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use std::path::PathBuf;
 use std::process::Command;
 use tracing::info;
@@ -58,7 +58,10 @@ eframe = "0.34"
         // 2. Write src/lib.rs
         std::fs::write(src_dir.join("lib.rs"), rust_code)?;
 
-        info!("Compiling sovereign plugin '{}' at {:?}...", plugin_name, plugin_dir);
+        info!(
+            "Compiling sovereign plugin '{}' at {:?}...",
+            plugin_name, plugin_dir
+        );
 
         // 3. Execute Cargo Build
         let output = Command::new("cargo")

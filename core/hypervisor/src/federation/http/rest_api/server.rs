@@ -67,7 +67,7 @@ impl RestApiServer {
         self.addr
     }
 
-    pub async fn shutdown(&self) -> Result<(), ()> {
+    pub async fn shutdown(&self) -> Result<(), std::convert::Infallible> {
         Ok(())
     }
 }

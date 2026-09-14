@@ -11,14 +11,14 @@ use std::time::Instant;
 
 pub const MULTIMODAL_LATENT_DIM: usize = 256;
 pub const AUDIO_FRAME_SAMPLES: usize = 512; // 32ms at 16kHz
-pub const PIXEL_DOWNSAMPLE_GRID: usize = 16;  // 16x16 downsampled sensory grid (256 values)
+pub const PIXEL_DOWNSAMPLE_GRID: usize = 16; // 16x16 downsampled sensory grid (256 values)
 
 /// Continuous Sensory Frame fusing Audio and Pixel Delta
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MultimodalSensoryFrame {
     pub timestamp_us: u64,
-    pub audio_intent_vector: Vec<f32>,    // 256-dim continuous acoustic state
-    pub visual_diff_vector: Vec<f32>,     // 256-dim continuous visual diff state
+    pub audio_intent_vector: Vec<f32>, // 256-dim continuous acoustic state
+    pub visual_diff_vector: Vec<f32>,  // 256-dim continuous visual diff state
     pub is_audio_active: bool,
     pub is_visual_active: bool,
 }
@@ -28,7 +28,7 @@ pub struct MultimodalSensoryFrame {
 pub struct AcousticIntentProjector {
     pub sample_rate: u32,
     pub input_frame_size: usize,
-    pub projection_weights: Vec<f32>,     // 512 x 256 matrix
+    pub projection_weights: Vec<f32>, // 512 x 256 matrix
     pub energy_threshold: f32,
 }
 
@@ -83,7 +83,7 @@ impl Default for AcousticIntentProjector {
 /// Sparse-Sampling Visual Pixel-Diff Projector
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PixelDiffProjector {
-    pub grid_size: usize,                 // 16 -> 16x16 = 256 grid points
+    pub grid_size: usize, // 16 -> 16x16 = 256 grid points
     pub last_frame_buffer: Vec<f32>,
     pub diff_sensitivity: f32,
 }
@@ -98,7 +98,10 @@ impl PixelDiffProjector {
     }
 
     /// Computes sparse pixel diff against last frame and projects delta vector in < 100µs
-    pub fn compute_pixel_diff_tensor(&mut self, current_frame_downsampled: &[f32]) -> (Vec<f32>, bool) {
+    pub fn compute_pixel_diff_tensor(
+        &mut self,
+        current_frame_downsampled: &[f32],
+    ) -> (Vec<f32>, bool) {
         let total_pixels = self.grid_size * self.grid_size;
         let mut diff_vector = vec![0.0f32; MULTIMODAL_LATENT_DIM];
         let mut diff_energy = 0.0f32;
@@ -171,8 +174,16 @@ impl TemporalModalitySynchronizer {
             .zip(&audio_intent)
             .zip(&visual_diff)
         {
-            let a_term = if is_audio_active { 0.60 * audio_value } else { 0.0 };
-            let v_term = if is_visual_active { 0.40 * visual_value } else { 0.0 };
+            let a_term = if is_audio_active {
+                0.60 * audio_value
+            } else {
+                0.0
+            };
+            let v_term = if is_visual_active {
+                0.40 * visual_value
+            } else {
+                0.0
+            };
             *fused_value = 0.90 * *fused_value + a_term + v_term;
         }
 

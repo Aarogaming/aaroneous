@@ -4,10 +4,10 @@
 //! (e.g., `crates/compute/src/`, `crates/ipc_bus/src/`) and updates the crate's `src/lib.rs`.
 //! Isolates unhandled or high-risk modules into `staging/quarantine/`.
 
+use crate::domain_classifier::{Domain, IngestionReport};
+use anyhow::{Context, Result, bail};
 use std::fs;
 use std::path::{Path, PathBuf};
-use anyhow::{bail, Context, Result};
-use crate::domain_classifier::{Domain, IngestionReport};
 
 /// Grafting outcome report.
 #[derive(Debug, Clone)]
@@ -80,16 +80,17 @@ pub fn resolve_domain_crate_path(domain: &Domain, workspace_root: &Path) -> Path
                 if trimmed.contains(']') && !trimmed.starts_with("members") {
                     in_members = false;
                 }
-                if let Some(start) = trimmed.find('"') {
-                    if let Some(end) = trimmed.rfind('"') {
-                        if start < end {
-                            let member = &trimmed[start + 1..end];
-                            if member.ends_with(domain_keyword) || member.contains(&format!("/{domain_keyword}")) {
-                                let p = workspace_root.join(member);
-                                if p.exists() {
-                                    return p;
-                                }
-                            }
+                if let Some(start) = trimmed.find('"')
+                    && let Some(end) = trimmed.rfind('"')
+                    && start < end
+                {
+                    let member = &trimmed[start + 1..end];
+                    if member.ends_with(domain_keyword)
+                        || member.contains(&format!("/{domain_keyword}"))
+                    {
+                        let p = workspace_root.join(member);
+                        if p.exists() {
+                            return p;
                         }
                     }
                 }
@@ -128,8 +129,12 @@ pub fn quarantine_module(
     let sanitized_mod_name = sanitize_module_name(&report.target);
     let destination_file = quarantine_dir.join(format!("{}.rs", sanitized_mod_name));
 
-    fs::write(&destination_file, source_code)
-        .with_context(|| format!("Failed to write quarantined module to {:?}", destination_file))?;
+    fs::write(&destination_file, source_code).with_context(|| {
+        format!(
+            "Failed to write quarantined module to {:?}",
+            destination_file
+        )
+    })?;
 
     Ok(GraftReport {
         target_domain: report.target_domain.clone(),
@@ -181,8 +186,8 @@ pub fn graft_module_to_crate(
     // Update target crate's lib.rs
     let lib_rs = src_dir.join("lib.rs");
     if lib_rs.exists() {
-        let existing = fs::read_to_string(&lib_rs)
-            .with_context(|| format!("Failed to read {:?}", lib_rs))?;
+        let existing =
+            fs::read_to_string(&lib_rs).with_context(|| format!("Failed to read {:?}", lib_rs))?;
 
         let mod_decl = format!("pub mod {};", sanitized_mod_name);
         if !existing.contains(&mod_decl) {
@@ -208,8 +213,8 @@ pub fn graft_module_to_crate(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tempfile::tempdir;
     use std::collections::HashMap;
+    use tempfile::tempdir;
 
     #[test]
     fn test_sanitize_module_name() {
@@ -247,7 +252,11 @@ mod tests {
         assert!(result.quarantined);
         assert_eq!(result.module_name, "risky_code");
         assert!(result.destination_file.exists());
-        assert!(result.destination_file.ends_with("staging/quarantine/risky_code.rs"));
+        assert!(
+            result
+                .destination_file
+                .ends_with("staging/quarantine/risky_code.rs")
+        );
         assert!(result.updated_lib_rs.is_none());
     }
 
@@ -283,4 +292,3 @@ mod tests {
         assert!(lib_content.contains("pub mod fast_matrix;"));
     }
 }
-

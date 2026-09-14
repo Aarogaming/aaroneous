@@ -259,8 +259,18 @@ impl ModelEnvironmentDetector {
         let has_ollama = if cfg!(windows) {
             which::which("ollama").is_ok()
         } else {
-            std::fs::metadata(config.ollama_bin_paths[0].as_deref().unwrap_or("/usr/local/bin/ollama")).is_ok()
-                || std::fs::metadata(config.ollama_bin_paths[1].as_deref().unwrap_or("/usr/bin/ollama")).is_ok()
+            std::fs::metadata(
+                config.ollama_bin_paths[0]
+                    .as_deref()
+                    .unwrap_or("/usr/local/bin/ollama"),
+            )
+            .is_ok()
+                || std::fs::metadata(
+                    config.ollama_bin_paths[1]
+                        .as_deref()
+                        .unwrap_or("/usr/bin/ollama"),
+                )
+                .is_ok()
         };
 
         if has_ollama {

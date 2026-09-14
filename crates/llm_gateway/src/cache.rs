@@ -4,7 +4,7 @@
 use anyhow::Result;
 use moka::future::Cache;
 use parking_lot::RwLock;
-use serde::{de::DeserializeOwned, Serialize};
+use serde::{Serialize, de::DeserializeOwned};
 use std::sync::Arc;
 use std::time::Duration;
 use tracing::debug;
@@ -100,11 +100,7 @@ impl AstPrefixCacheManager {
     /// Computes or retrieves the deterministic prompt prefix key for a source file.
     /// Uses the Salsa-style query cache: if the file content hash matches the cached AST revision,
     /// returns the pinned prefix key in O(1) without re-parsing.
-    pub fn get_or_create_prefix_key(
-        &self,
-        path: &str,
-        content: &str,
-    ) -> Result<PromptPrefixKey> {
+    pub fn get_or_create_prefix_key(&self, path: &str, content: &str) -> Result<PromptPrefixKey> {
         let mut hasher = std::collections::hash_map::DefaultHasher::new();
         std::hash::Hash::hash(&content, &mut hasher);
         let content_hash = std::hash::Hasher::finish(&hasher);
@@ -114,7 +110,12 @@ impl AstPrefixCacheManager {
             transpiler::prefix_cache_integration::parse_nl_to_opcode_dag(src)
         })?;
 
-        let prefix_text = format!("FILE:{}:NODES:{}:HASH:{:016x}", path, graph.nodes.len(), content_hash);
+        let prefix_text = format!(
+            "FILE:{}:NODES:{}:HASH:{:016x}",
+            path,
+            graph.nodes.len(),
+            content_hash
+        );
         PromptPrefixKey::from_prompt(&prefix_text)
     }
 

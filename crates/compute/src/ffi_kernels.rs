@@ -1,5 +1,5 @@
 // crates/compute/src/ffi_kernels.rs
-use std::alloc::{alloc, Layout};
+use std::alloc::{Layout, alloc};
 
 /// Basic CPU fallback for matrix multiplication.
 ///
@@ -43,7 +43,11 @@ pub unsafe extern "C" fn host_alloc(size: usize, align: usize) -> *mut u8 {
     if size == 0 {
         return std::ptr::null_mut();
     }
-    let safe_align = if align == 0 || !align.is_power_of_two() { 64 } else { align };
+    let safe_align = if align == 0 || !align.is_power_of_two() {
+        64
+    } else {
+        align
+    };
     // SAFETY: Layout constructed with validated size/alignment; caller owns returned memory
     let layout = unsafe { Layout::from_size_align_unchecked(size, safe_align) };
     unsafe { alloc(layout) }

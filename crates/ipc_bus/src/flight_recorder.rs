@@ -1,9 +1,9 @@
 // Black-Box Flight Recorder & Replayer
 // Circular zero-copy binary logging with RDTSC timestamping and deterministic replay.
 
+use core_contracts::{FlightEventKind, FlightEventPod, FlightFileHeaderPod};
 use std::fs::OpenOptions;
 use std::path::{Path, PathBuf};
-use core_contracts::{FlightEventKind, FlightEventPod, FlightFileHeaderPod};
 
 /// Total file size for the pre-allocated circular flight log (16 MB exact)
 pub const FLIGHT_LOG_SIZE: usize = 16 * 1024 * 1024;
@@ -39,11 +39,22 @@ pub enum FlightRecorderError {
     #[error("Invalid log file size: expected at least {expected} bytes, found {found} bytes")]
     InvalidFileSize { expected: usize, found: u64 },
 
-    #[error("Checksum mismatch for sequence {sequence}: expected {expected:#x}, calculated {calculated:#x}")]
-    ChecksumMismatch { sequence: u64, expected: u32, calculated: u32 },
+    #[error(
+        "Checksum mismatch for sequence {sequence}: expected {expected:#x}, calculated {calculated:#x}"
+    )]
+    ChecksumMismatch {
+        sequence: u64,
+        expected: u32,
+        calculated: u32,
+    },
 
-    #[error("Event slot {sequence} overwritten by circular wrap (oldest available is {oldest_available})")]
-    EventOverwritten { sequence: u64, oldest_available: u64 },
+    #[error(
+        "Event slot {sequence} overwritten by circular wrap (oldest available is {oldest_available})"
+    )]
+    EventOverwritten {
+        sequence: u64,
+        oldest_available: u64,
+    },
 
     #[error("Requested sequence {sequence} is ahead of write sequence {write_sequence}")]
     FutureSequence { sequence: u64, write_sequence: u64 },
@@ -497,9 +508,11 @@ mod tests {
 
         // Write FLIGHT_MAX_SLOTS + 5 events to trigger circular wrapping
         let total_events = FLIGHT_MAX_SLOTS as u64 + 5;
-        let mut sample_event = FlightEventPod::default();
-        sample_event.event_kind = FlightEventKind::TelemetryTick as u16;
-        sample_event.source_id = 0x02;
+        let sample_event = FlightEventPod {
+            event_kind: FlightEventKind::TelemetryTick as u16,
+            source_id: 0x02,
+            ..Default::default()
+        };
 
         for _ in 1..=total_events {
             recorder.record_event(sample_event).expect("record_event");

@@ -103,7 +103,7 @@ impl OmniConstellation {
 
     /// Automatically create relativistic links to existing nodes based on gravity and distance
     fn establish_orbits(&mut self, new_node: &OmniNode) {
-        for (_id, existing) in self.nodes.iter_mut() {
+        for existing in self.nodes.values_mut() {
             let distance = new_node.coordinates.relativity_to(&existing.coordinates);
             // If they are highly related (distance is low) and have sufficient mass
             if distance < 0.3 {

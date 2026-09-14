@@ -25,7 +25,9 @@ impl<T: Copy, const CAP: usize> SwmrRingBuffer<T, CAP> {
     pub fn push(&self, item: T) -> bool {
         let tail = self.tail.load(Ordering::Relaxed);
         let head = self.head.load(Ordering::Acquire);
-        if tail.wrapping_sub(head) >= CAP { return false; }
+        if tail.wrapping_sub(head) >= CAP {
+            return false;
+        }
         let idx = tail % CAP;
         unsafe {
             let buffer_ptr = self.slots.get() as *mut T;
@@ -38,7 +40,9 @@ impl<T: Copy, const CAP: usize> SwmrRingBuffer<T, CAP> {
     pub fn pop(&self) -> Option<T> {
         let head = self.head.load(Ordering::Relaxed);
         let tail = self.tail.load(Ordering::Acquire);
-        if head == tail { return None; }
+        if head == tail {
+            return None;
+        }
         let idx = head % CAP;
         let val = unsafe {
             let buffer_ptr = self.slots.get() as *const T;
@@ -48,8 +52,18 @@ impl<T: Copy, const CAP: usize> SwmrRingBuffer<T, CAP> {
         Some(val)
     }
 
-    pub fn tail(&self) -> usize { self.tail.load(Ordering::Relaxed) }
-    pub fn head(&self) -> usize { self.head.load(Ordering::Relaxed) }
-    pub fn is_empty(&self) -> bool { self.head.load(Ordering::Relaxed) == self.tail.load(Ordering::Relaxed) }
-    pub fn is_full(&self) -> bool { let t = self.tail.load(Ordering::Relaxed); let h = self.head.load(Ordering::Relaxed); t.wrapping_sub(h) >= CAP }
+    pub fn tail(&self) -> usize {
+        self.tail.load(Ordering::Relaxed)
+    }
+    pub fn head(&self) -> usize {
+        self.head.load(Ordering::Relaxed)
+    }
+    pub fn is_empty(&self) -> bool {
+        self.head.load(Ordering::Relaxed) == self.tail.load(Ordering::Relaxed)
+    }
+    pub fn is_full(&self) -> bool {
+        let t = self.tail.load(Ordering::Relaxed);
+        let h = self.head.load(Ordering::Relaxed);
+        t.wrapping_sub(h) >= CAP
+    }
 }

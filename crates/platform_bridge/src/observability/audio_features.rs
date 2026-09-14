@@ -2,8 +2,8 @@
 //! Real-Time Acoustic Feature Extractor, STFT Spectral Flux & 256-D Latent Projector.
 //! Transforms raw PCM audio loopback frames into normalized 256-dimensional acoustic vectors.
 
-use anyhow::{bail, Result};
-use rustfft::{num_complex::Complex, FftPlanner};
+use anyhow::{Result, bail};
+use rustfft::{FftPlanner, num_complex::Complex};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 pub const LATENT_DIM: usize = 256;

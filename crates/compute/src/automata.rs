@@ -148,18 +148,23 @@ impl<S: std::hash::Hash + Eq + Clone, A: std::hash::Hash + Eq + Clone> GenericNf
             }
         }
 
-        current_states.iter().any(|s| self.accept_states.contains(s))
+        current_states
+            .iter()
+            .any(|s| self.accept_states.contains(s))
     }
 }
 
 /// Mealy State Machine emitting outputs during state transitions.
 #[derive(Debug, Clone)]
-pub struct MealyMachine<S: std::hash::Hash + Eq + Clone, I: std::hash::Hash + Eq + Clone, O: Clone> {
+pub struct MealyMachine<S: std::hash::Hash + Eq + Clone, I: std::hash::Hash + Eq + Clone, O: Clone>
+{
     pub current_state: S,
     pub transitions: HashMap<(S, I), (S, O)>,
 }
 
-impl<S: std::hash::Hash + Eq + Clone, I: std::hash::Hash + Eq + Clone, O: Clone> MealyMachine<S, I, O> {
+impl<S: std::hash::Hash + Eq + Clone, I: std::hash::Hash + Eq + Clone, O: Clone>
+    MealyMachine<S, I, O>
+{
     pub fn new(initial: S) -> Self {
         Self {
             current_state: initial,
@@ -172,7 +177,9 @@ impl<S: std::hash::Hash + Eq + Clone, I: std::hash::Hash + Eq + Clone, O: Clone>
     }
 
     pub fn step(&mut self, input: I) -> Option<O> {
-        if let Some((next_state, output)) = self.transitions.get(&(self.current_state.clone(), input)) {
+        if let Some((next_state, output)) =
+            self.transitions.get(&(self.current_state.clone(), input))
+        {
             self.current_state = next_state.clone();
             Some(output.clone())
         } else {
@@ -183,13 +190,16 @@ impl<S: std::hash::Hash + Eq + Clone, I: std::hash::Hash + Eq + Clone, O: Clone>
 
 /// Moore State Machine with output associated with current state.
 #[derive(Debug, Clone)]
-pub struct MooreMachine<S: std::hash::Hash + Eq + Clone, I: std::hash::Hash + Eq + Clone, O: Clone> {
+pub struct MooreMachine<S: std::hash::Hash + Eq + Clone, I: std::hash::Hash + Eq + Clone, O: Clone>
+{
     pub current_state: S,
     pub transitions: HashMap<(S, I), S>,
     pub outputs: HashMap<S, O>,
 }
 
-impl<S: std::hash::Hash + Eq + Clone, I: std::hash::Hash + Eq + Clone, O: Clone> MooreMachine<S, I, O> {
+impl<S: std::hash::Hash + Eq + Clone, I: std::hash::Hash + Eq + Clone, O: Clone>
+    MooreMachine<S, I, O>
+{
     pub fn new(initial: S, initial_output: O) -> Self {
         let mut outputs = HashMap::new();
         outputs.insert(initial.clone(), initial_output);
@@ -302,7 +312,7 @@ mod tests {
         dfa.set_accept(0);
 
         assert!(dfa.accepts(&[0, 1, 1, 0])); // 2 ones -> even -> accept
-        assert!(!dfa.accepts(&[1, 0, 0]));    // 1 one -> odd -> reject
+        assert!(!dfa.accepts(&[1, 0, 0])); // 1 one -> odd -> reject
     }
 
     #[test]

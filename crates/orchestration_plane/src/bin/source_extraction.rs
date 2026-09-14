@@ -8,12 +8,10 @@
 //! AmbientAstRewriter::rewrite() -> Grafter::graft_module() [or notify Novel Domain] ->
 //! Output Ingestion and Remediated Code Reports.
 
-#![allow(ambient_authority)]
-
 use anyhow::{Context, Result};
 use orchestration_plane::ast_transformer::AmbientAstRewriter;
 use orchestration_plane::domain_classifier::{Domain, DomainClassifier, IngestionReport};
-use orchestration_plane::grafter::{graft_module, GraftReport};
+use orchestration_plane::grafter::{GraftReport, graft_module};
 use paths::{WorkspacePaths, WorkspacePathsConfig};
 use std::env;
 use std::fs;
@@ -77,6 +75,7 @@ fn print_usage() {
     println!("  -h, --help      Display this help message");
 }
 
+#[derive(Default)]
 pub struct HarvestSummary {
     pub files_scanned: usize,
     pub files_ingested: usize,
@@ -89,24 +88,6 @@ pub struct HarvestSummary {
     pub total_rewrites: usize,
     pub graft_reports: Vec<GraftReport>,
     pub novel_candidates: Vec<IngestionReport>,
-}
-
-impl Default for HarvestSummary {
-    fn default() -> Self {
-        Self {
-            files_scanned: 0,
-            files_ingested: 0,
-            compute_count: 0,
-            hypervisor_count: 0,
-            ipc_bus_count: 0,
-            orchestrator_count: 0,
-            novel_count: 0,
-            total_ambient_risks: 0,
-            total_rewrites: 0,
-            graft_reports: Vec::new(),
-            novel_candidates: Vec::new(),
-        }
-    }
 }
 
 /// Executes the complete harvesting pipeline over a directory or file.
@@ -136,8 +117,18 @@ pub fn run_harvest(
 
     summary.files_scanned = target_files.len();
 
-    println!("Scanning {} Rust source files in {:?}", summary.files_scanned, input_path);
-    println!("Mode: {}", if dry_run { "[DRY RUN] (Simulation only)" } else { "[LIVE] (Grafting to crates)" });
+    println!(
+        "Scanning {} Rust source files in {:?}",
+        summary.files_scanned, input_path
+    );
+    println!(
+        "Mode: {}",
+        if dry_run {
+            "[DRY RUN] (Simulation only)"
+        } else {
+            "[LIVE] (Grafting to crates)"
+        }
+    );
     println!("------------------------------------------------------------");
 
     for file_path in target_files {
@@ -195,7 +186,10 @@ pub fn run_harvest(
         let post_report = match classifier.classify_source(file_name, &remediated_code) {
             Ok(r) => r,
             Err(e) => {
-                eprintln!("[POST-CHECK ERROR] Failed to parse remediated {:?}: {}", file_path, e);
+                eprintln!(
+                    "[POST-CHECK ERROR] Failed to parse remediated {:?}: {}",
+                    file_path, e
+                );
                 continue;
             }
         };
@@ -221,20 +215,29 @@ pub fn run_harvest(
 
         if !report.ambient_risks.is_empty() {
             for risk in &report.ambient_risks {
-                println!("   [PRE-REWRITE RISK] L{}:{} -> {}", risk.line, risk.column, risk.symbol);
+                println!(
+                    "   [PRE-REWRITE RISK] L{}:{} -> {}",
+                    risk.line, risk.column, risk.symbol
+                );
             }
         }
 
         if unhandled_risks > 0 {
             for risk in &post_report.ambient_risks {
-                println!("   [UNHANDLED RISK] L{}:{} -> {}", risk.line, risk.column, risk.symbol);
+                println!(
+                    "   [UNHANDLED RISK] L{}:{} -> {}",
+                    risk.line, risk.column, risk.symbol
+                );
             }
         }
 
         // 4. Domain Grafting or Quarantine Isolation
         match &report.target_domain {
             Domain::Novel(candidate_name) => {
-                println!("   [NOVEL DOMAIN] Candidate: `{}` (Score < 0.60 threshold). Tagged for staging.", candidate_name);
+                println!(
+                    "   [NOVEL DOMAIN] Candidate: `{}` (Score < 0.60 threshold). Tagged for staging.",
+                    candidate_name
+                );
                 summary.novel_candidates.push(report);
             }
             _ => {
@@ -253,8 +256,12 @@ pub fn run_harvest(
                             &post_report,
                             &remediated_code,
                             workspace_root,
-                        ).with_context(|| format!("Failed to quarantine {:?}", file_name))?;
-                        println!("   [QUARANTINED] Isolated at: {:?}", q_report.destination_file);
+                        )
+                        .with_context(|| format!("Failed to quarantine {:?}", file_name))?;
+                        println!(
+                            "   [QUARANTINED] Isolated at: {:?}",
+                            q_report.destination_file
+                        );
                         summary.graft_reports.push(q_report);
                     }
                 } else if dry_run {
@@ -266,7 +273,10 @@ pub fn run_harvest(
                     println!(
                         "   [PLANNED GRAFT] {} -> {}/src/{}.rs",
                         file_name,
-                        planned_dest.strip_prefix(workspace_root).unwrap_or(&planned_dest).display(),
+                        planned_dest
+                            .strip_prefix(workspace_root)
+                            .unwrap_or(&planned_dest)
+                            .display(),
                         sanitized
                     );
                 } else {

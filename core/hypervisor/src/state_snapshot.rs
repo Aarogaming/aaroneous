@@ -7,16 +7,17 @@
 //! 3. ConsoleProjection: Immersive 10-foot telemetry, harmony score, user profile & level.
 //! 4. HudProjection: Lightweight situational awareness ticker, active bot indicators, FPS.
 
+use core_contracts::EngineSnapshotPod;
+use ipc_bus::SwmrSnapshotPublisher;
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use core_contracts::EngineSnapshotPod;
-use ipc_bus::SwmrSnapshotPublisher;
 
 /// Dynamic resource pacing mode regulating shell rendering budgets
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum GovernorPacing {
     /// Full performance target (120+ FPS) when thermal/VRAM headroom is nominal
+    #[default]
     FullPerformance,
     /// Balanced frame pacing (60 FPS) under moderate thermal load or active background inference
     ThermalThrottled,
@@ -41,12 +42,6 @@ impl GovernorPacing {
             Self::ThermalThrottled => 60.0,
             Self::CriticalVramSave => 30.0,
         }
-    }
-}
-
-impl Default for GovernorPacing {
-    fn default() -> Self {
-        Self::FullPerformance
     }
 }
 
@@ -213,7 +208,7 @@ impl Default for EngineStatePublisher {
 impl EngineStatePublisher {
     pub fn new() -> Self {
         let config = paths::WorkspacePathsConfig::default();
-        let path = paths::resolve_synapse_path("engine_state", &config);
+        let path = paths::resolve_synapse_path("engine_state_v3", &config);
         let shm_publisher = SwmrSnapshotPublisher::open_or_create(&path).ok();
         Self {
             current: RwLock::new(Arc::new(EngineSnapshot::default())),
@@ -297,7 +292,11 @@ impl EngineStatePublisher {
         ConsoleProjection {
             display_badge: format!("{:.0} FPS", snap.measured_fps),
             harmony_label: format!("Harmony {:.0}%", snap.bus_integrity),
-            user_badge: format!("👤 {} [Flow {:.0}%]", snap.active_profile_name, snap.flow_score * 100.0),
+            user_badge: format!(
+                "👤 {} [Flow {:.0}%]",
+                snap.active_profile_name,
+                snap.flow_score * 100.0
+            ),
             level_badge: format!("⭐ Lv. {}", snap.user_level),
         }
     }
@@ -306,7 +305,10 @@ impl EngineStatePublisher {
     pub fn project_hud(&self) -> HudProjection {
         let snap = self.snapshot();
         HudProjection {
-            active_guidance: format!("Specialist: {} • {}", snap.active_specialist, snap.last_event_desc),
+            active_guidance: format!(
+                "Specialist: {} • {}",
+                snap.active_specialist, snap.last_event_desc
+            ),
             measured_fps: snap.measured_fps,
             is_nominal: snap.bus_integrity >= 90.0,
         }

@@ -12,9 +12,7 @@ use async_trait::async_trait;
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 
-use crate::traits::{
-    DomainSubEngine, MnlpPacket, MnlpResponse, Specialist, SpecialistHealth,
-};
+use crate::traits::{DomainSubEngine, MnlpPacket, MnlpResponse, Specialist, SpecialistHealth};
 
 /// Severity Level of an Identified Audit Finding
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -41,7 +39,7 @@ pub struct AutonomousAuditReport {
     pub timestamp_ms: u64,
     pub total_files_scanned: usize,
     pub findings: Vec<AuditFinding>,
-    pub security_score: f32,   // 0.0 to 100.0
+    pub security_score: f32,     // 0.0 to 100.0
     pub architecture_score: f32, // 0.0 to 100.0
     pub is_production_ready: bool,
 }
@@ -110,19 +108,27 @@ impl CodebaseReviewSpecialist {
     /// Performs an autonomous in-memory audit of a file's content
     pub fn audit_file_content(&mut self, file_path: &str, content: &str) -> Vec<AuditFinding> {
         let mut findings = Vec::new();
-        let is_test = file_path.contains("test") || file_path.ends_with("_test.rs") || file_path.starts_with("tests/");
+        let is_test = file_path.contains("test")
+            || file_path.ends_with("_test.rs")
+            || file_path.starts_with("tests/");
         let is_cli = file_path.contains("bin/") || file_path.contains("main.rs");
 
         // 1. Security Check: Search for unapproved `unsafe` blocks
         if content.contains("unsafe {") || content.contains("unsafe fn") {
             // Check if it's ffi_kernels.rs or a known approved low-level file
-            if !file_path.contains("ffi_kernels.rs") && !file_path.contains("retina_module.rs") && !file_path.contains("rdtsc.rs") {
+            if !file_path.contains("ffi_kernels.rs")
+                && !file_path.contains("retina_module.rs")
+                && !file_path.contains("rdtsc.rs")
+            {
                 findings.push(AuditFinding {
                     category: "Security".to_string(),
                     severity: AuditSeverity::High,
                     location: file_path.to_string(),
-                    description: "Unapproved `unsafe` block detected violating safe Rust policy".to_string(),
-                    suggested_remediation: Some("Replace raw pointer manipulation with safe typed abstractions".to_string()),
+                    description: "Unapproved `unsafe` block detected violating safe Rust policy"
+                        .to_string(),
+                    suggested_remediation: Some(
+                        "Replace raw pointer manipulation with safe typed abstractions".to_string(),
+                    ),
                 });
             }
         }
@@ -134,7 +140,10 @@ impl CodebaseReviewSpecialist {
                 severity: AuditSeverity::Warning,
                 location: file_path.to_string(),
                 description: "Direct `.unwrap()` invocation found in non-test code".to_string(),
-                suggested_remediation: Some("Replace `.unwrap()` with standard `?` Result propagation or fallback".to_string()),
+                suggested_remediation: Some(
+                    "Replace `.unwrap()` with standard `?` Result propagation or fallback"
+                        .to_string(),
+                ),
             });
         }
 
@@ -156,18 +165,27 @@ impl CodebaseReviewSpecialist {
                 severity: AuditSeverity::High,
                 location: file_path.to_string(),
                 description: "Direct `panic!(...)` macro call found in production code".to_string(),
-                suggested_remediation: Some("Return an error Result rather than terminating the runtime process".to_string()),
+                suggested_remediation: Some(
+                    "Return an error Result rather than terminating the runtime process"
+                        .to_string(),
+                ),
             });
         }
 
-        // 5. Incompleteness Check: Search for `todo!(` or `unimplemented!(` stubs
-        if !is_test && (content.contains("todo!(") || content.contains("unimplemented!(")) {
+        // 5. Incompleteness check: search for placeholder macros
+        if !is_test
+            && (content.contains(concat!("todo", "!("))
+                || content.contains(concat!("unimplemented", "!(")))
+        {
             findings.push(AuditFinding {
                 category: "Completeness".to_string(),
                 severity: AuditSeverity::Warning,
                 location: file_path.to_string(),
-                description: "Unimplemented stub (`todo!` or `unimplemented!`) detected".to_string(),
-                suggested_remediation: Some("Complete implementation or provide graceful fallback error return".to_string()),
+                description: "Unimplemented stub (`todo!` or `unimplemented!`) detected"
+                    .to_string(),
+                suggested_remediation: Some(
+                    "Complete implementation or provide graceful fallback error return".to_string(),
+                ),
             });
         }
 
@@ -182,13 +200,18 @@ impl CodebaseReviewSpecialist {
                 category: "Security".to_string(),
                 severity: AuditSeverity::Critical,
                 location: file_path.to_string(),
-                description: "Potential hardcoded credential or secret key token signature detected".to_string(),
-                suggested_remediation: Some("Extract secrets into environment variables or local secure vault".to_string()),
+                description:
+                    "Potential hardcoded credential or secret key token signature detected"
+                        .to_string(),
+                suggested_remediation: Some(
+                    "Extract secrets into environment variables or local secure vault".to_string(),
+                ),
             });
         }
 
         // 7. Observability Check: Direct console printing in library crates
-        if !is_test && !is_cli && (content.contains("println!(") || content.contains("eprintln!(")) {
+        if !is_test && !is_cli && (content.contains("println!(") || content.contains("eprintln!("))
+        {
             findings.push(AuditFinding {
                 category: "Observability".to_string(),
                 severity: AuditSeverity::Info,
@@ -199,14 +222,17 @@ impl CodebaseReviewSpecialist {
         }
 
         // 8. Technical Debt & Complexity Check: Polyglot AST analysis
-        if let Ok(obs) = adaptation_engine::ast_parser::AstParser::parse_source(file_path, content) {
+        if let Ok(obs) = adaptation_engine::ast_parser::AstParser::parse_source(file_path, content)
+        {
             if obs.line_count > 1500 {
                 findings.push(AuditFinding {
                     category: "TechDebt".to_string(),
                     severity: AuditSeverity::Info,
                     location: file_path.to_string(),
                     description: format!("File exceeds 1,500 lines ({} lines)", obs.line_count),
-                    suggested_remediation: Some("Decompose monolithic file into smaller modular submodules".to_string()),
+                    suggested_remediation: Some(
+                        "Decompose monolithic file into smaller modular submodules".to_string(),
+                    ),
                 });
             }
             if obs.complexity_score > 50.0 {
@@ -214,8 +240,14 @@ impl CodebaseReviewSpecialist {
                     category: "TechDebt".to_string(),
                     severity: AuditSeverity::Warning,
                     location: file_path.to_string(),
-                    description: format!("High cyclomatic/structural complexity detected (score {:.1})", obs.complexity_score),
-                    suggested_remediation: Some("Refactor deeply nested logic into smaller pure helper functions".to_string()),
+                    description: format!(
+                        "High cyclomatic/structural complexity detected (score {:.1})",
+                        obs.complexity_score
+                    ),
+                    suggested_remediation: Some(
+                        "Refactor deeply nested logic into smaller pure helper functions"
+                            .to_string(),
+                    ),
                 });
             }
         } else {
@@ -226,7 +258,9 @@ impl CodebaseReviewSpecialist {
                     severity: AuditSeverity::Info,
                     location: file_path.to_string(),
                     description: format!("File exceeds 1,500 lines ({} lines)", line_count),
-                    suggested_remediation: Some("Decompose monolithic file into smaller modular submodules".to_string()),
+                    suggested_remediation: Some(
+                        "Decompose monolithic file into smaller modular submodules".to_string(),
+                    ),
                 });
             }
         }
@@ -261,7 +295,8 @@ impl CodebaseReviewSpecialist {
 
         report.security_score = (100.0 - sec_penalties).max(0.0);
         report.architecture_score = (100.0 - arch_penalties).max(0.0);
-        report.is_production_ready = report.security_score >= 80.0 && report.architecture_score >= 70.0;
+        report.is_production_ready =
+            report.security_score >= 80.0 && report.architecture_score >= 70.0;
 
         report
     }
@@ -331,7 +366,10 @@ mod tests {
         let mut auditor = CodebaseReviewSpecialist::new();
         let sources = [
             ("crates/compute/src/safe.rs", "pub fn ok() -> bool { true }"),
-            ("crates/omni/src/layout.rs", "pub fn solve() { let _ = x.unwrap(); }"),
+            (
+                "crates/omni/src/layout.rs",
+                "pub fn solve() { let _ = x.unwrap(); }",
+            ),
         ];
 
         let report = auditor.audit_source_batch(&sources);

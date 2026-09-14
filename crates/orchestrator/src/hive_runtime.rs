@@ -146,11 +146,7 @@ impl HiveRuntime {
 
             // Update specialist performance in router
             let mut router = self.router.write().await;
-            router.update_specialist_performance(
-                &record.specialist_id,
-                success,
-                completion_time,
-            );
+            router.update_specialist_performance(&record.specialist_id, success, completion_time);
 
             return Ok(());
         }
@@ -163,14 +159,8 @@ impl HiveRuntime {
         let agents = self.agents.read().await;
         let task_log = self.task_log.read().await;
 
-        let tasks_completed = task_log
-            .iter()
-            .filter(|r| r.completed_at.is_some())
-            .count() as u64;
-        let tasks_failed = task_log
-            .iter()
-            .filter(|r| r.success == Some(false))
-            .count() as u64;
+        let tasks_completed = task_log.iter().filter(|r| r.completed_at.is_some()).count() as u64;
+        let tasks_failed = task_log.iter().filter(|r| r.success == Some(false)).count() as u64;
 
         RuntimeStatus {
             active_agents: agents.len(),
@@ -256,9 +246,7 @@ mod tests {
         agent.id = "spec_test".to_string();
         agent.name = "Test Specialist".to_string();
         agent.enzyme_subset = vec!["rust".to_string()];
-        runtime
-            .register_agent("test".to_string(), agent)
-            .await;
+        runtime.register_agent("test".to_string(), agent).await;
 
         runtime.start().await.unwrap();
 

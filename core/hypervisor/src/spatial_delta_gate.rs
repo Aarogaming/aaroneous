@@ -128,10 +128,10 @@ impl SpatialDeltaGateMatrix {
     /// Organized as 4x u64 for efficient WebGPU storage buffer transfer
     fn rebuild_packed_mask(&mut self) {
         self.packed_mask = [0u64; 4];
-        for i in 0..TOTAL_SECTORS {
+        for (i, sector) in self.sectors.iter_mut().enumerate() {
             let word = i / 64;
             let bit = i % 64;
-            if self.sectors[i].active == 1 {
+            if sector.active == 1 {
                 self.packed_mask[word] |= 1u64 << bit;
             }
         }
@@ -182,11 +182,11 @@ impl SpatialDeltaGateMatrix {
     /// Sets each sector's active flag from the corresponding bit in the mask.
     pub fn apply_gpu_mask(&mut self, mask: &[u64; 4]) {
         let mut count = 0u32;
-        for i in 0..TOTAL_SECTORS {
+        for (i, sector) in self.sectors.iter_mut().enumerate() {
             let word = i / 64;
             let bit = i % 64;
             let active = (mask[word] >> bit) & 1;
-            self.sectors[i].active = active as u8;
+            sector.active = active as u8;
             count += active as u32;
         }
         self.active_count = count;

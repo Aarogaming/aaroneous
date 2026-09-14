@@ -9,8 +9,10 @@ use chrono::Utc;
 use std::sync::Arc;
 use tracing::info;
 
-use platform_bridge::{HidCommand, DesktopEmulator, VisualObservation};
-use crate::traits::{DomainSubEngine, MnlpPacket, MnlpResponse, SovereignSpecialist, SpecialistHealth};
+use crate::traits::{
+    DomainSubEngine, MnlpPacket, MnlpResponse, SovereignSpecialist, SpecialistHealth,
+};
+use platform_bridge::{DesktopEmulator, HidCommand, VisualObservation};
 
 /// PerceptionGateEngine: Spatial-Kinetic perception & HID bridge sub-engine
 #[derive(Debug, Clone)]
@@ -52,7 +54,7 @@ impl DomainSubEngine for PerceptionGateEngine {
 pub struct PerceiverSpecialist {
     pub tokens: f32,
     pub max_tokens: f32,
-    pub marionette: Arc<DesktopEmulator>,
+    pub emulator: Arc<DesktopEmulator>,
     pub perception_gate: PerceptionGateEngine,
 }
 
@@ -68,7 +70,7 @@ impl PerceiverSpecialist {
         Self {
             tokens: 100.0,
             max_tokens: 100.0,
-            marionette: engine,
+            emulator: engine,
             perception_gate: PerceptionGateEngine::default(),
         }
     }
@@ -76,25 +78,29 @@ impl PerceiverSpecialist {
     /// Captures a raw spatial visual frame from the gatekeeper
     pub async fn capture_frame(&self) -> Result<VisualObservation> {
         info!(target: "specialist::perceiver", "Capturing spatial visual frame across the physical-digital gatekeeper");
-        self.marionette.pull_visual_perception().await
+        self.emulator.pull_visual_perception().await
     }
 
     /// Captures a spatial visual frame gated by the 16x16 epigenetic motion saliency matrix
-    pub async fn capture_epigenetic_gated_frame(&mut self) -> Result<(VisualObservation, platform_bridge::EpigeneticGatingResult)> {
+    pub async fn capture_epigenetic_gated_frame(
+        &mut self,
+    ) -> Result<(VisualObservation, platform_bridge::EpigeneticGatingResult)> {
         info!(target: "specialist::perceiver", "Capturing epigenetic gated visual perception across the gatekeeper");
-        let (obs, result) = self.marionette.pull_epigenetic_perception().await?;
+        let (obs, result) = self.emulator.pull_epigenetic_perception().await?;
 
         self.perception_gate.frames_processed += 1;
         let count = self.perception_gate.frames_processed as f32;
         self.perception_gate.avg_compute_savings_pct =
-            ((self.perception_gate.avg_compute_savings_pct * (count - 1.0)) + obs.compute_savings_pct) / count;
+            ((self.perception_gate.avg_compute_savings_pct * (count - 1.0))
+                + obs.compute_savings_pct)
+                / count;
 
         Ok((obs, result))
     }
 
     /// Injects a safe motor action
     pub async fn dispatch_motor_action(&self, cmd: HidCommand) -> Result<()> {
-        self.marionette.inject_hid_event(cmd).await
+        self.emulator.inject_hid_event(cmd).await
     }
 }
 

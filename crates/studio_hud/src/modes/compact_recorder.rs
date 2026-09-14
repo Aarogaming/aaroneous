@@ -9,7 +9,7 @@ pub fn render_compact_recorder_overlay(ui: &mut egui::Ui, state: &mut SharedHudS
 
     egui::Frame::group(ui.style())
         .fill(theme.panel_bg())
-        .stroke(Stroke::new(1.5, theme.accent()))
+        .stroke(Stroke::new(1.5_f32, theme.accent()))
         .corner_radius(CornerRadius::same(8))
         .show(ui, |ui| {
             ui.set_min_size(Vec2::new(340.0, 56.0));
@@ -56,16 +56,18 @@ pub fn render_compact_recorder_overlay(ui: &mut egui::Ui, state: &mut SharedHudS
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                     if ui.button("🪟 Studio").clicked() {
                         state.app_window_mode = AppWindowMode::FullStudio;
-                        ui.ctx().send_viewport_cmd(egui::ViewportCommand::InnerSize(egui::vec2(
-                            1240.0, 840.0,
-                        )));
-                        ui.ctx().send_viewport_cmd(egui::ViewportCommand::WindowLevel(
-                            if state.settings.always_on_top {
-                                egui::viewport::WindowLevel::AlwaysOnTop
-                            } else {
-                                egui::viewport::WindowLevel::Normal
-                            },
-                        ));
+                        ui.ctx()
+                            .send_viewport_cmd(egui::ViewportCommand::InnerSize(egui::vec2(
+                                1240.0, 840.0,
+                            )));
+                        ui.ctx()
+                            .send_viewport_cmd(egui::ViewportCommand::WindowLevel(
+                                if state.settings.always_on_top {
+                                    egui::viewport::WindowLevel::AlwaysOnTop
+                                } else {
+                                    egui::viewport::WindowLevel::Normal
+                                },
+                            ));
                     }
                 });
             });

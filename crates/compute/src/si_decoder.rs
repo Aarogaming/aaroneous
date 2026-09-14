@@ -7,8 +7,8 @@
 //! 3. Pointer Head: Predicts register/pointer index for linear memory or AST node references.
 //! 4. Sub-10µs CPU/SIMD evaluation.
 
-use serde::{Deserialize, Serialize};
 use crate::machine_native::MachineOpcode;
+use serde::{Deserialize, Serialize};
 
 pub const DECODER_INTENT_DIM: usize = 256;
 
