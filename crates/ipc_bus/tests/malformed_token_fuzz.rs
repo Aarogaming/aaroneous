@@ -102,7 +102,7 @@ fn test_fuzz_nan_infinity_values() {
 
 
 /// Validates header field (mock implementation)
-fn validate_header(header: u32) -> bool {
+fn validate_header(_header: u32) -> bool {
     // In production, this would enforce strict header validation
     // For now, just return true to test that we don't panic on bad input
     true

@@ -11,7 +11,6 @@ repository.workspace = true
 compute = { path = "../compute" }
 si_ir = { path = "../si_ir" }
 paths = { path = "../paths" }
-async-trait = "0.1"
 anyhow = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"

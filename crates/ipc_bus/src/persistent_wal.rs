@@ -52,7 +52,11 @@ impl PersistentWalStore {
         // Replay existing WAL if file exists and has content
         if path.exists() {
             let read_file = File::open(&path)?;
-            if read_file.metadata()?.len() >= 6 {
+            let file_len = read_file.metadata()?.len();
+            if file_len > 0 {
+                if file_len < 6 {
+                    return Err(anyhow!("Invalid or incomplete database header"));
+                }
                 let mut reader = BufReader::new(read_file);
                 let mut magic = [0u8; 4];
                 reader.read_exact(&mut magic)?;
@@ -66,20 +70,27 @@ impl PersistentWalStore {
                     return Err(anyhow!("Unsupported database version: {}", version));
                 }
 
-                // Read records iteratively until EOF
-                while let Ok(len_bytes) = {
-                    let mut b = [0u8; 4];
-                    reader.read_exact(&mut b).map(|_| u32::from_le_bytes(b))
-                } {
-                    let mut record_bytes = vec![0u8; len_bytes as usize];
-                    reader.read_exact(&mut record_bytes)?;
-                    if let Ok(record) = serde_json::from_slice::<WalRecord>(&record_bytes) {
-                        max_generation = max_generation.max(record.generation);
-                        if record.is_tombstone {
-                            index.remove(&record.key);
-                        } else {
-                            index.insert(record.key, record.value);
+                // Read records iteratively until EOF or partial record (crash recovery)
+                loop {
+                    let mut len_buf = [0u8; 4];
+                    match reader.read_exact(&mut len_buf) {
+                        Ok(()) => {
+                            let len = u32::from_le_bytes(len_buf) as usize;
+                            let mut record_bytes = vec![0u8; len];
+                            if reader.read_exact(&mut record_bytes).is_err() {
+                                // Trailing record was truncated mid-write (crash / power outage)
+                                break;
+                            }
+                            if let Ok(record) = serde_json::from_slice::<WalRecord>(&record_bytes) {
+                                max_generation = max_generation.max(record.generation);
+                                if record.is_tombstone {
+                                    index.remove(&record.key);
+                                } else {
+                                    index.insert(record.key, record.value);
+                                }
+                            }
                         }
+                        Err(_) => break, // Clean EOF
                     }
                 }
             }

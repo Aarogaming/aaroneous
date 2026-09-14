@@ -9,6 +9,5 @@ description = "Machine-Native Synthetic Intelligence Intermediate Representation
 [dependencies]
 serde = { workspace = true }
 serde_json = { workspace = true }
-thiserror = { workspace = true }
 anyhow = { workspace = true }
 smol_str = { version = "0.2", features = ["serde"] }
