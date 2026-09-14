@@ -8219,6 +8219,7 @@ dependencies = [
  "notify",
  "paths",
  "rand 0.8.8",
+ "regex",
  "reqwest 0.12.28",
  "serde",
  "serde_json",

@@ -37,7 +37,6 @@ members = [
 
 exclude = [
     "firmware",
-    "dev/tools/afc",
 ]
 
 [workspace.package]

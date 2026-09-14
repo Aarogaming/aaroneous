@@ -36,9 +36,13 @@ pub mod tier_allocator;
 pub use tier_allocator as pantheon_orchestrator;
 pub mod swarm_balancer;
 pub mod priority_scheduler;
+pub mod diagnostics_filter;
+pub mod context_sanitizer;
 pub mod workflow_engine;
 pub mod workspace;
 
+pub use diagnostics_filter::{DiagnosticEntry, DiagnosticsFilter};
+pub use context_sanitizer::ContextSanitizer;
 pub use fs_watcher::FsWatcher;
 pub use memory_pipeline::EpisodicInsertionPipeline;
 pub use plugin_compiler::PluginCompiler;
