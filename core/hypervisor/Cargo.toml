@@ -113,7 +113,6 @@ bytes = "1.5"
 semver = "1.0"
 async-nats = "0.49"
 url = "2.5"
-tempfile = "3"
 tracing-appender = "0.2.5"
 zstd = "0.13"
 
@@ -122,6 +121,7 @@ http-body-util = "0.1"
 tower = { version = "0.5", features = ["util"] }
 
 [dev-dependencies]
+tempfile = "3"
 criterion = { version = "0.5", default-features = false, features = ["cargo_bench_support"] }
 
 [build-dependencies]

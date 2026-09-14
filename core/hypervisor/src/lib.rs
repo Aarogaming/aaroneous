@@ -495,8 +495,42 @@ pub use hox_registry::HoxRegistry;
 pub use lora_adapter_vault::{LiveLoraAdapter, LoraAdapterVault};
 pub use metadata_ingestor::{MetadataIngestor, MetadataIngestorConfig};
 pub use orchestration_daemon::{DaemonState, OrchestrationDaemon, OrchestrationDaemonConfig};
-pub use system_metrics::{GpuMetrics, SystemMetricsCollector, ThermalMetrics, ThermalStatus};
 pub use task_routing::{ExecutionContext, ExecutionRoute, TaskRouter};
+
+/// Core hypervisor bootstrap loop connecting RuntimeGovernor, OrchestrationDaemon,
+/// and the central lock-free Disruptor event bus.
+pub async fn run_hypervisor(
+    config: OrchestrationDaemonConfig,
+    shutdown_signal: std::sync::Arc<std::sync::atomic::AtomicBool>,
+) -> anyhow::Result<()> {
+    tracing::info!("Initializing Aaroneous Hypervisor Microkernel Component Block...");
+    let _governor = runtime_governor::RuntimeGovernor::new()
+        .map_err(|e| anyhow::anyhow!("Failed to initialize RuntimeGovernor: {}", e))?;
+
+    let mut daemon = OrchestrationDaemon::new(config)
+        .map_err(|e| anyhow::anyhow!("Failed to initialize OrchestrationDaemon: {}", e))?;
+    tracing::info!("OrchestrationDaemon mounted. Entering sovereign execution loop.");
+
+    while !shutdown_signal.load(std::sync::atomic::Ordering::Relaxed) {
+        let stats = daemon
+            .step()
+            .await
+            .map_err(|e| anyhow::anyhow!("OrchestrationDaemon step error: {}", e))?;
+        if stats.total_executions > 0 {
+            tracing::debug!(
+                "Hypervisor scan completed: {} actions executed cleanly",
+                stats.success_count
+            );
+        }
+        // Yield to allow concurrent background tasks and I/O polling
+        tokio::task::yield_now().await;
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+    }
+
+    tracing::info!("Hypervisor shutdown signal received. Executing graceful teardown.");
+    daemon.shutdown();
+    Ok(())
+}
 
 
 

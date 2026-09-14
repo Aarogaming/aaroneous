@@ -460,6 +460,25 @@ impl OrchestrationDaemon {
         }
     }
 
+    /// Execute a single discrete cycle/step of the orchestration daemon.
+    pub async fn step(&mut self) -> Result<ExecutionStats, String> {
+        let initial_actions = self.actions_executed;
+        let cycle_start = Instant::now();
+        self.run_cycle().await?;
+        self.cycles_completed += 1;
+        self.last_cycle_duration = cycle_start.elapsed();
+
+        let actions_diff = self.actions_executed.saturating_sub(initial_actions) as usize;
+        let success_rate = if actions_diff > 0 { 1.0 } else { 0.0 };
+        Ok(ExecutionStats {
+            total_executions: actions_diff,
+            success_count: actions_diff,
+            failed_count: 0,
+            success_rate,
+            avg_duration_ms: self.last_cycle_duration.as_secs_f64() * 1000.0,
+        })
+    }
+
     /// Gracefully shutdown the daemon
     pub fn shutdown(&mut self) {
         self.state = DaemonState::ShuttingDown;

@@ -40,6 +40,11 @@ pub mod diagnostics_filter;
 pub mod context_sanitizer;
 pub mod workflow_engine;
 pub mod workspace;
+pub mod supervision;
+
+pub use supervision::{
+    RestartPolicy, SupervisedTask, Supervisor, SupervisorBudget, SupervisorConfig, TaskStatus,
+};
 
 pub use diagnostics_filter::{DiagnosticEntry, DiagnosticsFilter};
 pub use context_sanitizer::ContextSanitizer;
