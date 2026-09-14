@@ -198,6 +198,7 @@ impl SiStateSpaceModel {
         hidden_states: &mut [Tensor],
     ) -> Result<SsmStatePrediction> {
         let start = Instant::now();
+        let _denormal_guard = crate::denormal::DenormalGuard::new();
 
         if current_state.len() != self.config.state_dim {
             bail!("Input state dimension mismatch: expected {}, got {}", self.config.state_dim, current_state.len());
@@ -359,6 +360,7 @@ impl SiStateSpaceModel {
     /// in linear O(L) time into a unified continuous root tensor without flattening:
     /// h_u = A_bar · (sum_{v in children} h_v) + B_bar · x_u
     pub fn scan_tree_hierarchy(&self, nodes: &[TreeSsmNode], root_id: u64) -> Result<Vec<f32>> {
+        let _denormal_guard = crate::denormal::DenormalGuard::new();
         use std::collections::HashMap;
         let mut node_map: HashMap<u64, &TreeSsmNode> = HashMap::new();
         for node in nodes {

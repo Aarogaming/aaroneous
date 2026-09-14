@@ -11,6 +11,7 @@ repository.workspace = true
 crossbeam = "0.8"
 tokio = { version = "1.0", features = ["full", "tracing"] }
 anyhow = "1.0"
+thiserror = { workspace = true }
 bytemuck = { version = "1.14", features = ["derive"] }
 memmap2 = "0.9"
 rkyv = { version = "0.7", features = ["validation"] }
@@ -20,6 +21,7 @@ serde_json = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 parking_lot = "0.12"
 paths = { path = "../paths" }
+core-contracts = { path = "../core-contracts" }
 
 [dev-dependencies]
 tempfile = "3"

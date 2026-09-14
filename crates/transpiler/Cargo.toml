@@ -21,3 +21,7 @@ regex = "1.10"
 bumpalo = "3.20"
 aho-corasick = "1.1"
 parking_lot = "0.12"
+toml = "0.8"
+
+[dev-dependencies]
+tempfile = { workspace = true }

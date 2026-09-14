@@ -231,13 +231,17 @@ impl WorkflowGraph {
             }
         }
 
-        // Spawn parallel tasks using tokio::task::JoinSet
+        // Spawn parallel tasks using tokio::task::JoinSet with bounded concurrency backpressure
         let mut join_set = tokio::task::JoinSet::new();
         let runner_arc = std::sync::Arc::new(runner);
+        let semaphore = std::sync::Arc::new(tokio::sync::Semaphore::new(16));
 
         for step in ready_steps {
             let r = runner_arc.clone();
+            let sem = semaphore.clone();
+            // Bound concurrency to prevent threadpool starvation
             join_set.spawn(async move {
+                let _permit = sem.acquire().await;
                 r(step).await
             });
         }

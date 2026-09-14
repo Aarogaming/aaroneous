@@ -30,7 +30,7 @@ impl FlightEngine {
 
     pub async fn run(&self) -> Result<()> {
         info!("==========================================================");
-        info!("        AARONEOUS AUTONOMOUS FLIGHT CONTROLLER (AFC)      ");
+        info!("        AARONEOUS AUTONOMOUS RUNTIME CONTROLLER (ARC)     ");
         info!("              [Out-of-Tree Sovereign Hypervisor]          ");
         info!("==========================================================");
         info!("Target Repository: {:?}", self.repo_root);
@@ -379,7 +379,7 @@ impl FlightEngine {
         }
 
         info!("==========================================================");
-        info!("Autonomous Flight Controller execution complete!");
+        info!("Autonomous Runtime Controller execution complete!");
         info!("==========================================================");
 
         Ok(())

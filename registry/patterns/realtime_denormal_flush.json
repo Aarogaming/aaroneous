@@ -1,0 +1,17 @@
+{
+  "id": "realtime_denormal_flush",
+  "name": "Audio DSP Denormal Float Flushing (DAZ/FTZ)",
+  "category": "performance_critical",
+  "origin_predecessor": "Real-time Audio DSP / VST Systems",
+  "description": "Flushes IEEE-754 denormal (subnormal) floating-point numbers to zero to prevent 100x CPU microcode slowdowns during decay states or low-magnitude neural activations.",
+  "target_crates": ["compute", "omni", "mutation_engine"],
+  "detection": {
+    "recommended_markers": ["flush_to_zero", "denormals_are_zero", "f32::is_subnormal", "abs() < 1e-15"],
+    "anti_patterns": ["f32 / 1000.0", "f64 / 1000.0"]
+  },
+  "recommendations": [
+    "Configure DAZ (Denormals-Are-Zero) and FTZ (Flush-To-Zero) hardware flags on real-time inference worker threads.",
+    "Clamp decaying weights and floating point state updates below EPSILON (1e-12) to true zero.",
+    "Verify numeric convergence loops never enter denormal execution states that trigger CPU microcode traps."
+  ]
+}

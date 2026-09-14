@@ -8,16 +8,26 @@ pub mod autonomous_scientific;
 pub mod dev_tools;
 pub mod disassembly;
 pub mod error_interceptor;
+pub mod fascia;
+pub mod harvest;
+pub mod source_extraction;
 pub mod mutation;
 pub mod parallel_scanner;
 pub mod pattern_rewriter;
 pub mod protocol_bridge;
 pub mod repo_watcher;
+pub mod ring;
 pub mod sandbox;
 pub mod scientific_loop;
 pub mod self_rebuild;
 pub mod self_repair;
 pub mod streaming_adaptation;
+pub mod workspace;
+
+pub use fascia::*;
+pub use source_extraction::*;
+pub use ring::*;
+pub use workspace::*;
 
 pub use streaming_adaptation::{
     apply_adaptation, StreamingAdaptationReport, StreamingLoraAdaptationPipeline, DEFAULT_LORA_RANK,
@@ -48,7 +58,7 @@ pub use disassembly::{
 pub use error_interceptor::{InterceptedProcessError, ProcessErrorInterceptor};
 pub use mutation::{fnv1a, CodeMutator, PatchProposal};
 pub use parallel_scanner::{BatchScanReport, ParallelScanner};
-pub use pattern_rewriter::{PatternMatch, PatternRewriter, StructuralPatch};
+pub use pattern_rewriter::{PatternMatch, PatternRewriter, SmtInterlockedRewriter, StructuralPatch};
 pub use protocol_bridge::{ChimeraProtocolBridge, MnlpPatchPacket, MnlpProtocolBridge};
 pub use repo_watcher::{RepoWatcher, SourceChangeEvent};
 pub use sandbox::ShadowSandbox;

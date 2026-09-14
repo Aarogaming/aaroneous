@@ -7,6 +7,8 @@ pub mod cognitive_equilibrium;
 pub mod control;
 pub mod cranelift_jit;
 pub mod crucible;
+pub mod dynamics;
+pub mod denormal;
 pub mod entropy;
 pub mod episodic_memory;
 pub mod ffi_kernels;
@@ -76,6 +78,11 @@ pub use cognitive_equilibrium::{
 };
 pub use cranelift_jit::{CraneliftJitEngine, NativeExecutionFn};
 pub use crucible::{CrucibleDuelReport, CrucibleSandbox, VirtualScenario};
+pub use dynamics::{
+    ComputeError, DynamicalSystem, EffortFlowPair, HarmonicOscillator, HarmonicOscillatorDual,
+    PhysicalDomain,
+};
+pub use denormal::{DenormalGuard, denormal_flush_scope, with_denormals_flushed};
 pub use episodic_memory::{
     simd_cosine_similarity_256, simd_dot_product_256, AcousticReflexMatcher, EpisodicMemoryFabric,
     SearchResult, TrajectoryMetadata, LATENT_VECTOR_DIM,
@@ -152,6 +159,15 @@ pub extern crate ipc_bus as nervous_system;
 pub use ipc_bus;
 use ipc_bus::SharedMemorySynapse;
 use rand::SeedableRng;
+use std::sync::{Mutex, MutexGuard};
+
+/// Test isolation guard for parallel test execution.
+static TEST_ISOLATE_MUTEX: Mutex<()> = Mutex::new(());
+
+/// Acquire exclusive test lock for deterministic parallel execution
+fn acquire_test_lock() -> MutexGuard<'static, ()> {
+    TEST_ISOLATE_MUTEX.lock().unwrap()
+}
 
 /// The central Compute Engine.
 /// Exposes mathematical methodologies to the Synapse for zero-copy execution.
@@ -162,7 +178,32 @@ pub struct ComputeEngine {
 
 impl Default for ComputeEngine {
     fn default() -> Self {
-        Self::new(SharedMemorySynapse::new_sync("SAB_STORE", 1024 * 1024).unwrap())
+        // For tests, use unique synapse names to prevent file locking conflicts
+        #[cfg(test)]
+        {
+            use std::sync::atomic::{AtomicUsize, Ordering};
+            
+            static COUNTER: AtomicUsize = AtomicUsize::new(0);
+            let counter = COUNTER.fetch_add(1, Ordering::SeqCst);
+            let synapse_name = format!("TEST_SYNAPSE_{}", counter);
+            Self::new(SharedMemorySynapse::new_sync(&synapse_name, 1024 * 1024).unwrap())
+        }
+        
+        #[cfg(not(test))]
+        {
+            match SharedMemorySynapse::new_sync("SAB_STORE", 1024 * 1024) {
+                Ok(synapse) => Self::new(synapse),
+                Err(_) => {
+                    use std::sync::atomic::{AtomicUsize, Ordering};
+                    static COUNTER: AtomicUsize = AtomicUsize::new(0);
+                    let counter = COUNTER.fetch_add(1, Ordering::SeqCst);
+                    let fallback_name = format!("SAB_STORE_FALLBACK_{}_{}", std::process::id(), counter);
+                    let synapse = SharedMemorySynapse::new_sync(&fallback_name, 1024 * 1024)
+                        .expect("Failed to initialize fallback compute engine synapse");
+                    Self::new(synapse)
+                }
+            }
+        }
     }
 }
 
@@ -248,6 +289,7 @@ mod tests {
 
     #[test]
     fn test_execute_monte_carlo() {
+        acquire_test_lock();
         let mut engine = ComputeEngine::default();
         let input = vec![0.5, 0.3];
         let result = engine.execute("monte_carlo", &input);
@@ -258,6 +300,7 @@ mod tests {
 
     #[test]
     fn test_execute_markov() {
+        acquire_test_lock();
         let mut engine = ComputeEngine::default();
         let input = vec![0.7, 0.3];
         let result = engine.execute("markov", &input);
@@ -266,6 +309,7 @@ mod tests {
 
     #[test]
     fn test_execute_bayesian() {
+        acquire_test_lock();
         let mut engine = ComputeEngine::default();
         let input = vec![0.5, 0.3, 0.2];
         let result = engine.execute("bayesian", &input);
@@ -276,6 +320,7 @@ mod tests {
 
     #[test]
     fn test_execute_entropy() {
+        acquire_test_lock();
         let mut engine = ComputeEngine::default();
         let input = vec![0.25, 0.25, 0.25, 0.25];
         let result = engine.execute("entropy", &input);
@@ -286,6 +331,7 @@ mod tests {
 
     #[test]
     fn test_execute_cosine() {
+        acquire_test_lock();
         let mut engine = ComputeEngine::default();
         let input = vec![1.0, 0.0, 0.0, 1.0];
         let result = engine.execute("cosine", &input);
@@ -294,6 +340,7 @@ mod tests {
 
     #[test]
     fn test_execute_pid() {
+        acquire_test_lock();
         let mut engine = ComputeEngine::default();
         let input = vec![1.0, 0.5, 0.1];
         let result = engine.execute("pid", &input);
@@ -302,6 +349,7 @@ mod tests {
 
     #[test]
     fn test_execute_fft() {
+        acquire_test_lock();
         let mut engine = ComputeEngine::default();
         let input = vec![1.0, 0.0, 0.0, 0.0];
         let result = engine.execute("fft", &input);
@@ -310,6 +358,7 @@ mod tests {
 
     #[test]
     fn test_execute_nash() {
+        acquire_test_lock();
         let mut engine = ComputeEngine::default();
         let input = vec![0.5, 0.5, 0.5];
         let result = engine.execute("nash", &input);
@@ -318,6 +367,7 @@ mod tests {
 
     #[test]
     fn test_execute_optimize_ga() {
+        acquire_test_lock();
         let mut engine = ComputeEngine::default();
         let input = vec![0.1, 0.2, 0.3, 0.4, 0.5];
         let result = engine.execute("optimize_ga", &input);
@@ -326,6 +376,7 @@ mod tests {
 
     #[test]
     fn test_execute_boltzmann() {
+        acquire_test_lock();
         let mut engine = ComputeEngine::default();
         let input = vec![1.0, -0.5, 0.3, -0.8];
         let result = engine.execute("boltzmann", &input);
@@ -336,6 +387,7 @@ mod tests {
 
     #[test]
     fn test_execute_free_energy() {
+        acquire_test_lock();
         let mut engine = ComputeEngine::default();
         let input = vec![0.5, 0.3, 0.2];
         let result = engine.execute("free_energy", &input);
@@ -345,6 +397,7 @@ mod tests {
 
     #[test]
     fn test_execute_free_energy_insufficient_input() {
+        acquire_test_lock();
         let mut engine = ComputeEngine::default();
         let input = vec![0.5, 0.3];
         let result = engine.execute("free_energy", &input);
@@ -354,6 +407,7 @@ mod tests {
 
     #[test]
     fn test_execute_mutual_info() {
+        acquire_test_lock();
         let mut engine = ComputeEngine::default();
         let input = vec![0.3, 0.2, 0.1];
         let result = engine.execute("mutual_info", &input);
@@ -362,6 +416,7 @@ mod tests {
 
     #[test]
     fn test_execute_mutual_info_insufficient() {
+        acquire_test_lock();
         let mut engine = ComputeEngine::default();
         let input = vec![0.3, 0.2];
         let result = engine.execute("mutual_info", &input);

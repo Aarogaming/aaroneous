@@ -32,10 +32,11 @@ fn main() -> Result<()> {
             Ok(()) => {
                 tokens_emitted += 1;
                 
-                // Progress indicator every 1 second
-                if start.elapsed().as_secs() % 1 == 0 && start.elapsed().as_secs() > 0 {
+                // Progress indicator every 1 second (integer seconds)
+                let elapsed_secs = start.elapsed().as_secs();
+                if elapsed_secs > 0 && elapsed_secs % 1 == 0 {
                     println!("Time: {}s | Tokens emitted: {}, Rate: {:.2} tok/s",
-                             start.elapsed().as_secs(), tokens_emitted, 
+                             elapsed_secs, tokens_emitted, 
                              tokens_emitted as f64 / start.elapsed().as_secs_f64());
                 }
             }

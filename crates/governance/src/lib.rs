@@ -28,8 +28,8 @@ pub use metrics_exporter::{
     InMemoryMetricsSink, MetricObservation, UniversalMetricsExporter, UniversalMetricsSink,
 };
 pub use rollback_journal::{GenerationSnapshot, GenerationalJournal};
-pub use smt_action_interlock::{InterlockAuditCertificate, SmtActionInterlock, SmtProofCache, SmtProofKey};
+pub use smt_action_interlock::{GovernanceError, InterlockAuditCertificate, SmtActionInterlock, SmtProofCache, SmtProofKey};
 pub use thermodynamic_governor::{
     ThermodynamicAction, ThermodynamicForecast, ThermodynamicGovernor, ThermodynamicGovernorConfig,
 };
-pub use z3_prover::{NonInterferenceReport, Z3Prover};
+pub use z3_prover::{NonInterferenceReport, Z3Prover, MAX_HARDWARE_REGISTER};

@@ -25,14 +25,14 @@ struct UninstallProgress {
     error_message: Option<String>,
 }
 
-pub struct AaroneousUninstallApp {
+pub struct UninstallApp {
     current_page: UninstallPage,
     purge_user_data: bool,
     install_dir: PathBuf,
     progress: Arc<Mutex<UninstallProgress>>,
 }
 
-impl AaroneousUninstallApp {
+impl UninstallApp {
     pub fn new(_cc: &eframe::CreationContext<'_>) -> Self {
         let install_dir = if let Ok(current_exe) = std::env::current_exe() {
             if let Some(parent) = current_exe.parent() {
@@ -147,7 +147,7 @@ if (Test-Path $key) { Remove-Item -Recurse -Force $key }
     }
 }
 
-impl eframe::App for AaroneousUninstallApp {
+impl eframe::App for UninstallApp {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         let is_uninstalling = self.current_page == UninstallPage::Uninstalling;
         if is_uninstalling {
@@ -309,6 +309,6 @@ fn main() -> eframe::Result<()> {
     eframe::run_native(
         "Aaroneous Uninstaller",
         native_options,
-        Box::new(|cc| Ok(Box::new(AaroneousUninstallApp::new(cc)))),
+        Box::new(|cc| Ok(Box::new(UninstallApp::new(cc)))),
     )
 }

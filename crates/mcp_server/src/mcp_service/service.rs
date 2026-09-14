@@ -54,7 +54,10 @@ impl Default for McpService {
 
 impl McpService {
     pub fn new(config: ServiceConfig) -> Self {
-        let workspace_root = PathBuf::from("D:\\Aaroneous");
+        Self::with_workspace_root(config, PathBuf::from("."))
+    }
+
+    pub fn with_workspace_root(config: ServiceConfig, workspace_root: PathBuf) -> Self {
         Self {
             config,
             tools: Arc::new(RwLock::new(Vec::new())),
@@ -67,6 +70,49 @@ impl McpService {
     pub async fn register_tool(&self, tool: McpTool) {
         let mut tools = self.tools.write().await;
         tools.push(tool);
+    }
+
+    /// Register standard workspace tooling into the MCP service.
+    pub async fn register_standard_tools(&self) {
+        self.register_tool(McpTool::new(
+            "review.pattern_conformance",
+            "Reviews workspace source files against declarative architectural patterns (Arrow SoA, Typestates, Gitoxide in-process VCS, DAZ/FTZ, etc.) and emits synthesis recommendations.",
+            serde_json::json!({
+                "target_paths": {
+                    "type": "array",
+                    "items": { "type": "string" },
+                    "description": "Paths to files or directories to review"
+                },
+                "registry_path": {
+                    "type": "string",
+                    "description": "Optional path to pattern definitions registry"
+                }
+            }),
+            vec!["target_paths"],
+        )).await;
+
+        self.register_tool(McpTool::new(
+            "audit.workspace",
+            "Audits workspace targets for zero-ambient-authority and AST invariant violations.",
+            serde_json::json!({
+                "paths": {
+                    "type": "array",
+                    "items": { "type": "string" },
+                    "description": "Target directories or files to audit"
+                }
+            }),
+            vec![],
+        )).await;
+
+        self.register_tool(McpTool::new(
+            "governance.verify_action",
+            "Validates proposed AST mutations or component patches through SMT non-interference checks.",
+            serde_json::json!({
+                "action_id": { "type": "string", "description": "Unique identifier of proposed action" },
+                "description": { "type": "string", "description": "Description of the operation" }
+            }),
+            vec!["action_id"],
+        )).await;
     }
 
     pub async fn list_tools(&self) -> Vec<McpTool> {
@@ -179,6 +225,17 @@ mod tests {
         service.register_tool(tool).await;
         let tools = service.list_tools().await;
         assert_eq!(tools.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn test_register_standard_tools() {
+        let service = McpService::new(ServiceConfig::default());
+        service.register_standard_tools().await;
+        let tools = service.list_tools().await;
+        assert_eq!(tools.len(), 3);
+        assert!(tools.iter().any(|t| t.name == "review.pattern_conformance"));
+        assert!(tools.iter().any(|t| t.name == "audit.workspace"));
+        assert!(tools.iter().any(|t| t.name == "governance.verify_action"));
     }
 
     #[test]

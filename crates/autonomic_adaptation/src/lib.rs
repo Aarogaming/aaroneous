@@ -13,6 +13,12 @@ pub use artifact_pruning as self_digestion;
 pub mod skills;
 pub mod persona_fusion;
 pub mod workspace;
+pub mod streaming_adaptation;
+
+pub use streaming_adaptation::{
+    AdaptationError, AutonomousPacingRegulator, PacingConfig, PacingDecision, PacingTier,
+    StreamingSelfCorrectionFilter, ThermodynamicTelemetry,
+};
 
 pub extern crate ipc_bus as nervous_system;
 pub use ipc_bus;

@@ -7,9 +7,8 @@
 // Current placeholder: Simple string-based replacement in lib.rs
 // Future: Full AST traversal using syn to handle edge cases properly
 
-use syn::visit_mut::VisitMut;
-
 /// Replaces .unwrap() calls with ok_or_else pattern
+#[derive(Default)]
 pub struct UnwrapReplacer;
 
 impl UnwrapReplacer {

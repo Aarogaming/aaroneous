@@ -10,18 +10,15 @@ static PLUGIN_NAME: &[u8] = b"CodeSpecialist\0";
 static PLUGIN_VERSION: &[u8] = b"0.1.0\0";
 
 /// Reference dynamic code specialist engine
+/// Provides code manipulation, AST analysis dispatch, and 256-dimensional latent transformation.
 pub struct CodeSpecialist {
     name: String,
     version: String,
 }
 
-impl Default for CodeSpecialist {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 impl CodeSpecialist {
+    /// Create a new CodeSpecialist instance
+    /// Initializes with default name and version identifiers
     pub fn new() -> Self {
         Self {
             name: "CodeSpecialist".to_string(),
@@ -59,13 +56,13 @@ impl SpecialistEngine for CodeSpecialist {
 /// Dynamic ABI Entrypoint: Instantiates the Code Specialist
 #[unsafe(no_mangle)]
 #[allow(improper_ctypes_definitions)]
-pub extern "C" fn aaroneous_create_specialist() -> *mut dyn SpecialistEngine {
+pub extern "C" fn create_specialist() -> *mut dyn SpecialistEngine {
     Box::into_raw(Box::new(CodeSpecialist::new()))
 }
 
 /// Dynamic ABI Entrypoint: Queries the Plugin Manifest
 #[unsafe(no_mangle)]
-pub extern "C" fn aaroneous_specialist_manifest() -> SpecialistPluginManifest {
+pub extern "C" fn specialist_manifest() -> SpecialistPluginManifest {
     SpecialistPluginManifest {
         abi_version: SPECIALIST_ABI_VERSION,
         name: PLUGIN_NAME.as_ptr() as *const c_char,

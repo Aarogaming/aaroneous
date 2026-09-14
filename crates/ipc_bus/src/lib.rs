@@ -2,6 +2,7 @@
 // Single Writer, Multi-Reader zero-copy shared memory with mutation intent validation.
 
 pub mod disruptor;
+pub mod flight_recorder;
 pub mod intent_log;
 pub mod machine_packet;
 pub mod metrics;
@@ -25,6 +26,7 @@ pub mod universal_protocol;
 pub use universal_event_bus::{EventEnvelope, EventSubscriber, SequenceBarrier, UniversalEventBus};
 
 pub use universal_protocol::{
+    AssimilationPhase, AssimilationRecord, UcpBroadcastType, UcpRequestType,
     UniversalClientRequest, UniversalServerBroadcast, UCP_DEFAULT_WS_PORT, UCP_NAMED_PIPE_PATH,
     UCP_PROTOCOL_VERSION,
 };
@@ -73,8 +75,17 @@ pub use slab_allocator::{
     SLOT_ERROR, SLOT_FREE,
 };
 pub use swmr_synapse::{
-    McpToolCallFrame, SWMRSynapse, SpecialistDialogue, SynapseReader, SynapseState,
-    SynapseWriterHandle,
+    McpToolCallFrame, SWMRSynapse, SnapshotReadEntry, SnapshotRingHeader, SnapshotRingSlot,
+    SpecialistDialogue, SwmrSnapshotPublisher, SwmrSnapshotReader, SynapseReader, SynapseState,
+    SynapseWriterHandle, SNAPSHOT_RING_SLOTS, SNAPSHOT_SEGMENT_SIZE, SNAPSHOT_SHM_MAGIC,
+    SNAPSHOT_SHM_VERSION,
+};
+pub use core_contracts::EngineSnapshotPod;
+pub use core_contracts::{FlightEventKind, FlightEventPod, FlightFileHeaderPod};
+pub use flight_recorder::{
+    FlightRecorder, FlightRecorderError, FlightReplayer, FlightReplayIterator,
+    FLIGHT_HEADER_SIZE, FLIGHT_LOG_SIZE, FLIGHT_MAGIC, FLIGHT_MAX_SLOTS,
+    FLIGHT_SLOT_SIZE, FLIGHT_VERSION,
 };
 
 // Engineering & CS Terminology Aliases (Machine-Native Linking Protocol & IPC)

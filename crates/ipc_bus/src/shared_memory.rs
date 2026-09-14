@@ -117,18 +117,23 @@ impl SharedMemorySynapse {
         let config = paths::WorkspacePathsConfig::default();
         let path = paths::resolve_synapse_path(name, &config);
         
+        Self::new_at(&path, size)
+    }
+
+    /// Create a synapse at the specified path (for test isolation)
+    pub fn new_at(path: &PathBuf, size: usize) -> Result<Self> {
         let file = OpenOptions::new()
             .read(true)
             .write(true)
             .create(true)
-            .open(&path)
+            .open(path)
             .with_context(|| format!("Failed to open/create synapse file at {:?}", path))?;
 
         file.set_len(size as u64)?;
 
         let mmap = unsafe { MmapOptions::new().map_mut(&file)? };
 
-        Ok(Self { mmap, path })
+        Ok(Self { mmap, path: path.clone() })
     }
 
     pub fn write_at(&mut self, offset: usize, data: &[u8]) -> Result<()> {

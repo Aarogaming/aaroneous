@@ -103,6 +103,9 @@ impl OtEdgeGateway {
             WireMessage::Telemetry(telem) => {
                 self.ingest_telemetry(telem.clone());
             }
+            WireMessage::TelemetryBatch(batch) => {
+                self.ingest_telemetry(TelemetryPacket::from(batch));
+            }
             WireMessage::Command(cmd) => match cmd {
                 CommandPacket::SetRegister { address, value } => {
                     let _ = self.set_holding_register(*address as usize, *value);

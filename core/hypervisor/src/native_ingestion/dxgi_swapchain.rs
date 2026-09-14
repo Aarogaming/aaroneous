@@ -123,7 +123,7 @@ impl DxgiCaptureMetrics {
             avg_latency_us: avg,
             max_latency_us: max,
             min_latency_us: min,
-            fps: if frames > 0 { (frames as f64 / 1.0) } else { 0.0 },
+            fps: if frames > 0 { frames as f64 / 1.0 } else { 0.0 },
         }
     }
 

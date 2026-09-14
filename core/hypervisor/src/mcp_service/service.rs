@@ -134,14 +134,7 @@ pub struct McpService {
     /// Universal tool registry bridging Cloud, LLMs, and native .si models
     pub universal_tools: Arc<specialists::ToolRegistry>,
     /// Workspace root for file tools (read_code, search_code, list_files).
-    ///
-    /// Resolution order:
-    /// 1. `AARONEOUS_WORKSPACE` environment variable
-    /// 2. `std::env::current_dir()` (process working directory)
-    /// 3. Hardcoded `D:\Aaroneous` fallback (only for self-development)
-    ///
-    /// Claude Desktop / Cursor: set `AARONEOUS_WORKSPACE=${workspaceFolder}`
-    /// in the MCP server environment config.
+    /// Injected via `WorkspacePathsConfig` or builder method `with_workspace_root`.
     pub workspace_root: std::path::PathBuf,
 }
 
@@ -165,6 +158,12 @@ impl McpService {
             universal_tools,
             workspace_root,
         }
+    }
+
+    /// Builder method for explicit constructor injection of the workspace root.
+    pub fn with_workspace_root(mut self, root: std::path::PathBuf) -> Self {
+        self.workspace_root = root;
+        self
     }
 
     /// Attach the live federation so tools can call sovereigns.

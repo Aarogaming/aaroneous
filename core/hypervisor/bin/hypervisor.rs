@@ -1,6 +1,6 @@
 #![allow(ambient_authority)]
 
-use hypervisor::AutonomicNervousSystem;
+use hypervisor::SupervisoryDaemon;
 use hypervisor::enzyme_runner::EnzymeRunner;
 use hypervisor::hox_registry::HoxRegistry;
 use hypervisor::splicing_engine::WasmSplicingEngine;
@@ -17,7 +17,7 @@ use uuid::Uuid;
 
 #[derive(Parser)]
 #[command(name = "hypervisor")]
-#[command(about = "Aaroneous Autonomic Nervous System & Machine-Native SI CLI", long_about = None)]
+#[command(about = "Aaroneous Supervisory Control Daemon & Machine-Native SI CLI", long_about = None)]
 struct Cli {
     #[command(subcommand)]
     command: Option<Commands>,
@@ -25,7 +25,7 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Start the autonomic nervous system
+    /// Start the supervisory control daemon
     Start {
         #[arg(short, long, default_value = "1000")]
         tick: u64,
@@ -413,7 +413,7 @@ fn run_cli(cli: Cli) -> Result<()> {
         Some(Commands::Start { tick }) => {
             tracing::info!(
                 tick_ms = tick,
-                "Initializing Aaroneous Autonomic Nervous System"
+                "Initializing Aaroneous Supervisory Control Daemon"
             );
 
             let enzyme_runner = Arc::new(EnzymeRunner::new()?);
@@ -430,7 +430,7 @@ fn run_cli(cli: Cli) -> Result<()> {
                 vec![],
             )));
 
-            let ans = AutonomicNervousSystem::new(
+            let daemon = SupervisoryDaemon::new(
                 "primary",
                 *tick,
                 enzyme_runner,
@@ -440,8 +440,8 @@ fn run_cli(cli: Cli) -> Result<()> {
                 Some("hive.db"),
             )?;
 
-            println!("System online. Autonomic loop starting...");
-            ans.start();
+            println!("System online. Supervisory loop starting...");
+            daemon.start();
 
             run_async(async {
                 loop {
@@ -850,7 +850,7 @@ fn run_cli(cli: Cli) -> Result<()> {
         None => {
             println!("Usage: hypervisor [COMMAND]");
             println!("Commands:");
-            println!("  start       Start autonomic nervous system loop");
+            println!("  start       Start supervisory control daemon loop");
             println!("  inject      Inject task intent into shared synapse");
             println!("  daemon      Launch an active sovereign P2P socket daemon node");
             println!("  bootstrap   Bootstrap the first .si base model from Translation Dataset");

@@ -90,12 +90,8 @@ pub enum DigestionPriority {
     High,
 }
 
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
-pub enum DigestionStatus {
-    StructuralAnalysis,
-    Ready,
-    Complete,
-}
+pub mod onboarding;
+pub mod assimilation;
 
 // Re-export SABs for universal access
 pub use crate::sabs::{SabManifest, SabMatrix, SabMatrixBuilder, SabSurface};
@@ -160,8 +156,10 @@ pub use crate::scientific_analyzer::{
 
 // Runtime Supervisory Loop
 pub mod supervisory_loop;
-pub use supervisory_loop as autonomic_loop;
+pub use supervisory_loop::{AutonomousControlLoop, SupervisoryDaemon};
+#[allow(deprecated)]
 pub use supervisory_loop::AutonomicNervousSystem;
+pub use supervisory_loop as autonomic_loop;
 
 // Sandboxed Micro-Worker Bytecode Virtual Machine
 pub mod micro_vm;
@@ -476,6 +474,20 @@ pub mod reasoning;
 pub mod system_metrics;
 pub mod task_routing;
 pub mod visual_perception;
+
+#[cfg(any(feature = "testing", feature = "simulation", test))]
+pub mod simulation_testbed;
+#[cfg(any(feature = "testing", feature = "simulation", test))]
+pub mod chaos_monkey;
+#[cfg(any(feature = "testing", feature = "simulation", test))]
+pub mod task_worker;
+
+#[cfg(any(feature = "testing", feature = "simulation", test))]
+pub use simulation_testbed::SimulationTestbed;
+#[cfg(any(feature = "testing", feature = "simulation", test))]
+pub use chaos_monkey::ChaosMonkey;
+#[cfg(any(feature = "testing", feature = "simulation", test))]
+pub use task_worker::ExecutionEnzyme;
 
 pub use action_executor::{ActionExecutor, ExecutableAction, FileOp};
 pub use hox_persistence::{HoxPersistenceManager, RegistrySnapshot, SnapshotInfo};

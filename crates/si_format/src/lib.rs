@@ -7,8 +7,13 @@
 //! - Deterministic padding and layout convergence
 
 pub mod audit;
+pub mod cartridge;
 pub mod utils;
 pub mod verify;
+
+pub use cartridge::{
+    fnv1a_hash, Aligned, Cartridge, CartridgeError, Executable, Raw, SmtVerified,
+};
 
 pub use audit::{
     audit, audit_arch, jit_audit, AArch64Auditor, AuditResult, InstructionSetAuditor, TargetArch,

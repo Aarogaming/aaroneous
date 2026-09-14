@@ -1,5 +1,5 @@
 # check_ports_and_locks.ps1
-# Specifically tests TCP ports 8765, 4222 and checks for file locks on database and synapse files.
+# Specifically tests TCP ports 8765, 4222 and checks for file locks on database and shared memory files.
 
 Write-Host "Checking Aaroneous network endpoints and file locks..." -ForegroundColor Cyan
 

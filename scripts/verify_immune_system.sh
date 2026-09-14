@@ -1,10 +1,10 @@
 #!/bin/bash
-# Immune System Verification Script
+# System Invariant Verification Script
 # Verifies all dogfooding harnesses are active and passing
 
 set -e
 
-echo "=== AARONEOUS IMMUNE SYSTEM VERIFICATION ==="
+echo "=== AARONEOUS SYSTEM INVARIANT VERIFICATION ==="
 echo ""
 
 echo "[1/5] Checking workspace compilation..."
@@ -12,7 +12,7 @@ cargo check --workspace 2>&1 | grep "^error" && exit 1 || echo "✓ Workspace co
 echo ""
 
 echo "[2/5] Running agent evasion suite..."
-cargo test -p cratify --test agent_evasion_suite --quiet 2>&1 | tail -1
+cargo test -p ast_auditor --test agent_evasion_suite --quiet 2>&1 | tail -1
 echo "✓ Agent evasion tests pass"
 echo ""
 
@@ -31,10 +31,10 @@ cargo test -p compute --test rls_boundary_tests --quiet 2>&1 | tail -1
 echo "✓ RLS boundary tests pass"
 echo ""
 
-echo "=== ALL IMMUNE SYSTEM COMPONENTS VERIFIED ==="
+echo "=== ALL SYSTEM INVARIANT HARNESSES VERIFIED ==="
 echo ""
-echo "Active Defenses:"
-echo "  • Agent Evasion Detection: crates/cratify/tests/agent_evasion_suite.rs"
+echo "Active Invariant Harnesses:"
+echo "  • Agent Evasion Detection: crates/ast_auditor/tests/agent_evasion_suite.rs"
 echo "  • CPU Starvation Recovery: dev/chaos_injector/"
 echo "  • IPC Corruption Fuzzing: crates/ipc_bus/tests/malformed_token_fuzz.rs"
 echo "  • FP Covariance Bounds: crates/compute/tests/rls_boundary_tests.rs"

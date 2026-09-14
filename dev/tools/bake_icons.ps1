@@ -1,4 +1,4 @@
-﻿# dev/tools/bake_icons.ps1
+# dev/tools/bake_icons.ps1
 # Native Windows In-House Multi-Resolution Icon & Asset Baker
 # Generates .ico (256, 128, 64, 48, 32, 16) and master 512x512 .png files.
 
@@ -216,9 +216,9 @@ Save-MultiResIcon -MasterBitmap $bmpCompute -OutputIcoPath "D:\Aaroneous\assets\
 $bmpCompute.Dispose()
 
 # ==============================================================================
-# 2. BAKE AFC TRAJECTORY (SUPERSONIC HUD FLIGHT)
+# 2. BAKE ARC TRAJECTORY (SUPERSONIC HUD RUNTIME CONTROLLER)
 # ==============================================================================
-Write-Host "Baking Aaroneous Flight Controller (AFC Trajectory) Icon..."
+Write-Host "Baking Aaroneous Runtime Controller (ARC Trajectory) Icon..."
 $bmpAfc = New-Object System.Drawing.Bitmap 512, 512
 $g = [System.Drawing.Graphics]::FromImage($bmpAfc)
 $g.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias

@@ -12,6 +12,9 @@ pub struct DynamicRagPipeline {
     web_crawler: WebCrawler,
 }
 
+/// Type alias for canonical naming
+pub type RagRouter = DynamicRagPipeline;
+
 impl DynamicRagPipeline {
     pub fn new(memory_fabric: Arc<EpisodicMemoryFabric>, insertion_pipeline: Arc<EpisodicInsertionPipeline>) -> Self {
         Self {
@@ -32,7 +35,7 @@ impl DynamicRagPipeline {
         }
 
         // 2. Otherwise route to the HNSW R^256 Episodic Memory Fabric
-        // Dummy query vector for now until the local embedding model is wired
+        // Query vector placeholder until local embedding model is wired
         let query_vector = [0.1f32; compute::episodic_memory::LATENT_VECTOR_DIM];
         
         // Return top 5 matches
@@ -42,5 +45,19 @@ impl DynamicRagPipeline {
         }
 
         Ok(results)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_rag_router_search() {
+        let fabric = Arc::new(EpisodicMemoryFabric::default());
+        let pipeline = Arc::new(EpisodicInsertionPipeline::new(fabric.clone()));
+        let router = DynamicRagPipeline::new(fabric, pipeline);
+        let res = router.semantic_search("test query");
+        assert!(res.is_ok());
     }
 }

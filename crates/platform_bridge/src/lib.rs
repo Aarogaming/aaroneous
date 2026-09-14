@@ -26,6 +26,12 @@ pub use adapters::{
     NormalizedObservation, PhysicalActuatorAdapter, SensoryFeedAdapter, SynthesizedActuatorAdapter,
     UniversalActuatorCommand, UniversalAdapterRegistry, VirtualSimActuator,
 };
+#[cfg(feature = "midi-osc")]
+pub use adapters::HardwareControllerHooks;
+#[cfg(feature = "ndi-broadcast")]
+pub use adapters::NdiBroadcaster;
+#[cfg(feature = "hooking-injector")]
+pub use hooking::HudhookInjector;
 pub use audio_synthesizer::{AcousticVoiceSynthesizer, FormantSpec};
 pub use robotics::{
     AutomotiveBusBridge, BoeBotCommand, BoeBotOcularNavigator, CanFrame, CorridorCorridorAnalysis,
@@ -66,7 +72,7 @@ pub use traits::{HidAction, HidCommand, MarionetteHost, ProbingTrace, VisualObse
 pub use vision_latent::{SolidStateVisionPipeline, VisionLatentObservation};
 pub use window_target::{
     AudioCaptureModifier, CaptureModifiers, CaptureTarget, DiscoveredScreen, DiscoveredWindow,
-    WindowDiscoveryEngine,
+    TransparentWindowPipeline, WindowDiscoveryEngine,
 };
 
 use anyhow::Result;

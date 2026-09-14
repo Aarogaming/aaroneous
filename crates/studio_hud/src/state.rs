@@ -255,6 +255,7 @@ pub enum AppWindowMode {
     CompactRecorderOverlay,
     UtilityDashboard,
     ConsoleGameOS,
+    TransparentOverlay,
 }
 
 /// Persistent User Preferences (100% Dynamic Paths)
@@ -1141,7 +1142,7 @@ impl SharedHudState {
     pub fn navigate_to_dev_studio(&mut self) { self.nav_section = NavSection::DevStudio; }
     pub fn rescan_workspace_files(&mut self) {
         let root = self.settings.workspace_root_override.clone()
-            .unwrap_or_else(|| std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")));
+            .unwrap_or_else(|| paths::WorkspacePaths::default().root().to_path_buf());
         self.dev_tools_engine = adaptation_engine::DevToolsEngine::new(&root);
         self.workspace_tree_items = self.dev_tools_engine.scan_workspace_tree(4);
     }

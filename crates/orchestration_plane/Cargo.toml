@@ -18,6 +18,14 @@ bytemuck = { workspace = true }
 syn = { version = "2.0", features = ["full", "visit", "visit-mut"] }
 proc-macro2 = { version = "1.0", features = ["span-locations"] }
 paths = { path = "../paths" }
+ipc_bus = { path = "../ipc_bus" }
+
+[lints.cargo]
+non_kebab_case_bins = "allow"
+
+[[bin]]
+name = "source_extraction"
+path = "src/bin/source_extraction.rs"
 
 [[bin]]
 name = "harvest"

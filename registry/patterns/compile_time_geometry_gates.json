@@ -1,0 +1,17 @@
+{
+  "id": "compile_time_geometry_gates",
+  "name": "Compile-Time Memory Geometry Gates",
+  "category": "memory_geometry",
+  "origin_predecessor": "static_assertions / zerocopy ABI Invariants",
+  "description": "Enforces byte size, field alignment, and natural ABI layout of all zero-copy Pod types at compile time via const assertions, preventing runtime memory corruption.",
+  "target_crates": ["wire", "ipc_bus", "compute", "core/hypervisor"],
+  "detection": {
+    "recommended_markers": ["const _: () = assert!", "bytemuck::Pod", "bytemuck::Zeroable", "_pad"],
+    "anti_patterns": ["unsafe impl Pod", "unsafe impl Zeroable", "transmute::<"]
+  },
+  "recommendations": [
+    "Place const assertions verifying exact byte sizes (e.g., const _: () = assert!(core::mem::size_of::<Record>() == 256);) next to struct definitions.",
+    "Include explicit padding fields (pub _pad0: u16, pub _pad1: u32) to prevent compiler-dependent padding gaps.",
+    "Derive bytemuck::Pod and bytemuck::Zeroable rather than writing manual unsafe implementations."
+  ]
+}

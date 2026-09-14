@@ -1,5 +1,5 @@
 use crate::enzyme_runner::WasmEnzymeRunner;
-use nervous_system::shared_memory::SynapseState;
+use ipc_bus::SynapseState;
 use anyhow::{Result, anyhow};
 use std::path::Path;
 
@@ -43,5 +43,24 @@ impl SimulationTestbed {
 
         println!("[SimulationTestbed] Pressure test PASSED for: {}", wasm_path.display());
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_simulation_testbed_creation() {
+        let testbed = SimulationTestbed::new();
+        assert!(testbed.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_simulation_testbed_pressure_test() {
+        let testbed = SimulationTestbed::new().unwrap();
+        let path = Path::new("dummy_enzyme.wasm");
+        let res = testbed.pressure_test(path, 3).await;
+        assert!(res.is_ok());
     }
 }

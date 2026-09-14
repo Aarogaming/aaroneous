@@ -29,7 +29,7 @@ pub mod rest_api;
 ///
 /// fed.start_all().await?;
 ///
-/// let server = HttpStatusServer::spawn("127.0.0.1:8080".parse()?, fed.clone()).await?;
+/// let server = HttpStatusServer::spawn("127.0.0.1:8080".parse()?, fed.clone(), hypervisor::federation::http::router::HttpServiceConfig::default()).await?;
 /// // server is now serving /healthz, /readyz, /status, /status/{kind}
 ///
 /// // ... run application ...

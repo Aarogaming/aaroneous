@@ -222,7 +222,8 @@ mod tests {
 
     #[test]
     fn test_bootstrap_resampling() {
-        let mut rng = rand::thread_rng();
+        use rand::SeedableRng;
+        let mut rng = rand::rngs::StdRng::seed_from_u64(0x42DEADBEEF);
         let data = vec![10.0, 12.0, 11.0, 10.5, 11.5];
         let means = bootstrap_resample(&data, 100, &mut rng);
         assert_eq!(means.len(), 100);
@@ -233,7 +234,8 @@ mod tests {
 
     #[test]
     fn test_mcmc_chain_gaussian() {
-        let mut rng = rand::thread_rng();
+        use rand::SeedableRng;
+        let mut rng = rand::rngs::StdRng::seed_from_u64(0x1337C0D3);
         // Target: standard normal distribution N(0, 1) -> log_p = -0.5 * x^2
         let log_p = |x: f64| -0.5 * x * x;
         let chain = run_mcmc_chain(0.0, 500, 100, 2, 0.5, &mut rng, log_p);

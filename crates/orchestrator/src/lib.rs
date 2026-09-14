@@ -3,6 +3,14 @@
 pub mod combat_agent;
 pub mod agents;
 pub mod archetypes;
+pub mod onboarding;
+pub mod assimilation;
+pub use onboarding::{
+    handle_assimilation_event, handle_onboarding_event, process_client_request,
+    process_onboarding_request, AssimilationError, AssimilationTask, AuditResult,
+    ComponentOnboardingTask, OnboardingError, OnboardingPhase, OnboardingRecord,
+    Staged, StagedSandbox,
+};
 pub mod aura_ui;
 pub mod aura_ui_manifest;
 pub mod cartridge_manager;
@@ -17,11 +25,28 @@ pub mod linguistic_transducer;
 pub mod llm;
 pub mod lmstudio_client;
 pub mod mdps_router;
+pub mod fs_watcher;
+pub mod memory_pipeline;
+pub mod plugin_compiler;
+pub mod web_crawler;
+pub mod rag_router;
+pub mod tagger;
+pub mod otel_export;
 pub mod tier_allocator;
 pub use tier_allocator as pantheon_orchestrator;
 pub mod swarm_balancer;
+pub mod priority_scheduler;
 pub mod workflow_engine;
 pub mod workspace;
+
+pub use fs_watcher::FsWatcher;
+pub use memory_pipeline::EpisodicInsertionPipeline;
+pub use plugin_compiler::PluginCompiler;
+pub use web_crawler::WebCrawler;
+pub use rag_router::{DynamicRagPipeline, RagRouter};
+pub use tagger::{EdgeComputeTagger, Tagger};
+pub use otel_export::{OTelExporter, OtelExporter};
+pub use priority_scheduler::{PriorityScheduler, PriorityTier, TaskMetadata};
 
 pub use cartridge_manager::{
     CartridgePackManager, CartridgePackManifest, HardwareAutoTuner, HostSystemProfile,
@@ -90,8 +115,18 @@ pub struct IntelligenceEngine {
 
 impl IntelligenceEngine {
     pub fn new(config: LLMConfig, specialists: Vec<Specialist>) -> anyhow::Result<Self> {
+        let synapse = match SharedMemorySynapse::new_sync("SAB_STORE", 1024 * 1024) {
+            Ok(s) => s,
+            Err(_) => {
+                use std::sync::atomic::{AtomicUsize, Ordering};
+                static COUNTER: AtomicUsize = AtomicUsize::new(0);
+                let counter = COUNTER.fetch_add(1, Ordering::SeqCst);
+                let fallback = format!("SAB_STORE_{}_{}", std::process::id(), counter);
+                SharedMemorySynapse::new_sync(&fallback, 1024 * 1024)?
+            }
+        };
         Ok(Self {
-            synapse: SharedMemorySynapse::new_sync("SAB_STORE", 1024 * 1024)?,
+            synapse,
             client: LLMClient::new(config),
             router: TaskRoutingEngine::new(specialists),
         })
@@ -101,8 +136,18 @@ impl IntelligenceEngine {
         config: LLMConfig,
         specialists: Vec<Specialist>,
     ) -> anyhow::Result<Self> {
+        let synapse = match SharedMemorySynapse::new("SAB_STORE", 1024 * 1024).await {
+            Ok(s) => s,
+            Err(_) => {
+                use std::sync::atomic::{AtomicUsize, Ordering};
+                static COUNTER: AtomicUsize = AtomicUsize::new(0);
+                let counter = COUNTER.fetch_add(1, Ordering::SeqCst);
+                let fallback = format!("SAB_STORE_{}_{}", std::process::id(), counter);
+                SharedMemorySynapse::new(&fallback, 1024 * 1024).await?
+            }
+        };
         Ok(Self {
-            synapse: SharedMemorySynapse::new("SAB_STORE", 1024 * 1024).await?,
+            synapse,
             client: LLMClient::new(config),
             router: TaskRoutingEngine::new(specialists),
         })

@@ -61,7 +61,8 @@ pub fn launch() -> Result<(), eframe::Error> {
     let mut viewport = egui::ViewportBuilder::default()
         .with_title("Aaroneous")
         .with_inner_size([1240.0, 840.0])
-        .with_min_inner_size([340.0, 60.0]);
+        .with_min_inner_size([340.0, 60.0])
+        .with_transparent(true);
 
     if settings.always_on_top {
         viewport = viewport.with_always_on_top();

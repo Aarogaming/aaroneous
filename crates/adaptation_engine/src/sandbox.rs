@@ -10,6 +10,8 @@ use std::time::{Duration, Instant};
 
 const SANDBOX_CHECK_TIMEOUT: Duration = Duration::from_secs(10);
 
+static TEMP_COUNTER: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
 /// Isolated Shadow Sandbox that prevents unverified compiler mutations from touching live code.
 #[derive(Debug, Clone)]
 pub struct ShadowSandbox {
@@ -19,7 +21,7 @@ pub struct ShadowSandbox {
 impl ShadowSandbox {
     /// Create a new shadow sandbox inside the specified or default `.sab/shadow` workspace
     pub fn new() -> Result<Self> {
-        let shadow_dir = std::env::temp_dir().join("sandbox_shadow");
+        let shadow_dir = paths::WorkspacePaths::default().cache().join("sandbox_shadow");
         if !shadow_dir.exists() {
             fs::create_dir_all(&shadow_dir)
                 .context("Failed to create shadow sandbox directory")?;
@@ -47,12 +49,20 @@ impl ShadowSandbox {
             .file_name()
             .ok_or_else(|| anyhow::anyhow!("Invalid filename for shadow write"))?;
         let target_path = self.shadow_dir.join(safe_name);
-        let temp_path = self.shadow_dir.join(format!("{}.tmp.{}", safe_name.to_string_lossy(), std::process::id()));
+        let counter = TEMP_COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        let temp_path = self.shadow_dir.join(format!("{}.tmp.{}.{}", safe_name.to_string_lossy(), std::process::id(), counter));
         
         fs::write(&temp_path, content).context("Failed to write temporary shadow file")?;
+        if target_path.exists() {
+            let _ = fs::remove_file(&target_path);
+        }
         if fs::rename(&temp_path, &target_path).is_err() {
             let _ = fs::remove_file(&target_path);
-            fs::rename(&temp_path, &target_path).context("Failed to atomically commit shadow file")?;
+            if fs::rename(&temp_path, &target_path).is_err() {
+                // Fallback for Windows cross-volume/file lock edge-cases
+                fs::copy(&temp_path, &target_path).context("Failed to atomically commit shadow file")?;
+                let _ = fs::remove_file(&temp_path);
+            }
         }
         Ok(target_path)
     }
@@ -331,19 +341,19 @@ mod tests {
 
     #[test]
     fn test_shadow_sandbox_atomic_promotion() {
-        let sandbox = ShadowSandbox::new().unwrap();
+        let temp = tempfile::tempdir().unwrap();
+        let sandbox = ShadowSandbox::with_dir(temp.path().join("sandbox")).unwrap();
         let test_file = "promoted_module.rs";
         let content = b"pub fn version() -> u32 { 1 }";
 
         sandbox.write_shadow_file(test_file, content).unwrap();
 
-        let live_target = std::env::temp_dir().join("live_target").join("promoted.rs");
+        let live_target = temp.path().join("live_target").join("promoted.rs");
         sandbox.promote_to_live(test_file, &live_target).unwrap();
 
         assert!(live_target.exists());
         let read_back = fs::read(&live_target).unwrap();
         assert_eq!(read_back, content);
-        let _ = fs::remove_file(&live_target);
     }
 
     #[test]

@@ -1,4 +1,4 @@
-﻿# Forensic Ingestion Protocol (RFC-0005)
+# Forensic Ingestion Protocol (RFC-0005)
 
 > **TIER 2 PROTOCOL SPECIFICATION**  
 > **SCOPE**: Forensic Ingestion, Quarantine Isolation, Kernel Extraction, and Regression Codification.  
@@ -61,8 +61,9 @@ Codification (docs/forensics/ + Cratify rules + negative tests)
 
 ---
 
-## 3. Quarantine Isolation & Ingestion Gates
+## 3. Staging Sandbox & Component Onboarding Gates (Formerly Quarantine Isolation)
 
-- **Quarantine Buffer**: Modules with unhandled ambient risks (`std::env::*`, direct file system queries) are routed strictly to `staging/quarantine/<module>.rs`.
+- **Staging Sandbox**: Modules with unhandled ambient risks (`std::env::*`, direct file system queries) are routed strictly to `dev/legacy_staging/` or `staging/sandbox/<module>.rs`.
 - **Grafting Prohibition**: Live grafting to domain crates is prohibited if unhandled ambient risks > 0.
-- **Verification Gate**: The ingested module must pass `cargo run -p cratify -- audit core/ crates/ dev/` with exit code 0.
+- **Verification Gate**: The onboarded module must pass `cargo run -p ast_auditor -- audit core/ crates/ dev/` with exit code 0.
+- **Nomenclature Reference**: In the codebase, the onboarding typestate pipeline uses `orchestrator::ComponentOnboardingTask` (aliasing `AssimilationTask`) and `orchestrator::StagedSandbox` (aliasing `Quarantined`).

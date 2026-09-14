@@ -26,7 +26,7 @@ use std::convert::Infallible;
 /// ```json
 /// {
 ///   "mcpServers": {
-///     "aaroneous": {
+///     "hypervisor": {
 ///       "url": "http://localhost:8766/sse",
 ///       "transport": "sse"
 ///     }
@@ -38,7 +38,7 @@ use std::convert::Infallible;
 /// ```json
 /// {
 ///   "cursor.mcp.servers": {
-///     "aaroneous": { "url": "http://localhost:8766/mcp", "transport": "http" }
+///     "hypervisor": { "url": "http://localhost:8766/mcp", "transport": "http" }
 ///   }
 /// }
 /// ```
@@ -89,7 +89,7 @@ pub struct HttpServer {
 }
 
 impl HttpServer {
-    pub fn new(addr: SocketAddr, cfg: McpServiceConfig) -> Self {
+    pub fn new(addr: SocketAddr, _cfg: McpServiceConfig) -> Self {
         Self { addr }
     }
 
@@ -199,7 +199,7 @@ async fn handle_mcp_post(
         Ok(v) => v,
         Err(e) => {
             let err = JsonRpcResponse::err(None, -32700, &format!("Parse error: {}", e));
-            return Json(serde_json::to_value(err).unwrap()).into_response();
+            return Json(serde_json::to_value(err).unwrap_or_default()).into_response();
         }
     };
 
@@ -211,8 +211,7 @@ async fn handle_mcp_post(
     );
 
     // Handle batch or single
-    if raw.is_array() {
-        let requests = raw.as_array().unwrap();
+    if let Some(requests) = raw.as_array() {
         let mut responses = Vec::new();
         for req in requests {
             // Skip notifications (no id field)
@@ -221,7 +220,7 @@ async fn handle_mcp_post(
                 continue;
             }
             let resp = state.service.handle_jsonrpc(req.clone()).await;
-            responses.push(serde_json::to_value(resp).unwrap());
+            responses.push(serde_json::to_value(resp).unwrap_or_default());
         }
         return Json(Value::Array(responses)).into_response();
     }
@@ -250,7 +249,7 @@ async fn handle_mcp_post(
         }
     }
 
-    Json(serde_json::to_value(resp).unwrap()).into_response()
+    Json(serde_json::to_value(resp).unwrap_or_default()).into_response()
 }
 
 /// GET /sse — Server-Sent Events transport for Claude Desktop.
@@ -288,8 +287,8 @@ async fn handle_sse(State(state): State<McpAppState>) -> impl IntoResponse {
         // Announce readiness
         let init = serde_json::json!({
             "jsonrpc": "2.0", "method": "notifications/message",
-            "params": { "level": "info", "logger": "aaroneous",
-                "data": format!("Aaroneous MCP ready — {} tools | {}", tool_count, endpoint_url) }
+            "params": { "level": "info", "logger": "hypervisor_mcp",
+                "data": format!("Hypervisor MCP ready — {} tools | {}", tool_count, endpoint_url) }
         });
         yield Ok::<Event, Infallible>(
             Event::default().event("message")
@@ -333,7 +332,7 @@ async fn handle_health(State(state): State<McpAppState>) -> impl IntoResponse {
     let tool_count = state.service.tools.read().await.len();
     Json(serde_json::json!({
         "status": "healthy",
-        "name": "Aaroneous MCP Server",
+        "name": "Hypervisor MCP Server",
         "version": env!("CARGO_PKG_VERSION"),
         "protocol": "MCP 2024-11-05",
         "transport": ["http", "sse"],
@@ -357,8 +356,8 @@ async fn handle_root(State(state): State<McpAppState>) -> impl IntoResponse {
 
     let addr = state.bind_addr;
     Json(serde_json::json!({
-        "name": "Aaroneous",
-        "description": "Sovereign AI hive — 9 specialized agents powered by abliterated non-coding base models",
+        "name": "Hypervisor",
+        "description": "Sovereign runtime — 9 specialized agents powered by abliterated non-coding base models",
         "version": env!("CARGO_PKG_VERSION"),
         "protocol": "MCP/2024-11-05",
         "transport": {
@@ -368,7 +367,7 @@ async fn handle_root(State(state): State<McpAppState>) -> impl IntoResponse {
         "tools": tool_names,
         "claude_desktop_config": {
             "mcpServers": {
-                "aaroneous": {
+                "hypervisor": {
                     "url": format!("http://{}/sse", addr),
                     "transport": "sse"
                 }
@@ -376,7 +375,7 @@ async fn handle_root(State(state): State<McpAppState>) -> impl IntoResponse {
         },
         "cursor_config": {
             "cursor.mcp.servers": {
-                "aaroneous": {
+                "hypervisor": {
                     "url": format!("http://{}/mcp", addr),
                     "transport": "http"
                 }

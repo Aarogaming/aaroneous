@@ -1,4 +1,4 @@
-﻿[package]
+[package]
 name = "wire"
 version = "0.1.0"
 edition.workspace = true
@@ -11,6 +11,7 @@ repository.workspace = true
 postcard = { version = "1.0", default-features = false }
 serde = { version = "1.0", default-features = false, features = ["derive"] }
 crc = "3.2"
+bytemuck = { workspace = true, default-features = false, features = ["derive"] }
 
 [features]
 default = ["std"]

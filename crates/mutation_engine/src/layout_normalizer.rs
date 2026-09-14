@@ -7,16 +7,9 @@
 // Current placeholder: Simple string-based replacement in lib.rs  
 // Future: Full AST traversal to detect #[repr(C)] and add derives
 
-use syn::visit_mut::VisitMut;
-
 /// Adds #[repr(C)] and safe derives to data structs
+#[derive(Default)]
 pub struct LayoutNormalizer;
-
-impl Default for LayoutNormalizer {
-    fn default() -> Self {
-        Self {}
-    }
-}
 
 impl LayoutNormalizer {
     /// Placeholder - actual implementation uses string replacement in lib.rs

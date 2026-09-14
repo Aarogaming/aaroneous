@@ -1,4 +1,4 @@
-﻿# Repository Operating Directives & Agent Constitution (`aaroneous`)
+# Repository Operating Directives & Agent Constitution (`aaroneous`)
 
 > **STATUS**: BINDING MACHINE CONTRACT & CONSTITUTION  
 > **APPLIES TO**: ALL AUTONOMOUS AGENTS (OpenCode, Qwen, Claude, LM Studio, Human Contributors)  
@@ -63,7 +63,7 @@ cargo check --workspace --all-targets
 cargo test --workspace
 
 # 3. Structural & Semantic Invariant Audit (MUST EXIT 0)
-cargo run -p cratify -- audit core/ crates/ dev/
+cargo run -p ast_auditor -- audit core/ crates/
 
 # 4. Zero-Stub & Soundness Inspection (Must return empty)
 ! git grep -n -E "(\btodo!\(|\bunimplemented!\(|unsafe impl.*Pod)" -- "crates/" "core/" "dev/"

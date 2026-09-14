@@ -1,5 +1,3 @@
-﻿use anyhow::Result;
-
 /// SEMANTIC-03: Edge-Compute Tagger Specialist
 /// 
 /// High-speed heuristics and zero-shot NLP classification to automatically
@@ -7,6 +5,15 @@
 /// ProjectionRouter can seamlessly hot-swap .si cartridges without user input.
 pub struct EdgeComputeTagger {
     pub confidence_threshold: f32,
+}
+
+/// Type alias for canonical naming
+pub type Tagger = EdgeComputeTagger;
+
+impl Default for EdgeComputeTagger {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl EdgeComputeTagger {
@@ -43,5 +50,18 @@ impl EdgeComputeTagger {
         }
 
         tags
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_tagger_heuristics() {
+        let tagger = EdgeComputeTagger::new();
+        let tags = tagger.auto_tag_fascia("Code.exe", "main.rs - Visual Studio Code");
+        assert!(tags.contains(&"#dev".to_string()));
+        assert!(tags.contains(&"#rust".to_string()));
     }
 }

@@ -1,7 +1,7 @@
 //! Aaroneous Setup GUI
 //! Professional graphical installer desktop application for Aaroneous Sovereign Hypervisor & Studio.
 
-// #![windows_subsystem = "windows"]  // temporarily disabled to debug launch
+#![allow(workspace_prefix_stutter)]
 
 use eframe::egui;
 use std::path::{Path, PathBuf};
@@ -52,13 +52,13 @@ struct InstallProgress {
     error_message: Option<String>,
 }
 
-pub struct AaroneousSetupApp {
+pub struct SetupApp {
     current_page: WizardPage,
     options: InstallOptions,
     progress: Arc<Mutex<InstallProgress>>,
 }
 
-impl AaroneousSetupApp {
+impl SetupApp {
     pub fn new(_cc: &eframe::CreationContext<'_>) -> Self {
         Self {
             current_page: WizardPage::Welcome,
@@ -276,7 +276,7 @@ if ($uPath -notlike '*{bin_str}*') {{
     }
 }
 
-impl eframe::App for AaroneousSetupApp {
+impl eframe::App for SetupApp {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         let is_installing = self.current_page == WizardPage::Installing;
         if is_installing {
@@ -514,6 +514,6 @@ fn main() -> eframe::Result<()> {
     eframe::run_native(
         "Aaroneous Setup",
         native_options,
-        Box::new(|cc| Ok(Box::new(AaroneousSetupApp::new(cc)))),
+        Box::new(|cc| Ok(Box::new(SetupApp::new(cc)))),
     )
 }

@@ -14,5 +14,5 @@ thiserror = "1.0"
 
 
 [dev-dependencies]
-cratify = { path = "../../crates/cratify" }
+ast_auditor = { path = "../../crates/ast_auditor" }
 

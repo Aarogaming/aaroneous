@@ -1,10 +1,10 @@
-﻿use anyhow::{bail, Result};
-use std::process::Command;
+use anyhow::Result;
 use tracing::{info, warn};
 
 /// CONSUMER-01: DirectX/Vulkan Game Overlay Injection
 /// Uses hudhook concepts to inject our custom Zero-Latency overlay DLL directly
 /// into a running target process (e.g., a game) to render AI visual feedback natively.
+#[derive(Debug, Clone)]
 pub struct HudhookInjector {
     target_process_name: String,
     dll_path: String,
@@ -16,6 +16,14 @@ impl HudhookInjector {
             target_process_name: target_process_name.into(),
             dll_path: dll_path.into(),
         }
+    }
+
+    pub fn target_process(&self) -> &str {
+        &self.target_process_name
+    }
+
+    pub fn dll_path(&self) -> &str {
+        &self.dll_path
     }
 
     /// Spawns the injection routine.
@@ -33,5 +41,18 @@ impl HudhookInjector {
 
         info!("Successfully injected overlay into {} rendering pipeline.", self.target_process_name);
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_hudhook_injector() {
+        let injector = HudhookInjector::new("game.exe", "overlay.dll");
+        assert_eq!(injector.target_process(), "game.exe");
+        assert_eq!(injector.dll_path(), "overlay.dll");
+        assert!(injector.execute_injection().is_ok());
     }
 }

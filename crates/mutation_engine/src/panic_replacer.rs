@@ -7,16 +7,9 @@
 // Current placeholder: Simple string-based replacement in lib.rs
 // Future: Full AST traversal to handle function signatures properly
 
-use syn::visit_mut::VisitMut;
-
 /// Replaces panic! with Err() returns  
+#[derive(Default)]
 pub struct PanicReplacer;
-
-impl Default for PanicReplacer {
-    fn default() -> Self {
-        Self {}
-    }
-}
 
 impl PanicReplacer {
     /// Placeholder - actual implementation uses string replacement in lib.rs

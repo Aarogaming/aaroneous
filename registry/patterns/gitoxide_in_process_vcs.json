@@ -1,0 +1,17 @@
+{
+  "id": "gitoxide_in_process_vcs",
+  "name": "In-Process VCS Repository Inspection",
+  "category": "zero_ambient_authority",
+  "origin_predecessor": "Gitoxide (gix) / In-Process Tree Walkers",
+  "description": "Performs fast, in-process repository tree walks, SHA hashing, and change detection without spawning external subprocesses or relying on host git installations.",
+  "target_crates": ["ast_auditor", "adaptation_engine", "orchestration_plane", "paths"],
+  "detection": {
+    "recommended_markers": ["walkdir::WalkDir", "sha2::Sha256", "paths::normalize_path"],
+    "anti_patterns": ["Command::new(\"git\")", "Command::new(\"cmd\")", "Command::new(\"powershell\")"]
+  },
+  "recommendations": [
+    "Avoid spawning external 'git' processes for tree traversal, diffing, or status verification.",
+    "Use in-process hash digests (SHA-256 / BLAKE3) and typed filesystem walkers to preserve deterministic sandbox execution.",
+    "Inject workspace root and repository path configurations explicitly via WorkspacePathsConfig."
+  ]
+}

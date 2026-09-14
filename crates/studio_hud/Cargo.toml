@@ -28,6 +28,7 @@ dirs = "5.0"
 # Workspace crates
 hypervisor = { path = "../../core/hypervisor" }
 ipc_bus = { path = "../ipc_bus" }
+core-contracts = { path = "../core-contracts" }
 omni = { path = "../omni" }
 compute = { path = "../compute" }
 orchestrator = { path = "../orchestrator" }

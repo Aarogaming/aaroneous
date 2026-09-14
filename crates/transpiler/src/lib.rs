@@ -2,13 +2,19 @@
 //! Synthetic Intelligence (SI) to Conventional AI Inter-Intelligence Translation and Model Conversion Bridge.
 
 pub mod ai_to_si;
+pub mod generator;
+pub mod manifest;
 pub mod model_converter;
 pub mod polyglot;
 pub mod prefix_cache_integration;
 pub mod reflection_loop;
+pub mod scaffold;
 pub mod si_distiller;
 pub mod si_to_ai;
 
+pub use generator::*;
+pub use manifest::*;
+pub use scaffold::*;
 pub use ai_to_si::{AiToSiTranspiler, ExtractedCodePayload};
 pub use model_converter::{ModelConverter, ModelManifest, QuantizationType};
 pub use polyglot::{

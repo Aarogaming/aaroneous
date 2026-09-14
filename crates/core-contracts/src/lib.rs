@@ -56,6 +56,98 @@ pub struct IpcHeader {
     pub flags: u32,
 }
 
+/// Zero-copy point-in-time snapshot of the hypervisor core engine state for out-of-process shell isolates.
+/// Complies with `bytemuck::Pod` and zero-allocation hot-path rules.
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Pod, Zeroable)]
+pub struct EngineSnapshotPod {
+    pub timestamp_ms: u64,
+    pub bus_generation: u64,
+    pub user_xp: u64,
+    pub measured_fps: f32,
+    pub bus_integrity: f32,
+    pub bus_understanding: f32,
+    pub flow_score: f32,
+    pub user_level: u32,
+    pub active_companions_count: u32,
+    pub running_macros_count: u32,
+    pub pacing: u32,
+    pub active_specialist: [u8; 32],
+    pub active_profile_name: [u8; 32],
+    pub last_event_desc: [u8; 128],
+}
+
+impl Default for EngineSnapshotPod {
+    fn default() -> Self {
+        let mut pod = Self {
+            timestamp_ms: 0,
+            bus_generation: 1,
+            user_xp: 0,
+            measured_fps: 120.0,
+            bus_integrity: 99.4,
+            bus_understanding: 98.6,
+            flow_score: 0.85,
+            user_level: 1,
+            active_companions_count: 0,
+            running_macros_count: 0,
+            pacing: 0,
+            active_specialist: [0; 32],
+            active_profile_name: [0; 32],
+            last_event_desc: [0; 128],
+        };
+        pod.set_active_specialist("Orchestrator");
+        pod.set_active_profile_name("Default Operator");
+        pod.set_last_event_desc("Core initialized and nominal");
+        pod
+    }
+}
+
+impl EngineSnapshotPod {
+    #[inline]
+    pub fn active_specialist_str(&self) -> &str {
+        decode_fixed_str(&self.active_specialist)
+    }
+
+    #[inline]
+    pub fn set_active_specialist(&mut self, s: &str) {
+        encode_fixed_str(&mut self.active_specialist, s);
+    }
+
+    #[inline]
+    pub fn active_profile_name_str(&self) -> &str {
+        decode_fixed_str(&self.active_profile_name)
+    }
+
+    #[inline]
+    pub fn set_active_profile_name(&mut self, s: &str) {
+        encode_fixed_str(&mut self.active_profile_name, s);
+    }
+
+    #[inline]
+    pub fn last_event_desc_str(&self) -> &str {
+        decode_fixed_str(&self.last_event_desc)
+    }
+
+    #[inline]
+    pub fn set_last_event_desc(&mut self, s: &str) {
+        encode_fixed_str(&mut self.last_event_desc, s);
+    }
+}
+
+#[inline]
+fn encode_fixed_str(dst: &mut [u8], src: &str) {
+    dst.fill(0);
+    let bytes = src.as_bytes();
+    let copy_len = bytes.len().min(dst.len());
+    dst[..copy_len].copy_from_slice(&bytes[..copy_len]);
+}
+
+#[inline]
+fn decode_fixed_str(buf: &[u8]) -> &str {
+    let len = buf.iter().position(|&b| b == 0).unwrap_or(buf.len());
+    std::str::from_utf8(&buf[..len]).unwrap_or("")
+}
+
 /// Component manifest exchanged during bootstrap.
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
@@ -85,6 +177,152 @@ pub const fn pack_version(major: u8, minor: u8, patch: u8) -> u32 {
     ((major as u32) << 16) | ((minor as u32) << 8) | (patch as u32)
 }
 
+/// Event category / opcode discriminator for flight recorder events
+#[repr(u16)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum FlightEventKind {
+    Unknown = 0,
+    CommandInput = 1,
+    StateTransition = 2,
+    TelemetryTick = 3,
+    AnomalyTrigger = 4,
+    IntentDispatched = 5,
+    MutationCommitted = 6,
+    P2POffload = 7,
+    PanicInterception = 8,
+    Checkpoint = 9,
+}
+
+/// Zero-copy 128-byte flight event record for black-box crash recording and deterministic replay.
+/// Derives `bytemuck::Pod` and `bytemuck::Zeroable` for zero-allocation circular disk/memory logging.
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Pod, Zeroable)]
+pub struct FlightEventPod {
+    /// Hardware CPU timestamp counter (`_rdtsc`) at moment of capture
+    pub timestamp_rdtsc: u64,
+    /// Standard wall-clock timestamp in nanoseconds since UNIX epoch
+    pub wall_clock_ns: u64,
+    /// Strictly monotonic causal sequence number (1, 2, 3...)
+    pub sequence: u64,
+    /// Input payload / command digest hash
+    pub input_hash: u64,
+    /// Hash of engine state immediately before transition
+    pub pre_state_hash: u64,
+    /// Hash of engine state immediately after transition
+    pub post_state_hash: u64,
+    /// Event category / opcode (`FlightEventKind`)
+    pub event_kind: u16,
+    /// Source subsystem identifier (0x01: Hypervisor, 0x02: PlatformBridge, etc.)
+    pub source_id: u16,
+    /// Effective byte length of `data_payload` (<= 64)
+    pub payload_len: u32,
+    /// Operational status and context flags
+    pub flags: u32,
+    /// Checksum (additive sum over scalar fields) for corruption detection
+    pub checksum: u32,
+    /// Fixed-size inline data payload (opcodes, arguments, metrics)
+    pub data_payload: [u8; 64],
+}
+
+impl Default for FlightEventPod {
+    fn default() -> Self {
+        Self {
+            timestamp_rdtsc: 0,
+            wall_clock_ns: 0,
+            sequence: 0,
+            input_hash: 0,
+            pre_state_hash: 0,
+            post_state_hash: 0,
+            event_kind: FlightEventKind::Unknown as u16,
+            source_id: 0,
+            payload_len: 0,
+            flags: 0,
+            checksum: 0,
+            data_payload: [0u8; 64],
+        }
+    }
+}
+
+impl FlightEventPod {
+    pub fn calculate_checksum(&self) -> u32 {
+        let mut acc = 0u32;
+        acc = acc.wrapping_add(self.timestamp_rdtsc as u32);
+        acc = acc.wrapping_add((self.timestamp_rdtsc >> 32) as u32);
+        acc = acc.wrapping_add(self.wall_clock_ns as u32);
+        acc = acc.wrapping_add((self.wall_clock_ns >> 32) as u32);
+        acc = acc.wrapping_add(self.sequence as u32);
+        acc = acc.wrapping_add((self.sequence >> 32) as u32);
+        acc = acc.wrapping_add(self.input_hash as u32);
+        acc = acc.wrapping_add((self.input_hash >> 32) as u32);
+        acc = acc.wrapping_add(self.pre_state_hash as u32);
+        acc = acc.wrapping_add((self.pre_state_hash >> 32) as u32);
+        acc = acc.wrapping_add(self.post_state_hash as u32);
+        acc = acc.wrapping_add((self.post_state_hash >> 32) as u32);
+        acc = acc.wrapping_add(self.event_kind as u32);
+        acc = acc.wrapping_add((self.source_id as u32) << 16);
+        acc = acc.wrapping_add(self.payload_len);
+        acc = acc.wrapping_add(self.flags);
+        for chunk in self.data_payload.chunks_exact(4) {
+            let val = u32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]);
+            acc = acc.wrapping_add(val);
+        }
+        acc
+    }
+
+    pub fn verify_checksum(&self) -> bool {
+        self.checksum == self.calculate_checksum()
+    }
+
+    pub fn set_payload(&mut self, payload: &[u8]) {
+        self.data_payload.fill(0);
+        let len = payload.len().min(self.data_payload.len());
+        self.data_payload[..len].copy_from_slice(&payload[..len]);
+        self.payload_len = len as u32;
+    }
+
+    pub fn payload(&self) -> &[u8] {
+        let len = (self.payload_len as usize).min(self.data_payload.len());
+        &self.data_payload[..len]
+    }
+}
+
+/// Zero-copy 64-byte file header for `.flight` binary flight recorder logs.
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Pod, Zeroable)]
+pub struct FlightFileHeaderPod {
+    /// Magic signature: b"AAROFLGT" (0x54474C464F524141)
+    pub magic: [u8; 8],
+    /// Binary format version (currently 1)
+    pub version: u32,
+    /// Maximum capacity in event slots
+    pub max_events: u32,
+    /// Byte size of each slot (128)
+    pub slot_size: u32,
+    /// Header size in bytes (4096)
+    pub header_size: u32,
+    /// Strictly monotonic write sequence of the latest recorded event
+    pub write_sequence: u64,
+    /// Total number of times the circular ring buffer has wrapped
+    pub wrap_count: u64,
+    /// Reserved/padding fields for 64-byte alignment
+    pub _reserved: [u8; 24],
+}
+
+impl Default for FlightFileHeaderPod {
+    fn default() -> Self {
+        Self {
+            magic: *b"AAROFLGT",
+            version: 1,
+            max_events: 131_040,
+            slot_size: 128,
+            header_size: 4096,
+            write_sequence: 0,
+            wrap_count: 0,
+            _reserved: [0u8; 24],
+        }
+    }
+}
+
 // Unit tests verify struct sizes are pod‑compatible.
 #[cfg(test)]
 mod tests {
@@ -99,5 +337,55 @@ mod tests {
     #[test]
     fn query_size() {
         assert_eq!(size_of::<QueryDescriptor>(), 16);
+    }
+
+    #[test]
+    fn engine_snapshot_pod_layout_and_roundtrip() {
+        assert_eq!(size_of::<EngineSnapshotPod>(), 248);
+
+        let pod = EngineSnapshotPod::default();
+        assert_eq!(pod.active_specialist_str(), "Orchestrator");
+        assert_eq!(pod.active_profile_name_str(), "Default Operator");
+        assert_eq!(pod.last_event_desc_str(), "Core initialized and nominal");
+
+        // Zero-copy Pod round-trip
+        let bytes = bytemuck::bytes_of(&pod);
+        assert_eq!(bytes.len(), 248);
+        let decoded: &EngineSnapshotPod = bytemuck::from_bytes(bytes);
+        assert_eq!(*decoded, pod);
+    }
+
+    #[test]
+    fn flight_record_geometry_and_roundtrip() {
+        assert_eq!(size_of::<FlightEventPod>(), 128);
+        assert_eq!(size_of::<FlightFileHeaderPod>(), 64);
+
+        let mut event = FlightEventPod::default();
+        event.timestamp_rdtsc = 123456789;
+        event.wall_clock_ns = 987654321;
+        event.sequence = 42;
+        event.input_hash = 0xDEADBEEFCAFEBABE;
+        event.pre_state_hash = 0x1111222233334444;
+        event.post_state_hash = 0x5555666677778888;
+        event.event_kind = FlightEventKind::StateTransition as u16;
+        event.source_id = 1;
+        event.flags = 0x01;
+        event.set_payload(b"flight_test_payload_123");
+        event.checksum = event.calculate_checksum();
+        assert!(event.verify_checksum());
+
+        let bytes = bytemuck::bytes_of(&event);
+        assert_eq!(bytes.len(), 128);
+        let decoded: &FlightEventPod = bytemuck::from_bytes(bytes);
+        assert_eq!(*decoded, event);
+        assert_eq!(decoded.payload(), b"flight_test_payload_123");
+        assert!(decoded.verify_checksum());
+
+        let header = FlightFileHeaderPod::default();
+        let h_bytes = bytemuck::bytes_of(&header);
+        assert_eq!(h_bytes.len(), 64);
+        let decoded_h: &FlightFileHeaderPod = bytemuck::from_bytes(h_bytes);
+        assert_eq!(*decoded_h, header);
+        assert_eq!(&decoded_h.magic, b"AAROFLGT");
     }
 }
