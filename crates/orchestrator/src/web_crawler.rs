@@ -54,10 +54,9 @@ impl WebCrawler {
             .map_err(|_| CrawlerBackpressureError::ServiceSaturated)?;
 
         let url = url.into();
-        let pipeline = self.pipeline.clone();
         let client = self.client.clone();
-
-        tokio::spawn(async move {
+        let pipeline = self.pipeline.clone();
+        let task = async move {
             let _permit = permit;
             if let Ok(response) = client.get(&url).send().await {
                 if let Ok(html) = response.text().await {
@@ -77,7 +76,8 @@ impl WebCrawler {
                     let _ = pipeline.embed_and_insert(&clean_text, &format!("#web_scrape {}", url));
                 }
             }
-        });
+        };
+        tokio::task::spawn(task);
 
         Ok(())
     }
