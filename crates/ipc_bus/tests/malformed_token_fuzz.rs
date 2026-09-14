@@ -39,14 +39,14 @@ fn test_fuzz_misaligned_header() {
 fn test_fuzz_garbage_payload() {
     let mut payloads = vec![vec![0u8; 64]; 1000];
 
-    for i in 0..payloads.len() {
-        // Fill with random-ish garbage
-        // Fill with random-ish garbage using iterator
-        payloads[i].iter_mut().enumerate().for_each(|(j, byte)| *byte = (i * j) as u8);
-    }
-
-    // Validate parsing of each payload
-    let _ = parse_payload(&payloads[i]);
+    for (i, payload) in payloads.iter_mut().enumerate() {
+        // Fill with deterministic garbage and verify that parsing remains safe.
+        payload
+            .iter_mut()
+            .enumerate()
+            .for_each(|(j, byte)| *byte = (i * j) as u8);
+        let result = parse_payload(payload);
+        assert!(result.is_ok());
     }
 
     println!("Successfully handled {} garbage payloads", payloads.len());

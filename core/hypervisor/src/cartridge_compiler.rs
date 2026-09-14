@@ -115,8 +115,8 @@ impl CartridgeCompiler {
 
 #[cfg(test)]
 mod tests {
-    use crate::error::HypervisorError;
     use super::*;
+    use crate::error::HypervisorError;
     use tempfile::tempdir;
 
     #[test]
