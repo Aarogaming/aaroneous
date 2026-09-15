@@ -43,7 +43,7 @@ transpiler = { path = "../transpiler" }
 tokio-serial = "5.4"
 
 # GUI and Graphics
-eframe = { version = "0.34", default-features = false, features = ["glow", "default_fonts"] }
+eframe = { version = "0.34", default-features = false, features = ["glow", "default_fonts", "x11"] }
 egui = "0.34"
 rfd = "0.15"
 wgpu = "29.0"
