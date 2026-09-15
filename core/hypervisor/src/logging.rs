@@ -73,10 +73,9 @@ fn install_subscriber() -> tracing_appender::non_blocking::WorkerGuard {
 
 #[cfg(unix)]
 fn atty_stderr() -> bool {
-    extern "C" {
-        fn isatty(fd: i32) -> i32;
-    }
-    unsafe { isatty(2) != 0 }
+    use std::io::IsTerminal;
+
+    std::io::stderr().is_terminal()
 }
 
 #[cfg(not(unix))]
