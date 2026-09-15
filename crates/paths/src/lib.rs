@@ -702,9 +702,15 @@ mod tests {
             PathBuf::from("/etc/passwd")
         );
 
-        // 2. Redundant separators and mixed path delimiters
+        // 2. Redundant separators. Path separators follow the host platform.
+        #[cfg(windows)]
         assert_eq!(
             normalize_path("foo//bar\\\\baz/../qux"),
+            PathBuf::from("foo/bar/qux")
+        );
+        #[cfg(not(windows))]
+        assert_eq!(
+            normalize_path("foo//bar/baz/../qux"),
             PathBuf::from("foo/bar/qux")
         );
         assert_eq!(normalize_path("a///b/c/../../d"), PathBuf::from("a/d"));
@@ -716,6 +722,7 @@ mod tests {
 
         // 4. Windows drive letter prefixes and root preservation
         assert_eq!(normalize_path("C:foo/../bar"), PathBuf::from("C:bar"));
+        #[cfg(windows)]
         assert_eq!(normalize_path("C:\\foo\\..\\bar"), PathBuf::from("C:\\bar"));
         #[cfg(windows)]
         {
