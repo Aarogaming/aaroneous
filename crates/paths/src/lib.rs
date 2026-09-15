@@ -692,6 +692,7 @@ mod tests {
             normalize_path("../../../../etc/shadow"),
             PathBuf::from("../../../../etc/shadow")
         );
+        #[cfg(windows)]
         assert_eq!(
             normalize_path("C:\\..\\..\\Windows\\System32"),
             PathBuf::from("C:\\Windows\\System32")
