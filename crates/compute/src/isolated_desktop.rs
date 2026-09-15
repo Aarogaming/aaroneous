@@ -32,7 +32,10 @@ impl IsolatedDesktop {
     /// Forges a new sovereign Windows Isolated Desktop sandbox
     #[cfg(windows)]
     pub fn forge(desktop_name: &str) -> Result<Self> {
-        let wide: Vec<u16> = desktop_name.encode_utf16().chain(std::iter::once(0)).collect();
+        let wide: Vec<u16> = desktop_name
+            .encode_utf16()
+            .chain(std::iter::once(0))
+            .collect();
         const DESKTOP_ALL_ACCESS: u32 = 0x01FF;
 
         let hdesk = unsafe {
@@ -47,7 +50,10 @@ impl IsolatedDesktop {
         };
 
         if hdesk != 0 {
-            println!("🛡️ [IsolatedDesktop] Sovereign Desktop '{}' forged (Handle: {:#X})", desktop_name, hdesk);
+            println!(
+                "🛡️ [IsolatedDesktop] Sovereign Desktop '{}' forged (Handle: {:#X})",
+                desktop_name, hdesk
+            );
             Ok(Self {
                 name: desktop_name.to_string(),
                 handle_id: hdesk,
@@ -66,7 +72,10 @@ impl IsolatedDesktop {
     /// Non-Windows mock fallback
     #[cfg(not(windows))]
     pub fn forge(desktop_name: &str) -> Result<Self> {
-        println!("🛡️ [IsolatedDesktop] Mock Sovereign Desktop '{}' active (Non-Windows platform)", desktop_name);
+        println!(
+            "🛡️ [IsolatedDesktop] Mock Sovereign Desktop '{}' active (Non-Windows platform)",
+            desktop_name
+        );
         Ok(Self {
             name: desktop_name.to_string(),
             handle_id: 0xDEAD_BEEF,
@@ -86,7 +95,8 @@ mod tests {
 
     #[test]
     fn test_isolated_desktop_forge() {
-        let ghost = IsolatedDesktop::forge("Aaroneous_Test_Isolated_Desktop").expect("Forge isolated desktop failed");
+        let ghost = IsolatedDesktop::forge("Aaroneous_Test_Isolated_Desktop")
+            .expect("Forge isolated desktop failed");
         assert_eq!(ghost.name, "Aaroneous_Test_Isolated_Desktop");
     }
 }

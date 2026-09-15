@@ -108,8 +108,7 @@ impl FsmCompiler {
 
     pub fn step(&mut self, input: u64) -> Option<u64> {
         let state = &self.states[self.current];
-        for i in 0..state.transition_count {
-            let t = state.transitions[i];
+        for &t in &state.transitions[..state.transition_count] {
             if t.input == input {
                 self.current = t.next_state;
                 return Some(t.output);
@@ -162,8 +161,7 @@ impl FsmCompiler {
         let s = &self.states[state];
         let mut has_transitions = false;
 
-        for i in 0..s.transition_count {
-            let t = s.transitions[i];
+        for &t in &s.transitions[..s.transition_count] {
             has_transitions = true;
 
             current_path.push((t.input, t.output, t.next_state));
@@ -196,8 +194,7 @@ impl FsmCompiler {
     pub fn all_transitions(&self) -> Vec<(usize, u64, u64, usize)> {
         let mut transitions = Vec::new();
         for (state_idx, state) in self.states.iter().enumerate() {
-            for i in 0..state.transition_count {
-                let t = state.transitions[i];
+            for &t in &state.transitions[..state.transition_count] {
                 transitions.push((state_idx, t.input, t.output, t.next_state));
             }
         }

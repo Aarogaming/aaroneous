@@ -1,10 +1,15 @@
+use clap::{Parser, Subcommand};
 use std::path::PathBuf;
 use std::process::ExitCode;
-use clap::{Parser, Subcommand};
 
 /// AST Auditor — Invariant and Architectural Compliance CLI
 #[derive(Parser)]
-#[command(name = "ast_auditor", author, version, about = "Static analysis AST auditor enforcing architectural invariants")]
+#[command(
+    name = "ast_auditor",
+    author,
+    version,
+    about = "Static analysis AST auditor enforcing architectural invariants"
+)]
 struct Cli {
     #[command(subcommand)]
     command: Option<Commands>,
@@ -49,7 +54,11 @@ fn main() -> ExitCode {
                 Err(code) => code,
             }
         }
-        Some(Commands::Review { paths, registry, json }) => {
+        Some(Commands::Review {
+            paths,
+            registry,
+            json,
+        }) => {
             let targets = if paths.is_empty() {
                 default_targets()
             } else {

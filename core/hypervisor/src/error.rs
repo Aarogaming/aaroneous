@@ -1,8 +1,5 @@
 // Error handling for hypervisor ACC
 
-use bytemuck::{Pod, Zeroable};
-use thiserror::Error;
-
 /// Central error type for the hypervisor ACC.
 #[repr(C)]
 #[derive(Clone, Debug)]

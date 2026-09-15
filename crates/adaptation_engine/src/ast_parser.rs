@@ -88,15 +88,30 @@ impl AstParser {
                         || trimmed.starts_with("pub async fn ")
                     {
                         let is_async = trimmed.contains("async ");
-                        let vis = if trimmed.starts_with("pub ") { "public" } else { "private" };
+                        let vis = if trimmed.starts_with("pub ") {
+                            "public"
+                        } else {
+                            "private"
+                        };
                         let fn_part = if let Some(idx) = trimmed.find("fn ") {
                             &trimmed[idx + 3..]
                         } else {
                             trimmed
                         };
-                        let fn_name = fn_part.split('(').next().unwrap_or("unknown").trim().to_string();
+                        let fn_name = fn_part
+                            .split('(')
+                            .next()
+                            .unwrap_or("unknown")
+                            .trim()
+                            .to_string();
                         let param_count = if let Some(params) = fn_part.split('(').nth(1) {
-                            params.split(')').next().unwrap_or("").split(',').filter(|p| !p.trim().is_empty()).count()
+                            params
+                                .split(')')
+                                .next()
+                                .unwrap_or("")
+                                .split(',')
+                                .filter(|p| !p.trim().is_empty())
+                                .count()
                         } else {
                             0
                         };
@@ -123,11 +138,32 @@ impl AstParser {
                 SourceLanguage::Python => {
                     if trimmed.starts_with("def ") || trimmed.starts_with("async def ") {
                         let is_async = trimmed.starts_with("async def ");
-                        let fn_part = if is_async { &trimmed[10..] } else { &trimmed[4..] };
-                        let fn_name = fn_part.split('(').next().unwrap_or("unknown").trim().to_string();
-                        let vis = if fn_name.starts_with('_') { "private" } else { "public" };
+                        let fn_part = if is_async {
+                            &trimmed[10..]
+                        } else {
+                            &trimmed[4..]
+                        };
+                        let fn_name = fn_part
+                            .split('(')
+                            .next()
+                            .unwrap_or("unknown")
+                            .trim()
+                            .to_string();
+                        let vis = if fn_name.starts_with('_') {
+                            "private"
+                        } else {
+                            "public"
+                        };
                         let param_count = if let Some(params) = fn_part.split('(').nth(1) {
-                            params.split(')').next().unwrap_or("").split(',').filter(|p| !p.trim().is_empty() && p.trim() != "self" && p.trim() != "cls").count()
+                            params
+                                .split(')')
+                                .next()
+                                .unwrap_or("")
+                                .split(',')
+                                .filter(|p| {
+                                    !p.trim().is_empty() && p.trim() != "self" && p.trim() != "cls"
+                                })
+                                .count()
                         } else {
                             0
                         };
@@ -141,7 +177,15 @@ impl AstParser {
                             return_type: None,
                         });
                     } else if let Some(rest) = trimmed.strip_prefix("class ") {
-                        let class_name = rest.split('(').next().unwrap_or("").split(':').next().unwrap_or("unknown").trim().to_string();
+                        let class_name = rest
+                            .split('(')
+                            .next()
+                            .unwrap_or("")
+                            .split(':')
+                            .next()
+                            .unwrap_or("unknown")
+                            .trim()
+                            .to_string();
                         structs.push(class_name);
                     }
                 }
@@ -152,15 +196,30 @@ impl AstParser {
                         || trimmed.starts_with("export async function ")
                     {
                         let is_async = trimmed.contains("async ");
-                        let vis = if trimmed.starts_with("export ") { "public" } else { "private" };
+                        let vis = if trimmed.starts_with("export ") {
+                            "public"
+                        } else {
+                            "private"
+                        };
                         let fn_part = if let Some(idx) = trimmed.find("function ") {
                             &trimmed[idx + 9..]
                         } else {
                             trimmed
                         };
-                        let fn_name = fn_part.split('(').next().unwrap_or("unknown").trim().to_string();
+                        let fn_name = fn_part
+                            .split('(')
+                            .next()
+                            .unwrap_or("unknown")
+                            .trim()
+                            .to_string();
                         let param_count = if let Some(params) = fn_part.split('(').nth(1) {
-                            params.split(')').next().unwrap_or("").split(',').filter(|p| !p.trim().is_empty()).count()
+                            params
+                                .split(')')
+                                .next()
+                                .unwrap_or("")
+                                .split(',')
+                                .filter(|p| !p.trim().is_empty())
+                                .count()
                         } else {
                             0
                         };
@@ -173,16 +232,45 @@ impl AstParser {
                             parameter_count: param_count,
                             return_type: None,
                         });
-                    } else if trimmed.starts_with("export class ") || trimmed.starts_with("class ") || trimmed.starts_with("export interface ") || trimmed.starts_with("interface ") {
-                        let name = trimmed.split_whitespace().nth(if trimmed.starts_with("export ") { 2 } else { 1 }).unwrap_or("unknown").trim_end_matches('{').trim().to_string();
+                    } else if trimmed.starts_with("export class ")
+                        || trimmed.starts_with("class ")
+                        || trimmed.starts_with("export interface ")
+                        || trimmed.starts_with("interface ")
+                    {
+                        let name = trimmed
+                            .split_whitespace()
+                            .nth(if trimmed.starts_with("export ") { 2 } else { 1 })
+                            .unwrap_or("unknown")
+                            .trim_end_matches('{')
+                            .trim()
+                            .to_string();
                         structs.push(name);
                     }
                 }
                 SourceLanguage::Cpp | SourceLanguage::Unknown => {
-                    if (trimmed.starts_with("void ") || trimmed.starts_with("int ") || trimmed.starts_with("double ") || trimmed.starts_with("bool ") || trimmed.starts_with("extern \"C\"")) && trimmed.contains('(') {
-                        let fn_name = trimmed.split('(').next().unwrap_or("unknown").split_whitespace().last().unwrap_or("unknown").to_string();
+                    if (trimmed.starts_with("void ")
+                        || trimmed.starts_with("int ")
+                        || trimmed.starts_with("double ")
+                        || trimmed.starts_with("bool ")
+                        || trimmed.starts_with("extern \"C\""))
+                        && trimmed.contains('(')
+                    {
+                        let fn_name = trimmed
+                            .split('(')
+                            .next()
+                            .unwrap_or("unknown")
+                            .split_whitespace()
+                            .last()
+                            .unwrap_or("unknown")
+                            .to_string();
                         let param_count = if let Some(params) = trimmed.split('(').nth(1) {
-                            params.split(')').next().unwrap_or("").split(',').filter(|p| !p.trim().is_empty() && p.trim() != "void").count()
+                            params
+                                .split(')')
+                                .next()
+                                .unwrap_or("")
+                                .split(',')
+                                .filter(|p| !p.trim().is_empty() && p.trim() != "void")
+                                .count()
                         } else {
                             0
                         };
@@ -196,7 +284,13 @@ impl AstParser {
                             return_type: None,
                         });
                     } else if trimmed.starts_with("struct ") || trimmed.starts_with("class ") {
-                        let name = trimmed.split_whitespace().nth(1).unwrap_or("unknown").trim_end_matches('{').trim().to_string();
+                        let name = trimmed
+                            .split_whitespace()
+                            .nth(1)
+                            .unwrap_or("unknown")
+                            .trim_end_matches('{')
+                            .trim()
+                            .to_string();
                         structs.push(name);
                     }
                 }
@@ -360,4 +454,3 @@ fn new_feature() {}
         assert_eq!(diff.modified_functions[0].0.name, "calculate_sum");
     }
 }
-

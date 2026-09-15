@@ -23,7 +23,7 @@
 //! │ [BLOCK 3: EPISODIC SKILL STACK] (Mined AST DAGs, habits, fast-reflex)  │
 //! └────────────────────────────────────────────────────────────────────────┘
 
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use memmap2::Mmap;
 use serde::{Deserialize, Serialize};
 use std::fs::{self, File};
@@ -43,8 +43,8 @@ pub const SI_HEADER_SIZE: usize = 64;
 pub const SI_FLAG_TIER_1_CORTEX: u32 = 0x0001;
 pub const SI_FLAG_TIER_2_ROUTER: u32 = 0x0002;
 pub const SI_FLAG_TIER_3_REFLEX: u32 = 0x0004;
-pub const SI_FLAG_ENCRYPTED: u32     = 0x0010;
-pub const SI_FLAG_COMPRESSED: u32    = 0x0020;
+pub const SI_FLAG_ENCRYPTED: u32 = 0x0010;
+pub const SI_FLAG_COMPRESSED: u32 = 0x0020;
 
 /// Standard Canonical Cartridge Header (64 Bytes, Little-Endian)
 #[repr(C)]
@@ -102,7 +102,10 @@ impl SiCartridgeHeader {
     /// Decodes header from a byte slice with strict bounds and magic validation
     pub fn from_bytes(bytes: &[u8]) -> Result<Self> {
         if bytes.len() < SI_HEADER_SIZE {
-            bail!("Buffer too small for .si header: {} bytes (required 64)", bytes.len());
+            bail!(
+                "Buffer too small for .si header: {} bytes (required 64)",
+                bytes.len()
+            );
         }
 
         let magic: [u8; 4] = bytes[0..4].try_into()?;
@@ -267,7 +270,10 @@ impl SiCartridgeEngine {
         let total_bytes = mmap.len();
 
         if total_bytes < SI_HEADER_SIZE {
-            issues.push(format!("File smaller than 64-byte header: {} bytes", total_bytes));
+            issues.push(format!(
+                "File smaller than 64-byte header: {} bytes",
+                total_bytes
+            ));
             return Ok(SiCartridgeReport {
                 file_path: path.display().to_string(),
                 is_valid: false,
@@ -395,7 +401,8 @@ impl SiCartridgeEngine {
             flags_match: a.header.flags == b.header.flags,
             core_weights_identical: core_identical,
             adapter_drift_bytes: drift_bytes,
-            skill_count_delta: (b.block3_skill_stack.len() as i64) - (a.block3_skill_stack.len() as i64),
+            skill_count_delta: (b.block3_skill_stack.len() as i64)
+                - (a.block3_skill_stack.len() as i64),
         })
     }
 }
@@ -475,8 +482,22 @@ mod tests {
         let skills_a = vec![10, 20];
         let skills_b = vec![10, 20, 30, 40];
 
-        SiCartridgeEngine::pack_cartridge(&core, &adapt_a, &skills_a, SI_FLAG_TIER_3_REFLEX, &cart_a).unwrap();
-        SiCartridgeEngine::pack_cartridge(&core, &adapt_b, &skills_b, SI_FLAG_TIER_3_REFLEX, &cart_b).unwrap();
+        SiCartridgeEngine::pack_cartridge(
+            &core,
+            &adapt_a,
+            &skills_a,
+            SI_FLAG_TIER_3_REFLEX,
+            &cart_a,
+        )
+        .unwrap();
+        SiCartridgeEngine::pack_cartridge(
+            &core,
+            &adapt_b,
+            &skills_b,
+            SI_FLAG_TIER_3_REFLEX,
+            &cart_b,
+        )
+        .unwrap();
 
         let diff = SiCartridgeEngine::diff_cartridges(&cart_a, &cart_b).unwrap();
         assert!(diff.core_weights_identical);

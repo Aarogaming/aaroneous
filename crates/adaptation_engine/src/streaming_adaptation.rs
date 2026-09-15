@@ -5,7 +5,7 @@
 //! projecting sensory-motor error gradients orthogonally to previously consolidated
 //! task spaces to prevent catastrophic forgetting.
 
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use serde::{Deserialize, Serialize};
 
 pub const LATENT_DIM: usize = 256;
@@ -83,7 +83,11 @@ impl StreamingLoraAdaptationPipeline {
     }
 
     /// Updates LoRA matrices using Orthogonal Gradient Projection to preserve prior memories.
-    pub fn adapt_step(&mut self, error_gradient: &[f32], input_state: &[f32]) -> Result<StreamingAdaptationReport> {
+    pub fn adapt_step(
+        &mut self,
+        error_gradient: &[f32],
+        input_state: &[f32],
+    ) -> Result<StreamingAdaptationReport> {
         if error_gradient.len() != self.d_model || input_state.len() != self.d_model {
             bail!("Gradient or state dimension mismatch in adapt_step");
         }

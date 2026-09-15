@@ -6,8 +6,8 @@ use crate::audio_analyzer::{AudioEventObservation, WasapiAudioStreamAnalyzer};
 use crate::observability::audio_features::{AcousticFeatureExtractor, AcousticLatent};
 use anyhow::Result;
 use parking_lot::Mutex;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread::{self, JoinHandle};
 use std::time::Duration;
 

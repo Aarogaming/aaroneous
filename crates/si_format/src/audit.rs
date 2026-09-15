@@ -5,7 +5,7 @@
 //! privileged, or ring-0 instructions (e.g. `syscall`, `sysenter`, `int 0x80`,
 //! `cli`, `sti`, `hlt`, `wrmsr`) prior to executing within W^X memory regions.
 
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use serde::{Deserialize, Serialize};
 
 /// Result of a JIT bytecode governance security audit.
@@ -51,11 +51,31 @@ impl InstructionSetAuditor for X86_64Auditor {
 
             // 1-byte checks
             match b {
-                0xF4 => return Ok(AuditResult::Denied("Unauthorized privileged opcode: hlt (0xF4)".to_string())),
-                0xFA => return Ok(AuditResult::Denied("Unauthorized privileged opcode: cli (0xFA)".to_string())),
-                0xFB => return Ok(AuditResult::Denied("Unauthorized privileged opcode: sti (0xFB)".to_string())),
-                0xCC => return Ok(AuditResult::Denied("Unauthorized debug breakpoint: int3 (0xCC)".to_string())),
-                0xCE => return Ok(AuditResult::Denied("Unauthorized opcode: into (0xCE)".to_string())),
+                0xF4 => {
+                    return Ok(AuditResult::Denied(
+                        "Unauthorized privileged opcode: hlt (0xF4)".to_string(),
+                    ));
+                }
+                0xFA => {
+                    return Ok(AuditResult::Denied(
+                        "Unauthorized privileged opcode: cli (0xFA)".to_string(),
+                    ));
+                }
+                0xFB => {
+                    return Ok(AuditResult::Denied(
+                        "Unauthorized privileged opcode: sti (0xFB)".to_string(),
+                    ));
+                }
+                0xCC => {
+                    return Ok(AuditResult::Denied(
+                        "Unauthorized debug breakpoint: int3 (0xCC)".to_string(),
+                    ));
+                }
+                0xCE => {
+                    return Ok(AuditResult::Denied(
+                        "Unauthorized opcode: into (0xCE)".to_string(),
+                    ));
+                }
                 _ => {}
             }
 
@@ -64,28 +84,45 @@ impl InstructionSetAuditor for X86_64Auditor {
                 let next = bytecode[i + 1];
                 match (b, next) {
                     (0x0F, 0x05) => {
-                        return Ok(AuditResult::Denied("Unauthorized syscall opcode (0x0F 0x05)".to_string()));
+                        return Ok(AuditResult::Denied(
+                            "Unauthorized syscall opcode (0x0F 0x05)".to_string(),
+                        ));
                     }
                     (0x0F, 0x34) => {
-                        return Ok(AuditResult::Denied("Unauthorized sysenter opcode (0x0F 0x34)".to_string()));
+                        return Ok(AuditResult::Denied(
+                            "Unauthorized sysenter opcode (0x0F 0x34)".to_string(),
+                        ));
                     }
                     (0x0F, 0x35) => {
-                        return Ok(AuditResult::Denied("Unauthorized sysexit opcode (0x0F 0x35)".to_string()));
+                        return Ok(AuditResult::Denied(
+                            "Unauthorized sysexit opcode (0x0F 0x35)".to_string(),
+                        ));
                     }
                     (0x0F, 0x07) => {
-                        return Ok(AuditResult::Denied("Unauthorized sysret opcode (0x0F 0x07)".to_string()));
+                        return Ok(AuditResult::Denied(
+                            "Unauthorized sysret opcode (0x0F 0x07)".to_string(),
+                        ));
                     }
                     (0x0F, 0x30) => {
-                        return Ok(AuditResult::Denied("Unauthorized privileged opcode: wrmsr (0x0F 0x30)".to_string()));
+                        return Ok(AuditResult::Denied(
+                            "Unauthorized privileged opcode: wrmsr (0x0F 0x30)".to_string(),
+                        ));
                     }
                     (0x0F, 0x32) => {
-                        return Ok(AuditResult::Denied("Unauthorized privileged opcode: rdmsr (0x0F 0x32)".to_string()));
+                        return Ok(AuditResult::Denied(
+                            "Unauthorized privileged opcode: rdmsr (0x0F 0x32)".to_string(),
+                        ));
                     }
                     (0xCD, 0x80) => {
-                        return Ok(AuditResult::Denied("Unauthorized legacy syscall: int 0x80 (0xCD 0x80)".to_string()));
+                        return Ok(AuditResult::Denied(
+                            "Unauthorized legacy syscall: int 0x80 (0xCD 0x80)".to_string(),
+                        ));
                     }
                     (0xCD, int_num) => {
-                        return Ok(AuditResult::Denied(format!("Unauthorized software interrupt: int {:#x} (0xCD)", int_num)));
+                        return Ok(AuditResult::Denied(format!(
+                            "Unauthorized software interrupt: int {:#x} (0xCD)",
+                            int_num
+                        )));
                     }
                     _ => {}
                 }
@@ -106,7 +143,7 @@ impl InstructionSetAuditor for AArch64Auditor {
         TargetArch::AArch64
     }
 
-#[allow(clippy::chunks_exact_to_as_chunks)]
+    #[allow(clippy::chunks_exact_to_as_chunks)]
     fn audit(&self, bytecode: &[u8]) -> Result<AuditResult> {
         if bytecode.is_empty() {
             return Ok(AuditResult::Allowed);
@@ -118,22 +155,30 @@ impl InstructionSetAuditor for AArch64Auditor {
 
             // SVC (Supervisor Call): bits [31:24] == 0b1101_0100, bits [23:21] == 0b000, bits [1:0] == 0b01
             if (inst & 0xFFE0_001F) == 0xD400_0001 {
-                return Ok(AuditResult::Denied("Unauthorized AArch64 SVC system call".to_string()));
+                return Ok(AuditResult::Denied(
+                    "Unauthorized AArch64 SVC system call".to_string(),
+                ));
             }
 
             // HVC (Hypervisor Call): bits [1:0] == 0b10
             if (inst & 0xFFE0_001F) == 0xD400_0002 {
-                return Ok(AuditResult::Denied("Unauthorized AArch64 HVC hypervisor call".to_string()));
+                return Ok(AuditResult::Denied(
+                    "Unauthorized AArch64 HVC hypervisor call".to_string(),
+                ));
             }
 
             // SMC (Secure Monitor Call): bits [1:0] == 0b11
             if (inst & 0xFFE0_001F) == 0xD400_0003 {
-                return Ok(AuditResult::Denied("Unauthorized AArch64 SMC secure monitor call".to_string()));
+                return Ok(AuditResult::Denied(
+                    "Unauthorized AArch64 SMC secure monitor call".to_string(),
+                ));
             }
 
             // BRK (Breakpoint): bits [31:21] == 0b1101_0100_001, bits [4:0] == 0b00000
             if (inst & 0xFFE0_001F) == 0xD420_0000 {
-                return Ok(AuditResult::Denied("Unauthorized AArch64 BRK breakpoint instruction".to_string()));
+                return Ok(AuditResult::Denied(
+                    "Unauthorized AArch64 BRK breakpoint instruction".to_string(),
+                ));
             }
         }
 

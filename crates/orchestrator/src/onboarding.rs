@@ -6,14 +6,12 @@
 
 use core::marker::PhantomData;
 use ipc_bus::universal_protocol::{
-    AssimilationPhase, AssimilationRecord, FixedString256, FixedString64,
-    UniversalClientRequest, UniversalServerBroadcast,
+    AssimilationPhase, AssimilationRecord, FixedString64, FixedString256, UniversalClientRequest,
+    UniversalServerBroadcast,
 };
 
 // Re-export wire types for convenience
-pub use ipc_bus::universal_protocol::{
-    AssimilationPhase as Phase, AssimilationRecord as Record,
-};
+pub use ipc_bus::universal_protocol::{AssimilationPhase as Phase, AssimilationRecord as Record};
 
 /// Error types occurring during assimilation event processing
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -110,6 +108,10 @@ impl AssimilationTask<Quarantined> {
 }
 
 impl AssimilationTask<Auditing> {
+    #[allow(
+        clippy::result_large_err,
+        reason = "Typestate transitions return the owned fixed-size record without heap allocation"
+    )]
     pub fn conclude_audit(
         mut self,
         result: AuditResult,
@@ -145,12 +147,18 @@ impl AssimilationTask<Synthesizing> {
 }
 
 impl AssimilationTask<Certifying> {
+    #[allow(
+        clippy::result_large_err,
+        reason = "Typestate transitions return the owned fixed-size record without heap allocation"
+    )]
     pub fn certify(
         mut self,
         passed: bool,
         max_retries: u32,
-    ) -> Result<AssimilationTask<Committed>, Result<AssimilationTask<Synthesizing>, AssimilationTask<Rejected>>>
-    {
+    ) -> Result<
+        AssimilationTask<Committed>,
+        Result<AssimilationTask<Synthesizing>, AssimilationTask<Rejected>>,
+    > {
         if passed {
             self.record.phase = AssimilationPhase::Committed as u32;
             Ok(AssimilationTask {
@@ -276,21 +284,40 @@ mod tests {
 
         let path = FixedString256::new("crates/test").expect("valid path");
         let quarantined = task.quarantine(path);
-        assert_eq!(quarantined.record.phase, AssimilationPhase::Quarantined as u32);
-        assert_eq!(quarantined.record.mount_path.as_str().expect("utf8"), "crates/test");
+        assert_eq!(
+            quarantined.record.phase,
+            AssimilationPhase::Quarantined as u32
+        );
+        assert_eq!(
+            quarantined.record.mount_path.as_str().expect("utf8"),
+            "crates/test"
+        );
 
         let auditing = quarantined.begin_audit();
         assert_eq!(auditing.record.phase, AssimilationPhase::Auditing as u32);
 
         let ir_hash = FixedString64::new("hash_12345").expect("valid hash");
-        let synthesizing = auditing.conclude_audit(AuditResult::Pass(ir_hash)).expect("audit should pass");
-        assert_eq!(synthesizing.record.phase, AssimilationPhase::Synthesizing as u32);
-        assert_eq!(synthesizing.record.ir_hash.as_str().expect("utf8"), "hash_12345");
+        let synthesizing = auditing
+            .conclude_audit(AuditResult::Pass(ir_hash))
+            .expect("audit should pass");
+        assert_eq!(
+            synthesizing.record.phase,
+            AssimilationPhase::Synthesizing as u32
+        );
+        assert_eq!(
+            synthesizing.record.ir_hash.as_str().expect("utf8"),
+            "hash_12345"
+        );
 
         let certifying = synthesizing.finalize_synthesis();
-        assert_eq!(certifying.record.phase, AssimilationPhase::Certifying as u32);
+        assert_eq!(
+            certifying.record.phase,
+            AssimilationPhase::Certifying as u32
+        );
 
-        let committed = certifying.certify(true, 3).expect("certification should pass");
+        let committed = certifying
+            .certify(true, 3)
+            .expect("certification should pass");
         assert_eq!(committed.record.phase, AssimilationPhase::Committed as u32);
     }
 
@@ -302,7 +329,9 @@ mod tests {
         let auditing = quarantined.begin_audit();
 
         // Fail audit -> Rejected
-        let rejected = auditing.conclude_audit(AuditResult::Fail).expect_err("audit must fail");
+        let rejected = auditing
+            .conclude_audit(AuditResult::Fail)
+            .expect_err("audit must fail");
         assert_eq!(rejected.record.phase, AssimilationPhase::Rejected as u32);
 
         // Test retry exhaustion during certification
@@ -320,14 +349,26 @@ mod tests {
         .finalize_synthesis();
 
         // Retry 2 -> 3 (retries < 3: 2 < 3, so retries becomes 3 and loops back to Synthesizing)
-        let retry_synthesizing = certifying.certify(false, 3).expect_err("certify must retry").expect("still has retries");
+        let retry_synthesizing = certifying
+            .certify(false, 3)
+            .expect_err("certify must retry")
+            .expect("still has retries");
         assert_eq!(retry_synthesizing.record.retries, 3);
-        assert_eq!(retry_synthesizing.record.phase, AssimilationPhase::Synthesizing as u32);
+        assert_eq!(
+            retry_synthesizing.record.phase,
+            AssimilationPhase::Synthesizing as u32
+        );
 
         // Next certification with retries == 3 -> Rejected
         let certifying_again = retry_synthesizing.finalize_synthesis();
-        let rejected_final = certifying_again.certify(false, 3).expect_err("certify must fail").expect_err("retries exhausted");
-        assert_eq!(rejected_final.record.phase, AssimilationPhase::Rejected as u32);
+        let rejected_final = certifying_again
+            .certify(false, 3)
+            .expect_err("certify must fail")
+            .expect_err("retries exhausted");
+        assert_eq!(
+            rejected_final.record.phase,
+            AssimilationPhase::Rejected as u32
+        );
     }
 
     #[test]

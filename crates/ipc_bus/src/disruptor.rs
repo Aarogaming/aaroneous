@@ -2,8 +2,8 @@
 //! High-throughput, lock-free ring buffer and sequence-guarded event broadcaster
 //! inspired by the LMAX Disruptor and Aeron IPC architectures.
 
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 /// 64-byte Cacheline padded atomic counter to eliminate CPU false sharing (Mechanical Sympathy)
 #[repr(align(64))]
@@ -107,7 +107,10 @@ pub struct DisruptorRingBuffer<T: Clone + Default> {
 impl<T: Clone + Default> DisruptorRingBuffer<T> {
     /// Capacity must be a power of two
     pub fn new(capacity: usize) -> Self {
-        assert!(capacity.is_power_of_two(), "Capacity must be a power of two");
+        assert!(
+            capacity.is_power_of_two(),
+            "Capacity must be a power of two"
+        );
         let mask = capacity - 1;
         let mut buffer = Vec::with_capacity(capacity);
         for _ in 0..capacity {

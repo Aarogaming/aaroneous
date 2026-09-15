@@ -4,8 +4,8 @@
 //! and 4-16ms queue latency for frame-perfect reflex and motor tracking.
 
 use serde::{Deserialize, Serialize};
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use tracing::info;
 
 /// High-resolution hardware RawInput event packet

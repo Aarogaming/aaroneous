@@ -29,7 +29,7 @@ impl UiCartridge for ScratchpadCartridge {
     fn render(&mut self, ui: &mut egui::Ui) {
         ui.heading("AI Intercom & Scratchpad");
         ui.separator();
-        
+
         egui::Panel::bottom("editor_panel")
             .resizable(true)
             .min_size(100.0)
@@ -39,14 +39,17 @@ impl UiCartridge for ScratchpadCartridge {
                     if !self.input_text.is_empty() {
                         if ui.button("🚀 Submit").clicked() {
                             let prompt = self.input_text.clone();
-                            self.history.push_str(&format!("\n\n---\n**🧑 You:**\n{}", prompt));
+                            self.history
+                                .push_str(&format!("\n\n---\n**🧑 You:**\n{}", prompt));
                             self.input_text.clear();
                         }
                     } else {
                         ui.label("Type to begin...");
                     }
                     if ui.button("📋 Clear").clicked() {
-                        self.history = "# Aaroneous OS Intercom\n\nI am connected to your Local Brain.".to_string();
+                        self.history =
+                            "# Aaroneous OS Intercom\n\nI am connected to your Local Brain."
+                                .to_string();
                         self.input_text.clear();
                     }
                 });
@@ -56,7 +59,7 @@ impl UiCartridge for ScratchpadCartridge {
                         .font(egui::TextStyle::Monospace)
                         .desired_width(f32::INFINITY)
                         .desired_rows(5)
-                        .hint_text("Type prompt here...")
+                        .hint_text("Type prompt here..."),
                 );
             });
 
@@ -80,6 +83,11 @@ pub struct UiCartridgeOpaque {
     inner: Box<dyn UiCartridge>,
 }
 
+/// Create an owned plugin handle.
+///
+/// # Safety
+/// The returned handle must be released exactly once with `free_plugin` from
+/// this same loaded library, before unloading it.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn create_plugin() -> *mut UiCartridgeOpaque {
     let plugin = UiCartridgeOpaque {
@@ -88,9 +96,15 @@ pub unsafe extern "C" fn create_plugin() -> *mut UiCartridgeOpaque {
     Box::into_raw(Box::new(plugin))
 }
 
+/// Release a plugin handle; null is accepted.
+///
+/// # Safety
+/// A non-null pointer must be a live handle returned by this library's
+/// `create_plugin`, with no concurrent accesses or previous release.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn free_plugin(ptr: *mut UiCartridgeOpaque) {
     if !ptr.is_null() {
+        // SAFETY: the caller guarantees exclusive ownership of a live handle.
         unsafe {
             let _ = Box::from_raw(ptr);
         }

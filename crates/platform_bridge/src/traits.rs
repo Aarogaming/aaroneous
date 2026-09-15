@@ -74,9 +74,9 @@ pub struct ProbingTrace {
     pub timestamp_us: u64,
 }
 
-/// The core asynchronous trait for Marionette host backends
+/// The core asynchronous trait for platform host backends
 #[async_trait]
-pub trait MarionetteHost: Send + Sync {
+pub trait PlatformHost: Send + Sync {
     /// Ingest a visual frame (128x128 normalized float grid)
     async fn pull_visual_perception(&mut self) -> Result<VisualObservation>;
 
@@ -95,3 +95,7 @@ pub trait MarionetteHost: Send + Sync {
     /// Check if live hardware emulation is active and permitted
     fn is_live_emulation_active(&self) -> bool;
 }
+
+/// Backwards compatibility alias for `PlatformHost`
+#[deprecated(note = "Use PlatformHost instead")]
+pub type MarionetteHost = dyn PlatformHost;

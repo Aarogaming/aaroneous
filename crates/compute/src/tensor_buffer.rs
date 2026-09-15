@@ -7,7 +7,7 @@
 //! - Elementwise addition, scaling, and normalized L2 metrics
 //! - Slicing and reshape operations without memory reallocations where contiguous
 
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use serde::{Deserialize, Serialize};
 
 /// Immutable strided view over contiguous numerical slices
@@ -33,7 +33,12 @@ impl<'a, T> UniversalTensorView<'a, T> {
     /// Creates a 2D matrix view (rows, cols)
     pub fn from_2d(data: &'a [T], rows: usize, cols: usize) -> Result<Self> {
         if data.len() < rows * cols {
-            return Err(anyhow!("Data slice length {} insufficient for shape [{}, {}]", data.len(), rows, cols));
+            return Err(anyhow!(
+                "Data slice length {} insufficient for shape [{}, {}]",
+                data.len(),
+                rows,
+                cols
+            ));
         }
         Ok(Self {
             data,
@@ -46,7 +51,13 @@ impl<'a, T> UniversalTensorView<'a, T> {
     /// Creates a 3D tensor view (depth/channels, rows, cols)
     pub fn from_3d(data: &'a [T], c: usize, h: usize, w: usize) -> Result<Self> {
         if data.len() < c * h * w {
-            return Err(anyhow!("Data slice length {} insufficient for shape [{}, {}, {}]", data.len(), c, h, w));
+            return Err(anyhow!(
+                "Data slice length {} insufficient for shape [{}, {}, {}]",
+                data.len(),
+                c,
+                h,
+                w
+            ));
         }
         Ok(Self {
             data,
@@ -59,7 +70,14 @@ impl<'a, T> UniversalTensorView<'a, T> {
     /// Creates a 4D tensor view (batch, channels, height, width)
     pub fn from_4d(data: &'a [T], b: usize, c: usize, h: usize, w: usize) -> Result<Self> {
         if data.len() < b * c * h * w {
-            return Err(anyhow!("Data slice length {} insufficient for shape [{}, {}, {}, {}]", data.len(), b, c, h, w));
+            return Err(anyhow!(
+                "Data slice length {} insufficient for shape [{}, {}, {}, {}]",
+                data.len(),
+                b,
+                c,
+                h,
+                w
+            ));
         }
         Ok(Self {
             data,
@@ -170,7 +188,12 @@ impl<T: Clone> TensorBuffer<T> {
 
     pub fn from_vec_2d(data: Vec<T>, rows: usize, cols: usize) -> Result<Self> {
         if data.len() != rows * cols {
-            return Err(anyhow!("Data len {} != rows {} * cols {}", data.len(), rows, cols));
+            return Err(anyhow!(
+                "Data len {} != rows {} * cols {}",
+                data.len(),
+                rows,
+                cols
+            ));
         }
         Ok(Self {
             data,
@@ -237,7 +260,11 @@ impl TensorBuffer<f32> {
     /// Elementwise in-place addition
     pub fn add_assign(&mut self, other: &Self) -> Result<()> {
         if self.shape() != other.shape() {
-            return Err(anyhow!("Shape mismatch in add_assign: {:?} vs {:?}", self.shape(), other.shape()));
+            return Err(anyhow!(
+                "Shape mismatch in add_assign: {:?} vs {:?}",
+                self.shape(),
+                other.shape()
+            ));
         }
         for (a, &b) in self.data.iter_mut().zip(&other.data) {
             *a += b;
@@ -261,9 +288,18 @@ impl TensorBuffer<f32> {
     /// Computes inner dot product between two tensors of identical shape
     pub fn dot_product(&self, other: &Self) -> Result<f32> {
         if self.shape() != other.shape() {
-            return Err(anyhow!("Shape mismatch in dot_product: {:?} vs {:?}", self.shape(), other.shape()));
+            return Err(anyhow!(
+                "Shape mismatch in dot_product: {:?} vs {:?}",
+                self.shape(),
+                other.shape()
+            ));
         }
-        let dot: f32 = self.data.iter().zip(&other.data).map(|(&a, &b)| a * b).sum();
+        let dot: f32 = self
+            .data
+            .iter()
+            .zip(&other.data)
+            .map(|(&a, &b)| a * b)
+            .sum();
         Ok(dot)
     }
 

@@ -29,30 +29,36 @@ impl ProcessErrorInterceptor {
         let mut is_type = false;
 
         for line in stderr.lines() {
-            if line.contains("error[E") {
-                if let Some(start) = line.find("error[E") {
-                    if let Some(end) = line[start..].find(']') {
-                        let code = &line[start + 6..start + end];
-                        error_codes.push(format!("E{}", code));
-                    }
-                }
+            if line.contains("error[E")
+                && let Some(start) = line.find("error[E")
+                && let Some(end) = line[start..].find(']')
+            {
+                let code = &line[start + 6..start + end];
+                error_codes.push(format!("E{}", code));
             }
 
             if line.contains("panicked at") {
                 panic_msg = Some(line.trim().to_string());
             }
 
-            if line.contains("syntax error") || line.contains("expected ") || line.contains("unexpected token") {
+            if line.contains("syntax error")
+                || line.contains("expected ")
+                || line.contains("unexpected token")
+            {
                 is_syntax = true;
             }
 
-            if line.contains("mismatched types") || line.contains("type mismatch") || line.contains("cannot find type") {
+            if line.contains("mismatched types")
+                || line.contains("type mismatch")
+                || line.contains("cannot find type")
+            {
                 is_type = true;
             }
         }
 
         let norm = if exit_code != 0 {
-            (1.0 + error_codes.len() as f32 * 0.5 + if panic_msg.is_some() { 2.0 } else { 0.0 }).min(10.0)
+            (1.0 + error_codes.len() as f32 * 0.5 + if panic_msg.is_some() { 2.0 } else { 0.0 })
+                .min(10.0)
         } else {
             0.0
         };
@@ -114,7 +120,7 @@ impl ProcessErrorInterceptor {
     ) -> Result<compute::OnlineCorrectionReport> {
         let error_dim = learner.container.adaptation.out_dim;
         let error_vec = Self::extract_error_vector(stderr, exit_code, error_dim);
-        
+
         let report = learner.on_runtime_error(current_state, &error_vec, lr);
         Ok(report)
     }

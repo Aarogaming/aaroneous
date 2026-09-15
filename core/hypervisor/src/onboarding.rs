@@ -2,16 +2,16 @@
 //! Microkernel component onboarding adapter bridging to orchestrator::onboarding.
 
 pub use ipc_bus::universal_protocol::{
-    AssimilationPhase, AssimilationPhase as OnboardingPhase,
-    AssimilationRecord, AssimilationRecord as OnboardingRecord,
+    AssimilationPhase, AssimilationPhase as OnboardingPhase, AssimilationRecord,
+    AssimilationRecord as OnboardingRecord,
 };
 pub use orchestrator::onboarding::{
+    AssimilationError, AssimilationError as OnboardingError, AssimilationTask, AuditResult,
+    Auditing, Certifying, Committed, ComponentOnboardingTask, Idle, Quarantined, Rejected, Staged,
+    StagedSandbox, Synthesizing,
     handle_assimilation_event as orchestrator_handle_assimilation_event,
-    handle_onboarding_event as orchestrator_handle_onboarding_event,
-    process_client_request, process_onboarding_request,
-    AssimilationError, AssimilationError as OnboardingError,
-    AssimilationTask, ComponentOnboardingTask, AuditResult, Auditing,
-    Certifying, Committed, Idle, Quarantined, Rejected, Staged, StagedSandbox, Synthesizing,
+    handle_onboarding_event as orchestrator_handle_onboarding_event, process_client_request,
+    process_onboarding_request,
 };
 
 use crate::error::HypervisorError;

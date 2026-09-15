@@ -10,10 +10,13 @@
 //   spatial_kinetic.exe --fps 60                 # Target 60 FPS
 //   spatial_kinetic.exe --no-hid                 # Disable HID output (capture only)
 
+#[cfg(windows)]
 use std::path::PathBuf;
 
+#[cfg(windows)]
 use hypervisor::spatial_kinetic_engine::{SpatialKineticConfig, SpatialKineticEngine};
 
+#[cfg(windows)]
 #[tokio::main]
 #[allow(clippy::await_holding_lock)]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -119,6 +122,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
+#[cfg(windows)]
 fn print_help() {
     println!("Usage: spatial_kinetic [OPTIONS]");
     println!();
@@ -134,4 +138,12 @@ fn print_help() {
     println!("      --no-hid               Disable HID output (capture + compute only)");
     println!("      --no-gating            Disable epigenetic visual gating");
     println!("  -h, --help                 Show this help message");
+}
+
+#[cfg(not(windows))]
+fn main() -> Result<(), std::io::Error> {
+    Err(std::io::Error::new(
+        std::io::ErrorKind::Unsupported,
+        "spatial-kinetic requires Windows desktop capture and input",
+    ))
 }

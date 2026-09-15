@@ -51,7 +51,7 @@ impl HudView for SettingsView {
             // ── Section 2: Local GGUF Model Hub Auto-Discovery ──────────────────────
             egui::Frame::group(ui.style())
                 .fill(theme.card_bg())
-                .stroke(Stroke::new(1.0, theme.accent()))
+                .stroke(Stroke::new(1.0_f32, theme.accent()))
                 .corner_radius(CornerRadius::same(8))
                 .show(ui, |ui| {
                     ui.set_min_width(ui.available_width());
@@ -86,7 +86,7 @@ impl HudView for SettingsView {
 
                                 egui::Frame::group(ui.style())
                                     .fill(Color32::from_rgba_unmultiplied(20, 26, 36, 200))
-                                    .stroke(Stroke::new(1.0, theme.border_color()))
+                                    .stroke(Stroke::new(1.0_f32, theme.border_color()))
                                     .corner_radius(CornerRadius::same(4))
                                     .show(ui, |ui| {
                                         ui.label(egui::RichText::new(badge_text).color(badge_color).size(11.0).strong());
@@ -127,7 +127,7 @@ impl HudView for SettingsView {
 
                                     egui::Frame::group(ui.style())
                                         .fill(if is_selected { theme.panel_bg() } else { Color32::TRANSPARENT })
-                                        .stroke(Stroke::new(if is_selected { 1.5 } else { 1.0 }, border_color))
+                                        .stroke(Stroke::new(if is_selected { 1.5 } else { 1.0_f32 }, border_color))
                                         .corner_radius(CornerRadius::same(4))
                                         .show(ui, |ui| {
                                             ui.horizontal(|ui| {
@@ -178,7 +178,7 @@ impl HudView for SettingsView {
             // ── Section 4: Developer Mode ───────────────────────────────────────────
             egui::Frame::group(ui.style())
                 .fill(if state.settings.dev_mode { Color32::from_rgba_unmultiplied(40, 28, 18, 220) } else { theme.card_bg() })
-                .stroke(Stroke::new(1.5, if state.settings.dev_mode { Color32::from_rgb(255, 120, 0) } else { theme.border_color() }))
+                .stroke(Stroke::new(1.5_f32, if state.settings.dev_mode { Color32::from_rgb(255, 120, 0) } else { theme.border_color() }))
                 .corner_radius(CornerRadius::same(6))
                 .show(ui, |ui| {
                     ui.set_min_width(ui.available_width());

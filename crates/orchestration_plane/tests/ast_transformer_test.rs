@@ -1,8 +1,8 @@
 // Integration tests for Ambient AST Rewriter and Domain Grafter
 
 use orchestration_plane::ast_transformer::AmbientAstRewriter;
-use orchestration_plane::grafter::graft_module_to_crate;
 use orchestration_plane::domain_classifier::{Domain, DomainClassifier};
+use orchestration_plane::grafter::graft_module_to_crate;
 use std::fs;
 use tempfile::tempdir;
 
@@ -17,7 +17,9 @@ fn test_ast_transformer_rewrites_canonicalize_and_temp_dir() {
         }
     "#;
 
-    let (rewritten, summary) = rewriter.rewrite_source(raw_source).expect("AST rewriting must succeed");
+    let (rewritten, summary) = rewriter
+        .rewrite_source(raw_source)
+        .expect("AST rewriting must succeed");
 
     assert_eq!(summary.canonicalize_rewrites, 1);
     assert_eq!(summary.env_temp_dir_rewrites, 1);
@@ -58,7 +60,9 @@ fn test_pipeline_classify_rewrite_and_graft() {
     "#;
 
     // 1. Classify
-    let report = classifier.classify_source("simd_kernel.rs", raw_source).unwrap();
+    let report = classifier
+        .classify_source("simd_kernel.rs", raw_source)
+        .unwrap();
     assert_eq!(report.target_domain, Domain::Compute);
 
     // 2. Rewrite ambient calls

@@ -36,7 +36,7 @@ impl ShortcutsModal {
             .frame(
                 egui::Frame::window(&ctx.global_style())
                     .fill(theme.panel_bg())
-                    .stroke(Stroke::new(1.5, theme.accent()))
+                    .stroke(Stroke::new(1.5_f32, theme.accent()))
                     .corner_radius(CornerRadius::same(10)),
             )
             .show(ctx, |ui| {
@@ -70,7 +70,7 @@ impl ShortcutsModal {
                     ui.horizontal(|ui| {
                         egui::Frame::group(ui.style())
                             .fill(theme.card_bg())
-                            .stroke(Stroke::new(1.0, theme.border_color()))
+                            .stroke(Stroke::new(1.0_f32, theme.border_color()))
                             .corner_radius(CornerRadius::same(4))
                             .show(ui, |ui| {
                                 ui.set_min_width(160.0);

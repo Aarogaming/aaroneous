@@ -87,24 +87,28 @@ impl WindowDiscoveryEngine {
 
     #[cfg(all(target_os = "windows", feature = "native-win32"))]
     fn enumerate_windows_native() -> Result<Vec<DiscoveredWindow>> {
-        use windows::core::BOOL;
         use windows::Win32::Foundation::{HWND, LPARAM};
         use windows::Win32::UI::WindowsAndMessaging::{
             EnumWindows, GetWindowTextLengthW, GetWindowTextW, IsWindowVisible,
         };
+        use windows::core::BOOL;
 
         struct EnumContext {
             windows: Vec<DiscoveredWindow>,
         }
 
         unsafe extern "system" fn enum_proc(hwnd: HWND, lparam: LPARAM) -> BOOL {
-            let context = &mut *(lparam.0 as *mut EnumContext);
+            // SAFETY: EnumWindows synchronously receives our live, exclusive EnumContext.
+            let context = unsafe { &mut *(lparam.0 as *mut EnumContext) };
 
-            if IsWindowVisible(hwnd).as_bool() {
-                let len = GetWindowTextLengthW(hwnd);
+            // SAFETY: the enumerator provides hwnd; stale handles report false.
+            if unsafe { IsWindowVisible(hwnd) }.as_bool() {
+                // SAFETY: hwnd is supplied by EnumWindows; an invalid handle returns zero.
+                let len = unsafe { GetWindowTextLengthW(hwnd) };
                 if len > 0 {
                     let mut buffer = vec![0u16; (len + 1) as usize];
-                    let read_len = GetWindowTextW(hwnd, &mut buffer);
+                    // SAFETY: buffer is writable and the API receives its actual slice length.
+                    let read_len = unsafe { GetWindowTextW(hwnd, &mut buffer) };
                     if read_len > 0 {
                         let title = String::from_utf16_lossy(&buffer[..read_len as usize]);
                         let trimmed = title.trim();
@@ -157,9 +161,9 @@ impl WindowDiscoveryEngine {
 
     #[cfg(all(target_os = "windows", feature = "native-win32"))]
     fn enumerate_screens_native() -> Result<Vec<DiscoveredScreen>> {
-        use windows::core::BOOL;
         use windows::Win32::Foundation::{LPARAM, RECT};
         use windows::Win32::Graphics::Gdi::{EnumDisplayMonitors, HDC, HMONITOR};
+        use windows::core::BOOL;
 
         struct MonitorContext {
             screens: Vec<DiscoveredScreen>,
@@ -171,9 +175,11 @@ impl WindowDiscoveryEngine {
             rect_ptr: *mut RECT,
             lparam: LPARAM,
         ) -> BOOL {
-            let context = &mut *(lparam.0 as *mut MonitorContext);
+            // SAFETY: EnumDisplayMonitors synchronously receives our live MonitorContext.
+            let context = unsafe { &mut *(lparam.0 as *mut MonitorContext) };
             if !rect_ptr.is_null() {
-                let r = *rect_ptr;
+                // SAFETY: the callback rectangle is valid for this call and was checked non-null.
+                let r = unsafe { *rect_ptr };
                 let width = (r.right - r.left).unsigned_abs();
                 let height = (r.bottom - r.top).unsigned_abs();
                 let idx = context.screens.len();
@@ -289,11 +295,11 @@ impl TransparentWindowPipeline {
 
     #[cfg(all(target_os = "windows", feature = "native-win32"))]
     fn find_own_window_native() -> Result<Option<isize>> {
-        use windows::core::BOOL;
         use windows::Win32::Foundation::{HWND, LPARAM};
         use windows::Win32::UI::WindowsAndMessaging::{
             EnumWindows, GetWindowThreadProcessId, IsWindowVisible,
         };
+        use windows::core::BOOL;
 
         struct FindContext {
             target_pid: u32,
@@ -301,11 +307,14 @@ impl TransparentWindowPipeline {
         }
 
         unsafe extern "system" fn enum_proc(hwnd: HWND, lparam: LPARAM) -> BOOL {
-            let ctx = &mut *(lparam.0 as *mut FindContext);
+            // SAFETY: EnumWindows synchronously receives our live, exclusive FindContext.
+            let ctx = unsafe { &mut *(lparam.0 as *mut FindContext) };
             let mut proc_id = 0u32;
-            let _ = GetWindowThreadProcessId(hwnd, Some(&mut proc_id));
+            // SAFETY: hwnd comes from enumeration and proc_id is a live output reference.
+            let _ = unsafe { GetWindowThreadProcessId(hwnd, Some(&mut proc_id)) };
 
-            if proc_id == ctx.target_pid && IsWindowVisible(hwnd).as_bool() {
+            // SAFETY: the enumerator provides hwnd; stale handles report false.
+            if proc_id == ctx.target_pid && unsafe { IsWindowVisible(hwnd) }.as_bool() {
                 ctx.found_hwnd = Some(hwnd);
                 return BOOL(0); // Stop enumeration, window found
             }
@@ -345,7 +354,7 @@ impl TransparentWindowPipeline {
     fn apply_click_through_native(hwnd: isize, click_through: bool) -> Result<()> {
         use windows::Win32::Foundation::HWND;
         use windows::Win32::UI::WindowsAndMessaging::{
-            GetWindowLongPtrW, SetWindowLongPtrW, GWL_EXSTYLE,
+            GWL_EXSTYLE, GetWindowLongPtrW, SetWindowLongPtrW,
         };
 
         let handle = HWND(hwnd as *mut core::ffi::c_void);
@@ -381,7 +390,7 @@ impl TransparentWindowPipeline {
     #[cfg(all(target_os = "windows", feature = "native-win32"))]
     fn is_click_through_native(hwnd: isize) -> Result<bool> {
         use windows::Win32::Foundation::HWND;
-        use windows::Win32::UI::WindowsAndMessaging::{GetWindowLongPtrW, GWL_EXSTYLE};
+        use windows::Win32::UI::WindowsAndMessaging::{GWL_EXSTYLE, GetWindowLongPtrW};
 
         let handle = HWND(hwnd as *mut core::ffi::c_void);
         let current = unsafe { GetWindowLongPtrW(handle, GWL_EXSTYLE) };
@@ -399,7 +408,7 @@ impl TransparentWindowPipeline {
         {
             use windows::Win32::Foundation::HWND;
             use windows::Win32::UI::WindowsAndMessaging::{
-                SetWindowPos, HWND_NOTOPMOST, HWND_TOPMOST, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE,
+                HWND_NOTOPMOST, HWND_TOPMOST, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SetWindowPos,
             };
 
             let handle = HWND(hwnd as *mut core::ffi::c_void);
@@ -470,12 +479,14 @@ mod tests {
         let initial_style = 0x0000_0000isize;
 
         // Apply click-through: should set both WS_EX_TRANSPARENT (0x20) and WS_EX_LAYERED (0x80000)
-        let click_through_style = TransparentWindowPipeline::calculate_overlay_style(initial_style, true);
+        let click_through_style =
+            TransparentWindowPipeline::calculate_overlay_style(initial_style, true);
         assert_eq!(click_through_style & 0x0000_0020, 0x0000_0020);
         assert_eq!(click_through_style & 0x0008_0000, 0x0008_0000);
 
         // Revert click-through: should clear WS_EX_TRANSPARENT while retaining WS_EX_LAYERED
-        let interactive_style = TransparentWindowPipeline::calculate_overlay_style(click_through_style, false);
+        let interactive_style =
+            TransparentWindowPipeline::calculate_overlay_style(click_through_style, false);
         assert_eq!(interactive_style & 0x0000_0020, 0);
         assert_eq!(interactive_style & 0x0008_0000, 0x0008_0000);
     }

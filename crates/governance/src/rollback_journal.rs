@@ -4,7 +4,7 @@
 //! Automatically intercepts thermodynamic violations or execution traps and rolls back to the
 //! preceding stable generation with zero hypervisor downtime.
 
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -109,7 +109,10 @@ impl<T: Clone> GenerationalJournal<T> {
     #[cold]
     #[inline(never)]
     pub fn rollback_to_generation(&mut self, generation_id: u64) -> Option<T> {
-        let idx = self.snapshots.iter().position(|s| s.generation_id == generation_id)?;
+        let idx = self
+            .snapshots
+            .iter()
+            .position(|s| s.generation_id == generation_id)?;
         self.snapshots.truncate(idx + 1);
         let snapshot = self.snapshots.back()?;
         self.current_generation = snapshot.generation_id;
@@ -119,11 +122,7 @@ impl<T: Clone> GenerationalJournal<T> {
 
     /// Executes an adaptation or JIT compilation closure inside a thermodynamic safety guardrail.
     /// If the closure fails or produces an unstable free energy state, automatically rolls back.
-    pub fn execute_with_guardrail<F, R>(
-        &mut self,
-        current_state: &mut T,
-        action: F,
-    ) -> Result<R>
+    pub fn execute_with_guardrail<F, R>(&mut self, current_state: &mut T, action: F) -> Result<R>
     where
         F: FnOnce(&mut T) -> Result<(R, f64)>,
     {
@@ -151,7 +150,10 @@ impl<T: Clone> GenerationalJournal<T> {
                 // Trap / error: Restore pre-state
                 *current_state = pre_state;
                 self.rollback_count += 1;
-                Err(anyhow!("Execution trap encountered: {e}. Rolled back to generation {}.", self.current_generation))
+                Err(anyhow!(
+                    "Execution trap encountered: {e}. Rolled back to generation {}.",
+                    self.current_generation
+                ))
             }
         }
     }
@@ -196,8 +198,12 @@ mod tests {
             model_version: 2,
         };
 
-        journal.record_checkpoint(1, state_v1.clone(), 0.01).unwrap();
-        journal.record_checkpoint(2, state_v2.clone(), 0.02).unwrap();
+        journal
+            .record_checkpoint(1, state_v1.clone(), 0.01)
+            .unwrap();
+        journal
+            .record_checkpoint(2, state_v2.clone(), 0.02)
+            .unwrap();
 
         assert_eq!(journal.current_generation(), 2);
         assert_eq!(journal.snapshot_count(), 2);
@@ -218,7 +224,9 @@ mod tests {
             model_version: 1,
         };
 
-        journal.record_checkpoint(1, current_state.clone(), 0.01).unwrap();
+        journal
+            .record_checkpoint(1, current_state.clone(), 0.01)
+            .unwrap();
 
         // Attempt an adaptation that destabilizes free energy to 0.15 (> 0.05)
         let result = journal.execute_with_guardrail(&mut current_state, |state| {

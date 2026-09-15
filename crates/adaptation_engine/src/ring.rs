@@ -18,7 +18,7 @@
 //! - Producers spin-wait with exponential back-off when the buffer is full.
 
 use std::fmt;
-use std::sync::atomic::{fence, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicUsize, Ordering, fence};
 use std::thread;
 
 use bytemuck::{Pod, Zeroable};
@@ -52,7 +52,11 @@ impl fmt::Display for RingError {
             Self::Full => write!(f, "ring buffer full"),
             Self::Empty => write!(f, "ring buffer empty"),
             Self::PayloadTooLarge { payload, slot } => {
-                write!(f, "payload {} bytes exceeds slot capacity {}", payload, slot)
+                write!(
+                    f,
+                    "payload {} bytes exceeds slot capacity {}",
+                    payload, slot
+                )
             }
             Self::InvalidCapacity(n) => {
                 write!(f, "capacity {} is not a power of two", n)
@@ -226,7 +230,10 @@ impl SpscRing {
             return Err(RingError::InvalidCapacity(capacity));
         }
         if slot_size < SLOT_HEADER_SIZE {
-            return Err(RingError::PayloadTooLarge { payload: 0, slot: slot_size });
+            return Err(RingError::PayloadTooLarge {
+                payload: 0,
+                slot: slot_size,
+            });
         }
 
         Ok(Self {
@@ -303,12 +310,14 @@ impl<'a> SpscProducer<'a> {
         slot.fill(0);
 
         // Write payload after the header region.
-        slot[SLOT_HEADER_SIZE..SLOT_HEADER_SIZE + payload.len()]
-            .copy_from_slice(payload);
+        slot[SLOT_HEADER_SIZE..SLOT_HEADER_SIZE + payload.len()].copy_from_slice(payload);
 
         // Release the slot — set sequence = slot_index + 1.
         let seq = (slot_index + 1) as u32;
-        let header = SlotHeader { sequence: seq, flags: 0 };
+        let header = SlotHeader {
+            sequence: seq,
+            flags: 0,
+        };
         slot[..SLOT_HEADER_SIZE].copy_from_slice(bytemuck::bytes_of(&header));
 
         // Release fence ensures payload writes are visible before the
@@ -332,11 +341,13 @@ impl<'a> SpscProducer<'a> {
         let slot = &mut self.data[offset..offset + self.ring.slot_size];
 
         slot.fill(0);
-        slot[SLOT_HEADER_SIZE..SLOT_HEADER_SIZE + payload.len()]
-            .copy_from_slice(payload);
+        slot[SLOT_HEADER_SIZE..SLOT_HEADER_SIZE + payload.len()].copy_from_slice(payload);
 
         let seq = (slot_index + 1) as u32;
-        let header = SlotHeader { sequence: seq, flags: flags.bits() };
+        let header = SlotHeader {
+            sequence: seq,
+            flags: flags.bits(),
+        };
         slot[..SLOT_HEADER_SIZE].copy_from_slice(bytemuck::bytes_of(&header));
         fence(Ordering::Release);
 
@@ -418,7 +429,8 @@ impl<'a> SpscConsumer<'a> {
             return None;
         }
 
-        let payload = &slot[SLOT_HEADER_SIZE..SLOT_HEADER_SIZE + self.ring.slot_size - SLOT_HEADER_SIZE];
+        let payload =
+            &slot[SLOT_HEADER_SIZE..SLOT_HEADER_SIZE + self.ring.slot_size - SLOT_HEADER_SIZE];
         Some((r, payload, *header))
     }
 
@@ -496,7 +508,10 @@ impl MpscRing {
             return Err(RingError::InvalidCapacity(capacity));
         }
         if slot_size < SLOT_HEADER_SIZE {
-            return Err(RingError::PayloadTooLarge { payload: 0, slot: slot_size });
+            return Err(RingError::PayloadTooLarge {
+                payload: 0,
+                slot: slot_size,
+            });
         }
 
         Ok(Self {
@@ -576,11 +591,13 @@ impl<'a> MpscProducer<'a> {
         let slot = &mut self.data[offset..offset + self.ring.slot_size];
 
         slot.fill(0);
-        slot[SLOT_HEADER_SIZE..SLOT_HEADER_SIZE + payload.len()]
-            .copy_from_slice(payload);
+        slot[SLOT_HEADER_SIZE..SLOT_HEADER_SIZE + payload.len()].copy_from_slice(payload);
 
         let seq = (slot_index + 1) as u32;
-        let header = SlotHeader { sequence: seq, flags: 0 };
+        let header = SlotHeader {
+            sequence: seq,
+            flags: 0,
+        };
         slot[..SLOT_HEADER_SIZE].copy_from_slice(bytemuck::bytes_of(&header));
         fence(Ordering::Release);
 
@@ -642,7 +659,8 @@ impl<'a> MpscConsumer<'a> {
             return None;
         }
 
-        let payload = &slot[SLOT_HEADER_SIZE..SLOT_HEADER_SIZE + self.ring.slot_size - SLOT_HEADER_SIZE];
+        let payload =
+            &slot[SLOT_HEADER_SIZE..SLOT_HEADER_SIZE + self.ring.slot_size - SLOT_HEADER_SIZE];
         Some((r, payload, *header))
     }
 
@@ -690,7 +708,10 @@ pub fn validate_config(capacity: usize, slot_size: usize) -> RingResult<()> {
         return Err(RingError::InvalidCapacity(capacity));
     }
     if slot_size < SLOT_HEADER_SIZE {
-        return Err(RingError::PayloadTooLarge { payload: 0, slot: slot_size });
+        return Err(RingError::PayloadTooLarge {
+            payload: 0,
+            slot: slot_size,
+        });
     }
     Ok(())
 }
@@ -720,8 +741,14 @@ mod tests {
 
     #[test]
     fn spsc_new_invalid_capacity() {
-        assert!(matches!(SpscRing::new(3, 64), Err(RingError::InvalidCapacity(3))));
-        assert!(matches!(SpscRing::new(0, 64), Err(RingError::InvalidCapacity(0))));
+        assert!(matches!(
+            SpscRing::new(3, 64),
+            Err(RingError::InvalidCapacity(3))
+        ));
+        assert!(matches!(
+            SpscRing::new(0, 64),
+            Err(RingError::InvalidCapacity(0))
+        ));
     }
 
     #[test]
@@ -802,9 +829,15 @@ mod tests {
     #[test]
     fn atomic_padded_usize_cas() {
         let a = AtomicPaddedUsize::new(0);
-        assert!(a.compare_exchange(0, 1, Ordering::AcqRel, Ordering::Relaxed).is_ok());
+        assert!(
+            a.compare_exchange(0, 1, Ordering::AcqRel, Ordering::Relaxed)
+                .is_ok()
+        );
         assert_eq!(a.load(Ordering::Relaxed), 1);
-        assert!(a.compare_exchange(0, 2, Ordering::AcqRel, Ordering::Relaxed).is_err());
+        assert!(
+            a.compare_exchange(0, 2, Ordering::AcqRel, Ordering::Relaxed)
+                .is_err()
+        );
     }
 
     #[test]
@@ -817,7 +850,10 @@ mod tests {
 
     #[test]
     fn slot_header_roundtrip() {
-        let header = SlotHeader { sequence: 42, flags: 0x3 };
+        let header = SlotHeader {
+            sequence: 42,
+            flags: 0x3,
+        };
         let bytes = bytemuck::bytes_of(&header);
         let recovered: &SlotHeader = bytemuck::from_bytes(bytes);
         assert_eq!(recovered.sequence, 42);
@@ -935,7 +971,9 @@ mod tests {
 
         {
             let mut producer = SpscProducer::new(&ring, &mut data);
-            producer.write_with_flags(b"test", ErrorFlags::CRC_MISMATCH).unwrap();
+            producer
+                .write_with_flags(b"test", ErrorFlags::CRC_MISMATCH)
+                .unwrap();
         }
 
         {

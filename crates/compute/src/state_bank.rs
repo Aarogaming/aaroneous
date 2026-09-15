@@ -12,7 +12,7 @@
 //! 2. Append-only columnar layout matching SIMD vector width.
 //! 3. Cryptographic CRC32 block verification.
 
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use serde::{Deserialize, Serialize};
 use std::fs::{File, OpenOptions};
 use std::io::{Read, Write};
@@ -210,9 +210,14 @@ pub enum AdaptationError {
 impl std::fmt::Display for AdaptationError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            AdaptationError::DimensionMismatch => write!(f, "Dimension mismatch in adaptation update"),
+            AdaptationError::DimensionMismatch => {
+                write!(f, "Dimension mismatch in adaptation update")
+            }
             AdaptationError::NumericDivergence => {
-                write!(f, "Numeric divergence or NaN encountered in adaptation filter")
+                write!(
+                    f,
+                    "Numeric divergence or NaN encountered in adaptation filter"
+                )
             }
             AdaptationError::ParameterExceedsBounds => {
                 write!(f, "Unbounded parameter value exceeds threshold limit")
@@ -255,7 +260,11 @@ impl<const DIM: usize, const DIM_SQ: usize> RlsState<DIM, DIM_SQ> {
         Self {
             weights: [0.0f32; DIM],
             p_matrix,
-            lambda: if lambda > 0.0 && lambda <= 1.0 { lambda } else { 0.99 },
+            lambda: if lambda > 0.0 && lambda <= 1.0 {
+                lambda
+            } else {
+                0.99
+            },
             parameter_bound,
             step_count: 0,
         }
@@ -278,19 +287,19 @@ pub fn update_rls<const DIM: usize, const DIM_SQ: usize>(
 
     // 1. Compute Pi = P * input (vector of size DIM)
     let mut pi = [0.0f32; DIM];
-    for r in 0..DIM {
+    for (r, value) in pi.iter_mut().enumerate() {
         let mut sum = 0.0f32;
         let row_offset = r * DIM;
-        for c in 0..DIM {
-            sum += state.p_matrix[row_offset + c] * input[c];
+        for (c, &input_value) in input.iter().enumerate() {
+            sum += state.p_matrix[row_offset + c] * input_value;
         }
-        pi[r] = sum;
+        *value = sum;
     }
 
     // 2. Denominator: denom = lambda + input^T * Pi
     let mut input_t_pi = 0.0f32;
-    for i in 0..DIM {
-        input_t_pi += input[i] * pi[i];
+    for (&input_value, &pi_value) in input.iter().zip(&pi) {
+        input_t_pi += input_value * pi_value;
     }
     let denom = state.lambda + input_t_pi;
     if denom.abs() < 1e-12 || denom.is_nan() {
@@ -299,25 +308,25 @@ pub fn update_rls<const DIM: usize, const DIM_SQ: usize>(
 
     // 3. Kalman gain: k = Pi / denom
     let mut k = [0.0f32; DIM];
-    for i in 0..DIM {
-        k[i] = pi[i] / denom;
+    for (gain, &pi_value) in k.iter_mut().zip(&pi) {
+        *gain = pi_value / denom;
     }
 
     // 4. Update weights: weights = weights + k * error
-    for i in 0..DIM {
-        let new_w = state.weights[i] + k[i] * error;
+    for (weight, &gain) in state.weights.iter_mut().zip(&k) {
+        let new_w = *weight + gain * error;
         if new_w.abs() > state.parameter_bound {
             return Err(AdaptationError::ParameterExceedsBounds);
         }
-        state.weights[i] = new_w;
+        *weight = new_w;
     }
 
     // 5. Update P = (P - k * Pi^T) / lambda
     let inv_lambda = 1.0f32 / state.lambda;
-    for r in 0..DIM {
+    for (r, gain) in k.iter().enumerate() {
         let row_offset = r * DIM;
-        for c in 0..DIM {
-            let update_delta = k[r] * pi[c];
+        for (c, &pi_value) in pi.iter().enumerate() {
+            let update_delta = gain * pi_value;
             state.p_matrix[row_offset + c] =
                 (state.p_matrix[row_offset + c] - update_delta) * inv_lambda;
         }
@@ -328,14 +337,13 @@ pub fn update_rls<const DIM: usize, const DIM_SQ: usize>(
 }
 
 #[cfg(test)]
-#[allow(ambient_authority)]
 mod tests {
     use super::*;
 
     #[test]
     fn test_state_bank_create_and_persist() {
-        let temp_dir = std::env::temp_dir();
-        let path = temp_dir.join("test_audit_state_bank.lib");
+        let temp_dir = tempfile::tempdir().unwrap();
+        let path = temp_dir.path().join("test_audit_state_bank.lib");
 
         let mut bank = UniversalStateBank::create_or_open(&path, 4).unwrap();
         let record = StateBankRecord {
@@ -352,8 +360,6 @@ mod tests {
         let reopened = UniversalStateBank::create_or_open(&path, 4).unwrap();
         assert_eq!(reopened.header.magic, STATE_BANK_MAGIC);
         assert_eq!(reopened.header.record_count, 1);
-
-        let _ = std::fs::remove_file(path);
     }
 
     #[test]

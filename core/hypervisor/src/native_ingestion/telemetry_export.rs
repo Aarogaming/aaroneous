@@ -1,12 +1,10 @@
 //! Telemetry Export Layer - Serialize and Transmit Observability Data
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 
 use crate::native_ingestion::{
-    dxgi_swapchain::DxgiCaptureMetrics,
-    etw_kernel_trace::EtwTelemetryMetrics,
-    rgb_telemetry::RgbTelemetryMetrics,
-    capture_pipeline::CapturePipeline,
+    capture_pipeline::CapturePipeline, dxgi_swapchain::DxgiCaptureMetrics,
+    etw_kernel_trace::EtwTelemetryMetrics, rgb_telemetry::RgbTelemetryMetrics,
 };
 
 #[derive(Debug)]
@@ -42,11 +40,11 @@ impl TelemetryExporter {
         self.active.store(false, Ordering::Relaxed);
     }
 
-    pub fn export_dxgi_metrics(&self, metrics: &DxgiCaptureMetrics) -> Result<u64, String> {
+    pub fn export_dxgi_metrics(&self, _metrics: &DxgiCaptureMetrics) -> Result<u64, String> {
         if !self.active.load(Ordering::Relaxed) {
             return Err("Exporter not active".to_string());
         }
-        
+
         let counter = self.export_counter.fetch_add(1, Ordering::SeqCst) + 1;
         let bytes = 128u64; // Mock serialization size
         self.bytes_exported.fetch_add(bytes, Ordering::SeqCst);
@@ -57,7 +55,7 @@ impl TelemetryExporter {
         if !self.active.load(Ordering::Relaxed) {
             return Err("Exporter not active".to_string());
         }
-        
+
         let counter = self.export_counter.fetch_add(1, Ordering::SeqCst) + 1;
         let bytes = 64u64; // Mock serialization size
         self.bytes_exported.fetch_add(bytes, Ordering::SeqCst);
@@ -68,18 +66,18 @@ impl TelemetryExporter {
         if !self.active.load(Ordering::Relaxed) {
             return Err("Exporter not active".to_string());
         }
-        
+
         let counter = self.export_counter.fetch_add(1, Ordering::SeqCst) + 1;
         let bytes = 96u64; // Mock serialization size
         self.bytes_exported.fetch_add(bytes, Ordering::SeqCst);
         Ok(counter)
     }
 
-    pub fn export_pipeline_metrics(&self, pipeline: &CapturePipeline) -> Result<u64, String> {
+    pub fn export_pipeline_metrics(&self, _pipeline: &CapturePipeline) -> Result<u64, String> {
         if !self.active.load(Ordering::Relaxed) {
             return Err("Exporter not active".to_string());
         }
-        
+
         let counter = self.export_counter.fetch_add(1, Ordering::SeqCst) + 1;
         let bytes = 256u64; // Mock serialization size
         self.bytes_exported.fetch_add(bytes, Ordering::SeqCst);
@@ -130,10 +128,10 @@ mod tests {
     fn test_dxgi_export_success() {
         let exporter = TelemetryExporter::default();
         exporter.start().unwrap();
-        
+
         let metrics = DxgiCaptureMetrics::new(60, &[5000u64; 60]);
         let counter = exporter.export_dxgi_metrics(&metrics).unwrap();
-        
+
         assert_eq!(counter, 1);
     }
 
@@ -141,14 +139,14 @@ mod tests {
     fn test_etw_export_success() {
         let exporter = TelemetryExporter::default();
         exporter.start().unwrap();
-        
+
         let metrics = EtwTelemetryMetrics {
             events_ingested: 100,
-            
+
             ..Default::default()
         };
         let counter = exporter.export_etw_metrics(&metrics).unwrap();
-        
+
         assert_eq!(counter, 1);
     }
 
@@ -156,10 +154,10 @@ mod tests {
     fn test_rgb_export_success() {
         let exporter = TelemetryExporter::default();
         exporter.start().unwrap();
-        
+
         let metrics = RgbTelemetryMetrics::default();
         let counter = exporter.export_rgb_metrics(&metrics).unwrap();
-        
+
         assert_eq!(counter, 1);
     }
 
@@ -167,7 +165,7 @@ mod tests {
     fn test_export_failure_inactive() {
         let exporter = TelemetryExporter::default();
         // Don't start - should fail
-        
+
         let metrics = DxgiCaptureMetrics::new(60, &[]);
         assert!(exporter.export_dxgi_metrics(&metrics).is_err());
     }
@@ -176,11 +174,13 @@ mod tests {
     fn test_export_stats() {
         let exporter = TelemetryExporter::default();
         exporter.start().unwrap();
-        
+
         for _ in 0..5 {
-            exporter.export_dxgi_metrics(&DxgiCaptureMetrics::new(60, &[])).unwrap();
+            exporter
+                .export_dxgi_metrics(&DxgiCaptureMetrics::new(60, &[]))
+                .unwrap();
         }
-        
+
         let stats = exporter.get_export_stats();
         assert_eq!(stats.export_counter, 5);
         assert!(stats.is_active);
@@ -190,10 +190,10 @@ mod tests {
     fn test_pipeline_export() {
         let exporter = TelemetryExporter::default();
         exporter.start().unwrap();
-        
+
         let pipeline = CapturePipeline::init(1).unwrap();
         pipeline.start().unwrap();
-        
+
         let counter = exporter.export_pipeline_metrics(&pipeline).unwrap();
         assert_eq!(counter, 1);
     }

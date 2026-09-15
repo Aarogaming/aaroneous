@@ -2,7 +2,7 @@
 //! Industrial-Grade Developer Power Tools, Diagnostic Parsing, and Patch Application Engine.
 //! Provides workspace file tree exploration, compiler diagnostic extraction, and safe file patching with backup.
 
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use serde::{Deserialize, Serialize};
 use std::fs::{self, File};
 use std::io::{BufRead, BufReader};
@@ -90,12 +90,20 @@ impl DevToolsEngine {
 
                 let is_dir = path.is_dir();
                 let mut line_count = 0;
-                let file_extension = path.extension().and_then(|e| e.to_str()).unwrap_or("").to_lowercase();
+                let file_extension = path
+                    .extension()
+                    .and_then(|e| e.to_str())
+                    .unwrap_or("")
+                    .to_lowercase();
 
-                if !is_dir && (file_extension == "rs" || file_extension == "toml" || file_extension == "md" || file_extension == "py") {
-                    if let Ok(file) = File::open(&path) {
-                        line_count = BufReader::new(file).lines().count();
-                    }
+                if !is_dir
+                    && (file_extension == "rs"
+                        || file_extension == "toml"
+                        || file_extension == "md"
+                        || file_extension == "py")
+                    && let Ok(file) = File::open(&path)
+                {
+                    line_count = BufReader::new(file).lines().count();
                 }
 
                 items.push(WorkspaceFileItem {
@@ -124,34 +132,38 @@ impl DevToolsEngine {
         let stdout = String::from_utf8_lossy(&output.stdout);
 
         for line in stdout.lines() {
-            if let Ok(val) = serde_json::from_str::<serde_json::Value>(line) {
-                if val["reason"] == "compiler-message" {
-                    let msg_obj = &val["message"];
-                    let message = msg_obj["message"].as_str().unwrap_or("").to_string();
-                    let level = msg_obj["level"].as_str().unwrap_or("error").to_string();
-                    let code = msg_obj["code"]["code"].as_str().map(|s| s.to_string());
+            if let Ok(val) = serde_json::from_str::<serde_json::Value>(line)
+                && val["reason"] == "compiler-message"
+            {
+                let msg_obj = &val["message"];
+                let message = msg_obj["message"].as_str().unwrap_or("").to_string();
+                let level = msg_obj["level"].as_str().unwrap_or("error").to_string();
+                let code = msg_obj["code"]["code"].as_str().map(|s| s.to_string());
 
-                    let mut file_path = None;
-                    let mut line_number = None;
-                    let mut suggested_replacement = None;
+                let mut file_path = None;
+                let mut line_number = None;
+                let mut suggested_replacement = None;
 
-                    if let Some(spans) = msg_obj["spans"].as_array() {
-                        if let Some(primary_span) = spans.iter().find(|s| s["is_primary"].as_bool().unwrap_or(false)) {
-                            file_path = primary_span["file_name"].as_str().map(|s| s.to_string());
-                            line_number = primary_span["line_start"].as_u64().map(|n| n as usize);
-                            suggested_replacement = primary_span["suggested_replacement"].as_str().map(|s| s.to_string());
-                        }
-                    }
-
-                    diagnostics.push(CompilerDiagnosticItem {
-                        message,
-                        level,
-                        code,
-                        file_path,
-                        line_number,
-                        suggested_replacement,
-                    });
+                if let Some(spans) = msg_obj["spans"].as_array()
+                    && let Some(primary_span) = spans
+                        .iter()
+                        .find(|s| s["is_primary"].as_bool().unwrap_or(false))
+                {
+                    file_path = primary_span["file_name"].as_str().map(|s| s.to_string());
+                    line_number = primary_span["line_start"].as_u64().map(|n| n as usize);
+                    suggested_replacement = primary_span["suggested_replacement"]
+                        .as_str()
+                        .map(|s| s.to_string());
                 }
+
+                diagnostics.push(CompilerDiagnosticItem {
+                    message,
+                    level,
+                    code,
+                    file_path,
+                    line_number,
+                    suggested_replacement,
+                });
             }
         }
 
@@ -159,14 +171,21 @@ impl DevToolsEngine {
     }
 
     /// Safely writes updated code to disk with an automatic `.bak` backup
-    pub fn apply_patch_to_file(&self, target_file: impl AsRef<Path>, new_content: &str) -> Result<PathBuf> {
+    pub fn apply_patch_to_file(
+        &self,
+        target_file: impl AsRef<Path>,
+        new_content: &str,
+    ) -> Result<PathBuf> {
         let path = target_file.as_ref();
         if !path.exists() {
             return Err(anyhow!("Target file does not exist: {}", path.display()));
         }
 
         // 1. Create backup
-        let backup_path = path.with_extension(format!("bak.{}", crate::disassembly::BinaryInspector::calculate_entropy(new_content.as_bytes()) as u32));
+        let backup_path = path.with_extension(format!(
+            "bak.{}",
+            crate::disassembly::BinaryInspector::calculate_entropy(new_content.as_bytes()) as u32
+        ));
         fs::copy(path, &backup_path)?;
 
         // 2. Write new content
@@ -176,7 +195,11 @@ impl DevToolsEngine {
     }
 
     /// Reverts a file from its backup
-    pub fn revert_backup(&self, target_file: impl AsRef<Path>, backup_path: impl AsRef<Path>) -> Result<()> {
+    pub fn revert_backup(
+        &self,
+        target_file: impl AsRef<Path>,
+        backup_path: impl AsRef<Path>,
+    ) -> Result<()> {
         let target = target_file.as_ref();
         let backup = backup_path.as_ref();
         if !backup.exists() {
@@ -208,7 +231,9 @@ mod tests {
         fs::write(&temp_file, "original content").unwrap();
 
         let engine = DevToolsEngine::default();
-        let backup = engine.apply_patch_to_file(&temp_file, "patched content").unwrap();
+        let backup = engine
+            .apply_patch_to_file(&temp_file, "patched content")
+            .unwrap();
 
         assert_eq!(fs::read_to_string(&temp_file).unwrap(), "patched content");
         assert!(backup.exists());

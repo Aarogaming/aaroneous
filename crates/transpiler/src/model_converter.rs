@@ -44,7 +44,9 @@ pub struct ModelManifest {
 impl ModelManifest {
     /// Estimates host/device VRAM requirement in megabytes
     pub fn estimate_memory_mb(&self) -> usize {
-        let weight_bytes = (self.parameter_count_billions * 1e9 * (self.quantization.bits_per_weight() / 8.0)) as usize;
+        let weight_bytes = (self.parameter_count_billions
+            * 1e9
+            * (self.quantization.bits_per_weight() / 8.0)) as usize;
         // Include KV-cache overhead buffer based on context length
         let kv_cache_mb = (self.context_length * 2) / 1024;
         (weight_bytes / (1024 * 1024)) + kv_cache_mb
@@ -126,10 +128,7 @@ impl ModelConverter {
     }
 
     /// Creates a model manifest for a specialist foundation model
-    pub fn generate_manifest(
-        model_id: &str,
-        quantization: QuantizationType,
-    ) -> ModelManifest {
+    pub fn generate_manifest(model_id: &str, quantization: QuantizationType) -> ModelManifest {
         let arch = Self::deduce_architecture(model_id);
         let params = Self::deduce_parameter_count(model_id);
         let context = if arch == "llama3" || arch == "qwen2" || arch == "mistral" {
@@ -224,7 +223,8 @@ mod tests {
         assert_eq!(qwen.architecture, "qwen2");
         assert_eq!(qwen.parameter_count_billions, 7.0);
 
-        let llama = ModelConverter::generate_manifest("Meta-Llama-3-8B-Instruct", QuantizationType::Q8_0);
+        let llama =
+            ModelConverter::generate_manifest("Meta-Llama-3-8B-Instruct", QuantizationType::Q8_0);
         assert_eq!(llama.architecture, "llama3");
         assert_eq!(llama.parameter_count_billions, 8.0);
     }
@@ -244,7 +244,8 @@ mod tests {
 
     #[test]
     fn test_model_manifest_memory_estimation() {
-        let manifest = ModelConverter::generate_manifest("qwen2.5-7b-instruct", QuantizationType::Q4_K_M);
+        let manifest =
+            ModelConverter::generate_manifest("qwen2.5-7b-instruct", QuantizationType::Q4_K_M);
         let mb = manifest.estimate_memory_mb();
         // 7B at 4.5 bits/weight ≈ 3937 MB + KV overhead (64 MB)
         assert!(mb > 3500 && mb < 4500);

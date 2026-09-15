@@ -367,7 +367,6 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    #[ignore] // Requires local LLM running
     async fn test_local_provider_creation() {
         let result = LocalLLMProvider::new(
             "http://localhost:11434".to_string(),

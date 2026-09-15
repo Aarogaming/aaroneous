@@ -23,9 +23,7 @@ impl core::fmt::Display for ComputeError {
             Self::InvalidTimeStep => {
                 f.pad("Invalid integration time step (dt must be finite and > 0.0)")
             }
-            Self::InvalidParameter => {
-                f.pad("Physical parameter must be positive and finite")
-            }
+            Self::InvalidParameter => f.pad("Physical parameter must be positive and finite"),
             Self::NumericalInstability => {
                 f.pad("Numerical instability detected (state coordinates are non-finite)")
             }
@@ -115,22 +113,46 @@ impl HarmonicOscillatorDual {
 
     /// Translational spring-mass oscillator ($m$ = mass [kg], $k$ = spring constant [N/m]).
     pub fn translational(mass: f64, spring_k: f64, position: f64, momentum: f64) -> Self {
-        Self::new(PhysicalDomain::Translational, mass, spring_k, position, momentum)
+        Self::new(
+            PhysicalDomain::Translational,
+            mass,
+            spring_k,
+            position,
+            momentum,
+        )
     }
 
     /// Rotational inertia-torsion oscillator ($J$ = moment of inertia [kg*m^2], $\kappa$ = torsion constant [N*m/rad]).
     pub fn rotational(inertia: f64, torsion_k: f64, angle: f64, angular_momentum: f64) -> Self {
-        Self::new(PhysicalDomain::Rotational, inertia, torsion_k, angle, angular_momentum)
+        Self::new(
+            PhysicalDomain::Rotational,
+            inertia,
+            torsion_k,
+            angle,
+            angular_momentum,
+        )
     }
 
     /// Electrical LC tank circuit ($L$ = inductance [H], $C^{-1}$ = inverse capacitance [1/F]).
     pub fn electrical(inductance: f64, inv_capacitance: f64, charge: f64, flux: f64) -> Self {
-        Self::new(PhysicalDomain::Electrical, inductance, inv_capacitance, charge, flux)
+        Self::new(
+            PhysicalDomain::Electrical,
+            inductance,
+            inv_capacitance,
+            charge,
+            flux,
+        )
     }
 
     /// Hydraulic accumulator-inertance oscillator ($I_f$ = fluid inertance [kg/m^4], $C_h^{-1}$ = elastance [Pa/m^3]).
     pub fn hydraulic(inertance: f64, elastance: f64, volume: f64, pressure_momentum: f64) -> Self {
-        Self::new(PhysicalDomain::Hydraulic, inertance, elastance, volume, pressure_momentum)
+        Self::new(
+            PhysicalDomain::Hydraulic,
+            inertance,
+            elastance,
+            volume,
+            pressure_momentum,
+        )
     }
 
     /// Natural undamped angular frequency $\omega_0 = \sqrt{k / m}$ [rad/s].
@@ -259,7 +281,8 @@ mod tests {
         let tolerance = 0.25; // Symplectic Euler energy fluctuation is bounded by O(dt) with ZERO secular drift
 
         for _ in 0..1000 {
-            osc.step_symplectic(dt).expect("Symplectic step must succeed");
+            osc.step_symplectic(dt)
+                .expect("Symplectic step must succeed");
             assert!(
                 osc.check_hamiltonian_conservation(initial_energy, tolerance),
                 "Energy drifted outside conservation bounds: current = {}, initial = {}",
@@ -314,10 +337,7 @@ mod tests {
         let mut osc = HarmonicOscillatorDual::translational(1.0, 10.0, 1.0, 0.0);
 
         // Invalid dt <= 0.0
-        assert_eq!(
-            osc.step_symplectic(0.0),
-            Err(ComputeError::InvalidTimeStep)
-        );
+        assert_eq!(osc.step_symplectic(0.0), Err(ComputeError::InvalidTimeStep));
         assert_eq!(
             osc.step_symplectic(-0.01),
             Err(ComputeError::InvalidTimeStep)

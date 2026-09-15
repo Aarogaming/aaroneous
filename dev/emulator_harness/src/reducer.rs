@@ -1,9 +1,7 @@
 //! Pure-safe trace reducer for extracting state deltas from contiguous memory buffers.
 //! Operates with zero heap allocations and bounded iteration.
 
-
 use crate::types::TraceEvent;
-
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TraceError {
@@ -11,7 +9,6 @@ pub enum TraceError {
     NoStateTransitionFound,
     InvalidAccessType,
 }
-
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, bytemuck::Pod, bytemuck::Zeroable)]
@@ -23,9 +20,9 @@ pub struct StateDelta {
     pub reserved: u32, // Explicit 8-byte alignment padding
 }
 
-
 /// Slices an execution trace slice to extract the net state mutation on a given address.
 /// Guaranteed O(N) bounded iteration, zero-allocation, and panic-free.
+#[doc = "hot_path"]
 pub fn extract_state_delta(
     events: &[TraceEvent],
     target_addr: u64,
@@ -34,11 +31,9 @@ pub fn extract_state_delta(
         return Err(TraceError::EmptyTraceBuffer);
     }
 
-
     let mut initial: Option<u32> = None;
     let mut final_val = 0u32;
     let mut write_count = 0u32;
-
 
     for event in events {
         // Filter strictly for memory writes (access_kind == 2)
@@ -51,7 +46,6 @@ pub fn extract_state_delta(
         }
     }
 
-
     match initial {
         Some(init) => Ok(StateDelta {
             target_addr,
@@ -63,4 +57,3 @@ pub fn extract_state_delta(
         None => Err(TraceError::NoStateTransitionFound),
     }
 }
-

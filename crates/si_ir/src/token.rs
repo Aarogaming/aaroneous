@@ -1,4 +1,4 @@
-﻿//! crates/si_ir/src/token.rs
+//! crates/si_ir/src/token.rs
 //! Discrete Machine Token Vocabulary & Grammar for the .si Machine-Native State Language Model (M-SLM).
 //!
 //! Enforces zero-allocation, strictly packed, #[repr(C)] or #[repr(u16)] structures
@@ -73,11 +73,11 @@ impl StateDeltaToken {
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct MachineToken {
-    pub kind: MachineTokenKind,     // 2 bytes
-    pub flags: u16,                  // 2 bytes
-    pub timestamp_cycles: u32,       // 4 bytes
-    pub opcode: OpcodeToken,         // 8 bytes
-    pub delta: StateDeltaToken,      // 16 bytes
+    pub kind: MachineTokenKind, // 2 bytes
+    pub flags: u16,             // 2 bytes
+    pub timestamp_cycles: u32,  // 4 bytes
+    pub opcode: OpcodeToken,    // 8 bytes
+    pub delta: StateDeltaToken, // 16 bytes
 }
 
 impl MachineToken {

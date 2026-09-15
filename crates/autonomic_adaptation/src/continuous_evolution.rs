@@ -11,7 +11,9 @@ use std::path::{Path, PathBuf};
 use std::time::Instant;
 use tracing::info;
 
-use crate::neurochemistry::{AutonomicImpulse, ImpulseKind, NeurochemicalHomeostasisEngine, NeurochemicalLevels};
+use crate::neurochemistry::{
+    AutonomicImpulse, ImpulseKind, NeurochemicalHomeostasisEngine, NeurochemicalLevels,
+};
 use adaptation_engine::autonomous_scientific::AutonomousScientificEngine;
 use compute::si_solid_state::SolidStateSiContainer;
 
@@ -113,14 +115,18 @@ impl ContinuousSelfEvolutionEngine {
                 kind: ImpulseKind::OptimizeAstHypotheses,
                 urgency: curiosity,
                 target_domain: "0x0400 (Fabricator)".to_string(),
-                rationale: "High curiosity drive: Discovering and optimizing novel AST execution pathways".to_string(),
+                rationale:
+                    "High curiosity drive: Discovering and optimizing novel AST execution pathways"
+                        .to_string(),
             }
         } else {
             AutonomicImpulse {
                 kind: ImpulseKind::ExploreKnowledgeGaps,
                 urgency: boredom,
                 target_domain: "0x0200 (Synthesizer)".to_string(),
-                rationale: "High boredom index: Mutating dormant codebase routines to reduce stagnation".to_string(),
+                rationale:
+                    "High boredom index: Mutating dormant codebase routines to reduce stagnation"
+                        .to_string(),
             }
         };
 
@@ -135,7 +141,8 @@ impl ContinuousSelfEvolutionEngine {
 
         // 1. Phase 1: Fabricator AST Hypothesis & Mutation Cycle
         let dummy_path = Path::new("src/lib.rs");
-        let scientific_report = AutonomousScientificEngine::analyze_and_hypothesize(dummy_path, sample_code)?;
+        let scientific_report =
+            AutonomousScientificEngine::analyze_and_hypothesize(dummy_path, sample_code)?;
 
         let accepted_hypotheses: Vec<_> = scientific_report
             .hypotheses
@@ -162,11 +169,18 @@ impl ContinuousSelfEvolutionEngine {
 
         if !accepted_hypotheses.is_empty() {
             let n = accepted_hypotheses.len() as f32;
-            let mean_delta: f32 = accepted_hypotheses.iter().map(|h| h.performance_delta_pct).sum::<f32>() / n;
-            let sum_sq_diff: f32 = accepted_hypotheses.iter().map(|h| {
-                let diff = h.performance_delta_pct - mean_delta;
-                diff * diff
-            }).sum();
+            let mean_delta: f32 = accepted_hypotheses
+                .iter()
+                .map(|h| h.performance_delta_pct)
+                .sum::<f32>()
+                / n;
+            let sum_sq_diff: f32 = accepted_hypotheses
+                .iter()
+                .map(|h| {
+                    let diff = h.performance_delta_pct - mean_delta;
+                    diff * diff
+                })
+                .sum();
             gradient_variance = (sum_sq_diff / n).max(0.0001);
         }
 
@@ -177,7 +191,9 @@ impl ContinuousSelfEvolutionEngine {
                         // Register anchor in DynamicAdaptationMatrix
                         let dummy_latent = vec![0.05f32; 256];
                         let dummy_delta = vec![0.02f32; 256];
-                        container.adaptation.add_anchor_state(dummy_latent, 0x04, dummy_delta);
+                        container
+                            .adaptation
+                            .add_anchor_state(dummy_latent, 0x04, dummy_delta);
                         promoted_count += 1;
                     }
                     let _ = container.save_to_file(si_path);
@@ -192,8 +208,10 @@ impl ContinuousSelfEvolutionEngine {
         // 4. Neurochemical Reward Loop: Satisfaction & Plasticity Boost
         self.neurochemistry.step_homeostasis(1.0);
         self.neurochemistry.levels.dopamine = (self.neurochemistry.levels.dopamine + 0.08).min(1.0);
-        self.neurochemistry.levels.serotonin = (self.neurochemistry.levels.serotonin + 0.05).min(1.0);
-        self.neurochemistry.levels.noradrenaline = (self.neurochemistry.levels.noradrenaline * 0.90).max(0.1);
+        self.neurochemistry.levels.serotonin =
+            (self.neurochemistry.levels.serotonin + 0.05).min(1.0);
+        self.neurochemistry.levels.noradrenaline =
+            (self.neurochemistry.levels.noradrenaline * 0.90).max(0.1);
 
         let duration_ms = start.elapsed().as_millis() as u64;
 
@@ -227,15 +245,23 @@ impl ContinuousSelfEvolutionEngine {
         if reward >= 0.0 {
             // Positive reinforcement: register anchor transition to prevent forgetting
             let delta = vec![reward * 0.01; container.adaptation.out_dim];
-            container.adaptation.add_anchor_state(state_x.to_vec(), target_action, delta);
-            self.neurochemistry.levels.dopamine = (self.neurochemistry.levels.dopamine + 0.05 * reward).min(1.0);
-            self.neurochemistry.levels.serotonin = (self.neurochemistry.levels.serotonin + 0.02 * reward).min(1.0);
+            container
+                .adaptation
+                .add_anchor_state(state_x.to_vec(), target_action, delta);
+            self.neurochemistry.levels.dopamine =
+                (self.neurochemistry.levels.dopamine + 0.05 * reward).min(1.0);
+            self.neurochemistry.levels.serotonin =
+                (self.neurochemistry.levels.serotonin + 0.02 * reward).min(1.0);
         } else {
             // Negative error penalty: apply TD(lambda) and OGP error steering
             let error_vector = vec![-reward * 0.02; container.adaptation.out_dim];
-            container.adaptation.apply_error_penalty(state_x, &error_vector, effective_lr);
-            self.neurochemistry.levels.dopamine = (self.neurochemistry.levels.dopamine - 0.05).max(0.1);
-            self.neurochemistry.levels.noradrenaline = (self.neurochemistry.levels.noradrenaline + 0.08).min(1.0);
+            container
+                .adaptation
+                .apply_error_penalty(state_x, &error_vector, effective_lr);
+            self.neurochemistry.levels.dopamine =
+                (self.neurochemistry.levels.dopamine - 0.05).max(0.1);
+            self.neurochemistry.levels.noradrenaline =
+                (self.neurochemistry.levels.noradrenaline + 0.08).min(1.0);
         }
 
         Ok(effective_lr)
@@ -310,12 +336,16 @@ mod tests {
         let mut container = SolidStateSiContainer::new("test_agent", ssm_config);
 
         let state_x = vec![0.1f32; 256];
-        let lr = engine.adapt_from_reward(&state_x, 0x0400, 1.0, &mut container).unwrap();
+        let lr = engine
+            .adapt_from_reward(&state_x, 0x0400, 1.0, &mut container)
+            .unwrap();
         assert!(lr > 0.005);
         assert_eq!(container.adaptation.anchor_buffer.len(), 1);
 
         // Test error penalty with negative reward
-        let penalty_lr = engine.adapt_from_reward(&state_x, 0x0400, -1.0, &mut container).unwrap();
+        let penalty_lr = engine
+            .adapt_from_reward(&state_x, 0x0400, -1.0, &mut container)
+            .unwrap();
         assert!(penalty_lr > 0.0);
         assert!(container.adaptation.error_corrections_count > 0);
 
@@ -324,7 +354,8 @@ mod tests {
         let cart_path = temp.path().join("crystallized_agent.si");
         let traces = vec![b"EXEC_STEP_1".to_vec(), b"EXEC_STEP_2".to_vec()];
 
-        let res = engine.crystallize_habit_cartridge(&[0xAA; 128], &[0xBB; 64], &traces, &cart_path);
+        let res =
+            engine.crystallize_habit_cartridge(&[0xAA; 128], &[0xBB; 64], &traces, &cart_path);
         assert!(res.is_ok());
 
         let report = compute::si_spec::SiCartridgeEngine::verify_cartridge(&cart_path).unwrap();

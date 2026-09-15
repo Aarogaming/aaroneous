@@ -48,8 +48,6 @@ mod windows_ffi {
 
 #[cfg(target_os = "linux")]
 mod linux_ffi {
-    use std::os::raw::c_int;
-
     // uinput constants
     pub const EV_KEY: u16 = 0x01;
     pub const EV_REL: u16 = 0x02;
@@ -57,8 +55,6 @@ mod linux_ffi {
     pub const EV_SYN: u16 = 0x00;
 
     pub const SYN_REPORT: u16 = 0;
-    pub const REL_X: u16 = 0x00;
-    pub const REL_Y: u16 = 0x01;
     pub const REL_WHEEL: u16 = 0x08;
 
     pub const ABS_X: u16 = 0x00;
@@ -332,10 +328,8 @@ impl LinuxHidPlatform {
     }
 
     /// Send an input event via uinput
-    fn send_event(uinput_fd: i32, type_: u16, code: u16, value: i32) -> Result<(), String> {
+    fn send_event(_uinput_fd: i32, type_: u16, code: u16, value: i32) -> Result<(), String> {
         use linux_ffi::*;
-        use std::fs::File;
-        use std::os::unix::io::AsRawFd;
         use std::time::{SystemTime, UNIX_EPOCH};
 
         let now = SystemTime::now()
@@ -352,20 +346,14 @@ impl LinuxHidPlatform {
             value,
         };
 
-        unsafe {
-            let fd = uinput_fd;
-            let ptr = &event as *const input_event as *const u8;
-            let size = std::mem::size_of::<input_event>();
-
-            // In a real implementation, would use libc::write
-            // For now, we simulate by just returning success
-            tracing::debug!(
-                "Linux: Sending input event (type={}, code={}, value={})",
-                type_,
-                code,
-                value
-            );
-        }
+        // In a real implementation, this would use libc::write. For now, it
+        // records the deterministic simulated event and reports success.
+        tracing::debug!(
+            "Linux: Sending input event (type={}, code={}, value={})",
+            event.type_,
+            event.code,
+            event.value
+        );
 
         Ok(())
     }
@@ -491,7 +479,7 @@ impl HidPlatform for LinuxHidPlatform {
                 // For now, return a simulated position
                 Ok(HidResponse::CursorPos { x: 100, y: 100 })
             }
-            HidCommand::QueryKeyState { key } => {
+            HidCommand::QueryKeyState { key: _ } => {
                 // Linux: Would need /dev/input device integration
                 // For now, return false
                 Ok(HidResponse::KeyState { pressed: false })

@@ -88,9 +88,9 @@ impl MutationIntent {
             }
             "latent_vector" => {
                 if self.value.len() == 1024 * 4 {
-                    for i in 0..1024 {
+                    for (i, value) in state.latent_vector.iter_mut().enumerate() {
                         let offset = i * 4;
-                        state.latent_vector[i] = f32::from_le_bytes([
+                        *value = f32::from_le_bytes([
                             self.value[offset],
                             self.value[offset + 1],
                             self.value[offset + 2],
@@ -160,10 +160,11 @@ impl IntentValidator {
         }
 
         // Check value bounds for u8 fields
-        if let Some(&max) = self.max_values.get(&intent.field_name) {
-            if intent.value.len() == 1 && intent.value[0] > max {
-                return false;
-            }
+        if let Some(&max) = self.max_values.get(&intent.field_name)
+            && intent.value.len() == 1
+            && intent.value[0] > max
+        {
+            return false;
         }
 
         // Check size constraints for complex fields

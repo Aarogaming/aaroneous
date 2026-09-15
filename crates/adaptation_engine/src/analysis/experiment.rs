@@ -4,6 +4,7 @@
 use super::hypothesis::{Hypothesis, TestType};
 use serde::{Deserialize, Serialize};
 use std::process::Command;
+use std::process::ExitStatus;
 use std::time::Instant;
 
 /// Result of running an experiment
@@ -69,10 +70,13 @@ impl ExperimentResult {
         let _ = std::fs::write(&test_path, &test_code);
 
         // Execute test
-        let output = if cfg!(test) || workspace_root == "." || !std::path::Path::new(&format!("{}/Cargo.toml", workspace_root)).exists() {
+        let output = if cfg!(test)
+            || workspace_root == "."
+            || !std::path::Path::new(&format!("{}/Cargo.toml", workspace_root)).exists()
+        {
             // Simulated execution during unit testing to avoid recursive cargo target lock
             Ok(std::process::Output {
-                status: std::os::windows::process::ExitStatusExt::from_raw(0),
+                status: successful_exit_status(),
                 stdout: b"test passed".to_vec(),
                 stderr: Vec::new(),
             })
@@ -151,9 +155,12 @@ impl ExperimentResult {
             let _ = std::fs::create_dir_all(format!("{}/target", workspace_root));
             let _ = std::fs::write(&test_path, &test_code);
 
-            let output = if cfg!(test) || workspace_root == "." || !std::path::Path::new(&format!("{}/Cargo.toml", workspace_root)).exists() {
+            let output = if cfg!(test)
+                || workspace_root == "."
+                || !std::path::Path::new(&format!("{}/Cargo.toml", workspace_root)).exists()
+            {
                 Ok(std::process::Output {
-                    status: std::os::windows::process::ExitStatusExt::from_raw(0),
+                    status: successful_exit_status(),
                     stdout: b"bench passed".to_vec(),
                     stderr: Vec::new(),
                 })
@@ -332,4 +339,17 @@ mod tests {
         assert!(test_code.contains("my_fn"));
         assert!(test_code.contains("42"));
     }
+}
+#[cfg(windows)]
+fn successful_exit_status() -> ExitStatus {
+    use std::os::windows::process::ExitStatusExt;
+
+    ExitStatus::from_raw(0)
+}
+
+#[cfg(unix)]
+fn successful_exit_status() -> ExitStatus {
+    use std::os::unix::process::ExitStatusExt;
+
+    ExitStatus::from_raw(0)
 }

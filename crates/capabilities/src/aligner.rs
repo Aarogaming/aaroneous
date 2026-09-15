@@ -8,12 +8,14 @@ use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use tracing::info;
 
-use crate::traits::{DomainSubEngine, MnlpPacket, MnlpResponse, SovereignSpecialist, SpecialistHealth};
+use crate::traits::{
+    DomainSubEngine, MnlpPacket, MnlpResponse, SovereignSpecialist, SpecialistHealth,
+};
 
 /// Cognitive load and conversational resonance alignment report
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SymbioticResonanceReport {
-    pub estimated_cognitive_load: f32, // 0.0 to 1.0
+    pub estimated_cognitive_load: f32,    // 0.0 to 1.0
     pub recommended_detail_level: String, // "High", "Standard", "ConciseSummary"
     pub translated_message: String,
 }

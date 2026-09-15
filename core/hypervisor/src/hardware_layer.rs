@@ -186,9 +186,7 @@ impl ShmemUIOverlay {
             b: 0,
             a: 0,
         };
-        for pixel in &mut self.framebuffer {
-            *pixel = bg;
-        }
+        self.framebuffer.fill(bg);
         self.rects.clear();
     }
 

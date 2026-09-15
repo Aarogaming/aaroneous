@@ -239,11 +239,13 @@ pub fn compute_abi_layout_hash(crate_root: &Path) -> CertResult<Vec<u8>> {
             continue;
         }
 
-        let src = std::fs::read_to_string(path)
-            .map_err(|e| CertError::HashError(format!("failed to read {}: {}", path.display(), e)))?;
+        let src = std::fs::read_to_string(path).map_err(|e| {
+            CertError::HashError(format!("failed to read {}: {}", path.display(), e))
+        })?;
 
-        let file = syn::parse_file(&src)
-            .map_err(|e| CertError::HashError(format!("failed to parse {}: {}", path.display(), e)))?;
+        let file = syn::parse_file(&src).map_err(|e| {
+            CertError::HashError(format!("failed to parse {}: {}", path.display(), e))
+        })?;
 
         for item in file.items {
             if let syn::Item::Struct(s) = item {
@@ -264,9 +266,7 @@ pub fn compute_abi_layout_hash(crate_root: &Path) -> CertResult<Vec<u8>> {
                         return false;
                     }
                     match &a.meta {
-                        syn::Meta::List(meta_list) => {
-                            meta_list.tokens.to_string().contains("Pod")
-                        }
+                        syn::Meta::List(meta_list) => meta_list.tokens.to_string().contains("Pod"),
                         _ => false,
                     }
                 });
@@ -309,10 +309,7 @@ pub fn compute_abi_layout_hash(crate_root: &Path) -> CertResult<Vec<u8>> {
 
 /// Validate that an ACC component meets isolation requirements for a
 /// given tier.
-pub fn validate_isolation(
-    crate_root: &Path,
-    tier: IsolationTier,
-) -> CertResult<()> {
+pub fn validate_isolation(crate_root: &Path, tier: IsolationTier) -> CertResult<()> {
     // Walk source files and check for isolation violations.
     let src_dir = crate_root.join("src");
     if !src_dir.is_dir() {
@@ -328,8 +325,9 @@ pub fn validate_isolation(
             continue;
         }
 
-        let src = std::fs::read_to_string(path)
-            .map_err(|e| CertError::HashError(format!("failed to read {}: {}", path.display(), e)))?;
+        let src = std::fs::read_to_string(path).map_err(|e| {
+            CertError::HashError(format!("failed to read {}: {}", path.display(), e))
+        })?;
 
         match tier {
             IsolationTier::Isolated => {
@@ -403,11 +401,7 @@ fn sign_seal(message: &[u8], pkcs8_der: &[u8]) -> CertResult<Vec<u8>> {
 }
 
 /// Verify an ECDSA-P256 signature using a raw public key bytes.
-fn verify_signature(
-    message: &[u8],
-    signature: &[u8],
-    public_key_bytes: &[u8],
-) -> CertResult<()> {
+fn verify_signature(message: &[u8], signature: &[u8], public_key_bytes: &[u8]) -> CertResult<()> {
     let public_key = ring::signature::UnparsedPublicKey::new(
         &ring::signature::ECDSA_P256_SHA256_FIXED,
         public_key_bytes,
@@ -493,7 +487,14 @@ mod tests {
         .unwrap();
 
         // Tamper with source — verification should fail.
-        let result = verify_certification(&cert, b"fn main() { /* tampered */ }", audit, binary, abi, None);
+        let result = verify_certification(
+            &cert,
+            b"fn main() { /* tampered */ }",
+            audit,
+            binary,
+            abi,
+            None,
+        );
         assert!(result.is_err());
         match result.unwrap_err() {
             CertError::SealMismatch { .. } => {}
@@ -681,11 +682,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let src_dir = dir.path().join("src");
         std::fs::create_dir_all(&src_dir).unwrap();
-        std::fs::write(
-            src_dir.join("lib.rs"),
-            "static mut GLOBAL: u64 = 0;\n",
-        )
-        .unwrap();
+        std::fs::write(src_dir.join("lib.rs"), "static mut GLOBAL: u64 = 0;\n").unwrap();
 
         // Core tier should pass.
         validate_isolation(dir.path(), IsolationTier::Core).unwrap();

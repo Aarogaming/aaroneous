@@ -2,8 +2,8 @@
 // Executes decisions made by the decision engine: file ops, throttling, notifications
 use crate::decision_engine::{Action, TaskEvaluation};
 use crate::state_snapshot::{NodeMetrics, SpatialCanvasState};
-use paths::WorkspacePathsConfig;
 use biology::SystemBiology;
+use paths::WorkspacePathsConfig;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -113,7 +113,7 @@ impl ActionExecutor {
             paths::normalize_path(path)
         } else {
             paths::normalize_path(
-                &paths::WorkspacePaths::from_config(WorkspacePathsConfig::default())
+                paths::WorkspacePaths::from_config(WorkspacePathsConfig::default())
                     .root()
                     .join(path),
             )

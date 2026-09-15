@@ -117,7 +117,9 @@ impl BinaryInspector {
                 goblin::Object::PE(pe) => {
                     let mut sections = Vec::new();
                     for s in &pe.sections {
-                        let sec_name = String::from_utf8_lossy(&s.name).trim_matches(char::from(0)).to_string();
+                        let sec_name = String::from_utf8_lossy(&s.name)
+                            .trim_matches(char::from(0))
+                            .to_string();
                         let sec_raw_size = s.size_of_raw_data as usize;
                         let sec_raw_ptr = s.pointer_to_raw_data as usize;
                         let sec_bytes = if sec_raw_ptr + sec_raw_size <= size {
@@ -138,16 +140,25 @@ impl BinaryInspector {
                         });
                     }
 
-                    let exports = pe.exports.iter().map(|e| e.name.unwrap_or("export").to_string()).collect();
+                    let exports = pe
+                        .exports
+                        .iter()
+                        .map(|e| e.name.unwrap_or("export").to_string())
+                        .collect();
                     let imports = pe.libraries.iter().map(|&lib| lib.to_string()).collect();
                     let entry_point = pe.entry as u64;
-                    let basic_blocks = Self::disassemble_entry_points(raw_bytes, entry_point, &sections);
+                    let basic_blocks =
+                        Self::disassemble_entry_points(raw_bytes, entry_point, &sections);
 
                     return Ok(BinaryManifest {
                         file_path: file_path.to_string(),
                         file_size_bytes: size,
                         binary_format: "PE_WINDOWS".to_string(),
-                        architecture: if pe.is_64 { "x86_64".to_string() } else { "x86".to_string() },
+                        architecture: if pe.is_64 {
+                            "x86_64".to_string()
+                        } else {
+                            "x86".to_string()
+                        },
                         is_64_bit: pe.is_64,
                         entry_point_address: entry_point,
                         sections,
@@ -161,7 +172,11 @@ impl BinaryInspector {
                 goblin::Object::Elf(elf) => {
                     let mut sections = Vec::new();
                     for s in &elf.section_headers {
-                        let sec_name = elf.shdr_strtab.get_at(s.sh_name).unwrap_or(".sec").to_string();
+                        let sec_name = elf
+                            .shdr_strtab
+                            .get_at(s.sh_name)
+                            .unwrap_or(".sec")
+                            .to_string();
                         let sec_size = s.sh_size as usize;
                         let sec_offset = s.sh_offset as usize;
                         let sec_bytes = if sec_offset + sec_size <= size {
@@ -182,16 +197,26 @@ impl BinaryInspector {
                         });
                     }
 
-                    let exports = elf.syms.iter().filter_map(|sym| elf.strtab.get_at(sym.st_name)).map(|s| s.to_string()).collect();
+                    let exports = elf
+                        .syms
+                        .iter()
+                        .filter_map(|sym| elf.strtab.get_at(sym.st_name))
+                        .map(|s| s.to_string())
+                        .collect();
                     let imports = elf.libraries.iter().map(|&lib| lib.to_string()).collect();
                     let entry_point = elf.entry;
-                    let basic_blocks = Self::disassemble_entry_points(raw_bytes, entry_point, &sections);
+                    let basic_blocks =
+                        Self::disassemble_entry_points(raw_bytes, entry_point, &sections);
 
                     return Ok(BinaryManifest {
                         file_path: file_path.to_string(),
                         file_size_bytes: size,
                         binary_format: "ELF_LINUX".to_string(),
-                        architecture: if elf.is_64 { "x86_64".to_string() } else { "x86".to_string() },
+                        architecture: if elf.is_64 {
+                            "x86_64".to_string()
+                        } else {
+                            "x86".to_string()
+                        },
                         is_64_bit: elf.is_64,
                         entry_point_address: entry_point,
                         sections,
@@ -211,7 +236,11 @@ impl BinaryInspector {
             Self::inspect_pe(file_path, raw_bytes, overall_entropy)
         } else if size >= 4 && &raw_bytes[0..4] == b"\x7FELF" {
             Self::inspect_elf(file_path, raw_bytes, overall_entropy)
-        } else if size >= 4 && (raw_bytes[0..4] == [0xFE, 0xED, 0xFA, 0xCE] || raw_bytes[0..4] == [0xFE, 0xED, 0xFA, 0xCF] || raw_bytes[0..4] == [0xCF, 0xFA, 0xED, 0xFE]) {
+        } else if size >= 4
+            && (raw_bytes[0..4] == [0xFE, 0xED, 0xFA, 0xCE]
+                || raw_bytes[0..4] == [0xFE, 0xED, 0xFA, 0xCF]
+                || raw_bytes[0..4] == [0xCF, 0xFA, 0xED, 0xFE])
+        {
             Self::inspect_macho(file_path, raw_bytes, overall_entropy)
         } else {
             Self::inspect_raw_bytecode(file_path, raw_bytes, overall_entropy)
@@ -219,7 +248,11 @@ impl BinaryInspector {
     }
 
     /// Deep inspection of Portable Executable (PE) Windows binaries (.dll, .exe)
-    fn inspect_pe(file_path: &str, raw_bytes: &[u8], overall_entropy: f64) -> Result<BinaryManifest> {
+    fn inspect_pe(
+        file_path: &str,
+        raw_bytes: &[u8],
+        overall_entropy: f64,
+    ) -> Result<BinaryManifest> {
         let size = raw_bytes.len();
         let mut sections = Vec::new();
         let mut export_symbols = Vec::new();
@@ -237,9 +270,14 @@ impl BinaryInspector {
             ]) as usize;
 
             if size >= pe_offset + 24 && &raw_bytes[pe_offset..pe_offset + 4] == b"PE\0\0" {
-                let machine = u16::from_le_bytes([raw_bytes[pe_offset + 4], raw_bytes[pe_offset + 5]]);
-                let num_sections = u16::from_le_bytes([raw_bytes[pe_offset + 6], raw_bytes[pe_offset + 7]]) as usize;
-                let opt_header_size = u16::from_le_bytes([raw_bytes[pe_offset + 20], raw_bytes[pe_offset + 21]]) as usize;
+                let machine =
+                    u16::from_le_bytes([raw_bytes[pe_offset + 4], raw_bytes[pe_offset + 5]]);
+                let num_sections =
+                    u16::from_le_bytes([raw_bytes[pe_offset + 6], raw_bytes[pe_offset + 7]])
+                        as usize;
+                let opt_header_size =
+                    u16::from_le_bytes([raw_bytes[pe_offset + 20], raw_bytes[pe_offset + 21]])
+                        as usize;
 
                 match machine {
                     0x8664 => {
@@ -366,7 +404,11 @@ impl BinaryInspector {
     }
 
     /// Inspection of Executable and Linkable Format (ELF) Linux binaries
-    fn inspect_elf(file_path: &str, raw_bytes: &[u8], overall_entropy: f64) -> Result<BinaryManifest> {
+    fn inspect_elf(
+        file_path: &str,
+        raw_bytes: &[u8],
+        overall_entropy: f64,
+    ) -> Result<BinaryManifest> {
         let size = raw_bytes.len();
         let is_64_bit = raw_bytes.get(4).copied() == Some(2);
         let machine_code = if size >= 20 {
@@ -385,8 +427,14 @@ impl BinaryInspector {
 
         let entry_point = if is_64_bit && size >= 32 {
             u64::from_le_bytes([
-                raw_bytes[24], raw_bytes[25], raw_bytes[26], raw_bytes[27],
-                raw_bytes[28], raw_bytes[29], raw_bytes[30], raw_bytes[31],
+                raw_bytes[24],
+                raw_bytes[25],
+                raw_bytes[26],
+                raw_bytes[27],
+                raw_bytes[28],
+                raw_bytes[29],
+                raw_bytes[30],
+                raw_bytes[31],
             ])
         } else if size >= 28 {
             u32::from_le_bytes([raw_bytes[24], raw_bytes[25], raw_bytes[26], raw_bytes[27]]) as u64
@@ -425,10 +473,20 @@ impl BinaryInspector {
     }
 
     /// Inspection of Mach-O macOS / iOS binaries
-    fn inspect_macho(file_path: &str, raw_bytes: &[u8], overall_entropy: f64) -> Result<BinaryManifest> {
+    fn inspect_macho(
+        file_path: &str,
+        raw_bytes: &[u8],
+        overall_entropy: f64,
+    ) -> Result<BinaryManifest> {
         let size = raw_bytes.len();
-        let is_64_bit = raw_bytes.starts_with(&[0xFE, 0xED, 0xFA, 0xCF]) || raw_bytes.starts_with(&[0xCF, 0xFA, 0xED, 0xFE]);
-        let architecture = if is_64_bit { "aarch64/x86_64" } else { "x86/arm" }.to_string();
+        let is_64_bit = raw_bytes.starts_with(&[0xFE, 0xED, 0xFA, 0xCF])
+            || raw_bytes.starts_with(&[0xCF, 0xFA, 0xED, 0xFE]);
+        let architecture = if is_64_bit {
+            "aarch64/x86_64"
+        } else {
+            "x86/arm"
+        }
+        .to_string();
 
         Ok(BinaryManifest {
             file_path: file_path.to_string(),
@@ -456,7 +514,11 @@ impl BinaryInspector {
     }
 
     /// Inspection of raw bytecode or unknown binaries
-    fn inspect_raw_bytecode(file_path: &str, raw_bytes: &[u8], overall_entropy: f64) -> Result<BinaryManifest> {
+    fn inspect_raw_bytecode(
+        file_path: &str,
+        raw_bytes: &[u8],
+        overall_entropy: f64,
+    ) -> Result<BinaryManifest> {
         Ok(BinaryManifest {
             file_path: file_path.to_string(),
             file_size_bytes: raw_bytes.len(),
@@ -513,7 +575,11 @@ impl BinaryInspector {
                     is_branch: is_jmp,
                     is_call,
                     is_return: is_ret,
-                    target_address: if is_call || is_jmp { Some(entry_point + i as u64 + 16) } else { None },
+                    target_address: if is_call || is_jmp {
+                        Some(entry_point + i as u64 + 16)
+                    } else {
+                        None
+                    },
                 });
             }
         }

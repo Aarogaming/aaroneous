@@ -2,7 +2,7 @@
 //! High-Performance Embedded ACID Key-Value & Intent Persistence Engine.
 //! Provides durability across daemon reboots, intent history tracking, and specialist skill persistence.
 
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::fs::{File, OpenOptions};
@@ -13,6 +13,8 @@ use std::time::{SystemTime, UNIX_EPOCH};
 const WAL_MAGIC: &[u8; 4] = b"AWAL";
 const LEGACY_MAGIC: &[u8; 4] = b"GRIM";
 const WAL_VERSION: u16 = 1;
+/// Control-plane persistence record limit, checked before allocating replay data.
+pub const MAX_WAL_RECORD_BYTES: usize = 16 * 1024 * 1024;
 
 /// A durable record stored in the Write-Ahead Log (WAL)
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -48,6 +50,7 @@ impl PersistentWalStore {
 
         let mut index = BTreeMap::new();
         let mut max_generation = 0u64;
+        let mut valid_end = 0u64;
 
         // Replay existing WAL if file exists and has content
         if path.exists() {
@@ -70,27 +73,44 @@ impl PersistentWalStore {
                     return Err(anyhow!("Unsupported database version: {}", version));
                 }
 
+                valid_end = 6;
                 // Read records iteratively until EOF or partial record (crash recovery)
                 loop {
                     let mut len_buf = [0u8; 4];
                     match reader.read_exact(&mut len_buf) {
                         Ok(()) => {
                             let len = u32::from_le_bytes(len_buf) as usize;
-                            let mut record_bytes = vec![0u8; len];
-                            if reader.read_exact(&mut record_bytes).is_err() {
-                                // Trailing record was truncated mid-write (crash / power outage)
+                            if len as u64 > file_len.saturating_sub(valid_end + 4) {
                                 break;
                             }
+                            if len > MAX_WAL_RECORD_BYTES {
+                                return Err(anyhow!(
+                                    "Existing WAL record exceeds supported limit; file left intact"
+                                ));
+                            }
+                            let mut record_bytes = vec![0u8; len];
+                            if let Err(error) = reader.read_exact(&mut record_bytes) {
+                                if error.kind() == std::io::ErrorKind::UnexpectedEof {
+                                    break;
+                                }
+                                return Err(error.into());
+                            }
                             if let Ok(record) = serde_json::from_slice::<WalRecord>(&record_bytes) {
+                                valid_end += 4 + len as u64;
                                 max_generation = max_generation.max(record.generation);
                                 if record.is_tombstone {
                                     index.remove(&record.key);
                                 } else {
                                     index.insert(record.key, record.value);
                                 }
+                            } else {
+                                return Err(anyhow!(
+                                    "Corrupt complete WAL record; file left intact"
+                                ));
                             }
                         }
-                        Err(_) => break, // Clean EOF
+                        Err(error) if error.kind() == std::io::ErrorKind::UnexpectedEof => break,
+                        Err(error) => return Err(error.into()),
                     }
                 }
             }
@@ -103,6 +123,13 @@ impl PersistentWalStore {
             .append(true)
             .open(&path)?;
 
+        // Repair the invalid suffix before any new append, including a partial
+        // length prefix. Otherwise the next replay consumes new records as tail data.
+        if write_file.metadata()?.len() != valid_end {
+            let repair = OpenOptions::new().write(true).open(&path)?;
+            repair.set_len(valid_end)?;
+            repair.sync_data()?;
+        }
         let mut wal_file = BufWriter::new(write_file);
 
         // If file was brand new, write magic header
@@ -142,6 +169,9 @@ impl PersistentWalStore {
         };
 
         let serialized = serde_json::to_vec(&record)?;
+        if serialized.len() > MAX_WAL_RECORD_BYTES {
+            return Err(anyhow!("WAL record exceeds configured format limit"));
+        }
         let len_bytes = (serialized.len() as u32).to_le_bytes();
 
         self.wal_file.write_all(&len_bytes)?;
@@ -174,6 +204,9 @@ impl PersistentWalStore {
         };
 
         let serialized = serde_json::to_vec(&record)?;
+        if serialized.len() > MAX_WAL_RECORD_BYTES {
+            return Err(anyhow!("WAL record exceeds configured format limit"));
+        }
         let len_bytes = (serialized.len() as u32).to_le_bytes();
 
         self.wal_file.write_all(&len_bytes)?;
@@ -233,6 +266,9 @@ impl PersistentWalStore {
                     is_tombstone: false,
                 };
                 let serialized = serde_json::to_vec(&record)?;
+                if serialized.len() > MAX_WAL_RECORD_BYTES {
+                    return Err(anyhow!("WAL record exceeds configured format limit"));
+                }
                 let len_bytes = (serialized.len() as u32).to_le_bytes();
                 temp_file.write_all(&len_bytes)?;
                 temp_file.write_all(&serialized)?;
@@ -263,13 +299,20 @@ mod tests {
     #[test]
     fn test_persistent_grimoire_reboot_durability() {
         let temp_dir = tempfile::tempdir().unwrap();
-        let db_path = temp_dir.path().join(format!("grimoire_test_{}", PersistentGrimoireStore::now_ms()));
+        let db_path = temp_dir.path().join(format!(
+            "grimoire_test_{}",
+            PersistentGrimoireStore::now_ms()
+        ));
 
         // 1. Write records in session 1
         {
             let mut store = PersistentGrimoireStore::open(&db_path).unwrap();
-            store.put("skill://synthesizer/fireball", b"rank_s").unwrap();
-            store.put("intent://orchestrator/001", b"consensus_reached").unwrap();
+            store
+                .put("skill://synthesizer/fireball", b"rank_s")
+                .unwrap();
+            store
+                .put("intent://orchestrator/001", b"consensus_reached")
+                .unwrap();
             store.put("memory://temp", b"to_be_deleted").unwrap();
             store.delete("memory://temp").unwrap();
             assert_eq!(store.len(), 2);
@@ -279,8 +322,14 @@ mod tests {
         {
             let store = PersistentGrimoireStore::open(&db_path).unwrap();
             assert_eq!(store.len(), 2);
-            assert_eq!(store.get("skill://synthesizer/fireball"), Some(b"rank_s".as_slice()));
-            assert_eq!(store.get("intent://orchestrator/001"), Some(b"consensus_reached".as_slice()));
+            assert_eq!(
+                store.get("skill://synthesizer/fireball"),
+                Some(b"rank_s".as_slice())
+            );
+            assert_eq!(
+                store.get("intent://orchestrator/001"),
+                Some(b"consensus_reached".as_slice())
+            );
             assert_eq!(store.get("memory://temp"), None);
 
             let synthesizer_skills = store.list_keys_with_prefix("skill://synthesizer");
@@ -292,7 +341,10 @@ mod tests {
             let mut store = PersistentGrimoireStore::open(&db_path).unwrap();
             store.compact().unwrap();
             assert_eq!(store.len(), 2);
-            assert_eq!(store.get("skill://synthesizer/fireball"), Some(b"rank_s".as_slice()));
+            assert_eq!(
+                store.get("skill://synthesizer/fireball"),
+                Some(b"rank_s".as_slice())
+            );
         }
 
         // Cleanup

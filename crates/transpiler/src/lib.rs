@@ -12,20 +12,20 @@ pub mod scaffold;
 pub mod si_distiller;
 pub mod si_to_ai;
 
+pub use ai_to_si::{AiToSiTranspiler, ExtractedCodePayload};
 pub use generator::*;
 pub use manifest::*;
-pub use scaffold::*;
-pub use ai_to_si::{AiToSiTranspiler, ExtractedCodePayload};
 pub use model_converter::{ModelConverter, ModelManifest, QuantizationType};
 pub use polyglot::{
     CircuitBreakerState, MetricsCollector, PolyglotCapsule, PolyglotFoundry, SelfHealingState,
     TelemetryBuffer, TelemetryEntry, TelemetryLevel,
 };
 pub use prefix_cache_integration::{
-    parse_nl_to_opcode_dag, DemandDrivenAstCache, GgufModelRunner, MemoizedAstEntry, PrefixCache,
-    PrefixCacheEntry, PromptPrefixKey,
+    DemandDrivenAstCache, GgufModelRunner, MemoizedAstEntry, PrefixCache, PrefixCacheEntry,
+    PromptPrefixKey, parse_nl_to_opcode_dag,
 };
 pub use reflection_loop::{ReflectionFeedback, ReflectionLoopEngine};
+pub use scaffold::*;
 pub use si_distiller::{DistillationBatchReport, EphemeralFlightArena, SiDistillationMiner};
 pub use si_to_ai::{AiPromptContext, SiToAiTranspiler};
 
@@ -42,7 +42,12 @@ impl TranspilerEngine {
         tensor_context: &[f32],
         goal_description: &str,
     ) -> Result<AiPromptContext> {
-        SiToAiTranspiler::serialize_task_to_prompt(task_id, domain, tensor_context, goal_description)
+        SiToAiTranspiler::serialize_task_to_prompt(
+            task_id,
+            domain,
+            tensor_context,
+            goal_description,
+        )
     }
 
     /// Extracts clean executable code from raw AI markdown responses
@@ -56,7 +61,11 @@ impl TranspilerEngine {
     }
 
     /// Formulates an automated self-repair prompt when compilation errors occur
-    pub fn formulate_repair(iteration: usize, code: &str, error: &str) -> Result<ReflectionFeedback> {
+    pub fn formulate_repair(
+        iteration: usize,
+        code: &str,
+        error: &str,
+    ) -> Result<ReflectionFeedback> {
         let engine = ReflectionLoopEngine::default();
         engine.formulate_repair_prompt(iteration, code, error)
     }
@@ -69,7 +78,9 @@ mod tests {
     #[test]
     fn test_transpiler_end_to_end() {
         // 1. SI -> AI Prompt
-        let prompt = TranspilerEngine::si_to_ai_prompt("task_1", "Kernel", &[1.0, 0.0], "Write vector norm").unwrap();
+        let prompt =
+            TranspilerEngine::si_to_ai_prompt("task_1", "Kernel", &[1.0, 0.0], "Write vector norm")
+                .unwrap();
         assert!(prompt.system_instruction.contains("Kernel"));
 
         // 2. AI -> SI Ingestion

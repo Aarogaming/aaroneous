@@ -7,9 +7,9 @@
 //! 3. Real-time Kinematic Radar / Biomarkers (Speed, Tremor, Dwell, Flight, Correction Rate).
 //! 4. Conversational JARVIS companion interaction drawer.
 
-use eframe::egui::{self, Color32, RichText, Stroke, Vec2};
 use crate::hud::state::SharedHudState;
 use compute::AttentionState;
+use eframe::egui::{self, Color32, RichText, Stroke, Vec2};
 
 pub fn render_user_profile_modal(ctx: &egui::Context, state: &mut SharedHudState) {
     if !state.show_user_profile_modal {
@@ -106,7 +106,7 @@ pub fn render_user_profile_modal(ctx: &egui::Context, state: &mut SharedHudState
 
                         let btn = egui::Button::new(RichText::new(btn_label).size(12.0))
                             .stroke(Stroke::new(
-                                1.0,
+                                1.0_f32,
                                 if is_active {
                                     Color32::from_rgb(56, 139, 253)
                                 } else {
@@ -196,7 +196,7 @@ pub fn render_user_profile_modal(ctx: &egui::Context, state: &mut SharedHudState
                 let flow = state.user_identity_engine.flow_score();
 
                 let greeting = state.intercom.companion.generate_greeting(&active_name, is_guest, flow);
-                
+
                 ui.horizontal(|ui| {
                     ui.label(RichText::new("Merlin:").color(Color32::from_rgb(163, 113, 247)).strong());
                     ui.label(RichText::new(format!("\"{}\"", greeting)).italics().color(Color32::from_gray(210)));

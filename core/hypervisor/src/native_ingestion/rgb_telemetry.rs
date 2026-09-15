@@ -1,6 +1,6 @@
 //! Hardware RGB Telemetry Status Sync - GPU Health Monitoring
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 
 #[derive(Debug, Clone)]
 pub struct RgbTelemetryConfig {
@@ -78,23 +78,12 @@ impl RgbTelemetryReader {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct RgbHealthStatus {
     pub temperature_celsius: Option<f32>,
     pub clock_speed_mhz: Option<u32>,
     pub fan_speed_percent: Option<u8>,
     pub power_usage_watts: Option<f32>,
-}
-
-impl Default for RgbHealthStatus {
-    fn default() -> Self {
-        Self {
-            temperature_celsius: None,
-            clock_speed_mhz: None,
-            fan_speed_percent: None,
-            power_usage_watts: None,
-        }
-    }
 }
 
 #[derive(Debug, Clone)]

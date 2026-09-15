@@ -8,7 +8,6 @@ use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::thread;
 use std::time::{Duration, Instant};
 use tracing::{debug, error, info, warn};
-use crate::error::HypervisorError;
 
 /// Maximum allowed wall-clock duration for a single tick. If a tick exceeds
 /// this we log a warning and continue the loop on the next iteration. This
@@ -256,6 +255,10 @@ impl SupervisoryDaemon {
         )
     }
 
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "Constructor explicitly injects existing runtime dependencies"
+    )]
     pub fn new_with_pacing(
         synapse_name: &str,
         tick_rate_ms: u64,
@@ -298,9 +301,10 @@ impl SupervisoryDaemon {
             }
         }
 
-        let workspace_root = paths::WorkspacePaths::from_config(paths::WorkspacePathsConfig::default())
-            .root()
-            .clone();
+        let workspace_root =
+            paths::WorkspacePaths::from_config(paths::WorkspacePathsConfig::default())
+                .root()
+                .clone();
 
         // PHASE IV: Initialize predictive models
         let kalman_filter = Arc::new(RwLock::new(KalmanFilter1D::new(
@@ -361,7 +365,9 @@ impl SupervisoryDaemon {
             state_publisher: Arc::new(crate::state_snapshot::EngineStatePublisher::new()),
             pacing_regulator,
             flight_recorder: None,
-            smt_interlock: Arc::new(parking_lot::RwLock::new(governance::SmtActionInterlock::strict())),
+            smt_interlock: Arc::new(parking_lot::RwLock::new(
+                governance::SmtActionInterlock::strict(),
+            )),
         })
     }
 
@@ -504,8 +510,7 @@ impl SupervisoryDaemon {
             platform_bridge::observability::mmcss::enable_mmcss_time_critical("Games");
             platform_bridge::observability::mmcss::set_thread_performance_affinity(0x05); // Pin to P-Core #0 and #2
 
-            let mut drift_filter =
-                autonomic_adaptation::StreamingSelfCorrectionFilter::default();
+            let mut drift_filter = autonomic_adaptation::StreamingSelfCorrectionFilter::default();
 
             let rt = match tokio::runtime::Runtime::new() {
                 Ok(r) => r,
@@ -990,8 +995,7 @@ impl SupervisoryDaemon {
 
                     {
                         let mut plan_guard = active_plan.write();
-                        if let Ok(new_plan) =
-                            rt.block_on(prefrontal_cortex.draft_plan(intent_text))
+                        if let Ok(new_plan) = rt.block_on(prefrontal_cortex.draft_plan(intent_text))
                         {
                             *plan_guard = Some(new_plan);
                             debug!(target: "autonomic_loop", "multi-step plan generated");
@@ -1050,7 +1054,9 @@ impl SupervisoryDaemon {
                                     let interlock = smt_interlock.read();
                                     if interlock.is_killswitch_active() {
                                         warn!(target: "autonomic_loop", %step_id, "interlock killswitch active; aborting step");
-                                        step.status = StepStatus::Failed("Interlock killswitch active".to_string());
+                                        step.status = StepStatus::Failed(
+                                            "Interlock killswitch active".to_string(),
+                                        );
                                         continue;
                                     }
                                 }
@@ -1374,7 +1380,7 @@ impl SupervisoryDaemon {
 
                 // --- PHASE 8: NEURAL PRUNING (Homeostasis) ---
                 if (state.clock_tick % 1000 == 0 || state.memory_pressure > 90)
-                    && (tick_count % (pacing_decision.decimation_factor as u64) == 0)
+                    && tick_count.is_multiple_of(pacing_decision.decimation_factor as u64)
                 {
                     let mut archive = crate::neural_pruning::PrunedArchive::new();
                     neural_pruning_enzyme.prune_constellation(&mut Vec::new(), &mut archive);
@@ -1397,19 +1403,23 @@ impl SupervisoryDaemon {
 
                 // --- Phase 3 Actuation/Telemetry: SWMR zero-copy SHM snapshot emission ---
                 {
-                    let mut pod = core_contracts::EngineSnapshotPod::default();
-                    pod.timestamp_ms = state.clock_tick.saturating_mul(tick_rate.as_millis() as u64);
-                    pod.bus_generation = state.clock_tick;
-                    pod.bus_integrity = (state.integrity_score as f32).clamp(0.0, 100.0);
-                    pod.bus_understanding = (state.understanding_score as f32).clamp(0.0, 100.0);
-                    pod.flow_score = (1.0 - state.concept_drift).clamp(0.0, 1.0);
-                    pod.pacing = match pacing_decision.throttle_tier {
-                        autonomic_adaptation::PacingTier::Nominal => 0,
-                        autonomic_adaptation::PacingTier::MetabolicThrottle => 1,
-                        autonomic_adaptation::PacingTier::ThermalCritical
-                        | autonomic_adaptation::PacingTier::DormantPreservation => 2,
+                    let pod = core_contracts::EngineSnapshotPod {
+                        timestamp_ms: state
+                            .clock_tick
+                            .saturating_mul(tick_rate.as_millis() as u64),
+                        bus_generation: state.clock_tick,
+                        bus_integrity: (state.integrity_score as f32).clamp(0.0, 100.0),
+                        bus_understanding: (state.understanding_score as f32).clamp(0.0, 100.0),
+                        flow_score: (1.0 - state.concept_drift).clamp(0.0, 1.0),
+                        pacing: match pacing_decision.throttle_tier {
+                            autonomic_adaptation::PacingTier::Nominal => 0,
+                            autonomic_adaptation::PacingTier::MetabolicThrottle => 1,
+                            autonomic_adaptation::PacingTier::ThermalCritical
+                            | autonomic_adaptation::PacingTier::DormantPreservation => 2,
+                        },
+                        ..Default::default()
                     };
-                    let _ = state_publisher.publish_pod(&pod);
+                    state_publisher.publish_pod(&pod);
 
                     if let Some(ref recorder_mutex) = flight_recorder {
                         let mut rec = recorder_mutex.lock();
@@ -1459,12 +1469,13 @@ mod tests {
 
         let enzyme_runner = Arc::new(EnzymeRunner::new().expect("enzyme runner"));
         let hox_path = tmp.path().join("test_hox.db");
-        let hox_registry = Arc::new(
-            HoxRegistry::new(hox_path.to_str().expect("path str")).expect("hox registry"),
-        );
+        let hox_registry =
+            Arc::new(HoxRegistry::new(hox_path.to_str().expect("path str")).expect("hox registry"));
         let workspace_root = tmp.path().to_path_buf();
-        let splicing_engine =
-            Arc::new(WasmSplicingEngine::new(hox_registry.clone(), workspace_root));
+        let splicing_engine = Arc::new(WasmSplicingEngine::new(
+            hox_registry.clone(),
+            workspace_root,
+        ));
         let learning_loop = Arc::new(RwLock::new(UnifiedLearningLoop::new(
             crate::unified_learning::UnifiedLearningConfig::default(),
             0,
@@ -1524,8 +1535,7 @@ mod tests {
             ewma_alpha: 0.4,
         };
 
-        let mut regulator =
-            AutonomousPacingRegulator::new(custom_config).expect("valid config");
+        let mut regulator = AutonomousPacingRegulator::new(custom_config).expect("valid config");
 
         // 1. Nominal operating temperature (45°C)
         let nominal = ThermodynamicTelemetry {
@@ -1577,7 +1587,9 @@ mod tests {
             ..Default::default()
         };
 
-        let decision = regulator.compute_next_cadence(&vram_heavy).expect("decision");
+        let decision = regulator
+            .compute_next_cadence(&vram_heavy)
+            .expect("decision");
         assert_eq!(decision.throttle_tier, PacingTier::ThermalCritical);
         assert_eq!(decision.target_cadence, Duration::from_millis(40));
         assert_eq!(decision.task_deferral_probability, 0.75);
@@ -1590,12 +1602,13 @@ mod tests {
 
         let enzyme_runner = Arc::new(EnzymeRunner::new().expect("enzyme runner"));
         let hox_path = tmp.path().join("test_hox.db");
-        let hox_registry = Arc::new(
-            HoxRegistry::new(hox_path.to_str().expect("path str")).expect("hox registry"),
-        );
+        let hox_registry =
+            Arc::new(HoxRegistry::new(hox_path.to_str().expect("path str")).expect("hox registry"));
         let workspace_root = tmp.path().to_path_buf();
-        let splicing_engine =
-            Arc::new(WasmSplicingEngine::new(hox_registry.clone(), workspace_root));
+        let splicing_engine = Arc::new(WasmSplicingEngine::new(
+            hox_registry.clone(),
+            workspace_root,
+        ));
         let learning_loop = Arc::new(RwLock::new(UnifiedLearningLoop::new(
             crate::unified_learning::UnifiedLearningConfig::default(),
             0,
@@ -1630,13 +1643,19 @@ mod tests {
         // Verify flight events were recorded
         let replayer = ipc_bus::FlightReplayer::open(&flight_log_path).expect("replayer open");
         let (oldest, latest) = replayer.available_event_range().expect("range");
-        assert!(latest >= 1, "Expected at least 1 recorded event, found {}", latest);
+        assert!(
+            latest >= 1,
+            "Expected at least 1 recorded event, found {}",
+            latest
+        );
         assert_eq!(oldest, 1);
 
         let event = replayer.read_event(1).expect("read first event");
-        assert_eq!(event.event_kind, core_contracts::FlightEventKind::TelemetryTick as u16);
+        assert_eq!(
+            event.event_kind,
+            core_contracts::FlightEventKind::TelemetryTick as u16
+        );
         assert_eq!(event.source_id, 0x01);
         assert!(event.verify_checksum());
     }
 }
-

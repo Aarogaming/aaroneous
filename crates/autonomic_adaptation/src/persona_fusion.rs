@@ -165,19 +165,70 @@ impl PersonaFusionEngine {
     /// Automatically mines and synthesizes pairwise cooperative synergies across all 9 Sovereign Specialists
     pub fn mine_all_federation_synergies() -> Vec<FusedEmergentSkill> {
         let pairs = [
-            ("orchestrator_intent_decomposition", 150.0, "synthesizer_graph_synthesis", 140.0),
-            ("fabricator_ast_mutation", 160.0, "sentinel_svdd_guardrail", 155.0),
-            ("perceiver_motion_gating", 130.0, "presenter_hud_compositor", 125.0),
-            ("router_mesh_routing", 140.0, "archivist_memory_compaction", 135.0),
-            ("aligner_chrono_scheduler", 135.0, "fabricator_jit_synthesis", 150.0),
-            ("orchestrator_consensus_quorum", 145.0, "router_gossip_broadcast", 130.0),
-            ("synthesizer_semantic_search", 135.0, "sentinel_zero_copy_audit", 140.0),
-            ("perceiver_spatial_intent", 140.0, "fabricator_native_optimizer", 145.0),
-            ("archivist_homeostasis", 130.0, "aligner_temporal_resonance", 125.0),
-            ("presenter_oscilloscope", 120.0, "synthesizer_subgraph_traversal", 135.0),
+            (
+                "orchestrator_intent_decomposition",
+                150.0,
+                "synthesizer_graph_synthesis",
+                140.0,
+            ),
+            (
+                "fabricator_ast_mutation",
+                160.0,
+                "sentinel_svdd_guardrail",
+                155.0,
+            ),
+            (
+                "perceiver_motion_gating",
+                130.0,
+                "presenter_hud_compositor",
+                125.0,
+            ),
+            (
+                "router_mesh_routing",
+                140.0,
+                "archivist_memory_compaction",
+                135.0,
+            ),
+            (
+                "aligner_chrono_scheduler",
+                135.0,
+                "fabricator_jit_synthesis",
+                150.0,
+            ),
+            (
+                "orchestrator_consensus_quorum",
+                145.0,
+                "router_gossip_broadcast",
+                130.0,
+            ),
+            (
+                "synthesizer_semantic_search",
+                135.0,
+                "sentinel_zero_copy_audit",
+                140.0,
+            ),
+            (
+                "perceiver_spatial_intent",
+                140.0,
+                "fabricator_native_optimizer",
+                145.0,
+            ),
+            (
+                "archivist_homeostasis",
+                130.0,
+                "aligner_temporal_resonance",
+                125.0,
+            ),
+            (
+                "presenter_oscilloscope",
+                120.0,
+                "synthesizer_subgraph_traversal",
+                135.0,
+            ),
         ];
 
-        pairs.iter()
+        pairs
+            .iter()
             .map(|(skill_a, power_a, skill_b, power_b)| {
                 Self::fuse_skills(skill_a, *power_a, skill_b, *power_b)
             })
@@ -221,7 +272,8 @@ mod tests {
 
     #[test]
     fn test_skill_fusion_synergy() {
-        let fused = PersonaFusionEngine::fuse_skills("ast_mutation", 120.0, "shadow_sandbox", 100.0);
+        let fused =
+            PersonaFusionEngine::fuse_skills("ast_mutation", 120.0, "shadow_sandbox", 100.0);
 
         assert_eq!(fused.parent_skills.0, "ast_mutation");
         assert_eq!(fused.parent_skills.1, "shadow_sandbox");

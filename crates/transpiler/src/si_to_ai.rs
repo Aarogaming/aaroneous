@@ -38,7 +38,12 @@ impl SiToAiTranspiler {
         let tensor_summary = if tensor_context.is_empty() {
             "None".to_string()
         } else {
-            format!("Tensor vector (len {}): [{:.3}, {:.3}, ...]", tensor_context.len(), tensor_context[0], tensor_context.get(1).unwrap_or(&0.0))
+            format!(
+                "Tensor vector (len {}): [{:.3}, {:.3}, ...]",
+                tensor_context.len(),
+                tensor_context[0],
+                tensor_context.get(1).unwrap_or(&0.0)
+            )
         };
 
         let user_prompt = format!(
@@ -70,7 +75,8 @@ mod tests {
             "SoftwareAdaptation",
             &[0.1, 0.9, 0.4],
             "Fix panic condition in memory mapped synapse",
-        ).unwrap();
+        )
+        .unwrap();
 
         assert!(prompt.system_instruction.contains("SoftwareAdaptation"));
         assert!(prompt.system_instruction.contains("task_42"));

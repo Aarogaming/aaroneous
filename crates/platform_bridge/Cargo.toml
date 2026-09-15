@@ -13,6 +13,7 @@ anyhow = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 tokio = { version = "1.0", features = ["full"] }
+tokio-serial = "5.4"
 tracing = "0.1"
 parking_lot = "0.12"
 rustfft = "6.2"
@@ -27,7 +28,6 @@ windows-sys = { version = "0.52", features = [
     "Win32_System_SystemInformation", 
     "Win32_System_ProcessStatus"
 ]}
-tokio-serial = "5.4"
 windows = { version = "0.62", features = [
     "Win32_Foundation",
     "Win32_Graphics_Gdi",
@@ -43,11 +43,9 @@ windows = { version = "0.62", features = [
     "Win32_System_Com",
 ], optional = true }
 
-windows-capture = { version = "1.5", optional = true }
-
 [features]
 default = ["midi-osc", "ndi-broadcast", "hooking-injector"]
-native-win32 = ["dep:windows", "dep:windows-capture"]
+native-win32 = ["dep:windows"]
 midi-osc = []
 ndi-broadcast = []
 hooking-injector = []

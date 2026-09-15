@@ -5,11 +5,11 @@ use crate::action_executor::{ActionExecutor, ActionResult, ExecutionStats};
 use crate::decision_engine::{
     AutonomousDecisionEngine, DecisionTask, ExecutionOutcome, TaskEvaluation,
 };
-use crate::state_snapshot::{NodeMetrics, SpatialCanvasState};
 use crate::intelligence::{IntelligenceEngine, LLMConfig, ProviderType, Specialist, TaskType};
 use crate::metadata_ingestor::{
     MetadataAnalysis, MetadataEvent, MetadataIngestor, MetadataIngestorConfig,
 };
+use crate::state_snapshot::{NodeMetrics, SpatialCanvasState};
 use biology::SystemHealthReport;
 use compute::thermodynamics::SystemPhase;
 use serde::{Deserialize, Serialize};
@@ -438,7 +438,8 @@ impl OrchestrationDaemon {
     pub fn process_assimilation_frame(
         &mut self,
         bytes: &[u8],
-    ) -> Result<ipc_bus::universal_protocol::UniversalServerBroadcast, crate::error::HypervisorError> {
+    ) -> Result<ipc_bus::universal_protocol::UniversalServerBroadcast, crate::error::HypervisorError>
+    {
         let transitioned = crate::assimilation::handle_assimilation_event(bytes)?;
         self.assimilations_processed += 1;
         let broadcast = transitioned.to_broadcast(self.assimilations_processed, 0);
@@ -721,14 +722,21 @@ mod tests {
         let initial = crate::assimilation::AssimilationRecord::new([5u8; 16], 1234);
         let bytes = bytemuck::bytes_of(&initial);
 
-        let broadcast = daemon.process_assimilation_frame(bytes).expect("processing frame must succeed");
-        assert_eq!(broadcast.broadcast_type, ipc_bus::universal_protocol::UcpBroadcastType::AssimilationState as u32);
+        let broadcast = daemon
+            .process_assimilation_frame(bytes)
+            .expect("processing frame must succeed");
+        assert_eq!(
+            broadcast.broadcast_type,
+            ipc_bus::universal_protocol::UcpBroadcastType::AssimilationState as u32
+        );
         assert_eq!(daemon.assimilations_processed, 1);
         assert_eq!(daemon.get_status().assimilations_processed, 1);
 
         // Test non-blocking channel submission
         let bytes2 = bytemuck::bytes_of(&initial);
-        daemon.submit_assimilation_frame(bytes2).expect("submission must succeed");
+        daemon
+            .submit_assimilation_frame(bytes2)
+            .expect("submission must succeed");
         assert_eq!(daemon.assimilation_rx.try_recv().is_ok(), true);
     }
 }

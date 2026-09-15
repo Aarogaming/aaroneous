@@ -40,6 +40,7 @@ impl std::fmt::Display for HotPathAllocViolation {
 pub struct HotPathAllocVisitor<'a> {
     pub file_path: &'a Path,
     pub file_is_hot_path: bool,
+    pub functions_scanned: usize,
     pub in_hot_path_scope: bool,
     pub violations: Vec<HotPathAllocViolation>,
 }
@@ -49,25 +50,19 @@ impl<'a> HotPathAllocVisitor<'a> {
         Self {
             file_path,
             file_is_hot_path: false,
+            functions_scanned: 0,
             in_hot_path_scope: false,
             violations: Vec::new(),
         }
     }
 
     fn check_file_attributes(&mut self, attrs: &[Attribute]) {
-        for attr in attrs {
-            if let Meta::Path(p) = &attr.meta {
-                if p.is_ident("hot_path") {
-                    self.file_is_hot_path = true;
-                    return;
-                }
-            }
-        }
+        self.file_is_hot_path = self.has_hot_path_attr(attrs);
     }
-
     fn has_hot_path_attr(&self, attrs: &[Attribute]) -> bool {
         attrs.iter().any(|attr| match &attr.meta {
             Meta::Path(p) => p.is_ident("hot_path"),
+            Meta::NameValue(value) if value.path.is_ident("doc") => matches!(&value.value, syn::Expr::Lit(lit) if matches!(&lit.lit, syn::Lit::Str(text) if text.value().trim() == "hot_path")),
             _ => false,
         })
     }
@@ -94,15 +89,38 @@ impl<'a> HotPathAllocVisitor<'a> {
                 .collect();
             let call_str = segments.join("::");
 
-            let banned = match call_str.as_str() {
-                "String::new" | "String::from" | "String::with_capacity" => true,
-                "Vec::new" | "Vec::with_capacity" => true,
-                "Box::new" | "Box::pin" => true,
-                "std::sync::Arc::new" | "alloc::sync::Arc::new" => true,
-                "std::rc::Rc::new" | "alloc::rc::Rc::new" => true,
-                "HashMap::new" | "BTreeMap::new" | "HashSet::new" | "BTreeSet::new" => true,
-                _ => false,
-            };
+            let tail = segments
+                .iter()
+                .rev()
+                .take(2)
+                .cloned()
+                .collect::<Vec<_>>()
+                .into_iter()
+                .rev()
+                .collect::<Vec<_>>()
+                .join("::");
+            let banned = matches!(
+                tail.as_str(),
+                "String::new"
+                    | "String::from"
+                    | "String::with_capacity"
+                    | "Vec::new"
+                    | "Vec::with_capacity"
+                    | "Box::new"
+                    | "Box::pin"
+                    | "Mutex::new"
+                    | "RwLock::new"
+                    | "Arc::new"
+                    | "Rc::new"
+                    | "std::sync::Arc::new"
+                    | "alloc::sync::Arc::new"
+                    | "std::rc::Rc::new"
+                    | "alloc::rc::Rc::new"
+                    | "HashMap::new"
+                    | "BTreeMap::new"
+                    | "HashSet::new"
+                    | "BTreeSet::new"
+            );
 
             if banned {
                 self.push_violation(
@@ -116,10 +134,19 @@ impl<'a> HotPathAllocVisitor<'a> {
 
     fn check_banned_method(&mut self, method_call: &ExprMethodCall) {
         let method_name = method_call.method.to_string();
-        let banned = match method_name.as_str() {
-            "to_string" | "to_owned" | "clone" | "into_boxed_slice" | "collect" => true,
-            _ => false,
-        };
+        let banned = matches!(
+            method_name.as_str(),
+            "to_string"
+                | "to_owned"
+                | "clone"
+                | "into_boxed_slice"
+                | "collect"
+                | "unwrap"
+                | "expect"
+                | "lock"
+                | "read"
+                | "write"
+        );
 
         if banned {
             self.push_violation(
@@ -139,10 +166,10 @@ impl<'a> HotPathAllocVisitor<'a> {
             .map(|s| s.ident.to_string())
             .unwrap_or_default();
 
-        let banned = match macro_name.as_str() {
-            "format" | "vec" | "println" | "eprintln" | "print" | "eprint" => true,
-            _ => false,
-        };
+        let banned = matches!(
+            macro_name.as_str(),
+            "panic" | "format" | "vec" | "println" | "eprintln" | "print" | "eprint"
+        );
 
         if banned {
             self.push_violation(
@@ -164,6 +191,7 @@ impl<'ast> Visit<'ast> for HotPathAllocVisitor<'_> {
         let prev_scope = self.in_hot_path_scope;
         if self.file_is_hot_path || self.has_hot_path_attr(&node.attrs) {
             self.in_hot_path_scope = true;
+            self.functions_scanned += 1;
         }
 
         visit::visit_item_fn(self, node);
@@ -174,6 +202,7 @@ impl<'ast> Visit<'ast> for HotPathAllocVisitor<'_> {
         let prev_scope = self.in_hot_path_scope;
         if self.file_is_hot_path || self.has_hot_path_attr(&node.attrs) {
             self.in_hot_path_scope = true;
+            self.functions_scanned += 1;
         }
 
         visit::visit_impl_item_fn(self, node);

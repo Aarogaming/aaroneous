@@ -9,12 +9,12 @@ use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
-use crate::translation_dataset::{TranslationDataset, ROSETTA_LATENT_DIM, ROSETTA_TEACHER_DIM};
 use crate::si_solid_state::SolidStateSiContainer;
 use crate::si_ssm::SiSsmConfig;
 use crate::si_trainer::LatentGELUBottleneckBridge;
+use crate::translation_dataset::{ROSETTA_LATENT_DIM, ROSETTA_TEACHER_DIM, TranslationDataset};
 
-use crate::si_trainer::{run_bootstrapper, BootstrapperConfig};
+use crate::si_trainer::{BootstrapperConfig, run_bootstrapper};
 
 /// Bootstrap Training Configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -120,9 +120,11 @@ impl SiDistillationHarness {
 
         // 4. Extract real metrics from the final epoch
         let last = epoch_reports.last();
-        let final_cka     = last.map(|r| (1.0 - r.cka_loss as f64).clamp(0.0, 1.0)).unwrap_or(0.0);
+        let final_cka = last
+            .map(|r| (1.0 - r.cka_loss as f64).clamp(0.0, 1.0))
+            .unwrap_or(0.0);
         let final_infonce = last.map(|r| r.infonce_loss as f64).unwrap_or(0.0);
-        let final_mse     = last.map(|r| r.ce_loss as f64).unwrap_or(0.0);
+        let final_mse = last.map(|r| r.ce_loss as f64).unwrap_or(0.0);
 
         // 5. Save bootable .si container to disk with 64-byte alignment and magic headers
         let target_path = out_path.as_ref().to_path_buf();
@@ -165,7 +167,11 @@ impl SiDistillationHarness {
 
         let mut reports = Vec::new();
         for (name, opcode) in specs {
-            let dataset = TranslationDataset::synthesize_specialist_corpus(name, opcode, samples_per_specialist);
+            let dataset = TranslationDataset::synthesize_specialist_corpus(
+                name,
+                opcode,
+                samples_per_specialist,
+            );
             let config = BootstrapConfig {
                 model_name: format!("{}_sovereign_v1", name),
                 epochs,
@@ -176,7 +182,10 @@ impl SiDistillationHarness {
                 target_cka_threshold: 0.80,
             };
 
-            let mut harness = SiDistillationHarness::new(config, LatentGELUBottleneckBridge::new(ROSETTA_TEACHER_DIM, 1024, ROSETTA_LATENT_DIM));
+            let mut harness = SiDistillationHarness::new(
+                config,
+                LatentGELUBottleneckBridge::new(ROSETTA_TEACHER_DIM, 1024, ROSETTA_LATENT_DIM),
+            );
             let target_file = out_dir_path.join(format!("{}.si", name));
             let report = harness.bootstrap_base_model(&dataset, &target_file)?;
             reports.push(report);
@@ -187,10 +196,8 @@ impl SiDistillationHarness {
 }
 
 #[cfg(test)]
-#[allow(ambient_authority)]
 mod tests {
     use super::*;
-    use std::fs;
 
     #[test]
     fn test_bootstrap_base_model_from_rosetta_dataset() {
@@ -199,8 +206,8 @@ mod tests {
         let bridge = LatentGELUBottleneckBridge::new(config.teacher_dim, 1024, config.latent_dim);
         let mut harness = SiDistillationHarness::new(config, bridge);
 
-        let temp_dir = std::env::temp_dir();
-        let out_path = temp_dir.join("test_base_router.si");
+        let temp_dir = tempfile::tempdir().unwrap();
+        let out_path = temp_dir.path().join("test_base_router.si");
 
         let report = harness.bootstrap_base_model(&dataset, &out_path).unwrap();
         assert_eq!(report.samples_processed, 8);
@@ -211,21 +218,18 @@ mod tests {
         let loaded = SolidStateSiContainer::load_from_file(&out_path).unwrap();
         assert_eq!(loaded.adaptation.anchor_buffer.len(), 8);
         assert!(loaded.adaptation.verify_anchor_retention() >= 95.0);
-
-        let _ = fs::remove_file(out_path);
     }
 
     #[test]
     fn test_distill_all_9_specialists() {
-        let temp_dir = std::env::temp_dir().join("test_distill_9");
-        let reports = SiDistillationHarness::distill_all_9_specialists(&temp_dir, 4, 1).unwrap();
+        let temp_dir = tempfile::tempdir().unwrap();
+        let reports =
+            SiDistillationHarness::distill_all_9_specialists(temp_dir.path(), 4, 1).unwrap();
         assert_eq!(reports.len(), 9);
 
         for report in &reports {
             assert!(report.output_si_path.exists());
             assert_eq!(report.samples_processed, 4);
         }
-
-        let _ = std::fs::remove_dir_all(temp_dir);
     }
 }

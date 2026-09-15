@@ -835,8 +835,20 @@ mod tests {
     fn test_detect_ar_hardware() {
         let mut phygital = Phygital::new();
         phygital.detect_ar_hardware();
-        // Should detect something on any platform
+        #[cfg(any(
+            target_os = "windows",
+            target_os = "macos",
+            target_os = "ios",
+            target_os = "android"
+        ))]
         assert!(!phygital.detected_devices.is_empty());
+        #[cfg(not(any(
+            target_os = "windows",
+            target_os = "macos",
+            target_os = "ios",
+            target_os = "android"
+        )))]
+        assert!(phygital.detected_devices.is_empty());
     }
 
     #[test]
@@ -855,7 +867,7 @@ mod tests {
     #[test]
     fn test_poll_frame_state() {
         let mut phygital = Phygital::new();
-        phygital.detect_ar_hardware();
+        phygital.detected_devices.push(SpatialDevice::MetaQuest3);
 
         let frame = phygital.poll_frame_state();
         assert!(frame.device.is_some());
@@ -921,8 +933,8 @@ mod tests {
         let mut phygital = Phygital::new();
         assert!(phygital.primary_device().is_none());
 
-        phygital.detect_ar_hardware();
-        assert!(phygital.primary_device().is_some());
+        phygital.detected_devices.push(SpatialDevice::MetaQuest3);
+        assert_eq!(phygital.primary_device(), Some(&SpatialDevice::MetaQuest3));
     }
 
     #[test]
@@ -1061,22 +1073,19 @@ mod tests {
     #[tokio::test]
     #[ignore = "requires real OpenXR runtime"]
     async fn test_detect_ar_with_real_runtime() {
-        let mut phygital = match Phygital::new().with_ar().await {
-            Ok(p) => p,
-            Err(_) => return, // No AR available - skip
-        };
-
-        if !phygital.has_runtime() {
-            return; // No runtime - skip
-        }
-
-        match phygital.detect_ar_hardware_real() {
-            Ok(Some(device)) => {
-                println!("Detected real AR device: {:?}", device);
-                assert_eq!(phygital.detected_devices.len(), 1);
-            }
-            Ok(None) => println!("Runtime present but unrecognized system"),
-            Err(e) => println!("Detection error: {} (acceptable without HMD)", e),
-        }
+        let mut phygital = Phygital::new()
+            .with_ar()
+            .await
+            .expect("explicit hardware test requires an initialized OpenXR provider");
+        assert!(
+            phygital.has_runtime(),
+            "explicit hardware test requires an OpenXR runtime"
+        );
+        let device = phygital
+            .detect_ar_hardware_real()
+            .expect("OpenXR device detection must succeed")
+            .expect("explicit hardware test requires a recognized connected HMD");
+        println!("Detected real AR device: {:?}", device);
+        assert_eq!(phygital.detected_devices.len(), 1);
     }
 }

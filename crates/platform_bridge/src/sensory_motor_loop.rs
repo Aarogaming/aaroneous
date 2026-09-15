@@ -14,13 +14,13 @@ use std::time::Instant;
 use tracing::info;
 
 use compute::isolated_desktop::IsolatedDesktop;
-use compute::latent_guardrail::{LatentAuditVerdict, SafeHypersphereManifold, GUARDRAIL_DIM};
+use compute::latent_guardrail::{GUARDRAIL_DIM, LatentAuditVerdict, SafeHypersphereManifold};
 use compute::machine_native::MachineOpcode;
 use compute::si_decoder::{ActionDecoder, DecodedActionCommand};
 
 use crate::epigenetic_vision::{EpigeneticGatingResult, EpigeneticVisionGater};
-use crate::mock::MockMarionette;
-use crate::traits::{HidAction, HidCommand, MarionetteHost};
+use crate::mock::MockPlatformHost;
+use crate::traits::{HidAction, HidCommand, PlatformHost};
 
 /// Report generated for each continuous sensory-motor execution cycle
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -45,7 +45,7 @@ pub struct SensoryMotorPipeline {
     pub guardrail: SafeHypersphereManifold,
     pub decoder: ActionDecoder,
     pub ghost_desktop: IsolatedDesktop,
-    pub host: MockMarionette,
+    pub host: MockPlatformHost,
     pub frame_counter: usize,
 }
 
@@ -79,7 +79,7 @@ impl SensoryMotorPipeline {
             guardrail,
             decoder,
             ghost_desktop,
-            host: MockMarionette::new(),
+            host: MockPlatformHost::new(),
             frame_counter: 0,
         }
     }
@@ -188,7 +188,7 @@ impl SensoryMotorPipeline {
         let total_cycle_latency_us = start.elapsed().as_micros() as u64;
 
         info!(
-            target: "marionette::sensory_motor",
+            target: "platform_bridge::sensory_motor",
             frame = self.frame_counter,
             active_sectors = gated.active_sectors_count,
             compute_savings = gated.compute_savings_pct,

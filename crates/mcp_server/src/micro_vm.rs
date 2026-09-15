@@ -1,6 +1,6 @@
 // src/micro_vm.rs
 
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 /// Minimal stub for VmProgram used by mcp_server.
 #[derive(Debug, Clone, Serialize, Deserialize)]

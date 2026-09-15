@@ -8,11 +8,11 @@
 //! 4. Continuous state-space recurrence execution (h_t = A·h_{t-1} + B·x_t) in < 180µs.
 //! 5. Decodes and returns physical MachineOpcode actions.
 
-use std::hint::spin_loop;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
-use std::time::Instant;
 use anyhow::Result;
+use std::hint::spin_loop;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::time::Instant;
 
 use crate::machine_native::MachineOpcode;
 use crate::si_solid_state::SiOnlineLearner;
@@ -97,10 +97,10 @@ impl ReflexWorker {
         let dummy_sensory = vec![0.1f32; self.learner.container.config.state_dim];
 
         while !shutdown.load(Ordering::Relaxed) {
-            if let Some(limit) = max_iterations {
-                if iterations >= limit {
-                    break;
-                }
+            if let Some(limit) = max_iterations
+                && iterations >= limit
+            {
+                break;
             }
 
             let write_head = channel.write_cursor.value.load(Ordering::Acquire);

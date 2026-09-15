@@ -6,6 +6,7 @@ pub mod event_recorder;
 pub mod game_player;
 pub mod hooking;
 pub mod kinetic_synthesizer;
+pub mod live_sampler;
 pub mod mock;
 pub mod native_win32;
 pub mod observability;
@@ -14,25 +15,27 @@ pub mod probing;
 pub mod protocol_bridge;
 pub mod robotics;
 pub mod sensory_motor_loop;
+pub mod token_emitter;
 pub mod traits;
 pub mod vision_latent;
 pub mod web_ingest;
-pub mod token_emitter;
-pub mod live_sampler;
 pub mod window_target;
 
-pub use adapters::{
-    AdapterSynthesizer, DeviceHardwareSpec, MarionetteActuatorAdapter, MarionetteSensoryAdapter,
-    NormalizedObservation, PhysicalActuatorAdapter, SensoryFeedAdapter, SynthesizedActuatorAdapter,
-    UniversalActuatorCommand, UniversalAdapterRegistry, VirtualSimActuator,
-};
 #[cfg(feature = "midi-osc")]
 pub use adapters::HardwareControllerHooks;
 #[cfg(feature = "ndi-broadcast")]
 pub use adapters::NdiBroadcaster;
+pub use adapters::{
+    AdapterSynthesizer, DeviceHardwareSpec, DisplayCaptureAdapter, NormalizedObservation,
+    PeripheralActuatorAdapter, PhysicalActuatorAdapter, SensoryFeedAdapter,
+    SynthesizedActuatorAdapter, UniversalActuatorCommand, UniversalAdapterRegistry,
+    VirtualSimActuator,
+};
+#[allow(deprecated)]
+pub use adapters::{MarionetteActuatorAdapter, MarionetteSensoryAdapter};
+pub use audio_synthesizer::{AcousticVoiceSynthesizer, FormantSpec};
 #[cfg(feature = "hooking-injector")]
 pub use hooking::HudhookInjector;
-pub use audio_synthesizer::{AcousticVoiceSynthesizer, FormantSpec};
 pub use robotics::{
     AutomotiveBusBridge, BoeBotCommand, BoeBotOcularNavigator, CanFrame, CorridorCorridorAnalysis,
     OcularPerspective, ProtocolEntropyAnalyzer,
@@ -43,9 +46,9 @@ pub use audio_analyzer::{
     AudioEventObservation, AudioFrequencySpectrum, WasapiAudioStreamAnalyzer,
 };
 pub use epigenetic_vision::{
-    EpigeneticGatingResult, EpigeneticVisionGater, DEFAULT_DELTA_THRESHOLD,
-    DEFAULT_HYSTERESIS_FRAMES, GRID_HEIGHT, GRID_SIZE, GRID_WIDTH, SECTORS_PER_COL,
-    SECTORS_PER_ROW, SECTOR_SIZE, TOTAL_SECTORS,
+    DEFAULT_DELTA_THRESHOLD, DEFAULT_HYSTERESIS_FRAMES, EpigeneticGatingResult,
+    EpigeneticVisionGater, GRID_HEIGHT, GRID_SIZE, GRID_WIDTH, SECTOR_SIZE, SECTORS_PER_COL,
+    SECTORS_PER_ROW, TOTAL_SECTORS,
 };
 pub use event_recorder::{FramebufferAnalyzer, RecordedInputEvent, SessionRecording};
 pub use game_player::{AutonomousGameAgent, GamePolicyAction, PlaythroughState};
@@ -56,19 +59,27 @@ pub use hooking::{
 pub use kinetic_synthesizer::{
     KineticTrajectoryConfig, KineticTrajectoryPoint, KineticTrajectorySynthesizer, Point2D,
 };
+#[allow(deprecated)]
 pub use mock::MockMarionette;
-pub use native_win32::{DxgiHardwareFrameBuffer, NativeWin32Marionette};
+pub use mock::MockPlatformHost;
+#[allow(deprecated)]
+pub use native_win32::NativeWin32Marionette;
+pub use native_win32::{DxgiHardwareFrameBuffer, Win32PlatformHost};
 pub use observability::{
-    enable_mmcss_time_critical, read_cpu_timestamp, set_thread_performance_affinity,
     AcousticFeatureExtractor, AcousticLatent, EtwKernelConsumer, HardwareCycleProfiler,
     KernelTraceEvent, RawInputListener, RawInputPacket, SensorPowerGate, SensorPowerMode,
     ShadowDistillationTap, ShadowExchange, UiaElementNode, UiaTreeWalker, WasapiCaptureConfig,
-    WasapiLoopbackCapture,
+    WasapiLoopbackCapture, enable_mmcss_time_critical, read_cpu_timestamp,
+    set_thread_performance_affinity,
 };
 pub use probing::ProcessProbeLogger;
-pub use protocol_bridge::{MarionetteProtocolBridge, MnlpPerceptionPacket};
+#[allow(deprecated)]
+pub use protocol_bridge::MarionetteProtocolBridge;
+pub use protocol_bridge::{MnlpPerceptionPacket, PlatformProtocolBridge};
 pub use sensory_motor_loop::{SensoryMotorCycleReport, SensoryMotorPipeline};
-pub use traits::{HidAction, HidCommand, MarionetteHost, ProbingTrace, VisualObservation};
+#[allow(deprecated)]
+pub use traits::MarionetteHost;
+pub use traits::{HidAction, HidCommand, PlatformHost, ProbingTrace, VisualObservation};
 pub use vision_latent::{SolidStateVisionPipeline, VisionLatentObservation};
 pub use window_target::{
     AudioCaptureModifier, CaptureModifiers, CaptureTarget, DiscoveredScreen, DiscoveredWindow,
@@ -81,7 +92,7 @@ use tokio::sync::Mutex;
 
 /// The primary Desktop Emulator Engine managing active backend, epigenetic vision gater, and probing datalogger
 pub struct DesktopEmulator {
-    host: Arc<Mutex<dyn MarionetteHost>>,
+    host: Arc<Mutex<dyn PlatformHost>>,
     probe_logger: Arc<Mutex<ProcessProbeLogger>>,
     gater: Arc<Mutex<EpigeneticVisionGater>>,
 }
@@ -102,7 +113,7 @@ impl DesktopEmulator {
     /// Creates a safe sandboxed DesktopEmulator using Mock backend
     pub fn new_mock() -> Self {
         Self {
-            host: Arc::new(Mutex::new(MockMarionette::new())),
+            host: Arc::new(Mutex::new(MockPlatformHost::new())),
             probe_logger: Arc::new(Mutex::new(ProcessProbeLogger::default())),
             gater: Arc::new(Mutex::new(EpigeneticVisionGater::new())),
         }
@@ -111,7 +122,16 @@ impl DesktopEmulator {
     /// Creates a live Win32 DesktopEmulator (guarded by safety permit)
     pub fn new_native_win32(allow_live_input: bool) -> Self {
         Self {
-            host: Arc::new(Mutex::new(NativeWin32Marionette::new(allow_live_input))),
+            host: Arc::new(Mutex::new(Win32PlatformHost::new(allow_live_input))),
+            probe_logger: Arc::new(Mutex::new(ProcessProbeLogger::default())),
+            gater: Arc::new(Mutex::new(EpigeneticVisionGater::new())),
+        }
+    }
+
+    /// Creates a DesktopEmulator backed by a custom PlatformHost implementation
+    pub fn with_host(host: Arc<Mutex<dyn PlatformHost>>) -> Self {
+        Self {
+            host,
             probe_logger: Arc::new(Mutex::new(ProcessProbeLogger::default())),
             gater: Arc::new(Mutex::new(EpigeneticVisionGater::new())),
         }

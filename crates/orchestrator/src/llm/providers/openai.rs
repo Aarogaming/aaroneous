@@ -24,11 +24,7 @@ impl OpenAIProvider {
         }
     }
 
-    pub async fn chat_completion(
-        &self,
-        system_prompt: &str,
-        user_prompt: &str,
-    ) -> Result<String> {
+    pub async fn chat_completion(&self, system_prompt: &str, user_prompt: &str) -> Result<String> {
         let base_url = self
             .config
             .base_url
@@ -60,10 +56,10 @@ impl OpenAIProvider {
         let body_text = resp.text().await.unwrap_or_default();
 
         if status.is_success() {
-            if let Ok(data) = serde_json::from_str::<serde_json::Value>(&body_text) {
-                if let Some(content) = data["choices"][0]["message"]["content"].as_str() {
-                    return Ok(content.to_string());
-                }
+            if let Ok(data) = serde_json::from_str::<serde_json::Value>(&body_text)
+                && let Some(content) = data["choices"][0]["message"]["content"].as_str()
+            {
+                return Ok(content.to_string());
             }
             // JSON parsed but content not found — return raw body as fallback
             return Ok(body_text);
@@ -102,16 +98,15 @@ impl OpenAIProvider {
         let status = resp.status();
         let body_text = resp.text().await.unwrap_or_default();
 
-        if status.is_success() {
-            if let Ok(data) = serde_json::from_str::<serde_json::Value>(&body_text) {
-                if let Some(embedding) = data["data"][0]["embedding"].as_array() {
-                    let vec: Vec<f32> = embedding
-                        .iter()
-                        .filter_map(|v| v.as_f64().map(|f| f as f32))
-                        .collect();
-                    return Ok(vec);
-                }
-            }
+        if status.is_success()
+            && let Ok(data) = serde_json::from_str::<serde_json::Value>(&body_text)
+            && let Some(embedding) = data["data"][0]["embedding"].as_array()
+        {
+            let vec: Vec<f32> = embedding
+                .iter()
+                .filter_map(|v| v.as_f64().map(|f| f as f32))
+                .collect();
+            return Ok(vec);
         }
 
         Err(anyhow::anyhow!(

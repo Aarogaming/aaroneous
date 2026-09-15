@@ -63,12 +63,12 @@ impl SandboxedNetworkProcessor {
         let mut total_bits = 0u64;
         let mut matching_bits = 0u64;
 
-        for i in 0..128 {
-            let xor_bits = self.reference_vsa[i] ^ chunk_hash;
+        for &reference in &self.reference_vsa {
+            let xor_bits = reference ^ chunk_hash;
             let set_bits = xor_bits.count_ones() as u64;
 
             // Only compare against non-zero reference entries
-            if self.reference_vsa[i] != 0 {
+            if reference != 0 {
                 matching_bits += 64 - set_bits;
                 total_bits += 64;
             }
@@ -84,8 +84,8 @@ impl SandboxedNetworkProcessor {
             (false, similarity)
         } else {
             // Low similarity: XOR-fuse into VSA
-            for i in 0..128 {
-                self.reference_vsa[i] ^= chunk_hash;
+            for reference in &mut self.reference_vsa {
+                *reference ^= chunk_hash;
             }
             // Also digest into the stream (updates bytes_received, fuses into vsa)
             self.stream

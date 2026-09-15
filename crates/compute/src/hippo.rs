@@ -115,10 +115,16 @@ fn invert_matrix_in_place(mat: &mut [f32], n: usize) -> Result<Vec<f32>> {
             // Vectorized row elimination across contiguous 2*n slice
             let (target_row, pivot_row) = if row < col {
                 let (first, second) = augmented.split_at_mut(pivot_row_start);
-                (&mut first[target_row_start..target_row_start + 2 * n], &second[0..2 * n])
+                (
+                    &mut first[target_row_start..target_row_start + 2 * n],
+                    &second[0..2 * n],
+                )
             } else {
                 let (first, second) = augmented.split_at_mut(target_row_start);
-                (&mut second[0..2 * n], &first[pivot_row_start..pivot_row_start + 2 * n])
+                (
+                    &mut second[0..2 * n],
+                    &first[pivot_row_start..pivot_row_start + 2 * n],
+                )
             };
 
             for j in 0..(2 * n) {
@@ -227,8 +233,12 @@ pub fn generate_hippo_discretized(state_dim: usize, delta_t: f32) -> Result<Hipp
 impl HippoLegendreMatrices {
     /// Re-discretize for a new timestep (variable-rate sensor frames).
     pub fn rediscretize(&mut self, new_delta_t: f32) -> Result<()> {
-        let (a_disc, b_disc) =
-            discretize_bilinear(&self.a_continuous, &self.b_continuous, self.state_dim, new_delta_t)?;
+        let (a_disc, b_disc) = discretize_bilinear(
+            &self.a_continuous,
+            &self.b_continuous,
+            self.state_dim,
+            new_delta_t,
+        )?;
         self.a_discrete = a_disc;
         self.b_discrete = b_disc;
         self.delta_t = new_delta_t;
@@ -297,7 +307,10 @@ mod tests {
 
         // Ā should be close to I for small Δt
         for i in 0..4 {
-            assert!((a_bar[i * 4 + i] - 1.0).abs() < 0.05, "Diagonal element should be near 1.0 for small Δt");
+            assert!(
+                (a_bar[i * 4 + i] - 1.0).abs() < 0.05,
+                "Diagonal element should be near 1.0 for small Δt"
+            );
         }
     }
 
@@ -328,8 +341,15 @@ mod tests {
         assert!((hippo.delta_t - 0.005).abs() < 1e-8);
 
         // Matrices should differ after rediscretization
-        let changed = hippo.a_discrete.iter().zip(&original_a).any(|(a, b)| (a - b).abs() > 1e-8);
-        assert!(changed, "Rediscretization should produce different matrices");
+        let changed = hippo
+            .a_discrete
+            .iter()
+            .zip(&original_a)
+            .any(|(a, b)| (a - b).abs() > 1e-8);
+        assert!(
+            changed,
+            "Rediscretization should produce different matrices"
+        );
     }
 
     #[test]

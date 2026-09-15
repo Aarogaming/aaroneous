@@ -2,7 +2,7 @@
 //! Information Theory & Entropy primitives.
 //! Used for data distillation, boilerplate detection, language modeling, and information density scoring.
 
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 
 /// Supported logarithmic bases for information measurement.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -74,7 +74,11 @@ pub fn byte_entropy(data: &[u8]) -> f64 {
 /// Computes Cross Entropy H(P, Q) = - \sum P(x) * ln(Q(x)).
 pub fn cross_entropy(p: &[f64], q: &[f64]) -> Result<f64> {
     if p.len() != q.len() {
-        bail!("Dimension mismatch for cross entropy: {} vs {}", p.len(), q.len());
+        bail!(
+            "Dimension mismatch for cross entropy: {} vs {}",
+            p.len(),
+            q.len()
+        );
     }
     let sum_p: f64 = p.iter().sum();
     let sum_q: f64 = q.iter().sum();
@@ -96,7 +100,11 @@ pub fn cross_entropy(p: &[f64], q: &[f64]) -> Result<f64> {
 /// KL Divergence D_KL(P || Q) between two distinct distributions.
 pub fn kl_divergence_distributions(p: &[f64], q: &[f64]) -> Result<f64> {
     if p.len() != q.len() {
-        bail!("Dimension mismatch for KL divergence: {} vs {}", p.len(), q.len());
+        bail!(
+            "Dimension mismatch for KL divergence: {} vs {}",
+            p.len(),
+            q.len()
+        );
     }
     let sum_p: f64 = p.iter().sum();
     let sum_q: f64 = q.iter().sum();
@@ -139,7 +147,11 @@ pub fn jensen_shannon_divergence(p: &[f64], q: &[f64]) -> Result<f64> {
 
     let p_norm: Vec<f64> = p.iter().map(|&x| x / sum_p).collect();
     let q_norm: Vec<f64> = q.iter().map(|&x| x / sum_q).collect();
-    let m: Vec<f64> = p_norm.iter().zip(q_norm.iter()).map(|(&x, &y)| 0.5 * (x + y)).collect();
+    let m: Vec<f64> = p_norm
+        .iter()
+        .zip(q_norm.iter())
+        .map(|(&x, &y)| 0.5 * (x + y))
+        .collect();
 
     let kl_pm = kl_divergence_distributions(&p_norm, &m)?;
     let kl_qm = kl_divergence_distributions(&q_norm, &m)?;
@@ -149,7 +161,11 @@ pub fn jensen_shannon_divergence(p: &[f64], q: &[f64]) -> Result<f64> {
 /// Mutual Information I(X; Y) computed from joint probability matrix (flattened row-major).
 pub fn mutual_information(joint_p: &[f64], rows: usize, cols: usize) -> Result<f64> {
     if joint_p.len() != rows * cols {
-        bail!("Joint probability matrix size mismatch: {} vs {}", joint_p.len(), rows * cols);
+        bail!(
+            "Joint probability matrix size mismatch: {} vs {}",
+            joint_p.len(),
+            rows * cols
+        );
     }
     let total: f64 = joint_p.iter().sum();
     if total <= 0.0 {

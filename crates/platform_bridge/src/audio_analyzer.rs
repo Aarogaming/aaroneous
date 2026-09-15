@@ -4,7 +4,7 @@
 //! Provides 8-band log frequency spectrum analysis and acoustic event tokenization
 //! for environmental sounds, speech events, and audio feedback in agent perception loops.
 
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use serde::{Deserialize, Serialize};
 use std::time::{SystemTime, UNIX_EPOCH};
 

@@ -3,15 +3,18 @@
 //! Provides zero-copy `memmap2` recording and sub-millisecond execution of `.si` macros
 //! directly on the memory bus without tokenization or LLM inference overhead.
 
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use memmap2::Mmap;
 use serde::{Deserialize, Serialize};
 use std::fs::{self, File};
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
-use crate::machine_native::{DimensionalUnit, MachineOpcode, NativeComputationNode, NativeComputationalGraph, NativeTypeLattice};
-use crate::si_binary::{SiThoughtPacket, SI_MAGIC_BYTES};
+use crate::machine_native::{
+    DimensionalUnit, MachineOpcode, NativeComputationNode, NativeComputationalGraph,
+    NativeTypeLattice,
+};
+use crate::si_binary::{SI_MAGIC_BYTES, SiThoughtPacket};
 
 /// Metadata descriptor for a saved `.si` smart macro
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -66,7 +69,9 @@ impl SiMacroEngine {
         let slug = macro_name.trim().to_lowercase().replace(' ', "_");
         let target_path = self.macros_dir.join(format!("{}.si", slug));
 
-        let bytes = packet.to_binary().context("Failed to serialize SI thought packet")?;
+        let bytes = packet
+            .to_binary()
+            .context("Failed to serialize SI thought packet")?;
         fs::write(&target_path, bytes)?;
 
         // Write sidecar metadata if hotkey or description provided
@@ -126,7 +131,10 @@ impl SiMacroEngine {
         for entry in entries.flatten() {
             let path = entry.path();
             if path.extension().and_then(|e| e.to_str()) == Some("si") {
-                let slug = path.file_stem().and_then(|s| s.to_str()).unwrap_or("unknown");
+                let slug = path
+                    .file_stem()
+                    .and_then(|s| s.to_str())
+                    .unwrap_or("unknown");
                 let meta_path = self.macros_dir.join(format!("{}.meta.json", slug));
 
                 let mut metadata = if meta_path.exists() {
@@ -149,7 +157,11 @@ impl SiMacroEngine {
 
     /// Fast inspect of `.si` metadata via zero-copy mmap
     fn inspect_file_metadata(&self, path: &Path) -> SiMacroMetadata {
-        let name = path.file_stem().and_then(|s| s.to_str()).unwrap_or("macro").replace('_', " ");
+        let name = path
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or("macro")
+            .replace('_', " ");
         let file_size = fs::metadata(path).map(|m| m.len()).unwrap_or(0);
 
         if let Ok((packet, latency)) = self.execute_macro_mmap(path) {
@@ -206,39 +218,77 @@ impl SiMacroEngine {
         let mut g1 = NativeComputationalGraph::new();
         g1.add_node(NativeComputationNode {
             id: 1,
-            opcode: MachineOpcode::Alloc { size_bytes: 4096, align: 64 },
-            type_lattice: NativeTypeLattice::LinearMemoryPointer { mutability: true, alignment: 64 },
+            opcode: MachineOpcode::Alloc {
+                size_bytes: 4096,
+                align: 64,
+            },
+            type_lattice: NativeTypeLattice::LinearMemoryPointer {
+                mutability: true,
+                alignment: 64,
+            },
             energy_cost: 0.02,
             dependencies: Vec::new(),
         });
         g1.add_node(NativeComputationNode {
             id: 2,
-            opcode: MachineOpcode::Call { function_id: 0x9001, arg_regs: vec![1] },
-            type_lattice: NativeTypeLattice::PrimitiveInt { bits: 32, signed: true },
+            opcode: MachineOpcode::Call {
+                function_id: 0x9001,
+                arg_regs: vec![1],
+            },
+            type_lattice: NativeTypeLattice::PrimitiveInt {
+                bits: 32,
+                signed: true,
+            },
             energy_cost: 0.05,
             dependencies: vec![1],
         });
-        let p1 = SiThoughtPacket::new(0x0110, DimensionalUnit::DIMENSIONLESS, vec![0.8, 0.2, 0.1], g1);
-        self.save_macro("Smart Git Sync", "High-speed clean, stash, and git index verification", Some("Alt+1"), &p1)?;
+        let p1 = SiThoughtPacket::new(
+            0x0110,
+            DimensionalUnit::DIMENSIONLESS,
+            vec![0.8, 0.2, 0.1],
+            g1,
+        );
+        self.save_macro(
+            "Smart Git Sync",
+            "High-speed clean, stash, and git index verification",
+            Some("Alt+1"),
+            &p1,
+        )?;
 
         // 2. AST Diagnostics Sweep
         let mut g2 = NativeComputationalGraph::new();
         g2.add_node(NativeComputationNode {
             id: 1,
             opcode: MachineOpcode::Load { address_reg: 0x10 },
-            type_lattice: NativeTypeLattice::LinearMemoryPointer { mutability: false, alignment: 8 },
+            type_lattice: NativeTypeLattice::LinearMemoryPointer {
+                mutability: false,
+                alignment: 8,
+            },
             energy_cost: 0.01,
             dependencies: Vec::new(),
         });
         g2.add_node(NativeComputationNode {
             id: 2,
             opcode: MachineOpcode::EntropyMinimization { state_reg: 1 },
-            type_lattice: NativeTypeLattice::PhysicalQuantity { unit: DimensionalUnit::ENERGY_JOULE, precision: 64 },
+            type_lattice: NativeTypeLattice::PhysicalQuantity {
+                unit: DimensionalUnit::ENERGY_JOULE,
+                precision: 64,
+            },
             energy_cost: 0.03,
             dependencies: vec![1],
         });
-        let p2 = SiThoughtPacket::new(0x0220, DimensionalUnit::ENERGY_JOULE, vec![0.5, 0.9, 0.4], g2);
-        self.save_macro("AST Diagnostics Sweep", "Direct compiler diagnostics scan and AST node alignment", Some("Alt+2"), &p2)?;
+        let p2 = SiThoughtPacket::new(
+            0x0220,
+            DimensionalUnit::ENERGY_JOULE,
+            vec![0.5, 0.9, 0.4],
+            g2,
+        );
+        self.save_macro(
+            "AST Diagnostics Sweep",
+            "Direct compiler diagnostics scan and AST node alignment",
+            Some("Alt+2"),
+            &p2,
+        )?;
 
         // 3. Thermodynamic Memory Reclaim
         let mut g3 = NativeComputationalGraph::new();
@@ -249,8 +299,18 @@ impl SiMacroEngine {
             energy_cost: 0.01,
             dependencies: Vec::new(),
         });
-        let p3 = SiThoughtPacket::new(0x0330, DimensionalUnit::ENERGY_JOULE, vec![0.1, 0.1, 0.9], g3);
-        self.save_macro("Thermodynamic Memory Reclaim", "Flushes inactive latent ring buffers and reclaims system memory", Some("Alt+3"), &p3)?;
+        let p3 = SiThoughtPacket::new(
+            0x0330,
+            DimensionalUnit::ENERGY_JOULE,
+            vec![0.1, 0.1, 0.9],
+            g3,
+        );
+        self.save_macro(
+            "Thermodynamic Memory Reclaim",
+            "Flushes inactive latent ring buffers and reclaims system memory",
+            Some("Alt+3"),
+            &p3,
+        )?;
 
         self.list_macros()
     }
@@ -269,14 +329,27 @@ mod tests {
         let mut graph = NativeComputationalGraph::new();
         graph.add_node(NativeComputationNode {
             id: 1,
-            opcode: MachineOpcode::Alloc { size_bytes: 128, align: 16 },
-            type_lattice: NativeTypeLattice::LinearMemoryPointer { mutability: true, alignment: 16 },
+            opcode: MachineOpcode::Alloc {
+                size_bytes: 128,
+                align: 16,
+            },
+            type_lattice: NativeTypeLattice::LinearMemoryPointer {
+                mutability: true,
+                alignment: 16,
+            },
             energy_cost: 0.04,
             dependencies: Vec::new(),
         });
 
-        let packet = SiThoughtPacket::new(0x0500, DimensionalUnit::DIMENSIONLESS, vec![1.0, 2.0, 3.0], graph);
-        let path = engine.save_macro("Test Routine", "Test Description", Some("Alt+T"), &packet).expect("Save macro failed");
+        let packet = SiThoughtPacket::new(
+            0x0500,
+            DimensionalUnit::DIMENSIONLESS,
+            vec![1.0, 2.0, 3.0],
+            graph,
+        );
+        let path = engine
+            .save_macro("Test Routine", "Test Description", Some("Alt+T"), &packet)
+            .expect("Save macro failed");
 
         assert!(path.exists());
 

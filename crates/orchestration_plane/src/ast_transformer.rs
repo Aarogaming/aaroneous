@@ -53,11 +53,11 @@ impl AmbientAstRewriter {
         // Strip out banned ambient imports (`use std::env;`, `use std::fs;`)
         let mut filtered_items = Vec::with_capacity(file.items.len());
         for item in file.items.drain(..) {
-            if let Item::Use(item_use) = &item {
-                if Self::is_banned_use_tree(&item_use.tree, "") {
-                    self.summary.stripped_banned_imports += 1;
-                    continue;
-                }
+            if let Item::Use(item_use) = &item
+                && Self::is_banned_use_tree(&item_use.tree, "")
+            {
+                self.summary.stripped_banned_imports += 1;
+                continue;
             }
             filtered_items.push(item);
         }
@@ -102,8 +102,11 @@ impl AmbientAstRewriter {
                 } else {
                     format!("{prefix}::{}", use_path.ident)
                 };
-                if current == "std::env" || current.starts_with("std::env::")
-                    || current == "std::fs" || current.starts_with("std::fs::") {
+                if current == "std::env"
+                    || current.starts_with("std::env::")
+                    || current == "std::fs"
+                    || current.starts_with("std::fs::")
+                {
                     return true;
                 }
                 Self::is_banned_use_tree(&use_path.tree, &current)
@@ -114,8 +117,10 @@ impl AmbientAstRewriter {
                 } else {
                     format!("{prefix}::{}", name.ident)
                 };
-                full == "std::env" || full.starts_with("std::env::")
-                    || full == "std::fs" || full.starts_with("std::fs::")
+                full == "std::env"
+                    || full.starts_with("std::env::")
+                    || full == "std::fs"
+                    || full.starts_with("std::fs::")
             }
             syn::UseTree::Rename(use_rename) => {
                 let full = if prefix.is_empty() {
@@ -123,15 +128,18 @@ impl AmbientAstRewriter {
                 } else {
                     format!("{prefix}::{}", use_rename.ident)
                 };
-                full == "std::env" || full.starts_with("std::env::")
-                    || full == "std::fs" || full.starts_with("std::fs::")
+                full == "std::env"
+                    || full.starts_with("std::env::")
+                    || full == "std::fs"
+                    || full.starts_with("std::fs::")
             }
             syn::UseTree::Glob(_) => {
                 prefix.starts_with("std::env") || prefix.starts_with("std::fs")
             }
-            syn::UseTree::Group(use_group) => {
-                use_group.items.iter().any(|item| Self::is_banned_use_tree(item, prefix))
-            }
+            syn::UseTree::Group(use_group) => use_group
+                .items
+                .iter()
+                .any(|item| Self::is_banned_use_tree(item, prefix)),
         }
     }
 }
@@ -142,55 +150,60 @@ impl VisitMut for AmbientAstRewriter {
         visit_mut::visit_expr_mut(self, expr);
 
         // 1. Rewrite method calls: `path.canonicalize()` -> `paths::normalize_path(&path)`
-        if let Expr::MethodCall(ExprMethodCall { receiver, method, args, .. }) = expr {
-            if method == "canonicalize" && args.is_empty() {
-                let rec = receiver.clone();
-                *expr = syn::parse_quote! {
-                    paths::normalize_path(&#rec)
-                };
-                self.summary.canonicalize_rewrites += 1;
-                self.injected_normalize_path = true;
-                return;
-            }
+        if let Expr::MethodCall(ExprMethodCall {
+            receiver,
+            method,
+            args,
+            ..
+        }) = expr
+            && method == "canonicalize"
+            && args.is_empty()
+        {
+            let rec = receiver.clone();
+            *expr = syn::parse_quote! {
+                paths::normalize_path(&#rec)
+            };
+            self.summary.canonicalize_rewrites += 1;
+            self.injected_normalize_path = true;
+            return;
         }
 
         // 2. Rewrite function calls: `std::env::*` or `env::*`
-        if let Expr::Call(ExprCall { func, args, .. }) = expr {
-            if let Expr::Path(expr_path) = &**func {
-                let segments: Vec<String> = expr_path
-                    .path
-                    .segments
-                    .iter()
-                    .map(|s| s.ident.to_string())
-                    .collect();
-                let path_str = segments.join("::");
+        if let Expr::Call(ExprCall { func, args, .. }) = expr
+            && let Expr::Path(expr_path) = &**func
+        {
+            let segments: Vec<String> = expr_path
+                .path
+                .segments
+                .iter()
+                .map(|s| s.ident.to_string())
+                .collect();
+            let path_str = segments.join("::");
 
-                if path_str == "std::env::temp_dir" || path_str == "env::temp_dir" {
-                    *expr = syn::parse_quote! {
-                        paths::WorkspacePaths::default().cache()
-                    };
-                    self.summary.env_temp_dir_rewrites += 1;
-                    self.injected_workspace_paths = true;
-                    return;
-                }
+            if path_str == "std::env::temp_dir" || path_str == "env::temp_dir" {
+                *expr = syn::parse_quote! {
+                    paths::WorkspacePaths::default().cache()
+                };
+                self.summary.env_temp_dir_rewrites += 1;
+                self.injected_workspace_paths = true;
+                return;
+            }
 
-                if path_str == "std::env::current_dir" || path_str == "env::current_dir" {
-                    *expr = syn::parse_quote! {
-                        Ok(paths::WorkspacePaths::default().root().clone())
-                    };
-                    self.summary.env_current_dir_rewrites += 1;
-                    self.injected_workspace_paths = true;
-                    return;
-                }
+            if path_str == "std::env::current_dir" || path_str == "env::current_dir" {
+                *expr = syn::parse_quote! {
+                    Ok(paths::WorkspacePaths::default().root().clone())
+                };
+                self.summary.env_current_dir_rewrites += 1;
+                self.injected_workspace_paths = true;
+                return;
+            }
 
-                if (path_str == "std::env::var" || path_str == "env::var") && !args.is_empty() {
-                    let first_arg = &args[0];
-                    *expr = syn::parse_quote! {
-                        paths::FederationConfigRegistry::new().get(#first_arg).ok_or(std::env::VarError::NotPresent)
-                    };
-                    self.summary.env_var_rewrites += 1;
-                    return;
-                }
+            if (path_str == "std::env::var" || path_str == "env::var") && !args.is_empty() {
+                let first_arg = &args[0];
+                *expr = syn::parse_quote! {
+                    paths::FederationConfigRegistry::new().get(#first_arg).ok_or(std::env::VarError::NotPresent)
+                };
+                self.summary.env_var_rewrites += 1;
             }
         }
     }

@@ -81,8 +81,13 @@ impl UniversalTool for SecurityAuditTool {
         let mut violations = Vec::new();
 
         // 1. Path Traversal
-        if target.contains("../") || target.contains("..\\") || target.contains("/etc/passwd") || target.contains("/etc/shadow") {
-            violations.push("Path traversal pattern detected (directory boundary escape)".to_string());
+        if target.contains("../")
+            || target.contains("..\\")
+            || target.contains("/etc/passwd")
+            || target.contains("/etc/shadow")
+        {
+            violations
+                .push("Path traversal pattern detected (directory boundary escape)".to_string());
         }
 
         // 2. Command Injection
@@ -103,11 +108,17 @@ impl UniversalTool for SecurityAuditTool {
             || target.contains("CreateRemoteThread")
             || target.contains("malware")
         {
-            violations.push("Dangerous memory manipulation or executable allocation detected".to_string());
+            violations.push(
+                "Dangerous memory manipulation or executable allocation detected".to_string(),
+            );
         }
 
         // 4. Secret and Key Leak Detection
-        if target.contains("sk-") || target.contains("ghp_") || target.contains("AKIA") || target.contains("BEGIN PRIVATE KEY") {
+        if target.contains("sk-")
+            || target.contains("ghp_")
+            || target.contains("AKIA")
+            || target.contains("BEGIN PRIVATE KEY")
+        {
             violations.push("Exposed private key or API credential signature detected".to_string());
         }
 
@@ -195,12 +206,25 @@ impl UniversalTool for CodeRepairTool {
     }
 
     async fn call_json(&self, params: serde_json::Value) -> Result<serde_json::Value> {
-        let file = params.get("file").and_then(|v| v.as_str()).context("Missing 'file'")?;
-        let code = params.get("code").and_then(|v| v.as_str()).context("Missing 'code'")?;
-        let target = params.get("target").and_then(|v| v.as_str()).context("Missing 'target'")?;
-        let replacement = params.get("replacement").and_then(|v| v.as_str()).context("Missing 'replacement'")?;
+        let file = params
+            .get("file")
+            .and_then(|v| v.as_str())
+            .context("Missing 'file'")?;
+        let code = params
+            .get("code")
+            .and_then(|v| v.as_str())
+            .context("Missing 'code'")?;
+        let target = params
+            .get("target")
+            .and_then(|v| v.as_str())
+            .context("Missing 'target'")?;
+        let replacement = params
+            .get("replacement")
+            .and_then(|v| v.as_str())
+            .context("Missing 'replacement'")?;
 
-        let patch = adaptation_engine::CodeMutator::synthesize_repair(file, code, target, replacement)?;
+        let patch =
+            adaptation_engine::CodeMutator::synthesize_repair(file, code, target, replacement)?;
 
         Ok(json!({
             "target_file": patch.target_file,
@@ -266,12 +290,25 @@ impl UniversalTool for StructuralRewriteTool {
     }
 
     async fn call_json(&self, params: serde_json::Value) -> Result<serde_json::Value> {
-        let file = params.get("file").and_then(|v| v.as_str()).context("Missing 'file'")?;
-        let code = params.get("code").and_then(|v| v.as_str()).context("Missing 'code'")?;
-        let search = params.get("search_pattern").and_then(|v| v.as_str()).context("Missing 'search_pattern'")?;
-        let replace = params.get("replace_template").and_then(|v| v.as_str()).context("Missing 'replace_template'")?;
+        let file = params
+            .get("file")
+            .and_then(|v| v.as_str())
+            .context("Missing 'file'")?;
+        let code = params
+            .get("code")
+            .and_then(|v| v.as_str())
+            .context("Missing 'code'")?;
+        let search = params
+            .get("search_pattern")
+            .and_then(|v| v.as_str())
+            .context("Missing 'search_pattern'")?;
+        let replace = params
+            .get("replace_template")
+            .and_then(|v| v.as_str())
+            .context("Missing 'replace_template'")?;
 
-        let (rewritten, patches) = adaptation_engine::AdaptationEngine::rewrite_pattern(file, code, search, replace)?;
+        let (rewritten, patches) =
+            adaptation_engine::AdaptationEngine::rewrite_pattern(file, code, search, replace)?;
 
         Ok(json!({
             "rewritten_code": rewritten,
@@ -342,8 +379,14 @@ impl UniversalTool for CodebaseReviewTool {
     }
 
     async fn call_json(&self, params: serde_json::Value) -> Result<serde_json::Value> {
-        let file_path = params.get("file_path").and_then(|v| v.as_str()).context("Missing 'file_path'")?;
-        let content = params.get("content").and_then(|v| v.as_str()).context("Missing 'content'")?;
+        let file_path = params
+            .get("file_path")
+            .and_then(|v| v.as_str())
+            .context("Missing 'file_path'")?;
+        let content = params
+            .get("content")
+            .and_then(|v| v.as_str())
+            .context("Missing 'content'")?;
 
         let mut auditor = self.auditor.lock().await;
         let findings = auditor.audit_file_content(file_path, content);
@@ -437,7 +480,8 @@ impl UniversalTool for PatternConformanceTool {
         let report = ast_auditor::run_pattern_review(&target_paths, registry_path)
             .map_err(|e| anyhow::anyhow!("Pattern review failed: {e}"))?;
 
-        serde_json::to_value(&report).map_err(|e| anyhow::anyhow!("Failed to serialize report: {e}"))
+        serde_json::to_value(&report)
+            .map_err(|e| anyhow::anyhow!("Failed to serialize report: {e}"))
     }
 
     fn call_latent(&self, input: &[f32; 256], output: &mut [f32; 256]) -> Result<()> {
@@ -539,16 +583,31 @@ impl UniversalTool for KnowledgeSemanticTool {
     }
 
     async fn call_json(&self, params: serde_json::Value) -> Result<serde_json::Value> {
-        let action = params.get("action").and_then(|v| v.as_str()).unwrap_or("query");
+        let action = params
+            .get("action")
+            .and_then(|v| v.as_str())
+            .unwrap_or("query");
         let mut store = self.records.lock().await;
 
         match action {
             "insert" => {
-                let topic = params.get("topic").and_then(|v| v.as_str()).context("Missing 'topic'")?;
-                let summary = params.get("summary").and_then(|v| v.as_str()).context("Missing 'summary'")?;
-                let tags = params.get("tags").and_then(|v| v.as_array()).map(|arr| {
-                    arr.iter().filter_map(|x| x.as_str().map(|s| s.to_string())).collect()
-                }).unwrap_or_default();
+                let topic = params
+                    .get("topic")
+                    .and_then(|v| v.as_str())
+                    .context("Missing 'topic'")?;
+                let summary = params
+                    .get("summary")
+                    .and_then(|v| v.as_str())
+                    .context("Missing 'summary'")?;
+                let tags = params
+                    .get("tags")
+                    .and_then(|v| v.as_array())
+                    .map(|arr| {
+                        arr.iter()
+                            .filter_map(|x| x.as_str().map(|s| s.to_string()))
+                            .collect()
+                    })
+                    .unwrap_or_default();
 
                 store.push(KnowledgeRecord {
                     topic: topic.to_string(),
@@ -571,43 +630,54 @@ impl UniversalTool for KnowledgeSemanticTool {
             }
             _ => {
                 let query = params.get("query").and_then(|v| v.as_str()).unwrap_or("");
-                let query_tokens: Vec<String> = query.to_lowercase().split_whitespace().map(|s| s.to_string()).collect();
+                let query_tokens: Vec<String> = query
+                    .to_lowercase()
+                    .split_whitespace()
+                    .map(|s| s.to_string())
+                    .collect();
 
-                let mut scored: Vec<(f32, &KnowledgeRecord)> = store.iter().map(|rec| {
-                    let mut score = 0.0f32;
-                    let topic_lower = rec.topic.to_lowercase();
-                    let summary_lower = rec.summary.to_lowercase();
+                let mut scored: Vec<(f32, &KnowledgeRecord)> = store
+                    .iter()
+                    .map(|rec| {
+                        let mut score = 0.0f32;
+                        let topic_lower = rec.topic.to_lowercase();
+                        let summary_lower = rec.summary.to_lowercase();
 
-                    if topic_lower == query.to_lowercase() {
-                        score += 10.0;
-                    }
-
-                    for token in &query_tokens {
-                        if topic_lower.contains(token) {
-                            score += 3.0;
+                        if topic_lower == query.to_lowercase() {
+                            score += 10.0;
                         }
-                        if summary_lower.contains(token) {
-                            score += 1.0;
-                        }
-                        for tag in &rec.tags {
-                            if tag.to_lowercase().contains(token) {
-                                score += 2.0;
+
+                        for token in &query_tokens {
+                            if topic_lower.contains(token) {
+                                score += 3.0;
+                            }
+                            if summary_lower.contains(token) {
+                                score += 1.0;
+                            }
+                            for tag in &rec.tags {
+                                if tag.to_lowercase().contains(token) {
+                                    score += 2.0;
+                                }
                             }
                         }
-                    }
-                    (score, rec)
-                }).filter(|(score, _)| *score > 0.0).collect();
+                        (score, rec)
+                    })
+                    .filter(|(score, _)| *score > 0.0)
+                    .collect();
 
                 scored.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
 
-                let matches: Vec<_> = scored.iter().map(|(score, rec)| {
-                    json!({
-                        "topic": rec.topic,
-                        "summary": rec.summary,
-                        "tags": rec.tags,
-                        "relevance_score": score
+                let matches: Vec<_> = scored
+                    .iter()
+                    .map(|(score, rec)| {
+                        json!({
+                            "topic": rec.topic,
+                            "summary": rec.summary,
+                            "tags": rec.tags,
+                            "relevance_score": score
+                        })
                     })
-                }).collect();
+                    .collect();
 
                 Ok(json!({
                     "query": query,
@@ -678,10 +748,22 @@ impl UniversalTool for MemoryIndexTool {
     }
 
     async fn call_json(&self, params: serde_json::Value) -> Result<serde_json::Value> {
-        let x = params.get("coord_x").and_then(|v| v.as_f64()).unwrap_or(0.0) as f32;
-        let y = params.get("coord_y").and_then(|v| v.as_f64()).unwrap_or(0.0) as f32;
-        let z = params.get("coord_z").and_then(|v| v.as_f64()).unwrap_or(0.0) as f32;
-        let radius = params.get("radius").and_then(|v| v.as_f64()).unwrap_or(100.0) as f32;
+        let x = params
+            .get("coord_x")
+            .and_then(|v| v.as_f64())
+            .unwrap_or(0.0) as f32;
+        let y = params
+            .get("coord_y")
+            .and_then(|v| v.as_f64())
+            .unwrap_or(0.0) as f32;
+        let z = params
+            .get("coord_z")
+            .and_then(|v| v.as_f64())
+            .unwrap_or(0.0) as f32;
+        let radius = params
+            .get("radius")
+            .and_then(|v| v.as_f64())
+            .unwrap_or(100.0) as f32;
 
         let filter = omni::OmniQueryFilter {
             node_types: None,
@@ -769,11 +851,26 @@ impl UniversalTool for UiLayoutTool {
     }
 
     async fn call_json(&self, params: serde_json::Value) -> Result<serde_json::Value> {
-        let count = params.get("window_count").and_then(|v| v.as_u64()).unwrap_or(3) as usize;
-        let width = params.get("canvas_width").and_then(|v| v.as_f64()).unwrap_or(1920.0) as f32;
-        let height = params.get("canvas_height").and_then(|v| v.as_f64()).unwrap_or(1080.0) as f32;
-        let strategy = params.get("strategy").and_then(|v| v.as_str()).unwrap_or("horizontal");
-        let padding = params.get("padding").and_then(|v| v.as_f64()).unwrap_or(10.0) as f32;
+        let count = params
+            .get("window_count")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(3) as usize;
+        let width = params
+            .get("canvas_width")
+            .and_then(|v| v.as_f64())
+            .unwrap_or(1920.0) as f32;
+        let height = params
+            .get("canvas_height")
+            .and_then(|v| v.as_f64())
+            .unwrap_or(1080.0) as f32;
+        let strategy = params
+            .get("strategy")
+            .and_then(|v| v.as_str())
+            .unwrap_or("horizontal");
+        let padding = params
+            .get("padding")
+            .and_then(|v| v.as_f64())
+            .unwrap_or(10.0) as f32;
 
         let mut layouts = Vec::with_capacity(count);
 
@@ -912,7 +1009,10 @@ impl UniversalTool for PlatformSensoryTool {
 
     async fn call_json(&self, params: serde_json::Value) -> Result<serde_json::Value> {
         let registry = platform_bridge::UniversalAdapterRegistry::live_environment();
-        let include_telemetry = params.get("include_telemetry").and_then(|v| v.as_bool()).unwrap_or(false);
+        let include_telemetry = params
+            .get("include_telemetry")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
         let cpu_cycle = if include_telemetry {
             Some(platform_bridge::read_cpu_timestamp())
         } else {

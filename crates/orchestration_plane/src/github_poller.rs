@@ -1,18 +1,14 @@
 //! GitHub Poller Kernel — Decoupled Logic Controller Implementation
 //! Zero dynamic allocations, no ambient authority, no unsafe pointer mutations.
 
-
 #![forbid(unsafe_code)]
-
 
 use core::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::time::Instant;
 
-
 #[repr(transparent)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct HandlerError(pub u32);
-
 
 impl HandlerError {
     pub const QUEUE_FULL: Self = Self(1);
@@ -20,7 +16,6 @@ impl HandlerError {
     pub const EXECUTION_FAILED: Self = Self(3);
     pub const CIRCUIT_TRIPPED: Self = Self(4);
 }
-
 
 impl core::fmt::Display for HandlerError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
@@ -34,11 +29,9 @@ impl core::fmt::Display for HandlerError {
     }
 }
 
-
 #[repr(transparent)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct JobStatus(pub u8);
-
 
 impl JobStatus {
     pub const EMPTY: Self = Self(0);
@@ -48,7 +41,6 @@ impl JobStatus {
     pub const ERROR: Self = Self(4);
     pub const DEDUPLICATED: Self = Self(5);
 }
-
 
 impl core::fmt::Display for JobStatus {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
@@ -64,9 +56,7 @@ impl core::fmt::Display for JobStatus {
     }
 }
 
-
 pub type Sha1 = [u8; 40];
-
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, bytemuck::Pod, bytemuck::Zeroable)]
@@ -79,7 +69,6 @@ pub struct Job {
     pub updated_ns: u64,
     pub reserved: [u8; 32],
 }
-
 
 impl Job {
     pub const fn empty() -> Self {
@@ -94,7 +83,6 @@ impl Job {
         }
     }
 
-
     pub const fn new(id: [u8; 32], source_sha: Sha1, now_ns: u64) -> Self {
         Self {
             id,
@@ -108,7 +96,6 @@ impl Job {
     }
 }
 
-
 #[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct PollerConfig {
@@ -117,7 +104,6 @@ pub struct PollerConfig {
     pub max_retries: u32,
     pub _pad: u32,
 }
-
 
 impl PollerConfig {
     pub const fn new(interval_seconds: u64) -> Self {
@@ -131,7 +117,6 @@ impl PollerConfig {
     }
 }
 
-
 #[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct PollerStats {
@@ -142,16 +127,13 @@ pub struct PollerStats {
     pub _pad: [u8; 7],
 }
 
-
 pub trait JobHandler {
     fn process(&self, job: &Job) -> Result<(), HandlerError>;
 }
 
-
 pub trait ShaProvider {
     fn fetch_head_sha(&self) -> Option<Sha1>;
 }
-
 
 pub struct GitHubPoller<const CAPACITY: usize> {
     config: PollerConfig,
@@ -160,7 +142,6 @@ pub struct GitHubPoller<const CAPACITY: usize> {
     tail: AtomicU64,
     start_time: Instant,
 }
-
 
 impl<const CAPACITY: usize> GitHubPoller<CAPACITY> {
     pub fn new(config: PollerConfig) -> Self {
@@ -173,26 +154,21 @@ impl<const CAPACITY: usize> GitHubPoller<CAPACITY> {
         }
     }
 
-
     pub fn start(&self) {
         self.running.store(true, Ordering::Release);
     }
-
 
     pub fn stop(&self) {
         self.running.store(false, Ordering::Release);
     }
 
-
     pub fn is_running(&self) -> bool {
         self.running.load(Ordering::Acquire)
     }
 
-
     pub fn current_epoch_ns(&self) -> u64 {
         self.start_time.elapsed().as_nanos() as u64
     }
-
 
     pub fn delay_with_jitter(&self, base_ns: u64) {
         if base_ns == 0 {
@@ -205,7 +181,6 @@ impl<const CAPACITY: usize> GitHubPoller<CAPACITY> {
         }
     }
 
-
     pub fn poll_and_dispatch<P, H>(&self, provider: &P, handler: &H) -> Result<bool, HandlerError>
     where
         P: ShaProvider,
@@ -215,29 +190,23 @@ impl<const CAPACITY: usize> GitHubPoller<CAPACITY> {
             return Ok(false);
         }
 
-
         let sha = match provider.fetch_head_sha() {
             Some(s) => s,
             None => return Ok(false),
         };
-
 
         let now_ns = self.current_epoch_ns();
         let mut id = [0u8; 32];
         id[0..8].copy_from_slice(&now_ns.to_le_bytes());
         id[8..16].copy_from_slice(&self.tail.load(Ordering::Relaxed).to_le_bytes());
 
-
         let job = Job::new(id, sha, now_ns);
-
 
         handler.process(&job)?;
         self.tail.fetch_add(1, Ordering::Release);
 
-
         Ok(true)
     }
-
 
     pub fn stats(&self) -> PollerStats {
         let t = self.tail.load(Ordering::Acquire);
@@ -252,28 +221,23 @@ impl<const CAPACITY: usize> GitHubPoller<CAPACITY> {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
-
 
     #[test]
     fn test_job_pod_geometry_and_bitcast() {
         assert_eq!(core::mem::size_of::<Job>(), 128);
         assert_eq!(core::mem::align_of::<Job>(), 8);
 
-
         let job = Job::empty();
         let bytes: &[u8] = bytemuck::bytes_of(&job);
         assert_eq!(bytes.len(), 128);
-
 
         let restored: &Job = bytemuck::from_bytes(bytes);
         assert_eq!(restored.status, JobStatus::EMPTY);
         assert_eq!(restored.created_ns, 0);
     }
-
 
     #[test]
     fn test_poller_config_pod_geometry() {
@@ -285,23 +249,19 @@ mod tests {
         assert_eq!(restored.max_retries, 3);
     }
 
-
     #[test]
     fn test_lifecycle_and_atomic_counters() {
         let config = PollerConfig::new(60);
         let poller = GitHubPoller::<1024>::new(config);
 
-
         assert!(!poller.is_running());
         poller.start();
         assert!(poller.is_running());
-
 
         let stats = poller.stats();
         assert_eq!(stats.capacity, 1024);
         assert_eq!(stats.len, 0);
         assert!(stats.running);
-
 
         poller.stop();
         assert!(!poller.is_running());

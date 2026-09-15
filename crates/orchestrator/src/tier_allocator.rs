@@ -7,11 +7,11 @@
 //! 3. Tier 2 Router: High-priority event loop connecting to the 128-byte aligned SPMC hub.
 //! 4. Tier 3 Kinetic Reflex: Pinned to dedicated physical CPU cores with L1 cache residency.
 
-use std::sync::atomic::{AtomicBool, Ordering};
+use anyhow::{Result, bail};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread::{self, JoinHandle};
 use std::time::Duration;
-use anyhow::{bail, Result};
 
 use compute::latent_router::LatentOrthogonalRouter;
 use compute::reflex_worker::ReflexWorker;
@@ -40,7 +40,10 @@ pub fn pin_current_thread_to_core(core_id: usize) -> bool {
                 println!("📌 [Orchestrator] Pinned thread to CPU Core #{}", core_id);
                 true
             } else {
-                eprintln!("⚠️ [Orchestrator] SetThreadAffinityMask failed for core #{}", core_id);
+                eprintln!(
+                    "⚠️ [Orchestrator] SetThreadAffinityMask failed for core #{}",
+                    core_id
+                );
                 false
             }
         }
@@ -48,7 +51,10 @@ pub fn pin_current_thread_to_core(core_id: usize) -> bool {
 
     #[cfg(not(windows))]
     {
-        println!("📌 [Orchestrator] Mock thread affinity set to Core #{}", core_id);
+        println!(
+            "📌 [Orchestrator] Mock thread affinity set to Core #{}",
+            core_id
+        );
         true
     }
 }
@@ -91,7 +97,10 @@ impl TierRuntimeAllocator {
 
         if tier.is_cortex() {
             // Tier 1: Heavy 4096-dim model. Spawn on background OS thread.
-            println!("🧠 [Orchestrator] Launching Tier 1 Cortex: '{}' (Background async task)", name);
+            println!(
+                "🧠 [Orchestrator] Launching Tier 1 Cortex: '{}' (Background async task)",
+                name
+            );
             let handle = thread::Builder::new()
                 .name(format!("Cortex-Worker-{}", worker_id))
                 .spawn(move || {
@@ -101,12 +110,18 @@ impl TierRuntimeAllocator {
                         thread::sleep(Duration::from_millis(100));
                         step += 1;
                     }
-                    println!("🧠 [Orchestrator] Cortex '{}' shutdown after {} strategic cycles.", name, step);
+                    println!(
+                        "🧠 [Orchestrator] Cortex '{}' shutdown after {} strategic cycles.",
+                        name, step
+                    );
                 })?;
             self.spawned_threads.push(handle);
         } else if tier.is_router() {
             // Tier 2: Router connecting to central SPMC hub
-            println!("⚡ [Orchestrator] Launching Tier 2 Router: '{}' (SPMC Hub Channel 0)", name);
+            println!(
+                "⚡ [Orchestrator] Launching Tier 2 Router: '{}' (SPMC Hub Channel 0)",
+                name
+            );
             let handle = thread::Builder::new()
                 .name(format!("Router-{}", worker_id))
                 .spawn(move || {
@@ -120,14 +135,20 @@ impl TierRuntimeAllocator {
                         routed += 1;
                         thread::sleep(Duration::from_millis(10));
                     }
-                    println!("⚡ [Orchestrator] Router '{}' shutdown after {} broadcasts.", name, routed);
+                    println!(
+                        "⚡ [Orchestrator] Router '{}' shutdown after {} broadcasts.",
+                        name, routed
+                    );
                 })?;
             self.spawned_threads.push(handle);
         } else if tier.is_reflex() {
             // Tier 3: Kinetic Specialist. Pin to a dedicated physical core.
             let core_id = self.available_cores.pop().unwrap_or(0);
             let channel_idx = (worker_id as usize).min(bus.channels.len().saturating_sub(1));
-            println!("🎯 [Orchestrator] Launching Tier 3 Kinetic Specialist: '{}' (Pinned to Core #{})", name, core_id);
+            println!(
+                "🎯 [Orchestrator] Launching Tier 3 Kinetic Specialist: '{}' (Pinned to Core #{})",
+                name, core_id
+            );
 
             let handle = thread::Builder::new()
                 .name(format!("Reflex-Specialist-{}", worker_id))
@@ -137,7 +158,10 @@ impl TierRuntimeAllocator {
                     let mut worker = ReflexWorker::new(worker_id, &name, learner);
                     let channel = &bus.channels[channel_idx];
                     let _ = worker.run_continuous(channel, shutdown, None);
-                    println!("🎯 [Orchestrator] Reflex '{}' shutdown after {} kinetic steps.", name, worker.total_steps_executed);
+                    println!(
+                        "🎯 [Orchestrator] Reflex '{}' shutdown after {} kinetic steps.",
+                        name, worker.total_steps_executed
+                    );
                 })?;
             self.spawned_threads.push(handle);
         } else {
@@ -155,7 +179,9 @@ impl TierRuntimeAllocator {
 
 mod num_cpus {
     pub fn get_physical() -> usize {
-        std::thread::available_parallelism().map(|n| n.get()).unwrap_or(4)
+        std::thread::available_parallelism()
+            .map(|n| n.get())
+            .unwrap_or(4)
     }
 }
 
@@ -184,8 +210,12 @@ mod tests {
         let container1 = SolidStateSiContainer::new("Router-Test", config.clone());
         let container2 = SolidStateSiContainer::new("DesktopEmulator-Test", config);
 
-        orchestrator.mount_container(container1, SiTierFlags::TIER_2_ROUTER, 0).unwrap();
-        orchestrator.mount_container(container2, SiTierFlags::TIER_3_REFLEX, 1).unwrap();
+        orchestrator
+            .mount_container(container1, SiTierFlags::TIER_2_ROUTER, 0)
+            .unwrap();
+        orchestrator
+            .mount_container(container2, SiTierFlags::TIER_3_REFLEX, 1)
+            .unwrap();
 
         assert_eq!(orchestrator.spawned_threads.len(), 2);
         thread::sleep(Duration::from_millis(50));
@@ -214,9 +244,21 @@ mod tests {
         let c2 = SolidStateSiContainer::new("Tier2-Container", config.clone());
         let c3 = SolidStateSiContainer::new("Tier3-Container", config);
 
-        assert!(allocator.mount_container(c1, SiTierFlags::TIER_1_CORTEX, 0).is_ok());
-        assert!(allocator.mount_container(c2, SiTierFlags::TIER_2_ROUTER, 1).is_ok());
-        assert!(allocator.mount_container(c3, SiTierFlags::TIER_3_REFLEX, 2).is_ok());
+        assert!(
+            allocator
+                .mount_container(c1, SiTierFlags::TIER_1_CORTEX, 0)
+                .is_ok()
+        );
+        assert!(
+            allocator
+                .mount_container(c2, SiTierFlags::TIER_2_ROUTER, 1)
+                .is_ok()
+        );
+        assert!(
+            allocator
+                .mount_container(c3, SiTierFlags::TIER_3_REFLEX, 2)
+                .is_ok()
+        );
 
         assert_eq!(allocator.spawned_threads.len(), 3);
         allocator.shutdown();

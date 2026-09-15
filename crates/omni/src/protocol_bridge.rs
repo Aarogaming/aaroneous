@@ -70,7 +70,11 @@ pub struct UniversalSpatialLink {
 
 /// Universal Spatial Canvas Sink Trait (decouples 3D simulation from rendering engine)
 pub trait UniversalSpatialCanvasSink: Send + Sync {
-    fn render_scene(&mut self, points: &[UniversalSpatialPoint], links: &[UniversalSpatialLink]) -> Result<()>;
+    fn render_scene(
+        &mut self,
+        points: &[UniversalSpatialPoint],
+        links: &[UniversalSpatialLink],
+    ) -> Result<()>;
 }
 
 /// Headless in-memory sink for unit tests, CLI dumps, or remote WebSocket streams
@@ -81,7 +85,11 @@ pub struct InMemorySpatialCanvasSink {
 }
 
 impl UniversalSpatialCanvasSink for InMemorySpatialCanvasSink {
-    fn render_scene(&mut self, points: &[UniversalSpatialPoint], links: &[UniversalSpatialLink]) -> Result<()> {
+    fn render_scene(
+        &mut self,
+        points: &[UniversalSpatialPoint],
+        links: &[UniversalSpatialLink],
+    ) -> Result<()> {
         self.last_points = points.to_vec();
         self.last_links = links.to_vec();
         Ok(())

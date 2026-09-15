@@ -2590,7 +2590,7 @@ impl Federation {
                         let mut triggered_tasks = Vec::new();
                         {
                             let mut sched = scheduler_arc.write().await;
-                            for (_, task) in sched.tasks.iter_mut() {
+                            for task in sched.tasks.values_mut() {
                                 if task.status == "Scheduled"
                                     && let Some(interval) = task.interval_secs
                                         && now_ms >= task.last_run_ms + (interval * 1000) {

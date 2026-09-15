@@ -142,10 +142,10 @@ pub type BaselineReferenceAgent = RelicAgent;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RelicAgent {
     pub id: String,
-    pub name: String,          // "DisplayBuffer", "KnowledgeStore", "OrchestratorCore", etc.
+    pub name: String, // "DisplayBuffer", "KnowledgeStore", "OrchestratorCore", etc.
     pub supervisor_id: String, // ID of supervising specialist
-    pub role: String,          // "Visual Operator", "Prophetic Synthesist", etc.
-    pub persona: String,       // Personality flavor text
+    pub role: String, // "Visual Operator", "Prophetic Synthesist", etc.
+    pub persona: String, // Personality flavor text
     pub cognitive_bias: CognitiveBias,
     pub hox_preset_path: String,          // Path to hox_relic_<name>.json
     pub enzyme_subset: Vec<String>,       // Allowlisted enzymes for this relic
@@ -238,7 +238,12 @@ impl Agent for UserAgent {
 }
 
 impl UserAgent {
-    pub fn new(id: impl Into<String>, username: impl Into<String>, role: impl Into<String>, persona: impl Into<String>) -> Self {
+    pub fn new(
+        id: impl Into<String>,
+        username: impl Into<String>,
+        role: impl Into<String>,
+        persona: impl Into<String>,
+    ) -> Self {
         Self {
             id: id.into(),
             username: username.into(),
@@ -343,7 +348,10 @@ pub fn create_specialist(name: &str) -> Option<SpecialistAgent> {
                 .to_string(),
             enzyme_subset: vec!["sensor_node".to_string(), "tensor_forge".to_string()],
             interval_ms: 20000,
-            model_path: paths.sovereign_model("presenter").to_string_lossy().to_string(),
+            model_path: paths
+                .sovereign_model("presenter")
+                .to_string_lossy()
+                .to_string(),
             model_hash: "70fe5af18c8f804a2e071fed22f72327f7beb59acdb905a476acbd40cb5513ee"
                 .to_string(),
             status: "active".to_string(),
@@ -394,7 +402,10 @@ pub fn create_specialist(name: &str) -> Option<SpecialistAgent> {
                 .to_string(),
             enzyme_subset: vec!["thought_kernel".to_string(), "nat_bridge".to_string()],
             interval_ms: 30000,
-            model_path: paths.sovereign_model("orchestrator").to_string_lossy().to_string(),
+            model_path: paths
+                .sovereign_model("orchestrator")
+                .to_string_lossy()
+                .to_string(),
             model_hash: "ec614427643249d67a927ad5ad5b19e71d56eb3f3ec4d63c58ff0a5f2b17033c"
                 .to_string(),
             status: "active".to_string(),
@@ -472,7 +483,10 @@ pub fn create_specialist(name: &str) -> Option<SpecialistAgent> {
                 .to_string(),
             enzyme_subset: vec!["nat_bridge".to_string(), "sensor_node".to_string()],
             interval_ms: 15000,
-            model_path: paths.sovereign_model("sentinel").to_string_lossy().to_string(),
+            model_path: paths
+                .sovereign_model("sentinel")
+                .to_string_lossy()
+                .to_string(),
             model_hash: "4cdca60ca840f3de4f4a4b12649ac05136f2637971f729b1075639492834e3d2"
                 .to_string(),
             status: "active".to_string(),
@@ -509,7 +523,10 @@ pub fn create_relic(name: &str, supervisor_id: &str) -> Option<RelicAgent> {
             enzyme_subset: vec!["sensor_node".to_string(), "tensor_forge".to_string()],
             interval_ms: 18000,
             metadata: HashMap::new(),
-            model_path: paths.sovereign_model("display_buffer").to_string_lossy().to_string(),
+            model_path: paths
+                .sovereign_model("display_buffer")
+                .to_string_lossy()
+                .to_string(),
             model_hash: "70fe5af18c8f804a2e071fed22f72327f7beb59acdb905a476acbd40cb5513ee"
                 .to_string(),
             status: "active".to_string(),
@@ -580,11 +597,17 @@ pub fn create_relic(name: &str, supervisor_id: &str) -> Option<RelicAgent> {
                 creative_variance: 85,
                 audit_strictness: 50,
             },
-            hox_preset_path: paths.relic_hox_preset("memory_index").to_string_lossy().to_string(),
+            hox_preset_path: paths
+                .relic_hox_preset("memory_index")
+                .to_string_lossy()
+                .to_string(),
             enzyme_subset: vec!["sensor_node".to_string(), "thought_kernel".to_string()],
             interval_ms: 40000,
             metadata: HashMap::new(),
-            model_path: paths.sovereign_model("memory_index").to_string_lossy().to_string(),
+            model_path: paths
+                .sovereign_model("memory_index")
+                .to_string_lossy()
+                .to_string(),
             model_hash: "4cdca60ca840f3de4f4a4b12649ac05136f2637971f729b1075639492834e3d2"
                 .to_string(),
             status: "active".to_string(),
@@ -607,7 +630,10 @@ pub fn create_relic(name: &str, supervisor_id: &str) -> Option<RelicAgent> {
             enzyme_subset: vec!["tensor_forge".to_string(), "thought_kernel".to_string()],
             interval_ms: 20000,
             metadata: HashMap::new(),
-            model_path: paths.sovereign_model("compiler_core").to_string_lossy().to_string(),
+            model_path: paths
+                .sovereign_model("compiler_core")
+                .to_string_lossy()
+                .to_string(),
             model_hash: "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"
                 .to_string(),
             status: "active".to_string(),
@@ -648,7 +674,8 @@ mod tests {
 
     #[test]
     fn test_specialist_creation_and_agent_trait() {
-        let specialist = create_specialist("orchestrator").expect("orchestrator specialist should exist");
+        let specialist =
+            create_specialist("orchestrator").expect("orchestrator specialist should exist");
         assert_eq!(specialist.agent_id(), "specialist_orchestrator");
         assert_eq!(specialist.agent_type(), AgentType::Specialist);
         assert_eq!(specialist.domain, Domain::Leadership);
@@ -659,7 +686,8 @@ mod tests {
 
     #[test]
     fn test_relic_creation_and_supervision() {
-        let relic = create_relic("display_buffer", "specialist_presenter").expect("display_buffer relic should exist");
+        let relic = create_relic("display_buffer", "specialist_presenter")
+            .expect("display_buffer relic should exist");
         assert_eq!(relic.agent_id(), "relic_display_buffer");
         assert_eq!(relic.agent_type(), AgentType::Relic);
         assert_eq!(relic.supervisor_id, "specialist_presenter");
@@ -678,13 +706,27 @@ mod tests {
 
     #[test]
     fn test_all_specialists_and_relics_catalogs() {
-        let names = ["presenter", "synthesizer", "orchestrator", "sentinel", "archivist", "fabricator"];
+        let names = [
+            "presenter",
+            "synthesizer",
+            "orchestrator",
+            "sentinel",
+            "archivist",
+            "fabricator",
+        ];
         for name in &names {
             let s = create_specialist(name);
             assert!(s.is_some(), "Specialist {} should be constructable", name);
         }
 
-        let relics = ["display_buffer", "knowledge_store", "orchestrator_core", "memory_index", "compiler_core", "audit_engine"];
+        let relics = [
+            "display_buffer",
+            "knowledge_store",
+            "orchestrator_core",
+            "memory_index",
+            "compiler_core",
+            "audit_engine",
+        ];
         for r in &relics {
             let rel = create_relic(r, "sup_01");
             assert!(rel.is_some(), "Relic {} should be constructable", r);

@@ -6,7 +6,7 @@
 //! 2. `SomaticVitals`: Self-monitoring of memory pressure, cycle jitter, and execution thermodynamics.
 //! 3. `TriModalReasoningGate`: Evaluates actions simultaneously across Linguistic, Spatial, and Physical bounds.
 
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use serde::{Deserialize, Serialize};
 
 /// Balanced allocation of cognitive attention bandwidth (sums to 1.0)
@@ -71,7 +71,7 @@ impl Default for SomaticVitals {
 /// Multi-Modal Evaluation Across Linguistic, Spatial, and Physical Axes
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TriModalDecisionReport {
-    pub linguistic_intent_score: f32, // Intent alignment (0.0 to 1.0)
+    pub linguistic_intent_score: f32,   // Intent alignment (0.0 to 1.0)
     pub spatial_feasibility_score: f32, // Geometric/physical clearance (0.0 to 1.0)
     pub thermodynamic_cost_score: f32,  // Energy/cycle footprint (0.0 to 1.0, 1.0 = optimal)
     pub composite_confidence: f32,

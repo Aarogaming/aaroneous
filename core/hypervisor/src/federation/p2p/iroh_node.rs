@@ -1,4 +1,4 @@
-#![cfg(feature = "p2p-iroh")]
+#![cfg(any(feature = "p2p-iroh", feature = "fleet"))]
 /// Real Iroh-backed P2P node implementation
 ///
 /// This module is only compiled when the `p2p-iroh` feature is enabled.

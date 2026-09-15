@@ -172,16 +172,25 @@ impl StudioApp {
             CommandAction::ExecuteCapability(cmd) => {
                 let id = cmd.id();
                 let params = serde_json::to_string(&cmd.params()).unwrap_or_default();
-                let params_val: serde_json::Value = if params.is_empty() { serde_json::Value::Null } else { serde_json::from_str(&params).unwrap_or(serde_json::Value::Null) };
+                let params_val: serde_json::Value = if params.is_empty() {
+                    serde_json::Value::Null
+                } else {
+                    serde_json::from_str(&params).unwrap_or(serde_json::Value::Null)
+                };
                 let outcome = self.state.capability_broker.execute(id, params_val);
                 if outcome.success {
                     self.toasts.push(
                         "Capability Executed",
-                        SmolStr::new(format!("{} completed in {}µs", outcome.capability_id, outcome.latency_us)),
+                        SmolStr::new(format!(
+                            "{} completed in {}µs",
+                            outcome.capability_id, outcome.latency_us
+                        )),
                         ToastLevel::Success,
                     );
                 } else {
-                    let err = outcome.error.unwrap_or_else(|| "Unknown failure".to_string());
+                    let err = outcome
+                        .error
+                        .unwrap_or_else(|| "Unknown failure".to_string());
                     self.toasts.push(
                         "Execution Failed",
                         SmolStr::new(format!("{}: {}", outcome.capability_id, err)),
@@ -203,7 +212,10 @@ impl StudioApp {
 
         let click_through = self.state.overlay_click_through;
         if let Some(hwnd) = self.cached_hwnd {
-            let _ = platform_bridge::TransparentWindowPipeline::apply_click_through(hwnd, click_through);
+            let _ = platform_bridge::TransparentWindowPipeline::apply_click_through(
+                hwnd,
+                click_through,
+            );
             if click_through {
                 let _ = platform_bridge::TransparentWindowPipeline::set_always_on_top(hwnd, true);
             }
@@ -211,7 +223,9 @@ impl StudioApp {
 
         ctx.send_viewport_cmd(egui::ViewportCommand::MousePassthrough(click_through));
         if click_through {
-            ctx.send_viewport_cmd(egui::ViewportCommand::WindowLevel(egui::WindowLevel::AlwaysOnTop));
+            ctx.send_viewport_cmd(egui::ViewportCommand::WindowLevel(
+                egui::WindowLevel::AlwaysOnTop,
+            ));
             self.toasts.push(
                 "HUD: Pass-Through Mode",
                 "Clicks pass through to underlying applications (F12 to unlock).",
@@ -251,17 +265,15 @@ impl eframe::App for StudioApp {
         let ctx = ui.ctx().clone();
 
         // Intercept close event if close_to_tray is enabled
-        if ctx.input(|i| i.viewport().close_requested()) {
-            if self.state.settings.close_to_tray {
-                ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
-                ctx.send_viewport_cmd(egui::ViewportCommand::Visible(false));
-                self.state.is_minimized_to_tray = true;
-                self.toasts.push(
-                    "Minimized to Tray",
-                    "Aaroneous is still running in the background. Open from taskbar or tray.",
-                    ToastLevel::Info,
-                );
-            }
+        if ctx.input(|i| i.viewport().close_requested()) && self.state.settings.close_to_tray {
+            ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
+            ctx.send_viewport_cmd(egui::ViewportCommand::Visible(false));
+            self.state.is_minimized_to_tray = true;
+            self.toasts.push(
+                "Minimized to Tray",
+                "Aaroneous is still running in the background. Open from taskbar or tray.",
+                ToastLevel::Info,
+            );
         }
 
         // Poll asynchronous background worker messages & telemetry
@@ -284,7 +296,9 @@ impl eframe::App for StudioApp {
                 AppWindowMode::ConsoleGameOS => {
                     self.console_os.was_fullscreen = false;
                     ctx.send_viewport_cmd(egui::ViewportCommand::Fullscreen(false));
-                    ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(egui::vec2(1240.0, 840.0)));
+                    ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(egui::vec2(
+                        1240.0, 840.0,
+                    )));
                     self.state.app_window_mode = AppWindowMode::FullStudio;
                 }
                 _ => {
@@ -329,7 +343,12 @@ impl eframe::App for StudioApp {
         let ptr_vel = ctx.input(|i| i.pointer.velocity());
         let speed = ptr_vel.length();
         if speed > 10.0 {
-            let mut bio = self.state.user_identity_engine.active_profile().baseline_biomarkers.clone();
+            let mut bio = self
+                .state
+                .user_identity_engine
+                .active_profile()
+                .baseline_biomarkers
+                .clone();
             bio.mean_cursor_speed = (bio.mean_cursor_speed * 0.95) + (speed * 0.05);
             if let Some(notice) = self.state.user_identity_engine.ingest_kinematics(bio) {
                 self.toasts.push("Identity Sync", notice, ToastLevel::Info);
@@ -375,9 +394,17 @@ impl eframe::App for StudioApp {
             self.shell_panic_recovered = true;
             ui.vertical_centered(|ui| {
                 ui.add_space(30.0);
-                ui.heading(egui::RichText::new("⚠️ Visual Shell Recovered").color(Color32::from_rgb(255, 100, 100)).strong());
-                ui.label("A graphics anomaly or layout fault was isolated by the STAB-01 boundary.");
-                ui.label("Core hypervisor background tasks, specialists, and state persist nominally.");
+                ui.heading(
+                    egui::RichText::new("⚠️ Visual Shell Recovered")
+                        .color(Color32::from_rgb(255, 100, 100))
+                        .strong(),
+                );
+                ui.label(
+                    "A graphics anomaly or layout fault was isolated by the STAB-01 boundary.",
+                );
+                ui.label(
+                    "Core hypervisor background tasks, specialists, and state persist nominally.",
+                );
                 if ui.button("🔄 Reset to Full Studio Mode").clicked() {
                     self.state.app_window_mode = AppWindowMode::FullStudio;
                     self.shell_panic_recovered = false;
@@ -399,7 +426,10 @@ impl eframe::App for StudioApp {
         render_transparent_hud(&ctx, &mut self.state);
 
         // Command Palette Modal
-        if let Some(action) = self.palette.render(&ctx, theme, Some(&self.state.capability_broker)) {
+        if let Some(action) = self
+            .palette
+            .render(&ctx, theme, Some(&self.state.capability_broker))
+        {
             self.execute_command(action, &ctx);
         }
 
@@ -432,7 +462,7 @@ impl eframe::App for StudioApp {
                 .frame(
                     egui::Frame::window(&ctx.global_style())
                         .fill(theme.panel_bg())
-                        .stroke(eframe::egui::Stroke::new(1.5, theme.accent()))
+                        .stroke(eframe::egui::Stroke::new(1.5_f32, theme.accent()))
                         .corner_radius(eframe::egui::CornerRadius::same(12))
                         .shadow(egui::Shadow {
                             offset: [0, 8],
@@ -444,9 +474,11 @@ impl eframe::App for StudioApp {
                 .show(&ctx, |ui| {
                     ui.horizontal(|ui| {
                         ui.label(
-                            egui::RichText::new("Track and master shortcuts, routines, and telemetry.")
-                                .color(Color32::from_rgb(180, 190, 210))
-                                .size(12.0),
+                            egui::RichText::new(
+                                "Track and master shortcuts, routines, and telemetry.",
+                            )
+                            .color(Color32::from_rgb(180, 190, 210))
+                            .size(12.0),
                         );
                         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                             ui.label(
@@ -481,26 +513,59 @@ impl eframe::App for StudioApp {
 
                                 egui::Frame::group(ui.style())
                                     .fill(bg)
-                                    .stroke(eframe::egui::Stroke::new(1.0, border))
+                                    .stroke(eframe::egui::Stroke::new(1.0_f32, border))
                                     .corner_radius(eframe::egui::CornerRadius::same(6))
                                     .show(ui, |ui| {
                                         ui.horizontal(|ui| {
                                             ui.label(egui::RichText::new(&ach.icon).size(20.0));
                                             ui.vertical(|ui| {
                                                 ui.horizontal(|ui| {
-                                                    ui.label(egui::RichText::new(&ach.title).strong());
+                                                    ui.label(
+                                                        egui::RichText::new(&ach.title).strong(),
+                                                    );
                                                     if ach.is_unlocked {
-                                                        ui.label(egui::RichText::new("✓ UNLOCKED").color(Color32::from_rgb(63, 185, 80)).strong().size(10.5));
+                                                        ui.label(
+                                                            egui::RichText::new("✓ UNLOCKED")
+                                                                .color(Color32::from_rgb(
+                                                                    63, 185, 80,
+                                                                ))
+                                                                .strong()
+                                                                .size(10.5),
+                                                        );
                                                     } else {
-                                                        ui.label(egui::RichText::new(SmolStr::new(format!("{}/{}", ach.current_progress, ach.target_progress))).color(Color32::GRAY).size(10.5));
+                                                        ui.label(
+                                                            egui::RichText::new(SmolStr::new(
+                                                                format!(
+                                                                    "{}/{}",
+                                                                    ach.current_progress,
+                                                                    ach.target_progress
+                                                                ),
+                                                            ))
+                                                            .color(Color32::GRAY)
+                                                            .size(10.5),
+                                                        );
                                                     }
                                                 });
-                                                ui.label(egui::RichText::new(&ach.description).size(11.0).color(Color32::from_rgb(180, 190, 210)));
+                                                ui.label(
+                                                    egui::RichText::new(&ach.description)
+                                                        .size(11.0)
+                                                        .color(Color32::from_rgb(180, 190, 210)),
+                                                );
                                             });
 
-                                            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                                                ui.label(egui::RichText::new(SmolStr::new(format!("+{} XP", ach.xp_reward))).color(Color32::from_rgb(255, 215, 0)).strong());
-                                            });
+                                            ui.with_layout(
+                                                egui::Layout::right_to_left(egui::Align::Center),
+                                                |ui| {
+                                                    ui.label(
+                                                        egui::RichText::new(SmolStr::new(format!(
+                                                            "+{} XP",
+                                                            ach.xp_reward
+                                                        )))
+                                                        .color(Color32::from_rgb(255, 215, 0))
+                                                        .strong(),
+                                                    );
+                                                },
+                                            );
                                         });
                                     });
                                 ui.add_space(3.0);
@@ -531,11 +596,16 @@ impl eframe::App for StudioApp {
             self.last_interaction_instant = now;
         }
 
-        let is_recent_interaction = now.duration_since(self.last_interaction_instant) < Duration::from_millis(1200);
+        let is_recent_interaction =
+            now.duration_since(self.last_interaction_instant) < Duration::from_millis(1200);
         let pacing = current_snap.pacing;
         self.last_rendered_generation = current_snap.bus_generation;
 
-        if is_state_dirty || is_recent_interaction || self.palette.is_open || self.state.is_ingame_overlay_open {
+        if is_state_dirty
+            || is_recent_interaction
+            || self.palette.is_open
+            || self.state.is_ingame_overlay_open
+        {
             // Actively interacting or state changed: pace at governor target frame duration
             ctx.request_repaint_after(Duration::from_millis(pacing.target_frame_ms()));
         } else {

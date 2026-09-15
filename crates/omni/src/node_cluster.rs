@@ -33,7 +33,9 @@ impl Default for GalacticClusteringEngine {
 
 impl GalacticClusteringEngine {
     pub fn new(clustering_threshold: f64) -> Self {
-        Self { clustering_threshold }
+        Self {
+            clustering_threshold,
+        }
     }
 
     /// Clusters a set of star-nodes into galaxies based on spatial and semantic proximity
@@ -53,7 +55,9 @@ impl GalacticClusteringEngine {
             while let Some(current) = queue.pop() {
                 for (other_id, other_node) in nodes {
                     if !visited.contains(other_id) {
-                        let dist = current.spatial_coord.semantic_distance_to(&other_node.spatial_coord);
+                        let dist = current
+                            .spatial_coord
+                            .semantic_distance_to(&other_node.spatial_coord);
                         if dist <= self.clustering_threshold {
                             cluster_members.push(other_id.clone());
                             visited.insert(other_id.clone());

@@ -22,14 +22,22 @@ impl Default for SpatialCoord {
 }
 
 impl SpatialCoord {
-    pub const ORIGIN: Self = Self { x: 0.0, y: 0.0, z: 0.0 };
+    pub const ORIGIN: Self = Self {
+        x: 0.0,
+        y: 0.0,
+        z: 0.0,
+    };
 
     pub fn new(x: f64, y: f64, z: f64) -> Self {
         Self { x, y, z }
     }
 
     pub fn from_array(arr: [f64; 3]) -> Self {
-        Self { x: arr[0], y: arr[1], z: arr[2] }
+        Self {
+            x: arr[0],
+            y: arr[1],
+            z: arr[2],
+        }
     }
 
     pub fn to_array(&self) -> [f64; 3] {
@@ -37,7 +45,11 @@ impl SpatialCoord {
     }
 
     pub fn from_f32(arr: [f32; 3]) -> Self {
-        Self { x: arr[0] as f64, y: arr[1] as f64, z: arr[2] as f64 }
+        Self {
+            x: arr[0] as f64,
+            y: arr[1] as f64,
+            z: arr[2] as f64,
+        }
     }
 
     pub fn to_f32(&self) -> [f32; 3] {
@@ -67,7 +79,10 @@ impl SpatialCoord {
 
     /// Calculate Chebyshev distance (maximum coordinate delta)
     pub fn chebyshev_distance_to(&self, other: &SpatialCoord) -> f64 {
-        (self.x - other.x).abs().max((self.y - other.y).abs()).max((self.z - other.z).abs())
+        (self.x - other.x)
+            .abs()
+            .max((self.y - other.y).abs())
+            .max((self.z - other.z).abs())
     }
 
     /// Calculate weighted semantic distance
@@ -77,7 +92,8 @@ impl SpatialCoord {
         let temporal_alignment = (self.y - other.y).abs() / 2000.0;
         let priority_alignment = (self.z - other.z).abs() / 2000.0;
 
-        let semantic_weight = (domain_proximity * 0.3 + temporal_alignment * 0.3 + priority_alignment * 0.4) * 0.5;
+        let semantic_weight =
+            (domain_proximity * 0.3 + temporal_alignment * 0.3 + priority_alignment * 0.4) * 0.5;
         euclidean * (1.0 + semantic_weight)
     }
 
@@ -136,9 +152,12 @@ impl SpatialCoord {
 
     /// Checks if coordinate is inside an axis-aligned bounding box [min, max]
     pub fn is_inside_bounds(&self, min: &SpatialCoord, max: &SpatialCoord) -> bool {
-        self.x >= min.x && self.x <= max.x
-            && self.y >= min.y && self.y <= max.y
-            && self.z >= min.z && self.z <= max.z
+        self.x >= min.x
+            && self.x <= max.x
+            && self.y >= min.y
+            && self.y <= max.y
+            && self.z >= min.z
+            && self.z <= max.z
     }
 }
 

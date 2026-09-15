@@ -41,7 +41,11 @@ pub struct MetadataIngestorConfig {
 impl Default for MetadataIngestorConfig {
     fn default() -> Self {
         Self {
-            watch_paths: vec![WorkspacePaths::from_config(WorkspaceConfig::default()).root().clone()],
+            watch_paths: vec![
+                WorkspacePaths::from_config(WorkspaceConfig::default())
+                    .root()
+                    .clone(),
+            ],
             poll_interval: Duration::from_secs(5),
             max_event_queue: 1000,
             compute_entropy: true,
@@ -288,7 +292,7 @@ impl MetadataIngestor {
         }
 
         // Analyze all queued events
-        let events: Vec<MetadataEvent> = self.event_queue.drain(..).collect();
+        let events: Vec<MetadataEvent> = std::mem::take(&mut self.event_queue);
         for event in events {
             let analysis = self.analyze_event(&event);
             results.push((event, analysis));

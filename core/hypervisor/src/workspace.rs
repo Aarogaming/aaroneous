@@ -1,7 +1,7 @@
 // Aaroneous Workspace Paths
 // Platform-agnostic path resolution - eliminates Windows lock-in.
 
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 /// Config for workspace root resolution
 #[derive(Debug, Clone, Default)]
@@ -27,7 +27,7 @@ pub struct WorkspacePaths {
 
 impl WorkspacePaths {
     pub fn from_config(config: WorkspaceConfig) -> Self {
-        let root = config.explicit_root.unwrap_or_else(|| default_workspace_root());
+        let root = config.explicit_root.unwrap_or_else(default_workspace_root);
         Self { root }
     }
 
@@ -89,10 +89,10 @@ impl Default for WorkspacePaths {
 /// Resolve the Aaroneous workspace root directory
 /// Uses injected config, falls back to platform-appropriate defaults
 pub fn workspace_root(config: &WorkspaceConfig) -> PathBuf {
-    if let Some(explicit) = &config.explicit_root {
-        if explicit.exists() {
-            return explicit.clone();
-        }
+    if let Some(explicit) = &config.explicit_root
+        && explicit.exists()
+    {
+        return explicit.clone();
     }
     default_workspace_root()
 }

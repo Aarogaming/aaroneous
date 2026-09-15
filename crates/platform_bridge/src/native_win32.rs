@@ -2,45 +2,45 @@
 //! Native Win32 GDI screen capture and SendInput peripheral bridge.
 //! Strictly double-guarded by compile-time feature flags AND runtime environment checks.
 
-#[cfg(feature = "native-win32")]
+#[cfg(all(target_os = "windows", feature = "native-win32"))]
 use anyhow::Context;
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use async_trait::async_trait;
 use std::time::{SystemTime, UNIX_EPOCH};
-#[cfg(feature = "native-win32")]
+#[cfg(all(target_os = "windows", feature = "native-win32"))]
 use tracing::info;
 use tracing::warn;
 
-#[cfg(feature = "native-win32")]
+#[cfg(all(target_os = "windows", feature = "native-win32"))]
 use crate::traits::HidAction;
-use crate::traits::{HidCommand, MarionetteHost, ProbingTrace, VisualObservation};
+use crate::traits::{HidCommand, PlatformHost, ProbingTrace, VisualObservation};
 
-#[cfg(feature = "native-win32")]
+#[cfg(all(target_os = "windows", feature = "native-win32"))]
 use windows::Win32::Foundation::{HWND, POINT};
-#[cfg(feature = "native-win32")]
+#[cfg(all(target_os = "windows", feature = "native-win32"))]
 use windows::Win32::Graphics::Gdi::{
-    CreateCompatibleBitmap, CreateCompatibleDC, DeleteDC, DeleteObject, GetDC, GetDIBits,
-    ReleaseDC, SelectObject, StretchBlt, BITMAPINFO, BITMAPINFOHEADER, DIB_RGB_COLORS, HBITMAP,
-    HDC, SRCCOPY,
+    BITMAPINFO, BITMAPINFOHEADER, CreateCompatibleBitmap, CreateCompatibleDC, DIB_RGB_COLORS,
+    DeleteDC, DeleteObject, GetDC, GetDIBits, HBITMAP, HDC, ReleaseDC, SRCCOPY, SelectObject,
+    StretchBlt,
 };
-#[cfg(feature = "native-win32")]
+#[cfg(all(target_os = "windows", feature = "native-win32"))]
 use windows::Win32::UI::Input::KeyboardAndMouse::{
-    SendInput, INPUT, INPUT_0, INPUT_MOUSE, MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP,
-    MOUSEEVENTF_MOVE, MOUSEINPUT,
+    INPUT, INPUT_0, INPUT_MOUSE, MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP, MOUSEEVENTF_MOVE,
+    MOUSEINPUT, SendInput,
 };
-#[cfg(feature = "native-win32")]
+#[cfg(all(target_os = "windows", feature = "native-win32"))]
 use windows::Win32::UI::WindowsAndMessaging::{
     GetCursorPos, GetSystemMetrics, SYSTEM_METRICS_INDEX,
 };
 
-/// Native Win32 Marionette Host implementation
+/// Native Win32 PlatformHost implementation
 #[allow(dead_code)]
-pub struct NativeWin32Marionette {
-    #[cfg(feature = "native-win32")]
+pub struct Win32PlatformHost {
+    #[cfg(all(target_os = "windows", feature = "native-win32"))]
     hdc_screen: Option<HDC>,
-    #[cfg(feature = "native-win32")]
+    #[cfg(all(target_os = "windows", feature = "native-win32"))]
     hdc_memory: Option<HDC>,
-    #[cfg(feature = "native-win32")]
+    #[cfg(all(target_os = "windows", feature = "native-win32"))]
     hbitmap: Option<HBITMAP>,
     screen_width: i32,
     screen_height: i32,
@@ -48,23 +48,27 @@ pub struct NativeWin32Marionette {
     pub allow_live_input: bool,
 }
 
-unsafe impl Send for NativeWin32Marionette {}
-unsafe impl Sync for NativeWin32Marionette {}
+unsafe impl Send for Win32PlatformHost {}
+unsafe impl Sync for Win32PlatformHost {}
 
-impl Default for NativeWin32Marionette {
+impl Default for Win32PlatformHost {
     fn default() -> Self {
         Self::new(false)
     }
 }
 
-impl NativeWin32Marionette {
+/// Backwards compatibility alias for `Win32PlatformHost`
+#[deprecated(note = "Use Win32PlatformHost instead")]
+pub type NativeWin32Marionette = Win32PlatformHost;
+
+impl Win32PlatformHost {
     pub fn new(allow_live_input: bool) -> Self {
         Self {
-            #[cfg(feature = "native-win32")]
+            #[cfg(all(target_os = "windows", feature = "native-win32"))]
             hdc_screen: None,
-            #[cfg(feature = "native-win32")]
+            #[cfg(all(target_os = "windows", feature = "native-win32"))]
             hdc_memory: None,
-            #[cfg(feature = "native-win32")]
+            #[cfg(all(target_os = "windows", feature = "native-win32"))]
             hbitmap: None,
             screen_width: 0,
             screen_height: 0,
@@ -75,7 +79,7 @@ impl NativeWin32Marionette {
 
     /// Initializes Win32 GDI screen capture handles
     pub fn initialize(&mut self) -> Result<()> {
-        #[cfg(feature = "native-win32")]
+        #[cfg(all(target_os = "windows", feature = "native-win32"))]
         unsafe {
             self.hdc_screen = Some(GetDC(Some(HWND::default())));
             let hdc_screen = self.hdc_screen.context("Failed to get desktop DC")?;
@@ -91,7 +95,7 @@ impl NativeWin32Marionette {
 
             SelectObject(hdc_memory, hbitmap.into());
             info!(
-                target: "marionette::native",
+                target: "platform_bridge::win32",
                 width = self.screen_width,
                 height = self.screen_height,
                 "Win32 GDI screen capture initialized"
@@ -115,9 +119,9 @@ impl NativeWin32Marionette {
     }
 }
 
-impl Drop for NativeWin32Marionette {
+impl Drop for Win32PlatformHost {
     fn drop(&mut self) {
-        #[cfg(feature = "native-win32")]
+        #[cfg(all(target_os = "windows", feature = "native-win32"))]
         unsafe {
             if let Some(hbitmap) = self.hbitmap.take() {
                 let _ = DeleteObject(hbitmap.into());
@@ -133,9 +137,9 @@ impl Drop for NativeWin32Marionette {
 }
 
 #[async_trait]
-impl MarionetteHost for NativeWin32Marionette {
+impl PlatformHost for Win32PlatformHost {
     async fn pull_visual_perception(&mut self) -> Result<VisualObservation> {
-        #[cfg(feature = "native-win32")]
+        #[cfg(all(target_os = "windows", feature = "native-win32"))]
         unsafe {
             let hdc_screen = self.hdc_screen.context("GDI screen DC not initialized")?;
             let hdc_memory = self.hdc_memory.context("GDI memory DC not initialized")?;
@@ -207,7 +211,7 @@ impl MarionetteHost for NativeWin32Marionette {
             })
         }
 
-        #[cfg(not(feature = "native-win32"))]
+        #[cfg(not(all(target_os = "windows", feature = "native-win32")))]
         {
             bail!("native-win32 feature is disabled in this build");
         }
@@ -252,20 +256,20 @@ impl MarionetteHost for NativeWin32Marionette {
     async fn inject_hid_event(&mut self, command: HidCommand) -> Result<()> {
         if !self.check_host_safety_permit() {
             warn!(
-                target: "marionette::native",
+                target: "platform_bridge::win32",
                 seq = command.sequence_id,
                 "Live input blocked by safety guard (AARONEOUS_ALLOW_HOST_INPUT != 1)"
             );
             return Ok(());
         }
 
-        #[cfg(feature = "native-win32")]
+        #[cfg(all(target_os = "windows", feature = "native-win32"))]
         unsafe {
             // Emergency Failsafe: if cursor is parked in top-left screen corner (0,0), abort input immediately
             let mut cursor_pt = POINT { x: 0, y: 0 };
             if GetCursorPos(&mut cursor_pt).is_ok() && cursor_pt.x <= 5 && cursor_pt.y <= 5 {
                 warn!(
-                    target: "marionette::native",
+                    target: "platform_bridge::win32",
                     pos_x = cursor_pt.x,
                     pos_y = cursor_pt.y,
                     "Emergency failsafe triggered: cursor in corner (0,0). Aborting synthetic input injection."
@@ -409,7 +413,7 @@ impl DxgiHardwareFrameBuffer {
 /// Uses the Windows DXGI Desktop Duplication API for GPU-accelerated
 /// screen capture at near-zero CPU overhead. Falls back to GDI when
 /// DXGI is unavailable (e.g., remote desktop sessions).
-#[cfg(feature = "native-win32")]
+#[cfg(all(target_os = "windows", feature = "native-win32"))]
 pub struct DxgiCaptureBackend {
     duplication: Option<windows::Win32::Graphics::Dxgi::IDXGIOutputDuplication>,
     device: Option<windows::Win32::Graphics::Direct3D11::ID3D11Device>,
@@ -420,7 +424,7 @@ pub struct DxgiCaptureBackend {
     initialized: bool,
 }
 
-#[cfg(feature = "native-win32")]
+#[cfg(all(target_os = "windows", feature = "native-win32"))]
 impl DxgiCaptureBackend {
     pub fn new() -> Self {
         Self {
@@ -439,7 +443,6 @@ impl DxgiCaptureBackend {
     /// Creates a D3D11 device, enumerates adapters/outputs, and acquires
     /// the desktop output duplication interface.
     pub fn initialize(&mut self) -> Result<()> {
-        use windows::core::Interface;
         use windows::Win32::Foundation::HMODULE;
         use windows::Win32::Graphics::Direct3D::*;
         use windows::Win32::Graphics::Direct3D11::*;
@@ -447,6 +450,7 @@ impl DxgiCaptureBackend {
             DXGI_FORMAT_B8G8R8A8_UNORM, DXGI_SAMPLE_DESC,
         };
         use windows::Win32::Graphics::Dxgi::*;
+        use windows::core::Interface;
 
         unsafe {
             // Create D3D11 device with hardware acceleration
@@ -542,9 +546,9 @@ impl DxgiCaptureBackend {
     ///
     /// Returns the frame as a BGRA byte slice suitable for luminance conversion.
     pub fn capture_frame_bgra(&mut self, buffer: &mut [u8]) -> Result<()> {
-        use windows::core::Interface;
         use windows::Win32::Graphics::Direct3D11::*;
         use windows::Win32::Graphics::Dxgi::*;
+        use windows::core::Interface;
 
         if !self.initialized {
             bail!("DXGI capture not initialized");
@@ -628,10 +632,17 @@ impl DxgiCaptureBackend {
     }
 }
 
+#[cfg(all(target_os = "windows", feature = "native-win32"))]
+impl Default for DxgiCaptureBackend {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// Convenience: capture a single frame via DXGI and convert to 128x128 luminance grid.
 ///
 /// Returns `None` if DXGI is unavailable or the frame capture fails.
-#[cfg(feature = "native-win32")]
+#[cfg(all(target_os = "windows", feature = "native-win32"))]
 pub fn capture_dxgi_frame_128x128() -> Option<Vec<f32>> {
     use DxgiCaptureBackend;
 
@@ -670,7 +681,7 @@ pub fn capture_dxgi_frame_128x128() -> Option<Vec<f32>> {
     Some(grid)
 }
 
-#[cfg(not(feature = "native-win32"))]
+#[cfg(not(all(target_os = "windows", feature = "native-win32")))]
 pub fn capture_dxgi_frame_128x128() -> Option<Vec<f32>> {
     None
 }

@@ -110,7 +110,8 @@ pub fn load_patterns_from_dir(dir: &Path) -> Result<Vec<PatternDefinition>, Stri
         return Ok(patterns);
     }
 
-    let entries = fs::read_dir(dir).map_err(|e| format!("Failed to read pattern directory: {e}"))?;
+    let entries =
+        fs::read_dir(dir).map_err(|e| format!("Failed to read pattern directory: {e}"))?;
 
     for entry in entries {
         let entry = match entry {
@@ -229,11 +230,10 @@ fn review_source_file(
             for (idx, line) in lines.iter().enumerate() {
                 if line.contains(anti) {
                     report.opportunities_identified += 1;
-                    let recommendation = pattern
-                        .recommendations
-                        .first()
-                        .cloned()
-                        .unwrap_or_else(|| "Consider refactoring to recommended pattern.".to_string());
+                    let recommendation =
+                        pattern.recommendations.first().cloned().unwrap_or_else(|| {
+                            "Consider refactoring to recommended pattern.".to_string()
+                        });
 
                     report.observations.push(PatternObservation {
                         pattern_id: pattern.id.clone(),

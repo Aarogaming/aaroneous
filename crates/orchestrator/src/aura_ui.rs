@@ -3,10 +3,8 @@
 //! This module provides backward-compatible type aliases.
 
 pub use crate::aura_ui_manifest::{
-    AuraUIDesignSystem as AuraUiManifest,
-    AuraColorScheme as AuraColors,
-    AuraFontConfig as AuraFont,
-    default_aura_ui_manifest as default_aura_ui,
+    AuraColorScheme as AuraColors, AuraFontConfig as AuraFont,
+    AuraUIDesignSystem as AuraUiManifest, default_aura_ui_manifest as default_aura_ui,
 };
 
 #[cfg(test)]

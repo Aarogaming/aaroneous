@@ -24,11 +24,7 @@ impl GgufProvider {
         Self { config }
     }
 
-    pub async fn chat_completion(
-        &self,
-        system_prompt: &str,
-        user_prompt: &str,
-    ) -> Result<String> {
+    pub async fn chat_completion(&self, system_prompt: &str, user_prompt: &str) -> Result<String> {
         let model_path = self
             .config
             .gguf_model_path
@@ -36,15 +32,14 @@ impl GgufProvider {
             .ok_or_else(|| anyhow::anyhow!("No GGUF model path configured"))?;
 
         if !std::path::Path::new(model_path).exists() {
-            return Err(anyhow::anyhow!(
-                "GGUF model file not found: {}",
-                model_path
-            ));
+            return Err(anyhow::anyhow!("GGUF model file not found: {}", model_path));
         }
 
         #[cfg(feature = "llama-gguf")]
         {
-            return self.run_inference(model_path, system_prompt, user_prompt).await;
+            return self
+                .run_inference(model_path, system_prompt, user_prompt)
+                .await;
         }
 
         #[cfg(not(feature = "llama-gguf"))]
@@ -67,13 +62,16 @@ impl GgufProvider {
         user_prompt: &str,
     ) -> Result<String> {
         let model_path = model_path.to_string();
-        let prompt = format!("<|im_start|>system\n{}\n<|im_start|>user\n{}\n<|im_start|>assistant\n", system_prompt, user_prompt);
+        let prompt = format!(
+            "<|im_start|>system\n{}\n<|im_start|>user\n{}\n<|im_start|>assistant\n",
+            system_prompt, user_prompt
+        );
         let max_tokens = self.config.max_tokens;
         let temperature = self.config.temperature;
 
         tokio::task::spawn_blocking(move || {
             let engine = llama_gguf::engine::Engine::load(llama_gguf::engine::EngineConfig {
-                model_path: model_path,
+                model_path,
                 max_tokens: max_tokens as usize,
                 temperature,
                 ..Default::default()

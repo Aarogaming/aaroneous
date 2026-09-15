@@ -76,8 +76,12 @@ mod tests {
     fn test_compute_padding_edge_cases() {
         for offset in 0u64..=256 {
             let pad = compute_padding(offset);
-            assert!((offset as usize + pad).is_multiple_of(ALIGNMENT_BYTES),
-                "offset={} pad={} not aligned", offset, pad);
+            assert!(
+                (offset as usize + pad).is_multiple_of(ALIGNMENT_BYTES),
+                "offset={} pad={} not aligned",
+                offset,
+                pad
+            );
         }
     }
 }

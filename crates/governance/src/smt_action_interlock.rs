@@ -1,24 +1,22 @@
 // crates/governance/src/smt_action_interlock.rs
-//! Formal SMT & Thermodynamic Pre-Execution Action Interlock.
+//! Structural and resource-bound pre-execution action interlock.
 //!
-//! Provides a mathematically provable gate enforcing:
-//! 1. Formal SMT non-interference across concurrent action graphs.
+//! Provides source-level checks for:
+//! 1. Register-footprint interference across graph pairs (separate evaluation).
 //! 2. Strict 7-exponent SI dimensional lattice unit checks ([M, L, T, I, Theta, N, J]).
 //! 3. Thermodynamic free-energy dissipation bounds (Delta F <= epsilon).
 //! 4. Hardware and spatial perimeter containment bounds.
 //!
 //! If any verification check fails, execution is aborted and the hardware interlock triggers.
 
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::sync::{Arc, RwLock};
 use thiserror::Error;
 
-use si_ir::NativeComputationalGraph;
 use crate::lattice_verifier::{LatticeVerifier, VerificationReport};
 use crate::z3_prover::{NonInterferenceReport, Z3Prover};
+use si_ir::NativeComputationalGraph;
 
 /// Structured errors emitted during formal SMT verification, thermodynamic gating, and interlock checks.
 #[derive(Debug, Error, Clone, PartialEq)]
@@ -48,43 +46,6 @@ pub enum GovernanceError {
     ValidationError(String),
 }
 
-/// Pre-computed SMT Proof Cache Key
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct SmtProofKey {
-    pub graph_node_count: usize,
-    pub energy_discretized: u64,
-}
-
-/// SMT Non-Interference Proof Cache (PERF-02: < 1us Fast Path)
-#[derive(Default)]
-pub struct SmtProofCache {
-    cache: Arc<RwLock<HashMap<SmtProofKey, bool>>>,
-}
-
-impl SmtProofCache {
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    pub fn get(&self, key: &SmtProofKey) -> Option<bool> {
-        self.cache.read().ok().and_then(|guard| guard.get(key).copied())
-    }
-
-    pub fn insert(&self, key: SmtProofKey, is_valid: bool) {
-        if let Ok(mut guard) = self.cache.write() {
-            guard.insert(key, is_valid);
-        }
-    }
-
-    pub fn len(&self) -> usize {
-        self.cache.read().map(|g| g.len()).unwrap_or(0)
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.len() == 0
-    }
-}
-
 /// The execution outcome and audit proof produced by the interlock
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct InterlockAuditCertificate {
@@ -93,6 +54,7 @@ pub struct InterlockAuditCertificate {
     pub timestamp_ms: u64,
     pub free_energy_dissipation: f64,
     pub lattice_report: VerificationReport,
+    /// False for single-graph checks; pairwise analysis has its own report.
     pub smt_non_interference_verified: bool,
     pub denial_reason: Option<String>,
 }
@@ -104,7 +66,6 @@ pub struct SmtActionInterlock {
     max_free_energy_bound: f64,
     emergency_killswitch_tripped: AtomicBool,
     interlock_eval_counter: AtomicU64,
-    proof_cache: SmtProofCache,
 }
 
 impl SmtActionInterlock {
@@ -116,13 +77,7 @@ impl SmtActionInterlock {
             max_free_energy_bound,
             emergency_killswitch_tripped: AtomicBool::new(false),
             interlock_eval_counter: AtomicU64::new(1),
-            proof_cache: SmtProofCache::new(),
         }
-    }
-
-    /// Access the pre-computed SMT proof cache
-    pub fn proof_cache(&self) -> &SmtProofCache {
-        &self.proof_cache
     }
 
     /// Access the Z3 SMT prover
@@ -135,8 +90,11 @@ impl SmtActionInterlock {
         Self::new(0.05)
     }
 
-    /// Evaluates action graph with strict GovernanceError return type, proving non-interference and boundary safety.
-    pub fn evaluate_action_gate(&self, graph: &NativeComputationalGraph) -> Result<InterlockAuditCertificate, GovernanceError> {
+    /// Checks one graph with typed errors. Pairwise interference is checked separately.
+    pub fn evaluate_action_gate(
+        &self,
+        graph: &NativeComputationalGraph,
+    ) -> Result<InterlockAuditCertificate, GovernanceError> {
         if self.emergency_killswitch_tripped.load(Ordering::Acquire) {
             return Err(GovernanceError::KillswitchTripped(
                 "Execution forbidden by active emergency killswitch".to_string(),
@@ -154,18 +112,25 @@ impl SmtActionInterlock {
             });
         }
 
-        let cert = self.evaluate_action_graph(graph).map_err(|e| GovernanceError::ValidationError(e.to_string()))?;
+        let cert = self
+            .evaluate_action_graph(graph)
+            .map_err(|e| GovernanceError::ValidationError(e.to_string()))?;
         if !cert.is_authorized {
             return Err(GovernanceError::ValidationError(
-                cert.denial_reason.clone().unwrap_or_else(|| "Interlock authorization denied".to_string()),
+                cert.denial_reason
+                    .clone()
+                    .unwrap_or_else(|| "Interlock authorization denied".to_string()),
             ));
         }
 
         Ok(cert)
     }
 
-    /// Evaluates and formally proves a single action graph before Cranelift JIT or hardware dispatch.
-    pub fn evaluate_action_graph(&self, graph: &NativeComputationalGraph) -> Result<InterlockAuditCertificate> {
+    /// Runs structural and resource checks for one graph before dispatch.
+    pub fn evaluate_action_graph(
+        &self,
+        graph: &NativeComputationalGraph,
+    ) -> Result<InterlockAuditCertificate> {
         let eval_id = self.interlock_eval_counter.fetch_add(1, Ordering::Relaxed);
         let ts = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
@@ -177,32 +142,12 @@ impl SmtActionInterlock {
             bail!("Hardware interlock tripped: Execution forbidden by active emergency killswitch");
         }
 
-        // Fast path: Check pre-computed SMT proof cache
-        let cache_key = SmtProofKey {
-            graph_node_count: graph.nodes.len(),
-            energy_discretized: (graph.thermodynamic_free_energy * 1000.0) as u64,
-        };
-
-        if let Some(cached_valid) = self.proof_cache.get(&cache_key) {
-            if cached_valid {
-                return Ok(InterlockAuditCertificate {
-                    is_authorized: true,
-                    graph_id: eval_id,
-                    timestamp_ms: ts,
-                    free_energy_dissipation: graph.thermodynamic_free_energy,
-                    lattice_report: VerificationReport {
-                        is_valid: true,
-                        total_nodes: graph.nodes.len(),
-                        free_energy: graph.thermodynamic_free_energy,
-                        dimensional_checks_passed: graph.nodes.len(),
-                        spatial_checks_passed: 1,
-                        diagnostics: vec!["Fast-path SMT proof cache hit (< 1us)".to_string()],
-                    },
-                    smt_non_interference_verified: true,
-                    denial_reason: None,
-                });
-            }
+        // Every graph is checked in full. Node count and rounded energy do not
+        // identify graph content and must never be used to reuse authorization.
+        if !self.max_free_energy_bound.is_finite() || self.max_free_energy_bound < 0.0 {
+            bail!("Invalid non-finite or negative energy policy bound");
         }
+        self.z3_prover.prove_action_safety(graph)?;
 
         // 2. Perform Structural Lattice and 7-Exponent SI Dimensional Verification
         let lattice_report = match self.lattice_verifier.verify(graph) {
@@ -243,16 +188,13 @@ impl SmtActionInterlock {
             });
         }
 
-        // Cache successful evaluation for < 1us subsequent lookups
-        self.proof_cache.insert(cache_key, true);
-
         Ok(InterlockAuditCertificate {
             is_authorized: true,
             graph_id: eval_id,
             timestamp_ms: ts,
             free_energy_dissipation: graph.thermodynamic_free_energy,
             lattice_report,
-            smt_non_interference_verified: true,
+            smt_non_interference_verified: false,
             denial_reason: None,
         })
     }
@@ -283,7 +225,12 @@ impl SmtActionInterlock {
     }
 
     /// Evaluates custom algebraic constraints and invariant predicates against state vectors
-    pub fn verify_algebraic_invariant<F>(&self, state_name: &str, state_vector: &[f64], predicate: F) -> Result<bool>
+    pub fn verify_algebraic_invariant<F>(
+        &self,
+        state_name: &str,
+        state_vector: &[f64],
+        predicate: F,
+    ) -> Result<bool>
     where
         F: Fn(&[f64]) -> bool,
     {
@@ -294,18 +241,23 @@ impl SmtActionInterlock {
         if predicate(state_vector) {
             Ok(true)
         } else {
-            bail!("Algebraic invariant violation on state '{}': constraint predicate failed", state_name);
+            bail!(
+                "Algebraic invariant violation on state '{}': constraint predicate failed",
+                state_name
+            );
         }
     }
 
     /// Manually or automatically trip the hardware emergency killswitch
     pub fn trip_killswitch(&self) {
-        self.emergency_killswitch_tripped.store(true, Ordering::Release);
+        self.emergency_killswitch_tripped
+            .store(true, Ordering::Release);
     }
 
     /// Reset emergency killswitch after human supervisor audit
     pub fn reset_killswitch(&self) {
-        self.emergency_killswitch_tripped.store(false, Ordering::Release);
+        self.emergency_killswitch_tripped
+            .store(false, Ordering::Release);
     }
 
     /// Query killswitch state
@@ -353,7 +305,10 @@ mod tests {
                 size_bytes: 1024,
                 align: 64,
             },
-            type_lattice: NativeTypeLattice::PrimitiveInt { bits: 64, signed: false },
+            type_lattice: NativeTypeLattice::PrimitiveInt {
+                bits: 64,
+                signed: false,
+            },
             energy_cost: 0.001,
             dependencies: Vec::new(),
         };
@@ -361,7 +316,7 @@ mod tests {
 
         let cert = interlock.evaluate_action_graph(&graph).unwrap();
         assert!(cert.is_authorized);
-        assert!(cert.smt_non_interference_verified);
+        assert!(!cert.smt_non_interference_verified);
         assert!(cert.denial_reason.is_none());
     }
 
@@ -374,11 +329,14 @@ mod tests {
         let cert = interlock.evaluate_action_graph(&graph).unwrap();
         assert!(!cert.is_authorized);
         let reason = cert.denial_reason.unwrap();
-        assert!(reason.contains("Thermodynamic dissipation exceeded") || reason.contains("exceeds strict bound"));
+        assert!(
+            reason.contains("Thermodynamic dissipation exceeded")
+                || reason.contains("exceeds strict bound")
+        );
     }
 
     #[test]
-    fn test_smt_proof_cache_hit() {
+    fn equal_size_graphs_are_independently_verified() {
         let interlock = SmtActionInterlock::new(0.10);
         let mut graph = NativeComputationalGraph::new();
         graph.thermodynamic_free_energy = 0.02;
@@ -389,21 +347,53 @@ mod tests {
                 size_bytes: 1024,
                 align: 64,
             },
-            type_lattice: NativeTypeLattice::PrimitiveInt { bits: 64, signed: false },
+            type_lattice: NativeTypeLattice::PrimitiveInt {
+                bits: 64,
+                signed: false,
+            },
             energy_cost: 0.001,
             dependencies: Vec::new(),
         };
         graph.nodes.insert(1, node);
 
-        // First evaluation computes and inserts into cache
-        let cert1 = interlock.evaluate_action_graph(&graph).unwrap();
-        assert!(cert1.is_authorized);
-        assert_eq!(interlock.proof_cache().len(), 1);
+        assert!(
+            interlock
+                .evaluate_action_graph(&graph)
+                .unwrap()
+                .is_authorized
+        );
+        graph.nodes.get_mut(&1).unwrap().opcode = MachineOpcode::Alloc {
+            size_bytes: 64 * 1024 * 1024 + 1,
+            align: 64,
+        };
+        assert!(
+            !interlock
+                .evaluate_action_graph(&graph)
+                .unwrap()
+                .is_authorized
+        );
+        assert!(interlock.evaluate_action_gate(&graph).is_err());
+    }
 
-        // Second evaluation hits the pre-computed proof cache (< 1us)
-        let cert2 = interlock.evaluate_action_graph(&graph).unwrap();
-        assert!(cert2.is_authorized);
-        assert!(cert2.lattice_report.diagnostics[0].contains("Fast-path SMT proof cache hit"));
+    #[test]
+    fn non_finite_inputs_and_policy_fail_closed() {
+        for energy in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY, -1.0] {
+            let mut graph = NativeComputationalGraph::new();
+            graph.thermodynamic_free_energy = energy;
+            let interlock = SmtActionInterlock::strict();
+            assert!(
+                !interlock
+                    .evaluate_action_graph(&graph)
+                    .unwrap()
+                    .is_authorized
+            );
+            assert!(interlock.evaluate_action_gate(&graph).is_err());
+            assert!(
+                SmtActionInterlock::new(energy)
+                    .evaluate_action_graph(&NativeComputationalGraph::new())
+                    .is_err()
+            );
+        }
     }
 
     #[test]
@@ -448,7 +438,9 @@ mod tests {
         let mut graph_b = NativeComputationalGraph::new();
         graph_b.thermodynamic_free_energy = 0.15; // Exceeds bound
 
-        let results = interlock.batch_verify_action_graphs(&[&graph_a, &graph_b]).unwrap();
+        let results = interlock
+            .batch_verify_action_graphs(&[&graph_a, &graph_b])
+            .unwrap();
         assert_eq!(results.len(), 2);
         assert!(results[0].is_authorized);
         assert!(!results[1].is_authorized);
@@ -461,7 +453,9 @@ mod tests {
         // 1. Thermodynamic bound exceeded
         let mut high_energy_graph = NativeComputationalGraph::new();
         high_energy_graph.thermodynamic_free_energy = 0.12;
-        let err = interlock.evaluate_action_gate(&high_energy_graph).unwrap_err();
+        let err = interlock
+            .evaluate_action_gate(&high_energy_graph)
+            .unwrap_err();
         match err {
             GovernanceError::ThermodynamicBoundExceeded { actual, max } => {
                 assert!((actual - 0.12).abs() < 1e-6);

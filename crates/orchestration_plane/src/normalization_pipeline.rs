@@ -1,9 +1,9 @@
 // Normalization Pipeline - Literal Systems Engineering Implementation
 // Scans codebase for violations of ACC standards
 
-use std::path::{Path, PathBuf};
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
+use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum InvariantSeverity {
@@ -55,6 +55,10 @@ impl Default for NormalizationPipeline {
 }
 
 impl NormalizationPipeline {
+    pub fn workspace_root(&self) -> &Path {
+        &self.workspace_root
+    }
+
     pub fn new(workspace_root: PathBuf) -> Self {
         Self { workspace_root }
     }
@@ -64,21 +68,27 @@ impl NormalizationPipeline {
         let mut scanned_files = Vec::new();
         let mut violations = Vec::new();
 
-        for entry in walkdir::WalkDir::new(path).into_iter().filter_map(|e| e.ok()) {
-            if entry.file_type().is_file() {
-                if let Some(ext) = entry.path().extension() {
-                    if ext == "rs" {
-                        scanned_files.push(entry.path().to_path_buf());
-                        
-                        if let Ok(content) = std::fs::read_to_string(entry.path()) {
-                            violations.extend(self.analyze_source(&content, entry.path()));
-                        }
-                    }
+        for entry in walkdir::WalkDir::new(path)
+            .into_iter()
+            .filter_map(|e| e.ok())
+        {
+            if entry.file_type().is_file()
+                && let Some(ext) = entry.path().extension()
+                && ext == "rs"
+            {
+                scanned_files.push(entry.path().to_path_buf());
+
+                if let Ok(content) = std::fs::read_to_string(entry.path()) {
+                    violations.extend(self.analyze_source(&content, entry.path()));
                 }
             }
         }
 
-        Ok(IngestionPlan { target_path: path.to_path_buf(), scanned_files, violations })
+        Ok(IngestionPlan {
+            target_path: path.to_path_buf(),
+            scanned_files,
+            violations,
+        })
     }
 
     fn analyze_source(&self, source: &str, source_path: &Path) -> Vec<InvariantViolation> {
@@ -89,7 +99,8 @@ impl NormalizationPipeline {
             violations.push(InvariantViolation {
                 file: source_path.to_path_buf(),
                 line: 0,
-                description: "Function contains .unwrap() or .expect() - use Result propagation".to_string(),
+                description: "Function contains .unwrap() or .expect() - use Result propagation"
+                    .to_string(),
                 severity: InvariantSeverity::Warning,
             });
         }
@@ -118,7 +129,10 @@ impl NormalizationPipeline {
     }
 
     /// Apply AST-based remediation to violating files using AdaptationEngine's PatternRewriter
-    pub fn apply_remediation(&self, plan: &IngestionPlan) -> Result<Vec<PathBuf>, Box<dyn std::error::Error>> {
+    pub fn apply_remediation(
+        &self,
+        plan: &IngestionPlan,
+    ) -> Result<Vec<PathBuf>, Box<dyn std::error::Error>> {
         use adaptation_engine::PatternRewriter;
 
         let mut remediated_files = Vec::new();
@@ -134,7 +148,8 @@ impl NormalizationPipeline {
                 &source,
                 ":[expr].unwrap()",
                 ":[expr].ok_or_else(|| anyhow::anyhow!(\"unwrap failed\"))?",
-            ).unwrap_or((source.clone(), vec![]));
+            )
+            .unwrap_or((source.clone(), vec![]));
 
             // 2. Remediate `panic!(:[msg])` with Result error return
             let (final_source, _) = PatternRewriter::rewrite_source(
@@ -142,7 +157,8 @@ impl NormalizationPipeline {
                 &unwrapped_source,
                 "panic!(:[msg]);",
                 "return Err(anyhow::anyhow!(:[msg]));",
-            ).unwrap_or((unwrapped_source, vec![]));
+            )
+            .unwrap_or((unwrapped_source, vec![]));
 
             // Write back the remediated code if modified
             if final_source != source {
@@ -155,35 +171,51 @@ impl NormalizationPipeline {
     }
 
     /// Generate normalization patch for the plan
-    pub fn generate_normalization_patch(&self, plan: &IngestionPlan) -> Result<NormalizationReport, Box<dyn std::error::Error>> {
+    pub fn generate_normalization_patch(
+        &self,
+        plan: &IngestionPlan,
+    ) -> Result<NormalizationReport, Box<dyn std::error::Error>> {
         let mut diff_lines = Vec::new();
-        
+
         for violation in &plan.violations {
             match violation.severity {
                 InvariantSeverity::Warning => {
-                    diff_lines.push(format!("[WARNING] {}: {}", violation.file.display(), violation.description));
+                    diff_lines.push(format!(
+                        "[WARNING] {}: {}",
+                        violation.file.display(),
+                        violation.description
+                    ));
                     diff_lines.push("- Consider using Result<T, E> instead".to_string());
                 }
                 InvariantSeverity::Error => {
-                    diff_lines.push(format!("[ERROR] {}: {}", violation.file.display(), violation.description));
+                    diff_lines.push(format!(
+                        "[ERROR] {}: {}",
+                        violation.file.display(),
+                        violation.description
+                    ));
                     diff_lines.push("- Must be refactored to use safe error handling".to_string());
                 }
                 InvariantSeverity::Critical => {
                     diff_lines.push(format!("[CRITICAL] {}", violation.file.display()));
-                    diff_lines.push("Immediate action required - system cannot be certified".to_string());
+                    diff_lines
+                        .push("Immediate action required - system cannot be certified".to_string());
                 }
             }
             diff_lines.push("".to_string());
         }
 
-        let has_errors = plan.violations.iter().any(|v| v.severity == InvariantSeverity::Error || v.severity == InvariantSeverity::Critical);
+        let has_errors = plan.violations.iter().any(|v| {
+            v.severity == InvariantSeverity::Error || v.severity == InvariantSeverity::Critical
+        });
         let certified = !has_errors;
 
-        Ok(NormalizationReport { 
-            plan: plan.clone(), 
-            patch_diff: diff_lines.join("
-"), 
-            certified 
+        Ok(NormalizationReport {
+            plan: plan.clone(),
+            patch_diff: diff_lines.join(
+                "
+",
+            ),
+            certified,
         })
     }
 }
@@ -206,13 +238,21 @@ mod tests {
     let x: Option<i32> = None;
     x.unwrap();
 }"#,
-        ).unwrap();
+        )
+        .unwrap();
 
         let pipeline = NormalizationPipeline::default();
         let plan = pipeline.inspect_target(&temp_dir).unwrap();
 
-        assert!(!plan.violations.is_empty(), "Expected at least one violation");
-        let unwrap_violation = plan.violations.iter().find(|v| v.description.contains("unwrap")).unwrap();
+        assert!(
+            !plan.violations.is_empty(),
+            "Expected at least one violation"
+        );
+        let unwrap_violation = plan
+            .violations
+            .iter()
+            .find(|v| v.description.contains("unwrap"))
+            .unwrap();
         assert_eq!(unwrap_violation.severity, InvariantSeverity::Warning);
 
         let _ = std::fs::remove_dir_all(&temp_dir);
@@ -233,7 +273,7 @@ mod tests {
         };
 
         let report = pipeline.generate_normalization_patch(&plan).unwrap();
-        
+
         assert!(!report.patch_diff.is_empty());
         assert!(report.certified); // Warnings alone don't prevent certification
     }

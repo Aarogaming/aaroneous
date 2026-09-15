@@ -6,8 +6,8 @@ use crate::biology::SystemBiology;
 use compute::kalman::KalmanFilter;
 use compute::mpc::ScalarMpc;
 use compute::thermodynamics::{
-    boltzmann_distribution, gibbs_free_energy, FreeEnergyState, PhaseTransitionDetector,
-    SystemPhase,
+    FreeEnergyState, PhaseTransitionDetector, SystemPhase, boltzmann_distribution,
+    gibbs_free_energy,
 };
 
 /// Configuration for the thermodynamic metabolic governor

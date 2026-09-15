@@ -5,14 +5,14 @@
 //!
 //! Provides zero-ambient authority AST risk detection and structured ingestion reports.
 
-use std::collections::{HashMap, HashSet};
 use serde::{Deserialize, Serialize};
+use std::collections::{HashMap, HashSet};
 use syn::spanned::Spanned;
 use syn::visit::{self, Visit};
 use syn::{
     ExprCall, ExprMethodCall, File, FnArg, ImplItemFn, ItemConst, ItemEnum, ItemFn, ItemStatic,
-    ItemStruct, ItemTrait, ItemType, ItemUse, Path as SynPath, ReturnType, Type, UseGroup,
-    UsePath, UseRename, UseTree, Visibility,
+    ItemStruct, ItemTrait, ItemType, ItemUse, Path as SynPath, ReturnType, Type, UseGroup, UsePath,
+    UseRename, UseTree, Visibility,
 };
 
 /// Workspace architectural domain classification target.
@@ -125,7 +125,11 @@ impl DomainClassifier {
     }
 
     /// Classify a Rust source code string and produce an `IngestionReport`.
-    pub fn classify_source(&self, target_name: &str, source: &str) -> Result<IngestionReport, syn::Error> {
+    pub fn classify_source(
+        &self,
+        target_name: &str,
+        source: &str,
+    ) -> Result<IngestionReport, syn::Error> {
         let syntax_tree: File = syn::parse_str(source)?;
         Ok(self.analyze_ast(target_name, &syntax_tree))
     }
@@ -148,11 +152,11 @@ impl DomainClassifier {
         ];
 
         for (domain_key, domain_variant) in &domain_map {
-            if let Some(&score) = affinity_scores.get(*domain_key) {
-                if score > highest_score {
-                    highest_score = score;
-                    best_domain = domain_variant.clone();
-                }
+            if let Some(&score) = affinity_scores.get(*domain_key)
+                && score > highest_score
+            {
+                highest_score = score;
+                best_domain = domain_variant.clone();
             }
         }
 
@@ -160,7 +164,10 @@ impl DomainClassifier {
             let label = if visitor.total_tokens_matched == 0 {
                 "unclassified_kernel".to_string()
             } else {
-                format!("{}_candidate", target_name.to_lowercase().replace(".rs", ""))
+                format!(
+                    "{}_candidate",
+                    target_name.to_lowercase().replace(".rs", "")
+                )
             };
             best_domain = Domain::Novel(label);
         }
@@ -201,7 +208,11 @@ impl DomainClassifier {
         let compute_raw = visitor.domain_hits.get("compute").copied().unwrap_or(0) as f32;
         let hypervisor_raw = visitor.domain_hits.get("hypervisor").copied().unwrap_or(0) as f32;
         let ipc_bus_raw = visitor.domain_hits.get("ipc_bus").copied().unwrap_or(0) as f32;
-        let orchestrator_raw = visitor.domain_hits.get("orchestrator").copied().unwrap_or(0) as f32;
+        let orchestrator_raw = visitor
+            .domain_hits
+            .get("orchestrator")
+            .copied()
+            .unwrap_or(0) as f32;
 
         let total_hits = compute_raw + hypervisor_raw + ipc_bus_raw + orchestrator_raw;
 
@@ -210,10 +221,22 @@ impl DomainClassifier {
         if total_hits > 0.0 {
             let confidence = (total_hits / 3.0).min(1.0);
 
-            scores.insert("compute".to_string(), (compute_raw / total_hits) * confidence);
-            scores.insert("hypervisor".to_string(), (hypervisor_raw / total_hits) * confidence);
-            scores.insert("ipc_bus".to_string(), (ipc_bus_raw / total_hits) * confidence);
-            scores.insert("orchestrator".to_string(), (orchestrator_raw / total_hits) * confidence);
+            scores.insert(
+                "compute".to_string(),
+                (compute_raw / total_hits) * confidence,
+            );
+            scores.insert(
+                "hypervisor".to_string(),
+                (hypervisor_raw / total_hits) * confidence,
+            );
+            scores.insert(
+                "ipc_bus".to_string(),
+                (ipc_bus_raw / total_hits) * confidence,
+            );
+            scores.insert(
+                "orchestrator".to_string(),
+                (orchestrator_raw / total_hits) * confidence,
+            );
         } else {
             scores.insert("compute".to_string(), 0.0);
             scores.insert("hypervisor".to_string(), 0.0);
@@ -243,10 +266,33 @@ impl AstInspectionVisitor {
 
         // 1. Domain::Compute
         let compute_keywords = [
-            "tensor", "simd", "matmul", "activation", "relu", "gelu", "linear_algebra",
-            "quantiz", "quant", "gemm", "matrix", "vector", "dot_product", "f32x8", "f64x4",
-            "gradient", "forward_pass", "backward_pass", "convolution", "conv2d", "dimension",
-            "shape", "strides", "candle", "burn", "ndarray", "raw_pointer_math",
+            "tensor",
+            "simd",
+            "matmul",
+            "activation",
+            "relu",
+            "gelu",
+            "linear_algebra",
+            "quantiz",
+            "quant",
+            "gemm",
+            "matrix",
+            "vector",
+            "dot_product",
+            "f32x8",
+            "f64x4",
+            "gradient",
+            "forward_pass",
+            "backward_pass",
+            "convolution",
+            "conv2d",
+            "dimension",
+            "shape",
+            "strides",
+            "candle",
+            "burn",
+            "ndarray",
+            "raw_pointer_math",
         ];
         for kw in &compute_keywords {
             if lower.contains(kw) {
@@ -257,9 +303,23 @@ impl AstInspectionVisitor {
 
         // 2. Domain::Hypervisor
         let hypervisor_keywords = [
-            "hypervisor", "supervisory", "lifecycle", "thread_affinity", "cpu_scheduling",
-            "os_boundary", "sandbox", "governor", "metabolic", "tick_rate", "duty_cycle",
-            "heartbeat", "fault_injector", "watchdog", "kernel", "core_affinity", "subsystem_health",
+            "hypervisor",
+            "supervisory",
+            "lifecycle",
+            "thread_affinity",
+            "cpu_scheduling",
+            "os_boundary",
+            "sandbox",
+            "governor",
+            "metabolic",
+            "tick_rate",
+            "duty_cycle",
+            "heartbeat",
+            "fault_injector",
+            "watchdog",
+            "kernel",
+            "core_affinity",
+            "subsystem_health",
         ];
         for kw in &hypervisor_keywords {
             if lower.contains(kw) {
@@ -270,9 +330,25 @@ impl AstInspectionVisitor {
 
         // 3. Domain::IpcBus
         let ipc_bus_keywords = [
-            "ipc", "shm", "shared_memory", "ring_buffer", "swmr", "lock_free", "atomic_sequence",
-            "channel", "mmap", "pod", "zeroable", "memory_mapped", "cross_process", "producer_consumer",
-            "slot", "packet_ring", "header", "bytemuck", "payload_offset",
+            "ipc",
+            "shm",
+            "shared_memory",
+            "ring_buffer",
+            "swmr",
+            "lock_free",
+            "atomic_sequence",
+            "channel",
+            "mmap",
+            "pod",
+            "zeroable",
+            "memory_mapped",
+            "cross_process",
+            "producer_consumer",
+            "slot",
+            "packet_ring",
+            "header",
+            "bytemuck",
+            "payload_offset",
         ];
         for kw in &ipc_bus_keywords {
             if lower.contains(kw) {
@@ -283,9 +359,22 @@ impl AstInspectionVisitor {
 
         // 4. Domain::Orchestrator
         let orchestrator_keywords = [
-            "agent", "workflow", "execution_plan", "task_dag", "state_machine", "coordinator",
-            "decision_engine", "plan_step", "task_queue", "dispatcher", "step_graph",
-            "dependency_graph", "transition", "action_executor", "swarm", "delegat",
+            "agent",
+            "workflow",
+            "execution_plan",
+            "task_dag",
+            "state_machine",
+            "coordinator",
+            "decision_engine",
+            "plan_step",
+            "task_queue",
+            "dispatcher",
+            "step_graph",
+            "dependency_graph",
+            "transition",
+            "action_executor",
+            "swarm",
+            "delegat",
         ];
         for kw in &orchestrator_keywords {
             if lower.contains(kw) {
@@ -556,8 +645,18 @@ impl<'ast> Visit<'ast> for AstInspectionVisitor {
                 ReturnType::Type(_, ty) => format!(" -> {}", syn_type_to_string(ty)),
             };
 
-            let async_prefix = if node.sig.asyncness.is_some() { "async " } else { "" };
-            let signature = format!("pub {}fn {}({}){}", async_prefix, name, params.join(", "), ret_str);
+            let async_prefix = if node.sig.asyncness.is_some() {
+                "async "
+            } else {
+                ""
+            };
+            let signature = format!(
+                "pub {}fn {}({}){}",
+                async_prefix,
+                name,
+                params.join(", "),
+                ret_str
+            );
 
             self.public_items.push(PublicItem {
                 kind: ItemKind::Function,
@@ -604,8 +703,18 @@ impl<'ast> Visit<'ast> for AstInspectionVisitor {
                 ReturnType::Type(_, ty) => format!(" -> {}", syn_type_to_string(ty)),
             };
 
-            let async_prefix = if node.sig.asyncness.is_some() { "async " } else { "" };
-            let signature = format!("pub {}fn {}({}){}", async_prefix, name, params.join(", "), ret_str);
+            let async_prefix = if node.sig.asyncness.is_some() {
+                "async "
+            } else {
+                ""
+            };
+            let signature = format!(
+                "pub {}fn {}({}){}",
+                async_prefix,
+                name,
+                params.join(", "),
+                ret_str
+            );
 
             self.public_items.push(PublicItem {
                 kind: ItemKind::Function,
@@ -719,7 +828,9 @@ mod tests {
             }
         "#;
 
-        let report = classifier.classify_source("gemm_kernel.rs", source).unwrap();
+        let report = classifier
+            .classify_source("gemm_kernel.rs", source)
+            .unwrap();
         assert_eq!(report.target_domain, Domain::Compute);
         assert!(report.affinity_scores["compute"] > 0.60);
         assert_eq!(report.public_items.len(), 2);
@@ -745,7 +856,9 @@ mod tests {
             }
         "#;
 
-        let report = classifier.classify_source("supervisory.rs", source).unwrap();
+        let report = classifier
+            .classify_source("supervisory.rs", source)
+            .unwrap();
         assert_eq!(report.target_domain, Domain::Hypervisor);
         assert!(report.affinity_scores["hypervisor"] > 0.60);
         assert_eq!(report.public_items.len(), 2);
@@ -833,10 +946,18 @@ mod tests {
             }
         "#;
 
-        let report = classifier.classify_source("credentials.rs", source).unwrap();
-        assert!(!report.ambient_risks.is_empty(), "Must detect ambient risks");
+        let report = classifier
+            .classify_source("credentials.rs", source)
+            .unwrap();
         assert!(
-            report.ambient_risks.iter().any(|r| r.symbol.contains("env")),
+            !report.ambient_risks.is_empty(),
+            "Must detect ambient risks"
+        );
+        assert!(
+            report
+                .ambient_risks
+                .iter()
+                .any(|r| r.symbol.contains("env")),
             "Must flag std::env access"
         );
         assert!(
@@ -844,6 +965,11 @@ mod tests {
             "Must flag std::fs access"
         );
         assert!(!report.required_transformations.is_empty());
-        assert!(report.required_transformations.iter().any(|t| t.contains("Zero-Ambient-Authority")));
+        assert!(
+            report
+                .required_transformations
+                .iter()
+                .any(|t| t.contains("Zero-Ambient-Authority"))
+        );
     }
 }

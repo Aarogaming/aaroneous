@@ -11,7 +11,7 @@
 /// We want the federation's main work (executing specialists, checkpointing)
 /// to keep running while the HTTP server is just monitoring. A dedicated
 /// task isolates the server's failures from the federation's hot path.
-use super::router::{AppState, router, HttpServiceConfig};
+use super::router::{AppState, HttpServiceConfig, router};
 use crate::federation::hive::Federation;
 use std::net::SocketAddr;
 use std::sync::Arc;

@@ -1,23 +1,23 @@
 //! crates/ipc_bus/src/spmc_synapse_bus.rs
 //! Lock-Free Single-Producer Multi-Consumer (SPMC) Synapse Bus using Crossbeam ArrayQueue.
-//! 
+//!
 //! Key Performance & Architectural Pillars:
 //! 1. Lock-Free CAS: Bounded array queue with zero mutex locking.
 //! 2. 128-Byte Cache Alignment: Prevents hardware cache-line bouncing (false sharing) across multi-core consumers.
 //! 3. Zero-Allocation Hot Path: Pre-allocated 4096-packet ring buffer.
 
-use std::sync::Arc;
 use crossbeam::queue::ArrayQueue;
+use std::sync::Arc;
 
 /// A fixed-size message packet transmitted across the synapse bus.
 /// Designed to fit compactly within cache lines for sub-microsecond transit.
 #[repr(C)]
 #[derive(Clone, Debug, PartialEq)]
 pub struct SynapsePacket {
-    pub source_id: u32,          // Originating subsystem identifier (e.g. Cortex = 1, Adaptation Engine = 2)
-    pub timestamp_ns: u64,       // High-resolution hardware timestamp
+    pub source_id: u32, // Originating subsystem identifier (e.g. Cortex = 1, Adaptation Engine = 2)
+    pub timestamp_ns: u64, // High-resolution hardware timestamp
     pub intent_vector: [f32; 4], // Compact summary of active R^256 intent or state
-    pub opcode_trigger: u32,     // Associated machine opcode or diagnostic flag
+    pub opcode_trigger: u32, // Associated machine opcode or diagnostic flag
 }
 
 impl Default for SynapsePacket {
@@ -31,11 +31,11 @@ impl Default for SynapsePacket {
     }
 }
 
-/// 128-byte alignment attribute prevents CPU cache-line false sharing 
+/// 128-byte alignment attribute prevents CPU cache-line false sharing
 /// between the single producer thread and multiple consumer specialist threads.
 #[repr(align(128))]
 pub struct SpmcSynapseBus {
-    // A bounded, lock-free ring buffer. 
+    // A bounded, lock-free ring buffer.
     // Capacity set to 4096 packets to prevent allocation under heavy load.
     channel: ArrayQueue<SynapsePacket>,
 }
@@ -67,7 +67,7 @@ impl SpmcSynapseBus {
         self.channel.push(packet)
     }
 
-    /// [Consumer] Pull the next available packet for processing 
+    /// [Consumer] Pull the next available packet for processing
     /// (Used by Desktop Emulator, Adaptation Engine, or the egui Telemetry HUD).
     #[inline(always)]
     pub fn consume(&self) -> Option<SynapsePacket> {

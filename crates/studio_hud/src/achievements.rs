@@ -63,7 +63,8 @@ impl Default for AchievementManager {
                 Achievement {
                     id: "keyboard_virtuoso".to_string(),
                     title: "Keyboard Virtuoso".to_string(),
-                    description: "Use shortcuts or the Action Palette (Ctrl+K) 5 times.".to_string(),
+                    description: "Use shortcuts or the Action Palette (Ctrl+K) 5 times."
+                        .to_string(),
                     category: AchievementCategory::Foundations,
                     current_progress: 2,
                     target_progress: 5,
@@ -86,7 +87,8 @@ impl Default for AchievementManager {
                 Achievement {
                     id: "ghost_in_the_machine".to_string(),
                     title: "Natural Emulation".to_string(),
-                    description: "Run 5 action steps through the transparent HUD overlay.".to_string(),
+                    description: "Run 5 action steps through the transparent HUD overlay."
+                        .to_string(),
                     category: AchievementCategory::RoutinesAndEmulation,
                     current_progress: 3,
                     target_progress: 5,
@@ -120,7 +122,8 @@ impl Default for AchievementManager {
                 Achievement {
                     id: "grand_foundry".to_string(),
                     title: "Master Foundry".to_string(),
-                    description: "Synthesize 3 distinct model packages across different roles.".to_string(),
+                    description: "Synthesize 3 distinct model packages across different roles."
+                        .to_string(),
                     category: AchievementCategory::ModelCrafting,
                     current_progress: 1,
                     target_progress: 3,
@@ -132,7 +135,8 @@ impl Default for AchievementManager {
                 Achievement {
                     id: "stellar_initiate".to_string(),
                     title: "Stellar Initiate".to_string(),
-                    description: "Unlock your first perk node in the 3D Constellation Skill Tree.".to_string(),
+                    description: "Unlock your first perk node in the 3D Constellation Skill Tree."
+                        .to_string(),
                     category: AchievementCategory::SkillConstellation,
                     current_progress: 1,
                     target_progress: 1,
@@ -155,7 +159,8 @@ impl Default for AchievementManager {
                 Achievement {
                     id: "sub_millisecond".to_string(),
                     title: "Sub-Millisecond Reflex".to_string(),
-                    description: "Execute a macro or routine with under 1ms response latency.".to_string(),
+                    description: "Execute a macro or routine with under 1ms response latency."
+                        .to_string(),
                     category: AchievementCategory::SpeedAndReflex,
                     current_progress: 1,
                     target_progress: 1,
@@ -171,13 +176,13 @@ impl Default for AchievementManager {
 impl AchievementManager {
     /// Records progress towards an achievement by ID, returns unlocked achievement if freshly achieved
     pub fn record_progress(&mut self, id: &str, amount: u64) -> Option<Achievement> {
-        if let Some(ach) = self.achievements.iter_mut().find(|a| a.id == id) {
-            if !ach.is_unlocked {
-                ach.current_progress = (ach.current_progress + amount).min(ach.target_progress);
-                if ach.current_progress >= ach.target_progress {
-                    ach.is_unlocked = true;
-                    return Some(ach.clone());
-                }
+        if let Some(ach) = self.achievements.iter_mut().find(|a| a.id == id)
+            && !ach.is_unlocked
+        {
+            ach.current_progress = (ach.current_progress + amount).min(ach.target_progress);
+            if ach.current_progress >= ach.target_progress {
+                ach.is_unlocked = true;
+                return Some(ach.clone());
             }
         }
         None

@@ -1,10 +1,10 @@
 use crate::federation::forge;
+use crate::federation::hive::scheduler::ScheduledTask;
 /// Axum router definition for the federation HTTP status API.
 ///
 /// The router is factored out from the server so tests can drive it
 /// in-process via `tower::ServiceExt::oneshot` without binding a real port.
 use crate::federation::hive::{Federation, LearningSummary, SpecialistLearningSummary};
-use crate::federation::hive::scheduler::{AutonomousScheduler, ScheduledTask};
 use crate::input_validation::{
     ValidationError, validate_bytes, validate_optional_string, validate_string,
 };
@@ -307,98 +307,42 @@ impl AppState {
 
 /// Build a `TokenBucketConfig` from the HTTP service configuration.
 fn rate_limit_config_from_service_cfg(cfg: &HttpServiceConfig) -> TokenBucketConfig {
-    let mut cfg_out = TokenBucketConfig::default();
-    cfg_out.burst = cfg.rate_limit_burst as f64;
-    cfg_out.refill_per_second = cfg.rate_limit_requests_per_sec as f64;
-    cfg_out
+    TokenBucketConfig {
+        burst: cfg.rate_limit_burst as f64,
+        refill_per_second: cfg.rate_limit_requests_per_sec as f64,
+        ..Default::default()
+    }
 }
 
-/// Per-route rate-limit profile. The prefix is matched against
-/// the request path; the first match (longest prefix first)
-/// wins. Profiles encode the relative cost and acceptable
-/// load for a route. The defaults are deliberately tight for
-/// heavy endpoints (chat completions, forge crystallization,
-/// model import) and loose for read-only identity surfaces.
-#[derive(Debug, Clone, Copy)]
-struct RouteLimitProfile {
-    prefix: &'static str,
-    burst: f64,
-    refill_per_second: f64,
-}
-
-/// Default per-route profiles. Operators can override each
-/// profile's `burst` and `refill_per_second` via
-/// `AARONEOUS_RATE_LIMIT_<NAME>_BURST` and
-/// `AARONEOUS_RATE_LIMIT_<NAME>_REFILL`.
-const ROUTE_LIMIT_PROFILES: &[RouteLimitProfile] = &[
-    // Heavy: triggers LLM execution. Tighter than the default.
-    RouteLimitProfile {
-        prefix: "/v1/chat/completions",
-        burst: 10.0,
-        refill_per_second: 2.0,
-    },
-    RouteLimitProfile {
-        prefix: "/v1/completions",
-        burst: 10.0,
-        refill_per_second: 2.0,
-    },
-    // Heavy: GPU/GGUF work.
-    RouteLimitProfile {
-        prefix: "/forge/crystallize",
-        burst: 5.0,
-        refill_per_second: 0.5,
-    },
-    RouteLimitProfile {
-        prefix: "/forge/",
-        burst: 20.0,
-        refill_per_second: 4.0,
-    },
-    // Heavy: large file ingest.
-    RouteLimitProfile {
-        prefix: "/models/import",
-        burst: 5.0,
-        refill_per_second: 0.5,
-    },
-    // Moderate: specialist state mutations.
-    RouteLimitProfile {
-        prefix: "/dynamic-specialists",
-        burst: 10.0,
-        refill_per_second: 1.0,
-    },
-    RouteLimitProfile {
-        prefix: "/intent",
-        burst: 30.0,
-        refill_per_second: 5.0,
-    },
-    // Streaming endpoints: long-lived connections count
-    // against the bucket, so be generous.
-    RouteLimitProfile {
-        prefix: "/results/stream",
-        burst: 5.0,
-        refill_per_second: 1.0,
-    },
-    RouteLimitProfile {
-        prefix: "/specialists/stream",
-        burst: 5.0,
-        refill_per_second: 1.0,
-    },
-    RouteLimitProfile {
-        prefix: "/sessions/",
-        burst: 20.0,
-        refill_per_second: 4.0,
-    },
+/// Route prefixes with independent buckets using the injected service limits.
+/// Longest prefixes take precedence. There are no ambient per-route overrides.
+const ROUTE_LIMIT_PREFIXES: &[&str] = &[
+    "/v1/chat/completions",
+    "/v1/completions",
+    "/forge/crystallize",
+    "/forge/",
+    "/models/import",
+    "/dynamic-specialists",
+    "/intent",
+    "/results/stream",
+    "/specialists/stream",
+    "/sessions/",
 ];
 
 /// Build the per-route rate-limit registry and return it
 /// alongside the default limiter. Sorts routes by prefix
 /// length descending so the middleware does a single linear
 /// pass and uses the longest match.
-fn build_route_limit_registry(cfg: &HttpServiceConfig) -> (
+fn build_route_limit_registry(
+    cfg: &HttpServiceConfig,
+) -> (
     Arc<TokenBucketLimiter>,
     Vec<(String, Arc<TokenBucketLimiter>)>,
 ) {
-    let default = Arc::new(TokenBucketLimiter::new(rate_limit_config_from_service_cfg(cfg)));
-    let mut routes: Vec<(String, Arc<TokenBucketLimiter>)> = ROUTE_LIMIT_PROFILES
+    let default = Arc::new(TokenBucketLimiter::new(rate_limit_config_from_service_cfg(
+        cfg,
+    )));
+    let mut routes: Vec<(String, Arc<TokenBucketLimiter>)> = ROUTE_LIMIT_PREFIXES
         .iter()
         .map(|p| {
             let route_cfg = TokenBucketConfig {
@@ -406,7 +350,7 @@ fn build_route_limit_registry(cfg: &HttpServiceConfig) -> (
                 refill_per_second: cfg.rate_limit_requests_per_sec as f64,
                 idle_eviction: Some(std::time::Duration::from_secs(600)),
             };
-            (p.prefix.to_string(), Arc::new(TokenBucketLimiter::new(route_cfg)))
+            (p.to_string(), Arc::new(TokenBucketLimiter::new(route_cfg)))
         })
         .collect();
     // Longest prefix first so the middleware picks the
@@ -472,7 +416,12 @@ async fn api_key_auth(
         });
 
     match provided {
-        Some(key) if constant_time_eq(key.as_bytes(), required_key.as_deref().unwrap_or_default().as_bytes()) => {
+        Some(key)
+            if constant_time_eq(
+                key.as_bytes(),
+                required_key.as_deref().unwrap_or_default().as_bytes(),
+            ) =>
+        {
             next.run(req).await
         }
         _ => (
@@ -830,10 +779,7 @@ pub fn router(state: AppState) -> Router {
         // `AppState.rate_limiter`; `from_fn` would discard the
         // router's state type.
         .layer(cors)
-        .layer(middleware::from_fn_with_state(
-            state.clone(),
-            api_key_auth,
-        ))
+        .layer(middleware::from_fn_with_state(state.clone(), api_key_auth))
         .layer(middleware::from_fn_with_state(
             state.clone(),
             rate_limit_middleware,
@@ -903,7 +849,7 @@ struct AddTaskRequest {
     interval_secs: Option<u64>,
 }
 
- async fn add_scheduled_task(
+async fn add_scheduled_task(
     State(state): State<AppState>,
     Json(req): Json<AddTaskRequest>,
 ) -> impl IntoResponse {
@@ -922,7 +868,7 @@ struct AddTaskRequest {
     Json(serde_json::json!({"ok": true, "task": task}))
 }
 
- async fn delete_scheduled_task(
+async fn delete_scheduled_task(
     State(state): State<AppState>,
     Path(id): Path<uuid::Uuid>,
 ) -> impl IntoResponse {
@@ -2037,9 +1983,7 @@ async fn cluster_status(State(state): State<AppState>) -> Json<serde_json::Value
 // ====================================================================
 
 /// GET /models/external — Scan common directories for existing GGUF models
-async fn list_external_models(
-    State(state): State<AppState>,
-) -> Json<serde_json::Value> {
+async fn list_external_models(State(state): State<AppState>) -> Json<serde_json::Value> {
     let mut found_models = Vec::new();
 
     // Check LM Studio default directory on Windows

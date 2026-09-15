@@ -72,7 +72,7 @@ impl FsCrawlIngestor {
 
                     // Sliding byte window: hash each 64-byte window and
                     // XOR-fold into the VSA signature array.
-                    for (idx, window) in content.chunks_exact(64).enumerate() {
+                    for (idx, window) in content.as_chunks::<64>().0.iter().enumerate() {
                         let mut hasher = SeaHasher::new();
                         hasher.write(window);
                         let h = hasher.finish();
