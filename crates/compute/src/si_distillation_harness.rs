@@ -196,10 +196,8 @@ impl SiDistillationHarness {
 }
 
 #[cfg(test)]
-#[allow(ambient_authority)]
 mod tests {
     use super::*;
-    use std::fs;
 
     #[test]
     fn test_bootstrap_base_model_from_rosetta_dataset() {
@@ -208,8 +206,8 @@ mod tests {
         let bridge = LatentGELUBottleneckBridge::new(config.teacher_dim, 1024, config.latent_dim);
         let mut harness = SiDistillationHarness::new(config, bridge);
 
-        let temp_dir = std::env::temp_dir();
-        let out_path = temp_dir.join("test_base_router.si");
+        let temp_dir = tempfile::tempdir().unwrap();
+        let out_path = temp_dir.path().join("test_base_router.si");
 
         let report = harness.bootstrap_base_model(&dataset, &out_path).unwrap();
         assert_eq!(report.samples_processed, 8);
@@ -220,21 +218,18 @@ mod tests {
         let loaded = SolidStateSiContainer::load_from_file(&out_path).unwrap();
         assert_eq!(loaded.adaptation.anchor_buffer.len(), 8);
         assert!(loaded.adaptation.verify_anchor_retention() >= 95.0);
-
-        let _ = fs::remove_file(out_path);
     }
 
     #[test]
     fn test_distill_all_9_specialists() {
-        let temp_dir = std::env::temp_dir().join("test_distill_9");
-        let reports = SiDistillationHarness::distill_all_9_specialists(&temp_dir, 4, 1).unwrap();
+        let temp_dir = tempfile::tempdir().unwrap();
+        let reports =
+            SiDistillationHarness::distill_all_9_specialists(temp_dir.path(), 4, 1).unwrap();
         assert_eq!(reports.len(), 9);
 
         for report in &reports {
             assert!(report.output_si_path.exists());
             assert_eq!(report.samples_processed, 4);
         }
-
-        let _ = std::fs::remove_dir_all(temp_dir);
     }
 }

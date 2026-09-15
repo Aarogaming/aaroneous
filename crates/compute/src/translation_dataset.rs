@@ -350,14 +350,13 @@ mod tests {
             ROSETTA_LATENT_DIM
         );
 
-        let temp_dir = std::env::temp_dir();
-        let path = temp_dir.join("test_rosetta_stone.bin");
+        let temp_dir = tempfile::tempdir().unwrap();
+        let path = temp_dir.path().join("test_rosetta_stone.bin");
         dataset.save_to_file(&path).unwrap();
 
         let loaded = TranslationDataset::load_from_file(&path).unwrap();
         assert_eq!(loaded.sample_count, 10);
         assert_eq!(loaded.steps[0].description, dataset.steps[0].description);
-        let _ = fs::remove_file(path);
     }
 
     #[test]
@@ -366,8 +365,8 @@ mod tests {
         assert_eq!(unified.sample_count, 180); // 9 specialists * 20 samples
         assert_eq!(unified.steps.len(), 180);
 
-        let temp_dir = std::env::temp_dir();
-        let path = temp_dir.join("test_rosetta_federation_corpus.rost");
+        let temp_dir = tempfile::tempdir().unwrap();
+        let path = temp_dir.path().join("test_rosetta_federation_corpus.rost");
         unified.save_to_file(&path).unwrap();
 
         let loaded = TranslationDataset::load_from_file(&path).unwrap();
@@ -376,6 +375,5 @@ mod tests {
             loaded.steps[179].expected_opcode,
             unified.steps[179].expected_opcode
         );
-        let _ = fs::remove_file(path);
     }
 }

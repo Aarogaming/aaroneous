@@ -337,14 +337,13 @@ pub fn update_rls<const DIM: usize, const DIM_SQ: usize>(
 }
 
 #[cfg(test)]
-#[allow(ambient_authority)]
 mod tests {
     use super::*;
 
     #[test]
     fn test_state_bank_create_and_persist() {
-        let temp_dir = std::env::temp_dir();
-        let path = temp_dir.join("test_audit_state_bank.lib");
+        let temp_dir = tempfile::tempdir().unwrap();
+        let path = temp_dir.path().join("test_audit_state_bank.lib");
 
         let mut bank = UniversalStateBank::create_or_open(&path, 4).unwrap();
         let record = StateBankRecord {
@@ -361,8 +360,6 @@ mod tests {
         let reopened = UniversalStateBank::create_or_open(&path, 4).unwrap();
         assert_eq!(reopened.header.magic, STATE_BANK_MAGIC);
         assert_eq!(reopened.header.record_count, 1);
-
-        let _ = std::fs::remove_file(path);
     }
 
     #[test]
