@@ -1,4 +1,4 @@
-﻿# Aaroneous Terraform Reference Blueprint
+# Aaroneous Terraform Reference Blueprint
 
 > **Notice:** The canonical Aaroneous runtime operates locally on bare-metal and desktop environments.
 >
