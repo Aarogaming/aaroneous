@@ -42,6 +42,14 @@ jobs:
           if (!(Test-Path "$clangDir\libclang.dll")) { throw 'LLVM libclang is required' }
           "LIBCLANG_PATH=$clangDir" >> $env:GITHUB_ENV
 
+      - name: Prefer the Visual Studio linker
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $gitUsrBin = 'C:\Program Files\Git\usr\bin'
+          $pathEntries = $env:PATH -split ';' | Where-Object { $_ -ne $gitUsrBin }
+          "PATH=$($pathEntries -join ';')" >> $env:GITHUB_ENV
+
       - uses: Swatinem/rust-cache@v2
 
       - name: Formatting (Ubuntu only)
