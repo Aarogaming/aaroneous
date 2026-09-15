@@ -1,4 +1,4 @@
-﻿# Aaroneous MCP Client Configuration Guide
+# Aaroneous MCP Client Configuration Guide
 
 Project Aaroneous exposes a sovereign Machine-Native Model Context Protocol (MCP) server supporting stdio, HTTP POST (`/mcp`), and Server-Sent Events (`/sse`).
 
