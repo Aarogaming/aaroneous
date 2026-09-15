@@ -1,6 +1,3 @@
-// Batch Cratification CLI - Automated multi-crate normalization and certification
-#![allow(ambient_authority)]
-
 use anyhow::Result;
 use orchestration_plane::batch_runner::{BatchNormalizationRunner, BatchReport};
 use std::env;

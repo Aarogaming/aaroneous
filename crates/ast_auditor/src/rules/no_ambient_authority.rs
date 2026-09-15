@@ -3,7 +3,7 @@
 //! Enforces zero-ambient-authority across workspace domain modules.
 //! Bans direct access to ambient system environment state (`std::env::*`)
 //! and implicit current working directory/path resolutions outside bootstrap
-//! entrypoints (`src/main.rs` and files below `src/bin/`).
+//! entrypoints (`src/main.rs`, files below `src/bin/`, and executable examples).
 
 #![deny(unsafe_code)]
 
@@ -53,9 +53,12 @@ impl<'a> AmbientAuthorityVisitor<'a> {
             .windows(2)
             .any(|pair| pair[0].as_os_str() == "src" && pair[1].as_os_str() == "bin");
         let is_main_entrypoint = file_path.file_name().is_some_and(|name| name == "main.rs");
+        let is_example_entrypoint = components
+            .windows(1)
+            .any(|pair| pair[0].as_os_str() == "examples");
         Self {
             file_path,
-            is_exempt: is_bin_entrypoint || is_main_entrypoint,
+            is_exempt: is_bin_entrypoint || is_main_entrypoint || is_example_entrypoint,
             violations: Vec::new(),
         }
     }

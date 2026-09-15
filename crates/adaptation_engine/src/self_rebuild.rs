@@ -89,15 +89,13 @@ impl SelfRebuildEngine {
         .to_string();
 
         let profile = if release { "release" } else { "debug" };
-        let mut bin_path = self
+        let bin_path = self
             .workspace_root
             .join("target")
             .join(profile)
             .join(bin_name);
         #[cfg(target_os = "windows")]
-        {
-            bin_path.set_extension("exe");
-        }
+        let bin_path = bin_path.with_extension("exe");
 
         let binary_path = if is_success && bin_path.exists() {
             Some(bin_path)
