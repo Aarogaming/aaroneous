@@ -474,13 +474,14 @@ mod tests {
     fn test_compute_padding_always_64_aligned() {
         for offset in 0u64..=256 {
             let pad = compute_padding(offset);
-            assert!((offset as usize + pad) % ALIGNMENT_BYTES == 0);
+            assert!((offset as usize + pad).is_multiple_of(ALIGNMENT_BYTES));
         }
     }
 
     #[test]
     fn test_si_packer_roundtrip_and_alignment() {
-        let tmp = std::env::temp_dir().join("test_packer_roundtrip.si");
+        let temp_dir = tempfile::tempdir().expect("create test sandbox");
+        let tmp = temp_dir.path().join("test_packer_roundtrip.si");
         let mut core = HashMap::new();
         core.insert("ssm_in_proj".to_string(), vec![0.1f32; 256 * 32]);
         core.insert("ssm_out_proj".to_string(), vec![0.2f32; 32 * 256]);
@@ -500,7 +501,5 @@ mod tests {
         let in_proj = loader.get_tensor_slice("ssm_in_proj").unwrap();
         assert_eq!(in_proj.len(), 256 * 32);
         assert!((in_proj[0] - 0.1f32).abs() < 1e-6);
-
-        let _ = std::fs::remove_file(&tmp);
     }
 }

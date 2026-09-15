@@ -148,6 +148,7 @@ pub use si_trainer::{
     gelu_prime,
 };
 pub use state_bank::{AdaptationError, RlsState, STATE_BANK_HEADER_SIZE, update_rls};
+pub use token_consumer::MachineToken;
 pub use translation_dataset::{
     ROSETTA_LATENT_DIM, ROSETTA_TEACHER_DIM, RosettaTrajectoryStep, TranslationDataset,
 };
@@ -289,7 +290,7 @@ mod tests {
 
     #[test]
     fn test_execute_monte_carlo() {
-        acquire_test_lock();
+        let _test_lock = acquire_test_lock();
         let mut engine = ComputeEngine::default();
         let input = vec![0.5, 0.3];
         let result = engine.execute("monte_carlo", &input);
@@ -300,7 +301,7 @@ mod tests {
 
     #[test]
     fn test_execute_markov() {
-        acquire_test_lock();
+        let _test_lock = acquire_test_lock();
         let mut engine = ComputeEngine::default();
         let input = vec![0.7, 0.3];
         let result = engine.execute("markov", &input);
@@ -309,7 +310,7 @@ mod tests {
 
     #[test]
     fn test_execute_bayesian() {
-        acquire_test_lock();
+        let _test_lock = acquire_test_lock();
         let mut engine = ComputeEngine::default();
         let input = vec![0.5, 0.3, 0.2];
         let result = engine.execute("bayesian", &input);
@@ -320,7 +321,7 @@ mod tests {
 
     #[test]
     fn test_execute_entropy() {
-        acquire_test_lock();
+        let _test_lock = acquire_test_lock();
         let mut engine = ComputeEngine::default();
         let input = vec![0.25, 0.25, 0.25, 0.25];
         let result = engine.execute("entropy", &input);
@@ -331,7 +332,7 @@ mod tests {
 
     #[test]
     fn test_execute_cosine() {
-        acquire_test_lock();
+        let _test_lock = acquire_test_lock();
         let mut engine = ComputeEngine::default();
         let input = vec![1.0, 0.0, 0.0, 1.0];
         let result = engine.execute("cosine", &input);
@@ -340,7 +341,7 @@ mod tests {
 
     #[test]
     fn test_execute_pid() {
-        acquire_test_lock();
+        let _test_lock = acquire_test_lock();
         let mut engine = ComputeEngine::default();
         let input = vec![1.0, 0.5, 0.1];
         let result = engine.execute("pid", &input);
@@ -349,7 +350,7 @@ mod tests {
 
     #[test]
     fn test_execute_fft() {
-        acquire_test_lock();
+        let _test_lock = acquire_test_lock();
         let mut engine = ComputeEngine::default();
         let input = vec![1.0, 0.0, 0.0, 0.0];
         let result = engine.execute("fft", &input);
@@ -358,7 +359,7 @@ mod tests {
 
     #[test]
     fn test_execute_nash() {
-        acquire_test_lock();
+        let _test_lock = acquire_test_lock();
         let mut engine = ComputeEngine::default();
         let input = vec![0.5, 0.5, 0.5];
         let result = engine.execute("nash", &input);
@@ -367,7 +368,7 @@ mod tests {
 
     #[test]
     fn test_execute_optimize_ga() {
-        acquire_test_lock();
+        let _test_lock = acquire_test_lock();
         let mut engine = ComputeEngine::default();
         let input = vec![0.1, 0.2, 0.3, 0.4, 0.5];
         let result = engine.execute("optimize_ga", &input);
@@ -376,7 +377,7 @@ mod tests {
 
     #[test]
     fn test_execute_boltzmann() {
-        acquire_test_lock();
+        let _test_lock = acquire_test_lock();
         let mut engine = ComputeEngine::default();
         let input = vec![1.0, -0.5, 0.3, -0.8];
         let result = engine.execute("boltzmann", &input);
@@ -387,7 +388,7 @@ mod tests {
 
     #[test]
     fn test_execute_free_energy() {
-        acquire_test_lock();
+        let _test_lock = acquire_test_lock();
         let mut engine = ComputeEngine::default();
         let input = vec![0.5, 0.3, 0.2];
         let result = engine.execute("free_energy", &input);
@@ -397,7 +398,7 @@ mod tests {
 
     #[test]
     fn test_execute_free_energy_insufficient_input() {
-        acquire_test_lock();
+        let _test_lock = acquire_test_lock();
         let mut engine = ComputeEngine::default();
         let input = vec![0.5, 0.3];
         let result = engine.execute("free_energy", &input);
@@ -407,7 +408,7 @@ mod tests {
 
     #[test]
     fn test_execute_mutual_info() {
-        acquire_test_lock();
+        let _test_lock = acquire_test_lock();
         let mut engine = ComputeEngine::default();
         let input = vec![0.3, 0.2, 0.1];
         let result = engine.execute("mutual_info", &input);
@@ -416,7 +417,7 @@ mod tests {
 
     #[test]
     fn test_execute_mutual_info_insufficient() {
-        acquire_test_lock();
+        let _test_lock = acquire_test_lock();
         let mut engine = ComputeEngine::default();
         let input = vec![0.3, 0.2];
         let result = engine.execute("mutual_info", &input);
@@ -438,4 +439,3 @@ mod tests {
         );
     }
 }
-pub use token_consumer::MachineToken;

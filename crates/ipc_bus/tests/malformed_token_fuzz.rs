@@ -20,12 +20,12 @@ struct TestMessage {
 fn test_fuzz_misaligned_header() {
     let mut corrupt_headers = vec![0u32; 1000];
 
-    for i in 0..corrupt_headers.len() {
+    for (i, header) in corrupt_headers.iter_mut().enumerate() {
         // Inject all possible u32 values including invalid headers
-        corrupt_headers[i] = i as u32;
+        *header = i as u32;
 
         // Should not panic - must validate and reject bad headers
-        let _ = validate_header(corrupt_headers[i]);
+        let _ = validate_header(*header);
     }
 
     println!(
