@@ -1,4 +1,4 @@
-﻿# Aaroneous Frontier Roadmap: Horizons & Long-Term Milestones
+# Aaroneous Frontier Roadmap: Horizons & Long-Term Milestones
 
 **Version:** `v1.7.0`+  
 **Classification:** Canonical Roadmap & Frontier Framework  

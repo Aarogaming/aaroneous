@@ -1,4 +1,4 @@
-﻿# 01: The Sterile Execution Plane Specification
+# 01: The Sterile Execution Plane Specification
 
 **Version:** v1.7.0 (Aaroneous Core Framework)  
 **Status:** Canonical Engineering Specification  
