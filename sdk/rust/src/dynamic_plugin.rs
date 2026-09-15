@@ -176,18 +176,23 @@ impl DynamicSpecialistLoader {
     pub fn register_in_process(&self, engine: Box<dyn SpecialistEngine>) {
         let name = engine.name().to_string();
         let version = engine.version().to_string();
-        // Create an empty dummy library reference by using own executable
-        if let Ok(lib) = unsafe { Library::new(std::env::current_exe().unwrap_or_default()) } {
-            self.plugins.write().insert(
-                name,
-                LoadedPluginEntry {
-                    _lib: lib,
-                    engine,
-                    path: PathBuf::new(),
-                    version,
-                },
-            );
-        }
+        #[cfg(unix)]
+        let lib = Library::from(libloading::os::unix::Library::this());
+        #[cfg(windows)]
+        let lib = match unsafe { Library::new(std::env::current_exe().unwrap_or_default()) } {
+            Ok(lib) => lib,
+            Err(_) => return,
+        };
+
+        self.plugins.write().insert(
+            name,
+            LoadedPluginEntry {
+                _lib: lib,
+                engine,
+                path: PathBuf::new(),
+                version,
+            },
+        );
     }
 
     /// Queries an action execution from a live specialist plugin
