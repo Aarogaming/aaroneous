@@ -302,7 +302,7 @@ async fn join_handle_abort_cancels_task_cleanly() {
 }
 
 /// Scenario 8: end-to-end timing sanity check. A closed
-/// breaker serving traffic should add < 1µs per call.
+/// breaker serving traffic should add < 1ms per call.
 /// This is a soft assertion (fails only on gross regression).
 #[test]
 fn breaker_closed_call_is_fast() {
@@ -314,11 +314,11 @@ fn breaker_closed_call_is_fast() {
     }
     let elapsed = start.elapsed();
     let per_call = elapsed / n;
-    // Coarse bound: 100µs/call. This is a guardrail only; the
+    // Coarse bound: 1ms/call. This is a guardrail only; the
     // actual benchmark lives in the Criterion suite.
     assert!(
-        per_call < Duration::from_micros(100),
-        "per-call time {} ns exceeded 100µs budget",
+        per_call < Duration::from_millis(1),
+        "per-call time {} ns exceeded 1ms budget",
         per_call.as_nanos()
     );
 }

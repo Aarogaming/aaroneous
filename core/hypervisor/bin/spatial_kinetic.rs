@@ -122,6 +122,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
+#[cfg(windows)]
 fn print_help() {
     println!("Usage: spatial_kinetic [OPTIONS]");
     println!();
