@@ -654,7 +654,10 @@ mod tests {
         let data_root = temp.path().join("ArcData");
         assert_eq!(paths.data(), data_root);
         assert_eq!(paths.si_models(), data_root.join("models"));
-        assert_eq!(paths.cartridges(), data_root.join("models").join("cartridges"));
+        assert_eq!(
+            paths.cartridges(),
+            data_root.join("models").join("cartridges")
+        );
     }
 
     #[test]
