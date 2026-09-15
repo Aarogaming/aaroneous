@@ -721,7 +721,10 @@ mod tests {
         assert_eq!(normalize_path("a/b/c/"), PathBuf::from("a/b/c"));
 
         // 4. Windows drive letter prefixes and root preservation
+        #[cfg(windows)]
         assert_eq!(normalize_path("C:foo/../bar"), PathBuf::from("C:bar"));
+        #[cfg(not(windows))]
+        assert_eq!(normalize_path("C:foo/../bar"), PathBuf::from("bar"));
         #[cfg(windows)]
         assert_eq!(normalize_path("C:\\foo\\..\\bar"), PathBuf::from("C:\\bar"));
         #[cfg(windows)]
