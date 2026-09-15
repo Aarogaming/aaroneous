@@ -55,8 +55,6 @@ mod linux_ffi {
     pub const EV_SYN: u16 = 0x00;
 
     pub const SYN_REPORT: u16 = 0;
-    pub const REL_X: u16 = 0x00;
-    pub const REL_Y: u16 = 0x01;
     pub const REL_WHEEL: u16 = 0x08;
 
     pub const ABS_X: u16 = 0x00;

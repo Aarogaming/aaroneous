@@ -46,9 +46,9 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          $gitUsrBin = 'C:\Program Files\Git\usr\bin'
-          $pathEntries = $env:PATH -split ';' | Where-Object { $_ -ne $gitUsrBin }
-          "PATH=$($pathEntries -join ';')" >> $env:GITHUB_ENV
+          $linker = Join-Path $env:VCToolsInstallDir 'bin\Hostx64\x64\link.exe'
+          if (!(Test-Path $linker)) { throw 'Visual Studio linker is required' }
+          "CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_LINKER=$linker" >> $env:GITHUB_ENV
 
       - uses: Swatinem/rust-cache@v2
 
