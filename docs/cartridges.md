@@ -1,4 +1,4 @@
-﻿# Cartridge Specification: Solid-State Cartridge v3.0 & Tensor Structures
+# Cartridge Specification: Solid-State Cartridge v3.0 & Tensor Structures
 
 **Version:** `v1.7.0`  
 **Classification:** Core Data Format Specification  

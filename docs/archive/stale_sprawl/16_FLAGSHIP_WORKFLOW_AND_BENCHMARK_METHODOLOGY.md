@@ -1,4 +1,4 @@
-﻿# Flagship Workflow & Benchmark Methodology
+# Flagship Workflow & Benchmark Methodology
 
 ## 1. The Flagship Operational Pipeline
 
