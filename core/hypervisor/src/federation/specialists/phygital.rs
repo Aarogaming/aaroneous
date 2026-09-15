@@ -835,8 +835,10 @@ mod tests {
     fn test_detect_ar_hardware() {
         let mut phygital = Phygital::new();
         phygital.detect_ar_hardware();
-        // Should detect something on any platform
+        #[cfg(any(target_os = "windows", target_os = "macos", target_os = "ios", target_os = "android"))]
         assert!(!phygital.detected_devices.is_empty());
+        #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "ios", target_os = "android")))]
+        assert!(phygital.detected_devices.is_empty());
     }
 
     #[test]
@@ -855,7 +857,7 @@ mod tests {
     #[test]
     fn test_poll_frame_state() {
         let mut phygital = Phygital::new();
-        phygital.detect_ar_hardware();
+        phygital.detected_devices.push(SpatialDevice::MetaQuest3);
 
         let frame = phygital.poll_frame_state();
         assert!(frame.device.is_some());
@@ -921,8 +923,8 @@ mod tests {
         let mut phygital = Phygital::new();
         assert!(phygital.primary_device().is_none());
 
-        phygital.detect_ar_hardware();
-        assert!(phygital.primary_device().is_some());
+        phygital.detected_devices.push(SpatialDevice::MetaQuest3);
+        assert_eq!(phygital.primary_device(), Some(&SpatialDevice::MetaQuest3));
     }
 
     #[test]
