@@ -835,9 +835,19 @@ mod tests {
     fn test_detect_ar_hardware() {
         let mut phygital = Phygital::new();
         phygital.detect_ar_hardware();
-        #[cfg(any(target_os = "windows", target_os = "macos", target_os = "ios", target_os = "android"))]
+        #[cfg(any(
+            target_os = "windows",
+            target_os = "macos",
+            target_os = "ios",
+            target_os = "android"
+        ))]
         assert!(!phygital.detected_devices.is_empty());
-        #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "ios", target_os = "android")))]
+        #[cfg(not(any(
+            target_os = "windows",
+            target_os = "macos",
+            target_os = "ios",
+            target_os = "android"
+        )))]
         assert!(phygital.detected_devices.is_empty());
     }
 
