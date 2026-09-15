@@ -646,15 +646,15 @@ mod tests {
 
     #[test]
     fn test_external_data_root_sibling_resolution() {
-        let repo_root = PathBuf::from(r"D:\Aaroneous");
+        let temp = tempfile::tempdir().unwrap();
+        let repo_root = temp.path().join("Aaroneous");
+        std::fs::create_dir(&repo_root).unwrap();
         let config = WorkspacePathsConfig::new().with_explicit_root(repo_root);
         let paths = WorkspacePaths::discover(&config);
-        assert_eq!(paths.data(), PathBuf::from(r"D:\ArcData"));
-        assert_eq!(paths.si_models(), PathBuf::from(r"D:\ArcData\models"));
-        assert_eq!(
-            paths.cartridges(),
-            PathBuf::from(r"D:\ArcData\models\cartridges")
-        );
+        let data_root = temp.path().join("ArcData");
+        assert_eq!(paths.data(), data_root);
+        assert_eq!(paths.si_models(), data_root.join("models"));
+        assert_eq!(paths.cartridges(), data_root.join("models").join("cartridges"));
     }
 
     #[test]
