@@ -273,11 +273,11 @@ impl From<TelemetryPacket> for TelemetryBatchPod {
 impl From<&TelemetryBatchPod> for TelemetryPacket {
     fn from(pod: &TelemetryBatchPod) -> Self {
         let mut channels = [None; 8];
-        for i in 0..8 {
+        for (i, channel) in channels.iter_mut().enumerate() {
             if pod.is_valid(i) {
                 let kind =
                     ChannelKind::from_u8(pod.channel_kinds[i]).unwrap_or(ChannelKind::DigitalInput);
-                channels[i] = Some(ChannelValue {
+                *channel = Some(ChannelValue {
                     channel_id: i as u8,
                     kind,
                     raw_value: pod.raw_values[i],

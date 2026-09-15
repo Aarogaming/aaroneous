@@ -290,16 +290,16 @@ pub fn update_rls<const DIM: usize, const DIM_SQ: usize>(
     for (r, value) in pi.iter_mut().enumerate() {
         let mut sum = 0.0f32;
         let row_offset = r * DIM;
-        for c in 0..DIM {
-            sum += state.p_matrix[row_offset + c] * input[c];
+        for (c, &input_value) in input.iter().enumerate() {
+            sum += state.p_matrix[row_offset + c] * input_value;
         }
         *value = sum;
     }
 
     // 2. Denominator: denom = lambda + input^T * Pi
     let mut input_t_pi = 0.0f32;
-    for i in 0..DIM {
-        input_t_pi += input[i] * pi[i];
+    for (&input_value, &pi_value) in input.iter().zip(&pi) {
+        input_t_pi += input_value * pi_value;
     }
     let denom = state.lambda + input_t_pi;
     if denom.abs() < 1e-12 || denom.is_nan() {
@@ -308,25 +308,25 @@ pub fn update_rls<const DIM: usize, const DIM_SQ: usize>(
 
     // 3. Kalman gain: k = Pi / denom
     let mut k = [0.0f32; DIM];
-    for i in 0..DIM {
-        k[i] = pi[i] / denom;
+    for (gain, &pi_value) in k.iter_mut().zip(&pi) {
+        *gain = pi_value / denom;
     }
 
     // 4. Update weights: weights = weights + k * error
-    for i in 0..DIM {
-        let new_w = state.weights[i] + k[i] * error;
+    for (weight, &gain) in state.weights.iter_mut().zip(&k) {
+        let new_w = *weight + gain * error;
         if new_w.abs() > state.parameter_bound {
             return Err(AdaptationError::ParameterExceedsBounds);
         }
-        state.weights[i] = new_w;
+        *weight = new_w;
     }
 
     // 5. Update P = (P - k * Pi^T) / lambda
     let inv_lambda = 1.0f32 / state.lambda;
     for (r, gain) in k.iter().enumerate() {
         let row_offset = r * DIM;
-        for c in 0..DIM {
-            let update_delta = gain * pi[c];
+        for (c, &pi_value) in pi.iter().enumerate() {
+            let update_delta = gain * pi_value;
             state.p_matrix[row_offset + c] =
                 (state.p_matrix[row_offset + c] - update_delta) * inv_lambda;
         }
