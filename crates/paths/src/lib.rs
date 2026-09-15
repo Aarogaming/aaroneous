@@ -99,28 +99,19 @@ impl WorkspacePaths {
         }
     }
 
-    #[allow(ambient_authority)]
     fn discover_external_data_root(config: &WorkspacePathsConfig, root: &Path) -> PathBuf {
         // 1. Explicitly configured external data root via constructor injection
         if let Some(ref external) = config.external_data_root {
             return external.clone();
         }
 
-        // 2. Check environment variable ARC_DATA_ROOT
-        if let Ok(env_path) = std::env::var("ARC_DATA_ROOT") {
-            let trimmed = env_path.trim();
-            if !trimmed.is_empty() {
-                return PathBuf::from(trimmed);
-            }
-        }
-
-        // 3. Default to sibling directory outside the git repository (e.g. D:\ArcData alongside D:\Aaroneous)
+        // 2. Default to a sibling directory outside the repository.
         if let Some(parent) = root.parent() {
             let sibling = parent.join("ArcData");
             return sibling;
         }
 
-        // 4. Safe fallback if root has no parent
+        // 3. Safe fallback if root has no parent
         root.join("data")
     }
 
