@@ -1,3 +1,3 @@
 $ErrorActionPreference = "Stop"
-cargo xtask gate
+cargo run --package xtask -- gate
 exit $LASTEXITCODE
