@@ -22,7 +22,10 @@ pub enum Verdict {
 
 impl Verdict {
     fn parse(word: &str) -> Option<Verdict> {
-        let w = word.trim().trim_matches(|c: char| !c.is_alphabetic()).to_uppercase();
+        let w = word
+            .trim()
+            .trim_matches(|c: char| !c.is_alphabetic())
+            .to_uppercase();
         match w.as_str() {
             "CONFIRMED" => Some(Verdict::Confirmed),
             "PLAUSIBLE" => Some(Verdict::Plausible),
@@ -59,7 +62,11 @@ pub async fn verify_one(client: &LLMClient, candidate: &Candidate) -> Result<Fin
         "File: {}\nLine: {:?}\nAngle: {:?}\nSummary: {}\nFailure scenario: {}\n\n\
          Verify this against the actual file/diff content you can retrieve; do not just take \
          the summary's word for it.",
-        candidate.file, candidate.line, candidate.angle, candidate.summary, candidate.failure_scenario
+        candidate.file,
+        candidate.line,
+        candidate.angle,
+        candidate.summary,
+        candidate.failure_scenario
     );
 
     let response = client
@@ -106,7 +113,11 @@ pub async fn verify_all(client: &LLMClient, candidates: &[Candidate]) -> Vec<Fin
 /// worth acting on first.
 pub fn rank_and_cap(mut findings: Vec<Finding>, cap: usize) -> Vec<Finding> {
     findings.sort_by_key(|f| {
-        let angle_rank = if f.candidate.angle.is_correctness() { 0 } else { 1 };
+        let angle_rank = if f.candidate.angle.is_correctness() {
+            0
+        } else {
+            1
+        };
         let verdict_rank = match f.verdict {
             Verdict::Confirmed => 0,
             Verdict::Plausible => 1,

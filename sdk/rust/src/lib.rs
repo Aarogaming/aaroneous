@@ -21,8 +21,8 @@ pub use dynamic_plugin::{
 };
 
 pub use ipc_bus::{
-    MachinePacket, PersistentWalStore, SpecialistSynapseBus,
-    SpmcSynapseBus, SynapsePacket, WalRecord,
+    MachinePacket, PersistentWalStore, SpecialistSynapseBus, SpmcSynapseBus, SynapsePacket,
+    WalRecord,
 };
 use std::sync::Arc;
 

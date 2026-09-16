@@ -7,7 +7,10 @@ pub struct ProfileRecombinator;
 impl ProfileRecombinator {
     /// Performs crossover breeding between two specialists.
     /// This creates a new genetic template for a descendant enzyme.
-    pub fn merge_profiles(parent_a: &EnzymeGenetics, parent_b: &EnzymeGenetics) -> Result<EnzymeGenetics> {
+    pub fn merge_profiles(
+        parent_a: &EnzymeGenetics,
+        parent_b: &EnzymeGenetics,
+    ) -> Result<EnzymeGenetics> {
         let mut rng = rand::rng();
 
         // 1. Category Inheritance (Pick one)

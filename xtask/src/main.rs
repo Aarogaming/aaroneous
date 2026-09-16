@@ -1,12 +1,12 @@
 #![deny(unsafe_code)]
 
-mod gate;
 mod encoding;
+mod gate;
 mod install;
-mod uninstall;
 mod package;
+mod uninstall;
 
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 
 fn main() -> Result<()> {
     let args: Vec<String> = std::env::args().collect();
@@ -17,13 +17,20 @@ fn main() -> Result<()> {
         "install" => install::run(&args[2..]),
         "uninstall" => uninstall::run(),
         "package" => package::run(&args[2..]),
-        "help" | "--help" | "-h" => { print_help(); Ok(()) }
-        other => bail!("Unknown xtask subcommand: '{}'. Run `cargo xtask help` for usage.", other),
+        "help" | "--help" | "-h" => {
+            print_help();
+            Ok(())
+        }
+        other => bail!(
+            "Unknown xtask subcommand: '{}'. Run `cargo xtask help` for usage.",
+            other
+        ),
     }
 }
 
 fn print_help() {
-    println!(r#"
+    println!(
+        r#"
 Usage: cargo xtask <subcommand>
 
 Subcommands:
@@ -37,5 +44,6 @@ Examples:
   cargo xtask gate
   cargo xtask install --dir C:\Programs\Aaroneous
   cargo xtask package --version 0.3.2
-"#);
+"#
+    );
 }

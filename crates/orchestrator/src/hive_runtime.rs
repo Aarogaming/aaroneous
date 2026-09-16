@@ -418,4 +418,3 @@ mod tests {
         assert_eq!(record.success, None);
     }
 }
-

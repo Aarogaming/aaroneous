@@ -80,7 +80,7 @@ pub struct SpecialistAgent {
     pub persona: String, // Personality flavor text
     pub cognitive_bias: CognitiveBias,
     pub supervised_relic: Option<String>, // ID of supervised relic
-    pub node_preset_path: String,          // Path to hox_specialist_<name>.json
+    pub node_preset_path: String,         // Path to hox_specialist_<name>.json
     pub module_subset: Vec<String>,       // Allowlisted enzymes for this specialist
     pub interval_ms: u64,                 // Polling interval in milliseconds
     pub model_path: String,               // Path to GGUF model file
@@ -147,13 +147,13 @@ pub struct RelicAgent {
     pub role: String, // "Visual Operator", "Prophetic Synthesist", etc.
     pub persona: String, // Personality flavor text
     pub cognitive_bias: CognitiveBias,
-    pub node_preset_path: String,          // Path to hox_relic_<name>.json
-    pub module_subset: Vec<String>,       // Allowlisted enzymes for this relic
-    pub interval_ms: u64,                 // Polling interval in milliseconds
+    pub node_preset_path: String,   // Path to hox_relic_<name>.json
+    pub module_subset: Vec<String>, // Allowlisted enzymes for this relic
+    pub interval_ms: u64,           // Polling interval in milliseconds
     pub metadata: HashMap<String, Value>, // Extensible metadata
-    pub model_path: String,               // Path to GGUF model file
-    pub model_hash: String,               // SHA256 hash of model file
-    pub status: String,                   // Current operational status
+    pub model_path: String,         // Path to GGUF model file
+    pub model_hash: String,         // SHA256 hash of model file
+    pub status: String,             // Current operational status
 }
 
 impl Agent for RelicAgent {
@@ -733,4 +733,3 @@ mod tests {
         }
     }
 }
-

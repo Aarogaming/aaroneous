@@ -151,7 +151,8 @@ pub use si_trainer::{
 pub use state_bank::{AdaptationError, RlsState, STATE_BANK_HEADER_SIZE, update_rls};
 pub use token_consumer::MachineToken;
 pub use translation_dataset::{
-    LATENT_DIM, TEACHER_DIM, ROSETTA_LATENT_DIM, ROSETTA_TEACHER_DIM, TranslationStep, TranslationDataset,
+    LATENT_DIM, ROSETTA_LATENT_DIM, ROSETTA_TEACHER_DIM, TEACHER_DIM, TranslationDataset,
+    TranslationStep,
 };
 pub type RosettaTrajectoryStep = TranslationStep;
 pub extern crate ipc_bus as nervous_system;

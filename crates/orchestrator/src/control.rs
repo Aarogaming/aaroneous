@@ -767,5 +767,3 @@ mod tests {
         assert_eq!(responses[0].1["specialist"], "fabricator");
     }
 }
-
-

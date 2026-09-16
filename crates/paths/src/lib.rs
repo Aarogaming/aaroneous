@@ -293,11 +293,14 @@ impl WorkspacePaths {
     }
 
     pub fn agent_preset(&self, name: &str) -> PathBuf {
-        let agent_file = self.registry().join(format!("agent_{}.json", name.to_lowercase()));
+        let agent_file = self
+            .registry()
+            .join(format!("agent_{}.json", name.to_lowercase()));
         if agent_file.exists() {
             agent_file
         } else {
-            self.registry().join(format!("hox_{}.json", name.to_lowercase()))
+            self.registry()
+                .join(format!("hox_{}.json", name.to_lowercase()))
         }
     }
 
@@ -306,7 +309,9 @@ impl WorkspacePaths {
     }
 
     pub fn relic_hox_preset(&self, name: &str) -> PathBuf {
-        let module_store = self.registry().join(format!("module_store_{}.json", name.to_lowercase()));
+        let module_store = self
+            .registry()
+            .join(format!("module_store_{}.json", name.to_lowercase()));
         if module_store.exists() {
             module_store
         } else {

@@ -238,4 +238,3 @@ mod tests {
         assert_eq!(layout["total_interactions"], 3);
     }
 }
-

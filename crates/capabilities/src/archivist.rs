@@ -170,4 +170,3 @@ mod tests {
         assert_eq!(snapshot.total_stars, 1);
     }
 }
-

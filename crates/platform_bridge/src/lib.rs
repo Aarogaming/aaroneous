@@ -46,9 +46,9 @@ pub use audio_analyzer::{
     AudioEventObservation, AudioFrequencySpectrum, WasapiAudioStreamAnalyzer,
 };
 pub use delta_vision::{
-    DEFAULT_DELTA_THRESHOLD, DEFAULT_HYSTERESIS_FRAMES, DeltaGatingResult,
-    DeltaVisionGater, GRID_HEIGHT, GRID_SIZE, GRID_WIDTH, SECTOR_SIZE, SECTORS_PER_COL,
-    SECTORS_PER_ROW, TOTAL_SECTORS,
+    DEFAULT_DELTA_THRESHOLD, DEFAULT_HYSTERESIS_FRAMES, DeltaGatingResult, DeltaVisionGater,
+    GRID_HEIGHT, GRID_SIZE, GRID_WIDTH, SECTOR_SIZE, SECTORS_PER_COL, SECTORS_PER_ROW,
+    TOTAL_SECTORS,
 };
 pub type EpigeneticGatingResult = DeltaGatingResult;
 pub type EpigeneticVisionGater = DeltaVisionGater;
@@ -146,9 +146,7 @@ impl DesktopEmulator {
     }
 
     /// Ingest the next visual frame through the delta motion saliency gate (zeroing static background)
-    pub async fn pull_delta_perception(
-        &self,
-    ) -> Result<(VisualObservation, DeltaGatingResult)> {
+    pub async fn pull_delta_perception(&self) -> Result<(VisualObservation, DeltaGatingResult)> {
         // 1. Raw frame capture
         let raw_obs = self.pull_visual_perception().await?;
 

@@ -155,4 +155,3 @@ mod tests {
         assert_eq!(synthesizer.knowledge_base.indexed_documents, 1);
     }
 }
-

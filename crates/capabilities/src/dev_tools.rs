@@ -330,4 +330,3 @@ mod tests {
         assert_eq!(fabricator.forge.total_adaptations_forged, 1);
     }
 }
-

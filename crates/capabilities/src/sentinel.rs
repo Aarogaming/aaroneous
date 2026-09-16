@@ -208,4 +208,3 @@ mod tests {
         assert!(sentinel.sentinel.threats_blocked >= 1);
     }
 }
-

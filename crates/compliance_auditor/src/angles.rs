@@ -52,7 +52,10 @@ impl Angle {
     /// Whether findings from this angle are correctness bugs (outrank
     /// cleanup findings when a report has to cut down to its cap).
     pub fn is_correctness(self) -> bool {
-        matches!(self, Angle::LineByLine | Angle::RemovedBehavior | Angle::Conventions)
+        matches!(
+            self,
+            Angle::LineByLine | Angle::RemovedBehavior | Angle::Conventions
+        )
     }
 
     fn system_prompt(self) -> &'static str {
@@ -109,14 +112,18 @@ impl Angle {
                  more general fix."
             }
             Angle::Conventions => {
-                unreachable!("Conventions findings are produced by crate::conventions::run, not run_angle")
+                unreachable!(
+                    "Conventions findings are produced by crate::conventions::run, not run_angle"
+                )
             }
         }
     }
 
     fn output_contract(self) -> &'static str {
         if matches!(self, Angle::Conventions) {
-            unreachable!("Conventions findings are produced by crate::conventions::run, not run_angle");
+            unreachable!(
+                "Conventions findings are produced by crate::conventions::run, not run_angle"
+            );
         }
         "Respond with ONLY a JSON array (no prose, no markdown fences) of up to 6 objects, \
          each shaped exactly as: \
@@ -162,7 +169,11 @@ struct RawCandidate {
 /// candidates. A malformed or empty model response is treated as "no
 /// findings from this angle" rather than an error — one angle's confusion
 /// should not sink the whole review.
-pub async fn run_angle(client: &LLMClient, angle: Angle, diff_text: &str) -> Result<Vec<Candidate>> {
+pub async fn run_angle(
+    client: &LLMClient,
+    angle: Angle,
+    diff_text: &str,
+) -> Result<Vec<Candidate>> {
     let system = format!("{}\n\n{}", angle.system_prompt(), angle.output_contract());
     let user = format!("Diff under review:\n```diff\n{diff_text}\n```");
 
@@ -216,7 +227,11 @@ pub fn dedup(candidates: Vec<Candidate>) -> Vec<Candidate> {
     let mut seen = std::collections::HashSet::new();
     let mut out = Vec::new();
     for c in candidates {
-        let key = (c.file.clone(), c.line.unwrap_or(0) / 5, c.summary.to_lowercase());
+        let key = (
+            c.file.clone(),
+            c.line.unwrap_or(0) / 5,
+            c.summary.to_lowercase(),
+        );
         if seen.insert(key) {
             out.push(c);
         }

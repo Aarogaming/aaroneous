@@ -85,11 +85,7 @@ impl SensoryMotorPipeline {
     }
 
     /// Projects 16x16 delta sector activations into an R^256 spatial-semantic latent intent vector
-    pub fn project_latent_intent(
-        &self,
-        gated: &DeltaGatingResult,
-        raw_frame: &[f32],
-    ) -> Vec<f32> {
+    pub fn project_latent_intent(&self, gated: &DeltaGatingResult, raw_frame: &[f32]) -> Vec<f32> {
         let mut intent = vec![0.0f32; GUARDRAIL_DIM];
 
         // 1. Ingest 256 sector saliency values directly

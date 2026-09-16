@@ -187,10 +187,7 @@ impl SpecialistHibernationEngine {
         file.read_to_end(&mut buffer)?;
 
         if buffer.len() < 128 || &buffer[0..8] != SISSM_MAGIC {
-            anyhow::bail!(
-                "Corrupted .sissm hibernation container for '{}'",
-                agent_id
-            );
+            anyhow::bail!("Corrupted .sissm hibernation container for '{}'", agent_id);
         }
 
         let payload_len = u64::from_le_bytes(buffer[10..18].try_into()?) as usize;
@@ -327,4 +324,3 @@ mod tests {
         );
     }
 }
-

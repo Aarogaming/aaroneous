@@ -174,4 +174,3 @@ impl IntelligenceEngine {
             .update_specialist_performance(agent_id, success, completion_time);
     }
 }
-

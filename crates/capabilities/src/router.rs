@@ -208,4 +208,3 @@ mod tests {
         assert_eq!(router.bus.packets_routed, 4);
     }
 }
-

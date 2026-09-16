@@ -147,4 +147,3 @@ mod tests {
         assert_eq!(aligner.resonance.interactions_aligned, 1);
     }
 }
-

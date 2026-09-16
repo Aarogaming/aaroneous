@@ -158,4 +158,3 @@ mod tests {
         assert_eq!(frame.grid.len(), 128 * 128);
     }
 }
-

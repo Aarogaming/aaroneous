@@ -345,4 +345,3 @@ mod tests {
         assert!(results[1].as_ref().is_ok_and(|r| r.success));
     }
 }
-

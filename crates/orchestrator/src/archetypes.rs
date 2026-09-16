@@ -232,4 +232,3 @@ mod tests {
         assert_eq!(restored.action_opcode, 0x81);
     }
 }
-

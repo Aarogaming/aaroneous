@@ -68,19 +68,21 @@ impl Default for ReviewConfig {
 }
 
 /// Run the full pipeline against `repo` and return the finished report.
-pub async fn run_review(client: &LLMClient, repo: &Path, config: &ReviewConfig) -> Result<ComplianceReport> {
+pub async fn run_review(
+    client: &LLMClient,
+    repo: &Path,
+    config: &ReviewConfig,
+) -> Result<ComplianceReport> {
     let target = diff::gather(repo, &config.base, &config.head, config.max_files)?;
     let files: Vec<String> = target.file_list();
     let diff_text = target.concatenated_patch(config.diff_char_budget);
 
-    let (mut candidates, conventions_candidates) = tokio::join!(
-        angles::run_all_angles(client, &diff_text),
-        async {
+    let (mut candidates, conventions_candidates) =
+        tokio::join!(angles::run_all_angles(client, &diff_text), async {
             conventions::run(client, repo, &files, &diff_text)
                 .await
                 .unwrap_or_default()
-        }
-    );
+        });
     candidates.extend(conventions_candidates);
     let candidates = angles::dedup(candidates);
 

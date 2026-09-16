@@ -83,11 +83,7 @@ pub fn gather(repo: &Path, base: &str, head: &str, max_files: usize) -> Result<D
         if patch.trim().is_empty() {
             continue;
         }
-        files.push(FileDiff {
-            path,
-            churn,
-            patch,
-        });
+        files.push(FileDiff { path, churn, patch });
     }
 
     Ok(DiffTarget {
@@ -109,7 +105,10 @@ impl DiffTarget {
                 out.push_str("\n[... remaining files omitted, diff exceeds review budget ...]\n");
                 break;
             }
-            out.push_str(&format!("\n=== {} ({} changed lines) ===\n", file.path, file.churn));
+            out.push_str(&format!(
+                "\n=== {} ({} changed lines) ===\n",
+                file.path, file.churn
+            ));
             let remaining = budget_chars.saturating_sub(out.len());
             if file.patch.len() > remaining {
                 out.push_str(&file.patch[..remaining.min(file.patch.len())]);

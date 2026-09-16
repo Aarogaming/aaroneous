@@ -343,14 +343,8 @@ mod tests {
     fn test_translation_dataset_synthesis_and_roundtrip() {
         let dataset = TranslationDataset::synthesize_synthetic_corpus(10);
         assert_eq!(dataset.steps.len(), 10);
-        assert_eq!(
-            dataset.steps[0].teacher_hidden_state.len(),
-            TEACHER_DIM
-        );
-        assert_eq!(
-            dataset.steps[0].target_state_delta.len(),
-            LATENT_DIM
-        );
+        assert_eq!(dataset.steps[0].teacher_hidden_state.len(), TEACHER_DIM);
+        assert_eq!(dataset.steps[0].target_state_delta.len(), LATENT_DIM);
 
         let temp_dir = tempfile::tempdir().unwrap();
         let path = temp_dir.path().join("test_rosetta_stone.bin");

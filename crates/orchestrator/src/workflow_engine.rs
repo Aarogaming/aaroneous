@@ -837,4 +837,3 @@ mod tests {
         assert_eq!(node_s2.dependencies.len(), 1);
     }
 }
-
