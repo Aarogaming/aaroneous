@@ -1,4 +1,4 @@
-﻿//! core/hypervisor/bin/watchdog.rs
+//! core/hypervisor/bin/watchdog.rs
 //! Headless Watchdog Daemon (CONSUMER-11)
 //! Spawns and monitors the Aaroneous UI. If the UI panics or crashes, it automatically restarts it.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
