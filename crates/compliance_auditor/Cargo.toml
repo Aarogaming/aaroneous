@@ -1,0 +1,32 @@
+[package]
+name = "compliance_auditor"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+description = "Aaroneous compliance auditor: multi-angle diff review with independent finder passes and adversarial verification"
+license.workspace = true
+repository.workspace = true
+
+[lints.cargo]
+non_kebab_case_bins = "allow"
+
+[[bin]]
+name = "compliance_auditor"
+path = "src/main.rs"
+
+[dependencies]
+ast_auditor = { path = "../ast_auditor" }
+llm_gateway = { path = "../llm_gateway" }
+
+clap = { version = "4.4", features = ["derive"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = { workspace = true }
+anyhow = "1.0"
+tokio = { workspace = true }
+futures = "0.3"
+tracing = "0.1"
+walkdir = "2.5"
+
+[dev-dependencies]
+tempfile = { workspace = true }
