@@ -191,9 +191,24 @@ mod tests {
         capture.start().expect("Failed to start audio capture");
         assert!(capture.is_active());
 
-        thread::sleep(Duration::from_millis(30));
-
-        let samples = capture.drain_samples();
+        // Poll with a generous bound instead of a fixed sleep: the worker
+        // thread's first iteration does real spectral-analysis/feature-
+        // extraction work before it ever appends to the buffer, and a fixed
+        // ~30ms sleep is not long enough to guarantee that completes on a
+        // loaded or throttled shared CI runner (observed flaking on
+        // ubuntu-latest with an empty buffer, not a platform difference —
+        // this capture loop is pure synthetic-PCM simulation, no WASAPI FFI,
+        // so it behaves identically on every OS). 2s is far beyond any
+        // realistic scheduling delay for one 5ms-interval iteration; only a
+        // genuine capture-loop bug would ever hit it.
+        let deadline = std::time::Instant::now() + Duration::from_secs(2);
+        let samples = loop {
+            let samples = capture.drain_samples();
+            if !samples.is_empty() || std::time::Instant::now() >= deadline {
+                break samples;
+            }
+            thread::sleep(Duration::from_millis(5));
+        };
         assert!(!samples.is_empty(), "Expected captured audio PCM samples");
 
         capture.stop().expect("Failed to stop audio capture");
