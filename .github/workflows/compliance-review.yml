@@ -1,0 +1,82 @@
+name: Compliance Review
+
+# Runs the compliance_auditor crate (crates/compliance_auditor) against the
+# PR's diff against its base branch: several independent LLM finder passes
+# plus adversarial per-candidate verification, folded together with
+# ast_auditor's deterministic structural checks. This is advisory, not a
+# merge gate — cargo xtask gate (see ci.yml) already enforces the
+# deterministic invariants; this job surfaces semantic issues (logic bugs,
+# quietly-removed invariants, reuse/simplification opportunities) that no
+# syntactic checker catches, for a human to weigh.
+#
+# Requires an OPENAI_API_KEY repository secret to do a real review; without
+# one the job still runs (against the mock provider) so the workflow itself
+# stays exercised, but produces no real findings — see the job summary.
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  review:
+    name: Multi-angle diff review
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Linux native build dependencies
+        run: sudo apt-get update && sudo apt-get install -y libclang-dev libudev-dev libasound2-dev libssl-dev pkg-config cmake
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Build compliance_auditor
+        run: cargo build -p compliance_auditor --release
+
+      - name: Run compliance review
+        id: review
+        continue-on-error: true
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          if [ -n "${OPENAI_API_KEY:-}" ]; then
+            PROVIDER=openai
+          else
+            echo "::notice::No OPENAI_API_KEY secret configured; running against the mock provider (no real findings will be produced)."
+            PROVIDER=mock
+          fi
+          ./target/release/compliance_auditor review \
+            --base "origin/${{ github.event.pull_request.base.ref || 'main' }}" \
+            --head HEAD \
+            --provider "$PROVIDER" \
+            --json \
+            --output compliance-report.json | tee compliance-report.txt
+
+      - name: Publish job summary
+        if: always()
+        run: |
+          {
+            echo "## Compliance review"
+            echo
+            echo '```'
+            cat compliance-report.txt 2>/dev/null || echo "(no output captured)"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload report artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: compliance-report
+          path: compliance-report.json
+          if-no-files-found: ignore
