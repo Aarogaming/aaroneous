@@ -3,6 +3,8 @@
 This is the single operational backlog for gradual hardening of Aaroneous. Update it from
 repository evidence, CI results, and completed verification; do not add speculative work.
 
+The complete audit program is defined in [HARDENING_AUDIT_MATRIX.md](HARDENING_AUDIT_MATRIX.md).
+
 ## Operating rules
 
 - Complete one bounded item at a time. Preserve a passing, reviewable commit after each item.
