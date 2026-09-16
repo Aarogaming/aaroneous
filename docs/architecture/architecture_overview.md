@@ -94,7 +94,7 @@ The workspace rejects monolithic coupling, dynamic scripting wrappers, and monol
 
 - **[`dev/emulator_harness`](file:///d:/Aaroneous/dev/emulator_harness)**: Golden execution harness, deterministic cycle-accurate instruction trace recorder, and forensic triage substrate.
 - **[`dev/legacy_staging`](file:///d:/Aaroneous/dev/legacy_staging)**: Quarantine sandbox for incoming legacy modules and external code bases awaiting formal event-driven assimilation.
-- **[`dev/tools`](file:///d:/Aaroneous/dev/tools)**: Diagnostics, maintenance scripts, and offline profiling utilities.
+- The Rust verification crates in `dev/` are supported framework harnesses. Workstation diagnostics, local-model runners, and experimental automation are isolated in the private [dev-tools companion repository](TOOLING_BOUNDARY_POLICY.md).
 
 ---
 

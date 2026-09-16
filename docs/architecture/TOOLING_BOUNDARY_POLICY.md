@@ -59,6 +59,13 @@ as one of:
 
 No new general-purpose scripting stack may be introduced while this inventory is incomplete.
 
+## Initial migration record
+
+On 2026-09-16, local model operations, OpenCode configuration, agent profiles, and the legacy
+`dev/tools/` automation layer were transferred to the private companion repository. The transfer
+is recorded there as `migrations/aaroneous-2026-09-16/`. The remaining shell, PowerShell, and
+Python entry points in this repository are tracked for Rust-native replacement or removal in
+[the canonical worklist](../WORKLIST.md).
 ## Enforcement
 
 The native hardening gate verifies that this policy is present. Changes that add non-Rust

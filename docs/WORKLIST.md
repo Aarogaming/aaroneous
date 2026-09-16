@@ -95,10 +95,10 @@ distribution.
 
 ### B6 — Classify and reduce non-Rust tooling
 
-**Status:** Ready
+**Status:** In progress
 Apply the tooling-boundary policy to every Python, PowerShell, shell, WIT, and WGSL artifact.
 Port repository-critical logic to Rust, retain only active runtime interfaces and thin platform
-adapters, and move personal operations or experimental stacks to the private dev-tools repository.
+adapters, and move personal operations or experimental stacks to the private dev-tools repository. The local-model and legacy `dev/tools/` tranche moved on 2026-09-16; inventory and Rust-port work remains.
 
 ## Done
 
