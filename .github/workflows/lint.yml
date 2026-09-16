@@ -17,15 +17,26 @@ jobs:
     name: typos (spelling)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: crate-ci/typos@v1
 
   actionlint:
     name: actionlint (workflow YAML)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: reviewdog/action-actionlint@v1
         with:
           reporter: github-check
           fail_level: error
+          # rustsec/audit-check and ilammy/msvc-dev-cmd are both pinned to
+          # their latest available major (@v2, @v1) and still run on the
+          # deprecated Node 20 runtime — verified via each action's actual
+          # action.yml at that ref, not assumed: neither has published a
+          # newer major with Node 24 support yet. There is no version bump
+          # that fixes this; ignoring by exact action+ref so a real new
+          # deprecation (a different action, or a newer ref of one of these
+          # two that's still on Node 20) is not silently swallowed too.
+          actionlint_flags: >-
+            -ignore 'action "rustsec/audit-check@v2"'
+            -ignore 'action "ilammy/msvc-dev-cmd@v1"'
