@@ -25,3 +25,4 @@ core-contracts = { path = "../core-contracts" }
 
 [dev-dependencies]
 tempfile = "3"
+proptest = "1.5"
