@@ -6,8 +6,8 @@
 #![deny(unsafe_code)]
 
 use std::path::{Path, PathBuf};
-use syn::visit::{self, Visit};
 use syn::LitStr;
+use syn::visit::{self, Visit};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PathSeparatorViolation {
@@ -46,7 +46,15 @@ impl<'ast> Visit<'ast> for PathSeparatorVisitor<'_> {
     fn visit_lit_str(&mut self, node: &'ast LitStr) {
         let val = node.value();
         // Flag string literals containing backslashes in path-like patterns (e.g. "foo\bar.txt")
-        if val.contains('\\') && (val.contains(".rs") || val.contains(".json") || val.contains(".toml") || val.contains(".wgsl") || val.contains("crates\\") || val.contains("core\\") || val.contains("dev\\")) {
+        if val.contains('\\')
+            && (val.contains(".rs")
+                || val.contains(".json")
+                || val.contains(".toml")
+                || val.contains(".wgsl")
+                || val.contains("crates\\")
+                || val.contains("core\\")
+                || val.contains("dev\\"))
+        {
             self.violations.push(PathSeparatorViolation {
                 file_path: self.file_path.to_path_buf(),
                 line: node.span().start().line,

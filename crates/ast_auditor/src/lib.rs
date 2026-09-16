@@ -22,6 +22,7 @@ use std::process::ExitCode;
 use syn::visit::Visit;
 use walkdir::WalkDir;
 
+pub use self::rules::memory_geometry::{MemoryGeometryViolation, MemoryGeometryVisitor};
 pub use self::rules::no_ambient_authority::{AmbientAuthorityVisitor, AmbientViolation};
 pub use self::rules::no_workspace_prefix_stutter::{
     PrefixStutterViolation, PrefixStutterVisitor, audit_manifest_stutter,
@@ -41,6 +42,7 @@ pub struct UnifiedAuditReport {
     pub ambient_violations: Vec<AmbientViolation>,
     pub hot_path_violations: Vec<HotPathAllocViolation>,
     pub prefix_stutter_violations: Vec<PrefixStutterViolation>,
+    pub memory_geometry_violations: Vec<MemoryGeometryViolation>,
 }
 
 impl UnifiedAuditReport {
@@ -50,6 +52,7 @@ impl UnifiedAuditReport {
             || !self.ambient_violations.is_empty()
             || !self.hot_path_violations.is_empty()
             || !self.prefix_stutter_violations.is_empty()
+            || !self.memory_geometry_violations.is_empty()
     }
 
     pub fn print_diagnostics(&self) {
@@ -77,16 +80,21 @@ impl UnifiedAuditReport {
         for v in &self.prefix_stutter_violations {
             eprintln!("{v}");
         }
+        for v in &self.memory_geometry_violations {
+            eprintln!("{v}");
+        }
 
         println!(
-            "\n[AST AUDIT SUMMARY] Files scanned: {} | Violations: {} ({} ambient, {} hot-path allocations, {} prefix stutter)",
+            "\n[AST AUDIT SUMMARY] Files scanned: {} | Violations: {} ({} ambient, {} hot-path allocations, {} prefix stutter, {} memory geometry)",
             self.files_scanned,
             self.ambient_violations.len()
                 + self.hot_path_violations.len()
-                + self.prefix_stutter_violations.len(),
+                + self.prefix_stutter_violations.len()
+                + self.memory_geometry_violations.len(),
             self.ambient_violations.len(),
             self.hot_path_violations.len(),
-            self.prefix_stutter_violations.len()
+            self.prefix_stutter_violations.len(),
+            self.memory_geometry_violations.len()
         );
     }
 }
@@ -126,6 +134,13 @@ pub fn audit_source_file(
     report
         .prefix_stutter_violations
         .extend(stutter_visitor.violations);
+
+    // 4. Audit Memory Geometry for Pod/Zeroable derives
+    let mut geometry_visitor = MemoryGeometryVisitor::new(path);
+    geometry_visitor.visit_file(&syntax_tree);
+    report
+        .memory_geometry_violations
+        .extend(geometry_visitor.into_violations());
 
     Ok(())
 }

@@ -1,5 +1,8 @@
 // Core contracts for Aaroneous microkernel
 
+pub mod metadata;
+pub use metadata::*;
+
 use bitflags::bitflags;
 use bytemuck::{Pod, Zeroable};
 use serde::{Deserialize, Serialize};

@@ -6,9 +6,9 @@
 #![deny(unsafe_code)]
 
 use std::path::{Path, PathBuf};
+use syn::ExprUnsafe;
 use syn::spanned::Spanned;
 use syn::visit::{self, Visit};
-use syn::ExprUnsafe;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SafetyCommentViolation {
@@ -54,7 +54,8 @@ impl<'a> SafetyCommentVisitor<'a> {
         let mut has_safety_comment = false;
         for l in start_line..=end_line {
             if let Some(text) = lines.get(l) {
-                if text.contains("SAFETY:") || text.contains("Safety:") || text.contains("safety:") {
+                if text.contains("SAFETY:") || text.contains("Safety:") || text.contains("safety:")
+                {
                     has_safety_comment = true;
                     break;
                 }
