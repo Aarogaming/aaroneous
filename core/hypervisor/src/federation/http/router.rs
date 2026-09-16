@@ -3399,7 +3399,7 @@ async fn dna_compare(
     State(_state): State<AppState>,
     Json(req): Json<DnaCompareRequest>,
 ) -> impl IntoResponse {
-    use crate::GeneticAnalyzer;
+    use crate::ProfileAnalyzer;
     use crate::federation::dna::{dna_to_genome, load_dna_sidecar};
 
     let resolve = |name: &str| -> std::path::PathBuf {
@@ -3421,7 +3421,7 @@ async fn dna_compare(
         (Some(a), Some(b)) => {
             let genome_a = dna_to_genome(&a);
             let genome_b = dna_to_genome(&b);
-            let diversity = GeneticAnalyzer::population_diversity(&[genome_a, genome_b]);
+            let diversity = ProfileAnalyzer::population_diversity(&[genome_a, genome_b]);
 
             // Per-locus comparison
             // Strip model-name prefix from locus IDs for cross-model comparison.
@@ -3457,22 +3457,22 @@ async fn dna_compare(
             // Compute distance on normalised loci (strip model prefix from IDs)
             let _genome_a_norm = dna_to_genome(&a);
             let _genome_b_norm = dna_to_genome(&b);
-            // Override locus IDs to use keys only so GeneticAnalyzer can match them
-            use crate::{SpecialistGenome, GeneticLocus};
+            // Override locus IDs to use keys only so ProfileAnalyzer can match them
+            use crate::{AgentProfile, ProfileLocus};
             let mk_normalised = |dna: &crate::federation::dna::ModelDNA| {
-                let mut g = SpecialistGenome::new(dna.model_name.clone(), dna.model_name.clone(), dna.model_path.clone());
+                let mut g = AgentProfile::new(dna.model_name.clone(), dna.model_name.clone(), dna.model_path.clone());
                 for rec in &dna.genetic_loci {
                     let key = locus_key(&rec.locus_id, &dna.model_name);
                     let cat = crate::federation::dna::parse_category_pub(&rec.category);
                     let src = crate::federation::dna::parse_source_pub(&rec.source);
-                    let locus = GeneticLocus::new(key, cat, rec.value.clamp(0.0, 1.0), src);
+                    let locus = ProfileLocus::new(key, cat, rec.value.clamp(0.0, 1.0), src);
                     g.add_locus(locus);
                 }
                 g
             };
             let gn_a = mk_normalised(&a);
             let gn_b = mk_normalised(&b);
-            let distance = crate::GeneticAnalyzer::distance(&gn_a, &gn_b);
+            let distance = crate::ProfileAnalyzer::distance(&gn_a, &gn_b);
 
             Json(serde_json::json!({
                 "ok": true,

@@ -1,4 +1,4 @@
-use crate::profile_schema::{EnzymeGenetics, NodePermissions};
+use crate::profile_schema::{ModuleDefinition, NodePermissions};
 use anyhow::Result;
 use parking_lot::Mutex;
 use rusqlite::{Connection, params};
@@ -76,11 +76,11 @@ impl ProfileRegistry {
         }
     }
 
-    pub fn get_module(&self, name: &str) -> Option<EnzymeGenetics> {
+    pub fn get_module(&self, name: &str) -> Option<ModuleDefinition> {
         self.get_capability(name)
             .ok()
             .flatten()
-            .map(|cap| EnzymeGenetics {
+            .map(|cap| ModuleDefinition {
                 category: cap.name.clone(),
                 expression_level: 1.0,
                 permissions: cap.permissions.clone(),

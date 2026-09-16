@@ -35,7 +35,7 @@ use tracing::{info, warn};
 pub mod omni;
 
 use crate::federation::forge::{TensorMeta, read_gguf};
-use crate::{GeneticCategory, GeneticLocus, LociSource, SpecialistGenome};
+use crate::{AgentProfile, LociSource, ProfileCategory, ProfileLocus};
 
 // ── Public types ──────────────────────────────────────────────────────────────
 
@@ -1179,11 +1179,11 @@ pub fn load_dna_sidecar(model_path: &Path) -> Option<ModelDNA> {
     serde_json::from_str(&data).ok()
 }
 
-/// Convert a `ModelDNA` into a `SpecialistGenome` for use with `genetics.rs`.
-pub fn dna_to_genome(dna: &ModelDNA) -> SpecialistGenome {
-    use crate::EpigeneticState;
+/// Convert a `ModelDNA` into an `AgentProfile` for use with `genetics.rs`.
+pub fn dna_to_genome(dna: &ModelDNA) -> AgentProfile {
+    use crate::AdaptationState;
 
-    let mut genome = SpecialistGenome::new(
+    let mut genome = AgentProfile::new(
         dna.model_name.clone(),
         dna.model_name.replace(".gguf", "").replace('-', " "),
         dna.model_path.clone(),
@@ -1192,7 +1192,7 @@ pub fn dna_to_genome(dna: &ModelDNA) -> SpecialistGenome {
     for record in &dna.genetic_loci {
         let category = parse_category(&record.category);
         let source = parse_source(&record.source);
-        let locus = GeneticLocus::new(
+        let locus = ProfileLocus::new(
             record.locus_id.clone(),
             category,
             record.value.clamp(0.0, 1.0),
@@ -1215,7 +1215,7 @@ pub fn dna_to_genome(dna: &ModelDNA) -> SpecialistGenome {
     // Epigenetic modulation: models with high gate sparsity are more "methylated"
     // (specialized genes suppressed in favour of domain focus)
     let sparsity = dna.genome_loci.get("gate_sparsity").copied().unwrap_or(0.5);
-    genome.epigenetic_state = EpigeneticState {
+    genome.epigenetic_state = AdaptationState {
         methylation: sparsity,
         chromatin_accessibility: 1.0 - sparsity,
         histone_modification: (dna
@@ -1229,7 +1229,7 @@ pub fn dna_to_genome(dna: &ModelDNA) -> SpecialistGenome {
     genome
 }
 
-pub fn parse_category_pub(s: &str) -> GeneticCategory {
+pub fn parse_category_pub(s: &str) -> ProfileCategory {
     parse_category(s)
 }
 
@@ -1237,16 +1237,16 @@ pub fn parse_source_pub(s: &str) -> LociSource {
     parse_source(s)
 }
 
-fn parse_category(s: &str) -> GeneticCategory {
+fn parse_category(s: &str) -> ProfileCategory {
     match s {
-        "AttentionGenetics" => GeneticCategory::AttentionGenetics,
-        "LayerGenetics" => GeneticCategory::LayerGenetics,
-        "EmbeddingGenetics" => GeneticCategory::EmbeddingGenetics,
-        "BiasGenetics" => GeneticCategory::BiasGenetics,
-        "DAGGenetics" => GeneticCategory::DAGGenetics,
-        "RAGGenetics" => GeneticCategory::RAGGenetics,
-        "PersonalityGenetics" => GeneticCategory::PersonalityGenetics,
-        _ => GeneticCategory::SpecializationGenetics,
+        "AttentionGenetics" => ProfileCategory::AttentionGenetics,
+        "LayerGenetics" => ProfileCategory::LayerGenetics,
+        "EmbeddingGenetics" => ProfileCategory::EmbeddingGenetics,
+        "BiasGenetics" => ProfileCategory::BiasGenetics,
+        "DAGGenetics" => ProfileCategory::DAGGenetics,
+        "RAGGenetics" => ProfileCategory::RAGGenetics,
+        "PersonalityGenetics" => ProfileCategory::PersonalityGenetics,
+        _ => ProfileCategory::SpecializationGenetics,
     }
 }
 

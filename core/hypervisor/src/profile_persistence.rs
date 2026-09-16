@@ -228,7 +228,7 @@ pub struct RegistryStats {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::hox_map_schema::HoxPermissions;
+    use crate::hox_map_schema::NodePermissions;
     use tempfile::tempdir;
 
     #[test]
@@ -236,7 +236,7 @@ mod tests {
         let cap = HoxCapability {
             name: "test_enzyme".to_string(),
             enzyme_hash: "hash123".to_string(),
-            permissions: HoxPermissions {
+            permissions: NodePermissions {
                 max_sovereignty_tier: 2,
                 allow_network: true,
                 whitelisted_domains: vec!["example.com".to_string()],
@@ -254,7 +254,7 @@ mod tests {
         let cap = HoxCapability {
             name: "test_enzyme".to_string(),
             enzyme_hash: "hash123".to_string(),
-            permissions: HoxPermissions {
+            permissions: NodePermissions {
                 max_sovereignty_tier: 2,
                 allow_network: true,
                 whitelisted_domains: vec!["example.com".to_string()],

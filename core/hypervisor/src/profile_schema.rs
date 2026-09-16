@@ -39,17 +39,17 @@ pub struct NodeMap {
 #[deprecated(since = "0.3.3", note = "Use NodeMap instead")]
 pub type HoxMap = NodeMap;
 
-impl Default for HoxMap {
+impl Default for NodeMap {
     fn default() -> Self {
         let mut enzymes = HashMap::new();
 
         // Strategic Specialist (Tier 2 - Remote)
         enzymes.insert(
             "orchestrator".to_string(),
-            EnzymeGenetics {
+            ModuleDefinition {
                 category: "strategic_planning".to_string(),
                 expression_level: 0.95,
-                permissions: HoxPermissions {
+                permissions: NodePermissions {
                     max_sovereignty_tier: 2,
                     allow_network: true,
                     whitelisted_domains: vec![
@@ -69,10 +69,10 @@ impl Default for HoxMap {
         // Diplomatic Specialist (Tier 2 - Hybrid)
         enzymes.insert(
             "solon".to_string(),
-            EnzymeGenetics {
+            ModuleDefinition {
                 category: "diplomatic_negotiation".to_string(),
                 expression_level: 0.98,
-                permissions: HoxPermissions {
+                permissions: NodePermissions {
                     max_sovereignty_tier: 2,
                     allow_network: true,
                     whitelisted_domains: vec![
@@ -92,10 +92,10 @@ impl Default for HoxMap {
         // Local Execution Specialist (Tier 0 - Local)
         enzymes.insert(
             "fabricator".to_string(),
-            EnzymeGenetics {
+            ModuleDefinition {
                 category: "execution".to_string(),
                 expression_level: 0.99,
-                permissions: HoxPermissions {
+                permissions: NodePermissions {
                     max_sovereignty_tier: 0,
                     allow_network: false,
                     whitelisted_domains: vec![],

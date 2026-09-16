@@ -2,7 +2,7 @@
 // Handles saving/loading specialists, skills, constellations, and event history
 
 use crate::SpecialistPersona;
-use crate::genetics::SpecialistGenome;
+use crate::genetics::AgentProfile;
 use crate::skills::Skill;
 use rusqlite::{Connection, OptionalExtension, Result as SqlResult, params};
 use serde_json::json;
@@ -866,7 +866,7 @@ pub struct SpecialistData<'a> {
     pub xp_total: u32,
     pub current_level: u32,
     pub rank: u32,
-    pub genome: &'a SpecialistGenome,
+    pub genome: &'a AgentProfile,
     pub persona: &'a SpecialistPersona,
 }
 
@@ -1269,7 +1269,7 @@ mod tests {
             PersistenceManager::new(":memory:").expect("Failed to create persistence manager");
 
         // Create dummy genome and soul
-        let genome = SpecialistGenome::new(
+        let genome = AgentProfile::new(
             "test_id".to_string(),
             "TestSpecialist".to_string(),
             "base_model".to_string(),
@@ -1357,7 +1357,7 @@ mod tests {
         let manager =
             PersistenceManager::new(":memory:").expect("Failed to create persistence manager");
 
-        let genome = SpecialistGenome::new(
+        let genome = AgentProfile::new(
             "test_1".to_string(),
             "Test1".to_string(),
             "base_model".to_string(),
