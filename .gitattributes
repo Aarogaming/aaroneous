@@ -1,0 +1,63 @@
+# Unknown formats retain Git's automatic text/binary detection.
+* text=auto eol=lf
+
+# Declare source/configuration text explicitly so malformed encodings cannot
+# silently turn a source file into an automatically detected binary file.
+*.rs text
+*.toml text
+*.lock text
+*.json text
+*.md text
+*.wit text
+*.ps1 text
+*.py text
+*.wgsl text
+*.yml text
+*.yaml text
+*.ron text
+*.tf text
+*.svg text
+*.sh text
+*.h text
+*.html text
+*.txt text
+*.service text
+*.gdoc text
+*.yml.draft text
+Modelfile* text
+LICENSE text
+.gitignore text
+.ignore text
+.editorconfig text
+.gitattributes text
+
+# Preserve binary bytes; override the inherited eol rule as well.
+*.png binary -eol
+*.jpg binary -eol
+*.jpeg binary -eol
+*.gif binary -eol
+*.webp binary -eol
+*.ico binary -eol
+*.bmp binary -eol
+*.pdf binary -eol
+*.zip binary -eol
+*.gz binary -eol
+*.7z binary -eol
+*.tar binary -eol
+*.wasm binary -eol
+*.exe binary -eol
+*.dll binary -eol
+*.lib binary -eol
+*.pdb binary -eol
+*.bin binary -eol
+*.gguf binary -eol
+*.onnx binary -eol
+*.safetensors binary -eol
+*.si binary -eol
+*.woff binary -eol
+*.woff2 binary -eol
+*.ttf binary -eol
+*.otf binary -eol
+*.mp3 binary -eol
+*.wav binary -eol
+*.mp4 binary -eol
