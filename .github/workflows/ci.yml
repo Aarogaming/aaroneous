@@ -53,7 +53,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
 
       - name: Text encoding contract
-        run: python scripts/check_text_encoding.py
+        run: cargo run -p xtask -- check-encoding
 
       - name: Formatting (Ubuntu only)
         if: matrix.os == 'ubuntu-latest'

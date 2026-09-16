@@ -51,10 +51,8 @@ pub fn run() -> Result<()> {
             if has_lf {
                 violations.push(format!("{}: Expected CRLF, found LF without CR", line));
             }
-        } else if path.extension().and_then(|s| s.to_str()) != Some("ps1") {
-            if has_crlf {
-                violations.push(format!("{}: Expected LF, found CRLF", line));
-            }
+        } else if path.extension().and_then(|s| s.to_str()) != Some("ps1") && has_crlf {
+            violations.push(format!("{}: Expected LF, found CRLF", line));
         }
     }
     
