@@ -1,4 +1,4 @@
-﻿---
+---
 name: AdvancedResilienceAuditor
 description: Advanced resilience, micro-optimization, mutation testing, hot-path allocation, and ecosystem compliance auditor.
 tools:

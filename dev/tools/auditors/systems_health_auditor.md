@@ -1,4 +1,4 @@
-﻿---
+---
 name: SystemsHealthAuditor
 description: Holistic architectural parity, structural hygiene, technical debt, and defensive design auditor.
 tools:
