@@ -1,15 +1,16 @@
-# Config for the `typos` spell-checker (crate-ci/typos), run advisory-only
+# Config for the `typos` spell-checker (crate-ci/typos), run as a hard gate
 # in .github/workflows/lint.yml.
 #
 # This allowlist was built from an actual `typos` run against the tree
-# (~260 raw hits), not guessed up front. It covers the confirmed
-# false-positive clusters: a project acronym, a domain-specific abbreviation,
-# a real ML loss-function name, a category-theory term (crates/compute is
-# literally implementing category theory), and a couple of real crate/spelling
-# variants. Genuine misspellings the run also found (e.g. "erraticly",
-# "Superceded", "Regession" in prose docs) were intentionally left flagged —
-# fixing 260 pre-existing hits is out of scope for adding the checker; they
-# surface in the (non-blocking) CI job for someone to clean up over time.
+# (~260 raw hits), not guessed up front — it covers confirmed false-positive
+# clusters: a project acronym, a domain-specific abbreviation, a real ML
+# loss-function name, a category-theory term (crates/compute is literally
+# implementing category theory), and a few real crate/spelling variants. The
+# handful of genuine misspellings the run also found (a misspelled enum
+# variant, a doc-comment typo referencing a function that didn't even exist,
+# a corrupted doc line) were fixed directly rather than allowlisted, which is
+# what got this down to a real, enforceable zero baseline instead of an
+# advisory-only "someday" check.
 
 [files]
 extend-exclude = [
@@ -62,3 +63,8 @@ STRAT = "STRAT"
 unparseable = "unparseable"
 # F * P * F^T (Kalman filter covariance-prediction formula), not "ftp".
 fpt = "fpt"
+
+[default.extend-identifiers]
+# Field of View (VR/AR term). As an identifier so typos doesn't split it into
+# "Fo" + "V" and flag the "Fo" fragment.
+FoV = "FoV"
