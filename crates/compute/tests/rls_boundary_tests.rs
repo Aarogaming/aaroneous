@@ -28,7 +28,7 @@ fn test_rls_division_by_zero_protection() {
     };
 
     // Apply RLS update with bounded division
-    let delta = 0.5f32;
+    let _delta = 0.5f32;
     let factor = covariance.p00 / (covariance.p00 + 1e-8); // Bounded by epsilon
 
     assert!(

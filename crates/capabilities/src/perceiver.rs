@@ -77,7 +77,7 @@ impl PerceiverSpecialist {
 
     /// Captures a raw spatial visual frame from the gatekeeper
     pub async fn capture_frame(&self) -> Result<VisualObservation> {
-        info!(target: "specialist::perceiver", "Capturing spatial visual frame across the physical-digital gatekeeper");
+        info!(target: "agent::perceiver", "Capturing spatial visual frame across the physical-digital gatekeeper");
         self.emulator.pull_visual_perception().await
     }
 
@@ -85,7 +85,7 @@ impl PerceiverSpecialist {
     pub async fn capture_epigenetic_gated_frame(
         &mut self,
     ) -> Result<(VisualObservation, platform_bridge::EpigeneticGatingResult)> {
-        info!(target: "specialist::perceiver", "Capturing epigenetic gated visual perception across the gatekeeper");
+        info!(target: "agent::perceiver", "Capturing epigenetic gated visual perception across the gatekeeper");
         let (obs, result) = self.emulator.pull_epigenetic_perception().await?;
 
         self.perception_gate.frames_processed += 1;
@@ -158,3 +158,4 @@ mod tests {
         assert_eq!(frame.grid.len(), 128 * 128);
     }
 }
+

@@ -169,8 +169,9 @@ impl IntelligenceEngine {
         self.router.find_optimal_specialist(task)
     }
 
-    pub fn record_outcome(&mut self, specialist_id: &str, success: bool, completion_time: f64) {
+    pub fn record_outcome(&mut self, agent_id: &str, success: bool, completion_time: f64) {
         self.router
-            .update_specialist_performance(specialist_id, success, completion_time);
+            .update_specialist_performance(agent_id, success, completion_time);
     }
 }
+

@@ -1,13 +1,13 @@
-use crate::hox_map_schema::{EnzymeGenetics, HoxPermissions};
+use crate::profile_schema::{EnzymeGenetics, HoxPermissions};
 use anyhow::Result;
 use rand::RngExt;
 
-pub struct GeneticRecombinator;
+pub struct ProfileRecombinator;
 
-impl GeneticRecombinator {
+impl ProfileRecombinator {
     /// Performs crossover breeding between two specialists.
     /// This creates a new genetic template for a descendant enzyme.
-    pub fn breed(parent_a: &EnzymeGenetics, parent_b: &EnzymeGenetics) -> Result<EnzymeGenetics> {
+    pub fn merge_profiles(parent_a: &EnzymeGenetics, parent_b: &EnzymeGenetics) -> Result<EnzymeGenetics> {
         let mut rng = rand::rng();
 
         // 1. Category Inheritance (Pick one)

@@ -28,7 +28,7 @@ pub struct CartridgeDescriptor {
 }
 
 // Backwards-compatible type alias
-pub type OrganDescriptor = CartridgeDescriptor;
+pub type ModuleDescriptor = CartridgeDescriptor;
 
 /// A slot within the Sparse Expert Register
 pub struct ExpertSlot {
@@ -38,7 +38,7 @@ pub struct ExpertSlot {
 }
 
 // Backwards-compatible type alias
-pub type OrganSlot = ExpertSlot;
+pub type ModuleSlot = ExpertSlot;
 
 /// Outcome of a sparse MoE execution cycle
 #[derive(Debug, Clone, Serialize, Deserialize)]

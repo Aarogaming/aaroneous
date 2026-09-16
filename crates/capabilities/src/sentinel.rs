@@ -89,7 +89,7 @@ impl SentinelSpecialist {
         payload_bytes: &[u8],
     ) -> Result<SecurityAuditReport> {
         self.sentinel.audits_performed += 1;
-        info!(target: "specialist::sentinel", %operation_name, "Auditing operation for host safety compliance");
+        info!(target: "agent::sentinel", %operation_name, "Auditing operation for host safety compliance");
 
         let mut violations = Vec::new();
         let payload_str = String::from_utf8_lossy(payload_bytes);
@@ -106,7 +106,7 @@ impl SentinelSpecialist {
         let is_safe = violations.is_empty();
         if !is_safe {
             self.sentinel.threats_blocked += 1;
-            warn!(target: "specialist::sentinel", %operation_name, count = violations.len(), "Security violations detected by AuditEngine");
+            warn!(target: "agent::sentinel", %operation_name, count = violations.len(), "Security violations detected by AuditEngine");
         }
 
         Ok(SecurityAuditReport {
@@ -208,3 +208,4 @@ mod tests {
         assert!(sentinel.sentinel.threats_blocked >= 1);
     }
 }
+

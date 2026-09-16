@@ -21,7 +21,7 @@ pub enum ExecutableAction {
         gas_limit: Option<u64>,
     },
     SpawnWasm {
-        enzyme_path: PathBuf,
+        module_path: PathBuf,
         input_data: Vec<u8>,
     },
     ThrottleSystem {
@@ -148,9 +148,9 @@ impl ActionExecutor {
                 self.execute_micro_bytecode(&program, gas_limit)
             }
             ExecutableAction::SpawnWasm {
-                enzyme_path,
+                module_path,
                 input_data,
-            } => self.spawn_wasm_enzyme(&enzyme_path, &input_data).await,
+            } => self.spawn_wasm_module(&module_path, &input_data).await,
             ExecutableAction::ThrottleSystem { new_rate, reason } => {
                 self.throttle_system(new_rate, &reason)
             }
@@ -294,7 +294,7 @@ impl ActionExecutor {
     }
 
     /// WASM enzyme spawning is no longer supported (wasmtime removed).
-    async fn spawn_wasm_enzyme(&self, enzyme_path: &Path, input_data: &[u8]) -> ActionResult {
+    async fn spawn_wasm_module(&self, module_path: &Path, input_data: &[u8]) -> ActionResult {
         ActionResult {
             action_type: "spawn_wasm".to_string(),
             success: false,
@@ -302,11 +302,11 @@ impl ActionExecutor {
             message: format!(
                 "WASM enzyme execution is not available (wasmtime removed). \
                  Enzyme path: {}, input size: {} bytes",
-                enzyme_path.display(),
+                module_path.display(),
                 input_data.len()
             ),
             metadata: serde_json::json!({
-                "path": enzyme_path.display().to_string(),
+                "path": module_path.display().to_string(),
                 "input_size": input_data.len(),
             }),
         }
@@ -423,7 +423,7 @@ impl ActionExecutor {
                 content: None,
             }),
             Action::DelegateToWASM => Some(ExecutableAction::SpawnWasm {
-                enzyme_path: PathBuf::from(
+                module_path: PathBuf::from(
                     "extensions/wasm/test_enzyme/target/wasm32-unknown-unknown/release/test_enzyme.wasm",
                 ),
                 input_data: vec![],

@@ -21,11 +21,11 @@
 //!
 //! ```no_run
 //! use std::path::PathBuf;
-//! use hypervisor::genome_compiler::{GenomeCompiler, CompileConfig};
+//! use hypervisor::profile_compiler::{GenomeCompiler, CompileConfig};
 //!
 //! let config = CompileConfig {
 //!     input: PathBuf::from("models/my-model.gguf"),
-//!     output: PathBuf::from("chromosomes/my_genome.bin"),
+//!     output: PathBuf::from("data/plugins/my_profile.bin"),
 //!     num_tracks: 16,
 //!     ..Default::default()
 //! };
@@ -299,6 +299,8 @@ impl Default for CompileConfig {
 pub struct GenomeCompiler {
     config: CompileConfig,
 }
+
+pub type ProfileCompiler = GenomeCompiler;
 
 impl GenomeCompiler {
     pub fn new(config: CompileConfig) -> Self {

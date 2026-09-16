@@ -12,7 +12,7 @@ use std::time::Instant;
 use crate::si_solid_state::SolidStateSiContainer;
 use crate::si_ssm::SiSsmConfig;
 use crate::si_trainer::LatentGELUBottleneckBridge;
-use crate::translation_dataset::{ROSETTA_LATENT_DIM, ROSETTA_TEACHER_DIM, TranslationDataset};
+use crate::translation_dataset::{LATENT_DIM, TEACHER_DIM, TranslationDataset};
 
 use crate::si_trainer::{BootstrapperConfig, run_bootstrapper};
 
@@ -35,8 +35,8 @@ impl Default for BootstrapConfig {
             epochs: 5,
             batch_size: 16,
             learning_rate: 0.001,
-            teacher_dim: ROSETTA_TEACHER_DIM,
-            latent_dim: ROSETTA_LATENT_DIM,
+            teacher_dim: TEACHER_DIM,
+            latent_dim: LATENT_DIM,
             target_cka_threshold: 0.85,
         }
     }
@@ -177,14 +177,14 @@ impl SiDistillationHarness {
                 epochs,
                 batch_size: 16,
                 learning_rate: 0.001,
-                teacher_dim: ROSETTA_TEACHER_DIM,
-                latent_dim: ROSETTA_LATENT_DIM,
+                teacher_dim: TEACHER_DIM,
+                latent_dim: LATENT_DIM,
                 target_cka_threshold: 0.80,
             };
 
             let mut harness = SiDistillationHarness::new(
                 config,
-                LatentGELUBottleneckBridge::new(ROSETTA_TEACHER_DIM, 1024, ROSETTA_LATENT_DIM),
+                LatentGELUBottleneckBridge::new(TEACHER_DIM, 1024, LATENT_DIM),
             );
             let target_file = out_dir_path.join(format!("{}.si", name));
             let report = harness.bootstrap_base_model(&dataset, &target_file)?;

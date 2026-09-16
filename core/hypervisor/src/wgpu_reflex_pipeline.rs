@@ -74,7 +74,7 @@ impl WgpuReflexPipeline {
         });
 
         let gate_mask_buffer = device.create_buffer(&BufferDescriptor {
-            label: Some("Epigenetic Gate Mask Buffer"),
+            label: Some("Delta Gate Mask Buffer"),
             size: (TOTAL_SECTORS * std::mem::size_of::<u32>()) as u64,
             usage: BufferUsages::STORAGE | BufferUsages::COPY_DST,
             mapped_at_creation: false,

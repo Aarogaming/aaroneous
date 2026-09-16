@@ -119,7 +119,7 @@ impl AutonomousDecisionEngine {
             TaskType::Ingestion => "ingestion",
             TaskType::Custom(name) => name.as_str(),
         };
-        let store = self.memory_for(&routing.specialist_id);
+        let store = self.memory_for(&routing.agent_id);
         let result = store.query_memory(query, task_type, 5);
         let score = if result.entries.is_empty() {
             0.0
@@ -256,14 +256,14 @@ impl AutonomousDecisionEngine {
                 // Check metabolic availability
                 if !self
                     .biology
-                    .can_execute_specialist(&evaluation.routing.specialist_id)
+                    .can_execute_specialist(&evaluation.routing.agent_id)
                 {
                     return ExecutionOutcome::Blocked("Insufficient metabolic tokens".to_string());
                 }
 
                 // Consume token
                 self.biology
-                    .consume_specialist_token(&evaluation.routing.specialist_id);
+                    .consume_specialist_token(&evaluation.routing.agent_id);
 
                 // Simulate execution (would be replaced with actual execution)
                 let start = std::time::Instant::now();
@@ -474,7 +474,7 @@ impl AutonomousDecisionEngine {
         };
         format!(
             "Confidence: {:.2}, Metabolic Risk: {:.2}, Complexity: {:.2}{} → {:?} via {}",
-            confidence, metabolic_risk, complexity, memory_note, action, routing.specialist_name
+            confidence, metabolic_risk, complexity, memory_note, action, routing.agent_name
         )
     }
 
@@ -552,7 +552,7 @@ impl AutonomousDecisionEngine {
         metabolic_cost: f64,
     ) {
         self.record_outcome(&task.id, success, duration, metabolic_cost);
-        self.record_execution_memory(&routing.specialist_id, task, success, duration);
+        self.record_execution_memory(&routing.agent_id, task, success, duration);
     }
 
     /// Get system status summary
@@ -702,8 +702,8 @@ mod tests {
             confidence: 0.6,
             entropy: 1.0,
             routing: RoutingDecision {
-                specialist_id: "spec_1".to_string(),
-                specialist_name: "Test".to_string(),
+                agent_id: "spec_1".to_string(),
+                agent_name: "Test".to_string(),
                 confidence: 0.5,
                 expected_completion_time: 5.0,
                 reasoning: "test".to_string(),
@@ -740,8 +740,8 @@ mod tests {
             confidence: 0.2,
             entropy: 2.0,
             routing: RoutingDecision {
-                specialist_id: "spec_1".to_string(),
-                specialist_name: "Test".to_string(),
+                agent_id: "spec_1".to_string(),
+                agent_name: "Test".to_string(),
                 confidence: 0.3,
                 expected_completion_time: 5.0,
                 reasoning: "low confidence".to_string(),
@@ -778,8 +778,8 @@ mod tests {
             confidence: 0.1,
             entropy: 4.0,
             routing: RoutingDecision {
-                specialist_id: "spec_1".to_string(),
-                specialist_name: "Test".to_string(),
+                agent_id: "spec_1".to_string(),
+                agent_name: "Test".to_string(),
                 confidence: 0.1,
                 expected_completion_time: 5.0,
                 reasoning: "very uncertain".to_string(),
@@ -909,8 +909,8 @@ mod tests {
         };
 
         let routing = RoutingDecision {
-            specialist_id: "spec_1".to_string(),
-            specialist_name: "Test".to_string(),
+            agent_id: "spec_1".to_string(),
+            agent_name: "Test".to_string(),
             confidence: 0.8,
             expected_completion_time: 5.0,
             reasoning: "test".to_string(),

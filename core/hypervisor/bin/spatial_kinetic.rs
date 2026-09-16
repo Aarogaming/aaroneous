@@ -6,7 +6,7 @@
 //
 // Usage:
 //   spatial_kinetic.exe                          # Run with defaults
-//   spatial_kinetic.exe --genome path/to/genome  # Custom genome path
+//   spatial_kinetic.exe --profile path/to/genome  # Custom profile path
 //   spatial_kinetic.exe --fps 60                 # Target 60 FPS
 //   spatial_kinetic.exe --no-hid                 # Disable HID output (capture only)
 
@@ -31,10 +31,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut i = 1;
     while i < args.len() {
         match args[i].as_str() {
-            "--genome" | "-g" => {
+            "--profile" | "-g" => {
                 i += 1;
                 if i < args.len() {
-                    config.genome_path = PathBuf::from(&args[i]);
+                    config.profile_path = PathBuf::from(&args[i]);
                 }
             }
             "--reflex-shader" | "-r" => {
@@ -88,7 +88,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing::info!("║   Universal Gaming Genome Reflex Loop                   ║");
     tracing::info!("╚══════════════════════════════════════════════════════════╝");
     tracing::info!(
-        genome = %config.genome_path.display(),
+        profile = %config.profile_path.display(),
         reflex = %config.reflex_shader_path.display(),
         fps = config.target_fps,
         sensitivity = config.mouse_sensitivity,
@@ -127,11 +127,11 @@ fn print_help() {
     println!("Usage: spatial_kinetic [OPTIONS]");
     println!();
     println!("Options:");
-    println!("  -g, --genome <PATH>        Path to genome binary file");
+    println!("  -g, --profile <PATH>        Path to profile binary file");
     println!("                             (default: chromosomes/universal_gaming_core.bin)");
     println!("  -r, --reflex-shader <PATH> Path to reflex kernel WGSL shader");
     println!("                             (default: shaders/reflex_kernel.wgsl)");
-    println!("      --gate-shader <PATH>   Path to epigenetic gate WGSL shader");
+    println!("      --gate-shader <PATH>   Path to delta gate WGSL shader");
     println!("      --no-gate-shader       Disable epigenetic gate shader");
     println!("      --fps <FPS>            Target frame rate (default: 30)");
     println!("  -s, --sensitivity <VAL>    Mouse sensitivity multiplier (default: 1.0)");

@@ -264,7 +264,7 @@ impl DigestionEngine {
 
     /// Run the full digestion pipeline for a single task
     async fn run_digestion(&self, task: &DigestionTask) -> Result<(), Box<dyn std::error::Error>> {
-        let genome = self.extract_genetics(task).await?;
+        let genome = self.extract_profile(task).await?;
         let soul = self.generate_soul(task, &genome).await?;
         self.integrate_specialist(task, &genome, &soul).await?;
         Ok(())
@@ -318,7 +318,7 @@ impl DigestionEngine {
     }
 
     /// Extract genetics from GGUF model
-    pub async fn extract_genetics(
+    pub async fn extract_profile(
         &self,
         task: &DigestionTask,
     ) -> Result<SpecialistGenome, Box<dyn std::error::Error>> {

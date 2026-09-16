@@ -24,7 +24,7 @@ pub struct OrchestrationDaemonConfig {
     pub ingestor_config: MetadataIngestorConfig,
     pub cycle_interval: Duration,
     pub max_tasks_per_cycle: usize,
-    pub wasm_enzyme_path: PathBuf,
+    pub wasm_module_path: PathBuf,
     pub enable_auto_throttle: bool,
     pub enable_constellation_updates: bool,
 }
@@ -35,7 +35,7 @@ impl Default for OrchestrationDaemonConfig {
             ingestor_config: MetadataIngestorConfig::default(),
             cycle_interval: Duration::from_secs(10),
             max_tasks_per_cycle: 5,
-            wasm_enzyme_path: PathBuf::from("native_enzyme"),
+            wasm_module_path: PathBuf::from("native_enzyme"),
             enable_auto_throttle: true,
             enable_constellation_updates: true,
         }
@@ -229,7 +229,7 @@ impl OrchestrationDaemon {
 
         let intelligence = IntelligenceEngine::new(llm_config, specialists)?;
         let decision_engine = AutonomousDecisionEngine::new(intelligence);
-        let executor = ActionExecutor::new(config.wasm_enzyme_path.clone());
+        let executor = ActionExecutor::new(config.wasm_module_path.clone());
         let ingestor_config = config.ingestor_config.clone();
         let (assimilation_tx, assimilation_rx) = tokio::sync::mpsc::channel(128);
 

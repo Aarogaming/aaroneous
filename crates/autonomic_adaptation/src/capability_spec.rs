@@ -8,17 +8,17 @@ use std::collections::HashMap;
 
 /// A genetic locus - a single inherited trait with a value on spectrum [0.0, 1.0]
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct GeneticLocus {
+pub struct ProfileLocus {
     pub locus_id: String,
-    pub category: GeneticCategory,
+    pub category: ProfileCategory,
     pub value: f64,             // 0.0 to 1.0
     pub source: LociSource,     // Where this value came from
     pub interpretation: String, // Human-readable meaning
     pub confidence: f64,        // How confident in this measurement
 }
 
-impl GeneticLocus {
-    pub fn new(id: String, category: GeneticCategory, value: f64, source: LociSource) -> Self {
+impl ProfileLocus {
+    pub fn new(id: String, category: ProfileCategory, value: f64, source: LociSource) -> Self {
         assert!(
             (0.0..=1.0).contains(&value),
             "Genetic value must be in [0.0, 1.0]"
@@ -46,7 +46,7 @@ impl GeneticLocus {
 
 /// Categories of genetic loci
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
-pub enum GeneticCategory {
+pub enum ProfileCategory {
     AttentionGenetics,      // Multi-head attention patterns
     LayerGenetics,          // Per-layer characteristics
     EmbeddingGenetics,      // Token embedding space properties
@@ -70,7 +70,7 @@ pub enum LociSource {
 
 /// Epigenetic markers that regulate gene expression
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct EpigeneticState {
+pub struct AdaptationState {
     /// 0.0 = gene fully expressed, 1.0 = gene silenced
     pub methylation: f64,
     /// 0.0 = locked (immutable), 1.0 = open (trainable)
@@ -79,7 +79,7 @@ pub struct EpigeneticState {
     pub histone_modification: f64,
 }
 
-impl Default for EpigeneticState {
+impl Default for AdaptationState {
     fn default() -> Self {
         Self {
             methylation: 0.5,
@@ -91,46 +91,51 @@ impl Default for EpigeneticState {
 
 /// Complete genetic profile of a specialist
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct SpecialistGenome {
+pub struct AgentProfile {
     pub specialist_id: String,
     pub specialist_name: String,
     pub base_model: String, // Source GGUF model name
-    pub genetic_loci: Vec<GeneticLocus>,
-    pub epigenetic_state: EpigeneticState,
+    pub genetic_loci: Vec<ProfileLocus>,
+    pub epigenetic_state: AdaptationState,
     pub extracted_at: DateTime<Utc>,
     pub extraction_version: u32,
     pub trait_expression_profile: HashMap<String, f64>,
-    pub genetic_distance_to_base: f64,
+    pub profile_drift_score: f64,
     pub specialization_score: f64,
 }
 
-pub type ParameterLocus = GeneticLocus;
-pub type AgentConfigProfile = SpecialistGenome;
-pub type ParameterGenome = SpecialistGenome;
+pub type ParameterLocus = ProfileLocus;
+pub type AgentConfigProfile = AgentProfile;
+pub type ParameterProfile = AgentProfile;
+pub type SpecialistGenome = AgentProfile;
+pub type ParameterGenome = ParameterProfile;
+pub type GeneticLocus = ProfileLocus;
+pub type GeneticCategory = ProfileCategory;
+pub type EpigeneticState = AdaptationState;
 
-impl SpecialistGenome {
+impl AgentProfile {
     pub fn new(specialist_id: String, specialist_name: String, base_model: String) -> Self {
         Self {
             specialist_id,
             specialist_name,
             base_model,
             genetic_loci: Vec::new(),
-            epigenetic_state: EpigeneticState::default(),
+            epigenetic_state: AdaptationState::default(),
             extracted_at: Utc::now(),
             extraction_version: 1,
             trait_expression_profile: HashMap::new(),
-            genetic_distance_to_base: 0.0,
+            profile_drift_score: 0.0,
             specialization_score: 0.0,
         }
     }
 
     /// Add a genetic locus to this genome
-    pub fn add_locus(&mut self, locus: GeneticLocus) {
+    pub fn add_locus(&mut self, locus: ProfileLocus) {
         self.genetic_loci.push(locus);
     }
 
     /// Get average genetic value for a category
-    pub fn category_average(&self, category: GeneticCategory) -> f64 {
+    pub fn category_average(&self, category: ProfileCategory) -> f64 {
         let loci: Vec<_> = self
             .genetic_loci
             .iter()
@@ -146,7 +151,7 @@ impl SpecialistGenome {
     }
 
     /// Get all loci in a category
-    pub fn loci_in_category(&self, category: GeneticCategory) -> Vec<&GeneticLocus> {
+    pub fn loci_in_category(&self, category: ProfileCategory) -> Vec<&ProfileLocus> {
         self.genetic_loci
             .iter()
             .filter(|l| l.category == category)
@@ -154,7 +159,7 @@ impl SpecialistGenome {
     }
 
     /// Calculate actual expressed trait values considering epigenetics
-    pub fn expressed_trait_value(&self, locus: &GeneticLocus) -> f64 {
+    pub fn expressed_trait_value(&self, locus: &ProfileLocus) -> f64 {
         let base_value = locus.value;
 
         // Apply epigenetic modulation
@@ -192,7 +197,7 @@ impl SpecialistGenome {
 
 /// Genetic relationship between two specialists (for breeding)
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct GeneticRelationship {
+pub struct ProfileRelationship {
     pub parent_1_id: String,
     pub parent_2_id: String,
     pub genetic_distance: f64, // 0.0 = identical, 1.0 = completely different
@@ -201,9 +206,9 @@ pub struct GeneticRelationship {
     pub breeding_compatibility_score: f64, // 0.0 to 1.0
 }
 
-impl GeneticRelationship {
+impl ProfileRelationship {
     /// Calculate genetic distance between two genomes (simplified Euclidean)
-    pub fn calculate_distance(genome1: &SpecialistGenome, genome2: &SpecialistGenome) -> f64 {
+    pub fn calculate_distance(genome1: &AgentProfile, genome2: &AgentProfile) -> f64 {
         let mut sum_sq = 0.0;
         let mut count = 0;
 
@@ -250,11 +255,11 @@ pub enum BreedingType {
 impl BreedingOperation {
     /// Perform simple uniform crossover
     pub fn simple_crossover(
-        parent1: &SpecialistGenome,
-        parent2: &SpecialistGenome,
+        parent1: &AgentProfile,
+        parent2: &AgentProfile,
         offspring_id: String,
-    ) -> SpecialistGenome {
-        let mut offspring = SpecialistGenome::new(
+    ) -> AgentProfile {
+        let mut offspring = AgentProfile::new(
             offspring_id,
             format!("{}_x_{}", parent1.specialist_name, parent2.specialist_name),
             format!(
@@ -283,26 +288,26 @@ impl BreedingOperation {
 
         offspring.epigenetic_state.methylation =
             (parent1.epigenetic_state.methylation + parent2.epigenetic_state.methylation) / 2.0;
-        offspring.genetic_distance_to_base =
-            (parent1.genetic_distance_to_base + parent2.genetic_distance_to_base) / 2.0;
+        offspring.profile_drift_score =
+            (parent1.profile_drift_score + parent2.profile_drift_score) / 2.0;
 
         offspring
     }
 
     /// Perform weighted blending of two genomes
     pub fn weighted_blend(
-        parent1: &SpecialistGenome,
-        parent2: &SpecialistGenome,
+        parent1: &AgentProfile,
+        parent2: &AgentProfile,
         weight1: f64,
         weight2: f64,
         offspring_id: String,
-    ) -> SpecialistGenome {
+    ) -> AgentProfile {
         assert!(
             (weight1 + weight2 - 1.0).abs() < 0.01,
             "Weights must sum to 1.0"
         );
 
-        let mut offspring = SpecialistGenome::new(
+        let mut offspring = AgentProfile::new(
             offspring_id,
             format!(
                 "blend({:.0}% {} + {:.0}% {})",
@@ -325,7 +330,7 @@ impl BreedingOperation {
             {
                 let blended_value = parent1_locus.value * weight1 + parent2_locus.value * weight2;
 
-                let mut blended_locus = GeneticLocus::new(
+                let mut blended_locus = ProfileLocus::new(
                     parent1_locus.locus_id.clone(),
                     parent1_locus.category,
                     blended_value,
@@ -343,19 +348,20 @@ impl BreedingOperation {
 }
 
 /// Genetic analysis and comparison utilities
-pub struct GeneticAnalyzer;
+pub struct ProfileAnalyzer;
+pub type GeneticAnalyzer = ProfileAnalyzer;
 
-impl GeneticAnalyzer {
+impl ProfileAnalyzer {
     /// Calculate genetic distance between two specialists
-    pub fn distance(genome1: &SpecialistGenome, genome2: &SpecialistGenome) -> f64 {
-        GeneticRelationship::calculate_distance(genome1, genome2)
+    pub fn distance(genome1: &AgentProfile, genome2: &AgentProfile) -> f64 {
+        ProfileRelationship::calculate_distance(genome1, genome2)
     }
 
     /// Find most genetically similar specialist in a population
     pub fn find_closest_relative<'a>(
-        query_genome: &SpecialistGenome,
-        population: &'a [SpecialistGenome],
-    ) -> Option<&'a SpecialistGenome> {
+        query_genome: &AgentProfile,
+        population: &'a [AgentProfile],
+    ) -> Option<&'a AgentProfile> {
         population.iter().min_by(|a, b| {
             let dist_a = Self::distance(query_genome, a);
             let dist_b = Self::distance(query_genome, b);
@@ -364,7 +370,7 @@ impl GeneticAnalyzer {
     }
 
     /// Measure genetic diversity in a population
-    pub fn population_diversity(population: &[SpecialistGenome]) -> f64 {
+    pub fn population_diversity(population: &[AgentProfile]) -> f64 {
         if population.len() < 2 {
             return 0.0;
         }
@@ -388,9 +394,9 @@ impl GeneticAnalyzer {
 
     /// Find optimal breeding pairs for desired traits
     pub fn find_breeding_candidates<'a>(
-        population: &'a [SpecialistGenome],
+        population: &'a [AgentProfile],
         desired_traits: &HashMap<String, f64>,
-    ) -> Vec<(&'a SpecialistGenome, &'a SpecialistGenome)> {
+    ) -> Vec<(&'a AgentProfile, &'a AgentProfile)> {
         let mut candidates = Vec::new();
 
         for i in 0..population.len() {
@@ -417,7 +423,7 @@ impl GeneticAnalyzer {
     }
 
     /// Calculate how well a specialist matches desired traits
-    fn trait_match_score(genome: &SpecialistGenome, desired_traits: &HashMap<String, f64>) -> f64 {
+    fn trait_match_score(genome: &AgentProfile, desired_traits: &HashMap<String, f64>) -> f64 {
         let mut total_score = 0.0;
         let mut count = 0;
 
@@ -443,9 +449,9 @@ mod tests {
 
     #[test]
     fn test_genetic_locus_creation() {
-        let locus = GeneticLocus::new(
+        let locus = ProfileLocus::new(
             "ATT_1".to_string(),
-            GeneticCategory::AttentionGenetics,
+            ProfileCategory::AttentionGenetics,
             0.75,
             LociSource::WeightAnalysis,
         );
@@ -458,9 +464,9 @@ mod tests {
     #[test]
     #[should_panic]
     fn test_genetic_value_bounds() {
-        let _locus = GeneticLocus::new(
+        let _locus = ProfileLocus::new(
             "BAD_LOCUS".to_string(),
-            GeneticCategory::LayerGenetics,
+            ProfileCategory::LayerGenetics,
             1.5, // Out of bounds
             LociSource::BehavioralProfiling,
         );
@@ -468,7 +474,7 @@ mod tests {
 
     #[test]
     fn test_epigenetic_state() {
-        let state = EpigeneticState::default();
+        let state = AdaptationState::default();
         assert_eq!(state.methylation, 0.5);
         assert_eq!(state.chromatin_accessibility, 0.5);
         assert_eq!(state.histone_modification, 0.0);
@@ -476,15 +482,15 @@ mod tests {
 
     #[test]
     fn test_genome_creation() {
-        let mut genome = SpecialistGenome::new(
+        let mut genome = AgentProfile::new(
             "orchestrator_1".to_string(),
             "Orchestrator".to_string(),
             "llama2-70b".to_string(),
         );
 
-        let locus = GeneticLocus::new(
+        let locus = ProfileLocus::new(
             "STRAT_1".to_string(),
-            GeneticCategory::DAGGenetics,
+            ProfileCategory::DAGGenetics,
             0.87,
             LociSource::DAGAnalysis,
         );
@@ -495,26 +501,26 @@ mod tests {
 
     #[test]
     fn test_simple_crossover() {
-        let mut parent1 = SpecialistGenome::new(
+        let mut parent1 = AgentProfile::new(
             "p1".to_string(),
             "Parent1".to_string(),
             "model1".to_string(),
         );
-        let mut parent2 = SpecialistGenome::new(
+        let mut parent2 = AgentProfile::new(
             "p2".to_string(),
             "Parent2".to_string(),
             "model2".to_string(),
         );
 
-        let locus1 = GeneticLocus::new(
+        let locus1 = ProfileLocus::new(
             "L1".to_string(),
-            GeneticCategory::AttentionGenetics,
+            ProfileCategory::AttentionGenetics,
             0.9,
             LociSource::WeightAnalysis,
         );
-        let locus2 = GeneticLocus::new(
+        let locus2 = ProfileLocus::new(
             "L1".to_string(),
-            GeneticCategory::AttentionGenetics,
+            ProfileCategory::AttentionGenetics,
             0.3,
             LociSource::WeightAnalysis,
         );
@@ -532,26 +538,26 @@ mod tests {
 
     #[test]
     fn test_genetic_distance() {
-        let mut genome1 = SpecialistGenome::new(
+        let mut genome1 = AgentProfile::new(
             "g1".to_string(),
             "Specialist1".to_string(),
             "model".to_string(),
         );
-        let mut genome2 = SpecialistGenome::new(
+        let mut genome2 = AgentProfile::new(
             "g2".to_string(),
             "Specialist2".to_string(),
             "model".to_string(),
         );
 
-        let locus1 = GeneticLocus::new(
+        let locus1 = ProfileLocus::new(
             "L1".to_string(),
-            GeneticCategory::AttentionGenetics,
+            ProfileCategory::AttentionGenetics,
             0.5,
             LociSource::WeightAnalysis,
         );
-        let locus2 = GeneticLocus::new(
+        let locus2 = ProfileLocus::new(
             "L1".to_string(),
-            GeneticCategory::AttentionGenetics,
+            ProfileCategory::AttentionGenetics,
             0.8,
             LociSource::WeightAnalysis,
         );
@@ -559,7 +565,7 @@ mod tests {
         genome1.add_locus(locus1);
         genome2.add_locus(locus2);
 
-        let distance = GeneticAnalyzer::distance(&genome1, &genome2);
+        let distance = ProfileAnalyzer::distance(&genome1, &genome2);
         assert!((distance - 0.3).abs() < 0.01);
     }
 }

@@ -96,7 +96,7 @@ pub trait NativeThinker {
     /// and calculates a deterministic reaction (ForceVector).
     fn process_physics(
         &self,
-        state: &nervous_system::shared_memory::SynapseState,
+        state: &nervous_system::shared_memory::IpcBusState,
     ) -> Result<ForceVector>;
 
     /// Returns the agent's unique biological signature.
@@ -114,7 +114,7 @@ pub trait Linguist {
     fn embed_concept(
         &self,
         text: &str,
-        state: &mut nervous_system::shared_memory::SynapseState,
+        state: &mut nervous_system::shared_memory::IpcBusState,
     ) -> Result<()>;
 }
 
@@ -134,7 +134,7 @@ impl NativeThinker for Archetype {
     /// Default implementation: Returns a null force vector with minimal urgency.
     fn process_physics(
         &self,
-        _state: &nervous_system::shared_memory::SynapseState,
+        _state: &nervous_system::shared_memory::IpcBusState,
     ) -> Result<ForceVector> {
         Ok(ForceVector {
             urgency: 0.1f32.min(self.base_frequency() as f32 / 5000.0), // Scale by frequency
@@ -232,3 +232,4 @@ mod tests {
         assert_eq!(restored.action_opcode, 0x81);
     }
 }
+

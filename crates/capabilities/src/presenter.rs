@@ -86,7 +86,7 @@ impl PresenterSpecialist {
     /// Composes a UI frame for frontend rendering
     pub fn compose_ui_frame(&mut self, active_view: &str, status: &str) -> UiPresentationFrame {
         self.display_buffer.frames_streamed += 1;
-        info!(target: "specialist::presenter", %active_view, "Composing visual UI presentation frame");
+        info!(target: "agent::presenter", %active_view, "Composing visual UI presentation frame");
 
         UiPresentationFrame {
             active_view: active_view.to_string(),
@@ -238,3 +238,4 @@ mod tests {
         assert_eq!(layout["total_interactions"], 3);
     }
 }
+

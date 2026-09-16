@@ -84,7 +84,7 @@ impl AlignerSpecialist {
     /// Aligns machine tensor output into clear human resonance
     pub fn align_output(&mut self, raw_machine_output: &str) -> SymbioticResonanceReport {
         self.resonance.interactions_aligned += 1;
-        info!(target: "specialist::aligner", "Translating machine output for optimal human cognitive resonance");
+        info!(target: "agent::aligner", "Translating machine output for optimal human cognitive resonance");
 
         SymbioticResonanceReport {
             estimated_cognitive_load: 0.32,
@@ -147,3 +147,4 @@ mod tests {
         assert_eq!(aligner.resonance.interactions_aligned, 1);
     }
 }
+

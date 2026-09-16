@@ -1,4 +1,4 @@
-//! crates/desktop_emulator/src/epigenetic_vision.rs
+//! crates/desktop_emulator/src/delta_vision.rs
 //! GPU-Accelerated Epigenetic Visual Motion Gating Pipeline.
 //!
 //! Subsystem 6 / Perceiver Threshold Vision Gating:
@@ -9,7 +9,7 @@
 use serde::{Deserialize, Serialize};
 use std::time::Instant;
 
-/// Constants for the 128x128 grid and 16x16 epigenetic sector matrix
+/// Constants for the 128x128 grid and 16x16 delta sector matrix
 pub const GRID_WIDTH: usize = 128;
 pub const GRID_HEIGHT: usize = 128;
 pub const GRID_SIZE: usize = GRID_WIDTH * GRID_HEIGHT;
@@ -71,7 +71,7 @@ mod serde_bool_256 {
 
 /// Epigenetic gating calculation result with telemetry
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct EpigeneticGatingResult {
+pub struct DeltaGatingResult {
     /// 256 boolean flags (true = active compute target, false = dormant/skipped)
     #[serde(with = "serde_bool_256")]
     pub bool_mask: [bool; TOTAL_SECTORS],
@@ -97,26 +97,26 @@ struct SectorState {
 
 /// Epigenetic Visual Motion Gater
 #[derive(Debug, Clone)]
-pub struct EpigeneticVisionGater {
+pub struct DeltaVisionGater {
     sectors: [SectorState; TOTAL_SECTORS],
     delta_threshold: f32,
     hysteresis_frames: u32,
     frame_counter: u64,
 }
 
-impl Default for EpigeneticVisionGater {
+impl Default for DeltaVisionGater {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl EpigeneticVisionGater {
-    /// Creates a fresh EpigeneticVisionGater with all sectors initially active
+impl DeltaVisionGater {
+    /// Creates a fresh DeltaVisionGater with all sectors initially active
     pub fn new() -> Self {
         Self::with_config(DEFAULT_DELTA_THRESHOLD, DEFAULT_HYSTERESIS_FRAMES)
     }
 
-    /// Creates an EpigeneticVisionGater with custom delta threshold and hysteresis frames
+    /// Creates an DeltaVisionGater with custom delta threshold and hysteresis frames
     pub fn with_config(delta_threshold: f32, hysteresis_frames: u32) -> Self {
         let mut sectors = [SectorState::default(); TOTAL_SECTORS];
         for s in sectors.iter_mut() {
@@ -134,7 +134,7 @@ impl EpigeneticVisionGater {
     }
 
     /// Evaluates a 128x128 sensory luminance frame against previous state and computes the gating mask
-    pub fn process_frame(&mut self, frame: &[f32]) -> EpigeneticGatingResult {
+    pub fn process_frame(&mut self, frame: &[f32]) -> DeltaGatingResult {
         let start = Instant::now();
         self.frame_counter += 1;
 
@@ -202,7 +202,7 @@ impl EpigeneticVisionGater {
         let duration_us = start.elapsed().as_micros() as u64;
         let compute_savings_pct = (1.0 - (active_count as f32 / TOTAL_SECTORS as f32)) * 100.0;
 
-        EpigeneticGatingResult {
+        DeltaGatingResult {
             bool_mask,
             packed_mask,
             active_sectors_count: active_count,
@@ -239,7 +239,7 @@ mod tests {
 
     #[test]
     fn test_first_frame_all_active() {
-        let mut gater = EpigeneticVisionGater::new();
+        let mut gater = DeltaVisionGater::new();
         let frame = vec![0.5f32; GRID_SIZE];
         let result = gater.process_frame(&frame);
 
@@ -250,7 +250,7 @@ mod tests {
 
     #[test]
     fn test_static_frames_trigger_hysteresis_dormancy() {
-        let mut gater = EpigeneticVisionGater::with_config(0.02, 2);
+        let mut gater = DeltaVisionGater::with_config(0.02, 2);
         let frame = vec![0.3f32; GRID_SIZE];
 
         // Frame 1: Initializing
@@ -269,7 +269,7 @@ mod tests {
 
     #[test]
     fn test_localized_motion_reactivates_specific_sector() {
-        let mut gater = EpigeneticVisionGater::with_config(0.02, 1);
+        let mut gater = DeltaVisionGater::with_config(0.02, 1);
         let mut frame = vec![0.0f32; GRID_SIZE];
 
         // Frame 1: baseline
@@ -294,7 +294,7 @@ mod tests {
 
     #[test]
     fn test_ascii_grid_rendering() {
-        let gater = EpigeneticVisionGater::new();
+        let gater = DeltaVisionGater::new();
         let mut mask = [false; TOTAL_SECTORS];
         mask[0] = true;
         mask[255] = true;

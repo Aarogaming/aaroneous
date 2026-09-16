@@ -235,7 +235,7 @@ async fn unsupported_wasm_execution_fails_explicitly() -> anyhow::Result<()> {
         ActionExecutor::new(wasm_path.clone()).with_allowed_root(dir.path().to_path_buf());
     let result = executor
         .execute(ExecutableAction::SpawnWasm {
-            enzyme_path: wasm_path,
+            module_path: wasm_path,
             input_data: vec![1, 2, 3],
         })
         .await;

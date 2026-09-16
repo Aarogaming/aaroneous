@@ -271,8 +271,12 @@ impl WorkspacePaths {
         self.root.join("hive.db")
     }
 
+    pub fn node_db(&self) -> PathBuf {
+        self.root.join("node.db")
+    }
+
     pub fn hox_db(&self) -> PathBuf {
-        self.root.join("hox.db")
+        self.node_db()
     }
 
     pub fn models_inbox(&self) -> PathBuf {
@@ -288,13 +292,26 @@ impl WorkspacePaths {
             .join(format!("{}-qwen2.5-7b.gguf", sovereign.to_lowercase()))
     }
 
+    pub fn agent_preset(&self, name: &str) -> PathBuf {
+        let agent_file = self.registry().join(format!("agent_{}.json", name.to_lowercase()));
+        if agent_file.exists() {
+            agent_file
+        } else {
+            self.registry().join(format!("hox_{}.json", name.to_lowercase()))
+        }
+    }
+
     pub fn sovereign_hox_preset(&self, name: &str) -> PathBuf {
-        self.registry()
-            .join(format!("hox_{}.json", name.to_lowercase()))
+        self.agent_preset(name)
     }
 
     pub fn relic_hox_preset(&self, name: &str) -> PathBuf {
-        self.sovereign_hox_preset(name)
+        let module_store = self.registry().join(format!("module_store_{}.json", name.to_lowercase()));
+        if module_store.exists() {
+            module_store
+        } else {
+            self.sovereign_hox_preset(name)
+        }
     }
 
     pub fn omni_galaxy_map(&self) -> PathBuf {

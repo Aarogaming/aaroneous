@@ -4,7 +4,7 @@ use anyhow::Result;
 use autonomic_adaptation as evolution;
 use clap::{Parser, Subcommand};
 use hypervisor::SupervisoryDaemon;
-use hypervisor::enzyme_runner::EnzymeRunner;
+use hypervisor::enzyme_runner::ModuleRunner;
 use hypervisor::hox_registry::HoxRegistry;
 use hypervisor::splicing_engine::WasmSplicingEngine;
 use hypervisor::unified_learning::{UnifiedLearningConfig, UnifiedLearningLoop};
@@ -281,14 +281,14 @@ enum SiCommands {
         #[arg(short, long)]
         out: Option<PathBuf>,
     },
-    /// Autonomously wrap an external binary or CLI tool into a sovereign machine-native organ
+    /// Autonomously wrap an external binary or CLI tool into a sovereign machine-native module
     Wrap {
         /// Path to target executable or dynamic library
         target: PathBuf,
-        /// Custom name for the organ
+        /// Custom name for the module
         #[arg(short, long)]
         name: Option<String>,
-        /// Destination directory for the generated organ crate
+        /// Destination directory for the generated module crate
         #[arg(short, long)]
         out: Option<PathBuf>,
     },
@@ -416,7 +416,7 @@ fn run_cli(cli: Cli) -> Result<()> {
                 "Initializing Aaroneous Supervisory Control Daemon"
             );
 
-            let enzyme_runner = Arc::new(EnzymeRunner::new()?);
+            let enzyme_runner = Arc::new(ModuleRunner::new()?);
             let hox_registry = Arc::new(HoxRegistry::new("hox.db")?);
             let workspace_root = std::env::current_dir()?;
             let splicing_engine = Arc::new(WasmSplicingEngine::new(
@@ -1204,7 +1204,7 @@ async fn run_wrap_pipeline(
 
     println!("\n   [Stage 3] Synthesizing Native Rust MNLP Adapter Harness...");
     let staged_crate =
-        adaptation_engine::AutoWrapperEngine::build_and_stage_organ(&manifest, &out_dir)?;
+        adaptation_engine::AutoWrapperEngine::build_and_stage_module(&manifest, &out_dir)?;
 
     println!("\n   [Stage 4] Component Staging & Verification Complete:");
     println!("   -> Staged Crate Dir: {:?}", staged_crate);
@@ -1425,7 +1425,7 @@ async fn run_reap_pipeline(pressure: f32) -> Result<()> {
 
     for (id, opcode, tokens, idle_sec, mem_bytes) in specs {
         reaper.register_specialist(orchestrator::SpecialistHibernationState {
-            specialist_id: id.to_string(),
+            agent_id: id.to_string(),
             domain_opcode: opcode,
             tokens,
             max_tokens: 100.0,
@@ -1452,10 +1452,10 @@ async fn run_reap_pipeline(pressure: f32) -> Result<()> {
 
     println!("\n   [Stage 3] Testing Zero-Copy Sub-10ms Instant Resurrection...");
     for manifest in &summary.hibernated_manifests {
-        let (resurrected, duration_us) = reaper.resurrect_specialist(&manifest.specialist_id)?;
+        let (resurrected, duration_us) = reaper.resurrect_specialist(&manifest.agent_id)?;
         println!(
             "   -> Resurrected '{}' (0x{:04X}) in {} µs (Target < 10,000 µs)",
-            resurrected.specialist_id, resurrected.domain_opcode, duration_us
+            resurrected.agent_id, resurrected.domain_opcode, duration_us
         );
     }
 
@@ -2069,7 +2069,7 @@ fn run_flagship_pipeline(iterations: usize) -> Result<()> {
                     let decision = routing_engine.find_optimal_specialist(&task);
                     let route_latency = route_start.elapsed().as_micros();
                     println!("   -> Step 2: MDP Routing        : {} (Confidence: {:.1}%, Duration: {} µs)",
-                        decision.specialist_name, decision.confidence * 100.0, route_latency);
+                        decision.agent_name, decision.confidence * 100.0, route_latency);
 
                     // 3. Sentinel-Guarded Execution
                     let exec_start = std::time::Instant::now();

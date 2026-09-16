@@ -25,7 +25,7 @@ pub const MAX_SYNAPSE_SIZE: usize = 64 * 1024 * 1024;
 #[derive(Archive, Deserialize, Serialize, Debug, Clone)]
 #[archive(compare(PartialEq))]
 #[archive_attr(derive(Debug))]
-pub struct SynapseState {
+pub struct IpcBusState {
     pub schema_version: u32,
     pub clock_tick: u64,
     pub energy_budget: u32,
@@ -33,7 +33,7 @@ pub struct SynapseState {
     pub safety_lock: u8,
     pub approval_required: u8,
     pub approval_granted: u8,
-    pub hox_mutation_flag: u8,
+    pub mutation_flag: u8,
     pub intent_vector_id: [u8; 16],
     pub sovereignty_tier: u8,
     pub curiosity_drive: u8,
@@ -66,7 +66,7 @@ pub struct McpToolCallFrame {
 }
 
 impl McpToolCallFrame {
-    pub fn from_synapse(state: &SynapseState) -> Self {
+    pub fn from_synapse(state: &IpcBusState) -> Self {
         Self {
             call_id: state.mcp_call_id,
             tool_name_hash: state.mcp_tool_hash,
@@ -76,7 +76,7 @@ impl McpToolCallFrame {
         }
     }
 
-    pub fn apply_to_synapse(&self, state: &mut SynapseState) {
+    pub fn apply_to_synapse(&self, state: &mut IpcBusState) {
         state.mcp_call_id = self.call_id;
         state.mcp_tool_hash = self.tool_name_hash;
         state.mcp_status = self.status;
@@ -109,7 +109,7 @@ pub struct SpecialistDialogue {
 }
 
 impl SpecialistDialogue {
-    pub fn from_synapse(state: &SynapseState) -> Self {
+    pub fn from_synapse(state: &IpcBusState) -> Self {
         Self {
             active_speaker_hash: state.dialogue_speaker_hash,
             turn_count: state.dialogue_turn_count,
@@ -119,7 +119,7 @@ impl SpecialistDialogue {
         }
     }
 
-    pub fn apply_to_synapse(&self, state: &mut SynapseState) {
+    pub fn apply_to_synapse(&self, state: &mut IpcBusState) {
         state.dialogue_speaker_hash = self.active_speaker_hash;
         state.dialogue_turn_count = self.turn_count;
         state.dialogue_consensus = self.consensus_score;
@@ -140,7 +140,7 @@ impl Default for SpecialistDialogue {
     }
 }
 
-impl Default for SynapseState {
+impl Default for IpcBusState {
     fn default() -> Self {
         Self {
             schema_version: SCHEMA_VERSION,
@@ -150,7 +150,7 @@ impl Default for SynapseState {
             safety_lock: 0,
             approval_required: 0,
             approval_granted: 0,
-            hox_mutation_flag: 0,
+            mutation_flag: 0,
             intent_vector_id: [0; 16],
             sovereignty_tier: 0,
             curiosity_drive: 50,
@@ -173,7 +173,7 @@ impl Default for SynapseState {
     }
 }
 
-impl SynapseState {
+impl IpcBusState {
     // Backward compatibility accessor methods
     pub fn mcp_tool_call(&self) -> McpToolCallFrame {
         McpToolCallFrame::from_synapse(self)
@@ -318,7 +318,7 @@ impl SWMRSynapse {
         let mut mmap = unsafe { MmapOptions::new().map_mut(&std_file)? };
 
         // Write initial default state
-        let state = SynapseState::default();
+        let state = IpcBusState::default();
         let bytes =
             rkyv::to_bytes::<_, 256>(&state).context("Failed to serialize initial state")?;
         mmap[..bytes.len()].copy_from_slice(&bytes);
@@ -378,7 +378,7 @@ impl SWMRSynapse {
         // Write initial default state
         let serialized_len = {
             let mut guard = mmap.write().await;
-            let state = SynapseState::default();
+            let state = IpcBusState::default();
             let bytes =
                 rkyv::to_bytes::<_, 256>(&state).context("Failed to serialize initial state")?;
             guard[..bytes.len()].copy_from_slice(&bytes);
@@ -563,13 +563,13 @@ impl SWMRSynapse {
 
         Ok(())
     }
-    fn read_current_state(mmap: &[u8], serialized_len: usize) -> Result<SynapseState> {
+    fn read_current_state(mmap: &[u8], serialized_len: usize) -> Result<IpcBusState> {
         let len = serialized_len.min(mmap.len());
         if len == 0 {
             return Err(anyhow::anyhow!("No data in mmap"));
         }
-        let archived = unsafe { archived_root::<SynapseState>(&mmap[..len]) };
-        let state: SynapseState = archived.deserialize(&mut rkyv::Infallible).unwrap();
+        let archived = unsafe { archived_root::<IpcBusState>(&mmap[..len]) };
+        let state: IpcBusState = archived.deserialize(&mut rkyv::Infallible).unwrap();
         Ok(state)
     }
 
@@ -626,7 +626,7 @@ pub struct SynapseReader {
 
 impl SynapseReader {
     /// Read the current state (zero-copy via rkyv archived root)
-    pub async fn read_state(&self) -> Result<SynapseState> {
+    pub async fn read_state(&self) -> Result<IpcBusState> {
         // Wait for any pending swap to complete
         while self.generation.is_swapping() {
             tokio::task::yield_now().await;
@@ -1346,7 +1346,7 @@ mod tests {
 
     #[test]
     fn test_rkyv_serialize() {
-        let state = SynapseState::default();
+        let state = IpcBusState::default();
         assert_eq!(state.schema_version, SCHEMA_VERSION);
         assert_eq!(state.curiosity_drive, 50);
         assert_eq!(state.clock_tick, 0);
@@ -1364,8 +1364,8 @@ mod tests {
         // We need to use the correct approach for mmap
 
         // Verify we can deserialize normally
-        let archived = unsafe { archived_root::<SynapseState>(&bytes) };
-        let deserialized: SynapseState = archived.deserialize(&mut rkyv::Infallible).unwrap();
+        let archived = unsafe { archived_root::<IpcBusState>(&bytes) };
+        let deserialized: IpcBusState = archived.deserialize(&mut rkyv::Infallible).unwrap();
 
         println!(
             "Deserialized schema_version: {}",
@@ -1396,3 +1396,4 @@ mod tests {
         assert_eq!(generation_id.generation(), 1);
     }
 }
+

@@ -1,4 +1,4 @@
-//! crates/ipc_bus/src/persistent_grimoire.rs
+//! crates/ipc_bus/src/persistent_wal.rs
 //! High-Performance Embedded ACID Key-Value & Intent Persistence Engine.
 //! Provides durability across daemon reboots, intent history tracking, and specialist skill persistence.
 
@@ -26,9 +26,6 @@ pub struct WalRecord {
     pub is_tombstone: bool,
 }
 
-/// Backwards-compatible alias
-pub type GrimoireRecord = WalRecord;
-
 /// Persistent Write-Ahead Log (WAL) Key-Value & Intent Store
 pub struct PersistentWalStore {
     db_path: PathBuf,
@@ -36,9 +33,6 @@ pub struct PersistentWalStore {
     index: BTreeMap<String, Vec<u8>>,
     current_generation: u64,
 }
-
-/// Backwards-compatible alias
-pub type PersistentGrimoireStore = PersistentWalStore;
 
 impl PersistentWalStore {
     /// Opens or creates a durable database at the given path
@@ -297,16 +291,16 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_persistent_grimoire_reboot_durability() {
+    fn test_persistent_wal_reboot_durability() {
         let temp_dir = tempfile::tempdir().unwrap();
         let db_path = temp_dir.path().join(format!(
-            "grimoire_test_{}",
-            PersistentGrimoireStore::now_ms()
+            "wal_test_{}",
+            PersistentWalStore::now_ms()
         ));
 
         // 1. Write records in session 1
         {
-            let mut store = PersistentGrimoireStore::open(&db_path).unwrap();
+            let mut store = PersistentWalStore::open(&db_path).unwrap();
             store
                 .put("skill://synthesizer/fireball", b"rank_s")
                 .unwrap();
@@ -320,7 +314,7 @@ mod tests {
 
         // 2. Re-open (simulate system restart)
         {
-            let store = PersistentGrimoireStore::open(&db_path).unwrap();
+            let store = PersistentWalStore::open(&db_path).unwrap();
             assert_eq!(store.len(), 2);
             assert_eq!(
                 store.get("skill://synthesizer/fireball"),
@@ -338,7 +332,7 @@ mod tests {
 
         // 3. Compact database
         {
-            let mut store = PersistentGrimoireStore::open(&db_path).unwrap();
+            let mut store = PersistentWalStore::open(&db_path).unwrap();
             store.compact().unwrap();
             assert_eq!(store.len(), 2);
             assert_eq!(
@@ -351,3 +345,4 @@ mod tests {
         let _ = std::fs::remove_dir_all(&temp_dir);
     }
 }
+

@@ -76,7 +76,7 @@ impl SynthesizerSpecialist {
 
     /// Synthesize knowledge for a topic
     pub fn synthesize(&mut self, query: &str) -> KnowledgeSynthesis {
-        info!(target: "specialist::synthesizer", %query, "Synthesizing research intelligence");
+        info!(target: "agent::synthesizer", %query, "Synthesizing research intelligence");
 
         let synthesis = KnowledgeSynthesis {
             topic: query.to_string(),
@@ -155,3 +155,4 @@ mod tests {
         assert_eq!(synthesizer.knowledge_base.indexed_documents, 1);
     }
 }
+

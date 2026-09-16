@@ -14,3 +14,5 @@
 - [x] DIST-02: Zero-Copy Multi-Process Shared Memory Ring Buffer (64-slot SWMR seqlock double-barrier ring in ipc_bus & studio_hud)
 - [x] ADAPT-01: Streaming Self-Correction & Autonomous Pacing Regulation (autonomic_adaptation::streaming_adaptation ⟶ core::hypervisor::supervisory_loop)
 - [x] DIST-03: Black-Box Flight Recorder & Deterministic Event Replayer (16MB circular binary flight log in ipc_bus & supervisory_loop)
+
+- [ ] Universal Compliance & Portable Deployment: Treat review-aaroneous.md as the authoritative backlog; implement its P0 items in order beginning with UTF-8-without-BOM enforcement, preserve generic-core and LIVE semantics, make only reviewed production changes, and do not mark this queue item complete until every P0 acceptance criterion has its own passing test and canonical verification evidence.

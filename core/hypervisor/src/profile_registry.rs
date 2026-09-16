@@ -1,31 +1,33 @@
-use crate::hox_map_schema::{EnzymeGenetics, HoxPermissions};
+use crate::profile_schema::{EnzymeGenetics, NodePermissions};
 use anyhow::Result;
 use parking_lot::Mutex;
 use rusqlite::{Connection, params};
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct HoxCapability {
+pub struct NodeCapability {
     pub name: String,
     pub enzyme_hash: String,
-    pub permissions: HoxPermissions,
+    pub permissions: NodePermissions,
 }
 
 /// Modern capability descriptor alias
-pub type CapabilityDescriptor = HoxCapability;
+pub type CapabilityDescriptor = NodeCapability;
+pub type HoxCapability = NodeCapability;
 
-pub struct HoxRegistry {
+pub struct ProfileRegistry {
     db: Mutex<Connection>,
 }
 
 /// Modern capability schema registry alias
-pub type CapabilitySchemaRegistry = HoxRegistry;
+pub type CapabilitySchemaRegistry = ProfileRegistry;
+pub type HoxRegistry = ProfileRegistry;
 
-impl HoxRegistry {
+impl ProfileRegistry {
     pub fn new(path: &str) -> Result<Self> {
         let db = Connection::open(path)?;
         db.execute_batch(
-            "CREATE TABLE IF NOT EXISTS hox_capabilities (
+            "CREATE TABLE IF NOT EXISTS node_capabilities (
                 name TEXT PRIMARY KEY,
                 enzyme_hash TEXT NOT NULL,
                 permissions_json TEXT NOT NULL
@@ -34,10 +36,10 @@ impl HoxRegistry {
         Ok(Self { db: Mutex::new(db) })
     }
 
-    pub fn register_capability(&self, cap: &HoxCapability) -> Result<()> {
+    pub fn register_capability(&self, cap: &NodeCapability) -> Result<()> {
         let permissions_json = serde_json::to_string(&cap.permissions)?;
         self.db.lock().execute(
-            "INSERT INTO hox_capabilities (name, enzyme_hash, permissions_json)
+            "INSERT INTO node_capabilities (name, enzyme_hash, permissions_json)
              VALUES (?1, ?2, ?3)
              ON CONFLICT(name) DO UPDATE SET
                  enzyme_hash = excluded.enzyme_hash,
@@ -47,14 +49,14 @@ impl HoxRegistry {
         Ok(())
     }
 
-    pub fn get_capability(&self, name: &str) -> Result<Option<HoxCapability>> {
+    pub fn get_capability(&self, name: &str) -> Result<Option<NodeCapability>> {
         let db = self.db.lock();
         let mut stmt = db.prepare(
-            "SELECT name, enzyme_hash, permissions_json FROM hox_capabilities WHERE name = ?1",
+            "SELECT name, enzyme_hash, permissions_json FROM node_capabilities WHERE name = ?1",
         )?;
         let row = stmt.query_row(params![name], |row| {
             let permissions_json: String = row.get(2)?;
-            Ok(HoxCapability {
+            Ok(NodeCapability {
                 name: row.get(0)?,
                 enzyme_hash: row.get(1)?,
                 permissions: serde_json::from_str(&permissions_json).map_err(|e| {
@@ -74,7 +76,7 @@ impl HoxRegistry {
         }
     }
 
-    pub fn get_enzyme(&self, name: &str) -> Option<EnzymeGenetics> {
+    pub fn get_module(&self, name: &str) -> Option<EnzymeGenetics> {
         self.get_capability(name)
             .ok()
             .flatten()
@@ -86,15 +88,15 @@ impl HoxRegistry {
             })
     }
 
-    pub fn list_capabilities(&self) -> Result<Vec<HoxCapability>> {
+    pub fn list_capabilities(&self) -> Result<Vec<NodeCapability>> {
         let db = self.db.lock();
         let mut stmt = db.prepare(
-            "SELECT name, enzyme_hash, permissions_json FROM hox_capabilities ORDER BY name",
+            "SELECT name, enzyme_hash, permissions_json FROM node_capabilities ORDER BY name",
         )?;
         let caps = stmt
             .query_map([], |row| {
                 let permissions_json: String = row.get(2)?;
-                Ok(HoxCapability {
+                Ok(NodeCapability {
                     name: row.get(0)?,
                     enzyme_hash: row.get(1)?,
                     permissions: serde_json::from_str(&permissions_json).map_err(|e| {
@@ -116,8 +118,8 @@ mod tests {
     use super::*;
     use tempfile::tempdir;
 
-    fn capability(name: &str, enzyme_hash: &str, permissions: HoxPermissions) -> HoxCapability {
-        HoxCapability {
+    fn capability(name: &str, enzyme_hash: &str, permissions: NodePermissions) -> NodeCapability {
+        NodeCapability {
             name: name.to_string(),
             enzyme_hash: enzyme_hash.to_string(),
             permissions,
@@ -128,12 +130,12 @@ mod tests {
     fn round_trips_capabilities_through_sqlite() {
         let dir = tempdir().unwrap();
         let db_path = dir.path().join("hox.db");
-        let registry = HoxRegistry::new(db_path.to_str().unwrap()).unwrap();
+        let registry = ProfileRegistry::new(db_path.to_str().unwrap()).unwrap();
 
         let cap = capability(
             "orchestrator",
             "hash-1",
-            HoxPermissions {
+            NodePermissions {
                 max_sovereignty_tier: 2,
                 allow_network: true,
                 whitelisted_domains: vec![
@@ -174,13 +176,13 @@ mod tests {
     fn overwrites_capabilities_and_orders_results() {
         let dir = tempdir().unwrap();
         let db_path = dir.path().join("hox.db");
-        let registry = HoxRegistry::new(db_path.to_str().unwrap()).unwrap();
+        let registry = ProfileRegistry::new(db_path.to_str().unwrap()).unwrap();
 
         registry
             .register_capability(&capability(
                 "synthesizer",
                 "hash-a",
-                HoxPermissions {
+                NodePermissions {
                     max_sovereignty_tier: 1,
                     allow_network: false,
                     whitelisted_domains: vec!["signals.local".to_string()],
@@ -192,7 +194,7 @@ mod tests {
             .register_capability(&capability(
                 "orchestrator",
                 "hash-b",
-                HoxPermissions {
+                NodePermissions {
                     max_sovereignty_tier: 2,
                     allow_network: true,
                     whitelisted_domains: vec!["api.openai.com".to_string()],
@@ -204,7 +206,7 @@ mod tests {
             .register_capability(&capability(
                 "synthesizer",
                 "hash-c",
-                HoxPermissions {
+                NodePermissions {
                     max_sovereignty_tier: 3,
                     allow_network: true,
                     whitelisted_domains: vec![
@@ -216,15 +218,15 @@ mod tests {
             ))
             .unwrap();
 
-        let merlin = registry.get_capability("synthesizer").unwrap().unwrap();
-        assert_eq!(merlin.enzyme_hash, "hash-c");
-        assert_eq!(merlin.permissions.max_sovereignty_tier, 3);
-        assert!(merlin.permissions.allow_network);
+        let synthesizer = registry.get_capability("synthesizer").unwrap().unwrap();
+        assert_eq!(synthesizer.enzyme_hash, "hash-c");
+        assert_eq!(synthesizer.permissions.max_sovereignty_tier, 3);
+        assert!(synthesizer.permissions.allow_network);
         assert_eq!(
-            merlin.permissions.whitelisted_domains,
+            synthesizer.permissions.whitelisted_domains,
             vec!["signals.local".to_string(), "api.anthropic.com".to_string()]
         );
-        assert!(merlin.permissions.requires_hitl);
+        assert!(synthesizer.permissions.requires_hitl);
 
         let listed = registry.list_capabilities().unwrap();
         assert_eq!(
@@ -237,16 +239,16 @@ mod tests {
     }
 
     #[test]
-    fn get_enzyme_preserves_permissions() {
+    fn get_module_preserves_permissions() {
         let dir = tempdir().unwrap();
         let db_path = dir.path().join("hox.db");
-        let registry = HoxRegistry::new(db_path.to_str().unwrap()).unwrap();
+        let registry = ProfileRegistry::new(db_path.to_str().unwrap()).unwrap();
 
         registry
             .register_capability(&capability(
                 "orchestrator",
                 "hash-1",
-                HoxPermissions {
+                NodePermissions {
                     max_sovereignty_tier: 2,
                     allow_network: true,
                     whitelisted_domains: vec!["api.openai.com".to_string()],
@@ -255,7 +257,7 @@ mod tests {
             ))
             .unwrap();
 
-        let enzyme = registry.get_enzyme("orchestrator").unwrap();
+        let enzyme = registry.get_module("orchestrator").unwrap();
         assert_eq!(enzyme.category, "orchestrator");
         assert_eq!(enzyme.permissions.max_sovereignty_tier, 2);
         assert!(enzyme.permissions.allow_network);

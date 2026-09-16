@@ -61,7 +61,7 @@ use anyhow::{Result, bail};
 use std::collections::HashMap;
 
 /// The Unified Specialist Federation / Pool managing all 10 Specialists
-pub struct SpecialistFederation {
+pub struct AgentFederation {
     pub orchestrator: OrchestratorSpecialist,
     pub synthesizer: SynthesizerSpecialist,
     pub presenter: PresenterSpecialist,
@@ -76,26 +76,27 @@ pub struct SpecialistFederation {
 }
 
 /// Simplified alias for the Specialist Federation
-pub type Specialists = SpecialistFederation;
+pub type Specialists = AgentFederation;
 
 /// The Unified Capability Federation
-pub type CapabilityFederation = SpecialistFederation;
-pub type Capabilities = SpecialistFederation;
-pub type CapabilityPool = SpecialistFederation;
+pub type CapabilityFederation = AgentFederation;
+pub type Capabilities = AgentFederation;
+pub type CapabilityPool = AgentFederation;
 
 /// Hub alias for the Specialist Federation
-pub type SpecialistHub = SpecialistFederation;
+pub type SpecialistHub = AgentFederation;
 
 /// Backwards-compatible alias for the Specialist Federation
-pub type SpecialistFederationAlias = SpecialistFederation;
+pub type AgentFederationAlias = AgentFederation;
+pub type SpecialistFederation = AgentFederation;
 
-impl Default for SpecialistFederation {
+impl Default for AgentFederation {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl SpecialistFederation {
+impl AgentFederation {
     pub fn new() -> Self {
         Self {
             orchestrator: OrchestratorSpecialist::new(),
@@ -247,7 +248,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_specialist_federation_dispatch() {
-        let mut federation = SpecialistFederation::new();
+        let mut federation = AgentFederation::new();
 
         // 1. Test Orchestrator (0x0100)
         let pkt_orchestrator = MnlpPacket {
@@ -310,7 +311,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_specialist_federation_event_bus() {
-        let mut federation = SpecialistFederation::new();
+        let mut federation = AgentFederation::new();
 
         // Subscribe to all specialist dispatch events
         let subscriber = federation.subscribe_events("specialist.dispatch", "test_worker");
@@ -344,3 +345,4 @@ mod tests {
         assert!(results[1].as_ref().is_ok_and(|r| r.success));
     }
 }
+

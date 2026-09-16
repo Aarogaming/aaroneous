@@ -75,7 +75,7 @@ impl ArchivistSpecialist {
         domain: &str,
         payload_uri: &str,
     ) -> StarNode {
-        info!(target: "specialist::archivist", %node_id, %title, "Consolidating lived experience into Omni Galaxy star-node");
+        info!(target: "agent::archivist", %node_id, %title, "Consolidating lived experience into Omni Galaxy star-node");
 
         let star = StarNode::new(
             node_id,
@@ -170,3 +170,4 @@ mod tests {
         assert_eq!(snapshot.total_stars, 1);
     }
 }
+

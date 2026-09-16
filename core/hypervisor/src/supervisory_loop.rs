@@ -180,7 +180,7 @@ pub struct SupervisoryDaemon {
     nlm_sentinel: Arc<NlmSentinel>,
     prefrontal_cortex: Arc<PrefrontalCortex>,
     dopamine_system: Arc<DopamineSystem>,
-    epigenetic_orchestrator: Arc<DeltaOrchestrator>,
+    adaptation_orchestrator: Arc<DeltaOrchestrator>,
     self_correction_enzyme: Arc<SelfCorrectionEnzyme>,
     neural_pruning_enzyme: Arc<NeuralPruningEnzyme>,
     diplomat_enzyme: Arc<DiplomatEnzyme>,
@@ -338,7 +338,7 @@ impl SupervisoryDaemon {
             nlm_sentinel: Arc::new(NlmSentinel::new()?),
             prefrontal_cortex: Arc::new(PrefrontalCortex),
             dopamine_system: Arc::new(FeedbackSignalProcessor),
-            epigenetic_orchestrator: Arc::new(DeltaOrchestrator::new()),
+            adaptation_orchestrator: Arc::new(DeltaOrchestrator::new()),
             self_correction_enzyme: Arc::new(SelfCorrectionEnzyme::new()),
             neural_pruning_enzyme: Arc::new(NeuralPruningEnzyme::new(60)),
             diplomat_enzyme: Arc::new(DiplomatEnzyme::new()),
@@ -478,7 +478,7 @@ impl SupervisoryDaemon {
         let nlm_sentinel = self.nlm_sentinel.clone();
         let prefrontal_cortex = self.prefrontal_cortex.clone();
         let dopamine_system = self.dopamine_system.clone();
-        let epigenetic_orchestrator = self.epigenetic_orchestrator.clone();
+        let adaptation_orchestrator = self.adaptation_orchestrator.clone();
         let self_correction_enzyme = self.self_correction_enzyme.clone();
         let neural_pruning_enzyme = self.neural_pruning_enzyme.clone();
         let diplomat_enzyme = self.diplomat_enzyme.clone();
@@ -1130,7 +1130,7 @@ impl SupervisoryDaemon {
                                 step.status = StepStatus::InProgress;
 
                                 if state.understanding_score > 90 {
-                                    epigenetic_orchestrator
+                                    adaptation_orchestrator
                                         .inject_latent_state(&state.latent_vector);
                                 }
 
@@ -1153,7 +1153,7 @@ impl SupervisoryDaemon {
                                         );
                                     }
 
-                                    if epigenetic_orchestrator
+                                    if adaptation_orchestrator
                                         .extract_hidden_state(&mut state.latent_vector)
                                         .is_ok()
                                     {
@@ -1303,7 +1303,7 @@ impl SupervisoryDaemon {
                 // --- PHASE 7: CROSS-HUSK DIALOGUE (Specialist Debate) ---
                 if state.clock_tick % 50 == 0 {
                     diplomat_enzyme.moderate_dialogue(&mut state.dialogue);
-                    epigenetic_orchestrator
+                    adaptation_orchestrator
                         .sync_lora_to_speaker(state.dialogue.active_speaker_hash);
 
                     if state.dialogue.consensus_score > 95 && state.clock_tick % 1000 == 0 {

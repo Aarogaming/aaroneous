@@ -1,6 +1,9 @@
 // Aaroneous Nervous System - SWMR rkyv Architecture
 // Single Writer, Multi-Reader zero-copy shared memory with mutation intent validation.
 
+pub mod protocol;
+pub use protocol::IpcEvent;
+
 pub mod disruptor;
 pub mod flight_recorder;
 pub mod intent_log;
@@ -9,7 +12,6 @@ pub mod metrics;
 pub mod mutation_intent;
 pub mod persistent_wal;
 pub mod specialist_bus;
-pub use persistent_wal as persistent_grimoire;
 pub use persistent_wal as wal_store;
 pub mod preparedness_notice;
 pub mod scheme_router;
@@ -42,7 +44,7 @@ pub use specialist_bus::{
 };
 pub use spmc_synapse_bus::{SharedSynapseBus, SpmcSynapseBus, SynapsePacket};
 
-pub use persistent_wal::{GrimoireRecord, PersistentGrimoireStore, PersistentWalStore, WalRecord};
+pub use persistent_wal::{PersistentWalStore, WalRecord};
 pub use scheme_router::{CapabilityFlags, SchemeCapabilityGate, SchemeUri};
 
 // Windows-specific named pipe communication (AgentBus)
@@ -54,8 +56,9 @@ pub use comm::AgentBus;
 // Backward compatibility: re-export old module structure
 pub mod shared_memory {
     pub use crate::swmr_synapse::{
-        McpToolCallFrame, SWMRSynapse, SpecialistDialogue, SynapseState, resolve_synapse_path,
+        McpToolCallFrame, SWMRSynapse, SpecialistDialogue, IpcBusState, resolve_synapse_path,
     };
+    pub type SynapseState = IpcBusState;
 }
 
 pub use core_contracts::EngineSnapshotPod;
@@ -86,9 +89,10 @@ pub use slab_allocator::{
 pub use swmr_synapse::{
     McpToolCallFrame, SNAPSHOT_RING_SLOTS, SNAPSHOT_SEGMENT_SIZE, SNAPSHOT_SHM_MAGIC,
     SNAPSHOT_SHM_VERSION, SWMRSynapse, SnapshotReadEntry, SnapshotRingHeader, SnapshotRingSlot,
-    SpecialistDialogue, SwmrSnapshotPublisher, SwmrSnapshotReader, SynapseReader, SynapseState,
+    SpecialistDialogue, SwmrSnapshotPublisher, SwmrSnapshotReader, SynapseReader, IpcBusState,
     SynapseWriterHandle,
 };
+pub type SynapseState = IpcBusState;
 
 // Engineering & CS Terminology Aliases (Machine-Native Linking Protocol & IPC)
 pub use machine_packet::MachinePacket as IpcPacket;
@@ -105,3 +109,4 @@ pub mod ipc_bus {
 pub mod shared_memory_channel {
     pub use crate::swmr_synapse::*;
 }
+

@@ -80,8 +80,8 @@ pub struct SpecialistAgent {
     pub persona: String, // Personality flavor text
     pub cognitive_bias: CognitiveBias,
     pub supervised_relic: Option<String>, // ID of supervised relic
-    pub hox_preset_path: String,          // Path to hox_specialist_<name>.json
-    pub enzyme_subset: Vec<String>,       // Allowlisted enzymes for this specialist
+    pub node_preset_path: String,          // Path to hox_specialist_<name>.json
+    pub module_subset: Vec<String>,       // Allowlisted enzymes for this specialist
     pub interval_ms: u64,                 // Polling interval in milliseconds
     pub model_path: String,               // Path to GGUF model file
     pub model_hash: String,               // SHA256 hash of model file
@@ -121,12 +121,12 @@ impl Default for SpecialistAgent {
             persona: "A neutral entity observing the hive.".to_string(),
             cognitive_bias: CognitiveBias::default(),
             supervised_relic: None,
-            hox_preset_path: paths
+            node_preset_path: paths
                 .registry()
                 .join("hox_specialist_template.json")
                 .to_string_lossy()
                 .to_string(),
-            enzyme_subset: vec![],
+            module_subset: vec![],
             interval_ms: 30000,
             model_path: String::new(),
             model_hash: String::new(),
@@ -147,8 +147,8 @@ pub struct RelicAgent {
     pub role: String, // "Visual Operator", "Prophetic Synthesist", etc.
     pub persona: String, // Personality flavor text
     pub cognitive_bias: CognitiveBias,
-    pub hox_preset_path: String,          // Path to hox_relic_<name>.json
-    pub enzyme_subset: Vec<String>,       // Allowlisted enzymes for this relic
+    pub node_preset_path: String,          // Path to hox_relic_<name>.json
+    pub module_subset: Vec<String>,       // Allowlisted enzymes for this relic
     pub interval_ms: u64,                 // Polling interval in milliseconds
     pub metadata: HashMap<String, Value>, // Extensible metadata
     pub model_path: String,               // Path to GGUF model file
@@ -188,12 +188,12 @@ impl Default for RelicAgent {
             role: "Observer".to_string(),
             persona: "A silent artifact observing systems.".to_string(),
             cognitive_bias: CognitiveBias::default(),
-            hox_preset_path: paths
+            node_preset_path: paths
                 .registry()
                 .join("hox_relic_template.json")
                 .to_string_lossy()
                 .to_string(),
-            enzyme_subset: vec![],
+            module_subset: vec![],
             interval_ms: 30000,
             metadata: HashMap::new(),
             model_path: String::new(),
@@ -342,11 +342,11 @@ pub fn create_specialist(name: &str) -> Option<SpecialistAgent> {
                 audit_strictness: 40,
             },
             supervised_relic: Some("relic_display_buffer".to_string()),
-            hox_preset_path: paths
+            node_preset_path: paths
                 .sovereign_hox_preset("presenter")
                 .to_string_lossy()
                 .to_string(),
-            enzyme_subset: vec!["sensor_node".to_string(), "tensor_forge".to_string()],
+            module_subset: vec!["sensor_node".to_string(), "tensor_forge".to_string()],
             interval_ms: 20000,
             model_path: paths
                 .sovereign_model("presenter")
@@ -369,11 +369,11 @@ pub fn create_specialist(name: &str) -> Option<SpecialistAgent> {
                 audit_strictness: 60,
             },
             supervised_relic: Some("relic_knowledge_store".to_string()),
-            hox_preset_path: paths
+            node_preset_path: paths
                 .sovereign_hox_preset("synthesizer")
                 .to_string_lossy()
                 .to_string(),
-            enzyme_subset: vec!["thought_kernel".to_string(), "tensor_forge".to_string()],
+            module_subset: vec!["inference_kernel".to_string(), "tensor_forge".to_string()],
             interval_ms: 25000,
             model_path: paths
                 .sovereign_model("synthesizer")
@@ -396,11 +396,11 @@ pub fn create_specialist(name: &str) -> Option<SpecialistAgent> {
                 audit_strictness: 75,
             },
             supervised_relic: Some("relic_orchestrator_core".to_string()),
-            hox_preset_path: paths
+            node_preset_path: paths
                 .sovereign_hox_preset("orchestrator")
                 .to_string_lossy()
                 .to_string(),
-            enzyme_subset: vec!["thought_kernel".to_string(), "nat_bridge".to_string()],
+            module_subset: vec!["inference_kernel".to_string(), "nat_bridge".to_string()],
             interval_ms: 30000,
             model_path: paths
                 .sovereign_model("orchestrator")
@@ -424,11 +424,11 @@ pub fn create_specialist(name: &str) -> Option<SpecialistAgent> {
                 audit_strictness: 35,
             },
             supervised_relic: Some("relic_memory_index".to_string()),
-            hox_preset_path: paths
+            node_preset_path: paths
                 .sovereign_hox_preset("archivist")
                 .to_string_lossy()
                 .to_string(),
-            enzyme_subset: vec!["sensor_node".to_string(), "thought_kernel".to_string()],
+            module_subset: vec!["sensor_node".to_string(), "inference_kernel".to_string()],
             interval_ms: 35000,
             model_path: paths
                 .sovereign_model("archivist")
@@ -451,11 +451,11 @@ pub fn create_specialist(name: &str) -> Option<SpecialistAgent> {
                 audit_strictness: 85,
             },
             supervised_relic: Some("relic_compiler_core".to_string()),
-            hox_preset_path: paths
+            node_preset_path: paths
                 .sovereign_hox_preset("fabricator")
                 .to_string_lossy()
                 .to_string(),
-            enzyme_subset: vec!["tensor_forge".to_string(), "thought_kernel".to_string()],
+            module_subset: vec!["tensor_forge".to_string(), "inference_kernel".to_string()],
             interval_ms: 22000,
             model_path: paths
                 .sovereign_model("fabricator")
@@ -477,11 +477,11 @@ pub fn create_specialist(name: &str) -> Option<SpecialistAgent> {
                 audit_strictness: 100,
             },
             supervised_relic: Some("relic_audit_engine".to_string()),
-            hox_preset_path: paths
+            node_preset_path: paths
                 .sovereign_hox_preset("sentinel")
                 .to_string_lossy()
                 .to_string(),
-            enzyme_subset: vec!["nat_bridge".to_string(), "sensor_node".to_string()],
+            module_subset: vec!["nat_bridge".to_string(), "sensor_node".to_string()],
             interval_ms: 15000,
             model_path: paths
                 .sovereign_model("sentinel")
@@ -516,11 +516,11 @@ pub fn create_relic(name: &str, supervisor_id: &str) -> Option<RelicAgent> {
                 creative_variance: 80,
                 audit_strictness: 45,
             },
-            hox_preset_path: paths
+            node_preset_path: paths
                 .relic_hox_preset("display_buffer")
                 .to_string_lossy()
                 .to_string(),
-            enzyme_subset: vec!["sensor_node".to_string(), "tensor_forge".to_string()],
+            module_subset: vec!["sensor_node".to_string(), "tensor_forge".to_string()],
             interval_ms: 18000,
             metadata: HashMap::new(),
             model_path: paths
@@ -543,11 +543,11 @@ pub fn create_relic(name: &str, supervisor_id: &str) -> Option<RelicAgent> {
                 creative_variance: 70,
                 audit_strictness: 55,
             },
-            hox_preset_path: paths
+            node_preset_path: paths
                 .relic_hox_preset("knowledge_store")
                 .to_string_lossy()
                 .to_string(),
-            enzyme_subset: vec!["thought_kernel".to_string(), "tensor_forge".to_string()],
+            module_subset: vec!["inference_kernel".to_string(), "tensor_forge".to_string()],
             interval_ms: 28000,
             metadata: HashMap::new(),
             model_path: paths
@@ -570,11 +570,11 @@ pub fn create_relic(name: &str, supervisor_id: &str) -> Option<RelicAgent> {
                 creative_variance: 50,
                 audit_strictness: 80,
             },
-            hox_preset_path: paths
+            node_preset_path: paths
                 .relic_hox_preset("orchestrator_core")
                 .to_string_lossy()
                 .to_string(),
-            enzyme_subset: vec!["thought_kernel".to_string(), "nat_bridge".to_string()],
+            module_subset: vec!["inference_kernel".to_string(), "nat_bridge".to_string()],
             interval_ms: 32000,
             metadata: HashMap::new(),
             model_path: paths
@@ -597,11 +597,11 @@ pub fn create_relic(name: &str, supervisor_id: &str) -> Option<RelicAgent> {
                 creative_variance: 85,
                 audit_strictness: 50,
             },
-            hox_preset_path: paths
+            node_preset_path: paths
                 .relic_hox_preset("memory_index")
                 .to_string_lossy()
                 .to_string(),
-            enzyme_subset: vec!["sensor_node".to_string(), "thought_kernel".to_string()],
+            module_subset: vec!["sensor_node".to_string(), "inference_kernel".to_string()],
             interval_ms: 40000,
             metadata: HashMap::new(),
             model_path: paths
@@ -623,11 +623,11 @@ pub fn create_relic(name: &str, supervisor_id: &str) -> Option<RelicAgent> {
                 creative_variance: 55,
                 audit_strictness: 88,
             },
-            hox_preset_path: paths
+            node_preset_path: paths
                 .relic_hox_preset("compiler_core")
                 .to_string_lossy()
                 .to_string(),
-            enzyme_subset: vec!["tensor_forge".to_string(), "thought_kernel".to_string()],
+            module_subset: vec!["tensor_forge".to_string(), "inference_kernel".to_string()],
             interval_ms: 20000,
             metadata: HashMap::new(),
             model_path: paths
@@ -649,11 +649,11 @@ pub fn create_relic(name: &str, supervisor_id: &str) -> Option<RelicAgent> {
                 creative_variance: 10,
                 audit_strictness: 100,
             },
-            hox_preset_path: paths
+            node_preset_path: paths
                 .relic_hox_preset("audit_engine")
                 .to_string_lossy()
                 .to_string(),
-            enzyme_subset: vec!["nat_bridge".to_string(), "sensor_node".to_string()],
+            module_subset: vec!["nat_bridge".to_string(), "sensor_node".to_string()],
             interval_ms: 12000,
             metadata: HashMap::new(),
             model_path: paths
@@ -733,3 +733,4 @@ mod tests {
         }
     }
 }
+

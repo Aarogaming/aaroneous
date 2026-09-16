@@ -1205,7 +1205,7 @@ pub fn dna_to_genome(dna: &ModelDNA) -> SpecialistGenome {
 
     // Set genome-level summary fields from DNA
     genome.specialization_score = dna.genome_loci.get("gate_sparsity").copied().unwrap_or(0.0);
-    genome.genetic_distance_to_base = 1.0
+    genome.profile_drift_score = 1.0
         - dna
             .genome_loci
             .get("cross_block_correlation_mean")

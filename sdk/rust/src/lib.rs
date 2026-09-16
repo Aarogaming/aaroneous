@@ -11,7 +11,6 @@
 //! println!("Connected to federation with {} active channels", bridge.channel_count());
 //! ```
 
-pub extern crate ipc_bus as nervous_system;
 pub use ipc_bus;
 
 pub mod dynamic_plugin;
@@ -22,7 +21,7 @@ pub use dynamic_plugin::{
 };
 
 pub use ipc_bus::{
-    MachinePacket, PersistentGrimoireStore, PersistentWalStore, SpecialistSynapseBus,
+    MachinePacket, PersistentWalStore, SpecialistSynapseBus,
     SpmcSynapseBus, SynapsePacket, WalRecord,
 };
 use std::sync::Arc;
@@ -94,8 +93,8 @@ mod tests {
     }
 
     #[test]
-    fn test_sdk_reexports_nervous_system() {
-        let _ = nervous_system::SharedMemorySynapse::new_sync("test_sdk", 1024 * 1024);
+    fn test_sdk_reexports_ipc_bus() {
+        let _ = ipc_bus::SharedMemorySynapse::new_sync("test_sdk", 1024 * 1024);
     }
 
     #[test]

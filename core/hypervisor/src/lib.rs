@@ -229,7 +229,7 @@ pub use performance_benchmark::{
 // Core modules needed by runtime supervisor
 pub mod action_executor;
 pub mod capability_registry;
-pub use capability_registry as chromosome_registry;
+pub use capability_registry as node_registry;
 pub mod concept_drift;
 pub mod config_validation;
 pub mod reward_system;
@@ -247,7 +247,6 @@ pub use profile_merger as genetic_recombination;
 pub mod profile_compiler;
 pub use profile_compiler as genome_compiler;
 pub mod trait_loader;
-pub use trait_loader as genome_trait_loader;
 pub mod hardened_env;
 pub mod hid_driver;
 pub mod profile_schema;
@@ -256,6 +255,7 @@ pub mod profile_persistence;
 pub use profile_persistence as hox_persistence;
 pub mod profile_registry;
 pub use profile_registry as hox_registry;
+pub use capability_registry as chromosome_registry;
 pub mod spatial_delta_gate;
 pub use llm_gateway as llm;
 pub use llm_gateway::McpGateway;
@@ -500,8 +500,8 @@ pub use simulation_testbed::SimulationTestbed;
 pub use task_worker::ExecutionEnzyme;
 
 pub use action_executor::{ActionExecutor, ExecutableAction, FileOp};
-pub use hox_persistence::{HoxPersistenceManager, RegistrySnapshot, SnapshotInfo};
-pub use hox_registry::HoxRegistry;
+pub use profile_persistence::{HoxPersistenceManager, RegistrySnapshot, SnapshotInfo};
+pub use profile_registry::ProfileRegistry;
 pub use lora_adapter_vault::{LiveLoraAdapter, LoraAdapterVault};
 pub use metadata_ingestor::{MetadataIngestor, MetadataIngestorConfig};
 pub use orchestration_daemon::{DaemonState, OrchestrationDaemon, OrchestrationDaemonConfig};

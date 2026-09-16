@@ -9,13 +9,15 @@ use std::fs::{self, File};
 use std::io::{Read, Write};
 use std::path::Path;
 
-pub const ROSETTA_TEACHER_DIM: usize = 4096;
-pub const ROSETTA_LATENT_DIM: usize = 256;
-pub const ROSETTA_MAGIC: [u8; 4] = *b"ROST";
+pub const TEACHER_DIM: usize = 4096;
+pub const LATENT_DIM: usize = 256;
+pub const TRANSLATION_MAGIC: [u8; 4] = *b"ROST";
+pub const ROSETTA_TEACHER_DIM: usize = TEACHER_DIM;
+pub const ROSETTA_LATENT_DIM: usize = LATENT_DIM;
 
 /// A single step in a software or OS micro-task trajectory
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RosettaTrajectoryStep {
+pub struct TranslationStep {
     pub task_id: u64,
     pub description: String,
     pub teacher_hidden_state: Vec<f32>, // 4096-dim Oracle reasoning vector
@@ -30,7 +32,7 @@ pub struct TranslationDataset {
     pub sample_count: usize,
     pub teacher_dim: usize,
     pub latent_dim: usize,
-    pub steps: Vec<RosettaTrajectoryStep>,
+    pub steps: Vec<TranslationStep>,
 }
 
 impl TranslationDataset {
@@ -38,8 +40,8 @@ impl TranslationDataset {
         Self {
             name: name.to_string(),
             sample_count: 0,
-            teacher_dim: ROSETTA_TEACHER_DIM,
-            latent_dim: ROSETTA_LATENT_DIM,
+            teacher_dim: TEACHER_DIM,
+            latent_dim: LATENT_DIM,
             steps: Vec::new(),
         }
     }
@@ -229,7 +231,7 @@ impl TranslationDataset {
             let (desc, opcode, scale) = templates[i % templates.len()];
 
             // Generate structured 4096-dim teacher hidden state with deterministic pseudo-random harmonics
-            let mut teacher_state = vec![0.0f32; ROSETTA_TEACHER_DIM];
+            let mut teacher_state = vec![0.0f32; TEACHER_DIM];
             for (j, value) in teacher_state.iter_mut().enumerate() {
                 let freq = ((i * 13 + j * 17 + (domain_opcode as usize) * 31) as f32).sin();
                 *value = freq * 0.5 + ((j % 64) as f32 * 0.001);
@@ -247,12 +249,12 @@ impl TranslationDataset {
             }
 
             // Generate structured 256-dim target state delta
-            let mut delta = vec![0.0f32; ROSETTA_LATENT_DIM];
+            let mut delta = vec![0.0f32; LATENT_DIM];
             for (j, value) in delta.iter_mut().enumerate() {
                 *value = (((i * 7 + j * 11 + (domain_opcode as usize) * 19) as f32).cos()) * scale;
             }
 
-            dataset.steps.push(RosettaTrajectoryStep {
+            dataset.steps.push(TranslationStep {
                 task_id: (i + 1) as u64,
                 description: desc.to_string(),
                 teacher_hidden_state: teacher_state,
@@ -305,7 +307,7 @@ impl TranslationDataset {
 
         let encoded = serde_json::to_vec(self)?;
         let mut file = File::create(path)?;
-        file.write_all(&ROSETTA_MAGIC)?;
+        file.write_all(&TRANSLATION_MAGIC)?;
         file.write_all(&(encoded.len() as u64).to_le_bytes())?;
         file.write_all(&encoded)?;
         Ok(())
@@ -316,7 +318,7 @@ impl TranslationDataset {
         let mut file = File::open(path)?;
         let mut magic = [0u8; 4];
         file.read_exact(&mut magic)?;
-        if magic != ROSETTA_MAGIC {
+        if magic != TRANSLATION_MAGIC {
             anyhow::bail!("Invalid translation dataset magic header");
         }
 
@@ -343,11 +345,11 @@ mod tests {
         assert_eq!(dataset.steps.len(), 10);
         assert_eq!(
             dataset.steps[0].teacher_hidden_state.len(),
-            ROSETTA_TEACHER_DIM
+            TEACHER_DIM
         );
         assert_eq!(
             dataset.steps[0].target_state_delta.len(),
-            ROSETTA_LATENT_DIM
+            LATENT_DIM
         );
 
         let temp_dir = tempfile::tempdir().unwrap();

@@ -365,6 +365,14 @@ impl {library_name}FfiHandle {{
         )
     }
 
+    /// Backwards-compatible alias for modern system-engineering naming
+    pub fn build_and_stage_module(
+        manifest: &TargetCapabilityManifest,
+        out_dir: &Path,
+    ) -> Result<PathBuf> {
+        Self::build_and_stage_organ(manifest, out_dir)
+    }
+
     /// Stage 4: Generates a complete standalone Cargo organ crate on disk
     pub fn build_and_stage_organ(
         manifest: &TargetCapabilityManifest,

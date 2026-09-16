@@ -91,15 +91,16 @@ pub use hippo::{
 pub use macro_ssm::{ContinuousMacroSsm, MACRO_LATENT_DIM, MACRO_STATE_DIM, MacroSsmConfig};
 pub use si_moe_register::{
     CartridgeDescriptor, DEFAULT_MAX_EXPERT_SLOTS, DEFAULT_MAX_ORGAN_SLOTS, ExpertSlot,
-    MoEExecutionReport, OrganDescriptor, OrganSlot, SiMoERegister,
+    MoEExecutionReport, ModuleDescriptor, ModuleSlot, SiMoERegister,
 };
 pub use wx_memory::WxMemoryRegion;
 
 pub use burn_gpu::{GpuTensorAccelerator, GpuTensorProfile};
 pub use isolated_desktop::IsolatedDesktop;
 pub use latent_guardrail::{
-    ArgusSafetySentinel, GUARDRAIL_DIM, LatentAuditVerdict, SafeHypersphereManifold,
+    GUARDRAIL_DIM, LatentAuditVerdict, SafeHypersphereManifold, SafetyGuard,
 };
+pub type ArgusSafetySentinel = SafetyGuard;
 pub use latent_router::{CORTEX_INTENT_DIM, LatentOrthogonalRouter, SUBGOAL_DIM};
 pub use machine_native::{
     DimensionalUnit, EdgeLinguisticLens, MachineNativePredictionEngine, MachineOpcode,
@@ -150,8 +151,9 @@ pub use si_trainer::{
 pub use state_bank::{AdaptationError, RlsState, STATE_BANK_HEADER_SIZE, update_rls};
 pub use token_consumer::MachineToken;
 pub use translation_dataset::{
-    ROSETTA_LATENT_DIM, ROSETTA_TEACHER_DIM, RosettaTrajectoryStep, TranslationDataset,
+    LATENT_DIM, TEACHER_DIM, ROSETTA_LATENT_DIM, ROSETTA_TEACHER_DIM, TranslationStep, TranslationDataset,
 };
+pub type RosettaTrajectoryStep = TranslationStep;
 pub extern crate ipc_bus as nervous_system;
 pub use ipc_bus;
 use ipc_bus::SharedMemorySynapse;

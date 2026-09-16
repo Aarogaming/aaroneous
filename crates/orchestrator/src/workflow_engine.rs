@@ -115,7 +115,7 @@ impl WorkflowGraph {
                 };
 
                 let decision = router.find_optimal_specialist(&routable);
-                step.assigned_specialist = decision.specialist_name;
+                step.assigned_specialist = decision.agent_name;
                 resolved_count += 1;
             }
         }
@@ -862,3 +862,4 @@ mod tests {
         assert_eq!(node_s2.dependencies.len(), 1);
     }
 }
+

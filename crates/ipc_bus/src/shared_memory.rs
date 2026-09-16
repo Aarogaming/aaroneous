@@ -8,14 +8,14 @@ use std::fs;
 /// The raw memory layout for the Autonomic Nervous System
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
-pub struct SynapseState {
+pub struct IpcBusState {
     pub clock_tick: u64,
     pub energy_budget: u32,
     pub memory_pressure: u8,
     pub safety_lock: u8,        // 0: Neutral, 1: Violation Blocked
     pub approval_required: u8,  // 0: No, 1: Awaiting User
     pub approval_granted: u8,   // 0: No, 1: Yes
-    pub hox_mutation_flag: u8,
+    pub mutation_flag: u8,
     pub intent_vector_id: [u8; 16],
     pub intent_payload: [u8; 256],
     pub sovereignty_tier: u8,   // 0: Local, 1: Bounded Web, 2: Remote LLM
@@ -82,7 +82,7 @@ impl Default for McpToolCallFrame {
     }
 }
 
-impl Default for SynapseState {
+impl Default for IpcBusState {
     fn default() -> Self {
         Self {
             clock_tick: 0,
@@ -91,7 +91,7 @@ impl Default for SynapseState {
             safety_lock: 0,
             approval_required: 0,
             approval_granted: 0,
-            hox_mutation_flag: 0,
+            mutation_flag: 0,
             intent_vector_id: [0; 16],
             intent_payload: [0; 256],
             sovereignty_tier: 0,

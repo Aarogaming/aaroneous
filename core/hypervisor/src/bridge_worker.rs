@@ -92,10 +92,10 @@ impl DiplomatEnzyme {
 
     /// Breeds a new Diplomatic hybrid specialist.
     pub fn breed_diplomat_specialist(&self, registry: &crate::hox_registry::HoxRegistry) -> Result<crate::hox_map_schema::EnzymeGenetics> {
-        let odin = registry.get_enzyme("orchestrator").ok_or_else(|| anyhow::anyhow!("Orchestrator genetics missing"))?;
-        let merlin = registry.get_enzyme("synthesizer").ok_or_else(|| anyhow::anyhow!("Synthesizer genetics missing"))?;
+        let orchestrator_module = registry.get_module("orchestrator").ok_or_else(|| anyhow::anyhow!("Orchestrator genetics missing"))?;
+        let knowledge_module = registry.get_module("synthesizer").ok_or_else(|| anyhow::anyhow!("Synthesizer genetics missing"))?;
         
-        let mut hybrid = crate::genetic_recombination::GeneticRecombinator::breed(&odin, &merlin)?;
+        let mut hybrid = crate::genetic_recombination::ProfileRecombinator::merge_profiles(&orchestrator_module, &knowledge_module)?;
         
         hybrid.category = "diplomatic_negotiation".to_string();
         hybrid.mcp_tools.push(crate::hox_map_schema::McpToolDefinition {

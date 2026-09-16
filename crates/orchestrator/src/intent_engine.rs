@@ -61,7 +61,7 @@ impl IntentEngine {
                 id: "specialist_synthesizer".to_string(),
                 name: "Synthesizer".to_string(),
                 skills: vec![
-                    "thought_kernel".to_string(),
+                    "inference_kernel".to_string(),
                     "tensor_forge".to_string(),
                     "analysis".to_string(),
                     "knowledge".to_string(),
@@ -74,7 +74,7 @@ impl IntentEngine {
                 id: "specialist_orchestrator".to_string(),
                 name: "Orchestrator".to_string(),
                 skills: vec![
-                    "thought_kernel".to_string(),
+                    "inference_kernel".to_string(),
                     "nat_bridge".to_string(),
                     "leadership".to_string(),
                     "orchestration".to_string(),
@@ -88,7 +88,7 @@ impl IntentEngine {
                 name: "Archivist".to_string(),
                 skills: vec![
                     "sensor_node".to_string(),
-                    "thought_kernel".to_string(),
+                    "inference_kernel".to_string(),
                     "experience".to_string(),
                     "memory".to_string(),
                 ],
@@ -101,7 +101,7 @@ impl IntentEngine {
                 name: "Fabricator".to_string(),
                 skills: vec![
                     "tensor_forge".to_string(),
-                    "thought_kernel".to_string(),
+                    "inference_kernel".to_string(),
                     "build".to_string(),
                     "compile".to_string(),
                     "manufacturing".to_string(),
@@ -165,7 +165,7 @@ impl IntentEngine {
 
         // Consume capacity
         self.router
-            .consume_capacity(&routing.specialist_id, task.estimated_cost);
+            .consume_capacity(&routing.agent_id, task.estimated_cost);
 
         DispatchResult {
             intent: intent.clone(),
@@ -181,9 +181,9 @@ impl IntentEngine {
     }
 
     /// Record task outcome for learning
-    pub fn record_outcome(&mut self, specialist_id: &str, success: bool, completion_time: f64) {
+    pub fn record_outcome(&mut self, agent_id: &str, success: bool, completion_time: f64) {
         self.router
-            .update_specialist_performance(specialist_id, success, completion_time);
+            .update_specialist_performance(agent_id, success, completion_time);
     }
 
     /// Extract relevant skills from text based on CAS command domain
@@ -333,7 +333,7 @@ mod tests {
             .parse_and_dispatch("Review the security of this module")
             .unwrap();
         assert!(!result.task_id.is_empty());
-        assert!(!result.routing.specialist_id.is_empty());
+        assert!(!result.routing.agent_id.is_empty());
         assert!(result.routing.confidence > 0.0);
     }
 
@@ -500,7 +500,7 @@ mod tests {
 
         assert!(!result.task_id.is_empty());
         assert!(result.task_id.starts_with("task_"));
-        assert!(!result.routing.specialist_id.is_empty());
+        assert!(!result.routing.agent_id.is_empty());
         assert!(result.routing.confidence > 0.0);
         assert_eq!(result.intent.raw_text, "Generate a test suite");
     }
@@ -512,7 +512,7 @@ mod tests {
             .parse_and_dispatch("Review the security of this module")
             .unwrap();
         assert!(!result.task_id.is_empty());
-        assert!(!result.routing.specialist_id.is_empty());
+        assert!(!result.routing.agent_id.is_empty());
         assert!(result.routing.confidence > 0.0);
     }
 
@@ -540,3 +540,4 @@ mod tests {
         );
     }
 }
+

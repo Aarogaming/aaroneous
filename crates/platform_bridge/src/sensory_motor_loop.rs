@@ -18,7 +18,7 @@ use compute::latent_guardrail::{GUARDRAIL_DIM, LatentAuditVerdict, SafeHypersphe
 use compute::machine_native::MachineOpcode;
 use compute::si_decoder::{ActionDecoder, DecodedActionCommand};
 
-use crate::epigenetic_vision::{EpigeneticGatingResult, EpigeneticVisionGater};
+use crate::delta_vision::{DeltaGatingResult, DeltaVisionGater};
 use crate::mock::MockPlatformHost;
 use crate::traits::{HidAction, HidCommand, PlatformHost};
 
@@ -41,7 +41,7 @@ pub struct SensoryMotorCycleReport {
 
 /// The Closed-Loop Sensory-Motor Pipeline Engine
 pub struct SensoryMotorPipeline {
-    pub gater: EpigeneticVisionGater,
+    pub gater: DeltaVisionGater,
     pub guardrail: SafeHypersphereManifold,
     pub decoder: ActionDecoder,
     pub ghost_desktop: IsolatedDesktop,
@@ -58,7 +58,7 @@ impl Default for SensoryMotorPipeline {
 impl SensoryMotorPipeline {
     /// Initializes a new Closed-Loop Sensory-Motor Pipeline
     pub fn new(desktop_name: &str) -> Self {
-        let gater = EpigeneticVisionGater::default();
+        let gater = DeltaVisionGater::default();
         let mut guardrail = SafeHypersphereManifold::new(12.0); // Safe radius R = 12.0
         guardrail.fit_from_golden_states(&[
             vec![0.05f32; GUARDRAIL_DIM],
@@ -84,10 +84,10 @@ impl SensoryMotorPipeline {
         }
     }
 
-    /// Projects 16x16 epigenetic sector activations into an R^256 spatial-semantic latent intent vector
+    /// Projects 16x16 delta sector activations into an R^256 spatial-semantic latent intent vector
     pub fn project_latent_intent(
         &self,
-        gated: &EpigeneticGatingResult,
+        gated: &DeltaGatingResult,
         raw_frame: &[f32],
     ) -> Vec<f32> {
         let mut intent = vec![0.0f32; GUARDRAIL_DIM];

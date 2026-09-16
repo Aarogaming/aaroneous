@@ -1,4 +1,4 @@
-use crate::chromosome_registry::EpigeneticSwitches;
+use crate::chromosome_registry::LoraAdapterSwitches;
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -10,7 +10,7 @@ use std::path::Path;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LiveLoraAdapter {
     pub id: String,
-    pub switches: EpigeneticSwitches,
+    pub switches: LoraAdapterSwitches,
     pub weight_deltas: Vec<f32>,
     pub gradient_variance: f32,
     pub rank: usize,
@@ -19,7 +19,7 @@ pub struct LiveLoraAdapter {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LoraAdapterVault {
-    pub adapters: HashMap<String, EpigeneticSwitches>,
+    pub adapters: HashMap<String, LoraAdapterSwitches>,
     pub live_adapters: HashMap<String, LiveLoraAdapter>,
 }
 
@@ -36,7 +36,7 @@ impl LoraAdapterVault {
         // Academic Research Adapter: Optimizes for citation analysis and objective synthesis
         adapters.insert(
             "academic_research_v1".to_string(),
-            EpigeneticSwitches {
+            LoraAdapterSwitches {
                 active_loras: vec![
                     "academic_prose.lora".to_string(),
                     "citation_validator.lora".to_string(),
@@ -49,7 +49,7 @@ impl LoraAdapterVault {
         // Code Optimization Adapter: Optimizes for Rust performance and safety patterns
         adapters.insert(
             "code_optimizer_v1".to_string(),
-            EpigeneticSwitches {
+            LoraAdapterSwitches {
                 active_loras: vec![
                     "rust_efficiency.lora".to_string(),
                     "memory_safety_checks.lora".to_string(),
@@ -62,7 +62,7 @@ impl LoraAdapterVault {
         // Creative Synthesis Adapter: Optimizes for high-entropy ideation
         adapters.insert(
             "creative_synthesis_v1".to_string(),
-            EpigeneticSwitches {
+            LoraAdapterSwitches {
                 active_loras: vec!["metaphorical_mapping.lora".to_string()],
                 temperature_bias: 0.9, // High creativity
                 top_p: 1.0,
@@ -75,7 +75,7 @@ impl LoraAdapterVault {
         }
     }
 
-    pub fn get_switches(&self, id: &str) -> Option<&EpigeneticSwitches> {
+    pub fn get_switches(&self, id: &str) -> Option<&LoraAdapterSwitches> {
         self.adapters
             .get(id)
             .or_else(|| self.live_adapters.get(id).map(|la| &la.switches))
@@ -85,7 +85,7 @@ impl LoraAdapterVault {
     pub fn register_live_adapter(
         &mut self,
         id: String,
-        switches: EpigeneticSwitches,
+        switches: LoraAdapterSwitches,
         weight_deltas: Vec<f32>,
         gradient_variance: f32,
         rank: usize,
@@ -134,7 +134,7 @@ mod tests {
         let mut vault = LoraAdapterVault::new();
         vault.register_live_adapter(
             "test_live_adapter".to_string(),
-            EpigeneticSwitches {
+            LoraAdapterSwitches {
                 active_loras: vec!["test.lora".to_string()],
                 temperature_bias: 0.15,
                 top_p: 0.90,

@@ -43,6 +43,7 @@ pub struct EnzymeRunner {
 /// Modern micro-task runner alias
 pub type MicroTaskRunner = EnzymeRunner;
 pub type WasmEnzymeRunner = EnzymeRunner;
+pub type ModuleRunner = EnzymeRunner;
 
 /// Modern micro-task worker trait alias
 pub use NativeEnzyme as MicroTaskWorker;

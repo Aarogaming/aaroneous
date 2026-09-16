@@ -9,6 +9,8 @@ pub struct HoxPermissions {
     pub requires_hitl: bool,
 }
 
+pub type NodePermissions = HoxPermissions;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct McpToolDefinition {
     pub name: String,

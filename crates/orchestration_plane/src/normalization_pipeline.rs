@@ -221,15 +221,13 @@ impl NormalizationPipeline {
 }
 
 #[cfg(test)]
-#[allow(ambient_authority)]
+#[allow(unused)]
 mod tests {
     use super::*;
 
     #[test]
     fn test_inspect_target_flags_unwrap() {
-        let temp_dir = std::env::temp_dir().join("orchestration_plane_test");
-        let _ = std::fs::remove_dir_all(&temp_dir);
-        std::fs::create_dir_all(&temp_dir).unwrap();
+        let temp_dir = tempfile::tempdir().unwrap().keep();
 
         let test_file = temp_dir.join("test_unwrap.rs");
         std::fs::write(

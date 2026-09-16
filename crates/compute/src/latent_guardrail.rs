@@ -180,17 +180,17 @@ impl SafeHypersphereManifold {
 }
 
 /// The Sentinel Auditor Safety Engine
-pub struct ArgusSafetySentinel {
+pub struct SafetyGuard {
     pub manifolds: Vec<SafeHypersphereManifold>,
 }
 
-impl Default for ArgusSafetySentinel {
+impl Default for SafetyGuard {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl ArgusSafetySentinel {
+impl SafetyGuard {
     pub fn new() -> Self {
         let mut default_manifold = SafeHypersphereManifold::new(10.0);
         default_manifold.centroid = vec![0.0f32; GUARDRAIL_DIM];

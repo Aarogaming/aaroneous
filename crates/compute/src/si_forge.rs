@@ -59,7 +59,7 @@ pub struct SiForge {
     pub d_state: usize,
     pub lora_rank: usize,
     pub num_layers: usize,
-    pub rosetta_stone_path: Option<PathBuf>,
+    pub translation_dataset_path: Option<PathBuf>,
     pub epochs: usize,
     pub batch_size: usize,
     pub learning_rate: f32,
@@ -76,7 +76,7 @@ impl SiForge {
             d_state: 16,
             lora_rank: 16,
             num_layers: 2,
-            rosetta_stone_path: None,
+            translation_dataset_path: None,
             epochs: 5,
             batch_size: 16,
             learning_rate: 0.001,
@@ -109,7 +109,7 @@ impl SiForge {
 
     /// Provide a custom teacher dataset path for distillation
     pub fn with_training_data(mut self, path: impl Into<PathBuf>) -> Self {
-        self.rosetta_stone_path = Some(path.into());
+        self.translation_dataset_path = Some(path.into());
         self
     }
 
@@ -339,7 +339,7 @@ impl SiForge {
         }
 
         // 1. Prepare Translation Dataset
-        let dataset = if let Some(ref data_path) = self.rosetta_stone_path {
+        let dataset = if let Some(ref data_path) = self.translation_dataset_path {
             if data_path.exists() {
                 println!(
                     "   -> Step 1: Loading teacher trajectories from {:?}",
