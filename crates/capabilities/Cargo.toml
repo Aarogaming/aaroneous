@@ -25,3 +25,6 @@ autonomic_adaptation = { path = "../autonomic_adaptation" }
 ast_auditor = { path = "../ast_auditor" }
 sdk = { path = "../../sdk/rust" }
 libloading = "0.8"
+
+[dev-dependencies]
+tempfile = { workspace = true }

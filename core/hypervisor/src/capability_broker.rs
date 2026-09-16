@@ -5,7 +5,7 @@
 //! and backend execution engines (9 Sovereign Specialists, MCP Tools, Developer Workbench, Screen Automation).
 //!
 //! Provides:
-//! 1. Introspection (list_capabilities(), get_capability(), ilter_by_domain())
+//! 1. Introspection (list_capabilities(), get_capability(), filter_by_domain())
 //! 2. Dynamic schema discovery for parameters and results
 //! 3. Execution dispatcher (execute_capability()) with structured latency tracking
 

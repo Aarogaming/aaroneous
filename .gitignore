@@ -48,6 +48,8 @@ logs/
 data/plugins/
 data/exports/
 data/hud_settings.json
+cargo_state.json
+/cargo_state.json
 core/hypervisor/cargo_state.json
 core/hypervisor/links_registry.json
 core/hypervisor/logs/

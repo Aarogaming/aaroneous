@@ -531,10 +531,10 @@ impl DigestionEngine {
             }
         }
 
-        // Persist the genome sidecar as a companion JSON
-        let genome_path = task.model_path.with_extension("gguf.genome.json");
-        if let Ok(genome_json) = serde_json::to_string_pretty(genome) {
-            let _ = std::fs::write(&genome_path, genome_json);
+        // Persist the profile sidecar as a companion JSON
+        let profile_path = task.model_path.with_extension("gguf.profile.json");
+        if let Ok(profile_json) = serde_json::to_string_pretty(genome) {
+            let _ = std::fs::write(&profile_path, profile_json);
         }
 
         self.event_tx.send(DigestionEvent {
@@ -607,13 +607,14 @@ mod tests {
 
     #[tokio::test]
     async fn test_task_queue_drain() {
+        let temp_dir = tempfile::tempdir().unwrap();
         let (_tx, _rx) = mpsc::unbounded_channel();
         let config = DigestionConfig::default();
         let engine = DigestionEngine::new(config, _tx);
 
         let task = DigestionTask {
             digestion_id: "q_test".to_string(),
-            model_path: PathBuf::from("nonexistent.gguf"),
+            model_path: temp_dir.path().join("nonexistent.gguf"),
             model_name: "q_model".to_string(),
             parameter_count: 1_000_000_000,
             created_at: Utc::now(),

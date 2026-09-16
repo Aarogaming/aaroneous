@@ -1,0 +1,55 @@
+name: Miri
+
+# Undefined-behavior checking for the workspace's pure-Rust, ABI-critical
+# code. Scope is deliberately narrow: `wire` and `core-contracts` define the
+# #[repr(C)] / bytemuck Pod+Zeroable boundary types (EngineSnapshotPod,
+# TelemetryBatchPod, FlightRecord, ...) that crates/ipc_bus and crates/compute
+# publish into real shared memory (see AGENTS.md section 3, "Memory Geometry
+# & ABI Safety") — padding, alignment, and uninitialized-byte bugs in those
+# types are exactly what Miri's UB checker catches.
+#
+# ipc_bus's own tests (crates/ipc_bus/src/swmr_shm.rs) and compute's are
+# deliberately NOT run under Miri: they exercise real OS-backed
+# memmap2::MmapMut and native FFI (candle-core's BLAS/GPU backends), and
+# Miri cannot execute either — confirmed locally: even with
+# `-Zmiri-disable-isolation` on the Linux target, `memmap2::MmapOptions::map_mut`
+# fails with "can't call foreign function" for real file-backed mmap. Running
+# the workspace's `-p ipc_bus`/`-p compute` test suites under Miri as-is
+# would be permanently red and teach everyone to ignore this job. If
+# `crates/ipc_bus/src/swmr_shm.rs`'s or `core/hypervisor/src/state/ring_buffer.rs`'s
+# lock-free logic needs UB checking, it should be extracted into a
+# dependency-light, syscall-free module first (tracked separately — the
+# `hypervisor` crate's native dependency graph, e.g. rocksdb/wgpu/aws-lc-rs,
+# also fails to build under Miri's sysroot at all, so ring_buffer.rs can't be
+# targeted in place either).
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  miri:
+    name: Miri (wire, core-contracts)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Miri
+        run: |
+          rustup toolchain install nightly --component miri
+          rustup default nightly
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: miri
+
+      - name: cargo miri test (wire)
+        run: cargo miri test -p wire
+
+      - name: cargo miri test (core-contracts)
+        run: cargo miri test -p core-contracts

@@ -46,6 +46,7 @@ pub struct DevToolsSpecialist {
     pub max_tokens: f32,
     pub compiler_forge: CompilerForgeEngine,
     pub forge: CompilerForgeEngine,
+    pub output_dir: Option<std::path::PathBuf>,
 }
 
 pub type FabricatorSpecialist = DevToolsSpecialist;
@@ -63,6 +64,7 @@ impl DevToolsSpecialist {
             max_tokens: 100.0,
             compiler_forge: CompilerForgeEngine::default(),
             forge: CompilerForgeEngine::default(),
+            output_dir: None,
         }
     }
 
@@ -196,11 +198,13 @@ impl SovereignSpecialist for FabricatorSpecialist {
 
         if payload_str.starts_with("wrap:") {
             let target_path = payload_str.trim_start_matches("wrap:").trim();
-            let temp_out = paths::WorkspacePaths::discover(&paths::WorkspacePathsConfig::new())
-                .models()
-                .join("organs");
+            let target_out = self.output_dir.clone().unwrap_or_else(|| {
+                paths::WorkspacePaths::discover(&paths::WorkspacePathsConfig::new())
+                    .models()
+                    .join("modules")
+            });
             let (manifest, crate_path) = self
-                .forge_organ_wrapper(target_path, None, &temp_out)
+                .forge_organ_wrapper(target_path, None, &target_out)
                 .await?;
 
             return Ok(MnlpResponse {
@@ -208,7 +212,7 @@ impl SovereignSpecialist for FabricatorSpecialist {
                 opcode: self.domain_opcode(),
                 correlation_id: packet.correlation_id,
                 message: format!(
-                    "Fabricator successfully forged organ '{}' at {:?}",
+                    "Fabricator successfully forged module '{}' at {:?}",
                     manifest.name, crate_path
                 ),
                 payload: serde_json::to_vec(&manifest)?,

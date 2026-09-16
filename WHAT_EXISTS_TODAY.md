@@ -62,7 +62,7 @@ All biological, neurological, and speculative terminology has been replaced acro
 - **Heuristics**: dopamine, curiosity -> eward_system, exploration_worker
 - **Orchestration**: prefrontal_cortex, utonomic_loop -> intent_orchestrator, supervisory_loop
 - **Topology**: hive, multi_hive, constellation -> cluster, multi_cluster, spatial_graph
-- **Limits**: iology, homeostasis, 	hermodynamic_governor -> system_limits, esource_governor, 	hroughput_governor
+- **Limits**: iology, homeostasis, 	hermodynamic_governor -> system_limits, resource_governor, 	hroughput_governor
 
 ---
 

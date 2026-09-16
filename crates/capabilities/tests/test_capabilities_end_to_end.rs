@@ -122,7 +122,9 @@ async fn test_full_capabilities_federation_orchestration_cycle() {
 
 #[tokio::test]
 async fn test_devtools_auto_wrap_tool_integration() {
+    let temp_sandbox = tempfile::tempdir().unwrap();
     let mut federation = SpecialistFederation::new();
+    federation.dev_tools.output_dir = Some(temp_sandbox.path().to_path_buf());
 
     // Send MNLP packet with "wrap:" directive to Fabricator / DevTools (0x0400)
     let pkt_wrap = MnlpPacket {
@@ -138,7 +140,7 @@ async fn test_devtools_auto_wrap_tool_integration() {
     assert!(
         res_wrap
             .message
-            .contains("Fabricator successfully forged organ")
+            .contains("Fabricator successfully forged module")
     );
     assert_eq!(res_wrap.opcode, 0x0400);
 }

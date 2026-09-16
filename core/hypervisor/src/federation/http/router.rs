@@ -123,7 +123,7 @@ fn workspace_exports_dir() -> std::path::PathBuf {
     workspace_paths().exports()
 }
 fn workspace_cargo_state_path() -> std::path::PathBuf {
-    workspace_paths().root().join("cargo_state.json")
+    workspace_paths().temp_dir().join("cargo_state.json")
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
