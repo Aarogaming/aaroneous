@@ -117,7 +117,7 @@ cargo run -p ast_auditor -- audit core/ crates/
 cargo test -p emulator_harness
 
 # 6. Full Self-Verification Gate Script
-bash scripts/agent_check.sh
+cargo run -p ast_auditor -- verify
 ```
 
 ---

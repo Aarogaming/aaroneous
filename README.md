@@ -10,7 +10,7 @@
 
 ### Verification and assurance scope
 
-Run `bash scripts/agent_check.sh`, or `pwsh -File scripts/agent_check.ps1` on Windows (uses Git Bash when available). CI invokes the same gate. It compiles all targets, runs workspace tests, audits source, inspects forbidden text patterns, and runs the emulator harness.
+Run `cargo run -p ast_auditor -- verify`, or `cargo run -p ast_auditor -- verify` on every supported platform. CI invokes the same gate. It compiles all targets, runs workspace tests, audits source, inspects forbidden text patterns, and runs the emulator harness.
 
 The AST audit reports coverage of functions marked `#[doc = "hot_path"]`; it checks syntax, not transitive allocation behavior or worst-case timing. Latency numbers below are design targets unless accompanied by a reproducible benchmark with machine, build profile, inputs, warmup and percentile results. The governance backend currently performs Rust structural and register-footprint checks; enabling its legacy Z3 feature does not constitute an SMT proof. The `plugin_api::Plugin` trait is an in-process Rust contract, not a stable DLL ABI.
 

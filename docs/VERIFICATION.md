@@ -10,7 +10,7 @@ repository may assist a developer, but it is never required for validation.
 | Encoding contract | `python scripts/check_text_encoding.py` until its Rust replacement is complete |
 | Functional and integration tests | `cargo test --workspace` |
 | Golden reducer evidence | `cargo test -p emulator_harness` |
-| Canonical local and CI gate | `bash scripts/agent_check.sh` |
+| Canonical local and CI gate | `cargo run -p ast_auditor -- verify` |
 | Broader review scopes | [Systems health](audits/SYSTEMS_HEALTH.md) and [advanced resilience](audits/ADVANCED_RESILIENCE.md) |
 
 The canonical gate and CI provide the enforceable baseline. The review profiles define additional

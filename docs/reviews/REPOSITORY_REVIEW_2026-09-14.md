@@ -67,7 +67,7 @@ The new supervision component landed during this review and received only a brie
 | `cargo run -p ast_auditor -- audit core/ crates/` | Passed, 724 files, zero reported violations | Also emitted a parse error; coverage limitations above apply |
 | Required negated `git grep` | Failed | Matches included source-analysis strings, comments, and negative test fixtures; not proof of executable stubs |
 | `cargo test -p emulator_harness` | Passed | Two unit tests; zero doc tests |
-| `bash scripts/agent_check.sh` | Could not start, exit 1 | WSL reported a distribution `BasePath` configuration error |
+| Retired shell wrapper | Could not start, exit 1 | Historical WSL `BasePath` configuration error; replaced by `ast_auditor verify`. |
 
 The missing fixture was `data/extensions/wasm/compute_worker/target/wasm32-unknown-unknown/release/compute_enzyme.wasm`. Make its build/setup an explicit dependency of the integration workflow, or classify the integration test with a documented prerequisite. Do not silently skip the failure while reporting complete coverage. [14]
 
@@ -95,7 +95,7 @@ Repository sources below were inspected locally on September 14, 2026. Line refe
 6. [Lattice verifier](../../crates/governance/src/lattice_verifier.rs), allocation bounds around 169; [mutation caller](../../crates/adaptation_engine/src/mutation.rs), around 152.
 7. [Snapshot ring](../../crates/ipc_bus/src/swmr_shm.rs), publisher 792–823 and reader 893–941; [HUD adapter](../../crates/studio_hud/src/state_snapshot.rs).
 8. [Auditor](../../crates/ast_auditor/src/lib.rs), [allocation visitor](../../crates/ast_auditor/src/rules/zero_alloc_hot_path.rs), and [evasion tests](../../crates/ast_auditor/tests/agent_evasion_suite.rs).
-9. [Shell gate](../../scripts/agent_check.sh), [PowerShell gate](../../scripts/agent_check.ps1), and [CI](../../.github/workflows/ci.yml).
+9. [Native verifier](../../crates/ast_auditor/src/verification.rs) and [CI](../../.github/workflows/ci.yml).
 10. [Prover implementation](../../crates/governance/src/z3_prover.rs) and [feature configuration](../../crates/governance/Cargo.toml).
 11. [Plugin API](../../crates/plugin_api/src/lib.rs) and [dynamic loader](../../crates/hotload/src/lib.rs).
 12. Rust standard library, [atomic fence documentation](https://doc.rust-lang.org/std/sync/atomic/fn.fence.html), especially “Mandatory Atomic,” accessed September 14, 2026.

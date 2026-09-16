@@ -7,7 +7,7 @@ The review's correctness and verification findings are addressed by targeted cha
 - WAL replay tracks the last complete record boundary and trims an incomplete suffix before accepting new writes. Record lengths are bounded before allocation. Complete corruption and non-EOF I/O errors fail without truncating the file. Regression tests append after recovery and reopen again.
 - The auditor propagates parse, read and traversal failures and rejects missing or empty targets. Generated build output is excluded during traversal, but explicitly targeted files are checked. Evasion tests now invoke the auditor. Syntax rules recognize real hot-path documentation markers and check executable stubs and manual Pod implementations without treating literals as code.
 - Supervision takes monotonic milliseconds from its caller, honors backoff and restart windows, resets consecutive failures after success, and rejects unsupported affinity. This is a control-plane task-step retry adapter, not an allocation-free OS process supervisor.
-- Local PowerShell verification and CI invoke the canonical shell gate. The gate runs all-target compilation, full workspace tests, source auditing, the constitution's text inspection and the emulator harness. Windows uses Git Bash when available.
+- Native Rust verification and CI invoke the canonical gate. The gate runs all-target compilation, full workspace tests, source auditing, the constitution's text inspection and the emulator harness. The command is platform-neutral.
 - The obsolete WASM-artifact existence assertion is replaced by a test of the current executor's explicit unsupported-operation result. The WASM runtime had already been removed; this change does not reintroduce it.
 
 Compatibility changes:
@@ -21,7 +21,7 @@ Architectural scope remains explicit: the allocation audit checks annotated synt
 
 Validation completed on Windows on September 14, 2026:
 
-- All six steps in the repository's sequential verification protocol passed, including the canonical shell script invoked through Git Bash.
+- All six steps in the repository's sequential verification protocol passed, including the native Rust verifier.
 - The final workspace run reported 2,118 passed tests and 4 ignored tests, with no failures. The separately required emulator harness also passed both tests.
 - The architectural audit and required forbidden-pattern inspection passed. `git diff --check` reported no whitespace errors.
 - Compiler warnings remain. Linux execution and the separate CI formatting/Clippy steps were not validated by this Windows run.

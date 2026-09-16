@@ -23,7 +23,7 @@ This repository uses a **three-tier agent delivery pipeline** to ensure local co
 
 ┌─────────────────────────────────────────────────────────────────┐
 │              TIER 3: MECHANICAL BOUNCER                          │
-│   File: scripts/agent_check.sh                                   │
+│   File: scripts/ast_auditor verify                                   │
 │   Purpose: Instant local feedback loop (compile, audit, test)   │
 │   How Agent Uses It: Runs after every major change              │
 └─────────────────────────────────────────────────────────────────┘
@@ -57,9 +57,9 @@ This repository uses a **three-tier agent delivery pipeline** to ensure local co
 
 **Golden Reference**: Point agents directly to `dev/emulator_harness/src/reducer.rs` as the canonical example of zero-allocation state processing.
 
-## Tier 3: Mechanical Bouncer (agent_check.sh)
+## Tier 3: Mechanical Bouncer (ast_auditor verify)
 
-**Location**: `scripts/agent_check.sh`
+**Location**: `scripts/ast_auditor verify`
 
 **What It Does**: Instant local feedback loop that "slaps the agent's hand" if it tries shortcuts.
 
@@ -80,7 +80,7 @@ This repository uses a **three-tier agent delivery pipeline** to ensure local co
 cat AGENTS.md | less
 
 # 2. Check current status
-bash scripts/agent_check.sh
+cargo run -p ast_auditor -- verify
 ```
 
 ### When Modifying Core Crates
@@ -89,7 +89,7 @@ bash scripts/agent_check.sh
 # Make changes...
 
 # 3. Verify with mechanical bouncer
-bash scripts/agent_check.sh
+cargo run -p ast_auditor -- verify
 
 # If any check fails, fix and re-run until all pass
 ```
@@ -107,8 +107,8 @@ cargo run -p emulator_harness
 
 # 4. Document in docs/forensics/
 
-# 5. Verify with agent_check.sh
-bash scripts/agent_check.sh
+# 5. Verify with ast_auditor verify
+cargo run -p ast_auditor -- verify
 ```
 
 ## Golden References for Agents

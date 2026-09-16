@@ -37,6 +37,12 @@ enum Commands {
         #[arg(long)]
         json: bool,
     },
+    /// Run the canonical Rust-native repository verification gate
+    Verify {
+        /// Repository root to verify
+        #[arg(long, default_value = ".")]
+        root: PathBuf,
+    },
     /// Verify repository-level hardening policy and print its static inventory
     Hardening {
         /// Fail when the baseline policy is incomplete
@@ -96,6 +102,9 @@ fn main() -> ExitCode {
                     ExitCode::FAILURE
                 }
             }
+        }
+        Some(Commands::Verify { root }) => {
+            ast_auditor::verification::exit_code(ast_auditor::verification::run(&root))
         }
         Some(Commands::Hardening { check, json, root }) => {
             let report = if check {

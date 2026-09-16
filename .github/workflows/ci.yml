@@ -66,8 +66,7 @@ jobs:
         run: cargo clippy --workspace -- -D warnings
 
       - name: Canonical repository verification
-        shell: bash
-        run: bash scripts/agent_check.sh
+        run: cargo run -p ast_auditor -- verify
 
       - name: Release binary check
         run: cargo check --release --bin aaroneous --bin hypervisor

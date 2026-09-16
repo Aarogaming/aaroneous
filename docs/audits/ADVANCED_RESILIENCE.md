@@ -27,5 +27,5 @@ Start from the native audit and canonical gate:
 ```text
 cargo run -p ast_auditor -- audit core/ crates/ dev/emulator_harness/
 cargo run -p ast_auditor -- hardening --check
-bash scripts/agent_check.sh
+cargo run -p ast_auditor -- verify
 ```

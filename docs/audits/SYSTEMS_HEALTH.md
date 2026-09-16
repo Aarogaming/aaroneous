@@ -25,6 +25,6 @@ not proof that a current defect exists.
 Run the canonical gate and native auditor first:
 
 ```text
-bash scripts/agent_check.sh
+cargo run -p ast_auditor -- verify
 cargo run -p ast_auditor -- hardening --check
 ```

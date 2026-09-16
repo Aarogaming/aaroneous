@@ -62,7 +62,7 @@ pub struct ToolingInventory {
 pub fn run_hardening_audit(root: &Path) -> Result<HardeningReport> {
     let matrix = read_required(root, "docs/HARDENING_AUDIT_MATRIX.md")?;
     let ci = read_required(root, ".github/workflows/ci.yml")?;
-    let gate = read_required(root, "scripts/agent_check.sh")?;
+    let gate = read_required(root, "docs/VERIFICATION.md")?;
     let matrix_lenses = matrix_lenses(&matrix);
     let retired = RETIRED_ROOT_DOCUMENTS
         .iter()
@@ -86,7 +86,7 @@ pub fn run_hardening_audit(root: &Path) -> Result<HardeningReport> {
         ci.contains(required_command),
     );
     checks.insert(
-        "canonical_gate_runs_hardening_audit".to_owned(),
+        "native_verification_is_documented".to_owned(),
         gate.contains(required_command),
     );
     checks.insert(

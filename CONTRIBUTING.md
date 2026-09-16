@@ -96,7 +96,7 @@ All PRs and agent commits must strictly satisfy the Sequential Verification Gate
 3. `cargo run -p ast_auditor -- audit core/ crates/` (MUST return 0 violations)
 4. `! git grep -n -E "(\btodo!\(|\bunimplemented!\(|unsafe impl.*Pod)" -- "crates/" "core/" "dev/"`
 5. `cargo test -p emulator_harness`
-6. `bash scripts/agent_check.sh`
+6. `cargo run -p ast_auditor -- verify`
 
 ---
 
@@ -142,7 +142,7 @@ Model capability broker dispatches and autonomous work loops with explicit backp
 
 1. Update documentation if changing public API
 2. Add entries to `CHANGELOG.md` under `[Unreleased]`
-3. Ensure all CI and verification gates pass (`bash scripts/agent_check.sh`)
+3. Ensure all CI and verification gates pass (`cargo run -p ast_auditor -- verify`)
 4. Request review from a maintainer
 
 ## Security

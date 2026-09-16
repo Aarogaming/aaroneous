@@ -215,7 +215,7 @@ impl Poller {
 ## Verification Command
 
 ```bash
-bash scripts/agent_check.sh
+cargo run -p ast_auditor -- verify
 ```
 
 Expected results:

@@ -10,6 +10,7 @@ pub mod hardening;
 pub mod inspect;
 pub mod pattern_reviewer;
 pub mod rules;
+pub mod verification;
 pub mod verify;
 
 pub use certify::*;
