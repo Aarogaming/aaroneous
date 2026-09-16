@@ -41,11 +41,11 @@ dev/archive/**
 *.db-wal
 *.db-shm
 .sab/
-data/sabs/
+# data/sabs/ (removed - was dummy stubs)
 .synapse/
 cache/
 logs/
-data/chromosomes/
+data/plugins/
 data/exports/
 data/hud_settings.json
 core/hypervisor/cargo_state.json
@@ -102,3 +102,13 @@ bin/a-run.exe
 scripts/prompt_*.txt
 scripts/output_*.rs
 [Nn][Uu][Ll]
+
+# Generated build artifacts (not source)
+dev/tools/omni/output/
+*.draft
+
+# Review session staging artifacts (never committed)
+review-*.log
+review-*.md
+*.diff
+
