@@ -55,7 +55,7 @@ dependencies = [
  "rand 0.8.8",
  "serde",
  "serde_json",
- "strum 0.26.3",
+ "strum",
  "tempfile",
  "thiserror 2.0.20",
  "tokio",
@@ -3586,7 +3586,7 @@ dependencies = [
  "serde",
  "si_format",
  "si_ir",
- "strum 0.26.3",
+ "strum",
  "thiserror 2.0.20",
  "tracing",
  "z3",
@@ -4076,7 +4076,7 @@ dependencies = [
  "sha2 0.10.9",
  "si_ir",
  "smol_str",
- "strum 0.26.3",
+ "strum",
  "strum_macros 0.26.4",
  "sysinfo",
  "tar",
@@ -4412,7 +4412,7 @@ dependencies = [
  "rustls-webpki",
  "serde",
  "smallvec",
- "strum 0.28.0",
+ "strum",
  "time",
  "tokio",
  "tokio-stream",
@@ -4456,7 +4456,7 @@ dependencies = [
  "n0-error",
  "n0-future 0.3.2",
  "simple-dns",
- "strum 0.28.0",
+ "strum",
 ]
 
 [[package]]
@@ -4521,7 +4521,7 @@ dependencies = [
  "rustls-pki-types",
  "serde",
  "serde_bytes",
- "strum 0.28.0",
+ "strum",
  "tokio",
  "tokio-rustls",
  "tokio-util",
@@ -6294,7 +6294,7 @@ dependencies = [
  "serde",
  "serde_json",
  "si_ir",
- "strum 0.26.3",
+ "strum",
  "tempfile",
  "thiserror 2.0.20",
  "tokio",
@@ -8372,15 +8372,6 @@ name = "strsim"
 version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7da8b5736845d9f2fcb837ea5d9e2628564b3b043a70948a3f0b778838c5fb4f"
-
-[[package]]
-name = "strum"
-version = "0.26.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8fec0f0aef304996cf250b31b5a10dee7980c85da9d759361292b8bca5a18f06"
-dependencies = [
- "strum_macros 0.26.4",
-]
 
 [[package]]
 name = "strum"
