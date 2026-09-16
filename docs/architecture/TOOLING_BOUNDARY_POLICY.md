@@ -70,9 +70,9 @@ On 2026-09-16, local model operations, OpenCode configuration, agent profiles, a
 `dev/tools/` automation layer were transferred to the private companion repository. The transfer
 is recorded there as `migrations/aaroneous-2026-09-16/`. The remaining shell, PowerShell, and
 Python entry points in this repository are tracked for Rust-native replacement or removal in
-[the canonical worklist](../WORKLIST.md).
+[the private operational worklist](https://github.com/Aarogaming/aaroneous-devtools/blob/main/governance/WORKLIST.md).
 ## Enforcement
 
 The native hardening gate verifies that this policy is present. Changes that add non-Rust
 automation, development dependencies, or self-hosting behavior require an explicit update to
-this policy, the hardening matrix, and the canonical worklist.
+this policy, the hardening matrix, and the private operational worklist.

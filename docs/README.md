@@ -54,7 +54,7 @@ The canonical specification manual is consolidated into core reference manuals a
 | [`governance.md`](./governance.md) | Formal Verification & Safety Interlocks | AST Auditor gates, Zero-Panic error architecture, Windows Job containment (`max_blast_radius = "isolated"`). |
 | [`cartridges.md`](./cartridges.md) | Machine-Native Container Format | `.si` v3.0 format, `rkyv` zero-copy archives, continuous HiPPO State-Space Model (SSM) tensor layout, `cubecl` GPU scan dispatch. |
 | [`roadmap.md`](./roadmap.md) | Frontiers & Long-Term Milestones | 5 Architectural Pillars, 7-Horizon Frontier Matrix (H1–H7), Phase 38 deliverables, and historical phase index. |
-| [`WORKLIST.md`](./WORKLIST.md) | Current Engineering Work | The canonical operational backlog, active evidence, and verified next steps. |
+| [Private maintenance worklist](https://github.com/Aarogaming/aaroneous-devtools/blob/main/governance/WORKLIST.md) | Operational Planning | Private priorities, evidence records, and parallel-work coordination. |
 | [`HARDENING_AUDIT_MATRIX.md`](./HARDENING_AUDIT_MATRIX.md) | Hardening Program | Twenty evidence-based audit lenses, acceptance criteria, and audit-record template. |
 | [VERIFICATION.md](./VERIFICATION.md) | Verification System | Repository-owned audit commands, CI gate, and review profiles. |
 | [architecture/LEGACY_REDUCTION_PLAN.md](./architecture/LEGACY_REDUCTION_PLAN.md) | Legacy Reduction | Evidence-based migration of tooling, interfaces, and terminology. |

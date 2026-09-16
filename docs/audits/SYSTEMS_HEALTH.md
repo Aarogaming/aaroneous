@@ -17,7 +17,7 @@ correctness. It supplements automated gates; it does not replace them.
 ## Required evidence
 
 Record the audited revision, commands and their exit status, affected paths, concrete failure
-mode, and a bounded next action in `docs/WORKLIST.md`. Historical or aspirational documents are
+mode, and a bounded next action in `https://github.com/Aarogaming/aaroneous-devtools/blob/main/governance/WORKLIST.md`. Historical or aspirational documents are
 not proof that a current defect exists.
 
 ## Automated foundation

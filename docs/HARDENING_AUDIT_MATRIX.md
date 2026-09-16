@@ -16,7 +16,7 @@ policy and baseline are established.
 - Audit one lens or a small related group at a time.
 - Record source paths, commands, tool versions, and immutable commit identifiers.
 - Classify findings as Critical, High, Medium, Low, or Informational.
-- Add confirmed work to [WORKLIST.md](WORKLIST.md); do not create a second backlog here.
+- Add confirmed work to [private operational worklist](https://github.com/Aarogaming/aaroneous-devtools/blob/main/governance/WORKLIST.md); do not create a second backlog here.
 - Re-audit after dependency, boundary, or deployment changes.
 
 ## Priority 1 — Trustworthy execution

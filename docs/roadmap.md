@@ -1,7 +1,7 @@
 # Aaroneous Frontier Roadmap: Horizons & Long-Term Milestones
 
 > **Status:** Long-range product direction, not an operational queue. The canonical current
-> backlog is [WORKLIST.md](WORKLIST.md).
+> backlog is [private operational worklist](https://github.com/Aarogaming/aaroneous-devtools/blob/main/governance/WORKLIST.md).
 
 **Version:** `v1.7.0`+  
 **Classification:** Canonical Roadmap & Frontier Framework  
