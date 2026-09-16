@@ -681,9 +681,9 @@ impl SynapseWriterHandle {
 // Atomic snapshot bridge (version 3).
 
 pub const SNAPSHOT_SHM_MAGIC: u64 = 0x5357_4D52_534E_4150; // "SWMRSNAP"
-pub const SNAPSHOT_SHM_VERSION: u32 = 3;
+pub const SNAPSHOT_SHM_VERSION: u32 = 4;
 pub const SNAPSHOT_RING_SLOTS: usize = 64;
-pub const SNAPSHOT_RING_HEADER_SIZE: usize = 32;
+pub const SNAPSHOT_RING_HEADER_SIZE: usize = 40;
 pub const SNAPSHOT_SEGMENT_SIZE: usize = 64 * 1024; // 64 KB pre-allocated
 
 #[repr(C)]
@@ -715,7 +715,9 @@ pub struct SnapshotReadEntry {
 
 #[derive(Debug, thiserror::Error, PartialEq, Eq)]
 pub enum SnapshotPublishError {
-    #[error("snapshot publisher busy; a crashed writer requires a fresh segment")]
+    #[error(
+        "snapshot publisher busy (either genuine concurrent access, or a crashed writer's claim that hasn't gone stale yet)"
+    )]
     Busy,
     #[error("invalid snapshot geometry")]
     Geometry,
@@ -725,7 +727,9 @@ pub enum SnapshotPublishError {
 
 /// Fixed shared-memory transport. All mapped words, including payload words,
 /// are accessed atomically. Only local snapshots are interpreted as Pod values.
-/// Version 3 is incompatible with non-atomic version 2 mappings.
+/// Version 4 is incompatible with non-atomic version 2 mappings and with
+/// version 3 (which had no crash-recovery heartbeat word and could wedge
+/// permanently if a writer died mid-claim — see `claim_snapshot`).
 pub struct SwmrSnapshotPublisher {
     mmap: MmapMut,
     path: PathBuf,
@@ -736,11 +740,29 @@ const SNAPSHOT_PAYLOAD_WORDS: usize =
     std::mem::size_of::<EngineSnapshotPod>() / SNAPSHOT_WORD_BYTES;
 const SNAPSHOT_SLOT_WORDS: usize = 2 + SNAPSHOT_PAYLOAD_WORDS;
 const SNAPSHOT_BUSY: u64 = 1 << 63;
+/// Word layout: 0 = magic, 1 = geometry, 2 = write sequence, 3 = busy flag +
+/// geometry check, 4 = claim heartbeat (millis, see `claim_snapshot`). Slots
+/// start immediately after.
+const SNAPSHOT_HEADER_WORDS: usize = 5;
+/// A held claim's heartbeat is refreshed on every acquisition; `publish()` is
+/// nonblocking and completes in well under a millisecond, so a claim whose
+/// heartbeat hasn't moved in this long can only mean its holder crashed
+/// between claiming and releasing. Reclaiming it is what turns "a crashed
+/// writer requires a fresh segment" (version 3's failure mode) into
+/// self-healing.
+const STALE_CLAIM_TIMEOUT_MS: u64 = 2_000;
 const _: () = assert!(std::mem::size_of::<EngineSnapshotPod>().is_multiple_of(SNAPSHOT_WORD_BYTES));
 const _: () = assert!(
     SNAPSHOT_RING_HEADER_SIZE + SNAPSHOT_RING_SLOTS * SNAPSHOT_SLOT_WORDS * 8
         <= SNAPSHOT_SEGMENT_SIZE
 );
+
+fn now_ms() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0)
+}
 
 trait SnapshotMapping {
     fn base(&self) -> *const u8;
@@ -770,6 +792,7 @@ fn snapshot_word(mapping: &impl SnapshotMapping, index: usize) -> Option<&Atomic
     Some(unsafe { &*pointer })
 }
 
+#[derive(Debug)]
 struct SnapshotWriteClaim<'a>(&'a AtomicU64);
 impl Drop for SnapshotWriteClaim<'_> {
     fn drop(&mut self) {
@@ -779,11 +802,13 @@ impl Drop for SnapshotWriteClaim<'_> {
 
 fn claim_snapshot(
     bytes: &impl SnapshotMapping,
+    now_ms: u64,
 ) -> std::result::Result<SnapshotWriteClaim<'_>, SnapshotPublishError> {
     let gate = snapshot_word(bytes, 3).ok_or(SnapshotPublishError::Geometry)?;
+    let heartbeat = snapshot_word(bytes, 4).ok_or(SnapshotPublishError::Geometry)?;
     let value = gate.load(Ordering::SeqCst);
-    if value & SNAPSHOT_BUSY != 0
-        || gate
+    if value & SNAPSHOT_BUSY == 0 {
+        if gate
             .compare_exchange(
                 value,
                 value | SNAPSHOT_BUSY,
@@ -791,6 +816,31 @@ fn claim_snapshot(
                 Ordering::SeqCst,
             )
             .is_err()
+        {
+            return Err(SnapshotPublishError::Busy);
+        }
+        heartbeat.store(now_ms, Ordering::SeqCst);
+        return Ok(SnapshotWriteClaim(gate));
+    }
+
+    // Busy. A live holder's heartbeat was just refreshed by the acquisition
+    // above; if it hasn't moved in STALE_CLAIM_TIMEOUT_MS, the holder crashed
+    // between claiming and releasing (publish() never legitimately takes
+    // anywhere near that long) and the claim is reclaimable.
+    //
+    // The busy bit's value doesn't change across a reclaim (it was, and
+    // remains, set), so it can't itself be the CAS that arbitrates between
+    // racing reclaimers. Use the heartbeat word for that instead: only one
+    // racing reclaimer's compare_exchange against the exact stale timestamp
+    // it observed can succeed, so exclusion is preserved even though `gate`
+    // never toggles.
+    let last_heartbeat = heartbeat.load(Ordering::SeqCst);
+    if now_ms.saturating_sub(last_heartbeat) <= STALE_CLAIM_TIMEOUT_MS {
+        return Err(SnapshotPublishError::Busy);
+    }
+    if heartbeat
+        .compare_exchange(last_heartbeat, now_ms, Ordering::SeqCst, Ordering::SeqCst)
+        .is_err()
     {
         return Err(SnapshotPublishError::Busy);
     }
@@ -815,10 +865,30 @@ impl SwmrSnapshotPublisher {
             anyhow::bail!("Snapshot segment has incompatible geometry");
         }
         // SAFETY: The file is never resized after initialization. All peers must
-        // use version 3 atomic-word access and must not externally truncate it.
+        // use version 4 atomic-word access and must not externally truncate it.
         let mmap = unsafe { MmapOptions::new().map_mut(&file)? };
         {
-            let _claim = claim_snapshot(&mmap)?;
+            // Unlike publish() (nonblocking by design, hot path), open_or_create
+            // is control-plane setup: briefly retrying past a live publisher's
+            // sub-millisecond claim window is worth it to avoid a spurious
+            // "Busy" failure on ordinary concurrent startup. A genuinely stale
+            // (crashed-holder) claim is reclaimed on the first attempt inside
+            // claim_snapshot itself and never needs a retry here.
+            const OPEN_RETRY_ATTEMPTS: u32 = 5;
+            let mut claim = None;
+            for attempt in 0..OPEN_RETRY_ATTEMPTS {
+                match claim_snapshot(&mmap, now_ms()) {
+                    Ok(c) => {
+                        claim = Some(c);
+                        break;
+                    }
+                    Err(SnapshotPublishError::Busy) if attempt + 1 < OPEN_RETRY_ATTEMPTS => {
+                        std::thread::sleep(std::time::Duration::from_millis(2));
+                    }
+                    Err(e) => return Err(e.into()),
+                }
+            }
+            let _claim = claim.ok_or(SnapshotPublishError::Busy)?;
             let magic = snapshot_word(&mmap, 0).ok_or(SnapshotPublishError::Geometry)?;
             let geometry = snapshot_word(&mmap, 1).ok_or(SnapshotPublishError::Geometry)?;
             let expected = ((SNAPSHOT_RING_SLOTS as u64) << 32) | SNAPSHOT_SHM_VERSION as u64;
@@ -845,19 +915,26 @@ impl SwmrSnapshotPublisher {
     }
 
     /// Nonblocking publication. A shared claim serializes competing publishers;
-    /// readers never take that claim. A crashed writer fails closed.
+    /// readers never take that claim. This call itself never retries or
+    /// sleeps — a busy claim (genuine contention, or a not-yet-stale crashed
+    /// writer) fails closed immediately, same as version 3. What's different
+    /// from version 3 is that the claim doesn't stay wedged forever: see
+    /// `claim_snapshot`'s heartbeat-based reclaim, which the next caller
+    /// (here or in `open_or_create`) benefits from automatically once the
+    /// crashed holder's claim goes stale.
     #[doc = "hot_path"]
     pub fn publish(
         &self,
         snapshot: &EngineSnapshotPod,
     ) -> std::result::Result<u64, SnapshotPublishError> {
-        let _claim = claim_snapshot(&self.mmap)?;
+        let _claim = claim_snapshot(&self.mmap, now_ms())?;
         let header = snapshot_word(&self.mmap, 2).ok_or(SnapshotPublishError::Geometry)?;
         let seq = header
             .load(Ordering::SeqCst)
             .checked_add(1)
             .ok_or(SnapshotPublishError::SequenceExhausted)?;
-        let base = 4 + (((seq - 1) as usize) & (SNAPSHOT_RING_SLOTS - 1)) * SNAPSHOT_SLOT_WORDS;
+        let base = SNAPSHOT_HEADER_WORDS
+            + (((seq - 1) as usize) & (SNAPSHOT_RING_SLOTS - 1)) * SNAPSHOT_SLOT_WORDS;
         let begin = snapshot_word(&self.mmap, base).ok_or(SnapshotPublishError::Geometry)?;
         begin.store(0, Ordering::SeqCst);
         for (i, chunk) in bytemuck::bytes_of(snapshot)
@@ -959,7 +1036,8 @@ impl SwmrSnapshotReader {
         if seq == 0 || seq <= last_seen_seq {
             return None;
         }
-        let base = 4 + (((seq - 1) as usize) & (SNAPSHOT_RING_SLOTS - 1)) * SNAPSHOT_SLOT_WORDS;
+        let base = SNAPSHOT_HEADER_WORDS
+            + (((seq - 1) as usize) & (SNAPSHOT_RING_SLOTS - 1)) * SNAPSHOT_SLOT_WORDS;
         if snapshot_word(mmap, base)?.load(Ordering::SeqCst) != seq {
             return None;
         }
@@ -1037,7 +1115,7 @@ mod tests {
         assert_eq!(first.publish(&EngineSnapshotPod::default())?, 1);
         assert_eq!(second.publish(&EngineSnapshotPod::default())?, 2);
         {
-            let _claim = claim_snapshot(&first.mmap)?;
+            let _claim = claim_snapshot(&first.mmap, now_ms())?;
             assert_eq!(
                 second.publish(&EngineSnapshotPod::default()),
                 Err(SnapshotPublishError::Busy)
@@ -1063,6 +1141,117 @@ mod tests {
                 .load(Ordering::SeqCst),
             2
         );
+        Ok(())
+    }
+
+    #[test]
+    fn fresh_busy_claim_is_not_reclaimed() -> Result<()> {
+        let dir = tempfile::tempdir()?;
+        let path = dir.path().join("fresh_busy.shm");
+        let publisher = SwmrSnapshotPublisher::open_or_create(&path)?;
+        let now = now_ms();
+        let _held = claim_snapshot(&publisher.mmap, now)?;
+        // Immediately re-attempting, even at a slightly later timestamp, must
+        // not treat a claim that was just taken as stale.
+        assert_eq!(
+            claim_snapshot(&publisher.mmap, now + 1).unwrap_err(),
+            SnapshotPublishError::Busy
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn stale_busy_claim_is_reclaimed() -> Result<()> {
+        let dir = tempfile::tempdir()?;
+        let path = dir.path().join("stale_busy.shm");
+        let publisher = SwmrSnapshotPublisher::open_or_create(&path)?;
+        let claim_time = now_ms();
+        let leaked = claim_snapshot(&publisher.mmap, claim_time)?;
+        // Simulate the holder crashing: forget the guard instead of dropping
+        // it, so SNAPSHOT_BUSY is never cleared by SnapshotWriteClaim::drop —
+        // exactly what a killed process leaves behind.
+        std::mem::forget(leaked);
+
+        let still_fresh = claim_time + STALE_CLAIM_TIMEOUT_MS;
+        assert_eq!(
+            claim_snapshot(&publisher.mmap, still_fresh).unwrap_err(),
+            SnapshotPublishError::Busy,
+            "must not reclaim before the timeout has actually elapsed"
+        );
+
+        let past_timeout = claim_time + STALE_CLAIM_TIMEOUT_MS + 1;
+        let reclaimed = claim_snapshot(&publisher.mmap, past_timeout);
+        assert!(
+            reclaimed.is_ok(),
+            "a claim whose heartbeat hasn't moved past the timeout must be reclaimable"
+        );
+
+        // The reclaimer's heartbeat is now fresh (pinned to `past_timeout`),
+        // so an attempt immediately afterward must see genuine, fresh
+        // contention rather than treating the just-reclaimed heartbeat as
+        // stale all over again.
+        assert_eq!(
+            claim_snapshot(&publisher.mmap, past_timeout + 1).unwrap_err(),
+            SnapshotPublishError::Busy,
+            "reclaiming must refresh the heartbeat so a second stale reclaim doesn't race the first"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn open_or_create_reclaims_a_crashed_writers_segment() -> Result<()> {
+        let dir = tempfile::tempdir()?;
+        let path = dir.path().join("crashed_writer.shm");
+
+        // First writer creates the segment, claims it, publishes once, then
+        // "crashes": std::mem::forget skips SnapshotWriteClaim::drop, leaving
+        // SNAPSHOT_BUSY permanently set with a heartbeat that will never be
+        // refreshed again — the exact state a killed process leaves behind.
+        {
+            let first = SwmrSnapshotPublisher::open_or_create(&path)?;
+            first.publish(&EngineSnapshotPod::default())?;
+            let claim = claim_snapshot(&first.mmap, 0)?;
+            std::mem::forget(claim);
+        }
+
+        // Under version 3 this next call failed with Busy forever, since
+        // nothing ever cleared the bit. Version 4 must reclaim it: the
+        // heartbeat was pinned to 0 above, which is always "stale" relative
+        // to any real now_ms().
+        let second = SwmrSnapshotPublisher::open_or_create(&path)?;
+        assert_eq!(second.publish(&EngineSnapshotPod::default())?, 2);
+        Ok(())
+    }
+
+    #[test]
+    fn open_or_create_retries_past_a_brief_live_claim() -> Result<()> {
+        let dir = tempfile::tempdir()?;
+        let path = dir.path().join("brief_contention.shm");
+        let first = SwmrSnapshotPublisher::open_or_create(&path)?;
+
+        // Hold a genuine, fresh claim on a background thread for a few
+        // milliseconds — well under open_or_create's ~10ms retry budget
+        // (5 attempts x 2ms) but enough that a non-retrying open_or_create
+        // (version 3's behavior) would have failed with a spurious Busy.
+        // Synchronize on the claim actually being held before the main
+        // thread starts its open_or_create, so this test deterministically
+        // exercises the retry path instead of racing it.
+        let (claimed_tx, claimed_rx) = std::sync::mpsc::channel();
+        let holder = std::thread::spawn(move || -> Result<()> {
+            let claim = claim_snapshot(&first.mmap, now_ms())?;
+            claimed_tx.send(()).expect("main thread still waiting");
+            std::thread::sleep(std::time::Duration::from_millis(4));
+            drop(claim);
+            Ok(())
+        });
+        claimed_rx
+            .recv_timeout(std::time::Duration::from_secs(5))
+            .expect("holder thread never claimed");
+
+        let second = SwmrSnapshotPublisher::open_or_create(&path)?;
+        second.publish(&EngineSnapshotPod::default())?;
+
+        holder.join().expect("holder thread panicked")?;
         Ok(())
     }
 
@@ -1169,7 +1358,7 @@ mod tests {
         publisher.publish(&snap).unwrap();
 
         // Mutate the raw slot in mmap to simulate in-flight / torn write (sequence_begin != sequence_end)
-        snapshot_word(&publisher.mmap, 4)
+        snapshot_word(&publisher.mmap, SNAPSHOT_HEADER_WORDS)
             .unwrap()
             .store(999, Ordering::SeqCst);
 
@@ -1396,4 +1585,3 @@ mod tests {
         assert_eq!(generation_id.generation(), 1);
     }
 }
-

@@ -183,7 +183,7 @@ impl Default for EngineStatePublisher {
 impl EngineStatePublisher {
     pub fn new() -> Self {
         let config = paths::WorkspacePathsConfig::default();
-        let path = paths::resolve_synapse_path("engine_state_v3", &config);
+        let path = paths::resolve_synapse_path("engine_state_v4", &config);
         let shm_reader = Some(RwLock::new(SwmrSnapshotReader::open(&path)));
         Self {
             current: RwLock::new(Arc::new(EngineSnapshot::default())),

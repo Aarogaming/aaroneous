@@ -208,8 +208,8 @@ impl Default for EngineStatePublisher {
 impl EngineStatePublisher {
     pub fn new() -> Self {
         let config = paths::WorkspacePathsConfig::default();
-        let path = paths::resolve_synapse_path("engine_state_v3", &config);
-        let shm_publisher = SwmrSnapshotPublisher::open_or_create(&path).ok();
+        let path = paths::resolve_synapse_path("engine_state_v4", &config);
+        let shm_publisher = Self::open_shm_publisher(&path);
         Self {
             current: RwLock::new(Arc::new(EngineSnapshot::default())),
             shm_publisher,
@@ -217,10 +217,31 @@ impl EngineStatePublisher {
     }
 
     pub fn new_with_shm_path(path: &std::path::Path) -> Self {
-        let shm_publisher = SwmrSnapshotPublisher::open_or_create(path).ok();
+        let shm_publisher = Self::open_shm_publisher(path);
         Self {
             current: RwLock::new(Arc::new(EngineSnapshot::default())),
             shm_publisher,
+        }
+    }
+
+    /// `SwmrSnapshotPublisher::open_or_create` fails closed on a genuinely
+    /// incompatible segment (an old-version file left over from before an
+    /// upgrade, or corrupt geometry) — that's correct, but discarding the
+    /// error via `.ok()` with no logging left the shared-memory bridge
+    /// silently disabled with no signal that it ever happened. This still
+    /// disables it (there's no way to safely reinitialize someone else's
+    /// segment), but now says why.
+    fn open_shm_publisher(path: &std::path::Path) -> Option<SwmrSnapshotPublisher> {
+        match SwmrSnapshotPublisher::open_or_create(path) {
+            Ok(publisher) => Some(publisher),
+            Err(error) => {
+                tracing::warn!(
+                    %error,
+                    path = %path.display(),
+                    "failed to open shared-memory snapshot publisher; the shm bridge is disabled for this process (studio/console/HUD readers will see no live snapshot)"
+                );
+                None
+            }
         }
     }
 
