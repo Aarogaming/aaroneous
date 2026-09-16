@@ -1,0 +1,12 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+
+# Binary assets must not be interpreted or rewritten as text by editors.
+[*.{png,jpg,jpeg,gif,webp,ico,bmp,pdf,zip,gz,7z,tar,wasm,exe,dll,lib,pdb,bin,gguf,onnx,safetensors,si,woff,woff2,ttf,otf,mp3,wav,mp4}]
+charset = unset
+end_of_line = unset
+insert_final_newline = unset
