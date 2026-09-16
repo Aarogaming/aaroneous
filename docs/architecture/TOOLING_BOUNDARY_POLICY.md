@@ -23,6 +23,9 @@ the Rust command or platform capability it wraps.
 
 ## Private dev-tools boundary
 
+The private companion repository is [Aarogaming/aaroneous-devtools](https://github.com/Aarogaming/aaroneous-devtools).
+It is intentionally not a submodule or workspace member of Aaroneous.
+
 A separate private dev-tools repository may contain:
 
 - Workstation provisioning, local-model runners, prompts, agent profiles, and private secrets.
@@ -61,4 +64,3 @@ No new general-purpose scripting stack may be introduced while this inventory is
 The native hardening gate verifies that this policy is present. Changes that add non-Rust
 automation, development dependencies, or self-hosting behavior require an explicit update to
 this policy, the hardening matrix, and the canonical worklist.
-
