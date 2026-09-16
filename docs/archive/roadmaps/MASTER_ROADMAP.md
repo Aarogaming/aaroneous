@@ -1,7 +1,7 @@
 # Aaroneous Master Roadmap (vX.Y.Z)
 
 > **Status:** Historical and strategic reference. Current executable work is tracked in
-> [docs/WORKLIST.md](docs/WORKLIST.md); unchecked entries below must be revalidated before use.
+> [docs/WORKLIST.md](../../WORKLIST.md); unchecked entries below must be revalidated before use.
 
 ## Table of Contents
 1. [Executive Summary](#executive-summary)  
@@ -157,9 +157,9 @@ kyv, disruptor |
 
 ### Appendices
 - **RFC-0004**: Machine-Native State Language Model & Bounded Dynamicism (docs/rfcs/RFC-0004-MACHINE_NATIVE_SLM_AND_BOUNDED_DYNAMICISM.md).
-- **Strategic Vision & Doctrine**: STRATEGIC_VISION.md.
-- **System Inventory**: WHAT_EXISTS_TODAY.md.
+- **Strategic Vision & Doctrine**: ../../strategy/STRATEGIC_VISION.md.
+- **System Inventory**: ../../architecture/CURRENT_IMPLEMENTATION_STATUS.md.
 - Full **Architecture Audit** (ARCHITECTURE_AUDIT.md).
-- Complete **TODO list** (TODO.md).
+- Complete historical **TODO list** (TODO.md).
 - Detailed **build instructions** (CONTRIBUTING.md).
 - Change history (CHANGELOG.md).

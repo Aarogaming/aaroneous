@@ -49,10 +49,13 @@ The canonical specification manual is consolidated into core reference manuals a
 | Specification | Target Scope | Core Subsystems |
 |---|---|---|
 | [`architecture.md`](./architecture.md) | Runtime Physics & Memory Topology | Sterile Execution Plane (SEP), Lock-Free Ring Buffers, PLC/SCADA Reducers, and Master Subsystem Portal. |
-| [`architecture/`](./architecture/) | Modular Subsystem Specifications | Dedicated deep-dives: [Topology](./architecture/architecture_overview.md), [Assimilation](./architecture/assimilation_specification.md), [LLM Scheduler](./architecture/llm_manager_scheduler.md), [Physics Compiler](./architecture/physics_compiler_dynamics.md), and [Intent Mirror](./architecture/human_interface_intent_mirror.md). |
+| [`architecture/`](./architecture/) | Modular Subsystem Specifications | Dedicated deep-dives: [Topology](./architecture/architecture_overview.md), [Component Onboarding](./architecture/component_onboarding_specification.md), [LLM Scheduler](./architecture/llm_manager_scheduler.md), [Physics Compiler](./architecture/physics_compiler_dynamics.md), and [Intent Mirror](./architecture/human_interface_intent_mirror.md). |
 | [`governance.md`](./governance.md) | Formal Verification & Safety Interlocks | AST Auditor gates, Zero-Panic error architecture, Windows Job containment (`max_blast_radius = "isolated"`). |
 | [`cartridges.md`](./cartridges.md) | Machine-Native Container Format | `.si` v3.0 format, `rkyv` zero-copy archives, continuous HiPPO State-Space Model (SSM) tensor layout, `cubecl` GPU scan dispatch. |
 | [`roadmap.md`](./roadmap.md) | Frontiers & Long-Term Milestones | 5 Architectural Pillars, 7-Horizon Frontier Matrix (H1–H7), Phase 38 deliverables, and historical phase index. |
+| [`WORKLIST.md`](./WORKLIST.md) | Current Engineering Work | The canonical operational backlog, active evidence, and verified next steps. |
+| [`reviews/`](./reviews/) | Repository Reviews | Time-stamped review evidence and remediation follow-up. |
+| [`contributing/`](./contributing/) | Contributor Policies | Repository text encoding and related contribution contracts. |
 | [`operations.md`](./operations.md) | Operational Playbook & Auxiliary Context | Reactive Ingestion & Assimilation, Internal/External Dogfooding, Local Model integration, and physical engineering boundaries. |
 | `archive/` | Historical Audit & Transition Sprawl | Retained legacy documentation, batch audits, historical benchmarks, and pre-v1.7.0 exploration documents. |
 

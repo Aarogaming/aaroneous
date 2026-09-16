@@ -26,7 +26,7 @@ python scripts/check_text_encoding.py
 python scripts/check_text_encoding.py --inventory
 python scripts/check_text_encoding.py --dry-run --json
 python scripts/check_text_encoding.py --source index --inventory --json
-python scripts/check_text_encoding.py --source index .editorconfig .gitattributes TEXT_ENCODING.md scripts/check_text_encoding.py
+python scripts/check_text_encoding.py --source index .editorconfig .gitattributes docs/contributing/TEXT_ENCODING.md scripts/check_text_encoding.py
 python scripts/check_text_encoding.py --root /path/to/repository --inventory
 ```
 

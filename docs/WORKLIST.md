@@ -104,8 +104,8 @@ distribution.
 | Source | Role after consolidation | Handling |
 |---|---|---|
 | `docs/WORKLIST.md` | Canonical operational backlog | The only document that may mark work Active, Ready, Blocked, or Done. |
-| `review-aaroneous.md` and `docs/REVIEW_FIXES.md` | Review evidence and completed remediation record | Promote only newly reproduced findings. |
-| `TODO.md`, `MASTER_ROADMAP.md`, and `docs/roadmap.md` | Product vision and long-range horizons | Keep strategic themes here; create a bounded worklist item only after design and evidence exist. |
+| `docs/reviews/REPOSITORY_REVIEW_2026-09-14.md` and `docs/REVIEW_FIXES.md` | Review evidence and completed remediation record | Promote only newly reproduced findings. |
+| `docs/archive/roadmaps/`, `docs/strategy/`, and `docs/roadmap.md` | Product vision and long-range horizons | Keep strategic themes here; create a bounded worklist item only after design and evidence exist. |
 | `docs/handoff/STATUS.md` and `docs/handoff/QUEUE.md` | Historical handoff log | Do not use completed entries as current tasks. |
 | `docs/archive/**` | Historical design, audits, and forensic material | Treat as a triage source. Verify every path and failure mode before promotion. |
 

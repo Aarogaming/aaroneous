@@ -87,18 +87,18 @@ The framework's strongest asset is its explicit architectural intent. The highes
 
 Repository sources below were inspected locally on September 14, 2026. Line references identify the reviewed implementation; concurrent changes may move them.
 
-1. [README](README.md), [constitution](AGENTS.md), and [master architecture](docs/architecture/MASTER_ARCHITECTURE.md).
-2. [Workspace manifest](Cargo.toml), [hypervisor manifest](core/hypervisor/Cargo.toml), and [hypervisor library](core/hypervisor/src/lib.rs).
-3. [Emulator reducer](dev/emulator_harness/src/reducer.rs) and [tests](dev/emulator_harness/src/lib.rs).
-4. [WAL implementation](crates/ipc_bus/src/persistent_wal.rs), especially replay and append opening; [crash recovery tests](crates/ipc_bus/tests/wal_crash_recovery.rs).
-5. [Action interlock](crates/governance/src/smt_action_interlock.rs), key at lines 48–52, cache lookup around 182–207.
-6. [Lattice verifier](crates/governance/src/lattice_verifier.rs), allocation bounds around 169; [mutation caller](crates/adaptation_engine/src/mutation.rs), around 152.
-7. [Snapshot ring](crates/ipc_bus/src/swmr_shm.rs), publisher 792–823 and reader 893–941; [HUD adapter](crates/studio_hud/src/state_snapshot.rs).
-8. [Auditor](crates/ast_auditor/src/lib.rs), [allocation visitor](crates/ast_auditor/src/rules/zero_alloc_hot_path.rs), and [evasion tests](crates/ast_auditor/tests/agent_evasion_suite.rs).
-9. [Shell gate](scripts/agent_check.sh), [PowerShell gate](scripts/agent_check.ps1), and [CI](.github/workflows/ci.yml).
-10. [Prover implementation](crates/governance/src/z3_prover.rs) and [feature configuration](crates/governance/Cargo.toml).
-11. [Plugin API](crates/plugin_api/src/lib.rs) and [dynamic loader](crates/hotload/src/lib.rs).
+1. [README](../../README.md), [constitution](../../AGENTS.md), and [master architecture](../architecture/MASTER_ARCHITECTURE.md).
+2. [Workspace manifest](../../Cargo.toml), [hypervisor manifest](../../core/hypervisor/Cargo.toml), and [hypervisor library](../../core/hypervisor/src/lib.rs).
+3. [Emulator reducer](../../dev/emulator_harness/src/reducer.rs) and [tests](../../dev/emulator_harness/src/lib.rs).
+4. [WAL implementation](../../crates/ipc_bus/src/persistent_wal.rs), especially replay and append opening; [crash recovery tests](../../crates/ipc_bus/tests/wal_crash_recovery.rs).
+5. [Action interlock](../../crates/governance/src/smt_action_interlock.rs), key at lines 48–52, cache lookup around 182–207.
+6. [Lattice verifier](../../crates/governance/src/lattice_verifier.rs), allocation bounds around 169; [mutation caller](../../crates/adaptation_engine/src/mutation.rs), around 152.
+7. [Snapshot ring](../../crates/ipc_bus/src/swmr_shm.rs), publisher 792–823 and reader 893–941; [HUD adapter](../../crates/studio_hud/src/state_snapshot.rs).
+8. [Auditor](../../crates/ast_auditor/src/lib.rs), [allocation visitor](../../crates/ast_auditor/src/rules/zero_alloc_hot_path.rs), and [evasion tests](../../crates/ast_auditor/tests/agent_evasion_suite.rs).
+9. [Shell gate](../../scripts/agent_check.sh), [PowerShell gate](../../scripts/agent_check.ps1), and [CI](../../.github/workflows/ci.yml).
+10. [Prover implementation](../../crates/governance/src/z3_prover.rs) and [feature configuration](../../crates/governance/Cargo.toml).
+11. [Plugin API](../../crates/plugin_api/src/lib.rs) and [dynamic loader](../../crates/hotload/src/lib.rs).
 12. Rust standard library, [atomic fence documentation](https://doc.rust-lang.org/std/sync/atomic/fn.fence.html), especially “Mandatory Atomic,” accessed September 14, 2026.
-13. [Supervision component](crates/orchestrator/src/supervision.rs), introduced during review.
-14. [WASM integration assertion](core/hypervisor/tests/test_e2e_pipeline.rs), line 235; [workspace test log](review-workspace-tests.log), [audit log](review-ast-audit.log), and [harness log](review-harness.log).
+13. [Supervision component](../../crates/orchestrator/src/supervision.rs), introduced during review.
+14. [WASM integration assertion](../../core/hypervisor/tests/test_e2e_pipeline.rs), line 235; the workspace test, audit, and harness logs were retained in the original review workspace and are not versioned in this repository.
 15. GitHub, [initial reviewed commit](https://github.com/Aarogaming/aaroneous/commit/4c78cfe1861b55c893450f2e8b093ff7c6c4bf0b), September 14, 2026.
