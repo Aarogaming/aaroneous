@@ -50,7 +50,7 @@ policy and baseline are established.
 |---|---|---|---|
 | H16 | Observability, audit trails, and recovery | Flight-recording and telemetry concepts exist. | Verify incident events can be correlated, bounded, redacted, retained, and replayed. |
 | H17 | Public API compatibility | Crates expose broad surfaces and compatibility is not centrally tracked. | Inventory public APIs and define semver, feature, message-version, and deprecation policy. |
-| H18 | Architecture and dependency direction | Kernel boundary audit documents direct Ring 0 dependency violations. | Introduce a minimal execution-host reference path and a dependency-policy check. |
+| H18 | Architecture, dependency direction, and tooling boundary | Kernel boundary audit and tooling-boundary policy separate product contracts from private dev-tools. | Introduce a minimal execution-host path, enforce its dependency policy, and classify existing non-Rust tooling. |
 | H19 | Documentation and operational accuracy | Worklists and root documentation are consolidated. | Link every active operational claim to current evidence and remove or qualify unmeasured assertions. |
 | H20 | Performance evidence and regressions | Architecture documents contain targets; reproducible measurements are not yet standardized. | Publish benchmark harness, machine profile, allocation observation, and latency distribution for the golden path. |
 

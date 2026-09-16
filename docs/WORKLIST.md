@@ -31,7 +31,7 @@ locally. The rebased cross-platform CI run is [35047740597](https://github.com/A
 
 ### A2 — Establish a golden bounded reducer path
 
-**Status:** Ready  
+**Status:** Ready
 **Scope:** Start from `dev/emulator_harness`; extract or define the smallest reusable
 execution-host contract without moving unrelated subsystems.
 
@@ -92,6 +92,13 @@ or process boundary. Cover compatibility, ownership, startup, shutdown, and fail
 Replace unmeasured latency and verification claims with reproducible benchmark reports:
 machine, profile, input dimensions, warmup, sample count, allocation observation, and latency
 distribution.
+
+### B6 — Classify and reduce non-Rust tooling
+
+**Status:** Ready  
+Apply the tooling-boundary policy to every Python, PowerShell, shell, WIT, and WGSL artifact.
+Port repository-critical logic to Rust, retain only active runtime interfaces and thin platform
+adapters, and move personal operations or experimental stacks to the private dev-tools repository.
 
 ## Done
 

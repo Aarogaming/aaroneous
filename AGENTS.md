@@ -75,6 +75,27 @@ Every crate in this repository is an independent, plug-and-play component block 
 
 ---
 
+## 5.1 Tooling Boundary and Self-Hosting Guardrail
+
+- **Product Boundary**: The workspace contains only reproducible product artifacts: Rust crates,
+  tests, auditors, active interface assets, and declarative build/deployment configuration.
+- **Rust-First Tooling**: New repository-management, verification, migration, and release logic
+  MUST be implemented in Rust. A non-Rust script is permitted only as a thin platform or CI
+  adapter with a documented reason and a named Rust command or platform capability.
+- **No Toolchain Assimilation**: Product crates MUST NOT depend on local-agent runners, personal
+  prompts, workstation provisioning, private operational tools, or research prototypes.
+- **External Dev-Tools**: Private development tooling may invoke documented product commands, but
+  the product MUST NOT require it as a submodule, workspace member, build dependency, runtime
+  dependency, or implicit local prerequisite.
+- **Self-Modification Boundary**: Runtime components may not write source, alter build
+  configuration, or replace binaries outside an explicit, reviewed control-plane protocol.
+- **Migration Inventory**: Existing non-Rust scripts are candidates to port, retain as thin
+  adapters, move to private tooling, or remove. No new general-purpose scripting stack is
+  permitted while this inventory is incomplete. See
+  [docs/architecture/TOOLING_BOUNDARY_POLICY.md](docs/architecture/TOOLING_BOUNDARY_POLICY.md).
+
+---
+
 ## 6. Sequential Verification Gate Protocol
 
 Agents must NEVER declare work complete based solely on `cargo check`. Every agent MUST run and verify the following sequence before completing a task:

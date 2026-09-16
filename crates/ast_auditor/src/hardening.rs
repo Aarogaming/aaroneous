@@ -94,6 +94,11 @@ pub fn run_hardening_audit(root: &Path) -> Result<HardeningReport> {
         retired.is_empty(),
     );
     checks.insert(
+        "tooling_boundary_policy_present".to_owned(),
+        root.join("docs/architecture/TOOLING_BOUNDARY_POLICY.md")
+            .is_file(),
+    );
+    checks.insert(
         "active_document_links_valid".to_owned(),
         broken_links.is_empty(),
     );
