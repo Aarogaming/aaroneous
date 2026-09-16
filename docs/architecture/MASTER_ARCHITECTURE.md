@@ -248,7 +248,7 @@ Before non-trivial actions hit the deliberation floor, the system renders a stan
 
 For granular equations, memory layouts, and API contracts, refer to the specialized specifications in [`docs/architecture/`](./):
 - [Workspace Topology & Subsystem Rings](./architecture_overview.md)
-- [Event-Driven Asset Assimilation](./assimilation_specification.md)
+- [Component Onboarding and Assimilation](./component_onboarding_specification.md)
 - [LLM Manager & Priority Scheduler](./llm_manager_scheduler.md)
 - [Scale-Invariant Dynamics & Physics Compiler](./physics_compiler_dynamics.md)
 - [Decoupled Human Node & Intent Mirror](./human_interface_intent_mirror.md)

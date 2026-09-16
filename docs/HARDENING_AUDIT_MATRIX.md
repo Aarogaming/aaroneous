@@ -4,6 +4,13 @@ This matrix turns repository hardening into bounded, evidence-based audits. It i
 claim that every perspective has been reviewed. A lens is **Complete** only when its
 evidence, findings, remediation, and verification are recorded.
 
+`scripts/hardening_audit.py --check` is the baseline CI gate. It verifies that this matrix
+covers every lens, the canonical verification script and CI invoke the gate, active
+documentation links resolve, and retired root planning documents do not return. Its inventory
+records unsafe/FFI, panic, ambient-authority, path, and stub indicators without treating a
+count as a finding by itself. Each lens becomes a stricter blocking check only after its
+policy and baseline are established.
+
 ## How to use this matrix
 
 - Audit one lens or a small related group at a time.
@@ -61,4 +68,3 @@ Remediation:
 Verification:
 Follow-up:
 ```
-

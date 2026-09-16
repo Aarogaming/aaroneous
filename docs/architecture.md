@@ -71,7 +71,7 @@ The unified foundational specification is codified in **[Master Architecture Spe
 1. **[Master Architecture Specification](./architecture/MASTER_ARCHITECTURE.md)** (Tier 1 Master Blueprint)
 2. **[Workspace Topology & Subsystem Ring Architecture](./architecture/architecture_overview.md)**  
    *Scope*: Monorepo layout, 5-ring layered protection model, single-responsibility crate mapping, and the Zero Prefix Stutter rule.
-3. **[Event-Driven Asset Assimilation & Wire Geometry](./architecture/assimilation_specification.md)**  
+3. **[Component Onboarding and Assimilation](./architecture/component_onboarding_specification.md)
    *Scope*: 360-byte `AssimilationRecord` binary contracts (`Pod` / `Zeroable`), typestate machine (`AssimilationTask<State>`), zero-copy reactive reducer (`handle_assimilation_event`), and hypervisor Step 0 non-blocking drain.
 4. **[LLM Manager & Priority-Constrained Scheduler](./architecture/llm_manager_scheduler.md)**  
    *Scope*: Stateless transducer interface ($\mathcal{T}: \Sigma^* \times \mathcal{G} \to \Omega$), transport vs. control plane separation (`llm_gateway` vs. `orchestrator`), dynamic priority heap (`Critical`, `Standard`, `Background`), and jittered exponential backoff.

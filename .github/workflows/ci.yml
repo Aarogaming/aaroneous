@@ -55,6 +55,9 @@ jobs:
       - name: Text encoding inventory
         run: python scripts/check_text_encoding.py
 
+      - name: Hardening audit baseline
+        run: python scripts/hardening_audit.py --check
+
       - name: Formatting (Ubuntu only)
         if: matrix.os == 'ubuntu-latest'
         run: cargo fmt --all -- --check

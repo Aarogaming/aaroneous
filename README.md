@@ -174,7 +174,7 @@ d:\Aaroneous\
     └── architecture/           # Canonical Subsystem Specifications
         ├── MASTER_ARCHITECTURE.md         # Unified 6-pillar master specification
         ├── architecture_overview.md       # Workspace topology & subsystem rings
-        ├── assimilation_specification.md  # 360B wire contracts & typestate machine
+        ├── component_onboarding_specification.md  # component onboarding and assimilation
         ├── llm_manager_scheduler.md       # Stateless transducer & priority backoff heap
         ├── physics_compiler_dynamics.md   # Bond-graph duality & symplectic integration
         └── human_interface_intent_mirror.md # HIAL, Intent DAG & 3-option intent mirror
@@ -196,7 +196,7 @@ For exhaustive technical specifications across all subsystems, consult:
 - **[Unified Master Architecture](docs/architecture/MASTER_ARCHITECTURE.md)**
 - **[System Architecture Specification](docs/architecture.md)**
 - **[Workspace Topology & Subsystem Rings](docs/architecture/architecture_overview.md)**
-- **[Event-Driven Asset Assimilation](docs/architecture/assimilation_specification.md)**
+- **[Component Onboarding and Assimilation](docs/architecture/component_onboarding_specification.md)**
 - **[LLM Manager & Priority Scheduler](docs/architecture/llm_manager_scheduler.md)**
 - **[Scale-Invariant Dynamics & Physics Compiler](docs/architecture/physics_compiler_dynamics.md)**
 - **[Decoupled Human Node & Intent Mirror](docs/architecture/human_interface_intent_mirror.md)**
