@@ -26,6 +26,11 @@ the Rust command or platform capability it wraps.
 The private companion repository is [Aarogaming/aaroneous-devtools](https://github.com/Aarogaming/aaroneous-devtools).
 It is intentionally not a submodule or workspace member of Aaroneous.
 
+The private repository is a foundation and operations workspace for Aaroneous-adjacent work. It is
+for reusable setup, evaluation, maintenance, and operational capabilities that support the
+framework without defining its product contract. It is not a catch-all archive for removed product
+code; Aaroneous Git history remains the authoritative record for retired framework artifacts.
+
 A separate private dev-tools repository may contain:
 
 - Workstation provisioning, local-model runners, prompts, agent profiles, and private secrets.
