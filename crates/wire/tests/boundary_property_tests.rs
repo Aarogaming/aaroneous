@@ -2,6 +2,18 @@ use proptest::prelude::*;
 use wire::*;
 
 proptest! {
+    // File-based failure persistence calls `std::env::current_dir()` to
+    // resolve where to write regression seeds. Miri's isolation mode blocks
+    // that syscall ("getcwd not available when isolation is enabled"),
+    // failing every property test here under the Miri CI job regardless of
+    // whether the property itself holds. Persistence is a local-dev
+    // convenience (replaying a past failing seed); it isn't needed for CI
+    // correctness, so disable it instead of touching the isolation policy.
+    #![proptest_config(ProptestConfig {
+        failure_persistence: None,
+        ..ProptestConfig::default()
+    })]
+
     #[test]
     fn prop_cobs_decode_never_panics(bytes in prop::collection::vec(any::<u8>(), 0..1024)) {
         let mut out = [0u8; MAX_FRAMED_SIZE];
