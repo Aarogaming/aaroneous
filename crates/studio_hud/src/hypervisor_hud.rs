@@ -305,7 +305,7 @@ impl HypervisorHudApp {
                 painter.rect_stroke(
                     cell_rect,
                     1.0,
-                    Stroke::new(1.0, Color32::from_rgb(45, 48, 60)),
+                    Stroke::new(1.0_f32, Color32::from_rgb(45, 48, 60)),
                     egui::StrokeKind::Inside,
                 );
             }

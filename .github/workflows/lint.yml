@@ -1,0 +1,42 @@
+name: Lint
+
+# Fast, Rust-build-independent static checks: spelling and workflow-YAML
+# correctness. Both are hard gates — the workspace tree was brought to a
+# genuine zero-hit baseline for `typos` before this workflow was added (see
+# _typos.toml's header for what was fixed vs. allowlisted), and actionlint
+# only flags real action-version/syntax problems, not style preferences.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  typos:
+    name: typos (spelling)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: crate-ci/typos@v1
+
+  actionlint:
+    name: actionlint (workflow YAML)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: reviewdog/action-actionlint@v1
+        with:
+          reporter: github-check
+          fail_level: error
+          # rustsec/audit-check and ilammy/msvc-dev-cmd are both pinned to
+          # their latest available major (@v2, @v1) and still run on the
+          # deprecated Node 20 runtime — verified via each action's actual
+          # action.yml at that ref, not assumed: neither has published a
+          # newer major with Node 24 support yet. There is no version bump
+          # that fixes this; ignoring by exact action+ref so a real new
+          # deprecation (a different action, or a newer ref of one of these
+          # two that's still on Node 20) is not silently swallowed too.
+          actionlint_flags: >-
+            -ignore 'action "rustsec/audit-check@v2"'
+            -ignore 'action "ilammy/msvc-dev-cmd@v1"'

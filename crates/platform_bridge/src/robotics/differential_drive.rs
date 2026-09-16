@@ -10,7 +10,7 @@
 //! 3. Kinetic Locomotion Dispatch: Streams smooth motion vectors
 //!    (Forward, Reverse, PivotLeft, PivotRight, Stop) with whisker/proximity fail-safes.
 
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use serde::{Deserialize, Serialize};
 use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
 

@@ -118,9 +118,8 @@ impl SabSimilarityMatrix {
         let n = self.surface_names.len();
         let mut pairs = Vec::new();
 
-        for i in 0..n {
-            for j in (i + 1)..n {
-                let mi = self.mutual_info_matrix[i][j];
+        for (i, row) in self.mutual_info_matrix.iter().enumerate().take(n) {
+            for (j, &mi) in row.iter().enumerate().take(n).skip(i + 1) {
                 if mi > threshold {
                     pairs.push((i, j, mi));
                 }
@@ -476,14 +475,14 @@ mod tests {
         assert_eq!(matrix.cosine_matrix.len(), 3);
 
         // Diagonal should be 1.0
-        for i in 0..3 {
-            assert!((matrix.cosine_matrix[i][i] - 1.0).abs() < 1e-10);
+        for (i, row) in matrix.cosine_matrix.iter().enumerate() {
+            assert!((row[i] - 1.0).abs() < 1e-10);
         }
 
         // Matrix should be symmetric
-        for i in 0..3 {
-            for j in 0..3 {
-                assert!((matrix.cosine_matrix[i][j] - matrix.cosine_matrix[j][i]).abs() < 1e-10);
+        for (i, row_i) in matrix.cosine_matrix.iter().enumerate() {
+            for (j, row_j) in matrix.cosine_matrix.iter().enumerate() {
+                assert!((row_i[j] - row_j[i]).abs() < 1e-10);
             }
         }
     }

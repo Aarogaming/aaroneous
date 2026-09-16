@@ -6,7 +6,7 @@ use anyhow::Result;
 use notify::{Event, RecommendedWatcher, RecursiveMode, Watcher};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
-use std::sync::mpsc::{channel, Receiver};
+use std::sync::mpsc::{Receiver, channel};
 use std::time::Duration;
 
 /// Event produced when a source file is modified
@@ -51,22 +51,27 @@ impl RepoWatcher {
 
     /// Polls for the next source file modification (non-blocking)
     pub fn poll_next_change(&self, timeout: Duration) -> Option<SourceChangeEvent> {
-        if let Some(rx) = &self.event_rx {
-            if let Ok(Ok(event)) = rx.recv_timeout(timeout) {
-                for path in event.paths {
-                    if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
-                        let ext_lower = ext.to_lowercase();
-                        let is_rust = ext_lower == "rs";
-                        let is_python = ext_lower == "py";
+        if let Some(rx) = &self.event_rx
+            && let Ok(Ok(event)) = rx.recv_timeout(timeout)
+        {
+            for path in event.paths {
+                if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
+                    let ext_lower = ext.to_lowercase();
+                    let is_rust = ext_lower == "rs";
+                    let is_python = ext_lower == "py";
 
-                        if is_rust || is_python || ext_lower == "c" || ext_lower == "cpp" || ext_lower == "ts" {
-                            return Some(SourceChangeEvent {
-                                path,
-                                extension: ext_lower,
-                                is_rust,
-                                is_python,
-                            });
-                        }
+                    if is_rust
+                        || is_python
+                        || ext_lower == "c"
+                        || ext_lower == "cpp"
+                        || ext_lower == "ts"
+                    {
+                        return Some(SourceChangeEvent {
+                            path,
+                            extension: ext_lower,
+                            is_rust,
+                            is_python,
+                        });
                     }
                 }
             }

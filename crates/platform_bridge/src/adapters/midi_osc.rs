@@ -2,7 +2,7 @@ use anyhow::Result;
 use tracing::info;
 
 /// DEVTOOL-08: OSC & MIDI Hardware Hooks
-/// Connects Aaroneous directly to external hardware controllers (Elgato Stream Deck, 
+/// Connects Aaroneous directly to external hardware controllers (Elgato Stream Deck,
 /// Akai APC, Novation Launchpad) via MIDI and Open Sound Control (OSC).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct HardwareControllerHooks {

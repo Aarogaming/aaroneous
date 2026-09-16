@@ -24,8 +24,8 @@ pub struct LatentAuditVerdict {
 /// SVDD Safe Hypersphere Boundary Definition
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SafeHypersphereManifold {
-    pub centroid: Vec<f32>,       // 256-dim centroid of verified safe actions
-    pub radius: f32,              // Maximum allowed Euclidean/Mahalanobis radius R
+    pub centroid: Vec<f32>,         // 256-dim centroid of verified safe actions
+    pub radius: f32,                // Maximum allowed Euclidean/Mahalanobis radius R
     pub mahalanobis_diag: Vec<f32>, // Diagonal covariance inverse for anisotropic scaling
     pub total_audits_count: u64,
     pub violations_intercepted: u64,
@@ -180,17 +180,17 @@ impl SafeHypersphereManifold {
 }
 
 /// The Sentinel Auditor Safety Engine
-pub struct ArgusSafetySentinel {
+pub struct SafetyGuard {
     pub manifolds: Vec<SafeHypersphereManifold>,
 }
 
-impl Default for ArgusSafetySentinel {
+impl Default for SafetyGuard {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl ArgusSafetySentinel {
+impl SafetyGuard {
     pub fn new() -> Self {
         let mut default_manifold = SafeHypersphereManifold::new(10.0);
         default_manifold.centroid = vec![0.0f32; GUARDRAIL_DIM];

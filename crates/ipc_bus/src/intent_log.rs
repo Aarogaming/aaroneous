@@ -219,9 +219,7 @@ impl IntentLog {
             .open(&self.path)?;
 
         fresh_file.set_len(LOG_INITIAL_SIZE as u64)?;
-        let fresh_mmap = unsafe {
-            MmapOptions::new().map_mut(&fresh_file)?
-        };
+        let fresh_mmap = unsafe { MmapOptions::new().map_mut(&fresh_file)? };
 
         self.file = fresh_file;
         self.mmap = fresh_mmap;
@@ -531,7 +529,10 @@ mod tests {
 
     fn temp_path(name: &str) -> PathBuf {
         let temp_dir = tempfile::tempdir().unwrap();
-        temp_dir.path().to_path_buf().join(format!("aaroneous_test_{}", name))
+        temp_dir
+            .path()
+            .to_path_buf()
+            .join(format!("aaroneous_test_{}", name))
     }
 
     #[test]

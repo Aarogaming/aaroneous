@@ -29,7 +29,12 @@ pub struct McpTool {
 }
 
 impl McpTool {
-    pub fn new(name: &str, description: &str, props: serde_json::Value, required: Vec<&str>) -> Self {
+    pub fn new(
+        name: &str,
+        description: &str,
+        props: serde_json::Value,
+        required: Vec<&str>,
+    ) -> Self {
         Self {
             name: name.into(),
             description: description.into(),
@@ -81,7 +86,8 @@ impl McpService {
                 name: desc.name,
                 description: desc.description,
                 input_schema: desc.parameters_schema,
-            }).await;
+            })
+            .await;
         }
     }
 
@@ -106,8 +112,8 @@ impl McpService {
     /// Get LLM provider status
     pub fn llm_provider_status(&self) -> serde_json::Value {
         serde_json::json!({
-            "status": "ready",
-            "feature_available": cfg!(feature = "llama-gguf"),
+            "status": "unavailable",
+            "feature_available": false,
         })
     }
 
@@ -125,8 +131,9 @@ impl McpService {
         };
 
         match method {
-            "initialize" => {
-                JsonRpcResponse::success(id, serde_json::json!({
+            "initialize" => JsonRpcResponse::success(
+                id,
+                serde_json::json!({
                     "protocolVersion": "2024-11-05",
                     "capabilities": {
                         "tools": { "listChanged": false }
@@ -135,53 +142,77 @@ impl McpService {
                         "name": "aaroneous-mcp",
                         "version": env!("CARGO_PKG_VERSION")
                     }
-                }))
-            }
-            "ping" => {
-                JsonRpcResponse::success(id, serde_json::json!({ "status": "pong" }))
-            }
+                }),
+            ),
+            "ping" => JsonRpcResponse::success(id, serde_json::json!({ "status": "pong" })),
             "tools/list" => {
                 let descriptors = self.capability_broker.list_tools();
                 let tool_list: Vec<serde_json::Value> = descriptors
                     .into_iter()
-                    .map(|d| serde_json::json!({
-                        "name": d.name,
-                        "description": d.description,
-                        "inputSchema": d.parameters_schema,
-                    }))
+                    .map(|d| {
+                        serde_json::json!({
+                            "name": d.name,
+                            "description": d.description,
+                            "inputSchema": d.parameters_schema,
+                        })
+                    })
                     .collect();
                 JsonRpcResponse::success(id, serde_json::json!({ "tools": tool_list }))
             }
             "tools/call" => {
                 let params = match request.get("params") {
                     Some(p) => p,
-                    None => return JsonRpcResponse::err(id, -32602, "Invalid params: params object missing"),
+                    None => {
+                        return JsonRpcResponse::err(
+                            id,
+                            -32602,
+                            "Invalid params: params object missing",
+                        );
+                    }
                 };
                 let tool_name = match params.get("name").and_then(|n| n.as_str()) {
                     Some(n) => n,
-                    None => return JsonRpcResponse::err(id, -32602, "Invalid params: missing tool name"),
+                    None => {
+                        return JsonRpcResponse::err(
+                            id,
+                            -32602,
+                            "Invalid params: missing tool name",
+                        );
+                    }
                 };
-                let arguments = params.get("arguments").cloned().unwrap_or_else(|| serde_json::json!({}));
+                let arguments = params
+                    .get("arguments")
+                    .cloned()
+                    .unwrap_or_else(|| serde_json::json!({}));
 
-                let outcome = self.capability_broker.execute_tool(tool_name, arguments).await;
+                let outcome = self
+                    .capability_broker
+                    .execute_tool(tool_name, arguments)
+                    .await;
                 if outcome.success {
-                    JsonRpcResponse::success(id, serde_json::json!({
-                        "content": [{
-                            "type": "text",
-                            "text": serde_json::to_string_pretty(&outcome.payload).unwrap_or_default(),
-                        }],
-                        "isError": false,
-                        "_meta": { "latency_us": outcome.latency_us }
-                    }))
+                    JsonRpcResponse::success(
+                        id,
+                        serde_json::json!({
+                            "content": [{
+                                "type": "text",
+                                "text": serde_json::to_string_pretty(&outcome.payload).unwrap_or_default(),
+                            }],
+                            "isError": false,
+                            "_meta": { "latency_us": outcome.latency_us }
+                        }),
+                    )
                 } else {
-                    JsonRpcResponse::success(id, serde_json::json!({
-                        "content": [{
-                            "type": "text",
-                            "text": outcome.error.unwrap_or_else(|| "Tool execution failed".to_string()),
-                        }],
-                        "isError": true,
-                        "_meta": { "latency_us": outcome.latency_us }
-                    }))
+                    JsonRpcResponse::success(
+                        id,
+                        serde_json::json!({
+                            "content": [{
+                                "type": "text",
+                                "text": outcome.error.unwrap_or_else(|| "Tool execution failed".to_string()),
+                            }],
+                            "isError": true,
+                            "_meta": { "latency_us": outcome.latency_us }
+                        }),
+                    )
                 }
             }
             _ => JsonRpcResponse::err(id, -32601, &format!("Method not found: {}", method)),
@@ -229,21 +260,11 @@ impl JsonRpcResponse {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct ServiceStats {
     pub total_requests: u64,
     pub successful_requests: u64,
     pub failed_requests: u64,
-}
-
-impl Default for ServiceStats {
-    fn default() -> Self {
-        Self {
-            total_requests: 0,
-            successful_requests: 0,
-            failed_requests: 0,
-        }
-    }
 }
 
 #[cfg(test)]
@@ -282,7 +303,10 @@ mod tests {
         });
         let init_resp = service.handle_jsonrpc(init_req).await;
         assert!(init_resp.error.is_none());
-        assert_eq!(init_resp.result.unwrap()["serverInfo"]["name"], "aaroneous-mcp");
+        assert_eq!(
+            init_resp.result.unwrap()["serverInfo"]["name"],
+            "aaroneous-mcp"
+        );
 
         // 2. Tools list
         let list_req = serde_json::json!({

@@ -10,13 +10,13 @@ use std::path::PathBuf;
 use std::time::Instant;
 use tracing::info;
 
+use bumpalo::Bump;
 use compute::si_binary::{SiCorpusStore, SiThoughtPacket};
 use compute::{
     DimensionalUnit, MachineOpcode, NativeComputationNode, NativeComputationalGraph,
     NativeTypeLattice,
 };
 use paths::{WorkspacePaths, WorkspacePathsConfig};
-use bumpalo::Bump;
 
 /// Scratch Bump-Allocation Arena for Ephemeral Flight Contexts (The bumpalo Model)
 /// Provides zero heap fragmentation for temporary token chunks, line buffers, and
@@ -78,7 +78,9 @@ pub struct SiDistillationMiner {
 
 impl Default for SiDistillationMiner {
     fn default() -> Self {
-        let corpus_path = WorkspacePaths::discover(&WorkspacePathsConfig::new()).data().join("si_corpus.bin");
+        let corpus_path = WorkspacePaths::discover(&WorkspacePathsConfig::new())
+            .data()
+            .join("si_corpus.bin");
         Self {
             corpus_store: SiCorpusStore::new(corpus_path),
             arena: parking_lot::Mutex::new(EphemeralFlightArena::new()),
@@ -95,7 +97,9 @@ impl SiDistillationMiner {
     }
 
     pub fn from_config(config: &WorkspacePathsConfig) -> Self {
-        let corpus_path = WorkspacePaths::discover(config).data().join("si_corpus.bin");
+        let corpus_path = WorkspacePaths::discover(config)
+            .data()
+            .join("si_corpus.bin");
         Self::new(corpus_path)
     }
 
@@ -116,26 +120,49 @@ impl SiDistillationMiner {
         let mut graph = NativeComputationalGraph::new();
 
         // Parse key structural primitives into native DAG nodes
-        let lines: Vec<&str> = source_code.lines().map(|l| l.trim()).filter(|l| !l.is_empty()).collect();
+        let lines: Vec<&str> = source_code
+            .lines()
+            .map(|l| l.trim())
+            .filter(|l| !l.is_empty())
+            .collect();
         let mut prev_node_id = 0u64;
 
         for (i, line) in lines.iter().enumerate() {
             let node_id = (i + 1) as u64;
-            let (opcode, type_lattice, energy) = if line.contains("alloc") || line.contains("Vec::new") || line.contains("String::new") {
+            let (opcode, type_lattice, energy) = if line.contains("alloc")
+                || line.contains("Vec::new")
+                || line.contains("String::new")
+            {
                 (
-                    MachineOpcode::Alloc { size_bytes: 64, align: 8 },
-                    NativeTypeLattice::LinearMemoryPointer { mutability: true, alignment: 8 },
+                    MachineOpcode::Alloc {
+                        size_bytes: 64,
+                        align: 8,
+                    },
+                    NativeTypeLattice::LinearMemoryPointer {
+                        mutability: true,
+                        alignment: 8,
+                    },
                     0.15,
                 )
             } else if line.contains("if ") || line.contains("match ") {
                 (
-                    MachineOpcode::BranchIf { condition_reg: 1, target_block: (node_id + 1) as u32 },
-                    NativeTypeLattice::PrimitiveInt { bits: 1, signed: false },
+                    MachineOpcode::BranchIf {
+                        condition_reg: 1,
+                        target_block: (node_id + 1) as u32,
+                    },
+                    NativeTypeLattice::PrimitiveInt {
+                        bits: 1,
+                        signed: false,
+                    },
                     0.08,
                 )
             } else if line.contains(".dot(") || line.contains("matmul") || line.contains("*") {
                 (
-                    MachineOpcode::TensorDot { left_reg: 1, right_reg: 2, dim: 64 },
+                    MachineOpcode::TensorDot {
+                        left_reg: 1,
+                        right_reg: 2,
+                        dim: 64,
+                    },
                     NativeTypeLattice::TensorType {
                         shape: vec![64, 64],
                         element_type: Box::new(NativeTypeLattice::PrimitiveFloat { bits: 32 }),
@@ -145,18 +172,28 @@ impl SiDistillationMiner {
             } else if line.contains("return ") || line.contains("Ok(") {
                 (
                     MachineOpcode::Return { value_reg: 0 },
-                    NativeTypeLattice::PrimitiveInt { bits: 32, signed: true },
+                    NativeTypeLattice::PrimitiveInt {
+                        bits: 32,
+                        signed: true,
+                    },
                     0.02,
                 )
             } else {
                 (
                     MachineOpcode::EntropyMinimization { state_reg: 0 },
-                    NativeTypeLattice::PrimitiveInt { bits: 64, signed: false },
+                    NativeTypeLattice::PrimitiveInt {
+                        bits: 64,
+                        signed: false,
+                    },
                     0.05,
                 )
             };
 
-            let dependencies = if prev_node_id > 0 { vec![prev_node_id] } else { Vec::new() };
+            let dependencies = if prev_node_id > 0 {
+                vec![prev_node_id]
+            } else {
+                Vec::new()
+            };
             graph.add_node(NativeComputationNode {
                 id: node_id,
                 opcode,
@@ -240,7 +277,11 @@ impl SiDistillationMiner {
             raw_english_bytes: raw_bytes,
             machine_native_bytes: native_bytes,
             compression_ratio_percent: compression.clamp(1.0, 99.0),
-            average_energy_cost: if count > 0 { total_energy / count as f64 } else { 0.0 },
+            average_energy_cost: if count > 0 {
+                total_energy / count as f64
+            } else {
+                0.0
+            },
             duration_ms: start.elapsed().as_millis() as u64,
         };
 
@@ -256,7 +297,10 @@ impl SiDistillationMiner {
     }
 
     /// Mines custom reasoning traces into the SI corpus
-    pub fn mine_from_source_corpus(&self, source_traces: &[(&str, &str, u16)]) -> Result<DistillationBatchReport> {
+    pub fn mine_from_source_corpus(
+        &self,
+        source_traces: &[(&str, &str, u16)],
+    ) -> Result<DistillationBatchReport> {
         let start = Instant::now();
         let mut raw_bytes = 0;
         let mut native_bytes = 0;
@@ -265,7 +309,8 @@ impl SiDistillationMiner {
 
         for (prompt, code, opcode) in source_traces {
             raw_bytes += prompt.len() + code.len();
-            let packet = self.distill_code_to_si(*opcode, DimensionalUnit::DIMENSIONLESS, prompt, code)?;
+            let packet =
+                self.distill_code_to_si(*opcode, DimensionalUnit::DIMENSIONLESS, prompt, code)?;
             let bin = packet.to_binary()?;
             native_bytes += bin.len();
             total_energy += packet.header.thermodynamic_free_energy;
@@ -286,7 +331,11 @@ impl SiDistillationMiner {
             raw_english_bytes: raw_bytes,
             machine_native_bytes: native_bytes,
             compression_ratio_percent: compression.clamp(1.0, 99.0),
-            average_energy_cost: if count > 0 { total_energy / count as f64 } else { 0.0 },
+            average_energy_cost: if count > 0 {
+                total_energy / count as f64
+            } else {
+                0.0
+            },
             duration_ms: start.elapsed().as_millis() as u64,
         })
     }
@@ -307,7 +356,9 @@ mod tests {
         let temp_corpus = temp.path().join("test_corpus.bin");
         let miner = SiDistillationMiner::new(temp_corpus);
 
-        let report = miner.mine_starter_distillation_corpus().expect("Distillation failed");
+        let report = miner
+            .mine_starter_distillation_corpus()
+            .expect("Distillation failed");
         assert_eq!(report.thoughts_mined, 4);
         assert!(report.machine_native_bytes > 0);
         assert!(report.compression_ratio_percent > 0.0);
@@ -333,8 +384,16 @@ mod tests {
         let miner = SiDistillationMiner::new(temp_corpus);
 
         let traces = vec![
-            ("Parse AST tokens", "pub fn parse(s: &str) -> Vec<&str> { s.split_whitespace().collect() }", 0x0100),
-            ("Compute tensor dot", "pub fn dot(a: f32, b: f32) -> f32 { a * b }", 0x0200),
+            (
+                "Parse AST tokens",
+                "pub fn parse(s: &str) -> Vec<&str> { s.split_whitespace().collect() }",
+                0x0100,
+            ),
+            (
+                "Compute tensor dot",
+                "pub fn dot(a: f32, b: f32) -> f32 { a * b }",
+                0x0200,
+            ),
         ];
 
         let report = miner.mine_from_source_corpus(&traces).unwrap();

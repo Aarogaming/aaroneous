@@ -131,7 +131,9 @@ impl TelemetryPacket {
 /// Designed with 64-byte cacheline alignment and zero uninitialized padding bytes,
 /// matching Apache Arrow columnar mechanics to enable AVX-512 autovectorization.
 #[repr(C, align(64))]
-#[derive(Clone, Copy, Debug, PartialEq, bytemuck::Pod, bytemuck::Zeroable, Serialize, Deserialize)]
+#[derive(
+    Clone, Copy, Debug, PartialEq, bytemuck::Pod, bytemuck::Zeroable, Serialize, Deserialize,
+)]
 pub struct TelemetryBatchPod {
     /// Bitmask indicating which channel slots (0..15) contain active readings.
     pub valid_mask: u16,
@@ -252,10 +254,10 @@ impl From<&TelemetryPacket> for TelemetryBatchPod {
     fn from(packet: &TelemetryPacket) -> Self {
         let mut pod = Self::empty();
         for (i, channel_opt) in packet.channels.iter().enumerate() {
-            if let Some(cv) = channel_opt {
-                if i < 16 {
-                    pod.set_channel(i, cv.kind.to_u8(), cv.raw_value, cv.calibrated_f32);
-                }
+            if let Some(cv) = channel_opt
+                && i < 16
+            {
+                pod.set_channel(i, cv.kind.to_u8(), cv.raw_value, cv.calibrated_f32);
             }
         }
         pod
@@ -271,10 +273,11 @@ impl From<TelemetryPacket> for TelemetryBatchPod {
 impl From<&TelemetryBatchPod> for TelemetryPacket {
     fn from(pod: &TelemetryBatchPod) -> Self {
         let mut channels = [None; 8];
-        for i in 0..8 {
+        for (i, channel) in channels.iter_mut().enumerate() {
             if pod.is_valid(i) {
-                let kind = ChannelKind::from_u8(pod.channel_kinds[i]).unwrap_or(ChannelKind::DigitalInput);
-                channels[i] = Some(ChannelValue {
+                let kind =
+                    ChannelKind::from_u8(pod.channel_kinds[i]).unwrap_or(ChannelKind::DigitalInput);
+                *channel = Some(ChannelValue {
                     channel_id: i as u8,
                     kind,
                     raw_value: pod.raw_values[i],
@@ -300,18 +303,49 @@ impl From<TelemetryBatchPod> for TelemetryPacket {
 /// Extended command packet sent from host/HMI to edge MCU/PLC.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum CommandPacket {
-    Heartbeat { sequence: u32 },
-    SetDigitalOut { pin: u8, state: bool },
-    SetPwm { channel: u8, duty_cycle: u16 },
-    SetRegister { address: u16, value: u16 },
+    Heartbeat {
+        sequence: u32,
+    },
+    SetDigitalOut {
+        pin: u8,
+        state: bool,
+    },
+    SetPwm {
+        channel: u8,
+        duty_cycle: u16,
+    },
+    SetRegister {
+        address: u16,
+        value: u16,
+    },
     EmergencyStop,
     ResetDevice,
-    SyncTime { epoch_timestamp_ms: u64 },
-    SetBaudRate { port_id: u8, baud_rate: u32 },
-    ReadRegister { address: u16 },
-    ConfigureChannel { channel_id: u8, kind: ChannelKind, sample_rate_hz: u16 },
-    CalibrateSensor { channel_id: u8, zero_offset: f32, scale_multiplier: f32 },
-    CanTransmit { id: u32, is_extended: bool, data: [u8; 8], dlc: u8 },
+    SyncTime {
+        epoch_timestamp_ms: u64,
+    },
+    SetBaudRate {
+        port_id: u8,
+        baud_rate: u32,
+    },
+    ReadRegister {
+        address: u16,
+    },
+    ConfigureChannel {
+        channel_id: u8,
+        kind: ChannelKind,
+        sample_rate_hz: u16,
+    },
+    CalibrateSensor {
+        channel_id: u8,
+        zero_offset: f32,
+        scale_multiplier: f32,
+    },
+    CanTransmit {
+        id: u32,
+        is_extended: bool,
+        data: [u8; 8],
+        dlc: u8,
+    },
 }
 
 /// Top-level wire message enum.
@@ -320,10 +354,25 @@ pub enum WireMessage {
     Telemetry(TelemetryPacket),
     TelemetryBatch(TelemetryBatchPod),
     Command(CommandPacket),
-    Ack { sequence: u32 },
-    Nack { sequence: u32, error_code: u8 },
-    RpcRequest { request_id: u32, method_id: u16, payload: [u8; 32], payload_len: u8 },
-    RpcResponse { request_id: u32, status_code: u16, payload: [u8; 32], payload_len: u8 },
+    Ack {
+        sequence: u32,
+    },
+    Nack {
+        sequence: u32,
+        error_code: u8,
+    },
+    RpcRequest {
+        request_id: u32,
+        method_id: u16,
+        payload: [u8; 32],
+        payload_len: u8,
+    },
+    RpcResponse {
+        request_id: u32,
+        status_code: u16,
+        payload: [u8; 32],
+        payload_len: u8,
+    },
 }
 
 /// Errors during encoding, decoding, or framing.
@@ -417,21 +466,23 @@ pub fn cobs_decode(input: &[u8], output: &mut [u8]) -> Result<usize, WireError> 
 /// Encodes a `WireMessage` into a framed buffer with CRC16 and zero delimiter.
 pub fn encode_frame<'a>(msg: &WireMessage, out_buf: &'a mut [u8]) -> Result<&'a [u8], WireError> {
     let mut raw_buf = [0u8; MAX_PAYLOAD_SIZE];
-    let serialized = postcard::to_slice(msg, &mut raw_buf).map_err(|_| WireError::SerializationFailed)?;
-    
+    let serialized =
+        postcard::to_slice(msg, &mut raw_buf).map_err(|_| WireError::SerializationFailed)?;
+
     // Append CRC16
     let checksum = CRC_ALGO.checksum(serialized);
     let mut payload_with_crc = [0u8; MAX_PAYLOAD_SIZE + 2];
     payload_with_crc[..serialized.len()].copy_from_slice(serialized);
-    payload_with_crc[serialized.len()..serialized.len() + 2].copy_from_slice(&checksum.to_le_bytes());
+    payload_with_crc[serialized.len()..serialized.len() + 2]
+        .copy_from_slice(&checksum.to_le_bytes());
 
     let payload_len = serialized.len() + 2;
     let cobs_len = cobs_encode(&payload_with_crc[..payload_len], out_buf)?;
-    
+
     if cobs_len >= out_buf.len() {
         return Err(WireError::BufferTooSmall);
     }
-    
+
     // Trailing 0x00 delimiter
     out_buf[cobs_len] = 0x00;
     Ok(&out_buf[..cobs_len + 1])
@@ -481,9 +532,11 @@ mod tests {
 
     #[test]
     fn test_wire_message_roundtrip() {
-        let mut pkt = TelemetryPacket::default();
-        pkt.sequence = 42;
-        pkt.uptime_ms = 12345;
+        let mut pkt = TelemetryPacket {
+            sequence: 42,
+            uptime_ms: 12345,
+            ..Default::default()
+        };
         pkt.channels[0] = Some(ChannelValue {
             channel_id: 1,
             kind: ChannelKind::AnalogInput,
@@ -561,13 +614,18 @@ mod tests {
 
     #[test]
     fn test_sync_time_and_baud_rate_commands() {
-        let cmd = WireMessage::Command(CommandPacket::SyncTime { epoch_timestamp_ms: 1725372000000 });
+        let cmd = WireMessage::Command(CommandPacket::SyncTime {
+            epoch_timestamp_ms: 1725372000000,
+        });
         let mut frame_buf = [0u8; MAX_FRAMED_SIZE];
         let frame = encode_frame(&cmd, &mut frame_buf).unwrap();
         let decoded = decode_frame(frame).unwrap();
         assert_eq!(decoded, cmd);
 
-        let baud = WireMessage::Command(CommandPacket::SetBaudRate { port_id: 1, baud_rate: 115200 });
+        let baud = WireMessage::Command(CommandPacket::SetBaudRate {
+            port_id: 1,
+            baud_rate: 115200,
+        });
         let frame_baud = encode_frame(&baud, &mut frame_buf).unwrap();
         let decoded_baud = decode_frame(frame_baud).unwrap();
         assert_eq!(decoded_baud, baud);
@@ -597,8 +655,14 @@ mod tests {
 
         let roundtrip: &TelemetryBatchPod = bytemuck::from_bytes(bytes);
         assert_eq!(*roundtrip, batch);
-        assert_eq!(roundtrip.get_channel(0), Some((ChannelKind::AnalogInput.to_u8(), 1023, 3.3)));
-        assert_eq!(roundtrip.get_channel(7), Some((ChannelKind::TemperatureCelsius.to_u8(), 250, 25.0)));
+        assert_eq!(
+            roundtrip.get_channel(0),
+            Some((ChannelKind::AnalogInput.to_u8(), 1023, 3.3))
+        );
+        assert_eq!(
+            roundtrip.get_channel(7),
+            Some((ChannelKind::TemperatureCelsius.to_u8(), 250, 25.0))
+        );
     }
 
     #[test]
@@ -616,7 +680,10 @@ mod tests {
         assert!(batch.is_valid(15));
         assert!(!batch.is_valid(4));
 
-        assert_eq!(batch.get_channel(3), Some((ChannelKind::VoltageVolts.to_u8(), 1200, 12.0)));
+        assert_eq!(
+            batch.get_channel(3),
+            Some((ChannelKind::VoltageVolts.to_u8(), 1200, 12.0))
+        );
         assert_eq!(batch.sum_calibrated_f32(), 17.0);
 
         assert!(batch.clear_channel(3));
@@ -627,18 +694,24 @@ mod tests {
     #[test]
     fn test_telemetry_batch_conversion() {
         let mut pkt = TelemetryPacket::default();
-        pkt.set_channel(0, ChannelValue {
-            channel_id: 0,
-            kind: ChannelKind::TemperatureCelsius,
-            raw_value: 300,
-            calibrated_f32: 30.0,
-        });
-        pkt.set_channel(4, ChannelValue {
-            channel_id: 4,
-            kind: ChannelKind::PressurePascal,
-            raw_value: 101325,
-            calibrated_f32: 101.325,
-        });
+        pkt.set_channel(
+            0,
+            ChannelValue {
+                channel_id: 0,
+                kind: ChannelKind::TemperatureCelsius,
+                raw_value: 300,
+                calibrated_f32: 30.0,
+            },
+        );
+        pkt.set_channel(
+            4,
+            ChannelValue {
+                channel_id: 4,
+                kind: ChannelKind::PressurePascal,
+                raw_value: 101325,
+                calibrated_f32: 101.325,
+            },
+        );
 
         let batch = TelemetryBatchPod::from(&pkt);
         assert_eq!(batch.active_channel_count(), 2);

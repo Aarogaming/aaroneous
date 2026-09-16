@@ -3,14 +3,17 @@
 //! Monitors executed workflows, measures step compression and thermodynamic free energy dissipation,
 //! and automatically crystallizes high-efficiency pathways into permanent `.si` skill cartridges.
 
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs::{self, File};
 use std::io::Write;
 use std::path::PathBuf;
 
-use crate::machine_native::{DimensionalUnit, MachineOpcode, NativeComputationNode, NativeComputationalGraph, NativeTypeLattice};
+use crate::machine_native::{
+    DimensionalUnit, MachineOpcode, NativeComputationNode, NativeComputationalGraph,
+    NativeTypeLattice,
+};
 use crate::si_binary::SiThoughtPacket;
 
 /// Maturity Status of an Autonomous Skill Module
@@ -47,10 +50,10 @@ pub struct SiSkillModule {
     pub status: SkillMaturityStatus,
     pub execution_count: u64,
     pub success_count: u64,
-    pub step_compression_ratio: f64,    // e.g. 10 prompt steps -> 2 AST nodes = 5.0x compression
-    pub thermodynamic_efficiency: f64,  // Lower dissipated energy (J/op) = higher efficiency
+    pub step_compression_ratio: f64, // e.g. 10 prompt steps -> 2 AST nodes = 5.0x compression
+    pub thermodynamic_efficiency: f64, // Lower dissipated energy (J/op) = higher efficiency
     pub latency_avg_us: u64,
-    pub intrinsic_score: f64,           // Overall meta-learning fitness score
+    pub intrinsic_score: f64, // Overall meta-learning fitness score
     pub created_at_unix: u64,
     pub packet: SiThoughtPacket,
     pub parent_skill_ids: Vec<String>,
@@ -67,7 +70,7 @@ impl SiSkillModule {
 
         let compression_weight = (self.step_compression_ratio / 5.0).clamp(0.2, 3.0);
         let energy_efficiency = (1.0 / (1.0 + self.thermodynamic_efficiency)).clamp(0.1, 1.0);
-        
+
         let score = (success_rate * 0.4) + (compression_weight * 0.35) + (energy_efficiency * 0.25);
         self.intrinsic_score = score;
 
@@ -139,25 +142,28 @@ impl SkillExpansionEngine {
         let compression = (raw_steps_count as f64 / node_count as f64).max(1.0);
         let energy_cost = packet.graph.thermodynamic_free_energy;
 
-        let module = self.skills.entry(skill_id.clone()).or_insert_with(|| SiSkillModule {
-            id: skill_id.clone(),
-            name: name.to_string(),
-            description: description.to_string(),
-            trigger_intent: intent.to_string(),
-            status: SkillMaturityStatus::Candidate,
-            execution_count: 0,
-            success_count: 0,
-            step_compression_ratio: compression,
-            thermodynamic_efficiency: energy_cost,
-            latency_avg_us: execution_latency_us,
-            intrinsic_score: 0.5,
-            created_at_unix: std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .map(|d| d.as_secs())
-                .unwrap_or(0),
-            packet: packet.clone(),
-            parent_skill_ids: Vec::new(),
-        });
+        let module = self
+            .skills
+            .entry(skill_id.clone())
+            .or_insert_with(|| SiSkillModule {
+                id: skill_id.clone(),
+                name: name.to_string(),
+                description: description.to_string(),
+                trigger_intent: intent.to_string(),
+                status: SkillMaturityStatus::Candidate,
+                execution_count: 0,
+                success_count: 0,
+                step_compression_ratio: compression,
+                thermodynamic_efficiency: energy_cost,
+                latency_avg_us: execution_latency_us,
+                intrinsic_score: 0.5,
+                created_at_unix: std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .map(|d| d.as_secs())
+                    .unwrap_or(0),
+                packet: packet.clone(),
+                parent_skill_ids: Vec::new(),
+            });
 
         module.execution_count += 1;
         if success {
@@ -166,11 +172,13 @@ impl SkillExpansionEngine {
         module.latency_avg_us = (module.latency_avg_us + execution_latency_us) / 2;
         module.thermodynamic_efficiency = (module.thermodynamic_efficiency + energy_cost) / 2.0;
         module.step_compression_ratio = (module.step_compression_ratio + compression) / 2.0;
-        
+
         let _score = module.compute_intrinsic_fitness();
 
         // If crystallized or reflex, persist directly as .si cartridge
-        if module.status == SkillMaturityStatus::CrystallizedModule || module.status == SkillMaturityStatus::CoreReflex {
+        if module.status == SkillMaturityStatus::CrystallizedModule
+            || module.status == SkillMaturityStatus::CoreReflex
+        {
             self.crystallize_skill_cartridge(&skill_id)?;
         }
 
@@ -207,12 +215,11 @@ impl SkillExpansionEngine {
         for entry in fs::read_dir(&self.skills_dir)? {
             let entry = entry?;
             let path = entry.path();
-            if path.extension().and_then(|s| s.to_str()) == Some("json") {
-                if let Ok(content) = fs::read_to_string(&path) {
-                    if let Ok(module) = serde_json::from_str::<SiSkillModule>(&content) {
-                        self.skills.insert(module.id.clone(), module);
-                    }
-                }
+            if path.extension().and_then(|s| s.to_str()) == Some("json")
+                && let Ok(content) = fs::read_to_string(&path)
+                && let Ok(module) = serde_json::from_str::<SiSkillModule>(&content)
+            {
+                self.skills.insert(module.id.clone(), module);
             }
         }
 
@@ -230,118 +237,280 @@ impl SkillExpansionEngine {
         let mut g1 = NativeComputationalGraph::new();
         g1.add_node(NativeComputationNode {
             id: 1,
-            opcode: MachineOpcode::Alloc { size_bytes: 4096, align: 64 },
-            type_lattice: NativeTypeLattice::LinearMemoryPointer { mutability: true, alignment: 64 },
+            opcode: MachineOpcode::Alloc {
+                size_bytes: 4096,
+                align: 64,
+            },
+            type_lattice: NativeTypeLattice::LinearMemoryPointer {
+                mutability: true,
+                alignment: 64,
+            },
             energy_cost: 0.02,
             dependencies: Vec::new(),
         });
         g1.add_node(NativeComputationNode {
             id: 2,
-            opcode: MachineOpcode::Call { function_id: 0x4001, arg_regs: vec![1] },
-            type_lattice: NativeTypeLattice::PrimitiveInt { bits: 32, signed: false },
+            opcode: MachineOpcode::Call {
+                function_id: 0x4001,
+                arg_regs: vec![1],
+            },
+            type_lattice: NativeTypeLattice::PrimitiveInt {
+                bits: 32,
+                signed: false,
+            },
             energy_cost: 0.03,
             dependencies: vec![1],
         });
-        let p1 = SiThoughtPacket::new(0x0801, DimensionalUnit::DIMENSIONLESS, vec![0.8, 0.4, 0.9], g1);
-        self.record_and_evaluate_trace("AST Semantic Rewrite", "Rewrites AST patterns deterministically in sub-millisecond cycles", "refactor code ast", 8, p1, 32, true)?;
+        let p1 = SiThoughtPacket::new(
+            0x0801,
+            DimensionalUnit::DIMENSIONLESS,
+            vec![0.8, 0.4, 0.9],
+            g1,
+        );
+        self.record_and_evaluate_trace(
+            "AST Semantic Rewrite",
+            "Rewrites AST patterns deterministically in sub-millisecond cycles",
+            "refactor code ast",
+            8,
+            p1,
+            32,
+            true,
+        )?;
 
         // Skill 2: Thermodynamic Memory Reclaim
         let mut g2 = NativeComputationalGraph::new();
         g2.add_node(NativeComputationNode {
             id: 1,
             opcode: MachineOpcode::EntropyMinimization { state_reg: 1 },
-            type_lattice: NativeTypeLattice::PhysicalQuantity { unit: DimensionalUnit::ENERGY_JOULE, precision: 64 },
+            type_lattice: NativeTypeLattice::PhysicalQuantity {
+                unit: DimensionalUnit::ENERGY_JOULE,
+                precision: 64,
+            },
             energy_cost: 0.01,
             dependencies: Vec::new(),
         });
-        let p2 = SiThoughtPacket::new(0x0802, DimensionalUnit::ENERGY_JOULE, vec![0.1, 0.2, 0.3], g2);
-        self.record_and_evaluate_trace("Thermodynamic Memory Reclaim", "Flushes inactive latent ring buffers and reclaims memory", "reclaim memory cleanup", 5, p2, 18, true)?;
+        let p2 = SiThoughtPacket::new(
+            0x0802,
+            DimensionalUnit::ENERGY_JOULE,
+            vec![0.1, 0.2, 0.3],
+            g2,
+        );
+        self.record_and_evaluate_trace(
+            "Thermodynamic Memory Reclaim",
+            "Flushes inactive latent ring buffers and reclaims memory",
+            "reclaim memory cleanup",
+            5,
+            p2,
+            18,
+            true,
+        )?;
 
         // Skill 3: IPC Synapse Broadcast
         let mut g3 = NativeComputationalGraph::new();
         g3.add_node(NativeComputationNode {
             id: 1,
-            opcode: MachineOpcode::Call { function_id: 0x9000, arg_regs: vec![1, 2] },
-            type_lattice: NativeTypeLattice::LinearMemoryPointer { mutability: false, alignment: 32 },
+            opcode: MachineOpcode::Call {
+                function_id: 0x9000,
+                arg_regs: vec![1, 2],
+            },
+            type_lattice: NativeTypeLattice::LinearMemoryPointer {
+                mutability: false,
+                alignment: 32,
+            },
             energy_cost: 0.04,
             dependencies: Vec::new(),
         });
-        let p3 = SiThoughtPacket::new(0x0803, DimensionalUnit::DIMENSIONLESS, vec![0.5, 0.5, 0.5], g3);
-        self.record_and_evaluate_trace("Zero-Copy Synapse Relay", "Dispatches agent state tensors directly across 64 MB shared synapse", "dispatch synapse relay", 6, p3, 24, true)?;
+        let p3 = SiThoughtPacket::new(
+            0x0803,
+            DimensionalUnit::DIMENSIONLESS,
+            vec![0.5, 0.5, 0.5],
+            g3,
+        );
+        self.record_and_evaluate_trace(
+            "Zero-Copy Synapse Relay",
+            "Dispatches agent state tensors directly across 64 MB shared synapse",
+            "dispatch synapse relay",
+            6,
+            p3,
+            24,
+            true,
+        )?;
 
         // Skill 4: Smart Git Sync
         let mut g4 = NativeComputationalGraph::new();
         g4.add_node(NativeComputationNode {
             id: 1,
-            opcode: MachineOpcode::Alloc { size_bytes: 1024, align: 32 },
-            type_lattice: NativeTypeLattice::LinearMemoryPointer { mutability: true, alignment: 32 },
+            opcode: MachineOpcode::Alloc {
+                size_bytes: 1024,
+                align: 32,
+            },
+            type_lattice: NativeTypeLattice::LinearMemoryPointer {
+                mutability: true,
+                alignment: 32,
+            },
             energy_cost: 0.01,
             dependencies: Vec::new(),
         });
         g4.add_node(NativeComputationNode {
             id: 2,
-            opcode: MachineOpcode::Call { function_id: 0x1004, arg_regs: vec![1] },
-            type_lattice: NativeTypeLattice::PrimitiveInt { bits: 32, signed: true },
+            opcode: MachineOpcode::Call {
+                function_id: 0x1004,
+                arg_regs: vec![1],
+            },
+            type_lattice: NativeTypeLattice::PrimitiveInt {
+                bits: 32,
+                signed: true,
+            },
             energy_cost: 0.02,
             dependencies: vec![1],
         });
-        let p4 = SiThoughtPacket::new(0x0804, DimensionalUnit::DIMENSIONLESS, vec![0.3, 0.7, 0.2], g4);
-        self.record_and_evaluate_trace("Smart Git Sync", "Performs atomic staging and microsecond repository index sync", "git sync stage", 4, p4, 21, true)?;
+        let p4 = SiThoughtPacket::new(
+            0x0804,
+            DimensionalUnit::DIMENSIONLESS,
+            vec![0.3, 0.7, 0.2],
+            g4,
+        );
+        self.record_and_evaluate_trace(
+            "Smart Git Sync",
+            "Performs atomic staging and microsecond repository index sync",
+            "git sync stage",
+            4,
+            p4,
+            21,
+            true,
+        )?;
 
         // Skill 5: Compiler Diagnostic Repair
         let mut g5 = NativeComputationalGraph::new();
         g5.add_node(NativeComputationNode {
             id: 1,
             opcode: MachineOpcode::Load { address_reg: 1 },
-            type_lattice: NativeTypeLattice::LinearMemoryPointer { mutability: false, alignment: 64 },
+            type_lattice: NativeTypeLattice::LinearMemoryPointer {
+                mutability: false,
+                alignment: 64,
+            },
             energy_cost: 0.02,
             dependencies: Vec::new(),
         });
         g5.add_node(NativeComputationNode {
             id: 2,
-            opcode: MachineOpcode::Call { function_id: 0x2005, arg_regs: vec![1] },
-            type_lattice: NativeTypeLattice::PrimitiveInt { bits: 32, signed: false },
+            opcode: MachineOpcode::Call {
+                function_id: 0x2005,
+                arg_regs: vec![1],
+            },
+            type_lattice: NativeTypeLattice::PrimitiveInt {
+                bits: 32,
+                signed: false,
+            },
             energy_cost: 0.03,
             dependencies: vec![1],
         });
-        let p5 = SiThoughtPacket::new(0x0805, DimensionalUnit::DIMENSIONLESS, vec![0.9, 0.1, 0.8], g5);
-        self.record_and_evaluate_trace("Compiler Diagnostic Repair", "Auto-fixes common compiler diagnostic AST mismatches and lint errors", "repair compiler error", 7, p5, 29, true)?;
+        let p5 = SiThoughtPacket::new(
+            0x0805,
+            DimensionalUnit::DIMENSIONLESS,
+            vec![0.9, 0.1, 0.8],
+            g5,
+        );
+        self.record_and_evaluate_trace(
+            "Compiler Diagnostic Repair",
+            "Auto-fixes common compiler diagnostic AST mismatches and lint errors",
+            "repair compiler error",
+            7,
+            p5,
+            29,
+            true,
+        )?;
 
         // Skill 6: Workspace Cache Compactor
         let mut g6 = NativeComputationalGraph::new();
         g6.add_node(NativeComputationNode {
             id: 1,
             opcode: MachineOpcode::EntropyMinimization { state_reg: 1 },
-            type_lattice: NativeTypeLattice::PhysicalQuantity { unit: DimensionalUnit::ENERGY_JOULE, precision: 64 },
+            type_lattice: NativeTypeLattice::PhysicalQuantity {
+                unit: DimensionalUnit::ENERGY_JOULE,
+                precision: 64,
+            },
             energy_cost: 0.01,
             dependencies: Vec::new(),
         });
-        let p6 = SiThoughtPacket::new(0x0806, DimensionalUnit::ENERGY_JOULE, vec![0.1, 0.1, 0.1], g6);
-        self.record_and_evaluate_trace("Workspace Cache Compactor", "Scans and purges stale target/debug dependencies and cache blobs", "clean workspace cache", 5, p6, 15, true)?;
+        let p6 = SiThoughtPacket::new(
+            0x0806,
+            DimensionalUnit::ENERGY_JOULE,
+            vec![0.1, 0.1, 0.1],
+            g6,
+        );
+        self.record_and_evaluate_trace(
+            "Workspace Cache Compactor",
+            "Scans and purges stale target/debug dependencies and cache blobs",
+            "clean workspace cache",
+            5,
+            p6,
+            15,
+            true,
+        )?;
 
         // Skill 7: Process Heartbeat Probe
         let mut g7 = NativeComputationalGraph::new();
         g7.add_node(NativeComputationNode {
             id: 1,
-            opcode: MachineOpcode::Call { function_id: 0x3007, arg_regs: vec![1] },
-            type_lattice: NativeTypeLattice::PrimitiveInt { bits: 64, signed: false },
+            opcode: MachineOpcode::Call {
+                function_id: 0x3007,
+                arg_regs: vec![1],
+            },
+            type_lattice: NativeTypeLattice::PrimitiveInt {
+                bits: 64,
+                signed: false,
+            },
             energy_cost: 0.01,
             dependencies: Vec::new(),
         });
-        let p7 = SiThoughtPacket::new(0x0807, DimensionalUnit::DIMENSIONLESS, vec![0.4, 0.4, 0.4], g7);
-        self.record_and_evaluate_trace("Process Heartbeat Probe", "Probes running hypervisor threads and measures sub-millisecond jitter", "probe process heartbeat", 3, p7, 12, true)?;
+        let p7 = SiThoughtPacket::new(
+            0x0807,
+            DimensionalUnit::DIMENSIONLESS,
+            vec![0.4, 0.4, 0.4],
+            g7,
+        );
+        self.record_and_evaluate_trace(
+            "Process Heartbeat Probe",
+            "Probes running hypervisor threads and measures sub-millisecond jitter",
+            "probe process heartbeat",
+            3,
+            p7,
+            12,
+            true,
+        )?;
 
         // Skill 8: Dimensional Invariant Verifier
         let mut g8 = NativeComputationalGraph::new();
         g8.add_node(NativeComputationNode {
             id: 1,
-            opcode: MachineOpcode::TensorDot { left_reg: 1, right_reg: 2, dim: 64 },
-            type_lattice: NativeTypeLattice::PhysicalQuantity { unit: DimensionalUnit::FORCE_NEWTON, precision: 32 },
+            opcode: MachineOpcode::TensorDot {
+                left_reg: 1,
+                right_reg: 2,
+                dim: 64,
+            },
+            type_lattice: NativeTypeLattice::PhysicalQuantity {
+                unit: DimensionalUnit::FORCE_NEWTON,
+                precision: 32,
+            },
             energy_cost: 0.02,
             dependencies: Vec::new(),
         });
-        let p8 = SiThoughtPacket::new(0x0808, DimensionalUnit::FORCE_NEWTON, vec![0.6, 0.2, 0.7], g8);
-        self.record_and_evaluate_trace("Dimensional Invariant Verifier", "Validates SI units across physical computation graphs", "verify dimensional invariants", 4, p8, 17, true)?;
+        let p8 = SiThoughtPacket::new(
+            0x0808,
+            DimensionalUnit::FORCE_NEWTON,
+            vec![0.6, 0.2, 0.7],
+            g8,
+        );
+        self.record_and_evaluate_trace(
+            "Dimensional Invariant Verifier",
+            "Validates SI units across physical computation graphs",
+            "verify dimensional invariants",
+            4,
+            p8,
+            17,
+            true,
+        )?;
 
         Ok(self.skills.values().cloned().collect())
     }
@@ -370,23 +539,67 @@ mod tests {
         let mut graph = NativeComputationalGraph::new();
         graph.add_node(NativeComputationNode {
             id: 1,
-            opcode: MachineOpcode::Alloc { size_bytes: 1024, align: 16 },
-            type_lattice: NativeTypeLattice::LinearMemoryPointer { mutability: true, alignment: 16 },
+            opcode: MachineOpcode::Alloc {
+                size_bytes: 1024,
+                align: 16,
+            },
+            type_lattice: NativeTypeLattice::LinearMemoryPointer {
+                mutability: true,
+                alignment: 16,
+            },
             energy_cost: 0.05,
             dependencies: Vec::new(),
         });
-        let packet = SiThoughtPacket::new(0x0888, DimensionalUnit::DIMENSIONLESS, vec![1.0, 2.0], graph);
+        let packet = SiThoughtPacket::new(
+            0x0888,
+            DimensionalUnit::DIMENSIONLESS,
+            vec![1.0, 2.0],
+            graph,
+        );
 
         // Record 3 successful high-compression runs
-        engine.record_and_evaluate_trace("Smart Git Sync", "Fast clean and push", "sync git", 10, packet.clone(), 40, true).unwrap();
-        engine.record_and_evaluate_trace("Smart Git Sync", "Fast clean and push", "sync git", 10, packet.clone(), 38, true).unwrap();
-        let skill = engine.record_and_evaluate_trace("Smart Git Sync", "Fast clean and push", "sync git", 10, packet.clone(), 35, true).unwrap();
+        engine
+            .record_and_evaluate_trace(
+                "Smart Git Sync",
+                "Fast clean and push",
+                "sync git",
+                10,
+                packet.clone(),
+                40,
+                true,
+            )
+            .unwrap();
+        engine
+            .record_and_evaluate_trace(
+                "Smart Git Sync",
+                "Fast clean and push",
+                "sync git",
+                10,
+                packet.clone(),
+                38,
+                true,
+            )
+            .unwrap();
+        let skill = engine
+            .record_and_evaluate_trace(
+                "Smart Git Sync",
+                "Fast clean and push",
+                "sync git",
+                10,
+                packet.clone(),
+                35,
+                true,
+            )
+            .unwrap();
 
         assert_eq!(skill.execution_count, 3);
         assert_eq!(skill.success_count, 3);
         assert!(skill.step_compression_ratio >= 5.0);
         assert!(skill.intrinsic_score > 0.70);
-        assert!(skill.status == SkillMaturityStatus::CrystallizedModule || skill.status == SkillMaturityStatus::CoreReflex);
+        assert!(
+            skill.status == SkillMaturityStatus::CrystallizedModule
+                || skill.status == SkillMaturityStatus::CoreReflex
+        );
 
         let cartridge_path = dir.path().join("smart_git_sync.si");
         assert!(cartridge_path.exists());

@@ -1,6 +1,6 @@
 // RLS Numerical Soak Test - 1M-cycle stress test under extreme conditions
 
-use compute::token_consumer::{StateAdaptor, MachineToken};
+use compute::token_consumer::{MachineToken, StateAdaptor};
 use std::time::Instant;
 
 /// Linear Congruential Generator for deterministic pseudo-random numbers
@@ -28,10 +28,16 @@ impl LCG {
 }
 
 /// Plant dynamics: true underlying coefficients we're trying to learn
+#[allow(dead_code)]
 const TRUE_COEFFS: [f64; 4] = [1.0, -2.5, 3.7, -0.8];
 
+#[allow(dead_code)]
 fn plant_output(input: &[f64; 4]) -> f64 {
-    input.iter().zip(TRUE_COEFFS.iter()).map(|(x, w)| x * w).sum()
+    input
+        .iter()
+        .zip(TRUE_COEFFS.iter())
+        .map(|(x, w)| x * w)
+        .sum()
 }
 
 #[test]
@@ -43,7 +49,7 @@ fn test_rls_numerical_soak_1m_cycle() {
     // Initialize RLS state with warm-start covariance (identity scaled)
     let initial_cov = [0.5f32; 16]; // 4x4 = 16 f32s
     let mut adaptor = StateAdaptor::<4, 16>::new(initial_cov, 0.98);
-    
+
     println!("State Adaptor initialized");
     println!("  - Dimension: 4 features");
     println!("  - Covariance: 4x4 matrix (16 f32s)");
@@ -52,11 +58,11 @@ fn test_rls_numerical_soak_1m_cycle() {
 
     // Initialize RNG with fixed seed for determinism
     let mut rng = LCG::new(42);
-    
+
     const TOTAL_CYCLES: usize = 1_000_000;
     const CHECKPOINT_INTERVAL: usize = 10_000;
     const PERTURBATION_INTERVAL: usize = 25_000;
-    
+
     println!("\nStarting {} cycle stress test...", TOTAL_CYCLES);
     let start = Instant::now();
 
@@ -70,7 +76,7 @@ fn test_rls_numerical_soak_1m_cycle() {
         // Generate deterministic input with high colinearity + tiny noise
         let base_input: [f64; 4] = [1.0, 2.0, 3.0, 4.0];
         let mut noisy_input: [f64; 4] = [0.0; 4];
-        
+
         for i in 0..4 {
             // Base + tiny epsilon noise (1e-5) to create near-colinearity
             noisy_input[i] = base_input[i] + rng.next() * 1e-5;
@@ -114,10 +120,12 @@ fn test_rls_numerical_soak_1m_cycle() {
         if cycle % CHECKPOINT_INTERVAL == 0 && cycle > 0 {
             let elapsed = start.elapsed().as_secs_f64();
             let cycles_per_sec = valid_cycles as f64 / elapsed;
-            
-            println!("Cycle {} | Valid: {} | NaN: {} | Inf: {} | Params: {} | Rate: {:.2} cyc/s",
-                     cycle, valid_cycles, nan_count, inf_count, param_violations, cycles_per_sec);
-            
+
+            println!(
+                "Cycle {} | Valid: {} | NaN: {} | Inf: {} | Params: {} | Rate: {:.2} cyc/s",
+                cycle, valid_cycles, nan_count, inf_count, param_violations, cycles_per_sec
+            );
+
             last_checkpoint = format!("Cycle {}", cycle);
         }
 
@@ -138,15 +146,22 @@ fn test_rls_numerical_soak_1m_cycle() {
     println!("NaN errors:            {}", nan_count);
     println!("Inf errors:            {}", inf_count);
     println!("Parameter violations:  {}", param_violations);
-    println!("Elapsed time:          {:.2} seconds", elapsed.as_secs_f64());
+    println!("Last checkpoint:       {}", last_checkpoint);
+    println!(
+        "Elapsed time:          {:.2} seconds",
+        elapsed.as_secs_f64()
+    );
     println!("Throughput:            {:.2} cycles/second", cycles_per_sec);
 
     // Verify stability criteria
     assert!(nan_count == 0, "NaN propagation detected!");
     assert!(inf_count == 0, "Infinity propagation detected!");
     assert!(param_violations == 0, "Parameter bounds exceeded!");
-    
-    println!("\nAll {} cycles completed without numerical collapse!", TOTAL_CYCLES);
+
+    println!(
+        "\nAll {} cycles completed without numerical collapse!",
+        TOTAL_CYCLES
+    );
     println!("Zero NaN/Inf propagation under extreme colinearity");
     println!("Parameter bounds enforced throughout stress test");
 
@@ -156,5 +171,8 @@ fn test_rls_numerical_soak_1m_cycle() {
 
     // Verify convergence toward true plant dynamics (placeholder)
     // In production: compare final parameters to TRUE_COEFFS
-    println!("Convergence check: Parameters should approach TRUE_COEFFS = {:?}", TRUE_COEFFS);
+    println!(
+        "Convergence check: Parameters should approach TRUE_COEFFS = {:?}",
+        TRUE_COEFFS
+    );
 }

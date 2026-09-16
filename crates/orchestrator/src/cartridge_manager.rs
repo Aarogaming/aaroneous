@@ -5,18 +5,18 @@
 //! 1. Auto-tunes host execution profile (Studio, Headless, Embedded Bridge).
 //! 2. Unpacks and mounts `.si` / `.si-pack` archives into active execution registers.
 
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
 /// Host System Hardware Capability Profile
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum HostSystemProfile {
-    MasterStudio,        // Discrete GPU + multi-core CPU (Full 3D HUD & Studio)
-    HeadlessDaemon,      // Server/headless execution (IPC + P2P Mesh only)
-    EmbeddedBridge,      // Low-power or SoC device (Microcontroller/Head-Unit bridge)
-    EdgeNpuAccelerated,  // Dedicated Neural Processing Unit (NPU >= 10 TOPS)
-    DistributedSwarmNode,// Multi-node worker participating in Iroh fleet mesh
+    MasterStudio,         // Discrete GPU + multi-core CPU (Full 3D HUD & Studio)
+    HeadlessDaemon,       // Server/headless execution (IPC + P2P Mesh only)
+    EmbeddedBridge,       // Low-power or SoC device (Microcontroller/Head-Unit bridge)
+    EdgeNpuAccelerated,   // Dedicated Neural Processing Unit (NPU >= 10 TOPS)
+    DistributedSwarmNode, // Multi-node worker participating in Iroh fleet mesh
 }
 
 /// Detailed Hardware Capabilities and Telemetry
@@ -190,7 +190,8 @@ impl CartridgePackManager {
         cartridge_bytes.extend_from_slice(b"SINT");
         cartridge_bytes.extend_from_slice(&[3u8, 0, 0, 0]); // Version 3.0.0
         cartridge_bytes.extend_from_slice(&(comp_graph.nodes.len() as u32).to_le_bytes()); // Node count
-        cartridge_bytes.extend_from_slice(&(comp_graph.thermodynamic_free_energy as f32).to_le_bytes()); // Free energy bound
+        cartridge_bytes
+            .extend_from_slice(&(comp_graph.thermodynamic_free_energy as f32).to_le_bytes()); // Free energy bound
 
         // Persist to habit storage path if directory exists
         let habit_file = self.staging_dir.join(format!("{}.si", habit_name));
@@ -236,11 +237,12 @@ mod tests {
 
     #[test]
     fn test_cartridge_pack_ingestion_and_lifecycle() {
-        let temp_dir = tempfile::tempdir().unwrap().into_path();
+        let temp = tempfile::tempdir().unwrap();
+        let temp_dir = temp.path();
         let pack_file = temp_dir.join("test_navigation.si-pack");
         std::fs::write(&pack_file, b"SI_PACK_MOCK_DATA").unwrap();
 
-        let mut mgr = CartridgePackManager::new(&temp_dir);
+        let mut mgr = CartridgePackManager::new(temp_dir);
         let manifest = mgr.ingest_cartridge_pack(&pack_file).unwrap();
 
         assert_eq!(manifest.pack_name, "test_navigation");
@@ -257,11 +259,14 @@ mod tests {
 
     #[test]
     fn test_sint_cartridge_validation_and_mount() {
-        let temp_dir = tempfile::tempdir().unwrap().into_path();
-        let mut mgr = CartridgePackManager::new(&temp_dir);
+        let temp = tempfile::tempdir().unwrap();
+        let temp_dir = temp.path();
+        let mut mgr = CartridgePackManager::new(temp_dir);
 
         let valid_sint = b"SINT\x03\x00\x00\x00\x00\x00\x00\x00";
-        let manifest = mgr.validate_and_mount_sint_cartridge("reflex_orbit", valid_sint).unwrap();
+        let manifest = mgr
+            .validate_and_mount_sint_cartridge("reflex_orbit", valid_sint)
+            .unwrap();
         assert_eq!(manifest.pack_name, "reflex_orbit");
         assert_eq!(manifest.version, "3.0.0");
         assert_eq!(mgr.mounted_count(), 1);
@@ -273,19 +278,27 @@ mod tests {
 
     #[test]
     fn test_crystallize_workflow_habit() {
-        let temp_dir = tempfile::tempdir().unwrap().into_path();
-        let mut mgr = CartridgePackManager::new(temp_dir.clone());
+        let temp = tempfile::tempdir().unwrap();
+        let temp_dir = temp.path();
+        let mut mgr = CartridgePackManager::new(temp_dir);
 
         let mut wf = crate::workflow_engine::WorkflowGraph::new("code_synthesis_habit");
         wf.add_step("s1", "Fabricator", "Alloc", "buffer_64", vec![], 2);
-        wf.add_step("s2", "Synthesizer", "TensorDot", "{}", vec!["s1".to_string()], 2);
+        wf.add_step(
+            "s2",
+            "Synthesizer",
+            "TensorDot",
+            "{}",
+            vec!["s1".to_string()],
+            2,
+        );
 
-        let manifest = mgr.crystallize_workflow_habit("crystallized_tensor_op", &wf).unwrap();
+        let manifest = mgr
+            .crystallize_workflow_habit("crystallized_tensor_op", &wf)
+            .unwrap();
         assert_eq!(manifest.pack_name, "crystallized_tensor_op");
         assert_eq!(manifest.version, "3.0.0");
         assert_eq!(manifest.domain, "CrystallizedHabit");
         assert_eq!(mgr.mounted_count(), 1);
-
-        let _ = std::fs::remove_dir_all(&temp_dir);
     }
 }

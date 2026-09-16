@@ -10,7 +10,7 @@ fn main() -> Result<()> {
 
     // Initialize sampler and emitter
     let mut sampler = SystemTelemetrySampler::new(4096)?;
-    
+
     println!("System Telemetry Sampler initialized");
     println!("  - Ring buffer capacity: 4096 tokens");
     println!("  - Sampling mode: Real-time hardware metrics");
@@ -19,7 +19,7 @@ fn main() -> Result<()> {
     // Run sampling loop for 5 seconds
     const DURATION_SEC: u64 = 5;
     const SAMPLE_INTERVAL_US: u64 = 1_000; // 1ms intervals
-    
+
     println!("\nStarting {}-second sampling loop...", DURATION_SEC);
     let start = std::time::Instant::now();
 
@@ -31,13 +31,16 @@ fn main() -> Result<()> {
         match sampler.sample() {
             Ok(()) => {
                 tokens_emitted += 1;
-                
+
                 // Progress indicator every 1 second (integer seconds)
                 let elapsed_secs = start.elapsed().as_secs();
                 if elapsed_secs > 0 && elapsed_secs % 1 == 0 {
-                    println!("Time: {}s | Tokens emitted: {}, Rate: {:.2} tok/s",
-                             elapsed_secs, tokens_emitted, 
-                             tokens_emitted as f64 / start.elapsed().as_secs_f64());
+                    println!(
+                        "Time: {}s | Tokens emitted: {}, Rate: {:.2} tok/s",
+                        elapsed_secs,
+                        tokens_emitted,
+                        tokens_emitted as f64 / start.elapsed().as_secs_f64()
+                    );
                 }
             }
             Err(e) => {
@@ -47,7 +50,7 @@ fn main() -> Result<()> {
 
         // Simulate compute::token_consumer processing (placeholder)
         // In production: stream tokens to RLS adaptor for real-time convergence analysis
-        
+
         // Checkpoint every 1ms
         if start.elapsed().as_micros() % (SAMPLE_INTERVAL_US as u128) == 0 {
             // Verify zero heap allocations during active sampling
@@ -61,14 +64,21 @@ fn main() -> Result<()> {
 
     println!("\n.-----------------------------------------------------------.");
     println!("\n=== STREAMING RESULTS ===");
-    println!("Duration:              {:.2} seconds", elapsed.as_secs_f64());
+    println!(
+        "Duration:              {:.2} seconds",
+        elapsed.as_secs_f64()
+    );
     println!("Total samples:         {}", tokens_emitted);
     println!("Sample rate:           {:.2} samples/sec", samples_per_sec);
-    
+    println!("Checkpoints evaluated: {}", allocation_count);
+
     // Verify streaming success criteria
     assert!(tokens_emitted > 0, "No tokens emitted!");
-    
-    println!("\nSuccessfully streamed {} live hardware state tokens!", tokens_emitted);
+
+    println!(
+        "\nSuccessfully streamed {} live hardware state tokens!",
+        tokens_emitted
+    );
     println!("Zero heap allocations during active sampling (stack-allocated)");
     println!("Real-time RLS convergence on actual OS performance characteristics");
 

@@ -6,7 +6,7 @@
 //! 3. `pack`: Serialize Block 1 (Frozen SSM Core), Block 2 (LoRA Delta), and Block 3 (Episodic Skill Stack + Trajectories) into `.si` v3.0 containers.
 //! 4. `verify`: Validate header magic, version, memory alignment, checksums, and thermodynamic invariants.
 
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use serde::{Deserialize, Serialize};
 use std::fs::{self, File};
 use std::io::Write;
@@ -14,11 +14,11 @@ use std::path::{Path, PathBuf};
 
 use crate::si_packer::{SiPacker, SiSolidStateLoader, SiTierFlags};
 use crate::si_spec::{
-    compute_crc32, SiCartridgeHeader, SI_CANONICAL_MAGIC, SI_CANONICAL_VERSION,
-    SI_FLAG_TIER_1_CORTEX, SI_FLAG_TIER_2_ROUTER, SI_FLAG_TIER_3_REFLEX, SI_HEADER_SIZE,
+    SI_CANONICAL_MAGIC, SI_CANONICAL_VERSION, SI_FLAG_TIER_1_CORTEX, SI_FLAG_TIER_2_ROUTER,
+    SI_FLAG_TIER_3_REFLEX, SI_HEADER_SIZE, SiCartridgeHeader, compute_crc32,
 };
 use crate::si_ssm::{SiSsmConfig, SiStateSpaceModel};
-use crate::si_trainer::{run_bootstrapper, BootstrapperConfig, BootstrapperEpochReport};
+use crate::si_trainer::{BootstrapperConfig, BootstrapperEpochReport, run_bootstrapper};
 use crate::translation_dataset::TranslationDataset;
 
 /// Distillation Report generated after training student manifold
@@ -59,7 +59,7 @@ pub struct SiForge {
     pub d_state: usize,
     pub lora_rank: usize,
     pub num_layers: usize,
-    pub rosetta_stone_path: Option<PathBuf>,
+    pub translation_dataset_path: Option<PathBuf>,
     pub epochs: usize,
     pub batch_size: usize,
     pub learning_rate: f32,
@@ -76,7 +76,7 @@ impl SiForge {
             d_state: 16,
             lora_rank: 16,
             num_layers: 2,
-            rosetta_stone_path: None,
+            translation_dataset_path: None,
             epochs: 5,
             batch_size: 16,
             learning_rate: 0.001,
@@ -109,7 +109,7 @@ impl SiForge {
 
     /// Provide a custom teacher dataset path for distillation
     pub fn with_training_data(mut self, path: impl Into<PathBuf>) -> Self {
-        self.rosetta_stone_path = Some(path.into());
+        self.translation_dataset_path = Some(path.into());
         self
     }
 
@@ -149,15 +149,18 @@ impl SiForge {
         };
 
         let (_trained_bootstrapper, epoch_reports) = run_bootstrapper(dataset, bs_config);
-        let last = epoch_reports.last().cloned().unwrap_or(BootstrapperEpochReport {
-            epoch: 0,
-            ce_loss: 0.0,
-            cka_loss: 0.0,
-            infonce_loss: 0.0,
-            total_loss: 0.0,
-            opcode_accuracy_pct: 100.0,
-            duration_ms: 0,
-        });
+        let last = epoch_reports
+            .last()
+            .cloned()
+            .unwrap_or(BootstrapperEpochReport {
+                epoch: 0,
+                ce_loss: 0.0,
+                cka_loss: 0.0,
+                infonce_loss: 0.0,
+                total_loss: 0.0,
+                opcode_accuracy_pct: 100.0,
+                duration_ms: 0,
+            });
 
         Ok(DistillationReport {
             model_id: self.model_id.clone(),
@@ -235,10 +238,10 @@ impl SiForge {
             block3_len,
         };
 
-        if let Some(parent) = output_path.parent() {
-            if !parent.exists() {
-                fs::create_dir_all(parent)?;
-            }
+        if let Some(parent) = output_path.parent()
+            && !parent.exists()
+        {
+            fs::create_dir_all(parent)?;
         }
 
         let mut file = File::create(output_path)?;
@@ -320,7 +323,10 @@ impl SiForge {
 
     /// Execute the complete end-to-end birthing process: Distill -> Align -> Pack -> Verify
     pub fn birth(&self, output_dir: &Path) -> Result<PathBuf> {
-        println!("🔥 [SiForge] Forging new .si container: '{}'", self.model_id);
+        println!(
+            "🔥 [SiForge] Forging new .si container: '{}'",
+            self.model_id
+        );
         println!("   -> Architectural Tier: {}", self.tier.label());
         println!(
             "   -> Geometry: d_model={}, d_state={}, LoRA rank={}, layers={}",
@@ -333,9 +339,12 @@ impl SiForge {
         }
 
         // 1. Prepare Translation Dataset
-        let dataset = if let Some(ref data_path) = self.rosetta_stone_path {
+        let dataset = if let Some(ref data_path) = self.translation_dataset_path {
             if data_path.exists() {
-                println!("   -> Step 1: Loading teacher trajectories from {:?}", data_path);
+                println!(
+                    "   -> Step 1: Loading teacher trajectories from {:?}",
+                    data_path
+                );
                 TranslationDataset::load_from_file(data_path)?
             } else {
                 println!(
@@ -381,7 +390,10 @@ impl SiForge {
 
         let model = SiStateSpaceModel::new(ssm_config, false)?;
         let core_weights = model.export_to_si_map()?;
-        println!("   -> Extracted {} weight tensors for memory-mapping.", core_weights.len());
+        println!(
+            "   -> Extracted {} weight tensors for memory-mapping.",
+            core_weights.len()
+        );
 
         // 4. Assemble and Pack into 64/128-byte aligned .si container
         println!("   -> Step 4: Packing solid-state container with 64-byte SIMD alignment...");

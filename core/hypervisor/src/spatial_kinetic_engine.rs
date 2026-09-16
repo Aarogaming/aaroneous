@@ -16,7 +16,7 @@ use crate::win32_intercept::hid_bridge::{HIDOutputBridge, MotorIntent};
 /// Configuration for the spatial-kinetic engine
 #[derive(Clone)]
 pub struct SpatialKineticConfig {
-    pub genome_path: PathBuf,
+    pub profile_path: PathBuf,
     pub reflex_shader_path: PathBuf,
     pub gate_shader_path: Option<PathBuf>,
     pub target_fps: f32,
@@ -29,7 +29,7 @@ pub struct SpatialKineticConfig {
 impl Default for SpatialKineticConfig {
     fn default() -> Self {
         Self {
-            genome_path: PathBuf::from("chromosomes/universal_gaming_core.bin"),
+            profile_path: PathBuf::from("chromosomes/universal_gaming_core.bin"),
             reflex_shader_path: PathBuf::from("shaders/reflex_kernel.wgsl"),
             gate_shader_path: None,
             target_fps: 30.0,
@@ -75,7 +75,8 @@ impl SpatialKineticEngine {
             config: config.clone(),
             capture: Win32ScreenCapture::new(),
             gate_pipeline: SpatialDeltaPipeline::new(),
-            hid_bridge: HIDOutputBridge::new(config.enable_hid_output).with_sensitivity(config.mouse_sensitivity),
+            hid_bridge: HIDOutputBridge::new(config.enable_hid_output)
+                .with_sensitivity(config.mouse_sensitivity),
             wgpu_pipeline: None,
             telemetry: EngineTelemetry {
                 frame_id: 0,
@@ -139,7 +140,7 @@ impl SpatialKineticEngine {
 
         // Load genome and create reflex pipeline
         let pipeline =
-            WgpuReflexPipeline::new(device, queue, &self.config.genome_path, &reflex_shader)
+            WgpuReflexPipeline::new(device, queue, &self.config.profile_path, &reflex_shader)
                 .await?;
 
         self.telemetry.genome_voxels = pipeline.voxel_count() as u64;

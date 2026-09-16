@@ -152,7 +152,10 @@ impl MotorCortex {
     }
 
     /// Finds the nearest semantic skill in R^256 intent space
-    pub fn find_nearest_skill(&self, intent: &[f32; MOTOR_INTENT_DIM]) -> Option<(&MotorSkillNode, f32)> {
+    pub fn find_nearest_skill(
+        &self,
+        intent: &[f32; MOTOR_INTENT_DIM],
+    ) -> Option<(&MotorSkillNode, f32)> {
         let mut best_node = None;
         let mut min_dist = f32::MAX;
 
@@ -201,7 +204,10 @@ mod tests {
             description: "Click primary mouse button".into(),
             skill_type: SkillType::Primitive { opcode_id: 0x01 },
             intent_embedding: intent1,
-            state: StarState::Crystallized { addr: 0x7FFA_0001, time_ns: 95 },
+            state: StarState::Crystallized {
+                addr: 0x7FFA_0001,
+                time_ns: 95,
+            },
             children: vec![],
             execution_count: 50,
             success_count: 50,

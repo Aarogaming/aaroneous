@@ -38,7 +38,7 @@ impl HudView for SpatialSensoryView {
                 // Hive Intent Input Deck
                 egui::Frame::group(ui.style())
                     .fill(theme.card_bg())
-                    .stroke(Stroke::new(1.0, theme.border_color()))
+                    .stroke(Stroke::new(1.0_f32, theme.border_color()))
                     .corner_radius(CornerRadius::same(8))
                     .show(ui, |ui| {
                         ui.set_min_width(ui.available_width());
@@ -133,7 +133,7 @@ impl HudView for SpatialSensoryView {
                         for (name, opcode, desc, color) in &specialists {
                             egui::Frame::group(ui.style())
                                 .fill(theme.card_bg())
-                                .stroke(Stroke::new(1.0, theme.border_color()))
+                                .stroke(Stroke::new(1.0_f32, theme.border_color()))
                                 .corner_radius(CornerRadius::same(6))
                                 .show(ui, |ui| {
                                     ui.set_min_width(ui.available_width());
@@ -179,7 +179,7 @@ impl HudView for SpatialSensoryView {
 
                 egui::Frame::group(ui.style())
                     .fill(theme.card_bg())
-                    .stroke(Stroke::new(1.0, theme.border_color()))
+                    .stroke(Stroke::new(1.0_f32, theme.border_color()))
                     .corner_radius(CornerRadius::same(6))
                     .show(ui, |ui| {
                         ui.set_min_width(ui.available_width());

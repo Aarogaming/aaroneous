@@ -1,6 +1,8 @@
 //! crates/adaptation_engine
 //! Universal software adaptation, binary deconstruction, AST mutation, and code repair engine for Aaroneous.
 
+#![deny(unsafe_code)]
+
 pub mod analysis;
 pub mod ast_parser;
 pub mod auto_wrapper;
@@ -10,7 +12,6 @@ pub mod disassembly;
 pub mod error_interceptor;
 pub mod fascia;
 pub mod harvest;
-pub mod source_extraction;
 pub mod mutation;
 pub mod parallel_scanner;
 pub mod pattern_rewriter;
@@ -21,19 +22,28 @@ pub mod sandbox;
 pub mod scientific_loop;
 pub mod self_rebuild;
 pub mod self_repair;
+pub mod source_extraction;
 pub mod streaming_adaptation;
 pub mod workspace;
 
 pub use fascia::*;
-pub use source_extraction::*;
 pub use ring::*;
+pub use source_extraction::*;
 pub use workspace::*;
 
 pub use streaming_adaptation::{
-    apply_adaptation, StreamingAdaptationReport, StreamingLoraAdaptationPipeline, DEFAULT_LORA_RANK,
-    LATENT_DIM,
+    DEFAULT_LORA_RANK, LATENT_DIM, StreamingAdaptationReport, StreamingLoraAdaptationPipeline,
+    apply_adaptation,
 };
 
+pub use analysis::{
+    AnalysisReport, BatchAnalysisReport, ConfidenceUpdate, ConstellationUpdate, ExperimentDesign,
+    ExperimentResult, Hypothesis, PipelineSummary, ScientificPipeline, TestOutcome, Verdict,
+    VerificationResult, batch_compute_similarity, batch_extract_features,
+    batch_generate_hypotheses, batch_run_experiments, batch_verify, compute_code_information_flow,
+    detect_code_clones, prioritize_tests, run_batch_analysis,
+};
+pub use ast_parser::{AstDiffResult, AstObservation, AstParser, FunctionSignature, SourceLanguage};
 pub use auto_wrapper::{
     AutoWrapperEngine, ComponentExecutionResponse, ComponentResponse, NativeComponentRunner,
     NativeOrganRunner, OrganResponse, ProbeValidationReport, TargetCapabilityManifest,
@@ -42,23 +52,17 @@ pub use auto_wrapper::{
 pub use autonomous_scientific::{
     AutonomousScientificEngine, HypothesisCategory, ScientificCycleReport, TestedHypothesis,
 };
-pub use analysis::{
-    batch_compute_similarity, batch_extract_features, batch_generate_hypotheses,
-    batch_run_experiments, batch_verify, compute_code_information_flow, detect_code_clones,
-    prioritize_tests, run_batch_analysis, AnalysisReport, BatchAnalysisReport, ConfidenceUpdate,
-    ConstellationUpdate, ExperimentDesign, ExperimentResult, Hypothesis, PipelineSummary,
-    ScientificPipeline, TestOutcome, Verdict, VerificationResult,
-};
-pub use ast_parser::{AstDiffResult, AstObservation, AstParser, FunctionSignature, SourceLanguage};
 pub use dev_tools::{CompilerDiagnosticItem, DevToolsEngine, WorkspaceFileItem};
 pub use disassembly::{
     BasicBlock, BinaryFormatKind, BinaryInspector, BinaryManifest, BinarySection,
     DisassembledInstruction, TargetArchitecture,
 };
 pub use error_interceptor::{InterceptedProcessError, ProcessErrorInterceptor};
-pub use mutation::{fnv1a, CodeMutator, PatchProposal};
+pub use mutation::{CodeMutator, PatchProposal, fnv1a};
 pub use parallel_scanner::{BatchScanReport, ParallelScanner};
-pub use pattern_rewriter::{PatternMatch, PatternRewriter, SmtInterlockedRewriter, StructuralPatch};
+pub use pattern_rewriter::{
+    PatternMatch, PatternRewriter, SmtInterlockedRewriter, StructuralPatch,
+};
 pub use protocol_bridge::{ChimeraProtocolBridge, MnlpPatchPacket, MnlpProtocolBridge};
 pub use repo_watcher::{RepoWatcher, SourceChangeEvent};
 pub use sandbox::ShadowSandbox;
@@ -136,7 +140,8 @@ pub fn broken_routine() {
             code,
             "panic!(\"fatal memory condition\");",
             "tracing::error!(\"handled memory condition\");",
-        ).unwrap();
+        )
+        .unwrap();
 
         assert_eq!(obs.functions.len(), 1);
         assert!(report.success);
@@ -181,7 +186,8 @@ pub fn third() {}
             code,
             "println!(\"hello\")",
             "tracing::info!(\"hello\")",
-        ).unwrap();
+        )
+        .unwrap();
         assert!(rewritten.contains("tracing::info"));
         assert!(!patches.is_empty());
     }
@@ -194,7 +200,8 @@ pub fn third() {}
             code,
             "nonexistent_pattern",
             "replacement",
-        ).unwrap();
+        )
+        .unwrap();
         assert_eq!(rewritten, code);
         assert!(patches.is_empty());
     }
@@ -207,7 +214,8 @@ pub fn third() {}
             code,
             "panic!(\"error\")",
             "return Err(\"error\");",
-        ).unwrap();
+        )
+        .unwrap();
         assert!(patches.len() >= 2, "Should match both occurrences");
     }
 

@@ -564,7 +564,7 @@ print(f"LoRA adapter saved: {adapter_output}")
             base_model = self.base_model_path,
             max_seq_len = self.max_seq_length,
             rank = self.lora_rank,
-            target_modules = &self.target_modules,
+            target_modules = self.target_modules,
             alpha = self.lora_alpha,
             dropout = self.lora_dropout,
             data_path = self.training_data_path,

@@ -4,8 +4,8 @@
 //! Ensures magic bytes, tier flags, and alignment invariants are enforced
 //! consistently across packers, loaders, and pipelines.
 
-use anyhow::{bail, Result};
 use crate::utils::ALIGNMENT_BYTES;
+use anyhow::{Result, bail};
 
 /// Magic bytes for `.si` SINT containers (distinct from legacy v2 JSON containers)
 pub const SINT_PACKER_MAGIC: [u8; 4] = *b"SINT";
@@ -46,16 +46,10 @@ pub fn validate_version(version: u32) -> Result<()> {
 /// Returns `Err` if the offset is not 64-byte aligned or the length is not a multiple of 4.
 pub fn validate_tensor_descriptor(offset: u64, length: u64) -> Result<()> {
     if !(offset as usize).is_multiple_of(ALIGNMENT_BYTES) {
-        bail!(
-            "Tensor byte_offset {} is not 64-byte aligned",
-            offset
-        );
+        bail!("Tensor byte_offset {} is not 64-byte aligned", offset);
     }
     if !(length as usize).is_multiple_of(4) {
-        bail!(
-            "Tensor byte_length {} is not a multiple of 4 (f32)",
-            length
-        );
+        bail!("Tensor byte_length {} is not a multiple of 4 (f32)", length);
     }
     Ok(())
 }
@@ -71,7 +65,10 @@ pub const CAPABILITY_JIT_EXECUTION: u32 = 1 << 4;
 pub fn validate_capability_mask(granted_mask: u32, required_mask: u32) -> Result<()> {
     if (granted_mask & required_mask) != required_mask {
         let missing = required_mask & !granted_mask;
-        bail!("Capability violation: missing required permissions (mask 0x{:08X})", missing);
+        bail!(
+            "Capability violation: missing required permissions (mask 0x{:08X})",
+            missing
+        );
     }
     Ok(())
 }
@@ -84,7 +81,11 @@ pub fn validate_payload_checksum(data: &[u8], expected_fnv1a: u32) -> Result<()>
         hash = hash.wrapping_mul(0x01000193);
     }
     if hash != expected_fnv1a {
-        bail!("Payload integrity check failed: expected 0x{:08X}, got 0x{:08X}", expected_fnv1a, hash);
+        bail!(
+            "Payload integrity check failed: expected 0x{:08X}, got 0x{:08X}",
+            expected_fnv1a,
+            hash
+        );
     }
     Ok(())
 }

@@ -4,14 +4,16 @@
 
 #![deny(unsafe_code)]
 
+pub use adaptation_engine;
 pub use ast_auditor;
 pub use transpiler;
-pub use adaptation_engine;
 
 // Convenience re-exports
-pub use ast_auditor::{run_workspace_audit, UnifiedAuditReport};
-pub use transpiler::{create_crate_scaffold, create_crate_scaffold_at, scaffold_crate, scaffold_crate_at};
-pub use adaptation_engine::{harvest, harvest_path, CrateSpec, HarvestConfig, ParseStrategy};
+pub use adaptation_engine::{CrateSpec, HarvestConfig, ParseStrategy, harvest, harvest_path};
+pub use ast_auditor::{UnifiedAuditReport, run_workspace_audit};
+pub use transpiler::{
+    create_crate_scaffold, create_crate_scaffold_at, scaffold_crate, scaffold_crate_at,
+};
 
 #[cfg(test)]
 mod tests {

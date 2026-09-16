@@ -1,10 +1,10 @@
-use crate::chromosome_registry::HoxChromosome;
+use crate::node_registry::NodeDefinition;
 use anyhow::{Result, anyhow};
 use parking_lot::RwLock;
 use std::sync::Arc;
 
 pub struct DeltaOrchestrator {
-    active_switches: Arc<RwLock<Option<HoxChromosome>>>,
+    active_switches: Arc<RwLock<Option<NodeDefinition>>>,
 }
 
 impl Default for DeltaOrchestrator {
@@ -22,28 +22,28 @@ impl DeltaOrchestrator {
 
     /// Hot-swaps the functional state of a Husk without touching the base weights.
     /// In a full implementation, this notifies the GGUF loader to swap LoRA adapters in VRAM.
-    pub fn express_chromosome(&self, chromosome: HoxChromosome) -> Result<()> {
+    pub fn activate_node(&self, profile: NodeDefinition) -> Result<()> {
         println!(
             "[DeltaOrchestrator] Expressing chromosome for: {}",
-            chromosome.agent_id
+            profile.agent_id
         );
 
         // 1. Verify base model presence
-        if !std::path::Path::new(&chromosome.base_model_path).exists() {
+        if !std::path::Path::new(&profile.base_model_path).exists() {
             return Err(anyhow!(
                 "Base model (Husk) not found: {}",
-                chromosome.base_model_path
+                profile.base_model_path
             ));
         }
 
         // 2. Notify internal runner to swap LoRAs (Simulated)
-        for lora in &chromosome.epigenetic_switches.active_loras {
+        for lora in &profile.lora_switches.active_loras {
             println!("[DeltaOrchestrator] Splicing Rank-1 LoRA: {}", lora);
         }
 
         // 3. Update the active switches
         let mut guard = self.active_switches.write();
-        *guard = Some(chromosome);
+        *guard = Some(profile);
 
         println!("[DeltaOrchestrator] Hot-swap complete. Functional phenotype expressed.");
         Ok(())

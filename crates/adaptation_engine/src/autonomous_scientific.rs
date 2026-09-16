@@ -77,14 +77,25 @@ impl AutonomousScientificEngine {
 
         // Hypothesis A: Panic Elimination
         if code.contains("panic!(") || code.contains("unwrap()") {
-            let target_pat = if code.contains("panic!(") { "panic!(" } else { ".unwrap()" };
-            let replacement = if target_pat == "panic!(" { "return Err(anyhow!(" } else { "?" };
+            let target_pat = if code.contains("panic!(") {
+                "panic!("
+            } else {
+                ".unwrap()"
+            };
+            let replacement = if target_pat == "panic!(" {
+                "return Err(anyhow!("
+            } else {
+                "?"
+            };
 
-            let patch_res = CodeMutator::synthesize_repair(&path_str, code, target_pat, replacement);
+            let patch_res =
+                CodeMutator::synthesize_repair(&path_str, code, target_pat, replacement);
             if let Ok(patch) = patch_res {
                 let prior = 0.65f64;
                 let likelihood_ratio = 1.45f64; // Bayesian likelihood update
-                let posterior = ((prior * likelihood_ratio) / ((prior * likelihood_ratio) + (1.0 - prior))).clamp(0.0, 0.99);
+                let posterior = ((prior * likelihood_ratio)
+                    / ((prior * likelihood_ratio) + (1.0 - prior)))
+                    .clamp(0.0, 0.99);
 
                 let is_accepted = posterior > 0.70 && patch.patch_content != code;
                 if is_accepted {
@@ -95,13 +106,25 @@ impl AutonomousScientificEngine {
                 tested_hypotheses.push(TestedHypothesis {
                     hypothesis_id: format!("hyp_resilience_{}", patch.original_checksum),
                     category: HypothesisCategory::PanicElimination,
-                    description: format!("Replacing '{}' with safe error propagation increases resilience", target_pat),
+                    description: format!(
+                        "Replacing '{}' with safe error propagation increases resilience",
+                        target_pat
+                    ),
                     target_symbol: target_pat.to_string(),
                     prior_confidence: prior,
                     posterior_confidence: posterior,
                     performance_delta_pct: 5.0,
-                    verdict: if is_accepted { "HYPOTHESIS_ACCEPTED".to_string() } else { "REJECTED".to_string() },
-                    patch_preview: patch.patch_content.lines().take(3).collect::<Vec<_>>().join("\n"),
+                    verdict: if is_accepted {
+                        "HYPOTHESIS_ACCEPTED".to_string()
+                    } else {
+                        "REJECTED".to_string()
+                    },
+                    patch_preview: patch
+                        .patch_content
+                        .lines()
+                        .take(3)
+                        .collect::<Vec<_>>()
+                        .join("\n"),
                 });
             }
         }
@@ -112,7 +135,9 @@ impl AutonomousScientificEngine {
             if let Ok(patch) = patch_res {
                 let prior = 0.50f64;
                 let likelihood_ratio = 1.60f64;
-                let posterior = ((prior * likelihood_ratio) / ((prior * likelihood_ratio) + (1.0 - prior))).clamp(0.0, 0.99);
+                let posterior = ((prior * likelihood_ratio)
+                    / ((prior * likelihood_ratio) + (1.0 - prior)))
+                    .clamp(0.0, 0.99);
 
                 let is_accepted = posterior > 0.60;
                 if is_accepted {
@@ -156,7 +181,11 @@ impl AutonomousScientificEngine {
 
         let duration_us = start.elapsed().as_micros() as u64;
         let tested_count = tested_hypotheses.len();
-        let avg_posterior = if tested_count > 0 { total_posterior / tested_count as f64 } else { 0.0 };
+        let avg_posterior = if tested_count > 0 {
+            total_posterior / tested_count as f64
+        } else {
+            0.0
+        };
 
         Ok(ScientificCycleReport {
             target_file: path_str,
@@ -178,7 +207,10 @@ impl AutonomousScientificEngine {
     }
 
     /// Scans a directory recursively and analyzes files in parallel
-    pub async fn scan_directory(dir_path: &Path, max_files: usize) -> Result<Vec<ScientificCycleReport>> {
+    pub async fn scan_directory(
+        dir_path: &Path,
+        max_files: usize,
+    ) -> Result<Vec<ScientificCycleReport>> {
         let mut reports = Vec::new();
         let mut stack = vec![dir_path.to_path_buf()];
         let mut count = 0;
@@ -192,13 +224,13 @@ impl AutonomousScientificEngine {
                         if !dir_name.starts_with('.') && dir_name != "target" {
                             stack.push(path);
                         }
-                    } else if path.extension().and_then(|e| e.to_str()) == Some("rs") {
-                        if let Ok(report) = Self::scan_file(&path).await {
-                            reports.push(report);
-                            count += 1;
-                            if count >= max_files {
-                                return Ok(reports);
-                            }
+                    } else if path.extension().and_then(|e| e.to_str()) == Some("rs")
+                        && let Ok(report) = Self::scan_file(&path).await
+                    {
+                        reports.push(report);
+                        count += 1;
+                        if count >= max_files {
+                            return Ok(reports);
                         }
                     }
                 }
@@ -220,7 +252,9 @@ impl AutonomousScientificEngine {
             bob_acceptances: report.hypotheses_accepted,
             epistemic_empowerment,
             surprise_normalized,
-            promoted_patches: report.hypotheses.into_iter()
+            promoted_patches: report
+                .hypotheses
+                .into_iter()
                 .filter(|h| h.verdict == "HYPOTHESIS_ACCEPTED")
                 .map(|h| h.patch_preview)
                 .collect(),
@@ -272,7 +306,12 @@ mod tests {
         "#;
 
         let report = AutonomousScientificEngine::analyze_and_hypothesize(path, code).unwrap();
-        assert!(report.hypotheses.iter().any(|h| h.category == HypothesisCategory::PerformanceOptimization));
+        assert!(
+            report
+                .hypotheses
+                .iter()
+                .any(|h| h.category == HypothesisCategory::PerformanceOptimization)
+        );
     }
 
     #[test]
@@ -287,7 +326,9 @@ mod tests {
             }
         "#;
 
-        let outcome = AutonomousScientificEngine::run_asymmetric_dream_duel("src/compute_worker.rs", code).unwrap();
+        let outcome =
+            AutonomousScientificEngine::run_asymmetric_dream_duel("src/compute_worker.rs", code)
+                .unwrap();
         assert!(outcome.alice_proposals >= 2);
         assert!(outcome.bob_acceptances >= 1);
         assert!(outcome.epistemic_empowerment > 0.0);

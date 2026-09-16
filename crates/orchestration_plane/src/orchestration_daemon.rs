@@ -1,5 +1,5 @@
-use std::time::{Duration, Instant};
 use serde::{Deserialize, Serialize};
+use std::time::{Duration, Instant};
 
 use crate::action_executor::ActionExecutor;
 use crate::metadata_ingestor::MetadataIngestorConfig;
@@ -18,7 +18,7 @@ pub struct OrchestrationDaemonConfig {
 impl Default for OrchestrationDaemonConfig {
     fn default() -> Self {
         Self {
-            ingestor_config: MetadataIngestorConfig::default(),
+            ingestor_config: MetadataIngestorConfig,
             cycle_interval: Duration::from_secs(10),
             max_tasks_per_cycle: 5,
         }
@@ -100,7 +100,7 @@ impl OrchestrationDaemon {
 
 impl Default for OrchestrationDaemon {
     fn default() -> Self {
-        Self::new(OrchestrationDaemonConfig::default(), ActionExecutor::default())
+        Self::new(OrchestrationDaemonConfig::default(), ActionExecutor)
     }
 }
 
@@ -115,8 +115,13 @@ mod tests {
         let record = AssimilationRecord::new([9u8; 16], 1000);
         let bytes = bytemuck::bytes_of(&record);
 
-        let broadcast = daemon.process_assimilation_frame(bytes).expect("frame process succeeds");
-        assert_eq!(broadcast.broadcast_type, UcpBroadcastType::AssimilationState as u32);
+        let broadcast = daemon
+            .process_assimilation_frame(bytes)
+            .expect("frame process succeeds");
+        assert_eq!(
+            broadcast.broadcast_type,
+            UcpBroadcastType::AssimilationState as u32
+        );
         assert_eq!(broadcast.sequence, 1);
         assert_eq!(daemon.assimilation_count, 1);
     }

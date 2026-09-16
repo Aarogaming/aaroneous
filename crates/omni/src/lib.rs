@@ -1,19 +1,19 @@
 //! crates/omni
 //! Universal 3D Galaxy semantic data navigation, star-node clustering, and visual search engine for Aaroneous.
 
-pub mod ecs_cluster;
 pub mod cluster_routing;
-pub mod node_cluster;
+pub mod ecs_cluster;
 pub mod matrix;
+pub mod node_cluster;
+pub mod node_descriptor;
 pub mod protocol_bridge;
 pub mod query_engine;
 pub mod spatial_coord;
 pub mod spatial_layout;
-pub mod node_descriptor;
 pub mod vector_index;
 
-pub use ecs_cluster as ecs_galaxy;
 pub use cluster_routing as galactic_roaming;
+pub use ecs_cluster as ecs_galaxy;
 pub use node_cluster as galaxy_cluster;
 pub use node_descriptor as star_node;
 
@@ -26,9 +26,9 @@ pub use ecs_galaxy::{
 };
 pub use galaxy_cluster::{GalacticClusteringEngine, GalaxyCluster};
 pub use matrix::{
-    compute_information_flow, compute_surface_importance, find_redundant_surfaces,
-    rate_distortion_analysis, spectral_clustering, SabEmbedding, SabManifest, SabMatrix,
-    SabMatrixBuilder, SabMetadata, SabSimilarityMatrix, SabSurface,
+    SabEmbedding, SabManifest, SabMatrix, SabMatrixBuilder, SabMetadata, SabSimilarityMatrix,
+    SabSurface, compute_information_flow, compute_surface_importance, find_redundant_surfaces,
+    rate_distortion_analysis, spectral_clustering,
 };
 pub use protocol_bridge::{
     InMemorySpatialCanvasSink, OmniGalaxySnapshot, OmniProtocolBridge, UniversalSpatialCanvasSink,
@@ -79,15 +79,78 @@ impl OmniEngine {
     /// Ingest the 9 Specialists into the 3D Omni Galaxy
     pub async fn ingest_standard_specialists(&self) -> usize {
         let specialists = [
-            ("orchestrator", "Orchestrator (Strategic Cortex)", -800.0, 500.0, 950.0, 0x0100),
-            ("synthesizer", "Synthesizer (Semantic Knowledge)", -600.0, 200.0, 800.0, 0x0200),
-            ("presenter", "Presenter (Visual Experience)", -400.0, 400.0, 750.0, 0x0300),
-            ("fabricator", "Fabricator (Hardware & Forge)", 200.0, 300.0, 900.0, 0x0400),
-            ("sentinel", "Sentinel (Auditor & Safety)", 0.0, 600.0, 1000.0, 0x0500),
-            ("archivist", "Archivist (Chaos & Resilience)", 400.0, -200.0, 600.0, 0x0600),
-            ("router", "Router (Router & Mesh)", 100.0, 100.0, 850.0, 0x0700),
-            ("aligner", "Aligner (Temporal Resonance)", -200.0, -400.0, 700.0, 0x0800),
-            ("perceiver", "Perceiver (Sensory Threshold)", 800.0, 300.0, 900.0, 0x0900),
+            (
+                "orchestrator",
+                "Orchestrator (Strategic Cortex)",
+                -800.0,
+                500.0,
+                950.0,
+                0x0100,
+            ),
+            (
+                "synthesizer",
+                "Synthesizer (Semantic Knowledge)",
+                -600.0,
+                200.0,
+                800.0,
+                0x0200,
+            ),
+            (
+                "presenter",
+                "Presenter (Visual Experience)",
+                -400.0,
+                400.0,
+                750.0,
+                0x0300,
+            ),
+            (
+                "fabricator",
+                "Fabricator (Hardware & Forge)",
+                200.0,
+                300.0,
+                900.0,
+                0x0400,
+            ),
+            (
+                "sentinel",
+                "Sentinel (Auditor & Safety)",
+                0.0,
+                600.0,
+                1000.0,
+                0x0500,
+            ),
+            (
+                "archivist",
+                "Archivist (Chaos & Resilience)",
+                400.0,
+                -200.0,
+                600.0,
+                0x0600,
+            ),
+            (
+                "router",
+                "Router (Router & Mesh)",
+                100.0,
+                100.0,
+                850.0,
+                0x0700,
+            ),
+            (
+                "aligner",
+                "Aligner (Temporal Resonance)",
+                -200.0,
+                -400.0,
+                700.0,
+                0x0800,
+            ),
+            (
+                "perceiver",
+                "Perceiver (Sensory Threshold)",
+                800.0,
+                300.0,
+                900.0,
+                0x0900,
+            ),
         ];
 
         let mut count = 0;
@@ -216,12 +279,20 @@ impl OmniEngine {
                         na += la[k] * la[k];
                         nb += lb[k] * lb[k];
                     }
-                    if na > 1e-6 && nb > 1e-6 { dot / (na.sqrt() * nb.sqrt()) } else { 0.0 }
+                    if na > 1e-6 && nb > 1e-6 {
+                        dot / (na.sqrt() * nb.sqrt())
+                    } else {
+                        0.0
+                    }
                 } else {
                     0.0
                 };
 
-                let k_att = if is_linked { 0.08 } else { 0.02 * sem_sim.max(0.0) as f64 };
+                let k_att = if is_linked {
+                    0.08
+                } else {
+                    0.02 * sem_sim.max(0.0) as f64
+                };
                 let fx_att = k_att * dx;
                 let fy_att = k_att * dy;
                 let fz_att = k_att * dz;
@@ -259,7 +330,11 @@ impl OmniEngine {
     }
 
     /// Search nearest star-nodes by 32-dim latent embedding cosine similarity
-    pub async fn search_semantic(&self, query_latent: &[f32; 32], top_k: usize) -> Vec<(StarNode, f32)> {
+    pub async fn search_semantic(
+        &self,
+        query_latent: &[f32; 32],
+        top_k: usize,
+    ) -> Vec<(StarNode, f32)> {
         let nodes = self.nodes.read().await;
         let mut scored: Vec<(StarNode, f32)> = nodes
             .values()
@@ -286,7 +361,10 @@ impl OmniEngine {
     /// Query the galaxy with spatial frustum and multi-dimensional filters
     pub async fn query(&self, filter: &OmniQueryFilter) -> Vec<StarNode> {
         let nodes = self.nodes.read().await;
-        OmniQueryEngine::query(&nodes, filter).into_iter().cloned().collect()
+        OmniQueryEngine::query(&nodes, filter)
+            .into_iter()
+            .cloned()
+            .collect()
     }
 
     /// Export a full snapshot of the Omni Galaxy
@@ -319,8 +397,22 @@ mod tests {
     #[tokio::test]
     async fn test_omni_engine_e2e() {
         let engine = OmniEngine::default();
-        let star1 = StarNode::new("star_1", "Feature A", StarNodeType::Feature, "Core", SpatialCoord::new(0.0, 0.0, 0.0), "uri1");
-        let star2 = StarNode::new("star_2", "Feature B", StarNodeType::Feature, "Core", SpatialCoord::new(10.0, 10.0, 10.0), "uri2");
+        let star1 = StarNode::new(
+            "star_1",
+            "Feature A",
+            StarNodeType::Feature,
+            "Core",
+            SpatialCoord::new(0.0, 0.0, 0.0),
+            "uri1",
+        );
+        let star2 = StarNode::new(
+            "star_2",
+            "Feature B",
+            StarNodeType::Feature,
+            "Core",
+            SpatialCoord::new(10.0, 10.0, 10.0),
+            "uri2",
+        );
 
         engine.insert_node(star1).await;
         engine.insert_node(star2).await;

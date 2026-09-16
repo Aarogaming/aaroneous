@@ -2,12 +2,16 @@
 //! Linear Algebra & Tensor primitives.
 //! Used for embedding similarity, vector search, dimensional projection, and semantic memory.
 
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 
 /// Compute dot product between two vectors of equal dimension.
 pub fn dot_product(a: &[f64], b: &[f64]) -> Result<f64> {
     if a.len() != b.len() {
-        bail!("Vector length mismatch for dot product: {} vs {}", a.len(), b.len());
+        bail!(
+            "Vector length mismatch for dot product: {} vs {}",
+            a.len(),
+            b.len()
+        );
     }
     Ok(a.iter().zip(b.iter()).map(|(&x, &y)| x * y).sum())
 }
@@ -30,7 +34,11 @@ pub fn vec_norm_linf(v: &[f64]) -> f64 {
 /// Computes vector addition (a + b).
 pub fn vec_add(a: &[f64], b: &[f64]) -> Result<Vec<f64>> {
     if a.len() != b.len() {
-        bail!("Vector length mismatch for addition: {} vs {}", a.len(), b.len());
+        bail!(
+            "Vector length mismatch for addition: {} vs {}",
+            a.len(),
+            b.len()
+        );
     }
     Ok(a.iter().zip(b.iter()).map(|(&x, &y)| x + y).collect())
 }
@@ -38,7 +46,11 @@ pub fn vec_add(a: &[f64], b: &[f64]) -> Result<Vec<f64>> {
 /// Computes vector subtraction (a - b).
 pub fn vec_sub(a: &[f64], b: &[f64]) -> Result<Vec<f64>> {
     if a.len() != b.len() {
-        bail!("Vector length mismatch for subtraction: {} vs {}", a.len(), b.len());
+        bail!(
+            "Vector length mismatch for subtraction: {} vs {}",
+            a.len(),
+            b.len()
+        );
     }
     Ok(a.iter().zip(b.iter()).map(|(&x, &y)| x - y).collect())
 }
@@ -51,7 +63,11 @@ pub fn vec_scale(v: &[f64], scalar: f64) -> Vec<f64> {
 /// Compute cosine similarity between two distinct vectors.
 pub fn cosine_similarity_vectors(a: &[f64], b: &[f64]) -> Result<f64> {
     if a.len() != b.len() {
-        bail!("Vector dimension mismatch for cosine similarity: {} vs {}", a.len(), b.len());
+        bail!(
+            "Vector dimension mismatch for cosine similarity: {} vs {}",
+            a.len(),
+            b.len()
+        );
     }
     let norm_a = vec_norm_l2(a);
     let norm_b = vec_norm_l2(b);
@@ -110,7 +126,14 @@ pub fn mat_mul(a: &[f64], b: &[f64], m: usize, k: usize, n: usize) -> Result<Vec
 
 /// Multi-threaded chunked matrix-matrix multiplication for larger dimension matrices.
 /// Spawns worker threads across row chunks using standard Rust scoped threads.
-pub fn mat_mul_parallel(a: &[f64], b: &[f64], m: usize, k: usize, n: usize, num_threads: usize) -> Result<Vec<f64>> {
+pub fn mat_mul_parallel(
+    a: &[f64],
+    b: &[f64],
+    m: usize,
+    k: usize,
+    n: usize,
+    num_threads: usize,
+) -> Result<Vec<f64>> {
     if a.len() < m * k {
         bail!("Matrix A size smaller than required dimensions {}x{}", m, k);
     }

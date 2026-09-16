@@ -1,7 +1,7 @@
 pub const CONFIG_BIN: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/config.bin"));
 
-pub mod types;
 pub mod predictive_models_config;
+pub mod types;
 
 pub fn agent_habitats() -> &'static types::AgentHabitats {
     let size = std::mem::size_of::<types::AgentHabitats>();

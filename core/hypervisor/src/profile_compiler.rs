@@ -1,39 +1,41 @@
+//! GGUF Genome Compiler — extracts FFN decision geometries from GGUF models
+//! and compiles them into the universal 2-bit genome format.
+//!
+//! This is the Rust-native port of `GGUF_HARVESTER.py` + `HELIX_COMPILER.py`.
+//! It reads GGUF files directly from disk, dequantizes FFN tensors, maps weights
+//! to 2-bit genomic states (A/T/C/G), packs them into u32 voxels, and organizes
+//! the result into 16 parallel tracks.
+//!
+//! # Output Format
+//!
+//! ```text
+//! [5]   magic       = "AASv1"
+//! [8]   voxel_count (u64 LE)
+//! [8]   weight_count (u64 LE)
+//! [4]   num_tracks  (u32 LE)
+//! [8×N] track_sizes (u64 LE each)
+//! [...] packed voxels (u32 LE, 16 x 2-bit per voxel)
+//! ```
+//!
+//! # Usage
+//!
+//! ```no_run
+//! use std::path::PathBuf;
+//! use hypervisor::profile_compiler::{GenomeCompiler, CompileConfig};
+//!
+//! let config = CompileConfig {
+//!     input: PathBuf::from("models/my-model.gguf"),
+//!     output: PathBuf::from("data/plugins/my_profile.bin"),
+//!     num_tracks: 16,
+//!     ..Default::default()
+//! };
+//! let mut compiler = GenomeCompiler::new(config);
+//! compiler.compile()?;
+//! # Ok::<(), anyhow::Error>(())
+//! ```
+
 use anyhow::{Result, anyhow, bail};
 use byteorder::{LittleEndian, ReadBytesExt};
-/// GGUF Genome Compiler — extracts FFN decision geometries from GGUF models
-/// and compiles them into the universal 2-bit genome format.
-///
-/// This is the Rust-native port of `GGUF_HARVESTER.py` + `HELIX_COMPILER.py`.
-/// It reads GGUF files directly from disk, dequantizes FFN tensors, maps weights
-/// to 2-bit genomic states (A/T/C/G), packs them into u32 voxels, and organizes
-/// the result into 16 parallel tracks.
-///
-/// # Output Format
-///
-/// ```text
-/// [5]   magic       = "AASv1"
-/// [8]   voxel_count (u64 LE)
-/// [8]   weight_count (u64 LE)
-/// [4]   num_tracks  (u32 LE)
-/// [8×N] track_sizes (u64 LE each)
-/// [...] packed voxels (u32 LE, 16 x 2-bit per voxel)
-/// ```
-///
-/// # Usage
-///
-/// ```rust,ignore
-/// use std::path::PathBuf;
-/// use hypervisor::genome_compiler::{GenomeCompiler, CompileConfig};
-///
-/// let config = CompileConfig {
-///     input: PathBuf::from("models/my-model.gguf"),
-///     output: PathBuf::from("chromosomes/my_genome.bin"),
-///     num_tracks: 16,
-///     ..Default::default()
-/// };
-/// let mut compiler = GenomeCompiler::new(config);
-/// compiler.compile().unwrap();
-/// ```
 use std::fs::File;
 use std::io::{BufReader, Read, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
@@ -291,14 +293,17 @@ impl Default for CompileConfig {
 }
 
 // ────────────────────────────────────────────────────────────────────
-// Genome Compiler
+// Profile Compiler
 // ────────────────────────────────────────────────────────────────────
 
-pub struct GenomeCompiler {
+pub struct ProfileCompiler {
     config: CompileConfig,
 }
 
-impl GenomeCompiler {
+#[deprecated(since = "0.3.3", note = "Use ProfileCompiler instead")]
+pub type GenomeCompiler = ProfileCompiler;
+
+impl ProfileCompiler {
     pub fn new(config: CompileConfig) -> Self {
         Self { config }
     }
@@ -328,7 +333,7 @@ impl GenomeCompiler {
         let mut magic = [0u8; 5];
         reader.read_exact(&mut magic)?;
         if &magic != b"AASv1" {
-            bail!("Invalid genome magic: {:?} (expected AASv1)", &magic);
+            bail!("Invalid genome magic: {:?} (expected AASv1)", magic);
         }
 
         let voxel_count = reader.read_u64::<LittleEndian>()?;
@@ -467,7 +472,7 @@ impl GenomeCompiler {
         let mut magic = [0u8; 5];
         reader.read_exact(&mut magic)?;
         if &magic != b"AASv1" {
-            bail!("Invalid genome magic: {:?} (expected AASv1)", &magic);
+            bail!("Invalid genome magic: {:?} (expected AASv1)", magic);
         }
 
         let voxel_count = reader.read_u64::<LittleEndian>()?;
@@ -747,7 +752,7 @@ impl GenomeCompiler {
         if &magic != GGUF_MAGIC {
             bail!(
                 "Invalid GGUF magic: {:?} (expected {:?})",
-                &magic,
+                magic,
                 GGUF_MAGIC
             );
         }
@@ -915,12 +920,16 @@ impl GenomeCompiler {
 
         let data = match tensor.ggml_type {
             GgmlType::F32 => raw_bytes
-                .chunks_exact(4)
+                .as_chunks::<4>()
+                .0
+                .iter()
                 .map(|c| f32::from_le_bytes([c[0], c[1], c[2], c[3]]))
                 .collect(),
             GgmlType::F16 => {
                 raw_bytes
-                    .chunks_exact(2)
+                    .as_chunks::<2>()
+                    .0
+                    .iter()
                     .map(|c| {
                         let bits = u16::from_le_bytes([c[0], c[1]]);
                         // Simple f16 → f32 conversion
@@ -1168,7 +1177,7 @@ pub fn run_cli(args: &[String]) -> Result<()> {
         ..Default::default()
     };
 
-    let compiler = GenomeCompiler::new(config.clone());
+    let compiler = ProfileCompiler::new(config.clone());
 
     if cli.decompile {
         compiler.decompile()?;
@@ -1301,5 +1310,15 @@ mod tests {
         assert_eq!(bit_to_float(float_to_2bit(-0.5)), -0.5);
         assert_eq!(bit_to_float(float_to_2bit(0.5)), 0.5);
         assert_eq!(bit_to_float(float_to_2bit(2.0)), 1.5);
+    }
+
+    #[test]
+    #[allow(deprecated)]
+    fn test_profile_compiler_alias_equivalence() {
+        use std::any::TypeId;
+        assert_eq!(
+            TypeId::of::<ProfileCompiler>(),
+            TypeId::of::<GenomeCompiler>()
+        );
     }
 }

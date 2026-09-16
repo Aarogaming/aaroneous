@@ -1,7 +1,10 @@
 // Core contracts for Aaroneous microkernel
 
-use bytemuck::{Pod, Zeroable};
+pub mod metadata;
+pub use metadata::*;
+
 use bitflags::bitflags;
+use bytemuck::{Pod, Zeroable};
 use serde::{Deserialize, Serialize};
 
 /// Hierarchy tier of a component.
@@ -360,16 +363,18 @@ mod tests {
         assert_eq!(size_of::<FlightEventPod>(), 128);
         assert_eq!(size_of::<FlightFileHeaderPod>(), 64);
 
-        let mut event = FlightEventPod::default();
-        event.timestamp_rdtsc = 123456789;
-        event.wall_clock_ns = 987654321;
-        event.sequence = 42;
-        event.input_hash = 0xDEADBEEFCAFEBABE;
-        event.pre_state_hash = 0x1111222233334444;
-        event.post_state_hash = 0x5555666677778888;
-        event.event_kind = FlightEventKind::StateTransition as u16;
-        event.source_id = 1;
-        event.flags = 0x01;
+        let mut event = FlightEventPod {
+            timestamp_rdtsc: 123456789,
+            wall_clock_ns: 987654321,
+            sequence: 42,
+            input_hash: 0xDEADBEEFCAFEBABE,
+            pre_state_hash: 0x1111222233334444,
+            post_state_hash: 0x5555666677778888,
+            event_kind: FlightEventKind::StateTransition as u16,
+            source_id: 1,
+            flags: 0x01,
+            ..Default::default()
+        };
         event.set_payload(b"flight_test_payload_123");
         event.checksum = event.calculate_checksum();
         assert!(event.verify_checksum());

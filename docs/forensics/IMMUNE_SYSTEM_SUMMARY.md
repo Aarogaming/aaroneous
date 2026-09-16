@@ -61,7 +61,7 @@ The Aaroneous substrate has transformed **45+ historical anti-patterns** into au
 
 ### 5. Memory Model & False Sharing (`core/hypervisor/benches/cache_line_isolation.rs`)
 
-**Anti-Pattern:** Invisible false sharing—placing atomics or hot write buffers on same 64-byte CPU cache line, forcing constant L1/L2 cache invalidation between cores.
+**Anti-Pattern:** Invisible false sharingâ€”placing atomics or hot write buffers on same 64-byte CPU cache line, forcing constant L1/L2 cache invalidation between cores.
 
 **Implementation:**
 - Diagnostic benchmark comparing aligned vs unaligned telemetry layouts
@@ -115,7 +115,7 @@ Total lines added: **~1,200** of defensive code and documentation.
 
 ## The Core Insight
 
-> "Anti-patterns aren't just bugs to delete—they are empirical data on where software engineering breaks down under scale, concurrency, or LLM drift."
+> "Anti-patterns aren't just bugs to deleteâ€”they are empirical data on where software engineering breaks down under scale, concurrency, or LLM drift."
 
 By systematically dogfooding these anti-patterns through automated tests, fuzzers, and linters, we turn every historical engineering trap into a **permanent, self-verifying guardrail**.
 

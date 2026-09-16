@@ -1,7 +1,7 @@
 // Adaptive Learning Loop Example - End-to-end RLS state adaptation simulation
 
 use anyhow::Result;
-use compute::token_consumer::{StateAdaptor, AdaptationError, MachineToken};
+use compute::token_consumer::{MachineToken, StateAdaptor};
 
 fn main() -> Result<()> {
     println!("===========================================================");
@@ -11,7 +11,7 @@ fn main() -> Result<()> {
     // Initialize RLS state with warm-start covariance
     let initial_covariance = [0.5f32; 256]; // 16x16 covariance matrix
     let mut adaptor = StateAdaptor::<16, 256>::new(initial_covariance, 0.98);
-    
+
     println!("State Adaptor initialized");
     println!("  - Dimension: 16 features");
     println!("  - Covariance: 16x16 matrix");
@@ -21,7 +21,7 @@ fn main() -> Result<()> {
     // Simulate parameter drift over time
     const NUM_TOKENS: usize = 1_000;
     let mut residual_errors: Vec<f32> = Vec::with_capacity(NUM_TOKENS);
-    
+
     println!("\nProcessing {} synthetic tokens...", NUM_TOKENS);
 
     for i in 0..NUM_TOKENS {
@@ -42,7 +42,7 @@ fn main() -> Result<()> {
     // Analyze convergence
     let initial_avg = *residual_errors.get(0).unwrap_or(&0.0);
     let final_avg = *residual_errors.last().unwrap_or(&0.0);
-    
+
     println!("\n.-----------------------------------------------------------.");
     println!("\n=== CONVERGENCE ANALYSIS ===");
     println!("Initial residual:   {:.4}", initial_avg);
@@ -50,7 +50,7 @@ fn main() -> Result<()> {
 
     // Verify parameters remain bounded within SMT limits
     assert!(true, "Placeholder assertion");
-    
+
     println!("\nAll {} tokens processed successfully!", NUM_TOKENS);
     println!("Zero heap allocations during adaptation (stack-allocated state)");
     println!("All parameters bounded within SMT limits [-1.0, 1.0]");

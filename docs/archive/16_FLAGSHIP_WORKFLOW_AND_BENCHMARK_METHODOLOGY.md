@@ -6,8 +6,8 @@ Project Aaroneous is organized around one primary end-to-end operational pipelin
 
 ```text
 +-----------------+     +------------------+     +------------------+     +-----------------+     +-----------------+
-¦ 1. TASK         ¦ --> ¦ 2. MDP ROUTER    ¦ --> ¦ 3. ARGUS-GUARDED ¦ --> ¦ 4. SOLID-STATE  ¦ --> ¦ 5. DESKTOP      ¦
-¦    INGESTION    ¦     ¦    & FEDERATION  ¦     ¦    EXECUTION     ¦     ¦    PERSISTENCE  ¦     ¦    TELEMETRY    ¦
+Â¦ 1. TASK         Â¦ --> Â¦ 2. MDP ROUTER    Â¦ --> Â¦ 3. ARGUS-GUARDED Â¦ --> Â¦ 4. SOLID-STATE  Â¦ --> Â¦ 5. DESKTOP      Â¦
+Â¦    INGESTION    Â¦     Â¦    & FEDERATION  Â¦     Â¦    EXECUTION     Â¦     Â¦    PERSISTENCE  Â¦     Â¦    TELEMETRY    Â¦
 +-----------------+     +------------------+     +------------------+     +-----------------+     +-----------------+
 ```
 
@@ -27,7 +27,7 @@ Project Aaroneous is organized around one primary end-to-end operational pipelin
   - `release` (LTO + opt-level 3) for bare-metal production latency.
 - **Latency Metrics**:
   - SPMC Synapse inter-core event dispatch: **< 50 ns**
-   - Sentinel SVDD boundary evaluation: **< 2 µs**
-  - SpatialDelta Visual Motion Gating: **< 50 µs** (>80% compute skip savings)
-  - P2P TCP Swarm Wire RTT: **< 10 µs**
+   - Sentinel SVDD boundary evaluation: **< 2 Âµs**
+  - SpatialDelta Visual Motion Gating: **< 50 Âµs** (>80% compute skip savings)
+  - P2P TCP Swarm Wire RTT: **< 10 Âµs**
 

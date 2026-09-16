@@ -22,9 +22,7 @@ pub struct GpuTensorAccelerator {
 
 impl Default for GpuTensorAccelerator {
     fn default() -> Self {
-        Self {
-            is_gpu_ready: true,
-        }
+        Self { is_gpu_ready: true }
     }
 }
 
@@ -34,7 +32,12 @@ impl GpuTensorAccelerator {
     }
 
     /// Computes high-speed parallel vector matrix projection and returns energy profile
-    pub fn process_tensor_slice(&self, matrix: &[f64], rows: usize, cols: usize) -> Result<GpuTensorProfile> {
+    pub fn process_tensor_slice(
+        &self,
+        matrix: &[f64],
+        rows: usize,
+        cols: usize,
+    ) -> Result<GpuTensorProfile> {
         if matrix.is_empty() || rows == 0 || cols == 0 {
             anyhow::bail!("Cannot process empty tensor slice");
         }
@@ -46,7 +49,11 @@ impl GpuTensorAccelerator {
         let l2 = sum_sq.sqrt();
 
         Ok(GpuTensorProfile {
-            device_name: if self.is_gpu_ready { "Burn-WGPU (DirectX 12 / Vulkan)".to_string() } else { "Burn-CPU".to_string() },
+            device_name: if self.is_gpu_ready {
+                "Burn-WGPU (DirectX 12 / Vulkan)".to_string()
+            } else {
+                "Burn-CPU".to_string()
+            },
             tensor_dimensions: (rows, cols),
             element_count: total_elements,
             mean_energy: mean,
@@ -80,7 +87,8 @@ impl GpuTensorAccelerator {
         out[0] = acc_b;
 
         for i in 1..32 {
-            let (next_a, next_b) = Self::ssm_associative_combine(acc_a, acc_b, a_vals[i], b_vals[i]);
+            let (next_a, next_b) =
+                Self::ssm_associative_combine(acc_a, acc_b, a_vals[i], b_vals[i]);
             acc_a = next_a;
             acc_b = next_b;
             out[i] = acc_b;
@@ -158,10 +166,18 @@ impl GpuTensorAccelerator {
         cols: usize,
     ) -> Result<Vec<f32>> {
         if matrix.len() != rows * cols {
-            anyhow::bail!("Matrix dimension mismatch: expected {}, got {}", rows * cols, matrix.len());
+            anyhow::bail!(
+                "Matrix dimension mismatch: expected {}, got {}",
+                rows * cols,
+                matrix.len()
+            );
         }
         if vector.len() != cols {
-            anyhow::bail!("Vector dimension mismatch: expected {}, got {}", cols, vector.len());
+            anyhow::bail!(
+                "Vector dimension mismatch: expected {}, got {}",
+                cols,
+                vector.len()
+            );
         }
 
         let mut output = vec![0.0f32; rows];
@@ -187,7 +203,12 @@ impl GpuTensorAccelerator {
     ) -> Result<Vec<f32>> {
         let dim = prev_hidden.len();
         if a_diag.len() != dim || b_vec.len() != dim {
-            anyhow::bail!("SSM dimension mismatch: {} vs A:{} vs B:{}", dim, a_diag.len(), b_vec.len());
+            anyhow::bail!(
+                "SSM dimension mismatch: {} vs A:{} vs B:{}",
+                dim,
+                a_diag.len(),
+                b_vec.len()
+            );
         }
 
         let mut next_hidden = vec![0.0f32; dim];
@@ -257,7 +278,9 @@ mod tests {
         let a_bar = vec![0.9f32; d_model * seq_len];
         let bx = vec![1.0f32; d_model * seq_len];
 
-        let states = acc.compute_parallel_associative_scan(&a_bar, &bx, d_model, seq_len).unwrap();
+        let states = acc
+            .compute_parallel_associative_scan(&a_bar, &bx, d_model, seq_len)
+            .unwrap();
         assert_eq!(states.len(), d_model * seq_len);
         // First step: h_0 = 1.0
         assert_eq!(states[0], 1.0);
@@ -268,12 +291,11 @@ mod tests {
     #[test]
     fn test_matrix_vector_product_acceleration() {
         let acc = GpuTensorAccelerator::new();
-        let matrix = vec![
-            1.0f32, 2.0f32,
-            3.0f32, 4.0f32,
-        ];
+        let matrix = vec![1.0f32, 2.0f32, 3.0f32, 4.0f32];
         let vector = vec![5.0f32, 6.0f32];
-        let res = acc.compute_matrix_vector_product(&matrix, &vector, 2, 2).unwrap();
+        let res = acc
+            .compute_matrix_vector_product(&matrix, &vector, 2, 2)
+            .unwrap();
         // 1*5 + 2*6 = 17
         // 3*5 + 4*6 = 39
         assert_eq!(res, vec![17.0, 39.0]);
@@ -287,7 +309,9 @@ mod tests {
         let b_vec = vec![2.0f32, 3.0f32];
         let u = 1.5f32;
 
-        let next_h = acc.compute_ssm_recurrence(&prev_h, &a_diag, &b_vec, u).unwrap();
+        let next_h = acc
+            .compute_ssm_recurrence(&prev_h, &a_diag, &b_vec, u)
+            .unwrap();
         // h0 = 0.5 * 1.0 + 2.0 * 1.5 = 0.5 + 3.0 = 3.5
         // h1 = 0.25 * 2.0 + 3.0 * 1.5 = 0.5 + 4.5 = 5.0
         assert_eq!(next_h, vec![3.5, 5.0]);

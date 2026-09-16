@@ -2,8 +2,8 @@
 //! Graph Theory, Network Centrality, and Spectral Analysis primitives.
 //! Used for constellation mapping, module dependency ordering, routing, and community clustering.
 
-use std::collections::{BinaryHeap, VecDeque};
 use std::cmp::Ordering;
+use std::collections::{BinaryHeap, VecDeque};
 
 /// Computes degree centrality from adjacency matrix (flattened row-major).
 pub fn degree_centrality(adj: &[f64], n: usize) -> Vec<f64> {
@@ -94,7 +94,10 @@ impl Eq for State {}
 impl Ord for State {
     fn cmp(&self, other: &Self) -> Ordering {
         // Notice the reversal of comparison for min-heap
-        other.cost.partial_cmp(&self.cost).unwrap_or(Ordering::Equal)
+        other
+            .cost
+            .partial_cmp(&self.cost)
+            .unwrap_or(Ordering::Equal)
     }
 }
 
@@ -127,7 +130,10 @@ pub fn dijkstra_shortest_path(
     let mut heap = BinaryHeap::new();
 
     dist[start] = 0.0;
-    heap.push(State { cost: 0.0, position: start });
+    heap.push(State {
+        cost: 0.0,
+        position: start,
+    });
 
     while let Some(State { cost, position }) = heap.pop() {
         if position == goal {
@@ -154,7 +160,10 @@ pub fn dijkstra_shortest_path(
             if next_cost < dist[next_node] {
                 dist[next_node] = next_cost;
                 prev[next_node] = Some(position);
-                heap.push(State { cost: next_cost, position: next_node });
+                heap.push(State {
+                    cost: next_cost,
+                    position: next_node,
+                });
             }
         }
     }
@@ -205,11 +214,7 @@ mod tests {
 
     #[test]
     fn test_dijkstra_path() {
-        let edges = vec![
-            (0, 1, 1.0),
-            (1, 2, 2.0),
-            (0, 2, 5.0),
-        ];
+        let edges = vec![(0, 1, 1.0), (1, 2, 2.0), (0, 2, 5.0)];
         let (cost, path) = dijkstra_shortest_path(&edges, 3, 0, 2).unwrap();
         assert_eq!(cost, 3.0); // 0 -> 1 -> 2 is cheaper than direct 0 -> 2
         assert_eq!(path, vec![0, 1, 2]);
@@ -228,11 +233,7 @@ mod tests {
 
     #[test]
     fn test_page_rank() {
-        let adj = vec![
-            0.0, 1.0, 1.0,
-            0.0, 0.0, 1.0,
-            1.0, 0.0, 0.0,
-        ];
+        let adj = vec![0.0, 1.0, 1.0, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0];
         let pr = page_rank(&adj, 3, 0.85, 20);
         assert_eq!(pr.len(), 3);
         let sum: f64 = pr.iter().sum();

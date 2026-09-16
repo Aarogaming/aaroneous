@@ -140,7 +140,8 @@ impl<T: Clone> UniversalEventBus<T> {
         for (pattern, senders) in guard.iter_mut() {
             for (topic, envelope) in &envelopes {
                 let is_match = pattern == topic
-                    || (pattern.ends_with(".*") && topic.starts_with(&pattern[..pattern.len() - 2]))
+                    || (pattern.ends_with(".*")
+                        && topic.starts_with(&pattern[..pattern.len() - 2]))
                     || pattern == "*";
 
                 if is_match {

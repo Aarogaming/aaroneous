@@ -80,7 +80,8 @@ impl PidController {
             + (1.0 - self.derivative_filter_alpha) * self.filtered_derivative;
         self.prev_error = error;
 
-        let mut output = self.kp * error + self.ki * self.integral + self.kd * self.filtered_derivative;
+        let mut output =
+            self.kp * error + self.ki * self.integral + self.kd * self.filtered_derivative;
 
         // Output saturation
         if let Some((min_out, max_out)) = self.output_limits {
@@ -192,6 +193,6 @@ mod tests {
         let mut bb = BangBangController::new(1.0, 0.0, 100.0);
         assert_eq!(bb.step(10.0, 5.0), 100.0); // Error = 5 > 1 -> High
         assert_eq!(bb.step(10.0, 9.5), 100.0); // Error = 0.5 within deadband -> Stays High
-        assert_eq!(bb.step(10.0, 12.0), 0.0);  // Error = -2 < -1 -> Low
+        assert_eq!(bb.step(10.0, 12.0), 0.0); // Error = -2 < -1 -> Low
     }
 }

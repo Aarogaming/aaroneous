@@ -4,10 +4,10 @@
 //! Provides in-process frame interception for DirectX swapchains, allowing
 //! sub-frame action feedback overlays to be composited directly into the rendering pipeline.
 
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use parking_lot::RwLock;
 
 /// Configuration for the DXGI Present hooking layer.

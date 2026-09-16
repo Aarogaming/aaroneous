@@ -150,21 +150,22 @@ impl HudView for Galaxy3DView {
             let star_y = ((seed * 1.5).cos() * 600.0) % 400.0;
             let star_z = ((seed * 2.3).sin() * 800.0) % 600.0;
 
-            if let Some((pos_2d, scale, z_cam)) = project_3d([star_x, star_y, star_z]) {
-                if canvas_rect.contains(pos_2d) {
-                    let twinkle = ((time_sec * 3.0 + i as f32 * 1.7).sin() * 0.5 + 0.5).clamp(0.2, 1.0);
-                    let star_alpha = ((180.0 * twinkle) * (1.0 - (z_cam / 1200.0).clamp(0.0, 0.8))) as u8;
-                    let star_radius = (1.5 * scale).clamp(0.8, 2.5);
-                    
-                    // Subtle tint variations (blue-white, gold, purple)
-                    let tint = match i % 4 {
-                        0 => Color32::from_rgba_unmultiplied(180, 220, 255, star_alpha),
-                        1 => Color32::from_rgba_unmultiplied(255, 235, 180, star_alpha),
-                        2 => Color32::from_rgba_unmultiplied(210, 180, 255, star_alpha),
-                        _ => Color32::from_rgba_unmultiplied(255, 255, 255, star_alpha),
-                    };
-                    painter.circle_filled(pos_2d, star_radius, tint);
-                }
+            if let Some((pos_2d, scale, z_cam)) = project_3d([star_x, star_y, star_z])
+                && canvas_rect.contains(pos_2d)
+            {
+                let twinkle = ((time_sec * 3.0 + i as f32 * 1.7).sin() * 0.5 + 0.5).clamp(0.2, 1.0);
+                let star_alpha =
+                    ((180.0 * twinkle) * (1.0 - (z_cam / 1200.0).clamp(0.0, 0.8))) as u8;
+                let star_radius = (1.5 * scale).clamp(0.8, 2.5);
+
+                // Subtle tint variations (blue-white, gold, purple)
+                let tint = match i % 4 {
+                    0 => Color32::from_rgba_unmultiplied(180, 220, 255, star_alpha),
+                    1 => Color32::from_rgba_unmultiplied(255, 235, 180, star_alpha),
+                    2 => Color32::from_rgba_unmultiplied(210, 180, 255, star_alpha),
+                    _ => Color32::from_rgba_unmultiplied(255, 255, 255, star_alpha),
+                };
+                painter.circle_filled(pos_2d, star_radius, tint);
             }
         }
 
@@ -183,7 +184,7 @@ impl HudView for Galaxy3DView {
             for w in ring_pts.windows(2) {
                 painter.line_segment(
                     [w[0], w[1]],
-                    Stroke::new(1.0, Color32::from_rgba_unmultiplied(40, 60, 95, 50)),
+                    Stroke::new(1.0_f32, Color32::from_rgba_unmultiplied(40, 60, 95, 50)),
                 );
             }
         }
@@ -220,12 +221,21 @@ impl HudView for Galaxy3DView {
                         let alpha = ((scale1 + scale2) * 45.0).clamp(20.0, 140.0) as u8;
                         painter.line_segment(
                             [p1, p2],
-                            Stroke::new(1.2, Color32::from_rgba_unmultiplied(56, 139, 253, alpha)),
+                            Stroke::new(
+                                1.2_f32,
+                                Color32::from_rgba_unmultiplied(56, 139, 253, alpha),
+                            ),
                         );
 
                         // Animated Real-Time Execution Pulse (Driven by live bus activity and active specialist routing)
-                        let is_edge_active = state.is_live_bus || state.hive_routing_decision.is_some() || state.custom_agents.iter().any(|a| matches!(a.state, crate::hud::state::AgentExecutionState::Running));
-                        let bus_speed_multiplier = ((state.bus_events_per_sec / 800.0) + (if is_edge_active { 1.2 } else { 0.3 })).clamp(0.4, 4.5);
+                        let is_edge_active = state.is_live_bus
+                            || state.hive_routing_decision.is_some()
+                            || state.custom_agents.iter().any(|a| {
+                                matches!(a.state, crate::hud::state::AgentExecutionState::Running)
+                            });
+                        let bus_speed_multiplier = ((state.bus_events_per_sec / 800.0)
+                            + (if is_edge_active { 1.2 } else { 0.3 }))
+                        .clamp(0.4, 4.5);
                         let star_activity = star.activity_level.clamp(0.1, 1.0);
                         let pulse_phase = (time_sec * (0.7 * bus_speed_multiplier * star_activity)
                             + (star.domain_opcode as f32 * 0.05))
@@ -243,12 +253,24 @@ impl HudView for Galaxy3DView {
                             Color32::from_rgba_unmultiplied(120, 160, 220, 140)
                         };
 
-                        let pulse_radius = if is_edge_active { 4.2 * pulse_scale } else { 2.5 * pulse_scale };
+                        let pulse_radius = if is_edge_active {
+                            4.2 * pulse_scale
+                        } else {
+                            2.5 * pulse_scale
+                        };
                         painter.circle_filled(pulse_pos, pulse_radius, pulse_color);
                         painter.circle_stroke(
                             pulse_pos,
                             pulse_radius * 2.0,
-                            Stroke::new(1.0, Color32::from_rgba_unmultiplied(56, 139, 253, if is_edge_active { 220 } else { 100 })),
+                            Stroke::new(
+                                1.0_f32,
+                                Color32::from_rgba_unmultiplied(
+                                    56,
+                                    139,
+                                    253,
+                                    if is_edge_active { 220 } else { 100 },
+                                ),
+                            ),
                         );
                     }
                 }
@@ -323,7 +345,7 @@ impl HudView for Galaxy3DView {
                     *pos_2d,
                     ripple_radius,
                     Stroke::new(
-                        1.5,
+                        1.5_f32,
                         Color32::from_rgba_unmultiplied(
                             theme.accent().r(),
                             theme.accent().g(),
@@ -336,13 +358,13 @@ impl HudView for Galaxy3DView {
                 painter.circle_stroke(
                     *pos_2d,
                     radius + 5.0 * scale,
-                    Stroke::new(2.0, Color32::from_rgb(255, 255, 255)),
+                    Stroke::new(2.0_f32, Color32::from_rgb(255, 255, 255)),
                 );
                 painter.circle_stroke(
                     *pos_2d,
                     radius + 9.0 * scale,
                     Stroke::new(
-                        1.0,
+                        1.0_f32,
                         Color32::from_rgba_unmultiplied(
                             theme.accent().r(),
                             theme.accent().g(),
@@ -384,7 +406,7 @@ impl HudView for Galaxy3DView {
         {
             egui::Frame::group(ui.style())
                 .fill(theme.card_bg())
-                .stroke(Stroke::new(1.0, theme.border_color()))
+                .stroke(Stroke::new(1.0_f32, theme.border_color()))
                 .corner_radius(CornerRadius::same(6))
                 .show(ui, |ui| {
                     ui.horizontal(|ui| {

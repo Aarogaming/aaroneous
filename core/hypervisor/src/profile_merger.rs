@@ -1,13 +1,16 @@
-use crate::hox_map_schema::{EnzymeGenetics, HoxPermissions};
+use crate::profile_schema::{ModuleDefinition, NodePermissions};
 use anyhow::Result;
 use rand::RngExt;
 
-pub struct GeneticRecombinator;
+pub struct ProfileRecombinator;
 
-impl GeneticRecombinator {
+impl ProfileRecombinator {
     /// Performs crossover breeding between two specialists.
     /// This creates a new genetic template for a descendant enzyme.
-    pub fn breed(parent_a: &EnzymeGenetics, parent_b: &EnzymeGenetics) -> Result<EnzymeGenetics> {
+    pub fn merge_profiles(
+        parent_a: &ModuleDefinition,
+        parent_b: &ModuleDefinition,
+    ) -> Result<ModuleDefinition> {
         let mut rng = rand::rng();
 
         // 1. Category Inheritance (Pick one)
@@ -24,7 +27,7 @@ impl GeneticRecombinator {
 
         // 3. Permission Crossover (Union of safety, Intersection of power)
         // We favor the more restrictive permissions for the hybrid to ensure safety.
-        let permissions = HoxPermissions {
+        let permissions = NodePermissions {
             max_sovereignty_tier: parent_a
                 .permissions
                 .max_sovereignty_tier
@@ -45,7 +48,7 @@ impl GeneticRecombinator {
             }
         }
 
-        Ok(EnzymeGenetics {
+        Ok(ModuleDefinition {
             category,
             expression_level,
             permissions,

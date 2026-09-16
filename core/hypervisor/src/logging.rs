@@ -16,8 +16,8 @@
 // Existing `println!` calls in the codebase are left untouched in
 // this pass; a follow-up commit can sweep them.
 
-use tracing_subscriber::EnvFilter;
 use std::sync::atomic::{AtomicBool, Ordering};
+use tracing_subscriber::EnvFilter;
 
 static INITIALIZED: AtomicBool = AtomicBool::new(false);
 
@@ -73,10 +73,9 @@ fn install_subscriber() -> tracing_appender::non_blocking::WorkerGuard {
 
 #[cfg(unix)]
 fn atty_stderr() -> bool {
-    extern "C" {
-        fn isatty(fd: i32) -> i32;
-    }
-    unsafe { isatty(2) != 0 }
+    use std::io::IsTerminal;
+
+    std::io::stderr().is_terminal()
 }
 
 #[cfg(not(unix))]
@@ -110,15 +109,15 @@ mod tests {
 }
 
 /// Shell-specific tracing level configuration.
-/// 
+///
 /// HUD: WARN/ERROR (quiet for inference focus)
 /// Console: INFO (operational visibility)  
 /// Studio: DEBUG/TRACE (development debugging)
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ShellType {
-    Hud,      // Visual overlay - quiet logging
-    Console,  // Terminal mode - operational logs
-    Studio,   // Dev environment - full debug output
+    Hud,     // Visual overlay - quiet logging
+    Console, // Terminal mode - operational logs
+    Studio,  // Dev environment - full debug output
 }
 
 /// Install shell-specific tracing level filters.

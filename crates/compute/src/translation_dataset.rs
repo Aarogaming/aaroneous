@@ -9,18 +9,20 @@ use std::fs::{self, File};
 use std::io::{Read, Write};
 use std::path::Path;
 
-pub const ROSETTA_TEACHER_DIM: usize = 4096;
-pub const ROSETTA_LATENT_DIM: usize = 256;
-pub const ROSETTA_MAGIC: [u8; 4] = *b"ROST";
+pub const TEACHER_DIM: usize = 4096;
+pub const LATENT_DIM: usize = 256;
+pub const TRANSLATION_MAGIC: [u8; 4] = *b"ROST";
+pub const ROSETTA_TEACHER_DIM: usize = TEACHER_DIM;
+pub const ROSETTA_LATENT_DIM: usize = LATENT_DIM;
 
 /// A single step in a software or OS micro-task trajectory
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RosettaTrajectoryStep {
+pub struct TranslationStep {
     pub task_id: u64,
     pub description: String,
     pub teacher_hidden_state: Vec<f32>, // 4096-dim Oracle reasoning vector
-    pub expected_opcode: u16,           // Discrete MachineOpcode (e.g. 0x01: Alloc, 0x04: TensorDot)
-    pub target_state_delta: Vec<f32>,   // 256-dim next-state delta (ΔS = S_{t+1} - S_t)
+    pub expected_opcode: u16, // Discrete MachineOpcode (e.g. 0x01: Alloc, 0x04: TensorDot)
+    pub target_state_delta: Vec<f32>, // 256-dim next-state delta (ΔS = S_{t+1} - S_t)
 }
 
 /// The Translation Dataset containing thousands of trajectory steps
@@ -30,7 +32,7 @@ pub struct TranslationDataset {
     pub sample_count: usize,
     pub teacher_dim: usize,
     pub latent_dim: usize,
-    pub steps: Vec<RosettaTrajectoryStep>,
+    pub steps: Vec<TranslationStep>,
 }
 
 impl TranslationDataset {
@@ -38,8 +40,8 @@ impl TranslationDataset {
         Self {
             name: name.to_string(),
             sample_count: 0,
-            teacher_dim: ROSETTA_TEACHER_DIM,
-            latent_dim: ROSETTA_LATENT_DIM,
+            teacher_dim: TEACHER_DIM,
+            latent_dim: LATENT_DIM,
             steps: Vec::new(),
         }
     }
@@ -50,58 +52,177 @@ impl TranslationDataset {
     }
 
     /// Synthesizes tailored micro-task trajectories for a specific Sovereign Specialist Domain
-    pub fn synthesize_specialist_corpus(specialist_name: &str, domain_opcode: u16, sample_count: usize) -> Self {
-        let mut dataset = Self::new(&format!("Translation-{}-0x{:04X}", specialist_name, domain_opcode));
+    pub fn synthesize_specialist_corpus(
+        specialist_name: &str,
+        domain_opcode: u16,
+        sample_count: usize,
+    ) -> Self {
+        let mut dataset = Self::new(&format!(
+            "Translation-{}-0x{:04X}",
+            specialist_name, domain_opcode
+        ));
         dataset.sample_count = sample_count;
 
         let templates: &[(&str, u16, f32)] = match specialist_name.to_lowercase().as_str() {
             "orchestrator" => &[
-                ("Orchestrator: Schedule distributed specialist pipeline execution", 0x01, 0.05),
-                ("Orchestrator: Evaluate Byzantine quorum consensus vote threshold", 0x02, 0.04),
-                ("Orchestrator: Allocate metabolic energy tokens across federation", 0x03, 0.03),
+                (
+                    "Orchestrator: Schedule distributed specialist pipeline execution",
+                    0x01,
+                    0.05,
+                ),
+                (
+                    "Orchestrator: Evaluate Byzantine quorum consensus vote threshold",
+                    0x02,
+                    0.04,
+                ),
+                (
+                    "Orchestrator: Allocate metabolic energy tokens across federation",
+                    0x03,
+                    0.03,
+                ),
             ],
             "synthesizer" => &[
-                ("Synthesizer: Query 3D Omni Galaxy knowledge subgraph", 0x02, 0.05),
-                ("Synthesizer: Link cross-domain ontology concepts in AST", 0x04, 0.06),
-                ("Synthesizer: Ingest scientific research paper into semantic index", 0x01, 0.04),
+                (
+                    "Synthesizer: Query 3D Omni Galaxy knowledge subgraph",
+                    0x02,
+                    0.05,
+                ),
+                (
+                    "Synthesizer: Link cross-domain ontology concepts in AST",
+                    0x04,
+                    0.06,
+                ),
+                (
+                    "Synthesizer: Ingest scientific research paper into semantic index",
+                    0x01,
+                    0.04,
+                ),
             ],
             "presenter" => &[
-                ("Presenter: Render 60Hz 3D Star-Graph constellation viewport", 0x01, 0.06),
-                ("Presenter: Project latent state activations onto 256-bar oscilloscope", 0x04, 0.05),
-                ("Presenter: Compose reactive HUD dashboard widget", 0x03, 0.04),
+                (
+                    "Presenter: Render 60Hz 3D Star-Graph constellation viewport",
+                    0x01,
+                    0.06,
+                ),
+                (
+                    "Presenter: Project latent state activations onto 256-bar oscilloscope",
+                    0x04,
+                    0.05,
+                ),
+                (
+                    "Presenter: Compose reactive HUD dashboard widget",
+                    0x03,
+                    0.04,
+                ),
             ],
             "fabricator" => &[
-                ("Fabricator: Generate SIMD-quantized Q4_K_M forward kernel", 0x04, 0.08),
-                ("Fabricator: Compile and link native WASM bytecode module", 0x01, 0.05),
-                ("Fabricator: Optimize AST computational DAG node ordering", 0x03, 0.04),
+                (
+                    "Fabricator: Generate SIMD-quantized Q4_K_M forward kernel",
+                    0x04,
+                    0.08,
+                ),
+                (
+                    "Fabricator: Compile and link native WASM bytecode module",
+                    0x01,
+                    0.05,
+                ),
+                (
+                    "Fabricator: Optimize AST computational DAG node ordering",
+                    0x03,
+                    0.04,
+                ),
             ],
             "sentinel" => &[
-                ("Sentinel: Audit candidate action state tensor against SVDD safe manifold", 0x05, 0.07),
-                ("Sentinel: Orthogonally project rogue latent vector onto safe boundary", 0x06, 0.09),
-                ("Sentinel: Verify memory-mapped container zero-copy bounds check", 0x02, 0.03),
+                (
+                    "Sentinel: Audit candidate action state tensor against SVDD safe manifold",
+                    0x05,
+                    0.07,
+                ),
+                (
+                    "Sentinel: Orthogonally project rogue latent vector onto safe boundary",
+                    0x06,
+                    0.09,
+                ),
+                (
+                    "Sentinel: Verify memory-mapped container zero-copy bounds check",
+                    0x02,
+                    0.03,
+                ),
             ],
             "archivist" => &[
-                ("Archivist: Trigger Compaction Engine zero-copy memory compaction on NVMe", 0x01, 0.05),
-                ("Archivist: Step 4-channel neurochemical homeostatic decay", 0x04, 0.04),
-                ("Archivist: Calculate proactive curiosity drive impulse", 0x03, 0.06),
+                (
+                    "Archivist: Trigger Compaction Engine zero-copy memory compaction on NVMe",
+                    0x01,
+                    0.05,
+                ),
+                (
+                    "Archivist: Step 4-channel neurochemical homeostatic decay",
+                    0x04,
+                    0.04,
+                ),
+                (
+                    "Archivist: Calculate proactive curiosity drive impulse",
+                    0x03,
+                    0.06,
+                ),
             ],
             "router" => &[
-                ("Router: Broadcast zero-copy tensor packet across SPMC synapse", 0x01, 0.04),
-                ("Router: Route multi-node gossip proposal to P2P peer", 0x02, 0.05),
-                ("Router: Synchronize state across federated hive nodes", 0x03, 0.03),
+                (
+                    "Router: Broadcast zero-copy tensor packet across SPMC synapse",
+                    0x01,
+                    0.04,
+                ),
+                (
+                    "Router: Route multi-node gossip proposal to P2P peer",
+                    0x02,
+                    0.05,
+                ),
+                (
+                    "Router: Synchronize state across federated hive nodes",
+                    0x03,
+                    0.03,
+                ),
             ],
             "aligner" => &[
-                ("Aligner: Synchronize relativistic chrono-scheduler clocks", 0x02, 0.03),
-                ("Aligner: Align temporal resonance frequency across specialist loops", 0x04, 0.04),
-                ("Aligner: Predict time-to-completion for autonomous chimera cycle", 0x03, 0.05),
+                (
+                    "Aligner: Synchronize relativistic chrono-scheduler clocks",
+                    0x02,
+                    0.03,
+                ),
+                (
+                    "Aligner: Align temporal resonance frequency across specialist loops",
+                    0x04,
+                    0.04,
+                ),
+                (
+                    "Aligner: Predict time-to-completion for autonomous chimera cycle",
+                    0x03,
+                    0.05,
+                ),
             ],
             "perceiver" => &[
-                ("Perceiver: Evaluate 16x16 epigenetic visual motion gating delta", 0x01, 0.07),
-                ("Perceiver: Skip dormant screen sectors to achieve >90% compute savings", 0x06, 0.06),
-                ("Perceiver: Project raw visual luminance into R^256 spatial latent intent", 0x04, 0.08),
+                (
+                    "Perceiver: Evaluate 16x16 epigenetic visual motion gating delta",
+                    0x01,
+                    0.07,
+                ),
+                (
+                    "Perceiver: Skip dormant screen sectors to achieve >90% compute savings",
+                    0x06,
+                    0.06,
+                ),
+                (
+                    "Perceiver: Project raw visual luminance into R^256 spatial latent intent",
+                    0x04,
+                    0.08,
+                ),
             ],
             _ => &[
-                ("General: Execute computational instruction step", 0x01, 0.05),
+                (
+                    "General: Execute computational instruction step",
+                    0x01,
+                    0.05,
+                ),
                 ("General: Evaluate latent state transition", 0x04, 0.04),
             ],
         };
@@ -110,25 +231,30 @@ impl TranslationDataset {
             let (desc, opcode, scale) = templates[i % templates.len()];
 
             // Generate structured 4096-dim teacher hidden state with deterministic pseudo-random harmonics
-            let mut teacher_state = vec![0.0f32; ROSETTA_TEACHER_DIM];
+            let mut teacher_state = vec![0.0f32; TEACHER_DIM];
             for (j, value) in teacher_state.iter_mut().enumerate() {
                 let freq = ((i * 13 + j * 17 + (domain_opcode as usize) * 31) as f32).sin();
                 *value = freq * 0.5 + ((j % 64) as f32 * 0.001);
             }
 
             // Normalize teacher state onto hypersphere
-            let norm: f32 = teacher_state.iter().map(|x| x * x).sum::<f32>().sqrt().max(1e-6);
+            let norm: f32 = teacher_state
+                .iter()
+                .map(|x| x * x)
+                .sum::<f32>()
+                .sqrt()
+                .max(1e-6);
             for x in teacher_state.iter_mut() {
                 *x /= norm;
             }
 
             // Generate structured 256-dim target state delta
-            let mut delta = vec![0.0f32; ROSETTA_LATENT_DIM];
+            let mut delta = vec![0.0f32; LATENT_DIM];
             for (j, value) in delta.iter_mut().enumerate() {
                 *value = (((i * 7 + j * 11 + (domain_opcode as usize) * 19) as f32).cos()) * scale;
             }
 
-            dataset.steps.push(RosettaTrajectoryStep {
+            dataset.steps.push(TranslationStep {
                 task_id: (i + 1) as u64,
                 description: desc.to_string(),
                 teacher_hidden_state: teacher_state,
@@ -154,8 +280,11 @@ impl TranslationDataset {
             ("perceiver", 0x0900),
         ];
 
-        specs.iter()
-            .map(|(name, opcode)| Self::synthesize_specialist_corpus(name, *opcode, sample_count_per_domain))
+        specs
+            .iter()
+            .map(|(name, opcode)| {
+                Self::synthesize_specialist_corpus(name, *opcode, sample_count_per_domain)
+            })
             .collect()
     }
 
@@ -178,7 +307,7 @@ impl TranslationDataset {
 
         let encoded = serde_json::to_vec(self)?;
         let mut file = File::create(path)?;
-        file.write_all(&ROSETTA_MAGIC)?;
+        file.write_all(&TRANSLATION_MAGIC)?;
         file.write_all(&(encoded.len() as u64).to_le_bytes())?;
         file.write_all(&encoded)?;
         Ok(())
@@ -189,7 +318,7 @@ impl TranslationDataset {
         let mut file = File::open(path)?;
         let mut magic = [0u8; 4];
         file.read_exact(&mut magic)?;
-        if magic != ROSETTA_MAGIC {
+        if magic != TRANSLATION_MAGIC {
             anyhow::bail!("Invalid translation dataset magic header");
         }
 
@@ -214,17 +343,16 @@ mod tests {
     fn test_translation_dataset_synthesis_and_roundtrip() {
         let dataset = TranslationDataset::synthesize_synthetic_corpus(10);
         assert_eq!(dataset.steps.len(), 10);
-        assert_eq!(dataset.steps[0].teacher_hidden_state.len(), ROSETTA_TEACHER_DIM);
-        assert_eq!(dataset.steps[0].target_state_delta.len(), ROSETTA_LATENT_DIM);
+        assert_eq!(dataset.steps[0].teacher_hidden_state.len(), TEACHER_DIM);
+        assert_eq!(dataset.steps[0].target_state_delta.len(), LATENT_DIM);
 
-        let temp_dir = std::env::temp_dir();
-        let path = temp_dir.join("test_rosetta_stone.bin");
+        let temp_dir = tempfile::tempdir().unwrap();
+        let path = temp_dir.path().join("test_rosetta_stone.bin");
         dataset.save_to_file(&path).unwrap();
 
         let loaded = TranslationDataset::load_from_file(&path).unwrap();
         assert_eq!(loaded.sample_count, 10);
         assert_eq!(loaded.steps[0].description, dataset.steps[0].description);
-        let _ = fs::remove_file(path);
     }
 
     #[test]
@@ -233,13 +361,15 @@ mod tests {
         assert_eq!(unified.sample_count, 180); // 9 specialists * 20 samples
         assert_eq!(unified.steps.len(), 180);
 
-        let temp_dir = std::env::temp_dir();
-        let path = temp_dir.join("test_rosetta_federation_corpus.rost");
+        let temp_dir = tempfile::tempdir().unwrap();
+        let path = temp_dir.path().join("test_rosetta_federation_corpus.rost");
         unified.save_to_file(&path).unwrap();
 
         let loaded = TranslationDataset::load_from_file(&path).unwrap();
         assert_eq!(loaded.sample_count, 180);
-        assert_eq!(loaded.steps[179].expected_opcode, unified.steps[179].expected_opcode);
-        let _ = fs::remove_file(path);
+        assert_eq!(
+            loaded.steps[179].expected_opcode,
+            unified.steps[179].expected_opcode
+        );
     }
 }

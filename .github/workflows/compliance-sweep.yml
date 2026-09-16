@@ -1,0 +1,164 @@
+name: Compliance Sweep
+
+# Item 6 of the CI enhancement follow-ups: a periodic compliance_auditor run
+# that isn't gated on a PR being open, so debt that lands without going
+# through compliance-review.yml (a direct push to main, a PR merged before
+# this system existed, a PR whose OPENAI_API_KEY-less run only hit the mock
+# provider) still gets surfaced eventually.
+#
+# compliance_auditor reviews a diff, not a whole-tree snapshot — there's no
+# "scan the entire codebase" mode, and diffing main against its very first
+# commit would produce a diff far too large for the tool's per-angle context
+# budget to do anything useful with (see diff.rs's max_files/diff_char_budget
+# truncation). So this sweeps a rolling 30-day window of main instead: wide
+# enough to catch anything the weekly cadence might otherwise miss between
+# runs, without exploding into an unreviewable diff. Findings post to a
+# single pinned tracking issue (upserted, like compliance-review.yml's PR
+# comment) rather than a PR, since a scheduled run has no PR to comment on.
+on:
+  schedule:
+    # Every Monday 07:00 UTC.
+    - cron: "0 7 * * 1"
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  sweep:
+    name: 30-day rolling review of main
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          ref: main
+
+      - name: Resolve 30-day-old base commit
+        id: base
+        run: |
+          base_sha="$(git log --since='30 days ago' --format=%H main | tail -1)"
+          if [ -z "$base_sha" ]; then
+            # Nothing in the last 30 days landed 30 days ago exactly (a quiet
+            # repo, or the very first sweep) — fall back to the oldest commit
+            # reachable at all, so the job still has a valid range to diff.
+            base_sha="$(git rev-list --max-parents=0 main | tail -1)"
+          fi
+          echo "sha=$base_sha" >> "$GITHUB_OUTPUT"
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Linux native build dependencies
+        run: sudo apt-get update && sudo apt-get install -y libclang-dev libudev-dev libasound2-dev libssl-dev pkg-config cmake
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Build compliance_auditor
+        run: cargo build -p compliance_auditor --release
+
+      - name: Run compliance sweep
+        id: review
+        continue-on-error: true
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          if [ -n "${OPENAI_API_KEY:-}" ]; then
+            PROVIDER=openai
+          else
+            echo "::notice::No OPENAI_API_KEY secret configured; running against the mock provider (no real findings will be produced)."
+            PROVIDER=mock
+          fi
+          ./target/release/compliance_auditor review \
+            --base "${{ steps.base.outputs.sha }}" \
+            --head main \
+            --provider "$PROVIDER" \
+            --max-files 60 \
+            --json \
+            --output compliance-report.json | tee compliance-report.txt
+
+      - name: Publish job summary
+        if: always()
+        run: |
+          {
+            echo "## Compliance sweep (30-day rolling window)"
+            echo
+            echo '```'
+            cat compliance-report.txt 2>/dev/null || echo "(no output captured)"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload report artifact
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: compliance-sweep-report
+          path: compliance-report.json
+          if-no-files-found: ignore
+
+      - name: Post to tracking issue
+        if: always()
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const fs = require('fs');
+            const marker = '<!-- compliance-sweep-report -->';
+            const title = 'Compliance sweep (rolling)';
+
+            let body = `${marker}\n## Compliance sweep\n\n_Last run: ${new Date().toISOString()}_\n\n`;
+            let report = null;
+            try {
+              report = JSON.parse(fs.readFileSync('compliance-report.json', 'utf8'));
+            } catch (err) {
+              body += `_This run did not produce a report (${err.message}). `
+                    + `Check the [job summary](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}) for details._\n`;
+            }
+
+            if (report) {
+              body += `Reviewed \`${report.base_sha.slice(0, 12)}..${report.head_sha.slice(0, 12)}\` `
+                    + `(${report.files_reviewed.length} file(s), 30-day window).\n\n`;
+
+              if (report.structural_errors.length > 0) {
+                body += '### Structural (ast_auditor)\n\n';
+                for (const e of report.structural_errors) body += `- ${e}\n`;
+                body += '\n';
+              }
+
+              if (report.findings.length === 0) {
+                body += '_No findings survived verification this run._\n';
+              } else {
+                body += `### Findings (${report.findings.length})\n\n`;
+                body += '| Angle | Verdict | Location | Summary |\n';
+                body += '|---|---|---|---|\n';
+                for (const f of report.findings) {
+                  const loc = `${f.candidate.file}:${f.candidate.line ?? '?'}`;
+                  const summary = f.candidate.summary.replace(/\|/g, '\\|');
+                  body += `| ${f.candidate.angle} | ${f.verdict} | \`${loc}\` | ${summary} |\n`;
+                }
+              }
+            }
+
+            const issues = await github.rest.search.issuesAndPullRequests({
+              q: `repo:${context.repo.owner}/${context.repo.repo} is:issue in:title "${title}"`,
+            });
+            const existing = issues.data.items.find(i => !i.pull_request);
+
+            if (existing) {
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existing.number,
+                body,
+              });
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title,
+                body,
+                labels: ['compliance-sweep'],
+              });
+            }

@@ -1,72 +1,113 @@
-# Aaroneous Frontier Roadmap: Horizons & Long-Term Milestones
+# Aaroneous Product Roadmap & Pillar Status
 
-**Version:** `v1.7.0`+  
-**Classification:** Canonical Roadmap & Frontier Framework  
+**Status:** Canonical Evidence-Labeled Roadmap  
+**Baseline Version:** v0.3.3 (2026-09-16)  
+**Governance Source:** devtools `governance/WORKLIST.md` & `governance/COORDINATION_QUEUE.md`
 
 ---
 
-## 1. The 5 Architectural Pillars
+## 1. Overview & Verification Standards
 
-All platform capabilities map back to five foundational pillars:
+Aaroneous is a type-safe **Rust Component Framework** built for deterministic reduction, zero-allocation hot paths, injected dependencies, and explicit memory contracts.
 
+All roadmap features must satisfy the **11 Sequential Verification Gates** (`cargo xtask gate`):
+1. Text Encoding Contract (`check-encoding`)
+2. Format Contract (`cargo fmt --all -- --check`)
+3. Strict Clippy (`cargo clippy --workspace -- -D warnings`)
+4. Full Workspace Compilation (`cargo check --workspace --all-targets`)
+5. Functional Test Suite (`cargo test --workspace`)
+6. AST Invariant Audit (`cargo run -p ast_auditor -- audit core/ crates/ dev/`)
+7. Soundness & Zero-Stub Inspection (`git grep` check for `todo!`, `unimplemented!`, manual `unsafe impl Pod`)
+8. Golden Harness Verification (`cargo test -p emulator_harness`)
+9. Release Binary Build (`cargo check --release --bin hypervisor`)
+10. Hypervisor Feature Flags (`llama-gguf,gpu-metrics,fleet,testing,standalone`)
+11. P2P Mesh Feature (`p2p-iroh`)
+
+---
+
+## 2. Core Architectural Pillars
+
+```text
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                      AARONEOUS UNIFIED STUDIO & HUD (P5)                        │
+│         (Native egui / eframe 0.34 over wgpu Presentation Layer)                │
+└────────┬─────────────────────────────┬─────────────────────────────┬────────────┘
+         │                             │                             │
+         ▼                             ▼                             ▼
+┌──────────────────┐         ┌──────────────────┐         ┌──────────────────────┐
+│ PLATFORM INGRESS │         │ ADAPTIVE RUNTIME │         │ COMPUTE & SSM ENGINE │
+│   & TRANSDUCERS  │         │   & SCHEDULER    │         │ (SiForge, .si format,│
+│ (Win32 HID, DXGI,│         │ (Typestate Task  │         │ HiPPO SSM Recurrence,│
+│ WASAPI Loopback) │         │   Assimilation)  │         │ Cranelift JIT Graph) │
+└────────┬─────────┘         └────────┬─────────┘         └──────────┬───────────┘
+         │                            │                              │
+         └────────────────────────────┼──────────────────────────────┘
+                                      ▼
+         ┌───────────────────────────────────────────────────────────┐
+         │             .si SOLID-STATE CARTRIDGE RUNTIME             │
+         │  (Frozen Core + Streaming LoRA Matrix + Skill Stack DAGs) │
+         └───────────────────────────────────────────────────────────┘
 ```
-┌──────────────────────────────────────────────────────────────────────────────────┐
-│                           AARONEOUS UNIFIED STUDIO & HUD                         │
-│       (Unified wgpu Context: Studio UI, DAG Visualizer, Telemetry, Recorders)    │
-└────────┬──────────────────────┬──────────────────────────┬───────────────────────┘
-         │                      │                          │
-         ▼                      ▼                          ▼
-┌──────────────────┐  ┌──────────────────┐  ┌──────────────────────────────────────┐
-│ DESKTOP ENGINE   │  │ ADAPTIVE RUNTIME │  │ SYNTHETIC INTELLIGENCE & COMPILER    │
-│ (Desktop Interact│  │ (Live Patch / Hot│  │  - Native Computational Graph (DAG)  │
-│  & DXGI Capture) │  │  Reload Engine)  │  │  - Cranelift JIT / SSM Recurrence    │
-└────────┬─────────┘  └────────┬─────────┘  │  - Edge Linguistic Lens (GGUF Ingest)│
-         │                      │           └──────────────────┬───────────────────┘
-         └──────────────────────┼──────────────────────────────┘
-                                ▼
-         ┌──────────────────────────────────────────────┐
-         │             .si CARTRIDGE RUNTIME            │
-         │  (Frozen Core + Streaming LoRA + Skill Stack) │
-         └──────────────────────────────────────────────┘
-```
 
-1. **P1: Desktop Interaction Engine:** High-speed vision, window topology, HID dispatch, and `SpatialDeltaGate` GPU shaders.
-2. **P2: Synthetic Intelligence & Compiler:** Non-linguistic reasoning, thermodynamic verification, native Cranelift JIT, and `cubecl` GPU SSM associative scans.
-3. **P3: Model Host & Distillation Foundry:** `.si` cartridge lifecycle, GGUF ingestion, frozen core + streaming LoRA, and HNSW $\mathbb{R}^{256}$ associative memory.
-4. **P4: Adaptive Runtime Engine:** Live code patching, dynamic plugin swapping via `libloading` C-ABI, and generational rollback journals.
-5. **P5: Developer Studio & Telemetry HUD:** Unified `wgpu` context, 3D DAG visualizer, latency oscilloscope, and NVML hardware telemetry.
-
----
-
-## 2. The 7-Horizon Frontier Matrix
-
-The long-term aspirational trajectory defines the leap from an autonomous hypervisor to a standalone bare-metal machine intelligence substrate:
-
-| Horizon | Architectural Domain | Technical Mechanism & Target Deliverables |
-|---|---|---|
-| **H1** | **Autonomous Skill Synthesis & Trace Crystallization** | Automatic extraction of high-frequency execution traces into compiled Cranelift native plugins embedded directly into `.si` Block 3 dynamic habit stacks. |
-| **H2** | **Deep OS Observability & Multi-Modal Sensor Fusion** | Quad-stream sensory pipeline: DXGI screen capture + UIA element tree walker + WASAPI loopback audio + non-polling ETW kernel event consumer. |
-| **H3** | **Formal SMT & Thermodynamic Verification** | Continuous lattice validation of 7-exponent SI base units with Z3 SMT-backed algebraic non-interference proofs for concurrent task graphs. |
-| **H4** | **Associative Vector Memory Fabric** | In-memory `hnsw_rs` indexing over $\mathbb{R}^{256}$ latent trajectories providing $< 1\mu\text{s}$ nearest-neighbor habit and reflex recall. |
-| **H5** | **Heterogeneous Fleet Swarm & Work-Stealing** | Multi-host Iroh QUIC mesh with Ed25519 node identities, dynamic load telemetry, and decentralized work-stealing for heavy computation graphs. |
-| **H6** | **Sovereign SI-OS & Compositor** | Fluid RON spatial window canvas evolving toward a standalone Wayland/Direct3D12 compositor and bare-metal microkernel substrate. |
-| **H7** | **In-Game Graphics Hooking & Zero-Latency Overlays** | In-process graphics injection via `hudhook` for DirectX 9/11/12 and Vulkan rendering pipelines with sub-frame action overlays. |
-
----
-
-## 3. Active Phase Milestones: Phase 38 (`v1.7.0`)
-
-| Subsystem | Milestone Focus | Target Deliverables & Verification Invariant | Status |
+| Pillar | Subsystem | Primary Crates | Status Summary |
 |---|---|---|---|
-| **Capability Broker** | Granular System Access | Token generation with monotonic epoch counters; atomic instant revocation gates for worker processes. | **In Progress** |
-| **Engine State Publisher** | Zero-Lock Telemetry | Triple-buffered atomic snapshot plane with dirty-flag polling for egui/wgpu HUD consumers. | **In Progress** |
-| **Micro-Latency Physics** | Sterile Execution Plane | LMAX disruptor ring buffers, sub-nanosecond RDTSC hardware timing quanta, and thermodynamic backpressure throttling equations. | **In Progress** |
-| **Continuous HiPPO SSM** | Hardware Accelerated Scans | HiPPO continuous shifted Legendre matrix recurrence discretized via bilinear transform; parallel associative scan dispatch via `cubecl` ($< 180\mu\text{s}$). | **In Progress** |
+| **P1: Ingress & Transducers** | OS integration, Win32 HID, DXGI capture, WASAPI audio | `crates/platform_bridge` | **Implemented** — Native Win32 HID injection, DXGI screen capture (`windows-capture`), and WASAPI loopback. |
+| **P2: Compute & SSM Engine** | Continuous HiPPO state-space recurrence, `.si` format, Cranelift JIT | `crates/compute`, `crates/si_format`, `crates/si_ir` | **Implemented** — Memory-mapped `.si` containers (`memmap2`), 4-layer SSM recurrence, zero-copy alignment (`align(64)`). |
+| **P3: Capability & Model Host** | `UniversalTool` registry, GGUF ingestion, local LLM gateway | `crates/capabilities`, `crates/autonomic_adaptation`, `crates/llm_gateway` | **Implemented** — UniversalTool dual-face execution (MCP JSON + $\mathbb{R}^{256}$ VRAM tensors), MCP server (`hypervisor mcp`). |
+| **P4: Adaptive Runtime Host** | Microkernel host, 3-phase scan loop, lock-free IPC, tier scheduler | `core/hypervisor`, `crates/ipc_bus`, `crates/orchestrator` | **Implemented** — 3-phase scan reduction ($S_{t+1} = f(S_t, I)$), lock-free SWMR ring buffers (`ipc_bus`), multi-hive P2P daemon. |
+| **P5: Presentation HUD** | Desktop cockpit UI, 3D Galaxy graph, interactive telemetry | `crates/studio_hud`, `crates/api`, `crates/omni` | **Implemented** — In-process UI plugin loader (`UiCartridge`), egui/wgpu presentation layer (`aaroneous` binary). |
 
 ---
 
-## 4. Completed Evolution Milestones (Phases 1–37)
+## 3. Evidence-Labeled Feature Status
 
-- **Phases 1–8 (`v0.4.0` – `v1.2.0`):** Defect stabilization, packet alignment, DXGI desktop capture, Cranelift JIT compilation with W^X memory, `SiForge` distillation pipeline, dynamic C-ABI loader, Iroh QUIC fleet, and mimalloc tuning.
-- **Phases 9–24 (`v1.2.0` – `v1.3.0`):** Native WGPU 3D Constellation Studio, SSE telemetry streamer, Raft consensus engine, canonical `.si` v3.0 format, and Z3 SMT action interlocks.
-- **Phases 25–37 (`v1.4.0` – `v1.6.0`):** 16-slot sparse expert register, CAN 2.0B/FD, Crucible virtual sandbox, decoupled linguistic lens, 45 TOPS NPU offloading, and user kinematics profiling.
+### 3.1 Implemented & Verified Capabilities
+
+- [x] **11-Gate CI/Local Parity (`cargo xtask gate`)**
+  - **Evidence:** `xtask/src/gate.rs` enforces text encoding, clippy `-D warnings`, workspace tests, release check, ast_auditor, and feature combinations. Automated parity tests verify `gate.rs` matches `.github/workflows/ci.yml`.
+- [x] **Static AST Invariant Audit (`ast_auditor`)**
+  - **Evidence:** `cargo run -p ast_auditor -- audit core/ crates/ dev/` reports 0 violations across 738 files. Prohibits `todo!()`, `unimplemented!()`, manual `unsafe impl Pod`, and ambient `std::env::var` calls.
+- [x] **Deterministic Temporal Synchronization (M19)**
+  - **Evidence:** `crates/omni/src/matrix/sab_matrix.rs` test refactored using `std::fs::FileTimes` backdating (<5ms runtime); `core/hypervisor/src/bus_test.rs` artificial sleep removed. `governance/TEMPORAL_TEST_SYNCHRONIZATION_GUIDANCE.md` published.
+- [x] **Lock-Free Zero-Copy IPC Transport (`crates/ipc_bus`)**
+  - **Evidence:** `SwrnRingBuffer` SPMC/SWMR ring buffers derive `bytemuck::Pod` + `Zeroable` over memory-mapped files (`memmap2`) with explicit alignment padding. `IpcEvent` layout tested at 24 bytes, 8-byte aligned.
+- [x] **Sound In-Process UI Plugin Lifecycle (C2 / M4)**
+  - **Evidence:** `studio_hud::plugin_api::PluginManager` exposes safe in-process `load_cartridge(Box<dyn UiCartridge>)`. Historical fat-pointer FFI across DLL boundaries (`*mut dyn UiCartridge`) removed as unsound.
+- [x] **Deprecation & Terminology Canonicalization (M7, M22, M23)**
+  - **Evidence:** Deprecated 17 legacy biological/mythological type aliases and 3 path methods (`#[deprecated(since = "0.3.3")]`). Added `TypeId` equivalence unit tests. Published `docs/DEPRECATION_POLICY.md` scheduling removal at v0.4.0.
+- [x] **Root README Assurance Reconciliation (M21)**
+  - **Evidence:** Reconciled root `README.md` with current binary CLI (`hypervisor` subcommands `start`, `boot`, `mesh`, `daemon`, `evolve`, `forge`, `si`, `distill-all`, `mcp`) and explicitly labeled latency figures as design targets.
+
+### 3.2 Active & In-Progress Development Lanes
+
+- [ ] **M12: Stable Plugin Command-Buffer ABI (RFC-0006)**
+  - **Status:** Specification complete (`docs/rfcs/RFC-0006-PLUGIN_LIFECYCLE_AND_STABLE_UI_CARTRIDGE_ABI.md`). Next: implementation of a `repr(C)` command-buffer protocol for dynamic hot-reload plugins.
+- [ ] **M20: Iroh P2P Dependency Upgrade Evaluation**
+  - **Status:** Scoped in `governance/DEPENDENCY_REMEDIATION_PLAN.md`. Next: testing `iroh` upgrade path to unblock transitive `hickory-net` and `lru` advisories.
+- [ ] **M26: Property-Oriented Parser Boundary Testing**
+  - **Status:** Planned. Next: adding property-based fuzz tests (`proptest`) for zero-panic guarantees on `crates/wire` and `crates/ipc_bus` binary deserialization.
+- [ ] **M27: Bounded Baseline Performance Benchmarking**
+  - **Status:** Planned. Next: creating reproducible benchmark contracts and baseline capture for `dev/emulator_harness` trace reduction.
+
+### 3.3 Phased Release Schedule
+
+```text
+v0.3.3 (Current) ──► v0.4.0 (Deprecation Removal) ──► v0.5.0 (Plugin ABI RFC-0006) ──► v0.6.0 (Cranelift JIT) ──► v1.0.0 (Iroh P2P Mesh)
+```
+
+| Phase | Version | Focus | Primary Deliverables |
+|---|---|---|---|
+| **Phase 1: Terminology Cleanup & Hardening** | `v0.4.0` | Alias removal & dep remediation | Remove v0.3.3 deprecated type aliases per `DEPRECATION_POLICY.md`; execute `iroh` upgrade (M20). |
+| **Phase 2: Stable Plugin ABI** | `v0.5.0` | Dynamic plugin hot-reloading | Implement `repr(C)` command-buffer replay engine for `studio_hud` plugins per RFC-0006. |
+| **Phase 3: Compiler & Cranelift JIT** | `v0.6.0` | Native code generation | `cranelift-codegen` JIT for `MachineOpcode` computational graphs in `crates/compute`. |
+| **Phase 4: Cartridge Foundry & Distillation** | `v0.7.0` | `.si` tooling & skill stacks | `SiForge` builder enhancements, GGUF tensor extraction, episodic skill DAG inspection. |
+| **Phase 5: Multi-Node P2P Mesh** | `v1.0.0` | Distributed execution | Full Iroh QUIC p2p mesh, work-stealing scheduler, and P2P `.si` cartridge sync. |
+
+### 3.4 Superseded & Retired Architectures
+
+- **WASM / WIT Component Subsystem (Retired)**
+  - *Status:* Removed in M6 per `docs/archive/05_WASM_PHASEOUT_AND_DEPRECATION_PLAN.md`. All 103 unconsumed `.wit` files deleted; native `.si` containers are the sole execution target.
+- **Unsound DLL Trait Object FFI (Retired)**
+  - *Status:* Removed in C2. Passing Rust `dyn UiCartridge` fat-pointers across shared library boundaries was replaced with safe, in-process trait composition.
+- **Legacy Monikers (`a_run`, `a_hud`, `specialists` crate name)**
+  - *Status:* Replaced by standard systems names: `hypervisor` binary CLI, `studio_hud` GUI binary, and `capabilities` domain crate.

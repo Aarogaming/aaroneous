@@ -8,12 +8,14 @@ use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use tracing::info;
 
-use crate::traits::{DomainSubEngine, MnlpPacket, MnlpResponse, SovereignSpecialist, SpecialistHealth};
+use crate::traits::{
+    DomainSubEngine, MnlpPacket, MnlpResponse, SovereignSpecialist, SpecialistHealth,
+};
 
 /// Cognitive load and conversational resonance alignment report
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SymbioticResonanceReport {
-    pub estimated_cognitive_load: f32, // 0.0 to 1.0
+    pub estimated_cognitive_load: f32,    // 0.0 to 1.0
     pub recommended_detail_level: String, // "High", "Standard", "ConciseSummary"
     pub translated_message: String,
 }
@@ -82,7 +84,7 @@ impl AlignerSpecialist {
     /// Aligns machine tensor output into clear human resonance
     pub fn align_output(&mut self, raw_machine_output: &str) -> SymbioticResonanceReport {
         self.resonance.interactions_aligned += 1;
-        info!(target: "specialist::aligner", "Translating machine output for optimal human cognitive resonance");
+        info!(target: "agent::aligner", "Translating machine output for optimal human cognitive resonance");
 
         SymbioticResonanceReport {
             estimated_cognitive_load: 0.32,

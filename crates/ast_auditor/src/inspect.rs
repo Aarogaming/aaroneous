@@ -7,8 +7,8 @@
 
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
-use std::path::Path;
 use std::fs;
+use std::path::Path;
 use syn::{File, Item, Signature, Type, Visibility};
 
 /// Simple representation of a function signature.
@@ -182,9 +182,17 @@ fn inspect_item(item: Item, info: &mut CodeInfo) {
                 let vis = format_visibility(&f.vis);
                 let field_name = f.ident.map(|i| i.to_string()).unwrap_or("_".to_string());
                 let ty = type_to_string(&f.ty);
-                fields.push(StructField { name: field_name, ty, visibility: vis });
+                fields.push(StructField {
+                    name: field_name,
+                    ty,
+                    visibility: vis,
+                });
             }
-            info.structs.push(StructInfo { name, visibility, fields });
+            info.structs.push(StructInfo {
+                name,
+                visibility,
+                fields,
+            });
         }
         Item::Enum(en) => {
             let name = en.ident.to_string();
@@ -194,22 +202,34 @@ fn inspect_item(item: Item, info: &mut CodeInfo) {
                 let variant_name = v.ident.to_string();
                 let payload = match v.fields {
                     syn::Fields::Unnamed(ref u) if !u.unnamed.is_empty() => {
-                        let types: Vec<String> = u.unnamed.iter().map(|f| type_to_string(&f.ty)).collect();
+                        let types: Vec<String> =
+                            u.unnamed.iter().map(|f| type_to_string(&f.ty)).collect();
                         Some(types.join(", "))
                     }
                     syn::Fields::Named(ref named) if !named.named.is_empty() => {
-                        let fields: Vec<String> = named.named.iter().map(|f| {
-                            let ty = type_to_string(&f.ty);
-                            let name = f.ident.as_ref().unwrap().to_string();
-                            format!("{}: {}", name, ty)
-                        }).collect();
+                        let fields: Vec<String> = named
+                            .named
+                            .iter()
+                            .map(|f| {
+                                let ty = type_to_string(&f.ty);
+                                let name = f.ident.as_ref().unwrap().to_string();
+                                format!("{}: {}", name, ty)
+                            })
+                            .collect();
                         Some(fields.join(", "))
                     }
                     _ => None,
                 };
-                variants.push(EnumVariant { name: variant_name, payload });
+                variants.push(EnumVariant {
+                    name: variant_name,
+                    payload,
+                });
             }
-            info.enums.push(EnumInfo { name, visibility, variants });
+            info.enums.push(EnumInfo {
+                name,
+                visibility,
+                variants,
+            });
         }
         Item::Mod(module) => {
             // Recurse into inline module bodies (`mod foo { ... }`)
@@ -325,8 +345,8 @@ fn type_to_string(ty: &Type) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tempfile::NamedTempFile;
     use std::io::Write;
+    use tempfile::NamedTempFile;
 
     #[test]
     fn parses_simple_file() {

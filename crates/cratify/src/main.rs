@@ -61,14 +61,20 @@ fn main() -> ExitCode {
 
     match cli.command {
         Commands::Audit { targets } => {
-            println!("[cratify] Delegating audit to `ast_auditor` for {} targets...", targets.len());
+            println!(
+                "[cratify] Delegating audit to `ast_auditor` for {} targets...",
+                targets.len()
+            );
             match ast_auditor::run_workspace_audit(targets) {
                 Ok(()) => ExitCode::SUCCESS,
                 Err(code) => code,
             }
         }
         Commands::Scaffold { name, output } | Commands::Generate { name, output } => {
-            println!("[cratify] Delegating scaffolding to `transpiler` for crate `{}`...", name);
+            println!(
+                "[cratify] Delegating scaffolding to `transpiler` for crate `{}`...",
+                name
+            );
             let result = if let Some(out) = output {
                 transpiler::create_crate_scaffold_at(&name, &out)
             } else {
@@ -78,11 +84,18 @@ fn main() -> ExitCode {
 
             match result {
                 Ok(path) => {
-                    println!("[cratify] Crate `{}` successfully scaffolded at {}", name, path.display());
+                    println!(
+                        "[cratify] Crate `{}` successfully scaffolded at {}",
+                        name,
+                        path.display()
+                    );
                     ExitCode::SUCCESS
                 }
                 Err(err) => {
-                    eprintln!("[cratify ERROR] Failed to scaffold crate `{}`: {:#}", name, err);
+                    eprintln!(
+                        "[cratify ERROR] Failed to scaffold crate `{}`: {:#}",
+                        name, err
+                    );
                     ExitCode::FAILURE
                 }
             }
@@ -105,7 +118,11 @@ fn main() -> ExitCode {
                         specs.len()
                     );
                     for spec in &specs {
-                        println!(" - Crate `{}` (source: {})", spec.name, spec.source_path.display());
+                        println!(
+                            " - Crate `{}` (source: {})",
+                            spec.name,
+                            spec.source_path.display()
+                        );
                         println!(
                             "   Functions: {}, Structs: {}, Enums: {}",
                             spec.code_info.functions.len(),

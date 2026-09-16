@@ -5,7 +5,7 @@
 
 use crate::event_recorder::{RecordedInputEvent, SessionRecording};
 use crate::traits::{HidAction, HidCommand, VisualObservation};
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use serde::{Deserialize, Serialize};
 use std::time::Instant;
 
@@ -151,34 +151,34 @@ impl AutonomousGameAgent {
         };
 
         // If we have learned demonstrations, follow imitation trajectory
-        if let Some(demo) = self.learned_demonstrations.first() {
-            if !demo.events.is_empty() {
-                let event_idx = steps % demo.events.len();
-                let event = &demo.events[event_idx];
+        if let Some(demo) = self.learned_demonstrations.first()
+            && !demo.events.is_empty()
+        {
+            let event_idx = steps % demo.events.len();
+            let event = &demo.events[event_idx];
 
-                let actions = match event {
-                    RecordedInputEvent::MouseMove { x, y, .. } => vec![HidAction::MouseMove {
-                        delta_x: *x,
-                        delta_y: *y,
-                    }],
-                    RecordedInputEvent::MouseDown { .. } => vec![HidAction::LeftClick],
-                    RecordedInputEvent::MouseUp { .. } => vec![],
-                    RecordedInputEvent::KeyDown { key_code, .. } => vec![HidAction::KeyPress {
-                        key_code: *key_code as u16,
-                    }],
-                    RecordedInputEvent::KeyUp { key_code, .. } => vec![HidAction::KeyRelease {
-                        key_code: *key_code as u16,
-                    }],
-                    RecordedInputEvent::FrameCapture { .. } => vec![],
-                };
+            let actions = match event {
+                RecordedInputEvent::MouseMove { x, y, .. } => vec![HidAction::MouseMove {
+                    delta_x: *x,
+                    delta_y: *y,
+                }],
+                RecordedInputEvent::MouseDown { .. } => vec![HidAction::LeftClick],
+                RecordedInputEvent::MouseUp { .. } => vec![],
+                RecordedInputEvent::KeyDown { key_code, .. } => vec![HidAction::KeyPress {
+                    key_code: *key_code as u16,
+                }],
+                RecordedInputEvent::KeyUp { key_code, .. } => vec![HidAction::KeyRelease {
+                    key_code: *key_code as u16,
+                }],
+                RecordedInputEvent::FrameCapture { .. } => vec![],
+            };
 
-                if !actions.is_empty() {
-                    return Ok(Some(HidCommand {
-                        actions,
-                        sequence_id: steps as u64,
-                        timestamp_us: self.start_time.elapsed().as_micros() as u64,
-                    }));
-                }
+            if !actions.is_empty() {
+                return Ok(Some(HidCommand {
+                    actions,
+                    sequence_id: steps as u64,
+                    timestamp_us: self.start_time.elapsed().as_micros() as u64,
+                }));
             }
         }
 

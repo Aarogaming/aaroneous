@@ -21,7 +21,7 @@ pub fn render_full_studio(
         .frame(
             egui::Frame::side_top_panel(ui.style())
                 .fill(theme.panel_bg())
-                .stroke(Stroke::new(1.0, theme.border_color())),
+                .stroke(Stroke::new(1.0_f32, theme.border_color())),
         )
         .show_inside(ui, |ui| {
             ui.horizontal(|ui| {
@@ -59,15 +59,42 @@ pub fn render_full_studio(
                 let next_xp = (level as u64) * 250;
                 let progress = (xp as f32 / next_xp as f32).clamp(0.0, 1.0);
                 ui.horizontal(|ui| {
-                    if ui.button(egui::RichText::new(format!("⭐ Lv. {}", level)).strong().color(Color32::from_rgb(255, 215, 0))).clicked() {
+                    if ui
+                        .button(
+                            egui::RichText::new(format!("⭐ Lv. {}", level))
+                                .strong()
+                                .color(Color32::from_rgb(255, 215, 0)),
+                        )
+                        .clicked()
+                    {
                         state.show_achievements_modal = !state.show_achievements_modal;
                     }
-                    ui.add(egui::ProgressBar::new(progress).text(format!("{}/{} XP", xp, next_xp)).desired_width(110.0));
-                    if ui.button(egui::RichText::new(format!("🏆 {}/{}", state.achievements.unlocked_count(), state.achievements.total_count())).color(Color32::from_rgb(255, 200, 80)).size(11.0)).clicked() {
+                    ui.add(
+                        egui::ProgressBar::new(progress)
+                            .text(format!("{}/{} XP", xp, next_xp))
+                            .desired_width(110.0),
+                    );
+                    if ui
+                        .button(
+                            egui::RichText::new(format!(
+                                "🏆 {}/{}",
+                                state.achievements.unlocked_count(),
+                                state.achievements.total_count()
+                            ))
+                            .color(Color32::from_rgb(255, 200, 80))
+                            .size(11.0),
+                        )
+                        .clicked()
+                    {
                         state.show_achievements_modal = !state.show_achievements_modal;
                     }
                     if let Some(notif) = &state.xp_notification {
-                        ui.label(egui::RichText::new(notif).color(Color32::from_rgb(63, 185, 80)).strong().size(11.0));
+                        ui.label(
+                            egui::RichText::new(notif)
+                                .color(Color32::from_rgb(63, 185, 80))
+                                .strong()
+                                .size(11.0),
+                        );
                     }
                 });
 
@@ -81,12 +108,27 @@ pub fn render_full_studio(
                 } else {
                     format!("👤 {} [Flow {}%]", prof.display_name, flow_pct)
                 };
-                if ui.button(egui::RichText::new(user_badge).color(Color32::from_rgb(56, 139, 253)).strong().size(11.5)).clicked() {
+                if ui
+                    .button(
+                        egui::RichText::new(user_badge)
+                            .color(Color32::from_rgb(56, 139, 253))
+                            .strong()
+                            .size(11.5),
+                    )
+                    .clicked()
+                {
                     state.show_user_profile_modal = true;
                 }
 
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    if ui.button(if state.settings.modular_canvas_mode { "🪟 Standard Mode" } else { "📐 Modular Workspace" }).clicked() {
+                    if ui
+                        .button(if state.settings.modular_canvas_mode {
+                            "🪟 Standard Mode"
+                        } else {
+                            "📐 Modular Workspace"
+                        })
+                        .clicked()
+                    {
                         state.settings.modular_canvas_mode = !state.settings.modular_canvas_mode;
                         state.settings.save_to_disk();
                     }
@@ -109,12 +151,14 @@ pub fn render_full_studio(
 
                     if ui.button("🪟 Mini-HUD (F10)").clicked() {
                         state.app_window_mode = AppWindowMode::CompactRecorderOverlay;
-                        ui.ctx().send_viewport_cmd(egui::ViewportCommand::InnerSize(egui::vec2(
-                            380.0, 180.0,
-                        )));
-                        ui.ctx().send_viewport_cmd(egui::ViewportCommand::WindowLevel(
-                            egui::viewport::WindowLevel::AlwaysOnTop,
-                        ));
+                        ui.ctx()
+                            .send_viewport_cmd(egui::ViewportCommand::InnerSize(egui::vec2(
+                                380.0, 180.0,
+                            )));
+                        ui.ctx()
+                            .send_viewport_cmd(egui::ViewportCommand::WindowLevel(
+                                egui::viewport::WindowLevel::AlwaysOnTop,
+                            ));
                     }
 
                     if ui.button("🎮 In-Game HUD (F12)").clicked() {
@@ -133,26 +177,32 @@ pub fn render_full_studio(
         .frame(
             egui::Frame::side_top_panel(ui.style())
                 .fill(theme.panel_bg())
-                .stroke(Stroke::new(1.0, theme.border_color())),
+                .stroke(Stroke::new(1.0_f32, theme.border_color())),
         )
         .show_inside(ui, |ui| {
             ui.horizontal(|ui| {
                 let proj = state.state_publisher.project_studio();
                 ui.label(
-                    egui::RichText::new(format!("🤖 Active Companions: {}", proj.active_companions_count))
-                        .size(11.0)
-                        .color(if proj.active_companions_count > 0 {
-                            Color32::from_rgb(63, 185, 80)
-                        } else {
-                            Color32::GRAY
-                        }),
+                    egui::RichText::new(format!(
+                        "🤖 Active Companions: {}",
+                        proj.active_companions_count
+                    ))
+                    .size(11.0)
+                    .color(if proj.active_companions_count > 0 {
+                        Color32::from_rgb(63, 185, 80)
+                    } else {
+                        Color32::GRAY
+                    }),
                 );
 
                 ui.separator();
                 ui.label(
-                    egui::RichText::new(format!("⚡ Display Stream: {:.0} FPS (Ultra-Low Latency)", proj.measured_fps))
-                        .size(11.0)
-                        .color(Color32::from_rgb(63, 185, 80)),
+                    egui::RichText::new(format!(
+                        "⚡ Display Stream: {:.0} FPS (Ultra-Low Latency)",
+                        proj.measured_fps
+                    ))
+                    .size(11.0)
+                    .color(Color32::from_rgb(63, 185, 80)),
                 );
 
                 ui.separator();
@@ -178,7 +228,7 @@ pub fn render_full_studio(
         .frame(
             egui::Frame::side_top_panel(ui.style())
                 .fill(theme.panel_bg())
-                .stroke(Stroke::new(1.0, theme.border_color())),
+                .stroke(Stroke::new(1.0_f32, theme.border_color())),
         )
         .resizable(false)
         .default_size(170.0)
@@ -219,24 +269,34 @@ pub fn render_full_studio(
                 };
 
                 let stroke = if is_selected {
-                    Stroke::new(1.0, theme.accent())
+                    Stroke::new(1.0_f32, theme.accent())
                 } else if is_hovered {
-                    Stroke::new(1.0, Color32::from_rgba_unmultiplied(255, 255, 255, 24))
+                    Stroke::new(1.0_f32, Color32::from_rgba_unmultiplied(255, 255, 255, 24))
                 } else {
                     Stroke::NONE
                 };
 
-                ui.painter().rect(rect, CornerRadius::same(6), bg_color, stroke, egui::StrokeKind::Inside);
+                ui.painter().rect(
+                    rect,
+                    CornerRadius::same(6),
+                    bg_color,
+                    stroke,
+                    egui::StrokeKind::Inside,
+                );
 
                 if is_selected {
                     let bar_rect = egui::Rect::from_min_size(
                         Pos2::new(rect.min.x + 4.0, rect.center().y - 7.0),
                         Vec2::new(3.0, 14.0),
                     );
-                    ui.painter().rect_filled(bar_rect, CornerRadius::same(1), theme.accent());
+                    ui.painter()
+                        .rect_filled(bar_rect, CornerRadius::same(1), theme.accent());
                 }
 
-                let text_pos = Pos2::new(rect.min.x + if is_selected { 14.0 } else { 8.0 }, rect.center().y);
+                let text_pos = Pos2::new(
+                    rect.min.x + if is_selected { 14.0 } else { 8.0 },
+                    rect.center().y,
+                );
                 let text_color = if is_selected {
                     theme.accent()
                 } else if is_hovered {
@@ -288,24 +348,34 @@ pub fn render_full_studio(
                     };
 
                     let stroke = if is_selected {
-                        Stroke::new(1.0, theme.accent())
+                        Stroke::new(1.0_f32, theme.accent())
                     } else if is_hovered {
-                        Stroke::new(1.0, Color32::from_rgba_unmultiplied(255, 255, 255, 24))
+                        Stroke::new(1.0_f32, Color32::from_rgba_unmultiplied(255, 255, 255, 24))
                     } else {
                         Stroke::NONE
                     };
 
-                    ui.painter().rect(rect, CornerRadius::same(6), bg_color, stroke, egui::StrokeKind::Inside);
+                    ui.painter().rect(
+                        rect,
+                        CornerRadius::same(6),
+                        bg_color,
+                        stroke,
+                        egui::StrokeKind::Inside,
+                    );
 
                     if is_selected {
                         let bar_rect = egui::Rect::from_min_size(
                             Pos2::new(rect.min.x + 4.0, rect.center().y - 7.0),
                             Vec2::new(3.0, 14.0),
                         );
-                        ui.painter().rect_filled(bar_rect, CornerRadius::same(1), theme.accent());
+                        ui.painter()
+                            .rect_filled(bar_rect, CornerRadius::same(1), theme.accent());
                     }
 
-                    let text_pos = Pos2::new(rect.min.x + if is_selected { 14.0 } else { 8.0 }, rect.center().y);
+                    let text_pos = Pos2::new(
+                        rect.min.x + if is_selected { 14.0 } else { 8.0 },
+                        rect.center().y,
+                    );
                     let text_color = if is_selected {
                         theme.accent()
                     } else if is_hovered {
@@ -342,9 +412,9 @@ pub fn render_full_studio(
                 }
                 NavSection::ScreenAutomation | NavSection::ScreenCapture => "screen_automation",
                 NavSection::InterconnectMonitor | NavSection::Console => "signal_analyzer",
-                NavSection::Agents
-                | NavSection::SwarmMesh
-                | NavSection::GhostStation => "agents_hub",
+                NavSection::Agents | NavSection::SwarmMesh | NavSection::GhostStation => {
+                    "agents_hub"
+                }
                 NavSection::Settings => "settings",
                 NavSection::DevStudio | NavSection::GameStudio | NavSection::CustomTools => {
                     "workbench"

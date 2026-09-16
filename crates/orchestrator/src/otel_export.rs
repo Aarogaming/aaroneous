@@ -21,7 +21,10 @@ impl OTelExporter {
 
     /// Initializes the global OTel tracer and starts pushing metrics.
     pub fn initialize(&mut self) -> Result<()> {
-        info!("Initializing OpenTelemetry OTLP Exporter pointing to {}", self.endpoint);
+        info!(
+            "Initializing OpenTelemetry OTLP Exporter pointing to {}",
+            self.endpoint
+        );
         self.is_active = true;
         Ok(())
     }
@@ -29,7 +32,10 @@ impl OTelExporter {
     /// Emits a mock span to the OTel collector
     pub fn emit_span(&self, span_name: &str, duration_ms: u64) {
         if self.is_active {
-            info!("[OTel-Mock] Exporting Span '{}' ({}ms) to {}", span_name, duration_ms, self.endpoint);
+            info!(
+                "[OTel-Mock] Exporting Span '{}' ({}ms) to {}",
+                span_name, duration_ms, self.endpoint
+            );
         }
     }
 }

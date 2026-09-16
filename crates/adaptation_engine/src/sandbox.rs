@@ -21,10 +21,11 @@ pub struct ShadowSandbox {
 impl ShadowSandbox {
     /// Create a new shadow sandbox inside the specified or default `.sab/shadow` workspace
     pub fn new() -> Result<Self> {
-        let shadow_dir = paths::WorkspacePaths::default().cache().join("sandbox_shadow");
+        let shadow_dir = paths::WorkspacePaths::default()
+            .cache()
+            .join("sandbox_shadow");
         if !shadow_dir.exists() {
-            fs::create_dir_all(&shadow_dir)
-                .context("Failed to create shadow sandbox directory")?;
+            fs::create_dir_all(&shadow_dir).context("Failed to create shadow sandbox directory")?;
         }
         Ok(Self { shadow_dir })
     }
@@ -50,8 +51,13 @@ impl ShadowSandbox {
             .ok_or_else(|| anyhow::anyhow!("Invalid filename for shadow write"))?;
         let target_path = self.shadow_dir.join(safe_name);
         let counter = TEMP_COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-        let temp_path = self.shadow_dir.join(format!("{}.tmp.{}.{}", safe_name.to_string_lossy(), std::process::id(), counter));
-        
+        let temp_path = self.shadow_dir.join(format!(
+            "{}.tmp.{}.{}",
+            safe_name.to_string_lossy(),
+            std::process::id(),
+            counter
+        ));
+
         fs::write(&temp_path, content).context("Failed to write temporary shadow file")?;
         if target_path.exists() {
             let _ = fs::remove_file(&target_path);
@@ -60,7 +66,8 @@ impl ShadowSandbox {
             let _ = fs::remove_file(&target_path);
             if fs::rename(&temp_path, &target_path).is_err() {
                 // Fallback for Windows cross-volume/file lock edge-cases
-                fs::copy(&temp_path, &target_path).context("Failed to atomically commit shadow file")?;
+                fs::copy(&temp_path, &target_path)
+                    .context("Failed to atomically commit shadow file")?;
                 let _ = fs::remove_file(&temp_path);
             }
         }
@@ -74,7 +81,10 @@ impl ShadowSandbox {
             .ok_or_else(|| anyhow::anyhow!("Invalid filename for shadow promotion"))?;
         let shadow_path = self.shadow_dir.join(safe_name);
         if !shadow_path.exists() {
-            anyhow::bail!("Shadow file does not exist for promotion: {:?}", shadow_path);
+            anyhow::bail!(
+                "Shadow file does not exist for promotion: {:?}",
+                shadow_path
+            );
         }
 
         if let Some(parent) = live_target.parent() {
@@ -194,7 +204,10 @@ impl ShadowSandbox {
 
         let deadline = Instant::now() + SANDBOX_CHECK_TIMEOUT;
         loop {
-            match child.try_wait().context("Failed while waiting for sandboxed compiler")? {
+            match child
+                .try_wait()
+                .context("Failed while waiting for sandboxed compiler")?
+            {
                 Some(_) => break,
                 None if Instant::now() >= deadline => {
                     let _ = child.kill();
@@ -227,7 +240,7 @@ impl ShadowSandbox {
         synapse: &mut SynapseState,
     ) -> Result<bool> {
         self.write_shadow_file(file_name, content)?;
-        
+
         // Basic syntax verification heuristic if compiler is unavailable
         let content_str = String::from_utf8_lossy(content);
         let syntax_valid = if content_str.contains("syntax_error_fatal") {
@@ -271,7 +284,9 @@ impl ShadowSandbox {
                 let safe_name = format!("rollout_{}_{}", idx, name);
                 let write_res = self.write_shadow_file(&safe_name, content);
                 let content_str = String::from_utf8_lossy(content);
-                let valid = write_res.is_ok() && !content_str.contains("syntax_error_fatal") && !content_str.is_empty();
+                let valid = write_res.is_ok()
+                    && !content_str.contains("syntax_error_fatal")
+                    && !content_str.is_empty();
                 (idx, valid, content.len())
             })
             .collect()
@@ -336,7 +351,10 @@ mod tests {
             .verify_and_inject_feedback(test_file, content, &mut synapse)
             .unwrap();
         assert!(!success);
-        assert_eq!(synapse.integrity_score, initial_integrity.saturating_sub(10));
+        assert_eq!(
+            synapse.integrity_score,
+            initial_integrity.saturating_sub(10)
+        );
     }
 
     #[test]
@@ -363,11 +381,12 @@ mod tests {
         let candidate_b = ("patch_b.rs", b"syntax_error_fatal".as_slice());
         let candidate_c = ("patch_c.rs", b"pub fn c() -> i32 { 42 }".as_slice());
 
-        let results = sandbox.evaluate_counterfactual_rollouts(&[candidate_a, candidate_b, candidate_c]);
+        let results =
+            sandbox.evaluate_counterfactual_rollouts(&[candidate_a, candidate_b, candidate_c]);
         assert_eq!(results.len(), 3);
-        assert!(results[0].1);  // candidate a valid
+        assert!(results[0].1); // candidate a valid
         assert!(!results[1].1); // candidate b invalid (fatal syntax error)
-        assert!(results[2].1);  // candidate c valid
+        assert!(results[2].1); // candidate c valid
     }
 
     #[test]
@@ -375,7 +394,10 @@ mod tests {
         let sandbox = ShadowSandbox::new().unwrap();
         let candidate_a = ("patch_short.rs", b"pub fn a() -> bool { true }".as_slice());
         let candidate_b = ("patch_fatal.rs", b"syntax_error_fatal".as_slice());
-        let candidate_c = ("patch_longer.rs", b"pub fn c() -> i32 { let x = 42; x * 2 }".as_slice());
+        let candidate_c = (
+            "patch_longer.rs",
+            b"pub fn c() -> i32 { let x = 42; x * 2 }".as_slice(),
+        );
 
         let best = sandbox.verify_and_select_best(&[candidate_a, candidate_b, candidate_c]);
         assert!(best.is_some());

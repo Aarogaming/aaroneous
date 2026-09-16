@@ -2,7 +2,7 @@
 // Agents submit "Mutation Intent" packets instead of directly modifying state.
 // The Single Writer validates intents like RNA polymerase verifying a cellular blueprint.
 
-use crate::swmr_synapse::SynapseState;
+use crate::swmr_synapse::IpcBusState;
 use anyhow::Result;
 use tokio::sync::mpsc;
 
@@ -19,7 +19,7 @@ pub struct MutationIntent {
 
 impl MutationIntent {
     /// Apply this intent to a synapse state
-    pub fn apply(&self, state: &mut SynapseState) -> Result<()> {
+    pub fn apply(&self, state: &mut IpcBusState) -> Result<()> {
         match self.field_name.as_str() {
             "curiosity_drive" => {
                 if self.value.len() == 1 {
@@ -76,9 +76,9 @@ impl MutationIntent {
                     state.approval_granted = self.value[0];
                 }
             }
-            "hox_mutation_flag" => {
+            "mutation_flag" => {
                 if self.value.len() == 1 {
-                    state.hox_mutation_flag = self.value[0];
+                    state.mutation_flag = self.value[0];
                 }
             }
             "sovereignty_tier" => {
@@ -88,9 +88,9 @@ impl MutationIntent {
             }
             "latent_vector" => {
                 if self.value.len() == 1024 * 4 {
-                    for i in 0..1024 {
+                    for (i, value) in state.latent_vector.iter_mut().enumerate() {
                         let offset = i * 4;
-                        state.latent_vector[i] = f32::from_le_bytes([
+                        *value = f32::from_le_bytes([
                             self.value[offset],
                             self.value[offset + 1],
                             self.value[offset + 2],
@@ -144,7 +144,7 @@ impl IntentValidator {
         max_values.insert("safety_lock".to_string(), 1);
         max_values.insert("approval_required".to_string(), 1);
         max_values.insert("approval_granted".to_string(), 1);
-        max_values.insert("hox_mutation_flag".to_string(), 1);
+        max_values.insert("mutation_flag".to_string(), 1);
         max_values.insert("sovereignty_tier".to_string(), 2);
         max_values.insert("mcp_status".to_string(), 4);
         max_values.insert("dialogue_consensus".to_string(), 100);
@@ -160,10 +160,11 @@ impl IntentValidator {
         }
 
         // Check value bounds for u8 fields
-        if let Some(&max) = self.max_values.get(&intent.field_name) {
-            if intent.value.len() == 1 && intent.value[0] > max {
-                return false;
-            }
+        if let Some(&max) = self.max_values.get(&intent.field_name)
+            && intent.value.len() == 1
+            && intent.value[0] > max
+        {
+            return false;
         }
 
         // Check size constraints for complex fields

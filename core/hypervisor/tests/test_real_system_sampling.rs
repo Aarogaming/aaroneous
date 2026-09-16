@@ -3,10 +3,10 @@
 // and verifies that live wire telemetry updates the industrial register bank.
 
 use paths::{WorkspacePaths, WorkspacePathsConfig};
+use platform_bridge::ot_bridge::{OtBridgeConfig, OtEdgeGateway};
 use wire::{
     ChannelKind, ChannelValue, MAX_FRAMED_SIZE, TelemetryPacket, WireMessage, encode_frame,
 };
-use platform_bridge::ot_bridge::{OtBridgeConfig, OtEdgeGateway};
 
 #[tokio::test]
 async fn test_real_system_sampling_and_ot_interconnect() {

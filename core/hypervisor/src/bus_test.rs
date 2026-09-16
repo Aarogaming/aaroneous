@@ -1,7 +1,6 @@
 #[cfg(test)]
 mod tests {
     use nervous_system::SWMRSynapse;
-    use std::time::Duration;
 
     #[tokio::test]
     async fn test_synaptic_task_execution() {
@@ -9,17 +8,14 @@ mod tests {
             .await
             .unwrap();
 
-        // Simulate waiting for Python command
         println!("[Rust] Executor listening for Synaptic Task...");
 
-        // In a real scenario, this would be an async loop.
-        // For testing, we simulate the read/write.
+        // Write initial status and verify the write_at API works correctly.
         synapse.write_at(100, b"CALCULATING\x00").await.unwrap();
 
-        // Simulate processing
-        tokio::time::sleep(Duration::from_millis(100)).await;
-
-        // Update status to 1 (Completed)
+        // Update status to 1 (Completed) immediately — no artificial delay
+        // is needed here; the test verifies write_at round-trip correctness,
+        // not timing.
         synapse.write_at(8, &1u32.to_le_bytes()).await.unwrap();
 
         println!("[Rust] Task processed. Status updated to 1.");

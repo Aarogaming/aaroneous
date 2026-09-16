@@ -26,13 +26,14 @@ path = "src/bin/uninstaller_gui.rs"
 dirs = "5.0"
 
 # Workspace crates
+api = { path = "../api" }
 hypervisor = { path = "../../core/hypervisor" }
 ipc_bus = { path = "../ipc_bus" }
 core-contracts = { path = "../core-contracts" }
 omni = { path = "../omni" }
 compute = { path = "../compute" }
 orchestrator = { path = "../orchestrator" }
-autonomic_adaptation = { path = "../autonomic_adaptation" }
+adaptation_plane = { path = "../adaptation_plane" }
 governance = { path = "../governance" }
 platform_bridge = { path = "../platform_bridge", features = ["native-win32"] }
 specialists = { package = "capabilities", path = "../capabilities" }
@@ -43,9 +44,8 @@ transpiler = { path = "../transpiler" }
 tokio-serial = "5.4"
 
 # GUI and Graphics
-eframe = { version = "0.34", default-features = false, features = ["glow", "default_fonts"] }
+eframe = { version = "0.34", default-features = false, features = ["glow", "default_fonts", "x11"] }
 egui = "0.34"
-egui_extras = { version = "0.34", features = ["default"] }
 rfd = "0.15"
 wgpu = "29.0"
 cgmath = "0.18"

@@ -123,9 +123,11 @@ impl HttpServer {
             .route("/mcp", post(handle_mcp_post))
             // SSE transport (for Claude Desktop / streaming clients)
             .route("/sse", get(handle_sse))
-            .layer(axum::middleware::from_fn(move |headers: HeaderMap, req: axum::extract::Request<Body>, next: Next| {
-                mcp_api_key_auth_inner(headers, req, next, auth_key.clone())
-            }));
+            .layer(axum::middleware::from_fn(
+                move |headers: HeaderMap, req: axum::extract::Request<Body>, next: Next| {
+                    mcp_api_key_auth_inner(headers, req, next, auth_key.clone())
+                },
+            ));
 
         let public = Router::new()
             // Health probe (unauthenticated)

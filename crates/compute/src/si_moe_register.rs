@@ -6,7 +6,7 @@
 //! Evaluates ONLY the Top-K (default K=3) active experts per execution cycle, keeping the
 //! remaining mounted experts at 0% CPU and GPU utilization.
 
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -28,7 +28,7 @@ pub struct CartridgeDescriptor {
 }
 
 // Backwards-compatible type alias
-pub type OrganDescriptor = CartridgeDescriptor;
+pub type ModuleDescriptor = CartridgeDescriptor;
 
 /// A slot within the Sparse Expert Register
 pub struct ExpertSlot {
@@ -38,7 +38,7 @@ pub struct ExpertSlot {
 }
 
 // Backwards-compatible type alias
-pub type OrganSlot = ExpertSlot;
+pub type ModuleSlot = ExpertSlot;
 
 /// Outcome of a sparse MoE execution cycle
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -113,7 +113,11 @@ impl SiMoERegister {
         is_conductor: bool,
     ) -> Result<()> {
         if slot_id >= self.slots.len() {
-            bail!("Slot ID {} exceeds register capacity {}", slot_id, self.slots.len());
+            bail!(
+                "Slot ID {} exceeds register capacity {}",
+                slot_id,
+                self.slots.len()
+            );
         }
 
         let cid = cartridge_id.into();
@@ -279,13 +283,23 @@ mod tests {
         let mut register = SiMoERegister::new(8, 2); // 8 slots, Top-2 active
 
         // Mount conductor
-        register.mount_expert(0, "cortex_conductor", "GlobalConductor", true).unwrap();
+        register
+            .mount_expert(0, "cortex_conductor", "GlobalConductor", true)
+            .unwrap();
 
         // Mount 4 specialist experts
-        register.mount_expert(1, "ocular_vision", "Vision", false).unwrap();
-        register.mount_expert(2, "kinetic_aim", "Kinematics", false).unwrap();
-        register.mount_expert(3, "wasapi_audio", "Audio", false).unwrap();
-        register.mount_expert(4, "automotive_can", "Automotive", false).unwrap();
+        register
+            .mount_expert(1, "ocular_vision", "Vision", false)
+            .unwrap();
+        register
+            .mount_expert(2, "kinetic_aim", "Kinematics", false)
+            .unwrap();
+        register
+            .mount_expert(3, "wasapi_audio", "Audio", false)
+            .unwrap();
+        register
+            .mount_expert(4, "automotive_can", "Automotive", false)
+            .unwrap();
 
         assert_eq!(register.mounted_count(), 5);
 
@@ -302,7 +316,10 @@ mod tests {
         }
 
         let merge_candidates = register.find_merge_candidates(3);
-        assert!(!merge_candidates.is_empty(), "Consistently co-activating experts must be identified");
+        assert!(
+            !merge_candidates.is_empty(),
+            "Consistently co-activating experts must be identified"
+        );
 
         // PERF-03: Contiguous pre-allocated VRAM slab verification
         assert_eq!(register.contiguous_tensor_slab().len(), 8 * 256);

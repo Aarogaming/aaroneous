@@ -1,4 +1,6 @@
-﻿use eframe::egui;
+#![deny(unsafe_code)]
+
+use eframe::egui;
 
 /// Represents a dynamically loaded UI component
 pub trait UiCartridge: Send + Sync {

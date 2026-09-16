@@ -42,8 +42,8 @@ pub struct RuntimeStatistics {
 #[derive(Debug, Clone)]
 pub struct TaskRecord {
     pub task_id: String,
-    pub specialist_id: String,
-    pub specialist_name: String,
+    pub agent_id: String,
+    pub agent_name: String,
     pub dispatched_at: u64, // Unix timestamp in millis
     pub completed_at: Option<u64>,
     pub success: Option<bool>,
@@ -89,7 +89,7 @@ impl HiveRuntime {
             .map(|agent| crate::mdps_router::Specialist {
                 id: agent.id.clone(),
                 name: agent.name.clone(),
-                skills: agent.enzyme_subset.clone(),
+                skills: agent.module_subset.clone(),
                 capacity: 1.0,
                 success_rate: 0.9,
                 avg_completion_time: 5.0,
@@ -113,13 +113,13 @@ impl HiveRuntime {
         let decision = router.find_optimal_specialist(&task);
 
         // Consume capacity on the selected specialist
-        router.consume_capacity(&decision.specialist_id, task.estimated_cost);
+        router.consume_capacity(&decision.agent_id, task.estimated_cost);
 
         // Record task in log
         let record = TaskRecord {
             task_id: task.id.clone(),
-            specialist_id: decision.specialist_id.clone(),
-            specialist_name: decision.specialist_name.clone(),
+            agent_id: decision.agent_id.clone(),
+            agent_name: decision.agent_name.clone(),
             dispatched_at: timestamp_millis(),
             completed_at: None,
             success: None,
@@ -146,11 +146,7 @@ impl HiveRuntime {
 
             // Update specialist performance in router
             let mut router = self.router.write().await;
-            router.update_specialist_performance(
-                &record.specialist_id,
-                success,
-                completion_time,
-            );
+            router.update_specialist_performance(&record.agent_id, success, completion_time);
 
             return Ok(());
         }
@@ -163,14 +159,8 @@ impl HiveRuntime {
         let agents = self.agents.read().await;
         let task_log = self.task_log.read().await;
 
-        let tasks_completed = task_log
-            .iter()
-            .filter(|r| r.completed_at.is_some())
-            .count() as u64;
-        let tasks_failed = task_log
-            .iter()
-            .filter(|r| r.success == Some(false))
-            .count() as u64;
+        let tasks_completed = task_log.iter().filter(|r| r.completed_at.is_some()).count() as u64;
+        let tasks_failed = task_log.iter().filter(|r| r.success == Some(false)).count() as u64;
 
         RuntimeStatus {
             active_agents: agents.len(),
@@ -252,13 +242,13 @@ mod tests {
         let mut runtime = HiveRuntime::new(&config).unwrap();
 
         // Register a specialist
-        let mut agent = SpecialistAgent::default();
-        agent.id = "spec_test".to_string();
-        agent.name = "Test Specialist".to_string();
-        agent.enzyme_subset = vec!["rust".to_string()];
-        runtime
-            .register_agent("test".to_string(), agent)
-            .await;
+        let agent = SpecialistAgent {
+            id: "spec_test".to_string(),
+            name: "Test Specialist".to_string(),
+            module_subset: vec!["rust".to_string()],
+            ..Default::default()
+        };
+        runtime.register_agent("test".to_string(), agent).await;
 
         runtime.start().await.unwrap();
 
@@ -272,7 +262,7 @@ mod tests {
         };
 
         let decision = runtime.dispatch_task(task).await.unwrap();
-        assert!(!decision.specialist_id.is_empty());
+        assert!(!decision.agent_id.is_empty());
     }
 
     #[tokio::test]
@@ -280,10 +270,12 @@ mod tests {
         let config = test_config();
         let mut runtime = HiveRuntime::new(&config).unwrap();
 
-        let mut agent = SpecialistAgent::default();
-        agent.id = "spec_a".to_string();
-        agent.name = "Agent A".to_string();
-        agent.enzyme_subset = vec!["rust".to_string()];
+        let agent = SpecialistAgent {
+            id: "spec_a".to_string(),
+            name: "Agent A".to_string(),
+            module_subset: vec!["rust".to_string()],
+            ..Default::default()
+        };
         runtime.register_agent("a".to_string(), agent).await;
         runtime.start().await.unwrap();
 
@@ -346,9 +338,11 @@ mod tests {
         let config = test_config();
         let mut runtime = HiveRuntime::new(&config).unwrap();
 
-        let mut agent = SpecialistAgent::default();
-        agent.id = "s1".to_string();
-        agent.enzyme_subset = vec!["rust".to_string()];
+        let agent = SpecialistAgent {
+            id: "s1".to_string(),
+            module_subset: vec!["rust".to_string()],
+            ..Default::default()
+        };
         runtime.register_agent("a".to_string(), agent).await;
         runtime.start().await.unwrap();
 
@@ -373,9 +367,11 @@ mod tests {
         let config = test_config();
         let mut runtime = HiveRuntime::new(&config).unwrap();
 
-        let mut agent = SpecialistAgent::default();
-        agent.id = "s1".to_string();
-        agent.enzyme_subset = vec!["rust".to_string()];
+        let agent = SpecialistAgent {
+            id: "s1".to_string(),
+            module_subset: vec!["rust".to_string()],
+            ..Default::default()
+        };
         runtime.register_agent("a".to_string(), agent).await;
         runtime.start().await.unwrap();
 
@@ -403,10 +399,12 @@ mod tests {
         let config = test_config();
         let mut runtime = HiveRuntime::new(&config).unwrap();
 
-        let mut agent = SpecialistAgent::default();
-        agent.id = "s1".to_string();
-        agent.name = "TestSpec".to_string();
-        agent.enzyme_subset = vec!["rust".to_string()];
+        let agent = SpecialistAgent {
+            id: "s1".to_string(),
+            name: "TestSpec".to_string(),
+            module_subset: vec!["rust".to_string()],
+            ..Default::default()
+        };
         runtime.register_agent("a".to_string(), agent).await;
         runtime.start().await.unwrap();
 
@@ -423,8 +421,8 @@ mod tests {
         let log = runtime.task_log.read().await;
         let record = log.last().unwrap();
         assert_eq!(record.task_id, "task_fields");
-        assert_eq!(record.specialist_id, decision.specialist_id);
-        assert_eq!(record.specialist_name, decision.specialist_name);
+        assert_eq!(record.agent_id, decision.agent_id);
+        assert_eq!(record.agent_name, decision.agent_name);
         assert!(record.dispatched_at > 0);
         assert_eq!(record.completed_at, None);
         assert_eq!(record.success, None);

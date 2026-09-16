@@ -110,11 +110,7 @@ pub fn monte_carlo_simulate(
 }
 
 /// Bootstrap resampling to compute non-parametric empirical mean distribution.
-pub fn bootstrap_resample(
-    data: &[f64],
-    num_resamples: usize,
-    rng: &mut impl Rng,
-) -> Vec<f64> {
+pub fn bootstrap_resample(data: &[f64], num_resamples: usize, rng: &mut impl Rng) -> Vec<f64> {
     if data.is_empty() || num_resamples == 0 {
         return vec![];
     }

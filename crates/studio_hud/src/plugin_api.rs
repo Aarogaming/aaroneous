@@ -1,133 +1,125 @@
+//! In-process UI cartridge registry.
+//!
+//! # History: why there is no dynamic (out-of-process) loading here
+//!
+//! This module used to also offer `load_dynamic_plugin`/`unload_dynamic_plugin`,
+//! hot-loading a `.dll`/`.so` and reconstructing a `Box<dyn UiCartridge>` from a
+//! raw pointer returned across an `extern "C"` boundary. A security revalidation
+//! (queue item C2 in the private operations workspace) found two real problems
+//! with that mechanism and removed it rather than patching around it:
+//!
+//! 1. The "signature validation" gating the load was not a signature check at
+//!    all — it hashed the file and only rejected a hash whose first two bytes
+//!    happened to be zero, which passes almost any file, malicious or not.
+//! 2. Even a real signature check would not have made the load *sound*: this
+//!    module's [`UiCartridge`] trait's `render` method takes `&mut egui::Ui`,
+//!    and `egui::Ui` is a complex, non-`repr(C)` third-party type with no
+//!    stable binary layout across compiler versions or even different builds
+//!    of the same egui version. Passing it across a real DLL boundary is
+//!    undefined behavior regardless of how well-authenticated the plugin is —
+//!    authentication and ABI safety are orthogonal concerns, and fixing one
+//!    does not fix the other.
+//!
+//! A sound dynamic-plugin mechanism for this trait would need a real stable
+//! ABI — most plausibly an intermediate `repr(C)` command buffer the plugin
+//! writes draw commands into, which the host then replays against its own
+//! `egui::Ui`, rather than handing the plugin a live reference to host-owned,
+//! non-FFI-safe state. That is a real design effort, not a bounded fix; it
+//! belongs to the plugin-lifecycle RFC work in the private operations
+//! workspace, not here. Until that exists, cartridges are in-process Rust
+//! trait objects only — [`PluginManager::load_cartridge`] takes an
+//! already-constructed `Box<dyn UiCartridge>` the same binary compiled it.
+//!
+//! # Why this module still exists with no call sites
+//!
+//! Nothing in `studio_hud` currently constructs a [`PluginManager`] or calls
+//! [`PluginManager::load_cartridge`] (queue item M4 in the private operations
+//! workspace reproduced this: zero references outside this module's own
+//! tests). That is expected, not a sign this is orphaned code to delete:
+//! `TODO.md`'s roadmap lists "dynamic plugin swapping" under **P4: Adaptive
+//! Runtime Engine** and "Hot-reload ABI plugins" under **Phase 5: Adaptive
+//! Runtime & Live Patching (v0.8.0)** as a real, planned capability, not yet
+//! due. This module is the sound, tested foundation that capability will be
+//! built on once the plugin-lifecycle RFC (above) defines a real ABI — kept
+//! deliberately narrow (in-process only) rather than removed, so the next
+//! implementer starts from verified-safe code instead of rebuilding it.
+
 use api::UiCartridge;
-use anyhow::{Context, Result};
-use eframe::egui;
-use libloading::{Library, Symbol};
-use std::ffi::c_void;
-use std::sync::Arc;
 
-/// Represents the vtable for dynamically loaded plugin interfaces.
-/// Using raw function pointers (C-compatible) prevents fat pointer issues across DLL boundaries.
-#[repr(C)]
-struct UiCartridgeVtbl {
-    on_tick: unsafe extern "C" fn(*mut c_void) -> bool,
-    on_event: unsafe extern "C" fn(*mut c_void, *const egui::Event),
-    ui_draw: unsafe extern "C" fn(*mut c_void, *const eframe::egui::Context) -> *mut c_void,
-}
-
-/// A wrapper around a dynamically loaded library and its instantiated cartridge.
-/// Holds the `Library` in an `Arc` to ensure it is not dropped while the cartridge is in use.
-pub struct DynamicPlugin {
-    _lib: Arc<Library>,
-    pub cartridge: Box<dyn UiCartridge>,
-}
-
+/// Registry of in-process UI cartridges.
+#[derive(Default)]
 pub struct PluginManager {
     pub static_cartridges: Vec<Box<dyn UiCartridge>>,
-    pub dynamic_cartridges: Vec<DynamicPlugin>,
 }
 
 impl PluginManager {
     pub fn new() -> Self {
-        Self {
-            static_cartridges: Vec::new(),
-            dynamic_cartridges: Vec::new(),
-        }
+        Self::default()
     }
 
     pub fn load_cartridge(&mut self, cartridge: Box<dyn UiCartridge>) {
         self.static_cartridges.push(cartridge);
     }
+}
 
-    /// Computes SHA-256 hash of library file for integrity verification.
-    fn compute_file_hash(path: &str) -> Result<[u8; 32]> {
-        use sha2::{Digest, Sha256};
-        use std::fs::File;
-        use std::io::Read;
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use eframe::egui;
 
-        let mut file = File::open(path).context("Failed to open plugin library")?;
-        let mut data = Vec::new();
-        file.read_to_end(&mut data)
-            .context("Failed to read plugin library")?;
-
-        let mut hasher = Sha256::new();
-        hasher.update(&data);
-        Ok(hasher.finalize().into())
+    struct MockCartridge {
+        name: String,
+        render_calls: usize,
     }
 
-    /// Validates cryptographic signature of the plugin DLL/SO.
-    /// Plugins should be signed with Ed25519; host verifies against embedded public key.
-    fn validate_signature(path: &str) -> Result<()> {
-        // TODO: Load trusted public keys from config or secure store
-        // For now, hash-based integrity check prevents tampering
-        let file_hash = Self::compute_file_hash(path)?;
-
-        // In production, compare against signed artifact manifest stored in ArtifactRegistry
-        // This placeholder ensures we never use .unwrap() and bubble errors properly
-        if file_hash[0] == 0 && file_hash[1] == 0 {
-            return Err(anyhow::anyhow!(
-                "Plugin library hash validation failed: zeroed hash detected"
-            ));
+    impl UiCartridge for MockCartridge {
+        fn name(&self) -> &str {
+            &self.name
         }
 
-        Ok(())
+        fn render(&mut self, _ui: &mut egui::Ui) {
+            self.render_calls += 1;
+        }
     }
 
-    /// Hot-loads a `.dll` or `.so` plugin at runtime via C-ABI.
-    /// The plugin must export a C function: `#[no_mangle] pub extern "C" fn create_plugin() -> *mut c_void`
-    /// Returns a boxed trait object that is safely reconstructed from the raw pointer.
-    /// # Safety
-    /// - Plugin constructor returns opaque pointer to host-owned memory
-    /// - Host must call corresponding free function when cartridge is dropped
-    /// - The plugin and host must be compiled with compatible ABI
-    pub unsafe fn load_dynamic_plugin(&mut self, path: &str) -> Result<()> {
-        // Step 1: Validate file integrity before loading
-        Self::validate_signature(path).context("Plugin signature validation failed")?;
-
-        let lib = Arc::new(unsafe { Library::new(path) }.context("Failed to load plugin library")?);
-
-        // Step 2: Get constructor symbol with proper ABI
-        let constructor: Symbol<unsafe extern "C" fn() -> *mut dyn UiCartridge> = unsafe {
-            lib.get(b"create_plugin\0")
-        }.context("Failed to find create_plugin symbol")?;
-
-        let raw_ptr = unsafe { constructor() };
-        if raw_ptr.is_null() {
-            return Err(anyhow::anyhow!("Plugin constructor returned null pointer"));
-        }
-
-        // Step 3: Reconstruct boxed trait object
-        let cartridge: Box<dyn UiCartridge> = unsafe { Box::from_raw(raw_ptr) };
-
-        self.dynamic_cartridges.push(DynamicPlugin {
-            _lib: lib,
-            cartridge,
-        });
-
-        Ok(())
+    #[test]
+    fn new_manager_has_no_cartridges() {
+        let manager = PluginManager::new();
+        assert!(manager.static_cartridges.is_empty());
     }
 
-    /// Unloads a dynamic plugin and frees its resources.
-    /// # Safety
-    /// - Must be called for each DynamicPlugin loaded via load_dynamic_plugin
-    pub unsafe fn unload_dynamic_plugin(&mut self, index: usize) -> Result<()> {
-        if index < self.dynamic_cartridges.len() {
-            let plugin = self.dynamic_cartridges.remove(index);
-            let raw_ptr = Box::into_raw(plugin.cartridge);
+    #[test]
+    fn default_manager_has_no_cartridges() {
+        let manager = PluginManager::default();
+        assert!(manager.static_cartridges.is_empty());
+    }
 
-            let free_fn_res: Result<Symbol<unsafe extern "C" fn(*mut dyn UiCartridge)>, _> = unsafe {
-                plugin._lib.get(b"free_plugin\0")
-            };
+    #[test]
+    fn load_cartridge_registers_it_by_name() {
+        let mut manager = PluginManager::new();
+        manager.load_cartridge(Box::new(MockCartridge {
+            name: "test-cartridge".to_string(),
+            render_calls: 0,
+        }));
 
-            if let Ok(free_fn) = free_fn_res {
-                unsafe {
-                    free_fn(raw_ptr);
-                }
-            } else {
-                // Fallback drop if no custom free_plugin symbol is provided
-                let _ = unsafe { Box::from_raw(raw_ptr) };
-            }
-        }
+        assert_eq!(manager.static_cartridges.len(), 1);
+        assert_eq!(manager.static_cartridges[0].name(), "test-cartridge");
+    }
 
-        Ok(())
+    #[test]
+    fn multiple_cartridges_load_independently_and_preserve_order() {
+        let mut manager = PluginManager::new();
+        manager.load_cartridge(Box::new(MockCartridge {
+            name: "first".to_string(),
+            render_calls: 0,
+        }));
+        manager.load_cartridge(Box::new(MockCartridge {
+            name: "second".to_string(),
+            render_calls: 0,
+        }));
+
+        assert_eq!(manager.static_cartridges.len(), 2);
+        assert_eq!(manager.static_cartridges[0].name(), "first");
+        assert_eq!(manager.static_cartridges[1].name(), "second");
     }
 }

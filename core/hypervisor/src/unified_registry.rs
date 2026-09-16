@@ -506,9 +506,8 @@ mod tests {
 
     #[test]
     fn test_persistence_roundtrip() {
-        let dir = std::env::temp_dir().join("test_registry");
-        std::fs::create_dir_all(&dir).unwrap();
-        let path = dir.join("test.json");
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("test.json");
 
         {
             let mut reg = Registry::<TestEntry>::new(RegistryConfig {
@@ -534,7 +533,5 @@ mod tests {
             assert_eq!(reg.len(), 1);
             assert_eq!(reg.get("a").unwrap().data.name, "alpha");
         }
-
-        std::fs::remove_dir_all(&dir).ok();
     }
 }

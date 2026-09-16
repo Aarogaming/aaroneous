@@ -14,13 +14,13 @@ use std::time::Instant;
 use tracing::info;
 
 use compute::isolated_desktop::IsolatedDesktop;
-use compute::latent_guardrail::{LatentAuditVerdict, SafeHypersphereManifold, GUARDRAIL_DIM};
+use compute::latent_guardrail::{GUARDRAIL_DIM, LatentAuditVerdict, SafeHypersphereManifold};
 use compute::machine_native::MachineOpcode;
 use compute::si_decoder::{ActionDecoder, DecodedActionCommand};
 
-use crate::epigenetic_vision::{EpigeneticGatingResult, EpigeneticVisionGater};
-use crate::mock::MockMarionette;
-use crate::traits::{HidAction, HidCommand, MarionetteHost};
+use crate::delta_vision::{DeltaGatingResult, DeltaVisionGater};
+use crate::mock::MockPlatformHost;
+use crate::traits::{HidAction, HidCommand, PlatformHost};
 
 /// Report generated for each continuous sensory-motor execution cycle
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -41,11 +41,11 @@ pub struct SensoryMotorCycleReport {
 
 /// The Closed-Loop Sensory-Motor Pipeline Engine
 pub struct SensoryMotorPipeline {
-    pub gater: EpigeneticVisionGater,
+    pub gater: DeltaVisionGater,
     pub guardrail: SafeHypersphereManifold,
     pub decoder: ActionDecoder,
     pub ghost_desktop: IsolatedDesktop,
-    pub host: MockMarionette,
+    pub host: MockPlatformHost,
     pub frame_counter: usize,
 }
 
@@ -58,7 +58,7 @@ impl Default for SensoryMotorPipeline {
 impl SensoryMotorPipeline {
     /// Initializes a new Closed-Loop Sensory-Motor Pipeline
     pub fn new(desktop_name: &str) -> Self {
-        let gater = EpigeneticVisionGater::default();
+        let gater = DeltaVisionGater::default();
         let mut guardrail = SafeHypersphereManifold::new(12.0); // Safe radius R = 12.0
         guardrail.fit_from_golden_states(&[
             vec![0.05f32; GUARDRAIL_DIM],
@@ -79,17 +79,13 @@ impl SensoryMotorPipeline {
             guardrail,
             decoder,
             ghost_desktop,
-            host: MockMarionette::new(),
+            host: MockPlatformHost::new(),
             frame_counter: 0,
         }
     }
 
-    /// Projects 16x16 epigenetic sector activations into an R^256 spatial-semantic latent intent vector
-    pub fn project_latent_intent(
-        &self,
-        gated: &EpigeneticGatingResult,
-        raw_frame: &[f32],
-    ) -> Vec<f32> {
+    /// Projects 16x16 delta sector activations into an R^256 spatial-semantic latent intent vector
+    pub fn project_latent_intent(&self, gated: &DeltaGatingResult, raw_frame: &[f32]) -> Vec<f32> {
         let mut intent = vec![0.0f32; GUARDRAIL_DIM];
 
         // 1. Ingest 256 sector saliency values directly
@@ -188,7 +184,7 @@ impl SensoryMotorPipeline {
         let total_cycle_latency_us = start.elapsed().as_micros() as u64;
 
         info!(
-            target: "marionette::sensory_motor",
+            target: "platform_bridge::sensory_motor",
             frame = self.frame_counter,
             active_sectors = gated.active_sectors_count,
             compute_savings = gated.compute_savings_pct,

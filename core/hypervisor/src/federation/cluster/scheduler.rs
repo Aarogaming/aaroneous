@@ -32,7 +32,7 @@ impl AutonomousScheduler {
     }
 
     pub fn schedule_task(&mut self, task: ScheduledTask) {
-        self.tasks.insert(task.id.clone(), task);
+        self.tasks.insert(task.id, task);
     }
 
     pub fn remove_task(&mut self, id: &str) {

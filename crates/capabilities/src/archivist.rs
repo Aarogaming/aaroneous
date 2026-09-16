@@ -9,8 +9,10 @@ use chrono::Utc;
 use std::sync::Arc;
 use tracing::info;
 
+use crate::traits::{
+    DomainSubEngine, MnlpPacket, MnlpResponse, SovereignSpecialist, SpecialistHealth,
+};
 use omni::{OmniEngine, SpatialCoord, StarNode, StarNodeType};
-use crate::traits::{DomainSubEngine, MnlpPacket, MnlpResponse, SovereignSpecialist, SpecialistHealth};
 
 /// MemoryIndexEngine: 3D Galaxy semantic data access and indexing sub-engine
 pub struct MemoryIndexEngine {
@@ -57,15 +59,23 @@ impl ArchivistSpecialist {
             tokens: 100.0,
             max_tokens: 100.0,
             omni_engine: omni.clone(),
-            memory_index: MemoryIndexEngine { omni_engine: omni.clone() },
+            memory_index: MemoryIndexEngine {
+                omni_engine: omni.clone(),
+            },
             relic: MemoryIndexEngine { omni_engine: omni },
             neurochemistry: evolution::NeurochemicalHomeostasisEngine::default(),
         }
     }
 
     /// Consolidates an episodic experience into a permanent 3D star-node
-    pub async fn consolidate_memory(&self, node_id: &str, title: &str, domain: &str, payload_uri: &str) -> StarNode {
-        info!(target: "specialist::archivist", %node_id, %title, "Consolidating lived experience into Omni Galaxy star-node");
+    pub async fn consolidate_memory(
+        &self,
+        node_id: &str,
+        title: &str,
+        domain: &str,
+        payload_uri: &str,
+    ) -> StarNode {
+        info!(target: "agent::archivist", %node_id, %title, "Consolidating lived experience into Omni Galaxy star-node");
 
         let star = StarNode::new(
             node_id,
@@ -93,7 +103,7 @@ impl SovereignSpecialist for ArchivistSpecialist {
 
     async fn handle_packet(&mut self, packet: MnlpPacket) -> Result<MnlpResponse> {
         let payload_str = String::from_utf8_lossy(&packet.payload);
-        
+
         if payload_str.starts_with("drive:") || payload_str.starts_with("neurochemistry:") {
             let impulses = self.neurochemistry.evaluate_autonomic_impulses();
             let payload = serde_json::to_vec(&impulses)?;
@@ -102,19 +112,27 @@ impl SovereignSpecialist for ArchivistSpecialist {
                 success: true,
                 opcode: self.domain_opcode(),
                 correlation_id: packet.correlation_id,
-                message: format!("Archivist evaluated {} autonomic impulses from neurochemical state", impulses.len()),
+                message: format!(
+                    "Archivist evaluated {} autonomic impulses from neurochemical state",
+                    impulses.len()
+                ),
                 payload,
             });
         }
 
-        let star = self.consolidate_memory("mem_auto", &payload_str, "Cognition", "omni://memory/auto").await;
+        let star = self
+            .consolidate_memory("mem_auto", &payload_str, "Cognition", "omni://memory/auto")
+            .await;
         let payload = serde_json::to_vec(&star)?;
 
         Ok(MnlpResponse {
             success: true,
             opcode: self.domain_opcode(),
             correlation_id: packet.correlation_id,
-            message: format!("Archivist consolidated memory into star-node '{}'", payload_str),
+            message: format!(
+                "Archivist consolidated memory into star-node '{}'",
+                payload_str
+            ),
             payload,
         })
     }
@@ -143,7 +161,9 @@ mod tests {
     #[tokio::test]
     async fn test_archivist_memory_consolidation() {
         let archivist = ArchivistSpecialist::new();
-        let star = archivist.consolidate_memory("test_mem", "Adapter Success", "Fabrication", "omni://test").await;
+        let star = archivist
+            .consolidate_memory("test_mem", "Adapter Success", "Fabrication", "omni://test")
+            .await;
         assert_eq!(star.id, "test_mem");
 
         let snapshot = archivist.omni_engine.export_snapshot().await.unwrap();

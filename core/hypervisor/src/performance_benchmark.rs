@@ -292,7 +292,7 @@ impl PerformanceBenchmark {
             regressions_detected: regression_count as u32,
             severe_regressions: severe_regressions as u32,
             status: if severe_regressions > 0 {
-                BenchmarkStatus::RegessionDetected
+                BenchmarkStatus::RegressionDetected
             } else if regression_count > 0 {
                 BenchmarkStatus::MinorIssues
             } else {
@@ -356,7 +356,7 @@ pub enum BenchmarkStatus {
     #[serde(rename = "MINOR_ISSUES")]
     MinorIssues,
     #[serde(rename = "REGRESSION_DETECTED")]
-    RegessionDetected,
+    RegressionDetected,
 }
 
 /// Operation comparison

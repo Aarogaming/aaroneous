@@ -7,7 +7,7 @@
 //! 3. `UserIdentityEngine`: Cosine similarity anomaly classifier detecting when a foreign user
 //!    takes over, auto-provisioning guest profiles and preventing training contamination.
 
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -192,7 +192,11 @@ impl UserIdentityEngine {
 
     pub fn all_profiles(&self) -> Vec<&UserProfile> {
         let mut list: Vec<&UserProfile> = self.profiles.values().collect();
-        list.sort_by(|a, b| b.is_primary.cmp(&a.is_primary).then_with(|| a.display_name.cmp(&b.display_name)));
+        list.sort_by(|a, b| {
+            b.is_primary
+                .cmp(&a.is_primary)
+                .then_with(|| a.display_name.cmp(&b.display_name))
+        });
         list
     }
 
@@ -226,7 +230,7 @@ impl UserIdentityEngine {
         if match_confidence > 0.88 {
             self.anomaly_consecutive_ticks = 0;
             self.flow_score = (self.flow_score * 0.9 + match_confidence * 0.1).clamp(0.0, 1.0);
-            
+
             if live_biomarkers.key_flight_ms > 250.0 && live_biomarkers.correction_rate > 0.09 {
                 self.attention_state = AttentionState::Fatigued;
             } else if live_biomarkers.mean_cursor_speed < 150.0 {
@@ -260,7 +264,10 @@ impl UserIdentityEngine {
 
                 if let Some(matched_id) = best_match {
                     self.active_user_id = matched_id.clone();
-                    Some(format!("Recognized registered profile '{}'. Swapped active context.", self.active_profile().display_name))
+                    Some(format!(
+                        "Recognized registered profile '{}'. Swapped active context.",
+                        self.active_profile().display_name
+                    ))
                 } else {
                     // Spawn new guest profile to isolate foreign data and prevent poisoning
                     let guest_id = self.guest_counter;
@@ -271,7 +278,10 @@ impl UserIdentityEngine {
                     let display_name = guest.display_name.clone();
                     self.profiles.insert(new_id.clone(), guest);
                     self.active_user_id = new_id;
-                    Some(format!("Foreign operator pattern detected. Provisioned '{}' to isolate training data.", display_name))
+                    Some(format!(
+                        "Foreign operator pattern detected. Provisioned '{}' to isolate training data.",
+                        display_name
+                    ))
                 }
             } else {
                 None
@@ -289,7 +299,10 @@ mod tests {
         let b1 = KinematicBiomarkers::default();
         let b2 = KinematicBiomarkers::default();
         let sim = b1.similarity(&b2);
-        assert!(sim > 0.99, "Identical biomarkers should have ~1.0 similarity (got {sim})");
+        assert!(
+            sim > 0.99,
+            "Identical biomarkers should have ~1.0 similarity (got {sim})"
+        );
 
         let foreign = KinematicBiomarkers {
             mean_cursor_speed: 1200.0,
@@ -301,7 +314,10 @@ mod tests {
             correction_rate: 0.25,
         };
         let diff_sim = b1.similarity(&foreign);
-        assert!(diff_sim < 0.75, "Foreign kinematics should show low similarity (got {diff_sim})");
+        assert!(
+            diff_sim < 0.75,
+            "Foreign kinematics should show low similarity (got {diff_sim})"
+        );
     }
 
     #[test]
@@ -326,8 +342,18 @@ mod tests {
             notice = engine.ingest_kinematics(foreign.clone());
         }
 
-        assert!(notice.is_some(), "Should notify upon sustained foreign user anomaly");
-        assert!(engine.active_profile().is_guest, "Active profile should now be a guest");
-        assert_eq!(engine.all_profiles().len(), 2, "Should maintain both primary and guest profiles");
+        assert!(
+            notice.is_some(),
+            "Should notify upon sustained foreign user anomaly"
+        );
+        assert!(
+            engine.active_profile().is_guest,
+            "Active profile should now be a guest"
+        );
+        assert_eq!(
+            engine.all_profiles().len(),
+            2,
+            "Should maintain both primary and guest profiles"
+        );
     }
 }

@@ -86,9 +86,16 @@ pub struct AutoWrapperEngine;
 
 impl AutoWrapperEngine {
     /// Stage 1: Dissect an external target program and extract its capability manifest
-    pub fn inspect_target(path: &Path, custom_name: Option<&str>) -> Result<TargetCapabilityManifest> {
-        let name = if let Some(n) = custom_name {
-            n.to_string()
+    pub fn inspect_target(
+        path: &Path,
+        custom_name: Option<&str>,
+    ) -> Result<TargetCapabilityManifest> {
+        let raw_name = if let Some(n) = custom_name {
+            Path::new(n)
+                .file_name()
+                .and_then(|s| s.to_str())
+                .unwrap_or(n)
+                .to_string()
         } else {
             path.file_stem()
                 .and_then(|s| s.to_str())
@@ -96,7 +103,22 @@ impl AutoWrapperEngine {
                 .to_string()
         };
 
-        let slug = name.to_lowercase().replace([' ', '-'], "_");
+        let sanitized = raw_name
+            .chars()
+            .map(|c| {
+                if c.is_alphanumeric() {
+                    c.to_ascii_lowercase()
+                } else {
+                    '_'
+                }
+            })
+            .collect::<String>();
+        let slug = if sanitized.is_empty() {
+            "unknown_utility".to_string()
+        } else {
+            sanitized
+        };
+        let name = raw_name;
         let extension = path.extension().and_then(|s| s.to_str()).unwrap_or("");
 
         let program_type = match extension.to_lowercase().as_str() {
@@ -119,7 +141,9 @@ impl AutoWrapperEngine {
     }
 
     /// Stage 2: Non-destructive empirical interface probing
-    pub async fn probe_target(manifest: &TargetCapabilityManifest) -> Result<ProbeValidationReport> {
+    pub async fn probe_target(
+        manifest: &TargetCapabilityManifest,
+    ) -> Result<ProbeValidationReport> {
         let start = Instant::now();
         let target_path_str = manifest.target_path.to_string_lossy().to_string();
 
@@ -186,7 +210,9 @@ impl AutoWrapperEngine {
             };
 
             if let Ok(output) = res {
-                let success = output.status.success() || !output.stdout.is_empty() || !output.stderr.is_empty();
+                let success = output.status.success()
+                    || !output.stdout.is_empty()
+                    || !output.stderr.is_empty();
                 if success {
                     chosen_arg = arg;
                     best_output = Some(output);
@@ -240,7 +266,7 @@ impl AutoWrapperEngine {
                 }
             })
             .collect::<String>()
-            + "Organ";
+            + "Module";
 
         let escaped_path = manifest.target_path.to_string_lossy().replace('\\', "\\\\");
 
@@ -358,8 +384,19 @@ impl {library_name}FfiHandle {{
         )
     }
 
+    /// Backwards-compatible alias for modern system-engineering naming
+    pub fn build_and_stage_module(
+        manifest: &TargetCapabilityManifest,
+        out_dir: &Path,
+    ) -> Result<PathBuf> {
+        Self::build_and_stage_organ(manifest, out_dir)
+    }
+
     /// Stage 4: Generates a complete standalone Cargo organ crate on disk
-    pub fn build_and_stage_organ(manifest: &TargetCapabilityManifest, out_dir: &Path) -> Result<PathBuf> {
+    pub fn build_and_stage_organ(
+        manifest: &TargetCapabilityManifest,
+        out_dir: &Path,
+    ) -> Result<PathBuf> {
         let crate_dir = out_dir.join(format!("organ_{}", manifest.slug));
         let src_dir = crate_dir.join("src");
         fs::create_dir_all(&src_dir)?;
@@ -420,7 +457,11 @@ impl NativeComponentRunner {
     }
 
     /// Execute the underlying target tool with arguments and convert to an ComponentResponse
-    pub async fn invoke(&self, args: &[&str], input_payload: Option<&[u8]>) -> Result<ComponentResponse> {
+    pub async fn invoke(
+        &self,
+        args: &[&str],
+        input_payload: Option<&[u8]>,
+    ) -> Result<ComponentResponse> {
         let start = Instant::now();
 
         if self.is_dry_run {
@@ -448,17 +489,21 @@ impl NativeComponentRunner {
 
         let mut child = Command::new(&self.manifest.target_path)
             .args(args)
-            .stdin(if input_payload.is_some() { Stdio::piped() } else { Stdio::null() })
+            .stdin(if input_payload.is_some() {
+                Stdio::piped()
+            } else {
+                Stdio::null()
+            })
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .spawn()
             .with_context(|| format!("Failed to spawn target: {:?}", self.manifest.target_path))?;
 
-        if let Some(payload) = input_payload {
-            if let Some(mut stdin) = child.stdin.take() {
-                use tokio::io::AsyncWriteExt;
-                stdin.write_all(payload).await?;
-            }
+        if let Some(payload) = input_payload
+            && let Some(mut stdin) = child.stdin.take()
+        {
+            use tokio::io::AsyncWriteExt;
+            stdin.write_all(payload).await?;
         }
 
         let timeout = std::time::Duration::from_millis(self.manifest.timeout_ms.max(1));
@@ -518,7 +563,10 @@ impl NativeComponentRunner {
                 success: true,
                 opcode: self.manifest.domain_opcode,
                 correlation_id: 0,
-                message: format!("Organ '{}' executed successfully in {}µs", self.manifest.name, duration_us),
+                message: format!(
+                    "Organ '{}' executed successfully in {}µs",
+                    self.manifest.name, duration_us
+                ),
                 payload: output.stdout,
             })
         } else {
@@ -527,14 +575,23 @@ impl NativeComponentRunner {
                 success: false,
                 opcode: self.manifest.domain_opcode,
                 correlation_id: 0,
-                message: format!("Organ '{}' failed (exit code {:?}): {}", self.manifest.name, output.status.code(), err_msg),
+                message: format!(
+                    "Organ '{}' failed (exit code {:?}): {}",
+                    self.manifest.name,
+                    output.status.code(),
+                    err_msg
+                ),
                 payload: output.stdout,
             })
         }
     }
 
     /// Process a raw binary payload and correlation ID into a ComponentResponse
-    pub async fn handle_raw_request(&self, correlation_id: u64, raw_payload: &[u8]) -> Result<ComponentResponse> {
+    pub async fn handle_raw_request(
+        &self,
+        correlation_id: u64,
+        raw_payload: &[u8],
+    ) -> Result<ComponentResponse> {
         let args_str = String::from_utf8_lossy(raw_payload);
         let args: Vec<&str> = if args_str.trim().is_empty() {
             vec!["--version"]
@@ -600,7 +657,7 @@ mod tests {
         };
 
         let code = AutoWrapperEngine::synthesize_rust_harness(&manifest);
-        assert!(code.contains("pub struct RipgrepToolOrgan"));
+        assert!(code.contains("pub struct RipgrepToolModule"));
         assert!(code.contains("pub async fn invoke"));
         assert!(code.contains("rg.exe"));
     }
@@ -653,16 +710,14 @@ mod tests {
 
     #[test]
     fn test_synthesize_c_abi_ffi_harness() {
-        let funcs = vec![
-            crate::ast_parser::FunctionSignature {
-                name: "crypto_hash_sha256".to_string(),
-                visibility: "public".to_string(),
-                is_async: false,
-                line_number: 1,
-                parameter_count: 2,
-                return_type: None,
-            },
-        ];
+        let funcs = vec![crate::ast_parser::FunctionSignature {
+            name: "crypto_hash_sha256".to_string(),
+            visibility: "public".to_string(),
+            is_async: false,
+            line_number: 1,
+            parameter_count: 2,
+            return_type: None,
+        }];
 
         let code = AutoWrapperEngine::synthesize_c_abi_ffi_harness("SodiumCrypto", &funcs);
         assert!(code.contains("pub struct SodiumCryptoFfiHandle"));

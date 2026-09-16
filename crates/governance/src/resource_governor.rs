@@ -20,7 +20,7 @@ pub enum DegradationTier {
 /// Current Dynamic Equilibrium State across the sovereign runtime
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct DynamicEquilibriumState {
-    pub global_energy_reserve: f32, // 0.0 to max tokens
+    pub global_energy_reserve: f32,    // 0.0 to max tokens
     pub thermal_dissipation_rate: f32, // Tokens regenerated per second
     pub active_cognitive_load: f32,    // Current burn rate
     pub memory_pressure_mb: f32,       // Tracked memory allocation footprint
@@ -111,8 +111,10 @@ impl FeedbackRegulator {
     pub fn tick_regeneration(&mut self, delta_seconds: f32) {
         let dt = delta_seconds.max(0.0);
         let regenerated = self.state.thermal_dissipation_rate * dt;
-        self.state.global_energy_reserve = (self.state.global_energy_reserve + regenerated).min(self.max_energy_reserve);
-        self.state.active_cognitive_load = (self.state.active_cognitive_load - (10.0 * dt)).max(0.0);
+        self.state.global_energy_reserve =
+            (self.state.global_energy_reserve + regenerated).min(self.max_energy_reserve);
+        self.state.active_cognitive_load =
+            (self.state.active_cognitive_load - (10.0 * dt)).max(0.0);
         self.update_throttle_policy();
     }
 
@@ -130,7 +132,9 @@ impl FeedbackRegulator {
             self.state.is_throttled = true;
             self.state.throttle_factor = 0.0;
             self.state.degradation_tier = DegradationTier::EmergencyHalt;
-        } else if memory_warning || self.state.global_energy_reserve < (self.max_energy_reserve * 0.1) {
+        } else if memory_warning
+            || self.state.global_energy_reserve < (self.max_energy_reserve * 0.1)
+        {
             self.state.is_throttled = true;
             self.state.throttle_factor = 0.2; // 80% reduction
             self.state.degradation_tier = DegradationTier::HeavyThrottle;

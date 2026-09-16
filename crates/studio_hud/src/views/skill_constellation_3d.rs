@@ -53,7 +53,8 @@ impl SkillConstellation3DView {
                 mastery_level: 3,
                 pos: [-140.0, 100.0, 0.0],
                 connections: vec!["percept_ocr".into(), "percept_delta".into()],
-                description: "Filters static pixels instantly with zero compute overhead.".to_string(),
+                description: "Filters static pixels instantly with zero compute overhead."
+                    .to_string(),
             },
             ConstellationSkillNode {
                 id: "percept_ocr".to_string(),
@@ -65,7 +66,8 @@ impl SkillConstellation3DView {
                 mastery_level: 2,
                 pos: [-220.0, 160.0, -30.0],
                 connections: vec![],
-                description: "Anchors onto dynamic UI labels and in-game text triggers.".to_string(),
+                description: "Anchors onto dynamic UI labels and in-game text triggers."
+                    .to_string(),
             },
             ConstellationSkillNode {
                 id: "percept_delta".to_string(),
@@ -77,7 +79,8 @@ impl SkillConstellation3DView {
                 mastery_level: 0,
                 pos: [-160.0, 190.0, 40.0],
                 connections: vec![],
-                description: "Predicts trajectory of moving targets across frame intervals.".to_string(),
+                description: "Predicts trajectory of moving targets across frame intervals."
+                    .to_string(),
             },
             // Kinematics Cluster (Gold)
             ConstellationSkillNode {
@@ -90,7 +93,8 @@ impl SkillConstellation3DView {
                 mastery_level: 4,
                 pos: [140.0, 100.0, 0.0],
                 connections: vec!["kinematics_fitts".into(), "kinematics_jitter".into()],
-                description: "Human-like natural curvature with realistic acceleration curves.".to_string(),
+                description: "Human-like natural curvature with realistic acceleration curves."
+                    .to_string(),
             },
             ConstellationSkillNode {
                 id: "kinematics_fitts".to_string(),
@@ -102,7 +106,8 @@ impl SkillConstellation3DView {
                 mastery_level: 1,
                 pos: [220.0, 160.0, -20.0],
                 connections: vec![],
-                description: "Calibrates travel velocity according to target bounding area.".to_string(),
+                description: "Calibrates travel velocity according to target bounding area."
+                    .to_string(),
             },
             ConstellationSkillNode {
                 id: "kinematics_jitter".to_string(),
@@ -114,7 +119,9 @@ impl SkillConstellation3DView {
                 mastery_level: 0,
                 pos: [170.0, 190.0, 50.0],
                 connections: vec![],
-                description: "Injects physiological sub-pixel jitter to prevent anti-bot detection.".to_string(),
+                description:
+                    "Injects physiological sub-pixel jitter to prevent anti-bot detection."
+                        .to_string(),
             },
             // Reflex Cluster (Purple)
             ConstellationSkillNode {
@@ -127,7 +134,8 @@ impl SkillConstellation3DView {
                 mastery_level: 2,
                 pos: [-60.0, -80.0, 20.0],
                 connections: vec!["reflex_branching".into()],
-                description: "Dispatches keyboard and mouse actions with sub-180µs latency.".to_string(),
+                description: "Dispatches keyboard and mouse actions with sub-180µs latency."
+                    .to_string(),
             },
             ConstellationSkillNode {
                 id: "reflex_branching".to_string(),
@@ -139,7 +147,9 @@ impl SkillConstellation3DView {
                 mastery_level: 0,
                 pos: [-100.0, -160.0, -30.0],
                 connections: vec![],
-                description: "Instantly routes to secondary fallback paths upon sensory interruption.".to_string(),
+                description:
+                    "Instantly routes to secondary fallback paths upon sensory interruption."
+                        .to_string(),
             },
             // Thermodynamics Cluster (Emerald)
             ConstellationSkillNode {
@@ -164,7 +174,8 @@ impl SkillConstellation3DView {
                 mastery_level: 0,
                 pos: [140.0, -140.0, 40.0],
                 connections: vec![],
-                description: "Compacts dormant state weights into zero-copy SIMD memory banks.".to_string(),
+                description: "Compacts dormant state weights into zero-copy SIMD memory banks."
+                    .to_string(),
             },
         ]
     }
@@ -198,9 +209,12 @@ impl HudView for SkillConstellation3DView {
                     state.camera_rotation = (0.3, 0.2);
                 }
                 ui.label(
-                    egui::RichText::new(format!("⭐ Available Mastery: {} pts", state.user_level * 2))
-                        .color(Color32::from_rgb(255, 215, 0))
-                        .strong(),
+                    egui::RichText::new(format!(
+                        "⭐ Available Mastery: {} pts",
+                        state.user_level * 2
+                    ))
+                    .color(Color32::from_rgb(255, 215, 0))
+                    .strong(),
                 );
             });
         });
@@ -213,7 +227,13 @@ impl HudView for SkillConstellation3DView {
         // 2. Cluster Filter Selector
         ui.horizontal(|ui| {
             ui.label(egui::RichText::new("Branch Focus:").strong());
-            for cluster in ["All", "Perception", "Kinematics", "Reflex", "Thermodynamics"] {
+            for cluster in [
+                "All",
+                "Perception",
+                "Kinematics",
+                "Reflex",
+                "Thermodynamics",
+            ] {
                 let is_sel = if self.filter_cluster.is_empty() {
                     cluster == "All"
                 } else {
@@ -258,11 +278,15 @@ impl HudView for SkillConstellation3DView {
         }
 
         // Draw Canvas Backdrop
-        painter.rect_filled(canvas_rect, CornerRadius::same(8), Color32::from_rgb(8, 12, 20));
+        painter.rect_filled(
+            canvas_rect,
+            CornerRadius::same(8),
+            Color32::from_rgb(8, 12, 20),
+        );
         painter.rect_stroke(
             canvas_rect,
             CornerRadius::same(8),
-            Stroke::new(1.0, Color32::from_rgba_unmultiplied(60, 80, 120, 100)),
+            Stroke::new(1.0_f32, Color32::from_rgba_unmultiplied(60, 80, 120, 100)),
             egui::StrokeKind::Inside,
         );
 
@@ -310,16 +334,16 @@ impl HudView for SkillConstellation3DView {
             let sy = (seed * 29.7).cos() * 250.0;
             let sz = (seed * 43.1).sin() * 300.0;
 
-            if let Some((pt, scale, z_cam)) = project_3d([sx, sy, sz]) {
-                if canvas_rect.contains(pt) {
-                    let tw = ((time_sec * 2.5 + i as f32 * 1.5).sin() * 0.5 + 0.5).clamp(0.2, 1.0);
-                    let alpha = ((140.0 * tw) * (1.0 - (z_cam / 1100.0).clamp(0.0, 0.8))) as u8;
-                    painter.circle_filled(
-                        pt,
-                        (1.2 * scale).clamp(0.6, 2.4),
-                        Color32::from_rgba_unmultiplied(190, 210, 255, alpha),
-                    );
-                }
+            if let Some((pt, scale, z_cam)) = project_3d([sx, sy, sz])
+                && canvas_rect.contains(pt)
+            {
+                let tw = ((time_sec * 2.5 + i as f32 * 1.5).sin() * 0.5 + 0.5).clamp(0.2, 1.0);
+                let alpha = ((140.0 * tw) * (1.0 - (z_cam / 1100.0).clamp(0.0, 0.8))) as u8;
+                painter.circle_filled(
+                    pt,
+                    (1.2 * scale).clamp(0.6, 2.4),
+                    Color32::from_rgba_unmultiplied(190, 210, 255, alpha),
+                );
             }
         }
 
@@ -344,42 +368,45 @@ impl HudView for SkillConstellation3DView {
             }
         }
 
-        let node_map: HashMap<String, ConstellationSkillNode> =
-            self.nodes.iter().map(|n| (n.id.clone(), n.clone())).collect();
+        let node_map: HashMap<String, ConstellationSkillNode> = self
+            .nodes
+            .iter()
+            .map(|n| (n.id.clone(), n.clone()))
+            .collect();
 
         // Draw Constellation Energy Wires (Connections)
         for node in &self.nodes {
             if let Some(&(p1, scale1)) = node_positions.get(&node.id) {
                 for conn_id in &node.connections {
-                    if let Some(target) = node_map.get(conn_id) {
-                        if let Some((p2, scale2, _)) = project_3d(target.pos) {
-                            let wire_color = if node.is_unlocked && target.is_unlocked {
-                                Color32::from_rgba_unmultiplied(120, 190, 255, 180)
-                            } else {
-                                Color32::from_rgba_unmultiplied(70, 85, 110, 90)
-                            };
+                    if let Some(target) = node_map.get(conn_id)
+                        && let Some((p2, scale2, _)) = project_3d(target.pos)
+                    {
+                        let wire_color = if node.is_unlocked && target.is_unlocked {
+                            Color32::from_rgba_unmultiplied(120, 190, 255, 180)
+                        } else {
+                            Color32::from_rgba_unmultiplied(70, 85, 110, 90)
+                        };
 
-                            let wire_width = if node.is_unlocked && target.is_unlocked {
-                                (2.5 * scale1.min(scale2)).clamp(1.5, 4.0)
-                            } else {
-                                (1.0 * scale1.min(scale2)).clamp(0.8, 2.0)
-                            };
+                        let wire_width = if node.is_unlocked && target.is_unlocked {
+                            (2.5 * scale1.min(scale2)).clamp(1.5, 4.0)
+                        } else {
+                            (1.0 * scale1.min(scale2)).clamp(0.8, 2.0)
+                        };
 
-                            painter.line_segment([p1, p2], Stroke::new(wire_width, wire_color));
+                        painter.line_segment([p1, p2], Stroke::new(wire_width, wire_color));
 
-                            // Animated energy pulse traveling along active connections
-                            if node.is_unlocked && target.is_unlocked {
-                                let t_pulse = (time_sec * 1.5 + (node.tier as f32) * 0.4) % 1.0;
-                                let pulse_pos = Pos2::new(
-                                    p1.x + (p2.x - p1.x) * t_pulse,
-                                    p1.y + (p2.y - p1.y) * t_pulse,
-                                );
-                                painter.circle_filled(
-                                    pulse_pos,
-                                    (2.5 * scale1).clamp(1.5, 4.5),
-                                    Color32::from_rgb(255, 255, 255),
-                                );
-                            }
+                        // Animated energy pulse traveling along active connections
+                        if node.is_unlocked && target.is_unlocked {
+                            let t_pulse = (time_sec * 1.5 + (node.tier as f32) * 0.4) % 1.0;
+                            let pulse_pos = Pos2::new(
+                                p1.x + (p2.x - p1.x) * t_pulse,
+                                p1.y + (p2.y - p1.y) * t_pulse,
+                            );
+                            painter.circle_filled(
+                                pulse_pos,
+                                (2.5 * scale1).clamp(1.5, 4.5),
+                                Color32::from_rgb(255, 255, 255),
+                            );
                         }
                     }
                 }
@@ -394,7 +421,7 @@ impl HudView for SkillConstellation3DView {
             if let Some(&(pos_2d, scale)) = node_positions.get(&node.id) {
                 let radius = (12.0 * scale).clamp(8.0, 28.0);
                 let is_selected = self.selected_node_id.as_deref() == Some(node.id.as_str());
-                let is_hovered = mouse_pos.map_or(false, |mp| mp.distance(pos_2d) <= radius + 4.0);
+                let is_hovered = mouse_pos.is_some_and(|mp| mp.distance(pos_2d) <= radius + 4.0);
 
                 if is_hovered && ui.input(|i| i.pointer.primary_clicked()) {
                     clicked_id = Some(node.id.clone());
@@ -402,10 +429,10 @@ impl HudView for SkillConstellation3DView {
 
                 // Determine Node Cluster Color
                 let base_color = match node.cluster.as_str() {
-                    "Perception" => Color32::from_rgb(56, 189, 248),   // Cyan
-                    "Kinematics" => Color32::from_rgb(251, 191, 36),   // Amber/Gold
-                    "Reflex" => Color32::from_rgb(168, 85, 247),       // Purple
-                    "Thermodynamics" => Color32::from_rgb(52, 211, 153),// Emerald
+                    "Perception" => Color32::from_rgb(56, 189, 248), // Cyan
+                    "Kinematics" => Color32::from_rgb(251, 191, 36), // Amber/Gold
+                    "Reflex" => Color32::from_rgb(168, 85, 247),     // Purple
+                    "Thermodynamics" => Color32::from_rgb(52, 211, 153), // Emerald
                     _ => Color32::from_rgb(148, 163, 184),
                 };
 
@@ -432,7 +459,14 @@ impl HudView for SkillConstellation3DView {
                 painter.circle_stroke(
                     pos_2d,
                     radius,
-                    Stroke::new(1.5, if node.is_unlocked { Color32::WHITE } else { Color32::GRAY }),
+                    Stroke::new(
+                        1.5_f32,
+                        if node.is_unlocked {
+                            Color32::WHITE
+                        } else {
+                            Color32::GRAY
+                        },
+                    ),
                 );
 
                 // Selection ring
@@ -440,7 +474,7 @@ impl HudView for SkillConstellation3DView {
                     painter.circle_stroke(
                         pos_2d,
                         radius + 6.0 * scale,
-                        Stroke::new(2.0, Color32::from_rgb(255, 255, 255)),
+                        Stroke::new(2.0_f32, Color32::from_rgb(255, 255, 255)),
                     );
                 }
 
@@ -451,7 +485,11 @@ impl HudView for SkillConstellation3DView {
                     egui::Align2::LEFT_CENTER,
                     &node.name,
                     egui::FontId::proportional(font_size),
-                    if node.is_unlocked { Color32::WHITE } else { Color32::GRAY },
+                    if node.is_unlocked {
+                        Color32::WHITE
+                    } else {
+                        Color32::GRAY
+                    },
                 );
             }
         }
@@ -473,7 +511,7 @@ impl HudView for SkillConstellation3DView {
         {
             egui::Frame::group(ui.style())
                 .fill(theme.card_bg())
-                .stroke(Stroke::new(1.0, theme.accent()))
+                .stroke(Stroke::new(1.0_f32, theme.accent()))
                 .corner_radius(CornerRadius::same(8))
                 .show(ui, |ui| {
                     ui.horizontal(|ui| {
@@ -493,15 +531,25 @@ impl HudView for SkillConstellation3DView {
                             );
                         } else {
                             ui.label(
-                                egui::RichText::new(format!("Cost: {} Mastery Pts", node.cost_points))
-                                    .color(Color32::from_rgb(255, 165, 0))
-                                    .strong(),
+                                egui::RichText::new(format!(
+                                    "Cost: {} Mastery Pts",
+                                    node.cost_points
+                                ))
+                                .color(Color32::from_rgb(255, 165, 0))
+                                .strong(),
                             );
                         }
 
                         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                             if !node.is_unlocked {
-                                if ui.button(egui::RichText::new("⚡ Unlock Perk").strong().color(Color32::WHITE)).clicked() {
+                                if ui
+                                    .button(
+                                        egui::RichText::new("⚡ Unlock Perk")
+                                            .strong()
+                                            .color(Color32::WHITE),
+                                    )
+                                    .clicked()
+                                {
                                     toggle_unlock_id = Some(node.id.clone());
                                 }
                             } else if ui.button("⚡ Upgrade Mastery (+1)").clicked() {
@@ -516,20 +564,20 @@ impl HudView for SkillConstellation3DView {
         }
 
         // Apply stateful unlocks and mastery upgrades
-        if let Some(id) = toggle_unlock_id {
-            if let Some(target_node) = self.nodes.iter_mut().find(|n| n.id == id) {
-                target_node.is_unlocked = true;
-                target_node.mastery_level = 1;
-                state.award_xp(150, "Unlocked Constellation Skill Perk");
-                state.trigger_achievement_progress("constellation_initiate", 1);
-            }
+        if let Some(id) = toggle_unlock_id
+            && let Some(target_node) = self.nodes.iter_mut().find(|n| n.id == id)
+        {
+            target_node.is_unlocked = true;
+            target_node.mastery_level = 1;
+            state.award_xp(150, "Unlocked Constellation Skill Perk");
+            state.trigger_achievement_progress("constellation_initiate", 1);
         }
-        if let Some(id) = upgrade_mastery_id {
-            if let Some(target_node) = self.nodes.iter_mut().find(|n| n.id == id) {
-                target_node.mastery_level += 1;
-                state.award_xp(75, "Upgraded Skill Mastery");
-                state.trigger_achievement_progress("mastery_ascendant", 1);
-            }
+        if let Some(id) = upgrade_mastery_id
+            && let Some(target_node) = self.nodes.iter_mut().find(|n| n.id == id)
+        {
+            target_node.mastery_level += 1;
+            state.award_xp(75, "Upgraded Skill Mastery");
+            state.trigger_achievement_progress("mastery_ascendant", 1);
         }
     }
 }

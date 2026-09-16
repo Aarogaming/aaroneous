@@ -29,7 +29,7 @@ pub fn gelu_prime(x: f32) -> f32 {
     let tanh_inner = inner.tanh();
     let sech2_inner = 1.0 - tanh_inner.powi(2);
     let inner_prime = sqrt_2_over_pi * (1.0 + 3.0 * 0.044715 * x.powi(2));
-    
+
     0.5 * (1.0 + tanh_inner) + 0.5 * x * sech2_inner * inner_prime
 }
 
@@ -38,14 +38,14 @@ pub fn gelu_prime(x: f32) -> f32 {
 /// Implements Centered Kernel Alignment (CKA) and InfoNCE Contrastive Regularization.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LatentGELUBottleneckBridge {
-    pub teacher_dim: usize,     // 4096 (e.g. Llama-3-70B / Qwen-2.5)
-    pub bottleneck_dim: usize,  // 1024 (Intermediate non-linear manifold)
-    pub student_dim: usize,     // 256 (Aaroneous-SSM-4M d_model)
-    pub weight_1: Vec<f32>,     // teacher_dim x bottleneck_dim
-    pub bias_1: Vec<f32>,       // bottleneck_dim
-    pub weight_2: Vec<f32>,     // bottleneck_dim x student_dim
-    pub bias_2: Vec<f32>,       // student_dim
-    pub temperature: f32,       // InfoNCE temperature (e.g. 0.07)
+    pub teacher_dim: usize,    // 4096 (e.g. Llama-3-70B / Qwen-2.5)
+    pub bottleneck_dim: usize, // 1024 (Intermediate non-linear manifold)
+    pub student_dim: usize,    // 256 (Aaroneous-SSM-4M d_model)
+    pub weight_1: Vec<f32>,    // teacher_dim x bottleneck_dim
+    pub bias_1: Vec<f32>,      // bottleneck_dim
+    pub weight_2: Vec<f32>,    // bottleneck_dim x student_dim
+    pub bias_2: Vec<f32>,      // student_dim
+    pub temperature: f32,      // InfoNCE temperature (e.g. 0.07)
 }
 
 impl LatentGELUBottleneckBridge {
@@ -110,7 +110,11 @@ impl LatentGELUBottleneckBridge {
     /// Computes Centered Kernel Alignment (CKA) similarity between a batch of teacher latents (X) and student projections (Y).
     /// CKA = HSIC(K, L) / sqrt(HSIC(K, K) * HSIC(L, L))
     /// Aligns inter-state relative geometry across dimensions without forcing destructive 1:1 isometric collapse.
-    pub fn compute_linear_cka(&self, teacher_batch: &[Vec<f32>], student_batch: &[Vec<f32>]) -> f32 {
+    pub fn compute_linear_cka(
+        &self,
+        teacher_batch: &[Vec<f32>],
+        student_batch: &[Vec<f32>],
+    ) -> f32 {
         let n = teacher_batch.len().min(student_batch.len());
         if n < 2 {
             return 1.0;
@@ -122,8 +126,16 @@ impl LatentGELUBottleneckBridge {
 
         for i in 0..n {
             for j in 0..n {
-                let dot_x: f32 = teacher_batch[i].iter().zip(&teacher_batch[j]).map(|(a, b)| a * b).sum();
-                let dot_y: f32 = student_batch[i].iter().zip(&student_batch[j]).map(|(a, b)| a * b).sum();
+                let dot_x: f32 = teacher_batch[i]
+                    .iter()
+                    .zip(&teacher_batch[j])
+                    .map(|(a, b)| a * b)
+                    .sum();
+                let dot_y: f32 = student_batch[i]
+                    .iter()
+                    .zip(&student_batch[j])
+                    .map(|(a, b)| a * b)
+                    .sum();
                 k[i][j] = dot_x;
                 l[i][j] = dot_y;
             }
@@ -133,12 +145,20 @@ impl LatentGELUBottleneckBridge {
         let mut k_centered = vec![vec![0.0f32; n]; n];
         let mut l_centered = vec![vec![0.0f32; n]; n];
 
-        let k_row_means: Vec<f32> = (0..n).map(|i| k[i].iter().sum::<f32>() / n as f32).collect();
-        let k_col_means: Vec<f32> = (0..n).map(|j| (0..n).map(|i| k[i][j]).sum::<f32>() / n as f32).collect();
+        let k_row_means: Vec<f32> = (0..n)
+            .map(|i| k[i].iter().sum::<f32>() / n as f32)
+            .collect();
+        let k_col_means: Vec<f32> = (0..n)
+            .map(|j| (0..n).map(|i| k[i][j]).sum::<f32>() / n as f32)
+            .collect();
         let k_mean: f32 = k_row_means.iter().sum::<f32>() / n as f32;
 
-        let l_row_means: Vec<f32> = (0..n).map(|i| l[i].iter().sum::<f32>() / n as f32).collect();
-        let l_col_means: Vec<f32> = (0..n).map(|j| (0..n).map(|i| l[i][j]).sum::<f32>() / n as f32).collect();
+        let l_row_means: Vec<f32> = (0..n)
+            .map(|i| l[i].iter().sum::<f32>() / n as f32)
+            .collect();
+        let l_col_means: Vec<f32> = (0..n)
+            .map(|j| (0..n).map(|i| l[i][j]).sum::<f32>() / n as f32)
+            .collect();
         let l_mean: f32 = l_row_means.iter().sum::<f32>() / n as f32;
 
         for i in 0..n {
@@ -171,7 +191,12 @@ impl LatentGELUBottleneckBridge {
 
     /// InfoNCE Contrastive Loss: L_InfoNCE = -log( exp(sim(q, k+) / T) / sum(exp(sim(q, k_i) / T)) )
     /// Repels negative latent states, expanding the intrinsic effective rank across all 256 student dimensions.
-    pub fn compute_infonce_loss(&self, anchor: &[f32], positive: &[f32], negatives: &[Vec<f32>]) -> f32 {
+    pub fn compute_infonce_loss(
+        &self,
+        anchor: &[f32],
+        positive: &[f32],
+        negatives: &[Vec<f32>],
+    ) -> f32 {
         let sim = |a: &[f32], b: &[f32]| -> f32 {
             let dot: f32 = a.iter().zip(b).map(|(x, y)| x * y).sum();
             let norm_a: f32 = a.iter().map(|x| x * x).sum::<f32>().sqrt().max(1e-6);
@@ -195,7 +220,8 @@ impl LatentGELUBottleneckBridge {
         teacher_batch: &[Vec<f32>],
         student_targets: &[Vec<f32>],
     ) -> f32 {
-        let student_projections: Vec<Vec<f32>> = teacher_batch.iter().map(|t| self.project(t)).collect();
+        let student_projections: Vec<Vec<f32>> =
+            teacher_batch.iter().map(|t| self.project(t)).collect();
         let cka = self.compute_linear_cka(teacher_batch, &student_projections);
         let cka_loss = 1.0 - cka;
 
@@ -206,7 +232,7 @@ impl LatentGELUBottleneckBridge {
         for i in 0..n {
             let anchor = &student_projections[i];
             let target = &student_targets[i % student_targets.len()];
-            
+
             // Negatives are the other samples in the batch
             let negatives: Vec<Vec<f32>> = (0..n)
                 .filter(|&j| j != i)
@@ -217,7 +243,12 @@ impl LatentGELUBottleneckBridge {
                 infonce_total += self.compute_infonce_loss(anchor, target, &negatives);
             }
 
-            let mse: f32 = anchor.iter().zip(target).map(|(a, b)| (a - b).powi(2)).sum::<f32>() / self.student_dim as f32;
+            let mse: f32 = anchor
+                .iter()
+                .zip(target)
+                .map(|(a, b)| (a - b).powi(2))
+                .sum::<f32>()
+                / self.student_dim as f32;
             mse_total += mse;
         }
 
@@ -226,7 +257,12 @@ impl LatentGELUBottleneckBridge {
     }
 
     /// Single optimization step on teacher-student distillation pair
-    pub fn train_distillation_step(&mut self, student_target: &[f32], teacher_latent: &[f32], lr: f32) -> f32 {
+    pub fn train_distillation_step(
+        &mut self,
+        student_target: &[f32],
+        teacher_latent: &[f32],
+        lr: f32,
+    ) -> f32 {
         let in_len = teacher_latent.len().min(self.teacher_dim);
 
         // Forward pass recording activations
@@ -341,7 +377,11 @@ pub struct SiModelTrainer {
 }
 
 impl SiModelTrainer {
-    pub fn new(model: SiModel, config: SiTrainerConfig, bridge: LatentGELUBottleneckBridge) -> Self {
+    pub fn new(
+        model: SiModel,
+        config: SiTrainerConfig,
+        bridge: LatentGELUBottleneckBridge,
+    ) -> Self {
         Self {
             model,
             config,
@@ -352,18 +392,19 @@ impl SiModelTrainer {
 
     /// Single training iteration on a discrete machine-native thought packet
     pub fn train_step(&mut self, thought: &SiThoughtPacket) -> Result<(f32, bool)> {
-        let prediction = self.model.forward(
-            thought.header.goal_opcode,
-            &thought.state_tensors,
-        )?;
+        let prediction = self
+            .model
+            .forward(thought.header.goal_opcode, &thought.state_tensors)?;
 
         // 1. Opcode classification loss (Cross-Entropy proxy)
-        let target_opcode_id = (thought.header.goal_opcode as usize % self.model.config.vocab_size) as u16;
+        let target_opcode_id =
+            (thought.header.goal_opcode as usize % self.model.config.vocab_size) as u16;
         let is_correct = prediction.predicted_opcode_id == target_opcode_id;
         let opcode_loss = if is_correct { 0.05f32 } else { 1.50f32 };
 
         // 2. Thermodynamic Free Energy Residual Loss: (F_pred - F_true)^2
-        let energy_diff = (prediction.predicted_energy_cost - thought.header.thermodynamic_free_energy) as f32;
+        let energy_diff =
+            (prediction.predicted_energy_cost - thought.header.thermodynamic_free_energy) as f32;
         let energy_loss = energy_diff.powi(2) * self.config.energy_loss_weight;
 
         // 3. Dimensional Invariant Consistency Penalty
@@ -416,7 +457,10 @@ impl SiModelTrainer {
         self.history.push(report.clone());
         info!(
             "Epoch {} complete: Loss={:.4}, Accuracy={:.1}%, Duration={}ms",
-            report.epoch_index, report.mean_total_loss, report.opcode_accuracy_percent, report.duration_ms
+            report.epoch_index,
+            report.mean_total_loss,
+            report.opcode_accuracy_percent,
+            report.duration_ms
         );
 
         Ok(report)
@@ -510,7 +554,12 @@ impl Bootstrapper {
             .collect();
         let classifier_b = vec![0.0f32; config.num_opcodes];
 
-        Self { bridge, classifier_w, classifier_b, config }
+        Self {
+            bridge,
+            classifier_w,
+            classifier_b,
+            config,
+        }
     }
 
     // -------------------------------------------------------------------------
@@ -548,14 +597,24 @@ impl Bootstrapper {
     // -------------------------------------------------------------------------
     pub fn batch_cka_loss(teacher_batch: &[Vec<f32>], student_batch: &[Vec<f32>]) -> f32 {
         let n = teacher_batch.len().min(student_batch.len());
-        if n < 2 { return 0.0; }
+        if n < 2 {
+            return 0.0;
+        }
 
         let mut k = vec![0.0f32; n * n];
         let mut l = vec![0.0f32; n * n];
         for i in 0..n {
             for j in 0..n {
-                k[i * n + j] = teacher_batch[i].iter().zip(&teacher_batch[j]).map(|(a, b)| a * b).sum();
-                l[i * n + j] = student_batch[i].iter().zip(&student_batch[j]).map(|(a, b)| a * b).sum();
+                k[i * n + j] = teacher_batch[i]
+                    .iter()
+                    .zip(&teacher_batch[j])
+                    .map(|(a, b)| a * b)
+                    .sum();
+                l[i * n + j] = student_batch[i]
+                    .iter()
+                    .zip(&student_batch[j])
+                    .map(|(a, b)| a * b)
+                    .sum();
             }
         }
 
@@ -563,9 +622,11 @@ impl Bootstrapper {
         let l_frob = l.iter().map(|v| v * v).sum::<f32>().sqrt().max(1e-8);
 
         // CKA loss = ‖K/‖K‖_F - L/‖L‖_F‖_F²  (0 = identical topology)
-        k.iter().zip(&l)
+        k.iter()
+            .zip(&l)
             .map(|(ki, li)| (ki / k_frob - li / l_frob).powi(2))
-            .sum::<f32>() / (n * n) as f32
+            .sum::<f32>()
+            / (n * n) as f32
     }
 
     // -------------------------------------------------------------------------
@@ -581,7 +642,9 @@ impl Bootstrapper {
         temperature: f32,
     ) -> f32 {
         let n = students.len().min(targets.len());
-        if n < 2 { return 0.0; }
+        if n < 2 {
+            return 0.0;
+        }
 
         let cos_sim = |a: &[f32], b: &[f32]| -> f32 {
             let dot: f32 = a.iter().zip(b).map(|(x, y)| x * y).sum();
@@ -593,7 +656,9 @@ impl Bootstrapper {
         let mut total = 0.0f32;
         for i in 0..n {
             let pos_sim = cos_sim(&students[i], &targets[i]).exp();
-            let denom: f32 = (0..n).map(|j| cos_sim(&students[i], &targets[j]).exp()).sum::<f32>();
+            let denom: f32 = (0..n)
+                .map(|j| cos_sim(&students[i], &targets[j]).exp())
+                .sum::<f32>();
             total -= (pos_sim / denom.max(1e-9)).ln();
         }
         total / n as f32
@@ -620,10 +685,15 @@ impl Bootstrapper {
             let probs = Self::softmax(&logits);
             let gt = target_opcodes[i] as usize % self.config.num_opcodes;
             ce_total -= probs[gt].max(1e-9).ln();
-            let pred = probs.iter().enumerate()
+            let pred = probs
+                .iter()
+                .enumerate()
                 .max_by(|a, b| a.1.partial_cmp(b.1).unwrap())
-                .map(|(i, _)| i).unwrap_or(0);
-            if pred == gt { correct += 1; }
+                .map(|(i, _)| i)
+                .unwrap_or(0);
+            if pred == gt {
+                correct += 1;
+            }
         }
 
         let cka = Self::batch_cka_loss(teacher_states, &student_batch);
@@ -681,12 +751,15 @@ impl Bootstrapper {
             // Move student toward target_delta, scaled by gradient magnitude
             let grad_mag = grad_student.iter().map(|g| g.abs()).sum::<f32>() / student_dim as f32;
             let blend = (grad_mag * 10.0).clamp(0.0, 1.0);
-            let bridge_target: Vec<f32> = student.iter().zip(&target_deltas[i])
+            let bridge_target: Vec<f32> = student
+                .iter()
+                .zip(&target_deltas[i])
                 .zip(&grad_student)
                 .map(|((s, t), g)| s - blend * g + (1.0 - blend) * (t - s))
                 .collect();
 
-            self.bridge.train_distillation_step(&bridge_target, &teacher_states[i], lr);
+            self.bridge
+                .train_distillation_step(&bridge_target, &teacher_states[i], lr);
         }
 
         batch_ce / n as f32
@@ -710,7 +783,10 @@ pub fn run_bootstrapper(
     let batch_size = config.batch_size;
     let epochs = config.epochs;
 
-    let mut model = Bootstrapper::new(LatentGELUBottleneckBridge::new(teacher_dim, 1024, student_dim), config.clone());
+    let mut model = Bootstrapper::new(
+        LatentGELUBottleneckBridge::new(teacher_dim, 1024, student_dim),
+        config.clone(),
+    );
     let mut reports = Vec::with_capacity(epochs);
     let steps = &dataset.steps;
     let total = steps.len();
@@ -730,28 +806,36 @@ pub fn run_bootstrapper(
             let end = (offset + batch_size).min(total);
             let batch = &steps[offset..end];
 
-            let teacher_states: Vec<Vec<f32>> = batch.iter().map(|s| s.teacher_hidden_state.clone()).collect();
-            let target_opcodes: Vec<u16>       = batch.iter().map(|s| s.expected_opcode).collect();
-            let target_deltas: Vec<Vec<f32>>   = batch.iter().map(|s| s.target_state_delta.clone()).collect();
+            let teacher_states: Vec<Vec<f32>> = batch
+                .iter()
+                .map(|s| s.teacher_hidden_state.clone())
+                .collect();
+            let target_opcodes: Vec<u16> = batch.iter().map(|s| s.expected_opcode).collect();
+            let target_deltas: Vec<Vec<f32>> =
+                batch.iter().map(|s| s.target_state_delta.clone()).collect();
 
             let ce = model.train_step(&teacher_states, &target_opcodes, &target_deltas);
-            let (_, cka, nce, acc) = model.compute_batch_metrics(&teacher_states, &target_opcodes, &target_deltas);
+            let (_, cka, nce, acc) =
+                model.compute_batch_metrics(&teacher_states, &target_opcodes, &target_deltas);
 
-            sum_ce += ce; sum_cka += cka; sum_nce += nce; sum_acc += acc;
+            sum_ce += ce;
+            sum_cka += cka;
+            sum_nce += nce;
+            sum_acc += acc;
             num_batches += 1;
             offset = end;
         }
 
         let nb = num_batches.max(1) as f32;
         let total_loss = sum_ce / nb
-            + config.cka_weight   * (sum_cka / nb)
+            + config.cka_weight * (sum_cka / nb)
             + config.infonce_weight * (sum_nce / nb);
 
         let report = BootstrapperEpochReport {
             epoch,
-            ce_loss:            sum_ce  / nb,
-            cka_loss:           sum_cka / nb,
-            infonce_loss:       sum_nce / nb,
+            ce_loss: sum_ce / nb,
+            cka_loss: sum_cka / nb,
+            infonce_loss: sum_nce / nb,
             total_loss,
             opcode_accuracy_pct: sum_acc / nb,
             duration_ms: t0.elapsed().as_millis() as u64,
@@ -759,9 +843,14 @@ pub fn run_bootstrapper(
 
         info!(
             "Epoch {:>3}/{}: CE={:.4} CKA={:.4} NCE={:.4} | Total={:.4} | Acc={:.1}% | {}ms",
-            epoch + 1, epochs,
-            report.ce_loss, report.cka_loss, report.infonce_loss,
-            report.total_loss, report.opcode_accuracy_pct, report.duration_ms,
+            epoch + 1,
+            epochs,
+            report.ce_loss,
+            report.cka_loss,
+            report.infonce_loss,
+            report.total_loss,
+            report.opcode_accuracy_pct,
+            report.duration_ms,
         );
 
         reports.push(report);
@@ -774,27 +863,26 @@ pub fn run_bootstrapper(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::machine_native::{
+        DimensionalUnit, MachineOpcode, NativeComputationNode, NativeComputationalGraph,
+        NativeTypeLattice,
+    };
     use crate::si_model::SiModelConfig;
-    use crate::machine_native::{DimensionalUnit, MachineOpcode, NativeComputationNode, NativeComputationalGraph, NativeTypeLattice};
 
     #[test]
     fn test_gelu_bottleneck_bridge_cka_and_infonce() {
         let bridge = LatentGELUBottleneckBridge::new(32, 16, 8);
-        let teacher_batch = vec![
-            vec![1.0f32; 32],
-            vec![0.0f32; 32],
-            vec![-1.0f32; 32],
-        ];
-        let student_targets = vec![
-            vec![0.5f32; 8],
-            vec![0.0f32; 8],
-            vec![-0.5f32; 8],
-        ];
+        let teacher_batch = vec![vec![1.0f32; 32], vec![0.0f32; 32], vec![-1.0f32; 32]];
+        let student_targets = vec![vec![0.5f32; 8], vec![0.0f32; 8], vec![-0.5f32; 8]];
 
         let cka = bridge.compute_linear_cka(&teacher_batch, &student_targets);
         assert!((0.0..=1.0).contains(&cka));
 
-        let infonce = bridge.compute_infonce_loss(&student_targets[0], &student_targets[0], &[student_targets[1].clone()]);
+        let infonce = bridge.compute_infonce_loss(
+            &student_targets[0],
+            &student_targets[0],
+            &[student_targets[1].clone()],
+        );
         assert!(infonce >= 0.0);
 
         let hybrid_loss = bridge.hybrid_distillation_loss(&teacher_batch, &student_targets);
@@ -821,16 +909,25 @@ mod tests {
         let mut graph = NativeComputationalGraph::new();
         graph.add_node(NativeComputationNode {
             id: 1,
-            opcode: MachineOpcode::Alloc { size_bytes: 64, align: 8 },
-            type_lattice: NativeTypeLattice::LinearMemoryPointer { mutability: true, alignment: 8 },
+            opcode: MachineOpcode::Alloc {
+                size_bytes: 64,
+                align: 8,
+            },
+            type_lattice: NativeTypeLattice::LinearMemoryPointer {
+                mutability: true,
+                alignment: 8,
+            },
             energy_cost: 0.10,
             dependencies: Vec::new(),
         });
 
-        let packet = SiThoughtPacket::new(0x01, DimensionalUnit::DIMENSIONLESS, vec![1.0, 0.5], graph);
+        let packet =
+            SiThoughtPacket::new(0x01, DimensionalUnit::DIMENSIONLESS, vec![1.0, 0.5], graph);
         let batch = vec![packet.clone(), packet.clone(), packet];
 
-        let report = trainer.train_epoch_batch(1, &batch).expect("Training epoch failed");
+        let report = trainer
+            .train_epoch_batch(1, &batch)
+            .expect("Training epoch failed");
         assert_eq!(report.thoughts_processed, 3);
         assert!(report.mean_total_loss > 0.0);
         assert_eq!(trainer.history.len(), 1);
@@ -845,13 +942,16 @@ mod tests {
         // When teacher and student have identical gram matrices, CKA loss → 0
         let vecs: Vec<Vec<f32>> = vec![vec![1.0, 0.0], vec![0.0, 1.0], vec![1.0, 1.0]];
         let loss = Bootstrapper::batch_cka_loss(&vecs, &vecs);
-        assert!(loss < 1e-6, "CKA loss should be ~0 for identical inputs, got {loss}");
+        assert!(
+            loss < 1e-6,
+            "CKA loss should be ~0 for identical inputs, got {loss}"
+        );
     }
 
     #[test]
     fn test_bootstrapper_infonce_loss_range() {
         let students = vec![vec![1.0f32, 0.0], vec![0.0, 1.0], vec![-1.0, 0.0]];
-        let targets  = vec![vec![0.9f32, 0.1], vec![0.1, 0.9], vec![-0.9, 0.1]];
+        let targets = vec![vec![0.9f32, 0.1], vec![0.1, 0.9], vec![-0.9, 0.1]];
         let nce = Bootstrapper::batch_infonce_loss(&students, &targets, 0.07);
         assert!(nce >= 0.0, "InfoNCE loss must be non-negative, got {nce}");
     }
@@ -871,7 +971,7 @@ mod tests {
         let teacher = vec![0.1f32; 32];
         let (student, logits) = model.forward(&teacher);
         assert_eq!(student.len(), 8, "Student state should be student_dim=8");
-        assert_eq!(logits.len(), 8,  "Logits should be num_opcodes=8");
+        assert_eq!(logits.len(), 8, "Logits should be num_opcodes=8");
         // Logits should be finite
         assert!(logits.iter().all(|l| l.is_finite()));
     }
@@ -889,9 +989,19 @@ mod tests {
         };
         let mut model = Bootstrapper::new(LatentGELUBottleneckBridge::new(32, 1024, 8), config);
 
-        let teacher_states = vec![vec![1.0f32; 32], vec![-1.0f32; 32], vec![0.5f32; 32], vec![-0.5f32; 32]];
+        let teacher_states = vec![
+            vec![1.0f32; 32],
+            vec![-1.0f32; 32],
+            vec![0.5f32; 32],
+            vec![-0.5f32; 32],
+        ];
         let target_opcodes: Vec<u16> = vec![0, 1, 2, 3];
-        let target_deltas = vec![vec![0.1f32; 8], vec![-0.1f32; 8], vec![0.05f32; 8], vec![-0.05f32; 8]];
+        let target_deltas = vec![
+            vec![0.1f32; 8],
+            vec![-0.1f32; 8],
+            vec![0.05f32; 8],
+            vec![-0.05f32; 8],
+        ];
 
         let loss_before = model.train_step(&teacher_states, &target_opcodes, &target_deltas);
         // Run more steps
@@ -900,7 +1010,10 @@ mod tests {
         }
         let loss_after = model.train_step(&teacher_states, &target_opcodes, &target_deltas);
 
-        assert!(loss_after <= loss_before + 1.0, "Loss should converge, before={loss_before:.4}, after={loss_after:.4}");
+        assert!(
+            loss_after <= loss_before + 1.0,
+            "Loss should converge, before={loss_before:.4}, after={loss_after:.4}"
+        );
     }
 
     #[test]
@@ -920,7 +1033,11 @@ mod tests {
 
         let (model, reports) = run_bootstrapper(&dataset, config);
         assert_eq!(reports.len(), 3);
-        assert!(reports.iter().all(|r| r.total_loss > 0.0 && r.total_loss.is_finite()));
+        assert!(
+            reports
+                .iter()
+                .all(|r| r.total_loss > 0.0 && r.total_loss.is_finite())
+        );
         // Final bridge still projects correctly
         let test_state = vec![0.1f32; dataset.teacher_dim];
         let student = model.bridge.project(&test_state);

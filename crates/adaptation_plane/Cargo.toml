@@ -1,0 +1,29 @@
+[package]
+name = "adaptation_plane"
+version = "0.1.0"
+edition.workspace = true
+authors.workspace = true
+description = "Continuous adaptive control engine, hyperparameter optimization, and GGUF model ingestion"
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+ipc_bus = { path = "../ipc_bus" }
+paths = { path = "../paths" }
+compute = { path = "../compute" }
+adaptation_engine = { path = "../adaptation_engine" }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+strum = { version = "0.26", features = ["derive"] }
+uuid = { version = "1.0", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+tokio = { version = "1.0", features = ["full"] }
+tracing = "0.1"
+rand = "0.8"
+anyhow = "1.0"
+thiserror = "2.0"
+candle-core = "0.8"
+candle-nn = "0.8"
+
+[dev-dependencies]
+tempfile = "3.8"

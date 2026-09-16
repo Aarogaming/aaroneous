@@ -36,7 +36,7 @@ impl OnboardingGuide {
             .show(ctx, |ui| {
                 egui::Frame::window(&ctx.global_style())
                     .fill(theme.panel_bg())
-                    .stroke(Stroke::new(1.5, theme.accent()))
+                    .stroke(Stroke::new(1.5_f32, theme.accent()))
                     .corner_radius(CornerRadius::same(12))
                     .shadow(egui::Shadow {
                         offset: [0, 10],

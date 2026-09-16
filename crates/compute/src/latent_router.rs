@@ -9,8 +9,8 @@
 //! 3. Broadcasts verified subgoals over the 128-byte aligned lock-free SPMC Synapse Bus
 //!    with sub-microsecond atomic Release semantics.
 
+use crate::latent_guardrail::{GUARDRAIL_DIM, LatentAuditVerdict, SafeHypersphereManifold};
 use nervous_system::specialist_bus::SpecialistSpmcChannel;
-use crate::latent_guardrail::{LatentAuditVerdict, SafeHypersphereManifold, GUARDRAIL_DIM};
 
 pub const CORTEX_INTENT_DIM: usize = 4096;
 pub const SUBGOAL_DIM: usize = GUARDRAIL_DIM; // 256
@@ -112,7 +112,10 @@ impl LatentOrthogonalRouter {
 
     /// In-place audit and snap of an arbitrary 256-dim intent vector
     #[inline]
-    pub fn audit_and_snap(&mut self, intent: &[f32; SUBGOAL_DIM]) -> (LatentAuditVerdict, [f32; SUBGOAL_DIM]) {
+    pub fn audit_and_snap(
+        &mut self,
+        intent: &[f32; SUBGOAL_DIM],
+    ) -> (LatentAuditVerdict, [f32; SUBGOAL_DIM]) {
         let verdict = self.sentinel.audit_candidate_action(intent, true);
         if let Some(ref snapped) = verdict.snapped_vector {
             self.total_intercepts_count += 1;
@@ -145,16 +148,21 @@ mod tests {
 
         // 2. Out-of-bounds rogue Cortex intent (extreme values)
         let rogue_cortex = vec![50.0f32; CORTEX_INTENT_DIM];
-        let (verdict_rogue, published_snapped) = router.route_and_broadcast(&rogue_cortex, &channel);
+        let (verdict_rogue, published_snapped) =
+            router.route_and_broadcast(&rogue_cortex, &channel);
         assert!(verdict_rogue.was_projected);
         assert!(verdict_rogue.snapped_vector.is_some());
 
         // Verify the published tensor is within the safe radius
-        let dist = router.sentinel.compute_euclidean_distance(&published_snapped);
+        let dist = router
+            .sentinel
+            .compute_euclidean_distance(&published_snapped);
         assert!((dist - router.sentinel.radius).abs() < 1e-2);
 
         // Read from SPMC channel to verify zero-copy transmission
-        let read = channel.read_latest(300).expect("Failed to read published tensor");
+        let read = channel
+            .read_latest(300)
+            .expect("Failed to read published tensor");
         assert_eq!(read, published_snapped);
     }
 }

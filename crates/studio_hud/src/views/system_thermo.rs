@@ -29,7 +29,7 @@ impl SystemThermoView {
             painter.rect_stroke(
                 rect,
                 CornerRadius::same(4),
-                Stroke::new(1.0, Color32::from_rgb(30, 40, 55)),
+                Stroke::new(1.0_f32, Color32::from_rgb(30, 40, 55)),
                 egui::StrokeKind::Outside,
             );
 
@@ -47,7 +47,7 @@ impl SystemThermoView {
                 }
 
                 for w in screen_pts.windows(2) {
-                    painter.line_segment([w[0], w[1]], Stroke::new(1.8, color));
+                    painter.line_segment([w[0], w[1]], Stroke::new(1.8_f32, color));
                 }
 
                 if let Some(last) = points.last() {
@@ -115,7 +115,7 @@ impl HudView for SystemThermoView {
 
                 egui::Frame::group(ui.style())
                     .fill(theme.card_bg())
-                    .stroke(Stroke::new(1.0, theme.border_color()))
+                    .stroke(Stroke::new(1.0_f32, theme.border_color()))
                     .corner_radius(CornerRadius::same(6))
                     .show(ui, |ui| {
                         ui.set_min_width(ui.available_width());

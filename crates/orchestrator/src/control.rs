@@ -1,9 +1,9 @@
 // Aaroneous Control Plane Module
 // NATS federation control message handling and specialist lifecycle management
 
-use crate::agents::{create_relic, create_specialist, RelicAgent, SpecialistAgent};
+use crate::agents::{RelicAgent, SpecialistAgent, create_relic, create_specialist};
 use biology::SystemBiology;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -27,7 +27,7 @@ pub enum ControlMessage {
         bias: Option<serde_json::Value>,
     },
     AdjustResourceAllocation {
-        specialist_name: String,
+        agent_name: String,
         vram_mb: u32,
         context_size: u32,
     },
@@ -87,10 +87,10 @@ pub fn parse_control_message(payload: &str) -> Result<ControlMessage, String> {
             Ok(ControlMessage::RecalibrateSpecialist { name, bias })
         }
         Some("adjust_resource_allocation") => {
-            let specialist_name = json
-                .get("specialist_name")
+            let agent_name = json
+                .get("agent_name")
                 .and_then(|s| s.as_str())
-                .ok_or("Missing 'specialist_name' field")?
+                .ok_or("Missing 'agent_name' field")?
                 .to_string();
             let vram_mb = json
                 .get("vram_mb")
@@ -101,7 +101,7 @@ pub fn parse_control_message(payload: &str) -> Result<ControlMessage, String> {
                     .and_then(|c| c.as_u64())
                     .ok_or("Missing or invalid 'context_size' field")? as u32;
             Ok(ControlMessage::AdjustResourceAllocation {
-                specialist_name,
+                agent_name,
                 vram_mb,
                 context_size,
             })
@@ -204,11 +204,11 @@ impl ControlPlane {
                 self.recalibrate_specialist(&name, bias).await
             }
             ControlMessage::AdjustResourceAllocation {
-                specialist_name,
+                agent_name,
                 vram_mb,
                 context_size,
             } => {
-                self.adjust_resource_allocation(&specialist_name, vram_mb, context_size)
+                self.adjust_resource_allocation(&agent_name, vram_mb, context_size)
                     .await
             }
             ControlMessage::QuerySystemHealth => {
@@ -269,7 +269,7 @@ impl ControlPlane {
                         "error": "Unknown specialist",
                         "specialist": name
                     }),
-                )
+                );
             }
         };
 
@@ -381,13 +381,13 @@ impl ControlPlane {
     /// Adjust resource allocation for a specialist
     async fn adjust_resource_allocation(
         &self,
-        specialist_name: &str,
+        agent_name: &str,
         vram_mb: u32,
         context_size: u32,
     ) -> (String, Value) {
         let mut states = self.specialist_states.write().await;
 
-        if let Some(state) = states.get_mut(specialist_name) {
+        if let Some(state) = states.get_mut(agent_name) {
             // Apply resource changes to the specialist's agent
             // Store resource allocation in the agent's metadata via cognitive bias adjustments
             // In a full implementation, this would update model loading parameters
@@ -404,7 +404,7 @@ impl ControlPlane {
                 "federation.control.response.adjust_resource".to_string(),
                 json!({
                     "success": true,
-                    "specialist": specialist_name,
+                    "specialist": agent_name,
                     "vram_mb": vram_mb,
                     "context_size": context_size,
                     "new_status": state.agent.status
@@ -416,7 +416,7 @@ impl ControlPlane {
                 json!({
                     "success": false,
                     "error": "Specialist not found",
-                    "specialist": specialist_name
+                    "specialist": agent_name
                 }),
             )
         }
@@ -533,11 +533,15 @@ mod tests {
 
     #[test]
     fn test_parse_adjust_resource_allocation() {
-        let json = r#"{"command": "adjust_resource_allocation", "specialist_name": "orchestrator", "vram_mb": 4096, "context_size": 8192}"#;
+        let json = r#"{"command": "adjust_resource_allocation", "agent_name": "orchestrator", "vram_mb": 4096, "context_size": 8192}"#;
         let msg = parse_control_message(json).unwrap();
         match msg {
-            ControlMessage::AdjustResourceAllocation { specialist_name, vram_mb, context_size } => {
-                assert_eq!(specialist_name, "orchestrator");
+            ControlMessage::AdjustResourceAllocation {
+                agent_name,
+                vram_mb,
+                context_size,
+            } => {
+                assert_eq!(agent_name, "orchestrator");
                 assert_eq!(vram_mb, 4096);
                 assert_eq!(context_size, 8192);
             }
@@ -593,7 +597,7 @@ mod tests {
 
     #[test]
     fn test_parse_adjust_missing_fields() {
-        let json = r#"{"command": "adjust_resource_allocation", "specialist_name": "test"}"#;
+        let json = r#"{"command": "adjust_resource_allocation", "agent_name": "test"}"#;
         let result = parse_control_message(json);
         assert!(result.is_err());
     }
@@ -612,8 +616,12 @@ mod tests {
         let plane = ControlPlane::new();
         let mut bio = SystemBiology::new();
 
-        plane.enqueue_command(ControlMessage::SetExpressionRate { rate: 0.7 }).await;
-        plane.enqueue_command(ControlMessage::QuerySystemHealth).await;
+        plane
+            .enqueue_command(ControlMessage::SetExpressionRate { rate: 0.7 })
+            .await;
+        plane
+            .enqueue_command(ControlMessage::QuerySystemHealth)
+            .await;
 
         let responses = plane.process_pending_commands(&mut bio).await;
         assert_eq!(responses.len(), 2);
@@ -631,11 +639,13 @@ mod tests {
         let mut bio = SystemBiology::new();
 
         // Spawn
-        plane.enqueue_command(ControlMessage::SpawnSpecialist {
-            name: "presenter".to_string(),
-            activate: true,
-            user_id: None,
-        }).await;
+        plane
+            .enqueue_command(ControlMessage::SpawnSpecialist {
+                name: "presenter".to_string(),
+                activate: true,
+                user_id: None,
+            })
+            .await;
         let responses = plane.process_pending_commands(&mut bio).await;
         assert!(responses[0].1["success"].as_bool().unwrap());
 
@@ -644,9 +654,11 @@ mod tests {
         assert!(active.contains(&"presenter".to_string()));
 
         // Halt
-        plane.enqueue_command(ControlMessage::HaltSpecialist {
-            name: "presenter".to_string(),
-        }).await;
+        plane
+            .enqueue_command(ControlMessage::HaltSpecialist {
+                name: "presenter".to_string(),
+            })
+            .await;
         plane.process_pending_commands(&mut bio).await;
 
         // Check not active
@@ -661,19 +673,23 @@ mod tests {
         let plane = ControlPlane::new();
         let mut bio = SystemBiology::new();
 
-        plane.enqueue_command(ControlMessage::SpawnSpecialist {
-            name: "presenter".to_string(),
-            activate: true,
-            user_id: None,
-        }).await;
+        plane
+            .enqueue_command(ControlMessage::SpawnSpecialist {
+                name: "presenter".to_string(),
+                activate: true,
+                user_id: None,
+            })
+            .await;
         plane.process_pending_commands(&mut bio).await;
 
         // Spawn again
-        plane.enqueue_command(ControlMessage::SpawnSpecialist {
-            name: "presenter".to_string(),
-            activate: true,
-            user_id: None,
-        }).await;
+        plane
+            .enqueue_command(ControlMessage::SpawnSpecialist {
+                name: "presenter".to_string(),
+                activate: true,
+                user_id: None,
+            })
+            .await;
         let responses = plane.process_pending_commands(&mut bio).await;
         assert!(!responses[0].1["success"].as_bool().unwrap());
     }
@@ -685,9 +701,11 @@ mod tests {
         let plane = ControlPlane::new();
         let mut bio = SystemBiology::new();
 
-        plane.enqueue_command(ControlMessage::HaltSpecialist {
-            name: "ghost".to_string(),
-        }).await;
+        plane
+            .enqueue_command(ControlMessage::HaltSpecialist {
+                name: "ghost".to_string(),
+            })
+            .await;
         let responses = plane.process_pending_commands(&mut bio).await;
         assert!(!responses[0].1["success"].as_bool().unwrap());
     }
@@ -699,11 +717,13 @@ mod tests {
         let plane = ControlPlane::new();
         let mut bio = SystemBiology::new();
 
-        plane.enqueue_command(ControlMessage::SpawnSpecialist {
-            name: "orchestrator".to_string(),
-            activate: true,
-            user_id: Some("user1".to_string()),
-        }).await;
+        plane
+            .enqueue_command(ControlMessage::SpawnSpecialist {
+                name: "orchestrator".to_string(),
+                activate: true,
+                user_id: Some("user1".to_string()),
+            })
+            .await;
         plane.process_pending_commands(&mut bio).await;
 
         let state = plane.get_specialist_state("orchestrator").await;
@@ -728,16 +748,20 @@ mod tests {
         let plane = ControlPlane::new();
         let mut bio = SystemBiology::new();
 
-        plane.enqueue_command(ControlMessage::SpawnSpecialist {
-            name: "fabricator".to_string(),
-            activate: true,
-            user_id: None,
-        }).await;
+        plane
+            .enqueue_command(ControlMessage::SpawnSpecialist {
+                name: "fabricator".to_string(),
+                activate: true,
+                user_id: None,
+            })
+            .await;
         plane.process_pending_commands(&mut bio).await;
 
-        plane.enqueue_command(ControlMessage::QuerySpecialistStatus {
-            name: "fabricator".to_string(),
-        }).await;
+        plane
+            .enqueue_command(ControlMessage::QuerySpecialistStatus {
+                name: "fabricator".to_string(),
+            })
+            .await;
         let responses = plane.process_pending_commands(&mut bio).await;
         assert!(responses[0].1["success"].as_bool().unwrap());
         assert_eq!(responses[0].1["specialist"], "fabricator");

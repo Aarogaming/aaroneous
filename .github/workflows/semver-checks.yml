@@ -1,0 +1,59 @@
+name: Semver Checks
+
+# Flags accidental breaking changes to the two crates in this workspace with
+# a real external API contract: core-contracts (the #[repr(C)] / bytemuck
+# Pod+Zeroable boundary types shared across the IPC/ABI surface — a
+# breaking change here is a breaking change to every process speaking the
+# wire format) and sdk (the published-facing Rust SDK for integrators).
+#
+# Neither crate is published to crates.io, so there's no registry version to
+# diff against — cargo-semver-checks compares the current tree against a git
+# revision instead: the PR's base branch on pull_request, or the pre-push
+# commit on push. Hard gate: an unintentional breaking change here should be
+# caught before merge, and if a change genuinely needs to be breaking, the
+# PR author bumps the crate's version to signal it (cargo-semver-checks
+# still flags it, but a human reading the version bump has already made the
+# call).
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  semver-checks:
+    name: cargo-semver-checks (core-contracts, sdk)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Resolve baseline revision
+        id: baseline
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            git fetch origin "${{ github.event.pull_request.base.ref }}" --depth=1
+            echo "rev=origin/${{ github.event.pull_request.base.ref }}" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.event.before }}" = "0000000000000000000000000000000000000000" ]; then
+            # First push of a new branch/ref: nothing to diff against.
+            echo "rev=HEAD" >> "$GITHUB_OUTPUT"
+          else
+            echo "rev=${{ github.event.before }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Install cargo-semver-checks
+        uses: taiki-e/install-action@cargo-semver-checks
+
+      - name: Check core-contracts
+        run: cargo semver-checks check-release -p core-contracts --baseline-rev "${{ steps.baseline.outputs.rev }}"
+
+      - name: Check sdk
+        run: cargo semver-checks check-release -p sdk --baseline-rev "${{ steps.baseline.outputs.rev }}"

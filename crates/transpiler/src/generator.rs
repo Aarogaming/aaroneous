@@ -8,11 +8,8 @@ pub fn validate_crate_name(name: &str) -> Result<()> {
     if name.is_empty() {
         anyhow::bail!("crate name cannot be empty");
     }
-    if !name.chars().next().map_or(false, |c| c.is_ascii_alphabetic()) {
-        anyhow::bail!(
-            "crate name `{}` must start with an ASCII letter",
-            name
-        );
+    if !name.chars().next().is_some_and(|c| c.is_ascii_alphabetic()) {
+        anyhow::bail!("crate name `{}` must start with an ASCII letter", name);
     }
     if !name
         .chars()
@@ -97,8 +94,7 @@ anyhow = {{ workspace = true }}
 "#
     );
 
-    fs::write(&path, content)
-        .with_context(|| format!("failed to write {}", path.display()))?;
+    fs::write(&path, content).with_context(|| format!("failed to write {}", path.display()))?;
     Ok(())
 }
 
@@ -145,8 +141,7 @@ mod tests {{
 "#
     );
 
-    fs::write(&path, content)
-        .with_context(|| format!("failed to write {}", path.display()))?;
+    fs::write(&path, content).with_context(|| format!("failed to write {}", path.display()))?;
     Ok(())
 }
 
@@ -165,8 +160,7 @@ dependencies = ["core-contracts"]
 "#
     );
 
-    fs::write(&path, content)
-        .with_context(|| format!("failed to write {}", path.display()))?;
+    fs::write(&path, content).with_context(|| format!("failed to write {}", path.display()))?;
     Ok(())
 }
 

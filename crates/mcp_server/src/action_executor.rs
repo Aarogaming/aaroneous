@@ -14,10 +14,7 @@ pub struct ExecutionStats {
 /// Types of actions the executor can perform
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ExecutableAction {
-    FileOperation {
-        path: PathBuf,
-        operation: String,
-    },
+    FileOperation { path: PathBuf, operation: String },
 }
 
 impl ExecutableAction {
@@ -46,6 +43,7 @@ impl Default for ActionResult {
 }
 
 /// Stub ActionExecutor - minimal implementation
+#[derive(Default)]
 pub struct ActionExecutor;
 
 impl ActionExecutor {

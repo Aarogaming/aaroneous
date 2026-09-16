@@ -1,0 +1,88 @@
+# cargo-deny configuration for Aaroneous.
+#
+# Run locally with `cargo deny check`, or see
+# .github/workflows/security-audit.yml for the CI job. Advisories are the
+# hard gate (a known-vulnerable or yanked crate fails the build); license and
+# duplicate-version checks start as warnings so they surface without
+# blocking merges on day one — tighten `deny` -> once the workspace's
+# existing duplicate-version debt (multiple `gemm`/`pulp`/`dyn-stack`
+# versions pulled in transitively by candle) is cleaned up.
+#
+# The `[advisories] ignore` entries below are documented exceptions, not a
+# blanket suppression — each was triaged via the reproducible dependency
+# review in aaroneous-devtools (contracts/dependency-review/v1/) and mirrors
+# the equivalent entries in .cargo/audit.toml (cargo-deny and cargo-audit use
+# separate advisory-DB syncs and don't always flag the same set at the same
+# time, so both files are kept in sync by hand rather than one generating
+# the other).
+
+[graph]
+all-features = false
+no-default-features = false
+
+[advisories]
+version = 2
+db-urls = ["https://github.com/rustsec/advisory-db"]
+ignore = [
+    # rkyv 0.7 -> 0.8 is a major-version, breaking-API bump; this workspace
+    # derives Archive/Deserialize/Serialize extensively. Needs a dedicated
+    # migration, not a same-PR CI-fix patch. See .cargo/audit.toml.
+    "RUSTSEC-2026-0235",
+    # No patched version exists for any of these (cargo-audit confirms
+    # `patched: []`); "unmaintained" here doesn't mean unsafe to use, and
+    # cgmath's unsound `swap_columns` is not called anywhere in this
+    # workspace (grepped: no direct `cgmath::Matrix{2,3,4}` usage of that
+    # method). Tracked, not silently dropped — revisit if a maintained
+    # alternative becomes the path of least resistance.
+    "RUSTSEC-2025-0141", # bincode 1.3.3, unmaintained
+    "RUSTSEC-2026-0196", # cgmath 0.18.0, unmaintained
+    "RUSTSEC-2026-0197", # cgmath 0.18.0, unsound (swap_columns, unused here)
+    "RUSTSEC-2024-0436", # paste 1.0.15, unmaintained
+    "RUSTSEC-2023-0089", # atomic-polyfill 1.0.3, unmaintained, no patch
+    # hickory-net / hickory-proto 0.26.0-beta.4: patched in 0.26.1, but
+    # pinned to exactly that beta by iroh 0.98.2's transitive dependency on
+    # hickory-resolver "=0.26.0-beta.4" — `cargo update -p hickory-net
+    # --precise 0.26.1` fails to resolve. Needs an iroh upgrade evaluated on
+    # its own (P2P federation code path), not a CI-fix patch bump.
+    "RUSTSEC-2026-0119",
+    "RUSTSEC-2026-0120",
+]
+
+[licenses]
+version = 2
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Zlib",
+    "MPL-2.0",
+    "CC0-1.0",
+    "Unicode-3.0",
+    "Unicode-DFS-2016",
+    "OpenSSL",
+    # Pulled in by the studio_hud/scratchpad GUI stack (eframe/egui and its
+    # transitive clipboard/font dependencies), all permissive/OSI-approved:
+    "BSL-1.0",             # clipboard-win, error-code (via arboard)
+    "CDLA-Permissive-2.0", # a data (not code) license on a font/asset crate
+    "OFL-1.1",             # SIL Open Font License, embedded default fonts
+    "Ubuntu-font-1.0",     # Ubuntu Font Licence, embedded default fonts
+    # Public-domain-equivalent, permissive; pulled in by Linux-only async/
+    # websocket transitive deps (async_io_stream, pharos, ws_stream_wasm)
+    # that don't appear in a Windows dependency resolution, which is why
+    # this was only caught by CI's Linux run, not local testing.
+    "Unlicense",
+]
+confidence-threshold = 0.8
+
+[bans]
+multiple-versions = "warn"
+wildcards = "warn"
+deny = []
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "warn"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]

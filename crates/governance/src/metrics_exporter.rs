@@ -150,16 +150,48 @@ impl UniversalMetricsExporter {
     }
 
     /// Directly ingests state from `homeostasis::DynamicEquilibriumState` into standard metrics
-    pub fn observe_homeostasis(&self, state: &crate::homeostasis::DynamicEquilibriumState, timestamp_us: u64) {
-        self.observe("homeostasis.energy_reserve", state.global_energy_reserve as f64, "tokens", timestamp_us);
-        self.observe("homeostasis.cognitive_load", state.active_cognitive_load as f64, "load", timestamp_us);
-        self.observe("homeostasis.memory_pressure_mb", state.memory_pressure_mb as f64, "MB", timestamp_us);
-        self.observe("homeostasis.throttle_factor", state.throttle_factor as f64, "factor", timestamp_us);
-        self.observe("homeostasis.degradation_tier", state.degradation_tier as u8 as f64, "tier", timestamp_us);
+    pub fn observe_homeostasis(
+        &self,
+        state: &crate::homeostasis::DynamicEquilibriumState,
+        timestamp_us: u64,
+    ) {
+        self.observe(
+            "homeostasis.energy_reserve",
+            state.global_energy_reserve as f64,
+            "tokens",
+            timestamp_us,
+        );
+        self.observe(
+            "homeostasis.cognitive_load",
+            state.active_cognitive_load as f64,
+            "load",
+            timestamp_us,
+        );
+        self.observe(
+            "homeostasis.memory_pressure_mb",
+            state.memory_pressure_mb as f64,
+            "MB",
+            timestamp_us,
+        );
+        self.observe(
+            "homeostasis.throttle_factor",
+            state.throttle_factor as f64,
+            "factor",
+            timestamp_us,
+        );
+        self.observe(
+            "homeostasis.degradation_tier",
+            state.degradation_tier as u8 as f64,
+            "tier",
+            timestamp_us,
+        );
     }
 
     /// Computes summary statistics (min, max, mean, count) for a named metric
-    pub fn summarize_metric(observations: &[MetricObservation], name: &str) -> Option<MetricSummary> {
+    pub fn summarize_metric(
+        observations: &[MetricObservation],
+        name: &str,
+    ) -> Option<MetricSummary> {
         let matching: Vec<&MetricObservation> = observations
             .iter()
             .filter(|o| o.metric_name == name)
@@ -233,7 +265,10 @@ impl UniversalMetricsExporter {
         for obs in observations {
             let mut attrs = Vec::new();
             for (k, v) in &obs.labels {
-                attrs.push(format!("{{\"key\":\"{}\",\"value\":{{\"stringValue\":\"{}\"}}}}", k, v));
+                attrs.push(format!(
+                    "{{\"key\":\"{}\",\"value\":{{\"stringValue\":\"{}\"}}}}",
+                    k, v
+                ));
             }
             let attr_str = attrs.join(",");
 
@@ -275,7 +310,8 @@ mod tests {
         assert_eq!(snap.len(), 2);
         assert_eq!(snap[0].metric_name, "thermodynamic_free_energy");
 
-        let summary = UniversalMetricsExporter::summarize_metric(&snap, "cycle_latency_us").unwrap();
+        let summary =
+            UniversalMetricsExporter::summarize_metric(&snap, "cycle_latency_us").unwrap();
         assert_eq!(summary.count, 1);
         assert_eq!(summary.mean, 16.0);
 
@@ -322,7 +358,13 @@ mod tests {
 
         let snap = sink_ref.snapshot();
         assert_eq!(snap.len(), 5);
-        assert!(snap.iter().any(|o| o.metric_name == "homeostasis.energy_reserve"));
-        assert!(snap.iter().any(|o| o.metric_name == "homeostasis.throttle_factor"));
+        assert!(
+            snap.iter()
+                .any(|o| o.metric_name == "homeostasis.energy_reserve")
+        );
+        assert!(
+            snap.iter()
+                .any(|o| o.metric_name == "homeostasis.throttle_factor")
+        );
     }
 }

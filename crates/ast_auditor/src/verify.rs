@@ -17,4 +17,3 @@ pub fn run(crate_name: &str) -> Result<()> {
     }
     Ok(())
 }
-

@@ -111,15 +111,15 @@ pub struct UniversalMotorIntent {
 }
 
 impl UniversalMotorIntent {
-    pub const MOUSE_LEFT_DOWN: u64   = 1 << 0;
-    pub const MOUSE_RIGHT_DOWN: u64  = 1 << 1;
+    pub const MOUSE_LEFT_DOWN: u64 = 1 << 0;
+    pub const MOUSE_RIGHT_DOWN: u64 = 1 << 1;
     pub const MOUSE_MIDDLE_DOWN: u64 = 1 << 2;
-    pub const KEY_SHIFT: u64         = 1 << 3;
-    pub const KEY_CTRL: u64          = 1 << 4;
-    pub const KEY_ALT: u64           = 1 << 5;
-    pub const KEY_ENTER: u64         = 1 << 6;
-    pub const KEY_ESCAPE: u64        = 1 << 7;
-    pub const KEY_SPACE: u64         = 1 << 8;
+    pub const KEY_SHIFT: u64 = 1 << 3;
+    pub const KEY_CTRL: u64 = 1 << 4;
+    pub const KEY_ALT: u64 = 1 << 5;
+    pub const KEY_ENTER: u64 = 1 << 6;
+    pub const KEY_ESCAPE: u64 = 1 << 7;
+    pub const KEY_SPACE: u64 = 1 << 8;
 
     pub fn new(delta_x: f32, delta_y: f32) -> Self {
         Self {
@@ -193,8 +193,8 @@ mod tests {
 
     #[test]
     fn test_motor_intent_flags_and_clamping() {
-        let mut intent = UniversalMotorIntent::new(30.0, 40.0)
-            .with_flag(UniversalMotorIntent::MOUSE_LEFT_DOWN);
+        let mut intent =
+            UniversalMotorIntent::new(30.0, 40.0).with_flag(UniversalMotorIntent::MOUSE_LEFT_DOWN);
 
         assert_eq!(intent.magnitude(), 50.0);
         assert!(intent.has_flag(UniversalMotorIntent::MOUSE_LEFT_DOWN));

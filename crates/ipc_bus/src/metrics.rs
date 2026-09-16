@@ -2,8 +2,8 @@
 // Exposes runtime metrics for monitoring and dashboard visualization.
 
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use crate::slab_allocator::SlabStats;
 

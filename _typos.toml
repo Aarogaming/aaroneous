@@ -1,0 +1,70 @@
+# Config for the `typos` spell-checker (crate-ci/typos), run as a hard gate
+# in .github/workflows/lint.yml.
+#
+# This allowlist was built from an actual `typos` run against the tree
+# (~260 raw hits), not guessed up front — it covers confirmed false-positive
+# clusters: a project acronym, a domain-specific abbreviation, a real ML
+# loss-function name, a category-theory term (crates/compute is literally
+# implementing category theory), and a few real crate/spelling variants. The
+# handful of genuine misspellings the run also found (a misspelled enum
+# variant, a doc-comment typo referencing a function that didn't even exist,
+# a corrupted doc line) were fixed directly rather than allowlisted, which is
+# what got this down to a real, enforceable zero baseline instead of an
+# advisory-only "someday" check.
+
+[files]
+extend-exclude = [
+    "*.lock",
+    "target/",
+    "docs/archive/",
+    "templates/",
+    "sdk/include/",
+]
+
+[default.extend-words]
+# Project acronym (Aaroneous Application Substrate / similar) — not "as"/"ass".
+aas = "aas"
+Aas = "Aas"
+AAS = "AAS"
+# "Operational Technology" (SCADA/PLC industrial term, matches AGENTS.md's
+# stated SCADA/PLC architecture) — not "to"/"of"/"or"/"not"/"it".
+ot = "ot"
+Ot = "Ot"
+OT = "OT"
+# InfoNCE (Noise Contrastive Estimation) is a real contrastive-loss name.
+nce = "nce"
+NCE = "NCE"
+# Formant synthesis is a real audio/DSP term (crates/platform_bridge's
+# audio_synthesizer.rs) — not "format".
+formant = "formant"
+Formant = "Formant"
+# Hom-set / Hom-functor is a real category-theory term
+# (crates/compute/src/category.rs implements category theory) — not "home".
+hom = "hom"
+Hom = "Hom"
+# ratatui is a real, widely-used Rust TUI crate.
+ratatui = "ratatui"
+Ratatui = "Ratatui"
+# "flate" as in deflate/flate2, a real compression term.
+flate = "flate"
+# Valid alternate spelling.
+writeable = "writeable"
+# "Extraversion" (not "extroversion") is the standard spelling in personality
+# psychology / the Big Five model, which crates/autonomic_adaptation's
+# persona modeling is built on.
+extraversion = "extraversion"
+Extraversion = "Extraversion"
+# Level of Detail, a standard graphics term.
+LOD = "LOD"
+# Deliberate identifier fragment ("STRAT_1" = "Strategy 1").
+STRAT = "STRAT"
+# "Unparseable" is a valid (if less common) English spelling alongside
+# "unparsable"; used in this crate and llm_gateway.
+unparseable = "unparseable"
+# F * P * F^T (Kalman filter covariance-prediction formula), not "ftp".
+fpt = "fpt"
+
+[default.extend-identifiers]
+# Field of View (VR/AR term). As an identifier so typos doesn't split it into
+# "Fo" + "V" and flag the "Fo" fragment.
+FoV = "FoV"

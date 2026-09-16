@@ -4,7 +4,9 @@
 use hypervisor::action_executor::{ActionExecutor, ExecutableAction, FileOp};
 use hypervisor::decision_engine::{AutonomousDecisionEngine, DecisionTask, ExecutionOutcome};
 use hypervisor::metadata_ingestor::{MetadataIngestor, MetadataIngestorConfig};
-use hypervisor::orchestration_daemon::{DaemonState, OrchestrationDaemon, OrchestrationDaemonConfig};
+use hypervisor::orchestration_daemon::{
+    DaemonState, OrchestrationDaemon, OrchestrationDaemonConfig,
+};
 use hypervisor::{
     GovernanceAction, MetabolicGovernorConfig, PredictiveMetabolicGovernor, SystemBiology,
 };
@@ -203,8 +205,8 @@ fn test_action_executor_file_operations() {
     let dir = tempdir().unwrap();
     let test_file = dir.path().join("test.txt");
 
-    let mut executor = ActionExecutor::new(PathBuf::from("test.wasm"))
-        .with_allowed_root(dir.path().to_path_buf());
+    let mut executor =
+        ActionExecutor::new(PathBuf::from("test.wasm")).with_allowed_root(dir.path().to_path_buf());
 
     // Test file creation
     let action = ExecutableAction::FileOperation {
@@ -225,28 +227,27 @@ fn test_action_executor_file_operations() {
     assert_eq!(content, "Hello, Aaroneous!");
 }
 
-#[test]
-fn test_wasm_enzyme_exists() {
-    // Verify the compute enzyme WASM file was built
-    let paths = paths::WorkspacePaths::discover(&WorkspacePathsConfig::default());
-    let wasm_path = paths
-        .extensions()
-        .join("wasm\\compute_worker\\target\\wasm32-unknown-unknown\\release\\compute_enzyme.wasm");
+#[tokio::test]
+async fn unsupported_wasm_execution_fails_explicitly() -> anyhow::Result<()> {
+    let dir = tempfile::tempdir()?;
+    let wasm_path = dir.path().join("absent.wasm");
+    let mut executor =
+        ActionExecutor::new(wasm_path.clone()).with_allowed_root(dir.path().to_path_buf());
+    let result = executor
+        .execute(ExecutableAction::SpawnWasm {
+            module_path: wasm_path,
+            input_data: vec![1, 2, 3],
+        })
+        .await;
+    assert!(!result.success);
+    assert_eq!(result.action_type, "spawn_wasm");
     assert!(
-        wasm_path.exists(),
-        "Compute enzyme WASM should exist at {:?}",
-        wasm_path
+        result
+            .message
+            .contains("WASM enzyme execution is not available")
     );
-
-    // Verify the test enzyme WASM file exists
-    let test_wasm_path = paths
-        .extensions()
-        .join("wasm\\test_worker\\target\\wasm32-unknown-unknown\\release\\test_enzyme.wasm");
-    assert!(
-        test_wasm_path.exists(),
-        "Test enzyme WASM should exist at {:?}",
-        test_wasm_path
-    );
+    assert_eq!(result.metadata["input_size"], 3);
+    Ok(())
 }
 
 #[tokio::test]

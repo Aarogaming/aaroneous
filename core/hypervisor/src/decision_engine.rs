@@ -119,7 +119,7 @@ impl AutonomousDecisionEngine {
             TaskType::Ingestion => "ingestion",
             TaskType::Custom(name) => name.as_str(),
         };
-        let store = self.memory_for(&routing.specialist_id);
+        let store = self.memory_for(&routing.agent_id);
         let result = store.query_memory(query, task_type, 5);
         let score = if result.entries.is_empty() {
             0.0
@@ -256,14 +256,14 @@ impl AutonomousDecisionEngine {
                 // Check metabolic availability
                 if !self
                     .biology
-                    .can_execute_specialist(&evaluation.routing.specialist_id)
+                    .can_execute_specialist(&evaluation.routing.agent_id)
                 {
                     return ExecutionOutcome::Blocked("Insufficient metabolic tokens".to_string());
                 }
 
                 // Consume token
                 self.biology
-                    .consume_specialist_token(&evaluation.routing.specialist_id);
+                    .consume_specialist_token(&evaluation.routing.agent_id);
 
                 // Simulate execution (would be replaced with actual execution)
                 let start = std::time::Instant::now();
@@ -298,43 +298,68 @@ impl AutonomousDecisionEngine {
     }
 
     /// Process a typestate assimilation record and tick the state machine forward.
-    pub async fn process_assimilation_cycle(&mut self, record: crate::assimilation::AssimilationRecord) -> crate::assimilation::AssimilationRecord {
-        use crate::assimilation::{AssimilationPhase, AssimilationTask, Idle, Quarantined, Auditing, Synthesizing, Certifying, AuditResult};
-        use crate::nervous_system::universal_protocol::{FixedString256, FixedString64};
+    pub async fn process_assimilation_cycle(
+        &mut self,
+        record: crate::assimilation::AssimilationRecord,
+    ) -> crate::assimilation::AssimilationRecord {
+        use crate::assimilation::{
+            AssimilationTask, AuditResult, Auditing, Certifying, Idle, Quarantined, Synthesizing,
+        };
+        use crate::nervous_system::universal_protocol::{FixedString64, FixedString256};
         use core::marker::PhantomData;
 
         match record.phase {
-            0 => { // Idle -> Quarantined
-                let task: AssimilationTask<Idle> = AssimilationTask { record, _marker: PhantomData };
+            0 => {
+                // Idle -> Quarantined
+                let task: AssimilationTask<Idle> = AssimilationTask {
+                    record,
+                    _marker: PhantomData,
+                };
                 let quarantined = task.quarantine(FixedString256::default());
                 quarantined.record
             }
-            1 => { // Quarantined -> Auditing
-                let task: AssimilationTask<Quarantined> = AssimilationTask { record, _marker: PhantomData };
+            1 => {
+                // Quarantined -> Auditing
+                let task: AssimilationTask<Quarantined> = AssimilationTask {
+                    record,
+                    _marker: PhantomData,
+                };
                 let auditing = task.begin_audit();
                 auditing.record
             }
-            2 => { // Auditing -> Synthesizing or Rejected
-                let task: AssimilationTask<Auditing> = AssimilationTask { record, _marker: PhantomData };
+            2 => {
+                // Auditing -> Synthesizing or Rejected
+                let task: AssimilationTask<Auditing> = AssimilationTask {
+                    record,
+                    _marker: PhantomData,
+                };
                 match task.conclude_audit(AuditResult::Pass(FixedString64::default())) {
                     Ok(synthesizing) => synthesizing.record,
                     Err(rejected) => rejected.record,
                 }
             }
-            3 => { // Synthesizing -> Certifying
-                let task: AssimilationTask<Synthesizing> = AssimilationTask { record, _marker: PhantomData };
+            3 => {
+                // Synthesizing -> Certifying
+                let task: AssimilationTask<Synthesizing> = AssimilationTask {
+                    record,
+                    _marker: PhantomData,
+                };
                 let certifying = task.finalize_synthesis();
                 certifying.record
             }
-            4 => { // Certifying -> Committed, Synthesizing, or Rejected
-                let task: AssimilationTask<Certifying> = AssimilationTask { record, _marker: PhantomData };
+            4 => {
+                // Certifying -> Committed, Synthesizing, or Rejected
+                let task: AssimilationTask<Certifying> = AssimilationTask {
+                    record,
+                    _marker: PhantomData,
+                };
                 match task.certify(true, 3) {
                     Ok(committed) => committed.record,
                     Err(Ok(synthesizing)) => synthesizing.record,
                     Err(Err(rejected)) => rejected.record,
                 }
             }
-            _ => record // Committed or Rejected
+            _ => record, // Committed or Rejected
         }
     }
 
@@ -449,7 +474,7 @@ impl AutonomousDecisionEngine {
         };
         format!(
             "Confidence: {:.2}, Metabolic Risk: {:.2}, Complexity: {:.2}{} → {:?} via {}",
-            confidence, metabolic_risk, complexity, memory_note, action, routing.specialist_name
+            confidence, metabolic_risk, complexity, memory_note, action, routing.agent_name
         )
     }
 
@@ -527,7 +552,7 @@ impl AutonomousDecisionEngine {
         metabolic_cost: f64,
     ) {
         self.record_outcome(&task.id, success, duration, metabolic_cost);
-        self.record_execution_memory(&routing.specialist_id, task, success, duration);
+        self.record_execution_memory(&routing.agent_id, task, success, duration);
     }
 
     /// Get system status summary
@@ -640,13 +665,21 @@ mod tests {
         let intelligence = create_test_intelligence().await;
         let mut engine = AutonomousDecisionEngine::new(intelligence);
 
-        let initial_record = crate::assimilation::AssimilationTask::<crate::assimilation::Idle>::new([0; 16], 0).record;
+        let initial_record =
+            crate::assimilation::AssimilationTask::<crate::assimilation::Idle>::new([0; 16], 0)
+                .record;
 
         let after_step_1 = engine.process_assimilation_cycle(initial_record).await;
-        assert_eq!(after_step_1.phase, crate::assimilation::AssimilationPhase::Quarantined as u32);
-        
+        assert_eq!(
+            after_step_1.phase,
+            crate::assimilation::AssimilationPhase::Quarantined as u32
+        );
+
         let after_step_2 = engine.process_assimilation_cycle(after_step_1).await;
-        assert_eq!(after_step_2.phase, crate::assimilation::AssimilationPhase::Auditing as u32);
+        assert_eq!(
+            after_step_2.phase,
+            crate::assimilation::AssimilationPhase::Auditing as u32
+        );
     }
 
     #[tokio::test]
@@ -669,8 +702,8 @@ mod tests {
             confidence: 0.6,
             entropy: 1.0,
             routing: RoutingDecision {
-                specialist_id: "spec_1".to_string(),
-                specialist_name: "Test".to_string(),
+                agent_id: "spec_1".to_string(),
+                agent_name: "Test".to_string(),
                 confidence: 0.5,
                 expected_completion_time: 5.0,
                 reasoning: "test".to_string(),
@@ -707,8 +740,8 @@ mod tests {
             confidence: 0.2,
             entropy: 2.0,
             routing: RoutingDecision {
-                specialist_id: "spec_1".to_string(),
-                specialist_name: "Test".to_string(),
+                agent_id: "spec_1".to_string(),
+                agent_name: "Test".to_string(),
                 confidence: 0.3,
                 expected_completion_time: 5.0,
                 reasoning: "low confidence".to_string(),
@@ -745,8 +778,8 @@ mod tests {
             confidence: 0.1,
             entropy: 4.0,
             routing: RoutingDecision {
-                specialist_id: "spec_1".to_string(),
-                specialist_name: "Test".to_string(),
+                agent_id: "spec_1".to_string(),
+                agent_name: "Test".to_string(),
                 confidence: 0.1,
                 expected_completion_time: 5.0,
                 reasoning: "very uncertain".to_string(),
@@ -876,8 +909,8 @@ mod tests {
         };
 
         let routing = RoutingDecision {
-            specialist_id: "spec_1".to_string(),
-            specialist_name: "Test".to_string(),
+            agent_id: "spec_1".to_string(),
+            agent_name: "Test".to_string(),
             confidence: 0.8,
             expected_completion_time: 5.0,
             reasoning: "test".to_string(),

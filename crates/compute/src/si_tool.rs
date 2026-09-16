@@ -3,7 +3,7 @@
 //! Comprehensive utility for inspecting, benchmarking, packing, unpacking,
 //! and distilling `.si` and `.sissm` zero-copy binary containers.
 
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use memmap2::Mmap;
 use serde::{Deserialize, Serialize};
 use std::fs::{self, File};
@@ -11,10 +11,13 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
-use crate::machine_native::{DimensionalUnit, MachineOpcode, NativeComputationNode, NativeComputationalGraph, NativeTypeLattice};
-use crate::si_binary::{SiThoughtPacket, SI_MAGIC_BYTES};
-use crate::si_solid_state::{SolidStateSiContainer, SI_SOLID_STATE_MAGIC, SI_SOLID_STATE_VERSION};
-use crate::si_ssm::{SiSsmConfig, SiStateSpaceModel, SI_SSM_MAGIC};
+use crate::machine_native::{
+    DimensionalUnit, MachineOpcode, NativeComputationNode, NativeComputationalGraph,
+    NativeTypeLattice,
+};
+use crate::si_binary::{SI_MAGIC_BYTES, SiThoughtPacket};
+use crate::si_solid_state::{SI_SOLID_STATE_MAGIC, SI_SOLID_STATE_VERSION, SolidStateSiContainer};
+use crate::si_ssm::{SI_SSM_MAGIC, SiSsmConfig, SiStateSpaceModel};
 
 /// Detailed Structural Inspection Report for a `.si` or `.sissm` container
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -76,11 +79,18 @@ impl SiToolEngine {
             let opcodes_used: Vec<String> = vec![
                 format!("Anchors: {}", container.adaptation.anchor_buffer.len()),
                 format!("LoRA-Rank: {}", container.adaptation.rank),
-                format!("Retention: {:.1}%", container.adaptation.verify_anchor_retention()),
+                format!(
+                    "Retention: {:.1}%",
+                    container.adaptation.verify_anchor_retention()
+                ),
             ];
 
             return Ok(SiInspectorReport {
-                file_name: path.file_name().unwrap_or_default().to_string_lossy().to_string(),
+                file_name: path
+                    .file_name()
+                    .unwrap_or_default()
+                    .to_string_lossy()
+                    .to_string(),
                 file_path: path.to_path_buf(),
                 file_size_bytes,
                 magic: "SINT".to_string(),
@@ -108,10 +118,19 @@ impl SiToolEngine {
             let packet_bytes = &mmap[cursor + 4..cursor + 4 + packet_len];
             let packet = SiThoughtPacket::from_binary(packet_bytes)?;
 
-            let opcodes_used: Vec<String> = packet.graph.nodes.values().map(|n| n.opcode.name().to_string()).collect();
+            let opcodes_used: Vec<String> = packet
+                .graph
+                .nodes
+                .values()
+                .map(|n| n.opcode.name().to_string())
+                .collect();
 
             return Ok(SiInspectorReport {
-                file_name: path.file_name().unwrap_or_default().to_string_lossy().to_string(),
+                file_name: path
+                    .file_name()
+                    .unwrap_or_default()
+                    .to_string_lossy()
+                    .to_string(),
                 file_path: path.to_path_buf(),
                 file_size_bytes,
                 magic: "SISSM".to_string(),
@@ -130,10 +149,19 @@ impl SiToolEngine {
         // Check Standard SIMN Thought Packet Magic
         if mmap.len() >= 4 && mmap[0..4] == SI_MAGIC_BYTES {
             let packet = SiThoughtPacket::from_binary(&mmap)?;
-            let opcodes_used: Vec<String> = packet.graph.nodes.values().map(|n| n.opcode.name().to_string()).collect();
+            let opcodes_used: Vec<String> = packet
+                .graph
+                .nodes
+                .values()
+                .map(|n| n.opcode.name().to_string())
+                .collect();
 
             return Ok(SiInspectorReport {
-                file_name: path.file_name().unwrap_or_default().to_string_lossy().to_string(),
+                file_name: path
+                    .file_name()
+                    .unwrap_or_default()
+                    .to_string_lossy()
+                    .to_string(),
                 file_path: path.to_path_buf(),
                 file_size_bytes,
                 magic: "SIMN".to_string(),
@@ -153,7 +181,11 @@ impl SiToolEngine {
     }
 
     /// Benchmarks memory-mapped execution latency and memory bandwidth over N runs
-    pub fn benchmark(&self, path: impl AsRef<Path>, iterations: usize) -> Result<SiBenchmarkReport> {
+    pub fn benchmark(
+        &self,
+        path: impl AsRef<Path>,
+        iterations: usize,
+    ) -> Result<SiBenchmarkReport> {
         let path = path.as_ref();
         let iterations = iterations.max(10);
         let mut latencies_us = Vec::with_capacity(iterations);
@@ -184,11 +216,19 @@ impl SiToolEngine {
         let sum: u64 = latencies_us.iter().sum();
         let mean = sum as f64 / iterations as f64;
 
-        let ops_per_sec = if mean > 0.0 { 1_000_000.0 / mean } else { 1_000_000.0 };
+        let ops_per_sec = if mean > 0.0 {
+            1_000_000.0 / mean
+        } else {
+            1_000_000.0
+        };
         let bandwidth_mb_s = (ops_per_sec * file_size as f64) / (1024.0 * 1024.0);
 
         Ok(SiBenchmarkReport {
-            file_name: path.file_name().unwrap_or_default().to_string_lossy().to_string(),
+            file_name: path
+                .file_name()
+                .unwrap_or_default()
+                .to_string_lossy()
+                .to_string(),
             iterations,
             p50_latency_us: p50,
             p95_latency_us: p95,
@@ -231,31 +271,57 @@ impl SiToolEngine {
         target_path: impl AsRef<Path>,
     ) -> Result<PathBuf> {
         let mut graph = NativeComputationalGraph::new();
-        
+
         for (i, step) in steps.iter().enumerate() {
             let id = (i + 1) as u64;
             let reg = id as u16;
             let opcode = match step.to_lowercase() {
-                s if s.contains("alloc") || s.contains("memory") => MachineOpcode::Alloc { size_bytes: 4096, align: 64 },
-                s if s.contains("load") || s.contains("read") => MachineOpcode::Load { address_reg: reg },
-                s if s.contains("store") || s.contains("write") => MachineOpcode::Store { address_reg: reg, value_reg: reg + 1 },
-                s if s.contains("sync") || s.contains("call") => MachineOpcode::Call { function_id: 0x5000 + id, arg_regs: vec![reg] },
-                s if s.contains("reclaim") || s.contains("clean") => MachineOpcode::EntropyMinimization { state_reg: reg },
-                _ => MachineOpcode::TensorDot { left_reg: reg, right_reg: reg + 1, dim: 64 },
+                s if s.contains("alloc") || s.contains("memory") => MachineOpcode::Alloc {
+                    size_bytes: 4096,
+                    align: 64,
+                },
+                s if s.contains("load") || s.contains("read") => {
+                    MachineOpcode::Load { address_reg: reg }
+                }
+                s if s.contains("store") || s.contains("write") => MachineOpcode::Store {
+                    address_reg: reg,
+                    value_reg: reg + 1,
+                },
+                s if s.contains("sync") || s.contains("call") => MachineOpcode::Call {
+                    function_id: 0x5000 + id,
+                    arg_regs: vec![reg],
+                },
+                s if s.contains("reclaim") || s.contains("clean") => {
+                    MachineOpcode::EntropyMinimization { state_reg: reg }
+                }
+                _ => MachineOpcode::TensorDot {
+                    left_reg: reg,
+                    right_reg: reg + 1,
+                    dim: 64,
+                },
             };
 
             let deps = if id > 1 { vec![id - 1] } else { Vec::new() };
             graph.add_node(NativeComputationNode {
                 id,
                 opcode,
-                type_lattice: NativeTypeLattice::LinearMemoryPointer { mutability: true, alignment: 32 },
+                type_lattice: NativeTypeLattice::LinearMemoryPointer {
+                    mutability: true,
+                    alignment: 32,
+                },
                 energy_cost: 0.02,
                 dependencies: deps,
             });
         }
 
         let state_vector = vec![0.5f32; 64];
-        self.pack(0x0999, DimensionalUnit::DIMENSIONLESS, state_vector, graph, target_path)
+        self.pack(
+            0x0999,
+            DimensionalUnit::DIMENSIONLESS,
+            state_vector,
+            graph,
+            target_path,
+        )
     }
 
     /// Distills high-dimensional teacher latent representations (e.g. 4096-dim)
@@ -267,18 +333,26 @@ impl SiToolEngine {
         target_path: impl AsRef<Path>,
     ) -> Result<PathBuf> {
         let mut graph = NativeComputationalGraph::new();
-        
+
         for (i, latent) in teacher_latents.iter().enumerate() {
             let id = (i + 1) as u64;
             let reg = id as u16;
-            
+
             // Project teacher latent (4096-dim) through GeLU bottleneck into student space (256-dim)
             let student_projection = bridge.project(latent);
-            let energy_norm = student_projection.iter().map(|&x| (x * x) as f64).sum::<f64>() / student_projection.len() as f64;
+            let energy_norm = student_projection
+                .iter()
+                .map(|&x| (x * x) as f64)
+                .sum::<f64>()
+                / student_projection.len() as f64;
 
             graph.add_node(NativeComputationNode {
                 id,
-                opcode: MachineOpcode::TensorDot { left_reg: reg, right_reg: reg + 1, dim: bridge.student_dim },
+                opcode: MachineOpcode::TensorDot {
+                    left_reg: reg,
+                    right_reg: reg + 1,
+                    dim: bridge.student_dim,
+                },
                 type_lattice: NativeTypeLattice::TensorType {
                     shape: vec![bridge.student_dim],
                     element_type: Box::new(NativeTypeLattice::PrimitiveFloat { bits: 32 }),
@@ -294,7 +368,13 @@ impl SiToolEngine {
             vec![0.0f32; bridge.student_dim]
         };
 
-        self.pack(0x0FEE, DimensionalUnit::DIMENSIONLESS, root_state, graph, target_path)
+        self.pack(
+            0x0FEE,
+            DimensionalUnit::DIMENSIONLESS,
+            root_state,
+            graph,
+            target_path,
+        )
     }
 }
 
@@ -312,20 +392,37 @@ mod tests {
         let mut graph = NativeComputationalGraph::new();
         graph.add_node(NativeComputationNode {
             id: 1,
-            opcode: MachineOpcode::Alloc { size_bytes: 2048, align: 32 },
-            type_lattice: NativeTypeLattice::LinearMemoryPointer { mutability: true, alignment: 32 },
+            opcode: MachineOpcode::Alloc {
+                size_bytes: 2048,
+                align: 32,
+            },
+            type_lattice: NativeTypeLattice::LinearMemoryPointer {
+                mutability: true,
+                alignment: 32,
+            },
             energy_cost: 0.03,
             dependencies: Vec::new(),
         });
         graph.add_node(NativeComputationNode {
             id: 2,
             opcode: MachineOpcode::EntropyMinimization { state_reg: 1 },
-            type_lattice: NativeTypeLattice::PhysicalQuantity { unit: DimensionalUnit::ENERGY_JOULE, precision: 64 },
+            type_lattice: NativeTypeLattice::PhysicalQuantity {
+                unit: DimensionalUnit::ENERGY_JOULE,
+                precision: 64,
+            },
             energy_cost: 0.01,
             dependencies: vec![1],
         });
 
-        let path = engine.pack(0x0777, DimensionalUnit::ENERGY_JOULE, vec![1.0, 2.0, 3.0], graph, &target).unwrap();
+        let path = engine
+            .pack(
+                0x0777,
+                DimensionalUnit::ENERGY_JOULE,
+                vec![1.0, 2.0, 3.0],
+                graph,
+                &target,
+            )
+            .unwrap();
         assert!(path.exists());
 
         let report = engine.inspect(&path).expect("Inspect failed");
@@ -348,10 +445,14 @@ mod tests {
         let bridge = crate::si_trainer::LatentGELUBottleneckBridge::new(64, 32, 16);
         let teacher_latents = vec![vec![0.5f32; 64], vec![0.8f32; 64]];
 
-        let path = engine.distill_teacher_trajectory(&bridge, &teacher_latents, &target).unwrap();
+        let path = engine
+            .distill_teacher_trajectory(&bridge, &teacher_latents, &target)
+            .unwrap();
         assert!(path.exists());
 
-        let report = engine.inspect(&path).expect("Inspect distilled dataset failed");
+        let report = engine
+            .inspect(&path)
+            .expect("Inspect distilled dataset failed");
         assert_eq!(report.magic, "SIMN");
         assert_eq!(report.goal_opcode, 0x0FEE);
         assert_eq!(report.node_count, 2);

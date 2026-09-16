@@ -3,8 +3,8 @@
 //! Aaroneous Desktop Studio & Spatial Window Manager HUD.
 
 pub use crate as hud;
+pub extern crate adaptation_plane as evolution;
 pub extern crate ipc_bus as nervous_system;
-pub extern crate autonomic_adaptation as evolution;
 
 pub use hypervisor::capability_broker;
 pub use hypervisor::util;
@@ -13,12 +13,13 @@ pub use omni::{ConstellationNode, NodeType, SpatialCoord, StarNode, StarNodeType
 pub mod achievements;
 pub mod app;
 pub mod auto_pilot;
+pub mod command_registry;
 pub mod companion_overlay;
 pub mod fascia;
 pub mod modes;
 pub mod navigation;
-pub mod command_registry;
 pub mod onboarding;
+pub mod plugin_api;
 pub mod state;
 pub mod state_snapshot;
 pub mod theme;
@@ -41,12 +42,14 @@ pub use studio_ui::{DistillStatus, DistillStudio};
 
 pub use app::StudioApp;
 pub use auto_pilot::{AutoPilotController, AutoPilotState, AutoPilotTelemetry};
+pub use command_registry::{CapabilityCommand, CommandRegistry, TypedCommand};
 pub use companion_overlay::{CompanionTelemetryOverlay, EquilibriumState};
 pub use fascia::ProcessFasciaWatcher;
 pub use navigation::{CommandAction, CommandPalette, NavSection, ToastLevel, ToastNotification};
-pub use command_registry::{CommandRegistry, CapabilityCommand, TypedCommand};
 pub use state::{CustomAgent, SharedHudState, UserSettings};
-pub use state_snapshot::{ConsoleProjection, EngineSnapshot, EngineStatePublisher, HudProjection, StudioProjection};
+pub use state_snapshot::{
+    ConsoleProjection, EngineSnapshot, EngineStatePublisher, HudProjection, StudioProjection,
+};
 pub use theme::HudTheme;
 pub use transformer_bridge::{
     BackendTelemetryFrame, FrontendCommandSignal, FrontendTransformerBridge,

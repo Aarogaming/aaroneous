@@ -3,16 +3,14 @@
 //! Ultra-lightweight (10M–35M parameters, 15–35 MB RAM footprint), single-pass discrete
 //! graph prediction engine operating directly on opcodes, physical units, and type lattices.
 
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use candle_core::{Device, Tensor};
 use serde::{Deserialize, Serialize};
 use std::fs::{self, File};
 use std::io::{Read, Write};
 use std::path::Path;
 
-use crate::machine_native::{
-    DimensionalUnit, MachineOpcode, NativeTypeLattice,
-};
+use crate::machine_native::{DimensionalUnit, MachineOpcode, NativeTypeLattice};
 
 /// Total supported discrete opcodes in the SI machine vocabulary (Zero human linguistic words)
 pub const SI_OPCODE_VOCAB_SIZE: usize = 64;
@@ -177,18 +175,18 @@ impl SiModel {
     }
 
     /// Single-pass forward inference over a state tensor and goal opcode
-    pub fn forward(
-        &self,
-        goal_opcode: u16,
-        state_features: &[f32],
-    ) -> Result<SiModelPrediction> {
+    pub fn forward(&self, goal_opcode: u16, state_features: &[f32]) -> Result<SiModelPrediction> {
         let start = std::time::Instant::now();
 
         let opcode_idx = (goal_opcode as usize) % self.config.vocab_size;
         let mut input_vec = vec![0.0f32; self.config.hidden_dim];
 
         // Seed state vector
-        for (i, &val) in state_features.iter().enumerate().take(self.config.hidden_dim) {
+        for (i, &val) in state_features
+            .iter()
+            .enumerate()
+            .take(self.config.hidden_dim)
+        {
             input_vec[i] = val;
         }
 
@@ -220,23 +218,50 @@ impl SiModel {
         }
 
         let latent_vec: Vec<f32> = latent_proj.squeeze(0)?.to_vec1()?;
-        let energy_val: f32 = energy_proj.squeeze(0)?.to_vec1()?.first().copied().unwrap_or(0.05);
+        let energy_val: f32 = energy_proj
+            .squeeze(0)?
+            .to_vec1()?
+            .first()
+            .copied()
+            .unwrap_or(0.05);
 
         let predicted_opcode = match best_opcode_id % 7 {
-            0 => MachineOpcode::Alloc { size_bytes: 64, align: 8 },
+            0 => MachineOpcode::Alloc {
+                size_bytes: 64,
+                align: 8,
+            },
             1 => MachineOpcode::Load { address_reg: 1 },
-            2 => MachineOpcode::Store { address_reg: 1, value_reg: 2 },
-            3 => MachineOpcode::BranchIf { condition_reg: 1, target_block: 2 },
-            4 => MachineOpcode::TensorDot { left_reg: 1, right_reg: 2, dim: 64 },
+            2 => MachineOpcode::Store {
+                address_reg: 1,
+                value_reg: 2,
+            },
+            3 => MachineOpcode::BranchIf {
+                condition_reg: 1,
+                target_block: 2,
+            },
+            4 => MachineOpcode::TensorDot {
+                left_reg: 1,
+                right_reg: 2,
+                dim: 64,
+            },
             5 => MachineOpcode::EntropyMinimization { state_reg: 1 },
             _ => MachineOpcode::Return { value_reg: 0 },
         };
 
         let predicted_type = match best_opcode_id % 4 {
-            0 => NativeTypeLattice::LinearMemoryPointer { mutability: true, alignment: 8 },
-            1 => NativeTypeLattice::PrimitiveInt { bits: 64, signed: false },
+            0 => NativeTypeLattice::LinearMemoryPointer {
+                mutability: true,
+                alignment: 8,
+            },
+            1 => NativeTypeLattice::PrimitiveInt {
+                bits: 64,
+                signed: false,
+            },
             2 => NativeTypeLattice::PrimitiveFloat { bits: 32 },
-            _ => NativeTypeLattice::PhysicalQuantity { unit: DimensionalUnit::ENERGY_JOULE, precision: 64 },
+            _ => NativeTypeLattice::PhysicalQuantity {
+                unit: DimensionalUnit::ENERGY_JOULE,
+                precision: 64,
+            },
         };
 
         let latency = start.elapsed().as_micros() as u64;
@@ -311,7 +336,9 @@ mod tests {
 
         let model = SiModel::new(config, false).expect("Failed to create SI Model");
         let sample_state = vec![1.0f32, 0.5f32, 0.25f32, 0.125f32];
-        let prediction = model.forward(0x0100, &sample_state).expect("Forward pass failed");
+        let prediction = model
+            .forward(0x0100, &sample_state)
+            .expect("Forward pass failed");
 
         assert!(prediction.confidence_score >= 0.0);
         assert_eq!(prediction.latent_embedding.len(), 128);

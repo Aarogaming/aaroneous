@@ -11,7 +11,11 @@ async fn test_full_capabilities_federation_orchestration_cycle() {
     assert_eq!(health_map.len(), 10);
     for (name, health) in &health_map {
         assert!(!health.is_dormant, "Specialist {} is dormant", name);
-        assert!(health.tokens > 0.0, "Specialist {} has no metabolic tokens", name);
+        assert!(
+            health.tokens > 0.0,
+            "Specialist {} has no metabolic tokens",
+            name
+        );
     }
 
     // Step 1: ORCHESTRATOR & DRAUPNIR (0x0100) - Intent Decomposition
@@ -118,7 +122,9 @@ async fn test_full_capabilities_federation_orchestration_cycle() {
 
 #[tokio::test]
 async fn test_devtools_auto_wrap_tool_integration() {
+    let temp_sandbox = tempfile::tempdir().unwrap();
     let mut federation = SpecialistFederation::new();
+    federation.dev_tools.output_dir = Some(temp_sandbox.path().to_path_buf());
 
     // Send MNLP packet with "wrap:" directive to Fabricator / DevTools (0x0400)
     let pkt_wrap = MnlpPacket {
@@ -131,7 +137,11 @@ async fn test_devtools_auto_wrap_tool_integration() {
 
     let res_wrap = federation.dispatch_packet(pkt_wrap).await.unwrap();
     assert!(res_wrap.success);
-    assert!(res_wrap.message.contains("Fabricator successfully forged organ"));
+    assert!(
+        res_wrap
+            .message
+            .contains("Fabricator successfully forged module")
+    );
     assert_eq!(res_wrap.opcode, 0x0400);
 }
 
@@ -146,11 +156,19 @@ async fn test_router_multi_node_swarm_mesh_cluster() {
     let gossip_results = node_prime.router.broadcast_gossip_pulse(&peers);
     assert_eq!(gossip_results.len(), 2);
     assert!(gossip_results.iter().all(|p| p.is_connected));
-    assert!(gossip_results.iter().all(|p| p.latency_ms > 0.0 && p.latency_ms < 5.0));
+    assert!(
+        gossip_results
+            .iter()
+            .all(|p| p.latency_ms > 0.0 && p.latency_ms < 5.0)
+    );
 
     // 2. Nodes exchange domain capabilities
-    let prime_synced = node_alpha.router.sync_swarm_manifest("node_prime", &["orchestrator", "fabricator", "perceiver"]);
-    let alpha_synced = node_beta.router.sync_swarm_manifest("node_alpha", &["synthesizer", "presenter", "sentinel"]);
+    let prime_synced = node_alpha
+        .router
+        .sync_swarm_manifest("node_prime", &["orchestrator", "fabricator", "perceiver"]);
+    let alpha_synced = node_beta
+        .router
+        .sync_swarm_manifest("node_alpha", &["synthesizer", "presenter", "sentinel"]);
     assert!(prime_synced);
     assert!(alpha_synced);
 
@@ -189,11 +207,16 @@ async fn test_mesh_packet_burst_stress_test() {
             payload: format!("Stress test payload sequence #{}", i).into_bytes(),
         };
 
-        let res = federation.dispatch_packet(pkt).await.expect("Packet dispatch must succeed");
+        let res = federation
+            .dispatch_packet(pkt)
+            .await
+            .expect("Packet dispatch must succeed");
         assert!(res.success, "Packet #{} failed", i);
         successful_packets += 1;
     }
 
     assert_eq!(successful_packets, 120);
-    println!("[STRESS TEST] Successfully dispatched and executed 120/120 concurrent machine-native packets across all 9 domain specialists.");
+    println!(
+        "[STRESS TEST] Successfully dispatched and executed 120/120 concurrent machine-native packets across all 9 domain specialists."
+    );
 }

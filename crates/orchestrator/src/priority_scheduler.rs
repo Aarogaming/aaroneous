@@ -177,10 +177,10 @@ impl PriorityScheduler {
 
     /// Polls the highest-priority task that is eligible for execution at `now`.
     pub fn poll_ready(&mut self, now: Instant) -> Option<TaskMetadata> {
-        if let Some(top) = self.queue.peek() {
-            if top.0.next_eligible_at <= now {
-                return self.queue.pop().map(|Reverse(task)| task);
-            }
+        if let Some(top) = self.queue.peek()
+            && top.0.next_eligible_at <= now
+        {
+            return self.queue.pop().map(|Reverse(task)| task);
         }
         None
     }
@@ -292,27 +292,45 @@ mod tests {
 
         let mut task = TaskMetadata::new(Uuid::new_v4(), PriorityTier::Standard, 100);
         task.attempt_count = 0;
-        assert_eq!(scheduler.calculate_backoff(&task, 30_000), Duration::from_millis(100));
+        assert_eq!(
+            scheduler.calculate_backoff(&task, 30_000),
+            Duration::from_millis(100)
+        );
 
         task.attempt_count = 1;
-        assert_eq!(scheduler.calculate_backoff(&task, 30_000), Duration::from_millis(200));
+        assert_eq!(
+            scheduler.calculate_backoff(&task, 30_000),
+            Duration::from_millis(200)
+        );
 
         task.attempt_count = 2;
-        assert_eq!(scheduler.calculate_backoff(&task, 30_000), Duration::from_millis(400));
+        assert_eq!(
+            scheduler.calculate_backoff(&task, 30_000),
+            Duration::from_millis(400)
+        );
 
         // Critical task (weight 4.0): backoff interval compressed by 4
         let mut critical_task = TaskMetadata::new(Uuid::new_v4(), PriorityTier::Critical, 100);
         critical_task.attempt_count = 2; // (100 * 4) / 4.0 = 100ms
-        assert_eq!(scheduler.calculate_backoff(&critical_task, 30_000), Duration::from_millis(100));
+        assert_eq!(
+            scheduler.calculate_backoff(&critical_task, 30_000),
+            Duration::from_millis(100)
+        );
 
         // Background task (weight 0.25): backoff interval elongated by 4
         let mut bg_task = TaskMetadata::new(Uuid::new_v4(), PriorityTier::Background, 100);
         bg_task.attempt_count = 0; // 100 / 0.25 = 400ms
-        assert_eq!(scheduler.calculate_backoff(&bg_task, 30_000), Duration::from_millis(400));
+        assert_eq!(
+            scheduler.calculate_backoff(&bg_task, 30_000),
+            Duration::from_millis(400)
+        );
 
         // Cap verification
         task.attempt_count = 10; // 100 * 1024 = 102,400ms -> capped at 30,000ms
-        assert_eq!(scheduler.calculate_backoff(&task, 30_000), Duration::from_millis(30_000));
+        assert_eq!(
+            scheduler.calculate_backoff(&task, 30_000),
+            Duration::from_millis(30_000)
+        );
     }
 
     #[test]
@@ -327,7 +345,9 @@ mod tests {
         scheduler.on_compilation_failure(task);
 
         assert_eq!(scheduler.len(), 1);
-        let escalated = scheduler.poll_ready(Instant::now()).expect("Must be immediately eligible");
+        let escalated = scheduler
+            .poll_ready(Instant::now())
+            .expect("Must be immediately eligible");
         assert_eq!(escalated.priority_tier, PriorityTier::Critical);
         assert_eq!(escalated.attempt_count, 0);
     }

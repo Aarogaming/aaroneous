@@ -6,7 +6,7 @@
 //! 2. Thermodynamic Free-Energy Bound (ΔF <= ε)
 //! 3. Spatial & Memory Containment (coordinates/memory within bounds)
 
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use serde::{Deserialize, Serialize};
 use si_ir::{MachineOpcode, NativeComputationalGraph, NativeTypeLattice};
 
@@ -34,7 +34,7 @@ impl Default for LatticeVerifier {
     fn default() -> Self {
         Self {
             max_free_energy_epsilon: 100.0,
-            max_spatial_width: 7680,  // 8K Ultra-Wide maximum
+            max_spatial_width: 7680, // 8K Ultra-Wide maximum
             max_spatial_height: 4320,
             max_linear_memory_bytes: 64 * 1024 * 1024, // 64 MB execution arena limit
         }
@@ -58,17 +58,17 @@ impl LatticeVerifier {
     }
 
     /// Verifies 7-exponent SI base unit consistency across all DAG operations
-    pub fn verify_dimensional_consistency(&self, graph: &NativeComputationalGraph) -> Result<usize> {
+    pub fn verify_dimensional_consistency(
+        &self,
+        graph: &NativeComputationalGraph,
+    ) -> Result<usize> {
         let mut checks = 0;
 
         for node in graph.nodes.values() {
             match &node.opcode {
                 MachineOpcode::TensorDot { dim, .. } => {
                     if *dim == 0 {
-                        return Err(anyhow!(
-                            "Node {} TensorDot has zero dimension",
-                            node.id
-                        ));
+                        return Err(anyhow!("Node {} TensorDot has zero dimension", node.id));
                     }
 
                     match &node.type_lattice {
@@ -178,22 +178,22 @@ impl LatticeVerifier {
                 spatial_checks += 1;
             }
 
-            if let NativeTypeLattice::TensorType { shape, .. } = &node.type_lattice {
-                if shape.len() >= 2 {
-                    let w = shape[0] as u32;
-                    let h = shape[1] as u32;
-                    if w > max_w || h > max_h {
-                        return Err(anyhow!(
-                            "Node {} 2D tensor dimensions [{}, {}] exceed spatial window bounds [{}, {}]",
-                            node.id,
-                            w,
-                            h,
-                            max_w,
-                            max_h
-                        ));
-                    }
-                    spatial_checks += 1;
+            if let NativeTypeLattice::TensorType { shape, .. } = &node.type_lattice
+                && shape.len() >= 2
+            {
+                let w = shape[0] as u32;
+                let h = shape[1] as u32;
+                if w > max_w || h > max_h {
+                    return Err(anyhow!(
+                        "Node {} 2D tensor dimensions [{}, {}] exceed spatial window bounds [{}, {}]",
+                        node.id,
+                        w,
+                        h,
+                        max_w,
+                        max_h
+                    ));
                 }
+                spatial_checks += 1;
             }
         }
 
@@ -217,10 +217,9 @@ impl LatticeVerifier {
             return Err(e);
         }
 
-        let spatial_checks = match self.verify_spatial_containment(
-            graph,
-            (self.max_spatial_width, self.max_spatial_height),
-        ) {
+        let spatial_checks = match self
+            .verify_spatial_containment(graph, (self.max_spatial_width, self.max_spatial_height))
+        {
             Ok(c) => c,
             Err(e) => {
                 diagnostics.push(format!("Spatial containment verification failed: {e}"));
@@ -251,15 +250,25 @@ mod tests {
 
         graph.add_node(NativeComputationNode {
             id: 1,
-            opcode: MachineOpcode::Alloc { size_bytes: 4096, align: 64 },
-            type_lattice: NativeTypeLattice::LinearMemoryPointer { mutability: true, alignment: 64 },
+            opcode: MachineOpcode::Alloc {
+                size_bytes: 4096,
+                align: 64,
+            },
+            type_lattice: NativeTypeLattice::LinearMemoryPointer {
+                mutability: true,
+                alignment: 64,
+            },
             energy_cost: 0.15,
             dependencies: vec![],
         });
 
         graph.add_node(NativeComputationNode {
             id: 2,
-            opcode: MachineOpcode::TensorDot { left_reg: 1, right_reg: 2, dim: 64 },
+            opcode: MachineOpcode::TensorDot {
+                left_reg: 1,
+                right_reg: 2,
+                dim: 64,
+            },
             type_lattice: NativeTypeLattice::TensorType {
                 shape: vec![64, 64],
                 element_type: Box::new(NativeTypeLattice::PrimitiveFloat { bits: 32 }),
@@ -280,8 +289,14 @@ mod tests {
 
         graph.add_node(NativeComputationNode {
             id: 1,
-            opcode: MachineOpcode::Alloc { size_bytes: 1024, align: 16 },
-            type_lattice: NativeTypeLattice::LinearMemoryPointer { mutability: false, alignment: 16 },
+            opcode: MachineOpcode::Alloc {
+                size_bytes: 1024,
+                align: 16,
+            },
+            type_lattice: NativeTypeLattice::LinearMemoryPointer {
+                mutability: false,
+                alignment: 16,
+            },
             energy_cost: 0.50, // exceeds 0.10
             dependencies: vec![],
         });
@@ -297,7 +312,11 @@ mod tests {
 
         graph.add_node(NativeComputationNode {
             id: 1,
-            opcode: MachineOpcode::TensorDot { left_reg: 1, right_reg: 2, dim: 4000 },
+            opcode: MachineOpcode::TensorDot {
+                left_reg: 1,
+                right_reg: 2,
+                dim: 4000,
+            },
             type_lattice: NativeTypeLattice::TensorType {
                 shape: vec![3840, 2160], // 4K exceeds 1080p limit
                 element_type: Box::new(NativeTypeLattice::PrimitiveFloat { bits: 32 }),

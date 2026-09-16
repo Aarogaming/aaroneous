@@ -1,15 +1,14 @@
+pub mod agents;
+pub mod archetypes;
+pub mod assimilation;
 /// crates/orchestrator
 /// Multi-Agent Federation, Hive Runtime, MDP Task Routing, and Control Plane for Aaroneous.
 pub mod combat_agent;
-pub mod agents;
-pub mod archetypes;
 pub mod onboarding;
-pub mod assimilation;
 pub use onboarding::{
-    handle_assimilation_event, handle_onboarding_event, process_client_request,
-    process_onboarding_request, AssimilationError, AssimilationTask, AuditResult,
-    ComponentOnboardingTask, OnboardingError, OnboardingPhase, OnboardingRecord,
-    Staged, StagedSandbox,
+    AssimilationError, AssimilationTask, AuditResult, ComponentOnboardingTask, OnboardingError,
+    OnboardingPhase, OnboardingRecord, Staged, StagedSandbox, handle_assimilation_event,
+    handle_onboarding_event, process_client_request, process_onboarding_request,
 };
 pub mod aura_ui;
 pub mod aura_ui_manifest;
@@ -18,6 +17,7 @@ pub mod compaction_engine;
 pub mod control;
 pub mod crucible_provider;
 pub mod dynamic_ui;
+pub mod fs_watcher;
 pub mod hive_runtime;
 pub mod intent_engine;
 pub mod linguistic_intercom;
@@ -25,37 +25,36 @@ pub mod linguistic_transducer;
 pub mod llm;
 pub mod lmstudio_client;
 pub mod mdps_router;
-pub mod fs_watcher;
 pub mod memory_pipeline;
+pub mod otel_export;
 pub mod plugin_compiler;
-pub mod web_crawler;
 pub mod rag_router;
 pub mod tagger;
-pub mod otel_export;
 pub mod tier_allocator;
+pub mod web_crawler;
 pub use tier_allocator as pantheon_orchestrator;
-pub mod swarm_balancer;
-pub mod priority_scheduler;
-pub mod diagnostics_filter;
 pub mod context_sanitizer;
+pub mod diagnostics_filter;
+pub mod priority_scheduler;
+pub mod supervision;
+pub mod swarm_balancer;
 pub mod workflow_engine;
 pub mod workspace;
-pub mod supervision;
 
 pub use supervision::{
     RestartPolicy, SupervisedTask, Supervisor, SupervisorBudget, SupervisorConfig, TaskStatus,
 };
 
-pub use diagnostics_filter::{DiagnosticEntry, DiagnosticsFilter};
 pub use context_sanitizer::ContextSanitizer;
+pub use diagnostics_filter::{DiagnosticEntry, DiagnosticsFilter};
 pub use fs_watcher::FsWatcher;
 pub use memory_pipeline::EpisodicInsertionPipeline;
+pub use otel_export::{OTelExporter, OtelExporter};
 pub use plugin_compiler::PluginCompiler;
-pub use web_crawler::WebCrawler;
+pub use priority_scheduler::{PriorityScheduler, PriorityTier, TaskMetadata};
 pub use rag_router::{DynamicRagPipeline, RagRouter};
 pub use tagger::{EdgeComputeTagger, Tagger};
-pub use otel_export::{OTelExporter, OtelExporter};
-pub use priority_scheduler::{PriorityScheduler, PriorityTier, TaskMetadata};
+pub use web_crawler::WebCrawler;
 
 pub use cartridge_manager::{
     CartridgePackManager, CartridgePackManifest, HardwareAutoTuner, HostSystemProfile,
@@ -77,7 +76,7 @@ pub use compaction_engine::{
     CompactionEngine, CompactionSummary, HibernationManifest, SpecialistHibernationEngine,
     SpecialistHibernationState,
 };
-pub use tier_allocator::{pin_current_thread_to_core, PantheonOrchestrator, TierRuntimeAllocator};
+pub use tier_allocator::{PantheonOrchestrator, TierRuntimeAllocator, pin_current_thread_to_core};
 
 pub use dynamic_ui::{
     DynamicUiNode, DynamicUiSynthesizer, DynamicWindowManifest, NonOverlapSolver, RectAabb,
@@ -86,13 +85,13 @@ pub use dynamic_ui::{
 
 // Re-export agent types
 pub use agents::{
-    create_reference_agent, create_relic, create_specialist, Agent, AgentType, BaseAgent,
-    BaselineReferenceAgent, CognitiveBias, Domain, RelicAgent, SpecialistAgent, UserAgent,
+    Agent, AgentType, BaseAgent, BaselineReferenceAgent, CognitiveBias, Domain, RelicAgent,
+    SpecialistAgent, UserAgent, create_reference_agent, create_relic, create_specialist,
 };
 pub use archetypes::{Archetype, ForceVector, NativeThinker};
 
 // Re-export control plane
-pub use control::{parse_control_message, ControlMessage, ControlPlane, SpecialistState};
+pub use control::{ControlMessage, ControlPlane, SpecialistState, parse_control_message};
 
 // Re-export hive runtime
 pub use hive_runtime::{HiveRuntime, HiveRuntimeConfig, RuntimeStatistics, RuntimeStatus};
@@ -170,9 +169,8 @@ impl IntelligenceEngine {
         self.router.find_optimal_specialist(task)
     }
 
-    pub fn record_outcome(&mut self, specialist_id: &str, success: bool, completion_time: f64) {
+    pub fn record_outcome(&mut self, agent_id: &str, success: bool, completion_time: f64) {
         self.router
-            .update_specialist_performance(specialist_id, success, completion_time);
+            .update_specialist_performance(agent_id, success, completion_time);
     }
 }
-

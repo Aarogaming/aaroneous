@@ -6,7 +6,15 @@
 
 ## 🌌 Overview & Core Identity
 
-**Aaroneous is NOT a monolithic application.** It is an atomic, type-safe **Rust Component Framework** designed from first principles for building interchangeable, safe, zero-allocation execution blocks and plugins. Operating on a strict **Sterile Execution Plane (SEP)**, every component in the framework enforces sub-microsecond determinism, zero heap allocation on hot paths, zero ambient authority, and zero-copy memory-mapped binary contracts.
+**Aaroneous is NOT a monolithic application.** It is an atomic, type-safe **Rust Component Framework** designed from first principles for building interchangeable, safe, zero-allocation execution blocks and plugins. Operating on a strict **Sterile Execution Plane (SEP)**, the framework targets deterministic reduction, allocation-free hot paths, injected dependencies, and explicit binary contracts. These are component-level requirements; they are not yet guarantees for every crate or execution path.
+
+### Verification and assurance scope
+
+Run `cargo xtask gate` (the canonical 11-gate local verification command) or `bash scripts/agent_check.sh` / `pwsh -File scripts/agent_check.ps1` on Windows. CI invokes the same gates: text-encoding contract, formatting, strict Clippy (`-D warnings`), full workspace compilation, workspace tests, AST audit, zero-stub/zero-unsafe-impl inspection, emulator harness, release binary check, and optional feature compilation.
+
+The AST audit reports coverage of functions marked `#[doc = "hot_path"]`; it checks syntax, not transitive allocation behavior or worst-case timing. Latency numbers below are design targets unless accompanied by a reproducible benchmark with machine, build profile, inputs, warmup and percentile results. The governance backend currently performs Rust structural and register-footprint checks; enabling its legacy Z3 feature does not constitute an SMT proof. `studio_hud::plugin_api::PluginManager` loads `api::UiCartridge` implementations in-process only — dynamic (`.dll`/`.so`) loading was removed as unsound rather than exposed as a stable DLL ABI.
+
+Snapshot transport uses version 3 atomic words and copies a validated payload into private storage. Default endpoints use `engine_state_v3`, keeping them separate from older mappings. A busy writer claim after a process crash fails closed; replace the segment through a new configured path after stopping old peers. See [the transport contract](docs/SNAPSHOT_TRANSPORT.md).
 
 ### 🧩 Crate Topology & Component Architecture
 The framework decomposes execution into isolated, modular component blocks:
@@ -50,11 +58,11 @@ The framework decomposes execution into isolated, modular component blocks:
 ### 1. 🧬 Pure Rust Selective State-Space Model (`SiStateSpaceModel`)
 - Continuous-time state-space recurrence ($h_t = \bar{\mathbf{A}} h_{t-1} + \bar{\mathbf{B}} u_t$, $y_t = \mathbf{C} h_t + \mathbf{D} u_t$).
 - 4 layers, 1024-element state vectors, 256 model dimension, 64 state rank (~890k parameters $\approx$ 3.56 MB RAM footprint).
-- Sub-millisecond single-pass state-to-action inference ($< 180\,\mu\text{s}$).
+- Sub-millisecond single-pass state-to-action inference (design target: $< 180\,\mu\text{s}$; no reproducible benchmark yet — see §Verification and assurance scope).
 
 ### 2. ⚡ Dynamic Adaptation Matrix & Real-Time Error Steering (`DynamicAdaptationMatrix`)
 - Eliminates catastrophic forgetting by pairing an immutable frozen core with a mutable low-rank adapter ($\Delta W = A_{\text{adapt}} \cdot B_{\text{adapt}}$).
-- When an execution error or compiler panic occurs, `on_runtime_error` applies an immediate negative gradient step in $< 50\,\mu\text{s}$, steering the model away from repeated failures.
+- When an execution error or compiler panic occurs, `on_runtime_error` applies an immediate negative gradient step (design target: $< 50\,\mu\text{s}$; no reproducible benchmark yet), steering the model away from repeated failures.
 
 ### 3. 💎 Autonomous Skill Expansion & Thermodynamic Minimization (`SkillExpansionEngine`)
 - Self-development loop driven by thermodynamic free energy minimization ($F = E - T \cdot S$) and step compression.
@@ -63,7 +71,7 @@ The framework decomposes execution into isolated, modular component blocks:
 - High-fitness habits are frozen into portable, memory-mapped `.si` cartridges.
 
 ### 4. 🛠️ Universal Capability Toolset (`UniversalTool` & MCP Hub)
-- **Dual-Face Execution**: Every capability tool implements the `UniversalTool` trait—exposing standard JSON schemas for external MCP clients (Claude Desktop, Cursor, OpenCode), while concurrently executing zero-copy $\mathbb{R}^{256}$ latent tensor transformations for native `.si` models in VRAM ($< 15\,\mu\text{s}$).
+- **Dual-Face Execution**: Every capability tool implements the `UniversalTool` trait—exposing standard JSON schemas for external MCP clients (Claude Desktop, Cursor, OpenCode), while concurrently executing zero-copy $\mathbb{R}^{256}$ latent tensor transformations for native `.si` models in VRAM (design target: $< 15\,\mu\text{s}$; no reproducible benchmark yet).
 - Standard catalog covers AST repair, pattern rewriting, security audits, semantic queries, and multi-modal sensory inspection.
 
 ### 5. 🏛️ Layered Protection Rings & PLC Reducer Architecture
@@ -89,38 +97,53 @@ The Aaroneous runtime executes `.si` v3.0 cartridges via direct virtual memory m
 
 ### Build and Launch Desktop Studio HUD
 ```powershell
-# Native Desktop Studio & Telemetry HUD (Eframe / WGPU)
+# Native Desktop Studio & Telemetry HUD (eframe / wgpu)
 cargo run --release -p studio_hud --bin aaroneous
 
 # Headless Microkernel Hypervisor CLI
-cargo run --release -p hypervisor --bin a_run -- --help
+cargo run --release -p hypervisor --bin hypervisor -- --help
 ```
 
 ### Static Analysis & AST Invariant Audit
 ```powershell
 # Run the AST Auditor across the entire workspace (Must report 0 violations)
-cargo run -p ast_auditor -- audit core/ crates/
+cargo run -p ast_auditor -- audit core/ crates/ dev/
 ```
 
-### Sovereign Hypervisor Commands (`a_run`)
+### Full Verification Gate (local CI equivalent)
 ```powershell
-# 1. Distill & birth .si solid-state models for Sovereign Specialists
-a_run distill-all --samples 10 --epochs 1 --out models/distilled_federation
+# Runs all 11 gates: encoding, fmt, clippy, build, tests, AST audit, stub check, emulator harness, release check, feature flags
+cargo xtask gate
+```
 
-# 2. Boot a live 4-node P2P cluster & verify gossip consensus
-a_run mesh --nodes 4 --live
+### Hypervisor Commands (`hypervisor`)
+```powershell
+# 1. Start the supervisory control daemon
+cargo run --release -p hypervisor --bin hypervisor -- start --tick 1000
 
-# 3. Launch an active sovereign socket daemon node
-a_run daemon --bind 127.0.0.1:8001 --heartbeat 1500
+# 2. Boot the Aaroneous sovereign runtime under a specific execution profile
+cargo run --release -p hypervisor --bin hypervisor -- boot --profile isolated
 
-# 4. Execute autonomous background self-evolution AST mutation
-a_run evolve --cycles 3 --threshold 0.70
+# 3. Boot a live P2P cluster & verify gossip consensus
+cargo run --release -p hypervisor --bin hypervisor -- mesh --nodes 4 --live
 
-# 5. Forge a new Tier 3 Kinetic Reflex .si container from scratch
-a_run forge --name chimera_ast --tier 3 --samples 20 --epochs 1
+# 4. Launch an active sovereign P2P socket daemon node
+cargo run --release -p hypervisor --bin hypervisor -- daemon --bind 127.0.0.1:8001
 
-# 6. Benchmark zero-copy memory-mapped execution latency
-a_run si benchmark data/models/chimera_ast.si --iterations 500
+# 5. Execute autonomous background self-evolution cycles
+cargo run --release -p hypervisor --bin hypervisor -- evolve --cycles 3 --threshold 0.70
+
+# 6. Forge a new .si container via SiForge
+cargo run --release -p hypervisor --bin hypervisor -- forge --name my_model --tier 3 --samples 20
+
+# 7. Benchmark zero-copy memory-mapped execution latency
+cargo run --release -p hypervisor --bin hypervisor -- si benchmark path/to/model.si --iterations 500
+
+# 8. Distill .si models for all domain specialists
+cargo run --release -p hypervisor --bin hypervisor -- distill-all --samples 10 --epochs 2
+
+# 9. Launch the MCP server for Claude Desktop / Cursor integration
+cargo run --release -p hypervisor --bin hypervisor -- mcp --host 127.0.0.1 --port 8766
 ```
 
 ---

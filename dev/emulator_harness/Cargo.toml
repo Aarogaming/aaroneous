@@ -10,6 +10,11 @@ license.workspace = true
 bytemuck = { version = "1.20", features = ["derive"] }
 
 
+[[bench]]
+name = "reduction_benchmark"
+harness = false
+
 [dev-dependencies]
 ast_auditor = { path = "../../crates/ast_auditor" }
+criterion = "0.5"
 

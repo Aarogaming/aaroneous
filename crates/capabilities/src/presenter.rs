@@ -8,7 +8,9 @@ use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use tracing::info;
 
-use crate::traits::{DomainSubEngine, MnlpPacket, MnlpResponse, SovereignSpecialist, SpecialistHealth};
+use crate::traits::{
+    DomainSubEngine, MnlpPacket, MnlpResponse, SovereignSpecialist, SpecialistHealth,
+};
 
 /// UI Presentation frame streamed to BusVisualizer
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -84,7 +86,7 @@ impl PresenterSpecialist {
     /// Composes a UI frame for frontend rendering
     pub fn compose_ui_frame(&mut self, active_view: &str, status: &str) -> UiPresentationFrame {
         self.display_buffer.frames_streamed += 1;
-        info!(target: "specialist::presenter", %active_view, "Composing visual UI presentation frame");
+        info!(target: "agent::presenter", %active_view, "Composing visual UI presentation frame");
 
         UiPresentationFrame {
             active_view: active_view.to_string(),
@@ -98,11 +100,23 @@ impl PresenterSpecialist {
     /// Ingests workspace topology and specialist federation into the 3D Omni Galaxy
     pub async fn populate_omni_galaxy(&self) -> Result<(usize, usize)> {
         let spec_count = self.omni_engine.ingest_standard_specialists().await;
-        let crate_count = self.omni_engine.ingest_workspace_crates(&[
-            "ipc_bus", "compute", "evolution", "biology",
-            "orchestrator", "adaptation_engine", "platform_bridge", "specialists",
-            "paths", "transpiler", "omni", "hypervisor"
-        ]).await;
+        let crate_count = self
+            .omni_engine
+            .ingest_workspace_crates(&[
+                "ipc_bus",
+                "compute",
+                "evolution",
+                "biology",
+                "orchestrator",
+                "adaptation_engine",
+                "platform_bridge",
+                "specialists",
+                "paths",
+                "transpiler",
+                "omni",
+                "hypervisor",
+            ])
+            .await;
 
         self.omni_engine.step_gravitational_physics(0.1).await;
         Ok((spec_count, crate_count))
@@ -149,7 +163,7 @@ impl SovereignSpecialist for PresenterSpecialist {
 
     async fn handle_packet(&mut self, packet: MnlpPacket) -> Result<MnlpResponse> {
         let req_str = String::from_utf8_lossy(&packet.payload);
-        
+
         if req_str.contains("galaxy") || req_str.contains("snapshot") {
             let _ = self.populate_omni_galaxy().await;
             let snapshot = self.omni_engine.export_snapshot().await?;
@@ -159,7 +173,10 @@ impl SovereignSpecialist for PresenterSpecialist {
                 success: true,
                 opcode: self.domain_opcode(),
                 correlation_id: packet.correlation_id,
-                message: format!("Presenter delivered 3D Omni Galaxy snapshot ({} stars, {} galaxies)", snapshot.total_stars, snapshot.total_galaxies),
+                message: format!(
+                    "Presenter delivered 3D Omni Galaxy snapshot ({} stars, {} galaxies)",
+                    snapshot.total_stars, snapshot.total_galaxies
+                ),
                 payload,
             });
         }

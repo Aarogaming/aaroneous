@@ -1,0 +1,154 @@
+name: Compliance Review
+
+# Runs the compliance_auditor crate (crates/compliance_auditor) against the
+# PR's diff against its base branch: several independent LLM finder passes
+# plus adversarial per-candidate verification, folded together with
+# ast_auditor's deterministic structural checks. This is advisory, not a
+# merge gate — cargo xtask gate (see ci.yml) already enforces the
+# deterministic invariants; this job surfaces semantic issues (logic bugs,
+# quietly-removed invariants, reuse/simplification opportunities) that no
+# syntactic checker catches, for a human to weigh.
+#
+# Requires an OPENAI_API_KEY repository secret to do a real review; without
+# one the job still runs (against the mock provider) so the workflow itself
+# stays exercised, but produces no real findings — see the job summary.
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  review:
+    name: Multi-angle diff review
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Linux native build dependencies
+        run: sudo apt-get update && sudo apt-get install -y libclang-dev libudev-dev libasound2-dev libssl-dev pkg-config cmake
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Build compliance_auditor
+        run: cargo build -p compliance_auditor --release
+
+      - name: Run compliance review
+        id: review
+        continue-on-error: true
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          if [ -n "${OPENAI_API_KEY:-}" ]; then
+            PROVIDER=openai
+          else
+            echo "::notice::No OPENAI_API_KEY secret configured; running against the mock provider (no real findings will be produced)."
+            PROVIDER=mock
+          fi
+          ./target/release/compliance_auditor review \
+            --base "origin/${{ github.event.pull_request.base.ref || 'main' }}" \
+            --head HEAD \
+            --provider "$PROVIDER" \
+            --json \
+            --output compliance-report.json | tee compliance-report.txt
+
+      - name: Publish job summary
+        if: always()
+        run: |
+          {
+            echo "## Compliance review"
+            echo
+            echo '```'
+            cat compliance-report.txt 2>/dev/null || echo "(no output captured)"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload report artifact
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: compliance-report
+          path: compliance-report.json
+          if-no-files-found: ignore
+
+      - name: Post PR comment
+        if: always() && github.event_name == 'pull_request'
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const fs = require('fs');
+            const marker = '<!-- compliance-auditor-report -->';
+
+            let body = `${marker}\n## Compliance review\n\n`;
+            let report = null;
+            try {
+              report = JSON.parse(fs.readFileSync('compliance-report.json', 'utf8'));
+            } catch (err) {
+              body += `_The review did not produce a report (${err.message}). `
+                    + `Check the [job summary](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}) for details._\n`;
+            }
+
+            if (report) {
+              body += `Reviewed \`${report.base_sha.slice(0, 12)}..${report.head_sha.slice(0, 12)}\` `
+                    + `(${report.files_reviewed.length} file(s)).\n\n`;
+
+              if (report.structural_errors.length > 0) {
+                body += '### Structural (ast_auditor)\n\n';
+                for (const e of report.structural_errors) body += `- ${e}\n`;
+                body += '\n';
+              }
+
+              if (report.findings.length === 0) {
+                body += '_No findings survived verification._\n';
+              } else {
+                body += `### Findings (${report.findings.length})\n\n`;
+                body += '| Angle | Verdict | Location | Summary |\n';
+                body += '|---|---|---|---|\n';
+                for (const f of report.findings) {
+                  const loc = `${f.candidate.file}:${f.candidate.line ?? '?'}`;
+                  const summary = f.candidate.summary.replace(/\|/g, '\\|');
+                  body += `| ${f.candidate.angle} | ${f.verdict} | \`${loc}\` | ${summary} |\n`;
+                }
+                body += '\n<details><summary>Failure scenarios and verifier notes</summary>\n\n';
+                for (const f of report.findings) {
+                  const loc = `${f.candidate.file}:${f.candidate.line ?? '?'}`;
+                  body += `**\`${loc}\`** (${f.candidate.angle}, ${f.verdict})\n\n`;
+                  body += `- Failure scenario: ${f.candidate.failure_scenario}\n`;
+                  body += `- Verifier: ${f.justification}\n\n`;
+                }
+                body += '</details>\n';
+              }
+            }
+
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            const existing = comments.find(c => c.body.startsWith(marker));
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }

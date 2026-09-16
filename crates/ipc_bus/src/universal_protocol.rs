@@ -12,8 +12,8 @@
 //! 2. Loose Coupling: Frontends contain zero engine execution logic.
 //! 3. Bounded Telemetry: Asynchronous broadcast protects real-time core loops from UI lag.
 
-use serde::{Deserialize, Serialize};
 use bytemuck::{Pod, Zeroable};
+use serde::{Deserialize, Serialize};
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Zeroable, Pod)]
@@ -189,14 +189,14 @@ impl AssimilationPhase {
 /// Zero-copy wire frame representing an asset undergoing assimilation
 /// Exact size: 360 bytes. Perfectly 8-byte aligned (360 % 8 == 0).
 #[repr(C)]
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Zeroable, Pod)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Zeroable, Pod, Default)]
 pub struct AssimilationRecord {
-    pub source_id: [u8; 16],          // Offset: 0
-    pub phase: u32,                   // Offset: 16
-    pub retries: u32,                 // Offset: 20
-    pub started_at_us: u64,           // Offset: 24
-    pub mount_path: FixedString256,   // Offset: 32 (Size: 260)
-    pub ir_hash: FixedString64,       // Offset: 292 (Size: 68)
+    pub source_id: [u8; 16],        // Offset: 0
+    pub phase: u32,                 // Offset: 16
+    pub retries: u32,               // Offset: 20
+    pub started_at_us: u64,         // Offset: 24
+    pub mount_path: FixedString256, // Offset: 32 (Size: 260)
+    pub ir_hash: FixedString64,     // Offset: 292 (Size: 68)
 }
 
 impl AssimilationRecord {
@@ -228,7 +228,11 @@ impl AssimilationRecord {
             timestamp_us: self.started_at_us,
             cycle_latency_us,
             free_energy_delta: 0.0,
-            boolean_flag: if self.phase == AssimilationPhase::Committed as u32 { 1 } else { 0 },
+            boolean_flag: if self.phase == AssimilationPhase::Committed as u32 {
+                1
+            } else {
+                0
+            },
             _pad1: [0u8; 3],
             message,
             _pad2: 0,
@@ -245,10 +249,10 @@ impl AssimilationRecord {
         source_id[12] = req.domain_id;
 
         let mut ir_hash = FixedString64::default();
-        if let Ok(hash_str) = req.payload_b.as_str() {
-            if let Ok(h) = FixedString64::new(hash_str) {
-                ir_hash = h;
-            }
+        if let Ok(hash_str) = req.payload_b.as_str()
+            && let Ok(h) = FixedString64::new(hash_str)
+        {
+            ir_hash = h;
         }
 
         Some(Self {
@@ -261,7 +265,12 @@ impl AssimilationRecord {
         })
     }
 
-    pub fn to_client_request(&self, sequence: u64, slot_id: u32, domain_id: u8) -> UniversalClientRequest {
+    pub fn to_client_request(
+        &self,
+        sequence: u64,
+        slot_id: u32,
+        domain_id: u8,
+    ) -> UniversalClientRequest {
         let hash_str = self.ir_hash.as_str().unwrap_or("");
         let payload_b = FixedString256::new(hash_str).unwrap_or_default();
         UniversalClientRequest {
@@ -273,19 +282,6 @@ impl AssimilationRecord {
             _pad1: [0u8; 3],
             payload_a: self.mount_path,
             payload_b,
-        }
-    }
-}
-
-impl Default for AssimilationRecord {
-    fn default() -> Self {
-        Self {
-            source_id: [0u8; 16],
-            phase: 0,
-            retries: 0,
-            started_at_us: 0,
-            mount_path: FixedString256::default(),
-            ir_hash: FixedString64::default(),
         }
     }
 }
@@ -305,10 +301,10 @@ mod tests {
         let bytes = bytemuck::bytes_of(&record);
         assert_eq!(bytes.len(), 360);
 
-        let recovered: &AssimilationRecord = bytemuck::try_from_bytes(bytes).expect("Pod conversion must succeed");
+        let recovered: &AssimilationRecord =
+            bytemuck::try_from_bytes(bytes).expect("Pod conversion must succeed");
         assert_eq!(recovered.source_id, [42u8; 16]);
         assert_eq!(recovered.started_at_us, 1000);
         assert_eq!(recovered.phase, AssimilationPhase::Idle as u32);
     }
 }
-

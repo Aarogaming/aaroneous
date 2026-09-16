@@ -4,7 +4,7 @@
 //! Provides ultra-low latency (< 5ms) visual embedding generation from raw DXGI / GDI framebuffers
 //! for perceptual gating, spatial attention, and specialist agent state ingestion.
 
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use serde::{Deserialize, Serialize};
 use std::time::{SystemTime, UNIX_EPOCH};
 

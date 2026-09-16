@@ -1,4 +1,4 @@
-﻿# RFC-0004: Machine-Native State Language Model (M-SLM) & Bounded Dynamicism
+# RFC-0004: Machine-Native State Language Model (M-SLM) & Bounded Dynamicism
 
 - **RFC Number:** 0004
 - **Title:** .si Machine-Native State Language Model (M-SLM) & Bounded Dynamicism Runtime Specification

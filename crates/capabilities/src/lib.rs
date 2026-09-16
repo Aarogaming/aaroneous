@@ -18,34 +18,50 @@ pub mod universal_tool;
 
 pub extern crate ipc_bus as nervous_system;
 pub use ipc_bus;
-pub extern crate autonomic_adaptation as evolution;
-pub use autonomic_adaptation;
+pub extern crate adaptation_plane as evolution;
+pub use adaptation_plane;
 
-pub use aligner::{AlignerSpecialist, AlignmentEngine, HarmonyEngineRelic, SymbioticResonanceReport};
+pub use aligner::{
+    AlignerSpecialist, AlignmentEngine, HarmonyEngineRelic, SymbioticResonanceReport,
+};
 pub use archivist::{ArchivistSpecialist, MemoryIndexEngine, MemoryIndexRelic};
 pub use codebase_auditor::{
     AuditFinding, AuditSeverity, AutonomousAuditReport, CodebaseReviewEngine,
     CodebaseReviewSpecialist,
 };
-pub use dev_tools::{CompilerCoreRelic, CompilerForgeEngine, DevToolsSpecialist, FabricatorSpecialist};
-pub use orchestrator::{OrchestratorCoreRelic, OrchestratorSpecialist, TaskNode, TaskSchedulerEngine};
-pub use perceiver::{GatekeeperEngineRelic, PerceptionGateEngine, PerceiverSpecialist};
-pub use presenter::{DisplayBufferEngine, DisplayBufferRelic, PresenterSpecialist, UiPresentationFrame};
-pub use router::{FederationBusRelic, MeshPeerState, MeshRouterEngine, RouterSpecialist};
-pub use sentinel::{AuditEngineRelic, SecurityAuditEngine, SecurityAuditReport, SentinelSpecialist};
-pub use synthesizer::{KnowledgeStoreEngine, KnowledgeStoreRelic, KnowledgeSynthesis, SynthesizerSpecialist};
-pub use tools::{
-    build_standard_tool_registry, CodeRepairTool, CodebaseReviewTool, KnowledgeSemanticTool,
-    MemoryIndexTool, PlatformSensoryTool, SecurityAuditTool, StructuralRewriteTool, UiLayoutTool,
+pub use dev_tools::{
+    CompilerCoreRelic, CompilerForgeEngine, DevToolsSpecialist, FabricatorSpecialist,
 };
-pub use traits::{DomainSubEngine, MnlpPacket, MnlpResponse, RelicEngine, Specialist, SovereignSpecialist, SpecialistHealth};
+pub use orchestrator::{
+    OrchestratorCoreRelic, OrchestratorSpecialist, TaskNode, TaskSchedulerEngine,
+};
+pub use perceiver::{GatekeeperEngineRelic, PerceiverSpecialist, PerceptionGateEngine};
+pub use presenter::{
+    DisplayBufferEngine, DisplayBufferRelic, PresenterSpecialist, UiPresentationFrame,
+};
+pub use router::{FederationBusRelic, MeshPeerState, MeshRouterEngine, RouterSpecialist};
+pub use sentinel::{
+    AuditEngineRelic, SecurityAuditEngine, SecurityAuditReport, SentinelSpecialist,
+};
+pub use synthesizer::{
+    KnowledgeStoreEngine, KnowledgeStoreRelic, KnowledgeSynthesis, SynthesizerSpecialist,
+};
+pub use tools::{
+    CodeRepairTool, CodebaseReviewTool, KnowledgeSemanticTool, MemoryIndexTool,
+    PlatformSensoryTool, SecurityAuditTool, StructuralRewriteTool, UiLayoutTool,
+    build_standard_tool_registry,
+};
+pub use traits::{
+    DomainSubEngine, MnlpPacket, MnlpResponse, RelicEngine, SovereignSpecialist, Specialist,
+    SpecialistHealth,
+};
 pub use universal_tool::{ToolDescriptor, ToolRegistry, UniversalTool};
 
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use std::collections::HashMap;
 
 /// The Unified Specialist Federation / Pool managing all 10 Specialists
-pub struct SpecialistFederation {
+pub struct AgentFederation {
     pub orchestrator: OrchestratorSpecialist,
     pub synthesizer: SynthesizerSpecialist,
     pub presenter: PresenterSpecialist,
@@ -60,26 +76,27 @@ pub struct SpecialistFederation {
 }
 
 /// Simplified alias for the Specialist Federation
-pub type Specialists = SpecialistFederation;
+pub type Specialists = AgentFederation;
 
 /// The Unified Capability Federation
-pub type CapabilityFederation = SpecialistFederation;
-pub type Capabilities = SpecialistFederation;
-pub type CapabilityPool = SpecialistFederation;
+pub type CapabilityFederation = AgentFederation;
+pub type Capabilities = AgentFederation;
+pub type CapabilityPool = AgentFederation;
 
 /// Hub alias for the Specialist Federation
-pub type SpecialistHub = SpecialistFederation;
+pub type SpecialistHub = AgentFederation;
 
 /// Backwards-compatible alias for the Specialist Federation
-pub type SpecialistFederationAlias = SpecialistFederation;
+pub type AgentFederationAlias = AgentFederation;
+pub type SpecialistFederation = AgentFederation;
 
-impl Default for SpecialistFederation {
+impl Default for AgentFederation {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl SpecialistFederation {
+impl AgentFederation {
     pub fn new() -> Self {
         Self {
             orchestrator: OrchestratorSpecialist::new(),
@@ -97,7 +114,11 @@ impl SpecialistFederation {
     }
 
     /// Subscribes a consumer to receive packets dispatched through the federation event bus
-    pub fn subscribe_events(&self, topic: &str, subscriber_id: &str) -> ipc_bus::EventSubscriber<MnlpPacket> {
+    pub fn subscribe_events(
+        &self,
+        topic: &str,
+        subscriber_id: &str,
+    ) -> ipc_bus::EventSubscriber<MnlpPacket> {
         self.event_bus.subscribe(topic, subscriber_id)
     }
 
@@ -107,7 +128,10 @@ impl SpecialistFederation {
     }
 
     /// Drains all available pending events from a subscriber and dispatches them sequentially
-    pub async fn process_pending_events(&mut self, subscriber: &ipc_bus::EventSubscriber<MnlpPacket>) -> Vec<Result<MnlpResponse>> {
+    pub async fn process_pending_events(
+        &mut self,
+        subscriber: &ipc_bus::EventSubscriber<MnlpPacket>,
+    ) -> Vec<Result<MnlpResponse>> {
         let mut responses = Vec::new();
         while let Some(envelope) = subscriber.try_recv() {
             let res = self.dispatch_packet(envelope.payload).await;
@@ -143,7 +167,10 @@ impl SpecialistFederation {
         reports.insert(self.sentinel.name(), self.sentinel.health_report());
         reports.insert(self.archivist.name(), self.archivist.health_report());
         reports.insert(self.router.name(), self.router.health_report());
-        reports.insert(self.codebase_auditor.name(), self.codebase_auditor.health_report());
+        reports.insert(
+            self.codebase_auditor.name(),
+            self.codebase_auditor.health_report(),
+        );
         reports.insert(self.aligner.name(), self.aligner.health_report());
         reports.insert(self.perceiver.name(), self.perceiver.health_report());
         reports
@@ -194,7 +221,10 @@ impl UniversalSpecialistRegistry {
         let opcode = packet.opcode;
         match self.specialists.get_mut(&opcode) {
             Some(spec) => spec.handle_packet(packet).await,
-            None => bail!("No specialist registered for domain opcode: 0x{:04X}", opcode),
+            None => bail!(
+                "No specialist registered for domain opcode: 0x{:04X}",
+                opcode
+            ),
         }
     }
 
@@ -218,7 +248,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_specialist_federation_dispatch() {
-        let mut federation = SpecialistFederation::new();
+        let mut federation = AgentFederation::new();
 
         // 1. Test Orchestrator (0x0100)
         let pkt_orchestrator = MnlpPacket {
@@ -281,7 +311,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_specialist_federation_event_bus() {
-        let mut federation = SpecialistFederation::new();
+        let mut federation = AgentFederation::new();
 
         // Subscribe to all specialist dispatch events
         let subscriber = federation.subscribe_events("specialist.dispatch", "test_worker");
@@ -315,4 +345,3 @@ mod tests {
         assert!(results[1].as_ref().is_ok_and(|r| r.success));
     }
 }
-

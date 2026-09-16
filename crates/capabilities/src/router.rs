@@ -8,7 +8,9 @@ use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use tracing::info;
 
-use crate::traits::{DomainSubEngine, MnlpPacket, MnlpResponse, SovereignSpecialist, SpecialistHealth};
+use crate::traits::{
+    DomainSubEngine, MnlpPacket, MnlpResponse, SovereignSpecialist, SpecialistHealth,
+};
 
 /// Distributed node state packet in the P2P mesh
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -82,7 +84,7 @@ impl RouterSpecialist {
     /// Routes a packet across the P2P mesh to a target peer
     pub fn route_mesh_packet(&mut self, target_peer: &str, payload_size: usize) -> MeshPeerState {
         self.bus.packets_routed += 1;
-        info!(target: "specialist::router", %target_peer, bytes = payload_size, "Routing packet over P2P mesh");
+        info!(target: "agent::router", %target_peer, bytes = payload_size, "Routing packet over P2P mesh");
 
         MeshPeerState {
             peer_node_id: target_peer.to_string(),
@@ -96,7 +98,7 @@ impl RouterSpecialist {
     pub fn route_task_offload(&mut self, opcode: u16, target_peer: &str) -> MeshPeerState {
         self.bus.packets_routed += 1;
         info!(
-            target: "specialist::router",
+            target: "agent::router",
             opcode = format!("0x{:04X}", opcode),
             %target_peer,
             "⚡ Router offloading micro-task to swarm peer"
@@ -130,7 +132,7 @@ impl RouterSpecialist {
     pub fn sync_swarm_manifest(&mut self, peer_id: &str, active_specialists: &[&str]) -> bool {
         self.bus.packets_routed += 1;
         info!(
-            target: "specialist::router",
+            target: "agent::router",
             peer = %peer_id,
             specialists_count = active_specialists.len(),
             "Synced remote swarm capabilities over FederationBus mesh"
@@ -200,7 +202,8 @@ mod tests {
         assert_eq!(router.bus.connected_peers, 4); // 1 local + 3 remote
         assert_eq!(router.bus.packets_routed, 3);
 
-        let is_synced = router.sync_swarm_manifest("node_alpha", &["orchestrator", "synthesizer", "fabricator"]);
+        let is_synced = router
+            .sync_swarm_manifest("node_alpha", &["orchestrator", "synthesizer", "fabricator"]);
         assert!(is_synced);
         assert_eq!(router.bus.packets_routed, 4);
     }

@@ -7,16 +7,17 @@
 //! 3. ConsoleProjection: Immersive 10-foot telemetry, harmony score, user profile & level.
 //! 4. HudProjection: Lightweight situational awareness ticker, active bot indicators, FPS.
 
+use core_contracts::EngineSnapshotPod;
+use ipc_bus::SwmrSnapshotPublisher;
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use core_contracts::EngineSnapshotPod;
-use ipc_bus::SwmrSnapshotPublisher;
 
 /// Dynamic resource pacing mode regulating shell rendering budgets
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum GovernorPacing {
     /// Full performance target (120+ FPS) when thermal/VRAM headroom is nominal
+    #[default]
     FullPerformance,
     /// Balanced frame pacing (60 FPS) under moderate thermal load or active background inference
     ThermalThrottled,
@@ -41,12 +42,6 @@ impl GovernorPacing {
             Self::ThermalThrottled => 60.0,
             Self::CriticalVramSave => 30.0,
         }
-    }
-}
-
-impl Default for GovernorPacing {
-    fn default() -> Self {
-        Self::FullPerformance
     }
 }
 
@@ -213,8 +208,8 @@ impl Default for EngineStatePublisher {
 impl EngineStatePublisher {
     pub fn new() -> Self {
         let config = paths::WorkspacePathsConfig::default();
-        let path = paths::resolve_synapse_path("engine_state", &config);
-        let shm_publisher = SwmrSnapshotPublisher::open_or_create(&path).ok();
+        let path = paths::resolve_synapse_path("engine_state_v4", &config);
+        let shm_publisher = Self::open_shm_publisher(&path);
         Self {
             current: RwLock::new(Arc::new(EngineSnapshot::default())),
             shm_publisher,
@@ -222,10 +217,31 @@ impl EngineStatePublisher {
     }
 
     pub fn new_with_shm_path(path: &std::path::Path) -> Self {
-        let shm_publisher = SwmrSnapshotPublisher::open_or_create(path).ok();
+        let shm_publisher = Self::open_shm_publisher(path);
         Self {
             current: RwLock::new(Arc::new(EngineSnapshot::default())),
             shm_publisher,
+        }
+    }
+
+    /// `SwmrSnapshotPublisher::open_or_create` fails closed on a genuinely
+    /// incompatible segment (an old-version file left over from before an
+    /// upgrade, or corrupt geometry) — that's correct, but discarding the
+    /// error via `.ok()` with no logging left the shared-memory bridge
+    /// silently disabled with no signal that it ever happened. This still
+    /// disables it (there's no way to safely reinitialize someone else's
+    /// segment), but now says why.
+    fn open_shm_publisher(path: &std::path::Path) -> Option<SwmrSnapshotPublisher> {
+        match SwmrSnapshotPublisher::open_or_create(path) {
+            Ok(publisher) => Some(publisher),
+            Err(error) => {
+                tracing::warn!(
+                    %error,
+                    path = %path.display(),
+                    "failed to open shared-memory snapshot publisher; the shm bridge is disabled for this process (studio/console/HUD readers will see no live snapshot)"
+                );
+                None
+            }
         }
     }
 
@@ -297,7 +313,11 @@ impl EngineStatePublisher {
         ConsoleProjection {
             display_badge: format!("{:.0} FPS", snap.measured_fps),
             harmony_label: format!("Harmony {:.0}%", snap.bus_integrity),
-            user_badge: format!("👤 {} [Flow {:.0}%]", snap.active_profile_name, snap.flow_score * 100.0),
+            user_badge: format!(
+                "👤 {} [Flow {:.0}%]",
+                snap.active_profile_name,
+                snap.flow_score * 100.0
+            ),
             level_badge: format!("⭐ Lv. {}", snap.user_level),
         }
     }
@@ -306,7 +326,10 @@ impl EngineStatePublisher {
     pub fn project_hud(&self) -> HudProjection {
         let snap = self.snapshot();
         HudProjection {
-            active_guidance: format!("Specialist: {} • {}", snap.active_specialist, snap.last_event_desc),
+            active_guidance: format!(
+                "Specialist: {} • {}",
+                snap.active_specialist, snap.last_event_desc
+            ),
             measured_fps: snap.measured_fps,
             is_nominal: snap.bus_integrity >= 90.0,
         }

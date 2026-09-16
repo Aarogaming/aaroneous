@@ -3,7 +3,7 @@
 //! Adapted from Redox OS Scheme Architecture (`libredox`).
 //! Provides URI routing (`specialist://`, `synapse://`, `forge://`) and capability authorization.
 
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
@@ -81,8 +81,16 @@ impl Default for SchemeCapabilityGate {
         };
         // Default permission rules
         gate.grant("specialist://orchestrator", CapabilityFlags::ALL);
-        gate.grant("specialist://fabricator", CapabilityFlags(CapabilityFlags::READ.0 | CapabilityFlags::WRITE.0 | CapabilityFlags::FORGE.0));
-        gate.grant("synapse://primary", CapabilityFlags(CapabilityFlags::READ.0 | CapabilityFlags::WRITE.0));
+        gate.grant(
+            "specialist://fabricator",
+            CapabilityFlags(
+                CapabilityFlags::READ.0 | CapabilityFlags::WRITE.0 | CapabilityFlags::FORGE.0,
+            ),
+        );
+        gate.grant(
+            "synapse://primary",
+            CapabilityFlags(CapabilityFlags::READ.0 | CapabilityFlags::WRITE.0),
+        );
         gate
     }
 }

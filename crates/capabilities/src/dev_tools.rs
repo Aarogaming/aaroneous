@@ -8,8 +8,10 @@ use async_trait::async_trait;
 use chrono::Utc;
 use tracing::info;
 
+use crate::traits::{
+    DomainSubEngine, MnlpPacket, MnlpResponse, SovereignSpecialist, SpecialistHealth,
+};
 use adaptation_engine::{AdaptationEngine, PatchProposal};
-use crate::traits::{DomainSubEngine, MnlpPacket, MnlpResponse, SovereignSpecialist, SpecialistHealth};
 
 /// CompilerForgeEngine: Autonomous build automation and software forge sub-engine
 #[derive(Debug, Clone, Default)]
@@ -44,6 +46,7 @@ pub struct DevToolsSpecialist {
     pub max_tokens: f32,
     pub compiler_forge: CompilerForgeEngine,
     pub forge: CompilerForgeEngine,
+    pub output_dir: Option<std::path::PathBuf>,
 }
 
 pub type FabricatorSpecialist = DevToolsSpecialist;
@@ -61,17 +64,25 @@ impl DevToolsSpecialist {
             max_tokens: 100.0,
             compiler_forge: CompilerForgeEngine::default(),
             forge: CompilerForgeEngine::default(),
+            output_dir: None,
         }
     }
 
     /// Forges a code adaptation patch using Adaptation Engine
-    pub fn forge_code_repair(&mut self, file: &str, code: &str, target: &str, replacement: &str) -> Result<PatchProposal> {
-        info!(target: "specialist::dev_tools", %file, "Forging code patch in the CompilerCore");
+    pub fn forge_code_repair(
+        &mut self,
+        file: &str,
+        code: &str,
+        target: &str,
+        replacement: &str,
+    ) -> Result<PatchProposal> {
+        info!(target: "agent::dev_tools", %file, "Forging code patch in the CompilerCore");
         let (_obs, _hyp, report) = AdaptationEngine::adapt_code(file, code, target, replacement)?;
         self.forge.total_adaptations_forged += 1;
-        
-        let patch = adaptation_engine::CodeMutator::synthesize_repair(file, code, target, replacement)?;
-        info!(target: "specialist::dev_tools", verdict = %report.verdict, "CompilerCore adaptation verified");
+
+        let patch =
+            adaptation_engine::CodeMutator::synthesize_repair(file, code, target, replacement)?;
+        info!(target: "agent::dev_tools", verdict = %report.verdict, "CompilerCore adaptation verified");
         Ok(patch)
     }
 
@@ -83,15 +94,20 @@ impl DevToolsSpecialist {
         search_pattern: &str,
         replace_template: &str,
     ) -> Result<(String, Vec<adaptation_engine::StructuralPatch>)> {
-        info!(target: "specialist::dev_tools", %file, "Executing structural pattern rewrite in the CompilerCore");
-        let (rewritten, patches) = AdaptationEngine::rewrite_pattern(file, code, search_pattern, replace_template)?;
+        info!(target: "agent::dev_tools", %file, "Executing structural pattern rewrite in the CompilerCore");
+        let (rewritten, patches) =
+            AdaptationEngine::rewrite_pattern(file, code, search_pattern, replace_template)?;
         self.forge.total_adaptations_forged += patches.len();
         Ok((rewritten, patches))
     }
 
     /// Inspects and disassembles a native enzyme binary (PE/ELF/Mach-O)
-    pub fn inspect_enzyme_binary(&self, file: &str, raw_bytes: &[u8]) -> Result<adaptation_engine::BinaryManifest> {
-        info!(target: "specialist::dev_tools", %file, size = raw_bytes.len(), "Inspecting native enzyme binary");
+    pub fn inspect_enzyme_binary(
+        &self,
+        file: &str,
+        raw_bytes: &[u8],
+    ) -> Result<adaptation_engine::BinaryManifest> {
+        info!(target: "agent::dev_tools", %file, size = raw_bytes.len(), "Inspecting native enzyme binary");
         AdaptationEngine::inspect_binary(file, raw_bytes)
     }
 
@@ -103,7 +119,7 @@ impl DevToolsSpecialist {
         known_error: &str,
         synapse: &mut nervous_system::SynapseState,
     ) -> Result<adaptation_engine::SelfRepairReport> {
-        info!(target: "specialist::dev_tools", %file, "Executing autonomous sandboxed self-repair in the CompilerCore");
+        info!(target: "agent::dev_tools", %file, "Executing autonomous sandboxed self-repair in the CompilerCore");
         let report = AdaptationEngine::self_repair(file, code, known_error, synapse)?;
         if report.is_verified {
             self.forge.total_adaptations_forged += report.patches_applied.len();
@@ -116,7 +132,7 @@ impl DevToolsSpecialist {
         &mut self,
         intent: &str,
     ) -> Result<(compute::NativeComputationalGraph, String)> {
-        info!(target: "specialist::dev_tools", %intent, "Translating intent into native computational graph");
+        info!(target: "agent::dev_tools", %intent, "Translating intent into native computational graph");
         let initial_graph = compute::EdgeLinguisticLens::intent_to_native_graph(intent);
         initial_graph.verify_dimensional_invariants()?;
 
@@ -129,12 +145,24 @@ impl DevToolsSpecialist {
     }
 
     /// Forges an autonomous software wrapper organ for an external binary/CLI tool
-    pub async fn forge_organ_wrapper(&mut self, target_path: &str, custom_name: Option<&str>, out_dir: &std::path::Path) -> Result<(adaptation_engine::TargetCapabilityManifest, std::path::PathBuf)> {
-        info!(target: "specialist::dev_tools", target_path, "Forging autonomous software organ in the CompilerCore");
-        let manifest = adaptation_engine::AutoWrapperEngine::inspect_target(std::path::Path::new(target_path), custom_name)?;
+    pub async fn forge_organ_wrapper(
+        &mut self,
+        target_path: &str,
+        custom_name: Option<&str>,
+        out_dir: &std::path::Path,
+    ) -> Result<(
+        adaptation_engine::TargetCapabilityManifest,
+        std::path::PathBuf,
+    )> {
+        info!(target: "agent::dev_tools", target_path, "Forging autonomous software organ in the CompilerCore");
+        let manifest = adaptation_engine::AutoWrapperEngine::inspect_target(
+            std::path::Path::new(target_path),
+            custom_name,
+        )?;
         let _probe = adaptation_engine::AutoWrapperEngine::probe_target(&manifest).await?;
-        let staged_crate = adaptation_engine::AutoWrapperEngine::build_and_stage_organ(&manifest, out_dir)?;
-        
+        let staged_crate =
+            adaptation_engine::AutoWrapperEngine::build_and_stage_organ(&manifest, out_dir)?;
+
         self.forge.total_adaptations_forged += 1;
         self.forge.active_build_pipelines += 1;
         Ok((manifest, staged_crate))
@@ -146,8 +174,10 @@ impl DevToolsSpecialist {
         file_path: &std::path::Path,
         code: &str,
     ) -> Result<adaptation_engine::ScientificCycleReport> {
-        info!(target: "specialist::dev_tools", ?file_path, "Executing autonomous scientific AST hypothesis loop in the CompilerCore");
-        let report = adaptation_engine::AutonomousScientificEngine::analyze_and_hypothesize(file_path, code)?;
+        info!(target: "agent::dev_tools", ?file_path, "Executing autonomous scientific AST hypothesis loop in the CompilerCore");
+        let report = adaptation_engine::AutonomousScientificEngine::analyze_and_hypothesize(
+            file_path, code,
+        )?;
         self.forge.total_adaptations_forged += report.hypotheses_accepted;
         Ok(report)
     }
@@ -165,35 +195,54 @@ impl SovereignSpecialist for FabricatorSpecialist {
 
     async fn handle_packet(&mut self, packet: MnlpPacket) -> Result<MnlpResponse> {
         let payload_str = String::from_utf8_lossy(&packet.payload);
-        
+
         if payload_str.starts_with("wrap:") {
             let target_path = payload_str.trim_start_matches("wrap:").trim();
-            let temp_out = paths::WorkspacePaths::discover(&paths::WorkspacePathsConfig::new()).models().join("organs");
-            let (manifest, crate_path) = self.forge_organ_wrapper(target_path, None, &temp_out).await?;
-            
+            let target_out = self.output_dir.clone().unwrap_or_else(|| {
+                paths::WorkspacePaths::discover(&paths::WorkspacePathsConfig::new())
+                    .models()
+                    .join("modules")
+            });
+            let (manifest, crate_path) = self
+                .forge_organ_wrapper(target_path, None, &target_out)
+                .await?;
+
             return Ok(MnlpResponse {
                 success: true,
                 opcode: self.domain_opcode(),
                 correlation_id: packet.correlation_id,
-                message: format!("Fabricator successfully forged organ '{}' at {:?}", manifest.name, crate_path),
+                message: format!(
+                    "Fabricator successfully forged module '{}' at {:?}",
+                    manifest.name, crate_path
+                ),
                 payload: serde_json::to_vec(&manifest)?,
             });
         }
 
         if payload_str.starts_with("scientific:") || payload_str.starts_with("hypothesis:") {
-            let code = payload_str.trim_start_matches("scientific:").trim_start_matches("hypothesis:").trim();
-            let report = self.forge_scientific_hypothesis_cycle(std::path::Path::new("virtual_target.rs"), code)?;
+            let code = payload_str
+                .trim_start_matches("scientific:")
+                .trim_start_matches("hypothesis:")
+                .trim();
+            let report = self.forge_scientific_hypothesis_cycle(
+                std::path::Path::new("virtual_target.rs"),
+                code,
+            )?;
 
             return Ok(MnlpResponse {
                 success: true,
                 opcode: self.domain_opcode(),
                 correlation_id: packet.correlation_id,
-                message: format!("Fabricator evaluated {} hypotheses (accepted: {})", report.hypotheses_tested, report.hypotheses_accepted),
+                message: format!(
+                    "Fabricator evaluated {} hypotheses (accepted: {})",
+                    report.hypotheses_tested, report.hypotheses_accepted
+                ),
                 payload: serde_json::to_vec(&report)?,
             });
         }
 
-        let patch = self.forge_code_repair("src/main.rs", &payload_str, "panic!();", "return Ok(());")?;
+        let patch =
+            self.forge_code_repair("src/main.rs", &payload_str, "panic!();", "return Ok(());")?;
         let payload = serde_json::to_vec(&patch)?;
 
         Ok(MnlpResponse {
@@ -230,7 +279,9 @@ mod tests {
     fn test_fabricator_forge() {
         let mut fabricator = FabricatorSpecialist::new();
         let src = "fn work() { panic!(); }";
-        let patch = fabricator.forge_code_repair("test.rs", src, "panic!();", "Ok(())").unwrap();
+        let patch = fabricator
+            .forge_code_repair("test.rs", src, "panic!();", "Ok(())")
+            .unwrap();
         assert!(patch.patch_content.contains("Ok(())"));
         assert_eq!(fabricator.forge.total_adaptations_forged, 1);
     }
@@ -255,7 +306,12 @@ mod tests {
             ..Default::default()
         };
         let report = fabricator
-            .forge_autonomous_self_repair("test.rs", src, "error[E0432]: unresolved import", &mut synapse)
+            .forge_autonomous_self_repair(
+                "test.rs",
+                src,
+                "error[E0432]: unresolved import",
+                &mut synapse,
+            )
             .unwrap();
         assert!(report.is_verified);
         assert_eq!(synapse.integrity_score, 85);
@@ -265,7 +321,9 @@ mod tests {
     fn test_fabricator_machine_native_optimization() {
         let mut fabricator = FabricatorSpecialist::new();
         let (graph, explanation) = fabricator
-            .forge_machine_native_optimization("Synthesize vector allocation and energy tensor dot product")
+            .forge_machine_native_optimization(
+                "Synthesize vector allocation and energy tensor dot product",
+            )
             .unwrap();
         assert_eq!(graph.nodes.len(), 2);
         assert!(explanation.contains("Machine-Native"));

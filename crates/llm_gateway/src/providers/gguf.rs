@@ -3,9 +3,9 @@
 // Uses Qwen models (or other open source GGUF)
 
 use crate::types::*;
-use paths::{WorkspacePaths, WorkspacePathsConfig};
 use anyhow::{Result, anyhow};
 use async_trait::async_trait;
+use paths::{WorkspacePaths, WorkspacePathsConfig};
 use std::path::PathBuf;
 use tracing::{debug, info, warn};
 

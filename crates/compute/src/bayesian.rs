@@ -2,7 +2,7 @@
 //! Bayesian Inference and Belief Updating primitives.
 //! Used for trust scoring, intent classification, sensor fusion, and adaptive state regulation.
 
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 
 /// Beta distribution conjugate prior for Bernoulli trials.
 #[derive(Debug, Clone)]
@@ -79,7 +79,8 @@ impl GaussianConjugate {
         let prior_precision = 1.0 / self.variance;
         let obs_precision = 1.0 / self.observation_variance;
         let post_precision = prior_precision + obs_precision;
-        let post_mean = (prior_precision * self.mean + obs_precision * observation) / post_precision;
+        let post_mean =
+            (prior_precision * self.mean + obs_precision * observation) / post_precision;
 
         self.mean = post_mean;
         self.variance = 1.0 / post_precision;
@@ -96,7 +97,8 @@ impl GaussianConjugate {
         let prior_precision = 1.0 / self.variance;
         let batch_precision = n / self.observation_variance;
         let post_precision = prior_precision + batch_precision;
-        let post_mean = (prior_precision * self.mean + batch_precision * sample_mean) / post_precision;
+        let post_mean =
+            (prior_precision * self.mean + batch_precision * sample_mean) / post_precision;
 
         self.mean = post_mean;
         self.variance = 1.0 / post_precision;

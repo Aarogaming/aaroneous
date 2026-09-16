@@ -1,6 +1,6 @@
 //! DXGI Swap-Chain Present Hook - Direct GPU Frame Capture
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 
 #[derive(Debug)]
 pub struct DxgiSwapchainHook {

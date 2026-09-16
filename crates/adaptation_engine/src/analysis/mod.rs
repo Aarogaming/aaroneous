@@ -12,9 +12,9 @@ pub mod verifier;
 
 pub use ast_parser::{AstObservation, CodeStructure, FunctionSignature};
 pub use batch_tensor::{
-    batch_compute_similarity, batch_extract_features, batch_generate_hypotheses,
-    batch_run_experiments, batch_verify, compute_code_information_flow, detect_code_clones,
-    prioritize_tests, run_batch_analysis, BatchAnalysisReport,
+    BatchAnalysisReport, batch_compute_similarity, batch_extract_features,
+    batch_generate_hypotheses, batch_run_experiments, batch_verify, compute_code_information_flow,
+    detect_code_clones, prioritize_tests, run_batch_analysis,
 };
 pub use experiment::{ExperimentResult, TestOutcome};
 pub use hypothesis::{ExperimentDesign, Hypothesis};

@@ -17,3 +17,6 @@ bytemuck = { workspace = true, default-features = false, features = ["derive"] }
 default = ["std"]
 std = ["serde/std", "postcard/use-std"]
 alloc = ["postcard/alloc"]
+
+[dev-dependencies]
+proptest = "1.5"

@@ -9,7 +9,9 @@ use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
 use tracing::info;
 
-use crate::traits::{DomainSubEngine, MnlpPacket, MnlpResponse, SovereignSpecialist, SpecialistHealth};
+use crate::traits::{
+    DomainSubEngine, MnlpPacket, MnlpResponse, SovereignSpecialist, SpecialistHealth,
+};
 
 /// A subtask in an Orchestrator Directed Acyclic Graph (DAG)
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -55,7 +57,7 @@ pub struct OrchestratorSpecialist {
     pub max_tokens: f32,
     pub task_queue: VecDeque<TaskNode>,
     pub scheduler: TaskSchedulerEngine,
-    pub draupnir: TaskSchedulerEngine,
+    pub task_scheduler: TaskSchedulerEngine,
 }
 
 impl Default for OrchestratorSpecialist {
@@ -71,13 +73,13 @@ impl OrchestratorSpecialist {
             max_tokens: 100.0,
             task_queue: VecDeque::new(),
             scheduler: TaskSchedulerEngine::default(),
-            draupnir: TaskSchedulerEngine::default(),
+            task_scheduler: TaskSchedulerEngine::default(),
         }
     }
 
     /// Decomposes an intent into subtasks
     pub fn decompose_intent(&mut self, intent_description: &str) -> Vec<TaskNode> {
-        info!(target: "specialist::orchestrator", %intent_description, "Decomposing user intent into task DAG");
+        info!(target: "agent::orchestrator", %intent_description, "Decomposing user intent into task DAG");
 
         let tasks = vec![
             TaskNode {
@@ -98,7 +100,10 @@ impl OrchestratorSpecialist {
             },
             TaskNode {
                 task_id: "task_3_audit".to_string(),
-                description: format!("Security and safety verification for: {}", intent_description),
+                description: format!(
+                    "Security and safety verification for: {}",
+                    intent_description
+                ),
                 assigned_specialist: "Sentinel".to_string(),
                 token_cost: 5.0,
                 dependencies: vec!["task_2_forge".to_string()],
@@ -108,7 +113,7 @@ impl OrchestratorSpecialist {
 
         self.scheduler.active_dag_count += 1;
         self.scheduler.total_tasks_scheduled += tasks.len();
-        self.draupnir = self.scheduler.clone();
+        self.task_scheduler = self.scheduler.clone();
 
         for t in &tasks {
             self.task_queue.push_back(t.clone());
@@ -171,6 +176,6 @@ mod tests {
         assert_eq!(tasks[0].assigned_specialist, "Synthesizer");
         assert_eq!(tasks[1].assigned_specialist, "Fabricator");
         assert_eq!(tasks[2].assigned_specialist, "Sentinel");
-        assert_eq!(orchestrator.draupnir.total_tasks_scheduled, 3);
+        assert_eq!(orchestrator.task_scheduler.total_tasks_scheduled, 3);
     }
 }

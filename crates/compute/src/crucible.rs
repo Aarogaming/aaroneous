@@ -11,7 +11,7 @@
 //! 3. Ground-Truth SMT Arbiter: Only solutions that mathematically pass the
 //!    `LatticeVerifier` and `Z3Prover` are stamped as verified ground truth habits.
 
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
@@ -33,9 +33,18 @@ pub struct CrucibleDuelReport {
 /// A simulated virtual environment scenario
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum VirtualScenario {
-    ConstrainedSpatialPathfinding { obstacle_density: f32, spatial_dimensions: u8 },
-    DynamicClosedLoopRegulation { target_tolerance: f32, disturbance_frequency_hz: f32 },
-    AlgebraicInvariantProof { operations: usize, precision_bits: u8 },
+    ConstrainedSpatialPathfinding {
+        obstacle_density: f32,
+        spatial_dimensions: u8,
+    },
+    DynamicClosedLoopRegulation {
+        target_tolerance: f32,
+        disturbance_frequency_hz: f32,
+    },
+    AlgebraicInvariantProof {
+        operations: usize,
+        precision_bits: u8,
+    },
 }
 
 /// The Sealed Crucible Sandbox

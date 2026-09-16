@@ -134,7 +134,7 @@ impl BusVisualizer {
             painter.rect_stroke(
                 rect,
                 egui::CornerRadius::same(4),
-                Stroke::new(1.0, Color32::from_rgb(35, 45, 60)),
+                Stroke::new(1.0_f32, Color32::from_rgb(35, 45, 60)),
                 egui::StrokeKind::Inside,
             );
 
@@ -179,7 +179,7 @@ impl BusVisualizer {
             for i in 0..points.len().saturating_sub(1) {
                 painter.line_segment(
                     [points[i], points[i + 1]],
-                    Stroke::new(1.5, Color32::from_rgba_unmultiplied(255, 220, 0, 180)),
+                    Stroke::new(1.5_f32, Color32::from_rgba_unmultiplied(255, 220, 0, 180)),
                 );
             }
         });

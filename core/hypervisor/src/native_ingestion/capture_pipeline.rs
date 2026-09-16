@@ -1,11 +1,9 @@
 //! High-Performance Capture Pipeline - Unified Telemetry Data Flow
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 
 use crate::native_ingestion::{
-    dxgi_swapchain::{DxgiSwapchainHook, DxgiCaptureMetrics},
-    etw_kernel_trace::{EtwKernelTrace, EtwTelemetryMetrics},
-    rgb_telemetry::{RgbTelemetryReader, RgbTelemetryMetrics},
+    dxgi_swapchain::DxgiCaptureMetrics, rgb_telemetry::RgbTelemetryMetrics,
 };
 
 #[derive(Debug)]
@@ -135,10 +133,10 @@ mod tests {
     fn test_frame_processing() {
         let pipeline = CapturePipeline::default();
         pipeline.start().unwrap();
-        
+
         let metrics = DxgiCaptureMetrics::new(60, &[5000u64; 60]);
         let count = pipeline.process_dxgi_frame(&metrics);
-        
+
         assert_eq!(count, 1);
     }
 
@@ -146,11 +144,11 @@ mod tests {
     fn test_etw_event_processing() {
         let pipeline = CapturePipeline::default();
         pipeline.start().unwrap();
-        
+
         pipeline.process_etw_event(5, "process_create");
         pipeline.process_etw_event(15, "file_io");
         pipeline.process_etw_event(25, "network");
-        
+
         assert_eq!(pipeline.events_processed.load(Ordering::SeqCst), 3);
     }
 
@@ -158,13 +156,13 @@ mod tests {
     fn test_rgb_update_processing() {
         let pipeline = CapturePipeline::default();
         pipeline.start().unwrap();
-        
+
         let metrics = RgbTelemetryMetrics {
             max_temperature_celsius: Some(45.0),
             ..Default::default()
         };
         let count = pipeline.process_rgb_update(&metrics);
-        
+
         assert_eq!(count, 1);
     }
 
@@ -172,11 +170,11 @@ mod tests {
     fn test_pipeline_metrics() {
         let pipeline = CapturePipeline::default();
         pipeline.start().unwrap();
-        
+
         pipeline.process_dxgi_frame(&DxgiCaptureMetrics::new(60, &[]));
         pipeline.process_etw_event(5, "");
         pipeline.process_rgb_update(&RgbTelemetryMetrics::default());
-        
+
         let metrics = pipeline.get_pipeline_metrics();
         assert_eq!(metrics.frames_processed, 1);
         assert_eq!(metrics.events_processed, 1);

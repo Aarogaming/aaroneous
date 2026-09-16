@@ -12,13 +12,14 @@ use ipc_bus::SwmrSnapshotReader;
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 /// Dynamic resource pacing mode regulating shell rendering budgets
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum GovernorPacing {
     /// Full performance target (120+ FPS) when thermal/VRAM headroom is nominal
+    #[default]
     FullPerformance,
     /// Balanced frame pacing (60 FPS) under moderate thermal load or active background inference
     ThermalThrottled,
@@ -43,12 +44,6 @@ impl GovernorPacing {
             Self::ThermalThrottled => 60.0,
             Self::CriticalVramSave => 30.0,
         }
-    }
-}
-
-impl Default for GovernorPacing {
-    fn default() -> Self {
-        Self::FullPerformance
     }
 }
 
@@ -175,7 +170,7 @@ impl From<&EngineSnapshot> for EngineSnapshotPod {
 /// Thread-safe lock-free state publisher connecting core loop to shells via SWMR shared memory
 pub struct EngineStatePublisher {
     current: RwLock<Arc<EngineSnapshot>>,
-    shm_reader: Option<SwmrSnapshotReader>,
+    shm_reader: Option<RwLock<SwmrSnapshotReader>>,
     last_seq: AtomicU64,
 }
 
@@ -188,8 +183,8 @@ impl Default for EngineStatePublisher {
 impl EngineStatePublisher {
     pub fn new() -> Self {
         let config = paths::WorkspacePathsConfig::default();
-        let path = paths::resolve_synapse_path("engine_state", &config);
-        let shm_reader = Some(SwmrSnapshotReader::open(&path));
+        let path = paths::resolve_synapse_path("engine_state_v4", &config);
+        let shm_reader = Some(RwLock::new(SwmrSnapshotReader::open(&path)));
         Self {
             current: RwLock::new(Arc::new(EngineSnapshot::default())),
             shm_reader,
@@ -198,7 +193,7 @@ impl EngineStatePublisher {
     }
 
     pub fn new_with_shm_path(path: &Path) -> Self {
-        let shm_reader = Some(SwmrSnapshotReader::open(path));
+        let shm_reader = Some(RwLock::new(SwmrSnapshotReader::open(path)));
         Self {
             current: RwLock::new(Arc::new(EngineSnapshot::default())),
             shm_reader,
@@ -223,6 +218,10 @@ impl EngineStatePublisher {
     /// Returns true if an updated snapshot was acquired.
     pub fn poll_shm(&self) -> bool {
         if let Some(ref reader) = self.shm_reader {
+            if !reader.read().is_mapped() {
+                reader.write().refresh();
+            }
+            let reader = reader.read();
             let last = self.last_seq.load(Ordering::Relaxed);
             if let Some(entry) = reader.read_next(last) {
                 self.last_seq.store(entry.sequence, Ordering::Relaxed);
@@ -278,7 +277,11 @@ impl EngineStatePublisher {
         ConsoleProjection {
             display_badge: format!("{:.0} FPS", snap.measured_fps),
             harmony_label: format!("Harmony {:.0}%", snap.bus_integrity),
-            user_badge: format!("👤 {} [Flow {:.0}%]", snap.active_profile_name, snap.flow_score * 100.0),
+            user_badge: format!(
+                "👤 {} [Flow {:.0}%]",
+                snap.active_profile_name,
+                snap.flow_score * 100.0
+            ),
             level_badge: format!("⭐ Lv. {}", snap.user_level),
         }
     }
@@ -287,7 +290,10 @@ impl EngineStatePublisher {
     pub fn project_hud(&self) -> HudProjection {
         let snap = self.snapshot();
         HudProjection {
-            active_guidance: format!("Specialist: {} • {}", snap.active_specialist, snap.last_event_desc),
+            active_guidance: format!(
+                "Specialist: {} • {}",
+                snap.active_specialist, snap.last_event_desc
+            ),
             measured_fps: snap.measured_fps,
             is_nominal: snap.bus_integrity >= 90.0,
         }
@@ -354,8 +360,8 @@ mod tests {
         let tmp = tempfile::tempdir().expect("tempdir");
         let shm_path = tmp.path().join("test_studio_engine_state.synapse");
 
-        let publisher = ipc_bus::SwmrSnapshotPublisher::open_or_create(&shm_path)
-            .expect("publisher create");
+        let publisher =
+            ipc_bus::SwmrSnapshotPublisher::open_or_create(&shm_path).expect("publisher create");
         let reader = EngineStatePublisher::new_with_shm_path(&shm_path);
 
         // Before any publish from hypervisor, reader falls back to default nominal state

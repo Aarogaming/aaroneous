@@ -5,11 +5,11 @@ use crate::action_executor::{ActionExecutor, ActionResult, ExecutionStats};
 use crate::decision_engine::{
     AutonomousDecisionEngine, DecisionTask, ExecutionOutcome, TaskEvaluation,
 };
-use crate::state_snapshot::{NodeMetrics, SpatialCanvasState};
 use crate::intelligence::{IntelligenceEngine, LLMConfig, ProviderType, Specialist, TaskType};
 use crate::metadata_ingestor::{
     MetadataAnalysis, MetadataEvent, MetadataIngestor, MetadataIngestorConfig,
 };
+use crate::state_snapshot::{NodeMetrics, SpatialCanvasState};
 use biology::SystemHealthReport;
 use compute::thermodynamics::SystemPhase;
 use serde::{Deserialize, Serialize};
@@ -24,7 +24,7 @@ pub struct OrchestrationDaemonConfig {
     pub ingestor_config: MetadataIngestorConfig,
     pub cycle_interval: Duration,
     pub max_tasks_per_cycle: usize,
-    pub wasm_enzyme_path: PathBuf,
+    pub wasm_module_path: PathBuf,
     pub enable_auto_throttle: bool,
     pub enable_constellation_updates: bool,
 }
@@ -35,7 +35,7 @@ impl Default for OrchestrationDaemonConfig {
             ingestor_config: MetadataIngestorConfig::default(),
             cycle_interval: Duration::from_secs(10),
             max_tasks_per_cycle: 5,
-            wasm_enzyme_path: PathBuf::from("native_enzyme"),
+            wasm_module_path: PathBuf::from("native_enzyme"),
             enable_auto_throttle: true,
             enable_constellation_updates: true,
         }
@@ -229,7 +229,7 @@ impl OrchestrationDaemon {
 
         let intelligence = IntelligenceEngine::new(llm_config, specialists)?;
         let decision_engine = AutonomousDecisionEngine::new(intelligence);
-        let executor = ActionExecutor::new(config.wasm_enzyme_path.clone());
+        let executor = ActionExecutor::new(config.wasm_module_path.clone());
         let ingestor_config = config.ingestor_config.clone();
         let (assimilation_tx, assimilation_rx) = tokio::sync::mpsc::channel(128);
 
@@ -438,7 +438,8 @@ impl OrchestrationDaemon {
     pub fn process_assimilation_frame(
         &mut self,
         bytes: &[u8],
-    ) -> Result<ipc_bus::universal_protocol::UniversalServerBroadcast, crate::error::HypervisorError> {
+    ) -> Result<ipc_bus::universal_protocol::UniversalServerBroadcast, crate::error::HypervisorError>
+    {
         let transitioned = crate::assimilation::handle_assimilation_event(bytes)?;
         self.assimilations_processed += 1;
         let broadcast = transitioned.to_broadcast(self.assimilations_processed, 0);
@@ -721,14 +722,21 @@ mod tests {
         let initial = crate::assimilation::AssimilationRecord::new([5u8; 16], 1234);
         let bytes = bytemuck::bytes_of(&initial);
 
-        let broadcast = daemon.process_assimilation_frame(bytes).expect("processing frame must succeed");
-        assert_eq!(broadcast.broadcast_type, ipc_bus::universal_protocol::UcpBroadcastType::AssimilationState as u32);
+        let broadcast = daemon
+            .process_assimilation_frame(bytes)
+            .expect("processing frame must succeed");
+        assert_eq!(
+            broadcast.broadcast_type,
+            ipc_bus::universal_protocol::UcpBroadcastType::AssimilationState as u32
+        );
         assert_eq!(daemon.assimilations_processed, 1);
         assert_eq!(daemon.get_status().assimilations_processed, 1);
 
         // Test non-blocking channel submission
         let bytes2 = bytemuck::bytes_of(&initial);
-        daemon.submit_assimilation_frame(bytes2).expect("submission must succeed");
+        daemon
+            .submit_assimilation_frame(bytes2)
+            .expect("submission must succeed");
         assert_eq!(daemon.assimilation_rx.try_recv().is_ok(), true);
     }
 }

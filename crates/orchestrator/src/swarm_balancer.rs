@@ -9,7 +9,7 @@ use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
-use tokio::sync::{mpsc, RwLock};
+use tokio::sync::{RwLock, mpsc};
 
 /// Worker status
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -96,10 +96,10 @@ impl Transport for TcpTransport {
     }
 
     async fn query_status(&self, worker: &SwarmWorker) -> Result<WorkerStatus> {
-        if let Some(addr) = &worker.address {
-            if tokio::net::TcpStream::connect(addr).await.is_ok() {
-                return Ok(WorkerStatus::Idle);
-            }
+        if let Some(addr) = &worker.address
+            && tokio::net::TcpStream::connect(addr).await.is_ok()
+        {
+            return Ok(WorkerStatus::Idle);
         }
         Ok(WorkerStatus::Offline)
     }
@@ -224,8 +224,7 @@ impl SwarmBalancer {
                     WorkerStatus::Failed("Task failed".to_string())
                 };
                 worker.tasks_completed += 1;
-                worker.avg_latency_ms =
-                    worker.avg_latency_ms * 0.9 + completion_time_ms * 0.1;
+                worker.avg_latency_ms = worker.avg_latency_ms * 0.9 + completion_time_ms * 0.1;
                 worker.capacity = (worker.capacity + 0.2).min(1.0);
             }
         }
@@ -248,9 +247,18 @@ impl SwarmBalancer {
     pub async fn health(&self) -> SwarmHealth {
         let workers = self.workers.read().await;
         let total = workers.len();
-        let idle = workers.values().filter(|w| w.status == WorkerStatus::Idle).count();
-        let busy = workers.values().filter(|w| w.status == WorkerStatus::Busy).count();
-        let offline = workers.values().filter(|w| w.status == WorkerStatus::Offline).count();
+        let idle = workers
+            .values()
+            .filter(|w| w.status == WorkerStatus::Idle)
+            .count();
+        let busy = workers
+            .values()
+            .filter(|w| w.status == WorkerStatus::Busy)
+            .count();
+        let offline = workers
+            .values()
+            .filter(|w| w.status == WorkerStatus::Offline)
+            .count();
         let avg_capacity = if total > 0 {
             workers.values().map(|w| w.capacity).sum::<f64>() / total as f64
         } else {
@@ -405,7 +413,10 @@ mod tests {
         assert_eq!(workers[0].status, WorkerStatus::Busy);
 
         // Complete the task
-        balancer.complete_task("t1", "w1", true, 50.0).await.unwrap();
+        balancer
+            .complete_task("t1", "w1", true, 50.0)
+            .await
+            .unwrap();
 
         // Worker should be idle again
         let workers = balancer.list_workers().await;
@@ -450,15 +461,17 @@ mod tests {
     #[tokio::test]
     async fn test_remove_worker() {
         let balancer = mock_balancer();
-        balancer.register_worker(SwarmWorker {
-            id: "w1".to_string(),
-            name: "Worker".to_string(),
-            address: None,
-            capacity: 1.0,
-            status: WorkerStatus::Idle,
-            tasks_completed: 0,
-            avg_latency_ms: 0.0,
-        }).await;
+        balancer
+            .register_worker(SwarmWorker {
+                id: "w1".to_string(),
+                name: "Worker".to_string(),
+                address: None,
+                capacity: 1.0,
+                status: WorkerStatus::Idle,
+                tasks_completed: 0,
+                avg_latency_ms: 0.0,
+            })
+            .await;
 
         assert_eq!(balancer.list_workers().await.len(), 1);
         balancer.remove_worker("w1").await;
@@ -486,30 +499,39 @@ mod tests {
 
         let result = balancer.dispatch_task(task).await;
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("No available workers"));
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("No available workers")
+        );
     }
 
     #[tokio::test]
     async fn test_find_best_worker_filters_busy() {
         let balancer = mock_balancer();
-        balancer.register_worker(SwarmWorker {
-            id: "w_busy".to_string(),
-            name: "Busy".to_string(),
-            address: None,
-            capacity: 0.9,
-            status: WorkerStatus::Busy,
-            tasks_completed: 5,
-            avg_latency_ms: 10.0,
-        }).await;
-        balancer.register_worker(SwarmWorker {
-            id: "w_idle".to_string(),
-            name: "Idle".to_string(),
-            address: None,
-            capacity: 0.5,
-            status: WorkerStatus::Idle,
-            tasks_completed: 0,
-            avg_latency_ms: 50.0,
-        }).await;
+        balancer
+            .register_worker(SwarmWorker {
+                id: "w_busy".to_string(),
+                name: "Busy".to_string(),
+                address: None,
+                capacity: 0.9,
+                status: WorkerStatus::Busy,
+                tasks_completed: 5,
+                avg_latency_ms: 10.0,
+            })
+            .await;
+        balancer
+            .register_worker(SwarmWorker {
+                id: "w_idle".to_string(),
+                name: "Idle".to_string(),
+                address: None,
+                capacity: 0.5,
+                status: WorkerStatus::Idle,
+                tasks_completed: 0,
+                avg_latency_ms: 50.0,
+            })
+            .await;
 
         let task = RoutableTask {
             id: "t1".to_string(),
@@ -527,15 +549,17 @@ mod tests {
     #[tokio::test]
     async fn test_find_best_worker_filters_low_capacity() {
         let balancer = mock_balancer();
-        balancer.register_worker(SwarmWorker {
-            id: "w_low".to_string(),
-            name: "Low".to_string(),
-            address: None,
-            capacity: 0.05,
-            status: WorkerStatus::Idle,
-            tasks_completed: 0,
-            avg_latency_ms: 0.0,
-        }).await;
+        balancer
+            .register_worker(SwarmWorker {
+                id: "w_low".to_string(),
+                name: "Low".to_string(),
+                address: None,
+                capacity: 0.05,
+                status: WorkerStatus::Idle,
+                tasks_completed: 0,
+                avg_latency_ms: 0.0,
+            })
+            .await;
 
         let task = RoutableTask {
             id: "t1".to_string(),
@@ -569,15 +593,17 @@ mod tests {
     #[tokio::test]
     async fn test_dispatch_consume_capacity() {
         let balancer = mock_balancer();
-        balancer.register_worker(SwarmWorker {
-            id: "w1".to_string(),
-            name: "Worker".to_string(),
-            address: None,
-            capacity: 1.0,
-            status: WorkerStatus::Idle,
-            tasks_completed: 0,
-            avg_latency_ms: 0.0,
-        }).await;
+        balancer
+            .register_worker(SwarmWorker {
+                id: "w1".to_string(),
+                name: "Worker".to_string(),
+                address: None,
+                capacity: 1.0,
+                status: WorkerStatus::Idle,
+                tasks_completed: 0,
+                avg_latency_ms: 0.0,
+            })
+            .await;
 
         let mut balancer = balancer;
         let task = RoutableTask {
@@ -599,17 +625,22 @@ mod tests {
     #[tokio::test]
     async fn test_complete_task_failure_sets_failed_status() {
         let balancer = mock_balancer();
-        balancer.register_worker(SwarmWorker {
-            id: "w1".to_string(),
-            name: "Worker".to_string(),
-            address: None,
-            capacity: 1.0,
-            status: WorkerStatus::Busy,
-            tasks_completed: 0,
-            avg_latency_ms: 0.0,
-        }).await;
+        balancer
+            .register_worker(SwarmWorker {
+                id: "w1".to_string(),
+                name: "Worker".to_string(),
+                address: None,
+                capacity: 1.0,
+                status: WorkerStatus::Busy,
+                tasks_completed: 0,
+                avg_latency_ms: 0.0,
+            })
+            .await;
 
-        balancer.complete_task("t1", "w1", false, 100.0).await.unwrap();
+        balancer
+            .complete_task("t1", "w1", false, 100.0)
+            .await
+            .unwrap();
 
         let workers = balancer.list_workers().await;
         let w = workers.iter().find(|w| w.id == "w1").unwrap();
@@ -619,17 +650,22 @@ mod tests {
     #[tokio::test]
     async fn test_complete_task_updates_latency_ema() {
         let balancer = mock_balancer();
-        balancer.register_worker(SwarmWorker {
-            id: "w1".to_string(),
-            name: "Worker".to_string(),
-            address: None,
-            capacity: 1.0,
-            status: WorkerStatus::Busy,
-            tasks_completed: 0,
-            avg_latency_ms: 100.0,
-        }).await;
+        balancer
+            .register_worker(SwarmWorker {
+                id: "w1".to_string(),
+                name: "Worker".to_string(),
+                address: None,
+                capacity: 1.0,
+                status: WorkerStatus::Busy,
+                tasks_completed: 0,
+                avg_latency_ms: 100.0,
+            })
+            .await;
 
-        balancer.complete_task("t1", "w1", true, 50.0).await.unwrap();
+        balancer
+            .complete_task("t1", "w1", true, 50.0)
+            .await
+            .unwrap();
 
         let workers = balancer.list_workers().await;
         let w = workers.iter().find(|w| w.id == "w1").unwrap();
@@ -639,33 +675,39 @@ mod tests {
     #[tokio::test]
     async fn test_health_with_mixed_statuses() {
         let balancer = mock_balancer();
-        balancer.register_worker(SwarmWorker {
-            id: "w1".to_string(),
-            name: "A".to_string(),
-            address: None,
-            capacity: 0.8,
-            status: WorkerStatus::Idle,
-            tasks_completed: 0,
-            avg_latency_ms: 0.0,
-        }).await;
-        balancer.register_worker(SwarmWorker {
-            id: "w2".to_string(),
-            name: "B".to_string(),
-            address: None,
-            capacity: 0.6,
-            status: WorkerStatus::Busy,
-            tasks_completed: 0,
-            avg_latency_ms: 0.0,
-        }).await;
-        balancer.register_worker(SwarmWorker {
-            id: "w3".to_string(),
-            name: "C".to_string(),
-            address: None,
-            capacity: 0.0,
-            status: WorkerStatus::Offline,
-            tasks_completed: 0,
-            avg_latency_ms: 0.0,
-        }).await;
+        balancer
+            .register_worker(SwarmWorker {
+                id: "w1".to_string(),
+                name: "A".to_string(),
+                address: None,
+                capacity: 0.8,
+                status: WorkerStatus::Idle,
+                tasks_completed: 0,
+                avg_latency_ms: 0.0,
+            })
+            .await;
+        balancer
+            .register_worker(SwarmWorker {
+                id: "w2".to_string(),
+                name: "B".to_string(),
+                address: None,
+                capacity: 0.6,
+                status: WorkerStatus::Busy,
+                tasks_completed: 0,
+                avg_latency_ms: 0.0,
+            })
+            .await;
+        balancer
+            .register_worker(SwarmWorker {
+                id: "w3".to_string(),
+                name: "C".to_string(),
+                address: None,
+                capacity: 0.0,
+                status: WorkerStatus::Offline,
+                tasks_completed: 0,
+                avg_latency_ms: 0.0,
+            })
+            .await;
 
         let health = balancer.health().await;
         assert_eq!(health.total_workers, 3);

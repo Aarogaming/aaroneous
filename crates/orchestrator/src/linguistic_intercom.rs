@@ -10,7 +10,7 @@
 //! 4. Projects machine execution telemetry back into concise natural conversational feedback.
 //! 5. Delivers warm, attentive, and context-aware companion dialogue adapted to the operator's flow state.
 
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use serde::{Deserialize, Serialize};
 
 use si_ir::{
@@ -86,9 +86,13 @@ impl CompanionPersona {
     /// Provides conversational status feedback for user-emulation or automated tasks
     pub fn generate_task_status(&self, task_name: &str, success: bool, user_name: &str) -> String {
         if success {
-            format!("The routine '{task_name}' executed flawlessly, {user_name}. Synthesizing observation trace.")
+            format!(
+                "The routine '{task_name}' executed flawlessly, {user_name}. Synthesizing observation trace."
+            )
         } else {
-            format!("Notice for {user_name}: Routine '{task_name}' encountered an unexpected variance. Safety interlock engaged safely.")
+            format!(
+                "Notice for {user_name}: Routine '{task_name}' encountered an unexpected variance. Safety interlock engaged safely."
+            )
         }
     }
 }
@@ -240,12 +244,18 @@ mod tests {
 
     #[test]
     fn test_linguistic_intercom_companion_greetings() {
-        let mut intercom = LinguisticIntercom::default();
+        let intercom = LinguisticIntercom::default();
         let primary_greet = intercom.companion.generate_greeting("Aaron", false, 0.95);
-        assert!(primary_greet.contains("Deep Flow"), "Primary high flow should mention deep flow");
+        assert!(
+            primary_greet.contains("Deep Flow"),
+            "Primary high flow should mention deep flow"
+        );
 
         let guest_greet = intercom.companion.generate_greeting("Guest", true, 0.80);
-        assert!(guest_greet.contains("isolated workspace"), "Guest should receive welcoming isolation prompt");
+        assert!(
+            guest_greet.contains("isolated workspace"),
+            "Guest should receive welcoming isolation prompt"
+        );
     }
 
     #[test]

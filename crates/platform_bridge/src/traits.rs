@@ -16,13 +16,13 @@ pub struct VisualObservation {
     pub height: usize,
     /// Timestamp in microsecond UNIX epoch
     pub timestamp_us: u64,
-    /// Active sectors count (0 to 256) computed by the epigenetic gate
+    /// Active sectors count (0 to 256) computed by the delta gate
     #[serde(default = "default_active_sectors")]
     pub active_sectors_count: usize,
-    /// Compute savings percentage achieved by epigenetic skipping (0.0% to 100.0%)
+    /// Compute savings percentage achieved by delta skipping (0.0% to 100.0%)
     #[serde(default)]
     pub compute_savings_pct: f32,
-    /// Time in microseconds spent computing the epigenetic saliency gate
+    /// Time in microseconds spent computing the delta saliency gate
     #[serde(default)]
     pub gating_latency_us: u64,
 }
@@ -74,13 +74,13 @@ pub struct ProbingTrace {
     pub timestamp_us: u64,
 }
 
-/// The core asynchronous trait for Marionette host backends
+/// The core asynchronous trait for platform host backends
 #[async_trait]
-pub trait MarionetteHost: Send + Sync {
+pub trait PlatformHost: Send + Sync {
     /// Ingest a visual frame (128x128 normalized float grid)
     async fn pull_visual_perception(&mut self) -> Result<VisualObservation>;
 
-    /// Ingest a visual frame masked by an epigenetic gate (256 sectors)
+    /// Ingest a visual frame masked by an delta gate (256 sectors)
     async fn pull_visual_perception_gated(
         &mut self,
         gate_mask: &[bool; 256],
@@ -95,3 +95,7 @@ pub trait MarionetteHost: Send + Sync {
     /// Check if live hardware emulation is active and permitted
     fn is_live_emulation_active(&self) -> bool;
 }
+
+/// Backwards compatibility alias for `PlatformHost`
+#[deprecated(note = "Use PlatformHost instead")]
+pub type MarionetteHost = dyn PlatformHost;

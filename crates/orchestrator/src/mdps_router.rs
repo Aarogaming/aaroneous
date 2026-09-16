@@ -108,8 +108,8 @@ impl TaskRoutingEngine {
                 self.reward_matrix[s][a] = reward;
 
                 // Initialize transition probabilities (uniform prior)
-                for next_s in 0..num_states {
-                    self.transition_matrix[s][a][next_s] = 1.0 / num_states as f64;
+                for probability in self.transition_matrix[s][a].iter_mut().take(num_states) {
+                    *probability = 1.0 / num_states as f64;
                 }
             }
         }
@@ -232,8 +232,8 @@ impl TaskRoutingEngine {
             let confidence = (base_confidence + skill_score * 0.3).clamp(0.0, 1.0);
 
             RoutingDecision {
-                specialist_id: specialist.id.clone(),
-                specialist_name: specialist.name.clone(),
+                agent_id: specialist.id.clone(),
+                agent_name: specialist.name.clone(),
                 confidence,
                 expected_completion_time: specialist.avg_completion_time,
                 reasoning: format!(
@@ -249,8 +249,8 @@ impl TaskRoutingEngine {
             }
         } else {
             RoutingDecision {
-                specialist_id: "fallback".to_string(),
-                specialist_name: "Fallback Handler".to_string(),
+                agent_id: "fallback".to_string(),
+                agent_name: "Fallback Handler".to_string(),
                 confidence: 0.3,
                 expected_completion_time: 30.0,
                 reasoning: "No suitable specialist found".to_string(),
@@ -302,11 +302,11 @@ impl TaskRoutingEngine {
     /// Update specialist metrics based on task outcome
     pub fn update_specialist_performance(
         &mut self,
-        specialist_id: &str,
+        agent_id: &str,
         success: bool,
         completion_time: f64,
     ) {
-        if let Some(specialist) = self.specialists.iter_mut().find(|s| s.id == specialist_id) {
+        if let Some(specialist) = self.specialists.iter_mut().find(|s| s.id == agent_id) {
             // Update success rate with exponential moving average
             specialist.success_rate =
                 specialist.success_rate * 0.9 + if success { 1.0 } else { 0.0 } * 0.1;
@@ -346,25 +346,25 @@ impl TaskRoutingEngine {
             if s == next_state_idx {
                 self.transition_matrix[state_idx][action_idx][s] += delta;
             } else {
-                self.transition_matrix[state_idx][action_idx][s] *=
-                    1.0 - self.learning_rate;
+                self.transition_matrix[state_idx][action_idx][s] *= 1.0 - self.learning_rate;
             }
         }
 
         // Normalize to maintain valid probability distribution
-        let sum: f64 = self.transition_matrix[state_idx][action_idx]
-            .iter()
-            .sum();
+        let sum: f64 = self.transition_matrix[state_idx][action_idx].iter().sum();
         if sum > 0.0 {
-            for s in 0..num_states {
-                self.transition_matrix[state_idx][action_idx][s] /= sum;
+            for probability in self.transition_matrix[state_idx][action_idx]
+                .iter_mut()
+                .take(num_states)
+            {
+                *probability /= sum;
             }
         }
     }
 
     /// Consume specialist capacity when assigning a task
-    pub fn consume_capacity(&mut self, specialist_id: &str, cost: f64) {
-        if let Some(specialist) = self.specialists.iter_mut().find(|s| s.id == specialist_id) {
+    pub fn consume_capacity(&mut self, agent_id: &str, cost: f64) {
+        if let Some(specialist) = self.specialists.iter_mut().find(|s| s.id == agent_id) {
             specialist.capacity = (specialist.capacity - cost).max(0.0);
         }
     }
@@ -389,7 +389,8 @@ impl TaskRoutingEngine {
         let avg_local_capacity: f64 = if self.specialists.is_empty() {
             1.0
         } else {
-            self.specialists.iter().map(|s| s.capacity).sum::<f64>() / (self.specialists.len() as f64)
+            self.specialists.iter().map(|s| s.capacity).sum::<f64>()
+                / (self.specialists.len() as f64)
         };
 
         if avg_local_capacity < 0.5 {
@@ -407,8 +408,8 @@ impl TaskRoutingEngine {
 /// Decision output from the routing engine
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RoutingDecision {
-    pub specialist_id: String,
-    pub specialist_name: String,
+    pub agent_id: String,
+    pub agent_name: String,
     pub confidence: f64, // 0.0-1.0
     pub expected_completion_time: f64,
     pub reasoning: String,
@@ -462,7 +463,7 @@ mod tests {
         };
 
         let decision = engine.find_optimal_specialist(&task);
-        assert!(!decision.specialist_id.is_empty());
+        assert!(!decision.agent_id.is_empty());
         assert!(decision.confidence >= 0.0 && decision.confidence <= 1.0);
     }
 
@@ -514,10 +515,18 @@ mod tests {
     fn test_encode_state_bounds() {
         let engine = TaskRoutingEngine::new(create_test_specialists());
         // Min state
-        let min = RoutingState { task_complexity_bin: 0, specialist_load_bin: 0, urgency_bin: 0 };
+        let min = RoutingState {
+            task_complexity_bin: 0,
+            specialist_load_bin: 0,
+            urgency_bin: 0,
+        };
         assert_eq!(engine.encode_state(&min), 0);
         // Max state (4,4,4)
-        let max = RoutingState { task_complexity_bin: 4, specialist_load_bin: 4, urgency_bin: 4 };
+        let max = RoutingState {
+            task_complexity_bin: 4,
+            specialist_load_bin: 4,
+            urgency_bin: 4,
+        };
         assert_eq!(engine.encode_state(&max), 124); // 5*5*5 - 1
     }
 
@@ -535,9 +544,19 @@ mod tests {
         let specialists = create_test_specialists();
         let mut engine = TaskRoutingEngine::new(specialists);
 
-        let state = RoutingState { task_complexity_bin: 1, specialist_load_bin: 2, urgency_bin: 3 };
-        let action = RoutingAction { specialist_index: 0 };
-        let next_state = RoutingState { task_complexity_bin: 2, specialist_load_bin: 1, urgency_bin: 0 };
+        let state = RoutingState {
+            task_complexity_bin: 1,
+            specialist_load_bin: 2,
+            urgency_bin: 3,
+        };
+        let action = RoutingAction {
+            specialist_index: 0,
+        };
+        let next_state = RoutingState {
+            task_complexity_bin: 2,
+            specialist_load_bin: 1,
+            urgency_bin: 0,
+        };
 
         let state_idx = engine.encode_state(&state);
         let next_idx = engine.encode_state(&next_state);
@@ -550,7 +569,10 @@ mod tests {
         }
 
         let prob_after = engine.transition_matrix[state_idx][0][next_idx];
-        assert!(prob_after > prob_before, "Observed transition probability should increase");
+        assert!(
+            prob_after > prob_before,
+            "Observed transition probability should increase"
+        );
     }
 
     #[test]
@@ -558,16 +580,32 @@ mod tests {
         let specialists = create_test_specialists();
         let mut engine = TaskRoutingEngine::new(specialists);
 
-        let state = RoutingState { task_complexity_bin: 0, specialist_load_bin: 0, urgency_bin: 0 };
-        let action = RoutingAction { specialist_index: 0 };
-        let next = RoutingState { task_complexity_bin: 1, specialist_load_bin: 1, urgency_bin: 1 };
+        let state = RoutingState {
+            task_complexity_bin: 0,
+            specialist_load_bin: 0,
+            urgency_bin: 0,
+        };
+        let action = RoutingAction {
+            specialist_index: 0,
+        };
+        let next = RoutingState {
+            task_complexity_bin: 1,
+            specialist_load_bin: 1,
+            urgency_bin: 1,
+        };
 
         for _ in 0..50 {
             engine.update_transition_matrix(&state, &action, &next);
         }
 
-        let sum: f64 = engine.transition_matrix[engine.encode_state(&state)][0].iter().sum();
-        assert!((sum - 1.0).abs() < 0.01, "Transition probabilities should sum to ~1.0, got {}", sum);
+        let sum: f64 = engine.transition_matrix[engine.encode_state(&state)][0]
+            .iter()
+            .sum();
+        assert!(
+            (sum - 1.0).abs() < 0.01,
+            "Transition probabilities should sum to ~1.0, got {}",
+            sum
+        );
     }
 
     #[test]
@@ -575,9 +613,19 @@ mod tests {
         let specialists = create_test_specialists();
         let mut engine = TaskRoutingEngine::new(specialists);
 
-        let state = RoutingState { task_complexity_bin: 0, specialist_load_bin: 0, urgency_bin: 0 };
-        let action = RoutingAction { specialist_index: 999 }; // Out of bounds
-        let next = RoutingState { task_complexity_bin: 1, specialist_load_bin: 1, urgency_bin: 1 };
+        let state = RoutingState {
+            task_complexity_bin: 0,
+            specialist_load_bin: 0,
+            urgency_bin: 0,
+        };
+        let action = RoutingAction {
+            specialist_index: 999,
+        }; // Out of bounds
+        let next = RoutingState {
+            task_complexity_bin: 1,
+            specialist_load_bin: 1,
+            urgency_bin: 1,
+        };
 
         // Should not panic
         engine.update_transition_matrix(&state, &action, &next);
@@ -589,12 +637,20 @@ mod tests {
         let mut engine = TaskRoutingEngine::new(specialists);
 
         engine.consume_capacity("spec_1", 0.3);
-        let spec = engine.specialists.iter().find(|s| s.id == "spec_1").unwrap();
+        let spec = engine
+            .specialists
+            .iter()
+            .find(|s| s.id == "spec_1")
+            .unwrap();
         assert!((spec.capacity - 0.7).abs() < 0.01);
 
         // Cannot go below 0
         engine.consume_capacity("spec_1", 1.0);
-        let spec = engine.specialists.iter().find(|s| s.id == "spec_1").unwrap();
+        let spec = engine
+            .specialists
+            .iter()
+            .find(|s| s.id == "spec_1")
+            .unwrap();
         assert_eq!(spec.capacity, 0.0);
     }
 
@@ -651,7 +707,7 @@ mod tests {
         };
 
         let decision = engine.find_optimal_specialist(&task);
-        assert!(!decision.specialist_id.is_empty());
+        assert!(!decision.agent_id.is_empty());
         assert!(decision.confidence >= 0.0 && decision.confidence <= 1.0);
     }
 
@@ -663,9 +719,19 @@ mod tests {
         let initial_rate = engine.specialists[0].success_rate;
         engine.update_specialist_performance("spec_1", false, 20.0);
 
-        let spec = engine.specialists.iter().find(|s| s.id == "spec_1").unwrap();
-        assert!(spec.success_rate < initial_rate, "Failure should decrease success rate");
-        assert!(spec.avg_completion_time > 5.0, "Slow completion should increase avg time");
+        let spec = engine
+            .specialists
+            .iter()
+            .find(|s| s.id == "spec_1")
+            .unwrap();
+        assert!(
+            spec.success_rate < initial_rate,
+            "Failure should decrease success rate"
+        );
+        assert!(
+            spec.avg_completion_time > 5.0,
+            "Slow completion should increase avg time"
+        );
     }
 
     #[test]
@@ -676,8 +742,15 @@ mod tests {
 
         engine.update_specialist_performance("spec_1", true, 5.0);
 
-        let spec = engine.specialists.iter().find(|s| s.id == "spec_1").unwrap();
-        assert!(spec.capacity > 0.3, "Capacity should replenish after task completion");
+        let spec = engine
+            .specialists
+            .iter()
+            .find(|s| s.id == "spec_1")
+            .unwrap();
+        assert!(
+            spec.capacity > 0.3,
+            "Capacity should replenish after task completion"
+        );
     }
 
     #[test]
@@ -704,7 +777,7 @@ mod tests {
         };
 
         let decision = engine.find_optimal_specialist(&task);
-        assert_eq!(decision.specialist_id, "spec_1");
+        assert_eq!(decision.agent_id, "spec_1");
         assert!(decision.confidence > 0.0);
         assert!(decision.reasoning.contains("skills_matched=1/1"));
     }
@@ -741,7 +814,7 @@ mod tests {
         };
 
         let decision = engine.find_optimal_specialist(&task);
-        assert_eq!(decision.specialist_id, "fallback");
+        assert_eq!(decision.agent_id, "fallback");
         assert_eq!(decision.confidence, 0.3);
     }
 
@@ -751,7 +824,10 @@ mod tests {
         let engine = TaskRoutingEngine::new(specialists);
         let peers = vec![("peer_a", 0.9)];
         let routes = engine.balance_swarm_load(&peers);
-        assert!(routes.is_empty(), "No offloading when local capacity is sufficient");
+        assert!(
+            routes.is_empty(),
+            "No offloading when local capacity is sufficient"
+        );
     }
 
     #[test]
@@ -763,7 +839,10 @@ mod tests {
         let engine = TaskRoutingEngine::new(overloaded_specs);
         let peers = vec![("peer_a", 0.3), ("peer_b", 0.2)]; // All below threshold
         let routes = engine.balance_swarm_load(&peers);
-        assert!(routes.is_empty(), "No offloading when no peers have capacity");
+        assert!(
+            routes.is_empty(),
+            "No offloading when no peers have capacity"
+        );
     }
 
     #[test]
@@ -780,18 +859,36 @@ mod tests {
 
     #[test]
     fn test_routing_state_equality() {
-        let s1 = RoutingState { task_complexity_bin: 1, specialist_load_bin: 2, urgency_bin: 3 };
-        let s2 = RoutingState { task_complexity_bin: 1, specialist_load_bin: 2, urgency_bin: 3 };
-        let s3 = RoutingState { task_complexity_bin: 1, specialist_load_bin: 2, urgency_bin: 4 };
+        let s1 = RoutingState {
+            task_complexity_bin: 1,
+            specialist_load_bin: 2,
+            urgency_bin: 3,
+        };
+        let s2 = RoutingState {
+            task_complexity_bin: 1,
+            specialist_load_bin: 2,
+            urgency_bin: 3,
+        };
+        let s3 = RoutingState {
+            task_complexity_bin: 1,
+            specialist_load_bin: 2,
+            urgency_bin: 4,
+        };
         assert_eq!(s1, s2);
         assert_ne!(s1, s3);
     }
 
     #[test]
     fn test_routing_action_equality() {
-        let a1 = RoutingAction { specialist_index: 0 };
-        let a2 = RoutingAction { specialist_index: 0 };
-        let a3 = RoutingAction { specialist_index: 1 };
+        let a1 = RoutingAction {
+            specialist_index: 0,
+        };
+        let a2 = RoutingAction {
+            specialist_index: 0,
+        };
+        let a3 = RoutingAction {
+            specialist_index: 1,
+        };
         assert_eq!(a1, a2);
         assert_ne!(a1, a3);
     }
@@ -799,15 +896,15 @@ mod tests {
     #[test]
     fn test_routing_decision_serialization() {
         let decision = RoutingDecision {
-            specialist_id: "s1".to_string(),
-            specialist_name: "Test".to_string(),
+            agent_id: "s1".to_string(),
+            agent_name: "Test".to_string(),
             confidence: 0.85,
             expected_completion_time: 5.0,
             reasoning: "because".to_string(),
         };
         let json = serde_json::to_string(&decision).unwrap();
         let loaded: RoutingDecision = serde_json::from_str(&json).unwrap();
-        assert_eq!(loaded.specialist_id, "s1");
+        assert_eq!(loaded.agent_id, "s1");
         assert_eq!(loaded.confidence, 0.85);
     }
 

@@ -5,9 +5,9 @@
 use orchestration_plane::normalization_pipeline::{
     IngestionPlan, InvariantSeverity, InvariantViolation, NormalizationPipeline,
 };
-use std::path::PathBuf;
-use std::fs;
 use std::env;
+use std::fs;
+use std::path::PathBuf;
 
 #[test]
 fn test_inspect_target_flags_unwrap() {
@@ -23,14 +23,22 @@ fn test_inspect_target_flags_unwrap() {
     let x: Option<i32> = None;
     x.unwrap();
 }"#,
-    ).unwrap();
+    )
+    .unwrap();
 
     let pipeline = NormalizationPipeline::default();
     let plan = pipeline.inspect_target(&temp_dir).unwrap();
 
     // Verify unwrap violation was detected
-    assert!(!plan.violations.is_empty(), "Expected at least one violation");
-    let unwrap_violation = plan.violations.iter().find(|v| v.description.contains("unwrap")).unwrap();
+    assert!(
+        !plan.violations.is_empty(),
+        "Expected at least one violation"
+    );
+    let unwrap_violation = plan
+        .violations
+        .iter()
+        .find(|v| v.description.contains("unwrap"))
+        .unwrap();
     assert_eq!(unwrap_violation.severity, InvariantSeverity::Warning);
 
     // Cleanup
@@ -52,7 +60,7 @@ fn test_generate_normalization_patch() {
     };
 
     let report = pipeline.generate_normalization_patch(&plan).unwrap();
-    
+
     assert!(!report.patch_diff.is_empty());
     assert!(report.certified); // Warnings alone don't prevent certification
 }

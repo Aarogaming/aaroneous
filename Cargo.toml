@@ -6,7 +6,7 @@ members = [
     "crates/ipc_bus",
     "crates/capabilities",
     "crates/orchestrator",
-    "crates/autonomic_adaptation",
+    "crates/adaptation_plane",
     "crates/adaptation_engine",
     "crates/omni",
     "crates/transpiler",
@@ -31,6 +31,8 @@ members = [
     "crates/runtime_monitor",
     "crates/mcp_server",
     "crates/orchestration_plane",
+    "crates/compliance_auditor",
+    "xtask",
 ]
 
 exclude = [
@@ -56,7 +58,7 @@ serde_json = "1.0"
 tokio = { version = "1.0", features = ["full"] }
 thiserror = "2.0"
 anyhow = "1.0"
-bytemuck = { version = "1.14", features = ["derive", "min_const_generics"] }
+bytemuck = { version = "1.14", default-features = false, features = ["derive", "min_const_generics"] }
 uuid = { version = "1.0", features = ["v4", "serde"] }
 tracing = "0.1"
 tempfile = "3.10"
@@ -67,5 +69,4 @@ lto = "fat"            # Cross-crate inlining across si_ir, compute, and platfor
 codegen-units = 1      # Maximizes compiler optimization across the entire workspace
 panic = "abort"        # Removes unwinding landing pads (makes Cranelift W^X memory leaner)
 strip = true           # Strips debug symbols from the final standalone binary
-
 

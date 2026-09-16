@@ -6,7 +6,7 @@
 //! Streams teacher challenge prompts and extracts structured responses
 //! for distillation into `.si` cartridges.
 
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
@@ -97,7 +97,10 @@ impl LmStudioClient {
             stream: false,
         };
 
-        let url = format!("{}/chat/completions", self.endpoint_url.trim_end_matches('/'));
+        let url = format!(
+            "{}/chat/completions",
+            self.endpoint_url.trim_end_matches('/')
+        );
         let response = self.client.post(&url).json(&req).send().await?;
 
         if !response.status().is_success() {

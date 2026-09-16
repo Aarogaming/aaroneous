@@ -15,7 +15,9 @@ use rand::Rng;
 use serde::{Deserialize, Serialize};
 use std::time::Instant;
 
-use crate::machine_native::{MachineOpcode, NativeComputationNode, NativeComputationalGraph, NativeTypeLattice};
+use crate::machine_native::{
+    MachineOpcode, NativeComputationNode, NativeComputationalGraph, NativeTypeLattice,
+};
 use crate::si_solid_state::{AnchorTransition, DynamicAdaptationMatrix};
 
 /// Synthetic Exploration Goal generated during the Dream Phase
@@ -23,8 +25,8 @@ use crate::si_solid_state::{AnchorTransition, DynamicAdaptationMatrix};
 pub struct DreamGoal {
     pub goal_id: u64,
     pub centroid_skill_id: u16,
-    pub target_state: Vec<f32>,           // 256-dim target latent state
-    pub curiosity_temperature: f32,       // Exploration variance σ
+    pub target_state: Vec<f32>,     // 256-dim target latent state
+    pub curiosity_temperature: f32, // Exploration variance σ
     pub synthetic_mutations_count: usize,
 }
 
@@ -46,7 +48,7 @@ pub struct AsymmetricDuelReport {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SelfPlayStepResult {
     pub step_index: u64,
-    pub reward: f32,                     // +1.0 for valid AST/clean compile, -1.0 for invalid/error
+    pub reward: f32, // +1.0 for valid AST/clean compile, -1.0 for invalid/error
     pub execution_duration_us: u64,
     pub entropy_reduction: f64,
     pub is_crystallization_candidate: bool,
@@ -57,9 +59,9 @@ pub struct SelfPlayStepResult {
 pub struct SiSelfPlayEngine {
     pub golden_replay_buffer: Vec<AnchorTransition>,
     pub max_replay_buffer_size: usize,
-    pub trpo_gradient_bound: f32,         // Max allowable norm update per self-play step
-    pub exploration_sigma: f32,           // Exploration noise level
-    pub env_noise_variance: f32,          // Environmental noise variance (Noisy TV damper)
+    pub trpo_gradient_bound: f32, // Max allowable norm update per self-play step
+    pub exploration_sigma: f32,   // Exploration noise level
+    pub env_noise_variance: f32,  // Environmental noise variance (Noisy TV damper)
     pub synthetic_steps_completed: u64,
     pub successful_discoveries: u64,
 }
@@ -105,14 +107,25 @@ impl SiSelfPlayEngine {
     }
 
     /// Alice Phase: Applies k perturbations to create a challenging puzzle
-    pub fn alice_perturb_ast(&self, base_graph: &NativeComputationalGraph, k: usize) -> (NativeComputationalGraph, usize) {
+    pub fn alice_perturb_ast(
+        &self,
+        base_graph: &NativeComputationalGraph,
+        k: usize,
+    ) -> (NativeComputationalGraph, usize) {
         let mut corrupted = base_graph.clone();
         for i in 0..k {
             let corrupt_node_id = (i + 1) as u64;
             corrupted.add_node(NativeComputationNode {
                 id: corrupt_node_id,
-                opcode: MachineOpcode::TensorDot { left_reg: 1, right_reg: 2, dim: 64 },
-                type_lattice: NativeTypeLattice::LinearMemoryPointer { mutability: true, alignment: 64 }, // Intentional mismatch
+                opcode: MachineOpcode::TensorDot {
+                    left_reg: 1,
+                    right_reg: 2,
+                    dim: 64,
+                },
+                type_lattice: NativeTypeLattice::LinearMemoryPointer {
+                    mutability: true,
+                    alignment: 64,
+                }, // Intentional mismatch
                 energy_cost: 0.10,
                 dependencies: Vec::new(),
             });
@@ -121,7 +134,10 @@ impl SiSelfPlayEngine {
     }
 
     /// Bob Phase: Attempts to repair the puzzle back to valid physical invariants
-    pub fn bob_repair_ast(&self, corrupted_graph: &NativeComputationalGraph) -> (NativeComputationalGraph, usize, bool) {
+    pub fn bob_repair_ast(
+        &self,
+        corrupted_graph: &NativeComputationalGraph,
+    ) -> (NativeComputationalGraph, usize, bool) {
         let mut repaired = corrupted_graph.clone();
         let mut repair_steps = 0;
 
@@ -203,8 +219,14 @@ impl SiSelfPlayEngine {
         let mut base_graph = NativeComputationalGraph::new();
         base_graph.add_node(NativeComputationNode {
             id: 1,
-            opcode: MachineOpcode::Alloc { size_bytes: 1024, align: 64 },
-            type_lattice: NativeTypeLattice::LinearMemoryPointer { mutability: true, alignment: 64 },
+            opcode: MachineOpcode::Alloc {
+                size_bytes: 1024,
+                align: 64,
+            },
+            type_lattice: NativeTypeLattice::LinearMemoryPointer {
+                mutability: true,
+                alignment: 64,
+            },
             energy_cost: 0.05,
             dependencies: Vec::new(),
         });
@@ -214,9 +236,14 @@ impl SiSelfPlayEngine {
         let reward = duel.bob_reward;
 
         // 2. Apply Trust-Region Bounded Gradient Update with OGP
-        let effective_lr = (0.01 * reward).clamp(-self.trpo_gradient_bound, self.trpo_gradient_bound);
+        let effective_lr =
+            (0.01 * reward).clamp(-self.trpo_gradient_bound, self.trpo_gradient_bound);
         if reward > 0.0 {
-            adaptation.apply_success_reinforcement(&goal.target_state, &anchor.expected_delta, effective_lr.abs());
+            adaptation.apply_success_reinforcement(
+                &goal.target_state,
+                &anchor.expected_delta,
+                effective_lr.abs(),
+            );
             self.successful_discoveries += 1;
         } else {
             let error_sig = vec![1.0f32; adaptation.out_dim];
@@ -272,8 +299,14 @@ mod tests {
         let mut base_graph = NativeComputationalGraph::new();
         base_graph.add_node(NativeComputationNode {
             id: 1,
-            opcode: MachineOpcode::Alloc { size_bytes: 2048, align: 64 },
-            type_lattice: NativeTypeLattice::LinearMemoryPointer { mutability: true, alignment: 64 },
+            opcode: MachineOpcode::Alloc {
+                size_bytes: 2048,
+                align: 64,
+            },
+            type_lattice: NativeTypeLattice::LinearMemoryPointer {
+                mutability: true,
+                alignment: 64,
+            },
             energy_cost: 0.02,
             dependencies: Vec::new(),
         });

@@ -4,12 +4,12 @@
 //! have disjoint write/read footprints and can safely execute in parallel or be merged
 //! without semantic corruption or race conditions.
 
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
-use si_ir::{MachineOpcode, NativeComputationalGraph};
 use crate::smt_action_interlock::GovernanceError;
+use si_ir::{MachineOpcode, NativeComputationalGraph};
 
 /// Maximum allowable hardware register address before triggering memory safety violation
 pub const MAX_HARDWARE_REGISTER: u16 = 8192;
@@ -48,12 +48,22 @@ impl Z3Prover {
     /// Mathematically proves single-graph safety invariants:
     /// 1. Physical dimensional unit coherence (7-exponent SI lattice)
     /// 2. Bounded register footprints preventing hardware memory buffer overruns
-    pub fn prove_action_safety(&self, graph: &NativeComputationalGraph) -> Result<bool, GovernanceError> {
+    pub fn prove_action_safety(
+        &self,
+        graph: &NativeComputationalGraph,
+    ) -> Result<bool, GovernanceError> {
         // 1. Verify physical dimensional unit invariants
         if let Err(e) = graph.verify_dimensional_invariants() {
             return Err(GovernanceError::LatticeViolation(e.to_string()));
         }
 
+        for node in graph.nodes.values() {
+            if let MachineOpcode::TensorDot { left_reg, .. } = node.opcode
+                && left_reg > MAX_HARDWARE_REGISTER - 1000
+            {
+                return Err(GovernanceError::MemorySafetyViolation { register: left_reg });
+            }
+        }
         // 2. Verify register boundaries
         let (reads, writes) = self.extract_register_footprint(graph);
         for &r in &reads {
@@ -79,7 +89,8 @@ impl Z3Prover {
         self.prove_action_safety(graph_a)?;
         self.prove_action_safety(graph_b)?;
 
-        let report = self.verify_non_interference(graph_a, graph_b)
+        let report = self
+            .verify_non_interference(graph_a, graph_b)
             .map_err(|e| GovernanceError::ValidationError(e.to_string()))?;
 
         if !report.is_non_interfering {
@@ -108,9 +119,11 @@ impl Z3Prover {
         graph_b: &NativeComputationalGraph,
     ) -> Result<NonInterferenceReport> {
         // 1. Verify physical dimensional unit invariants on both graphs
-        graph_a.verify_dimensional_invariants()
+        graph_a
+            .verify_dimensional_invariants()
             .map_err(|e| anyhow!("Graph A dimensional invariant violation: {e}"))?;
-        graph_b.verify_dimensional_invariants()
+        graph_b
+            .verify_dimensional_invariants()
             .map_err(|e| anyhow!("Graph B dimensional invariant violation: {e}"))?;
 
         // 2. Extract Read/Write Register Footprints
@@ -142,11 +155,7 @@ impl Z3Prover {
 
         let is_non_interfering = conflicting_writes.is_empty();
 
-        let backend = if cfg!(feature = "z3-prover") {
-            "Z3-SMT-v4.12".to_string()
-        } else {
-            "PureRust-Semantic-Lattice".to_string()
-        };
+        let backend = "PureRust-Semantic-Lattice".to_string();
 
         Ok(NonInterferenceReport {
             is_non_interfering,
@@ -169,7 +178,10 @@ impl Z3Prover {
                 MachineOpcode::Load { address_reg } => {
                     reads.insert(*address_reg);
                 }
-                MachineOpcode::Store { address_reg, value_reg } => {
+                MachineOpcode::Store {
+                    address_reg,
+                    value_reg,
+                } => {
                     writes.insert(*address_reg);
                     reads.insert(*value_reg);
                 }
@@ -181,10 +193,14 @@ impl Z3Prover {
                         reads.insert(*r);
                     }
                 }
-                MachineOpcode::TensorDot { left_reg, right_reg, .. } => {
+                MachineOpcode::TensorDot {
+                    left_reg,
+                    right_reg,
+                    ..
+                } => {
                     reads.insert(*left_reg);
                     reads.insert(*right_reg);
-                    writes.insert(left_reg + 1000); // Destination register
+                    writes.insert(left_reg.saturating_add(1000)); // Destination register
                 }
                 MachineOpcode::EntropyMinimization { state_reg } => {
                     reads.insert(*state_reg);
@@ -245,7 +261,10 @@ mod tests {
         let mut graph_a = NativeComputationalGraph::new();
         graph_a.add_node(NativeComputationNode {
             id: 1,
-            opcode: MachineOpcode::Store { address_reg: 10, value_reg: 5 },
+            opcode: MachineOpcode::Store {
+                address_reg: 10,
+                value_reg: 5,
+            },
             type_lattice: NativeTypeLattice::PhysicalQuantity {
                 unit: DimensionalUnit::DIMENSIONLESS,
                 precision: 32,
@@ -257,7 +276,10 @@ mod tests {
         let mut graph_b = NativeComputationalGraph::new();
         graph_b.add_node(NativeComputationNode {
             id: 2,
-            opcode: MachineOpcode::Store { address_reg: 10, value_reg: 6 }, // Conflict on write reg 10
+            opcode: MachineOpcode::Store {
+                address_reg: 10,
+                value_reg: 6,
+            }, // Conflict on write reg 10
             type_lattice: NativeTypeLattice::PhysicalQuantity {
                 unit: DimensionalUnit::DIMENSIONLESS,
                 precision: 32,
@@ -301,7 +323,10 @@ mod tests {
             dependencies: vec![],
         });
         let err = prover.prove_action_safety(&unsafe_graph).unwrap_err();
-        assert_eq!(err, GovernanceError::MemorySafetyViolation { register: 9000 });
+        assert_eq!(
+            err,
+            GovernanceError::MemorySafetyViolation { register: 9000 }
+        );
     }
 
     #[test]
@@ -311,7 +336,10 @@ mod tests {
         let mut graph_a = NativeComputationalGraph::new();
         graph_a.add_node(NativeComputationNode {
             id: 1,
-            opcode: MachineOpcode::Store { address_reg: 10, value_reg: 5 },
+            opcode: MachineOpcode::Store {
+                address_reg: 10,
+                value_reg: 5,
+            },
             type_lattice: NativeTypeLattice::PhysicalQuantity {
                 unit: DimensionalUnit::DIMENSIONLESS,
                 precision: 32,
@@ -323,7 +351,10 @@ mod tests {
         let mut graph_b = NativeComputationalGraph::new();
         graph_b.add_node(NativeComputationNode {
             id: 2,
-            opcode: MachineOpcode::Store { address_reg: 10, value_reg: 6 },
+            opcode: MachineOpcode::Store {
+                address_reg: 10,
+                value_reg: 6,
+            },
             type_lattice: NativeTypeLattice::PhysicalQuantity {
                 unit: DimensionalUnit::DIMENSIONLESS,
                 precision: 32,
@@ -335,7 +366,9 @@ mod tests {
         let result = prover.prove_strict_non_interference(&graph_a, &graph_b);
         assert!(result.is_err());
         match result.unwrap_err() {
-            GovernanceError::NonInterferenceConflict { conflicting_registers } => {
+            GovernanceError::NonInterferenceConflict {
+                conflicting_registers,
+            } => {
                 assert_eq!(conflicting_registers, vec![10]);
             }
             other => panic!("Expected NonInterferenceConflict, got {:?}", other),
