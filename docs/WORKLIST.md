@@ -1,6 +1,6 @@
-# Rolling Architecture Worklist
+# Aaroneous Worklist
 
-This is the single working backlog for gradual hardening of Aaroneous. Update it from
+This is the single operational backlog for gradual hardening of Aaroneous. Update it from
 repository evidence, CI results, and completed verification; do not add speculative work.
 
 ## Operating rules
@@ -43,6 +43,25 @@ execution-host contract without moving unrelated subsystems.
 
 ## Planned
 
+### S1 — Revalidate and repair legacy security findings
+
+**Status:** Ready for source review
+**Source:** `docs/archive/stale_sprawl/audits/active/ACTIVE_AUDIT_QUEUE.md`
+
+The source queue predates recent refactors: one cited path no longer exists, while the
+current tree still contains a trait-object FFI boundary in `crates/studio_hud/src/plugin_api.rs`
+and unchecked floating-point comparators. Reproduce each claim against current code before
+classifying it as a defect. Address confirmed memory-safety, path-handling, authentication,
+deadlock, and NaN-ordering issues in separate focused changes.
+
+### S2 — Establish a reproducible dependency-vulnerability review
+
+**Status:** Ready
+Use a lockfile-aware scanner, record advisories with affected dependency paths and fixed
+versions, then update or mitigate one advisory group per reviewable change. GitHub currently
+reports 68 advisories on the default branch; that count is a signal to investigate, not a
+substitute for a reproducible report.
+
 ### B1 — Enforce execution-host dependency policy
 
 **Depends on:** A2  
@@ -74,11 +93,28 @@ distribution.
 
 ## Done
 
-- Correctness and verification repairs recorded in [REVIEW_FIXES.md](../REVIEW_FIXES.md).
+- Correctness and verification repairs recorded in [REVIEW_FIXES.md](REVIEW_FIXES.md).
 - Strict UTF-8 text contract and safe normalizer are implemented on
   `codex/text-encoding-integration`.
 - Kernel boundary evidence and staged extraction plan are recorded in
-  [KERNEL_BOUNDARY_AUDIT.md](KERNEL_BOUNDARY_AUDIT.md).
+  [KERNEL_BOUNDARY_AUDIT.md](architecture/KERNEL_BOUNDARY_AUDIT.md).
+
+## Source registry
+
+| Source | Role after consolidation | Handling |
+|---|---|---|
+| `docs/WORKLIST.md` | Canonical operational backlog | The only document that may mark work Active, Ready, Blocked, or Done. |
+| `review-aaroneous.md` and `docs/REVIEW_FIXES.md` | Review evidence and completed remediation record | Promote only newly reproduced findings. |
+| `TODO.md`, `MASTER_ROADMAP.md`, and `docs/roadmap.md` | Product vision and long-range horizons | Keep strategic themes here; create a bounded worklist item only after design and evidence exist. |
+| `docs/handoff/STATUS.md` and `docs/handoff/QUEUE.md` | Historical handoff log | Do not use completed entries as current tasks. |
+| `docs/archive/**` | Historical design, audits, and forensic material | Treat as a triage source. Verify every path and failure mode before promotion. |
+
+## Deferred product horizons
+
+The strategic documents retain ideas for desktop interaction, compiler and model tooling,
+adaptive runtime, fleet networking, OS observability, and spatial presentation. They are
+deliberately not copied as unchecked implementation tasks here. Each becomes operational only
+after the execution-host contract and dependency policy have a proven reference path.
 
 ## Scheduled maintenance checklist
 
@@ -89,4 +125,3 @@ On each scheduled check:
 3. If CI passes and a task is ready, move only the next actionable item to **Active**.
 4. Commit and push a list update only when its status or evidence materially changed.
 5. Notify only for a CI completion, failure, blocked item, or completed work item.
-

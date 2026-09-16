@@ -1,4 +1,8 @@
-# Aaroneous Orchestrator — Findings, Remediation & Prioritization Matrix
+# Aaroneous Product Vision and Historical Feature Inventory
+
+> **Status:** Strategic reference, not an operational task queue. The canonical current
+> backlog is [docs/WORKLIST.md](docs/WORKLIST.md). Promote an item only after it has a
+> source location, a bounded outcome, and verification criteria.
 
 > Canonical master roadmap, issue tracker, and architectural prioritization for the Aaroneous Sovereign Runtime.
 

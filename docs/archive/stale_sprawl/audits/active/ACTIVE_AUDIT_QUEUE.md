@@ -1,4 +1,8 @@
-# Active High-Priority Audit Queue (Compact)
+# Historical Audit Triage Source
+
+> **Status:** Unverified historical findings. Do not treat this as an active queue. Promote a
+> finding only after reproducing it against the current tree and recording it in
+> [docs/WORKLIST.md](../../../../WORKLIST.md).
 *Optimized for local model context windows (Qwen 3.5 9B)*
 
 ## ☠️ TIER 0: BLOCKER PRIORITY

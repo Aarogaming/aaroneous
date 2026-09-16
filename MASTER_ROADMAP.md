@@ -1,4 +1,7 @@
-# Aaroneous – Master Roadmap (vX.Y.Z)
+# Aaroneous Master Roadmap (vX.Y.Z)
+
+> **Status:** Historical and strategic reference. Current executable work is tracked in
+> [docs/WORKLIST.md](docs/WORKLIST.md); unchecked entries below must be revalidated before use.
 
 ## Table of Contents
 1. [Executive Summary](#executive-summary)  

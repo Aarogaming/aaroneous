@@ -1,4 +1,6 @@
-# Aaroneous Autonomous Task Queue
+# Historical Handoff Queue
+
+> **Status:** Completed handoff record. The canonical current backlog is [../WORKLIST.md](../WORKLIST.md).
 
 - [x] Batch 3: Migrate ring.rs, harvest.rs, fascia.rs, and workspace.rs from aaroneous/crates/cratify/src/ into crates/adaptation_engine/src/, wire into lib.rs, and verify compilation
 - [x] Batch 4: Slim crates/cratify down to a thin CLI binary that delegates commands to ast_auditor, transpiler, and adaptation_engine
