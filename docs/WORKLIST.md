@@ -115,7 +115,7 @@ adapters, and move personal operations or experimental stacks to the private dev
 | `docs/WORKLIST.md` | Canonical operational backlog | The only document that may mark work Active, Ready, Blocked, or Done. |
 | `docs/reviews/REPOSITORY_REVIEW_2026-09-14.md` and `docs/REVIEW_FIXES.md` | Review evidence and completed remediation record | Promote only newly reproduced findings. |
 | `docs/archive/roadmaps/`, `docs/strategy/`, and `docs/roadmap.md` | Product vision and long-range horizons | Keep strategic themes here; create a bounded worklist item only after design and evidence exist. |
-| `docs/handoff/STATUS.md` and `docs/handoff/QUEUE.md` | Historical handoff log | Do not use completed entries as current tasks. |
+| `docs/handoff/QUEUE.md` | Live parallel-work coordination ledger | Claim exact file scopes and record completion evidence before beginning a shared task. `docs/handoff/STATUS.md` remains historical. |
 | `docs/archive/**` | Historical design, audits, and forensic material | Treat as a triage source. Verify every path and failure mode before promotion. |
 
 ## Deferred product horizons
