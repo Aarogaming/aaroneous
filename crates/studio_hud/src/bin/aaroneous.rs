@@ -1,4 +1,4 @@
-﻿//! crates/studio_hud/src/bin/aaroneous.rs
+//! crates/studio_hud/src/bin/aaroneous.rs
 //! Aaroneous Desktop Studio & Spatial Window Manager Executable Launcher.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 

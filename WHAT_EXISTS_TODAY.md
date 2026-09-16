@@ -1,4 +1,4 @@
-﻿# What Exists Today in Aaroneous (Verified & Audited)
+# What Exists Today in Aaroneous (Verified & Audited)
 
 This document provides an accurate, audited summary of the current codebase architecture, physical boundaries, and operational status following the **Cratify Batch 2 Decoupling** and **Terminology Modernization**.
 

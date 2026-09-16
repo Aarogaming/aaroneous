@@ -1,4 +1,4 @@
-﻿# Active High-Priority Audit Queue (Compact)
+# Active High-Priority Audit Queue (Compact)
 *Optimized for local model context windows (Qwen 3.5 9B)*
 
 ## ☠️ TIER 0: BLOCKER PRIORITY

@@ -1,4 +1,4 @@
-﻿[meta]
+[meta]
 engine_fallback = "llama.cpp"
 cache_policy = "transient"
 

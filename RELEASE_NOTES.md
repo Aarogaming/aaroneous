@@ -1,4 +1,4 @@
-﻿# Aaroneous OS v1.2.0 - The Sovereign Core Update
+# Aaroneous OS v1.2.0 - The Sovereign Core Update
 
 This is the largest architectural update in the history of the Aaroneous Desktop Hypervisor. The engine has been completely decoupled from the cloud, hardware-accelerated, and transformed into a true local-first AI Operating System.
 

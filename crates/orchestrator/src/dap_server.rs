@@ -1,4 +1,4 @@
-﻿use anyhow::Result;
+use anyhow::Result;
 use tracing::info;
 
 /// DEVTOOL-06: Debug Adapter Protocol (DAP) Integration

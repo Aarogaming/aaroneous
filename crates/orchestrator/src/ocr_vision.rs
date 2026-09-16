@@ -1,4 +1,4 @@
-﻿use anyhow::{bail, Result};
+use anyhow::{bail, Result};
 use std::process::Command;
 use std::path::Path;
 use std::sync::Arc;

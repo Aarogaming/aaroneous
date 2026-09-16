@@ -1,4 +1,4 @@
-﻿# Aaroneous: Strategic Vision & Architectural Doctrine
+# Aaroneous: Strategic Vision & Architectural Doctrine
 
 ## 1. Core Thesis
 
