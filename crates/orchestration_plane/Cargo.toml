@@ -11,7 +11,7 @@ serde_json = { workspace = true }
 tracing = { workspace = true }
 anyhow = { workspace = true }
 adaptation_engine = { path = "../adaptation_engine" }
-prettyplease = "0.2"
+prettyplease = "0.3"
 walkdir = "2.3"
 bytemuck = { workspace = true }
 syn = { version = "2.0", features = ["full", "visit", "visit-mut"] }
