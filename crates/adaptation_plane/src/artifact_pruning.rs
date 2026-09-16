@@ -2,7 +2,8 @@
 // Autonomous GGUF model ingestion, genetic extraction, persona generation, and integration
 // Allows Aaroneous to consume models in background and create new specialists
 
-use crate::genetics::{GeneticCategory, GeneticLocus, LociSource, SpecialistGenome};
+use crate::capability_spec::{AgentProfile, LociSource, ProfileCategory, ProfileLocus};
+
 use crate::workspace::{WorkspacePaths, WorkspacePathsConfig};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -321,7 +322,7 @@ impl DigestionEngine {
     pub async fn extract_profile(
         &self,
         task: &DigestionTask,
-    ) -> Result<SpecialistGenome, Box<dyn std::error::Error>> {
+    ) -> Result<AgentProfile, Box<dyn std::error::Error>> {
         // Stage 1: Structural Analysis
         self.event_tx.send(DigestionEvent {
             digestion_id: task.digestion_id.clone(),
@@ -331,7 +332,7 @@ impl DigestionEngine {
             progress_percent: Some(0),
         })?;
 
-        let mut genome = SpecialistGenome::new(
+        let mut genome = AgentProfile::new(
             task.model_name.clone(),
             task.model_name.clone(),
             task.model_name.clone(),
@@ -340,9 +341,9 @@ impl DigestionEngine {
         // Stubbed: Real structural extraction via GGUFAnalyzer.
         let loci_count = if task.model_path.exists() {
             // Stubbed analysis logic
-            let locus = GeneticLocus::new(
+            let locus = ProfileLocus::new(
                 format!("{}-stub", task.model_name.to_lowercase()),
-                GeneticCategory::PersonalityGenetics,
+                ProfileCategory::PersonalityGenetics,
                 0.5,
                 LociSource::Inferred,
             )
@@ -379,7 +380,7 @@ impl DigestionEngine {
     pub async fn generate_soul(
         &self,
         task: &DigestionTask,
-        _genome: &SpecialistGenome,
+        _genome: &AgentProfile,
     ) -> Result<SpecialistPersona, Box<dyn std::error::Error>> {
         self.event_tx.send(DigestionEvent {
             digestion_id: task.digestion_id.clone(),
@@ -497,7 +498,7 @@ impl DigestionEngine {
     pub async fn integrate_specialist(
         &self,
         task: &DigestionTask,
-        genome: &SpecialistGenome,
+        genome: &AgentProfile,
         persona: &SpecialistPersona,
     ) -> Result<(), Box<dyn std::error::Error>> {
         self.event_tx.send(DigestionEvent {

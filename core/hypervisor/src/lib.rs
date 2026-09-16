@@ -94,10 +94,14 @@ pub mod onboarding;
 // Re-export SABs for universal access
 pub use crate::sabs::{SabManifest, SabMatrix, SabMatrixBuilder, SabSurface};
 
-// Re-export Skills and Genetics
+// Re-export Skills and Genetics / Adaptation
 pub use crate::genetics::{
-    BreedingOperation, EpigeneticState, GeneticAnalyzer, GeneticCategory, GeneticLocus, LociSource,
-    SpecialistGenome,
+    AdaptationState, AgentProfile, BreedingOperation, LociSource, ProfileAnalyzer, ProfileCategory,
+    ProfileLocus,
+};
+#[allow(deprecated)]
+pub use crate::genetics::{
+    EpigeneticState, GeneticAnalyzer, GeneticCategory, GeneticLocus, SpecialistGenome,
 };
 pub use crate::skills::{
     FusedSkill, PersonaRank, Skill, SkillOrigin, SkillRegistry, SkillType, SpecialistSkillSet,

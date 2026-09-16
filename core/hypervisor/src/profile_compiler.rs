@@ -293,16 +293,17 @@ impl Default for CompileConfig {
 }
 
 // ────────────────────────────────────────────────────────────────────
-// Genome Compiler
+// Profile Compiler
 // ────────────────────────────────────────────────────────────────────
 
-pub struct GenomeCompiler {
+pub struct ProfileCompiler {
     config: CompileConfig,
 }
 
-pub type ProfileCompiler = GenomeCompiler;
+#[deprecated(since = "0.3.3", note = "Use ProfileCompiler instead")]
+pub type GenomeCompiler = ProfileCompiler;
 
-impl GenomeCompiler {
+impl ProfileCompiler {
     pub fn new(config: CompileConfig) -> Self {
         Self { config }
     }
@@ -1176,7 +1177,7 @@ pub fn run_cli(args: &[String]) -> Result<()> {
         ..Default::default()
     };
 
-    let compiler = GenomeCompiler::new(config.clone());
+    let compiler = ProfileCompiler::new(config.clone());
 
     if cli.decompile {
         compiler.decompile()?;
@@ -1309,5 +1310,15 @@ mod tests {
         assert_eq!(bit_to_float(float_to_2bit(-0.5)), -0.5);
         assert_eq!(bit_to_float(float_to_2bit(0.5)), 0.5);
         assert_eq!(bit_to_float(float_to_2bit(2.0)), 1.5);
+    }
+
+    #[test]
+    #[allow(deprecated)]
+    fn test_profile_compiler_alias_equivalence() {
+        use std::any::TypeId;
+        assert_eq!(
+            TypeId::of::<ProfileCompiler>(),
+            TypeId::of::<GenomeCompiler>()
+        );
     }
 }

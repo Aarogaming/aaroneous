@@ -36,10 +36,17 @@ pub use candle_persona_engine::{
     CandlePersonaEngine, DiscoveredGgufModel, GenerationConfig, GgufModelMetadata,
 };
 
-// Re-export parameter configuration & genetics
-pub use genetics::{
-    AgentConfigProfile, GeneticCategory, GeneticLocus, LociSource, ParameterGenome, ParameterLocus,
-    SpecialistGenome,
+// Re-export canonical parameter configuration & genetics
+pub use capability_spec::{
+    AdaptationState, AgentProfile, LociSource, ProfileAnalyzer, ProfileCategory, ProfileLocus,
+    ProfileRelationship,
+};
+
+// Re-export legacy aliases with deprecation notices
+#[allow(deprecated)]
+pub use capability_spec::{
+    AgentConfigProfile, EpigeneticState, GeneticAnalyzer, GeneticCategory, GeneticLocus,
+    GeneticRelationship, ParameterGenome, ParameterLocus, ParameterProfile, SpecialistGenome,
 };
 
 // Re-export digestion & personas
