@@ -1,3 +1,5 @@
+#![deny(unsafe_code)]
+
 use eframe::egui;
 
 /// Represents a dynamically loaded UI component

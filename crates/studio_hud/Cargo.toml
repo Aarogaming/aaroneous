@@ -26,6 +26,7 @@ path = "src/bin/uninstaller_gui.rs"
 dirs = "5.0"
 
 # Workspace crates
+api = { path = "../api" }
 hypervisor = { path = "../../core/hypervisor" }
 ipc_bus = { path = "../ipc_bus" }
 core-contracts = { path = "../core-contracts" }

@@ -19,6 +19,7 @@ pub mod fascia;
 pub mod modes;
 pub mod navigation;
 pub mod onboarding;
+pub mod plugin_api;
 pub mod state;
 pub mod state_snapshot;
 pub mod theme;
