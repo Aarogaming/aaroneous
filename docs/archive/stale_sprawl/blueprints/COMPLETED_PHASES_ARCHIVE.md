@@ -1,4 +1,4 @@
-﻿# Aaroneous Completed Phases (v0.4.0 - v1.6.0 Archive)
+# Aaroneous Completed Phases (v0.4.0 - v1.6.0 Archive)
 
 > Historical record of completed phases extracted from TODO.md.
 

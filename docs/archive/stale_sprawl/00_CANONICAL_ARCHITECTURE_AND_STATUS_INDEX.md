@@ -1,4 +1,4 @@
-﻿# Canonical Architecture & Crate Status Index
+# Canonical Architecture & Crate Status Index
 
 **Current Release:** v0.3.0  
 **Workspace Structure:** 12 Sovereign Crates in Pure Rust  

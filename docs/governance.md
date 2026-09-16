@@ -1,4 +1,4 @@
-﻿# Governance Specification: Verification, Error Handling & Host Safety
+# Governance Specification: Verification, Error Handling & Host Safety
 
 **Version:** `v1.7.0`  
 **Classification:** Core Governance Specification  

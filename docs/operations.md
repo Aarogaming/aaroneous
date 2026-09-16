@@ -1,4 +1,4 @@
-﻿# Operational Playbook: Assimilation Pipelines, Local Model Infrastructure & Automotive Diagnostics
+# Operational Playbook: Assimilation Pipelines, Local Model Infrastructure & Automotive Diagnostics
 
 **Version:** `v1.7.0`  
 **Classification:** Operational Context & Auxiliary Engineering Manual  
