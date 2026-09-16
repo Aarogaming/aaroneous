@@ -1555,6 +1555,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "compliance_auditor"
+version = "0.3.2"
+dependencies = [
+ "anyhow",
+ "ast_auditor",
+ "clap",
+ "futures",
+ "llm_gateway",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "tokio",
+ "tracing",
+ "walkdir",
+]
+
+[[package]]
 name = "compute"
 version = "0.1.0"
 dependencies = [
@@ -10534,6 +10551,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d7d8a75eaf6557bb84a65ace8609883db44a29951042ada9b393151532e41fcb"
 dependencies = [
  "xml-rs",
+]
+
+[[package]]
+name = "xtask"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
 ]
 
 [[package]]

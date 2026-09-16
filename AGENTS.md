@@ -99,6 +99,8 @@ cargo test -p emulator_harness
 bash scripts/agent_check.sh
 ```
 
+> **Note:** `scripts/agent_check.sh` is a thin CI shim — all gate logic runs via `cargo xtask gate`.
+
 ---
 
 ## 7. Deep Architecture & Ingestion References
