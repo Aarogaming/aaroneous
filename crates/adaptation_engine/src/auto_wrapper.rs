@@ -90,8 +90,12 @@ impl AutoWrapperEngine {
         path: &Path,
         custom_name: Option<&str>,
     ) -> Result<TargetCapabilityManifest> {
-        let name = if let Some(n) = custom_name {
-            n.to_string()
+        let raw_name = if let Some(n) = custom_name {
+            Path::new(n)
+                .file_name()
+                .and_then(|s| s.to_str())
+                .unwrap_or(n)
+                .to_string()
         } else {
             path.file_stem()
                 .and_then(|s| s.to_str())
@@ -99,7 +103,16 @@ impl AutoWrapperEngine {
                 .to_string()
         };
 
-        let slug = name.to_lowercase().replace([' ', '-'], "_");
+        let sanitized = raw_name
+            .chars()
+            .map(|c| if c.is_alphanumeric() { c.to_ascii_lowercase() } else { '_' })
+            .collect::<String>();
+        let slug = if sanitized.is_empty() {
+            "unknown_utility".to_string()
+        } else {
+            sanitized
+        };
+        let name = raw_name;
         let extension = path.extension().and_then(|s| s.to_str()).unwrap_or("");
 
         let program_type = match extension.to_lowercase().as_str() {

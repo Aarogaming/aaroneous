@@ -302,6 +302,20 @@ impl Default for PerformanceMetrics {
     }
 }
 
+#[cfg(windows)]
+fn successful_exit_status() -> ExitStatus {
+    use std::os::windows::process::ExitStatusExt;
+
+    ExitStatus::from_raw(0)
+}
+
+#[cfg(unix)]
+fn successful_exit_status() -> ExitStatus {
+    use std::os::unix::process::ExitStatusExt;
+
+    ExitStatus::from_raw(0)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -339,17 +353,4 @@ mod tests {
         assert!(test_code.contains("my_fn"));
         assert!(test_code.contains("42"));
     }
-}
-#[cfg(windows)]
-fn successful_exit_status() -> ExitStatus {
-    use std::os::windows::process::ExitStatusExt;
-
-    ExitStatus::from_raw(0)
-}
-
-#[cfg(unix)]
-fn successful_exit_status() -> ExitStatus {
-    use std::os::unix::process::ExitStatusExt;
-
-    ExitStatus::from_raw(0)
 }
