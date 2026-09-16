@@ -1,0 +1,31 @@
+name: Lint
+
+# Fast, Rust-build-independent static checks: spelling and workflow-YAML
+# correctness. Both are hard gates — the workspace tree was brought to a
+# genuine zero-hit baseline for `typos` before this workflow was added (see
+# _typos.toml's header for what was fixed vs. allowlisted), and actionlint
+# only flags real action-version/syntax problems, not style preferences.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  typos:
+    name: typos (spelling)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: crate-ci/typos@v1
+
+  actionlint:
+    name: actionlint (workflow YAML)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: reviewdog/action-actionlint@v1
+        with:
+          reporter: github-check
+          fail_level: error
