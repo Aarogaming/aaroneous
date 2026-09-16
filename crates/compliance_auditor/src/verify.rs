@@ -117,3 +117,49 @@ pub fn rank_and_cap(mut findings: Vec<Finding>, cap: usize) -> Vec<Finding> {
     findings.truncate(cap);
     findings
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::angles::{Angle, Candidate};
+
+    fn finding(angle: Angle, verdict: Verdict) -> Finding {
+        Finding {
+            candidate: Candidate {
+                angle,
+                file: "a.rs".to_string(),
+                line: Some(1),
+                summary: "s".to_string(),
+                failure_scenario: "f".to_string(),
+            },
+            verdict,
+            justification: "j".to_string(),
+        }
+    }
+
+    #[test]
+    fn verdict_parse_is_case_and_punctuation_tolerant() {
+        assert_eq!(Verdict::parse("CONFIRMED"), Some(Verdict::Confirmed));
+        assert_eq!(Verdict::parse("confirmed."), Some(Verdict::Confirmed));
+        assert_eq!(Verdict::parse("  Plausible  "), Some(Verdict::Plausible));
+        assert_eq!(Verdict::parse("REFUTED!"), Some(Verdict::Refuted));
+        assert_eq!(Verdict::parse("not a verdict"), None);
+    }
+
+    #[test]
+    fn rank_and_cap_puts_confirmed_correctness_first_and_truncates() {
+        let findings = vec![
+            finding(Angle::Simplification, Verdict::Confirmed),
+            finding(Angle::LineByLine, Verdict::Plausible),
+            finding(Angle::LineByLine, Verdict::Confirmed),
+        ];
+
+        let ranked = rank_and_cap(findings, 2);
+
+        assert_eq!(ranked.len(), 2);
+        assert_eq!(ranked[0].candidate.angle, Angle::LineByLine);
+        assert_eq!(ranked[0].verdict, Verdict::Confirmed);
+        assert_eq!(ranked[1].candidate.angle, Angle::LineByLine);
+        assert_eq!(ranked[1].verdict, Verdict::Plausible);
+    }
+}

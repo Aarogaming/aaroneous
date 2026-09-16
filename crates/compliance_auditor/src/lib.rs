@@ -20,6 +20,8 @@
 //! 5. [`report`] folds in `ast_auditor`'s deterministic structural checks
 //!    over the changed files and produces the final artifact.
 
+#![deny(unsafe_code)]
+
 pub mod angles;
 pub mod conventions;
 pub mod diff;

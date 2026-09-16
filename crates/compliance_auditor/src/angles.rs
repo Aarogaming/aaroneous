@@ -223,3 +223,69 @@ pub fn dedup(candidates: Vec<Candidate>) -> Vec<Candidate> {
     }
     out
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn candidate(angle: Angle, file: &str, line: Option<u32>, summary: &str) -> Candidate {
+        Candidate {
+            angle,
+            file: file.to_string(),
+            line,
+            summary: summary.to_string(),
+            failure_scenario: "test scenario".to_string(),
+        }
+    }
+
+    #[test]
+    fn extract_json_array_finds_the_bracketed_span_inside_prose() {
+        let raw = "Sure, here you go:\n[{\"a\":1}]\nHope that helps!";
+        assert_eq!(extract_json_array(raw), Some("[{\"a\":1}]"));
+    }
+
+    #[test]
+    fn extract_json_array_returns_none_without_a_closing_bracket() {
+        assert_eq!(extract_json_array("no array here"), None);
+    }
+
+    #[test]
+    fn run_angle_parses_a_well_formed_candidate_list() {
+        let raw = extract_json_array(
+            "[{\"file\": \"a.rs\", \"line\": 12, \"summary\": \"s\", \"failure_scenario\": \"f\"}]",
+        )
+        .unwrap();
+        let parsed: Vec<RawCandidate> = serde_json::from_str(raw).expect("valid candidate JSON");
+        assert_eq!(parsed.len(), 1);
+        assert_eq!(parsed[0].file, "a.rs");
+        assert_eq!(parsed[0].line, Some(12));
+    }
+
+    #[test]
+    fn dedup_drops_same_file_same_line_bucket_same_summary() {
+        let candidates = vec![
+            candidate(Angle::LineByLine, "a.rs", Some(10), "same bug"),
+            candidate(Angle::RemovedBehavior, "a.rs", Some(12), "same bug"),
+            candidate(Angle::LineByLine, "a.rs", Some(200), "same bug"),
+        ];
+
+        let deduped = dedup(candidates);
+
+        assert_eq!(
+            deduped.len(),
+            2,
+            "lines 10 and 12 fall in the same /5 bucket and should collapse"
+        );
+    }
+
+    #[test]
+    fn is_correctness_ranks_conventions_and_bug_angles_ahead_of_cleanup() {
+        assert!(Angle::LineByLine.is_correctness());
+        assert!(Angle::RemovedBehavior.is_correctness());
+        assert!(Angle::Conventions.is_correctness());
+        assert!(!Angle::Reuse.is_correctness());
+        assert!(!Angle::Simplification.is_correctness());
+        assert!(!Angle::Efficiency.is_correctness());
+        assert!(!Angle::Altitude.is_correctness());
+    }
+}

@@ -125,3 +125,72 @@ impl DiffTarget {
         self.files.iter().map(|f| f.path.clone()).collect()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+
+    /// Build a throwaway two-commit repo in an isolated temp directory (per
+    /// AGENTS.md's "Mandatory Tempdir in Tests" rule — never touch a real
+    /// repo or ambient state for filesystem-touching tests) and return its
+    /// path plus the base/head SHAs.
+    fn two_commit_repo() -> (tempfile::TempDir, String, String) {
+        let dir = tempfile::tempdir().expect("create temp dir");
+        let repo = dir.path();
+
+        for args in [
+            vec!["init", "--quiet"],
+            vec!["config", "user.email", "test@example.invalid"],
+            vec!["config", "user.name", "compliance_auditor tests"],
+        ] {
+            run_git(repo, &args).expect("git setup command");
+        }
+
+        fs::write(repo.join("widget.txt"), "line one\n").expect("write v1");
+        run_git(repo, &["add", "widget.txt"]).expect("git add v1");
+        run_git(repo, &["commit", "-q", "-m", "base"]).expect("git commit v1");
+        let base_sha = resolve_sha(repo, "HEAD").expect("resolve base");
+
+        fs::write(repo.join("widget.txt"), "line one\nline two\n").expect("write v2");
+        run_git(repo, &["add", "widget.txt"]).expect("git add v2");
+        run_git(repo, &["commit", "-q", "-m", "head"]).expect("git commit v2");
+        let head_sha = resolve_sha(repo, "HEAD").expect("resolve head");
+
+        (dir, base_sha, head_sha)
+    }
+
+    #[test]
+    fn gather_resolves_refs_and_collects_the_changed_file() {
+        let (dir, base_sha, head_sha) = two_commit_repo();
+
+        let target = gather(dir.path(), &base_sha, "HEAD", 10).expect("gather diff");
+
+        assert_eq!(target.base_sha, base_sha);
+        assert_eq!(target.head_sha, head_sha);
+        assert_eq!(target.file_list(), vec!["widget.txt".to_string()]);
+        assert!(target.files[0].patch.contains("line two"));
+        assert!(target.files[0].churn > 0);
+    }
+
+    #[test]
+    fn gather_honors_max_files_by_dropping_lowest_churn() {
+        let (dir, base_sha, _head_sha) = two_commit_repo();
+        fs::write(dir.path().join("second.txt"), "unrelated\n").expect("write second file");
+        run_git(dir.path(), &["add", "second.txt"]).expect("git add second");
+        run_git(dir.path(), &["commit", "-q", "-m", "second file"]).expect("git commit second");
+
+        let target = gather(dir.path(), &base_sha, "HEAD", 1).expect("gather diff");
+
+        assert_eq!(target.files.len(), 1, "max_files=1 must cap the file list");
+    }
+
+    #[test]
+    fn concatenated_patch_truncates_to_the_requested_budget() {
+        let (dir, base_sha, _head_sha) = two_commit_repo();
+        let target = gather(dir.path(), &base_sha, "HEAD", 10).expect("gather diff");
+
+        let truncated = target.concatenated_patch(10);
+        assert!(truncated.len() < target.concatenated_patch(usize::MAX).len());
+    }
+}
