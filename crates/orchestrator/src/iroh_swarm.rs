@@ -1,4 +1,4 @@
-﻿use anyhow::Result;
+use anyhow::Result;
 use tracing::info;
 
 /// SOVEREIGN-07: P2P Swarm Fleet Allocator

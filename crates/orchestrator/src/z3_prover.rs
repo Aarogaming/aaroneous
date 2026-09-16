@@ -1,4 +1,4 @@
-﻿use anyhow::{bail, Result};
+use anyhow::{bail, Result};
 use tracing::{info, warn};
 
 /// SOVEREIGN-06: Z3 Non-Interference SMT Prover
