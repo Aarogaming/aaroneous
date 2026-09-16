@@ -1,4 +1,4 @@
-﻿# generate_modelfiles.ps1
+# generate_modelfiles.ps1
 $searchPaths = @(
     "C:\Users\aarog\.lmstudio\models",
     "D:\Aaroneous\data\genetics\gguf_sources"

@@ -1,4 +1,4 @@
-﻿# register_ollama_models.ps1
+# register_ollama_models.ps1
 $ollamaExe = "C:\Users\aarog\AppData\Local\Programs\Ollama\ollama.exe"
 
 function Get-OllamaTag ($fileName) {
