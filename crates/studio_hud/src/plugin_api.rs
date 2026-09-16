@@ -29,6 +29,20 @@
 //! workspace, not here. Until that exists, cartridges are in-process Rust
 //! trait objects only — [`PluginManager::load_cartridge`] takes an
 //! already-constructed `Box<dyn UiCartridge>` the same binary compiled it.
+//!
+//! # Why this module still exists with no call sites
+//!
+//! Nothing in `studio_hud` currently constructs a [`PluginManager`] or calls
+//! [`PluginManager::load_cartridge`] (queue item M4 in the private operations
+//! workspace reproduced this: zero references outside this module's own
+//! tests). That is expected, not a sign this is orphaned code to delete:
+//! `TODO.md`'s roadmap lists "dynamic plugin swapping" under **P4: Adaptive
+//! Runtime Engine** and "Hot-reload ABI plugins" under **Phase 5: Adaptive
+//! Runtime & Live Patching (v0.8.0)** as a real, planned capability, not yet
+//! due. This module is the sound, tested foundation that capability will be
+//! built on once the plugin-lifecycle RFC (above) defines a real ABI — kept
+//! deliberately narrow (in-process only) rather than removed, so the next
+//! implementer starts from verified-safe code instead of rebuilding it.
 
 use api::UiCartridge;
 
