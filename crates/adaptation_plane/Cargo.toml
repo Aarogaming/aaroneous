@@ -1,5 +1,5 @@
 [package]
-name = "autonomic_adaptation"
+name = "adaptation_plane"
 version = "0.1.0"
 edition.workspace = true
 authors.workspace = true

@@ -50,8 +50,16 @@ mod tests {
 
     #[test]
     fn ipc_event_size_and_align() {
-        assert_eq!(mem::size_of::<IpcEvent>(), 24, "IpcEvent must be exactly 24 bytes");
-        assert_eq!(mem::align_of::<IpcEvent>(), 8, "IpcEvent must be 8-byte aligned");
+        assert_eq!(
+            mem::size_of::<IpcEvent>(),
+            24,
+            "IpcEvent must be exactly 24 bytes"
+        );
+        assert_eq!(
+            mem::align_of::<IpcEvent>(),
+            8,
+            "IpcEvent must be 8-byte aligned"
+        );
     }
 
     #[test]

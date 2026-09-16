@@ -6,7 +6,7 @@ members = [
     "crates/ipc_bus",
     "crates/capabilities",
     "crates/orchestrator",
-    "crates/autonomic_adaptation",
+    "crates/adaptation_plane",
     "crates/adaptation_engine",
     "crates/omni",
     "crates/transpiler",

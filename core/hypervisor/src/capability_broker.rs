@@ -797,7 +797,7 @@ impl CapabilityBroker {
             Box::new(|params| {
                 let reward = params.get("reward").and_then(|v| v.as_f64()).unwrap_or(0.1) as f32;
                 let mut levels =
-                    autonomic_adaptation::neurochemistry::AdaptationHomeostasisLevels::default();
+                    adaptation_plane::neurochemistry::AdaptationHomeostasisLevels::default();
                 let updated = (levels.plasticity_drive + reward).clamp(0.0, 1.0);
                 levels.plasticity_drive = updated;
                 levels.dopamine = updated;

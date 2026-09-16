@@ -102,8 +102,7 @@ candle-core = "0.8"
 candle-nn = "0.8"
 
 async-trait = "0.1"
-
-autonomic_adaptation = { path = "../../crates/autonomic_adaptation" }
+adaptation_plane = { path = "../../crates/adaptation_plane" }
 sha2 = "0.10"
 which = "5.0"
 axum = { version = "0.7", features = ["macros"] }

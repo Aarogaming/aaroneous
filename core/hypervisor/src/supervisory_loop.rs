@@ -214,7 +214,7 @@ pub struct SupervisoryDaemon {
     /// IPC SWMR shared-memory state snapshot publisher for decoupled shells
     pub state_publisher: Arc<crate::state_snapshot::EngineStatePublisher>,
     /// Dynamic autonomic pacing regulator managing thermodynamic backoff
-    pub pacing_regulator: Arc<parking_lot::RwLock<autonomic_adaptation::AutonomousPacingRegulator>>,
+    pub pacing_regulator: Arc<parking_lot::RwLock<adaptation_plane::AutonomousPacingRegulator>>,
     /// Black-box flight recorder for deterministic event replay and forensic audit
     pub flight_recorder: Option<Arc<parking_lot::Mutex<ipc_bus::FlightRecorder>>>,
     /// Formal SMT action interlock gatekeeper
@@ -239,7 +239,7 @@ impl SupervisoryDaemon {
         db_path: Option<&str>,
     ) -> Result<Self> {
         let pacing_regulator = Arc::new(parking_lot::RwLock::new(
-            autonomic_adaptation::AutonomousPacingRegulator::default_with_baseline(
+            adaptation_plane::AutonomousPacingRegulator::default_with_baseline(
                 Duration::from_millis(tick_rate_ms),
             ),
         ));
@@ -267,7 +267,7 @@ impl SupervisoryDaemon {
         splicing_engine: Arc<WasmSplicingEngine>,
         learning_loop: Arc<RwLock<UnifiedLearningLoop>>,
         db_path: Option<&str>,
-        pacing_regulator: Arc<parking_lot::RwLock<autonomic_adaptation::AutonomousPacingRegulator>>,
+        pacing_regulator: Arc<parking_lot::RwLock<adaptation_plane::AutonomousPacingRegulator>>,
     ) -> Result<Self> {
         let size = std::mem::size_of::<SynapseState>();
         let synapse = LegacySharedMemorySynapse::new(synapse_name, size)?;
@@ -413,7 +413,7 @@ impl SupervisoryDaemon {
     /// Return access to the autonomous pacing regulator
     pub fn pacing_regulator(
         &self,
-    ) -> Arc<parking_lot::RwLock<autonomic_adaptation::AutonomousPacingRegulator>> {
+    ) -> Arc<parking_lot::RwLock<adaptation_plane::AutonomousPacingRegulator>> {
         self.pacing_regulator.clone()
     }
 
@@ -510,7 +510,7 @@ impl SupervisoryDaemon {
             platform_bridge::observability::mmcss::enable_mmcss_time_critical("Games");
             platform_bridge::observability::mmcss::set_thread_performance_affinity(0x05); // Pin to P-Core #0 and #2
 
-            let mut drift_filter = autonomic_adaptation::StreamingSelfCorrectionFilter::default();
+            let mut drift_filter = adaptation_plane::StreamingSelfCorrectionFilter::default();
 
             let rt = match tokio::runtime::Runtime::new() {
                 Ok(r) => r,
@@ -656,7 +656,7 @@ impl SupervisoryDaemon {
                 let gpu_metrics = metrics_collector.get_gpu_metrics();
 
                 // Dynamic thermodynamic telemetry acquisition for autonomic pacing
-                let thermodynamic_telemetry = autonomic_adaptation::ThermodynamicTelemetry {
+                let thermodynamic_telemetry = adaptation_plane::ThermodynamicTelemetry {
                     cpu_load_pct: (metrics_collector.get_backpressure_level() * 100.0) as f32,
                     cpu_temp_c: thermal_metrics.cpu_temperature as f32,
                     gpu_temp_c: gpu_metrics.temperature as f32,
@@ -669,9 +669,9 @@ impl SupervisoryDaemon {
                     let mut regulator = pacing_regulator.write();
                     regulator
                         .compute_next_cadence(&thermodynamic_telemetry)
-                        .unwrap_or(autonomic_adaptation::PacingDecision {
+                        .unwrap_or(adaptation_plane::PacingDecision {
                             target_cadence: tick_rate,
-                            throttle_tier: autonomic_adaptation::PacingTier::Nominal,
+                            throttle_tier: adaptation_plane::PacingTier::Nominal,
                             decimation_factor: 1,
                             task_deferral_probability: 0.0,
                             composite_stress: 0.0,
@@ -1412,10 +1412,10 @@ impl SupervisoryDaemon {
                         bus_understanding: (state.understanding_score as f32).clamp(0.0, 100.0),
                         flow_score: (1.0 - state.concept_drift).clamp(0.0, 1.0),
                         pacing: match pacing_decision.throttle_tier {
-                            autonomic_adaptation::PacingTier::Nominal => 0,
-                            autonomic_adaptation::PacingTier::MetabolicThrottle => 1,
-                            autonomic_adaptation::PacingTier::ThermalCritical
-                            | autonomic_adaptation::PacingTier::DormantPreservation => 2,
+                            adaptation_plane::PacingTier::Nominal => 0,
+                            adaptation_plane::PacingTier::MetabolicThrottle => 1,
+                            adaptation_plane::PacingTier::ThermalCritical
+                            | adaptation_plane::PacingTier::DormantPreservation => 2,
                         },
                         ..Default::default()
                     };
@@ -1458,7 +1458,7 @@ impl SupervisoryDaemon {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use autonomic_adaptation::{
+    use adaptation_plane::{
         AutonomousPacingRegulator, PacingConfig, PacingTier, ThermodynamicTelemetry,
     };
 

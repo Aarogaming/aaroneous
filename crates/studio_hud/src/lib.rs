@@ -3,7 +3,7 @@
 //! Aaroneous Desktop Studio & Spatial Window Manager HUD.
 
 pub use crate as hud;
-pub extern crate autonomic_adaptation as evolution;
+pub extern crate adaptation_plane as evolution;
 pub extern crate ipc_bus as nervous_system;
 
 pub use hypervisor::capability_broker;

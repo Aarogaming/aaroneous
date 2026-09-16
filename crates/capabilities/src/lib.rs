@@ -18,8 +18,8 @@ pub mod universal_tool;
 
 pub extern crate ipc_bus as nervous_system;
 pub use ipc_bus;
-pub extern crate autonomic_adaptation as evolution;
-pub use autonomic_adaptation;
+pub extern crate adaptation_plane as evolution;
+pub use adaptation_plane;
 
 pub use aligner::{
     AlignerSpecialist, AlignmentEngine, HarmonyEngineRelic, SymbioticResonanceReport,

@@ -293,10 +293,9 @@ mod tests {
     #[test]
     fn test_persistent_wal_reboot_durability() {
         let temp_dir = tempfile::tempdir().unwrap();
-        let db_path = temp_dir.path().join(format!(
-            "wal_test_{}",
-            PersistentWalStore::now_ms()
-        ));
+        let db_path = temp_dir
+            .path()
+            .join(format!("wal_test_{}", PersistentWalStore::now_ms()));
 
         // 1. Write records in session 1
         {
@@ -345,4 +344,3 @@ mod tests {
         let _ = std::fs::remove_dir_all(&temp_dir);
     }
 }
-

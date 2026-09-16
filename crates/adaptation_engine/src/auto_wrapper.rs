@@ -247,7 +247,7 @@ impl AutoWrapperEngine {
                 }
             })
             .collect::<String>()
-            + "Organ";
+            + "Module";
 
         let escaped_path = manifest.target_path.to_string_lossy().replace('\\', "\\\\");
 
@@ -638,7 +638,7 @@ mod tests {
         };
 
         let code = AutoWrapperEngine::synthesize_rust_harness(&manifest);
-        assert!(code.contains("pub struct RipgrepToolOrgan"));
+        assert!(code.contains("pub struct RipgrepToolModule"));
         assert!(code.contains("pub async fn invoke"));
         assert!(code.contains("rg.exe"));
     }

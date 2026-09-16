@@ -217,4 +217,3 @@ impl IntentQueue {
         self.rx.try_recv().ok()
     }
 }
-

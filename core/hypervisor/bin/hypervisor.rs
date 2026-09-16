@@ -1,7 +1,7 @@
 #![allow(ambient_authority)]
 
 use anyhow::Result;
-use autonomic_adaptation as evolution;
+use adaptation_plane as evolution;
 use clap::{Parser, Subcommand};
 use hypervisor::SupervisoryDaemon;
 use hypervisor::enzyme_runner::ModuleRunner;

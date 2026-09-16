@@ -32,7 +32,7 @@ core-contracts = { path = "../core-contracts" }
 omni = { path = "../omni" }
 compute = { path = "../compute" }
 orchestrator = { path = "../orchestrator" }
-autonomic_adaptation = { path = "../autonomic_adaptation" }
+adaptation_plane = { path = "../adaptation_plane" }
 governance = { path = "../governance" }
 platform_bridge = { path = "../platform_bridge", features = ["native-win32"] }
 specialists = { package = "capabilities", path = "../capabilities" }

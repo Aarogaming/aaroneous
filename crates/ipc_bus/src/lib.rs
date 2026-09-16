@@ -56,7 +56,7 @@ pub use comm::AgentBus;
 // Backward compatibility: re-export old module structure
 pub mod shared_memory {
     pub use crate::swmr_synapse::{
-        McpToolCallFrame, SWMRSynapse, SpecialistDialogue, IpcBusState, resolve_synapse_path,
+        IpcBusState, McpToolCallFrame, SWMRSynapse, SpecialistDialogue, resolve_synapse_path,
     };
     pub type SynapseState = IpcBusState;
 }
@@ -87,9 +87,9 @@ pub use slab_allocator::{
     SlabAllocatorWithArena, SlabStats,
 };
 pub use swmr_synapse::{
-    McpToolCallFrame, SNAPSHOT_RING_SLOTS, SNAPSHOT_SEGMENT_SIZE, SNAPSHOT_SHM_MAGIC,
+    IpcBusState, McpToolCallFrame, SNAPSHOT_RING_SLOTS, SNAPSHOT_SEGMENT_SIZE, SNAPSHOT_SHM_MAGIC,
     SNAPSHOT_SHM_VERSION, SWMRSynapse, SnapshotReadEntry, SnapshotRingHeader, SnapshotRingSlot,
-    SpecialistDialogue, SwmrSnapshotPublisher, SwmrSnapshotReader, SynapseReader, IpcBusState,
+    SpecialistDialogue, SwmrSnapshotPublisher, SwmrSnapshotReader, SynapseReader,
     SynapseWriterHandle,
 };
 pub type SynapseState = IpcBusState;
@@ -109,4 +109,3 @@ pub mod ipc_bus {
 pub mod shared_memory_channel {
     pub use crate::swmr_synapse::*;
 }
-
