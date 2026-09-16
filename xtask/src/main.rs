@@ -34,7 +34,7 @@ fn print_help() {
 Usage: cargo xtask <subcommand>
 
 Subcommands:
-  gate             Run all 5 mandatory verification gates (replaces scripts/agent_check.sh)
+  gate             Run every CI verification gate locally (replaces scripts/agent_check.sh)
   check-encoding   Validate UTF-8/LF compliance across all tracked files
   install          Install Aaroneous on Windows (copies binaries, sets PATH, creates shortcuts)
   uninstall        Remove Aaroneous from Windows

@@ -77,29 +77,48 @@ Every crate in this repository is an independent, plug-and-play component block 
 
 ## 6. Sequential Verification Gate Protocol
 
-Agents must NEVER declare work complete based solely on `cargo check`. Every agent MUST run and verify the following sequence before completing a task:
+Agents must NEVER declare work complete based solely on `cargo check`. The single command below (or its shim) runs every gate below, in order, and is mechanically checked to cover the same commands `.github/workflows/ci.yml`'s `check-and-test` job runs (see `xtask/src/gate.rs`'s `tests` module) — running it locally gives the same assurance as a green CI run:
 
 ```bash
-# 1. Full Workspace Compilation (all targets, tests, benches)
+# Full Self-Verification Gate Script — runs gates 1-11 below
+bash scripts/agent_check.sh
+# equivalently: cargo run -p xtask -- gate
+
+# 1. Text Encoding Contract (UTF-8 without BOM, LF line endings)
+cargo run -p xtask -- check-encoding
+
+# 2. Formatting
+cargo fmt --all -- --check
+
+# 3. Strict Clippy (workspace)
+cargo clippy --workspace -- -D warnings
+
+# 4. Full Workspace Compilation (all targets, tests, benches)
 cargo check --workspace --all-targets
 
-# 2. Workspace Test Suite (Functional determinism)
+# 5. Workspace Test Suite (Functional determinism)
 cargo test --workspace
 
-# 3. Structural & Semantic Invariant Audit (MUST EXIT 0)
-cargo run -p ast_auditor -- audit core/ crates/
+# 6. Structural & Semantic Invariant Audit (MUST EXIT 0)
+cargo run -p ast_auditor -- audit core/ crates/ dev/emulator_harness/
 
-# 4. Zero-Stub & Soundness Inspection (Must return empty)
+# 7. Zero-Stub & Soundness Inspection (Must return empty)
 ! git grep -n -E "(\btodo!\(|\bunimplemented!\(|unsafe impl.*Pod)" -- "crates/" "core/" "dev/"
 
-# 5. Golden Dogfooding Harness Verification
+# 8. Golden Dogfooding Harness Verification
 cargo test -p emulator_harness
 
-# 6. Full Self-Verification Gate Script
-bash scripts/agent_check.sh
+# 9. Release Binary Check
+cargo check --release --bin aaroneous --bin hypervisor
+
+# 10. Optional Runtime Features (compile only)
+cargo check -p hypervisor --all-targets --features llama-gguf,gpu-metrics,fleet,testing,standalone
+
+# 11. Iroh Compatibility Feature (compile only)
+cargo check -p hypervisor --all-targets --features p2p-iroh
 ```
 
-> **Note:** `scripts/agent_check.sh` is a thin CI shim — all gate logic runs via `cargo xtask gate`.
+> **Note:** `scripts/agent_check.sh` is a thin CI shim — all gate logic runs via `cargo xtask gate`. Gates 1-3 and 9-11 mirror `ci.yml`'s directly-declared steps; gates 4-8 are `gate.rs`'s own pre-existing verification, run by CI only indirectly (as part of the "Canonical repository verification" step). If you add a new CI check, add the matching gate in `xtask/src/gate.rs` and its command string to `GATE_COMMANDS` in the same file — a test fails otherwise the next time either drifts from the other.
 
 ---
 
