@@ -56,6 +56,7 @@ The canonical specification manual is consolidated into core reference manuals a
 | [`roadmap.md`](./roadmap.md) | Frontiers & Long-Term Milestones | 5 Architectural Pillars, 7-Horizon Frontier Matrix (H1–H7), Phase 38 deliverables, and historical phase index. |
 | [`WORKLIST.md`](./WORKLIST.md) | Current Engineering Work | The canonical operational backlog, active evidence, and verified next steps. |
 | [`HARDENING_AUDIT_MATRIX.md`](./HARDENING_AUDIT_MATRIX.md) | Hardening Program | Twenty evidence-based audit lenses, acceptance criteria, and audit-record template. |
+| [VERIFICATION.md](./VERIFICATION.md) | Verification System | Repository-owned audit commands, CI gate, and review profiles. |
 | [`reviews/`](./reviews/) | Repository Reviews | Time-stamped review evidence and remediation follow-up. |
 | [`contributing/`](./contributing/) | Contributor Policies | Repository text encoding and related contribution contracts. |
 | [`operations.md`](./operations.md) | Operational Playbook & Auxiliary Context | Reactive Ingestion & Assimilation, Internal/External Dogfooding, Local Model integration, and physical engineering boundaries. |
