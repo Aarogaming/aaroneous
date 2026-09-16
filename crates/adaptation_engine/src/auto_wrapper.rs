@@ -105,7 +105,13 @@ impl AutoWrapperEngine {
 
         let sanitized = raw_name
             .chars()
-            .map(|c| if c.is_alphanumeric() { c.to_ascii_lowercase() } else { '_' })
+            .map(|c| {
+                if c.is_alphanumeric() {
+                    c.to_ascii_lowercase()
+                } else {
+                    '_'
+                }
+            })
             .collect::<String>();
         let slug = if sanitized.is_empty() {
             "unknown_utility".to_string()

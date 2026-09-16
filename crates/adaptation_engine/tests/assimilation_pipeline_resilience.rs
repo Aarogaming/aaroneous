@@ -81,11 +81,9 @@ fn test_best_case_auto_wrapper_slug_sanitization() {
 #[test]
 fn test_worst_case_path_traversal_custom_name_sanitization() {
     // Malicious custom name attempting directory traversal
-    let manifest = AutoWrapperEngine::inspect_target(
-        Path::new("bin/tool.exe"),
-        Some("../../etc/passwd"),
-    )
-    .unwrap();
+    let manifest =
+        AutoWrapperEngine::inspect_target(Path::new("bin/tool.exe"), Some("../../etc/passwd"))
+            .unwrap();
 
     // Custom name file_name() isolation converts "../../etc/passwd" -> "passwd"
     assert_eq!(manifest.name, "passwd");
@@ -119,7 +117,10 @@ fn test_worst_case_non_existent_shadow_promotion() {
     let live_target = temp.path().join("live").join("nonexistent.rs");
 
     let result = sandbox.promote_to_live("nonexistent.rs", &live_target);
-    assert!(result.is_err(), "Promoting non-existent shadow file must return Err");
+    assert!(
+        result.is_err(),
+        "Promoting non-existent shadow file must return Err"
+    );
 }
 
 #[test]
