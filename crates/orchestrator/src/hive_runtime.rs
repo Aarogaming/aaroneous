@@ -242,10 +242,12 @@ mod tests {
         let mut runtime = HiveRuntime::new(&config).unwrap();
 
         // Register a specialist
-        let mut agent = SpecialistAgent::default();
-        agent.id = "spec_test".to_string();
-        agent.name = "Test Specialist".to_string();
-        agent.module_subset = vec!["rust".to_string()];
+        let agent = SpecialistAgent {
+            id: "spec_test".to_string(),
+            name: "Test Specialist".to_string(),
+            module_subset: vec!["rust".to_string()],
+            ..Default::default()
+        };
         runtime.register_agent("test".to_string(), agent).await;
 
         runtime.start().await.unwrap();
@@ -268,10 +270,12 @@ mod tests {
         let config = test_config();
         let mut runtime = HiveRuntime::new(&config).unwrap();
 
-        let mut agent = SpecialistAgent::default();
-        agent.id = "spec_a".to_string();
-        agent.name = "Agent A".to_string();
-        agent.module_subset = vec!["rust".to_string()];
+        let agent = SpecialistAgent {
+            id: "spec_a".to_string(),
+            name: "Agent A".to_string(),
+            module_subset: vec!["rust".to_string()],
+            ..Default::default()
+        };
         runtime.register_agent("a".to_string(), agent).await;
         runtime.start().await.unwrap();
 
@@ -334,9 +338,11 @@ mod tests {
         let config = test_config();
         let mut runtime = HiveRuntime::new(&config).unwrap();
 
-        let mut agent = SpecialistAgent::default();
-        agent.id = "s1".to_string();
-        agent.module_subset = vec!["rust".to_string()];
+        let agent = SpecialistAgent {
+            id: "s1".to_string(),
+            module_subset: vec!["rust".to_string()],
+            ..Default::default()
+        };
         runtime.register_agent("a".to_string(), agent).await;
         runtime.start().await.unwrap();
 
@@ -361,9 +367,11 @@ mod tests {
         let config = test_config();
         let mut runtime = HiveRuntime::new(&config).unwrap();
 
-        let mut agent = SpecialistAgent::default();
-        agent.id = "s1".to_string();
-        agent.module_subset = vec!["rust".to_string()];
+        let agent = SpecialistAgent {
+            id: "s1".to_string(),
+            module_subset: vec!["rust".to_string()],
+            ..Default::default()
+        };
         runtime.register_agent("a".to_string(), agent).await;
         runtime.start().await.unwrap();
 
@@ -391,10 +399,12 @@ mod tests {
         let config = test_config();
         let mut runtime = HiveRuntime::new(&config).unwrap();
 
-        let mut agent = SpecialistAgent::default();
-        agent.id = "s1".to_string();
-        agent.name = "TestSpec".to_string();
-        agent.module_subset = vec!["rust".to_string()];
+        let agent = SpecialistAgent {
+            id: "s1".to_string(),
+            name: "TestSpec".to_string(),
+            module_subset: vec!["rust".to_string()],
+            ..Default::default()
+        };
         runtime.register_agent("a".to_string(), agent).await;
         runtime.start().await.unwrap();
 

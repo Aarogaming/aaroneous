@@ -342,10 +342,7 @@ pub fn create_specialist(name: &str) -> Option<SpecialistAgent> {
                 audit_strictness: 40,
             },
             supervised_relic: Some("relic_display_buffer".to_string()),
-            node_preset_path: paths
-                .sovereign_hox_preset("presenter")
-                .to_string_lossy()
-                .to_string(),
+            node_preset_path: paths.node_preset("presenter").to_string_lossy().to_string(),
             module_subset: vec!["sensor_node".to_string(), "tensor_forge".to_string()],
             interval_ms: 20000,
             model_path: paths
@@ -370,7 +367,7 @@ pub fn create_specialist(name: &str) -> Option<SpecialistAgent> {
             },
             supervised_relic: Some("relic_knowledge_store".to_string()),
             node_preset_path: paths
-                .sovereign_hox_preset("synthesizer")
+                .node_preset("synthesizer")
                 .to_string_lossy()
                 .to_string(),
             module_subset: vec!["inference_kernel".to_string(), "tensor_forge".to_string()],
@@ -397,7 +394,7 @@ pub fn create_specialist(name: &str) -> Option<SpecialistAgent> {
             },
             supervised_relic: Some("relic_orchestrator_core".to_string()),
             node_preset_path: paths
-                .sovereign_hox_preset("orchestrator")
+                .node_preset("orchestrator")
                 .to_string_lossy()
                 .to_string(),
             module_subset: vec!["inference_kernel".to_string(), "nat_bridge".to_string()],
@@ -424,10 +421,7 @@ pub fn create_specialist(name: &str) -> Option<SpecialistAgent> {
                 audit_strictness: 35,
             },
             supervised_relic: Some("relic_memory_index".to_string()),
-            node_preset_path: paths
-                .sovereign_hox_preset("archivist")
-                .to_string_lossy()
-                .to_string(),
+            node_preset_path: paths.node_preset("archivist").to_string_lossy().to_string(),
             module_subset: vec!["sensor_node".to_string(), "inference_kernel".to_string()],
             interval_ms: 35000,
             model_path: paths
@@ -452,7 +446,7 @@ pub fn create_specialist(name: &str) -> Option<SpecialistAgent> {
             },
             supervised_relic: Some("relic_compiler_core".to_string()),
             node_preset_path: paths
-                .sovereign_hox_preset("fabricator")
+                .node_preset("fabricator")
                 .to_string_lossy()
                 .to_string(),
             module_subset: vec!["tensor_forge".to_string(), "inference_kernel".to_string()],
@@ -477,10 +471,8 @@ pub fn create_specialist(name: &str) -> Option<SpecialistAgent> {
                 audit_strictness: 100,
             },
             supervised_relic: Some("relic_audit_engine".to_string()),
-            node_preset_path: paths
-                .sovereign_hox_preset("sentinel")
-                .to_string_lossy()
-                .to_string(),
+            node_preset_path: paths.node_preset("sentinel").to_string_lossy().to_string(),
+
             module_subset: vec!["nat_bridge".to_string(), "sensor_node".to_string()],
             interval_ms: 15000,
             model_path: paths
@@ -517,7 +509,7 @@ pub fn create_relic(name: &str, supervisor_id: &str) -> Option<RelicAgent> {
                 audit_strictness: 45,
             },
             node_preset_path: paths
-                .relic_hox_preset("display_buffer")
+                .module_preset("display_buffer")
                 .to_string_lossy()
                 .to_string(),
             module_subset: vec!["sensor_node".to_string(), "tensor_forge".to_string()],
@@ -544,7 +536,7 @@ pub fn create_relic(name: &str, supervisor_id: &str) -> Option<RelicAgent> {
                 audit_strictness: 55,
             },
             node_preset_path: paths
-                .relic_hox_preset("knowledge_store")
+                .module_preset("knowledge_store")
                 .to_string_lossy()
                 .to_string(),
             module_subset: vec!["inference_kernel".to_string(), "tensor_forge".to_string()],
@@ -571,7 +563,7 @@ pub fn create_relic(name: &str, supervisor_id: &str) -> Option<RelicAgent> {
                 audit_strictness: 80,
             },
             node_preset_path: paths
-                .relic_hox_preset("orchestrator_core")
+                .module_preset("orchestrator_core")
                 .to_string_lossy()
                 .to_string(),
             module_subset: vec!["inference_kernel".to_string(), "nat_bridge".to_string()],
@@ -598,7 +590,7 @@ pub fn create_relic(name: &str, supervisor_id: &str) -> Option<RelicAgent> {
                 audit_strictness: 50,
             },
             node_preset_path: paths
-                .relic_hox_preset("memory_index")
+                .module_preset("memory_index")
                 .to_string_lossy()
                 .to_string(),
             module_subset: vec!["sensor_node".to_string(), "inference_kernel".to_string()],
@@ -624,7 +616,7 @@ pub fn create_relic(name: &str, supervisor_id: &str) -> Option<RelicAgent> {
                 audit_strictness: 88,
             },
             node_preset_path: paths
-                .relic_hox_preset("compiler_core")
+                .module_preset("compiler_core")
                 .to_string_lossy()
                 .to_string(),
             module_subset: vec!["tensor_forge".to_string(), "inference_kernel".to_string()],
@@ -650,7 +642,7 @@ pub fn create_relic(name: &str, supervisor_id: &str) -> Option<RelicAgent> {
                 audit_strictness: 100,
             },
             node_preset_path: paths
-                .relic_hox_preset("audit_engine")
+                .module_preset("audit_engine")
                 .to_string_lossy()
                 .to_string(),
             module_subset: vec!["nat_bridge".to_string(), "sensor_node".to_string()],

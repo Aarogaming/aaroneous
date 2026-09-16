@@ -275,6 +275,7 @@ impl WorkspacePaths {
         self.root.join("node.db")
     }
 
+    #[deprecated(since = "0.3.3", note = "Use node_db instead")]
     pub fn hox_db(&self) -> PathBuf {
         self.node_db()
     }
@@ -304,19 +305,29 @@ impl WorkspacePaths {
         }
     }
 
-    pub fn sovereign_hox_preset(&self, name: &str) -> PathBuf {
+    pub fn node_preset(&self, name: &str) -> PathBuf {
         self.agent_preset(name)
     }
 
-    pub fn relic_hox_preset(&self, name: &str) -> PathBuf {
+    #[deprecated(since = "0.3.3", note = "Use node_preset or agent_preset instead")]
+    pub fn sovereign_hox_preset(&self, name: &str) -> PathBuf {
+        self.node_preset(name)
+    }
+
+    pub fn module_preset(&self, name: &str) -> PathBuf {
         let module_store = self
             .registry()
             .join(format!("module_store_{}.json", name.to_lowercase()));
         if module_store.exists() {
             module_store
         } else {
-            self.sovereign_hox_preset(name)
+            self.node_preset(name)
         }
+    }
+
+    #[deprecated(since = "0.3.3", note = "Use module_preset instead")]
+    pub fn relic_hox_preset(&self, name: &str) -> PathBuf {
+        self.module_preset(name)
     }
 
     pub fn omni_galaxy_map(&self) -> PathBuf {
@@ -756,5 +767,45 @@ mod tests {
         assert_eq!(normalize_path(""), PathBuf::from(""));
         assert_eq!(normalize_path("   "), PathBuf::from("   "));
         assert_eq!(normalize_path("   /../foo"), PathBuf::from("foo"));
+    }
+
+    #[test]
+    #[allow(deprecated)]
+    fn test_preset_resolution_and_fallback_matrix() {
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path().join("Aaroneous");
+        let registry = root.join("registry");
+        std::fs::create_dir_all(&registry).unwrap();
+
+        let config = WorkspacePathsConfig::new().with_explicit_root(root);
+        let paths = WorkspacePaths::discover(&config);
+
+        // Case 1: Legacy hox_*.json exists, agent_*.json does not exist
+        let legacy_hox = registry.join("hox_sentinel.json");
+        std::fs::write(&legacy_hox, b"{}").unwrap();
+
+        assert_eq!(paths.agent_preset("sentinel"), legacy_hox);
+        assert_eq!(paths.node_preset("sentinel"), legacy_hox);
+        assert_eq!(paths.sovereign_hox_preset("sentinel"), legacy_hox);
+        assert_eq!(paths.module_preset("sentinel"), legacy_hox);
+        assert_eq!(paths.relic_hox_preset("sentinel"), legacy_hox);
+
+        // Case 2: Canonical agent_*.json exists -> takes precedence over hox_*.json
+        let canonical_agent = registry.join("agent_sentinel.json");
+        std::fs::write(&canonical_agent, b"{}").unwrap();
+
+        assert_eq!(paths.agent_preset("sentinel"), canonical_agent);
+        assert_eq!(paths.node_preset("sentinel"), canonical_agent);
+        assert_eq!(paths.sovereign_hox_preset("sentinel"), canonical_agent);
+
+        // Case 3: Canonical module_store_*.json exists -> takes precedence for module/relic presets
+        let module_store = registry.join("module_store_sentinel.json");
+        std::fs::write(&module_store, b"{}").unwrap();
+
+        assert_eq!(paths.module_preset("sentinel"), module_store);
+        assert_eq!(paths.relic_hox_preset("sentinel"), module_store);
+
+        // Case 4: node_db and hox_db equivalence
+        assert_eq!(paths.node_db(), paths.hox_db());
     }
 }
