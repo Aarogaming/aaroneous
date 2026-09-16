@@ -384,9 +384,19 @@ mod tests {
             }],
         };
 
-        baseline.save_generated_to(&temp_dir).unwrap();
-
-        std::thread::sleep(std::time::Duration::from_millis(1100));
+        let cache_path = baseline.save_generated_to(&temp_dir).unwrap();
+        // Backdate the cache file's mtime so it is definitively older than any
+        // manifest written after this point — no sleep needed, avoids 1.1s
+        // wait for filesystem mtime granularity.
+        {
+            let past = std::time::SystemTime::now() - std::time::Duration::from_secs(10);
+            let times = std::fs::FileTimes::new().set_modified(past);
+            let cache_file = std::fs::OpenOptions::new()
+                .write(true)
+                .open(&cache_path)
+                .unwrap();
+            cache_file.set_times(times).unwrap();
+        }
 
         let manifest_path = temp_dir.join("sab_new_feature.json");
         let manifest = r#"{
