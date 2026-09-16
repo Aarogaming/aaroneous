@@ -80,3 +80,75 @@ jobs:
           name: compliance-report
           path: compliance-report.json
           if-no-files-found: ignore
+
+      - name: Post PR comment
+        if: always() && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const marker = '<!-- compliance-auditor-report -->';
+
+            let body = `${marker}\n## Compliance review\n\n`;
+            let report = null;
+            try {
+              report = JSON.parse(fs.readFileSync('compliance-report.json', 'utf8'));
+            } catch (err) {
+              body += `_The review did not produce a report (${err.message}). `
+                    + `Check the [job summary](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}) for details._\n`;
+            }
+
+            if (report) {
+              body += `Reviewed \`${report.base_sha.slice(0, 12)}..${report.head_sha.slice(0, 12)}\` `
+                    + `(${report.files_reviewed.length} file(s)).\n\n`;
+
+              if (report.structural_errors.length > 0) {
+                body += '### Structural (ast_auditor)\n\n';
+                for (const e of report.structural_errors) body += `- ${e}\n`;
+                body += '\n';
+              }
+
+              if (report.findings.length === 0) {
+                body += '_No findings survived verification._\n';
+              } else {
+                body += `### Findings (${report.findings.length})\n\n`;
+                body += '| Angle | Verdict | Location | Summary |\n';
+                body += '|---|---|---|---|\n';
+                for (const f of report.findings) {
+                  const loc = `${f.candidate.file}:${f.candidate.line ?? '?'}`;
+                  const summary = f.candidate.summary.replace(/\|/g, '\\|');
+                  body += `| ${f.candidate.angle} | ${f.verdict} | \`${loc}\` | ${summary} |\n`;
+                }
+                body += '\n<details><summary>Failure scenarios and verifier notes</summary>\n\n';
+                for (const f of report.findings) {
+                  const loc = `${f.candidate.file}:${f.candidate.line ?? '?'}`;
+                  body += `**\`${loc}\`** (${f.candidate.angle}, ${f.verdict})\n\n`;
+                  body += `- Failure scenario: ${f.candidate.failure_scenario}\n`;
+                  body += `- Verifier: ${f.justification}\n\n`;
+                }
+                body += '</details>\n';
+              }
+            }
+
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            const existing = comments.find(c => c.body.startsWith(marker));
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }
