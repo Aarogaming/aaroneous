@@ -953,22 +953,50 @@ mod tests {
 
     #[test]
     fn test_capability_debouncing_token_bucket() {
+        // `execute()`'s debounce check uses a real `Instant::now()` internally
+        // (no injectable clock in the production API), so whether the second
+        // of two back-to-back calls lands inside the 15ms window is a real
+        // wall-clock race — on a loaded/throttled CI runner, enough time can
+        // occasionally pass between the two statements for the window to
+        // already be gone, even though the debounce logic itself is correct
+        // (observed flaking on windows-latest: `!second.success` failed
+        // because the second call landed just outside 15ms). Retry the
+        // paired-calls probe a few times with a fresh broker each attempt
+        // instead of touching the production debounce window; only fail if
+        // debouncing genuinely never triggers across every attempt.
+        let mut debounced = false;
+        for _ in 0..5 {
+            let broker = CapabilityBroker::default();
+            let first = broker.execute(
+                "specialist.dispatch_intent",
+                serde_json::json!({ "intent": "task 1" }),
+            );
+            assert!(first.success);
+
+            let second = broker.execute(
+                "specialist.dispatch_intent",
+                serde_json::json!({ "intent": "task 2" }),
+            );
+            if !second.success {
+                assert!(second.error.unwrap_or_default().contains("Debounced"));
+                debounced = true;
+                break;
+            }
+        }
+        assert!(
+            debounced,
+            "debounce never triggered across 5 attempts of two back-to-back calls"
+        );
+
+        // The "window clears after 15ms" half doesn't race — a 20ms sleep is
+        // reliably longer than the window regardless of runner speed — so it
+        // stays a single deterministic check on its own fresh broker.
         let broker = CapabilityBroker::default();
         let first = broker.execute(
             "specialist.dispatch_intent",
             serde_json::json!({ "intent": "task 1" }),
         );
         assert!(first.success);
-
-        // Immediate subsequent mutating call (< 15ms) should debounce
-        let second = broker.execute(
-            "specialist.dispatch_intent",
-            serde_json::json!({ "intent": "task 2" }),
-        );
-        assert!(!second.success);
-        assert!(second.error.unwrap_or_default().contains("Debounced"));
-
-        // Wait 20ms and call should succeed
         std::thread::sleep(std::time::Duration::from_millis(20));
         let third = broker.execute(
             "specialist.dispatch_intent",
