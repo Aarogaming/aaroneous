@@ -1,4 +1,4 @@
-﻿# What Exists Today in Aaroneous (Verified & Audited)
+# What Exists Today in Aaroneous (Verified & Audited)
 
 This document provides an accurate, audited summary of the current codebase architecture, physical boundaries, and operational status following the **Cratify Batch 2 Decoupling** and **Terminology Modernization**.
 
@@ -59,10 +59,12 @@ All biological, neurological, and speculative terminology has been replaced acro
 - **IPC**: synapse, SynapseState -> ipc_bus, swmr_shm, spmc_shm_bus, shared_channel
 - **Capabilities**: chromosome, hox, dna -> capability_schema, profile_schema, capability_registry
 - **Execution**: enzyme, EnzymeRunner -> worker_runner, worker_types, 	ask_worker
-- **Heuristics**: dopamine, curiosity -> eward_system, exploration_worker
+- **Heuristics**: dopamine, curiosity -> 
+eward_system, exploration_worker
 - **Orchestration**: prefrontal_cortex, utonomic_loop -> intent_orchestrator, supervisory_loop
 - **Topology**: hive, multi_hive, constellation -> cluster, multi_cluster, spatial_graph
-- **Limits**: iology, homeostasis, 	hermodynamic_governor -> system_limits, esource_governor, 	hroughput_governor
+- **Limits**: iology, homeostasis, 	hermodynamic_governor -> system_limits, 
+esource_governor, 	hroughput_governor
 
 ---
 
@@ -85,7 +87,8 @@ All biological, neurological, and speculative terminology has been replaced acro
 - **Workspace Build**: cargo check --workspace compiles cleanly with 0 errors.
 - **Compliance Suites**: cargo test -p cratify passes **183 / 183 tests**:
   - udit_harness: 36 passed
-  - ing_buffer_harness: 25 passed
+  - 
+ing_buffer_harness: 25 passed
   - saturation_harness: 29 passed
   - 	ranslation_harness: 93 passed
 - **Gateway Test Suite**: cargo test -p llm_gateway passes **31 unit tests**.

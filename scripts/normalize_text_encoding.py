@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Safely normalize explicitly selected tracked UTF-8 text files."""
+"""Safely normalize explicitly selected tracked text files."""
 
 from __future__ import annotations
 
@@ -15,13 +15,22 @@ def tracked(root: Path) -> set[str]:
     return {item.decode("utf-8") for item in output.split(b"\0") if item}
 
 
-def normalize(path: Path) -> bool:
+def normalize(path: Path, legacy_encoding: str | None) -> bool:
     data = path.read_bytes()
-    if data.startswith(b"\xef\xbb\xbf") or b"\r" in data or b"\0" in data:
-        raise ValueError("requires BOM, line-ending, or binary classification repair")
-    data.decode("utf-8", "strict")
-    if data and not data.endswith(b"\n"):
-        path.write_bytes(data + b"\n")
+    if b"\0" in data:
+        raise ValueError("refusing to modify binary data")
+    try:
+        text = data.decode("utf-8-sig", "strict")
+    except UnicodeDecodeError:
+        if legacy_encoding is None:
+            raise ValueError("requires an explicit legacy encoding") from None
+        text = data.decode(legacy_encoding, "strict")
+    normalized = text.replace("\r\n", "\n").replace("\r", "\n")
+    if normalized and not normalized.endswith("\n"):
+        normalized += "\n"
+    repaired = normalized.encode("utf-8")
+    if repaired != data:
+        path.write_bytes(repaired)
         return True
     return False
 
@@ -30,6 +39,11 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("paths", nargs="+", help="tracked files or directory prefixes")
     parser.add_argument("--apply", action="store_true")
+    parser.add_argument(
+        "--legacy-encoding",
+        choices=("cp1252", "latin-1"),
+        help="explicit source encoding permitted for non-UTF-8 text",
+    )
     args = parser.parse_args()
     root = Path(__file__).resolve().parent.parent
     files = tracked(root)
@@ -40,10 +54,10 @@ def main() -> int:
     for name in selected:
         path = root / name
         try:
-            if args.apply and normalize(path):
+            if args.apply and normalize(path, args.legacy_encoding):
                 changed.append(name)
             elif not args.apply:
-                normalize(path)
+                normalize(path, args.legacy_encoding)
         except ValueError:
             continue
     print(f"normalized {len(changed)} files" if args.apply else f"validated {len(selected)} files")

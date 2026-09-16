@@ -64,7 +64,9 @@ All ongoing feature cycles and autonomous runtime evolution adhere to the system
 | Need | Source Project | Pattern to Borrow | Integration Point |
 |------|----------------|-------------------|-------------------|
 | OS-level sandbox & capability tokens | **OpenFang** | Capability-based security, Windows Job Objects | Extend capability_broker to issue signed tokens and enforce sandbox at process spawn |
-| Compile-time typed action graph | **Rig** (ig.rs) | Generic Tool/AgentAction<I,O> trait, compile-time graph validation | Replace loosely-typed Skill/Instruction with AgentAction<I,O> and enum ActionPayload deriving kyv |
+| Compile-time typed action graph | **Rig** (
+ig.rs) | Generic Tool/AgentAction<I,O> trait, compile-time graph validation | Replace loosely-typed Skill/Instruction with AgentAction<I,O> and enum ActionPayload deriving 
+kyv |
 | Supervision & auto-restart | **Ractor / Actix** | Supervisor trees, boxed async tasks, restart policies | Add supervision.rs with Supervisor that watches 	okio::task::JoinHandles and registers budgets with RuntimeGovernor |
 | Unified low-latency event bus | **LMX Disruptor** (already present) | Central ring buffer for all messages | Promote disruptor.rs to the sole inter-component bus; deprecate universal_event_bus |
 | Fast binary (de)serialization | **rkyv + mimalloc** | Zero-copy archives | Ensure every IPC payload (Skill, Instruction, TelemetryEvent, etc.) derives Archive, Serialize, Deserialize |
@@ -87,7 +89,8 @@ All ongoing feature cycles and autonomous runtime evolution adhere to the system
 - [ ] **si_ir Machine Tokenizer Definition**: Formulate token grammar mapping MachineOpcode, Win32 events, DXGI dirty sector bits, and typed IPC frames.
 - [ ] **In-Memory RLS Adaptive Filter**: Implement sub-microsecond Recursive Least Squares covariance updates directly in crates/compute/src/state_bank.rs.
 - [ ] **Synthetic Trace Mining via llm_gateway**: Asynchronous harvesting and distillation of anomalous execution traces into canonical .si container blocks.
-- [ ] **Continuous Telemetry Ingestion via ing_buffer.rs**: Stream live DXGI/RawInput/ETW frames directly into the disruptor without intermediate heap serialization.
+- [ ] **Continuous Telemetry Ingestion via 
+ing_buffer.rs**: Stream live DXGI/RawInput/ETW frames directly into the disruptor without intermediate heap serialization.
 
 #### 🟡 Governance & Release Hardening
 - [ ] **Edge-device orchestration** via 
@@ -114,7 +117,8 @@ vml-wrapper, iroh P2P |
 | **Phases 25–29** | 1.4.0 | Hardware saturation & sparse MoE | **Complete** | 16-slot sparse expert register, CAN 2.0B/FD, VRAM slab, Crucible sandbox |
 | **Phases 30–33** | 1.5.0 | Machine-native intent & NPU | **Complete** | Auto-tuner, drag-and-drop .si-pack, .lib state bank, 45 TOPS NPU |
 | **Phases 34–37** | 1.6.0 | Console-OS shell & Merlin companion | **Complete** | Decoupled console-OS, 3D skills, biometrics, Merlin |
-| **Phase 38** | 1.7.0 | Triad shell convergence, resource governance | **In Progress** | CapabilityBroker, EngineStatePublisher, dirty-flag pacing, thermal backpressure, kyv, disruptor |
+| **Phase 38** | 1.7.0 | Triad shell convergence, resource governance | **In Progress** | CapabilityBroker, EngineStatePublisher, dirty-flag pacing, thermal backpressure, 
+kyv, disruptor |
 
 ---
 

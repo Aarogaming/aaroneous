@@ -1,4 +1,4 @@
-﻿use anyhow::{bail, Result};
+use anyhow::{bail, Result};
 use std::sync::Arc;
 use crate::memory_pipeline::EpisodicInsertionPipeline;
 use tracing::{info, error};
@@ -58,7 +58,8 @@ impl OfflineCommsSync {
         std::thread::spawn(move || {
             info!("Syncing CalDAV Schedule from {}...", endpoint);
             
-            // Note: In production this uses eqwest to parse iCalendar (.ics) via PROPFIND.
+            // Note: In production this uses 
+eqwest to parse iCalendar (.ics) via PROPFIND.
             let dummy_event = "Event: Focus Time - Deep Work on DirectX Hooks (2PM - 6PM)";
             let _ = pipeline.embed_and_insert(dummy_event, "#schedule #caldav");
             

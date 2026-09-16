@@ -1,4 +1,4 @@
-﻿# RFC-0004: Machine-Native State Language Model (M-SLM) & Bounded Dynamicism
+# RFC-0004: Machine-Native State Language Model (M-SLM) & Bounded Dynamicism
 
 - **RFC Number:** 0004
 - **Title:** .si Machine-Native State Language Model (M-SLM) & Bounded Dynamicism Runtime Specification
@@ -66,7 +66,8 @@ Rather than treating learning and execution as disconnected phases, the M-SLM im
 `
 
 ### 3.1 Tier 1: Fast-Path In-Memory Adaptation (< 1 µs)
-Located directly within crates/compute/src/state_bank.rs and eflex_worker.rs:
+Located directly within crates/compute/src/state_bank.rs and 
+eflex_worker.rs:
 - Operates on streaming 256-dimensional latent trajectories.
 - Utilizes fixed-rank Recursive Least Squares (RLS) or Kalman gain updates without dynamic heap allocation.
 - In-place adaptation of the transition matrix:

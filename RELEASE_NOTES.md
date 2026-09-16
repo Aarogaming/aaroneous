@@ -1,4 +1,4 @@
-﻿# Aaroneous OS v1.2.0 - The Sovereign Core Update
+# Aaroneous OS v1.2.0 - The Sovereign Core Update
 
 This is the largest architectural update in the history of the Aaroneous Desktop Hypervisor. The engine has been completely decoupled from the cloud, hardware-accelerated, and transformed into a true local-first AI Operating System.
 
@@ -17,7 +17,8 @@ This is the largest architectural update in the history of the Aaroneous Desktop
 *   **Edge-Compute Tagger:** Heuristically analyzes foreground process memory/titles to auto-tag workflows (0 token cost).
 *   **Episodic Memory Pipeline:** Direct ingestion vector pipeline for the HNSW R^256 fabric.
 *   **Background Watchers & Crawlers:** Added 
-otify daemon for file changes and eqwest for headless URL scraping.
+otify daemon for file changes and 
+eqwest for headless URL scraping.
 *   **Multi-Monitor Detachment:** Enabled native eframe multiple viewports for tear-away developer panels.
 *   **Offline Data Sync:** CalDAV & IMAP pipeline integrated into vector memory for schedule context.
 

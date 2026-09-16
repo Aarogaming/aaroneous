@@ -1,9 +1,10 @@
-﻿# Active High-Priority Audit Queue (Compact)
+# Active High-Priority Audit Queue (Compact)
 *Optimized for local model context windows (Qwen 3.5 9B)*
 
 ## ☠️ TIER 0: BLOCKER PRIORITY
 - [ ] **BLOCKER-03: Dependency CVE Advisories (SEC-05)**
-  - Crates: eqwest, iroh, urn
+  - Crates: 
+eqwest, iroh, urn
   - Action: Run cargo update and resolve semver vulnerabilities.
 
 ## 🔴 TIER 1: CRITICAL PRIORITY (Immediate Code Fixes)
@@ -18,7 +19,8 @@
   - Action: Replace == with subtle::ConstantTimeEq.
 - [ ] **CRIT-07: Lock Inversion Deadlock in Hive Runtime**
   - File: crates/orchestrator/src/hive_runtime.rs
-  - Action: Acquire 	ask_log lock before outer lock across all methods.
+  - Action: Acquire 	ask_log lock before 
+outer lock across all methods.
 - [ ] **CRIT-08: Swarm Balancer TOCTOU Race Condition**
   - File: crates/orchestrator/src/swarm_balancer.rs
   - Action: Retain write lock during worker allocation to prevent double-assignment.

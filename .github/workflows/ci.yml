@@ -53,7 +53,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
 
       - name: Text encoding inventory
-        run: python scripts/check_text_encoding.py --inventory
+        run: python scripts/check_text_encoding.py
 
       - name: Formatting (Ubuntu only)
         if: matrix.os == 'ubuntu-latest'
