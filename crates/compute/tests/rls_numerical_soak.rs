@@ -28,8 +28,10 @@ impl LCG {
 }
 
 /// Plant dynamics: true underlying coefficients we're trying to learn
+#[allow(dead_code)]
 const TRUE_COEFFS: [f64; 4] = [1.0, -2.5, 3.7, -0.8];
 
+#[allow(dead_code)]
 fn plant_output(input: &[f64; 4]) -> f64 {
     input
         .iter()
@@ -144,6 +146,7 @@ fn test_rls_numerical_soak_1m_cycle() {
     println!("NaN errors:            {}", nan_count);
     println!("Inf errors:            {}", inf_count);
     println!("Parameter violations:  {}", param_violations);
+    println!("Last checkpoint:       {}", last_checkpoint);
     println!(
         "Elapsed time:          {:.2} seconds",
         elapsed.as_secs_f64()

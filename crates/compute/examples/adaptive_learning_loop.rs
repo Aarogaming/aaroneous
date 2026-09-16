@@ -1,7 +1,7 @@
 // Adaptive Learning Loop Example - End-to-end RLS state adaptation simulation
 
 use anyhow::Result;
-use compute::token_consumer::{AdaptationError, MachineToken, StateAdaptor};
+use compute::token_consumer::{MachineToken, StateAdaptor};
 
 fn main() -> Result<()> {
     println!("===========================================================");

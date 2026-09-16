@@ -237,11 +237,12 @@ mod tests {
 
     #[test]
     fn test_cartridge_pack_ingestion_and_lifecycle() {
-        let temp_dir = tempfile::tempdir().unwrap().into_path();
+        let temp = tempfile::tempdir().unwrap();
+        let temp_dir = temp.path();
         let pack_file = temp_dir.join("test_navigation.si-pack");
         std::fs::write(&pack_file, b"SI_PACK_MOCK_DATA").unwrap();
 
-        let mut mgr = CartridgePackManager::new(&temp_dir);
+        let mut mgr = CartridgePackManager::new(temp_dir);
         let manifest = mgr.ingest_cartridge_pack(&pack_file).unwrap();
 
         assert_eq!(manifest.pack_name, "test_navigation");
@@ -258,8 +259,9 @@ mod tests {
 
     #[test]
     fn test_sint_cartridge_validation_and_mount() {
-        let temp_dir = tempfile::tempdir().unwrap().into_path();
-        let mut mgr = CartridgePackManager::new(&temp_dir);
+        let temp = tempfile::tempdir().unwrap();
+        let temp_dir = temp.path();
+        let mut mgr = CartridgePackManager::new(temp_dir);
 
         let valid_sint = b"SINT\x03\x00\x00\x00\x00\x00\x00\x00";
         let manifest = mgr
@@ -276,8 +278,9 @@ mod tests {
 
     #[test]
     fn test_crystallize_workflow_habit() {
-        let temp_dir = tempfile::tempdir().unwrap().into_path();
-        let mut mgr = CartridgePackManager::new(temp_dir.clone());
+        let temp = tempfile::tempdir().unwrap();
+        let temp_dir = temp.path();
+        let mut mgr = CartridgePackManager::new(temp_dir);
 
         let mut wf = crate::workflow_engine::WorkflowGraph::new("code_synthesis_habit");
         wf.add_step("s1", "Fabricator", "Alloc", "buffer_64", vec![], 2);
@@ -297,7 +300,5 @@ mod tests {
         assert_eq!(manifest.version, "3.0.0");
         assert_eq!(manifest.domain, "CrystallizedHabit");
         assert_eq!(mgr.mounted_count(), 1);
-
-        let _ = std::fs::remove_dir_all(&temp_dir);
     }
 }

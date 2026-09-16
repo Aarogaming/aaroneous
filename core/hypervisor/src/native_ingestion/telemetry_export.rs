@@ -107,7 +107,6 @@ pub struct TelemetryExportStats {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::atomic::Ordering;
 
     #[test]
     fn test_exporter_initialization() {

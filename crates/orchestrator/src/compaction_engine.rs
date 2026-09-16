@@ -289,8 +289,9 @@ mod tests {
 
     #[test]
     fn test_compaction_engine_hibernation_and_resurrection() {
-        let test_dir = tempfile::tempdir().unwrap().into_path();
-        let mut reaper = CompactionEngine::new(test_dir.clone());
+        let temp = tempfile::tempdir().unwrap();
+        let test_dir = temp.path().to_path_buf();
+        let mut reaper = CompactionEngine::new(test_dir);
 
         // 1. Register test specialist with 32MB simulated memory footprint
         let dummy_state = SpecialistHibernationState {
@@ -324,8 +325,6 @@ mod tests {
             "Resurrection took {} µs, expected < 100,000 µs",
             duration_us
         );
-
-        let _ = fs::remove_dir_all(&test_dir);
     }
 }
 

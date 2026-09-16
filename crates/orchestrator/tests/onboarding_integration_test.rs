@@ -10,8 +10,7 @@ use ipc_bus::universal_protocol::{
     UcpRequestType, UniversalClientRequest,
 };
 use orchestrator::onboarding::{
-    AssimilationTask, ComponentOnboardingTask, Idle, Synthesizing, handle_assimilation_event,
-    handle_onboarding_event, process_client_request, process_onboarding_request,
+    AssimilationTask, Idle, Synthesizing, handle_assimilation_event, process_client_request,
 };
 use std::marker::PhantomData;
 

@@ -244,7 +244,7 @@ mod tests {
 
     #[test]
     fn test_linguistic_intercom_companion_greetings() {
-        let mut intercom = LinguisticIntercom::default();
+        let intercom = LinguisticIntercom::default();
         let primary_greet = intercom.companion.generate_greeting("Aaron", false, 0.95);
         assert!(
             primary_greet.contains("Deep Flow"),

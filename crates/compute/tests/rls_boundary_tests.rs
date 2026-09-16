@@ -20,7 +20,7 @@ struct CovarianceMatrix {
 /// Historical failure mode: Division by zero in normalization
 #[test]
 fn test_rls_division_by_zero_protection() {
-    let mut covariance = CovarianceMatrix {
+    let covariance = CovarianceMatrix {
         p00: 1e-10, // Near-zero value (historical failure condition)
         p01: 0.0,
         p10: 0.0,
@@ -132,7 +132,7 @@ fn enforce_positive_definiteness(cov: &mut CovarianceMatrix) -> Result<(), Strin
 /// Applies RLS update with bounded operations
 fn apply_rls_update(
     cov: &mut CovarianceMatrix,
-    innovations: &[f32],
+    _innovations: &[f32],
     lambda: f32,
 ) -> Result<(), String> {
     if lambda <= 0.0 || lambda >= 1.0 {

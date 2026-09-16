@@ -70,6 +70,7 @@ fn main() -> Result<()> {
     );
     println!("Total samples:         {}", tokens_emitted);
     println!("Sample rate:           {:.2} samples/sec", samples_per_sec);
+    println!("Checkpoints evaluated: {}", allocation_count);
 
     // Verify streaming success criteria
     assert!(tokens_emitted > 0, "No tokens emitted!");

@@ -528,11 +528,8 @@ mod tests {
 
     #[test]
     fn test_save_and_load() {
-        let dir = tempfile::tempdir()
-            .unwrap()
-            .into_path()
-            .join("workflow_tests");
-        let _ = fs::remove_dir_all(&dir);
+        let temp = tempfile::tempdir().unwrap();
+        let dir = temp.path().join("workflow_tests");
         fs::create_dir_all(&dir).unwrap();
 
         let path = dir.join("test_wf.json");
@@ -544,14 +541,12 @@ mod tests {
         assert_eq!(loaded.workflow_id, "test_wf");
         assert_eq!(loaded.steps.len(), 1);
         assert_eq!(loaded.persist_path, Some(path.clone()));
-
-        let _ = fs::remove_dir_all(&dir);
     }
 
     #[test]
     fn test_list_persisted() {
-        let dir = tempfile::tempdir().unwrap().into_path().join("list_tests");
-        let _ = fs::remove_dir_all(&dir);
+        let temp = tempfile::tempdir().unwrap();
+        let dir = temp.path().join("list_tests");
         fs::create_dir_all(dir.join(".aaroneous/workflows")).unwrap();
 
         // Create two workflow files
@@ -569,14 +564,12 @@ mod tests {
         let mut ids = WorkflowGraph::list_persisted(&dir).unwrap();
         ids.sort();
         assert_eq!(ids, vec!["wf_a", "wf_b"]);
-
-        let _ = fs::remove_dir_all(&dir);
     }
 
     #[test]
     fn test_new_with_persist() {
-        let temp_dir = tempfile::tempdir().unwrap().into_path();
-        let path = temp_dir.join("test_wf_persist.json");
+        let temp = tempfile::tempdir().unwrap();
+        let path = temp.path().join("test_wf_persist.json");
         let wf = WorkflowGraph::new_with_persist("wf_persist", path.clone());
         assert_eq!(wf.workflow_id, "wf_persist");
         assert_eq!(wf.persist_path, Some(path));
@@ -584,11 +577,8 @@ mod tests {
 
     #[test]
     fn test_save_default_creates_directory() {
-        let dir = tempfile::tempdir()
-            .unwrap()
-            .into_path()
-            .join("save_default_tests");
-        let _ = fs::remove_dir_all(&dir);
+        let temp = tempfile::tempdir().unwrap();
+        let dir = temp.path().join("save_default_tests");
         fs::create_dir_all(&dir).unwrap();
 
         let mut wf = WorkflowGraph::new("wf_default");
@@ -598,23 +588,16 @@ mod tests {
         let loaded = WorkflowGraph::load_default(&dir, "wf_default").unwrap();
         assert_eq!(loaded.workflow_id, "wf_default");
         assert_eq!(loaded.steps.len(), 1);
-
-        let _ = fs::remove_dir_all(&dir);
     }
 
     #[test]
     fn test_load_default_nonexistent() {
-        let dir = tempfile::tempdir()
-            .unwrap()
-            .into_path()
-            .join("load_nonexist_tests");
-        let _ = fs::remove_dir_all(&dir);
+        let temp = tempfile::tempdir().unwrap();
+        let dir = temp.path().join("load_nonexist_tests");
         fs::create_dir_all(&dir).unwrap();
 
         let result = WorkflowGraph::load_default(&dir, "nonexistent");
         assert!(result.is_err());
-
-        let _ = fs::remove_dir_all(&dir);
     }
 
     #[test]
@@ -720,26 +703,18 @@ mod tests {
 
     #[test]
     fn test_list_persisted_empty_dir() {
-        let dir = tempfile::tempdir()
-            .unwrap()
-            .into_path()
-            .join("empty_workflow_tests");
-        let _ = fs::remove_dir_all(&dir);
+        let temp = tempfile::tempdir().unwrap();
+        let dir = temp.path().join("empty_workflow_tests");
         fs::create_dir_all(&dir).unwrap();
 
         let ids = WorkflowGraph::list_persisted(&dir).unwrap();
         assert!(ids.is_empty());
-
-        let _ = fs::remove_dir_all(&dir);
     }
 
     #[test]
     fn test_list_persisted_nonexistent_dir() {
-        let dir = tempfile::tempdir()
-            .unwrap()
-            .into_path()
-            .join("nonexist_workflow_dir_tests");
-        let _ = fs::remove_dir_all(&dir);
+        let temp = tempfile::tempdir().unwrap();
+        let dir = temp.path().join("nonexist_workflow_dir_tests");
         // Directory doesn't exist
         let ids = WorkflowGraph::list_persisted(&dir).unwrap();
         assert!(ids.is_empty());
