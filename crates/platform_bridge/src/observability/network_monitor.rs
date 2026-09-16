@@ -1,4 +1,4 @@
-﻿use anyhow::Result;
+use anyhow::Result;
 use tracing::info;
 
 /// CONSUMER-19: Network Traffic Monitor
