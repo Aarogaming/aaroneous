@@ -37,6 +37,18 @@ enum Commands {
         #[arg(long)]
         json: bool,
     },
+    /// Verify repository-level hardening policy and print its static inventory
+    Hardening {
+        /// Fail when the baseline policy is incomplete
+        #[arg(long)]
+        check: bool,
+        /// Output the report as JSON
+        #[arg(long)]
+        json: bool,
+        /// Repository root to inspect
+        #[arg(long, default_value = ".")]
+        root: PathBuf,
+    },
 }
 
 fn main() -> ExitCode {
@@ -81,6 +93,41 @@ fn main() -> ExitCode {
                 }
                 Err(e) => {
                     eprintln!("Pattern review failed: {e}");
+                    ExitCode::FAILURE
+                }
+            }
+        }
+        Some(Commands::Hardening { check, json, root }) => {
+            let report = if check {
+                ast_auditor::hardening::enforce_hardening_audit(&root)
+            } else {
+                ast_auditor::hardening::run_hardening_audit(&root)
+            };
+            match report {
+                Ok(report) => {
+                    if json {
+                        match serde_json::to_string_pretty(&report) {
+                            Ok(output) => println!("{output}"),
+                            Err(error) => {
+                                eprintln!("Failed to serialize hardening report: {error}");
+                                return ExitCode::FAILURE;
+                            }
+                        }
+                    } else {
+                        println!("Hardening audit baseline");
+                        for (name, passed) in &report.checks {
+                            println!("{} {name}", if *passed { "PASS" } else { "FAIL" });
+                        }
+                        println!("Inventory: {:?}", report.source_inventory);
+                        println!(
+                            "cargo audit available: {}",
+                            report.tooling.cargo_audit_available
+                        );
+                    }
+                    ExitCode::SUCCESS
+                }
+                Err(error) => {
+                    eprintln!("Hardening audit failed: {error:#}");
                     ExitCode::FAILURE
                 }
             }

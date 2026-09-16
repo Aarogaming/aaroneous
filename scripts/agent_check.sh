@@ -7,7 +7,7 @@ cargo check --workspace --all-targets
 echo "=== 2. Text encoding inventory ==="
 python scripts/check_text_encoding.py
 echo "=== 3. Hardening audit baseline ==="
-python scripts/hardening_audit.py --check
+cargo run -p ast_auditor -- hardening --check
 echo "=== 4. Workspace tests (including integration and documentation) ==="
 cargo test --workspace
 echo "=== 5. Architectural syntax audit ==="

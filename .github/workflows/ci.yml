@@ -56,7 +56,7 @@ jobs:
         run: python scripts/check_text_encoding.py
 
       - name: Hardening audit baseline
-        run: python scripts/hardening_audit.py --check
+        run: cargo run -p ast_auditor -- hardening --check
 
       - name: Formatting (Ubuntu only)
         if: matrix.os == 'ubuntu-latest'
