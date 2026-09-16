@@ -97,3 +97,40 @@ fn ambient_access_is_actually_checked() -> anyhow::Result<()> {
     );
     Ok(())
 }
+
+#[test]
+fn text_encoding_invariants_are_verified() -> anyhow::Result<()> {
+    use ast_auditor::audit_file_encoding;
+    use std::path::Path;
+
+    // 1. Clean UTF-8 + LF
+    assert!(audit_file_encoding(Path::new("src/main.rs"), b"fn main() {}\n").is_none());
+
+    // 2. CRLF in regular source file
+    let crlf_violation = audit_file_encoding(Path::new("src/main.rs"), b"fn main() {}\r\n")
+        .expect("should fail CRLF");
+    assert!(crlf_violation.issue.contains("Expected LF"));
+
+    // 3. Batch files expect CRLF, fail on LF
+    assert!(audit_file_encoding(Path::new("build.bat"), b"@echo off\r\n").is_none());
+    let bat_violation = audit_file_encoding(Path::new("build.bat"), b"@echo off\n")
+        .expect("should fail bare LF in bat");
+    assert!(bat_violation.issue.contains("Expected CRLF"));
+
+    // 4. Invalid UTF-8 bytes
+    let invalid_utf8 = audit_file_encoding(Path::new("data.txt"), &[0xFF, 0xFE, 0x00])
+        .expect("should fail invalid UTF-8");
+    assert!(invalid_utf8.issue.contains("Not valid UTF-8"));
+
+    // 5. UTF-8 BOM
+    let bom_data = [0xEF, 0xBB, 0xBF, b'h', b'e', b'l', b'l', b'o', b'\n'];
+    let bom_violation =
+        audit_file_encoding(Path::new("doc.md"), &bom_data).expect("should fail BOM");
+    assert!(bom_violation.issue.contains("BOM"));
+
+    // 6. Binary formats ignored
+    assert!(audit_file_encoding(Path::new("model.gguf"), &[0x00, 0x01, 0xFF]).is_none());
+    assert!(audit_file_encoding(Path::new("image.png"), &[0x89, 0x50, 0x4E, 0x47]).is_none());
+
+    Ok(())
+}

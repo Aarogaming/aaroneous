@@ -37,6 +37,12 @@ enum Commands {
         #[arg(long)]
         json: bool,
     },
+    /// Validate UTF-8 encoding, BOM absence, and LF/CRLF line endings across Git-tracked files
+    CheckEncoding {
+        /// Optional repository root directory (defaults to current directory or Git root)
+        #[arg(long)]
+        root: Option<PathBuf>,
+    },
 }
 
 fn main() -> ExitCode {
@@ -81,6 +87,28 @@ fn main() -> ExitCode {
                 }
                 Err(e) => {
                     eprintln!("Pattern review failed: {e}");
+                    ExitCode::FAILURE
+                }
+            }
+        }
+        Some(Commands::CheckEncoding { root }) => {
+            let repo_root = root.unwrap_or_else(|| PathBuf::from("."));
+            match ast_auditor::audit_tracked_encodings(&repo_root) {
+                Ok(violations) => {
+                    if violations.is_empty() {
+                        println!("All text files pass encoding and line ending checks.");
+                        ExitCode::SUCCESS
+                    } else {
+                        eprintln!("Encoding and line ending violations found:");
+                        for v in &violations {
+                            eprintln!("  {v}");
+                        }
+                        eprintln!("Total violations: {}", violations.len());
+                        ExitCode::FAILURE
+                    }
+                }
+                Err(err) => {
+                    eprintln!("Failed to perform encoding audit: {err}");
                     ExitCode::FAILURE
                 }
             }

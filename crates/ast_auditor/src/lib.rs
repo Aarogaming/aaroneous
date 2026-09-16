@@ -26,6 +26,9 @@ pub use self::rules::no_ambient_authority::{AmbientAuthorityVisitor, AmbientViol
 pub use self::rules::no_workspace_prefix_stutter::{
     PrefixStutterViolation, PrefixStutterVisitor, audit_manifest_stutter,
 };
+pub use self::rules::text_encoding::{
+    EncodingViolation, audit_file_encoding, audit_tracked_encodings,
+};
 pub use self::rules::zero_alloc_hot_path::{HotPathAllocViolation, HotPathAllocVisitor};
 
 /// Unified audit report aggregating structural and semantic AST violations.
