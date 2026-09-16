@@ -147,7 +147,30 @@ impl SmtActionInterlock {
         if !self.max_free_energy_bound.is_finite() || self.max_free_energy_bound < 0.0 {
             bail!("Invalid non-finite or negative energy policy bound");
         }
-        self.z3_prover.prove_action_safety(graph)?;
+        // Convert a prover rejection into a denial certificate rather than
+        // propagating it as an error: batch_verify_action_graphs relies on
+        // evaluate_action_graph never erroring for an individual graph so
+        // that one incompatible candidate (e.g. a TensorDot outside the
+        // type lattice) can't abort the whole batch via `?` and discard
+        // certificates already computed for earlier candidates.
+        if let Err(e) = self.z3_prover.prove_action_safety(graph) {
+            return Ok(InterlockAuditCertificate {
+                is_authorized: false,
+                graph_id: eval_id,
+                timestamp_ms: ts,
+                free_energy_dissipation: graph.thermodynamic_free_energy,
+                lattice_report: VerificationReport {
+                    is_valid: false,
+                    total_nodes: graph.nodes.len(),
+                    free_energy: graph.thermodynamic_free_energy,
+                    dimensional_checks_passed: 0,
+                    spatial_checks_passed: 0,
+                    diagnostics: vec![format!("SMT prover rejected graph: {e}")],
+                },
+                smt_non_interference_verified: false,
+                denial_reason: Some(format!("SMT action-safety proof failed: {e}")),
+            });
+        }
 
         // 2. Perform Structural Lattice and 7-Exponent SI Dimensional Verification
         let lattice_report = match self.lattice_verifier.verify(graph) {
@@ -444,6 +467,87 @@ mod tests {
         assert_eq!(results.len(), 2);
         assert!(results[0].is_authorized);
         assert!(!results[1].is_authorized);
+    }
+
+    /// Regression test for a batch containing a graph the SMT prover
+    /// rejects (a TensorDot node addressing a register the prover treats as
+    /// unsafe, per z3_prover::MAX_HARDWARE_REGISTER). Before the fix,
+    /// evaluate_action_graph propagated prove_action_safety's error via
+    /// `?`, so batch_verify_action_graphs aborted the whole batch on the
+    /// first such candidate and discarded certificates for every other
+    /// graph — contradicting its documented contract of "returning
+    /// certificates for all candidates."
+    #[test]
+    fn batch_verify_preserves_all_certificates_when_one_graph_fails_smt_proof() {
+        let interlock = SmtActionInterlock::new(0.10);
+
+        let mut valid_graph = NativeComputationalGraph::new();
+        valid_graph.thermodynamic_free_energy = 0.02;
+        valid_graph.nodes.insert(
+            1,
+            NativeComputationNode {
+                id: 1,
+                opcode: MachineOpcode::Alloc {
+                    size_bytes: 1024,
+                    align: 64,
+                },
+                type_lattice: NativeTypeLattice::PrimitiveInt {
+                    bits: 64,
+                    signed: false,
+                },
+                energy_cost: 0.001,
+                dependencies: Vec::new(),
+            },
+        );
+
+        let mut smt_rejected_graph = NativeComputationalGraph::new();
+        smt_rejected_graph.thermodynamic_free_energy = 0.02;
+        smt_rejected_graph.nodes.insert(
+            1,
+            NativeComputationNode {
+                id: 1,
+                // left_reg above MAX_HARDWARE_REGISTER - 1000 (8192 - 1000 =
+                // 7192) is exactly what z3_prover::prove_action_safety
+                // rejects with GovernanceError::MemorySafetyViolation.
+                opcode: MachineOpcode::TensorDot {
+                    left_reg: 8000,
+                    right_reg: 1,
+                    dim: 4,
+                },
+                type_lattice: NativeTypeLattice::PrimitiveInt {
+                    bits: 64,
+                    signed: false,
+                },
+                energy_cost: 0.001,
+                dependencies: Vec::new(),
+            },
+        );
+
+        // Also verify evaluate_action_graph directly returns a denial
+        // certificate for the rejected graph rather than an Err.
+        let direct = interlock
+            .evaluate_action_graph(&smt_rejected_graph)
+            .expect("SMT rejection must surface as a denial certificate, not an Err");
+        assert!(!direct.is_authorized);
+        assert!(
+            direct
+                .denial_reason
+                .as_deref()
+                .is_some_and(|r| r.contains("SMT action-safety proof failed"))
+        );
+
+        let results = interlock
+            .batch_verify_action_graphs(&[&valid_graph, &smt_rejected_graph, &valid_graph])
+            .expect("one rejected graph must not abort the whole batch");
+
+        assert_eq!(
+            results.len(),
+            3,
+            "certificates for every candidate must be returned, including those after the rejected one"
+        );
+        assert!(results[0].is_authorized);
+        assert!(!results[1].is_authorized);
+        assert!(results[2].is_authorized);
     }
 
     #[test]
