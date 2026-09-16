@@ -1,6 +1,8 @@
 //! crates/adaptation_engine
 //! Universal software adaptation, binary deconstruction, AST mutation, and code repair engine for Aaroneous.
 
+#![deny(unsafe_code)]
+
 pub mod analysis;
 pub mod ast_parser;
 pub mod auto_wrapper;
