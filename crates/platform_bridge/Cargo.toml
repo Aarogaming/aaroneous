@@ -49,3 +49,7 @@ native-win32 = ["dep:windows"]
 midi-osc = []
 ndi-broadcast = []
 hooking-injector = []
+
+[dev-dependencies]
+naga = { version = "29.0", features = ["wgsl-in"] }
+
