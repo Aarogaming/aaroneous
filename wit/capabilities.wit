@@ -1,0 +1,22 @@
+;; WIT file generated from Rust traits
+;; Source: crates/capabilities
+
+package capabilities:component;
+
+interface Specialist-trait {
+  fn relic_status(&self arg) -> String
+}
+
+interface DomainSubEngine-trait {
+  fn relic_status(&self arg) -> String
+}
+
+interface UniversalTool-trait {
+  fn descriptor(&self arg) -> ToolDescriptor
+  fn new() -> Self
+  fn register(self &mut, UniversalTool> tool:)
+  fn unregister(self &mut, &str name:) -> bool
+  fn len(&self arg) -> usize
+  fn is_empty(&self arg) -> bool
+}
+
