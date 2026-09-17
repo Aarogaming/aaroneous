@@ -7,6 +7,9 @@ param (
     [string]$LogFile = "dev/tools/agent_progress_log.md",
 
     [Parameter(Mandatory=$false)]
+    [string]$ObservationLogFile = "dev/tools/agent_observation_log.jsonl",
+
+    [Parameter(Mandatory=$false)]
     [int]$MaxIterations = 10,
 
     [Parameter(Mandatory=$false)]
@@ -23,6 +26,52 @@ Write-Host "=== Aaroneous Local Agent Passive Progress Engine ==="
 Write-Host "Queue file: $QueueFile"
 Write-Host "Target model: qwen3.5:9b-q6 (http://localhost:11434)"
 Write-Host ""
+
+# Appends one structured record per attempt to $ObservationLogFile (JSON
+# Lines), independent of $LogFile's human-readable summary. This is what
+# lets a session that did not run the daemon itself review what happened
+# afterward - $LogFile alone drops every failed attempt, and Write-Host
+# output vanishes once the background process exits.
+function Write-Observation {
+    param(
+        [string]$TaskId,
+        [string]$Title,
+        [string]$TargetFile,
+        [int]$Attempt,
+        [int]$MaxAttempts,
+        [string]$Outcome,
+        [double]$DurationSeconds,
+        [string]$ErrorText = ""
+    )
+    $record = [ordered]@{
+        timestamp        = (Get-Date).ToString("o")
+        task_id          = $TaskId
+        title            = $Title
+        target_file      = $TargetFile
+        attempt          = $Attempt
+        max_attempts     = $MaxAttempts
+        outcome          = $Outcome
+        duration_seconds = [math]::Round($DurationSeconds, 2)
+        error            = $ErrorText
+    }
+    ($record | ConvertTo-Json -Compress) | Add-Content -Path $ObservationLogFile -Encoding UTF8
+}
+
+# Runs a native command and throws a terminating error on non-zero exit.
+# $ErrorActionPreference = "Stop" only governs cmdlet/script errors, not
+# native executable exit codes - a failing `cargo check` prints its error
+# and returns control normally, so without this check $generationSuccess
+# was being set to $true even when verification had actually failed.
+function Invoke-Checked {
+    param(
+        [Parameter(Mandatory=$true)][scriptblock]$Command,
+        [Parameter(Mandatory=$true)][string]$Description
+    )
+    & $Command
+    if ($LASTEXITCODE -ne 0) {
+        throw "$Description failed with exit code $LASTEXITCODE"
+    }
+}
 
 $iteration = 0
 while ($true) {
@@ -61,10 +110,12 @@ while ($true) {
     $generationSuccess = $false
     $retryCount = 0
     $maxRetries = if ($queueContent.max_retries) { $queueContent.max_retries } else { 3 }
+    $lastError = ""
 
     while ($retryCount -lt $maxRetries -and -not $generationSuccess) {
         $retryCount++
         Write-Host "Execution Pass $retryCount/$maxRetries for $($task.id)..."
+        $attemptStart = Get-Date
 
         try {
             pwsh -File $delegateScript `
@@ -73,42 +124,58 @@ while ($true) {
                 -Model "qwen3.5:9b-q6" `
                 -NumPredict 4096 `
                 -Temperature 0.0
+            if ($LASTEXITCODE -ne 0) {
+                throw "local_agent_delegate.ps1 failed with exit code $LASTEXITCODE"
+            }
 
             # Verify formatting and syntax
-            cargo fmt -- $task.target_file
+            Invoke-Checked -Description "cargo fmt" -Command { cargo fmt -- $task.target_file }
 
             # Verify with cargo check
             $targetParts = $task.target_file -split '/'
             if ($targetParts[0] -eq "crates" -or $targetParts[0] -eq "dev") {
                 $crateName = $targetParts[1]
                 Write-Host "Running compilation check for $crateName..."
-                cargo check -p $crateName
+                Invoke-Checked -Description "cargo check -p $crateName" -Command { cargo check -p $crateName }
             } else {
-                cargo check -p xtask
+                Invoke-Checked -Description "cargo check -p xtask" -Command { cargo check -p xtask }
             }
 
             $generationSuccess = $true
+            $lastError = ""
             Write-Host "Verification PASSED for $($task.id)!"
+            Write-Observation -TaskId $task.id -Title $task.title -TargetFile $task.target_file `
+                -Attempt $retryCount -MaxAttempts $maxRetries -Outcome "passed" `
+                -DurationSeconds ((Get-Date) - $attemptStart).TotalSeconds
         } catch {
-            Write-Host "Verification FAILED on attempt ${retryCount}: ${_}"
+            $lastError = $_.ToString()
+            Write-Host "Verification FAILED on attempt ${retryCount}: ${lastError}"
+            Write-Observation -TaskId $task.id -Title $task.title -TargetFile $task.target_file `
+                -Attempt $retryCount -MaxAttempts $maxRetries -Outcome "failed" `
+                -DurationSeconds ((Get-Date) - $attemptStart).TotalSeconds -ErrorText $lastError
 
             if ($retryCount -lt $maxRetries) {
                 # Append failure traceback to prompt for self-repair
-                $repairPrompt = "$($task.prompt)`n`nPREVIOUS ATTEMPT FAILED WITH ERROR:`n$_`n`nPlease fix the error and output complete, corrected Rust code."
+                $repairPrompt = "$($task.prompt)`n`nPREVIOUS ATTEMPT FAILED WITH ERROR:`n$lastError`n`nPlease fix the error and output complete, corrected Rust code."
                 Set-Content -Path $stagedPromptPath -Value $repairPrompt -Encoding UTF8
             }
         }
     }
 
+    $timestamp = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
     if ($generationSuccess) {
         $task.status = "completed"
-        $timestamp = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
-        $logEntry = "## [$timestamp] $($task.id): $($task.title)`n- **Target File**: ``$($task.target_file)```n- **Status**: Completed & Verified`n- **Model**: ``qwen3.5:9b-q6`` (Ollama GPU)`n`n"
+        $logEntry = "## [$timestamp] $($task.id): $($task.title)`n- **Target File**: ``$($task.target_file)```n- **Status**: Completed & Verified (pass $retryCount/$maxRetries)`n- **Model**: ``qwen3.5:9b-q6`` (Ollama GPU)`n`n"
         Add-Content -Path $LogFile -Value $logEntry -Encoding UTF8
         Write-Host "[$($task.id)] Marked COMPLETED and logged."
     } else {
+        # Previously logged nowhere but the console: a background daemon's
+        # console output is gone once the process exits, so a failed task
+        # left no durable trace at all. Now recorded in both logs.
         $task.status = "failed"
-        Write-Host "[$($task.id)] Marked FAILED after $maxRetries attempts."
+        $logEntry = "## [$timestamp] $($task.id): $($task.title)`n- **Target File**: ``$($task.target_file)```n- **Status**: FAILED after $maxRetries attempts`n- **Model**: ``qwen3.5:9b-q6`` (Ollama GPU)`n- **Last Error**: ``$lastError```n`n"
+        Add-Content -Path $LogFile -Value $logEntry -Encoding UTF8
+        Write-Host "[$($task.id)] Marked FAILED after $maxRetries attempts and logged."
     }
 
     $queueContent | ConvertTo-Json -Depth 5 | Set-Content -Path $QueueFile -Encoding UTF8
