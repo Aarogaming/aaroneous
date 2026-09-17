@@ -28,7 +28,7 @@ parking_lot = "0.12"
 bytemuck = { version = "1.12", features = ["derive"] }
 
 # Cranelift Native JIT compilation
-cranelift-codegen = "0.116"
+cranelift-codegen = "0.135"
 cranelift-frontend = "0.116"
 target-lexicon = "0.13"
 
