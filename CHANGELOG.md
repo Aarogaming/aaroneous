@@ -8,6 +8,7 @@ All notable changes to Aaroneous.
 
 ### Dependency Maintenance [2026-09-17]
 - **fix(deps): axum 0.7 → 0.8 route syntax**: axum 0.8's `matchit` upgrade rejects the old `:param` path-capture syntax at router-build time (`Path segments must not start with ':'`). Converted every `.route()` path in `core/hypervisor/src/federation/http/router.rs` and `core/hypervisor/src/federation/http/rest_api/server.rs` from `:id`-style to `{id}`-style captures, matching axum 0.8's syntax. No behavioral change; same path segments, same handlers.
+- **fix(hypervisor): rusqlite 0.32 → 0.40 u64 column support**: rusqlite's `ToSql`/`FromSql` are not implemented for `u64` by default (SQLite integers are signed 64-bit). Enabled rusqlite's `fallible_uint` feature, which provides range-checked `u64` conversions (erroring instead of silently wrapping on values outside `i64`'s range) rather than hand-rolling an unchecked `as i64`/`as u64` cast at the `LearningStateRecord::last_updated` SQL boundary. No schema or behavioral change for in-range values.
 - **fix(scratchpad): eframe 0.34 → 0.36 `show_inside` rename**: `egui::Panel::show_inside` and `CentralPanel::show_inside` were deprecated in favor of `show` (`-D warnings` turns the deprecation notice into a build error). Renamed both call sites in `crates/scratchpad/src/lib.rs`; no behavioral change.
 
 ### Automated Audit Remediations [2026-09-05 18:07]
