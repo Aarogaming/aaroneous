@@ -77,7 +77,7 @@ reqwest = { version = "0.13", default-features = false, features = ["json", "str
 rusqlite = { version = "0.32", features = ["bundled", "chrono"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-strum = { version = "0.26", features = ["derive"] }
+strum = { version = "0.28", features = ["derive"] }
 strum_macros = "0.26"
 sysinfo = "0.39"
 seahash = "4.1"
