@@ -35,8 +35,8 @@ impl RestApiServer {
             // Sessions
             .route("/sessions", post(create_session))
             .route("/sessions", get(list_sessions))
-            .route("/sessions/:id/intent", post(submit_intent))
-            .route("/sessions/:id/results/stream", get(stream_results_sse))
+            .route("/sessions/{id}/intent", post(submit_intent))
+            .route("/sessions/{id}/results/stream", get(stream_results_sse))
             // Specialists
             .route("/specialists", get(list_specialists))
             .route("/dynamic-specialists", post(create_dynamic_specialist))
@@ -48,11 +48,11 @@ impl RestApiServer {
             // Scheduler
             .route("/scheduler/tasks", get(list_scheduler_tasks))
             .route("/scheduler/tasks", post(create_scheduler_task))
-            .route("/scheduler/tasks/:id", delete(cancel_scheduler_task))
+            .route("/scheduler/tasks/{id}", delete(cancel_scheduler_task))
             // Adaptation Engine
             .route("/adaptation/record", post(toggle_adaptation_record))
             .route("/adaptation/routines", get(list_routines))
-            .route("/adaptation/routines/:id/run", post(run_routine_now));
+            .route("/adaptation/routines/{id}/run", post(run_routine_now));
 
         let app = app.with_state(std::sync::Arc::clone(&self.federation));
 
