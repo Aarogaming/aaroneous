@@ -82,7 +82,7 @@ This changes the mitigation, not just the terminology:
   disposable *child* process specifically because that child, not this test
   suite's own process, is what plays the role of "host" for the
   non-compliant plugin, and it does not survive. (An earlier version of
-  this PoC mis-described this test as itself satisfying criterion 3,
+  this PoC wrongly described this test as itself satisfying criterion 3,
   because its own process - a bystander that never loads the panicking
   plugin - survives; a review caught that this conflates "isolation
   protected an unrelated process" with "the actual host was protected,"
@@ -143,7 +143,7 @@ but disruptive whole-process abort," matching current stable Rust.
 A first review pass on this PoC (Codex) found six real issues, all fixed
 here rather than argued with:
 
-1. **The `panicker_raw` subprocess test was mis-described as proving
+1. **The `panicker_raw` subprocess test was wrongly described as proving
    criterion 3.** It proves the opposite for the process it actually hosts
    the plugin in. Corrected above and in `panic_containment.rs`'s naming.
 2. **The plugin-fixture path lookup hardcoded `lib*.so`**, which breaks on
