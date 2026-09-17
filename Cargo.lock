@@ -1259,6 +1259,7 @@ dependencies = [
  "serde_json",
  "tempfile",
  "tokio",
+ "toml",
  "tracing",
 ]
 
@@ -1344,6 +1345,13 @@ dependencies = [
  "cfg-if",
  "cpufeatures 0.3.1",
  "rand_core 0.10.1",
+]
+
+[[package]]
+name = "chaos_injector"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
 ]
 
 [[package]]
