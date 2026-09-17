@@ -33,7 +33,7 @@ impl UiCartridge for ScratchpadCartridge {
         egui::Panel::bottom("editor_panel")
             .resizable(true)
             .min_size(100.0)
-            .show_inside(ui, |panel_ui| {
+            .show(ui, |panel_ui| {
                 panel_ui.add_space(4.0);
                 panel_ui.horizontal(|ui| {
                     if !self.input_text.is_empty() {
@@ -63,7 +63,7 @@ impl UiCartridge for ScratchpadCartridge {
                 );
             });
 
-        egui::CentralPanel::default().show_inside(ui, |inner_ui| {
+        egui::CentralPanel::default().show(ui, |inner_ui| {
             egui::ScrollArea::vertical()
                 .auto_shrink([false; 2])
                 .show(inner_ui, |scroll_ui| {

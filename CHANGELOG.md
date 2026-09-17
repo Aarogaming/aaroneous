@@ -6,6 +6,9 @@ All notable changes to Aaroneous.
 
 ## [Unreleased]
 
+### Dependency Maintenance [2026-09-17]
+- **fix(scratchpad): eframe 0.34 → 0.36 `show_inside` rename**: `egui::Panel::show_inside` and `CentralPanel::show_inside` were deprecated in favor of `show` (`-D warnings` turns the deprecation notice into a build error). Renamed both call sites in `crates/scratchpad/src/lib.rs`; no behavioral change.
+
 ### Automated Audit Remediations [2026-09-05 18:07]
 - **CRIT-01: libloading Unchecked DLL Execution (SEC-01)**: Remediated and verified via autonomous audit cycle.
 - **CRIT-02: GDI Handle Leak & Vision Blindness (SEC-02)**: Remediated and verified via autonomous audit cycle.
