@@ -3,6 +3,8 @@ resolver = "2"
 
 members = [
     "dev/emulator_harness",
+    "dev/rfc0006_poc/abi",
+    "dev/rfc0006_poc/host",
     "crates/ipc_bus",
     "crates/capabilities",
     "crates/orchestrator",
@@ -35,6 +37,7 @@ members = [
 
 exclude = [
     "firmware",
+    "dev/rfc0006_poc/plugins",
 ]
 
 [workspace.package]
