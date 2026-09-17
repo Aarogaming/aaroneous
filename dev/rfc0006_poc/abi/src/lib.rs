@@ -32,8 +32,12 @@ pub const TICK_FAULTED: u32 = 2;
 
 /// Raw FFI return type of `plugin_tick`. `#[repr(C)]`, two plain `u32`s -
 /// standard C-ABI layout, safe to return by value across the boundary.
+/// Derives `bytemuck::Pod`/`Zeroable` per `AGENTS.md`'s "Memory Geometry &
+/// ABI Safety" rule for boundary types, even though this crate's own decode
+/// path never uses a `Pod` cast (see the module doc comment) - the derive
+/// documents the layout guarantee for any other consumer that does.
 #[repr(C)]
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct TickResultRaw {
     pub status: u32,
     /// Meaningful only when `status == TICK_OK`: bytes written to the buffer.
@@ -106,6 +110,7 @@ pub struct DecodedCommand<'a> {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum DecodeError {
     BufferTooSmallForHeader,
+    UnsupportedWireVersion,
     ReservedFieldNonZero,
     TextLenExceedsCapacity,
     TextNotUtf8,
@@ -131,10 +136,15 @@ pub struct DecodedBuffer<'a> {
 /// only the returned `Vec`. `used_len` is the byte count the plugin *claims*
 /// to have written (its own `TickResultRaw::bytes_used`); this function never
 /// trusts it past `buf.len()` - the host's own allocation is the hard
-/// ceiling regardless of what the plugin reports. Likewise `payload_len` in
-/// the header is read but never used to bound anything: only the real slice
-/// length does, which is strictly more conservative than trusting either
-/// self-reported field.
+/// ceiling regardless of what the plugin reports. `payload_len` is *also*
+/// enforced (not just read): the number of command records parsed is capped
+/// by both the real remaining buffer length *and* the header's own claimed
+/// `payload_len`, whichever is smaller. This matters beyond pure memory
+/// safety - without it, a plugin (or a stale buffer from an earlier tick;
+/// `host`'s buffer is reused across ticks, not zeroed) could claim a large
+/// `bytes_used` while a small, honest `payload_len`, and this function would
+/// otherwise happily replay whatever leftover bytes sit between the two as
+/// if they were this tick's real commands.
 pub fn decode_commands(buf: &[u8], used_len: usize) -> Result<DecodedBuffer<'_>, DecodeError> {
     let used_len = used_len.min(buf.len());
     let buf = &buf[..used_len];
@@ -142,13 +152,21 @@ pub fn decode_commands(buf: &[u8], used_len: usize) -> Result<DecodedBuffer<'_>,
         return Err(DecodeError::BufferTooSmallForHeader);
     }
     let wire_version = read_u32(buf, 0);
+    if wire_version != WIRE_VERSION {
+        // A future wire version could change the record layout below it;
+        // refusing here rather than parsing v1-shaped records out of a
+        // differently-laid-out buffer is the only sound option until this
+        // decoder actually implements version-specific dispatch.
+        return Err(DecodeError::UnsupportedWireVersion);
+    }
     let claimed_count = read_u32(buf, 4) as usize;
+    let claimed_payload_len = read_u32(buf, 8) as usize;
     let reserved = read_u32(buf, 12);
     if reserved != 0 {
         return Err(DecodeError::ReservedFieldNonZero);
     }
 
-    let available_bytes = buf.len() - HEADER_LEN;
+    let available_bytes = (buf.len() - HEADER_LEN).min(claimed_payload_len);
     let available_commands = available_bytes / COMMAND_LEN;
     let actual_count = claimed_count.min(available_commands);
     let truncated_commands = claimed_count.saturating_sub(actual_count) as u32;
@@ -242,7 +260,14 @@ impl<'a> CommandBufferWriter<'a> {
             return false;
         }
         let text_bytes = text.as_bytes();
-        let text_len = text_bytes.len().min(MAX_TEXT_LEN);
+        // Truncate at a char boundary, not a raw byte count: cutting a
+        // multibyte UTF-8 character in half would produce invalid UTF-8
+        // that `decode_commands` then rejects with `TextNotUtf8` - a
+        // well-behaved plugin must not fault just for using non-ASCII text.
+        let mut text_len = text_bytes.len().min(MAX_TEXT_LEN);
+        while text_len > 0 && !text.is_char_boundary(text_len) {
+            text_len -= 1;
+        }
         let off = self.cursor;
         write_u32(self.buf, off, op as u32);
         write_u64(self.buf, off + 4, widget_id);
@@ -330,11 +355,33 @@ mod tests {
     }
 
     #[test]
+    fn writer_truncates_text_at_a_char_boundary_not_mid_character() {
+        // 63 ASCII bytes then a 2-byte 'é' (0xC3 0xA9): the naive 64-byte
+        // cutoff would land exactly between 'é's two bytes, producing
+        // invalid UTF-8 if not backed off to the char boundary at 63.
+        let text = format!("{}é", "a".repeat(63));
+        assert_eq!(text.len(), 65); // 63 ASCII + 2-byte é
+
+        let mut buf = [0u8; HEADER_LEN + COMMAND_LEN];
+        let mut w = CommandBufferWriter::new(&mut buf).unwrap();
+        assert!(w.push(CommandOp::Label, 0, &text, 0.0, 0.0, [0, 0, 0, 0]));
+        let used = w.finish();
+
+        let decoded = decode_commands(&buf, used as usize).unwrap();
+        assert_eq!(
+            decoded.commands.len(),
+            1,
+            "must decode, not TextNotUtf8-fault"
+        );
+        assert_eq!(decoded.commands[0].text, "a".repeat(63));
+    }
+
+    #[test]
     fn decode_clamps_a_lying_command_count_instead_of_reading_oob() {
         let mut buf = [0u8; HEADER_LEN + COMMAND_LEN]; // real capacity: 1 command
         write_u32(&mut buf, 0, WIRE_VERSION);
         write_u32(&mut buf, 4, 999_999); // claims 999,999 commands
-        write_u32(&mut buf, 8, 0);
+        write_u32(&mut buf, 8, COMMAND_LEN as u32); // honest payload_len: 1 command's worth
         write_u32(&mut buf, 12, 0);
 
         let decoded = decode_commands(&buf, buf.len()).unwrap();
@@ -348,6 +395,26 @@ mod tests {
     }
 
     #[test]
+    fn decode_bounds_by_payload_len_even_when_real_capacity_and_bytes_used_are_larger() {
+        // command_count claims 1 (a real, parseable slot exists in the real
+        // buffer), but payload_len claims 0 - an inconsistent header a
+        // buggy or adversarial plugin could produce, or that stale bytes
+        // left over from a previous tick could otherwise get replayed
+        // through. payload_len must win: 0 commands come out, not 1.
+        let mut buf = [0u8; HEADER_LEN + COMMAND_LEN];
+        write_u32(&mut buf, 0, WIRE_VERSION);
+        write_u32(&mut buf, 4, 1); // command_count: 1
+        write_u32(&mut buf, 8, 0); // payload_len: 0 (disagrees with command_count)
+        write_u32(&mut buf, 12, 0);
+
+        // bytes_used claims the full buffer, not just the header - so only
+        // payload_len, not the real slice length, is what should bound this.
+        let decoded = decode_commands(&buf, buf.len()).unwrap();
+        assert_eq!(decoded.commands.len(), 0);
+        assert_eq!(decoded.truncated_commands, 1);
+    }
+
+    #[test]
     fn decode_rejects_buffer_shorter_than_header() {
         let buf = [0u8; HEADER_LEN - 1];
         assert_eq!(
@@ -357,8 +424,19 @@ mod tests {
     }
 
     #[test]
+    fn decode_rejects_unsupported_wire_version() {
+        let mut buf = [0u8; HEADER_LEN];
+        write_u32(&mut buf, 0, WIRE_VERSION + 1);
+        assert_eq!(
+            decode_commands(&buf, buf.len()),
+            Err(DecodeError::UnsupportedWireVersion)
+        );
+    }
+
+    #[test]
     fn decode_rejects_nonzero_reserved_field() {
         let mut buf = [0u8; HEADER_LEN];
+        write_u32(&mut buf, 0, WIRE_VERSION);
         write_u32(&mut buf, 12, 1);
         assert_eq!(
             decode_commands(&buf, buf.len()),
