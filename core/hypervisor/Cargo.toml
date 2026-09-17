@@ -63,7 +63,7 @@ mimalloc = { version = "0.1", default-features = false }
 log = "0.4"
 llama-gguf = { version = "0.14", optional = true, default-features = false, features = ["cpu"] }
 iroh = { version = "1.2", optional = true }
-n0-future = { version = "0.1", optional = true }
+n0-future = { version = "0.3", optional = true }
 nvml-wrapper = { version = "0.13", optional = true }
 notify = "6.1"
 parking_lot = "0.12"
