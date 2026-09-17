@@ -7785,6 +7785,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "runtime_monitor_bench"
+version = "0.1.0"
+
+[[package]]
 name = "rusqlite"
 version = "0.40.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"

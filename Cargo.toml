@@ -30,6 +30,7 @@ members = [
     "crates/studio_hud",
     "crates/llm_gateway",
     "crates/runtime_monitor",
+    "crates/runtime_monitor/runtime_monitor_bench",
     "crates/mcp_server",
     "crates/orchestration_plane",
     "crates/compliance_auditor",

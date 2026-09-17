@@ -1073,6 +1073,106 @@ pub struct WorkspaceHealthReport {
     pub duplicate_dependencies: Vec<DuplicateDependency>,
 }
 
+/// Recursively collects every directory under `dir` that has its own
+/// `Cargo.toml`, as workspace-root-relative, forward-slash-separated paths.
+/// Descends past a crate directory too (not just into undeclared ones):
+/// nested member crates such as `crates/runtime_monitor/runtime_monitor_bench`
+/// are legitimate and common (benches, fixture crates), and are exactly the
+/// kind of manifest a single-level scan would silently miss. Skips `target/`
+/// build output and dotfile directories (`.git`, etc.) to avoid descending
+/// into build artifacts or VCS internals.
+///
+/// Stops descending into a directory matched by `excludes`: Cargo's own
+/// `workspace.exclude` keeps that directory's entire subtree out of
+/// resolution (e.g. `dev/rfc0006_poc/plugins` is itself an independent
+/// nested workspace), so its contents aren't separate undeclared orphans -
+/// only the excluded directory itself needs to be, and is, accounted for.
+fn collect_crate_dirs(
+    dir: &Path,
+    root: &Path,
+    excludes: &[String],
+    out: &mut Vec<String>,
+) -> Result<()> {
+    let entries = std::fs::read_dir(dir).with_context(|| format!("reading {}", dir.display()))?;
+    for entry in entries {
+        let entry = entry?;
+        if !entry.file_type()?.is_dir() {
+            continue;
+        }
+        let path = entry.path();
+        if let Some(name) = path.file_name().and_then(|n| n.to_str())
+            && (name == "target" || name.starts_with('.'))
+        {
+            continue;
+        }
+        let relative_path = path
+            .strip_prefix(root)
+            .unwrap_or(&path)
+            .to_string_lossy()
+            .replace('\\', "/");
+        if path.join("Cargo.toml").is_file() {
+            out.push(relative_path.clone());
+        }
+        if excludes
+            .iter()
+            .any(|e| path_matches_pattern(&relative_path, e))
+        {
+            continue;
+        }
+        collect_crate_dirs(&path, root, excludes, out)?;
+    }
+    Ok(())
+}
+
+/// Matches a single path component against a pattern component that may
+/// contain `*` wildcards (each `*` matches zero or more characters, never
+/// crossing a `/`), via the standard two-pointer backtracking algorithm.
+fn wildcard_component_match(pattern: &str, text: &str) -> bool {
+    let p: Vec<char> = pattern.chars().collect();
+    let t: Vec<char> = text.chars().collect();
+    let (mut pi, mut ti) = (0usize, 0usize);
+    let mut star_idx: Option<usize> = None;
+    let mut match_idx = 0usize;
+    while ti < t.len() {
+        if pi < p.len() && p[pi] == t[ti] {
+            pi += 1;
+            ti += 1;
+        } else if pi < p.len() && p[pi] == '*' {
+            star_idx = Some(pi);
+            match_idx = ti;
+            pi += 1;
+        } else if let Some(si) = star_idx {
+            pi = si + 1;
+            match_idx += 1;
+            ti = match_idx;
+        } else {
+            return false;
+        }
+    }
+    while pi < p.len() && p[pi] == '*' {
+        pi += 1;
+    }
+    pi == p.len()
+}
+
+/// Matches a workspace-relative candidate path against a `members`/`exclude`
+/// entry, honoring Cargo's single-level glob patterns (e.g. `"crates/*"`
+/// matching direct children of `crates/`). Deliberately does not support
+/// recursive `**` globbing: the repository doesn't use it and its exact
+/// matching semantics aren't worth guessing at for a diagnostics tool.
+fn path_matches_pattern(candidate: &str, pattern: &str) -> bool {
+    if !pattern.contains('*') {
+        return candidate == pattern;
+    }
+    let cand_parts: Vec<&str> = candidate.split('/').collect();
+    let pat_parts: Vec<&str> = pattern.split('/').collect();
+    cand_parts.len() == pat_parts.len()
+        && cand_parts
+            .iter()
+            .zip(pat_parts.iter())
+            .all(|(c, p)| wildcard_component_match(p, c))
+}
+
 /// Pure, synchronous audit: reads `<root>/Cargo.toml` and `<root>/Cargo.lock`
 /// directly (no `cargo` subprocess - those aren't guaranteed to be on `PATH`
 /// wherever this tool runs, unlike a dev/CI box) and reports orphaned crate
@@ -1100,25 +1200,25 @@ fn audit_workspace(root: &Path) -> Result<WorkspaceHealthReport> {
     let members = string_list("members");
     let excludes = string_list("exclude");
 
-    let mut orphaned_crate_dirs = Vec::new();
+    let mut crate_dirs = Vec::new();
     for scan_root in ["crates", "dev", "core"] {
         let dir = root.join(scan_root);
-        if !dir.is_dir() {
-            continue;
+        if dir.is_dir() {
+            collect_crate_dirs(&dir, root, &excludes, &mut crate_dirs)?;
         }
-        let entries =
-            std::fs::read_dir(&dir).with_context(|| format!("reading {}", dir.display()))?;
-        for entry in entries {
-            let entry = entry?;
-            if !entry.file_type()?.is_dir() || !entry.path().join("Cargo.toml").is_file() {
-                continue;
-            }
-            let relative_path = format!("{scan_root}/{}", entry.file_name().to_string_lossy());
-            let declared = members.iter().any(|m| m == &relative_path)
-                || excludes.iter().any(|e| e == &relative_path);
-            if !declared {
-                orphaned_crate_dirs.push(OrphanedCrateDir { relative_path });
-            }
+    }
+    crate_dirs.sort();
+
+    let mut orphaned_crate_dirs = Vec::new();
+    for relative_path in crate_dirs {
+        let declared = members
+            .iter()
+            .any(|m| path_matches_pattern(&relative_path, m))
+            || excludes
+                .iter()
+                .any(|e| path_matches_pattern(&relative_path, e));
+        if !declared {
+            orphaned_crate_dirs.push(OrphanedCrateDir { relative_path });
         }
     }
     orphaned_crate_dirs.sort_by(|a, b| a.relative_path.cmp(&b.relative_path));
@@ -1398,6 +1498,109 @@ mod tests {
     }
 
     #[test]
+    fn workspace_health_audit_finds_orphans_nested_inside_a_declared_crate() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+
+        write(
+            &root.join("Cargo.toml"),
+            r#"
+            [workspace]
+            members = ["crates/runtime_monitor"]
+            "#,
+        );
+        write(
+            &root.join("crates/runtime_monitor/Cargo.toml"),
+            "[package]\nname = \"runtime_monitor\"\n",
+        );
+        // Present on disk one level *inside* a declared member, not itself
+        // declared or excluded - exactly what a single-level scan misses.
+        write(
+            &root.join("crates/runtime_monitor/runtime_monitor_bench/Cargo.toml"),
+            "[package]\nname = \"runtime_monitor_bench\"\n",
+        );
+
+        let report = audit_workspace(root).unwrap();
+        assert_eq!(
+            report.orphaned_crate_dirs,
+            vec![OrphanedCrateDir {
+                relative_path: "crates/runtime_monitor/runtime_monitor_bench".to_string()
+            }]
+        );
+    }
+
+    #[test]
+    fn workspace_health_audit_does_not_descend_into_an_excluded_nested_workspace() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+
+        write(
+            &root.join("Cargo.toml"),
+            r#"
+            [workspace]
+            members = []
+            exclude = ["dev/rfc0006_poc/plugins"]
+            "#,
+        );
+        // Mirrors the real dev/rfc0006_poc/plugins layout: an excluded
+        // directory that is itself an independent nested workspace with its
+        // own crates underneath. Those inner crates must not be reported as
+        // separate undeclared orphans - the exclude already covers them.
+        write(
+            &root.join("dev/rfc0006_poc/plugins/Cargo.toml"),
+            "[workspace]\nmembers = [\"hello\"]\n",
+        );
+        write(
+            &root.join("dev/rfc0006_poc/plugins/hello/Cargo.toml"),
+            "[package]\nname = \"hello\"\n",
+        );
+
+        let report = audit_workspace(root).unwrap();
+        assert!(
+            report.orphaned_crate_dirs.is_empty(),
+            "excluded subtree contents should not be reported as orphans: {:?}",
+            report.orphaned_crate_dirs
+        );
+    }
+
+    #[test]
+    fn workspace_health_audit_honors_glob_patterns_in_members_and_exclude() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+
+        write(
+            &root.join("Cargo.toml"),
+            r#"
+            [workspace]
+            members = ["crates/*"]
+            exclude = ["crates/legacy_*"]
+            "#,
+        );
+        write(
+            &root.join("crates/alpha/Cargo.toml"),
+            "[package]\nname = \"alpha\"\n",
+        );
+        write(
+            &root.join("crates/legacy_beta/Cargo.toml"),
+            "[package]\nname = \"legacy_beta\"\n",
+        );
+        // Nested one level deeper than the glob's single "*" component can
+        // reach - still a real orphan even though "crates/*" matches its parent.
+        write(
+            &root.join("crates/alpha/alpha_fixture/Cargo.toml"),
+            "[package]\nname = \"alpha_fixture\"\n",
+        );
+
+        let report = audit_workspace(root).unwrap();
+        assert_eq!(
+            report.orphaned_crate_dirs,
+            vec![OrphanedCrateDir {
+                relative_path: "crates/alpha/alpha_fixture".to_string()
+            }]
+        );
+    }
+
+    #[test]
     fn workspace_health_audit_reports_nothing_for_a_fully_declared_workspace() {
         let dir = tempfile::tempdir().unwrap();
         let root = dir.path();
@@ -1473,10 +1676,12 @@ mod tests {
     /// workspace manifest by eye.
     #[test]
     fn the_real_aaroneous_workspace_has_no_orphaned_crate_dirs() {
-        let root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("../..")
-            .canonicalize()
-            .unwrap();
+        // CARGO_MANIFEST_DIR is always absolute, so lexically resolving the
+        // ".." components is enough to reach the workspace root - no need
+        // for ambient-authority filesystem canonicalization here.
+        let root = paths::normalize_path(
+            std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../.."),
+        );
         let report = audit_workspace(&root).unwrap();
         assert!(
             report.orphaned_crate_dirs.is_empty(),
