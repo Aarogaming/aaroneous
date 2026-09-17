@@ -23,7 +23,7 @@ pub fn render_full_studio(
                 .fill(theme.panel_bg())
                 .stroke(Stroke::new(1.0_f32, theme.border_color())),
         )
-        .show_inside(ui, |ui| {
+        .show(ui, |ui| {
             ui.horizontal(|ui| {
                 ui.label(
                     egui::RichText::new("⚡ AARONEOUS")
@@ -179,7 +179,7 @@ pub fn render_full_studio(
                 .fill(theme.panel_bg())
                 .stroke(Stroke::new(1.0_f32, theme.border_color())),
         )
-        .show_inside(ui, |ui| {
+        .show(ui, |ui| {
             ui.horizontal(|ui| {
                 let proj = state.state_publisher.project_studio();
                 ui.label(
@@ -232,7 +232,7 @@ pub fn render_full_studio(
         )
         .resizable(false)
         .default_size(170.0)
-        .show_inside(ui, |ui| {
+        .show(ui, |ui| {
             ui.add_space(4.0);
             let sections = [
                 (NavSection::Agents, "🤖 Companions & Team"),
@@ -400,7 +400,7 @@ pub fn render_full_studio(
     // ── Central Viewport Container ──────────────────────────────────────────
     egui::CentralPanel::default()
         .frame(egui::Frame::central_panel(ui.style()).fill(theme.bg_color()))
-        .show_inside(ui, |ui| {
+        .show(ui, |ui| {
             // Map nav_section to appropriate view
             let target_view_id = match state.nav_section {
                 NavSection::Dashboard | NavSection::Specialists => "spatial_sensory",
