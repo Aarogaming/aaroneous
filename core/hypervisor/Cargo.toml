@@ -110,7 +110,7 @@ tower-http = { version = "0.5", features = ["cors"] }
 async-stream = "0.3"
 bytes = "1.5"
 semver = "1.0"
-async-nats = "0.49"
+async-nats = "0.50"
 url = "2.5"
 tracing-appender = "0.2.5"
 zstd = "0.13"
