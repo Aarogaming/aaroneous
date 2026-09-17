@@ -92,7 +92,7 @@ All ongoing feature cycles and autonomous runtime evolution adhere to the system
 #### 🟡 Governance & Release Hardening
 - [ ] **Edge-device orchestration** via nats_client.rs to schedule NPU tasks on remote nodes.
 - [ ] **Formal verification** of compiled AgentAction graphs using Z3 (crates/governance).
-- [ ] **Dynamic plugin hot-swap** improvements in crates/hotload once supervision is stabilized.
+- [ ] **Dynamic plugin hot-swap**: implement the command-buffer ABI proof-of-concept in `crates/api`/`studio_hud` per RFC-0006 (docs/rfcs/RFC-0006-PLUGIN_LIFECYCLE_AND_STABLE_UI_CARTRIDGE_ABI.md). The unauthenticated, unsandboxed `crates/hotload`/`crates/plugin_api` dynamic-DLL-loading scaffolding this line used to point at was dead code with no caller and has been removed; it predated and duplicated the unsound pattern RFC-0006 already documents removing from `studio_hud`.
 
 ---
 
