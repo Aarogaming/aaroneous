@@ -18,7 +18,6 @@ pub mod util;
 pub extern crate governance as biology;
 pub use governance as system_health;
 pub use governance;
-pub extern crate hotload;
 
 pub mod sabs {
     pub use omni::matrix::*;
@@ -307,77 +306,6 @@ pub mod ui_broker;
 pub use capability_broker::{
     CapabilityBroker, CapabilityCategory, CapabilityDescriptor, CapabilityExecutionOutcome,
 };
-
-// === Plugin Manager Integration ===
-
-use libloading::Library;
-use once_cell::sync::Lazy;
-use plugin_api::PluginDescriptor;
-use std::collections::HashMap;
-use std::sync::Mutex;
-
-/// Plugin configuration POD for constructor injection
-#[derive(Debug, Clone)]
-pub struct PluginConfig {
-    pub path: std::path::PathBuf,
-}
-
-/// Global plugin manager singleton.
-pub static PLUGIN_MANAGER: Lazy<Mutex<PluginManager>> = Lazy::new(|| {
-    Mutex::new(PluginManager::new(PluginConfig {
-        path: std::path::PathBuf::new(),
-    }))
-});
-
-pub struct PluginManager {
-    registry: HashMap<String, PluginDescriptor>,
-    // Store loaded plugin handles to keep them alive.
-    _loaded: Vec<Library>, // Store Library objects
-}
-
-impl PluginManager {
-    pub fn new(_config: PluginConfig) -> Self {
-        Self {
-            registry: HashMap::new(),
-            _loaded: Vec::new(),
-        }
-    }
-
-    /// Register a plugin descriptor.
-    pub fn register(&mut self, descriptor: PluginDescriptor) -> Result<(), anyhow::Error> {
-        if self.registry.contains_key(&descriptor.name) {
-            anyhow::bail!(format!("Plugin '{}' already registered", descriptor.name));
-        }
-        self.registry.insert(descriptor.name.clone(), descriptor);
-        Ok(())
-    }
-
-    /// Load a dynamic plugin via hotload crate and register it.
-    pub fn load_dynamic(&mut self, path: &std::path::Path) -> Result<(), anyhow::Error> {
-        let lib = hotload::load_module(path)?;
-        // Store the library to keep it alive.
-        self._loaded.push(lib);
-        Ok(())
-    }
-}
-
-/// Initialize plugins at hypervisor startup via config injection.
-pub fn init_plugins(config: PluginConfig) -> Result<(), anyhow::Error> {
-    let entries = std::fs::read_dir(&config.path)?;
-    for entry in entries {
-        let entry = entry?;
-        let path = entry.path();
-        if path.extension().and_then(|s| s.to_str()) == Some("dll") {
-            let mut manager = PLUGIN_MANAGER
-                .lock()
-                .map_err(|e| anyhow::anyhow!(format!("Mutex poisoned: {}", e)))?;
-            manager.load_dynamic(&path)?;
-        }
-    }
-    Ok(())
-}
-
-// Duplicate Plugin Manager block removed (kept earlier implementation)
 
 #[cfg(feature = "fault_injector")]
 pub mod fault_injector;
