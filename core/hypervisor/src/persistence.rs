@@ -102,7 +102,7 @@ impl PersistenceManager {
                 record.total_executions,
                 record.confidence_score,
                 record.execution_history_json,
-                record.last_updated as i64,
+                record.last_updated,
             ],
         )?;
         Ok(())
@@ -128,7 +128,7 @@ impl PersistenceManager {
                         total_executions: row.get(3)?,
                         confidence_score: row.get(4)?,
                         execution_history_json: row.get(5)?,
-                        last_updated: row.get::<_, i64>(6)? as u64,
+                        last_updated: row.get(6)?,
                     })
                 },
             )
@@ -159,7 +159,7 @@ impl PersistenceManager {
                 total_executions: row.get(3)?,
                 confidence_score: row.get(4)?,
                 execution_history_json: row.get(5)?,
-                last_updated: row.get::<_, i64>(6)? as u64,
+                last_updated: row.get(6)?,
             })
         })?;
         rows.collect()

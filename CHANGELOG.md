@@ -7,7 +7,7 @@ All notable changes to Aaroneous.
 ## [Unreleased]
 
 ### Dependency Maintenance [2026-09-17]
-- **fix(hypervisor): rusqlite 0.32 → 0.40 u64 column cast**: rusqlite's `ToSql`/`FromSql` traits are not implemented for `u64` (SQLite integers are signed 64-bit). `LearningStateRecord::last_updated` binds/reads through `i64` at the SQL boundary now; the public field stays `u64`. No schema or behavioral change.
+- **fix(hypervisor): rusqlite 0.32 → 0.40 u64 column support**: rusqlite's `ToSql`/`FromSql` are not implemented for `u64` by default (SQLite integers are signed 64-bit). Enabled rusqlite's `fallible_uint` feature, which provides range-checked `u64` conversions (erroring instead of silently wrapping on values outside `i64`'s range) rather than hand-rolling an unchecked `as i64`/`as u64` cast at the `LearningStateRecord::last_updated` SQL boundary. No schema or behavioral change for in-range values.
 
 ### Automated Audit Remediations [2026-09-05 18:07]
 - **CRIT-01: libloading Unchecked DLL Execution (SEC-01)**: Remediated and verified via autonomous audit cycle.
