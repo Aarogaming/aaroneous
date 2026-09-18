@@ -1,11 +1,12 @@
 //! core/hypervisor/src/hypervisor_hud.rs
 //! Unified Hypervisor Telemetry HUD & Visualizer Subsystem (egui / eframe).
 //!
-//! Consolidates 4 Core Visual Telemetry Viewports:
-//! 1. 🌌 3D Omni Galaxy View: Star-Nodes, Gravitational Clustering, Semantic Cosine Distance.
-//! 2. ⚡ SPMC SignalBridge & Sentinel SVDD: 256-Bar Latent Vector Signal Analyzer & Threat Gauge.
-//! 3. 👁️ Spatial Delta Vision & Sensory Grid: 16x16 Motion Saliency Mask & Compute Savings.
-//! 4. 🧬 System Thermodynamics: 4-Channel Feedback Signals, Curiosity Impulses & Token Pool.
+//! Consolidates 5 Core Visual Telemetry Viewports:
+//! 1. 3D Omni Galaxy View: Star-Nodes, Gravitational Clustering, Semantic Cosine Distance.
+//! 2. SPMC SignalBridge & Sentinel SVDD: 256-Bar Latent Vector Signal Analyzer & Threat Gauge.
+//! 3. Spatial Delta Vision & Sensory Grid: 16x16 Motion Saliency Mask & Compute Savings.
+//! 4. System Thermodynamics: 4-Channel Feedback Signals, Curiosity Impulses & Token Pool.
+//! 5. Shadow Model: Dual-rail concurrence telemetry & graduation interlock.
 
 use eframe::egui::{self, Color32, RichText, Stroke, Ui, Vec2};
 use serde::{Deserialize, Serialize};
@@ -25,6 +26,8 @@ pub enum HudTab {
     SignalAnalyzer,
     SpatialDeltaSensory,
     SystemThermodynamics,
+    /// Dual-rail shadow SI model concurrence telemetry & graduation interlock.
+    ShadowModel,
 }
 
 /// The Master Unified Hypervisor HUD Desktop App
@@ -40,6 +43,9 @@ pub struct HypervisorHudApp {
     pub last_frame_active_sectors: usize,
     pub last_active_mask: [bool; 256],
     pub simulated_frame: Vec<f32>,
+    /// Last-polled shadow-model concurrence snapshot.  Updated each HUD frame
+    /// by reading from the shared `concurrence_snapshot` Arc on the hypervisor.
+    pub concurrence_snapshot: Option<compute::ConcurrenceSnapshot>,
 }
 
 impl Default for HypervisorHudApp {
@@ -81,6 +87,7 @@ impl HypervisorHudApp {
             last_frame_active_sectors: 256,
             last_active_mask: [false; 256],
             simulated_frame: vec![0.0f32; 128 * 128],
+            concurrence_snapshot: None,
         };
 
         app.bootstrap_sample_data();
@@ -370,6 +377,99 @@ impl HypervisorHudApp {
                 }
             });
     }
+
+    /// Render Shadow Model Concurrence Telemetry
+    pub fn render_shadow_model_tab(&mut self, ui: &mut Ui) {
+        ui.heading("Shadow SI Model Concurrence");
+        ui.label("Dual-rail agreement between shadow .si model predictions and deterministic orchestrator.");
+        ui.add_space(8.0);
+
+        match &self.concurrence_snapshot {
+            Some(snap) => {
+                ui.group(|ui| {
+                    ui.label(RichText::new("Rolling Concurrence:").strong());
+                    let pct = snap.rolling_concurrence * 100.0;
+                    let bar_color = if snap.graduated {
+                        Color32::from_rgb(0, 230, 110)
+                    } else if pct >= 90.0 {
+                        Color32::from_rgb(255, 200, 0)
+                    } else {
+                        Color32::from_rgb(200, 80, 80)
+                    };
+
+                    let bar_width = ui.available_width() - 120.0;
+                    let (rect, _) = ui.allocate_at_least(Vec2::new(bar_width, 24.0), egui::Sense::hover());
+                    ui.painter().rect_filled(rect, 4.0, Color32::from_rgb(25, 28, 36));
+                    let fill_rect = egui::Rect::from_min_size(
+                        rect.min,
+                        Vec2::new(bar_width * snap.rolling_concurrence, 24.0),
+                    );
+                    ui.painter().rect_filled(fill_rect, 4.0, bar_color);
+                    ui.painter().rect_stroke(rect, 1.0, Stroke::new(1.0_f32, Color32::from_rgb(80, 80, 100)), egui::StrokeKind::Inside);
+                    ui.label(format!("{:.1}%", pct));
+                });
+
+                ui.add_space(4.0);
+                egui::Grid::new("concurrence_grid")
+                    .striped(true)
+                    .min_col_width(160.0)
+                    .show(ui, |ui| {
+                        ui.label(RichText::new("Metric").strong());
+                        ui.label(RichText::new("Value").strong());
+                        ui.end_row();
+
+                        ui.label("Total Ticks");
+                        ui.label(format!("{}", snap.total_ticks));
+                        ui.end_row();
+
+                        ui.label("Total Agreements");
+                        ui.label(format!("{}", snap.total_agreements));
+                        ui.end_row();
+
+                        ui.label("Avg Confidence");
+                        ui.label(format!("{:.3}", snap.avg_confidence));
+                        ui.end_row();
+
+                        ui.label("Avg Reward");
+                        ui.label(format!("{:.3}", snap.avg_reward));
+                        ui.end_row();
+
+                        ui.label("Divergence MSE");
+                        ui.label(format!("{:.4}", snap.divergence_mse));
+                        ui.end_row();
+                    });
+
+                ui.add_space(8.0);
+                if snap.graduated {
+                    ui.colored_label(
+                        Color32::from_rgb(0, 230, 110),
+                        format!(
+                            "Graduated at tick {} - {} ticks since graduation",
+                            snap.total_ticks - snap.ticks_since_graduation,
+                            snap.ticks_since_graduation
+                        ),
+                    );
+                } else {
+                    ui.colored_label(
+                        Color32::from_rgb(200, 180, 0),
+                        format!(
+                            "Training - {:.1}% of window filled, waiting for >=95% concurrence",
+                            snap.rolling_concurrence * 100.0
+                        ),
+                    );
+                }
+            }
+            None => {
+                ui.add_space(40.0);
+                ui.centered_and_justified(|ui| {
+                    ui.label(
+                        RichText::new("No shadow model mounted. Use `hypervisor si mount` to load a .si cartridge.")
+                            .color(Color32::from_rgb(120, 120, 140)),
+                    );
+                });
+            }
+        }
+    }
 }
 
 impl eframe::App for HypervisorHudApp {
@@ -400,7 +500,12 @@ impl eframe::App for HypervisorHudApp {
             ui.selectable_value(
                 &mut self.active_tab,
                 HudTab::SystemThermodynamics,
-                "🧬 System Thermodynamics",
+                "System Thermodynamics",
+            );
+            ui.selectable_value(
+                &mut self.active_tab,
+                HudTab::ShadowModel,
+                "Shadow Model",
             );
 
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
@@ -418,6 +523,7 @@ impl eframe::App for HypervisorHudApp {
             HudTab::SignalAnalyzer => self.bus_visualizer.update_ui(&ctx, ui),
             HudTab::SpatialDeltaSensory => self.render_epigenetic_tab(ui),
             HudTab::SystemThermodynamics => self.render_neurochemistry_tab(ui),
+            HudTab::ShadowModel => self.render_shadow_model_tab(ui),
         }
     }
 }

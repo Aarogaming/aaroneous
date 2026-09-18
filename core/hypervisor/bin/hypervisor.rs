@@ -289,6 +289,8 @@ enum SiCommands {
         #[arg(long, default_value = "16")]
         lora_rank: usize,
     },
+    /// Display shadow model concurrence metrics and graduation status
+    Concurrence,
     /// Birth a new .si model container via SiForge (Distill -> Align -> Pack)
     Forge {
         #[arg(short, long)]
@@ -803,6 +805,7 @@ fn run_cli(cli: Cli) -> Result<()> {
                 d_state,
                 lora_rank,
             } => run_pack_si_pipeline(model_id, out, *d_model, *d_state, *lora_rank),
+            SiCommands::Concurrence => run_concurrence_pipeline(),
             SiCommands::Forge {
                 name,
                 tier,
@@ -1349,6 +1352,58 @@ fn run_observe_si_pipeline(count: usize, custom_path: Option<PathBuf>) -> Result
         displayed
     );
     println!("=================================================================\n");
+    Ok(())
+}
+
+/// Display shadow model concurrence metrics from the running hypervisor
+fn run_concurrence_pipeline() -> Result<()> {
+    println!("=================================================================");
+    println!("  SHADOW MODEL CONCURRENCE STATUS");
+    println!("=================================================================");
+
+    let paths = paths::WorkspacePaths::discover(&WorkspacePathsConfig::default());
+    let concurrence_path = paths.data().join("shm").join("concurrence.shm");
+
+    if !concurrence_path.exists() {
+        println!("  No concurrence data found.");
+        println!("  Start the hypervisor with a mounted .si model to begin tracking.");
+        println!("  Usage: hypervisor start --tick 1000");
+        println!("=================================================================");
+        return Ok(());
+    }
+
+    // Try to read the concurrence snapshot from shared memory
+    use std::io::Read;
+    let mut file = std::fs::File::open(&concurrence_path)?;
+    let mut buf = [0u8; std::mem::size_of::<compute::ConcurrenceSnapshot>()];
+    file.read_exact(&mut buf)?;
+
+    // SAFETY: ConcurrenceSnapshot is a plain data struct (all f32/u64/bool)
+    // and was written by the same binary.
+    let snapshot: compute::ConcurrenceSnapshot = unsafe { std::mem::transmute(buf) };
+
+    println!("  Rolling Concurrence : {:.1}%", snapshot.rolling_concurrence * 100.0);
+    println!("  Total Ticks         : {}", snapshot.total_ticks);
+    println!("  Total Agreements    : {}", snapshot.total_agreements);
+    println!("  Avg Confidence      : {:.3}", snapshot.avg_confidence);
+    println!("  Avg Reward          : {:.3}", snapshot.avg_reward);
+    println!("  Divergence MSE      : {:.4}", snapshot.divergence_mse);
+    println!("-----------------------------------------------------------------");
+
+    if snapshot.graduated {
+        println!("  Status: GRADUATED at tick {}", snapshot.total_ticks - snapshot.ticks_since_graduation);
+        println!("          {} ticks since graduation", snapshot.ticks_since_graduation);
+    } else {
+        let filled_pct = if snapshot.total_ticks > 0 {
+            (snapshot.total_ticks.min(1000) as f32 / 1000.0 * 100.0).min(100.0)
+        } else {
+            0.0
+        };
+        println!("  Status: TRAINING ({:.0}% window filled)", filled_pct);
+        println!("          Waiting for >=95% concurrence to graduate");
+    }
+
+    println!("=================================================================");
     Ok(())
 }
 
