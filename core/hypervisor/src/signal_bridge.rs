@@ -117,6 +117,13 @@ impl SignalBridge {
             .open(path)?;
 
         file.set_len(size as u64)?;
+        // `file` was just opened/created by this call and sized to `size`
+        // bytes via `set_len` immediately above. The returned `SignalBridge`
+        // is the sole owner of `mmap`; memmap's usual caveat is external
+        // truncation of the backing file while mapped, which does not
+        // happen here since nothing else in this process holds a handle to
+        // the same path opened for writing.
+        // SAFETY: file is freshly sized and sole-owned; see rationale above.
         let mmap = unsafe { MmapMut::map_mut(&file)? };
 
         Ok(Self {

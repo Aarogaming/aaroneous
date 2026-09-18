@@ -349,6 +349,9 @@ impl SiSolidStateLoader {
 
     pub fn load(path: &Path) -> Result<Self> {
         let file = File::open(path)?;
+        // SAFETY: `file` is a fresh handle this call just opened; `mmap2`'s
+        // precondition is that it isn't concurrently modified, and `mmap`
+        // is read-only, kept alive for `Self`'s whole lifetime below.
         let mmap = unsafe { Mmap::map(&file)? };
 
         if mmap.len() < 20 || mmap[0..4] != SINT_PACKER_MAGIC {
@@ -402,6 +405,8 @@ impl SiSolidStateLoader {
             "Tensor byte length is not a multiple of 4"
         );
         let float_count = raw_slice.len() / 4;
+        // SAFETY: `byte_offset` is 64-byte aligned by the packer's writer,
+        // so `raw_slice.as_ptr()` is `f32`-aligned and `float_count` fits.
         let f32_slice =
             unsafe { std::slice::from_raw_parts(raw_slice.as_ptr() as *const f32, float_count) };
 

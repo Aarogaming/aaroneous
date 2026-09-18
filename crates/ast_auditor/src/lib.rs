@@ -48,14 +48,6 @@ pub struct UnifiedAuditReport {
 }
 
 impl UnifiedAuditReport {
-    /// `safety_comment_violations` is deliberately excluded here even though it's
-    /// collected and printed: wiring `SafetyCommentVisitor` into the audit (this
-    /// change) surfaced 108 pre-existing violations scattered across core/hypervisor,
-    /// compute, orchestrator, platform_bridge, si_ir, and studio_hud - fixing those is
-    /// out of scope for the change that turned this check on. Mirrors `deny.toml`'s
-    /// own precedent of landing a check as a surfaced, non-blocking count before
-    /// tightening it to `deny` once the existing debt is paid down. See
-    /// docs/handoff/QUEUE.md for the follow-up item to flip this on.
     pub fn has_failures(&self) -> bool {
         !self.errors.is_empty()
             || !self.soundness_violations.is_empty()
@@ -63,6 +55,7 @@ impl UnifiedAuditReport {
             || !self.hot_path_violations.is_empty()
             || !self.prefix_stutter_violations.is_empty()
             || !self.memory_geometry_violations.is_empty()
+            || !self.safety_comment_violations.is_empty()
     }
 
     pub fn print_diagnostics(&self) {

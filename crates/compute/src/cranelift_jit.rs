@@ -60,6 +60,9 @@ impl CraneliftJitEngine {
     ) -> Result<(WxMemoryRegion, NativeExecutionFn)> {
         let machine_code = self.compile_graph_to_bytes(graph)?;
         let memory_region = WxMemoryRegion::from_machine_code(&machine_code)?;
+        // SAFETY: `memory_region` was compiled with one pointer-sized param
+        // and an `I64` return on the host's call conv, exactly the ABI of
+        // `NativeExecutionFn`, so this cast is sound.
         let fn_ptr: NativeExecutionFn = unsafe { memory_region.as_fn_ptr() };
         Ok((memory_region, fn_ptr))
     }
@@ -314,6 +317,9 @@ mod tests {
         let (_region, func) = jit.compile_graph_to_memory(&graph).unwrap();
 
         let mut ctx = NativeExecutionContext::default();
+        // SAFETY: `func` was compiled from this same `graph` by
+        // `compile_graph_to_memory`, so its ABI matches `NativeExecutionFn`,
+        // and `&mut ctx` is a uniquely-borrowed, valid context for it.
         let result = unsafe { func(&mut ctx) };
 
         assert_eq!(result, 2048);
@@ -359,6 +365,9 @@ mod tests {
         ctx.registers[1] = 7;
         ctx.registers[2] = 6;
 
+        // SAFETY: `func` was compiled from this same `graph` by
+        // `compile_graph_to_memory`, so its ABI matches `NativeExecutionFn`,
+        // and `&mut ctx` is a uniquely-borrowed, valid context for it.
         let result = unsafe { func(&mut ctx) };
         assert_eq!(result, 42);
         assert_eq!(ctx.registers[0], 42);

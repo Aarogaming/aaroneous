@@ -29,6 +29,15 @@ impl<T: Copy, const CAP: usize> SwmrRingBuffer<T, CAP> {
             return false;
         }
         let idx = tail % CAP;
+        // `idx = tail % CAP` is always `< CAP`, staying within the bounds of
+        // the `[T; CAP]` array backing `slots`. This is a single-writer
+        // (SWMR) ring buffer: `push` is the only method that writes into
+        // `slots`, so no other thread can be concurrently writing to the
+        // same slot. The capacity check above (`tail - head < CAP`)
+        // guarantees slot `idx` has already been consumed by `pop` (or
+        // never used); the `Release` store of `tail` below publishes the
+        // write to readers who `Acquire`-load `tail`.
+        // SAFETY: idx < CAP; single-writer; slot is not concurrently read.
         unsafe {
             let buffer_ptr = self.slots.get() as *mut T;
             buffer_ptr.add(idx).write(item);
@@ -44,6 +53,15 @@ impl<T: Copy, const CAP: usize> SwmrRingBuffer<T, CAP> {
             return None;
         }
         let idx = head % CAP;
+        // `idx = head % CAP` is always `< CAP`, staying within the bounds of
+        // the `[T; CAP]` array backing `slots`. `head != tail` (checked
+        // above) and the `Acquire` load of `tail` pairs with `push`'s
+        // `Release` store, so this slot has already been fully written by
+        // `push` before this read observes it. `T: Copy`, so bitwise-copying
+        // it out via `read()` cannot violate any ownership/drop invariant,
+        // and the single-writer contract means no concurrent `write()`
+        // targets this slot.
+        // SAFETY: idx < CAP; slot fully written and not concurrently written.
         let val = unsafe {
             let buffer_ptr = self.slots.get() as *const T;
             buffer_ptr.add(idx).read()

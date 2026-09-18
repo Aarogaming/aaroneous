@@ -96,6 +96,12 @@ impl NetworkDataStream {
 
             let array_index = index % 128;
 
+            // `array_index = index % 128` is always `< 128`, exactly
+            // `target_vsa`'s length (`[u64; 128]`), so `get_unchecked_mut`
+            // is always given an in-bounds index. The `% 128` (rather than
+            // a checked `.get_mut()`) is what lets this hot loop avoid a
+            // bounds check per 64-byte chunk.
+            // SAFETY: `array_index` is always `< 128`; see above.
             unsafe {
                 let target_register = target_vsa.get_unchecked_mut(array_index);
                 *target_register ^= chunk_hash;

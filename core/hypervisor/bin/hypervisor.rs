@@ -459,6 +459,9 @@ fn run_cli(cli: Cli) -> Result<()> {
             use std::fs::OpenOptions;
 
             let file = OpenOptions::new().read(true).write(true).open(&path)?;
+            // SAFETY: `file` is held solely by this call, unmapped elsewhere
+            // in this process; a concurrent write by another process (per
+            // `crates/ipc_bus`'s synapse mmaps) is the accepted cross-process model, not a memory-safety hazard.
             let mut mmap = unsafe { MmapOptions::new().map_mut(&file)? };
 
             let task_id = Uuid::new_v4();

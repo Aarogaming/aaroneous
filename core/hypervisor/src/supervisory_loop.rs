@@ -39,6 +39,13 @@ impl LegacySharedMemorySynapse {
 
         file.set_len(size as u64)?;
 
+        // `file` was just opened/created by this call and sized to `size`
+        // bytes via `set_len` immediately above, so the mapping request is
+        // backed by a file of the expected length. `mmap_mut` requires that
+        // the file not be truncated by another process while mapped; this
+        // struct owns the only handle created here and nothing else in this
+        // codebase references the same synapse path concurrently.
+        // SAFETY: file is freshly sized and sole-owned; see rationale above.
         let mmap = unsafe { MmapOptions::new().map_mut(&file)? };
 
         Ok(Self { mmap, _path: path })
@@ -46,6 +53,13 @@ impl LegacySharedMemorySynapse {
 
     pub fn write(&self, offset: usize, data: &[u8]) -> Result<()> {
         let ptr = self.mmap.as_ptr() as *mut u8;
+        // `ptr` is derived from `self.mmap`, which stays valid for the
+        // lifetime of `self` and is at least `size` bytes long (the length
+        // passed to `Self::new`). `data.as_ptr()`/`data.len()` come from a
+        // live `&[u8]`, so the source range is valid for reads. This call
+        // requires (unchecked here) that `offset + data.len()` does not
+        // exceed the mapping's length - callers must ensure that themselves.
+        // SAFETY: mapping is live and long enough; offset+len is caller-checked.
         unsafe {
             std::ptr::copy_nonoverlapping(data.as_ptr(), ptr.add(offset), data.len());
         }
@@ -55,6 +69,12 @@ impl LegacySharedMemorySynapse {
     pub fn read(&self, offset: usize, len: usize) -> Result<Vec<u8>> {
         let mut buf = vec![0u8; len];
         let ptr = self.mmap.as_ptr();
+        // `ptr` is derived from `self.mmap`, which stays valid for the
+        // lifetime of `self`. `buf` was just allocated with exactly `len`
+        // bytes, so the destination range is valid for writes of `len`
+        // bytes. This call requires (unchecked here) that `offset + len`
+        // does not exceed the mapping's length - callers must ensure that.
+        // SAFETY: mapping is live; buf is exactly `len` bytes; bounds are caller-checked.
         unsafe {
             std::ptr::copy_nonoverlapping(ptr.add(offset), buf.as_mut_ptr(), len);
         }
@@ -273,6 +293,11 @@ impl SupervisoryDaemon {
         let synapse = LegacySharedMemorySynapse::new(synapse_name, size)?;
 
         let initial = SynapseState::default();
+        // `&initial` points to a live, fully-initialized `SynapseState` for
+        // the duration of this block. `size` is `size_of::<SynapseState>()`,
+        // the exact byte length of that value, so the resulting slice does
+        // not read past it; the bytes are only copied into the mmap below.
+        // SAFETY: `size` matches `&initial`'s exact byte length; see above.
         let bytes = unsafe {
             std::slice::from_raw_parts(&initial as *const SynapseState as *const u8, size)
         };
@@ -461,11 +486,24 @@ impl SupervisoryDaemon {
     fn read_state(syn: &LegacySharedMemorySynapse) -> SynapseState {
         let size = std::mem::size_of::<SynapseState>();
         let buf = syn.read(0, size).unwrap_or_else(|_| vec![0u8; size]);
+        // `buf` holds exactly `size_of::<SynapseState>()` bytes (either read
+        // back from the mapping written by `write_state` below, or a
+        // same-length zero-filled fallback), so `buf.as_ptr()` is valid for
+        // a read of that length. `read_unaligned` is used specifically
+        // because `buf`'s heap allocation is not guaranteed to satisfy
+        // `SynapseState`'s alignment. `SynapseState` is a POD struct written
+        // only via `write_state`'s matching byte dump (or all-zero), so any
+        // bit pattern present here is a valid `SynapseState`.
+        // SAFETY: `buf` is exactly `size_of::<SynapseState>()` bytes; see above.
         unsafe { std::ptr::read_unaligned(buf.as_ptr() as *const SynapseState) }
     }
 
     fn write_state(syn: &LegacySharedMemorySynapse, state: &SynapseState) {
         let size = std::mem::size_of::<SynapseState>();
+        // `state` points to a live `SynapseState` for the duration of this
+        // block, and `size` is `size_of::<SynapseState>()`, its exact byte
+        // length, so the resulting slice does not read past it.
+        // SAFETY: `size` matches `state`'s exact byte length; see above.
         let bytes =
             unsafe { std::slice::from_raw_parts(state as *const SynapseState as *const u8, size) };
         syn.write(0, bytes).ok();

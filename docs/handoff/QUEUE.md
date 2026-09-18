@@ -18,6 +18,8 @@
 
 - [x] ~~Universal Compliance & Portable Deployment: Treat review-aaroneous.md as the authoritative backlog~~ — review-aaroneous.md was pruned in wave 0/1 (55b312c) before its P0 items were captured elsewhere; superseded by the compliance_auditor crate below, which replaces it as the durable review mechanism.
 
+- [x] (completed: Claude session, 2026-09-18) Safety-comment debt cleared: annotated all 70 remaining undocumented `unsafe` blocks (core/hypervisor: hid_driver, win32_intercept, native_ingestion, supervisory_loop, cellular_automata, federation/forge, federation/profiles, screen_capture, signal_bridge, state/ring_buffer, substrate, wgpu_reflex_pipeline, bin/hypervisor.rs; crates/compute: cranelift_jit, isolated_desktop, si_jit, si_macro, si_packer, si_solid_state, si_spec, si_ssm, si_tool, wx_memory) with real, code-grounded `// SAFETY:` rationale, verified `cargo check --workspace --all-targets` and `cargo test -p ast_auditor -p hypervisor -p compute` all green. Flipped `UnifiedAuditReport::has_failures()` in crates/ast_auditor/src/lib.rs to include `safety_comment_violations`, closing out the follow-up from the 2026-09-18 substrate-hardening entry above. `cargo run -p ast_auditor` now reports 0 violations workspace-wide and the gate hard-fails on any future undocumented unsafe block.
+
 ## Coordination — two sessions are active on this branch concurrently
 
 Two agents are working `codex/repository-hardening` at once (confirmed via
