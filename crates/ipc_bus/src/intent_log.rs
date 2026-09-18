@@ -176,17 +176,31 @@ impl IntentLog {
     /// a fresh, current-format log can be created at `path`. Mirrors
     /// `rotate_segment`'s archive-then-recreate pattern, just triggered on
     /// open instead of on demand.
+    ///
+    /// Picks the archive name by probing `.legacy-format`, `.legacy-format.1`,
+    /// `.legacy-format.2`, ... for the first name not already in use, rather
+    /// than reading the system clock (AGENTS.md's "No Ambient Reads" rule)
+    /// or trusting second-resolution uniqueness: two archivals within the
+    /// same second would otherwise collide on the same timestamp-derived
+    /// name, and `rename` silently replaces an existing file on Unix,
+    /// destroying the very data this path exists to preserve.
     fn archive_incompatible_log(path: &Path) -> Result<()> {
-        let timestamp = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_secs();
         let file_name = path
             .file_name()
             .map(|n| n.to_string_lossy().into_owned())
             .unwrap_or_else(|| "intent_log".to_string());
-        let mut archive_path = path.to_path_buf();
-        archive_path.set_file_name(format!("{file_name}.legacy-format.{timestamp}"));
+        let mut suffix = 0u32;
+        let archive_path = loop {
+            let candidate = path.with_file_name(if suffix == 0 {
+                format!("{file_name}.legacy-format")
+            } else {
+                format!("{file_name}.legacy-format.{suffix}")
+            });
+            if !candidate.exists() {
+                break candidate;
+            }
+            suffix += 1;
+        };
         std::fs::rename(path, &archive_path).with_context(|| {
             format!(
                 "Failed to archive incompatible-format log from {} to {}",
@@ -836,14 +850,18 @@ mod tests {
     /// a fresh, current-format log.
     #[test]
     fn test_intent_log_archives_pre_versioning_legacy_file_instead_of_misreading_it() {
-        let path = temp_path("log_legacy_format");
-        let _ = std::fs::remove_file(&path);
+        // Keeps the `TempDir` guard alive for the whole test (unlike the
+        // `temp_path` helper, which drops it immediately) so the active
+        // log, the newly-archived legacy copy, and the directory itself are
+        // all removed automatically on scope exit instead of leaking into
+        // the OS temp directory on every run.
+        let temp_dir = tempfile::tempdir().unwrap();
+        let path = temp_dir.path().join("log_legacy_format");
 
         // Simulate a log file written by the pre-format-version code: an
         // 8-byte entry_count header only, with entries starting immediately
         // at offset 8 (no format_version field ever existed). The exact
         // entry bytes don't matter - they must never be parsed at all.
-        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
         let mut legacy_bytes = vec![0u8; 64];
         legacy_bytes[0..8].copy_from_slice(&1u64.to_le_bytes()); // entry_count = 1
         legacy_bytes[8..12].copy_from_slice(&LOG_MAGIC.to_le_bytes());
@@ -856,8 +874,7 @@ mod tests {
             "opening a pre-versioning file must start a fresh log, not misparse the old one"
         );
 
-        let parent = path.parent().unwrap();
-        let archived: Vec<_> = std::fs::read_dir(parent)
+        let archived: Vec<_> = std::fs::read_dir(temp_dir.path())
             .unwrap()
             .filter_map(|e| e.ok())
             .filter(|e| e.file_name().to_string_lossy().contains("legacy-format"))
@@ -872,8 +889,6 @@ mod tests {
             archived_bytes, legacy_bytes,
             "the archived copy must be byte-for-byte the original legacy file"
         );
-
-        let _ = std::fs::remove_file(&path);
     }
 
     #[test]
