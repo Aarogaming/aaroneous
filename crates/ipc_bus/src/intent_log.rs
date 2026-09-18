@@ -9,7 +9,18 @@ use memmap2::{MmapMut, MmapOptions};
 
 /// Log entry magic number
 pub const LOG_MAGIC: u32 = 0x1A73E7; // "INTENT" inspired
-pub const LOG_ENTRY_HEADER_SIZE: usize = 48;
+/// Computed from the struct itself rather than hardcoded: this was previously
+/// a hand-written `48`, four bytes short of the real 56-byte size once
+/// `align(8)` padding is accounted for (the trailing `generation: u64` field
+/// needs 8-byte alignment, padding `checksum`'s end at offset 44 up to 48
+/// before `generation` occupies bytes 48..56). That mismatch silently
+/// truncated every persisted entry's `generation` field to zero - it was
+/// never written past offset 48, and never read back either, since both the
+/// write path's `slice::from_raw_parts` and the read paths'
+/// `ptr::copy_nonoverlapping` only ever touched `LOG_ENTRY_HEADER_SIZE`
+/// bytes. See `test_log_entry_header_size_matches_struct_layout` and
+/// `test_intent_log_round_trips_nonzero_generation` below.
+pub const LOG_ENTRY_HEADER_SIZE: usize = std::mem::size_of::<LogEntryHeader>();
 pub const LOG_INITIAL_SIZE: usize = 64 * 1024 * 1024; // 64 MB
 pub const LOG_GROWTH_FACTOR: usize = 2;
 
@@ -82,6 +93,12 @@ impl IntentLog {
                 .context("Failed to initialize log file")?;
         }
 
+        // `map_mut`'s unsafety is inherent to mmap - the OS can't stop
+        // another process from concurrently truncating or writing the backing
+        // file underneath us. This file was just opened/sized by this call
+        // (or already exists as a log this process previously created), and
+        // `IntentLog` is the sole owner of the mapping once constructed.
+        // SAFETY: sole owner of a file this call just opened/sized.
         let mmap = unsafe {
             MmapOptions::new()
                 .map_mut(&file)
@@ -124,6 +141,14 @@ impl IntentLog {
                 checksum: 0,
                 generation: 0,
             };
+            // The loop guard above (`offset + LOG_ENTRY_HEADER_SIZE >
+            // mmap.len()`) proves `[offset, offset + LOG_ENTRY_HEADER_SIZE)`
+            // is in bounds for the source read. `header` is a live, properly
+            // aligned local `LogEntryHeader` whose fields are all plain
+            // integers - any bit pattern is a valid value, so overwriting its
+            // full `size_of` (== `LOG_ENTRY_HEADER_SIZE`) via a byte copy has
+            // no padding/niche hazard.
+            // SAFETY: bounds-checked by the loop guard just above.
             unsafe {
                 std::ptr::copy_nonoverlapping(
                     mmap.as_ptr().add(offset),
@@ -143,6 +168,11 @@ impl IntentLog {
         let offset = self.write_offset;
 
         // Write header
+        // `header` is a valid `&LogEntryHeader` for the duration of this
+        // call; `LOG_ENTRY_HEADER_SIZE == size_of::<LogEntryHeader>()`, so
+        // this views exactly `header`'s own representation, byte for byte,
+        // with no over-read.
+        // SAFETY: exact-size view of `header`'s own bytes.
         let header_bytes = unsafe {
             std::slice::from_raw_parts(
                 header as *const LogEntryHeader as *const u8,
@@ -174,6 +204,10 @@ impl IntentLog {
             self.file
                 .set_len(new_size as u64)
                 .context("Failed to grow log file")?;
+            // Same inherent mmap caveat as `IntentLog::new` above -
+            // `self.file` was just grown via `set_len` and remains solely
+            // owned by this `IntentLog`.
+            // SAFETY: sole owner of a file this call just grew.
             self.mmap = unsafe {
                 MmapOptions::new()
                     .map_mut(&self.file)
@@ -198,6 +232,11 @@ impl IntentLog {
     /// Rotates the active log file to an archived segment path and re-initializes a fresh log file
     pub fn rotate_segment(&mut self, archive_path: &Path) -> Result<()> {
         self.mmap.flush()?;
+        // Same inherent mmap caveat as `IntentLog::new` above - `self.file`
+        // is unchanged here (still this `IntentLog`'s own file, just
+        // flushed); this is a throwaway remap immediately replaced below
+        // once the file is renamed and a fresh one opened.
+        // SAFETY: sole owner of this already-flushed file.
         drop(std::mem::replace(&mut self.mmap, unsafe {
             MmapOptions::new()
                 .map_mut(&self.file)
@@ -219,6 +258,9 @@ impl IntentLog {
             .open(&self.path)?;
 
         fresh_file.set_len(LOG_INITIAL_SIZE as u64)?;
+        // SAFETY: same inherent mmap caveat as `IntentLog::new` above -
+        // `fresh_file` was just created and sized by this call, not yet
+        // shared with any other owner.
         let fresh_mmap = unsafe { MmapOptions::new().map_mut(&fresh_file)? };
 
         self.file = fresh_file;
@@ -243,6 +285,11 @@ pub struct LogReader {
 impl LogReader {
     pub fn open(path: &Path) -> Result<Self> {
         let file = std::fs::File::open(path).context("Failed to open log for reading")?;
+        // Same inherent mmap caveat as `IntentLog::new` - a concurrent
+        // external write to the file while mapped could race, but this is a
+        // read-only map of a log file this process expects to be
+        // append-only and not concurrently truncated by anything else.
+        // SAFETY: read-only map of an append-only log file.
         let mmap = unsafe {
             MmapOptions::new()
                 .map(&file)
@@ -280,6 +327,12 @@ impl LogReader {
                 checksum: 0,
                 generation: 0,
             };
+            // The loop guard above (`offset + LOG_ENTRY_HEADER_SIZE >
+            // self.mmap.len()`) proves the source range is in bounds;
+            // `header` is a live, aligned local of all-integer fields, so a
+            // full-size byte copy into it is sound. See the identical
+            // rationale on `IntentLog::calculate_write_offset` above.
+            // SAFETY: bounds-checked by the loop guard just above.
             unsafe {
                 std::ptr::copy_nonoverlapping(
                     self.mmap.as_ptr().add(offset),
@@ -306,6 +359,9 @@ impl LogReader {
             checksum: 0,
             generation: 0,
         };
+        // SAFETY: the bounds check immediately above proves the source range
+        // is in bounds; see the identical rationale on
+        // `IntentLog::calculate_write_offset` above.
         unsafe {
             std::ptr::copy_nonoverlapping(
                 self.mmap.as_ptr().add(offset),
@@ -360,6 +416,9 @@ impl<'a> Iterator for LogEntryIter<'a> {
             checksum: 0,
             generation: 0,
         };
+        // SAFETY: the bounds check immediately above proves the source range
+        // is in bounds; see the identical rationale on
+        // `IntentLog::calculate_write_offset` above.
         unsafe {
             std::ptr::copy_nonoverlapping(
                 self.mmap.as_ptr().add(self.offset),
@@ -539,6 +598,44 @@ mod tests {
     fn test_log_entry_header_checksum() {
         let header = create_log_entry(0, 42, packet_types::INTENT, 2, 0, 4);
         assert!(header.verify());
+    }
+
+    /// Regression guard for the `LOG_ENTRY_HEADER_SIZE` bug: it was
+    /// previously hand-written as `48`, four bytes short of the real
+    /// `align(8)`-padded 56-byte layout, which silently truncated every
+    /// persisted entry's `generation` field to zero on both write and read.
+    #[test]
+    fn test_log_entry_header_size_matches_struct_layout() {
+        assert_eq!(
+            LOG_ENTRY_HEADER_SIZE,
+            std::mem::size_of::<LogEntryHeader>(),
+            "LOG_ENTRY_HEADER_SIZE must track the struct's real size, including \
+             align(8) padding before the trailing `generation: u64` field"
+        );
+    }
+
+    /// End-to-end proof that `generation` actually round-trips through the
+    /// mmap'd log now, not just that the size constant matches the struct.
+    #[test]
+    fn test_intent_log_round_trips_nonzero_generation() {
+        let path = temp_path("log_generation_roundtrip");
+        let _ = std::fs::remove_file(&path);
+
+        let mut log = IntentLog::new(&path).unwrap();
+        let header = create_log_entry(0, 7, packet_types::INTENT, 1, 999, 5);
+        assert_eq!(header.generation, 999);
+        log.append(&header, b"hello").unwrap();
+
+        let reader = LogReader::open(&path).unwrap();
+        let (read_header, payload) = reader.get_entry(0).unwrap().unwrap();
+        assert_eq!(read_header.generation, 999);
+        assert!(read_header.verify());
+        assert_eq!(payload, b"hello");
+
+        let iter_header = reader.iter().next().unwrap().0;
+        assert_eq!(iter_header.generation, 999);
+
+        let _ = std::fs::remove_file(&path);
     }
 
     #[test]
