@@ -14,6 +14,7 @@
 - [x] DIST-02: Zero-Copy Multi-Process Shared Memory Ring Buffer (64-slot SWMR seqlock double-barrier ring in ipc_bus & studio_hud)
 - [x] ADAPT-01: Streaming Self-Correction & Autonomous Pacing Regulation (autonomic_adaptation::streaming_adaptation ⟶ core::hypervisor::supervisory_loop)
 - [x] DIST-03: Black-Box Flight Recorder & Deterministic Event Replayer (16MB circular binary flight log in ipc_bus & supervisory_loop)
+- [ ] Substrate Hardening: Audit and harden `crates/wire` and `crates/ipc_bus` (ABI/memory-geometry safety per AGENTS.md, unsafe-code isolation, hot-path `.unwrap()` audit, `workspace.health_audit` coverage) — next highest-ROI item per the capability-catalog-growth plan; not yet claimed (queued 2026-09-17).
 
 - [x] ~~Universal Compliance & Portable Deployment: Treat review-aaroneous.md as the authoritative backlog~~ — review-aaroneous.md was pruned in wave 0/1 (55b312c) before its P0 items were captured elsewhere; superseded by the compliance_auditor crate below, which replaces it as the durable review mechanism.
 
