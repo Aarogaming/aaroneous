@@ -37,6 +37,24 @@ Do not start an item another session has already claimed.
 
 ## Local Agent Autonomous Processing — read before trusting a "completed" entry
 
+**⚠ Governance conflict, unresolved as of 2026-09-18 — do not treat this as the
+sanctioned local-agent path without checking first.** `Aarogaming/aaroneous-devtools`
+already has a stricter, partially-operational replacement for this exact lane:
+an already-installed Windows Scheduled Task (`Aaroneous-Devtools-LocalWorker`,
+see `governance/LOCAL_WORKER_SERVICE.md`) polling `worker-jobs/*.toml` every 2
+minutes, under a hard policy (`governance/LOCAL_AGENT_CONTROL_PLANE.md`) that
+local models may only ever produce unverified proposals, never write or commit
+directly. `governance/COORDINATION_QUEUE.md` row C14 documents a near-identical
+prior mistake — a sibling prototype that wrote straight into the checkout and
+self-certified via a bare `cargo check`, same as this daemon does — and the
+concrete bugs that pattern caused. `MIGRATION_MANIFEST.md` already lists
+`scripts/local_agent_delegate.ps1` (this daemon's companion script) as
+transferred out of Aaroneous and explicitly not approved as a dependency here.
+If you're a session picking this up: confirm with the repo owner which system
+is actually meant to be running before relying on `task_queue.json` entries
+this daemon marks `"completed"`, and don't queue new work for it until the two
+systems are reconciled or this daemon is retired in favor of the devtools one.
+
 `scripts/local_agent_daemon.ps1` works through `dev/tools/task_queue.json` against
 a **local** Ollama model (`qwen3.5:9b-q6`, no billable API cost), one task at a
 time, retrying up to `max_retries` with the compiler error fed back into the
