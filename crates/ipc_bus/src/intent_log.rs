@@ -24,6 +24,20 @@ pub const LOG_ENTRY_HEADER_SIZE: usize = std::mem::size_of::<LogEntryHeader>();
 pub const LOG_INITIAL_SIZE: usize = 64 * 1024 * 1024; // 64 MB
 pub const LOG_GROWTH_FACTOR: usize = 2;
 
+/// On-disk file format version, bumped from the implicit "version 1" (no
+/// version field existed at all; entries started immediately at byte
+/// offset 8) to 2 alongside the `LOG_ENTRY_HEADER_SIZE` fix above. Without
+/// this, opening a log file written by the old code with the new code
+/// would silently misinterpret the first 8 bytes of what used to be
+/// payload data as part of the (now 8-bytes-wider) header, desyncing
+/// every subsequent entry's computed offset - a real data-corruption bug
+/// a review caught before this shipped. See
+/// `existing_file_has_incompatible_version`/`archive_incompatible_log`.
+pub const LOG_FORMAT_VERSION: u32 = 2;
+/// File header layout: `entry_count: u64` at bytes `0..8`, `format_version:
+/// u32` at bytes `8..12`. Entries begin immediately after, at this offset.
+pub const LOG_FILE_HEADER_SIZE: usize = 12;
+
 /// Log entry header - fixed size for fast seeking
 #[repr(C, align(8))]
 #[derive(Debug, Clone, Copy)]
@@ -79,6 +93,10 @@ impl IntentLog {
             std::fs::create_dir_all(parent).context("Failed to create log directory")?;
         }
 
+        if Self::existing_file_has_incompatible_version(path)? {
+            Self::archive_incompatible_log(path)?;
+        }
+
         let file = OpenOptions::new()
             .read(true)
             .write(true)
@@ -88,7 +106,8 @@ impl IntentLog {
             .context("Failed to open intent log")?;
 
         let file_len = file.metadata()?.len();
-        if file_len == 0 {
+        let is_fresh = file_len == 0;
+        if is_fresh {
             file.set_len(LOG_INITIAL_SIZE as u64)
                 .context("Failed to initialize log file")?;
         }
@@ -96,22 +115,28 @@ impl IntentLog {
         // `map_mut`'s unsafety is inherent to mmap - the OS can't stop
         // another process from concurrently truncating or writing the backing
         // file underneath us. This file was just opened/sized by this call
-        // (or already exists as a log this process previously created), and
+        // (or already exists as a log this process previously created and
+        // just had its format_version confirmed compatible above), and
         // `IntentLog` is the sole owner of the mapping once constructed.
         // SAFETY: sole owner of a file this call just opened/sized.
-        let mmap = unsafe {
+        let mut mmap = unsafe {
             MmapOptions::new()
                 .map_mut(&file)
                 .context("Failed to mmap log")?
         };
 
-        let entry_count = u64::from_le_bytes(mmap[0..8].try_into().unwrap_or([0; 8]));
-
-        // Calculate write offset by scanning entries
-        let write_offset = if entry_count > 0 {
-            Self::calculate_write_offset(&mmap, entry_count)
+        let (entry_count, write_offset) = if is_fresh {
+            mmap[0..8].copy_from_slice(&0u64.to_le_bytes());
+            mmap[8..12].copy_from_slice(&LOG_FORMAT_VERSION.to_le_bytes());
+            (0, LOG_FILE_HEADER_SIZE)
         } else {
-            8
+            let entry_count = u64::from_le_bytes(mmap[0..8].try_into().unwrap_or([0; 8]));
+            let write_offset = if entry_count > 0 {
+                Self::calculate_write_offset(&mmap, entry_count)
+            } else {
+                LOG_FILE_HEADER_SIZE
+            };
+            (entry_count, write_offset)
         };
 
         Ok(Self {
@@ -123,8 +148,56 @@ impl IntentLog {
         })
     }
 
+    /// `Ok(true)` iff `path` exists, is at least `LOG_FILE_HEADER_SIZE`
+    /// bytes long, and its `format_version` field doesn't equal
+    /// `LOG_FORMAT_VERSION` - including a pre-versioning legacy file, which
+    /// has no such field at all (those bytes are actually the first 4
+    /// bytes of its first entry's `magic`/`sequence`, essentially never
+    /// equal to the current `LOG_FORMAT_VERSION` by construction). A
+    /// missing or too-short file is not incompatible, just not there yet
+    /// (or not yet initialized) - `new` handles that case itself.
+    fn existing_file_has_incompatible_version(path: &Path) -> Result<bool> {
+        let mut file = match std::fs::File::open(path) {
+            Ok(f) => f,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(false),
+            Err(e) => return Err(e).context("Failed to open log file for version check"),
+        };
+        if file.metadata()?.len() < LOG_FILE_HEADER_SIZE as u64 {
+            return Ok(false);
+        }
+        let mut header = [0u8; LOG_FILE_HEADER_SIZE];
+        std::io::Read::read_exact(&mut file, &mut header)
+            .context("Failed to read log file header for version check")?;
+        let format_version = u32::from_le_bytes(header[8..12].try_into().unwrap());
+        Ok(format_version != LOG_FORMAT_VERSION)
+    }
+
+    /// Renames an incompatible-format log file aside (never deletes it) so
+    /// a fresh, current-format log can be created at `path`. Mirrors
+    /// `rotate_segment`'s archive-then-recreate pattern, just triggered on
+    /// open instead of on demand.
+    fn archive_incompatible_log(path: &Path) -> Result<()> {
+        let timestamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs();
+        let file_name = path
+            .file_name()
+            .map(|n| n.to_string_lossy().into_owned())
+            .unwrap_or_else(|| "intent_log".to_string());
+        let mut archive_path = path.to_path_buf();
+        archive_path.set_file_name(format!("{file_name}.legacy-format.{timestamp}"));
+        std::fs::rename(path, &archive_path).with_context(|| {
+            format!(
+                "Failed to archive incompatible-format log from {} to {}",
+                path.display(),
+                archive_path.display()
+            )
+        })
+    }
+
     fn calculate_write_offset(mmap: &[u8], entry_count: u64) -> usize {
-        let mut offset: usize = 8;
+        let mut offset: usize = LOG_FILE_HEADER_SIZE;
         for _ in 0..entry_count {
             if offset + LOG_ENTRY_HEADER_SIZE > mmap.len() {
                 break;
@@ -265,11 +338,12 @@ impl IntentLog {
 
         self.file = fresh_file;
         self.mmap = fresh_mmap;
-        self.write_offset = 8;
+        self.write_offset = LOG_FILE_HEADER_SIZE;
         self.entry_count = 0;
 
-        // Initialize header with 0 entries
+        // Initialize header with 0 entries and the current format version
         self.mmap[0..8].copy_from_slice(&0u64.to_le_bytes());
+        self.mmap[8..12].copy_from_slice(&LOG_FORMAT_VERSION.to_le_bytes());
         self.mmap.flush()?;
 
         Ok(())
@@ -296,6 +370,22 @@ impl LogReader {
                 .context("Failed to mmap log")?
         };
 
+        if mmap.len() < LOG_FILE_HEADER_SIZE {
+            anyhow::bail!(
+                "Log file at {} is too small to contain a header",
+                path.display()
+            );
+        }
+        let format_version = u32::from_le_bytes(mmap[8..12].try_into().unwrap());
+        if format_version != LOG_FORMAT_VERSION {
+            anyhow::bail!(
+                "Log file at {} has format version {format_version}, expected \
+                 {LOG_FORMAT_VERSION} (a pre-versioning legacy log, or a newer format this \
+                 build doesn't understand) - refusing to misread it rather than guessing",
+                path.display()
+            );
+        }
+
         let entry_count = u64::from_le_bytes(mmap[0..8].try_into().unwrap_or([0; 8]));
 
         Ok(Self { mmap, entry_count })
@@ -310,7 +400,7 @@ impl LogReader {
             return Ok(None);
         }
 
-        let mut offset: usize = 8;
+        let mut offset: usize = LOG_FILE_HEADER_SIZE;
         for _ in 0..sequence {
             if offset + LOG_ENTRY_HEADER_SIZE > self.mmap.len() {
                 return Ok(None);
@@ -380,7 +470,7 @@ impl LogReader {
     pub fn iter(&self) -> LogEntryIter<'_> {
         LogEntryIter {
             mmap: &self.mmap,
-            offset: 8,
+            offset: LOG_FILE_HEADER_SIZE,
             remaining: self.entry_count,
         }
     }
@@ -736,6 +826,75 @@ mod tests {
         assert!(!snapshot.verify());
     }
 
+    /// Regression guard for the review finding on the `LOG_ENTRY_HEADER_SIZE`
+    /// fix above: opening a file written by the pre-versioning code (no
+    /// `format_version` field, entries starting at byte 8 with 48-byte
+    /// headers) must never be parsed with the new 56-byte-header,
+    /// 12-byte-file-header layout - that would silently misinterpret old
+    /// payload bytes as header fields and desync every entry after the
+    /// first. It must instead be archived aside untouched and replaced with
+    /// a fresh, current-format log.
+    #[test]
+    fn test_intent_log_archives_pre_versioning_legacy_file_instead_of_misreading_it() {
+        let path = temp_path("log_legacy_format");
+        let _ = std::fs::remove_file(&path);
+
+        // Simulate a log file written by the pre-format-version code: an
+        // 8-byte entry_count header only, with entries starting immediately
+        // at offset 8 (no format_version field ever existed). The exact
+        // entry bytes don't matter - they must never be parsed at all.
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        let mut legacy_bytes = vec![0u8; 64];
+        legacy_bytes[0..8].copy_from_slice(&1u64.to_le_bytes()); // entry_count = 1
+        legacy_bytes[8..12].copy_from_slice(&LOG_MAGIC.to_le_bytes());
+        std::fs::write(&path, &legacy_bytes).unwrap();
+
+        let log = IntentLog::new(&path).unwrap();
+        assert_eq!(
+            log.entry_count(),
+            0,
+            "opening a pre-versioning file must start a fresh log, not misparse the old one"
+        );
+
+        let parent = path.parent().unwrap();
+        let archived: Vec<_> = std::fs::read_dir(parent)
+            .unwrap()
+            .filter_map(|e| e.ok())
+            .filter(|e| e.file_name().to_string_lossy().contains("legacy-format"))
+            .collect();
+        assert_eq!(
+            archived.len(),
+            1,
+            "the incompatible file must be archived aside, not deleted or overwritten in place"
+        );
+        let archived_bytes = std::fs::read(archived[0].path()).unwrap();
+        assert_eq!(
+            archived_bytes, legacy_bytes,
+            "the archived copy must be byte-for-byte the original legacy file"
+        );
+
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
+    fn test_log_reader_rejects_incompatible_format_version() {
+        let path = temp_path("log_bad_version");
+        let _ = std::fs::remove_file(&path);
+
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        let mut bytes = vec![0u8; 64];
+        bytes[0..8].copy_from_slice(&0u64.to_le_bytes());
+        bytes[8..12].copy_from_slice(&(LOG_FORMAT_VERSION + 1).to_le_bytes());
+        std::fs::write(&path, &bytes).unwrap();
+
+        assert!(
+            LogReader::open(&path).is_err(),
+            "LogReader must refuse a log whose format_version it doesn't recognize, not guess"
+        );
+
+        let _ = std::fs::remove_file(&path);
+    }
+
     #[test]
     fn test_intent_log_segment_rotation() {
         let active_path = temp_path("rotate_active");
@@ -750,7 +909,7 @@ mod tests {
 
         log.rotate_segment(&archive_path).unwrap();
         assert_eq!(log.entry_count(), 0);
-        assert_eq!(log.write_offset(), 8);
+        assert_eq!(log.write_offset(), LOG_FILE_HEADER_SIZE);
 
         // Verify archive has original entry
         let reader = LogReader::open(&archive_path).unwrap();
