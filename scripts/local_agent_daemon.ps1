@@ -1,3 +1,32 @@
+# GOVERNANCE CONFLICT — READ BEFORE ENABLING UNATTENDED
+# ------------------------------------------------------
+# This daemon writes local-model output directly into the real Aaroneous
+# working tree and self-certifies it as "completed" on nothing more than a
+# passing `cargo check`. It has no human-review gate.
+#
+# `Aarogaming/aaroneous-devtools` already ships a stricter replacement for
+# this exact lane:
+#   - governance/LOCAL_AGENT_CONTROL_PLANE.md: local models may only ever
+#     produce unverified *proposals* — never write, claim, or execute
+#     directly against product source.
+#   - governance/LOCAL_WORKER_SERVICE.md: an already-installed Windows
+#     Scheduled Task (`Aaroneous-Devtools-LocalWorker`) polling
+#     `worker-jobs/*.toml` every 2 minutes with qwen3.5:9b-q6, read-only
+#     against product source, output always pending-owner-review.
+#   - governance/COORDINATION_QUEUE.md row C14 is an incident report on a
+#     sibling prototype (`agentic_registrar.rs`) that had this exact
+#     shape — auto-commit gated by nothing but a bare `cargo check` — and
+#     documents the concrete bugs that pattern produces (uncorrelated
+#     compile-gate crate name, no path-traversal check, silent no-op
+#     rollback leaving broken files in the tree, zero file locking).
+#   - `MIGRATION_MANIFEST.md` already lists `scripts/local_agent_delegate.ps1`
+#     (the companion script this daemon calls) as transferred out of
+#     Aaroneous and explicitly *not* approved as a build/test/CI/runtime
+#     dependency here.
+#
+# Do not run this unattended until it's reconciled with (or retired in
+# favor of) the devtools worker-jobs/ pipeline. Flagged 2026-09-18,
+# pending owner decision — see docs/handoff/QUEUE.md.
 [CmdletBinding()]
 param (
     [Parameter(Mandatory=$false)]
