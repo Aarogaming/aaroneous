@@ -1,32 +1,24 @@
-# GOVERNANCE CONFLICT — READ BEFORE ENABLING UNATTENDED
-# ------------------------------------------------------
-# This daemon writes local-model output directly into the real Aaroneous
-# working tree and self-certifies it as "completed" on nothing more than a
-# passing `cargo check`. It has no human-review gate.
+# RETIRED 2026-09-18 — superseded by aaroneous-devtools, do not run unattended
+# ------------------------------------------------------------------------------
+# This daemon wrote local-model output directly into the real Aaroneous
+# working tree and self-certified it as "completed" on nothing more than a
+# passing `cargo check` — no human-review gate. `Aarogaming/aaroneous-devtools`
+# already runs a stricter, actually-operational replacement for this exact
+# lane (an installed Windows Scheduled Task, `Aaroneous-Devtools-LocalWorker`,
+# polling `worker-jobs/*.toml` every 2 minutes under a proposal-only policy —
+# see its governance/LOCAL_AGENT_CONTROL_PLANE.md and LOCAL_WORKER_SERVICE.md).
+# governance/COORDINATION_QUEUE.md row C14 there documents the concrete bugs
+# a bare-`cargo-check`-as-approval pattern like this one produces in practice.
 #
-# `Aarogaming/aaroneous-devtools` already ships a stricter replacement for
-# this exact lane:
-#   - governance/LOCAL_AGENT_CONTROL_PLANE.md: local models may only ever
-#     produce unverified *proposals* — never write, claim, or execute
-#     directly against product source.
-#   - governance/LOCAL_WORKER_SERVICE.md: an already-installed Windows
-#     Scheduled Task (`Aaroneous-Devtools-LocalWorker`) polling
-#     `worker-jobs/*.toml` every 2 minutes with qwen3.5:9b-q6, read-only
-#     against product source, output always pending-owner-review.
-#   - governance/COORDINATION_QUEUE.md row C14 is an incident report on a
-#     sibling prototype (`agentic_registrar.rs`) that had this exact
-#     shape — auto-commit gated by nothing but a bare `cargo check` — and
-#     documents the concrete bugs that pattern produces (uncorrelated
-#     compile-gate crate name, no path-traversal check, silent no-op
-#     rollback leaving broken files in the tree, zero file locking).
-#   - `MIGRATION_MANIFEST.md` already lists `scripts/local_agent_delegate.ps1`
-#     (the companion script this daemon calls) as transferred out of
-#     Aaroneous and explicitly *not* approved as a build/test/CI/runtime
-#     dependency here.
+# Confirmed 2026-09-18 (Gemini/Antigravity, running the real 2-minute local
+# cycle): that cycle runs entirely inside aaroneous-devtools and never writes
+# to this repo. This daemon was never the system in use — it's retired, not
+# merely flagged. See docs/handoff/QUEUE.md for the full writeup.
 #
-# Do not run this unattended until it's reconciled with (or retired in
-# favor of) the devtools worker-jobs/ pipeline. Flagged 2026-09-18,
-# pending owner decision — see docs/handoff/QUEUE.md.
+# It now refuses to run without an explicit acknowledgement, so an old
+# scheduled task or muscle-memory invocation can't silently start writing to
+# the tree again. Pass -AcknowledgeRetirement to override (e.g. for a
+# deliberate one-off local test of the script itself).
 [CmdletBinding()]
 param (
     [Parameter(Mandatory=$false)]
@@ -42,10 +34,17 @@ param (
     [int]$MaxIterations = 10,
 
     [Parameter(Mandatory=$false)]
-    [switch]$SinglePass
+    [switch]$SinglePass,
+
+    [Parameter(Mandatory=$false)]
+    [switch]$AcknowledgeRetirement
 )
 
 $ErrorActionPreference = "Stop"
+
+if (-not $AcknowledgeRetirement) {
+    Write-Error "local_agent_daemon.ps1 is retired (superseded by aaroneous-devtools' worker-jobs/ pipeline — see docs/handoff/QUEUE.md). Pass -AcknowledgeRetirement to run it anyway."
+}
 
 if (-not (Test-Path $QueueFile)) {
     Write-Error "Task queue file not found: $QueueFile"
