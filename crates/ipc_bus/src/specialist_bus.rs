@@ -114,6 +114,18 @@ impl SpecialistSpmcChannel {
         );
 
         // 2. Zero-copy write payload
+        // This cast from `&TensorSlot` to `*mut TensorSlot` is sound only
+        // because this type is a Single-Producer Multi-Consumer channel
+        // (`write_cursor` doc comment above: "Solely mutated by the
+        // designated producer") - the type system doesn't enforce that on
+        // its own, since `publish_tensor` takes `&self`, not `&mut self`.
+        // Concurrent readers never observe this write racily: `read_latest`
+        // only returns `slot.payload` after an `Ordering::Acquire` load of
+        // `slot.state` sees `SLOT_STATE_COMMITTED`, and that state is set
+        // with `Ordering::Release` below only after this write completes -
+        // the release/acquire pair makes the payload write happen-before
+        // any reader that observes the commit.
+        // SAFETY: single-writer invariant, release/acquire paired below.
         unsafe {
             let slot_mut = slot as *const TensorSlot as *mut TensorSlot;
             (*slot_mut).payload.copy_from_slice(tensor);
