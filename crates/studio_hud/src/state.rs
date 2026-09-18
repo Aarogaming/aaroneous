@@ -956,6 +956,15 @@ impl Default for SharedHudState {
         {
             Ok(file) => {
                 let _ = file.set_len(64 * 1024 * 1024); // 64 MB
+                // `file` was just opened/created and sized (best-effort)
+                // immediately above; a failed `set_len` here just leaves
+                // the mapping request to fail on its own below rather than
+                // panicking. `mmap_mut` requires the file not be truncated
+                // by another process while mapped - this is the same
+                // accepted cross-process synapse-mmap contract documented
+                // elsewhere in this codebase (e.g. core/hypervisor's
+                // `LegacySharedMemorySynapse`).
+                // SAFETY: file is sized best-effort and not truncated by this process; see rationale above.
                 match unsafe { MmapOptions::new().map_mut(&file) } {
                     Ok(mmap) => (Some(mmap), true),
                     Err(_) => (None, false),
