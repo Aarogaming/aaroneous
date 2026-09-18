@@ -326,6 +326,75 @@ impl Default for FlightFileHeaderPod {
     }
 }
 
+/// Zero-copy 1088-byte machine observation frame for passive shadow ingestion,
+/// dual-rail model verification, and continuous reinforcement learning.
+/// 64-byte aligned, complies with `bytemuck::Pod` and zero-allocation hot-path rules.
+#[repr(C, align(64))]
+#[derive(Clone, Copy, Debug, PartialEq, Pod, Zeroable)]
+pub struct ObservationFramePod {
+    /// Monotonic frame sequence counter (1, 2, 3...)
+    pub sequence: u64,
+    /// Wall-clock or monotonic timestamp in nanoseconds
+    pub timestamp_ns: u64,
+    /// Hypervisor tick execution duration in microseconds
+    pub tick_duration_us: u32,
+    /// Dispatched action/decision opcode (ground truth from supervisor/rules)
+    pub actual_opcode: u16,
+    /// Predicted action opcode from shadow .si inference
+    pub predicted_opcode: u16,
+    /// Actor tier: 0 = Supervisor/Rule, 1 = Cortex, 2 = Router, 3 = Reflex
+    pub actor_tier: u8,
+    /// Status flags: bit 0: shadow mode, bit 1: concurrence, bit 2: anomaly
+    pub flags: u8,
+    /// Concurrence indicator: 1 = match (actual == predicted), 0 = divergence
+    pub concurrence: u8,
+    /// Explicit padding byte for natural 4-byte scalar alignment
+    pub _pad0: u8,
+    /// Bus state integrity [0.0..100.0]
+    pub bus_integrity: f32,
+    /// Bus understanding score [0.0..100.0]
+    pub bus_understanding: f32,
+    /// Continuous flow score [0.0..1.0]
+    pub flow_score: f32,
+    /// Autonomic thermal pacing factor [0.0..1.0]
+    pub thermal_factor: f32,
+    /// Immediate reward / reinforcement signal for TD(λ) credit assignment
+    pub reward: f32,
+    /// Model prediction confidence [0.0..1.0]
+    pub confidence: f32,
+    /// Thermodynamic free energy / entropy delta
+    pub free_energy: f32,
+    /// Reserved for future telemetry expansion; aligns header to 64 bytes exact
+    pub _reserved: [u32; 2],
+    /// Continuous machine state feature vector (256 dimensions = 1024 bytes)
+    pub state_features: [f32; 256],
+}
+
+impl Default for ObservationFramePod {
+    fn default() -> Self {
+        Self {
+            sequence: 0,
+            timestamp_ns: 0,
+            tick_duration_us: 0,
+            actual_opcode: 0,
+            predicted_opcode: 0,
+            actor_tier: 0,
+            flags: 0,
+            concurrence: 0,
+            _pad0: 0,
+            bus_integrity: 100.0,
+            bus_understanding: 100.0,
+            flow_score: 1.0,
+            thermal_factor: 1.0,
+            reward: 0.0,
+            confidence: 0.0,
+            free_energy: 0.0,
+            _reserved: [0u32; 2],
+            state_features: [0.0f32; 256],
+        }
+    }
+}
+
 // Unit tests verify struct sizes are pod‑compatible.
 #[cfg(test)]
 mod tests {
@@ -392,5 +461,41 @@ mod tests {
         let decoded_h: &FlightFileHeaderPod = bytemuck::from_bytes(h_bytes);
         assert_eq!(*decoded_h, header);
         assert_eq!(&decoded_h.magic, b"AAROFLGT");
+    }
+
+    #[test]
+    fn observation_frame_geometry_and_roundtrip() {
+        assert_eq!(size_of::<ObservationFramePod>(), 1088);
+        assert_eq!(std::mem::align_of::<ObservationFramePod>(), 64);
+
+        let mut frame = ObservationFramePod {
+            sequence: 101,
+            timestamp_ns: 1234567890,
+            tick_duration_us: 250,
+            actual_opcode: 0x0100,
+            predicted_opcode: 0x0100,
+            actor_tier: 3,
+            flags: 0x03,
+            concurrence: 1,
+            _pad0: 0,
+            bus_integrity: 99.8,
+            bus_understanding: 97.5,
+            flow_score: 0.92,
+            thermal_factor: 1.0,
+            reward: 1.5,
+            confidence: 0.95,
+            free_energy: 0.04,
+            _reserved: [0u32; 2],
+            state_features: [0.5f32; 256],
+        };
+        frame.state_features[0] = 1.0;
+        frame.state_features[255] = -1.0;
+
+        let bytes = bytemuck::bytes_of(&frame);
+        assert_eq!(bytes.len(), 1088);
+        let decoded: &ObservationFramePod = bytemuck::from_bytes(bytes);
+        assert_eq!(*decoded, frame);
+        assert_eq!(decoded.state_features[0], 1.0);
+        assert_eq!(decoded.state_features[255], -1.0);
     }
 }

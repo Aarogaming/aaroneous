@@ -219,6 +219,8 @@ pub struct SupervisoryDaemon {
     pub flight_recorder: Option<Arc<parking_lot::Mutex<ipc_bus::FlightRecorder>>>,
     /// Formal SMT action interlock gatekeeper
     pub smt_interlock: Arc<parking_lot::RwLock<governance::SmtActionInterlock>>,
+    /// Lock-free SWMR observation buffer for passive telemetry ingestion and dual-rail shadow RL
+    pub observation_buffer: Option<Arc<parking_lot::Mutex<ipc_bus::ObservationBuffer>>>,
 }
 
 /// Backward-compatible alias for standard control systems nomenclature
@@ -368,7 +370,27 @@ impl SupervisoryDaemon {
             smt_interlock: Arc::new(parking_lot::RwLock::new(
                 governance::SmtActionInterlock::strict(),
             )),
+            observation_buffer: {
+                let paths =
+                    paths::WorkspacePaths::from_config(paths::WorkspacePathsConfig::default());
+                let obs_path = paths.data().join("shm").join("observation.shm");
+                ipc_bus::ObservationBuffer::open_or_create(
+                    &obs_path,
+                    ipc_bus::DEFAULT_OBSERVATION_CAPACITY,
+                )
+                .ok()
+                .map(|b| Arc::new(parking_lot::Mutex::new(b)))
+            },
         })
+    }
+
+    /// Attaches an optional observation buffer for passive machine telemetry ingestion.
+    pub fn with_observation_buffer(
+        mut self,
+        buffer: Arc<parking_lot::Mutex<ipc_bus::ObservationBuffer>>,
+    ) -> Self {
+        self.observation_buffer = Some(buffer);
+        self
     }
 
     /// Attaches an optional black-box flight recorder to the autonomic loop.
@@ -502,6 +524,7 @@ impl SupervisoryDaemon {
         let pacing_regulator = self.pacing_regulator.clone();
         let flight_recorder = self.flight_recorder.clone();
         let smt_interlock = self.smt_interlock.clone();
+        let observation_buffer = self.observation_buffer.clone();
 
         info!(target: "autonomic_loop", ?tick_rate, "heartbeat initiated");
 
@@ -1432,6 +1455,25 @@ impl SupervisoryDaemon {
                             &state.intent_vector_id,
                         );
                     }
+
+                    if let Some(ref obs_buf_mutex) = observation_buffer {
+                        let mut obs_buf = obs_buf_mutex.lock();
+                        let featurizer = compute::MachineStateFeaturizer::new();
+                        let ctx = compute::FeaturizerContext {
+                            thermal_factor: thermal_factor as f32,
+                            memory_pressure: state.memory_pressure as f32,
+                            concept_drift: state.concept_drift,
+                            curiosity_drive: state.curiosity_drive as f32,
+                            tick_duration_us: start.elapsed().as_micros() as u32,
+                            reward: 0.0,
+                            free_energy: 0.01,
+                            latent_seed: u64::from_le_bytes(
+                                state.intent_vector_id[0..8].try_into().unwrap_or([0; 8]),
+                            ),
+                        };
+                        let obs_frame = featurizer.featurize_frame(&pod, &ctx, 0, 0, 1.0);
+                        let _ = obs_buf.record(obs_frame);
+                    }
                 }
 
                 let elapsed = start.elapsed();
@@ -1657,5 +1699,74 @@ mod tests {
         );
         assert_eq!(event.source_id, 0x01);
         assert!(event.verify_checksum());
+    }
+
+    #[test]
+    fn test_supervisory_daemon_observation_buffer_integration() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let synapse_name = "test_ans_observation_synapse";
+
+        let enzyme_runner = Arc::new(EnzymeRunner::new().expect("enzyme runner"));
+        let hox_path = tmp.path().join("test_hox_obs.db");
+        let hox_registry =
+            Arc::new(HoxRegistry::new(hox_path.to_str().expect("path str")).expect("hox registry"));
+        let workspace_root = tmp.path().to_path_buf();
+        let splicing_engine = Arc::new(WasmSplicingEngine::new(
+            hox_registry.clone(),
+            workspace_root,
+        ));
+        let learning_loop = Arc::new(RwLock::new(UnifiedLearningLoop::new(
+            crate::unified_learning::UnifiedLearningConfig::default(),
+            0,
+            vec![],
+        )));
+
+        let db_path = tmp.path().join("test_hive_obs.db");
+        let obs_buffer_path = tmp.path().join("test_obs.shm");
+        let obs_buffer = Arc::new(parking_lot::Mutex::new(
+            ipc_bus::ObservationBuffer::open_or_create(&obs_buffer_path, 32).expect("open obs shm"),
+        ));
+
+        let daemon = SupervisoryDaemon::new(
+            synapse_name,
+            10,
+            enzyme_runner,
+            hox_registry,
+            splicing_engine,
+            learning_loop,
+            db_path.to_str(),
+        )
+        .expect("daemon new")
+        .with_observation_buffer(obs_buffer.clone());
+
+        daemon.set_max_ticks(3);
+        daemon.start();
+
+        std::thread::sleep(Duration::from_millis(150));
+        daemon.request_shutdown();
+
+        // Verify observation frames were recorded
+        let buf = obs_buffer.lock();
+        let seq = buf.current_sequence();
+        assert!(
+            seq >= 1,
+            "Expected at least 1 recorded observation frame, found {}",
+            seq
+        );
+
+        let frame = buf.read_latest().expect("read latest observation frame");
+        assert_eq!(frame.sequence, seq);
+        assert!(frame.state_features[0] >= 0.0);
+        assert!(frame.flow_score > 0.0);
+
+        // Test background episodic thought accumulator ingestion
+        let config = compute::EpisodicAccumulatorConfig {
+            min_episode_len: 1,
+            max_episode_len: 16,
+            min_crystallize_reward: 0.0,
+            wal_dir: Some(tmp.path().join("wal")),
+        };
+        let mut accumulator = compute::EpisodicThoughtAccumulator::new(config);
+        let _ = accumulator.poll_and_accumulate(&buf).expect("accumulate");
     }
 }

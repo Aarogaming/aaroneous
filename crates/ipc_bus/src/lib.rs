@@ -10,6 +10,7 @@ pub mod intent_log;
 pub mod machine_packet;
 pub mod metrics;
 pub mod mutation_intent;
+pub mod observation_buffer;
 pub mod persistent_wal;
 pub mod specialist_bus;
 pub use persistent_wal as wal_store;
@@ -62,6 +63,7 @@ pub mod shared_memory {
 }
 
 pub use core_contracts::EngineSnapshotPod;
+pub use core_contracts::ObservationFramePod;
 pub use core_contracts::{FlightEventKind, FlightEventPod, FlightFileHeaderPod};
 pub use disruptor::{
     CacheAlignedAtomicU64, CacheAlignedAtomicUsize, DisruptorRingBuffer, PaddedAtomicU64,
@@ -81,6 +83,11 @@ pub use machine_packet::{
 };
 pub use metrics::{MetricsCollector, MetricsSnapshot, SharedMetricsCollector, SlabMetricEntry};
 pub use mutation_intent::{IntentQueue, IntentValidator, MutationIntent};
+pub use observation_buffer::{
+    DEFAULT_OBSERVATION_CAPACITY, OBSERVATION_FRAME_SIZE, OBSERVATION_HEADER_SIZE,
+    OBSERVATION_MAGIC, OBSERVATION_SLOT_SIZE, OBSERVATION_VERSION, ObservationBuffer,
+    ObservationBufferError, ObservationBufferHeaderPod,
+};
 pub use preparedness_notice::{NoticeBroadcast, PreparednessNotice};
 pub use slab_allocator::{
     PacketSlot, SLOT_ACTIVE, SLOT_COMMITTED, SLOT_ERROR, SLOT_FREE, SlabAllocator,
