@@ -5,6 +5,11 @@
 /// Directly reads the hardware Time Stamp Counter register on x86_64 CPUs.
 #[inline(always)]
 pub fn read_cpu_timestamp() -> u64 {
+    // `_rdtsc` takes no arguments and reads a CPU register into a return
+    // value; it has no pointer/memory preconditions and is available on
+    // every x86_64 CPU (RDTSC has been unconditionally present since the
+    // Pentium), which this `cfg(target_arch = "x86_64")` guard ensures.
+    // SAFETY: no preconditions beyond running on x86_64, guaranteed by cfg.
     #[cfg(target_arch = "x86_64")]
     unsafe {
         core::arch::x86_64::_rdtsc()

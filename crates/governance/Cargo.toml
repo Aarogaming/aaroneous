@@ -17,7 +17,7 @@ thiserror = { workspace = true }
 compute = { path = "../compute" }
 si_ir = { path = "../si_ir" }
 si_format = { path = "../si_format" }
-z3 = { version = "0.9", optional = true }
+z3 = { version = "0.21", optional = true }
 
 [features]
 default = []

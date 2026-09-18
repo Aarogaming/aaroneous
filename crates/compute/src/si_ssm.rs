@@ -440,6 +440,9 @@ impl SiStateSpaceModel {
     pub fn load_from_si_container(path: impl AsRef<Path>, use_gpu: bool) -> Result<Self> {
         let path = path.as_ref();
         let file = File::open(path)?;
+        // SAFETY: `file` is a fresh handle this call just opened; `mmap2`'s
+        // precondition is that it isn't concurrently modified, and `mmap`
+        // is only read from for the rest of this function.
         let mmap = unsafe { Mmap::map(&file)? };
 
         if mmap.len() < 12 || mmap[0..5] != SI_SSM_MAGIC {

@@ -463,6 +463,9 @@ impl SolidStateSiContainer {
         }
 
         let file = File::open(path)?;
+        // SAFETY: `file` is a fresh handle this call just opened; `mmap2`'s
+        // precondition is that it isn't concurrently modified, and `mmap`
+        // is only read from for the rest of this function.
         let mmap = unsafe { Mmap::map(&file)? };
 
         if mmap.len() < 14 || mmap[0..4] != SI_SOLID_STATE_MAGIC {

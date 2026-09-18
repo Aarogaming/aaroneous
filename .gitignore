@@ -103,6 +103,8 @@ bin/a-run.exe
 # Local agent delegation scratch files
 scripts/prompt_*.txt
 scripts/output_*.rs
+scripts/staged/
+dev/tools/agent_observation_log.jsonl
 [Nn][Uu][Ll]
 
 # Generated build artifacts (not source)

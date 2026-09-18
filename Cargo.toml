@@ -3,6 +3,9 @@ resolver = "2"
 
 members = [
     "dev/emulator_harness",
+    "dev/chaos_injector",
+    "dev/rfc0006_poc/abi",
+    "dev/rfc0006_poc/host",
     "crates/ipc_bus",
     "crates/capabilities",
     "crates/orchestrator",
@@ -21,14 +24,13 @@ members = [
     "crates/wire",
     "core/hypervisor",
     "sdk/rust",
-    "crates/plugin_api",
-    "crates/hotload",
     "crates/core-contracts",
     "crates/ast_auditor",
     "crates/cratify",
     "crates/studio_hud",
     "crates/llm_gateway",
     "crates/runtime_monitor",
+    "crates/runtime_monitor/runtime_monitor_bench",
     "crates/mcp_server",
     "crates/orchestration_plane",
     "crates/compliance_auditor",
@@ -37,6 +39,12 @@ members = [
 
 exclude = [
     "firmware",
+    "dev/rfc0006_poc/plugins",
+    # Deliberately non-compiling sample source (has real syntax/type errors by
+    # design - see its own src/lib.rs) that crates/orchestration_plane's
+    # canary_runner/canary_run/batch_cratify examples feed to the auditor by
+    # file path, not as a workspace crate.
+    "dev/canary_legacy_fixture",
 ]
 
 [workspace.package]
