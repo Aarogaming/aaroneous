@@ -35,33 +35,46 @@ Do not start an item another session has already claimed.
 - [x] (completed: Antigravity session, 2026-09-16) Wave 11: Systems architecture & deep terminology cleanup (rename `crates/autonomic_adaptation` → `crates/adaptation_plane`, systems refactor of `auto_wrapper.rs`, excise legacy compatibility aliases in `hypervisor` and `ipc_bus`). Commit: 6a80fb2.
 - [x] (completed: Antigravity session, 2026-09-16) Wave 13: Full verification gate protocol (`cargo check --all-targets`, `cargo test`, `ast_auditor` 730 files with 0 violations, zero-stub grep inspection, `emulator_harness`, `cargo xtask gate` PASS).
 
-## Local Agent Autonomous Processing — read before trusting a "completed" entry
+## Local Agent Autonomous Processing — RETIRED 2026-09-18, superseded by devtools
 
-**⚠ Governance conflict, unresolved as of 2026-09-18 — do not treat this as the
-sanctioned local-agent path without checking first.** `Aarogaming/aaroneous-devtools`
-already has a stricter, partially-operational replacement for this exact lane:
-an already-installed Windows Scheduled Task (`Aaroneous-Devtools-LocalWorker`,
-see `governance/LOCAL_WORKER_SERVICE.md`) polling `worker-jobs/*.toml` every 2
+**This daemon is retired.** `dev/tools/task_queue.json` now carries a
+`"retired": true` flag and `scripts/local_agent_daemon.ps1` refuses to run
+against it without an explicit override (see that script's header). Do not
+queue new work here.
+
+What happened: this session built up `local_agent_daemon.ps1` this week to
+write local-model output directly into the real working tree, self-certified
+by nothing more than a passing `cargo check` — no human review gate.
+`Aarogaming/aaroneous-devtools` already had (and still has) a stricter,
+already-operational replacement for this exact lane: a running Windows
+Scheduled Task (`Aaroneous-Devtools-LocalWorker`, see its
+`governance/LOCAL_WORKER_SERVICE.md`) polling `worker-jobs/*.toml` every 2
 minutes, under a hard policy (`governance/LOCAL_AGENT_CONTROL_PLANE.md`) that
-local models may only ever produce unverified proposals, never write or commit
-directly. `governance/COORDINATION_QUEUE.md` row C14 documents a near-identical
-prior mistake — a sibling prototype that wrote straight into the checkout and
-self-certified via a bare `cargo check`, same as this daemon does — and the
-concrete bugs that pattern caused. `MIGRATION_MANIFEST.md` already lists
-`scripts/local_agent_delegate.ps1` (this daemon's companion script) as
-transferred out of Aaroneous and explicitly not approved as a dependency here.
-If you're a session picking this up: confirm with the repo owner which system
-is actually meant to be running before relying on `task_queue.json` entries
-this daemon marks `"completed"`, and don't queue new work for it until the two
-systems are reconciled or this daemon is retired in favor of the devtools one.
+local models may only ever produce unverified proposals, never write or
+commit directly. `governance/COORDINATION_QUEUE.md` row C14 documents the
+concrete bugs a bare-`cargo-check`-as-approval pattern like this one produces
+in practice (an uncorrelated compile-gate crate name, no path-traversal
+check, silent no-op rollback leaving broken files in the tree, zero file
+locking) on a sibling prototype that had this same shape.
+Confirmed 2026-09-18 (Gemini/Antigravity, running the actual 2-minute local
+cycle): "All local agent control plane work... [is] 100% isolated inside
+`aaroneous-devtools`... Zero changes are made to `Aaroneous`" — the product
+repo is only ever read as evidence input. So this daemon was never the
+system actually in use; it's redundant, unreviewed duplicate risk with no
+offsetting benefit. If local-agent work is needed against this repo in the
+future, queue it as a `worker-jobs/*.toml` job in `aaroneous-devtools`
+instead — that pipeline already exists, is reviewed, and is what's running.
 
-`scripts/local_agent_daemon.ps1` works through `dev/tools/task_queue.json` against
+(Historical description of the retired design, kept for context.)
+`scripts/local_agent_daemon.ps1` worked through `dev/tools/task_queue.json` against
 a **local** Ollama model (`qwen3.5:9b-q6`, no billable API cost), one task at a
 time, retrying up to `max_retries` with the compiler error fed back into the
-prompt on failure. As of 2026-09-18 it's being run semi-continuously (a ~2-minute
-cycle) rather than one-off, so `dev/tools/task_queue.json` should be kept
-topped up with well-scoped work — see the newly-added TASK-004..013 below for
-the shape a good entry takes.
+prompt on failure. TASK-004..013 below were queued for it on 2026-09-18 under
+the mistaken assumption it was the active local-agent path; they were never
+picked up (the daemon was flagged and guarded before its next run) and remain
+here only as examples of well-scoped test-coverage work — port any still
+worth doing into a devtools `worker-jobs/*.toml` job instead of re-enabling
+this daemon.
 
 **Its own verification is `cargo fmt` + `cargo check -p <crate>` only — it
 proves the generated file compiles, not that it's correct.** No `cargo test`,

@@ -2,6 +2,8 @@
   "version": "1.0",
   "engine": "qwen3.5:9b-q6",
   "max_retries": 3,
+  "retired": true,
+  "retired_reason": "Superseded by aaroneous-devtools' worker-jobs/ pipeline (foundation_cli::local_worker, governance/LOCAL_WORKER_SERVICE.md). Confirmed 2026-09-18: the local agent's 2-minute cycle runs entirely inside aaroneous-devtools and never writes to this repo. scripts/local_agent_daemon.ps1 now refuses to run against this file without an explicit override. Do not add new entries here; queue new local-agent work as a worker-jobs/*.toml in aaroneous-devtools instead.",
   "queue": [
     {
       "id": "TASK-001",
