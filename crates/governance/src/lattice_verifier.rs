@@ -124,21 +124,21 @@ impl LatticeVerifier {
         graph: &NativeComputationalGraph,
         max_epsilon: f64,
     ) -> Result<()> {
-        if graph.thermodynamic_free_energy < 0.0 {
+        if graph.accumulated_energy_cost < 0.0 {
             return Err(anyhow!(
                 "Thermodynamic violation: Negative free energy {:.4}",
-                graph.thermodynamic_free_energy
+                graph.accumulated_energy_cost
             ));
         }
 
-        if !graph.thermodynamic_free_energy.is_finite() {
+        if !graph.accumulated_energy_cost.is_finite() {
             return Err(anyhow!("Thermodynamic violation: Non-finite free energy"));
         }
 
-        if graph.thermodynamic_free_energy > max_epsilon {
+        if graph.accumulated_energy_cost > max_epsilon {
             return Err(anyhow!(
                 "Thermodynamic dissipation exceeded: Free energy {:.4} > bound {:.4}",
-                graph.thermodynamic_free_energy,
+                graph.accumulated_energy_cost,
                 max_epsilon
             ));
         }
@@ -230,7 +230,7 @@ impl LatticeVerifier {
         Ok(VerificationReport {
             is_valid: true,
             total_nodes: graph.nodes.len(),
-            free_energy: graph.thermodynamic_free_energy,
+            free_energy: graph.accumulated_energy_cost,
             dimensional_checks_passed: dim_checks,
             spatial_checks_passed: spatial_checks,
             diagnostics,
