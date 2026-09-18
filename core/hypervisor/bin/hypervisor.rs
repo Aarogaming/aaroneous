@@ -451,12 +451,16 @@ fn run_cli(cli: Cli) -> Result<()> {
             Ok(())
         }
         Some(Commands::Inject { intent }) => {
+            use hypervisor::supervisory_loop::{
+                SYNAPSE_INTENT_PAYLOAD_CAPACITY, SYNAPSE_INTENT_PAYLOAD_OFFSET,
+                SYNAPSE_INTENT_VECTOR_ID_OFFSET,
+            };
+            use memmap2::MmapOptions;
+            use std::fs::OpenOptions;
+
             println!("Injecting intent: {}", intent);
             let paths = paths::WorkspacePaths::discover(&WorkspacePathsConfig::default());
             let path = paths.synapse_file();
-
-            use memmap2::MmapOptions;
-            use std::fs::OpenOptions;
 
             let file = OpenOptions::new().read(true).write(true).open(&path)?;
             // SAFETY: `file` is held solely by this call, unmapped elsewhere
@@ -464,15 +468,30 @@ fn run_cli(cli: Cli) -> Result<()> {
             // `crates/ipc_bus`'s synapse mmaps) is the accepted cross-process model, not a memory-safety hazard.
             let mut mmap = unsafe { MmapOptions::new().map_mut(&file)? };
 
+            let required_len = SYNAPSE_INTENT_PAYLOAD_OFFSET + SYNAPSE_INTENT_PAYLOAD_CAPACITY;
+            if mmap.len() < required_len {
+                anyhow::bail!(
+                    "synapse file {} is {} bytes, too small to hold an intent (need >= {} bytes); \
+                     is the hypervisor daemon running to size it first?",
+                    path.display(),
+                    mmap.len(),
+                    required_len
+                );
+            }
+
             let task_id = Uuid::new_v4();
             let id_bytes = task_id.as_bytes();
 
-            mmap[16..32].copy_from_slice(id_bytes);
+            mmap[SYNAPSE_INTENT_VECTOR_ID_OFFSET..SYNAPSE_INTENT_VECTOR_ID_OFFSET + 16]
+                .copy_from_slice(id_bytes);
 
             let payload = intent.as_bytes();
-            let payload_len = std::cmp::min(payload.len(), 4096);
-            mmap[32..32 + payload_len].copy_from_slice(&payload[..payload_len]);
-            mmap[32 + payload_len..4128].fill(0);
+            let payload_len = std::cmp::min(payload.len(), SYNAPSE_INTENT_PAYLOAD_CAPACITY);
+            let payload_start = SYNAPSE_INTENT_PAYLOAD_OFFSET;
+            mmap[payload_start..payload_start + payload_len]
+                .copy_from_slice(&payload[..payload_len]);
+            mmap[payload_start + payload_len..payload_start + SYNAPSE_INTENT_PAYLOAD_CAPACITY]
+                .fill(0);
 
             println!("Intent injected with Task ID: {}", task_id);
             Ok(())

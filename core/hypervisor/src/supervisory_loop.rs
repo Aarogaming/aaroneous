@@ -168,6 +168,24 @@ pub struct SynapseState {
     pub dialogue: DialogueState,
 }
 
+/// Byte offset of `SynapseState::intent_vector_id` within the raw
+/// `LegacySharedMemorySynapse` mapping. External writers (e.g. the
+/// `hypervisor inject` CLI command) that poke the mmap directly, without
+/// going through `write_state`'s whole-struct byte dump, must use this
+/// instead of a hardcoded literal: `#[repr(C)]` field offsets are an
+/// implementation detail of field order and padding, not a stable ABI
+/// this crate promises externally, and a prior version of the CLI command
+/// hardcoded offset 16 here, four bytes before the field's real offset
+/// (0..=15 is `clock_tick`/`memory_pressure`/`understanding_score`).
+pub const SYNAPSE_INTENT_VECTOR_ID_OFFSET: usize =
+    std::mem::offset_of!(SynapseState, intent_vector_id);
+/// Byte offset of `SynapseState::intent_payload`. See
+/// `SYNAPSE_INTENT_VECTOR_ID_OFFSET` above for why external writers must
+/// use this rather than a hardcoded literal.
+pub const SYNAPSE_INTENT_PAYLOAD_OFFSET: usize = std::mem::offset_of!(SynapseState, intent_payload);
+/// Capacity in bytes of `SynapseState::intent_payload`.
+pub const SYNAPSE_INTENT_PAYLOAD_CAPACITY: usize = 4096;
+
 impl Default for SynapseState {
     fn default() -> Self {
         Self {
@@ -1499,6 +1517,27 @@ mod tests {
     use adaptation_plane::{
         AutonomousPacingRegulator, PacingConfig, PacingTier, ThermodynamicTelemetry,
     };
+
+    /// Regression test for the offset drift bug fixed alongside this test:
+    /// the `hypervisor inject` CLI command used to hardcode `intent_vector_id`
+    /// at byte 16 and `intent_payload` at byte 32, both four bytes short of
+    /// `SynapseState`'s actual `#[repr(C)]` layout, silently corrupting
+    /// `curiosity_drive` and shifting every injected intent's payload by 4
+    /// bytes. Pins the real offsets so a future field reorder is caught here
+    /// instead of silently breaking the CLI's raw mmap writes again.
+    #[test]
+    fn test_synapse_state_field_offsets_match_cli_assumptions() {
+        assert_eq!(SYNAPSE_INTENT_VECTOR_ID_OFFSET, 20);
+        assert_eq!(SYNAPSE_INTENT_PAYLOAD_OFFSET, 36);
+        assert_eq!(
+            SYNAPSE_INTENT_PAYLOAD_CAPACITY,
+            std::mem::size_of::<[u8; 4096]>()
+        );
+        assert!(
+            SYNAPSE_INTENT_PAYLOAD_OFFSET + SYNAPSE_INTENT_PAYLOAD_CAPACITY
+                <= std::mem::size_of::<SynapseState>()
+        );
+    }
 
     #[test]
     fn test_supervisory_daemon_pacing_constructor_injection() {
