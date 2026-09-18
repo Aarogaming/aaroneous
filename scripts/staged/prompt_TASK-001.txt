@@ -1,1 +1,0 @@
-Write a module `xtask/src/export_wit.rs` that inspects component traits in crates/capabilities and exports WebAssembly Interface Type (WIT) declarations. Output pure Rust code.

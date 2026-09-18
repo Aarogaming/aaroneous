@@ -58,11 +58,11 @@ The framework decomposes execution into isolated, modular component blocks:
 ### 1. 🧬 Pure Rust Selective State-Space Model (`SiStateSpaceModel`)
 - Continuous-time state-space recurrence ($h_t = \bar{\mathbf{A}} h_{t-1} + \bar{\mathbf{B}} u_t$, $y_t = \mathbf{C} h_t + \mathbf{D} u_t$).
 - 4 layers, 1024-element state vectors, 256 model dimension, 64 state rank (~890k parameters $\approx$ 3.56 MB RAM footprint).
-- Sub-millisecond single-pass state-to-action inference (design target: $< 180\,\mu\text{s}$; no reproducible benchmark yet — see §Verification and assurance scope).
+- Sub-millisecond single-pass state-to-action inference (see `benches/ssm_inference.rs` for measurement).
 
 ### 2. ⚡ Dynamic Adaptation Matrix & Real-Time Error Steering (`DynamicAdaptationMatrix`)
 - Eliminates catastrophic forgetting by pairing an immutable frozen core with a mutable low-rank adapter ($\Delta W = A_{\text{adapt}} \cdot B_{\text{adapt}}$).
-- When an execution error or compiler panic occurs, `on_runtime_error` applies an immediate negative gradient step (design target: $< 50\,\mu\text{s}$; no reproducible benchmark yet), steering the model away from repeated failures.
+- When an execution error or compiler panic occurs, `on_runtime_error` applies an immediate negative gradient step, steering the model away from repeated failures (see `benches/adaptation_latency.rs` for measurement).
 
 ### 3. 💎 Autonomous Skill Expansion & Thermodynamic Minimization (`SkillExpansionEngine`)
 - Self-development loop driven by thermodynamic free energy minimization ($F = E - T \cdot S$) and step compression.
@@ -71,7 +71,7 @@ The framework decomposes execution into isolated, modular component blocks:
 - High-fitness habits are frozen into portable, memory-mapped `.si` cartridges.
 
 ### 4. 🛠️ Universal Capability Toolset (`UniversalTool` & MCP Hub)
-- **Dual-Face Execution**: Every capability tool implements the `UniversalTool` trait—exposing standard JSON schemas for external MCP clients (Claude Desktop, Cursor, OpenCode), while concurrently executing zero-copy $\mathbb{R}^{256}$ latent tensor transformations for native `.si` models in VRAM (design target: $< 15\,\mu\text{s}$; no reproducible benchmark yet).
+- **Dual-Face Execution**: Every capability tool implements the `UniversalTool` trait—exposing standard JSON schemas for external MCP clients (Claude Desktop, Cursor, OpenCode), while concurrently executing zero-copy latent tensor transformations for native `.si` models (see `benches/mcp_tool_dispatch.rs` for measurement).
 - Standard catalog covers AST repair, pattern rewriting, security audits, semantic queries, and multi-modal sensory inspection.
 
 ### 5. 🏛️ Layered Protection Rings & PLC Reducer Architecture

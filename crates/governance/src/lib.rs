@@ -6,6 +6,7 @@ pub use resource_governor as homeostasis;
 pub use system_limits as biology;
 pub use system_limits as system_health;
 pub use throughput_governor as thermodynamic_governor;
+pub mod constraint_inspector;
 pub mod jit_audit;
 pub mod lattice_verifier;
 pub mod metrics_exporter;
@@ -17,6 +18,7 @@ pub use biology::{
     SpecialistExecutionBudget, SpecialistHealth, SpecialistMetabolism, SystemBiology,
     SystemHealthGovernor, SystemHealthReport, ThrottleState,
 };
+pub use constraint_inspector::{ConstraintInspectionReport, ConstraintInspector};
 pub use homeostasis::{
     DynamicEquilibriumState, FeedbackRegulator, HomeostasisGovernor, HomeostasisState,
 };
