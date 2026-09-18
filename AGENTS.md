@@ -4,7 +4,25 @@
 > **APPLIES TO**: ALL AUTONOMOUS AGENTS (OpenCode, Qwen, Claude, LM Studio, Human Contributors)  
 > **WORKSPACE**: `aaroneous` (Type-Safe Rust Component Framework & SCADA/PLC Architecture)  
 > **CORE IDENTITY**: Aaroneous is **NOT** a monolithic app. It is a strict, type-safe **Rust Component Framework** for building interchangeable, safe, zero-allocation execution blocks & plugins.  
-> **LAST UPDATED**: 2026-09-14
+> **LAST UPDATED**: 2026-09-18
+
+---
+
+## Quick Start for Agents
+
+**Before editing any file, run:**
+
+```bash
+cargo xtask gate
+```
+
+This is the single verification command that validates your workspace matches CI. It runs encoding, formatting, clippy, compilation, tests, AST audit, stub check, emulator harness, and feature compilation in order.
+
+**Before claiming work is done, run it again.** If it passes, you're done.
+
+**Canonical type names live in `crates/governance`.** All other names (`SystemBiology`, `SpecialistMetabolism`, `HomeostasisGovernor`, etc.) are deprecated legacy aliases. Use the canonical names.
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the full rule reference.
 
 ---
 
@@ -17,7 +35,7 @@ Every crate in this repository is an independent, plug-and-play component block 
 - **`crates/platform_bridge/`**: OS abstractions (DXGI, Win32, WASAPI).
 - **`crates/ipc_bus/`**: Lock-free SPMC/SWMR ring buffers & WAL.
 - **`crates/capabilities/`**: `UniversalTool` & domain specialist registry.
-- **`crates/governance/`**: Z3 SMT verification & safety interlocks.
+- **`crates/governance/`**: Interference checking, safety interlocks, and resource governors.
 - **`crates/compute/`**: Solid-state SSM, .si container engine, JIT compiler.
 - **`crates/api/` & `crates/studio_hud/`**: Presentation layer and GUI viewports.
 
