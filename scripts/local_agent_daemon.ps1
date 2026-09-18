@@ -62,15 +62,51 @@ function Write-Observation {
 # native executable exit codes - a failing `cargo check` prints its error
 # and returns control normally, so without this check $generationSuccess
 # was being set to $true even when verification had actually failed.
+#
+# Also captures the command's combined stdout+stderr (still echoed to the
+# console as before) so that on failure, the actual compiler diagnostics -
+# not just a bare exit code - flow into $lastError, the JSONL observation
+# record, and the self-repair prompt fed back to the model. Without this,
+# a background daemon's console output was the only place that detail
+# ever existed, so retries after a failure ran effectively blind.
 function Invoke-Checked {
     param(
         [Parameter(Mandatory=$true)][scriptblock]$Command,
         [Parameter(Mandatory=$true)][string]$Description
     )
-    & $Command
+    $outputLines = & $Command 2>&1
+    $outputLines | ForEach-Object { Write-Host $_ }
     if ($LASTEXITCODE -ne 0) {
-        throw "$Description failed with exit code $LASTEXITCODE"
+        $outputText = ($outputLines | Out-String).Trim()
+        throw "$Description failed with exit code ${LASTEXITCODE}:`n$outputText"
     }
+}
+
+# Walks up from the target file's directory to find the nearest Cargo.toml
+# and returns its [package] name, rather than assuming a fixed path-segment
+# position (e.g. "the second path component") is the package name. That
+# assumption broke for nested dev crates: dev/rfc0006_poc/abi/src/lib.rs's
+# owning package is "rfc0006_abi", not "rfc0006_poc" (the directory name a
+# naive $targetParts[1] would have guessed) - and now that Invoke-Checked
+# makes a nonzero `cargo check` exit fatal, that mismatch would retry an
+# otherwise-valid generation to the failure limit every time.
+function Resolve-OwningPackageName {
+    param([Parameter(Mandatory=$true)][string]$TargetFile)
+    $dir = Split-Path -Parent $TargetFile
+    while ($dir -and $dir -ne ".") {
+        $manifestPath = Join-Path $dir "Cargo.toml"
+        if (Test-Path $manifestPath) {
+            $manifestText = Get-Content -Path $manifestPath -Raw -Encoding UTF8
+            if ($manifestText -match '(?ms)^\[package\][^\[]*?^\s*name\s*=\s*"([^"]+)"') {
+                return $Matches[1]
+            }
+            throw "Found $manifestPath but could not parse a [package] name field from it"
+        }
+        $parentDir = Split-Path -Parent $dir
+        if ($parentDir -eq $dir) { break }
+        $dir = $parentDir
+    }
+    throw "Could not find an owning Cargo.toml (with a [package] name) for target file: $TargetFile"
 }
 
 $iteration = 0
@@ -132,14 +168,9 @@ while ($true) {
             Invoke-Checked -Description "cargo fmt" -Command { cargo fmt -- $task.target_file }
 
             # Verify with cargo check
-            $targetParts = $task.target_file -split '/'
-            if ($targetParts[0] -eq "crates" -or $targetParts[0] -eq "dev") {
-                $crateName = $targetParts[1]
-                Write-Host "Running compilation check for $crateName..."
-                Invoke-Checked -Description "cargo check -p $crateName" -Command { cargo check -p $crateName }
-            } else {
-                Invoke-Checked -Description "cargo check -p xtask" -Command { cargo check -p xtask }
-            }
+            $crateName = Resolve-OwningPackageName -TargetFile $task.target_file
+            Write-Host "Running compilation check for $crateName..."
+            Invoke-Checked -Description "cargo check -p $crateName" -Command { cargo check -p $crateName }
 
             $generationSuccess = $true
             $lastError = ""
