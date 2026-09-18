@@ -172,42 +172,61 @@ impl IntentLog {
         Ok(format_version != LOG_FORMAT_VERSION)
     }
 
-    /// Renames an incompatible-format log file aside (never deletes it) so
+    /// Archives an incompatible-format log file aside (never deletes it) so
     /// a fresh, current-format log can be created at `path`. Mirrors
     /// `rotate_segment`'s archive-then-recreate pattern, just triggered on
     /// open instead of on demand.
     ///
     /// Picks the archive name by probing `.legacy-format`, `.legacy-format.1`,
-    /// `.legacy-format.2`, ... for the first name not already in use, rather
-    /// than reading the system clock (AGENTS.md's "No Ambient Reads" rule)
-    /// or trusting second-resolution uniqueness: two archivals within the
-    /// same second would otherwise collide on the same timestamp-derived
-    /// name, and `rename` silently replaces an existing file on Unix,
-    /// destroying the very data this path exists to preserve.
+    /// `.legacy-format.2`, ... for the first name it can atomically reserve,
+    /// rather than reading the system clock (AGENTS.md's "No Ambient Reads"
+    /// rule) or trusting second-resolution uniqueness. The reservation
+    /// itself uses `hard_link` (which fails with `AlreadyExists` if the
+    /// destination is already taken, on both Unix and Windows) instead of a
+    /// separate existence check followed by `rename`: a plain check-then-
+    /// rename has a TOCTOU race where two concurrent archivals can both see
+    /// the same candidate name as free, after which the second `rename`
+    /// silently replaces the first process's archive - the exact data loss
+    /// this function exists to prevent. `hard_link` claims the name
+    /// atomically in one syscall, so at most one caller can ever win a given
+    /// candidate; only then is the original path removed.
     fn archive_incompatible_log(path: &Path) -> Result<()> {
         let file_name = path
             .file_name()
             .map(|n| n.to_string_lossy().into_owned())
             .unwrap_or_else(|| "intent_log".to_string());
         let mut suffix = 0u32;
-        let archive_path = loop {
+        loop {
             let candidate = path.with_file_name(if suffix == 0 {
                 format!("{file_name}.legacy-format")
             } else {
                 format!("{file_name}.legacy-format.{suffix}")
             });
-            if !candidate.exists() {
-                break candidate;
+            match std::fs::hard_link(path, &candidate) {
+                Ok(()) => {
+                    return std::fs::remove_file(path).with_context(|| {
+                        format!(
+                            "Archived {} to {} but failed to remove the original",
+                            path.display(),
+                            candidate.display()
+                        )
+                    });
+                }
+                Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {
+                    suffix += 1;
+                    continue;
+                }
+                Err(e) => {
+                    return Err(e).with_context(|| {
+                        format!(
+                            "Failed to archive incompatible-format log from {} to {}",
+                            path.display(),
+                            candidate.display()
+                        )
+                    });
+                }
             }
-            suffix += 1;
-        };
-        std::fs::rename(path, &archive_path).with_context(|| {
-            format!(
-                "Failed to archive incompatible-format log from {} to {}",
-                path.display(),
-                archive_path.display()
-            )
-        })
+        }
     }
 
     fn calculate_write_offset(mmap: &[u8], entry_count: u64) -> usize {
@@ -888,6 +907,57 @@ mod tests {
         assert_eq!(
             archived_bytes, legacy_bytes,
             "the archived copy must be byte-for-byte the original legacy file"
+        );
+    }
+
+    /// Regression guard for a Codex review finding on the fix above:
+    /// `archive_incompatible_log` used to pick its destination name via a
+    /// plain `Path::exists()` check followed by a separate `rename`, which
+    /// is not atomic - two archivals racing on the same candidate name
+    /// could both see it as free, and the second `rename` would silently
+    /// replace the first process's archive. Proves the actual (non-racing,
+    /// but otherwise identical) collision case instead: archiving a
+    /// second, differently-content log file that lands on the same first
+    /// candidate name must produce a *second* archive file with its own
+    /// distinct content, never overwrite the first one.
+    #[test]
+    fn test_intent_log_archive_does_not_clobber_an_existing_archive_on_name_collision() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let path = temp_dir.path().join("log_legacy_format");
+
+        let mut first_bytes = vec![0u8; 64];
+        first_bytes[0..8].copy_from_slice(&1u64.to_le_bytes());
+        first_bytes[8..12].copy_from_slice(&LOG_MAGIC.to_le_bytes());
+        std::fs::write(&path, &first_bytes).unwrap();
+        IntentLog::new(&path).unwrap();
+
+        // IntentLog::new just created a fresh current-format log at `path`.
+        // Overwrite it with a second, distinct legacy-format file so the
+        // next open archives *this* one too - landing on the same first
+        // candidate name (`log_legacy_format.legacy-format`) the first
+        // archival already claimed.
+        let mut second_bytes = vec![7u8; 64];
+        second_bytes[0..8].copy_from_slice(&1u64.to_le_bytes());
+        second_bytes[8..12].copy_from_slice(&LOG_MAGIC.to_le_bytes());
+        std::fs::write(&path, &second_bytes).unwrap();
+        IntentLog::new(&path).unwrap();
+
+        let mut archived: Vec<_> = std::fs::read_dir(temp_dir.path())
+            .unwrap()
+            .filter_map(|e| e.ok())
+            .filter(|e| e.file_name().to_string_lossy().contains("legacy-format"))
+            .map(|e| e.path())
+            .collect();
+        archived.sort();
+        assert_eq!(
+            archived.len(),
+            2,
+            "both legacy files must be archived as distinct entries, not collapsed into one"
+        );
+        let contents: Vec<Vec<u8>> = archived.iter().map(|p| std::fs::read(p).unwrap()).collect();
+        assert!(
+            contents.contains(&first_bytes) && contents.contains(&second_bytes),
+            "both archives must keep their own original bytes - neither may have clobbered the other"
         );
     }
 
