@@ -108,7 +108,7 @@ fn test_acoustic_latent_to_reflex_matcher_closed_loop() {
                 skill_id: 0x05,
                 trajectory_id: 9001,
                 action_summary: "Trigger Sound Cue Action [F]".to_string(),
-                thermodynamic_free_energy: 0.005,
+                accumulated_energy_cost: 0.005,
                 crystallized_handle_idx: Some(1),
                 timestamp_ms: 123456,
             },

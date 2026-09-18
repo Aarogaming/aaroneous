@@ -89,7 +89,7 @@ impl SiDistillationHarness {
             param_count: 50_000,
         };
 
-        let mut container = SolidStateSiContainer::new(&self.config.model_name, ssm_config);
+        let mut container = SolidStateSiContainer::new(&self.config.model_name, ssm_config)?;
 
         // 2. Run the full Bootstrapper training loop (bridge + classifier head)
         //    Epochs, batch size, and LR are inherited from BootstrapConfig.

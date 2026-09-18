@@ -1,5 +1,9 @@
 use crate::spectral_layout::{build_similarity_edges, spectral_layout_2d};
 use crate::tensor_router::{RoutingResult, RoutingWeights, TaskEmbedding, TensorRouter};
+use compute::{
+    kalman::KalmanFilter, mpc::ScalarMpc, predictive_coding::HierarchicalPredictiveCoding,
+    thermodynamics::SystemPhase,
+};
 /// Unified Learning Loop
 /// Integrates all mathematical frameworks into a single coherent learning system:
 /// 1. Thermodynamics: Free energy minimization for system stability
@@ -10,13 +14,9 @@ use crate::tensor_router::{RoutingResult, RoutingWeights, TaskEmbedding, TensorR
 /// 6. Tensor Routing: Softmax attention for task routing
 /// 7. Spectral Layout: Optimal graph positioning
 /// 8. Dopamine Learning: Reward-driven model training
-use biology::{
-    SystemBiology, ThermodynamicAction, ThermodynamicForecast, ThermodynamicGovernor,
-    ThermodynamicGovernorConfig,
-};
-use compute::{
-    kalman::KalmanFilter, mpc::ScalarMpc, predictive_coding::HierarchicalPredictiveCoding,
-    thermodynamics::SystemPhase,
+use governance::{
+    AdaptiveAction, AdaptiveForecast, AdaptiveGovernor, AdaptiveGovernorConfig,
+    SystemHealthGovernor,
 };
 use serde::{Deserialize, Serialize};
 
@@ -52,7 +52,7 @@ pub struct UnifiedSystemState {
     pub routing_confidence: f64,
 
     // Biology
-    pub expression_rate: f64,
+    pub execution_rate: f64,
     pub token_availability: f64,
 }
 
@@ -74,7 +74,7 @@ impl Default for UnifiedSystemState {
             learning_rate: 0.1,
             routing_entropy: 1.0,
             routing_confidence: 0.5,
-            expression_rate: 1.0,
+            execution_rate: 1.0,
             token_availability: 1.0,
         }
     }
@@ -114,8 +114,8 @@ impl Default for UnifiedLearningConfig {
 /// Single entry point for all system learning and adaptation.
 pub struct UnifiedLearningLoop {
     pub config: UnifiedLearningConfig,
-    pub biology: SystemBiology,
-    pub thermodynamic_governor: ThermodynamicGovernor,
+    pub system: SystemHealthGovernor,
+    pub adaptive_governor: AdaptiveGovernor,
     pub kalman: KalmanFilter,
     pub mpc: ScalarMpc,
     pub predictive_coding: HierarchicalPredictiveCoding,
@@ -145,18 +145,16 @@ impl UnifiedLearningLoop {
         let routing_weights = RoutingWeights::new(n_specialists, n_features, specialist_ids);
         let tensor_router = TensorRouter::new(routing_weights, config.routing_temperature);
 
-        // Initialize biology with specialists
-        let mut biology = SystemBiology::new();
+        // Initialize resource governor with specialists
+        let mut system = SystemHealthGovernor::new();
         for id in specialist_ids_for_biology.iter() {
-            biology.register_specialist(id, 20000);
+            system.register_specialist(id, 20000);
         }
 
         Self {
             config,
-            biology,
-            thermodynamic_governor: ThermodynamicGovernor::new(
-                ThermodynamicGovernorConfig::default(),
-            ),
+            system,
+            adaptive_governor: AdaptiveGovernor::new(AdaptiveGovernorConfig::default()),
             kalman: KalmanFilter::with_noise(1, 1, kalman_process_noise, kalman_measurement_noise),
             mpc: {
                 let mut mpc = ScalarMpc::new(0.9, 0.1, mpc_reference);
@@ -193,8 +191,8 @@ impl UnifiedLearningLoop {
         let estimation_uncertainty = self.kalman.get_uncertainty();
 
         // Phase 3: PREDICT - Thermodynamic + MPC prediction
-        self.thermodynamic_governor.record_load(current_load);
-        let thermo_forecast = self.thermodynamic_governor.predict_metabolic_risk();
+        self.adaptive_governor.record_load(current_load);
+        let adaptive_forecast = self.adaptive_governor.predict_load_risk();
 
         let mpc_control = self.mpc.solve(estimated_load);
         let predicted_trajectory = self.mpc.predict(
@@ -211,10 +209,8 @@ impl UnifiedLearningLoop {
         let routing_result = self.tensor_router.route(&task);
 
         // Phase 5: ACT - Apply governance and biology updates
-        let governance_action = self
-            .thermodynamic_governor
-            .apply_governance(&mut self.biology);
-        self.biology.update_metabolism();
+        let governance_action = self.adaptive_governor.apply_governance(&mut self.system);
+        self.system.tick();
 
         // Phase 6: LEARN - Predictive coding + Hebbian updates
         let prediction_error = self.predictive_coding.process(observations);
@@ -223,7 +219,7 @@ impl UnifiedLearningLoop {
             estimation_uncertainty,
             mpc_control,
             &predicted_trajectory,
-            &thermo_forecast,
+            &adaptive_forecast,
             &routing_result,
             prediction_error,
         );
@@ -256,7 +252,7 @@ impl UnifiedLearningLoop {
         estimation_uncertainty: f64,
         mpc_control: f64,
         predicted_trajectory: &[f64],
-        thermo_forecast: &ThermodynamicForecast,
+        adaptive_forecast: &AdaptiveForecast,
         routing_result: &RoutingResult,
         prediction_error: f64,
     ) {
@@ -264,15 +260,15 @@ impl UnifiedLearningLoop {
         self.system_state.estimation_uncertainty = estimation_uncertainty;
         self.system_state.mpc_control = mpc_control;
         self.system_state.predicted_trajectory = predicted_trajectory.to_vec();
-        self.system_state.free_energy = thermo_forecast.free_energy;
-        self.system_state.temperature = thermo_forecast.temperature;
-        self.system_state.entropy = thermo_forecast.entropy;
-        self.system_state.phase = thermo_forecast.phase.clone();
+        self.system_state.free_energy = adaptive_forecast.compute_cost;
+        self.system_state.temperature = adaptive_forecast.exploration_rate;
+        self.system_state.entropy = adaptive_forecast.entropy;
+        self.system_state.phase = adaptive_forecast.phase.clone();
         self.system_state.routing_entropy = routing_result.entropy;
         self.system_state.routing_confidence = routing_result.confidence;
         self.system_state.prediction_error = prediction_error;
-        self.system_state.expression_rate = self.biology.expression_rate as f64;
-        self.system_state.token_availability = (self.biology.tokens / 100.0) as f64;
+        self.system_state.execution_rate = self.system.execution_rate as f64;
+        self.system_state.token_availability = (self.system.tokens / 100.0) as f64;
     }
 
     /// Compute information theory metrics across domains.
@@ -380,7 +376,7 @@ impl UnifiedLearningLoop {
             .iter()
             .position(|id| id == specialist_id)
         {
-            self.update_specialist_metabolism(idx, dopamine_reward, confidence);
+            self.update_specialist_budgets(idx, dopamine_reward, confidence);
         }
 
         // Phase 6: Update system state based on learning
@@ -422,7 +418,7 @@ impl UnifiedLearningLoop {
 
     /// Update specialist metabolism based on dopamine reward
     /// PHASE 5.2: Wire dopamine to specialist ambition/strictness
-    fn update_specialist_metabolism(
+    fn update_specialist_budgets(
         &mut self,
         specialist_idx: usize,
         dopamine_reward: f32,
@@ -430,29 +426,25 @@ impl UnifiedLearningLoop {
     ) {
         // Increase metabolism (activation) for well-performing specialists
         if dopamine_reward > 0.2 {
-            self.biology.expression_rate =
-                (self.biology.expression_rate + (dopamine_reward as f64 * 0.1) as f32).min(2.0_f32);
+            self.system.execution_rate =
+                (self.system.execution_rate + (dopamine_reward as f64 * 0.1) as f32).min(2.0_f32);
         }
 
         // Decrease metabolism for poorly-performing specialists
         if dopamine_reward < -0.2 {
-            self.biology.expression_rate = (self.biology.expression_rate - 0.05).max(0.1);
+            self.system.execution_rate = (self.system.execution_rate - 0.05).max(0.1);
         }
 
         // PHASE 5.2: Update specialist ambition/strictness from dopamine reward
         if specialist_idx < self.tensor_router.weights.specialist_ids.len() {
             let specialist_id = self.tensor_router.weights.specialist_ids[specialist_idx].clone();
 
-            // Ensure specialist is registered in biology
-            if !self
-                .biology
-                .specialist_metabolism
-                .contains_key(&specialist_id)
-            {
-                self.biology.register_specialist(&specialist_id, 100);
+            // Ensure specialist is registered in resource system
+            if !self.system.specialist_budgets.contains_key(&specialist_id) {
+                self.system.register_specialist(&specialist_id, 100);
             }
 
-            if let Some(metabolism) = self.biology.specialist_metabolism.get_mut(&specialist_id) {
+            if let Some(metabolism) = self.system.specialist_budgets.get_mut(&specialist_id) {
                 // Positive dopamine: increase ambition (goal-seeking behavior)
                 if dopamine_reward > 0.2 {
                     metabolism.ambition = (metabolism.ambition + (dopamine_reward * 0.1)).min(1.0);
@@ -494,7 +486,7 @@ impl UnifiedLearningLoop {
             tensor_router_weights: self.tensor_router.weights.weights.clone(),
             learning_rate: self.config.learning_rate,
             predictive_coding_layers: self.predictive_coding.layers.len(),
-            biology_expression_rate: self.biology.expression_rate as f64,
+            system_execution_rate: self.system.execution_rate as f64,
             system_state: self.system_state.clone(),
         }
     }
@@ -556,7 +548,7 @@ impl UnifiedLearningLoop {
             estimated_load: self.system_state.estimated_load,
             prediction_error: self.system_state.prediction_error,
             routing_confidence: self.system_state.routing_confidence,
-            expression_rate: self.system_state.expression_rate,
+            execution_rate: self.system_state.execution_rate,
             token_availability: self.system_state.token_availability,
         }
     }
@@ -566,7 +558,7 @@ impl UnifiedLearningLoop {
 #[derive(Debug, Clone)]
 pub struct UnifiedCycleResult {
     pub system_state: UnifiedSystemState,
-    pub governance_action: ThermodynamicAction,
+    pub governance_action: AdaptiveAction,
     pub routing_result: RoutingResult,
     pub prediction_error: f64,
     pub estimated_load: f64,
@@ -580,7 +572,7 @@ pub struct SystemHealthSummary {
     pub estimated_load: f64,
     pub prediction_error: f64,
     pub routing_confidence: f64,
-    pub expression_rate: f64,
+    pub execution_rate: f64,
     pub token_availability: f64,
 }
 
@@ -601,7 +593,7 @@ pub struct ModelParameters {
     pub tensor_router_weights: Vec<Vec<f64>>,
     pub learning_rate: f64,
     pub predictive_coding_layers: usize,
-    pub biology_expression_rate: f64,
+    pub system_execution_rate: f64,
     pub system_state: UnifiedSystemState,
 }
 
@@ -627,7 +619,7 @@ mod tests {
         let specialist_ids = vec!["spec_a".to_string(), "spec_b".to_string()];
         let loop_ = UnifiedLearningLoop::new(config, 2, specialist_ids);
 
-        assert_eq!(loop_.biology.specialist_metabolism.len(), 2);
+        assert_eq!(loop_.system.specialist_budgets.len(), 2);
         assert_eq!(loop_.tensor_router.weights.specialist_ids.len(), 2);
     }
 
@@ -808,6 +800,6 @@ mod tests {
         assert_eq!(params.tensor_router_weights.len(), 2);
         assert!(params.learning_rate > 0.0);
         assert!(params.predictive_coding_layers > 0);
-        assert!(params.biology_expression_rate > 0.0);
+        assert!(params.system_execution_rate > 0.0);
     }
 }

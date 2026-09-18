@@ -207,8 +207,8 @@ mod tests {
             param_count: 10_000,
         };
 
-        let container1 = SolidStateSiContainer::new("Router-Test", config.clone());
-        let container2 = SolidStateSiContainer::new("DesktopEmulator-Test", config);
+        let container1 = SolidStateSiContainer::new("Router-Test", config.clone()).unwrap();
+        let container2 = SolidStateSiContainer::new("DesktopEmulator-Test", config).unwrap();
 
         orchestrator
             .mount_container(container1, SiTierFlags::TIER_2_ROUTER, 0)
@@ -240,9 +240,9 @@ mod tests {
         };
 
         // Pin 3 tiers to hardware cores
-        let c1 = SolidStateSiContainer::new("Tier1-Container", config.clone());
-        let c2 = SolidStateSiContainer::new("Tier2-Container", config.clone());
-        let c3 = SolidStateSiContainer::new("Tier3-Container", config);
+        let c1 = SolidStateSiContainer::new("Tier1-Container", config.clone()).unwrap();
+        let c2 = SolidStateSiContainer::new("Tier2-Container", config.clone()).unwrap();
+        let c3 = SolidStateSiContainer::new("Tier3-Container", config).unwrap();
 
         assert!(
             allocator

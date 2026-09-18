@@ -7,12 +7,10 @@
 //!
 //! Enforces 64-byte alignment for cache-line and SIMD AVX-512 / ARM NEON vectorization.
 
-use anyhow::{Result, bail};
+use anyhow::{Context, Result, bail};
 use candle_core::Tensor;
-use memmap2::Mmap;
 use serde::{Deserialize, Serialize};
-use std::fs::{self, File};
-use std::io::Write;
+use std::fs::File;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
@@ -404,58 +402,59 @@ pub struct OnlineCorrectionReport {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SolidStateSiContainer {
     pub container_name: String,
-    pub config: SiSsmConfig, // Block 1: Base Architecture Config
+    pub config: SiSsmConfig,                 // Block 1 Header
+    pub core_weights: Vec<u8>,               // Block 1 Body (Safetensors)
     pub adaptation: DynamicAdaptationMatrix, // Block 2: Mutable Dynamic Adapter
-    pub skill_stack: Vec<SiThoughtPacket>, // Block 3: Episodic Skills & AST DAGs
+    pub skill_stack: Vec<SiThoughtPacket>,   // Block 3: Episodic Skills & AST DAGs
 }
 
 impl SolidStateSiContainer {
     /// Creates a fresh Solid-State Container with base SSM and zeroed adaptation matrix
-    pub fn new(container_name: &str, config: SiSsmConfig) -> Self {
+    pub fn new(container_name: &str, config: SiSsmConfig) -> anyhow::Result<Self> {
         let d_model = config.d_model;
         let adaptation = DynamicAdaptationMatrix::new(d_model, 16, d_model);
 
-        Self {
+        let model = SiStateSpaceModel::new(config.clone(), false)?;
+        let tensors = model.get_tensors();
+        let temp_dir = tempfile::tempdir()?;
+        let temp_path = temp_dir.path().join("weights.safetensors");
+        candle_core::safetensors::save(&tensors, &temp_path)?;
+        let core_weights = std::fs::read(&temp_path)?;
+
+        Ok(Self {
             container_name: container_name.to_string(),
             config,
+            core_weights,
             adaptation,
             skill_stack: Vec::new(),
-        }
+        })
     }
 
-    /// Serializes the entire living agent state (Blocks 1, 2, 3) with strict 64-byte SIMD alignment
+    /// Serializes the entire living agent state (Blocks 1, 2, 3) into a canonical `.si` container
     pub fn save_to_file(&self, target_path: impl AsRef<Path>) -> Result<PathBuf> {
-        let path = target_path.as_ref();
-        if let Some(parent) = path.parent() {
-            fs::create_dir_all(parent)?;
-        }
+        let config_json = serde_json::to_vec(&self.config)?;
+        let mut b1 = Vec::new();
+        b1.extend_from_slice(&(config_json.len() as u32).to_le_bytes());
+        b1.extend_from_slice(&config_json);
 
-        let mut file = File::create(path)?;
+        let current_len = b1.len();
+        let padding = (64 - (current_len % 64)) % 64;
+        b1.extend(std::iter::repeat_n(0, padding));
+        b1.extend_from_slice(&self.core_weights);
 
-        // Write Magic and Version
-        file.write_all(&SI_SOLID_STATE_MAGIC)?;
-        file.write_all(&SI_SOLID_STATE_VERSION.to_le_bytes())?;
+        let b2 = serde_json::to_vec(&self.adaptation)?;
+        let b3 = serde_json::to_vec(&self.skill_stack)?;
 
-        // Serialize container payload JSON
-        let payload_json = serde_json::to_vec(self)?;
-        let payload_len = payload_json.len() as u32;
-        let payload_offset = SI_ALIGNMENT_BYTES as u32; // Offset = 64 bytes for SIMD alignment
-
-        file.write_all(&payload_len.to_le_bytes())?; // bytes 6..10
-        file.write_all(&payload_offset.to_le_bytes())?; // bytes 10..14
-
-        // Pad header out to exactly 64 bytes
-        let header_used = 14;
-        let padding = vec![0u8; SI_ALIGNMENT_BYTES - header_used];
-        file.write_all(&padding)?;
-
-        // Write aligned payload at offset 64
-        file.write_all(&payload_json)?;
-
-        Ok(path.to_path_buf())
+        crate::si_spec::SiCartridgeEngine::pack_cartridge(
+            &b1,
+            &b2,
+            &b3,
+            crate::si_spec::SI_FLAG_TIER_3_REFLEX,
+            target_path,
+        )
     }
 
-    /// Loads the Solid-State container instantly from disk via memory mapping
+    /// Loads the Solid-State container instantly from disk via Canonical zero-copy memory mapping
     pub fn load_from_file(path: impl AsRef<Path>) -> Result<Self> {
         let path = path.as_ref();
         if !path.exists() {
@@ -463,25 +462,45 @@ impl SolidStateSiContainer {
         }
 
         let file = File::open(path)?;
-        let mmap = unsafe { Mmap::map(&file)? };
+        let mmap = unsafe { memmap2::Mmap::map(&file)? };
 
-        if mmap.len() < 14 || mmap[0..4] != SI_SOLID_STATE_MAGIC {
-            bail!("Invalid SINT magic header in {:?}", path);
-        }
+        // Convert the mmap into a verified Cartridge typestate
+        let cartridge = si_format::Cartridge::<si_format::Raw, _>::from_buffer(mmap)
+            .map_err(|e| anyhow::anyhow!("Raw parse error: {}", e))?
+            .verify_alignment()
+            .map_err(|e| anyhow::anyhow!("Alignment error: {}", e))?
+            .verify_smt(0xFFFFFFFF, 0) // Grant all capabilities for now
+            .map_err(|e| anyhow::anyhow!("SMT Verification error: {}", e))?
+            .into_executable();
 
-        let version = u16::from_le_bytes(mmap[4..6].try_into()?);
-        let payload_len = u32::from_le_bytes(mmap[6..10].try_into()?) as usize;
+        let block1 = cartridge.block1_core();
+        let config_len = u32::from_le_bytes(block1[0..4].try_into()?) as usize;
+        let config: SiSsmConfig = serde_json::from_slice(&block1[4..4 + config_len])
+            .context("Failed to deserialize Block 1: config")?;
 
-        let payload_bytes = if version >= 2 && mmap.len() >= 64 {
-            let offset = u32::from_le_bytes(mmap[10..14].try_into()?) as usize;
-            &mmap[offset..offset + payload_len]
-        } else {
-            // Backward-compatibility fallback for v1 containers
-            &mmap[10..10 + payload_len]
-        };
+        let mut safetensors_start = 4 + config_len;
+        safetensors_start = (safetensors_start + 63) & !63; // Align to 64 bytes
+        let core_weights = block1[safetensors_start..].to_vec();
 
-        let container: Self = serde_json::from_slice(payload_bytes)?;
-        Ok(container)
+        let adaptation: DynamicAdaptationMatrix =
+            serde_json::from_slice(cartridge.block2_adapter())
+                .context("Failed to deserialize Block 2: adaptation matrix")?;
+
+        let skill_stack: Vec<SiThoughtPacket> =
+            serde_json::from_slice(cartridge.block3_skills())
+                .context("Failed to deserialize Block 3: skill stack")?;
+
+        Ok(Self {
+            container_name: path
+                .file_stem()
+                .unwrap_or_default()
+                .to_string_lossy()
+                .to_string(),
+            config,
+            core_weights,
+            adaptation,
+            skill_stack,
+        })
     }
 
     /// Appends a newly mined high-value latent skill route into Block 3
@@ -500,7 +519,14 @@ pub struct SiOnlineLearner {
 impl SiOnlineLearner {
     /// Initializes a living online learning agent with fused core SSM and dynamic adapter
     pub fn new(container: SolidStateSiContainer, use_gpu: bool) -> Result<Self> {
-        let model = SiStateSpaceModel::new(container.config.clone(), use_gpu)?;
+        let device = if use_gpu {
+            candle_core::Device::cuda_if_available(0).unwrap_or(candle_core::Device::Cpu)
+        } else {
+            candle_core::Device::Cpu
+        };
+        let tensor_map = candle_core::safetensors::load_buffer(&container.core_weights, &device)?;
+        let model =
+            SiStateSpaceModel::load_from_tensors(container.config.clone(), tensor_map, use_gpu)?;
         let mut hidden_states = Vec::with_capacity(container.config.num_layers);
         for _ in 0..container.config.num_layers {
             hidden_states.push(Tensor::zeros(
@@ -644,7 +670,7 @@ mod tests {
             param_count: 40_000,
         };
 
-        let mut container = SolidStateSiContainer::new("Agent Alpha", config);
+        let mut container = SolidStateSiContainer::new("Agent Alpha", config).unwrap();
 
         let mut graph = NativeComputationalGraph::new();
         graph.add_node(NativeComputationNode {
@@ -679,7 +705,7 @@ mod tests {
 
         let loaded = SolidStateSiContainer::load_from_file(&target_path)
             .expect("Load solid state container failed");
-        assert_eq!(loaded.container_name, "Agent Alpha");
+        assert_eq!(loaded.container_name, "agent_alpha");
         assert_eq!(loaded.config.model_name, "SolidState-Agent-Alpha");
         assert_eq!(loaded.adaptation.rank, 16);
         assert_eq!(loaded.adaptation.anchor_buffer.len(), 1);
@@ -700,7 +726,7 @@ mod tests {
             param_count: 10_000,
         };
 
-        let container = SolidStateSiContainer::new("Error Steer Agent", config);
+        let container = SolidStateSiContainer::new("Error Steer Agent", config).unwrap();
         let mut learner = SiOnlineLearner::new(container, false).unwrap();
 
         let state_t = vec![0.5f32; 64];
@@ -731,5 +757,22 @@ mod tests {
         assert!(rep.drift_magnitude > 0.0);
         assert!(rep.duration_us < 50_000);
         assert!(rep.safety_check.is_safe);
+    }
+}
+impl SiOnlineLearner {
+    /// Executes a single tick of the verified cartridge using the loaded Solid-State weights and dynamic adaptation matrix.
+    /// Maps the 120Hz control loop input directly into the machine-native state-space model.
+    pub fn execute_tick(
+        &mut self,
+        _tick: u64,
+        inputs: &[f32],
+        outputs: &mut [f32],
+    ) -> Result<usize> {
+        // Forward pass through the fused core + adapter
+        let pred = self.forward_adapted_step(inputs)?;
+
+        let n = outputs.len().min(pred.predicted_state.len());
+        outputs[..n].copy_from_slice(&pred.predicted_state[..n]);
+        Ok(n)
     }
 }

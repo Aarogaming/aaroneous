@@ -10,8 +10,8 @@ use crate::metadata_ingestor::{
     MetadataAnalysis, MetadataEvent, MetadataIngestor, MetadataIngestorConfig,
 };
 use crate::state_snapshot::{NodeMetrics, SpatialCanvasState};
-use biology::SystemHealthReport;
 use compute::thermodynamics::SystemPhase;
+use governance::SystemHealthReport;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::process::Command;
@@ -179,7 +179,7 @@ pub struct DaemonStatus {
     pub tasks_processed: u64,
     pub actions_executed: u64,
     pub assimilations_processed: u64,
-    pub metabolic_health: SystemHealthReport,
+    pub resource_health: SystemHealthReport,
     pub execution_stats: ExecutionStats,
     pub last_cycle_duration_ms: f64,
 }
@@ -285,7 +285,7 @@ impl OrchestrationDaemon {
 
             // Check if we should throttle based on thermodynamic phase
             if self.config.enable_auto_throttle {
-                let forecast = self.decision_engine.governor.predict_metabolic_risk();
+                let forecast = self.decision_engine.governor.predict_load_risk();
 
                 // Throttle if system is in critical or disordered phase
                 if matches!(
@@ -295,7 +295,7 @@ impl OrchestrationDaemon {
                     self.state = DaemonState::Throttled;
                     println!(
                         "[OrchestrationDaemon] Throttled: phase={:?}, free_energy={:.3}",
-                        forecast.phase, forecast.free_energy
+                        forecast.phase, forecast.compute_cost
                     );
                 } else if matches!(self.state, DaemonState::Throttled)
                     && matches!(forecast.phase, SystemPhase::Ordered | SystemPhase::Mixed)
@@ -364,14 +364,14 @@ impl OrchestrationDaemon {
             }
         }
 
-        // Step 5: Update biology metabolism
-        self.decision_engine.biology.update_metabolism();
+        // Step 5: Update resource tick
+        self.decision_engine.resources.tick();
 
         // Step 6: Apply thermodynamic governance
         let _governance = self
             .decision_engine
             .governor
-            .apply_governance(&mut self.decision_engine.biology);
+            .apply_governance(&mut self.decision_engine.resources);
 
         Ok(())
     }
@@ -418,7 +418,7 @@ impl OrchestrationDaemon {
         let metrics = NodeMetrics {
             entropy: evaluation.entropy,
             confidence: evaluation.confidence,
-            metabolic_risk: evaluation.metabolic_risk,
+            load_risk: evaluation.load_risk,
             centrality: 0.5,
             mdp_value: evaluation.routing.confidence,
         };
@@ -455,7 +455,7 @@ impl OrchestrationDaemon {
             tasks_processed: self.tasks_processed,
             actions_executed: self.actions_executed,
             assimilations_processed: self.assimilations_processed,
-            metabolic_health: self.decision_engine.biology.get_health_report(),
+            resource_health: self.decision_engine.resources.get_health_report(),
             execution_stats: self.executor.get_stats(),
             last_cycle_duration_ms: self.last_cycle_duration.as_secs_f64() * 1000.0,
         }

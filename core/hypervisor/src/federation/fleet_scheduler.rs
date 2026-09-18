@@ -23,7 +23,7 @@ pub struct PeerLoadMetric {
     pub cpu_load_pct: f32,
     pub gpu_load_pct: f32,
     pub active_tasks: usize,
-    pub thermodynamic_free_energy: f64,
+    pub compute_cost: f64,
     pub hardware_spec: ClusterNodeHardwareSpec,
     pub last_heartbeat_ms: u64,
 }
@@ -203,7 +203,7 @@ impl FleetScheduler {
             cpu_load_pct,
             gpu_load_pct,
             active_tasks: self.pending_task_count(),
-            thermodynamic_free_energy: free_energy,
+            compute_cost: free_energy,
             hardware_spec: ClusterNodeHardwareSpec::default(),
             last_heartbeat_ms: ts,
         };
@@ -362,7 +362,7 @@ mod tests {
             task_id: t2,
             execution_trace: vec![0xAA, 0xBB],
             result_status: 0,
-            thermodynamic_free_energy: 0.01,
+            compute_cost: 0.01,
         };
 
         scheduler.integrate_remote_result(result).unwrap();
@@ -415,7 +415,7 @@ mod tests {
             task_id: t2,
             execution_trace: vec![0x01, 0x02, 0x03],
             result_status: 0,
-            thermodynamic_free_energy: 0.005,
+            compute_cost: 0.005,
         };
         let res_msg = SyncMessage {
             kind: SyncMessageKind::WorkResult,
@@ -487,7 +487,7 @@ mod tests {
             cpu_load_pct: 12.0,
             gpu_load_pct: 5.0,
             active_tasks: 0,
-            thermodynamic_free_energy: 0.001,
+            compute_cost: 0.001,
             hardware_spec: linux_spec.clone(),
             last_heartbeat_ms: 1000,
         });

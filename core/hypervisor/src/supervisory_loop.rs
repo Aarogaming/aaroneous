@@ -82,7 +82,7 @@ use crate::splicing_engine::WasmSplicingEngine;
 use crate::system_metrics::{SystemMetricsCollector, ThermalStatus};
 use crate::task_routing::TaskRouter;
 use crate::unified_learning::UnifiedLearningLoop;
-use biology::{SystemBiology, ThrottleState};
+use governance::{SystemHealthGovernor, ThrottleState};
 
 #[repr(C)]
 #[derive(Debug, Clone)]
@@ -191,7 +191,7 @@ pub struct SupervisoryDaemon {
     _metrics_collector: SystemMetricsCollector,
     _task_router: TaskRouter,
     specialist_memory: SharedMemoryRegistry,
-    biology: Arc<parking_lot::RwLock<SystemBiology>>,
+    system: Arc<parking_lot::RwLock<SystemHealthGovernor>>,
     tick_rate: Duration,
     hive_db: Option<Arc<parking_lot::Mutex<HivePersistence>>>,
     _workspace_root: PathBuf,
@@ -353,7 +353,7 @@ impl SupervisoryDaemon {
                 None, // No hive_db in autonomic loop
             ),
             specialist_memory: SharedMemoryRegistry::new(),
-            biology: Arc::new(parking_lot::RwLock::new(SystemBiology::new())),
+            system: Arc::new(parking_lot::RwLock::new(SystemHealthGovernor::new())),
             tick_rate: Duration::from_millis(tick_rate_ms),
             hive_db,
             _workspace_root: workspace_root,
@@ -490,7 +490,7 @@ impl SupervisoryDaemon {
         let enzyme_runner_for_router = enzyme_runner.clone();
         let learning_loop_for_router = learning_loop.clone();
         let specialist_memory = self.specialist_memory.clone();
-        let biology = self.biology.clone();
+        let system = self.system.clone();
         let tick_rate = self.tick_rate;
         let hive_db = self.hive_db.clone();
         let shutdown = self.shutdown.clone();
@@ -714,21 +714,21 @@ impl SupervisoryDaemon {
                     );
                 }
 
-                // PHASE 5.1: Wire thermal to biology expression rate
+                // PHASE 5.1: Wire thermal to system expression rate
                 {
-                    let mut biology = biology.write();
-                    biology.set_expression_rate(thermal_factor as f32);
+                    let mut system = system.write();
+                    system.set_execution_rate(thermal_factor as f32);
 
-                    // Register specialist in biology if not already registered
+                    // Register specialist in system if not already registered
                     // (This would normally happen once per specialist)
-                    if biology.specialist_metabolism.is_empty() {
-                        biology.register_specialist("enzyme_runner", 100);
-                        biology.register_specialist("learning_loop", 200);
-                        biology.register_specialist("routing_engine", 150);
-                        info!(target: "autonomic_loop", "biology system initialized with specialists");
+                    if system.specialist_budgets.is_empty() {
+                        system.register_specialist("enzyme_runner", 100);
+                        system.register_specialist("learning_loop", 200);
+                        system.register_specialist("routing_engine", 150);
+                        info!(target: "autonomic_loop", "system system initialized with specialists");
                     }
 
-                    biology.update_metabolism();
+                    system.tick();
 
                     // --- PHASE IV: TOKEN METABOLISM PREDICTION (Kalman Filter) ---
                     // Predict token regeneration rate
@@ -748,8 +748,8 @@ impl SupervisoryDaemon {
                     // Log prediction residual for convergence tracking
                     {
                         let default_metabolism = Default::default();
-                        let metabolism = biology
-                            .specialist_metabolism
+                        let metabolism = system
+                            .specialist_budgets
                             .values()
                             .next()
                             .unwrap_or(&default_metabolism);
@@ -767,11 +767,11 @@ impl SupervisoryDaemon {
                     // FIX #2: COMPLETE - Regenerate tokens for each specialist based on thermal state
                     // This enables system to self-regulate: tokens deplete on execution, regenerate over time
                     // Thermal state affects regeneration rate: Normal > Metabolic > Dormant
-                    let global_throttle = biology.throttle_state;
-                    for (specialist_id, metabolism) in biology.specialist_metabolism.iter_mut() {
+                    let global_throttle = system.throttle_state;
+                    for (specialist_id, metabolism) in system.specialist_budgets.iter_mut() {
                         let regen_rate: f32 = match global_throttle {
                             ThrottleState::Normal => 2.0,    // Fast: +2 tokens/tick
-                            ThrottleState::Metabolic => 1.0, // Normal: +1 token/tick
+                            ThrottleState::Throttled => 1.0, // Normal: +1 token/tick
                             ThrottleState::Dormant => 0.5,   // Slow: +0.5 token/tick
                         };
 
@@ -805,24 +805,24 @@ impl SupervisoryDaemon {
                     }
                 }
 
-                // PHASE 5.4: Monitor and respond to biology throttle state
+                // PHASE 5.4: Monitor and respond to system throttle state
                 {
-                    let bio = biology.read();
+                    let bio = system.read();
                     match bio.throttle_state {
                         ThrottleState::Normal => {
                             // System running at normal capacity
-                            debug!(target: "autonomic_loop", rate = bio.expression_rate, "biology: normal");
+                            debug!(target: "autonomic_loop", rate = bio.execution_rate, "system: normal");
                         }
-                        ThrottleState::Metabolic => {
+                        ThrottleState::Throttled => {
                             // Reduced capacity - reduce cognitive intensity
-                            info!(target: "autonomic_loop", rate = bio.expression_rate, "biology: metabolic mode");
+                            info!(target: "autonomic_loop", rate = bio.execution_rate, "system: metabolic mode");
                             state.understanding_score =
                                 (state.understanding_score as f32 * 0.9) as u32;
                             state.curiosity_drive = (state.curiosity_drive as f32 * 0.8) as u32;
                         }
                         ThrottleState::Dormant => {
                             // Emergency mode - only critical tasks
-                            warn!(target: "autonomic_loop", rate = bio.expression_rate, "biology: dormant mode (emergency)");
+                            warn!(target: "autonomic_loop", rate = bio.execution_rate, "system: dormant mode (emergency)");
                             state.understanding_score =
                                 (state.understanding_score as f32 * 0.5) as u32;
                             state.curiosity_drive = 0;
@@ -1042,7 +1042,7 @@ impl SupervisoryDaemon {
 
                                 // PHASE 5.3: Check token availability before execution
                                 {
-                                    let bio = biology.write();
+                                    let bio = system.write();
                                     if !bio.can_execute_specialist(&specialist_id) {
                                         info!(target: "autonomic_loop", %specialist_id, %step_id, "specialist out of tokens; deferring step");
                                         continue;
@@ -1200,7 +1200,7 @@ impl SupervisoryDaemon {
 
                                     // PHASE 5.3: Consume token on successful execution
                                     {
-                                        let mut bio = biology.write();
+                                        let mut bio = system.write();
                                         if bio.consume_specialist_token(&specialist_id) {
                                             debug!(target: "autonomic_loop", %specialist_id, "token consumed");
                                         }

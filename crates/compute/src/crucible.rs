@@ -92,7 +92,7 @@ impl CrucibleSandbox {
         }
 
         // 2. Arbiter Gate: Validate thermodynamic free-energy bound
-        let energy_ok = candidate_solver_graph.thermodynamic_free_energy <= 0.05;
+        let energy_ok = candidate_solver_graph.accumulated_energy_cost <= 0.05;
 
         // 3. Arbiter Gate: Validate dimensional lattice invariants
         let mut dimensional_ok = true;
@@ -124,7 +124,7 @@ impl CrucibleSandbox {
             challenge_prompt: challenger_prompt.to_string(),
             solver_opcode_nodes: candidate_solver_graph.nodes.len(),
             is_mathematically_valid: is_valid,
-            free_energy_cost: candidate_solver_graph.thermodynamic_free_energy,
+            free_energy_cost: candidate_solver_graph.accumulated_energy_cost,
             smt_proof_passed: is_valid,
             execution_latency_ns: elapsed_ns,
         })
@@ -152,7 +152,7 @@ mod tests {
         assert!(sandbox.is_airgapped());
 
         let mut graph = NativeComputationalGraph::new();
-        graph.thermodynamic_free_energy = 0.02;
+        graph.accumulated_energy_cost = 0.02;
 
         let node = NativeComputationNode {
             id: 1,

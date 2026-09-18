@@ -238,11 +238,11 @@ mod unified_integration_tests {
         let health = loop_.get_health_summary();
 
         // Health metrics should be valid
-        assert!(health.free_energy.is_finite());
+        assert!(health.execution_rate.is_finite());
         assert!(health.estimated_load >= 0.0 && health.estimated_load <= 1.0);
         assert!(health.prediction_error >= 0.0);
         assert!(health.routing_confidence >= 0.0 && health.routing_confidence <= 1.0);
-        assert!(health.expression_rate >= 0.0 && health.expression_rate <= 1.0);
+        assert!(health.execution_rate >= 0.0 && health.execution_rate <= 1.0);
         assert!(health.token_availability >= 0.0 && health.token_availability <= 1.0);
     }
 

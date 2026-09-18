@@ -53,7 +53,7 @@ impl AttentionSpectrum {
 pub struct SomaticVitals {
     pub memory_heap_mb: usize,
     pub cycle_jitter_us: u32,
-    pub thermodynamic_free_energy: f32,
+    pub accumulated_energy_cost: f32,
     pub is_thermally_throttled: bool,
 }
 
@@ -62,7 +62,7 @@ impl Default for SomaticVitals {
         Self {
             memory_heap_mb: 64,
             cycle_jitter_us: 5,
-            thermodynamic_free_energy: 0.015,
+            accumulated_energy_cost: 0.015,
             is_thermally_throttled: false,
         }
     }
@@ -102,7 +102,7 @@ impl CognitiveEquilibriumCoordinator {
 
     /// Dynamically shifts attention based on somatic pressure
     pub fn recalibrate_attention_from_vitals(&mut self) {
-        if self.vitals.thermodynamic_free_energy > 0.04 || self.vitals.is_thermally_throttled {
+        if self.vitals.accumulated_energy_cost > 0.04 || self.vitals.is_thermally_throttled {
             // Under high stress/heat: shift focus into reflexive safety & ambient throttling
             self.spectrum.focal_ratio = 0.30;
             self.spectrum.ambient_ratio = 0.40;

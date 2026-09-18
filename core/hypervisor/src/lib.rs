@@ -6,19 +6,14 @@
 #[global_allocator]
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
-pub extern crate ipc_bus as nervous_system;
-pub use ipc_bus;
-pub extern crate adaptation_plane as evolution;
 pub use adaptation_plane;
+pub use ipc_bus;
 
 pub mod error;
 pub mod state;
 pub mod util;
 
-pub extern crate governance as biology;
-pub use governance as system_health;
 pub use governance;
-pub extern crate hotload;
 
 pub mod sabs {
     pub use omni::matrix::*;
@@ -29,15 +24,15 @@ pub mod constellation {
 }
 
 pub mod genetics {
-    pub use evolution::genetics::*;
+    pub use adaptation_plane::genetics::*;
 }
 
 pub mod digestion {
-    pub use evolution::self_digestion::*;
+    pub use adaptation_plane::self_digestion::*;
 }
 
 pub mod skills {
-    pub use evolution::skills::*;
+    pub use adaptation_plane::skills::*;
 }
 
 pub mod agents {
@@ -107,11 +102,11 @@ pub use crate::skills::{
     FusedSkill, PersonaRank, Skill, SkillOrigin, SkillRegistry, SkillType, SpecialistSkillSet,
 };
 
-// Re-export Biology with thermodynamic governor
-pub use biology::{
-    GovernanceAction, MetabolicForecast, MetabolicGovernorConfig, PredictiveMetabolicGovernor,
-    SpecialistHealth, SpecialistMetabolism, SystemBiology, SystemHealthReport, ThermodynamicAction,
-    ThermodynamicForecast, ThermodynamicGovernor, ThermodynamicGovernorConfig, ThrottleState,
+// Re-export governance types
+pub use governance::{
+    AdaptiveAction, AdaptiveForecast, AdaptiveGovernor, AdaptiveGovernorConfig, GovernanceAction,
+    LoadForecast, LoadGovernorConfig, PredictiveLoadGovernor, SpecialistHealth,
+    SystemHealthGovernor, SystemHealthReport, ThrottleState,
 };
 // Re-export Digestion and Agents
 pub use crate::agents::{

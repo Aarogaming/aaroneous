@@ -649,8 +649,8 @@ impl McpService {
                 let specialist = GenericSpecialist::new(shard_name, domain);
                 dynamic.push(Arc::new(specialist));
 
-                let mut biology = fed.biology.write().await;
-                biology.register_specialist(shard_name, 5000);
+                let mut system = fed.resources.write().await;
+                system.register_specialist(shard_name, 5000);
             }
             return JsonRpcResponse::ok(
                 id,
@@ -1321,10 +1321,10 @@ impl McpService {
             // but we keep it here as the primary implementation.
             dynamic.push(Arc::new(specialist));
 
-            // Register in biology system
+            // Register in resource system
             {
-                let mut biology = fed.biology.write().await;
-                biology.register_specialist(name, 5000); // 5s default heartbeat
+                let mut system = fed.resources.write().await;
+                system.register_specialist(name, 5000); // 5s default heartbeat
             }
 
             info!("Internalized AAS Shard: {} (endpoint: {})", name, endpoint);
@@ -1346,7 +1346,7 @@ impl McpService {
             .ok_or_else(|| anyhow::anyhow!("Missing shard name"))?;
 
         if let Some(ref fed) = self.federation {
-            let mut biology = fed.biology.write().await;
+            let mut system = fed.resources.write().await;
 
             // Consume token if requested
             let token_req = args
@@ -1354,16 +1354,16 @@ impl McpService {
                 .and_then(|v| v.as_f64())
                 .unwrap_or(1.0) as f32;
             let consumed = if token_req > 0.0 {
-                biology.consume_specialist_token(name)
+                system.consume_specialist_token(name)
             } else {
                 true
             };
 
-            let report = biology.get_health_report();
+            let report = system.get_health_report();
 
             Ok(serde_json::to_string_pretty(&serde_json::json!({
                 "status": if consumed { "ok" } else { "throttled" },
-                "expression_rate": report.expression_rate,
+                "execution_rate": report.execution_rate,
                 "global_tokens": report.global_tokens,
                 "throttle_state": report.throttle_state.to_string(),
             }))?)

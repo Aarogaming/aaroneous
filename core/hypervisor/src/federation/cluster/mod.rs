@@ -173,7 +173,7 @@ pub struct Federation {
     pub scheduler: Arc<RwLock<crate::federation::hive::scheduler::AutonomousScheduler>>,
 
     /// System Biology: token-bucket expression rate governance
-    pub biology: Arc<RwLock<crate::SystemBiology>>,
+    pub resources: Arc<RwLock<crate::SystemHealthGovernor>>,
 }
 
 impl Federation {
@@ -937,7 +937,7 @@ impl Federation {
             scheduler: Arc::new(RwLock::new(
                 crate::federation::hive::scheduler::AutonomousScheduler::new(),
             )),
-            biology: Arc::new(RwLock::new(crate::SystemBiology::new())),
+            resources: Arc::new(RwLock::new(crate::SystemHealthGovernor::new())),
         }
     }
 }
@@ -2074,8 +2074,8 @@ impl Federation {
 
         // Update metabolism before collecting proposals
         {
-            let mut bio = self.biology.write().await;
-            bio.update_metabolism();
+            let mut bio = self.resources.write().await;
+            bio.tick();
         }
 
         {

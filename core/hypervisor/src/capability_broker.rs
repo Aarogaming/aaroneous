@@ -718,12 +718,12 @@ impl CapabilityBroker {
             CapabilityDescriptor {
                 id: "safety.smt_interlock_gate".to_string(),
                 name: "SMT Formal Action Interlock Gatekeeper".to_string(),
-                description: "Proves mathematical non-interference, physical dimensional consistency, and thermodynamic bounds before action execution".to_string(),
+                description: "Proves mathematical non-interference, physical dimensional consistency, and resource bounds before action execution".to_string(),
                 category: CapabilityCategory::SafetyInterlock,
                 parameters: vec![
                     CapabilityParameter {
                         name: "free_energy".to_string(),
-                        description: "Estimated thermodynamic free-energy dissipation".to_string(),
+                        description: "Estimated compute cost".to_string(),
                         param_type: "number".to_string(),
                         required: false,
                         default_value: Some(serde_json::json!(0.01)),
@@ -745,7 +745,7 @@ impl CapabilityBroker {
                 let interlock = governance::SmtActionInterlock::strict();
 
                 let mut graph = si_ir::NativeComputationalGraph::new();
-                graph.thermodynamic_free_energy = energy;
+                graph.accumulated_energy_cost = energy;
                 for i in 1..=count {
                     graph.add_node(si_ir::NativeComputationNode {
                         id: i as u64,
@@ -1080,7 +1080,7 @@ mod tests {
         assert_eq!(pass_res.payload["is_authorized"], true);
         assert_eq!(pass_res.payload["smt_non_interference_verified"], false);
 
-        // 2. High-energy action graph rejected by thermodynamic bound (> 0.05 strict)
+        // 2. High-energy action graph rejected by resource bound (> 0.05 strict)
         let reject_res = broker.execute(
             "safety.smt_interlock_gate",
             serde_json::json!({ "free_energy": 0.25, "node_count": 5 }),

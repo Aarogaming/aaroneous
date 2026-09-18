@@ -28,8 +28,10 @@ use std::io::Write;
 use std::path::Path;
 
 use si_format::audit::jit_audit;
+pub use si_format::header::{
+    SI_CANONICAL_MAGIC as SINT_PACKER_MAGIC, SI_CANONICAL_VERSION as MIN_VERSION,
+};
 pub use si_format::utils::{ALIGNMENT_BYTES, align_to_64, compute_padding};
-pub use si_format::verify::{MIN_VERSION, SINT_PACKER_MAGIC};
 
 /// Packer format version — v3 enforces tensor-descriptor manifest with explicit byte offsets
 pub const SINT_PACKER_VERSION: u32 = 3;
@@ -42,56 +44,7 @@ pub type RawTensorPayload = (String, Vec<u8>, Vec<usize>, bool, PayloadType);
 // Tier Designation Flags (Offset 0x08 in .si SINT header)
 // ────────────────────────────────────────────────────────────────────────────
 
-/// Tier Designation Flags defining CPU/memory execution profiles and routing topology.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub struct SiTierFlags(pub u32);
-
-impl SiTierFlags {
-    /// Tier 1: Strategic Cortex (HD R^4096 representation, background OS thread)
-    pub const TIER_1_CORTEX: Self = Self(0b0000_0001);
-    /// Tier 2: Orchestration / Router (R^256, connects to central SPMC hub)
-    pub const TIER_2_ROUTER: Self = Self(0b0000_0010);
-    /// Tier 3: Kinetic Specialist / Reflex (R^256, L1 cache priority, thread pinning)
-    pub const TIER_3_REFLEX: Self = Self(0b0000_0100);
-
-    pub fn bits(&self) -> u32 {
-        self.0
-    }
-
-    pub fn from_bits(bits: u32) -> Self {
-        Self(bits)
-    }
-
-    pub fn is_cortex(&self) -> bool {
-        self.0 & Self::TIER_1_CORTEX.0 != 0
-    }
-
-    pub fn is_router(&self) -> bool {
-        self.0 & Self::TIER_2_ROUTER.0 != 0
-    }
-
-    pub fn is_reflex(&self) -> bool {
-        self.0 & Self::TIER_3_REFLEX.0 != 0
-    }
-
-    pub fn label(&self) -> &'static str {
-        if self.is_cortex() {
-            "Tier 1: Strategic Cortex (R^4096)"
-        } else if self.is_router() {
-            "Tier 2: Router (R^256)"
-        } else if self.is_reflex() {
-            "Tier 3: Kinetic Reflex (R^256)"
-        } else {
-            "Tier 3: Kinetic Reflex (Default)"
-        }
-    }
-}
-
-impl Default for SiTierFlags {
-    fn default() -> Self {
-        Self::TIER_3_REFLEX
-    }
-}
+pub use si_format::header::SiTierFlags;
 
 // ────────────────────────────────────────────────────────────────────────────
 // Manifest types
@@ -356,9 +309,9 @@ impl SiSolidStateLoader {
         }
 
         let version = u32::from_le_bytes(mmap[4..8].try_into()?);
-        if version < MIN_VERSION {
+        if version < MIN_VERSION as u32 {
             bail!(
-                "SiSolidStateLoader: container version v{} is not supported (requires v{}+)",
+                "Container version v{} is not supported (requires v{}+)",
                 version,
                 MIN_VERSION
             );

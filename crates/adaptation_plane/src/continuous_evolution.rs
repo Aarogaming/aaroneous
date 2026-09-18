@@ -333,7 +333,7 @@ mod tests {
         let mut engine = ContinuousSelfEvolutionEngine::new(config);
 
         let ssm_config = SiSsmConfig::default();
-        let mut container = SolidStateSiContainer::new("test_agent", ssm_config);
+        let mut container = SolidStateSiContainer::new("test_agent", ssm_config).unwrap();
 
         let state_x = vec![0.1f32; 256];
         let lr = engine

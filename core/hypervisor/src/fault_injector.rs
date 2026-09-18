@@ -1,5 +1,5 @@
-use nervous_system::SharedMemorySynapse;
-use nervous_system::shared_memory::SynapseState;
+use ipc_bus::SharedMemorySynapse;
+use ipc_bus::shared_memory::SynapseState;
 use parking_lot::RwLock;
 use rand::Rng;
 use std::sync::Arc;

@@ -27,7 +27,7 @@ pub struct SiThoughtHeader {
     pub dimensional_signature: [i8; 7],
     pub node_count: u32,
     pub tensor_dim: u32,
-    pub thermodynamic_free_energy: f64,
+    pub accumulated_energy_cost: f64,
     pub shannon_entropy: f64,
     pub timestamp_epoch_ms: u64,
     pub checksum: u32,
@@ -42,7 +42,7 @@ impl Default for SiThoughtHeader {
             dimensional_signature: [0; 7],
             node_count: 0,
             tensor_dim: 0,
-            thermodynamic_free_energy: 0.0,
+            accumulated_energy_cost: 0.0,
             shannon_entropy: 0.0,
             timestamp_epoch_ms: 0,
             checksum: 0,
@@ -68,7 +68,7 @@ impl SiThoughtPacket {
     ) -> Self {
         let node_count = graph.nodes.len() as u32;
         let tensor_dim = state_tensors.len() as u32;
-        let energy = graph.thermodynamic_free_energy;
+        let energy = graph.accumulated_energy_cost;
         let entropy = graph.shannon_entropy;
 
         let mut header = SiThoughtHeader {
@@ -86,7 +86,7 @@ impl SiThoughtPacket {
             ],
             node_count,
             tensor_dim,
-            thermodynamic_free_energy: energy,
+            accumulated_energy_cost: energy,
             shannon_entropy: entropy,
             timestamp_epoch_ms: std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
@@ -233,7 +233,7 @@ impl SiCorpusStore {
                     SiThoughtPacket::from_binary(&bytes[cursor..cursor + record_len])
                 {
                     count += 1;
-                    total_energy += thought.header.thermodynamic_free_energy;
+                    total_energy += thought.header.accumulated_energy_cost;
                 }
                 cursor += record_len;
             } else {

@@ -706,7 +706,7 @@ fn run_cli(cli: Cli) -> Result<()> {
                 };
 
                 let mut container =
-                    compute::SolidStateSiContainer::new("Aaroneous-Dream-Agent", config);
+                    compute::SolidStateSiContainer::new("Aaroneous-Dream-Agent", config)?;
                 let anchor = compute::si_solid_state::AnchorTransition {
                     state_t: vec![0.5f32; 256],
                     expected_action: 0x01,
@@ -2099,7 +2099,7 @@ fn run_flagship_pipeline(iterations: usize) -> Result<()> {
                     )?;
                     let persist_latency = persist_start.elapsed().as_micros();
                     println!("   -> Step 4: Solid-State SI     : Persisted Thought (Energy: {:.3} J, Duration: {} µs)",
-                        thought.header.thermodynamic_free_energy, persist_latency);
+                        thought.header.accumulated_energy_cost, persist_latency);
                     let _ = std::fs::remove_file(temp_corpus);
 
                     // 5. Desktop Telemetry Emission

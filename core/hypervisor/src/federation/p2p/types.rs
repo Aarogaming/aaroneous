@@ -107,7 +107,7 @@ pub struct WorkResult {
     pub task_id: u64,
     pub execution_trace: Vec<u8>,
     pub result_status: u32,
-    pub thermodynamic_free_energy: f64,
+    pub compute_cost: f64,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

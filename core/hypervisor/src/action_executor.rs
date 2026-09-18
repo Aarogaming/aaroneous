@@ -2,7 +2,7 @@
 // Executes decisions made by the decision engine: file ops, throttling, notifications
 use crate::decision_engine::{Action, TaskEvaluation};
 use crate::state_snapshot::{NodeMetrics, SpatialCanvasState};
-use biology::SystemBiology;
+use governance::system_limits::SystemHealthGovernor;
 use paths::WorkspacePathsConfig;
 use serde::{Deserialize, Serialize};
 use std::fs;
@@ -68,7 +68,7 @@ pub struct ActionResult {
 
 /// Action Executor - executes decisions and tracks outcomes
 pub struct ActionExecutor {
-    pub biology: SystemBiology,
+    pub resources: SystemHealthGovernor,
     pub constellation: SpatialCanvasState,
     pub wasm_path: PathBuf,
     pub allowed_roots: Vec<PathBuf>,
@@ -82,7 +82,7 @@ impl ActionExecutor {
         let allowed_roots = vec![ws.root().clone(), ws.cache()];
 
         Self {
-            biology: SystemBiology::new(),
+            resources: SystemHealthGovernor::new(),
             constellation: SpatialCanvasState::new(),
             wasm_path,
             allowed_roots,
@@ -160,7 +160,7 @@ impl ActionExecutor {
             ExecutableAction::RequestMutation {
                 specialist_id,
                 goal,
-            } => self.request_mutation(&specialist_id, &goal),
+            } => self.request_evolution(&specialist_id, &goal),
             ExecutableAction::UpdateConstellation { node_id, metrics } => {
                 self.update_constellation_node(&node_id, metrics)
             }
@@ -314,8 +314,8 @@ impl ActionExecutor {
 
     /// Throttle the system
     fn throttle_system(&mut self, new_rate: f32, reason: &str) -> ActionResult {
-        let old_rate = self.biology.expression_rate;
-        self.biology.set_expression_rate(new_rate);
+        let old_rate = self.resources.execution_rate;
+        self.resources.set_execution_rate(new_rate);
 
         ActionResult {
             action_type: "throttle_system".to_string(),
@@ -347,11 +347,11 @@ impl ActionExecutor {
     }
 
     /// Request a mutation for a specialist
-    fn request_mutation(&self, specialist_id: &str, goal: &str) -> ActionResult {
-        self.biology.request_mutation(specialist_id, goal);
+    fn request_evolution(&self, specialist_id: &str, goal: &str) -> ActionResult {
+        self.resources.request_evolution(specialist_id, goal);
 
         ActionResult {
-            action_type: "request_mutation".to_string(),
+            action_type: "request_evolution".to_string(),
             success: true,
             duration_ms: 0.0,
             message: format!(
@@ -385,7 +385,7 @@ impl ActionExecutor {
 
     /// Scale a specialist's capacity
     fn scale_specialist(&mut self, specialist_id: &str, scale_factor: f32) -> ActionResult {
-        if let Some(metabolism) = self.biology.specialist_metabolism.get_mut(specialist_id) {
+        if let Some(metabolism) = self.resources.specialist_budgets.get_mut(specialist_id) {
             metabolism.max_tokens *= scale_factor;
             metabolism.regen_rate *= scale_factor;
 
@@ -509,7 +509,7 @@ mod tests {
         let result = executor.throttle_system(0.5, "test reason");
 
         assert!(result.success);
-        assert_eq!(executor.biology.expression_rate, 0.5);
+        assert_eq!(executor.resources.execution_rate, 0.5);
     }
 
     #[test]

@@ -83,7 +83,7 @@ impl SiMacroEngine {
             file_size_bytes: fs::metadata(&target_path)?.len(),
             latent_dim: packet.state_tensors.len(),
             node_count: packet.graph.nodes.len(),
-            thermodynamic_cost: packet.header.thermodynamic_free_energy,
+            thermodynamic_cost: packet.header.accumulated_energy_cost,
             latency_us: 42,
         };
 
@@ -173,7 +173,7 @@ impl SiMacroEngine {
                 file_size_bytes: file_size,
                 latent_dim: packet.state_tensors.len(),
                 node_count: packet.graph.nodes.len(),
-                thermodynamic_cost: packet.header.thermodynamic_free_energy,
+                thermodynamic_cost: packet.header.accumulated_energy_cost,
                 latency_us: latency,
             }
         } else {

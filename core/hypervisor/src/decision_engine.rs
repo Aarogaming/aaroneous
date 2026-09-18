@@ -1,15 +1,16 @@
 // Autonomous Decision Engine
-// The "brain" that orchestrates compute, biology, and intelligence for optimal task execution
-// Now uses thermodynamic governance with Free Energy Principle
+// The "brain" that orchestrates compute and intelligence for optimal task execution
+// Now uses adaptive governance with Free Energy Principle
 
 use crate::intelligence::{IntelligenceEngine, RoutableTask, RoutingDecision, TaskType};
 use crate::specialist_memory::{
     MemoryEntry, MemoryType, SharedMemoryRegistry, SpecialistMemoryStore,
 };
-use biology::{
-    SystemBiology, SystemHealthReport, ThermodynamicGovernor, ThermodynamicGovernorConfig,
-};
 use compute::{ComputeEngine, entropy};
+use governance::{
+    system_limits::{SystemHealthGovernor, SystemHealthReport},
+    throughput_governor::{AdaptiveGovernor, AdaptiveGovernorConfig},
+};
 use rand::SeedableRng;
 use serde::{Deserialize, Serialize};
 
@@ -32,7 +33,7 @@ pub struct TaskEvaluation {
     pub confidence: f64, // Bayesian confidence in the evaluation
     pub entropy: f64,    // Shannon entropy of the task description
     pub routing: RoutingDecision,
-    pub metabolic_risk: f64, // Predicted metabolic impact
+    pub load_risk: f64, // Predicted compute impact
     pub recommended_action: Action,
     pub reasoning: String,
     pub memory_informed: bool, // True if memory consultation produced non-empty results
@@ -52,8 +53,8 @@ pub enum Action {
 
 /// Autonomous Decision Engine
 pub struct AutonomousDecisionEngine {
-    pub biology: SystemBiology,
-    pub governor: ThermodynamicGovernor,
+    pub resources: SystemHealthGovernor,
+    pub governor: AdaptiveGovernor,
     pub intelligence: IntelligenceEngine,
     pub compute: ComputeEngine,
     pub rng: rand::rngs::StdRng,
@@ -80,14 +81,14 @@ pub struct ExecutionRecord {
     pub action_taken: Action,
     pub success: bool,
     pub completion_time_seconds: f64,
-    pub metabolic_cost: f64,
+    pub compute_cost: f64,
 }
 
 impl AutonomousDecisionEngine {
     pub fn new(intelligence: IntelligenceEngine) -> Self {
         Self {
-            biology: SystemBiology::new(),
-            governor: ThermodynamicGovernor::new(ThermodynamicGovernorConfig::default()),
+            resources: SystemHealthGovernor::new(),
+            governor: AdaptiveGovernor::new(AdaptiveGovernorConfig::default()),
             intelligence,
             compute: ComputeEngine::default(),
             rng: rand::rngs::StdRng::from_seed(rand::random()),
@@ -210,19 +211,19 @@ impl AutonomousDecisionEngine {
         let memory_informed = memory_score > 0.0;
         let adjusted_confidence = self.adjust_confidence_with_memory(confidence, memory_score);
 
-        // Step 5: Predict metabolic risk using thermodynamic governor
-        let current_load = 1.0 - (self.biology.tokens / 100.0) as f64;
+        // Step 5: Predict load risk using adaptive governor
+        let current_load = 1.0 - (self.resources.tokens / 100.0) as f64;
         self.governor.record_load(current_load);
-        let forecast = self.governor.predict_metabolic_risk();
-        let metabolic_risk = forecast.risk_score;
+        let forecast = self.governor.predict_load_risk();
+        let load_risk = forecast.risk_score;
 
         // Step 6: Decide action (uses memory-adjusted confidence)
-        let action = self.decide_action(adjusted_confidence, metabolic_risk, complexity, &routing);
+        let action = self.decide_action(adjusted_confidence, load_risk, complexity, &routing);
 
         // Step 7: Generate reasoning
         let reasoning = self.generate_reasoning(
             adjusted_confidence,
-            metabolic_risk,
+            load_risk,
             complexity,
             &action,
             &routing,
@@ -236,7 +237,7 @@ impl AutonomousDecisionEngine {
             confidence: adjusted_confidence,
             entropy: task_entropy,
             routing,
-            metabolic_risk,
+            load_risk,
             recommended_action: action,
             reasoning,
             memory_informed,
@@ -253,16 +254,16 @@ impl AutonomousDecisionEngine {
     ) -> ExecutionOutcome {
         match &evaluation.recommended_action {
             Action::ExecuteImmediately => {
-                // Check metabolic availability
+                // Check token availability
                 if !self
-                    .biology
+                    .resources
                     .can_execute_specialist(&evaluation.routing.agent_id)
                 {
-                    return ExecutionOutcome::Blocked("Insufficient metabolic tokens".to_string());
+                    return ExecutionOutcome::Blocked("Insufficient compute tokens".to_string());
                 }
 
                 // Consume token
-                self.biology
+                self.resources
                     .consume_specialist_token(&evaluation.routing.agent_id);
 
                 // Simulate execution (would be replaced with actual execution)
@@ -305,7 +306,7 @@ impl AutonomousDecisionEngine {
         use crate::assimilation::{
             AssimilationTask, AuditResult, Auditing, Certifying, Idle, Quarantined, Synthesizing,
         };
-        use crate::nervous_system::universal_protocol::{FixedString64, FixedString256};
+        use crate::ipc_bus::universal_protocol::{FixedString64, FixedString256};
         use core::marker::PhantomData;
 
         match record.phase {
@@ -390,10 +391,10 @@ impl AutonomousDecisionEngine {
             }
 
             // Update metabolism between tasks
-            self.biology.update_metabolism();
+            self.resources.tick();
 
             // Apply governance if needed
-            let _governance = self.governor.apply_governance(&mut self.biology);
+            let _governance = self.governor.apply_governance(&mut self.resources);
         }
 
         let success_count = outcomes
@@ -414,7 +415,7 @@ impl AutonomousDecisionEngine {
                 .filter(|o| matches!(o, ExecutionOutcome::Queued(_)))
                 .count(),
             total_duration,
-            final_metabolic_state: self.biology.get_health_report(),
+            final_resource_state: self.resources.get_health_report(),
             evaluations,
             outcomes,
         }
@@ -436,13 +437,13 @@ impl AutonomousDecisionEngine {
     fn decide_action(
         &self,
         confidence: f64,
-        metabolic_risk: f64,
+        load_risk: f64,
         complexity: f64,
         _routing: &RoutingDecision,
     ) -> Action {
-        if confidence > 0.8 && metabolic_risk < 0.5 && complexity < 0.7 {
+        if confidence > 0.8 && load_risk < 0.5 && complexity < 0.7 {
             Action::ExecuteImmediately
-        } else if confidence > 0.5 && metabolic_risk < 0.7 {
+        } else if confidence > 0.5 && load_risk < 0.7 {
             if complexity > 0.8 {
                 Action::DelegateToWASM
             } else {
@@ -460,7 +461,7 @@ impl AutonomousDecisionEngine {
     fn generate_reasoning(
         &self,
         confidence: f64,
-        metabolic_risk: f64,
+        load_risk: f64,
         complexity: f64,
         action: &Action,
         routing: &RoutingDecision,
@@ -474,7 +475,7 @@ impl AutonomousDecisionEngine {
         };
         format!(
             "Confidence: {:.2}, Metabolic Risk: {:.2}, Complexity: {:.2}{} → {:?} via {}",
-            confidence, metabolic_risk, complexity, memory_note, action, routing.agent_name
+            confidence, load_risk, complexity, memory_note, action, routing.agent_name
         )
     }
 
@@ -488,7 +489,7 @@ impl AutonomousDecisionEngine {
             Action::ExecuteImmediately | Action::DelegateToWASM => {
                 // If the confidence is high enough and risk is low, we deterministically succeed.
                 // We no longer rely on stochastic RNG simulation for deterministic execution.
-                if evaluation.confidence > 0.4 && evaluation.metabolic_risk < 0.8 {
+                if evaluation.confidence > 0.4 && evaluation.load_risk < 0.8 {
                     println!(
                         "[DecisionEngine] Task {} executed successfully via {:?}.",
                         task.id, evaluation.recommended_action
@@ -497,7 +498,7 @@ impl AutonomousDecisionEngine {
                 } else {
                     println!(
                         "[DecisionEngine] Task {} execution failed due to low confidence ({:.2}) or high risk ({:.2}).",
-                        task.id, evaluation.confidence, evaluation.metabolic_risk
+                        task.id, evaluation.confidence, evaluation.load_risk
                     );
                     false
                 }
@@ -513,7 +514,7 @@ impl AutonomousDecisionEngine {
     }
 
     /// Record execution outcome for learning
-    fn record_outcome(&mut self, task_id: &str, success: bool, duration: f64, metabolic_cost: f64) {
+    fn record_outcome(&mut self, task_id: &str, success: bool, duration: f64, compute_cost: f64) {
         // Update Bayesian priors
         if success {
             self.prior_success_count += 1.0;
@@ -530,7 +531,7 @@ impl AutonomousDecisionEngine {
             action_taken: Action::ExecuteImmediately,
             success,
             completion_time_seconds: duration,
-            metabolic_cost,
+            compute_cost,
         });
 
         // Trim history if needed
@@ -549,16 +550,16 @@ impl AutonomousDecisionEngine {
         routing: &RoutingDecision,
         success: bool,
         duration: f64,
-        metabolic_cost: f64,
+        compute_cost: f64,
     ) {
-        self.record_outcome(&task.id, success, duration, metabolic_cost);
+        self.record_outcome(&task.id, success, duration, compute_cost);
         self.record_execution_memory(&routing.agent_id, task, success, duration);
     }
 
     /// Get system status summary
     pub fn get_status(&self) -> SystemStatus {
         SystemStatus {
-            metabolic_health: self.biology.get_health_report(),
+            resource_health: self.resources.get_health_report(),
             bayesian_confidence: self.prior_success_count
                 / (self.prior_success_count + self.prior_failure_count),
             execution_count: self.execution_history.len(),
@@ -593,7 +594,7 @@ pub struct IngestionReport {
     pub failed_count: usize,
     pub queued_count: usize,
     pub total_duration: f64,
-    pub final_metabolic_state: SystemHealthReport,
+    pub final_resource_state: SystemHealthReport,
     pub evaluations: Vec<TaskEvaluation>,
     pub outcomes: Vec<ExecutionOutcome>,
 }
@@ -601,7 +602,7 @@ pub struct IngestionReport {
 /// System status summary
 #[derive(Debug, Clone)]
 pub struct SystemStatus {
-    pub metabolic_health: SystemHealthReport,
+    pub resource_health: SystemHealthReport,
     pub bayesian_confidence: f64,
     pub execution_count: usize,
     pub recent_success_rate: f64,
@@ -708,7 +709,7 @@ mod tests {
                 expected_completion_time: 5.0,
                 reasoning: "test".to_string(),
             },
-            metabolic_risk: 0.3,
+            load_risk: 0.3,
             recommended_action: Action::QueueForLater,
             reasoning: "queued".to_string(),
             memory_informed: false,
@@ -746,7 +747,7 @@ mod tests {
                 expected_completion_time: 5.0,
                 reasoning: "low confidence".to_string(),
             },
-            metabolic_risk: 0.8,
+            load_risk: 0.8,
             recommended_action: Action::Reject,
             reasoning: "rejected".to_string(),
             memory_informed: false,
@@ -784,7 +785,7 @@ mod tests {
                 expected_completion_time: 5.0,
                 reasoning: "very uncertain".to_string(),
             },
-            metabolic_risk: 0.3,
+            load_risk: 0.3,
             recommended_action: Action::RequestHumanInput,
             reasoning: "needs input".to_string(),
             memory_informed: false,
@@ -884,7 +885,7 @@ mod tests {
                 action_taken: Action::ExecuteImmediately,
                 success: i % 2 == 0,
                 completion_time_seconds: 1.0,
-                metabolic_cost: 0.1,
+                compute_cost: 0.1,
             });
         }
 
@@ -988,7 +989,7 @@ mod tests {
                 action_taken: Action::ExecuteImmediately,
                 success: true,
                 completion_time_seconds: 1.0,
-                metabolic_cost: 0.1,
+                compute_cost: 0.1,
             });
             // Manually trim like record_outcome does
             if engine.execution_history.len() > engine.max_history {

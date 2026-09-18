@@ -4,22 +4,16 @@
 //! Ensures magic bytes, tier flags, and alignment invariants are enforced
 //! consistently across packers, loaders, and pipelines.
 
+use crate::header::{SI_CANONICAL_MAGIC, SI_CANONICAL_VERSION, SiCartridgeHeader};
 use crate::utils::ALIGNMENT_BYTES;
 use anyhow::{Result, bail};
-
-/// Magic bytes for `.si` SINT containers (distinct from legacy v2 JSON containers)
-pub const SINT_PACKER_MAGIC: [u8; 4] = *b"SINT";
-
-/// Minimum supported version for this loader/packer suite.
-/// Must be >= 3 to enforce tensor-descriptor manifest with explicit byte offsets.
-pub const MIN_VERSION: u32 = 3;
 
 /// Validates the magic bytes at the start of a `.si` container.
 ///
 /// # Errors
 /// Returns `Err` if the magic bytes are missing or incorrect.
 pub fn validate_magic_bytes(mmap: &[u8]) -> Result<()> {
-    if mmap.len() < 4 || mmap[0..4] != SINT_PACKER_MAGIC {
+    if mmap.len() < 4 || mmap[0..4] != SI_CANONICAL_MAGIC {
         bail!("Missing or invalid SINT magic bytes");
     }
     Ok(())
@@ -28,13 +22,13 @@ pub fn validate_magic_bytes(mmap: &[u8]) -> Result<()> {
 /// Validates the version field (offset 0x04) in a `.si` container.
 ///
 /// # Errors
-/// Returns `Err` if the version is below `MIN_VERSION`.
-pub fn validate_version(version: u32) -> Result<()> {
-    if version < MIN_VERSION {
+/// Returns `Err` if the version is below `SI_CANONICAL_VERSION`.
+pub fn validate_version(version: u16) -> Result<()> {
+    if version < SI_CANONICAL_VERSION {
         bail!(
             "Container version v{} is not supported (requires v{}+)",
             version,
-            MIN_VERSION
+            SI_CANONICAL_VERSION
         );
     }
     Ok(())
@@ -108,27 +102,24 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_validate_magic_bytes_ok() {
-        let mut data = vec![0u8; 20];
-        data[0..4].copy_from_slice(&SINT_PACKER_MAGIC);
+    fn test_validate_magic_bytes() {
+        let mut data = [0u8; 64];
+        data[0..4].copy_from_slice(&SI_CANONICAL_MAGIC);
         assert!(validate_magic_bytes(&data).is_ok());
-    }
 
-    #[test]
-    fn test_validate_magic_bytes_bad() {
-        let data = vec![0u8; 20];
+        data[0] = b'X';
         assert!(validate_magic_bytes(&data).is_err());
     }
 
     #[test]
-    fn test_validate_version_ok() {
-        assert!(validate_version(MIN_VERSION).is_ok());
-        assert!(validate_version(4).is_ok());
+    fn test_validate_version() {
+        assert!(validate_version(SI_CANONICAL_VERSION).is_ok());
+        assert!(validate_version(SI_CANONICAL_VERSION + 1).is_ok());
     }
 
     #[test]
-    fn test_validate_version_bad() {
-        assert!(validate_version(MIN_VERSION - 1).is_err());
+    fn test_validate_version_unsupported() {
+        assert!(validate_version(SI_CANONICAL_VERSION - 1).is_err());
     }
 
     #[test]
@@ -179,4 +170,23 @@ mod tests {
         assert!(validate_payload_checksum(payload, hash).is_ok());
         assert!(validate_payload_checksum(payload, hash + 1).is_err());
     }
+}
+/// Validates that block offsets and lengths fit safely within the memory-mapped file bounds.
+pub fn validate_block_geometry(header: &SiCartridgeHeader, mmap_len: usize) -> Result<()> {
+    validate_range(
+        mmap_len,
+        header.block1_offset as usize,
+        (header.block1_offset + header.block1_len) as usize,
+    )?;
+    validate_range(
+        mmap_len,
+        header.block2_offset as usize,
+        (header.block2_offset + header.block2_len) as usize,
+    )?;
+    validate_range(
+        mmap_len,
+        header.block3_offset as usize,
+        (header.block3_offset + header.block3_len) as usize,
+    )?;
+    Ok(())
 }

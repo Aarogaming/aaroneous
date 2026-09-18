@@ -8,7 +8,7 @@ use hypervisor::orchestration_daemon::{
     DaemonState, OrchestrationDaemon, OrchestrationDaemonConfig,
 };
 use hypervisor::{
-    GovernanceAction, MetabolicGovernorConfig, PredictiveMetabolicGovernor, SystemBiology,
+    GovernanceAction, LoadGovernorConfig, PredictiveLoadGovernor, SystemHealthGovernor,
 };
 use hypervisor::{IntelligenceEngine, IntelligentSpecialist, LLMConfig, ProviderType, TaskType};
 use paths::WorkspacePathsConfig;
@@ -174,8 +174,8 @@ async fn test_ingestion_cycle_with_multiple_tasks() {
     assert!(!report.evaluations.is_empty());
 
     // Verify metabolic state changed
-    assert!(report.final_metabolic_state.global_tokens >= 0.0);
-    assert!(report.final_metabolic_state.expression_rate >= 0.0);
+    assert!(report.final_resource_state.global_tokens >= 0.0);
+    assert!(report.final_resource_state.execution_rate >= 0.0);
 }
 
 #[tokio::test]
@@ -194,7 +194,7 @@ async fn test_daemon_initialization() {
     let status = daemon.get_status();
     assert!(matches!(status.state, DaemonState::Initializing));
     assert_eq!(status.cycles_completed, 0);
-    assert!(status.metabolic_health.global_tokens >= 0.0);
+    assert!(status.resource_health.global_tokens >= 0.0);
 }
 
 #[test]
@@ -252,8 +252,8 @@ async fn unsupported_wasm_execution_fails_explicitly() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn test_metabolic_governance_integration() {
-    let mut biology = SystemBiology::new();
-    let mut governor = PredictiveMetabolicGovernor::new(MetabolicGovernorConfig::default());
+    let mut biology = SystemHealthGovernor::new();
+    let mut governor = PredictiveLoadGovernor::new(LoadGovernorConfig::default());
 
     // Simulate high load history
     for _ in 0..20 {
@@ -278,5 +278,5 @@ async fn test_metabolic_governance_integration() {
     }
 
     // Verify biology state was updated
-    assert!(biology.expression_rate >= 0.0 && biology.expression_rate <= 1.0);
+    assert!(biology.execution_rate >= 0.0 && biology.execution_rate <= 1.0);
 }
