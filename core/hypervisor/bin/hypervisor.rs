@@ -451,56 +451,24 @@ fn run_cli(cli: Cli) -> Result<()> {
             Ok(())
         }
         Some(Commands::Inject { intent }) => {
-            use hypervisor::supervisory_loop::{
-                SYNAPSE_INTENT_PAYLOAD_CAPACITY, SYNAPSE_INTENT_PAYLOAD_OFFSET,
-                SYNAPSE_INTENT_VECTOR_ID_OFFSET,
-            };
-            use memmap2::MmapOptions;
-            use std::fs::OpenOptions;
+            use hypervisor::supervisory_loop::{LegacySharedMemorySynapse, SynapseState};
 
             println!("Injecting intent: {}", intent);
-            let paths = paths::WorkspacePaths::discover(&WorkspacePathsConfig::default());
-            let path = paths.synapse_file();
 
-            let file = OpenOptions::new().read(true).write(true).open(&path)?;
-            // SAFETY: `file` is held solely by this call, unmapped elsewhere
-            // in this process; a concurrent write by another process (per
-            // `crates/ipc_bus`'s synapse mmaps) is the accepted cross-process model, not a memory-safety hazard.
-            let mut mmap = unsafe { MmapOptions::new().map_mut(&file)? };
-
-            let required_len = SYNAPSE_INTENT_PAYLOAD_OFFSET + SYNAPSE_INTENT_PAYLOAD_CAPACITY;
-            if mmap.len() < required_len {
-                anyhow::bail!(
-                    "synapse file {} is {} bytes, too small to hold an intent (need >= {} bytes); \
-                     is the hypervisor daemon running to size it first?",
-                    path.display(),
-                    mmap.len(),
-                    required_len
-                );
-            }
-
-            // Take the same exclusive advisory lock `LegacySharedMemorySynapse::write`
-            // takes for the daemon's own tick loop, so this CLI process's byte
-            // copies below can't interleave with (and get torn by, or torn
-            // into) a concurrently running daemon's `write_state` dump of the
-            // whole struct.
-            file.lock()?;
+            // Opens the daemon's own "primary" synapse (same name it passes
+            // to `SupervisoryDaemon::new`) without creating/resizing it -
+            // this CLI command is a one-shot writer, not the synapse's
+            // owner. `write_intent` performs the write as a single
+            // seqlock-protected transaction (no blocking OS lock), so this
+            // can't tear against - or be blocked indefinitely by - the
+            // daemon's own tick-loop writes.
+            let synapse = LegacySharedMemorySynapse::open_existing(
+                "primary",
+                std::mem::size_of::<SynapseState>(),
+            )?;
 
             let task_id = Uuid::new_v4();
-            let id_bytes = task_id.as_bytes();
-
-            mmap[SYNAPSE_INTENT_VECTOR_ID_OFFSET..SYNAPSE_INTENT_VECTOR_ID_OFFSET + 16]
-                .copy_from_slice(id_bytes);
-
-            let payload = intent.as_bytes();
-            let payload_len = std::cmp::min(payload.len(), SYNAPSE_INTENT_PAYLOAD_CAPACITY);
-            let payload_start = SYNAPSE_INTENT_PAYLOAD_OFFSET;
-            mmap[payload_start..payload_start + payload_len]
-                .copy_from_slice(&payload[..payload_len]);
-            mmap[payload_start + payload_len..payload_start + SYNAPSE_INTENT_PAYLOAD_CAPACITY]
-                .fill(0);
-
-            file.unlock()?;
+            synapse.write_intent(task_id, intent.as_bytes())?;
 
             println!("Intent injected with Task ID: {}", task_id);
             Ok(())
