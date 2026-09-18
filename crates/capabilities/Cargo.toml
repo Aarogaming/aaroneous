@@ -7,6 +7,20 @@ description = "Universal Capability Toolset, MCP Service Tools, and Domain Execu
 license.workspace = true
 repository.workspace = true
 
+[package.metadata.capability]
+ring = 3
+profile = ["server", "full"]
+description = "UniversalTool registry, security audit, code repair tools"
+
+[package.metadata.capability.tool]
+name = "security.audit"
+opcode = 0x0100
+description = "Scans source code for security vulnerabilities and unsafe patterns"
+category = "security"
+consumes = ["source_code", "diagnostics"]
+produces = ["audit_report", "vulnerability_list"]
+ring = 3
+
 [dependencies]
 async-trait = "0.1"
 anyhow = "1.0"

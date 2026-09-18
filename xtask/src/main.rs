@@ -6,6 +6,7 @@ mod gate;
 mod install;
 mod package;
 mod uninstall;
+mod workspace_metadata;
 
 use anyhow::{Result, bail};
 use std::process::Command;
@@ -23,6 +24,7 @@ fn main() -> Result<()> {
             let config = export_wit::WitExportConfig::default();
             export_wit::export_wit(&config).map_err(|e| anyhow::anyhow!(e))
         }
+        "workspace-metadata" => workspace_metadata::run(&args[2..]),
         "queue" => {
             println!("=== Launching Local Agent Passive Progress Daemon ===");
             let status = Command::new("pwsh")
@@ -50,16 +52,18 @@ fn print_help() {
 Usage: cargo xtask <subcommand>
 
 Subcommands:
-  gate             Run every CI verification gate locally (replaces scripts/agent_check.sh)
-  check-encoding   Validate UTF-8/LF compliance across all tracked files
-  export-wit       Export WebAssembly Interface Type (WIT) declarations from capabilities
-  queue            Run the passive local agent background progress engine (Ollama GPU)
-  install          Install Aaroneous on Windows (copies binaries, sets PATH, creates shortcuts)
-  uninstall        Remove Aaroneous from Windows
-  package          Package a release ZIP distribution
+  gate                Run every CI verification gate locally (replaces scripts/agent_check.sh)
+  check-encoding      Validate UTF-8/LF compliance across all tracked files
+  export-wit          Export WebAssembly Interface Type (WIT) declarations from capabilities
+  workspace-metadata  Scan workspace for capability manifest (MCP discovery, deployment profiles)
+  queue               Run the passive local agent background progress engine (Ollama GPU)
+  install             Install Aaroneous on Windows (copies binaries, sets PATH, creates shortcuts)
+  uninstall           Remove Aaroneous from Windows
+  package             Package a release ZIP distribution
 
 Examples:
   cargo xtask gate
+  cargo xtask workspace-metadata --output manifest.json
   cargo xtask export-wit
   cargo xtask queue
   cargo xtask install --dir C:\Programs\Aaroneous

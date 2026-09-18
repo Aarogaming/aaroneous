@@ -1,0 +1,720 @@
+{
+  "workspace_root": "D:\\Aaroneous",
+  "crates": {
+    "adaptation_engine": {
+      "name": "adaptation_engine",
+      "version": "0.1.0",
+      "ring": null,
+      "profile": [],
+      "description": "",
+      "dependencies": [
+        "anyhow",
+        "ast_auditor",
+        "bytemuck",
+        "candle-core",
+        "chrono",
+        "compute",
+        "goblin",
+        "governance",
+        "ipc_bus",
+        "notify",
+        "paths",
+        "rand",
+        "rayon",
+        "regex",
+        "serde",
+        "serde_json",
+        "si_ir",
+        "similar",
+        "tokio",
+        "toml_edit",
+        "tracing",
+        "walkdir"
+      ]
+    },
+    "adaptation_plane": {
+      "name": "adaptation_plane",
+      "version": "0.1.0",
+      "ring": null,
+      "profile": [],
+      "description": "",
+      "dependencies": [
+        "adaptation_engine",
+        "anyhow",
+        "candle-core",
+        "candle-nn",
+        "chrono",
+        "compute",
+        "ipc_bus",
+        "paths",
+        "rand",
+        "serde",
+        "serde_json",
+        "strum",
+        "thiserror",
+        "tokio",
+        "tracing",
+        "uuid"
+      ]
+    },
+    "api": {
+      "name": "api",
+      "version": "0.1.0",
+      "ring": null,
+      "profile": [],
+      "description": "",
+      "dependencies": [
+        "eframe",
+        "egui"
+      ]
+    },
+    "ast_auditor": {
+      "name": "ast_auditor",
+      "version": "0.0.0",
+      "ring": null,
+      "profile": [],
+      "description": "",
+      "dependencies": [
+        "anyhow",
+        "base64",
+        "clap",
+        "proc-macro2",
+        "quote",
+        "ring",
+        "serde",
+        "serde_json",
+        "sha2",
+        "syn",
+        "thiserror",
+        "toml",
+        "walkdir"
+      ]
+    },
+    "benchmarks": {
+      "name": "benchmarks",
+      "version": "0.1.0",
+      "ring": null,
+      "profile": [],
+      "description": "",
+      "dependencies": [
+        "compute",
+        "criterion",
+        "memmap2",
+        "tempfile"
+      ]
+    },
+    "capabilities": {
+      "name": "capabilities",
+      "version": "0.1.0",
+      "ring": 3,
+      "profile": [
+        "server",
+        "full"
+      ],
+      "description": "UniversalTool registry, security audit, code repair tools",
+      "dependencies": [
+        "adaptation_engine",
+        "adaptation_plane",
+        "anyhow",
+        "ast_auditor",
+        "async-trait",
+        "chrono",
+        "compute",
+        "ipc_bus",
+        "libloading",
+        "omni",
+        "paths",
+        "platform_bridge",
+        "sdk",
+        "serde",
+        "serde_json",
+        "tokio",
+        "tracing"
+      ]
+    },
+    "compliance_auditor": {
+      "name": "compliance_auditor",
+      "version": "0.0.0",
+      "ring": null,
+      "profile": [],
+      "description": "",
+      "dependencies": [
+        "anyhow",
+        "ast_auditor",
+        "clap",
+        "futures",
+        "llm_gateway",
+        "serde",
+        "serde_json",
+        "tokio",
+        "tracing",
+        "walkdir"
+      ]
+    },
+    "compute": {
+      "name": "compute",
+      "version": "0.1.0",
+      "ring": null,
+      "profile": [],
+      "description": "",
+      "dependencies": [
+        "anyhow",
+        "bytemuck",
+        "candle-core",
+        "candle-nn",
+        "cranelift-codegen",
+        "cranelift-frontend",
+        "hnsw_rs",
+        "ipc_bus",
+        "memmap2",
+        "num-traits",
+        "parking_lot",
+        "paths",
+        "rand",
+        "rkyv",
+        "rustfft",
+        "serde",
+        "serde_json",
+        "si_format",
+        "si_ir",
+        "target-lexicon",
+        "tempfile",
+        "tracing"
+      ]
+    },
+    "core-contracts": {
+      "name": "core-contracts",
+      "version": "0.0.0",
+      "ring": null,
+      "profile": [],
+      "description": "",
+      "dependencies": [
+        "bitflags",
+        "bytemuck",
+        "serde"
+      ]
+    },
+    "cratify": {
+      "name": "cratify",
+      "version": "0.0.0",
+      "ring": null,
+      "profile": [],
+      "description": "",
+      "dependencies": [
+        "adaptation_engine",
+        "anyhow",
+        "ast_auditor",
+        "clap",
+        "paths",
+        "transpiler"
+      ]
+    },
+    "emulator_harness": {
+      "name": "emulator_harness",
+      "version": "0.0.0",
+      "ring": null,
+      "profile": [],
+      "description": "",
+      "dependencies": [
+        "bytemuck"
+      ]
+    },
+    "governance": {
+      "name": "governance",
+      "version": "0.1.0",
+      "ring": null,
+      "profile": [],
+      "description": "",
+      "dependencies": [
+        "anyhow",
+        "compute",
+        "rand",
+        "serde",
+        "si_format",
+        "si_ir",
+        "strum",
+        "thiserror",
+        "tracing",
+        "z3"
+      ]
+    },
+    "hotload": {
+      "name": "hotload",
+      "version": "0.1.0",
+      "ring": null,
+      "profile": [],
+      "description": "",
+      "dependencies": [
+        "anyhow",
+        "libloading"
+      ]
+    },
+    "hypervisor": {
+      "name": "hypervisor",
+      "version": "0.1.0",
+      "ring": null,
+      "profile": [],
+      "description": "",
+      "dependencies": [
+        "adaptation_engine",
+        "adaptation_plane",
+        "anyhow",
+        "ast_auditor",
+        "async-nats",
+        "async-stream",
+        "async-trait",
+        "axum",
+        "bincode",
+        "bytemuck",
+        "byteorder",
+        "bytes",
+        "candle-core",
+        "candle-nn",
+        "chromiumoxide",
+        "chrono",
+        "clap",
+        "compute",
+        "core-contracts",
+        "crossbeam-channel",
+        "ctrlc",
+        "dirs",
+        "futures",
+        "futures-channel",
+        "futures-core",
+        "futures-util",
+        "governance",
+        "hex",
+        "hotload",
+        "http-body-util",
+        "ipc_bus",
+        "iroh",
+        "libloading",
+        "llama-gguf",
+        "llm_gateway",
+        "log",
+        "memmap2",
+        "mimalloc",
+        "moka",
+        "n0-future",
+        "notify",
+        "nvml-wrapper",
+        "omni",
+        "once_cell",
+        "orchestrator",
+        "parking_lot",
+        "paths",
+        "platform_bridge",
+        "plugin_api",
+        "rand",
+        "regex",
+        "reqwest",
+        "rkyv",
+        "rocksdb",
+        "rusqlite",
+        "seahash",
+        "semver",
+        "serde",
+        "serde_json",
+        "sha2",
+        "si_ir",
+        "smol_str",
+        "specialists",
+        "strum",
+        "strum_macros",
+        "sysinfo",
+        "tar",
+        "thiserror",
+        "tokenizers",
+        "tokio",
+        "tokio-serial",
+        "tokio-util",
+        "tower",
+        "tower-http",
+        "tracing",
+        "tracing-appender",
+        "tracing-subscriber",
+        "transpiler",
+        "url",
+        "uuid",
+        "wgpu",
+        "which",
+        "wire",
+        "zstd"
+      ]
+    },
+    "ipc_bus": {
+      "name": "ipc_bus",
+      "version": "0.2.0",
+      "ring": null,
+      "profile": [],
+      "description": "",
+      "dependencies": [
+        "anyhow",
+        "bytemuck",
+        "core-contracts",
+        "crossbeam",
+        "dirs",
+        "memmap2",
+        "parking_lot",
+        "paths",
+        "rkyv",
+        "serde",
+        "serde_json",
+        "thiserror",
+        "tokio",
+        "tracing"
+      ]
+    },
+    "llm_gateway": {
+      "name": "llm_gateway",
+      "version": "0.1.0",
+      "ring": null,
+      "profile": [],
+      "description": "",
+      "dependencies": [
+        "anyhow",
+        "async-trait",
+        "dirs",
+        "ipc_bus",
+        "llama-gguf",
+        "moka",
+        "parking_lot",
+        "paths",
+        "reqwest",
+        "serde",
+        "serde_json",
+        "si_ir",
+        "tokio",
+        "tracing",
+        "transpiler",
+        "which"
+      ]
+    },
+    "mcp_server": {
+      "name": "mcp_server",
+      "version": "0.0.0",
+      "ring": null,
+      "profile": [],
+      "description": "",
+      "dependencies": [
+        "anyhow",
+        "async-stream",
+        "async-trait",
+        "axum",
+        "capabilities",
+        "hex",
+        "serde",
+        "serde_json",
+        "sha2",
+        "tokio",
+        "tower",
+        "tracing",
+        "uuid"
+      ]
+    },
+    "omni": {
+      "name": "omni",
+      "version": "0.1.0",
+      "ring": null,
+      "profile": [],
+      "description": "",
+      "dependencies": [
+        "anyhow",
+        "bevy_ecs",
+        "chrono",
+        "compute",
+        "glam",
+        "paths",
+        "serde",
+        "serde_json",
+        "tokio",
+        "tracing"
+      ]
+    },
+    "orchestration_plane": {
+      "name": "orchestration_plane",
+      "version": "0.1.0",
+      "ring": null,
+      "profile": [],
+      "description": "",
+      "dependencies": [
+        "adaptation_engine",
+        "anyhow",
+        "bytemuck",
+        "ipc_bus",
+        "paths",
+        "prettyplease",
+        "proc-macro2",
+        "serde",
+        "serde_json",
+        "syn",
+        "tokio",
+        "tracing",
+        "walkdir"
+      ]
+    },
+    "orchestrator": {
+      "name": "orchestrator",
+      "version": "0.1.0",
+      "ring": null,
+      "profile": [],
+      "description": "",
+      "dependencies": [
+        "anyhow",
+        "async-trait",
+        "bytemuck",
+        "chrono",
+        "compute",
+        "governance",
+        "ipc_bus",
+        "llama-gguf",
+        "memmap2",
+        "notify",
+        "paths",
+        "rand",
+        "regex",
+        "reqwest",
+        "serde",
+        "serde_json",
+        "si_ir",
+        "strum",
+        "thiserror",
+        "tokio",
+        "tracing",
+        "uuid"
+      ]
+    },
+    "paths": {
+      "name": "paths",
+      "version": "0.1.0",
+      "ring": null,
+      "profile": [],
+      "description": "",
+      "dependencies": [
+        "dirs",
+        "serde"
+      ]
+    },
+    "platform_bridge": {
+      "name": "platform_bridge",
+      "version": "0.1.0",
+      "ring": null,
+      "profile": [],
+      "description": "",
+      "dependencies": [
+        "anyhow",
+        "async-trait",
+        "compute",
+        "ipc_bus",
+        "parking_lot",
+        "rustfft",
+        "serde",
+        "serde_json",
+        "si_ir",
+        "tokio",
+        "tokio-serial",
+        "tracing",
+        "wire"
+      ]
+    },
+    "plugin_api": {
+      "name": "plugin_api",
+      "version": "0.1.0",
+      "ring": null,
+      "profile": [],
+      "description": "",
+      "dependencies": [
+        "anyhow",
+        "ipc_bus",
+        "serde"
+      ]
+    },
+    "runtime_monitor": {
+      "name": "runtime_monitor",
+      "version": "0.1.0",
+      "ring": null,
+      "profile": [],
+      "description": "",
+      "dependencies": [
+        "anyhow",
+        "bytemuck",
+        "crossbeam-queue",
+        "hypervisor"
+      ]
+    },
+    "scratchpad": {
+      "name": "scratchpad",
+      "version": "0.1.0",
+      "ring": null,
+      "profile": [],
+      "description": "",
+      "dependencies": [
+        "api",
+        "eframe",
+        "egui",
+        "serde"
+      ]
+    },
+    "sdk": {
+      "name": "sdk",
+      "version": "0.1.0",
+      "ring": null,
+      "profile": [],
+      "description": "",
+      "dependencies": [
+        "anyhow",
+        "ipc_bus",
+        "libloading",
+        "parking_lot",
+        "serde",
+        "serde_json"
+      ]
+    },
+    "si_format": {
+      "name": "si_format",
+      "version": "0.1.0",
+      "ring": null,
+      "profile": [],
+      "description": "",
+      "dependencies": [
+        "anyhow",
+        "serde",
+        "thiserror"
+      ]
+    },
+    "si_ir": {
+      "name": "si_ir",
+      "version": "0.1.0",
+      "ring": null,
+      "profile": [],
+      "description": "",
+      "dependencies": [
+        "anyhow",
+        "serde",
+        "serde_json",
+        "smol_str"
+      ]
+    },
+    "studio_hud": {
+      "name": "studio_hud",
+      "version": "0.1.0",
+      "ring": null,
+      "profile": [],
+      "description": "",
+      "dependencies": [
+        "adaptation_engine",
+        "adaptation_plane",
+        "anyhow",
+        "api",
+        "bytemuck",
+        "cgmath",
+        "chrono",
+        "compute",
+        "core-contracts",
+        "crossbeam-channel",
+        "dirs",
+        "eframe",
+        "egui",
+        "governance",
+        "hypervisor",
+        "ipc_bus",
+        "memmap2",
+        "notify",
+        "omni",
+        "orchestrator",
+        "parking_lot",
+        "paths",
+        "platform_bridge",
+        "rfd",
+        "ron",
+        "serde",
+        "serde_json",
+        "smol_str",
+        "specialists",
+        "tokio",
+        "tokio-serial",
+        "tracing",
+        "transpiler",
+        "uuid",
+        "wgpu",
+        "wire"
+      ]
+    },
+    "transpiler": {
+      "name": "transpiler",
+      "version": "0.1.0",
+      "ring": null,
+      "profile": [],
+      "description": "",
+      "dependencies": [
+        "aho-corasick",
+        "anyhow",
+        "bumpalo",
+        "compute",
+        "parking_lot",
+        "paths",
+        "regex",
+        "serde",
+        "serde_json",
+        "si_ir",
+        "tokio",
+        "toml",
+        "tracing"
+      ]
+    },
+    "wire": {
+      "name": "wire",
+      "version": "0.1.0",
+      "ring": null,
+      "profile": [],
+      "description": "",
+      "dependencies": [
+        "bytemuck",
+        "crc",
+        "postcard",
+        "serde"
+      ]
+    },
+    "xtask": {
+      "name": "xtask",
+      "version": "0.1.0",
+      "ring": null,
+      "profile": [],
+      "description": "",
+      "dependencies": [
+        "anyhow",
+        "regex",
+        "serde",
+        "serde_json",
+        "toml"
+      ]
+    }
+  },
+  "tools": [
+    {
+      "name": "security.audit",
+      "opcode": 256,
+      "description": "Scans source code for security vulnerabilities and unsafe patterns",
+      "category": "security",
+      "consumes": [
+        "source_code",
+        "diagnostics"
+      ],
+      "produces": [
+        "audit_report",
+        "vulnerability_list"
+      ],
+      "requires_feature": null,
+      "ring": 3,
+      "crate_name": "capabilities"
+    }
+  ],
+  "profiles": {
+    "full": [
+      "capabilities"
+    ],
+    "server": [
+      "capabilities"
+    ]
+  }
+}
