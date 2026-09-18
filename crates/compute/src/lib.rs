@@ -3,6 +3,7 @@ pub mod bayesian;
 pub mod burn_gpu;
 pub mod category;
 pub mod cognitive_equilibrium;
+pub mod concurrence_engine;
 pub mod control;
 pub mod cranelift_jit;
 pub mod crucible;
@@ -75,6 +76,10 @@ pub use state_bank::{
 
 pub use cognitive_equilibrium::{
     AttentionSpectrum, CognitiveEquilibriumCoordinator, SomaticVitals, TriModalDecisionReport,
+};
+pub use concurrence_engine::{
+    ConcurrenceSnapshot, DefaultConcurrenceEngine, FLIGHT_EVENT_CHECKPOINT,
+    GraduationReadyEvent, ShadowTickResult, GRADUATION_THRESHOLD,
 };
 pub use cranelift_jit::{CraneliftJitEngine, NativeExecutionFn};
 pub use crucible::{CrucibleDuelReport, CrucibleSandbox, VirtualScenario};

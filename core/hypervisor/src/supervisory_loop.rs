@@ -170,6 +170,15 @@ impl Default for SynapseState {
     }
 }
 
+// Thread-local `DefaultConcurrenceEngine` owned by the hypervisor heartbeat thread.
+// Declared at module level so it is accessible inside `thread::spawn(move || { ... })`.
+// Single-writer: only the heartbeat thread ever calls `.update()`.
+// Readers (HUD) see the data through the shared `concurrence_snapshot` Arc.
+thread_local! {
+    static CONCURRENCE_ENGINE: std::cell::UnsafeCell<compute::DefaultConcurrenceEngine> =
+        std::cell::UnsafeCell::new(compute::DefaultConcurrenceEngine::new());
+}
+
 /// Sovereign core supervisory daemon running the deterministic control loop.
 pub struct SupervisoryDaemon {
     synapse: Arc<RwLock<LegacySharedMemorySynapse>>,
@@ -221,6 +230,14 @@ pub struct SupervisoryDaemon {
     pub smt_interlock: Arc<parking_lot::RwLock<governance::SmtActionInterlock>>,
     /// Lock-free SWMR observation buffer for passive telemetry ingestion and dual-rail shadow RL
     pub observation_buffer: Option<Arc<parking_lot::Mutex<ipc_bus::ObservationBuffer>>>,
+    /// Mounted `.si` reflex model running in shadow mode alongside the rule engine.
+    /// Guarded by a Mutex because `SiOnlineLearner` holds mutable `Vec<Tensor>` hidden state.
+    /// The guard is held only for the duration of the 180 µs forward pass.
+    pub shadow_learner:
+        Option<Arc<parking_lot::Mutex<compute::SiOnlineLearner>>>,
+    /// Paired rolling-window concurrence tracker for the shadow learner.
+    /// Lives in the same Arc so the HUD can clone a lightweight snapshot.
+    pub concurrence_snapshot: Arc<parking_lot::RwLock<compute::ConcurrenceSnapshot>>,
 }
 
 /// Backward-compatible alias for standard control systems nomenclature
@@ -381,6 +398,10 @@ impl SupervisoryDaemon {
                 .ok()
                 .map(|b| Arc::new(parking_lot::Mutex::new(b)))
             },
+            shadow_learner: None,
+            concurrence_snapshot: Arc::new(parking_lot::RwLock::new(
+                compute::ConcurrenceSnapshot::default(),
+            )),
         })
     }
 
@@ -390,6 +411,17 @@ impl SupervisoryDaemon {
         buffer: Arc<parking_lot::Mutex<ipc_bus::ObservationBuffer>>,
     ) -> Self {
         self.observation_buffer = Some(buffer);
+        self
+    }
+
+    /// Mounts a pre-initialised `.si` learner in dual-rail shadow mode.
+    /// The learner runs a dry-run `forward_adapted_step()` on every tick
+    /// and concurrence metrics are updated in `self.concurrence_snapshot`.
+    pub fn with_shadow_learner(
+        mut self,
+        learner: Arc<parking_lot::Mutex<compute::SiOnlineLearner>>,
+    ) -> Self {
+        self.shadow_learner = Some(learner);
         self
     }
 
@@ -437,6 +469,16 @@ impl SupervisoryDaemon {
         &self,
     ) -> Arc<parking_lot::RwLock<adaptation_plane::AutonomousPacingRegulator>> {
         self.pacing_regulator.clone()
+    }
+
+    /// Return a point-in-time snapshot of shadow-model concurrence metrics.
+    /// Returns `None` if no shadow learner has been mounted.
+    pub fn read_concurrence_snapshot(&self) -> Option<compute::ConcurrenceSnapshot> {
+        if self.shadow_learner.is_some() {
+            Some(*self.concurrence_snapshot.read())
+        } else {
+            None
+        }
     }
 
     pub fn get_synapse(&self) -> Arc<RwLock<LegacySharedMemorySynapse>> {
@@ -525,6 +567,8 @@ impl SupervisoryDaemon {
         let flight_recorder = self.flight_recorder.clone();
         let smt_interlock = self.smt_interlock.clone();
         let observation_buffer = self.observation_buffer.clone();
+        let shadow_learner = self.shadow_learner.clone();
+        let concurrence_snapshot = self.concurrence_snapshot.clone();
 
         info!(target: "autonomic_loop", ?tick_rate, "heartbeat initiated");
 
@@ -1473,6 +1517,103 @@ impl SupervisoryDaemon {
                         };
                         let obs_frame = featurizer.featurize_frame(&pod, &ctx, 0, 0, 1.0);
                         let _ = obs_buf.record(obs_frame);
+                    }
+
+                    // --- DUAL-RAIL SHADOW INFERENCE (Task 3.1 / 3.2) ---
+                    // Run the mounted `.si` reflex model in dry-run shadow mode alongside the
+                    // deterministic orchestrator.  Actual opcode is 0x0000 (no rule-engine opcode
+                    // has been dispatched yet at this layer; the comparison is meaningful once the
+                    // supervisor assigns a concrete opcode).  The concurrence engine tracks rolling
+                    // agreement, updates the shared snapshot Arc, and emits a graduation event the
+                    // first time 95% rolling concurrence is achieved.
+                    if let Some(ref learner_mutex) = shadow_learner {
+                        // Build a 256-element state slice from the latent vector + scalars.
+                        // We use the first 256 floats of the live latent_vector; the model
+                        // was trained on state_dim = 256 factory-default geometry.
+                        let state_slice = {
+                            let mut s = [0.0f32; 256];
+                            let src = &state.latent_vector;
+                            let copy_len = src.len().min(256);
+                            s[..copy_len].copy_from_slice(&src[..copy_len]);
+                            // Inject scalar health signals into the tail if room.
+                            if copy_len < 256 {
+                                s[copy_len.min(255)] =
+                                    (state.integrity_score as f32) / 100.0;
+                            }
+                            s
+                        };
+
+                        match learner_mutex.lock().forward_adapted_step(&state_slice) {
+                            Ok(pred) => {
+                                let predicted_opcode = pred.predicted_opcode_id;
+                                // Actual opcode 0x0000 = idle/no-dispatch in this tick.
+                                let actual_opcode: u16 = 0;
+                                let reward = (state.integrity_score as f32
+                                    - state.concept_drift * 100.0)
+                                    .clamp(-1.0, 1.0)
+                                    / 100.0;
+
+                                let tick_result = compute::ShadowTickResult {
+                                    actual_opcode,
+                                    predicted_opcode,
+                                    confidence: pred.confidence_score,
+                                    reward,
+                                };
+
+                                // Update concurrence engine (stack-local, then write snapshot).
+                                // We can't keep a `DefaultConcurrenceEngine` on the thread stack
+                                // across ticks without boxing, so we track state in the shared
+                                // snapshot Arc and maintain a thread-local engine.
+                                //
+                                // `concurrence_engine` is a thread-local declared just below.
+                                let grad_event = CONCURRENCE_ENGINE
+                                    .with(|cell| {
+                                        // SAFETY: single-writer (this is the only thread that
+                                        // touches the engine), accessed only inside this closure.
+                                        let engine =
+                                            unsafe { &mut *cell.get() };
+                                        engine.update(tick_result)
+                                    });
+
+                                // Publish snapshot to the shared Arc so the HUD can read it.
+                                *concurrence_snapshot.write() = CONCURRENCE_ENGINE
+                                    .with(|cell| unsafe { (*cell.get()).snapshot() });
+
+                                // If graduation threshold just crossed, record a Checkpoint event.
+                                if let Some(grad) = grad_event {
+                                    if let Some(ref recorder_mutex) = flight_recorder {
+                                        let mut rec = recorder_mutex.lock();
+                                        let _ = rec.record_transition(
+                                            core_contracts::FlightEventKind::Checkpoint,
+                                            0x51, // Shadow SI subsystem
+                                            grad.tick_index,
+                                            (grad.concurrence_at_graduation * 10_000.0) as u64,
+                                            0,
+                                            &[0u8; 16],
+                                        );
+                                    }
+                                    info!(
+                                        target: "shadow_si",
+                                        tick = grad.tick_index,
+                                        concurrence = grad.concurrence_at_graduation,
+                                        "Shadow model GRADUATED: concurrence >= 95% threshold"
+                                    );
+                                }
+
+                                debug!(
+                                    target: "shadow_si",
+                                    tick = tick_count,
+                                    actual = actual_opcode,
+                                    predicted = predicted_opcode,
+                                    conf = pred.confidence_score,
+                                    reward,
+                                    "shadow tick"
+                                );
+                            }
+                            Err(e) => {
+                                debug!(target: "shadow_si", error = %e, "shadow forward step failed");
+                            }
+                        }
                     }
                 }
 
