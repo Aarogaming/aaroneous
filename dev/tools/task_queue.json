@@ -23,6 +23,76 @@
       "target_file": "crates/governance/src/constraint_inspector.rs",
       "status": "pending",
       "prompt": "Write a module `crates/governance/src/constraint_inspector.rs` that validates Z3 SMT action interlocks against state transition limits. Output pure Rust code."
+    },
+    {
+      "id": "TASK-004",
+      "title": "Test coverage for ipc_bus::mutation_intent (MutationIntent + IntentValidator)",
+      "target_file": "crates/ipc_bus/tests/mutation_intent_test.rs",
+      "status": "pending",
+      "prompt": "Write an integration test `crates/ipc_bus/tests/mutation_intent_test.rs` for `ipc_bus::mutation_intent`. Using `ipc_bus::swmr_synapse::IpcBusState::default()` and `ipc_bus::mutation_intent::MutationIntent`, assert `MutationIntent::apply` correctly updates `curiosity_drive`, `integrity_score`, `energy_budget` (4-byte little-endian u32), and `concept_drift` (4-byte little-endian f32) fields when given correctly-sized `value` bytes, leaves state unchanged for an unrecognized `field_name`, and returns an `Err` for `field_name` \"shutdown\". Separately, using `ipc_bus::mutation_intent::IntentValidator`, assert `validate` rejects a `curiosity_drive` intent with `value: vec![101]` (exceeds max 100), accepts one with `value: vec![50]`, and rejects an intent for an unknown field name. Output pure Rust code."
+    },
+    {
+      "id": "TASK-005",
+      "title": "Test coverage for ipc_bus::preparedness_notice",
+      "target_file": "crates/ipc_bus/tests/preparedness_notice_test.rs",
+      "status": "pending",
+      "prompt": "Write an integration test `crates/ipc_bus/tests/preparedness_notice_test.rs` for `ipc_bus::preparedness_notice`. Construct a `NoticeBroadcast`, subscribe a receiver, broadcast a `PreparednessNotice { generation: 7, target_field: \"latent_vector\".to_string(), timestamp: 123 }`, and assert the subscriber observes it via the `tokio::sync::watch::Receiver` (use `#[tokio::test]` and `.changed().await` then `.borrow()`). Also assert `PreparednessNotice::is_for_generation` returns true only for the matching generation id. Output pure Rust code."
+    },
+    {
+      "id": "TASK-006",
+      "title": "Test coverage for ipc_bus::shared_memory::SharedMemorySynapse",
+      "target_file": "crates/ipc_bus/tests/shared_memory_test.rs",
+      "status": "pending",
+      "prompt": "Write an integration test `crates/ipc_bus/tests/shared_memory_test.rs` for `ipc_bus::shared_memory::SharedMemorySynapse`. Using `tempfile::tempdir()` for isolation and `SharedMemorySynapse::new_at`, write a byte slice at a valid offset via `write_at` and confirm `read_at` returns the same bytes, and assert `write_at`/`read_at` return an `Err` (not a panic) when the offset plus length exceeds the synapse's allocated size. Output pure Rust code."
+    },
+    {
+      "id": "TASK-007",
+      "title": "Test coverage for omni::star_node (StarNode, StarNodeType, StarNodeStatus)",
+      "target_file": "crates/omni/tests/node_descriptor_test.rs",
+      "status": "pending",
+      "prompt": "Write an integration test `crates/omni/tests/node_descriptor_test.rs` for `omni::star_node` (aliased from `node_descriptor`). Construct a `StarNode` (check its public fields/constructor in the crate) with `StarNodeType::Feature` and `StarNodeStatus::Planned`, assert the constructed values round-trip through `serde_json::to_string`/`from_str` unchanged, and assert `StarNodeType`/`StarNodeStatus` implement `PartialEq`/`Eq`/`Hash` correctly (e.g. can be used as `HashSet` members with no unexpected collisions between distinct variants). Output pure Rust code."
+    },
+    {
+      "id": "TASK-008",
+      "title": "Test coverage for omni::protocol_bridge::OmniProtocolBridge",
+      "target_file": "crates/omni/tests/protocol_bridge_test.rs",
+      "status": "pending",
+      "prompt": "Write an integration test `crates/omni/tests/protocol_bridge_test.rs` for `omni::protocol_bridge::OmniProtocolBridge::create_snapshot`. Build an empty `HashMap<String, omni::star_node::StarNode>` and an empty `Vec<omni::galaxy_cluster::GalaxyCluster>`, call `create_snapshot`, and assert the resulting `OmniGalaxySnapshot`'s `total_stars`/`total_galaxies`/`star_nodes`/`galaxies` are all empty/zero and `omni_version` is non-empty. Output pure Rust code."
+    },
+    {
+      "id": "TASK-009",
+      "title": "Test coverage for si_ir::token (OpcodeToken, MachineTokenKind)",
+      "target_file": "crates/si_ir/tests/token_test.rs",
+      "status": "pending",
+      "prompt": "Write an integration test `crates/si_ir/tests/token_test.rs` for `si_ir::token`. Construct an `OpcodeToken::new(opcode_id, src_reg, dst_reg, aux_reg)` with distinct values for each field, assert the constructed struct's fields match exactly, assert `std::mem::size_of::<OpcodeToken>() == 8`, and assert every `MachineTokenKind` variant round-trips through `serde_json::to_string`/`from_str` unchanged. Output pure Rust code."
+    },
+    {
+      "id": "TASK-010",
+      "title": "Test coverage for compute::mdps::MarkovChain",
+      "target_file": "crates/compute/tests/mdps_test.rs",
+      "status": "pending",
+      "prompt": "Write an integration test `crates/compute/tests/mdps_test.rs` for `compute::mdps::MarkovChain`. Construct `MarkovChain::new(4)`, call `normalize`, and assert every row of `transition_matrix` sums to approximately 1.0 (within 1e-9). Using a seeded `rand::rngs::StdRng` (via `rand::SeedableRng::seed_from_u64`), call `step` many times from a fixed starting state and assert every returned state index is `< 4`. Output pure Rust code."
+    },
+    {
+      "id": "TASK-011",
+      "title": "Test coverage for compute::token_consumer (MachineToken, AdaptationError)",
+      "target_file": "crates/compute/tests/token_consumer_test.rs",
+      "status": "pending",
+      "prompt": "Write an integration test `crates/compute/tests/token_consumer_test.rs` for `compute::token_consumer`. Construct a `MachineToken` from a `[u8; 32]` array (check the type's public constructor in the crate) and assert `as_bytes()` returns exactly the original array. Also assert each `AdaptationError` variant's `Display` implementation produces a non-empty, distinct string for `InvalidTokenFormat`, `ParameterDriftExceeded(0.5)`, and `CovarianceSingularity`. Output pure Rust code."
+    },
+    {
+      "id": "TASK-012",
+      "title": "Test coverage for orchestrator::llm::types (LLMConfig, ProviderType)",
+      "target_file": "crates/orchestrator/tests/llm_types_test.rs",
+      "status": "pending",
+      "prompt": "Write an integration test `crates/orchestrator/tests/llm_types_test.rs` for `orchestrator::llm::types`. Assert `LLMConfig::default()` has `provider_type: ProviderType::Mock`, `model_name: \"mock\"`, `temperature: 0.7`, `max_tokens: 4096`, and `enable_caching: false`. Assert every `ProviderType` variant (`OpenAI`, `GGUF`, `Mock`) round-trips through `serde_json::to_string`/`from_str` unchanged. Output pure Rust code."
+    },
+    {
+      "id": "TASK-013",
+      "title": "Test coverage for adaptation_engine::analysis::tensor_extractor::TensorExtractor",
+      "target_file": "crates/adaptation_engine/tests/tensor_extractor_test.rs",
+      "status": "pending",
+      "prompt": "Write an integration test `crates/adaptation_engine/tests/tensor_extractor_test.rs` for `adaptation_engine::analysis::tensor_extractor::TensorExtractor`. Construct a `TensorExtractor::new()`, build two identical `[f32; 4]` feature vectors via `extract_features`, and assert `compute_similarity` between them is approximately 1.0 (within 1e-4). Build two orthogonal vectors (e.g. `[1.0, 0.0, 0.0, 0.0]` and `[0.0, 1.0, 0.0, 0.0]`) and assert their similarity is approximately 0.0. Assert `compute_similarity` returns `Ok(0.0)`, not an error, when one input is the all-zero vector. Output pure Rust code."
     }
   ]
 }

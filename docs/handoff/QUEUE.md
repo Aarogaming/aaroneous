@@ -34,3 +34,70 @@ Do not start an item another session has already claimed.
 - [x] (completed: Antigravity session, 2026-09-16) Expand aaroneous-devtools migration: sdk/python/, data/extensions/python/ and win32_intercept/, standalone PowerShell deployment utilities (install.ps1, package_release.ps1, uninstall.ps1). Cloned to d:\aaroneous-devtools, committed, and pushed to Aarogaming/aaroneous-devtools (commit b7f403b).
 - [x] (completed: Antigravity session, 2026-09-16) Wave 11: Systems architecture & deep terminology cleanup (rename `crates/autonomic_adaptation` → `crates/adaptation_plane`, systems refactor of `auto_wrapper.rs`, excise legacy compatibility aliases in `hypervisor` and `ipc_bus`). Commit: 6a80fb2.
 - [x] (completed: Antigravity session, 2026-09-16) Wave 13: Full verification gate protocol (`cargo check --all-targets`, `cargo test`, `ast_auditor` 730 files with 0 violations, zero-stub grep inspection, `emulator_harness`, `cargo xtask gate` PASS).
+
+## Local Agent Autonomous Processing — read before trusting a "completed" entry
+
+`scripts/local_agent_daemon.ps1` works through `dev/tools/task_queue.json` against
+a **local** Ollama model (`qwen3.5:9b-q6`, no billable API cost), one task at a
+time, retrying up to `max_retries` with the compiler error fed back into the
+prompt on failure. As of 2026-09-18 it's being run semi-continuously (a ~2-minute
+cycle) rather than one-off, so `dev/tools/task_queue.json` should be kept
+topped up with well-scoped work — see the newly-added TASK-004..013 below for
+the shape a good entry takes.
+
+**Its own verification is `cargo fmt` + `cargo check -p <crate>` only — it
+proves the generated file compiles, not that it's correct.** No `cargo test`,
+no `clippy`, no semantic review. Treat every entry `local_agent_daemon.ps1`
+marks `"completed"` in `dev/tools/agent_progress_log.md` as **pending human/Claude
+review**, not done-done, until a session has actually run its tests and read
+the diff. Only new, self-contained files are safe to queue for it (it
+overwrites `target_file` wholesale — never point it at an existing file with
+real logic already in it, only genuinely new test files or new standalone
+modules). If you review a completed entry, note that in this file or the
+progress log (`- reviewed by <who>, <date>: <verdict>`) so the next session
+doesn't re-review it.
+
+## Backlog — Unsafe Safety-Comment Documentation Sweep
+
+`ast_auditor`'s `SafetyCommentVisitor` (wired into the audit pipeline in
+`chore/wire-ipc_bus-hardening`, PR #46) found 90 pre-existing unsafe blocks
+workspace-wide with no `// SAFETY:` comment, left out of scope for that PR.
+It's collected and printed by `cargo run -p ast_auditor -- audit <paths>` but
+**not yet gating** (`UnifiedAuditReport::has_failures()` deliberately excludes
+it — see the doc comment on that method) until this debt is cleared. Each
+crate below is an independent, separately-claimable unit — same pattern PR #46
+used for `ipc_bus`/`wire`: read each flagged unsafe block, understand *why*
+it's actually sound (or fix it if it isn't), write the rationale as a
+`// SAFETY:` comment on the line immediately before the `unsafe` token (the
+checker's window is narrow — see the doc comment on
+`SafetyCommentVisitor::check_safety_comment` for the exact off-by-one before
+writing multi-line comments). Re-run the audit command after each crate to
+confirm its count hits zero. Once all seven are clear, flip
+`safety_comment_violations` into `has_failures()` as a follow-up PR.
+
+- [ ] `core/hypervisor` (largest — `hid_driver/platform.rs`, `wgpu_reflex_pipeline.rs`, `cellular_automata.rs`, `supervisory_loop.rs`, `state/ring_buffer.rs`, `signal_bridge.rs`, `bin/hypervisor.rs`, `native_ingestion/{simd_xor_delta,shmem_capture}.rs`, `screen_capture.rs`, `substrate.rs` — ~25 sites)
+- [ ] `crates/compute` (`wx_memory.rs`, `si_ssm.rs`, `cranelift_jit.rs`, `si_tool.rs`, `si_jit.rs`, `si_spec.rs`, `isolated_desktop.rs`, `si_packer.rs`, `si_solid_state.rs`, `si_macro.rs` — ~22 sites; this is the JIT/W^X memory crate, so get the rationale right, not just present)
+- [ ] `crates/platform_bridge` (`observability/rdtsc.rs`, `window_target.rs`, `native_win32.rs` — ~15 sites, mostly raw Win32 FFI boundary calls)
+- [ ] `crates/orchestrator` (`tier_allocator.rs` — 1 site)
+- [ ] `crates/si_ir` (`lib.rs:624` — 1 site)
+- [ ] `crates/studio_hud` (`summon.rs`, `state.rs` — 2 sites)
+- [ ] `dev/emulator_harness` (`tests/zero_allocation_allocator.rs` — 2 sites)
+
+## Backlog — Further Capability-Catalog Growth
+
+`workspace.health_audit` (PR #44) proved the pattern: a pure-Rust, no-subprocess
+diagnostic `UniversalTool` that immediately finds real, pre-existing bugs just
+by running it. Same shape, new targets — each is a new tool in
+`crates/capabilities/src/tools.rs` (or a new file if it gets large), registered
+in `build_standard_tool_registry()`, with its own regression test run against
+the real workspace like `the_real_aaroneous_workspace_has_no_orphaned_crate_dirs`:
+
+- [ ] `workspace.duplicate_test_names`: scan `#[test]`/`#[tokio::test]` function names across the workspace and flag exact-name collisions across different files/modules — easy to introduce by copy-paste, easy for `cargo test <name>` to silently run the wrong one.
+- [ ] `workspace.stale_todo_sweep`: grep-equivalent AST scan for `TODO`/`FIXME`/`XXX` comments, cross-referenced against `git blame` age, surfacing ones older than a configurable threshold (e.g. 90 days) as likely-abandoned.
+- [ ] `workspace.unused_pub_api`: cross-reference `pub fn`/`pub struct` declarations against actual in-workspace call sites (excluding `#[cfg(test)]`) to find dead public API surface a normal `cargo check` can't catch (since `pub` items are never "unused" from a single crate's own perspective).
+- [ ] `workspace.unsafe_without_safety_comment`: this is now genuinely redundant with `ast_auditor`'s `SafetyCommentVisitor` above (built the same week, independently) — **don't build this one**, wire the capability tool to shell out to `ast_auditor` instead if this is ever needed at the MCP/LLM tool layer.
+
+## Backlog — Standing Items
+
+- [ ] **Branch cleanup**: 13 remote branches are fully merged (confirmed via ancestry or matching each squash-merged PR's timestamp with no later pushes) and ready to delete: `cleanup/dead-plugin-loading`, `docs/master-roadmap-corruption-fix`, `fix/axum-0.8-router-syntax`, `fix/eframe-0.36-show-inside-rename`, `fix/iroh-1.x-upgrade`, `fix/rusqlite-0.40-u64-cast`, `rfc0006/plugin-abi-poc`, `codex/repository-hardening`, `wip/engine-crates`, `feature/cratify-batch2-hypervisor`, `feature/cratify-legacy-refactor`, `refactor/strip-analogies`, `feat/capabilities-workspace-health-tool`. Blocked on `git push --delete` being denied by the sandboxed session's permission classifier ("Git Destructive") with no GitHub delete-branch MCP tool available as a workaround — needs either a Bash permission grant or manual cleanup from GitHub's branch list.
+- [ ] **RFC-0006 real implementation**: the proof-of-concept (`dev/rfc0006_poc/`, merged) proved the command-buffer plugin ABI design satisfies all five Section 8 acceptance criteria. `crates/api` is still a 9-line empty shell — the actual `studio_hud` plugin-loading integration described in `docs/rfcs/RFC-0006-PLUGIN_LIFECYCLE_AND_STABLE_UI_CARTRIDGE_ABI.md` doesn't exist yet. This is the next real frontier, not yet broken down into sub-tasks — worth a dedicated planning pass (not a single-session claim) before splitting into claimable items here.
