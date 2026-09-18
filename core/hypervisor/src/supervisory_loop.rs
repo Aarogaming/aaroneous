@@ -23,6 +23,14 @@ const DEFAULT_MAX_TICKS: u64 = 86_400; // 24h at 1Hz
 
 pub struct LegacySharedMemorySynapse {
     mmap: MmapMut,
+    /// Kept alive (never read/written directly outside `Self::new`) so
+    /// `write`/`read` can take an advisory `flock`/`LockFileEx` lock on it
+    /// via `std::fs::File::lock`/`lock_shared`. The synapse file is also
+    /// opened directly by
+    /// external processes (e.g. the `hypervisor inject` CLI command) that
+    /// cooperate with the same locking discipline - see `write`/`read`
+    /// below for why that's required.
+    file: std::fs::File,
     _path: PathBuf,
 }
 
@@ -42,16 +50,28 @@ impl LegacySharedMemorySynapse {
         // `file` was just opened/created by this call and sized to `size`
         // bytes via `set_len` immediately above, so the mapping request is
         // backed by a file of the expected length. `mmap_mut` requires that
-        // the file not be truncated by another process while mapped; this
-        // struct owns the only handle created here and nothing else in this
-        // codebase references the same synapse path concurrently.
-        // SAFETY: file is freshly sized and sole-owned; see rationale above.
+        // the file not be truncated while mapped; external cooperating
+        // writers (e.g. the `inject` CLI command) never call `set_len` on
+        // this path, only `write`/`read` under the advisory lock below, so
+        // the mapping's length stays stable for this struct's lifetime.
+        // SAFETY: file is freshly sized and never truncated after; see rationale above.
         let mmap = unsafe { MmapOptions::new().map_mut(&file)? };
 
-        Ok(Self { mmap, _path: path })
+        Ok(Self {
+            mmap,
+            file,
+            _path: path,
+        })
     }
 
     pub fn write(&self, offset: usize, data: &[u8]) -> Result<()> {
+        // Cross-process writers (this daemon's own tick loop and the
+        // `hypervisor inject` CLI command, running as a separate process
+        // against the same mmap) both go through this method, so an
+        // exclusive advisory lock here is what actually prevents a torn
+        // write - two processes interleaving their byte copies into the
+        // same region - not just documents the risk.
+        self.file.lock()?;
         let ptr = self.mmap.as_ptr() as *mut u8;
         // `ptr` is derived from `self.mmap`, which stays valid for the
         // lifetime of `self` and is at least `size` bytes long (the length
@@ -63,10 +83,15 @@ impl LegacySharedMemorySynapse {
         unsafe {
             std::ptr::copy_nonoverlapping(data.as_ptr(), ptr.add(offset), data.len());
         }
+        self.file.unlock()?;
         Ok(())
     }
 
     pub fn read(&self, offset: usize, len: usize) -> Result<Vec<u8>> {
+        // Shared lock: excludes a concurrent `write` (which takes the
+        // exclusive lock above) so this never observes a torn write, while
+        // still allowing other readers to proceed concurrently.
+        self.file.lock_shared()?;
         let mut buf = vec![0u8; len];
         let ptr = self.mmap.as_ptr();
         // `ptr` is derived from `self.mmap`, which stays valid for the
@@ -78,6 +103,7 @@ impl LegacySharedMemorySynapse {
         unsafe {
             std::ptr::copy_nonoverlapping(ptr.add(offset), buf.as_mut_ptr(), len);
         }
+        self.file.unlock()?;
         Ok(buf)
     }
 }
@@ -1537,6 +1563,84 @@ mod tests {
             SYNAPSE_INTENT_PAYLOAD_OFFSET + SYNAPSE_INTENT_PAYLOAD_CAPACITY
                 <= std::mem::size_of::<SynapseState>()
         );
+    }
+
+    /// Regression test for the torn-write bug fixed alongside this test:
+    /// `LegacySharedMemorySynapse::write`/`read` used to copy bytes into/out
+    /// of the mmap with no synchronization at all, so a concurrent writer
+    /// (this daemon's own tick loop and the `hypervisor inject` CLI command,
+    /// a *separate process* against the same mmap) could interleave its
+    /// `copy_nonoverlapping` with another writer's, producing a spliced
+    /// `SynapseState` that belongs to neither write. `write`/`read` now take
+    /// an exclusive/shared advisory lock on the backing file for the
+    /// duration of the copy. This drives many threads (standing in for
+    /// concurrent processes sharing the same fd-locking discipline, since
+    /// `flock`/`LockFileEx` locks are per-open-file-description/handle, not
+    /// per-thread) each writing a `SynapseState` whose `intent_payload` is
+    /// uniformly filled with that thread's own marker byte, interleaved
+    /// with concurrent readers, and asserts every read is either an
+    /// untouched zero-filled state or has a fully uniform `intent_payload`
+    /// - never a mix of two threads' marker bytes, which is what torn
+    /// writes would produce.
+    #[test]
+    fn test_synapse_concurrent_write_read_never_tears() {
+        let synapse_name = "test_synapse_concurrent_write_read_never_tears";
+        let size = std::mem::size_of::<SynapseState>();
+        // `flock`/`LockFileEx` locks apply per open-file-description (per
+        // `open()` call), not per-thread and not per-process: two locks
+        // taken through the *same* fd never contend with each other. So
+        // each simulated writer/reader below opens its own
+        // `LegacySharedMemorySynapse` (its own `File`/fd) against the same
+        // path, exactly as the daemon process and a separately-invoked
+        // `hypervisor inject` CLI process each would - a single shared `Arc`
+        // over one instance would not exercise the lock at all.
+        LegacySharedMemorySynapse::new(synapse_name, size).expect("size the synapse file");
+
+        const WRITER_THREADS: u8 = 6;
+        const ITERATIONS_PER_WRITER: usize = 200;
+
+        let mut handles = Vec::new();
+
+        for marker in 0..WRITER_THREADS {
+            handles.push(thread::spawn(move || {
+                let synapse =
+                    LegacySharedMemorySynapse::new(synapse_name, size).expect("writer synapse");
+                for _ in 0..ITERATIONS_PER_WRITER {
+                    let mut state = SynapseState::default();
+                    state.clock_tick = marker as u64;
+                    state.intent_vector_id = [marker; 16];
+                    state.intent_payload = [marker; 4096];
+                    SupervisoryDaemon::write_state(&synapse, &state);
+                }
+            }));
+        }
+
+        for _ in 0..(WRITER_THREADS as usize * 2) {
+            handles.push(thread::spawn(move || {
+                let synapse =
+                    LegacySharedMemorySynapse::new(synapse_name, size).expect("reader synapse");
+                for _ in 0..ITERATIONS_PER_WRITER {
+                    let state = SupervisoryDaemon::read_state(&synapse);
+                    let first = state.intent_payload[0];
+                    assert!(
+                        state.intent_payload.iter().all(|&b| b == first),
+                        "torn read: intent_payload is not uniformly {first:#x}, \
+                         a concurrent write was observed partially applied"
+                    );
+                    // `intent_vector_id` and `clock_tick` are written from the
+                    // same source `state` in the same `write_state` call as
+                    // `intent_payload`, so they must agree with it too if the
+                    // whole struct was copied atomically with respect to
+                    // other writers.
+                    assert!(state.intent_vector_id.iter().all(|&b| b == first));
+                    assert_eq!(state.clock_tick, first as u64);
+                }
+            }));
+        }
+
+        for handle in handles {
+            handle.join().expect("thread panicked");
+        }
     }
 
     #[test]

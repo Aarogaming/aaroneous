@@ -50,7 +50,9 @@ exclude = [
 [workspace.package]
 version = "0.3.2"
 edition = "2024"
-rust-version = "1.85"
+# 1.89 for std::fs::File::lock/lock_shared/try_lock/unlock (used by
+# core/hypervisor's synapse file locking).
+rust-version = "1.89"
 authors = ["Aaron"]
 description = "Sovereign machine-native synthetic intelligence runtime and desktop hypervisor"
 license = "MIT"

@@ -479,6 +479,13 @@ fn run_cli(cli: Cli) -> Result<()> {
                 );
             }
 
+            // Take the same exclusive advisory lock `LegacySharedMemorySynapse::write`
+            // takes for the daemon's own tick loop, so this CLI process's byte
+            // copies below can't interleave with (and get torn by, or torn
+            // into) a concurrently running daemon's `write_state` dump of the
+            // whole struct.
+            file.lock()?;
+
             let task_id = Uuid::new_v4();
             let id_bytes = task_id.as_bytes();
 
@@ -492,6 +499,8 @@ fn run_cli(cli: Cli) -> Result<()> {
                 .copy_from_slice(&payload[..payload_len]);
             mmap[payload_start + payload_len..payload_start + SYNAPSE_INTENT_PAYLOAD_CAPACITY]
                 .fill(0);
+
+            file.unlock()?;
 
             println!("Intent injected with Task ID: {}", task_id);
             Ok(())
