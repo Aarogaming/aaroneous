@@ -33,6 +33,7 @@ members = [
     "crates/orchestration_plane",
     "crates/compliance_auditor",
     "xtask",
+    "benches",
 ]
 
 exclude = [

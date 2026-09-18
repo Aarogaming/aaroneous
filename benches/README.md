@@ -5,34 +5,15 @@ Performance benchmarks for Aaroneous core components. All latency and throughput
 ## Running
 
 ```bash
-# Run all benchmarks
+# From workspace root
+cd benches
 cargo bench
 
 # Run specific benchmark
 cargo bench --bench ssm_inference
 cargo bench --bench adaptation_latency
 cargo bench --bench mcp_tool_dispatch
-```
-
-## Setup
-
-Add to workspace `Cargo.toml`:
-
-```toml
-[dev-dependencies]
-criterion = { version = "0.5", features = ["html_reports"] }
-
-[[bench]]
-name = "ssm_inference"
-harness = false
-
-[[bench]]
-name = "adaptation_latency"
-harness = false
-
-[[bench]]
-name = "mcp_tool_dispatch"
-harness = false
+cargo bench --bench si_mount
 ```
 
 ## Adding Benchmarks
@@ -49,8 +30,8 @@ harness = false
 | `ssm_inference` | `compute` | Single-pass state-to-action inference latency | Pending |
 | `adaptation_latency` | `autonomic_adaptation` | Error steering gradient step time | Pending |
 | `mcp_tool_dispatch` | `capabilities` | UniversalTool JSON→latent→JSON round trip | Pending |
+| `si_mount` | `si_format` | `.si` cartridge memmap mount + magic validation | Pending |
 | `ipc_throughput` | `ipc_bus` | SWMR ring buffer frames per second | Pending |
-| `memmap_load` | `si_format` | `.si` cartridge mount-to-ready time | Pending |
 
 ## Recording Results
 
