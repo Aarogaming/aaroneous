@@ -1,21 +1,21 @@
-// Predictive Metabolic Governor
-// Uses Monte Carlo simulation to forecast metabolic load and adjust expression rates
+// Predictive Load Governor
+// Uses Monte Carlo simulation to forecast load and adjust execution rates
 
-use crate::biology::SystemBiology;
+use crate::system_limits::SystemHealthGovernor;
 use compute::stochastic;
 use rand::SeedableRng;
 
-/// Configuration for the predictive metabolic governor
+/// Configuration for the predictive load governor
 #[derive(Debug, Clone)]
-pub struct MetabolicGovernorConfig {
+pub struct LoadGovernorConfig {
     pub monte_carlo_iterations: usize,
     pub risk_threshold: f64,      // Threshold for throttling (0.0-1.0)
-    pub recovery_rate: f32,       // How fast to recover expression rate
+    pub recovery_rate: f32,       // How fast to recover execution rate
     pub panic_threshold: f64,     // Threshold for emergency throttling
     pub prediction_window: usize, // Number of future steps to predict
 }
 
-impl Default for MetabolicGovernorConfig {
+impl Default for LoadGovernorConfig {
     fn default() -> Self {
         Self {
             monte_carlo_iterations: 500,
@@ -27,16 +27,16 @@ impl Default for MetabolicGovernorConfig {
     }
 }
 
-/// Predictive metabolic governor
-pub struct PredictiveMetabolicGovernor {
-    pub config: MetabolicGovernorConfig,
+/// Predictive load governor using Monte Carlo forecasting
+pub struct PredictiveLoadGovernor {
+    pub config: LoadGovernorConfig,
     pub rng: rand::rngs::StdRng,
-    pub historical_load: Vec<f64>, // Recent metabolic load measurements
+    pub historical_load: Vec<f64>, // Recent load measurements
     pub max_history: usize,
 }
 
-impl PredictiveMetabolicGovernor {
-    pub fn new(config: MetabolicGovernorConfig) -> Self {
+impl PredictiveLoadGovernor {
+    pub fn new(config: LoadGovernorConfig) -> Self {
         Self {
             config,
             rng: rand::rngs::StdRng::from_entropy(),
@@ -45,7 +45,7 @@ impl PredictiveMetabolicGovernor {
         }
     }
 
-    /// Record a new metabolic load measurement
+    /// Record a new load measurement
     pub fn record_load(&mut self, load: f64) {
         self.historical_load.push(load);
         if self.historical_load.len() > self.max_history {
@@ -53,10 +53,10 @@ impl PredictiveMetabolicGovernor {
         }
     }
 
-    /// Run Monte Carlo prediction to forecast future metabolic load
-    pub fn predict_metabolic_risk(&mut self) -> MetabolicForecast {
+    /// Run Monte Carlo prediction to forecast future load
+    pub fn predict_load_risk(&mut self) -> LoadForecast {
         if self.historical_load.is_empty() {
-            return MetabolicForecast::default();
+            return LoadForecast::default();
         }
 
         // Run Monte Carlo simulation on historical load
@@ -85,44 +85,43 @@ impl PredictiveMetabolicGovernor {
             }
         };
 
-        MetabolicForecast {
+        LoadForecast {
             predicted_mean,
             predicted_std,
             p95_load: p95,
             risk_score,
-            recommended_expression_rate: self
-                .calculate_recommended_rate(risk_score, predicted_mean),
+            recommended_execution_rate: self.calculate_recommended_rate(risk_score, predicted_mean),
         }
     }
 
-    /// Apply governor decision to the biology system
-    pub fn apply_governance(&mut self, biology: &mut SystemBiology) -> GovernanceAction {
-        let forecast = self.predict_metabolic_risk();
+    /// Apply governor decision to the resource system
+    pub fn apply_governance(&mut self, system: &mut SystemHealthGovernor) -> GovernanceAction {
+        let forecast = self.predict_load_risk();
 
         if forecast.risk_score > self.config.panic_threshold {
             // Emergency: drastic throttling
-            let old_rate = biology.expression_rate;
-            biology.set_expression_rate((biology.expression_rate * 0.3).max(0.1));
+            let old_rate = system.execution_rate;
+            system.set_execution_rate((system.execution_rate * 0.3).max(0.1));
             GovernanceAction::EmergencyThrottle {
                 old_rate,
-                new_rate: biology.expression_rate,
+                new_rate: system.execution_rate,
                 forecast,
             }
         } else if forecast.risk_score > self.config.risk_threshold {
             // Warning: moderate throttling
-            let old_rate = biology.expression_rate;
-            let new_rate = (biology.expression_rate * 0.7).max(0.3);
-            biology.set_expression_rate(new_rate);
+            let old_rate = system.execution_rate;
+            let new_rate = (system.execution_rate * 0.7).max(0.3);
+            system.set_execution_rate(new_rate);
             GovernanceAction::WarningThrottle {
                 old_rate,
                 new_rate,
                 forecast,
             }
-        } else if forecast.risk_score < 0.3 && biology.expression_rate < 1.0 {
+        } else if forecast.risk_score < 0.3 && system.execution_rate < 1.0 {
             // Safe: gradual recovery
-            let old_rate = biology.expression_rate;
-            let new_rate = (biology.expression_rate + self.config.recovery_rate).min(1.0);
-            biology.set_expression_rate(new_rate);
+            let old_rate = system.execution_rate;
+            let new_rate = (system.execution_rate + self.config.recovery_rate).min(1.0);
+            system.set_execution_rate(new_rate);
             GovernanceAction::Recovery {
                 old_rate,
                 new_rate,
@@ -133,7 +132,7 @@ impl PredictiveMetabolicGovernor {
         }
     }
 
-    /// Calculate recommended expression rate based on forecast
+    /// Calculate recommended execution rate based on forecast
     fn calculate_recommended_rate(&self, risk_score: f64, predicted_mean: f64) -> f32 {
         if risk_score > self.config.panic_threshold {
             0.2
@@ -149,22 +148,22 @@ impl PredictiveMetabolicGovernor {
 
 /// Forecast result from Monte Carlo prediction
 #[derive(Debug, Clone)]
-pub struct MetabolicForecast {
+pub struct LoadForecast {
     pub predicted_mean: f64,
     pub predicted_std: f64,
     pub p95_load: f64,
     pub risk_score: f64, // 0.0-1.0, probability of overload
-    pub recommended_expression_rate: f32,
+    pub recommended_execution_rate: f32,
 }
 
-impl Default for MetabolicForecast {
+impl Default for LoadForecast {
     fn default() -> Self {
         Self {
             predicted_mean: 0.5,
             predicted_std: 0.1,
             p95_load: 0.8,
             risk_score: 0.5,
-            recommended_expression_rate: 0.8,
+            recommended_execution_rate: 0.8,
         }
     }
 }
@@ -175,20 +174,20 @@ pub enum GovernanceAction {
     EmergencyThrottle {
         old_rate: f32,
         new_rate: f32,
-        forecast: MetabolicForecast,
+        forecast: LoadForecast,
     },
     WarningThrottle {
         old_rate: f32,
         new_rate: f32,
-        forecast: MetabolicForecast,
+        forecast: LoadForecast,
     },
     Recovery {
         old_rate: f32,
         new_rate: f32,
-        forecast: MetabolicForecast,
+        forecast: LoadForecast,
     },
     Stable {
-        forecast: MetabolicForecast,
+        forecast: LoadForecast,
     },
 }
 
@@ -213,11 +212,11 @@ fn erf(x: f64) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::biology::SystemBiology;
+    use crate::system_limits::SystemHealthGovernor;
 
     #[test]
     fn test_governor_records_load() {
-        let mut governor = PredictiveMetabolicGovernor::new(MetabolicGovernorConfig::default());
+        let mut governor = PredictiveLoadGovernor::new(LoadGovernorConfig::default());
         governor.record_load(0.5);
         governor.record_load(0.6);
         governor.record_load(0.7);
@@ -226,25 +225,25 @@ mod tests {
 
     #[test]
     fn test_governor_predicts_risk() {
-        let mut governor = PredictiveMetabolicGovernor::new(MetabolicGovernorConfig::default());
+        let mut governor = PredictiveLoadGovernor::new(LoadGovernorConfig::default());
         governor.record_load(0.5);
         governor.record_load(0.6);
         governor.record_load(0.7);
-        let forecast = governor.predict_metabolic_risk();
+        let forecast = governor.predict_load_risk();
         assert!(forecast.predicted_mean > 0.0);
         assert!(forecast.risk_score >= 0.0 && forecast.risk_score <= 1.0);
     }
 
     #[test]
     fn test_governor_applies_throttle() {
-        let mut governor = PredictiveMetabolicGovernor::new(MetabolicGovernorConfig::default());
+        let mut governor = PredictiveLoadGovernor::new(LoadGovernorConfig::default());
         // Simulate high load history
         for _ in 0..20 {
             governor.record_load(0.9);
         }
 
-        let mut biology = SystemBiology::new();
-        let action = governor.apply_governance(&mut biology);
+        let mut system = SystemHealthGovernor::new();
+        let action = governor.apply_governance(&mut system);
 
         match action {
             GovernanceAction::WarningThrottle { new_rate, .. }

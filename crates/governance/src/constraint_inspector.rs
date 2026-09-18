@@ -2,7 +2,7 @@
 //! Constraint inspector validating SMT action interlocks against state transition limits.
 //!
 //! Evaluates computational graph state transitions against mathematical interlock constraints,
-//! thermodynamic dissipation bounds, Z3 SMT non-interference, and system throttle states.
+//! interference checking, interference checking, and system throttle states.
 
 use serde::{Deserialize, Serialize};
 use si_ir::NativeComputationalGraph;
@@ -56,7 +56,7 @@ impl ConstraintInspector {
     pub fn effective_energy_bound(&self, throttle_state: ThrottleState) -> f64 {
         match throttle_state {
             ThrottleState::Normal => self.base_free_energy_bound,
-            ThrottleState::Metabolic => self.base_free_energy_bound * 0.5,
+            ThrottleState::Throttled => self.base_free_energy_bound * 0.5,
             ThrottleState::Dormant => 0.0,
         }
     }
@@ -75,7 +75,7 @@ impl ConstraintInspector {
                 is_valid: false,
                 throttle_state,
                 effective_energy_bound: effective_bound,
-                actual_energy_dissipation: graph.thermodynamic_free_energy,
+                actual_energy_dissipation: graph.accumulated_energy_cost,
                 audit_certificate: None,
                 diagnostic: Some(
                     "Emergency killswitch is active; transition forbidden.".to_string(),
@@ -88,7 +88,7 @@ impl ConstraintInspector {
                 is_valid: false,
                 throttle_state,
                 effective_energy_bound: effective_bound,
-                actual_energy_dissipation: graph.thermodynamic_free_energy,
+                actual_energy_dissipation: graph.accumulated_energy_cost,
                 audit_certificate: None,
                 diagnostic: Some(
                     "System is in Dormant throttle state; transitions disallowed.".to_string(),
@@ -96,16 +96,16 @@ impl ConstraintInspector {
             };
         }
 
-        if graph.thermodynamic_free_energy > effective_bound {
+        if graph.accumulated_energy_cost > effective_bound {
             return ConstraintInspectionReport {
                 is_valid: false,
                 throttle_state,
                 effective_energy_bound: effective_bound,
-                actual_energy_dissipation: graph.thermodynamic_free_energy,
+                actual_energy_dissipation: graph.accumulated_energy_cost,
                 audit_certificate: None,
                 diagnostic: Some(format!(
                     "Thermodynamic dissipation {:.4} exceeds effective throttle bound {:.4}",
-                    graph.thermodynamic_free_energy, effective_bound
+                    graph.accumulated_energy_cost, effective_bound
                 )),
             };
         }
@@ -115,7 +115,7 @@ impl ConstraintInspector {
                 is_valid: cert.is_authorized,
                 throttle_state,
                 effective_energy_bound: effective_bound,
-                actual_energy_dissipation: graph.thermodynamic_free_energy,
+                actual_energy_dissipation: graph.accumulated_energy_cost,
                 audit_certificate: Some(cert),
                 diagnostic: None,
             },
@@ -123,7 +123,7 @@ impl ConstraintInspector {
                 is_valid: false,
                 throttle_state,
                 effective_energy_bound: effective_bound,
-                actual_energy_dissipation: graph.thermodynamic_free_energy,
+                actual_energy_dissipation: graph.accumulated_energy_cost,
                 audit_certificate: None,
                 diagnostic: Some(err.to_string()),
             },
@@ -176,7 +176,7 @@ mod tests {
 
     fn make_test_graph(energy: f64) -> NativeComputationalGraph {
         let mut graph = NativeComputationalGraph::new();
-        graph.thermodynamic_free_energy = energy;
+        graph.accumulated_energy_cost = energy;
         graph.nodes.insert(
             1,
             NativeComputationNode {
@@ -211,10 +211,10 @@ mod tests {
     }
 
     #[test]
-    fn test_metabolic_throttle_tighter_bound() {
+    fn test_throttle_tighter_bound() {
         let inspector = ConstraintInspector::new(0.10);
         let mut health = SystemHealthGovernor::new();
-        health.set_expression_rate(0.65); // ThrottleState::Metabolic, effective bound = 0.05
+        health.set_execution_rate(0.65); // ThrottleState::Throttled, effective bound = 0.05
 
         let low_energy_graph = make_test_graph(0.03);
         let report_pass = inspector.inspect_transition(&health, &low_energy_graph);
@@ -235,7 +235,7 @@ mod tests {
     fn test_dormant_throttle_rejection() {
         let inspector = ConstraintInspector::new(0.10);
         let mut health = SystemHealthGovernor::new();
-        health.set_expression_rate(0.40); // ThrottleState::Dormant
+        health.set_execution_rate(0.40); // ThrottleState::Dormant
 
         let graph = make_test_graph(0.01);
         let report = inspector.inspect_transition(&health, &graph);

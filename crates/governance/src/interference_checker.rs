@@ -1,4 +1,4 @@
-//! crates/governance/src/z3_prover.rs
+//! crates/governance/src/interference_checker.rs
 //! Formal Verification & SMT Non-Interference Prover Gate for SI Graphs.
 //! Evaluates whether two concurrent computational graphs (`NativeComputationalGraph`)
 //! have disjoint write/read footprints and can safely execute in parallel or be merged
@@ -25,18 +25,18 @@ pub struct NonInterferenceReport {
 }
 
 /// SMT / Formal Non-Interference Prover
-pub struct Z3Prover {
+pub struct InterferenceChecker {
     #[allow(dead_code)]
     timeout_ms: u32,
 }
 
-impl Default for Z3Prover {
+impl Default for InterferenceChecker {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl Z3Prover {
+impl InterferenceChecker {
     pub fn new() -> Self {
         Self { timeout_ms: 1000 }
     }
@@ -223,8 +223,8 @@ mod tests {
     use si_ir::{DimensionalUnit, NativeComputationNode, NativeTypeLattice};
 
     #[test]
-    fn test_z3_prover_disjoint_graphs_non_interference() {
-        let prover = Z3Prover::new();
+    fn test_interference_checker_disjoint_graphs_non_interference() {
+        let prover = InterferenceChecker::new();
 
         let mut graph_a = NativeComputationalGraph::new();
         graph_a.add_node(NativeComputationNode {
@@ -255,8 +255,8 @@ mod tests {
     }
 
     #[test]
-    fn test_z3_prover_detects_write_conflict() {
-        let prover = Z3Prover::new();
+    fn test_interference_checker_detects_write_conflict() {
+        let prover = InterferenceChecker::new();
 
         let mut graph_a = NativeComputationalGraph::new();
         graph_a.add_node(NativeComputationNode {
@@ -294,8 +294,8 @@ mod tests {
     }
 
     #[test]
-    fn test_z3_prover_memory_safety_bounds() {
-        let prover = Z3Prover::new();
+    fn test_interference_checker_memory_safety_bounds() {
+        let prover = InterferenceChecker::new();
 
         let mut safe_graph = NativeComputationalGraph::new();
         safe_graph.add_node(NativeComputationNode {
@@ -330,8 +330,8 @@ mod tests {
     }
 
     #[test]
-    fn test_z3_prover_strict_non_interference() {
-        let prover = Z3Prover::new();
+    fn test_interference_checker_strict_non_interference() {
+        let prover = InterferenceChecker::new();
 
         let mut graph_a = NativeComputationalGraph::new();
         graph_a.add_node(NativeComputationNode {
