@@ -29,7 +29,7 @@ bytemuck = { version = "1.12", features = ["derive"] }
 
 # Cranelift Native JIT compilation
 cranelift-codegen = "0.135"
-cranelift-frontend = "0.116"
+cranelift-frontend = "0.135"
 target-lexicon = "0.13"
 
 [target.'cfg(target_os = "windows")'.dependencies]
