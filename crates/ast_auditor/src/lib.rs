@@ -27,6 +27,7 @@ pub use self::rules::no_ambient_authority::{AmbientAuthorityVisitor, AmbientViol
 pub use self::rules::no_workspace_prefix_stutter::{
     PrefixStutterViolation, PrefixStutterVisitor, audit_manifest_stutter,
 };
+pub use self::rules::safety_comments::{SafetyCommentViolation, SafetyCommentVisitor};
 pub use self::rules::text_encoding::{
     EncodingViolation, audit_file_encoding, audit_tracked_encodings,
 };
@@ -43,6 +44,7 @@ pub struct UnifiedAuditReport {
     pub hot_path_violations: Vec<HotPathAllocViolation>,
     pub prefix_stutter_violations: Vec<PrefixStutterViolation>,
     pub memory_geometry_violations: Vec<MemoryGeometryViolation>,
+    pub safety_comment_violations: Vec<SafetyCommentViolation>,
 }
 
 impl UnifiedAuditReport {
@@ -53,6 +55,7 @@ impl UnifiedAuditReport {
             || !self.hot_path_violations.is_empty()
             || !self.prefix_stutter_violations.is_empty()
             || !self.memory_geometry_violations.is_empty()
+            || !self.safety_comment_violations.is_empty()
     }
 
     pub fn print_diagnostics(&self) {
@@ -83,18 +86,25 @@ impl UnifiedAuditReport {
         for v in &self.memory_geometry_violations {
             eprintln!("{v}");
         }
+        for v in &self.safety_comment_violations {
+            eprintln!("{v}");
+        }
 
         println!(
-            "\n[AST AUDIT SUMMARY] Files scanned: {} | Violations: {} ({} ambient, {} hot-path allocations, {} prefix stutter, {} memory geometry)",
+            "\n[AST AUDIT SUMMARY] Files scanned: {} | Violations: {} ({} soundness, {} ambient, {} hot-path allocations, {} prefix stutter, {} memory geometry, {} missing safety comments)",
             self.files_scanned,
-            self.ambient_violations.len()
+            self.soundness_violations.len()
+                + self.ambient_violations.len()
                 + self.hot_path_violations.len()
                 + self.prefix_stutter_violations.len()
-                + self.memory_geometry_violations.len(),
+                + self.memory_geometry_violations.len()
+                + self.safety_comment_violations.len(),
+            self.soundness_violations.len(),
             self.ambient_violations.len(),
             self.hot_path_violations.len(),
             self.prefix_stutter_violations.len(),
-            self.memory_geometry_violations.len()
+            self.memory_geometry_violations.len(),
+            self.safety_comment_violations.len()
         );
     }
 }
@@ -141,6 +151,13 @@ pub fn audit_source_file(
     report
         .memory_geometry_violations
         .extend(geometry_visitor.into_violations());
+
+    // 5. Audit unsafe blocks for a documented SAFETY: rationale comment
+    let mut safety_visitor = SafetyCommentVisitor::new(path, &content);
+    safety_visitor.visit_file(&syntax_tree);
+    report
+        .safety_comment_violations
+        .extend(safety_visitor.violations);
 
     Ok(())
 }

@@ -125,7 +125,9 @@ impl WindowsHidPlatform {
     fn execute_mouse_click(button: &MouseButton, x: i32, y: i32) -> Result<(), String> {
         use windows_ffi::*;
 
-        // Set cursor position
+        // SAFETY: `SetCursorPos` is a Win32 `user32` function called with two
+        // plain `i32` coordinates and no pointer or buffer arguments; there
+        // is no aliasing, lifetime, or validity requirement for this call.
         unsafe {
             let result = SetCursorPos(x, y);
             if result == 0 {
@@ -140,6 +142,9 @@ impl WindowsHidPlatform {
             MouseButton::Middle => MOUSEEVENTF_MIDDLEDOWN,
         };
 
+        // SAFETY: `flags` is one of the `MOUSEEVENTF_*DOWN` constants, and
+        // `dwExtraInfo` is null, which `mouse_event` treats as "no extra
+        // info"; no buffer is read or written by this call.
         unsafe {
             mouse_event(flags, 0, 0, 0, std::ptr::null_mut());
         }
@@ -157,6 +162,9 @@ impl WindowsHidPlatform {
             MouseButton::Middle => MOUSEEVENTF_MIDDLEUP,
         };
 
+        // SAFETY: `flags` is one of the `MOUSEEVENTF_*UP` constants, and
+        // `dwExtraInfo` is null, which `mouse_event` treats as "no extra
+        // info"; no buffer is read or written by this call.
         unsafe {
             mouse_event(flags, 0, 0, 0, std::ptr::null_mut());
         }
@@ -168,6 +176,9 @@ impl WindowsHidPlatform {
     fn execute_key_press(key: u32, modifiers: u8) -> Result<(), String> {
         use windows_ffi::*;
 
+        // SAFETY: every `keybd_event` call below passes a plain `u8` key
+        // code, scan code 0, a `KEYEVENTF_*` flag (or 0), and null
+        // `dwExtraInfo`; no buffer is read or written by any of them.
         unsafe {
             // Apply modifiers
             if (modifiers & 0x01) != 0 {
@@ -202,6 +213,9 @@ impl WindowsHidPlatform {
     fn execute_key_release(key: u32) -> Result<(), String> {
         use windows_ffi::*;
 
+        // SAFETY: `keybd_event` is called with a plain `u8` key code, scan
+        // code 0, the `KEYEVENTF_KEYUP` flag, and null `dwExtraInfo`; no
+        // buffer is read or written.
         unsafe {
             keybd_event(key as u8, 0, KEYEVENTF_KEYUP, std::ptr::null_mut());
         }
@@ -213,6 +227,9 @@ impl WindowsHidPlatform {
     fn get_cursor_pos() -> Result<(i32, i32), String> {
         use windows_ffi::*;
 
+        // SAFETY: `point` is a stack-local `Point`, and `&mut point` is a
+        // valid, uniquely-owned, aligned pointer to it; `GetCursorPos`
+        // writes at most `sizeof(Point)` bytes through that pointer.
         unsafe {
             let mut point = Point { x: 0, y: 0 };
             let result = GetCursorPos(&mut point);
@@ -229,6 +246,9 @@ impl WindowsHidPlatform {
     fn query_key_state(key: u32) -> Result<bool, String> {
         use windows_ffi::*;
 
+        // SAFETY: `GetAsyncKeyState` is called with a plain `i32` virtual-key
+        // code and no pointer or buffer arguments; there is no aliasing,
+        // lifetime, or validity requirement for this call.
         unsafe {
             let state = GetAsyncKeyState(key as i32);
             // High bit indicates if key is currently pressed
@@ -245,6 +265,9 @@ impl HidPlatform for WindowsHidPlatform {
 
         match cmd {
             HidCommand::MouseMove { x, y } => {
+                // SAFETY: `SetCursorPos` is called with two plain `i32`
+                // coordinates and no pointer/buffer arguments; there is no
+                // aliasing, lifetime, or validity requirement here.
                 unsafe {
                     let result = SetCursorPos(*x, *y);
                     if result == 0 {
@@ -275,6 +298,9 @@ impl HidPlatform for WindowsHidPlatform {
                 Ok(HidResponse::Success)
             }
             HidCommand::Scroll { delta } => {
+                // SAFETY: `mouse_event` is called with `MOUSEEVENTF_WHEEL`,
+                // a `u32` wheel-delta payload in `dwData`, and null
+                // `dwExtraInfo`; no buffer is read or written here.
                 unsafe {
                     let scroll_amount = *delta * WHEEL_DELTA;
                     mouse_event(

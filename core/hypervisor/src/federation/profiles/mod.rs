@@ -258,6 +258,13 @@ pub async fn dissect_model(
     // Memory-map the model file for tensor byte access
     // TensorMeta.offset is already an absolute byte offset within the file.
     let file = File::open(&path).context("failed to open model file for tensor read")?;
+    // `file` is a freshly opened, read-only handle used solely by this
+    // function to read tensor bytes for dissection; this process does not
+    // write to or truncate the file while the mapping is alive. As with the
+    // other read-only GGUF mmaps in this crate, the only unenforced caveat is
+    // external mutation of the file by another process, outside our control
+    // and assumed not to happen for model files under analysis.
+    // SAFETY: `file` is read-only and not concurrently written by this process.
     let mmap = unsafe { memmap2::Mmap::map(&file) }.context("mmap failed")?;
 
     // Analyze each block

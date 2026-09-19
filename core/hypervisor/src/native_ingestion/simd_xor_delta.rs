@@ -105,20 +105,36 @@ impl XorDeltaScreen {
 
         #[cfg(target_arch = "x86_64")]
         {
+            // `is_x86_feature_detected!("avx2")` just confirmed at runtime
+            // that this CPU supports AVX2, the sole precondition of
+            // `#[target_feature(enable = "avx2")] fn avx2_xor_bytecount`.
             if is_x86_feature_detected!("avx2") {
+                // SAFETY: AVX2 support just verified at runtime above.
                 return unsafe { self::avx2_xor_bytecount(prev, current, len) };
             }
+            // `is_x86_feature_detected!("sse4.2")` just confirmed this CPU
+            // supports SSE4.2, the precondition of
+            // `#[target_feature(enable = "sse4.2")] fn sse4_xor_bytecount`.
             if is_x86_feature_detected!("sse4.2") {
+                // SAFETY: SSE4.2 support just verified at runtime above.
                 return unsafe { self::sse4_xor_bytecount(prev, current, len) };
             }
+            // `is_x86_feature_detected!("sse2")` just confirmed this CPU
+            // supports SSE2, the precondition of
+            // `#[target_feature(enable = "sse2")] fn sse2_xor_bytecount`.
             if is_x86_feature_detected!("sse2") {
+                // SAFETY: SSE2 support just verified at runtime above.
                 return unsafe { self::sse2_xor_bytecount(prev, current, len) };
             }
         }
 
         #[cfg(target_arch = "aarch64")]
         {
+            // `is_aarch64_feature_detected!("neon")` just confirmed at
+            // runtime that this CPU supports NEON, the sole precondition of
+            // `#[target_feature(enable = "neon")] fn neon_xor_bytecount`.
             if is_aarch64_feature_detected!("neon") {
+                // SAFETY: NEON support just verified at runtime above.
                 return unsafe { self::neon_xor_bytecount(prev, current, len) };
             }
         }
@@ -175,7 +191,17 @@ unsafe fn avx2_xor_bytecount(prev: &[u8], current: &[u8], len: usize) -> u64 {
     let mut i = 0;
 
     while i + 32 <= len {
+        // The loop guard `i + 32 <= len` ensures `prev[i..i+32]` and
+        // `current[i..i+32]` are in bounds (`len == current.len()` and
+        // `prev` is at least as long, since `screen_delta` asserts
+        // `current_frame.len() == self.total_bytes == prev.len()`).
+        // `_mm256_loadu_si256` is an unaligned load, so no alignment
+        // precondition applies. AVX2 support is guaranteed by the caller
+        // via `is_x86_feature_detected!("avx2")` / `#[target_feature]`.
+        // SAFETY: in-bounds per the loop guard above; unaligned load.
         let a = unsafe { _mm256_loadu_si256(prev.as_ptr().add(i) as *const __m256i) };
+        // SAFETY: same bounds/alignment/feature justification as the load
+        // of `a` immediately above, applied to `current` instead of `prev`.
         let b = unsafe { _mm256_loadu_si256(current.as_ptr().add(i) as *const __m256i) };
         let xor = _mm256_xor_si256(a, b);
         // Extract as bytes and count non-zero bytes via vectorized compare
@@ -203,7 +229,16 @@ unsafe fn sse4_xor_bytecount(prev: &[u8], current: &[u8], len: usize) -> u64 {
     let mut i = 0;
 
     while i + 16 <= len {
+        // The loop guard `i + 16 <= len` ensures `prev[i..i+16]` and
+        // `current[i..i+16]` are in bounds (`prev.len() >= len ==
+        // current.len()`, guaranteed by `screen_delta`'s `assert_eq!`).
+        // `_mm_loadu_si128` is an unaligned load. SSE4.2/SSE2 support is
+        // guaranteed by the caller via `is_x86_feature_detected!` /
+        // `#[target_feature]`.
+        // SAFETY: in-bounds per the loop guard above; unaligned load.
         let a = unsafe { _mm_loadu_si128(prev.as_ptr().add(i) as *const __m128i) };
+        // SAFETY: same bounds/alignment/feature justification as the load
+        // of `a` immediately above, applied to `current` instead of `prev`.
         let b = unsafe { _mm_loadu_si128(current.as_ptr().add(i) as *const __m128i) };
         let xor = _mm_xor_si128(a, b);
         let zero = _mm_setzero_si128();
@@ -224,6 +259,15 @@ unsafe fn sse4_xor_bytecount(prev: &[u8], current: &[u8], len: usize) -> u64 {
 #[cfg(target_arch = "x86_64")]
 #[target_feature(enable = "sse2")]
 unsafe fn sse2_xor_bytecount(prev: &[u8], current: &[u8], len: usize) -> u64 {
+    // `sse4_xor_bytecount` only ever uses `_mm_loadu_si128`,
+    // `_mm_xor_si128`, `_mm_setzero_si128`, `_mm_cmpeq_epi8` and
+    // `_mm_movemask_epi8`, all of which are baseline SSE2 intrinsics (the
+    // function name reflects where it's reused from, not an SSE4.2-only
+    // instruction it relies on), so it is sound to call here under only
+    // the `sse2` target feature that this function itself requires and
+    // that its caller already verified via `is_x86_feature_detected!`.
+    // SAFETY: `sse4_xor_bytecount`'s intrinsics are all baseline SSE2, the
+    // feature this function requires and its caller already verified.
     unsafe { sse4_xor_bytecount(prev, current, len) }
 }
 
@@ -235,7 +279,17 @@ unsafe fn neon_xor_bytecount(prev: &[u8], current: &[u8], len: usize) -> u64 {
     let mut i = 0;
 
     while i + 16 <= len {
+        // The loop guard `i + 16 <= len` ensures `prev[i..i+16]` and
+        // `current[i..i+16]` are in bounds (`prev.len() >= len ==
+        // current.len()`, guaranteed by `screen_delta`'s `assert_eq!`).
+        // `vld1q_u8` does not require pointer alignment beyond that of
+        // `u8`. NEON support is guaranteed by the caller via
+        // `is_aarch64_feature_detected!` / `#[target_feature]`.
+        // SAFETY: in-bounds per the loop guard above; no extra alignment
+        // requirement.
         let a = vld1q_u8(unsafe { prev.as_ptr().add(i) });
+        // SAFETY: same bounds/alignment/feature justification as the load
+        // of `a` immediately above, applied to `current` instead of `prev`.
         let b = vld1q_u8(unsafe { current.as_ptr().add(i) });
         let xor = veorq_u8(a, b);
         // Count non-zero bytes: extract result as array and check each byte

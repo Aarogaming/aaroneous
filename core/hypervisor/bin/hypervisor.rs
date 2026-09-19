@@ -451,25 +451,24 @@ fn run_cli(cli: Cli) -> Result<()> {
             Ok(())
         }
         Some(Commands::Inject { intent }) => {
+            use hypervisor::supervisory_loop::{LegacySharedMemorySynapse, SynapseState};
+
             println!("Injecting intent: {}", intent);
-            let paths = paths::WorkspacePaths::discover(&WorkspacePathsConfig::default());
-            let path = paths.synapse_file();
 
-            use memmap2::MmapOptions;
-            use std::fs::OpenOptions;
-
-            let file = OpenOptions::new().read(true).write(true).open(&path)?;
-            let mut mmap = unsafe { MmapOptions::new().map_mut(&file)? };
+            // Opens the daemon's own "primary" synapse (same name it passes
+            // to `SupervisoryDaemon::new`) without creating/resizing it -
+            // this CLI command is a one-shot writer, not the synapse's
+            // owner. `write_intent` performs the write as a single
+            // seqlock-protected transaction (no blocking OS lock), so this
+            // can't tear against - or be blocked indefinitely by - the
+            // daemon's own tick-loop writes.
+            let synapse = LegacySharedMemorySynapse::open_existing(
+                "primary",
+                std::mem::size_of::<SynapseState>(),
+            )?;
 
             let task_id = Uuid::new_v4();
-            let id_bytes = task_id.as_bytes();
-
-            mmap[16..32].copy_from_slice(id_bytes);
-
-            let payload = intent.as_bytes();
-            let payload_len = std::cmp::min(payload.len(), 4096);
-            mmap[32..32 + payload_len].copy_from_slice(&payload[..payload_len]);
-            mmap[32 + payload_len..4128].fill(0);
+            synapse.write_intent(task_id, intent.as_bytes())?;
 
             println!("Intent injected with Task ID: {}", task_id);
             Ok(())

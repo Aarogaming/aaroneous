@@ -8,7 +8,7 @@
 
 use anyhow::{Result, anyhow};
 use cranelift_codegen::Context;
-use cranelift_codegen::ir::{AbiParam, Function, InstBuilder, MemFlags, Signature, types};
+use cranelift_codegen::ir::{AbiParam, Function, InstBuilder, MemFlagsData, Signature, types};
 use cranelift_codegen::isa::{self, TargetIsa};
 use cranelift_codegen::settings::{self, Configurable, Flags};
 use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext};
@@ -60,6 +60,9 @@ impl CraneliftJitEngine {
     ) -> Result<(WxMemoryRegion, NativeExecutionFn)> {
         let machine_code = self.compile_graph_to_bytes(graph)?;
         let memory_region = WxMemoryRegion::from_machine_code(&machine_code)?;
+        // SAFETY: `memory_region` was compiled with one pointer-sized param
+        // and an `I64` return on the host's call conv, exactly the ABI of
+        // `NativeExecutionFn`, so this cast is sound.
         let fn_ptr: NativeExecutionFn = unsafe { memory_region.as_fn_ptr() };
         Ok((memory_region, fn_ptr))
     }
@@ -85,6 +88,13 @@ impl CraneliftJitEngine {
 
         let ctx_ptr = builder.block_params(entry_block)[0];
 
+        // Every memory access below targets NativeExecutionContext's own
+        // fixed-layout fields, so it's always aligned and non-trapping.
+        // `InstBuilder::load`/`store` take `impl Into<MemFlagsData>`
+        // directly (interning it per-call), so this is passed by value at
+        // each call site rather than pre-registered into a shared handle.
+        let trusted = MemFlagsData::trusted();
+
         let default_return_val = builder.ins().iconst(types::I64, 0);
         let mut returned = false;
 
@@ -93,27 +103,20 @@ impl CraneliftJitEngine {
             match &node.opcode {
                 MachineOpcode::Alloc { size_bytes, .. } => {
                     // memory_pool is offset 128 in NativeExecutionContext
-                    let pool_offset = builder.ins().iadd_imm(ctx_ptr, 128);
+                    let pool_offset = builder.ins().iadd_imm_s(ctx_ptr, 128);
                     // Store pool_offset into registers[0] (offset 0)
-                    builder
-                        .ins()
-                        .store(MemFlags::trusted(), pool_offset, ctx_ptr, 0);
+                    builder.ins().store(trusted, pool_offset, ctx_ptr, 0);
 
                     // Store size_bytes into registers[1] (offset 8)
                     let size_val = builder.ins().iconst(types::I64, *size_bytes as i64);
-                    builder
-                        .ins()
-                        .store(MemFlags::trusted(), size_val, ctx_ptr, 8);
+                    builder.ins().store(trusted, size_val, ctx_ptr, 8);
                 }
                 MachineOpcode::Load { address_reg } => {
                     let addr_offset = ((*address_reg as i32) * 8).min(120);
-                    let loaded_val =
-                        builder
-                            .ins()
-                            .load(types::I64, MemFlags::trusted(), ctx_ptr, addr_offset);
-                    builder
+                    let loaded_val = builder
                         .ins()
-                        .store(MemFlags::trusted(), loaded_val, ctx_ptr, 0);
+                        .load(types::I64, trusted, ctx_ptr, addr_offset);
+                    builder.ins().store(trusted, loaded_val, ctx_ptr, 0);
                 }
                 MachineOpcode::Store {
                     address_reg,
@@ -121,20 +124,14 @@ impl CraneliftJitEngine {
                 } => {
                     let val_offset = ((*value_reg as i32) * 8).min(120);
                     let addr_offset = ((*address_reg as i32) * 8).min(120);
-                    let val =
-                        builder
-                            .ins()
-                            .load(types::I64, MemFlags::trusted(), ctx_ptr, val_offset);
-                    builder
-                        .ins()
-                        .store(MemFlags::trusted(), val, ctx_ptr, addr_offset);
+                    let val = builder.ins().load(types::I64, trusted, ctx_ptr, val_offset);
+                    builder.ins().store(trusted, val, ctx_ptr, addr_offset);
                 }
                 MachineOpcode::BranchIf { condition_reg, .. } => {
                     let cond_offset = ((*condition_reg as i32) * 8).min(120);
-                    let cond_val =
-                        builder
-                            .ins()
-                            .load(types::I64, MemFlags::trusted(), ctx_ptr, cond_offset);
+                    let cond_val = builder
+                        .ins()
+                        .load(types::I64, trusted, ctx_ptr, cond_offset);
                     let zero = builder.ins().iconst(types::I64, 0);
                     let is_non_zero = builder.ins().icmp(
                         cranelift_codegen::ir::condcodes::IntCC::NotEqual,
@@ -153,9 +150,7 @@ impl CraneliftJitEngine {
 
                     // Set status_code (offset 4224) to 1
                     let status_one = builder.ins().iconst(types::I32, 1);
-                    builder
-                        .ins()
-                        .store(MemFlags::trusted(), status_one, ctx_ptr, 4224);
+                    builder.ins().store(trusted, status_one, ctx_ptr, 4224);
                     builder.ins().jump(merge_block, &[]);
 
                     builder.switch_to_block(merge_block);
@@ -169,20 +164,11 @@ impl CraneliftJitEngine {
                     let fn_code = builder
                         .ins()
                         .iconst(types::I32, (*function_id & 0xFFFFFFFF) as i64);
-                    builder
-                        .ins()
-                        .store(MemFlags::trusted(), fn_code, ctx_ptr, 4224);
+                    builder.ins().store(trusted, fn_code, ctx_ptr, 4224);
                     if let Some(&first_arg) = arg_regs.first() {
                         let arg_offset = ((first_arg as i32) * 8).min(120);
-                        let arg_val = builder.ins().load(
-                            types::I64,
-                            MemFlags::trusted(),
-                            ctx_ptr,
-                            arg_offset,
-                        );
-                        builder
-                            .ins()
-                            .store(MemFlags::trusted(), arg_val, ctx_ptr, 0);
+                        let arg_val = builder.ins().load(types::I64, trusted, ctx_ptr, arg_offset);
+                        builder.ins().store(trusted, arg_val, ctx_ptr, 0);
                     }
                 }
                 MachineOpcode::TensorDot {
@@ -192,34 +178,24 @@ impl CraneliftJitEngine {
                 } => {
                     let left_offset = ((*left_reg as i32) * 8).min(120);
                     let right_offset = ((*right_reg as i32) * 8).min(120);
-                    let left_val =
-                        builder
-                            .ins()
-                            .load(types::I64, MemFlags::trusted(), ctx_ptr, left_offset);
-                    let right_val =
-                        builder
-                            .ins()
-                            .load(types::I64, MemFlags::trusted(), ctx_ptr, right_offset);
+                    let left_val = builder
+                        .ins()
+                        .load(types::I64, trusted, ctx_ptr, left_offset);
+                    let right_val = builder
+                        .ins()
+                        .load(types::I64, trusted, ctx_ptr, right_offset);
                     let prod = builder.ins().imul(left_val, right_val);
-                    builder.ins().store(MemFlags::trusted(), prod, ctx_ptr, 0);
+                    builder.ins().store(trusted, prod, ctx_ptr, 0);
                 }
                 MachineOpcode::EntropyMinimization { state_reg } => {
                     let reg_offset = ((*state_reg as i32) * 8).min(120);
-                    let val =
-                        builder
-                            .ins()
-                            .load(types::I64, MemFlags::trusted(), ctx_ptr, reg_offset);
-                    let minimized = builder.ins().ushr_imm(val, 1);
-                    builder
-                        .ins()
-                        .store(MemFlags::trusted(), minimized, ctx_ptr, reg_offset);
+                    let val = builder.ins().load(types::I64, trusted, ctx_ptr, reg_offset);
+                    let minimized = builder.ins().ushr_imm_u(val, 1);
+                    builder.ins().store(trusted, minimized, ctx_ptr, reg_offset);
                 }
                 MachineOpcode::Return { value_reg } => {
                     let ret_offset = ((*value_reg as i32) * 8).min(120);
-                    let ret_val =
-                        builder
-                            .ins()
-                            .load(types::I64, MemFlags::trusted(), ctx_ptr, ret_offset);
+                    let ret_val = builder.ins().load(types::I64, trusted, ctx_ptr, ret_offset);
                     builder.ins().return_(&[ret_val]);
                     returned = true;
                     break;
@@ -231,7 +207,7 @@ impl CraneliftJitEngine {
             builder.ins().return_(&[default_return_val]);
         }
 
-        builder.finalize();
+        builder.finalize(self.isa.frontend_config());
 
         // Compile to machine code bytes
         let mut ctx = Context::for_function(func);
@@ -314,6 +290,9 @@ mod tests {
         let (_region, func) = jit.compile_graph_to_memory(&graph).unwrap();
 
         let mut ctx = NativeExecutionContext::default();
+        // SAFETY: `func` was compiled from this same `graph` by
+        // `compile_graph_to_memory`, so its ABI matches `NativeExecutionFn`,
+        // and `&mut ctx` is a uniquely-borrowed, valid context for it.
         let result = unsafe { func(&mut ctx) };
 
         assert_eq!(result, 2048);
@@ -359,6 +338,9 @@ mod tests {
         ctx.registers[1] = 7;
         ctx.registers[2] = 6;
 
+        // SAFETY: `func` was compiled from this same `graph` by
+        // `compile_graph_to_memory`, so its ABI matches `NativeExecutionFn`,
+        // and `&mut ctx` is a uniquely-borrowed, valid context for it.
         let result = unsafe { func(&mut ctx) };
         assert_eq!(result, 42);
         assert_eq!(ctx.registers[0], 42);

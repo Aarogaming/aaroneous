@@ -2363,6 +2363,13 @@ impl Forge {
                             path: r.source_path.clone(),
                             source: e,
                         })?;
+                        // `f` is a freshly opened, read-only handle to a source
+                        // GGUF file that this splicing pass only reads from (it
+                        // is never opened for write by this process during the
+                        // splice); memmap's usual caveat is external
+                        // mutation/truncation while mapped, outside this tool's
+                        // control, matching the read-only-mmap pattern above.
+                        // SAFETY: `f` is read-only and not written to by this process.
                         let m = unsafe {
                             Mmap::map(&f).map_err(|e| ForgeError::MmapFailed {
                                 path: r.source_path.clone(),
