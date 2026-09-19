@@ -19,7 +19,7 @@ pub struct CheckpointMetadata {
 }
 
 /// Component state to checkpoint
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, bincode::Encode)]
 pub struct ComponentSnapshot {
     pub component_name: String,
     pub state_data: Vec<u8>,
@@ -115,8 +115,8 @@ impl DistributedCheckpointManager {
         if let Some(components) = self.pending_checkpoint.take() {
             let checkpoint_id = format!("chk_{}_{}", self.node_id, self.current_epoch);
 
-            // Serialize all components
-            let serialized = bincode::serialize(&components)
+            // Serialize all components (size/checksum only - never persisted or read back)
+            let serialized = bincode::encode_to_vec(&components, bincode::config::standard())
                 .map_err(|e| format!("Serialization failed: {}", e))?;
 
             let size = serialized.len();
