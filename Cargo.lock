@@ -6444,7 +6444,7 @@ dependencies = [
  "proc-macro2",
  "serde",
  "serde_json",
- "syn 2.0.119",
+ "syn 3.0.5",
  "tempfile",
  "tokio",
  "tracing",
