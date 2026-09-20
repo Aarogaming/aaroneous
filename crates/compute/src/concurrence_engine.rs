@@ -34,7 +34,13 @@ pub struct ShadowTickResult {
 }
 
 /// Snapshot of the current concurrence metrics, safe to clone to the HUD thread.
-#[derive(Debug, Clone, Copy)]
+///
+/// `Serialize`/`Deserialize` back the JSON export contract consumed by
+/// external devtools tooling (see M40 in `LOCAL_CLOUD_ORCHESTRATION_PLAN.md`):
+/// the hypervisor's heartbeat thread periodically writes this struct as JSON
+/// to an explicit file path so a separate process can read the live
+/// concurrence state without taking a Cargo dependency on this crate.
+#[derive(Debug, Clone, Copy, serde::Serialize, serde::Deserialize)]
 pub struct ConcurrenceSnapshot {
     /// Fraction of the rolling window where actual == predicted (0.0 – 1.0).
     pub rolling_concurrence: f32,
@@ -173,10 +179,12 @@ impl<const W: usize> ConcurrenceEngine<W> {
         self.total_agreements += agreed as u64;
 
         // EMA updates.
-        self.avg_confidence =
-            self.avg_confidence.mul_add(1.0 - EMA_ALPHA, result.confidence * EMA_ALPHA);
-        self.avg_reward =
-            self.avg_reward.mul_add(1.0 - EMA_ALPHA, result.reward * EMA_ALPHA);
+        self.avg_confidence = self
+            .avg_confidence
+            .mul_add(1.0 - EMA_ALPHA, result.confidence * EMA_ALPHA);
+        self.avg_reward = self
+            .avg_reward
+            .mul_add(1.0 - EMA_ALPHA, result.reward * EMA_ALPHA);
 
         // Graduation check — only when window is fully primed.
         if !self.graduated && self.filled == W {
@@ -330,7 +338,43 @@ mod tests {
         let mut eng: ConcurrenceEngine<10> = ConcurrenceEngine::new();
         for i in 0..9u64 {
             let ev = eng.update(tick(1, 1));
-            assert!(ev.is_none(), "tick {i} should not graduate before window is full");
+            assert!(
+                ev.is_none(),
+                "tick {i} should not graduate before window is full"
+            );
         }
+    }
+
+    /// M40: `ConcurrenceSnapshot` must round-trip through JSON, since the
+    /// hypervisor heartbeat thread serializes it to an export file for an
+    /// external devtools process to read.
+    #[test]
+    fn test_snapshot_json_round_trip() {
+        let mut eng: ConcurrenceEngine<10> = ConcurrenceEngine::new();
+        for _ in 0..7 {
+            eng.update(tick(1, 1));
+        }
+        for _ in 0..3 {
+            eng.update(tick(1, 2));
+        }
+        let snap = eng.snapshot();
+
+        let json = serde_json::to_string(&snap).expect("snapshot should serialize to JSON");
+        let round_tripped: ConcurrenceSnapshot =
+            serde_json::from_str(&json).expect("snapshot JSON should deserialize");
+
+        assert_eq!(round_tripped.total_ticks, snap.total_ticks);
+        assert_eq!(round_tripped.total_agreements, snap.total_agreements);
+        assert_eq!(round_tripped.graduated, snap.graduated);
+        assert_eq!(
+            round_tripped.ticks_since_graduation,
+            snap.ticks_since_graduation
+        );
+        assert!(
+            (round_tripped.rolling_concurrence - snap.rolling_concurrence).abs() < f32::EPSILON
+        );
+        assert!((round_tripped.avg_confidence - snap.avg_confidence).abs() < f32::EPSILON);
+        assert!((round_tripped.avg_reward - snap.avg_reward).abs() < f32::EPSILON);
+        assert!((round_tripped.divergence_mse - snap.divergence_mse).abs() < f32::EPSILON);
     }
 }

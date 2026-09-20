@@ -1382,7 +1382,10 @@ fn run_concurrence_pipeline() -> Result<()> {
     // and was written by the same binary.
     let snapshot: compute::ConcurrenceSnapshot = unsafe { std::mem::transmute(buf) };
 
-    println!("  Rolling Concurrence : {:.1}%", snapshot.rolling_concurrence * 100.0);
+    println!(
+        "  Rolling Concurrence : {:.1}%",
+        snapshot.rolling_concurrence * 100.0
+    );
     println!("  Total Ticks         : {}", snapshot.total_ticks);
     println!("  Total Agreements    : {}", snapshot.total_agreements);
     println!("  Avg Confidence      : {:.3}", snapshot.avg_confidence);
@@ -1391,8 +1394,14 @@ fn run_concurrence_pipeline() -> Result<()> {
     println!("-----------------------------------------------------------------");
 
     if snapshot.graduated {
-        println!("  Status: GRADUATED at tick {}", snapshot.total_ticks - snapshot.ticks_since_graduation);
-        println!("          {} ticks since graduation", snapshot.ticks_since_graduation);
+        println!(
+            "  Status: GRADUATED at tick {}",
+            snapshot.total_ticks - snapshot.ticks_since_graduation
+        );
+        println!(
+            "          {} ticks since graduation",
+            snapshot.ticks_since_graduation
+        );
     } else {
         let filled_pct = if snapshot.total_ticks > 0 {
             (snapshot.total_ticks.min(1000) as f32 / 1000.0 * 100.0).min(100.0)
