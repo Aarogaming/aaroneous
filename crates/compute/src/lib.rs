@@ -78,8 +78,8 @@ pub use cognitive_equilibrium::{
     AttentionSpectrum, CognitiveEquilibriumCoordinator, SomaticVitals, TriModalDecisionReport,
 };
 pub use concurrence_engine::{
-    ConcurrenceSnapshot, DefaultConcurrenceEngine, FLIGHT_EVENT_CHECKPOINT,
-    GraduationReadyEvent, ShadowTickResult, GRADUATION_THRESHOLD,
+    ConcurrenceSnapshot, DefaultConcurrenceEngine, FLIGHT_EVENT_CHECKPOINT, GRADUATION_THRESHOLD,
+    GraduationReadyEvent, ShadowTickResult,
 };
 pub use cranelift_jit::{CraneliftJitEngine, NativeExecutionFn};
 pub use crucible::{CrucibleDuelReport, CrucibleSandbox, VirtualScenario};

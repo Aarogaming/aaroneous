@@ -176,7 +176,7 @@ impl Default for SynapseState {
 // Readers (HUD) see the data through the shared `concurrence_snapshot` Arc.
 thread_local! {
     static CONCURRENCE_ENGINE: std::cell::UnsafeCell<compute::DefaultConcurrenceEngine> =
-        std::cell::UnsafeCell::new(compute::DefaultConcurrenceEngine::new());
+        const { std::cell::UnsafeCell::new(compute::DefaultConcurrenceEngine::new()) };
 }
 
 /// Sovereign core supervisory daemon running the deterministic control loop.
@@ -233,8 +233,7 @@ pub struct SupervisoryDaemon {
     /// Mounted `.si` reflex model running in shadow mode alongside the rule engine.
     /// Guarded by a Mutex because `SiOnlineLearner` holds mutable `Vec<Tensor>` hidden state.
     /// The guard is held only for the duration of the 180 µs forward pass.
-    pub shadow_learner:
-        Option<Arc<parking_lot::Mutex<compute::SiOnlineLearner>>>,
+    pub shadow_learner: Option<Arc<parking_lot::Mutex<compute::SiOnlineLearner>>>,
     /// Paired rolling-window concurrence tracker for the shadow learner.
     /// Lives in the same Arc so the HUD can clone a lightweight snapshot.
     pub concurrence_snapshot: Arc<parking_lot::RwLock<compute::ConcurrenceSnapshot>>,
@@ -1537,8 +1536,7 @@ impl SupervisoryDaemon {
                             s[..copy_len].copy_from_slice(&src[..copy_len]);
                             // Inject scalar health signals into the tail if room.
                             if copy_len < 256 {
-                                s[copy_len.min(255)] =
-                                    (state.integrity_score as f32) / 100.0;
+                                s[copy_len.min(255)] = (state.integrity_score as f32) / 100.0;
                             }
                             s
                         };
@@ -1566,18 +1564,30 @@ impl SupervisoryDaemon {
                                 // snapshot Arc and maintain a thread-local engine.
                                 //
                                 // `concurrence_engine` is a thread-local declared just below.
-                                let grad_event = CONCURRENCE_ENGINE
-                                    .with(|cell| {
-                                        // SAFETY: single-writer (this is the only thread that
-                                        // touches the engine), accessed only inside this closure.
-                                        let engine =
-                                            unsafe { &mut *cell.get() };
-                                        engine.update(tick_result)
-                                    });
+                                let grad_event = CONCURRENCE_ENGINE.with(|cell| {
+                                    // SAFETY: single-writer (this is the only thread that
+                                    // touches the engine), accessed only inside this closure.
+                                    let engine = unsafe { &mut *cell.get() };
+                                    engine.update(tick_result)
+                                });
 
                                 // Publish snapshot to the shared Arc so the HUD can read it.
-                                *concurrence_snapshot.write() = CONCURRENCE_ENGINE
+                                let published_snapshot = CONCURRENCE_ENGINE
                                     .with(|cell| unsafe { (*cell.get()).snapshot() });
+                                *concurrence_snapshot.write() = published_snapshot;
+
+                                // M40: periodically export the snapshot as JSON to an explicit
+                                // file path so an external devtools process can read Aaroneous's
+                                // live concurrence state without taking a Cargo dependency on
+                                // this crate (file contract, see
+                                // LOCAL_CLOUD_ORCHESTRATION_PLAN.md). This is off the tight
+                                // per-tick hot path — gated to the same slow cadence used
+                                // elsewhere in this loop for non-critical I/O (e.g. PHASE 6/7
+                                // above) — and is strictly best-effort: a failed export write
+                                // must never crash or stall the heartbeat thread.
+                                if tick_count.is_multiple_of(100) {
+                                    write_concurrence_report(&published_snapshot);
+                                }
 
                                 // If graduation threshold just crossed, record a Checkpoint event.
                                 if let Some(grad) = grad_event {
@@ -1635,6 +1645,59 @@ impl SupervisoryDaemon {
                 }
             }
         });
+    }
+}
+
+/// M40: best-effort JSON export of the live concurrence snapshot.
+///
+/// Writes to `<workspace data dir>/concurrence_report.json` so an external
+/// devtools process can read Aaroneous's current concurrence state through
+/// an explicit file path (a file contract, not a Cargo dependency — see
+/// `LOCAL_CLOUD_ORCHESTRATION_PLAN.md` M40). The write is atomic: the JSON
+/// is serialized to a sibling `.partial` file first, then renamed into
+/// place, so a concurrent reader never observes a truncated or partially
+/// written file. Any failure (I/O error, serialization error) is logged as
+/// a warning and swallowed — this path must never crash or stall the
+/// hypervisor's heartbeat thread.
+fn write_concurrence_report(snapshot: &compute::ConcurrenceSnapshot) {
+    let paths = paths::WorkspacePaths::from_config(paths::WorkspacePathsConfig::default());
+    let report_path = paths.data().join("concurrence_report.json");
+    let partial_path = report_path.with_extension("json.partial");
+
+    if let Some(parent) = report_path.parent()
+        && let Err(e) = std::fs::create_dir_all(parent)
+    {
+        warn!(
+            target: "shadow_si",
+            error = %e,
+            path = %parent.display(),
+            "failed to create concurrence report directory; skipping export"
+        );
+        return;
+    }
+
+    let write_result = std::fs::File::create(&partial_path).and_then(|file| {
+        serde_json::to_writer_pretty(file, snapshot).map_err(std::io::Error::other)
+    });
+
+    if let Err(e) = write_result {
+        warn!(
+            target: "shadow_si",
+            error = %e,
+            path = %partial_path.display(),
+            "failed to write concurrence report; skipping export"
+        );
+        return;
+    }
+
+    if let Err(e) = std::fs::rename(&partial_path, &report_path) {
+        warn!(
+            target: "shadow_si",
+            error = %e,
+            from = %partial_path.display(),
+            to = %report_path.display(),
+            "failed to publish concurrence report via atomic rename"
+        );
     }
 }
 
