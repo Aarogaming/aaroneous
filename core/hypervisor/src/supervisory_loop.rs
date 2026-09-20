@@ -176,7 +176,7 @@ impl Default for SynapseState {
 // Readers (HUD) see the data through the shared `concurrence_snapshot` Arc.
 thread_local! {
     static CONCURRENCE_ENGINE: std::cell::UnsafeCell<compute::DefaultConcurrenceEngine> =
-        std::cell::UnsafeCell::new(compute::DefaultConcurrenceEngine::new());
+        const { std::cell::UnsafeCell::new(compute::DefaultConcurrenceEngine::new()) };
 }
 
 /// Sovereign core supervisory daemon running the deterministic control loop.
@@ -233,8 +233,7 @@ pub struct SupervisoryDaemon {
     /// Mounted `.si` reflex model running in shadow mode alongside the rule engine.
     /// Guarded by a Mutex because `SiOnlineLearner` holds mutable `Vec<Tensor>` hidden state.
     /// The guard is held only for the duration of the 180 µs forward pass.
-    pub shadow_learner:
-        Option<Arc<parking_lot::Mutex<compute::SiOnlineLearner>>>,
+    pub shadow_learner: Option<Arc<parking_lot::Mutex<compute::SiOnlineLearner>>>,
     /// Paired rolling-window concurrence tracker for the shadow learner.
     /// Lives in the same Arc so the HUD can clone a lightweight snapshot.
     pub concurrence_snapshot: Arc<parking_lot::RwLock<compute::ConcurrenceSnapshot>>,
@@ -1537,8 +1536,7 @@ impl SupervisoryDaemon {
                             s[..copy_len].copy_from_slice(&src[..copy_len]);
                             // Inject scalar health signals into the tail if room.
                             if copy_len < 256 {
-                                s[copy_len.min(255)] =
-                                    (state.integrity_score as f32) / 100.0;
+                                s[copy_len.min(255)] = (state.integrity_score as f32) / 100.0;
                             }
                             s
                         };
@@ -1566,14 +1564,12 @@ impl SupervisoryDaemon {
                                 // snapshot Arc and maintain a thread-local engine.
                                 //
                                 // `concurrence_engine` is a thread-local declared just below.
-                                let grad_event = CONCURRENCE_ENGINE
-                                    .with(|cell| {
-                                        // SAFETY: single-writer (this is the only thread that
-                                        // touches the engine), accessed only inside this closure.
-                                        let engine =
-                                            unsafe { &mut *cell.get() };
-                                        engine.update(tick_result)
-                                    });
+                                let grad_event = CONCURRENCE_ENGINE.with(|cell| {
+                                    // SAFETY: single-writer (this is the only thread that
+                                    // touches the engine), accessed only inside this closure.
+                                    let engine = unsafe { &mut *cell.get() };
+                                    engine.update(tick_result)
+                                });
 
                                 // Publish snapshot to the shared Arc so the HUD can read it.
                                 *concurrence_snapshot.write() = CONCURRENCE_ENGINE

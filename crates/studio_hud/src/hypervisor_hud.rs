@@ -398,14 +398,21 @@ impl HypervisorHudApp {
                     };
 
                     let bar_width = ui.available_width() - 120.0;
-                    let (rect, _) = ui.allocate_at_least(Vec2::new(bar_width, 24.0), egui::Sense::hover());
-                    ui.painter().rect_filled(rect, 4.0, Color32::from_rgb(25, 28, 36));
+                    let (rect, _) =
+                        ui.allocate_at_least(Vec2::new(bar_width, 24.0), egui::Sense::hover());
+                    ui.painter()
+                        .rect_filled(rect, 4.0, Color32::from_rgb(25, 28, 36));
                     let fill_rect = egui::Rect::from_min_size(
                         rect.min,
                         Vec2::new(bar_width * snap.rolling_concurrence, 24.0),
                     );
                     ui.painter().rect_filled(fill_rect, 4.0, bar_color);
-                    ui.painter().rect_stroke(rect, 1.0, Stroke::new(1.0_f32, Color32::from_rgb(80, 80, 100)), egui::StrokeKind::Inside);
+                    ui.painter().rect_stroke(
+                        rect,
+                        1.0,
+                        Stroke::new(1.0_f32, Color32::from_rgb(80, 80, 100)),
+                        egui::StrokeKind::Inside,
+                    );
                     ui.label(format!("{:.1}%", pct));
                 });
 
@@ -502,11 +509,7 @@ impl eframe::App for HypervisorHudApp {
                 HudTab::SystemThermodynamics,
                 "System Thermodynamics",
             );
-            ui.selectable_value(
-                &mut self.active_tab,
-                HudTab::ShadowModel,
-                "Shadow Model",
-            );
+            ui.selectable_value(&mut self.active_tab, HudTab::ShadowModel, "Shadow Model");
 
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 ui.checkbox(&mut self.is_simulating, "Live 60Hz Sim");

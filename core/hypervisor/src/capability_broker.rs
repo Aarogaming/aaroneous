@@ -1067,6 +1067,23 @@ mod tests {
     }
 
     #[test]
+    fn test_capability_registry_json_round_trip() {
+        // M47: capability registry export must serialize/deserialize losslessly
+        // (used by `hypervisor si export-capabilities`).
+        let broker = CapabilityBroker::default();
+        let capabilities = broker.list_capabilities();
+        assert!(!capabilities.is_empty());
+
+        let json_bytes =
+            serde_json::to_vec_pretty(&capabilities).expect("serialize capability registry");
+        let round_tripped: Vec<CapabilityDescriptor> =
+            serde_json::from_slice(&json_bytes).expect("deserialize capability registry");
+
+        assert_eq!(round_tripped.len(), capabilities.len());
+        assert_eq!(round_tripped[0].id, capabilities[0].id);
+    }
+
+    #[test]
     fn test_smt_interlock_gate_capability() {
         let broker = CapabilityBroker::default();
 

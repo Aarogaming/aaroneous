@@ -173,10 +173,12 @@ impl<const W: usize> ConcurrenceEngine<W> {
         self.total_agreements += agreed as u64;
 
         // EMA updates.
-        self.avg_confidence =
-            self.avg_confidence.mul_add(1.0 - EMA_ALPHA, result.confidence * EMA_ALPHA);
-        self.avg_reward =
-            self.avg_reward.mul_add(1.0 - EMA_ALPHA, result.reward * EMA_ALPHA);
+        self.avg_confidence = self
+            .avg_confidence
+            .mul_add(1.0 - EMA_ALPHA, result.confidence * EMA_ALPHA);
+        self.avg_reward = self
+            .avg_reward
+            .mul_add(1.0 - EMA_ALPHA, result.reward * EMA_ALPHA);
 
         // Graduation check — only when window is fully primed.
         if !self.graduated && self.filled == W {
@@ -330,7 +332,10 @@ mod tests {
         let mut eng: ConcurrenceEngine<10> = ConcurrenceEngine::new();
         for i in 0..9u64 {
             let ev = eng.update(tick(1, 1));
-            assert!(ev.is_none(), "tick {i} should not graduate before window is full");
+            assert!(
+                ev.is_none(),
+                "tick {i} should not graduate before window is full"
+            );
         }
     }
 }

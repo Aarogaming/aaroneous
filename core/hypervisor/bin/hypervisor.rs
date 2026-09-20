@@ -291,6 +291,12 @@ enum SiCommands {
     },
     /// Display shadow model concurrence metrics and graduation status
     Concurrence,
+    /// Export the full capability registry (Specialist/DevTools/MemoryFabric/etc.) as JSON
+    ExportCapabilities {
+        /// Output JSON file path
+        #[arg(short, long)]
+        output: PathBuf,
+    },
     /// Birth a new .si model container via SiForge (Distill -> Align -> Pack)
     Forge {
         #[arg(short, long)]
@@ -806,6 +812,7 @@ fn run_cli(cli: Cli) -> Result<()> {
                 lora_rank,
             } => run_pack_si_pipeline(model_id, out, *d_model, *d_state, *lora_rank),
             SiCommands::Concurrence => run_concurrence_pipeline(),
+            SiCommands::ExportCapabilities { output } => run_export_capabilities(output),
             SiCommands::Forge {
                 name,
                 tier,
@@ -1382,7 +1389,10 @@ fn run_concurrence_pipeline() -> Result<()> {
     // and was written by the same binary.
     let snapshot: compute::ConcurrenceSnapshot = unsafe { std::mem::transmute(buf) };
 
-    println!("  Rolling Concurrence : {:.1}%", snapshot.rolling_concurrence * 100.0);
+    println!(
+        "  Rolling Concurrence : {:.1}%",
+        snapshot.rolling_concurrence * 100.0
+    );
     println!("  Total Ticks         : {}", snapshot.total_ticks);
     println!("  Total Agreements    : {}", snapshot.total_agreements);
     println!("  Avg Confidence      : {:.3}", snapshot.avg_confidence);
@@ -1391,8 +1401,14 @@ fn run_concurrence_pipeline() -> Result<()> {
     println!("-----------------------------------------------------------------");
 
     if snapshot.graduated {
-        println!("  Status: GRADUATED at tick {}", snapshot.total_ticks - snapshot.ticks_since_graduation);
-        println!("          {} ticks since graduation", snapshot.ticks_since_graduation);
+        println!(
+            "  Status: GRADUATED at tick {}",
+            snapshot.total_ticks - snapshot.ticks_since_graduation
+        );
+        println!(
+            "          {} ticks since graduation",
+            snapshot.ticks_since_graduation
+        );
     } else {
         let filled_pct = if snapshot.total_ticks > 0 {
             (snapshot.total_ticks.min(1000) as f32 / 1000.0 * 100.0).min(100.0)
@@ -1404,6 +1420,39 @@ fn run_concurrence_pipeline() -> Result<()> {
     }
 
     println!("=================================================================");
+    Ok(())
+}
+
+/// Exports the full capability registry (all built-in engine capabilities) to a JSON file
+/// via an atomic write: serialize to `<output>.partial`, then rename into place.
+fn run_export_capabilities(output: &std::path::Path) -> Result<()> {
+    let broker = hypervisor::CapabilityBroker::new();
+    broker.register_default_engine_capabilities();
+    let capabilities = broker.list_capabilities();
+
+    let json_bytes = serde_json::to_vec_pretty(&capabilities)?;
+
+    let partial_path = output.with_extension(match output.extension() {
+        Some(ext) => format!("{}.partial", ext.to_string_lossy()),
+        None => "partial".to_string(),
+    });
+
+    if let Some(parent) = output.parent()
+        && !parent.as_os_str().is_empty()
+    {
+        std::fs::create_dir_all(parent)?;
+    }
+
+    std::fs::write(&partial_path, &json_bytes)?;
+    std::fs::rename(&partial_path, output)?;
+
+    println!("=================================================================");
+    println!("  CAPABILITY REGISTRY EXPORT");
+    println!("=================================================================");
+    println!("  Capabilities exported : {}", capabilities.len());
+    println!("  Output path           : {}", output.display());
+    println!("=================================================================");
+
     Ok(())
 }
 
