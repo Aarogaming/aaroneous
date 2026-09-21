@@ -24,6 +24,16 @@ This is the single verification command that validates your workspace matches CI
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the full rule reference.
 
+**Joining as an agent alongside others (Claude, Codex, Antigravity/Gemini,
+local Qwen):** cross-agent coordination — the shared claim queue, a
+low-cost change-ping mechanism, and the circuit breaker used to halt
+another agent's pipeline — is documented in the private companion repo
+`aaroneous-devtools`, at `governance/CROSS_AGENT_COORDINATION_PROTOCOL.md`
+and `governance/ROUND_TABLE_INTRO_PROMPT.md` (the latter is a ready-to-paste
+onboarding prompt). Read those before working here alongside another agent
+session, if you have access to that repo. Rules in this document still
+apply regardless of which agent is editing.
+
 ---
 
 ## 0. Component Framework Architecture & Topology

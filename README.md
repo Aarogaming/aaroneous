@@ -68,6 +68,7 @@ cargo run --release -p hypervisor --bin hypervisor -- mcp --host 127.0.0.1 --por
 - [docs/SI_FORMAT.md](docs/SI_FORMAT.md) — Binary format specification
 - [docs/architecture.md](docs/architecture.md) — Master architecture
 - [governance/OPERATING_MODEL.md](governance/OPERATING_MODEL.md) — Companion operating model (devtools)
+- `governance/CROSS_AGENT_COORDINATION_PROTOCOL.md` in the private `aaroneous-devtools` companion repo — how multiple agent sessions (Claude, Codex, Antigravity/Gemini, local Qwen) coordinate work; not linked here since that repo is private
 
 ## Reviewer Checklist
 
