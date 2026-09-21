@@ -1859,6 +1859,8 @@ dependencies = [
  "ast_auditor",
  "clap",
  "paths",
+ "serde_json",
+ "tempfile",
  "transpiler",
 ]
 

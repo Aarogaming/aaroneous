@@ -19,3 +19,7 @@ ast_auditor = { path = "../ast_auditor" }
 transpiler = { path = "../transpiler" }
 adaptation_engine = { path = "../adaptation_engine" }
 paths = { path = "../paths" }
+serde_json = "1.0"
+
+[dev-dependencies]
+tempfile = { workspace = true }
