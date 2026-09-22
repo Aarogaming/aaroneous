@@ -1,226 +1,449 @@
-# ⚡ Aaroneous: Rust Component Framework & Sovereign Execution Substrate
+# ⚡ Aaroneous
 
-> **A strict, type-safe Rust Component Framework for building interchangeable, safe, zero-allocation execution blocks, plugins, and SCADA/PLC state-space controllers.**
+> A constitutional Systems Base Platform and capability-expression substrate built from hardened Rust capabilities.
+
+Aaroneous is a deterministic, capability-first Rust framework for building composable systems that can scale from embedded controllers and PLC-class runtimes to distributed software, digital twins, adaptive systems, and future synthetic intelligence architectures. 【1-759ee8】【2-39e580】
+
+Aaroneous is not a monolithic application.
+
+It is not an operating system.
+
+It is not an AI product.
+
+It is not tied to a specific runtime, hardware target, model architecture, or deployment environment.
+
+Aaroneous provides a constitutional execution substrate where capabilities can be built, verified, orchestrated, reduced, expanded, and expressed across any computational domain. 【1-759ee8】【2-39e580】
 
 ---
 
-## 🌌 Overview & Core Identity
+# 🌌 Why Aaroneous Exists
 
-**Aaroneous is NOT a monolithic application.** It is an atomic, type-safe **Rust Component Framework** designed from first principles for building interchangeable, safe, zero-allocation execution blocks and plugins. Operating on a strict **Sterile Execution Plane (SEP)**, the framework targets deterministic reduction, allocation-free hot paths, injected dependencies, and explicit binary contracts. These are component-level requirements; they are not yet guarantees for every crate or execution path.
+Modern software often becomes tightly coupled to:
 
-### Verification and assurance scope
+- Frameworks
+- Vendors
+- Platforms
+- Models
+- Deployment targets
 
-Run `cargo xtask gate` (the canonical 11-gate local verification command) or `bash scripts/agent_check.sh` / `pwsh -File scripts/agent_check.ps1` on Windows. CI invokes the same gates: text-encoding contract, formatting, strict Clippy (`-D warnings`), full workspace compilation, workspace tests, AST audit, zero-stub/zero-unsafe-impl inspection, emulator harness, release binary check, and optional feature compilation.
+As dependencies accumulate, systems become increasingly difficult to evolve, migrate, or reason about.
 
-The AST audit reports coverage of functions marked `#[doc = "hot_path"]`; it checks syntax, not transitive allocation behavior or worst-case timing. Latency numbers below are design targets unless accompanied by a reproducible benchmark with machine, build profile, inputs, warmup and percentile results. The governance backend currently performs Rust structural and register-footprint checks; enabling its legacy Z3 feature does not constitute an SMT proof. `studio_hud::plugin_api::PluginManager` loads `api::UiCartridge` implementations in-process only — dynamic (`.dll`/`.so`) loading was removed as unsound rather than exposed as a stable DLL ABI.
+Aaroneous takes the opposite approach.
 
-Snapshot transport uses version 3 atomic words and copies a validated payload into private storage. Default endpoints use `engine_state_v3`, keeping them separate from older mappings. A busy writer claim after a process crash fails closed; replace the segment through a new configured path after stopping old peers. See [the transport contract](docs/SNAPSHOT_TRANSPORT.md).
+Capabilities are treated as durable building blocks.
 
-### 🧩 Crate Topology & Component Architecture
-The framework decomposes execution into isolated, modular component blocks:
-- **`core/hypervisor/`**: Headless microkernel host, hardware timer duty cycle, and execution loop.
-- **`crates/orchestrator/`**: Task scheduling, core affinity, and typestate event reduction.
-- **`crates/platform_bridge/`**: OS abstraction layer (DXGI, Win32 HID, WASAPI loopback).
-- **`crates/ipc_bus/`**: Lock-free SPMC/SWMR shared-memory ring buffers and persistent WAL.
-- **`crates/capabilities/`**: `UniversalTool` interface & domain specialist registry.
-- **`crates/governance/`**: Formal Z3 SMT verification & thermodynamic safety interlocks.
-- **`crates/compute/`**: Solid-state SSM engine, .si container format, and Cranelift JIT compiler.
-- **`crates/api/` & `crates/studio_hud/`**: Presentation layer and GUI viewports (`egui`/`eframe` 0.34).
+Applications are temporary.
+
+Platforms evolve.
+
+Capabilities endure.
+
+The goal is not software longevity.
+
+The goal is capability longevity.
+
+A capability should remain useful whether it ultimately expresses itself as:
+
+- A PLC control loop
+- An embedded controller
+- A robot subsystem
+- A digital twin
+- A distributed service
+- A desktop application
+- A synthetic intelligence primitive
+
+---
+
+# 🧱 Rust Legos For Systems Architecture
+
+Aaroneous treats software as hardened building blocks.
+
+Each capability is designed to:
+
+- Interlock through explicit contracts
+- Remain independently deployable
+- Remain independently testable
+- Remain independently replaceable
+- Express behavior deterministically
+- Scale through composition rather than coupling
+
+The individual capability is not the product.
+
+The system constructed from capabilities is the product.
+
+Just as a LEGO brick does not know whether it belongs to a castle, vehicle, bridge, or spacecraft, an Aaroneous capability does not know the final system it participates in.
+
+Value emerges from orchestration.
+
+---
+
+# 🎼 Capability Expression
+
+Traditional software is often invocation-driven:
 
 ```text
-┌────────────────────────────────────────────────────────────────────────────────────────────────────────┐
-│                        THE AARONEOUS SOLID-STATE EXECUTION ENGINE SUBSTRATE                            │
-├────────────────────────────────────────────────────────────────────────────────────────────────────────┤
-│                                                                                                        │
-│  ONE FILE (.si) ──► Mounted via `memmap2` in < 50µs directly into Active Virtual Memory                │
-│                                                                                                        │
-│  ┌──────────────────────────────────────────────────────────────────────────────────────────────────┐  │
-│  │ [BLOCK 1: FROZEN CORE SSM WEIGHTS] (Continuous HiPPO State-Space Recurrence)                     │  │
-│  │ • 4× Selective State-Space recurrent layers (S4 / Mamba recurrence: h_t = Ā h_{t-1} + B̄ u_t)    │  │
-│  │ • Immutable base model: eliminates catastrophic forgetting of grammar, types, and hardware ops.  │  │
-│  ├──────────────────────────────────────────────────────────────────────────────────────────────────┤  │
-│  │ [BLOCK 2: DYNAMIC ADAPTATION MATRIX] (Streaming LoRA / Real-Time Error Correction)               │  │
-│  │ • Mutable Low-Rank delta matrices: ΔW = A_adapt · B_adapt (Rank r = 16, ~64 KB RAM footprint)    │  │
-│  │ • On runtime error/panic: Instant in-place gradient step (< 50µs) steers weights away!           │  │
-│  │ • On task success: Instant reinforcement step cements optimal latent route.                     │  │
-│  ├──────────────────────────────────────────────────────────────────────────────────────────────────┤  │
-│  │ [BLOCK 3: EPISODIC SKILL STACK] (Mined AST DAGs, Habits & Execution Pathways)                   │  │
-│  │ • Mined computational DAGs, hotkeys, dimensional signatures, and habits.                         │  │
-│  └──────────────────────────────────────────────────────────────────────────────────────────────────┘  │
-│                                                                                                        │
-└────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+Function
+    ↓
+Result
 ```
+
+Aaroneous is capability-expression driven:
+
+```text
+State
+    ↓
+Context
+    ↓
+Available Capabilities
+    ↓
+Orchestration
+    ↓
+Expression
+    ↓
+Outcome
+```
+
+Capabilities do not merely execute.
+
+They participate.
+
+The same capability may contribute to industrial control, simulation, orchestration, robotics, automation, cognition, or analysis depending entirely on context.
+
+Like instruments within an orchestra, individual components remain simple while larger behaviors emerge through composition and coordination.
 
 ---
 
-## 🚀 Key Architectural Pillars
+# 🏛 Constitutional Architecture
 
-### 1. 🧬 Pure Rust Selective State-Space Model (`SiStateSpaceModel`)
-- Continuous-time state-space recurrence ($h_t = \bar{\mathbf{A}} h_{t-1} + \bar{\mathbf{B}} u_t$, $y_t = \mathbf{C} h_t + \mathbf{D} u_t$).
-- 4 layers, 1024-element state vectors, 256 model dimension, 64 state rank (~890k parameters $\approx$ 3.56 MB RAM footprint).
-- Sub-millisecond single-pass state-to-action inference (design target: $< 180\,\mu\text{s}$; no reproducible benchmark yet — see §Verification and assurance scope).
+Aaroneous is governed by explicit architectural constraints.
 
-### 2. ⚡ Dynamic Adaptation Matrix & Real-Time Error Steering (`DynamicAdaptationMatrix`)
-- Eliminates catastrophic forgetting by pairing an immutable frozen core with a mutable low-rank adapter ($\Delta W = A_{\text{adapt}} \cdot B_{\text{adapt}}$).
-- When an execution error or compiler panic occurs, `on_runtime_error` applies an immediate negative gradient step (design target: $< 50\,\mu\text{s}$; no reproducible benchmark yet), steering the model away from repeated failures.
+These constraints are intentionally strict.
 
-### 3. 💎 Autonomous Skill Expansion & Thermodynamic Minimization (`SkillExpansionEngine`)
-- Self-development loop driven by thermodynamic free energy minimization ($F = E - T \cdot S$) and step compression.
-- Automatically graduates candidate workflows through a formal maturity ladder:
-  $$\text{🌱 Candidate} \longrightarrow \text{🧪 Validated} \longrightarrow \text{💎 Crystallized Module} \longrightarrow \text{⚡ Core Reflex}$$
-- High-fitness habits are frozen into portable, memory-mapped `.si` cartridges.
+The stricter the primitive, the more adaptable the system becomes. 【2-39e580】
 
-### 4. 🛠️ Universal Capability Toolset (`UniversalTool` & MCP Hub)
-- **Dual-Face Execution**: Every capability tool implements the `UniversalTool` trait—exposing standard JSON schemas for external MCP clients (Claude Desktop, Cursor, OpenCode), while concurrently executing zero-copy $\mathbb{R}^{256}$ latent tensor transformations for native `.si` models in VRAM (design target: $< 15\,\mu\text{s}$; no reproducible benchmark yet).
-- Standard catalog covers AST repair, pattern rewriting, security audits, semantic queries, and multi-modal sensory inspection.
+## Deterministic State Reduction
 
-### 5. 🏛️ Layered Protection Rings & PLC Reducer Architecture
-- **Ring 0 (Microkernel Host)**: `core/hypervisor` duty cycle executing cyclical 3-phase scans ($S_{t+1} = f(S_t, I)$).
-- **Ring 1 (Interconnect & Compute)**: `ipc_bus` lock-free SWMR ring buffers, `compute` continuous SSM and bond-graph physics compilation, `core-contracts` zero-copy Pod definitions.
-- **Ring 2 (Control & Orchestration)**: `orchestrator` typestate event reducers, `orchestration_plane`, `governance` thermal/safety interlocks.
-- **Ring 3 (Ingress & Transducers)**: `capabilities`, `llm_gateway` stateless transport, `platform_bridge` Win32 HID and DXGI screen capture.
-- **Ring 4 (Presentation)**: `api` and `studio_hud` desktop GUI on `egui`/`eframe` 0.34 with zero raw pointer leakage.
+All domain logic is modeled as explicit state transformation:
+
+```text
+S(t+1) = f(S(t), I)
+```
+
+Inputs drive state.
+
+State drives output.
+
+Behavior remains observable, reproducible, and auditable. 【2-39e580】
 
 ---
 
-## ⚡ Zero-Copy Solid-State Neural Architecture
+## Three-Phase Execution
 
-The Aaroneous runtime executes `.si` v3.0 cartridges via direct virtual memory mapping (`memmap2`):
-- **Zero Heap Allocations**: Model weights and parameter loci are addressed directly from page-aligned memory maps.
-- **Cache Alignment**: 64-byte aligned SIMD layout for streaming vector operations (`align(64)`).
-- **Zero-Copy Contracts**: Public boundary types implement `#[repr(C)]` and derive `bytemuck::Pod` + `bytemuck::Zeroable`.
-- **Shared-Memory IPC**: Lock-free SWMR ring buffers communicate via discrete zero-copy frames over `ipc_bus`.
+Every execution cycle is separated into:
+
+```text
+Input Acquisition
+       ↓
+State Reduction
+       ↓
+Output & Telemetry
+```
+
+This architecture borrows heavily from proven PLC, embedded, and control-system design methodologies. 【2-39e580】【1-759ee8】
 
 ---
 
-## 📦 Quick Start & CLI Usage
+## Zero Ambient Authority
 
-### Build and Launch Desktop Studio HUD
-```powershell
-# Native Desktop Studio & Telemetry HUD (eframe / wgpu)
-cargo run --release -p studio_hud --bin aaroneous
+Capabilities receive authority explicitly.
 
-# Headless Microkernel Hypervisor CLI
-cargo run --release -p hypervisor --bin hypervisor -- --help
+No hidden configuration.
+
+No hidden state.
+
+No hidden environment access.
+
+No ambient privilege.
+
+Dependencies are injected, not assumed. 【2-39e580】
+
+---
+
+## Verification First
+
+Compilation is not considered proof of correctness.
+
+Capabilities are expected to be:
+
+- Testable
+- Auditable
+- Verifiable
+- Replaceable
+
+Architectural compliance is enforced through repository-wide verification gates, audits, and invariant checks. 【2-39e580】【1-759ee8】
+
+---
+
+# ⚙ Execution Rings
+
+Aaroneous organizes responsibilities through layered execution rings. 【1-759ee8】
+
+```text
+Ring 4  Presentation
+         Human interfaces & visualization
+
+Ring 3  Ingress & Transducers
+         Capability exposure, platform bridges
+
+Ring 2  Control & Orchestration
+         Schedulers, reducers, supervision
+
+Ring 1  Interconnect & Compute
+         Contracts, IPC, computation
+
+Ring 0  Microkernel Host
+         Deterministic execution loop
 ```
 
-### Static Analysis & AST Invariant Audit
-```powershell
-# Run the AST Auditor across the entire workspace (Must report 0 violations)
-cargo run -p ast_auditor -- audit core/ crates/ dev/
+Each ring introduces capability while preserving separation of concerns and architectural boundaries. 【1-759ee8】
+
+---
+
+# 🔧 Cratify
+
+Cratify is the process by which software becomes Aaroneous-compliant. 【2-39e580】
+
+The objective is not reusable code.
+
+The objective is reusable capability.
+
+A Cratified component:
+
+- Defines explicit contracts
+- Eliminates hidden dependencies
+- Respects constitutional constraints
+- Remains independently deployable
+- Participates in deterministic execution
+- Passes repository verification
+
+Capabilities survive.
+
+Implementations evolve.
+
+---
+
+# 📦 Reductive Expansion
+
+Aaroneous scales through capability reduction and expansion.
+
+Different targets ship different capability sets while preserving the same constitutional architecture.
+
+## Embedded Profile
+
+```text
+Runtime
+Reducers
+Contracts
+Drivers
 ```
 
-### Full Verification Gate (local CI equivalent)
-```powershell
-# Runs all 11 gates: encoding, fmt, clippy, build, tests, AST audit, stub check, emulator harness, release check, feature flags
+## PLC / Industrial Profile
+
+```text
+Runtime
+I/O
+Networking
+Diagnostics
+Control
+```
+
+## Desktop Profile
+
+```text
+Visualization
+Development Tools
+Simulation
+Telemetry
+```
+
+## Adaptive Systems Profile
+
+```text
+Capability Graphs
+State Systems
+Reasoning Layers
+Learning Layers
+```
+
+The architecture remains unchanged.
+
+Only the expressed capabilities differ.
+
+---
+
+# 🔩 Core Capability Domains
+
+The workspace decomposes into independent capability domains. 【1-759ee8】
+
+```text
+core/hypervisor
+```
+
+Deterministic microkernel host and execution loop.
+
+```text
+orchestrator
+```
+
+Scheduling, state reduction, and execution coordination.
+
+```text
+core-contracts
+```
+
+Portable contracts, memory layouts, and capability boundaries.
+
+```text
+ipc_bus
+```
+
+Deterministic communication and shared-memory transport.
+
+```text
+governance
+```
+
+Verification, invariants, and safety layers.
+
+```text
+capabilities
+```
+
+Machine-native capability registry and expression layer.
+
+```text
+compute
+```
+
+Advanced computation, state-space systems, simulation, and experimentation.
+
+```text
+api / studio_hud
+```
+
+Human-facing visualization and interaction layers.
+
+---
+
+# 🔌 Capability Interfaces
+
+Capabilities may be consumed through multiple interfaces without altering their underlying implementation. 【1-759ee8】
+
+Examples include:
+
+- Native Rust APIs
+- Shared-memory IPC
+- Local orchestration
+- Distributed networking
+- MCP integrations
+- Human-facing interfaces
+
+Protocols evolve.
+
+Capabilities remain.
+
+---
+
+# ✅ Verification Workflow
+
+The canonical repository validation pipeline is:
+
+```bash
 cargo xtask gate
 ```
 
-### Hypervisor Commands (`hypervisor`)
-```powershell
-# 1. Start the supervisory control daemon
-cargo run --release -p hypervisor --bin hypervisor -- start --tick 1000
+This executes repository verification including:
 
-# 2. Boot the Aaroneous sovereign runtime under a specific execution profile
-cargo run --release -p hypervisor --bin hypervisor -- boot --profile isolated
+- Encoding validation
+- Formatting checks
+- Strict Clippy compliance
+- Workspace compilation
+- Test execution
+- Architectural audits
+- Soundness inspections
+- Emulator validation
+- Release validation
+- Feature verification
 
-# 3. Boot a live P2P cluster & verify gossip consensus
-cargo run --release -p hypervisor --bin hypervisor -- mesh --nodes 4 --live
-
-# 4. Launch an active sovereign P2P socket daemon node
-cargo run --release -p hypervisor --bin hypervisor -- daemon --bind 127.0.0.1:8001
-
-# 5. Execute autonomous background self-evolution cycles
-cargo run --release -p hypervisor --bin hypervisor -- evolve --cycles 3 --threshold 0.70
-
-# 6. Forge a new .si container via SiForge
-cargo run --release -p hypervisor --bin hypervisor -- forge --name my_model --tier 3 --samples 20
-
-# 7. Benchmark zero-copy memory-mapped execution latency
-cargo run --release -p hypervisor --bin hypervisor -- si benchmark path/to/model.si --iterations 500
-
-# 8. Distill .si models for all domain specialists
-cargo run --release -p hypervisor --bin hypervisor -- distill-all --samples 10 --epochs 2
-
-# 9. Launch the MCP server for Claude Desktop / Cursor integration
-cargo run --release -p hypervisor --bin hypervisor -- mcp --host 127.0.0.1 --port 8766
-```
+Verification is part of the architecture, not an afterthought. 【2-39e580】【1-759ee8】
 
 ---
 
-## 📂 Workspace Architecture
+# 🌱 Synthetic Systems
+
+Aaroneous is not an intelligence model.
+
+Aaroneous is a substrate for capability accumulation. 【1-759ee8】【2-39e580】
+
+The framework focuses on foundational capabilities:
 
 ```text
-d:\Aaroneous\
-├── core/
-│   └── hypervisor/             # Microkernel host, execution duty cycle, a_run, profile_compiler
-├── crates/
-│   ├── api/                    # Presentation boundary, public types, egui/eframe bridge
-│   ├── studio_hud/             # Native Desktop Studio & Telemetry HUD (egui/eframe 0.34)
-│   ├── ipc_bus/                # Lock-free SWMR ring buffers, LMAX disruptor, UCP protocol
-│   ├── compute/                # SiForge, SSM engine, Sparse MoE, bond-graph physics compiler
-│   ├── orchestrator/           # Typestate task assimilation, priority scheduler, thread affinity
-│   ├── orchestration_plane/    # Orchestration daemon integration, domain classification
-│   ├── llm_gateway/            # Stateless transducer transport layer (HTTP/REST/MCP)
-│   ├── capabilities/           # UniversalTool registry, security audit, code repair tools
-│   ├── platform_bridge/        # Win32 HID injection, DXGI zero-copy screen capture, WASAPI
-│   ├── governance/             # Thermal monitoring, Z3 SMT gates, SI lattice verification
-│   ├── autonomic_adaptation/   # Continuous adaptive control, LoRA adaptation, GGUF ingestion
-│   ├── adaptation_engine/      # Polyglot AST parsing, component forge, shadow sandbox
-│   ├── transpiler/             # AST parser & distillation trajectory miner
-│   ├── omni/                   # 3D Concept Galaxy Graph & Barnes-Hut gravitational clustering
-│   ├── ast_auditor/            # Static analysis AST linter enforcing workspace invariants
-│   ├── paths/                  # Configuration-injected path resolver (zero ambient authority)
-│   ├── core-contracts/         # Zero-copy memory contracts & Pod/Zeroable derivations
-│   ├── si_format/              # Canonical .si container binary layout, SIMD alignment & CRC32
-│   ├── si_ir/                  # Computational graphs, MachineOpcode IR & type lattice
-│   ├── wire/                   # Network protocol framing and zero-copy packet wire serialization
-│   ├── mcp_server/             # Model Context Protocol server exposing Aaroneous to external tools
-│   ├── mutation_engine/        # Safe AST transformation, layout normalizer, panic replacer
-│   ├── runtime_monitor/        # Telemetry inspection, thread liveness, and watchdog supervisor
-│   └── biology/                # Bio-inspired cellular automata & state decay simulations
-├── dev/
-│   ├── emulator_harness/       # Golden execution harness, trace capture, regression testbed
-│   ├── legacy_staging/         # Quarantine sandbox for external/historical code ingestion
-│   └── tools/                  # Diagnostics, host safety monitors, maintenance scripts
-├── data/                       # Fallback in-tree data root (gitignored)
-└── docs/
-    ├── architecture.md         # Master Architecture Portal & PLC/SCADA Invariants
-    └── architecture/           # Canonical Subsystem Specifications
-        ├── MASTER_ARCHITECTURE.md         # Unified 6-pillar master specification
-        ├── architecture_overview.md       # Workspace topology & subsystem rings
-        ├── assimilation_specification.md  # 360B wire contracts & typestate machine
-        ├── llm_manager_scheduler.md       # Stateless transducer & priority backoff heap
-        ├── physics_compiler_dynamics.md   # Bond-graph duality & symplectic integration
-        └── human_interface_intent_mirror.md # HIAL, Intent DAG & 3-option intent mirror
-
-EXTERNAL DECOUPLED STORAGE (Zero-Clutter Architecture):
-├── C:\CargoTargetCache\        # Global Cargo target build cache (`target-dir`)
-└── D:\ArcData\                 # Externalized Neural & State Substrate (`ARC_DATA_ROOT`)
-    ├── models/                 # Birthed .si solid-state neural cartridges
-    ├── skills/                 # Crystallized .si muscle memory cartridges
-    ├── state_banks/            # Episodic state records & trajectory checkpoints
-    └── agents/                 # Specialist agent snapshots & persistent memory
+Observe
+Remember
+Compare
+Predict
+Act
+Evaluate
+Adapt
 ```
 
+As capabilities accumulate and interact, increasingly sophisticated behaviors may emerge.
+
+Potential applications include:
+
+- Industrial automation
+- Robotics
+- Distributed coordination
+- Digital twins
+- Adaptive control systems
+- Machine-native reasoning systems
+- Synthetic intelligence
+
+The framework remains agnostic.
+
+The constitution remains constant.
+
+The expression evolves.
+
 ---
 
-## 📜 Canonical Documentation Portal
+# 📚 Documentation
 
-For exhaustive technical specifications across all subsystems, consult:
-- **[Unified Master Architecture](docs/architecture/MASTER_ARCHITECTURE.md)**
-- **[System Architecture Specification](docs/architecture.md)**
-- **[Workspace Topology & Subsystem Rings](docs/architecture/architecture_overview.md)**
-- **[Event-Driven Asset Assimilation](docs/architecture/assimilation_specification.md)**
-- **[LLM Manager & Priority Scheduler](docs/architecture/llm_manager_scheduler.md)**
-- **[Scale-Invariant Dynamics & Physics Compiler](docs/architecture/physics_compiler_dynamics.md)**
-- **[Decoupled Human Node & Intent Mirror](docs/architecture/human_interface_intent_mirror.md)**
-- **[Architectural Constraints & Dependency Injection](docs/ARCHITECTURAL_CONSTRAINTS.md)**
-- **[Compiler Invariant Governance & AST Auditor](docs/CRATIFY_SPEC.md)**
-- **[Forensic Ingestion Protocol (RFC-0005)](docs/FORENSICS_RFC0005.md)**
+For deeper architectural specifications see:
+
+- Architecture Portal
+- Master Architecture
+- Cratify Specification
+- Architectural Constraints
+- Forensics RFC
+- Assimilation Specification
+- Orchestration Documentation
+- Governance Documentation
 
 ---
 
-## ⚖️ License
+# 🎯 Mission
 
-Licensed under the MIT License. See [LICENSE](LICENSE) for details.
+To create a timeless capability architecture whose components can outlive hardware generations, software paradigms, execution environments, intelligence models, and technological eras.
+
+Aaroneous seeks to provide a stable constitutional foundation upon which increasingly capable synthetic systems can be constructed.
+
+Not by prescribing outcomes.
+
+But by enabling capability expression.
+
+---
+
+# One-Line Definition
+
+> Aaroneous is a constitutional Systems Base Platform that enables deterministic capability expression through composable, verifiable, and interoperable Rust components.
