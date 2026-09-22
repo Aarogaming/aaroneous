@@ -28,6 +28,7 @@ members = [
     "crates/cratify",
     "crates/studio_hud",
     "crates/llm_gateway",
+    "crates/llm_gateway_types",
     "crates/runtime_monitor",
     "crates/mcp_server",
     "crates/orchestration_plane",
