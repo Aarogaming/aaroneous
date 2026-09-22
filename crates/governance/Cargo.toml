@@ -14,11 +14,12 @@ tracing = "0.1"
 anyhow = "1.0"
 rand = "0.8"
 thiserror = { workspace = true }
-compute = { path = "../compute" }
+compute = { path = "../compute", optional = true }
 si_ir = { path = "../si_ir" }
 si_format = { path = "../si_format" }
 z3 = { version = "0.9", optional = true }
 
 [features]
 default = []
+adaptive-governance = ["compute"]
 z3-prover = ["z3"]
