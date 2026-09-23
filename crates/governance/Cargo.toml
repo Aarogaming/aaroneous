@@ -12,14 +12,14 @@ serde = { version = "1.0", features = ["derive"] }
 strum = { version = "0.26", features = ["derive"] }
 tracing = "0.1"
 anyhow = "1.0"
-rand = "0.8"
 thiserror = { workspace = true }
 compute = { path = "../compute", optional = true }
 si_ir = { path = "../si_ir" }
 si_format = { path = "../si_format" }
 z3 = { version = "0.9", optional = true }
+rand = { version = "0.8", optional = true }
 
 [features]
 default = []
-adaptive-governance = ["compute"]
+adaptive-governance = ["compute", "dep:rand"]
 z3-prover = ["z3"]

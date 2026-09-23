@@ -1,7 +1,7 @@
-pub mod types;
-pub mod model_registry;
 pub mod config;
+pub mod model_registry;
+pub mod types;
 
-pub use types::*;
+pub use config::{CostInfo, LLMConfig, ProviderType};
 pub use model_registry::{ModelInfo, ModelType};
-pub use config::{LLMConfig, ProviderType, CostInfo};
+pub use types::*;

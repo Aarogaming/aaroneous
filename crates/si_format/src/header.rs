@@ -78,7 +78,9 @@ impl Default for SiTierFlags {
 
 /// Standard Canonical Cartridge Header (64 Bytes, Little-Endian)
 #[repr(C)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, bytemuck::Pod, bytemuck::Zeroable,
+)]
 pub struct SiCartridgeHeader {
     pub magic: [u8; 4],
     pub version: u16,
