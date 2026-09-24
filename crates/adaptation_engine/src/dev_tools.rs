@@ -1,6 +1,19 @@
 //! crates/adaptation_engine/src/dev_tools.rs
 //! Industrial-Grade Developer Power Tools, Diagnostic Parsing, and Patch Application Engine.
 //! Provides workspace file tree exploration, compiler diagnostic extraction, and safe file patching with backup.
+//!
+//! Dedupe-audit note (.audit/DEAD_CODE_ANALYSIS.md): `crates/capabilities/src/
+//! dev_tools.rs` shares this filename but is not a duplicate. This module
+//! (`DevToolsEngine`) is a standalone filesystem/diagnostics toolkit --
+//! workspace tree scanning, `cargo check` JSON diagnostic parsing, and
+//! backed-up file patching -- consumed directly by `studio_hud` and
+//! `hypervisor::capability_broker`. `capabilities::dev_tools` is the
+//! `DevToolsSpecialist`/"Fabricator" domain specialist that wraps entirely
+//! different parts of this crate (`AdaptationEngine`, `CodeMutator`,
+//! `AutoWrapperEngine`, `AutonomousScientificEngine`) behind the
+//! `SovereignSpecialist` packet-handling interface for the capabilities
+//! registry; it never references `DevToolsEngine` and has no functional
+//! overlap with it. Both are kept.
 
 use anyhow::{Result, anyhow};
 use serde::{Deserialize, Serialize};
