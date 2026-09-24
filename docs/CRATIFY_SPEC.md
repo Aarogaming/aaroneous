@@ -93,9 +93,17 @@ A crate may depend only on crates whose profile is the same or stricter, in the 
 `kernel` > `control` > `presentation` / `tooling`. A `kernel` crate therefore depends only on
 `kernel` crates and admitted third-party dependencies. The composition root (section 2.2) is exempt.
 
-**Status: planned.** Known violations, recorded as the ratchet baseline: `ipc_bus` and `compute`
-(`kernel`) depend on `paths` (`control`). Resolution: split `paths` into a `kernel`-safe path-value
-crate and a bootstrap discovery layer called only from entrypoints.
+**Status: planned.** The rule is not yet enforced. Known violations, measured from `cargo metadata`
+(normal and build dependencies) on 2026-09-24 and recorded as the ratchet baseline (16 edges):
+
+| Violation | Edges | Resolution |
+|---|---|---|
+| `kernel` -> `paths` (`control`) | `ipc_bus`, `compute`, `hypervisor` -> `paths` | Split `paths` into a `kernel`-safe path-value crate and a bootstrap discovery layer called only from entrypoints. |
+| `hypervisor` library (`kernel`) -> `control` | `hypervisor` -> `adaptation_engine`, `adaptation_plane`, `governance`, `hotload`, `llm_gateway`, `omni`, `orchestrator`, `plugin_api`, `transpiler`, `capabilities` | Hypervisor decomposition (M75): move composition logic out of the library into the binaries or a dedicated composition crate, so the library keeps only `kernel` concerns. The composition-root exemption covers `bin/` only, and Cargo declares dependencies per package, so it does not cover these: the library sources use all of them except `capabilities`, which appears declared but unused. |
+| `kernel` / `control` -> `ast_auditor` (`tooling`) | `hypervisor`, `capabilities`, `adaptation_engine` -> `ast_auditor` | Extract the analysis API these crates call (`inspect`, `run_pattern_review`) into a `control`-profile crate that `ast_auditor` also depends on, leaving the CLI and gate rules in `tooling`. |
+
+The count may only decrease. A new edge in any of these directions is a defect even while the rule
+is unenforced.
 
 **Changing profile:** moving a crate to a *stricter* profile is always permitted. Moving to a *looser*
 profile is a ratchet reversal (Section 7) and requires owner sign-off recorded in the PR.

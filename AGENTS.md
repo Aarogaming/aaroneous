@@ -78,7 +78,7 @@ Full specification: [docs/CRATIFY_SPEC.md](docs/CRATIFY_SPEC.md) (v2, owner-appr
   | `presentation` | `api`, `studio_hud`, `scratchpad` | `#![deny(unsafe_code)]` |
   | `tooling` | `ast_auditor`, `cratify`, `compliance_auditor`, `xtask`, `benches` | `#![deny(unsafe_code)]` |
 
-  A crate may depend only on crates of the same or a stricter profile (`kernel` > `control` > `presentation`/`tooling`); the hypervisor binaries are the only exemption. Moving a crate to a stricter profile is always allowed. Moving to a looser profile requires owner sign-off recorded in the PR.
+  A crate may depend only on crates of the same or a stricter profile (`kernel` > `control` > `presentation`/`tooling`); the hypervisor binaries are the only exemption. This rule is not yet enforced and the workspace currently violates it in 16 places, all listed as a baseline in CRATIFY_SPEC section 2.3; do not add new ones. Moving a crate to a stricter profile is always allowed. Moving to a looser profile requires owner sign-off recorded in the PR.
 - **Deterministic State Reducers**: Domain engines operate as pure state transitions $S_{t+1} = f(S_t, I)$. No side effects, no background network I/O, and no hidden task launches during state reduction.
 - **Three-Phase Scan Separation** (`kernel`): Strict separation between Input Acquisition (I/O), State Reduction (pure, non-allocating computation), and Telemetry/Actuation Output.
 - **Fault Tolerance Over Brittle Invariants**: A violated runtime precondition is an operating condition, not a reason to abort. Use primary / degraded / safe-hold paths, with deadband (separate trip and recovery) thresholds between `Nominal`, `Degraded`, and `SafeHold` modes.
