@@ -146,6 +146,9 @@ pub fn run() -> Result<()> {
     println!("=== 9. Unwrap/Panic Ratchet Check ===");
     crate::check_unwraps::run(&[]).context("Gate 9 failed: Unwrap/Panic Ratchet Check")?;
 
+    println!("=== 9.5. Profile Dependency Direction Check ===");
+    crate::check_deps::run().context("Gate 9.5 failed: Profile Dependency Direction Check")?;
+
     println!("=== 10. Release Binary Check ===");
     run_cmd(
         "cargo",
@@ -237,6 +240,7 @@ mod tests {
         "cargo check -p core-contracts --target thumbv7em-none-eabihf --no-default-features",
         "cargo check -p core-contracts --target wasm32-unknown-unknown --no-default-features",
         "cargo run -p xtask -- check-unwraps",
+        "cargo run -p xtask -- check-deps",
         "cargo check --release --bin aaroneous --bin hypervisor",
         "cargo check -p hypervisor --all-targets --features llama-gguf,gpu-metrics,fleet,testing,standalone",
         "cargo check -p hypervisor --all-targets --features p2p-iroh",

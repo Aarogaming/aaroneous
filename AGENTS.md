@@ -16,7 +16,7 @@
 cargo xtask gate
 ```
 
-This is the single verification command that validates your workspace matches CI. It runs encoding, formatting, clippy, compilation, tests, AST audit, stub check, emulator harness, and feature compilation in order.
+This is the single verification command that validates your workspace matches CI. It runs encoding, formatting, clippy, compilation, tests, AST audit, stub check, emulator harness, profile dependency direction, and feature compilation in order.
 
 **Before claiming work is done, run it again.** If it passes, you're done.
 
@@ -78,7 +78,7 @@ Full specification: [docs/CRATIFY_SPEC.md](docs/CRATIFY_SPEC.md) (v2, owner-appr
   | `presentation` | `api`, `studio_hud`, `scratchpad` | `#![deny(unsafe_code)]` |
   | `tooling` | `ast_auditor`, `cratify`, `compliance_auditor`, `xtask`, `benches` | `#![deny(unsafe_code)]` |
 
-  A crate may depend only on crates of the same or a stricter profile (`kernel` > `control` > `presentation`/`tooling`); the hypervisor binaries are the only exemption. This rule is not yet enforced and the workspace currently violates it in 14 places, all listed as a baseline in CRATIFY_SPEC section 2.3; do not add new ones. Moving a crate to a stricter profile is always allowed. Moving to a looser profile requires owner sign-off recorded in the PR.
+  A crate may depend only on crates of the same or a stricter profile (`kernel` > `control` > `presentation`/`tooling`); the hypervisor binaries are the only exemption. `cargo xtask check-deps` enforces this in baseline (ratchet) mode: the workspace currently violates it in 14 places, all listed in `xtask/dep_direction_baseline.txt` (grouped by resolution in CRATIFY_SPEC section 2.3); the gate fails on any new edge, and fixing one means deleting it from the baseline file, not leaving it stale. Moving a crate to a stricter profile is always allowed. Moving to a looser profile requires owner sign-off recorded in the PR.
 - **Deterministic State Reducers**: Domain engines operate as pure state transitions $S_{t+1} = f(S_t, I)$. No side effects, no background network I/O, and no hidden task launches during state reduction.
 - **Three-Phase Scan Separation** (`kernel`): Strict separation between Input Acquisition (I/O), State Reduction (pure, non-allocating computation), and Telemetry/Actuation Output.
 - **Fault Tolerance Over Brittle Invariants**: A violated runtime precondition is an operating condition, not a reason to abort. Use primary / degraded / safe-hold paths, with deadband (separate trip and recovery) thresholds between `Nominal`, `Degraded`, and `SafeHold` modes.
@@ -181,6 +181,9 @@ cargo test -p emulator_harness
 # 9. Unwrap/Panic Ratchet Check (baseline ratchet; AGENTS.md section 5)
 cargo run -p xtask -- check-unwraps
 
+# 9.5. Profile Dependency Direction Check (baseline ratchet; CRATIFY_SPEC section 2.3 / 7.1 item 9)
+cargo run -p xtask -- check-deps
+
 # 10. Release Binary Check
 cargo check --release --bin aaroneous --bin hypervisor
 
@@ -191,7 +194,7 @@ cargo check -p hypervisor --all-targets --features llama-gguf,gpu-metrics,fleet,
 cargo check -p hypervisor --all-targets --features p2p-iroh
 ```
 
-> **Note:** `scripts/agent_check.sh` is a thin CI shim — all gate logic runs via `cargo xtask gate`. Gates 1-3, 9 and 10-12 mirror `ci.yml`'s directly-declared steps; gates 3.5 and 4-8 are `gate.rs`'s own pre-existing verification, run by CI only indirectly (as part of the "Canonical repository verification" step). If you add a new CI check, add the matching gate in `xtask/src/gate.rs` and its command string to `GATE_COMMANDS` in the same file — a test fails otherwise the next time either drifts from the other.
+> **Note:** `scripts/agent_check.sh` is a thin CI shim — all gate logic runs via `cargo xtask gate`. Gates 1-3, 9, 9.5 and 10-12 mirror `ci.yml`'s directly-declared steps; gates 3.5 and 4-8 are `gate.rs`'s own pre-existing verification, run by CI only indirectly (as part of the "Canonical repository verification" step). If you add a new CI check, add the matching gate in `xtask/src/gate.rs` and its command string to `GATE_COMMANDS` in the same file — a test fails otherwise the next time either drifts from the other.
 >
 > Gate 3 runs `--all-targets` (test/bench/example code included), not just library and binary targets — as of 2026-09-27 it didn't for a while, which let real lint debt (module-name collisions, `Default`-then-reassign, an `await`-held `MutexGuard`, a couple of dozen others) accumulate silently in test code across many "gate passed" claims. See `aaroneous-devtools/governance/AUDIT_2026-09-26_DOCUMENTATION_AND_PROCESS.md` Finding 3. Don't narrow this back without a real reason.
 

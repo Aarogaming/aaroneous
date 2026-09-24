@@ -1,5 +1,6 @@
 #![deny(unsafe_code)]
 
+mod check_deps;
 mod check_unwraps;
 mod encoding;
 mod export_wit;
@@ -21,6 +22,7 @@ fn main() -> Result<()> {
         "check-encoding" => encoding::run(),
         "check-native" => native_audit::run(),
         "check-unwraps" => check_unwraps::run(&args[2..]),
+        "check-deps" => check_deps::run(),
         "install" => install::run(&args[2..]),
         "uninstall" => uninstall::run(),
         "package" => package::run(&args[2..]),
@@ -61,6 +63,7 @@ Subcommands:
   check-native        Enforce the pure-Rust core boundary and native package allowlist
   check-unwraps       Check unwrap/expect/panic!/assert! counts against the ratchet baseline
                       (--dump-baseline prints current counts in baseline-file format)
+  check-deps          Check profile dependency direction against the ratchet baseline
   export-wit          Export WebAssembly Interface Type (WIT) declarations from capabilities
   workspace-metadata  Scan workspace for capability manifest (MCP discovery, deployment profiles)
   queue               Run the passive local agent background progress engine (Ollama GPU)
