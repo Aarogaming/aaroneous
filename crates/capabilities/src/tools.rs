@@ -483,7 +483,7 @@ impl UniversalTool for PatternConformanceTool {
             .and_then(|v| v.as_str())
             .map(std::path::PathBuf::from);
 
-        let report = ast_auditor::run_pattern_review(&target_paths, registry_path)
+        let report = cratify_core::run_pattern_review(&target_paths, registry_path)
             .map_err(|e| anyhow::anyhow!("Pattern review failed: {e}"))?;
 
         serde_json::to_value(&report)

@@ -42,7 +42,7 @@ compute = { path = "../../crates/compute" }
 adaptation_engine = { path = "../../crates/adaptation_engine" }
 platform_bridge = { path = "../../crates/platform_bridge", features = ["native-win32"] }
 specialists = { package = "capabilities", path = "../../crates/capabilities" }
-ast_auditor = { path = "../../crates/ast_auditor" }
+cratify_core = { path = "../../crates/cratify_core" }
 paths = { path = "../../crates/paths" }
 wire = { path = "../../crates/wire" }
 tokio-serial = "5.4"

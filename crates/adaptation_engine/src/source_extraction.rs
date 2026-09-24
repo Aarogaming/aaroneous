@@ -4,7 +4,7 @@
 //! The engine is intentionally generic: callers can specify which file extensions to treat as source, and which AST extraction strategy to use.
 
 use anyhow::{Context, Result};
-use ast_auditor::inspect;
+use cratify_core::inspect;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use walkdir::WalkDir;

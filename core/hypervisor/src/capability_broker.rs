@@ -840,7 +840,7 @@ impl CapabilityBroker {
                 let ws = paths::WorkspacePaths::from_config(WorkspacePathsConfig::default());
                 let registry_dir = ws.root().join("registry/patterns");
 
-                match ast_auditor::run_pattern_review(&targets, Some(registry_dir)) {
+                match cratify_core::run_pattern_review(&targets, Some(registry_dir)) {
                     Ok(report) => Ok(serde_json::json!({
                         "patterns_evaluated": report.patterns_evaluated,
                         "files_scanned": report.files_scanned,

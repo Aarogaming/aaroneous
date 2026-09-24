@@ -16,11 +16,11 @@ name = "adaptation_engine"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "ast_auditor",
  "bytemuck",
  "candle-core",
  "chrono",
  "compute",
+ "cratify_core",
  "goblin",
  "governance",
  "ipc_bus",
@@ -366,18 +366,10 @@ name = "ast_auditor"
 version = "0.3.2"
 dependencies = [
  "anyhow",
- "base64 0.22.1",
  "clap",
- "proc-macro2",
- "quote",
- "ring",
- "serde",
+ "cratify_core",
  "serde_json",
- "sha2 0.11.0",
- "syn 2.0.119",
  "tempfile",
- "thiserror 2.0.20",
- "toml",
  "walkdir",
 ]
 
@@ -1287,10 +1279,10 @@ dependencies = [
  "adaptation_engine",
  "adaptation_plane",
  "anyhow",
- "ast_auditor",
  "async-trait",
  "chrono",
  "compute",
+ "cratify_core",
  "ipc_bus",
  "libloading 0.9.0",
  "omni",
@@ -1652,8 +1644,8 @@ name = "compliance_auditor"
 version = "0.3.2"
 dependencies = [
  "anyhow",
- "ast_auditor",
  "clap",
+ "cratify_core",
  "futures",
  "llm_gateway",
  "serde",
@@ -1965,6 +1957,24 @@ dependencies = [
  "serde_json",
  "tempfile",
  "transpiler",
+]
+
+[[package]]
+name = "cratify_core"
+version = "0.3.2"
+dependencies = [
+ "anyhow",
+ "base64 0.22.1",
+ "proc-macro2",
+ "quote",
+ "ring",
+ "serde",
+ "serde_json",
+ "sha2 0.11.0",
+ "syn 2.0.119",
+ "thiserror 2.0.20",
+ "toml",
+ "walkdir",
 ]
 
 [[package]]
@@ -4030,7 +4040,6 @@ dependencies = [
  "adaptation_engine",
  "adaptation_plane",
  "anyhow",
- "ast_auditor",
  "async-nats",
  "async-stream",
  "async-trait",
@@ -4047,6 +4056,7 @@ dependencies = [
  "clap",
  "compute",
  "core-contracts",
+ "cratify_core",
  "criterion 0.8.2",
  "crossbeam-channel",
  "ctrlc",
@@ -6496,6 +6506,10 @@ dependencies = [
  "serde",
  "tempfile",
 ]
+
+[[package]]
+name = "paths_core"
+version = "0.3.2"
 
 [[package]]
 name = "peeking_take_while"

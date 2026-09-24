@@ -36,7 +36,7 @@ members = [
     "crates/orchestration_plane",
     "crates/compliance_auditor",
     "xtask",
-    "benches",
+    "benches", "crates/cratify_core", "crates/paths_core",
 ]
 
 exclude = [
