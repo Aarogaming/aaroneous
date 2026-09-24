@@ -86,7 +86,7 @@ If the candidate output fails grammar or schema validation, it is rejected immed
 
 ## 3. Priority-Constrained Scheduler & Queue Topology
 
-All outbound transducer tasks pass through a bounded priority heap managed by [`crates/orchestrator`](file:///d:/Aaroneous/crates/orchestrator).
+All outbound transducer tasks pass through a bounded priority heap managed by [`crates/orchestrator`](../../crates/orchestrator).
 
 ### 3.1 Three-Tier Priority Taxonomy
 

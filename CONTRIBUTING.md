@@ -75,7 +75,7 @@ Code from companion tooling, external projects, or generated drafts follows the 
 - **Ring 3**: `crates/capabilities`, `crates/llm_gateway`, `crates/platform_bridge` - ingress and transducers
 - **Ring 4**: `crates/api`, `crates/studio_hud` - presentation layer
 
-Lower rings are more privileged. Ring 0/1 never import Ring 3/4 crates.
+Lower rings are more privileged. Library crates in lower rings never import crates from higher rings (verified 2026-09-23 at `6321a63`). The `core/hypervisor` binaries are the composition root and are exempt: they wire every ring together. Rings govern dependency direction; compliance profiles govern which rules apply (see [docs/CRATIFY_SPEC.md](docs/CRATIFY_SPEC.md)).
 
 ## .si format
 
@@ -89,7 +89,6 @@ Use standard systems names: `hypervisor`, `paths`, `wire`, `hud`, `api`, `bridge
 
 - Full architecture: [docs/architecture.md](docs/architecture.md)
 - Governance rules: [AGENTS.md](AGENTS.md)
-- Operating model: [governance/OPERATING_MODEL.md](governance/OPERATING_MODEL.md)
 - .si format spec: [docs/SI_FORMAT.md](docs/SI_FORMAT.md)
 
 ## Reviewer Checklist

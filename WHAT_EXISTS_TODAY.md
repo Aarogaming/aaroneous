@@ -6,7 +6,7 @@ This document provides an accurate, audited summary of the current codebase arch
 
 ## 🏛️ System Architecture & Crate Topology
 
-Aaroneous is organized as a decoupled Rust workspace comprising **22 active member crates** and the core execution engine:
+Aaroneous is organized as a decoupled Rust workspace comprising **33 workspace packages** (as of `6321a63`, 2026-09-23; `cargo metadata --no-deps`), including the core execution engine, `xtask`, `benches`, `sdk/rust`, and `dev/emulator_harness`:
 
 `
 crates/

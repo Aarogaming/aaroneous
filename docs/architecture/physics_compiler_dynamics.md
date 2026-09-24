@@ -9,7 +9,7 @@
 
 ## 1. Executive Summary
 
-[`crates/compute`](file:///d:/Aaroneous/crates/compute) serves as the numerical execution core of the Aaroneous framework. Beyond neural inference via State-Space Models (SSMs), it incorporates a rigorous multi-domain **Physics Compiler**. The engine models physical environments, robotic actuators, power buses, and thermal sinks through unified **Bond-Graph Duality**, simulating continuous dynamical systems with **Symplectic Hamiltonian Integration** that guarantees phase-space conservation and zero long-term energy drift.
+[`crates/compute`](../../crates/compute) serves as the numerical execution core of the Aaroneous framework. Beyond neural inference via State-Space Models (SSMs), it incorporates a rigorous multi-domain **Physics Compiler**. The engine models physical environments, robotic actuators, power buses, and thermal sinks through unified **Bond-Graph Duality**, simulating continuous dynamical systems with **Symplectic Hamiltonian Integration** that guarantees phase-space conservation and zero long-term energy drift.
 
 ---
 

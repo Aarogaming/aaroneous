@@ -53,7 +53,7 @@ All wire representations conform to fixed-size, C-compatible binary layouts. The
 
 ### 2.1 The `AssimilationRecord` (360 Bytes)
 
-Defined in [`crates/ipc_bus/src/universal_protocol.rs`](file:///d:/Aaroneous/crates/ipc_bus/src/universal_protocol.rs):
+Defined in [`crates/ipc_bus/src/universal_protocol.rs`](../../crates/ipc_bus/src/universal_protocol.rs):
 
 ```rust
 #[repr(C)]
@@ -78,12 +78,12 @@ $$\text{Total Size} = 16 + 4 + 4 + 8 + 260 + 68 = 360 \text{ bytes}$$
 
 `AssimilationRecord` instances are encapsulated within the fixed-size universal framing envelopes:
 
-1. **Client Ingestion Frame**: [`UniversalClientRequest`](file:///d:/Aaroneous/crates/ipc_bus/src/universal_protocol.rs) (544 bytes, 8-byte aligned)
+1. **Client Ingestion Frame**: [`UniversalClientRequest`](../../crates/ipc_bus/src/universal_protocol.rs) (544 bytes, 8-byte aligned)
    - `request_type`: `UcpRequestType::AssimilationEvent as u32` (`0x0000_0006`).
    - `payload`: First 360 bytes contain the raw `AssimilationRecord` via `bytemuck::bytes_of(&record)`.
    - Conversion Helper: `record.to_client_request(sequence, slot_id, domain_id)`.
 
-2. **Server Telemetry Broadcast**: [`UniversalServerBroadcast`](file:///d:/Aaroneous/crates/ipc_bus/src/universal_protocol.rs) (304 bytes, 8-byte aligned)
+2. **Server Telemetry Broadcast**: [`UniversalServerBroadcast`](../../crates/ipc_bus/src/universal_protocol.rs) (304 bytes, 8-byte aligned)
    - `broadcast_type`: `UcpBroadcastType::AssimilationState as u32` (`0x0000_0007`).
    - `payload`: Truncated or summary metrics (source ID, phase, retries, cycle latency).
    - Conversion Helper: `record.to_broadcast(sequence, cycle_latency_us)`.
@@ -92,7 +92,7 @@ $$\text{Total Size} = 16 + 4 + 4 + 8 + 260 + 68 = 360 \text{ bytes}$$
 
 ## 3. Typestate Machine: `AssimilationTask<State>`
 
-In [`crates/orchestrator/src/assimilation.rs`](file:///d:/Aaroneous/crates/orchestrator/src/assimilation.rs), the assimilation lifecycle is implemented as a compile-time typestate machine, preventing invalid phase progressions at compile time.
+In [`crates/orchestrator/src/assimilation.rs`](../../crates/orchestrator/src/assimilation.rs), the assimilation lifecycle is implemented as a compile-time typestate machine, preventing invalid phase progressions at compile time.
 
 ```
        [Idle]
@@ -180,7 +180,7 @@ pub fn handle_assimilation_event(bytes: &[u8]) -> Result<AssimilationRecord, Ass
 
 ## 5. Hypervisor Step 0 Integration
 
-In [`core/hypervisor/src/orchestration_daemon.rs`](file:///d:/Aaroneous/core/hypervisor/src/orchestration_daemon.rs), the microkernel executes a strict 3-phase scan loop. Assimilation frames are drained at the very beginning of the cycle:
+In [`core/hypervisor/src/orchestration_daemon.rs`](../../core/hypervisor/src/orchestration_daemon.rs), the microkernel executes a strict 3-phase scan loop. Assimilation frames are drained at the very beginning of the cycle:
 
 ```rust
 // Step 0: Non-blocking drain of incoming assimilation frames
