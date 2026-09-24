@@ -25,7 +25,6 @@
 
 mod common;
 
-use std::path::PathBuf;
 use std::process::Command;
 
 use rfc0006_host::{LoadedPlugin, TickOutcome};
@@ -81,17 +80,8 @@ fn an_uncaught_panic_takes_down_whatever_process_hosts_it() {
     }
 }
 
-fn tick_once_bin_path() -> PathBuf {
-    let mut path = std::env::current_exe().expect("current_exe");
-    path.pop(); // drop the test binary's own file name
-    if path.ends_with("deps") {
-        path.pop(); // -> target/<profile>
-    }
-    path.push(if cfg!(windows) {
-        "tick_once.exe"
-    } else {
-        "tick_once"
-    });
+fn tick_once_bin_path() -> std::path::PathBuf {
+    let path = std::path::PathBuf::from(env!("CARGO_BIN_EXE_tick_once"));
     assert!(
         path.exists(),
         "expected the `tick_once` helper binary built alongside this test at {}",

@@ -8,6 +8,9 @@ description = "Static analysis AST auditor CLI"
 license.workspace = true
 repository.workspace = true
 
+[package.metadata.cratify]
+profile = "tooling"
+
 [lints.cargo]
 non_kebab_case_bins = "allow"
 

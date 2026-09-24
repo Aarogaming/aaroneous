@@ -36,7 +36,7 @@ members = [
     "crates/orchestration_plane",
     "crates/compliance_auditor",
     "xtask",
-    "benches", "crates/cratify_core", "crates/paths_core",
+    "benches", "crates/cratify_core", "crates/paths_core", "crates/hive_mind", "core/aaroneous_host",
 ]
 
 exclude = [
@@ -50,7 +50,7 @@ exclude = [
 ]
 
 [workspace.package]
-version = "0.3.2"
+version = "0.3.2+vb.13r032t5kq5mq27403b0vil3"
 edition = "2024"
 rust-version = "1.85"
 authors = ["Aaron"]

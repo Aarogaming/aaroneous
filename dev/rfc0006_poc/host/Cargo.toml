@@ -1,9 +1,12 @@
 [package]
 name = "rfc0006_host"
-version = "0.1.0"
+version.workspace = true
 edition.workspace = true
 license.workspace = true
 publish = false
+
+[lints.cargo]
+non_kebab_case_bins = "allow"
 
 [dependencies]
 rfc0006_abi = { path = "../abi" }

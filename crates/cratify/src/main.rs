@@ -1,7 +1,7 @@
 //! Cratify CLI — Universal Sovereign Cratification CLI & Orchestration Dispatcher.
 //!
 //! Thin CLI bridge routing commands to modular engine crates:
-//! - `audit`     -> delegates to `ast_auditor::run_workspace_audit`
+//! - `audit`     -> delegates to `cratify_core::run_workspace_audit`
 //! - `scaffold`  -> delegates to `transpiler::create_crate_scaffold_at`
 //! - `generate`  -> alias for `scaffold`
 //! - `harvest`   -> delegates to `adaptation_engine::harvest`
@@ -106,10 +106,10 @@ fn main() -> ExitCode {
     match cli.command {
         Commands::Audit { targets } => {
             println!(
-                "[cratify] Delegating audit to `ast_auditor` for {} targets...",
+                "[cratify] Delegating audit to `cratify_core` for {} targets...",
                 targets.len()
             );
-            match ast_auditor::run_workspace_audit(targets) {
+            match cratify_core::run_workspace_audit(targets) {
                 Ok(()) => ExitCode::SUCCESS,
                 Err(code) => code,
             }

@@ -1,52 +1,47 @@
 [package]
 name = "hypervisor"
+
 version = "0.1.0"
 edition.workspace = true
 authors.workspace = true
-description = "Central hypervisor: CLI daemon, egui HUD, MCP service, Win32 HID bridge"
+description = "Kernel mechanisms for execution, persistence, IPC, and hardware integration"
 license.workspace = true
 repository.workspace = true
+
+[package.metadata.cratify]
+profile = "kernel"
 
 [lib]
 path = "src/lib.rs"
 
-[[bin]]
-name = "hypervisor"
-path = "bin/hypervisor.rs"
 
-[[bin]]
-name = "spatial-kinetic"
-path = "bin/spatial_kinetic.rs"
 
-[[bin]]
-name = "profile-compiler"
-path = "bin/profile_compiler.rs"
 
-[[bin]]
-name = "shm-dump"
-path = "bin/shm_dump.rs"
+
+
+
+
+
+
+
+
+
+
+
+
 
 [[bench]]
 name = "phase_x_smoke"
 harness = false
 
 [dependencies]
-moka = { version = "0.12", features = ["future"] }
-llm_gateway = { path = "../../crates/llm_gateway" }
 ipc_bus = { path = "../../crates/ipc_bus" }
 core-contracts = { path = "../../crates/core-contracts" }
-omni = { path = "../../crates/omni" }
-governance = { path = "../../crates/governance", features = ["adaptive-governance"] }
-orchestrator = { path = "../../crates/orchestrator" }
 compute = { path = "../../crates/compute" }
-adaptation_engine = { path = "../../crates/adaptation_engine" }
 platform_bridge = { path = "../../crates/platform_bridge", features = ["native-win32"] }
-specialists = { package = "capabilities", path = "../../crates/capabilities" }
-cratify_core = { path = "../../crates/cratify_core" }
 paths = { path = "../../crates/paths" }
 wire = { path = "../../crates/wire" }
 tokio-serial = "5.4"
-transpiler = { path = "../../crates/transpiler" }
 si_ir = { path = "../../crates/si_ir" }
 anyhow = "1.0"
 chrono = { version = "0.4", features = ["serde"] }
@@ -55,8 +50,6 @@ dirs = "5.0"
 crossbeam-channel = "0.5"
 futures-core = "0.3"
 futures-util = "0.3"
-hex = "0.4"
-mimalloc = { version = "0.1", default-features = false }
 log = "0.4"
 llama-gguf = { version = "0.14", optional = true, default-features = false, features = ["cpu"] }
 iroh = { version = "1.2", optional = true }
@@ -65,7 +58,6 @@ nvml-wrapper = { version = "0.13", optional = true }
 notify = "6.1"
 parking_lot = "0.12"
 rand = "0.10"
-ctrlc = "3.4"
 memmap2 = "0.9"
 wgpu = "29.0"
 bytemuck = "1.14"
@@ -74,13 +66,10 @@ reqwest = { version = "0.13", default-features = false, features = ["json", "str
 rusqlite = { version = "0.40", features = ["bundled", "chrono", "fallible_uint"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-strum = { version = "0.28", features = ["derive"] }
-strum_macros = "0.28"
 sysinfo = "0.39"
 seahash = "4.1"
 byteorder = "1.5"
 
-tar = "0.4"
 thiserror = "2.0"
 chromiumoxide = "0.9.1"
 tokenizers = { version = "0.23.2", default-features = false, features = ["onig"] }
@@ -99,18 +88,10 @@ candle-core = "0.11"
 candle-nn = "0.11"
 
 async-trait = "0.1"
-adaptation_plane = { path = "../../crates/adaptation_plane" }
-sha2 = "0.11"
-which = "5.0"
-axum = { version = "0.8", features = ["macros"] }
-tower-http = { version = "0.5", features = ["cors"] }
-async-stream = "0.3"
 bytes = "1.5"
-semver = "1.0"
 async-nats = "0.50"
 url = "2.5"
 tracing-appender = "0.2.5"
-zstd = "0.13"
 
 http-body-util = "0.1"
 tower = { version = "0.5", features = ["util"] }
@@ -128,7 +109,7 @@ anyhow = "1.0"
 [features]
 default = []
 # Local LLM inference support via llama.cpp GGUF format
-llama-gguf = ["dep:llama-gguf", "llm_gateway/llama-gguf"]
+llama-gguf = ["dep:llama-gguf"]
 # GPU telemetry via NVIDIA Management Library
 gpu-metrics = ["dep:nvml-wrapper"]
 # P2P mesh via Iroh QUIC transport / Fleet Federation

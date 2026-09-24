@@ -64,6 +64,9 @@ pub enum FlightRecorderError {
 
     #[error("POD deserialization error: {0}")]
     PodError(String),
+
+    #[error("workspace build lineage must be at most 24 lowercase Base36 characters")]
+    InvalidBuildLineage,
 }
 
 /// Reads the high-resolution hardware timestamp counter (`_rdtsc`).
@@ -138,6 +141,20 @@ impl FlightRecorder {
                 (h.write_sequence, h.wrap_count)
             }
             _ => {
+                let mut build_lineage = [0u8; 24];
+                let pkg_version = env!("CARGO_PKG_VERSION");
+                if let Some(idx) = pkg_version.find("+vb.") {
+                    let payload = &pkg_version[idx + 4..];
+                    if payload.len() > build_lineage.len()
+                        || !payload
+                            .bytes()
+                            .all(|byte| byte.is_ascii_digit() || byte.is_ascii_lowercase())
+                    {
+                        return Err(FlightRecorderError::InvalidBuildLineage);
+                    }
+                    build_lineage[..payload.len()].copy_from_slice(payload.as_bytes());
+                }
+
                 let header = FlightFileHeaderPod {
                     magic: FLIGHT_MAGIC,
                     version: FLIGHT_VERSION,
@@ -146,7 +163,7 @@ impl FlightRecorder {
                     header_size: FLIGHT_HEADER_SIZE as u32,
                     write_sequence: 0,
                     wrap_count: 0,
-                    _reserved: [0u8; 24],
+                    build_lineage,
                 };
                 let header_bytes = bytemuck::bytes_of(&header);
                 mmap[..header_bytes.len()].copy_from_slice(header_bytes);
@@ -469,6 +486,14 @@ mod tests {
         assert_eq!(header.version, FLIGHT_VERSION);
         assert_eq!(header.write_sequence, 5);
         assert_eq!(header.wrap_count, 0);
+        if let Some((_, lineage)) = env!("CARGO_PKG_VERSION").split_once("+vb.") {
+            assert_eq!(&header.build_lineage[..lineage.len()], lineage.as_bytes());
+            assert!(
+                header.build_lineage[lineage.len()..]
+                    .iter()
+                    .all(|byte| *byte == 0)
+            );
+        }
 
         let (oldest, latest) = replayer.available_event_range().expect("range");
         assert_eq!(oldest, 1);

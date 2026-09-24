@@ -24,3 +24,6 @@ thiserror = "2.0"
 sha2 = "0.11"
 base64 = "0.22"
 ring = "0.17"
+
+[dev-dependencies]
+tempfile = { workspace = true }

@@ -307,8 +307,8 @@ pub struct FlightFileHeaderPod {
     pub write_sequence: u64,
     /// Total number of times the circular ring buffer has wrapped
     pub wrap_count: u64,
-    /// Reserved/padding fields for 64-byte alignment
-    pub _reserved: [u8; 24],
+    /// Base36 virtual branch lineage tracking payload
+    pub build_lineage: [u8; 24],
 }
 
 impl Default for FlightFileHeaderPod {
@@ -321,7 +321,7 @@ impl Default for FlightFileHeaderPod {
             header_size: 4096,
             write_sequence: 0,
             wrap_count: 0,
-            _reserved: [0u8; 24],
+            build_lineage: [0u8; 24],
         }
     }
 }

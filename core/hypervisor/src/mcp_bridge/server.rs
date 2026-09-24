@@ -1,9 +1,15 @@
-use anyhow::Result;
 use crate::mcp_bridge::types::{MpcCapability, MpcMessage};
+use anyhow::Result;
 use std::collections::HashMap;
 
 pub struct McpServer {
     capabilities: HashMap<String, MpcCapability>,
+}
+
+impl Default for McpServer {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl McpServer {
@@ -20,14 +26,17 @@ impl McpServer {
     }
 
     pub fn register_capability(&mut self, cap: MpcCapability) {
-        println!("[McpServer] Registering capability: {}.{}", cap.domain, cap.method_name);
+        println!(
+            "[McpServer] Registering capability: {}.{}",
+            cap.domain, cap.method_name
+        );
         let key = format!("{}.{}", cap.domain, cap.method_name);
         self.capabilities.insert(key, cap);
     }
 
     pub async fn handle_request(&self, msg: MpcMessage) -> Result<serde_json::Value> {
         println!("[McpServer] Handling request for method: {}", msg.method);
-        
+
         if self.capabilities.contains_key(&msg.method) {
             // Route to appropriate module
             Ok(serde_json::json!({"status": "ok", "message": "Method executed"}))

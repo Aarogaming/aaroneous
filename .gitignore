@@ -2,6 +2,7 @@
 /target/
 target/
 **/target/
+target-*/
 *.dll
 *.exe
 *.pdb
@@ -117,3 +118,4 @@ review-*.log
 review-*.md
 *.diff
 
+.vbranch/
