@@ -228,10 +228,7 @@ pub(crate) fn parse_embed_response(body: &str) -> Result<Vec<f32>, GeminiError> 
     let parsed: GeminiEmbedResponse =
         serde_json::from_str(body).map_err(|e| GeminiError::Parse(e.to_string()))?;
 
-    let values = parsed
-        .embedding
-        .and_then(|e| e.values)
-        .unwrap_or_default();
+    let values = parsed.embedding.and_then(|e| e.values).unwrap_or_default();
 
     if values.is_empty() {
         return Err(GeminiError::EmptyContent);
@@ -536,7 +533,7 @@ Return ONLY JSON, no other text.
 
     async fn generate_design(&self, context: &DesignContext) -> Result<DesignGeneration> {
         let prompt = format!(
-            r#"Generate UI/UX design variants.
+            r##"Generate UI/UX design variants.
 Intent: {intent}
 Constraints: {constraints}
 Variants requested: {count}
@@ -558,7 +555,7 @@ Respond ONLY with valid JSON matching:
   "tokens_used": 0,
   "batch_confidence": 0.9
 }}
-"#,
+"##,
             intent = context.intent,
             constraints = context.constraints.join(", "),
             count = context.variants_requested
@@ -776,7 +773,9 @@ mod tests {
     /// Spawn a single-request mock HTTP server on localhost. Returns the
     /// base URL to hit and a handle that will contain the raw request text
     /// once the single expected request has been served.
-    fn spawn_single_request_mock(raw_http_response: String) -> (String, Arc<Mutex<Option<String>>>) {
+    fn spawn_single_request_mock(
+        raw_http_response: String,
+    ) -> (String, Arc<Mutex<Option<String>>>) {
         let listener = TcpListener::bind("127.0.0.1:0").expect("bind mock listener");
         let addr = listener.local_addr().expect("local addr");
         let captured = Arc::new(Mutex::new(None));
@@ -815,7 +814,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_chat_sends_key_in_header_never_in_url_and_parses_multi_part_body() {
-        let body = r#"{"candidates":[{"content":{"parts":[{"text":"Hello, "},{"text":"world!"}]}}]}"#;
+        let body =
+            r#"{"candidates":[{"content":{"parts":[{"text":"Hello, "},{"text":"world!"}]}}]}"#;
         let (base_url, captured) = spawn_single_request_mock(http_ok_response(body));
 
         let provider = GeminiProvider::new(
