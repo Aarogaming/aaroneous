@@ -10,13 +10,15 @@
 //! - WorkspaceHealthTool reads Cargo.toml/Cargo.lock directly (no external
 //!   cargo-audit/cargo-deny subprocess) for orphaned crate directories and
 //!   duplicate locked dependency versions.
+//! - DuplicateTestNamesTool scans `#[test]`/`#[tokio::test]` function names
+//!   across the workspace for exact-name collisions across files/modules.
 
 use anyhow::{Context, Result};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::collections::BTreeMap;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
@@ -1328,6 +1330,212 @@ impl UniversalTool for WorkspaceHealthTool {
     }
 }
 
+// ── 10. Duplicate Test Name Tool ─────────────────────────────────────────────
+//
+// Grown from the `workspace.health_audit` precedent (see
+// `docs/handoff/QUEUE.md`'s "Further Capability-Catalog Growth" backlog): a
+// pure, no-subprocess diagnostic that reads source files directly and finds
+// a real, pre-existing defect class just by running it. `cargo test <name>`
+// matches by substring across every test binary in the workspace, so two
+// `#[test]` functions with the same name in different files/modules are easy
+// to introduce by copy-paste (or by an incomplete extraction that leaves a
+// near-duplicate module behind) and easy for a reviewer, or `cargo test`
+// itself, to silently run the wrong one.
+
+/// One `#[test]`/`#[tokio::test]` function name found in more than one file.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct DuplicateTestName {
+    pub name: String,
+    /// `"workspace/relative/path.rs:LINE"`, one per occurrence, sorted.
+    pub locations: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
+pub struct DuplicateTestNameReport {
+    pub files_scanned: usize,
+    pub test_functions_found: usize,
+    pub duplicates: Vec<DuplicateTestName>,
+}
+
+/// Recursively collects every `.rs` file under `dir`, skipping `target/` and
+/// dotfile directories (`.git`, etc.) - the same skip rule `collect_crate_dirs`
+/// uses above, for the same reason (build output and VCS internals are never
+/// source we want to scan).
+fn collect_rs_files(dir: &Path, out: &mut Vec<PathBuf>) -> Result<()> {
+    let entries = std::fs::read_dir(dir).with_context(|| format!("reading {}", dir.display()))?;
+    for entry in entries {
+        let entry = entry?;
+        let path = entry.path();
+        if entry.file_type()?.is_dir() {
+            if let Some(name) = path.file_name().and_then(|n| n.to_str())
+                && (name == "target" || name.starts_with('.'))
+            {
+                continue;
+            }
+            collect_rs_files(&path, out)?;
+        } else if path.extension().and_then(|e| e.to_str()) == Some("rs") {
+            out.push(path);
+        }
+    }
+    Ok(())
+}
+
+/// Scans a single source file's lines for `#[test]`/`#[tokio::test]`
+/// functions, returning each one's name and 1-based line number.
+///
+/// Deliberately a line-oriented scan rather than a full `syn` parse (matching
+/// `audit_workspace`'s own pragmatic style above): tracks whether the most
+/// recent attribute line seen was a test attribute, tolerates any number of
+/// other attribute lines (`#[should_panic]`, `#[ignore]`, ...) and blank/
+/// comment lines in between, and resolves to the next `fn` line it finds. A
+/// test attribute not eventually followed by a recognizable `fn` line (e.g.
+/// one hidden behind a macro) is silently skipped rather than guessed at -
+/// this tool's job is to catch clear-cut collisions, not to be a complete
+/// Rust parser.
+fn scan_test_functions(source: &str) -> Vec<(String, usize)> {
+    let mut found = Vec::new();
+    let mut pending = false;
+    for (idx, line) in source.lines().enumerate() {
+        let trimmed = line.trim();
+        if pending {
+            if trimmed.starts_with("#[") || trimmed.is_empty() || trimmed.starts_with("//") {
+                continue;
+            }
+            if let Some(after_fn) = trimmed.split("fn ").nth(1) {
+                let name: String = after_fn
+                    .chars()
+                    .take_while(|c| c.is_alphanumeric() || *c == '_')
+                    .collect();
+                if !name.is_empty() {
+                    found.push((name, idx + 1));
+                }
+            }
+            pending = false;
+            continue;
+        }
+        if trimmed.starts_with("#[test]") || trimmed.starts_with("#[tokio::test") {
+            pending = true;
+        }
+    }
+    found
+}
+
+/// Pure, synchronous scan of every `.rs` file under `crates/`, `core/`, and
+/// `dev/` for `#[test]`/`#[tokio::test]` function names, reporting any name
+/// that appears in more than one distinct file.
+fn find_duplicate_test_names(root: &Path) -> Result<DuplicateTestNameReport> {
+    let mut files = Vec::new();
+    for scan_root in ["crates", "dev", "core"] {
+        let dir = root.join(scan_root);
+        if dir.is_dir() {
+            collect_rs_files(&dir, &mut files)?;
+        }
+    }
+    files.sort();
+
+    let mut locations_by_name: BTreeMap<String, Vec<String>> = BTreeMap::new();
+    let mut test_functions_found = 0usize;
+    for path in &files {
+        let source =
+            std::fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
+        let relative = path
+            .strip_prefix(root)
+            .unwrap_or(path)
+            .to_string_lossy()
+            .replace('\\', "/");
+        for (name, line) in scan_test_functions(&source) {
+            test_functions_found += 1;
+            locations_by_name
+                .entry(name)
+                .or_default()
+                .push(format!("{relative}:{line}"));
+        }
+    }
+
+    let mut duplicates: Vec<DuplicateTestName> = locations_by_name
+        .into_iter()
+        .filter_map(|(name, locations)| {
+            let distinct_files: std::collections::BTreeSet<&str> = locations
+                .iter()
+                .map(|l| l.rsplit_once(':').map(|(f, _)| f).unwrap_or(l.as_str()))
+                .collect();
+            (distinct_files.len() > 1).then_some(DuplicateTestName { name, locations })
+        })
+        .collect();
+    duplicates.sort_by(|a, b| a.name.cmp(&b.name));
+
+    Ok(DuplicateTestNameReport {
+        files_scanned: files.len(),
+        test_functions_found,
+        duplicates,
+    })
+}
+
+pub struct DuplicateTestNamesTool;
+
+impl Default for DuplicateTestNamesTool {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl DuplicateTestNamesTool {
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+#[async_trait]
+impl UniversalTool for DuplicateTestNamesTool {
+    fn name(&self) -> &'static str {
+        "workspace.duplicate_test_names"
+    }
+
+    fn opcode(&self) -> u16 {
+        0x0801 // WORKSPACE_DUPLICATE_TEST_NAMES
+    }
+
+    fn category(&self) -> &'static str {
+        "diagnostics"
+    }
+
+    fn description(&self) -> &'static str {
+        "Scans every #[test]/#[tokio::test] function name across the workspace and flags exact-name collisions across different files/modules, which `cargo test <name>` would otherwise silently run all of at once."
+    }
+
+    fn parameters_schema(&self) -> serde_json::Value {
+        json!({
+            "type": "object",
+            "properties": {
+                "workspace_root": {
+                    "type": "string",
+                    "description": "Absolute path to the directory containing the workspace's root Cargo.toml"
+                }
+            },
+            "required": ["workspace_root"]
+        })
+    }
+
+    async fn call_json(&self, params: serde_json::Value) -> Result<serde_json::Value> {
+        let workspace_root = params
+            .get("workspace_root")
+            .and_then(|v| v.as_str())
+            .context("Missing 'workspace_root' parameter")?;
+        let root = paths::normalize_path(workspace_root);
+
+        let report = tokio::task::spawn_blocking(move || find_duplicate_test_names(&root))
+            .await
+            .context("duplicate test name scan task panicked")??;
+
+        Ok(serde_json::to_value(report)?)
+    }
+
+    fn call_latent(&self, input: &[f32; 256], output: &mut [f32; 256]) -> Result<()> {
+        output.copy_from_slice(input);
+        Ok(())
+    }
+}
+
 /// Helper function to construct a pre-populated ToolRegistry with all standard tools
 pub fn build_standard_tool_registry() -> ToolRegistry {
     let mut registry = ToolRegistry::new();
@@ -1341,6 +1549,7 @@ pub fn build_standard_tool_registry() -> ToolRegistry {
     registry.register(Arc::new(UiLayoutTool::new()));
     registry.register(Arc::new(PlatformSensoryTool::new()));
     registry.register(Arc::new(WorkspaceHealthTool::new()));
+    registry.register(Arc::new(DuplicateTestNamesTool::new()));
     registry
 }
 
@@ -1351,7 +1560,7 @@ mod tests {
     #[tokio::test]
     async fn test_universal_tool_json_and_latent_execution() {
         let mut registry = build_standard_tool_registry();
-        assert_eq!(registry.len(), 10);
+        assert_eq!(registry.len(), 11);
 
         // 1. Test JSON call via Cloud/LLM interface
         let sec_res = registry
@@ -1688,6 +1897,113 @@ mod tests {
             "found crate directories on disk not declared in workspace.members or \
              workspace.exclude: {:?}",
             report.orphaned_crate_dirs
+        );
+    }
+
+    #[test]
+    fn scan_test_functions_finds_test_and_tokio_test_and_skips_plain_functions() {
+        let source = r#"
+fn not_a_test() {}
+
+#[test]
+fn simple_test() {}
+
+#[should_panic(expected = "boom")]
+#[test]
+fn attribute_order_and_extra_attribute() {}
+
+#[tokio::test]
+async fn async_test() {}
+
+#[test]
+
+fn blank_line_before_fn() {}
+"#;
+        let found: Vec<String> = scan_test_functions(source)
+            .into_iter()
+            .map(|(name, _)| name)
+            .collect();
+        assert_eq!(
+            found,
+            vec![
+                "simple_test".to_string(),
+                "attribute_order_and_extra_attribute".to_string(),
+                "async_test".to_string(),
+                "blank_line_before_fn".to_string(),
+            ]
+        );
+    }
+
+    #[tokio::test]
+    async fn duplicate_test_names_flags_collisions_across_files_only() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+
+        write(
+            &root.join("crates/alpha/src/lib.rs"),
+            "#[test]\nfn shared_name() {}\n\n#[test]\nfn only_in_alpha() {}\n",
+        );
+        write(
+            &root.join("crates/beta/src/lib.rs"),
+            "#[test]\nfn shared_name() {}\n",
+        );
+
+        let registry = build_standard_tool_registry();
+        let result = registry
+            .call_by_name(
+                "workspace.duplicate_test_names",
+                json!({ "workspace_root": root.to_str().unwrap() }),
+            )
+            .await
+            .unwrap();
+
+        let duplicates = result["duplicates"].as_array().unwrap();
+        assert_eq!(duplicates.len(), 1);
+        assert_eq!(duplicates[0]["name"], "shared_name");
+        let locations: Vec<&str> = duplicates[0]["locations"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|v| v.as_str().unwrap())
+            .collect();
+        assert!(locations.iter().any(|l| l.starts_with("crates/alpha/")));
+        assert!(locations.iter().any(|l| l.starts_with("crates/beta/")));
+        assert_eq!(result["test_functions_found"], 3);
+    }
+
+    /// Regression guard, in the opposite direction from
+    /// `the_real_aaroneous_workspace_has_no_orphaned_crate_dirs` above: this
+    /// tool's real value is in what it *does* find. `core/hypervisor` and
+    /// `crates/mcp_server` each carry their own `mcp_service::capability`
+    /// module with an identically-named `test_capability_creation` - the
+    /// kind of near-duplicate left behind by an in-progress extraction that
+    /// this tool exists to surface. Asserts the scan actually reaches both
+    /// files and reports the known collision, rather than merely asserting
+    /// "the report is empty" (which a scanner that silently found nothing
+    /// would also satisfy).
+    #[test]
+    fn the_real_aaroneous_workspace_has_a_known_duplicate_test_name() {
+        let root = paths::normalize_path(
+            std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../.."),
+        );
+        let report = find_duplicate_test_names(&root).unwrap();
+        assert!(report.files_scanned > 500);
+        assert!(report.test_functions_found > 1000);
+
+        let hit = report
+            .duplicates
+            .iter()
+            .find(|d| d.name == "test_capability_creation")
+            .expect("expected the known core/hypervisor vs crates/mcp_server collision");
+        assert!(
+            hit.locations
+                .iter()
+                .any(|l| l.contains("core/hypervisor/src/mcp_service/capability.rs"))
+        );
+        assert!(
+            hit.locations
+                .iter()
+                .any(|l| l.contains("crates/mcp_server/src/mcp_service/capability.rs"))
         );
     }
 }
