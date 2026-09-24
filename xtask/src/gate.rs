@@ -143,7 +143,10 @@ pub fn run() -> Result<()> {
     run_cmd("cargo", &["test", "-p", "emulator_harness"])
         .context("Gate 8 failed: Golden Dogfooding Harness Verification")?;
 
-    println!("=== 9. Release Binary Check ===");
+    println!("=== 9. Unwrap/Panic Ratchet Check ===");
+    crate::check_unwraps::run(&[]).context("Gate 9 failed: Unwrap/Panic Ratchet Check")?;
+
+    println!("=== 10. Release Binary Check ===");
     run_cmd(
         "cargo",
         &[
@@ -155,9 +158,9 @@ pub fn run() -> Result<()> {
             "hypervisor",
         ],
     )
-    .context("Gate 9 failed: Release Binary Check")?;
+    .context("Gate 10 failed: Release Binary Check")?;
 
-    println!("=== 10. Optional Runtime Features (compile only) ===");
+    println!("=== 11. Optional Runtime Features (compile only) ===");
     run_cmd(
         "cargo",
         &[
@@ -169,9 +172,9 @@ pub fn run() -> Result<()> {
             "llama-gguf,gpu-metrics,fleet,testing,standalone",
         ],
     )
-    .context("Gate 10 failed: Optional Runtime Features")?;
+    .context("Gate 11 failed: Optional Runtime Features")?;
 
-    println!("=== 11. Iroh Compatibility Feature (compile only) ===");
+    println!("=== 12. Iroh Compatibility Feature (compile only) ===");
     run_cmd(
         "cargo",
         &[
@@ -183,7 +186,7 @@ pub fn run() -> Result<()> {
             "p2p-iroh",
         ],
     )
-    .context("Gate 11 failed: Iroh Compatibility Feature")?;
+    .context("Gate 12 failed: Iroh Compatibility Feature")?;
 
     println!("=== ALL REQUIRED GATES PASSED (CI-equivalent) ===");
     Ok(())
@@ -233,6 +236,7 @@ mod tests {
         "cargo check -p core-contracts --no-default-features",
         "cargo check -p core-contracts --target thumbv7em-none-eabihf --no-default-features",
         "cargo check -p core-contracts --target wasm32-unknown-unknown --no-default-features",
+        "cargo run -p xtask -- check-unwraps",
         "cargo check --release --bin aaroneous --bin hypervisor",
         "cargo check -p hypervisor --all-targets --features llama-gguf,gpu-metrics,fleet,testing,standalone",
         "cargo check -p hypervisor --all-targets --features p2p-iroh",

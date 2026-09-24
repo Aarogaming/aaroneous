@@ -1,0 +1,43 @@
+# Ratchet baseline for `cargo xtask check-unwraps` (AGENTS.md section 5;
+# CRATIFY_SPEC.md's Ratchet pattern). Each line is `package_name count`: the
+# number of `.unwrap()`, `.expect(...)`, `panic!(...)`, and `assert!(...)`
+# occurrences found in that package's production code. Excluded: tests/,
+# examples/, benches/, build.rs, bootstrap entrypoints (src/main.rs,
+# src/bin/*), *_test.rs, *_tests.rs, #[cfg(test)]/#[test] items, debug_assert!,
+# and any call whose preceding line is `// INFALLIBLE: <reason>` - see
+# crates/ast_auditor/src/rules/unwrap_panic.rs.
+#
+# This list may only shrink or stay flat: the gate fails if a package's
+# current count exceeds the number recorded here. When you fix unwraps,
+# lower the number - do not leave it stale.
+adaptation_engine 11
+adaptation_plane 4
+api 0
+ast_auditor 1
+capabilities 0
+chaos_injector 1
+compliance_auditor 0
+compute 8
+core-contracts 0
+cratify 0
+emulator_harness 0
+governance 0
+hypervisor 117
+ipc_bus 9
+llm_gateway 2
+mcp_server 0
+omni 1
+orchestration_plane 0
+orchestrator 1
+paths 0
+platform_bridge 5
+rfc0006_abi 4
+rfc0006_host 0
+runtime_monitor 0
+runtime_monitor_bench 0
+scratchpad 0
+si_format 0
+si_ir 0
+studio_hud 1
+transpiler 2
+wire 9

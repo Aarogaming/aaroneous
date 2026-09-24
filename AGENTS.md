@@ -119,7 +119,7 @@ Full specification: [docs/CRATIFY_SPEC.md](docs/CRATIFY_SPEC.md) (v2, owner-appr
 - **No Stubs**: `todo!()` and `unimplemented!()` are forbidden in committed code.
 - **No Unsafe Implementations**: Manual `unsafe impl Pod` or `unsafe impl Zeroable` is banned (derive only).
 - **No Unchecked Transmutes**: `unsafe transmute` on unaligned or static data is banned.
-- **No Panics on Runtime Input**: `.unwrap()`, `.expect()`, `panic!`, and `assert!` on values derived from I/O, config, or model output are banned in every profile. Propagate `Result` or take a degraded path. Exempt: tests, bootstrap entrypoints, `build.rs`, `debug_assert!`, and provably infallible cases marked `// INFALLIBLE: <reason>`.
+- **No Panics on Runtime Input**: `.unwrap()`, `.expect()`, `panic!()`, and `assert!()` are banned on values derived from I/O, config, or model output — on hot paths and production error-handling paths generally. Propagate errors via `Result`. Exempt: tests, bootstrap entrypoints (`src/main.rs`, `src/bin/*`), `build.rs`, `debug_assert!`, and a call site immediately preceded by a `// INFALLIBLE: <reason>` comment. Enforced as a per-package ratchet baseline by `cargo xtask check-unwraps` (see section 6, gate 9); a package's count may only shrink or hold, never grow.
 - **Enforcement Status**: Some floor rules are not yet mechanically enforced by `ast_auditor` (see CRATIFY_SPEC section 7.1). Unenforced does not mean optional: reviewers apply them by hand until the rule lands.
 
 ---
@@ -129,7 +129,7 @@ Full specification: [docs/CRATIFY_SPEC.md](docs/CRATIFY_SPEC.md) (v2, owner-appr
 Agents must NEVER declare work complete based solely on `cargo check`. The single command below (or its shim) runs every gate below, in order, and is mechanically checked to cover the same commands `.github/workflows/ci.yml`'s `check-and-test` job runs (see `xtask/src/gate.rs`'s `tests` module) — running it locally gives the same assurance as a green CI run:
 
 ```bash
-# Full Self-Verification Gate Script — runs gates 1-11 below
+# Full Self-Verification Gate Script — runs gates 1-12 below
 bash scripts/agent_check.sh
 # equivalently: cargo run -p xtask -- gate
 
@@ -178,17 +178,20 @@ cargo run -p ast_auditor -- audit core/ crates/ dev/emulator_harness/
 # 8. Golden Dogfooding Harness Verification
 cargo test -p emulator_harness
 
-# 9. Release Binary Check
+# 9. Unwrap/Panic Ratchet Check (baseline ratchet; AGENTS.md section 5)
+cargo run -p xtask -- check-unwraps
+
+# 10. Release Binary Check
 cargo check --release --bin aaroneous --bin hypervisor
 
-# 10. Optional Runtime Features (compile only)
+# 11. Optional Runtime Features (compile only)
 cargo check -p hypervisor --all-targets --features llama-gguf,gpu-metrics,fleet,testing,standalone
 
-# 11. Iroh Compatibility Feature (compile only)
+# 12. Iroh Compatibility Feature (compile only)
 cargo check -p hypervisor --all-targets --features p2p-iroh
 ```
 
-> **Note:** `scripts/agent_check.sh` is a thin CI shim — all gate logic runs via `cargo xtask gate`. Gates 1-3 and 9-11 mirror `ci.yml`'s directly-declared steps; gates 3.5 and 4-8 are `gate.rs`'s own pre-existing verification, run by CI only indirectly (as part of the "Canonical repository verification" step). If you add a new CI check, add the matching gate in `xtask/src/gate.rs` and its command string to `GATE_COMMANDS` in the same file — a test fails otherwise the next time either drifts from the other.
+> **Note:** `scripts/agent_check.sh` is a thin CI shim — all gate logic runs via `cargo xtask gate`. Gates 1-3, 9 and 10-12 mirror `ci.yml`'s directly-declared steps; gates 3.5 and 4-8 are `gate.rs`'s own pre-existing verification, run by CI only indirectly (as part of the "Canonical repository verification" step). If you add a new CI check, add the matching gate in `xtask/src/gate.rs` and its command string to `GATE_COMMANDS` in the same file — a test fails otherwise the next time either drifts from the other.
 >
 > Gate 3 runs `--all-targets` (test/bench/example code included), not just library and binary targets — as of 2026-09-27 it didn't for a while, which let real lint debt (module-name collisions, `Default`-then-reassign, an `await`-held `MutexGuard`, a couple of dozen others) accumulate silently in test code across many "gate passed" claims. See `aaroneous-devtools/governance/AUDIT_2026-09-26_DOCUMENTATION_AND_PROCESS.md` Finding 3. Don't narrow this back without a real reason.
 
