@@ -315,7 +315,8 @@ mod tests {
         assert!(duel.was_repaired);
         assert!(duel.bob_reward > 0.0);
         assert!(duel.empowerment_score > 0.5);
-        assert!(duel.duration_us < 50_000);
+        // duration_us is not asserted: wall-clock bounds are host-load
+        // dependent in debug unit tests; performance targets belong in `benches/`.
     }
 
     #[test]
