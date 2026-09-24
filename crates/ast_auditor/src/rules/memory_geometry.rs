@@ -103,7 +103,6 @@ pub fn audit_memory_geometry(ast: &syn::File, file_path: &Path) -> Vec<MemoryGeo
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::path::PathBuf;
 
     #[test]
     fn test_clean_repr_c_struct() {

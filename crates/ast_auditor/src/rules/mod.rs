@@ -7,3 +7,4 @@ pub mod zero_alloc_hot_path;
 
 pub mod soundness;
 pub mod text_encoding;
+pub mod unwrap_panic;

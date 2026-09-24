@@ -1,5 +1,6 @@
 #![deny(unsafe_code)]
 
+mod check_unwraps;
 mod encoding;
 mod export_wit;
 mod gate;
@@ -16,6 +17,7 @@ fn main() -> Result<()> {
     match subcommand {
         "gate" => gate::run(),
         "check-encoding" => encoding::run(),
+        "check-unwraps" => check_unwraps::run(&args[2..]),
         "install" => install::run(&args[2..]),
         "uninstall" => uninstall::run(),
         "package" => package::run(&args[2..]),
@@ -52,6 +54,8 @@ Usage: cargo xtask <subcommand>
 Subcommands:
   gate             Run every CI verification gate locally (replaces scripts/agent_check.sh)
   check-encoding   Validate UTF-8/LF compliance across all tracked files
+  check-unwraps    Check unwrap/expect/panic!/assert! counts against the ratchet baseline
+                   (--dump-baseline prints current counts in baseline-file format)
   export-wit       Export WebAssembly Interface Type (WIT) declarations from capabilities
   queue            Run the passive local agent background progress engine (Ollama GPU)
   install          Install Aaroneous on Windows (copies binaries, sets PATH, creates shortcuts)

@@ -31,6 +31,7 @@ pub use self::rules::safety_comments::{SafetyCommentViolation, SafetyCommentVisi
 pub use self::rules::text_encoding::{
     EncodingViolation, audit_file_encoding, audit_tracked_encodings,
 };
+pub use self::rules::unwrap_panic::{UnwrapPanicHit, UnwrapPanicVisitor};
 pub use self::rules::zero_alloc_hot_path::{HotPathAllocViolation, HotPathAllocVisitor};
 
 /// Unified audit report aggregating structural and semantic AST violations.
@@ -160,6 +161,20 @@ pub fn audit_source_file(
         .extend(safety_visitor.violations);
 
     Ok(())
+}
+
+/// Parse a single Rust source file and return every `.unwrap()`, `.expect(...)`,
+/// `panic!(...)`, and `assert!(...)` occurrence found outside test code (see
+/// `UnwrapPanicVisitor` for the exact exemption rules). Used by
+/// `cargo xtask check-unwraps` to build its ratchet baseline.
+pub fn scan_unwrap_panic_hits(
+    path: &Path,
+) -> Result<Vec<UnwrapPanicHit>, Box<dyn std::error::Error>> {
+    let content = fs::read_to_string(path)?;
+    let syntax_tree = syn::parse_file(&content)?;
+    let mut visitor = UnwrapPanicVisitor::new(path, &content);
+    visitor.visit_file(&syntax_tree);
+    Ok(visitor.hits)
 }
 
 /// Audit a Cargo.toml manifest file for prefix stutter.

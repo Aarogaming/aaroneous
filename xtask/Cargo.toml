@@ -11,4 +11,10 @@ path = "src/main.rs"
 [dependencies]
 anyhow = "1.0"
 regex = "1.10"
+ast_auditor = { path = "../crates/ast_auditor" }
+serde_json = "1.0"
+walkdir = "2.5"
+
+[dev-dependencies]
+tempfile = { workspace = true }
 

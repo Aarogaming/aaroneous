@@ -71,7 +71,7 @@ Every crate in this repository is an independent, plug-and-play component block 
 - **No Stubs**: `todo!()` and `unimplemented!()` are strictly forbidden in committed code.
 - **No Unsafe Implementations**: Manual `unsafe impl Pod` or `unsafe impl Zeroable` is banned (derive only).
 - **No Unchecked Transmutes**: `unsafe transmute` on unaligned or static data is banned.
-- **No Unhandled Panics**: `.unwrap()` and `.expect()` are banned on hot paths and production error-handling paths. Propagate errors via `Result`.
+- **No Panics on Runtime Input**: `.unwrap()`, `.expect()`, `panic!()`, and `assert!()` are banned on values derived from I/O, config, or model output — on hot paths and production error-handling paths generally. Propagate errors via `Result`. Exempt: tests, bootstrap entrypoints (`src/main.rs`, `src/bin/*`), `build.rs`, `debug_assert!`, and a call site immediately preceded by a `// INFALLIBLE: <reason>` comment. Enforced as a per-package ratchet baseline by `cargo xtask check-unwraps` (see section 6, gate 9); a package's count may only shrink or hold, never grow.
 
 ---
 
@@ -80,7 +80,7 @@ Every crate in this repository is an independent, plug-and-play component block 
 Agents must NEVER declare work complete based solely on `cargo check`. The single command below (or its shim) runs every gate below, in order, and is mechanically checked to cover the same commands `.github/workflows/ci.yml`'s `check-and-test` job runs (see `xtask/src/gate.rs`'s `tests` module) — running it locally gives the same assurance as a green CI run:
 
 ```bash
-# Full Self-Verification Gate Script — runs gates 1-11 below
+# Full Self-Verification Gate Script — runs gates 1-12 below
 bash scripts/agent_check.sh
 # equivalently: cargo run -p xtask -- gate
 
@@ -108,17 +108,20 @@ cargo run -p ast_auditor -- audit core/ crates/ dev/emulator_harness/
 # 8. Golden Dogfooding Harness Verification
 cargo test -p emulator_harness
 
-# 9. Release Binary Check
+# 9. Unwrap/Panic Ratchet Check (baseline ratchet; AGENTS.md section 5)
+cargo run -p xtask -- check-unwraps
+
+# 10. Release Binary Check
 cargo check --release --bin aaroneous --bin hypervisor
 
-# 10. Optional Runtime Features (compile only)
+# 11. Optional Runtime Features (compile only)
 cargo check -p hypervisor --all-targets --features llama-gguf,gpu-metrics,fleet,testing,standalone
 
-# 11. Iroh Compatibility Feature (compile only)
+# 12. Iroh Compatibility Feature (compile only)
 cargo check -p hypervisor --all-targets --features p2p-iroh
 ```
 
-> **Note:** `scripts/agent_check.sh` is a thin CI shim — all gate logic runs via `cargo xtask gate`. Gates 1-3 and 9-11 mirror `ci.yml`'s directly-declared steps; gates 4-8 are `gate.rs`'s own pre-existing verification, run by CI only indirectly (as part of the "Canonical repository verification" step). If you add a new CI check, add the matching gate in `xtask/src/gate.rs` and its command string to `GATE_COMMANDS` in the same file — a test fails otherwise the next time either drifts from the other.
+> **Note:** `scripts/agent_check.sh` is a thin CI shim — all gate logic runs via `cargo xtask gate`. Gates 1-3, 9 and 10-12 mirror `ci.yml`'s directly-declared steps; gates 4-8 are `gate.rs`'s own pre-existing verification, run by CI only indirectly (as part of the "Canonical repository verification" step). If you add a new CI check, add the matching gate in `xtask/src/gate.rs` and its command string to `GATE_COMMANDS` in the same file — a test fails otherwise the next time either drifts from the other.
 
 ---
 
