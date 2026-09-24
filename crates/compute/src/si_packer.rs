@@ -7,11 +7,11 @@
 //! ┌───────────────────────────────────────────────────────────────────┐
 //! │                    .si (SINT) BINARY LAYOUT                       │
 //! ├───────────────────────────────────────────────────────────────────┤
-//! │ Offset 0x00 : Magic b"SINT" (4 bytes)                             │
-//! │ Offset 0x04 : Version u32   (4 bytes) = SINT_PACKER_VERSION       │
-//! │ Offset 0x08 : Flags   u32   (4 bytes) = 0x00 (tier flags)         │
-//! │ Offset 0x0C : toc_len u64   (8 bytes) = manifest byte length      │
-//! │ Offset 0x14 : Manifest bytes (length-prefixed TOC)                │
+//! │ Offset 0x00 : Canonical 64-byte header, little-endian             │
+//! │               (`si_format::header::SiCartridgeHeader`): magic,    │
+//! │               version u16, header_size u16 (= 64), flags u32,     │
+//! │               crc32 u32, then three (offset u64, len u64) blocks  │
+//! │ Offset 0x40 : Manifest bytes (block 1: offset 64, len = TOC len)  │
 //! │ Offset PAD  : [64-byte alignment padding]                         │
 //! ├───────────────────────────────────────────────────────────────────┤
 //! │ [BLOCK 1+]  : Tensor & reflex payloads, each 64-byte aligned      │
@@ -250,8 +250,9 @@ impl SiPacker {
             .truncate(true)
             .open(output_path)?;
 
-        let header_bytes = bytemuck::bytes_of(&header);
-        file.write_all(header_bytes)?;
+        // `to_bytes` encodes little-endian per the format contract; a raw
+        // `bytemuck::bytes_of` would emit native-endian fields.
+        file.write_all(&header.to_bytes())?;
         file.write_all(&manifest_bytes)?;
 
         let pad_after_manifest = compute_padding(64 + manifest_len);
@@ -314,10 +315,17 @@ impl SiSolidStateLoader {
             bail!("SiSolidStateLoader: {:?} too small for header", path);
         }
 
-        let header: &si_format::header::SiCartridgeHeader = bytemuck::from_bytes(&mmap[0..64]);
+        // `from_bytes` decodes little-endian and rejects bad magic.
+        let header = si_format::header::SiCartridgeHeader::from_bytes(&mmap[0..64])
+            .with_context(|| format!("SiSolidStateLoader: {:?} has an invalid header", path))?;
 
-        if header.magic != SINT_PACKER_MAGIC {
-            bail!("SiSolidStateLoader: {:?} missing SINT magic bytes", path);
+        if header.header_size as usize != si_format::header::SI_HEADER_SIZE {
+            bail!(
+                "SiSolidStateLoader: {:?} declares header_size {} (expected {})",
+                path,
+                header.header_size,
+                si_format::header::SI_HEADER_SIZE
+            );
         }
 
         if header.version < MIN_VERSION {
@@ -330,9 +338,8 @@ impl SiSolidStateLoader {
 
         let tier_flags = SiTierFlags::from_bits(header.flags);
 
-        let manifest_bytes = mmap
-            .get(header.block1_offset as usize..(header.block1_offset + header.block1_len) as usize)
-            .ok_or_else(|| anyhow::anyhow!("SiSolidStateLoader: TOC truncated"))?;
+        let manifest_bytes = checked_range(&mmap, header.block1_offset, header.block1_len)
+            .ok_or_else(|| anyhow::anyhow!("SiSolidStateLoader: TOC range invalid or truncated"))?;
 
         let manifest: SiContainerManifest = bincode_deserialize(manifest_bytes)?;
 
@@ -346,28 +353,14 @@ impl SiSolidStateLoader {
 
     pub fn get_tensor_slice(&self, name: &str) -> Option<&[f32]> {
         let desc = self.manifest.tensors.iter().find(|t| t.name == name)?;
-        let start = desc.byte_offset as usize;
-        let end = start + desc.byte_length as usize;
-        let raw_slice = self.mmap.get(start..end)?;
+        let raw_slice = checked_range(&self.mmap, desc.byte_offset, desc.byte_length)?;
 
-        debug_assert_eq!(
-            raw_slice.as_ptr() as usize % ALIGNMENT_BYTES,
-            0,
-            "SiSolidStateLoader: tensor '{}' is not 64-byte aligned (ptr={:#x})",
-            name,
-            raw_slice.as_ptr() as usize
-        );
-
-        debug_assert_eq!(
-            raw_slice.len() % 4,
-            0,
-            "Tensor byte length is not a multiple of 4"
-        );
-        let float_count = raw_slice.len() / 4;
-        let f32_slice =
-            unsafe { std::slice::from_raw_parts(raw_slice.as_ptr() as *const f32, float_count) };
-
-        Some(f32_slice)
+        // Offsets come from the file, so alignment and length are runtime
+        // input: reject rather than assert. `cast_slice` checks both.
+        if !(raw_slice.as_ptr() as usize).is_multiple_of(ALIGNMENT_BYTES) {
+            return None;
+        }
+        bytemuck::try_cast_slice::<u8, f32>(raw_slice).ok()
     }
 
     /// Loads a JIT Reflex and routes it through the Governance security audit gate.
@@ -379,9 +372,8 @@ impl SiSolidStateLoader {
             .find(|p| p.name == name && p.payload_type == PayloadType::JitReflex)
             .context(format!("JIT Reflex '{}' not found", name))?;
 
-        let start = desc.byte_offset as usize;
-        let end = start + desc.byte_length as usize;
-        let bytecode = &self.mmap[start..end];
+        let bytecode = checked_range(&self.mmap, desc.byte_offset, desc.byte_length)
+            .context(format!("JIT Reflex '{}' has an invalid byte range", name))?;
 
         // Governance security audit gate: prevents forbidden opcodes prior to PAGE_EXECUTE
         jit_audit(bytecode).context(format!("Governance JIT Audit FAILED for reflex: {}", name))?;
@@ -421,6 +413,14 @@ impl SiSolidStateLoader {
 
 fn bincode_serialize<T: Serialize>(value: &T) -> Result<Vec<u8>> {
     Ok(serde_json::to_vec(value)?)
+}
+
+/// Returns `data[offset..offset + len]` when the file-supplied range is
+/// representable and in bounds; `None` on overflow or truncation.
+fn checked_range(data: &[u8], offset: u64, len: u64) -> Option<&[u8]> {
+    let start = usize::try_from(offset).ok()?;
+    let end = start.checked_add(usize::try_from(len).ok()?)?;
+    data.get(start..end)
 }
 
 fn bincode_deserialize<T: for<'de> Deserialize<'de>>(bytes: &[u8]) -> Result<T> {
@@ -476,13 +476,67 @@ mod tests {
         let file_bytes = std::fs::read(&tmp).expect("read si file");
         assert!(file_bytes.len() >= 64, "file too small for header");
 
-        let header: &si_format::header::SiCartridgeHeader =
-            bytemuck::from_bytes(&file_bytes[0..64]);
+        let header = si_format::header::SiCartridgeHeader::from_bytes(&file_bytes[0..64])
+            .expect("decode canonical header");
 
         assert_eq!(header.magic, si_format::header::SI_CANONICAL_MAGIC);
         assert_eq!(header.version, SINT_PACKER_VERSION as u16);
         assert_eq!(header.header_size, 64);
-        // The rest of the fields should also be correctly initialized
-        // This test will fail until the packer is fixed to write a canonical header.
+        assert_eq!(header.block1_offset, 64);
+    }
+
+    fn write_header(path: &Path, header: si_format::header::SiCartridgeHeader) {
+        std::fs::write(path, header.to_bytes()).expect("write header");
+    }
+
+    #[test]
+    fn test_loader_rejects_overflowing_manifest_range() {
+        let temp_dir = tempfile::tempdir().expect("create test sandbox");
+        let path = temp_dir.path().join("overflow.si");
+        write_header(
+            &path,
+            si_format::header::SiCartridgeHeader {
+                block1_offset: u64::MAX,
+                block1_len: 2,
+                ..Default::default()
+            },
+        );
+        assert!(SiSolidStateLoader::load(&path).is_err());
+    }
+
+    #[test]
+    fn test_loader_rejects_manifest_range_past_end_of_file() {
+        let temp_dir = tempfile::tempdir().expect("create test sandbox");
+        let path = temp_dir.path().join("truncated.si");
+        write_header(
+            &path,
+            si_format::header::SiCartridgeHeader {
+                block1_offset: 64,
+                block1_len: 4096,
+                ..Default::default()
+            },
+        );
+        assert!(SiSolidStateLoader::load(&path).is_err());
+    }
+
+    #[test]
+    fn test_loader_rejects_invalid_header_size() {
+        let temp_dir = tempfile::tempdir().expect("create test sandbox");
+        let path = temp_dir.path().join("header_size.si");
+        SiPacker::pack_to_si(&path, "test_model", 1, 1, 1, HashMap::new()).expect("pack");
+        let mut bytes = std::fs::read(&path).expect("read");
+        bytes[6..8].copy_from_slice(&0u16.to_le_bytes());
+        std::fs::write(&path, bytes).expect("write");
+        assert!(SiSolidStateLoader::load(&path).is_err());
+    }
+
+    #[test]
+    fn test_checked_range_bounds() {
+        let data = [0u8; 16];
+        assert_eq!(checked_range(&data, 0, 16).map(<[u8]>::len), Some(16));
+        assert_eq!(checked_range(&data, 16, 0).map(<[u8]>::len), Some(0));
+        assert!(checked_range(&data, 8, 9).is_none());
+        assert!(checked_range(&data, u64::MAX, 1).is_none());
+        assert!(checked_range(&data, 1, u64::MAX).is_none());
     }
 }
