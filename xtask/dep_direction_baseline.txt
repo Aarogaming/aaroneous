@@ -1,0 +1,34 @@
+# Ratchet baseline for `cargo xtask check-deps` (CRATIFY_SPEC.md section 2.3 /
+# 7.1 item 9). Each line is a known profile-direction violation edge,
+# `from -> to`, where `from`'s profile is stricter than `to`'s. This list may
+# only shrink: a new edge fails the gate, and fixing one of these means
+# deleting its line here, not leaving it stale.
+#
+# See docs/CRATIFY_SPEC.md section 2.3 for the grouped resolution plan for
+# each of the three violation families below.
+
+# kernel -> control: paths needs to split into a kernel-safe path-value crate
+# and a bootstrap discovery layer.
+compute -> paths
+hypervisor -> paths
+ipc_bus -> paths
+
+# hypervisor library (kernel) -> control: hypervisor decomposition (M75) will
+# move composition logic out of the library and into the binaries or a
+# dedicated composition crate.
+hypervisor -> adaptation_engine
+hypervisor -> adaptation_plane
+hypervisor -> capabilities
+hypervisor -> governance
+hypervisor -> hotload
+hypervisor -> llm_gateway
+hypervisor -> omni
+hypervisor -> orchestrator
+hypervisor -> plugin_api
+hypervisor -> transpiler
+
+# kernel/control -> ast_auditor (tooling): extract the analysis API these
+# crates call into a control-profile crate that ast_auditor also depends on.
+adaptation_engine -> ast_auditor
+capabilities -> ast_auditor
+hypervisor -> ast_auditor

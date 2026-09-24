@@ -16,7 +16,7 @@
 cargo xtask gate
 ```
 
-This is the single verification command that validates your workspace matches CI. It runs encoding, formatting, clippy, compilation, tests, AST audit, stub check, emulator harness, and feature compilation in order.
+This is the single verification command that validates your workspace matches CI. It runs encoding, formatting, clippy, compilation, tests, AST audit, stub check, emulator harness, profile dependency direction, and feature compilation in order.
 
 **Before claiming work is done, run it again.** If it passes, you're done.
 
@@ -78,7 +78,7 @@ Full specification: [docs/CRATIFY_SPEC.md](docs/CRATIFY_SPEC.md) (v2, owner-appr
   | `presentation` | `api`, `studio_hud`, `scratchpad` | `#![deny(unsafe_code)]` |
   | `tooling` | `ast_auditor`, `cratify`, `compliance_auditor`, `xtask`, `benches` | `#![deny(unsafe_code)]` |
 
-  A crate may depend only on crates of the same or a stricter profile (`kernel` > `control` > `presentation`/`tooling`); the hypervisor binaries are the only exemption. This rule is not yet enforced and the workspace currently violates it in 16 places, all listed as a baseline in CRATIFY_SPEC section 2.3; do not add new ones. Moving a crate to a stricter profile is always allowed. Moving to a looser profile requires owner sign-off recorded in the PR.
+  A crate may depend only on crates of the same or a stricter profile (`kernel` > `control` > `presentation`/`tooling`); the hypervisor binaries are the only exemption. `cargo xtask check-deps` enforces this in baseline (ratchet) mode: the workspace currently violates it in 16 places, all listed in `xtask/dep_direction_baseline.txt` (grouped by resolution in CRATIFY_SPEC section 2.3); the gate fails on any new edge, and fixing one means deleting it from the baseline file, not leaving it stale. Moving a crate to a stricter profile is always allowed. Moving to a looser profile requires owner sign-off recorded in the PR.
 - **Deterministic State Reducers**: Domain engines operate as pure state transitions $S_{t+1} = f(S_t, I)$. No side effects, no background network I/O, and no hidden task launches during state reduction.
 - **Three-Phase Scan Separation** (`kernel`): Strict separation between Input Acquisition (I/O), State Reduction (pure, non-allocating computation), and Telemetry/Actuation Output.
 - **Fault Tolerance Over Brittle Invariants**: A violated runtime precondition is an operating condition, not a reason to abort. Use primary / degraded / safe-hold paths, with deadband (separate trip and recovery) thresholds between `Nominal`, `Degraded`, and `SafeHold` modes.
@@ -129,7 +129,7 @@ Full specification: [docs/CRATIFY_SPEC.md](docs/CRATIFY_SPEC.md) (v2, owner-appr
 Agents must NEVER declare work complete based solely on `cargo check`. The single command below (or its shim) runs every gate below, in order, and is mechanically checked to cover the same commands `.github/workflows/ci.yml`'s `check-and-test` job runs (see `xtask/src/gate.rs`'s `tests` module) — running it locally gives the same assurance as a green CI run:
 
 ```bash
-# Full Self-Verification Gate Script — runs gates 1-11 below
+# Full Self-Verification Gate Script — runs gates 1-12 below
 bash scripts/agent_check.sh
 # equivalently: cargo run -p xtask -- gate
 
@@ -157,17 +157,20 @@ cargo run -p ast_auditor -- audit core/ crates/ dev/emulator_harness/
 # 8. Golden Dogfooding Harness Verification
 cargo test -p emulator_harness
 
-# 9. Release Binary Check
+# 9. Profile Dependency Direction Check (baseline ratchet; CRATIFY_SPEC section 2.3 / 7.1 item 9)
+cargo run -p xtask -- check-deps
+
+# 10. Release Binary Check
 cargo check --release --bin aaroneous --bin hypervisor
 
-# 10. Optional Runtime Features (compile only)
+# 11. Optional Runtime Features (compile only)
 cargo check -p hypervisor --all-targets --features llama-gguf,gpu-metrics,fleet,testing,standalone
 
-# 11. Iroh Compatibility Feature (compile only)
+# 12. Iroh Compatibility Feature (compile only)
 cargo check -p hypervisor --all-targets --features p2p-iroh
 ```
 
-> **Note:** `scripts/agent_check.sh` is a thin CI shim — all gate logic runs via `cargo xtask gate`. Gates 1-3 and 9-11 mirror `ci.yml`'s directly-declared steps; gates 4-8 are `gate.rs`'s own pre-existing verification, run by CI only indirectly (as part of the "Canonical repository verification" step). If you add a new CI check, add the matching gate in `xtask/src/gate.rs` and its command string to `GATE_COMMANDS` in the same file — a test fails otherwise the next time either drifts from the other.
+> **Note:** `scripts/agent_check.sh` is a thin CI shim — all gate logic runs via `cargo xtask gate`. Gates 1-3, 9 and 10-12 mirror `ci.yml`'s directly-declared steps; gates 4-8 are `gate.rs`'s own pre-existing verification, run by CI only indirectly (as part of the "Canonical repository verification" step). If you add a new CI check, add the matching gate in `xtask/src/gate.rs` and its command string to `GATE_COMMANDS` in the same file — a test fails otherwise the next time either drifts from the other.
 
 ---
 

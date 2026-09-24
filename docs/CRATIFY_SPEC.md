@@ -93,8 +93,10 @@ A crate may depend only on crates whose profile is the same or stricter, in the 
 `kernel` > `control` > `presentation` / `tooling`. A `kernel` crate therefore depends only on
 `kernel` crates and admitted third-party dependencies. The composition root (section 2.2) is exempt.
 
-**Status: planned.** The rule is not yet enforced. Known violations, measured from `cargo metadata`
-(normal and build dependencies) on 2026-09-24 and recorded as the ratchet baseline (16 edges):
+**Status: enforced in baseline mode** by `cargo xtask check-deps` (section 7.1 item 9). New edges
+fail the gate; existing ones are tracked in `xtask/dep_direction_baseline.txt` and may only be
+removed, never added to. Known violations, measured from `cargo metadata` (normal and build
+dependencies) on 2026-09-24 and recorded as the ratchet baseline (16 edges):
 
 | Violation | Edges | Resolution |
 |---|---|---|
@@ -256,7 +258,13 @@ Rules this specification declares but `ast_auditor` does not yet enforce, in ado
 8. Retire the five library-code `#[allow(ambient_authority)]` exemptions (`paths/src/lib.rs`,
    `hypervisor/src/{trait_loader,unified_registry}.rs`, `compute/src/{si_packer,translation_dataset}.rs`):
    move discovery into bootstrap entrypoints or inject it. Until then they are the baseline count.
-9. Profile dependency direction check (section 2.3).
+9. ~~Profile dependency direction check (section 2.3).~~ **Enforced in baseline mode** by
+   `cargo xtask check-deps` (gate 9). It resolves each workspace crate's profile from
+   `[package.metadata.cratify].profile` where declared, else from the section 2.2 table, computes
+   the `kernel`/`control`/`presentation`&`tooling` edges from `cargo metadata --no-deps` (normal +
+   build dependencies), and fails on any edge not already in `xtask/dep_direction_baseline.txt` or
+   any baseline edge that has disappeared (the ratchet only shrinks). An unclassified crate also
+   fails the gate.
 10. Extend the gate's audit scope to `xtask/`, `sdk/`, and `benches/`.
 11. Documentation gate: relative links resolve with exact case, no `file:///` or drive-letter links.
 

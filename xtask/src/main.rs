@@ -1,5 +1,6 @@
 #![deny(unsafe_code)]
 
+mod check_deps;
 mod encoding;
 mod export_wit;
 mod gate;
@@ -17,6 +18,7 @@ fn main() -> Result<()> {
     match subcommand {
         "gate" => gate::run(),
         "check-encoding" => encoding::run(),
+        "check-deps" => check_deps::run(),
         "install" => install::run(&args[2..]),
         "uninstall" => uninstall::run(),
         "package" => package::run(&args[2..]),
@@ -54,6 +56,7 @@ Usage: cargo xtask <subcommand>
 Subcommands:
   gate                Run every CI verification gate locally (replaces scripts/agent_check.sh)
   check-encoding      Validate UTF-8/LF compliance across all tracked files
+  check-deps          Check profile dependency direction against the ratchet baseline
   export-wit          Export WebAssembly Interface Type (WIT) declarations from capabilities
   workspace-metadata  Scan workspace for capability manifest (MCP discovery, deployment profiles)
   queue               Run the passive local agent background progress engine (Ollama GPU)
