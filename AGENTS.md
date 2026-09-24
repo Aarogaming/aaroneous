@@ -73,12 +73,12 @@ Full specification: [docs/CRATIFY_SPEC.md](docs/CRATIFY_SPEC.md) (v2, owner-appr
 
   | Profile | Crates | Adds |
   |---|---|---|
-  | `kernel` | `core/hypervisor`, `ipc_bus`, `compute`, `wire`, `si_format`, `si_ir`, `platform_bridge`, `runtime_monitor`, `dev/emulator_harness` | Section 3 in full; `#![warn(unsafe_code)]` + `// SAFETY:` |
-  | `control` | `orchestrator`, `orchestration_plane`, `llm_gateway`, `llm_gateway_types`, `governance`, `capabilities`, `adaptation_engine`, `adaptation_plane`, `mcp_server`, `transpiler`, `omni`, `hotload`, `plugin_api`, `core-contracts`, `paths`, `sdk/rust` | Pure reducers with I/O confined to adapters; degraded paths at external-call boundaries; `#![deny(unsafe_code)]` |
+  | `kernel` | `core/hypervisor` (library; its binaries are the composition root), `ipc_bus`, `compute`, `wire`, `si_format`, `si_ir`, `platform_bridge`, `runtime_monitor`, `core-contracts`, `dev/emulator_harness` | Section 3 in full; `#![warn(unsafe_code)]` + `// SAFETY:` |
+  | `control` | `orchestrator`, `orchestration_plane`, `llm_gateway`, `llm_gateway_types`, `governance`, `capabilities`, `adaptation_engine`, `adaptation_plane`, `mcp_server`, `transpiler`, `omni`, `hotload`, `plugin_api`, `paths`, `sdk/rust` | Pure reducers with I/O confined to adapters; degraded paths at external-call boundaries; `#![deny(unsafe_code)]` |
   | `presentation` | `api`, `studio_hud`, `scratchpad` | `#![deny(unsafe_code)]` |
   | `tooling` | `ast_auditor`, `cratify`, `compliance_auditor`, `xtask`, `benches` | `#![deny(unsafe_code)]` |
 
-  Moving a crate to a stricter profile is always allowed. Moving to a looser profile requires owner sign-off recorded in the PR.
+  A crate may depend only on crates of the same or a stricter profile (`kernel` > `control` > `presentation`/`tooling`); the hypervisor binaries are the only exemption. Moving a crate to a stricter profile is always allowed. Moving to a looser profile requires owner sign-off recorded in the PR.
 - **Deterministic State Reducers**: Domain engines operate as pure state transitions $S_{t+1} = f(S_t, I)$. No side effects, no background network I/O, and no hidden task launches during state reduction.
 - **Three-Phase Scan Separation** (`kernel`): Strict separation between Input Acquisition (I/O), State Reduction (pure, non-allocating computation), and Telemetry/Actuation Output.
 - **Fault Tolerance Over Brittle Invariants**: A violated runtime precondition is an operating condition, not a reason to abort. Use primary / degraded / safe-hold paths, with deadband (separate trip and recovery) thresholds between `Nominal`, `Degraded`, and `SafeHold` modes.
@@ -98,7 +98,7 @@ Full specification: [docs/CRATIFY_SPEC.md](docs/CRATIFY_SPEC.md) (v2, owner-appr
 
 ## 3. Zero-Heap Hot Paths & Memory Geometry (`kernel` profile)
 
-- **Hot-Path Marking**: Scan-loop reducers and frame ingestors carry `#[hot_path]` (function) or `#![hot_path]` (file). An unmarked scan-loop function is a defect, not an exemption.
+- **Hot-Path Marking**: Scan-loop reducers and frame ingestors carry `#[hot_path]` (function), `#![hot_path]` (file), or `#[doc = "hot_path"]`. An unmarked scan-loop function is a defect, not an exemption.
 - **Banned on Hot Paths**: `String`, `Vec`, `Box`, `format!`, `.to_string()`, and unbounded collections (`HashMap`, `BTreeMap`). Use stack arrays (`[T; N]`), bounded ring buffers (`SwrnRingBuffer`), and fixed slices.
 - **Memory Geometry & ABI Safety**: IPC and shared-memory types use `#[repr(C)]` (`#[repr(C, align(64))]` where cache-line sensitive), derive `bytemuck::Pod` and `bytemuck::Zeroable`, and declare explicit padding fields (e.g., `pub _pad0: u16`). `control` crates follow this only for types crossing into a `kernel` crate.
 - **Concurrency & Statics**: Single-Writer/Multiple-Reader (SWMR) over pre-allocated ring buffers. No `std::sync::Mutex`, `parking_lot::Mutex`, or `RwLock` on hot paths. No `OnceLock` or `lazy_static` for runtime state in any non-`tooling` crate.
@@ -174,6 +174,6 @@ cargo check -p hypervisor --all-targets --features p2p-iroh
 ## 7. Deep Architecture & Ingestion References
 
 For exhaustive architectural philosophy, historical background, and forensic protocols:
-- **System Architecture & PLC Reductions**: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+- **System Architecture & PLC Reductions**: [docs/architecture.md](docs/architecture.md)
 - **Forensic Ingestion Protocol & Quarantine**: [docs/FORENSICS_RFC0005.md](docs/FORENSICS_RFC0005.md)
 - **Cratify Compliance Specification (v2: profiles, admission, graduation, ratchet)**: [docs/CRATIFY_SPEC.md](docs/CRATIFY_SPEC.md)

@@ -3,7 +3,7 @@
 > **TIER 2 GOVERNANCE & AUDIT REFERENCE**  
 > **STATUS**: v2, owner-approved 2026-09-23. Supersedes v1 (uniform absolute rules).  
 > **SCOPE**: Compliance profiles, invariant rules, dependency admission, component graduation, and the invariant ratchet.  
-> **APPLIES TO**: All crates under `core/`, `crates/`, `dev/`, `sdk/`, and `xtask/`.  
+> **APPLIES TO**: All crates under `core/`, `crates/`, `dev/`, `sdk/`, and `xtask/`. The gate's `ast_auditor` pass currently covers `core/`, `crates/`, and `dev/emulator_harness/` only (section 7.1).  
 > **ACTIVE ENGINE**: `crates/ast_auditor` (static rules), `crates/cratify` (CLI bridge).
 
 ---
@@ -11,9 +11,10 @@
 ## 0. What Changed From v1
 
 v1 stated every rule as an absolute ("Always / Never") applied uniformly to every crate. In practice
-that produced two failures: rules that could not be met were silently unenforced (no function in the
-workspace carries `#[hot_path]`, so the zero-allocation rule currently audits nothing), and useful
-control-plane code could not be admitted at all.
+that produced two failures: rules that could not be met were silently unenforced (only four functions
+in the workspace are marked hot, two in `ipc_bus` and two in `dev/emulator_harness`, so the
+zero-allocation rule audits almost none of the scan loop), and useful control-plane code could not be
+admitted at all.
 
 v2 replaces uniform absolutes with:
 
@@ -31,7 +32,7 @@ These rules have no profile exemption. The only exemptions are the listed contex
 
 | Rule | Exempt Contexts | Enforcement |
 |---|---|---|
-| No ambient authority: `std::env::{var, var_os, set_var, remove_var, temp_dir, current_dir}`, `.canonicalize()` (use `paths::normalize_path`) | Bootstrap entrypoints (`src/main.rs`, `src/bin/*`, examples) | `ast_auditor` `no_ambient_authority` - **enforced** |
+| No ambient authority: `std::env::{var, var_os, set_var, remove_var, temp_dir, current_dir}`, `.canonicalize()` (use `paths::normalize_path`) | Bootstrap entrypoints (`src/main.rs`, `src/bin/*`, examples) | `ast_auditor` `no_ambient_authority` - **enforced**, except five library files silenced with `#[allow(ambient_authority)]` (baseline, section 7.1) |
 | No ambient clock: `SystemTime::now()`, `Instant::now()` in library code. Time arrives as a tick input or an injected clock (model: `orchestrator::supervision`) | Bootstrap entrypoints, tests, benches | **planned** rule |
 | Constructor injection: configs, paths, endpoints, credentials, and buffers arrive via typed config structs (`paths::WorkspacePathsConfig`, `ShmSegmentConfig`); components never construct their own global services | - | review + `no_ambient_authority` |
 | No panics on runtime input: `.unwrap()`, `.expect()`, `panic!`, and `assert!` on values derived from I/O, config, or model output. Propagate `Result` or take a degraded path (Section 3) | Tests, bootstrap entrypoints, `build.rs`, `debug_assert!`, provably infallible cases carrying a `// INFALLIBLE:` comment | **planned** rule |
@@ -77,10 +78,24 @@ part into its own `kernel` crate rather than mixing profiles.
 
 | Profile | Crates |
 |---|---|
-| `kernel` | `core/hypervisor`, `ipc_bus`, `compute`, `wire`, `si_format`, `si_ir`, `platform_bridge`, `runtime_monitor`, `dev/emulator_harness` |
-| `control` | `orchestrator`, `orchestration_plane`, `llm_gateway`, `llm_gateway_types`, `governance`, `capabilities`, `adaptation_engine`, `adaptation_plane`, `mcp_server`, `transpiler`, `omni`, `hotload`, `plugin_api`, `core-contracts`, `paths`, `sdk/rust` |
+| `kernel` | `core/hypervisor`, `ipc_bus`, `compute`, `wire`, `si_format`, `si_ir`, `platform_bridge`, `runtime_monitor`, `core-contracts`, `dev/emulator_harness` |
+| `control` | `orchestrator`, `orchestration_plane`, `llm_gateway`, `llm_gateway_types`, `governance`, `capabilities`, `adaptation_engine`, `adaptation_plane`, `mcp_server`, `transpiler`, `omni`, `hotload`, `plugin_api`, `paths`, `sdk/rust` |
 | `presentation` | `api`, `studio_hud`, `scratchpad` |
 | `tooling` | `ast_auditor`, `cratify`, `compliance_auditor`, `xtask`, `benches` |
+
+`core/hypervisor` has two roles. Its library (`src/`) is `kernel`. Its binaries (`bin/`) are the
+workspace **composition root**: they wire every component together and are the one place allowed to
+depend on crates of any profile or ring.
+
+### 2.3 Profile Dependency Direction
+
+A crate may depend only on crates whose profile is the same or stricter, in the order
+`kernel` > `control` > `presentation` / `tooling`. A `kernel` crate therefore depends only on
+`kernel` crates and admitted third-party dependencies. The composition root (section 2.2) is exempt.
+
+**Status: planned.** Known violations, recorded as the ratchet baseline: `ipc_bus` and `compute`
+(`kernel`) depend on `paths` (`control`). Resolution: split `paths` into a `kernel`-safe path-value
+crate and a bootstrap discovery layer called only from entrypoints.
 
 **Changing profile:** moving a crate to a *stricter* profile is always permitted. Moving to a *looser*
 profile is a ratchet reversal (Section 7) and requires owner sign-off recorded in the PR.
@@ -115,7 +130,9 @@ The two are independent: a `kernel` crate runs in all three modes.
 - **Explicit padding**: declare padding fields (`pub _pad0: u16`, `pub _pad1: u32`) so layout never
   depends on compiler-inserted holes.
 - **Hot-path marking**: functions and files executing inside the scan loop carry `#[hot_path]` /
-  `#![hot_path]`. An unmarked scan-loop function is a compliance defect, not an exemption.
+  `#![hot_path]`, or the doc-attribute form `#[doc = "hot_path"]` (equivalently `/// hot_path`),
+  which `ast_auditor` also recognizes. An unmarked scan-loop function is a compliance defect, not an
+  exemption.
 
 ---
 
@@ -222,11 +239,18 @@ Rules this specification declares but `ast_auditor` does not yet enforce, in ado
 
 1. `[package.metadata.cratify] profile` declared on every crate.
 2. Profile-aware unsafe policy (`deny` vs `warn` + `// SAFETY:`).
-3. `#[hot_path]` markers on `kernel` scan-loop code (currently zero markers workspace-wide).
+3. Hot-path markers on `kernel` scan-loop code (currently 4 functions: 2 in `ipc_bus/src/swmr_shm.rs`,
+   2 in `dev/emulator_harness/src/reducer.rs`; none in `core/hypervisor` or `compute`).
 4. Panics on runtime input (`unwrap` / `expect` / `panic!` outside exempt contexts).
 5. Ambient clock reads.
 6. Self-started threads and tasks.
 7. Baseline-count ratchet mode in `ast_auditor` and `cargo xtask gate`.
+8. Retire the five library-code `#[allow(ambient_authority)]` exemptions (`paths/src/lib.rs`,
+   `hypervisor/src/{trait_loader,unified_registry}.rs`, `compute/src/{si_packer,translation_dataset}.rs`):
+   move discovery into bootstrap entrypoints or inject it. Until then they are the baseline count.
+9. Profile dependency direction check (section 2.3).
+10. Extend the gate's audit scope to `xtask/`, `sdk/`, and `benches/`.
+11. Documentation gate: relative links resolve with exact case, no `file:///` or drive-letter links.
 
 ---
 

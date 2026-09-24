@@ -66,7 +66,7 @@ All roadmap features must satisfy the **11 Sequential Verification Gates** (`car
 - [x] **11-Gate CI/Local Parity (`cargo xtask gate`)**
   - **Evidence:** `xtask/src/gate.rs` enforces text encoding, clippy `-D warnings`, workspace tests, release check, ast_auditor, and feature combinations. Automated parity tests verify `gate.rs` matches `.github/workflows/ci.yml`.
 - [x] **Static AST Invariant Audit (`ast_auditor`)**
-  - **Evidence:** `cargo run -p ast_auditor -- audit core/ crates/ dev/` reports 0 violations across 738 files. Prohibits `todo!()`, `unimplemented!()`, manual `unsafe impl Pod`, and ambient `std::env::var` calls.
+  - **Evidence:** `cargo run -p ast_auditor -- audit core/ crates/ dev/` reported 0 violations across 738 files at the time; as of `6321a63` (2026-09-23) the gate scope (`core/ crates/ dev/emulator_harness/`) reports 0 violations across 756 files, with five library files exempted via `#[allow(ambient_authority)]` (see CRATIFY_SPEC section 7.1). Prohibits `todo!()`, `unimplemented!()`, manual `unsafe impl Pod`, and ambient `std::env::var` calls.
 - [x] **Deterministic Temporal Synchronization (M19)**
   - **Evidence:** `crates/omni/src/matrix/sab_matrix.rs` test refactored using `std::fs::FileTimes` backdating (<5ms runtime); `core/hypervisor/src/bus_test.rs` artificial sleep removed. `governance/TEMPORAL_TEST_SYNCHRONIZATION_GUIDANCE.md` published.
 - [x] **Lock-Free Zero-Copy IPC Transport (`crates/ipc_bus`)**
