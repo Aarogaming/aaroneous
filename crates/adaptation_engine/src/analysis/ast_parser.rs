@@ -1,5 +1,14 @@
 // OBSERVE Phase: AST Parsing and Code Structure Analysis
 // Parses Rust/Python code into dense structural representations
+//
+// Dedupe-audit note (.audit/DEAD_CODE_ANALYSIS.md): see the note atop the
+// sibling `crate::ast_parser` (crates/adaptation_engine/src/ast_parser.rs)
+// for why these two same-named files are both kept. In short: this module
+// is regex-based and feeds the OBSERVE-phase scientific pipeline in this
+// `analysis` submodule (`batch_tensor`, `hypothesis`, `pipeline`) with
+// `ComplexityMetrics`/entropy data; the other is a lighter line-heuristic
+// parser used for incremental diffing elsewhere in the crate. Neither is
+// dead code.
 
 use regex::Regex;
 use serde::{Deserialize, Serialize};
