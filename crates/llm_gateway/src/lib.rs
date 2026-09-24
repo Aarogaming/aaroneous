@@ -17,7 +17,7 @@ pub use mcp_gateway::McpGateway;
 pub use model_environment::{DetectedEnvironment, ModelEnvironment, ModelEnvironmentDetector};
 pub use model_loader::{ModelLoader, TOP_RECOMMENDED_MODELS};
 pub use model_registry::{ModelInfo, ModelRegistry, ModelType};
-pub use providers::{GGUFProvider, LLMProvider, MockProvider};
+pub use providers::{GGUFProvider, GeminiProvider, LLMProvider, MockProvider};
 pub use types::*;
 
 use anyhow::Result;
@@ -52,6 +52,9 @@ pub struct LLMConfig {
     pub local_endpoint: Option<String>,
     /// Local LLM model name (for ProviderType::Local)
     pub local_model: Option<String>,
+    /// Gemini API base URL override (for ProviderType::Gemini). Falls back to
+    /// `providers::gemini::DEFAULT_GEMINI_BASE_URL` when `None`.
+    pub gemini_base_url: Option<String>,
 }
 
 impl Default for LLMConfig {
@@ -70,6 +73,7 @@ impl Default for LLMConfig {
             rate_limit: None,
             local_endpoint: None,
             local_model: None,
+            gemini_base_url: None,
         }
     }
 }
@@ -80,6 +84,7 @@ pub enum ProviderType {
     Mock,   // Mock provider for testing
     OpenAI, // Cloud OpenAI provider
     Local,  // Local API provider (Ollama, vLLM)
+    Gemini, // Cloud Google Gemini provider
 }
 
 impl LLMClient {
@@ -107,6 +112,22 @@ impl LLMClient {
                     .clone()
                     .unwrap_or_else(|| "mistral:latest".to_string());
                 Arc::new(providers::LocalLLMProvider::new(endpoint, model).await?)
+            }
+            ProviderType::Gemini => {
+                let api_key = config.api_key.clone().ok_or_else(|| {
+                    anyhow::anyhow!("Gemini API key must be provided via LLMConfig")
+                })?;
+                let base_url = config
+                    .gemini_base_url
+                    .clone()
+                    .or_else(|| config.base_url.clone())
+                    .unwrap_or_else(|| providers::DEFAULT_GEMINI_BASE_URL.to_string());
+                let model = config.model_name.clone();
+                let client = reqwest::Client::builder()
+                    .connect_timeout(std::time::Duration::from_secs(10))
+                    .timeout(std::time::Duration::from_secs(120))
+                    .build()?;
+                Arc::new(providers::GeminiProvider::new(api_key, base_url, model, client).await?)
             }
             ProviderType::GGUF => {
                 let model_path = if let Some(path) = config.gguf_model_path.clone() {
@@ -495,6 +516,7 @@ mod tests {
             rate_limit: None,
             local_endpoint: None,
             local_model: None,
+            gemini_base_url: None,
         };
 
         let client = LLMClient::new(config).await;
@@ -517,6 +539,7 @@ mod tests {
             rate_limit: None,
             local_endpoint: None,
             local_model: None,
+            gemini_base_url: None,
         };
 
         let client = LLMClient::new(config).await.unwrap();
@@ -539,6 +562,7 @@ mod tests {
             rate_limit: None,
             local_endpoint: None,
             local_model: None,
+            gemini_base_url: None,
         };
 
         let client = LLMClient::new(config)
