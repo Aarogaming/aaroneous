@@ -1,8 +1,8 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
 use memmap2::{MmapMut, MmapOptions};
 use parking_lot::RwLock;
 use std::fs::OpenOptions;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::thread;
@@ -21,44 +21,247 @@ const TICK_WATCHDOG: Duration = Duration::from_secs(10);
 /// effectively forever and accumulating unbounded state.
 const DEFAULT_MAX_TICKS: u64 = 86_400; // 24h at 1Hz
 
+/// Size, in bytes, of the seqlock sequence header prepended to every
+/// synapse mmap. Every `write`/`read` offset taken by this struct's public
+/// API is relative to the payload *after* this header - callers never see
+/// it directly.
+const SYNAPSE_SEQ_HEADER_BYTES: usize = 8;
+
+/// Upper bound on seqlock retry spins before `write`/`read` give up and
+/// return an error, rather than spinning indefinitely. A write is just a
+/// small `memcpy` under the lock (microseconds), so this many iterations
+/// comfortably covers ordinary contention between the daemon's tick loop
+/// and an `inject` CLI invocation while still bounding the *worst case* -
+/// unlike a blocking OS file lock, a writer that stalls (crashes, is
+/// suspended) while "holding" the seqlock can only make readers/writers
+/// spin for this many iterations before they bail out, never hang forever.
+const SYNAPSE_SEQLOCK_MAX_SPINS: u32 = 200_000;
+
 pub struct LegacySharedMemorySynapse {
     mmap: MmapMut,
     _path: PathBuf,
 }
 
 impl LegacySharedMemorySynapse {
-    pub fn new(name: &str, size: usize) -> Result<Self> {
+    /// `data_size` is the payload size (e.g. `size_of::<SynapseState>()`);
+    /// the actual file/mapping is `SYNAPSE_SEQ_HEADER_BYTES` bytes larger to
+    /// hold the seqlock sequence word. Creates and sizes the file if it
+    /// does not already exist - only the daemon that owns this synapse
+    /// should call this; other processes that expect the daemon to have
+    /// already sized it should use `open_existing` instead.
+    ///
+    /// Resolves `name` against the default (ambient) `WorkspacePathsConfig`,
+    /// which is what production callers (the daemon itself) want. Tests
+    /// must use `new_at` with an explicit `tempfile::tempdir()` path
+    /// instead, per AGENTS.md's test-sandboxing rule: this default-config
+    /// path lands in the shared host cache dir, which a test could collide
+    /// with under parallel runs or pollute for later ones.
+    pub fn new(name: &str, data_size: usize) -> Result<Self> {
         let path = paths::resolve_synapse_path(name, &paths::WorkspacePathsConfig::default());
+        Self::new_at(&path, data_size)
+    }
 
+    /// Same as `new`, but against an explicit file path rather than a
+    /// name resolved through the ambient `WorkspacePathsConfig` - the
+    /// tempdir-backed constructor tests should use.
+    pub fn new_at(path: &Path, data_size: usize) -> Result<Self> {
         let file = OpenOptions::new()
             .read(true)
             .write(true)
             .create(true)
             .truncate(false)
-            .open(&path)?;
+            .open(path)?;
 
-        file.set_len(size as u64)?;
+        file.set_len((SYNAPSE_SEQ_HEADER_BYTES + data_size) as u64)?;
 
+        Self::from_file(file, path.to_path_buf())
+    }
+
+    /// Opens an existing, already-sized synapse file without creating or
+    /// resizing it - for a process (e.g. the `hypervisor inject` CLI
+    /// command) that writes into a synapse it does not own the lifecycle
+    /// of. Errors clearly if the file is missing or too small, rather than
+    /// creating/truncating it out from under the daemon that does own it.
+    ///
+    /// See `new`'s doc comment: resolves `name` against the default
+    /// (ambient) `WorkspacePathsConfig`; tests must use `open_existing_at`
+    /// with an explicit path instead.
+    pub fn open_existing(name: &str, data_size: usize) -> Result<Self> {
+        let path = paths::resolve_synapse_path(name, &paths::WorkspacePathsConfig::default());
+        Self::open_existing_at(&path, data_size)
+    }
+
+    /// Same as `open_existing`, but against an explicit file path rather
+    /// than a name resolved through the ambient `WorkspacePathsConfig`.
+    pub fn open_existing_at(path: &Path, data_size: usize) -> Result<Self> {
+        let file = OpenOptions::new()
+            .read(true)
+            .write(true)
+            .open(path)
+            .with_context(|| {
+                format!(
+                    "synapse file {} not found; is the hypervisor daemon running to create it first?",
+                    path.display()
+                )
+            })?;
+
+        let required = SYNAPSE_SEQ_HEADER_BYTES + data_size;
+        let actual = file.metadata()?.len() as usize;
+        if actual < required {
+            anyhow::bail!(
+                "synapse file {} is {actual} bytes, too small (need >= {required} bytes); \
+                 is the hypervisor daemon running to size it first?",
+                path.display()
+            );
+        }
+
+        Self::from_file(file, path.to_path_buf())
+    }
+
+    fn from_file(file: std::fs::File, path: PathBuf) -> Result<Self> {
+        // `file` is sized to at least `SYNAPSE_SEQ_HEADER_BYTES + data_size`
+        // bytes by both callers above (freshly via `set_len` in `new`, or
+        // verified via `metadata()` in `open_existing`) before this mapping
+        // request, and this struct never truncates it afterwards. A
+        // concurrent writer mutating bytes in place (never truncating) is
+        // the seqlock-protected access pattern `write`/`read` implement
+        // below, not a memory-safety hazard for the mapping itself.
+        // SAFETY: file is sized appropriately and never truncated after; see rationale above.
         let mmap = unsafe { MmapOptions::new().map_mut(&file)? };
-
         Ok(Self { mmap, _path: path })
     }
 
+    fn seq_word(&self) -> &AtomicU64 {
+        // The mmap is backed by an `mmap()`'d region, which the OS always
+        // page-aligns (far stricter than `AtomicU64`'s 8-byte requirement),
+        // and `Self::from_file` guarantees the mapping is at least
+        // `SYNAPSE_SEQ_HEADER_BYTES` (8) bytes long, so reinterpreting the
+        // first 8 bytes as an `AtomicU64` is valid for the lifetime of
+        // `self` (the mmap outlives every reference handed out here).
+        // SAFETY: mmap base is page-aligned and >= 8 bytes; see rationale above.
+        unsafe { &*(self.mmap.as_ptr() as *const AtomicU64) }
+    }
+
+    /// Writes `data` at `offset` (relative to the payload, i.e. *after* the
+    /// seqlock header) as a single seqlock-protected transaction: spins to
+    /// claim the sequence word (even -> odd), copies the bytes, then
+    /// releases it (-> even again). Never calls a blocking OS primitive, so
+    /// a stalled concurrent writer can make this spin for at most
+    /// `SYNAPSE_SEQLOCK_MAX_SPINS` iterations, never hang the caller's
+    /// hot path indefinitely - see `SYNAPSE_SEQLOCK_MAX_SPINS`.
     pub fn write(&self, offset: usize, data: &[u8]) -> Result<()> {
+        let seq = self.seq_word();
+        let mut spins = 0u32;
+        let seq_before = loop {
+            let current = seq.load(Ordering::Acquire);
+            if current.is_multiple_of(2)
+                && seq
+                    .compare_exchange_weak(
+                        current,
+                        current + 1,
+                        Ordering::AcqRel,
+                        Ordering::Relaxed,
+                    )
+                    .is_ok()
+            {
+                break current;
+            }
+            spins += 1;
+            if spins > SYNAPSE_SEQLOCK_MAX_SPINS {
+                anyhow::bail!(
+                    "synapse seqlock write contended for {SYNAPSE_SEQLOCK_MAX_SPINS} spins \
+                     without acquiring - another writer appears stalled"
+                );
+            }
+            std::hint::spin_loop();
+        };
+
         let ptr = self.mmap.as_ptr() as *mut u8;
+        // `ptr` is derived from `self.mmap`, which stays valid for the
+        // lifetime of `self` and is at least `SYNAPSE_SEQ_HEADER_BYTES +
+        // data_size` bytes long. `data.as_ptr()`/`data.len()` come from a
+        // live `&[u8]`, so the source range is valid for reads. This call
+        // requires (unchecked here) that `SYNAPSE_SEQ_HEADER_BYTES + offset
+        // + data.len()` does not exceed the mapping's length - callers must
+        // ensure that themselves. Holding the seqlock (above) excludes
+        // every other writer for the duration of this copy.
+        // SAFETY: mapping is live and long enough; offset+len is caller-checked.
         unsafe {
-            std::ptr::copy_nonoverlapping(data.as_ptr(), ptr.add(offset), data.len());
+            std::ptr::copy_nonoverlapping(
+                data.as_ptr(),
+                ptr.add(SYNAPSE_SEQ_HEADER_BYTES + offset),
+                data.len(),
+            );
         }
+
+        seq.store(seq_before + 2, Ordering::Release);
         Ok(())
     }
 
+    /// Reads `len` bytes at `offset` (relative to the payload). Retries
+    /// (spins) until it observes a stable, even sequence number immediately
+    /// before and after the copy, guaranteeing it never returns bytes torn
+    /// by a concurrent `write`. Like `write`, this never blocks on an OS
+    /// primitive - see `SYNAPSE_SEQLOCK_MAX_SPINS`.
     pub fn read(&self, offset: usize, len: usize) -> Result<Vec<u8>> {
+        let seq = self.seq_word();
         let mut buf = vec![0u8; len];
         let ptr = self.mmap.as_ptr();
-        unsafe {
-            std::ptr::copy_nonoverlapping(ptr.add(offset), buf.as_mut_ptr(), len);
+        let mut spins = 0u32;
+        loop {
+            let seq_before = seq.load(Ordering::Acquire);
+            if seq_before.is_multiple_of(2) {
+                // `ptr` is derived from `self.mmap`, which stays valid for
+                // the lifetime of `self`. `buf` was just allocated with
+                // exactly `len` bytes, so the destination range is valid
+                // for writes of `len` bytes. This call requires (unchecked
+                // here) that `SYNAPSE_SEQ_HEADER_BYTES + offset + len` does
+                // not exceed the mapping's length - callers must ensure
+                // that. The sequence check below (not this copy itself)
+                // is what detects a write that raced with it.
+                // SAFETY: mapping is live; buf is exactly `len` bytes; bounds are caller-checked.
+                unsafe {
+                    std::ptr::copy_nonoverlapping(
+                        ptr.add(SYNAPSE_SEQ_HEADER_BYTES + offset),
+                        buf.as_mut_ptr(),
+                        len,
+                    );
+                }
+                let seq_after = seq.load(Ordering::Acquire);
+                if seq_after == seq_before {
+                    return Ok(buf);
+                }
+            }
+            spins += 1;
+            if spins > SYNAPSE_SEQLOCK_MAX_SPINS {
+                anyhow::bail!(
+                    "synapse seqlock read contended for {SYNAPSE_SEQLOCK_MAX_SPINS} spins \
+                     without a stable read - a writer appears stalled"
+                );
+            }
+            std::hint::spin_loop();
         }
-        Ok(buf)
+    }
+
+    /// Atomically writes a `hypervisor inject`-style intent: `task_id` into
+    /// `SynapseState::intent_vector_id` and `payload` (truncated to
+    /// `SYNAPSE_INTENT_PAYLOAD_CAPACITY`, zero-padded) into
+    /// `intent_payload`, as a *single* seqlock transaction so a concurrent
+    /// reader (the daemon's own tick loop) can never observe one without
+    /// the other. Relies on the two fields being contiguous in
+    /// `SynapseState` (`SYNAPSE_INTENT_PAYLOAD_OFFSET ==
+    /// SYNAPSE_INTENT_VECTOR_ID_OFFSET + 16`, asserted by
+    /// `test_synapse_state_field_offsets_match_cli_assumptions`).
+    pub fn write_intent(&self, task_id: uuid::Uuid, payload: &[u8]) -> Result<()> {
+        debug_assert_eq!(
+            SYNAPSE_INTENT_PAYLOAD_OFFSET,
+            SYNAPSE_INTENT_VECTOR_ID_OFFSET + 16
+        );
+        let mut combined = vec![0u8; 16 + SYNAPSE_INTENT_PAYLOAD_CAPACITY];
+        combined[0..16].copy_from_slice(task_id.as_bytes());
+        let payload_len = std::cmp::min(payload.len(), SYNAPSE_INTENT_PAYLOAD_CAPACITY);
+        combined[16..16 + payload_len].copy_from_slice(&payload[..payload_len]);
+        self.write(SYNAPSE_INTENT_VECTOR_ID_OFFSET, &combined)
     }
 }
 
@@ -147,6 +350,24 @@ pub struct SynapseState {
     pub mcp_tool_call: McpToolCallState,
     pub dialogue: DialogueState,
 }
+
+/// Byte offset of `SynapseState::intent_vector_id` within the raw
+/// `LegacySharedMemorySynapse` mapping. External writers (e.g. the
+/// `hypervisor inject` CLI command) that poke the mmap directly, without
+/// going through `write_state`'s whole-struct byte dump, must use this
+/// instead of a hardcoded literal: `#[repr(C)]` field offsets are an
+/// implementation detail of field order and padding, not a stable ABI
+/// this crate promises externally, and a prior version of the CLI command
+/// hardcoded offset 16 here, four bytes before the field's real offset
+/// (0..=15 is `clock_tick`/`memory_pressure`/`understanding_score`).
+pub const SYNAPSE_INTENT_VECTOR_ID_OFFSET: usize =
+    std::mem::offset_of!(SynapseState, intent_vector_id);
+/// Byte offset of `SynapseState::intent_payload`. See
+/// `SYNAPSE_INTENT_VECTOR_ID_OFFSET` above for why external writers must
+/// use this rather than a hardcoded literal.
+pub const SYNAPSE_INTENT_PAYLOAD_OFFSET: usize = std::mem::offset_of!(SynapseState, intent_payload);
+/// Capacity in bytes of `SynapseState::intent_payload`.
+pub const SYNAPSE_INTENT_PAYLOAD_CAPACITY: usize = 4096;
 
 impl Default for SynapseState {
     fn default() -> Self {
@@ -291,6 +512,11 @@ impl SupervisoryDaemon {
         let synapse = LegacySharedMemorySynapse::new(synapse_name, size)?;
 
         let initial = SynapseState::default();
+        // `&initial` points to a live, fully-initialized `SynapseState` for
+        // the duration of this block. `size` is `size_of::<SynapseState>()`,
+        // the exact byte length of that value, so the resulting slice does
+        // not read past it; the bytes are only copied into the mmap below.
+        // SAFETY: `size` matches `&initial`'s exact byte length; see above.
         let bytes = unsafe {
             std::slice::from_raw_parts(&initial as *const SynapseState as *const u8, size)
         };
@@ -524,11 +750,24 @@ impl SupervisoryDaemon {
     fn read_state(syn: &LegacySharedMemorySynapse) -> SynapseState {
         let size = std::mem::size_of::<SynapseState>();
         let buf = syn.read(0, size).unwrap_or_else(|_| vec![0u8; size]);
+        // `buf` holds exactly `size_of::<SynapseState>()` bytes (either read
+        // back from the mapping written by `write_state` below, or a
+        // same-length zero-filled fallback), so `buf.as_ptr()` is valid for
+        // a read of that length. `read_unaligned` is used specifically
+        // because `buf`'s heap allocation is not guaranteed to satisfy
+        // `SynapseState`'s alignment. `SynapseState` is a POD struct written
+        // only via `write_state`'s matching byte dump (or all-zero), so any
+        // bit pattern present here is a valid `SynapseState`.
+        // SAFETY: `buf` is exactly `size_of::<SynapseState>()` bytes; see above.
         unsafe { std::ptr::read_unaligned(buf.as_ptr() as *const SynapseState) }
     }
 
     fn write_state(syn: &LegacySharedMemorySynapse, state: &SynapseState) {
         let size = std::mem::size_of::<SynapseState>();
+        // `state` points to a live `SynapseState` for the duration of this
+        // block, and `size` is `size_of::<SynapseState>()`, its exact byte
+        // length, so the resulting slice does not read past it.
+        // SAFETY: `size` matches `state`'s exact byte length; see above.
         let bytes =
             unsafe { std::slice::from_raw_parts(state as *const SynapseState as *const u8, size) };
         syn.write(0, bytes).ok();
@@ -1707,6 +1946,113 @@ mod tests {
     use adaptation_plane::{
         AutonomousPacingRegulator, PacingConfig, PacingTier, ThermodynamicTelemetry,
     };
+
+    /// Regression test for the offset drift bug fixed alongside this test:
+    /// the `hypervisor inject` CLI command used to hardcode `intent_vector_id`
+    /// at byte 16 and `intent_payload` at byte 32, both four bytes short of
+    /// `SynapseState`'s actual `#[repr(C)]` layout, silently corrupting
+    /// `curiosity_drive` and shifting every injected intent's payload by 4
+    /// bytes. Pins the real offsets so a future field reorder is caught here
+    /// instead of silently breaking the CLI's raw mmap writes again.
+    #[test]
+    fn test_synapse_state_field_offsets_match_cli_assumptions() {
+        assert_eq!(SYNAPSE_INTENT_VECTOR_ID_OFFSET, 20);
+        assert_eq!(SYNAPSE_INTENT_PAYLOAD_OFFSET, 36);
+        assert_eq!(
+            SYNAPSE_INTENT_PAYLOAD_CAPACITY,
+            std::mem::size_of::<[u8; 4096]>()
+        );
+        assert!(
+            SYNAPSE_INTENT_PAYLOAD_OFFSET + SYNAPSE_INTENT_PAYLOAD_CAPACITY
+                <= std::mem::size_of::<SynapseState>()
+        );
+    }
+
+    /// Regression test for the torn-write bug fixed alongside this test:
+    /// `LegacySharedMemorySynapse::write`/`read` used to copy bytes into/out
+    /// of the mmap with no synchronization at all, so a concurrent writer
+    /// (this daemon's own tick loop and the `hypervisor inject` CLI command,
+    /// a *separate process* against the same mmap) could interleave its
+    /// `copy_nonoverlapping` with another writer's, producing a spliced
+    /// `SynapseState` that belongs to neither write. `write`/`read` now take
+    /// an exclusive/shared advisory lock on the backing file for the
+    /// duration of the copy. This drives many threads (standing in for
+    /// concurrent processes sharing the same fd-locking discipline, since
+    /// `flock`/`LockFileEx` locks are per-open-file-description/handle, not
+    /// per-thread) each writing a `SynapseState` whose `intent_payload` is
+    /// uniformly filled with that thread's own marker byte, interleaved
+    /// with concurrent readers, and asserts every read is either an
+    /// untouched zero-filled state or has a fully uniform `intent_payload`
+    /// - never a mix of two threads' marker bytes, which is what torn
+    /// writes would produce.
+    #[test]
+    fn test_synapse_concurrent_write_read_never_tears() {
+        // Per AGENTS.md's test-sandboxing rule, this must not resolve a
+        // path through the ambient `WorkspacePathsConfig` (the shared host
+        // cache dir, which a test could collide with under parallel runs
+        // or pollute for later ones) - `new_at`/`open_existing_at` take an
+        // explicit path instead, backed here by a per-test tempdir.
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let synapse_path = tmp
+            .path()
+            .join("test_synapse_concurrent_write_read_never_tears.synapse");
+        let size = std::mem::size_of::<SynapseState>();
+        // Each simulated writer/reader below opens its own
+        // `LegacySharedMemorySynapse` (its own `File`/fd) against the same
+        // path, exactly as the daemon process and a separately-invoked
+        // `hypervisor inject` CLI process each would - a single shared
+        // `Arc` over one instance would exercise this struct's seqlock
+        // logic but not the cross-process case the seqlock exists for.
+        LegacySharedMemorySynapse::new_at(&synapse_path, size).expect("size the synapse file");
+
+        const WRITER_THREADS: u8 = 6;
+        const ITERATIONS_PER_WRITER: usize = 200;
+
+        let mut handles = Vec::new();
+
+        for marker in 0..WRITER_THREADS {
+            let synapse_path = synapse_path.clone();
+            handles.push(thread::spawn(move || {
+                let synapse =
+                    LegacySharedMemorySynapse::new_at(&synapse_path, size).expect("writer synapse");
+                for _ in 0..ITERATIONS_PER_WRITER {
+                    let mut state = SynapseState::default();
+                    state.clock_tick = marker as u64;
+                    state.intent_vector_id = [marker; 16];
+                    state.intent_payload = [marker; 4096];
+                    SupervisoryDaemon::write_state(&synapse, &state);
+                }
+            }));
+        }
+
+        for _ in 0..(WRITER_THREADS as usize * 2) {
+            let synapse_path = synapse_path.clone();
+            handles.push(thread::spawn(move || {
+                let synapse =
+                    LegacySharedMemorySynapse::new_at(&synapse_path, size).expect("reader synapse");
+                for _ in 0..ITERATIONS_PER_WRITER {
+                    let state = SupervisoryDaemon::read_state(&synapse);
+                    let first = state.intent_payload[0];
+                    assert!(
+                        state.intent_payload.iter().all(|&b| b == first),
+                        "torn read: intent_payload is not uniformly {first:#x}, \
+                         a concurrent write was observed partially applied"
+                    );
+                    // `intent_vector_id` and `clock_tick` are written from the
+                    // same source `state` in the same `write_state` call as
+                    // `intent_payload`, so they must agree with it too if the
+                    // whole struct was copied atomically with respect to
+                    // other writers.
+                    assert!(state.intent_vector_id.iter().all(|&b| b == first));
+                    assert_eq!(state.clock_tick, first as u64);
+                }
+            }));
+        }
+
+        for handle in handles {
+            handle.join().expect("thread panicked");
+        }
+    }
 
     #[test]
     fn test_supervisory_daemon_pacing_constructor_injection() {

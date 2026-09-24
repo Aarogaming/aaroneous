@@ -44,10 +44,23 @@ impl VsaVector {
     }
 
     pub fn as_bytes(&self) -> &[u8; Self::BYTE_LEN] {
+        // `storage` is `[u64; 128]`, exactly `128 * 8 = Self::BYTE_LEN` bytes,
+        // matching the target array's size precisely. `u8` has alignment 1,
+        // always satisfied by a pointer already aligned for `u64`, so the
+        // reinterpret cast introduces no alignment UB. The borrow is tied to
+        // `&self`, so it cannot outlive `self` and no mutable access to
+        // `storage` can occur while it is live.
+        // SAFETY: sizes match exactly and `u8` alignment is trivially satisfied.
         unsafe { &*(self.storage.as_ptr() as *const [u8; Self::BYTE_LEN]) }
     }
 
     pub fn as_bytes_mut(&mut self) -> &mut [u8; Self::BYTE_LEN] {
+        // Same size/alignment reasoning as `as_bytes` above: `[u64; 128]` is
+        // exactly `Self::BYTE_LEN` bytes and `u8` alignment is always
+        // satisfied. The borrow is tied to `&mut self`, so it is the only
+        // live reference to `storage`'s bytes, and any bit pattern written
+        // through it is a valid `[u64; 128]` (all bit patterns are valid).
+        // SAFETY: sizes match exactly and `&mut self` gives exclusive access.
         unsafe { &mut *(self.storage.as_mut_ptr() as *mut [u8; Self::BYTE_LEN]) }
     }
 }

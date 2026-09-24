@@ -1,89 +1,449 @@
-# Aaroneous
+# ⚡ Aaroneous
 
-A type-safe Rust component framework for building zero-allocation execution blocks and plugins. Not a monolithic application — a collection of independent, plug-and-play component crates with strict trait boundaries and zero-copy contracts.
+> A constitutional Systems Base Platform and capability-expression substrate built from hardened Rust capabilities.
 
-## Status
+Aaroneous is a deterministic, capability-first Rust framework for building composable systems that can scale from embedded controllers and PLC-class runtimes to distributed software, digital twins, adaptive systems, and future synthetic intelligence architectures. 【1-759ee8】【2-39e580】
 
-- **2,239+ tests passing** across 22 crates
-- **11-gate verification** (`cargo xtask gate`) — encoding, fmt, clippy, build, tests, AST audit, stub check, emulator harness, release check, feature flags
-- **Zero `todo!()` or `unimplemented!()`** in committed code
-- **Zero prefix stutter** — no `aaroneous_` prefixes on crates, types, or modules
+Aaroneous is not a monolithic application.
 
-## Build
+It is not an operating system.
 
-```bash
-cargo xtask gate        # Full verification (run this first)
-cargo run --release -p studio_hud --bin aaroneous   # Desktop HUD
-cargo run --release -p hypervisor --bin hypervisor -- --help  # CLI
+It is not an AI product.
+
+It is not tied to a specific runtime, hardware target, model architecture, or deployment environment.
+
+Aaroneous provides a constitutional execution substrate where capabilities can be built, verified, orchestrated, reduced, expanded, and expressed across any computational domain. 【1-759ee8】【2-39e580】
+
+---
+
+# 🌌 Why Aaroneous Exists
+
+Modern software often becomes tightly coupled to:
+
+- Frameworks
+- Vendors
+- Platforms
+- Models
+- Deployment targets
+
+As dependencies accumulate, systems become increasingly difficult to evolve, migrate, or reason about.
+
+Aaroneous takes the opposite approach.
+
+Capabilities are treated as durable building blocks.
+
+Applications are temporary.
+
+Platforms evolve.
+
+Capabilities endure.
+
+The goal is not software longevity.
+
+The goal is capability longevity.
+
+A capability should remain useful whether it ultimately expresses itself as:
+
+- A PLC control loop
+- An embedded controller
+- A robot subsystem
+- A digital twin
+- A distributed service
+- A desktop application
+- A synthetic intelligence primitive
+
+---
+
+# 🧱 Rust Legos For Systems Architecture
+
+Aaroneous treats software as hardened building blocks.
+
+Each capability is designed to:
+
+- Interlock through explicit contracts
+- Remain independently deployable
+- Remain independently testable
+- Remain independently replaceable
+- Express behavior deterministically
+- Scale through composition rather than coupling
+
+The individual capability is not the product.
+
+The system constructed from capabilities is the product.
+
+Just as a LEGO brick does not know whether it belongs to a castle, vehicle, bridge, or spacecraft, an Aaroneous capability does not know the final system it participates in.
+
+Value emerges from orchestration.
+
+---
+
+# 🎼 Capability Expression
+
+Traditional software is often invocation-driven:
+
+```text
+Function
+    ↓
+Result
 ```
 
-## Architecture
+Aaroneous is capability-expression driven:
 
-Five protection rings, lower = more privileged:
-
-| Ring | Crates | Purpose |
-|------|--------|---------|
-| 0 | `core/hypervisor` | Microkernel host, execution loop |
-| 1 | `ipc_bus`, `compute`, `core-contracts` | Real-time interconnect, SSM engine, zero-copy contracts |
-| 2 | `orchestrator`, `governance` | Task scheduling, interference checking, resource governors |
-| 3 | `capabilities`, `llm_gateway`, `platform_bridge` | MCP tools, LLM transport, OS abstractions |
-| 4 | `api`, `studio_hud` | Desktop GUI (egui/eframe) |
-
-Library crates in lower rings never import higher-ring crates; the `core/hypervisor` binaries are the composition root. See [CONTRIBUTING.md](CONTRIBUTING.md) for full rules.
-
-## .si Format
-
-Solid-state neural model cartridges. Three-block architecture:
-
-| Block | Contents | Mutability |
-|-------|----------|-----------|
-| 1 | Frozen SSM weights (immutable base model) | Read-only |
-| 2 | Dynamic adaptation matrix (LoRA delta) | Mutable at runtime |
-| 3 | Episodic skill stack (mined habits) | Read-only |
-
-64-byte aligned header, CRC32 integrity, zero-copy `memmap2` loading. See [docs/SI_FORMAT.md](docs/SI_FORMAT.md) for the binary specification.
-
-## Quick Commands
-
-```bash
-cargo xtask gate                          # Verify workspace
-cargo run -p ast_auditor -- audit core/ crates/ dev/  # AST audit
-cargo test --workspace                    # Run all tests
-cargo bench -p benchmarks                 # Run benchmarks
+```text
+State
+    ↓
+Context
+    ↓
+Available Capabilities
+    ↓
+Orchestration
+    ↓
+Expression
+    ↓
+Outcome
 ```
 
-### Hypervisor
+Capabilities do not merely execute.
 
-```bash
-cargo run --release -p hypervisor --bin hypervisor -- start --tick 1000
-cargo run --release -p hypervisor --bin hypervisor -- boot --profile isolated
-cargo run --release -p hypervisor --bin hypervisor -- mesh --nodes 4 --live
-cargo run --release -p hypervisor --bin hypervisor -- mcp --host 127.0.0.1 --port 8766
+They participate.
+
+The same capability may contribute to industrial control, simulation, orchestration, robotics, automation, cognition, or analysis depending entirely on context.
+
+Like instruments within an orchestra, individual components remain simple while larger behaviors emerge through composition and coordination.
+
+---
+
+# 🏛 Constitutional Architecture
+
+Aaroneous is governed by explicit architectural constraints.
+
+These constraints are intentionally strict.
+
+The stricter the primitive, the more adaptable the system becomes. 【2-39e580】
+
+## Deterministic State Reduction
+
+All domain logic is modeled as explicit state transformation:
+
+```text
+S(t+1) = f(S(t), I)
 ```
 
-## Documentation
+Inputs drive state.
 
-- [CONTRIBUTING.md](CONTRIBUTING.md) — Rules, verification gate, naming conventions
-- [AGENTS.md](AGENTS.md) — Full operating directives and agent constitution
-- [docs/SI_FORMAT.md](docs/SI_FORMAT.md) — Binary format specification
-- [docs/architecture.md](docs/architecture.md) — Master architecture
-- `governance/CROSS_AGENT_COORDINATION_PROTOCOL.md` in the private `aaroneous-devtools` companion repo — how multiple agent sessions (Claude, Codex, Antigravity/Gemini, local Qwen) coordinate work; not linked here since that repo is private
+State drives output.
 
-## Reviewer Checklist
+Behavior remains observable, reproducible, and auditable. 【2-39e580】
 
-Before approving any change:
+---
 
-- [ ] `cargo xtask gate` passes
-- [ ] No `todo!()` or `unimplemented!()` in new code
-- [ ] Every new crate declares `[package.metadata.cratify] profile` ([docs/CRATIFY_SPEC.md](docs/CRATIFY_SPEC.md))
-- [ ] No `.unwrap()`, `.expect()`, or `panic!` on runtime input outside tests/bootstrap
-- [ ] New types use canonical names from `crates/governance`
-- [ ] Tests use `tempfile::tempdir()`, not ambient filesystem
-- [ ] No `std::env::var`, `.canonicalize()`, clock reads, or self-spawned threads outside bootstrap
-- [ ] `kernel`-profile crates: scan-loop code marked `#[hot_path]`, no heap allocation
-- [ ] New dependencies carry a compliance-distance score and admission verdict
-- [ ] New crates follow zero prefix stutter convention
+## Three-Phase Execution
 
-## License
+Every execution cycle is separated into:
 
-MIT
+```text
+Input Acquisition
+       ↓
+State Reduction
+       ↓
+Output & Telemetry
+```
+
+This architecture borrows heavily from proven PLC, embedded, and control-system design methodologies. 【2-39e580】【1-759ee8】
+
+---
+
+## Zero Ambient Authority
+
+Capabilities receive authority explicitly.
+
+No hidden configuration.
+
+No hidden state.
+
+No hidden environment access.
+
+No ambient privilege.
+
+Dependencies are injected, not assumed. 【2-39e580】
+
+---
+
+## Verification First
+
+Compilation is not considered proof of correctness.
+
+Capabilities are expected to be:
+
+- Testable
+- Auditable
+- Verifiable
+- Replaceable
+
+Architectural compliance is enforced through repository-wide verification gates, audits, and invariant checks. 【2-39e580】【1-759ee8】
+
+---
+
+# ⚙ Execution Rings
+
+Aaroneous organizes responsibilities through layered execution rings. 【1-759ee8】
+
+```text
+Ring 4  Presentation
+         Human interfaces & visualization
+
+Ring 3  Ingress & Transducers
+         Capability exposure, platform bridges
+
+Ring 2  Control & Orchestration
+         Schedulers, reducers, supervision
+
+Ring 1  Interconnect & Compute
+         Contracts, IPC, computation
+
+Ring 0  Microkernel Host
+         Deterministic execution loop
+```
+
+Each ring introduces capability while preserving separation of concerns and architectural boundaries. 【1-759ee8】
+
+---
+
+# 🔧 Cratify
+
+Cratify is the process by which software becomes Aaroneous-compliant. 【2-39e580】
+
+The objective is not reusable code.
+
+The objective is reusable capability.
+
+A Cratified component:
+
+- Defines explicit contracts
+- Eliminates hidden dependencies
+- Respects constitutional constraints
+- Remains independently deployable
+- Participates in deterministic execution
+- Passes repository verification
+
+Capabilities survive.
+
+Implementations evolve.
+
+---
+
+# 📦 Reductive Expansion
+
+Aaroneous scales through capability reduction and expansion.
+
+Different targets ship different capability sets while preserving the same constitutional architecture.
+
+## Embedded Profile
+
+```text
+Runtime
+Reducers
+Contracts
+Drivers
+```
+
+## PLC / Industrial Profile
+
+```text
+Runtime
+I/O
+Networking
+Diagnostics
+Control
+```
+
+## Desktop Profile
+
+```text
+Visualization
+Development Tools
+Simulation
+Telemetry
+```
+
+## Adaptive Systems Profile
+
+```text
+Capability Graphs
+State Systems
+Reasoning Layers
+Learning Layers
+```
+
+The architecture remains unchanged.
+
+Only the expressed capabilities differ.
+
+---
+
+# 🔩 Core Capability Domains
+
+The workspace decomposes into independent capability domains. 【1-759ee8】
+
+```text
+core/hypervisor
+```
+
+Deterministic microkernel host and execution loop.
+
+```text
+orchestrator
+```
+
+Scheduling, state reduction, and execution coordination.
+
+```text
+core-contracts
+```
+
+Portable contracts, memory layouts, and capability boundaries.
+
+```text
+ipc_bus
+```
+
+Deterministic communication and shared-memory transport.
+
+```text
+governance
+```
+
+Verification, invariants, and safety layers.
+
+```text
+capabilities
+```
+
+Machine-native capability registry and expression layer.
+
+```text
+compute
+```
+
+Advanced computation, state-space systems, simulation, and experimentation.
+
+```text
+api / studio_hud
+```
+
+Human-facing visualization and interaction layers.
+
+---
+
+# 🔌 Capability Interfaces
+
+Capabilities may be consumed through multiple interfaces without altering their underlying implementation. 【1-759ee8】
+
+Examples include:
+
+- Native Rust APIs
+- Shared-memory IPC
+- Local orchestration
+- Distributed networking
+- MCP integrations
+- Human-facing interfaces
+
+Protocols evolve.
+
+Capabilities remain.
+
+---
+
+# ✅ Verification Workflow
+
+The canonical repository validation pipeline is:
+
+```bash
+cargo xtask gate
+```
+
+This executes repository verification including:
+
+- Encoding validation
+- Formatting checks
+- Strict Clippy compliance
+- Workspace compilation
+- Test execution
+- Architectural audits
+- Soundness inspections
+- Emulator validation
+- Release validation
+- Feature verification
+
+Verification is part of the architecture, not an afterthought. 【2-39e580】【1-759ee8】
+
+---
+
+# 🌱 Synthetic Systems
+
+Aaroneous is not an intelligence model.
+
+Aaroneous is a substrate for capability accumulation. 【1-759ee8】【2-39e580】
+
+The framework focuses on foundational capabilities:
+
+```text
+Observe
+Remember
+Compare
+Predict
+Act
+Evaluate
+Adapt
+```
+
+As capabilities accumulate and interact, increasingly sophisticated behaviors may emerge.
+
+Potential applications include:
+
+- Industrial automation
+- Robotics
+- Distributed coordination
+- Digital twins
+- Adaptive control systems
+- Machine-native reasoning systems
+- Synthetic intelligence
+
+The framework remains agnostic.
+
+The constitution remains constant.
+
+The expression evolves.
+
+---
+
+# 📚 Documentation
+
+For deeper architectural specifications see:
+
+- Architecture Portal
+- Master Architecture
+- Cratify Specification
+- Architectural Constraints
+- Forensics RFC
+- Assimilation Specification
+- Orchestration Documentation
+- Governance Documentation
+
+---
+
+# 🎯 Mission
+
+To create a timeless capability architecture whose components can outlive hardware generations, software paradigms, execution environments, intelligence models, and technological eras.
+
+Aaroneous seeks to provide a stable constitutional foundation upon which increasingly capable synthetic systems can be constructed.
+
+Not by prescribing outcomes.
+
+But by enabling capability expression.
+
+---
+
+# One-Line Definition
+
+> Aaroneous is a constitutional Systems Base Platform that enables deterministic capability expression through composable, verifiable, and interoperable Rust components.

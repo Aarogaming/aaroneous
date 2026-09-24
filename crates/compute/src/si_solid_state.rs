@@ -549,6 +549,9 @@ impl SolidStateSiContainer {
         }
 
         let file = File::open(path)?;
+        // SAFETY: `file` is a fresh handle this call just opened; `mmap2`'s
+        // precondition is that it isn't concurrently modified, and `mmap`
+        // is only read from for the rest of this function.
         let mmap = unsafe { memmap2::Mmap::map(&file)? };
 
         // Convert the mmap into a verified Cartridge typestate

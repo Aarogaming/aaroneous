@@ -668,13 +668,13 @@ pub fn router(state: AppState) -> Router {
         // ── Adaptation Engine Emulation ─────────────────────────────────────────
         .route("/adaptation/record", post(adaptation_record_toggle))
         .route("/adaptation/routines", get(list_routines))
-        .route("/adaptation/routines/:id/run", post(run_routine))
+        .route("/adaptation/routines/{id}/run", post(run_routine))
         // ── Autonomous Scheduler ───────────────────────────────────────────────
         .route(
             "/scheduler/tasks",
             get(list_scheduled_tasks).post(add_scheduled_task),
         )
-        .route("/scheduler/tasks/:id", delete(delete_scheduled_task))
+        .route("/scheduler/tasks/{id}", delete(delete_scheduled_task))
         .route("/healthz", get(healthz))
         .route("/readyz", get(readyz))
         .route("/health", get(healthz)) // alias for /healthz
@@ -684,7 +684,7 @@ pub fn router(state: AppState) -> Router {
         .route("/version", get(version))
         .route("/v1/admin/drain", post(admin_drain))
         .route("/status", get(status))
-        .route("/status/:kind", get(status_one))
+        .route("/status/{kind}", get(status_one))
         // Intent management: read current intent, submit new intent
         .route("/intent", get(get_intent).post(submit_intent))
         // Execution results: read recent outputs from specialist executions
@@ -696,12 +696,12 @@ pub fn router(state: AppState) -> Router {
         // Session management: create a session, get session details
         .route("/sessions", get(list_sessions).post(create_session))
         .route(
-            "/sessions/:id",
+            "/sessions/{id}",
             get(get_session_by_id).delete(delete_session_by_id),
         )
-        .route("/sessions/:id/intent", post(submit_session_intent))
-        .route("/sessions/:id/results", get(get_session_results))
-        .route("/sessions/:id/results/stream", get(stream_session_results))
+        .route("/sessions/{id}/intent", post(submit_session_intent))
+        .route("/sessions/{id}/results", get(get_session_results))
+        .route("/sessions/{id}/results/stream", get(stream_session_results))
         // Audit log
         .route("/audit", get(get_audit_log))
         // Learning confidence trends (time-series)
@@ -732,30 +732,30 @@ pub fn router(state: AppState) -> Router {
         // Distillation: training data generation, plan inspection, GGUF genome analysis
         .route("/distillation/plan", get(distillation_plan))
         .route("/distillation/generate", post(distillation_generate))
-        .route("/distillation/jobs/:id", get(distillation_job_status))
+        .route("/distillation/jobs/{id}", get(distillation_job_status))
         .route(
-            "/distillation/analyze/:sovereign",
+            "/distillation/analyze/{sovereign}",
             get(distillation_analyze),
         )
-        .route("/distillation/script/:sovereign", get(distillation_script))
+        .route("/distillation/script/{sovereign}", get(distillation_script))
         // RAG memory stats: federation-level + per-sovereign memory counts
         .route("/memory/stats", get(memory_stats))
         // DNA dissection: deep structural analysis of GGUF models
         .route("/dna/dissect", post(dna_dissect))
-        .route("/dna/jobs/:id", get(dna_job_status))
-        .route("/dna/genome/:model", get(dna_genome))
+        .route("/dna/jobs/{id}", get(dna_job_status))
+        .route("/dna/genome/{model}", get(dna_genome))
         .route("/dna/compare", post(dna_compare))
         .route("/dna/roster", get(dna_roster))
         .route("/omni/constellation", get(omni_constellation))
         // Link integrations — webhooks, Discord, Slack, Notion, GitHub
         .route("/links", get(links_list).post(links_create))
         .route(
-            "/links/:id",
+            "/links/{id}",
             get(links_get).delete(links_delete).put(links_update),
         )
-        .route("/links/:id/test", post(links_test))
+        .route("/links/{id}/test", post(links_test))
         // Sovereign package export/import — portable .sovereign bundles
-        .route("/specialists/export/:name", get(specialists_export))
+        .route("/specialists/export/{name}", get(specialists_export))
         .route("/specialists/import", post(specialists_import_pkg))
         .route("/specialists/inspect", post(specialists_inspect))
         // TensorVault â€” cross-model tensor index and DNA-driven hybrid assembly
@@ -766,8 +766,8 @@ pub fn router(state: AppState) -> Router {
         .route("/dna/forge", post(dna_forge))
         // Model import/export â€” large model lifecycle management
         .route("/models/import", post(models_import))
-        .route("/models/import/jobs/:id", get(models_import_job_status))
-        .route("/models/export/:name", get(models_export))
+        .route("/models/import/jobs/{id}", get(models_import_job_status))
+        .route("/models/export/{name}", get(models_export))
         .route("/models/registry", get(models_registry))
         .route("/models/recommend", get(models_recommend))
         .with_state(state.clone())
@@ -1514,7 +1514,7 @@ async fn create_session(
         .into_response()
 }
 
-/// GET /sessions/:id â€” get session details
+/// GET /sessions/{id} â€” get session details
 async fn get_session_by_id(
     State(state): State<AppState>,
     Path(id): Path<String>,
@@ -1529,7 +1529,7 @@ async fn get_session_by_id(
     }
 }
 
-/// DELETE /sessions/:id â€” end and remove a session
+/// DELETE /sessions/{id} â€” end and remove a session
 async fn delete_session_by_id(
     State(state): State<AppState>,
     Path(id): Path<String>,
@@ -1549,7 +1549,7 @@ async fn delete_session_by_id(
     }
 }
 
-/// Request body for POST /sessions/:id/intent
+/// Request body for POST /sessions/{id}/intent
 #[derive(Deserialize)]
 struct SessionIntentRequest {
     content: String,
@@ -1559,7 +1559,7 @@ struct SessionIntentRequest {
     tags: Vec<String>,
 }
 
-/// POST /sessions/:id/intent â€” submit an intent for a specific session
+/// POST /sessions/{id}/intent â€” submit an intent for a specific session
 ///
 /// This is the preferred way to submit intents: associates the intent with
 /// a user session for tracking and results routing.
@@ -1606,7 +1606,7 @@ async fn submit_session_intent(
     }
 }
 
-/// GET /sessions/:id/results â€” execution results for a specific session.
+/// GET /sessions/{id}/results â€” execution results for a specific session.
 ///
 /// Returns all `ExecutionResult`s associated with this session's intents,
 /// newest first. Results are stored on the `Session` object as specialists
@@ -1637,7 +1637,7 @@ async fn get_session_results(
     }
 }
 
-/// GET /sessions/:id/results/stream â€” SSE stream of results for a specific session.
+/// GET /sessions/{id}/results/stream â€” SSE stream of results for a specific session.
 ///
 /// Like `/results/stream` but scoped to one session.  Polls every 500ms.
 /// Sends a `results` event with a JSON array of new results.
@@ -1749,7 +1749,7 @@ async fn get_specialists_snapshot(State(state): State<AppState>) -> Json<serde_j
                 "context_window": spec.context_window_tokens,
                 // attn_mlp_ratio and specialization_score come from GGUFAnalyzer;
                 // use 0.0 as sentinel so SSE client knows to display "no genome" until
-                // /distillation/analyze/:sovereign has been called.
+                // /distillation/analyze/{sovereign} has been called.
                 "attn_mlp_ratio": 0.0f32,
                 "specialization_score": 0.0f32,
             })
@@ -2883,7 +2883,7 @@ struct DistillationGenerateRequest {
 /// POST /distillation/generate
 ///
 /// Starts a background training-data generation job for a sovereign.
-/// Returns immediately with a `job_id`. Poll `GET /distillation/jobs/:id`
+/// Returns immediately with a `job_id`. Poll `GET /distillation/jobs/{id}`
 /// for status and results.
 ///
 /// CPU inference on a 7B model takes ~2-10 minutes per example.
@@ -2970,7 +2970,7 @@ async fn distillation_generate(
     }
 }
 
-/// GET /distillation/jobs/:id
+/// GET /distillation/jobs/{id}
 ///
 /// Poll a background training-data generation job started by POST /distillation/generate.
 /// Returns status: "running", "done", or "failed".
@@ -3015,7 +3015,7 @@ async fn distillation_job_status(
     }
 }
 
-/// GET /distillation/analyze/:sovereign
+/// GET /distillation/analyze/{sovereign}
 ///
 /// Runs `GGUFAnalyzer` against a sovereign's crystallized GGUF and returns
 /// the genome JSON: block structure, dominant weight type, layer distribution.
@@ -3115,7 +3115,7 @@ async fn memory_stats(State(state): State<AppState>) -> impl IntoResponse {
 
 // â”€â”€ Distillation script endpoint â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-/// GET /distillation/script/:sovereign
+/// GET /distillation/script/{sovereign}
 ///
 /// Returns the generated unsloth Python training script for a sovereign as
 /// plain text. Save to disk and run:  python wen_train.py
@@ -3191,7 +3191,7 @@ struct DnaDissectRequest {
 /// POST /dna/dissect
 ///
 /// Start a background deep structural dissection of a GGUF model.
-/// Returns a job_id immediately. Poll GET /dna/jobs/:id for status.
+/// Returns a job_id immediately. Poll GET /dna/jobs/{id} for status.
 ///
 /// The dissection reads tensor bytes via memory-mapped I/O (safe for 4GB+ models)
 /// and produces a full ModelDNA record: per-block weight statistics, gate sparsity,
@@ -3316,7 +3316,7 @@ async fn dna_dissect(
     .into_response()
 }
 
-/// GET /dna/jobs/:id
+/// GET /dna/jobs/{id}
 ///
 /// Poll a background DNA dissection job started by POST /dna/dissect.
 async fn dna_job_status(
@@ -3351,7 +3351,7 @@ async fn dna_job_status(
     }
 }
 
-/// GET /dna/genome/:model
+/// GET /dna/genome/{model}
 ///
 /// Return the cached DNA sidecar for a model (if dissection has been run).
 /// :model is the filename (e.g. "foundation_v1.gguf") or "foundation_v1".
@@ -3587,7 +3587,7 @@ struct ModelsImportRequest {
 ///   {"source": "hf://bartowski/Meta-Llama-3.1-70B-Instruct-GGUF/Meta-Llama-3.1-70B-Instruct-Q4_K_M.gguf"}
 ///   {"source": "bartowski/Meta-Llama-3.1-70B-Instruct-GGUF", "tags": ["research", "70b"]}
 ///
-/// Returns a job_id immediately. Poll GET /models/import/jobs/:id for progress.
+/// Returns a job_id immediately. Poll GET /models/import/jobs/{id} for progress.
 async fn models_import(
     State(state): State<AppState>,
     Json(req): Json<ModelsImportRequest>,
@@ -3613,7 +3613,7 @@ async fn models_import(
     }))
 }
 
-/// GET /models/import/jobs/:id
+/// GET /models/import/jobs/{id}
 ///
 /// Poll a model import job started by POST /models/import.
 async fn models_import_job_status(
@@ -3657,7 +3657,7 @@ async fn models_import_job_status(
     }
 }
 
-/// GET /models/export/:name
+/// GET /models/export/{name}
 ///
 /// Stream a GGUF model file as a binary download.
 ///
@@ -4311,7 +4311,7 @@ fn now_ms_vault() -> u64 {
 
 // ── Sovereign package export/import endpoints ─────────────────────────────────
 
-/// GET /specialists/export/:name
+/// GET /specialists/export/{name}
 ///
 /// Export a sovereign specialist as a portable .sovereign package.
 /// The package contains: model.gguf + manifest.json + dna.json +
@@ -5194,7 +5194,7 @@ async fn links_create(
     }))
 }
 
-/// GET /links/:id
+/// GET /links/{id}
 async fn links_get(State(state): State<AppState>, Path(id): Path<String>) -> impl IntoResponse {
     let links = state.links.read().await;
     match links.iter().find(|l| l.name == id) {
@@ -5207,7 +5207,7 @@ async fn links_get(State(state): State<AppState>, Path(id): Path<String>) -> imp
     }
 }
 
-/// DELETE /links/:id
+/// DELETE /links/{id}
 async fn links_delete(State(state): State<AppState>, Path(id): Path<String>) -> impl IntoResponse {
     let mut links = state.links.write().await;
     let before = links.len();
@@ -5235,7 +5235,7 @@ struct LinkUpdateRequest {
     api_key: Option<String>,
 }
 
-/// PUT /links/:id
+/// PUT /links/{id}
 async fn links_update(
     State(state): State<AppState>,
     Path(id): Path<String>,
@@ -5284,7 +5284,7 @@ async fn deliver_pub(
     Ok("200 OK".to_string())
 }
 
-/// POST /links/:id/test
+/// POST /links/{id}/test
 ///
 /// Send a test event to the link target to verify delivery works.
 async fn links_test(State(state): State<AppState>, Path(id): Path<String>) -> impl IntoResponse {

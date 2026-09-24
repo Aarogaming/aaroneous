@@ -16,5 +16,5 @@ harness = false
 
 [dev-dependencies]
 ast_auditor = { path = "../../crates/ast_auditor" }
-criterion = "0.5"
+criterion = "0.8"
 

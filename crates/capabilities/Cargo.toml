@@ -38,7 +38,8 @@ paths = { package = "paths", path = "../paths" }
 adaptation_plane = { path = "../adaptation_plane" }
 ast_auditor = { path = "../ast_auditor" }
 sdk = { path = "../../sdk/rust" }
-libloading = "0.8"
+libloading = "0.9"
+toml = "0.8"
 
 [dev-dependencies]
 tempfile = { workspace = true }

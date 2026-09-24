@@ -55,6 +55,14 @@ impl RetinaModule {
 
         // 1. HARDGUARD: robots.txt / Policy Check (Deterministic)
         if !self.is_compliance_clear(url).await? {
+            // This function requires (per its contract as a raw-pointer FFI /
+            // shared-memory entry point) that `synapse_ptr` is non-null and
+            // points to a valid, writable `SynapseWebIngest` for the
+            // duration of this call; that invariant is the caller's
+            // responsibility and is not checked here. Only the `is_legal`
+            // field (a plain `u8`) is written, which cannot itself violate
+            // any struct invariant.
+            // SAFETY: caller guarantees `synapse_ptr` validity; see above.
             unsafe {
                 (*synapse_ptr).is_legal = 0;
             }
@@ -104,6 +112,15 @@ impl RetinaModule {
             let tokens = encoding.get_ids();
             let count = tokens.len().min(8192);
 
+            // As above, this function requires `synapse_ptr` to be non-null
+            // and point to a valid, writable `SynapseWebIngest` for the
+            // duration of this call; that is the caller's responsibility.
+            // `count = tokens.len().min(8192)` is clamped to
+            // `token_buffer`'s fixed length of `8192` (`[u32; 8192]`), so
+            // `token_buffer[..count]` and `tokens[..count]` are both valid,
+            // equal-length slices and `copy_from_slice` cannot go out of
+            // bounds.
+            // SAFETY: caller guarantees `synapse_ptr` validity; count <= 8192.
             unsafe {
                 (*synapse_ptr).status_code = 200;
                 (*synapse_ptr).is_legal = 1;

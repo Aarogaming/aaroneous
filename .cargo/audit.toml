@@ -19,15 +19,6 @@ ignore = [
     "RUSTSEC-2021-0030",
     "RUSTSEC-2025-0049",
 
-    # hickory-net / hickory-proto 0.26.0-beta.4: patched in 0.26.1, but this
-    # workspace's version is pinned to exactly that beta by iroh 0.98.2's
-    # transitive dependency on hickory-resolver "=0.26.0-beta.4" — `cargo
-    # update -p hickory-net --precise 0.26.1` fails to resolve. Bumping past
-    # this needs an iroh upgrade evaluated on its own (P2P federation code
-    # path), not a same-PR CI-fix patch bump.
-    "RUSTSEC-2026-0120",
-    "RUSTSEC-2026-0119",
-
     # rkyv 0.7.46 -> 0.8.17 is a major-version bump with a substantially
     # different derive/Archive API; this workspace derives Archive/
     # Deserialize/Serialize extensively (crates/ipc_bus and others). Not a
