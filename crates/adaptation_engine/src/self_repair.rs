@@ -32,15 +32,12 @@ pub struct SelfRepairEngine {
     interlock: Option<governance::SmtActionInterlock>,
 }
 
-impl Default for SelfRepairEngine {
-    fn default() -> Self {
-        Self::new().unwrap_or_else(|_| Self {
-            sandbox: ShadowSandbox::new().unwrap(),
-            interlock: None,
-        })
-    }
-}
-
+// Deliberately no `impl Default for SelfRepairEngine`: construction is
+// fallible (`ShadowSandbox::new()` creates a cache directory and can fail on
+// I/O), so `Default::default()`'s infallible contract cannot be honored
+// without a panic. AGENTS.md #5 bans unhandled `.unwrap()`/`.expect()` on
+// production error-handling paths; use `SelfRepairEngine::new()` and
+// propagate the `Result` instead.
 impl SelfRepairEngine {
     pub fn new() -> Result<Self> {
         Ok(Self {
