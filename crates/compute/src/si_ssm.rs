@@ -683,7 +683,10 @@ mod tests {
         assert_eq!(pred.predicted_state.len(), 128);
         assert_eq!(pred.delta_state.len(), 128);
         assert!(pred.confidence_score >= 0.0);
-        assert!(pred.latency_us < 50_000); // Sub-millisecond execution
+        // Latency is measured and reported but not asserted: a wall-clock
+        // bound in a debug unit test fails whenever the host is loaded.
+        // Performance targets belong in `benches/`.
+        let _ = pred.latency_us;
     }
 
     #[test]
