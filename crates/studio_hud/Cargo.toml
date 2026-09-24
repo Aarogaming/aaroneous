@@ -47,7 +47,7 @@ tokio-serial = "5.4"
 eframe = { version = "0.36", default-features = false, features = ["glow", "default_fonts", "x11"] }
 egui = "0.34"
 rfd = "0.15"
-wgpu = "29.0"
+wgpu = "30.0"
 cgmath = "0.18"
 bytemuck = "1.14"
 

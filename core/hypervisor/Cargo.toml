@@ -67,7 +67,7 @@ parking_lot = "0.12"
 rand = "0.10"
 ctrlc = "3.4"
 memmap2 = "0.9"
-wgpu = "29.0"
+wgpu = "30.0"
 bytemuck = "1.14"
 regex = "1.10"
 reqwest = { version = "0.13", default-features = false, features = ["json", "stream", "rustls"] }
