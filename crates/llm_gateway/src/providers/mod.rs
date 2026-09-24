@@ -1,11 +1,13 @@
 // LLM Providers
 // Different implementations for various LLM services
 
+mod gemini;
 mod gguf;
 pub mod local;
 mod mock;
 pub mod openai;
 
+pub use gemini::{DEFAULT_GEMINI_BASE_URL, DEFAULT_GEMINI_MODEL, GeminiProvider};
 pub use gguf::GGUFProvider;
 pub use local::LocalLLMProvider;
 pub use mock::MockProvider;
