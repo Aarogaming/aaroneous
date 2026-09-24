@@ -70,11 +70,18 @@ pub mod runtime_governor;
 pub use runtime_governor::{BudgetExecutor, RuntimeGovernor, TaskPriority, execute_agent_task};
 
 // Compaction Engine Pattern
-pub mod compaction_engine;
-pub use compaction_engine::{
-    AgentHandle, CompactionEngine, CompactionEngineBuilder, CompactionEngineConfig,
-    CompactionEvent, ReaperStats, SharedCompactionEngine, SlabCompactionEngine,
-};
+//
+// This crate used to carry its own WASM-slab-defragmentation implementation
+// (`SlabCompactionEngine`/`AgentHandle`) here, but it had no callers anywhere
+// in the workspace: this crate's own binary (`bin/hypervisor.rs`) already
+// uses `orchestrator::compaction_engine::SpecialistHibernationEngine`
+// (disk-based `.sissm` hibernation) exclusively for its "compaction engine"
+// demo pipeline. Per the dedupe audit, `orchestrator` is the single source
+// of truth for compaction/reap-and-resurrect behavior; the dead duplicate
+// module was removed here. `orchestrator` is a `control`-profile crate, so
+// this `kernel`-profile library does not re-export it — callers that need
+// the compaction engine type should depend on `orchestrator` directly (as
+// `bin/hypervisor.rs` already does).
 
 // GGUF Seeding & Cartridge Compiler
 pub mod cartridge_compiler;
