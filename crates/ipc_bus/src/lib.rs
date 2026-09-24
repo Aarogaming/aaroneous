@@ -1,5 +1,18 @@
 // Aaroneous Nervous System - SWMR rkyv Architecture
 // Single Writer, Multi-Reader zero-copy shared memory with mutation intent validation.
+//
+// This crate legitimately needs `unsafe` for shared-memory mmap and
+// lock-free ring-buffer operations (see AGENTS.md's "No Heap on Hot Paths"
+// rule, which groups it with core/hypervisor and crates/compute as a
+// hot-path crate). `#![warn(unsafe_code)]` - the AGENTS.md-documented
+// permission for such "performance/kernel" crates - is deliberately *not*
+// declared here: this repo's verification gate runs every crate through
+// `cargo clippy -- -D warnings`, which promotes any `#[warn(...)]`-level
+// lint to a hard build error, indistinguishable from `#![deny(unsafe_code)]`
+// in practice. The actual enforcement for this crate is the ast_auditor's
+// `SafetyCommentVisitor` (see crates/ast_auditor/src/rules/safety_comments.rs),
+// which requires a documented `// SAFETY:` comment on every unsafe block
+// without blocking compilation.
 
 pub mod protocol;
 pub use protocol::IpcEvent;

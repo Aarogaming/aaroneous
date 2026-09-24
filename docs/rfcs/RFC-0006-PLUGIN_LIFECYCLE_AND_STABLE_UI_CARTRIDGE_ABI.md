@@ -2,11 +2,12 @@
 
 - **RFC Number:** 0006
 - **Title:** Sound Dynamic Plugin Loading for `studio_hud` via a Stable Command-Buffer ABI
-- **Status:** Draft / Proposed
+- **Status:** Draft / Proposed - Section 8 proof-of-concept built, pending review sign-off (see below)
 - **Domain:** Presentation Layer, FFI/ABI Safety, Plugin Extensibility
 - **Target Crates:** crates/api, crates/studio_hud
 - **Depends On:** none (design-only; no code lands until a proof-of-concept is accepted)
 - **Supersedes:** the dynamic-loading mechanism removed from `crates/studio_hud/src/plugin_api.rs` (see History below)
+- **Proof-of-Concept:** `dev/rfc0006_poc/` (standalone, not `crates/api`/`studio_hud` code) demonstrates all five Section 8 acceptance criteria - see `dev/rfc0006_poc/FINDINGS.md` for the evidence and one correction this PoC surfaced in Section 7 below (`catch_unwind` placement).
 
 ---
 

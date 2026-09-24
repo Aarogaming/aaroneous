@@ -309,6 +309,9 @@ impl SiSolidStateLoader {
 
     pub fn load(path: &Path) -> Result<Self> {
         let file = File::open(path)?;
+        // SAFETY: `file` is a fresh handle this call just opened; `mmap2`'s
+        // precondition is that it isn't concurrently modified, and `mmap`
+        // is read-only, kept alive for `Self`'s whole lifetime below.
         let mmap = unsafe { Mmap::map(&file)? };
 
         if mmap.len() < 64 {

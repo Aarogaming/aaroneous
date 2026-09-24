@@ -251,6 +251,9 @@ impl SiJitCompilerEngine {
         };
 
         let start = Instant::now();
+        // SAFETY: `handle.memory_state` was just verified to be
+        // `ReadExecute`, so `fn_ptr` was cast via `WxMemoryRegion::as_fn_ptr`
+        // to `NativeExecutionFn` at crystallization time, matching `ctx`.
         let ret_val = unsafe { fn_ptr(ctx) };
         let duration_ns = start.elapsed().as_nanos() as u64;
 

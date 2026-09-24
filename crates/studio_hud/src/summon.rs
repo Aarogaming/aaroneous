@@ -6,6 +6,13 @@ use windows::Win32::UI::WindowsAndMessaging::{GetMessageW, MSG, WM_HOTKEY};
 /// Spawns a background thread that registers a Win32 Global Hotkey (Ctrl + Alt + Space).
 /// When pressed, it uses the provided egui::Context to force the application to the foreground.
 pub fn spawn_global_summon_hook(ctx: egui::Context) {
+    // `RegisterHotKey`/`GetMessageW` are safe to call with `None` window
+    // handles (registering/reading messages against this thread's own
+    // implicit message queue rather than a specific window) and take no
+    // pointers/handles owned elsewhere that this closure could invalidate;
+    // `msg` is a local `MSG::default()` passed by `&mut` for the duration
+    // of each call only.
+    // SAFETY: no borrowed pointers/handles outlive this closure; see rationale above.
     thread::spawn(move || unsafe {
         // 1 is the hotkey ID. 0x20 is VK_SPACE.
         let success = RegisterHotKey(None, 1, MOD_CONTROL | MOD_ALT, 0x20);

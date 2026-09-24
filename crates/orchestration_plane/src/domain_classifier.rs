@@ -11,8 +11,8 @@ use syn::spanned::Spanned;
 use syn::visit::{self, Visit};
 use syn::{
     ExprCall, ExprMethodCall, File, FnArg, ImplItemFn, ItemConst, ItemEnum, ItemFn, ItemStatic,
-    ItemStruct, ItemTrait, ItemType, ItemUse, Path as SynPath, ReturnType, Type, UseGroup, UsePath,
-    UseRename, UseTree, Visibility,
+    ItemStruct, ItemTrait, ItemType, ItemUse, Path as SynPath, ReceiverKind, ReturnType, Type,
+    UseGroup, UsePath, UseRename, UseTree, Visibility,
 };
 
 /// Workspace architectural domain classification target.
@@ -622,7 +622,7 @@ impl<'ast> Visit<'ast> for AstInspectionVisitor {
             for input in &node.sig.inputs {
                 match input {
                     FnArg::Receiver(r) => {
-                        if r.reference.is_some() {
+                        if matches!(r.kind, ReceiverKind::Reference(..)) {
                             if r.mutability.is_some() {
                                 params.push("&mut self".to_string());
                             } else {
@@ -680,7 +680,7 @@ impl<'ast> Visit<'ast> for AstInspectionVisitor {
             for input in &node.sig.inputs {
                 match input {
                     FnArg::Receiver(r) => {
-                        if r.reference.is_some() {
+                        if matches!(r.kind, ReceiverKind::Reference(..)) {
                             if r.mutability.is_some() {
                                 params.push("&mut self".to_string());
                             } else {

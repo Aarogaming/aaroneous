@@ -621,6 +621,16 @@ impl EphemeralExecutionArena {
         }
 
         self.offset = aligned_offset + size_bytes;
+        // `aligned_offset + size_bytes <= self.capacity == self.buffer.len()`
+        // is enforced by the bounds check above, so the `count`-element
+        // `f32` slice stays within `self.buffer`'s allocation. This relies
+        // on `self.buffer`'s base pointer itself being at least
+        // `align_of::<f32>()`-aligned, which `Vec<u8>` does not formally
+        // guarantee (only 1-byte alignment) - in practice the global
+        // allocator returns word-aligned pointers for allocations this
+        // size, but that is an assumption of this arena's design, not a
+        // type-level proof.
+        // SAFETY: offset+count in bounds per the check above; base-pointer alignment is an allocator assumption, see rationale.
         let slice = unsafe {
             let ptr = self.buffer.as_mut_ptr().add(aligned_offset) as *mut f32;
             std::slice::from_raw_parts_mut(ptr, count)

@@ -104,6 +104,7 @@ bin/a-run.exe
 scripts/prompt_*.txt
 scripts/output_*.rs
 scripts/staged/
+dev/tools/agent_observation_log.jsonl
 [Nn][Uu][Ll]
 
 

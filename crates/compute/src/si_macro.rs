@@ -105,6 +105,9 @@ impl SiMacroEngine {
         }
 
         let file = File::open(path)?;
+        // SAFETY: `file` is a fresh handle this call just opened; `mmap2`'s
+        // precondition is that the file isn't concurrently truncated, and
+        // this read-only mapping is dropped at the end of this function.
         let mmap = unsafe { Mmap::map(&file)? };
 
         if mmap.len() < 10 {

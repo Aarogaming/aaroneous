@@ -315,6 +315,11 @@ impl SWMRSynapse {
 
         std_file.set_len(size as u64)?;
 
+        // `map_mut`'s unsafety is inherent to mmap - the OS can't stop
+        // another process from concurrently writing the backing file, which
+        // could race with this mapping. `std_file` was just created/sized
+        // by this call, and this synapse is its sole owner.
+        // SAFETY: sole owner of a file this call just created/sized.
         let mut mmap = unsafe { MmapOptions::new().map_mut(&std_file)? };
 
         // Write initial default state
@@ -372,6 +377,9 @@ impl SWMRSynapse {
         let std_file = file.into_std().await;
         std_file.set_len(size as u64)?;
 
+        // SAFETY: same inherent mmap caveat as the sync constructor above -
+        // `std_file` was just created/sized by this call, and this synapse
+        // is its sole owner.
         let mmap = unsafe { MmapOptions::new().map_mut(&std_file)? };
         let mmap = Arc::new(RwLock::new(mmap));
 
@@ -568,6 +576,13 @@ impl SWMRSynapse {
         if len == 0 {
             return Err(anyhow::anyhow!("No data in mmap"));
         }
+        // `archived_root` trusts its input is a valid rkyv archive of
+        // `IpcBusState` without re-validating it - `mmap[..len]` holds
+        // exactly what this same process wrote via `rkyv::to_bytes` at
+        // `serialized_len` bytes (see the constructors above), so the
+        // invariant `archived_root` requires is established by this crate's
+        // own write path, not external input.
+        // SAFETY: buffer was written by this crate's own rkyv write path.
         let archived = unsafe { archived_root::<IpcBusState>(&mmap[..len]) };
         let state: IpcBusState = archived.deserialize(&mut rkyv::Infallible).unwrap();
         Ok(state)
@@ -1553,6 +1568,9 @@ mod tests {
         // We need to use the correct approach for mmap
 
         // Verify we can deserialize normally
+        // SAFETY: `bytes` was produced by `rkyv::to_bytes` two lines above
+        // in this same test, so it's a valid archive of `IpcBusState` by
+        // construction.
         let archived = unsafe { archived_root::<IpcBusState>(&bytes) };
         let deserialized: IpcBusState = archived.deserialize(&mut rkyv::Infallible).unwrap();
 
