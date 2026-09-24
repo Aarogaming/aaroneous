@@ -191,12 +191,14 @@ impl AppState {
         cfg: HttpServiceConfig,
     ) -> Self {
         let links_path = workspace_links_path();
-        let links_reg = crate::federation::links::load_links(&crate::federation::links::LinksConfig::new(
-            links_path.clone(),
-        ))
-        .unwrap_or_else(|_| crate::federation::links::LinkRegistry::new(
+        let links_reg = crate::federation::links::load_links(
             &crate::federation::links::LinksConfig::new(links_path.clone()),
-        ));
+        )
+        .unwrap_or_else(|_| {
+            crate::federation::links::LinkRegistry::new(
+                &crate::federation::links::LinksConfig::new(links_path.clone()),
+            )
+        });
         let (default_limiter, route_limits) = build_route_limit_registry(&cfg);
         let mut generation_jobs = std::collections::HashMap::new();
         let mut vault = crate::federation::tensor_vault::TensorVault::new();

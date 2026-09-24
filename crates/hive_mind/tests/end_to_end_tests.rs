@@ -82,9 +82,8 @@ fn test_task_routing_end_to_end() {
 fn test_specialist_memory_consultation() {
     println!("\n[E2E TEST] Specialist memory consultation");
 
-    let store = hypervisor::specialist_memory::SpecialistMemoryStore::new(
-        "test_specialist".to_string(),
-    );
+    let store =
+        hypervisor::specialist_memory::SpecialistMemoryStore::new("test_specialist".to_string());
 
     let mut memory1 = hypervisor::specialist_memory::MemoryEntry::new(
         "mem_1".to_string(),
@@ -198,8 +197,7 @@ fn test_complete_feedback_loop() {
     println!("    Route selected: {:?}", route);
 
     println!("  Stage 3: Memory consultation");
-    let store =
-        hypervisor::specialist_memory::SpecialistMemoryStore::new("specialist".to_string());
+    let store = hypervisor::specialist_memory::SpecialistMemoryStore::new("specialist".to_string());
     let result = store.query_memory("task", "execution", 3);
     println!("    Recommendation: {}", result.recommendation);
 
@@ -209,8 +207,7 @@ fn test_complete_feedback_loop() {
     let mut learning_loop =
         hive_mind::unified_learning::UnifiedLearningLoop::new(config, 1, specialist_ids);
     let task_features = vec![0.5, 0.5, 0.5, 0.5];
-    let training_result =
-        learning_loop.learn_from_dopamine(&task_features, "specialist", 0.7, 0.8);
+    let training_result = learning_loop.learn_from_dopamine(&task_features, "specialist", 0.7, 0.8);
     println!("    Weights updated: {}", training_result.weights_updated);
 
     println!("  Stage 5: Persistence");

@@ -3,6 +3,8 @@
 
 pub mod adaptive_learning_rate;
 pub mod batch_processor;
+#[cfg(test)]
+mod bus_test;
 pub mod capability_registry;
 pub mod cellular_automata;
 pub mod chaos_monkey;
@@ -45,10 +47,10 @@ pub mod quantum_surface;
 pub mod rate_limit;
 pub mod reasoning;
 pub mod registry;
-#[cfg(test)]
-mod rkyv_test;
 pub mod relativity_engine;
 pub mod resilience;
+#[cfg(test)]
+mod rkyv_test;
 pub mod runtime_governor;
 pub mod sandboxed_network;
 pub mod screen_capture;
