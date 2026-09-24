@@ -6,6 +6,12 @@ All notable changes to Aaroneous.
 
 ## [Unreleased]
 
+### Governance: Cratify Compliance v2 [2026-09-23]
+- **`docs/CRATIFY_SPEC.md` rewritten (owner-approved)**: uniform absolute rules replaced by a universal floor plus four compliance profiles (`kernel`, `control`, `presentation`, `tooling`) declared in `[package.metadata.cratify]`; compliance-distance dependency admission (`sled` rejected as a workspace dependency); a component graduation gate for externally sourced code; fault-tolerant operating modes (`Nominal` / `Degraded` / `SafeHold`) with deadband thresholds; and the invariant ratchet (per-crate violation baselines may only decrease).
+- **Floor additions**: ambient clock reads, self-started threads/tasks, and panics on runtime input are now banned in every profile (enforcement backlog in CRATIFY_SPEC section 7.1).
+- **Docs aligned**: `AGENTS.md` sections 1-5, `CONTRIBUTING.md`, `README.md`, `docs/{governance,architecture,README,operations}.md`, `docs/architecture/{architecture_overview,MASTER_ARCHITECTURE,component_onboarding_specification}.md`, `MASTER_ROADMAP.md`.
+- **Correction**: `docs/governance.md` previously claimed `#![deny(clippy::unwrap_used, ...)]` was enforced workspace-wide; no crate sets it. The claim now states actual enforcement status.
+
 ### Automated Audit Remediations [2026-09-05 18:07]
 - **CRIT-01: libloading Unchecked DLL Execution (SEC-01)**: Remediated and verified via autonomous audit cycle.
 - **CRIT-02: GDI Handle Leak & Vision Blindness (SEC-02)**: Remediated and verified via autonomous audit cycle.

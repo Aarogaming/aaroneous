@@ -95,6 +95,7 @@ All ongoing feature cycles and autonomous runtime evolution adhere to the system
 - [ ] **Edge-device orchestration** via nats_client.rs to schedule NPU tasks on remote nodes.
 - [ ] **Formal verification** of compiled AgentAction graphs using Z3 (crates/governance).
 - [ ] **Dynamic plugin hot-swap** improvements in crates/hotload once supervision is stabilized.
+- [ ] **Cratify v2 enforcement backlog** ([docs/CRATIFY_SPEC.md](docs/CRATIFY_SPEC.md) section 7.1), in order: `[package.metadata.cratify] profile` on every crate; profile-aware unsafe policy; `#[hot_path]` markers on `kernel` scan-loop code (currently zero); panic-on-runtime-input rule; ambient clock rule; self-started thread/task rule; baseline-count ratchet mode in `ast_auditor` and `cargo xtask gate`.
 
 ---
 

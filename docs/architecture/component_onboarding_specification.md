@@ -3,7 +3,9 @@
 > **CANONICAL SPECIFICATION**  
 > **SCOPE**: Zero-Copy Memory Contracts, Typestate Ingestion Lifecycle, and Microkernel Non-Blocking Drains.  
 > **APPLIES TO**: `crates/ipc_bus`, `crates/orchestrator`, `crates/orchestration_plane`, and `core/hypervisor`.  
-> **LAST UPDATED**: 2026-09-13
+> **LAST UPDATED**: 2026-09-23
+
+> **Governing policy:** This document specifies the *runtime mechanics* of onboarding (wire geometry, typestate lifecycle, reducer). *Whether* a component may be onboarded, and in what form, is decided by the Cratify graduation gate and dependency admission in [CRATIFY_SPEC.md](../CRATIFY_SPEC.md) sections 5-6: proven in origin, classified as new component vs. upgrade, placed behind a workspace trait, landed inert or run in shadow mode, and origin copy deleted.
 
 ---
 

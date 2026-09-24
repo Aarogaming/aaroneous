@@ -76,11 +76,13 @@ Before approving any change:
 
 - [ ] `cargo xtask gate` passes
 - [ ] No `todo!()` or `unimplemented!()` in new code
-- [ ] No `.unwrap()` or `.expect()` on hot paths
+- [ ] Every new crate declares `[package.metadata.cratify] profile` ([docs/CRATIFY_SPEC.md](docs/CRATIFY_SPEC.md))
+- [ ] No `.unwrap()`, `.expect()`, or `panic!` on runtime input outside tests/bootstrap
 - [ ] New types use canonical names from `crates/governance`
 - [ ] Tests use `tempfile::tempdir()`, not ambient filesystem
-- [ ] No `std::env::var`, `.canonicalize()`, or ambient reads
-- [ ] Hot-path crates (`hypervisor`, `ipc_bus`, `compute`) have no heap allocation
+- [ ] No `std::env::var`, `.canonicalize()`, clock reads, or self-spawned threads outside bootstrap
+- [ ] `kernel`-profile crates: scan-loop code marked `#[hot_path]`, no heap allocation
+- [ ] New dependencies carry a compliance-distance score and admission verdict
 - [ ] New crates follow zero prefix stutter convention
 
 ## License
