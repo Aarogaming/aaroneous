@@ -36,7 +36,7 @@ The development arc of Aaroneous represents a deliberate progression from rapid 
 
 All Aaroneous code, crates, and execution pipelines are governed by three non-negotiable operational invariants:
 
-1. **Zero-Allocation Hot Paths:** No dynamic heap allocations (`Vec`, `Box`, `String`) on primary execution, perception, or telemetry paths. All data transit relies on fixed-capacity stack/slice buffers (`[u8; N]`, `[f32; N]`) and zero-copy plain-old-data contracts (`bytemuck::Pod` + `Zeroable`) with 64-byte cacheline alignment (`align(64)`) to eliminate micro-architectural jitter.
+1. **Zero-Allocation Hot Paths:** No dynamic heap allocations (`Vec`, `Box`, `String`) on primary execution, perception, or telemetry paths (`kernel`-profile crates; see [CRATIFY_SPEC.md](CRATIFY_SPEC.md)). All data transit relies on fixed-capacity stack/slice buffers (`[u8; N]`, `[f32; N]`) and zero-copy plain-old-data contracts (`bytemuck::Pod` + `Zeroable`) with 64-byte cacheline alignment (`align(64)`) to eliminate micro-architectural jitter.
 2. **Compile-Time Governance:** Structural integrity is never left to convention or heuristics. It is enforced deterministically via compile-time AST and DAG fingerprinting (`ast_auditor`) that rejects non-compliant modules prior to compilation.
 3. **Reality-Grounded Engineering:** Rejection of ambiguous, anthropomorphic, or biological metaphors. Subsystems are defined strictly by physical and mathematical realities: cache-coherency, lock-free atomics, memory bounds, and explicit execution plane isolation.
 

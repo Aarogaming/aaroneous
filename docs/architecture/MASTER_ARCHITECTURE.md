@@ -67,7 +67,8 @@ The repository operates as a single Cargo workspace consisting of discrete, sing
 
 - **Unidirectional Dependency Flow**: Lower-numbered rings are more privileged and deterministic. Ring 0/1 never import Ring 3/4 crates.
 - **Zero Ambient Authority**: Banned functions (`std::env::var`, `std::env::temp_dir`, `std::env::current_dir`, `.canonicalize()`) are rejected at compile time by `crates/ast_auditor`. All configurations are injected via typed constructors.
-- **Zero Heap on Hot Paths**: Hot execution loops in Rings 0 and 1 strictly forbid dynamic allocation (`String`, `Vec`, `Box`, `format!`). Data transits via stack buffers (`[u8; N]`) and zero-copy plain-old-data contracts (`bytemuck::Pod` + `Zeroable`).
+- **Compliance Profiles**: Ring placement governs dependency direction; the compliance profile declared in each crate's `[package.metadata.cratify]` governs which invariants apply ([CRATIFY_SPEC.md](../CRATIFY_SPEC.md)).
+- **Zero Heap on Hot Paths**: `#[hot_path]` code in `kernel`-profile crates strictly forbids dynamic allocation (`String`, `Vec`, `Box`, `format!`). Data transits via stack buffers (`[u8; N]`) and zero-copy plain-old-data contracts (`bytemuck::Pod` + `Zeroable`).
 
 ---
 
@@ -229,7 +230,7 @@ High-uncertainty requirements are pinned along three orthogonal structural vecto
 
 $$\mathbf{V}_{\text{intent}} = \begin{pmatrix} \mathbf{v}_{\text{invariants}} \\ \mathbf{v}_{\text{dependencies}} \\ \mathbf{v}_{\text{trade-offs}} \end{pmatrix}$$
 
-1. **Invariants**: Strict rules that must never be broken (zero allocations, latency bounds, `#![deny(unsafe_code)]`).
+1. **Invariants**: Rules the target crate's compliance profile requires (universal floor, plus e.g. zero allocations and latency bounds for `kernel` crates, `#![deny(unsafe_code)]` for non-`kernel` crates).
 2. **Dependencies**: Target crates, shared memory ring channels, and hardware bridges involved.
 3. **Trade-offs**: Latency vs throughput, refactor depth vs backward compatibility.
 

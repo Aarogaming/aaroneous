@@ -12,16 +12,44 @@ If it passes, you're good. If it fails, fix the first error and re-run.
 
 ## Rules (quick reference)
 
+The full policy is [docs/CRATIFY_SPEC.md](docs/CRATIFY_SPEC.md) (v2). Every crate meets a **universal floor** and declares a **compliance profile** that adds stricter rules.
+
+### Universal floor (every crate)
+
 | Rule | What it means |
 |------|--------------|
 | **No `todo!()` or `unimplemented!()`** | Banned in committed code. Propagate `Result` instead. |
 | **No prefix stutter** | Don't prepend `aaroneous_` or `aaroneous-` to crates, types, or modules. |
-| **No ambient reads** | No `std::env::var`, `.canonicalize()`, or `std::fs::read` outside bootstrap. |
-| **No heap on hot paths** | In `core/hypervisor`, `crates/ipc_bus`, `crates/compute`: no `String`, `Vec`, `Box`, `format!`. |
+| **No ambient reads** | No `std::env::var`, `.canonicalize()`, clock reads (`SystemTime::now`/`Instant::now`), or ambient filesystem access outside bootstrap entrypoints. Inject config and time. |
+| **No self-started threads/tasks** | Spawn through an injected executor or `orchestrator::Supervisor`. |
+| **No panics on runtime input** | No `.unwrap()`/`.expect()`/`panic!` on I/O, config, or model-derived values. Mark provably infallible cases `// INFALLIBLE: <reason>`. |
 | **No `unsafe impl Pod`** | Derive only. Manual `unsafe impl` is banned. |
-| **No `.unwrap()` on hot paths** | Propagate errors via `Result`. |
-| **Mandatory tempdir in tests** | Use `tempfile::tempdir()`, never touch ambient filesystem. |
+| **Mandatory tempdir in tests** | Use `tempfile::tempdir()`, never touch ambient filesystem or env vars. |
 | **Canonical names in governance** | `crates/governance` defines canonical type names. Legacy aliases are deprecated. |
+
+### Profiles
+
+Declare in the crate's `Cargo.toml`:
+
+```toml
+[package.metadata.cratify]
+profile = "control"   # kernel | control | presentation | tooling
+```
+
+| Profile | Examples | Adds |
+|---|---|---|
+| `kernel` | `hypervisor`, `ipc_bus`, `compute`, `wire` | No heap on `#[hot_path]` code; `#[repr(C)]` + derived `Pod` boundary types; no locks on hot paths; `#![warn(unsafe_code)]` + `// SAFETY:` |
+| `control` | `orchestrator`, `llm_gateway`, `governance` | Pure reducers, I/O in adapters, degraded paths at external calls; `#![deny(unsafe_code)]` |
+| `presentation` | `api`, `studio_hud` | `#![deny(unsafe_code)]` |
+| `tooling` | `ast_auditor`, `xtask` | `#![deny(unsafe_code)]` |
+
+### Adding a dependency
+
+Score it on compliance distance (`alloc`, `ambient`, `abi`, `safety`) and record the verdict in your PR: Admit, Admit with conditions, Extract pattern, or Reject. See CRATIFY_SPEC section 5.
+
+### Bringing in outside code
+
+Code from companion tooling, external projects, or generated drafts follows the graduation gate (CRATIFY_SPEC section 6): proven, classified, behind a workspace trait, landed inert or in shadow mode, origin copy deleted.
 
 ## Verification gate (full list)
 
@@ -69,12 +97,16 @@ Use standard systems names: `hypervisor`, `paths`, `wire`, `hud`, `api`, `bridge
 Before approving any change, verify:
 
 - [ ] `cargo xtask gate` passes
+- [ ] Every new crate declares `[package.metadata.cratify] profile`
 - [ ] No `todo!()` or `unimplemented!()` in new code
-- [ ] No `.unwrap()` or `.expect()` on hot paths (propagate `Result`)
+- [ ] No `.unwrap()`, `.expect()`, or `panic!` on runtime input outside tests/bootstrap (or marked `// INFALLIBLE:`)
 - [ ] New types use canonical names from `crates/governance` (not legacy aliases)
-- [ ] Tests use `tempfile::tempdir()`, never touch ambient filesystem
-- [ ] No `std::env::var`, `.canonicalize()`, or ambient reads
-- [ ] Hot-path crates (`hypervisor`, `ipc_bus`, `compute`) have no heap allocation
+- [ ] Tests use `tempfile::tempdir()`, never touch ambient filesystem or env vars
+- [ ] No `std::env::var`, `.canonicalize()`, clock reads, or self-spawned threads/tasks outside bootstrap
+- [ ] `kernel` crates: scan-loop code is marked `#[hot_path]` and has no heap allocation
 - [ ] New crates follow zero prefix stutter convention (no `aaroneous_` prefix)
 - [ ] No `unsafe impl Pod` or `unsafe impl Zeroable` (derive only)
+- [ ] New dependencies carry a compliance-distance score and admission verdict in the PR
+- [ ] Code imported from outside the workspace followed the graduation gate, and the origin copy is scheduled for deletion
+- [ ] No profile loosened without recorded owner sign-off
 - [ ] If adding a new CI check, add matching gate in `xtask/src/gate.rs`

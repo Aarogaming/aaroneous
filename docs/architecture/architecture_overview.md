@@ -124,15 +124,23 @@ Ring 0 (Hypervisor) ──► Ring 1 (Interconnect) ──► Ring 2 (Control) �
 Every core engine operates on a strict cyclical scan:
 $$S_{t+1} = f(S_t, I)$$
 - **Phase 1 (Input Acquisition)**: Ingest input frames from hardware, IPC, or timers into fixed stack buffers.
-- **Phase 2 (State Reduction)**: Compute state delta using pure functions with zero heap allocation and zero side effects.
+- **Phase 2 (State Reduction)**: Compute state delta using pure functions with zero side effects; in `kernel`-profile crates, also with zero heap allocation (`#[hot_path]`).
 - **Phase 3 (Actuation & Telemetry)**: Dispatch output commands and emit immutable broadcast packets over ring buffers.
 
 ### 4.2 Zero Ambient Authority
+- Part of the universal floor: applies to every crate regardless of compliance profile ([CRATIFY_SPEC.md](../CRATIFY_SPEC.md) section 1).
 - Explicitly banned across all production crates: `std::env::var`, `std::env::var_os`, `std::env::set_var`, `std::env::remove_var`, `std::env::temp_dir`, `std::env::current_dir` (outside CLI bootstrap `main.rs`), and `.canonicalize()`.
 - All paths, credentials, and hardware endpoints must be passed explicitly via typed configuration structures (`WorkspacePathsConfig`).
+- Ambient clock reads (`SystemTime::now()`, `Instant::now()`) and self-spawned threads or tasks are banned in library code; time and executors are injected.
 - All tests must use `tempfile::tempdir()` for filesystem sandboxing.
 
 ### 4.3 Zero Prefix Stutter
 - No crate directory, Rust module, internal struct, or IPC channel may prepend `aaroneous_` or `aaroneous-`.
 - Generic systems nomenclature is required: `hypervisor`, `paths`, `wire`, `api`, `orchestrator`, `compute`, `platform_bridge`.
 - Metric namespaces exported to external collectors (Prometheus / OpenTelemetry) are explicitly exempt (e.g., `aaroneous_tick_duration_seconds`).
+
+### 4.4 Compliance Profiles, Admission & Ratchet
+- Every crate declares one compliance profile (`kernel`, `control`, `presentation`, `tooling`) in `[package.metadata.cratify]`. Zero-heap hot paths, `#[repr(C)]` boundary geometry, and lock-free scan loops are `kernel`-profile requirements.
+- Third-party dependencies pass compliance-distance admission; externally sourced code passes the graduation gate (inert landing or shadow mode, origin copy deleted).
+- Rules only tighten: new `ast_auditor` rules land with per-crate baselines that may only decrease.
+- Full specification: [CRATIFY_SPEC.md](../CRATIFY_SPEC.md).
