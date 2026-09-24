@@ -18,6 +18,8 @@ pub mod error;
 pub mod event_log;
 pub mod execution;
 pub mod fluid_routing;
+#[cfg(test)]
+mod graceful_degradation_tests;
 pub mod hardened_env;
 pub mod hardware_layer;
 pub mod hid_driver;
@@ -43,6 +45,8 @@ pub mod quantum_surface;
 pub mod rate_limit;
 pub mod reasoning;
 pub mod registry;
+#[cfg(test)]
+mod rkyv_test;
 pub mod relativity_engine;
 pub mod resilience;
 pub mod runtime_governor;

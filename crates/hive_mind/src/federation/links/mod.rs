@@ -1,8 +1,25 @@
 use hypervisor::unified_registry::{EntryMeta, Registry, RegistryConfig};
 use serde::{Deserialize, Serialize};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
-pub const DEFAULT_LINKS_PATH: &str = "links_registry.json";
+/// Constructor-injected configuration for where the link registry persists
+/// its state.
+///
+/// Per AGENTS.md section 2 (Zero Ambient Authority), this crate does not
+/// compile in a relative default path read from the process's current
+/// working directory. Callers (e.g. the HTTP server's `AppState`) own the
+/// path and pass it in explicitly — typically derived from
+/// `paths::WorkspacePaths` rather than a bare literal.
+#[derive(Debug, Clone)]
+pub struct LinksConfig {
+    pub path: PathBuf,
+}
+
+impl LinksConfig {
+    pub fn new(path: impl Into<PathBuf>) -> Self {
+        Self { path: path.into() }
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum LinkType {
@@ -65,24 +82,30 @@ pub struct EventFilter {
 /// Registry of links between components — backed by unified Registry.
 pub struct LinkRegistry {
     inner: Registry<Link>,
+    persist_path: PathBuf,
 }
 
 impl LinkRegistry {
-    pub fn new() -> Self {
+    /// Create a registry persisting to the path carried by `config`.
+    pub fn new(config: &LinksConfig) -> Self {
         Self {
             inner: Registry::new(RegistryConfig {
-                persist_path: Some(std::path::PathBuf::from(DEFAULT_LINKS_PATH)),
+                persist_path: Some(config.path.clone()),
                 ..Default::default()
             }),
+            persist_path: config.path.clone(),
         }
     }
 
+    /// Create a registry that also eagerly loads any existing entries from
+    /// `path` on disk.
     pub fn with_persist_path(path: &Path) -> Self {
         Self {
             inner: Registry::with_persistence(RegistryConfig {
                 persist_path: Some(path.to_path_buf()),
                 ..Default::default()
             }),
+            persist_path: path.to_path_buf(),
         }
     }
 
@@ -158,21 +181,20 @@ impl LinkRegistry {
     pub fn save(&self) -> anyhow::Result<()> {
         let links = self.inner.list();
         let json = serde_json::to_string_pretty(&links)?;
-        std::fs::write(DEFAULT_LINKS_PATH, json)?;
+        std::fs::write(&self.persist_path, json)?;
         Ok(())
     }
 }
 
-impl Default for LinkRegistry {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-/// Load links from the default JSON file (legacy format compatibility).
-pub fn load_links() -> anyhow::Result<LinkRegistry> {
-    let path = std::path::Path::new(DEFAULT_LINKS_PATH);
-    Ok(LinkRegistry::with_persist_path(path))
+/// Load links from the path carried by `config` (legacy format compatibility).
+///
+/// Missing files are treated as an empty registry by the caller (via
+/// `unwrap_or_default` at the call site is no longer applicable now that
+/// this always returns `Ok`; a missing file simply yields an empty
+/// `LinkRegistry` because `Registry::with_persistence` tolerates a
+/// nonexistent persist path).
+pub fn load_links(config: &LinksConfig) -> anyhow::Result<LinkRegistry> {
+    Ok(LinkRegistry::with_persist_path(&config.path))
 }
 
 /// Save links to the default JSON file.
@@ -192,9 +214,16 @@ pub async fn start_link_dispatcher(
 mod tests {
     use super::*;
 
+    fn test_config() -> (tempfile::TempDir, LinksConfig) {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("links_registry.json");
+        (dir, LinksConfig::new(path))
+    }
+
     #[test]
     fn test_add_and_get() {
-        let mut reg = LinkRegistry::new();
+        let (_dir, config) = test_config();
+        let mut reg = LinkRegistry::new(&config);
         let link = Link::new("test", LinkType::GitHub, "https://github.com/test");
         reg.add(link).unwrap();
 
@@ -205,7 +234,8 @@ mod tests {
 
     #[test]
     fn test_filter() {
-        let mut reg = LinkRegistry::new();
+        let (_dir, config) = test_config();
+        let mut reg = LinkRegistry::new(&config);
         reg.add(Link::new("gh", LinkType::GitHub, "https://github.com"))
             .unwrap();
         reg.add(Link::new("slack", LinkType::Slack, "https://slack.com"))
@@ -221,10 +251,21 @@ mod tests {
 
     #[test]
     fn test_remove() {
-        let mut reg = LinkRegistry::new();
+        let (_dir, config) = test_config();
+        let mut reg = LinkRegistry::new(&config);
         reg.add(Link::new("test", LinkType::Custom, "https://test.com"))
             .unwrap();
         assert!(reg.remove("test"));
         assert_eq!(reg.len(), 0);
+    }
+
+    #[test]
+    fn test_save_writes_to_configured_path_not_cwd() {
+        let (_dir, config) = test_config();
+        let mut reg = LinkRegistry::new(&config);
+        reg.add(Link::new("test", LinkType::Webhook, "https://example.com"))
+            .unwrap();
+        reg.save().unwrap();
+        assert!(config.path.exists());
     }
 }

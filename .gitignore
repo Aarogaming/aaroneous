@@ -53,6 +53,8 @@ cargo_state.json
 /cargo_state.json
 core/hypervisor/cargo_state.json
 core/hypervisor/links_registry.json
+crates/hive_mind/links_registry.json
+links_registry.json
 core/hypervisor/logs/
 dev/archive/logs/
 

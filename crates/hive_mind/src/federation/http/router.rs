@@ -125,6 +125,9 @@ fn workspace_exports_dir() -> std::path::PathBuf {
 fn workspace_cargo_state_path() -> std::path::PathBuf {
     workspace_paths().temp_dir().join("cargo_state.json")
 }
+fn workspace_links_path() -> std::path::PathBuf {
+    workspace_paths().config().join("links_registry.json")
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 struct CargoStateSnapshot {
@@ -149,6 +152,10 @@ pub struct AppState {
     /// Stored as `Vec<Link>` for the HTTP CRUD handlers; flushed back to
     /// `LinkRegistry` for persistence via `save_links`.
     pub links: Arc<tokio::sync::RwLock<Vec<crate::federation::links::Link>>>,
+    /// Where the link registry persists to disk. Constructor-injected
+    /// (defaults to `workspace_links_path()`) rather than a compiled-in
+    /// relative path read from the process CWD.
+    links_path: std::path::PathBuf,
     /// Process-wide metrics aggregator. The `/metrics` endpoint reads this
     /// to produce Prometheus-format output. Held in an Arc so background
     /// workers can record into it without going through the HTTP state.
@@ -183,7 +190,13 @@ impl AppState {
         state_path: std::path::PathBuf,
         cfg: HttpServiceConfig,
     ) -> Self {
-        let links_reg = crate::federation::links::load_links().unwrap_or_default();
+        let links_path = workspace_links_path();
+        let links_reg = crate::federation::links::load_links(&crate::federation::links::LinksConfig::new(
+            links_path.clone(),
+        ))
+        .unwrap_or_else(|_| crate::federation::links::LinkRegistry::new(
+            &crate::federation::links::LinksConfig::new(links_path.clone()),
+        ));
         let (default_limiter, route_limits) = build_route_limit_registry(&cfg);
         let mut generation_jobs = std::collections::HashMap::new();
         let mut vault = crate::federation::tensor_vault::TensorVault::new();
@@ -202,6 +215,7 @@ impl AppState {
             import_jobs: Arc::new(tokio::sync::Mutex::new(std::collections::HashMap::new())),
             vault: Arc::new(tokio::sync::RwLock::new(vault)),
             links: Arc::new(tokio::sync::RwLock::new(links_vec)),
+            links_path,
             metrics: Arc::new(MetricsAggregator::new(1.0, 4096, 3600)),
             version: env!("CARGO_PKG_VERSION"),
             rate_limiter: default_limiter,
@@ -5109,8 +5123,10 @@ async fn links_list(State(state): State<AppState>) -> impl IntoResponse {
 }
 
 /// Helper: persist the in-memory `Vec<Link>` back to disk via `LinkRegistry`.
-async fn save_links_vec(links: &[crate::federation::links::Link]) {
-    let mut registry = crate::federation::links::LinkRegistry::new();
+async fn save_links_vec(links: &[crate::federation::links::Link], links_path: &std::path::Path) {
+    let mut registry = crate::federation::links::LinkRegistry::new(
+        &crate::federation::links::LinksConfig::new(links_path.to_path_buf()),
+    );
     for link in links {
         // First write wins on duplicate names; matches the original Vec-push semantics.
         let _ = registry.add(link.clone());
@@ -5184,7 +5200,7 @@ async fn links_create(
     let snapshot = links.clone();
     drop(links);
 
-    save_links_vec(&snapshot).await;
+    save_links_vec(&snapshot, &state.links_path).await;
 
     Json(serde_json::json!({
         "ok": true,
@@ -5216,7 +5232,7 @@ async fn links_delete(State(state): State<AppState>, Path(id): Path<String>) -> 
     let snapshot = links.clone();
     drop(links);
     if deleted {
-        save_links_vec(&snapshot).await;
+        save_links_vec(&snapshot, &state.links_path).await;
         Json(serde_json::json!({ "ok": true, "deleted": id })).into_response()
     } else {
         (
@@ -5256,7 +5272,7 @@ async fn links_update(
             }
             let snapshot = links.clone();
             drop(links);
-            save_links_vec(&snapshot).await;
+            save_links_vec(&snapshot, &state.links_path).await;
             Json(serde_json::json!({ "ok": true, "updated": id })).into_response()
         }
         None => {
