@@ -150,8 +150,12 @@ fn resolve_table_token_to_crate_name(workspace_root: &Path, token: &str) -> Resu
         return Ok(token.to_string());
     }
     let manifest = workspace_root.join(token).join("Cargo.toml");
-    let text = fs::read_to_string(&manifest)
-        .with_context(|| format!("reading {} for profile-table entry '{token}'", manifest.display()))?;
+    let text = fs::read_to_string(&manifest).with_context(|| {
+        format!(
+            "reading {} for profile-table entry '{token}'",
+            manifest.display()
+        )
+    })?;
     let parsed: toml::Value = toml::from_str(&text)?;
     let name = parsed
         .get("package")
@@ -180,8 +184,8 @@ pub fn build_profile_map_from_spec(
 /// package's Cargo.toml, if present. Returns `None` (not an error) when the
 /// key is absent, so callers can fall back to the spec table.
 fn read_declared_profile(manifest_path: &str) -> Result<Option<Profile>> {
-    let text = fs::read_to_string(manifest_path)
-        .with_context(|| format!("reading {manifest_path}"))?;
+    let text =
+        fs::read_to_string(manifest_path).with_context(|| format!("reading {manifest_path}"))?;
     let parsed: toml::Value = toml::from_str(&text)?;
     let Some(name) = parsed
         .get("package")
@@ -222,8 +226,8 @@ fn load_workspace_packages(workspace_root: &Path) -> Result<Vec<WorkspacePackage
             String::from_utf8_lossy(&output.stderr)
         );
     }
-    let metadata: serde_json::Value = serde_json::from_slice(&output.stdout)
-        .context("failed to parse `cargo metadata` JSON")?;
+    let metadata: serde_json::Value =
+        serde_json::from_slice(&output.stdout).context("failed to parse `cargo metadata` JSON")?;
     let packages = metadata
         .get("packages")
         .and_then(|p| p.as_array())
@@ -375,7 +379,9 @@ pub fn run() -> Result<()> {
         }
     }
 
-    let baseline_path = workspace_root.join("xtask").join("dep_direction_baseline.txt");
+    let baseline_path = workspace_root
+        .join("xtask")
+        .join("dep_direction_baseline.txt");
     let baseline = load_baseline(&baseline_path)?;
 
     let (new_edges, resolved_edges) = diff_against_baseline(&current_violations, &baseline);
@@ -449,7 +455,10 @@ Text that must not be parsed as table rows.
         assert_eq!(map.get("orchestrator"), Some(&Profile::Control));
         assert_eq!(map.get("sdk/rust"), Some(&Profile::Control));
         assert_eq!(map.get("api"), Some(&Profile::PresentationOrTooling));
-        assert_eq!(map.get("ast_auditor"), Some(&Profile::PresentationOrTooling));
+        assert_eq!(
+            map.get("ast_auditor"),
+            Some(&Profile::PresentationOrTooling)
+        );
         // The 2.1 table's "Rule"/"kernel"/"control" header cells must not
         // leak in as bogus crate names.
         assert!(!map.contains_key("Rule"));
