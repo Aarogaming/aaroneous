@@ -51,7 +51,14 @@ impl ThermalStatus {
     }
 
     pub fn should_throttle(&self) -> bool {
-        matches!(self, ThermalStatus::Hot | ThermalStatus::Critical)
+        // Unknown means the sensor couldn't be read, not that the system is
+        // safe: it should not be treated as verified-fine the way Cool/Normal
+        // are (owner decision, C65 review). Warm's pre-existing exclusion
+        // from this set is unrelated to this fix and is left as-is.
+        matches!(
+            self,
+            ThermalStatus::Hot | ThermalStatus::Critical | ThermalStatus::Unknown
+        )
     }
 
     pub fn throttle_factor(&self) -> f64 {
@@ -61,7 +68,10 @@ impl ThermalStatus {
             ThermalStatus::Warm => 0.9,
             ThermalStatus::Hot => 0.7,
             ThermalStatus::Critical => 0.5,
-            ThermalStatus::Unknown => 1.0,
+            // Unmeasured is not the same as measured-and-fine: apply the same
+            // mild caution as Warm rather than running unthrottled on a
+            // system we can't actually verify is safe.
+            ThermalStatus::Unknown => 0.9,
         }
     }
 }
@@ -359,10 +369,13 @@ impl SystemMetricsCollector {
         // Thermal pressure (0-0.5)
         match thermal.cpu_status {
             ThermalStatus::Cool | ThermalStatus::Normal => pressure += 0.0,
-            ThermalStatus::Warm => pressure += 0.1,
+            // Unmeasured gets the same backpressure contribution as Warm,
+            // consistent with should_throttle()/throttle_factor() treating an
+            // unreadable sensor as mild caution rather than a clean bill of
+            // health (owner decision, C65 review).
+            ThermalStatus::Warm | ThermalStatus::Unknown => pressure += 0.1,
             ThermalStatus::Hot => pressure += 0.3,
             ThermalStatus::Critical => pressure += 0.5,
-            ThermalStatus::Unknown => pressure += 0.0,
         }
 
         // GPU memory pressure (0-0.3)
@@ -422,6 +435,9 @@ mod tests {
         assert!(!ThermalStatus::Warm.should_throttle());
         assert!(ThermalStatus::Hot.should_throttle());
         assert!(ThermalStatus::Critical.should_throttle());
+        // An unreadable sensor is not the same as a verified-safe one: it
+        // must not be treated as no-throttle (owner decision, C65 review).
+        assert!(ThermalStatus::Unknown.should_throttle());
     }
 
     #[test]
@@ -431,6 +447,8 @@ mod tests {
         assert_eq!(ThermalStatus::Warm.throttle_factor(), 0.9);
         assert_eq!(ThermalStatus::Hot.throttle_factor(), 0.7);
         assert_eq!(ThermalStatus::Critical.throttle_factor(), 0.5);
+        // Unmeasured gets Warm-equivalent caution, not a free pass.
+        assert_eq!(ThermalStatus::Unknown.throttle_factor(), 0.9);
     }
 
     #[test]
