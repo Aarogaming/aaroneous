@@ -1811,6 +1811,8 @@ impl SupervisoryDaemon {
                                 });
 
                                 // Publish snapshot to the shared Arc so the HUD can read it.
+                                // SAFETY: same thread-local as above, same single-writer thread;
+                                // this read is sequential-after `update`, so no live aliasing.
                                 let published_snapshot = CONCURRENCE_ENGINE
                                     .with(|cell| unsafe { (*cell.get()).snapshot() });
                                 *concurrence_snapshot.write() = published_snapshot;

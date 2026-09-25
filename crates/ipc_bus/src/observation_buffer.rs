@@ -326,7 +326,18 @@ impl ObservationBuffer {
 
         let expected_val = seq.wrapping_mul(2);
 
-        // Seqlock read loop with bounded retry count
+        // Seqlock read loop with bounded retry count. `start_ptr`/`payload_ptr`/
+        // `end_ptr` are in-bounds, aligned pointers into `self.storage`: `slot_idx`
+        // is bounded by `self.capacity` above, and `OBSERVATION_HEADER_SIZE`/
+        // `OBSERVATION_SLOT_SIZE` are the fixed layout constants the buffer was
+        // allocated with. `copy_nonoverlapping`'s source and destination never
+        // overlap (`out_bytes` is a fresh local of the same size). The writer may
+        // concurrently mutate this memory with no synchronization beyond the
+        // sequence counters -- a benign, intentional race under the seqlock
+        // protocol: a torn read is caught by the odd-sequence check or the
+        // `s1 == s2` check below, never observed as valid data.
+        // SAFETY: bounds and alignment hold as above; concurrent torn reads are
+        // detected and retried, never returned, by the seqlock protocol itself.
         for _ in 0..10 {
             unsafe {
                 let start_ptr = base_ptr.add(slot_offset) as *const AtomicU64;

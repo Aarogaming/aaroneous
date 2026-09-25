@@ -549,14 +549,14 @@ impl SolidStateSiContainer {
         }
 
         let file = File::open(path)?;
-        // SAFETY: `memmap2::Mmap::map`'s precondition is that the mapped
-        // file is not modified (by this process or any other) for as long
-        // as the mapping is alive. Opening a fresh handle here does not by
-        // itself satisfy that: nothing stops another process, or another
-        // handle to the same path, from writing to the file concurrently.
-        // The caller is responsible for ensuring the underlying file is not
-        // modified while this mapping (and the `Cartridge` built from it)
-        // is in use.
+        // `memmap2::Mmap::map`'s precondition is that the mapped file is not
+        // modified (by this process or any other) for as long as the mapping
+        // is alive. Opening a fresh handle here does not by itself satisfy
+        // that: nothing stops another process, or another handle to the same
+        // path, from writing to the file concurrently.
+        // SAFETY: the caller is responsible for ensuring the underlying file
+        // is not modified while this mapping (and the `Cartridge` built from
+        // it) is in use.
         let mmap = unsafe { memmap2::Mmap::map(&file)? };
 
         // Convert the mmap into a verified Cartridge typestate
