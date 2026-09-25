@@ -1,219 +1,237 @@
-[[allowed]]
-name = "aws-lc-rs"
-version = "1.18.1"
-justification = "Approved cryptographic provider"
-
 # Native Dependency Policy
-# Defines exactly which packages are allowed to introduce native boundaries (C, C++, assembly).
-# Each entry MUST include the version, and optionally features, targets, and a justification.
+#
+# Enforced by `cargo run -p xtask -- check-native` (also wired into
+# `cargo xtask gate` as gate 3.5). See docs/CRATIFY_SPEC.md and the C68
+# native-boundary audit (pasted in the task that produced this file) for
+# the policy this implements.
+#
+# Schema for each [[allowed]] entry:
+#   name            - exact Cargo package name.
+#   version         - exact resolved version this entry certifies. A version
+#                     bump requires a new (or updated) entry — that is the
+#                     point: an untracked version bump is provenance drift.
+#   justification   - REQUIRED. Why this native boundary is acceptable.
+#   owning_adapter  - REQUIRED, non-empty. The workspace crate name(s)
+#                     allowed to be the nearest workspace-member reacher of
+#                     this native package in the dependency graph (see
+#                     "Reachability" below). Any OTHER workspace crate that
+#                     becomes a nearest reacher (e.g. because someone adds a
+#                     new direct dependency that pulls this package in) is a
+#                     gate failure, unless that crate is listed in
+#                     `tooling_profile_crates` below.
+#   target          - optional. Absent means "any of the `targets` list
+#                     below". Present means this entry only applies when
+#                     auditing that exact target triple.
+#   features        - optional. Absent means "any active feature set".
+#                     Present means this entry only matches when the
+#                     package's resolved active-feature set is EXACTLY this
+#                     list (order-independent) for that target.
+#
+# Reachability: for a flagged native package, `check-native` walks the
+# resolved dependency graph backwards (who-depends-on-me) from that package
+# until it finds the nearest workspace-member crate(s) on each path — i.e.
+# the workspace crate that made the deliberate Cargo.toml choice pulling
+# this native boundary in, even if the true `-sys`/`links` crate is one or
+# two wrapper crates further down (e.g. hypervisor -> rusqlite ->
+# libsqlite3-sys). This is deliberately narrower than "present anywhere in
+# hypervisor's full transitive closure", which would trivially include
+# nearly every crate in the workspace via shared infrastructure (tokio,
+# serde, tracing, ...) and enforce nothing meaningful.
+#
+# A native package with NO matching entry at all (undeclared provenance) is
+# always a hard failure, regardless of who reaches it or which profile that
+# crate has — this is a fixed SBOM-completeness requirement, not something
+# `tooling_profile_crates` softens.
 
-[[allowed]]
-name = "aws-lc-sys"
-version = "0.45.0"
-justification = "Approved cryptographic provider"
+# Target triples this gate resolves and audits independently. Kept in sync
+# with .github/workflows/ci.yml's OS matrix (ubuntu-latest,
+# windows-latest) rather than hardcoding a single target silently.
+targets = ["x86_64-pc-windows-msvc", "x86_64-unknown-linux-gnu"]
 
-[[allowed]]
-name = "ring"
-version = "0.17.14"
-justification = "Cryptographic provider required by dependencies"
+# Crates in the `tooling` compliance profile (per AGENTS.md's Cratify
+# profile table) are given latitude to reach native build tooling directly
+# for legitimate build-time reasons (AST parsing, code generation,
+# certificate signing for their own audit artifacts, etc.) without being
+# named in every relevant entry's `owning_adapter`. They are NOT exempt from
+# the undeclared-native-provenance check (point 4 above) — an entirely
+# unlisted native package still fails the gate even for a tooling crate.
+tooling_profile_crates = ["ast_auditor", "cratify", "compliance_auditor", "xtask", "runtime_monitor_bench"]
 
-[[allowed]]
-name = "rusqlite"
-version = "0.31.0"
-justification = "SQLite bindings for data storage"
-
-[[allowed]]
-name = "libsqlite3-sys"
-version = "0.38.2"
-justification = "SQLite native library"
-
-[[allowed]]
-name = "onig_sys"
-version = "69.9.3"
-justification = "Oniguruma regex engine"
-
-[[allowed]]
-name = "onig"
-version = "6.5.3"
-justification = "Oniguruma regex bindings"
-
-[[allowed]]
-name = "zstd-sys"
-version = "2.1.0+zstd.1.5.7"
-justification = "Zstandard compression"
-
-[[allowed]]
-name = "ash"
-version = "0.38.0+1.3.281"
-justification = "Vulkan graphics API"
-
-[[allowed]]
-name = "windows"
-version = "0.48.0"
-justification = "Windows API bindings"
-
-[[allowed]]
-name = "windows-sys"
-version = "0.59.0"
-justification = "Windows API bindings"
-
-[[allowed]]
-name = "lz4-sys"
-version = "1.9.5"
-justification = "LZ4 compression"
-
-[[allowed]]
-name = "bzip2-sys"
-version = "0.1.11+1.0.8"
-justification = "bzip2 compression"
-
-[[allowed]]
-name = "libz-sys"
-version = "1.1.18"
-justification = "zlib compression"
-
-[[allowed]]
-name = "esaxx-rs"
-version = "0.1.10"
-justification = "Suffix array construction"
-
-[[allowed]]
-name = "windows-targets"
-version = "0.52.6"
-justification = "Windows API targets"
-
-[[allowed]]
-name = "windows_x86_64_msvc"
-version = "0.52.6"
-justification = "Windows API targets"
-
-[[allowed]]
-name = "windows_aarch64_msvc"
-version = "0.52.6"
-justification = "Windows API targets"
-
-[[allowed]]
-name = "windows_i686_msvc"
-version = "0.52.6"
-justification = "Windows API targets"
-
-[[allowed]]
-name = "windows_x86_64_gnullvm"
-version = "0.52.6"
-justification = "Windows API targets"
-
-[[allowed]]
-name = "windows_aarch64_gnullvm"
-version = "0.52.6"
-justification = "Windows API targets"
-
-[[allowed]]
-name = "windows_i686_gnu"
-version = "0.52.6"
-justification = "Windows API targets"
-
-[[allowed]]
-name = "windows_x86_64_gnu"
-version = "0.52.6"
-justification = "Windows API targets"
-
-[[allowed]]
-name = "windows-link"
-version = "0.2.1"
-justification = "Windows linker configuration"
-
-[[allowed]]
-name = "winapi"
-version = "0.3.9"
-justification = "Windows API bindings"
-
-[[allowed]]
-name = "core-foundation-sys"
-version = "0.8.7"
-justification = "macOS core foundation"
-
-[[allowed]]
-name = "core-graphics-types"
-version = "0.1.3"
-justification = "macOS core graphics"
-
-[[allowed]]
-name = "core-text"
-version = "20.1.0"
-justification = "macOS core text"
-
-[[allowed]]
-name = "security-framework-sys"
-version = "2.11.1"
-justification = "macOS security framework"
-
-[[allowed]]
-name = "wgpu-hal"
-version = "29.0.4"
-justification = "WebGPU hardware abstraction layer"
-
-[[allowed]]
-name = "wgpu-hal"
-version = "30.0.1"
-justification = "WebGPU hardware abstraction layer"
-
-[[allowed]]
-name = "khronos-egl"
-version = "6.0.0"
-justification = "EGL bindings"
+# ---------------------------------------------------------------------------
+# Cross-platform entries (present, at these exact versions, on every target
+# in `targets` today; no `target` key needed).
+# ---------------------------------------------------------------------------
 
 [[allowed]]
 name = "alloca"
 version = "0.4.0"
-justification = "Stack allocation utility"
+justification = "Stack allocation utility pulled in transitively by criterion, the benchmarking harness used by emulator_harness and hypervisor's dev-dependency benches; no native source compiled for our usage."
+owning_adapter = ["emulator_harness", "hypervisor"]
+
+[[allowed]]
+name = "ash"
+version = "0.38.0+1.3.281"
+justification = "Vulkan API bindings pulled in by wgpu-hal's Vulkan backend, which backs hypervisor's and studio_hud's wgpu-based rendering surfaces."
+owning_adapter = ["hypervisor", "studio_hud"]
+
+[[allowed]]
+name = "aws-lc-rs"
+version = "1.18.1"
+justification = "Default cryptographic provider selected by rustls when reqwest's `rustls` TLS feature is enabled; reqwest is a direct dependency of hypervisor, orchestrator, and llm_gateway for outbound HTTP (LLM provider calls, telemetry, updates)."
+owning_adapter = ["hypervisor", "orchestrator", "llm_gateway"]
+
+[[allowed]]
+name = "aws-lc-sys"
+version = "0.45.0"
+justification = "Native AWS-LC implementation backing aws-lc-rs; same reqwest/rustls TLS boundary as aws-lc-rs above."
+owning_adapter = ["hypervisor", "orchestrator", "llm_gateway"]
 
 [[allowed]]
 name = "cmake"
 version = "0.1.58"
-justification = "Build system dependency"
+justification = "Build-time CMake invocation used by aws-lc-sys's build script; not a direct dependency of any workspace crate, reached only through the reqwest/rustls/aws-lc TLS boundary above."
+owning_adapter = ["hypervisor", "orchestrator", "llm_gateway"]
 
 [[allowed]]
 name = "defmt"
 version = "1.1.1"
-justification = "Deferred formatting, uses links without native source"
+justification = "Deferred-formatting marker crate; declares a Cargo `links` key but compiles no native source. Reached transitively through compute's dependency graph (jiff's date/time stack)."
+owning_adapter = ["compute"]
 
 [[allowed]]
-name = "prettyplease"
-version = "0.2.37"
-justification = "Formatting utility, uses links without native source"
-
-[[allowed]]
-name = "prettyplease"
-version = "0.3.0"
-justification = "Formatting utility, uses links without native source"
-
-[[allowed]]
-name = "rayon-core"
-version = "1.13.0"
-justification = "Parallel execution, uses links without native source"
-
-[[allowed]]
-name = "libmimalloc-sys"
-version = "0.1.49"
-justification = "P1: explicitly allowlisted for baseline, needs adapter"
+name = "esaxx-rs"
+version = "0.1.10"
+justification = "Suffix-array construction backing the `tokenizers` crate, a direct dependency of hypervisor (feature `onig`) used for local prompt tokenization."
+owning_adapter = ["hypervisor"]
 
 [[allowed]]
 name = "glutin"
 version = "0.32.3"
-justification = "Platform graphics API dependency"
+justification = "Cross-platform OpenGL context creation used by eframe's `glow` backend; eframe is a direct dependency of studio_hud, api, and scratchpad for their egui-based GUI viewports."
+owning_adapter = ["studio_hud", "api", "scratchpad"]
+
+[[allowed]]
+name = "khronos-egl"
+version = "6.0.0"
+justification = "EGL bindings pulled in by wgpu-hal's GPU backend selection; same wgpu rendering boundary as `ash` above."
+owning_adapter = ["hypervisor", "studio_hud"]
+
+[[allowed]]
+name = "libmimalloc-sys"
+version = "0.1.49"
+justification = "P1: mimalloc is hypervisor's direct global-allocator dependency (low-fragmentation, low-latency heap). Still needs a dedicated allocator adapter boundary; today it is a direct hypervisor dependency, tracked as a known gap rather than hidden."
+owning_adapter = ["hypervisor"]
+
+[[allowed]]
+name = "libsqlite3-sys"
+version = "0.38.2"
+justification = "Bundled SQLite backing hypervisor's direct `rusqlite` dependency (feature `bundled`). Needs a future storage_adapter isolation boundary; today it is a direct hypervisor dependency."
+owning_adapter = ["hypervisor"]
+
+[[allowed]]
+name = "onig_sys"
+version = "69.9.3"
+justification = "Oniguruma regex engine backing the `onig` feature of hypervisor's direct `tokenizers` dependency."
+owning_adapter = ["hypervisor"]
+
+[[allowed]]
+name = "prettyplease"
+version = "0.2.37"
+justification = "Rust source pretty-printer used by prost-build/tonic-build code generation, reached transitively through orchestrator's and local_inference's build-time dependency graphs."
+owning_adapter = ["orchestrator", "local_inference"]
+
+[[allowed]]
+name = "prettyplease"
+version = "0.3.0"
+justification = "Rust source pretty-printer, a direct dependency of orchestration_plane's code-generation tooling (batch_cratify / canary_runner examples)."
+owning_adapter = ["orchestration_plane"]
+
+[[allowed]]
+name = "rayon-core"
+version = "1.13.0"
+justification = "Data-parallelism runtime backing adaptation_engine's direct `rayon` dependency, used to parallelize source-tree extraction."
+owning_adapter = ["adaptation_engine"]
 
 [[allowed]]
 name = "rfc0006_host"
 version = "0.1.0"
-justification = "P1: development host loader"
+justification = "P1: development host for the RFC-0006 dynamic plugin ABI proof-of-concept; directly uses `libloading` to load plugin binaries at runtime. Development-only, not part of the shipped product; re-review before any production use."
+owning_adapter = ["rfc0006_host"]
+
+[[allowed]]
+name = "ring"
+version = "0.17.14"
+justification = "ECDSA P-256 signing and verification for ast_auditor's `certify` module, which signs and verifies audit pattern-conformance certificates."
+owning_adapter = ["ast_auditor"]
 
 [[allowed]]
 name = "sdk"
 version = "0.1.0"
-justification = "P1: production loader requires re-review"
+justification = "P1: Aaroneous SDK's plugin loader directly uses `libloading` to load capability plugins at runtime. Production loader; requires a dedicated security re-review before wider use (tracked separately, not hidden here)."
+owning_adapter = ["sdk"]
 
 [[allowed]]
-name = "libloading"
-version = "0.8.5"
-justification = "P1: underlying loading library"
+name = "wgpu-hal"
+version = "29.0.4"
+justification = "WebGPU hardware abstraction layer backing hypervisor's and studio_hud's direct `wgpu 29.0` dependency for their native rendering surfaces."
+owning_adapter = ["hypervisor", "studio_hud"]
 
+[[allowed]]
+name = "wgpu-hal"
+version = "30.0.1"
+justification = "WebGPU hardware abstraction layer bundled inside eframe's own internal wgpu dependency (a newer major version than the workspace's direct wgpu 29.0 pin); reached via studio_hud's, api's, and scratchpad's direct `eframe` dependency."
+owning_adapter = ["studio_hud", "api", "scratchpad"]
+
+[[allowed]]
+name = "zstd-sys"
+version = "2.1.0+zstd.1.5.7"
+justification = "Zstandard compression backing hypervisor's direct `zstd` dependency, used for archive/snapshot compression."
+owning_adapter = ["hypervisor"]
+
+# ---------------------------------------------------------------------------
+# Linux-only entries: the windowing backend eframe/glutin select on Linux
+# (Wayland and X11), not present at all when auditing
+# x86_64-pc-windows-msvc.
+# ---------------------------------------------------------------------------
+
+[[allowed]]
+name = "dlib"
+version = "0.5.3"
+target = "x86_64-unknown-linux-gnu"
+justification = "Dynamic-library loading helper used by the X11/Wayland windowing backend beneath eframe/glutin on Linux; same GUI viewport boundary as `glutin` above."
+owning_adapter = ["studio_hud", "hypervisor", "api", "scratchpad"]
+
+[[allowed]]
+name = "smithay-client-toolkit"
+version = "0.20.0"
+target = "x86_64-unknown-linux-gnu"
+justification = "Wayland client toolkit used by eframe/glutin's Linux windowing backend for studio_hud's, api's, and scratchpad's GUI viewports."
+owning_adapter = ["studio_hud", "api", "scratchpad"]
+
+[[allowed]]
+name = "wayland-backend"
+version = "0.3.17"
+target = "x86_64-unknown-linux-gnu"
+justification = "Low-level Wayland protocol bindings beneath smithay-client-toolkit; same Linux windowing boundary as above."
+owning_adapter = ["studio_hud"]
+
+[[allowed]]
+name = "wayland-sys"
+version = "0.31.11"
+target = "x86_64-unknown-linux-gnu"
+justification = "Native libwayland-client bindings beneath the Wayland windowing stack; reached via studio_hud's and hypervisor's GUI/rendering dependency graph on Linux."
+owning_adapter = ["studio_hud", "hypervisor"]
+
+[[allowed]]
+name = "x11-dl"
+version = "2.21.0"
+target = "x86_64-unknown-linux-gnu"
+justification = "Dynamically-loaded libX11 bindings used by eframe/glutin's X11 windowing backend for studio_hud's, api's, and scratchpad's GUI viewports."
+owning_adapter = ["studio_hud", "api", "scratchpad"]
+
+[[allowed]]
+name = "x11rb"
+version = "0.13.2"
+target = "x86_64-unknown-linux-gnu"
+justification = "X11 protocol bindings used by the same eframe/glutin X11 windowing backend as `x11-dl` above."
+owning_adapter = ["studio_hud", "api", "scratchpad"]
