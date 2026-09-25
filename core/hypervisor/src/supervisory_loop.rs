@@ -889,7 +889,9 @@ impl SupervisoryDaemon {
                     let _approval_required = state.approval_required as f64;
                     let _approval_granted = state.approval_granted as f64;
                     let _safety_lock = state.safety_lock as f64;
-                    let thermal_state = if thermal_metrics.cpu_temperature > 85.0 {
+                    let thermal_state = if !thermal_metrics.cpu_measured {
+                        "unmeasured"
+                    } else if thermal_metrics.cpu_temperature > 85.0 {
                         "critical"
                     } else if thermal_metrics.cpu_temperature > 75.0 {
                         "warning"
@@ -1003,7 +1005,9 @@ impl SupervisoryDaemon {
                 // --- PHASE IV: OBSERVABILITY: Thermal state transition ---
                 // Log thermal state transitions for observability
                 {
-                    let thermal_state = if thermal_metrics.cpu_temperature > 85.0 {
+                    let thermal_state = if !thermal_metrics.cpu_measured {
+                        "unmeasured"
+                    } else if thermal_metrics.cpu_temperature > 85.0 {
                         "critical"
                     } else if thermal_metrics.cpu_temperature > 75.0 {
                         "warning"

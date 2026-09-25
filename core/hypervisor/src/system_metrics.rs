@@ -51,7 +51,14 @@ impl ThermalStatus {
     }
 
     pub fn should_throttle(&self) -> bool {
-        matches!(self, ThermalStatus::Hot | ThermalStatus::Critical)
+        // Unknown means the sensor couldn't be read, not that the system is
+        // safe: it should not be treated as verified-fine the way Cool/Normal
+        // are (owner decision, C65 review). Warm's pre-existing exclusion
+        // from this set is unrelated to this fix and is left as-is.
+        matches!(
+            self,
+            ThermalStatus::Hot | ThermalStatus::Critical | ThermalStatus::Unknown
+        )
     }
 
     pub fn throttle_factor(&self) -> f64 {
@@ -61,7 +68,10 @@ impl ThermalStatus {
             ThermalStatus::Warm => 0.9,
             ThermalStatus::Hot => 0.7,
             ThermalStatus::Critical => 0.5,
-            ThermalStatus::Unknown => 1.0,
+            // Unmeasured is not the same as measured-and-fine: apply the same
+            // mild caution as Warm rather than running unthrottled on a
+            // system we can't actually verify is safe.
+            ThermalStatus::Unknown => 0.9,
         }
     }
 }
@@ -71,8 +81,16 @@ impl ThermalStatus {
 pub struct ThermalMetrics {
     pub cpu_temperature: f64, // degrees Celsius
     pub cpu_status: ThermalStatus,
+    /// `false` when `cpu_temperature` is a placeholder because no real
+    /// sensor was read (e.g. no Windows thermal API implementation, or a
+    /// hwmon read failure), rather than an actual measurement.
+    pub cpu_measured: bool,
     pub gpu_temperature: f64,
     pub gpu_status: ThermalStatus,
+    /// `false` when `gpu_temperature` is a placeholder (NVML unavailable or
+    /// the `gpu-metrics` feature is disabled), rather than an actual
+    /// measurement.
+    pub gpu_measured: bool,
     pub max_temperature: f64,
     pub throttling_active: bool,
 }
@@ -81,9 +99,11 @@ impl Default for ThermalMetrics {
     fn default() -> Self {
         Self {
             cpu_temperature: 25.0,
-            cpu_status: ThermalStatus::Normal,
+            cpu_status: ThermalStatus::Unknown,
+            cpu_measured: false,
             gpu_temperature: 25.0,
-            gpu_status: ThermalStatus::Normal,
+            gpu_status: ThermalStatus::Unknown,
+            gpu_measured: false,
             max_temperature: 25.0,
             throttling_active: false,
         }
@@ -184,27 +204,47 @@ impl SystemMetricsCollector {
 
     /// Get current thermal metrics
     pub fn get_thermal_metrics(&self) -> ThermalMetrics {
-        let cpu_temp = self.get_cpu_temperature();
-        let gpu_temp = self.get_gpu_temperature();
+        const UNMEASURED_PLACEHOLDER_C: f64 = 25.0;
+
+        let cpu_reading = self.get_cpu_temperature();
+        let gpu_reading = self.get_gpu_temperature();
+        let cpu_measured = cpu_reading.is_some();
+        let gpu_measured = gpu_reading.is_some();
+        let cpu_temp = cpu_reading.unwrap_or(UNMEASURED_PLACEHOLDER_C);
+        let gpu_temp = gpu_reading.unwrap_or(UNMEASURED_PLACEHOLDER_C);
         let max_temp = cpu_temp.max(gpu_temp);
 
-        let cpu_status = ThermalStatus::from_temperature(cpu_temp);
-        let gpu_status = ThermalStatus::from_temperature(gpu_temp);
+        // An unmeasured reading is reported as Unknown rather than derived
+        // from the placeholder temperature, so a missing sensor can never be
+        // silently mistaken for a real "everything is cool" measurement.
+        let cpu_status = if cpu_measured {
+            ThermalStatus::from_temperature(cpu_temp)
+        } else {
+            ThermalStatus::Unknown
+        };
+        let gpu_status = if gpu_measured {
+            ThermalStatus::from_temperature(gpu_temp)
+        } else {
+            ThermalStatus::Unknown
+        };
 
         let throttling_active = cpu_status.should_throttle() || gpu_status.should_throttle();
 
         ThermalMetrics {
             cpu_temperature: cpu_temp,
             cpu_status,
+            cpu_measured,
             gpu_temperature: gpu_temp,
             gpu_status,
+            gpu_measured,
             max_temperature: max_temp,
             throttling_active,
         }
     }
 
-    /// Get CPU temperature from hwmon (Linux) or Windows APIs
-    pub fn get_cpu_temperature(&self) -> f64 {
+    /// Get CPU temperature from hwmon (Linux) or Windows APIs.
+    /// `None` when no real sensor reading is available.
+    pub fn get_cpu_temperature(&self) -> Option<f64> {
         if self.use_hwmon {
             self.get_cpu_temperature_hwmon()
         } else {
@@ -212,46 +252,44 @@ impl SystemMetricsCollector {
         }
     }
 
-    fn get_cpu_temperature_hwmon(&self) -> f64 {
+    fn get_cpu_temperature_hwmon(&self) -> Option<f64> {
         // Read from /sys/class/thermal/thermal_zone0/temp
         // Returns temperature in millidegrees Celsius
-        match fs::read_to_string("/sys/class/thermal/thermal_zone0/temp") {
-            Ok(content) => {
-                let temp_millidegrees: f64 = content.trim().parse().unwrap_or(25000.0);
-                temp_millidegrees / 1000.0 // Convert to Celsius
-            }
-            Err(_) => 25.0, // Default fallback
-        }
+        let content = fs::read_to_string("/sys/class/thermal/thermal_zone0/temp").ok()?;
+        let temp_millidegrees: f64 = content.trim().parse().ok()?;
+        Some(temp_millidegrees / 1000.0) // Convert to Celsius
     }
 
-    fn get_cpu_temperature_windows(&self) -> f64 {
-        // Production Windows: Use WMI or Windows thermal APIs
-        // For now, return default value
-        // Example would use winapi or wmi crate
-        25.0
+    fn get_cpu_temperature_windows(&self) -> Option<f64> {
+        // No Windows thermal API implementation yet (would use the `wmi` or
+        // `winapi` crate to read an ACPI thermal zone, where populated).
+        // Returning None rather than a fabricated value keeps callers from
+        // mistaking an unmeasured system for a genuinely cool one.
+        None
     }
 
-    /// Get GPU temperature
-    pub fn get_gpu_temperature(&self) -> f64 {
+    /// Get GPU temperature. `None` when no real sensor reading is available
+    /// (NVML unavailable, or the `gpu-metrics` feature is disabled).
+    pub fn get_gpu_temperature(&self) -> Option<f64> {
         if self.use_nvml {
             self.get_gpu_temperature_nvidia()
         } else {
-            25.0 // Default fallback
+            None
         }
     }
 
-    fn get_gpu_temperature_nvidia(&self) -> f64 {
+    fn get_gpu_temperature_nvidia(&self) -> Option<f64> {
         #[cfg(feature = "gpu-metrics")]
         {
-            if let Ok(nvml) = nvml_wrapper::Nvml::init() {
-                if let Ok(device) = nvml.device_by_index(self._nvml_device_index) {
-                    return device
-                        .temperature(nvml_wrapper::enum_wrappers::device::TemperatureSensor::Gpu)
-                        .unwrap_or(45) as f64;
-                }
-            }
+            let nvml = nvml_wrapper::Nvml::init().ok()?;
+            let device = nvml.device_by_index(self._nvml_device_index).ok()?;
+            let temp = device
+                .temperature(nvml_wrapper::enum_wrappers::device::TemperatureSensor::Gpu)
+                .ok()?;
+            return Some(temp as f64);
         }
-        45.0
+        #[cfg(not(feature = "gpu-metrics"))]
+        None
     }
 
     /// Determine if system should throttle compute
@@ -331,10 +369,13 @@ impl SystemMetricsCollector {
         // Thermal pressure (0-0.5)
         match thermal.cpu_status {
             ThermalStatus::Cool | ThermalStatus::Normal => pressure += 0.0,
-            ThermalStatus::Warm => pressure += 0.1,
+            // Unmeasured gets the same backpressure contribution as Warm,
+            // consistent with should_throttle()/throttle_factor() treating an
+            // unreadable sensor as mild caution rather than a clean bill of
+            // health (owner decision, C65 review).
+            ThermalStatus::Warm | ThermalStatus::Unknown => pressure += 0.1,
             ThermalStatus::Hot => pressure += 0.3,
             ThermalStatus::Critical => pressure += 0.5,
-            ThermalStatus::Unknown => pressure += 0.0,
         }
 
         // GPU memory pressure (0-0.3)
@@ -394,6 +435,9 @@ mod tests {
         assert!(!ThermalStatus::Warm.should_throttle());
         assert!(ThermalStatus::Hot.should_throttle());
         assert!(ThermalStatus::Critical.should_throttle());
+        // An unreadable sensor is not the same as a verified-safe one: it
+        // must not be treated as no-throttle (owner decision, C65 review).
+        assert!(ThermalStatus::Unknown.should_throttle());
     }
 
     #[test]
@@ -403,6 +447,8 @@ mod tests {
         assert_eq!(ThermalStatus::Warm.throttle_factor(), 0.9);
         assert_eq!(ThermalStatus::Hot.throttle_factor(), 0.7);
         assert_eq!(ThermalStatus::Critical.throttle_factor(), 0.5);
+        // Unmeasured gets Warm-equivalent caution, not a free pass.
+        assert_eq!(ThermalStatus::Unknown.throttle_factor(), 0.9);
     }
 
     #[test]
@@ -414,6 +460,24 @@ mod tests {
 
         let thermal = collector.get_thermal_metrics();
         assert!(thermal.cpu_temperature > 0.0);
+    }
+
+    #[test]
+    fn test_unmeasured_temperature_reports_unknown_not_a_fake_reading() {
+        // Without hwmon (e.g. on Windows, or a machine with no
+        // /sys/class/thermal/thermal_zone0) and without the gpu-metrics
+        // feature, neither sensor is real. The collector must say so via
+        // Unknown/*_measured rather than silently reporting a placeholder
+        // temperature as a genuine "everything is cool" reading.
+        let collector = SystemMetricsCollector::new();
+        let thermal = collector.get_thermal_metrics();
+
+        if !thermal.cpu_measured {
+            assert_eq!(thermal.cpu_status, ThermalStatus::Unknown);
+        }
+        if !thermal.gpu_measured {
+            assert_eq!(thermal.gpu_status, ThermalStatus::Unknown);
+        }
     }
 
     #[test]
