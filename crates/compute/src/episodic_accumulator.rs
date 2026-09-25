@@ -145,8 +145,8 @@ impl EpisodicThoughtAccumulator {
         let mut mean_state = vec![0.0f32; 256];
         let n = trajectory.len() as f32;
         for frame in trajectory {
-            for i in 0..256 {
-                mean_state[i] += frame.state_features[i] / n;
+            for (mean, feature) in mean_state.iter_mut().zip(frame.state_features.iter()) {
+                *mean += feature / n;
             }
         }
 
