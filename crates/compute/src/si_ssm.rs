@@ -763,3 +763,4 @@ mod tests {
         assert!(root_embedding.iter().all(|&x| x > 0.0));
     }
 }
+

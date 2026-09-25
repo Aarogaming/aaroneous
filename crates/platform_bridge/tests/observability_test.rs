@@ -63,9 +63,25 @@ fn test_wasapi_loopback_capture_streaming_integration() {
     capture.start().expect("Capture start failed");
     assert!(capture.is_active());
 
-    thread::sleep(Duration::from_millis(50));
-
-    let samples = capture.drain_samples();
+    // Poll with a generous bound instead of a fixed sleep: the worker
+    // thread's first iteration does real spectral-analysis/feature-
+    // extraction work before it ever appends to the buffer, and a fixed
+    // ~50ms sleep is not long enough to guarantee that completes on a
+    // loaded or throttled shared CI runner (observed flaking on
+    // ubuntu-latest with an empty buffer, not a platform difference --
+    // this capture loop is pure synthetic-PCM simulation, no WASAPI FFI,
+    // so it behaves identically on every OS; see the same fix already
+    // applied to `wasapi.rs`'s own unit test). 2s is far beyond any
+    // realistic scheduling delay for one 10ms-interval iteration; only a
+    // genuine capture-loop bug would ever hit it.
+    let deadline = std::time::Instant::now() + Duration::from_secs(2);
+    let samples = loop {
+        let samples = capture.drain_samples();
+        if !samples.is_empty() || std::time::Instant::now() >= deadline {
+            break samples;
+        }
+        thread::sleep(Duration::from_millis(5));
+    };
     assert!(!samples.is_empty(), "Should capture streaming PCM samples");
 
     let _event = capture.poll_latest_event();
