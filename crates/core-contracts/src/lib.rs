@@ -469,7 +469,7 @@ mod tests {
     #[test]
     fn observation_frame_geometry_and_roundtrip() {
         assert_eq!(size_of::<ObservationFramePod>(), 1088);
-        assert_eq!(std::mem::align_of::<ObservationFramePod>(), 64);
+        assert_eq!(core::mem::align_of::<ObservationFramePod>(), 64);
 
         let mut frame = ObservationFramePod {
             sequence: 101,
