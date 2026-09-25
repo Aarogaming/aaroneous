@@ -1,0 +1,12 @@
+[package]
+name = "local_inference"
+version = "0.1.0"
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+llama-gguf = { version = "0.14", default-features = false, features = ["cpu"] }
+anyhow = "1.0"
+tracing = "0.1"

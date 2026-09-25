@@ -12,6 +12,9 @@ pub fn run() -> Result<()> {
     run_cmd("cargo", &["clippy", "--workspace", "--", "-D", "warnings"])
         .context("Gate 3 failed: Strict Clippy")?;
 
+    println!("=== 3.5. Native Dependency Boundary Audit ===");
+    crate::native_audit::run().context("Gate 3.5 failed: Native Dependency Boundary")?;
+
     println!("=== 4. Full Workspace Compilation ===");
     run_cmd("cargo", &["check", "--workspace", "--all-targets"])
         .context("Gate 4 failed: Full Workspace Compilation")?;

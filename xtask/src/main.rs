@@ -4,6 +4,7 @@ mod encoding;
 mod export_wit;
 mod gate;
 mod install;
+mod native_audit;
 mod package;
 mod uninstall;
 
@@ -16,6 +17,7 @@ fn main() -> Result<()> {
     match subcommand {
         "gate" => gate::run(),
         "check-encoding" => encoding::run(),
+        "check-native" => native_audit::run(),
         "install" => install::run(&args[2..]),
         "uninstall" => uninstall::run(),
         "package" => package::run(&args[2..]),
@@ -52,6 +54,7 @@ Usage: cargo xtask <subcommand>
 Subcommands:
   gate             Run every CI verification gate locally (replaces scripts/agent_check.sh)
   check-encoding   Validate UTF-8/LF compliance across all tracked files
+  check-native     Enforce the pure-Rust core boundary and native package allowlist
   export-wit       Export WebAssembly Interface Type (WIT) declarations from capabilities
   queue            Run the passive local agent background progress engine (Ollama GPU)
   install          Install Aaroneous on Windows (copies binaries, sets PATH, creates shortcuts)
