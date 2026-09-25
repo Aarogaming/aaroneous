@@ -1,2 +1,0 @@
-# Exclude the large vendor tree from ripgrep and other tooling
-data/fabrication/**
