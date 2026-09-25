@@ -36,8 +36,6 @@ llm_gateway = { path = "../../crates/llm_gateway" }
 ipc_bus = { path = "../../crates/ipc_bus" }
 core-contracts = { path = "../../crates/core-contracts" }
 omni = { path = "../../crates/omni" }
-hotload = { path = "../../crates/hotload" }
-plugin_api = { path = "../../crates/plugin_api" }
 governance = { path = "../../crates/governance", features = ["adaptive-governance"] }
 orchestrator = { path = "../../crates/orchestrator" }
 compute = { path = "../../crates/compute" }

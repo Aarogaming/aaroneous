@@ -79,7 +79,7 @@ part into its own `kernel` crate rather than mixing profiles.
 | Profile | Crates |
 |---|---|
 | `kernel` | `core/hypervisor`, `ipc_bus`, `compute`, `wire`, `si_format`, `si_ir`, `platform_bridge`, `runtime_monitor`, `core-contracts`, `dev/emulator_harness` |
-| `control` | `orchestrator`, `orchestration_plane`, `llm_gateway`, `llm_gateway_types`, `governance`, `capabilities`, `adaptation_engine`, `adaptation_plane`, `mcp_server`, `transpiler`, `omni`, `hotload`, `plugin_api`, `paths`, `sdk/rust` |
+| `control` | `orchestrator`, `orchestration_plane`, `llm_gateway`, `llm_gateway_types`, `governance`, `capabilities`, `adaptation_engine`, `adaptation_plane`, `mcp_server`, `transpiler`, `omni`, `paths`, `sdk/rust` |
 | `presentation` | `api`, `studio_hud`, `scratchpad` |
 | `tooling` | `ast_auditor`, `cratify`, `compliance_auditor`, `xtask`, `benches` |
 
@@ -94,12 +94,14 @@ A crate may depend only on crates whose profile is the same or stricter, in the 
 `kernel` crates and admitted third-party dependencies. The composition root (section 2.2) is exempt.
 
 **Status: planned.** The rule is not yet enforced. Known violations, measured from `cargo metadata`
-(normal and build dependencies) on 2026-09-24 and recorded as the ratchet baseline (16 edges):
+(normal and build dependencies) on 2026-09-24 and recorded as the ratchet baseline (14 edges; was
+16 before `hotload`/`plugin_api` were removed from the `control` row below on 2026-09-25 — see
+that row's note):
 
 | Violation | Edges | Resolution |
 |---|---|---|
 | `kernel` -> `paths` (`control`) | `ipc_bus`, `compute`, `hypervisor` -> `paths` | Split `paths` into a `kernel`-safe path-value crate and a bootstrap discovery layer called only from entrypoints. |
-| `hypervisor` library (`kernel`) -> `control` | `hypervisor` -> `adaptation_engine`, `adaptation_plane`, `governance`, `hotload`, `llm_gateway`, `omni`, `orchestrator`, `plugin_api`, `transpiler`, `capabilities` | Hypervisor decomposition (M75): move composition logic out of the library into the binaries or a dedicated composition crate, so the library keeps only `kernel` concerns. The composition-root exemption covers `bin/` only, and Cargo declares dependencies per package, so it does not cover these: the library sources use all of them except `capabilities`, which appears declared but unused. |
+| `hypervisor` library (`kernel`) -> `control` | `hypervisor` -> `adaptation_engine`, `adaptation_plane`, `governance`, `llm_gateway`, `omni`, `orchestrator`, `transpiler`, `capabilities` | Hypervisor decomposition (M75): move composition logic out of the library into the binaries or a dedicated composition crate, so the library keeps only `kernel` concerns. The composition-root exemption covers `bin/` only, and Cargo declares dependencies per package, so it does not cover these: the library sources use all of them except `capabilities`, which appears declared but unused. (`hotload` and `plugin_api` were removed from this row on 2026-09-25: they were the source of a fixed unauthenticated dynamic-DLL-loading vulnerability on `main` (#34); this branch had restored them as unreachable dead dependencies during a merge, and removed them again on discovering why `main` had dropped them — see the security review this same date for the full trace.) |
 | `kernel` / `control` -> `ast_auditor` (`tooling`) | `hypervisor`, `capabilities`, `adaptation_engine` -> `ast_auditor` | Extract the analysis API these crates call (`inspect`, `run_pattern_review`) into a `control`-profile crate that `ast_auditor` also depends on, leaving the CLI and gate rules in `tooling`. |
 
 The count may only decrease. A new edge in any of these directions is a defect even while the rule

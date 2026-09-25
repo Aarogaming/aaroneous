@@ -7,8 +7,6 @@ members = [
     "dev/rfc0006_poc/abi",
     "dev/rfc0006_poc/host",
     "crates/ipc_bus",
-    "crates/plugin_api",
-    "crates/hotload",
     "crates/capabilities",
     "crates/orchestrator",
     "crates/adaptation_plane",
