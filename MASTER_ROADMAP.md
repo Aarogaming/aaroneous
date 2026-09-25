@@ -24,7 +24,7 @@ Following Cratify Batches 1 & 2, the workspace has eliminated monolithic couplin
 - **Headless Hypervisor**: core/hypervisor is decoupled from all UI dependencies. GUI binaries (aaroneous, aaroneous-setup) reside in crates/studio_hud.
 - **Decoupled Inference Gateway**: Provider routing (GGUF, OpenAI, Local, Mock) and token caching reside in crates/llm_gateway.
 - **Integrated Machine Engines**: crates/mutation_engine and crates/runtime_monitor are fully integrated with zero-panic contracts and bytemuck::Pod layouts.
-- **Assimilation Pipeline in Flight**: crates/mcp_server and crates/orchestration_plane are undergoing modular headless compilation.
+- **Assimilation Pipeline Complete**: crates/mcp_server now hosts the extracted `mcp_service` (behind the `IntentBackend` trait, decoupled from `core/hypervisor`'s `Federation`) alongside crates/orchestration_plane, both fully headless-compiled.
 - **Formal Governance**: Cratify certification harness passes 190/190 invariant checks across memory layout, ring buffers, saturation, translation, compute, and platform backpressure.
 
 ---
