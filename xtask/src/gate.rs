@@ -16,6 +16,41 @@ pub fn run() -> Result<()> {
     run_cmd("cargo", &["check", "--workspace", "--all-targets"])
         .context("Gate 4 failed: Full Workspace Compilation")?;
 
+    println!("=== 4a. Portable Core Profile ===");
+    run_cmd(
+        "cargo",
+        &["check", "-p", "scan_core", "--no-default-features"],
+    )
+    .context("Gate 4a failed: Portable Core Profile")?;
+
+    println!("=== 4b. ARM Bare-Metal Core Profile ===");
+    run_cmd(
+        "cargo",
+        &[
+            "check",
+            "-p",
+            "scan_core",
+            "--target",
+            "thumbv7em-none-eabihf",
+            "--no-default-features",
+        ],
+    )
+    .context("Gate 4b failed: ARM Bare-Metal Core Profile")?;
+
+    println!("=== 4c. WebAssembly Core Profile ===");
+    run_cmd(
+        "cargo",
+        &[
+            "check",
+            "-p",
+            "scan_core",
+            "--target",
+            "wasm32-unknown-unknown",
+            "--no-default-features",
+        ],
+    )
+    .context("Gate 4c failed: WebAssembly Core Profile")?;
+
     println!("=== 5. Workspace Test Suite ===");
     run_cmd("cargo", &["test", "--workspace"]).context("Gate 5 failed: Workspace Test Suite")?;
 
@@ -144,6 +179,9 @@ mod tests {
         "cargo run -p xtask -- check-encoding",
         "cargo fmt --all -- --check",
         "cargo clippy --workspace -- -D warnings",
+        "cargo check -p scan_core --no-default-features",
+        "cargo check -p scan_core --target thumbv7em-none-eabihf --no-default-features",
+        "cargo check -p scan_core --target wasm32-unknown-unknown --no-default-features",
         "cargo check --release --bin aaroneous --bin hypervisor",
         "cargo check -p hypervisor --all-targets --features llama-gguf,gpu-metrics,fleet,testing,standalone",
         "cargo check -p hypervisor --all-targets --features p2p-iroh",

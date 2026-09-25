@@ -22,6 +22,7 @@ members = [
     "crates/platform_bridge",
     "crates/paths",
     "crates/wire",
+    "crates/scan_core",
     "core/hypervisor",
     "sdk/rust",
     "crates/core-contracts",
@@ -79,4 +80,3 @@ lto = "fat"            # Cross-crate inlining across si_ir, compute, and platfor
 codegen-units = 1      # Maximizes compiler optimization across the entire workspace
 panic = "abort"        # Removes unwinding landing pads (makes Cranelift W^X memory leaner)
 strip = true           # Strips debug symbols from the final standalone binary
-
