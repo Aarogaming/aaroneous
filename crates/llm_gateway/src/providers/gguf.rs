@@ -112,10 +112,10 @@ impl GGUFProvider {
     async fn generate_text(&self, prompt: &str, max_tokens: u32) -> Result<String> {
         #[cfg(feature = "llama-gguf")]
         {
-            use local_inference::{LocalEngine, InferenceConfig};
+            use local_inference::{InferenceConfig, LocalEngine};
 
             let prompt_owned = prompt.to_string();
-            
+
             // Use the cached engine — load once on first call, reuse for all subsequent calls.
             // This turns 500ms–3s load cost per call into a one-time startup cost.
             let engine_cache = self.engine_cache.clone();
@@ -130,7 +130,12 @@ impl GGUFProvider {
                         "GGUF: loading engine from {} (first call — one-time cost)",
                         model_path_str
                     );
-                    let config = InferenceConfig { model_path: model_path_str.into(), max_tokens: max_tokens, temperature: 0.7, top_p: 0.95 };
+                    let config = InferenceConfig {
+                        model_path: model_path_str.into(),
+                        max_tokens: max_tokens,
+                        temperature: 0.7,
+                        top_p: 0.95,
+                    };
                     *guard = Some(
                         LocalEngine::load(&config)
                             .map_err(|e| anyhow!("Engine::load failed: {:?}", e))?,
@@ -533,6 +538,3 @@ mod tests {
         );
     }
 }
-
-
-
