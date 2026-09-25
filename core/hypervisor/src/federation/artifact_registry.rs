@@ -8,8 +8,8 @@
 ///
 /// - **Default (no feature)**: `BTreeMap<String, ArtifactEvent>` - fast for tests and dev,
 ///   no native dependencies, data lost on restart.
-/// Use `ArtifactRegistry::new()` for in-memory or `ArtifactRegistry::open(path)` for compatibility.
-/// All public methods are identical regardless of backend.
+///   Use `ArtifactRegistry::new()` for in-memory or `ArtifactRegistry::open(path)` for compatibility.
+///   All public methods are identical regardless of backend.
 use crate::federation::specialist::SpecialistId;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap};
@@ -289,7 +289,7 @@ impl ArtifactRegistry {
     }
     /// Whether this ArtifactRegistry is backed by durable disk storage.
     pub fn is_persistent(&self) -> bool {
-        return false;
+        false
     }
 
     /// Record an event
