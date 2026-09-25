@@ -31,3 +31,18 @@ local_inference = { path = "../local_inference" }
 
 [features]
 default = []
+# Explicit local-inference backend selection, forwarded to `local_inference`.
+#
+# None of these are part of `default` — that is the entire point. Building
+# `llm_gateway` normally must not silently pick a backend (or silently pick
+# none, which today is the same as silently getting a bare CPU path with no
+# record anyone asked for it, since `llama-gguf`'s own `cpu` feature flag
+# does not gate any code path). A caller MUST opt into exactly one of these,
+# e.g. `cargo build -p llm_gateway --features gguf-cpu`. See
+# `local_inference::ensure_backend_selected` for the runtime-enforced half of
+# this policy, and the C68 native-boundary audit for why GPU backends each
+# need their own explicit, reviewed selection rather than a silent default.
+gguf-cpu = ["local_inference/cpu"]
+gguf-cuda = ["local_inference/cuda"]
+gguf-vulkan = ["local_inference/vulkan"]
+gguf-metal = ["local_inference/metal"]
