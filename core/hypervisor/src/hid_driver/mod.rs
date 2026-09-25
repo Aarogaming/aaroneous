@@ -306,8 +306,19 @@ mod tests {
 
         let percentiles = driver.latency_percentiles().unwrap();
 
-        // p99 is not asserted: wall-clock latency is host-load dependent in debug
-        // unit tests. Real hardware target (<1ms) belongs in benches/, not here.
+        // A tight (<25ms) bound is not asserted here: wall-clock latency under
+        // concurrent build load flaked past it. This loose bound is not a
+        // hardware performance target (that belongs in benches/) -- it exists so
+        // this test still catches a genuine catastrophic regression (e.g. a
+        // deadlock or an accidental synchronous I/O call on the hot path)
+        // instead of asserting nothing at all, matching the 100ms bound already
+        // used a few tests above in this same file.
+        assert!(
+            percentiles.p99 < 500_000,
+            "p99 latency {}us exceeds the 500ms catastrophic-regression bound",
+            percentiles.p99
+        );
+
         println!(
             "Latency validation: p99={}us (target <25ms in test env, <1ms on real hw)",
             percentiles.p99
