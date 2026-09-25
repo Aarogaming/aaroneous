@@ -51,6 +51,41 @@ pub fn run() -> Result<()> {
     )
     .context("Gate 4c failed: WebAssembly Core Profile")?;
 
+    println!("=== 4d. Portable Shared Contracts ===");
+    run_cmd(
+        "cargo",
+        &["check", "-p", "core-contracts", "--no-default-features"],
+    )
+    .context("Gate 4d failed: Portable Shared Contracts")?;
+
+    println!("=== 4e. ARM Bare-Metal Shared Contracts ===");
+    run_cmd(
+        "cargo",
+        &[
+            "check",
+            "-p",
+            "core-contracts",
+            "--target",
+            "thumbv7em-none-eabihf",
+            "--no-default-features",
+        ],
+    )
+    .context("Gate 4e failed: ARM Bare-Metal Shared Contracts")?;
+
+    println!("=== 4f. WebAssembly Shared Contracts ===");
+    run_cmd(
+        "cargo",
+        &[
+            "check",
+            "-p",
+            "core-contracts",
+            "--target",
+            "wasm32-unknown-unknown",
+            "--no-default-features",
+        ],
+    )
+    .context("Gate 4f failed: WebAssembly Shared Contracts")?;
+
     println!("=== 5. Workspace Test Suite ===");
     run_cmd("cargo", &["test", "--workspace"]).context("Gate 5 failed: Workspace Test Suite")?;
 
@@ -182,6 +217,9 @@ mod tests {
         "cargo check -p scan_core --no-default-features",
         "cargo check -p scan_core --target thumbv7em-none-eabihf --no-default-features",
         "cargo check -p scan_core --target wasm32-unknown-unknown --no-default-features",
+        "cargo check -p core-contracts --no-default-features",
+        "cargo check -p core-contracts --target thumbv7em-none-eabihf --no-default-features",
+        "cargo check -p core-contracts --target wasm32-unknown-unknown --no-default-features",
         "cargo check --release --bin aaroneous --bin hypervisor",
         "cargo check -p hypervisor --all-targets --features llama-gguf,gpu-metrics,fleet,testing,standalone",
         "cargo check -p hypervisor --all-targets --features p2p-iroh",

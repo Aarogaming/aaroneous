@@ -1,4 +1,7 @@
-// Core contracts for Aaroneous microkernel
+//! Fixed-memory contracts shared by Aaroneous hosts and embedded components.
+
+#![no_std]
+#![deny(unsafe_code)]
 
 pub mod metadata;
 pub use metadata::*;
@@ -148,7 +151,7 @@ fn encode_fixed_str(dst: &mut [u8], src: &str) {
 #[inline]
 fn decode_fixed_str(buf: &[u8]) -> &str {
     let len = buf.iter().position(|&b| b == 0).unwrap_or(buf.len());
-    std::str::from_utf8(&buf[..len]).unwrap_or("")
+    core::str::from_utf8(&buf[..len]).unwrap_or("")
 }
 
 /// Component manifest exchanged during bootstrap.
@@ -330,7 +333,7 @@ impl Default for FlightFileHeaderPod {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::mem::size_of;
+    use core::mem::size_of;
 
     #[test]
     fn manifest_size() {

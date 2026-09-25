@@ -72,6 +72,15 @@ jobs:
       - name: WebAssembly core profile
         run: cargo check -p scan_core --target wasm32-unknown-unknown --no-default-features
 
+      - name: Portable shared contracts
+        run: cargo check -p core-contracts --no-default-features
+
+      - name: ARM bare-metal shared contracts
+        run: cargo check -p core-contracts --target thumbv7em-none-eabihf --no-default-features
+
+      - name: WebAssembly shared contracts
+        run: cargo check -p core-contracts --target wasm32-unknown-unknown --no-default-features
+
       - name: Canonical repository verification
         shell: bash
         run: bash scripts/agent_check.sh
