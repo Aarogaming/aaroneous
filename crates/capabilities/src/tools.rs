@@ -1973,14 +1973,19 @@ fn blank_line_before_fn() {}
 
     /// Regression guard, in the opposite direction from
     /// `the_real_aaroneous_workspace_has_no_orphaned_crate_dirs` above: this
-    /// tool's real value is in what it *does* find. `core/hypervisor` and
-    /// `crates/mcp_server` each carry their own `mcp_service::capability`
-    /// module with an identically-named `test_capability_creation` - the
-    /// kind of near-duplicate left behind by an in-progress extraction that
-    /// this tool exists to surface. Asserts the scan actually reaches both
-    /// files and reports the known collision, rather than merely asserting
-    /// "the report is empty" (which a scanner that silently found nothing
-    /// would also satisfy).
+    /// tool's real value is in what it *does* find. Each specialist under
+    /// `core/hypervisor/src/federation/specialists/` (`archivist`,
+    /// `omnipresent`, `phygital`, `symbiotic`, `visionary`) declares its own
+    /// `test_capabilities` smoke test for the same `UniversalTool` method -
+    /// a deliberate, still-live collision (see
+    /// `docs/TECH_DEBT_TEST_DUPLICATION.md` §3), unlike the
+    /// `core/hypervisor` vs `crates/mcp_server` `mcp_service` collision this
+    /// test used to pin to, which that document's §2.2 resolved by
+    /// extracting `mcp_service` into `crates/mcp_server` outright (leaving
+    /// exactly one copy, so it can no longer collide with itself). Asserts
+    /// the scan actually reaches these files and reports the collision,
+    /// rather than merely asserting "the report is empty" (which a scanner
+    /// that silently found nothing would also satisfy).
     #[test]
     fn the_real_aaroneous_workspace_has_a_known_duplicate_test_name() {
         let root = paths::normalize_path(
@@ -1993,17 +1998,17 @@ fn blank_line_before_fn() {}
         let hit = report
             .duplicates
             .iter()
-            .find(|d| d.name == "test_capability_creation")
-            .expect("expected the known core/hypervisor vs crates/mcp_server collision");
+            .find(|d| d.name == "test_capabilities")
+            .expect("expected the known federation specialists collision");
         assert!(
             hit.locations
                 .iter()
-                .any(|l| l.contains("core/hypervisor/src/mcp_service/capability.rs"))
+                .any(|l| l.contains("core/hypervisor/src/federation/specialists/archivist.rs"))
         );
         assert!(
             hit.locations
                 .iter()
-                .any(|l| l.contains("crates/mcp_server/src/mcp_service/capability.rs"))
+                .any(|l| l.contains("core/hypervisor/src/federation/specialists/visionary.rs"))
         );
     }
 }
