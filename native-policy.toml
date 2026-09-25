@@ -1,0 +1,219 @@
+[[allowed]]
+name = "aws-lc-rs"
+version = "1.18.1"
+justification = "Approved cryptographic provider"
+
+# Native Dependency Policy
+# Defines exactly which packages are allowed to introduce native boundaries (C, C++, assembly).
+# Each entry MUST include the version, and optionally features, targets, and a justification.
+
+[[allowed]]
+name = "aws-lc-sys"
+version = "0.45.0"
+justification = "Approved cryptographic provider"
+
+[[allowed]]
+name = "ring"
+version = "0.17.14"
+justification = "Cryptographic provider required by dependencies"
+
+[[allowed]]
+name = "rusqlite"
+version = "0.31.0"
+justification = "SQLite bindings for data storage"
+
+[[allowed]]
+name = "libsqlite3-sys"
+version = "0.38.2"
+justification = "SQLite native library"
+
+[[allowed]]
+name = "onig_sys"
+version = "69.9.3"
+justification = "Oniguruma regex engine"
+
+[[allowed]]
+name = "onig"
+version = "6.5.3"
+justification = "Oniguruma regex bindings"
+
+[[allowed]]
+name = "zstd-sys"
+version = "2.1.0+zstd.1.5.7"
+justification = "Zstandard compression"
+
+[[allowed]]
+name = "ash"
+version = "0.38.0+1.3.281"
+justification = "Vulkan graphics API"
+
+[[allowed]]
+name = "windows"
+version = "0.48.0"
+justification = "Windows API bindings"
+
+[[allowed]]
+name = "windows-sys"
+version = "0.59.0"
+justification = "Windows API bindings"
+
+[[allowed]]
+name = "lz4-sys"
+version = "1.9.5"
+justification = "LZ4 compression"
+
+[[allowed]]
+name = "bzip2-sys"
+version = "0.1.11+1.0.8"
+justification = "bzip2 compression"
+
+[[allowed]]
+name = "libz-sys"
+version = "1.1.18"
+justification = "zlib compression"
+
+[[allowed]]
+name = "esaxx-rs"
+version = "0.1.10"
+justification = "Suffix array construction"
+
+[[allowed]]
+name = "windows-targets"
+version = "0.52.6"
+justification = "Windows API targets"
+
+[[allowed]]
+name = "windows_x86_64_msvc"
+version = "0.52.6"
+justification = "Windows API targets"
+
+[[allowed]]
+name = "windows_aarch64_msvc"
+version = "0.52.6"
+justification = "Windows API targets"
+
+[[allowed]]
+name = "windows_i686_msvc"
+version = "0.52.6"
+justification = "Windows API targets"
+
+[[allowed]]
+name = "windows_x86_64_gnullvm"
+version = "0.52.6"
+justification = "Windows API targets"
+
+[[allowed]]
+name = "windows_aarch64_gnullvm"
+version = "0.52.6"
+justification = "Windows API targets"
+
+[[allowed]]
+name = "windows_i686_gnu"
+version = "0.52.6"
+justification = "Windows API targets"
+
+[[allowed]]
+name = "windows_x86_64_gnu"
+version = "0.52.6"
+justification = "Windows API targets"
+
+[[allowed]]
+name = "windows-link"
+version = "0.2.1"
+justification = "Windows linker configuration"
+
+[[allowed]]
+name = "winapi"
+version = "0.3.9"
+justification = "Windows API bindings"
+
+[[allowed]]
+name = "core-foundation-sys"
+version = "0.8.7"
+justification = "macOS core foundation"
+
+[[allowed]]
+name = "core-graphics-types"
+version = "0.1.3"
+justification = "macOS core graphics"
+
+[[allowed]]
+name = "core-text"
+version = "20.1.0"
+justification = "macOS core text"
+
+[[allowed]]
+name = "security-framework-sys"
+version = "2.11.1"
+justification = "macOS security framework"
+
+[[allowed]]
+name = "wgpu-hal"
+version = "29.0.4"
+justification = "WebGPU hardware abstraction layer"
+
+[[allowed]]
+name = "wgpu-hal"
+version = "30.0.1"
+justification = "WebGPU hardware abstraction layer"
+
+[[allowed]]
+name = "khronos-egl"
+version = "6.0.0"
+justification = "EGL bindings"
+
+[[allowed]]
+name = "alloca"
+version = "0.4.0"
+justification = "Stack allocation utility"
+
+[[allowed]]
+name = "cmake"
+version = "0.1.58"
+justification = "Build system dependency"
+
+[[allowed]]
+name = "defmt"
+version = "1.1.1"
+justification = "Deferred formatting, uses links without native source"
+
+[[allowed]]
+name = "prettyplease"
+version = "0.2.37"
+justification = "Formatting utility, uses links without native source"
+
+[[allowed]]
+name = "prettyplease"
+version = "0.3.0"
+justification = "Formatting utility, uses links without native source"
+
+[[allowed]]
+name = "rayon-core"
+version = "1.13.0"
+justification = "Parallel execution, uses links without native source"
+
+[[allowed]]
+name = "libmimalloc-sys"
+version = "0.1.49"
+justification = "P1: explicitly allowlisted for baseline, needs adapter"
+
+[[allowed]]
+name = "glutin"
+version = "0.32.3"
+justification = "Platform graphics API dependency"
+
+[[allowed]]
+name = "rfc0006_host"
+version = "0.1.0"
+justification = "P1: development host loader"
+
+[[allowed]]
+name = "sdk"
+version = "0.1.0"
+justification = "P1: production loader requires re-review"
+
+[[allowed]]
+name = "libloading"
+version = "0.8.5"
+justification = "P1: underlying loading library"
+

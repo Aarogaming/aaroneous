@@ -6,7 +6,6 @@ use std::process::Command;
 #[derive(Deserialize)]
 struct Metadata {
     packages: Vec<Package>,
-    resolve: Resolve,
 }
 
 #[derive(Deserialize)]
@@ -24,19 +23,14 @@ struct Dependency {
 }
 
 #[derive(Deserialize)]
-struct Resolve {
-    nodes: Vec<Node>,
+struct Policy {
+    allowed: Vec<AllowedPackage>,
 }
 
 #[derive(Deserialize)]
-struct Node {
-    id: String,
-    deps: Vec<NodeDep>,
-}
-
-#[derive(Deserialize)]
-struct NodeDep {
-    pkg: String,
+struct AllowedPackage {
+    name: String,
+    version: String,
 }
 
 pub fn run() -> Result<()> {
@@ -61,23 +55,19 @@ pub fn run() -> Result<()> {
 
     let meta: Metadata = serde_json::from_slice(&output.stdout)?;
 
-    let mut pkg_map = HashMap::new();
-    for pkg in &meta.packages {
-        pkg_map.insert(pkg.id.clone(), pkg);
+    // 2. Load allowlist
+    let policy_str = std::fs::read_to_string("native-policy.toml")
+        .context("Failed to read native-policy.toml")?;
+    let policy: Policy = toml::from_str(&policy_str)?;
+    let mut allowed_map = HashMap::new();
+    for pkg in policy.allowed {
+        allowed_map.entry(pkg.name).or_insert_with(Vec::new).push(pkg.version);
     }
 
-    // 2. Identify all packages with native provenance
-    let mut native_packages = Vec::new();
+    // 3. Identify all packages with native provenance
+    let native_indicators = ["cc", "bindgen", "libloading", "cmake", "clang-sys", "pkg-config", "vcpkg"];
 
-    let native_indicators = [
-        "cc",
-        "bindgen",
-        "libloading",
-        "cmake",
-        "clang-sys",
-        "pkg-config",
-        "vcpkg",
-    ];
+    let mut violations = Vec::new();
 
     for pkg in &meta.packages {
         let mut is_native = false;
@@ -96,67 +86,22 @@ pub fn run() -> Result<()> {
         }
 
         if is_native {
-            native_packages.push((pkg, reasons));
-        }
-    }
+            let allowed_versions = allowed_map.get(&pkg.name);
+            let mut is_allowed = false;
+            if let Some(versions) = allowed_versions {
+                if versions.contains(&pkg.version) {
+                    is_allowed = true;
+                }
+            }
 
-    // 3. Load allowlist
-    // We will hardcode the temporary allowlist here based on C68
-    // In the future, this should be parsed from a config file.
-    let allowed_native = vec![
-        "aws-lc-sys",
-        "aws-lc-rs", // Uses links="aws_lc_rs_1_18_1_sys"
-        "ring",
-        "rusqlite",
-        "libsqlite3-sys",
-        "onig_sys",
-        "zstd-sys",
-        "ash",
-        "windows",
-        "windows-sys",
-        "lz4-sys",
-        "bzip2-sys",
-        "libz-sys",
-        "esaxx-rs",
-        "windows-targets",
-        "windows_x86_64_msvc",
-        "windows_aarch64_msvc",
-        "windows_i686_msvc",
-        "windows_x86_64_gnullvm",
-        "windows_aarch64_gnullvm",
-        "windows_i686_gnu",
-        "windows_x86_64_gnu",
-        "windows-link",
-        "winapi",
-        "core-foundation-sys",
-        "core-graphics-types",
-        "core-text",
-        "security-framework-sys",
-        "wgpu-hal",
-        "khronos-egl",
-        "onig",
-        "alloca",          // depends on cc
-        "cmake",           // depends on cc
-        "defmt",           // uses links without native
-        "prettyplease",    // uses links without native
-        "rayon-core",      // uses links without native
-        "libmimalloc-sys", // P1: explicitly allowlisted for baseline, needs adapter
-        "glutin",          // platform graphics API dependency
-        "rfc0006_host",    // P1: development host loader
-        "sdk",             // P1: production loader requires re-review
-        "libloading",      // P1: underlying loading library
-    ];
-
-    let mut violations = Vec::new();
-
-    for (pkg, reasons) in &native_packages {
-        if !allowed_native.contains(&pkg.name.as_str()) {
-            violations.push(format!(
-                "Package {} v{} has undeclared native provenance: {}",
-                pkg.name,
-                pkg.version,
-                reasons.join(", ")
-            ));
+            if !is_allowed {
+                violations.push(format!(
+                    "Package {} v{} has undeclared native provenance: {}",
+                    pkg.name,
+                    pkg.version,
+                    reasons.join(", ")
+                ));
+            }
         }
     }
 
