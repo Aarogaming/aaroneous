@@ -290,6 +290,4 @@ mod tests {
         // target against real hardware belongs in benches/, not here.
         let _ = percentiles.p95;
     }
-
-
 }
