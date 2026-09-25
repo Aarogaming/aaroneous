@@ -217,11 +217,26 @@ mod tests {
 
     #[test]
     fn test_scan_workspace_tree() {
-        let engine = DevToolsEngine::default();
+        // Test sandboxing (AGENTS.md #2): construct an explicit synthetic
+        // workspace under `tempfile::tempdir()` rather than pointing
+        // `DevToolsEngine` at the real host tree via `default()`'s ambient
+        // `WorkspacePaths::discover`.
+        let temp = tempfile::tempdir().unwrap();
+        let crates_dir = temp.path().join("crates").join("example_crate");
+        fs::create_dir_all(&crates_dir).unwrap();
+        fs::write(crates_dir.join("lib.rs"), "pub fn example() {}\n").unwrap();
+
+        let engine = DevToolsEngine::new(temp.path());
         let items = engine.scan_workspace_tree(2);
         assert!(!items.is_empty());
         let has_crates = items.iter().any(|i| i.relative_path.starts_with("crates"));
         assert!(has_crates);
+        let lib_item = items
+            .iter()
+            .find(|i| i.relative_path.ends_with("lib.rs"))
+            .unwrap();
+        assert_eq!(lib_item.line_count, 1);
+        assert_eq!(lib_item.file_extension, "rs");
     }
 
     #[test]

@@ -3,6 +3,7 @@ name = "mcp_server"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+description = "Anthropic Model Context Protocol (2024-11-05) HTTP/SSE + JSON-RPC 2.0 server, independent of hypervisor via the IntentBackend trait"
 
 [dependencies]
 serde = { workspace = true }
@@ -17,7 +18,20 @@ sha2 = "0.11"
 uuid = { workspace = true }
 anyhow = { workspace = true }
 async-stream = "0.3"
-capabilities = { path = "../capabilities" }
+chrono = { version = "0.4", features = ["serde"] }
+paths = { path = "../paths" }
+reqwest = { version = "0.13", default-features = false, features = ["json", "stream", "rustls"] }
+# Aliased so mcp_service's `specialists::` references (mirroring
+# hypervisor's own `specialists = { package = "capabilities", ... }`)
+# resolve unchanged post-move. `llm_gateway` is re-exported as `crate::llm`
+# in lib.rs, matching hypervisor's own `pub use llm_gateway as llm;`.
+specialists = { package = "capabilities", path = "../capabilities" }
+llm_gateway = { path = "../llm_gateway" }
 
 [features]
 default = []
+# Forwards to llm_gateway's own feature so a workspace build with
+# --features llama-gguf gives McpService's /health endpoint an accurate
+# `inference_available` reading, matching hypervisor's identically-named
+# feature.
+llama-gguf = ["llm_gateway/llama-gguf"]

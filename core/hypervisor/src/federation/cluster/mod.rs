@@ -43,6 +43,7 @@
 /// ```
 pub mod builder;
 pub mod config;
+mod mcp_backend;
 pub mod scheduler;
 
 #[cfg(test)]
