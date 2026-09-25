@@ -1,6 +1,24 @@
 //! protocol_bridge.rs
 //! Machine-Native Linking Protocol (MNLP) adapter for Marionette.
 //! Zero-copy serialization for high-throughput vision and telemetry.
+//!
+//! Dedupe-audit note (.audit/DEAD_CODE_ANALYSIS.md): two other crates carry a
+//! file with this same name and a "Protocol Bridge" struct following the
+//! same MNLP-branded naming convention —
+//! `crates/adaptation_engine/src/protocol_bridge.rs` (binary patch-proposal
+//! packets, `ChimeraProtocolBridge`) and `crates/omni/src/protocol_bridge.rs`
+//! (JSON galaxy-snapshot serialization, `OmniProtocolBridge`). They were
+//! reviewed together and are intentionally NOT merged here: each encodes a
+//! wire format around a domain type owned by its own crate (this crate's
+//! `VisualObservation`/`HidCommand` vs. adaptation_engine's `PatchProposal`
+//! vs. omni's `GalaxyCluster`/`StarNode`), the three binary layouts are
+//! mutually incompatible (different magics, field orders, and sizes), and
+//! this crate is the OS/protocol-abstraction layer for the workspace — it
+//! must not gain a dependency on adaptation_engine's or omni's domain types
+//! just to host their unrelated wire formats. Only the shared name and
+//! surface-level "static struct with encode/decode" shape are common; the
+//! implementations are genuinely different and each stays in the crate that
+//! owns its payload type.
 
 #![deny(unsafe_code)]
 
