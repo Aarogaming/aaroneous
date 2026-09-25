@@ -96,6 +96,15 @@ cargo clippy --workspace -- -D warnings
 # 4. Full Workspace Compilation (all targets, tests, benches)
 cargo check --workspace --all-targets
 
+# 4a. Native-host portable core (no allocator or default features)
+cargo check -p scan_core --no-default-features
+
+# 4b. Representative ARM bare-metal portable core
+cargo check -p scan_core --target thumbv7em-none-eabihf --no-default-features
+
+# 4c. Representative WebAssembly portable core
+cargo check -p scan_core --target wasm32-unknown-unknown --no-default-features
+
 # 5. Workspace Test Suite (Functional determinism)
 cargo test --workspace
 

@@ -7845,6 +7845,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "scan_core"
+version = "0.3.2"
+
+[[package]]
 name = "schannel"
 version = "0.1.29"
 source = "registry+https://github.com/rust-lang/crates.io-index"

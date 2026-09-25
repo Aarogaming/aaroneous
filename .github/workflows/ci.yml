@@ -25,6 +25,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
+          targets: thumbv7em-none-eabihf, wasm32-unknown-unknown
 
       - name: Linux native build dependencies
         if: runner.os == 'Linux'
@@ -61,6 +62,15 @@ jobs:
 
       - name: Strict Clippy
         run: cargo clippy --workspace -- -D warnings
+
+      - name: Portable core profile
+        run: cargo check -p scan_core --no-default-features
+
+      - name: ARM bare-metal core profile
+        run: cargo check -p scan_core --target thumbv7em-none-eabihf --no-default-features
+
+      - name: WebAssembly core profile
+        run: cargo check -p scan_core --target wasm32-unknown-unknown --no-default-features
 
       - name: Canonical repository verification
         shell: bash

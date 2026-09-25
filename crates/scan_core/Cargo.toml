@@ -1,0 +1,12 @@
+[package]
+name = "scan_core"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+description = "Dependency-free no_std deterministic scan kernel for Aaroneous components"
+license.workspace = true
+repository.workspace = true
+
+[features]
+default = []
