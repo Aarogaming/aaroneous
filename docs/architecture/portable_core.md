@@ -12,6 +12,12 @@ The lowest execution contract is `scan_core`, a dependency-free, unconditionally
 It does not own storage, networking, serialization, allocation, threads,
 operating-system access, device drivers, inference, or presentation.
 
+`core-contracts` is the next portable layer. It owns fixed-size binary metadata,
+IPC headers, snapshots, manifests and flight records. Its Serde, bitflags and
+bytemuck support is configured without dependency default features, and the
+crate is unconditionally `no_std`. Hosted conveniences must be implemented in
+higher layers without changing these shared layouts.
+
 ## Profiles
 
 | Profile | Required properties | Intended targets |
@@ -70,6 +76,9 @@ bare-metal and WebAssembly profiles:
 cargo check -p scan_core --no-default-features
 cargo check -p scan_core --target thumbv7em-none-eabihf --no-default-features
 cargo check -p scan_core --target wasm32-unknown-unknown --no-default-features
+cargo check -p core-contracts --no-default-features
+cargo check -p core-contracts --target thumbv7em-none-eabihf --no-default-features
+cargo check -p core-contracts --target wasm32-unknown-unknown --no-default-features
 ```
 
 This is the first portability invariant. Later slices must add locked graph

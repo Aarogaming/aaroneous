@@ -154,6 +154,15 @@ cargo check -p scan_core --target thumbv7em-none-eabihf --no-default-features
 # 4c. Representative WebAssembly portable core
 cargo check -p scan_core --target wasm32-unknown-unknown --no-default-features
 
+# 4d. Native-host shared binary contracts
+cargo check -p core-contracts --no-default-features
+
+# 4e. Representative ARM bare-metal shared binary contracts
+cargo check -p core-contracts --target thumbv7em-none-eabihf --no-default-features
+
+# 4f. Representative WebAssembly shared binary contracts
+cargo check -p core-contracts --target wasm32-unknown-unknown --no-default-features
+
 # 5. Workspace Test Suite (Functional determinism)
 cargo test --workspace
 
