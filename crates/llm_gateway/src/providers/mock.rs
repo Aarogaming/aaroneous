@@ -479,7 +479,7 @@ mod tests {
 
     #[test]
     fn test_mock_provider_creation() {
-        let provider = MockProvider::default();
+        let provider = MockProvider;
         let cloned = provider.clone();
         assert_eq!(format!("{:?}", cloned), format!("{:?}", provider));
     }

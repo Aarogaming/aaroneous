@@ -1,0 +1,20 @@
+[package]
+name = "local_inference"
+version = "0.1.0"
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+llama-gguf = { version = "0.14", default-features = false }
+anyhow = "1.0"
+tracing = "0.1"
+
+
+[features]
+default = []
+cpu = ["llama-gguf/cpu"]
+cuda = ["llama-gguf/cuda"]
+vulkan = ["llama-gguf/vulkan"]
+metal = ["llama-gguf/metal"]

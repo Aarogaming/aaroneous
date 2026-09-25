@@ -1,15 +1,14 @@
 // GGUF Provider
-// Direct integration with llama.cpp for local GGUF model inference
+// In-process local GGUF model inference via `local_inference`, a thin
+// wrapper around the `llama-gguf` crate — a separate, pure-Rust inference
+// implementation, not a binding to (or fork of) llama.cpp.
 // Uses Qwen models (or other open source GGUF)
 
 use crate::types::*;
 use anyhow::{Result, anyhow};
 use async_trait::async_trait;
-use paths::{WorkspacePaths, WorkspacePathsConfig};
 use std::path::PathBuf;
 use tracing::{debug, info, warn};
-
-#[cfg_attr(not(feature = "llama-gguf"), allow(dead_code))]
 pub struct GGUFProvider {
     model_path: PathBuf,
     _context_size: u32,
@@ -28,13 +27,19 @@ pub struct GGUFProvider {
     ///
     /// The Mutex is needed because `Engine::generate()` likely takes &mut self
     /// (inference modifies the KV cache state).
-    #[cfg(feature = "llama-gguf")]
-    engine_cache: std::sync::Arc<tokio::sync::Mutex<Option<llama_gguf::engine::Engine>>>,
+    engine_cache: std::sync::Arc<tokio::sync::Mutex<Option<local_inference::LocalEngine>>>,
 }
 
 impl GGUFProvider {
     /// Create GGUF provider with local model
     pub fn new(model_path: PathBuf, context_size: u32, threads: u32) -> Result<Self> {
+        // Fail fast, at construction, if this binary was built without an
+        // explicit local-inference backend feature — don't wait until the
+        // first `generate_text()` call deep inside a spawn_blocking task to
+        // discover it. See `local_inference::ensure_backend_selected` for
+        // why this must never silently succeed.
+        local_inference::ensure_backend_selected()?;
+
         if !model_path.exists() {
             return Err(anyhow!("Model file not found at: {}", model_path.display()));
         }
@@ -45,139 +50,62 @@ impl GGUFProvider {
             std::fs::metadata(&model_path)?.len() / 1024
         );
 
-        #[cfg(not(feature = "llama-gguf"))]
-        {
-            warn!(
-                "GGUF provider initialized without 'llama-gguf' feature. Real inference is disabled. \
-                 To enable real local GGUF inference, compile with: cargo build --features llama-gguf"
-            );
-        }
-
         Ok(Self {
             model_path,
             _context_size: context_size,
             _threads: threads,
-            #[cfg(feature = "llama-gguf")]
             engine_cache: std::sync::Arc::new(tokio::sync::Mutex::new(None)),
         })
     }
 
-    /// Get the best available Qwen model path, probing known locations.
-    ///
-    /// Search order (first existing file wins):
-    /// 1. Workspace models directory — Qwen2.5 abliterated variants
-    /// 2. Workspace models directory — legacy Qwen names
-    /// 3. Relative `./models/` paths (development/CI)
-    /// 4. Parent-relative `../models/` path
-    ///
-    /// Returns the first existing path, or the workspace default path as a
-    /// fallback even if it doesn't exist (so `LLMConfig::gguf_model_path`
-    /// is always populated with a sane value).
-    pub fn default_qwen_path() -> PathBuf {
-        let wp = WorkspacePaths::discover(&WorkspacePathsConfig::new());
-        let locations: Vec<PathBuf> = vec![
-            // Crystallized sovereign models (preferred — domain-specialized)
-            wp.sovereign_model("presenter"),
-            wp.sovereign_model("aligner"),
-            // Foundation model fallback
-            wp.models().join("foundation_v1.gguf"),
-            // Legacy/abliterated variants
-            wp.models().join("qwen2.5-1.5b-instruct-abliterated.gguf"),
-            wp.models().join("qwen2.5-1.5b.gguf"),
-            // Relative paths for CI/development
-            PathBuf::from("./models/qwen2.5-1.5b.gguf"),
-            PathBuf::from("./models/qwen-1.8b.gguf"),
-        ];
-
-        for loc in &locations {
-            if loc.exists() {
-                return loc.clone();
-            }
-        }
-
-        // Default: workspace preferred path (may not exist yet)
-        wp.models().join("qwen2.5-1.5b-instruct-abliterated.gguf")
-    }
-
     /// Generate text from a prompt using the loaded GGUF model.
     ///
-    /// # Feature gating
+    /// # Backend selection
     ///
-    /// - **With `llama-gguf` feature**: uses the pure-Rust `llama-gguf` crate
-    ///   for real model inference. No C library required. The inference runs
-    ///   on `tokio::task::spawn_blocking` since it's CPU-bound and synchronous.
+    /// This always calls the real `local_inference::LocalEngine` — there is
+    /// no mock or degraded fallback path. `local_inference` itself never
+    /// guesses a backend: `llm_gateway` must enable exactly one of its
+    /// `gguf-cpu`, `gguf-cuda`, `gguf-vulkan`, or `gguf-metal` Cargo
+    /// features (each forwarding to the matching `local_inference`
+    /// feature). [`GGUFProvider::new`] checks this eagerly at construction
+    /// via `local_inference::ensure_backend_selected`, and `LocalEngine::load`
+    /// (invoked here, on first call, via the cached-engine path below) checks
+    /// it again — both return a clearly-named error rather than silently
+    /// falling back to CPU or a mock if no backend feature is enabled.
     ///
-    /// - **Without `llama-gguf` feature** (default): returns a structured mock
-    ///   response so the rest of the system continues to work without a model.
+    /// Inference itself runs on `tokio::task::spawn_blocking` since it's
+    /// CPU-bound and synchronous.
     async fn generate_text(&self, prompt: &str, max_tokens: u32) -> Result<String> {
-        #[cfg(feature = "llama-gguf")]
-        {
-            use llama_gguf::engine::{Engine, EngineConfig};
+        use local_inference::{InferenceConfig, LocalEngine};
 
-            let prompt_owned = prompt.to_string();
-            let max_tokens_usize = max_tokens as usize;
+        let prompt_owned = prompt.to_string();
+        let engine_cache = self.engine_cache.clone();
+        let model_path_str = self.model_path.to_string_lossy().to_string();
 
-            // Use the cached engine — load once on first call, reuse for all subsequent calls.
-            // This turns 500ms–3s load cost per call into a one-time startup cost.
-            let engine_cache = self.engine_cache.clone();
-            let model_path_str = self.model_path.to_string_lossy().to_string();
+        let result = tokio::task::spawn_blocking(move || -> Result<String> {
+            let mut guard = engine_cache.blocking_lock();
+            if guard.is_none() {
+                info!("GGUF: loading engine from {} (first call)", model_path_str);
+                let config = InferenceConfig {
+                    model_path: model_path_str.into(),
+                    max_tokens,
+                    temperature: 0.7,
+                    top_p: 0.95,
+                };
+                *guard = Some(
+                    LocalEngine::load(&config)
+                        .map_err(|e| anyhow::anyhow!("Engine::load failed: {:?}", e))?,
+                );
+            }
+            let engine = guard.as_mut().unwrap();
+            engine
+                .generate(&prompt_owned, max_tokens)
+                .map_err(|e| anyhow::anyhow!("generation failed: {:?}", e))
+        })
+        .await
+        .map_err(|e| anyhow::anyhow!("spawn_blocking panicked: {}", e))??;
 
-            let result = tokio::task::spawn_blocking(move || -> Result<String> {
-                // Lock the engine cache. On first call: load the engine.
-                // On subsequent calls: use the already-loaded engine.
-                let mut guard = engine_cache.blocking_lock();
-                if guard.is_none() {
-                    info!(
-                        "GGUF: loading engine from {} (first call — one-time cost)",
-                        model_path_str
-                    );
-                    let config = EngineConfig {
-                        model_path: model_path_str,
-                        temperature: 0.7,
-                        top_p: 0.95,
-                        ..Default::default()
-                    };
-                    *guard = Some(
-                        Engine::load(config)
-                            .map_err(|e| anyhow!("Engine::load failed: {:?}", e))?,
-                    );
-                    info!("GGUF: engine loaded and cached — subsequent calls will be instant");
-                }
-
-                let engine = guard
-                    .as_mut()
-                    .ok_or_else(|| anyhow!("engine cache invariant violated"))?;
-
-                engine
-                    .generate(&prompt_owned, max_tokens_usize)
-                    .map_err(|e| anyhow!("generation failed: {:?}", e))
-            })
-            .await
-            .map_err(|e| anyhow!("spawn_blocking panicked: {}", e))??;
-
-            debug!("GGUF inference complete: {} chars generated", result.len());
-            Ok(result)
-        }
-
-        // Fallback when llama-gguf feature is not enabled
-        #[cfg(not(feature = "llama-gguf"))]
-        {
-            debug!(
-                "GGUF mock (no llama-gguf feature): '{}...' ({} max_tokens)",
-                &prompt[..50.min(prompt.len())],
-                max_tokens
-            );
-
-            // Return a structured response that downstream parsers can still
-            // extract JSON from when available, or identify as a mock.
-            Ok(format!(
-                "GGUF inference disabled (compile with --features llama-gguf \
-                 to enable real model inference). \
-                 Prompt summary: '{}'. Max tokens: {}.",
-                &prompt[..80.min(prompt.len())],
-                max_tokens
-            ))
-        }
+        Ok(result)
     }
 
     fn build_task_analysis_prompt(&self, context: &TaskAnalysisContext) -> String {
@@ -485,13 +413,10 @@ JSON array only:"#,
         })
     }
 
-    async fn embed(&self, text: &str) -> Result<Vec<f32>> {
-        debug!("GGUF: Generating mock embedding (real GGUF embeddings not yet supported)");
-        let mut vec = vec![0.0; 384];
-        if !text.is_empty() {
-            vec[0] = 1.0;
-        }
-        Ok(vec)
+    async fn embed(&self, _text: &str) -> Result<Vec<f32>> {
+        Err(anyhow::anyhow!(
+            "Embedding not natively supported by local_inference yet"
+        ))
     }
 }
 
@@ -519,23 +444,37 @@ fn extract_json_from_response(text: &str) -> Result<String> {
 mod tests {
     use super::*;
 
+    /// With no `gguf-cpu`/`gguf-cuda`/`gguf-vulkan`/`gguf-metal` feature
+    /// enabled on `llm_gateway` (its `default = []`, so an ordinary
+    /// `cargo test -p llm_gateway` exercises exactly this), constructing a
+    /// `GGUFProvider` must fail immediately with a clearly-named
+    /// backend-selection error — never silently succeed, and never wait
+    /// until the first `generate_text()` call to discover the problem.
+    #[cfg(not(any(
+        feature = "gguf-cpu",
+        feature = "gguf-cuda",
+        feature = "gguf-vulkan",
+        feature = "gguf-metal"
+    )))]
+    #[test]
+    fn new_without_backend_feature_fails_with_named_error() {
+        // No filesystem access ever happens: `ensure_backend_selected` is
+        // checked before the model-path existence check, so this
+        // deliberately nonexistent path is never touched.
+        match GGUFProvider::new(PathBuf::from("nonexistent-model.gguf"), 4096, 4) {
+            Ok(_) => panic!("GGUFProvider::new must fail when no backend feature is enabled"),
+            Err(err) => assert!(
+                err.to_string()
+                    .contains("no inference backend feature is enabled"),
+                "expected the named backend-selection error, got: {err}"
+            ),
+        }
+    }
+
     #[test]
     fn test_json_extraction() {
         let text = "Here's the JSON: {\"key\": \"value\"} and some more text";
         let json = extract_json_from_response(text).unwrap();
         assert!(json.contains("key"));
-    }
-
-    #[test]
-    fn test_default_model_path() {
-        let path = GGUFProvider::default_qwen_path();
-        // Returns first existing GGUF; on dev machine the sovereign models are present.
-        // On CI with no models, falls back to the legacy path.
-        let name = path.file_name().unwrap_or_default().to_string_lossy();
-        assert!(
-            name.ends_with(".gguf"),
-            "expected a .gguf path, got: {}",
-            path.display()
-        );
     }
 }

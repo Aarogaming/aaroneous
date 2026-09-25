@@ -38,6 +38,7 @@ members = [
     "crates/compliance_auditor",
     "xtask",
     "benches",
+    "crates/local_inference",
 ]
 
 exclude = [
