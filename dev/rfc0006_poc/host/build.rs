@@ -13,8 +13,15 @@ fn main() {
     let plugins_dir = manifest_dir.join("../plugins");
     println!("cargo:rerun-if-changed={}", plugins_dir.display());
 
+    let plugins_target_dir =
+        PathBuf::from(std::env::var("OUT_DIR").expect("Cargo sets OUT_DIR for build scripts"))
+            .join("plugins-target");
+
     let status = Command::new(env!("CARGO"))
         .arg("build")
+        .arg("--target-dir")
+        .arg(&plugins_target_dir)
+        .env_remove("CARGO_TARGET_DIR")
         .current_dir(&plugins_dir)
         .status()
         .expect("failed to invoke `cargo build` for the RFC-0006 PoC plugins workspace");
@@ -22,5 +29,10 @@ fn main() {
         status.success(),
         "RFC-0006 PoC plugins workspace failed to build; run `cargo build` in {} directly to see the error",
         plugins_dir.display()
+    );
+
+    println!(
+        "cargo:rustc-env=RFC0006_PLUGINS_TARGET_DIR={}",
+        plugins_target_dir.join("debug").display()
     );
 }

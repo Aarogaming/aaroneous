@@ -13,9 +13,7 @@ pub fn plugin_path(crate_name: &str) -> PathBuf {
         std::env::consts::DLL_PREFIX,
         std::env::consts::DLL_SUFFIX
     );
-    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../plugins/target/debug")
-        .join(filename);
+    let path = PathBuf::from(env!("RFC0006_PLUGINS_TARGET_DIR")).join(filename);
     assert!(
         path.exists(),
         "expected plugin fixture built at {} - host's build.rs should have built \
