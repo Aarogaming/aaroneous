@@ -29,7 +29,7 @@ pub struct GGUFProvider {
     /// The Mutex is needed because `Engine::generate()` likely takes &mut self
     /// (inference modifies the KV cache state).
     #[cfg(feature = "llama-gguf")]
-    engine_cache: std::sync::Arc<tokio::sync::Mutex<Option<llama_gguf::engine::Engine>>>,
+    engine_cache: std::sync::Arc<tokio::sync::Mutex<Option<local_inference::LocalEngine>>>,
 }
 
 impl GGUFProvider {
@@ -112,11 +112,10 @@ impl GGUFProvider {
     async fn generate_text(&self, prompt: &str, max_tokens: u32) -> Result<String> {
         #[cfg(feature = "llama-gguf")]
         {
-            use llama_gguf::engine::{Engine, EngineConfig};
+            use local_inference::{LocalEngine, InferenceConfig};
 
             let prompt_owned = prompt.to_string();
-            let max_tokens_usize = max_tokens as usize;
-
+            
             // Use the cached engine — load once on first call, reuse for all subsequent calls.
             // This turns 500ms–3s load cost per call into a one-time startup cost.
             let engine_cache = self.engine_cache.clone();
@@ -131,14 +130,9 @@ impl GGUFProvider {
                         "GGUF: loading engine from {} (first call — one-time cost)",
                         model_path_str
                     );
-                    let config = EngineConfig {
-                        model_path: model_path_str,
-                        temperature: 0.7,
-                        top_p: 0.95,
-                        ..Default::default()
-                    };
+                    let config = InferenceConfig { model_path: model_path_str.into(), max_tokens: max_tokens, temperature: 0.7, top_p: 0.95 };
                     *guard = Some(
-                        Engine::load(config)
+                        LocalEngine::load(&config)
                             .map_err(|e| anyhow!("Engine::load failed: {:?}", e))?,
                     );
                     info!("GGUF: engine loaded and cached — subsequent calls will be instant");
@@ -149,7 +143,7 @@ impl GGUFProvider {
                     .ok_or_else(|| anyhow!("engine cache invariant violated"))?;
 
                 engine
-                    .generate(&prompt_owned, max_tokens_usize)
+                    .generate(&prompt_owned, max_tokens)
                     .map_err(|e| anyhow!("generation failed: {:?}", e))
             })
             .await
@@ -539,3 +533,6 @@ mod tests {
         );
     }
 }
+
+
+

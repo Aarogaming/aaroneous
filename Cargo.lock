@@ -4784,7 +4784,7 @@ dependencies = [
  "async-trait",
  "dirs",
  "ipc_bus",
- "llama-gguf",
+ "local_inference",
  "moka",
  "parking_lot",
  "paths",
@@ -4796,6 +4796,15 @@ dependencies = [
  "tracing",
  "transpiler",
  "which 5.0.0",
+]
+
+[[package]]
+name = "local_inference"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "llama-gguf",
+ "tracing",
 ]
 
 [[package]]
