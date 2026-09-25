@@ -57,8 +57,6 @@ dev/archive/logs/
 
 # Historical Agent & Sandbox targets
 docs/history/agents/**/target/
-data/fabrication/**/target/
-data/fabrication/**
 
 # Python & Node artifacts
 node_modules/
