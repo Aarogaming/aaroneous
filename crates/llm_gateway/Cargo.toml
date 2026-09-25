@@ -27,8 +27,9 @@ parking_lot = "0.12"
 which = "5.0"
 moka = { version = "0.12", features = ["future"] }
 reqwest = { version = "0.13", default-features = false, features = ["json", "stream", "rustls"] }
-llama-gguf = { version = "0.14", optional = true, default-features = false, features = ["cpu"] }
+local_inference = { path = "../local_inference" }
 
 [features]
 default = []
-llama-gguf = ["dep:llama-gguf"]
+
+

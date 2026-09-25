@@ -109,34 +109,12 @@ impl LLMClient {
                 Arc::new(providers::LocalLLMProvider::new(endpoint, model).await?)
             }
             ProviderType::GGUF => {
-                let model_path = if let Some(path) = config.gguf_model_path.clone() {
-                    // Use explicitly configured path
-                    path
-                } else {
-                    // Auto-discover best available model
-                    info!("Auto-discovering available GGUF models...");
-                    match auto_discover::get_recommended_model_for_llm().await {
-                        Ok(Some(model)) => {
-                            info!(
-                                "Auto-discovered model: {} ({})",
-                                model.name, model.model_type
-                            );
-                            model.path
-                        }
-                        Ok(None) => {
-                            warn!(
-                                "No GGUF models found during auto-discovery, using default Qwen path"
-                            );
-                            GGUFProvider::default_qwen_path()
-                        }
-                        Err(e) => {
-                            warn!("Auto-discovery error: {}, using default Qwen path", e);
-                            GGUFProvider::default_qwen_path()
-                        }
-                    }
-                };
+                let model_path = config
+                    .gguf_model_path
+                    .clone()
+                    .unwrap_or_else(|| std::path::PathBuf::from("models/qwen2.5-1.5b.gguf"));
 
-                Arc::new(GGUFProvider::new(model_path, 2048, 8)?)
+                std::sync::Arc::new(GGUFProvider::new(model_path, 2048, 8)?)
             }
             ProviderType::Mock => Arc::new(MockProvider),
         };

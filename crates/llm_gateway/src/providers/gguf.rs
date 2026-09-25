@@ -8,8 +8,6 @@ use async_trait::async_trait;
 use paths::{WorkspacePaths, WorkspacePathsConfig};
 use std::path::PathBuf;
 use tracing::{debug, info, warn};
-
-#[cfg_attr(not(feature = "llama-gguf"), allow(dead_code))]
 pub struct GGUFProvider {
     model_path: PathBuf,
     _context_size: u32,
@@ -28,8 +26,7 @@ pub struct GGUFProvider {
     ///
     /// The Mutex is needed because `Engine::generate()` likely takes &mut self
     /// (inference modifies the KV cache state).
-    #[cfg(feature = "llama-gguf")]
-    engine_cache: std::sync::Arc<tokio::sync::Mutex<Option<llama_gguf::engine::Engine>>>,
+    engine_cache: std::sync::Arc<tokio::sync::Mutex<Option<local_inference::LocalEngine>>>,
 }
 
 impl GGUFProvider {
@@ -45,19 +42,10 @@ impl GGUFProvider {
             std::fs::metadata(&model_path)?.len() / 1024
         );
 
-        #[cfg(not(feature = "llama-gguf"))]
-        {
-            warn!(
-                "GGUF provider initialized without 'llama-gguf' feature. Real inference is disabled. \
-                 To enable real local GGUF inference, compile with: cargo build --features llama-gguf"
-            );
-        }
-
         Ok(Self {
             model_path,
             _context_size: context_size,
             _threads: threads,
-            #[cfg(feature = "llama-gguf")]
             engine_cache: std::sync::Arc::new(tokio::sync::Mutex::new(None)),
         })
     }
@@ -73,27 +61,7 @@ impl GGUFProvider {
     /// Returns the first existing path, or the workspace default path as a
     /// fallback even if it doesn't exist (so `LLMConfig::gguf_model_path`
     /// is always populated with a sane value).
-    pub fn default_qwen_path() -> PathBuf {
-        let wp = WorkspacePaths::discover(&WorkspacePathsConfig::new());
-        let locations: Vec<PathBuf> = vec![
-            // Crystallized sovereign models (preferred — domain-specialized)
-            wp.sovereign_model("presenter"),
-            wp.sovereign_model("aligner"),
-            // Foundation model fallback
-            wp.models().join("foundation_v1.gguf"),
-            // Legacy/abliterated variants
-            wp.models().join("qwen2.5-1.5b-instruct-abliterated.gguf"),
-            wp.models().join("qwen2.5-1.5b.gguf"),
-            // Relative paths for CI/development
-            PathBuf::from("./models/qwen2.5-1.5b.gguf"),
-            PathBuf::from("./models/qwen-1.8b.gguf"),
-        ];
 
-        for loc in &locations {
-            if loc.exists() {
-                return loc.clone();
-            }
-        }
 
         // Default: workspace preferred path (may not exist yet)
         wp.models().join("qwen2.5-1.5b-instruct-abliterated.gguf")
@@ -110,74 +78,24 @@ impl GGUFProvider {
     /// - **Without `llama-gguf` feature** (default): returns a structured mock
     ///   response so the rest of the system continues to work without a model.
     async fn generate_text(&self, prompt: &str, max_tokens: u32) -> Result<String> {
-        #[cfg(feature = "llama-gguf")]
-        {
-            use llama_gguf::engine::{Engine, EngineConfig};
+        use local_inference::{LocalEngine, InferenceConfig};
 
-            let prompt_owned = prompt.to_string();
-            let max_tokens_usize = max_tokens as usize;
+        let prompt_owned = prompt.to_string();
+        let engine_cache = self.engine_cache.clone();
+        let model_path_str = self.model_path.to_string_lossy().to_string();
 
-            // Use the cached engine — load once on first call, reuse for all subsequent calls.
-            // This turns 500ms–3s load cost per call into a one-time startup cost.
-            let engine_cache = self.engine_cache.clone();
-            let model_path_str = self.model_path.to_string_lossy().to_string();
+        let result = tokio::task::spawn_blocking(move || -> Result<String> {
+            let mut guard = engine_cache.blocking_lock();
+            if guard.is_none() {
+                info!("GGUF: loading engine from {} (first call)", model_path_str);
+                let config = InferenceConfig { model_path: model_path_str.into(), max_tokens: max_tokens, temperature: 0.7, top_p: 0.95 };
+                *guard = Some(LocalEngine::load(&config).map_err(|e| anyhow::anyhow!("Engine::load failed: {:?}", e))?);
+            }
+            let engine = guard.as_mut().unwrap();
+            engine.generate(&prompt_owned, max_tokens).map_err(|e| anyhow::anyhow!("generation failed: {:?}", e))
+        }).await.map_err(|e| anyhow::anyhow!("spawn_blocking panicked: {}", e))??;
 
-            let result = tokio::task::spawn_blocking(move || -> Result<String> {
-                // Lock the engine cache. On first call: load the engine.
-                // On subsequent calls: use the already-loaded engine.
-                let mut guard = engine_cache.blocking_lock();
-                if guard.is_none() {
-                    info!(
-                        "GGUF: loading engine from {} (first call — one-time cost)",
-                        model_path_str
-                    );
-                    let config = EngineConfig {
-                        model_path: model_path_str,
-                        temperature: 0.7,
-                        top_p: 0.95,
-                        ..Default::default()
-                    };
-                    *guard = Some(
-                        Engine::load(config)
-                            .map_err(|e| anyhow!("Engine::load failed: {:?}", e))?,
-                    );
-                    info!("GGUF: engine loaded and cached — subsequent calls will be instant");
-                }
-
-                let engine = guard
-                    .as_mut()
-                    .ok_or_else(|| anyhow!("engine cache invariant violated"))?;
-
-                engine
-                    .generate(&prompt_owned, max_tokens_usize)
-                    .map_err(|e| anyhow!("generation failed: {:?}", e))
-            })
-            .await
-            .map_err(|e| anyhow!("spawn_blocking panicked: {}", e))??;
-
-            debug!("GGUF inference complete: {} chars generated", result.len());
-            Ok(result)
-        }
-
-        // Fallback when llama-gguf feature is not enabled
-        #[cfg(not(feature = "llama-gguf"))]
-        {
-            debug!(
-                "GGUF mock (no llama-gguf feature): '{}...' ({} max_tokens)",
-                &prompt[..50.min(prompt.len())],
-                max_tokens
-            );
-
-            // Return a structured response that downstream parsers can still
-            // extract JSON from when available, or identify as a mock.
-            Ok(format!(
-                "GGUF inference disabled (compile with --features llama-gguf \
-                 to enable real model inference). \
-                 Prompt summary: '{}'. Max tokens: {}.",
-                &prompt[..80.min(prompt.len())],
-                max_tokens
-            ))
-        }
+        Ok(result)
     }
 
     fn build_task_analysis_prompt(&self, context: &TaskAnalysisContext) -> String {
@@ -485,13 +403,8 @@ JSON array only:"#,
         })
     }
 
-    async fn embed(&self, text: &str) -> Result<Vec<f32>> {
-        debug!("GGUF: Generating mock embedding (real GGUF embeddings not yet supported)");
-        let mut vec = vec![0.0; 384];
-        if !text.is_empty() {
-            vec[0] = 1.0;
-        }
-        Ok(vec)
+    async fn embed(&self, _text: &str) -> Result<Vec<f32>> {
+        Err(anyhow::anyhow!("Embedding not natively supported by local_inference yet"))
     }
 }
 
@@ -525,17 +438,7 @@ mod tests {
         let json = extract_json_from_response(text).unwrap();
         assert!(json.contains("key"));
     }
-
-    #[test]
-    fn test_default_model_path() {
-        let path = GGUFProvider::default_qwen_path();
-        // Returns first existing GGUF; on dev machine the sovereign models are present.
-        // On CI with no models, falls back to the legacy path.
-        let name = path.file_name().unwrap_or_default().to_string_lossy();
-        assert!(
-            name.ends_with(".gguf"),
-            "expected a .gguf path, got: {}",
-            path.display()
-        );
-    }
 }
+
+
+

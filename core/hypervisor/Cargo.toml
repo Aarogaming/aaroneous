@@ -127,7 +127,7 @@ anyhow = "1.0"
 [features]
 default = []
 # Local LLM inference support via llama.cpp GGUF format
-llama-gguf = ["dep:llama-gguf", "llm_gateway/llama-gguf"]
+
 # GPU telemetry via NVIDIA Management Library
 gpu-metrics = ["dep:nvml-wrapper"]
 # P2P mesh via Iroh QUIC transport / Fleet Federation
@@ -145,3 +145,5 @@ unexpected_cfgs = "allow"
 
 # Allow ambient_authority lint during security remediation phase
 unknown_lints = "allow"
+
+
