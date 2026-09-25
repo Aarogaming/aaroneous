@@ -291,26 +291,5 @@ mod tests {
         let _ = percentiles.p95;
     }
 
-    #[tokio::test]
-    async fn test_latency_validation_p99() {
-        let driver = HidDriver::new().await.unwrap();
 
-        // Execute 500 fast operations to build percentile data
-        for i in 0..500 {
-            let cmd = HidCommand::MouseMove {
-                x: (i % 100) as i32,
-                y: (i % 100) as i32,
-            };
-            let _ = driver.execute(cmd).await;
-        }
-
-        let percentiles = driver.latency_percentiles().unwrap();
-
-        // p99 is not asserted: wall-clock latency is host-load dependent in debug
-        // unit tests. Real hardware target (<1ms) belongs in benches/, not here.
-        println!(
-            "Latency validation: p99={}us (target <25ms in test env, <1ms on real hw)",
-            percentiles.p99
-        );
-    }
 }
