@@ -1,6 +1,5 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::time::{SystemTime, UNIX_EPOCH};
 
 /// Authentication provider trait
 #[async_trait::async_trait]
@@ -35,11 +34,7 @@ pub struct AuthToken {
 impl AuthToken {
     /// Check if token is expired
     pub fn is_expired(&self) -> bool {
-        let now = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_millis() as i64;
-        now > self.expires_at
+        chrono::Utc::now().timestamp_millis() > self.expires_at
     }
 
     /// Check if token has required scope
@@ -63,9 +58,8 @@ struct ApiKeyInfo {
 
 fn hash_key(key: &str) -> String {
     use sha2::Digest;
-    let mut hasher = sha2::Sha256::new();
-    hasher.update(key.as_bytes());
-    hex::encode(hasher.finalize())
+    let digest = sha2::Sha256::digest(key.as_bytes());
+    hex::encode(digest)
 }
 
 impl ApiKeyAuth {

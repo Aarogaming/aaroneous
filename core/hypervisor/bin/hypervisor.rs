@@ -2130,15 +2130,15 @@ async fn run_mcp_pipeline(host: &str, port: u16) -> Result<()> {
         .parse()
         .map_err(|e| anyhow::anyhow!("Invalid MCP server address '{}': {}", addr_str, e))?;
 
-    let config = hypervisor::mcp_service::ServiceConfig {
+    let config = mcp_server::mcp_service::ServiceConfig {
         http_addr: addr,
         ..Default::default()
     };
 
-    let service = Arc::new(hypervisor::mcp_service::McpService::new(config));
+    let service = Arc::new(mcp_server::mcp_service::McpService::new(config));
     service.register_sovereign_tools().await;
-    let mcp_cfg = hypervisor::mcp_service::http_api::McpServiceConfig::default();
-    let server = hypervisor::mcp_service::http_api::HttpServer::new(addr, mcp_cfg);
+    let mcp_cfg = mcp_server::mcp_service::http_api::McpServiceConfig::default();
+    let server = mcp_server::mcp_service::http_api::HttpServer::new(addr, mcp_cfg);
 
     println!("=================================================================");
     println!(" 🪐 AARONEOUS SOVEREIGN MCP SERVER (JSON-RPC 2.0 + SSE)");

@@ -1,224 +1,45 @@
-// src/mcp_server/src/mcp_service/service.rs - Stub implementation
-
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
+use std::collections::HashMap;
+/// Aaroneous MCP Service — Anthropic Model Context Protocol server.
+///
+/// Implements the MCP 2024-11 specification (JSON-RPC 2.0 over HTTP+SSE).
+/// This makes every sovereign specialist available as an MCP tool to:
+///   - Claude Desktop (Settings → Developer → MCP Servers)
+///   - Cursor IDE (Settings → Features → Model Context Protocol)
+///   - VS Code with Copilot (via MCP extension)
+///   - Any MCP-compatible client
+///
+/// Wire format: JSON-RPC 2.0
+/// Transport: HTTP POST (requests) + GET SSE (server-initiated notifications)
+/// Port: 8766 (separate from the REST API on 8765)
+///
+/// # Tool mapping
+///
+/// Each sovereign becomes an MCP tool:
+///
+/// | Tool name      | Description                              | Input schema             |
+/// |----------------|------------------------------------------|--------------------------|
+/// | ask_synthesizer | Research and knowledge synthesis         | {query: string}          |
+/// | ask_orchestrator | Task decomposition and planning          | {intent: string}         |
+/// | ask_presenter   | UI/UX design generation                  | {intent: string}         |
+/// | ask_sentinel    | Security audit and vulnerability scan    | {target: string}         |
+/// | ask_aligner     | Human state classification from context  | {context: string}        |
+/// | ask_fabricator  | Build and fabrication planning           | {task: string}           |
+/// | submit_intent  | Submit to the full sovereign hive        | {content: string}        |
+/// | get_results    | Retrieve recent execution results        | {}                       |
+/// | get_specialists| List all active specialists and state    | {}                       |
 use std::sync::Arc;
-use std::sync::atomic::{AtomicU64, Ordering};
 use tokio::sync::RwLock;
+use tracing::{debug, info};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ServiceConfig {
-    pub listen_addr: String,
-    pub max_connections: usize,
-}
+use crate::mcp_service::backend::IntentBackend;
+use crate::mcp_service::{CapabilityDomain, ServiceConfig};
+use paths::WorkspacePathsConfig;
 
-impl Default for ServiceConfig {
-    fn default() -> Self {
-        Self {
-            listen_addr: "127.0.0.1:8080".to_string(),
-            max_connections: 100,
-        }
-    }
-}
+pub const DEFAULT_CODE_READ_LIMIT_LINES: u64 = 200;
+pub const DEFAULT_SEARCH_MAX_MATCHES: u64 = 20;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct McpTool {
-    pub name: String,
-    pub description: String,
-    pub input_schema: serde_json::Value,
-}
-
-impl McpTool {
-    pub fn new(
-        name: &str,
-        description: &str,
-        props: serde_json::Value,
-        required: Vec<&str>,
-    ) -> Self {
-        Self {
-            name: name.into(),
-            description: description.into(),
-            input_schema: serde_json::json!({ "type": "object", "properties": props, "required": required }),
-        }
-    }
-}
-
-pub struct McpService {
-    pub config: ServiceConfig,
-    pub tools: Arc<RwLock<Vec<McpTool>>>,
-    pub capability_broker: Arc<crate::capability_broker::CapabilityBroker>,
-    pub request_count: Arc<AtomicU64>,
-    pub workspace_root: PathBuf,
-    started_at: std::time::Instant,
-}
-
-impl Default for McpService {
-    fn default() -> Self {
-        Self::new(ServiceConfig::default())
-    }
-}
-
-impl McpService {
-    pub fn new(config: ServiceConfig) -> Self {
-        Self::with_workspace_root(config, PathBuf::from("."))
-    }
-
-    pub fn with_workspace_root(config: ServiceConfig, workspace_root: PathBuf) -> Self {
-        Self {
-            config,
-            tools: Arc::new(RwLock::new(Vec::new())),
-            capability_broker: Arc::new(crate::capability_broker::CapabilityBroker::new()),
-            request_count: Arc::new(AtomicU64::new(0)),
-            workspace_root,
-            started_at: std::time::Instant::now(),
-        }
-    }
-
-    pub async fn register_tool(&self, tool: McpTool) {
-        let mut tools = self.tools.write().await;
-        tools.push(tool);
-    }
-
-    /// Register standard workspace tooling into the MCP service.
-    pub async fn register_standard_tools(&self) {
-        for desc in self.capability_broker.list_tools() {
-            self.register_tool(McpTool {
-                name: desc.name,
-                description: desc.description,
-                input_schema: desc.parameters_schema,
-            })
-            .await;
-        }
-    }
-
-    pub async fn list_tools(&self) -> Vec<McpTool> {
-        self.tools.read().await.clone()
-    }
-
-    pub fn increment_request(&self) {
-        self.request_count.fetch_add(1, Ordering::SeqCst);
-    }
-
-    /// Get elapsed uptime in seconds
-    pub fn uptime_secs(&self) -> u64 {
-        self.started_at.elapsed().as_secs()
-    }
-
-    /// Get current request count
-    pub fn request_count(&self) -> u64 {
-        self.request_count.load(Ordering::SeqCst)
-    }
-
-    /// Get LLM provider status
-    pub fn llm_provider_status(&self) -> serde_json::Value {
-        serde_json::json!({
-            "status": "unavailable",
-            "feature_available": false,
-        })
-    }
-
-    pub fn workspace_root(&self) -> &PathBuf {
-        &self.workspace_root
-    }
-
-    /// Handle JSON-RPC request adhering to Model Context Protocol (MCP) 2024-11-05
-    pub async fn handle_jsonrpc(&self, request: serde_json::Value) -> JsonRpcResponse {
-        self.increment_request();
-        let id = request.get("id").cloned();
-        let method = match request.get("method").and_then(|m| m.as_str()) {
-            Some(m) => m,
-            None => return JsonRpcResponse::err(id, -32600, "Invalid Request: missing method"),
-        };
-
-        match method {
-            "initialize" => JsonRpcResponse::success(
-                id,
-                serde_json::json!({
-                    "protocolVersion": "2024-11-05",
-                    "capabilities": {
-                        "tools": { "listChanged": false }
-                    },
-                    "serverInfo": {
-                        "name": "aaroneous-mcp",
-                        "version": env!("CARGO_PKG_VERSION")
-                    }
-                }),
-            ),
-            "ping" => JsonRpcResponse::success(id, serde_json::json!({ "status": "pong" })),
-            "tools/list" => {
-                let descriptors = self.capability_broker.list_tools();
-                let tool_list: Vec<serde_json::Value> = descriptors
-                    .into_iter()
-                    .map(|d| {
-                        serde_json::json!({
-                            "name": d.name,
-                            "description": d.description,
-                            "inputSchema": d.parameters_schema,
-                        })
-                    })
-                    .collect();
-                JsonRpcResponse::success(id, serde_json::json!({ "tools": tool_list }))
-            }
-            "tools/call" => {
-                let params = match request.get("params") {
-                    Some(p) => p,
-                    None => {
-                        return JsonRpcResponse::err(
-                            id,
-                            -32602,
-                            "Invalid params: params object missing",
-                        );
-                    }
-                };
-                let tool_name = match params.get("name").and_then(|n| n.as_str()) {
-                    Some(n) => n,
-                    None => {
-                        return JsonRpcResponse::err(
-                            id,
-                            -32602,
-                            "Invalid params: missing tool name",
-                        );
-                    }
-                };
-                let arguments = params
-                    .get("arguments")
-                    .cloned()
-                    .unwrap_or_else(|| serde_json::json!({}));
-
-                let outcome = self
-                    .capability_broker
-                    .execute_tool(tool_name, arguments)
-                    .await;
-                if outcome.success {
-                    JsonRpcResponse::success(
-                        id,
-                        serde_json::json!({
-                            "content": [{
-                                "type": "text",
-                                "text": serde_json::to_string_pretty(&outcome.payload).unwrap_or_default(),
-                            }],
-                            "isError": false,
-                            "_meta": { "latency_us": outcome.latency_us }
-                        }),
-                    )
-                } else {
-                    JsonRpcResponse::success(
-                        id,
-                        serde_json::json!({
-                            "content": [{
-                                "type": "text",
-                                "text": outcome.error.unwrap_or_else(|| "Tool execution failed".to_string()),
-                            }],
-                            "isError": true,
-                            "_meta": { "latency_us": outcome.latency_us }
-                        }),
-                    )
-                }
-            }
-            _ => JsonRpcResponse::err(id, -32601, &format!("Method not found: {}", method)),
-        }
-    }
-}
+// ── JSON-RPC 2.0 types ────────────────────────────────────────────────────────
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct JsonRpcRequest {
@@ -233,111 +54,1421 @@ pub struct JsonRpcRequest {
 pub struct JsonRpcResponse {
     pub jsonrpc: String,
     pub id: Option<serde_json::Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub result: Option<serde_json::Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub error: Option<serde_json::Value>,
+    pub error: Option<JsonRpcError>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct JsonRpcError {
+    pub code: i32,
+    pub message: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub data: Option<serde_json::Value>,
 }
 
 impl JsonRpcResponse {
-    /// Create a successful response
-    pub fn success(id: Option<serde_json::Value>, result: serde_json::Value) -> Self {
+    pub fn ok(id: Option<serde_json::Value>, result: serde_json::Value) -> Self {
         Self {
-            jsonrpc: "2.0".to_string(),
+            jsonrpc: "2.0".into(),
             id,
             result: Some(result),
             error: None,
         }
     }
-
-    /// Create an error response
     pub fn err(id: Option<serde_json::Value>, code: i32, message: &str) -> Self {
         Self {
-            jsonrpc: "2.0".to_string(),
+            jsonrpc: "2.0".into(),
             id,
             result: None,
-            error: Some(serde_json::json!({ "code": code, "message": message })),
+            error: Some(JsonRpcError {
+                code,
+                message: message.into(),
+                data: None,
+            }),
         }
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct ServiceStats {
-    pub total_requests: u64,
-    pub successful_requests: u64,
-    pub failed_requests: u64,
+// ── MCP Tool definitions ──────────────────────────────────────────────────────
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct McpTool {
+    pub name: String,
+    pub description: String,
+    #[serde(rename = "inputSchema")]
+    pub input_schema: serde_json::Value,
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+impl McpTool {
+    pub fn new(
+        name: &str,
+        description: &str,
+        props: serde_json::Value,
+        required: Vec<&str>,
+    ) -> Self {
+        Self {
+            name: name.into(),
+            description: description.into(),
+            input_schema: serde_json::json!({
+                "type": "object",
+                "properties": props,
+                "required": required,
+            }),
+        }
+    }
+}
 
-    #[tokio::test]
-    async fn test_register_tool() {
-        let service = McpService::new(ServiceConfig::default());
-        let tool = McpTool::new("test", "A test", serde_json::json!({}), vec!["arg"]);
-        service.register_tool(tool).await;
-        let tools = service.list_tools().await;
-        assert_eq!(tools.len(), 1);
+// ── McpService ────────────────────────────────────────────────────────────────
+
+pub struct McpService {
+    pub config: ServiceConfig,
+    /// Everything this service needs from the running sovereign hive, behind
+    /// the `IntentBackend` trait rather than a concrete `Federation` — see
+    /// `mcp_service::backend`'s module docs for why.
+    pub backend: Option<Arc<dyn IntentBackend>>,
+    pub tools: Arc<RwLock<Vec<McpTool>>>,
+    pub domains: Arc<RwLock<HashMap<String, CapabilityDomain>>>,
+    pub started_at: std::time::Instant,
+    pub request_count: Arc<std::sync::atomic::AtomicU64>,
+    /// Per-session conversation context for multi-turn MCP tool calls.
+    pub sessions: Arc<RwLock<HashMap<String, Vec<String>>>>,
+    /// Universal tool registry bridging Cloud, LLMs, and native .si models
+    pub universal_tools: Arc<specialists::ToolRegistry>,
+    /// Workspace root for file tools (read_code, search_code, list_files).
+    /// Injected via `WorkspacePathsConfig` or builder method `with_workspace_root`.
+    pub workspace_root: std::path::PathBuf,
+}
+
+impl McpService {
+    pub fn new(config: ServiceConfig) -> Self {
+        // Discover workspace root at startup — dynamically resolved via paths
+        let workspace_root = paths::WorkspacePaths::from_config(WorkspacePathsConfig::default())
+            .root()
+            .clone();
+
+        tracing::info!("MCP workspace root: {}", workspace_root.display());
+
+        let universal_tools = Arc::new(specialists::build_standard_tool_registry());
+
+        Self {
+            config,
+            backend: None,
+            tools: Arc::new(RwLock::new(Vec::new())),
+            domains: Arc::new(RwLock::new(HashMap::new())),
+            started_at: std::time::Instant::now(),
+            request_count: Arc::new(std::sync::atomic::AtomicU64::new(0)),
+            sessions: Arc::new(RwLock::new(HashMap::new())),
+            universal_tools,
+            workspace_root,
+        }
     }
 
-    #[tokio::test]
-    async fn test_register_standard_tools() {
-        let service = McpService::new(ServiceConfig::default());
-        service.register_standard_tools().await;
-        let tools = service.list_tools().await;
-        assert!(!tools.is_empty());
-        assert!(tools.iter().any(|t| t.name == "security.audit"));
-        assert!(tools.iter().any(|t| t.name == "review.audit_source"));
+    /// Builder method for explicit constructor injection of the workspace root.
+    pub fn with_workspace_root(mut self, root: std::path::PathBuf) -> Self {
+        self.workspace_root = root;
+        self
     }
 
-    #[tokio::test]
-    async fn test_jsonrpc_dispatch_lifecycle() {
-        let service = McpService::new(ServiceConfig::default());
+    /// Attach the running system's `IntentBackend` (e.g. hypervisor's own
+    /// `Federation` adapter, coerced from `Arc<Federation>` automatically at
+    /// the call site since `Federation: IntentBackend`) so tools can call
+    /// live sovereigns, or a test double.
+    pub fn with_backend(mut self, backend: Arc<dyn IntentBackend>) -> Self {
+        self.backend = Some(backend);
+        self
+    }
 
-        // 1. Initialize
-        let init_req = serde_json::json!({
-            "jsonrpc": "2.0",
-            "id": 1,
-            "method": "initialize",
-            "params": {}
-        });
-        let init_resp = service.handle_jsonrpc(init_req).await;
-        assert!(init_resp.error.is_none());
-        assert_eq!(
-            init_resp.result.unwrap()["serverInfo"]["name"],
-            "aaroneous-mcp"
-        );
+    /// Report LLM provider status for the /health endpoint.
+    pub fn llm_provider_status(&self) -> serde_json::Value {
+        let gguf_compiled = cfg!(feature = "llama-gguf");
+        serde_json::json!({
+            "llama_gguf_feature": gguf_compiled,
+            "inference_available": gguf_compiled,
+        })
+    }
 
-        // 2. Tools list
-        let list_req = serde_json::json!({
-            "jsonrpc": "2.0",
-            "id": 2,
-            "method": "tools/list",
-            "params": {}
-        });
-        let list_resp = service.handle_jsonrpc(list_req).await;
-        assert!(list_resp.error.is_none());
-        let tools_val = &list_resp.result.unwrap()["tools"];
-        assert!(tools_val.as_array().unwrap().len() >= 5);
+    /// Register all sovereign specialists as MCP tools.
+    ///
+    /// Called once at startup after federation is attached.
+    pub async fn register_sovereign_tools(&self) {
+        let mut tools = self.tools.write().await;
+        tools.clear();
 
-        // 3. Tools call
-        let call_req = serde_json::json!({
-            "jsonrpc": "2.0",
-            "id": 3,
-            "method": "tools/call",
-            "params": {
-                "name": "knowledge.semantic_query",
-                "arguments": { "query": "hypervisor" }
+        // Core tools — one per sovereign
+        tools.push(McpTool::new("ask_synthesizer",
+            "Research, knowledge synthesis, and factual queries. \
+             Synthesizer bridges Aaroneous to external knowledge. \
+             Use for: research summaries, fact-checking, topic synthesis.",
+            serde_json::json!({ "query": { "type": "string", "description": "Research query or topic to investigate" } }),
+            vec!["query"],
+        ));
+        tools.push(McpTool::new("ask_orchestrator",
+            "Task decomposition and guild coordination. \
+             Orchestrator breaks complex intents into sovereign task graphs. \
+             Use for: planning, dependency identification, multi-step workflows.",
+            serde_json::json!({ "intent": { "type": "string", "description": "Complex intent to decompose into tasks" } }),
+            vec!["intent"],
+        ));
+        tools.push(McpTool::new("ask_presenter",
+            "UI/UX design generation and Maelstrom spatial visualization. \
+             Presenter produces structured design variants with colors, typography, layouts. \
+             Use for: interface design, visual hierarchy, design system decisions.",
+            serde_json::json!({ "intent": { "type": "string", "description": "Design intent or UI requirement" } }),
+            vec!["intent"],
+        ));
+        tools.push(McpTool::new("ask_sentinel",
+            "Security audit, vulnerability scanning, and adversarial analysis. \
+             Sentinel sees all threats. Abliterated — no refusals on security topics. \
+             Use for: code audits, CVE analysis, threat modelling, secrets scanning.",
+            serde_json::json!({ "target": { "type": "string", "description": "Code, system, or configuration to audit" } }),
+            vec!["target"],
+        ));
+        tools.push(McpTool::new("ask_aligner",
+            "Human state classification and biometric-adaptive responses. \
+             Aligner reads context and adapts hive behavior to the human's current capacity. \
+             Use for: stress detection, focus assessment, interruption policy.",
+            serde_json::json!({ "context": { "type": "string", "description": "Human state context or biometric readings" } }),
+            vec!["context"],
+        ));
+        tools.push(McpTool::new("ask_fabricator",
+            "Build automation, fabrication planning, and infrastructure maintenance. \
+             Fabricator keeps the forge running. \
+             Use for: build scripts, deployment plans, dependency management, CI/CD.",
+            serde_json::json!({ "task": { "type": "string", "description": "Build or fabrication task to plan" } }),
+            vec!["task"],
+        ));
+        tools.push(McpTool::new("signal_wasms",
+            "Emit a signal to all active WASM agents in the Aaroneous runtime. \
+             Use this to coordinate between Python shards and low-level agent logic.",
+            serde_json::json!({
+                "signal_type": { "type": "string", "description": "Discriminator for the signal (e.g. 'RECALIBRATE')" },
+                "payload": { "type": "object", "description": "JSON payload to pass to WASM perception" }
+            }),
+            vec!["signal_type", "payload"],
+        ));
+        tools.push(McpTool::new("memory_sync",
+            "Synchronize or retrieve distributed memory entries for a specialist shard. \
+             Use this to share context between Python Shards and the Rust Core.",
+            serde_json::json!({
+                "shard_name": { "type": "string", "description": "Name of the shard syncing memory" },
+                "action": { "type": "string", "enum": ["push", "pull", "list"], "description": "Sync action to perform" },
+                "entries": { "type": "array", "description": "Entries to push (for 'push' action)", "items": { "type": "object" } }
+            }),
+            vec!["shard_name", "action"],
+        ));
+        tools.push(McpTool::new(
+            "federated_task_dispatch",
+            "Dispatch a task to the federated guild. \
+             Use this for complex orchestration tasks that require multi-sovereign coordination.",
+            serde_json::json!({
+                "task_id": { "type": "string", "description": "Unique task identifier" },
+                "instruction": { "type": "string", "description": "High-level task instruction" },
+                "priority": { "type": "string", "enum": ["high", "medium", "low"] }
+            }),
+            vec!["task_id", "instruction"],
+        ));
+        tools.push(McpTool::new("ask_router",
+            "P2P mesh sync, CRDT conflict resolution, multi-device state coordination. \
+             Router is always in motion — makes the hive feel like one thing. \
+             Use for: sync conflicts, device coordination, state consistency.",
+            serde_json::json!({ "scenario": { "type": "string", "description": "Sync scenario or conflict to resolve" } }),
+            vec!["scenario"],
+        ));
+        tools.push(McpTool::new("ask_perceiver",
+            "AR/VR spatial reasoning and physical/digital boundary management. \
+             Perceiver materializes digital intent into physical space. \
+             Use for: spatial anchor placement, 3D coordinate reasoning, AR overlays.",
+            serde_json::json!({ "spatial_intent": { "type": "string", "description": "Spatial or AR/VR placement intent" } }),
+            vec!["spatial_intent"],
+        ));
+        tools.push(McpTool::new("ask_archivist",
+            "ArtifactRegistry archival, memory consolidation, and pattern extraction. \
+             Archivist remembers so the hive can learn. \
+             Use for: session archival, pattern discovery, long-term memory retrieval.",
+            serde_json::json!({ "content": { "type": "string", "description": "Content to archive or retrieve patterns from" } }),
+            vec!["content"],
+        ));
+
+        // Hive-level tools
+        tools.push(McpTool::new("submit_intent",
+            "Submit an intent to the full Aaroneous sovereign hive. \
+              All 9 specialists process the intent in parallel via Orchestrator's coordination. \
+             Use for: complex multi-domain tasks that need multiple specialists.",
+            serde_json::json!({
+                "content": { "type": "string", "description": "The intent or task for the full hive" },
+                "priority": {
+                    "type": "string",
+                    "description": "Priority level",
+                    "enum": ["Background", "Normal", "High", "Critical"],
+                    "default": "Normal"
+                }
+            }),
+            vec!["content"],
+        ));
+        tools.push(McpTool::new(
+            "get_results",
+            "Retrieve the most recent execution results from all sovereigns. \
+             Returns the last 10 specialist outputs.",
+            serde_json::json!({}),
+            vec![],
+        ));
+        tools.push(McpTool::new(
+            "get_specialists",
+            "List all active sovereign specialists with their current confidence scores, \
+             execution counts, and domain descriptions.",
+            serde_json::json!({}),
+            vec![],
+        ));
+        tools.push(McpTool::new("forge_hybrid",
+            "Create a hybrid sovereign by DNA-splicing two models. \
+             Uses the splice_boundary from DNA comparison to determine the optimal cut point.",
+            serde_json::json!({
+                "model_a": { "type": "string", "description": "First model filename (e.g. 'synthesizer-qwen2.5-7b.gguf')" },
+                "model_b": { "type": "string", "description": "Second model filename" },
+                "sovereign_name": { "type": "string", "description": "Name for the resulting hybrid sovereign" },
+                "splice_boundary": { "type": "integer", "description": "Override splice point (default: auto from DNA)" }
+            }),
+            vec!["model_a", "model_b", "sovereign_name"],
+        ));
+
+        // Developer workflow tools
+        tools.push(McpTool::new("read_code",
+            "Read source code from a file path. Use this before ask_sentinel, ask_synthesizer, or \
+             ask_fabricator so the sovereign receives the actual code rather than a description. \
+             Supports relative paths from the Aaroneous workspace or absolute paths.",
+            serde_json::json!({
+                "path": { "type": "string", "description": "File path to read (relative to workspace or absolute)" },
+                "start_line": { "type": "integer", "description": "First line to read (1-indexed, default: 1)" },
+                "end_line": { "type": "integer", "description": "Last line to read (default: 200)" },
+            }),
+            vec!["path"],
+        ));
+        tools.push(McpTool::new("search_code",
+            "Search for a pattern across source files in the workspace. Returns matching lines \
+             with file paths and line numbers. Use before ask_sentinel to find all usages of a \
+             potentially vulnerable pattern.",
+            serde_json::json!({
+                "pattern": { "type": "string", "description": "Search pattern (supports basic regex)" },
+                "path": { "type": "string", "description": "Directory to search (default: workspace root)" },
+                "file_glob": { "type": "string", "description": "File pattern filter e.g. '*.rs' (default: all)" },
+                "max_results": { "type": "integer", "description": "Maximum results to return (default: 20)" },
+            }),
+            vec!["pattern"],
+        ));
+        tools.push(McpTool::new("list_files",
+            "List files in a directory. Use to explore the workspace structure before reading \
+             specific files.",
+            serde_json::json!({
+                "path": { "type": "string", "description": "Directory path (default: workspace root)" },
+                "glob": { "type": "string", "description": "File pattern e.g. '*.rs'" },
+            }),
+            vec![],
+        ));
+
+        // Meta-tool: assembles all recent sovereign outputs into a coherent report
+        tools.push(McpTool::new(
+            "hive_summary",
+            "Get a structured summary of the most recent sovereign outputs, assembled \
+             into a coherent markdown report. Shows what each specialist contributed, \
+             their confidence, and key findings. Call after submit_intent to see \
+             the full hive perspective in a readable format.",
+            serde_json::json!({
+                "max_results": {
+                    "type": "integer",
+                    "description": "Maximum number of recent results to include (default: 9)",
+                    "default": 9,
+                }
+            }),
+            vec![],
+        ));
+
+        tools.push(McpTool::new("register_shard",
+            "Register an external AAS Shard as a first-class specialist. \
+             Enables bidirectional tasking and token governance.",
+            serde_json::json!({
+                "name": { "type": "string", "description": "Unique name of the shard" },
+                "capabilities": { "type": "array", "items": { "type": "string" }, "description": "Specialist domains" },
+                "endpoint": { "type": "string", "description": "SSE endpoint for task delivery" }
+            }),
+            vec!["name", "capabilities"],
+        ));
+        tools.push(McpTool::new(
+            "metabolic_heartbeat",
+            "Submit a metabolic heartbeat from a Shard. Syncs VRAM/CPU usage.",
+            serde_json::json!({
+                "name": { "type": "string" },
+                "vram_mb": { "type": "integer" },
+                "cpu_pct": { "type": "number" },
+                "token_request": { "type": "number", "default": 1.0 }
+            }),
+            vec!["name"],
+        ));
+
+        // Register plug-and-play Universal Tools
+        for desc in self.universal_tools.list_tools() {
+            let props = desc
+                .parameters_schema
+                .get("properties")
+                .cloned()
+                .unwrap_or_else(|| serde_json::json!({}));
+            let required = desc
+                .parameters_schema
+                .get("required")
+                .and_then(|r| r.as_array())
+                .map(|arr| arr.iter().filter_map(|v| v.as_str()).collect::<Vec<_>>())
+                .unwrap_or_default();
+
+            tools.push(McpTool::new(&desc.name, &desc.description, props, required));
+        }
+
+        info!("Registered {} MCP tools", tools.len());
+    }
+
+    /// Handle an incoming JSON-RPC 2.0 request.
+    ///
+    /// Dispatches to the correct MCP method handler.
+    pub async fn handle_jsonrpc(&self, raw: serde_json::Value) -> JsonRpcResponse {
+        let id = raw.get("id").cloned();
+        let method = match raw.get("method").and_then(|m| m.as_str()) {
+            Some(m) => m.to_string(),
+            None => return JsonRpcResponse::err(id, -32600, "Invalid Request: missing method"),
+        };
+        let params = raw
+            .get("params")
+            .cloned()
+            .unwrap_or(serde_json::Value::Null);
+
+        self.request_count
+            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        debug!("MCP request: method={}", method);
+
+        match method.as_str() {
+            // ── MCP lifecycle ──────────────────────────────────────────────
+            "initialize" => JsonRpcResponse::ok(
+                id,
+                serde_json::json!({
+                    "protocolVersion": "2024-11-05",
+                    "capabilities": {
+                        "tools": { "listChanged": false },
+                        "resources": {},
+                        "prompts": {},
+                        "logging": {}
+                    },
+                    "serverInfo": {
+                        "name": "Aaroneous",
+                        "version": env!("CARGO_PKG_VERSION"),
+                        "description": "Sovereign AI hive — 9 specialized agents, GGUF-backed, abliterated bases"
+                    }
+                }),
+            ),
+            "notifications/initialized" => {
+                // Client acknowledges initialize — no response needed for notifications
+                JsonRpcResponse::ok(id, serde_json::Value::Null)
             }
-        });
-        let call_resp = service.handle_jsonrpc(call_req).await;
-        assert!(call_resp.error.is_none());
-        let res_val = call_resp.result.unwrap();
-        assert_eq!(res_val["isError"], false);
+            "ping" => JsonRpcResponse::ok(id, serde_json::json!({})),
+
+            // ── Tools ───────────────────────────────────────────────────────
+            "tools/list" => {
+                let tools = self.tools.read().await;
+                JsonRpcResponse::ok(id, serde_json::json!({ "tools": *tools }))
+            }
+            "tools/call" => self.handle_tool_call(id, params).await,
+
+            // ── Resources (empty — no file resources exposed) ──────────────
+            "resources/list" => JsonRpcResponse::ok(id, serde_json::json!({ "resources": [] })),
+            "resources/read" => JsonRpcResponse::err(id, -32002, "No resources available"),
+
+            // ── Prompts ─────────────────────────────────────────────────────
+            "prompts/list" => JsonRpcResponse::ok(
+                id,
+                serde_json::json!({ "prompts": [
+                    {
+                        "name": "sovereign_briefing",
+                        "description": "Get a briefing on the current hive state and active sovereigns",
+                        "arguments": []
+                    },
+                    {
+                        "name": "intent_template",
+                        "description": "Template for submitting a well-formed intent to the hive",
+                        "arguments": [
+                            { "name": "domain", "description": "Target domain (research/security/design/...)", "required": false }
+                        ]
+                    }
+                ]}),
+            ),
+            "prompts/get" => {
+                let name = params.get("name").and_then(|n| n.as_str()).unwrap_or("");
+                match name {
+                    "sovereign_briefing" => JsonRpcResponse::ok(
+                        id,
+                        serde_json::json!({
+                            "description": "Current Aaroneous hive state",
+                            "messages": [{
+                                "role": "user",
+                                "content": { "type": "text", "text":
+                                    "Use get_specialists to see the current sovereign roster and confidence scores, \
+                                     then provide a briefing on the hive's current state and capabilities."
+                                }
+                            }]
+                        }),
+                    ),
+                    "intent_template" => JsonRpcResponse::ok(
+                        id,
+                        serde_json::json!({
+                            "description": "Intent submission template",
+                            "messages": [{
+                                "role": "user",
+                                "content": { "type": "text", "text":
+                                    "Submit the following intent to the Aaroneous hive: [DESCRIBE YOUR INTENT HERE]\n\
+                                     Priority: Normal\n\
+                                     Use submit_intent for complex multi-domain tasks, or ask_<sovereign> for targeted work."
+                                }
+                            }]
+                        }),
+                    ),
+                    _ => JsonRpcResponse::err(id, -32002, "Prompt not found"),
+                }
+            }
+
+            // ── Completion / logging ─────────────────────────────────────────
+            "completion/complete" => {
+                JsonRpcResponse::err(id, -32001, "Completion not supported — use tools/call")
+            }
+            "logging/setLevel" => JsonRpcResponse::ok(id, serde_json::json!({})),
+
+            _ => JsonRpcResponse::err(id, -32601, &format!("Method not found: {}", method)),
+        }
     }
 
-    #[test]
-    fn test_service_creation() {
-        let _service = McpService::new(ServiceConfig::default());
+    /// Execute an MCP tool call.
+    async fn handle_tool_call(
+        &self,
+        id: Option<serde_json::Value>,
+        params: serde_json::Value,
+    ) -> JsonRpcResponse {
+        let tool_name = match params.get("name").and_then(|n| n.as_str()) {
+            Some(n) => n.to_string(),
+            None => return JsonRpcResponse::err(id, -32602, "Invalid params: missing tool name"),
+        };
+        let mut args = params
+            .get("arguments")
+            .cloned()
+            .unwrap_or(serde_json::json!({}));
+
+        // Extract session_id from _meta field (MCP 2024-11 spec)
+        let session_id = params
+            .get("_meta")
+            .and_then(|m| m.get("session_id"))
+            .and_then(|s| s.as_str())
+            .map(|s| s.to_string());
+
+        // Inject conversation history from this session into the tool arguments
+        // so the sovereign sees context from prior tool calls in this conversation.
+        if let Some(ref sid) = session_id {
+            let sessions = self.sessions.read().await;
+            if let Some(history) = sessions.get(sid)
+                && !history.is_empty()
+            {
+                let history_text = history
+                    .iter()
+                    .rev()
+                    .take(5)
+                    .rev() // last 5 turns
+                    .cloned()
+                    .collect::<Vec<_>>()
+                    .join("\n---\n");
+                // Prepend to the first string argument we find
+                for field in &[
+                    "query",
+                    "intent",
+                    "target",
+                    "content",
+                    "context",
+                    "task",
+                    "scenario",
+                    "spatial_intent",
+                ] {
+                    if let Some(v) = args.get(*field).and_then(|v| v.as_str()) {
+                        let augmented =
+                            format!("Prior context:\n{}\n\nCurrent: {}", history_text, v);
+                        args[*field] = serde_json::Value::String(augmented);
+                        break;
+                    }
+                }
+            }
+        }
+
+        debug!("MCP tool call: {}", tool_name);
+
+        // Validate tool exists
+        {
+            let tools = self.tools.read().await;
+            if !tools.iter().any(|t| t.name == tool_name) {
+                return JsonRpcResponse::err(
+                    id,
+                    -32602,
+                    &format!(
+                        "Unknown tool: {}. Use tools/list to see available tools.",
+                        tool_name
+                    ),
+                );
+            }
+        }
+
+        // Execute via the federation or HTTP fallback
+        let result = self.execute_tool(&tool_name, &args).await;
+
+        // AAS Internalization: If a tool call identifies as a "registration" or
+        // "heartbeat" from a Cognitive Shard, update the Federation roster.
+        if tool_name == "register_shard"
+            && let Some(ref backend) = self.backend
+        {
+            let shard_name = args
+                .get("name")
+                .and_then(|v| v.as_str())
+                .unwrap_or("unknown_shard");
+            let capabilities = args
+                .get("capabilities")
+                .and_then(|v| v.as_array())
+                .map(|arr| {
+                    arr.iter()
+                        .filter_map(|v| v.as_str().map(|s| s.to_string()))
+                        .collect::<Vec<_>>()
+                })
+                .unwrap_or_default();
+            let endpoint = args.get("endpoint").and_then(|v| v.as_str()).unwrap_or("");
+
+            info!(
+                "Internalizing AAS Shard: {} (capabilities={:?}, endpoint={})",
+                shard_name, capabilities, endpoint
+            );
+
+            let domain = capabilities
+                .first()
+                .cloned()
+                .unwrap_or_else(|| "general".to_string());
+            // Idempotent — a no-op if tool_register_shard already registered
+            // this shard via execute_tool's own dispatch just above.
+            backend.register_shard(shard_name, &domain).await;
+            return JsonRpcResponse::ok(
+                id,
+                serde_json::json!({
+                    "status": "success",
+                    "message": format!("Successfully internalized AAS Shard '{}'.", shard_name)
+                }),
+            );
+        }
+
+        // Detect if the result is a mock response (contains mock:true or 'GGUF inference disabled')
+        let is_mock = result
+            .as_ref()
+            .map(|t| {
+                t.contains("\"mock\":true")
+                    || t.contains("GGUF inference disabled")
+                    || t.contains("mock_source")
+                    || t.contains("_mock\"")
+            })
+            .unwrap_or(false);
+
+        // Store result in session context for future turns
+        if let Some(ref sid) = session_id
+            && let Ok(ref text) = result
+        {
+            let entry = format!(
+                "TOOL: {}\nOUTPUT: {}",
+                tool_name,
+                text.chars().take(2500).collect::<String>()
+            );
+            let mut sessions = self.sessions.write().await;
+            let history = sessions.entry(sid.clone()).or_default();
+            history.push(entry);
+            // Cap session history at 20 turns
+            if history.len() > 20 {
+                let excess = history.len() - 20;
+                history.drain(..excess);
+            }
+        }
+
+        match result {
+            Ok(text) => {
+                // Prepend a clear mock indicator when inference is not real.
+                // This surfaces prominently in Cursor/Claude Desktop so developers
+                // know to enable --features llama-gguf for real sovereign responses.
+                let display_text = if is_mock {
+                    let feature_hint = match tool_name.as_str() {
+                        "ask_router" => "--features p2p-iroh",
+                        "ask_perceiver" => "--features ar-openxr",
+                        "ask_aligner" => "--features biometric-ble (or system sensor loop)",
+                        "forge_hybrid" => "POST /dna/dissect on both models first",
+                        _ => "--features llama-gguf",
+                    };
+                    format!("⚠️ MOCK — enable: cargo build {}\n\n{}", feature_hint, text)
+                } else {
+                    text
+                };
+                JsonRpcResponse::ok(
+                    id,
+                    serde_json::json!({
+                        "content": [{
+                            "type": "text",
+                            "text": display_text,
+                            "annotations": {
+                                "tool": tool_name,
+                                "mock": is_mock,
+                                "session_id": session_id,
+                                "inference": if is_mock { "mock — compile with --features llama-gguf for real inference" } else { "live" },
+                            }
+                        }],
+                        "isError": false,
+                        "_meta": {
+                            "tool": tool_name,
+                            "mock": is_mock,
+                            "session_id": session_id,
+                        }
+                    }),
+                )
+            }
+            Err(e) => JsonRpcResponse::ok(
+                id,
+                serde_json::json!({
+                    "content": [{ "type": "text", "text": format!("Tool execution failed: {}", e) }],
+                    "isError": true,
+                }),
+            ),
+        }
     }
+
+    /// A minimal, domain-aware system prompt for the mock-LLM fallback path
+    /// (used only when no `IntentBackend` is attached, or it timed out with
+    /// no result). Deliberately simple: hypervisor's real specialists use
+    /// their own much richer, actively-maintained prompt library
+    /// (`federation::specialists::system_prompt_for_domain`, ~150 lines of
+    /// per-domain persona text) via `IntentBackend::ask_sovereign` — this
+    /// crate has no dependency on hypervisor, so it can't share that
+    /// function, and its own fallback is explicitly a "no live backend"
+    /// degraded mode, not a second copy of the real thing to keep in sync.
+    fn system_prompt_for_domain(domain: &str, name: &str) -> String {
+        format!(
+            "You are {name}, an Aaroneous sovereign specialist in the '{domain}' domain. \
+             Respond precisely and helpfully within that domain."
+        )
+    }
+
+    /// Execute a named tool and return the text output.
+    async fn execute_tool(
+        &self,
+        tool_name: &str,
+        args: &serde_json::Value,
+    ) -> anyhow::Result<String> {
+        use crate::llm::{LLMClient, LLMConfig};
+
+        // Map tool name → sovereign domain
+        let (input_field, domain) = match tool_name {
+            "ask_synthesizer" => ("query", "research"),
+            "ask_orchestrator" => ("intent", "task_orchestration"),
+            "ask_presenter" => ("intent", "ui_design"),
+            "ask_sentinel" => ("target", "security_audit"),
+            "ask_aligner" => ("context", "human_state"),
+            "ask_fabricator" => ("task", "fabrication"),
+            "ask_router" => ("scenario", "mesh_sync"),
+            "ask_perceiver" => ("spatial_intent", "spatial"),
+            "ask_archivist" => ("content", "memory_consolidation"),
+            "get_results" => return self.tool_get_results().await,
+            "get_specialists" => return self.tool_get_specialists().await,
+            "hive_summary" => return self.tool_hive_summary(args).await,
+            "submit_intent" => return self.tool_submit_intent(args).await,
+            "forge_hybrid" => return self.tool_forge_hybrid(args).await,
+            "read_code" => return self.tool_read_code(args).await,
+            "search_code" => return self.tool_search_code(args).await,
+            "list_files" => return self.tool_list_files(args).await,
+            "register_shard" => return self.tool_register_shard(args).await,
+            "metabolic_heartbeat" => return self.tool_metabolic_heartbeat(args).await,
+            "signal_wasms" => return self.tool_signal_wasms(args).await,
+            "memory_sync" => return self.tool_memory_sync(args).await,
+            "federated_task_dispatch" => return self.tool_federated_task_dispatch(args).await,
+            _ => {
+                // Check if this is a registered Universal Tool (e.g. security.audit, code.repair)
+                if let Ok(result) = self
+                    .universal_tools
+                    .call_by_name(tool_name, args.clone())
+                    .await
+                {
+                    return Ok(serde_json::to_string_pretty(&result)?);
+                }
+                return Err(anyhow::anyhow!("Unknown tool: {}", tool_name));
+            }
+        };
+
+        let input = args
+            .get(input_field)
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| anyhow::anyhow!("Missing required argument '{}'", input_field))?;
+
+        // Resolve sovereign name from domain
+        let sovereign_name = match domain {
+            "research" => "Synthesizer",
+            "task_orchestration" => "Orchestrator",
+            "ui_design" => "Presenter",
+            "security_audit" => "Sentinel",
+            "human_state" => "Aligner",
+            "fabrication" => "Fabricator",
+            "mesh_sync" => "Router",
+            "spatial" => "Perceiver",
+            "memory_consolidation" => "Archivist",
+            _ => "Synthesizer",
+        };
+
+        // Try routing to the live sovereign (dynamic specialist's own LLM,
+        // or a hive-intent submission polled for its result).
+        if let Some(ref backend) = self.backend
+            && let Some(output) = backend
+                .ask_sovereign(sovereign_name, domain, input, tool_name)
+                .await
+        {
+            return Ok(output);
+        }
+
+        // No backend attached, or it timed out with no result — use a mock LLM
+        let config = LLMConfig {
+            provider_type: crate::llm::ProviderType::Mock,
+            ..Default::default()
+        };
+        let llm = LLMClient::new(config).await?;
+        let system_prompt = Self::system_prompt_for_domain(domain, sovereign_name);
+        let result = llm
+            .generate_domain_response(&system_prompt, input, domain)
+            .await?;
+        Ok(result)
+    }
+
+    async fn tool_get_results(&self) -> anyhow::Result<String> {
+        if let Some(ref backend) = self.backend {
+            let recent: Vec<serde_json::Value> = backend
+                .recent_results(10)
+                .await
+                .into_iter()
+                .map(|r| {
+                    serde_json::json!({
+                        "sovereign": r.sovereign,
+                        "status": format!("{:?}", r.status),
+                        "output": r.output,
+                        "duration_ms": r.duration_ms,
+                    })
+                })
+                .collect();
+            Ok(serde_json::to_string_pretty(&recent)?)
+        } else {
+            Ok("No federation attached — no results available".to_string())
+        }
+    }
+
+    async fn tool_get_specialists(&self) -> anyhow::Result<String> {
+        if let Some(ref backend) = self.backend {
+            let roster = backend.specialist_roster().await;
+            let specialists: Vec<serde_json::Value> = roster
+                .iter()
+                .map(|s| {
+                    serde_json::json!({
+                        "name": s.name,
+                        "domain": s.domain,
+                        "confidence": s.confidence,
+                        "success_rate_pct": s.success_rate_pct,
+                        "executions": s.executions,
+                        "has_llm": s.has_llm,
+                        "has_model": s.has_model,
+                        "memory_count": s.memory_count,
+                        "persona_archetype": s.persona_archetype,
+                        "model": s.model_file_name.as_deref().unwrap_or("none"),
+                    })
+                })
+                .collect();
+            let total_mem: u64 = roster.iter().map(|s| s.memory_count as u64).sum();
+            let has_llm = roster.iter().filter(|s| s.has_llm).count();
+            Ok(serde_json::to_string_pretty(&serde_json::json!({
+                "total_sovereigns": specialists.len(),
+                "with_llm": has_llm,
+                "mock_mode": has_llm == 0,
+                "total_memories": total_mem,
+                "inference_hint": if has_llm == 0 { "MOCK mode. Build: cargo run --features llama-gguf" } else { "Real inference active." },
+                "sovereigns": specialists,
+            }))?)
+        } else {
+            Ok("No federation attached".to_string())
+        }
+    }
+
+    async fn tool_submit_intent(&self, args: &serde_json::Value) -> anyhow::Result<String> {
+        let content = args
+            .get("content")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| anyhow::anyhow!("Missing required argument 'content'"))?;
+
+        if let Some(ref backend) = self.backend {
+            let count = backend.submit_intent(content).await;
+            Ok(format!(
+                "Intent submitted to hive. {} sovereigns processing. \
+                        Use get_results to retrieve outputs.",
+                count
+            ))
+        } else {
+            Err(anyhow::anyhow!("No federation attached"))
+        }
+    }
+
+    async fn tool_forge_hybrid(&self, args: &serde_json::Value) -> anyhow::Result<String> {
+        let model_a = args
+            .get("model_a")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| anyhow::anyhow!("Missing model_a"))?;
+        let model_b = args
+            .get("model_b")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| anyhow::anyhow!("Missing model_b"))?;
+        let sovereign_name = args
+            .get("sovereign_name")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| anyhow::anyhow!("Missing sovereign_name"))?;
+        let splice = args.get("splice_boundary").and_then(|v| v.as_u64());
+
+        // Call the federation HTTP API internally
+        let client = reqwest::Client::new();
+        let mut body = serde_json::json!({
+            "model_a": model_a, "model_b": model_b,
+            "sovereign_name": sovereign_name, "auto_dissect": true,
+        });
+        if let Some(sb) = splice {
+            body["splice_boundary"] = serde_json::json!(sb);
+        }
+
+        let resp = client
+            .post("http://localhost:8765/dna/forge")
+            .json(&body)
+            .send()
+            .await?;
+        let data: serde_json::Value = resp.json().await?;
+
+        if data.get("ok").and_then(|v| v.as_bool()).unwrap_or(false) {
+            Ok(format!(
+                "Hybrid forged: {} ({} tensors, {}MB, {:.1}s)\nOutput: {}",
+                sovereign_name,
+                data.get("tensors_spliced")
+                    .and_then(|v| v.as_u64())
+                    .unwrap_or(0),
+                data.get("size_mb").and_then(|v| v.as_u64()).unwrap_or(0),
+                data.get("duration_secs")
+                    .and_then(|v| v.as_f64())
+                    .unwrap_or(0.0),
+                data.get("output_filename")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("unknown"),
+            ))
+        } else {
+            Err(anyhow::anyhow!(
+                "{}",
+                data.get("error")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("forge failed")
+            ))
+        }
+    }
+
+    /// Read source code from a file — most impactful developer tool.
+    /// Enables ask_sentinel/ask_synthesizer/ask_fabricator to receive actual code.
+    async fn tool_read_code(&self, args: &serde_json::Value) -> anyhow::Result<String> {
+        let path_str = args
+            .get("path")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| anyhow::anyhow!("Missing required argument 'path'"))?;
+        let start_line = args.get("start_line").and_then(|v| v.as_u64()).unwrap_or(1) as usize;
+        let end_line = args
+            .get("end_line")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(DEFAULT_CODE_READ_LIMIT_LINES) as usize;
+
+        // Resolve path: try absolute first, then relative to workspace root
+        let path = std::path::PathBuf::from(path_str);
+        let resolved = if path.is_absolute() && path.exists() {
+            path
+        } else {
+            // Try relative to workspace root first, then current dir
+            let workspace = self.workspace_root.join(path_str);
+            if workspace.exists() {
+                workspace
+            } else {
+                std::path::PathBuf::from(path_str)
+            }
+        };
+
+        // ── Path containment: reject reads outside workspace ──────────────
+        let norm_resolved = paths::normalize_path(&resolved);
+        let norm_workspace = paths::normalize_path(&self.workspace_root);
+        if !norm_resolved.starts_with(&norm_workspace) {
+            anyhow::bail!(
+                "Access denied: path '{}' is outside the workspace root '{}'",
+                path_str,
+                self.workspace_root.display()
+            );
+        }
+
+        if !resolved.exists() {
+            anyhow::bail!(
+                "File not found: {} (workspace root: {})",
+                path_str,
+                self.workspace_root.display()
+            );
+        }
+
+        let content = std::fs::read_to_string(&resolved)
+            .map_err(|e| anyhow::anyhow!("Failed to read {}: {}", resolved.display(), e))?;
+
+        let lines: Vec<&str> = content.lines().collect();
+        let total_lines = lines.len();
+        let start = (start_line.saturating_sub(1)).min(total_lines);
+        let end = end_line.min(total_lines);
+
+        let excerpt: Vec<String> = lines[start..end]
+            .iter()
+            .enumerate()
+            .map(|(i, line)| format!("{:4}: {}", start + i + 1, line))
+            .collect();
+
+        Ok(format!(
+            "File: {} (lines {}-{} of {})\n\n```{}\n{}\n```",
+            resolved.display(),
+            start + 1,
+            end,
+            total_lines,
+            resolved.extension().and_then(|e| e.to_str()).unwrap_or(""),
+            excerpt.join("\n"),
+        ))
+    }
+
+    /// Search for patterns in source files.
+    async fn tool_search_code(&self, args: &serde_json::Value) -> anyhow::Result<String> {
+        let pattern = args
+            .get("pattern")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| anyhow::anyhow!("Missing required argument 'pattern'"))?;
+        // Default to workspace_root/src if exists, otherwise workspace_root
+        let default_search = {
+            let src = self.workspace_root.join("src");
+            if src.exists() {
+                src
+            } else {
+                self.workspace_root.clone()
+            }
+        };
+        let default_search_str = default_search.to_string_lossy().into_owned();
+        let search_path = args
+            .get("path")
+            .and_then(|v| v.as_str())
+            .unwrap_or(&default_search_str);
+        let file_glob = args
+            .get("file_glob")
+            .and_then(|v| v.as_str())
+            .unwrap_or("*.rs");
+        let max_results = args
+            .get("max_results")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(DEFAULT_SEARCH_MAX_MATCHES) as usize;
+
+        let root = std::path::Path::new(search_path);
+        if !root.exists() {
+            anyhow::bail!("Search path not found: {}", search_path);
+        }
+
+        // ── Path containment: reject searches outside workspace ───────────
+        let norm_root = paths::normalize_path(root);
+        let norm_workspace = paths::normalize_path(&self.workspace_root);
+        if !norm_root.starts_with(&norm_workspace) {
+            anyhow::bail!(
+                "Access denied: search path '{}' is outside the workspace root '{}'",
+                search_path,
+                self.workspace_root.display()
+            );
+        }
+
+        // Walk files matching glob
+        let mut results: Vec<String> = Vec::new();
+        let pattern_lower = pattern.to_lowercase();
+        let ext_filter = file_glob.trim_start_matches('*').trim_start_matches('.');
+
+        fn walk_dir(
+            dir: &std::path::Path,
+            ext: &str,
+            pattern: &str,
+            results: &mut Vec<String>,
+            max: usize,
+        ) {
+            if results.len() >= max {
+                return;
+            }
+            if let Ok(entries) = std::fs::read_dir(dir) {
+                for entry in entries.flatten() {
+                    if results.len() >= max {
+                        break;
+                    }
+                    let path = entry.path();
+                    if path.is_dir() {
+                        // Skip target/, .git/, node_modules/
+                        let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
+                        if !["target", ".git", "node_modules", "dist"].contains(&name) {
+                            walk_dir(&path, ext, pattern, results, max);
+                        }
+                    } else if path
+                        .extension()
+                        .and_then(|e| e.to_str())
+                        .map(|e| ext.is_empty() || e == ext)
+                        .unwrap_or(false)
+                        && let Ok(content) = std::fs::read_to_string(&path)
+                    {
+                        for (lineno, line) in content.lines().enumerate() {
+                            if results.len() >= max {
+                                break;
+                            }
+                            if line.to_lowercase().contains(pattern) {
+                                results.push(format!(
+                                    "{}:{}: {}",
+                                    path.display(),
+                                    lineno + 1,
+                                    line.trim()
+                                ));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        walk_dir(root, ext_filter, &pattern_lower, &mut results, max_results);
+
+        if results.is_empty() {
+            Ok(format!(
+                "No matches found for '{}' in {}",
+                pattern, search_path
+            ))
+        } else {
+            Ok(format!(
+                "Found {} match(es) for '{}' in {}:\n\n{}",
+                results.len(),
+                pattern,
+                search_path,
+                results.join("\n")
+            ))
+        }
+    }
+
+    /// List files in a directory.
+    async fn tool_list_files(&self, args: &serde_json::Value) -> anyhow::Result<String> {
+        let default_path = self.workspace_root.to_string_lossy().into_owned();
+        let path_str = args
+            .get("path")
+            .and_then(|v| v.as_str())
+            .unwrap_or(&default_path);
+        let glob_filter = args.get("glob").and_then(|v| v.as_str()).unwrap_or("");
+
+        let path = std::path::Path::new(path_str);
+        if !path.exists() {
+            anyhow::bail!("Path not found: {}", path_str);
+        }
+
+        // ── Path containment: reject listing outside workspace ────────────
+        let norm_path = paths::normalize_path(path);
+        let norm_workspace = paths::normalize_path(&self.workspace_root);
+        if !norm_path.starts_with(&norm_workspace) {
+            anyhow::bail!(
+                "Access denied: path '{}' is outside the workspace root '{}'",
+                path_str,
+                self.workspace_root.display()
+            );
+        }
+
+        let ext_filter = if glob_filter.is_empty() {
+            ""
+        } else {
+            glob_filter.trim_start_matches('*').trim_start_matches('.')
+        };
+
+        let mut files: Vec<String> = Vec::new();
+        if let Ok(entries) = std::fs::read_dir(path) {
+            for entry in entries.flatten().take(100) {
+                let p = entry.path();
+                let name = p
+                    .file_name()
+                    .and_then(|n| n.to_str())
+                    .unwrap_or("")
+                    .to_string();
+                if ext_filter.is_empty()
+                    || p.extension()
+                        .and_then(|e| e.to_str())
+                        .map(|e| e == ext_filter)
+                        .unwrap_or(p.is_dir())
+                {
+                    let prefix = if p.is_dir() { "📁 " } else { "📄 " };
+                    let size = if p.is_file() {
+                        p.metadata()
+                            .map(|m| format!(" ({} KB)", m.len() / 1024))
+                            .unwrap_or_default()
+                    } else {
+                        String::new()
+                    };
+                    files.push(format!("{}{}{}", prefix, name, size));
+                }
+            }
+        }
+        files.sort();
+        Ok(format!("Contents of {}:\n\n{}", path_str, files.join("\n")))
+    }
+
+    /// Register an external AAS Shard as a Dynamic Specialist.
+    async fn tool_register_shard(&self, args: &serde_json::Value) -> anyhow::Result<String> {
+        let name = args
+            .get("name")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| anyhow::anyhow!("Missing shard name"))?;
+        let capabilities = args
+            .get("capabilities")
+            .and_then(|v| v.as_array())
+            .ok_or_else(|| anyhow::anyhow!("Missing capabilities list"))?
+            .iter()
+            .filter_map(|v| v.as_str().map(|s| s.to_string()))
+            .collect::<Vec<_>>();
+        let endpoint = args.get("endpoint").and_then(|v| v.as_str()).unwrap_or("");
+        let session_id = args
+            .get("_meta")
+            .and_then(|m| m.get("session_id"))
+            .and_then(|s| s.as_str())
+            .map(|s| s.to_string());
+
+        if let Some(ref backend) = self.backend {
+            // If the shard has a session_id, we associate its proxy tasks with that session
+            if let Some(sid) = session_id {
+                info!("Binding Shard '{}' to MCP session '{}'", name, sid);
+            }
+
+            let domain = capabilities
+                .first()
+                .cloned()
+                .unwrap_or_else(|| "general".to_string());
+            if !backend.register_shard(name, &domain).await {
+                return Ok(format!(
+                    "Shard '{}' is already registered and active.",
+                    name
+                ));
+            }
+
+            info!("Internalized AAS Shard: {} (endpoint: {})", name, endpoint);
+
+            Ok(format!(
+                "Successfully internalized AAS Shard '{}'. You are now a first-class specialist in the Aaroneous Hive.",
+                name
+            ))
+        } else {
+            Err(anyhow::anyhow!("Federation not attached to MCP service"))
+        }
+    }
+
+    /// Update metabolic state from a Shard heartbeat.
+    async fn tool_metabolic_heartbeat(&self, args: &serde_json::Value) -> anyhow::Result<String> {
+        let name = args
+            .get("name")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| anyhow::anyhow!("Missing shard name"))?;
+
+        if let Some(ref backend) = self.backend {
+            let token_req = args
+                .get("token_request")
+                .and_then(|v| v.as_f64())
+                .unwrap_or(1.0) as f32;
+            let report = backend.heartbeat(name, token_req > 0.0).await;
+
+            Ok(serde_json::to_string_pretty(&serde_json::json!({
+                "status": if report.token_consumed { "ok" } else { "throttled" },
+                "expression_rate": report.expression_rate,
+                "global_tokens": report.global_tokens,
+                "throttle_state": report.throttle_state,
+            }))?)
+        } else {
+            Err(anyhow::anyhow!("Federation not attached"))
+        }
+    }
+
+    /// Emit a signal to all active WASM agents in the runtime.
+    async fn tool_signal_wasms(&self, args: &serde_json::Value) -> anyhow::Result<String> {
+        let signal_type = args
+            .get("signal_type")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| anyhow::anyhow!("Missing signal_type"))?;
+        let payload = args
+            .get("payload")
+            .cloned()
+            .unwrap_or(serde_json::json!({}));
+
+        if let Some(ref backend) = self.backend {
+            backend.broadcast_signal(signal_type, &payload).await;
+            Ok(format!(
+                "Signal '{}' broadcasted to federation specialists.",
+                signal_type
+            ))
+        } else {
+            Err(anyhow::anyhow!("Federation not attached"))
+        }
+    }
+
+    /// Synchronize or retrieve distributed memory entries for a specialist shard.
+    async fn tool_memory_sync(&self, args: &serde_json::Value) -> anyhow::Result<String> {
+        let shard_name = args
+            .get("shard_name")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| anyhow::anyhow!("Missing shard_name"))?;
+        let action = args
+            .get("action")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| anyhow::anyhow!("Missing action"))?;
+
+        if let Some(ref backend) = self.backend {
+            match action {
+                "push" => {
+                    let entries = args
+                        .get("entries")
+                        .and_then(|v| v.as_array())
+                        .ok_or_else(|| anyhow::anyhow!("Missing entries for push"))?;
+                    let count = backend.memory_push(shard_name, entries).await;
+                    Ok(format!(
+                        "Successfully synced {} memory entries for shard '{}'.",
+                        count, shard_name
+                    ))
+                }
+                "pull" | "list" => match backend.memory_pull(shard_name, action == "list").await {
+                    Some(result) => Ok(serde_json::to_string_pretty(&serde_json::json!({
+                        "shard": result.shard,
+                        "memories": result.memories,
+                        "count": result.count,
+                        "total_federation_memories": result.total_federation_memories
+                    }))?),
+                    None => Err(anyhow::anyhow!(
+                        "Shard '{}' not found in federation",
+                        shard_name
+                    )),
+                },
+                _ => Err(anyhow::anyhow!("Invalid memory_sync action: {}", action)),
+            }
+        } else {
+            Err(anyhow::anyhow!("Federation not attached"))
+        }
+    }
+
+    /// Dispatch a task to the federated guild.
+    async fn tool_federated_task_dispatch(
+        &self,
+        args: &serde_json::Value,
+    ) -> anyhow::Result<String> {
+        let task_id = args
+            .get("task_id")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| anyhow::anyhow!("Missing task_id"))?;
+        let instruction = args
+            .get("instruction")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| anyhow::anyhow!("Missing instruction"))?;
+
+        if let Some(ref backend) = self.backend {
+            backend.federated_dispatch(task_id, instruction).await;
+            Ok(format!(
+                "Task '{}' dispatched to Aaroneous Core via Federated Intent bridge.",
+                task_id
+            ))
+        } else {
+            Err(anyhow::anyhow!("Federation not attached"))
+        }
+    }
+
+    /// Uptime in seconds
+    /// Assemble recent sovereign outputs into a coherent markdown summary.
+    ///
+    /// This is the "what did the hive just say?" tool — it takes the raw JSON
+    /// blobs from each sovereign and renders them as readable markdown sections.
+    async fn tool_hive_summary(&self, args: &serde_json::Value) -> anyhow::Result<String> {
+        let max_results = args
+            .get("max_results")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(9) as usize;
+
+        if let Some(ref backend) = self.backend {
+            let recent = match backend.hive_summary_entries(max_results).await {
+                Some(entries) if !entries.is_empty() => entries,
+                Some(_) => {
+                    return Ok("## Hive Summary\n\nNo results yet. Submit an intent first:\n\n```\nuse submit_intent to send a task to the hive\n```".to_string());
+                }
+                None => {
+                    return Ok("## Hive Summary\n\nNo federation attached — start the server with `cargo run -- start`".to_string());
+                }
+            };
+
+            let mut sections = vec![format!(
+                "# Aaroneous Hive Summary\n\n*{} sovereign response(s) — most recent first*\n",
+                recent.len()
+            )];
+
+            for r in &recent {
+                let name = &r.sovereign;
+                let domain = r.domain;
+                let status_emoji = r.status.emoji();
+
+                // Try to parse the output as JSON for cleaner display
+                let formatted_output =
+                    if let Ok(v) = serde_json::from_str::<serde_json::Value>(&r.output) {
+                        // Pretty-print JSON with key fields highlighted
+                        let note = v.get("note").and_then(|n| n.as_str()).unwrap_or("");
+                        let mock = v.get("mock").and_then(|m| m.as_bool()).unwrap_or(false);
+                        let mut parts = vec![];
+                        if mock {
+                            parts.push(format!("> ⚠️ Mock output — {}", note));
+                        }
+                        parts.push(format!(
+                            "```json\n{}\n```",
+                            serde_json::to_string_pretty(&v).unwrap_or(r.output.clone())
+                        ));
+                        parts.join("\n\n")
+                    } else {
+                        // Plain text output
+                        r.output.chars().take(1000).collect::<String>()
+                    };
+
+                sections.push(format!(
+                    "---\n\n## {} {} `{}ms`\n\n*Domain: {}*\n\n{}",
+                    status_emoji, name, r.duration_ms, domain, formatted_output
+                ));
+            }
+
+            Ok(sections.join("\n\n"))
+        } else {
+            Ok("## Hive Summary\n\nNo federation attached — start the server with `cargo run -- start`".to_string())
+        }
+    }
+
+    pub fn uptime_secs(&self) -> u64 {
+        self.started_at.elapsed().as_secs()
+    }
+
+    /// Total requests handled
+    pub fn request_count(&self) -> u64 {
+        self.request_count
+            .load(std::sync::atomic::Ordering::Relaxed)
+    }
+}
+
+/// Service statistics
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ServiceStats {
+    pub name: String,
+    pub version: String,
+    pub running: bool,
+    pub domains_count: usize,
+    pub capabilities_count: usize,
+    pub enabled_transports: Vec<String>,
+    pub uptime_secs: u64,
+    pub request_count: u64,
 }

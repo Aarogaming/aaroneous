@@ -15,7 +15,7 @@ use tracing::info;
 use super::Federation;
 use crate::federation::specialist::ExecutionStatus;
 use crate::federation::specialists::GenericSpecialist;
-use crate::mcp_service::backend::{
+use mcp_server::mcp_service::{
     ExecStatus, HeartbeatReport, IntentBackend, MemorySyncResult, ResultSummary, SpecialistSummary,
 };
 

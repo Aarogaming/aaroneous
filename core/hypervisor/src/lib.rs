@@ -263,7 +263,6 @@ pub use llm_gateway::McpGateway;
 pub use profile_registry::CapabilitySchemaRegistry;
 pub mod intent_orchestrator;
 pub mod lora_adapter_vault;
-pub mod mcp_service;
 pub mod metadata_ingestor;
 pub mod native_ingestion;
 pub mod nats_client;

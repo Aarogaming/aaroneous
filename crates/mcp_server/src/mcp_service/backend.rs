@@ -1,36 +1,29 @@
-//! crates/mcp_server-to-be: the intent-execution backend boundary.
+//! The intent-execution backend boundary — the reason `mcp_service` can
+//! live in this crate at all rather than fused into `core/hypervisor`.
 //!
 //! `McpService` (in `service.rs`) is a generic MCP/JSON-RPC protocol
 //! implementation; everything it needs from "the running system" goes
-//! through this one trait, `IntentBackend`, rather than reaching into
-//! `Federation`'s fields directly. Two things this buys us:
+//! through this one trait, `IntentBackend`, rather than naming
+//! `hypervisor::federation::Federation` (or any other hypervisor-internal
+//! type) directly. That's not a style preference — it's load-bearing:
+//! `hypervisor`'s own binary depends on this crate (for `McpService` /
+//! `HttpServer`), so this crate depending back on `hypervisor` would be a
+//! circular package dependency, which Cargo rejects outright regardless of
+//! which target (lib vs. bin) actually uses which.
 //!
-//! 1. **Today**: `service.rs`'s dozen or so `self.federation`-touching
-//!    methods collapse to calls against a documented, typed interface
-//!    instead of raw lock-guarded `Vec`/`HashMap` field access spread
-//!    across the file — the exact shape of "what MCP needs from the hive"
-//!    is now visible in one place (this trait) instead of implicit in
-//!    call-site behavior.
-//! 2. **Next**: this trait and its associated types are the actual
-//!    contract `mcp_service` needs to become crate-portable. Cargo forbids
-//!    circular package dependencies — `crates/mcp_server` depending on
-//!    `hypervisor`'s lib while `hypervisor`'s own binary depends on
-//!    `mcp_server` is a cycle Cargo rejects outright — so a standalone MCP
-//!    crate cannot name `Federation` (or any other hypervisor-internal
-//!    type) in its own signatures. Once this trait's types are Federation-
-//!    agnostic, moving `mcp_service` into its own crate is a matter of
-//!    relocating this trait's *definition* there and leaving only its
-//!    `impl IntentBackend for Federation` behind in hypervisor, which is
-//!    exactly the shape a downstream crate consuming an upstream one is
-//!    supposed to take.
+//! `hypervisor` implements `IntentBackend for Federation` itself (see
+//! `core/hypervisor/src/federation/cluster/mcp_backend.rs`) and passes an
+//! `Arc<Federation>` to `McpService::with_backend()`, which coerces to
+//! `Arc<dyn IntentBackend>` automatically since `Federation: IntentBackend`
+//! — this crate never needs to know that type exists.
 //!
 //! See `docs/TECH_DEBT_TEST_DUPLICATION.md` §2.2 for the fuller writeup of
-//! why `crates/mcp_server` (today a stale, unreferenced duplicate) is the
-//! intended home for this module, and `AGENTS.md`'s component topology
-//! (`core/hypervisor`: "Headless microkernel host & execution loop" vs.
-//! `crates/api`/`crates/studio_hud`: "Presentation layer") for why an
-//! HTTP/SSE/JSON-RPC protocol server doesn't belong fused into the kernel
-//! crate in the first place.
+//! why this crate (until this move, a stale, unreferenced duplicate) is
+//! the intended home for `mcp_service`, and `AGENTS.md`'s component
+//! topology (`core/hypervisor`: "Headless microkernel host & execution
+//! loop" vs. `crates/api`/`crates/studio_hud`: "Presentation layer") for
+//! why an HTTP/SSE/JSON-RPC protocol server doesn't belong fused into the
+//! kernel crate in the first place.
 
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
