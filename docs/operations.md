@@ -57,7 +57,7 @@ To validate the framework under real-world workload pressure and safely ingest o
 
 ### 2.3 Modular Combinatorial Expansion ($n!$)
 - **Plug-and-Play State Bus:** Components decouple behind fixed C-ABI contracts (`MachinePacketHeader`) and atomic CAS ring buffers over memory-mapped shared regions.
-- **Architectural Immunity:** Any new or externally-sourced module connects into the state bus seamlessly. If an incoming module violates deterministic zero-allocation rules or ABI alignment, Cratify rejects it at compile-time—protecting the platform against architectural drift.
+- **Architectural Immunity:** Any new or externally-sourced module connects into the state bus seamlessly. Incoming modules pass the Cratify graduation gate and dependency admission ([CRATIFY_SPEC.md](CRATIFY_SPEC.md) sections 5-6); if a module violates its target profile's rules (e.g. zero-allocation or ABI alignment for `kernel` crates), Cratify rejects it at compile-time—protecting the platform against architectural drift.
 
 ---
 

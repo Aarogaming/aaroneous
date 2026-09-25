@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use nervous_system::SWMRSynapse;
+    use ipc_bus::SWMRSynapse;
 
     #[tokio::test]
     async fn test_synaptic_task_execution() {

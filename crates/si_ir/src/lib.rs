@@ -392,7 +392,7 @@ pub struct NativeComputationalGraph {
     pub nodes: BTreeMap<u64, NativeComputationNode>,
     pub entry_node: u64,
     pub exit_node: u64,
-    pub thermodynamic_free_energy: f64,
+    pub accumulated_energy_cost: f64,
     pub shannon_entropy: f64,
 }
 
@@ -402,7 +402,7 @@ impl NativeComputationalGraph {
     }
 
     pub fn add_node(&mut self, node: NativeComputationNode) {
-        self.thermodynamic_free_energy += node.energy_cost;
+        self.accumulated_energy_cost += node.energy_cost;
         self.nodes.insert(node.id, node);
     }
 
@@ -717,7 +717,7 @@ mod tests {
         });
 
         assert_eq!(graph.nodes.len(), 2);
-        assert!((graph.thermodynamic_free_energy - 0.06).abs() < 1e-6);
+        assert!((graph.accumulated_energy_cost - 0.06).abs() < 1e-6);
         assert!(graph.verify_dimensional_invariants().is_ok());
 
         // Compact byte serialization roundtrip
@@ -825,6 +825,6 @@ mod tests {
         assert_eq!(graph.nodes[&3].dependencies, vec![2]);
         assert_eq!(graph.nodes[&4].dependencies, vec![3]);
 
-        assert!(graph.thermodynamic_free_energy > 0.0);
+        assert!(graph.accumulated_energy_cost > 0.0);
     }
 }

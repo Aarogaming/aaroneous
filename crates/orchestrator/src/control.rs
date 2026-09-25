@@ -2,7 +2,7 @@
 // NATS federation control message handling and specialist lifecycle management
 
 use crate::agents::{RelicAgent, SpecialistAgent, create_relic, create_specialist};
-use biology::SystemBiology;
+use governance::system_limits::SystemHealthGovernor;
 use serde_json::{Value, json};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -19,7 +19,7 @@ pub enum ControlMessage {
     HaltSpecialist {
         name: String,
     },
-    SetExpressionRate {
+    SetExecutionRate {
         rate: f32,
     },
     RecalibrateSpecialist {
@@ -70,12 +70,12 @@ pub fn parse_control_message(payload: &str) -> Result<ControlMessage, String> {
                 .to_string();
             Ok(ControlMessage::HaltSpecialist { name })
         }
-        Some("set_expression_rate") => {
+        Some("set_execution_rate") => {
             let rate = json
                 .get("rate")
                 .and_then(|r| r.as_f64())
                 .ok_or("Missing or invalid 'rate' field")? as f32;
-            Ok(ControlMessage::SetExpressionRate { rate })
+            Ok(ControlMessage::SetExecutionRate { rate })
         }
         Some("recalibrate_specialist") => {
             let name = json
@@ -160,13 +160,13 @@ impl ControlPlane {
     /// Process all pending commands (call from main loop)
     pub async fn process_pending_commands(
         &self,
-        biology: &mut SystemBiology,
+        system: &mut SystemHealthGovernor,
     ) -> Vec<(String, Value)> {
         let mut commands = self.pending_commands.write().await;
         let mut responses = Vec::new();
 
         while let Some(cmd) = commands.pop() {
-            let response = self.execute_command(cmd, biology).await;
+            let response = self.execute_command(cmd, system).await;
             responses.push(response);
         }
 
@@ -177,7 +177,7 @@ impl ControlPlane {
     async fn execute_command(
         &self,
         msg: ControlMessage,
-        biology: &mut SystemBiology,
+        system: &mut SystemHealthGovernor,
     ) -> (String, Value) {
         match msg {
             ControlMessage::SpawnSpecialist {
@@ -185,18 +185,18 @@ impl ControlPlane {
                 activate,
                 user_id,
             } => {
-                self.spawn_specialist(&name, activate, user_id, biology)
+                self.spawn_specialist(&name, activate, user_id, system)
                     .await
             }
             ControlMessage::HaltSpecialist { name } => self.halt_specialist(&name).await,
-            ControlMessage::SetExpressionRate { rate } => {
-                biology.set_expression_rate(rate);
+            ControlMessage::SetExecutionRate { rate } => {
+                system.set_execution_rate(rate);
                 (
-                    "federation.control.response.set_expression_rate".to_string(),
+                    "federation.control.response.set_execution_rate".to_string(),
                     json!({
                         "success": true,
                         "new_rate": rate,
-                        "throttle_state": format!("{:?}", biology.throttle_state)
+                        "throttle_state": format!("{:?}", system.throttle_state)
                     }),
                 )
             }
@@ -212,12 +212,12 @@ impl ControlPlane {
                     .await
             }
             ControlMessage::QuerySystemHealth => {
-                let health = biology.get_health_report();
+                let health = system.get_health_report();
                 (
                     "federation.control.response.system_health".to_string(),
                     json!({
                         "global_tokens": health.global_tokens,
-                        "expression_rate": health.expression_rate,
+                        "execution_rate": health.execution_rate,
                         "throttle_state": format!("{:?}", health.throttle_state),
                         "specialist_count": health.specialist_count,
                         "specialists": health.specialist_health.iter().map(|s| json!({
@@ -242,7 +242,7 @@ impl ControlPlane {
         name: &str,
         activate: bool,
         user_id: Option<String>,
-        biology: &mut SystemBiology,
+        system: &mut SystemHealthGovernor,
     ) -> (String, Value) {
         let mut states = self.specialist_states.write().await;
 
@@ -282,7 +282,7 @@ impl ControlPlane {
         };
 
         // Register in metabolism
-        biology.register_specialist(&specialist.id, specialist.interval_ms);
+        system.register_specialist(&specialist.id, specialist.interval_ms);
 
         // Create state
         let now = chrono::Local::now().to_rfc3339();
@@ -490,11 +490,11 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_set_expression_rate_command() {
-        let json = r#"{"command": "set_expression_rate", "rate": 0.5}"#;
+    fn test_parse_set_execution_rate_command() {
+        let json = r#"{"command": "set_execution_rate", "rate": 0.5}"#;
         let msg = parse_control_message(json).unwrap();
         match msg {
-            ControlMessage::SetExpressionRate { rate } => {
+            ControlMessage::SetExecutionRate { rate } => {
                 assert_eq!(rate, 0.5);
             }
             _ => panic!("Wrong command type"),
@@ -611,32 +611,32 @@ mod tests {
 
     #[tokio::test]
     async fn test_enqueue_and_process_commands() {
-        use biology::SystemBiology;
+        use governance::system_limits::SystemHealthGovernor;
 
         let plane = ControlPlane::new();
-        let mut bio = SystemBiology::new();
+        let mut system = SystemHealthGovernor::new();
 
         plane
-            .enqueue_command(ControlMessage::SetExpressionRate { rate: 0.7 })
+            .enqueue_command(ControlMessage::SetExecutionRate { rate: 0.7 })
             .await;
         plane
             .enqueue_command(ControlMessage::QuerySystemHealth)
             .await;
 
-        let responses = plane.process_pending_commands(&mut bio).await;
+        let responses = plane.process_pending_commands(&mut system).await;
         assert_eq!(responses.len(), 2);
 
         // Responses are LIFO (pop from Vec end), so system_health comes first
         assert!(responses[0].0.contains("system_health"));
-        assert!(responses[1].0.contains("set_expression_rate"));
+        assert!(responses[1].0.contains("set_execution_rate"));
     }
 
     #[tokio::test]
     async fn test_spawn_specialist_lifecycle() {
-        use biology::SystemBiology;
+        use governance::system_limits::SystemHealthGovernor;
 
         let plane = ControlPlane::new();
-        let mut bio = SystemBiology::new();
+        let mut system = SystemHealthGovernor::new();
 
         // Spawn
         plane
@@ -646,7 +646,7 @@ mod tests {
                 user_id: None,
             })
             .await;
-        let responses = plane.process_pending_commands(&mut bio).await;
+        let responses = plane.process_pending_commands(&mut system).await;
         assert!(responses[0].1["success"].as_bool().unwrap());
 
         // Check active
@@ -659,7 +659,7 @@ mod tests {
                 name: "presenter".to_string(),
             })
             .await;
-        plane.process_pending_commands(&mut bio).await;
+        plane.process_pending_commands(&mut system).await;
 
         // Check not active
         let active = plane.get_active_specialists().await;
@@ -668,10 +668,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_spawn_duplicate_specialist() {
-        use biology::SystemBiology;
+        use governance::system_limits::SystemHealthGovernor;
 
         let plane = ControlPlane::new();
-        let mut bio = SystemBiology::new();
+        let mut system = SystemHealthGovernor::new();
 
         plane
             .enqueue_command(ControlMessage::SpawnSpecialist {
@@ -680,7 +680,7 @@ mod tests {
                 user_id: None,
             })
             .await;
-        plane.process_pending_commands(&mut bio).await;
+        plane.process_pending_commands(&mut system).await;
 
         // Spawn again
         plane
@@ -690,32 +690,32 @@ mod tests {
                 user_id: None,
             })
             .await;
-        let responses = plane.process_pending_commands(&mut bio).await;
+        let responses = plane.process_pending_commands(&mut system).await;
         assert!(!responses[0].1["success"].as_bool().unwrap());
     }
 
     #[tokio::test]
     async fn test_halt_nonexistent_specialist() {
-        use biology::SystemBiology;
+        use governance::system_limits::SystemHealthGovernor;
 
         let plane = ControlPlane::new();
-        let mut bio = SystemBiology::new();
+        let mut system = SystemHealthGovernor::new();
 
         plane
             .enqueue_command(ControlMessage::HaltSpecialist {
                 name: "ghost".to_string(),
             })
             .await;
-        let responses = plane.process_pending_commands(&mut bio).await;
+        let responses = plane.process_pending_commands(&mut system).await;
         assert!(!responses[0].1["success"].as_bool().unwrap());
     }
 
     #[tokio::test]
     async fn test_get_specialist_state() {
-        use biology::SystemBiology;
+        use governance::system_limits::SystemHealthGovernor;
 
         let plane = ControlPlane::new();
-        let mut bio = SystemBiology::new();
+        let mut system = SystemHealthGovernor::new();
 
         plane
             .enqueue_command(ControlMessage::SpawnSpecialist {
@@ -724,7 +724,7 @@ mod tests {
                 user_id: Some("user1".to_string()),
             })
             .await;
-        plane.process_pending_commands(&mut bio).await;
+        plane.process_pending_commands(&mut system).await;
 
         let state = plane.get_specialist_state("orchestrator").await;
         assert!(state.is_some());
@@ -743,10 +743,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_query_specialist_status() {
-        use biology::SystemBiology;
+        use governance::system_limits::SystemHealthGovernor;
 
         let plane = ControlPlane::new();
-        let mut bio = SystemBiology::new();
+        let mut system = SystemHealthGovernor::new();
 
         plane
             .enqueue_command(ControlMessage::SpawnSpecialist {
@@ -755,14 +755,14 @@ mod tests {
                 user_id: None,
             })
             .await;
-        plane.process_pending_commands(&mut bio).await;
+        plane.process_pending_commands(&mut system).await;
 
         plane
             .enqueue_command(ControlMessage::QuerySpecialistStatus {
                 name: "fabricator".to_string(),
             })
             .await;
-        let responses = plane.process_pending_commands(&mut bio).await;
+        let responses = plane.process_pending_commands(&mut system).await;
         assert!(responses[0].1["success"].as_bool().unwrap());
         assert_eq!(responses[0].1["specialist"], "fabricator");
     }

@@ -55,7 +55,7 @@ fn main() -> ExitCode {
             } else {
                 paths
             };
-            match ast_auditor::run_workspace_audit(target_paths) {
+            match cratify_core::run_workspace_audit(target_paths) {
                 Ok(()) => ExitCode::SUCCESS,
                 Err(code) => code,
             }
@@ -70,7 +70,7 @@ fn main() -> ExitCode {
             } else {
                 paths
             };
-            match ast_auditor::run_pattern_review(&targets, registry) {
+            match cratify_core::run_pattern_review(&targets, registry) {
                 Ok(report) => {
                     if json {
                         match serde_json::to_string_pretty(&report) {
@@ -93,7 +93,7 @@ fn main() -> ExitCode {
         }
         Some(Commands::CheckEncoding { root }) => {
             let repo_root = root.unwrap_or_else(|| PathBuf::from("."));
-            match ast_auditor::audit_tracked_encodings(&repo_root) {
+            match cratify_core::audit_tracked_encodings(&repo_root) {
                 Ok(violations) => {
                     if violations.is_empty() {
                         println!("All text files pass encoding and line ending checks.");
@@ -119,7 +119,7 @@ fn main() -> ExitCode {
             } else {
                 cli.targets
             };
-            match ast_auditor::run_workspace_audit(target_paths) {
+            match cratify_core::run_workspace_audit(target_paths) {
                 Ok(()) => ExitCode::SUCCESS,
                 Err(code) => code,
             }

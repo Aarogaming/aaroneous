@@ -28,8 +28,10 @@ use std::io::Write;
 use std::path::Path;
 
 use si_format::audit::jit_audit;
+pub use si_format::header::{
+    SI_CANONICAL_MAGIC as SINT_PACKER_MAGIC, SI_CANONICAL_VERSION as MIN_VERSION,
+};
 pub use si_format::utils::{ALIGNMENT_BYTES, align_to_64, compute_padding};
-pub use si_format::verify::{MIN_VERSION, SINT_PACKER_MAGIC};
 
 /// Packer format version — v3 enforces tensor-descriptor manifest with explicit byte offsets
 pub const SINT_PACKER_VERSION: u32 = 3;
@@ -42,56 +44,7 @@ pub type RawTensorPayload = (String, Vec<u8>, Vec<usize>, bool, PayloadType);
 // Tier Designation Flags (Offset 0x08 in .si SINT header)
 // ────────────────────────────────────────────────────────────────────────────
 
-/// Tier Designation Flags defining CPU/memory execution profiles and routing topology.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub struct SiTierFlags(pub u32);
-
-impl SiTierFlags {
-    /// Tier 1: Strategic Cortex (HD R^4096 representation, background OS thread)
-    pub const TIER_1_CORTEX: Self = Self(0b0000_0001);
-    /// Tier 2: Orchestration / Router (R^256, connects to central SPMC hub)
-    pub const TIER_2_ROUTER: Self = Self(0b0000_0010);
-    /// Tier 3: Kinetic Specialist / Reflex (R^256, L1 cache priority, thread pinning)
-    pub const TIER_3_REFLEX: Self = Self(0b0000_0100);
-
-    pub fn bits(&self) -> u32 {
-        self.0
-    }
-
-    pub fn from_bits(bits: u32) -> Self {
-        Self(bits)
-    }
-
-    pub fn is_cortex(&self) -> bool {
-        self.0 & Self::TIER_1_CORTEX.0 != 0
-    }
-
-    pub fn is_router(&self) -> bool {
-        self.0 & Self::TIER_2_ROUTER.0 != 0
-    }
-
-    pub fn is_reflex(&self) -> bool {
-        self.0 & Self::TIER_3_REFLEX.0 != 0
-    }
-
-    pub fn label(&self) -> &'static str {
-        if self.is_cortex() {
-            "Tier 1: Strategic Cortex (R^4096)"
-        } else if self.is_router() {
-            "Tier 2: Router (R^256)"
-        } else if self.is_reflex() {
-            "Tier 3: Kinetic Reflex (R^256)"
-        } else {
-            "Tier 3: Kinetic Reflex (Default)"
-        }
-    }
-}
-
-impl Default for SiTierFlags {
-    fn default() -> Self {
-        Self::TIER_3_REFLEX
-    }
-}
+pub use si_format::header::SiTierFlags;
 
 // ────────────────────────────────────────────────────────────────────────────
 // Manifest types
@@ -221,7 +174,7 @@ impl SiPacker {
             .iter()
             .map(|(_, data, _, _, _)| data.len() as u64)
             .collect();
-        let header_prefix: u64 = 20; // 4 (magic) + 4 (version) + 4 (flags) + 8 (toc_len)
+        let header_prefix: u64 = 64; // Canonical SiCartridgeHeader is 64 bytes
 
         let compute_layout = |manifest_len_guess: u64| -> (Vec<u64>, u64) {
             let after_manifest = header_prefix + manifest_len_guess;
@@ -282,6 +235,14 @@ impl SiPacker {
 
         let manifest_len = manifest_len_guess;
 
+        let header = si_format::header::SiCartridgeHeader {
+            version: SINT_PACKER_VERSION as u16,
+            flags: tier.bits(),
+            block1_offset: 64,
+            block1_len: manifest_len,
+            ..Default::default()
+        };
+
         let mut file = OpenOptions::new()
             .read(true)
             .write(true)
@@ -289,16 +250,14 @@ impl SiPacker {
             .truncate(true)
             .open(output_path)?;
 
-        file.write_all(&SINT_PACKER_MAGIC)?;
-        file.write_all(&SINT_PACKER_VERSION.to_le_bytes())?;
-        file.write_all(&tier.bits().to_le_bytes())?;
-        file.write_all(&manifest_len.to_le_bytes())?;
+        let header_bytes = bytemuck::bytes_of(&header);
+        file.write_all(header_bytes)?;
         file.write_all(&manifest_bytes)?;
 
-        let pad_after_manifest = compute_padding(header_prefix + manifest_len);
+        let pad_after_manifest = compute_padding(64 + manifest_len);
         file.write_all(&vec![0u8; pad_after_manifest])?;
 
-        let file_pos_after_header = header_prefix + manifest_len + pad_after_manifest as u64;
+        let file_pos_after_header = 64 + manifest_len + pad_after_manifest as u64;
         let mut file_cursor = file_pos_after_header;
 
         for (((_, bytes, _, _, _), &expected_offset), &payload_len) in
@@ -354,25 +313,28 @@ impl SiSolidStateLoader {
         // is read-only, kept alive for `Self`'s whole lifetime below.
         let mmap = unsafe { Mmap::map(&file)? };
 
-        if mmap.len() < 20 || mmap[0..4] != SINT_PACKER_MAGIC {
+        if mmap.len() < 64 {
+            bail!("SiSolidStateLoader: {:?} too small for header", path);
+        }
+
+        let header: &si_format::header::SiCartridgeHeader = bytemuck::from_bytes(&mmap[0..64]);
+
+        if header.magic != SINT_PACKER_MAGIC {
             bail!("SiSolidStateLoader: {:?} missing SINT magic bytes", path);
         }
 
-        let version = u32::from_le_bytes(mmap[4..8].try_into()?);
-        if version < MIN_VERSION {
+        if header.version < MIN_VERSION {
             bail!(
-                "SiSolidStateLoader: container version v{} is not supported (requires v{}+)",
-                version,
+                "Container version v{} is not supported (requires v{}+)",
+                header.version,
                 MIN_VERSION
             );
         }
 
-        let flag_bytes: [u8; 4] = mmap[8..12].try_into()?;
-        let tier_flags = SiTierFlags::from_bits(u32::from_le_bytes(flag_bytes));
+        let tier_flags = SiTierFlags::from_bits(header.flags);
 
-        let toc_len = u64::from_le_bytes(mmap[12..20].try_into()?) as usize;
         let manifest_bytes = mmap
-            .get(20..20 + toc_len)
+            .get(header.block1_offset as usize..(header.block1_offset + header.block1_len) as usize)
             .ok_or_else(|| anyhow::anyhow!("SiSolidStateLoader: TOC truncated"))?;
 
         let manifest: SiContainerManifest = bincode_deserialize(manifest_bytes)?;
@@ -506,5 +468,26 @@ mod tests {
         let in_proj = loader.get_tensor_slice("ssm_in_proj").unwrap();
         assert_eq!(in_proj.len(), 256 * 32);
         assert!((in_proj[0] - 0.1f32).abs() < 1e-6);
+    }
+    #[test]
+    fn test_si_packer_writes_canonical_header() {
+        let temp_dir = tempfile::tempdir().expect("create test sandbox");
+        let tmp = temp_dir.path().join("test_packer_header.si");
+        let mut core = HashMap::new();
+        core.insert("ssm_in_proj".to_string(), vec![0.1f32; 256 * 32]);
+
+        SiPacker::pack_to_si(&tmp, "test_model", 32, 8, 4, core).expect("pack_to_si failed");
+
+        let file_bytes = std::fs::read(&tmp).expect("read si file");
+        assert!(file_bytes.len() >= 64, "file too small for header");
+
+        let header: &si_format::header::SiCartridgeHeader =
+            bytemuck::from_bytes(&file_bytes[0..64]);
+
+        assert_eq!(header.magic, si_format::header::SI_CANONICAL_MAGIC);
+        assert_eq!(header.version, SINT_PACKER_VERSION as u16);
+        assert_eq!(header.header_size, 64);
+        // The rest of the fields should also be correctly initialized
+        // This test will fail until the packer is fixed to write a canonical header.
     }
 }

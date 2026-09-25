@@ -826,7 +826,7 @@ mod tests {
         assert_eq!(graph.nodes.len(), 2);
         assert_eq!(graph.entry_node, 1);
         assert_eq!(graph.exit_node, 2);
-        assert!(graph.thermodynamic_free_energy > 0.0);
+        assert!(graph.accumulated_energy_cost > 0.0);
 
         // Check topological dependency resolution
         let node_s2 = graph

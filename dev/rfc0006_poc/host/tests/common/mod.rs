@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
-/// Locates a PoC plugin fixture built by `host`'s `build.rs` into the
-/// separate `../plugins` workspace's own `target/debug`. Uses
+/// Locates a PoC plugin fixture built by `host`'s `build.rs` into its
+/// explicit, isolated fixture target directory. Uses
 /// `std::env::consts::DLL_PREFIX`/`DLL_SUFFIX` rather than a hardcoded
 /// `lib*.so`, since Cargo emits `{name}.dll` (no `lib` prefix) on Windows
 /// and `lib{name}.dylib` on macOS - this repo's CI runs both Linux and
@@ -13,8 +13,8 @@ pub fn plugin_path(crate_name: &str) -> PathBuf {
         std::env::consts::DLL_PREFIX,
         std::env::consts::DLL_SUFFIX
     );
-    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../plugins/target/debug")
+    let path = PathBuf::from(env!("RFC0006_PLUGIN_TARGET_DIR"))
+        .join("debug")
         .join(filename);
     assert!(
         path.exists(),

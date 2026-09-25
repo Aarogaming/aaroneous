@@ -66,7 +66,7 @@ All roadmap features must satisfy the **11 Sequential Verification Gates** (`car
 - [x] **11-Gate CI/Local Parity (`cargo xtask gate`)**
   - **Evidence:** `xtask/src/gate.rs` enforces text encoding, clippy `-D warnings`, workspace tests, release check, ast_auditor, and feature combinations. Automated parity tests verify `gate.rs` matches `.github/workflows/ci.yml`.
 - [x] **Static AST Invariant Audit (`ast_auditor`)**
-  - **Evidence:** `cargo run -p ast_auditor -- audit core/ crates/ dev/` reports 0 violations across 738 files. Prohibits `todo!()`, `unimplemented!()`, manual `unsafe impl Pod`, and ambient `std::env::var` calls.
+  - **Evidence:** `cargo run -p ast_auditor -- audit core/ crates/ dev/` reported 0 violations across 738 files at the time; as of `6321a63` (2026-09-23) the gate scope (`core/ crates/ dev/emulator_harness/`) reports 0 violations across 756 files, with five library files exempted via `#[allow(ambient_authority)]` (see CRATIFY_SPEC section 7.1). Prohibits `todo!()`, `unimplemented!()`, manual `unsafe impl Pod`, and ambient `std::env::var` calls.
 - [x] **Deterministic Temporal Synchronization (M19)**
   - **Evidence:** `crates/omni/src/matrix/sab_matrix.rs` test refactored using `std::fs::FileTimes` backdating (<5ms runtime); `core/hypervisor/src/bus_test.rs` artificial sleep removed. `governance/TEMPORAL_TEST_SYNCHRONIZATION_GUIDANCE.md` published.
 - [x] **Lock-Free Zero-Copy IPC Transport (`crates/ipc_bus`)**
@@ -77,17 +77,19 @@ All roadmap features must satisfy the **11 Sequential Verification Gates** (`car
   - **Evidence:** Deprecated 17 legacy biological/mythological type aliases and 3 path methods (`#[deprecated(since = "0.3.3")]`). Added `TypeId` equivalence unit tests. Published `docs/DEPRECATION_POLICY.md` scheduling removal at v0.4.0.
 - [x] **Root README Assurance Reconciliation (M21)**
   - **Evidence:** Reconciled root `README.md` with current binary CLI (`hypervisor` subcommands `start`, `boot`, `mesh`, `daemon`, `evolve`, `forge`, `si`, `distill-all`, `mcp`) and explicitly labeled latency figures as design targets.
+- [x] **Iroh P2P Dependency Upgrade (C20 / M20)**
+  - **Evidence:** Bumped `iroh` to `1.2` in `core/hypervisor/Cargo.toml` (commit `f747f69`). Unblocked transitive `hickory-net`, `atomic-polyfill`, and `lru` vulnerabilities (`cargo-audit` / `cargo-deny` green).
+- [x] **Property-Oriented Parser Property Tests (M26)**
+  - **Evidence:** Added `proptest` boundary fuzz test suites in `crates/wire/tests/boundary_property_tests.rs` (4 tests) and `crates/ipc_bus/tests/ipc_property_tests.rs` (2 tests). Zero-panic COBS and zero-copy POD conversions verified.
+- [x] **Baseline Performance Benchmarking (M27)**
+  - **Evidence:** Published `dev/emulator_harness/BENCHMARK_CONTRACT.md` and Criterion benchmark suite `reduction_benchmark.rs` measuring single-pass trace reduction throughput (<2.5µs / 1k events target).
 
-### 3.2 Active & In-Progress Development Lanes
+### 3.2 Active & In-Progress Development Lanes (Phase 38 / Horizon 6)
 
 - [ ] **M12: Stable Plugin Command-Buffer ABI (RFC-0006)**
   - **Status:** Specification complete (`docs/rfcs/RFC-0006-PLUGIN_LIFECYCLE_AND_STABLE_UI_CARTRIDGE_ABI.md`). Next: implementation of a `repr(C)` command-buffer protocol for dynamic hot-reload plugins.
-- [ ] **M20: Iroh P2P Dependency Upgrade Evaluation**
-  - **Status:** Scoped in `governance/DEPENDENCY_REMEDIATION_PLAN.md`. Next: testing `iroh` upgrade path to unblock transitive `hickory-net` and `lru` advisories.
-- [ ] **M26: Property-Oriented Parser Boundary Testing**
-  - **Status:** Planned. Next: adding property-based fuzz tests (`proptest`) for zero-panic guarantees on `crates/wire` and `crates/ipc_bus` binary deserialization.
-- [ ] **M27: Bounded Baseline Performance Benchmarking**
-  - **Status:** Planned. Next: creating reproducible benchmark contracts and baseline capture for `dev/emulator_harness` trace reduction.
+- [ ] **Phase 38 / M32: Capability Broker & Resource Governance Integration**
+  - **Status:** In Progress (`crates/capabilities/src/broker.rs`, `crates/governance/src/health_governor.rs`, `core/hypervisor/src/state_publisher.rs`). Active development of signed token capability sandbox and thermodynamic backpressure controls.
 
 ### 3.3 Phased Release Schedule
 

@@ -1,6 +1,6 @@
 use anyhow::Result;
 use async_trait::async_trait;
-use nervous_system::shared_memory::SynapseState;
+use ipc_bus::shared_memory::SynapseState;
 
 #[async_trait]
 pub trait NativeEnzyme: Send + Sync {

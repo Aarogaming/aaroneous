@@ -238,7 +238,7 @@ impl CraneliftJitEngine {
         // 5. Code size (u64)
         payload.extend_from_slice(&(machine_code.len() as u64).to_le_bytes());
         // 6. Free energy bound (f64)
-        payload.extend_from_slice(&graph.thermodynamic_free_energy.to_le_bytes());
+        payload.extend_from_slice(&graph.accumulated_energy_cost.to_le_bytes());
         // 7. Reserved padding to 64 bytes
         while payload.len() < 64 {
             payload.push(0);

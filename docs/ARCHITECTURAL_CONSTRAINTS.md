@@ -1,5 +1,7 @@
 # Architectural Constraints for Aaroneous Substrate
 
+> **Scope:** Worked guidance on constructor injection and handle-based composition. The binding rules are the universal floor in [CRATIFY_SPEC.md](CRATIFY_SPEC.md) section 1 (constructor injection, no ambient authority) and the profile rules in section 2. Where this document and CRATIFY_SPEC differ, CRATIFY_SPEC wins.
+
 ## 🚫 Anti-Pattern: Inline Dependency Construction
 
 Language models naturally gravitate toward **inlined instantiation** because it minimizes token uncertainty and requires zero knowledge of the broader dependency graph. This must be explicitly forbidden.

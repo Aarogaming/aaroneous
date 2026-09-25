@@ -14,8 +14,8 @@ use serde::{Deserialize, Serialize};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use thiserror::Error;
 
+use crate::interference_checker::{InterferenceChecker, NonInterferenceReport};
 use crate::lattice_verifier::{LatticeVerifier, VerificationReport};
-use crate::z3_prover::{NonInterferenceReport, Z3Prover};
 use si_ir::NativeComputationalGraph;
 
 /// Structured errors emitted during formal SMT verification, thermodynamic gating, and interlock checks.
@@ -62,7 +62,7 @@ pub struct InterlockAuditCertificate {
 /// SmtActionInterlock: The hardware-gated mathematical fence
 pub struct SmtActionInterlock {
     lattice_verifier: LatticeVerifier,
-    z3_prover: Z3Prover,
+    interference_checker: InterferenceChecker,
     max_free_energy_bound: f64,
     emergency_killswitch_tripped: AtomicBool,
     interlock_eval_counter: AtomicU64,
@@ -73,16 +73,16 @@ impl SmtActionInterlock {
     pub fn new(max_free_energy_bound: f64) -> Self {
         Self {
             lattice_verifier: LatticeVerifier::default().with_epsilon(max_free_energy_bound),
-            z3_prover: Z3Prover::new(),
+            interference_checker: InterferenceChecker::new(),
             max_free_energy_bound,
             emergency_killswitch_tripped: AtomicBool::new(false),
             interlock_eval_counter: AtomicU64::new(1),
         }
     }
 
-    /// Access the Z3 SMT prover
-    pub fn z3_prover(&self) -> &Z3Prover {
-        &self.z3_prover
+    /// Access the interference checker
+    pub fn interference_checker(&self) -> &InterferenceChecker {
+        &self.interference_checker
     }
 
     /// Default strict configuration (max free energy = 0.05).
@@ -101,13 +101,13 @@ impl SmtActionInterlock {
             ));
         }
 
-        // Prove memory bounds and dimensional consistency via Z3Prover
-        self.z3_prover.prove_action_safety(graph)?;
+        // Prove memory bounds and dimensional consistency via InterferenceChecker
+        self.interference_checker.prove_action_safety(graph)?;
 
         // Prove thermodynamic dissipation bound
-        if graph.thermodynamic_free_energy > self.max_free_energy_bound {
+        if graph.accumulated_energy_cost > self.max_free_energy_bound {
             return Err(GovernanceError::ThermodynamicBoundExceeded {
-                actual: graph.thermodynamic_free_energy,
+                actual: graph.accumulated_energy_cost,
                 max: self.max_free_energy_bound,
             });
         }
@@ -153,16 +153,16 @@ impl SmtActionInterlock {
         // that one incompatible candidate (e.g. a TensorDot outside the
         // type lattice) can't abort the whole batch via `?` and discard
         // certificates already computed for earlier candidates.
-        if let Err(e) = self.z3_prover.prove_action_safety(graph) {
+        if let Err(e) = self.interference_checker.prove_action_safety(graph) {
             return Ok(InterlockAuditCertificate {
                 is_authorized: false,
                 graph_id: eval_id,
                 timestamp_ms: ts,
-                free_energy_dissipation: graph.thermodynamic_free_energy,
+                free_energy_dissipation: graph.accumulated_energy_cost,
                 lattice_report: VerificationReport {
                     is_valid: false,
                     total_nodes: graph.nodes.len(),
-                    free_energy: graph.thermodynamic_free_energy,
+                    free_energy: graph.accumulated_energy_cost,
                     dimensional_checks_passed: 0,
                     spatial_checks_passed: 0,
                     diagnostics: vec![format!("SMT prover rejected graph: {e}")],
@@ -180,11 +180,11 @@ impl SmtActionInterlock {
                     is_authorized: false,
                     graph_id: eval_id,
                     timestamp_ms: ts,
-                    free_energy_dissipation: graph.thermodynamic_free_energy,
+                    free_energy_dissipation: graph.accumulated_energy_cost,
                     lattice_report: VerificationReport {
                         is_valid: false,
                         total_nodes: graph.nodes.len(),
-                        free_energy: graph.thermodynamic_free_energy,
+                        free_energy: graph.accumulated_energy_cost,
                         dimensional_checks_passed: 0,
                         spatial_checks_passed: 0,
                         diagnostics: vec![format!("Lattice verification rejected: {e}")],
@@ -196,17 +196,17 @@ impl SmtActionInterlock {
         };
 
         // 3. Thermodynamic Free-Energy Dissipation Bound Gate
-        if graph.thermodynamic_free_energy > self.max_free_energy_bound {
+        if graph.accumulated_energy_cost > self.max_free_energy_bound {
             return Ok(InterlockAuditCertificate {
                 is_authorized: false,
                 graph_id: eval_id,
                 timestamp_ms: ts,
-                free_energy_dissipation: graph.thermodynamic_free_energy,
+                free_energy_dissipation: graph.accumulated_energy_cost,
                 lattice_report,
                 smt_non_interference_verified: false,
                 denial_reason: Some(format!(
                     "Thermodynamic dissipation {:.4} exceeds strict bound {:.4}",
-                    graph.thermodynamic_free_energy, self.max_free_energy_bound
+                    graph.accumulated_energy_cost, self.max_free_energy_bound
                 )),
             });
         }
@@ -215,7 +215,7 @@ impl SmtActionInterlock {
             is_authorized: true,
             graph_id: eval_id,
             timestamp_ms: ts,
-            free_energy_dissipation: graph.thermodynamic_free_energy,
+            free_energy_dissipation: graph.accumulated_energy_cost,
             lattice_report,
             smt_non_interference_verified: false,
             denial_reason: None,
@@ -244,7 +244,8 @@ impl SmtActionInterlock {
         }
 
         // Run SMT algebraic non-interference solver
-        self.z3_prover.verify_non_interference(graph_a, graph_b)
+        self.interference_checker
+            .verify_non_interference(graph_a, graph_b)
     }
 
     /// Evaluates custom algebraic constraints and invariant predicates against state vectors
@@ -320,7 +321,7 @@ mod tests {
     fn test_smt_action_interlock_valid_authorization() {
         let interlock = SmtActionInterlock::new(0.10);
         let mut graph = NativeComputationalGraph::new();
-        graph.thermodynamic_free_energy = 0.04;
+        graph.accumulated_energy_cost = 0.04;
 
         let node = NativeComputationNode {
             id: 1,
@@ -347,7 +348,7 @@ mod tests {
     fn test_smt_action_interlock_thermodynamic_rejection() {
         let interlock = SmtActionInterlock::new(0.05);
         let mut graph = NativeComputationalGraph::new();
-        graph.thermodynamic_free_energy = 0.08; // Exceeds bound of 0.05
+        graph.accumulated_energy_cost = 0.08; // Exceeds bound of 0.05
 
         let cert = interlock.evaluate_action_graph(&graph).unwrap();
         assert!(!cert.is_authorized);
@@ -362,7 +363,7 @@ mod tests {
     fn equal_size_graphs_are_independently_verified() {
         let interlock = SmtActionInterlock::new(0.10);
         let mut graph = NativeComputationalGraph::new();
-        graph.thermodynamic_free_energy = 0.02;
+        graph.accumulated_energy_cost = 0.02;
 
         let node = NativeComputationNode {
             id: 1,
@@ -402,7 +403,7 @@ mod tests {
     fn non_finite_inputs_and_policy_fail_closed() {
         for energy in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY, -1.0] {
             let mut graph = NativeComputationalGraph::new();
-            graph.thermodynamic_free_energy = energy;
+            graph.accumulated_energy_cost = energy;
             let interlock = SmtActionInterlock::strict();
             assert!(
                 !interlock
@@ -456,10 +457,10 @@ mod tests {
     fn test_batch_verify_action_graphs() {
         let interlock = SmtActionInterlock::new(0.10);
         let mut graph_a = NativeComputationalGraph::new();
-        graph_a.thermodynamic_free_energy = 0.02;
+        graph_a.accumulated_energy_cost = 0.02;
 
         let mut graph_b = NativeComputationalGraph::new();
-        graph_b.thermodynamic_free_energy = 0.15; // Exceeds bound
+        graph_b.accumulated_energy_cost = 0.15; // Exceeds bound
 
         let results = interlock
             .batch_verify_action_graphs(&[&graph_a, &graph_b])
@@ -471,7 +472,7 @@ mod tests {
 
     /// Regression test for a batch containing a graph the SMT prover
     /// rejects (a TensorDot node addressing a register the prover treats as
-    /// unsafe, per z3_prover::MAX_HARDWARE_REGISTER). Before the fix,
+    /// unsafe, per interference_checker::MAX_HARDWARE_REGISTER). Before the fix,
     /// evaluate_action_graph propagated prove_action_safety's error via
     /// `?`, so batch_verify_action_graphs aborted the whole batch on the
     /// first such candidate and discarded certificates for every other
@@ -482,7 +483,7 @@ mod tests {
         let interlock = SmtActionInterlock::new(0.10);
 
         let mut valid_graph = NativeComputationalGraph::new();
-        valid_graph.thermodynamic_free_energy = 0.02;
+        valid_graph.accumulated_energy_cost = 0.02;
         valid_graph.nodes.insert(
             1,
             NativeComputationNode {
@@ -501,13 +502,13 @@ mod tests {
         );
 
         let mut smt_rejected_graph = NativeComputationalGraph::new();
-        smt_rejected_graph.thermodynamic_free_energy = 0.02;
+        smt_rejected_graph.accumulated_energy_cost = 0.02;
         smt_rejected_graph.nodes.insert(
             1,
             NativeComputationNode {
                 id: 1,
                 // left_reg above MAX_HARDWARE_REGISTER - 1000 (8192 - 1000 =
-                // 7192) is exactly what z3_prover::prove_action_safety
+                // 7192) is exactly what interference_checker::prove_action_safety
                 // rejects with GovernanceError::MemorySafetyViolation.
                 opcode: MachineOpcode::TensorDot {
                     left_reg: 8000,
@@ -556,7 +557,7 @@ mod tests {
 
         // 1. Thermodynamic bound exceeded
         let mut high_energy_graph = NativeComputationalGraph::new();
-        high_energy_graph.thermodynamic_free_energy = 0.12;
+        high_energy_graph.accumulated_energy_cost = 0.12;
         let err = interlock
             .evaluate_action_gate(&high_energy_graph)
             .unwrap_err();

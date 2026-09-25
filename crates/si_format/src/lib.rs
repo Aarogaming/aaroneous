@@ -8,10 +8,11 @@
 
 pub mod audit;
 pub mod cartridge;
+pub mod header;
 pub mod utils;
 pub mod verify;
 
-pub use cartridge::{Aligned, Cartridge, CartridgeError, Executable, Raw, SmtVerified, fnv1a_hash};
+pub use cartridge::{Aligned, Cartridge, CartridgeError, Executable, Raw, SmtVerified};
 
 pub use audit::{
     AArch64Auditor, AuditResult, InstructionSetAuditor, TargetArch, X86_64Auditor, audit,
@@ -19,7 +20,7 @@ pub use audit::{
 };
 pub use verify::{
     CAPABILITY_HARDWARE_ACCEL, CAPABILITY_JIT_EXECUTION, CAPABILITY_NETWORK_MESH,
-    CAPABILITY_READ_STORAGE, CAPABILITY_WRITE_STORAGE, MIN_VERSION, SINT_PACKER_MAGIC,
-    validate_capability_mask, validate_magic_bytes, validate_payload_checksum, validate_range,
-    validate_tensor_descriptor, validate_version,
+    CAPABILITY_READ_STORAGE, CAPABILITY_WRITE_STORAGE, validate_block_geometry,
+    validate_capability_mask, validate_magic_bytes, validate_range, validate_tensor_descriptor,
+    validate_version,
 };

@@ -22,7 +22,7 @@ $$S_{t+1} = f(S_t, I)$$
 - **Zero Side-Effects in Reducers**: Domain engines MUST NOT perform side effects, background network I/O, file system reads, or hidden async task launches during state reduction.
 - **Three-Phase Scan Separation**:
   1. **Input Acquisition (Phase 1)**: Poll hardware, network, IPC, or timers into fixed-size, stack-allocated input frames.
-  2. **State Reduction (Phase 2)**: Execute pure state transition $S_{t+1} = f(S_t, I)$. No I/O, no blocking, no heap allocation.
+  2. **State Reduction (Phase 2)**: Execute pure state transition $S_{t+1} = f(S_t, I)$. No I/O, no blocking. In `kernel`-profile crates, no heap allocation (reducers are marked `#[hot_path]`).
   3. **Telemetry & Actuation Output (Phase 3)**: Emit telemetry records to lock-free ring buffers and dispatch actions over bounded channels.
 
 ```
@@ -53,14 +53,19 @@ To preserve determinism and eliminate ambient authority:
 - **Explicit Injection**: All dependencies, static buffers, communication handles, and configuration parameters MUST be passed explicitly into constructor functions (e.g., `Engine::new(config, buffer)`).
 - **No Self-Instantiation**: Sub-components, inner structs, or domain logic must NEVER instantiate their own external dependencies or construct global services.
 - **No Ambient Reads**: Sub-components must never read external state, system clocks, file descriptors, or environment settings outside what is explicitly provided via constructor or tick inputs.
+- **No Self-Started Execution**: Library code never spawns threads or async tasks on its own authority; it receives an injected executor handle or runs under `orchestrator::Supervisor`.
+
+These rules form part of the universal floor that applies to every crate regardless of compliance profile ([CRATIFY_SPEC.md](CRATIFY_SPEC.md) section 1).
 
 ---
 
 ## 3. Concurrency & Memory Model
 
+The rules below are mandatory for `kernel`-profile crates (`core/hypervisor`, `ipc_bus`, `compute`, `wire`, `si_format`, `si_ir`, `platform_bridge`, `runtime_monitor`, `dev/emulator_harness`). `control`-profile crates may use locks and allocation off the scan loop; see [CRATIFY_SPEC.md](CRATIFY_SPEC.md) section 2.
+
 - **SWMR (Single-Writer / Multiple-Reader)**: Atomic sequence indexing over pre-allocated static ring buffers (`SwrnRingBuffer`).
 - **No Mutexes on Hot Paths**: `std::sync::Mutex`, `parking_lot::Mutex`, and `RwLock` are prohibited in telemetry, state extraction, or IPC hot paths to avoid thread parking latency spikes.
-- **No Deferred Static Initialization**: `OnceLock` and `lazy_static` for runtime state are banned. Initialize all buffers statically or at startup before starting the control loop.
+- **No Deferred Static Initialization**: `OnceLock` and `lazy_static` for runtime state are banned in every non-`tooling` crate. Initialize all buffers statically or at startup before starting the control loop.
 
 ---
 
@@ -71,7 +76,7 @@ The unified foundational specification is codified in **[Master Architecture Spe
 1. **[Master Architecture Specification](./architecture/MASTER_ARCHITECTURE.md)** (Tier 1 Master Blueprint)
 2. **[Workspace Topology & Subsystem Ring Architecture](./architecture/architecture_overview.md)**  
    *Scope*: Monorepo layout, 5-ring layered protection model, single-responsibility crate mapping, and the Zero Prefix Stutter rule.
-3. **[Event-Driven Asset Assimilation & Wire Geometry](./architecture/assimilation_specification.md)**  
+3. **[Event-Driven Asset Assimilation & Wire Geometry](./architecture/component_onboarding_specification.md)**  
    *Scope*: 360-byte `AssimilationRecord` binary contracts (`Pod` / `Zeroable`), typestate machine (`AssimilationTask<State>`), zero-copy reactive reducer (`handle_assimilation_event`), and hypervisor Step 0 non-blocking drain.
 4. **[LLM Manager & Priority-Constrained Scheduler](./architecture/llm_manager_scheduler.md)**  
    *Scope*: Stateless transducer interface ($\mathcal{T}: \Sigma^* \times \mathcal{G} \to \Omega$), transport vs. control plane separation (`llm_gateway` vs. `orchestrator`), dynamic priority heap (`Critical`, `Standard`, `Background`), and jittered exponential backoff.
@@ -85,5 +90,5 @@ The unified foundational specification is codified in **[Master Architecture Spe
 ## 5. Supplementary Framework References
 
 - **[Architectural Constraints & Dependency Injection](./ARCHITECTURAL_CONSTRAINTS.md)**: Concrete anti-patterns and constructor injection guidelines.
-- **[Static Analysis & Compiler Invariant Governance (AST Auditor)](./CRATIFY_SPEC.md)**: Linting rules, memory geometry, and banned anti-pattern verification.
+- **[Cratify Compliance Specification (v2)](./CRATIFY_SPEC.md)**: Universal floor, compliance profiles, dependency admission, component graduation, the invariant ratchet, and `ast_auditor` enforcement status.
 - **[Forensic Ingestion Protocol (RFC-0005)](./FORENSICS_RFC0005.md)**: Quarantine containment and kernel extraction for legacy staged code.

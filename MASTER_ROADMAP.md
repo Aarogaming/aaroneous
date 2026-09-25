@@ -1,5 +1,7 @@
 # Aaroneous – Master Roadmap (vX.Y.Z)
 
+> **CANONICAL ROADMAP LOCATION**: See [docs/roadmap.md](docs/roadmap.md) for the authoritative, evidence-labeled product roadmap, pillar status, and release schedule.
+
 ## Table of Contents
 1. [Executive Summary](#executive-summary)  
 2. [Current State & Decoupling Progress](#current-state--decoupling-progress)  
@@ -92,13 +94,31 @@ All ongoing feature cycles and autonomous runtime evolution adhere to the system
 #### 🟡 Governance & Release Hardening
 - [ ] **Edge-device orchestration** via nats_client.rs to schedule NPU tasks on remote nodes.
 - [ ] **Formal verification** of compiled AgentAction graphs using Z3 (crates/governance).
-- [ ] **Dynamic plugin hot-swap**: implement the command-buffer ABI proof-of-concept in `crates/api`/`studio_hud` per RFC-0006 (docs/rfcs/RFC-0006-PLUGIN_LIFECYCLE_AND_STABLE_UI_CARTRIDGE_ABI.md). The unauthenticated, unsandboxed `crates/hotload`/`crates/plugin_api` dynamic-DLL-loading scaffolding this line used to point at was dead code with no caller and has been removed; it predated and duplicated the unsound pattern RFC-0006 already documents removing from `studio_hud`.
+- [ ] **Dynamic plugin hot-swap** improvements in crates/hotload once supervision is stabilized.
+- [ ] **Cratify v2 enforcement backlog** ([docs/CRATIFY_SPEC.md](docs/CRATIFY_SPEC.md) section 7.1), in order: `[package.metadata.cratify] profile` on every crate; profile-aware unsafe policy; hot-path markers on `kernel` scan-loop code (currently 4 functions, none in the hypervisor scan loop); panic-on-runtime-input rule; ambient clock rule; self-started thread/task rule; baseline-count ratchet mode; retire the five library `#[allow(ambient_authority)]` exemptions; profile dependency direction check; audit scope for `xtask/`/`sdk/`/`benches/`; documentation link gate.
+
 
 ---
 
 ### Phase-by-Phase Roadmap Integration
 | Phase | Version | Focus | Status | Key Deliverables |
 |---|---|---|---|---|
+<<<<<<< HEAD
+| **Phase 1** |  0.4.0 | Defect resolution & flag activations | **Verified (H1)** | Fix packet alignment & GDI leaks; activate llama-gguf, nvml-wrapper, iroh P2P |
+| **Phase 2** |  0.5.0 | Vision & rendering convergence | **Verified (H1)** | DXGI desktop capture, modular HUD modes, spatial window manager |
+| **Phase 3** |  0.6.0 | Compiler & True JIT | **Verified (H1)** | si_ir extraction, LatticeVerifier, cranelift-codegen JIT |
+| **Phase 4** |  0.7.0 | .si tooling & associative memory | **Verified (H1)** | SiForge pipeline, HNSW memory fabric |
+| **Phase 5** |  0.8.0 | Safe dynamic modification | **Redesigned** | Historical fat-pointer FFI loader removed for unsoundness (SEC-01/SEC-03, C2); safe in-process `UiCartridge` active; `repr(C)` command-buffer ABI proposed in RFC-0006 (M12) |
+| **Phase 6** |  1.0.0 | Distributed execution & SMT gate | **Verified (H1)** | Iroh QUIC fleet, FleetScheduler, Z3Prover |
+| **Phase 7** |  1.1.0 | Sensor fusion & GPU SSM | **Verified (H1)** | UIA tree, WASAPI loopback, ETW ingestion, cubecl GPU SSM, intent-to-fascia daemon |
+| **Phase 8** |  1.2.0 | Mechanical sympathy & micro-architectural tuning | **Verified (H1)** | mimalloc, Fat LTO, smol_str, _rdtsc, SoA storage |
+| **Phases 9–17** | 1.2.0 | Native performance & 3D HUD | **Verified (H1/H2)** | Native WGPU 3D studio (`studio_hud`), SSE telemetry, Raft consensus (`federation`), polyglot tree-sitter (`adaptation_engine`) |
+| **Phases 18–24** | 1.3.0 | Sovereign cartridge & formal governance | **Verified (H3/H4)** | Canonical `.si` v3.0 (`si_format`), Z3 SMT gates (`governance`), Fitts's law Bézier kinematics (`studio_hud`) |
+| **Phases 25–29** | 1.4.0 | Hardware saturation & sparse MoE | **Verified (H5)** | 16-slot sparse expert register (`compute`), CAN 2.0B/FD (`platform_bridge`), VRAM slab, Crucible sandbox (`CapabilityBroker`) |
+| **Phases 30–33** | 1.5.0 | Machine-native intent & NPU | **Verified (H6)** | Auto-tuner, drag-and-drop `.si-pack`, `.lib` state bank (`compute`), 45 TOPS NPU (`llm_gateway`/`intel_npu`) |
+| **Phases 34–37** | 1.6.0 | Console-OS shell & Merlin companion | **Verified (H7)** | Decoupled console-OS (`hypervisor`), 3D skills (`omni`), biometrics, Merlin |
+| **Phase 38** | 1.7.0 | Triad shell convergence, resource governance | **In Progress (H6)** | CapabilityBroker, EngineStatePublisher, dirty-flag pacing, thermal backpressure, rkyv, disruptor |
+=======
 | **Phase 1** | v0.4.0 | Defect resolution & flag activations | **Complete** | Fix packet alignment & GDI leaks; activate llama-gguf, nvml-wrapper, iroh P2P |
 | **Phase 2** | v0.5.0 | Vision & rendering convergence | **Complete** | DXGI desktop capture, modular HUD modes, spatial window manager |
 | **Phase 3** | v0.6.0 | Compiler & True JIT | **Complete** | si_ir extraction, LatticeVerifier, cranelift-codegen JIT |
@@ -113,6 +133,7 @@ All ongoing feature cycles and autonomous runtime evolution adhere to the system
 | **Phases 30–33** | v1.5.0 | Machine-native intent & NPU | **Complete** | Auto-tuner, drag-and-drop .si-pack, .lib state bank, 45 TOPS NPU |
 | **Phases 34–37** | v1.6.0 | Console-OS shell & Merlin companion | **Complete** | Decoupled console-OS, 3D skills, biometrics, Merlin |
 | **Phase 38** | v1.7.0 | Triad shell convergence, resource governance | **In Progress** | CapabilityBroker, EngineStatePublisher, dirty-flag pacing, thermal backpressure, rkyv, disruptor |
+>>>>>>> origin/main
 
 ---
 
@@ -147,10 +168,10 @@ All ongoing feature cycles and autonomous runtime evolution adhere to the system
 ---
 
 ### Appendices
-- **RFC-0004**: Machine-Native State Language Model & Bounded Dynamicism (docs/rfcs/RFC-0004-MACHINE_NATIVE_SLM_AND_BOUNDED_DYNAMICISM.md).
-- **Strategic Vision & Doctrine**: STRATEGIC_VISION.md.
-- **System Inventory**: WHAT_EXISTS_TODAY.md.
-- Full **Architecture Audit** (ARCHITECTURE_AUDIT.md).
-- Complete **TODO list** (TODO.md).
-- Detailed **build instructions** (CONTRIBUTING.md).
-- Change history (CHANGELOG.md).
+- **RFC-0004**: Machine-Native State Language Model & Bounded Dynamicism ([docs/rfcs/RFC-0004-MACHINE_NATIVE_SLM_AND_BOUNDED_DYNAMICISM.md](docs/rfcs/RFC-0004-MACHINE_NATIVE_SLM_AND_BOUNDED_DYNAMICISM.md)).
+- **Strategic Vision & Doctrine**: [STRATEGIC_VISION.md](STRATEGIC_VISION.md).
+- **System Inventory**: [WHAT_EXISTS_TODAY.md](WHAT_EXISTS_TODAY.md).
+- Full **Master Architecture Specification**: [docs/architecture/MASTER_ARCHITECTURE.md](docs/architecture/MASTER_ARCHITECTURE.md).
+- Complete **TODO list**: [TODO.md](TODO.md).
+- Detailed **build instructions**: [CONTRIBUTING.md](CONTRIBUTING.md).
+- Change history: [CHANGELOG.md](CHANGELOG.md).

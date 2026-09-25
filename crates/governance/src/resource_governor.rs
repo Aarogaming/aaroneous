@@ -1,4 +1,4 @@
-//! crates/governance/src/homeostasis.rs
+//! crates/governance/src/resource_governor.rs
 //! Autonomous Multi-Factor Closed-Loop Feedback & Dynamic Equilibrium Governor
 //! inspired by Linux cgroups v2 resource controllers and adaptive control theory.
 
@@ -13,35 +13,33 @@ pub enum DegradationTier {
     SoftThrottle = 1,
     /// Background tasks paused, speculative execution disabled (80% throttle)
     HeavyThrottle = 2,
-    /// Runtime frozen to prevent out-of-memory or thermal runaway (100% halt)
+    /// Runtime frozen to prevent out-of-memory or resource runaway (100% halt)
     EmergencyHalt = 3,
 }
 
 /// Current Dynamic Equilibrium State across the sovereign runtime
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct DynamicEquilibriumState {
-    pub global_energy_reserve: f32,    // 0.0 to max tokens
-    pub thermal_dissipation_rate: f32, // Tokens regenerated per second
-    pub active_cognitive_load: f32,    // Current burn rate
-    pub memory_pressure_mb: f32,       // Tracked memory allocation footprint
+    pub global_token_reserve: f32, // 0.0 to max tokens
+    pub token_regen_rate: f32,     // Tokens regenerated per second
+    pub active_compute_load: f32,  // Current burn rate
+    pub memory_pressure_mb: f32,   // Tracked memory allocation footprint
     pub is_throttled: bool,
     pub throttle_factor: f32, // 1.0 = normal, 0.5 = 50% throttle, 0.0 = emergency halt
     pub degradation_tier: DegradationTier,
     pub total_tasks_executed: u64,
 }
 
-pub type HomeostasisState = DynamicEquilibriumState;
-
 /// Master Feedback Regulator governing token budgets and runtime execution safety
 #[derive(Debug, Clone)]
 pub struct FeedbackRegulator {
     state: DynamicEquilibriumState,
-    max_energy_reserve: f32,
+    max_token_reserve: f32,
     overheat_threshold: f32,
     max_memory_mb: f32,
 }
 
-pub type HomeostasisGovernor = FeedbackRegulator;
+pub type ResourceGovernor = FeedbackRegulator;
 
 impl Default for FeedbackRegulator {
     fn default() -> Self {
@@ -50,19 +48,19 @@ impl Default for FeedbackRegulator {
 }
 
 impl FeedbackRegulator {
-    pub fn new(max_energy: f32, regen_rate: f32, overheat_threshold: f32) -> Self {
+    pub fn new(max_tokens: f32, regen_rate: f32, overheat_threshold: f32) -> Self {
         Self {
             state: DynamicEquilibriumState {
-                global_energy_reserve: max_energy,
-                thermal_dissipation_rate: regen_rate,
-                active_cognitive_load: 0.0,
+                global_token_reserve: max_tokens,
+                token_regen_rate: regen_rate,
+                active_compute_load: 0.0,
                 memory_pressure_mb: 0.0,
                 is_throttled: false,
                 throttle_factor: 1.0,
                 degradation_tier: DegradationTier::Nominal,
                 total_tasks_executed: 0,
             },
-            max_energy_reserve: max_energy,
+            max_token_reserve: max_tokens,
             overheat_threshold,
             max_memory_mb: 4096.0,
         }
@@ -82,7 +80,7 @@ impl FeedbackRegulator {
         if self.state.degradation_tier == DegradationTier::EmergencyHalt {
             return false;
         }
-        self.state.global_energy_reserve >= estimated_cost
+        self.state.global_token_reserve >= estimated_cost
     }
 
     /// Records memory footprint changes (MB)
@@ -91,11 +89,11 @@ impl FeedbackRegulator {
         self.update_throttle_policy();
     }
 
-    /// Deducts energy tokens for a cognitive task and checks for thermal exhaustion
-    pub fn expend_energy(&mut self, token_cost: f32) -> bool {
-        if self.state.global_energy_reserve >= token_cost {
-            self.state.global_energy_reserve -= token_cost;
-            self.state.active_cognitive_load += token_cost * 0.1;
+    /// Deducts tokens for a task and checks for resource exhaustion
+    pub fn expend_tokens(&mut self, token_cost: f32) -> bool {
+        if self.state.global_token_reserve >= token_cost {
+            self.state.global_token_reserve -= token_cost;
+            self.state.active_compute_load += token_cost * 0.1;
             self.state.total_tasks_executed += 1;
             self.update_throttle_policy();
             true
@@ -107,14 +105,13 @@ impl FeedbackRegulator {
         }
     }
 
-    /// Advances time and regenerates metabolic token reserve
-    pub fn tick_regeneration(&mut self, delta_seconds: f32) {
+    /// Advances time and regenerates token reserve
+    pub fn tick(&mut self, delta_seconds: f32) {
         let dt = delta_seconds.max(0.0);
-        let regenerated = self.state.thermal_dissipation_rate * dt;
-        self.state.global_energy_reserve =
-            (self.state.global_energy_reserve + regenerated).min(self.max_energy_reserve);
-        self.state.active_cognitive_load =
-            (self.state.active_cognitive_load - (10.0 * dt)).max(0.0);
+        let regenerated = self.state.token_regen_rate * dt;
+        self.state.global_token_reserve =
+            (self.state.global_token_reserve + regenerated).min(self.max_token_reserve);
+        self.state.active_compute_load = (self.state.active_compute_load - (10.0 * dt)).max(0.0);
         self.update_throttle_policy();
     }
 
@@ -123,22 +120,21 @@ impl FeedbackRegulator {
         !self.state.is_throttled && self.state.degradation_tier == DegradationTier::Nominal
     }
 
-    /// Updates dynamic throttling policy based on cognitive load and memory pressure
+    /// Updates dynamic throttling policy based on compute load and memory pressure
     fn update_throttle_policy(&mut self) {
         let memory_critical = self.state.memory_pressure_mb > self.max_memory_mb * 0.95;
         let memory_warning = self.state.memory_pressure_mb > self.max_memory_mb * 0.80;
 
-        if memory_critical || self.state.global_energy_reserve <= 0.0 {
+        if memory_critical || self.state.global_token_reserve <= 0.0 {
             self.state.is_throttled = true;
             self.state.throttle_factor = 0.0;
             self.state.degradation_tier = DegradationTier::EmergencyHalt;
-        } else if memory_warning
-            || self.state.global_energy_reserve < (self.max_energy_reserve * 0.1)
+        } else if memory_warning || self.state.global_token_reserve < (self.max_token_reserve * 0.1)
         {
             self.state.is_throttled = true;
             self.state.throttle_factor = 0.2; // 80% reduction
             self.state.degradation_tier = DegradationTier::HeavyThrottle;
-        } else if self.state.active_cognitive_load > self.overheat_threshold {
+        } else if self.state.active_compute_load > self.overheat_threshold {
             self.state.is_throttled = true;
             self.state.throttle_factor = 0.5; // 50% reduction
             self.state.degradation_tier = DegradationTier::SoftThrottle;
@@ -155,35 +151,35 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_homeostasis_energy_expenditure_and_regeneration() {
-        let mut gov = HomeostasisGovernor::new(100.0, 10.0, 50.0);
-        assert_eq!(gov.state().global_energy_reserve, 100.0);
+    fn test_token_expenditure_and_regeneration() {
+        let mut gov = FeedbackRegulator::new(100.0, 10.0, 50.0);
+        assert_eq!(gov.state().global_token_reserve, 100.0);
         assert!(!gov.state().is_throttled);
         assert!(gov.is_healthy());
 
         // Expend 40 tokens
-        let success = gov.expend_energy(40.0);
+        let success = gov.expend_tokens(40.0);
         assert!(success);
-        assert_eq!(gov.state().global_energy_reserve, 60.0);
+        assert_eq!(gov.state().global_token_reserve, 60.0);
         assert_eq!(gov.state().total_tasks_executed, 1);
 
         // Regenerate for 2 seconds (+20 tokens)
-        gov.tick_regeneration(2.0);
-        assert_eq!(gov.state().global_energy_reserve, 80.0);
+        gov.tick(2.0);
+        assert_eq!(gov.state().global_token_reserve, 80.0);
     }
 
     #[test]
-    fn test_homeostasis_thermal_throttling() {
-        let mut gov = HomeostasisGovernor::new(1000.0, 10.0, 30.0);
+    fn test_throttling() {
+        let mut gov = FeedbackRegulator::new(1000.0, 10.0, 30.0);
 
-        // Trigger overheat (> 30.0 cognitive load)
-        gov.expend_energy(350.0);
+        // Trigger overheat (> 30.0 compute load)
+        gov.expend_tokens(350.0);
         assert!(gov.state().is_throttled);
         assert_eq!(gov.state().throttle_factor, 0.5);
         assert_eq!(gov.state().degradation_tier, DegradationTier::SoftThrottle);
 
         // Cool down
-        gov.tick_regeneration(5.0);
+        gov.tick(5.0);
         assert!(!gov.state().is_throttled);
         assert_eq!(gov.state().throttle_factor, 1.0);
         assert_eq!(gov.state().degradation_tier, DegradationTier::Nominal);
@@ -191,7 +187,7 @@ mod tests {
 
     #[test]
     fn test_memory_pressure_and_admission() {
-        let mut gov = HomeostasisGovernor::new(1000.0, 10.0, 50.0).with_memory_limit(1000.0);
+        let mut gov = FeedbackRegulator::new(1000.0, 10.0, 50.0).with_memory_limit(1000.0);
         assert!(gov.can_admit_task(100.0));
 
         gov.update_memory_pressure(850.0);

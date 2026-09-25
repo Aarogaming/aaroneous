@@ -140,7 +140,7 @@ mod tests {
         };
 
         let container = SolidStateSiContainer::new("Reflex Test", config);
-        let learner = SiOnlineLearner::new(container, false).unwrap();
+        let learner = SiOnlineLearner::new(container.unwrap(), false).unwrap();
         let mut worker = ReflexWorker::new(1, "DesktopEmulator-Worker", learner);
         let channel = SpecialistSpmcChannel::new(0, "Router-Channel");
 

@@ -65,3 +65,4 @@ pub trait LLMProvider: Send + Sync {
     /// Used natively by the Omni Relic / Constellation system for semantic similarity mapping.
     async fn embed(&self, text: &str) -> Result<Vec<f32>>;
 }
+pub mod gemini;

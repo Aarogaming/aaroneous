@@ -143,7 +143,7 @@ impl SiToolEngine {
                 state_tensor_dim: packet.state_tensors.len(),
                 node_count: packet.graph.nodes.len(),
                 opcodes_used,
-                total_energy_cost: packet.graph.thermodynamic_free_energy,
+                total_energy_cost: packet.graph.accumulated_energy_cost,
                 is_mmap_compatible: true,
                 embedded_ssm: Some(config),
             });
@@ -174,7 +174,7 @@ impl SiToolEngine {
                 state_tensor_dim: packet.state_tensors.len(),
                 node_count: packet.graph.nodes.len(),
                 opcodes_used,
-                total_energy_cost: packet.graph.thermodynamic_free_energy,
+                total_energy_cost: packet.graph.accumulated_energy_cost,
                 is_mmap_compatible: true,
                 embedded_ssm: None,
             });

@@ -3,6 +3,7 @@ pub mod bayesian;
 pub mod burn_gpu;
 pub mod category;
 pub mod cognitive_equilibrium;
+pub mod concurrence_engine;
 pub mod control;
 pub mod cranelift_jit;
 pub mod crucible;
@@ -10,6 +11,7 @@ pub mod denormal;
 pub mod dynamics;
 pub mod entropy;
 pub mod entropy_metrics;
+pub mod episodic_accumulator;
 pub mod episodic_memory;
 pub mod ffi_kernels;
 pub mod game_theory;
@@ -22,6 +24,7 @@ pub mod latent_guardrail;
 pub mod latent_router;
 pub mod linalg;
 pub mod machine_native;
+pub mod machine_state_featurizer;
 pub mod macro_ssm;
 pub mod mdps;
 pub mod mpc;
@@ -74,6 +77,10 @@ pub use state_bank::{
 pub use cognitive_equilibrium::{
     AttentionSpectrum, CognitiveEquilibriumCoordinator, SomaticVitals, TriModalDecisionReport,
 };
+pub use concurrence_engine::{
+    ConcurrenceSnapshot, DefaultConcurrenceEngine, FLIGHT_EVENT_CHECKPOINT, GRADUATION_THRESHOLD,
+    GraduationReadyEvent, ShadowTickResult,
+};
 pub use cranelift_jit::{CraneliftJitEngine, NativeExecutionFn};
 pub use crucible::{CrucibleDuelReport, CrucibleSandbox, VirtualScenario};
 pub use denormal::{DenormalGuard, denormal_flush_scope, with_denormals_flushed};
@@ -81,6 +88,7 @@ pub use dynamics::{
     ComputeError, DynamicalSystem, EffortFlowPair, HarmonicOscillator, HarmonicOscillatorDual,
     PhysicalDomain,
 };
+pub use episodic_accumulator::{EpisodicAccumulatorConfig, EpisodicThoughtAccumulator};
 pub use episodic_memory::{
     AcousticReflexMatcher, EpisodicMemoryFabric, LATENT_VECTOR_DIM, SearchResult,
     TrajectoryMetadata, simd_cosine_similarity_256, simd_dot_product_256,
@@ -106,6 +114,7 @@ pub use machine_native::{
     DimensionalUnit, EdgeLinguisticLens, MachineNativePredictionEngine, MachineOpcode,
     NativeComputationNode, NativeComputationalGraph, NativeTypeLattice,
 };
+pub use machine_state_featurizer::{FeaturizerContext, MachineStateFeaturizer};
 pub use multimodal_ssm::{
     AcousticIntentProjector, MULTIMODAL_LATENT_DIM, MultimodalSensoryFrame, PixelDiffProjector,
     TemporalModalitySynchronizer,
@@ -132,7 +141,7 @@ pub use si_self_play::{AsymmetricDuelReport, DreamGoal, SelfPlayStepResult, SiSe
 pub use si_skill_tree::{SiSkillModule, SkillExpansionEngine, SkillMaturityStatus};
 pub use si_solid_state::{
     DynamicAdaptationMatrix, OnlineCorrectionReport, SI_SOLID_STATE_MAGIC, SI_SOLID_STATE_VERSION,
-    SafetyCheckResult, SiOnlineLearner, SolidStateSiContainer,
+    SafetyCheckResult, SelfTestReport, SiOnlineLearner, SolidStateSiContainer,
 };
 pub use si_spec::{
     SI_CANONICAL_MAGIC, SI_CANONICAL_VERSION, SI_FLAG_TIER_1_CORTEX, SI_FLAG_TIER_2_ROUTER,

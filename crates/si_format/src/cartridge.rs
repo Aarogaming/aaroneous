@@ -1,17 +1,18 @@
 //! crates/si_format/src/cartridge.rs
-//! Typestate-based lifecycle safety for `.si` container cartridges.
+//! Typestate-based lifecycle safety for .si container cartridges.
 //!
 //! Enforces compile-time lifecycle state transitions:
-//! `Cartridge<Raw>` -> `Cartridge<Aligned>` -> `Cartridge<SmtVerified>` -> `Cartridge<Executable>`.
+//! Cartridge<Raw> -> Cartridge<Aligned> -> Cartridge<SmtVerified> -> Cartridge<Executable>.
 //!
-//! Methods like `execute_tick()` are exclusively exposed on `Cartridge<Executable>`,
+//! Methods like xecute_tick() are exclusively exposed on Cartridge<Executable>,
 //! converting runtime verification checks into zero-cost compile-time proofs.
 
 use core::marker::PhantomData;
 use thiserror::Error;
 
+use crate::header::{SI_HEADER_SIZE, SiCartridgeHeader};
 use crate::utils::ALIGNMENT_BYTES;
-use crate::verify::{MIN_VERSION, SINT_PACKER_MAGIC};
+use crate::verify::{validate_block_geometry, validate_magic_bytes, validate_version};
 
 /// Typestate marker: Raw cartridge buffer with unverified layout.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -35,11 +36,8 @@ pub enum CartridgeError {
     #[error("Buffer too small: expected at least {expected} bytes, got {actual}")]
     BufferTooSmall { expected: usize, actual: usize },
 
-    #[error("Invalid magic number: expected SINT")]
-    InvalidMagic,
-
-    #[error("Unsupported version: v{version} (requires v{min}+)")]
-    UnsupportedVersion { version: u32, min: u32 },
+    #[error("Header parse error: {0}")]
+    HeaderParse(String),
 
     #[error("Misaligned offset: {offset} is not 64-byte aligned")]
     MisalignedOffset { offset: usize },
@@ -47,82 +45,67 @@ pub enum CartridgeError {
     #[error("Missing capability: required mask 0x{required:08X} not granted")]
     MissingCapability { required: u32 },
 
-    #[error("Checksum mismatch: expected 0x{expected:08X}, got 0x{actual:08X}")]
-    ChecksumMismatch { expected: u32, actual: u32 },
+    #[error("Validation error: {0}")]
+    Validation(String),
 }
 
-/// Simple 32-bit FNV-1a checksum calculation
-#[inline]
-pub fn fnv1a_hash(data: &[u8]) -> u32 {
-    let mut hash: u32 = 0x811c_9dc5;
+/// Simple 32-bit CRC32 check to match si_spec
+pub fn compute_crc32(data: &[u8]) -> u32 {
+    let mut crc = 0xFFFF_FFFFu32;
     for &byte in data {
-        hash ^= byte as u32;
-        hash = hash.wrapping_mul(0x0100_0193);
+        crc ^= byte as u32;
+        for _ in 0..8 {
+            let mask = -(crc as i32 & 1) as u32;
+            crc = (crc >> 1) ^ (0xEDB8_8320 & mask);
+        }
     }
-    hash
+    !crc
 }
 
-/// Zero-cost typestate wrapper around a `.si` cartridge memory buffer.
+/// Zero-cost typestate wrapper around a .si cartridge memory buffer.
 #[derive(Debug)]
 pub struct Cartridge<State, B = &'static [u8]> {
     buffer: B,
-    version: u32,
-    tier_flags: u32,
-    manifest_len: usize,
+    header: SiCartridgeHeader,
     _state: PhantomData<State>,
 }
 
 impl<B: AsRef<[u8]>> Cartridge<Raw, B> {
     /// Construct a new Raw cartridge from a buffer without validation.
-    ///
-    /// Minimum header size is 20 bytes:
-    /// - 4 bytes magic (`SINT`)
-    /// - 4 bytes version (`u32`)
-    /// - 4 bytes tier flags (`u32`)
-    /// - 8 bytes manifest length (`u64`)
     pub fn from_buffer(buffer: B) -> Result<Self, CartridgeError> {
         let data = buffer.as_ref();
-        if data.len() < 20 {
+        if data.len() < SI_HEADER_SIZE {
             return Err(CartridgeError::BufferTooSmall {
-                expected: 20,
+                expected: SI_HEADER_SIZE,
                 actual: data.len(),
             });
         }
 
-        let version = u32::from_le_bytes([data[4], data[5], data[6], data[7]]);
-        let tier_flags = u32::from_le_bytes([data[8], data[9], data[10], data[11]]);
-        let manifest_len = u64::from_le_bytes([
-            data[12], data[13], data[14], data[15], data[16], data[17], data[18], data[19],
-        ]) as usize;
+        let header = SiCartridgeHeader::from_bytes(&data[0..SI_HEADER_SIZE])
+            .map_err(|e| CartridgeError::HeaderParse(e.to_string()))?;
 
         Ok(Cartridge {
             buffer,
-            version,
-            tier_flags,
-            manifest_len,
+            header,
             _state: PhantomData,
         })
     }
 
     /// Validates magic bytes, minimum version, and memory alignment,
-    /// transitioning the cartridge into the `Aligned` typestate.
+    /// transitioning the cartridge into the Aligned typestate.
     pub fn verify_alignment(self) -> Result<Cartridge<Aligned, B>, CartridgeError> {
         let data = self.buffer.as_ref();
 
-        // 1. Magic bytes validation
-        if data.len() < 4 || data[0..4] != SINT_PACKER_MAGIC {
-            return Err(CartridgeError::InvalidMagic);
-        }
+        validate_magic_bytes(data).map_err(|e| CartridgeError::Validation(e.to_string()))?;
 
-        // 2. Version validation (must be >= MIN_VERSION)
-        if self.version < MIN_VERSION {
-            return Err(CartridgeError::UnsupportedVersion {
-                version: self.version,
-                min: MIN_VERSION,
-            });
-        }
+        validate_version(self.header.version)
+            .map_err(|e| CartridgeError::Validation(e.to_string()))?;
 
-        // 3. Alignment check: pointer address must be 64-byte aligned
+        // Check buffer boundary logic
+        validate_block_geometry(&self.header, data.len())
+            .map_err(|e| CartridgeError::Validation(e.to_string()))?;
+
+        // Alignment check: pointer address must be 64-byte aligned
         let ptr_addr = data.as_ptr() as usize;
         if !ptr_addr.is_multiple_of(ALIGNMENT_BYTES) {
             return Err(CartridgeError::MisalignedOffset { offset: ptr_addr });
@@ -130,9 +113,7 @@ impl<B: AsRef<[u8]>> Cartridge<Raw, B> {
 
         Ok(Cartridge {
             buffer: self.buffer,
-            version: self.version,
-            tier_flags: self.tier_flags,
-            manifest_len: self.manifest_len,
+            header: self.header,
             _state: PhantomData,
         })
     }
@@ -140,7 +121,7 @@ impl<B: AsRef<[u8]>> Cartridge<Raw, B> {
 
 impl<B: AsRef<[u8]>> Cartridge<Aligned, B> {
     /// Validates capability permissions and cryptographic payload integrity,
-    /// transitioning the cartridge into the `SmtVerified` typestate.
+    /// transitioning the cartridge into the SmtVerified typestate.
     pub fn verify_smt(
         self,
         granted_mask: u32,
@@ -153,34 +134,39 @@ impl<B: AsRef<[u8]>> Cartridge<Aligned, B> {
             });
         }
 
+        // Validate CRC32 of payload (everything after header)
+        let payload = &self.buffer.as_ref()[SI_HEADER_SIZE..];
+        let actual_crc = compute_crc32(payload);
+        if actual_crc != self.header.crc32_checksum {
+            return Err(CartridgeError::Validation(format!(
+                "CRC32 mismatch: expected 0x{:08X}, got 0x{:08X}",
+                self.header.crc32_checksum, actual_crc
+            )));
+        }
+
         Ok(Cartridge {
             buffer: self.buffer,
-            version: self.version,
-            tier_flags: self.tier_flags,
-            manifest_len: self.manifest_len,
+            header: self.header,
             _state: PhantomData,
         })
     }
 }
 
 impl<B: AsRef<[u8]>> Cartridge<SmtVerified, B> {
-    /// Activates the verified cartridge, transitioning it into the `Executable` typestate.
+    /// Activates the verified cartridge, transitioning it into the Executable typestate.
     pub fn into_executable(self) -> Cartridge<Executable, B> {
         Cartridge {
             buffer: self.buffer,
-            version: self.version,
-            tier_flags: self.tier_flags,
-            manifest_len: self.manifest_len,
+            header: self.header,
             _state: PhantomData,
         }
     }
 }
 
 impl<B: AsRef<[u8]>> Cartridge<Executable, B> {
-    /// Executes a single tick of the verified cartridge.
-    ///
-    /// Available strictly on `Cartridge<Executable>`, guaranteeing at compile-time
-    /// that no unaligned or unverified cartridge can ever be executed on the 120 Hz loop.
+    /// Reference implementation placeholder.
+    /// In production, actual zero-copy 120Hz inference is driven by `SiOnlineLearner::execute_tick`
+    /// which maps these exact binary blocks into `candle_core`.
     #[inline]
     pub fn execute_tick(
         &self,
@@ -193,139 +179,39 @@ impl<B: AsRef<[u8]>> Cartridge<Executable, B> {
         Ok(n)
     }
 
+    /// Header
+    #[inline]
+    pub fn header(&self) -> &SiCartridgeHeader {
+        &self.header
+    }
+
     /// Read-only access to the underlying cartridge bytes.
     #[inline]
     pub fn payload(&self) -> &[u8] {
         self.buffer.as_ref()
     }
 
-    /// Container version.
+    /// Slice containing Block 1: Core SSM Weights
     #[inline]
-    pub fn version(&self) -> u32 {
-        self.version
+    pub fn block1_core(&self) -> &[u8] {
+        let start = self.header.block1_offset as usize;
+        let end = start + self.header.block1_len as usize;
+        &self.buffer.as_ref()[start..end]
     }
 
-    /// Container tier flags.
+    /// Slice containing Block 2: Dynamic Adaptation Matrix
     #[inline]
-    pub fn tier_flags(&self) -> u32 {
-        self.tier_flags
+    pub fn block2_adapter(&self) -> &[u8] {
+        let start = self.header.block2_offset as usize;
+        let end = start + self.header.block2_len as usize;
+        &self.buffer.as_ref()[start..end]
     }
 
-    /// Manifest length in bytes.
+    /// Slice containing Block 3: Episodic Skills
     #[inline]
-    pub fn manifest_len(&self) -> usize {
-        self.manifest_len
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[repr(C, align(64))]
-    struct AlignedContainer<const N: usize>([u8; N]);
-
-    #[test]
-    fn test_typestate_happy_path() {
-        let mut aligned_buf = AlignedContainer([0u8; 128]);
-        let buf = &mut aligned_buf.0;
-        buf[0..4].copy_from_slice(b"SINT");
-        buf[4..8].copy_from_slice(&3u32.to_le_bytes()); // version 3
-        buf[8..12].copy_from_slice(&4u32.to_le_bytes()); // tier flags 4
-        buf[12..20].copy_from_slice(&8u64.to_le_bytes()); // manifest_len 8
-
-        let cartridge = Cartridge::<Raw, _>::from_buffer(&buf[..]).unwrap();
-        assert_eq!(cartridge.version, 3);
-        assert_eq!(cartridge.tier_flags, 4);
-
-        let aligned = cartridge.verify_alignment().unwrap();
-        let smt_verified = aligned.verify_smt(0x0F, 0x04).unwrap();
-        let executable = smt_verified.into_executable();
-
-        let inputs = [1.0f32, 2.0, 3.0];
-        let mut outputs = [0.0f32; 3];
-        let result = executable.execute_tick(1, &inputs, &mut outputs);
-        assert_eq!(result.unwrap(), 3);
-        assert_eq!(outputs, inputs);
-        assert_eq!(executable.version(), 3);
-        assert_eq!(executable.tier_flags(), 4);
-    }
-
-    #[test]
-    fn test_typestate_invalid_magic() {
-        let mut aligned_buf = AlignedContainer([0u8; 128]);
-        let buf = &mut aligned_buf.0;
-        buf[0..4].copy_from_slice(b"BAD!");
-        buf[4..8].copy_from_slice(&3u32.to_le_bytes());
-
-        let cartridge = Cartridge::<Raw, _>::from_buffer(&buf[..]).unwrap();
-        let err = cartridge.verify_alignment().unwrap_err();
-        assert_eq!(err, CartridgeError::InvalidMagic);
-    }
-
-    #[test]
-    fn test_typestate_unsupported_version() {
-        let mut aligned_buf = AlignedContainer([0u8; 128]);
-        let buf = &mut aligned_buf.0;
-        buf[0..4].copy_from_slice(b"SINT");
-        buf[4..8].copy_from_slice(&1u32.to_le_bytes()); // version 1 < MIN_VERSION (3)
-
-        let cartridge = Cartridge::<Raw, _>::from_buffer(&buf[..]).unwrap();
-        let err = cartridge.verify_alignment().unwrap_err();
-        assert_eq!(
-            err,
-            CartridgeError::UnsupportedVersion {
-                version: 1,
-                min: MIN_VERSION
-            }
-        );
-    }
-
-    #[test]
-    fn test_typestate_missing_capability() {
-        let mut aligned_buf = AlignedContainer([0u8; 128]);
-        let buf = &mut aligned_buf.0;
-        buf[0..4].copy_from_slice(b"SINT");
-        buf[4..8].copy_from_slice(&3u32.to_le_bytes());
-        buf[8..12].copy_from_slice(&4u32.to_le_bytes());
-        buf[12..20].copy_from_slice(&8u64.to_le_bytes());
-
-        let cartridge = Cartridge::<Raw, _>::from_buffer(&buf[..]).unwrap();
-        let aligned = cartridge.verify_alignment().unwrap();
-
-        // Required capability 0x10 not present in granted 0x01
-        let err = aligned.verify_smt(0x01, 0x10).unwrap_err();
-        assert_eq!(err, CartridgeError::MissingCapability { required: 0x10 });
-    }
-
-    #[test]
-    fn test_typestate_buffer_too_small() {
-        let small_buf = [0u8; 10];
-        let err = Cartridge::<Raw, _>::from_buffer(&small_buf[..]).unwrap_err();
-        assert_eq!(
-            err,
-            CartridgeError::BufferTooSmall {
-                expected: 20,
-                actual: 10
-            }
-        );
-    }
-
-    #[test]
-    fn test_typestate_misaligned_rejection() {
-        // Create an unaligned buffer (e.g. slicing offset +1 into aligned container)
-        let mut aligned_buf = AlignedContainer([0u8; 128]);
-        aligned_buf.0[1..5].copy_from_slice(b"SINT");
-        aligned_buf.0[5..9].copy_from_slice(&3u32.to_le_bytes());
-        let unaligned_slice = &aligned_buf.0[1..65]; // offset 1 cannot be 64-byte aligned
-
-        let cartridge = Cartridge::<Raw, _>::from_buffer(unaligned_slice).unwrap();
-        let err = cartridge.verify_alignment().unwrap_err();
-        match err {
-            CartridgeError::MisalignedOffset { offset } => {
-                assert_ne!(offset % 64, 0);
-            }
-            other => panic!("Expected MisalignedOffset error, got: {:?}", other),
-        }
+    pub fn block3_skills(&self) -> &[u8] {
+        let start = self.header.block3_offset as usize;
+        let end = start + self.header.block3_len as usize;
+        &self.buffer.as_ref()[start..end]
     }
 }

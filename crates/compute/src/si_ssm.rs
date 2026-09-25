@@ -104,7 +104,60 @@ impl SsmLayerBlock {
         })
     }
 
-    /// Forward pass through the Selective State-Space recurrence
+    pub fn get_tensors(&self, prefix: &str) -> std::collections::HashMap<String, Tensor> {
+        let mut map = std::collections::HashMap::new();
+        map.insert(format!("{}.in_proj", prefix), self.in_proj.clone());
+        map.insert(format!("{}.conv_weight", prefix), self.conv_weight.clone());
+        map.insert(format!("{}.dt_proj", prefix), self.dt_proj.clone());
+        map.insert(format!("{}.a_log", prefix), self.a_log.clone());
+        map.insert(format!("{}.b_proj", prefix), self.b_proj.clone());
+        map.insert(format!("{}.c_proj", prefix), self.c_proj.clone());
+        map.insert(format!("{}.d_skip", prefix), self.d_skip.clone());
+        map.insert(format!("{}.out_proj", prefix), self.out_proj.clone());
+        map
+    }
+
+    pub fn load_from_tensors(
+        prefix: &str,
+        map: &std::collections::HashMap<String, Tensor>,
+    ) -> Result<Self> {
+        use anyhow::Context;
+        Ok(Self {
+            in_proj: map
+                .get(&format!("{}.in_proj", prefix))
+                .context("Missing in_proj")?
+                .clone(),
+            conv_weight: map
+                .get(&format!("{}.conv_weight", prefix))
+                .context("Missing conv_weight")?
+                .clone(),
+            dt_proj: map
+                .get(&format!("{}.dt_proj", prefix))
+                .context("Missing dt_proj")?
+                .clone(),
+            a_log: map
+                .get(&format!("{}.a_log", prefix))
+                .context("Missing a_log")?
+                .clone(),
+            b_proj: map
+                .get(&format!("{}.b_proj", prefix))
+                .context("Missing b_proj")?
+                .clone(),
+            c_proj: map
+                .get(&format!("{}.c_proj", prefix))
+                .context("Missing c_proj")?
+                .clone(),
+            d_skip: map
+                .get(&format!("{}.d_skip", prefix))
+                .context("Missing d_skip")?
+                .clone(),
+            out_proj: map
+                .get(&format!("{}.out_proj", prefix))
+                .context("Missing out_proj")?
+                .clone(),
+        })
+    }
+
     pub fn forward(&self, x: &Tensor, prev_hidden: &Tensor) -> Result<(Tensor, Tensor)> {
         // Linear input expansion: (1, d_model) -> (1, d_model * 2)
         let x_proj = x.matmul(&self.in_proj)?;
@@ -150,7 +203,7 @@ pub struct SsmStatePrediction {
     pub predicted_opcode_id: u16,
     pub predicted_opcode: MachineOpcode,
     pub confidence_score: f32,
-    pub thermodynamic_free_energy: f64,
+    pub accumulated_energy_cost: f64,
     pub latency_us: u64,
 }
 
@@ -166,7 +219,77 @@ pub struct SiStateSpaceModel {
 }
 
 impl SiStateSpaceModel {
-    /// Initializes a fresh Machine-Native State-Space Model on CPU or GPU
+    pub fn get_tensors(&self) -> std::collections::HashMap<String, Tensor> {
+        let mut map = std::collections::HashMap::new();
+        map.insert("in_proj".to_string(), self.in_proj.clone());
+        map.insert("out_delta".to_string(), self.out_delta.clone());
+        map.insert("opcode_head".to_string(), self.opcode_head.clone());
+        map.insert("energy_head".to_string(), self.energy_head.clone());
+
+        for (i, layer) in self.layers.iter().enumerate() {
+            map.extend(layer.get_tensors(&format!("layer_{}", i)));
+        }
+        map
+    }
+
+    pub fn load_from_tensors(
+        config: SiSsmConfig,
+        map: std::collections::HashMap<String, Tensor>,
+        use_gpu: bool,
+    ) -> Result<Self> {
+        use anyhow::Context;
+        let device = if use_gpu {
+            Device::cuda_if_available(0).unwrap_or(Device::Cpu)
+        } else {
+            Device::Cpu
+        };
+
+        let in_proj = map
+            .get("in_proj")
+            .context("Missing in_proj")?
+            .clone()
+            .to_device(&device)?;
+        let out_delta = map
+            .get("out_delta")
+            .context("Missing out_delta")?
+            .clone()
+            .to_device(&device)?;
+        let opcode_head = map
+            .get("opcode_head")
+            .context("Missing opcode_head")?
+            .clone()
+            .to_device(&device)?;
+        let energy_head = map
+            .get("energy_head")
+            .context("Missing energy_head")?
+            .clone()
+            .to_device(&device)?;
+
+        let mut layers = Vec::with_capacity(config.num_layers);
+        for i in 0..config.num_layers {
+            let mut layer = SsmLayerBlock::load_from_tensors(&format!("layer_{}", i), &map)?;
+            layer.in_proj = layer.in_proj.to_device(&device)?;
+            layer.conv_weight = layer.conv_weight.to_device(&device)?;
+            layer.dt_proj = layer.dt_proj.to_device(&device)?;
+            layer.a_log = layer.a_log.to_device(&device)?;
+            layer.b_proj = layer.b_proj.to_device(&device)?;
+            layer.c_proj = layer.c_proj.to_device(&device)?;
+            layer.d_skip = layer.d_skip.to_device(&device)?;
+            layer.out_proj = layer.out_proj.to_device(&device)?;
+            layers.push(layer);
+        }
+
+        Ok(Self {
+            config,
+            device,
+            in_proj,
+            layers,
+            out_delta,
+            opcode_head,
+            energy_head,
+        })
+    }
+
     pub fn new(config: SiSsmConfig, use_gpu: bool) -> Result<Self> {
         let device = if use_gpu {
             Device::cuda_if_available(0).unwrap_or(Device::Cpu)
@@ -310,7 +433,7 @@ impl SiStateSpaceModel {
             predicted_opcode_id: best_opcode_id,
             predicted_opcode,
             confidence_score: max_p.clamp(0.0, 1.0),
-            thermodynamic_free_energy: (energy_val as f64).abs().max(0.001),
+            accumulated_energy_cost: (energy_val as f64).abs().max(0.001),
             latency_us: latency,
         })
     }

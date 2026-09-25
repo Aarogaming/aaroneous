@@ -2,6 +2,7 @@
 /target/
 target/
 **/target/
+target-*/
 *.dll
 *.exe
 *.pdb
@@ -52,6 +53,8 @@ cargo_state.json
 /cargo_state.json
 core/hypervisor/cargo_state.json
 core/hypervisor/links_registry.json
+crates/hive_mind/links_registry.json
+links_registry.json
 core/hypervisor/logs/
 dev/archive/logs/
 
@@ -107,6 +110,7 @@ scripts/staged/
 dev/tools/agent_observation_log.jsonl
 [Nn][Uu][Ll]
 
+
 # Generated build artifacts (not source)
 dev/tools/omni/output/
 *.draft
@@ -116,3 +120,4 @@ review-*.log
 review-*.md
 *.diff
 
+.vbranch/

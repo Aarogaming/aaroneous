@@ -64,8 +64,8 @@ pub struct CompiledReflexHandle {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CrystallizationMetrics {
     pub execution_count: u64,
-    pub gradient_variance: f32,         // Var(∇W) across recent updates
-    pub thermodynamic_free_energy: f64, // Thermodynamic stability metric
+    pub gradient_variance: f32,       // Var(∇W) across recent updates
+    pub accumulated_energy_cost: f64, // Thermodynamic stability metric
     pub is_mature_for_jit: bool,
 }
 
@@ -107,16 +107,16 @@ impl SiJitCompilerEngine {
         &self,
         execution_count: u64,
         gradient_variance: f32,
-        thermodynamic_free_energy: f64,
+        accumulated_energy_cost: f64,
     ) -> CrystallizationMetrics {
         let is_mature = execution_count >= self.maturity_threshold_count
             && gradient_variance <= self.max_variance_threshold
-            && thermodynamic_free_energy <= 0.05;
+            && accumulated_energy_cost <= 0.05;
 
         CrystallizationMetrics {
             execution_count,
             gradient_variance,
-            thermodynamic_free_energy,
+            accumulated_energy_cost,
             is_mature_for_jit: is_mature,
         }
     }
@@ -181,7 +181,7 @@ impl SiJitCompilerEngine {
                 skill_id,
                 trajectory_id: skill_id as u64,
                 action_summary: name.to_string(),
-                thermodynamic_free_energy: graph.thermodynamic_free_energy,
+                accumulated_energy_cost: graph.accumulated_energy_cost,
                 crystallized_handle_idx: Some(handle_idx),
                 timestamp_ms: 0,
             },

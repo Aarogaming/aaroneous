@@ -140,7 +140,7 @@ impl SkillExpansionEngine {
         let skill_id = name.to_lowercase().replace(' ', "_");
         let node_count = packet.graph.nodes.len().max(1);
         let compression = (raw_steps_count as f64 / node_count as f64).max(1.0);
-        let energy_cost = packet.graph.thermodynamic_free_energy;
+        let energy_cost = packet.graph.accumulated_energy_cost;
 
         let module = self
             .skills

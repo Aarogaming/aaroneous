@@ -1,9 +1,9 @@
 use anyhow::{Result, anyhow};
-use memmap2::MmapMut;
-use nervous_system::shared_memory::{
+use ipc_bus::shared_memory::{
     McpToolCallFrame as ZeroCopyMcpFrame, SpecialistDialogue as ZeroCopyDialogue,
     SynapseState as ZeroCopyState,
 };
+use memmap2::MmapMut;
 use rkyv::{Archive, Deserialize, Serialize};
 use std::fs::OpenOptions;
 use std::path::Path;
