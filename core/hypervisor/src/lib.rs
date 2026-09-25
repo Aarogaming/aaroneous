@@ -412,16 +412,8 @@ pub mod task_routing;
 pub mod visual_perception;
 
 #[cfg(any(feature = "testing", feature = "simulation", test))]
-pub mod chaos_monkey;
-#[cfg(any(feature = "testing", feature = "simulation", test))]
-pub mod simulation_testbed;
-#[cfg(any(feature = "testing", feature = "simulation", test))]
 pub mod task_worker;
 
-#[cfg(any(feature = "testing", feature = "simulation", test))]
-pub use chaos_monkey::ChaosMonkey;
-#[cfg(any(feature = "testing", feature = "simulation", test))]
-pub use simulation_testbed::SimulationTestbed;
 #[cfg(any(feature = "testing", feature = "simulation", test))]
 pub use task_worker::ExecutionEnzyme;
 
