@@ -1,4 +1,5 @@
 pub mod auth;
+pub mod backend;
 pub mod capability;
 pub mod config;
 pub mod http_api;
@@ -69,6 +70,9 @@ pub mod service;
 pub mod transport;
 
 pub use auth::{ApiKeyAuth, AuthProvider, OAuth2Auth};
+pub use backend::{
+    ExecStatus, HeartbeatReport, IntentBackend, MemorySyncResult, ResultSummary, SpecialistSummary,
+};
 pub use capability::{Capability, CapabilityDomain, CapabilityHandler, CapabilityResult};
 pub use config::{ServiceConfig, TransportConfig};
 pub use http_api::HttpServer;

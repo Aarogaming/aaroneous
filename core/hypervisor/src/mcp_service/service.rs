@@ -33,6 +33,7 @@ use tokio::sync::RwLock;
 use tracing::{debug, info};
 
 use crate::federation::hive::Federation;
+use crate::mcp_service::backend::IntentBackend;
 use crate::mcp_service::{CapabilityDomain, ServiceConfig};
 use paths::WorkspacePathsConfig;
 
@@ -124,7 +125,10 @@ impl McpTool {
 
 pub struct McpService {
     pub config: ServiceConfig,
-    pub federation: Option<Arc<Federation>>,
+    /// Everything this service needs from the running sovereign hive, behind
+    /// the `IntentBackend` trait rather than a concrete `Federation` — see
+    /// `mcp_service::backend`'s module docs for why.
+    pub backend: Option<Arc<dyn IntentBackend>>,
     pub tools: Arc<RwLock<Vec<McpTool>>>,
     pub domains: Arc<RwLock<HashMap<String, CapabilityDomain>>>,
     pub started_at: std::time::Instant,
@@ -151,7 +155,7 @@ impl McpService {
 
         Self {
             config,
-            federation: None,
+            backend: None,
             tools: Arc::new(RwLock::new(Vec::new())),
             domains: Arc::new(RwLock::new(HashMap::new())),
             started_at: std::time::Instant::now(),
@@ -170,7 +174,15 @@ impl McpService {
 
     /// Attach the live federation so tools can call sovereigns.
     pub fn with_federation(mut self, federation: Arc<Federation>) -> Self {
-        self.federation = Some(federation);
+        self.backend = Some(federation);
+        self
+    }
+
+    /// Attach any other `IntentBackend` implementation (e.g. a test double,
+    /// or — once `mcp_service` moves into its own crate — an adapter that
+    /// doesn't name `Federation` at all).
+    pub fn with_backend(mut self, backend: Arc<dyn IntentBackend>) -> Self {
+        self.backend = Some(backend);
         self
     }
 
@@ -617,7 +629,7 @@ impl McpService {
         // AAS Internalization: If a tool call identifies as a "registration" or
         // "heartbeat" from a Cognitive Shard, update the Federation roster.
         if tool_name == "register_shard"
-            && let Some(ref fed) = self.federation
+            && let Some(ref backend) = self.backend
         {
             let shard_name = args
                 .get("name")
@@ -639,19 +651,13 @@ impl McpService {
                 shard_name, capabilities, endpoint
             );
 
-            let mut dynamic = fed.dynamic.write().await;
-            if !dynamic.iter().any(|s| s.name == shard_name) {
-                use crate::federation::specialists::GenericSpecialist;
-                let domain = capabilities
-                    .first()
-                    .cloned()
-                    .unwrap_or_else(|| "general".to_string());
-                let specialist = GenericSpecialist::new(shard_name, domain);
-                dynamic.push(Arc::new(specialist));
-
-                let mut biology = fed.biology.write().await;
-                biology.register_specialist(shard_name, 5000);
-            }
+            let domain = capabilities
+                .first()
+                .cloned()
+                .unwrap_or_else(|| "general".to_string());
+            // Idempotent — a no-op if tool_register_shard already registered
+            // this shard via execute_tool's own dispatch just above.
+            backend.register_shard(shard_name, &domain).await;
             return JsonRpcResponse::ok(
                 id,
                 serde_json::json!({
@@ -805,56 +811,17 @@ impl McpService {
             _ => "Synthesizer",
         };
 
-        // Try routing to the live dynamic specialist's LLM
-        if let Some(ref fed) = self.federation {
-            let dynamic = fed.dynamic.read().await;
-            if let Some(s) = dynamic.iter().find(|s| s.name == sovereign_name)
-                && let Some(ref llm) = s.llm
-            {
-                let system_prompt = system_prompt_for_domain(domain, sovereign_name);
-                return Ok(llm
-                    .generate_domain_response(&system_prompt, input, domain)
-                    .await
-                    .unwrap_or_else(|e| format!("[{}] LLM error: {}", sovereign_name, e)));
-            }
-            drop(dynamic);
-
-            // Fallback: submit as hive intent and poll for result (max 3s)
-            let count_before = fed.results.lock().await.len();
-            let mut intent = crate::federation::intent::Intent::new(input.to_string());
-            intent
-                .context
-                .insert("target_sovereign".to_string(), sovereign_name.to_string());
-            intent
-                .context
-                .insert("mcp_tool".to_string(), tool_name.to_string());
-            fed.submit_intent(intent).await;
-
-            let deadline = tokio::time::Instant::now() + tokio::time::Duration::from_millis(3000);
-            loop {
-                tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
-                let results = fed.results.lock().await;
-                let new: Vec<_> = results.iter().skip(count_before).collect();
-                if let Some(r) = new.iter().find(|r| {
-                    r.specialist_name.as_deref() == Some(sovereign_name)
-                        || r.specialist.sovereign_name() == sovereign_name
-                }) {
-                    return Ok(r.output.clone());
-                }
-                if !new.is_empty()
-                    && tokio::time::Instant::now()
-                        >= deadline - tokio::time::Duration::from_millis(200)
-                {
-                    return Ok(new.last().map(|r| r.output.clone()).unwrap_or_default());
-                }
-                drop(results);
-                if tokio::time::Instant::now() >= deadline {
-                    break;
-                }
-            }
+        // Try routing to the live sovereign (dynamic specialist's own LLM,
+        // or a hive-intent submission polled for its result).
+        if let Some(ref backend) = self.backend
+            && let Some(output) = backend
+                .ask_sovereign(sovereign_name, domain, input, tool_name)
+                .await
+        {
+            return Ok(output);
         }
 
-        // No federation — use a mock LLM
+        // No backend attached, or it timed out with no result — use a mock LLM
         let config = LLMConfig {
             provider_type: crate::llm::ProviderType::Mock,
             ..Default::default()
@@ -868,17 +835,16 @@ impl McpService {
     }
 
     async fn tool_get_results(&self) -> anyhow::Result<String> {
-        if let Some(ref fed) = self.federation {
-            let results = fed.results.lock().await;
-            let recent: Vec<serde_json::Value> = results
-                .iter()
-                .rev()
-                .take(10)
+        if let Some(ref backend) = self.backend {
+            let recent: Vec<serde_json::Value> = backend
+                .recent_results(10)
+                .await
+                .into_iter()
                 .map(|r| {
                     serde_json::json!({
-                        "sovereign": r.specialist_name.as_deref().unwrap_or(r.specialist.name()),
+                        "sovereign": r.sovereign,
                         "status": format!("{:?}", r.status),
-                        "output": r.output.chars().take(500).collect::<String>(),
+                        "output": r.output,
                         "duration_ms": r.duration_ms,
                     })
                 })
@@ -890,48 +856,27 @@ impl McpService {
     }
 
     async fn tool_get_specialists(&self) -> anyhow::Result<String> {
-        if let Some(ref fed) = self.federation {
-            let dynamic = fed.dynamic.read().await;
-            let specialists: Vec<serde_json::Value> = dynamic
+        if let Some(ref backend) = self.backend {
+            let roster = backend.specialist_roster().await;
+            let specialists: Vec<serde_json::Value> = roster
                 .iter()
                 .map(|s| {
-                    let l = s.learning.lock();
-                    let success_rate = if l.total_executions > 0 {
-                        l.success_count as f32 / l.total_executions as f32 * 100.0
-                    } else {
-                        0.0
-                    };
-                    let memory_count = s.memory.lock().count_for(&s.name);
-                    let persona_archetype = s
-                        .persona
-                        .as_ref()
-                        .map(|p| p.personality_persona.archetype.clone())
-                        .unwrap_or_else(|| "unknown".to_string());
                     serde_json::json!({
                         "name": s.name,
                         "domain": s.domain,
-                        "confidence": (l.confidence_score * 100.0).round() / 100.0,
-                        "success_rate_pct": (success_rate * 10.0).round() / 10.0,
-                        "executions": l.total_executions,
-                        "has_llm": s.llm.is_some(),
-                        "has_model": s.model_path.is_some(),
-                        "memory_count": memory_count,
-                        "persona_archetype": persona_archetype,
-                        "model": s.model_path.as_ref()
-                            .and_then(|p| p.file_name()).and_then(|n| n.to_str())
-                            .unwrap_or("none"),
+                        "confidence": s.confidence,
+                        "success_rate_pct": s.success_rate_pct,
+                        "executions": s.executions,
+                        "has_llm": s.has_llm,
+                        "has_model": s.has_model,
+                        "memory_count": s.memory_count,
+                        "persona_archetype": s.persona_archetype,
+                        "model": s.model_file_name.as_deref().unwrap_or("none"),
                     })
                 })
                 .collect();
-            drop(dynamic);
-            let total_mem: u64 = specialists
-                .iter()
-                .filter_map(|s| s.get("memory_count").and_then(|v| v.as_u64()))
-                .sum();
-            let has_llm = specialists
-                .iter()
-                .filter(|s| s.get("has_llm").and_then(|v| v.as_bool()).unwrap_or(false))
-                .count();
+            let total_mem: u64 = roster.iter().map(|s| s.memory_count as u64).sum();
+            let has_llm = roster.iter().filter(|s| s.has_llm).count();
             Ok(serde_json::to_string_pretty(&serde_json::json!({
                 "total_sovereigns": specialists.len(),
                 "with_llm": has_llm,
@@ -951,13 +896,8 @@ impl McpService {
             .and_then(|v| v.as_str())
             .ok_or_else(|| anyhow::anyhow!("Missing required argument 'content'"))?;
 
-        if let Some(ref fed) = self.federation {
-            let intent = crate::federation::intent::Intent::new(content.to_string());
-            fed.submit_intent(intent).await;
-            tokio::time::sleep(tokio::time::Duration::from_millis(300)).await;
-            let results = fed.results.lock().await;
-            let count = results.len();
-            drop(results);
+        if let Some(ref backend) = self.backend {
+            let count = backend.submit_intent(content).await;
             Ok(format!(
                 "Intent submitted to hive. {} sovereigns processing. \
                         Use get_results to retrieve outputs.",
@@ -1293,38 +1233,21 @@ impl McpService {
             .and_then(|s| s.as_str())
             .map(|s| s.to_string());
 
-        if let Some(ref fed) = self.federation {
-            use crate::federation::specialists::GenericSpecialist;
-            let mut dynamic = fed.dynamic.write().await;
-
-            // Check if already registered
-            if dynamic.iter().any(|s| s.name == name) {
-                return Ok(format!(
-                    "Shard '{}' is already registered and active.",
-                    name
-                ));
+        if let Some(ref backend) = self.backend {
+            // If the shard has a session_id, we associate its proxy tasks with that session
+            if let Some(sid) = session_id {
+                info!("Binding Shard '{}' to MCP session '{}'", name, sid);
             }
 
             let domain = capabilities
                 .first()
                 .cloned()
                 .unwrap_or_else(|| "general".to_string());
-            let specialist = GenericSpecialist::new(name, domain);
-
-            // If the shard has a session_id, we associate its proxy tasks with that session
-            if let Some(sid) = session_id {
-                info!("Binding Shard '{}' to MCP session '{}'", name, sid);
-            }
-
-            // The registration logic is now also handled in handle_tool_call
-            // to ensure it happens regardless of how tool_register_shard was called,
-            // but we keep it here as the primary implementation.
-            dynamic.push(Arc::new(specialist));
-
-            // Register in biology system
-            {
-                let mut biology = fed.biology.write().await;
-                biology.register_specialist(name, 5000); // 5s default heartbeat
+            if !backend.register_shard(name, &domain).await {
+                return Ok(format!(
+                    "Shard '{}' is already registered and active.",
+                    name
+                ));
             }
 
             info!("Internalized AAS Shard: {} (endpoint: {})", name, endpoint);
@@ -1345,27 +1268,18 @@ impl McpService {
             .and_then(|v| v.as_str())
             .ok_or_else(|| anyhow::anyhow!("Missing shard name"))?;
 
-        if let Some(ref fed) = self.federation {
-            let mut biology = fed.biology.write().await;
-
-            // Consume token if requested
+        if let Some(ref backend) = self.backend {
             let token_req = args
                 .get("token_request")
                 .and_then(|v| v.as_f64())
                 .unwrap_or(1.0) as f32;
-            let consumed = if token_req > 0.0 {
-                biology.consume_specialist_token(name)
-            } else {
-                true
-            };
-
-            let report = biology.get_health_report();
+            let report = backend.heartbeat(name, token_req > 0.0).await;
 
             Ok(serde_json::to_string_pretty(&serde_json::json!({
-                "status": if consumed { "ok" } else { "throttled" },
+                "status": if report.token_consumed { "ok" } else { "throttled" },
                 "expression_rate": report.expression_rate,
                 "global_tokens": report.global_tokens,
-                "throttle_state": report.throttle_state.to_string(),
+                "throttle_state": report.throttle_state,
             }))?)
         } else {
             Err(anyhow::anyhow!("Federation not attached"))
@@ -1383,11 +1297,8 @@ impl McpService {
             .cloned()
             .unwrap_or(serde_json::json!({}));
 
-        if let Some(ref fed) = self.federation {
-            let intent_content = format!("SIGNAL: {} | PAYLOAD: {}", signal_type, payload);
-            let intent = crate::federation::intent::Intent::new(intent_content);
-            fed.submit_intent(intent).await;
-
+        if let Some(ref backend) = self.backend {
+            backend.broadcast_signal(signal_type, &payload).await;
             Ok(format!(
                 "Signal '{}' broadcasted to federation specialists.",
                 signal_type
@@ -1408,73 +1319,31 @@ impl McpService {
             .and_then(|v| v.as_str())
             .ok_or_else(|| anyhow::anyhow!("Missing action"))?;
 
-        if let Some(ref fed) = self.federation {
+        if let Some(ref backend) = self.backend {
             match action {
                 "push" => {
                     let entries = args
                         .get("entries")
                         .and_then(|v| v.as_array())
                         .ok_or_else(|| anyhow::anyhow!("Missing entries for push"))?;
-
-                    let mut count = 0;
-                    for entry_json in entries {
-                        // Attempt to parse into MemoryEntry
-                        if let Ok(entry) = serde_json::from_value::<
-                            crate::specialist_memory::MemoryEntry,
-                        >(entry_json.clone())
-                        {
-                            // Find the specialist in the federation and record the memory
-                            let dynamic = fed.dynamic.read().await;
-                            if let Some(spec) = dynamic.iter().find(|s| s.name == shard_name) {
-                                spec.memory.lock().record_memory(entry);
-                                count += 1;
-                            }
-                        }
-                    }
-
+                    let count = backend.memory_push(shard_name, entries).await;
                     Ok(format!(
                         "Successfully synced {} memory entries for shard '{}'.",
                         count, shard_name
                     ))
                 }
-                "pull" | "list" => {
-                    let dynamic = fed.dynamic.read().await;
-                    if let Some(spec) = dynamic.iter().find(|s| s.name == shard_name) {
-                        let memory = spec.memory.lock();
-                        let all_memories = memory.memories();
-
-                        // Surface local memories (belonging to this shard) + related memories from other shards
-                        let mut response_memories = Vec::new();
-
-                        // 1. Shard's own memories
-                        if let Some(local) = all_memories.get(shard_name) {
-                            response_memories.extend(local.clone());
-                        }
-
-                        // 2. Cross-pollination: if 'list' is called, include a few relevant memories from others
-                        // this facilitates the "distributed" part of the memory system.
-                        if action == "list" {
-                            for (other_shard, memories) in all_memories {
-                                if other_shard != shard_name {
-                                    // Just a peek at what others know
-                                    response_memories.extend(memories.iter().take(2).cloned());
-                                }
-                            }
-                        }
-
-                        Ok(serde_json::to_string_pretty(&serde_json::json!({
-                            "shard": shard_name,
-                            "memories": response_memories,
-                            "count": response_memories.len(),
-                            "total_federation_memories": memory.total_count()
-                        }))?)
-                    } else {
-                        Err(anyhow::anyhow!(
-                            "Shard '{}' not found in federation",
-                            shard_name
-                        ))
-                    }
-                }
+                "pull" | "list" => match backend.memory_pull(shard_name, action == "list").await {
+                    Some(result) => Ok(serde_json::to_string_pretty(&serde_json::json!({
+                        "shard": result.shard,
+                        "memories": result.memories,
+                        "count": result.count,
+                        "total_federation_memories": result.total_federation_memories
+                    }))?),
+                    None => Err(anyhow::anyhow!(
+                        "Shard '{}' not found in federation",
+                        shard_name
+                    )),
+                },
                 _ => Err(anyhow::anyhow!("Invalid memory_sync action: {}", action)),
             }
         } else {
@@ -1496,18 +1365,8 @@ impl McpService {
             .and_then(|v| v.as_str())
             .ok_or_else(|| anyhow::anyhow!("Missing instruction"))?;
 
-        if let Some(ref fed) = self.federation {
-            // Internalize the Guild task as a High-Priority Intent
-            let mut intent = crate::federation::intent::Intent::new(instruction.to_string());
-            intent
-                .context
-                .insert("task_id".to_string(), task_id.to_string());
-            intent
-                .context
-                .insert("source".to_string(), "Guild_Federation".to_string());
-
-            fed.submit_intent(intent).await;
-
+        if let Some(ref backend) = self.backend {
+            backend.federated_dispatch(task_id, instruction).await;
             Ok(format!(
                 "Task '{}' dispatched to Aaroneous Core via Federated Intent bridge.",
                 task_id
@@ -1528,14 +1387,15 @@ impl McpService {
             .and_then(|v| v.as_u64())
             .unwrap_or(9) as usize;
 
-        if let Some(ref fed) = self.federation {
-            let recent: Vec<_> = {
-                let results = fed.results.lock().await;
-                if results.is_empty() {
+        if let Some(ref backend) = self.backend {
+            let recent = match backend.hive_summary_entries(max_results).await {
+                Some(entries) if !entries.is_empty() => entries,
+                Some(_) => {
                     return Ok("## Hive Summary\n\nNo results yet. Submit an intent first:\n\n```\nuse submit_intent to send a task to the hive\n```".to_string());
                 }
-                // Clone to release the lock before building the markdown
-                results.iter().rev().take(max_results).cloned().collect()
+                None => {
+                    return Ok("## Hive Summary\n\nNo federation attached — start the server with `cargo run -- start`".to_string());
+                }
             };
 
             let mut sections = vec![format!(
@@ -1544,16 +1404,9 @@ impl McpService {
             )];
 
             for r in &recent {
-                let name = r
-                    .specialist_name
-                    .as_deref()
-                    .unwrap_or_else(|| r.specialist.sovereign_name());
-                let domain = r.specialist.domain();
-                let status_emoji = match r.status {
-                    crate::federation::specialist::ExecutionStatus::Success => "✅",
-                    crate::federation::specialist::ExecutionStatus::Failed => "❌",
-                    _ => "⏳",
-                };
+                let name = &r.sovereign;
+                let domain = r.domain;
+                let status_emoji = r.status.emoji();
 
                 // Try to parse the output as JSON for cleaner display
                 let formatted_output =
