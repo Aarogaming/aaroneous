@@ -217,7 +217,7 @@
 - [ ] **HW-01: CAN Bus Telemetry Gateway for Vehicle & Engine Telemetry**
   - Wire `crates/platform_bridge/src/robotics/canbus.rs` into the `CapabilityBroker` and Studio dashboard to ingest vehicle OBD-II metrics and ECU states directly.
 - [ ] **HW-02: Direct GPIO & Serial Port Microcontroller Polling**
-  - Connect serial port and GPIO interfaces from `data/fabrication/` into the `CapabilityBroker` to allow agents to directly trigger and monitor physical hardware pins and relays.
+  - Wire serial port and GPIO interfaces into the `CapabilityBroker` to allow agents to directly trigger and monitor physical hardware pins and relays. (`data/fabrication/`'s ~150 generated crate-wrapper stubs, the "SAB"/"Genesis Architect" scaffolding this item used to reference, were removed as legacy — they were never workspace members and only produced Dependabot noise against unbuilt lockfiles. A GPIO/serial provider crate should be authored directly under `crates/platform_bridge/` per the Component Graduation process in AGENTS.md section 4, not scaffolded through that pipeline.)
 - [ ] **XR-01: OpenXR Native Spatial Rig Provider**
   - Connect `core/hypervisor/src/federation/ar/openxr_provider.rs` to project the 3D Constellation galaxy and DAG visualizer into mixed-reality headsets for immersive spatial debugging.
 - [ ] **BIO-01: Bluetooth Low-Energy (BLE) Biometric Telemetry Streaming**
