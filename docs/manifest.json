@@ -1,5 +1,5 @@
 {
-  "workspace_root": "D:\\Aaroneous",
+  "workspace_root": "D:\\Aaroneous\\.claude\\worktrees\\agent-ad6f598a51133bd58",
   "crates": {
     "adaptation_engine": {
       "name": "adaptation_engine",
@@ -96,12 +96,7 @@
       "ring": null,
       "profile": [],
       "description": "",
-      "dependencies": [
-        "compute",
-        "criterion",
-        "memmap2",
-        "tempfile"
-      ]
+      "dependencies": []
     },
     "capabilities": {
       "name": "capabilities",
@@ -129,7 +124,18 @@
         "serde",
         "serde_json",
         "tokio",
+        "toml",
         "tracing"
+      ]
+    },
+    "chaos_injector": {
+      "name": "chaos_injector",
+      "version": "0.1.0",
+      "ring": null,
+      "profile": [],
+      "description": "",
+      "dependencies": [
+        "anyhow"
       ]
     },
     "compliance_auditor": {
@@ -206,6 +212,7 @@
         "ast_auditor",
         "clap",
         "paths",
+        "serde_json",
         "transpiler"
       ]
     },
@@ -236,17 +243,6 @@
         "thiserror",
         "tracing",
         "z3"
-      ]
-    },
-    "hotload": {
-      "name": "hotload",
-      "version": "0.1.0",
-      "ring": null,
-      "profile": [],
-      "description": "",
-      "dependencies": [
-        "anyhow",
-        "libloading"
       ]
     },
     "hypervisor": {
@@ -284,11 +280,9 @@
         "futures-util",
         "governance",
         "hex",
-        "hotload",
         "http-body-util",
         "ipc_bus",
         "iroh",
-        "libloading",
         "llama-gguf",
         "llm_gateway",
         "log",
@@ -299,12 +293,10 @@
         "notify",
         "nvml-wrapper",
         "omni",
-        "once_cell",
         "orchestrator",
         "parking_lot",
         "paths",
         "platform_bridge",
-        "plugin_api",
         "rand",
         "regex",
         "reqwest",
@@ -388,6 +380,16 @@
         "tracing",
         "transpiler",
         "which"
+      ]
+    },
+    "llm_gateway_types": {
+      "name": "llm_gateway_types",
+      "version": "0.1.0",
+      "ring": null,
+      "profile": [],
+      "description": "",
+      "dependencies": [
+        "serde"
       ]
     },
     "mcp_server": {
@@ -517,16 +519,25 @@
         "wire"
       ]
     },
-    "plugin_api": {
-      "name": "plugin_api",
+    "rfc0006_abi": {
+      "name": "rfc0006_abi",
       "version": "0.1.0",
       "ring": null,
       "profile": [],
       "description": "",
       "dependencies": [
-        "anyhow",
-        "ipc_bus",
-        "serde"
+        "bytemuck"
+      ]
+    },
+    "rfc0006_host": {
+      "name": "rfc0006_host",
+      "version": "0.1.0",
+      "ring": null,
+      "profile": [],
+      "description": "",
+      "dependencies": [
+        "libloading",
+        "rfc0006_abi"
       ]
     },
     "runtime_monitor": {
@@ -541,6 +552,14 @@
         "crossbeam-queue",
         "hypervisor"
       ]
+    },
+    "runtime_monitor_bench": {
+      "name": "runtime_monitor_bench",
+      "version": "0.1.0",
+      "ring": null,
+      "profile": [],
+      "description": "",
+      "dependencies": []
     },
     "scratchpad": {
       "name": "scratchpad",
@@ -578,6 +597,7 @@
       "description": "",
       "dependencies": [
         "anyhow",
+        "bytemuck",
         "serde",
         "thiserror"
       ]
