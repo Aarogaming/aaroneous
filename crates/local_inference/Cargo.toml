@@ -18,4 +18,3 @@ cpu = ["llama-gguf/cpu"]
 cuda = ["llama-gguf/cuda"]
 vulkan = ["llama-gguf/vulkan"]
 metal = ["llama-gguf/metal"]
-

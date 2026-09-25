@@ -146,4 +146,3 @@ unexpected_cfgs = "allow"
 # Allow ambient_authority lint during security remediation phase
 unknown_lints = "allow"
 
-

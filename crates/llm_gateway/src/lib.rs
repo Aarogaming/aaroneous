@@ -23,7 +23,7 @@ pub use types::*;
 use anyhow::Result;
 use std::path::PathBuf;
 use std::sync::Arc;
-use tracing::{debug, info, warn};
+use tracing::{debug, info};
 
 /// Main LLM client managing different providers
 pub struct LLMClient {

@@ -5,7 +5,6 @@
 use crate::types::*;
 use anyhow::{Result, anyhow};
 use async_trait::async_trait;
-use paths::{WorkspacePaths, WorkspacePathsConfig};
 use std::path::PathBuf;
 use tracing::{debug, info, warn};
 pub struct GGUFProvider {
@@ -50,23 +49,6 @@ impl GGUFProvider {
         })
     }
 
-    /// Get the best available Qwen model path, probing known locations.
-    ///
-    /// Search order (first existing file wins):
-    /// 1. Workspace models directory — Qwen2.5 abliterated variants
-    /// 2. Workspace models directory — legacy Qwen names
-    /// 3. Relative `./models/` paths (development/CI)
-    /// 4. Parent-relative `../models/` path
-    ///
-    /// Returns the first existing path, or the workspace default path as a
-    /// fallback even if it doesn't exist (so `LLMConfig::gguf_model_path`
-    /// is always populated with a sane value).
-
-
-        // Default: workspace preferred path (may not exist yet)
-        wp.models().join("qwen2.5-1.5b-instruct-abliterated.gguf")
-    }
-
     /// Generate text from a prompt using the loaded GGUF model.
     ///
     /// # Feature gating
@@ -78,7 +60,7 @@ impl GGUFProvider {
     /// - **Without `llama-gguf` feature** (default): returns a structured mock
     ///   response so the rest of the system continues to work without a model.
     async fn generate_text(&self, prompt: &str, max_tokens: u32) -> Result<String> {
-        use local_inference::{LocalEngine, InferenceConfig};
+        use local_inference::{InferenceConfig, LocalEngine};
 
         let prompt_owned = prompt.to_string();
         let engine_cache = self.engine_cache.clone();
@@ -88,12 +70,24 @@ impl GGUFProvider {
             let mut guard = engine_cache.blocking_lock();
             if guard.is_none() {
                 info!("GGUF: loading engine from {} (first call)", model_path_str);
-                let config = InferenceConfig { model_path: model_path_str.into(), max_tokens: max_tokens, temperature: 0.7, top_p: 0.95 };
-                *guard = Some(LocalEngine::load(&config).map_err(|e| anyhow::anyhow!("Engine::load failed: {:?}", e))?);
+                let config = InferenceConfig {
+                    model_path: model_path_str.into(),
+                    max_tokens,
+                    temperature: 0.7,
+                    top_p: 0.95,
+                };
+                *guard = Some(
+                    LocalEngine::load(&config)
+                        .map_err(|e| anyhow::anyhow!("Engine::load failed: {:?}", e))?,
+                );
             }
             let engine = guard.as_mut().unwrap();
-            engine.generate(&prompt_owned, max_tokens).map_err(|e| anyhow::anyhow!("generation failed: {:?}", e))
-        }).await.map_err(|e| anyhow::anyhow!("spawn_blocking panicked: {}", e))??;
+            engine
+                .generate(&prompt_owned, max_tokens)
+                .map_err(|e| anyhow::anyhow!("generation failed: {:?}", e))
+        })
+        .await
+        .map_err(|e| anyhow::anyhow!("spawn_blocking panicked: {}", e))??;
 
         Ok(result)
     }
@@ -404,7 +398,9 @@ JSON array only:"#,
     }
 
     async fn embed(&self, _text: &str) -> Result<Vec<f32>> {
-        Err(anyhow::anyhow!("Embedding not natively supported by local_inference yet"))
+        Err(anyhow::anyhow!(
+            "Embedding not natively supported by local_inference yet"
+        ))
     }
 }
 
@@ -439,6 +435,3 @@ mod tests {
         assert!(json.contains("key"));
     }
 }
-
-
-
