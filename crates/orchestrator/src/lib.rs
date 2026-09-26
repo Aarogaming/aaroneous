@@ -114,6 +114,17 @@ pub type SwarmLoadBalancer = SwarmBalancer;
 
 use nervous_system::SharedMemorySynapse;
 
+/// Typed domain error for the Unified Intelligence Engine
+#[derive(Debug, thiserror::Error)]
+pub enum IntelligenceEngineError {
+    #[error("Shared memory synapse initialization failed: {0}")]
+    SynapseInit(String),
+    #[error("Task analysis failed: {0}")]
+    TaskAnalysis(String),
+    #[error(transparent)]
+    Other(#[from] anyhow::Error),
+}
+
 /// Unified Intelligence Engine for task routing and cognitive planning
 pub struct IntelligenceEngine {
     pub synapse: SharedMemorySynapse,
@@ -122,7 +133,7 @@ pub struct IntelligenceEngine {
 }
 
 impl IntelligenceEngine {
-    pub fn new(config: LLMConfig, specialists: Vec<Specialist>) -> anyhow::Result<Self> {
+    pub fn new(config: LLMConfig, specialists: Vec<Specialist>) -> Result<Self, IntelligenceEngineError> {
         let synapse = match SharedMemorySynapse::new_sync("SAB_STORE", 1024 * 1024) {
             Ok(s) => s,
             Err(_) => {
@@ -130,7 +141,8 @@ impl IntelligenceEngine {
                 static COUNTER: AtomicUsize = AtomicUsize::new(0);
                 let counter = COUNTER.fetch_add(1, Ordering::SeqCst);
                 let fallback = format!("SAB_STORE_{}_{}", std::process::id(), counter);
-                SharedMemorySynapse::new_sync(&fallback, 1024 * 1024)?
+                SharedMemorySynapse::new_sync(&fallback, 1024 * 1024)
+                    .map_err(|e| IntelligenceEngineError::SynapseInit(e.to_string()))?
             }
         };
         Ok(Self {
@@ -143,7 +155,7 @@ impl IntelligenceEngine {
     pub async fn new_async(
         config: LLMConfig,
         specialists: Vec<Specialist>,
-    ) -> anyhow::Result<Self> {
+    ) -> Result<Self, IntelligenceEngineError> {
         let synapse = match SharedMemorySynapse::new("SAB_STORE", 1024 * 1024).await {
             Ok(s) => s,
             Err(_) => {
@@ -151,7 +163,9 @@ impl IntelligenceEngine {
                 static COUNTER: AtomicUsize = AtomicUsize::new(0);
                 let counter = COUNTER.fetch_add(1, Ordering::SeqCst);
                 let fallback = format!("SAB_STORE_{}_{}", std::process::id(), counter);
-                SharedMemorySynapse::new(&fallback, 1024 * 1024).await?
+                SharedMemorySynapse::new(&fallback, 1024 * 1024)
+                    .await
+                    .map_err(|e| IntelligenceEngineError::SynapseInit(e.to_string()))?
             }
         };
         Ok(Self {
@@ -161,8 +175,11 @@ impl IntelligenceEngine {
         })
     }
 
-    pub async fn analyze_task(&self, prompt: &str) -> anyhow::Result<TaskAnalysis> {
-        self.client.analyze_task(prompt).await
+    pub async fn analyze_task(&self, prompt: &str) -> Result<TaskAnalysis, IntelligenceEngineError> {
+        self.client
+            .analyze_task(prompt)
+            .await
+            .map_err(|e| IntelligenceEngineError::TaskAnalysis(e.to_string()))
     }
 
     pub fn route_task(&mut self, task: &RoutableTask) -> RoutingDecision {
