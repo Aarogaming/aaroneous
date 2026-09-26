@@ -98,14 +98,14 @@ All internal production call sites were migrated during M7 and M22.
 
 ### 4.2 Removal Readiness Checklist
 
-Before opening the v0.4.0 removal PR, verify each item is complete:
+Executed in v0.4.0:
 
-- [ ] git grep for all deprecated alias names across crates/ core/ dev/ produces only
+- [x] git grep for all deprecated alias names across crates/ core/ dev/ produces only
       definition-site and test-assertion matches (no production call sites).
-- [ ] All definition sites, re-export entries, and test assertions are deleted.
-- [ ] cargo test --workspace passes (no missing-symbol errors).
-- [ ] cargo clippy --workspace -- -D warnings passes (no lingering allow(deprecated) suppressions).
-- [ ] cargo run -p ast_auditor -- audit core/ crates/ dev/ reports 0 violations.
+- [x] All definition sites, re-export entries, and test assertions are deleted.
+- [x] cargo test --workspace passes (no missing-symbol errors).
+- [x] cargo clippy --workspace -- -D warnings passes (no lingering allow(deprecated) suppressions).
+- [x] cargo run -p ast_auditor -- audit core/ crates/ dev/ reports 0 violations.
 
 ### 4.3 Migration Guide
 

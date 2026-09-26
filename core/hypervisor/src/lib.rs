@@ -94,10 +94,6 @@ pub use crate::genetics::{
     AdaptationState, AgentProfile, BreedingOperation, LociSource, ProfileAnalyzer, ProfileCategory,
     ProfileLocus,
 };
-#[allow(deprecated)]
-pub use crate::genetics::{
-    EpigeneticState, GeneticAnalyzer, GeneticCategory, GeneticLocus, SpecialistGenome,
-};
 pub use crate::skills::{
     FusedSkill, PersonaRank, Skill, SkillOrigin, SkillRegistry, SkillType, SpecialistSkillSet,
 };

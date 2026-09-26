@@ -71,7 +71,7 @@ pub struct ModelAnalysis {
     pub attn_mlp_ratio: f32, // >1 = attention-heavy, <1 = MLP-heavy
     pub depth_gradient: f32, // how much statistics change shallow→deep
     pub block_profiles: Vec<BlockProfile>,
-    /// Derived genome loci values [0,1] ready to populate SpecialistGenome
+    /// Derived genome loci values [0,1] ready to populate AgentProfile
     pub genome_loci: HashMap<String, f32>,
 }
 
@@ -221,7 +221,7 @@ impl GGUFAnalyzer {
 
         // ── Derive genome loci ──────────────────────────────────────────
         // Each locus is a [0,1] value characterizing one aspect of the model.
-        // These directly populate SpecialistGenome::genetic_loci.
+        // These directly populate AgentProfile loci.
         let mut genome_loci: HashMap<String, f32> = HashMap::new();
 
         // Attention intensity (how much of the model is attention vs MLP)

@@ -68,7 +68,7 @@ pub struct ModelDNA {
     pub blocks: Vec<BlockDNA>,
     /// Model-wide scalar loci (same keys as GGUFAnalyzer for compatibility)
     pub genome_loci: HashMap<String, f64>,
-    /// Named genome loci as GeneticLocus structs (for genetics.rs SpecialistGenome)
+    /// Named genome loci records (for genetics.rs AgentProfile)
     pub genetic_loci: Vec<GeneticLocusRecord>,
 
     // ── Cross-block relationships ──────────────────────────────────────────

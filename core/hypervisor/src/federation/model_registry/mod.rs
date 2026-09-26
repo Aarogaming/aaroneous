@@ -356,7 +356,7 @@ async fn run_import(
                     target_path.display()
                 );
 
-                // Convert ModelDNA → SpecialistGenome and generate soul.
+                // Convert ModelDNA → AgentProfile and generate soul.
                 // This closes the self-digestion loop: imported models get genome
                 // + soul alongside DNA so they can be compared, bred, and routed.
                 let genome = crate::federation::dna::dna_to_genome(&dna);
