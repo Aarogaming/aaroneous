@@ -57,6 +57,11 @@ impl LatticeVerifier {
         self
     }
 
+    pub fn with_memory_limit(mut self, limit_bytes: usize) -> Self {
+        self.max_linear_memory_bytes = limit_bytes;
+        self
+    }
+
     /// Verifies 7-exponent SI base unit consistency across all DAG operations
     pub fn verify_dimensional_consistency(
         &self,
@@ -322,6 +327,26 @@ mod tests {
                 element_type: Box::new(NativeTypeLattice::PrimitiveFloat { bits: 32 }),
             },
             energy_cost: 0.05,
+            dependencies: vec![],
+        });
+
+        let result = verifier.verify(&graph);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_lattice_verifier_memory_limit_violation() {
+        let verifier = LatticeVerifier::default().with_memory_limit(1024 * 1024); // 1 MB
+        let mut graph = NativeComputationalGraph::new();
+
+        graph.add_node(NativeComputationNode {
+            id: 1,
+            opcode: MachineOpcode::Alloc {
+                size_bytes: 2 * 1024 * 1024, // 2 MB exceeds 1 MB limit
+                align: 64,
+            },
+            type_lattice: NativeTypeLattice::PrimitiveFloat { bits: 64 },
+            energy_cost: 0.01,
             dependencies: vec![],
         });
 
