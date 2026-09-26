@@ -85,9 +85,7 @@ impl WorkspacePaths {
         };
 
         let temp_dir = config.temp_dir.clone().unwrap_or_else(|| {
-            dirs::cache_dir()
-                .map(|p| p.join("Aaroneous").join("tmp"))
-                .unwrap_or_else(|| root.join(".tmp"))
+            root.join(".tmp")
         });
 
         let data_root = Self::discover_external_data_root(config, &root);
@@ -115,36 +113,13 @@ impl WorkspacePaths {
         root.join("data")
     }
 
-    #[allow(ambient_authority)]
     fn discover_root_from_system() -> PathBuf {
         let is_repo_root = |dir: &Path| {
             dir.join("Cargo.toml").exists()
                 && (dir.join("crates").exists() || dir.join("core").exists())
         };
 
-        // 1. Check CARGO_MANIFEST_DIR (active during cargo test/run with external target-dir)
-        if let Ok(manifest_dir) = std::env::var("CARGO_MANIFEST_DIR") {
-            let mut curr = Some(Path::new(&manifest_dir));
-            while let Some(dir) = curr {
-                if is_repo_root(dir) {
-                    return dir.to_path_buf();
-                }
-                curr = dir.parent();
-            }
-        }
-
-        // 2. Check current working directory and traverse upward
-        if let Ok(cwd) = std::env::current_dir() {
-            let mut curr = Some(cwd.as_path());
-            while let Some(dir) = curr {
-                if is_repo_root(dir) {
-                    return dir.to_path_buf();
-                }
-                curr = dir.parent();
-            }
-        }
-
-        // 3. Check current executable parent directory and traverse upward
+        // 1. Check current executable parent directory and traverse upward
         if let Ok(exe) = std::env::current_exe() {
             let mut curr = exe.parent();
             while let Some(dir) = curr {
@@ -155,7 +130,7 @@ impl WorkspacePaths {
             }
         }
 
-        // 4. Default to standard OS Application Data Directory
+        // 2. Default to standard OS Application Data Directory
         dirs::data_local_dir()
             .map(|p| p.join("Aaroneous"))
             .unwrap_or_else(|| PathBuf::from("."))
@@ -163,9 +138,7 @@ impl WorkspacePaths {
 
     /// Construct from an explicit root path.
     pub fn from_root(root: PathBuf) -> Self {
-        let temp_dir = dirs::cache_dir()
-            .map(|p| p.join("Aaroneous").join("tmp"))
-            .unwrap_or_else(|| root.join(".tmp"));
+        let temp_dir = root.join(".tmp");
         let data_root = Self::discover_external_data_root(&WorkspacePathsConfig::new(), &root);
         Self {
             root,
