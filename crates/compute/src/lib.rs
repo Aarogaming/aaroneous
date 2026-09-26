@@ -181,16 +181,63 @@ fn acquire_test_lock() -> MutexGuard<'static, ()> {
     TEST_ISOLATE_MUTEX.lock().unwrap()
 }
 
+pub const DEFAULT_SYNAPSE_CAPACITY: usize = 1024 * 1024;
+pub const MIN_SYNAPSE_CAPACITY: usize = 4096;
+pub const MAX_SYNAPSE_CAPACITY: usize = 64 * 1024 * 1024;
+pub const MAX_EXECUTE_INPUT_ELEMENTS: usize = 250_000;
+
+/// Configuration for `ComputeEngine` allocation bounds and execution limits.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ComputeEngineConfig {
+    pub synapse_capacity: usize,
+    pub max_input_elements: usize,
+}
+
+impl Default for ComputeEngineConfig {
+    fn default() -> Self {
+        Self {
+            synapse_capacity: DEFAULT_SYNAPSE_CAPACITY,
+            max_input_elements: MAX_EXECUTE_INPUT_ELEMENTS,
+        }
+    }
+}
+
 /// The central Compute Engine.
 /// Exposes mathematical methodologies to the Synapse for zero-copy execution.
 pub struct ComputeEngine {
     pub synapse: SharedMemorySynapse,
     pub rng: rand::rngs::StdRng,
+    pub config: ComputeEngineConfig,
 }
 
 impl Default for ComputeEngine {
     fn default() -> Self {
-        // For tests, use unique synapse names to prevent file locking conflicts
+        Self::with_config(ComputeEngineConfig::default())
+            .expect("Failed to initialize default ComputeEngine")
+    }
+}
+
+impl ComputeEngine {
+    pub fn new(synapse: SharedMemorySynapse) -> Self {
+        Self::with_synapse_and_config(synapse, ComputeEngineConfig::default())
+    }
+
+    pub fn with_synapse_and_config(
+        synapse: SharedMemorySynapse,
+        config: ComputeEngineConfig,
+    ) -> Self {
+        Self {
+            synapse,
+            rng: rand::rngs::StdRng::from_entropy(),
+            config,
+        }
+    }
+
+    pub fn with_config(config: ComputeEngineConfig) -> anyhow::Result<Self> {
+        let capacity = config
+            .synapse_capacity
+            .clamp(MIN_SYNAPSE_CAPACITY, MAX_SYNAPSE_CAPACITY);
+
         #[cfg(test)]
         {
             use std::sync::atomic::{AtomicUsize, Ordering};
@@ -198,38 +245,39 @@ impl Default for ComputeEngine {
             static COUNTER: AtomicUsize = AtomicUsize::new(0);
             let counter = COUNTER.fetch_add(1, Ordering::SeqCst);
             let synapse_name = format!("TEST_SYNAPSE_{}", counter);
-            Self::new(SharedMemorySynapse::new_sync(&synapse_name, 1024 * 1024).unwrap())
+            let synapse = SharedMemorySynapse::new_sync(&synapse_name, capacity)?;
+            Ok(Self::with_synapse_and_config(synapse, config))
         }
 
         #[cfg(not(test))]
         {
-            match SharedMemorySynapse::new_sync("SAB_STORE", 1024 * 1024) {
-                Ok(synapse) => Self::new(synapse),
+            let synapse = match SharedMemorySynapse::new_sync("SAB_STORE", capacity) {
+                Ok(synapse) => synapse,
                 Err(_) => {
                     use std::sync::atomic::{AtomicUsize, Ordering};
                     static COUNTER: AtomicUsize = AtomicUsize::new(0);
                     let counter = COUNTER.fetch_add(1, Ordering::SeqCst);
                     let fallback_name =
                         format!("SAB_STORE_FALLBACK_{}_{}", std::process::id(), counter);
-                    let synapse = SharedMemorySynapse::new_sync(&fallback_name, 1024 * 1024)
-                        .expect("Failed to initialize fallback compute engine synapse");
-                    Self::new(synapse)
+                    SharedMemorySynapse::new_sync(&fallback_name, capacity)?
                 }
-            }
-        }
-    }
-}
-
-impl ComputeEngine {
-    pub fn new(synapse: SharedMemorySynapse) -> Self {
-        Self {
-            synapse,
-            rng: rand::rngs::StdRng::from_entropy(),
+            };
+            Ok(Self::with_synapse_and_config(synapse, config))
         }
     }
 
     // Unified execution interface
     pub fn execute(&mut self, task: &str, input: &[f64]) -> anyhow::Result<Vec<f64>> {
+        if input.len() > self.config.max_input_elements {
+            anyhow::bail!(
+                "Compute input length {} exceeds maximum allowed bound {}",
+                input.len(),
+                self.config.max_input_elements
+            );
+        }
+        if input.iter().any(|v| !v.is_finite()) {
+            anyhow::bail!("Compute input contains non-finite values (NaN or Infinity)");
+        }
         match task {
             "monte_carlo" => stochastic::monte_carlo_simulate(input, 1000, &mut self.rng),
             "markov" => mdps::markov_transition(input, &mut self.rng),
@@ -241,7 +289,9 @@ impl ComputeEngine {
             "nash" => game_theory::nash_approx(input),
             "optimize_ga" => optimize::genetic_step(input, &mut self.rng),
             "boltzmann" => {
-                let _n = input.len() - 1;
+                if input.is_empty() {
+                    anyhow::bail!("boltzmann task requires at least 1 input value (temperature)");
+                }
                 let temperature = input[0];
                 let energies = &input[1..];
                 Ok(thermodynamics::boltzmann_distribution(
@@ -450,4 +500,41 @@ mod tests {
                 .contains("Unknown compute task")
         );
     }
+
+    #[test]
+    fn test_execute_non_finite_input_rejected() {
+        let mut engine = ComputeEngine::default();
+        let input_nan = vec![1.0, f64::NAN, 0.5];
+        let res_nan = engine.execute("monte_carlo", &input_nan);
+        assert!(res_nan.is_err());
+        assert!(res_nan.unwrap_err().to_string().contains("non-finite"));
+
+        let input_inf = vec![1.0, f64::INFINITY, 0.5];
+        let res_inf = engine.execute("monte_carlo", &input_inf);
+        assert!(res_inf.is_err());
+        assert!(res_inf.unwrap_err().to_string().contains("non-finite"));
+    }
+
+    #[test]
+    fn test_execute_input_bounds_exceeded() {
+        let config = ComputeEngineConfig {
+            synapse_capacity: DEFAULT_SYNAPSE_CAPACITY,
+            max_input_elements: 10,
+        };
+        let mut engine = ComputeEngine::with_config(config).unwrap();
+        let large_input = vec![0.1; 11];
+        let res = engine.execute("monte_carlo", &large_input);
+        assert!(res.is_err());
+        assert!(res.unwrap_err().to_string().contains("exceeds maximum allowed bound"));
+    }
+
+    #[test]
+    fn test_execute_boltzmann_empty_input_rejected() {
+        let mut engine = ComputeEngine::default();
+        let empty: Vec<f64> = vec![];
+        let res = engine.execute("boltzmann", &empty);
+        assert!(res.is_err());
+        assert!(res.unwrap_err().to_string().contains("requires at least 1 input value"));
+    }
 }
+
