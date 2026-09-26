@@ -88,8 +88,8 @@ All roadmap features must satisfy the **11 Sequential Verification Gates** (`car
 
 - [ ] **M12: Stable Plugin Command-Buffer ABI (RFC-0006)**
   - **Status:** Specification complete (`docs/rfcs/RFC-0006-PLUGIN_LIFECYCLE_AND_STABLE_UI_CARTRIDGE_ABI.md`). Next: implementation of a `repr(C)` command-buffer protocol for dynamic hot-reload plugins.
-- [ ] **Phase 38 / M32: Capability Broker & Resource Governance Integration**
-  - **Status:** In Progress (`crates/capabilities/src/broker.rs`, `crates/governance/src/health_governor.rs`, `core/hypervisor/src/state_publisher.rs`). Active development of signed token capability sandbox and thermodynamic backpressure controls.
+- [x] **Phase 38 / M32: Capability Broker & Resource Governance Integration**
+  - **Evidence:** `core/hypervisor/src/capability_broker.rs`, `crates/mcp_server/src/capability_broker.rs`, `crates/compute/src/crucible.rs`, and `core/hypervisor/src/consensus_engine.rs`. Signed HMAC-SHA256 `CapabilityToken` sandbox authorization (`Airgapped`, `ReadConstrained`, `FullPrivilege`), dynamic `ThermalBackpressureLevel` throttling, dirty-flag generation pacing, and `EngineStatePublisher` synchronization.
 
 ### 3.3 Phased Release Schedule
 

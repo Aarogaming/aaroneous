@@ -354,6 +354,35 @@ impl ConsensusEngine {
         }
     }
 
+    /// Propose a dynamic thermal throttle response across the consensus cluster
+    pub fn propose_thermal_response(&mut self, target_tier: u8, confidence: f32) -> String {
+        let decision = ProposedDecision {
+            decision_id: format!(
+                "thermal_resp_{}_{}",
+                self.node_id,
+                self.decision_history.len() + self.pending_decisions.len() + 1
+            ),
+            proposer_node: self.node_id.clone(),
+            timestamp: Utc::now(),
+            decision_type: DecisionType::ThermalResponse,
+            data: vec![target_tier],
+            confidence: confidence.clamp(0.0, 1.0),
+        };
+        self.propose_decision(decision)
+    }
+
+    /// Retrieve the most recently ratified (approved) thermal throttle tier, if any
+    pub fn ratified_thermal_tier(&self) -> Option<u8> {
+        self.decision_history
+            .iter()
+            .rev()
+            .find(|r| {
+                r.decision.decision_type == DecisionType::ThermalResponse
+                    && r.status == DecisionStatus::Approved
+            })
+            .and_then(|r| r.decision.data.first().copied())
+    }
+
     /// Returns the current Raft cluster role
     pub fn role(&self) -> RaftRole {
         self.raft_state.role
@@ -740,5 +769,29 @@ mod tests {
         assert_eq!(append_resp.match_index, 1);
         assert_eq!(follower.raft_state.log.len(), 1);
         assert_eq!(follower.raft_state.log[0].payload, b"WAL_RECORD_TX_001");
+    }
+
+    #[test]
+    fn test_consensus_thermal_response_ratification() {
+        let peers = vec!["node_2".to_string()];
+        let mut engine = ConsensusEngine::new("node_1", peers, 0.5);
+
+        // Propose thermal response to tier 2 (Critical / ThermalThrottled)
+        let dec_id = engine.propose_thermal_response(2, 0.95);
+        assert!(dec_id.starts_with("thermal_resp_"));
+
+        // Peer votes approve
+        engine.vote_on_decision(&dec_id, "node_2", Vote::Approve);
+        assert_eq!(
+            engine.get_decision_status(&dec_id),
+            Some(DecisionStatus::Approved)
+        );
+
+        // Finalize decision to history
+        let finalized = engine.finalize_decision(&dec_id);
+        assert!(finalized.is_some());
+
+        // Ratified tier should now be 2
+        assert_eq!(engine.ratified_thermal_tier(), Some(2));
     }
 }

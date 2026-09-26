@@ -297,6 +297,7 @@ pub mod tensor_router;
 pub mod ui_broker;
 pub use capability_broker::{
     CapabilityBroker, CapabilityCategory, CapabilityDescriptor, CapabilityExecutionOutcome,
+    CapabilityToken, SandboxPolicy, ThermalBackpressureLevel,
 };
 
 #[cfg(feature = "fault_injector")]

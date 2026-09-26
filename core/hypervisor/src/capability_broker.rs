@@ -11,8 +11,42 @@
 
 use paths::WorkspacePathsConfig;
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use std::collections::HashMap;
+use std::sync::atomic::{AtomicBool, AtomicU8, AtomicU64, Ordering};
 use std::time::Instant;
+
+/// Sandbox security boundary defining isolation level
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum SandboxPolicy {
+    /// Hermetic airgapped sandbox: purely virtual / analytical tools permitted; zero OS or device actuation
+    Airgapped,
+    /// Read-constrained sandbox: read/query tools permitted; mutating tools rejected
+    ReadConstrained,
+    /// Sovereign sandbox: full tool suite authorized by token grants
+    FullPrivilege,
+}
+
+/// Dynamic thermal backpressure level governing capability dispatch
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+pub enum ThermalBackpressureLevel {
+    #[default]
+    Nominal,
+    Throttled,
+    Critical,
+}
+
+/// Cryptographically signed capability token authorizing scoped tool invocation
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CapabilityToken {
+    pub token_id: uuid::Uuid,
+    pub subject: String,
+    pub allowed_capabilities: Vec<String>,
+    pub sandbox_policy: SandboxPolicy,
+    pub issued_at_ms: u64,
+    pub expires_at_ms: u64,
+    pub signature: String,
+}
 
 /// Functional domain category
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -84,12 +118,16 @@ struct RegisteredCapability {
     executor: CapabilityExecutor,
 }
 
-/// Intermediary Capability Broker with lock-free LMAX Disruptor audit ring buffer (MEM-02)
-/// and token-bucket input debouncing (CMD-02)
+/// Intermediary Capability Broker with lock-free LMAX Disruptor audit ring buffer (MEM-02),
+/// token-bucket input debouncing (CMD-02), signed capability sandboxing, and dirty-flag pacing
 pub struct CapabilityBroker {
     capabilities: std::sync::RwLock<HashMap<String, RegisteredCapability>>,
     disruptor_ring: std::sync::Mutex<ipc_bus::disruptor::DisruptorRingBuffer<String>>,
     debounce_log: std::sync::Mutex<HashMap<String, Instant>>,
+    signing_key: [u8; 32],
+    thermal_backpressure: AtomicU8,
+    dirty_generation: AtomicU64,
+    is_dirty: AtomicBool,
 }
 
 impl Default for CapabilityBroker {
@@ -102,12 +140,20 @@ impl Default for CapabilityBroker {
 
 impl CapabilityBroker {
     pub fn new() -> Self {
+        Self::with_signing_key([0x5au8; 32])
+    }
+
+    pub fn with_signing_key(signing_key: [u8; 32]) -> Self {
         Self {
             capabilities: std::sync::RwLock::new(HashMap::new()),
             disruptor_ring: std::sync::Mutex::new(ipc_bus::disruptor::DisruptorRingBuffer::new(
                 1024,
             )),
             debounce_log: std::sync::Mutex::new(HashMap::new()),
+            signing_key,
+            thermal_backpressure: AtomicU8::new(0),
+            dirty_generation: AtomicU64::new(1),
+            is_dirty: AtomicBool::new(false),
         }
     }
 
@@ -228,6 +274,13 @@ impl CapabilityBroker {
             }
         };
 
+        if outcome.success {
+            let is_mutating = caps.get(id).map(|e| e.descriptor.mutating).unwrap_or(false);
+            if is_mutating {
+                self.mark_dirty();
+            }
+        }
+
         // MEM-02: Publish upstream command execution to LMAX Disruptor audit stream
         if let Ok(mut ring) = self.disruptor_ring.lock() {
             ring.publish(format!(
@@ -237,6 +290,245 @@ impl CapabilityBroker {
         }
 
         outcome
+    }
+
+    /// Issue a cryptographically signed CapabilityToken
+    pub fn issue_token(
+        &self,
+        subject: &str,
+        allowed_capabilities: Vec<String>,
+        sandbox_policy: SandboxPolicy,
+        ttl_ms: u64,
+        now_ms: u64,
+    ) -> CapabilityToken {
+        let token_id = uuid::Uuid::new_v4();
+        let expires_at_ms = now_ms.saturating_add(ttl_ms);
+        let signature = Self::compute_signature(
+            &self.signing_key,
+            &token_id,
+            subject,
+            &allowed_capabilities,
+            sandbox_policy,
+            now_ms,
+            expires_at_ms,
+        );
+
+        CapabilityToken {
+            token_id,
+            subject: subject.to_string(),
+            allowed_capabilities,
+            sandbox_policy,
+            issued_at_ms: now_ms,
+            expires_at_ms,
+            signature,
+        }
+    }
+
+    fn compute_signature(
+        key: &[u8; 32],
+        token_id: &uuid::Uuid,
+        subject: &str,
+        capabilities: &[String],
+        sandbox_policy: SandboxPolicy,
+        issued_at: u64,
+        expires_at: u64,
+    ) -> String {
+        let mut hasher = Sha256::new();
+        hasher.update(key);
+        hasher.update(token_id.as_bytes());
+        hasher.update(subject.as_bytes());
+        hasher.update((sandbox_policy as u8).to_le_bytes());
+        hasher.update(issued_at.to_le_bytes());
+        hasher.update(expires_at.to_le_bytes());
+        for cap in capabilities {
+            hasher.update(cap.as_bytes());
+        }
+        hex::encode(hasher.finalize())
+    }
+
+    /// Verify a CapabilityToken against a required capability, expiration, and sandbox policy
+    pub fn verify_token(
+        &self,
+        token: &CapabilityToken,
+        required_capability: &str,
+        now_ms: u64,
+    ) -> Result<(), String> {
+        let expected = Self::compute_signature(
+            &self.signing_key,
+            &token.token_id,
+            &token.subject,
+            &token.allowed_capabilities,
+            token.sandbox_policy,
+            token.issued_at_ms,
+            token.expires_at_ms,
+        );
+
+        if token.signature != expected {
+            return Err("Invalid capability token signature".to_string());
+        }
+
+        if now_ms > token.expires_at_ms {
+            return Err("Capability token has expired".to_string());
+        }
+
+        let caps = self.capabilities.read().unwrap_or_else(|e| e.into_inner());
+        let descriptor = caps.get(required_capability).map(|e| &e.descriptor);
+
+        // Check sandbox policy bounds
+        match token.sandbox_policy {
+            SandboxPolicy::Airgapped => {
+                if let Some(desc) = descriptor
+                    && (desc.category == CapabilityCategory::ScreenAutomation
+                        || desc.category == CapabilityCategory::SystemBus
+                        || desc.mutating)
+                {
+                    return Err(format!(
+                        "Airgapped sandbox violation: capability '{required_capability}' disallowed"
+                    ));
+                }
+            }
+            SandboxPolicy::ReadConstrained => {
+                if let Some(desc) = descriptor
+                    && desc.mutating
+                {
+                    return Err(format!(
+                        "Read-constrained sandbox violation: mutating capability '{required_capability}' disallowed"
+                    ));
+                }
+            }
+            SandboxPolicy::FullPrivilege => {}
+        }
+
+        // Check capability grants
+        let permitted = token.allowed_capabilities.iter().any(|c| {
+            if c == "*" || c == required_capability {
+                true
+            } else if let Some(prefix) = c.strip_suffix(".*") {
+                required_capability.starts_with(prefix)
+            } else {
+                false
+            }
+        });
+
+        if !permitted {
+            return Err(format!(
+                "Capability '{required_capability}' not granted by token"
+            ));
+        }
+
+        Ok(())
+    }
+
+    /// Execute a capability authenticated and scoped by a signed CapabilityToken
+    pub fn execute_with_token(
+        &self,
+        token: &CapabilityToken,
+        id: &str,
+        params: serde_json::Value,
+        now_ms: u64,
+    ) -> CapabilityExecutionOutcome {
+        if let Err(err) = self.verify_token(token, id, now_ms) {
+            return CapabilityExecutionOutcome {
+                capability_id: id.to_string(),
+                success: false,
+                latency_us: 0,
+                payload: serde_json::Value::Null,
+                error: Some(err),
+            };
+        }
+
+        // Thermal backpressure enforcement
+        match self.thermal_backpressure() {
+            ThermalBackpressureLevel::Critical => {
+                let is_critical_exempt = self
+                    .get_capability(id)
+                    .map(|d| d.category == CapabilityCategory::SafetyInterlock)
+                    .unwrap_or(false);
+                if !is_critical_exempt {
+                    return CapabilityExecutionOutcome {
+                        capability_id: id.to_string(),
+                        success: false,
+                        latency_us: 0,
+                        payload: serde_json::Value::Null,
+                        error: Some(format!(
+                            "Thermal backpressure critical: execution of '{id}' rejected"
+                        )),
+                    };
+                }
+            }
+            ThermalBackpressureLevel::Throttled => {
+                // Throttled: pacing delay
+                std::thread::sleep(std::time::Duration::from_millis(2));
+            }
+            ThermalBackpressureLevel::Nominal => {}
+        }
+
+        self.execute(id, params)
+    }
+
+    /// Set dynamic thermal backpressure level
+    pub fn set_thermal_backpressure(&self, level: ThermalBackpressureLevel) {
+        let val = match level {
+            ThermalBackpressureLevel::Nominal => 0,
+            ThermalBackpressureLevel::Throttled => 1,
+            ThermalBackpressureLevel::Critical => 2,
+        };
+        self.thermal_backpressure.store(val, Ordering::Release);
+    }
+
+    /// Read current thermal backpressure level
+    pub fn thermal_backpressure(&self) -> ThermalBackpressureLevel {
+        match self.thermal_backpressure.load(Ordering::Acquire) {
+            0 => ThermalBackpressureLevel::Nominal,
+            1 => ThermalBackpressureLevel::Throttled,
+            _ => ThermalBackpressureLevel::Critical,
+        }
+    }
+
+    /// Current dirty generation counter
+    pub fn dirty_generation(&self) -> u64 {
+        self.dirty_generation.load(Ordering::Acquire)
+    }
+
+    /// True if broker state has mutated
+    pub fn is_dirty(&self) -> bool {
+        self.is_dirty.load(Ordering::Acquire)
+    }
+
+    /// Reset dirty flag
+    pub fn mark_clean(&self) {
+        self.is_dirty.store(false, Ordering::Release);
+    }
+
+    /// Advance dirty generation and set dirty flag
+    pub fn mark_dirty(&self) -> u64 {
+        self.is_dirty.store(true, Ordering::Release);
+        self.dirty_generation.fetch_add(1, Ordering::AcqRel) + 1
+    }
+
+    /// Synchronize pacing and generation state from EngineStatePublisher
+    pub fn sync_with_state_publisher(
+        &self,
+        publisher: &crate::state_snapshot::EngineStatePublisher,
+    ) {
+        let snap = publisher.snapshot();
+        let level = match snap.pacing {
+            crate::state_snapshot::GovernorPacing::FullPerformance => {
+                ThermalBackpressureLevel::Nominal
+            }
+            crate::state_snapshot::GovernorPacing::ThermalThrottled => {
+                ThermalBackpressureLevel::Throttled
+            }
+            crate::state_snapshot::GovernorPacing::CriticalVramSave => {
+                ThermalBackpressureLevel::Critical
+            }
+        };
+        self.set_thermal_backpressure(level);
+        if snap.bus_generation > self.dirty_generation() {
+            self.dirty_generation
+                .store(snap.bus_generation, Ordering::Release);
+            self.is_dirty.store(true, Ordering::Release);
+        }
     }
 
     /// Pre-populates all sovereign backend engine functions
@@ -1110,6 +1402,152 @@ mod tests {
                 .as_str()
                 .unwrap()
                 .contains("Thermodynamic")
+        );
+    }
+
+    #[test]
+    fn test_signed_capability_token_lifecycle_and_sandboxing() {
+        let broker = CapabilityBroker::default();
+        let now_ms = 1_000_000;
+
+        // 1. Issue signed token with scoped permissions
+        let token = broker.issue_token(
+            "operator_1",
+            vec!["specialist.*".to_string(), "safety.*".to_string()],
+            SandboxPolicy::FullPrivilege,
+            60_000,
+            now_ms,
+        );
+
+        // Valid scoped execution
+        let outcome = broker.execute_with_token(
+            &token,
+            "specialist.dispatch_intent",
+            serde_json::json!({ "intent": "analyze system state" }),
+            now_ms + 100,
+        );
+        assert!(outcome.success);
+        assert!(broker.is_dirty());
+
+        // Unpermitted capability rejected
+        let rejected = broker.execute_with_token(
+            &token,
+            "screen.shmem_frame_capture",
+            serde_json::json!({}),
+            now_ms + 100,
+        );
+        assert!(!rejected.success);
+        assert!(rejected.error.unwrap().contains("not granted by token"));
+
+        // Expired token rejected
+        let expired = broker.execute_with_token(
+            &token,
+            "specialist.dispatch_intent",
+            serde_json::json!({ "intent": "expired" }),
+            now_ms + 70_000,
+        );
+        assert!(!expired.success);
+        assert!(expired.error.unwrap().contains("expired"));
+    }
+
+    #[test]
+    fn test_airgapped_sandbox_policy_enforcement() {
+        let broker = CapabilityBroker::default();
+        let now_ms = 1_000_000;
+
+        let airgapped_token = broker.issue_token(
+            "airgapped_worker",
+            vec!["*".to_string()],
+            SandboxPolicy::Airgapped,
+            60_000,
+            now_ms,
+        );
+
+        // ScreenAutomation category rejected under Airgapped sandbox policy
+        let outcome = broker.execute_with_token(
+            &airgapped_token,
+            "screen.shmem_frame_capture",
+            serde_json::json!({}),
+            now_ms + 100,
+        );
+        assert!(!outcome.success);
+        assert!(
+            outcome
+                .error
+                .unwrap()
+                .contains("Airgapped sandbox violation")
+        );
+
+        // Non-mutating analysis tool allowed
+        let safe_outcome = broker.execute_with_token(
+            &airgapped_token,
+            "safety.semantic_guardrail",
+            serde_json::json!({}),
+            now_ms + 100,
+        );
+        assert!(safe_outcome.success);
+    }
+
+    #[test]
+    fn test_thermal_backpressure_and_state_publisher_sync() {
+        let broker = CapabilityBroker::default();
+        let publisher = crate::state_snapshot::EngineStatePublisher::new_in_memory();
+        let now_ms = 1_000_000;
+
+        let token = broker.issue_token(
+            "worker",
+            vec!["*".to_string()],
+            SandboxPolicy::FullPrivilege,
+            60_000,
+            now_ms,
+        );
+
+        // Publisher pacing starts FullPerformance -> broker is Nominal
+        publisher.set_pacing(crate::state_snapshot::GovernorPacing::FullPerformance);
+        broker.sync_with_state_publisher(&publisher);
+        assert_eq!(
+            broker.thermal_backpressure(),
+            ThermalBackpressureLevel::Nominal
+        );
+
+        // Update publisher to CriticalVramSave -> broker syncs to Critical
+        publisher.set_pacing(crate::state_snapshot::GovernorPacing::CriticalVramSave);
+        broker.sync_with_state_publisher(&publisher);
+        assert_eq!(
+            broker.thermal_backpressure(),
+            ThermalBackpressureLevel::Critical
+        );
+
+        // Non-safety capability throttled under Critical backpressure
+        let outcome = broker.execute_with_token(
+            &token,
+            "specialist.dispatch_intent",
+            serde_json::json!({ "intent": "heavy task" }),
+            now_ms + 100,
+        );
+        assert!(!outcome.success);
+        assert!(
+            outcome
+                .error
+                .unwrap()
+                .contains("Thermal backpressure critical")
+        );
+
+        // Safety capability allowed even under Critical backpressure
+        let safe_res = broker.execute_with_token(
+            &token,
+            "safety.semantic_guardrail",
+            serde_json::json!({}),
+            now_ms + 100,
+        );
+        assert!(safe_res.success);
+
+        // Recover to Nominal
+        publisher.set_pacing(crate::state_snapshot::GovernorPacing::FullPerformance);
+        broker.sync_with_state_publisher(&publisher);
+        assert_eq!(
+            broker.thermal_backpressure(),
+            ThermalBackpressureLevel::Nominal
         );
     }
 }
