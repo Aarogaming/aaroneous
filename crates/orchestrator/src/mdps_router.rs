@@ -69,7 +69,13 @@ pub struct TaskRoutingEngine {
 }
 
 impl TaskRoutingEngine {
-    pub fn new(specialists: Vec<Specialist>) -> Self {
+    /// Maximum allowed registered specialists per routing engine instance to guarantee bounded memory.
+    pub const MAX_SPECIALISTS: usize = 256;
+
+    pub fn new(mut specialists: Vec<Specialist>) -> Self {
+        if specialists.len() > Self::MAX_SPECIALISTS {
+            specialists.truncate(Self::MAX_SPECIALISTS);
+        }
         let num_states = 5 * 5 * 5; // complexity(5) * load(5) * urgency(5) = 125
         let num_actions = specialists.len();
 

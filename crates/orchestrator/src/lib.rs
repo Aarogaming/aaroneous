@@ -133,6 +133,19 @@ pub struct IntelligenceEngine {
 }
 
 impl IntelligenceEngine {
+    /// Creates an IntelligenceEngine via explicit constructor injection of the SharedMemorySynapse handle.
+    pub fn with_synapse(
+        synapse: SharedMemorySynapse,
+        config: LLMConfig,
+        specialists: Vec<Specialist>,
+    ) -> Self {
+        Self {
+            synapse,
+            client: LLMClient::new(config),
+            router: TaskRoutingEngine::new(specialists),
+        }
+    }
+
     pub fn new(config: LLMConfig, specialists: Vec<Specialist>) -> Result<Self, IntelligenceEngineError> {
         let synapse = match SharedMemorySynapse::new_sync("SAB_STORE", 1024 * 1024) {
             Ok(s) => s,
