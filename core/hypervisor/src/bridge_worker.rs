@@ -91,7 +91,7 @@ impl DiplomatEnzyme {
     }
 
     /// Breeds a new Diplomatic hybrid specialist.
-    pub fn breed_diplomat_specialist(&self, registry: &crate::hox_registry::HoxRegistry) -> Result<crate::hox_map_schema::EnzymeGenetics> {
+    pub fn breed_diplomat_specialist(&self, registry: &crate::hox_registry::HoxRegistry) -> Result<crate::profile_schema::ModuleDefinition> {
         let orchestrator_module = registry.get_module("orchestrator").ok_or_else(|| anyhow::anyhow!("Orchestrator genetics missing"))?;
         let knowledge_module = registry.get_module("synthesizer").ok_or_else(|| anyhow::anyhow!("Synthesizer genetics missing"))?;
         
