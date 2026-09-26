@@ -40,7 +40,7 @@ fn main() -> Result<()> {
     }
 
     // Analyze convergence
-    let initial_avg = *residual_errors.get(0).unwrap_or(&0.0);
+    let initial_avg = *residual_errors.first().unwrap_or(&0.0);
     let final_avg = *residual_errors.last().unwrap_or(&0.0);
 
     println!("\n.-----------------------------------------------------------.");
@@ -49,7 +49,7 @@ fn main() -> Result<()> {
     println!("Final residual:     {:.4}", final_avg);
 
     // Verify parameters remain bounded within SMT limits
-    assert!(true, "Placeholder assertion");
+    assert!(!residual_errors.is_empty());
 
     println!("\nAll {} tokens processed successfully!", NUM_TOKENS);
     println!("Zero heap allocations during adaptation (stack-allocated state)");

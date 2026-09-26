@@ -415,7 +415,8 @@ impl SiSolidStateLoader {
 // ────────────────────────────────────────────────────────────────────────────
 
 fn bincode_serialize<T: Serialize>(value: &T) -> Result<Vec<u8>> {
-    Ok(serde_json::to_vec(value)?)
+    let bytes = bincode::serde::encode_to_vec(value, bincode::config::standard())?;
+    Ok(bytes)
 }
 
 /// Returns `data[offset..offset + len]` when the file-supplied range is
@@ -427,7 +428,12 @@ fn checked_range(data: &[u8], offset: u64, len: u64) -> Option<&[u8]> {
 }
 
 fn bincode_deserialize<T: for<'de> Deserialize<'de>>(bytes: &[u8]) -> Result<T> {
-    Ok(serde_json::from_slice(bytes)?)
+    if let Ok((val, _)) = bincode::serde::decode_from_slice(bytes, bincode::config::standard()) {
+        Ok(val)
+    } else {
+        // Fallback for legacy JSON-encoded test/cartridge manifests
+        Ok(serde_json::from_slice(bytes)?)
+    }
 }
 
 #[cfg(test)]
@@ -541,5 +547,41 @@ mod tests {
         assert!(checked_range(&data, 8, 9).is_none());
         assert!(checked_range(&data, u64::MAX, 1).is_none());
         assert!(checked_range(&data, 1, u64::MAX).is_none());
+    }
+
+    #[test]
+    fn test_bincode_and_json_manifest_roundtrip() {
+        let manifest = SiContainerManifest {
+            model_identifier: "roundtrip_test".to_string(),
+            d_model: 64,
+            d_state: 16,
+            lora_rank: 8,
+            tier_flags: None,
+            tensors: vec![TensorDescriptor {
+                name: "tensor_1".to_string(),
+                shape: vec![64, 64],
+                dtype: "F32".to_string(),
+                byte_offset: 128,
+                byte_length: 4096,
+                is_mutable: false,
+                payload_type: PayloadType::Tensor,
+            }],
+        };
+
+        // Binary bincode serialization
+        let bincode_bytes = bincode_serialize(&manifest).expect("serialize bincode");
+        let decoded_bincode: SiContainerManifest =
+            bincode_deserialize(&bincode_bytes).expect("deserialize bincode");
+        assert_eq!(decoded_bincode.model_identifier, "roundtrip_test");
+        assert_eq!(decoded_bincode.d_state, 16);
+        assert_eq!(decoded_bincode.tensors.len(), 1);
+
+        // JSON compatibility fallback
+        let json_bytes = serde_json::to_vec(&manifest).expect("serialize json");
+        let decoded_json: SiContainerManifest =
+            bincode_deserialize(&json_bytes).expect("deserialize json fallback");
+        assert_eq!(decoded_json.model_identifier, "roundtrip_test");
+        assert_eq!(decoded_json.d_state, 16);
+        assert_eq!(decoded_json.tensors.len(), 1);
     }
 }

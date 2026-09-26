@@ -740,6 +740,22 @@ impl SiOnlineLearner {
             safety_check: safety,
         }
     }
+
+    /// Executes a single tick of the verified cartridge using the loaded Solid-State weights and dynamic adaptation matrix.
+    /// Maps the 120Hz control loop input directly into the machine-native state-space model.
+    pub fn execute_tick(
+        &mut self,
+        _tick: u64,
+        inputs: &[f32],
+        outputs: &mut [f32],
+    ) -> Result<usize> {
+        // Forward pass through the fused core + adapter
+        let pred = self.forward_adapted_step(inputs)?;
+
+        let n = outputs.len().min(pred.predicted_state.len());
+        outputs[..n].copy_from_slice(&pred.predicted_state[..n]);
+        Ok(n)
+    }
 }
 
 #[cfg(test)]
@@ -894,22 +910,5 @@ mod tests {
         assert!(router_report.is_valid);
         assert!(router_report.is_router);
         assert!(router_report.crc32_match);
-    }
-}
-impl SiOnlineLearner {
-    /// Executes a single tick of the verified cartridge using the loaded Solid-State weights and dynamic adaptation matrix.
-    /// Maps the 120Hz control loop input directly into the machine-native state-space model.
-    pub fn execute_tick(
-        &mut self,
-        _tick: u64,
-        inputs: &[f32],
-        outputs: &mut [f32],
-    ) -> Result<usize> {
-        // Forward pass through the fused core + adapter
-        let pred = self.forward_adapted_step(inputs)?;
-
-        let n = outputs.len().min(pred.predicted_state.len());
-        outputs[..n].copy_from_slice(&pred.predicted_state[..n]);
-        Ok(n)
     }
 }

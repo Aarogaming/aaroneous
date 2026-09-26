@@ -244,18 +244,26 @@ mod tests {
 
         // Record 5 idle frames followed by an action frame
         for i in 0..5 {
-            let mut f = ObservationFramePod::default();
-            f.actual_opcode = 0;
-            f.reward = 0.5;
-            f.state_features[0] = i as f32;
+            let mut state_features = [0.0f32; 256];
+            state_features[0] = i as f32;
+            let f = ObservationFramePod {
+                actual_opcode: 0,
+                reward: 0.5,
+                state_features,
+                ..Default::default()
+            };
             buffer.record(f).unwrap();
         }
 
-        let mut action_frame = ObservationFramePod::default();
-        action_frame.actual_opcode = 0x0200; // Routing action
-        action_frame.reward = 2.0;
-        action_frame.confidence = 0.98;
-        action_frame.state_features[0] = 5.0;
+        let mut state_features = [0.0f32; 256];
+        state_features[0] = 5.0;
+        let action_frame = ObservationFramePod {
+            actual_opcode: 0x0200, // Routing action
+            reward: 2.0,
+            confidence: 0.98,
+            state_features,
+            ..Default::default()
+        };
         buffer.record(action_frame).unwrap();
 
         // Poll accumulator

@@ -198,11 +198,13 @@ mod tests {
     #[test]
     fn test_featurizer_determinism_and_bounds() {
         let featurizer = MachineStateFeaturizer::new();
-        let mut snapshot = EngineSnapshotPod::default();
-        snapshot.measured_fps = 119.8;
-        snapshot.bus_integrity = 99.4;
-        snapshot.bus_understanding = 98.6;
-        snapshot.flow_score = 0.88;
+        let mut snapshot = EngineSnapshotPod {
+            measured_fps: 119.8,
+            bus_integrity: 99.4,
+            bus_understanding: 98.6,
+            flow_score: 0.88,
+            ..Default::default()
+        };
         snapshot.set_active_specialist("Fabricator");
         snapshot.set_last_event_desc("Compiled WASM linear memory block");
 
