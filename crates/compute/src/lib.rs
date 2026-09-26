@@ -525,7 +525,11 @@ mod tests {
         let large_input = vec![0.1; 11];
         let res = engine.execute("monte_carlo", &large_input);
         assert!(res.is_err());
-        assert!(res.unwrap_err().to_string().contains("exceeds maximum allowed bound"));
+        assert!(
+            res.unwrap_err()
+                .to_string()
+                .contains("exceeds maximum allowed bound")
+        );
     }
 
     #[test]
@@ -534,7 +538,10 @@ mod tests {
         let empty: Vec<f64> = vec![];
         let res = engine.execute("boltzmann", &empty);
         assert!(res.is_err());
-        assert!(res.unwrap_err().to_string().contains("requires at least 1 input value"));
+        assert!(
+            res.unwrap_err()
+                .to_string()
+                .contains("requires at least 1 input value")
+        );
     }
 }
-

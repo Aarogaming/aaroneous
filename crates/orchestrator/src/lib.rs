@@ -146,7 +146,10 @@ impl IntelligenceEngine {
         }
     }
 
-    pub fn new(config: LLMConfig, specialists: Vec<Specialist>) -> Result<Self, IntelligenceEngineError> {
+    pub fn new(
+        config: LLMConfig,
+        specialists: Vec<Specialist>,
+    ) -> Result<Self, IntelligenceEngineError> {
         let synapse = match SharedMemorySynapse::new_sync("SAB_STORE", 1024 * 1024) {
             Ok(s) => s,
             Err(_) => {
@@ -188,7 +191,10 @@ impl IntelligenceEngine {
         })
     }
 
-    pub async fn analyze_task(&self, prompt: &str) -> Result<TaskAnalysis, IntelligenceEngineError> {
+    pub async fn analyze_task(
+        &self,
+        prompt: &str,
+    ) -> Result<TaskAnalysis, IntelligenceEngineError> {
         self.client
             .analyze_task(prompt)
             .await

@@ -84,9 +84,7 @@ impl WorkspacePaths {
             Self::discover_root_from_system()
         };
 
-        let temp_dir = config.temp_dir.clone().unwrap_or_else(|| {
-            root.join(".tmp")
-        });
+        let temp_dir = config.temp_dir.clone().unwrap_or_else(|| root.join(".tmp"));
 
         let data_root = Self::discover_external_data_root(config, &root);
 
