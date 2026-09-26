@@ -29,7 +29,7 @@ rayon = "1.10"
 bytemuck = { workspace = true }
 ast_auditor = { path = "../ast_auditor" }
 walkdir = "2.5"
-toml_edit = "0.21"
+toml_edit = "0.25"
 
 [dev-dependencies]
 tempfile = { workspace = true }
