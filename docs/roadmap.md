@@ -88,8 +88,9 @@ All roadmap features must satisfy the **11 Sequential Verification Gates** (`car
 
 - [ ] **M12: Stable Plugin Command-Buffer ABI (RFC-0006)**
   - **Status:** Specification complete (`docs/rfcs/RFC-0006-PLUGIN_LIFECYCLE_AND_STABLE_UI_CARTRIDGE_ABI.md`). Next: implementation of a `repr(C)` command-buffer protocol for dynamic hot-reload plugins.
-- [x] **Phase 38 / M32: Capability Broker & Resource Governance Integration**
-  - **Evidence:** `core/hypervisor/src/capability_broker.rs`, `crates/mcp_server/src/capability_broker.rs`, `crates/compute/src/crucible.rs`, and `core/hypervisor/src/consensus_engine.rs`. Signed HMAC-SHA256 `CapabilityToken` sandbox authorization (`Airgapped`, `ReadConstrained`, `FullPrivilege`), dynamic `ThermalBackpressureLevel` throttling, dirty-flag generation pacing, and `EngineStatePublisher` synchronization.
+- [ ] **Phase 38 / M32: Capability Broker & Resource Governance Integration**
+  - **Status:** Primitives complete and unit-tested; production wiring not yet done. `core/hypervisor/src/capability_broker.rs` and `crates/mcp_server/src/capability_broker.rs` (two independent implementations) provide a signed `CapabilityToken` (real RFC 2104 HMAC-SHA256, process-local random signing key — corrected 2026-09-26; the original commit used a secret-prefix `SHA256(key‖msg)` hash under a hardcoded constant key, which is not HMAC and is forgeable by anyone reading the source) with `Airgapped` / `ReadConstrained` / `FullPrivilege` sandbox policies, plus `ThermalBackpressureLevel` throttling and dirty-flag generation pacing in `crates/compute/src/crucible.rs` and `core/hypervisor/src/consensus_engine.rs`.
+  - **Remaining:** `execute_with_token` / `verify_token` / `sync_with_state_publisher` are exercised only by their own module's unit tests. No production call site (`core/hypervisor/bin/hypervisor.rs`, `mcp_service`, `studio_hud`) dispatches through them yet — the real hypervisor scan loop and `EngineStatePublisher` are not gated by this token system. Do not mark this item complete until a real dispatch path enforces it.
 
 ### 3.3 Phased Release Schedule
 

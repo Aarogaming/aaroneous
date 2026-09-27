@@ -8,6 +8,47 @@ use sha2::{Digest, Sha256};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU8, AtomicU64, Ordering};
 
+/// RFC 2104 HMAC construction over SHA-256.
+///
+/// `sha2::Sha256` alone (i.e. `SHA256(key || message)`) is a secret-prefix
+/// MAC, not HMAC: it is vulnerable to length-extension because SHA-256 is a
+/// Merkle-Damgard hash. This performs the real ipad/opad construction so
+/// `CapabilityToken` signatures cannot be forged via that attack.
+///
+/// Duplicated from `core/hypervisor/src/capability_broker.rs` (same
+/// construction, independent crates on either side of the kernel/control
+/// profile boundary — see CRATIFY_SPEC section 2.3 baseline). If a shared
+/// low-level crate both sides can depend on is introduced later, this
+/// belongs there instead of two copies.
+fn hmac_sha256(key: &[u8], message: &[u8]) -> [u8; 32] {
+    const BLOCK_SIZE: usize = 64; // SHA-256 block size
+
+    let mut key_block = [0u8; BLOCK_SIZE];
+    if key.len() > BLOCK_SIZE {
+        let hashed = Sha256::digest(key);
+        key_block[..hashed.len()].copy_from_slice(&hashed);
+    } else {
+        key_block[..key.len()].copy_from_slice(key);
+    }
+
+    let mut ipad = [0x36u8; BLOCK_SIZE];
+    let mut opad = [0x5cu8; BLOCK_SIZE];
+    for i in 0..BLOCK_SIZE {
+        ipad[i] ^= key_block[i];
+        opad[i] ^= key_block[i];
+    }
+
+    let mut inner_hasher = Sha256::new();
+    inner_hasher.update(ipad);
+    inner_hasher.update(message);
+    let inner_digest = inner_hasher.finalize();
+
+    let mut outer_hasher = Sha256::new();
+    outer_hasher.update(opad);
+    outer_hasher.update(inner_digest);
+    outer_hasher.finalize().into()
+}
+
 /// Sandbox security boundary defining isolation level
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum SandboxPolicy {
@@ -51,14 +92,34 @@ pub struct CapabilityBroker {
 }
 
 impl CapabilityBroker {
-    /// Create a new capability broker pre-loaded with standard sovereign tools
+    /// Create a new capability broker pre-loaded with standard sovereign tools.
+    ///
+    /// Uses a process-local, randomly generated signing key (see
+    /// [`Self::generate_ephemeral_signing_key`]) rather than a fixed
+    /// constant, so tokens cannot be forged by reading the source. Callers
+    /// that need tokens verifiable by a *different* broker instance or
+    /// process MUST supply an externally managed secret via
+    /// [`Self::with_registry_and_key`] instead.
     pub fn new() -> Self {
-        Self::with_registry_and_key(build_standard_tool_registry(), [0x42u8; 32])
+        Self::with_registry_and_key(
+            build_standard_tool_registry(),
+            Self::generate_ephemeral_signing_key(),
+        )
     }
 
-    /// Create with a custom tool registry
+    /// Create with a custom tool registry and a process-local random signing key.
     pub fn with_registry(registry: ToolRegistry) -> Self {
-        Self::with_registry_and_key(registry, [0x42u8; 32])
+        Self::with_registry_and_key(registry, Self::generate_ephemeral_signing_key())
+    }
+
+    /// Generates 256 bits of process-local key material from the OS CSPRNG
+    /// (via the same `getrandom`-backed source `uuid::Uuid::new_v4` already
+    /// uses elsewhere in this file).
+    fn generate_ephemeral_signing_key() -> [u8; 32] {
+        let mut key = [0u8; 32];
+        key[..16].copy_from_slice(uuid::Uuid::new_v4().as_bytes());
+        key[16..].copy_from_slice(uuid::Uuid::new_v4().as_bytes());
+        key
     }
 
     /// Create with custom registry and explicit HMAC signing key
@@ -118,17 +179,16 @@ impl CapabilityBroker {
         issued_at: u64,
         expires_at: u64,
     ) -> String {
-        let mut hasher = Sha256::new();
-        hasher.update(key);
-        hasher.update(token_id.as_bytes());
-        hasher.update(subject.as_bytes());
-        hasher.update((sandbox_policy as u8).to_le_bytes());
-        hasher.update(issued_at.to_le_bytes());
-        hasher.update(expires_at.to_le_bytes());
+        let mut message = Vec::new();
+        message.extend_from_slice(token_id.as_bytes());
+        message.extend_from_slice(subject.as_bytes());
+        message.push(sandbox_policy as u8);
+        message.extend_from_slice(&issued_at.to_le_bytes());
+        message.extend_from_slice(&expires_at.to_le_bytes());
         for cap in capabilities {
-            hasher.update(cap.as_bytes());
+            message.extend_from_slice(cap.as_bytes());
         }
-        hex::encode(hasher.finalize())
+        hex::encode(hmac_sha256(key, &message))
     }
 
     /// Verify a CapabilityToken against a required capability, expiration, and sandbox policy
@@ -428,6 +488,54 @@ impl Default for CapabilityExecutionOutcome {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_hmac_sha256_matches_rfc4231_test_case_1() {
+        // RFC 4231 Test Case 1: Key = 0x0b * 20, Data = "Hi There"
+        let key = [0x0bu8; 20];
+        let data = b"Hi There";
+        let expected = "b0344c61d8db38535ca8afceaf0bf12b881dc200c9833da726e9376c2e32cff7";
+        assert_eq!(hex::encode(hmac_sha256(&key, data)), expected);
+    }
+
+    #[test]
+    fn test_hmac_sha256_matches_rfc4231_test_case_2() {
+        // RFC 4231 Test Case 2: Key = "Jefe", Data = "what do ya want for nothing?"
+        let key = b"Jefe";
+        let data = b"what do ya want for nothing?";
+        let expected = "5bdcc146bf60754e6a042426089575c75a003f089d2739839dec58b964ec3843";
+        assert_eq!(hex::encode(hmac_sha256(key, data)), expected);
+    }
+
+    #[test]
+    fn test_default_signing_keys_are_random_per_instance() {
+        // Guards against a regression back to a hardcoded default signing
+        // key: a token minted by one CapabilityBroker::new() instance must
+        // NOT verify against a different instance, because forging a token
+        // would otherwise only require reading the public source tree.
+        let broker_a = CapabilityBroker::new();
+        let broker_b = CapabilityBroker::new();
+        let now_ms = 1_000_000;
+
+        let token = broker_a.issue_token(
+            "operator_1",
+            vec!["*".to_string()],
+            SandboxPolicy::FullPrivilege,
+            60_000,
+            now_ms,
+        );
+
+        assert!(
+            broker_a
+                .verify_token(&token, "knowledge.semantic_query", now_ms)
+                .is_ok()
+        );
+        assert!(
+            broker_b
+                .verify_token(&token, "knowledge.semantic_query", now_ms)
+                .is_err()
+        );
+    }
 
     #[tokio::test]
     async fn test_capability_broker_live_execution() {
