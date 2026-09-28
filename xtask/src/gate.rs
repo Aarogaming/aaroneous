@@ -8,9 +8,19 @@ pub fn run() -> Result<()> {
     println!("=== 2. Formatting ===");
     run_cmd("cargo", &["fmt", "--all", "--", "--check"]).context("Gate 2 failed: Formatting")?;
 
-    println!("=== 3. Strict Clippy (workspace) ===");
-    run_cmd("cargo", &["clippy", "--workspace", "--", "-D", "warnings"])
-        .context("Gate 3 failed: Strict Clippy")?;
+    println!("=== 3. Strict Clippy (workspace, all targets) ===");
+    run_cmd(
+        "cargo",
+        &[
+            "clippy",
+            "--workspace",
+            "--all-targets",
+            "--",
+            "-D",
+            "warnings",
+        ],
+    )
+    .context("Gate 3 failed: Strict Clippy")?;
 
     println!("=== 3.5. Native Dependency Boundary Audit ===");
     crate::native_audit::run().context("Gate 3.5 failed: Native Dependency Boundary")?;
@@ -216,7 +226,7 @@ mod tests {
     const GATE_COMMANDS: &[&str] = &[
         "cargo run -p xtask -- check-encoding",
         "cargo fmt --all -- --check",
-        "cargo clippy --workspace -- -D warnings",
+        "cargo clippy --workspace --all-targets -- -D warnings",
         "cargo check -p scan_core --no-default-features",
         "cargo check -p scan_core --target thumbv7em-none-eabihf --no-default-features",
         "cargo check -p scan_core --target wasm32-unknown-unknown --no-default-features",

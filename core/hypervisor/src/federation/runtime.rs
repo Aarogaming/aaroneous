@@ -574,7 +574,7 @@ mod tests {
         metrics.record_execution(200, false);
 
         let rate = metrics.success_rate();
-        assert!(rate >= 66.0 && rate <= 67.0); // ~66.7%
+        assert!((66.0..=67.0).contains(&rate)); // ~66.7%
     }
 
     #[test]

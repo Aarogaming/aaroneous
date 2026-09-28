@@ -89,7 +89,7 @@ pub trait HidPlatform: Send + Sync {
 pub fn create_platform_backend() -> Result<Arc<dyn HidPlatform>, String> {
     #[cfg(test)]
     {
-        return Ok(Arc::new(TestHidPlatform));
+        Ok(Arc::new(TestHidPlatform))
     }
 
     #[cfg(all(not(test), target_os = "windows"))]

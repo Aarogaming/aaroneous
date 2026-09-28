@@ -954,11 +954,16 @@ mod tests {
     async fn test_visionary_learns_from_execution() {
         let visionary = Visionary::new();
 
-        // Get initial learning state
-        let initial_learning = visionary.learning.lock();
-        let initial_confidence = initial_learning.get_proposal_confidence();
-        let initial_success_count = initial_learning.success_count;
-        drop(initial_learning);
+        // Get initial learning state. Scoped to a block (rather than an
+        // explicit `drop`) so the `MutexGuard`'s lexical scope provably ends
+        // before the `.await` below, not just its last use.
+        let (initial_confidence, initial_success_count) = {
+            let initial_learning = visionary.learning.lock();
+            (
+                initial_learning.get_proposal_confidence(),
+                initial_learning.success_count,
+            )
+        };
 
         println!("Initial confidence: {:.1}%", initial_confidence * 100.0);
         assert_eq!(initial_success_count, 0);
@@ -979,12 +984,16 @@ mod tests {
             println!("Execution {}: success", i + 1);
         }
 
-        // Check learning state after executions
-        let final_learning = visionary.learning.lock();
-        let final_confidence = final_learning.get_proposal_confidence();
-        let final_success_count = final_learning.success_count;
-        let success_rate = final_learning.get_success_rate();
-        drop(final_learning);
+        // Check learning state after executions. Same block-scoping reason
+        // as above: keep the guard's scope provably clear of the next `.await`.
+        let (final_confidence, final_success_count, success_rate) = {
+            let final_learning = visionary.learning.lock();
+            (
+                final_learning.get_proposal_confidence(),
+                final_learning.success_count,
+                final_learning.get_success_rate(),
+            )
+        };
 
         println!("Final confidence: {:.1}%", final_confidence * 100.0);
         println!("Success count: {}", final_success_count);

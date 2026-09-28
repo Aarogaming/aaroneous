@@ -1,10 +1,11 @@
 # Sovereign Workspace Topology & Subsystem Ring Architecture
 
-> **CANONICAL SPECIFICATION**  
+> **Detail reference for [MASTER_ARCHITECTURE.md](MASTER_ARCHITECTURE.md) Pillar 1** (already linked from that document's Subsystem Specifications Directory). Where this document and the master spec differ, the master spec wins.
+>
 > **SCOPE**: Monorepo Directory Topology, Layered Protection Rings, Subsystem Invariants, and Crate Boundaries.  
 > **BINDING FOR**: All workspace components (`core/`, `crates/`, `dev/`, `sdk/`).  
 > **CORE IDENTITY**: Aaroneous is **NOT** a monolithic app. It is a strict, type-safe **Rust Component Framework** for building interchangeable, safe, zero-allocation execution blocks & plugins.  
-> **LAST UPDATED**: 2026-09-14
+> **LAST UPDATED**: 2026-09-14 (redirect banner added 2026-09-27)
 
 ---
 

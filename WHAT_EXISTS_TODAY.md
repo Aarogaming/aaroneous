@@ -1,91 +1,82 @@
-# What Exists Today in Aaroneous (Verified & Audited)
+# What Exists Today in Aaroneous
 
-This document provides an accurate, audited summary of the current codebase architecture, physical boundaries, and operational status following the **Cratify Batch 2 Decoupling** and **Terminology Modernization**.
+> **Provenance**: regenerated 2026-09-27 from `Cargo.toml`'s actual `[workspace] members`, each crate's own `Cargo.toml`/`lib.rs` description, and commands run against `main` at the time of writing (cited inline). The previous version of this file claimed a 183-test `cratify` suite (`audit_harness`/`ring_buffer_harness`/`saturation_harness`/`translation_harness`) that a full-tree `grep` proved has never existed under any name, plus corrupted terminology-table text and two crate names that no longer exist. See `aaroneous-devtools/governance/AUDIT_2026-09-26_DOCUMENTATION_AND_PROCESS.md` for the full finding. Nothing below is hand-typed prose about test counts without a command backing it — if a number here goes stale, that's normal drift; if it's wrong the day it's written, that's a bug in this file, so keep it that way when editing.
 
 ---
 
-## 🏛️ System Architecture & Crate Topology
+## Workspace topology
 
-Aaroneous is organized as a decoupled Rust workspace comprising **33 workspace packages** (as of `6321a63`, 2026-09-23; `cargo metadata --no-deps`), including the core execution engine, `xtask`, `benches`, `sdk/rust`, and `dev/emulator_harness`:
+**37 workspace packages** as of this writing (`grep -c` on `Cargo.toml`'s `members` array; re-run that yourself before trusting this number if it's been more than a few days):
 
-`
+```
+core/hypervisor              # Central headless runtime engine (a_run, profile_compiler, shm_dump)
+
 crates/
-├── studio_hud/              # Pillar 5: Desktop Studio & Telemetry HUD (Eframe/WGPU GUI)
-├── llm_gateway/             # Sovereign & Remote LLM Gateway (GGUF, OpenAI, Local, Mock, MCP translation)
-├── ipc_bus/                 # Low-latency IPC transport (SPMC lock-free bus, SWMR shared memory, Disruptor)
-├── paths/                   # Dynamic, platform-agnostic workspace & model path resolver
-├── governance/              # Formal SMT verification (Z3), system limits, resource & throughput governors
-├── compute/                 # Machine-native computation (.si containers, SSM recurrence, Cranelift JIT)
-├── platform_bridge/         # Native OS abstractions (DXGI capture, Win32 HID, WASAPI loopback, ETW traces)
-├── core-contracts/          # Zero-copy memory contracts (Pod derivations, ABI hashes, isolation tiers)
-├── cratify/                 # Workspace decoupling & ACC governance certification engine (183/183 passing)
-├── capabilities/            # Sovereign toolset, code auditor, and MCP service tools
-├── orchestrator/            # Task scheduling, CPU core affinity pinning, and compaction engine
-├── autonomic_adaptation/    # Adaptive parameter control, loss metrics, and capability specifications
-├── adaptation_engine/       # Polyglot AST analysis, component forge, and FFI synthesis
-├── transpiler/              # AST parser & distillation miner
-├── omni/                    # 3D spatial graph navigation, node clustering, and vector index
-├── si_format/               # Canonical .si container format, SIMD alignment, and CRC32 verification
-├── si_ir/                   # Computational graphs, MachineOpcode IR, and dimensional type lattice
-├── biology/                 # Process limits and metabolic state definitions
-├── plugin_api/              # C-ABI dynamic library plugin interface
-├── hotload/                 # Safe dynamic library hot-reloading engine
-├── aaroneous_wire/          # Binary wire framing and serialization
-└── aaroneous_api/           # Public client API bindings
+├── ipc_bus                  # Machine-native linking protocol & zero-copy SPMC shared-memory bus
+├── capabilities             # Universal capability toolset, MCP service tools, domain execution substrates
+├── orchestrator             # Multi-agent federation, hive runtime, MDP task routing, control plane
+├── adaptation_plane         # Continuous adaptive control engine, hyperparameter optimization, GGUF ingestion
+├── adaptation_engine        # Universal software adaptation, binary deconstruction, AST mutation, code repair
+├── omni                     # 3D galaxy semantic data navigation, star-node clustering, visual search
+├── transpiler                # SI <-> conventional-AI inter-intelligence translation and model conversion
+├── api                      # Public client API bindings (presentation profile)
+├── scratchpad               # Presentation-profile scratch/prototyping crate
+├── governance               # Hardware thermal governor and compute-token resource manager
+├── compute                  # SSM engine, .si containers, CKA+InfoNCE distillation, Cranelift JIT, SiForge
+├── si_ir                    # Machine-native SI intermediate representation, type lattices, dimensional units
+├── si_format                # Shared utilities for .si container format alignment, verification, serialization
+├── platform_bridge          # Frontend user emulation, visual perception, backend probing, datalogging
+├── paths                    # Centralized workspace path discovery and directory resolution
+├── wire                     # #![no_std]-compatible wire protocol, COBS framing, telemetry serialization
+├── scan_core                # Dependency-free no_std deterministic scan kernel
+├── core-contracts           # Fixed-memory contracts shared by hosts and embedded components
+├── ast_auditor               # Static analysis auditor enforcing architectural/semantic invariants (Gate 1, 6)
+├── cratify                  # Sovereign cratification CLI & orchestration dispatcher
+├── studio_hud               # Desktop Studio & Telemetry HUD (native egui/wgpu presentation layer)
+├── llm_gateway               # Decoupled LLM provider gateway, local discovery, prompt caching, MCP bridge
+├── llm_gateway_types         # Sync-safe type definitions for LLM gateway configuration/model registry
+├── runtime_monitor           # Runtime Monitor fast-path crate
+│   └── runtime_monitor_bench # Its benchmark harness
+├── mcp_server                # MCP protocol server: tool registry, capability broker, dispatch
+├── orchestration_plane       # Headless orchestration daemon/service layer
+├── compliance_auditor        # Multi-angle diff review with independent finder passes, adversarial verification
+└── local_inference           # Rust-owned local inference core (in progress — see Codex's C68 native-dependency audit)
 
-core/
-└── hypervisor/              # Central headless runtime engine (a_run, profile_compiler, shm_dump)
-`
+dev/
+├── emulator_harness          # Golden dogfooding harness (gate 8)
+├── chaos_injector             # Fault-injection harness
+└── rfc0006_poc/{abi,host}     # RFC-0006 stable plugin ABI proof-of-concept (development evidence, not production)
 
----
+sdk/rust                      # External SDK crate
+xtask                         # Workspace verification gate runner (`cargo xtask gate`)
+benches                       # Criterion benchmark suite
+```
 
-## 💎 Verified Architectural Boundaries
-
-| Boundary | Architectural Design | Physical Reality in Code | Status |
-| :--- | :--- | :--- | :--- |
-| **Hypervisor ↔ Presentation / HUD** | Headless hypervisor runtime; UI isolated in standalone crate | Extracted into crates/studio_hud. _run binary has 0 GUI dependencies (egui, eframe). State shared lock-free via EngineStatePublisher snapshots. | **Clean & Decoupled** |
-| **Hypervisor ↔ LLM / Inference** | Inference consumed strictly via trait contracts | Extracted into crates/llm_gateway. All inference providers (gguf, openai, local, mock), token cache, and McpGateway live in llm_gateway. | **Clean & Decoupled** |
-| **Protocol / MCP ↔ UI** | Server & daemon protocols strictly headless | All constellation_ui and canvas components purged from crates/mcp_server and crates/orchestration_plane. | **Clean & Decoupled** |
-| **Hypervisor ↔ Platform / OS** | OS abstractions isolated | Direct Win32, DXGI, WASAPI, and ETW interfaces isolated in crates/platform_bridge. | **Clean & Decoupled** |
-| **Hypervisor ↔ Governance** | Formal logic proofs & verification | Z3 SMT non-interference provers and system governors live in crates/governance. | **Clean & Decoupled** |
-| **IPC & Transport** | Lock-free, zero-copy messaging | Multi-consumer queues and shared memory isolated in crates/ipc_bus. | **Clean & Decoupled** |
-
----
-
-## 🏷️ Modernized Terminology
-
-All biological, neurological, and speculative terminology has been replaced across workspace crates, configuration files, and manifests:
-
-- **IPC**: synapse, SynapseState -> ipc_bus, swmr_shm, spmc_shm_bus, shared_channel
-- **Capabilities**: chromosome, hox, dna -> capability_schema, profile_schema, capability_registry
-- **Execution**: enzyme, EnzymeRunner -> worker_runner, worker_types, 	ask_worker
-- **Heuristics**: dopamine, curiosity -> eward_system, exploration_worker
-- **Orchestration**: prefrontal_cortex, utonomic_loop -> intent_orchestrator, supervisory_loop
-- **Topology**: hive, multi_hive, constellation -> cluster, multi_cluster, spatial_graph
-- **Limits**: iology, homeostasis, 	hermodynamic_governor -> system_limits, resource_governor, 	hroughput_governor
+**Not currently workspace members** (present as source in some checkouts, but not compiled or shipped): `crates/hotload`, `crates/plugin_api` — removed from `Cargo.toml` on 2026-09-24 (`242e134a`) because they were the source of a fixed, unauthenticated dynamic-DLL-loading vulnerability. If you see these directories on disk, they are stale local leftovers, not part of the build — verify with `grep hotload Cargo.toml` before assuming otherwise.
 
 ---
 
-## 🛠️ Executables & Tooling
+## Verified boundaries
 
-1. **studio_hud Desktop HUD (cargo run --release -p studio_hud --bin aaroneous)**:
-   - Native WGPU / Eframe 3D Constellation and Telemetry Studio.
-   - Separate installer (aroneous-setup) and uninstaller (aroneous-uninstall) binaries.
-2. **_run Hypervisor (cargo run --release -p a_run --bin a_run)**:
-   - Headless CLI daemon, swarm mesh, and batch compilation runner.
-3. **profile_compiler (cargo run --release -p a_run --bin profile_compiler)**:
-   - Capability profile compiler and .si container assembler.
-4. **shm_dump (cargo run --release -p a_run --bin shm_dump)**:
-   - Shared memory diagnostics and state inspector.
+| Boundary | Physical reality, checked how |
+| :--- | :--- |
+| Hypervisor ↔ Presentation | UI lives in `crates/studio_hud`; `core/hypervisor`'s binaries build and run headless. |
+| Hypervisor ↔ LLM/inference | Provider routing lives in `crates/llm_gateway` (36 unit tests passing as of this writing: `cargo test -p llm_gateway --lib`). |
+| Native dependency provenance | `cargo xtask check-native` (Gate 3.5) passes against a checked-in 27-entry allowlist (`native-policy.toml`). RocksDB and the unused `libloading` dependency are fully removed — see Codex's `aaroneous-devtools/inventories/C68_NATIVE_DEPENDENCY_BOUNDARY_AUDIT_2026-09-25.md` for what's still native (allocator, SQLite, tokenizer, TLS crypto) and not yet isolated. |
+| Structural/semantic invariants | `cargo run -p ast_auditor -- audit core/ crates/ dev/emulator_harness/` reports **752 files scanned, 0 violations** as of this writing. |
+| Profile dependency direction | Tracked but not yet enforced; current baseline is a dated, cross-referenced 14-edge table in `docs/CRATIFY_SPEC.md` section 2.3. |
+| Full verification gate | `cargo xtask gate` — all 11 gates plus Gate 3.5 — passes end-to-end on `main`, toolchain pinned via `rust-toolchain.toml` to match CI's `dtolnay/rust-toolchain@stable`. |
 
 ---
 
-## 🧪 Verification & Invariant Proofs
+## Executables
 
-- **Workspace Build**: cargo check --workspace compiles cleanly with 0 errors.
-- **Compliance Suites**: cargo test -p cratify passes **183 / 183 tests**:
-  - udit_harness: 36 passed
-  - ing_buffer_harness: 25 passed
-  - saturation_harness: 29 passed
-  - 	ranslation_harness: 93 passed
-- **Gateway Test Suite**: cargo test -p llm_gateway passes **31 unit tests**.
+1. **`studio_hud`** (`cargo run --release -p studio_hud`): native egui/wgpu desktop HUD.
+2. **`hypervisor`** (`cargo run --release --bin hypervisor`, `core/hypervisor/bin/hypervisor.rs`): headless runtime, the workspace composition root.
+3. **`profile_compiler`**, **`shm_dump`**, **`spatial_kinetic`**: supporting binaries in `core/hypervisor/bin/`.
+
+---
+
+## What this file deliberately does not claim
+
+No per-suite test-count breakdown by module name is listed here, because that's exactly the kind of prose that rotted last time (module names that get renamed or removed silently break a hand-written breakdown, and nobody notices until someone greps for it). If you need current test counts for a specific crate, run `cargo test -p <crate>` — it takes seconds and it's always right.

@@ -399,7 +399,7 @@ mod tests {
         // All loci values should be in [0,1]
         for (key, &val) in &analysis.genome_loci {
             assert!(
-                val >= 0.0 && val <= 1.0,
+                (0.0..=1.0).contains(&val),
                 "Locus {} = {} is out of [0,1]",
                 key,
                 val

@@ -1,11 +1,12 @@
-/// Integration tests for the federation HTTP status API.
-///
-/// We use `tower::ServiceExt::oneshot` to drive the axum router in-process
-/// without binding a real port. This is much faster than real-TCP testing
-/// and equally exercises the routes, handlers, and serialization.
+//! Integration tests for the federation HTTP status API.
+//!
+//! We use `tower::ServiceExt::oneshot` to drive the axum router in-process
+//! without binding a real port. This is much faster than real-TCP testing
+//! and equally exercises the routes, handlers, and serialization.
 
 #[cfg(test)]
 #[allow(ambient_authority)]
+#[allow(clippy::module_inception)] // file is already named after this test module
 mod tests {
     use super::super::router::{
         AppState, GenerationJobStatus, HttpServiceConfig, StatusEnvelope, router,

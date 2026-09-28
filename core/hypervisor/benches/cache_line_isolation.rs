@@ -93,6 +93,36 @@ fn benchmark_unaligned_writers(num_threads: usize, iterations: usize) -> std::ti
     total
 }
 
+fn main() {
+    let num_threads = std::env::var("NUM_THREADS")
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(8);
+
+    let iterations = std::env::var("ITERATIONS")
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(1_000_000);
+
+    println!("Benchmarking cache line isolation...");
+    println!("Threads: {}, Iterations: {}", num_threads, iterations);
+
+    let aligned_time = benchmark_aligned_writers(num_threads, iterations);
+    let unaligned_time = benchmark_unaligned_writers(num_threads, iterations);
+
+    println!("\nResults:");
+    println!("Aligned:   {:?}", aligned_time);
+    println!("Unaligned: {:?}", unaligned_time);
+
+    let speedup = if aligned_time.as_nanos() > 0 {
+        unaligned_time.as_nanos() as f64 / aligned_time.as_nanos() as f64
+    } else {
+        1.0
+    };
+
+    println!("\nSpeedup: {:.2}x (aligned vs unaligned)", speedup);
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -134,34 +164,4 @@ mod tests {
             "UnalignedTelemetry should be 24 bytes"
         );
     }
-}
-
-fn main() {
-    let num_threads = std::env::var("NUM_THREADS")
-        .ok()
-        .and_then(|s| s.parse().ok())
-        .unwrap_or(8);
-
-    let iterations = std::env::var("ITERATIONS")
-        .ok()
-        .and_then(|s| s.parse().ok())
-        .unwrap_or(1_000_000);
-
-    println!("Benchmarking cache line isolation...");
-    println!("Threads: {}, Iterations: {}", num_threads, iterations);
-
-    let aligned_time = benchmark_aligned_writers(num_threads, iterations);
-    let unaligned_time = benchmark_unaligned_writers(num_threads, iterations);
-
-    println!("\nResults:");
-    println!("Aligned:   {:?}", aligned_time);
-    println!("Unaligned: {:?}", unaligned_time);
-
-    let speedup = if aligned_time.as_nanos() > 0 {
-        unaligned_time.as_nanos() as f64 / aligned_time.as_nanos() as f64
-    } else {
-        1.0
-    };
-
-    println!("\nSpeedup: {:.2}x (aligned vs unaligned)", speedup);
 }

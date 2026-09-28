@@ -1,11 +1,12 @@
-/// Integration tests for `Federation`
-///
-/// Covers the orchestration on top of `SpecialistHost`: building partial
-/// federations, starting/shutting down all hosts, restart recovery across
-/// the whole hive, and per-host config overrides.
+//! Integration tests for `Federation`
+//!
+//! Covers the orchestration on top of `SpecialistHost`: building partial
+//! federations, starting/shutting down all hosts, restart recovery across
+//! the whole hive, and per-host config overrides.
 
 #[cfg(test)]
 #[allow(ambient_authority)]
+#[allow(clippy::module_inception)] // file is already named after this test module
 mod tests {
     use super::super::*;
     use crate::federation::host::HostConfig;

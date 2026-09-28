@@ -1,10 +1,11 @@
 # System Architecture Specification & Component Framework Invariants
 
-> **TIER 2 ARCHITECTURAL MASTER REFERENCE**  
+> **CANONICAL ARCHITECTURE SPEC**: [docs/architecture/MASTER_ARCHITECTURE.md](architecture/MASTER_ARCHITECTURE.md). Where this document and that one differ, that one wins. This document is retained as a shorter framing of the PLC/component-block model and constructor-injection worked examples; see [CONTRIBUTING.md](../CONTRIBUTING.md) for how it's meant to be used alongside the master spec.
+>
 > **SCOPE**: Rust Component Framework Architecture, Deterministic State Transition Machines, Subsystem Topology, and Boundary Isolation.  
 > **BINDING FOR**: All workspace components (`core/hypervisor`, `crates/orchestrator`, `crates/platform_bridge`, `crates/ipc_bus`, `crates/capabilities`, `crates/governance`, etc.).  
 > **CORE IDENTITY**: Aaroneous is **NOT** a monolithic app. It is a strict, type-safe **Rust Component Framework** for building interchangeable, safe, zero-allocation execution blocks & plugins.  
-> **LAST UPDATED**: 2026-09-14
+> **LAST UPDATED**: 2026-09-14 (redirect banner added 2026-09-27)
 
 ---
 

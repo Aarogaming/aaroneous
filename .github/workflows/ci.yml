@@ -61,7 +61,7 @@ jobs:
         run: cargo fmt --all -- --check
 
       - name: Strict Clippy
-        run: cargo clippy --workspace -- -D warnings
+        run: cargo clippy --workspace --all-targets -- -D warnings
 
       - name: Portable core profile
         run: cargo check -p scan_core --no-default-features

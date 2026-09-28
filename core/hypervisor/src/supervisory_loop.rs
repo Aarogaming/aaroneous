@@ -1990,7 +1990,7 @@ mod tests {
     /// with concurrent readers, and asserts every read is either an
     /// untouched zero-filled state or has a fully uniform `intent_payload`
     /// - never a mix of two threads' marker bytes, which is what torn
-    /// writes would produce.
+    ///   writes would produce.
     #[test]
     fn test_synapse_concurrent_write_read_never_tears() {
         // Per AGENTS.md's test-sandboxing rule, this must not resolve a
@@ -2022,10 +2022,12 @@ mod tests {
                 let synapse =
                     LegacySharedMemorySynapse::new_at(&synapse_path, size).expect("writer synapse");
                 for _ in 0..ITERATIONS_PER_WRITER {
-                    let mut state = SynapseState::default();
-                    state.clock_tick = marker as u64;
-                    state.intent_vector_id = [marker; 16];
-                    state.intent_payload = [marker; 4096];
+                    let state = SynapseState {
+                        clock_tick: marker as u64,
+                        intent_vector_id: [marker; 16],
+                        intent_payload: [marker; 4096],
+                        ..Default::default()
+                    };
                     SupervisoryDaemon::write_state(&synapse, &state);
                 }
             }));

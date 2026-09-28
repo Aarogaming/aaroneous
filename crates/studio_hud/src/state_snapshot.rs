@@ -369,10 +369,12 @@ mod tests {
         assert_eq!(init.measured_fps, 120.0);
 
         // Hypervisor publishes out-of-process snapshot into SWMR ring
-        let mut pod = EngineSnapshotPod::default();
-        pod.bus_generation = 42;
-        pod.measured_fps = 165.0;
-        pod.user_xp = 9999;
+        let mut pod = EngineSnapshotPod {
+            bus_generation: 42,
+            measured_fps: 165.0,
+            user_xp: 9999,
+            ..Default::default()
+        };
         pod.set_active_specialist("TelemetryIsolate");
         pod.set_active_profile_name("Commander");
         pod.set_last_event_desc("SHM lock-free sync nominal");

@@ -603,7 +603,7 @@ mod tests {
         let sentinel = Sentinel::new(config, bus);
 
         let capabilities = sentinel.capabilities();
-        assert!(capabilities.len() > 0);
+        assert!(!capabilities.is_empty());
         assert!(capabilities.iter().any(|c| c.name == "arbitration"));
     }
 

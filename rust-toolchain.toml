@@ -1,0 +1,11 @@
+[toolchain]
+# Pinned to match CI (.github/workflows/ci.yml uses dtolnay/rust-toolchain@stable)
+# and to stop "cargo xtask gate" meaning something different on every machine
+# and every day. Local dev sessions had been floating on whatever nightly was
+# installed, which is why the same gate command produced different clippy
+# results on different runs (see aaroneous-devtools's
+# AUDIT_2026-09-26_DOCUMENTATION_AND_PROCESS.md, Finding 3). Bump this
+# deliberately, in its own commit, verified against a full `cargo xtask gate`
+# run — not as a side effect of `rustup update`.
+channel = "1.98.1"
+components = ["rustfmt", "clippy"]

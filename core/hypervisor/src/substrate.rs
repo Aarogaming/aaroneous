@@ -499,7 +499,7 @@ mod tests {
     fn test_system_instruction_node_size() {
         let actual = std::mem::size_of::<SystemInstructionNode>();
         // 8 + 1024 + 8 + 1 + padding(7) + 8 + 4 + trailing_padding = aligned to 64
-        assert!(actual % 64 == 0, "size {} not 64-aligned", actual);
+        assert!(actual.is_multiple_of(64), "size {} not 64-aligned", actual);
         assert!(actual >= 1060, "size {} too small", actual);
     }
 

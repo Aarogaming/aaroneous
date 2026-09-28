@@ -139,8 +139,11 @@ cargo run -p xtask -- check-encoding
 # 2. Formatting
 cargo fmt --all -- --check
 
-# 3. Strict Clippy (workspace)
-cargo clippy --workspace -- -D warnings
+# 3. Strict Clippy (workspace, including test/bench/example code)
+cargo clippy --workspace --all-targets -- -D warnings
+
+# 3.5. Native Dependency Boundary Audit (allowlisted native provenance, see native-policy.toml)
+cargo run -p xtask -- check-native
 
 # 4. Full Workspace Compilation (all targets, tests, benches)
 cargo check --workspace --all-targets
@@ -185,7 +188,9 @@ cargo check -p hypervisor --all-targets --features llama-gguf,gpu-metrics,fleet,
 cargo check -p hypervisor --all-targets --features p2p-iroh
 ```
 
-> **Note:** `scripts/agent_check.sh` is a thin CI shim — all gate logic runs via `cargo xtask gate`. Gates 1-3 and 9-11 mirror `ci.yml`'s directly-declared steps; gates 4-8 are `gate.rs`'s own pre-existing verification, run by CI only indirectly (as part of the "Canonical repository verification" step). If you add a new CI check, add the matching gate in `xtask/src/gate.rs` and its command string to `GATE_COMMANDS` in the same file — a test fails otherwise the next time either drifts from the other.
+> **Note:** `scripts/agent_check.sh` is a thin CI shim — all gate logic runs via `cargo xtask gate`. Gates 1-3 and 9-11 mirror `ci.yml`'s directly-declared steps; gates 3.5 and 4-8 are `gate.rs`'s own pre-existing verification, run by CI only indirectly (as part of the "Canonical repository verification" step). If you add a new CI check, add the matching gate in `xtask/src/gate.rs` and its command string to `GATE_COMMANDS` in the same file — a test fails otherwise the next time either drifts from the other.
+>
+> Gate 3 runs `--all-targets` (test/bench/example code included), not just library and binary targets — as of 2026-09-27 it didn't for a while, which let real lint debt (module-name collisions, `Default`-then-reassign, an `await`-held `MutexGuard`, a couple of dozen others) accumulate silently in test code across many "gate passed" claims. See `aaroneous-devtools/governance/AUDIT_2026-09-26_DOCUMENTATION_AND_PROCESS.md` Finding 3. Don't narrow this back without a real reason.
 
 ---
 

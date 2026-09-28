@@ -1595,7 +1595,7 @@ mod tests {
         let loaded = SpatialCanvasScene::load_from_disk(&scene_path).expect("Failed to load scene");
         assert_eq!(loaded.canvas_pan, (120.0, -45.0));
         assert_eq!(loaded.canvas_zoom, 1.25);
-        assert_eq!(loaded.grid_snap_enabled, false);
+        assert!(!loaded.grid_snap_enabled);
         assert_eq!(loaded.windows.len(), 3);
         assert_eq!(loaded.windows["custom_tool"].title, "Custom Tool Window");
     }

@@ -446,8 +446,8 @@ mod tests {
         assert_eq!(matrix.skip_ratio(), 0.0);
 
         // Manually gate off half the sectors
-        for i in 0..TOTAL_SECTORS / 2 {
-            matrix.sectors[i].active = 0;
+        for sector in matrix.sectors.iter_mut().take(TOTAL_SECTORS / 2) {
+            sector.active = 0;
         }
         matrix.active_count = (TOTAL_SECTORS / 2) as u32;
         matrix.rebuild_packed_mask();

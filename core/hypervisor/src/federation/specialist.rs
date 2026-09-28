@@ -478,7 +478,7 @@ mod tests {
 
     #[test]
     fn test_total_hive_size() {
-        let total: u32 = vec![
+        let total: u32 = [
             SpecialistId::Sentinel,
             SpecialistId::Visionary,
             SpecialistId::Omnipresent,

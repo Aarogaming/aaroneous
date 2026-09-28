@@ -275,7 +275,7 @@ mod tests {
         )];
 
         let acc = engine.train_round(updates);
-        assert!(acc >= 0.0 && acc <= 1.0);
+        assert!((0.0..=1.0).contains(&acc));
         assert_eq!(engine.rounds_completed, 1);
     }
 }

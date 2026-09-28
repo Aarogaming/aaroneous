@@ -294,10 +294,7 @@ mod tests {
         }
         let _removed = immunity.filter_delta(&mut delta, 8);
         // Dense region should be preserved
-        assert!(
-            delta[1 * 8 + 1] != 0,
-            "center of dense region should survive"
-        );
+        assert!(delta[8 + 1] != 0, "center of dense region should survive");
     }
 
     #[test]

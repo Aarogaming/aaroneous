@@ -1,12 +1,13 @@
-/// Integration tests for specialist ecosystem workflows
-///
-/// Tests complete end-to-end flows between multiple specialists:
-/// - Design generation → AR rendering → memory consolidation
-/// - Multi-device synchronization
-/// - User state aware proposal filtering
-/// - Resource arbitration between competing specialists
+//! Integration tests for specialist ecosystem workflows
+//!
+//! Tests complete end-to-end flows between multiple specialists:
+//! - Design generation → AR rendering → memory consolidation
+//! - Multi-device synchronization
+//! - User state aware proposal filtering
+//! - Resource arbitration between competing specialists
 
 #[cfg(test)]
+#[allow(clippy::module_inception)] // file is already named after this test module
 mod integration_tests {
     use crate::federation::specialist::{
         Decision, ExecutionStatus, ResourceRequest, Specialist, SpecialistContext, SpecialistId,
@@ -133,7 +134,7 @@ mod integration_tests {
         assert_eq!(archivist.stats.total_events, 1);
 
         // Verify complete workflow
-        assert!(phygital.prototypes.len() > 0);
+        assert!(!phygital.prototypes.is_empty());
         assert!(archivist.stats.total_events > 0);
     }
 
@@ -186,7 +187,7 @@ mod integration_tests {
 
         // Detect conflicts
         let conflicts = omnipresent.detect_sync_conflicts();
-        assert!(conflicts.len() > 0); // Phone is out of sync
+        assert!(!conflicts.is_empty()); // Phone is out of sync
         assert_eq!(conflicts[0].version_a, 3);
         assert_eq!(conflicts[0].version_b, 2);
 

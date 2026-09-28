@@ -96,6 +96,25 @@ pub fn validate_range(mmap_len: usize, start: usize, end: usize) -> Result<()> {
     }
     Ok(())
 }
+/// Validates that block offsets and lengths fit safely within the memory-mapped file bounds.
+pub fn validate_block_geometry(header: &SiCartridgeHeader, mmap_len: usize) -> Result<()> {
+    validate_range(
+        mmap_len,
+        header.block1_offset as usize,
+        (header.block1_offset + header.block1_len) as usize,
+    )?;
+    validate_range(
+        mmap_len,
+        header.block2_offset as usize,
+        (header.block2_offset + header.block2_len) as usize,
+    )?;
+    validate_range(
+        mmap_len,
+        header.block3_offset as usize,
+        (header.block3_offset + header.block3_len) as usize,
+    )?;
+    Ok(())
+}
 
 #[cfg(test)]
 mod tests {
@@ -170,23 +189,4 @@ mod tests {
         assert!(validate_payload_checksum(payload, hash).is_ok());
         assert!(validate_payload_checksum(payload, hash + 1).is_err());
     }
-}
-/// Validates that block offsets and lengths fit safely within the memory-mapped file bounds.
-pub fn validate_block_geometry(header: &SiCartridgeHeader, mmap_len: usize) -> Result<()> {
-    validate_range(
-        mmap_len,
-        header.block1_offset as usize,
-        (header.block1_offset + header.block1_len) as usize,
-    )?;
-    validate_range(
-        mmap_len,
-        header.block2_offset as usize,
-        (header.block2_offset + header.block2_len) as usize,
-    )?;
-    validate_range(
-        mmap_len,
-        header.block3_offset as usize,
-        (header.block3_offset + header.block3_len) as usize,
-    )?;
-    Ok(())
 }

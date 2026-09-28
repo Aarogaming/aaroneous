@@ -841,7 +841,7 @@ mod tests {
         }
 
         let rate = archivist.success_rate("Visionary");
-        assert!(rate >= 0.6 && rate <= 0.8);
+        assert!((0.6..=0.8).contains(&rate));
     }
 
     #[test]

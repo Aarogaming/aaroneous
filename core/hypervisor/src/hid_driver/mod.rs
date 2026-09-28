@@ -244,8 +244,8 @@ mod tests {
         for i in 0..1000 {
             let cmd = match i % 5 {
                 0 => HidCommand::MouseMove {
-                    x: (i as i32) % 1024,
-                    y: (i as i32) % 768,
+                    x: i % 1024,
+                    y: i % 768,
                 },
                 1 => HidCommand::KeyPress {
                     key: 0x41 + (i % 26) as u32,

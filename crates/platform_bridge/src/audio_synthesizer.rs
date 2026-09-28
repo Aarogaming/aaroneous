@@ -155,7 +155,7 @@ mod tests {
         let synth = AcousticVoiceSynthesizer::default();
         let pcm = synth.synthesize_formant(FormantSpec::VOWEL_A);
         assert!(!pcm.is_empty());
-        assert!(pcm.iter().all(|&s| s >= -1.0 && s <= 1.0));
+        assert!(pcm.iter().all(|&s| (-1.0..=1.0).contains(&s)));
     }
 
     #[test]

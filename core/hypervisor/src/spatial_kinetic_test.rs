@@ -86,7 +86,7 @@ mod spatial_kinetic_integration_tests {
 
         // Verify skip calculation
         let skip = pipeline.gate_matrix.skip_ratio();
-        assert!(skip >= 0.0 && skip <= 1.0);
+        assert!((0.0..=1.0).contains(&skip));
     }
 
     #[test]
@@ -123,8 +123,8 @@ mod spatial_kinetic_integration_tests {
         assert_eq!(matrix.skip_ratio(), 0.0);
 
         // Manually gate off half the sectors
-        for i in 0..128 {
-            matrix.sectors[i].active = 0;
+        for sector in matrix.sectors.iter_mut().take(128) {
+            sector.active = 0;
         }
         matrix.active_count = 128;
 

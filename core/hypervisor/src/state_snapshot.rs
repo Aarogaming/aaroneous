@@ -397,10 +397,12 @@ mod tests {
         let shm_path = dir.path().join("test_engine_state.synapse");
         let publ = EngineStatePublisher::new_with_shm_path(&shm_path);
 
-        let mut pod = EngineSnapshotPod::default();
-        pod.timestamp_ms = 999;
-        pod.bus_generation = 7;
-        pod.measured_fps = 165.0;
+        let mut pod = EngineSnapshotPod {
+            timestamp_ms: 999,
+            bus_generation: 7,
+            measured_fps: 165.0,
+            ..Default::default()
+        };
         pod.set_active_specialist("Synthesizer");
         pod.set_last_event_desc("SHM published");
         publ.publish_pod(&pod);

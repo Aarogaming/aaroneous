@@ -2886,11 +2886,11 @@ mod tests {
         // Alignment padding (32-byte boundary)
         let header_end = buf.len() as u64;
         let pad = pad_to_alignment(header_end, 32);
-        buf.extend(std::iter::repeat(0u8).take(pad as usize));
+        buf.extend(std::iter::repeat_n(0u8, pad as usize));
 
         // Tensor data
         for &sz in &tensor_sizes {
-            buf.extend(std::iter::repeat(0xABu8).take(sz as usize));
+            buf.extend(std::iter::repeat_n(0xABu8, sz as usize));
         }
 
         buf

@@ -466,8 +466,10 @@ mod tests {
 
         {
             let mut buf = ObservationBuffer::open_or_create(&file_path, 8).unwrap();
-            let mut f = ObservationFramePod::default();
-            f.actual_opcode = 0x0400;
+            let f = ObservationFramePod {
+                actual_opcode: 0x0400,
+                ..Default::default()
+            };
             buf.record(f).unwrap();
             buf.flush().unwrap();
         }

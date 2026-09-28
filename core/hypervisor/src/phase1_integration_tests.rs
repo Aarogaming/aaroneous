@@ -2,6 +2,7 @@
 // Tests verifying that core feedback loops work end-to-end
 
 #[cfg(test)]
+#[allow(clippy::module_inception)] // file is already named after this test module
 mod phase1_integration_tests {
 
     /// Test 1: Enzyme results are properly extracted from WASM, not discarded
