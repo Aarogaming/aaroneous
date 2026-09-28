@@ -121,6 +121,34 @@ impl McpService {
         &self.workspace_root
     }
 
+    /// Issues a fresh, self-signed `CapabilityToken` for this service's own
+    /// dispatch of an incoming request.
+    ///
+    /// This is a service-level token, not a per-caller one: it authenticates
+    /// "this request is going through McpService's own broker," not "this
+    /// specific remote client is authorized." That's the honest current
+    /// state of Phase 38 integration here — it makes `execute_tool_with_token`
+    /// (signature verification, expiration, sandbox-policy checks, and
+    /// thermal-backpressure gating) real and load-bearing on every tool
+    /// dispatch instead of dead code exercised only by its own unit tests,
+    /// without pretending there's a multi-tenant auth system that doesn't
+    /// exist yet. Accepting a caller-supplied token in `tools/call`'s params
+    /// (verified instead of this one) is the natural next slice once
+    /// per-caller authorization is actually wanted.
+    fn issue_dispatch_token(&self) -> crate::capability_broker::CapabilityToken {
+        let now_ms = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis() as u64;
+        self.capability_broker.issue_token(
+            "mcp-service",
+            vec!["*".to_string()],
+            crate::capability_broker::SandboxPolicy::FullPrivilege,
+            60_000,
+            now_ms,
+        )
+    }
+
     /// Handle JSON-RPC request adhering to Model Context Protocol (MCP) 2024-11-05
     pub async fn handle_jsonrpc(&self, request: serde_json::Value) -> JsonRpcResponse {
         self.increment_request();
@@ -185,9 +213,11 @@ impl McpService {
                     .cloned()
                     .unwrap_or_else(|| serde_json::json!({}));
 
+                let token = self.issue_dispatch_token();
+                let now_ms = token.issued_at_ms;
                 let outcome = self
                     .capability_broker
-                    .execute_tool(tool_name, arguments)
+                    .execute_tool_with_token(&token, tool_name, arguments, now_ms)
                     .await;
                 if outcome.success {
                     JsonRpcResponse::success(
@@ -334,6 +364,58 @@ mod tests {
         assert!(call_resp.error.is_none());
         let res_val = call_resp.result.unwrap();
         assert_eq!(res_val["isError"], false);
+    }
+
+    #[tokio::test]
+    async fn test_tools_call_is_actually_gated_by_thermal_backpressure() {
+        // Proves `tools/call` dispatches through `execute_tool_with_token`
+        // (Phase 38's capability-token sandboxing), not the older ungated
+        // `execute_tool` path: a Critical thermal state on the broker must
+        // reject a live JSON-RPC tool call, since that's a real production
+        // dispatch path now, not just something exercised in
+        // capability_broker's own unit tests.
+        let service = McpService::new(ServiceConfig::default());
+        service.register_standard_tools().await;
+
+        service
+            .capability_broker
+            .set_thermal_backpressure(crate::capability_broker::ThermalBackpressureLevel::Critical);
+
+        let call_req = serde_json::json!({
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "tools/call",
+            "params": {
+                "name": "knowledge.semantic_query",
+                "arguments": { "query": "hypervisor" }
+            }
+        });
+        let call_resp = service.handle_jsonrpc(call_req).await;
+        assert!(call_resp.error.is_none());
+        let res_val = call_resp.result.unwrap();
+        assert_eq!(res_val["isError"], true);
+        assert!(
+            res_val["content"][0]["text"]
+                .as_str()
+                .unwrap()
+                .contains("Thermal backpressure critical")
+        );
+
+        // Recovery: Nominal backpressure lets the same call through again.
+        service
+            .capability_broker
+            .set_thermal_backpressure(crate::capability_broker::ThermalBackpressureLevel::Nominal);
+        let call_req2 = serde_json::json!({
+            "jsonrpc": "2.0",
+            "id": 2,
+            "method": "tools/call",
+            "params": {
+                "name": "knowledge.semantic_query",
+                "arguments": { "query": "hypervisor" }
+            }
+        });
+        let call_resp2 = service.handle_jsonrpc(call_req2).await;
+        assert_eq!(call_resp2.result.unwrap()["isError"], false);
     }
 
     #[test]
