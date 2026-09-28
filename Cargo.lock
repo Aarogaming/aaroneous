@@ -10964,10 +10964,13 @@ name = "xtask"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "ast_auditor",
  "regex",
  "serde",
  "serde_json",
+ "tempfile",
  "toml 1.1.6+spec-1.1.0",
+ "walkdir",
 ]
 
 [[package]]

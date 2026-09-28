@@ -81,6 +81,9 @@ jobs:
       - name: WebAssembly shared contracts
         run: cargo check -p core-contracts --target wasm32-unknown-unknown --no-default-features
 
+      - name: Unwrap/panic ratchet check
+        run: cargo run -p xtask -- check-unwraps
+
       - name: Canonical repository verification
         shell: bash
         run: bash scripts/agent_check.sh
