@@ -3,6 +3,7 @@
 // Aaroneous Hypervisor Core
 // The central execution runtime that hosts WASM Enzymes and manages the SignalBridge.
 
+#[cfg(feature = "mimalloc")]
 #[global_allocator]
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
