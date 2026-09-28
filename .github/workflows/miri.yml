@@ -49,7 +49,7 @@ jobs:
           key: miri
 
       - name: cargo miri test (wire)
-        run: cargo miri test -p wire
+        run: cargo +nightly miri test -p wire
 
       - name: cargo miri test (core-contracts)
-        run: cargo miri test -p core-contracts
+        run: cargo +nightly miri test -p core-contracts
