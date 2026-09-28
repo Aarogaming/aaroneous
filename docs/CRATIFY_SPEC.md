@@ -78,10 +78,10 @@ part into its own `kernel` crate rather than mixing profiles.
 
 | Profile | Crates |
 |---|---|
-| `kernel` | `core/hypervisor`, `ipc_bus`, `compute`, `wire`, `si_format`, `si_ir`, `platform_bridge`, `runtime_monitor`, `core-contracts`, `dev/emulator_harness` |
-| `control` | `orchestrator`, `orchestration_plane`, `llm_gateway`, `llm_gateway_types`, `governance`, `capabilities`, `adaptation_engine`, `adaptation_plane`, `mcp_server`, `transpiler`, `omni`, `paths`, `sdk/rust` |
+| `kernel` | `core/hypervisor`, `ipc_bus`, `compute`, `wire`, `si_format`, `si_ir`, `platform_bridge`, `runtime_monitor`, `core-contracts`, `dev/emulator_harness`, `scan_core`, `chaos_injector`, `rfc0006_host`, `rfc0006_abi` |
+| `control` | `orchestrator`, `orchestration_plane`, `llm_gateway`, `llm_gateway_types`, `governance`, `capabilities`, `adaptation_engine`, `adaptation_plane`, `mcp_server`, `transpiler`, `omni`, `paths`, `sdk/rust`, `local_inference` |
 | `presentation` | `api`, `studio_hud`, `scratchpad` |
-| `tooling` | `ast_auditor`, `cratify`, `compliance_auditor`, `xtask`, `benches` |
+| `tooling` | `ast_auditor`, `cratify`, `compliance_auditor`, `xtask`, `benchmarks`, `runtime_monitor_bench` |
 
 `core/hypervisor` has two roles. Its library (`src/`) is `kernel`. Its binaries (`bin/`) are the
 workspace **composition root**: they wire every component together and are the one place allowed to
@@ -93,10 +93,13 @@ A crate may depend only on crates whose profile is the same or stricter, in the 
 `kernel` > `control` > `presentation` / `tooling`. A `kernel` crate therefore depends only on
 `kernel` crates and admitted third-party dependencies. The composition root (section 2.2) is exempt.
 
-**Status: planned.** The rule is not yet enforced. Known violations, measured from `cargo metadata`
-(normal and build dependencies) on 2026-09-24 and recorded as the ratchet baseline (14 edges; was
-16 before `hotload`/`plugin_api` were removed from the `control` row below on 2026-09-25 — see
-that row's note):
+**Status: enforced in baseline mode** by `cargo xtask check-deps` (section 7.1 item 9, gate 9.5).
+New edges fail the gate; existing ones are tracked in `xtask/dep_direction_baseline.txt` and may
+only be removed, never added to. Known violations, measured from `cargo metadata` (normal and
+build dependencies) on 2026-09-24 and recorded as the ratchet baseline (14 edges; was 16 before
+`hotload`/`plugin_api` were removed from the `control` row below on 2026-09-25 — see that row's
+note; the baseline file was regenerated on 2026-09-28 when this enforcement was rebased onto that
+change):
 
 | Violation | Edges | Resolution |
 |---|---|---|
@@ -104,8 +107,8 @@ that row's note):
 | `hypervisor` library (`kernel`) -> `control` | `hypervisor` -> `adaptation_engine`, `adaptation_plane`, `governance`, `llm_gateway`, `omni`, `orchestrator`, `transpiler`, `capabilities` | Hypervisor decomposition (M75): move composition logic out of the library into the binaries or a dedicated composition crate, so the library keeps only `kernel` concerns. The composition-root exemption covers `bin/` only, and Cargo declares dependencies per package, so it does not cover these: the library sources use all of them except `capabilities`, which appears declared but unused. (`hotload` and `plugin_api` were removed from this row on 2026-09-25: they were the source of a fixed unauthenticated dynamic-DLL-loading vulnerability on `main` (#34); this branch had restored them as unreachable dead dependencies during a merge, and removed them again on discovering why `main` had dropped them — see the security review this same date for the full trace.) |
 | `kernel` / `control` -> `ast_auditor` (`tooling`) | `hypervisor`, `capabilities`, `adaptation_engine` -> `ast_auditor` | Extract the analysis API these crates call (`inspect`, `run_pattern_review`) into a `control`-profile crate that `ast_auditor` also depends on, leaving the CLI and gate rules in `tooling`. |
 
-The count may only decrease. A new edge in any of these directions is a defect even while the rule
-is unenforced.
+The count may only decrease. A new edge in any of these directions now fails `cargo xtask check-deps`
+directly, not just by review convention.
 
 **Changing profile:** moving a crate to a *stricter* profile is always permitted. Moving to a *looser*
 profile is a ratchet reversal (Section 7) and requires owner sign-off recorded in the PR.
@@ -258,7 +261,13 @@ Rules this specification declares but `ast_auditor` does not yet enforce, in ado
 8. Retire the five library-code `#[allow(ambient_authority)]` exemptions (`paths/src/lib.rs`,
    `hypervisor/src/{trait_loader,unified_registry}.rs`, `compute/src/{si_packer,translation_dataset}.rs`):
    move discovery into bootstrap entrypoints or inject it. Until then they are the baseline count.
-9. Profile dependency direction check (section 2.3).
+9. ~~Profile dependency direction check (section 2.3).~~ **Enforced in baseline mode** by
+   `cargo xtask check-deps` (gate 9.5). It resolves each workspace crate's profile from
+   `[package.metadata.cratify].profile` where declared, else from the section 2.2 table, computes
+   the `kernel`/`control`/`presentation`&`tooling` edges from `cargo metadata --no-deps` (normal +
+   build dependencies), and fails on any edge not already in `xtask/dep_direction_baseline.txt` or
+   any baseline edge that has disappeared (the ratchet only shrinks). An unclassified crate also
+   fails the gate.
 10. Extend the gate's audit scope to `xtask/`, `sdk/`, and `benches/`.
 11. Documentation gate: relative links resolve with exact case, no `file:///` or drive-letter links.
 

@@ -84,6 +84,9 @@ jobs:
       - name: Unwrap/panic ratchet check
         run: cargo run -p xtask -- check-unwraps
 
+      - name: Profile dependency direction check
+        run: cargo run -p xtask -- check-deps
+
       - name: Canonical repository verification
         shell: bash
         run: bash scripts/agent_check.sh
