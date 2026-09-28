@@ -4,7 +4,7 @@
 > **APPLIES TO**: ALL AUTONOMOUS AGENTS (OpenCode, Qwen, Claude, LM Studio, Human Contributors)  
 > **WORKSPACE**: `aaroneous` (Type-Safe Rust Component Framework & SCADA/PLC Architecture)  
 > **CORE IDENTITY**: Aaroneous is **NOT** a monolithic app. It is a strict, type-safe **Rust Component Framework** for building interchangeable, safe, zero-allocation execution blocks & plugins.  
-> **LAST UPDATED**: 2026-09-23
+> **LAST UPDATED**: 2026-09-28
 
 ---
 
@@ -16,7 +16,7 @@
 cargo xtask gate
 ```
 
-This is the single verification command that validates your workspace matches CI. It runs encoding, formatting, clippy, compilation, tests, AST audit, stub check, emulator harness, profile dependency direction, and feature compilation in order.
+This is the single verification command that validates your workspace matches CI. It runs, in order: text encoding, formatting, clippy (workspace + all targets), native-dependency boundary audit, full compilation (including portable-core/ARM/WebAssembly cross-target checks), the workspace test suite, AST audit, stub check, emulator harness, the unwrap/panic ratchet, the profile dependency-direction ratchet, a release build, and optional-feature compilation. See section 6 for the exact numbered gates and commands — don't rely on this summary alone if you're deciding whether a specific check runs.
 
 **Before claiming work is done, run it again.** If it passes, you're done.
 
@@ -203,6 +203,7 @@ cargo check -p hypervisor --all-targets --features p2p-iroh
 ## 7. Deep Architecture & Ingestion References
 
 For exhaustive architectural philosophy, historical background, and forensic protocols:
-- **System Architecture & PLC Reductions**: [docs/architecture.md](docs/architecture.md)
+- **Canonical architecture specification**: [docs/architecture/MASTER_ARCHITECTURE.md](docs/architecture/MASTER_ARCHITECTURE.md). `docs/architecture.md` is a shorter Tier-2 framing (PLC model, constructor-injection worked examples) that defers to this one on conflict.
+- **Product roadmap & pillar status**: [docs/roadmap.md](docs/roadmap.md) — the authoritative, evidence-labeled roadmap. `MASTER_ROADMAP.md` at the repo root defers to it.
 - **Forensic Ingestion Protocol & Quarantine**: [docs/FORENSICS_RFC0005.md](docs/FORENSICS_RFC0005.md)
 - **Cratify Compliance Specification (v2: profiles, admission, graduation, ratchet)**: [docs/CRATIFY_SPEC.md](docs/CRATIFY_SPEC.md)

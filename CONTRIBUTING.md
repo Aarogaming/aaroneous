@@ -29,7 +29,12 @@ The full policy is [docs/CRATIFY_SPEC.md](docs/CRATIFY_SPEC.md) (v2). Every crat
 
 ### Profiles
 
-Declare in the crate's `Cargo.toml`:
+In practice, every crate today is classified by a row in `docs/CRATIFY_SPEC.md`
+section 2.2's table, not inline manifest metadata — add your new crate there.
+`cargo xtask check-deps` also accepts inline `[package.metadata.cratify]` in
+the crate's own `Cargo.toml` as an equally valid alternative (either one
+satisfies the gate), but no crate in the workspace currently uses it, so
+match existing practice unless you have a specific reason not to:
 
 ```toml
 [package.metadata.cratify]
@@ -53,19 +58,23 @@ Code from companion tooling, external projects, or generated drafts follows the 
 
 ## Verification gate (full list)
 
-`cargo xtask gate` runs these in order:
+`cargo xtask gate` runs these in order (see `AGENTS.md` section 6 for the exact commands):
 
 1. UTF-8 encoding (no BOM, LF endings)
 2. `cargo fmt` check
-3. `cargo clippy --workspace -- -D warnings`
+3. `cargo clippy --workspace --all-targets -- -D warnings` (test/bench/example code included, not just lib/bin targets)
+3.5. Native dependency boundary audit (`cargo xtask check-native`, allowlisted native provenance)
 4. `cargo check --workspace --all-targets`
+4a-4f. Portable core / shared-contracts checks (native, ARM bare-metal, WebAssembly)
 5. `cargo test --workspace`
 6. AST auditor (0 violations)
 7. Zero-stub inspection (no `todo!()`, no `unsafe impl Pod`)
 8. Emulator harness tests
-9. Release binary check
-10. Optional feature compilation
-11. Iroh compatibility check
+9. Unwrap/panic ratchet check (`cargo xtask check-unwraps`, per-package baseline)
+9.5. Profile dependency-direction check (`cargo xtask check-deps`, per-edge baseline)
+10. Release binary check
+11. Optional feature compilation
+12. Iroh compatibility check
 
 ## Architecture at a glance
 
@@ -87,7 +96,8 @@ Use standard systems names: `hypervisor`, `paths`, `wire`, `hud`, `api`, `bridge
 
 ## Getting help
 
-- Full architecture: [docs/architecture.md](docs/architecture.md)
+- Canonical architecture spec: [docs/architecture/MASTER_ARCHITECTURE.md](docs/architecture/MASTER_ARCHITECTURE.md) ([docs/architecture.md](docs/architecture.md) is a shorter framing that defers to it)
+- Product roadmap: [docs/roadmap.md](docs/roadmap.md)
 - Governance rules: [AGENTS.md](AGENTS.md)
 - .si format spec: [docs/SI_FORMAT.md](docs/SI_FORMAT.md)
 
@@ -96,7 +106,7 @@ Use standard systems names: `hypervisor`, `paths`, `wire`, `hud`, `api`, `bridge
 Before approving any change, verify:
 
 - [ ] `cargo xtask gate` passes
-- [ ] Every new crate declares `[package.metadata.cratify] profile`
+- [ ] Every new crate is classified in `docs/CRATIFY_SPEC.md` section 2.2's table (or declares `[package.metadata.cratify] profile` inline)
 - [ ] No `todo!()` or `unimplemented!()` in new code
 - [ ] No `.unwrap()`, `.expect()`, or `panic!` on runtime input outside tests/bootstrap (or marked `// INFALLIBLE:`)
 - [ ] New types use canonical names from `crates/governance` (not legacy aliases)
