@@ -22,9 +22,11 @@ core-contracts 0
 cratify 0
 emulator_harness 0
 governance 0
-hypervisor 117
-ipc_bus 9
-llm_gateway 2
+hypervisor 114
+ipc_bus 12
+llm_gateway 3
+llm_gateway_types 0
+local_inference 0
 mcp_server 0
 omni 1
 orchestration_plane 0
@@ -35,6 +37,7 @@ rfc0006_abi 4
 rfc0006_host 0
 runtime_monitor 0
 runtime_monitor_bench 0
+scan_core 0
 scratchpad 0
 si_format 0
 si_ir 0
