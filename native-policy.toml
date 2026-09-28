@@ -119,7 +119,7 @@ owning_adapter = ["hypervisor", "studio_hud"]
 [[allowed]]
 name = "libmimalloc-sys"
 version = "0.1.49"
-justification = "P1: mimalloc is hypervisor's direct global-allocator dependency (low-fragmentation, low-latency heap). Still needs a dedicated allocator adapter boundary; today it is a direct hypervisor dependency, tracked as a known gap rather than hidden."
+justification = "P1: mimalloc is hypervisor's global-allocator dependency (low-fragmentation, low-latency heap), now an explicit feature-gated choice rather than an undeclared default. Still needs a dedicated allocator adapter boundary; tracked as a known gap rather than hidden."
 owning_adapter = ["hypervisor"]
 
 [[allowed]]

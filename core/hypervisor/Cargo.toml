@@ -56,7 +56,7 @@ crossbeam-channel = "0.5"
 futures-core = "0.3"
 futures-util = "0.3"
 hex = "0.4"
-mimalloc = { version = "0.1", default-features = false }
+mimalloc = { version = "0.1", optional = true, default-features = false }
 log = "0.4"
 llama-gguf = { version = "0.14", optional = true, default-features = false, features = ["cpu"] }
 iroh = { version = "1.2", optional = true }
@@ -125,7 +125,8 @@ criterion = { version = "0.8", default-features = false, features = ["cargo_benc
 anyhow = "1.0"
 
 [features]
-default = []
+default = ["mimalloc"]
+mimalloc = ["dep:mimalloc"]
 # Local LLM inference support via llama.cpp GGUF format
 
 # GPU telemetry via NVIDIA Management Library
