@@ -20,11 +20,9 @@ hypervisor -> adaptation_engine
 hypervisor -> adaptation_plane
 hypervisor -> capabilities
 hypervisor -> governance
-hypervisor -> hotload
 hypervisor -> llm_gateway
 hypervisor -> omni
 hypervisor -> orchestrator
-hypervisor -> plugin_api
 hypervisor -> transpiler
 
 # kernel/control -> ast_auditor (tooling): extract the analysis API these

@@ -73,10 +73,10 @@ Full specification: [docs/CRATIFY_SPEC.md](docs/CRATIFY_SPEC.md) (v2, owner-appr
 
   | Profile | Crates | Adds |
   |---|---|---|
-  | `kernel` | `core/hypervisor` (library; its binaries are the composition root), `ipc_bus`, `compute`, `wire`, `si_format`, `si_ir`, `platform_bridge`, `runtime_monitor`, `core-contracts`, `dev/emulator_harness` | Section 3 in full; `#![warn(unsafe_code)]` + `// SAFETY:` |
-  | `control` | `orchestrator`, `orchestration_plane`, `llm_gateway`, `llm_gateway_types`, `governance`, `capabilities`, `adaptation_engine`, `adaptation_plane`, `mcp_server`, `transpiler`, `omni`, `paths`, `sdk/rust` | Pure reducers with I/O confined to adapters; degraded paths at external-call boundaries; `#![deny(unsafe_code)]` |
+  | `kernel` | `core/hypervisor` (library; its binaries are the composition root), `ipc_bus`, `compute`, `wire`, `si_format`, `si_ir`, `platform_bridge`, `runtime_monitor`, `core-contracts`, `dev/emulator_harness`, `scan_core`, `chaos_injector`, `rfc0006_host`, `rfc0006_abi` | Section 3 in full; `#![warn(unsafe_code)]` + `// SAFETY:` |
+  | `control` | `orchestrator`, `orchestration_plane`, `llm_gateway`, `llm_gateway_types`, `governance`, `capabilities`, `adaptation_engine`, `adaptation_plane`, `mcp_server`, `transpiler`, `omni`, `paths`, `sdk/rust`, `local_inference` | Pure reducers with I/O confined to adapters; degraded paths at external-call boundaries; `#![deny(unsafe_code)]` |
   | `presentation` | `api`, `studio_hud`, `scratchpad` | `#![deny(unsafe_code)]` |
-  | `tooling` | `ast_auditor`, `cratify`, `compliance_auditor`, `xtask`, `benches` | `#![deny(unsafe_code)]` |
+  | `tooling` | `ast_auditor`, `cratify`, `compliance_auditor`, `xtask`, `benchmarks`, `runtime_monitor_bench` | `#![deny(unsafe_code)]` |
 
   A crate may depend only on crates of the same or a stricter profile (`kernel` > `control` > `presentation`/`tooling`); the hypervisor binaries are the only exemption. `cargo xtask check-deps` enforces this in baseline (ratchet) mode: the workspace currently violates it in 14 places, all listed in `xtask/dep_direction_baseline.txt` (grouped by resolution in CRATIFY_SPEC section 2.3); the gate fails on any new edge, and fixing one means deleting it from the baseline file, not leaving it stale. Moving a crate to a stricter profile is always allowed. Moving to a looser profile requires owner sign-off recorded in the PR.
 - **Deterministic State Reducers**: Domain engines operate as pure state transitions $S_{t+1} = f(S_t, I)$. No side effects, no background network I/O, and no hidden task launches during state reduction.
