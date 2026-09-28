@@ -5,7 +5,6 @@
 //! the whole hive, and per-host config overrides.
 
 #[cfg(test)]
-#[allow(ambient_authority)]
 #[allow(clippy::module_inception)] // file is already named after this test module
 mod tests {
     use super::super::*;
@@ -179,19 +178,9 @@ mod tests {
         // ":memory:" doesn't share - so we need a temp file.)
         drop(pm_for_gen1);
 
-        let tmp_path = std::env::temp_dir().join(format!(
-            "aaroneous-test-{}.db",
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_nanos()
-        ));
+        let tmp_dir = tempfile::tempdir().unwrap();
+        let tmp_path = tmp_dir.path().join("test.db");
         let tmp_path_str = tmp_path.to_string_lossy().to_string();
-
-        // Cleanup helper closure
-        let cleanup = || {
-            let _ = std::fs::remove_file(&tmp_path);
-        };
 
         // === Generation 1 ===
         {
@@ -281,8 +270,6 @@ mod tests {
 
             fed.shutdown_all().await.unwrap();
         }
-
-        cleanup();
     }
 
     // ===============================================================
@@ -506,13 +493,8 @@ mod tests {
     #[tokio::test]
     async fn test_run_until_persists_via_final_save() {
         // Use a real temp file so we can verify persistence after shutdown
-        let tmp_path = std::env::temp_dir().join(format!(
-            "aaroneous-rununtil-{}.db",
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_nanos()
-        ));
+        let tmp_dir = tempfile::tempdir().unwrap();
+        let tmp_path = tmp_dir.path().join("rununtil.db");
         let tmp_path_str = tmp_path.to_string_lossy().to_string();
 
         {
@@ -551,8 +533,6 @@ mod tests {
         );
 
         fed2.shutdown_all().await.unwrap();
-
-        let _ = std::fs::remove_file(&tmp_path);
     }
 
     /// run_until_signal can't be tested with an actual signal in unit tests
@@ -687,13 +667,8 @@ mod tests {
     async fn test_summary_after_restart_reflects_loaded_state() {
         // Real-file persistence so we can verify restart recovery via the
         // diagnostic surface (not just the raw learning Mutex).
-        let tmp_path = std::env::temp_dir().join(format!(
-            "aaroneous-summary-{}.db",
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_nanos()
-        ));
+        let tmp_dir = tempfile::tempdir().unwrap();
+        let tmp_path = tmp_dir.path().join("summary.db");
         let tmp_path_str = tmp_path.to_string_lossy().to_string();
 
         // Generation 1: train + save
@@ -728,8 +703,6 @@ mod tests {
 
             fed.shutdown_all().await.unwrap();
         }
-
-        let _ = std::fs::remove_file(&tmp_path);
     }
 
     #[test]
