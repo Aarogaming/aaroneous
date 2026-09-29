@@ -335,7 +335,6 @@ impl TranslationDataset {
 }
 
 #[cfg(test)]
-#[allow(ambient_authority)]
 mod tests {
     use super::*;
 
