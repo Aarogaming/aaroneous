@@ -171,26 +171,45 @@ pub struct AppState {
     pub draining: Arc<AtomicBool>,
     /// HTTP service configuration for CORS, rate limiting, auth.
     pub http_service_cfg: HttpServiceConfig,
+    /// Clock source for dynamic link registry and timestamping.
+    pub clock: crate::unified_registry::ClockSource,
 }
 
 impl AppState {
     pub fn new(federation: Arc<Federation>, cfg: HttpServiceConfig) -> Self {
-        Self::new_with_state_path(federation, workspace_cargo_state_path(), cfg)
+        Self::new_with_clock(federation, cfg, crate::unified_registry::system_clock())
     }
 
+    pub fn new_with_clock(
+        federation: Arc<Federation>,
+        cfg: HttpServiceConfig,
+        clock: crate::unified_registry::ClockSource,
+    ) -> Self {
+        Self::new_with_state_path_and_clock(federation, workspace_cargo_state_path(), cfg, clock)
+    }
+
+    #[cfg(test)]
     pub(crate) fn new_with_state_path(
         federation: Arc<Federation>,
         state_path: std::path::PathBuf,
         cfg: HttpServiceConfig,
     ) -> Self {
-        let links_clock: crate::unified_registry::ClockSource = Arc::new(|| {
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .map(|d| d.as_secs())
-                .unwrap_or(0)
-        });
-        let links_reg = crate::federation::links::load_links(links_clock.clone())
-            .unwrap_or_else(|_| crate::federation::links::LinkRegistry::new(links_clock));
+        Self::new_with_state_path_and_clock(
+            federation,
+            state_path,
+            cfg,
+            crate::unified_registry::system_clock(),
+        )
+    }
+
+    pub(crate) fn new_with_state_path_and_clock(
+        federation: Arc<Federation>,
+        state_path: std::path::PathBuf,
+        cfg: HttpServiceConfig,
+        clock: crate::unified_registry::ClockSource,
+    ) -> Self {
+        let links_reg = crate::federation::links::load_links(clock.clone())
+            .unwrap_or_else(|_| crate::federation::links::LinkRegistry::new(clock.clone()));
         let (default_limiter, route_limits) = build_route_limit_registry(&cfg);
         let mut generation_jobs = std::collections::HashMap::new();
         let mut vault = crate::federation::tensor_vault::TensorVault::new();
@@ -215,6 +234,7 @@ impl AppState {
             route_limits,
             draining: Arc::new(AtomicBool::new(false)),
             http_service_cfg: cfg,
+            clock,
         }
     }
 
@@ -5116,13 +5136,10 @@ async fn links_list(State(state): State<AppState>) -> impl IntoResponse {
 }
 
 /// Helper: persist the in-memory `Vec<Link>` back to disk via `LinkRegistry`.
-async fn save_links_vec(links: &[crate::federation::links::Link]) {
-    let clock: crate::unified_registry::ClockSource = Arc::new(|| {
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map(|d| d.as_secs())
-            .unwrap_or(0)
-    });
+async fn save_links_vec(
+    links: &[crate::federation::links::Link],
+    clock: crate::unified_registry::ClockSource,
+) {
     let mut registry = crate::federation::links::LinkRegistry::new(clock);
     for link in links {
         // First write wins on duplicate names; matches the original Vec-push semantics.
@@ -5197,7 +5214,7 @@ async fn links_create(
     let snapshot = links.clone();
     drop(links);
 
-    save_links_vec(&snapshot).await;
+    save_links_vec(&snapshot, state.clock.clone()).await;
 
     Json(serde_json::json!({
         "ok": true,
@@ -5229,7 +5246,7 @@ async fn links_delete(State(state): State<AppState>, Path(id): Path<String>) -> 
     let snapshot = links.clone();
     drop(links);
     if deleted {
-        save_links_vec(&snapshot).await;
+        save_links_vec(&snapshot, state.clock.clone()).await;
         Json(serde_json::json!({ "ok": true, "deleted": id })).into_response()
     } else {
         (
@@ -5269,7 +5286,7 @@ async fn links_update(
             }
             let snapshot = links.clone();
             drop(links);
-            save_links_vec(&snapshot).await;
+            save_links_vec(&snapshot, state.clock.clone()).await;
             Json(serde_json::json!({ "ok": true, "updated": id })).into_response()
         }
         None => {

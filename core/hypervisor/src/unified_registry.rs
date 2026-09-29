@@ -18,6 +18,41 @@ use tracing::{info, warn};
 /// Clock source function returning current time in seconds since UNIX epoch.
 pub type ClockSource = Arc<dyn Fn() -> u64 + Send + Sync>;
 
+/// Monotonic system clock source returning seconds since UNIX epoch.
+///
+/// If system time steps backward or errors, holds the last known monotonic value rather
+/// than resetting to zero, preventing premature expiration or non-expiring entries.
+pub fn system_clock() -> ClockSource {
+    use std::sync::atomic::{AtomicU64, Ordering};
+    let initial = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+    let last_good = Arc::new(AtomicU64::new(initial));
+    let last_good_clone = last_good.clone();
+    Arc::new(
+        move || match std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH) {
+            Ok(d) => {
+                let s = d.as_secs();
+                let mut prev = last_good_clone.load(Ordering::Relaxed);
+                while s > prev {
+                    match last_good_clone.compare_exchange_weak(
+                        prev,
+                        s,
+                        Ordering::Relaxed,
+                        Ordering::Relaxed,
+                    ) {
+                        Ok(_) => break,
+                        Err(actual) => prev = actual,
+                    }
+                }
+                last_good_clone.load(Ordering::Relaxed)
+            }
+            Err(_) => last_good_clone.load(Ordering::Relaxed),
+        },
+    )
+}
+
 /// Health status of a registered entry.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum EntryHealth {
@@ -605,5 +640,14 @@ mod tests {
             assert_eq!(reg.len(), 1);
             assert_eq!(reg.get("a").unwrap().data.name, "alpha");
         }
+    }
+
+    #[test]
+    fn test_system_clock_monotonic_and_nonzero() {
+        let clock = system_clock();
+        let t1 = clock();
+        assert!(t1 > 0, "system clock must return a non-zero timestamp");
+        let t2 = clock();
+        assert!(t2 >= t1, "system clock must be monotonic");
     }
 }
