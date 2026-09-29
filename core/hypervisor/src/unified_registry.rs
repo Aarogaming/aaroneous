@@ -15,6 +15,9 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::{info, warn};
 
+/// Clock source function returning current time in seconds since UNIX epoch.
+pub type ClockSource = Arc<dyn Fn() -> u64 + Send + Sync>;
+
 /// Health status of a registered entry.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum EntryHealth {
@@ -43,11 +46,10 @@ pub struct EntryMeta {
 }
 
 impl EntryMeta {
-    pub fn new(version: &str) -> Self {
-        let now = now_secs();
+    pub fn new(version: &str, registered_at: u64) -> Self {
         Self {
-            registered_at: now,
-            last_seen: now,
+            registered_at,
+            last_seen: registered_at,
             health: EntryHealth::Healthy,
             tags: Vec::new(),
             version: version.to_string(),
@@ -65,15 +67,15 @@ impl EntryMeta {
         self
     }
 
-    pub fn is_expired(&self) -> bool {
+    pub fn is_expired(&self, now_secs: u64) -> bool {
         if self.ttl_secs == 0 {
             return false;
         }
-        now_secs() > self.last_seen + self.ttl_secs
+        now_secs > self.last_seen + self.ttl_secs
     }
 
-    pub fn touch(&mut self) {
-        self.last_seen = now_secs();
+    pub fn touch(&mut self, now_secs: u64) {
+        self.last_seen = now_secs;
     }
 }
 
@@ -110,29 +112,47 @@ impl Default for RegistryConfig {
 }
 
 /// Unified registry with async RwLock for concurrent access.
+/// Unified registry with async RwLock for concurrent access.
 pub struct Registry<T: Clone + Serialize + DeserializeOwned> {
     entries: HashMap<String, RegistryEntry<T>>,
     config: RegistryConfig,
+    clock: ClockSource,
 }
 
 impl<T: Clone + Serialize + DeserializeOwned> Registry<T> {
-    /// Create a new empty registry.
-    pub fn new(config: RegistryConfig) -> Self {
+    /// Create a new empty registry with an injected clock source.
+    pub fn new(config: RegistryConfig, clock: ClockSource) -> Self {
         Self {
             entries: HashMap::new(),
             config,
+            clock,
         }
     }
 
-    /// Create a registry and load persisted entries from disk.
-    pub fn with_persistence(config: RegistryConfig) -> Self {
-        let mut registry = Self::new(config.clone());
+    /// Create a registry and load persisted entries from disk with an injected clock source.
+    pub fn with_persistence(config: RegistryConfig, clock: ClockSource) -> Self {
+        let mut registry = Self::new(config.clone(), clock);
         if let Some(ref path) = config.persist_path
             && let Err(e) = registry.load_from_file(path)
         {
             warn!("Failed to load registry from {}: {}", path.display(), e);
         }
         registry
+    }
+
+    /// Current timestamp in seconds from the injected clock.
+    pub fn now_secs(&self) -> u64 {
+        (self.clock)()
+    }
+
+    /// Create an `EntryMeta` stamped with the current timestamp from the injected clock.
+    pub fn create_meta(&self, version: &str) -> EntryMeta {
+        EntryMeta::new(version, self.now_secs())
+    }
+
+    /// Injected clock source handle.
+    pub fn clock(&self) -> ClockSource {
+        Arc::clone(&self.clock)
     }
 
     /// Register a new entry. Returns the assigned ID.
@@ -170,7 +190,7 @@ impl<T: Clone + Serialize + DeserializeOwned> Registry<T> {
 
     /// Register with auto-generated metadata.
     pub fn register_simple(&mut self, id: String, data: T, version: &str) -> Result<(), String> {
-        let mut meta = EntryMeta::new(version);
+        let mut meta = self.create_meta(version);
         meta.ttl_secs = self.config.default_ttl_secs;
         self.register(id, data, meta)
     }
@@ -195,7 +215,7 @@ impl<T: Clone + Serialize + DeserializeOwned> Registry<T> {
         let entry = self.entries.get(id)?;
 
         // Check expiry
-        if self.config.auto_evict && entry.meta.is_expired() {
+        if self.config.auto_evict && entry.meta.is_expired(self.now_secs()) {
             // Can't evict here since we only have &self; evict_expired() handles it
             return None;
         }
@@ -205,14 +225,15 @@ impl<T: Clone + Serialize + DeserializeOwned> Registry<T> {
 
     /// Get an entry by ID and update its last_seen timestamp.
     pub fn get_mut(&mut self, id: &str) -> Option<RegistryEntry<T>> {
+        let now = self.now_secs();
         let entry = self.entries.get_mut(id)?;
 
-        if self.config.auto_evict && entry.meta.is_expired() {
+        if self.config.auto_evict && entry.meta.is_expired(now) {
             self.entries.remove(id);
             return None;
         }
 
-        entry.meta.touch();
+        entry.meta.touch(now);
         Some(entry.clone())
     }
 
@@ -246,9 +267,10 @@ impl<T: Clone + Serialize + DeserializeOwned> Registry<T> {
 
     /// Update health status of an entry.
     pub fn set_health(&mut self, id: &str, health: EntryHealth) -> bool {
+        let now = self.now_secs();
         if let Some(entry) = self.entries.get_mut(id) {
             entry.meta.health = health;
-            entry.meta.touch();
+            entry.meta.touch(now);
             true
         } else {
             false
@@ -257,8 +279,9 @@ impl<T: Clone + Serialize + DeserializeOwned> Registry<T> {
 
     /// Remove all expired entries. Returns count removed.
     pub fn evict_expired(&mut self) -> usize {
+        let now = self.now_secs();
         let before = self.entries.len();
-        self.entries.retain(|_, entry| !entry.meta.is_expired());
+        self.entries.retain(|_, entry| !entry.meta.is_expired(now));
         let removed = before - self.entries.len();
         if removed > 0 {
             info!("Evicted {} expired entries from registry", removed);
@@ -312,16 +335,19 @@ pub struct AsyncRegistry<T: Clone + Serialize + DeserializeOwned> {
 }
 
 impl<T: Clone + Serialize + DeserializeOwned + 'static> AsyncRegistry<T> {
-    pub fn new(config: RegistryConfig) -> Self {
+    pub fn new(config: RegistryConfig, clock: ClockSource) -> Self {
         Self {
-            inner: Arc::new(RwLock::new(Registry::new(config.clone()))),
+            inner: Arc::new(RwLock::new(Registry::new(config.clone(), clock))),
             _config: config,
         }
     }
 
-    pub fn with_persistence(config: RegistryConfig) -> Self {
+    pub fn with_persistence(config: RegistryConfig, clock: ClockSource) -> Self {
         Self {
-            inner: Arc::new(RwLock::new(Registry::with_persistence(config.clone()))),
+            inner: Arc::new(RwLock::new(Registry::with_persistence(
+                config.clone(),
+                clock,
+            ))),
             _config: config,
         }
     }
@@ -377,18 +403,24 @@ impl<T: Clone + Serialize + DeserializeOwned + 'static> AsyncRegistry<T> {
     pub async fn evict_expired(&self) -> usize {
         self.inner.write().await.evict_expired()
     }
-}
 
-fn now_secs() -> u64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_secs())
-        .unwrap_or(0)
+    pub async fn now_secs(&self) -> u64 {
+        self.inner.read().await.now_secs()
+    }
+
+    pub async fn create_meta(&self, version: &str) -> EntryMeta {
+        self.inner.read().await.create_meta(version)
+    }
+
+    pub async fn clock(&self) -> ClockSource {
+        self.inner.read().await.clock()
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::atomic::{AtomicU64, Ordering};
 
     #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
     struct TestEntry {
@@ -396,9 +428,19 @@ mod tests {
         value: i32,
     }
 
+    fn fixed_clock(ts: u64) -> ClockSource {
+        Arc::new(move || ts)
+    }
+
+    fn mutable_clock(initial: u64) -> (ClockSource, Arc<AtomicU64>) {
+        let ts = Arc::new(AtomicU64::new(initial));
+        let ts_clone = Arc::clone(&ts);
+        (Arc::new(move || ts_clone.load(Ordering::SeqCst)), ts)
+    }
+
     #[test]
     fn test_register_and_get() {
-        let mut reg = Registry::<TestEntry>::new(RegistryConfig::default());
+        let mut reg = Registry::<TestEntry>::new(RegistryConfig::default(), fixed_clock(1000));
         reg.register_simple(
             "a".into(),
             TestEntry {
@@ -413,11 +455,13 @@ mod tests {
         let entry = reg.get("a").unwrap();
         assert_eq!(entry.data.name, "alpha");
         assert_eq!(entry.meta.version, "1.0.0");
+        assert_eq!(entry.meta.registered_at, 1000);
+        assert_eq!(entry.meta.last_seen, 1000);
     }
 
     #[test]
     fn test_unregister() {
-        let mut reg = Registry::<TestEntry>::new(RegistryConfig::default());
+        let mut reg = Registry::<TestEntry>::new(RegistryConfig::default(), fixed_clock(1000));
         reg.register_simple(
             "a".into(),
             TestEntry {
@@ -434,14 +478,14 @@ mod tests {
 
     #[test]
     fn test_find_by_tag() {
-        let mut reg = Registry::<TestEntry>::new(RegistryConfig::default());
+        let mut reg = Registry::<TestEntry>::new(RegistryConfig::default(), fixed_clock(1000));
         reg.register(
             "a".into(),
             TestEntry {
                 name: "alpha".into(),
                 value: 1,
             },
-            EntryMeta::new("1.0.0").with_tags(vec!["fast".into()]),
+            EntryMeta::new("1.0.0", 1000).with_tags(vec!["fast".into()]),
         )
         .unwrap();
         reg.register(
@@ -450,7 +494,7 @@ mod tests {
                 name: "beta".into(),
                 value: 2,
             },
-            EntryMeta::new("1.0.0").with_tags(vec!["slow".into()]),
+            EntryMeta::new("1.0.0", 1000).with_tags(vec!["slow".into()]),
         )
         .unwrap();
 
@@ -461,7 +505,8 @@ mod tests {
 
     #[test]
     fn test_health_status() {
-        let mut reg = Registry::<TestEntry>::new(RegistryConfig::default());
+        let (clock, ts) = mutable_clock(1000);
+        let mut reg = Registry::<TestEntry>::new(RegistryConfig::default(), clock);
         reg.register_simple(
             "a".into(),
             TestEntry {
@@ -472,35 +517,57 @@ mod tests {
         )
         .unwrap();
 
+        ts.store(1050, Ordering::SeqCst);
         reg.set_health("a", EntryHealth::Degraded);
         let entry = reg.get("a").unwrap();
         assert_eq!(entry.meta.health, EntryHealth::Degraded);
+        assert_eq!(entry.meta.last_seen, 1050);
     }
 
     #[test]
     fn test_evict_expired() {
-        let mut reg = Registry::<TestEntry>::new(RegistryConfig::default());
+        let (clock, ts) = mutable_clock(1000);
+        let mut reg = Registry::<TestEntry>::new(RegistryConfig::default(), clock);
         reg.register(
             "a".into(),
             TestEntry {
                 name: "alpha".into(),
                 value: 1,
             },
-            EntryMeta::new("1.0.0").with_ttl(0),
+            EntryMeta::new("1.0.0", 1000).with_ttl(10),
         )
-        .unwrap(); // No expiry
+        .unwrap(); // Expires after 10s (at t > 1010)
         reg.register(
             "b".into(),
             TestEntry {
                 name: "beta".into(),
                 value: 2,
             },
-            EntryMeta::new("1.0.0"),
+            EntryMeta::new("1.0.0", 1000).with_ttl(0),
         )
         .unwrap(); // Default (no expiry)
 
+        // At t = 1005: not expired
+        ts.store(1005, Ordering::SeqCst);
         assert_eq!(reg.evict_expired(), 0);
         assert_eq!(reg.len(), 2);
+
+        // Touch entry "a" at t = 1008 via get_mut
+        ts.store(1008, Ordering::SeqCst);
+        let touched = reg.get_mut("a").unwrap();
+        assert_eq!(touched.meta.last_seen, 1008);
+
+        // At t = 1015: since it was touched at 1008, ttl expires at 1018, so at 1015 it is still alive
+        ts.store(1015, Ordering::SeqCst);
+        assert_eq!(reg.evict_expired(), 0);
+        assert_eq!(reg.len(), 2);
+
+        // At t = 1019: entry "a" is now expired (1019 > 1008 + 10)
+        ts.store(1019, Ordering::SeqCst);
+        assert_eq!(reg.evict_expired(), 1);
+        assert_eq!(reg.len(), 1);
+        assert!(reg.get("a").is_none());
+        assert!(reg.get("b").is_some());
     }
 
     #[test]
@@ -509,10 +576,13 @@ mod tests {
         let path = dir.path().join("test.json");
 
         {
-            let mut reg = Registry::<TestEntry>::new(RegistryConfig {
-                persist_path: Some(path.clone()),
-                ..Default::default()
-            });
+            let mut reg = Registry::<TestEntry>::new(
+                RegistryConfig {
+                    persist_path: Some(path.clone()),
+                    ..Default::default()
+                },
+                fixed_clock(1000),
+            );
             reg.register_simple(
                 "a".into(),
                 TestEntry {
@@ -525,10 +595,13 @@ mod tests {
         }
 
         {
-            let reg = Registry::<TestEntry>::with_persistence(RegistryConfig {
-                persist_path: Some(path.clone()),
-                ..Default::default()
-            });
+            let reg = Registry::<TestEntry>::with_persistence(
+                RegistryConfig {
+                    persist_path: Some(path.clone()),
+                    ..Default::default()
+                },
+                fixed_clock(1000),
+            );
             assert_eq!(reg.len(), 1);
             assert_eq!(reg.get("a").unwrap().data.name, "alpha");
         }

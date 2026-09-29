@@ -183,7 +183,14 @@ impl AppState {
         state_path: std::path::PathBuf,
         cfg: HttpServiceConfig,
     ) -> Self {
-        let links_reg = crate::federation::links::load_links().unwrap_or_default();
+        let links_clock: crate::unified_registry::ClockSource = Arc::new(|| {
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_secs())
+                .unwrap_or(0)
+        });
+        let links_reg = crate::federation::links::load_links(links_clock.clone())
+            .unwrap_or_else(|_| crate::federation::links::LinkRegistry::new(links_clock));
         let (default_limiter, route_limits) = build_route_limit_registry(&cfg);
         let mut generation_jobs = std::collections::HashMap::new();
         let mut vault = crate::federation::tensor_vault::TensorVault::new();
@@ -5110,7 +5117,13 @@ async fn links_list(State(state): State<AppState>) -> impl IntoResponse {
 
 /// Helper: persist the in-memory `Vec<Link>` back to disk via `LinkRegistry`.
 async fn save_links_vec(links: &[crate::federation::links::Link]) {
-    let mut registry = crate::federation::links::LinkRegistry::new();
+    let clock: crate::unified_registry::ClockSource = Arc::new(|| {
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs())
+            .unwrap_or(0)
+    });
+    let mut registry = crate::federation::links::LinkRegistry::new(clock);
     for link in links {
         // First write wins on duplicate names; matches the original Vec-push semantics.
         let _ = registry.add(link.clone());
