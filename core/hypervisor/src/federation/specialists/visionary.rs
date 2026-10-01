@@ -267,6 +267,7 @@ impl Visionary {
             rate_limit: None,
             local_endpoint: None,
             local_model: None,
+            gemini_base_url: None,
         };
         let client = LLMClient::new(config).await.unwrap();
         tracing::info!("Visionary: GGUF loaded from {}", path.display());
@@ -290,6 +291,7 @@ impl Visionary {
             rate_limit: None,
             local_endpoint: None,
             local_model: None,
+            gemini_base_url: None,
         };
         let client = Arc::new(LLMClient::new(config).await?);
         Ok(Self::new().with_llm(client))
@@ -1320,6 +1322,7 @@ mod tests {
             rate_limit: None,
             local_endpoint: None,
             local_model: None,
+            gemini_base_url: None,
         };
         let client = LLMClient::new(config).await.unwrap();
 

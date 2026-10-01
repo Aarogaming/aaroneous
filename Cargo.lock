@@ -4891,6 +4891,7 @@ dependencies = [
  "serde",
  "serde_json",
  "si_ir",
+ "thiserror 2.0.20",
  "tokio",
  "tracing",
  "transpiler",
