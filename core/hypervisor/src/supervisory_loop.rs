@@ -523,7 +523,7 @@ impl SupervisoryDaemon {
         synapse.write(0, bytes).ok();
 
         let hive_db = db_path.and_then(|p| {
-            HivePersistence::new(p)
+            HivePersistence::new(p, Arc::new(chrono::Utc::now))
                 .ok()
                 .map(|db| Arc::new(parking_lot::Mutex::new(db)))
         });
