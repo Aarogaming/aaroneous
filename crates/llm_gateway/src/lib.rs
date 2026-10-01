@@ -34,7 +34,7 @@ pub struct LLMClient {
     config: LLMConfig,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct LLMConfig {
     pub provider_type: ProviderType,
     pub model_name: String,
@@ -55,6 +55,29 @@ pub struct LLMConfig {
     /// Gemini API base URL override (for ProviderType::Gemini). Falls back to
     /// `providers::gemini::DEFAULT_GEMINI_BASE_URL` when `None`.
     pub gemini_base_url: Option<String>,
+}
+
+// Manual impl (not derived) so `api_key` is redacted from any panic or log
+// output that formats this struct, rather than printed verbatim.
+impl std::fmt::Debug for LLMConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("LLMConfig")
+            .field("provider_type", &self.provider_type)
+            .field("model_name", &self.model_name)
+            .field("api_key", &self.api_key.as_ref().map(|_| "[redacted]"))
+            .field("base_url", &self.base_url)
+            .field("temperature", &self.temperature)
+            .field("max_tokens", &self.max_tokens)
+            .field("timeout_secs", &self.timeout_secs)
+            .field("enable_caching", &self.enable_caching)
+            .field("cache_ttl_secs", &self.cache_ttl_secs)
+            .field("gguf_model_path", &self.gguf_model_path)
+            .field("rate_limit", &self.rate_limit)
+            .field("local_endpoint", &self.local_endpoint)
+            .field("local_model", &self.local_model)
+            .field("gemini_base_url", &self.gemini_base_url)
+            .finish()
+    }
 }
 
 impl Default for LLMConfig {
