@@ -15,6 +15,31 @@ pub struct NodeCapability {
 pub type CapabilityDescriptor = NodeCapability;
 pub type HoxCapability = NodeCapability;
 
+/// Trait abstraction for persisting and querying node capabilities.
+pub trait CapabilityStore: Send + Sync {
+    /// Registers or updates a capability in the store.
+    fn register_capability(&self, cap: &NodeCapability) -> Result<()>;
+
+    /// Retrieves a capability by name, if it exists.
+    fn get_capability(&self, name: &str) -> Result<Option<NodeCapability>>;
+
+    /// Constructs a module definition from a registered capability.
+    fn get_module(&self, name: &str) -> Option<ModuleDefinition> {
+        self.get_capability(name)
+            .ok()
+            .flatten()
+            .map(|cap| ModuleDefinition {
+                category: cap.name.clone(),
+                expression_level: 1.0,
+                permissions: cap.permissions.clone(),
+                mcp_tools: vec![],
+            })
+    }
+
+    /// Lists all capabilities ordered by name.
+    fn list_capabilities(&self) -> Result<Vec<NodeCapability>>;
+}
+
 pub struct ProfileRegistry {
     db: Mutex<Connection>,
 }
@@ -110,6 +135,24 @@ impl ProfileRegistry {
             })?
             .collect::<std::result::Result<Vec<_>, _>>()?;
         Ok(caps)
+    }
+}
+
+impl CapabilityStore for ProfileRegistry {
+    fn register_capability(&self, cap: &NodeCapability) -> Result<()> {
+        self.register_capability(cap)
+    }
+
+    fn get_capability(&self, name: &str) -> Result<Option<NodeCapability>> {
+        self.get_capability(name)
+    }
+
+    fn get_module(&self, name: &str) -> Option<ModuleDefinition> {
+        self.get_module(name)
+    }
+
+    fn list_capabilities(&self) -> Result<Vec<NodeCapability>> {
+        self.list_capabilities()
     }
 }
 

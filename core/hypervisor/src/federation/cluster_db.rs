@@ -6,23 +6,40 @@ use crate::genetics::AgentProfile;
 use crate::skills::Skill;
 use rusqlite::{Connection, OptionalExtension, Result as SqlResult, params};
 use serde_json::json;
+use std::sync::Arc;
+
+/// Clock source function returning current UTC datetime.
+pub type ClockSource = Arc<dyn Fn() -> chrono::DateTime<chrono::Utc> + Send + Sync>;
 
 /// Persistence manager for the Aaroneous hive
 pub struct PersistenceManager {
     db: Connection,
+    clock: ClockSource,
 }
 
 impl PersistenceManager {
-    /// Initialize persistence layer with SQLite database
-    pub fn new(db_path: &str) -> SqlResult<Self> {
+    /// Initialize persistence layer with SQLite database and injected clock source
+    pub fn new(db_path: &str, clock: ClockSource) -> SqlResult<Self> {
         let db = Connection::open(db_path)?;
 
         // Enable foreign keys
         db.execute("PRAGMA foreign_keys = ON", [])?;
 
-        let manager = PersistenceManager { db };
+        let manager = PersistenceManager { db, clock };
         manager.init_schema()?;
         Ok(manager)
+    }
+
+    /// Current timestamp formatted as an RFC3339 string from the injected clock.
+    #[inline]
+    pub fn now_rfc3339(&self) -> String {
+        (self.clock)().to_rfc3339()
+    }
+
+    /// Current timestamp as Unix seconds from the injected clock.
+    #[inline]
+    pub fn now_timestamp(&self) -> i64 {
+        (self.clock)().timestamp()
     }
 
     /// Create all necessary tables
@@ -281,8 +298,19 @@ impl PersistenceManager {
         Ok(())
     }
 
-    /// Save a specialist to the database
+    /// Save a specialist to the database using the injected clock for timestamps
     pub fn save_specialist(&self, specialist: &SpecialistData) -> SqlResult<()> {
+        let now = self.now_rfc3339();
+        self.save_specialist_at(specialist, &now, &now)
+    }
+
+    /// Save a specialist to the database with explicit created_at and updated_at timestamps
+    pub fn save_specialist_at(
+        &self,
+        specialist: &SpecialistData,
+        created_at: &str,
+        updated_at: &str,
+    ) -> SqlResult<()> {
         let genetics_json = match serde_json::to_string(&specialist.genome) {
             Ok(json) => json,
             Err(e) => {
@@ -297,7 +325,6 @@ impl PersistenceManager {
                 return Err(rusqlite::Error::InvalidQuery);
             }
         };
-        let now = chrono::Utc::now().to_rfc3339();
 
         self.db.execute(
             "INSERT OR REPLACE INTO specialists 
@@ -316,8 +343,8 @@ impl PersistenceManager {
                 specialist.rank,
                 genetics_json,
                 persona_json,
-                now,
-                now
+                created_at,
+                updated_at
             ],
         )?;
         Ok(())
@@ -385,8 +412,21 @@ impl PersistenceManager {
         Ok(specialists)
     }
 
-    /// Save a skill to the database
+    /// Save a skill to the database using the injected clock for timestamps
     pub fn save_skill(&self, specialist_id: &str, skill_id: &str, skill: &Skill) -> SqlResult<()> {
+        let now = self.now_rfc3339();
+        self.save_skill_at(specialist_id, skill_id, skill, &now, &now)
+    }
+
+    /// Save a skill to the database with explicit created_at and updated_at timestamps
+    pub fn save_skill_at(
+        &self,
+        specialist_id: &str,
+        skill_id: &str,
+        skill: &Skill,
+        created_at: &str,
+        updated_at: &str,
+    ) -> SqlResult<()> {
         let skill_json = match serde_json::to_string(skill) {
             Ok(json) => json,
             Err(e) => {
@@ -394,7 +434,6 @@ impl PersistenceManager {
                 return Err(rusqlite::Error::InvalidQuery);
             }
         };
-        let now = chrono::Utc::now().to_rfc3339();
 
         self.db.execute(
             "INSERT OR REPLACE INTO skills 
@@ -405,7 +444,7 @@ impl PersistenceManager {
                 skill_id, specialist_id, format!("{:?}", skill.skill_type),
                 format!("{:?}", skill.origin), skill.level, skill.success_rate,
                 skill.success_rate, false, false,
-                skill.is_awakened, skill_json, now, now
+                skill.is_awakened, skill_json, created_at, updated_at
             ],
         )?;
         Ok(())
@@ -438,9 +477,14 @@ impl PersistenceManager {
         Ok(skills)
     }
 
-    /// Record an event in the event history
+    /// Record an event in the event history using the injected clock for timestamps
     pub fn record_event(&self, event: &EventData) -> SqlResult<()> {
-        let now = chrono::Utc::now().to_rfc3339();
+        let now = self.now_rfc3339();
+        self.record_event_at(event, &now)
+    }
+
+    /// Record an event in the event history with explicit created_at timestamp
+    pub fn record_event_at(&self, event: &EventData, created_at: &str) -> SqlResult<()> {
         let data_json = json!({
             "event_type": event.event_type,
             "quality_score": event.quality_score
@@ -453,7 +497,7 @@ impl PersistenceManager {
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
             params![
                 event.event_id, event.specialist_id, event.event_type, event.xp_gained as i32, event.quality_score,
-                event.description, data_json, event.timestamp, now
+                event.description, data_json, event.timestamp, created_at
             ],
         )?;
         Ok(())
@@ -483,9 +527,18 @@ impl PersistenceManager {
         Ok(events)
     }
 
-    /// Save constellation node
+    /// Save constellation node using the injected clock for timestamps
     pub fn save_constellation_node(&self, node: &ConstellationNodeData) -> SqlResult<()> {
-        let now = chrono::Utc::now().to_rfc3339();
+        let now = self.now_rfc3339();
+        self.save_constellation_node_at(node, &now)
+    }
+
+    /// Save constellation node with explicit created_at timestamp
+    pub fn save_constellation_node_at(
+        &self,
+        node: &ConstellationNodeData,
+        created_at: &str,
+    ) -> SqlResult<()> {
         let node_json = json!({
             "type": node.node_type,
             "label": node.label,
@@ -511,7 +564,7 @@ impl PersistenceManager {
                 node.specialist_id,
                 node.timestamp,
                 node_json,
-                now
+                created_at
             ],
         )?;
         Ok(())
@@ -542,10 +595,18 @@ impl PersistenceManager {
         Ok(nodes)
     }
 
-    /// Record data ingestion
+    /// Record data ingestion using the injected clock for timestamps
     pub fn record_ingestion(&self, ingestion: &IngestionData) -> SqlResult<()> {
-        let now = chrono::Utc::now().to_rfc3339();
+        let now = self.now_rfc3339();
+        self.record_ingestion_at(ingestion, &now)
+    }
 
+    /// Record data ingestion with explicit created_at timestamp
+    pub fn record_ingestion_at(
+        &self,
+        ingestion: &IngestionData,
+        created_at: &str,
+    ) -> SqlResult<()> {
         self.db.execute(
             "INSERT INTO ingestion_records
              (id, specialist_id, file_path, file_format, file_size, checksum, domain,
@@ -562,7 +623,7 @@ impl PersistenceManager {
                 ingestion.xp_generated as i32,
                 ingestion.quality_score,
                 ingestion.timestamp,
-                now
+                created_at
             ],
         )?;
         Ok(())
@@ -639,13 +700,22 @@ impl PersistenceManager {
     // Federation specialist learning state persistence
     // ---------------------------------------------------------------
 
-    /// Save (or upsert) a specialist's learning state.
+    /// Save (or upsert) a specialist's learning state using the injected clock for timestamps.
     ///
     /// `specialist_kind` is the canonical name of the specialist (e.g.
     /// "Visionary", "Omnipresent"). One row per kind. Subsequent calls
     /// overwrite the previous values.
     pub fn save_learning_state(&self, record: &LearningStateRecord) -> SqlResult<()> {
-        let now_ts = chrono::Utc::now().to_rfc3339();
+        let now_ts = self.now_rfc3339();
+        self.save_learning_state_at(record, &now_ts)
+    }
+
+    /// Save (or upsert) a specialist's learning state with explicit created_at/updated_at timestamp.
+    pub fn save_learning_state_at(
+        &self,
+        record: &LearningStateRecord,
+        timestamp: &str,
+    ) -> SqlResult<()> {
         self.db.execute(
             "INSERT INTO specialist_learning (
                 specialist_kind, success_count, failure_count, total_executions,
@@ -668,7 +738,7 @@ impl PersistenceManager {
                 record.confidence_score as f64,
                 record.execution_history_json,
                 record.last_updated as i64,
-                now_ts,
+                timestamp,
             ],
         )?;
         Ok(())
@@ -734,7 +804,7 @@ impl PersistenceManager {
 
     // ── Federation session persistence ──────────────────────────────────────
 
-    /// Upsert a session snapshot to the `federation_sessions` table.
+    /// Upsert a session snapshot to the `federation_sessions` table using the injected clock for updated_at.
     ///
     /// `session_json` should be the full JSON serialisation of the `Session`
     /// struct.  Call this after `create_session()`, `add_intent()`, and
@@ -748,11 +818,7 @@ impl PersistenceManager {
         session_json: &str,
         created_at: i64,
     ) -> SqlResult<()> {
-        let now = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_secs() as i64;
-
+        let now = self.now_timestamp();
         self.db.execute(
             "INSERT INTO federation_sessions
                  (session_id, user_id, user_name, state, session_json, created_at, updated_at)
@@ -800,7 +866,7 @@ impl PersistenceManager {
         Ok(())
     }
 
-    /// Save a semantic embedding to the database
+    /// Save a semantic embedding to the database using injected clock for last_accessed and created_at timestamps
     pub fn save_embedding(
         &self,
         id: &str,
@@ -809,7 +875,7 @@ impl PersistenceManager {
         metadata: &std::collections::HashMap<String, String>,
         access_count: u32,
     ) -> SqlResult<()> {
-        let now = chrono::Utc::now().to_rfc3339();
+        let now = self.now_rfc3339();
         let vector_json = serde_json::to_string(vector).unwrap_or_default();
         let metadata_json = serde_json::to_string(metadata).unwrap_or_default();
         self.db.execute(
@@ -1088,10 +1154,19 @@ pub struct HiveStatistics {
 }
 
 impl PersistenceManager {
-    /// Save memory entry to database
+    /// Save memory entry to database using the injected clock for timestamps
     pub fn save_memory_entry(&self, entry: &MemoryEntryData) -> SqlResult<()> {
-        let now = chrono::Utc::now().to_rfc3339();
+        let now = self.now_rfc3339();
+        self.save_memory_entry_at(entry, &now, &now)
+    }
 
+    /// Save memory entry to database with explicit created_at and updated_at timestamps
+    pub fn save_memory_entry_at(
+        &self,
+        entry: &MemoryEntryData,
+        created_at: &str,
+        updated_at: &str,
+    ) -> SqlResult<()> {
         self.db.execute(
             "INSERT OR REPLACE INTO memory_entries 
              (id, specialist_id, memory_type, title, description, context, confidence, 
@@ -1110,8 +1185,8 @@ impl PersistenceManager {
                 entry.tags,
                 entry.related_memories,
                 entry.source,
-                now,
-                now
+                created_at,
+                updated_at
             ],
         )?;
         Ok(())
@@ -1152,10 +1227,19 @@ impl PersistenceManager {
         Ok(records)
     }
 
-    /// Save decision record to database
+    /// Save decision record to database using the injected clock for timestamps
     pub fn save_decision_record(&self, decision: &DecisionData) -> SqlResult<()> {
-        let now = chrono::Utc::now().to_rfc3339();
+        let now = self.now_rfc3339();
+        self.save_decision_record_at(decision, &now, &now)
+    }
 
+    /// Save decision record to database with explicit created_at and updated_at timestamps
+    pub fn save_decision_record_at(
+        &self,
+        decision: &DecisionData,
+        created_at: &str,
+        updated_at: &str,
+    ) -> SqlResult<()> {
         self.db.execute(
             "INSERT OR REPLACE INTO decision_records 
              (id, specialist_id, decision, reasoning, alternatives_considered,
@@ -1172,17 +1256,26 @@ impl PersistenceManager {
                 decision.outcome_description,
                 decision.confidence_before,
                 decision.confidence_after,
-                now,
-                now
+                created_at,
+                updated_at
             ],
         )?;
         Ok(())
     }
 
-    /// Save strategy to database
+    /// Save strategy to database using the injected clock for timestamps
     pub fn save_strategy(&self, strategy: &StrategyData) -> SqlResult<()> {
-        let now = chrono::Utc::now().to_rfc3339();
+        let now = self.now_rfc3339();
+        self.save_strategy_at(strategy, &now, &now)
+    }
 
+    /// Save strategy to database with explicit created_at and last_used timestamps
+    pub fn save_strategy_at(
+        &self,
+        strategy: &StrategyData,
+        created_at: &str,
+        last_used: &str,
+    ) -> SqlResult<()> {
         self.db.execute(
             "INSERT OR REPLACE INTO strategies 
              (id, specialist_id, name, description, steps, effectiveness_score,
@@ -1199,17 +1292,21 @@ impl PersistenceManager {
                 strategy.failure_count,
                 strategy.applicable_to,
                 strategy.prerequisites,
-                now,
-                now
+                created_at,
+                last_used
             ],
         )?;
         Ok(())
     }
 
-    /// Save goal to database
+    /// Save goal to database using the injected clock for timestamps
     pub fn save_goal(&self, goal: &GoalData) -> SqlResult<()> {
-        let now = chrono::Utc::now().to_rfc3339();
+        let now = self.now_rfc3339();
+        self.save_goal_at(goal, &now)
+    }
 
+    /// Save goal to database with explicit created_at timestamp
+    pub fn save_goal_at(&self, goal: &GoalData, created_at: &str) -> SqlResult<()> {
         self.db.execute(
             "INSERT OR REPLACE INTO goals 
              (id, specialist_id, objective, reason, status, priority, progress_percentage,
@@ -1225,7 +1322,7 @@ impl PersistenceManager {
                 goal.progress_percentage,
                 goal.blockers,
                 goal.milestones,
-                now
+                created_at
             ],
         )?;
         Ok(())
@@ -1249,39 +1346,15 @@ impl PersistenceManager {
 mod tests {
     use super::*;
 
-    #[test]
-    fn test_persistence_manager_creation() {
-        // Create an in-memory database for testing
-        let manager =
-            PersistenceManager::new(":memory:").expect("Failed to create persistence manager");
-
-        let stats = manager
-            .get_hive_statistics()
-            .expect("Failed to get statistics");
-
-        assert_eq!(stats.total_specialists, 0);
-        assert_eq!(stats.total_skills, 0);
+    fn test_clock(fixed: chrono::DateTime<chrono::Utc>) -> ClockSource {
+        Arc::new(move || fixed)
     }
 
-    #[test]
-    fn test_save_and_load_specialist() {
-        let manager =
-            PersistenceManager::new(":memory:").expect("Failed to create persistence manager");
-
-        // Create dummy genome and soul
-        let genome = AgentProfile::new(
-            "test_id".to_string(),
-            "TestSpecialist".to_string(),
-            "base_model".to_string(),
-        );
-
-        // Create a minimal persona structure
+    fn dummy_persona(created_at: chrono::DateTime<chrono::Utc>) -> SpecialistPersona {
         use crate::digestion::{
             ExperienceProfile, NarrativeProfile, PersonalityProfile, RelationalProfile,
         };
-        use chrono::Utc;
-
-        let persona = SpecialistPersona {
+        SpecialistPersona {
             specialist_id: "test_id".to_string(),
             personality_persona: PersonalityProfile {
                 archetype: "Scholar".to_string(),
@@ -1320,11 +1393,42 @@ mod tests {
                 relationship_evolution: std::collections::HashMap::new(),
                 evolution_timeline: vec![],
             },
-            created_at: Utc::now(),
+            created_at,
             version: 1,
-        };
+        }
+    }
 
-        // Save specialist
+    #[test]
+    fn test_persistence_manager_creation() {
+        let fixed = chrono::DateTime::parse_from_rfc3339("2026-09-29T12:00:00Z")
+            .unwrap()
+            .with_timezone(&chrono::Utc);
+        let manager = PersistenceManager::new(":memory:", test_clock(fixed))
+            .expect("Failed to create persistence manager");
+
+        let stats = manager
+            .get_hive_statistics()
+            .expect("Failed to get statistics");
+
+        assert_eq!(stats.total_specialists, 0);
+        assert_eq!(stats.total_skills, 0);
+    }
+
+    #[test]
+    fn test_save_and_load_specialist() {
+        let fixed = chrono::DateTime::parse_from_rfc3339("2026-09-29T12:00:00Z")
+            .unwrap()
+            .with_timezone(&chrono::Utc);
+        let manager = PersistenceManager::new(":memory:", test_clock(fixed))
+            .expect("Failed to create persistence manager");
+
+        let genome = AgentProfile::new(
+            "test_id".to_string(),
+            "TestSpecialist".to_string(),
+            "base_model".to_string(),
+        );
+        let persona = dummy_persona(fixed);
+
         manager
             .save_specialist(&SpecialistData {
                 specialist_id: "test_id",
@@ -1341,7 +1445,6 @@ mod tests {
             })
             .expect("Failed to save specialist");
 
-        // Load specialist
         let record = manager
             .load_specialist("test_id")
             .expect("Failed to load specialist")
@@ -1354,64 +1457,19 @@ mod tests {
 
     #[test]
     fn test_hive_statistics() {
-        let manager =
-            PersistenceManager::new(":memory:").expect("Failed to create persistence manager");
+        let fixed = chrono::DateTime::parse_from_rfc3339("2026-09-29T12:00:00Z")
+            .unwrap()
+            .with_timezone(&chrono::Utc);
+        let manager = PersistenceManager::new(":memory:", test_clock(fixed))
+            .expect("Failed to create persistence manager");
 
         let genome = AgentProfile::new(
             "test_1".to_string(),
             "Test1".to_string(),
             "base_model".to_string(),
         );
+        let persona = dummy_persona(fixed);
 
-        use crate::digestion::{
-            ExperienceProfile, NarrativeProfile, PersonalityProfile, RelationalProfile,
-        };
-        use chrono::Utc;
-
-        let persona = SpecialistPersona {
-            specialist_id: "test_1".to_string(),
-            personality_persona: PersonalityProfile {
-                archetype: "Scholar".to_string(),
-                big_five_openness: 0.8,
-                big_five_conscientiousness: 0.7,
-                big_five_extraversion: 0.5,
-                big_five_agreeableness: 0.6,
-                big_five_neuroticism: 0.3,
-                quirks: vec![],
-                core_values: vec![],
-                conversation_style: "thoughtful".to_string(),
-                decision_making_style: "analytical".to_string(),
-                emotional_tendencies: vec![],
-                growth_areas: vec![],
-            },
-            relational_persona: RelationalProfile {
-                natural_allies: vec![],
-                natural_tensions: vec![],
-                peer_relationships: std::collections::HashMap::new(),
-                collaboration_patterns: vec![],
-                conflict_resolution_style: "direct".to_string(),
-            },
-            narrative_persona: NarrativeProfile {
-                origin_story: "test".to_string(),
-                self_conception: "learning".to_string(),
-                personal_goals: vec![],
-                narrative_arc: "growth".to_string(),
-                philosophical_beliefs: vec![],
-                favorite_topics: vec![],
-                fears_and_hopes: "hope".to_string(),
-            },
-            experience_persona: ExperienceProfile {
-                shared_memories: vec![],
-                lessons_learned: vec![],
-                achievements: vec![],
-                relationship_evolution: std::collections::HashMap::new(),
-                evolution_timeline: vec![],
-            },
-            created_at: Utc::now(),
-            version: 1,
-        };
-
-        // Add a specialist
         manager
             .save_specialist(&SpecialistData {
                 specialist_id: "test_1",
@@ -1434,5 +1492,172 @@ mod tests {
 
         assert_eq!(stats.total_specialists, 1);
         assert_eq!(stats.total_xp, 100);
+    }
+
+    #[test]
+    fn test_deterministic_timestamp_assertions() {
+        let fixed_ts_str = "2026-09-29T12:34:56+00:00";
+        let fixed_dt = chrono::DateTime::parse_from_rfc3339(fixed_ts_str)
+            .unwrap()
+            .with_timezone(&chrono::Utc);
+        let fixed_epoch = fixed_dt.timestamp();
+
+        let manager = PersistenceManager::new(":memory:", test_clock(fixed_dt))
+            .expect("Failed to create persistence manager");
+
+        let genome = AgentProfile::new(
+            "test_id".to_string(),
+            "TestSpecialist".to_string(),
+            "base_model".to_string(),
+        );
+        let persona = dummy_persona(fixed_dt);
+
+        // 1. Specialist persistence
+        manager
+            .save_specialist(&SpecialistData {
+                specialist_id: "test_id",
+                name: "TestSpecialist",
+                archetype: "Scholar",
+                birth_timestamp: 0,
+                generation_level: 1,
+                xp: 100,
+                xp_total: 100,
+                current_level: 1,
+                rank: 1,
+                genome: &genome,
+                persona: &persona,
+            })
+            .expect("Failed to save specialist");
+
+        let (spec_created, spec_updated): (String, String) = manager
+            .db
+            .query_row(
+                "SELECT created_at, updated_at FROM specialists WHERE id = 'test_id'",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .expect("query specialist timestamps");
+        assert_eq!(spec_created, fixed_ts_str);
+        assert_eq!(spec_updated, fixed_ts_str);
+
+        // 2. Event persistence
+        manager
+            .record_event(&EventData {
+                event_id: "ev_1",
+                specialist_id: "test_id",
+                event_type: "TaskComplete",
+                xp_gained: 25,
+                quality_score: 0.95,
+                description: "Task succeeded",
+                timestamp: fixed_epoch,
+            })
+            .expect("Failed to record event");
+
+        let ev_created: String = manager
+            .db
+            .query_row(
+                "SELECT created_at FROM events WHERE id = 'ev_1'",
+                [],
+                |row| row.get(0),
+            )
+            .expect("query event created_at");
+        assert_eq!(ev_created, fixed_ts_str);
+
+        // 3. Learning state persistence
+        manager
+            .save_learning_state(&LearningStateRecord {
+                specialist_kind: "Visionary".to_string(),
+                success_count: 5,
+                failure_count: 1,
+                total_executions: 6,
+                confidence_score: 0.83,
+                execution_history_json: "[]".to_string(),
+                last_updated: fixed_epoch as u64,
+            })
+            .expect("Failed to save learning state");
+
+        let (ls_created, ls_updated): (String, String) = manager
+            .db
+            .query_row(
+                "SELECT created_at, updated_at FROM specialist_learning WHERE specialist_kind = 'Visionary'",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .expect("query learning state timestamps");
+        assert_eq!(ls_created, fixed_ts_str);
+        assert_eq!(ls_updated, fixed_ts_str);
+
+        // 4. Session persistence
+        manager
+            .save_session(
+                "session_1",
+                "user_1",
+                "Alice",
+                "Active",
+                "{\"session_id\":\"session_1\"}",
+                fixed_epoch,
+            )
+            .expect("Failed to save session");
+
+        let (sess_created, sess_updated): (i64, i64) = manager
+            .db
+            .query_row(
+                "SELECT created_at, updated_at FROM federation_sessions WHERE session_id = 'session_1'",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .expect("query session timestamps");
+        assert_eq!(sess_created, fixed_epoch);
+        assert_eq!(sess_updated, fixed_epoch);
+
+        // 5. Semantic embedding persistence
+        let mut meta = std::collections::HashMap::new();
+        meta.insert("tag".to_string(), "test".to_string());
+        manager
+            .save_embedding("emb_1", "sample text", &[0.1, 0.2, 0.3], &meta, 1)
+            .expect("Failed to save embedding");
+
+        let (emb_last_accessed, emb_created): (String, String) = manager
+            .db
+            .query_row(
+                "SELECT last_accessed, created_at FROM semantic_embeddings WHERE id = 'emb_1'",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .expect("query embedding timestamps");
+        assert_eq!(emb_last_accessed, fixed_ts_str);
+        assert_eq!(emb_created, fixed_ts_str);
+
+        // 6. Explicit method timestamp override
+        let override_ts = "2026-09-30T08:00:00+00:00";
+        manager
+            .save_specialist_at(
+                &SpecialistData {
+                    specialist_id: "test_id",
+                    name: "TestSpecialist",
+                    archetype: "Scholar",
+                    birth_timestamp: 0,
+                    generation_level: 1,
+                    xp: 100,
+                    xp_total: 100,
+                    current_level: 1,
+                    rank: 1,
+                    genome: &genome,
+                    persona: &persona,
+                },
+                fixed_ts_str,
+                override_ts,
+            )
+            .expect("Failed to save specialist at explicit timestamp");
+
+        let updated_check: String = manager
+            .db
+            .query_row(
+                "SELECT updated_at FROM specialists WHERE id = 'test_id'",
+                [],
+                |row| row.get(0),
+            )
+            .expect("query specialist updated_at after override");
+        assert_eq!(updated_check, override_ts);
     }
 }
