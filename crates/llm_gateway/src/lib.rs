@@ -17,7 +17,7 @@ pub use mcp_gateway::McpGateway;
 pub use model_environment::{DetectedEnvironment, ModelEnvironment, ModelEnvironmentDetector};
 pub use model_loader::{ModelLoader, TOP_RECOMMENDED_MODELS};
 pub use model_registry::{ModelInfo, ModelRegistry, ModelType};
-pub use providers::{GGUFProvider, LLMProvider, MockProvider};
+pub use providers::{GGUFProvider, GeminiProvider, LLMProvider, MockProvider};
 pub use types::*;
 
 use anyhow::Result;
@@ -34,7 +34,7 @@ pub struct LLMClient {
     config: LLMConfig,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct LLMConfig {
     pub provider_type: ProviderType,
     pub model_name: String,
@@ -52,6 +52,32 @@ pub struct LLMConfig {
     pub local_endpoint: Option<String>,
     /// Local LLM model name (for ProviderType::Local)
     pub local_model: Option<String>,
+    /// Gemini API base URL override (for ProviderType::Gemini). Falls back to
+    /// `providers::gemini::DEFAULT_GEMINI_BASE_URL` when `None`.
+    pub gemini_base_url: Option<String>,
+}
+
+// Manual impl (not derived) so `api_key` is redacted from any panic or log
+// output that formats this struct, rather than printed verbatim.
+impl std::fmt::Debug for LLMConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("LLMConfig")
+            .field("provider_type", &self.provider_type)
+            .field("model_name", &self.model_name)
+            .field("api_key", &self.api_key.as_ref().map(|_| "[redacted]"))
+            .field("base_url", &self.base_url)
+            .field("temperature", &self.temperature)
+            .field("max_tokens", &self.max_tokens)
+            .field("timeout_secs", &self.timeout_secs)
+            .field("enable_caching", &self.enable_caching)
+            .field("cache_ttl_secs", &self.cache_ttl_secs)
+            .field("gguf_model_path", &self.gguf_model_path)
+            .field("rate_limit", &self.rate_limit)
+            .field("local_endpoint", &self.local_endpoint)
+            .field("local_model", &self.local_model)
+            .field("gemini_base_url", &self.gemini_base_url)
+            .finish()
+    }
 }
 
 impl Default for LLMConfig {
@@ -70,6 +96,7 @@ impl Default for LLMConfig {
             rate_limit: None,
             local_endpoint: None,
             local_model: None,
+            gemini_base_url: None,
         }
     }
 }
@@ -80,6 +107,7 @@ pub enum ProviderType {
     Mock,   // Mock provider for testing
     OpenAI, // Cloud OpenAI provider
     Local,  // Local API provider (Ollama, vLLM)
+    Gemini, // Cloud Google Gemini provider
 }
 
 impl LLMClient {
@@ -107,6 +135,22 @@ impl LLMClient {
                     .clone()
                     .unwrap_or_else(|| "mistral:latest".to_string());
                 Arc::new(providers::LocalLLMProvider::new(endpoint, model).await?)
+            }
+            ProviderType::Gemini => {
+                let api_key = config.api_key.clone().ok_or_else(|| {
+                    anyhow::anyhow!("Gemini API key must be provided via LLMConfig")
+                })?;
+                let base_url = config
+                    .gemini_base_url
+                    .clone()
+                    .or_else(|| config.base_url.clone())
+                    .unwrap_or_else(|| providers::DEFAULT_GEMINI_BASE_URL.to_string());
+                let model = config.model_name.clone();
+                let client = reqwest::Client::builder()
+                    .connect_timeout(std::time::Duration::from_secs(10))
+                    .timeout(std::time::Duration::from_secs(120))
+                    .build()?;
+                Arc::new(providers::GeminiProvider::new(api_key, base_url, model, client).await?)
             }
             ProviderType::GGUF => {
                 let model_path = config
@@ -473,6 +517,7 @@ mod tests {
             rate_limit: None,
             local_endpoint: None,
             local_model: None,
+            gemini_base_url: None,
         };
 
         let client = LLMClient::new(config).await;
@@ -495,6 +540,7 @@ mod tests {
             rate_limit: None,
             local_endpoint: None,
             local_model: None,
+            gemini_base_url: None,
         };
 
         let client = LLMClient::new(config).await.unwrap();
@@ -517,6 +563,7 @@ mod tests {
             rate_limit: None,
             local_endpoint: None,
             local_model: None,
+            gemini_base_url: None,
         };
 
         let client = LLMClient::new(config)
