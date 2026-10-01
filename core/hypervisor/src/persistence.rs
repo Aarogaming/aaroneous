@@ -33,6 +33,39 @@ pub struct SessionRecord {
     pub created_at: i64,
 }
 
+/// Trait abstraction for federation persistence, covering specialist learning state
+/// and session management.
+pub trait PersistenceStore: Send {
+    /// Upsert a learning state record.
+    fn save_learning_state(&self, record: &LearningStateRecord) -> SqlResult<()>;
+
+    /// Load a learning state record by specialist kind.
+    fn load_learning_state(&self, specialist_kind: &str) -> SqlResult<Option<LearningStateRecord>>;
+
+    /// Delete a learning state record.
+    fn delete_learning_state(&self, specialist_kind: &str) -> SqlResult<()>;
+
+    /// List all learning state records.
+    fn list_learning_states(&self) -> SqlResult<Vec<LearningStateRecord>>;
+
+    /// Insert or update a session record.
+    fn save_session(
+        &self,
+        session_id: &str,
+        user_id: &str,
+        user_name: &str,
+        state: &str,
+        session_json: &str,
+        created_at: i64,
+    ) -> SqlResult<()>;
+
+    /// Load all active (non-ended) sessions as `(session_id, session_json)` pairs.
+    fn load_active_sessions(&self) -> SqlResult<Vec<(String, String)>>;
+
+    /// Delete a session by ID.
+    fn delete_session(&self, session_id: &str) -> SqlResult<()>;
+}
+
 /// SQLite persistence manager for the federation.
 ///
 /// Wraps a single `rusqlite::Connection`. Because SQLite connections are
@@ -213,5 +246,50 @@ impl PersistenceManager {
         self.db
             .execute("DELETE FROM sessions WHERE session_id = ?1", [session_id])?;
         Ok(())
+    }
+}
+
+impl PersistenceStore for PersistenceManager {
+    fn save_learning_state(&self, record: &LearningStateRecord) -> SqlResult<()> {
+        self.save_learning_state(record)
+    }
+
+    fn load_learning_state(&self, specialist_kind: &str) -> SqlResult<Option<LearningStateRecord>> {
+        self.load_learning_state(specialist_kind)
+    }
+
+    fn delete_learning_state(&self, specialist_kind: &str) -> SqlResult<()> {
+        self.delete_learning_state(specialist_kind)
+    }
+
+    fn list_learning_states(&self) -> SqlResult<Vec<LearningStateRecord>> {
+        self.list_learning_states()
+    }
+
+    fn save_session(
+        &self,
+        session_id: &str,
+        user_id: &str,
+        user_name: &str,
+        state: &str,
+        session_json: &str,
+        created_at: i64,
+    ) -> SqlResult<()> {
+        self.save_session(
+            session_id,
+            user_id,
+            user_name,
+            state,
+            session_json,
+            created_at,
+        )
+    }
+
+    fn load_active_sessions(&self) -> SqlResult<Vec<(String, String)>> {
+        self.load_active_sessions()
+    }
+
+    fn delete_session(&self, session_id: &str) -> SqlResult<()> {
+        self.delete_session(session_id)
     }
 }

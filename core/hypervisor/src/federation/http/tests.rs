@@ -5,7 +5,6 @@
 //! and equally exercises the routes, handlers, and serialization.
 
 #[cfg(test)]
-#[allow(ambient_authority)]
 #[allow(clippy::module_inception)] // file is already named after this test module
 mod tests {
     use super::super::router::{
@@ -153,10 +152,8 @@ mod tests {
     #[tokio::test]
     async fn test_cargo_state_round_trip_persists_jobs_links_and_vault() {
         let fed = fresh_federation_with_all();
-        let temp_path = std::env::temp_dir().join(format!(
-            "aaroneous_cargo_state_{}.json",
-            uuid::Uuid::new_v4()
-        ));
+        let tmp_dir = tempfile::tempdir().unwrap();
+        let temp_path = tmp_dir.path().join("cargo_state.json");
 
         let state = AppState::new_with_state_path(
             fed.clone(),
@@ -192,8 +189,6 @@ mod tests {
         drop(jobs);
         assert!(loaded.links.read().await.len() > initial_links_len);
         assert_eq!(loaded.vault.read().await.status().total_vault_entries, 1);
-
-        let _ = std::fs::remove_file(&temp_path);
     }
 
     #[tokio::test]
