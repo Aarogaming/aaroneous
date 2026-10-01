@@ -118,19 +118,26 @@ member (directory deletion + `Cargo.toml` membership edit + correcting five
 root-level architecture/roadmap documents) was blocked by this session's own
 auto-mode guardrails as a "modify shared resources" action requiring
 explicit human sign-off, rather than something to route around via another
-tool. That's the right call for a change this size — it deletes a whole
-crate and contradicts several docs that currently claim it's a completed,
-load-bearing component — so it's recorded here as a **ready-to-execute,
-fully-evidenced recommendation** rather than forced through.
+tool. That caution turned out to matter: **by the time this finding was
+re-verified (2026-09-29/30), it was already stale.** A separate, concurrent
+effort had turned `crates/mcp_server` into a real, independently-evolving
+MCP server with its own capability-token security layer
+(`action_executor.rs`, `capability_broker.rs`, `decision_engine.rs`,
+`micro_vm.rs`, `mcp_bridge/` — all still wired into `lib.rs`, with its own
+growing test suite) — it is no longer dead code, no longer a stale snapshot,
+and deleting it now would destroy that work.
 
-**Recommended action**, once authorized:
-1. Delete `crates/mcp_server/` entirely.
-2. Remove `"crates/mcp_server"` from `Cargo.toml`'s `[workspace] members`.
-3. Correct the five doc files above: either remove the `crates/mcp_server`
-   references or repoint them at `hypervisor::mcp_service` as the actual
-   live implementation.
-4. Re-run `workspace.duplicate_test_names` / `cargo run -p ast_auditor` and
-   the full workspace gate to confirm nothing depended on it after all.
+**Recommendation, revised:** do **not** delete `crates/mcp_server`. The
+`core/hypervisor::mcp_service` vs. `crates/mcp_server::mcp_service`
+duplication (and the `test_capability_creation`-style collisions it causes)
+is real but is now a reconciliation problem, not a dead-code-removal one:
+two implementations of the same protocol surface are evolving in different
+directions (`hypervisor`'s Federation-coupled version vs. `mcp_server`'s
+capability-token-gated version) and deciding which one the project actually
+wants — or how to merge the two — is an architecture decision for whoever
+owns that area next, not something to resolve by picking a side here. Until
+that decision is made, the collisions in this cluster should be left alone
+rather than mass-renamed or deleted out from under either side.
 
 ## 3. Remaining collisions (informational, not actioned)
 
