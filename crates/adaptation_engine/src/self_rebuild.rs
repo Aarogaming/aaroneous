@@ -123,7 +123,13 @@ mod tests {
 
     #[test]
     fn test_self_rebuild_engine_initialization() {
-        let engine = SelfRebuildEngine::default();
+        // Test sandboxing (AGENTS.md #2): use an explicit `tempfile::tempdir()`
+        // root via `SelfRebuildEngine::new` rather than `default()`'s ambient
+        // `WorkspacePaths::discover`, which would resolve against the real
+        // host workspace.
+        let temp = tempfile::tempdir().unwrap();
+        let engine = SelfRebuildEngine::new(temp.path());
+        assert_eq!(engine.workspace_root, temp.path());
         assert!(engine.workspace_root.exists());
     }
 }

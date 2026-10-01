@@ -1,4 +1,4 @@
-use crate::unified_registry::{EntryMeta, Registry};
+use crate::unified_registry::Registry;
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 /// Genome Trait Loader — loads trait presets from JSON files in `registry/genome/traits/`.
@@ -117,7 +117,9 @@ pub fn register_traits(registry: &mut Registry<GenomeTrait>, traits_dir: &Path) 
 
     for trait_data in traits {
         let id = trait_data.trait_id.clone();
-        let meta = EntryMeta::new("1.0.0").with_tags(vec!["genome-trait".into()]);
+        let meta = registry
+            .create_meta("1.0.0")
+            .with_tags(vec!["genome-trait".into()]);
 
         if let Err(e) = registry.register(id, trait_data, meta) {
             warn!("Failed to register trait: {}", e);
@@ -175,7 +177,8 @@ mod tests {
         let json = r#"{"trait_id": "alpha", "description": "Alpha trait"}"#;
         std::fs::write(dir.join("alpha.json"), json).unwrap();
 
-        let mut registry = Registry::<GenomeTrait>::new(RegistryConfig::default());
+        let clock: crate::unified_registry::ClockSource = std::sync::Arc::new(|| 1000);
+        let mut registry = Registry::<GenomeTrait>::new(RegistryConfig::default(), clock);
         let count = register_traits(&mut registry, dir).unwrap();
         assert_eq!(count, 1);
         assert!(registry.get("alpha").is_some());
