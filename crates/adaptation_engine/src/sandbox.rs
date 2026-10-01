@@ -318,7 +318,12 @@ mod tests {
 
     #[test]
     fn test_shadow_sandbox_lifecycle() {
-        let sandbox = ShadowSandbox::new().unwrap();
+        // Test sandboxing (AGENTS.md #2): `ShadowSandbox::new()` resolves its
+        // directory via ambient `paths::WorkspacePaths::default()` and would
+        // write into the real host cache tree; use an explicit tempdir via
+        // `with_dir` instead.
+        let temp = tempfile::tempdir().unwrap();
+        let sandbox = ShadowSandbox::with_dir(temp.path()).unwrap();
         let test_file = "test_module.rs";
         let content = b"pub fn add(a: i32, b: i32) -> i32 { a + b }";
 
@@ -340,7 +345,8 @@ mod tests {
 
     #[test]
     fn test_shadow_sandbox_penalty() {
-        let sandbox = ShadowSandbox::new().unwrap();
+        let temp = tempfile::tempdir().unwrap();
+        let sandbox = ShadowSandbox::with_dir(temp.path()).unwrap();
         let test_file = "bad_module.rs";
         let content = b"syntax_error_fatal";
 
@@ -376,7 +382,8 @@ mod tests {
 
     #[test]
     fn test_counterfactual_rollouts() {
-        let sandbox = ShadowSandbox::new().unwrap();
+        let temp = tempfile::tempdir().unwrap();
+        let sandbox = ShadowSandbox::with_dir(temp.path()).unwrap();
         let candidate_a = ("patch_a.rs", b"pub fn a() -> bool { true }".as_slice());
         let candidate_b = ("patch_b.rs", b"syntax_error_fatal".as_slice());
         let candidate_c = ("patch_c.rs", b"pub fn c() -> i32 { 42 }".as_slice());
@@ -391,7 +398,8 @@ mod tests {
 
     #[test]
     fn test_verify_and_select_best() {
-        let sandbox = ShadowSandbox::new().unwrap();
+        let temp = tempfile::tempdir().unwrap();
+        let sandbox = ShadowSandbox::with_dir(temp.path()).unwrap();
         let candidate_a = ("patch_short.rs", b"pub fn a() -> bool { true }".as_slice());
         let candidate_b = ("patch_fatal.rs", b"syntax_error_fatal".as_slice());
         let candidate_c = (
