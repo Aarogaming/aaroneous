@@ -18,6 +18,7 @@
 // - All fallible response handling goes through `GeminiError`, a typed error
 //   enum, instead of `.unwrap()`/`.expect()` on network/model output.
 
+use crate::providers::LLMProvider;
 use crate::providers::local::extract_json;
 use crate::types::*;
 use anyhow::{Result, anyhow};
@@ -64,6 +65,20 @@ pub struct GeminiProvider {
     temperature: f32,
     max_output_tokens: u32,
     client: reqwest::Client,
+}
+
+// Manual impl (not derived) so `api_key` is redacted from any panic or log
+// output that formats this struct, rather than printed verbatim.
+impl std::fmt::Debug for GeminiProvider {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("GeminiProvider")
+            .field("api_key", &"[redacted]")
+            .field("base_url", &self.base_url)
+            .field("model", &self.model)
+            .field("temperature", &self.temperature)
+            .field("max_output_tokens", &self.max_output_tokens)
+            .finish()
+    }
 }
 
 // ---------------------------------------------------------------------
@@ -627,7 +642,10 @@ mod tests {
         assert_eq!(req.contents[0].parts.len(), 1);
         assert_eq!(req.contents[0].parts[0].text, "Hello there");
 
-        let system = req.system_instruction.expect("system instruction present");
+        let system = req
+            .system_instruction
+            .as_ref()
+            .expect("system instruction present");
         assert_eq!(system.parts[0].text, "You are helpful.");
 
         assert_eq!(req.generation_config.temperature, 0.5);

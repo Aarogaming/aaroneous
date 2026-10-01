@@ -208,6 +208,7 @@ impl GenericSpecialist {
             rate_limit: None,
             local_endpoint: None,
             local_model: None,
+            gemini_base_url: None,
         };
         self.llm = Some(Arc::new(LLMClient::new(config).await?));
         Ok(self)
@@ -237,6 +238,7 @@ impl GenericSpecialist {
             rate_limit: None,
             local_endpoint: None,
             local_model: None,
+            gemini_base_url: None,
         };
         let client = LLMClient::new(config).await.unwrap();
         info!(
