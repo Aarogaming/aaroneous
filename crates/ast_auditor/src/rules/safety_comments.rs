@@ -47,7 +47,16 @@ impl<'a> SafetyCommentVisitor<'a> {
         let line = node.span().start().line;
         let lines: Vec<&str> = self.source_text.lines().collect();
 
-        // Check 3 lines prior to unsafe block for SAFETY: comment
+        // `line` (from `syn`/`proc_macro2`) is 1-indexed, but `lines` (from
+        // `str::lines`) is 0-indexed, so `lines[line - 1]` is the `unsafe`
+        // line itself. That shift means the window below, `[line - 4, line
+        // - 1]` as *vec indices*, actually covers *source lines* `[line -
+        // 3, line]` - i.e. up to 3 lines strictly before `unsafe`, plus the
+        // `unsafe` line itself (in case the comment is written inline). A
+        // multi-line comment must therefore end with its `SAFETY:` line
+        // immediately before (or on) the `unsafe` token; putting `SAFETY:`
+        // on the *first* line of a 4+-line comment block falls outside this
+        // window and is (falsely) reported as undocumented.
         let start_line = line.saturating_sub(4);
         let end_line = line.saturating_sub(1);
 
@@ -76,5 +85,46 @@ impl<'ast> Visit<'ast> for SafetyCommentVisitor<'_> {
     fn visit_expr_unsafe(&mut self, node: &'ast ExprUnsafe) {
         self.check_safety_comment(node);
         visit::visit_expr_unsafe(self, node);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn violations(source: &str) -> Vec<SafetyCommentViolation> {
+        let ast: syn::File = syn::parse_str(source).unwrap();
+        let mut visitor = SafetyCommentVisitor::new(Path::new("test.rs"), source);
+        visitor.visit_file(&ast);
+        visitor.violations
+    }
+
+    #[test]
+    fn unsafe_block_with_no_comment_is_flagged() {
+        let source = "fn f() {\n    unsafe { std::hint::black_box(1); }\n}\n";
+        assert_eq!(violations(source).len(), 1);
+    }
+
+    #[test]
+    fn safety_comment_directly_above_unsafe_is_accepted() {
+        let source = "fn f() {\n    // SAFETY: trivially sound.\n    unsafe { std::hint::black_box(1); }\n}\n";
+        assert!(violations(source).is_empty());
+    }
+
+    #[test]
+    fn multiline_comment_ending_in_safety_is_accepted() {
+        let source = "fn f() {\n    // Some rationale here.\n    // More rationale.\n    // SAFETY: sound because of the above.\n    unsafe { std::hint::black_box(1); }\n}\n";
+        assert!(violations(source).is_empty());
+    }
+
+    /// Regression guard for the checker's own off-by-one: `SAFETY:` on the
+    /// *first* line of a comment block longer than 3 lines falls outside
+    /// the checked window and is (perhaps surprisingly) still flagged. This
+    /// locks in that documented, if narrow, behavior rather than letting it
+    /// silently change - see the comment on `check_safety_comment` above.
+    #[test]
+    fn safety_on_first_line_of_a_long_block_is_still_flagged() {
+        let source = "fn f() {\n    // SAFETY: sound because of the below.\n    // More rationale.\n    // Even more rationale.\n    // Yet more rationale.\n    unsafe { std::hint::black_box(1); }\n}\n";
+        assert_eq!(violations(source).len(), 1);
     }
 }

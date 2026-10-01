@@ -196,6 +196,15 @@ impl TokenBucketLimiter {
     pub fn len(&self) -> usize {
         self.buckets.lock().expect("rate limiter poisoned").len()
     }
+
+    /// Test-only inspection.
+    #[cfg(test)]
+    pub fn is_empty(&self) -> bool {
+        self.buckets
+            .lock()
+            .expect("rate limiter poisoned")
+            .is_empty()
+    }
 }
 
 /// Maximum length of any single rate-limit key component. The

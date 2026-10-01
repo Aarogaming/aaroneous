@@ -1,13 +1,14 @@
-/// Comprehensive integration test suite for Phase 6D hybrid master registry layer.
-///
-/// Tests the complete lifecycle of the hybrid registry system including:
-/// - Multi-adapter initialization and synchronization
-/// - Cross-registry entity queries and lookups
-/// - State machine transitions during Phase 6D operations
-/// - Builder pattern composition and registry wiring
-/// - Error handling and recovery scenarios
+//! Comprehensive integration test suite for Phase 6D hybrid master registry layer.
+//!
+//! Tests the complete lifecycle of the hybrid registry system including:
+//! - Multi-adapter initialization and synchronization
+//! - Cross-registry entity queries and lookups
+//! - State machine transitions during Phase 6D operations
+//! - Builder pattern composition and registry wiring
+//! - Error handling and recovery scenarios
 
 #[cfg(test)]
+#[allow(clippy::module_inception)] // file is already named after this test module
 mod phase_6d_integration_tests {
     use crate::hybrid_master_registry::*;
     use crate::registry::{
@@ -284,8 +285,10 @@ mod phase_6d_integration_tests {
 
         // Manually test era mismatch
         let mut test_reg = IntegrationMockRegistry::new(RegistryType::Unified);
-        let mut wrong_ctx = WorkspaceContext::default();
-        wrong_ctx.current_era = PhaseEra::FourD;
+        let wrong_ctx = WorkspaceContext {
+            current_era: PhaseEra::FourD,
+            ..Default::default()
+        };
 
         let init_result = test_reg.initialize(&wrong_ctx);
         assert!(init_result.is_err());

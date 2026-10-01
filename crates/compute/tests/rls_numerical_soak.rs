@@ -4,14 +4,14 @@ use compute::token_consumer::{MachineToken, StateAdaptor};
 use std::time::Instant;
 
 /// Linear Congruential Generator for deterministic pseudo-random numbers
-struct LCG {
+struct Lcg {
     state: u64,
     a: u64,
     c: u64,
     m: u64,
 }
 
-impl LCG {
+impl Lcg {
     fn new(seed: u64) -> Self {
         Self {
             state: seed,
@@ -57,7 +57,7 @@ fn test_rls_numerical_soak_1m_cycle() {
     println!(".-----------------------------------------------------------.");
 
     // Initialize RNG with fixed seed for determinism
-    let mut rng = LCG::new(42);
+    let mut rng = Lcg::new(42);
 
     const TOTAL_CYCLES: usize = 1_000_000;
     const CHECKPOINT_INTERVAL: usize = 10_000;
@@ -77,15 +77,15 @@ fn test_rls_numerical_soak_1m_cycle() {
         let base_input: [f64; 4] = [1.0, 2.0, 3.0, 4.0];
         let mut noisy_input: [f64; 4] = [0.0; 4];
 
-        for i in 0..4 {
+        for (slot, base) in noisy_input.iter_mut().zip(base_input.iter()) {
             // Base + tiny epsilon noise (1e-5) to create near-colinearity
-            noisy_input[i] = base_input[i] + rng.next() * 1e-5;
+            *slot = *base + rng.next() * 1e-5;
         }
 
         // Inject high-magnitude noise burst every 25k cycles
         if cycle % PERTURBATION_INTERVAL == 0 {
-            for i in 0..4 {
-                noisy_input[i] += rng.next() * 25.0;
+            for val in &mut noisy_input {
+                *val += rng.next() * 25.0;
             }
         }
 

@@ -115,22 +115,20 @@ impl MachinePacket {
 
     /// Convert packet to raw bytes for FFI transfer
     pub fn as_bytes(&self) -> &[u8] {
-        unsafe {
-            std::slice::from_raw_parts((self as *const Self) as *const u8, mem::size_of::<Self>())
-        }
+        // `MachinePacket` derives `bytemuck::Pod`, so viewing it as bytes
+        // needs no raw pointer cast: `bytes_of` does the equivalent of the
+        // old `unsafe { slice::from_raw_parts(...) }` with the size and
+        // alignment invariants already proven by the `Pod` bound.
+        bytemuck::bytes_of(self)
     }
 
     /// Reconstruct packet from raw bytes (zero-copy)
     pub fn from_bytes(bytes: &[u8]) -> Option<&Self> {
-        if bytes.len() < mem::size_of::<Self>() {
-            return None;
-        }
-        let ptr = bytes.as_ptr();
-        // Enforce 8-byte pointer boundary alignment for memory safety
-        if !(ptr as usize).is_multiple_of(8) {
-            return None;
-        }
-        unsafe { Some(&*(ptr as *const Self)) }
+        // Same safe path as `from_slice_in_place` (length and alignment are
+        // both checked internally by `bytemuck::try_from_bytes`), kept as a
+        // separate name since `from_bytes` is this type's established public
+        // entry point elsewhere in the codebase.
+        Self::from_slice_in_place(bytes)
     }
 }
 

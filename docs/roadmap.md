@@ -66,7 +66,7 @@ All roadmap features must satisfy the **11 Sequential Verification Gates** (`car
 - [x] **11-Gate CI/Local Parity (`cargo xtask gate`)**
   - **Evidence:** `xtask/src/gate.rs` enforces text encoding, clippy `-D warnings`, workspace tests, release check, ast_auditor, and feature combinations. Automated parity tests verify `gate.rs` matches `.github/workflows/ci.yml`.
 - [x] **Static AST Invariant Audit (`ast_auditor`)**
-  - **Evidence:** `cargo run -p ast_auditor -- audit core/ crates/ dev/` reports 0 violations across 738 files. Prohibits `todo!()`, `unimplemented!()`, manual `unsafe impl Pod`, and ambient `std::env::var` calls.
+  - **Evidence:** `cargo run -p ast_auditor -- audit core/ crates/ dev/` reported 0 violations across 738 files at the time; as of `6321a63` (2026-09-23) the gate scope (`core/ crates/ dev/emulator_harness/`) reports 0 violations across 756 files, with five library files exempted via `#[allow(ambient_authority)]` (see CRATIFY_SPEC section 7.1). Prohibits `todo!()`, `unimplemented!()`, manual `unsafe impl Pod`, and ambient `std::env::var` calls.
 - [x] **Deterministic Temporal Synchronization (M19)**
   - **Evidence:** `crates/omni/src/matrix/sab_matrix.rs` test refactored using `std::fs::FileTimes` backdating (<5ms runtime); `core/hypervisor/src/bus_test.rs` artificial sleep removed. `governance/TEMPORAL_TEST_SYNCHRONIZATION_GUIDANCE.md` published.
 - [x] **Lock-Free Zero-Copy IPC Transport (`crates/ipc_bus`)**
@@ -89,7 +89,9 @@ All roadmap features must satisfy the **11 Sequential Verification Gates** (`car
 - [ ] **M12: Stable Plugin Command-Buffer ABI (RFC-0006)**
   - **Status:** Specification complete (`docs/rfcs/RFC-0006-PLUGIN_LIFECYCLE_AND_STABLE_UI_CARTRIDGE_ABI.md`). Next: implementation of a `repr(C)` command-buffer protocol for dynamic hot-reload plugins.
 - [ ] **Phase 38 / M32: Capability Broker & Resource Governance Integration**
-  - **Status:** In Progress (`crates/capabilities/src/broker.rs`, `crates/governance/src/health_governor.rs`, `core/hypervisor/src/state_publisher.rs`). Active development of signed token capability sandbox and thermodynamic backpressure controls.
+  - **Status:** Primitives complete and unit-tested (real RFC 2104 HMAC-SHA256, process-local random signing key — corrected 2026-09-26). One real production dispatch path is now gated: `crates/mcp_server/src/mcp_service/service.rs`'s `tools/call` JSON-RPC handler routes through `execute_tool_with_token` (2026-09-27) instead of the ungated `execute_tool`, so signature verification, expiration, sandbox-policy checks, and `ThermalBackpressureLevel` gating are live and load-bearing on every MCP tool call, not just exercised by `capability_broker`'s own tests (`test_tools_call_is_actually_gated_by_thermal_backpressure`).
+  - **Scope of what "gated" means today:** the token is self-issued by `McpService` per request (`FullPrivilege`, subject `"mcp-service"`) — it authenticates "this call went through the broker's own dispatch," not a specific external caller. No behavior changes for existing callers under normal conditions; under `Critical` thermal backpressure, tool calls now actually get rejected instead of silently bypassing the gate. Accepting and verifying a caller-supplied token from `tools/call`'s params, instead of the self-issued one, is the natural next slice if per-caller authorization is wanted — not done here.
+  - **Remaining:** `core/hypervisor/src/capability_broker.rs`'s copy, `sync_with_state_publisher`, and `studio_hud`/the hypervisor scan loop are still only exercised by their own unit tests — no production call site there yet.
 
 ### 3.3 Phased Release Schedule
 

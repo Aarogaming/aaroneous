@@ -1,10 +1,11 @@
-/// Integration tests for `SpecialistHost`
-///
-/// These tests exercise the full lifecycle: start (load), run (checkpoint),
-/// shutdown (final save), restart (load again). The Visionary specialist is
-/// used as the test subject because its execution path is the simplest.
+//! Integration tests for `SpecialistHost`
+//!
+//! These tests exercise the full lifecycle: start (load), run (checkpoint),
+//! shutdown (final save), restart (load again). The Visionary specialist is
+//! used as the test subject because its execution path is the simplest.
 
 #[cfg(test)]
+#[allow(clippy::module_inception)] // file is already named after this test module
 mod tests {
     use super::super::*;
     use crate::federation::specialist::{Decision, ResourceRequest, Specialist, SpecialistId};

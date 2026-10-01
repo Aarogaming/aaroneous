@@ -111,7 +111,7 @@ This ensures low-friction alignment between human intent and machine execution, 
 
 ## 4. Presentation Layer Isolation & 4-Ring Viewport
 
-The user interface is hosted in [`crates/studio_hud`](file:///d:/Aaroneous/crates/studio_hud) and exposed via [`crates/api`](file:///d:/Aaroneous/crates/api), utilizing `egui` and `eframe` (v0.34).
+The user interface is hosted in [`crates/studio_hud`](../../crates/studio_hud) and exposed via [`crates/api`](../../crates/api), utilizing `egui` and `eframe` (v0.34).
 
 ### 4.1 Strict Memory Isolation Invariants
 
@@ -128,7 +128,7 @@ The viewport operates in two mutually exclusive rendering modes:
    - Renders high-fidelity digital twin simulations, bond-graph topological flows, and 3D concept constellations.
    - Directly maps rendered GPU textures into the `egui::TextureHandle` without round-tripping through CPU host memory.
 2. **Augmented Passthrough Mode**:
-   - DXGI zero-copy screen capture frames from [`crates/platform_bridge`](file:///d:/Aaroneous/crates/platform_bridge) are blitted directly to viewport surfaces.
+   - DXGI zero-copy screen capture frames from [`crates/platform_bridge`](../../crates/platform_bridge) are blitted directly to viewport surfaces.
    - Overlays kinetic UI bounding boxes, OCR tokens, and reflex interaction indicators with $< 2\,\text{ms}$ glass-to-glass latency.
 
 ### 4.3 Decoupled Ingress via `platform_bridge`

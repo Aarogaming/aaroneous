@@ -13,11 +13,24 @@ static DEALLOC_COUNT: AtomicUsize = AtomicUsize::new(0);
 unsafe impl GlobalAlloc for CountingAllocator {
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
         ALLOC_COUNT.fetch_add(1, Ordering::SeqCst);
+        // Pure pass-through to `System`'s own `alloc` with the exact same
+        // `layout` this fn was called with; `GlobalAlloc::alloc`'s
+        // precondition (non-zero-size, validly-constructed `Layout`) is
+        // therefore satisfied by whichever caller upheld this fn's own
+        // documented safety contract - this wrapper adds nothing that
+        // could violate it.
+        // SAFETY: layout is forwarded unchanged from this fn's own caller-checked precondition; see rationale above.
         unsafe { System.alloc(layout) }
     }
 
     unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
         DEALLOC_COUNT.fetch_add(1, Ordering::SeqCst);
+        // Pure pass-through to `System`'s own `dealloc` with the exact
+        // same `ptr`/`layout` this fn was called with; `GlobalAlloc::
+        // dealloc`'s precondition (`ptr` was allocated by this allocator
+        // with a matching `layout`) is therefore satisfied by whichever
+        // caller upheld this fn's own documented safety contract.
+        // SAFETY: ptr/layout are forwarded unchanged from this fn's own caller-checked precondition; see rationale above.
         unsafe { System.dealloc(ptr, layout) }
     }
 }

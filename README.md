@@ -29,7 +29,7 @@ Five protection rings, lower = more privileged:
 | 3 | `capabilities`, `llm_gateway`, `platform_bridge` | MCP tools, LLM transport, OS abstractions |
 | 4 | `api`, `studio_hud` | Desktop GUI (egui/eframe) |
 
-Ring 0/1 never import Ring 3/4 crates. See [CONTRIBUTING.md](CONTRIBUTING.md) for full rules.
+Library crates in lower rings never import higher-ring crates; the `core/hypervisor` binaries are the composition root. See [CONTRIBUTING.md](CONTRIBUTING.md) for full rules.
 
 ## .si Format
 
@@ -67,7 +67,6 @@ cargo run --release -p hypervisor --bin hypervisor -- mcp --host 127.0.0.1 --por
 - [AGENTS.md](AGENTS.md) — Full operating directives and agent constitution
 - [docs/SI_FORMAT.md](docs/SI_FORMAT.md) — Binary format specification
 - [docs/architecture.md](docs/architecture.md) — Master architecture
-- [governance/OPERATING_MODEL.md](governance/OPERATING_MODEL.md) — Companion operating model (devtools)
 - `governance/CROSS_AGENT_COORDINATION_PROTOCOL.md` in the private `aaroneous-devtools` companion repo — how multiple agent sessions (Claude, Codex, Antigravity/Gemini, local Qwen) coordinate work; not linked here since that repo is private
 
 ## Reviewer Checklist
@@ -76,11 +75,13 @@ Before approving any change:
 
 - [ ] `cargo xtask gate` passes
 - [ ] No `todo!()` or `unimplemented!()` in new code
-- [ ] No `.unwrap()` or `.expect()` on hot paths
+- [ ] Every new crate declares `[package.metadata.cratify] profile` ([docs/CRATIFY_SPEC.md](docs/CRATIFY_SPEC.md))
+- [ ] No `.unwrap()`, `.expect()`, or `panic!` on runtime input outside tests/bootstrap
 - [ ] New types use canonical names from `crates/governance`
 - [ ] Tests use `tempfile::tempdir()`, not ambient filesystem
-- [ ] No `std::env::var`, `.canonicalize()`, or ambient reads
-- [ ] Hot-path crates (`hypervisor`, `ipc_bus`, `compute`) have no heap allocation
+- [ ] No `std::env::var`, `.canonicalize()`, clock reads, or self-spawned threads outside bootstrap
+- [ ] `kernel`-profile crates: scan-loop code marked `#[hot_path]`, no heap allocation
+- [ ] New dependencies carry a compliance-distance score and admission verdict
 - [ ] New crates follow zero prefix stutter convention
 
 ## License

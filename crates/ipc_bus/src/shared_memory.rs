@@ -131,6 +131,11 @@ impl SharedMemorySynapse {
 
         file.set_len(size as u64)?;
 
+        // `map_mut`'s unsafety is inherent to mmap - the OS can't stop
+        // another process from concurrently writing the backing file, which
+        // could race with this mapping. `file` was just created/sized by
+        // this call and this `SharedMemorySynapse` is its sole owner.
+        // SAFETY: sole owner of a file this call just created/sized.
         let mmap = unsafe { MmapOptions::new().map_mut(&file)? };
 
         Ok(Self { mmap, path: path.clone() })

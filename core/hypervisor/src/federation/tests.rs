@@ -1,14 +1,15 @@
-/// Comprehensive Federation Protocol Tests
-///
-/// These tests validate:
-/// - Specialist trait implementation
-/// - Proposal submission and ranking
-/// - Conflict detection and resolution
-/// - Sentinel arbitration
-/// - Communication bus
-/// - End-to-end federation flows
+//! Comprehensive Federation Protocol Tests
+//!
+//! These tests validate:
+//! - Specialist trait implementation
+//! - Proposal submission and ranking
+//! - Conflict detection and resolution
+//! - Sentinel arbitration
+//! - Communication bus
+//! - End-to-end federation flows
 
 #[cfg(test)]
+#[allow(clippy::module_inception)] // file is already named after this test module
 mod tests {
     use crate::federation::{
         CommunicationBus, Conflict, ConflictArbitrator, ConflictDetector, Decision,
@@ -385,7 +386,7 @@ mod tests {
 
     #[test]
     fn test_full_hive_size_calculation() {
-        let total_mb: u32 = vec![
+        let total_mb: u32 = [
             SpecialistId::Sentinel,
             SpecialistId::Visionary,
             SpecialistId::Omnipresent,
@@ -403,7 +404,7 @@ mod tests {
     #[test]
     fn test_portable_configurations() {
         // Mobile: Sentinel + Omnipresent + Symbiotic
-        let mobile_mb: u32 = vec![
+        let mobile_mb: u32 = [
             SpecialistId::Sentinel,
             SpecialistId::Omnipresent,
             SpecialistId::Symbiotic,
@@ -434,7 +435,7 @@ mod tests {
         let mut bus = CommunicationBus::new();
 
         // Register all specialists
-        for id in vec![
+        for id in [
             SpecialistId::Sentinel,
             SpecialistId::Visionary,
             SpecialistId::Omnipresent,

@@ -8,13 +8,96 @@ pub fn run() -> Result<()> {
     println!("=== 2. Formatting ===");
     run_cmd("cargo", &["fmt", "--all", "--", "--check"]).context("Gate 2 failed: Formatting")?;
 
-    println!("=== 3. Strict Clippy (workspace) ===");
-    run_cmd("cargo", &["clippy", "--workspace", "--", "-D", "warnings"])
-        .context("Gate 3 failed: Strict Clippy")?;
+    println!("=== 3. Strict Clippy (workspace, all targets) ===");
+    run_cmd(
+        "cargo",
+        &[
+            "clippy",
+            "--workspace",
+            "--all-targets",
+            "--",
+            "-D",
+            "warnings",
+        ],
+    )
+    .context("Gate 3 failed: Strict Clippy")?;
+
+    println!("=== 3.5. Native Dependency Boundary Audit ===");
+    crate::native_audit::run().context("Gate 3.5 failed: Native Dependency Boundary")?;
 
     println!("=== 4. Full Workspace Compilation ===");
     run_cmd("cargo", &["check", "--workspace", "--all-targets"])
         .context("Gate 4 failed: Full Workspace Compilation")?;
+
+    println!("=== 4a. Portable Core Profile ===");
+    run_cmd(
+        "cargo",
+        &["check", "-p", "scan_core", "--no-default-features"],
+    )
+    .context("Gate 4a failed: Portable Core Profile")?;
+
+    println!("=== 4b. ARM Bare-Metal Core Profile ===");
+    run_cmd(
+        "cargo",
+        &[
+            "check",
+            "-p",
+            "scan_core",
+            "--target",
+            "thumbv7em-none-eabihf",
+            "--no-default-features",
+        ],
+    )
+    .context("Gate 4b failed: ARM Bare-Metal Core Profile")?;
+
+    println!("=== 4c. WebAssembly Core Profile ===");
+    run_cmd(
+        "cargo",
+        &[
+            "check",
+            "-p",
+            "scan_core",
+            "--target",
+            "wasm32-unknown-unknown",
+            "--no-default-features",
+        ],
+    )
+    .context("Gate 4c failed: WebAssembly Core Profile")?;
+
+    println!("=== 4d. Portable Shared Contracts ===");
+    run_cmd(
+        "cargo",
+        &["check", "-p", "core-contracts", "--no-default-features"],
+    )
+    .context("Gate 4d failed: Portable Shared Contracts")?;
+
+    println!("=== 4e. ARM Bare-Metal Shared Contracts ===");
+    run_cmd(
+        "cargo",
+        &[
+            "check",
+            "-p",
+            "core-contracts",
+            "--target",
+            "thumbv7em-none-eabihf",
+            "--no-default-features",
+        ],
+    )
+    .context("Gate 4e failed: ARM Bare-Metal Shared Contracts")?;
+
+    println!("=== 4f. WebAssembly Shared Contracts ===");
+    run_cmd(
+        "cargo",
+        &[
+            "check",
+            "-p",
+            "core-contracts",
+            "--target",
+            "wasm32-unknown-unknown",
+            "--no-default-features",
+        ],
+    )
+    .context("Gate 4f failed: WebAssembly Shared Contracts")?;
 
     println!("=== 5. Workspace Test Suite ===");
     run_cmd("cargo", &["test", "--workspace"]).context("Gate 5 failed: Workspace Test Suite")?;
@@ -60,7 +143,13 @@ pub fn run() -> Result<()> {
     run_cmd("cargo", &["test", "-p", "emulator_harness"])
         .context("Gate 8 failed: Golden Dogfooding Harness Verification")?;
 
-    println!("=== 9. Release Binary Check ===");
+    println!("=== 9. Unwrap/Panic Ratchet Check ===");
+    crate::check_unwraps::run(&[]).context("Gate 9 failed: Unwrap/Panic Ratchet Check")?;
+
+    println!("=== 9.5. Profile Dependency Direction Check ===");
+    crate::check_deps::run().context("Gate 9.5 failed: Profile Dependency Direction Check")?;
+
+    println!("=== 10. Release Binary Check ===");
     run_cmd(
         "cargo",
         &[
@@ -72,9 +161,9 @@ pub fn run() -> Result<()> {
             "hypervisor",
         ],
     )
-    .context("Gate 9 failed: Release Binary Check")?;
+    .context("Gate 10 failed: Release Binary Check")?;
 
-    println!("=== 10. Optional Runtime Features (compile only) ===");
+    println!("=== 11. Optional Runtime Features (compile only) ===");
     run_cmd(
         "cargo",
         &[
@@ -86,9 +175,9 @@ pub fn run() -> Result<()> {
             "llama-gguf,gpu-metrics,fleet,testing,standalone",
         ],
     )
-    .context("Gate 10 failed: Optional Runtime Features")?;
+    .context("Gate 11 failed: Optional Runtime Features")?;
 
-    println!("=== 11. Iroh Compatibility Feature (compile only) ===");
+    println!("=== 12. Iroh Compatibility Feature (compile only) ===");
     run_cmd(
         "cargo",
         &[
@@ -100,7 +189,7 @@ pub fn run() -> Result<()> {
             "p2p-iroh",
         ],
     )
-    .context("Gate 11 failed: Iroh Compatibility Feature")?;
+    .context("Gate 12 failed: Iroh Compatibility Feature")?;
 
     println!("=== ALL REQUIRED GATES PASSED (CI-equivalent) ===");
     Ok(())
@@ -143,7 +232,15 @@ mod tests {
     const GATE_COMMANDS: &[&str] = &[
         "cargo run -p xtask -- check-encoding",
         "cargo fmt --all -- --check",
-        "cargo clippy --workspace -- -D warnings",
+        "cargo clippy --workspace --all-targets -- -D warnings",
+        "cargo check -p scan_core --no-default-features",
+        "cargo check -p scan_core --target thumbv7em-none-eabihf --no-default-features",
+        "cargo check -p scan_core --target wasm32-unknown-unknown --no-default-features",
+        "cargo check -p core-contracts --no-default-features",
+        "cargo check -p core-contracts --target thumbv7em-none-eabihf --no-default-features",
+        "cargo check -p core-contracts --target wasm32-unknown-unknown --no-default-features",
+        "cargo run -p xtask -- check-unwraps",
+        "cargo run -p xtask -- check-deps",
         "cargo check --release --bin aaroneous --bin hypervisor",
         "cargo check -p hypervisor --all-targets --features llama-gguf,gpu-metrics,fleet,testing,standalone",
         "cargo check -p hypervisor --all-targets --features p2p-iroh",

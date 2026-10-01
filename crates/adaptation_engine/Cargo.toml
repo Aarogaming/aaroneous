@@ -13,7 +13,7 @@ paths = { path = "../paths" }
 compute = { path = "../compute" }
 governance = { path = "../governance" }
 si_ir = { path = "../si_ir" }
-candle-core = "0.8"
+candle-core = "0.11"
 regex = "1.10"
 rand = "0.8"
 chrono = { version = "0.4", features = ["serde"] }

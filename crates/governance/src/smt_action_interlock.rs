@@ -85,6 +85,25 @@ impl SmtActionInterlock {
         &self.interference_checker
     }
 
+    /// Access the underlying lattice verifier configuration.
+    pub fn lattice_verifier(&self) -> &LatticeVerifier {
+        &self.lattice_verifier
+    }
+
+    /// Configures custom spatial and memory limits for the underlying lattice verifier.
+    pub fn with_bounds(
+        mut self,
+        max_spatial_width: u32,
+        max_spatial_height: u32,
+        max_linear_memory_bytes: usize,
+    ) -> Self {
+        self.lattice_verifier = self
+            .lattice_verifier
+            .with_spatial_bounds(max_spatial_width, max_spatial_height)
+            .with_memory_limit(max_linear_memory_bytes);
+        self
+    }
+
     /// Default strict configuration (max free energy = 0.05).
     pub fn strict() -> Self {
         Self::new(0.05)

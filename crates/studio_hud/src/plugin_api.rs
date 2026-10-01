@@ -112,19 +112,97 @@ pub enum TickResult {
     PluginFaulted = 1,
 }
 
+use std::collections::HashMap;
+
 /// Registry of in-process UI cartridges and host-side command replay engine.
 #[derive(Default)]
 pub struct PluginManager {
     pub static_cartridges: Vec<Box<dyn UiCartridge>>,
+    pub fault_counts: HashMap<usize, usize>,
 }
 
 impl PluginManager {
+    /// Maximum consecutive faults before automatic eviction per RFC-0006 Section 7.
+    pub const MAX_CONSECUTIVE_FAULTS: usize = 3;
+
     pub fn new() -> Self {
         Self::default()
     }
 
     pub fn load_cartridge(&mut self, cartridge: Box<dyn UiCartridge>) {
         self.static_cartridges.push(cartridge);
+    }
+
+    /// Records tick execution result for a cartridge. If consecutive faults reach
+    /// `MAX_CONSECUTIVE_FAULTS`, the cartridge is automatically unloaded per RFC-0006 Section 7.
+    /// Returns true if the cartridge was evicted.
+    pub fn handle_tick_result(&mut self, cartridge_index: usize, result: TickResult) -> bool {
+        match result {
+            TickResult::Ok => {
+                self.fault_counts.insert(cartridge_index, 0);
+                false
+            }
+            TickResult::PluginFaulted => {
+                let count = self.fault_counts.entry(cartridge_index).or_insert(0);
+                *count += 1;
+                if *count >= Self::MAX_CONSECUTIVE_FAULTS {
+                    if cartridge_index < self.static_cartridges.len() {
+                        self.static_cartridges.remove(cartridge_index);
+                    }
+                    self.fault_counts.remove(&cartridge_index);
+                    true
+                } else {
+                    false
+                }
+            }
+        }
+    }
+
+    /// Replays RFC-0006 bounded draw commands with panic containment via `catch_unwind`.
+    pub fn replay_commands_safe(
+        &self,
+        header: &CommandBufferHeader,
+        commands: &[Command],
+        ui: &mut eframe::egui::Ui,
+    ) -> Result<usize, TickResult> {
+        if header.wire_version != 1 {
+            return Err(TickResult::PluginFaulted);
+        }
+
+        let max_commands = (header.command_count as usize).min(commands.len());
+        let res = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let mut replayed = 0;
+            for cmd in &commands[..max_commands] {
+                match cmd.op() {
+                    CommandOp::Label => {
+                        ui.label(cmd.text_as_str());
+                        replayed += 1;
+                    }
+                    CommandOp::Button => {
+                        let _ = ui.button(cmd.text_as_str());
+                        replayed += 1;
+                    }
+                    CommandOp::BeginHorizontal => {
+                        ui.horizontal(|_| ());
+                        replayed += 1;
+                    }
+                    CommandOp::BeginVertical => {
+                        ui.vertical(|_| ());
+                        replayed += 1;
+                    }
+                    CommandOp::End => {
+                        replayed += 1;
+                    }
+                    CommandOp::Spacing => {
+                        ui.add_space(cmd.x.max(0.0));
+                        replayed += 1;
+                    }
+                }
+            }
+            replayed
+        }));
+
+        res.map_err(|_| TickResult::PluginFaulted)
     }
 
     /// Replays RFC-0006 bounded draw commands against a host `egui::Ui` viewport.
@@ -134,42 +212,7 @@ impl PluginManager {
         commands: &[Command],
         ui: &mut eframe::egui::Ui,
     ) -> usize {
-        if header.wire_version != 1 {
-            return 0;
-        }
-
-        let max_commands = (header.command_count as usize).min(commands.len());
-        let mut replayed = 0;
-
-        for cmd in &commands[..max_commands] {
-            match cmd.op() {
-                CommandOp::Label => {
-                    ui.label(cmd.text_as_str());
-                    replayed += 1;
-                }
-                CommandOp::Button => {
-                    let _ = ui.button(cmd.text_as_str());
-                    replayed += 1;
-                }
-                CommandOp::BeginHorizontal => {
-                    ui.horizontal(|_| ());
-                    replayed += 1;
-                }
-                CommandOp::BeginVertical => {
-                    ui.vertical(|_| ());
-                    replayed += 1;
-                }
-                CommandOp::End => {
-                    replayed += 1;
-                }
-                CommandOp::Spacing => {
-                    ui.add_space(cmd.x.max(0.0));
-                    replayed += 1;
-                }
-            }
-        }
-
-        replayed
+        self.replay_commands_safe(header, commands, ui).unwrap_or(0)
     }
 }
 
@@ -277,5 +320,47 @@ mod tests {
         assert_eq!(manager.static_cartridges.len(), 2);
         assert_eq!(manager.static_cartridges[0].name(), "first");
         assert_eq!(manager.static_cartridges[1].name(), "second");
+    }
+
+    #[test]
+    fn handle_tick_result_evicts_after_max_faults() {
+        let mut manager = PluginManager::new();
+        manager.load_cartridge(Box::new(MockCartridge {
+            name: "faulty".to_string(),
+            render_calls: 0,
+        }));
+        assert_eq!(manager.static_cartridges.len(), 1);
+
+        // Fault 1
+        assert!(!manager.handle_tick_result(0, TickResult::PluginFaulted));
+        assert_eq!(manager.static_cartridges.len(), 1);
+
+        // Fault 2
+        assert!(!manager.handle_tick_result(0, TickResult::PluginFaulted));
+        assert_eq!(manager.static_cartridges.len(), 1);
+
+        // Fault 3 -> evicted!
+        assert!(manager.handle_tick_result(0, TickResult::PluginFaulted));
+        assert_eq!(manager.static_cartridges.len(), 0);
+    }
+
+    #[test]
+    fn handle_tick_result_success_resets_fault_count() {
+        let mut manager = PluginManager::new();
+        manager.load_cartridge(Box::new(MockCartridge {
+            name: "recovering".to_string(),
+            render_calls: 0,
+        }));
+
+        // Fault 1 and 2
+        assert!(!manager.handle_tick_result(0, TickResult::PluginFaulted));
+        assert!(!manager.handle_tick_result(0, TickResult::PluginFaulted));
+
+        // Success resets counter
+        assert!(!manager.handle_tick_result(0, TickResult::Ok));
+
+        // Next fault starts from 1 again, not 3
+        assert!(!manager.handle_tick_result(0, TickResult::PluginFaulted));
+        assert_eq!(manager.static_cartridges.len(), 1);
     }
 }

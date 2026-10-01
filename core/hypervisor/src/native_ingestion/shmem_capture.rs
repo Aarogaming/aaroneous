@@ -90,6 +90,13 @@ impl ShmemCapture {
         file.set_len(file_size as u64)
             .map_err(|e| format!("shmem resize: {}", e))?;
 
+        // `file` was just opened/created and sized by this call (`set_len`
+        // above), and `self.mmap` was `None` before this point, so no other
+        // mapping of this file exists within this process. Concurrent
+        // external writers to the backing file are the accepted
+        // shared-memory contract for this capture substrate, not a
+        // soundness violation of the mapping itself.
+        // SAFETY: sole owner of a file this call just created/sized.
         let mmap = unsafe { MmapMut::map_mut(&file) }.map_err(|e| format!("shmem mmap: {}", e))?;
 
         self.mmap = Some(mmap);
@@ -156,6 +163,11 @@ impl ShmemCapture {
                 height: self.config.height,
                 stride: self.config.width,
             };
+            // `hdr` is a local, fully-initialized `ShmemFrameHeader` (all
+            // fields assigned above) that outlives this slice, and
+            // `hdr_size == size_of::<ShmemFrameHeader>()`, so the byte
+            // range is exactly its own representation with no over-read.
+            // SAFETY: exact-size view of `hdr`'s own bytes.
             let hdr_bytes = unsafe {
                 std::slice::from_raw_parts(&hdr as *const ShmemFrameHeader as *const u8, hdr_size)
             };
@@ -171,6 +183,13 @@ impl ShmemCapture {
         let mmap = self.mmap.as_ref()?;
         let hdr_size = std::mem::size_of::<ShmemFrameHeader>();
         let ptr = mmap.as_ptr() as *const f32;
+        // `open()` sizes the backing file (and thus the mapping) to at
+        // least `buffer_size + size_of::<ShmemFrameHeader>()` bytes, and
+        // `ShmemFrameHeader` (align(64)) is more strictly aligned than
+        // f32, so offsetting by `hdr_size / 4` f32-elements stays within
+        // the single allocated mmap object and lands on a valid alignment.
+        // SAFETY: offset stays within the mmap'd allocation, per `open()`'s
+        // sizing invariant, and is f32-aligned.
         Some(unsafe { ptr.add(hdr_size / 4) })
     }
 
@@ -179,6 +198,13 @@ impl ShmemCapture {
         let mmap = self.mmap.as_mut()?;
         let hdr_size = std::mem::size_of::<ShmemFrameHeader>();
         let ptr = mmap.as_mut_ptr() as *mut f32;
+        // Same reasoning as the read-only `pixel_ptr` above - `open()`
+        // guarantees the mapping is at least
+        // `buffer_size + size_of::<ShmemFrameHeader>()` bytes and the
+        // header's alignment (64) is stricter than f32's, so this offset
+        // stays within the mapped allocation and is properly aligned.
+        // SAFETY: offset stays within the mmap'd allocation, per `open()`'s
+        // sizing invariant, and is f32-aligned.
         Some(unsafe { ptr.add(hdr_size / 4) })
     }
 
@@ -215,6 +241,21 @@ impl ShmemCapture {
         use windows::Win32::Foundation::*;
         use windows::Win32::Graphics::Gdi::*;
 
+        // - `HWND(null_mut())` passed to `GetDC`/`ReleaseDC` is the documented
+        //   way to address the whole screen DC, not a dangling handle.
+        // - Every GDI handle obtained (`hdc_screen`, `hdc_mem`, `bmp`) is
+        //   checked with `is_invalid()`/return value before use, and each
+        //   error path below releases the handles acquired so far before
+        //   returning, so no handle is used after a failed creation.
+        // - `pixel_slice` is `&mut [u8]` of exactly `width * height * 4`
+        //   bytes (see `buffer_size`), matching the 32bpp BGRA `bmi` set up
+        //   below, so `GetDIBits` writing into `pixel_slice.as_mut_ptr()`
+        //   cannot write past the slice.
+        // - `bmi` is fully zeroed via `mem::zeroed()` before the header
+        //   fields actually used by `GetDIBits` are set, so no
+        //   uninitialized Win32 struct field is read by the API.
+        // SAFETY: all GDI handles are validity-checked and released on every
+        // error path, and all buffer accesses stay within `pixel_slice`.
         unsafe {
             let null_hwnd = HWND(std::ptr::null_mut());
             let hdc_screen = GetDC(Some(null_hwnd));

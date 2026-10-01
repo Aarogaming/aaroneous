@@ -1,7 +1,8 @@
-/// End-to-End Integration Tests
-/// Validates complete feedback loop from sensors to learning updates
+//! End-to-End Integration Tests
+//! Validates complete feedback loop from sensors to learning updates
 
 #[cfg(test)]
+#[allow(clippy::module_inception)] // file is already named after this test module
 mod end_to_end_tests {
     use parking_lot::RwLock;
     use std::sync::Arc;

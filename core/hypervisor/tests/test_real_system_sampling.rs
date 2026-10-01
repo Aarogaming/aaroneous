@@ -60,9 +60,11 @@ async fn test_real_system_sampling_and_ot_interconnect() {
     let (gateway, mut cmd_rx) = OtEdgeGateway::new(config);
 
     // Construct a live sampled physical telemetry packet
-    let mut telem = TelemetryPacket::default();
-    telem.sequence = 101;
-    telem.uptime_ms = 45000;
+    let mut telem = TelemetryPacket {
+        sequence: 101,
+        uptime_ms: 45000,
+        ..Default::default()
+    };
     telem.channels[0] = Some(ChannelValue {
         channel_id: 0,
         kind: ChannelKind::AnalogInput,
@@ -90,7 +92,7 @@ async fn test_real_system_sampling_and_ot_interconnect() {
     let reg_bank = gateway.read_registers();
     assert_eq!(reg_bank.holding_registers[0], 3300);
     assert_eq!(reg_bank.holding_registers[1], 1);
-    assert_eq!(reg_bank.discrete_inputs[1], true);
+    assert!(reg_bank.discrete_inputs[1]);
 
     // Test Host -> Edge Command dispatch
     gateway

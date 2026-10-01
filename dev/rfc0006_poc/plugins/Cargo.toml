@@ -1,0 +1,20 @@
+# Deliberately NOT a member of the root Aaroneous workspace (see the root
+# Cargo.toml's [workspace] `exclude` list and dev/rfc0006_poc/FINDINGS.md).
+# Each fixture here models a genuinely separate, independently-compiled
+# plugin `cdylib` - the realistic deployment shape for RFC-0006 - and having
+# its own workspace keeps that build graph, and any future per-fixture
+# profile tuning, from ever leaking into the product workspace's own
+# `cargo check --workspace`/`cargo test --workspace` gates.
+[workspace]
+resolver = "2"
+members = [
+    "hello",
+    "bad_version",
+    "panicker",
+    "panicker_raw",
+    "liar",
+]
+
+[workspace.package]
+edition = "2024"
+license = "MIT"

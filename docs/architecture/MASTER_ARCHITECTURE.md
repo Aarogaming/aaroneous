@@ -65,9 +65,10 @@ The repository operates as a single Cargo workspace consisting of discrete, sing
 
 ### 1.1 Invariant Rules of the Protection Rings
 
-- **Unidirectional Dependency Flow**: Lower-numbered rings are more privileged and deterministic. Ring 0/1 never import Ring 3/4 crates.
+- **Unidirectional Dependency Flow**: Lower-numbered rings are more privileged and deterministic. Library crates in lower rings never import crates from higher rings (verified 2026-09-23 at `6321a63`). The `core/hypervisor` binaries are the composition root and are exempt: they wire every ring together.
 - **Zero Ambient Authority**: Banned functions (`std::env::var`, `std::env::temp_dir`, `std::env::current_dir`, `.canonicalize()`) are rejected at compile time by `crates/ast_auditor`. All configurations are injected via typed constructors.
-- **Zero Heap on Hot Paths**: Hot execution loops in Rings 0 and 1 strictly forbid dynamic allocation (`String`, `Vec`, `Box`, `format!`). Data transits via stack buffers (`[u8; N]`) and zero-copy plain-old-data contracts (`bytemuck::Pod` + `Zeroable`).
+- **Compliance Profiles**: Ring placement governs dependency direction; the compliance profile declared in each crate's `[package.metadata.cratify]` governs which invariants apply ([CRATIFY_SPEC.md](../CRATIFY_SPEC.md)).
+- **Zero Heap on Hot Paths**: `#[hot_path]` code in `kernel`-profile crates strictly forbids dynamic allocation (`String`, `Vec`, `Box`, `format!`). Data transits via stack buffers (`[u8; N]`) and zero-copy plain-old-data contracts (`bytemuck::Pod` + `Zeroable`).
 
 ---
 
@@ -104,7 +105,7 @@ Imperative file-traversal harvesting (`cratify::harvest`) has been replaced by a
 
 ### 2.1 Wire Geometry: `AssimilationRecord` (360 Bytes)
 
-Defined in [`crates/ipc_bus/src/universal_protocol.rs`](file:///d:/Aaroneous/crates/ipc_bus/src/universal_protocol.rs):
+Defined in [`crates/ipc_bus/src/universal_protocol.rs`](../../crates/ipc_bus/src/universal_protocol.rs):
 
 ```rust
 #[repr(C)]
@@ -124,7 +125,7 @@ pub struct AssimilationRecord {
 
 ### 2.2 Typestate State Reducer
 
-In [`crates/orchestrator/src/assimilation.rs`](file:///d:/Aaroneous/crates/orchestrator/src/assimilation.rs):
+In [`crates/orchestrator/src/assimilation.rs`](../../crates/orchestrator/src/assimilation.rs):
 - Compile-time lifecycle: `AssimilationTask<State>` over states `Idle`, `Quarantined`, `Auditing`, `Synthesizing`, `Certifying`, `Committed`, `Rejected`.
 - Zero-allocation hot reducer: `pub fn handle_assimilation_event(bytes: &[u8]) -> Result<AssimilationRecord, AssimilationError>` (`#![deny(unsafe_code)]`).
 - **Hypervisor Step 0 Drain**: `core/hypervisor/src/orchestration_daemon.rs` non-blockingly drains pending frames via `try_recv()` at the start of every microkernel cycle, guaranteeing that assimilation processing never stalls the real-time duty cycle.
@@ -177,7 +178,7 @@ $$\text{Delay}(p, k) = \min\left(D_{\text{max}},\ \left(D_{\text{base}} \cdot 2^
 
 ## Pillar 4: Scale-Invariant Dynamics & Physics Compilation
 
-In [`crates/compute`](file:///d:/Aaroneous/crates/compute), physical systems, robotic joints, power buses, and thermal sinks are compiled using unified **Bond-Graph Duality**:
+In [`crates/compute`](../../crates/compute), physical systems, robotic joints, power buses, and thermal sinks are compiled using unified **Bond-Graph Duality**:
 
 $$P(t) = e(t) \cdot f(t)$$
 
@@ -206,7 +207,7 @@ $$\dot{\mathbf{q}} = \frac{\partial \mathcal{H}}{\partial \mathbf{p}}, \quad \do
 
 ## Pillar 5: Presentation Layer, 4-Ring Viewport & Decoupled Ingress
 
-The presentation layer is implemented in [`crates/studio_hud`](file:///d:/Aaroneous/crates/studio_hud) and exposed via [`crates/api`](file:///d:/Aaroneous/crates/api), utilizing `egui` and `eframe` (v0.34).
+The presentation layer is implemented in [`crates/studio_hud`](../../crates/studio_hud) and exposed via [`crates/api`](../../crates/api), utilizing `egui` and `eframe` (v0.34).
 
 ### 5.1 Presentation Isolation Invariants
 
@@ -229,7 +230,7 @@ High-uncertainty requirements are pinned along three orthogonal structural vecto
 
 $$\mathbf{V}_{\text{intent}} = \begin{pmatrix} \mathbf{v}_{\text{invariants}} \\ \mathbf{v}_{\text{dependencies}} \\ \mathbf{v}_{\text{trade-offs}} \end{pmatrix}$$
 
-1. **Invariants**: Strict rules that must never be broken (zero allocations, latency bounds, `#![deny(unsafe_code)]`).
+1. **Invariants**: Rules the target crate's compliance profile requires (universal floor, plus e.g. zero allocations and latency bounds for `kernel` crates, `#![deny(unsafe_code)]` for non-`kernel` crates).
 2. **Dependencies**: Target crates, shared memory ring channels, and hardware bridges involved.
 3. **Trade-offs**: Latency vs throughput, refactor depth vs backward compatibility.
 
@@ -248,7 +249,7 @@ Before non-trivial actions hit the deliberation floor, the system renders a stan
 
 For granular equations, memory layouts, and API contracts, refer to the specialized specifications in [`docs/architecture/`](./):
 - [Workspace Topology & Subsystem Rings](./architecture_overview.md)
-- [Event-Driven Asset Assimilation](./assimilation_specification.md)
+- [Event-Driven Asset Assimilation](./component_onboarding_specification.md)
 - [LLM Manager & Priority Scheduler](./llm_manager_scheduler.md)
 - [Scale-Invariant Dynamics & Physics Compiler](./physics_compiler_dynamics.md)
 - [Decoupled Human Node & Intent Mirror](./human_interface_intent_mirror.md)

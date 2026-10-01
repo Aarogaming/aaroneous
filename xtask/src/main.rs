@@ -1,9 +1,12 @@
 #![deny(unsafe_code)]
 
+mod check_deps;
+mod check_unwraps;
 mod encoding;
 mod export_wit;
 mod gate;
 mod install;
+mod native_audit;
 mod package;
 mod uninstall;
 mod workspace_metadata;
@@ -17,6 +20,9 @@ fn main() -> Result<()> {
     match subcommand {
         "gate" => gate::run(),
         "check-encoding" => encoding::run(),
+        "check-native" => native_audit::run(),
+        "check-unwraps" => check_unwraps::run(&args[2..]),
+        "check-deps" => check_deps::run(),
         "install" => install::run(&args[2..]),
         "uninstall" => uninstall::run(),
         "package" => package::run(&args[2..]),
@@ -54,6 +60,10 @@ Usage: cargo xtask <subcommand>
 Subcommands:
   gate                Run every CI verification gate locally (replaces scripts/agent_check.sh)
   check-encoding      Validate UTF-8/LF compliance across all tracked files
+  check-native        Enforce the pure-Rust core boundary and native package allowlist
+  check-unwraps       Check unwrap/expect/panic!/assert! counts against the ratchet baseline
+                      (--dump-baseline prints current counts in baseline-file format)
+  check-deps          Check profile dependency direction against the ratchet baseline
   export-wit          Export WebAssembly Interface Type (WIT) declarations from capabilities
   workspace-metadata  Scan workspace for capability manifest (MCP discovery, deployment profiles)
   queue               Run the passive local agent background progress engine (Ollama GPU)

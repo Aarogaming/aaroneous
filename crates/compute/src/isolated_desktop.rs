@@ -38,6 +38,9 @@ impl IsolatedDesktop {
             .collect();
         const DESKTOP_ALL_ACCESS: u32 = 0x01FF;
 
+        // SAFETY: `wide` is a live, NUL-terminated UTF-16 buffer, valid for
+        // `CreateDesktopW` to read; other pointer args are `null()` (Win32's
+        // "use defaults"), and the returned handle is null-checked below.
         let hdesk = unsafe {
             CreateDesktopW(
                 wide.as_ptr(),

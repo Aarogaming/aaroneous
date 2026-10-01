@@ -1,5 +1,5 @@
-use crate::hox_map_schema::EnzymeGenetics;
 use crate::genetic_recombination::GeneticRecombinator;
+use crate::profile_schema::ModuleDefinition;
 use crate::cognitive_weighting::CognitiveWeights;
 use anyhow::Result;
 
@@ -8,10 +8,10 @@ pub struct HoxBreedingSimulator;
 impl HoxBreedingSimulator {
     /// Simulates the creation of a hybrid specialist based on parent genetics and current cognitive weights.
     pub fn simulate_offspring(
-        parent_a: &EnzymeGenetics,
-        parent_b: &EnzymeGenetics,
+        parent_a: &ModuleDefinition,
+        parent_b: &ModuleDefinition,
         weights: &CognitiveWeights
-    ) -> Result<EnzymeGenetics> {
+    ) -> Result<ModuleDefinition> {
         println!("[HoxSimulator] Simulating offspring crossover...");
 
         // Perform base breeding

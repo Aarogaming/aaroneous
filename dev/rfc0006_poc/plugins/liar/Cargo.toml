@@ -1,0 +1,12 @@
+[package]
+name = "rfc0006_plugin_liar"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+rfc0006_abi = { path = "../../abi" }

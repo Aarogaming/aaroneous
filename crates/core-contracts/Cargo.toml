@@ -12,6 +12,6 @@ categories.workspace = true
 readme.workspace = true
 
 [dependencies]
-bytemuck = { version = "1.14", features = ["derive"] }
-bitflags = { version = "2.4", features = ["serde"] }
-serde = { version = "1.0", features = ["derive"] }
+bytemuck = { version = "1.14", default-features = false, features = ["derive"] }
+bitflags = { version = "2.4", default-features = false, features = ["serde"] }
+serde = { version = "1.0", default-features = false, features = ["derive"] }

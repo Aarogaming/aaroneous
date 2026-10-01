@@ -6,7 +6,6 @@
 mod tests {
     #[test]
     fn benchmark_crate_compiles() {
-        // Verify the benchmark crate is loadable
-        assert!(true);
+        // Compiling and running this test at all is what's being verified.
     }
 }

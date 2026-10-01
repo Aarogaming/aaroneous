@@ -1,5 +1,21 @@
 //! ast_parser.rs
 //! Polyglot AST parsing, syntax inspection, and incremental structural diffing.
+//!
+//! Dedupe-audit note (.audit/DEAD_CODE_ANALYSIS.md): this crate also has
+//! `src/analysis/ast_parser.rs`, which looks like a stale duplicate at a
+//! glance but is not. This module (`crate::ast_parser`) is a lightweight,
+//! line-heuristic, multi-language (Rust/Python/TypeScript/C++) parser whose
+//! output type (`AstObservation`/`FunctionSignature`/`AstDiffResult`) is
+//! built for cheap incremental diffing between two revisions of a file; it
+//! is used by `scientific_loop.rs`, `parallel_scanner.rs`,
+//! `autonomous_scientific.rs`, and `auto_wrapper.rs`. `analysis::ast_parser`
+//! is a regex-based, Rust/Python-only parser whose richer
+//! `CodeStructure`/`ComplexityMetrics` output feeds the OBSERVE-phase
+//! scientific pipeline (`analysis::batch_tensor`, `analysis::hypothesis`,
+//! `analysis::pipeline`). The two modules define same-named types
+//! (`AstObservation`, `FunctionSignature`) with different fields for
+//! different consumers -- both are live call sites, not one superseding the
+//! other, so both are kept.
 
 use anyhow::Result;
 use serde::{Deserialize, Serialize};

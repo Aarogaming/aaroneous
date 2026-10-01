@@ -511,25 +511,24 @@ fn run_cli(cli: Cli) -> Result<()> {
             Ok(())
         }
         Some(Commands::Inject { intent }) => {
+            use hypervisor::supervisory_loop::{LegacySharedMemorySynapse, SynapseState};
+
             println!("Injecting intent: {}", intent);
-            let paths = paths::WorkspacePaths::discover(&WorkspacePathsConfig::default());
-            let path = paths.synapse_file();
 
-            use memmap2::MmapOptions;
-            use std::fs::OpenOptions;
-
-            let file = OpenOptions::new().read(true).write(true).open(&path)?;
-            let mut mmap = unsafe { MmapOptions::new().map_mut(&file)? };
+            // Opens the daemon's own "primary" synapse (same name it passes
+            // to `SupervisoryDaemon::new`) without creating/resizing it -
+            // this CLI command is a one-shot writer, not the synapse's
+            // owner. `write_intent` performs the write as a single
+            // seqlock-protected transaction (no blocking OS lock), so this
+            // can't tear against - or be blocked indefinitely by - the
+            // daemon's own tick-loop writes.
+            let synapse = LegacySharedMemorySynapse::open_existing(
+                "primary",
+                std::mem::size_of::<SynapseState>(),
+            )?;
 
             let task_id = Uuid::new_v4();
-            let id_bytes = task_id.as_bytes();
-
-            mmap[16..32].copy_from_slice(id_bytes);
-
-            let payload = intent.as_bytes();
-            let payload_len = std::cmp::min(payload.len(), 4096);
-            mmap[32..32 + payload_len].copy_from_slice(&payload[..payload_len]);
-            mmap[32 + payload_len..4128].fill(0);
+            synapse.write_intent(task_id, intent.as_bytes())?;
 
             println!("Intent injected with Task ID: {}", task_id);
             Ok(())
@@ -1362,16 +1361,17 @@ fn run_observe_si_pipeline(count: usize, custom_path: Option<PathBuf>) -> Result
     Ok(())
 }
 
-/// Display shadow model concurrence metrics from the running hypervisor
+/// Display shadow model concurrence metrics by reading the JSON report file
+/// written by `supervisory_loop::write_concurrence_report`.
 fn run_concurrence_pipeline() -> Result<()> {
     println!("=================================================================");
     println!("  SHADOW MODEL CONCURRENCE STATUS");
     println!("=================================================================");
 
-    let paths = paths::WorkspacePaths::discover(&WorkspacePathsConfig::default());
-    let concurrence_path = paths.data().join("shm").join("concurrence.shm");
+    let paths = paths::WorkspacePaths::from_config(paths::WorkspacePathsConfig::default());
+    let report_path = paths.data().join("concurrence_report.json");
 
-    if !concurrence_path.exists() {
+    if !report_path.exists() {
         println!("  No concurrence data found.");
         println!("  Start the hypervisor with a mounted .si model to begin tracking.");
         println!("  Usage: hypervisor start --tick 1000");
@@ -1379,15 +1379,8 @@ fn run_concurrence_pipeline() -> Result<()> {
         return Ok(());
     }
 
-    // Try to read the concurrence snapshot from shared memory
-    use std::io::Read;
-    let mut file = std::fs::File::open(&concurrence_path)?;
-    let mut buf = [0u8; std::mem::size_of::<compute::ConcurrenceSnapshot>()];
-    file.read_exact(&mut buf)?;
-
-    // SAFETY: ConcurrenceSnapshot is a plain data struct (all f32/u64/bool)
-    // and was written by the same binary.
-    let snapshot: compute::ConcurrenceSnapshot = unsafe { std::mem::transmute(buf) };
+    let file = std::fs::File::open(&report_path)?;
+    let snapshot: compute::ConcurrenceSnapshot = serde_json::from_reader(file)?;
 
     println!(
         "  Rolling Concurrence : {:.1}%",

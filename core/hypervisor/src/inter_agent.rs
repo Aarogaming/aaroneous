@@ -54,10 +54,6 @@ impl A2AProtocol {
             };
             self.agents.insert(agent_id, flag);
             self.pending.push(flag);
-            // Notify plugins about flag change (non‑blocking, errors ignored)
-            if let Ok(_manager) = crate::PLUGIN_MANAGER.lock() {
-                // Future C-ABI hook invocation via symbol table
-            }
         }
         changed
     }

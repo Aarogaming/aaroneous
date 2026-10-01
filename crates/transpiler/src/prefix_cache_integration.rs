@@ -392,7 +392,7 @@ mod tests {
 
         // Query 1: miss -> evaluates parser
         let g1 = cache
-            .query_ast(file_path, initial_src, |s| parse_nl_to_opcode_dag(s))
+            .query_ast(file_path, initial_src, parse_nl_to_opcode_dag)
             .expect("parsing failed");
         assert_eq!(cache.hits(), 0);
         assert_eq!(cache.evaluations(), 1);
@@ -400,7 +400,7 @@ mod tests {
 
         // Query 2: identical query -> hit
         let g2 = cache
-            .query_ast(file_path, initial_src, |s| parse_nl_to_opcode_dag(s))
+            .query_ast(file_path, initial_src, parse_nl_to_opcode_dag)
             .expect("parsing failed");
         assert_eq!(cache.hits(), 1);
         assert_eq!(cache.evaluations(), 1);
@@ -411,7 +411,7 @@ mod tests {
 
         // Query 3: file modified -> evaluates parser
         let _g3 = cache
-            .query_ast(file_path, "load memory only", |s| parse_nl_to_opcode_dag(s))
+            .query_ast(file_path, "load memory only", parse_nl_to_opcode_dag)
             .expect("parsing failed");
         assert_eq!(cache.hits(), 1);
         assert_eq!(cache.evaluations(), 2);

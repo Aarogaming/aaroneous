@@ -471,7 +471,7 @@ mod tests {
         assert_eq!(telemetry.max_temperature(), 45.0);
         let stress = telemetry.composite_stress_index();
         assert!(
-            stress >= 0.0 && stress <= 0.5,
+            (0.0..=0.5).contains(&stress),
             "Expected low stress, got {}",
             stress
         );

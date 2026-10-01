@@ -1,5 +1,18 @@
 //! protocol_bridge.rs
 //! Machine-Native Linking Protocol (MNLP) galaxy map serialization and streaming for Omni.
+//!
+//! Dedupe-audit note (.audit/DEAD_CODE_ANALYSIS.md): reviewed alongside
+//! `crates/platform_bridge/src/protocol_bridge.rs` and
+//! `crates/adaptation_engine/src/protocol_bridge.rs`. Kept separate on
+//! purpose: this file has no binary MNLP header at all (it JSON-serializes
+//! `OmniGalaxySnapshot`, built from omni's own `GalaxyCluster`/`StarNode`
+//! types) and additionally hosts the unrelated
+//! `UniversalSpatialPoint`/`UniversalSpatialLink`/`UniversalSpatialCanvasSink`
+//! presentation primitives. It shares nothing with the other two files
+//! beyond the "MNLP Protocol Bridge" name and the general
+//! static-struct-with-encode/decode shape; moving it into platform_bridge
+//! would force that OS/protocol-abstraction crate to depend on omni's
+//! galaxy/visualization domain types for no shared behavior.
 
 use anyhow::Result;
 use serde::{Deserialize, Serialize};

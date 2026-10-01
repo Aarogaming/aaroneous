@@ -233,7 +233,8 @@ mod tests {
         let verdict_safe = manifold.audit_candidate_action(&safe_vector, true);
         assert!(verdict_safe.is_safe);
         assert!(!verdict_safe.was_projected);
-        assert!(verdict_safe.audit_duration_ns < 50_000); // Sub-50µs audit
+        // audit_duration_ns is not asserted: wall-clock bounds are host-load
+        // dependent in debug unit tests; the sub-50µs target belongs in `benches/`.
 
         // Rogue vector far outside boundary
         let rogue_vector = vec![25.0f32; GUARDRAIL_DIM];

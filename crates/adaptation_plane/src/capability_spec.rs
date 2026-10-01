@@ -104,26 +104,6 @@ pub struct AgentProfile {
     pub specialization_score: f64,
 }
 
-#[deprecated(since = "0.3.3", note = "Use ProfileLocus instead")]
-pub type ParameterLocus = ProfileLocus;
-#[deprecated(since = "0.3.3", note = "Use AgentProfile instead")]
-pub type AgentConfigProfile = AgentProfile;
-#[deprecated(since = "0.3.3", note = "Use AgentProfile instead")]
-pub type ParameterProfile = AgentProfile;
-#[deprecated(since = "0.3.3", note = "Use AgentProfile instead")]
-pub type SpecialistGenome = AgentProfile;
-#[deprecated(since = "0.3.3", note = "Use AgentProfile instead")]
-pub type ParameterGenome = AgentProfile;
-
-#[deprecated(since = "0.3.3", note = "Use ProfileLocus instead")]
-pub type GeneticLocus = ProfileLocus;
-#[deprecated(since = "0.3.3", note = "Use ProfileCategory instead")]
-pub type GeneticCategory = ProfileCategory;
-#[deprecated(since = "0.3.3", note = "Use AdaptationState instead")]
-pub type EpigeneticState = AdaptationState;
-#[deprecated(since = "0.3.3", note = "Use ProfileRelationship instead")]
-pub type GeneticRelationship = ProfileRelationship;
-
 impl AgentProfile {
     pub fn new(specialist_id: String, specialist_name: String, base_model: String) -> Self {
         Self {
@@ -360,8 +340,6 @@ impl BreedingOperation {
 
 /// Genetic analysis and comparison utilities
 pub struct ProfileAnalyzer;
-#[deprecated(since = "0.3.3", note = "Use ProfileAnalyzer instead")]
-pub type GeneticAnalyzer = ProfileAnalyzer;
 
 impl ProfileAnalyzer {
     /// Calculate genetic distance between two specialists
@@ -579,46 +557,5 @@ mod tests {
 
         let distance = ProfileAnalyzer::distance(&genome1, &genome2);
         assert!((distance - 0.3).abs() < 0.01);
-    }
-
-    #[test]
-    #[allow(deprecated)]
-    fn test_legacy_terminology_aliases_equivalence() {
-        use std::any::TypeId;
-
-        assert_eq!(TypeId::of::<ProfileLocus>(), TypeId::of::<GeneticLocus>());
-        assert_eq!(TypeId::of::<ProfileLocus>(), TypeId::of::<ParameterLocus>());
-        assert_eq!(
-            TypeId::of::<AgentProfile>(),
-            TypeId::of::<SpecialistGenome>()
-        );
-        assert_eq!(
-            TypeId::of::<AgentProfile>(),
-            TypeId::of::<ParameterGenome>()
-        );
-        assert_eq!(
-            TypeId::of::<AgentProfile>(),
-            TypeId::of::<ParameterProfile>()
-        );
-        assert_eq!(
-            TypeId::of::<AgentProfile>(),
-            TypeId::of::<AgentConfigProfile>()
-        );
-        assert_eq!(
-            TypeId::of::<ProfileCategory>(),
-            TypeId::of::<GeneticCategory>()
-        );
-        assert_eq!(
-            TypeId::of::<AdaptationState>(),
-            TypeId::of::<EpigeneticState>()
-        );
-        assert_eq!(
-            TypeId::of::<ProfileRelationship>(),
-            TypeId::of::<GeneticRelationship>()
-        );
-        assert_eq!(
-            TypeId::of::<ProfileAnalyzer>(),
-            TypeId::of::<GeneticAnalyzer>()
-        );
     }
 }

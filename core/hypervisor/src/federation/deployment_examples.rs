@@ -1,10 +1,10 @@
-/// Deployment Examples: Real-world deployment scenarios
-///
-/// Shows how to use the bootstrap system for different targets:
-/// - Mobile deployment (iOS/Android)
-/// - Desktop deployment (full featured)
-/// - Server deployment (headless)
-/// - Custom deployments
+//! Deployment Examples: Real-world deployment scenarios
+//!
+//! Shows how to use the bootstrap system for different targets:
+//! - Mobile deployment (iOS/Android)
+//! - Desktop deployment (full featured)
+//! - Server deployment (headless)
+//! - Custom deployments
 
 #[cfg(test)]
 mod examples {
@@ -252,9 +252,9 @@ mod examples {
 
         // Add Omnipresent for multi-device
         let mut manifest = crate::federation::bootstrap::Manifest::new(DeploymentTarget::Desktop);
-        let _ = manifest.remove_module(&SpecialistModule::Visionary);
-        let _ = manifest.remove_module(&SpecialistModule::Phygital);
-        let _ = manifest.remove_module(&SpecialistModule::Archivist);
+        manifest.remove_module(&SpecialistModule::Visionary);
+        manifest.remove_module(&SpecialistModule::Phygital);
+        manifest.remove_module(&SpecialistModule::Archivist);
 
         println!("Step 2: Add Omnipresent - {}MB", manifest.total_size_mb());
 

@@ -159,6 +159,9 @@ impl SiCartridgeEngine {
         }
 
         let file = File::open(path)?;
+        // SAFETY: `file` is a fresh handle this call just opened; `mmap2`'s
+        // precondition is that it isn't concurrently modified, and `mmap`
+        // is only read from for the rest of this function.
         let mmap = unsafe { Mmap::map(&file)? };
         let mount_time_us = start.elapsed().as_secs_f64() * 1_000_000.0;
 
@@ -253,6 +256,9 @@ impl SiCartridgeEngine {
     /// Unpacks a `.si` cartridge into raw constituent slices
     pub fn unpack_cartridge(path: impl AsRef<Path>) -> Result<SiCartridgeDeconstructed> {
         let file = File::open(path)?;
+        // SAFETY: `file` is a fresh handle this call just opened; `mmap2`'s
+        // precondition is that it isn't concurrently modified, and `mmap`
+        // is only read from for the rest of this function.
         let mmap = unsafe { Mmap::map(&file)? };
 
         let header = SiCartridgeHeader::from_bytes(&mmap[0..SI_HEADER_SIZE])?;

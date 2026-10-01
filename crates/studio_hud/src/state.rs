@@ -956,6 +956,15 @@ impl Default for SharedHudState {
         {
             Ok(file) => {
                 let _ = file.set_len(64 * 1024 * 1024); // 64 MB
+                // `file` was just opened/created and sized (best-effort)
+                // immediately above; a failed `set_len` here just leaves
+                // the mapping request to fail on its own below rather than
+                // panicking. `mmap_mut` requires the file not be truncated
+                // by another process while mapped - this is the same
+                // accepted cross-process synapse-mmap contract documented
+                // elsewhere in this codebase (e.g. core/hypervisor's
+                // `LegacySharedMemorySynapse`).
+                // SAFETY: file is sized best-effort and not truncated by this process; see rationale above.
                 match unsafe { MmapOptions::new().map_mut(&file) } {
                     Ok(mmap) => (Some(mmap), true),
                     Err(_) => (None, false),
@@ -1586,7 +1595,7 @@ mod tests {
         let loaded = SpatialCanvasScene::load_from_disk(&scene_path).expect("Failed to load scene");
         assert_eq!(loaded.canvas_pan, (120.0, -45.0));
         assert_eq!(loaded.canvas_zoom, 1.25);
-        assert_eq!(loaded.grid_snap_enabled, false);
+        assert!(!loaded.grid_snap_enabled);
         assert_eq!(loaded.windows.len(), 3);
         assert_eq!(loaded.windows["custom_tool"].title, "Custom Tool Window");
     }

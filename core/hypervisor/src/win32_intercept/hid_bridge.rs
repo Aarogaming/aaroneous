@@ -126,6 +126,9 @@ impl HIDOutputBridge {
     }
 
     fn mouse_event(&self, flags: MOUSE_EVENT_FLAGS, dx: i32, dy: i32, mouse_data: u32) {
+        // SAFETY: `SendInput` gets `&[input]` with `size_of::<INPUT>()` as
+        // the per-element size, matching `input`'s actual layout; `input`
+        // is a fully-initialized stack-local only read by this call.
         unsafe {
             let input = INPUT {
                 r#type: INPUT_MOUSE,

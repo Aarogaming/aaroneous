@@ -46,6 +46,9 @@ impl Win32ScreenCapture {
     }
 
     pub fn initialize(&mut self) -> Result<(), String> {
+        // SAFETY: standard GDI setup sequence - each DC/bitmap handle is
+        // checked for null via `.ok_or(...)?` before being passed to the
+        // next call, and is stored on `self` to be released in `Drop`.
         unsafe {
             // Get screen DC
             self.hdc_screen = Some(GetDC(Some(HWND::default())));
@@ -75,6 +78,9 @@ impl Win32ScreenCapture {
     }
 
     pub fn capture_frame(&mut self) -> Result<Vec<f32>, String> {
+        // SAFETY: handles are from `initialize`, checked here for `None`.
+        // `bmi` describes `GRID_WIDTH*GRID_HEIGHT` px at 32 bpp, matching
+        // `self.buffer`'s `GRID_WIDTH*GRID_HEIGHT*4`-byte size, so `GetDIBits` stays in bounds.
         unsafe {
             let hdc_screen = self.hdc_screen.ok_or("Not initialized")?;
             let hdc_memory = self.hdc_memory.ok_or("Not initialized")?;
@@ -175,6 +181,9 @@ impl Win32ScreenCapture {
 
 impl Drop for Win32ScreenCapture {
     fn drop(&mut self) {
+        // SAFETY: each handle was created exactly once by `initialize` and
+        // stored on `self`; `drop` runs at most once, so each is
+        // deleted/released exactly once, and only if actually created.
         unsafe {
             if let Some(hbitmap) = self.hbitmap {
                 let _ = DeleteObject(hbitmap.into());

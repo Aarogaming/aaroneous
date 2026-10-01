@@ -67,6 +67,9 @@ impl SiToolEngine {
         let file = File::open(path)?;
         let metadata = file.metadata()?;
         let file_size_bytes = metadata.len();
+        // SAFETY: `file` is a fresh handle this call just opened; `mmap2`'s
+        // precondition is that it isn't concurrently modified, and `mmap`
+        // is only read to sniff magic bytes below.
         let mmap = unsafe { Mmap::map(&file)? };
 
         if mmap.len() < 8 {
@@ -195,6 +198,8 @@ impl SiToolEngine {
 
         for _ in 0..iterations {
             let start = Instant::now();
+            // SAFETY: `file` was opened once above and is never written to
+            // during this loop; `mmap` is read-only and dropped each iteration.
             let mmap = unsafe { Mmap::map(&file)? };
             if mmap.len() >= 4 && mmap[0..4] == SI_SOLID_STATE_MAGIC {
                 let _ = SolidStateSiContainer::load_from_file(path)?;

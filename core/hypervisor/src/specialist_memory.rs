@@ -385,6 +385,12 @@ impl SpecialistMemoryStore {
     pub fn len(&self) -> usize {
         self.entries.read().len()
     }
+
+    /// Test-only inspection.
+    #[cfg(test)]
+    pub fn is_empty(&self) -> bool {
+        self.entries.read().is_empty()
+    }
 }
 
 /// Shared memory registry. Wraps the per-specialist

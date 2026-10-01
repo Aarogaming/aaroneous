@@ -610,8 +610,10 @@ mod tests {
             raw_bytes: None,
         };
 
-        let mut analysis = crate::metadata_ingestor::MetadataAnalysis::default();
-        analysis.predicted_complexity = 0.85;
+        let analysis = crate::metadata_ingestor::MetadataAnalysis {
+            predicted_complexity: 0.85,
+            ..Default::default()
+        };
         let task = daemon.convert_event_to_task(&event, &analysis);
         assert_eq!(task.priority, 0.8);
     }
@@ -629,8 +631,10 @@ mod tests {
             raw_bytes: None,
         };
 
-        let mut analysis = crate::metadata_ingestor::MetadataAnalysis::default();
-        analysis.entropy = 3.5;
+        let analysis = crate::metadata_ingestor::MetadataAnalysis {
+            entropy: 3.5,
+            ..Default::default()
+        };
         let task = daemon.convert_event_to_task(&event, &analysis);
         assert_eq!(task.priority, 0.6);
     }
@@ -737,6 +741,6 @@ mod tests {
         daemon
             .submit_assimilation_frame(bytes2)
             .expect("submission must succeed");
-        assert_eq!(daemon.assimilation_rx.try_recv().is_ok(), true);
+        assert!(daemon.assimilation_rx.try_recv().is_ok());
     }
 }

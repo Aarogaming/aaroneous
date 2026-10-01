@@ -72,11 +72,13 @@ $$\text{Seal} = \text{SHA-256}\left(\text{Hash}(\text{SourceAST}) \;\|\; \text{H
 
 ## 4. Zero-Panic Error Policy
 
-In real-time hypervisor execution, panics unwind stacks, invalidate hardware states, and destabilize host services. Panicking is strictly forbidden.
+In real-time hypervisor execution, panics unwind stacks, invalidate hardware states, and destabilize host services. Panicking on runtime input is forbidden in every compliance profile (see [CRATIFY_SPEC.md](CRATIFY_SPEC.md) section 1).
 
 ### 4.1 Strict Invariants
-- **Banned Functions:** `.unwrap()`, `.expect()`, `panic!()`, and `unreachable!()` are strictly forbidden in production code.
-- **Compiler Enforcement:** The workspace enforces `#![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic)]`.
+- **Banned Functions:** `.unwrap()`, `.expect()`, `panic!()`, `unreachable!()`, and `assert!` on values derived from I/O, config, or model output are forbidden in production code.
+- **Exempt Contexts:** Tests, bootstrap entrypoints (`src/main.rs`, `src/bin/*`), `build.rs`, `debug_assert!`, and provably infallible cases marked `// INFALLIBLE: <reason>`.
+- **Degraded Paths:** Where a fallible condition can be handled, prefer a deterministic degraded path over returning an error that aborts the scan (CRATIFY_SPEC section 3).
+- **Enforcement Status:** Not yet mechanically enforced. No crate currently sets `clippy::unwrap_used`/`expect_used`/`panic`, and `ast_auditor` has no panic rule yet (CRATIFY_SPEC section 7.1, item 4). It lands in ratchet mode: warnings with a per-crate baseline that may only decrease.
 
 ### 4.2 Error Representation
 - All fallible operations must return standard `core::result::Result<T, E>`.

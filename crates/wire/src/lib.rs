@@ -3,6 +3,7 @@
 //! for bare-metal MCUs (RP2040/ESP32), Android Head Units, and PC Host Hypervisors.
 
 #![cfg_attr(not(feature = "std"), no_std)]
+#![deny(unsafe_code)]
 
 use serde::{Deserialize, Serialize};
 

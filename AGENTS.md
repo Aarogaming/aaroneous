@@ -4,7 +4,7 @@
 > **APPLIES TO**: ALL AUTONOMOUS AGENTS (OpenCode, Qwen, Claude, LM Studio, Human Contributors)  
 > **WORKSPACE**: `aaroneous` (Type-Safe Rust Component Framework & SCADA/PLC Architecture)  
 > **CORE IDENTITY**: Aaroneous is **NOT** a monolithic app. It is a strict, type-safe **Rust Component Framework** for building interchangeable, safe, zero-allocation execution blocks & plugins.  
-> **LAST UPDATED**: 2026-09-18
+> **LAST UPDATED**: 2026-09-28
 
 ---
 
@@ -16,7 +16,7 @@
 cargo xtask gate
 ```
 
-This is the single verification command that validates your workspace matches CI. It runs encoding, formatting, clippy, compilation, tests, AST audit, stub check, emulator harness, and feature compilation in order.
+This is the single verification command that validates your workspace matches CI. It runs, in order: text encoding, formatting, clippy (workspace + all targets), native-dependency boundary audit, full compilation (including portable-core/ARM/WebAssembly cross-target checks), the workspace test suite, AST audit, stub check, emulator harness, the unwrap/panic ratchet, the profile dependency-direction ratchet, a release build, and optional-feature compilation. See section 6 for the exact numbered gates and commands — don't rely on this summary alone if you're deciding whether a specific check runs.
 
 **Before claiming work is done, run it again.** If it passes, you're done.
 
@@ -59,47 +59,68 @@ Every crate in this repository is an independent, plug-and-play component block 
 
 ---
 
-## 1. Pure State Machine & Dependency Injection Rules
+## 1. Compliance Model: Floor, Profiles, Ratchet
 
-- **Deterministic State Reducers**: Domain engines operate as pure state transitions $S_{t+1} = f(S_t, I)$. No side effects, no background network I/O, and no hidden async task launches during state reduction.
-- **Three-Phase Scan Separation**: Strict separation between Input Acquisition (I/O), State Reduction (pure, non-allocating computation), and Telemetry/Actuation Output.
-- **Constructor Injection Only**: All static buffers, handles, and configs MUST be passed into constructors (e.g., `Engine::new(config, buffer)`). Sub-components must NEVER instantiate their own dependencies or global services.
-- **No Ambient Reads**: Sub-components must never read system clocks, environment variables, or files outside what is explicitly passed via constructor or tick inputs.
+Full specification: [docs/CRATIFY_SPEC.md](docs/CRATIFY_SPEC.md) (v2, owner-approved 2026-09-23). This section is the binding summary; the spec wins on any conflict.
+
+- **Universal Floor**: Every crate meets the rules in sections 2 and 5 without exception. The only exempt contexts are bootstrap entrypoints (`src/main.rs`, `src/bin/*`, examples), tests, benches, and `build.rs`, as listed per rule in the spec.
+- **Compliance Profiles**: Every crate declares exactly one profile in its manifest, which adds stricter rules on top of the floor:
+
+  ```toml
+  [package.metadata.cratify]
+  profile = "control"   # kernel | control | presentation | tooling
+  ```
+
+  | Profile | Crates | Adds |
+  |---|---|---|
+  | `kernel` | `core/hypervisor` (library; its binaries are the composition root), `ipc_bus`, `compute`, `wire`, `si_format`, `si_ir`, `platform_bridge`, `runtime_monitor`, `core-contracts`, `dev/emulator_harness`, `scan_core`, `chaos_injector`, `rfc0006_host`, `rfc0006_abi` | Section 3 in full; `#![warn(unsafe_code)]` + `// SAFETY:` |
+  | `control` | `orchestrator`, `orchestration_plane`, `llm_gateway`, `llm_gateway_types`, `governance`, `capabilities`, `adaptation_engine`, `adaptation_plane`, `mcp_server`, `transpiler`, `omni`, `paths`, `sdk/rust`, `local_inference` | Pure reducers with I/O confined to adapters; degraded paths at external-call boundaries; `#![deny(unsafe_code)]` |
+  | `presentation` | `api`, `studio_hud`, `scratchpad` | `#![deny(unsafe_code)]` |
+  | `tooling` | `ast_auditor`, `cratify`, `compliance_auditor`, `xtask`, `benchmarks`, `runtime_monitor_bench` | `#![deny(unsafe_code)]` |
+
+  A crate may depend only on crates of the same or a stricter profile (`kernel` > `control` > `presentation`/`tooling`); the hypervisor binaries are the only exemption. `cargo xtask check-deps` enforces this in baseline (ratchet) mode: the workspace currently violates it in 14 places, all listed in `xtask/dep_direction_baseline.txt` (grouped by resolution in CRATIFY_SPEC section 2.3); the gate fails on any new edge, and fixing one means deleting it from the baseline file, not leaving it stale. Moving a crate to a stricter profile is always allowed. Moving to a looser profile requires owner sign-off recorded in the PR.
+- **Deterministic State Reducers**: Domain engines operate as pure state transitions $S_{t+1} = f(S_t, I)$. No side effects, no background network I/O, and no hidden task launches during state reduction.
+- **Three-Phase Scan Separation** (`kernel`): Strict separation between Input Acquisition (I/O), State Reduction (pure, non-allocating computation), and Telemetry/Actuation Output.
+- **Fault Tolerance Over Brittle Invariants**: A violated runtime precondition is an operating condition, not a reason to abort. Use primary / degraded / safe-hold paths, with deadband (separate trip and recovery) thresholds between `Nominal`, `Degraded`, and `SafeHold` modes.
+- **The Ratchet**: Compliance only moves forward. Every fixed defect class is crystallized into a type, compile-time assertion, `ast_auditor` rule, or SMT constraint. New auditor rules land as warnings with a per-crate baseline that may only decrease; at zero the rule becomes a hard block for that crate. Blanket `#[allow]` of a Cratify rule is banned.
 
 ---
 
-## 2. Zero Ambient Authority
+## 2. Zero Ambient Authority (Floor)
 
-- **Explicitly Banned Functions**: `std::env::var`, `std::env::var_os`, `std::env::set_var`, `std::env::remove_var`, `std::env::temp_dir`, `std::env::current_dir` (outside bootstrap CLI entrypoints), and `.canonicalize()` (use `paths::normalize_path`).
-- **Configuration Injection**: All file paths, endpoint URIs, and credentials arrive via typed configuration structs (`WorkspacePathsConfig`, `ShmSegmentConfig`).
-- **Test Sandboxing**: Tests must construct explicit test configs and use `tempfile::tempdir()` for filesystem isolation; tests MUST NEVER touch ambient host environment variables or temp folders.
-
----
-
-## 3. Zero-Heap Allocation & Memory Geometry
-
-- **No Heap on Hot Paths**: In `core/hypervisor`, `crates/ipc_bus`, `crates/compute`, `dev/emulator_harness`, and frame ingestors, never allocate dynamic heap memory.
-- **Banned Types & Macros on Hot Paths**: `String`, `Vec`, `Box`, `format!`, `.to_string()`, and unbounded collections (`HashMap`, `BTreeMap`). Use stack arrays (`[T; N]`), bounded ring buffers (`SwrnRingBuffer`), and fixed slices.
-- **Memory Geometry & ABI Safety**: All boundary types and IPC messages must use `#[repr(C)]`, derive `bytemuck::Pod` and `bytemuck::Zeroable`, and include explicit padding fields (e.g., `pub _pad0: u16`) for natural alignment.
-- **Concurrency & Statics**: Single-Writer/Multiple-Reader (SWMR) over pre-allocated ring buffers. No `std::sync::Mutex`, `parking_lot::Mutex`, or `RwLock` on hot paths. No `OnceLock` or `lazy_static` for runtime state.
+- **Constructor Injection Only**: All buffers, handles, configs, endpoints, and credentials arrive via constructors and typed config structs (`WorkspacePathsConfig`, `ShmSegmentConfig`). Components never instantiate their own global services.
+- **Banned Functions**: `std::env::var`, `std::env::var_os`, `std::env::set_var`, `std::env::remove_var`, `std::env::temp_dir`, `std::env::current_dir`, and `.canonicalize()` (use `paths::normalize_path`), outside bootstrap entrypoints.
+- **No Ambient Clock**: No `SystemTime::now()` / `Instant::now()` in library code. Time arrives as a tick input or an injected clock (model: `orchestrator::supervision`).
+- **No Self-Started Execution**: Library code never spawns OS threads or async tasks on its own authority. Spawning goes through an injected executor handle or `orchestrator::Supervisor`.
+- **Test Sandboxing**: Tests construct explicit test configs and use `tempfile::tempdir()`; tests never touch host environment variables or ambient temp folders.
 
 ---
 
-## 4. Cratify & Naming Rules
+## 3. Zero-Heap Hot Paths & Memory Geometry (`kernel` profile)
 
-- **Zero Prefix Stutter**: DO NOT prepend `aaroneous_` or `aaroneous-` to crates, packages, internal types, modules, or IPC channels. (Exemption: external Prometheus/OpenTelemetry metrics namespaces).
+- **Hot-Path Marking**: Scan-loop reducers and frame ingestors carry `#[hot_path]` (function), `#![hot_path]` (file), or `#[doc = "hot_path"]`. An unmarked scan-loop function is a defect, not an exemption.
+- **Banned on Hot Paths**: `String`, `Vec`, `Box`, `format!`, `.to_string()`, and unbounded collections (`HashMap`, `BTreeMap`). Use stack arrays (`[T; N]`), bounded ring buffers (`SwrnRingBuffer`), and fixed slices.
+- **Memory Geometry & ABI Safety**: IPC and shared-memory types use `#[repr(C)]` (`#[repr(C, align(64))]` where cache-line sensitive), derive `bytemuck::Pod` and `bytemuck::Zeroable`, and declare explicit padding fields (e.g., `pub _pad0: u16`). `control` crates follow this only for types crossing into a `kernel` crate.
+- **Concurrency & Statics**: Single-Writer/Multiple-Reader (SWMR) over pre-allocated ring buffers. No `std::sync::Mutex`, `parking_lot::Mutex`, or `RwLock` on hot paths. No `OnceLock` or `lazy_static` for runtime state in any non-`tooling` crate.
+
+---
+
+## 4. Naming, Dependencies & Graduation
+
+- **Zero Prefix Stutter**: DO NOT prepend `aaroneous_` or `aaroneous-` to crates, packages, internal types, modules, or IPC channels. (Exemption: external Prometheus/OpenTelemetry metrics namespaces.)
 - **Generic Systems Terminology**: Use standard systems names (`hypervisor`, `paths`, `wire`, `hud`, `api`, `bridge`, `controller`, `ingestor`, `pipeline`). Avoid monikers or puns.
-- **Domain-Aware Unsafe Permissions**: Standard domain crates (`api`, `hud`, `wire`, `orchestrator`, `paths`) MUST declare `#![deny(unsafe_code)]`. Performance/kernel crates (`compute`, `hypervisor`) may declare `#![warn(unsafe_code)]` with documented `// SAFETY:` comments.
-- **Mandatory Tempdir in Tests**: Unit and integration tests must use `tempfile::tempdir()` for filesystem testing.
+- **Dependency Admission**: Before adding any third-party dependency, score it on compliance distance (`alloc`, `ambient`, `abi`, `safety`; 0-4 each, as the caller experiences it) and record the verdict in the PR: **Admit**, **Admit with conditions**, **Extract pattern** (clean-room the algorithm behind a workspace trait, do not add the crate), or **Reject**. `kernel` crates require Admit on every vector; other profiles require `ambient = 0` and `safety <= 1` after conditions. Example: `sled` is rejected (spawns its own threads; unstable format).
+- **Component Graduation**: Code entering from outside the workspace (companion tooling, external sources, generated drafts) must be proven in its origin, classified (new component vs. upgrade of an existing one, never a second implementation), placed behind a workspace-defined trait with contract tests, landed inert (feature flag) or run in shadow mode, and then its origin copy deleted. Aaroneous never depends on external tooling.
 
 ---
 
-## 5. Banned Anti-Patterns
+## 5. Banned Anti-Patterns (Floor)
 
-- **No Stubs**: `todo!()` and `unimplemented!()` are strictly forbidden in committed code.
+- **No Stubs**: `todo!()` and `unimplemented!()` are forbidden in committed code.
 - **No Unsafe Implementations**: Manual `unsafe impl Pod` or `unsafe impl Zeroable` is banned (derive only).
 - **No Unchecked Transmutes**: `unsafe transmute` on unaligned or static data is banned.
-- **No Unhandled Panics**: `.unwrap()` and `.expect()` are banned on hot paths and production error-handling paths. Propagate errors via `Result`.
+- **No Panics on Runtime Input**: `.unwrap()`, `.expect()`, `panic!()`, and `assert!()` are banned on values derived from I/O, config, or model output — on hot paths and production error-handling paths generally. Propagate errors via `Result`. Exempt: tests, bootstrap entrypoints (`src/main.rs`, `src/bin/*`), `build.rs`, `debug_assert!`, and a call site immediately preceded by a `// INFALLIBLE: <reason>` comment. Enforced as a per-package ratchet baseline by `cargo xtask check-unwraps` (see section 6, gate 9); a package's count may only shrink or hold, never grow.
+- **Enforcement Status**: Some floor rules are not yet mechanically enforced by `ast_auditor` (see CRATIFY_SPEC section 7.1). Unenforced does not mean optional: reviewers apply them by hand until the rule lands.
 
 ---
 
@@ -108,7 +129,7 @@ Every crate in this repository is an independent, plug-and-play component block 
 Agents must NEVER declare work complete based solely on `cargo check`. The single command below (or its shim) runs every gate below, in order, and is mechanically checked to cover the same commands `.github/workflows/ci.yml`'s `check-and-test` job runs (see `xtask/src/gate.rs`'s `tests` module) — running it locally gives the same assurance as a green CI run:
 
 ```bash
-# Full Self-Verification Gate Script — runs gates 1-11 below
+# Full Self-Verification Gate Script — runs gates 1-12 below
 bash scripts/agent_check.sh
 # equivalently: cargo run -p xtask -- gate
 
@@ -118,11 +139,32 @@ cargo run -p xtask -- check-encoding
 # 2. Formatting
 cargo fmt --all -- --check
 
-# 3. Strict Clippy (workspace)
-cargo clippy --workspace -- -D warnings
+# 3. Strict Clippy (workspace, including test/bench/example code)
+cargo clippy --workspace --all-targets -- -D warnings
+
+# 3.5. Native Dependency Boundary Audit (allowlisted native provenance, see native-policy.toml)
+cargo run -p xtask -- check-native
 
 # 4. Full Workspace Compilation (all targets, tests, benches)
 cargo check --workspace --all-targets
+
+# 4a. Native-host portable core (no allocator or default features)
+cargo check -p scan_core --no-default-features
+
+# 4b. Representative ARM bare-metal portable core
+cargo check -p scan_core --target thumbv7em-none-eabihf --no-default-features
+
+# 4c. Representative WebAssembly portable core
+cargo check -p scan_core --target wasm32-unknown-unknown --no-default-features
+
+# 4d. Native-host shared binary contracts
+cargo check -p core-contracts --no-default-features
+
+# 4e. Representative ARM bare-metal shared binary contracts
+cargo check -p core-contracts --target thumbv7em-none-eabihf --no-default-features
+
+# 4f. Representative WebAssembly shared binary contracts
+cargo check -p core-contracts --target wasm32-unknown-unknown --no-default-features
 
 # 5. Workspace Test Suite (Functional determinism)
 cargo test --workspace
@@ -136,23 +178,32 @@ cargo run -p ast_auditor -- audit core/ crates/ dev/emulator_harness/
 # 8. Golden Dogfooding Harness Verification
 cargo test -p emulator_harness
 
-# 9. Release Binary Check
+# 9. Unwrap/Panic Ratchet Check (baseline ratchet; AGENTS.md section 5)
+cargo run -p xtask -- check-unwraps
+
+# 9.5. Profile Dependency Direction Check (baseline ratchet; CRATIFY_SPEC section 2.3 / 7.1 item 9)
+cargo run -p xtask -- check-deps
+
+# 10. Release Binary Check
 cargo check --release --bin aaroneous --bin hypervisor
 
-# 10. Optional Runtime Features (compile only)
+# 11. Optional Runtime Features (compile only)
 cargo check -p hypervisor --all-targets --features llama-gguf,gpu-metrics,fleet,testing,standalone
 
-# 11. Iroh Compatibility Feature (compile only)
+# 12. Iroh Compatibility Feature (compile only)
 cargo check -p hypervisor --all-targets --features p2p-iroh
 ```
 
-> **Note:** `scripts/agent_check.sh` is a thin CI shim — all gate logic runs via `cargo xtask gate`. Gates 1-3 and 9-11 mirror `ci.yml`'s directly-declared steps; gates 4-8 are `gate.rs`'s own pre-existing verification, run by CI only indirectly (as part of the "Canonical repository verification" step). If you add a new CI check, add the matching gate in `xtask/src/gate.rs` and its command string to `GATE_COMMANDS` in the same file — a test fails otherwise the next time either drifts from the other.
+> **Note:** `scripts/agent_check.sh` is a thin CI shim — all gate logic runs via `cargo xtask gate`. Gates 1-3, 9, 9.5 and 10-12 mirror `ci.yml`'s directly-declared steps; gates 3.5 and 4-8 are `gate.rs`'s own pre-existing verification, run by CI only indirectly (as part of the "Canonical repository verification" step). If you add a new CI check, add the matching gate in `xtask/src/gate.rs` and its command string to `GATE_COMMANDS` in the same file — a test fails otherwise the next time either drifts from the other.
+>
+> Gate 3 runs `--all-targets` (test/bench/example code included), not just library and binary targets — as of 2026-09-27 it didn't for a while, which let real lint debt (module-name collisions, `Default`-then-reassign, an `await`-held `MutexGuard`, a couple of dozen others) accumulate silently in test code across many "gate passed" claims. See `aaroneous-devtools/governance/AUDIT_2026-09-26_DOCUMENTATION_AND_PROCESS.md` Finding 3. Don't narrow this back without a real reason.
 
 ---
 
 ## 7. Deep Architecture & Ingestion References
 
 For exhaustive architectural philosophy, historical background, and forensic protocols:
-- **System Architecture & PLC Reductions**: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+- **Canonical architecture specification**: [docs/architecture/MASTER_ARCHITECTURE.md](docs/architecture/MASTER_ARCHITECTURE.md). `docs/architecture.md` is a shorter Tier-2 framing (PLC model, constructor-injection worked examples) that defers to this one on conflict.
+- **Product roadmap & pillar status**: [docs/roadmap.md](docs/roadmap.md) — the authoritative, evidence-labeled roadmap. `MASTER_ROADMAP.md` at the repo root defers to it.
 - **Forensic Ingestion Protocol & Quarantine**: [docs/FORENSICS_RFC0005.md](docs/FORENSICS_RFC0005.md)
-- **Cratify Invariant & Governance Specification**: [docs/CRATIFY_SPEC.md](docs/CRATIFY_SPEC.md)
+- **Cratify Compliance Specification (v2: profiles, admission, graduation, ratchet)**: [docs/CRATIFY_SPEC.md](docs/CRATIFY_SPEC.md)

@@ -8,8 +8,7 @@ license.workspace = true
 crate-type = ["cdylib"]
 
 [dependencies]
-eframe = { version = "0.34", default-features = false, features = ["x11"] }
-egui = "0.34"
+eframe = { version = "0.36", default-features = false, features = ["x11"] }
 api = { path = "../api" }
 
 serde = { version = "1.0", features = ["derive"] }

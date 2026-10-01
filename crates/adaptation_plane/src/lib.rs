@@ -42,13 +42,6 @@ pub use capability_spec::{
     ProfileRelationship,
 };
 
-// Re-export legacy aliases with deprecation notices
-#[allow(deprecated)]
-pub use capability_spec::{
-    AgentConfigProfile, EpigeneticState, GeneticAnalyzer, GeneticCategory, GeneticLocus,
-    GeneticRelationship, ParameterGenome, ParameterLocus, ParameterProfile, SpecialistGenome,
-};
-
 // Re-export digestion & personas
 pub use self_digestion::{
     DigestionConfig, DigestionEngine, DigestionEvent, DigestionTask, ExperienceProfile,

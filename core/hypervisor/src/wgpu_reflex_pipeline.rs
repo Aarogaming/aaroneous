@@ -127,6 +127,12 @@ impl WgpuReflexPipeline {
         let file =
             std::fs::File::open(path).map_err(|e| format!("Failed to open genome file: {}", e))?;
 
+        // `file` is a freshly opened, read-only handle used solely by this
+        // function to load a genome file; it is read-only for the duration
+        // of the mapping and this process does not write to or truncate it
+        // concurrently. As with the other read-only mmaps in this codebase,
+        // the only unenforced caveat is external mutation by another process.
+        // SAFETY: `file` is read-only and not concurrently written by this process.
         let mmap = unsafe {
             memmap2::Mmap::map(&file).map_err(|e| format!("Failed to memory-map genome: {}", e))?
         };

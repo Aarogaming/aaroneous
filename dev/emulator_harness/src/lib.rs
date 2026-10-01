@@ -128,5 +128,15 @@ mod tests {
                 processed: 2
             }
         );
+
+        // 3. Explicit unrelated address filtering check for 0xDEAD
+        let summary_dead = reduce_trace_bounded(&golden_trace, 0xDEAD, ReductionBudget::UNLIMITED)
+            .expect("Reduction for 0xDEAD should succeed");
+        assert_eq!(summary_dead.delta.initial_val, 0);
+        assert_eq!(summary_dead.delta.final_val, 1);
+        assert_eq!(summary_dead.delta.write_count, 1);
+        assert_eq!(summary_dead.writes_observed, 1);
+        assert_eq!(summary_dead.reads_observed, 0);
+        assert_eq!(summary_dead.events_processed, 4);
     }
 }

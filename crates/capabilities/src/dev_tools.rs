@@ -2,6 +2,18 @@
 //! DevTools (The Master Craftsman) & CompilerCore (Autonomous Compiler & Adaptation Engine).
 //! Powered directly by Adaptation Engine.
 //! Domain Opcode: 0x0400 (DEV_TOOLS_ADAPTATION)
+//!
+//! Dedupe-audit note (.audit/DEAD_CODE_ANALYSIS.md): `crates/
+//! adaptation_engine/src/dev_tools.rs` shares this filename but is not a
+//! duplicate. This module is the `DevToolsSpecialist`/"Fabricator" domain
+//! specialist -- a `SovereignSpecialist` packet-handling wrapper around
+//! adaptation_engine's mutation/structural-rewrite/disassembly/
+//! auto-wrapper/scientific-loop engines, for the capabilities specialist
+//! registry. `adaptation_engine::dev_tools::DevToolsEngine` is an unrelated,
+//! standalone filesystem/diagnostics toolkit (workspace scanning, cargo
+//! diagnostics, file patch/backup) consumed by `studio_hud` and
+//! `hypervisor::capability_broker`; this module never references it. Both
+//! are kept.
 
 use anyhow::Result;
 use async_trait::async_trait;

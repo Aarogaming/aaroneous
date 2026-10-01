@@ -79,6 +79,10 @@ impl Win32PlatformHost {
 
     /// Initializes Win32 GDI screen capture handles
     pub fn initialize(&mut self) -> Result<()> {
+        // GetDC/CreateCompatibleDC/CreateCompatibleBitmap are standard GDI
+        // calls with no aliasing/lifetime preconditions beyond passing
+        // valid DC/bitmap handles, which we only use once obtained.
+        // SAFETY: handles are stored on `self` and released once in `Drop`.
         #[cfg(all(target_os = "windows", feature = "native-win32"))]
         unsafe {
             self.hdc_screen = Some(GetDC(Some(HWND::default())));
@@ -121,6 +125,10 @@ impl Win32PlatformHost {
 
 impl Drop for Win32PlatformHost {
     fn drop(&mut self) {
+        // Each handle came from this struct's own `initialize()` and is
+        // never shared elsewhere.
+        // SAFETY: `.take()` clears the `Option`, so each handle is
+        // deleted/released at most once even under repeated `drop`.
         #[cfg(all(target_os = "windows", feature = "native-win32"))]
         unsafe {
             if let Some(hbitmap) = self.hbitmap.take() {
@@ -139,6 +147,11 @@ impl Drop for Win32PlatformHost {
 #[async_trait]
 impl PlatformHost for Win32PlatformHost {
     async fn pull_visual_perception(&mut self) -> Result<VisualObservation> {
+        // `hdc_screen`/`hdc_memory` are validated non-null above by the
+        // `.context(...)?` calls, and `GetDIBits` writes at most 128*128*4
+        // bytes into `self.buffer`, which was allocated with exactly that
+        // capacity (`128 * 128 * 4`) in `new()`.
+        // SAFETY: destination buffer size matches the requested DIB extent.
         #[cfg(all(target_os = "windows", feature = "native-win32"))]
         unsafe {
             let hdc_screen = self.hdc_screen.context("GDI screen DC not initialized")?;
@@ -263,6 +276,11 @@ impl PlatformHost for Win32PlatformHost {
             return Ok(());
         }
 
+        // `SendInput`/`GetCursorPos` are called with correctly-sized,
+        // stack-local `INPUT`/`POINT` structs and an accurate element
+        // count/size, per the Win32 contract; input is gated above by
+        // `check_host_safety_permit` and the corner-cursor failsafe.
+        // SAFETY: struct layouts and counts match the Win32 API contract.
         #[cfg(all(target_os = "windows", feature = "native-win32"))]
         unsafe {
             // Emergency Failsafe: if cursor is parked in top-left screen corner (0,0), abort input immediately
@@ -452,6 +470,11 @@ impl DxgiCaptureBackend {
         use windows::Win32::Graphics::Dxgi::*;
         use windows::core::Interface;
 
+        // All COM/D3D11 calls below pass correctly-typed, stack-local
+        // descriptor structs and `Option<&mut _>` out-params per the
+        // `windows` crate's FFI contract, and every fallible call's `?`
+        // or error check runs before its result is used.
+        // SAFETY: out-params and descriptors match each call's contract.
         unsafe {
             // Create D3D11 device with hardware acceleration
             let mut device = None;
@@ -567,6 +590,11 @@ impl DxgiCaptureBackend {
             .as_ref()
             .ok_or_else(|| anyhow::anyhow!("Staging texture not available"))?;
 
+        // `mapped.pData`/`RowPitch` come from a successful
+        // `context.Map(..., D3D11_MAP_READ, ...)` on `staging` below, so the
+        // region is valid for reads until `Unmap`; the row-copy loop bounds
+        // both the source and destination extents before every read.
+        // SAFETY: `from_raw_parts` length is checked against `mapped` extent.
         unsafe {
             // Acquire next frame with 16ms timeout (~60fps)
             let mut frame_info = DXGI_OUTDUPL_FRAME_INFO::default();

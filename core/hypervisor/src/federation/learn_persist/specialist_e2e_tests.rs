@@ -1,16 +1,16 @@
-/// End-to-end persistence tests for all 5 specialists
-///
-/// Each test follows the same pattern:
-///   1. Create a fresh specialist, exercise it through `execute()` calls so
-///      `LearningData` accumulates real state.
-///   2. Save to an in-memory SQLite database via the specialist's
-///      `save_learning_to()` method.
-///   3. Drop the original specialist (simulates process restart).
-///   4. Create a brand-new specialist of the same kind, call
-///      `load_learning_from()`, and verify the recovered state matches.
-///
-/// These are the tests that prove the federation actually has persistent
-/// learning - not just an in-memory feature that vanishes on restart.
+//! End-to-end persistence tests for all 5 specialists
+//!
+//! Each test follows the same pattern:
+//!   1. Create a fresh specialist, exercise it through `execute()` calls so
+//!      `LearningData` accumulates real state.
+//!   2. Save to an in-memory SQLite database via the specialist's
+//!      `save_learning_to()` method.
+//!   3. Drop the original specialist (simulates process restart).
+//!   4. Create a brand-new specialist of the same kind, call
+//!      `load_learning_from()`, and verify the recovered state matches.
+//!
+//! These are the tests that prove the federation actually has persistent
+//! learning - not just an in-memory feature that vanishes on restart.
 
 #[cfg(test)]
 mod tests {

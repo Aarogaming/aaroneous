@@ -105,6 +105,6 @@ mod tests {
     fn test_enterprise_compliance_status() {
         let context = EnterpriseContext::new();
         let status = context.compliance_status();
-        assert!(status.len() > 0);
+        assert!(!status.is_empty());
     }
 }

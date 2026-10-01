@@ -3,6 +3,7 @@
 // Tests verifying all 7 critical fixes and 4 integrations work end-to-end
 
 #[cfg(test)]
+#[allow(clippy::module_inception)] // file is already named after this test module
 mod core_integration_tests {
 
     // ========================================================================

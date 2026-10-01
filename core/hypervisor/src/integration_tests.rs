@@ -286,15 +286,17 @@ mod unified_integration_tests {
         assert!(specialist_usage.len() >= 2);
 
         // No single specialist should get all tasks
-        for (_, count) in &specialist_usage {
+        for count in specialist_usage.values() {
             assert!(*count < 30);
         }
     }
 
     #[test]
     fn test_learning_rate_adaptation() {
-        let mut config = UnifiedLearningConfig::default();
-        config.learning_rate = 0.5; // High learning rate
+        let config = UnifiedLearningConfig {
+            learning_rate: 0.5, // High learning rate
+            ..Default::default()
+        };
         let specialist_ids = vec!["spec_a".to_string()];
         let mut loop_ = UnifiedLearningLoop::new(config, 1, specialist_ids);
 

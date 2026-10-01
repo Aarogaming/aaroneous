@@ -1,7 +1,7 @@
-/// Synchronization consistency tests for the Phase 6D hybrid master registry system.
-///
-/// Tests the state machine behavior across all sub-registries to ensure
-/// cross-registry synchronization maintains consistency during state transitions.
+//! Synchronization consistency tests for the Phase 6D hybrid master registry system.
+//!
+//! Tests the state machine behavior across all sub-registries to ensure
+//! cross-registry synchronization maintains consistency during state transitions.
 
 #[cfg(test)]
 mod sync_consistency_tests {

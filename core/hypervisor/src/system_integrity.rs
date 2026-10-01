@@ -465,7 +465,7 @@ mod tests {
         let mut bp = LittlesLawBackpressure::new(10.0);
         let drop = bp.update(100.0, 1.0);
         assert!(drop > 0.0); // 100 * 1 = 100 >> 10
-        assert_eq!(bp.try_enqueue(), false); // should be dropped
+        assert!(!bp.try_enqueue()); // should be dropped
     }
 
     #[test]

@@ -251,6 +251,9 @@ impl SiJitCompilerEngine {
         };
 
         let start = Instant::now();
+        // SAFETY: `handle.memory_state` was just verified to be
+        // `ReadExecute`, so `fn_ptr` was cast via `WxMemoryRegion::as_fn_ptr`
+        // to `NativeExecutionFn` at crystallization time, matching `ctx`.
         let ret_val = unsafe { fn_ptr(ctx) };
         let duration_ns = start.elapsed().as_nanos() as u64;
 
@@ -322,7 +325,9 @@ mod tests {
             .expect("JIT execution failed");
 
         assert_eq!(res, 512); // Alloc size stored in reg 1
-        assert!(duration_ns < 10_000); // Sub-10µs bare metal execution
+        // duration_ns is not asserted: wall-clock bounds are host-load
+        // dependent in debug unit tests; the sub-10µs target belongs in `benches/`.
+        let _ = duration_ns;
 
         // 3. Test De-Crystallization
         jit.de_crystallize_reflex(0);

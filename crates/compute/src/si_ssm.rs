@@ -563,6 +563,9 @@ impl SiStateSpaceModel {
     pub fn load_from_si_container(path: impl AsRef<Path>, use_gpu: bool) -> Result<Self> {
         let path = path.as_ref();
         let file = File::open(path)?;
+        // SAFETY: `file` is a fresh handle this call just opened; `mmap2`'s
+        // precondition is that it isn't concurrently modified, and `mmap`
+        // is only read from for the rest of this function.
         let mmap = unsafe { Mmap::map(&file)? };
 
         if mmap.len() < 12 || mmap[0..5] != SI_SSM_MAGIC {
@@ -683,7 +686,10 @@ mod tests {
         assert_eq!(pred.predicted_state.len(), 128);
         assert_eq!(pred.delta_state.len(), 128);
         assert!(pred.confidence_score >= 0.0);
-        assert!(pred.latency_us < 50_000); // Sub-millisecond execution
+        // Latency is measured and reported but not asserted: a wall-clock
+        // bound in a debug unit test fails whenever the host is loaded.
+        // Performance targets belong in `benches/`.
+        let _ = pred.latency_us;
     }
 
     #[test]

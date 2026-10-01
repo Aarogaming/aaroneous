@@ -63,6 +63,11 @@ STRAT = "STRAT"
 unparseable = "unparseable"
 # F * P * F^T (Kalman filter covariance-prediction formula), not "ftp".
 fpt = "fpt"
+# "Reacher" is native_audit.rs's own term for "the nearest workspace-member
+# crate that reaches a flagged native package" (see native-policy.toml's
+# schema comment) — not "richer"/"reader".
+reacher = "reacher"
+reachers = "reachers"
 
 [default.extend-identifiers]
 # Field of View (VR/AR term). As an identifier so typos doesn't split it into

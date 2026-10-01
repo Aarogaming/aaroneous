@@ -136,6 +136,9 @@ impl WindowDiscoveryEngine {
         let mut context = EnumContext {
             windows: Vec::new(),
         };
+        // `enum_proc` matches the `WNDENUMPROC` signature and only accesses
+        // `context` through the raw pointer for the duration of this call.
+        // SAFETY: `context` outlives `EnumWindows`, which calls back synchronously.
         unsafe {
             let _ = EnumWindows(Some(enum_proc), LPARAM(&mut context as *mut _ as isize));
         }
@@ -200,6 +203,9 @@ impl WindowDiscoveryEngine {
             screens: Vec::new(),
         };
 
+        // `monitor_proc` matches `MONITORENUMPROC` and only accesses
+        // `context` through the raw pointer for the duration of this call.
+        // SAFETY: `context` outlives `EnumDisplayMonitors`'s synchronous callback.
         unsafe {
             let _ = EnumDisplayMonitors(
                 None,
@@ -326,6 +332,9 @@ impl TransparentWindowPipeline {
             found_hwnd: None,
         };
 
+        // `enum_proc` matches `WNDENUMPROC` and only accesses `ctx` through
+        // the raw pointer for the duration of this call.
+        // SAFETY: `ctx` outlives `EnumWindows`, which calls back synchronously.
         unsafe {
             let _ = EnumWindows(Some(enum_proc), LPARAM(&mut ctx as *mut _ as isize));
         }
@@ -358,6 +367,10 @@ impl TransparentWindowPipeline {
         };
 
         let handle = HWND(hwnd as *mut core::ffi::c_void);
+        // `hwnd` was checked non-zero by the public `apply_click_through`
+        // wrapper above; a stale/invalid handle makes these Win32 calls
+        // fail (return 0 / set last-error) rather than trigger UB.
+        // SAFETY: caller-checked non-null handle; failure is a benign no-op.
         unsafe {
             let current = GetWindowLongPtrW(handle, GWL_EXSTYLE);
             let updated = Self::calculate_overlay_style(current, click_through);
@@ -393,6 +406,8 @@ impl TransparentWindowPipeline {
         use windows::Win32::UI::WindowsAndMessaging::{GWL_EXSTYLE, GetWindowLongPtrW};
 
         let handle = HWND(hwnd as *mut core::ffi::c_void);
+        // SAFETY: `hwnd` checked non-zero by `is_click_through` above; an
+        // invalid handle just makes this Win32 query return 0, not UB.
         let current = unsafe { GetWindowLongPtrW(handle, GWL_EXSTYLE) };
         const WS_EX_TRANSPARENT_BIT: isize = 0x0000_0020;
         Ok((current & WS_EX_TRANSPARENT_BIT) != 0)
@@ -413,6 +428,10 @@ impl TransparentWindowPipeline {
 
             let handle = HWND(hwnd as *mut core::ffi::c_void);
             let z_order = if on_top { HWND_TOPMOST } else { HWND_NOTOPMOST };
+            // `hwnd` was checked non-zero by `set_always_on_top` above; the
+            // move/size args are ignored via SWP_NOMOVE|SWP_NOSIZE, so only
+            // z-order is touched, and an invalid handle just fails the call.
+            // SAFETY: caller-checked non-null handle; failure is a benign no-op.
             unsafe {
                 let _ = SetWindowPos(
                     handle,
@@ -443,6 +462,9 @@ impl TransparentWindowPipeline {
 
             static WAS_DOWN: AtomicBool = AtomicBool::new(false);
 
+            // SAFETY: `GetAsyncKeyState` takes a plain virtual-key code and
+            // has no pointer/lifetime preconditions; it is safe to call from
+            // any thread at any time.
             let state = unsafe { GetAsyncKeyState(VK_F12.0 as i32) };
             let is_down = (state as u16 & 0x8000) != 0;
             let was_down = WAS_DOWN.swap(is_down, Ordering::SeqCst);

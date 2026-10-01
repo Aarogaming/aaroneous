@@ -33,6 +33,10 @@ pub fn pin_current_thread_to_core(core_id: usize) -> bool {
             return false;
         }
         let mask: usize = 1 << core_id;
+        // GetCurrentThread/SetThreadAffinityMask take no pointers and act
+        // only on this thread's own pseudo handle; `mask` is in range
+        // per the bounds check above.
+        // SAFETY: no foreign handles/pointers involved; mask is bounds-checked above.
         unsafe {
             let h = GetCurrentThread();
             let prev = SetThreadAffinityMask(h, mask);

@@ -2363,6 +2363,13 @@ impl Forge {
                             path: r.source_path.clone(),
                             source: e,
                         })?;
+                        // `f` is a freshly opened, read-only handle to a source
+                        // GGUF file that this splicing pass only reads from (it
+                        // is never opened for write by this process during the
+                        // splice); memmap's usual caveat is external
+                        // mutation/truncation while mapped, outside this tool's
+                        // control, matching the read-only-mmap pattern above.
+                        // SAFETY: `f` is read-only and not written to by this process.
                         let m = unsafe {
                             Mmap::map(&f).map_err(|e| ForgeError::MmapFailed {
                                 path: r.source_path.clone(),
@@ -2879,11 +2886,11 @@ mod tests {
         // Alignment padding (32-byte boundary)
         let header_end = buf.len() as u64;
         let pad = pad_to_alignment(header_end, 32);
-        buf.extend(std::iter::repeat(0u8).take(pad as usize));
+        buf.extend(std::iter::repeat_n(0u8, pad as usize));
 
         // Tensor data
         for &sz in &tensor_sizes {
-            buf.extend(std::iter::repeat(0xABu8).take(sz as usize));
+            buf.extend(std::iter::repeat_n(0xABu8, sz as usize));
         }
 
         buf

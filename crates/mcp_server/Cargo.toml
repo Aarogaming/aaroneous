@@ -8,12 +8,12 @@ license.workspace = true
 serde = { workspace = true }
 serde_json = { workspace = true }
 tokio = { workspace = true }
-axum = { version = "0.7", features = ["ws", "macros"] }
+axum = { version = "0.8", features = ["ws", "macros"] }
 tower = { version = "0.5", features = ["full"] }
 tracing = { workspace = true }
 async-trait = "0.1"
 hex = "0.4"
-sha2 = "0.10"
+sha2 = "0.11"
 uuid = { workspace = true }
 anyhow = { workspace = true }
 async-stream = "0.3"

@@ -88,40 +88,43 @@ mod tests {
 
     #[test]
     fn test_component_metadata_offsets() {
-        assert_eq!(std::mem::offset_of!(ComponentMetadataPod, component_id), 0);
-        assert_eq!(std::mem::offset_of!(ComponentMetadataPod, tier), 4);
-        assert_eq!(std::mem::offset_of!(ComponentMetadataPod, methodology), 5);
-        assert_eq!(std::mem::offset_of!(ComponentMetadataPod, _pad0), 6);
+        assert_eq!(core::mem::offset_of!(ComponentMetadataPod, component_id), 0);
+        assert_eq!(core::mem::offset_of!(ComponentMetadataPod, tier), 4);
+        assert_eq!(core::mem::offset_of!(ComponentMetadataPod, methodology), 5);
+        assert_eq!(core::mem::offset_of!(ComponentMetadataPod, _pad0), 6);
         assert_eq!(
-            std::mem::offset_of!(ComponentMetadataPod, worst_case_exec_time_ns),
+            core::mem::offset_of!(ComponentMetadataPod, worst_case_exec_time_ns),
             8
         );
         assert_eq!(
-            std::mem::offset_of!(ComponentMetadataPod, max_memory_footprint_bytes),
+            core::mem::offset_of!(ComponentMetadataPod, max_memory_footprint_bytes),
             16
         );
         assert_eq!(
-            std::mem::offset_of!(ComponentMetadataPod, version_packed),
+            core::mem::offset_of!(ComponentMetadataPod, version_packed),
             24
         );
-        assert_eq!(std::mem::offset_of!(ComponentMetadataPod, capabilities), 28);
-        assert_eq!(std::mem::offset_of!(ComponentMetadataPod, name), 32);
+        assert_eq!(
+            core::mem::offset_of!(ComponentMetadataPod, capabilities),
+            28
+        );
+        assert_eq!(core::mem::offset_of!(ComponentMetadataPod, name), 32);
     }
 
     #[test]
     fn test_channel_topology_offsets() {
-        assert_eq!(std::mem::offset_of!(ChannelTopologyPod, channel_id), 0);
-        assert_eq!(std::mem::offset_of!(ChannelTopologyPod, src_component), 4);
-        assert_eq!(std::mem::offset_of!(ChannelTopologyPod, dst_component), 8);
+        assert_eq!(core::mem::offset_of!(ChannelTopologyPod, channel_id), 0);
+        assert_eq!(core::mem::offset_of!(ChannelTopologyPod, src_component), 4);
+        assert_eq!(core::mem::offset_of!(ChannelTopologyPod, dst_component), 8);
         assert_eq!(
-            std::mem::offset_of!(ChannelTopologyPod, capacity_events),
+            core::mem::offset_of!(ChannelTopologyPod, capacity_events),
             12
         );
         assert_eq!(
-            std::mem::offset_of!(ChannelTopologyPod, ring_buffer_bytes),
+            core::mem::offset_of!(ChannelTopologyPod, ring_buffer_bytes),
             16
         );
-        assert_eq!(std::mem::offset_of!(ChannelTopologyPod, name), 24);
-        assert_eq!(std::mem::offset_of!(ChannelTopologyPod, _pad0), 56);
+        assert_eq!(core::mem::offset_of!(ChannelTopologyPod, name), 24);
+        assert_eq!(core::mem::offset_of!(ChannelTopologyPod, _pad0), 56);
     }
 }

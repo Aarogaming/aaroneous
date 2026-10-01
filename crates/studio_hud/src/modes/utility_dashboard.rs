@@ -11,7 +11,7 @@ pub fn render_utility_dashboard(ui: &mut egui::Ui, state: &mut SharedHudState) {
 
     egui::CentralPanel::default()
         .frame(egui::Frame::central_panel(ui.style()).fill(theme.bg_color()))
-        .show_inside(ui, |ui| {
+        .show(ui, |ui| {
             // ── Top Header Bar ──────────────────────────────────────────────
             ui.horizontal(|ui| {
                 ui.label(
