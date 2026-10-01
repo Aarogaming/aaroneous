@@ -18,7 +18,6 @@
 // - All fallible response handling goes through `GeminiError`, a typed error
 //   enum, instead of `.unwrap()`/`.expect()` on network/model output.
 
-use crate::providers::LLMProvider;
 use crate::providers::local::extract_json;
 use crate::types::*;
 use anyhow::{Result, anyhow};
@@ -625,6 +624,7 @@ Respond ONLY with valid JSON matching:
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::providers::LLMProvider;
     use std::io::{Read, Write};
     use std::net::TcpListener;
     use std::sync::{Arc, Mutex};
