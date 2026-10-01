@@ -1,4 +1,4 @@
-use crate::unified_registry::{EntryMeta, Registry, RegistryConfig};
+use crate::unified_registry::{ClockSource, Registry, RegistryConfig};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 
@@ -68,28 +68,37 @@ pub struct LinkRegistry {
 }
 
 impl LinkRegistry {
-    pub fn new() -> Self {
+    pub fn new(clock: ClockSource) -> Self {
         Self {
-            inner: Registry::new(RegistryConfig {
-                persist_path: Some(std::path::PathBuf::from(DEFAULT_LINKS_PATH)),
-                ..Default::default()
-            }),
+            inner: Registry::new(
+                RegistryConfig {
+                    persist_path: Some(std::path::PathBuf::from(DEFAULT_LINKS_PATH)),
+                    ..Default::default()
+                },
+                clock,
+            ),
         }
     }
 
-    pub fn with_persist_path(path: &Path) -> Self {
+    pub fn with_persist_path(path: &Path, clock: ClockSource) -> Self {
         Self {
-            inner: Registry::with_persistence(RegistryConfig {
-                persist_path: Some(path.to_path_buf()),
-                ..Default::default()
-            }),
+            inner: Registry::with_persistence(
+                RegistryConfig {
+                    persist_path: Some(path.to_path_buf()),
+                    ..Default::default()
+                },
+                clock,
+            ),
         }
     }
 
     /// Add a link. The link's name is used as the key.
     pub fn add(&mut self, link: Link) -> Result<(), String> {
         let id = link.name.clone();
-        let meta = EntryMeta::new("1.0.0").with_tags(vec![format!("{:?}", link.link_type)]);
+        let meta = self
+            .inner
+            .create_meta("1.0.0")
+            .with_tags(vec![format!("{:?}", link.link_type)]);
         self.inner.register(id, link, meta)
     }
 
@@ -163,16 +172,10 @@ impl LinkRegistry {
     }
 }
 
-impl Default for LinkRegistry {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 /// Load links from the default JSON file (legacy format compatibility).
-pub fn load_links() -> anyhow::Result<LinkRegistry> {
+pub fn load_links(clock: ClockSource) -> anyhow::Result<LinkRegistry> {
     let path = std::path::Path::new(DEFAULT_LINKS_PATH);
-    Ok(LinkRegistry::with_persist_path(path))
+    Ok(LinkRegistry::with_persist_path(path, clock))
 }
 
 /// Save links to the default JSON file.
@@ -191,10 +194,15 @@ pub async fn start_link_dispatcher(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::Arc;
+
+    fn test_clock() -> ClockSource {
+        Arc::new(|| 1_000_000)
+    }
 
     #[test]
     fn test_add_and_get() {
-        let mut reg = LinkRegistry::new();
+        let mut reg = LinkRegistry::new(test_clock());
         let link = Link::new("test", LinkType::GitHub, "https://github.com/test");
         reg.add(link).unwrap();
 
@@ -205,7 +213,7 @@ mod tests {
 
     #[test]
     fn test_filter() {
-        let mut reg = LinkRegistry::new();
+        let mut reg = LinkRegistry::new(test_clock());
         reg.add(Link::new("gh", LinkType::GitHub, "https://github.com"))
             .unwrap();
         reg.add(Link::new("slack", LinkType::Slack, "https://slack.com"))
@@ -221,7 +229,7 @@ mod tests {
 
     #[test]
     fn test_remove() {
-        let mut reg = LinkRegistry::new();
+        let mut reg = LinkRegistry::new(test_clock());
         reg.add(Link::new("test", LinkType::Custom, "https://test.com"))
             .unwrap();
         assert!(reg.remove("test"));
