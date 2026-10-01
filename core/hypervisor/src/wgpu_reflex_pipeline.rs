@@ -289,7 +289,9 @@ impl WgpuReflexPipeline {
             .unwrap();
         rx.await.unwrap().unwrap();
 
-        let data = buffer_slice.get_mapped_range();
+        let data = buffer_slice
+            .get_mapped_range()
+            .expect("staging buffer was mapped above and not yet unmapped");
         let intents: Vec<f32> = bytemuck::pod_collect_to_vec(&data);
         drop(data);
 
