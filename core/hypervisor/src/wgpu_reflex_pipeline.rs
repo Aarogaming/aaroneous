@@ -289,6 +289,7 @@ impl WgpuReflexPipeline {
             .unwrap();
         rx.await.unwrap().unwrap();
 
+        // INFALLIBLE: map_async succeeded (awaited above) and the buffer isn't unmapped yet
         let data = buffer_slice
             .get_mapped_range()
             .expect("staging buffer was mapped above and not yet unmapped");
