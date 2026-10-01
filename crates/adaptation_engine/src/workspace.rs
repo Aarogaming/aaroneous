@@ -1,7 +1,7 @@
 use anyhow::{Context, Result};
 use std::fs;
 use std::path::{Path, PathBuf};
-use toml_edit::Document;
+use toml_edit::DocumentMut;
 
 /// Find the workspace root (directory containing Cargo.toml with a [workspace] table).
 pub fn find_workspace_root(start: &Path) -> Result<PathBuf> {
@@ -31,7 +31,7 @@ pub fn add_workspace_member(root: &Path, member_path: &Path) -> Result<()> {
     let content = fs::read_to_string(&cargo_path)
         .with_context(|| format!("failed to read {:?}", cargo_path))?;
     let mut doc = content
-        .parse::<Document>()
+        .parse::<DocumentMut>()
         .with_context(|| format!("failed to parse {:?} as TOML", cargo_path))?;
     let members = doc["workspace"]["members"]
         .as_array_mut()
