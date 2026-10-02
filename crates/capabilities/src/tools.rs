@@ -1994,11 +1994,11 @@ fn blank_line_before_fn() {}
             .duplicates
             .iter()
             .find(|d| d.name == "test_capability_creation")
-            .expect("expected the known core/hypervisor vs crates/mcp_server collision");
+            .expect("expected the known crates/coordinator vs crates/mcp_server collision");
         assert!(
             hit.locations
                 .iter()
-                .any(|l| l.contains("core/hypervisor/src/mcp_service/capability.rs"))
+                .any(|l| l.contains("crates/coordinator/src/mcp_service/capability.rs"))
         );
         assert!(
             hit.locations
