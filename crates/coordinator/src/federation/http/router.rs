@@ -184,7 +184,11 @@ pub struct AppState {
 
 impl AppState {
     pub fn new(federation: Arc<Federation>, cfg: HttpServiceConfig) -> Self {
-        Self::new_with_clock(federation, cfg, hypervisor::unified_registry::system_clock())
+        Self::new_with_clock(
+            federation,
+            cfg,
+            hypervisor::unified_registry::system_clock(),
+        )
     }
 
     pub fn new_with_clock(

@@ -1849,7 +1849,8 @@ async fn run_mesh_pipeline(nodes_count: usize, live: bool) -> Result<()> {
                 heartbeat_interval_ms: 1000,
                 task_timeout_ms: 3000,
             };
-            let daemon = coordinator::federation::multi_hive::live_daemon::LiveP2PDaemon::new(config);
+            let daemon =
+                coordinator::federation::multi_hive::live_daemon::LiveP2PDaemon::new(config);
             daemon.start().await?;
             println!("   -> Booted [{}] listening on 127.0.0.1:{}", node_id, port);
             daemons.push(daemon);
@@ -1899,10 +1900,11 @@ async fn run_mesh_pipeline(nodes_count: usize, live: bool) -> Result<()> {
         );
 
         println!("\n   [Stage 4] Benchmarking Swarm Micro-Task TCP Offloading...");
-        let mut offloader = coordinator::federation::multi_hive::swarm_offloader::SwarmOffloader::new(
-            Arc::new(daemons[1].clone()),
-            80.0,
-        );
+        let mut offloader =
+            coordinator::federation::multi_hive::swarm_offloader::SwarmOffloader::new(
+                Arc::new(daemons[1].clone()),
+                80.0,
+            );
         offloader.update_pressure(92.5); // High local pressure triggers remote offload
 
         let task = coordinator::federation::multi_hive::swarm_offloader::SwarmTask {

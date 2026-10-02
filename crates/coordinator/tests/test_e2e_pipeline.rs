@@ -1,13 +1,13 @@
 // End-to-End Integration Test
 // Tests the full pipeline: metadata ingestion → compute → decision → action
 
-use governance::{
-    GovernanceAction, LoadGovernorConfig, PredictiveLoadGovernor, SystemHealthGovernor,
-};
 use coordinator::action_executor::{ActionExecutor, ExecutableAction, FileOp};
 use coordinator::decision_engine::{AutonomousDecisionEngine, DecisionTask, ExecutionOutcome};
 use coordinator::orchestration_daemon::{
     DaemonState, OrchestrationDaemon, OrchestrationDaemonConfig,
+};
+use governance::{
+    GovernanceAction, LoadGovernorConfig, PredictiveLoadGovernor, SystemHealthGovernor,
 };
 use hypervisor::metadata_ingestor::{MetadataIngestor, MetadataIngestorConfig};
 use orchestrator::{
