@@ -243,7 +243,7 @@ impl Constellation3D {
                 module: &shader,
                 entry_point: Some("vs_main"),
                 compilation_options: wgpu::PipelineCompilationOptions::default(),
-                buffers: &[wgpu::VertexBufferLayout {
+                buffers: &[Some(wgpu::VertexBufferLayout {
                     array_stride: std::mem::size_of::<NodeVertex>() as wgpu::BufferAddress,
                     step_mode: wgpu::VertexStepMode::Vertex,
                     attributes: &wgpu::vertex_attr_array![
@@ -252,7 +252,7 @@ impl Constellation3D {
                         2 => Float32,
                         3 => Float32,
                     ],
-                }],
+                })],
             },
             fragment: Some(wgpu::FragmentState {
                 module: &shader,
@@ -573,6 +573,7 @@ pub fn render_constellation_3d(
         let config = wgpu::SurfaceConfiguration {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
             format: target_format,
+            color_space: wgpu::SurfaceColorSpace::Auto,
             width: viewport_size.0.max(1.0) as u32,
             height: viewport_size.1.max(1.0) as u32,
             present_mode: wgpu::PresentMode::Fifo,
