@@ -154,7 +154,7 @@ owning_adapter = ["adaptation_engine"]
 
 [[allowed]]
 name = "rfc0006_host"
-version = "0.3.2+vb.13r032t5kq5mq27403b0vil3"
+version = "0.4.0+vb.1c7xsuljasq29bw4o49kxhqm"
 justification = "P1: development host for the RFC-0006 dynamic plugin ABI proof-of-concept; directly uses `libloading` to load plugin binaries at runtime. Development-only, not part of the shipped product; re-review before any production use."
 owning_adapter = ["rfc0006_host"]
 
