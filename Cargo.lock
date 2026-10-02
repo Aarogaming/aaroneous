@@ -6588,7 +6588,7 @@ dependencies = [
  "async-trait",
  "compute",
  "ipc_bus",
- "naga 29.0.4",
+ "naga 30.0.1",
  "parking_lot",
  "rustfft",
  "serde",
