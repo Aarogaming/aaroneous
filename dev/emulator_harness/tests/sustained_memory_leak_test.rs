@@ -2,6 +2,7 @@
 
 use emulator_harness::{ReductionBudget, TraceEvent, reduce_trace_bounded};
 use std::alloc::{GlobalAlloc, Layout, System};
+use std::cell::Cell;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 struct SustainedCountingAllocator;
@@ -9,16 +10,28 @@ struct SustainedCountingAllocator;
 static ALLOC_COUNT: AtomicUsize = AtomicUsize::new(0);
 static DEALLOC_COUNT: AtomicUsize = AtomicUsize::new(0);
 
+thread_local! {
+    // Scopes the counters to the test's own thread, so allocations made by
+    // unrelated threads the process may start (e.g. the test harness's own
+    // worker/timeout machinery) can't be mistaken for allocations made by
+    // the hot-path reducer this test is actually measuring.
+    static COUNTING_ACTIVE: Cell<bool> = const { Cell::new(false) };
+}
+
 // SAFETY: SustainedCountingAllocator delegates directly to System allocator without modifying pointers or layout.
 unsafe impl GlobalAlloc for SustainedCountingAllocator {
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
-        ALLOC_COUNT.fetch_add(1, Ordering::SeqCst);
+        if COUNTING_ACTIVE.with(Cell::get) {
+            ALLOC_COUNT.fetch_add(1, Ordering::SeqCst);
+        }
         // SAFETY: Delegating allocation request directly to system allocator.
         unsafe { System.alloc(layout) }
     }
 
     unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
-        DEALLOC_COUNT.fetch_add(1, Ordering::SeqCst);
+        if COUNTING_ACTIVE.with(Cell::get) {
+            DEALLOC_COUNT.fetch_add(1, Ordering::SeqCst);
+        }
         // SAFETY: Delegating deallocation request directly to system allocator.
         unsafe { System.dealloc(ptr, layout) }
     }
@@ -62,6 +75,7 @@ fn test_sustained_100k_iterations_zero_heap_allocation() {
         },
     ];
 
+    COUNTING_ACTIVE.with(|active| active.set(true));
     let allocs_before = ALLOC_COUNT.load(Ordering::SeqCst);
 
     for i in 0..100_000 {
@@ -79,6 +93,7 @@ fn test_sustained_100k_iterations_zero_heap_allocation() {
     }
 
     let allocs_after = ALLOC_COUNT.load(Ordering::SeqCst);
+    COUNTING_ACTIVE.with(|active| active.set(false));
 
     assert_eq!(
         allocs_before, allocs_after,
